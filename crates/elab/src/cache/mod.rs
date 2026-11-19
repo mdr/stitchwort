@@ -471,7 +471,10 @@ impl Elaborator {
         let store = self.options.check_cache.clone()?;
         let bytes = store.read(&unit, &key)?;
         let why = match self.plan_entry(&bytes, &key, store.salt()) {
-            Ok(warnings) => return Some(warnings),
+            Ok(warnings) => {
+                crate::timings::cached_namespace(ns);
+                return Some(warnings);
+            }
             Err(Bad(why)) => why,
         };
         debug(&format!("{ns}: not skipped: {why}"));
