@@ -2771,3 +2771,182 @@ theorem followsParenAhead ∀ (modes: Modes):
       match isSome LParen seen with
         | True => followsLook piBinderAhead piBinderAheadDeaf
         | False => Parse.followsDone False False byComputing)
+
+-- Constructors.
+
+def ConstructorPartsFollow (modes: Modes) (name nameTwin: Word) (fuel: Nat): Prop :=
+  ∀ (bracketed braced: Bool) (found twins: List ConstructorPart) => List.All2 PartAlike found twins
+    → Parse.Follows SameCode (List.All2 PartAlike)
+      (() => constructorParts fuel modes name bracketed braced found)
+      (() => constructorParts fuel modes nameTwin bracketed braced twins)
+
+theorem followsConstructorBracket ∀ (rule: ExpressionRule) (more: Nat) (modes: Modes) (name nameTwin: Word)
+    (again: ConstructorPartsFollow modes name nameTwin more) (bracketed braced: Bool) (found twins: List ConstructorPart)
+    (founds: List.All2 PartAlike found twins) (bracket: Bool):
+    Parse.Follows SameCode (List.All2 PartAlike)
+      (() => constructorBracket more modes name bracketed braced found bracket)
+      (() => constructorBracket more modes nameTwin bracketed braced twins bracket) :=
+  match bracket with
+    | True =>
+      Parse.followsThen (followsImplicitBinder (expressionKnot rule) modes) (binder binderTwin binders =>
+        let autos: binder.auto.isSome = binderTwin.auto.isSome := groupAutoSome binder binderTwin binders
+        rewrite autos then
+          match binderTwin.auto.isSome with
+            | True => followsFatalAny _ (() => Syntax.fatal "a constructor's implicit fields can't be `auto`")
+            | False =>
+              again bracketed braced [PartGroup binder, ..found] [PartGroup binderTwin, ..twins]
+                (Both (alikePartGroup binder binderTwin binders) founds))
+    | False => Parse.followsDone _ _ (List.all2Reverse found twins founds)
+
+theorem followsConstructorParen ∀ (rule: ExpressionRule) (more: Nat) (modes: Modes) (name nameTwin: Word)
+    (again: ConstructorPartsFollow modes name nameTwin more) (bracketed braced: Bool) (found twins: List ConstructorPart)
+    (founds: List.All2 PartAlike found twins) (paren: Bool):
+    Parse.Follows SameCode (List.All2 PartAlike)
+      (() => constructorParen more modes name bracketed braced found paren)
+      (() => constructorParen more modes nameTwin bracketed braced twins paren) :=
+  match paren with
+    | True =>
+      match braced with
+        | True =>
+          followsFatalAny _ (() =>
+            Syntax.fatal
+              "`${nameTwin.text}` has its fields in braces already; declare all of its explicit fields in braces or all in brackets")
+        | False =>
+          Parse.followsThen (followsBinderGroup (expressionKnot rule) modes True) (binder binderTwin binders =>
+            again True braced [PartGroup binder, ..found] [PartGroup binderTwin, ..twins]
+              (Both (alikePartGroup binder binderTwin binders) founds))
+    | False =>
+      followsThenEq
+        [j := ahead => constructorBracket more modes name bracketed braced found ahead]
+        [k := ahead => constructorBracket more modes nameTwin bracketed braced twins ahead]
+        (followsBracketAhead modes)
+        (ahead => followsConstructorBracket rule more modes name nameTwin again bracketed braced found twins founds ahead)
+
+theorem followsConstructorBraced ∀ (rule: ExpressionRule) (more: Nat) (modes: Modes) (name nameTwin: Word)
+    (again: ConstructorPartsFollow modes name nameTwin more) (bracketed braced: Bool) (found twins: List ConstructorPart)
+    (founds: List.All2 PartAlike found twins) (brace: Bool):
+    Parse.Follows SameCode (List.All2 PartAlike)
+      (() => constructorBraced more modes name bracketed braced found brace)
+      (() => constructorBraced more modes nameTwin bracketed braced twins brace) :=
+  match brace with
+    | True =>
+      match bracketed with
+        | True =>
+          followsFatalAny _ (() =>
+            Syntax.fatal
+              "`${nameTwin.text}` has fields in brackets already; declare all of its explicit fields in brackets or all in braces")
+        | False =>
+          Parse.followsThen (followsBracedFields rule modes) (fields fieldsTwin fieldses =>
+            let empties: fields.fields.isEmpty = fieldsTwin.fields.isEmpty := fieldsEmpty fields fieldsTwin fieldses
+            rewrite empties then
+              match fieldsTwin.fields.isEmpty with
+                | True => followsFatalAny _ (() => Syntax.fatal "`${nameTwin.text}` declares no fields in its braces")
+                | False =>
+                  again False True [PartFields fields, ..found] [PartFields fieldsTwin, ..twins]
+                    (Both (alikePartFields fields fieldsTwin fieldses) founds))
+    | False =>
+      followsThenEq
+        [j := paren => constructorParen more modes name bracketed braced found paren]
+        [k := paren => constructorParen more modes nameTwin bracketed braced twins paren]
+        (followsAt modes LParen)
+        (paren => followsConstructorParen rule more modes name nameTwin again bracketed braced found twins founds paren)
+
+theorem followsConstructorParts ∀ (rule: ExpressionRule) (fuel: Nat) (modes: Modes) (name nameTwin: Word)
+    (bracketed braced: Bool) (found twins: List ConstructorPart) (founds: List.All2 PartAlike found twins):
+    Parse.Follows SameCode (List.All2 PartAlike)
+      (() => constructorParts fuel modes name bracketed braced found)
+      (() => constructorParts fuel modes nameTwin bracketed braced twins) :=
+  match fuel with
+    | Succ more =>
+      followsThenEq
+        [j := brace => constructorBraced more modes name bracketed braced found (brace && !braced)]
+        [k := brace => constructorBraced more modes nameTwin bracketed braced twins (brace && !braced)]
+        (followsAt modes LBrace)
+        (brace =>
+          followsConstructorBraced rule more modes name nameTwin
+            (again1 again2 agains3 agains4 agains5 => followsConstructorParts rule more modes name nameTwin again1 again2 agains3 agains4 agains5)
+            bracketed
+            braced
+            found
+            twins
+            founds
+            (brace && !braced))
+    | Zero => Parse.followsDone _ _ (List.all2Reverse found twins founds)
+
+theorem followsConstructorResult ∀ (rule: ExpressionRule) (modes: Modes) (atColon: Bool):
+    Parse.Follows SameCode (Option.Alike (PairAlike Anything ExprsAlike)) (() => constructorResult modes atColon) (() =>
+      constructorResult modes atColon) :=
+  match atColon with
+    | True =>
+      Parse.followsThen followsFixedFrom (colon colonTwin colons =>
+        Parse.followsMap
+          [alike := Option.Alike (PairAlike Anything ExprsAlike)]
+          [p := () => expressionAt { modes, level = LevelApp }]
+          [q := () => expressionAt { modes, level = LevelApp }]
+          (result => Some (colon, result))
+          (result => Some (colonTwin, result))
+          (result resultTwin results => (colons, results))
+          (followsExpressionAt rule { modes, level = LevelApp }))
+    | False => Parse.followsDone None None Trivial
+
+theorem followsConstructorStep ∀ (rule: ExpressionRule) (modes: Modes) (atBar: Bool):
+    Parse.Follows SameCode (Option.Alike ConstructorAlike) (() => constructorStep modes atBar) (() =>
+      constructorStep modes atBar) :=
+  match atBar with
+    | True =>
+      Parse.followsThen followsFixedFrom (bar barTwin bars =>
+        Parse.followsThen (followsAttributesOf modes) (attributes attributesTwin attributeses =>
+          Parse.followsThen (followsUpper modes "a constructor name (starting with an uppercase letter)") (name nameTwin names =>
+            followsFuel
+              [alike := Option.Alike ConstructorAlike]
+              (fuel =>
+                (let fields := constructorParts fuel modes name False False [];
+                 let result := constructorResult modes (modes.at Colon);
+                 Some { bar, attributes, name, fields, result }))
+              (fuel =>
+                (let fields := constructorParts fuel modes nameTwin False False [];
+                 let result := constructorResult modes (modes.at Colon);
+                 Some { bar = barTwin, attributes = attributesTwin, name = nameTwin, fields, result }))
+              (fuel =>
+                Parse.followsThen (followsConstructorParts rule fuel modes name nameTwin False False [] [] Trivial) (fields fieldsTwin fieldses =>
+                  followsThenEq
+                    [j := atColon =>
+                      (let result := constructorResult modes atColon;
+                       Some { bar, attributes, name, fields, result })]
+                    [k := atColon =>
+                      (let result := constructorResult modes atColon;
+                       Some { bar = barTwin, attributes = attributesTwin, name = nameTwin, fields = fieldsTwin, result })]
+                    (followsAt modes Colon)
+                    (atColon =>
+                      Parse.followsMap
+                        [alike := Option.Alike ConstructorAlike]
+                        (result => Some { bar, attributes, name, fields, result })
+                        (result => Some { bar = barTwin, attributes = attributesTwin, name = nameTwin, fields = fieldsTwin, result })
+                        (result resultTwin results =>
+                          alikeConstructor bar barTwin attributes attributesTwin attributeses name nameTwin names fields
+                            fieldsTwin fieldses result resultTwin results)
+                        (followsConstructorResult rule modes atColon)))))))
+    | False => Parse.followsDone None None Trivial
+
+theorem followsConstructorsAt ∀ (rule: ExpressionRule) (modes: Modes) (atBar: Bool):
+    Parse.Follows SameCode (List.All2 ConstructorAlike) (() => constructorsAt modes atBar) (() =>
+      constructorsAt modes atBar) :=
+  match atBar with
+    | True =>
+      Parse.followsLoop _ _
+        (followsThenEq
+          [j := bar => constructorStep modes bar]
+          [k := bar => constructorStep modes bar]
+          (followsAt modes Pipe)
+          (bar => followsConstructorStep rule modes bar))
+    | False =>
+      followsFail modes "`|` and a constructor, or `{` and a record's fields" (() =>
+        modes.fail "`|` and a constructor, or `{` and a record's fields")
+
+theorem followsConstructorsOf ∀ (rule: ExpressionRule) (modes: Modes):
+    Parse.Follows SameCode (List.All2 ConstructorAlike) (() => constructorsOf modes) (() => constructorsOf modes) :=
+  followsThenEq
+    [j := atBar => constructorsAt modes atBar]
+    [k := atBar => constructorsAt modes atBar]
+    (followsAt modes Pipe)
+    (atBar => followsConstructorsAt rule modes atBar)
