@@ -27913,7 +27913,7 @@
     {
       "id": 4278,
       "title": "[Fable] Review D3697 (paper): for match induct on a guarded arm partly overlapped by a later arm, two named cases (eq3 / eq3NotArm2, Isabelle-style) vs one case with Lean's overlap hypothesis vs other; naming; interaction with the walk step",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
