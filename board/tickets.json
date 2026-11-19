@@ -27119,8 +27119,8 @@
     {
       "id": 4218,
       "title": "[Sonnet] fmt consolidation C4: lift generic lemmas out of tools/fmt into std: list/option/Nat/Parse helpers whose statements mention no Fmt or Syntax type (est. 50-150; SW-4205 §5 item 4); dedupe against std, full API docs, repoint users; after SW-4209",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
