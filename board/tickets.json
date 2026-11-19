@@ -25984,9 +25984,9 @@
     {
       "id": 4133,
       "title": "[Opus] fmt S1 item 7b: prove groupKeepsTokens1 (Fmt.SettleParseProofs): two groups with the same tokens parse alike up to comments, using the two-run framework",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4133",
       "labels": [],
       "epic": "parser-proofs",
       "body": "After the Fable sketch SW-4132. Est. 3-6 lanes.",
@@ -26464,7 +26464,7 @@
     {
       "id": 4169,
       "title": "[Sonnet] fmt (SW-4132 lane 6): two-run walk of DeclParser.sw: headers and groups (the bare flag, hard spot 1), types, the declarations (Syntax/FollowsDecl.sw)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4169",
       "labels": [],
