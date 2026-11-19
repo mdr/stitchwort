@@ -26722,12 +26722,12 @@
     {
       "id": 4188,
       "title": "[Sonnet] stitchwort uses --unused --dead: also list declarations reachable only from other unused ones (dead clusters that refer to each other, as SW-4185 met in tools/fmt), i.e. not reachable from tests, top theorems or a named root set",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "Est. 30 min. SW-4186 follow-up.",
+      "body": "Est. 30 min. SW-4186 follow-up.\n\nModel result: DeepSeek, worked, 15 min (est. 30). Reviewed line by line.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
