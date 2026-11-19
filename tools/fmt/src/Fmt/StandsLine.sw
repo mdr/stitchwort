@@ -771,3 +771,13 @@ theorem stillPartsExamples: (stillPartsOn "def x: F a -- c\n  := -- d\n  -- e\n 
       && stillPartsOn "def x: T := f (a -- c\n  ) -- d\n" == Some False)
       = True :=
   byComputing
+
+--| `closeBare` and `closeOf` apply: a `)` with no comments.
+theorem closeBareWitness: Word.bare1 { text = ")", comments = { above = [], after = None, blankBefore = False } }
+      = True :=
+  closeOf
+    { text = ")", comments = { above = [], after = None, blankBefore = False } }
+    ")"
+    byComputing
+    byComputing
+    byComputing
