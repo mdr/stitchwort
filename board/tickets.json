@@ -1,5 +1,5 @@
 {
-  "next": 4179,
+  "next": 4181,
   "tickets": [
     {
       "id": 47,
@@ -26572,7 +26572,7 @@
     {
       "id": 4177,
       "title": "[Fable, paper] Two-run checkpoint (SW-4132 lane 9): do groupKeepsTokens and the alike relations say what they should (DeclsAlike = equal after walk blankPure; Anything only on consumedBare's Bool and Comments), is anything narrowed (D3682, D3688), and does groupKeepsTokens1 follow as claimed",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4177",
       "labels": [],
@@ -26591,6 +26591,32 @@
       "labels": [],
       "epic": "std-library",
       "body": "Est. 20 min. After SW-4175 (ParseKept/ParseCarriesDecl).",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4179,
+      "title": "[Opus] fmt: lift the file layer off slice 1: parseKeepsTokens for every file from groupKeepsTokens, replacing seenAfter1/declLowers1 with doesn't-read-comments facts (SW-4177 follow-up; wider statement, agree it with Matt first)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 25 min. docs/reviews/SW-4133-two-run-checkpoint.md follow-up 1. Widens what a theorem covers; statement to Matt when scheduled.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4180,
+      "title": "[DeepSeek] fmt docs: FollowsBase.sw:39-41 and FollowsDecl.sw:56-59 say Anything is used only on Comments and consumedBare; add the three () results (refuseAttributes, afterOpaque, afterOpaqueOn); groupKeepsTokens doc: same includes column and lineStart, twin's bare not known equal (SW-4177 follow-ups 2-3)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 10 min.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
