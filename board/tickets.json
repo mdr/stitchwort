@@ -1,5 +1,5 @@
 {
-  "next": 4119,
+  "next": 4120,
   "tickets": [
     {
       "id": 47,
@@ -25792,6 +25792,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4119,
+      "title": "[Fable paper] Slice 1 review (Matt, 19 Nov): what the current proof covers, the gaps to the original milestone (all of slice 1, same program + idempotent), whether that is still the right milestone, what it takes, the best path; includes SW-4003's checklist",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4119",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Matt, 19 Nov 2026, after the one-line stage was found to rest on lane narrowings never put to him ('OK, so we quietly cheated'): 'Let's get Fable to have a look at it - to understand what is the current proof, what gaps we've still got to the initial milestone goal, whether that goal is still the right milestone, what it might take to get to that milestone, the best path forward.' Folds in SW-4003's checklist. Model: Fable. Est. 60 min. Note goes in docs/reviews/.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
