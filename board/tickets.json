@@ -26105,15 +26105,17 @@
     {
       "id": 4142,
       "title": "[Sonnet] fmt multi-line read-back H3 (SW-4121 plan): speltHangs, the frame lemma (ReadBackHungFrame.sw); Opus if stuck",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4142",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 50 min.",
+      "body": "Est. 50 min.\n\nLane notes (Sonnet, 19 Nov 2026): speltHangs proved with its statement unchanged, in 25 min (09:19 to 09:34 plus notes). It follows from speltEnters (next = state.enters read, over any read) with stepsWithin and argsEnters for the comma and argument lists; step lemmas by leaf kind (flatStep, openStep, closeStep, commaStep, idleStep, idleArrow) and Within, afterSplit, afterCons in ReadBackHungFrameLemmas.sw. Closed witnesses: speltHangsExample and one per step lemma that needed one. check Syntax.ReadBackHungTop: speltHangs is no longer a goal, nothing else changed. audit Frame: 5 passed; Lemmas: 35 passed. Commit ed866b75e on lane/SW-4142.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
-      "commits": []
+      "commits": [
+        "ed866b75e"
+      ]
     }
   ]
 }
