@@ -270,20 +270,13 @@ theorem givesOperatorStep ∀ (modes: Modes) (takes: Tok → Bool) (operand: () 
           | False =>
             match took: takes item.kind with
               | False => Parse.readsAtDone _ None _ byComputing
-              | True =>
+              | True => Parse.readsAtThen (readsAtBump byComputing) (read word after starts (Both single same) =>
                 Parse.readsAtThen
-                  (readsAtBump
-                    [start := { rest = [item, ..later], offset, left }]
-                    [item := item]
-                    [later := later]
-                    byComputing)
-                  (read word after starts (Both single same) =>
-                    Parse.readsAtThen
-                      (operandGives after (Parse.Fits.after fine starts))
-                      (more value later2 starts2 parsed =>
-                        Parse.readsAtDone later2
-                          (Some (word, value)) _
-                          (rewrite same then linkOf item value (goodFirst fine) took parsed))))
+                  (operandGives after (Parse.Fits.after fine starts))
+                  (more value later2 starts2 parsed =>
+                    Parse.readsAtDone later2
+                      (Some (word, value)) _
+                      (rewrite same then linkOf item value (goodFirst fine) took parsed))))
 
 --| What an operator's text must be for a left-nested level: its table entries.
 theorem leftLinkOf ∀ (takes: Tok → Bool) (level: Nat)
@@ -567,11 +560,8 @@ theorem givesAtomRecord ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) =>
         | False => Parse.givesDone parsed
         | True => Parse.givesThen (givesAt modes LBrace) (found _ =>
           match found with
-            | True => Parse.givesThen recordGives (fields _ =>
-              Parse.givesDone
-                [x := (CtorFields base fields, False)]
-                [holds := pair => holds pair.fst]
-                (outside (CtorFields base fields) byComputing))
+            | True =>
+              Parse.givesThen recordGives (fields _ => Parse.givesDone (outside (CtorFields base fields) byComputing))
             | False => Parse.givesDone parsed)
 
 theorem givesAtomAfter ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) => expr.grammar1 = False → holds expr)
@@ -629,7 +619,7 @@ theorem givesExpect ∀ (modes: Modes) (wanted: Tok) (what: Text)
         | True => Parse.readsAtWeaken (readsAtBump shape) (read word (single, same) =>
           rewrite same then
             (rewrite <- DecEq.sound took then
-              goodFirst [item := item] (rewrite shape at fine) (rewrite DecEq.sound took then within))))
+              goodFirst (rewrite shape at fine) (rewrite DecEq.sound took then within))))
 
 -- Facts the pure look-aheads give.
 

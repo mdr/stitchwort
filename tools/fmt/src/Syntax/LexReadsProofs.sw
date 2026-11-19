@@ -75,18 +75,16 @@ theorem givesDone ∀ (x: a) (holds: a → Prop) (proved: holds x): Gives (() =>
 
 theorem soundDone ∀ (x: a): Sound (() => x) := Parse.readsDone x (read value => Holds) byComputing
 
-theorem soundMark: Sound (() => Parse.mark()) :=
-  Parse.readsWeaken [inv := Parse.Invariant.any] [p := () => Parse.mark()] Parse.readsMark (read value h => byComputing)
+theorem soundMark: Sound (() => Parse.mark()) := Parse.readsWeaken Parse.readsMark (read value h => byComputing)
 
 theorem soundSpan ∀ (passes: Char → Bool): Sound (() => Parse.span passes) :=
-  Parse.readsWeaken [inv := Parse.Invariant.any] (Parse.readsSpan passes) (read value h => byComputing)
+  Parse.readsWeaken (Parse.readsSpan passes) (read value h => byComputing)
 
 theorem givesFatal ∀ (message: Text) (holds: a → Prop): Gives (() => Empty.absurd (Parse.fatal message)) holds :=
   Parse.readsFatal message (read value => holds value)
 
 theorem soundMany ∀ [p: () → {Parse Char} a] (sound: Sound p): Sound (() => Parse.many p) :=
-  Parse.readsWeaken [inv := Parse.Invariant.any] (Parse.readsMany p (read value => Holds) sound) (read value h =>
-    byComputing)
+  Parse.readsWeaken (Parse.readsMany p (read value => Holds) sound) (read value h => byComputing)
 
 -- Characters taken0 and tokens.
 
@@ -1081,18 +1079,16 @@ theorem wordRound ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme))
     (wordChar: isWordChar c = True)
     (starts: wordy c = True):
     Parse.ReadsAt start (() => [word False]) (RoundFine start.offset start.rest) :=
-  atThen
-    (Parse.readsAtMarkThen [j := from => wordFrom False from] (wordReads start c more here wordChar))
-    (read lexeme after starts1 moved1 made => Parse.readsAtDone after _ _ (tokenAtFine c start read lexeme starts made))
+  atThen (Parse.readsAtMarkThen (wordReads start c more here wordChar)) (read lexeme after starts1 moved1 made =>
+    Parse.readsAtDone after _ _ (tokenAtFine c start read lexeme starts made))
 
 theorem numberRound ∀ (start: Parse.Mark Char) (c: Char) (more: List Char)
     (here: start.rest = [c, ..more])
     (digit: c.isAsciiDigit = True)
     (starts: wordy c = True):
     Parse.ReadsAt start (() => [number False]) (RoundFine start.offset start.rest) :=
-  atThen
-    (Parse.readsAtMarkThen [j := from => numberFrom False from] (numberReads start c more here digit))
-    (read lexeme after starts1 moved1 made => Parse.readsAtDone after _ _ (tokenAtFine c start read lexeme starts made))
+  atThen (Parse.readsAtMarkThen (numberReads start c more here digit)) (read lexeme after starts1 moved1 made =>
+    Parse.readsAtDone after _ _ (tokenAtFine c start read lexeme starts made))
 
 --| `tokenOf kind count` as a round, where what it reads is a token's text that agrees with its kind.
 theorem tokenRound ∀ (kind: Tok) (count: Nat) (start: Parse.Mark Char)
@@ -1181,7 +1177,7 @@ theorem itemRound ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme))
           match s: symbol ['-', next, ..rest] with
             | Some (kind, count) =>
               roundOfReads (tokenRound kind count start (symbolFine start.rest kind count (rewrite here then s)))
-            | None => roundOfYields [p := () => fail (unexpected '-')] (yieldsFatal (unexpected '-') Foreign)
+            | None => roundOfYields (yieldsFatal (unexpected '-') Foreign)
     | ['"', ..more] => roundOfYields (textForeign self source TopLevel)
     | ['\'', ..more] => roundOfGives givesChar
     | ['.', ..more] => roundOfGives givesDots

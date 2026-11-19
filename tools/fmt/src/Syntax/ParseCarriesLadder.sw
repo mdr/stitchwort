@@ -123,7 +123,7 @@ theorem readsPipeChain ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (in
 -- Ranges and the pipelines around them.
 
 theorem reads0RangeChained ∀ (modes: Modes): Reads0 (() => modes.at DotDotLt || modes.at DotDotEq) :=
-  reads0Then [p := () => modes.at DotDotLt] (reads0At modes DotDotLt) (lt =>
+  reads0Then (reads0At modes DotDotLt) (lt =>
     match lt with
       | True => reads0Done True
       | False => reads0At modes DotDotEq)
@@ -178,7 +178,7 @@ theorem readsRangeExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (outside: Outside self):
     Parse.ReadsIn GoodItems (() => rangeExpr self modes) Kept :=
   Parse.readsThen (readsAppendOf self modes carries outside) (r1 low carried =>
-    readsAfter0 [p := () => modes.peek] [j := seen => rangeOn self modes low seen] (reads0Peek modes) (seen =>
+    readsAfter0 (reads0Peek modes) (seen =>
       readsRangeOn self modes low r1 nested outside.below.below.below.below
         (givesAtomBases self nested outside.below.below.below.below.below)
         carried
@@ -201,7 +201,7 @@ theorem readsPipedRange ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (carries: NestedKept self)
     (outside: Outside self):
     Parse.ReadsIn GoodItems (() => pipedRange self modes) Kept :=
-  readsAfter0 [p := () => headIndent()] [j := indent => pipedAt self modes indent] reads0HeadIndent (indent =>
+  readsAfter0 reads0HeadIndent (indent =>
     Parse.readsThen (readsRangeExpr self modes nested carries outside) (r1 range carried =>
       readsAfter0 (reads0AtPipe modes) (pipe =>
         readsPipedEnd self modes indent range r1 nested outside.below.below.below.below
@@ -548,7 +548,7 @@ theorem readsOpSequence ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (v
     (start fine stops => Parse.readsAtDone start value _ (rewrite List.appendNil before then carried))
     (start item later shape fine stopped =>
       match isArrow: item.kind == Arrow with
-        | True => readsAtBumpRead [k := arrow => arrowEnd self modes value arrow] shape fine (after tail fits =>
+        | True => readsAtBumpRead shape fine (after tail fits =>
           readsArrowEnd self modes value item before carries outside
             (DecEq.sound isArrow)
             (goodHead fine shape)
@@ -618,7 +618,7 @@ theorem readsOperatorExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (carries: NestedKept self)
     (outside: Outside self):
     Parse.ReadsIn GoodItems (() => operatorExpr self modes) Kept :=
-  readsAfter0 [p := () => offset()] [j := start => opStart self modes start] reads0Offset (start =>
+  readsAfter0 reads0Offset (start =>
     readsAfter0 (reads0At modes Dot) (section => readsOpSection self modes start section nested carries outside))
 
 -- `expr_inline`.
@@ -639,8 +639,7 @@ theorem readsExprImplicit ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) 
     Parse.ReadsIn GoodItems (() => exprImplicit self modes implicit) Kept :=
   match implicit with
     | True => readsOut (outside.piExprs modes True)
-    | False => readsAfter0 [p := () => piHere modes] [j := pi => exprPi self modes pi] (reads0PiHere modes) (pi =>
-      readsExprPi self modes pi nested carries outside)
+    | False => readsAfter0 (reads0PiHere modes) (pi => readsExprPi self modes pi nested carries outside)
 
 --| `exprPlain` from a mark whose next item isn't stopped: a tree of the grammar it reads is placed as a full
 --| expression's, since the parser tests for an implicit binder `[auto Ord …` first (`implicitOn`), and reads one as a
@@ -714,8 +713,7 @@ theorem readsAtPeekNone ∀ (start: Parse.Mark Item) (modes: Modes) [k: Option T
     (quiet: peekIn modes 0 start.rest = None)
     (each: ∀ (after: Parse.Mark Item) => after.rest = start.rest → Parse.ReadsAt after (() => k None) Stuck):
     Parse.ReadsAt start (() => k modes.peek) Stuck :=
-  Parse.readsAtThen [p := () => modes.peek] [j := k] (readsAtPeekValue start modes) (read seen after starts (empty,
-    same) =>
+  Parse.readsAtThen (readsAtPeekValue start modes) (read seen after starts (empty, same) =>
     let tail: after.rest = start.rest := rewrite empty at starts then starts.flipped
     rewrite same, quiet then Parse.readsAtWeaken (each after tail) (taken value no => no.impossible))
 
@@ -738,8 +736,8 @@ theorem neverAtomMissingNone ∀ (modes: Modes): Never [a := Expr] (() => atomMi
 theorem readsAtAtomBaseStuck ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (start: Parse.Mark Item)
     (quiet: peekIn modes 0 start.rest = None):
     Parse.ReadsAt start (() => atomBase self modes) Stuck :=
-  readsAtPeekNone start modes [k := seen => atomBaseOn self modes seen] quiet (after same =>
-    readsAtPeekNone after modes [k := seen => atomMissingAt modes seen] (rewrite same then quiet) (later same2 =>
+  readsAtPeekNone start modes quiet (after same =>
+    readsAtPeekNone after modes (rewrite same then quiet) (later same2 =>
       readsAtOfNever later (neverAtomMissingNone modes)))
 
 theorem readsAtAtomStuck ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (head: Bool) (start: Parse.Mark Item)
@@ -753,7 +751,7 @@ theorem readsAtAppStuck ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (s
     (fine: Parse.Fits Item GoodItems start.rest)
     (quiet: peekIn modes 0 start.rest = None):
     Parse.ReadsAt start (() => app self modes) Stuck :=
-  readsAtAfter0 [p := () => offset()] [j := at => appAt self modes at] reads0Offset fine (at after same fits =>
+  readsAtAfter0 reads0Offset fine (at after same fits =>
     readsAtPeekNone after modes
       [k := seen => appHead self modes (isSome Dot seen && modes.sectionHead != Some at)]
       (rewrite same then quiet)
@@ -765,7 +763,7 @@ theorem readsAtUnaryStuck ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) 
     (fine: Parse.Fits Item GoodItems start.rest)
     (quiet: peekIn modes 0 start.rest = None):
     Parse.ReadsAt start (() => unary self modes) Stuck :=
-  readsAtPeekNone start modes [k := seen => unaryOn self modes seen] quiet (after same =>
+  readsAtPeekNone start modes quiet (after same =>
     readsAtAppStuck self modes after (rewrite same then fine) (rewrite same then quiet))
 
 theorem readsAtMulStuck ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (start: Parse.Mark Item)
@@ -810,7 +808,7 @@ theorem readsAtOperatorStuck ∀ (self: Goal → {Parse Item} Expr) (modes: Mode
     (fine: Parse.Fits Item GoodItems start.rest)
     (quiet: peekIn modes 0 start.rest = None):
     Parse.ReadsAt start (() => operatorExpr self modes) Stuck :=
-  readsAtAfter0 [p := () => offset()] [j := at => opStart self modes at] reads0Offset fine (at after same fits =>
+  readsAtAfter0 reads0Offset fine (at after same fits =>
     readsAtPeekNone after modes
       [k := seen => opSection self modes at (isSome Dot seen)]
       (rewrite same then quiet)
@@ -1182,7 +1180,7 @@ theorem readsExprRuns ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (ite
     (outside: Outside self):
     Parse.ReadsIn GoodItems (() => exprRuns self modes item limit runs) KeptFull :=
   match runs with
-    | True => readsAfter0 [p := () => left()] [j := items => modes.gapOn ranOutLine items] reads0Left (items =>
+    | True => readsAfter0 reads0Left (items =>
       match blockEnd modes.lines items.head with
         | Some ending => Parse.readsFatal _ _
         | None => Parse.readsFatal _ _)
@@ -1226,15 +1224,14 @@ theorem readsExprOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (carries: NestedKept self)
     (outside: Outside self):
     Parse.ReadsIn GoodItems (() => expr self modes) KeptFull :=
-  readsAfter0 [p := () => left()] [j := items => exprOn self modes items] reads0Left (items =>
-    readsExprOn self modes items nested carries outside)
+  readsAfter0 reads0Left (items => readsExprOn self modes items nested carries outside)
 
 theorem readsThenBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (carries: NestedKept self)
     (outside: Outside self):
     Parse.ReadsIn GoodItems (() => thenBody self modes) Kept :=
-  readsAfter0 [p := () => left()] [j := items => thenBodyOn self modes items] reads0Left (items =>
+  readsAfter0 reads0Left (items =>
     match items with
       | [next, ..rest] =>
         match here: next.leaf.token.lineStart

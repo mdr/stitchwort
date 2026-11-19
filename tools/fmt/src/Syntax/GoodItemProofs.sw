@@ -515,37 +515,31 @@ theorem readsAtQualifiedOn ∀ (more: Nat) (upper: Bool) (found: Option Bool) (s
         | True =>
           let letter: next.isAsciiLetter = True := Bool.andRight guard
           let isUpper: upper = True := Bool.andLeft guard
-          readsAtThenMoved [spec := QualScanned upper found] (atSkip 1 start) (read1 u after1 starts1 moved1 took1 =>
-            readsAtThenMoved
-              [spec := read w => QualScanned upper found (read1 ++ read) w]
-              (Parse.readsAtSpan after1 isWordChar)
-              (read2 name after2 starts2 moved2 spanned2 =>
-                Parse.readsAtWeaken
-                  (readsAtQualified more next.isAsciiUppercase (Some next.isAsciiUppercase) after2)
-                  (taken v q =>
-                    let isSome: v.isSome = True := match q with
-                      | Inl (none, same) => rewrite same
-                      | Inr (_, _, some) => some
-                    let r1: read1 = ['.'] := rewrite here at took1 then took1
-                    let rest1: after1.rest = [next, ..rest] :=
-                      (List.consInjective '.'
-                        [next, ..rest]
-                        after1.rest
-                        (rewrite r1, here at starts1 then starts1)).flipped
-                    let r2: read2 = [next, ..rest.takeWhile isWordChar] :=
-                      rewrite spanned2.left, spanned2.right, rest1, letterWordChar next letter
-                    let allWord: (rest.takeWhile isWordChar).all isWordChar = True := List.allTakeWhile isWordChar rest
-                    let scan: qualScan1 upper upper (read1 ++ (read2 ++ taken))
-                      = qualScan1 next.isAsciiUppercase next.isAsciiUppercase taken :=
-                      rewrite r1, r2, isUpper, letter then
-                        qualScanWord next.isAsciiUppercase next.isAsciiUppercase
-                          (rest.takeWhile isWordChar)
-                          taken
-                          allWord
-                    let ended: qualScan1 next.isAsciiUppercase next.isAsciiUppercase taken = v := match q with
-                      | Inl (none, same) => rewrite none, same
-                      | Inr (_, scanned, _) => scanned
-                    Inr (Both (Witness (read2 ++ taken) (rewrite r1)) (Both (Eq.trans scan ended) isSome)))))
+          readsAtThenMoved (atSkip 1 start) (read1 u after1 starts1 moved1 took1 =>
+            readsAtThenMoved (Parse.readsAtSpan after1 isWordChar) (read2 name after2 starts2 moved2 spanned2 =>
+              Parse.readsAtWeaken
+                (readsAtQualified more next.isAsciiUppercase (Some next.isAsciiUppercase) after2)
+                (taken v q =>
+                  let isSome: v.isSome = True := match q with
+                    | Inl (none, same) => rewrite same
+                    | Inr (_, _, some) => some
+                  let r1: read1 = ['.'] := rewrite here at took1 then took1
+                  let rest1: after1.rest = [next, ..rest] :=
+                    (List.consInjective '.'
+                      [next, ..rest]
+                      after1.rest
+                      (rewrite r1, here at starts1 then starts1)).flipped
+                  let r2: read2 = [next, ..rest.takeWhile isWordChar] :=
+                    rewrite spanned2.left, spanned2.right, rest1, letterWordChar next letter
+                  let allWord: (rest.takeWhile isWordChar).all isWordChar = True := List.allTakeWhile isWordChar rest
+                  let scan: qualScan1 upper upper (read1 ++ (read2 ++ taken))
+                    = qualScan1 next.isAsciiUppercase next.isAsciiUppercase taken :=
+                    rewrite r1, r2, isUpper, letter then
+                      qualScanWord next.isAsciiUppercase next.isAsciiUppercase (rest.takeWhile isWordChar) taken allWord
+                  let ended: qualScan1 next.isAsciiUppercase next.isAsciiUppercase taken = v := match q with
+                    | Inl (none, same) => rewrite none, same
+                    | Inr (_, scanned, _) => scanned
+                  Inr (Both (Witness (read2 ++ taken) (rewrite r1)) (Both (Eq.trans scan ended) isSome)))))
     | _ => Parse.readsAtDone start found _ (Inl (Both byComputing byComputing))
 
 --| Num and Float.
@@ -793,7 +787,6 @@ theorem readsAtFraction ∀ (at: Parse.Mark Char): Parse.ReadsAt at (() => fract
             (atSkip 1 at)
             (read1 u after1 starts1 moved1 took1 =>
               readsAtThenMoved
-                [spec := read w => FractionRead (read1 ++ read) w]
                 (Parse.readsAtSpan after1 Char.isAsciiDigit)
                 (read2 decimals after2 starts2 moved2 spanned2 =>
                   let r1: read1 = ['.'] := rewrite shape at took1 then took1
@@ -821,47 +814,41 @@ theorem readsAtExponent ∀ (at: Parse.Mark Char): Parse.ReadsAt at (() => expon
   match e: exponentSkip at.rest with
     | Some count =>
       let found := exponentSkipShape at.rest count e
-      readsAtThenMoved [spec := ExponentRead] (atSkip count at) (read1 u after1 starts1 moved1 took1 =>
-        readsAtThenMoved
-          [spec := read w => ExponentRead (read1 ++ read) w]
-          (Parse.readsAtSpan after1 Char.isAsciiDigit)
-          (read2 power after2 starts2 moved2 spanned2 =>
-            match found with
-              | Inl (Witness marker (Witness next (Witness rest (Both shape (Both lead (Both digit one)))))) =>
-                let r1: read1 = [marker] := rewrite shape, one at took1 then took1
-                let rest1: after1.rest = [next, ..rest] :=
+      readsAtThenMoved (atSkip count at) (read1 u after1 starts1 moved1 took1 =>
+        readsAtThenMoved (Parse.readsAtSpan after1 Char.isAsciiDigit) (read2 power after2 starts2 moved2 spanned2 =>
+          match found with
+            | Inl (Witness marker (Witness next (Witness rest (Both shape (Both lead (Both digit one)))))) =>
+              let r1: read1 = [marker] := rewrite shape, one at took1 then took1
+              let rest1: after1.rest = [next, ..rest] :=
+                (List.consInjective marker
+                  [next, ..rest]
+                  after1.rest
+                  (rewrite r1, shape at starts1 then starts1)).flipped
+              let r2: read2 = [next, ..rest.takeWhile Char.isAsciiDigit] :=
+                rewrite spanned2.left, spanned2.right, rest1, digit
+              let text: exponentText1 (read1 ++ (read2 ++ [])) = True :=
+                rewrite r1, r2, List.appendNil [next, ..rest.takeWhile Char.isAsciiDigit], digitNotSign next digit then
+                  Bool.andIntro lead (Bool.andIntro digit (List.allTakeWhile Char.isAsciiDigit rest))
+              Parse.readsAtDone after2 True _ (Inr (Both byComputing text))
+            | Inr
+                (Witness marker
+                  (Witness sign
+                    (Witness next (Witness rest (Both shape (Both lead (Both signed (Both digit two)))))))) =>
+              let r1: read1 = [marker, sign] := rewrite shape, two at took1 then took1
+              let rest1: after1.rest = [next, ..rest] :=
+                (List.consInjective sign
+                  [next, ..rest]
+                  after1.rest
                   (List.consInjective marker
-                    [next, ..rest]
-                    after1.rest
-                    (rewrite r1, shape at starts1 then starts1)).flipped
-                let r2: read2 = [next, ..rest.takeWhile Char.isAsciiDigit] :=
-                  rewrite spanned2.left, spanned2.right, rest1, digit
-                let text: exponentText1 (read1 ++ (read2 ++ [])) = True :=
-                  rewrite r1,
-                      r2,
-                      List.appendNil [next, ..rest.takeWhile Char.isAsciiDigit],
-                      digitNotSign next digit then
-                    Bool.andIntro lead (Bool.andIntro digit (List.allTakeWhile Char.isAsciiDigit rest))
-                Parse.readsAtDone after2 True _ (Inr (Both byComputing text))
-              | Inr
-                  (Witness marker
-                    (Witness sign
-                      (Witness next (Witness rest (Both shape (Both lead (Both signed (Both digit two)))))))) =>
-                let r1: read1 = [marker, sign] := rewrite shape, two at took1 then took1
-                let rest1: after1.rest = [next, ..rest] :=
-                  (List.consInjective sign
-                    [next, ..rest]
-                    after1.rest
-                    (List.consInjective marker
-                      [sign, next, ..rest]
-                      [sign, ..after1.rest]
-                      (rewrite r1, shape at starts1 then starts1))).flipped
-                let r2: read2 = [next, ..rest.takeWhile Char.isAsciiDigit] :=
-                  rewrite spanned2.left, spanned2.right, rest1, digit
-                let text: exponentText1 (read1 ++ (read2 ++ [])) = True :=
-                  rewrite r1, r2, List.appendNil [next, ..rest.takeWhile Char.isAsciiDigit], signed then
-                    Bool.andIntro lead (Bool.andIntro digit (List.allTakeWhile Char.isAsciiDigit rest))
-                Parse.readsAtDone after2 True _ (Inr (Both byComputing text))))
+                    [sign, next, ..rest]
+                    [sign, ..after1.rest]
+                    (rewrite r1, shape at starts1 then starts1))).flipped
+              let r2: read2 = [next, ..rest.takeWhile Char.isAsciiDigit] :=
+                rewrite spanned2.left, spanned2.right, rest1, digit
+              let text: exponentText1 (read1 ++ (read2 ++ [])) = True :=
+                rewrite r1, r2, List.appendNil [next, ..rest.takeWhile Char.isAsciiDigit], signed then
+                  Bool.andIntro lead (Bool.andIntro digit (List.allTakeWhile Char.isAsciiDigit rest))
+              Parse.readsAtDone after2 True _ (Inr (Both byComputing text))))
     | None => Parse.readsAtDone at False _ (Inl (Both byComputing byComputing))
 
 --| What a number's fraction and exponent read: nothing, giving `False`; or what follows the digits as slice 1's
@@ -904,11 +891,9 @@ theorem exponentRest ∀ (exponent: List Char)
 
 theorem readsAtNumberTail ∀ (start: Parse.Mark Char): Parse.ReadsAt start (() => numberTail False) NumberTail :=
   readsAtThenMoved
-    [spec := NumberTail]
     (Parse.readsAtMark fractionFrom _ start (readsAtFraction start))
     (readF fraction after1 starts1 moved1 fractionRead =>
       readsAtThenMoved
-        [spec := read w => NumberTail (readF ++ read) w]
         (Parse.readsAtMark exponentFrom _ after1 (readsAtExponent after1))
         (readE exponent after2 starts2 moved2 exponentRead =>
           match fractionRead, exponentRead with
@@ -955,32 +940,29 @@ theorem numberFine ∀ (source: Text) (from: Parse.Mark Char) (c: Char) (more: L
     (digit: c.isAsciiDigit = True):
     Parse.ReadsAt from (() => numberFrom False from) (read lexeme => lexemeFixed source lexeme = True) :=
   readsAtThenMoved (Parse.readsAtSpan from Char.isAsciiDigit) (read1 digits after1 starts1 moved1 spanned =>
-    readsAtThenMoved
-      [spec := read lexeme => lexemeFixed source lexeme = True]
-      (readsAtNumberTail after1)
-      (readT float after2 starts2 moved2 tail =>
-        Parse.readsAtWeaken
-          (readsAtLocated (TokenLexeme (if float then Float else Num)) from after2)
-          (taken lexeme same =>
-            match spanned with
-              | Both isDigits digitsAre =>
-                let head: read1 = [c, ..more.takeWhile Char.isAsciiDigit] :=
-                  rewrite isDigits, digitsAre then List.takeWhileConsOf Char.isAsciiDigit from.rest c more here digit
-                let moved: after2.offset = from.offset + (read1 ++ readT).length :=
-                  arithmetic [moved1, moved2, List.lengthAppend read1 readT]
-                let whole: from.rest = (read1 ++ readT) ++ after2.rest :=
-                  rewrite starts1, starts2, List.appendAssoc read1 readT after2.rest
-                let text: Text.fromList (from.rest.take (read1 ++ readT).length) = Text.fromList (read1 ++ readT) :=
-                  rewrite whole, List.takeAppend (read1 ++ readT) after2.rest
-                let allDigits: (more.takeWhile Char.isAsciiDigit).all Char.isAsciiDigit = True :=
-                  List.allTakeWhile Char.isAsciiDigit more
-                rewrite same, sliceRead source from after2 (read1 ++ readT) step moved, text, head then
-                  match tail with
-                    | Inl (none, isFalse) =>
-                      rewrite isFalse, none, List.appendNil (more.takeWhile Char.isAsciiDigit) then
-                        Bool.andIntro byComputing (Bool.andIntro digit allDigits)
-                    | Inr (isTrue, floated) =>
-                      rewrite isTrue then Bool.andIntro byComputing (Bool.andIntro digit (floated _ allDigits)))))
+    readsAtThenMoved (readsAtNumberTail after1) (readT float after2 starts2 moved2 tail =>
+      Parse.readsAtWeaken
+        (readsAtLocated (TokenLexeme (if float then Float else Num)) from after2)
+        (taken lexeme same =>
+          match spanned with
+            | Both isDigits digitsAre =>
+              let head: read1 = [c, ..more.takeWhile Char.isAsciiDigit] :=
+                rewrite isDigits, digitsAre then List.takeWhileConsOf Char.isAsciiDigit from.rest c more here digit
+              let moved: after2.offset = from.offset + (read1 ++ readT).length :=
+                arithmetic [moved1, moved2, List.lengthAppend read1 readT]
+              let whole: from.rest = (read1 ++ readT) ++ after2.rest :=
+                rewrite starts1, starts2, List.appendAssoc read1 readT after2.rest
+              let text: Text.fromList (from.rest.take (read1 ++ readT).length) = Text.fromList (read1 ++ readT) :=
+                rewrite whole, List.takeAppend (read1 ++ readT) after2.rest
+              let allDigits: (more.takeWhile Char.isAsciiDigit).all Char.isAsciiDigit = True :=
+                List.allTakeWhile Char.isAsciiDigit more
+              rewrite same, sliceRead source from after2 (read1 ++ readT) step moved, text, head then
+                match tail with
+                  | Inl (none, isFalse) =>
+                    rewrite isFalse, none, List.appendNil (more.takeWhile Char.isAsciiDigit) then
+                      Bool.andIntro byComputing (Bool.andIntro digit allDigits)
+                  | Inr (isTrue, floated) =>
+                    rewrite isTrue then Bool.andIntro byComputing (Bool.andIntro digit (floated _ allDigits)))))
 
 -- What a name or numeral that `Spells` describes passes: `Spells` implies `textSpells1`.
 
@@ -1155,7 +1137,7 @@ theorem itemFixed ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme))
             | Some (kind, count) =>
               roundOfReads
                 (tokenFixed source kind count start step (symbolSpelled start ['-', next, ..rest] kind count here s))
-            | None => roundOfYields [p := () => fail (unexpected '-')] (yieldsFatal (unexpected '-') _)
+            | None => roundOfYields (yieldsFatal (unexpected '-') _)
     | ['"', ..more] => roundOfYields (textForeign self source TopLevel)
     | ['\'', ..more] => roundOfGives givesChar
     | ['.', ..more] => roundOfGives givesDots
