@@ -36,10 +36,13 @@ def deepFrom (inset: Nat): Option Nat → Bool
 def ItemGap (outer: List (Option Nat)) (top: Option Nat) (trails: Bool): Place → Hang → Prop := place hang =>
   Ended (itemState outer top) trails place ∧ hang = Hang.At (itemState outer top)
 
---| Where an item starts, laid at `inset`: a seat there, after a waiting comment only if `before`.
+--| Where an item starts, laid at `inset`: a seat there, after a waiting comment only if `before`, and no plain line
+--| start (a separator leaves the printer mid-line, after a waiting comment or after a line break).
 def ItemSeat (inset: Nat) (outer: List (Option Nat)) (top: Option Nat) (before: Bool): Place → Hang → Prop :=
   place hang =>
-    hang = Hang.At (itemState outer top) ∧ Seat inset inset before (itemState outer top) place (wordStart inset place)
+    hang = Hang.At (itemState outer top)
+      ∧ plainStart place = False
+      ∧ Seat inset inset before (itemState outer top) place (wordStart inset place)
 
 --| Where an item ended: its block's column at `inset` or right of it, a comment waiting only if `trails`.
 def ItemEnd (inset: Nat) (outer: List (Option Nat)) (top: Option Nat) (trails: Bool): Place → Hang → Prop :=
@@ -54,17 +57,42 @@ theorem openedItem ∀ (outer: List (Option Nat)) (top start: Option Nat):
     | None => byComputing
     | Some column => byComputing
 
+--| An item seated at `inset` starts its line, if it does, at `inset` or right of it, its first token where
+--| `startFor noted` says: on the line after comments above it (`noted`) or not.
+theorem startDeep ∀ (noted: Bool) (inset: Nat) (before: Bool) (state: HangState) (place: Place)
+    (seated: Seated inset before state place):
+    deepFrom inset (startFor noted inset place) = True :=
+  match noted, place, seated with
+    | False, AtStart at carry, (atInset, _) => rewrite atInset then Nat.leRefl inset
+    | False, Broken at carry, (atInset, _) => rewrite atInset then Nat.leRefl inset
+    | False, Mid at carry, _ => byComputing
+    | False, Held at carry, (_, floor, _) =>
+      let landed: floored carry (Nat.max inset (at + 2)) = Nat.max inset (at + 2) := rewrite floor
+      rewrite landed then arithmetic
+    | True, AtStart at carry, (atInset, _) => rewrite atInset then Nat.leRefl inset
+    | True, Broken at carry, (atInset, _) => rewrite atInset then Nat.leRefl inset
+    | True, Mid at carry, _ => arithmetic
+    | True, Held at carry, _ => arithmetic
+
 --| An item seated at `inset` starts its line, if it does, at `inset` or right of it.
 theorem seatDeep ∀ (inset: Nat) (before: Bool) (state: HangState) (place: Place)
     (seated: Seated inset before state place):
     deepFrom inset (wordStart inset place) = True :=
-  match place, seated with
-    | AtStart at carry, (atInset, _) => rewrite atInset then Nat.leRefl inset
-    | Broken at carry, (atInset, _) => rewrite atInset then Nat.leRefl inset
-    | Mid at carry, _ => byComputing
-    | Held at carry, (_, floor, _) =>
+  startDeep False inset before state place seated
+
+--| An item's seat with room for its first word where `wordStart` says has room for it where `startFor` says: the two
+--| agree at a line start and after a waiting comment, and mid-line the comment break is right of the line.
+theorem seatFor ∀ (noted: Bool) (inset: Nat) (before: Bool) (outer: List (Option Nat)) (top: Option Nat) (place: Place)
+    (seat: Seat inset inset before (itemState outer top) place (wordStart inset place)):
+    Seat inset inset before (itemState outer top) place (startFor noted inset place) :=
+  match noted, place, seat with
+    | False, place, seat => seat
+    | True, AtStart at carry, seat => seat
+    | True, Broken at carry, seat => seat
+    | True, Mid at carry, ((floor, left), column, clear, _) => ((floor, left), column, clear, (byComputing, arithmetic))
+    | True, Held at carry, ((waits, floor, left), column, clear, room) =>
       let landed: floored carry (Nat.max inset (at + 2)) = Nat.max inset (at + 2) := rewrite floor
-      rewrite landed then arithmetic
+      ((waits, floor, left), column, clear, rewrite landed at room then room)
 
 --| What is in force outside an item's block is no further right than what is in force with it.
 theorem outerBelow ∀ (inset at: Nat) (outer: List (Option Nat)) (top block: Option Nat)
@@ -78,21 +106,45 @@ theorem outerBelow ∀ (inset at: Nat) (outer: List (Option Nat)) (top block: Op
 
 -- Items.
 
+--| What an item asks of its element: laid at `inset` from a seat there, at any entry but a plain line start, its
+--| first word where `startFor noted` says for some `noted` (on the line after the comments or kept blank line it
+--| writes above its first token, if it writes any), it ends after words as one token.
+def ItemHangs (kinds: Text → Tok) (doc: Doc) (inset: Nat) (before trails: Bool): Prop :=
+  ∃ (noted: Bool) => ∀ (state: HangState) (entry: Place) => plainStart entry = False
+    → HangLays kinds doc inset (Entered inset inset before state entry (startFor noted inset entry)) (place hang =>
+      Ended (openedBy state (startFor noted inset entry)) trails place
+        ∧ hang = Hang.At (openedBy state (startFor noted inset entry)))
+
+--| An element that hangs with its first word where `wordStart` says is an item that does.
+theorem elItemHangs ∀ (kinds: Text → Tok) (doc: Doc) (inset: Nat) (before trails: Bool)
+    (el: ElHangs kinds doc inset inset before trails wordStart):
+    ItemHangs kinds doc inset before trails :=
+  (False, state entry _ => el state entry)
+
 --| An item: from its seat, as its element hangs, to where it ended.
 theorem itemHangs ∀ (kinds: Text → Tok) (doc: Doc) (inset: Nat) (outer: List (Option Nat))
     (top: Option Nat) (before trails: Bool)
-    (el: ElHangs kinds doc inset inset before trails wordStart):
+    (el: ItemHangs kinds doc inset before trails):
     HangLays kinds doc inset (ItemSeat inset outer top before) (ItemEnd inset outer top trails) :=
-  place trace next (folded, seat) after =>
+  let (noted, lays) := el
+  place trace next (folded, fresh, seat) after =>
     let (seated, _, _, _) := seat
-    let start := wordStart inset place
-    el (itemState outer top) place place trace next (byComputing, folded, seat) (left later (ended, done) =>
-      after left later (
-        start,
-        seatDeep inset before (itemState outer top) place seated,
-        rewrite openedItem outer top start at ended then ended,
-        rewrite openedItem outer top start at done then done
-      ))
+    let start := startFor noted inset place
+    lays
+      (itemState outer top)
+      place
+      fresh
+      place
+      trace
+      next
+      (byComputing, folded, seatFor noted inset before outer top place seat)
+      (left later (ended, done) =>
+        after left later (
+          start,
+          startDeep noted inset before (itemState outer top) place seated,
+          rewrite openedItem outer top start at ended then ended,
+          rewrite openedItem outer top start at done then done
+        ))
 
 --| Right after a line break at `inset`, with no comment floor, an item may start.
 theorem brokenItemSeat ∀ (inset: Nat) (outer: List (Option Nat)) (top: Option Nat) (before: Bool) (carry: Carry)
@@ -103,7 +155,7 @@ theorem brokenItemSeat ∀ (inset: Nat) (outer: List (Option Nat)) (top: Option 
       (Hang.At (itemState outer top)) :=
   let landed: floored carry inset = inset := rewrite floor
   rewrite landed then
-    (byComputing, ((byComputing, byComputing), Nat.leRefl inset, arithmetic, (byComputing, arithmetic)))
+    (byComputing, byComputing, ((byComputing, byComputing), Nat.leRefl inset, arithmetic, (byComputing, arithmetic)))
 
 --| Mid-line where an item may follow, an item may start.
 theorem midItemSeat ∀ (inset at: Nat) (outer: List (Option Nat)) (top: Option Nat) (before: Bool) (carry: Carry)
@@ -111,7 +163,7 @@ theorem midItemSeat ∀ (inset at: Nat) (outer: List (Option Nat)) (top: Option 
     (left: (inForce outer top <= at) = True)
     (bound: (inForce outer top < inset) = True):
     ItemSeat inset outer top before (Mid at carry) (Hang.At (itemState outer top)) :=
-  (byComputing, ((floor, left), Nat.leRefl inset, arithmetic, byComputing))
+  (byComputing, byComputing, ((floor, left), Nat.leRefl inset, arithmetic, byComputing))
 
 --| After a waiting comment, an item that may start there may start.
 theorem heldItemSeat ∀ (inset at: Nat) (outer: List (Option Nat)) (top: Option Nat) (carry: Carry)
@@ -121,6 +173,7 @@ theorem heldItemSeat ∀ (inset at: Nat) (outer: List (Option Nat)) (top: Option
     ItemSeat inset outer top True (Held at carry) (Hang.At (itemState outer top)) :=
   let landed: floored carry (Nat.max inset (at + 2)) = Nat.max inset (at + 2) := rewrite floor
   (
+    byComputing,
     byComputing,
     ((byComputing, floor, left), Nat.leRefl inset, arithmetic, (byComputing, rewrite landed then arithmetic))
   )
@@ -197,12 +250,12 @@ theorem commaHangs ∀ (kinds: Text → Tok) (inset: Nat) (outer: List (Option N
           | AtStart at carry, never => (Bool.falseNotTrue never).impossible
           | Broken at carry, never => (Bool.falseNotTrue never).impossible)
 
---| Each item of a broken bracket hangs as an element laid at `inset`, seated after the separator before it: after a
---| waiting comment only if the code before it, the opener or the item before, ends with one (`seat`).
+--| Each item of a broken bracket hangs as an element laid at `inset` (`ItemHangs`), seated after the separator before
+--| it: after a waiting comment only if the code before it, the opener or the item before, ends with one (`seat`).
 def ItemsHang (kinds: Text → Tok) (inset: Nat) (bare arm before seat: Bool) (at: Nat): List Expr → Prop
   | [] => True
   | [item, ..rest] =>
-    ElHangs kinds (item.el (firstAround bare arm before at)) inset inset seat item.trails wordStart
+    ItemHangs kinds (item.el (firstAround bare arm before at)) inset seat item.trails
       ∧ ItemsHang kinds inset False arm item.trails item.trails (at + item.size) rest
 
 --| Whether the last item ends with a trailing comment: the opener if there is none.
@@ -288,7 +341,7 @@ theorem cellCommaHangs ∀ (kinds: Text → Tok) (doc: Doc) (inset: Nat) (outer:
     (top: Option Nat) (seat trails: Bool)
     (comma: kinds "," = Comma)
     (bound: (inForce outer top < inset) = True)
-    (el: ElHangs kinds doc inset inset seat trails wordStart):
+    (el: ItemHangs kinds doc inset seat trails):
     HangLays kinds (Doc.concat [doc, Closing ","]) inset (ItemSeat inset outer top seat) (ItemGap outer top trails) :=
   hangsConcat kinds
     [doc, Closing ","]

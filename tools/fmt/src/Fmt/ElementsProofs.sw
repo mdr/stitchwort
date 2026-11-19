@@ -44,6 +44,11 @@ import Fmt.ElementsParen (innerLowers, parenLedElHangs, parenPlainElHangs)
 import Fmt.ExprHangProofs (closeParen, openParen, parenInnerPlain)
 import Fmt.TrailsProofs (parenTrails)
 import Fmt.ElementsApp (LastHangs, Led, argsLed, lastLed)
+import Fmt.ElementsItems (itemsLed)
+import Fmt.ElementsKeys (anyBrokenKeys, anyCellsKeys)
+import Fmt.BracketHangProofs (bracketTrails, listHangs, tupleHangs, tupleTrails)
+import Fmt.EdgeHangProofs (edgeCloseBefore)
+import Fmt.ExprHangProofs (closeBracket, openBracket)
 
 -- The invariant.
 
@@ -321,7 +326,8 @@ theorem parenAny ∀ (open: Word) (inner: Expr) (close: Word)
               keys
   (hangs, level first around bare => hangs around bare)
 
---| A tuple (open): comments and kept blank lines on any item, after any item, and on the brackets.
+--| A tuple (proved): comments and kept blank lines on any item, after any item, and on the brackets. An item with
+--| comments or a kept blank line above its first token starts the line after them (`itemsLed`).
 theorem tupleAny ∀ (open: Word) (items: List Expr) (trailing: Bool) (close: Word)
     (within: (Tuple open items trailing close).within1 = True)
     (lexical: (Tuple open items trailing close).lexical1 = True)
@@ -329,9 +335,48 @@ theorem tupleAny ∀ (open: Word) (items: List Expr) (trailing: Bool) (close: Wo
     (homed: (Tuple open items trailing close).homed1 = True)
     (facts: AllAnyFacts items):
     AnyFacts (Tuple open items trailing close) :=
-  ?
+  let isOpen: open.text = "(" := DecEq.sound (Bool.andLeft lexical)
+  let isClose: close.text = ")" := DecEq.sound (Bool.andLeft (Bool.andRight lexical))
+  let itemsLexical: allLexical1 items = True := Bool.andRight (Bool.andRight lexical)
+  let itemsSound: allSound items = True := Bool.andLeft (Bool.andRight sound)
+  let closeSound: close.sound = True := Bool.andRight (Bool.andRight sound)
+  let opens: isCloserText open.text = False := rewrite isOpen
+  let bare := False
+  let hangs: ∀ (around: Around) => (Tuple open items trailing close).plainAt around = True
+    → HangsAt lexKind around.before
+      (Tuple open items trailing close).trails
+      ((Tuple open items trailing close).el around) :=
+    around plain indent column =>
+      trailsSwap lexKind _ indent column around.before _ _ wordStart
+        (tupleTrails open items trailing close (rewrite isClose)).flipped
+        (tupleHangs lexKind open items trailing close around indent column
+          (rewrite isOpen then openParen)
+          (trailsOfSound open (Bool.andLeft sound))
+          (rewrite isClose then closeParen)
+          (notesOfWord close closeSound)
+          (trailsOfSound close closeSound)
+          byComputing
+          (unledLeading open around around.at plain)
+          (deep =>
+            itemsLed AnyFacts AllAnyFacts
+              (expr more both => both)
+              (expr held => held.left)
+              (deep + 2)
+              bare
+              around.inArm
+              open.trails
+              (around.at + 1)
+              items
+              within
+              itemsLexical
+              itemsSound
+              facts)
+          (anyCellsKeys items (around.at + 1) bare around.inArm open.trails (around.at + 1) within (Nat.leRefl _))
+          (anyBrokenKeys items (around.at + 1) bare around.inArm True open.trails (around.at + 1) within (Nat.leRefl _))
+          (edgeCloseBefore open items close opens within itemsLexical))
+  (hangs, level first around plain => hangs around plain)
 
---| A list (open): as a tuple, filled or broken.
+--| A list (proved): as a tuple, filled or broken.
 theorem listAny ∀ (open: Word) (items: List Expr) (trailing: Bool) (close: Word)
     (within: (ListOf open items trailing close).within1 = True)
     (lexical: (ListOf open items trailing close).lexical1 = True)
@@ -339,7 +384,46 @@ theorem listAny ∀ (open: Word) (items: List Expr) (trailing: Bool) (close: Wor
     (homed: (ListOf open items trailing close).homed1 = True)
     (facts: AllAnyFacts items):
     AnyFacts (ListOf open items trailing close) :=
-  ?
+  let isOpen: open.text = "[" := DecEq.sound (Bool.andLeft lexical)
+  let isClose: close.text = "]" := DecEq.sound (Bool.andLeft (Bool.andRight lexical))
+  let itemsLexical: allLexical1 items = True := Bool.andRight (Bool.andRight lexical)
+  let itemsSound: allSound items = True := Bool.andLeft (Bool.andRight sound)
+  let closeSound: close.sound = True := Bool.andRight (Bool.andRight sound)
+  let opens: isCloserText open.text = False := rewrite isOpen
+  let bare := True && items.all Expr.plainItem
+  let hangs: ∀ (around: Around) => (ListOf open items trailing close).plainAt around = True
+    → HangsAt lexKind around.before
+      (ListOf open items trailing close).trails
+      ((ListOf open items trailing close).el around) :=
+    around plain indent column =>
+      trailsSwap lexKind _ indent column around.before _ _ wordStart
+        (bracketTrails open items trailing close (rewrite isClose)).flipped
+        (listHangs lexKind open items trailing close around indent column
+          (rewrite isOpen then openBracket)
+          (trailsOfSound open (Bool.andLeft sound))
+          (rewrite isClose then closeBracket)
+          (notesOfWord close closeSound)
+          (trailsOfSound close closeSound)
+          byComputing
+          (unledLeading open around around.at plain)
+          (deep =>
+            itemsLed AnyFacts AllAnyFacts
+              (expr more both => both)
+              (expr held => held.left)
+              (deep + 2)
+              bare
+              around.inArm
+              open.trails
+              (around.at + 1)
+              items
+              within
+              itemsLexical
+              itemsSound
+              facts)
+          (anyCellsKeys items (around.at + 1) bare around.inArm open.trails (around.at + 1) within (Nat.leRefl _))
+          (anyBrokenKeys items (around.at + 1) bare around.inArm True open.trails (around.at + 1) within (Nat.leRefl _))
+          (edgeCloseBefore open items close opens within itemsLexical))
+  (hangs, level first around plain => hangs around plain)
 
 --| A call (open): comments above and after the function and any argument.
 theorem appAny ∀ (head: Expr) (arguments: List Expr)
