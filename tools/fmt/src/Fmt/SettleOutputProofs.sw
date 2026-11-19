@@ -1,6 +1,6 @@
 --| `printedSettle1` (SW-4043, ticket G of docs/reviews/SW-4025-output-statements.md, sketched in
 --| docs/reviews/SW-4042-trivia-statement.md §5): rule N on the formatter's output gives the tree's words back, from
---| `stands` of each declaration's printed leaves (`printedStands1`, taken as the hypothesis `SourceFile.stood1`).
+--| `stands` of each declaration's printed leaves (`printedStands1`, taken as the hypothesis `SourceFile.stood`).
 --| Rule 1 walks each comment `stands` owes back to its word (`homeStands`); the other rules find nothing to do.
 
 namespace Fmt.SettleOutputProofs
@@ -595,21 +595,21 @@ theorem homeStands ∀ (owed: Option Text) (behind rest: List Leaf) (done words:
 def Note.unreturned (note: Note): Bool := !note.text.endsWith "\r" && !note.text.endsWith " "
 
 --| No own-line comment the file loop prints ends in a carriage return: those above each declaration and at the end.
-def SourceFile.unreturned1 (file: SourceFile): Bool :=
+def SourceFile.unreturned (file: SourceFile): Bool :=
   file.decls.all (decl => decl.firstComments.above.all Note.unreturned) && file.end.above.all Note.unreturned
 
 --| The words the output's tree has, all declarations' in a row.
-def SourceFile.words1 (file: SourceFile): List Word := (file.calmTop.decls.map Decl.words).concat
+def SourceFile.words (file: SourceFile): List Word := (file.calmTop.decls.map Decl.words).concat
 
---| Each declaration's leaves in the file stand against its words in the output's tree (`stood1`), the `def` holding the
+--| Each declaration's leaves in the file stand against its words in the output's tree (`stood`), the `def` holding the
 --| comments the file loop prints above it.
 theorem standsEachFile ∀ (file: SourceFile)
     (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True)
-    (stood: file.stood1 = True)
-    (unreturned: file.unreturned1 = True):
+    (shaped: file.shaped = True)
+    (settled: file.settled = True)
+    (lexical: file.lexical = True)
+    (stood: file.stood = True)
+    (unreturned: file.unreturned = True):
     standsEach (file.calmTop.decls.map Decl.words) (groupsFrom True file.decls) = True :=
   let starts := leavesStart1 file within shaped settled lexical
   match file with
@@ -657,24 +657,24 @@ theorem standsEachFile ∀ (file: SourceFile)
 --| Every declaration's printed leaves start with no comma (they start with `def`: `printedTokens1`).
 theorem leavesStart1 ∀ (file: SourceFile)
     (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True):
-    file.decls.all (decl => notCommaFirst decl.leaves1) = True :=
+    (shaped: file.shaped = True)
+    (settled: file.settled = True)
+    (lexical: file.lexical = True):
+    file.decls.all (decl => notCommaFirst decl.leaves) = True :=
   startsEach file.decls within shaped (Bool.andLeft settled) lexical
 
 theorem startsEach ∀ (decls: List Decl)
     (within: decls.all Decl.within1 = True)
-    (shaped: decls.all Decl.shaped1 = True)
-    (settled: decls.all Decl.settled1 = True)
-    (lexical: decls.all Decl.lexical1 = True):
-    decls.all (decl => notCommaFirst decl.leaves1) = True :=
+    (shaped: decls.all Decl.shaped = True)
+    (settled: decls.all Decl.settled = True)
+    (lexical: decls.all Decl.lexical = True):
+    decls.all (decl => notCommaFirst decl.leaves) = True :=
   match decls with
     | [] => byComputing
     | [decl, ..rest] =>
       let first :=
         declStartsKw decl (Bool.andLeft within) (Bool.andLeft shaped) (Bool.andLeft settled) (Bool.andLeft lexical)
-      let head: notCommaFirst decl.leaves1 = True := match leaves: decl.leaves1 with
+      let head: notCommaFirst decl.leaves = True := match leaves: decl.leaves with
         | [leaf, .._] =>
           let isDef: leaf.token.kind = KwDef := DecEq.sound first
           rewrite isDef
@@ -684,9 +684,9 @@ theorem startsEach ∀ (decls: List Decl)
 --| The leaves of declarations after the first stand against their calm words.
 theorem standsRest ∀ (decls: List Decl)
     (within: decls.all Decl.within1 = True)
-    (stood: decls.all Decl.stands1 = True)
+    (stood: decls.all Decl.stands = True)
     (plain: decls.all (decl => decl.firstComments.above.all Note.unreturned) = True)
-    (starts: decls.all (decl => notCommaFirst decl.leaves1) = True):
+    (starts: decls.all (decl => notCommaFirst decl.leaves) = True):
     standsEach ((decls.map Decl.calm).map Decl.words) (groupsFrom False decls) = True :=
   match decls with
     | [] => byComputing
@@ -823,7 +823,7 @@ theorem toppedAlike ∀ (keyword: Comments): (fixedWord "def" keyword).alike (fi
 
 theorem restSettled ∀ (decls: List Decl)
     (within: decls.all Decl.within1 = True)
-    (settled: decls.all Decl.settled1 = True):
+    (settled: decls.all Decl.settled = True):
     ((decls.map Decl.calm).map Decl.words).all (piece => homedBack piece.reverse) = True
       ∧ ((decls.map Decl.calm).map Decl.words).all (piece => piece.all (word => word.comments.texts.all commentText))
         = True :=
@@ -863,9 +863,9 @@ theorem restSettled ∀ (decls: List Decl)
 --| (`homedConcat`).
 theorem wordsSettled1 ∀ (file: SourceFile)
     (within: file.within1 = True)
-    (settled: file.settled1 = True):
-    homedBack (file.words1.reverseOnto []) = True
-      ∧ file.words1.all (word => word.comments.texts.all commentText) = True :=
+    (settled: file.settled = True):
+    homedBack (file.words.reverseOnto []) = True
+      ∧ file.words.all (word => word.comments.texts.all commentText) = True :=
   match file with
     | { decls, end } =>
       let withinDecls: decls.all Decl.within1 = True := within
@@ -972,7 +972,7 @@ theorem closeQuiet ∀ (close: Word) (text: Text)
 
 theorem exprEndsQuiet ∀ (expr: Expr)
     (within: expr.within1 = True)
-    (lexical: expr.lexical1 = True):
+    (lexical: expr.lexical = True):
     endsQuiet expr.words = True :=
   match expr with
     | Atom kind word =>
@@ -1016,7 +1016,7 @@ theorem exprEndsQuiet ∀ (expr: Expr)
 
 theorem itemsQuiet ∀ (items: List Expr)
     (within: allWithin1 items = True)
-    (lexical: allLexical1 items = True):
+    (lexical: allLexical items = True):
     quietOrEmpty (itemsWords items) = True :=
   match items with
     | [] => byComputing
@@ -1117,7 +1117,7 @@ theorem quietConcat ∀ (pieces: List (List Word))
 
 theorem declEndsQuiet ∀ (header: Header) (colonEq: Comments) (value: Expr)
     (within: value.within1 = True)
-    (lexical: value.lexical1 = True):
+    (lexical: value.lexical = True):
     endsQuiet (Definition [] header (Assigned colonEq value)).words = True :=
   endsQuietJoin
     [fixedWord "def" header.keyword, header.name, fixedWord ":" header.colon]
@@ -1129,15 +1129,15 @@ theorem declEndsQuiet ∀ (header: Header) (colonEq: Comments) (value: Expr)
 --| A printed leaf has a closer's kind exactly when it has a closer's text.
 theorem printedAgrees1 ∀ (file: SourceFile)
     (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True):
-    file.lexed1.leaves.all Leaf.agrees = True :=
+    (shaped: file.shaped = True)
+    (settled: file.settled = True)
+    (lexical: file.lexical = True):
+    file.lexed.leaves.all Leaf.agrees = True :=
   let laid :=
-    lexLaid1 file.printed1 file.lexed1
+    lexLaid1 file.printed1 file.lexed
       (printedFileLexes1 file within shaped settled lexical)
       (printedAlphabet1 file within shaped settled lexical)
-  agreesOfMarked file.lexed1.leaves (Bool.andLeft (Bool.andRight laid))
+  agreesOfMarked file.lexed.leaves (Bool.andLeft (Bool.andRight laid))
 
 --| A leaf whose text says whether it is a closer, as its kind does, has the kind a closer's text has.
 theorem agreesOfMarked ∀ (leaves: List Leaf) (marked: leaves.all Leaf.marked = True): leaves.all Leaf.agrees = True :=
@@ -1150,8 +1150,8 @@ theorem agreesOfMarked ∀ (leaves: List Leaf) (marked: leaves.all Leaf.marked =
 --| Each declaration's words, calmed, keep `->` bare and end in no `->`, since the tree's do.
 theorem restArrows ∀ (decls: List Decl)
     (within: decls.all Decl.within1 = True)
-    (lexical: decls.all Decl.lexical1 = True)
-    (settled: decls.all Decl.settled1 = True):
+    (lexical: decls.all Decl.lexical = True)
+    (settled: decls.all Decl.settled = True):
     ((decls.map Decl.calm).map Decl.words).all arrowsBare = True
       ∧ ((decls.map Decl.calm).map Decl.words).all endsQuiet = True :=
   match decls with
@@ -1189,13 +1189,13 @@ theorem restArrows ∀ (decls: List Decl)
 
 theorem wordsArrows ∀ (file: SourceFile)
     (within: file.within1 = True)
-    (lexical: file.lexical1 = True)
-    (settled: file.settled1 = True):
-    arrowsBare file.words1 = True ∧ headQuiet file.words1.reverse = True :=
+    (lexical: file.lexical = True)
+    (settled: file.settled = True):
+    arrowsBare file.words = True ∧ headQuiet file.words.reverse = True :=
   match file with
     | { decls, end } =>
       let withinDecls: decls.all Decl.within1 = True := within
-      let lexicalDecls: decls.all Decl.lexical1 = True := lexical
+      let lexicalDecls: decls.all Decl.lexical = True := lexical
       match decls with
         | [] => (byComputing, byComputing)
         | [Definition [] header (Assigned colonEq value), ..rest] =>
@@ -1366,20 +1366,20 @@ theorem arrowsOnto ∀ (behind acc: List Leaf) (done after: List Word)
 --|
 --| Proof idea: rule 1's result is the leaves matched to the words (`m`), so `arrowsBare` of the leaves follows from
 --| `arrowsBare` of the words (`arrowsOnto`): an `->` leaf is an `->` word (the lexer marks its kind by its text), whose
---| neighbour is the next word, or a bare comma. The words keep `->` bare (the tree's are `settled1`, `calm` keeps what
+--| neighbour is the next word, or a bare comma. The words keep `->` bare (the tree's are `settled`, `calm` keeps what
 --| it reads) and no declaration ends in `->` (`exprEndsQuiet`), so `->` is bare across declarations too.
 theorem homedArrowsBare ∀ (file: SourceFile)
     (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True)
-    (hung: file.hung1 = True)
-    (m: matched (homeFrom False [] None file.lexed1.leaves).reverse (file.words1.reverseOnto []) = True):
-    Syntax.SettleProofs.arrowsBare (homeFrom False [] None file.lexed1.leaves) = True :=
-  let leaves := file.lexed1.leaves
+    (shaped: file.shaped = True)
+    (settled: file.settled = True)
+    (lexical: file.lexical = True)
+    (hung: file.hung = True)
+    (m: matched (homeFrom False [] None file.lexed.leaves).reverse (file.words.reverseOnto []) = True):
+    Syntax.SettleProofs.arrowsBare (homeFrom False [] None file.lexed.leaves) = True :=
+  let leaves := file.lexed.leaves
   let homed := homeFrom False [] None leaves
   let laid :=
-    lexLaid1 file.printed1 file.lexed1
+    lexLaid1 file.printed1 file.lexed
       (printedFileLexes1 file within shaped settled lexical)
       (printedAlphabet1 file within shaped settled lexical)
   let marked: leaves.all isMarked = True := Bool.andLeft (Bool.andRight laid)
@@ -1387,11 +1387,11 @@ theorem homedArrowsBare ∀ (file: SourceFile)
   let markedHomed: homed.all isMarked = True :=
     Eq.trans (markedTokens homed) (rewrite tokensSame then Eq.trans (Eq.flipped (markedTokens leaves)) marked)
   let (bare, quiet) := wordsArrows file within lexical settled
-  let reversed: arrowsBare ((file.words1.reverseOnto []).reverse ++ []) = True :=
-    rewrite List.appendNil (file.words1.reverseOnto []).reverse, List.reverseReverse file.words1 then bare
+  let reversed: arrowsBare ((file.words.reverseOnto []).reverse ++ []) = True :=
+    rewrite List.appendNil (file.words.reverseOnto []).reverse, List.reverseReverse file.words then bare
   let done :=
     arrowsOnto homed.reverse []
-      (file.words1.reverseOnto [])
+      (file.words.reverseOnto [])
       []
       m
       (List.allReverseOntoTrue isMarked homed [] markedHomed byComputing)
@@ -1403,15 +1403,15 @@ theorem homedArrowsBare ∀ (file: SourceFile)
 --| The parser's groups of rule 1's result are the declarations, each with its words.
 theorem groupsBack ∀ (file: SourceFile)
     (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True)
-    (hung: file.hung1 = True)
-    (stood: file.stood1 = True)
-    (unreturned: file.unreturned1 = True)
-    (m: matched (homeFrom False [] None file.lexed1.leaves).reverse (file.words1.reverseOnto []) = True):
-    (groupsOf (homeFrom False [] None file.lexed1.leaves)).map codeWords = file.calmTop.decls.map Decl.words :=
-  let leaves := file.lexed1.leaves
+    (shaped: file.shaped = True)
+    (settled: file.settled = True)
+    (lexical: file.lexical = True)
+    (hung: file.hung = True)
+    (stood: file.stood = True)
+    (unreturned: file.unreturned = True)
+    (m: matched (homeFrom False [] None file.lexed.leaves).reverse (file.words.reverseOnto []) = True):
+    (groupsOf (homeFrom False [] None file.lexed.leaves)).map codeWords = file.calmTop.decls.map Decl.words :=
+  let leaves := file.lexed.leaves
   let homed := homeFrom False [] None leaves
   let tokensSame: tokens homed = tokens leaves := Eq.trans (homeFromTokens False [] None leaves) byComputing
   let groupsSame: groupTokens (groupsOf homed) = groupTokens (groupsFrom True file.decls) :=
@@ -1422,18 +1422,18 @@ theorem groupsBack ∀ (file: SourceFile)
     Eq.trans
       (codeLengthsTokens _ _ groupsSame)
       (standsLengths _ _ (standsEachFile file within shaped settled lexical stood unreturned))
-  let wordsOf: codeWords homed = file.words1 := calc codeWords homed
+  let wordsOf: codeWords homed = file.words := calc codeWords homed
     _ = codeWords (homed.reverse.reverseOnto []) := rewrite List.reverseReverse homed
-    _ = (file.words1.reverseOnto []).reverseOnto [] := matchedWords homed.reverse [] (file.words1.reverseOnto []) m
-    _ = file.words1 := List.reverseReverse file.words1
+    _ = (file.words.reverseOnto []).reverseOnto [] := matchedWords homed.reverse [] (file.words.reverseOnto []) m
+    _ = file.words := List.reverseReverse file.words
   piecesWords (groupsOf homed) (file.calmTop.decls.map Decl.words) (rewrite groupsConcat homed then wordsOf) lengths
 
 --| The end's comments read back as the tree's.
 theorem endBack ∀ (file: SourceFile)
     (within: file.within1 = True)
-    (settled: file.settled1 = True)
-    (unreturned: file.unreturned1 = True):
-    file.lexed1.end.trimmed.comments = file.calmTop.end :=
+    (settled: file.settled = True)
+    (unreturned: file.unreturned = True):
+    file.lexed.end.trimmed.comments = file.calmTop.end :=
   match file with
     | { decls, end = { above, after, blankBefore } } =>
       let texts := notesTexts above after.toList (Bool.andLeft (Bool.andRight settled))
@@ -1634,9 +1634,9 @@ theorem leadOf ∀ (leaves: List Leaf) (plain: plain1 (tokens leaves) = True): n
       match comma: leaf.kind == Comma with
         | False => byComputing
 
---| `printedSettle1` (`Fmt.OutputStatements`), with `stood1` (`printedStands1`'s conclusion, ticket F) and
---| `unreturned1` as hypotheses. `unreturned1` is needed: an own-line comment ending in a carriage return, which
---| `settled1` allows, is printed with it and read back without it (`returnLost`).
+--| `printedSettle1` (`Fmt.OutputStatements`), with `stood` (`printedStands1`'s conclusion, ticket F) and
+--| `unreturned` as hypotheses. `unreturned` is needed: an own-line comment ending in a carriage return, which
+--| `settled` allows, is printed with it and read back without it (`returnLost`).
 --|
 --| Proof idea: the leaves stand against the output tree's words (`standsFile`), so rule 1 gives each leaf its word
 --| and leaves the commas bare (`homeStands`); rules 2 to 4 then find nothing to move (`commasIdle`, `arrowsIdleAll`,
@@ -1644,21 +1644,21 @@ theorem leadOf ∀ (leaves: List Leaf) (plain: plain1 (tokens leaves) = True): n
 --| (`groupsBack`).
 theorem printedSettle1 ∀ (file: SourceFile)
     (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True)
-    (hung: file.hung1 = True)
-    (stood: file.stood1 = True)
-    (unreturned: file.unreturned1 = True):
-    (groupsOf file.lexed1.settled.leaves).map codeWords = file.calmTop.decls.map Decl.words
-      ∧ file.lexed1.settled.end.comments = file.calmTop.end :=
-  let leaves := file.lexed1.leaves
+    (shaped: file.shaped = True)
+    (settled: file.settled = True)
+    (lexical: file.lexical = True)
+    (hung: file.hung = True)
+    (stood: file.stood = True)
+    (unreturned: file.unreturned = True):
+    (groupsOf file.lexed.settled.leaves).map codeWords = file.calmTop.decls.map Decl.words
+      ∧ file.lexed.settled.end.comments = file.calmTop.end :=
+  let leaves := file.lexed.leaves
   let homed := homeFrom False [] None leaves
   let (homedWords, texts) := wordsSettled1 file within settled
   let plain := printedPlain1 file within shaped settled lexical hung
   let leavesWithin := alphabet1Leaves leaves (printedAlphabet1 file within shaped settled lexical)
-  let m: matched homed.reverse (file.words1.reverseOnto []) = True :=
-    homeStands None [] leaves [] file.words1
+  let m: matched homed.reverse (file.words.reverseOnto []) = True :=
+    homeStands None [] leaves [] file.words
       (standsFile file within shaped settled lexical stood unreturned)
       byComputing
       (Bool.orRight (leadOf leaves plain))
@@ -1672,20 +1672,20 @@ theorem printedSettle1 ∀ (file: SourceFile)
   let tokensSame: tokens homed = tokens leaves := Eq.trans (homeFromTokens False [] None leaves) byComputing
   let plainHomed: plainFrom (tokens homed) = True := rewrite tokensSame then plainFromOf (tokens leaves) plain
   let homedWithin := withinOfTokens homed leaves tokensSame leavesWithin
-  let commasSame: commasFrom [] None homed file.lexed1.end = { leaves = homed, end = file.lexed1.end } :=
-    commasIdle [] homed file.lexed1.end bare
+  let commasSame: commasFrom [] None homed file.lexed.end = { leaves = homed, end = file.lexed.end } :=
+    commasIdle [] homed file.lexed.end bare
   let arrowsSame: arrows homed = homed :=
     arrowsIdleAll homed (homedArrowsBare file within shaped settled lexical hung m) plainHomed
   let letsSame: letsFrom [] homed = homed := letsQuiet1 [] homed byComputing homedWithin
   let trimSame: homed.map (leaf => { leaf | trivia = leaf.trivia.trimmed }) = homed :=
     let wordsTexts :=
-      List.allReverseOntoTrue (word => word.comments.texts.all commentText) file.words1 [] texts byComputing
+      List.allReverseOntoTrue (word => word.comments.texts.all commentText) file.words [] texts byComputing
     let clean: homed.all Leaf.clean = True :=
       rewrite <- List.reverseReverse homed then
         List.allReverseOntoTrue Leaf.clean homed.reverse [] (matchedClean _ _ m wordsTexts) byComputing
     trimIdle homed clean
-  let leavesSame: file.lexed1.settled.leaves = homed := rewrite commasSame, arrowsSame, letsSame, trimSame
-  let endSame: file.lexed1.settled.end = file.lexed1.end.trimmed := rewrite commasSame
+  let leavesSame: file.lexed.settled.leaves = homed := rewrite commasSame, arrowsSame, letsSame, trimSame
+  let endSame: file.lexed.settled.end = file.lexed.end.trimmed := rewrite commasSame
   (
     rewrite leavesSame then groupsBack file within shaped settled lexical hung stood unreturned m,
     rewrite endSame then endBack file within settled unreturned
@@ -1796,17 +1796,17 @@ theorem notesRead ∀ (notes: List Note)
 --| A declaration's leaves in the file stand against its calm words, the `def` holding `keyword`'s comments, when the
 --| file loop's notes and blank line read back as those.
 theorem standsDecl ∀ (header: Header) (colonEq: Comments) (value: Expr) (empty: Bool) (keyword: Comments)
-    (stood: (Definition [] header (Assigned colonEq value)).stands1 = True)
-    (start: notCommaFirst (Definition [] header (Assigned colonEq value)).leaves1 = True)
+    (stood: (Definition [] header (Assigned colonEq value)).stands = True)
+    (start: notCommaFirst (Definition [] header (Assigned colonEq value)).leaves = True)
     (aboveRead: readNotes (laidNotes empty header.keyword.above) = keyword.above)
     (blankRead: ((if header.keyword.blankBefore && !(empty && header.keyword.above.isEmpty) then 1 else 0) > 0)
       = keyword.blankBefore)
     (afterSame: keyword.after = header.keyword.after):
     stands None
       [fixedWord "def" keyword, ..((Definition [] header (Assigned colonEq value)).calm.words.drop 1)]
-      ((Definition [] header (Assigned colonEq value)).laid1 empty)
+      ((Definition [] header (Assigned colonEq value)).laid empty)
       = True :=
-  match leaves: (Definition [] header (Assigned colonEq value)).leaves1 with
+  match leaves: (Definition [] header (Assigned colonEq value)).leaves with
     | [leaf, ..rest] =>
       match comma: leaf.kind == Comma with
         | False =>
@@ -1921,12 +1921,12 @@ theorem standsConcat ∀ (words: List (List Word)) (groups: List (List Leaf))
 --| The file's leaves stand against the output tree's words.
 theorem standsFile ∀ (file: SourceFile)
     (within: file.within1 = True)
-    (shaped: file.shaped1 = True)
-    (settled: file.settled1 = True)
-    (lexical: file.lexical1 = True)
-    (stood: file.stood1 = True)
-    (unreturned: file.unreturned1 = True):
-    stands None file.words1 file.lexed1.leaves = True :=
+    (shaped: file.shaped = True)
+    (settled: file.settled = True)
+    (lexical: file.lexical = True)
+    (stood: file.stood = True)
+    (unreturned: file.unreturned = True):
+    stands None file.words file.lexed.leaves = True :=
   standsConcat _ _ (standsEachFile file within shaped settled lexical stood unreturned)
 
 --| Leaves standing against words have a non-comma leaf for each word.

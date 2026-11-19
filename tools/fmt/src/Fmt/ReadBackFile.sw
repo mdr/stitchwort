@@ -170,14 +170,14 @@ theorem headedTokens ∀ (above: List Comment) (blank: Nat) (leaves: List Leaf):
     | [first, ..rest] => byComputing
 
 theorem groupsFromTokens ∀ (empty: Bool) (decls: List Decl):
-    (groupsFrom empty decls).map tokens = decls.map (decl => tokens decl.leaves1) :=
+    (groupsFrom empty decls).map tokens = decls.map (decl => tokens decl.leaves) :=
   match decls with
     | [] => byComputing
     | [decl, ..rest] =>
       rewrite headedTokens
             (laidNotes empty decl.firstComments.above)
             (if decl.firstComments.blankBefore && !(empty && decl.firstComments.above.isEmpty) then 1 else 0)
-            decl.leaves1,
+            decl.leaves,
           groupsFromTokens False rest
 
 -- A slice 1 declaration passes the lowering's checks.
@@ -355,10 +355,10 @@ theorem refusalOf ∀ (leaf: Leaf) (rest: List Leaf)
 --| `def`, in column 0.
 theorem refusalNone ∀ (leaves: List Leaf) (decls: List Decl)
     (within: decls.all Decl.within1 = True)
-    (shaped: decls.all Decl.shaped1 = True)
-    (settled: decls.all Decl.settled1 = True)
-    (lexical: decls.all Decl.lexical1 = True)
-    (hung: decls.all (decl => hangs decl.leaves1) = True)
+    (shaped: decls.all Decl.shaped = True)
+    (settled: decls.all Decl.settled = True)
+    (lexical: decls.all Decl.lexical = True)
+    (hung: decls.all (decl => hangs decl.leaves) = True)
     (same: tokens leaves = tokens (groupsFrom True decls).concat):
     fileRefusal leaves = None :=
   match decls with
@@ -368,8 +368,8 @@ theorem refusalNone ∀ (leaves: List Leaf) (decls: List Decl)
     | [decl, ..others] =>
       let starts :=
         declStartsKw decl (Bool.andLeft within) (Bool.andLeft shaped) (Bool.andLeft settled) (Bool.andLeft lexical)
-      let decHung: hangs decl.leaves1 = True := Bool.andLeft hung
-      match shows: decl.leaves1 with
+      let decHung: hangs decl.leaves = True := Bool.andLeft hung
+      match shows: decl.leaves with
         | [first, ..tail] =>
           match leaves with
             | [leaf, ..rest] =>

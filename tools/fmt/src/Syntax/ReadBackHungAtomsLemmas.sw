@@ -281,7 +281,7 @@ theorem speltOutsideHung ∀ (modes: Modes)
     (afterHead: exprHead after = True):
     parenOutside (peekIn modes 1 [first, ..read ++ after]) (peekIn modes 2 [first, ..read ++ after]) = False :=
   let kinds := speltExpr expr read spelt
-  match signed: expr.signed1 with
+  match signed: expr.signed with
     | False =>
       let (second, more, isRead, starts) := speltPlainStarts expr read spelt signed
       let kinds2: exprAll [second, ..more] = True := rewrite <- isRead then kinds

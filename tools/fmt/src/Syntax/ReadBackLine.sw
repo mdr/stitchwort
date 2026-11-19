@@ -6,7 +6,7 @@
 --| comma between bracket items and none after the last); the look-aheads are discharged by `Syntax.ReadBackEnds`
 --| from the item kinds (`lineAll`: words, brackets, commas and `:=`) and from what follows each node. In `Quiet` modes
 --| only a line start stops a reading. No list that starts a full expression may start with `auto` on a type's name
---| (`Syntax.AutoPlaced.Expr.autoPlaced1`), which reads there as an implicit binder. `-` glued to a numeral reads as
+--| (`Syntax.AutoPlaced.Expr.autoPlaced`), which reads there as an implicit binder. `-` glued to a numeral reads as
 --| one atom, as `Spelt` says the parser sees it, and a sign may start a call's argument, glued to its atom and spaced
 --| from what precedes it (`argumentGlue`). Binary operators
 --| read as the parser's chains: each operator ends the operand before it (`opEnds`) and is spaced from the one after
@@ -171,14 +171,14 @@ def operandApart: List Item → Bool
   | [] => True
 
 --| An expression that starts with a sign: a prefix, or a call or an infix whose head or left side does.
-def Expr.signed1: Expr → Bool
+def Expr.signed: Expr → Bool
   | Prefix _ _ => True
-  | App head _ => head.signed1
-  | Infix _ left _ _ => left.signed1
+  | App head _ => head.signed
+  | Infix _ left _ _ => left.signed
   | _ => False
 
 --| No infix operator at the top: what `unary` reads whole.
-def Expr.unary1: Expr → Bool
+def Expr.unary: Expr → Bool
   | Infix _ _ _ _ => False
   | _ => True
 
@@ -188,7 +188,7 @@ def Expr.unary1: Expr → Bool
 --| only when the operand is a numeral: a `-` before a numeral but apart from it, as across a comment in
 --| `(- -- c⏎  1)`, reads as a sign on its operand. An infix (an arrow, or a
 --| binary operator of `binaryTok`, `&&` and `||` among them) is its left side, its operator and its right side: the operator's text binds as its
---| token does (`tokLevel`), the operands sit at the levels `shaped1` asks (`leftNeeds`, `rightNeeds`), and the right
+--| token does (`tokLevel`), the operands sit at the levels `shaped` asks (`leftNeeds`, `rightNeeds`), and the right
 --| operand doesn't touch the operator (`operandApart`).
 def Spelt: Expr → List Item → Prop
   | Atom kind word, read =>
@@ -242,7 +242,7 @@ def Spelt: Expr → List Item → Prop
       ∧ signKind sign.kind = True
       ∧ sign.leaf.word = operator
       ∧ (negativeNumeral [sign, ..more] = True → operand.numeral1 = True)
-      ∧ operand.unary1 = True
+      ∧ operand.unary = True
       ∧ Spelt operand more
   | Infix kind left operator right, read =>
     ∃ (leftRead: List Item) (op: Item) (rightRead: List Item) => read = leftRead ++ [op, ..rightRead]
@@ -256,13 +256,13 @@ def Spelt: Expr → List Item → Prop
       ∧ Spelt right rightRead
   | _, _ => Void
 
-def Expr.prefix1: Expr → Bool
+def Expr.prefix: Expr → Bool
   | Prefix _ _ => True
   | _ => False
 
 --| A call's head: an atom or a bracket, or a sign read as a negative numeral (`-1 n`), the one sign `unaryNext` hands
 --| to `app`.
-def headFits (head: Expr) (read: List Item): Bool := head.atomic1 || (head.prefix1 && negativeNumeral read)
+def headFits (head: Expr) (read: List Item): Bool := head.primary || (head.prefix && negativeNumeral read)
 
 --| A call's arguments after the first, as `arguments`' rounds: each an atom, a bracket or a sign on one, spelt by its
 --| read.
@@ -275,9 +275,9 @@ def SpeltArgs: List Expr → List (List Item, Expr) → Prop
       ∧ SpeltArgs more later
 
 --| A call's argument in this part: an atom or a bracket, or a sign on one.
-def Expr.signArg1: Expr → Bool
-  | Prefix _ operand => operand.atomic1
-  | other => other.atomic1
+def Expr.signArg: Expr → Bool
+  | Prefix _ operand => operand.primary
+  | other => other.primary
 
 --| A sign starting an argument is glued to what follows it and not to what precedes it, which ends an operand: the
 --| spacing `argumentPrefix` asks of `f -x`.
@@ -286,7 +286,7 @@ def argumentGlue: List Item → Bool
   | _ => True
 
 --| An argument of this part, its sign (if any) spaced as an argument's.
-def argumentFits (argument: Expr) (read: List Item): Bool := argument.signArg1 && argumentGlue read
+def argumentFits (argument: Expr) (read: List Item): Bool := argument.signArg && argumentGlue read
 
 --| The bracket items after the first (or first two), as `CommaReads`' steps: a comma, then an item's reading.
 def SpeltSteps: List Expr → List (Item, List Item, Expr) → Prop
@@ -298,18 +298,18 @@ def SpeltSteps: List Expr → List (Item, List Item, Expr) → Prop
       ∧ SpeltSteps rest later
 
 --| How deep `self` calls nest when the parser reads the expression: one more for each bracket.
-def Expr.nest1: Expr → Nat
-  | Paren _ inner _ => inner.nest1 + 1
+def Expr.nest: Expr → Nat
+  | Paren _ inner _ => inner.nest + 1
   | Tuple _ items _ _ => nestAll items + 1
   | ListOf _ items _ _ => nestAll items + 1
-  | App head arguments => head.nest1 + nestAll arguments + 1
-  | Prefix _ operand => operand.nest1 + 1
-  | Infix _ left _ right => left.nest1 + right.nest1 + 1
+  | App head arguments => head.nest + nestAll arguments + 1
+  | Prefix _ operand => operand.nest + 1
+  | Infix _ left _ right => left.nest + right.nest + 1
   | _ => 0
 
 def nestAll: List Expr → Nat
   | [] => 0
-  | [expr, ..rest] => expr.nest1 + nestAll rest
+  | [expr, ..rest] => expr.nest + nestAll rest
 
 theorem wordStart ∀ (kind: Tok) (word: kind.wordWithin1 = True): startKind kind = True := cases
 
@@ -318,7 +318,7 @@ theorem startLead ∀ (kind: Tok) (starts: startKind kind = True): leadKind kind
 theorem signLead ∀ (kind: Tok) (signed: signKind kind = True): leadKind kind = True := cases
 
 --| An atom or a bracket is no prefix.
-theorem atomicUnsigned ∀ (expr: Expr) (atomic: expr.atomic1 = True): expr.signed1 = False := match expr, atomic with
+theorem atomicUnsigned ∀ (expr: Expr) (atomic: expr.primary = True): expr.signed = False := match expr, atomic with
   | Atom _ _, _ => byComputing
   | Paren _ _ _, _ => byComputing
   | Tuple _ _ _ _, _ => byComputing
@@ -350,7 +350,7 @@ theorem speltStarts ∀ (expr: Expr) (read: List Item)
 --| A spelt expression other than a prefix starts with an atom's first kind.
 theorem speltPlainStarts ∀ (expr: Expr) (read: List Item)
     (spelt: Spelt expr read)
-    (unsigned: expr.signed1 = False):
+    (unsigned: expr.signed = False):
     ∃ (item: Item) (more: List Item) => read = [item, ..more] ∧ startKind item.kind = True :=
   match expr, spelt, unsigned with
     | Atom kind word, (item, isRead, isKind, _, word), _ => (item, [], isRead, rewrite isKind then wordStart kind word)
@@ -905,7 +905,7 @@ theorem firstKind ∀ (item first: Item) (more inside: List Item)
 --| or the `]`.
 theorem noAutoLine ∀ (expr: Expr) (item: Item) (more rest: List Item)
     (spelt: Spelt expr [item, ..more])
-    (free: expr.autoPlaced1 True = True):
+    (free: expr.autoPlaced True = True):
     (item.kind == LBracket && namelessAutoAt [item, ..more ++ rest]) = False :=
   match expr, spelt, free with
     | Atom kind word, (first, isRead, isKind, _, word), _ =>
@@ -970,7 +970,7 @@ theorem endsHeadNotUpper ∀ (items: List Item) (ends: endsHere items = True): h
 --| by `noAutoCall`; an arrow by its left side, followed by `->`.
 theorem noAutoFirst ∀ (expr: Expr) (item: Item) (read later: List Item)
     (spelt: Spelt expr read)
-    (notAuto: expr.autoCall1 = False)
+    (notAuto: expr.autoCall = False)
     (upper: headNotUpper later = True):
     namelessAutoAt [item, ..read ++ later] = False :=
   match expr, spelt, notAuto with
@@ -1001,10 +1001,10 @@ theorem noAutoFirst ∀ (expr: Expr) (item: Item) (read later: List Item)
 --| A call that is no `auto` call on a type's name doesn't make the list it starts an implicit binder.
 --|
 --| Proof idea: the call's head is its second item, and its first argument's first item the third: a word head and a
---| word argument are `autoCall1`'s own test; a bracket in either place is no `Lower` or `Upper`.
+--| word argument are `autoCall`'s own test; a bracket in either place is no `Lower` or `Upper`.
 theorem noAutoCall ∀ (head: Expr) (arguments: List Expr) (item: Item) (read later: List Item)
     (spelt: Spelt (App head arguments) read)
-    (notAuto: (App head arguments).autoCall1 = False):
+    (notAuto: (App head arguments).autoCall = False):
     namelessAutoAt [item, ..read ++ later] = False :=
   match arguments, spelt with
     | [argument, ..more], (headRead, argRead, steps, isRead, headAtomic, argAtomic, headSpelt, argSpelt, _) =>
@@ -1194,10 +1194,7 @@ theorem signCases ∀ (kind: Tok) (signed: signKind kind = True): kind = Minus �
   | other, never => (Bool.falseNotTrue never).impossible
 
 --| An argument of this part that is no prefix is an atom or a bracket.
-theorem signArgAtomic ∀ (expr: Expr)
-    (fits: expr.signArg1 = True)
-    (unsigned: expr.signed1 = False):
-    expr.atomic1 = True :=
+theorem signArgAtomic ∀ (expr: Expr) (fits: expr.signArg = True) (unsigned: expr.signed = False): expr.primary = True :=
   match expr, fits, unsigned with
     | Prefix _ _, _, never => (Bool.falseNotTrue never.flipped).impossible
     | Atom _ _, fits, _ => fits
@@ -1490,7 +1487,7 @@ theorem infixAtMost ∀ (kind: InfixKind) (tok: Tok) (isOp: infixTok kind tok = 
 theorem highUnary ∀ (expr: Expr) (read: List Item)
     (spelt: Spelt expr read)
     (high: 17 <= expr.level):
-    expr.unary1 = True :=
+    expr.unary = True :=
   match expr, spelt, high with
     | Infix kind _ operator _, (_, op, _, _, isOp, _, level, _), high =>
       Void.impossible (arithmetic [high, level, infixAtMost kind op.kind isOp])
@@ -1505,7 +1502,7 @@ theorem highUnary ∀ (expr: Expr) (read: List Item)
 --| A spelt expression that is no infix binds at the unary level or tighter.
 theorem unaryLevel ∀ (expr: Expr) (read: List Item)
     (spelt: Spelt expr read)
-    (unary: expr.unary1 = True):
+    (unary: expr.unary = True):
     18 <= expr.level :=
   match expr, spelt, unary with
     | Atom _ _, _, _ => arithmetic []
@@ -1733,8 +1730,8 @@ theorem linkValuesLength ∀ (links: List (Item, List Item, Expr)):
 type OperandSpelt (depth: Nat) (expr: Expr) (read: List Item): Prop = {
   spelt: Spelt expr read,
   fits: 6 <= expr.level,
-  free: expr.autoPlaced1 False = True,
-  deep: expr.nest1 <= depth
+  free: expr.autoPlaced False = True,
+  deep: expr.nest <= depth
 }
 
 --| The links of a logic chain spelt: each operator `&&` or `||`, its operand a comparison spelt by its read and spaced
@@ -1761,8 +1758,8 @@ def ConjFlat (depth: Nat) (expr: Expr) (read: List Item) (tail: List (Item, List
 theorem conjLeaf ∀ (depth: Nat) (expr: Expr) (read: List Item) (tail: List (Item, List Item, Expr))
     (spelt: Spelt expr read)
     (high: 6 <= expr.level)
-    (free: expr.autoPlaced1 False = True)
-    (deep: expr.nest1 <= depth)
+    (free: expr.autoPlaced False = True)
+    (deep: expr.nest <= depth)
     (tailSpelt: LinksSpelt depth tail)
     (stop: andLed (Parse.stepValues (linkSteps tail)) = False):
     ConjFlat depth expr read tail :=
@@ -1785,8 +1782,8 @@ theorem conjLeaf ∀ (depth: Nat) (expr: Expr) (read: List Item) (tail: List (It
 theorem conjFlat ∀ (depth: Nat) (expr: Expr) (read: List Item) (tail: List (Item, List Item, Expr))
     (spelt: Spelt expr read)
     (fits: 5 <= expr.level)
-    (free: expr.autoPlaced1 False = True)
-    (deep: expr.nest1 <= depth)
+    (free: expr.autoPlaced False = True)
+    (deep: expr.nest <= depth)
     (tailSpelt: LinksSpelt depth tail)
     (stop: andLed (Parse.stepValues (linkSteps tail)) = False):
     ConjFlat depth expr read tail :=
@@ -1868,8 +1865,8 @@ def LogicSplit (depth: Nat) (expr: Expr) (read: List Item): Prop :=
 theorem orOfConj ∀ (depth: Nat) (expr: Expr) (read: List Item)
     (spelt: Spelt expr read)
     (fits: 5 <= expr.level)
-    (free: expr.autoPlaced1 False = True)
-    (deep: expr.nest1 <= depth):
+    (free: expr.autoPlaced False = True)
+    (deep: expr.nest <= depth):
     LogicSplit depth expr read :=
   let (first, firstRead, links, isRead, operand, linksSpelt, _, conj) :=
     conjFlat depth expr read [] spelt fits free deep byComputing byComputing
@@ -1892,8 +1889,8 @@ theorem orOfConj ∀ (depth: Nat) (expr: Expr) (read: List Item)
 theorem orFlat ∀ (depth: Nat) (expr: Expr) (read: List Item)
     (spelt: Spelt expr read)
     (fits: 4 <= expr.level)
-    (free: expr.autoPlaced1 False = True)
-    (deep: expr.nest1 <= depth):
+    (free: expr.autoPlaced False = True)
+    (deep: expr.nest <= depth):
     LogicSplit depth expr read :=
   match expr, spelt, fits with
     | Infix InfixBinary left operator right, sp, fits =>

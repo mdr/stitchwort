@@ -69,20 +69,20 @@ def Decl.stood (decl: Decl): List Word := match decl.calm.words with
   | [first, ..rest] =>
     [{ first | comments = { above = [], after = first.comments.after, blankBefore = False } }, ..rest]
 
-def Decl.stands1 (decl: Decl): Bool := stands None decl.stood decl.leaves1
+def Decl.stands (decl: Decl): Bool := stands None decl.stood decl.leaves
 
 --| Every declaration's printed leaves have the tree's comments where `stands` says.
-def SourceFile.stood1 (file: SourceFile): Bool := file.decls.all Decl.stands1
+def SourceFile.stood (file: SourceFile): Bool := file.decls.all Decl.stands
 
--- `printedStands1`, that `stands1` holds of a slice 1 declaration, is proved in `Fmt.StandsProofs`, with two
--- hypotheses beyond the four tree facts: no comment ends in a carriage return (`unreturned1`; the statement is false without it) and the facts `printedHangs` takes (`DeclHangs`).
+-- `printedStands1`, that `stands` holds of a slice 1 declaration, is proved in `Fmt.StandsProofs`, with two
+-- hypotheses beyond the four tree facts: no comment ends in a carriage return (`unreturned`; the statement is false without it) and the facts `printedHangs` takes (`DeclHangs`).
 
 -- Cases the statement applies to, and what it is for.
 
 --| The statement on one source's tidied tree: its hypotheses, then its conclusion.
 def standsOn (source: Text): Bool := match tidiedOf source with
   | None => False
-  | Some file => file.within1 && file.shaped1 && file.settled1 && file.lexical1 && file.stood1
+  | Some file => file.within1 && file.shaped && file.settled && file.lexical && file.stood
 
 --| Comments in every kind of place (`holdsOnExample`'s source): above declarations, after an opener, after a comma,
 --| above an item after a blank line, after a closer, and after a `->` in the source.
@@ -103,7 +103,7 @@ theorem standsOnClosers: (standsOn "def d: A := f [a, -- c\n    b -- e\n  ] (c -
 theorem standsOnTucked: standsOn "def d: A := g ((a -- c\n  ), b)\n" = True := byComputing
 
 --| `def d: A := (b) -- c` as a tree no parse gives: the `)` holds a comment though `b`, before it, ends with none, so
---| the tree is not `settled1`.
+--| the tree is not `settled`.
 def unsettledParen: SourceFile := {
   decls = [
     Definition []
@@ -129,17 +129,17 @@ def unsettledParen: SourceFile := {
   end = Comments.none
 }
 
---| `settled1` is needed: in `unsettledParen` the rules leave the `)` on `b`'s line, where it starts none, and the
+--| `settled` is needed: in `unsettledParen` the rules leave the `)` on `b`'s line, where it starts none, and the
 --| statement fails, with every other hypothesis.
 theorem unsettledFalls: (unsettledParen.within1
-      && unsettledParen.shaped1
-      && unsettledParen.lexical1
-      && !unsettledParen.settled1
-      && !unsettledParen.stood1)
+      && unsettledParen.shaped
+      && unsettledParen.lexical
+      && !unsettledParen.settled
+      && !unsettledParen.stood)
       = True :=
   byComputing
 
 --| `stands` alone does not give `printedSettle1`: `unsettledFile` (`[a -- x⏎, b] -- c`) stands, as its list breaks
 --| and the `]` starts a line, yet rule N takes the `]`'s comment back to `b` (`settledNeeded`). `printedSettle1`
---| reads `settled1` a second time, for where rule 1 stops.
-theorem unsettledStands: (unsettledFile.stood1 && !wordsBack unsettledFile) = True := byComputing
+--| reads `settled` a second time, for where rule 1 stops.
+theorem unsettledStands: (unsettledFile.stood && !wordsBack unsettledFile) = True := byComputing

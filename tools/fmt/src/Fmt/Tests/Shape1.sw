@@ -1,4 +1,4 @@
---| `shaped1` is the parser's shape: it holds of what the parser gives in slice 1, and refuses trees the parser never
+--| `shaped` is the parser's shape: it holds of what the parser gives in slice 1, and refuses trees the parser never
 --| builds whose printed text reads back as another tree (SW-4069).
 
 namespace Fmt.Tests
@@ -6,13 +6,13 @@ import Fmt (..)
 import Std (Bool, List, Option, Result, Text)
 import Syntax (Comments, Expr, InfixKind, Note, SourceFile, Tok, Word, lex, parseFile)
 
---| A source parses, from the leaves `parse1` reads, to a file within slice 1 that is `shaped1`.
+--| A source parses, from the leaves `parse1` reads, to a file within slice 1 that is `shaped`.
 def parsesShaped (source: Text): Bool := match lex source with
   | Err _ => False
   | Ok lexed =>
     match parseFile lexed.settledOnce with
       | Err _ => False
-      | Ok file => file.within1 && file.shaped1
+      | Ok file => file.within1 && file.shaped
 
 def bare (text: Text): Word := fixedWord text Comments.none
 
@@ -24,11 +24,11 @@ def binary (left: Expr) (operator: Text) (right: Expr): Expr := Infix InfixBinar
 
 def sign (operator: Text) (operand: Expr): Expr := Prefix (bare operator) operand
 
---| Within slice 1, and refused by `shaped1`.
-def refused (expr: Expr): Bool := expr.within1 && !expr.shaped1
+--| Within slice 1, and refused by `shaped`.
+def refused (expr: Expr): Bool := expr.within1 && !expr.shaped
 
---| Within slice 1, and `shaped1`.
-def accepted (expr: Expr): Bool := expr.within1 && expr.shaped1
+--| Within slice 1, and `shaped`.
+def accepted (expr: Expr): Bool := expr.within1 && expr.shaped
 
 test "shaped1 holds of the parse of calls with signed arguments and a negative numeral as head" :=
   parsesShaped "def x: Nat := f -x !b -1 (a, b) [1] - 2 * 3 + -4 n\n"
@@ -61,7 +61,7 @@ test "shaped1 refuses an argument that is a sign on a sign, which prints as `f -
 
 test "shaped1 accepts an argument that is a sign on an atom, `f -x`" := accepted (App (name "f") [sign "-" (name "x")])
 
--- Comments on a glued sign (SW-4081): `argument1` and `head1` ask `signQuiet`.
+-- Comments on a glued sign (SW-4081): `callArgument` and `callHead` ask `signQuiet`.
 
 --| `-` with a comment after it.
 def noisyMinus: Word := fixedWord "-" { Comments.none | after = Some "-- c" }

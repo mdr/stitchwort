@@ -31,12 +31,12 @@ import Syntax.LexLaidProofs (lexLaidProved)
 -- `codeWords`, the words the tree keeps of some leaves, is `ParseCarries`'s, where the walk that proves
 -- `parseCarries1` speaks of it.
 
---| `Decl.settled1`, of the declaration's words alone: closers homed, `->` bare, every comment as rule N leaves it.
+--| `Decl.settled`, of the declaration's words alone: closers homed, `->` bare, every comment as rule N leaves it.
 def settledWords (words: List Word): Bool :=
   homedBack words.reverse && arrowsBare words && words.all (word => word.comments.texts.all commentText)
 
---| `settled1` reads only the words.
-theorem settledIsWords ∀ (decl: Decl): decl.settled1 = settledWords decl.words := byComputing
+--| `settled` reads only the words.
+theorem settledIsWords ∀ (decl: Decl): decl.settled = settledWords decl.words := byComputing
 
 --| The leaves the parser reads are settled, said of their words: `settledWords` of the whole file's words in order
 --| (not a group at a time: a closer's comment is homed by the code before it, which rule N looks for across the
@@ -48,7 +48,7 @@ def Lexed.wordsSettled1 (lexed: Lexed): Bool :=
 
 --| `parseCarries1`: the parser carries every token to the tree. Each declaration's words are the words of its
 --| group's leaves, commas left out, each with the comments its leaf had; and the file's end is the lexed end. So a
---| test on the words of the tree (`settled1`) is a test on the leaves, and no comment is lost but a comma's.
+--| test on the words of the tree (`settled`) is a test on the leaves, and no comment is lost but a comma's.
 --|
 --| The hypotheses are `parseShaped1`'s. `good` is needed for the three tokens the tree keeps only the comments of
 --| (`def`, `:`, `:=`), whose texts `Decl.words` writes back.
@@ -77,7 +77,7 @@ theorem parseSettled1 ∀ (frame: FrameRest expressionAt) (lexed: Lexed) (file: 
     (parses: parseFile lexed = Ok file)
     (within: file.within1 = True)
     (settled: lexed.wordsSettled1 = True):
-    file.settled1 = True :=
+    file.settled = True :=
   match parseCarries1 frame lexed file good quiet parses within with
     | (words, fileEnd) =>
       let joined: (file.decls.map Decl.words).concat = codeWords lexed.leaves :=
@@ -98,7 +98,7 @@ def Leaf.marked (leaf: Leaf): Bool :=
   isCloserText leaf.token.text == leaf.kind.isCloser
     && (operatorTok leaf.token.text == Some Arrow) == (leaf.kind == Arrow)
 
---| Leaves as the lexer gives them, as far as rule N and `settled1` need: laid out (a token with own-line comments,
+--| Leaves as the lexer gives them, as far as rule N and `settled` need: laid out (a token with own-line comments,
 --| or after a trailing comment, starts its line), each token's text agreeing with its kind on closers and `->`, each
 --| comment `--` to the end of a line, and no trailing comment at the file's end.
 def Lexed.laid1 (lexed: Lexed): Bool :=
@@ -151,7 +151,7 @@ def holdsOn (source: Text): Bool := match lex source with
           && file.within1
           && file.decls.map Decl.words == (groupsOf lexed.settledOnce.leaves).map codeWords
           && lexed.settledOnce.wordsSettled1
-          && file.settled1
+          && file.settled
 
 --| A list broken over lines with comments in every kind of place, a last comma, a `->` and a bracket closed after a
 --| comment; and a second declaration.
@@ -163,7 +163,7 @@ theorem holdsOnExample: holdsOn
 --| A last comma that holds a comment, which `settledOnce` moves before rule N runs.
 theorem holdsOnParked: holdsOn "def d: A := (a, b, -- comma\n  )\n" = True := byComputing
 
---| A qualified name is one `Lower` token, in the alphabet, the slice and `lexical1`, and `Spells Lower` has it.
+--| A qualified name is one `Lower` token, in the alphabet, the slice and `lexical`, and `Spells Lower` has it.
 theorem qualifiedIsLower: textLexesAs "List.map" Lower = True := byComputing
 
 --| Likewise a number with an exponent, a `Float` that `Spells Float` has.
@@ -202,7 +202,7 @@ theorem parseSettledSource ∀ (frame: FrameRest expressionAt) (source: Text) (l
     (plain: sourcePlain1 (tokens lexed.leaves) = True)
     (parses: parseFile lexed.settledOnce = Ok file)
     (within: file.within1 = True):
-    file.settled1 = True :=
+    file.settled = True :=
   parseSettled1 frame lexed.settledOnce file
     (settledGood source lexed lexes alphabet plain)
     (settledItemsQuiet source lexed lexes alphabet)

@@ -10,23 +10,23 @@ import Fmt (..)
 import Syntax.Proofs (..)
 import Syntax.ParseProofs (..)
 import Fmt.Grammar1 (..)
-import Fmt.Kinds1 (..)
+import Fmt.Kinds (..)
 import Syntax.SharedFacts (headerResultWithin)
 
 -- What each level of the recursion gives.
 
 --| A tree in the slice that is shaped, lexical and an argument: an atom, a bracket, or a sign on one.
 def ArgParsed (expr: Expr): Prop :=
-  expr.within1 = True → expr.shaped1 = True ∧ expr.lexical1 = True ∧ expr.argument1 = True
+  expr.within1 = True → expr.shaped = True ∧ expr.lexical = True ∧ expr.callArgument = True
 
 --| A tree in the slice that is shaped, lexical and an atom or a bracket: what `atom_base` reads at a token that is no
 --| sign.
 def AtomParsed (expr: Expr): Prop :=
-  expr.within1 = True → expr.shaped1 = True ∧ expr.lexical1 = True ∧ expr.atomic1 = True
+  expr.within1 = True → expr.shaped = True ∧ expr.lexical = True ∧ expr.primary = True
 
 --| A tree in the slice that is shaped, lexical and a call's head: an atom, a bracket, or `-` on a numeral.
 def HeadParsed (expr: Expr): Prop :=
-  expr.within1 = True → expr.shaped1 = True ∧ expr.lexical1 = True ∧ expr.head1 = True
+  expr.within1 = True → expr.shaped = True ∧ expr.lexical = True ∧ expr.callHead = True
 
 --| The items read start with a sign, `-` or `!`.
 def SignFirst (read: List Item): Prop :=
@@ -88,7 +88,7 @@ theorem outAtom ∀ [expr: Expr] (out: Out expr): AtomParsed expr := within =>
 theorem outHead ∀ [expr: Expr] (out: Out expr): HeadParsed expr := within =>
   (Bool.falseNotTrue (rewrite withinFalseOfOut out at within)).impossible
 
-theorem argLevel ∀ (expr: Expr) (argument: expr.argument1 = True): 18 <= expr.level := match expr, argument with
+theorem argLevel ∀ (expr: Expr) (argument: expr.callArgument = True): 18 <= expr.level := match expr, argument with
   | Atom kind word, argument => arithmetic
   | Paren open inner close, argument => arithmetic
   | Tuple open items trailing close, argument => arithmetic
@@ -96,7 +96,7 @@ theorem argLevel ∀ (expr: Expr) (argument: expr.argument1 = True): 18 <= expr.
   | Prefix operator operand, argument => arithmetic
   | other, argument => (Bool.falseNotTrue argument).impossible
 
-theorem headLevel ∀ (expr: Expr) (head: expr.head1 = True): 18 <= expr.level := match expr, head with
+theorem headLevel ∀ (expr: Expr) (head: expr.callHead = True): 18 <= expr.level := match expr, head with
   | Atom kind word, head => arithmetic
   | Paren open inner close, head => arithmetic
   | Tuple open items trailing close, head => arithmetic
@@ -104,14 +104,14 @@ theorem headLevel ∀ (expr: Expr) (head: expr.head1 = True): 18 <= expr.level :
   | Prefix operator operand, head => arithmetic
   | other, head => (Bool.falseNotTrue head).impossible
 
-theorem atomicArgument ∀ (expr: Expr) (atomic: expr.atomic1 = True): expr.argument1 = True := match expr, atomic with
+theorem atomicArgument ∀ (expr: Expr) (atomic: expr.primary = True): expr.callArgument = True := match expr, atomic with
   | Atom kind word, atomic => byComputing
   | Paren open inner close, atomic => byComputing
   | Tuple open items trailing close, atomic => byComputing
   | ListOf open items trailing close, atomic => byComputing
   | other, atomic => (Bool.falseNotTrue atomic).impossible
 
-theorem atomicHead ∀ (expr: Expr) (atomic: expr.atomic1 = True): expr.head1 = True := match expr, atomic with
+theorem atomicHead ∀ (expr: Expr) (atomic: expr.primary = True): expr.callHead = True := match expr, atomic with
   | Atom kind word, atomic => byComputing
   | Paren open inner close, atomic => byComputing
   | Tuple open items trailing close, atomic => byComputing
@@ -379,7 +379,7 @@ theorem reads0Offset: Reads0 (() => offset()) := reads0Mark (here => here.offset
 theorem argsParsed ∀ (args: List Expr)
     (parsed: List.All ArgParsed args)
     (within: allWithin1 args = True):
-    allShaped1 args = True ∧ allLexical1 args = True ∧ args.all Expr.argument1 = True :=
+    allShaped args = True ∧ allLexical args = True ∧ args.all Expr.callArgument = True :=
   match args, parsed, within with
     | [], parsed, within => (byComputing, byComputing, byComputing)
     | [first, ..rest], (firstParsed, restParsed), (Both firstWithin restWithin) =>
@@ -783,7 +783,7 @@ theorem negativeParsed ∀ (minus number: Word) (kind: Tok)
     (quiet: signQuiet minus (Atom kind number) = True):
     ArgParsed (Prefix minus (Atom kind number)) ∧ HeadParsed (Prefix minus (Atom kind number)) :=
   let spelled: (operatorTok minus.text).isSome = True := rewrite minusIs
-  let head: (Prefix minus (Atom kind number)).head1 = True := match numeral with
+  let head: (Prefix minus (Atom kind number)).callHead = True := match numeral with
     | Inl num => rewrite minusIs, num, quiet
     | Inr float => rewrite minusIs, float, quiet
   Both
@@ -1021,7 +1021,7 @@ theorem closeSpelled ∀ (item: Item) (good: GoodItem item) (is: item.kind = RBr
 theorem itemsParsed ∀ (floor: Nat) (items: List Expr)
     (parsed: List.All (Parsed1 floor) items)
     (within: allWithin1 items = True):
-    allShaped1 items = True ∧ allLexical1 items = True :=
+    allShaped items = True ∧ allLexical items = True :=
   match items, parsed, within with
     | [], parsed, within => (byComputing, byComputing)
     | [first, ..rest], (firstParsed, restParsed), (Both firstWithin restWithin) =>
@@ -6860,7 +6860,7 @@ theorem givesDefinitionParts ∀ (self: Goal → {Parse Item} Expr) (modes: Mode
 -- Declarations.
 
 --| What a declaration the parser gives is, when it is within slice 1.
-def DeclOk (decl: Decl): Prop := decl.within1 = True → decl.shaped1 = True ∧ decl.lexical1 = True
+def DeclOk (decl: Decl): Prop := decl.within1 = True → decl.shaped = True ∧ decl.lexical = True
 
 theorem declOut ∀ [decl: Decl] (out: DeclOut decl): DeclOk decl := within =>
   (Bool.falseNotTrue (rewrite withinFalseOfDeclOut out at within)).impossible
@@ -7080,7 +7080,7 @@ theorem parseFileOk ∀ (frame: FrameRest expressionAt) (lexed: Lexed) (file: So
 theorem declsShapedLexical ∀ (decls: List Decl)
     (ok: List.All DeclOk decls)
     (within: decls.all Decl.within1 = True):
-    decls.all Decl.shaped1 = True ∧ decls.all Decl.lexical1 = True :=
+    decls.all Decl.shaped = True ∧ decls.all Decl.lexical = True :=
   match decls, ok, within with
     | [], ok, within => (byComputing, byComputing)
     | [decl, ..rest], (declOk, restOk), (Both declWithin restWithin) =>
@@ -7088,7 +7088,7 @@ theorem declsShapedLexical ∀ (decls: List Decl)
       let (restShaped, restLexical) := declsShapedLexical rest restOk restWithin
       (Both declShaped restShaped, Both declLexical restLexical)
 
---| Every declaration of a file of slice 1 that the parser gives is shaped (`Shaped1`, `Decl.shaped1`).
+--| Every declaration of a file of slice 1 that the parser gives is shaped (`Shaped1`, `Decl.shaped`).
 --|
 --| It assumes what the frame parsers give that is not yet proved (`FrameRest`), and that every item of every declaration's group is good (the lexer's spelling, `GoodItem`).
 theorem parseShaped1 ∀ (frame: FrameRest expressionAt) (lexed: Lexed) (file: SourceFile)
@@ -7096,7 +7096,7 @@ theorem parseShaped1 ∀ (frame: FrameRest expressionAt) (lexed: Lexed) (file: S
     (quiet: List.All (group => itemsQuiet (items group) = True) (groupsOf lexed.leaves))
     (parses: parseFile lexed = Ok file)
     (within: file.within1 = True):
-    file.shaped1 = True :=
+    file.shaped = True :=
   (declsShapedLexical file.decls (parseFileOk frame lexed file good quiet parses) within).left
 
 --| Every word of the file lexes as one token of its kind (a definition's name as a lower-case name, which
@@ -7106,5 +7106,5 @@ theorem parseLexical1 ∀ (frame: FrameRest expressionAt) (lexed: Lexed) (file: 
     (quiet: List.All (group => itemsQuiet (items group) = True) (groupsOf lexed.leaves))
     (parses: parseFile lexed = Ok file)
     (within: file.within1 = True):
-    file.lexical1 = True :=
+    file.lexical = True :=
   (declsShapedLexical file.decls (parseFileOk frame lexed file good quiet parses) within).right

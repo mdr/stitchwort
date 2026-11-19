@@ -1,4 +1,4 @@
---| The keys of an edge-quiet expression (`Expr.edgeQuiet1`, SW-4099): as for a quiet one (`Fmt.QuietKeyProofs`), its
+--| The keys of an edge-quiet expression (`Expr.edgeQuiet`, SW-4099): as for a quiet one (`Fmt.QuietKeyProofs`), its
 --| document has no `Mark` or `CloserLine` below any floor. Only a closer with comments makes them, and an edge-quiet
 --| expression's closers are quiet; its other tokens' comments (above the first, after the last that is no closer)
 --| are text, line breaks and `LineSuffix`, which carry no key.

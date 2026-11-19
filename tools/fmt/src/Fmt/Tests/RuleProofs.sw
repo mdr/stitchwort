@@ -19,11 +19,7 @@ def rulesProofsHold (source: Text): Bool := match lex source with
       | Err _ => False
       | Ok tidied =>
         let file := tidied.fourth
-        file.within1
-          && file.settled1
-          && file.lexical1
-          && file.decls.all declFacts
-          && file.calm.printed1 == file.printed1
+        file.within1 && file.settled && file.lexical && file.decls.all declFacts && file.calm.printed1 == file.printed1
 
 def declFacts (decl: Decl): Bool :=
   decl.real

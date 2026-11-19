@@ -1,6 +1,6 @@
 --| No comment of the tree the formatter prints ends in a carriage return or a space (SW-4089): the declarations' words,
---| `Decl.unreturned1`, and the comments the file loop prints above each declaration and at the end,
---| `SourceFile.unreturned1`. The lexer takes both off (`Syntax.LexUnreturnedProofs`), rule N and the parser carry
+--| `Decl.unreturned`, and the comments the file loop prints above each declaration and at the end,
+--| `SourceFile.unreturned`. The lexer takes both off (`Syntax.LexUnreturnedProofs`), rule N and the parser carry
 --| comments without changing a text, and P2 keeps every word.
 
 namespace Fmt.UnreturnedProofs
@@ -18,7 +18,7 @@ import Fmt.PassProofs (..)
 import Fmt.SettleOutputProofs (..)
 import Fmt.StandsProofs (..)
 
--- From the words' comment texts to `unreturned1`.
+-- From the words' comment texts to `unreturned`.
 
 --| Comments whose texts all end plainly: those above end plainly (`Note.unreturned`) and the one after.
 theorem commentsUnreturned ∀ (comments: Comments)
@@ -61,7 +61,7 @@ theorem piecesAll ∀ (pieces: List (List Word)) (p: Word → Bool)
 theorem exprUnreturned ∀ (expr: Expr)
     (within: expr.within1 = True)
     (words: expr.words.all Word.unreturned = True):
-    expr.unreturned1 = True :=
+    expr.unreturned = True :=
   match expr with
     | Atom kind word => Bool.andLeft words
     | Paren open inner close =>
@@ -110,7 +110,7 @@ theorem exprUnreturned ∀ (expr: Expr)
 theorem itemsUnreturned ∀ (items: List Expr)
     (within: allWithin1 items = True)
     (words: (itemsWords items).all Word.unreturned = True):
-    allUnreturned1 items = True :=
+    allUnreturned items = True :=
   match items with
     | [] => byComputing
     | [first, ..rest] =>
@@ -122,7 +122,7 @@ theorem itemsUnreturned ∀ (items: List Expr)
 theorem declUnreturned ∀ (decl: Decl)
     (within: decl.within1 = True)
     (words: decl.words.all Word.unreturned = True):
-    decl.unreturned1 = True :=
+    decl.unreturned = True :=
   match decl with
     | Definition [] header (Assigned colonEq value) =>
       match header with
@@ -162,7 +162,7 @@ theorem declUnreturned ∀ (decl: Decl)
 theorem declsUnreturned ∀ (decls: List Decl)
     (within: decls.all Decl.within1 = True)
     (pieces: (decls.map Decl.words).all (piece => piece.all Word.unreturned) = True):
-    decls.all Decl.unreturned1 = True :=
+    decls.all Decl.unreturned = True :=
   match decls with
     | [] => byComputing
     | [decl, ..rest] =>
@@ -172,12 +172,12 @@ theorem declsUnreturned ∀ (decls: List Decl)
 
 --| The comments above a declaration's first token end plainly when the declaration's do.
 theorem firstUnreturned ∀ (decl: Decl)
-    (unreturned: decl.unreturned1 = True):
+    (unreturned: decl.unreturned = True):
     decl.firstComments.above.all Note.unreturned = True :=
   match decl with | Definition attributes header (Assigned colonEq value) => Bool.andLeft (Bool.andLeft unreturned)
 
 theorem declsFirstUnreturned ∀ (decls: List Decl)
-    (unreturned: decls.all Decl.unreturned1 = True):
+    (unreturned: decls.all Decl.unreturned = True):
     decls.all (decl => decl.firstComments.above.all Note.unreturned) = True :=
   match decls with
     | [] => byComputing
@@ -213,22 +213,22 @@ theorem parsedUnreturned ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
     wordsUnreturned (codeWords lexed.settledOnce.leaves) once
   (piecesAll (parsed.decls.map Decl.words) Word.unreturned (rewrite joined then all), rewrite fileEnd then onceEnd)
 
---| The tree after P2 has no comment ending in a carriage return or a space: the declarations' (`Decl.unreturned1`),
---| and so the file's own-line comments (`SourceFile.unreturned1`). P2 keeps every word, and the end.
+--| The tree after P2 has no comment ending in a carriage return or a space: the declarations' (`Decl.unreturned`),
+--| and so the file's own-line comments (`SourceFile.unreturned`). P2 keeps every word, and the end.
 theorem commaUnreturned ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
     (lexes: lex source = Ok lexed)
     (alphabet: alphabet1 lexed.leaves = True)
     (plain: sourcePlain1 (tokens lexed.leaves) = True)
     (parses: parseFile lexed.settledOnce = Ok parsed)
     (within: parsed.within1 = True):
-    parsed.withoutTrailingCommas.decls.all Decl.unreturned1 = True ∧ parsed.withoutTrailingCommas.unreturned1 = True :=
+    parsed.withoutTrailingCommas.decls.all Decl.unreturned = True ∧ parsed.withoutTrailingCommas.unreturned = True :=
   let (pieces, ends) := parsedUnreturned source lexed parsed lexes alphabet plain parses within
   let mapped := commaMap parsed within
   let (_, endSame) := commaKeepsComments parsed within
   let commaWithin := commaKeepsWithin parsed within
   let uncommaWords: (parsed.decls.map Decl.uncomma).map Decl.words = parsed.decls.map Decl.words :=
     declsWordsUncomma parsed.decls
-  let decls: parsed.withoutTrailingCommas.decls.all Decl.unreturned1 = True :=
+  let decls: parsed.withoutTrailingCommas.decls.all Decl.unreturned = True :=
     declsUnreturned parsed.withoutTrailingCommas.decls commaWithin (rewrite mapped, uncommaWords then pieces)
   let (above, _) := commentsUnreturned parsed.end ends
   (decls, Bool.andIntro (declsFirstUnreturned parsed.withoutTrailingCommas.decls decls) (rewrite endSame then above))

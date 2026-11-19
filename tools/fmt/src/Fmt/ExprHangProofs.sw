@@ -1,4 +1,4 @@
---| Facts about quiet slice 1 expressions (`Expr.quiet1`, and `Expr.leadQuiet1` for those quiet but for own-line comments
+--| Facts about quiet slice 1 expressions (`Expr.quiet`, and `Expr.leadQuiet` for those quiet but for own-line comments
 --| above their first token): their tokens' spellings and operators' facts.
 
 namespace Fmt.ExprHangProofs
@@ -28,25 +28,25 @@ import Fmt.TreeJoinProofs (
 -- The class.
 
 --| A token with no comments and no blank line kept above it.
-def Word.quiet1 (word: Word): Bool := match word.comments with
+def Word.quiet (word: Word): Bool := match word.comments with
   | { above = [], after = None, blankBefore = False } => True
   | _ => False
 
 --| An expression whose every token is quiet, and whose calls each have an argument, as every call the parser reads
 --| does.
-def Expr.quiet1: Expr → Bool
-  | Atom _ word => word.quiet1
-  | Paren open inner close => open.quiet1 && inner.quiet1 && close.quiet1
-  | Tuple open items _ close => open.quiet1 && allQuiet1 items && close.quiet1
-  | ListOf open items _ close => open.quiet1 && allQuiet1 items && close.quiet1
-  | App head arguments => !arguments.isEmpty && head.quiet1 && allQuiet1 arguments
-  | Infix _ left operator right => left.quiet1 && operator.quiet1 && right.quiet1
-  | Prefix operator operand => operator.quiet1 && operand.quiet1
+def Expr.quiet: Expr → Bool
+  | Atom _ word => word.quiet
+  | Paren open inner close => open.quiet && inner.quiet && close.quiet
+  | Tuple open items _ close => open.quiet && allQuiet items && close.quiet
+  | ListOf open items _ close => open.quiet && allQuiet items && close.quiet
+  | App head arguments => !arguments.isEmpty && head.quiet && allQuiet arguments
+  | Infix _ left operator right => left.quiet && operator.quiet && right.quiet
+  | Prefix operator operand => operator.quiet && operand.quiet
   | _ => False
 
-def allQuiet1: List Expr → Bool
+def allQuiet: List Expr → Bool
   | [] => True
-  | [expr, ..rest] => expr.quiet1 && allQuiet1 rest
+  | [expr, ..rest] => expr.quiet && allQuiet rest
 
 -- Tokens.
 
@@ -238,20 +238,20 @@ theorem opensNoArms ∀ (expr: Expr) (level: Option Nat) (within: expr.within1 =
 -- Comments above the first token.
 
 --| A token with no comment after it and no blank line kept above it; it may have own-line comments above it.
-def Word.lead1 (word: Word): Bool := match word.comments with
+def Word.lead (word: Word): Bool := match word.comments with
   | { above = _, after = None, blankBefore = False } => True
   | _ => False
 
 --| An expression quiet but for own-line comments above its first token (`Expr.lead`), as a declaration's type or
 --| value may have them.
-def Expr.leadQuiet1: Expr → Bool
-  | Atom _ word => word.lead1
-  | Paren open inner close => open.lead1 && inner.quiet1 && close.quiet1
-  | Tuple open items _ close => open.lead1 && allQuiet1 items && close.quiet1
-  | ListOf open items _ close => open.lead1 && allQuiet1 items && close.quiet1
-  | App head arguments => !arguments.isEmpty && head.leadQuiet1 && allQuiet1 arguments
-  | Infix _ left operator right => left.leadQuiet1 && operator.quiet1 && right.quiet1
-  | Prefix operator operand => operator.lead1 && operand.quiet1
+def Expr.leadQuiet: Expr → Bool
+  | Atom _ word => word.lead
+  | Paren open inner close => open.lead && inner.quiet && close.quiet
+  | Tuple open items _ close => open.lead && allQuiet items && close.quiet
+  | ListOf open items _ close => open.lead && allQuiet items && close.quiet
+  | App head arguments => !arguments.isEmpty && head.leadQuiet && allQuiet arguments
+  | Infix _ left operator right => left.leadQuiet && operator.quiet && right.quiet
+  | Prefix operator operand => operator.lead && operand.quiet
   | _ => False
 
 -- Brackets' marks.

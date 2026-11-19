@@ -495,7 +495,7 @@ theorem notedNodeAt ∀ (expr: Expr) (word: Word) (node: Around → Doc) (around
 theorem ledItemHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: HangState) (entry: Place)
     (note: Note) (rest: List Note)
     (within: expr.within1 = True)
-    (lexical: expr.lexical1 = True)
+    (lexical: expr.lexical = True)
     (sound: expr.sound = True)
     (hoisted: around.hoisted = False)
     (noted: expr.lead.comments.above = [note, ..rest])

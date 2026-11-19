@@ -42,13 +42,13 @@ import Syntax.ReadBackLine (infixTok, signKind)
 theorem wordClean ∀ (word: Word)
     (plain: word.text.startsWith "--" = False)
     (commented: Fmt.SpellProofs.Word.commented word = True):
-    word.clean1 = True :=
+    word.clean = True :=
   Bool.andIntro (rewrite plain) commented
 
 theorem fixedClean ∀ (text: Text) (comments: Comments)
     (plain: text.startsWith "--" = False)
     (commented: Fmt.SpellProofs.Word.commented (fixedWord text comments) = True):
-    (fixedWord text comments).clean1 = True :=
+    (fixedWord text comments).clean = True :=
   wordClean (fixedWord text comments) plain commented
 
 theorem operatorPlain ∀ (text: Text) (listed: operatorText1 text = True): text.startsWith "--" = False :=
@@ -73,9 +73,9 @@ theorem textPlain ∀ (text expected: Text)
 --| operator as a token of the alphabet, a bracket as itself, and no such text starts a comment (`spellsNotComment`).
 theorem wordsClean ∀ (expr: Expr)
     (within: expr.within1 = True)
-    (lexical: expr.lexical1 = True)
+    (lexical: expr.lexical = True)
     (commented: expr.words.all Fmt.SpellProofs.Word.commented = True):
-    expr.words.all Word.clean1 = True :=
+    expr.words.all Word.clean = True :=
   match expr, within with
     | Atom kind word, within =>
       Bool.andIntro
@@ -89,7 +89,7 @@ theorem wordsClean ∀ (expr: Expr)
       List.allAppendTrue
         [open, ..inner.words]
         [close]
-        Word.clean1
+        Word.clean
         (Bool.andIntro
           (wordClean open (textPlain open.text "(" (Bool.andLeft lexical) byComputing) openCommented)
           (wordsClean inner within (Bool.andRight (Bool.andRight lexical)) innerCommented))
@@ -105,7 +105,7 @@ theorem wordsClean ∀ (expr: Expr)
       List.allAppendTrue
         [open, ..itemsWords items]
         [close]
-        Word.clean1
+        Word.clean
         (Bool.andIntro
           (wordClean open (textPlain open.text "(" (Bool.andLeft lexical) byComputing) openCommented)
           (itemsClean items within (Bool.andRight (Bool.andRight lexical)) itemsCommented))
@@ -121,7 +121,7 @@ theorem wordsClean ∀ (expr: Expr)
       List.allAppendTrue
         [open, ..itemsWords items]
         [close]
-        Word.clean1
+        Word.clean
         (Bool.andIntro
           (wordClean open (textPlain open.text "[" (Bool.andLeft lexical) byComputing) openCommented)
           (itemsClean items within (Bool.andRight (Bool.andRight lexical)) itemsCommented))
@@ -135,7 +135,7 @@ theorem wordsClean ∀ (expr: Expr)
         allSplitBool head.words (itemsWords arguments) Fmt.SpellProofs.Word.commented commented
       List.allAppendTrue head.words
         (itemsWords arguments)
-        Word.clean1
+        Word.clean
         (wordsClean head (Bool.andLeft within) (Bool.andLeft lexical) headCommented)
         (itemsClean arguments (Bool.andRight within) (Bool.andRight lexical) argumentsCommented)
     | Infix InfixBinary left operator right, within =>
@@ -162,16 +162,16 @@ theorem infixClean ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: E
     (within: (Infix kind left operator right).within1 = True)
     (leftWithin: left.within1 = True)
     (rightWithin: right.within1 = True)
-    (lexical: (Infix kind left operator right).lexical1 = True)
+    (lexical: (Infix kind left operator right).lexical = True)
     (commented: (Infix kind left operator right).words.all Fmt.SpellProofs.Word.commented = True):
-    (Infix kind left operator right).words.all Word.clean1 = True :=
+    (Infix kind left operator right).words.all Word.clean = True :=
   let (leftCommented, restCommented) :=
     allSplitBool left.words [operator, ..right.words] Fmt.SpellProofs.Word.commented commented
   let (operatorCommented, rightCommented) :=
     List.allConsElim operator right.words Fmt.SpellProofs.Word.commented restCommented
   List.allAppendTrue left.words
     [operator, ..right.words]
-    Word.clean1
+    Word.clean
     (wordsClean left leftWithin (Bool.andLeft lexical) leftCommented)
     (Bool.andIntro
       (wordClean operator (operatorPlain operator.text (infixListed kind left operator right within)) operatorCommented)
@@ -179,9 +179,9 @@ theorem infixClean ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: E
 
 theorem itemsClean ∀ (items: List Expr)
     (within: allWithin1 items = True)
-    (lexical: allLexical1 items = True)
+    (lexical: allLexical items = True)
     (commented: (itemsWords items).all Fmt.SpellProofs.Word.commented = True):
-    (itemsWords items).all Word.clean1 = True :=
+    (itemsWords items).all Word.clean = True :=
   match items with
     | [] => byComputing
     | [item, ..rest] =>
@@ -189,7 +189,7 @@ theorem itemsClean ∀ (items: List Expr)
         allSplitBool item.words (itemsWords rest) Fmt.SpellProofs.Word.commented commented
       List.allAppendTrue item.words
         (itemsWords rest)
-        Word.clean1
+        Word.clean
         (wordsClean item (Bool.andLeft within) (Bool.andLeft lexical) itemCommented)
         (itemsClean rest (Bool.andRight within) (Bool.andRight lexical) restCommented)
 
@@ -213,25 +213,25 @@ theorem someWordsAppend ∀ (xs ys: List (Option Word)): someWords (xs ++ ys) = 
     | [None, ..rest] => someWordsAppend rest ys
 
 --| An expression's slots read as texts are its code texts.
-theorem slotTexts ∀ (expr: Expr) (within: expr.within1 = True): expr.slots1.map slotText = expr.codeTexts1 :=
+theorem slotTexts ∀ (expr: Expr) (within: expr.within1 = True): expr.slots.map slotText = expr.codeTexts :=
   match expr, within with
     | Atom _ _, _ => byComputing
     | Paren open inner close, within =>
-      rewrite List.mapAppend [Some open, ..inner.slots1] [Some close] slotText, slotTexts inner within
+      rewrite List.mapAppend [Some open, ..inner.slots] [Some close] slotText, slotTexts inner within
     | Tuple open items _ close, within =>
-      rewrite List.mapAppend [Some open, ..commaSlots1 items] [Some close] slotText, commaSlotTexts items within
+      rewrite List.mapAppend [Some open, ..commaSlots items] [Some close] slotText, commaSlotTexts items within
     | ListOf open items _ close, within =>
-      rewrite List.mapAppend [Some open, ..commaSlots1 items] [Some close] slotText, commaSlotTexts items within
+      rewrite List.mapAppend [Some open, ..commaSlots items] [Some close] slotText, commaSlotTexts items within
     | App head arguments, within =>
-      rewrite List.mapAppend head.slots1 (argumentSlots1 arguments) slotText,
+      rewrite List.mapAppend head.slots (argumentSlots arguments) slotText,
           slotTexts head (Bool.andLeft within),
           argumentSlotTexts arguments (Bool.andRight within)
     | Infix InfixBinary left operator right, within =>
-      rewrite List.mapAppend left.slots1 [Some operator, ..right.slots1] slotText,
+      rewrite List.mapAppend left.slots [Some operator, ..right.slots] slotText,
           slotTexts left (Bool.andLeft within),
           slotTexts right (Bool.andLeft (Bool.andRight within))
     | Infix InfixArrow left operator right, within =>
-      rewrite List.mapAppend left.slots1 [Some operator, ..right.slots1] slotText,
+      rewrite List.mapAppend left.slots [Some operator, ..right.slots] slotText,
           slotTexts left (Bool.andLeft within),
           slotTexts right (Bool.andLeft (Bool.andRight within))
     | Prefix operator operand, within => rewrite slotTexts operand (Bool.andLeft within)
@@ -240,45 +240,45 @@ theorem slotTexts ∀ (expr: Expr) (within: expr.within1 = True): expr.slots1.ma
 
 theorem commaSlotTexts ∀ (items: List Expr)
     (within: allWithin1 items = True):
-    (commaSlots1 items).map slotText = commaTexts1 items :=
+    (commaSlots items).map slotText = commaTexts items :=
   match items with
     | [] => byComputing
     | [one] => slotTexts one (Bool.andLeft within)
     | [one, next, ..rest] =>
-      rewrite List.mapAppend one.slots1 ([None] ++ commaSlots1 [next, ..rest]) slotText,
+      rewrite List.mapAppend one.slots ([None] ++ commaSlots [next, ..rest]) slotText,
           slotTexts one (Bool.andLeft within),
           commaSlotTexts [next, ..rest] (Bool.andRight within)
 
 theorem argumentSlotTexts ∀ (arguments: List Expr)
     (within: allWithin1 arguments = True):
-    (argumentSlots1 arguments).map slotText = argumentTexts1 arguments :=
+    (argumentSlots arguments).map slotText = argumentTexts arguments :=
   match arguments with
     | [] => byComputing
     | [argument, ..rest] =>
-      rewrite List.mapAppend argument.slots1 (argumentSlots1 rest) slotText,
+      rewrite List.mapAppend argument.slots (argumentSlots rest) slotText,
           slotTexts argument (Bool.andLeft within),
           argumentSlotTexts rest (Bool.andRight within)
 
 --| An expression's slots' words are its words.
-theorem slotWords ∀ (expr: Expr) (within: expr.within1 = True): someWords expr.slots1 = expr.words :=
+theorem slotWords ∀ (expr: Expr) (within: expr.within1 = True): someWords expr.slots = expr.words :=
   match expr, within with
     | Atom _ _, _ => byComputing
     | Paren open inner close, within =>
-      rewrite someWordsAppend [Some open, ..inner.slots1] [Some close], slotWords inner within
+      rewrite someWordsAppend [Some open, ..inner.slots] [Some close], slotWords inner within
     | Tuple open items _ close, within =>
-      rewrite someWordsAppend [Some open, ..commaSlots1 items] [Some close], commaSlotWords items within
+      rewrite someWordsAppend [Some open, ..commaSlots items] [Some close], commaSlotWords items within
     | ListOf open items _ close, within =>
-      rewrite someWordsAppend [Some open, ..commaSlots1 items] [Some close], commaSlotWords items within
+      rewrite someWordsAppend [Some open, ..commaSlots items] [Some close], commaSlotWords items within
     | App head arguments, within =>
-      rewrite someWordsAppend head.slots1 (argumentSlots1 arguments),
+      rewrite someWordsAppend head.slots (argumentSlots arguments),
           slotWords head (Bool.andLeft within),
           argumentSlotWords arguments (Bool.andRight within)
     | Infix InfixBinary left operator right, within =>
-      rewrite someWordsAppend left.slots1 [Some operator, ..right.slots1],
+      rewrite someWordsAppend left.slots [Some operator, ..right.slots],
           slotWords left (Bool.andLeft within),
           slotWords right (Bool.andLeft (Bool.andRight within))
     | Infix InfixArrow left operator right, within =>
-      rewrite someWordsAppend left.slots1 [Some operator, ..right.slots1],
+      rewrite someWordsAppend left.slots [Some operator, ..right.slots],
           slotWords left (Bool.andLeft within),
           slotWords right (Bool.andLeft (Bool.andRight within))
     | Prefix operator operand, within => rewrite slotWords operand (Bool.andLeft within)
@@ -287,22 +287,22 @@ theorem slotWords ∀ (expr: Expr) (within: expr.within1 = True): someWords expr
 
 theorem commaSlotWords ∀ (items: List Expr)
     (within: allWithin1 items = True):
-    someWords (commaSlots1 items) = itemsWords items :=
+    someWords (commaSlots items) = itemsWords items :=
   match items with
     | [] => byComputing
     | [one] => rewrite slotWords one (Bool.andLeft within), List.appendNil one.words
     | [one, next, ..rest] =>
-      rewrite someWordsAppend one.slots1 ([None] ++ commaSlots1 [next, ..rest]),
+      rewrite someWordsAppend one.slots ([None] ++ commaSlots [next, ..rest]),
           slotWords one (Bool.andLeft within),
           commaSlotWords [next, ..rest] (Bool.andRight within)
 
 theorem argumentSlotWords ∀ (arguments: List Expr)
     (within: allWithin1 arguments = True):
-    someWords (argumentSlots1 arguments) = itemsWords arguments :=
+    someWords (argumentSlots arguments) = itemsWords arguments :=
   match arguments with
     | [] => byComputing
     | [argument, ..rest] =>
-      rewrite someWordsAppend argument.slots1 (argumentSlots1 rest),
+      rewrite someWordsAppend argument.slots (argumentSlots rest),
           slotWords argument (Bool.andLeft within),
           argumentSlotWords rest (Bool.andRight within)
 
@@ -310,7 +310,7 @@ theorem argumentSlotWords ∀ (arguments: List Expr)
 
 theorem codeTextsCalm ∀ (expr: Expr) (item: Bool)
     (within: expr.within1 = True):
-    (expr.calm item).codeTexts1 = expr.codeTexts1 :=
+    (expr.calm item).codeTexts = expr.codeTexts :=
   match expr, within with
     | Atom _ _, _ => byComputing
     | Paren _ inner _, within => rewrite codeTextsCalm inner False within
@@ -333,7 +333,7 @@ theorem codeTextsCalm ∀ (expr: Expr) (item: Bool)
 
 theorem commaTextsCalmAll ∀ (items: List Expr) (item: Bool)
     (within: allWithin1 items = True):
-    commaTexts1 (calmAll item items) = commaTexts1 items :=
+    commaTexts (calmAll item items) = commaTexts items :=
   match items with
     | [] => byComputing
     | [one] => rewrite codeTextsCalm one item (Bool.andLeft within)
@@ -342,7 +342,7 @@ theorem commaTextsCalmAll ∀ (items: List Expr) (item: Bool)
 
 theorem commaTextsCalmLead ∀ (items: List Expr)
     (within: allWithin1 items = True):
-    commaTexts1 (calmLead items) = commaTexts1 items :=
+    commaTexts (calmLead items) = commaTexts items :=
   match items with
     | [] => byComputing
     | [one] => rewrite codeTextsCalm one False (Bool.andLeft within)
@@ -352,7 +352,7 @@ theorem commaTextsCalmLead ∀ (items: List Expr)
 
 theorem argumentTextsCalm ∀ (arguments: List Expr)
     (within: allWithin1 arguments = True):
-    argumentTexts1 (calmAll False arguments) = argumentTexts1 arguments :=
+    argumentTexts (calmAll False arguments) = argumentTexts arguments :=
   match arguments with
     | [] => byComputing
     | [argument, ..rest] =>
@@ -399,14 +399,14 @@ theorem bracketCode ∀ (word: Word) (expected: Text)
 --| No word of a slice 1 expression lexes as a comma.
 theorem slotsCode ∀ (expr: Expr)
     (within: expr.within1 = True)
-    (lexical: expr.lexical1 = True):
-    expr.slots1.all slotCode = True :=
+    (lexical: expr.lexical = True):
+    expr.slots.all slotCode = True :=
   match expr, within with
     | Atom kind word, within =>
       Bool.andIntro (rewrite lexKindOfLexes word.text kind lexical, wordCode kind (Bool.andLeft within)) byComputing
     | Paren open inner close, within =>
       List.allAppendTrue
-        [Some open, ..inner.slots1]
+        [Some open, ..inner.slots]
         [Some close]
         slotCode
         (Bool.andIntro
@@ -415,7 +415,7 @@ theorem slotsCode ∀ (expr: Expr)
         (Bool.andIntro (bracketCode close ")" (Bool.andLeft (Bool.andRight lexical)) byComputing) byComputing)
     | Tuple open items _ close, within =>
       List.allAppendTrue
-        [Some open, ..commaSlots1 items]
+        [Some open, ..commaSlots items]
         [Some close]
         slotCode
         (Bool.andIntro
@@ -424,7 +424,7 @@ theorem slotsCode ∀ (expr: Expr)
         (Bool.andIntro (bracketCode close ")" (Bool.andLeft (Bool.andRight lexical)) byComputing) byComputing)
     | ListOf open items _ close, within =>
       List.allAppendTrue
-        [Some open, ..commaSlots1 items]
+        [Some open, ..commaSlots items]
         [Some close]
         slotCode
         (Bool.andIntro
@@ -432,15 +432,15 @@ theorem slotsCode ∀ (expr: Expr)
           (commaSlotsCode items within (Bool.andRight (Bool.andRight lexical))))
         (Bool.andIntro (bracketCode close "]" (Bool.andLeft (Bool.andRight lexical)) byComputing) byComputing)
     | App head arguments, within =>
-      List.allAppendTrue head.slots1
-        (argumentSlots1 arguments)
+      List.allAppendTrue head.slots
+        (argumentSlots arguments)
         slotCode
         (slotsCode head (Bool.andLeft within) (Bool.andLeft lexical))
         (argumentSlotsCode arguments (Bool.andRight within) (Bool.andRight lexical))
     | Infix InfixBinary left operator right, within =>
       let (isTok, _) := infixFacts InfixBinary operator.text (Bool.andRight (Bool.andRight within))
-      List.allAppendTrue left.slots1
-        [Some operator, ..right.slots1]
+      List.allAppendTrue left.slots
+        [Some operator, ..right.slots]
         slotCode
         (slotsCode left (Bool.andLeft within) (Bool.andLeft lexical))
         (Bool.andIntro
@@ -448,8 +448,8 @@ theorem slotsCode ∀ (expr: Expr)
           (slotsCode right (Bool.andLeft (Bool.andRight within)) (Bool.andRight (Bool.andRight lexical))))
     | Infix InfixArrow left operator right, within =>
       let (isTok, _) := infixFacts InfixArrow operator.text (Bool.andRight (Bool.andRight within))
-      List.allAppendTrue left.slots1
-        [Some operator, ..right.slots1]
+      List.allAppendTrue left.slots
+        [Some operator, ..right.slots]
         slotCode
         (slotsCode left (Bool.andLeft within) (Bool.andLeft lexical))
         (Bool.andIntro
@@ -463,27 +463,27 @@ theorem slotsCode ∀ (expr: Expr)
 
 theorem commaSlotsCode ∀ (items: List Expr)
     (within: allWithin1 items = True)
-    (lexical: allLexical1 items = True):
-    (commaSlots1 items).all slotCode = True :=
+    (lexical: allLexical items = True):
+    (commaSlots items).all slotCode = True :=
   match items with
     | [] => byComputing
     | [one] => slotsCode one (Bool.andLeft within) (Bool.andLeft lexical)
     | [one, next, ..rest] =>
-      List.allAppendTrue one.slots1
-        ([None] ++ commaSlots1 [next, ..rest])
+      List.allAppendTrue one.slots
+        ([None] ++ commaSlots [next, ..rest])
         slotCode
         (slotsCode one (Bool.andLeft within) (Bool.andLeft lexical))
         (Bool.andIntro byComputing (commaSlotsCode [next, ..rest] (Bool.andRight within) (Bool.andRight lexical)))
 
 theorem argumentSlotsCode ∀ (arguments: List Expr)
     (within: allWithin1 arguments = True)
-    (lexical: allLexical1 arguments = True):
-    (argumentSlots1 arguments).all slotCode = True :=
+    (lexical: allLexical arguments = True):
+    (argumentSlots arguments).all slotCode = True :=
   match arguments with
     | [] => byComputing
     | [argument, ..rest] =>
-      List.allAppendTrue argument.slots1
-        (argumentSlots1 rest)
+      List.allAppendTrue argument.slots
+        (argumentSlots rest)
         slotCode
         (slotsCode argument (Bool.andLeft within) (Bool.andLeft lexical))
         (argumentSlotsCode rest (Bool.andRight within) (Bool.andRight lexical))
@@ -528,8 +528,8 @@ theorem slotsFromTexts ∀ (read: List Item) (slots: List (Option Word))
 --| The slots of `def name: result := value`, from its keyword's comments on.
 def partSlots (keyword: Comments) (name: Word) (colon colonEq: Comments) (result value: Expr): List (Option Word) :=
   [Some (fixedWord "def" keyword), Some name, Some (fixedWord ":" colon)]
-    ++ result.slots1
-    ++ [Some (fixedWord ":=" colonEq), ..value.slots1]
+    ++ result.slots
+    ++ [Some (fixedWord ":=" colonEq), ..value.slots]
 
 --| The definition `def name: result := value` with nothing else in its header.
 def plainDecl (keyword: Comments) (name: Word) (colon colonEq: Comments) (result value: Expr): Decl :=
@@ -551,7 +551,7 @@ def plainDecl (keyword: Comments) (name: Word) (colon colonEq: Comments) (result
 
 --| What `speltSlots` asks of an expression's tree.
 def SlotTree (expr: Expr): Prop :=
-  expr.within1 = True ∧ expr.shaped1 = True ∧ expr.lexical1 = True ∧ expr.commaFree = True
+  expr.within1 = True ∧ expr.shaped = True ∧ expr.lexical = True ∧ expr.commaFree = True
 
 theorem plainHeaderOf ∀ (keyword name colon: Item) (result: Expr):
     plainHeader keyword name colon result
@@ -581,13 +581,11 @@ theorem splitOfParts ∀ (group: List Leaf) (keyword: Comments) (name: Word)
     (resultTree: SlotTree result)
     (valueTree: SlotTree value)
     (lower: lexKind name.text = Lower ∨ lexKind name.text = Upper)
-    (texts: (items group).map Item.text = ["def", name.text, ":"] ++ result.codeTexts1 ++ [":=", ..value.codeTexts1])
+    (texts: (items group).map Item.text = ["def", name.text, ":"] ++ result.codeTexts ++ [":=", ..value.codeTexts])
     (kinded: (items group).all (item => item.leaf.token.kind == lexKind item.leaf.token.text) = True)
     (words: itemWords (items group)
       = [fixedWord "def" keyword, name, fixedWord ":" colon] ++ result.words ++ [fixedWord ":=" colonEq, ..value.words])
-    (spacing: spacingAdmits
-      ([Free, Free, Free] ++ result.spacing1 False ++ [Free] ++ value.spacing1 False)
-      (items group)
+    (spacing: spacingAdmits ([Free, Free, Free] ++ result.spacing False ++ [Free] ++ value.spacing False) (items group)
       = True):
     ∃ (keywordItem nameItem colonItem colonEqItem: Item) (typeRead valueRead: List Item) => GroupSplit group
       (plainDecl keyword name colon colonEq result value)
@@ -602,13 +600,13 @@ theorem splitOfParts ∀ (group: List Leaf) (keyword: Comments) (name: Word)
   let (resultWithin, resultShaped, resultLexical, resultFree) := resultTree
   let (valueWithin, valueShaped, valueLexical, valueFree) := valueTree
   let slots := partSlots keyword name colon colonEq result value
-  let slotTextsAre: slots.map slotText = ["def", name.text, ":"] ++ result.codeTexts1 ++ [":=", ..value.codeTexts1] :=
-    rewrite List.mapAppend result.slots1 [Some (fixedWord ":=" colonEq), ..value.slots1] slotText,
+  let slotTextsAre: slots.map slotText = ["def", name.text, ":"] ++ result.codeTexts ++ [":=", ..value.codeTexts] :=
+    rewrite List.mapAppend result.slots [Some (fixedWord ":=" colonEq), ..value.slots] slotText,
         slotTexts result resultWithin,
         slotTexts value valueWithin
   let slotWordsAre: someWords slots
     = [fixedWord "def" keyword, name, fixedWord ":" colon] ++ result.words ++ [fixedWord ":=" colonEq, ..value.words] :=
-    rewrite someWordsAppend result.slots1 [Some (fixedWord ":=" colonEq), ..value.slots1],
+    rewrite someWordsAppend result.slots [Some (fixedWord ":=" colonEq), ..value.slots],
         slotWords result resultWithin,
         slotWords value valueWithin
   let nameCode: slotCode (Some name) = True := match lower with
@@ -618,8 +616,8 @@ theorem splitOfParts ∀ (group: List Leaf) (keyword: Comments) (name: Word)
     Bool.andIntro byComputing
       (Bool.andIntro nameCode
         (Bool.andIntro byComputing
-          (List.allAppendTrue result.slots1
-            [Some (fixedWord ":=" colonEq), ..value.slots1]
+          (List.allAppendTrue result.slots
+            [Some (fixedWord ":=" colonEq), ..value.slots]
             slotCode
             (slotsCode result resultWithin resultLexical)
             (Bool.andIntro byComputing (slotsCode value valueWithin valueLexical)))))
@@ -635,10 +633,10 @@ theorem splitOfParts ∀ (group: List Leaf) (keyword: Comments) (name: Word)
     List.all2AppendSplit SlotMatch
       (items group)
       [Some (fixedWord "def" keyword), Some name, Some (fixedWord ":" colon)]
-      (result.slots1 ++ [Some (fixedWord ":=" colonEq), ..value.slots1])
+      (result.slots ++ [Some (fixedWord ":=" colonEq), ..value.slots])
       filled
   let (typeRead, tail, isRest, typeFilled, tailFilled) :=
-    List.all2AppendSplit SlotMatch rest result.slots1 [Some (fixedWord ":=" colonEq), ..value.slots1] restFilled
+    List.all2AppendSplit SlotMatch rest result.slots [Some (fixedWord ":=" colonEq), ..value.slots] restFilled
   splitFilled group keyword name colon colonEq result value resultTree valueTree lower spacing front typeRead tail
     (rewrite isItems, isRest)
     frontFilled
@@ -649,14 +647,12 @@ theorem splitFilled ∀ (group: List Leaf) (keyword: Comments) (name: Word) (col
     (resultTree: SlotTree result)
     (valueTree: SlotTree value)
     (lower: lexKind name.text = Lower ∨ lexKind name.text = Upper)
-    (spacing: spacingAdmits
-      ([Free, Free, Free] ++ result.spacing1 False ++ [Free] ++ value.spacing1 False)
-      (items group)
+    (spacing: spacingAdmits ([Free, Free, Free] ++ result.spacing False ++ [Free] ++ value.spacing False) (items group)
       = True) (front typeRead tail: List Item)
     (isItems: items group = front ++ typeRead ++ tail)
     (frontFilled: List.All2 SlotMatch front [Some (fixedWord "def" keyword), Some name, Some (fixedWord ":" colon)])
-    (typeFilled: List.All2 SlotMatch typeRead result.slots1)
-    (tailFilled: List.All2 SlotMatch tail [Some (fixedWord ":=" colonEq), ..value.slots1]):
+    (typeFilled: List.All2 SlotMatch typeRead result.slots)
+    (tailFilled: List.All2 SlotMatch tail [Some (fixedWord ":=" colonEq), ..value.slots]):
     ∃ (keywordItem nameItem colonItem colonEqItem: Item) (typeRead valueRead: List Item) => GroupSplit group
       (plainDecl keyword name colon colonEq result value)
       keywordItem
@@ -683,27 +679,27 @@ theorem splitFilled ∀ (group: List Leaf) (keyword: Comments) (name: Word) (col
       let isColon: colonItem.kind = Colon := rewrite colonKind
       let isColonEq: colonEqItem.kind = ColonEq := rewrite colonEqKind
       let spaced: spacingAdmits
-        ([Free, Free, Free] ++ result.spacing1 False ++ [Free] ++ value.spacing1 False)
+        ([Free, Free, Free] ++ result.spacing False ++ [Free] ++ value.spacing False)
         ([keywordItem, nameItem, colonItem] ++ typeRead ++ [colonEqItem, ..valueRead])
         = True :=
         rewrite isItems at spacing then spacing
       let (_, restSpaced) :=
         admitsSplit
           [Free, Free, Free]
-          (result.spacing1 False ++ [Free] ++ value.spacing1 False)
+          (result.spacing False ++ [Free] ++ value.spacing False)
           [keywordItem, nameItem, colonItem]
           (typeRead ++ [colonEqItem, ..valueRead])
           byComputing
           spaced
       let (typeSpaced, tailSpaced) :=
         admitsSplit
-          (result.spacing1 False)
-          ([Free] ++ value.spacing1 False)
+          (result.spacing False)
+          ([Free] ++ value.spacing False)
           typeRead
           [colonEqItem, ..valueRead]
           (lengthOf result False typeRead resultWithin typeFilled)
           restSpaced
-      let valueSpaced: spacingAdmits (value.spacing1 False) valueRead = True := Bool.andRight tailSpaced
+      let valueSpaced: spacingAdmits (value.spacing False) valueRead = True := Bool.andRight tailSpaced
       let chained: Chained ([keywordItem, nameItem, colonItem] ++ typeRead ++ [colonEqItem, ..valueRead]) = True :=
         let groupChain := groupChained group
         rewrite isItems at groupChain then groupChain
@@ -716,8 +712,8 @@ theorem splitFilled ∀ (group: List Leaf) (keyword: Comments) (name: Word) (col
         rewrite isColon at typeLeadAll then leadFront typeRead [colonEqItem, ..valueRead] False typeLeadAll
       let valueLeadAll := chainedAfter ([keywordItem, nameItem, colonItem] ++ typeRead) colonEqItem valueRead chained
       let valueLead: leadAfter valueRead False = True := rewrite isColonEq at valueLeadAll then valueLeadAll
-      let noRole: False = True → result.argument1 = True := never => (Bool.falseNotTrue never).impossible
-      let noValueRole: False = True → value.argument1 = True := never => (Bool.falseNotTrue never).impossible
+      let noRole: False = True → result.callArgument = True := never => (Bool.falseNotTrue never).impossible
+      let noValueRole: False = True → value.callArgument = True := never => (Bool.falseNotTrue never).impossible
       let keywordComments: keywordItem.leaf.word.comments = keyword := rewrite keywordWord
       let colonComments: colonItem.leaf.word.comments = colon := rewrite colonWord
       let colonEqComments: colonEqItem.leaf.word.comments = colonEq := rewrite colonEqWord
@@ -787,16 +783,16 @@ theorem itemsKinded ∀ (group: List Leaf)
 --| value's.
 theorem declCodeTexts ∀ (keyword: Comments) (name: Word) (colon colonEq: Comments) (result value: Expr)
     (within: (plainDecl keyword name colon colonEq result value).within1 = True)
-    (lexical: (plainDecl keyword name colon colonEq result value).lexical1 = True)
+    (lexical: (plainDecl keyword name colon colonEq result value).lexical = True)
     (commented: (plainDecl keyword name colon colonEq result value).words.all Fmt.SpellProofs.Word.commented = True):
     (plainDecl keyword name colon colonEq result value).spelt.filter notComment
-      = ["def", name.text, ":"] ++ result.codeTexts1 ++ [":=", ..value.codeTexts1] :=
+      = ["def", name.text, ":"] ++ result.codeTexts ++ [":=", ..value.codeTexts] :=
   let headerWithin: (name.nameWithin1 && result.within1) = True := Bool.andLeft within
   let valueWithin: value.within1 = True := Bool.andRight within
   let nameWithin: name.nameWithin1 = True := Bool.andLeft headerWithin
   let resultWithin: result.within1 = True := Bool.andRight headerWithin
-  let resultLexical: result.lexical1 = True := Bool.andLeft (Bool.andRight lexical)
-  let valueLexical: value.lexical1 = True := Bool.andRight (Bool.andRight lexical)
+  let resultLexical: result.lexical = True := Bool.andLeft (Bool.andRight lexical)
+  let valueLexical: value.lexical = True := Bool.andRight (Bool.andRight lexical)
   let (keywordCommented, afterKeyword) :=
     List.allConsElim
       (fixedWord "def" keyword)
@@ -818,7 +814,7 @@ theorem declCodeTexts ∀ (keyword: Comments) (name: Word) (colon colonEq: Comme
     allSplitBool result.words ([fixedWord ":=" colonEq] ++ value.words) Fmt.SpellProofs.Word.commented afterColon
   let (colonEqCommented, valueCommented) :=
     List.allConsElim (fixedWord ":=" colonEq) value.words Fmt.SpellProofs.Word.commented afterResult
-  let nameClean: name.clean1 = True :=
+  let nameClean: name.clean = True :=
     wordClean name
       (let (nameKind, nameSpelled, _, _) := nameKinded name nameWithin; spellsNotComment nameKind name.text nameSpelled)
       nameCommented
@@ -849,13 +845,11 @@ theorem splitOfRead ∀ (group: List Leaf) (read: Decl) (keyword: Comments) (nam
     (resultTree: SlotTree result)
     (valueTree: SlotTree value)
     (lower: lexKind name.text = Lower ∨ lexKind name.text = Upper)
-    (texts: (items group).map Item.text = ["def", name.text, ":"] ++ result.codeTexts1 ++ [":=", ..value.codeTexts1])
+    (texts: (items group).map Item.text = ["def", name.text, ":"] ++ result.codeTexts ++ [":=", ..value.codeTexts])
     (kinded: (items group).all (item => item.leaf.token.kind == lexKind item.leaf.token.text) = True)
     (words: itemWords (items group)
       = [fixedWord "def" keyword, name, fixedWord ":" colon] ++ result.words ++ [fixedWord ":=" colonEq, ..value.words])
-    (spacing: spacingAdmits
-      ([Free, Free, Free] ++ result.spacing1 False ++ [Free] ++ value.spacing1 False)
-      (items group)
+    (spacing: spacingAdmits ([Free, Free, Free] ++ result.spacing False ++ [Free] ++ value.spacing False) (items group)
       = True):
     ∃ (keywordItem nameItem colonItem colonEqItem: Item) (typeRead valueRead: List Item) (result value: Expr) =>
       GroupSplit group read keywordItem nameItem colonItem colonEqItem typeRead valueRead result value :=
@@ -906,8 +900,8 @@ theorem printedSplitParts ∀ (keyword: Comments) (name: Word) (colon colonEq: C
   let valueWithin: value.within1 = True := Bool.andRight within
   let resultWithin: result.within1 = True := Bool.andRight headerWithin
   let nameLexes: (name.lexesAs Lower || name.lexesAs Upper) = True := Bool.andLeft lexical
-  let resultLexical: result.lexical1 = True := Bool.andLeft (Bool.andRight lexical)
-  let valueLexical: value.lexical1 = True := Bool.andRight (Bool.andRight lexical)
+  let resultLexical: result.lexical = True := Bool.andLeft (Bool.andRight lexical)
+  let valueLexical: value.lexical = True := Bool.andRight (Bool.andRight lexical)
   let resultTree: SlotTree (result.calm False) := (
     withinCalm result False resultWithin,
     (rewrite shapedCalm result False resultWithin then Bool.andLeft shaped),
@@ -923,9 +917,9 @@ theorem printedSplitParts ∀ (keyword: Comments) (name: Word) (colon colonEq: C
   let printedTokens := printedTokens1 decl within shaped settled lexical
   let commented: decl.words.all Fmt.SpellProofs.Word.commented = True := Bool.andRight (Bool.andRight settled)
   let texts: (items group).map Item.text
-    = ["def", name.text, ":"] ++ (result.calm False).codeTexts1 ++ [":=", ..(value.calm False).codeTexts1] :=
+    = ["def", name.text, ":"] ++ (result.calm False).codeTexts ++ [":=", ..(value.calm False).codeTexts] :=
     rewrite itemTexts group,
-        textsOfTokens group decl.leaves1 sameTokens,
+        textsOfTokens group decl.leaves sameTokens,
         printedTokens.left,
         codeTextsCalm result False resultWithin,
         codeTextsCalm value False valueWithin then
@@ -947,7 +941,7 @@ theorem printedSplitParts ∀ (keyword: Comments) (name: Word) (colon colonEq: C
     valueTree
     (lexKindOfNameLexes name nameLexes)
     texts
-    (itemsKinded group (kindedOfTokens group decl.leaves1 sameTokens printedTokens.right))
+    (itemsKinded group (kindedOfTokens group decl.leaves sameTokens printedTokens.right))
     (rewrite itemWordsOfGroup group, words then readWords)
     (rewrite spacingCalm result False False resultWithin, spacingCalm value False False valueWithin then spacing)
 

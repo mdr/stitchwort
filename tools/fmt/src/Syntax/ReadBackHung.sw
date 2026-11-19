@@ -59,9 +59,9 @@ def HangState.nextItem (state: HangState): HangState :=
 --| deep. The statement is `Syntax.ReadBackHungTop.fullHung`'s.
 def FullHungAt (depth: Nat): Prop :=
   ∀ (modes: Modes) (expr: Expr) (read rest: List Item) (state: HangState) => Quiet modes
-    → expr.nest1 <= depth
+    → expr.nest <= depth
     → Spelt expr read
-    → expr.autoPlaced1 True = True
+    → expr.autoPlaced True = True
     → lineAll read = True
     → lineAll rest = True
     → (state.start = True ∨ state.glue = True)

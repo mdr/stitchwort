@@ -1,5 +1,5 @@
 --| Toward `printedSplit1` (SW-4077): `Spelt` of a slice 1 expression from items that match its tokens one by one.
---| `slots1` lists an expression's tokens, a comma between a bracket's items; `SlotMatch` says an item carries a
+--| `slots` lists an expression's tokens, a comma between a bracket's items; `SlotMatch` says an item carries a
 --| slot's word, lexed as the lexer does, or is a comma. With the printed spacing and the items' chaining, that is all
 --| `Spelt` reads (`speltSlots`).
 
@@ -18,24 +18,24 @@ import Fmt.TouchProofs (spacingFree)
 -- Slots.
 
 --| An expression's tokens in order: `Some` word for each, `None` for the comma between a bracket's items.
-def Expr.slots1: Expr → List (Option Word)
+def Expr.slots: Expr → List (Option Word)
   | Atom _ word => [Some word]
-  | Paren open inner close => [Some open, ..inner.slots1] ++ [Some close]
-  | Tuple open items _ close => [Some open, ..commaSlots1 items] ++ [Some close]
-  | ListOf open items _ close => [Some open, ..commaSlots1 items] ++ [Some close]
-  | App head arguments => head.slots1 ++ argumentSlots1 arguments
-  | Infix _ left operator right => left.slots1 ++ [Some operator, ..right.slots1]
-  | Prefix operator operand => [Some operator, ..operand.slots1]
+  | Paren open inner close => [Some open, ..inner.slots] ++ [Some close]
+  | Tuple open items _ close => [Some open, ..commaSlots items] ++ [Some close]
+  | ListOf open items _ close => [Some open, ..commaSlots items] ++ [Some close]
+  | App head arguments => head.slots ++ argumentSlots arguments
+  | Infix _ left operator right => left.slots ++ [Some operator, ..right.slots]
+  | Prefix operator operand => [Some operator, ..operand.slots]
   | _ => []
 
-def commaSlots1: List Expr → List (Option Word)
+def commaSlots: List Expr → List (Option Word)
   | [] => []
-  | [item] => item.slots1
-  | [item, ..rest] => item.slots1 ++ [None] ++ commaSlots1 rest
+  | [item] => item.slots
+  | [item, ..rest] => item.slots ++ [None] ++ commaSlots rest
 
-def argumentSlots1: List Expr → List (Option Word)
+def argumentSlots: List Expr → List (Option Word)
   | [] => []
-  | [argument, ..rest] => argument.slots1 ++ argumentSlots1 rest
+  | [argument, ..rest] => argument.slots ++ argumentSlots rest
 
 --| An item fills a slot: it carries the slot's word, of the kind the lexer gives its text, or it is a comma.
 def SlotMatch (item: Item) (slot: Option Word): Prop := match slot with
@@ -62,7 +62,7 @@ theorem lexKindOfLexes ∀ (text: Text) (kind: Tok) (lexes: textLexesAs text kin
     | Err _, never => (Bool.falseNotTrue never).impossible
 
 --| The kind of infix a text is the operator of, in slice 1.
-def infixText1 (kind: InfixKind) (text: Text): Bool := match kind with
+def infixText (kind: InfixKind) (text: Text): Bool := match kind with
   | InfixArrow => arrowText1 text
   | InfixBinary => binaryText1 text
   | _ => False
@@ -163,7 +163,7 @@ theorem binaryFacts ∀ (text: Text) (binary: binaryText1 text = True): InfixFac
             | False => binaryFactsD text (Bool.andLeft binary)
 
 --| The operator of an infix in slice 1 is the token `Spelt` asks for, at its level.
-theorem infixFacts ∀ (kind: InfixKind) (text: Text) (fits: infixText1 kind text = True): InfixFacts kind text :=
+theorem infixFacts ∀ (kind: InfixKind) (text: Text) (fits: infixText kind text = True): InfixFacts kind text :=
   match kind with
     | InfixArrow => arrowFacts text fits
     | InfixBinary => binaryFacts text fits
@@ -235,66 +235,66 @@ theorem spacedFirstLength ∀ (spacing: Spacing) (inner: List Spacing):
 --| An expression's spacing has a place for each of its slots.
 theorem spacingLength ∀ (expr: Expr) (argument: Bool)
     (within: expr.within1 = True):
-    (expr.spacing1 argument).length = expr.slots1.length :=
+    (expr.spacing argument).length = expr.slots.length :=
   match expr, within with
     | Atom _ _, _ => byComputing
     | Paren open inner close, within =>
-      rewrite List.lengthAppend [Free, ..inner.spacing1 False] [Free],
-          List.lengthAppend [Some open, ..inner.slots1] [Some close],
+      rewrite List.lengthAppend [Free, ..inner.spacing False] [Free],
+          List.lengthAppend [Some open, ..inner.slots] [Some close],
           spacingLength inner False within
     | Tuple open items _ close, within =>
-      rewrite List.lengthAppend [Free, ..commaSpacing1 items] [Free],
-          List.lengthAppend [Some open, ..commaSlots1 items] [Some close],
+      rewrite List.lengthAppend [Free, ..commaSpacing items] [Free],
+          List.lengthAppend [Some open, ..commaSlots items] [Some close],
           commaSpacingLength items within
     | ListOf open items _ close, within =>
-      rewrite List.lengthAppend [Free, ..commaSpacing1 items] [Free],
-          List.lengthAppend [Some open, ..commaSlots1 items] [Some close],
+      rewrite List.lengthAppend [Free, ..commaSpacing items] [Free],
+          List.lengthAppend [Some open, ..commaSlots items] [Some close],
           commaSpacingLength items within
     | App head arguments, within =>
-      rewrite List.lengthAppend (head.spacing1 False) (argumentsSpacing1 arguments),
-          List.lengthAppend head.slots1 (argumentSlots1 arguments),
+      rewrite List.lengthAppend (head.spacing False) (argumentsSpacing arguments),
+          List.lengthAppend head.slots (argumentSlots arguments),
           spacingLength head False (Bool.andLeft within),
           argumentsSpacingLength arguments (Bool.andRight within)
     | Infix InfixBinary left operator right, within =>
-      rewrite List.lengthAppend (left.spacing1 False) [Free, ..spacedFirst Apart (right.spacing1 False)],
-          List.lengthAppend left.slots1 [Some operator, ..right.slots1],
+      rewrite List.lengthAppend (left.spacing False) [Free, ..spacedFirst Apart (right.spacing False)],
+          List.lengthAppend left.slots [Some operator, ..right.slots],
           spacingLength left False (Bool.andLeft within),
-          spacedFirstLength Apart (right.spacing1 False),
+          spacedFirstLength Apart (right.spacing False),
           spacingLength right False (Bool.andLeft (Bool.andRight within))
     | Infix InfixArrow left operator right, within =>
-      rewrite List.lengthAppend (left.spacing1 False) [Free, ..spacedFirst Apart (right.spacing1 False)],
-          List.lengthAppend left.slots1 [Some operator, ..right.slots1],
+      rewrite List.lengthAppend (left.spacing False) [Free, ..spacedFirst Apart (right.spacing False)],
+          List.lengthAppend left.slots [Some operator, ..right.slots],
           spacingLength left False (Bool.andLeft within),
-          spacedFirstLength Apart (right.spacing1 False),
+          spacedFirstLength Apart (right.spacing False),
           spacingLength right False (Bool.andLeft (Bool.andRight within))
     | Prefix operator operand, within =>
       match operandSpacing argument operator operand with
         | Some spacing =>
-          rewrite spacedFirstLength spacing (operand.spacing1 False), spacingLength operand False (Bool.andLeft within)
+          rewrite spacedFirstLength spacing (operand.spacing False), spacingLength operand False (Bool.andLeft within)
         | None => rewrite spacingLength operand False (Bool.andLeft within)
     | Infix _ _ _ _, never => (Bool.falseNotTrue never).impossible
     | other, never => (Bool.falseNotTrue never).impossible
 
 theorem commaSpacingLength ∀ (items: List Expr)
     (within: allWithin1 items = True):
-    (commaSpacing1 items).length = (commaSlots1 items).length :=
+    (commaSpacing items).length = (commaSlots items).length :=
   match items with
     | [] => byComputing
     | [item] => spacingLength item False (Bool.andLeft within)
     | [item, next, ..rest] =>
-      rewrite List.lengthAppend (item.spacing1 False) ([Free] ++ commaSpacing1 [next, ..rest]),
-          List.lengthAppend item.slots1 ([None] ++ commaSlots1 [next, ..rest]),
+      rewrite List.lengthAppend (item.spacing False) ([Free] ++ commaSpacing [next, ..rest]),
+          List.lengthAppend item.slots ([None] ++ commaSlots [next, ..rest]),
           spacingLength item False (Bool.andLeft within),
           commaSpacingLength [next, ..rest] (Bool.andRight within)
 
 theorem argumentsSpacingLength ∀ (arguments: List Expr)
     (within: allWithin1 arguments = True):
-    (argumentsSpacing1 arguments).length = (argumentSlots1 arguments).length :=
+    (argumentsSpacing arguments).length = (argumentSlots arguments).length :=
   match arguments with
     | [] => byComputing
     | [argument, ..rest] =>
-      rewrite List.lengthAppend (argument.spacing1 True) (argumentsSpacing1 rest),
-          List.lengthAppend argument.slots1 (argumentSlots1 rest),
+      rewrite List.lengthAppend (argument.spacing True) (argumentsSpacing rest),
+          List.lengthAppend argument.slots (argumentSlots rest),
           spacingLength argument True (Bool.andLeft within),
           argumentsSpacingLength rest (Bool.andRight within)
 
@@ -380,9 +380,9 @@ theorem bracketCloser ∀ (close: Word)
 --| call's last argument, an infix's right operand or a sign's operand.
 theorem lastCloses ∀ (expr: Expr) (read: List Item)
     (within: expr.within1 = True)
-    (shaped: expr.shaped1 = True)
-    (lexical: expr.lexical1 = True)
-    (slots: List.All2 SlotMatch read expr.slots1):
+    (shaped: expr.shaped = True)
+    (lexical: expr.lexical = True)
+    (slots: List.All2 SlotMatch read expr.slots):
     EndsClosed read :=
   match expr, within with
     | Atom kind word, within =>
@@ -394,22 +394,22 @@ theorem lastCloses ∀ (expr: Expr) (read: List Item)
         rewrite itemKind, lexKindOfLexes word.text kind lexical then wordCloses kind (Bool.andLeft within)
       )
     | Paren open inner close, within =>
-      let (first, middle, last, bracket) := bracketSlots read open close inner.slots1 slots
-      closerEnds read open close inner.slots1 first middle last bracket
+      let (first, middle, last, bracket) := bracketSlots read open close inner.slots slots
+      closerEnds read open close inner.slots first middle last bracket
         (parenCloser close (Bool.andLeft (Bool.andRight lexical)))
     | Tuple open items _ close, within =>
-      let (first, middle, last, bracket) := bracketSlots read open close (commaSlots1 items) slots
+      let (first, middle, last, bracket) := bracketSlots read open close (commaSlots items) slots
       closerEnds read open close
-        (commaSlots1 items)
+        (commaSlots items)
         first
         middle
         last
         bracket
         (parenCloser close (Bool.andLeft (Bool.andRight lexical)))
     | ListOf open items _ close, within =>
-      let (first, middle, last, bracket) := bracketSlots read open close (commaSlots1 items) slots
+      let (first, middle, last, bracket) := bracketSlots read open close (commaSlots items) slots
       closerEnds read open close
-        (commaSlots1 items)
+        (commaSlots items)
         first
         middle
         last
@@ -417,7 +417,7 @@ theorem lastCloses ∀ (expr: Expr) (read: List Item)
         (bracketCloser close (Bool.andLeft (Bool.andRight lexical)))
     | App head arguments, within =>
       let (headRead, argsRead, isRead, _, argsSlots) :=
-        List.all2AppendSplit SlotMatch read head.slots1 (argumentSlots1 arguments) slots
+        List.all2AppendSplit SlotMatch read head.slots (argumentSlots arguments) slots
       let (front, last, isArgs, closes) :=
         argumentsLast arguments argsRead
           (Bool.andLeft (Bool.andRight (Bool.andRight shaped)))
@@ -448,12 +448,12 @@ theorem lastCloses ∀ (expr: Expr) (read: List Item)
 
 theorem infixLast ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: Expr) (read: List Item)
     (within: right.within1 = True)
-    (shaped: right.shaped1 = True)
-    (lexical: right.lexical1 = True)
-    (slots: List.All2 SlotMatch read (Infix kind left operator right).slots1):
+    (shaped: right.shaped = True)
+    (lexical: right.lexical = True)
+    (slots: List.All2 SlotMatch read (Infix kind left operator right).slots):
     EndsClosed read :=
   let (leftRead, rest, isRead, _, restSlots) :=
-    List.all2AppendSplit SlotMatch read left.slots1 [Some operator, ..right.slots1] slots
+    List.all2AppendSplit SlotMatch read left.slots [Some operator, ..right.slots] slots
   match rest, restSlots with
     | [op, ..rightRead], (_, rightSlots) =>
       let (front, last, isRight, closes) := lastCloses right rightRead within shaped lexical rightSlots
@@ -467,14 +467,14 @@ theorem infixLast ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: Ex
 theorem argumentsLast ∀ (arguments: List Expr) (read: List Item)
     (some: (!arguments.isEmpty) = True)
     (within: allWithin1 arguments = True)
-    (shaped: allShaped1 arguments = True)
-    (lexical: allLexical1 arguments = True)
-    (slots: List.All2 SlotMatch read (argumentSlots1 arguments)):
+    (shaped: allShaped arguments = True)
+    (lexical: allLexical arguments = True)
+    (slots: List.All2 SlotMatch read (argumentSlots arguments)):
     EndsClosed read :=
   match arguments with
     | [argument, ..rest] =>
       let (first, second, isRead, firstSlots, secondSlots) :=
-        List.all2AppendSplit SlotMatch read argument.slots1 (argumentSlots1 rest) slots
+        List.all2AppendSplit SlotMatch read argument.slots (argumentSlots rest) slots
       match rest, second, secondSlots with
         | [], [], _ =>
           let (front, last, isFirst, closes) :=
@@ -557,13 +557,13 @@ theorem wordNoSign ∀ (kind: Tok) (within: kind.wordWithin1 = True): signKind k
 -- The first token.
 
 --| The kind of an expression's first token.
-def Expr.firstKind1: Expr → Tok
+def Expr.firstKind: Expr → Tok
   | Atom kind _ => kind
   | Paren _ _ _ => LParen
   | Tuple _ _ _ _ => LParen
   | ListOf _ _ _ _ => LBracket
-  | App head _ => head.firstKind1
-  | Infix _ left _ _ => left.firstKind1
+  | App head _ => head.firstKind
+  | Infix _ left _ _ => left.firstKind
   | Prefix operator _ => lexKind operator.text
   | _ => Lower
 
@@ -574,22 +574,22 @@ def firstKindIs: List Item → Tok → Bool
 
 theorem slotsSome ∀ (expr: Expr)
     (within: expr.within1 = True):
-    ∃ (slot: Option Word) (rest: List (Option Word)) => expr.slots1 = [slot, ..rest] :=
+    ∃ (slot: Option Word) (rest: List (Option Word)) => expr.slots = [slot, ..rest] :=
   match expr, within with
     | Atom _ word, _ => (Some word, [], byComputing)
-    | Paren open inner close, _ => (Some open, inner.slots1 ++ [Some close], byComputing)
-    | Tuple open items _ close, _ => (Some open, commaSlots1 items ++ [Some close], byComputing)
-    | ListOf open items _ close, _ => (Some open, commaSlots1 items ++ [Some close], byComputing)
+    | Paren open inner close, _ => (Some open, inner.slots ++ [Some close], byComputing)
+    | Tuple open items _ close, _ => (Some open, commaSlots items ++ [Some close], byComputing)
+    | ListOf open items _ close, _ => (Some open, commaSlots items ++ [Some close], byComputing)
     | App head arguments, within =>
       let (slot, rest, starts) := slotsSome head (Bool.andLeft within)
-      (slot, rest ++ argumentSlots1 arguments, rewrite starts)
+      (slot, rest ++ argumentSlots arguments, rewrite starts)
     | Infix InfixBinary left operator right, within =>
       let (slot, rest, starts) := slotsSome left (Bool.andLeft within)
-      (slot, rest ++ [Some operator, ..right.slots1], rewrite starts)
+      (slot, rest ++ [Some operator, ..right.slots], rewrite starts)
     | Infix InfixArrow left operator right, within =>
       let (slot, rest, starts) := slotsSome left (Bool.andLeft within)
-      (slot, rest ++ [Some operator, ..right.slots1], rewrite starts)
-    | Prefix operator operand, _ => (Some operator, operand.slots1, byComputing)
+      (slot, rest ++ [Some operator, ..right.slots], rewrite starts)
+    | Prefix operator operand, _ => (Some operator, operand.slots, byComputing)
     | Infix _ _ _ _, never => (Bool.falseNotTrue never).impossible
     | other, never => (Bool.falseNotTrue never).impossible
 
@@ -606,44 +606,44 @@ theorem frontFirst ∀ (front back: List Item) (slots: List (Option Word)) (slot
 --| An expression's first item is of the kind of its first token.
 theorem firstKindOf ∀ (expr: Expr) (read: List Item)
     (within: expr.within1 = True)
-    (lexical: expr.lexical1 = True)
-    (slots: List.All2 SlotMatch read expr.slots1):
-    firstKindIs read expr.firstKind1 = True :=
+    (lexical: expr.lexical = True)
+    (slots: List.All2 SlotMatch read expr.slots):
+    firstKindIs read expr.firstKind = True :=
   match expr, within with
     | Atom kind word, _ =>
       let (item, isRead, _, itemKind) := slotOne read word slots
       rewrite isRead, itemKind, lexKindOfLexes word.text kind lexical then DecEq.refl kind
     | Paren open inner close, _ =>
-      let (first, middle, last, (isRead, _, firstKind, _, _, _)) := bracketSlots read open close inner.slots1 slots
+      let (first, middle, last, (isRead, _, firstKind, _, _, _)) := bracketSlots read open close inner.slots slots
       rewrite isRead, firstKind, DecEq.sound (Bool.andLeft lexical)
     | Tuple open items _ close, _ =>
       let (first, middle, last, (isRead, _, firstKind, _, _, _)) :=
-        bracketSlots read open close (commaSlots1 items) slots
+        bracketSlots read open close (commaSlots items) slots
       rewrite isRead, firstKind, DecEq.sound (Bool.andLeft lexical)
     | ListOf open items _ close, _ =>
       let (first, middle, last, (isRead, _, firstKind, _, _, _)) :=
-        bracketSlots read open close (commaSlots1 items) slots
+        bracketSlots read open close (commaSlots items) slots
       rewrite isRead, firstKind, DecEq.sound (Bool.andLeft lexical)
     | App head arguments, within =>
       let (headRead, argsRead, isRead, headSlots, _) :=
-        List.all2AppendSplit SlotMatch read head.slots1 (argumentSlots1 arguments) slots
+        List.all2AppendSplit SlotMatch read head.slots (argumentSlots arguments) slots
       let (slot, rest, starts) := slotsSome head (Bool.andLeft within)
       rewrite isRead then
-        frontFirst headRead argsRead head.slots1 slot rest starts headSlots head.firstKind1
+        frontFirst headRead argsRead head.slots slot rest starts headSlots head.firstKind
           (firstKindOf head headRead (Bool.andLeft within) (Bool.andLeft lexical) headSlots)
     | Infix InfixBinary left operator right, within =>
       let (leftRead, rightRead, isRead, leftSlots, _) :=
-        List.all2AppendSplit SlotMatch read left.slots1 [Some operator, ..right.slots1] slots
+        List.all2AppendSplit SlotMatch read left.slots [Some operator, ..right.slots] slots
       let (slot, rest, starts) := slotsSome left (Bool.andLeft within)
       rewrite isRead then
-        frontFirst leftRead rightRead left.slots1 slot rest starts leftSlots left.firstKind1
+        frontFirst leftRead rightRead left.slots slot rest starts leftSlots left.firstKind
           (firstKindOf left leftRead (Bool.andLeft within) (Bool.andLeft lexical) leftSlots)
     | Infix InfixArrow left operator right, within =>
       let (leftRead, rightRead, isRead, leftSlots, _) :=
-        List.all2AppendSplit SlotMatch read left.slots1 [Some operator, ..right.slots1] slots
+        List.all2AppendSplit SlotMatch read left.slots [Some operator, ..right.slots] slots
       let (slot, rest, starts) := slotsSome left (Bool.andLeft within)
       rewrite isRead then
-        frontFirst leftRead rightRead left.slots1 slot rest starts leftSlots left.firstKind1
+        frontFirst leftRead rightRead left.slots slot rest starts leftSlots left.firstKind
           (firstKindOf left leftRead (Bool.andLeft within) (Bool.andLeft lexical) leftSlots)
     | Prefix operator operand, _ =>
       match read, slots with
@@ -655,9 +655,9 @@ def isNumber (tok: Tok): Bool := tok == Num || tok == Float
 --| A slice 1 expression outside an infix that starts with a numeral is one, or a call of one.
 theorem numberLead ∀ (expr: Expr)
     (within: expr.within1 = True)
-    (shaped: expr.shaped1 = True)
-    (unary: expr.unary1 = True)
-    (number: isNumber expr.firstKind1 = True):
+    (shaped: expr.shaped = True)
+    (unary: expr.unary = True)
+    (number: isNumber expr.firstKind = True):
     expr.numeral1 = True ∨ expr.numeralApplication = True :=
   match expr, within, number with
     | Atom Num _, _, _ => Inl byComputing
@@ -684,7 +684,7 @@ theorem numberLead ∀ (expr: Expr)
 theorem unaryOfLevel ∀ (expr: Expr)
     (within: expr.within1 = True)
     (high: (18 <= expr.level) = True):
-    expr.unary1 = True :=
+    expr.unary = True :=
   match expr, within with
     | Infix InfixBinary left operator right, within =>
       let (_, level) := infixFacts InfixBinary operator.text (Bool.andRight (Bool.andRight within))
@@ -702,8 +702,8 @@ theorem unaryOfLevel ∀ (expr: Expr)
 --| An atom or bracket starts with no sign, and is no numeral's call.
 theorem atomicFacts ∀ (expr: Expr)
     (within: expr.within1 = True)
-    (atomic: expr.atomic1 = True):
-    signKind expr.firstKind1 = False ∧ expr.numeralApplication = False :=
+    (atomic: expr.primary = True):
+    signKind expr.firstKind = False ∧ expr.numeralApplication = False :=
   match expr, atomic with
     | Atom kind _, _ => (wordNoSign kind (Bool.andLeft within), byComputing)
     | Paren _ _ _, _ => (byComputing, byComputing)
@@ -728,11 +728,11 @@ theorem apartOperand ∀ (read: List Item) (apart: firstAdmits Apart read = True
 --| Items matching an expression's slots are as many as its spacing's places.
 theorem lengthOf ∀ (expr: Expr) (argument: Bool) (read: List Item)
     (within: expr.within1 = True)
-    (slots: List.All2 SlotMatch read expr.slots1):
-    read.length = (expr.spacing1 argument).length :=
-  Eq.trans (List.all2Length SlotMatch read expr.slots1 slots) (spacingLength expr argument within).flipped
+    (slots: List.All2 SlotMatch read expr.slots):
+    read.length = (expr.spacing argument).length :=
+  Eq.trans (List.all2Length SlotMatch read expr.slots slots) (spacingLength expr argument within).flipped
 
-theorem noRole ∀ (expr: Expr) (never: False = True): expr.argument1 = True := (Bool.falseNotTrue never).impossible
+theorem noRole ∀ (expr: Expr) (never: False = True): expr.callArgument = True := (Bool.falseNotTrue never).impossible
 
 --| A bracket's inside: spaced, chained and led as an expression outside a call's arguments.
 theorem bracketInner ∀ (read: List Item) (open close: Word) (inside: List (Option Word)) (first: Item)
@@ -764,12 +764,12 @@ theorem bracketInner ∀ (read: List Item) (open close: Word) (inside: List (Opt
 --| itself or a call of it, and before a call of one the sign is spaced apart.
 theorem signNumeral ∀ (operator: Word) (operand: Expr) (argument: Bool) (sign: Item) (more: List Item)
     (within: operand.within1 = True)
-    (shaped: operand.shaped1 = True)
-    (lexical: operand.lexical1 = True)
-    (unary: operand.unary1 = True)
+    (shaped: operand.shaped = True)
+    (lexical: operand.lexical = True)
+    (unary: operand.unary = True)
     (minusText: lexKind operator.text = Minus → operator.text = "-")
     (signKindIs: sign.kind = lexKind operator.text)
-    (moreSlots: List.All2 SlotMatch more operand.slots1)
+    (moreSlots: List.All2 SlotMatch more operand.slots)
     (firstFits: ∀ (spacing: Spacing) => operandSpacing argument operator operand = Some spacing
       → firstAdmits spacing more = True)
     (negative: negativeNumeral [sign, ..more] = True):
@@ -780,9 +780,9 @@ theorem signNumeral ∀ (operator: Word) (operand: Expr) (argument: Bool) (sign:
       let text: operator.text = "-" := minusText (rewrite <- signKindIs then isMinus)
       let isNum: (number.kind == Num || number.kind == Float) = True := Bool.andLeft (Bool.andRight negative)
       let glued: number.glued = True := Bool.andLeft (Bool.andRight (Bool.andRight negative))
-      let firstIs: number.kind = operand.firstKind1 :=
+      let firstIs: number.kind = operand.firstKind :=
         DecEq.sound (firstKindOf operand [number, ..later] within lexical moreSlots)
-      let starts: isNumber operand.firstKind1 = True := rewrite firstIs at isNum then isNum
+      let starts: isNumber operand.firstKind = True := rewrite firstIs at isNum then isNum
       match numberLead operand within shaped unary starts with
         | Inl numeral => numeral
         | Inr call =>
@@ -795,15 +795,15 @@ theorem signNumeral ∀ (operator: Word) (operand: Expr) (argument: Bool) (sign:
 --| apart from the head before it, after an operand, and glued to what it signs.
 theorem argumentFitsOf ∀ (argument: Expr) (read: List Item)
     (within: argument.within1 = True)
-    (lexical: argument.lexical1 = True)
-    (isArgument: argument.argument1 = True)
-    (slots: List.All2 SlotMatch read argument.slots1)
-    (spacing: spacingAdmits (argument.spacing1 True) read = True)
+    (lexical: argument.lexical = True)
+    (isArgument: argument.callArgument = True)
+    (slots: List.All2 SlotMatch read argument.slots)
+    (spacing: spacingAdmits (argument.spacing True) read = True)
     (lead: leadAfter read True = True):
     argumentFits argument read = True :=
   match argument with
     | Prefix operator operand =>
-      let atomic: operand.atomic1 = True := Bool.andLeft isArgument
+      let atomic: operand.primary = True := Bool.andLeft isArgument
       let quiet: signQuiet operator operand = True := Bool.andRight isArgument
       let (_, noCall) := atomicFacts operand (Bool.andLeft within) atomic
       let glued: operandSpacing True operator operand = Some Glued := match minus: operator.text == "-" with
@@ -812,7 +812,7 @@ theorem argumentFitsOf ∀ (argument: Expr) (read: List Item)
       match read, slots with
         | [sign, ..more], (_, moreSlots) =>
           let (rest, starts) := spacingFree operand (Bool.andLeft within)
-          let signSpaced: spacingAdmits [Apart, ..spacedFirst Glued (operand.spacing1 False)] [sign, ..more] = True :=
+          let signSpaced: spacingAdmits [Apart, ..spacedFirst Glued (operand.spacing False)] [sign, ..more] = True :=
             rewrite glued at spacing then spacing
           let tail: spacingAdmits (spacedFirst Glued [Free, ..rest]) more = True :=
             rewrite starts at signSpaced then Bool.andRight signSpaced
@@ -832,13 +832,13 @@ theorem argumentFitsOf ∀ (argument: Expr) (read: List Item)
 
 theorem atomicGlue ∀ (argument: Expr) (read: List Item)
     (within: argument.within1 = True)
-    (lexical: argument.lexical1 = True)
-    (atomic: argument.atomic1 = True)
-    (slots: List.All2 SlotMatch read argument.slots1):
+    (lexical: argument.lexical = True)
+    (atomic: argument.primary = True)
+    (slots: List.All2 SlotMatch read argument.slots):
     argumentGlue read = True :=
   match read with
     | [first, next, ..rest] =>
-      let firstIs: first.kind = argument.firstKind1 :=
+      let firstIs: first.kind = argument.firstKind :=
         DecEq.sound (firstKindOf argument [first, next, ..rest] within lexical slots)
       rewrite firstIs, (atomicFacts argument within atomic).left
     | [first] => byComputing
@@ -848,15 +848,15 @@ theorem atomicGlue ∀ (argument: Expr) (read: List Item)
 --| as a negative numeral since nothing before it closes an operand.
 theorem headFitsOf ∀ (head: Expr) (read: List Item)
     (within: head.within1 = True)
-    (lexical: head.lexical1 = True)
-    (fits: head.head1 = True)
-    (slots: List.All2 SlotMatch read head.slots1)
-    (spacing: spacingAdmits (head.spacing1 False) read = True)
+    (lexical: head.lexical = True)
+    (fits: head.callHead = True)
+    (slots: List.All2 SlotMatch read head.slots)
+    (spacing: spacingAdmits (head.spacing False) read = True)
     (lead: leadAfter read False = True):
     headFits head read = True :=
   match head with
     | Prefix operator operand =>
-      let number: operand.numberAtom1 = True := Bool.andLeft (Bool.andRight fits)
+      let number: operand.numberAtom = True := Bool.andLeft (Bool.andRight fits)
       match operand, number with
         | Atom Num word, _ =>
           negativeHead operator Num word read byComputing byComputing (Bool.andRight lexical) fits slots spacing lead
@@ -871,9 +871,9 @@ theorem negativeHead ∀ (operator: Word) (kind: Tok) (word: Word) (read: List I
     (isNumber: (kind == Num || kind == Float) = True)
     (numeral: (Atom kind word).numeral1 = True)
     (lexical: word.lexesAs kind = True)
-    (fits: (Prefix operator (Atom kind word)).head1 = True)
+    (fits: (Prefix operator (Atom kind word)).callHead = True)
     (slots: List.All2 SlotMatch read [Some operator, Some word])
-    (spacing: spacingAdmits ((Prefix operator (Atom kind word)).spacing1 False) read = True)
+    (spacing: spacingAdmits ((Prefix operator (Atom kind word)).spacing False) read = True)
     (lead: leadAfter read False = True):
     headFits (Prefix operator (Atom kind word)) read = True :=
   let minus: operator.text = "-" := DecEq.sound (Bool.andLeft fits)
@@ -904,12 +904,12 @@ theorem negativeHead ∀ (operator: Word) (kind: Tok) (word: Word) (read: List I
 --| (`signNumeral`).
 theorem speltSlots ∀ (expr: Expr) (argument: Bool) (read: List Item)
     (within: expr.within1 = True)
-    (shaped: expr.shaped1 = True)
-    (lexical: expr.lexical1 = True)
+    (shaped: expr.shaped = True)
+    (lexical: expr.lexical = True)
     (free: expr.commaFree = True)
-    (role: argument = True → expr.argument1 = True)
-    (slots: List.All2 SlotMatch read expr.slots1)
-    (spacing: spacingAdmits (expr.spacing1 argument) read = True)
+    (role: argument = True → expr.callArgument = True)
+    (slots: List.All2 SlotMatch read expr.slots)
+    (spacing: spacingAdmits (expr.spacing argument) read = True)
     (chained: Chained read = True)
     (lead: leadAfter read argument = True):
     Spelt expr read :=
@@ -918,13 +918,13 @@ theorem speltSlots ∀ (expr: Expr) (argument: Bool) (read: List Item)
       let (item, isRead, itemWord, itemKind) := slotOne read word slots
       (item, isRead, (rewrite itemKind then lexKindOfLexes word.text kind lexical), itemWord, Bool.andLeft within)
     | Paren open inner close, within =>
-      let (first, middle, last, bracket) := bracketSlots read open close inner.slots1 slots
+      let (first, middle, last, bracket) := bracketSlots read open close inner.slots slots
       let (isRead, firstWord, firstKind, middleSlots, lastWord, lastKind) := bracket
       let opener: (open.text == "(") = True := Bool.andLeft lexical
       let closer: (close.text == ")") = True := Bool.andLeft (Bool.andRight lexical)
       let (innerAdmits, innerChained, innerLead) :=
-        bracketInner read open close inner.slots1 first middle last
-          (inner.spacing1 False)
+        bracketInner read open close inner.slots first middle last
+          (inner.spacing False)
           bracket
           (spacingLength inner False within).flipped
           spacing
@@ -949,17 +949,17 @@ theorem speltSlots ∀ (expr: Expr) (argument: Bool) (read: List Item)
           innerLead
       )
     | Tuple open items comma close, within =>
-      let (first, middle, last, bracket) := bracketSlots read open close (commaSlots1 items) slots
+      let (first, middle, last, bracket) := bracketSlots read open close (commaSlots items) slots
       let (isRead, firstWord, firstKind, middleSlots, lastWord, lastKind) := bracket
       let opener: (open.text == "(") = True := Bool.andLeft lexical
       let closer: (close.text == ")") = True := Bool.andLeft (Bool.andRight lexical)
       let (innerAdmits, innerChained, innerLead) :=
         bracketInner read open close
-          (commaSlots1 items)
+          (commaSlots items)
           first
           middle
           last
-          (commaSpacing1 items)
+          (commaSpacing items)
           bracket
           (commaSpacingLength items within).flipped
           spacing
@@ -1005,17 +1005,17 @@ theorem speltSlots ∀ (expr: Expr) (argument: Bool) (read: List Item)
           othersSpelt
         )
     | ListOf open items comma close, within =>
-      let (first, middle, last, bracket) := bracketSlots read open close (commaSlots1 items) slots
+      let (first, middle, last, bracket) := bracketSlots read open close (commaSlots items) slots
       let (isRead, firstWord, firstKind, middleSlots, lastWord, lastKind) := bracket
       let opener: (open.text == "[") = True := Bool.andLeft lexical
       let closer: (close.text == "]") = True := Bool.andLeft (Bool.andRight lexical)
       let (innerAdmits, innerChained, innerLead) :=
         bracketInner read open close
-          (commaSlots1 items)
+          (commaSlots items)
           first
           middle
           last
-          (commaSpacing1 items)
+          (commaSpacing items)
           bracket
           (commaSpacingLength items within).flipped
           spacing
@@ -1094,7 +1094,7 @@ theorem speltSlots ∀ (expr: Expr) (argument: Bool) (read: List Item)
           let (isSign, minusText) := prefixFacts operator.text (Bool.andRight within)
           let signIs: signKind sign.kind = True := rewrite signKindIs then isSign
           let operandWithin: operand.within1 = True := Bool.andLeft within
-          let operandLexical: operand.lexical1 = True := Bool.andRight lexical
+          let operandLexical: operand.lexical = True := Bool.andRight lexical
           let unary := unaryOfLevel operand operandWithin (Bool.andRight shaped)
           let (rest, starts) := spacingFree operand operandWithin
           let moreChained := (chainedSplit [sign] more chained).right
@@ -1106,7 +1106,7 @@ theorem speltSlots ∀ (expr: Expr) (argument: Bool) (read: List Item)
               let tail: spacingAdmits (spacedFirst chosen [Free, ..rest]) more = True :=
                 rewrite starts at spacing then Bool.andRight spacing
               let (moreAdmits0, firstFits) := admitsSpacedFirst chosen rest more tail
-              let moreAdmits: spacingAdmits (operand.spacing1 False) more = True := rewrite starts then moreAdmits0
+              let moreAdmits: spacingAdmits (operand.spacing False) more = True := rewrite starts then moreAdmits0
               (
                 sign,
                 more,
@@ -1133,7 +1133,7 @@ theorem speltSlots ∀ (expr: Expr) (argument: Bool) (read: List Item)
                   moreLead
               )
             | None =>
-              let moreAdmits: spacingAdmits (operand.spacing1 False) more = True := Bool.andRight spacing
+              let moreAdmits: spacingAdmits (operand.spacing False) more = True := Bool.andRight spacing
               (
                 sign,
                 more,
@@ -1165,29 +1165,29 @@ theorem speltSlots ∀ (expr: Expr) (argument: Bool) (read: List Item)
 theorem speltInfix ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: Expr) (read: List Item)
     (leftWithin: left.within1 = True)
     (rightWithin: right.within1 = True)
-    (fits: infixText1 kind operator.text = True)
-    (shaped: (Infix kind left operator right).shaped1 = True)
-    (lexical: (Infix kind left operator right).lexical1 = True)
+    (fits: infixText kind operator.text = True)
+    (shaped: (Infix kind left operator right).shaped = True)
+    (lexical: (Infix kind left operator right).lexical = True)
     (free: (Infix kind left operator right).commaFree = True)
-    (slots: List.All2 SlotMatch read (Infix kind left operator right).slots1)
-    (spacing: spacingAdmits ((Infix kind left operator right).spacing1 False) read = True)
+    (slots: List.All2 SlotMatch read (Infix kind left operator right).slots)
+    (spacing: spacingAdmits ((Infix kind left operator right).spacing False) read = True)
     (chained: Chained read = True)
     (lead: leadAfter read False = True):
     Spelt (Infix kind left operator right) read :=
   let (leftRead, rest, isRead, leftSlots, restSlots) :=
-    List.all2AppendSplit SlotMatch read left.slots1 [Some operator, ..right.slots1] slots
+    List.all2AppendSplit SlotMatch read left.slots [Some operator, ..right.slots] slots
   match rest, restSlots with
     | [op, ..rightRead], ((opWord, opKind), rightSlots) =>
       let (isTok, level) := infixFacts kind operator.text fits
       let readAdmits: spacingAdmits
-        (left.spacing1 False ++ [Free, ..spacedFirst Apart (right.spacing1 False)])
+        (left.spacing False ++ [Free, ..spacedFirst Apart (right.spacing False)])
         (leftRead ++ [op, ..rightRead])
         = True :=
         rewrite isRead at spacing then spacing
       let (leftAdmits, restAdmits) :=
         admitsSplit
-          (left.spacing1 False)
-          [Free, ..spacedFirst Apart (right.spacing1 False)]
+          (left.spacing False)
+          [Free, ..spacedFirst Apart (right.spacing False)]
           leftRead
           [op, ..rightRead]
           (lengthOf left False leftRead leftWithin leftSlots)
@@ -1196,7 +1196,7 @@ theorem speltInfix ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: E
       let tail: spacingAdmits (spacedFirst Apart [Free, ..others]) rightRead = True :=
         rewrite starts at restAdmits then restAdmits
       let (rightAdmits0, apart) := admitsSpacedFirst Apart others rightRead tail
-      let rightAdmits: spacingAdmits (right.spacing1 False) rightRead = True := rewrite starts then rightAdmits0
+      let rightAdmits: spacingAdmits (right.spacing False) rightRead = True := rewrite starts then rightAdmits0
       let readChained: Chained (leftRead ++ [op, ..rightRead]) = True := rewrite isRead at chained then chained
       let (leftChained, restChained) := chainedSplit leftRead [op, ..rightRead] readChained
       let rightChained := (chainedSplit [op] rightRead restChained).right
@@ -1238,30 +1238,30 @@ theorem speltInfix ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: E
 
 theorem speltApp ∀ (head: Expr) (arguments: List Expr) (read: List Item)
     (within: (App head arguments).within1 = True)
-    (shaped: (App head arguments).shaped1 = True)
-    (lexical: (App head arguments).lexical1 = True)
+    (shaped: (App head arguments).shaped = True)
+    (lexical: (App head arguments).lexical = True)
     (free: (App head arguments).commaFree = True)
-    (slots: List.All2 SlotMatch read (App head arguments).slots1)
-    (spacing: spacingAdmits ((App head arguments).spacing1 False) read = True)
+    (slots: List.All2 SlotMatch read (App head arguments).slots)
+    (spacing: spacingAdmits ((App head arguments).spacing False) read = True)
     (chained: Chained read = True)
     (lead: leadAfter read False = True):
     Spelt (App head arguments) read :=
   let (headRead, argsRead, isRead, headSlots, argsSlots) :=
-    List.all2AppendSplit SlotMatch read head.slots1 (argumentSlots1 arguments) slots
+    List.all2AppendSplit SlotMatch read head.slots (argumentSlots arguments) slots
   let headWithin: head.within1 = True := Bool.andLeft within
-  let headLexical: head.lexical1 = True := Bool.andLeft lexical
-  let fitsHead: head.head1 = True := Bool.andLeft shaped
-  let headShaped: head.shaped1 = True := Bool.andLeft (Bool.andRight shaped)
+  let headLexical: head.lexical = True := Bool.andLeft lexical
+  let fitsHead: head.callHead = True := Bool.andLeft shaped
+  let headShaped: head.shaped = True := Bool.andLeft (Bool.andRight shaped)
   let some: (!arguments.isEmpty) = True := Bool.andLeft (Bool.andRight (Bool.andRight shaped))
-  let argsArgument: arguments.all Expr.argument1 = True :=
+  let argsArgument: arguments.all Expr.callArgument = True :=
     Bool.andLeft (Bool.andRight (Bool.andRight (Bool.andRight shaped)))
-  let argsShaped: allShaped1 arguments = True := Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight shaped)))
-  let readAdmits: spacingAdmits (head.spacing1 False ++ argumentsSpacing1 arguments) (headRead ++ argsRead) = True :=
+  let argsShaped: allShaped arguments = True := Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight shaped)))
+  let readAdmits: spacingAdmits (head.spacing False ++ argumentsSpacing arguments) (headRead ++ argsRead) = True :=
     rewrite isRead at spacing then spacing
   let (headAdmits, argsAdmits) :=
     admitsSplit
-      (head.spacing1 False)
-      (argumentsSpacing1 arguments)
+      (head.spacing False)
+      (argumentsSpacing arguments)
       headRead
       argsRead
       (lengthOf head False headRead headWithin headSlots)
@@ -1310,12 +1310,12 @@ theorem speltApp ∀ (head: Expr) (arguments: List Expr) (read: List Item)
 --| A call's arguments are spelt by their items, each after the head or the argument before it.
 theorem speltArguments ∀ (arguments: List Expr) (read: List Item)
     (within: allWithin1 arguments = True)
-    (shaped: allShaped1 arguments = True)
-    (args: arguments.all Expr.argument1 = True)
-    (lexical: allLexical1 arguments = True)
+    (shaped: allShaped arguments = True)
+    (args: arguments.all Expr.callArgument = True)
+    (lexical: allLexical arguments = True)
     (free: allCommaFree arguments = True)
-    (slots: List.All2 SlotMatch read (argumentSlots1 arguments))
-    (spacing: spacingAdmits (argumentsSpacing1 arguments) read = True)
+    (slots: List.All2 SlotMatch read (argumentSlots arguments))
+    (spacing: spacingAdmits (argumentsSpacing arguments) read = True)
     (chained: Chained read = True)
     (lead: leadAfter read True = True):
     ∃ (steps: List (List Item, Expr)) => read = Parse.loopReads [] steps ∧ SpeltArgs arguments steps :=
@@ -1325,16 +1325,16 @@ theorem speltArguments ∀ (arguments: List Expr) (read: List Item)
         | [], _ => ([], byComputing, byComputing)
     | [argument, ..rest] =>
       let (argRead, restRead, isRead, argSlots, restSlots) :=
-        List.all2AppendSplit SlotMatch read argument.slots1 (argumentSlots1 rest) slots
+        List.all2AppendSplit SlotMatch read argument.slots (argumentSlots rest) slots
       let argWithin: argument.within1 = True := Bool.andLeft within
-      let argLexical: argument.lexical1 = True := Bool.andLeft lexical
-      let isArgument: argument.argument1 = True := Bool.andLeft args
-      let readAdmits: spacingAdmits (argument.spacing1 True ++ argumentsSpacing1 rest) (argRead ++ restRead) = True :=
+      let argLexical: argument.lexical = True := Bool.andLeft lexical
+      let isArgument: argument.callArgument = True := Bool.andLeft args
+      let readAdmits: spacingAdmits (argument.spacing True ++ argumentsSpacing rest) (argRead ++ restRead) = True :=
         rewrite isRead at spacing then spacing
       let (argAdmits, restAdmits) :=
         admitsSplit
-          (argument.spacing1 True)
-          (argumentsSpacing1 rest)
+          (argument.spacing True)
+          (argumentsSpacing rest)
           argRead
           restRead
           (lengthOf argument True argRead argWithin argSlots)
@@ -1390,11 +1390,11 @@ def CommaSpelt: List Expr → List Item → Prop
 
 theorem speltCommas ∀ (items: List Expr) (read: List Item)
     (within: allWithin1 items = True)
-    (shaped: allShaped1 items = True)
-    (lexical: allLexical1 items = True)
+    (shaped: allShaped items = True)
+    (lexical: allLexical items = True)
     (free: allCommaFree items = True)
-    (slots: List.All2 SlotMatch read (commaSlots1 items))
-    (spacing: spacingAdmits (commaSpacing1 items) read = True)
+    (slots: List.All2 SlotMatch read (commaSlots items))
+    (spacing: spacingAdmits (commaSpacing items) read = True)
     (chained: Chained read = True)
     (lead: leadAfter read False = True):
     CommaSpelt items read :=
@@ -1420,23 +1420,23 @@ theorem speltCommas ∀ (items: List Expr) (read: List Item)
     )
     | [one, two, ..others] =>
       let (oneRead, restRead, isRead, oneSlots, restSlots) :=
-        List.all2AppendSplit SlotMatch read one.slots1 ([None] ++ commaSlots1 [two, ..others]) slots
+        List.all2AppendSplit SlotMatch read one.slots ([None] ++ commaSlots [two, ..others]) slots
       match restRead, restSlots with
         | [comma, ..twoRead], (isComma, twoSlots) =>
           let readAdmits: spacingAdmits
-            (one.spacing1 False ++ ([Free] ++ commaSpacing1 [two, ..others]))
+            (one.spacing False ++ ([Free] ++ commaSpacing [two, ..others]))
             (oneRead ++ [comma, ..twoRead])
             = True :=
             rewrite isRead at spacing then spacing
           let (oneAdmits, restAdmits) :=
             admitsSplit
-              (one.spacing1 False)
-              ([Free] ++ commaSpacing1 [two, ..others])
+              (one.spacing False)
+              ([Free] ++ commaSpacing [two, ..others])
               oneRead
               [comma, ..twoRead]
               (lengthOf one False oneRead (Bool.andLeft within) oneSlots)
               readAdmits
-          let twoAdmits: spacingAdmits (commaSpacing1 [two, ..others]) twoRead = True := restAdmits
+          let twoAdmits: spacingAdmits (commaSpacing [two, ..others]) twoRead = True := restAdmits
           let readChained: Chained (oneRead ++ [comma, ..twoRead]) = True := rewrite isRead at chained then chained
           let (oneChained, restChained) := chainedSplit oneRead [comma, ..twoRead] readChained
           let twoChained := (chainedSplit [comma] twoRead restChained).right

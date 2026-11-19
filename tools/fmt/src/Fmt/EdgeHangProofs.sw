@@ -31,7 +31,7 @@ import Fmt.EdgeKeyProofs (..)
 --| A slice 1 expression read back has a token that is no closer: its first.
 theorem codedLex ∀ (expr: Expr)
     (within: expr.within1 = True)
-    (lexical: expr.lexical1 = True):
+    (lexical: expr.lexical = True):
     Coded expr.words.reverse = True :=
   let (rest, words) := wordsLead expr within
   rewrite words, List.reverseCons expr.lead rest then
@@ -63,8 +63,8 @@ theorem lastWithin ∀ (argument: Expr) (rest: List Expr)
     | [next, ..more] => lastWithin next more (Bool.andRight within)
 
 theorem lastLexical ∀ (argument: Expr) (rest: List Expr)
-    (lexical: allLexical1 [argument, ..rest] = True):
-    (lastArg argument rest).lexical1 = True :=
+    (lexical: allLexical [argument, ..rest] = True):
+    (lastArg argument rest).lexical = True :=
   match rest with
     | [] => Bool.andLeft lexical
     | [next, ..more] => lastLexical next more (Bool.andRight lexical)
@@ -80,7 +80,7 @@ theorem lastTrailsIs ∀ (seat: Bool) (item: Expr) (rest: List Expr):
 theorem edgeCloseBefore ∀ (open: Word) (items: List Expr) (close: Word)
     (opens: isCloserText open.text = False)
     (within: allWithin1 items = True)
-    (lexical: allLexical1 items = True)
+    (lexical: allLexical items = True)
     (trails: lastTrails open.trails items = True):
     (ListOf open items False close).trailsBeforeClose = True :=
   rewrite List.reverseSnoc [open, ..itemsWords items] close, List.reverseCons open (itemsWords items) then

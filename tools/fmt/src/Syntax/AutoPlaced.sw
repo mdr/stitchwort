@@ -2,7 +2,7 @@
 --| tests for an implicit binder, `[auto Ord …` (`namelessAutoAt`), only where a full expression starts (`exprPlain`):
 --| a declaration's type and value, a paren's inside, a tuple's or a list's item, and an arrow's right side. There such a
 --| list reads as a binder, so a parsed tree has none; anywhere else, as an argument or an operand, it is a list
---| (`f [auto Ord]`, `x + [auto Ord]`). `Expr.autoPlaced1` says so of a tree, and read-back takes it.
+--| (`f [auto Ord]`, `x + [auto Ord]`). `Expr.autoPlaced` says so of a tree, and read-back takes it.
 
 namespace Syntax.AutoPlaced
 import Std (Bool, List, Text)
@@ -10,14 +10,14 @@ import Syntax (..)
 
 --| A call of `auto` on a type's name, `auto Ord …`: first in a list that starts a full expression, `[auto Ord]` reads
 --| as an implicit binder (`namelessAutoAt`), not as a list.
-def Expr.autoCall1: Expr → Bool
+def Expr.autoCall: Expr → Bool
   | App (Atom headKind word) [Atom argumentKind _, .._] =>
     headKind == Lower && word.text == "auto" && argumentKind == Upper
-  | Infix _ left _ _ => left.autoCall1
+  | Infix _ left _ _ => left.autoCall
   | _ => False
 
 --| A list's first item, where `full` says the list starts a full expression: then it is no `auto` call.
-def autoLead1 (full: Bool) (one: Expr): Bool := !full || !one.autoCall1
+def autoLead (full: Bool) (one: Expr): Bool := !full || !one.autoCall
 
 --| An operator whose right side is a full expression: the arrow.
 def arrowKind1: InfixKind → Bool
@@ -27,29 +27,29 @@ def arrowKind1: InfixKind → Bool
 --| No list that starts a full expression starts with an `auto` call. `full` says whether `expr` starts one; it passes
 --| down the leftmost spine (a call's head, an operator's left side), which starts where `expr` does, and every
 --| bracket's inside and an arrow's right side start one of their own.
-def Expr.autoPlaced1 (expr: Expr) (full: Bool): Bool := match expr with
-  | Paren _ inner _ => inner.autoPlaced1 True
+def Expr.autoPlaced (expr: Expr) (full: Bool): Bool := match expr with
+  | Paren _ inner _ => inner.autoPlaced True
   | Tuple _ items _ _ => autoPlacedAll True items
   | ListOf _ [] _ _ => True
-  | ListOf _ [one, ..others] _ _ => autoLead1 full one && one.autoPlaced1 True && autoPlacedAll True others
-  | App head arguments => head.autoPlaced1 full && autoPlacedAll False arguments
-  | Prefix _ operand => operand.autoPlaced1 False
-  | Infix kind left _ right => left.autoPlaced1 full && right.autoPlaced1 (arrowKind1 kind)
+  | ListOf _ [one, ..others] _ _ => autoLead full one && one.autoPlaced True && autoPlacedAll True others
+  | App head arguments => head.autoPlaced full && autoPlacedAll False arguments
+  | Prefix _ operand => operand.autoPlaced False
+  | Infix kind left _ right => left.autoPlaced full && right.autoPlaced (arrowKind1 kind)
   | _ => True
 
 def autoPlacedAll (full: Bool): List Expr → Bool
   | [] => True
-  | [expr, ..rest] => expr.autoPlaced1 full && autoPlacedAll full rest
+  | [expr, ..rest] => expr.autoPlaced full && autoPlacedAll full rest
 
 --| A declaration's type and value are full expressions.
-def Decl.autoPlaced1: Decl → Bool
-  | Definition _ header (Assigned _ value) => header.result.autoPlaced1 True && value.autoPlaced1 True
+def Decl.autoPlaced: Decl → Bool
+  | Definition _ header (Assigned _ value) => header.result.autoPlaced True && value.autoPlaced True
   | _ => True
 
-def SourceFile.autoPlaced1 (file: SourceFile): Bool := file.decls.all Decl.autoPlaced1
+def SourceFile.autoPlaced (file: SourceFile): Bool := file.decls.all Decl.autoPlaced
 
 --| Placed as a full expression, an expression is placed anywhere: only the start's list is tested more.
-theorem autoPlacedInner ∀ (expr: Expr) (placed: expr.autoPlaced1 True = True): expr.autoPlaced1 False = True :=
+theorem autoPlacedInner ∀ (expr: Expr) (placed: expr.autoPlaced True = True): expr.autoPlaced False = True :=
   match expr, placed with
     | ListOf _ [one, ..others] _ _, placed => Bool.andIntro byComputing (Bool.andRight placed)
     | App head arguments, placed => Bool.andIntro (autoPlacedInner head (Bool.andLeft placed)) (Bool.andRight placed)
@@ -62,9 +62,9 @@ theorem autoPlacedInner ∀ (expr: Expr) (placed: expr.autoPlaced1 True = True):
     | other, _ => cases
 
 --| A list's first item, placed as a full expression's, is no `auto` call.
-theorem autoLeadFull ∀ (one: Expr) (lead: autoLead1 True one = True): one.autoCall1 = False :=
-  match call: one.autoCall1 with | False => byComputing
+theorem autoLeadFull ∀ (one: Expr) (lead: autoLead True one = True): one.autoCall = False :=
+  match call: one.autoCall with | False => byComputing
 
 --| A list's first item that isn't placed as a full expression's is an `auto` call.
-theorem autoLeadCall ∀ (one: Expr) (lead: autoLead1 True one = False): one.autoCall1 = True :=
-  match call: one.autoCall1 with | True => byComputing
+theorem autoLeadCall ∀ (one: Expr) (lead: autoLead True one = False): one.autoCall = True :=
+  match call: one.autoCall with | True => byComputing

@@ -1,5 +1,5 @@
 --| Step 2 of tools/fmt/NOTES.md, "Printed spacing" (SW-4076): slice 1's rules print each code word touching the
---| piece before it as `Expr.spacing1` asks, in the triples of `Fmt.TouchSteps`. A sign's operand comes straight after
+--| piece before it as `Expr.spacing` asks, in the triples of `Fmt.TouchSteps`. A sign's operand comes straight after
 --| the sign when `prefixGap` is empty, so it touches it; a call's arguments and an infix's right operand come after a
 --| `Line` or a space, so they don't.
 
@@ -602,56 +602,56 @@ theorem framedSteps ∀ (first: Word) (around: Around) (doc: Doc) (spacing: List
 --| first part's spacing or a bracket.
 theorem spacingFree ∀ (expr: Expr)
     (within: expr.within1 = True):
-    ∃ (rest: List Spacing) => expr.spacing1 False = [Free, ..rest] :=
+    ∃ (rest: List Spacing) => expr.spacing False = [Free, ..rest] :=
   match expr with
     | Atom kind word => ([], byComputing)
-    | Paren open inner close => (inner.spacing1 False ++ [Free], byComputing)
-    | Tuple open items comma close => (commaSpacing1 items ++ [Free], byComputing)
-    | ListOf open items comma close => (commaSpacing1 items ++ [Free], byComputing)
+    | Paren open inner close => (inner.spacing False ++ [Free], byComputing)
+    | Tuple open items comma close => (commaSpacing items ++ [Free], byComputing)
+    | ListOf open items comma close => (commaSpacing items ++ [Free], byComputing)
     | App head arguments =>
       let (rest, head) := spacingFree head (Bool.andLeft within)
-      (rest ++ argumentsSpacing1 arguments, rewrite head)
+      (rest ++ argumentsSpacing arguments, rewrite head)
     | Infix kind left operator right =>
       match kind with
         | InfixBinary =>
           let (rest, left) := spacingFree left (Bool.andLeft within)
-          (rest ++ [Free, ..spacedFirst Apart (right.spacing1 False)], rewrite left)
+          (rest ++ [Free, ..spacedFirst Apart (right.spacing False)], rewrite left)
         | InfixArrow =>
           let (rest, left) := spacingFree left (Bool.andLeft within)
-          (rest ++ [Free, ..spacedFirst Apart (right.spacing1 False)], rewrite left)
+          (rest ++ [Free, ..spacedFirst Apart (right.spacing False)], rewrite left)
         | _ => cases
     | Prefix operator operand =>
       match operandSpacing False operator operand with
-        | Some spacing => (spacedFirst spacing (operand.spacing1 False), byComputing)
-        | None => (operand.spacing1 False, byComputing)
+        | Some spacing => (spacedFirst spacing (operand.spacing False), byComputing)
+        | None => (operand.spacing False, byComputing)
 
 --| Spacing an expression's first code word as `Free` leaves its spacing as it is.
 theorem freeFirst ∀ (expr: Expr)
     (within: expr.within1 = True):
-    spacedFirst Free (expr.spacing1 False) = expr.spacing1 False :=
+    spacedFirst Free (expr.spacing False) = expr.spacing False :=
   let (rest, free) := spacingFree expr within
   rewrite free
 
 --| What the rules' lemmas say of an expression: its element, from where its first code word may stand spaced `first`,
---| adds code words spaced as `Expr.spacing1` says with `first` for the first, and ends where a comment waits only if
---| it ends with one. `argument`: it is a call's argument, as `argument1` shapes them.
+--| adds code words spaced as `Expr.spacing` says with `first` for the first, and ends where a comment waits only if
+--| it ends with one. `argument`: it is a call's argument, as `callArgument` shapes them.
 def ElSteps (expr: Expr): Prop :=
   expr.within1 = True
-    → expr.shaped1 = True
-    → expr.lexical1 = True
+    → expr.shaped = True
+    → expr.lexical = True
     → Joinable lexKind expr
-    → ∀ (around: Around) (first: Spacing) (argument: Bool) => (argument = True → expr.argument1 = True)
+    → ∀ (around: Around) (first: Spacing) (argument: Bool) => (argument = True → expr.callArgument = True)
       → (Loose first ∨ expr.firstWord.quietAt around around.at = True)
-      → Steps (expr.el around) (Fits True first) (spacedFirst first (expr.spacing1 argument)) (Ends expr.trails)
+      → Steps (expr.el around) (Fits True first) (spacedFirst first (expr.spacing argument)) (Ends expr.trails)
 
 --| An element that is no call's argument, its first code word free.
 theorem elFree ∀ (expr: Expr) (around: Around)
     (steps: ElSteps expr)
     (within: expr.within1 = True)
-    (shaped: expr.shaped1 = True)
-    (lexical: expr.lexical1 = True)
+    (shaped: expr.shaped = True)
+    (lexical: expr.lexical = True)
     (joinable: Joinable lexKind expr):
-    Steps (expr.el around) (Fits True Free) (expr.spacing1 False) (Ends expr.trails) :=
+    Steps (expr.el around) (Fits True Free) (expr.spacing False) (Ends expr.trails) :=
   rewrite <- freeFirst expr within then
     steps within shaped lexical joinable around Free False
       (never => (Bool.falseNotTrue never).impossible)
@@ -664,7 +664,7 @@ theorem atomSteps ∀ (kind: Tok) (word: Word) (around: Around) (first: Spacing)
     Steps
       ((Atom kind word).el around)
       (Fits True first)
-      (spacedFirst first ((Atom kind word).spacing1 argument))
+      (spacedFirst first ((Atom kind word).spacing argument))
       (Ends (Atom kind word).trails) :=
   let (_, _, _, closer) := joins
   let leadLoose: Loose first ∨ (word.leading around around.at).isEmpty = True := match loose with
@@ -688,9 +688,9 @@ theorem atomNotMinus ∀ (kind: Tok) (word: Word) (within: (Atom kind word).with
 
 --| An atom or bracket starts with no `-` and is no numeral's call: `prefixGap` writes nothing before it.
 theorem atomicTight ∀ (operand: Expr)
-    (atomic: operand.atomic1 = True)
+    (atomic: operand.primary = True)
     (within: operand.within1 = True)
-    (lexical: operand.lexical1 = True):
+    (lexical: operand.lexical = True):
     (operand.firstWord.text == "-" || operand.numeralApplication) = False :=
   match operand with
     | Atom kind word => rewrite atomNotMinus kind word within
@@ -698,7 +698,7 @@ theorem atomicTight ∀ (operand: Expr)
     | Tuple open items comma close => rewrite DecEq.sound (Bool.andLeft lexical)
     | ListOf open items comma close => rewrite DecEq.sound (Bool.andLeft lexical)
 
-theorem numeralAtomic ∀ (operand: Expr) (numeral: operand.numeral1 = True): operand.atomic1 = True := match operand with
+theorem numeralAtomic ∀ (operand: Expr) (numeral: operand.numeral1 = True): operand.primary = True := match operand with
   | Atom kind word => byComputing
 
 theorem gapSpaced ∀ (operator: Word) (operand: Expr)
@@ -772,25 +772,25 @@ theorem closedFalse ∀ (trails: Bool)
 --|
 --| Proof idea: the sign is a token (`wordLeafSteps`); its operand starts where `operandSpacing` says: apart after the
 --| space `prefixGap` writes before a numeral's call, glued where nothing comes between them (no comment, by
---| `signQuiet`, and no space: a call's argument's sign is on an atom or bracket, by `argument1`), else free.
+--| `signQuiet`, and no space: a call's argument's sign is on an atom or bracket, by `callArgument`), else free.
 theorem prefixSteps ∀ (operator: Word) (operand: Expr) (around: Around) (first: Spacing) (argument: Bool)
     (within: (Prefix operator operand).within1 = True)
-    (shaped: (Prefix operator operand).shaped1 = True)
-    (lexical: (Prefix operator operand).lexical1 = True)
+    (shaped: (Prefix operator operand).shaped = True)
+    (lexical: (Prefix operator operand).lexical = True)
     (joinable: Joinable lexKind (Prefix operator operand))
-    (isArgument: argument = True → (Prefix operator operand).argument1 = True)
+    (isArgument: argument = True → (Prefix operator operand).callArgument = True)
     (loose: Loose first ∨ operator.quietAt around around.at = True)
     (operandSteps: ElSteps operand):
     Steps
       ((Prefix operator operand).el around)
       (Fits True first)
-      (spacedFirst first ((Prefix operator operand).spacing1 argument))
+      (spacedFirst first ((Prefix operator operand).spacing argument))
       (Ends (Prefix operator operand).trails) :=
   let (joins, operandJoins, _) := joinable
   let (sound, _, _, _) := joins
   let operandWithin: operand.within1 = True := Bool.andLeft within
-  let operandShaped: operand.shaped1 = True := Bool.andLeft shaped
-  let operandLexical: operand.lexical1 = True := Bool.andRight lexical
+  let operandShaped: operand.shaped = True := Bool.andLeft shaped
+  let operandLexical: operand.lexical = True := Bool.andRight lexical
   let place := around.next operator.trails 1
   let inside := { around | hoisted = True }
   let ends: ∀ (seam: Seam) => Ends operand.trails seam → Ends (Prefix operator operand).trails seam := seam ended =>
@@ -834,10 +834,10 @@ theorem prefixSteps ∀ (operator: Word) (operand: Expr) (around: Around) (first
               rest
               gap
               (stepsTo _ _ _ _ _ inner ends))))
-  let free: Steps (operand.el place) (Fits True Free) (operand.spacing1 False) (Ends operand.trails) :=
+  let free: Steps (operand.el place) (Fits True Free) (operand.spacing False) (Ends operand.trails) :=
     elFree operand place operandSteps operandWithin operandShaped operandLexical operandJoins
   let glued: signQuiet operator operand = True
-    → Steps (operand.el place) (Fits True Glued) (spacedFirst Glued (operand.spacing1 False)) (Ends operand.trails) :=
+    → Steps (operand.el place) (Fits True Glued) (spacedFirst Glued (operand.spacing False)) (Ends operand.trails) :=
     quiet =>
       let noTrail := signQuietAfter operator operand quiet
       let fresh: operand.firstWord.quietAt place place.at = True :=
@@ -855,7 +855,7 @@ theorem prefixSteps ∀ (operator: Word) (operand: Expr) (around: Around) (first
     → Steps
       ((Prefix operator operand).el around)
       (Fits True first)
-      [first, ..spacedFirst Glued (operand.spacing1 False)]
+      [first, ..spacedFirst Glued (operand.spacing False)]
       (Ends (Prefix operator operand).trails) :=
     quiet tight =>
       whole _ _
@@ -878,7 +878,7 @@ theorem prefixSteps ∀ (operator: Word) (operand: Expr) (around: Around) (first
         | True =>
           match argument with
             | True =>
-              let atomic: operand.atomic1 = True := Bool.andLeft (isArgument byComputing)
+              let atomic: operand.primary = True := Bool.andLeft (isArgument byComputing)
               let tight: (operator.text == "-" && (operand.firstWord.text == "-" || operand.numeralApplication))
                 = False :=
                 Bool.andFalseRight _ _ (atomicTight operand atomic operandWithin operandLexical)
@@ -924,15 +924,15 @@ theorem closerEnds ∀ (open close: Word) (middle: List Word) (seam: Seam)
 --| `( … )`: the opener, spaced `first`, the element inside, free, and the closer.
 theorem parenSteps ∀ (open: Word) (inner: Expr) (close: Word) (around: Around) (first: Spacing) (argument: Bool)
     (within: (Paren open inner close).within1 = True)
-    (shaped: (Paren open inner close).shaped1 = True)
-    (lexical: (Paren open inner close).lexical1 = True)
+    (shaped: (Paren open inner close).shaped = True)
+    (lexical: (Paren open inner close).lexical = True)
     (joinable: Joinable lexKind (Paren open inner close))
     (loose: Loose first ∨ open.quietAt around around.at = True)
     (innerSteps: ElSteps inner):
     Steps
       ((Paren open inner close).el around)
       (Fits True first)
-      (spacedFirst first ((Paren open inner close).spacing1 argument))
+      (spacedFirst first ((Paren open inner close).spacing argument))
       (Ends (Paren open inner close).trails) :=
   let (opener, closer, innerJoins) := joinable
   let (closeSound, isCloser) := closer
@@ -940,7 +940,7 @@ theorem parenSteps ∀ (open: Word) (inner: Expr) (close: Word) (around: Around)
   let innerAround := inside.next open.trails 1
   let closeAround := inside.next inner.trails (1 + inner.size)
   framedSteps open around _
-    [first, ..inner.spacing1 False ++ [Free]] _
+    [first, ..inner.spacing False ++ [Free]] _
     first
     opener.left.left
     loose
@@ -952,7 +952,7 @@ theorem parenSteps ∀ (open: Word) (inner: Expr) (close: Word) (around: Around)
         (Closed open.trails)
         (Ends (Paren open inner close).trails)
         [first]
-        (inner.spacing1 False ++ [Free])
+        (inner.spacing False ++ [Free])
         (openingSteps open inside close first opener.left (Inr byComputing))
         (stepsTwo
           (parenInner inner innerAround)
@@ -960,7 +960,7 @@ theorem parenSteps ∀ (open: Word) (inner: Expr) (close: Word) (around: Around)
           (Closed open.trails)
           (Ends inner.trails)
           (Ends (Paren open inner close).trails)
-          (inner.spacing1 False)
+          (inner.spacing False)
           [Free]
           (stepsFrom _ _ _ _ _
             (parenInnerSteps inner innerAround _ _ _ within
@@ -984,14 +984,14 @@ def EachElSteps: List Expr → Prop
 def EachFree: List Expr → Prop
   | [] => True
   | [item, ..rest] =>
-    (∀ (place: Around) => Steps (item.el place) (Fits True Free) (item.spacing1 False) (Ends item.trails))
+    (∀ (place: Around) => Steps (item.el place) (Fits True Free) (item.spacing False) (Ends item.trails))
       ∧ EachFree rest
 
 theorem eachFree ∀ (items: List Expr)
     (each: EachElSteps items)
     (within: allWithin1 items = True)
-    (shaped: allShaped1 items = True)
-    (lexical: allLexical1 items = True)
+    (shaped: allShaped items = True)
+    (lexical: allLexical items = True)
     (joinable: AllJoinable lexKind items):
     EachFree items :=
   match items, each, joinable with
@@ -1033,7 +1033,7 @@ theorem brokenSteps ∀ (seen: List Word) (items: List Expr) (bare arm first bef
     StepsAll
       (brokenItems bare arm first before at items)
       (Ends (trailsBack seen.reverse))
-      (commaSpacing1 items)
+      (commaSpacing items)
       (Ends (trailsBack (seen ++ itemsWords items).reverse)) :=
   match items, each with
     | [], _ => stepsNil _ _ (seam ended => rewrite List.appendNil seen then ended)
@@ -1043,7 +1043,7 @@ theorem brokenSteps ∀ (seen: List Word) (items: List Expr) (bare arm first bef
         (item.el (firstAround bare arm before at)) _
         (Fits True Free) _
         []
-        (item.spacing1 False)
+        (item.spacing False)
         (sepFree first (trailsBack seen.reverse))
         (stepsTo _ _ _ _ _ (steps (firstAround bare arm before at)) (seam ended =>
           rewrite List.appendNil item.words then itemEnds seen item seam ended))
@@ -1052,19 +1052,19 @@ theorem brokenSteps ∀ (seen: List Word) (items: List Expr) (bare arm first bef
         (if first then SoftLine else Line) _ _
         (Fits True Free) _
         []
-        (item.spacing1 False ++ [Free] ++ commaSpacing1 [second, ..more])
+        (item.spacing False ++ [Free] ++ commaSpacing [second, ..more])
         (sepFree first (trailsBack seen.reverse))
         (stepsCons
           (item.el (firstAround bare arm before at)) _ _
           (Ends (trailsBack (seen ++ item.words).reverse)) _
-          (item.spacing1 False)
-          ([Free] ++ commaSpacing1 [second, ..more])
+          (item.spacing False)
+          ([Free] ++ commaSpacing [second, ..more])
           (stepsTo _ _ _ _ _ (steps (firstAround bare arm before at)) (seam ended => itemEnds seen item seam ended))
           (stepsCons
             (Closing ",") _ _
             (Ends (trailsBack (seen ++ item.words).reverse)) _
             [Free]
-            (commaSpacing1 [second, ..more])
+            (commaSpacing [second, ..more])
             (commaStep (trailsBack (seen ++ item.words).reverse))
             (rewrite <- List.appendAssoc seen item.words (itemsWords [second, ..more]) then
               brokenSteps (seen ++ item.words) [second, ..more] False arm False item.trails (at + item.size) rest)))
@@ -1075,44 +1075,44 @@ theorem cellsRestSteps ∀ (seen: List Word) (items: List Expr) (arm before: Boo
     SepsSteps
       (cells False arm before at items)
       (Ends (trailsBack seen.reverse))
-      (commaSpacing1 items)
+      (commaSpacing items)
       (Ends (trailsBack (seen ++ itemsWords items).reverse)) :=
   match items, each with
     | [], _ => sepsNil _ _ (seam ended => rewrite List.appendNil seen then ended)
     | [item], (steps, _) =>
-      rewrite <- List.appendNil (item.spacing1 False) then
+      rewrite <- List.appendNil (item.spacing False) then
         sepsCons
           (item.el (firstAround False arm before at))
           [] _ _ _
-          (item.spacing1 False)
+          (item.spacing False)
           []
           (stepsTwo Line
             (item.el (firstAround False arm before at)) _
             (Fits True Free) _
             []
-            (item.spacing1 False)
+            (item.spacing False)
             (sepFree False (trailsBack seen.reverse))
             (stepsTo _ _ _ _ _ (steps (firstAround False arm before at)) (seam ended =>
               rewrite List.appendNil item.words then itemEnds seen item seam ended)))
           (sepsNil _ _ (seam ended => ended))
     | [item, second, ..more], (steps, rest) =>
-      rewrite <- List.appendAssoc (item.spacing1 False) [Free] (commaSpacing1 [second, ..more]) then
+      rewrite <- List.appendAssoc (item.spacing False) [Free] (commaSpacing [second, ..more]) then
         sepsCons
           (Doc.concat [item.el (firstAround False arm before at), Closing ","]) _ _
           (Ends (trailsBack (seen ++ item.words).reverse)) _
-          (item.spacing1 False ++ [Free])
-          (commaSpacing1 [second, ..more])
+          (item.spacing False ++ [Free])
+          (commaSpacing [second, ..more])
           (stepsTwo Line
             (Doc.concat [item.el (firstAround False arm before at), Closing ","]) _
             (Fits True Free) _
             []
-            (item.spacing1 False ++ [Free])
+            (item.spacing False ++ [Free])
             (sepFree False (trailsBack seen.reverse))
             (stepsConcat _ _ _ _
               (stepsTwo
                 (item.el (firstAround False arm before at))
                 (Closing ",") _ _ _
-                (item.spacing1 False)
+                (item.spacing False)
                 [Free]
                 (stepsTo _ _ _ _ _ (steps (firstAround False arm before at)) (seam ended =>
                   itemEnds seen item seam ended))
@@ -1126,7 +1126,7 @@ theorem cellsSteps ∀ (open: Word) (item: Expr) (others: List Expr) (bare arm b
     Steps
       (Fill (cells bare arm before at [item, ..others]))
       (Ends (trailsBack [open].reverse))
-      (commaSpacing1 [item, ..others])
+      (commaSpacing [item, ..others])
       (Ends (trailsBack ([open] ++ itemsWords [item, ..others]).reverse)) :=
   let start: ∀ (seam: Seam) => Ends (trailsBack [open].reverse) seam → Fits True Free seam := seam ended =>
     fitsWeaker
@@ -1138,11 +1138,11 @@ theorem cellsSteps ∀ (open: Word) (item: Expr) (others: List Expr) (bare arm b
       (endsFits (trailsBack [open].reverse) seam ended)
   match others, each with
     | [], (steps, _) =>
-      rewrite <- List.appendNil (item.spacing1 False) then
+      rewrite <- List.appendNil (item.spacing False) then
         stepsFill
           (item.el (firstAround bare arm before at))
           [] _ _ _
-          (item.spacing1 False)
+          (item.spacing False)
           []
           (stepsFrom _ _ _ _ _
             (stepsTo _ _ _ _ _ (steps (firstAround bare arm before at)) (seam ended =>
@@ -1150,18 +1150,18 @@ theorem cellsSteps ∀ (open: Word) (item: Expr) (others: List Expr) (bare arm b
             start)
           (sepsNil _ _ (seam ended => ended))
     | [second, ..more], (steps, rest) =>
-      rewrite <- List.appendAssoc (item.spacing1 False) [Free] (commaSpacing1 [second, ..more]) then
+      rewrite <- List.appendAssoc (item.spacing False) [Free] (commaSpacing [second, ..more]) then
         stepsFill
           (Doc.concat [item.el (firstAround bare arm before at), Closing ","]) _ _
           (Ends (trailsBack ([open] ++ item.words).reverse)) _
-          (item.spacing1 False ++ [Free])
-          (commaSpacing1 [second, ..more])
+          (item.spacing False ++ [Free])
+          (commaSpacing [second, ..more])
           (stepsFrom _ _ _ _ _
             (stepsConcat _ _ _ _
               (stepsTwo
                 (item.el (firstAround bare arm before at))
                 (Closing ",") _ _ _
-                (item.spacing1 False)
+                (item.spacing False)
                 [Free]
                 (stepsTo _ _ _ _ _ (steps (firstAround bare arm before at)) (seam ended =>
                   itemEnds [open] item seam ended))
@@ -1191,7 +1191,7 @@ theorem bracketSteps ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wo
     Steps
       (bracketContent list open items close around)
       (Fits True first)
-      ([first, ..commaSpacing1 items] ++ [Free])
+      ([first, ..commaSpacing items] ++ [Free])
       (Ends (ListOf open items False close).trails) :=
   let (closeSound, isCloser) := closer
   let notCloser := opener.right.right.right
@@ -1215,7 +1215,7 @@ theorem bracketSteps ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wo
   let brokenSteps': StepsAll
     [open.opening around close, Nest 2 (Doc.concat broken), SoftLine, close.leaf closeAround around.at]
     (Fits True first)
-    ([first] ++ (commaSpacing1 items ++ ([] ++ [Free])))
+    ([first] ++ (commaSpacing items ++ ([] ++ [Free])))
     (Ends whole.trails) :=
     stepsCons
       (open.opening around close) _ _ _ _
@@ -1224,7 +1224,7 @@ theorem bracketSteps ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wo
       (stepsCons
         (Nest 2 (Doc.concat broken)) _ _
         (Ends seen) _
-        (commaSpacing1 items) _
+        (commaSpacing items) _
         (stepsNest 2 _ _ _ _
           (stepsConcat _ _ _ _ (brokenSteps [open] items bare around.inArm True open.trails (around.at + 1) each)))
         (stepsTwo SoftLine
@@ -1268,7 +1268,7 @@ theorem bracketSteps ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wo
                   (Nest 2 (Fill (cells bare around.inArm open.trails (around.at + 1) [item, ..others])))
                   (close.leaf closeAround around.at) _
                   (Ends seen) _
-                  (commaSpacing1 [item, ..others])
+                  (commaSpacing [item, ..others])
                   [Free]
                   (stepsNest 2 _ _ _ _ (cellsSteps open item others bare around.inArm open.trails (around.at + 1) each))
                   closerSteps))
@@ -1305,8 +1305,8 @@ theorem bracketSteps ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wo
 theorem commaSteps ∀ (list: Bool) (open: Word) (items: List Expr) (comma: Bool) (close: Word) (around: Around)
     (first: Spacing) (argument: Bool)
     (within: (if list then ListOf open items comma close else Tuple open items comma close).within1 = True)
-    (shaped: (if list then ListOf open items comma close else Tuple open items comma close).shaped1 = True)
-    (lexical: (if list then ListOf open items comma close else Tuple open items comma close).lexical1 = True)
+    (shaped: (if list then ListOf open items comma close else Tuple open items comma close).shaped = True)
+    (lexical: (if list then ListOf open items comma close else Tuple open items comma close).lexical = True)
     (joinable: Joinable lexKind (if list then ListOf open items comma close else Tuple open items comma close))
     (loose: Loose first ∨ open.quietAt around around.at = True)
     (each: EachElSteps items):
@@ -1314,7 +1314,7 @@ theorem commaSteps ∀ (list: Bool) (open: Word) (items: List Expr) (comma: Bool
       ((if list then ListOf open items comma close else Tuple open items comma close).el around)
       (Fits True first)
       (spacedFirst first
-        ((if list then ListOf open items comma close else Tuple open items comma close).spacing1 argument))
+        ((if list then ListOf open items comma close else Tuple open items comma close).spacing argument))
       (Ends (if list then ListOf open items comma close else Tuple open items comma close).trails) :=
   match list with
     | True =>
@@ -1358,17 +1358,17 @@ theorem commaSteps ∀ (list: Bool) (open: Word) (items: List Expr) (comma: Bool
 def initSpacings: List Expr → List (List Spacing)
   | [] => []
   | [_] => []
-  | [argument, ..rest] => [argument.spacing1 True, ..initSpacings rest]
+  | [argument, ..rest] => [argument.spacing True, ..initSpacings rest]
 
 --| A call's last argument's spacing.
 def lastSpacing: List Expr → List Spacing
   | [] => []
-  | [argument] => argument.spacing1 True
+  | [argument] => argument.spacing True
   | [_, ..rest] => lastSpacing rest
 
 theorem argumentsJoin ∀ (arguments: List Expr)
     (filled: arguments ≠ []):
-    joinSpacing (initSpacings arguments ++ [lastSpacing arguments]) = argumentsSpacing1 arguments :=
+    joinSpacing (initSpacings arguments ++ [lastSpacing arguments]) = argumentsSpacing arguments :=
   match arguments with
     | [] => (filled byComputing).impossible
     | [argument] => byComputing
@@ -1377,13 +1377,13 @@ theorem argumentsJoin ∀ (arguments: List Expr)
 theorem callJoin ∀ (headSpacing: List Spacing) (arguments: List Expr)
     (filled: arguments ≠ []):
     joinSpacing ([headSpacing, ..initSpacings arguments] ++ [lastSpacing arguments])
-      = headSpacing ++ argumentsSpacing1 arguments :=
+      = headSpacing ++ argumentsSpacing arguments :=
   rewrite <- argumentsJoin arguments filled
 
 --| A call's argument starts with a sign apart from what precedes it, or with a free word.
 theorem argumentStarts ∀ (argument: Expr)
-    (isArgument: argument.argument1 = True):
-    ∃ (start: Spacing) => Loose start ∧ spacedFirst start (argument.spacing1 True) = argument.spacing1 True :=
+    (isArgument: argument.callArgument = True):
+    ∃ (start: Spacing) => Loose start ∧ spacedFirst start (argument.spacing True) = argument.spacing True :=
   match argument with
     | Atom kind word => (Free, byComputing, byComputing)
     | Paren open inner close => (Free, byComputing, byComputing)
@@ -1397,12 +1397,12 @@ theorem argumentStarts ∀ (argument: Expr)
 --| A call's argument, after a space or a line break.
 theorem argumentSteps ∀ (argument: Expr) (place: Around)
     (within: argument.within1 = True)
-    (shaped: argument.shaped1 = True)
-    (lexical: argument.lexical1 = True)
-    (isArgument: argument.argument1 = True)
+    (shaped: argument.shaped = True)
+    (lexical: argument.lexical = True)
+    (isArgument: argument.callArgument = True)
     (joinable: Joinable lexKind argument)
     (steps: ElSteps argument):
-    Steps (argument.el place) (Gapped True) (argument.spacing1 True) (Ends argument.trails) :=
+    Steps (argument.el place) (Gapped True) (argument.spacing True) (Ends argument.trails) :=
   let (start, loose, same) := argumentStarts argument isArgument
   stepsFrom _ _ _ _ _
     (stepsSpacing _ _ _ _ _ same (steps within shaped lexical joinable place start True (_ => isArgument) (Inl loose)))
@@ -1416,7 +1416,7 @@ theorem huggedSteps ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wor
     Steps
       (framedBy open around (Group (bracketContent list open items close { around | hoisted = True }) hard))
       (Gapped True)
-      ([Free, ..commaSpacing1 items] ++ [Free])
+      ([Free, ..commaSpacing items] ++ [Free])
       (Ends (ListOf open items False close).trails) :=
   stepsFrom _ _ _ _ _
     (framedSteps open around
@@ -1431,13 +1431,13 @@ theorem huggedSteps ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wor
 --| A call's last argument, as it stands and opened, after a space or a line break.
 theorem lastArgumentSteps ∀ (argument: Expr) (place: Around)
     (within: argument.within1 = True)
-    (shaped: argument.shaped1 = True)
-    (lexical: argument.lexical1 = True)
-    (isArgument: argument.argument1 = True)
+    (shaped: argument.shaped = True)
+    (lexical: argument.lexical = True)
+    (isArgument: argument.callArgument = True)
     (joinable: Joinable lexKind argument)
     (steps: ElSteps argument):
-    Steps (lastArgument argument place).fst (Gapped True) (argument.spacing1 True) (Ends argument.trails)
-      ∧ HugSteps (lastArgument argument place).snd (Gapped True) (argument.spacing1 True) (Ends argument.trails) :=
+    Steps (lastArgument argument place).fst (Gapped True) (argument.spacing True) (Ends argument.trails)
+      ∧ HugSteps (lastArgument argument place).snd (Gapped True) (argument.spacing True) (Ends argument.trails) :=
   let plain := argumentSteps argument place within shaped lexical isArgument joinable steps
   match argument, joinable with
     | Tuple open items comma close, (opener, closer, joins) =>
@@ -1466,7 +1466,7 @@ theorem lastArgumentSteps ∀ (argument: Expr) (place: Around)
     | Paren open (Prefix o x) close, _ => (plain, byComputing)
 
 --| A call's arguments after its function: in order, each after a space or a line break, spaced as its own
---| `spacing1 True` says; the same without the last, ending where a comment may wait; the last's hug; and one
+--| `spacing True` says; the same without the last, ending where a comment may wait; the last's hug; and one
 --| document before the last for each argument but one.
 --|
 --| Proof idea: induction on the arguments, as `Fmt.JoinProofs.argumentsSeq`, the words seen so far growing by each
@@ -1475,9 +1475,9 @@ theorem argumentsSteps ∀ (arm: Bool) (previous: Expr) (at: Nat) (arguments: Li
     (pre: Seam → Prop) (doc: Doc) (spacing: List Spacing)
     (filled: arguments ≠ [])
     (within: allWithin1 arguments = True)
-    (shaped: allShaped1 arguments = True)
-    (lexical: allLexical1 arguments = True)
-    (isArguments: arguments.all Expr.argument1 = True)
+    (shaped: allShaped arguments = True)
+    (lexical: allLexical arguments = True)
+    (isArguments: arguments.all Expr.callArgument = True)
     (joinable: AllJoinable lexKind arguments)
     (each: EachElSteps arguments)
     (first: Steps doc pre spacing (Ends True)):
@@ -1518,7 +1518,7 @@ theorem argumentsSteps ∀ (arm: Bool) (previous: Expr) (at: Nat) (arguments: Li
       )
     | [argument, next, ..more], (joins, rest), (steps, others) =>
       let place: Around := { before = previous.trails, hoisted = False, item = False, at, inArm = arm }
-      let element: Steps (argument.el place) (Gapped True) (argument.spacing1 True) (Ends True) :=
+      let element: Steps (argument.el place) (Gapped True) (argument.spacing True) (Ends True) :=
         stepsTo _ _ _ _ _
           (argumentSteps argument place
             (Bool.andLeft within)
@@ -1535,7 +1535,7 @@ theorem argumentsSteps ∀ (arm: Bool) (previous: Expr) (at: Nat) (arguments: Li
           (seen ++ argument.words)
           (Gapped True)
           (argument.el place)
-          (argument.spacing1 True)
+          (argument.spacing True)
           (List.consNotNil next more)
           (Bool.andRight within)
           (Bool.andRight shaped)
@@ -1557,16 +1557,16 @@ theorem appFirstWord ∀ (head: Expr) (arguments: List Expr)
     (App head arguments).firstWord = head.firstWord :=
   rewrite firstWordLead (App head arguments) within, firstWordLead head headWithin
 
---| A call, its head spaced `first` and each argument as `argumentsSpacing1` says (`spacing1 True`: free, or apart
+--| A call, its head spaced `first` and each argument as `argumentsSpacing` says (`spacing True`: free, or apart
 --| for a sign), every argument after a space, a fill separator or a `HardLine`.
 --|
 --| Proof idea: `appFromSteps` (`Fmt.TouchSeq`), as `Fmt.JoinProofs.appPasses`: the head from `elSteps`, then the
---| arguments in order (`argumentsSteps`), each from `elSteps` with `argument1` from `shaped1`; the hug as the last
+--| arguments in order (`argumentsSteps`), each from `elSteps` with `callArgument` from `shaped`; the hug as the last
 --| argument opened.
 theorem appSteps ∀ (head: Expr) (arguments: List Expr) (around: Around) (first: Spacing) (argument: Bool)
     (within: (App head arguments).within1 = True)
-    (shaped: (App head arguments).shaped1 = True)
-    (lexical: (App head arguments).lexical1 = True)
+    (shaped: (App head arguments).shaped = True)
+    (lexical: (App head arguments).lexical = True)
     (joinable: Joinable lexKind (App head arguments))
     (loose: Loose first ∨ (App head arguments).firstWord.quietAt around around.at = True)
     (headSteps: ElSteps head)
@@ -1574,14 +1574,14 @@ theorem appSteps ∀ (head: Expr) (arguments: List Expr) (around: Around) (first
     Steps
       ((App head arguments).el around)
       (Fits True first)
-      (spacedFirst first ((App head arguments).spacing1 argument))
+      (spacedFirst first ((App head arguments).spacing argument))
       (Ends (App head arguments).trails) :=
   let (headJoins, joins, filled) := joinable
   let headWithin: head.within1 = True := Bool.andLeft within
-  let headShaped: head.shaped1 = True := Bool.andLeft (Bool.andRight shaped)
-  let isArguments: arguments.all Expr.argument1 = True :=
+  let headShaped: head.shaped = True := Bool.andLeft (Bool.andRight shaped)
+  let isArguments: arguments.all Expr.callArgument = True :=
     Bool.andLeft (Bool.andRight (Bool.andRight (Bool.andRight shaped)))
-  let argumentsShaped: allShaped1 arguments = True :=
+  let argumentsShaped: allShaped arguments = True :=
     Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight shaped)))
   let inside := { around | hoisted = True }
   let lead := leadJoins lexKind (App head arguments) joinable
@@ -1592,7 +1592,7 @@ theorem appSteps ∀ (head: Expr) (arguments: List Expr) (around: Around) (first
     | Inr quiet =>
       let headQuiet := rewrite appFirstWord head arguments within headWithin at quiet then quiet
       Inr (Bool.andIntro (Bool.andLeft headQuiet) byComputing)
-  let headSpacing := spacedFirst first (head.spacing1 False)
+  let headSpacing := spacedFirst first (head.spacing False)
   let headEl: Steps (head.el inside) (Fits True first) headSpacing (Ends True) :=
     stepsTo _ _ _ _ _
       (headSteps headWithin headShaped
@@ -1627,13 +1627,13 @@ theorem appSteps ∀ (head: Expr) (arguments: List Expr) (around: Around) (first
     rewrite List.lengthAppend front [lastDoc] then arithmetic [keptShort head arguments, length]
   let (rest, free) := spacingFree head headWithin
   let same: joinSpacing ([headSpacing, ..initSpacings arguments] ++ [lastSpacing arguments])
-    = spacedFirst first ((App head arguments).spacing1 argument) :=
+    = spacedFirst first ((App head arguments).spacing argument) :=
     rewrite callJoin headSpacing arguments filled, free
   framedSteps
     (App head arguments).firstWord
     around
     (appDocs head arguments inside).doc
-    (spacedFirst first ((App head arguments).spacing1 argument))
+    (spacedFirst first ((App head arguments).spacing argument))
     (Ends (App head arguments).trails)
     first
     sound
@@ -1699,10 +1699,10 @@ theorem rightEnds ∀ (left: Expr) (operator: Word) (right: Expr) (seam: Seam)
 --| What follows a chain's operator: a space, then the right operand apart.
 theorem chainRightSteps ∀ (level: Option Nat) (right: Expr) (place: Around) (trails: Bool) (post: Seam → Prop)
     (within: right.within1 = True)
-    (shaped: right.shaped1 = True)
-    (lexical: right.lexical1 = True)
+    (shaped: right.shaped = True)
+    (lexical: right.lexical = True)
     (joinable: Joinable lexKind right) (ends: ∀ (seam: Seam) => Ends right.trails seam → post seam):
-    StepsAll (chainRight level right place) (Ends trails) (spacedFirst Apart (right.spacing1 False)) post :=
+    StepsAll (chainRight level right place) (Ends trails) (spacedFirst Apart (right.spacing False)) post :=
   let rest := linkSteps level False right place Apart within shaped lexical joinable (Inl byComputing)
   match right with
     | Block _ _ _ => cases
@@ -1713,7 +1713,7 @@ theorem chainRightSteps ∀ (level: Option Nat) (right: Expr) (place: Around) (t
         (Fits True Apart)
         post
         []
-        (spacedFirst Apart (right.spacing1 False))
+        (spacedFirst Apart (right.spacing False))
         (stepsTo _ _ _ _ _ (stepsSpace trails) (seam gapped =>
           fitsWeaker trails True (_ => byComputing) Apart seam (gappedFits trails Apart seam byComputing gapped)))
         (allTo _ _ _ _ _ rest ends)
@@ -1723,10 +1723,10 @@ theorem chainLinksSteps ∀ (level: Option Nat) (first: Bool) (left: Expr) (oper
     (around: Around) (start: Spacing)
     (leftWithin: left.within1 = True)
     (rightWithin: right.within1 = True)
-    (leftShaped: left.shaped1 = True)
-    (rightShaped: right.shaped1 = True)
-    (leftLexical: left.lexical1 = True)
-    (rightLexical: right.lexical1 = True)
+    (leftShaped: left.shaped = True)
+    (rightShaped: right.shaped = True)
+    (leftLexical: left.lexical = True)
+    (rightLexical: right.lexical = True)
     (leftJoins: Joinable lexKind left)
     (operatorJoins: WordJoins operator)
     (rightJoins: Joinable lexKind right)
@@ -1734,7 +1734,7 @@ theorem chainLinksSteps ∀ (level: Option Nat) (first: Bool) (left: Expr) (oper
     StepsAll
       (chainLinks level first left operator right around)
       (Fits True start)
-      (spacedFirst start (left.spacing1 False) ++ [Free, ..spacedFirst Apart (right.spacing1 False)])
+      (spacedFirst start (left.spacing False) ++ [Free, ..spacedFirst Apart (right.spacing False)])
       (Ends (trailsBack (left.words ++ [operator, ..right.words]).reverse)) :=
   let operatorAround := around.next left.trails left.size
   let rightAround := around.next operator.trails (left.size + 1)
@@ -1742,20 +1742,20 @@ theorem chainLinksSteps ∀ (level: Option Nat) (first: Bool) (left: Expr) (oper
     (linkDocs level first left around)
     [Line, operator.leaf operatorAround operatorAround.at, ..chainRight level right rightAround] _
     (Ends left.trails) _
-    (spacedFirst start (left.spacing1 False))
-    [Free, ..spacedFirst Apart (right.spacing1 False)]
+    (spacedFirst start (left.spacing False))
+    [Free, ..spacedFirst Apart (right.spacing False)]
     (linkSteps level first left around start leftWithin leftShaped leftLexical leftJoins loose)
     (stepsCons Line _ _
       (Fits True Free) _
       []
-      [Free, ..spacedFirst Apart (right.spacing1 False)]
+      [Free, ..spacedFirst Apart (right.spacing False)]
       (stepsTo _ _ _ _ _ (stepsLine left.trails) (seam gapped =>
         fitsWeaker left.trails True (_ => byComputing) Free seam (gappedFits left.trails Free seam byComputing gapped)))
       (stepsCons
         (operator.leaf operatorAround operatorAround.at) _ _
         (Ends operator.trails) _
         [Free]
-        (spacedFirst Apart (right.spacing1 False))
+        (spacedFirst Apart (right.spacing False))
         (stepsTo _ _ _ _ _
           (wordLeafSteps operator operatorAround operatorAround.at Free operatorJoins (Inl byComputing))
           (seam closed => closedEnds operator.trails seam closed))
@@ -1772,8 +1772,8 @@ theorem infixFirstWord ∀ (kind: InfixKind) (left: Expr) (operator: Word) (righ
 theorem chainedSteps ∀ (level: Option Nat) (first: Bool) (kind: InfixKind) (left: Expr) (operator: Word) (right: Expr)
     (around: Around) (start: Spacing)
     (within: (Infix kind left operator right).within1 = True)
-    (shaped: (Infix kind left operator right).shaped1 = True)
-    (lexical: (Infix kind left operator right).lexical1 = True)
+    (shaped: (Infix kind left operator right).shaped = True)
+    (lexical: (Infix kind left operator right).lexical = True)
     (joinable: Joinable lexKind (Infix kind left operator right))
     (loose: Loose start ∨ (Infix kind left operator right).firstWord.quietAt around around.at = True)
     (leftWithin: left.within1 = True)
@@ -1781,7 +1781,7 @@ theorem chainedSteps ∀ (level: Option Nat) (first: Bool) (kind: InfixKind) (le
     StepsAll
       (chainLinks level first left operator right around)
       (Fits True start)
-      (spacedFirst start ((Infix kind left operator right).spacing1 False))
+      (spacedFirst start ((Infix kind left operator right).spacing False))
       (Ends (Infix kind left operator right).trails) :=
   let (leftJoins, operatorJoins, rightJoins) := joinable
   let (rest, free) := spacingFree left leftWithin
@@ -1800,19 +1800,19 @@ theorem chainedSteps ∀ (level: Option Nat) (first: Bool) (kind: InfixKind) (le
 --| An operand of a chain: its links if it is a chain of the same level, else its element.
 theorem linkSteps ∀ (level: Option Nat) (first: Bool) (expr: Expr) (around: Around) (start: Spacing)
     (within: expr.within1 = True)
-    (shaped: expr.shaped1 = True)
-    (lexical: expr.lexical1 = True)
+    (shaped: expr.shaped = True)
+    (lexical: expr.lexical = True)
     (joinable: Joinable lexKind expr)
     (loose: Loose start ∨ expr.firstWord.quietAt around around.at = True):
     StepsAll
       (linkDocs level first expr around)
       (Fits True start)
-      (spacedFirst start (expr.spacing1 False))
+      (spacedFirst start (expr.spacing False))
       (Ends expr.trails) :=
   let element: StepsAll
     [expr.el around]
     (Fits True start)
-    (spacedFirst start (expr.spacing1 False))
+    (spacedFirst start (expr.spacing False))
     (Ends expr.trails) :=
     stepsLast
       (expr.el around) _ _ _
@@ -1841,8 +1841,8 @@ theorem linkSteps ∀ (level: Option Nat) (first: Bool) (expr: Expr) (around: Ar
 theorem chainElSteps ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: Expr) (around: Around)
     (first: Spacing) (argument: Bool)
     (within: (Infix kind left operator right).within1 = True)
-    (shaped: (Infix kind left operator right).shaped1 = True)
-    (lexical: (Infix kind left operator right).lexical1 = True)
+    (shaped: (Infix kind left operator right).shaped = True)
+    (lexical: (Infix kind left operator right).lexical = True)
     (joinable: Joinable lexKind (Infix kind left operator right))
     (loose: Loose first ∨ (Infix kind left operator right).firstWord.quietAt around around.at = True)
     (leftWithin: left.within1 = True)
@@ -1853,7 +1853,7 @@ theorem chainElSteps ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right:
         around
         (chain (Infix kind left operator right).chainLevel left operator right { around | hoisted = True }))
       (Fits True first)
-      (spacedFirst first ((Infix kind left operator right).spacing1 argument))
+      (spacedFirst first ((Infix kind left operator right).spacing argument))
       (Ends (Infix kind left operator right).trails) :=
   let inside := { around | hoisted = True }
   let lead := leadJoins lexKind (Infix kind left operator right) joinable
@@ -1888,14 +1888,14 @@ theorem chainElSteps ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right:
 theorem infixSteps ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: Expr) (around: Around)
     (first: Spacing) (argument: Bool)
     (within: (Infix kind left operator right).within1 = True)
-    (shaped: (Infix kind left operator right).shaped1 = True)
-    (lexical: (Infix kind left operator right).lexical1 = True)
+    (shaped: (Infix kind left operator right).shaped = True)
+    (lexical: (Infix kind left operator right).lexical = True)
     (joinable: Joinable lexKind (Infix kind left operator right))
     (loose: Loose first ∨ (Infix kind left operator right).firstWord.quietAt around around.at = True):
     Steps
       ((Infix kind left operator right).el around)
       (Fits True first)
-      (spacedFirst first ((Infix kind left operator right).spacing1 argument))
+      (spacedFirst first ((Infix kind left operator right).spacing argument))
       (Ends (Infix kind left operator right).trails) :=
   match kind with
     | InfixBinary =>
@@ -1936,22 +1936,22 @@ theorem allElSteps ∀ (items: List Expr): EachElSteps items := match items with
 
 -- A call's hug on a `:=` line.
 
---| A value's hug, if it is a call that hugs: its function free, then its arguments as `argumentsSpacing1` says.
+--| A value's hug, if it is a call that hugs: its function free, then its arguments as `argumentsSpacing` says.
 theorem callHugSteps ∀ (value: Expr) (inside: Around)
     (within: value.within1 = True)
-    (shaped: value.shaped1 = True)
-    (lexical: value.lexical1 = True)
+    (shaped: value.shaped = True)
+    (lexical: value.lexical = True)
     (joinable: Joinable lexKind value):
-    HugSteps (value.callHug inside) (Fits True Free) (value.spacing1 False) (Ends value.trails) :=
+    HugSteps (value.callHug inside) (Fits True Free) (value.spacing False) (Ends value.trails) :=
   match value, joinable with
     | App head arguments, (headJoins, joins, filled) =>
       let headWithin: head.within1 = True := Bool.andLeft within
-      let headShaped: head.shaped1 = True := Bool.andLeft (Bool.andRight shaped)
-      let isArguments: arguments.all Expr.argument1 = True :=
+      let headShaped: head.shaped = True := Bool.andLeft (Bool.andRight shaped)
+      let isArguments: arguments.all Expr.callArgument = True :=
         Bool.andLeft (Bool.andRight (Bool.andRight (Bool.andRight shaped)))
-      let argumentsShaped: allShaped1 arguments = True :=
+      let argumentsShaped: allShaped arguments = True :=
         Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight shaped)))
-      let headSpacing := spacedFirst Free (head.spacing1 False)
+      let headSpacing := spacedFirst Free (head.spacing False)
       let headEl: Steps (head.el inside) (Fits True Free) headSpacing (Ends True) :=
         stepsTo _ _ _ _ _
           (elSteps head headWithin headShaped
@@ -1981,7 +1981,7 @@ theorem callHugSteps ∀ (value: Expr) (inside: Around)
           (allElSteps arguments)
           headEl
       let same: joinSpacing ([headSpacing, ..initSpacings arguments] ++ [lastSpacing arguments])
-        = (App head arguments).spacing1 False :=
+        = (App head arguments).spacing False :=
         rewrite callJoin headSpacing arguments filled, freeFirst head headWithin
       rewrite appDocsIs head arguments inside, <- same then
         appFromHugSteps

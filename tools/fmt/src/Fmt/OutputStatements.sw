@@ -2,7 +2,7 @@
 --| reasons are in docs/reviews/SW-4025-output-statements.md). The output is the text the file loop prints for a
 --| tidied tree; the second run of the formatter lexes it, settles it with rule N and parses it.
 --|
---| - The file level: the text lexes to leaves written out here (`SourceFile.lexed1`), one group a declaration, which
+--| - The file level: the text lexes to leaves written out here (`SourceFile.lexed`), one group a declaration, which
 --|   pass the alphabet, have no last comma and are `plain1`.
 --| - Rule N on those leaves: it is not idle (a comment after `a,` or `b)` is the comma's or the closer's to the
 --|   lexer, and rule N takes it back to `a` or `b`: `outputNotIdle`). What holds is `printedSettle1`: the settled
@@ -30,7 +30,7 @@ def laidOf (doc: Doc): Laid := (pieceFold lexKind (printedPieces doc width)).fol
 
 --| The leaves of a declaration's printed text, lexed alone: `printLexes1Tree`'s, so `printedHangs` is `hangs` of
 --| these. The declaration's own-line comments are not among them: the file loop prints those.
-def Decl.leaves1 (decl: Decl): List Leaf := match decl.doc1 with
+def Decl.leaves (decl: Decl): List Leaf := match decl.doc1 with
   | Some doc => (laidOf doc).leaves.reverse
   | None => []
 
@@ -72,35 +72,35 @@ def operandSpacing (argument: Bool) (operator: Word) (operand: Expr): Option Spa
 --| comments left out (commas included): a call argument's sign apart from what precedes it (`argumentGlue`), each
 --| prefix's operand as `operandSpacing` says, and an infix operator's right operand apart from the operator, so a
 --| binary `-` isn't read as a sign; everything else free. `argument` says the expression is a call's argument.
-def Expr.spacing1: Expr → Bool → List Spacing
+def Expr.spacing: Expr → Bool → List Spacing
   | Atom _ _, _ => [Free]
-  | Paren _ inner _, _ => [Free, ..inner.spacing1 False] ++ [Free]
-  | Tuple _ items _ _, _ => [Free, ..commaSpacing1 items] ++ [Free]
-  | ListOf _ items _ _, _ => [Free, ..commaSpacing1 items] ++ [Free]
-  | App head arguments, _ => head.spacing1 False ++ argumentsSpacing1 arguments
-  | Infix _ left _ right, _ => left.spacing1 False ++ [Free, ..spacedFirst Apart (right.spacing1 False)]
+  | Paren _ inner _, _ => [Free, ..inner.spacing False] ++ [Free]
+  | Tuple _ items _ _, _ => [Free, ..commaSpacing items] ++ [Free]
+  | ListOf _ items _ _, _ => [Free, ..commaSpacing items] ++ [Free]
+  | App head arguments, _ => head.spacing False ++ argumentsSpacing arguments
+  | Infix _ left _ right, _ => left.spacing False ++ [Free, ..spacedFirst Apart (right.spacing False)]
   | Prefix operator operand, argument =>
     let sign := if argument then Apart else Free
-    let inner := operand.spacing1 False
+    let inner := operand.spacing False
     match operandSpacing argument operator operand with
       | Some spacing => [sign, ..spacedFirst spacing inner]
       | None => [sign, ..inner]
   | _, _ => []
 
 --| A bracket's items and the commas between them, as `commaSpelt`.
-def commaSpacing1: List Expr → List Spacing
+def commaSpacing: List Expr → List Spacing
   | [] => []
-  | [item] => item.spacing1 False
-  | [item, ..rest] => item.spacing1 False ++ [Free] ++ commaSpacing1 rest
+  | [item] => item.spacing False
+  | [item, ..rest] => item.spacing False ++ [Free] ++ commaSpacing rest
 
-def argumentsSpacing1: List Expr → List Spacing
+def argumentsSpacing: List Expr → List Spacing
   | [] => []
-  | [argument, ..rest] => argument.spacing1 True ++ argumentsSpacing1 rest
+  | [argument, ..rest] => argument.spacing True ++ argumentsSpacing rest
 
 --| A definition's spacing, as `Decl.spelt`'s tokens: `def`, the name, `:`, the type, `:=` and the value.
-def Decl.spacing1: Decl → List Spacing
+def Decl.spacing: Decl → List Spacing
   | Definition _ header (Assigned _ value) =>
-    [Free, Free, Free] ++ header.result.spacing1 False ++ [Free] ++ value.spacing1 False
+    [Free, Free, Free] ++ header.result.spacing False ++ [Free] ++ value.spacing False
   | _ => []
 
 --| Each item's `glued` is as its spacing says, the two lists alike in length.
@@ -109,8 +109,8 @@ def spacingAdmits: List Spacing → List Item → Bool
   | [spacing, ..rest], [item, ..later] => spacing.admits item.glued && spacingAdmits rest later
   | _, _ => False
 
--- `printedSpacing1`, that a slice 1 declaration's printed items are spaced as `Decl.spacing1` says
--- (`spacingAdmits decl.spacing1 (items decl.leaves1) = True`, from `within1`, `shaped1`, `settled1` and `lexical1`),
+-- `printedSpacing1`, that a slice 1 declaration's printed items are spaced as `Decl.spacing` says
+-- (`spacingAdmits decl.spacing (items decl.leaves) = True`, from `within1`, `shaped`, `settled` and `lexical`),
 -- is proved in `Fmt.SpacingProofs`, from the document's touches (`declSpacedTouches`, and `Fmt.TouchProofs`'
 -- `elSteps`). `holdsOn` checks it.
 
@@ -135,26 +135,26 @@ def headed (above: List Comment) (blank: Nat): List Leaf → List Leaf
 
 --| A declaration's leaves as they stand in the file's text: its own, the `def` holding the declaration's own-line
 --| comments and blank line as the file loop printed them.
-def Decl.laid1 (decl: Decl) (empty: Bool): List Leaf :=
+def Decl.laid (decl: Decl) (empty: Bool): List Leaf :=
   let first := decl.firstComments
   let blank := if first.blankBefore && !(empty && first.above.isEmpty) then 1 else 0
-  headed (laidNotes empty first.above) blank decl.leaves1
+  headed (laidNotes empty first.above) blank decl.leaves
 
 --| Each declaration's leaves in the file; `empty`: no declaration comes before.
 def groupsFrom (empty: Bool): List Decl → List (List Leaf)
   | [] => []
-  | [decl, ..rest] => [decl.laid1 empty, ..groupsFrom False rest]
+  | [decl, ..rest] => [decl.laid empty, ..groupsFrom False rest]
 
 --| What the lexer reads of `file.printed1`.
-def SourceFile.lexed1 (file: SourceFile): Lexed := {
+def SourceFile.lexed (file: SourceFile): Lexed := {
   leaves = (groupsFrom True file.decls).concat,
   end = { leading = laidNotes file.decls.isEmpty file.end.above, blankLines = 0, trailing = None }
 }
 
 --| Every declaration's printed leaves keep the line rule: what `printedHangs` gives of each (SW-4034).
-def SourceFile.hung1 (file: SourceFile): Bool := file.decls.all (decl => hangs decl.leaves1)
+def SourceFile.hung (file: SourceFile): Bool := file.decls.all (decl => hangs decl.leaves)
 
--- `printedFileLexes1`, that the file loop's text lexes to `SourceFile.lexed1`, is proved in `Fmt.FileLexProofs`.
+-- `printedFileLexes1`, that the file loop's text lexes to `SourceFile.lexed`, is proved in `Fmt.FileLexProofs`.
 
 -- `printedAlphabet1`, that the output passes the alphabet, is proved in `Fmt.OutputFileProofs`.
 
@@ -211,14 +211,14 @@ def holdsOn (source: Text): Bool := match tidiedOf source with
       | Err _ => False
       | Ok lexed =>
         file.within1
-          && file.shaped1
-          && file.settled1
-          && file.lexical1
-          && file.hung1
-          && file.decls.all (decl => tokenTexts decl.leaves1 == decl.spelt.filter notComment)
-          && file.decls.all (decl => decl.leaves1.all Leaf.kinded)
-          && file.decls.all (decl => spacingAdmits decl.spacing1 (items decl.leaves1))
-          && sameLexed lexed file.lexed1
+          && file.shaped
+          && file.settled
+          && file.lexical
+          && file.hung
+          && file.decls.all (decl => tokenTexts decl.leaves == decl.spelt.filter notComment)
+          && file.decls.all (decl => decl.leaves.all Leaf.kinded)
+          && file.decls.all (decl => spacingAdmits decl.spacing (items decl.leaves))
+          && sameLexed lexed file.lexed
           && alphabet1 lexed.leaves
           && noLast [] lexed.leaves
           && plain1 (tokens lexed.leaves)
@@ -251,7 +251,7 @@ theorem holdsOnTop: (holdsOn "\n\n-- a\n\ndef d: A := b\n" && holdsOn "\n\n-- a\
   byComputing
 
 --| Signs as arguments, on numerals and on numerals' calls, after a binary `-` and after an arrow: the spacing
---| `Decl.spacing1` asks for.
+--| `Decl.spacing` asks for.
 theorem holdsOnSigns: holdsOn "def d: A := f -x !b -1 [-1, -x] (p - -1) (q -> -1) (- 2 n) -(-1) (!c)\n" = True :=
   byComputing
 
@@ -259,15 +259,15 @@ theorem holdsOnSigns: holdsOn "def d: A := f -x !b -1 [-1, -x] (p - -1) (q -> -1
 --| prefix on the numeral, not a negative numeral.
 theorem holdsOnSignComments: holdsOn "def d: A := (- -- c\n  1) (-\n  -- o\n  2) (! -- b\n  x)\n" = True := byComputing
 
---| Whether a text is spaced as `Decl.spacing1` asks of a source's one declaration.
+--| Whether a text is spaced as `Decl.spacing` asks of a source's one declaration.
 def spacingOn (source text: Text): Bool := match tidiedOf source, lex text with
   | Some file, Ok lexed =>
     match file.decls with
-      | [decl] => spacingAdmits decl.spacing1 (items lexed.leaves)
+      | [decl] => spacingAdmits decl.spacing (items lexed.leaves)
       | _ => False
   | _, _ => False
 
---| `Decl.spacing1` is no empty demand: each of these texts has the source's tokens, spaced as the parser would read
+--| `Decl.spacing` is no empty demand: each of these texts has the source's tokens, spaced as the parser would read
 --| differently (`f - x` a subtraction, `- 1` no numeral, `p -x` a call, `-2 n` a call of `-2`).
 theorem spacingMatters: (spacingOn "def d: A := f -x\n" "def d: A := f -x\n"
       && !spacingOn "def d: A := f -x\n" "def d: A := f - x\n"
@@ -309,7 +309,7 @@ def calmOn (source: Text): Bool := match tidiedOf source with
 theorem topFlagLost: (calmOn "\n\ndef d: A := b\n" || calmOn "\n\n-- a\n\n-- b\n") = False := byComputing
 
 --| `def d: A := f [a -- x⏎, b] -- c` as a tree no parse gives: the `]` holds a comment though `b`, before it, ends
---| with none, so the tree is not `settled1`.
+--| with none, so the tree is not `settled`.
 def unsettledFile: SourceFile := {
   decls = [
     Definition []
@@ -343,16 +343,16 @@ def unsettledFile: SourceFile := {
 
 --| `printedSettle1`'s conclusion, as a test.
 def wordsBack (file: SourceFile): Bool :=
-  (groupsOf file.lexed1.settled.leaves).map codeWords == file.calmTop.decls.map Decl.words
-    && file.lexed1.settled.end.comments == file.calmTop.end
+  (groupsOf file.lexed.settled.leaves).map codeWords == file.calmTop.decls.map Decl.words
+    && file.lexed.settled.end.comments == file.calmTop.end
 
---| `printedSettle1` needs `settled1`: of a tree with every other hypothesis, whose `]` holds a comment rule N would
+--| `printedSettle1` needs `settled`: of a tree with every other hypothesis, whose `]` holds a comment rule N would
 --| have moved, the output's `]` holds it on the lexer's reading too, and rule N then gives it to `b`.
 theorem settledNeeded: (unsettledFile.within1
-      && unsettledFile.shaped1
-      && unsettledFile.lexical1
-      && unsettledFile.hung1
-      && !unsettledFile.settled1
+      && unsettledFile.shaped
+      && unsettledFile.lexical
+      && unsettledFile.hung
+      && !unsettledFile.settled
       && !wordsBack unsettledFile)
       = True :=
   byComputing

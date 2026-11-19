@@ -35,46 +35,46 @@ theorem itemsGluedSame ∀ (first second: List Leaf)
     (items first).map (item => item.glued) = (items second).map (item => item.glued) :=
   rewrite itemsGlued None 0 0 0 first, itemsGlued None 0 0 0 second, gluedSameTokens None first second same
 
---| A printed declaration's group is spaced as `Decl.spacing1` says: `printedSpacing1`, carried over the shared
+--| A printed declaration's group is spaced as `Decl.spacing` says: `printedSpacing1`, carried over the shared
 --| tokens.
 theorem groupSpacing ∀ (decl read: Decl) (group: List Leaf)
     (printed: PrintedGroup decl read group):
-    spacingAdmits decl.spacing1 (items group) = True :=
+    spacingAdmits decl.spacing (items group) = True :=
   let (within, shaped, settled, lexical, _, _, sameTokens, _, _) := printed
-  rewrite spacingAdmitsGlue decl.spacing1 (items group),
-      itemsGluedSame group decl.leaves1 sameTokens,
-      <- spacingAdmitsGlue decl.spacing1 (items decl.leaves1) then
+  rewrite spacingAdmitsGlue decl.spacing (items group),
+      itemsGluedSame group decl.leaves sameTokens,
+      <- spacingAdmitsGlue decl.spacing (items decl.leaves) then
     printedSpacing1 decl within shaped settled lexical
 
 --| `groupSpacing` applies to `def d: A := -1 n`, the `1` glued to the `-`.
-theorem groupSpacingExample: spacingAdmits prefixHeadDecl.spacing1 (items prefixHeadDecl.leaves1) = True :=
-  groupSpacing prefixHeadDecl (prefixHeadDecl.calmAt True) prefixHeadDecl.leaves1 prefixHeadPrinted
+theorem groupSpacingExample: spacingAdmits prefixHeadDecl.spacing (items prefixHeadDecl.leaves) = True :=
+  groupSpacing prefixHeadDecl (prefixHeadDecl.calmAt True) prefixHeadDecl.leaves prefixHeadPrinted
 
 -- The code texts of an expression: its tokens' texts with the comments dropped, commas kept.
 
 --| A token's text is no comment, and its comments are comments: the spelling's comments are the ones dropped.
-def Word.clean1 (word: Word): Bool := notComment word.text && word.comments.texts.all commentText
+def Word.clean (word: Word): Bool := notComment word.text && word.comments.texts.all commentText
 
 --| An expression's tokens' texts, a comma between a bracket's items: what `printedTokens1` says the printed leaves
 --| are, without the comments.
-def Expr.codeTexts1: Expr → List Text
+def Expr.codeTexts: Expr → List Text
   | Atom _ word => [word.text]
-  | Paren open inner close => [open.text, ..inner.codeTexts1] ++ [close.text]
-  | Tuple open items _ close => [open.text, ..commaTexts1 items] ++ [close.text]
-  | ListOf open items _ close => [open.text, ..commaTexts1 items] ++ [close.text]
-  | App head arguments => head.codeTexts1 ++ argumentTexts1 arguments
-  | Infix _ left operator right => left.codeTexts1 ++ [operator.text, ..right.codeTexts1]
-  | Prefix operator operand => [operator.text, ..operand.codeTexts1]
+  | Paren open inner close => [open.text, ..inner.codeTexts] ++ [close.text]
+  | Tuple open items _ close => [open.text, ..commaTexts items] ++ [close.text]
+  | ListOf open items _ close => [open.text, ..commaTexts items] ++ [close.text]
+  | App head arguments => head.codeTexts ++ argumentTexts arguments
+  | Infix _ left operator right => left.codeTexts ++ [operator.text, ..right.codeTexts]
+  | Prefix operator operand => [operator.text, ..operand.codeTexts]
   | _ => []
 
-def commaTexts1: List Expr → List Text
+def commaTexts: List Expr → List Text
   | [] => []
-  | [item] => item.codeTexts1
-  | [item, ..rest] => item.codeTexts1 ++ [","] ++ commaTexts1 rest
+  | [item] => item.codeTexts
+  | [item, ..rest] => item.codeTexts ++ [","] ++ commaTexts rest
 
-def argumentTexts1: List Expr → List Text
+def argumentTexts: List Expr → List Text
   | [] => []
-  | [argument, ..rest] => argument.codeTexts1 ++ argumentTexts1 rest
+  | [argument, ..rest] => argument.codeTexts ++ argumentTexts rest
 
 --| Comments filtered out leave nothing.
 theorem commentsDropped ∀ (texts: List Text) (all: texts.all commentText = True): texts.filter notComment = [] :=
@@ -86,7 +86,7 @@ theorem commentsDropped ∀ (texts: List Text) (all: texts.all commentText = Tru
 
 --| A clean token's spelling, comments filtered out, is its text.
 theorem wordDropsComments ∀ (word: Word) (hoisted: Bool)
-    (clean: word.clean1 = True):
+    (clean: word.clean = True):
     (word.spelledAt hoisted).filter notComment = [word.text] :=
   let comments: word.comments.texts.all commentText = True := Bool.andRight clean
   let both: ((word.comments.above.map (note => note.text)).all commentText
@@ -118,36 +118,36 @@ theorem wordDropsComments ∀ (word: Word) (hoisted: Bool)
 --| (`List.filterAppend`): a clean token leaves its text (`wordDropsComments`), a comma itself.
 theorem codeTextsOf ∀ (expr: Expr) (hoisted: Bool)
     (within: expr.within1 = True)
-    (clean: expr.words.all Word.clean1 = True):
-    (expr.spelt hoisted).filter notComment = expr.codeTexts1 :=
+    (clean: expr.words.all Word.clean = True):
+    (expr.spelt hoisted).filter notComment = expr.codeTexts :=
   match expr, within with
-    | Atom _ word, _ => wordDropsComments word hoisted (List.allConsElim word [] Word.clean1 clean).left
+    | Atom _ word, _ => wordDropsComments word hoisted (List.allConsElim word [] Word.clean clean).left
     | Paren open inner close, within =>
-      let (front, back) := allSplitBool [open, ..inner.words] [close] Word.clean1 clean
-      let (openClean, innerClean) := List.allConsElim open inner.words Word.clean1 front
+      let (front, back) := allSplitBool [open, ..inner.words] [close] Word.clean clean
+      let (openClean, innerClean) := List.allConsElim open inner.words Word.clean front
       rewrite List.filterAppend (open.spelledAt hoisted) (inner.spelt False ++ close.spelledAt False) notComment,
           List.filterAppend (inner.spelt False) (close.spelledAt False) notComment,
           wordDropsComments open hoisted openClean,
           codeTextsOf inner False within innerClean,
-          wordDropsComments close False (List.allConsElim close [] Word.clean1 back).left
+          wordDropsComments close False (List.allConsElim close [] Word.clean back).left
     | Tuple open items _ close, within =>
-      let (front, back) := allSplitBool [open, ..itemsWords items] [close] Word.clean1 clean
-      let (openClean, itemsClean) := List.allConsElim open (itemsWords items) Word.clean1 front
+      let (front, back) := allSplitBool [open, ..itemsWords items] [close] Word.clean clean
+      let (openClean, itemsClean) := List.allConsElim open (itemsWords items) Word.clean front
       rewrite List.filterAppend (open.spelledAt hoisted) (commaSpelt items ++ close.spelledAt False) notComment,
           List.filterAppend (commaSpelt items) (close.spelledAt False) notComment,
           wordDropsComments open hoisted openClean,
           commaTextsOf items within itemsClean,
-          wordDropsComments close False (List.allConsElim close [] Word.clean1 back).left
+          wordDropsComments close False (List.allConsElim close [] Word.clean back).left
     | ListOf open items _ close, within =>
-      let (front, back) := allSplitBool [open, ..itemsWords items] [close] Word.clean1 clean
-      let (openClean, itemsClean) := List.allConsElim open (itemsWords items) Word.clean1 front
+      let (front, back) := allSplitBool [open, ..itemsWords items] [close] Word.clean clean
+      let (openClean, itemsClean) := List.allConsElim open (itemsWords items) Word.clean front
       rewrite List.filterAppend (open.spelledAt hoisted) (commaSpelt items ++ close.spelledAt False) notComment,
           List.filterAppend (commaSpelt items) (close.spelledAt False) notComment,
           wordDropsComments open hoisted openClean,
           commaTextsOf items within itemsClean,
-          wordDropsComments close False (List.allConsElim close [] Word.clean1 back).left
+          wordDropsComments close False (List.allConsElim close [] Word.clean back).left
     | App head arguments, within =>
-      let (headClean, argumentsClean) := allSplitBool head.words (itemsWords arguments) Word.clean1 clean
+      let (headClean, argumentsClean) := allSplitBool head.words (itemsWords arguments) Word.clean clean
       rewrite List.filterAppend (head.spelt hoisted) (argumentsSpelt arguments) notComment,
           codeTextsOf head hoisted (Bool.andLeft within) headClean,
           argumentTextsOf arguments (Bool.andRight within) argumentsClean
@@ -162,7 +162,7 @@ theorem codeTextsOf ∀ (expr: Expr) (hoisted: Bool)
         (Bool.andLeft (Bool.andRight within))
         clean
     | Prefix operator operand, within =>
-      let (operatorClean, operandClean) := List.allConsElim operator operand.words Word.clean1 clean
+      let (operatorClean, operandClean) := List.allConsElim operator operand.words Word.clean clean
       rewrite List.filterAppend (operator.spelledAt hoisted) (operand.spelt False) notComment,
           wordDropsComments operator hoisted operatorClean,
           codeTextsOf operand False (Bool.andLeft within) operandClean
@@ -172,10 +172,10 @@ theorem codeTextsOf ∀ (expr: Expr) (hoisted: Bool)
 theorem infixTextsOf ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: Expr) (hoisted: Bool)
     (leftWithin: left.within1 = True)
     (rightWithin: right.within1 = True)
-    (clean: (Infix kind left operator right).words.all Word.clean1 = True):
-    ((Infix kind left operator right).spelt hoisted).filter notComment = (Infix kind left operator right).codeTexts1 :=
-  let (leftClean, restClean) := allSplitBool left.words [operator, ..right.words] Word.clean1 clean
-  let (operatorClean, rightClean) := List.allConsElim operator right.words Word.clean1 restClean
+    (clean: (Infix kind left operator right).words.all Word.clean = True):
+    ((Infix kind left operator right).spelt hoisted).filter notComment = (Infix kind left operator right).codeTexts :=
+  let (leftClean, restClean) := allSplitBool left.words [operator, ..right.words] Word.clean clean
+  let (operatorClean, rightClean) := List.allConsElim operator right.words Word.clean restClean
   rewrite List.filterAppend (left.spelt hoisted) (operator.spelledAt False ++ right.spelt False) notComment,
       List.filterAppend (operator.spelledAt False) (right.spelt False) notComment,
       codeTextsOf left hoisted leftWithin leftClean,
@@ -184,13 +184,13 @@ theorem infixTextsOf ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right:
 
 theorem commaTextsOf ∀ (items: List Expr)
     (within: allWithin1 items = True)
-    (clean: (itemsWords items).all Word.clean1 = True):
-    (commaSpelt items).filter notComment = commaTexts1 items :=
+    (clean: (itemsWords items).all Word.clean = True):
+    (commaSpelt items).filter notComment = commaTexts items :=
   match items with
     | [] => byComputing
-    | [item] => codeTextsOf item False (Bool.andLeft within) (allSplitBool item.words [] Word.clean1 clean).left
+    | [item] => codeTextsOf item False (Bool.andLeft within) (allSplitBool item.words [] Word.clean clean).left
     | [item, next, ..rest] =>
-      let (itemClean, restClean) := allSplitBool item.words (itemsWords [next, ..rest]) Word.clean1 clean
+      let (itemClean, restClean) := allSplitBool item.words (itemsWords [next, ..rest]) Word.clean clean
       rewrite List.filterAppend (item.spelt False) ([","] ++ commaSpelt [next, ..rest]) notComment,
           List.filterAppend [","] (commaSpelt [next, ..rest]) notComment,
           codeTextsOf item False (Bool.andLeft within) itemClean,
@@ -198,12 +198,12 @@ theorem commaTextsOf ∀ (items: List Expr)
 
 theorem argumentTextsOf ∀ (arguments: List Expr)
     (within: allWithin1 arguments = True)
-    (clean: (itemsWords arguments).all Word.clean1 = True):
-    (argumentsSpelt arguments).filter notComment = argumentTexts1 arguments :=
+    (clean: (itemsWords arguments).all Word.clean = True):
+    (argumentsSpelt arguments).filter notComment = argumentTexts arguments :=
   match arguments with
     | [] => byComputing
     | [argument, ..rest] =>
-      let (argumentClean, restClean) := allSplitBool argument.words (itemsWords rest) Word.clean1 clean
+      let (argumentClean, restClean) := allSplitBool argument.words (itemsWords rest) Word.clean clean
       rewrite List.filterAppend (argument.spelt False) (argumentsSpelt rest) notComment,
           codeTextsOf argument False (Bool.andLeft within) argumentClean,
           argumentTextsOf rest (Bool.andRight within) restClean
@@ -301,7 +301,7 @@ theorem operandSpacingCalm ∀ (argument: Bool) (operator: Word) (operand: Expr)
 --| operator's text, whether comments sit between it and its operand, and the operand's numeral tests, all kept.
 theorem spacingCalm ∀ (expr: Expr) (item argument: Bool)
     (within: expr.within1 = True):
-    (expr.calm item).spacing1 argument = expr.spacing1 argument :=
+    (expr.calm item).spacing argument = expr.spacing argument :=
   match expr, within with
     | Atom _ _, _ => byComputing
     | Paren _ inner _, within => rewrite spacingCalm inner False False within
@@ -328,7 +328,7 @@ theorem spacingCalm ∀ (expr: Expr) (item argument: Bool)
 
 theorem commaSpacingCalmAll ∀ (items: List Expr) (item: Bool)
     (within: allWithin1 items = True):
-    commaSpacing1 (calmAll item items) = commaSpacing1 items :=
+    commaSpacing (calmAll item items) = commaSpacing items :=
   match items with
     | [] => byComputing
     | [one] => rewrite spacingCalm one item False (Bool.andLeft within)
@@ -338,7 +338,7 @@ theorem commaSpacingCalmAll ∀ (items: List Expr) (item: Bool)
 
 theorem commaSpacingCalmLead ∀ (items: List Expr)
     (within: allWithin1 items = True):
-    commaSpacing1 (calmLead items) = commaSpacing1 items :=
+    commaSpacing (calmLead items) = commaSpacing items :=
   match items with
     | [] => byComputing
     | [one] => rewrite spacingCalm one False False (Bool.andLeft within)
@@ -348,7 +348,7 @@ theorem commaSpacingCalmLead ∀ (items: List Expr)
 
 theorem argumentsSpacingCalm ∀ (arguments: List Expr)
     (within: allWithin1 arguments = True):
-    argumentsSpacing1 (calmAll False arguments) = argumentsSpacing1 arguments :=
+    argumentsSpacing (calmAll False arguments) = argumentsSpacing arguments :=
   match arguments with
     | [] => byComputing
     | [argument, ..rest] =>
@@ -369,7 +369,7 @@ theorem levelCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): (
     | Infix _ _ _ _, never => (Bool.falseNotTrue never).impossible
     | other, never => (Bool.falseNotTrue never).impossible
 
-theorem atomicCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): (expr.calm item).atomic1 = expr.atomic1 :=
+theorem atomicCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): (expr.calm item).primary = expr.primary :=
   match expr, within with
     | Atom _ _, _ => byComputing
     | Paren _ _ _, _ => byComputing
@@ -384,7 +384,7 @@ theorem atomicCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): 
 
 theorem numberAtomCalm ∀ (expr: Expr) (item: Bool)
     (within: expr.within1 = True):
-    (expr.calm item).numberAtom1 = expr.numberAtom1 :=
+    (expr.calm item).numberAtom = expr.numberAtom :=
   match expr, within with
     | Atom Tok.Num _, _ => byComputing
     | Atom Tok.Float _, _ => byComputing
@@ -401,7 +401,7 @@ theorem numberAtomCalm ∀ (expr: Expr) (item: Bool)
     | Infix _ _ _ _, never => (Bool.falseNotTrue never).impossible
     | other, never => (Bool.falseNotTrue never).impossible
 
-theorem headCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): (expr.calm item).head1 = expr.head1 :=
+theorem headCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): (expr.calm item).callHead = expr.callHead :=
   match expr, within with
     | Prefix operator operand, within =>
       rewrite numberAtomCalm operand False (Bool.andLeft within),
@@ -418,7 +418,7 @@ theorem headCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): (e
 
 theorem argumentCalm ∀ (expr: Expr) (item: Bool)
     (within: expr.within1 = True):
-    (expr.calm item).argument1 = expr.argument1 :=
+    (expr.calm item).callArgument = expr.callArgument :=
   match expr, within with
     | Prefix operator operand, within =>
       rewrite atomicCalm operand False (Bool.andLeft within), signQuietCalm operator operand item (Bool.andLeft within)
@@ -434,7 +434,7 @@ theorem argumentCalm ∀ (expr: Expr) (item: Bool)
 
 theorem argumentsCalm ∀ (arguments: List Expr)
     (within: allWithin1 arguments = True):
-    (calmAll False arguments).all Expr.argument1 = arguments.all Expr.argument1 :=
+    (calmAll False arguments).all Expr.callArgument = arguments.all Expr.callArgument :=
   match arguments with
     | [] => byComputing
     | [argument, ..rest] =>
@@ -447,8 +447,8 @@ theorem calmAllLength ∀ (items: List Expr) (item: Bool): (calmAll item items).
 --| `calm` keeps the parser's shape.
 --|
 --| Proof idea: by induction on the expression and its brackets' items: `calm` keeps every constructor, text, atom
---| kind and list length, so each test of `shaped1` (levels, heads, arguments) comes out the same.
-theorem shapedCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): (expr.calm item).shaped1 = expr.shaped1 :=
+--| kind and list length, so each test of `shaped` (levels, heads, arguments) comes out the same.
+theorem shapedCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): (expr.calm item).shaped = expr.shaped :=
   match expr, within with
     | Atom _ _, _ => byComputing
     | Paren _ inner _, within => shapedCalm inner False within
@@ -480,7 +480,7 @@ theorem shapedCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): 
 
 theorem shapedAllCalm ∀ (items: List Expr) (item: Bool)
     (within: allWithin1 items = True):
-    allShaped1 (calmAll item items) = allShaped1 items :=
+    allShaped (calmAll item items) = allShaped items :=
   match items with
     | [] => byComputing
     | [first, ..rest] =>
@@ -488,7 +488,7 @@ theorem shapedAllCalm ∀ (items: List Expr) (item: Bool)
 
 theorem shapedLeadCalm ∀ (items: List Expr)
     (within: allWithin1 items = True):
-    allShaped1 (calmLead items) = allShaped1 items :=
+    allShaped (calmLead items) = allShaped items :=
   match items with
     | [] => byComputing
     | [first, ..rest] =>
@@ -497,7 +497,7 @@ theorem shapedLeadCalm ∀ (items: List Expr)
 --| `calm` keeps how the tokens lex: it changes no text.
 theorem lexicalCalm ∀ (expr: Expr) (item: Bool)
     (within: expr.within1 = True):
-    (expr.calm item).lexical1 = expr.lexical1 :=
+    (expr.calm item).lexical = expr.lexical :=
   match expr, within with
     | Atom _ _, _ => byComputing
     | Paren _ inner _, within => rewrite lexicalCalm inner False within
@@ -518,7 +518,7 @@ theorem lexicalCalm ∀ (expr: Expr) (item: Bool)
 
 theorem lexicalAllCalm ∀ (items: List Expr) (item: Bool)
     (within: allWithin1 items = True):
-    allLexical1 (calmAll item items) = allLexical1 items :=
+    allLexical (calmAll item items) = allLexical items :=
   match items with
     | [] => byComputing
     | [first, ..rest] =>
@@ -526,7 +526,7 @@ theorem lexicalAllCalm ∀ (items: List Expr) (item: Bool)
 
 theorem lexicalLeadCalm ∀ (items: List Expr)
     (within: allWithin1 items = True):
-    allLexical1 (calmLead items) = allLexical1 items :=
+    allLexical (calmLead items) = allLexical items :=
   match items with
     | [] => byComputing
     | [first, ..rest] =>

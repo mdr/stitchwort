@@ -25,7 +25,7 @@ import Syntax.ParseCarries (
   readsFail,
   readsFailName
 )
-import Fmt.Kinds1 (..)
+import Fmt.Kinds (..)
 import Fmt.Grammar1 (..)
 import Syntax.ParseCarriesLadder (..)
 import Syntax.ParseCarriesFile (GroupCarries, itemWordsOfGroup, itemsLeaves)
@@ -604,17 +604,17 @@ def DeclKinds (read: List Item) (decl: Decl): Prop := match decl with
       ∧ (nameItem.kind == Lower || nameItem.kind == Upper) = True
       ∧ colonItem.kind = Colon
       ∧ bodyItem.kind = ColonEq
-      ∧ header.result.kinds1 = itemKinds rResult
-      ∧ value.kinds1 = itemKinds rValue
+      ∧ header.result.kinds = itemKinds rResult
+      ∧ value.kinds = itemKinds rValue
   | other => True
 
 --| A definition of slice 1's grammar has the words of the items its header and body read, and their kinds, is placed
---| (`Syntax.AutoPlaced.Decl.autoPlaced1`), and is in the driver's slice.
+--| (`Syntax.AutoPlaced.Decl.autoPlaced`), and is in the driver's slice.
 def PartsKept (read: List Item) (parts: (Header, DefBody)): Prop :=
   (Definition [] parts.fst parts.snd).grammar1 = True
     → (Definition [] parts.fst parts.snd).words = itemWords read
       ∧ DeclKinds read (Definition [] parts.fst parts.snd)
-      ∧ (Definition [] parts.fst parts.snd).autoPlaced1 = True
+      ∧ (Definition [] parts.fst parts.snd).autoPlaced = True
       ∧ (Definition [] parts.fst parts.snd).within1 = True
 
 --| What a header's `:` read: one item, which is a `:` if the header has no parameters.
@@ -833,7 +833,7 @@ theorem readsAttributesOf ∀ (modes: Modes):
 --| the driver's slice.
 def DeclKept (read: List Item) (decl: Decl): Prop :=
   decl.grammar1 = True
-    → decl.words = itemWords read ∧ DeclKinds read decl ∧ decl.autoPlaced1 = True ∧ decl.within1 = True
+    → decl.words = itemWords read ∧ DeclKinds read decl ∧ decl.autoPlaced = True ∧ decl.within1 = True
 
 --| After attributes were read (`before`): no attributes means `before` is empty.
 def DeclAfter (before: List Item) (attributes: List Attributes) (read: List Item) (decl: Decl): Prop :=

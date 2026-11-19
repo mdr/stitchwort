@@ -1,11 +1,11 @@
 --| A slice 1 tree's token kinds, commas included (docs/reviews/SW-4166-carried-walk-plan.md §2.1), and the facts that
 --| tie the driver's slice (`within1`) to the grammar's (`grammar1`): `within1` asks all `grammar1` does and more.
 --|
---| `Expr.words` leaves commas out, so it can't say where a tuple's or a list's commas are; `Expr.kinds1` keeps them, at
---| the places `Fmt.SourcePlainProofs.itemsShapes1` has them. An operator's kind is read off its text: the one token kind
+--| `Expr.words` leaves commas out, so it can't say where a tuple's or a list's commas are; `Expr.kinds` keeps them, at
+--| the places `Fmt.SourcePlainProofs.itemsShapes` has them. An operator's kind is read off its text: the one token kind
 --| `Syntax.Proofs.Spells` spells with it.
 
-namespace Fmt.Kinds1
+namespace Fmt.Kinds
 import Std (Bool, DecEq, List, Option, Result, Text)
 import Fmt (..)
 import Syntax (Decl, DefBody, DefKind, Expr, Header, InfixKind, SourceFile, Tok, Word, lex)
@@ -15,7 +15,7 @@ import Fmt.Grammar1 (..)
 
 --| The kind of a binary operator's token, from its text: the one whose spellings include it. A text that spells no
 --| binary operator of slice 1 gets `Plus`; `within1` keeps such a node out of the slice.
-def binaryKind1 (text: Text): Tok :=
+def binaryKind (text: Text): Tok :=
   if text == "||" || text == "∨" then OrOr
   else if text == "&&" || text == "∧" then AndAnd
   else if text == "++" then PlusPlus
@@ -33,33 +33,33 @@ def binaryKind1 (text: Text): Tok :=
   else Plus
 
 --| The kind of a prefix operator's token, from its text: `-` is `Minus`, and `!` and `¬` are `Bang`.
-def prefixKind1 (text: Text): Tok := if text == "-" then Minus else Bang
+def prefixKind (text: Text): Tok := if text == "-" then Minus else Bang
 
 --| Every token's kind, commas included, in order. Brackets are the kinds the parser reads them as: `(` and `)` for a
 --| parenthesis and a tuple, `[` and `]` for a list.
-def Expr.kinds1: Expr → List Tok
+def Expr.kinds: Expr → List Tok
   | Atom kind _ => [kind]
-  | Paren _ inner _ => [LParen, ..inner.kinds1 ++ [RParen]]
-  | Tuple _ items trailing _ => [LParen, ..itemsKinds1 RParen trailing items]
-  | ListOf _ items trailing _ => [LBracket, ..itemsKinds1 RBracket trailing items]
-  | App head arguments => head.kinds1 ++ argsKinds1 arguments
-  | Infix InfixBinary left operator right => left.kinds1 ++ [binaryKind1 operator.text, ..right.kinds1]
-  | Infix InfixArrow left _ right => left.kinds1 ++ [Arrow, ..right.kinds1]
-  | Prefix operator operand => [prefixKind1 operator.text, ..operand.kinds1]
+  | Paren _ inner _ => [LParen, ..inner.kinds ++ [RParen]]
+  | Tuple _ items trailing _ => [LParen, ..itemsKinds RParen trailing items]
+  | ListOf _ items trailing _ => [LBracket, ..itemsKinds RBracket trailing items]
+  | App head arguments => head.kinds ++ argsKinds arguments
+  | Infix InfixBinary left operator right => left.kinds ++ [binaryKind operator.text, ..right.kinds]
+  | Infix InfixArrow left _ right => left.kinds ++ [Arrow, ..right.kinds]
+  | Prefix operator operand => [prefixKind operator.text, ..operand.kinds]
   | _ => []
 
 --| A comma list's items, the commas between them, a last comma if `trailing`, and the closer.
-def itemsKinds1 (close: Tok) (trailing: Bool): List Expr → List Tok
+def itemsKinds (close: Tok) (trailing: Bool): List Expr → List Tok
   | [] => [close]
-  | [first, ..rest] => first.kinds1 ++ restKinds1 close trailing rest
+  | [first, ..rest] => first.kinds ++ restKinds close trailing rest
 
-def restKinds1 (close: Tok) (trailing: Bool): List Expr → List Tok
+def restKinds (close: Tok) (trailing: Bool): List Expr → List Tok
   | [] => if trailing then [Comma, close] else [close]
-  | [next, ..rest] => [Comma, ..next.kinds1 ++ restKinds1 close trailing rest]
+  | [next, ..rest] => [Comma, ..next.kinds ++ restKinds close trailing rest]
 
-def argsKinds1: List Expr → List Tok
+def argsKinds: List Expr → List Tok
   | [] => []
-  | [argument, ..rest] => argument.kinds1 ++ argsKinds1 rest
+  | [argument, ..rest] => argument.kinds ++ argsKinds rest
 
 -- The driver's slice is within the grammar.
 

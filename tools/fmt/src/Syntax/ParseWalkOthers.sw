@@ -782,5 +782,5 @@ theorem parseSettledSourceProved ∀ (source: Text) (lexed: Lexed) (file: Source
     (plain: sourcePlain1 (tokens lexed.leaves) = True)
     (parses: parseFile lexed.settledOnce = Ok file)
     (within: file.within1 = True):
-    file.settled1 = True :=
+    file.settled = True :=
   parseSettledSource frameRest source lexed file lexes alphabet plain parses within

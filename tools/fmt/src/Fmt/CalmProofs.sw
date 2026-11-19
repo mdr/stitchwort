@@ -1910,7 +1910,7 @@ theorem bracketCloser ∀ (text: Text) (is: (text == "]") = True): isCloserText 
   | True => byComputing
   | False => rewrite is
 
-theorem allLexicalClosed ∀ (items: List Expr) (lexical: allLexical1 items = True): allClosed items = True :=
+theorem allLexicalClosed ∀ (items: List Expr) (lexical: allLexical items = True): allClosed items = True :=
   match items with
     | [] => byComputing
     | [first, ..rest] =>
@@ -1918,8 +1918,8 @@ theorem allLexicalClosed ∀ (items: List Expr) (lexical: allLexical1 items = Tr
 
 --| A tree whose words lex has closers for its brackets' last words.
 --|
---| Proof idea: Induction on the expression; a bracket's `lexical1` says its closer's text is `)` or `]`.
-theorem lexicalClosed ∀ (expr: Expr) (lexical: expr.lexical1 = True): expr.closed = True := match expr with
+--| Proof idea: Induction on the expression; a bracket's `lexical` says its closer's text is `)` or `]`.
+theorem lexicalClosed ∀ (expr: Expr) (lexical: expr.lexical = True): expr.closed = True := match expr with
   | Atom kind word => byComputing
   | Paren open inner close =>
     Bool.andIntro
@@ -1966,7 +1966,7 @@ theorem declCalmWithin ∀ (decl: Decl) (within: decl.within1 = True): decl.calm
 
 theorem declDocCalm ∀ (decl: Decl)
     (within: decl.within1 = True)
-    (lexical: decl.lexical1 = True):
+    (lexical: decl.lexical = True):
     decl.calm.doc1 = decl.doc1 :=
   match decl with
     | Definition [] header (Assigned colonEq value) =>
@@ -1981,7 +1981,7 @@ theorem declDocCalm ∀ (decl: Decl)
 
 theorem declPrintedCalm ∀ (decl: Decl)
     (within: decl.within1 = True)
-    (lexical: decl.lexical1 = True):
+    (lexical: decl.lexical = True):
     decl.calm.printed1 = decl.printed1 :=
   rewrite declCalmWithin decl within, within, declDocCalm decl within lexical
 
@@ -1990,7 +1990,7 @@ theorem firstCommentsCalm ∀ (decl: Decl) (within: decl.within1 = True): decl.c
 
 theorem printDeclsCalm ∀ (output: Output) (decls: List Decl)
     (within: decls.all Decl.within1 = True)
-    (lexical: decls.all Decl.lexical1 = True):
+    (lexical: decls.all Decl.lexical = True):
     printDecls Decl.printed1 output (decls.map Decl.calm) = printDecls Decl.printed1 output decls :=
   match decls with
     | [] => byComputing
@@ -2007,7 +2007,7 @@ theorem printDeclsCalm ∀ (output: Output) (decls: List Decl)
 --| notes, which `calm` keeps.
 theorem calmPrints ∀ (file: SourceFile)
     (within: file.within1 = True)
-    (lexical: file.lexical1 = True):
+    (lexical: file.lexical = True):
     file.calm.printed1 = file.printed1 :=
   rewrite printDeclsCalm { pieces = [], empty = True } file.decls within lexical
 

@@ -400,7 +400,7 @@ theorem unnotedUnled ∀ (word: Word) (around: Around)
         | False => byComputing
 
 --| An arrow chain's two operands and operator, its first operand's `Links` given: `->` with no comment after it,
---| any above it, and the right operand with none above its first token (`homed1`).
+--| any above it, and the right operand with none above its first token (`homed`).
 theorem arrowPair ∀ (led: Bool) (level: Option Nat) (first: Bool) (left: Expr) (operator: Word)
     (right: Expr) (around: Around)
     (within: (Infix InfixArrow left operator right).within1 = True)
