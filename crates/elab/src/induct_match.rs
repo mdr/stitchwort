@@ -80,22 +80,46 @@ fn telescope(cx: &Ctx, ty: &Value) -> Result<Vec<(Name, Icit)>> {
     Ok(out)
 }
 
-/// The spine of the call: the function's name and the arguments written.
-fn spine(call: &Expr) -> Option<(&stitchwort_syntax::ast::Name, Vec<&Expr>)> {
+/// The call as `f a b …`: the function's name and the arguments written.
+/// `xs.f a` (dot form) reads as `f xs a`, as an ordinary call does, with
+/// `f`'s full name for the dot's namespace lookup.
+fn spine(cx: &mut Ctx, call: &Expr) -> Result<Option<(stitchwort_syntax::ast::Name, Vec<Expr>)>> {
     let mut args = Vec::new();
     let mut e = call;
     loop {
         match e {
             Expr::App(f, a) => {
-                args.push(&**a);
+                args.push((**a).clone());
                 e = f;
             }
             Expr::Bracketed(inner, _) => e = inner,
             Expr::Var(name) => {
                 args.reverse();
-                return Some((name, args));
+                return Ok(Some((name.clone(), args)));
             }
-            _ => return None,
+            Expr::Field(recv, field) => {
+                args.reverse();
+                let written: Vec<crate::check::Arg<'_>> =
+                    args.iter().map(crate::check::Arg::Explicit).collect();
+                let Some(((Term::Def(f), _), full)) =
+                    crate::dot::prefix_form(cx, recv, field, &written)?
+                else {
+                    return Ok(None);
+                };
+                let mut all = Vec::new();
+                for arg in full {
+                    let crate::check::Arg::Explicit(e) = arg else {
+                        return Ok(None);
+                    };
+                    all.push(e.clone());
+                }
+                let name = stitchwort_syntax::ast::Name {
+                    text: cx.g().def(f).name().to_string(),
+                    span: field.span,
+                };
+                return Ok(Some((name, all)));
+            }
+            _ => return Ok(None),
         }
     }
 }
@@ -144,6 +168,7 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
     let Expr::Induct { call, alts, span } = expr else {
         unreachable!("only called on `match induct`")
     };
+    let outer = *span;
     let written = Span::new(span.file, span.start, call.span().end);
     let span = written;
     let g = cx.g();
@@ -159,13 +184,14 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
              state what it should satisfy as a theorem and use `match induct` there",
         ));
     }
-    let Some((head, args)) = spine(call) else {
+    let Some((head, owned_args)) = spine(cx, call)? else {
         return Err(motive_error(
             call.span(),
             "`match induct` takes a call of a function written as `f a b …`",
         )
         .with_label(call.span(), "this isn't a function applied to arguments"));
     };
+    let args: Vec<&Expr> = owned_args.iter().collect();
     // The call, as the goal says it, for the occurrence test.
     let (call_term, call_ty) = infer(cx, call)?;
     let (call_term, _) = insert(cx, call_term, call_ty)?;
@@ -277,6 +303,33 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
             }
         }
     }
+    // `with ?`: an alternative for every case, naming its binders, whose
+    // body is a hole, so each case's goal is listed.
+    let listing = alts.is_empty();
+    let hole_at = Span::new(outer.file, outer.end.saturating_sub(1), outer.end);
+    let synthesized: Vec<InductAlt> = cases
+        .iter()
+        .enumerate()
+        .map(|(arm, (case, own))| {
+            let at = |text: &str| stitchwort_syntax::ast::Name {
+                text: text.to_string(),
+                span: hole_at,
+            };
+            InductAlt {
+                case: at(case),
+                binders: own
+                    .iter()
+                    .map(|n| at(if n.starts_with('%') { "_" } else { n }))
+                    .collect(),
+                body: Expr::Goal(hole_at),
+                span: hole_at,
+                arm,
+                of: 1,
+            }
+        })
+        .collect();
+    let alts: &[InductAlt] = if listing { &synthesized } else { alts };
+    same_names_in_each_case(alts)?;
     // The cases of the alternatives.
     let expected: Vec<String> = cases.iter().map(|(n, _)| n.to_string()).collect();
     let mut chosen: Vec<Option<&InductAlt>> = vec![None; cases.len()];
@@ -406,7 +459,17 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
         let Value::Pi(_, _, dom, cod) = force(&g, cur)? else {
             unreachable!("counted")
         };
-        let case = alternative(cx, alt, &cases[i], &induct_name.text, &dom, &copied)?;
+        let shown = (listing || alt.of > 1).then(|| shown_alternative(alt));
+        let saved = std::mem::replace(
+            &mut cx.e.goals.borrow_mut().alternative,
+            shown.as_deref().map(Into::into),
+        );
+        let case = alternative(cx, alt, &cases[i], &induct_name.text, &dom, &copied);
+        cx.e.goals.borrow_mut().alternative = saved;
+        let case = case.map_err(|e| match &shown {
+            Some(shown) if !listing => in_alternative(e, shown, alt),
+            _ => e,
+        })?;
         cur = cod.apply(&g, cx.eval(&case)?)?;
         term = Term::app(term, case);
     }
@@ -442,6 +505,75 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
         ));
     }
     Ok(term)
+}
+
+/// An alternative as written, `` `eq3 _ ih` ``.
+fn shown_alternative(alt: &InductAlt) -> String {
+    let mut shown = format!("`{}", alt.case.text);
+    for b in &alt.binders {
+        shown.push(' ');
+        shown.push_str(&b.text);
+    }
+    shown.push('`');
+    shown
+}
+
+/// `error`, from the body of an arm with several cases, with a note naming
+/// the alternative it is in: the body is checked once per case, as an
+/// or-pattern's is (D3694).
+fn in_alternative(mut error: Diagnostic, shown: &str, alt: &InductAlt) -> Diagnostic {
+    if error.code == crate::goals::UNFINISHED
+        || error.code == "E-RESOURCE"
+        || error
+            .detail
+            .as_ref()
+            .is_some_and(|d| d.alternative.is_some())
+    {
+        return error;
+    }
+    let note = format!("this error is in the alternative {shown}");
+    error.notes.push(note.clone());
+    error.detail_mut().alternative = Some(stitchwort_syntax::AlternativeError {
+        arm: alt.span,
+        shown: vec![shown.to_string()],
+        cases: alt.of,
+        note,
+    });
+    error
+}
+
+/// Every alternative of an arm with several cases binds the same names
+/// (D3694); `_` binds none.
+fn bound(alt: &InductAlt) -> Vec<&str> {
+    (alt.binders.iter())
+        .map(|b| b.text.as_str())
+        .filter(|t| *t != "_")
+        .collect()
+}
+
+fn same_names_in_each_case(alts: &[InductAlt]) -> Result<()> {
+    for alt in alts.iter().filter(|a| a.of > 1) {
+        let mine = bound(alt);
+        for other in alts.iter().filter(|o| o.arm == alt.arm && o.of > 1) {
+            if let Some(name) = mine.iter().find(|n| !bound(other).contains(n)) {
+                return Err(Diagnostic::error(
+                    "E-OR-PATTERN-BINDS",
+                    format!(
+                        "`{name}` is bound in {} but not in {}",
+                        shown_alternative(alt),
+                        shown_alternative(other)
+                    ),
+                )
+                .with_label(alt.case.span, format!("`{name}` is bound here"))
+                .with_label(other.case.span, "this alternative doesn't bind it")
+                .with_note(
+                    "every alternative of an arm binds the same names; use `_` in the \
+                     alternatives that don't use one",
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// One alternative: its binders, the generalised variables refined, and the

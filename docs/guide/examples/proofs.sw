@@ -168,6 +168,22 @@ theorem skipsSmall ∀ (k x: Nat) (xs: List Nat) (h: (k <= x) = False): countAbo
   countAbove.eq2.ifFalse k x xs h
 -- end induct
 
+-- begin induct-cases
+theorem countAboveLeShared ∀ (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length := match induct (countAbove k xs) with
+  | eq1 => arithmetic
+  | eq2IfTrue y ys h ih | eq2IfFalse y ys h ih => arithmetic
+
+type Pile = | Empty | More (weight: Nat) (rest: Pile)
+
+def Pile.total: Pile → Nat
+  | Empty => 0
+  | More weight rest => weight + Pile.total rest
+
+theorem totalAtLeastZero ∀ (pile: Pile): pile.total ≥ 0 := match induct pile.total with
+  | eq1 => arithmetic
+  | eq2 weight rest ih => arithmetic
+-- end induct-cases
+
 -- begin guard-eqs
 def cap (limit: Nat): Nat → Nat
   | n if n <= limit => n

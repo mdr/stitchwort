@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/match-induct-or-case-error.sw:13:51 ]
+    │
+ 13 │   | eq2IfTrue x xs h ih | eq2IfFalse x xs h ih => ih
+    │                                                   ─┬  
+    │                                                    ╰── expected `countAbove k xs ≤ Succ xs.length`, but this has type `countAbove k xs ≤ xs.length`
+    │ 
+    │ Note: this error is in the alternative `eq2IfFalse x xs h ih`
+────╯

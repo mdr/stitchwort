@@ -1557,6 +1557,24 @@ theorem countAboveLe ∀ (k: Nat) (xs: List Nat): countAbove k xs ≤ List.lengt
   `f.induct`'s order and all of them; `_` ignores one. A goal that is an
   implication isn't introduced by the names: the body is a function
   (`| eq1 => none => cases`). Alternatives come in any order.
+- **Cases that share a proof** are one arm, `| eq2IfTrue x xs h ih | eq2IfFalse
+  x xs h ih => body`, as an or-pattern's alternatives are (D3694): the body is
+  checked once for each case, with that case's names and types, and every case
+  binds the same names (`E-OR-PATTERN-BINDS` otherwise; `_` binds none). An
+  error in the body says which case it is in ("this error is in the
+  alternative `eq2IfFalse x xs h ih`"); the arm counts for each case it names
+  (`examples/accept/match-induct-or-cases.sw`,
+  `examples/reject/match-induct-or-case-error.sw`,
+  `examples/reject/match-induct-or-case-binds.sw`).
+- **The call by dot.** `match induct xs.f a with` is `match induct (f xs a)`,
+  as the dot call `xs.f a` is `f xs a`. The receiver and the other arguments
+  follow the call's rules above.
+- **`with ?`** (`match induct (f args) with ?`, no alternatives) is a goal
+  report listing each case of `f.induct` with the names its alternative binds,
+  its hypotheses and its goal, in the form an or-pattern's hole uses
+  (`examples/goals/match-induct-list-cases.sw`). The proof stays unfinished
+  until the cases are written. The `?` stands for all the alternatives, so it
+  takes no `|`.
 - **Errors.** `E-INDUCT-CASE`: a name that isn't a case, two alternatives for a
   case, or the wrong number of names (each says the cases or the names
   expected). `E-NONEXHAUSTIVE`: a case without an alternative (the message lists

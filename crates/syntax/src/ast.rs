@@ -202,7 +202,8 @@ pub enum Expr {
     /// functional induction on `f`'s call by `f.induct`, one alternative per
     /// case, named after the equation, binding the case's variables,
     /// hypotheses and induction hypotheses in order
-    /// (docs/proposals/function-equations.md §5.3).
+    /// (docs/proposals/function-equations.md §5.3). `alts` is empty for
+    /// `match induct (f args) with ?`, which lists the cases.
     Induct {
         call: Box<Expr>,
         alts: Vec<InductAlt>,
@@ -425,6 +426,12 @@ pub struct InductAlt {
     pub body: Expr,
     /// From the `|` to the end of the body.
     pub span: Span,
+    /// Which written arm it is from, counting from 0: an arm with several
+    /// cases (`| eq1 x | eq3 y => body`) gives one `InductAlt` for each,
+    /// with the same `arm` and the same body.
+    pub arm: usize,
+    /// How many cases the written arm has.
+    pub of: usize,
 }
 
 impl Expr {
