@@ -1929,13 +1929,6 @@ theorem headLine ∀ (modes: Modes)
                       (Inr (Inr (Inl (number, isNumber, (rewrite isWord, isKind, isNumberWord), isMinus, negNumber))))))
               )
             | other, _, never => (Bool.falseNotTrue never).impossible
-        | App _ _, _, never, _ => (Bool.falseNotTrue never).impossible
-        | Infix _ _ _ _, _, never, _ => (Bool.falseNotTrue never).impossible
-        | Atom _ _, _, _, never => (Bool.falseNotTrue never.flipped).impossible
-        | Paren _ _ _, _, _, never => (Bool.falseNotTrue never.flipped).impossible
-        | Tuple _ _ _ _, _, _, never => (Bool.falseNotTrue never.flipped).impossible
-        | ListOf _ _ _ _, _, _, never => (Bool.falseNotTrue never.flipped).impossible
-        | _, never, _, _ => Void.impossible never
 
 --| A spelt expression, nothing after it continuing it, is what `app` reads: a call by `appLine`, an atom or bracket
 --| alone by `atomLine`.

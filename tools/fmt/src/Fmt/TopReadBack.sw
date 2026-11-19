@@ -2,7 +2,7 @@
 --| the output's leaves, settled, parse to `calmTop` of the printed tree.
 --|
 --| The seam is one declaration's group: `readsBackDecl1` is proved from read-back's one-line theorem
---| (`readsBackLineWithin`) and an open goal about the printer's items (`printedSplit1`). The file
+--| (`readsBackLineWithin`) and the split of the printer's items (`printedSplit1`, in `Fmt.GroupSlots`). The file
 --| form, `readsBackFile1`, takes it as a hypothesis and is proved, with the file-level lemmas of `Fmt.ReadBackFile`.
 
 namespace Fmt.TopReadBack
@@ -20,14 +20,10 @@ import Fmt.PrintedLines (exprLine, groupLeafTokens, laterOfValue, leafTokens, le
 import Fmt.CalmProofs (headerCalmWithin, withinCalm)
 import Fmt.OutputFileProofs (printedGroups1)
 import Fmt.ReadBackFile (declLowers, groupReads, groupsFromTokens, groupsTokens, refusalNone)
+import Fmt.GroupFacts (..)
+import Fmt.GroupSlots (printedSplit1)
 
 -- One declaration.
-
---| `calm` of a declaration, and for the file's first (`top`) its `def`'s first flag cleared: what `calmTop` makes of
---| each declaration.
-def Decl.calmAt (decl: Decl) (top: Bool): Decl := match top, decl.calm with
-  | True, Definition attributes header body => Definition attributes { header | keyword = header.keyword.topped } body
-  | _, calmed => calmed
 
 --| One group of leaves read back: its items, run as `parseGroups` runs a declaration, give `read`.
 def DeclReadsBack (seen: Seen) (group: List Leaf) (read: Decl): Prop :=
@@ -36,56 +32,10 @@ def DeclReadsBack (seen: Seen) (group: List Leaf) (read: Decl): Prop :=
     decl)
     = Ok read
 
---| A group's items as `readsBackLineWithin` takes them: `def`, the name, `:`, the type's, `:=` and the value's;
---| `read` is the definition they make, its type and value spelt by their items and within slice 1.
-def GroupSplit (group: List Leaf) (read: Decl) (keyword name colon colonEq: Item)
-    (typeRead valueRead: List Item) (result value: Expr):
-    Prop :=
-  items group = [keyword, name, colon, ..typeRead ++ [colonEq, ..valueRead]]
-    ∧ read = Definition [] (plainHeader keyword name colon result) (Assigned colonEq.leaf.word.comments value)
-    ∧ keyword.kind = KwDef
-    ∧ name.kind = Lower
-    ∧ colon.kind = Colon
-    ∧ colonEq.kind = ColonEq
-    ∧ Spelt result typeRead
-    ∧ Spelt value valueRead
-    ∧ result.within1 = True
-    ∧ value.within1 = True
-
 --| The line facts `readsBackLineWithin` takes: every item of a kind it reads on a line, no item of the type starting
 --| a line, and none of the value's after its first.
 def LinesRead (typeRead valueRead: List Item): Prop :=
   lineAll typeRead = True ∧ lineAll valueRead = True ∧ inLineAll typeRead = True ∧ laterInLine valueRead = True
-
---| What the output says of one printed declaration `decl` and the group of leaves the second run parses for it: the
---| tree facts of `decl` the driver gives, its printed tokens on one line, the group's tokens those printed tokens
---| (rule N moves only comments), and the group's words `read`'s, where `read` is `calm` of `decl`
---| (`printedSettle1`).
-def PrintedGroup (decl read: Decl) (group: List Leaf): Prop :=
-  decl.within1 = True
-    ∧ decl.shaped1 = True
-    ∧ decl.settled1 = True
-    ∧ decl.lexical1 = True
-    ∧ decl.commaFree = True
-    ∧ decl.oneLine1 = True
-    ∧ tokens group = tokens decl.leaves1
-    ∧ codeWords group = read.words
-    ∧ (∃ (top: Bool) => read = decl.calmAt top)
-
---| `printedSplit1` (open): a printed one-line declaration's group splits into the items `readsBackLineWithin` reads,
---| with `read`'s type and value spelt by them.
---|
---| What it needs: the tokens are the rules' spelling, comma between items and kinds the lexer's (`printedTokens1`);
---| the group's words are `read`'s (the hypothesis); and the glue facts each item carries (`glued`, `afterOperand`),
---| which come from the printed spacing: SW-4075 (std's `touches`), SW-4076 (`printedSpacing1`, then `Spelt` of a
---| printed expression), with `Spelt`'s one-way prefix clause and its negative numeral heads (SW-4077). `Spelt` and
---| `lineKind` take every binary operator of slice 1, `&&` and `||` included (`logicLine`). An infix's kind is the
---| one its operator's token reads as (`within1`: `arrowText1`, `binaryText1`).
-theorem printedSplit1 ∀ (decl read: Decl) (group: List Leaf)
-    (printed: PrintedGroup decl read group):
-    ∃ (keyword name colon colonEq: Item) (typeRead valueRead: List Item) (result value: Expr) => GroupSplit group read
-        keyword name colon colonEq typeRead valueRead result value :=
-  ?
 
 --| `printedLines1` (the stock take's U3 under one-line declarations): the items of a printed one-line
 --| declaration are of the kinds read-back reads on a line, and start lines only where `oneLine1` lets them.
