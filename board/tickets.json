@@ -27485,8 +27485,8 @@
     {
       "id": 4246,
       "title": "[Sonnet] Importing Std (Fail) now costs ~12M more evaluation steps (resources::comparing_a_large_let_does_not_compute_it_while_checking fails: effectful case 19.7M vs 7.9M baseline) since SW-4218 added 23 Fail.toResultSeqN/AlikeN lemmas to Fail/Fail.sw; measure which declarations cost (check --timings), move the walk families to their own std file (e.g. Fail/Walk.sw) imported by their users, or make their proofs cheap; make the test's baseline import what each case imports",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "std-library",
