@@ -550,7 +550,7 @@ theorem floatRestSpells ∀ (chars: List Char)
 --| A name or numeral `within1` lets through is a text its kind is spelled with.
 theorem spellsOfText1 ∀ (kind: Tok) (text: Text) (spells: textSpells1 kind text = True): Spells kind text :=
   match kind, spells with
-    | Lower, spells => nameSpells Lower text text.toList byComputing (Bool.andLeft spells) byComputing
+    | Lower, spells => nameSpells Lower text text.toList byComputing spells byComputing
     | Upper, spells => nameSpells Upper text text.toList byComputing spells byComputing
     | Num, spells => digitsSpells text text.toList byComputing spells
     | Float, spells =>
@@ -1347,32 +1347,6 @@ theorem pipedOut: pipedDecl.within1 = False := byComputing
 
 theorem pipedTreeFacts: pipedDecl.shaped1 = True ∧ pipedDecl.sound = True ∧ pipedDecl.lexical1 = True :=
   (byComputing, byComputing, byComputing)
-
---| `def d: A := [auto Ord]`: the parser reads the list as an implicit binder, which is an error.
-def autoDecl: Decl :=
-  Definition []
-    {
-      exportKeyword = None,
-      opaqueKeyword = None,
-      kind = DefPlain,
-      keyword = Comments.none,
-      name = fixedWord "d" Comments.none,
-      forallKeyword = None,
-      params = [],
-      colon = Comments.none,
-      result = Atom Upper (fixedWord "A" Comments.none),
-      decreasingClause = None,
-      unfoldingClause = None
-    }
-    (Assigned Comments.none
-      (ListOf
-        (fixedWord "[" Comments.none)
-        [App (Atom Lower (fixedWord "auto" Comments.none)) [Atom Upper (fixedWord "Ord" Comments.none)]]
-        False
-        (fixedWord "]" Comments.none)))
-
---| The narrowing: `within1` leaves the name `auto` out, so a list that starts with it is out at any depth.
-theorem autoOut: autoDecl.within1 = False := byComputing
 
 --| `def d: A := a == b == c`: a comparison's right operand needs level 8, and `b == c` is at 6, so it doesn't parse.
 def chainedDecl: Decl :=

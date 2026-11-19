@@ -20,6 +20,7 @@ import Fmt.Kinds1 (..)
 import Syntax.Proofs (..)
 import Syntax.ParseProofs (..)
 import Syntax.ParseWalk (..)
+import Syntax.AutoPlaced (..)
 import Syntax.ParseCarries (
   Carried,
   NestedCarries,
@@ -69,6 +70,197 @@ theorem nestedCarriesOfKept ∀ [self: Goal → {Parse Item} Expr] (nested: Nest
 --| `textSpells1` takes. A hypothesis here until it is proved; false today only for `auto`, which `textSpells1` refuses.
 def SpellsText1: Prop :=
   ∀ (kind: Tok) (text: Text) => kind.atom1 = True → Spells kind text → textSpells1 kind text = True
+
+-- Where an `auto` call may start a list (SW-4128, lane A): `KeptAt` and the step at `exprPlain`, for the walk
+-- follow-up that carries them.
+
+--| A goal that starts a full expression: `expr` and `expr_inline`, the levels whose parser reaches `exprPlain` and so
+--| tests for an implicit binder.
+def Goal.full (goal: Goal): Bool := match goal.level with
+  | LevelFull => True
+  | LevelInline => True
+  | _ => False
+
+--| `Kept`, and at a goal that starts a full expression, a tree of the grammar placed as one
+--| (`Syntax.AutoPlaced.Expr.autoPlaced1`: no list at its start starts with an `auto` call). The full expressions inside
+--| a node are the node's own business: the walk follow-up adds `autoPlaced1 False` to `Kept`, and `keptPlacedUp` gives
+--| this conjunct at `exprPlain` from `implicitOn = False`.
+def KeptAt (goal: Goal) (read: List Item) (expr: Expr): Prop :=
+  Kept read expr ∧ (goal.full = True → expr.grammar1 = True → expr.autoPlaced1 True = True)
+
+--| An `auto` call on a type's name starts with its tokens: `auto`, then an upper-case name.
+theorem autoCallTokens ∀ (expr: Expr)
+    (grammar: expr.grammar1 = True)
+    (call: expr.autoCall1 = True):
+    ∃ (auto: Word) (kinds: List Tok) (words: List Word) => expr.kinds1 = [Lower, Upper, ..kinds]
+      ∧ expr.words = [auto, ..words]
+      ∧ auto.text = "auto" :=
+  match expr, grammar, call with
+    | App (Atom headKind word) [Atom argumentKind argumentWord, ..more], _, call =>
+      let isLower: headKind = Lower := DecEq.sound (Bool.andLeft call)
+      let isAuto: word.text = "auto" := DecEq.sound (Bool.andLeft (Bool.andRight call))
+      let isUpper: argumentKind = Upper := DecEq.sound (Bool.andRight (Bool.andRight call))
+      (word, argsKinds1 more, [argumentWord, ..itemsWords more], (rewrite isLower, isUpper), byComputing, isAuto)
+    | Infix InfixBinary left operator right, grammar, call =>
+      let (auto, kinds, words, isKinds, isWords, isAuto) := autoCallTokens left (Bool.andLeft grammar) call
+      (
+        auto,
+        kinds ++ [binaryKind1 operator.text, ..right.kinds1],
+        words ++ [operator, ..right.words],
+        (rewrite isKinds),
+        (rewrite isWords),
+        isAuto
+      )
+    | Infix InfixArrow left operator right, grammar, call =>
+      let (auto, kinds, words, isKinds, isWords, isAuto) := autoCallTokens left (Bool.andLeft grammar) call
+      (
+        auto,
+        kinds ++ [Arrow, ..right.kinds1],
+        words ++ [operator, ..right.words],
+        (rewrite isKinds),
+        (rewrite isWords),
+        isAuto
+      )
+
+--| A tree of the grammar placed inside but not at its start starts with `[auto Upper`: a list whose first item is an
+--| `auto` call, at the end of its leftmost spine.
+--|
+--| Proof idea: by induction on the leftmost spine (a call's head, an operator's left side), where the two placements
+--| differ only at the list that ends it; there `autoLeadCall` and `autoCallTokens` give the tokens.
+theorem unplacedTokens ∀ (expr: Expr)
+    (grammar: expr.grammar1 = True)
+    (inner: expr.autoPlaced1 False = True)
+    (unplaced: expr.autoPlaced1 True = False):
+    ∃ (open auto: Word) (kinds: List Tok) (words: List Word) => expr.kinds1 = [LBracket, Lower, Upper, ..kinds]
+      ∧ expr.words = [open, auto, ..words]
+      ∧ auto.text = "auto" :=
+  match expr, grammar, inner, unplaced with
+    | ListOf open [one, ..others] trailing close, grammar, inner, unplaced =>
+      let rest: (one.autoPlaced1 True && autoPlacedAll True others) = True := inner
+      let lead: autoLead1 True one = False := match isLead: autoLead1 True one with
+        | False => byComputing
+        | True => (Bool.falseNotTrue (Eq.trans unplaced.flipped rest)).impossible
+      let (auto, kinds, words, isKinds, isWords, isAuto) :=
+        autoCallTokens one (Bool.andLeft grammar) (autoLeadCall one lead)
+      (
+        open,
+        auto,
+        kinds ++ restKinds1 RBracket trailing others,
+        (words ++ itemsWords others) ++ [close],
+        (rewrite isKinds),
+        (rewrite isWords),
+        isAuto
+      )
+    | App head arguments, grammar, inner, unplaced =>
+      let headUnplaced: head.autoPlaced1 True = False := match isHead: head.autoPlaced1 True with
+        | False => byComputing
+        | True => (Bool.falseNotTrue (Eq.trans unplaced.flipped (Bool.andRight inner))).impossible
+      let (open, auto, kinds, words, isKinds, isWords, isAuto) :=
+        unplacedTokens head (Bool.andLeft grammar) (Bool.andLeft inner) headUnplaced
+      (
+        open,
+        auto,
+        kinds ++ argsKinds1 arguments,
+        words ++ itemsWords arguments,
+        (rewrite isKinds),
+        (rewrite isWords),
+        isAuto
+      )
+    | Infix InfixBinary left operator right, grammar, inner, unplaced =>
+      let leftUnplaced: left.autoPlaced1 True = False := match isLeft: left.autoPlaced1 True with
+        | False => byComputing
+        | True => (Bool.falseNotTrue (Eq.trans unplaced.flipped (Bool.andRight inner))).impossible
+      let (open, auto, kinds, words, isKinds, isWords, isAuto) :=
+        unplacedTokens left (Bool.andLeft grammar) (Bool.andLeft inner) leftUnplaced
+      (
+        open,
+        auto,
+        kinds ++ [binaryKind1 operator.text, ..right.kinds1],
+        words ++ [operator, ..right.words],
+        (rewrite isKinds),
+        (rewrite isWords),
+        isAuto
+      )
+    | Infix InfixArrow left operator right, grammar, inner, unplaced =>
+      let leftUnplaced: left.autoPlaced1 True = False := match isLeft: left.autoPlaced1 True with
+        | False => byComputing
+        | True => (Bool.falseNotTrue (Eq.trans unplaced.flipped (Bool.andRight inner))).impossible
+      let (open, auto, kinds, words, isKinds, isWords, isAuto) :=
+        unplacedTokens left (Bool.andLeft grammar) (Bool.andLeft inner) leftUnplaced
+      (
+        open,
+        auto,
+        kinds ++ [Arrow, ..right.kinds1],
+        words ++ [operator, ..right.words],
+        (rewrite isKinds),
+        (rewrite isWords),
+        isAuto
+      )
+    | Paren _ _ _, _, inner, unplaced => (Bool.falseNotTrue (Eq.trans unplaced.flipped inner)).impossible
+    | Tuple _ _ _ _, _, inner, unplaced => (Bool.falseNotTrue (Eq.trans unplaced.flipped inner)).impossible
+    | Prefix _ _, _, inner, unplaced => (Bool.falseNotTrue (Eq.trans unplaced.flipped inner)).impossible
+
+--| Items whose kinds and words start `[auto Upper` are what `namelessAutoAt` tests for.
+theorem autoItemsAhead ∀ (read rest: List Item) (kinds: List Tok) (open auto: Word) (words: List Word)
+    (readKinds: itemKinds read = [LBracket, Lower, Upper, ..kinds])
+    (readWords: itemWords read = [open, auto, ..words])
+    (isAuto: auto.text = "auto"):
+    namelessAutoAt (read ++ rest) = True :=
+  match read, readKinds with
+    | [first, second, third, ..more], readKinds =>
+      let firstKind: first.kind = LBracket := List.consInjectiveHead _ _ _ _ readKinds
+      let afterFirst := Eq.cong (.drop 1) readKinds
+      let secondKind: second.kind = Lower := List.consInjectiveHead _ _ _ _ afterFirst
+      let thirdKind: third.kind = Upper := List.consInjectiveHead _ _ _ _ (Eq.cong (.drop 1) afterFirst)
+      let wordsAre: itemWords [first, second, third, ..more]
+        = [first.leaf.word, second.leaf.word, ..itemWords [third, ..more]] :=
+        rewrite itemWordsCons first [second, third, ..more] (codeAs firstKind byComputing),
+            itemWordsCons second [third, ..more] (codeAs secondKind byComputing)
+      let secondWord: second.leaf.word = auto :=
+        List.consInjectiveHead _ _ _ _ (Eq.cong (.drop 1) (Eq.trans wordsAre.flipped readWords))
+      let secondText: second.text = "auto" := Eq.trans (Eq.cong (word => word.text) secondWord) isAuto
+      rewrite secondKind, secondText, thirdKind
+    | _, _ => cases
+
+--| The items of `[auto Ord]`: `autoItemsAhead`'s hypotheses hold of them.
+def autoRead: List Item := match lex "[auto Ord]" with
+  | Ok lexed => items lexed.leaves
+  | Err _ => []
+
+def autoWordAt (index: Nat): Word := match (itemWords autoRead).drop index with
+  | [word, .._] => word
+  | [] => { text = "", comments = { above = [], after = None, blankBefore = False } }
+
+theorem autoItemsAheadExample: namelessAutoAt (autoRead ++ []) = True :=
+  autoItemsAhead autoRead []
+    [RBracket]
+    (autoWordAt 0)
+    (autoWordAt 1)
+    ((itemWords autoRead).drop 2)
+    byComputing
+    byComputing
+    byComputing
+
+--| `KeptAt`'s full-goal conjunct at `exprPlain`: a tree of the grammar that keeps its items and is placed inside is
+--| placed as a full expression, when the items ahead are no implicit binder (`implicitOn = False`, given the
+--| look-ahead's first item is the `[` that would start it).
+theorem keptPlacedUp ∀ (read rest: List Item) (expr: Expr)
+    (kept: Kept read expr)
+    (grammar: expr.grammar1 = True)
+    (inner: expr.autoPlaced1 False = True)
+    (noBinder: namelessAutoAt (read ++ rest) = False):
+    expr.autoPlaced1 True = True :=
+  match unplaced: expr.autoPlaced1 True with
+    | True => byComputing
+    | False =>
+      let (isWords, isKinds, _) := kept grammar
+      let (open, auto, kinds, words, treeKinds, treeWords, isAuto) := unplacedTokens expr grammar inner unplaced
+      let ahead :=
+        autoItemsAhead read rest kinds open auto words
+          (Eq.trans isKinds.flipped treeKinds)
+          (Eq.trans isWords.flipped treeWords)
+          isAuto
+      (Bool.falseNotTrue (Eq.trans noBinder.flipped ahead)).impossible
 
 -- Kinds of items.
 

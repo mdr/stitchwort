@@ -5,9 +5,10 @@
 --| The items are related to the tree by `Spelt` (each node's tokens in order, each item carrying the node's word, a
 --| comma between bracket items and none after the last); the look-aheads are discharged by `Syntax.ReadBackEnds`
 --| from the item kinds (`lineAll`: words, brackets, commas and `:=`) and from what follows each node. In `Quiet` modes
---| only a line start stops a reading. No list may start with `auto` on a type's name (`Expr.autoFree1`), which reads
---| as an implicit binder. `-` glued to a numeral reads as one atom, as `Spelt` says the parser sees it, and a sign may
---| start a call's argument, glued to its atom and spaced from what precedes it (`argumentGlue`). Binary operators
+--| only a line start stops a reading. No list that starts a full expression may start with `auto` on a type's name
+--| (`Syntax.AutoPlaced.Expr.autoPlaced1`), which reads there as an implicit binder. `-` glued to a numeral reads as
+--| one atom, as `Spelt` says the parser sees it, and a sign may start a call's argument, glued to its atom and spaced
+--| from what precedes it (`argumentGlue`). Binary operators
 --| read as the parser's chains: each operator ends the operand before it (`opEnds`) and is spaced from the one after
 --| (`operandApart`, so `a - x` is no call `a -x`); `&&` and `||` read as `groupLogic` regroups them, the chain
 --| flattened into its first comparison and links (`orFlat`, `conjFlat`).
@@ -21,6 +22,7 @@ import Syntax.ReadBackRuns (..)
 import Syntax.ReadBackRuns (plainHeader)
 import Syntax.ReadBackTree (..)
 import Syntax.ReadBackEnds (..)
+import Syntax.AutoPlaced (..)
 
 theorem notTrueFalse ∀ (b: Bool) (no: (!b) = True): b = False := match b, no with
   | False, _ => byComputing
@@ -304,73 +306,6 @@ def argumentGlue: List Item → Bool
 
 --| An argument of this part, its sign (if any) spaced as an argument's.
 def argumentFits (argument: Expr) (read: List Item): Bool := argument.signArg1 && argumentGlue read
-
---| A call of `auto` on a type's name, `auto Ord …`: first in a list, `[auto Ord]` reads as an implicit binder
---| (`namelessAutoAt`), not as a list.
-def Expr.autoCall1: Expr → Bool
-  | App (Atom headKind word) [Atom argumentKind _, .._] =>
-    headKind == Lower && word.text == "auto" && argumentKind == Upper
-  | Infix _ left _ _ => left.autoCall1
-  | _ => False
-
---| No list in the expression starts with an `auto` call (`autoCall1`), at any depth.
-def Expr.autoFree1: Expr → Bool
-  | Paren _ inner _ => inner.autoFree1
-  | Tuple _ items _ _ => autoFreeAll items
-  | ListOf _ [] _ _ => True
-  | ListOf _ [one, ..others] _ _ => !one.autoCall1 && one.autoFree1 && autoFreeAll others
-  | App head arguments => head.autoFree1 && autoFreeAll arguments
-  | Prefix _ operand => operand.autoFree1
-  | Infix _ left _ right => left.autoFree1 && right.autoFree1
-  | _ => True
-
-def autoFreeAll: List Expr → Bool
-  | [] => True
-  | [expr, ..rest] => expr.autoFree1 && autoFreeAll rest
-
-theorem lowerOf ∀ (kind: Tok) (lower: (kind == Lower) = True): kind = Lower := cases
-
---| No slice 1 call is an `auto` call: `within1` refuses the name `auto` (SW-4027).
-theorem autoCallWithin1 ∀ (expr: Expr) (within: expr.within1 = True): expr.autoCall1 = False := match expr, within with
-  | App (Atom headKind word) [Atom argumentKind _, .._], within =>
-    let headWithin: (Atom headKind word).within1 = True := Bool.andLeft within
-    match lower: headKind == Lower with
-      | False => byComputing
-      | True =>
-        let isLower := lowerOf headKind lower
-        let headSpells: textSpells1 headKind word.text = True := Bool.andRight headWithin
-        let spells: textSpells1 Lower word.text = True :=
-          Eq.trans (Eq.cong (kind => textSpells1 kind word.text) isLower).flipped headSpells
-        rewrite notTrueFalse _ (Bool.andRight spells)
-  | Infix InfixBinary left _ _, within => autoCallWithin1 left (Bool.andLeft within)
-  | Infix InfixArrow left _ _, within => autoCallWithin1 left (Bool.andLeft within)
-  | Infix _ _ _ _, never => (Bool.falseNotTrue never).impossible
-  | other, _ => byComputing
-
---| No list in a slice 1 expression starts with an `auto` call.
-theorem autoFreeWithin1 ∀ (expr: Expr) (within: expr.within1 = True): expr.autoFree1 = True := match expr, within with
-  | Atom _ _, _ => byComputing
-  | Paren _ inner _, within => autoFreeWithin1 inner within
-  | Tuple _ items _ _, within => autoFreeAllWithin1 items within
-  | ListOf _ [] _ _, _ => byComputing
-  | ListOf _ [one, ..others] _ _, within =>
-    rewrite autoCallWithin1 one (Bool.andLeft within),
-        autoFreeWithin1 one (Bool.andLeft within),
-        autoFreeAllWithin1 others (Bool.andRight within)
-  | App head arguments, within =>
-    rewrite autoFreeWithin1 head (Bool.andLeft within), autoFreeAllWithin1 arguments (Bool.andRight within)
-  | Prefix _ operand, within => autoFreeWithin1 operand (Bool.andLeft within)
-  | Infix InfixBinary left _ right, within =>
-    rewrite autoFreeWithin1 left (Bool.andLeft within), autoFreeWithin1 right (Bool.andLeft (Bool.andRight within))
-  | Infix InfixArrow left _ right, within =>
-    rewrite autoFreeWithin1 left (Bool.andLeft within), autoFreeWithin1 right (Bool.andLeft (Bool.andRight within))
-  | other, never => (Bool.falseNotTrue never).impossible
-
-theorem autoFreeAllWithin1 ∀ (exprs: List Expr) (within: allWithin1 exprs = True): autoFreeAll exprs = True :=
-  match exprs, within with
-    | [], _ => byComputing
-    | [expr, ..rest], within =>
-      rewrite autoFreeWithin1 expr (Bool.andLeft within), autoFreeAllWithin1 rest (Bool.andRight within)
 
 --| The bracket items after the first (or first two), as `CommaReads`' steps: a comma, then an item's reading.
 def SpeltSteps: List Expr → List (Item, List Item, Expr) → Prop
@@ -995,7 +930,7 @@ theorem firstKind ∀ (item first: Item) (more inside: List Item)
 --| or the `]`.
 theorem noAutoLine ∀ (expr: Expr) (item: Item) (more rest: List Item)
     (spelt: Spelt expr [item, ..more])
-    (free: expr.autoFree1 = True):
+    (free: expr.autoPlaced1 True = True):
     (item.kind == LBracket && namelessAutoAt [item, ..more ++ rest]) = False :=
   match expr, spelt, free with
     | Atom kind word, (first, isRead, isKind, _, word), _ =>
@@ -1017,7 +952,7 @@ theorem noAutoLine ∀ (expr: Expr) (item: Item) (more rest: List Item)
           (noAutoFirst one item read1
             ((commaReads steps ++ [last]) ++ rest)
             oneSpelt
-            (notTrueFalse _ (Bool.andLeft free))
+            (autoLeadFull one (Bool.andLeft free))
             (rewrite tail then endsHeadNotUpper _ after))
     | App head [argument, ..arguments], (headRead, argRead, steps, isRead, _, _, headSpelt, _), free =>
       let (first, inside, isHead, _) := speltStarts head headRead headSpelt
@@ -1823,7 +1758,7 @@ theorem linkValuesLength ∀ (links: List (Item, List Item, Expr)):
 type OperandSpelt (depth: Nat) (expr: Expr) (read: List Item): Prop = {
   spelt: Spelt expr read,
   fits: 6 <= expr.level,
-  free: expr.autoFree1 = True,
+  free: expr.autoPlaced1 False = True,
   deep: expr.nest1 <= depth
 }
 
@@ -1851,7 +1786,7 @@ def ConjFlat (depth: Nat) (expr: Expr) (read: List Item) (tail: List (Item, List
 theorem conjLeaf ∀ (depth: Nat) (expr: Expr) (read: List Item) (tail: List (Item, List Item, Expr))
     (spelt: Spelt expr read)
     (high: 6 <= expr.level)
-    (free: expr.autoFree1 = True)
+    (free: expr.autoPlaced1 False = True)
     (deep: expr.nest1 <= depth)
     (tailSpelt: LinksSpelt depth tail)
     (stop: andLed (Parse.stepValues (linkSteps tail)) = False):
@@ -1875,7 +1810,7 @@ theorem conjLeaf ∀ (depth: Nat) (expr: Expr) (read: List Item) (tail: List (It
 theorem conjFlat ∀ (depth: Nat) (expr: Expr) (read: List Item) (tail: List (Item, List Item, Expr))
     (spelt: Spelt expr read)
     (fits: 5 <= expr.level)
-    (free: expr.autoFree1 = True)
+    (free: expr.autoPlaced1 False = True)
     (deep: expr.nest1 <= depth)
     (tailSpelt: LinksSpelt depth tail)
     (stop: andLed (Parse.stepValues (linkSteps tail)) = False):
@@ -1958,7 +1893,7 @@ def LogicSplit (depth: Nat) (expr: Expr) (read: List Item): Prop :=
 theorem orOfConj ∀ (depth: Nat) (expr: Expr) (read: List Item)
     (spelt: Spelt expr read)
     (fits: 5 <= expr.level)
-    (free: expr.autoFree1 = True)
+    (free: expr.autoPlaced1 False = True)
     (deep: expr.nest1 <= depth):
     LogicSplit depth expr read :=
   let (first, firstRead, links, isRead, operand, linksSpelt, _, conj) :=
@@ -1982,7 +1917,7 @@ theorem orOfConj ∀ (depth: Nat) (expr: Expr) (read: List Item)
 theorem orFlat ∀ (depth: Nat) (expr: Expr) (read: List Item)
     (spelt: Spelt expr read)
     (fits: 4 <= expr.level)
-    (free: expr.autoFree1 = True)
+    (free: expr.autoPlaced1 False = True)
     (deep: expr.nest1 <= depth):
     LogicSplit depth expr read :=
   match expr, spelt, fits with

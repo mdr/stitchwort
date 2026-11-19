@@ -108,11 +108,10 @@ def Tok.wordWithin1: Tok → Bool
   | _ => False
 
 --| A name or numeral's text is spelled as the lexer proofs need: a name (word characters, or components joined by
---| `.` after an upper-case one, as `List.map`; not `auto`, which the parser reads as an implicit binder in `[auto Ord]`,
---| so a list that starts with it is no list), a numeral of digits, or digits with a fraction, an exponent or both
+--| `.` after an upper-case one, as `List.map`; `auto` too, a name to the lexer), a numeral of digits, or digits with a fraction, an exponent or both
 --| (`1.5`, `1e3`, `1.5e-13`). `Syntax.Proofs.Spells` says the same as a proposition (`spellsOfText1`).
 def textSpells1 (kind: Tok) (text: Text): Bool := match kind with
-  | Lower => nameText1 Lower text.toList && text != "auto"
+  | Lower => nameText1 Lower text.toList
   | Upper => nameText1 Upper text.toList
   | Num => numberText1 text.toList
   | Float => floatText1 text.toList

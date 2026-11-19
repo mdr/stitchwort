@@ -984,6 +984,15 @@ theorem settledItemsQuiet ∀ (source: Text) (lexed: Lexed)
     (groupsOf lexed.settledOnce.leaves)
     (rewrite groupsConcat lexed.settledOnce.leaves then onceQuiet source lexed lexes within)
 
+--| The same of the leaves `lex` gave, before rule N: the parser's `QuietItems` of the lexer's own groups, as the lexer
+--| lays them out (`lexLaidProved`).
+theorem lexedItemsQuiet ∀ (source: Text) (lexed: Lexed)
+    (lexes: lex source = Ok lexed)
+    (within: alphabet1 lexed.leaves = True):
+    List.All (group => itemsQuiet (items group) = True) (groupsOf lexed.leaves) :=
+  let (laid, _) := lexLaidProved source lexed lexes within
+  groupsQuiet (groupsOf lexed.leaves) (rewrite groupsConcat lexed.leaves then laidQuiet lexed.leaves False laid)
+
 -- Witnesses.
 
 --| The items `parseFile` reads from a source, all its declarations' together, if it lexes.
