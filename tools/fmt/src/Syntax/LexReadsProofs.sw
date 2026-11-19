@@ -54,12 +54,6 @@ theorem atMark ∀ (start: Parse.Mark t): Parse.ReadsAt start (() => Parse.mark(
     rewrite <- atSame, <- valueSame, here then
       Witness [] (Both byComputing (Both honest (Both byComputing byComputing)))
 
---| A lemma from every mark holds from one.
-theorem atIn ∀ [p: () → {Parse t} a] [spec: List t → a → Prop]
-    (reads: Parse.ReadsIn Parse.Invariant.any p spec) (start: Parse.Mark t):
-    Parse.ReadsAt start p spec :=
-  reads start { holds = Trivial }
-
 --| Nothing is said of what an honest parser read: it read a start of the input and stopped at an honest mark.
 --| A proposition with a proof, for a spec that says nothing (`Unit` here is `Fmt`'s document).
 def Holds: Prop := () = ()
@@ -102,9 +96,6 @@ theorem soundSpan ∀ (passes: Char → Bool): Sound (() => Parse.span passes) :
 
 theorem givesFatal ∀ (message: Text) (holds: a → Prop): Gives (() => Empty.absurd (Parse.fatal message)) holds :=
   Parse.readsFatal message (read value => holds value)
-
-theorem givesStop ∀ (holds: a → Prop): Gives (() => Empty.absurd Parse.stop()) holds :=
-  Parse.readsStop (read value => holds value)
 
 theorem soundMany ∀ [p: () → {Parse Char} a] (sound: Sound p): Sound (() => Parse.many p) :=
   Parse.readsWeaken
@@ -220,83 +211,6 @@ def ManyAt (spec: Nat → List t → List t → a → Prop) (found: List a) (off
 theorem dropOfAppend ∀ (whole read later: List t) (starts: whole = read ++ later): whole.drop read.length = later :=
   rewrite starts then List.dropAppend read later
 
---| `manyFrom`, run from a state at its `before` mark: each round read as `spec` says from where it began, after the
---| `found` ones. `Parse.readsManyFrom` with a spec that knows where each round began.
---|
---| Proof idea: as `Parse.readsManyFrom`, by the fuel: a round that read something is `spec`'s from the state's mark,
---| and the next rounds begin at the offset it moved on to (`Parse.honestMoved`), with what it left.
-theorem atManyFrom ∀ (p: () → {Parse t} a) (spec: Nat → List t → List t → a → Prop)
-    (reads: ∀ (start: Parse.Mark t) => Parse.ReadsAt start p (spec start.offset start.rest))
-    (fuel: Nat) (found: List a) (total: Nat) (state: Parse.State t) (value: List a) (after: Parse.Mark t)
-    (honest: Parse.Honest total state.at)
-    (h: Parse.runFrom state (() => (Parse.manyFrom fuel p found state.at, Parse.mark())) = Ok (value, after)):
-    ∃ (read: List t) => state.at.rest = read ++ after.rest
-      ∧ Parse.Honest total after
-      ∧ ManyAt spec found state.at.offset state.at.rest read value :=
-  match fuel with
-    | Zero =>
-      let same := Result.okInjective h
-      let valueSame: found.reverse = value := Pair.mkInjectiveFst same
-      let atSame: state.at = after := Pair.mkInjectiveSnd same
-      Witness []
-        (rewrite <- atSame, <- valueSame then
-          Both byComputing (Both honest (Witness [] (Both (List.appendNil found.reverse).flipped byComputing))))
-    | Succ more =>
-      match Parse.runFromOptionalFromOk2 p state.at state
-        (found2 => Parse.manyRound more p found state.at found2)
-        (x => (x, Parse.mark()))
-        (value, after)
-        h with
-        | Inl (Witness v (Witness middle (Both ran rest))) =>
-          match reads state.at total state v middle.at byComputing honest ran with
-            | Witness read1 (Both starts1 (Both honest1 holds1)) =>
-              match Parse.runFromIfOk
-                (middle.at.offset > state.at.offset)
-                (() => Parse.manyFrom more p [v, ..found] middle.at)
-                (() => Empty.absurd (Parse.fatal "`many`: the parser matched without reading anything"))
-                middle
-                value
-                after
-                rest with
-                | Inl (Both isTrue yesRun) =>
-                  match atManyFrom p spec reads more [v, ..found] total middle value after honest1 yesRun with
-                    | Witness read2 (Both starts2 (Both honest2 (Witness more2 (Both same each2)))) =>
-                      let moved: middle.at.offset = state.at.offset + read1.length :=
-                        Parse.honestMoved honest honest1 starts1
-                      let left: state.at.rest.drop read1.length = middle.at.rest :=
-                        dropOfAppend state.at.rest read1 middle.at.rest starts1
-                      Witness
-                        (read1 ++ read2)
-                        (Both
-                          (rewrite starts1, starts2, List.appendAssoc read1 read2 after.rest)
-                          (Both honest2
-                            (Witness
-                              [v, ..more2]
-                              (Both
-                                (rewrite same,
-                                    List.reverseCons v found,
-                                    List.appendAssoc (List.reverse found) [v] more2)
-                                (Witness read1
-                                  (Witness read2
-                                    (Both byComputing (Both holds1 (rewrite <- moved, left then each2)))))))))
-                | Inr (Both isFalse noRun) => (Result.errNotOk noRun).impossible
-        | Inr (Witness middle (Both back rest)) =>
-          let same := Result.okInjective rest
-          let valueSame: found.reverse = value := Pair.mkInjectiveFst same
-          let atSame: middle.at = after := Pair.mkInjectiveSnd same
-          Witness []
-            (rewrite <- atSame, <- valueSame, back then
-              Both byComputing (Both honest (Witness [] (Both (List.appendNil found.reverse).flipped byComputing))))
-
---| `many p` from a mark: each round read as `spec` says from where it began.
-theorem atMany ∀ (p: () → {Parse t} a) (spec: Nat → List t → List t → a → Prop)
-    (reads: ∀ (start: Parse.Mark t) => Parse.ReadsAt start p (spec start.offset start.rest)) (start: Parse.Mark t):
-    Parse.ReadsAt start (() => Parse.many p) (read values => EachAt spec start.offset start.rest read values) :=
-  total state value after here honest h =>
-    match atManyFrom p spec reads (state.at.left + 1) [] total state value after (rewrite here then honest) h with
-      | Witness read (Both starts (Both honestAfter (Witness more (Both same each)))) =>
-        rewrite <- here then Witness read (Both starts (Both honestAfter (rewrite same then each)))
-
 -- What the texts of tokens and comments are.
 
 --| A comment's text as the lexer reads it: `--` to the end of its line (`rawComment`).
@@ -381,44 +295,6 @@ theorem symbolFacts ∀ (input: List Char): symbolInfo input = True := match inp
   | ['@', '[', .._] => byComputing
   | _ => byComputing
 
-def keywordPlain (word: Text): Bool := match Tok.keyword word with
-  | Some kind => plainKind kind
-  | None => True
-
-theorem keywordFacts ∀ (word: Text): keywordPlain word = True := match word with
-  | "ability" => byComputing
-  | "algebra" => byComputing
-  | "arithmetic" => byComputing
-  | "calc" => byComputing
-  | "cases" => byComputing
-  | "decreasing" => byComputing
-  | "def" => byComputing
-  | "else" => byComputing
-  | "exists" => byComputing
-  | "export" => byComputing
-  | "forall" => byComputing
-  | "handle" => byComputing
-  | "if" => byComputing
-  | "import" => byComputing
-  | "in" => byComputing
-  | "include" => byComputing
-  | "instance" => byComputing
-  | "interface" => byComputing
-  | "let" => byComputing
-  | "match" => byComputing
-  | "namespace" => byComputing
-  | "opaque" => byComputing
-  | "return" => byComputing
-  | "rewrite" => byComputing
-  | "test" => byComputing
-  | "then" => byComputing
-  | "theorem" => byComputing
-  | "type" => byComputing
-  | "unfolding" => byComputing
-  | "where" => byComputing
-  | "with" => byComputing
-  | _ => byComputing
-
 def aliasPlain (char: Char): Bool := match Tok.unicodeAlias char with
   | Some kind => markedText (Text.fromList [char]) kind && !startsBreak [char]
   | None => True
@@ -453,8 +329,6 @@ theorem aliasAscii ∀ (char: Char) (ascii: (char.toNat < 128) = True): Tok.unic
   | '∃' => (Bool.falseNotTrue ascii).impossible
   | '∀' => (Bool.falseNotTrue ascii).impossible
   | _ => byComputing
-
-theorem notTrueFalse ∀ (h: (!True) = True): Void := Bool.falseNotTrue h
 
 --| `symbol` reads nothing that starts with a name's or a number's character.
 theorem symbolWordy ∀ (char: Char) (more: List Char) (starts: wordy char = True): symbol [char, ..more] = None :=
@@ -1401,8 +1275,6 @@ theorem aliasFine ∀ (char: Char) (more: List Char) (kind: Tok)
   Bool.andIntro byComputing (Bool.andIntro (Bool.andRight parts) (Bool.andLeft parts))
 
 theorem wordStartChar ∀ (char: Char) (starts: isWordStart char = True): isWordChar char = True := arithmetic [starts]
-
-theorem digitWordChar ∀ (char: Char) (digit: char.isAsciiDigit = True): isWordChar char = True := arithmetic [digit]
 
 --| A round of `item` at the top level: it gives a token outside the alphabet, or one lexeme, located where it began,
 --| that is what it read and is fine.

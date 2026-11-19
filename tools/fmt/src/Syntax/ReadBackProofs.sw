@@ -39,10 +39,6 @@ theorem runsLeft ∀ (state: Parse.State Item) (rest: List Item):
     Parse.RunsFrom state (() => left()) [] rest state.at.rest :=
   Parse.runsFromMark state (here => here.rest) [] rest state.at.rest (Parse.runsPure state.at.rest rest state)
 
-theorem runsPeek ∀ (modes: Modes) (state: Parse.State Item) (rest: List Item):
-    Parse.RunsFrom state (() => modes.peek) [] rest (peekIn modes 0 state.at.rest) :=
-  Parse.runsFromMark state (here => peekIn modes 0 here.rest) [] rest _ (Parse.runsPure _ rest state)
-
 --| `blockLines` runs one round: from `state`, where the line's statement runs reading `read`, and what follows it
 --| doesn't continue the block.
 --|
@@ -193,112 +189,10 @@ def ItemsAt.past (place: ItemsAt): List Leaf → ItemsAt
 
 theorem itemsStart ∀ (leaves: List Leaf): items leaves = ItemsAt.start.items leaves := byComputing
 
---| The first item: its leaf, with what it is glued to and its place.
-theorem itemsCons ∀ (place: ItemsAt) (leaf: Leaf) (rest: List Leaf):
-    place.items [leaf, ..rest]
-      = [
-        {
-          leaf,
-          glued = match place.before with
-            | Some previous => !leaf.token.lineStart && endColumn previous == leaf.token.column
-            | None => False,
-          afterOperand = place.before.map (previous => previous.kind.closesOperand) |> .getOrElse False,
-          afterDot = place.before.map (previous => previous.kind == Dot) |> .getOrElse False,
-          index = place.index,
-          depth = place.depth,
-          lineIndent = if leaf.token.lineStart then leaf.token.column else place.lineIndent
-        },
-        ..(place.step leaf).items rest
-      ] :=
-  byComputing
-
---| The items of leaves read one after another are the first leaves' items, then the rest's from where they end.
-theorem itemsAppend ∀ (place: ItemsAt) (first rest: List Leaf):
-    place.items (first ++ rest) = place.items first ++ (place.past first).items rest :=
-  match first with
-    | [] => byComputing
-    | [leaf, ..more] =>
-      let inner := itemsAppend (place.step leaf) more rest
-      rewrite inner
-
 theorem itemsLeaves ∀ (place: ItemsAt) (leaves: List Leaf): (place.items leaves).map (item => item.leaf) = leaves :=
   match leaves with
     | [] => byComputing
     | [leaf, ..rest] => Eq.cong (Cons leaf) (itemsLeaves (place.step leaf) rest)
-
-theorem itemsLength ∀ (place: ItemsAt) (leaves: List Leaf): (place.items leaves).length = leaves.length :=
-  match leaves with
-    | [] => byComputing
-    | [leaf, ..rest] => Eq.cong Succ (itemsLength (place.step leaf) rest)
-
---| Each leaf moves the index on by one, so the items of a declaration are numbered by their offsets.
-theorem pastIndex ∀ (place: ItemsAt) (leaves: List Leaf): (place.past leaves).index = place.index + leaves.length :=
-  match leaves with
-    | [] => arithmetic
-    | [leaf, ..rest] => arithmetic [pastIndex (place.step leaf) rest]
-
-theorem pastAppend ∀ (place: ItemsAt) (first rest: List Leaf):
-    place.past (first ++ rest) = (place.past first).past rest :=
-  match first with
-    | [] => byComputing
-    | [leaf, ..more] => pastAppend (place.step leaf) more rest
-
---| After a leaf, the token before is that leaf's: what `glued`, `afterOperand` and `afterDot` of the next item read.
-theorem pastLast ∀ (place: ItemsAt) (first: List Leaf) (leaf: Leaf):
-    (place.past (first ++ [leaf])).before = Some leaf.token :=
-  rewrite pastAppend place first [leaf]
-
---| Whether leaves close every bracket they open, `open` brackets being open already: no closer below the start.
-def balancedFrom (open: Nat): List Leaf → Bool
-  | [] => open == 0
-  | [leaf, ..rest] =>
-    if leaf.token.kind.isOpener then balancedFrom (open + 1) rest
-    else if leaf.token.kind.isCloser then open > 0 && balancedFrom (open - 1) rest
-    else balancedFrom open rest
-
-def ItemsAt.balanced (leaves: List Leaf): Bool := balancedFrom 0 leaves
-
---| The brackets left open after a token, of those the leaves opened.
-def openPast (open: Nat) (kind: Tok): Nat :=
-  if kind.isOpener then open + 1
-  else if kind.isCloser then open - 1
-  else open
-
---| One leaf of balanced leaves: the rest are balanced from the brackets now open, the depth still counts them, and
---| the depth before is found from the depth after.
-theorem balancedStep ∀ (depth open: Nat) (leaf: Leaf) (rest: List Leaf)
-    (inside: open <= depth) (balanced: balancedFrom open [leaf, ..rest]):
-    balancedFrom (openPast open leaf.token.kind) rest
-      ∧ openPast open leaf.token.kind <= depthPast depth leaf.token.kind
-      ∧ (∀ (x: Nat) => x + openPast open leaf.token.kind = depthPast depth leaf.token.kind → x + open = depth) :=
-  match opener: leaf.token.kind.isOpener with
-    | True => (balanced, arithmetic, x same => arithmetic [same])
-    | False =>
-      match closer: leaf.token.kind.isCloser with
-        | True =>
-          let some: open > 0 := Bool.andLeft balanced
-          (Bool.andRight balanced, arithmetic [inside, some], x same => arithmetic [same, inside, some])
-        | False => (balanced, inside, x same => same)
-
---| Leaves with brackets balanced leave the depth as it was: a subtree's items are at the depth of its first.
---|
---| Proof idea: by induction on the leaves, with `open` the brackets the leaves so far left open, which the depth
---| counts; `balancedStep` takes one leaf.
-theorem pastDepthOpen ∀ (place: ItemsAt) (open: Nat) (leaves: List Leaf)
-    (inside: open <= place.depth) (balanced: balancedFrom open leaves):
-    (place.past leaves).depth + open = place.depth :=
-  match leaves with
-    | [] =>
-      let none: open = 0 := DecEq.sound balanced
-      arithmetic [none]
-    | [leaf, ..rest] =>
-      let (more, deeper, back) := balancedStep place.depth open leaf rest inside balanced
-      back _ (pastDepthOpen (place.step leaf) (openPast open leaf.token.kind) rest deeper more)
-
-theorem pastDepth ∀ (place: ItemsAt) (leaves: List Leaf) (balanced: balancedFrom 0 leaves):
-    (place.past leaves).depth = place.depth :=
-  let same := pastDepthOpen place 0 leaves (arithmetic) balanced
-  arithmetic [same]
 
 -- The line rule over parts of the leaves.
 

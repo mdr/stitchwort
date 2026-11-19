@@ -46,10 +46,6 @@ theorem alikeRefl ∀ (word: Word): word.alike word := (byComputing, byComputing
 theorem alikeTexts ∀ (before after: Word) (alike: before.alike after): before.comments.texts = after.comments.texts :=
   match alike with | (_, same, _, texts) => rewrite same, texts
 
-theorem allAlikeRefl ∀ (words: List Word): AllAlike words words := match words with
-  | [] => byComputing
-  | [word, ..more] => (alikeRefl word, (allAlikeRefl more))
-
 theorem allAlikeAppend ∀ (front later back after: List Word)
     (fronts: AllAlike front later)
     (backs: AllAlike back after):
@@ -393,19 +389,12 @@ theorem trailsCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): 
     (expr.calm item).words.reverse
     (allAlikeReverse expr.words (expr.calm item).words (wordsCalm expr item within))).flipped
 
-theorem holdsCalm ∀ (expr: Expr) (item: Bool)
-    (within: expr.within1 = True):
-    (expr.calm item).holdsTrailingComment = expr.holdsTrailingComment :=
-  rewrite trailsCalm expr item within, countTrailsAlike expr.words (expr.calm item).words (wordsCalm expr item within)
-
 theorem notedCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): (expr.calm item).noted = expr.noted :=
   rewrite firstCalm expr item within then
     (alikeNoted expr.firstWord (expr.firstWord.kept item False) (keptAlike expr.firstWord item False)).flipped
 
 theorem keptNoted ∀ (word: Word) (item closer: Bool): (word.kept item closer).noted = word.noted :=
   (alikeNoted word (word.kept item closer) (keptAlike word item closer)).flipped
-
-theorem keptTrails ∀ (word: Word) (item closer: Bool): (word.kept item closer).trails = word.trails := byComputing
 
 theorem plainItemCalm ∀ (expr: Expr) (item: Bool)
     (within: expr.within1 = True):
@@ -489,29 +478,11 @@ def allGood: List Expr → Bool
 
 theorem goodWithin ∀ (expr: Expr) (good: expr.good = True): expr.within1 = True := Bool.andLeft good
 
-theorem goodClosed ∀ (expr: Expr) (good: expr.good = True): expr.closed = True := Bool.andRight good
-
 theorem allGoodWithin ∀ (items: List Expr) (good: allGood items = True): allWithin1 items = True := match items with
   | [] => byComputing
   | [first, ..rest] => Bool.andIntro (goodWithin first (Bool.andLeft good)) (allGoodWithin rest (Bool.andRight good))
 
 -- Chains.
-
-theorem chainLevelCalm ∀ (expr: Expr) (item: Bool)
-    (within: expr.within1 = True):
-    (expr.calm item).chainLevel = expr.chainLevel :=
-  match expr with
-    | Atom kind word => byComputing
-    | Paren open inner close => byComputing
-    | Tuple open items comma close => byComputing
-    | ListOf open items comma close => byComputing
-    | App head arguments => byComputing
-    | Infix kind left operator right =>
-      match kind with
-        | InfixBinary => byComputing
-        | InfixArrow => byComputing
-        | _ => cases
-    | Prefix operator operand => byComputing
 
 theorem inChainCalm ∀ (expr: Expr) (item: Bool) (level: Option Nat)
     (within: expr.within1 = True):
@@ -551,10 +522,6 @@ theorem opensArmsCalm ∀ (expr: Expr) (item: Bool) (level: Option Nat)
               opensArmsCalm left item level (Bool.andLeft within)
         | _ => cases
     | Prefix operator operand => byComputing
-
---| Calm leaves a chain's operator at a place where no item starts, and a prefix operand's too.
-theorem nextNoItem ∀ (around: Around) (before: Bool) (skipped: Nat): (around.next before skipped).item = False :=
-  byComputing
 
 --| A node's first token's own-line comments print the same for the calm token.
 --|
@@ -1023,9 +990,6 @@ theorem bracketKept ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wor
 
 -- Calls.
 
-theorem pairCong ∀ (a a': Doc) (b b': Option Doc) (first: a = a') (second: b = b'): (a, b) = (a', b') :=
-  rewrite first, second
-
 theorem huggedFromCong ∀ (first first': Word) (around: Around) (content content': Doc)
     (sameFrame: ∀ (doc: Doc) => framedBy first around doc = framedBy first' around doc)
     (sameContent: content = content'):
@@ -1107,18 +1071,6 @@ theorem commentBetweenKept ∀ (previous previous': Expr) (arguments: List Expr)
             rest
             (trailsCalm next False (Bool.andLeft within))
             (Bool.andRight within)
-
-theorem appFromCong ∀ (id keep: Nat) (between between' betweenFront betweenFront': Bool)
-    (headDoc headDoc' lastDoc lastDoc': Doc) (front front': List Doc) (hug hug': Option Doc)
-    (sameBetween: between = between')
-    (sameFront: betweenFront = betweenFront')
-    (sameHead: headDoc = headDoc')
-    (sameDocs: front = front')
-    (sameLast: lastDoc = lastDoc')
-    (sameHug: hug = hug'):
-    appFrom id keep between betweenFront headDoc front lastDoc hug
-      = appFrom id keep between' betweenFront' headDoc' front' lastDoc' hug' :=
-  rewrite sameBetween, sameFront, sameHead, sameDocs, sameLast, sameHug
 
 -- Elements, in one induction with chains.
 

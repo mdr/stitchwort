@@ -1510,14 +1510,6 @@ theorem speltCommas ∀ (items: List Expr) (read: List Item)
 
 theorem arrowFactsExample: InfixFacts InfixArrow "→" := arrowFacts "→" byComputing
 
-theorem binaryFactsExampleA: InfixFacts InfixBinary "&&" := binaryFactsA "&&" byComputing byComputing
-
-theorem binaryFactsExampleB: InfixFacts InfixBinary "*" := binaryFactsB "*" byComputing
-
-theorem binaryFactsExampleC: InfixFacts InfixBinary "<=" := binaryFactsC "<=" byComputing
-
-theorem binaryFactsExampleD: InfixFacts InfixBinary "==" := binaryFactsD "==" byComputing
-
 theorem binaryFactsExample: InfixFacts InfixBinary "++" := binaryFacts "++" byComputing
 
 theorem closerExample: lexKind ")" = RParen ∨ lexKind ")" = RBracket :=

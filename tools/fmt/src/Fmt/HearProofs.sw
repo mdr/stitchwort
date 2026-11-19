@@ -86,7 +86,7 @@ import Fmt.PrintHangProofs (
   tracks
 )
 import Fmt.JoinProofs (doc1Passes)
-import Fmt.DeclHangProofs (DeclHangs, atomDecl, atomDeclHangs, doc1Hangs, lexKindFixed)
+import Fmt.DeclHangProofs (DeclHangs, doc1Hangs, lexKindFixed)
 import Fmt.OutputStatements (..)
 import Fmt.PrintLexProofs (Follows, Printable, pieceFold, pieceOf)
 

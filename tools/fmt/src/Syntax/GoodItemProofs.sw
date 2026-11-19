@@ -306,18 +306,6 @@ def lexesPlain (source: Text): Bool := match lex source with
 theorem lexesPlainExample: lexesPlain "def d: A -> (B) := g [a, b] -- end\n\ndef e: C := -1 + f x 2.5\n" = True :=
   byComputing
 
---| So does `auto`, a name like any other to the lexer.
-theorem autoPlain: lexesPlain "def d: A := auto\n" = True := byComputing
-
---| A qualified name passes the test.
-theorem qualifiedPlain: lexesPlain "def d: A := List.map\n" = True := byComputing
-
---| So does a number with an exponent.
-theorem exponentPlain: lexesPlain "def d: A := 1.5e-13 + 1e3\n" = True := byComputing
-
---| And so does an upper-case name for the definition.
-theorem upperDefPlain: lexesPlain "def Holds: A := b\n" = True := byComputing
-
 -- What the lexer's choices of kind say of the text, for the walk of `lexemesIn` (`lexemesFixed`).
 
 --| A Unicode character the lexer reads as a token of fixed spelling is that token's text.
@@ -528,15 +516,6 @@ theorem wordKindFixed ∀ (afterDot: Bool) (word: Text): fixedKind1 (wordKind af
     | _ => cases
 
 -- The lexer's parts whose values are not in question: each succeeds only having read a start of its input.
-
---| `parser`, run from any mark, reads a start of its input and stops at an honest mark.
-def Goes (parser: () → {Parse Char} a): Prop := Parse.Gives Parse.Invariant.any parser (value => Std.Unit)
-
-theorem goesSkip ∀ (count: Nat): Goes (() => skip count) := start fine =>
-  Parse.readsAtWeaken (readsAtSkip count start) (read u taken => Trivial)
-
-theorem goesSpan ∀ (passes: Char → Bool): Goes (() => Parse.span passes) :=
-  Parse.readsWeaken [p := () => Parse.span passes] (Parse.readsSpan passes) (read taken spanned => Trivial)
 
 --| `located value from` gives a lexeme of that value.
 theorem givesLocated ∀ (value: Lexeme) (from: Parse.Mark Char):

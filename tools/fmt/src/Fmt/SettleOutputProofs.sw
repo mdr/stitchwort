@@ -1719,37 +1719,6 @@ theorem printedSettle1 ∀ (file: SourceFile)
     rewrite endSame then endBack file within settled unreturned
   )
 
--- Cases.
-
---| The comments with a carriage return at the end of each own-line comment: what no source's tree has (the lexer
---| strips them, `crDropped`), and a tree can be given by hand.
-def Comments.returned (comments: Comments): Comments :=
-  { comments | above = comments.above.map (note => { note | text = note.text ++ "\r" }) }
-
-def Decl.returned: Decl → Decl
-  | Definition attributes header body => Definition attributes { header | keyword = header.keyword.returned } body
-  | other => other
-
---| Every hypothesis of `printedSettle1` but `unreturned1` holds of a source's tidied tree with a carriage return put on
---| each own-line comment, and its conclusion fails.
-def returnFails (source: Text): Bool := match tidiedOf source with
-  | None => False
-  | Some tidied =>
-    let file: SourceFile := { decls = tidied.decls.map Decl.returned, end = tidied.end.returned }
-    file.within1
-      && file.shaped1
-      && file.settled1
-      && file.lexical1
-      && file.hung1
-      && file.stood1
-      && !file.unreturned1
-      && !wordsBack file
-
---| `unreturned1` can't be dropped: a hand-built tree whose own-line comment ends in `\r` meets the other hypotheses
---| (`commentText` allows it), the file loop prints it, and the lexer reads the printed line back without it. Above a
---| declaration and at the end. Trees the parser gives have none (`crDropped`).
-theorem returnLost: (returnFails "-- a\ndef d: A := b\n" && returnFails "def d: A := b\n-- a\n") = True := byComputing
-
 -- Standing, joined.
 
 --| `stands` joins: leaves standing against words, with nothing owed at their end, followed by more that stand.

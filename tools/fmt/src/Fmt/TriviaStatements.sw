@@ -75,8 +75,7 @@ def Decl.stands1 (decl: Decl): Bool := stands None decl.stood decl.leaves1
 def SourceFile.stood1 (file: SourceFile): Bool := file.decls.all Decl.stands1
 
 -- `printedStands1`, that `stands1` holds of a slice 1 declaration, is proved in `Fmt.StandsProofs`, with two
--- hypotheses beyond the four tree facts: no comment ends in a carriage return (`unreturned1`; without it the
--- statement is false, `returnedFalls`) and the facts `printedHangs` takes (`DeclHangs`).
+-- hypotheses beyond the four tree facts: no comment ends in a carriage return (`unreturned1`; the statement is false without it) and the facts `printedHangs` takes (`DeclHangs`).
 
 -- Cases the statement applies to, and what it is for.
 

@@ -93,8 +93,6 @@ theorem spellsNest ∀ (indent: Nat) (inner: Doc) (texts: List Text)
     Spells (Nest indent inner) texts :=
   spells
 
-theorem spellsAlign ∀ (inner: Doc) (texts: List Text) (spells: Spells inner texts): Spells (Align inner) texts := spells
-
 theorem spellsDisplaced ∀ (inner: Doc) (texts: List Text)
     (spells: Spells inner texts):
     Spells (Displaced inner) texts :=
@@ -132,14 +130,6 @@ theorem spellsIfBroken ∀ (id: Nat) (broken flat: Doc) (texts: List Text)
 
 theorem emptyNoWords ∀ (doc: Doc) (empty: doc.isEmpty = True): doc.words = [] := match doc, empty with
   | Nothing, _ => byComputing
-
-theorem filterWords ∀ (docs: List Doc): wordsAll (docs.filter (doc => not doc.isEmpty)) = wordsAll docs :=
-  match docs with
-    | [] => byComputing
-    | [doc, ..rest] =>
-      match empty: doc.isEmpty with
-        | True => rewrite emptyNoWords doc empty then filterWords rest
-        | False => Eq.cong (later => doc.words ++ later) (filterWords rest)
 
 theorem filterSpells ∀ (docs: List Doc) (texts: List Text)
     (each: SpellsAll docs texts):
@@ -2216,20 +2206,3 @@ theorem printedSpellsExample ∀ (width: Nat):
 theorem calmPrintsExample: ({ decls = [exampleDecl], end = Comments.none }: SourceFile).calm.printed1
       = ({ decls = [exampleDecl], end = Comments.none }: SourceFile).printed1 :=
   Fmt.CalmProofs.calmPrints { decls = [exampleDecl], end = Comments.none } byComputing byComputing
-
---| The text a declaration prints is the printer's pieces joined, and they spell the declaration (`printedSpells`).
-theorem printedSpellsText ∀ (decl: Decl) (text: Text)
-    (within: decl.within1 = True)
-    (settled: decl.settled1 = True)
-    (real: decl.real = True)
-    (printed: decl.printed1 = Some text):
-    ∃ (doc: Doc) => decl.doc1 = Some doc
-      ∧ text = (printedPieces doc width).joinWith ""
-      ∧ (wordsOf (printedPieces doc width)).filter notCloser = decl.spelt.filter notCloser
-      ∧ (wordsOf (printedPieces doc width)).filter notComment = decl.spelt.filter notComment :=
-  match shows: decl.doc1 with
-    | None => cases
-    | Some doc =>
-      let mapped: Doc.print doc width = text := Option.someInjective (rewrite within at printed then printed)
-      let spelled := printedSpellsSettled decl doc width within settled real shows
-      (doc, byComputing, Eq.trans mapped.flipped (printIsPieces doc width), spelled.left, spelled.right)

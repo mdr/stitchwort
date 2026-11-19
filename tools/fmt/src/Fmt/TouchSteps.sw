@@ -74,11 +74,6 @@ theorem endsQuiet ∀ (trails: Bool) (seam: Seam) (ends: Ends trails seam): Quie
   | Along word, _ => byComputing
   | Awaiting word comment, (_, quiet) => quiet
 
-theorem gappedQuiet ∀ (trails: Bool) (seam: Seam) (gapped: Gapped trails seam): Quiet seam := match seam, gapped with
-  | Begun, _ => byComputing
-  | Along word, _ => byComputing
-  | Awaiting word comment, (_, quiet) => quiet
-
 --| Anything free may start where an element ended.
 theorem endsFits ∀ (trails: Bool) (seam: Seam) (ends: Ends trails seam): Fits trails Free seam := match seam, ends with
   | Begun, _ => byComputing
@@ -94,12 +89,6 @@ theorem gappedFits ∀ (trails: Bool) (first: Spacing) (seam: Seam)
     | Begun, _ => loose
     | Along word, apart => rewrite apart then loose
     | Awaiting word comment, (waits, quiet) => (waits, loose, quiet)
-
-theorem gappedEnds ∀ (trails: Bool) (seam: Seam) (gapped: Gapped trails seam): Ends trails seam :=
-  match seam, gapped with
-    | Begun, _ => byComputing
-    | Along word, _ => byComputing
-    | Awaiting word comment, both => both
 
 theorem endsWeaker ∀ (trails trails': Bool)
     (implies: trails = True → trails' = True) (seam: Seam)
@@ -158,11 +147,6 @@ theorem stepsTo ∀ (doc: Doc) (pre: Seam → Prop) (spacing: List Spacing) (pos
     Steps doc pre spacing weaker :=
   seam trace next holds after =>
     steps seam trace next holds (left added reached admits => after left added (implies left reached) admits)
-
-theorem allFrom ∀ (docs: List Doc) (pre weaker: Seam → Prop) (spacing: List Spacing) (post: Seam → Prop)
-    (steps: StepsAll docs pre spacing post) (implies: ∀ (seam: Seam) => weaker seam → pre seam):
-    StepsAll docs weaker spacing post :=
-  seam trace next holds after => steps seam trace next (implies seam holds) after
 
 theorem allTo ∀ (docs: List Doc) (pre: Seam → Prop) (spacing: List Spacing) (post weaker: Seam → Prop)
     (steps: StepsAll docs pre spacing post) (implies: ∀ (seam: Seam) => post seam → weaker seam):
@@ -276,11 +260,6 @@ theorem stepsConcat ∀ (docs: List Doc) (pre: Seam → Prop) (spacing: List Spa
     Steps (Doc.concat docs) pre spacing post :=
   seam trace next holds after => concatTouches docs seam trace next (each seam trace next holds after)
 
-theorem stepsConcatOf ∀ (docs: List Doc) (pre: Seam → Prop) (spacing: List Spacing) (post: Seam → Prop)
-    (each: StepsAll docs pre spacing post):
-    Steps (Concat docs) pre spacing post :=
-  each
-
 theorem stepsTwo ∀ (first second: Doc) (pre middle post: Seam → Prop) (front back: List Spacing)
     (one: Steps first pre front middle)
     (other: Steps second middle back post):
@@ -341,11 +320,6 @@ theorem stepsSoft ∀ (pre post: Seam → Prop) (quiet: ∀ (seam: Seam) => pre 
 theorem stepsNest ∀ (indent: Nat) (inner: Doc) (pre: Seam → Prop) (spacing: List Spacing) (post: Seam → Prop)
     (steps: Steps inner pre spacing post):
     Steps (Nest indent inner) pre spacing post :=
-  steps
-
-theorem stepsAlign ∀ (inner: Doc) (pre: Seam → Prop) (spacing: List Spacing) (post: Seam → Prop)
-    (steps: Steps inner pre spacing post):
-    Steps (Align inner) pre spacing post :=
   steps
 
 theorem stepsGroup ∀ (inner: Doc) (hard: Bool) (pre: Seam → Prop) (spacing: List Spacing) (post: Seam → Prop)

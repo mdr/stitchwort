@@ -48,10 +48,6 @@ theorem runsFromPure ∀ (state: Parse.State t) (x y: a) (rest: List t)
 theorem runsLeftOn ∀ (rest: List Item): Parse.Runs (() => left()) [] rest rest := state starts honest =>
   Parse.runsFromMark state (here => here.rest) [] rest rest (runsFromPure state _ rest rest starts) starts honest
 
-theorem runsOffsetOn ∀ (rest: List Item) (state: Parse.State Item):
-    Parse.RunsFrom state (() => offset()) [] rest state.at.offset :=
-  Parse.runsFromMark state (here => here.offset) [] rest state.at.offset (Parse.runsPure state.at.offset rest state)
-
 theorem runsPeekOn ∀ (modes: Modes) (rest: List Item): Parse.Runs (() => modes.peek) [] rest (peekIn modes 0 rest) :=
   state starts honest =>
     Parse.runsFromMark state
@@ -257,19 +253,6 @@ theorem runsAtomOfWord ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (it
     Parse.Runs (() => atomOf self modes item.kind) [item] rest (Atom item.kind item.leaf.word) :=
   let (minus, bang, paren, bracket, _) := wordKinds item.kind word
   rewrite minus, bang, paren, bracket, word then runsWordAtom item.kind item rest
-
-theorem runsAtomBaseWord ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (item: Item) (rest: List Item)
-    (open: modes.stops item = False)
-    (word: isWord item.kind = True):
-    Parse.Runs (() => atomBase self modes) [item] rest (Atom item.kind item.leaf.word) :=
-  runsLook
-    (() => modes.peek)
-    (seen => atomBaseOn self modes seen)
-    (Some item.kind)
-    [item]
-    rest _
-    (rewrite <- peekFirst modes item rest open then runsPeekOn modes [item, ..rest])
-    (runsAtomOfWord self modes item rest word)
 
 --| `atom` of what `atomOf` reads from its first item, with nothing after it that `atom` would read on.
 theorem runsAtomFrom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (head: Bool) (item: Item)

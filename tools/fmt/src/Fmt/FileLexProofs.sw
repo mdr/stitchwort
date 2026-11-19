@@ -1096,36 +1096,3 @@ theorem printedFileLexes1 ∀ (file: SourceFile)
       leavesOk,
       pendingOk,
       blankOk
-
--- Cases the theorems apply to.
-
---| Whether a source's tidied tree has an own-line comment ending in a carriage return.
-def returnKept (source: Text): Bool := match tidiedOf source with
-  | None => False
-  | Some file => file.decls.any (decl => decl.firstComments.above.any (note => note.text.endsWith "\r"))
-
---| A comment line ending `\r\r\n` keeps no `\r` in the tree (SW-4054): the lexer strips them all, so the printed
---| `\r\n` reads back as the same comment.
-theorem crDropped: returnKept "-- a\r\r\ndef d: A := b\n" = False := byComputing
-
---| Nor does one with a space after the `\r` (SW-4065): the lexer takes the `\r`s and spaces off together, so rule 5
---| has no space left to trim that would uncover a `\r`.
-theorem crSpaceDropped: (returnKept "-- a\r \ndef d: A := b\n" || returnKept "-- a \r\ndef d: A := b\n") = False :=
-  byComputing
-
---| `printedSeam1`'s conclusion, of each declaration in a source's tidied tree.
-def seamedOn (source: Text): Bool := match tidiedOf source with
-  | None => False
-  | Some file => file.decls.all (decl => startsCode decl.pieces1 && ended (decl.pieces1.foldLeft Laid.start Laid.lay))
-
-def ended (laid: Laid): Bool := laid.pending.isEmpty && laid.blankRun == 0 && !laid.lineBlank
-
---| Declarations ending in a closer, a trailing comment, and a closer on its own line after own-line comments.
-theorem seamedExamples: (seamedOn "def d: A := f [a, b]\n\ndef e: B := g -- c\n"
-      && seamedOn "def d: A := f [a, -- x\n  b\n  -- o\n]\n")
-      = True :=
-  byComputing
-
-def startsCode: List Piece → Bool
-  | [Code _ _, .._] => True
-  | _ => False

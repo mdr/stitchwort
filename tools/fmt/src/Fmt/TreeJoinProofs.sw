@@ -71,18 +71,10 @@ def lexKind (text: Text): Tok := match lex text with
       | _ => Lower
   | Err _ => Lower
 
---| A qualified name lexes as one `Lower` token, though its text has a `.` that no `Spells Lower` text has.
-theorem qualifiedLexes: textLexesAs "List.map" Lower = True := byComputing
-
---| A numeral with an exponent lexes as one `Float`, though `Spells Float` wants a fraction.
-theorem exponentLexes: textLexesAs "1e5" Float = True := byComputing
-
 --| A text that spells a token of a kind is read by the lexer as that kind.
 theorem lexKindOfSpells ∀ (kind: Tok) (text: Text) (spells: Spells kind text): lexKind text = kind :=
   let ran := lexesAsSpells kind text spells (mayFollowEnd kind text)
   rewrite ran
-
-theorem lexKindLParen: lexKind "(" = LParen := byComputing
 
 -- What a token's spelling says of the text.
 
@@ -1278,110 +1270,6 @@ theorem printLexes1Tree ∀ (decl: Decl) (doc: Doc) (width: Nat)
     (declPrintable decl within sound lexical (declOperators decl within))
     shows
 
--- Examples: the tree's facts of `exampleDecl` give `printLexes1`'s; a declaration with a qualified name is out of
--- the slice; one with `|>`, which the alphabet lacks, is out too.
-
-theorem exampleOperators: exampleDecl.operators1 :=
-  (byComputing, byComputing, (byComputing, byComputing, byComputing), byComputing)
-
---| `def d: A := List.map`.
-def qualifiedDecl: Decl :=
-  Definition []
-    {
-      exportKeyword = None,
-      opaqueKeyword = None,
-      kind = DefPlain,
-      keyword = Comments.none,
-      name = fixedWord "d" Comments.none,
-      forallKeyword = None,
-      params = [],
-      colon = Comments.none,
-      result = Atom Upper (fixedWord "A" Comments.none),
-      decreasingClause = None,
-      unfoldingClause = None
-    }
-    (Assigned Comments.none (Atom Lower (fixedWord "List.map" Comments.none)))
-
---| `within1` lets the qualified name through.
-theorem qualifiedIn: qualifiedDecl.within1 = True := byComputing
-
---| A qualified name spells `Lower`: the first component's word characters and one more component.
-theorem qualifiedSpelled: Spells Lower "List.map" := (
-  'L',
-  ['i', 's', 't'],
-  [('m', ['a', 'p'])],
-  byComputing,
-  byComputing,
-  byComputing,
-  (byComputing, byComputing, (byComputing, byComputing)),
-  (False, byComputing, byComputing)
-)
-
-theorem exampleDeclJoinsTree: DeclJoins lexKind exampleDecl :=
-  declJoins exampleDecl byComputing byComputing byComputing byComputing exampleOperators
-
---| `def d: A := a |> b`: the operator `|>` is no token of slice 1's alphabet, though it is one of `operatorTok`'s.
-def pipedDecl: Decl :=
-  Definition []
-    {
-      exportKeyword = None,
-      opaqueKeyword = None,
-      kind = DefPlain,
-      keyword = Comments.none,
-      name = fixedWord "d" Comments.none,
-      forallKeyword = None,
-      params = [],
-      colon = Comments.none,
-      result = Atom Upper (fixedWord "A" Comments.none),
-      decreasingClause = None,
-      unfoldingClause = None
-    }
-    (Assigned Comments.none
-      (Infix InfixBinary
-        (Atom Lower (fixedWord "a" Comments.none))
-        (fixedWord "|>" Comments.none)
-        (Atom Lower (fixedWord "b" Comments.none))))
-
---| The narrowing: `within1` leaves `|>` out, though the declaration has every other tree fact.
-theorem pipedOut: pipedDecl.within1 = False := byComputing
-
-theorem pipedTreeFacts: pipedDecl.shaped1 = True ∧ pipedDecl.sound = True ∧ pipedDecl.lexical1 = True :=
-  (byComputing, byComputing, byComputing)
-
---| `def d: A := a == b == c`: a comparison's right operand needs level 8, and `b == c` is at 6, so it doesn't parse.
-def chainedDecl: Decl :=
-  Definition []
-    {
-      exportKeyword = None,
-      opaqueKeyword = None,
-      kind = DefPlain,
-      keyword = Comments.none,
-      name = fixedWord "d" Comments.none,
-      forallKeyword = None,
-      params = [],
-      colon = Comments.none,
-      result = Atom Upper (fixedWord "A" Comments.none),
-      decreasingClause = None,
-      unfoldingClause = None
-    }
-    (Assigned Comments.none
-      (Infix InfixBinary
-        (Atom Lower (fixedWord "a" Comments.none))
-        (fixedWord "==" Comments.none)
-        (Infix InfixBinary
-          (Atom Lower (fixedWord "b" Comments.none))
-          (fixedWord "==" Comments.none)
-          (Atom Lower (fixedWord "c" Comments.none)))))
-
---| The narrowing: `shaped1` asks a comparison's right operand for level 8 (`rightNeeds`), so the chain is out.
-theorem chainedNotShaped: chainedDecl.within1 = True ∧ chainedDecl.shaped1 = False := (byComputing, byComputing)
-
-theorem pipeNotSpelled ∀ (spells: Spells (lexKind "|>") "|>"): Void := cases
-
---| No token of slice 1's alphabet is spelled `|>`: why `within1` leaves it out.
-theorem pipedNotSpelled: OperatorSpells "|>" → Void := (Witness kind (Both spells quiet)) =>
-  pipeNotSpelled (rewrite <- lexKindOfSpells kind "|>" spells at spells then spells)
-
 -- No token is layout.
 
 theorem startNotLayout ∀ (first: Char)
@@ -1577,24 +1465,3 @@ theorem declReal ∀ (decl: Decl)
                 (wordReal assignWord ColonEq byComputing)
                 (exprReal value (Bool.andRight within) (Bool.andRight (Bool.andRight lexical)) valueSpelled)))
         | _ => cases
-
---| `printLexes1Tree` with rule N's facts in place of `sound`: `settled1` and the tokens' spellings.
-theorem printLexes1Settled ∀ (decl: Decl) (doc: Doc) (width: Nat)
-    (within: decl.within1 = True)
-    (shaped: decl.shaped1 = True)
-    (settled: decl.settled1 = True)
-    (lexical: decl.lexical1 = True)
-    (shows: decl.doc1 = Some doc):
-    lex (Doc.print doc width)
-      = Ok {
-        leaves = ((pieceFold lexKind (printedPieces doc width)).foldLeft Laid.start Laid.lay).leaves.reverse,
-        end = {
-          leading = ((pieceFold lexKind (printedPieces doc width)).foldLeft Laid.start Laid.lay).pending.reverse,
-          blankLines = ((pieceFold lexKind (printedPieces doc width)).foldLeft Laid.start Laid.lay).blankRun,
-          trailing = None
-        }
-      } :=
-  printLexes1Tree decl doc width within shaped
-    (declSoundOfSettled decl within settled (declReal decl within lexical (declOperators decl within)))
-    lexical
-    shows

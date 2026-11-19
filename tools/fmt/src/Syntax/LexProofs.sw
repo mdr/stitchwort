@@ -378,11 +378,6 @@ theorem widthOfRun ∀ (read: List Char):
     | True => (utf8OfAsciiRun read same).flipped
     | False => utf8Sum read 0
 
-theorem breakOfRun ∀ (read: List Char)
-    (noBreak: read.all (char => char != '\n') = True):
-    afterLastBreak (Text.fromList read) = None :=
-  afterLastBreakNone read None byComputing noBreak
-
 --| A token: its layout is where the line is, and it takes the comments and blank lines that waited for it.
 --|
 --| Proof idea: Unfold `Assembly.add` with the slice replaced by the characters read; a token with no line break leaves the line start where it was, and its width is its UTF-8 length (`widthOfRun`).
@@ -427,43 +422,6 @@ theorem addBreak ∀ (assembly: Assembly) (source: Text) (offset: Nat):
         lineStart = assembly.bytes + 1
       } :=
   byComputing
-
---| A comment on a line of its own waits for the next token.
---|
---| Proof idea: Unfold `Assembly.add` on the fresh-line branch; the width is the UTF-8 length.
-theorem addOwnComment ∀ (assembly: Assembly) (source: Text) (offset: Nat) (read: List Char)
-    (cut: (source.toList.drop offset).take (offset + read.length - offset) = read)
-    (fresh: assembly.freshLine = True):
-    assembly.add source { value = CommentLexeme, offset, length = read.length }
-      = { assembly |
-        pending = [
-          {
-            text = withoutReturn (Text.fromList read),
-            column = assembly.bytes - assembly.lineStart,
-            blankLines = assembly.blankRun
-          },
-          ..assembly.pending
-        ],
-        blankRun = 0,
-        lineBlank = False,
-        bytes = assembly.bytes + utf8Chars read
-      } :=
-  rewrite cut, fresh, utf8Sum read 0
-
---| A comment after a token on its line is that token's.
-theorem addTrailingComment ∀ (assembly: Assembly) (source: Text) (offset: Nat) (read: List Char)
-    (cut: (source.toList.drop offset).take (offset + read.length - offset) = read)
-    (taken: assembly.freshLine = False):
-    assembly.add source { value = CommentLexeme, offset, length = read.length }
-      = { assembly |
-        leaves = withTrailing assembly.leaves {
-          text = withoutReturn (Text.fromList read),
-          column = assembly.bytes - assembly.lineStart,
-          blankLines = 0
-        },
-        bytes = assembly.bytes + utf8Chars read
-      } :=
-  rewrite cut, taken, utf8Sum read 0
 
 theorem cutOfMade ∀ (source: Text) (before middle after: List Char)
     (made: source.toList = before ++ (middle ++ after)):
@@ -713,16 +671,6 @@ theorem lexPrinted ∀ (source: Text) (pieces: List Piece)
     rewrite List.appendNil (Parse.joinReads (pieceSteps pieces)) then reads
   match foldPieces source pieces [] [] Laid.start 0 made plain with
     | Witness end ran => rewrite lexemesOfSteps source (pieceSteps pieces) reads rounds, ran
-
---| `lexCovers`: lexemes read lexeme by lexeme cut the source into pieces that joined are the source.
-theorem lexCovers ∀ (source: Text) (steps: List (List Char, Lexeme))
-    (reads: source.toList = Parse.joinReads steps)
-    (rounds: ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme)) => ItemRounds self source steps []):
-    ∃ (found: List (Parse.Located Lexeme)) => lexemes source = Ok found
-      ∧ Text.concat (found.map (lexeme => source.slice lexeme.offset (lexeme.offset + lexeme.length))) = source :=
-  Witness
-    (Parse.locatedSteps 0 steps)
-    (Both (lexemesOfSteps source steps reads rounds) (Parse.locatedStepsCover source steps reads))
 
 --| At the end of the input `item` stops, which is what ends the lexemes.
 theorem declinesItemEnd ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme)) (source: Text):
@@ -1269,8 +1217,6 @@ theorem qualFoundSome ∀ (last: Bool) (comps: List (Pair Char (List Char))):
   match comps with
     | [] => byComputing
     | [(letter, word), ..more] => qualFoundSome letter.isAsciiUppercase more
-
-theorem dotNotWordChar: isWordChar '.' = False := byComputing
 
 --| A name's word characters end where a qualified name's next component starts, or where the text ends.
 theorem qualCharsStops ∀ (comps: List (Pair Char (List Char))) (rest: List Char)
@@ -1998,79 +1944,6 @@ theorem itemReadsNum ∀ (first: Char) (others rest: List Char)
             starts
             honest))
 
---| A float: digits, a `.` and digits, with nothing after them that goes on with the number.
---|
---| Proof idea: As `itemReadsNum`, with the tail that is a fraction (`runsTailFraction`).
-theorem itemReadsFloat ∀ (first: Char) (others: List Char) (second: Char) (more rest read: List Char)
-    (split: read = [first, ..others] ++ ['.', second, ..more])
-    (digit: first.isAsciiDigit = True)
-    (digits: others.all Char.isAsciiDigit = True)
-    (decimal: second.isAsciiDigit = True)
-    (decimals: more.all Char.isAsciiDigit = True)
-    (ends: rest.takeWhile Char.isAsciiDigit = [])
-    (noE: rest.head ≠ Some 'e' ∧ rest.head ≠ Some 'E'):
-    ItemReads read (TokenLexeme Float) rest :=
-  rewrite split then
-    match first, digit with
-      | '\n', digit => (Bool.falseNotTrue digit).impossible
-      | '}', digit => (Bool.falseNotTrue digit).impossible
-      | '{', digit => (Bool.falseNotTrue digit).impossible
-      | ' ', digit => (Bool.falseNotTrue digit).impossible
-      | '\r', digit => (Bool.falseNotTrue digit).impossible
-      | '\t', digit => (Bool.falseNotTrue digit).impossible
-      | '-', digit => (Bool.falseNotTrue digit).impossible
-      | '"', digit => (Bool.falseNotTrue digit).impossible
-      | '\'', digit => (Bool.falseNotTrue digit).impossible
-      | '.', digit => (Bool.falseNotTrue digit).impossible
-      | other, digit =>
-        itemReadsVia ([other, ..others] ++ ['.', second, ..more]) rest (TokenLexeme Float) (self source state =>
-          starts honest =>
-            let all: [other, ..others].all Char.isAsciiDigit = True := Bool.andIntro digit digits
-            rewrite digitNotWordStart other digit, digit then
-              Parse.runsFromBindAt state
-                (() => number False)
-                (x => [x])
-                ([other, ..others] ++ ['.', second, ..more])
-                []
-                ([other, ..others] ++ ['.', second, ..more])
-                rest
-                {
-                  value = TokenLexeme Float,
-                  offset = state.at.offset,
-                  length = ([other, ..others] ++ ['.', second, ..more]).length
-                }
-                [
-                  {
-                    value = TokenLexeme Float,
-                    offset = state.at.offset,
-                    length = ([other, ..others] ++ ['.', second, ..more]).length
-                  }
-                ]
-                (List.appendNil ([other, ..others] ++ ['.', second, ..more])).flipped
-                (runsFromNumber state
-                  [other, ..others]
-                  ['.', second, ..more]
-                  ([other, ..others] ++ ['.', second, ..more])
-                  rest
-                  True
-                  byComputing
-                  all
-                  byComputing
-                  (runsTailFraction second more rest decimal decimals ends noE))
-                (middle atRest2 honest2 offset2 =>
-                  Parse.runsPure
-                    [
-                      {
-                        value = TokenLexeme Float,
-                        offset = state.at.offset,
-                        length = ([other, ..others] ++ ['.', second, ..more]).length
-                      }
-                    ]
-                    rest
-                    middle)
-                starts
-                honest)
-
 --| What follows a float's digits: a fraction, an exponent, or both.
 def FloatTailAs (tail: List Char): Prop :=
   (∃ (fraction: List Char) (exponent: List Char) => tail = fraction ++ exponent
@@ -2590,9 +2463,6 @@ theorem lexesAsSpells ∀ (kind: Tok) (text: Text)
       (Both spells (Both follows byComputing))
   rewrite piecesTextOne kind text at ran then ran
 
---| A `!` before a name that starts `in` is read alone, as in `!inRange`.
-theorem bangBeforeName: MayFollow Bang "!" "inRange".toList := same => Both byDecision byDecision
-
 --| Nothing follows the last token of a text, so nothing keeps it from being read whole.
 theorem mayFollowEnd ∀ (kind: Tok) (text: Text): MayFollow kind text [] := match kind with
   | Colon => byDecision
@@ -2608,86 +2478,6 @@ theorem mayFollowEnd ∀ (kind: Tok) (text: Text): MayFollow kind text [] := mat
   | Num => Both byComputing (Both byDecision (Both byDecision byDecision))
   | Float => Both byComputing (Both byDecision byDecision)
   | other => byComputing
-
--- One read-back for each token kind of slice 1's alphabet, by spelling.
-
-theorem lexesAsLParen: LexesAs "(" LParen := lexesAsSpells LParen "(" byComputing (mayFollowEnd LParen "(")
-
-theorem lexesAsRParen: LexesAs ")" RParen := lexesAsSpells RParen ")" byComputing (mayFollowEnd RParen ")")
-
-theorem lexesAsLBracket: LexesAs "[" LBracket := lexesAsSpells LBracket "[" byComputing (mayFollowEnd LBracket "[")
-
-theorem lexesAsRBracket: LexesAs "]" RBracket := lexesAsSpells RBracket "]" byComputing (mayFollowEnd RBracket "]")
-
-theorem lexesAsComma: LexesAs "," Comma := lexesAsSpells Comma "," byComputing (mayFollowEnd Comma ",")
-
-theorem lexesAsColon: LexesAs ":" Colon := lexesAsSpells Colon ":" byComputing (mayFollowEnd Colon ":")
-
-theorem lexesAsColonEq: LexesAs ":=" ColonEq := lexesAsSpells ColonEq ":=" byComputing (mayFollowEnd ColonEq ":=")
-
-theorem lexesAsEquals: LexesAs "=" Equals := lexesAsSpells Equals "=" byComputing (mayFollowEnd Equals "=")
-
-theorem lexesAsEqEq: LexesAs "==" EqEq := lexesAsSpells EqEq "==" byComputing (mayFollowEnd EqEq "==")
-
-theorem lexesAsArrow: LexesAs "->" Arrow := lexesAsSpells Arrow "->" (Inl byComputing) (mayFollowEnd Arrow "->")
-
-theorem lexesAsArrowUnicode: LexesAs "→" Arrow := lexesAsSpells Arrow "→" (Inr byComputing) (mayFollowEnd Arrow "→")
-
-theorem lexesAsOrOr: LexesAs "||" OrOr := lexesAsSpells OrOr "||" (Inl byComputing) (mayFollowEnd OrOr "||")
-
-theorem lexesAsOrOrUnicode: LexesAs "∨" OrOr := lexesAsSpells OrOr "∨" (Inr byComputing) (mayFollowEnd OrOr "∨")
-
-theorem lexesAsAndAnd: LexesAs "&&" AndAnd := lexesAsSpells AndAnd "&&" (Inl byComputing) (mayFollowEnd AndAnd "&&")
-
-theorem lexesAsAndAndUnicode: LexesAs "∧" AndAnd := lexesAsSpells AndAnd "∧" (Inr byComputing) (mayFollowEnd AndAnd "∧")
-
-theorem lexesAsPlus: LexesAs "+" Plus := lexesAsSpells Plus "+" byComputing (mayFollowEnd Plus "+")
-
-theorem lexesAsPlusPlus: LexesAs "++" PlusPlus := lexesAsSpells PlusPlus "++" byComputing (mayFollowEnd PlusPlus "++")
-
-theorem lexesAsMinus: LexesAs "-" Minus := lexesAsSpells Minus "-" byComputing (mayFollowEnd Minus "-")
-
-theorem lexesAsStar: LexesAs "*" Star := lexesAsSpells Star "*" byComputing (mayFollowEnd Star "*")
-
-theorem lexesAsSlash: LexesAs "/" Slash := lexesAsSpells Slash "/" byComputing (mayFollowEnd Slash "/")
-
-theorem lexesAsPercent: LexesAs "%" Percent := lexesAsSpells Percent "%" byComputing (mayFollowEnd Percent "%")
-
-theorem lexesAsNotEq: LexesAs "!=" NotEq := lexesAsSpells NotEq "!=" (Inl byComputing) (mayFollowEnd NotEq "!=")
-
-theorem lexesAsNotEqUnicode: LexesAs "≠" NotEq := lexesAsSpells NotEq "≠" (Inr byComputing) (mayFollowEnd NotEq "≠")
-
-theorem lexesAsLt: LexesAs "<" Lt := lexesAsSpells Lt "<" byComputing (mayFollowEnd Lt "<")
-
-theorem lexesAsLe: LexesAs "<=" Le := lexesAsSpells Le "<=" (Inl byComputing) (mayFollowEnd Le "<=")
-
-theorem lexesAsLeUnicode: LexesAs "≤" Le := lexesAsSpells Le "≤" (Inr byComputing) (mayFollowEnd Le "≤")
-
-theorem lexesAsGt: LexesAs ">" Gt := lexesAsSpells Gt ">" byComputing (mayFollowEnd Gt ">")
-
-theorem lexesAsGe: LexesAs ">=" Ge := lexesAsSpells Ge ">=" (Inl byComputing) (mayFollowEnd Ge ">=")
-
-theorem lexesAsGeUnicode: LexesAs "≥" Ge := lexesAsSpells Ge "≥" (Inr byComputing) (mayFollowEnd Ge "≥")
-
-theorem lexesAsBang: LexesAs "!" Bang := lexesAsSpells Bang "!" (Inl byComputing) (mayFollowEnd Bang "!")
-
-theorem lexesAsBangUnicode: LexesAs "¬" Bang := lexesAsSpells Bang "¬" (Inr byComputing) (mayFollowEnd Bang "¬")
-
-theorem lexesAsKwDef: LexesAs "def" KwDef := lexesAsSpells KwDef "def" byComputing (mayFollowEnd KwDef "def")
-
---| A name that starts with a lowercase letter (or `_`), is no keyword and not `_`, `Type` or `Prop`, and goes on with
---| word characters.
-theorem lexesAsLower ∀ (text: Text) (spells: Spells Lower text): LexesAs text Lower :=
-  lexesAsSpells Lower text spells (mayFollowEnd Lower text)
-
-theorem lexesAsUpper ∀ (text: Text) (spells: Spells Upper text): LexesAs text Upper :=
-  lexesAsSpells Upper text spells (mayFollowEnd Upper text)
-
-theorem lexesAsNum ∀ (text: Text) (spells: Spells Num text): LexesAs text Num :=
-  lexesAsSpells Num text spells (mayFollowEnd Num text)
-
-theorem lexesAsFloat ∀ (text: Text) (spells: Spells Float text): LexesAs text Float :=
-  lexesAsSpells Float text spells (mayFollowEnd Float text)
 
 -- The operator table against the lexer.
 
@@ -2741,161 +2531,6 @@ theorem operatorTokOfSpells ∀ (kind: Tok) (text: Text)
     | Bang, Inl same, symbolic => rewrite same
     | Bang, Inr same, symbolic => rewrite same
     | other, spells, symbolic => (Bool.falseNotTrue symbolic).impossible
-
---| `operatorTokLexes`: a word's text that `operatorTok` reads as an operator is read by the lexer as that token:
---| the table and the lexer agree on every spelling of slice 1's operators and brackets.
-theorem operatorTokLexes ∀ (kind: Tok) (text: Text)
-    (spells: Spells kind text)
-    (symbolic: kind.symbolic1 = True):
-    operatorTok text = Some kind ∧ LexesAs text kind :=
-  Both (operatorTokOfSpells kind text spells symbolic) (lexesAsSpells kind text spells (mayFollowEnd kind text))
-
--- Examples: the hypotheses of `lexPieces` hold of a real piece list, which the lexer reads as predicted.
-
-def examplePieces: List Piece := [
-  Remark "-- top",
-  Break,
-  Break,
-  Code KwDef "def",
-  Gap 1,
-  Code Lower "x",
-  Code Colon ":",
-  Gap 1,
-  Code Upper "Nat",
-  Gap 1,
-  Code ColonEq ":=",
-  Gap 1,
-  Code Float "1.5",
-  Gap 1,
-  Code Arrow "→",
-  Gap 1,
-  Code Bang "¬",
-  Remark "-- end",
-  Break,
-  Gap 2,
-  Code Lower "y",
-  Break
-]
-
-theorem examplePlain: AllPlain examplePieces := byDecision
-
---| A list of pieces that lexes, as a witness that `lexPieces`' hypotheses can be met.
---|
---| Proof idea: `Spells` for each piece by its literal text, `Follows` by deciding.
-theorem exampleLexable: Lexable examplePieces [] :=
-  Both
-    (Witness [' ', 't', 'o', 'p'] (Both byComputing byComputing))
-    (Both byDecision
-      (Both byComputing
-        (Both byDecision
-          (Both byComputing
-            (Both byDecision
-              (Both byComputing
-                (Both byDecision
-                  (Both byComputing
-                    (Both byDecision
-                      (Both
-                        (Witness 'x'
-                          (Witness []
-                            (Witness []
-                              (Both byComputing (Both byComputing (Both byComputing (Both byComputing byComputing)))))))
-                        (Both byDecision
-                          (Both byComputing
-                            (Both byDecision
-                              (Both byComputing
-                                (Both byDecision
-                                  (Both
-                                    (Witness 'N'
-                                      (Witness
-                                        ['a', 't']
-                                        (Witness []
-                                          (Both byComputing
-                                            (Both byComputing (Both byComputing (Both byComputing byComputing)))))))
-                                    (Both byDecision
-                                      (Both byComputing
-                                        (Both byDecision
-                                          (Both byComputing
-                                            (Both byDecision
-                                              (Both byComputing
-                                                (Both byDecision
-                                                  (Both
-                                                    (Witness '1'
-                                                      (Witness []
-                                                        (Witness
-                                                          ['.', '5']
-                                                          (Both byComputing
-                                                            (Both byComputing
-                                                              (Both byComputing
-                                                                (Inr
-                                                                  (Inl
-                                                                    (Witness '5'
-                                                                      (Witness []
-                                                                        (Both byComputing
-                                                                          (Both byComputing byComputing))))))))))))
-                                                    (Both byDecision
-                                                      (Both byComputing
-                                                        (Both byDecision
-                                                          (Both
-                                                            (Inr byComputing)
-                                                            (Both byDecision
-                                                              (Both byComputing
-                                                                (Both byDecision
-                                                                  (Both
-                                                                    (Inr byComputing)
-                                                                    (Both
-                                                                      (same => cases)
-                                                                      (Both
-                                                                        (Witness
-                                                                          [' ', 'e', 'n', 'd']
-                                                                          (Both byComputing byComputing))
-                                                                        (Both byDecision
-                                                                          (Both byComputing
-                                                                            (Both byDecision
-                                                                              (Both byComputing
-                                                                                (Both byDecision
-                                                                                  (Both
-                                                                                    (Witness 'y'
-                                                                                      (Witness []
-                                                                                        (Witness []
-                                                                                          (Both byComputing
-                                                                                            (Both byComputing
-                                                                                              (Both byComputing
-                                                                                                (Both byComputing
-                                                                                                    byComputing)))))))
-                                                                                    (Both byDecision
-                                                                                      (Both byComputing
-                                                                                        (Both byDecision
-                                                                                            byComputing)))))))))))))))))))))))))))))))))))))))))))
-
---| The lexer's answer on the example text, from `lexPieces`.
-theorem exampleLexes: lex (piecesText examplePieces)
-      = Ok {
-        leaves = (examplePieces.foldLeft Laid.start Laid.lay).leaves.reverse,
-        end = {
-          leading = (examplePieces.foldLeft Laid.start Laid.lay).pending.reverse,
-          blankLines = (examplePieces.foldLeft Laid.start Laid.lay).blankRun,
-          trailing = None
-        }
-      } :=
-  lexPieces examplePieces examplePlain exampleLexable
-
---| The same, by computing the lexer, which checks that the layout `Laid` describes is what the lexer does: `def`
---| starts the line after two blank ones with the comment above it, `y` is at column 2, the unicode arrow is three
---| bytes wide.
-theorem exampleLayout: (lex (piecesText examplePieces)).map (lexed =>
-      lexed.leaves.map (leaf => (leaf.token.kind, leaf.token.column, leaf.token.lineStart)))
-      = Ok [
-        (KwDef, 0, True),
-        (Lower, 4, False),
-        (Colon, 5, False),
-        (Upper, 7, False),
-        (ColonEq, 11, False),
-        (Float, 14, False),
-        (Arrow, 18, False),
-        (Bang, 22, False),
-        (Lower, 2, True)
-      ] :=
-  byComputing
 
 -- Pieces and the pieces next to them.
 

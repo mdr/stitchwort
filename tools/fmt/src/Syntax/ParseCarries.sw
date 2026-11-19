@@ -19,17 +19,7 @@ def codeWords (leaves: List Leaf): List Word := leaves.filter (leaf => leaf.kind
 --| The words of the items a parser read.
 def itemWords (read: List Item): List Word := codeWords (read.map Item.leaf)
 
---| What a parser function gives, read as words: a tree in the slice has the words of the items read for it. A tree
---| outside the slice says nothing, as for `Parsed1`.
-def Carried (read: List Item) (expr: Expr): Prop := expr.within1 = True → expr.words = itemWords read
-
---| `self` carries its items at every goal.
-def NestedCarries (self: Goal → {Parse Item} Expr): Prop :=
-  ∀ (goal: Goal) => Parse.ReadsIn GoodItems (() => self goal) Carried
-
 -- Words of items.
-
-theorem itemWordsNil: itemWords [] = [] := byComputing
 
 theorem itemWordsAppend ∀ (first rest: List Item): itemWords (first ++ rest) = itemWords first ++ itemWords rest :=
   calc itemWords (first ++ rest)

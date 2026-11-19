@@ -29,8 +29,6 @@ theorem itemKindDeaf ∀ (item: Item): item.kind = item.stripped.kind := byCompu
 
 theorem itemTextDeaf ∀ (item: Item): item.text = item.stripped.text := byComputing
 
-theorem itemSpelledDeaf ∀ (item: Item): item.spelled = item.stripped.spelled := cases
-
 theorem endsGuardDeaf ∀ (modes: Modes) (item: Item): modes.endsGuard item = modes.endsGuard item.stripped := cases
 
 theorem startsCalcStepDeaf ∀ (modes: Modes) (item: Item):
@@ -46,9 +44,6 @@ theorem endsConstructDeaf ∀ (modes: Modes) (item: Item): modes.endsConstruct i
 
 theorem stopsDeaf ∀ (modes: Modes) (item: Item): modes.stops item = modes.stops item.stripped :=
   rewrite endsConstructDeaf modes item, stopsByLineDeaf modes item
-
-theorem keywordHereDeaf ∀ (modes: Modes) (item: Item): keywordHere modes item = keywordHere modes item.stripped :=
-  rewrite stopsDeaf modes item
 
 theorem isQualifiedDeaf ∀ (item: Item): isQualified item = isQualified item.stripped := byComputing
 
@@ -66,18 +61,6 @@ theorem peekInDeaf ∀ (modes: Modes) (ahead: Nat) (items: List Item):
     | Succ k, [item, ..more] => rewrite stopsDeaf modes item, peekInDeaf modes k more
 
 -- Item lists, without recursion.
-
-theorem unexpectedAtDeaf ∀ (modes: Modes) (what: Text) (items: List Item):
-    modes.unexpectedAt what items = modes.unexpectedAt what (items.map Item.stripped) :=
-  match items with
-    | [] => byComputing
-    | [item, ..more] =>
-      rewrite stopsDeaf modes item,
-          startsCalcStepDeaf modes item,
-          endsGuardDeaf modes item,
-          stopsByLineDeaf modes item,
-          endsConstructDeaf modes item,
-          itemSpelledDeaf item
 
 theorem namesThenDeaf ∀ (items: List Item) (count: Nat) (accepts: Tok → Bool):
     namesThen items count accepts = namesThen (items.map Item.stripped) count accepts :=
@@ -267,18 +250,6 @@ theorem lineHasSemicolonDeaf ∀ (limit: Nat) (first: Bool) (items: List Item):
   match items with
     | [] => byComputing
     | [item, ..rest] => cases then (rewrite lineHasSemicolonDeaf limit False rest)
-
-theorem headDeaf ∀ (items: List Item): items.head.map Item.stripped = (items.map Item.stripped).head := match items with
-  | [] => byComputing
-  | [item, ..rest] => byComputing
-
-theorem blockEndDeaf ∀ (lines: List BlockLine) (next: Option Item):
-    blockEnd lines next = blockEnd lines (next.map Item.stripped) :=
-  match lines with
-    | [] => byComputing
-    | [{ column, many, kind }, ..outer] =>
-      let later := blockEndDeaf outer next
-      cases
 
 theorem nextIndexDeaf ∀ (items: List Item): nextIndex items = nextIndex (items.map Item.stripped) := match items with
   | [] => byComputing
@@ -527,12 +498,6 @@ theorem lambdaAheadFromDeaf ∀ (fuel: Nat) (modes: Modes) (count: Nat) (items: 
               | FatArrow => byComputing
               | _ => byComputing
 
-theorem afterGroupDeaf ∀ (more: Nat) (modes: Modes) (count: Nat) (items: List Item):
-    afterGroup more modes count items = afterGroup more modes count (items.map Item.stripped) :=
-  match e: skipGroup [] items with
-    | Some after => rewrite skipGroupDeaf [] items, e then lambdaAheadFromDeaf more modes (count + 1) after
-    | None => rewrite skipGroupDeaf [] items, e
-
 theorem lambdaAheadDeaf ∀ (modes: Modes) (fuel: Nat) (items: List Item):
     lambdaAhead modes fuel items = lambdaAhead modes fuel (items.map Item.stripped) :=
   lambdaAheadFromDeaf fuel modes 0 items
@@ -605,12 +570,6 @@ theorem lambdaResultTypeDeaf ∀ (modes: Modes) (fuel: Nat) (bracketedLast: Bool
                     | None => rewrite skipGroupDeaf [LBracket] rest, f
               | _ => rewrite arrow
 
-theorem afterBracketDeaf ∀ (modes: Modes) (more: Nat) (items: List Item):
-    afterBracket modes more items = afterBracket modes more (items.map Item.stripped) :=
-  match e: skipGroup [] items with
-    | Some after => rewrite skipGroupDeaf [] items, e then lambdaResultTypeDeaf modes more True after
-    | None => rewrite skipGroupDeaf [] items, e
-
 -- Trees.
 
 theorem callableInsideDeaf ∀ (expr: Expr): callableInside expr = callableInside (expr.walk blankPure) := match expr with
@@ -675,29 +634,11 @@ theorem wordsTextsBlank ∀ (words: List Word):
     | [] => byComputing
     | [first, ..rest] => rewrite wordsTextsBlank rest
 
-theorem closeMessageDeaf ∀ (implicit: Bool) (auto: Option Comments) (named: List Word):
-    closeMessage implicit auto named = closeMessage implicit (blankComments auto) (blankWords named) :=
-  rewrite wordsTextsBlank named then cases
-
-theorem conflictOnDeaf ∀ (atDecreasing: Bool) (clause: Option (Comments, List Word)):
-    conflictOn atDecreasing clause = conflictOn atDecreasing (blankUnfolding clause) :=
-  match clause with
-    | None => byComputing
-    | Some (comments, names) => byComputing
-
 theorem attributesRefusedDeaf ∀ (attributes: List Attributes) (seen: Option Tok):
     attributesRefused attributes seen = attributesRefused (walkAttributes blankPure attributes) seen :=
   match attributes with
     | [] => byComputing
     | [first, ..rest] => cases
-
-theorem mixedImportDeaf ∀ (path: Word): mixedImport path = mixedImport path.blank := byComputing
-
-theorem ambiguousSynonymDeaf ∀ (name: Word) (what: Text):
-    ambiguousSynonym name what = ambiguousSynonym name.blank what :=
-  byComputing
-
-theorem seenAfterDeaf ∀ (seen: Seen) (decl: Decl): seen.after decl = seen.after (decl.walk blankPure) := cases
 
 theorem sectionedDeaf ∀ (section: Bool) (applied appliedTwin: Expr)
     (same: applied.walk blankPure = appliedTwin.walk blankPure):
@@ -832,34 +773,6 @@ theorem groupLogicDeaf ∀ (fuel: Nat) (first firstTwin: Expr) (links linksTwin:
     (sameLinks: blankLinks (walkLinks blankPure links) = blankLinks (walkLinks blankPure linksTwin)):
     (groupLogic fuel first links).walk blankPure = (groupLogic fuel firstTwin linksTwin).walk blankPure :=
   groupAfterDeaf fuel _ _ (conjunctionOfDeaf first firstTwin links linksTwin sameFirst sameLinks)
-
-theorem autoSplitDeaf ∀ (implicit: Bool) (names: List Word):
-    autoSplit implicit (blankWords names)
-      = (blankComments (autoSplit implicit names).fst, blankWords (autoSplit implicit names).snd) :=
-  match names with
-    | [] => byComputing
-    | [word] => byComputing
-    | [word, second, ..more] => cases
-
-theorem implicitAutoDeaf ∀ (first: Word) (rest: List Word):
-    implicitAuto first.blank (blankWords rest)
-      = (blankComments (implicitAuto first rest).fst, blankWords (implicitAuto first rest).snd) :=
-  match rest with
-    | [] => byComputing
-    | [word, ..more] => cases
-
-theorem rowEntriesDeaf ∀ (pair: (List Expr, Bool)):
-    rowEntries (walkExprs blankPure pair.fst, pair.snd) = walkExprs blankPure (rowEntries pair) :=
-  match pair with | (entries, closed) => byComputing
-
-theorem definitionOfDeaf ∀ (attributes: List Attributes) (header: Header) (body: DefBody):
-    (definitionOf attributes (header, body)).walk blankPure
-      = blankDecl
-        (definitionOf (walkAttributes blankPure attributes) (
-          walkHeader blankPure header,
-          walkDefBody blankPure body
-        )) :=
-  byComputing
 
 -- Items from leaves.
 
@@ -1122,11 +1035,6 @@ theorem deafItem ∀ (read: Item → r)
     _ = read item.stripped := deaf item
     _ = read other.stripped := rewrite same
     _ = read other := Eq.flipped (deaf other)
-
-theorem peekInSame ∀ (modes: Modes) (ahead: Nat) (items others: List Item)
-    (same: List.All2 SameCode items others):
-    peekIn modes ahead items = peekIn modes ahead others :=
-  deafOfStripped (peekIn modes ahead) (peekInDeaf modes ahead) items others same
 
 theorem stopsSame ∀ (modes: Modes) (item other: Item)
     (same: SameCode item other):

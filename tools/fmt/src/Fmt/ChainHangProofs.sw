@@ -153,10 +153,6 @@ def GluesAt (kinds: Text → Tok) (before: Bool) (doc: Doc): Prop :=
       Ended (gluedBy state (wordStart indent entry)) False place
         ∧ hang = Hang.At (gluedBy state (wordStart indent entry)))
 
---| What a chain's operator asks: it folds as a plain token, or as `->` with no comment after it.
-def RunOperator (kinds: Text → Tok) (before operated: Bool) (doc: Doc): Prop :=
-  HangsAt kinds before operated doc ∨ (operated = False ∧ GluesAt kinds before doc)
-
 --| The fold glued after words, with nothing starting.
 def stuckFrom (state: HangState): HangState := { blocks = state.blocks, top = state.top, start = False, glue = True }
 
@@ -300,14 +296,6 @@ def RunFacts (kinds: Text → Tok) (before operated noted next: Bool) (doc: Doc)
       ∨ (operated = False ∧ GluesFor kinds noted before doc)
   | True => ∀ (inset: Nat) => ElHangs kinds doc inset inset before operated (startFor noted)
 
---| An operator with no comments above it, before an operand with none: `RunOperator`.
-theorem runFactsOf ∀ (kinds: Text → Tok) (before operated: Bool) (doc: Doc)
-    (run: RunOperator kinds before operated doc):
-    RunFacts kinds before operated False False doc :=
-  match run with
-    | Inl plain => Inl (inset => plain inset inset)
-    | Inr glued => Inr glued
-
 --| A run of a chain: `plainRunHangs` or `arrowRunHangs`, as its operator folds.
 theorem runHangs ∀ (kinds: Text → Tok) (operatorDoc first: Doc)
     (rest: List Doc) (before operated noted next middle trails: Bool)
@@ -403,11 +391,6 @@ def Links (kinds: Text → Tok) (led: Bool) (level: Option Nat) (first: Bool) (e
     | Match _ _ _ _ =>
       LinkEl kinds led around.before trails (expr.el (if first then { around | inArm = True } else around))
     | _ => LinkEl kinds led around.before trails (expr.el around)
-
---| `Links` for an operand that writes no comments above its first token.
-def LinkFacts (kinds: Text → Tok) (level: Option Nat) (first: Bool) (expr: Expr) (around: Around) (trails: Bool):
-    Prop :=
-  Links kinds False level first expr around trails
 
 --| What a chain of two operands and their operator asks (`chainLinks`'s facts), the first operand `led` or not.
 def PairLinks (kinds: Text → Tok) (led: Bool) (level: Option Nat) (first: Bool) (left: Expr) (operator: Word)

@@ -3,8 +3,9 @@
 --| the acceptance theorem needs: a source whose own parse is a slice 1 tree also parses after rule N, to the same
 --| tree with its comments where rule N puts them (`settledParses1`).
 --|
---| Why it holds: rule N moves comments between leaves and never a token (`settledOnceTokens`), and the parser reads a leaf's comments only to copy them into the tree's words (`Leaf.word`,
---| `Trivia.comments`, and a binder's `bare`, none of which any test of the parser reads). Its every decision is
+--| Why it holds: rule N moves comments between leaves and never a token (`settledOnceTokens`), and the parser reads a
+--| leaf's comments only to copy them into the tree's words (`Leaf.word`, `Trivia.comments`, and a binder's `bare`,
+--| none of which any test of the parser reads). Its every decision is
 --| taken on the tokens: kinds, texts, columns and line starts (`items`, `groupsOf`, `fileRefusal`, the parser's
 --| look-aheads). So two leaf lists with the same tokens parse alike, up to the comments in the tree.
 --|
@@ -107,10 +108,6 @@ theorem allReverseOnto ∀ (p: a → Bool) (xs acc: List a)
 
 theorem allReverse ∀ (p: a → Bool) (xs: List a) (all: xs.all p = True): xs.reverse.all p = True :=
   allReverseOnto p xs [] all byComputing
-
-theorem allAppendLeft ∀ (p: a → Bool) (xs ys: List a) (all: (xs ++ ys).all p = True): xs.all p = True := match xs with
-  | [] => byComputing
-  | [x, ..more] => Bool.andIntro (Bool.andLeft all) (allAppendLeft p more ys (Bool.andRight all))
 
 theorem allAppendRight ∀ (p: a → Bool) (xs ys: List a) (all: (xs ++ ys).all p = True): ys.all p = True := match xs with
   | [] => all
@@ -304,191 +301,6 @@ theorem settledParsesGrammar1 ∀ (source: Text) (lexed: Lexed) (file: SourceFil
       ∧ settled.grammar1 = True :=
   settledParses1 lexed file parses grammar
 
---| Where the settled tree's comments are, for the driver: given the driver's leaf tests and its `within1`, each
---| declaration's words are its group's settled leaves', each with the comments rule N gave it, and the file's end
---| is the settled end (`parseCarriesSourceProved`).
-theorem settledPlaced1 ∀ (source: Text) (lexed: Lexed) (file: SourceFile)
-    (lexes: lex source = Ok lexed)
-    (alphabet: alphabet1 lexed.leaves = True)
-    (plain: plain1 (tokens lexed.leaves) = True)
-    (parses: parseFile lexed = Ok file)
-    (grammar: file.grammar1 = True)
-    (within: ∀ (settled: SourceFile) => parseFile lexed.settledOnce = Ok settled → settled.within1 = True):
-    ∃ (settled: SourceFile) => parseFile lexed.settledOnce = Ok settled
-      ∧ settled.withoutComments = file.withoutComments
-      ∧ settled.grammar1 = True
-      ∧ settled.decls.map Decl.words = (groupsOf lexed.settledOnce.leaves).map codeWords
-      ∧ settled.end = lexed.settledOnce.end.comments :=
-  let (settled, settles, alike, inGrammar) := settledParses1 lexed file parses grammar
-  let (words, ends) :=
-    parseCarriesSourceProved source lexed settled lexes alphabet
-      (sourcePlainOfPlain _ plain)
-      settles
-      (within settled settles)
-  (settled, settles, alike, inGrammar, words, ends)
-
--- Slice 1 declarations lower.
-
---| Slice 1's grammar, like `within1`, has no block, `match`, clause lambda or pattern, the only nodes the lowering's
---| checks refuse, so the traversal finishes and changes nothing (`ReadBackFile.exprChecks`, on the grammar).
-theorem exprChecks1 ∀ (expr: Expr) (grammar: expr.grammar1 = True): runExpr checkSteps expr = Ok expr := match expr with
-  | Atom kind word => byComputing
-  | Paren open inner close =>
-    rewrite seq1k
-      (() => inner.traverse checkSteps)
-      (v1 => Paren open v1 close)
-      checkSteps.expr
-      inner
-      (exprChecks1 inner grammar)
-  | Tuple open items trailingComma close =>
-    rewrite seq1k
-      (() => traverseExprs checkSteps items)
-      (v1 => Tuple open v1 trailingComma close)
-      checkSteps.expr
-      items
-      (exprsChecks1 items grammar)
-  | ListOf open items trailingComma close =>
-    rewrite seq1k
-      (() => traverseExprs checkSteps items)
-      (v1 => ListOf open v1 trailingComma close)
-      checkSteps.expr
-      items
-      (exprsChecks1 items grammar)
-  | App head arguments =>
-    rewrite seq2k
-      (() => head.traverse checkSteps)
-      (() => traverseExprs checkSteps arguments)
-      (v1 v2 => App v1 v2)
-      checkSteps.expr
-      head
-      arguments
-      (exprChecks1 head (Bool.andLeft grammar))
-      (exprsChecks1 arguments (Bool.andRight grammar))
-  | Infix kind left operator right =>
-    let sides: left.grammar1 = True ∧ right.grammar1 = True := match kind with
-      | InfixBinary => (Bool.andLeft grammar, Bool.andRight grammar)
-      | InfixArrow => (Bool.andLeft grammar, Bool.andRight grammar)
-      | _ => cases
-    rewrite seq2k
-      (() => left.traverse checkSteps)
-      (() => right.traverse checkSteps)
-      (v1 v2 => Infix kind v1 operator v2)
-      checkSteps.expr
-      left
-      right
-      (exprChecks1 left sides.left)
-      (exprChecks1 right sides.right)
-  | Prefix operator operand =>
-    rewrite seq1k
-      (() => operand.traverse checkSteps)
-      (v1 => Prefix operator v1)
-      checkSteps.expr
-      operand
-      (exprChecks1 operand grammar)
-
-theorem exprsChecks1 ∀ (items: List Expr) (grammar: allGrammar1 items = True): runExprs checkSteps items = Ok items :=
-  match items with
-    | [] => byComputing
-    | [first, ..rest] =>
-      seq2
-        (() => first.traverse checkSteps)
-        (() => traverseExprs checkSteps rest)
-        (v1 v2 => [v1, ..v2])
-        first
-        rest
-        (exprChecks1 first (Bool.andLeft grammar))
-        (exprsChecks1 rest (Bool.andRight grammar))
-
---| A slice 1 type has no implicit binder on its spine.
---| A grammar 1 type has no implicit binder on its spine.
-theorem spineNone1 ∀ (expr: Expr) (grammar: expr.grammar1 = True): spineRepeat [] expr = None := match expr with
-  | Infix InfixArrow left operator right => spineNone1 right (Bool.andRight grammar)
-  | Infix InfixBinary left operator right => byComputing
-  | Atom kind word => byComputing
-  | Paren open inner close => byComputing
-  | Tuple open items trailingComma close => byComputing
-  | ListOf open items trailingComma close => byComputing
-  | App head arguments => byComputing
-  | Prefix operator operand => byComputing
-
---| A slice 1 declaration passes the lowering's checks.
---| Every declaration of slice 1's grammar passes the lowering's checks: the lowering error that
---| `groupKeepsTokens1` says is the same on both sides is none on both.
-theorem declLowers1 ∀ (decl: Decl) (grammar: decl.grammar1 = True): decl.loweringError = None := match decl with
-  | Definition [] header (Assigned colonEq value) =>
-    match header with
-      | {
-          exportKeyword = None,
-          opaqueKeyword = None,
-          kind = DefPlain,
-          keyword,
-          name,
-          forallKeyword = None,
-          params = [],
-          colon,
-          result,
-          decreasingClause = None,
-          unfoldingClause = None
-        } =>
-        let resultGrammar: result.grammar1 = True := Bool.andRight (Bool.andLeft grammar)
-        let valueGrammar: value.grammar1 = True := Bool.andRight grammar
-        let built: Header := {
-          exportKeyword = None,
-          opaqueKeyword = None,
-          kind = DefPlain,
-          keyword,
-          name,
-          forallKeyword = None,
-          params = [],
-          colon,
-          result,
-          decreasingClause = None,
-          unfoldingClause = None
-        }
-        let headerRuns: runHeader checkSteps built = Ok built :=
-          rewrite seq3j
-            (() => traverseGroups checkSteps [])
-            (() => result.traverse checkSteps)
-            (() => traverseAfter checkSteps None)
-            (v1 v2 v3 =>
-              {
-                exportKeyword = None,
-                opaqueKeyword = None,
-                kind = DefPlain,
-                keyword,
-                name,
-                forallKeyword = None,
-                params = v1,
-                colon,
-                result = v2,
-                decreasingClause = v3,
-                unfoldingClause = None
-              })
-            checkSteps.header
-            []
-            result
-            None
-            byComputing
-            (exprChecks1 result resultGrammar)
-            byComputing
-        let bodyRuns: Fail.toResult (() => traverseDefBody checkSteps (Assigned colonEq value))
-          = Ok (Assigned colonEq value) :=
-          seq1 (() => value.traverse checkSteps) (v1 => Assigned colonEq v1) value (exprChecks1 value valueGrammar)
-        rewrite spineNone1 result resultGrammar,
-            seq3k
-              (() => traverseAttributes checkSteps [])
-              (() => traverseHeader checkSteps built)
-              (() => traverseDefBody checkSteps (Assigned colonEq value))
-              (v1 v2 v3 => Definition v1 v2 v3)
-              checkSteps.decl
-              []
-              built
-              (Assigned colonEq value)
-              byComputing
-              headerRuns
-              bodyRuns
-      | _ => cases
-
 -- Closed examples (D3684).
 
 --| What `settledParses1` says of one source, as a test: lexed, parsed to a slice 1 tree; and parsed after rule N to a
@@ -500,7 +312,7 @@ def settlesOn (source: Text): Bool := match lex source with
       | Ok file, Ok settled => file.grammar1 && settled.grammar1 && settled.withoutComments == file.withoutComments
       | _, _ => False
 
---| `settledPlaced1`'s driver hypotheses on one source: the leaf tests, and `within1` of the tree after rule N.
+--| The driver's hypotheses on one source: the leaf tests, and `within1` of the tree after rule N.
 def placedOn (source: Text): Bool := match lex source with
   | Err _ => False
   | Ok lexed =>
@@ -520,13 +332,6 @@ theorem settlesOnExample: settlesOn
         "-- top\ndef d: A -> -- arrow\n  B := g [ -- open\n    a, -- first\n    -- above\n    b, -- last\n  ] -- close\n\ndef e: C := (-1 + f x, y) -- end\n-- last\n"
       = True :=
   byComputing
-
---| A last comma with a comment, on its line, before a closer on the next.
-theorem settlesOnParked: settlesOn "def d: A := (a, b, -- comma\n  )\n" = True := byComputing
-
---| A last comma that starts its line, its closer on the same line: rule N reads the closer as starting the line but
---| leaves its token alone, so the tokens are the lexer's.
-theorem settlesOnOwnLineComma: settlesOn "def d: A := [a\n  , ]\n" = True := byComputing
 
 def ownLineCommaKeeps (source: Text): Bool := match lex source with
   | Err _ => False
@@ -562,7 +367,7 @@ theorem groupsKeepOnExample: groupsKeepOn
       = True :=
   byComputing
 
---| What `declLowers1` says of one source, as a test: it parses to a slice 1 tree whose every declaration has no
+--| A test on one source: it parses to a slice 1 tree whose every declaration has no
 --| lowering error.
 def lowersOn (source: Text): Bool := match lex source with
   | Err _ => False

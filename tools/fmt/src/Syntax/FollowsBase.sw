@@ -177,11 +177,6 @@ theorem followsFail ∀ [alike: a → b → Prop] (modes: Modes) (what: Text) (s
     Parse.Follows SameCode alike (() => modes.fail what) second :=
   Parse.followsNever (() => modes.fail what) second (neverFail modes what)
 
-theorem followsFailNameOn ∀ [alike: a → b → Prop] (modes: Modes) (what: Text)
-    (items: List Item) (second: () → {Parse Item} b):
-    Parse.Follows SameCode alike (() => modes.failNameOn what items) second :=
-  Parse.followsNever (() => modes.failNameOn what items) second (neverFailNameOn modes what items)
-
 theorem followsFailName ∀ [alike: a → b → Prop] (modes: Modes) (what: Text) (second: () → {Parse Item} b):
     Parse.Follows SameCode alike (() => modes.failName what) second :=
   Parse.followsNever (() => modes.failName what) second (neverFailName modes what)
@@ -302,12 +297,6 @@ theorem followsExpressionAt ∀
     goal
     goal
     byComputing
-
-theorem followsExpression ∀
-    (rule: ∀ (self selfTwin: Goal → {Parse Item} Expr) => SelfFollows self selfTwin
-      → SelfFollows (expressionRule self) (expressionRule selfTwin)) (modes: Modes):
-    Parse.Follows SameCode ExprsAlike (() => expression modes) (() => expression modes) :=
-  followsExpressionAt rule { modes, level = LevelFull }
 
 theorem followsPattern ∀
     (rule: ∀ (pself pselfTwin: PatternGoal → {Parse Item} Pattern) => PatternSelfFollows pself pselfTwin

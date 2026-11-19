@@ -803,11 +803,6 @@ theorem itemsKinded ∀ (group: List Leaf)
   let kinds := List.allMapBool (items group) Leaf.kinded Item.leaf
   rewrite itemsLeaves group at kinds then rewrite <- kinds then kinded
 
-theorem fixedCommented ∀ (text: Text) (comments: Comments)
-    (commented: Fmt.SpellProofs.Word.commented (fixedWord text comments) = True):
-    Fmt.SpellProofs.Word.commented (fixedWord text comments) = True :=
-  commented
-
 --| A slice 1 definition's spelling, comments filtered out: `def`, its name, `:`, its type's code texts, `:=` and its
 --| value's.
 theorem declCodeTexts ∀ (keyword: Comments) (name: Word) (colon colonEq: Comments) (result value: Expr)

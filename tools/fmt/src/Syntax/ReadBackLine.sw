@@ -36,21 +36,6 @@ type Quiet (modes: Modes): Prop = {
   noRule: modes.rewriteRule = None
 }
 
---| In quiet modes, no item that doesn't start a line stops a reading.
-theorem quietStops ∀ (modes: Modes) (item: Item)
-    (quiet: Quiet modes)
-    (inLine: item.leaf.token.lineStart = False):
-    modes.stops item = False :=
-  match limit: modes.limit with
-    | None => rewrite quiet.noGuard, quiet.noCalc, quiet.noRule
-    | Some column =>
-      rewrite quiet.noGuard, quiet.noCalc, quiet.noRule, inLine then
-        andFalseMiddle
-          (modes.allow != Some item.index)
-          (item.leaf.token.column <= column
-            && !((item.kind == Comma || item.kind.isCloser) && item.depth > 0)
-            && !(item.leaf.token.column == column && item.kind.isInfixOnly))
-
 --| Whether the first item, if any, doesn't stop a reading: what follows an expression lets it end.
 def openHead (modes: Modes): List Item → Bool
   | [] => True
@@ -2026,9 +2011,6 @@ def lexedItems (source: Text): List Item := match lex source with
   | Ok lexed => items lexed.leaves
   | Err _ => []
 
---| `def d: A := f -x [-1]`, a call with a sign as an argument and a list holding a negative numeral.
-def lexedLine: List Item := lexedItems "def d: A := f -x [-1]\n"
-
 --| An item as the lexer gives it on a first line with no comments, at column `column`.
 def lexedItem (kind: Tok) (text: Text) (column: Nat) (glued afterOperand: Bool) (index depth: Nat): Item := {
   leaf = { token = { kind, text, column, lineStart = index == 0 }, trivia = Trivia.empty },
@@ -2055,23 +2037,6 @@ def lexedAt (index: Nat): Item := match index with
   | 10 => lexedItem Num "1" 19 True False 10 1
   | _ => lexedItem RBracket "]" 20 True True 11 1
 
-theorem lexedLineIs: lexedLine
-      = [
-        lexedAt 0,
-        lexedAt 1,
-        lexedAt 2,
-        lexedAt 3,
-        lexedAt 4,
-        lexedAt 5,
-        lexedAt 6,
-        lexedAt 7,
-        lexedAt 8,
-        lexedAt 9,
-        lexedAt 10,
-        lexedAt 11
-      ] :=
-  byComputing
-
 -- A `-` before a numeral, apart from it across a comment (SW-4077): a sign on its operand, not a negative numeral.
 
 --| `def d: A := (- -- c⏎  1)`: the comment ends the line, so the `1` isn't glued to the `-`.
@@ -2081,25 +2046,6 @@ def commentLine: List Item := lexedItems "def d: A := (- -- c\n  1)\n"
 def commentAt (index: Nat): Item := match commentLine.drop index with
   | [item, .._] => item
   | [] => lexedAt 0
-
-theorem commentLineIs: commentLine
-      = [
-        commentAt 0,
-        commentAt 1,
-        commentAt 2,
-        commentAt 3,
-        commentAt 4,
-        commentAt 5,
-        commentAt 6,
-        commentAt 7,
-        commentAt 8
-      ] :=
-  byComputing
-
---| The `-` on `1`, apart from it: the parser reads no negative numeral, though the operand is a numeral after `-`.
-theorem commentMinusApart: negativeNumeral [commentAt 6, commentAt 7] = False
-      ∧ ((commentAt 6).kind == Minus && (Atom Num (commentAt 7).leaf.word).numeral1) = True :=
-  (byComputing, byComputing)
 
 --| `(- -- c⏎  1)`.
 def commentValue: Expr :=

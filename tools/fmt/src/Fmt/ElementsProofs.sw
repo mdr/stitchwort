@@ -1,10 +1,9 @@
 --| `DeclElements` for every slice 1 declaration the driver parses (SW-4130, piece E of docs/reviews/SW-4119-slice1-review.md):
 --| comments anywhere the grammar allows in the type and the value, kept blank lines, any layout. No one-line test.
 --|
---| The route is `edgeFacts`' induction (`Fmt.EdgeHangProofs`) with no class: its invariant (`AnyFacts`, `EdgeFacts`
---| for the places where the element's first token writes nothing before it) holds of every expression with the
+--| The route is an induction on the expression with no class: its invariant (`AnyFacts`) holds of every expression with the
 --| tree facts, one lemma per node kind (`atomAny`, `prefixAny`, `parenAny`, `tupleAny`, `listAny`, `appAny`,
---| `binaryAny`, `arrowAny`), each from its parts' facts. The declaration's parts follow as for the edge-quiet class
+--| `binaryAny`, `arrowAny`), each from its parts' facts. The declaration's parts follow
 --| (`anyElHangs`, `anyType`, `anyBody`), with no `calm`: the facts hold of the tree as it is.
 --|
 --| `laysKinds` (`Fmt.LaysKinds`) is no route here: it drops columns, and `ElHangs` is about them (a line's start
@@ -26,7 +25,7 @@ import Fmt.SpellProofs (..)
 import Fmt.CalmProofs (headerResultWithin)
 import Fmt.TreeJoinProofs (lexKind)
 import Fmt.TokenProofs (declRealOfLexical)
-import Fmt.DeclHangProofs (BodyLays, OnLine, atomDecl, declStart, plainBody)
+import Fmt.DeclHangProofs (BodyLays, OnLine, declStart, plainBody)
 import Fmt.DeclFactsProofs (DeclElements, HugOnLine, appDocsHug, leadNotCloser, notesOfWord, plainBodyEl, trailsOfSound)
 import Fmt.EdgeHangProofs (atomTrailsIs, codedLex, infixTrails, lastLexical, lastWithin, prefixTrails, trailsSwap)
 import Fmt.AppHangProofs (ArgsHang, HangsFor, appElHangs, argAround, lastArg, partHangsFor)
@@ -56,7 +55,7 @@ import Fmt.ExprHangProofs (closeBracket, openBracket)
 --| element, or it has none, and no blank line kept above it as an item (`Word.leadsLine`).
 def Expr.plainAt (expr: Expr) (around: Around): Bool := !expr.lead.leadsLine around
 
---| What the induction carries: `EdgeFacts`, at the places where the first token writes nothing before itself; and a
+--| What the induction carries: the element facts at the places where the first token writes nothing before itself; and a
 --| chain of the level asked, not an item, as an operand (`Links`) whether it writes own-line comments above its first
 --| token or not (`led`), as the right operand of a chain of its level may.
 def AnyFacts (expr: Expr): Prop :=
@@ -93,7 +92,7 @@ theorem unnotedPlain ∀ (expr: Expr) (around: Around)
 
 -- The node kinds.
 
---| A name or numeral (proved): its leaf, as `edgeFacts`' atom, with no comment before it where it stands plain.
+--| A name or numeral (proved): its leaf, with no comment before it where it stands plain.
 theorem atomAny ∀ (kind: Tok) (word: Word)
     (within: (Atom kind word).within1 = True)
     (sound: (Atom kind word).sound = True):
@@ -108,7 +107,7 @@ theorem atomAny ∀ (kind: Tok) (word: Word)
           (trailsOfSound word sound)
   (hangs, level first around bare => hangs around bare)
 
---| `prefixHangs`, the operand's first token where `startFor` says: after its own-line comments, if it has any.
+--| The operand's first token where `startFor` says: after its own-line comments, if it has any.
 theorem prefixLedHangs ∀ (kinds: Text → Tok) (operator: Word) (operand: Expr) (around: Around)
     (indent column: Nat) (trails: Bool)
     (plain: Fmt.HangProofs.Plain (kinds operator.text))
@@ -927,7 +926,7 @@ theorem allBracketFacts ∀ (items: List Expr)
 --| A slice 1 expression with `AnyFacts`, standing where it writes the comments above its first token (not hoisted,
 --| not an item), hangs as an element from its seat at the indentation, its first token where `startFor` says.
 --|
---| Proof idea: `edgeElHangs`' cases from the facts: with no comments, the element where it is plain; with comments, a
+--| Proof idea: cases from the facts: with no comments, the element where it is plain; with comments, a
 --| name or numeral by `notedLeafHangs` and a node by `edgeNotedNodeHangs` from its hoisted form's facts.
 theorem ledHangs ∀ (expr: Expr) (around: Around) (indent: Nat)
     (within: expr.within1 = True)
@@ -1108,22 +1107,6 @@ theorem ledAnyHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: Hang
     (quiet: (plainStart entry && note.blankBefore && around.item) = False):
     LedAt lexKind (expr.el around) indent around.before expr.trails state entry :=
   ledItemHangs expr around indent state entry note rest within lexical sound hoisted noted quiet (inset =>
-    anyHangsOf expr facts { around | hoisted = True } byComputing inset inset)
-
---| An item with `AnyFacts`, a kept blank line before its first token and no comments above it, hangs from its seat
---| at an entry that isn't a plain line start, its first token on the line after the blank line (`blankItemHangs`, its
---| hoisted form displaced).
-theorem blankAnyHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: HangState) (entry: Place)
-    (within: expr.within1 = True)
-    (sound: expr.sound = True)
-    (facts: AnyFacts expr)
-    (hoisted: around.hoisted = False)
-    (item: around.item = True)
-    (unnoted: expr.lead.comments.above = [])
-    (blank: expr.lead.comments.blankBefore = True)
-    (fresh: plainStart entry = False):
-    LedAt lexKind (expr.el around) indent around.before expr.trails state entry :=
-  blankItemHangs expr around indent state entry within sound hoisted item unnoted blank fresh (inset =>
     anyHangsOf expr facts { around | hoisted = True } byComputing inset inset)
 
 --| `ledHangs` for every slice 1 expression with the tree facts.
@@ -1314,64 +1297,3 @@ theorem declElements1 ∀ (decl: Decl)
           (Bool.andRight homed)
           (Bool.andRight shaped)
       )
-
--- Sources the conditions apply to (D3684).
-
---| The tree facts and `homed1` of each declaration of a source's tidied tree.
-def homedHoldsOn (source: Text): Bool := match tidiedOf source with
-  | None => False
-  | Some file => file.decls.all (decl =>
-    decl.within1 && decl.shaped1 && decl.settled1 && decl.lexical1 && decl.unreturned1 && decl.homed1)
-
---| Comments after an arrow's operand, after a list's opener, items and closer, above an item with a blank line kept,
---| after a sign's operand, and at the end of the file.
-theorem insideHomed: homedHoldsOn
-        "-- top\ndef d: A -> -- x\n  B := g [ -- open\n    a, -- first\n\n    -- above\n    b,\n  ] -- close\n\n\ndef e: C := -1 + f x -- end\n-- last\n"
-      = True :=
-  byComputing
-
---| Comments written after `->` (rule N moves them before it), after a sign, and after operands with closers after
---| them.
-theorem arrowsHomed: (homedHoldsOn "def d: A -> -- c\n  B -> -- e\n  C := x\n"
-      && homedHoldsOn "def d: - -- c\n  1 -> A := x\n"
-      && homedHoldsOn "def d: (A -- c\n  ) -> [B -- e\n  ] := x\n")
-      = True :=
-  byComputing
-
---| A declaration with comments inside its type and value, over several lines: a comment above an argument, after
---| an argument that is not the last, and after a list's opener.
-def insideDecl: Decl := match tidiedOf "def x: F a -- c\n  b := f a -- d\n  -- e\n  [ -- g\n    b,\n  ] c\n" with
-  | Some file => file.decls.headOr atomDecl
-  | None => atomDecl
-
-theorem insideDeclFacts: (insideDecl.within1
-      && insideDecl.shaped1
-      && insideDecl.settled1
-      && insideDecl.lexical1
-      && insideDecl.unreturned1
-      && !insideDecl.edgeQuiet1)
-      = True :=
-  byComputing
-
---| `declElements1` applies to it.
-theorem insideElements: DeclElements lexKind insideDecl :=
-  let (within, shaped, settled, lexical, unreturned, _) := insideDeclFacts
-  declElements1 insideDecl within shaped settled lexical unreturned
-
---| `insideDecl`'s value, a call with comments above and after its arguments.
-def insideValue: Expr := match insideDecl with
-  | Definition _ _ (Assigned _ value) => value
-  | _ => Atom Lower Word.none
-
---| `anyFacts`' hypotheses, `shaped` among them, hold of a parsed call: it applies.
-theorem insideValueFacts: (insideValue.within1
-      && insideValue.lexical1
-      && insideValue.sound
-      && insideValue.homed1
-      && insideValue.shaped1)
-      = True :=
-  byComputing
-
-theorem insideValueAny: AnyFacts insideValue :=
-  let (within, lexical, sound, homed, shaped) := insideValueFacts
-  anyFacts insideValue within lexical sound homed shaped

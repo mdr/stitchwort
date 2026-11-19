@@ -10,7 +10,6 @@ import Syntax.Proofs (..)
 import Syntax.ParseProofs (..)
 import Syntax.ParseWalk (..)
 import Syntax.ParseCarries (..)
-import Syntax.ParseCarries (Carried)
 
 -- The file: the declarations' words are the groups'.
 

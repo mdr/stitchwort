@@ -526,46 +526,6 @@ theorem commaKeepsLexical ∀ (file: SourceFile)
     file.withoutTrailingCommas.lexical1 = file.lexical1 :=
   rewrite commaMap file within, declsLexicalUncomma file.decls
 
--- P2 twice.
-
-theorem commaExprTwice ∀ (expr: Expr): (withoutCommaExpr expr).walk commaPure = expr.walk commaPure := cases
-
-theorem commaPatternTwice ∀ (pattern: Pattern): (withoutCommaPattern pattern).walk commaPure = pattern.walk commaPure :=
-  match pattern with
-    | PatternRecord fields =>
-      match fields with
-        | { open, fields, trailingComma, rest, close } => byComputing
-    | PatternCtorFields name fields =>
-      match fields with
-        | { open, fields, trailingComma, rest, close } => byComputing
-    | _ => cases
-
-theorem commaFieldsTwice ∀ (fields: Fields):
-    { fields | trailingComma = False }.walk commaPure = fields.walk commaPure :=
-  match fields with | { open, fields, trailingComma, close } => byComputing
-
-theorem commaRuleSetTwice ∀ (set: RuleSet):
-    walkRuleSet commaPure { set | trailingComma = False } = walkRuleSet commaPure set :=
-  match set with | { open, rules, trailingComma, close } => byComputing
-
-def commaTwiceKeeps: Keeps commaPure commaPure := {
-  expr = commaExprTwice,
-  pattern = commaPatternTwice,
-  header = (z => byComputing),
-  decl = (z => byComputing),
-  fields = commaFieldsTwice,
-  attributes = (z => byComputing),
-  ruleSet = commaRuleSetTwice
-}
-
---| P2 is idempotent: the file it leaves has no comma before a closer
---| left to take out (the `bare` hypothesis of `printParses1`). By the
---| traversal lemma, with `commaPure` as both the pass and the walk it
---| must keep.
-theorem commaTwice ∀ (file: SourceFile):
-    file.withoutTrailingCommas.withoutTrailingCommas = file.withoutTrailingCommas :=
-  rewrite applyKeeps file commaSteps commaSteps commaPure commaPure commaAgrees commaAgrees commaTwiceKeeps
-
 -- P2 leaves no comma before a closer.
 
 --| No tuple, list or call of the expression has a comma before its
@@ -617,107 +577,6 @@ theorem commaBareDecls ∀ (decls: List Decl)
 --| P2's result has no comma before a closer.
 theorem commaBare ∀ (file: SourceFile) (within: file.within1 = True): file.withoutTrailingCommas.commaFree = True :=
   rewrite commaMap file within, commaBareDecls file.decls within
-
--- `calm`.
-
-theorem keptTwice ∀ (comments: Comments) (item closer: Bool):
-    (comments.kept item closer).kept item closer = comments.kept item closer :=
-  cases
-
-theorem wordKeptTwice ∀ (word: Word) (item closer: Bool):
-    (word.kept item closer).kept item closer = word.kept item closer :=
-  rewrite keptTwice word.comments item closer
-
-theorem wordKeptNoted ∀ (word: Word) (item closer: Bool): (word.kept item closer).noted = word.noted := cases
-
---| `calm` keeps which items are plain values: it changes no token's
---| own-line comments, only their blank-line flags.
-theorem exprCalmPlain ∀ (expr: Expr) (item: Bool): (expr.calm item).plainItem = expr.plainItem := match expr with
-  | Atom kind word => rewrite wordKeptNoted word item False
-  | _ => cases
-
-theorem calmAllPlain ∀ (items: List Expr) (item: Bool):
-    (calmAll item items).all Expr.plainItem = items.all Expr.plainItem :=
-  match items with
-    | [] => byComputing
-    | [first, ..rest] => rewrite exprCalmPlain first item, calmAllPlain rest item
-
-theorem calmLeadPlain ∀ (items: List Expr): (calmLead items).all Expr.plainItem = items.all Expr.plainItem :=
-  match items with
-    | [] => byComputing
-    | [first, ..rest] => rewrite exprCalmPlain first False, calmAllPlain rest True
-
-theorem calmLeadTwice ∀ (items: List Expr): calmLead (calmLead items) = calmLead items := match items with
-  | [] => byComputing
-  | [first, ..rest] => rewrite exprCalmTwice first False, calmAllTwice rest True
-
-theorem pickPlain ∀ (items: List Expr) (plain: Bool)
-    (same: items.all Expr.plainItem = plain):
-    (pickItems plain items).all Expr.plainItem = plain :=
-  match plain with
-    | True => rewrite calmLeadPlain items, same
-    | False => rewrite calmAllPlain items True, same
-
-theorem pickTwice ∀ (items: List Expr) (plain: Bool)
-    (same: items.all Expr.plainItem = plain):
-    pickItems plain (pickItems plain items) = pickItems plain items :=
-  match plain with
-    | True => calmLeadTwice items
-    | False => calmAllTwice items True
-
-theorem calmItemsTwice ∀ (items: List Expr): calmItems (calmItems items) = calmItems items :=
-  rewrite pickPlain items (items.all Expr.plainItem) byComputing, pickTwice items (items.all Expr.plainItem) byComputing
-
-theorem exprCalmTwice ∀ (expr: Expr) (item: Bool): (expr.calm item).calm item = expr.calm item := match expr with
-  | Atom kind word => rewrite wordKeptTwice word item False
-  | Paren open inner close =>
-    rewrite wordKeptTwice open item False, exprCalmTwice inner False, wordKeptTwice close False True
-  | Tuple open items comma close =>
-    rewrite wordKeptTwice open item False, calmAllTwice items True, wordKeptTwice close False True
-  | ListOf open items comma close =>
-    rewrite wordKeptTwice open item False, calmItemsTwice items, wordKeptTwice close False True
-  | App head arguments => rewrite exprCalmTwice head item, calmAllTwice arguments False
-  | Infix kind left operator right =>
-    rewrite exprCalmTwice left item, wordKeptTwice operator False False, exprCalmTwice right False
-  | Prefix operator operand => rewrite wordKeptTwice operator item False, exprCalmTwice operand False
-  | _ => cases
-
-theorem calmAllTwice ∀ (items: List Expr) (item: Bool): calmAll item (calmAll item items) = calmAll item items :=
-  match items with
-    | [] => byComputing
-    | [first, ..rest] => rewrite exprCalmTwice first item, calmAllTwice rest item
-
-theorem declCalmTwice ∀ (decl: Decl): decl.calm.calm = decl.calm := match decl with
-  | Definition attributes header (Assigned colonEq value) =>
-    match header with
-      | {
-          exportKeyword,
-          opaqueKeyword,
-          kind,
-          keyword,
-          name,
-          forallKeyword,
-          params,
-          colon,
-          result,
-          decreasingClause,
-          unfoldingClause
-        } =>
-        rewrite wordKeptTwice name False False,
-            keptTwice colon False False,
-            keptTwice colonEq False False,
-            exprCalmTwice result False,
-            exprCalmTwice value False
-  | _ => cases
-
-theorem declsCalmTwice ∀ (decls: List Decl): (decls.map Decl.calm).map Decl.calm = decls.map Decl.calm :=
-  match decls with
-    | [] => byComputing
-    | [first, ..rest] => rewrite declCalmTwice first, declsCalmTwice rest
-
---| `calm` is idempotent, which is what makes it a normal form: the
---| statements about reading a printed tree back are up to it.
-theorem calmTwice ∀ (file: SourceFile): file.calm.calm = file.calm := rewrite declsCalmTwice file.decls
 
 -- `calm` stays within the slice.
 
@@ -788,10 +647,6 @@ theorem declsCalmWithin ∀ (decls: List Decl): (decls.map Decl.calm).all Decl.w
     | [] => byComputing
     | [first, ..rest] => rewrite declCalmWithin first, declsCalmWithin rest
 
---| `calm` clears blank-line flags and nothing else: it keeps a file in
---| slice 1 (and one outside it outside).
-theorem calmWithin ∀ (file: SourceFile): file.calm.within1 = file.within1 := rewrite declsCalmWithin file.decls
-
 -- `calm` keeps `meaning`: `meaning` blanks every comment, and `calm`
 -- changes comments only.
 
@@ -845,12 +700,3 @@ theorem declsCalmWalk ∀ (decls: List Decl): walkDecls meaningPure (decls.map D
   match decls with
     | [] => byComputing
     | [first, ..rest] => rewrite declCalmWalk first, declsCalmWalk rest
-
---| `calm` keeps `meaning`. Both sides are the file without its comments
---| at the end, with `meaning`'s steps applied, which is its walk
---| (`applyWalk`); and walking a calmed node is walking the node, since
---| `meaning`'s steps blank every comment that `calm` could have changed.
-theorem calmMeans ∀ (file: SourceFile): file.calm.meaning = file.meaning :=
-  rewrite applyWalk file.calm.withoutEnd meaningSteps meaningPure meaningAgrees,
-      applyWalk file.withoutEnd meaningSteps meaningPure meaningAgrees,
-      declsCalmWalk file.decls

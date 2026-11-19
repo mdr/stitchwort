@@ -1,7 +1,6 @@
 --| The passes' steps keep `meaning` at the node they rewrite (stage 4b,
 --| SW-3864): P1's and P2's by computing over the node's form; P3's at a
---| row by induction along the result's left end (`dropLeftForgotten`);
---| P3's around a binder's type layer by layer (`stripUnwrapped`).
+--| row by induction along the result's left end.
 --|
 --| Then each of P1, P2 and P3 keeps `meaning` file by file
 --| (`forallKeepsFile`, `commaKeepsFile`, `bracketKeepsFile`, and the three
@@ -37,47 +36,6 @@ import Syntax (
   Word
 )
 
-theorem commaExprKeepsMeaning ∀ (expr: Expr): plainExpr (withoutCommaExpr expr) = plainExpr expr := cases
-
-theorem commaPatternKeepsMeaning ∀ (pattern: Pattern):
-    plainPattern (withoutCommaPattern pattern) = plainPattern pattern :=
-  cases
-
-theorem commaFieldsKeepsMeaning ∀ (fields: Fields):
-    { { fields | trailingComma = False } | trailingComma = False } = { fields | trailingComma = False } :=
-  cases
-
-theorem commaAttributesKeepsMeaning ∀ (attributes: Attributes):
-    { { attributes | trailingComma = False } | trailingComma = False } = { attributes | trailingComma = False } :=
-  cases
-
-theorem commaRuleSetKeepsMeaning ∀ (set: RuleSet):
-    { { set | trailingComma = False } | trailingComma = False } = { set | trailingComma = False } :=
-  cases
-
-theorem forallKeepsMeaning ∀ (header: Header): plainHeader (withForall header) = plainHeader header := match header with
-  | {
-      exportKeyword,
-      opaqueKeyword,
-      kind,
-      keyword,
-      name,
-      forallKeyword,
-      params,
-      colon,
-      result,
-      decreasingClause,
-      unfoldingClause
-    } =>
-    match kind, forallKeyword with
-      | DefTheorem, None =>
-        match explicit: params.any Group.explicit with
-          | True => byComputing
-          | False => byComputing
-      | DefTheorem, Some _ => byComputing
-      | DefPlain, _ => byComputing
-      | DefInstance, _ => byComputing
-
 -- P3 after a row: `dropLeft` removes only pairs that `forgetLeft` forgets.
 
 theorem levelAtomic ∀ (expr: Expr) (high: 22 <= expr.level): expr.atomic = True := match expr with
@@ -104,105 +62,6 @@ theorem enoughAbove ∀ (atomOnly: Bool) (floor more: Nat)
   arithmetic [enough yes, Nat.leMaxLeft floor more]
 
 theorem enoughHead ∀ (floor: Nat) (yes: True = True): 22 <= Nat.max floor 22 := Nat.leMaxRight floor 22
-
---| A pair `dropLeft` drops is one `forgetLeft` forgets.
-theorem parenForgotten ∀ (floor: Nat) (membership recordRow atomOnly: Bool) (open: Word) (inner: Expr) (close: Word)
-    (enough: atomOnly = True → 22 <= floor)
-    (drops: (open.bare
-      && close.bare
-      && !holdsFunction inner
-      && floor <= inner.level
-      && !keepsBrackets membership recordRow inner)
-      = True):
-    forgetLeft atomOnly (Paren open inner close) = forgetLeft atomOnly inner :=
-  match negative: inner.negativeNumeral with
-    | True =>
-      let keeps := negativeKept membership recordRow inner negative
-      cases
-    | False =>
-      match atomOnly with
-        | False => cases
-        | True =>
-          match atomic: inner.atomic with
-            | True => cases
-            | False =>
-              match within: floor <= inner.level with
-                | False => cases
-                | True =>
-                  let high: 22 <= inner.level := arithmetic [enough byComputing, within]
-                  let atomicAfterAll := levelAtomic inner high
-                  cases
-
---| By induction along the left end: where `dropLeft` drops a pair, the
---| pair holds no comment, isn't a negative numeral's (`negativeKept`), and
---| below an application's head holds what binds at least as tightly as an
---| atom (`levelAtomic`), so `forgetLeft` forgets it too; everywhere else
---| the two rebuild the same node around the same left part.
-theorem dropLeftForgotten ∀ (floor: Nat) (membership recordRow atomOnly: Bool) (expr: Expr)
-    (enough: atomOnly = True → 22 <= floor):
-    forgetLeft atomOnly (dropLeft floor membership recordRow expr) = forgetLeft atomOnly expr :=
-  match expr with
-    | Paren open inner close =>
-      match drops: open.bare
-        && close.bare
-        && !holdsFunction inner
-        && floor <= inner.level
-        && !keepsBrackets membership recordRow inner with
-        | False => byComputing
-        | True =>
-          rewrite parenForgotten floor membership recordRow atomOnly open inner close enough drops then
-            dropLeftForgotten floor membership recordRow atomOnly inner enough
-    | Infix kind left operator right =>
-      rewrite dropLeftForgotten
-        (Nat.max floor (leftNeeds kind operator.text))
-        (membership || kind == InfixMembership)
-        recordRow
-        atomOnly
-        left
-        (enoughAbove atomOnly floor (leftNeeds kind operator.text) enough)
-    | Chain first rest =>
-      rewrite dropLeftForgotten
-        (Nat.max floor 8)
-        membership
-        recordRow
-        atomOnly
-        first
-        (enoughAbove atomOnly floor 8 enough)
-    | App head arguments =>
-      rewrite dropLeftForgotten (Nat.max floor 22) membership recordRow True head (enoughHead floor)
-    | FieldAccess (Some target) dot field =>
-      rewrite dropLeftForgotten (Nat.max floor 22) membership recordRow True target (enoughHead floor)
-    | _ => cases
-
---| P3's step at a row: the pairs it drops at the result's left end are
---| ones `meaning` forgets.
-theorem rowKeepsMeaning ∀ (expr: Expr): plainExpr (dropAfterRow expr) = plainExpr expr := match expr with
-  | Effect row result => rewrite dropLeftForgotten 0 False (rowReadsAsRecord row) False result (never => cases)
-  | _ => cases
-
--- P3 around a binder's whole type: `stripBinderType` drops only layers
--- `unwrapped` drops.
-
-theorem stripUnwrapped ∀ (expr: Expr): (stripBinderType expr).unwrapped = expr.unwrapped := match expr with
-  | Paren open inner close =>
-    match bare: open.bare && close.bare with
-      | True => stripUnwrapped inner
-      | False => rewrite stripUnwrapped inner
-  | _ => cases
-
-theorem groupStripUnwrapped ∀ (group: Group): (dropGroupParens group).plainType = group.plainType := match group with
-  | { kind, implicit, open, attributes, auto, names, colon, annotation, default, close, bare } =>
-    match strips: !implicit && colon.isSome && default.isNone && auto.isNone with
-      | False => byComputing
-      | True =>
-        match annotation with
-          | Some written => rewrite stripUnwrapped written
-          | None => byComputing
-
-theorem paramStripUnwrapped ∀ (param: Param): (dropParam param).plainType = param.plainType := match param with
-  | Grouped group => rewrite groupStripUnwrapped group
-  | TypedPattern open pattern colon annotation close => rewrite stripUnwrapped annotation
-  | _ => cases
 
 -- The passes keep `meaning`: each pass's steps, as pure functions, keep
 -- what `meaning`'s walk gives of the node they rewrite (`Keeps`), and the
@@ -419,7 +278,7 @@ theorem parenWalkForgotten ∀ (floor: Nat) (membership recordRow atomOnly: Bool
                   let atomicAfterAll := levelAtomic inner high
                   cases
 
---| By induction along the left end, as `dropLeftForgotten`.
+--| By induction along the left end.
 theorem dropLeftWalk ∀ (floor: Nat) (membership recordRow atomOnly: Bool) (expr: Expr)
     (enough: atomOnly = True → 22 <= floor):
     forgetLeft atomOnly ((dropLeft floor membership recordRow expr).walk meaningPure)

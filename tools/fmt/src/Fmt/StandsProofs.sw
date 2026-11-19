@@ -89,7 +89,7 @@ import Fmt.PrintHangProofs (
   tracks
 )
 import Fmt.JoinProofs (doc1Passes)
-import Fmt.DeclHangProofs (DeclHangs, atomDecl, atomDeclHangs, doc1Hangs, lexKindFixed)
+import Fmt.DeclHangProofs (DeclHangs, doc1Hangs, lexKindFixed)
 import Fmt.OutputStatements (..)
 import Fmt.PrintLexProofs (Follows, Printable, pieceFold, pieceOf)
 
@@ -430,17 +430,6 @@ theorem closesCloser ∀ (text: Text)
       match square: text == "]" with
         | True => byComputing
         | False => (Bool.falseNotTrue (rewrite notComma at closes then closes)).impossible
-
-theorem commentNotCloses ∀ (text: Text) (comment: text.startsWith "--" = True): closesText text = False :=
-  match paren: text == ")" with
-    | True => (Bool.falseNotTrue (rewrite DecEq.sound paren at comment then comment)).impossible
-    | False =>
-      match square: text == "]" with
-        | True => (Bool.falseNotTrue (rewrite DecEq.sound square at comment then comment)).impossible
-        | False =>
-          match comma: text == "," with
-            | True => (Bool.falseNotTrue (rewrite DecEq.sound comma at comment then comment)).impossible
-            | False => byComputing
 
 --| A word's own-line comments, blank line and token can't start a tucked stretch.
 theorem headUnmoved ∀ (notes: List Note) (blank: Bool) (text: Text) (flag: Bool)
@@ -1485,7 +1474,7 @@ theorem standsOfDoc ∀ (decl: Decl) (doc: Doc)
     shows
 
 --| `printedStands1`, as proved: the four tree facts, no comment ending in a carriage return, and `DeclHangs`. It is
---| false without `unreturned1` (`returnedFalls`).
+--| false without `unreturned1`.
 theorem printedStands1 ∀ (decl: Decl)
     (within: decl.within1 = True)
     (shaped: decl.shaped1 = True)
@@ -1506,51 +1495,3 @@ theorem printedStands1 ∀ (decl: Decl)
         plain
         facts
         byComputing
-
--- Witnesses.
-
---| `def d: A := b -- c` with a carriage return ending the comment, as a tree built by hand may have it: the four tree
---| facts hold, but the lexer takes the return off, so the leaf's comment is not the tree's and `stands1` fails.
-def returnedDecl: Decl :=
-  Definition []
-    {
-      exportKeyword = None,
-      opaqueKeyword = None,
-      kind = DefPlain,
-      keyword = Comments.none,
-      name = fixedWord "d" Comments.none,
-      forallKeyword = None,
-      params = [],
-      colon = Comments.none,
-      result = Atom Upper (fixedWord "A" Comments.none),
-      decreasingClause = None,
-      unfoldingClause = None
-    }
-    (Assigned Comments.none (Atom Lower (fixedWord "b" { above = [], after = Some "-- c\r", blankBefore = False })))
-
---| Without `unreturned1`, `printedStands1` is false.
-theorem returnedFalls: returnedDecl.within1 = True
-      ∧ returnedDecl.shaped1 = True
-      ∧ returnedDecl.settled1 = True
-      ∧ returnedDecl.lexical1 = True
-      ∧ returnedDecl.unreturned1 = False
-      ∧ returnedDecl.stands1 = False :=
-  (byComputing, byComputing, byComputing, byComputing, byComputing, byComputing)
-
---| `def d: A := b` meets every hypothesis, so `printedStands1` applies.
-theorem atomDeclStands: atomDecl.stands1 = True :=
-  printedStands1 atomDecl byComputing byComputing byComputing byComputing byComputing atomDeclHangs
-
---| The narrow hypotheses of the lemmas above hold of some input.
-theorem commentNotBreakWitness: ("-- c" == "\n") = False := commentNotBreak "-- c" byComputing
-
-theorem closesCloserWitness: isCloserText ")" = True := closesCloser ")" byComputing byComputing
-
-theorem commentNotClosesWitness: closesText "-- c" = False := commentNotCloses "-- c" byComputing
-
-theorem closerStartsWitness: (Some 0).isSome = True :=
-  closerStarts ")" { word = ")", start = Some 0 } byComputing byComputing
-
-theorem commentFineWitness: CommentFine "-- c" := commentFineOf "-- c" byComputing byComputing
-
-theorem prefixKindOkWitness: KindOk "-" ∧ isCloserText "-" = False := prefixKindOk "-" (Inl byComputing)

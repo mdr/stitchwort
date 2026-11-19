@@ -115,12 +115,6 @@ def ItemHangs (kinds: Text → Tok) (doc: Doc) (inset: Nat) (before trails: Bool
       Ended (openedBy state (startFor noted inset entry)) trails place
         ∧ hang = Hang.At (openedBy state (startFor noted inset entry)))
 
---| An element that hangs with its first word where `wordStart` says is an item that does.
-theorem elItemHangs ∀ (kinds: Text → Tok) (doc: Doc) (inset: Nat) (before trails: Bool)
-    (el: ElHangs kinds doc inset inset before trails wordStart):
-    ItemHangs kinds doc inset before trails :=
-  (False, state entry _ => el state entry)
-
 --| An item: from its seat, as its element hangs, to where it ended.
 theorem itemHangs ∀ (kinds: Text → Tok) (doc: Doc) (inset: Nat) (outer: List (Option Nat))
     (top: Option Nat) (before trails: Bool)
@@ -1386,50 +1380,6 @@ theorem parenHangs ∀ (kinds: Text → Tok) (open: Word) (inner: Expr) (close: 
         entered
         after
 
---| `parenHangs`' `plain` holds of what `parenInner` writes as it is: a token, say.
-theorem plainAtom ∀ (kind: Tok) (word: Word) (innerAround: Around):
-    parenInner (Atom kind word) innerAround = (Atom kind word).el innerAround :=
-  byComputing
-
---| A `paren` as `parenHangs` takes it, framed as an element.
-theorem parenElHangs ∀ (kinds: Text → Tok) (open: Word) (inner: Expr) (close: Word)
-    (around: Around) (indent column: Nat)
-    (opener: OpenerToken kinds open.text)
-    (openTrailed: TrailsComment open)
-    (quiet: open.trails = False)
-    (closer: CloserToken kinds close.text)
-    (closeComments: NotesComment close.comments.above)
-    (closeTrailed: TrailsComment close)
-    (bare: open.leading around around.at = [])
-    (plain: parenInner inner (around.next open.trails 1) = inner.el (around.next open.trails 1))
-    (innerHangs: ∀ (inset: Nat) => ElHangs kinds
-      (inner.el (around.next open.trails 1))
-      inset
-      inset
-      False
-      inner.trails
-      wordStart)
-    (keys: keysFrom (around.at + 1) (inner.el (around.next open.trails 1)) = True):
-    ElHangs kinds
-      (Expr.el (Paren open inner close) around)
-      indent
-      column
-      around.before
-      (close.trails || inner.trails)
-      wordStart :=
-  let inside := { around | hoisted = True }
-  framedHangs kinds open around
-    (parenDoc open inner close inside)
-    indent
-    column
-    (close.trails || inner.trails)
-    bare
-    (inset seat =>
-      parenHangs kinds open inner close inside inset seat opener byComputing openTrailed quiet closer closeComments
-          closeTrailed plain
-          (innerHangs inset)
-          keys)
-
 -- A call's last argument.
 
 --| A tuple's or list's parts in a group, broken or not, as one element: as `huggedBracket` writes them.
@@ -1494,11 +1444,3 @@ theorem groupedBracketHangs ∀ (kinds: Text → Tok) (list: Bool) (open: Word) 
         closeBefore
         state
         entry)
-
-theorem lastTuple ∀ (open: Word) (items: List Expr) (trailing: Bool) (close: Word) (around: Around):
-    lastArgument (Tuple open items trailing close) around = huggedBracket False open items close around :=
-  byComputing
-
-theorem lastList ∀ (open: Word) (items: List Expr) (trailing: Bool) (close: Word) (around: Around):
-    lastArgument (ListOf open items trailing close) around = huggedBracket True open items close around :=
-  byComputing

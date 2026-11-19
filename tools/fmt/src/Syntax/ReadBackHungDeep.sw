@@ -6,7 +6,7 @@ import Std (Bool, DecEq, Eq, List, Nat, Option)
 import Syntax (..)
 import Fmt (..)
 import Syntax.SettleProofs (tokens)
-import Syntax.ReadBackProofs (ItemsAt, depthPast, itemsCons)
+import Syntax.ReadBackProofs (ItemsAt, depthPast)
 import Syntax.ReadBackHung (..)
 
 --| A step reads only the leaf's token.

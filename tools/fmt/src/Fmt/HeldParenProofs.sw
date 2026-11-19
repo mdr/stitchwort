@@ -664,75 +664,6 @@ theorem parenHeldHangs ∀ (kinds: Text → Tok) (open: Word) (inner: Expr) (clo
         entered
         after
 
---| A `paren` holding anything `parenInner` writes as it is, as one element, whether or not its opener ends its line
---| with a comment: `parenHangs`, or `parenHeldHangs`.
-theorem parenAnyHangs ∀ (kinds: Text → Tok) (open: Word) (inner: Expr) (close: Word)
-    (around: Around) (indent column: Nat)
-    (opener: OpenerToken kinds open.text)
-    (hoisted: around.hoisted = True)
-    (openTrailed: TrailsComment open)
-    (closer: CloserToken kinds close.text)
-    (closeComments: NotesComment close.comments.above)
-    (closeTrailed: TrailsComment close)
-    (plain: parenInner inner (around.next open.trails 1) = inner.el (around.next open.trails 1))
-    (innerHangs: ElHangs kinds (inner.el (around.next open.trails 1)) indent indent True inner.trails wordStart)
-    (lowers: open.trails = True → HeldLowers (inner.el (around.next open.trails 1)) indent (around.at + 1))
-    (keys: keysFrom (around.at + 1) (inner.el (around.next open.trails 1)) = True):
-    ElHangs kinds (parenDoc open inner close around) indent column False (close.trails || inner.trails) wordStart :=
-  Bool.inspect open.trails
-    (_ => ElHangs kinds (parenDoc open inner close around) indent column False (close.trails || inner.trails) wordStart)
-    (trails =>
-      parenHeldHangs kinds open inner close around indent column opener hoisted openTrailed trails closer closeComments
-          closeTrailed plain innerHangs
-          (lowers trails)
-          keys)
-    (quiet =>
-      parenHangs kinds open inner close around indent column opener hoisted openTrailed quiet closer closeComments
-          closeTrailed plain
-          (elUnheld kinds (inner.el (around.next open.trails 1)) indent indent True inner.trails wordStart innerHangs)
-          keys)
-
---| `parenAnyHangs`, framed as an element: `parenElHangs` for either opener.
-theorem parenAnyElHangs ∀ (kinds: Text → Tok) (open: Word) (inner: Expr) (close: Word)
-    (around: Around) (indent column: Nat)
-    (opener: OpenerToken kinds open.text)
-    (openTrailed: TrailsComment open)
-    (closer: CloserToken kinds close.text)
-    (closeComments: NotesComment close.comments.above)
-    (closeTrailed: TrailsComment close)
-    (bare: open.leading around around.at = [])
-    (plain: parenInner inner (around.next open.trails 1) = inner.el (around.next open.trails 1))
-    (innerHangs: ∀ (inset: Nat) => ElHangs kinds
-      (inner.el (around.next open.trails 1))
-      inset
-      inset
-      True
-      inner.trails
-      wordStart)
-    (lowers: open.trails = True
-      → ∀ (inset: Nat) => HeldLowers (inner.el (around.next open.trails 1)) inset (around.at + 1))
-    (keys: keysFrom (around.at + 1) (inner.el (around.next open.trails 1)) = True):
-    ElHangs kinds
-      (Expr.el (Paren open inner close) around)
-      indent
-      column
-      around.before
-      (close.trails || inner.trails)
-      wordStart :=
-  let inside := { around | hoisted = True }
-  framedHangs kinds open around
-    (parenDoc open inner close inside)
-    indent
-    column
-    (close.trails || inner.trails)
-    bare
-    (inset seat =>
-      parenAnyHangs kinds open inner close inside inset seat opener byComputing openTrailed closer closeComments
-          closeTrailed plain
-          (innerHangs inset)
-          (trails => lowers trails inset)
-          keys)
-
 -- What the brackets may hold, after the waiting comment.
 
 --| A token that is no item and is written by its node has no own-line comments before it to write.
@@ -753,13 +684,3 @@ theorem atomLowers ∀ (kind: Tok) (word: Word) (around: Around) (indent low: Na
     (single: around.item = False):
     HeldLowers ((Atom kind word).el around) indent low :=
   leafLowers word around around.at indent low solid closer comma (bareLeading word around around.at hoisted bare single)
-
---| A node written as its framed document, its first token with no own-line comments, after a waiting comment: its
---| contents displaced, so `HeldLowers` holds of it.
-theorem nodeLowers ∀ (expr: Expr) (around: Around) (doc: Doc) (indent low: Nat)
-    (shape: expr.el around = framedBy expr.firstWord around doc)
-    (bare: expr.firstWord.leading around around.at = [])
-    (before: around.before = True)
-    (keys: keysFrom low doc = True):
-    HeldLowers (expr.el around) indent low :=
-  rewrite shape then framedLowers expr.firstWord around doc indent low bare before keys

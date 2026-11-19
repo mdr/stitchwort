@@ -136,9 +136,6 @@ def barish (above: Token) (behind: List Leaf): Bool := match behind with
         | [next, ..more] => barish next.token more
   | [leaf, ..rest] => barish leaf.token rest
 
-theorem hasItemNonEmpty ∀ (older: List Leaf) (item: hasItem older = True): older.isEmpty = False := match older with
-  | [x, ..more] => byComputing
-
 theorem drEmpty ∀ (above: Tok) (behind: List Leaf): (dr above behind).isEmpty = behind.isEmpty := match behind with
   | [] => byComputing
   | [x, ..rest] =>
