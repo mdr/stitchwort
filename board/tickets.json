@@ -27399,7 +27399,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Matt, 19 Nov 2026: 'please have on our backlog investigations into or actually doing some of the improvements that we found that would make Stitchwort more competitive with Lean and Rocq on these type of proofs.' Source: docs/reviews/SW-4222-lean-rocq-comparison.md §6.",
+      "body": "Matt, 19 Nov 2026: 'please have on our backlog investigations into or actually doing some of the improvements that we found that would make Stitchwort more competitive with Lean and Rocq on these type of proofs.' Source: docs/reviews/SW-4222-lean-rocq-comparison.md §6.\n\nD3696 parked, Matt, 19 Nov 2026: 'It's a really promising idea. I'd like to study it further ... Can we park it as a very promising idea on the backlog? And I will have a read through the tutorial more closely tomorrow.' Tutorial: https://claude.ai/artifact/V1kPvxmw99KQtiscx9NAdi. Don't start build lanes until he decides.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -27412,7 +27412,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Matt, 19 Nov 2026: 'please have on our backlog investigations into or actually doing some of the improvements that we found that would make Stitchwort more competitive with Lean and Rocq on these type of proofs.' Source: docs/reviews/SW-4222-lean-rocq-comparison.md §6.",
+      "body": "Matt, 19 Nov 2026: 'please have on our backlog investigations into or actually doing some of the improvements that we found that would make Stitchwort more competitive with Lean and Rocq on these type of proofs.' Source: docs/reviews/SW-4222-lean-rocq-comparison.md §6.\n\nD3696 parked, Matt, 19 Nov 2026: 'It's a really promising idea. I'd like to study it further ... Can we park it as a very promising idea on the backlog? And I will have a read through the tutorial more closely tomorrow.' Tutorial: https://claude.ai/artifact/V1kPvxmw99KQtiscx9NAdi. Don't start build lanes until he decides.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
