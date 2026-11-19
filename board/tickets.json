@@ -1,5 +1,5 @@
 {
-  "next": 4278,
+  "next": 4279,
   "tickets": [
     {
       "id": 47,
@@ -27906,6 +27906,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "From SW-4221.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4278,
+      "title": "[Fable] Review D3697 (paper): for match induct on a guarded arm partly overlapped by a later arm, two named cases (eq3 / eq3NotArm2, Isabelle-style) vs one case with Lean's overlap hypothesis vs other; naming; interaction with the walk step",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "Matt asked 19 Nov whether Fable had weighed D3697. Est. 20 min.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
