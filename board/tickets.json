@@ -25773,12 +25773,12 @@
     {
       "id": 4117,
       "title": "[Sonnet] fmt S1 doc1Checks: the declaration level (defDoc, bodyAfter, IdGroup/IfBroken, Choice options) in Fmt.LaysDecl, using elStep as stated, and the doc1Checks assembly (declJoins/declTexts supply nonCloser and spelled); split from SW-4116",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Lane notes (Sonnet, 19 Nov, branch lane/SW-4117):\n- Fmt.LaysDecl: bodyAfterStep (every option of bodyAfter), typedStep, defFromStep, plainDefStep, declChecks; doc1Checks assembled from declChecks in OneLineLays (statement unchanged). check Fmt.OneLineLays: 0 errors; test Fmt.Tests 125 passed.\n- Open: callHugStep (Fmt.LaysDecl), the step of a call's hug (appFrom's hug, a bracket's lastArgument hug) on a `:=` line; it needs the argumentDocs chain, so it belongs with SW-4116's Fmt.LaysApp. elStep's App case still SW-4116's.\n- laysCheckOn holds on `f a -- c⏎ [b, c]` and the like, so no counterexample for the hug.\n",
+      "body": "Lane notes (Sonnet, 19 Nov, branch lane/SW-4117):\n- Fmt.LaysDecl: bodyAfterStep (every option of bodyAfter), typedStep, defFromStep, plainDefStep, declChecks; doc1Checks assembled from declChecks in OneLineLays (statement unchanged). check Fmt.OneLineLays: 0 errors; test Fmt.Tests 125 passed.\n- Open: callHugStep (Fmt.LaysDecl), the step of a call's hug (appFrom's hug, a bracket's lastArgument hug) on a `:=` line; it needs the argumentDocs chain, so it belongs with SW-4116's Fmt.LaysApp. elStep's App case still SW-4116's.\n- laysCheckOn holds on `f a -- c⏎ [b, c]` and the like, so no counterexample for the hug.\n\nMerged 19 Nov. Model result: sonnet, worked, 10 min (est. 60). doc1Checks statement identical (diff). callHugStep handed to SW-4116 (same machinery); unify freshStarts with LaysApp's after.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
