@@ -1,5 +1,5 @@
 {
-  "next": 4132,
+  "next": 4135,
   "tickets": [
     {
       "id": 47,
@@ -25930,12 +25930,12 @@
     {
       "id": 4129,
       "title": "[Opus] fmt S1 item 7 (SW-4120): prove rule N keeps the parse (parseFile of the settled leaves gives the tree of parseFile of the lexer's leaves, up to comment placement), linking inGrammar1 to the driver's parse",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4129",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "docs/reviews/SW-4120-grammar1.md item 7. Model: Opus. Est. 60-90 min; may need a Fable sketch first.",
+      "body": "docs/reviews/SW-4120-grammar1.md item 7. Model: Opus. Est. 60-90 min; may need a Fable sketch first.\n\nLane notes (Opus, 19 Nov): branch lane/SW-4129, commit 9a285d94a, new file tools/fmt/src/Fmt/SettleParseProofs.sw.\n- Stated `settledParses1` (parseFile lexed = Ok file, file.grammar1, plain1 ⇒ parseFile lexed.settledOnce = Ok settled, settled.withoutComments = file.withoutComments, settled.grammar1), `settledParsesKept1` (token equation instead of plain1) and `settledPlaced1` (adds the driver's comment placement via parseCarriesSourceProved).\n- Proved the file layer (groups cut by tokens, fileRefusal, parseGroups induction, Seen, withoutComments as walkDecls).\n- Open: `groupKeepsTokens1`, one group's declaration parse reads comments only into the tree. A relational walk of the declaration parser over the Parse handler (mark/next/fatal, loop, recursiveWith; no backtracking). Multi-lane; no std framework for relating two runs exists.\n- Closed examples by computing: settlesOn (3 sources incl. the own-line comma, which fails plain1 but still parses alike), groupsKeepOn, placedOn.\n- check Fmt.SettleParseProofs: 0 errors, 1 open goal; audit: 6 fail (the open goal and the 5 that rely on it), 33 pass.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -25962,6 +25962,45 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "docs/reviews/SW-4120-grammar1.md item 6. Model: Fable. Est. 45 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4132,
+      "title": "[Fable paper] Std.Parse: a framework for comparing two runs of a parser on related inputs (mark, next, fatal, sequencing, loop, recursiveWith), sketched for SW-4129's open groupKeepsTokens1 (the declaration parser reads comments only into the tree); statements, where they live (std), and the lane plan",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4132",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From SW-4129 (Opus, 19 Nov): settledParses1 proved but for groupKeepsTokens1; estimate 3-6 Opus lanes after a sketch. Model: Fable. Est. 45 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4133,
+      "title": "[Opus] fmt S1 item 7b: prove groupKeepsTokens1 (Fmt.SettleParseProofs): two groups with the same tokens parse alike up to comments, using the two-run framework",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "After the Fable sketch SW-4132. Est. 3-6 lanes.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4134,
+      "title": "[Sonnet] fmt S1: loweringError = None for every slice 1 declaration, a lemma on its own (takes a conjunct out of groupKeepsTokens1)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From SW-4129. Est. 20 min.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
