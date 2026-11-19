@@ -27656,7 +27656,7 @@
     {
       "id": 4259,
       "title": "[Sonnet] Extend tools/fmt/dev/spellings.py to [alike := …] (~94 in the Follows* files) and other spelled names ([g2/spec/weaker := …]), and to groups not at a line start; run it over tools/fmt",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
