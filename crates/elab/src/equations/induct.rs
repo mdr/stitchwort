@@ -26,6 +26,11 @@
 //! recursive call passes on unchanged) is taken once and isn't the
 //! motive's.
 //!
+//! **A call inside a lifted `match` that isn't in tail position** (G2,
+//! docs/proposals/functional-induction.md) has its induction hypothesis
+//! under the alternative it is in: quantified over the alternative's
+//! variables, with its equation `e = C fields` as a premise.
+//!
 //! **Its proof** is a kernel term, checked like any theorem. A case tree
 //! that is the definition's own (its `f.%step`'s for `decreasing`) on the
 //! parameters; at each leaf, the arm's variables read off it, and below,
@@ -59,7 +64,8 @@
 //! hypothesis (`notArmJ`, which the proof would have to establish); a
 //! recursive call whose arguments depend on a binder it is under (a lambda
 //! passed to `List.map`, §5.1), or inside a lifted `match` that isn't in
-//! tail position; a lifted `match` on several expressions, or whose
+//! tail position on an indexed family; a lifted `match` on several
+//! expressions, or whose
 //! patterns aren't constructors, variables and number literals up to 64,
 //! or on an indexed type. Mutual groups get none (D2181).
 
@@ -67,8 +73,13 @@ use super::*;
 use stitchwort_core::Ev;
 
 /// One recursive call in a case's right side: `f`'s arguments, and the
-/// decrease proof it was made with (`decreasing`).
+/// decrease proof it was made with (`decreasing`). A call inside a lifted
+/// `match` that isn't in tail position (G2) is under that `match`'s
+/// alternative: `under` are its pattern variables and its equation
+/// `e = C fields` (each binder's type at the case's depth plus the binders
+/// before it), and `args` are at the case's depth plus `under.len()`.
 struct Ih {
+    under: Vec<(Name, Icit, Term)>,
     args: Vec<(Term, Icit)>,
     proof: Option<Term>,
 }
@@ -224,8 +235,16 @@ pub(super) fn no_equations(e: &mut Elaborator, f: DefId, kind: Kind, why: &str) 
 }
 
 /// The recursive calls in `t` (at `depth`, under `under` binders of its
-/// own), innermost first, as terms at `depth - under`.
-fn calls(g: &Ev, d: &Def, t: &Term, depth: usize, under: usize, out: &mut Vec<Ih>) -> R<()> {
+/// own), innermost first, as terms at `depth - under`; `walking` are the
+/// helpers whose case trees this is inside (G2).
+fn calls(
+    g: &Ev,
+    d: &Def,
+    t: &Term,
+    (depth, under): (usize, usize),
+    walking: &[DefId],
+    out: &mut Vec<Ih>,
+) -> R<()> {
     g.machine.budget.nesting("equations")?;
     let n = d.binders.len();
     let decreasing = matches!(d.kind, Kind::Decreasing { .. });
@@ -255,7 +274,7 @@ fn calls(g: &Ev, d: &Def, t: &Term, depth: usize, under: usize, out: &mut Vec<Ih
                 ));
             }
             for (a, _) in &args[..n] {
-                calls(g, d, a, depth, under, out)?;
+                calls(g, d, a, (depth, under), walking, out)?;
             }
             let mut ys = Vec::new();
             for (a, icit) in &args[..n] {
@@ -265,64 +284,469 @@ fn calls(g: &Ev, d: &Def, t: &Term, depth: usize, under: usize, out: &mut Vec<Ih
                 true => Some(unmark(g, d, &lower(&args[n].0)?)?),
                 false => None,
             };
-            out.push(Ih { args: ys, proof });
+            out.push(Ih {
+                under: Vec::new(),
+                args: ys,
+                proof,
+            });
             return Ok(());
         }
-        Term::Def(x) if !decreasing && helper_calls(g, d.f, *x, &mut Vec::new()) => {
-            return skip(format!(
-                "it calls itself inside `{}`, a lifted `match` or local definition that isn't in \
-                 tail position: its induction hypothesis can't be stated (§5.1)",
-                g.def(*x).name()
-            ));
+        // A `decreasing` definition's helper calls `%rec`, passed to it.
+        Term::Def(x)
+            if own_helper(g, d, *x)
+                && ((!decreasing && helper_calls(g, d.f, *x, &mut Vec::new()))
+                    || (decreasing && args.iter().any(|(a, _)| rec_lambda(d, a)))) =>
+        {
+            for (a, _) in &args {
+                // `decreasing`'s `%rec`, passed on to the helper: its calls
+                // are the helper's, below.
+                if !(decreasing && rec_lambda(d, a)) {
+                    calls(g, d, a, (depth, under), walking, out)?;
+                }
+            }
+            let mut vals = Vec::new();
+            for (a, _) in &args {
+                vals.push((lower(a)?, depth - under));
+            }
+            return helper_calls_under(g, d, *x, vals, depth - under, walking, out);
         }
         _ => {}
     }
     if !args.is_empty() {
-        calls(g, d, head, depth, under, out)?;
+        calls(g, d, head, (depth, under), walking, out)?;
         for (a, _) in &args {
-            calls(g, d, a, depth, under, out)?;
+            calls(g, d, a, (depth, under), walking, out)?;
         }
         return Ok(());
     }
     match t {
-        Term::Lam(_, _, b) => calls(g, d, b, depth + 1, under + 1, out),
+        Term::Lam(_, _, b) => calls(g, d, b, (depth + 1, under + 1), walking, out),
         Term::Pi(_, _, a, b) => {
-            calls(g, d, a, depth, under, out)?;
-            calls(g, d, b, depth + 1, under + 1, out)
+            calls(g, d, a, (depth, under), walking, out)?;
+            calls(g, d, b, (depth + 1, under + 1), walking, out)
         }
         Term::Let(_, a, v, b, _) => {
-            calls(g, d, a, depth, under, out)?;
-            calls(g, d, v, depth, under, out)?;
-            calls(g, d, b, depth + 1, under + 1, out)
+            calls(g, d, a, (depth, under), walking, out)?;
+            calls(g, d, v, (depth, under), walking, out)?;
+            calls(g, d, b, (depth + 1, under + 1), walking, out)
         }
-        Term::Loc(_, inner) => calls(g, d, inner, depth, under, out),
+        Term::Loc(_, inner) => calls(g, d, inner, (depth, under), walking, out),
         Term::Ann(a, b) => {
-            calls(g, d, a, depth, under, out)?;
-            calls(g, d, b, depth, under, out)
+            calls(g, d, a, (depth, under), walking, out)?;
+            calls(g, d, b, (depth, under), walking, out)
         }
         Term::Ctor(_, _, xs) | Term::Data(_, xs) | Term::Quot(_, xs, _) => {
             for x in xs {
-                calls(g, d, x, depth, under, out)?;
+                calls(g, d, x, (depth, under), walking, out)?;
             }
             Ok(())
         }
         Term::Eq(ty, a, b) => {
             if let Some(ty) = ty {
-                calls(g, d, ty, depth, under, out)?;
+                calls(g, d, ty, (depth, under), walking, out)?;
             }
-            calls(g, d, a, depth, under, out)?;
-            calls(g, d, b, depth, under, out)
+            calls(g, d, a, (depth, under), walking, out)?;
+            calls(g, d, b, (depth, under), walking, out)
         }
         Term::J(m, b, p) => {
-            calls(g, d, m, depth, under, out)?;
-            calls(g, d, b, depth, under, out)?;
-            calls(g, d, p, depth, under, out)
+            calls(g, d, m, (depth, under), walking, out)?;
+            calls(g, d, b, (depth, under), walking, out)?;
+            calls(g, d, p, (depth, under), walking, out)
         }
-        Term::Proj(_, _, t) => calls(g, d, t, depth, under, out),
+        Term::Proj(_, _, t) => calls(g, d, t, (depth, under), walking, out),
         Term::Case(..) | Term::NumCase(..) => {
             skip("a branch's right side is a case tree, which stage 2a doesn't follow")
         }
         _ => Ok(()),
+    }
+}
+
+/// Whether `t` is `%rec` of a `decreasing` definition as the equations
+/// have it, `(y… decreasing => f y… decreasing)` ([`Def::mark_rec`]).
+fn rec_lambda(d: &Def, t: &Term) -> bool {
+    let mut t = t.strip_loc();
+    for _ in 0..=d.binders.len() {
+        match t {
+            Term::Lam(_, _, b) => t = b.strip_loc(),
+            _ => return false,
+        }
+    }
+    matches!(t.spine().0.strip_loc(), Term::Def(x) if *x == d.f)
+}
+
+/// Whether `t` calls `f`, directly or through its own helpers.
+fn calls_f(g: &Ev, d: &Def, t: &Term) -> bool {
+    let mut seen = Vec::new();
+    t.subterms().any(|(t, _)| match t {
+        Term::Def(x) if *x == d.f => true,
+        Term::Def(x) => helper_calls(g, d.f, *x, &mut seen),
+        _ => false,
+    })
+}
+
+/// Whether `h` is one of `f`'s own helpers (`f.%match1`, `f.go`), by name.
+fn own_helper(g: &Ev, d: &Def, h: DefId) -> bool {
+    let prefix = format!("{}.", g.def(d.f).name());
+    g.def(h).name().starts_with(&prefix)
+}
+
+/// G2: the recursive calls inside `h`, a lifted `match`'s helper (or a
+/// local definition) of `f` called with `vals` (at `top`) where the call
+/// isn't in tail position. Each gets an induction hypothesis under the
+/// alternative it is in: quantified over the alternative's pattern
+/// variables, with its equation `e = C fields` as a premise, one for each
+/// split of the helper's case tree the alternative goes through. Its proof
+/// is `f.induct`'s own call under those binders: for structural recursion
+/// it uses neither; for `decreasing`, the call's decrease proof is the one
+/// `f`'s call was made with, read in the alternative, where the split
+/// variables are their patterns, and carried back along each premise to
+/// the values the helper was called with ([`HelperWalk::carry`]).
+#[allow(clippy::too_many_arguments)]
+fn helper_calls_under(
+    g: &Ev,
+    d: &Def,
+    h: DefId,
+    vals: Vec<(Term, usize)>,
+    top: usize,
+    walking: &[DefId],
+    out: &mut Vec<Ih>,
+) -> R<()> {
+    let name = g.def(h).name().to_string();
+    let why = |what: &str| -> R<()> {
+        skip(format!(
+            "it calls itself inside `{name}`, a lifted `match` or local definition that isn't in \
+             tail position, {what}: its induction hypothesis can't be stated (§5.1)"
+        ))
+    };
+    if let Some(i) = walking.iter().position(|w| *w == h) {
+        return why(&format!(
+            "which calls itself through `{}`",
+            g.def(walking[(i + 1) % walking.len()]).name()
+        ));
+    }
+    let n_h = vals.len();
+    let def = g.def(h);
+    let Some(body) = def.body().cloned() else {
+        return why("which has no body to read");
+    };
+    if body
+        .subterms()
+        .any(|(t, _)| matches!(t, Term::Def(x) if *x == h))
+    {
+        return why("which calls itself");
+    }
+    let (hb, _) = split_pis(def.ty(), Some(n_h));
+    if def.arity() != n_h || hb.len() != n_h {
+        return why("which isn't called with all its parameters");
+    }
+    let mut tys = Vec::new();
+    for (p, b) in hb.iter().enumerate() {
+        tys.push((instantiate(g, &b.ty, p, &vals[..p], top)?, top));
+    }
+    let mut tree: &Term = &body;
+    for _ in 0..n_h {
+        match tree.strip_loc() {
+            Term::Lam(_, _, b) => tree = b,
+            _ => return why("whose body isn't a function of its parameters"),
+        }
+    }
+    // Each parameter that is a `match h: e`'s equation `e = x` about the
+    // parameter `x`, by `x`: in an alternative it is the premise.
+    let mut eqs: Vec<(usize, usize)> = Vec::new();
+    for (p, b) in hb.iter().enumerate() {
+        if let Term::Eq(_, _, r) = b.ty.strip_loc()
+            && let Term::Var(i) = r.strip_loc()
+            && *i < p
+        {
+            eqs.push((p - 1 - i, p));
+        }
+    }
+    // `decreasing`: `%rec`'s parameter and its decrease condition, a term
+    // under the parameters before it and the call's arguments.
+    let n = d.binders.len();
+    let mut rec = None;
+    if let Some(r) = (0..n_h).find(|&l| rec_lambda(d, &vals[l].0)) {
+        let mut ty = hb[r].ty.strip_loc();
+        for _ in 0..n {
+            match ty {
+                Term::Pi(_, _, _, b) => ty = b.strip_loc(),
+                _ => return why("whose `%rec` isn't of the definition's type"),
+            }
+        }
+        let Term::Pi(_, _, cond, _) = ty else {
+            return why("whose `%rec` isn't of the definition's type");
+        };
+        rec = Some((r, (**cond).clone()));
+    }
+    let mut walking = walking.to_vec();
+    walking.push(h);
+    let mut walk = HelperWalk {
+        g,
+        d,
+        why: &why,
+        eqs: &eqs,
+        rec,
+        splits: Vec::new(),
+        walking: &walking,
+        top,
+        out,
+    };
+    walk.tree(tree, vals, tys, &mut Vec::new())
+}
+
+/// One split of a helper's case tree on the way to a call (G2): the
+/// helper's variable split, the values before it, and the level of its
+/// premise `e = pattern`.
+struct Split {
+    var: usize,
+    before: Vec<(Term, usize)>,
+    premise: usize,
+}
+
+/// The walk of a helper's case tree for [`helper_calls_under`].
+struct HelperWalk<'a> {
+    g: &'a Ev<'a>,
+    d: &'a Def,
+    why: &'a dyn Fn(&str) -> R<()>,
+    eqs: &'a [(usize, usize)],
+    /// `%rec`'s parameter and its decrease condition, for `decreasing`.
+    rec: Option<(usize, Term)>,
+    splits: Vec<Split>,
+    walking: &'a [DefId],
+    top: usize,
+    out: &'a mut Vec<Ih>,
+}
+
+impl HelperWalk<'_> {
+    /// Whether `body`, under `extra` binders more than `vals`, calls `f`
+    /// (for `decreasing`, `%rec`).
+    fn reaches_f(&self, vals: &[(Term, usize)], body: &Term, extra: usize) -> bool {
+        let inner = vals.len() + extra;
+        calls_f(self.g, self.d, body)
+            || (0..vals.len())
+                .any(|l| rec_lambda(self.d, &vals[l].0) && body.mentions(inner - 1 - l))
+    }
+
+    /// The values below a split of variable `var` whose premise is at level
+    /// `premise`: `var` is the pattern (at `at`), and a `match h: e`'s
+    /// equation about it is the premise.
+    fn refine(
+        &mut self,
+        vals: &mut [(Term, usize)],
+        var: usize,
+        pattern: Term,
+        at: usize,
+        premise: usize,
+    ) {
+        self.splits.push(Split {
+            var,
+            before: vals.to_vec(),
+            premise,
+        });
+        vals[var] = (pattern, at);
+        for &(x, p) in self.eqs {
+            if x == var {
+                vals[p] = (Term::Var(0), premise + 1);
+            }
+        }
+    }
+
+    /// Below the splits of `binders` (at `top` plus those before each):
+    /// `vals` and `tys` are the helper's variables' values and types there,
+    /// each at the depth given.
+    fn tree(
+        &mut self,
+        tree: &Term,
+        vals: Vec<(Term, usize)>,
+        tys: Vec<(Term, usize)>,
+        binders: &mut Vec<(Name, Icit, Term)>,
+    ) -> R<()> {
+        let (g, d, why) = (self.g, self.d, self.why);
+        g.machine.budget.nesting("equations")?;
+        let cd = self.top + binders.len();
+        let unread = || why("whose case tree couldn't be read");
+        match tree.strip_loc() {
+            Term::Case(ix, data, branches) => {
+                let Some(hl) = vals.len().checked_sub(1 + ix) else {
+                    return unread();
+                };
+                let (v, vat) = &vals[hl];
+                let (ty, tat) = &tys[hl];
+                let env: Vec<Value> = (0..*tat).map(Value::var).collect();
+                let ty = stitchwort_core::value::quote(g, *tat, &force(g, eval(g, &env, ty)?)?)?;
+                let Term::Data(dd, dargs) = ty.strip_loc() else {
+                    return unread();
+                };
+                if dd != data {
+                    return unread();
+                }
+                let decl = g.data(*data);
+                if !decl.indices().is_empty() {
+                    return why("which splits an indexed family");
+                }
+                let np = decl.params().len();
+                let dargs: Vec<Term> = (dargs.iter())
+                    .map(|a| Ok(a.shift(g, cd - tat, 0)?))
+                    .collect::<R<_>>()?;
+                let v = unmark(g, d, &v.shift(g, cd - vat, 0)?)?;
+                for (c, br) in branches.iter().enumerate() {
+                    let Some(body) = &br.body else { continue };
+                    if !self.reaches_f(&vals, body, br.names.len()) {
+                        continue;
+                    }
+                    let ctor = &decl.ctors()[c];
+                    let m = ctor.fields.len();
+                    let mark = binders.len();
+                    let mut vals = vals.clone();
+                    let mut tys = tys.clone();
+                    for (f, (x, fty)) in ctor.fields.iter().enumerate() {
+                        let to = cd + f;
+                        let fty = remap(g, fty, np + f, to, &|l| {
+                            Some(if l < np {
+                                dargs[l].shift(g, f, 0).ok()?
+                            } else {
+                                Term::Var(to - 1 - (cd + l - np))
+                            })
+                        })?
+                        .ok_or_else(|| {
+                            Stop::Skip("a constructor's field type couldn't be read".into())
+                        })?;
+                        let x: Name = match br.names.get(f) {
+                            Some(n) if !n.starts_with('%') => n.clone(),
+                            _ => x.clone(),
+                        };
+                        binders.push((x, Icit::Explicit, fty.clone()));
+                        tys.push((fty, to));
+                        vals.push((Term::Var(0), to + 1));
+                    }
+                    let at = cd + m;
+                    let pattern =
+                        Term::ctor(*data, c, (0..m).map(|f| Term::Var(m - 1 - f)).collect());
+                    let dargs_at: Vec<Term> = (dargs.iter())
+                        .map(|a| Ok(a.shift(g, m, 0)?))
+                        .collect::<R<_>>()?;
+                    let eq = Term::Eq(
+                        Some(Rc::new(Term::data(*data, dargs_at))),
+                        Rc::new(v.shift(g, m, 0)?),
+                        Rc::new(pattern.clone()),
+                    );
+                    binders.push((format!("is{}", ctor.name).into(), Icit::Explicit, eq));
+                    self.refine(&mut vals, hl, pattern, at, at);
+                    let done = self.tree(body, vals, tys, binders);
+                    self.splits.pop();
+                    done?;
+                    binders.truncate(mark);
+                }
+                Ok(())
+            }
+            // On numbers: an arm's premise is `e = k`; the default's has
+            // none (that `e` is none of the arms' numbers isn't stated).
+            Term::NumCase(ix, arms, default) => {
+                let Some(hl) = vals.len().checked_sub(1 + ix) else {
+                    return unread();
+                };
+                let Some(nat) = g.env.builtins().nat else {
+                    return why("which splits a number before `Nat` is bound");
+                };
+                let (v, vat) = &vals[hl];
+                let v = unmark(g, d, &v.shift(g, cd - vat, 0)?)?;
+                for arm in arms.iter() {
+                    if !self.reaches_f(&vals, &arm.body, 0) {
+                        continue;
+                    }
+                    let k = Term::Nat(arm.value.clone());
+                    let mark = binders.len();
+                    binders.push((
+                        format!("is{}", arm.value).into(),
+                        Icit::Explicit,
+                        Term::Eq(
+                            Some(Rc::new(Term::data(nat, Vec::new()))),
+                            Rc::new(v.clone()),
+                            Rc::new(k.clone()),
+                        ),
+                    ));
+                    let mut vals = vals.clone();
+                    self.refine(&mut vals, hl, k, cd, cd);
+                    let done = self.tree(&arm.body, vals, tys.clone(), binders);
+                    self.splits.pop();
+                    done?;
+                    binders.truncate(mark);
+                }
+                if self.reaches_f(&vals, default, 0) {
+                    self.tree(default, vals, tys, binders)?;
+                }
+                Ok(())
+            }
+            leaf => {
+                let mut body = instantiate(g, leaf, vals.len(), &vals, cd)?;
+                if matches!(d.kind, Kind::Decreasing { .. }) {
+                    body = beta_rec(g, body)?;
+                }
+                let mut inner = Vec::new();
+                calls(g, d, &body, (cd, 0), self.walking, &mut inner)?;
+                for ih in inner {
+                    let at = cd + ih.under.len();
+                    let proof = match ih.proof {
+                        Some(p) => Some(self.carry(p, &ih.args, at)?),
+                        None => None,
+                    };
+                    let mut under = binders.clone();
+                    under.extend(ih.under);
+                    self.out.push(Ih {
+                        under,
+                        args: ih.args,
+                        proof,
+                    });
+                }
+                Ok(())
+            }
+        }
+    }
+
+    /// A `decreasing` call's decrease proof `proof` (at `at`, the call's
+    /// arguments `ys`), read where each split variable is its pattern:
+    /// carried back along each split's premise `e = pattern`, innermost
+    /// first, by `J`, to the condition at the values the helper was called
+    /// with, which is what `f.induct`'s own `%rec` takes. A split of a
+    /// variable the condition can't mention (after `%rec`) needs none.
+    fn carry(&self, mut proof: Term, ys: &[(Term, Icit)], at: usize) -> R<Term> {
+        let g = self.g;
+        let Some((r, cond)) = &self.rec else {
+            return Ok(proof);
+        };
+        let r = *r;
+        let lam2 = |body: Term| {
+            Term::Lam(
+                "y".into(),
+                Icit::Explicit,
+                Rc::new(Term::Lam("e".into(), Icit::Explicit, Rc::new(body))),
+            )
+        };
+        for split in self.splits.iter().rev() {
+            if split.var >= r {
+                continue;
+            }
+            let to = at + 2;
+            let mut env: Vec<(Term, usize)> = split.before[..r].to_vec();
+            env[split.var] = (Term::Var(0), at + 1);
+            env.extend(ys.iter().map(|(y, _)| (y.clone(), at)));
+            let motive = unmark(g, self.d, &instantiate(g, cond, env.len(), &env, to)?)?;
+            let (v, vat) = &split.before[split.var];
+            let v = unmark(g, self.d, &v.shift(g, at - vat, 0)?)?;
+            let premise = Term::Var(at - 1 - split.premise);
+            // `pattern = e`, from the premise `e = pattern`.
+            let back = Term::J(
+                Rc::new(lam2(Term::Eq(
+                    None,
+                    Rc::new(Term::Var(1)),
+                    Rc::new(v.shift(g, 2, 0)?),
+                ))),
+                Rc::new(Term::Refl),
+                Rc::new(premise),
+            );
+            proof = Term::J(Rc::new(lam2(motive)), Rc::new(proof), Rc::new(back));
+        }
+        Ok(proof)
     }
 }
 
@@ -557,7 +981,7 @@ impl Elaborator {
                 let g = &self.ev();
                 let depth = binders.len();
                 let mut ihs = Vec::new();
-                calls(g, d, &cur, depth, 0, &mut ihs)?;
+                calls(g, d, &cur, (depth, 0), &[], &mut ihs)?;
                 let rhs = unmark(g, d, &cur)?;
                 // Steps through a `match` compiled into the tree aren't
                 // splits of the proof: they are in the tree.
@@ -631,8 +1055,10 @@ impl Elaborator {
                     return Ok(false);
                 }
                 let at = l.shift(g, c.binders.len() - c.tk, 0)?;
-                if c.ihs.iter().any(|ih| !same_var(&ih.args[i].0, &at)) {
-                    return Ok(false);
+                for ih in &c.ihs {
+                    if !same_var(&ih.args[i].0, &at.shift(g, ih.under.len(), 0)?) {
+                        return Ok(false);
+                    }
                 }
             }
             Ok(true)
@@ -892,23 +1318,49 @@ impl Elaborator {
                 ty: move_to(ty, l, at + newpos[l])?,
             });
         }
+        // A term of the case's context and `from - b` of an induction
+        // hypothesis's own binders (G2), at `to`.
+        let move_under = |t: &Term, from: usize, to: usize| -> R<Term> {
+            let k = from - b;
+            remap(g, t, from, to, &|l| {
+                Some(if l >= b {
+                    Term::Var(to - 1 - (to - k + (l - b)))
+                } else {
+                    match fixed_of.get(&l) {
+                        Some(f) => Term::Var(to - 1 - f),
+                        None => Term::Var(to - 1 - (at + newpos[l])),
+                    }
+                })
+            })?
+            .ok_or_else(|| Stop::Skip("a case's statement couldn't be read".into()))
+        };
         let depth0 = at + kept;
         let several = case.ihs.len() > 1;
         for (q, ih) in case.ihs.iter().enumerate() {
             let depth = depth0 + q;
+            let k = ih.under.len();
+            let mut under: Vec<Binder> = Vec::new();
+            for (j, (x, icit, ty)) in ih.under.iter().enumerate() {
+                under.push(Binder {
+                    name: x.clone(),
+                    icit: *icit,
+                    ty: move_under(ty, b + j, depth + j)?,
+                });
+            }
             let ty = self.induct_motive_at(
                 d,
                 lay,
-                depth,
-                &|i, depth| move_to(&ih.args[i].0, b, depth),
+                depth + k,
+                &|i, depth| move_under(&ih.args[i].0, b + k, depth),
                 &|depth| {
                     let mut call = Term::Def(d.f);
                     for (a, icit) in &ih.args {
-                        call = Term::app_icit(call, move_to(a, b, depth)?, *icit);
+                        call = Term::app_icit(call, move_under(a, b + k, depth)?, *icit);
                     }
                     Ok(call)
                 },
             )?;
+            let ty = pis(&under, ty);
             let name = if several {
                 format!("ih{}", q + 1)
             } else {
@@ -1241,6 +1693,10 @@ impl Elaborator {
         }
         let n = d.binders.len();
         for ih in &case.ihs {
+            // Under the hypothesis's own binders (G2), which the call
+            // doesn't use.
+            let k = ih.under.len();
+            let var = |level: usize| Term::Var(depth + k - 1 - level);
             let mut call = if lay.decreasing {
                 var(lay.params())
             } else {
@@ -1262,6 +1718,9 @@ impl Elaborator {
             }
             if let Some(p) = &ih.proof {
                 call = Term::app_icit(call, p.clone(), Icit::Auto);
+            }
+            for (x, icit, _) in ih.under.iter().rev() {
+                call = Term::Lam(x.clone(), *icit, Rc::new(call));
             }
             applied = Term::app(applied, call);
         }

@@ -1,0 +1,20 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-NO-INDUCT] Error: `match induct` needs `sumHeads.induct`, and `sumHeads` has none
+    ╭─[ reject/match-induct-nontail-indexed.sw:16:85 ]
+    │
+ 13 │ ╭─▶       (match v with
+ 14 │ ├─▶         | VCons x _ => x + sumHeads rest)
+    │ │                                               
+    │ ╰─────────────────────────────────────────────── this `match`
+    │ 
+ 16 │     theorem sumHeadsPositive ∀ (vs: List (Vec Nat 2)): sumHeads vs ≥ 0 := match induct (sumHeads vs) with
+    │                                                                                         ─────┬─────  
+    │                                                                                              ╰─────── this call
+    │     
+    │     Note 1: why: it calls itself inside this `match`, a lifted `match` or local definition that isn't in tail position, which splits an indexed family: its induction hypothesis can't be stated (§5.1)
+    │     
+    │     Note 2: `f.induct` is generated for a recursive definition where it can be stated and proved (docs/proposals/function-equations.md §5); recurse in the proof instead, as the definition does, with its equations for the steps
+────╯
