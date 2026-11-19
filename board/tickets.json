@@ -1197,7 +1197,7 @@
     {
       "id": 1004,
       "title": "Goal printing: lifted match helpers (f.%match1) still print by internal name",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [
@@ -8038,8 +8038,8 @@
     {
       "id": 2152,
       "title": "[Sonnet] Goal printer: record updates (record_update) and Float's of_bits recognise Proj fields, not just accessor calls, so record updates print as written after record eta",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [
         "goals"
@@ -8047,7 +8047,7 @@
       "epic": "diagnostics",
       "body": "From docs/proposals/goal-printing-gaps.md. Lane B; replaces SW-2076. 30 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-19",
       "commits": []
     },
     {
