@@ -49,16 +49,14 @@ import Syntax (
 def Expr.within6a: Expr → Bool
   | Atom kind word => kind.wordWithin6a || (kind == Str || kind == CharLit) && !word.text.contains "\n"
   | Paren _ inner _ => inner.within6a
-  | Tuple _ items _ _ => allInline6a items
-  | ListOf _ items _ _ => allInline6a items
+  | Tuple _ items _ _ | ListOf _ items _ _ => allInline6a items
   | App head arguments => head.inline6a && allInline6a arguments
-  | Infix InfixBinary left _ right => left.inline6a && right.within6a
-  | Infix InfixArrow left _ right => left.inline6a && right.within6a
+  | Infix InfixBinary left _ right | Infix InfixArrow left _ right => left.inline6a && right.within6a
   | Infix InfixMembership left _ right => left.inline6a && right.inline6a
   | Prefix operator operand => operand.inline6a && !(operator.text == "-" && operand.numeralField)
   | Binding BindsLambda None params _ body => !params.isEmpty && paramsWithin6a params && body.within6a
-  | Binding BindsForall (Some _) params _ body => !params.isEmpty && paramsWithin6a params && body.inline6a
-  | Binding BindsExists (Some _) params _ body => !params.isEmpty && paramsWithin6a params && body.inline6a
+  | Binding BindsForall (Some _) params _ body | Binding BindsExists (Some _) params _ body =>
+    !params.isEmpty && paramsWithin6a params && body.inline6a
   | Block first rest result =>
     first.within6a && statementsWithin6a rest && result.inline6a && laterLinesPlain rest result
   | LetIn binding _ body => binding.within6a && keepsLine binding.value && body.within6a
@@ -73,9 +71,7 @@ def Expr.within6a: Expr → Bool
   | Infix InfixIff left _ right => left.inline6a && right.within6a
   | Facts _ _ facts => facts.inline6a
   | Cases _ _ body => body.within6a
-  | Rewrite _ (RuleList rules) target body =>
-    !rules.isEmpty && rulesWithin6a rules && afterWithin6a False target && afterWithin6a True body
-  | Rewrite _ (Repeatedly _ { rules, .. }) target body =>
+  | Rewrite _ (RuleList rules) target body | Rewrite _ (Repeatedly _ { rules, .. }) target body =>
     !rules.isEmpty && rulesWithin6a rules && afterWithin6a False target && afterWithin6a True body
   | Calc _ first steps => first.inline6a && first.hugsNowhere && !steps.isEmpty && stepsWithin6a steps
   | _ => False
@@ -89,8 +85,7 @@ def Expr.hugsNowhere: Expr → Bool
   | Paren _ inner _ => inner.hugsNowhere
   | App head arguments => head.hugsNowhere && argumentsHugNowhere arguments
   | Infix _ left _ right => left.hugsNowhere && right.hugsNowhere
-  | Prefix _ operand => operand.hugsNowhere
-  | FieldAccess (Some target) _ _ => target.hugsNowhere
+  | Prefix _ operand | FieldAccess (Some operand) _ _ => operand.hugsNowhere
   | _ => False
 
 --| Each argument hugs nowhere, and the last can't hug: no tuple, list or
@@ -203,8 +198,7 @@ def patternsWithin6a: List Pattern → Bool
 --| A constructor's arguments: as `argumentsWithin4c`.
 def argumentsWithin6a: List Pattern → Bool
   | [] => True
-  | [PatternAbsurd _ _, .._] => False
-  | [PatternCtor _ _, .._] => False
+  | [PatternAbsurd _ _, .._] | [PatternCtor _ _, .._] => False
   | [pattern, ..rest] => pattern.within6a && argumentsWithin6a rest
 
 def tailWithin6a: Option (Word, Pattern) → Bool
@@ -225,8 +219,7 @@ def fieldPatternsWithin6a: List FieldPattern → Bool
 --| A binder's parameters: names, `_`, and typed groups.
 def paramsWithin6a: List Param → Bool
   | [] => True
-  | [NameParam _, ..rest] => paramsWithin6a rest
-  | [PatternParam (PatternWord _ _), ..rest] => paramsWithin6a rest
+  | [NameParam _, ..rest] | [PatternParam (PatternWord _ _), ..rest] => paramsWithin6a rest
   | [Grouped group, ..rest] => groupWithin6a GroupLambda group && paramsWithin6a rest
   | [_, ..rest] => False
 
@@ -258,8 +251,7 @@ def Header.within6a (header: Header): Bool := match header with
 def Decl.within6a: Decl → Bool
   | Definition [] header (Assigned _ value) => header.within6a && value.within6a
   | Definition [] header (Arms arms) => header.within6a && !arms.isEmpty && armsWithin6a arms
-  | Namespace _ _ => True
-  | Import _ _ _ _ _ => True
+  | Namespace _ _ | Import _ _ _ _ _ => True
   | Test _ name _ body => !name.text.contains "\n" && body.within6a
   | _ => False
 
@@ -268,12 +260,7 @@ def SourceFile.within6a (file: SourceFile): Bool := file.decls.all Decl.within6a
 --| Slice 6a's tokens: slice 4c's, `rewrite`, `cases`, `calc`,
 --| `arithmetic`, `algebra` and `↔`.
 def Tok.within6a: Tok → Bool
-  | KwRewrite => True
-  | KwCases => True
-  | KwCalc => True
-  | KwArithmetic => True
-  | KwAlgebra => True
-  | IffArrow => True
+  | KwRewrite | KwCases | KwCalc | KwArithmetic | KwAlgebra | IffArrow => True
   | kind => kind.within4c
 
 -- Printing.

@@ -59,8 +59,7 @@ theorem spaceKeeps ∀ (kinds: Text → Tok) (indent: Nat) (state: HangState) (t
       | Mid at carry, ((floor, left), folded) =>
         after (Mid at (floorAfter " " carry)) trace ((byComputing, left), folded)
       | Held at carry, holds => after (Held at carry) trace holds
-      | AtStart at carry, (never, _) => (Bool.falseNotTrue never).impossible
-      | Broken at carry, (never, _) => (Bool.falseNotTrue never).impossible
+      | AtStart _ _ | Broken _ _, (never, _) => (Bool.falseNotTrue never).impossible
 
 theorem spaceTop ∀ (kinds: Text → Tok) (indent: Nat) (trails: Bool):
     HangLays kinds (Doc.text " ") indent (TopDone trails) (TopDone trails) :=
@@ -77,8 +76,7 @@ theorem endedTop ∀ (indent: Nat) (text: Text) (state: HangState) (trails: Bool
   match place, ended with
     | Mid at carry, _ => (floorAfterToken text carry token, arithmetic)
     | Held at carry, _ => (floorAfterToken text (carry.breakTo (Nat.max indent (at + 2))) token, arithmetic)
-    | AtStart at carry, never => (Bool.falseNotTrue never).impossible
-    | Broken at carry, never => (Bool.falseNotTrue never).impossible
+    | AtStart _ _ | Broken _ _, never => (Bool.falseNotTrue never).impossible
 
 --| Where words ended with nothing in force, a comment break lands right of column 0.
 theorem heldRight ∀ (indent at: Nat) (carry: Carry)
@@ -91,8 +89,7 @@ theorem heldRight ∀ (indent at: Nat) (carry: Carry)
 def StartsAt (column: Nat) (place: Place): Prop := match place with
   | AtStart _ _ => False
   | Broken at carry => at = column ∧ carry.floor = None
-  | Mid _ _ => False
-  | Held _ _ => False
+  | Mid _ _ | Held _ _ => False
 
 --| The type or the body on a line of its own at `column`, right of column 0: it starts that column, noted or not.
 theorem startTopHangs ∀ (kinds: Text → Tok) (doc: Doc) (column: Nat) (before trails noted: Bool)
@@ -305,9 +302,7 @@ theorem lineStepHangs ∀ (kinds: Text → Tok) (text: Text) (indent column: Nat
     solid
     (place trace lined =>
       match place, lined with
-        | AtStart at carry, (now, atColumn, _) =>
-          rewrite now, atColumn then ((floorAfterToken text carry token, bound), step)
-        | Broken at carry, (now, atColumn, _) =>
+        | AtStart _ carry | Broken _ carry, (now, atColumn, _) =>
           rewrite now, atColumn then ((floorAfterToken text carry token, bound), step)
         | Mid at carry, never => (Bool.falseNotTrue never).impossible
         | Held at carry, never => (Bool.falseNotTrue never).impossible)
@@ -339,9 +334,7 @@ theorem notedStepHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
       (place hang => Ended state before place ∧ hang = Hang.At state)
       (place hang => Ended final word.trails place ∧ hang = Hang.At final) :=
   place trace next (ended, folded) after =>
-    let seated: Seated indent before state place := match place, ended with
-      | Mid at carry, ended => ended
-      | Held at carry, ended => ended
+    let seated: Seated indent before state place := match place, ended with | Mid _ _ | Held _ _, ended => ended
     let room: Room state (Some (leadColumn indent place)) := match place, ended with
       | Mid at carry, (floor, left) => (unglued, arithmetic)
       | Held at carry, (trails, floor, left) => (unglued, arithmetic)
@@ -1100,11 +1093,6 @@ theorem withinPlainBody ∀ (value: Expr) (inside: Around) (semi: Bool) (doc: Do
     (within: value.within1 = True):
     value.matchedParts inside = None ∧ value.lambdaHug semi inside doc = None :=
   match value, within with
-    | Atom _ _, _ => (byComputing, byComputing)
-    | Paren _ _ _, _ => (byComputing, byComputing)
-    | Tuple _ _ _ _, _ => (byComputing, byComputing)
-    | ListOf _ _ _ _, _ => (byComputing, byComputing)
-    | App _ _, _ => (byComputing, byComputing)
-    | Infix _ _ _ _, _ => (byComputing, byComputing)
-    | Prefix _ _, _ => (byComputing, byComputing)
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | App _ _ | Infix _ _ _ _ | Prefix _ _, _ =>
+      (byComputing, byComputing)
     | _, never => cases

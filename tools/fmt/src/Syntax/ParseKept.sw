@@ -63,8 +63,7 @@ def Kept (read: List Item) (expr: Expr): Prop :=
 --| A goal that starts a full expression: `expr` and `expr_inline`, the levels whose parser reaches `exprPlain` and so
 --| tests for an implicit binder.
 def Goal.full (goal: Goal): Bool := match goal.level with
-  | LevelFull => True
-  | LevelInline => True
+  | LevelFull | LevelInline => True
   | _ => False
 
 --| `Kept`, and a tree of the grammar placed as a full expression's (`Syntax.AutoPlaced.Expr.autoPlaced`: no list at
@@ -200,9 +199,8 @@ theorem unplacedTokens ∀ (expr: Expr)
         (rewrite isWords),
         isAuto
       )
-    | Paren _ _ _, _, inner, unplaced => (Bool.falseNotTrue (Eq.trans unplaced.flipped inner)).impossible
-    | Tuple _ _ _ _, _, inner, unplaced => (Bool.falseNotTrue (Eq.trans unplaced.flipped inner)).impossible
-    | Prefix _ _, _, inner, unplaced => (Bool.falseNotTrue (Eq.trans unplaced.flipped inner)).impossible
+    | Paren _ _ _ | Tuple _ _ _ _ | Prefix _ _, _, inner, unplaced =>
+      (Bool.falseNotTrue (Eq.trans unplaced.flipped inner)).impossible
 
 --| Items whose kinds and words start `[auto Upper` are what `namelessAutoAt` tests for.
 theorem autoItemsAhead ∀ (read rest: List Item) (kinds: List Tok) (open auto: Word) (words: List Word)
@@ -367,16 +365,10 @@ theorem readsAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (head: B
 -- The atoms.
 
 theorem wordOfAtom1 ∀ (kind: Tok) (atom: kind.atom1 = True): kind.wordWithin1 = True := match kind with
-  | Lower => byComputing
-  | Upper => byComputing
-  | Num => byComputing
-  | Float => byComputing
+  | Lower | Upper | Num | Float => byComputing
 
 theorem tokWithinOfAtom1 ∀ (kind: Tok) (atom: kind.atom1 = True): kind.within1 = True := match kind with
-  | Lower => byComputing
-  | Upper => byComputing
-  | Num => byComputing
-  | Float => byComputing
+  | Lower | Upper | Num | Float => byComputing
 
 --| A good item read as an atom: in the grammar, it is a name or numeral, spelled as the slice has them.
 theorem keptAtom ∀ (item: Item) (good: GoodItem item): Kept [item] (Atom item.kind item.leaf.word) := grammar =>
@@ -1341,17 +1333,14 @@ theorem mulSpells ∀ (kind: Tok) (text: Text)
     (good: kind.within1 = True → Spells kind text):
     binaryKind text = kind ∧ binaryText1 text = True ∧ (kind == Comma) = False :=
   match kind, took, good with
-    | Star, took, good => rewrite good byComputing then (byComputing, byComputing, byComputing)
-    | Slash, took, good => rewrite good byComputing then (byComputing, byComputing, byComputing)
-    | Percent, took, good => rewrite good byComputing then (byComputing, byComputing, byComputing)
+    | Star | Slash | Percent, _, good => rewrite good byComputing then (byComputing, byComputing, byComputing)
 
 theorem addSpells ∀ (kind: Tok) (text: Text)
     (took: (kind == Plus || kind == Minus) = True)
     (good: kind.within1 = True → Spells kind text):
     binaryKind text = kind ∧ binaryText1 text = True ∧ (kind == Comma) = False :=
   match kind, took, good with
-    | Plus, took, good => rewrite good byComputing then (byComputing, byComputing, byComputing)
-    | Minus, took, good => rewrite good byComputing then (byComputing, byComputing, byComputing)
+    | Plus | Minus, _, good => rewrite good byComputing then (byComputing, byComputing, byComputing)
 
 theorem appendSpells ∀ (kind: Tok) (text: Text)
     (took: (kind == PlusPlus) = True)

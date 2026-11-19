@@ -485,8 +485,7 @@ def pieceLines (depth: Nat): List Piece → List Text
 def paramLines (depth: Nat): List Param → List Text
   | [] => []
   | [NameParam word, ..rest] => word.line depth ++ paramLines depth rest
-  | [PatternParam pattern, ..rest] => pattern.lines depth ++ paramLines depth rest
-  | [Grouped group, ..rest] => group.lines depth ++ paramLines depth rest
+  | [PatternParam pattern, ..rest] | [Grouped pattern, ..rest] => pattern.lines depth ++ paramLines depth rest
   | [TypedPattern open pattern colon annotation close, ..rest] =>
     let d := depth + 1
     node depth "PatternTyped" (open.line d ++ pattern.lines d ++ colon.line d ++ annotation.lines d ++ close.line d)

@@ -244,47 +244,32 @@ def Tok.unicodeAlias: Char → Option Tok
   | _ => None
 
 def Tok.isOpener: Tok → Bool
-  | LParen => True
-  | LBracket => True
-  | LBrace => True
+  | LParen | LBracket | LBrace => True
   | _ => False
 
 def Tok.isCloser: Tok → Bool
-  | RParen => True
-  | RBracket => True
-  | RBrace => True
+  | RParen | RBracket | RBrace => True
   | _ => False
 
 --| Whether a token can start an atom (`crates/syntax`'s `opens_atom`).
 def Tok.opensAtom: Tok → Bool
-  | Lower => True
-  | Upper => True
-  | Num => True
-  | Float => True
-  | Str => True
-  | StrStart => True
-  | CharLit => True
-  | LParen => True
-  | LBracket => True
-  | LBrace => True
-  | Underscore => True
-  | Question => True
+  | Lower | Upper | Num | Float | Str | StrStart | CharLit | LParen | LBracket | LBrace | Underscore | Question => True
   | _ => False
 
 --| Whether a token starts a declaration, for rule N's search for an
 --| expression `let`.
 def Tok.startsDeclaration: Tok → Bool
-  | KwDef => True
-  | KwTheorem => True
-  | KwType => True
-  | KwTest => True
-  | KwExport => True
-  | KwInstance => True
-  | KwInterface => True
-  | KwNamespace => True
-  | KwImport => True
-  | KwInclude => True
-  | KwAbility => True
+  | KwDef |
+      KwTheorem |
+      KwType |
+      KwTest |
+      KwExport |
+      KwInstance |
+      KwInterface |
+      KwNamespace |
+      KwImport |
+      KwInclude |
+      KwAbility => True
   | _ => False
 
 --| A `--` comment: its text from `--` to the end of the line (without a

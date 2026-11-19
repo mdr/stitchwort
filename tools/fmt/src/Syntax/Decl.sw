@@ -336,8 +336,8 @@ def Indices.lines (indices: Indices) (depth: Nat): List Text :=
 
 def indexLines (depth: Nat): List (Index, Word) → List Text
   | [] => []
-  | [(IndexBinder binder, arrow), ..rest] => binder.lines depth ++ arrow.line depth ++ indexLines depth rest
-  | [(IndexType annotation, arrow), ..rest] => annotation.lines depth ++ arrow.line depth ++ indexLines depth rest
+  | [(IndexBinder binder, arrow), ..rest] | [(IndexType binder, arrow), ..rest] =>
+    binder.lines depth ++ arrow.line depth ++ indexLines depth rest
 
 def DataBody.kind: DataBody → Text
   | Abstract => "DataType"
@@ -364,8 +364,7 @@ def constructorLines (depth: Nat): List Constructor → List Text
 
 def partsLines (depth: Nat): List ConstructorPart → List Text
   | [] => []
-  | [PartGroup group, ..rest] => group.lines depth ++ partsLines depth rest
-  | [PartFields fields, ..rest] => fields.lines depth ++ partsLines depth rest
+  | [PartGroup group, ..rest] | [PartFields group, ..rest] => group.lines depth ++ partsLines depth rest
 
 def Fields.lines (fields: Fields) (depth: Nat): List Text :=
   let d := depth + 1

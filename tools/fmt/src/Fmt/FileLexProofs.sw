@@ -56,9 +56,7 @@ def Decl.pieces (decl: Decl): List Piece := match decl.doc1 with
   | None => []
 
 theorem leavesOfPieces ∀ (decl: Decl): decl.leaves = (decl.pieces.foldLeft Laid.start Laid.lay).leaves.reverse :=
-  match decl.doc1 with
-    | Some doc => byComputing
-    | None => byComputing
+  match decl.doc1 with | Some _ | None => byComputing
 
 --| What `printedLexes` asks of a document's pieces, taken apart: they are plain, spelled and follow one another, and
 --| they are the printed text.
@@ -113,8 +111,7 @@ theorem declPiecesOk ∀ (decl: Decl)
 theorem followsBreak ∀ (piece: Piece) (rest: List Char): piece.Follows ['\n', ..rest] := match piece with
   | Code kind text => mayFollowBreak kind text rest
   | Gap count => Both byDecision byDecision
-  | Break => byComputing
-  | Remark text => byComputing
+  | Break | Remark _ => byComputing
 
 def startsBreak: List Piece → Bool
   | [Break, .._] => True
@@ -174,15 +171,12 @@ def topped (above: List Comment) (blank: Nat): List Leaf → List Leaf
 
 theorem headedAppend ∀ (above: List Comment) (blank: Nat) (front: List Leaf) (last: Leaf) (tail: List Leaf):
     headed above blank ((front ++ [last]) ++ tail) = headed above blank (front ++ [last]) ++ tail :=
-  match front with
-    | [] => byComputing
-    | [first, ..rest] => byComputing
+  match front with | [] | [_, .._] => byComputing
 
 theorem toppedReverse ∀ (above: List Comment) (blank: Nat) (leaves: List Leaf):
     (topped above blank leaves).reverse = headed above blank leaves.reverse :=
   match leaves with
-    | [] => byComputing
-    | [leaf] => byComputing
+    | [] | [_] => byComputing
     | [leaf, next, ..rest] =>
       rewrite List.reverseCons leaf (topped above blank [next, ..rest]),
           toppedReverse above blank [next, ..rest],
@@ -344,8 +338,7 @@ theorem notesLay ∀ (notes: List Note) (empty: Bool) (laid: Laid) (leaves: List
         later
 
 theorem laidNotesFalse ∀ (notes: List Note): laidNotes False notes = notes.map noteComment := match notes with
-  | [] => byComputing
-  | [note, ..rest] => byComputing
+  | [] | [_, .._] => byComputing
 
 -- A declaration in the file.
 
@@ -360,10 +353,7 @@ def Seamed (pieces: List Piece): Prop :=
 
 --| What may follow a declaration's last token: spaces and a trailing comment, no line break.
 def TailOk: List Piece → Prop
-  | [] => True
-  | [Gap count] => True
-  | [Remark text] => True
-  | [Gap count, Remark text] => True
+  | [] | [Gap _] | [Remark _] | [Gap _, Remark _] => True
   | _ => False
 
 --| Pieces that start with a token and have no line break after their last one leave nothing waiting: a trailing
@@ -375,18 +365,7 @@ theorem seamedOfTail ∀ (pieces front: List Piece) (kind first: Tok) (start tex
     Seamed pieces :=
   let ended: Ended (pieces.foldLeft Laid.start Laid.lay) :=
     rewrite split, List.foldLeftAppend front Laid.start [Code kind text, ..tail] Laid.lay then
-      match tail, ok with
-        | [], _ => (byComputing, byComputing, byComputing)
-        | [Gap count], _ => (byComputing, byComputing, byComputing)
-        | [Remark comment], _ => (byComputing, byComputing, byComputing)
-        | [Gap count, Remark comment], _ => (byComputing, byComputing, byComputing)
-        | [Code _ _, .._], never => cases
-        | [Break, .._], never => cases
-        | [Gap _, Code _ _, .._], never => cases
-        | [Gap _, Break, .._], never => cases
-        | [Gap _, Gap _, .._], never => cases
-        | [Gap _, Remark _, _, .._], never => cases
-        | [Remark _, _, .._], never => cases
+      match tail, ok with | [] | [Gap _] | [Remark _] | [Gap _, Remark _], _ => (byComputing, byComputing, byComputing)
   Witness first (Witness start (Witness rest (Both starts ended)))
 
 --| A plain definition's document starts with its `def` chunk: the keyword's own-line comments are the file's
@@ -505,14 +484,8 @@ theorem codePiece ∀ (kinds: Text → Tok) (text: Text) (final: Final text): pi
 theorem addPieceCode ∀ (piece: Piece) (front: List Piece) (kind: Tok) (text: Text) (rest: List Piece):
     addPiece piece (front ++ [Code kind text, ..rest]) = addPiece piece front ++ [Code kind text, ..rest] :=
   match piece, front with
-    | Gap first, [Gap second, ..more] => byComputing
-    | Gap first, [] => byComputing
-    | Gap first, [Code k t, ..more] => byComputing
-    | Gap first, [Break, ..more] => byComputing
-    | Gap first, [Remark t, ..more] => byComputing
-    | Code k t, front => byComputing
-    | Break, front => byComputing
-    | Remark t, front => byComputing
+    | Gap _, [Gap _, .._] | [] | [Code _ _, .._] | [Break, .._] | [Remark _, .._] => byComputing
+    | Code _ _ | Break | Remark _, _ => byComputing
 
 --| The pieces of texts with a token among them: those before it, its code, those after it.
 theorem pieceFoldCode ∀ (kinds: Text → Tok) (front: List Text) (word: Text) (rest: List Text)
@@ -920,9 +893,7 @@ theorem gapOk ∀ (empty blank: Bool): AllPlain (gapPieces empty blank) ∧ AllS
     | False, False => ((byComputing, byComputing), (byComputing, byComputing))
 
 theorem gapLed ∀ (blank: Bool) (pieces: List Piece): startsBreak (gapPieces False blank ++ pieces) = True :=
-  match blank with
-    | True => byComputing
-    | False => byComputing
+  match blank with | True | False => byComputing
 
 --| The pieces of own-line comments are plain, spelled and follow one another, and after the first item they start
 --| with a line break.

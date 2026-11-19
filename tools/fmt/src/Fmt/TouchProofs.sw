@@ -500,8 +500,7 @@ theorem ownClear ∀ (noted before: Bool):
       = False :=
   match noted, before with
     | True, _ => byComputing
-    | False, True => byComputing
-    | False, False => byComputing
+    | False, True | False => byComputing
 
 theorem ownWeaker ∀ (noted before trails: Bool)
     (held: (if (True && !noted && before && trails) then False
@@ -603,8 +602,7 @@ theorem spacingFree ∀ (expr: Expr)
   match expr with
     | Atom kind word => ([], byComputing)
     | Paren open inner close => (inner.spacing False ++ [Free], byComputing)
-    | Tuple open items comma close => (commaSpacing items ++ [Free], byComputing)
-    | ListOf open items comma close => (commaSpacing items ++ [Free], byComputing)
+    | Tuple _ items _ _ | ListOf _ items _ _ => (commaSpacing items ++ [Free], byComputing)
     | App head arguments =>
       let (rest, head) := spacingFree head (Bool.andLeft within)
       (rest ++ argumentsSpacing arguments, rewrite head)
@@ -691,9 +689,7 @@ theorem atomicTight ∀ (operand: Expr)
     (operand.firstWord.text == "-" || operand.numeralApplication) = False :=
   match operand with
     | Atom kind word => rewrite atomNotMinus kind word within
-    | Paren open inner close => rewrite DecEq.sound (Bool.andLeft lexical)
-    | Tuple open items comma close => rewrite DecEq.sound (Bool.andLeft lexical)
-    | ListOf open items comma close => rewrite DecEq.sound (Bool.andLeft lexical)
+    | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ => rewrite DecEq.sound (Bool.andLeft lexical)
 
 theorem numeralAtomic ∀ (operand: Expr) (numeral: operand.numeral1 = True): operand.primary = True := match operand with
   | Atom kind word => byComputing
@@ -898,8 +894,7 @@ theorem parenInnerSteps ∀ (inner: Expr) (place: Around) (pre: Seam → Prop) (
     (steps: Steps (inner.el place) pre spacing post):
     Steps (parenInner inner place) pre spacing post :=
   match inner with
-    | Block _ _ _ => cases
-    | If _ _ _ _ _ _ _ => cases
+    | Block _ _ _ | If _ _ _ _ _ _ _ => cases
     | _ => steps
 
 theorem closedFree ∀ (trails: Bool) (seam: Seam) (closed: Closed trails seam): Fits True Free seam :=
@@ -1353,8 +1348,7 @@ theorem commaSteps ∀ (list: Bool) (open: Word) (items: List Expr) (comma: Bool
 
 --| A call's arguments' spacings before the last, as `argumentDocs` splits their documents.
 def initSpacings: List Expr → List (List Spacing)
-  | [] => []
-  | [_] => []
+  | [] | [_] => []
   | [argument, ..rest] => [argument.spacing True, ..initSpacings rest]
 
 --| A call's last argument's spacing.
@@ -1382,10 +1376,7 @@ theorem argumentStarts ∀ (argument: Expr)
     (isArgument: argument.callArgument = True):
     ∃ (start: Spacing) => Loose start ∧ spacedFirst start (argument.spacing True) = argument.spacing True :=
   match argument with
-    | Atom kind word => (Free, byComputing, byComputing)
-    | Paren open inner close => (Free, byComputing, byComputing)
-    | Tuple open items comma close => (Free, byComputing, byComputing)
-    | ListOf open items comma close => (Free, byComputing, byComputing)
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ => (Free, byComputing, byComputing)
     | Prefix operator operand =>
       match operandSpacing True operator operand with
         | Some spacing => (Apart, byComputing, byComputing)
@@ -1452,15 +1443,15 @@ theorem lastArgumentSteps ∀ (argument: Expr) (place: Around)
         huggedSteps True open items close place content.forcesBreak opener.left closer each,
         huggedSteps True open items close place True opener.left closer each
       )
-    | Atom kind word, _ => (plain, byComputing)
-    | Prefix operator operand, _ => (plain, byComputing)
-    | Paren open (Atom k w) close, _ => (plain, byComputing)
-    | Paren open (Paren o i c) close, _ => (plain, byComputing)
-    | Paren open (Tuple o is m c) close, _ => (plain, byComputing)
-    | Paren open (ListOf o is m c) close, _ => (plain, byComputing)
-    | Paren open (App h xs) close, _ => (plain, byComputing)
-    | Paren open (Infix k l o r) close, _ => (plain, byComputing)
-    | Paren open (Prefix o x) close, _ => (plain, byComputing)
+    | Atom _ _ |
+        Prefix _ _ |
+        Paren _ (Atom _ _) _ |
+        Paren _ (Paren _ _ _) _ |
+        Paren _ (Tuple _ _ _ _) _ |
+        Paren _ (ListOf _ _ _ _) _ |
+        Paren _ (App _ _) _ |
+        Paren _ (Infix _ _ _ _) _ |
+        Paren _ (Prefix _ _) _, _ => (plain, byComputing)
 
 --| A call's arguments after its function: in order, each after a space or a line break, spaced as its own
 --| `spacing True` says; the same without the last, ending where a comment may wait; the last's hug; and one
@@ -1995,9 +1986,4 @@ theorem callHugSteps ∀ (value: Expr) (inside: Around)
           (initSpacings arguments) _ _
           frontSeq
           hugs
-    | Atom _ _, _ => byComputing
-    | Paren _ _ _, _ => byComputing
-    | Tuple _ _ _ _, _ => byComputing
-    | ListOf _ _ _ _, _ => byComputing
-    | Infix _ _ _ _, _ => byComputing
-    | Prefix _ _, _ => byComputing
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | Infix _ _ _ _ | Prefix _ _, _ => byComputing

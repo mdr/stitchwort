@@ -60,8 +60,7 @@ def Word.clean (word: Word): Bool := notComment word.text && word.comments.texts
 def Expr.codeTexts: Expr → List Text
   | Atom _ word => [word.text]
   | Paren open inner close => [open.text, ..inner.codeTexts] ++ [close.text]
-  | Tuple open items _ close => [open.text, ..commaTexts items] ++ [close.text]
-  | ListOf open items _ close => [open.text, ..commaTexts items] ++ [close.text]
+  | Tuple open items _ close | ListOf open items _ close => [open.text, ..commaTexts items] ++ [close.text]
   | App head arguments => head.codeTexts ++ argumentTexts arguments
   | Infix _ left operator right => left.codeTexts ++ [operator.text, ..right.codeTexts]
   | Prefix operator operand => [operator.text, ..operand.codeTexts]
@@ -130,15 +129,7 @@ theorem codeTextsOf ∀ (expr: Expr) (hoisted: Bool)
           wordDropsComments open hoisted openClean,
           codeTextsOf inner False within innerClean,
           wordDropsComments close False (List.allConsElim close [] Word.clean back).left
-    | Tuple open items _ close, within =>
-      let (front, back) := allSplitBool [open, ..itemsWords items] [close] Word.clean clean
-      let (openClean, itemsClean) := List.allConsElim open (itemsWords items) Word.clean front
-      rewrite List.filterAppend (open.spelledAt hoisted) (commaSpelt items ++ close.spelledAt False) notComment,
-          List.filterAppend (commaSpelt items) (close.spelledAt False) notComment,
-          wordDropsComments open hoisted openClean,
-          commaTextsOf items within itemsClean,
-          wordDropsComments close False (List.allConsElim close [] Word.clean back).left
-    | ListOf open items _ close, within =>
+    | Tuple open items _ close | ListOf open items _ close, within =>
       let (front, back) := allSplitBool [open, ..itemsWords items] [close] Word.clean clean
       let (openClean, itemsClean) := List.allConsElim open (itemsWords items) Word.clean front
       rewrite List.filterAppend (open.spelledAt hoisted) (commaSpelt items ++ close.spelledAt False) notComment,
@@ -166,8 +157,7 @@ theorem codeTextsOf ∀ (expr: Expr) (hoisted: Bool)
       rewrite List.filterAppend (operator.spelledAt hoisted) (operand.spelt False) notComment,
           wordDropsComments operator hoisted operatorClean,
           codeTextsOf operand False (Bool.andLeft within) operandClean
-    | Infix _ _ _ _, never => (Bool.falseNotTrue never).impossible
-    | other, never => (Bool.falseNotTrue never).impossible
+    | Infix _ _ _ _ | _, never => (Bool.falseNotTrue never).impossible
 
 theorem infixTextsOf ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: Expr) (hoisted: Bool)
     (leftWithin: left.within1 = True)
@@ -216,15 +206,12 @@ def Chained: List Item → Bool
   | [first, second, ..rest] => (second.afterOperand == first.kind.closesOperand) && Chained [second, ..rest]
   | _ => True
 
-theorem boolEqSelf ∀ (b: Bool): (b == b) = True := match b with
-  | True => byComputing
-  | False => byComputing
+theorem boolEqSelf ∀ (b: Bool): (b == b) = True := match b with | True | False => byComputing
 
 theorem itemsChained ∀ (before: Option Token) (index depth lineIndent: Nat) (leaves: List Leaf):
     Chained (itemsAfter before index depth lineIndent leaves) = True :=
   match leaves with
-    | [] => byComputing
-    | [_] => byComputing
+    | [] | [_] => byComputing
     | [leaf, next, ..rest] =>
       rewrite itemsChained
             (Some leaf.token)
@@ -246,46 +233,33 @@ theorem leadCalm ∀ (expr: Expr) (item: Bool)
     (within: expr.within1 = True):
     (expr.calm item).lead = expr.lead.kept item False :=
   match expr, within with
-    | Atom _ _, _ => byComputing
-    | Paren _ _ _, _ => byComputing
-    | Tuple _ _ _ _, _ => byComputing
-    | ListOf _ _ _ _, _ => byComputing
-    | App head _, within => leadCalm head item (Bool.andLeft within)
-    | Infix InfixBinary left _ _, within => leadCalm left item (Bool.andLeft within)
-    | Infix InfixArrow left _ _, within => leadCalm left item (Bool.andLeft within)
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _, _ => byComputing
+    | App head _ | Infix InfixBinary head _ _ | Infix InfixArrow head _ _, within =>
+      leadCalm head item (Bool.andLeft within)
     | Prefix _ _, _ => byComputing
-    | Infix _ _ _ _, never => (Bool.falseNotTrue never).impossible
-    | other, never => (Bool.falseNotTrue never).impossible
+    | Infix _ _ _ _ | _, never => (Bool.falseNotTrue never).impossible
 
 theorem numeralOneCalm ∀ (expr: Expr) (item: Bool)
     (within: expr.within1 = True):
     (expr.calm item).numeral1 = expr.numeral1 :=
   match expr, within with
-    | Atom Num _, _ => byComputing
-    | Atom Float _, _ => byComputing
-    | Atom Lower _, _ => byComputing
-    | Atom Upper _, _ => byComputing
+    | Atom Num _ | Atom Float _ | Atom Lower _ | Atom Upper _, _ => byComputing
     | Atom _ _, never => (Bool.falseNotTrue never).impossible
-    | Paren _ _ _, _ => byComputing
-    | Tuple _ _ _ _, _ => byComputing
-    | ListOf _ _ _ _, _ => byComputing
-    | App _ _, _ => byComputing
-    | Infix InfixBinary _ _ _, _ => byComputing
-    | Infix InfixArrow _ _ _, _ => byComputing
-    | Prefix _ _, _ => byComputing
-    | Infix _ _ _ _, never => (Bool.falseNotTrue never).impossible
-    | other, never => (Bool.falseNotTrue never).impossible
+    | Paren _ _ _ |
+        Tuple _ _ _ _ |
+        ListOf _ _ _ _ |
+        App _ _ |
+        Infix InfixBinary _ _ _ |
+        Infix InfixArrow _ _ _ |
+        Prefix _ _, _ => byComputing
+    | Infix _ _ _ _ | _, never => (Bool.falseNotTrue never).impossible
 
 --| Whether comments sit between a sign and its operand is kept by `calm`.
 theorem signQuietCalm ∀ (operator: Word) (operand: Expr) (item: Bool)
     (within: operand.within1 = True):
     signQuiet (operator.kept item False) (operand.calm False) = signQuiet operator operand :=
   rewrite leadCalm operand False within then
-    match operator.comments.after, operand.lead.comments.above with
-      | None, [] => byComputing
-      | None, [_, .._] => byComputing
-      | Some _, [] => byComputing
-      | Some _, [_, .._] => byComputing
+    match operator.comments.after, operand.lead.comments.above with | None | Some _, [] | [_, .._] => byComputing
 
 theorem operandSpacingCalm ∀ (argument: Bool) (operator: Word) (operand: Expr) (item: Bool)
     (within: operand.within1 = True):
@@ -312,10 +286,7 @@ theorem spacingCalm ∀ (expr: Expr) (item argument: Bool)
         | False => rewrite commaSpacingCalmAll items True within
     | App head arguments, within =>
       rewrite spacingCalm head item False (Bool.andLeft within), argumentsSpacingCalm arguments (Bool.andRight within)
-    | Infix InfixBinary left _ right, within =>
-      rewrite spacingCalm left item False (Bool.andLeft within),
-          spacingCalm right False False (Bool.andLeft (Bool.andRight within))
-    | Infix InfixArrow left _ right, within =>
+    | Infix InfixBinary left _ right | Infix InfixArrow left _ right, within =>
       rewrite spacingCalm left item False (Bool.andLeft within),
           spacingCalm right False False (Bool.andLeft (Bool.andRight within))
     | Prefix operator operand, within =>
@@ -323,8 +294,7 @@ theorem spacingCalm ∀ (expr: Expr) (item argument: Bool)
         match operandSpacing argument operator operand with
           | Some _ => rewrite spacingCalm operand False False (Bool.andLeft within)
           | None => rewrite spacingCalm operand False False (Bool.andLeft within)
-    | Infix _ _ _ _, never => (Bool.falseNotTrue never).impossible
-    | other, never => (Bool.falseNotTrue never).impossible
+    | Infix _ _ _ _ | _, never => (Bool.falseNotTrue never).impossible
 
 theorem commaSpacingCalmAll ∀ (items: List Expr) (item: Bool)
     (within: allWithin1 items = True):
@@ -358,63 +328,56 @@ theorem argumentsSpacingCalm ∀ (arguments: List Expr)
 
 theorem levelCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): (expr.calm item).level = expr.level :=
   match expr, within with
-    | Atom _ _, _ => byComputing
-    | Paren _ _ _, _ => byComputing
-    | Tuple _ _ _ _, _ => byComputing
-    | ListOf _ _ _ _, _ => byComputing
-    | App _ _, _ => byComputing
-    | Infix InfixBinary _ _ _, _ => byComputing
-    | Infix InfixArrow _ _ _, _ => byComputing
-    | Prefix _ _, _ => byComputing
-    | Infix _ _ _ _, never => (Bool.falseNotTrue never).impossible
-    | other, never => (Bool.falseNotTrue never).impossible
+    | Atom _ _ |
+        Paren _ _ _ |
+        Tuple _ _ _ _ |
+        ListOf _ _ _ _ |
+        App _ _ |
+        Infix InfixBinary _ _ _ |
+        Infix InfixArrow _ _ _ |
+        Prefix _ _, _ => byComputing
+    | Infix _ _ _ _ | _, never => (Bool.falseNotTrue never).impossible
 
 theorem atomicCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): (expr.calm item).primary = expr.primary :=
   match expr, within with
-    | Atom _ _, _ => byComputing
-    | Paren _ _ _, _ => byComputing
-    | Tuple _ _ _ _, _ => byComputing
-    | ListOf _ _ _ _, _ => byComputing
-    | App _ _, _ => byComputing
-    | Infix InfixBinary _ _ _, _ => byComputing
-    | Infix InfixArrow _ _ _, _ => byComputing
-    | Prefix _ _, _ => byComputing
-    | Infix _ _ _ _, never => (Bool.falseNotTrue never).impossible
-    | other, never => (Bool.falseNotTrue never).impossible
+    | Atom _ _ |
+        Paren _ _ _ |
+        Tuple _ _ _ _ |
+        ListOf _ _ _ _ |
+        App _ _ |
+        Infix InfixBinary _ _ _ |
+        Infix InfixArrow _ _ _ |
+        Prefix _ _, _ => byComputing
+    | Infix _ _ _ _ | _, never => (Bool.falseNotTrue never).impossible
 
 theorem numberAtomCalm ∀ (expr: Expr) (item: Bool)
     (within: expr.within1 = True):
     (expr.calm item).numberAtom = expr.numberAtom :=
   match expr, within with
-    | Atom Tok.Num _, _ => byComputing
-    | Atom Tok.Float _, _ => byComputing
-    | Atom Tok.Lower _, _ => byComputing
-    | Atom Tok.Upper _, _ => byComputing
+    | Atom Tok.Num _ | Atom Tok.Float _ | Atom Tok.Lower _ | Atom Tok.Upper _, _ => byComputing
     | Atom _ _, never => (Bool.falseNotTrue never).impossible
-    | Paren _ _ _, _ => byComputing
-    | Tuple _ _ _ _, _ => byComputing
-    | ListOf _ _ _ _, _ => byComputing
-    | App _ _, _ => byComputing
-    | Infix InfixBinary _ _ _, _ => byComputing
-    | Infix InfixArrow _ _ _, _ => byComputing
-    | Prefix _ _, _ => byComputing
-    | Infix _ _ _ _, never => (Bool.falseNotTrue never).impossible
-    | other, never => (Bool.falseNotTrue never).impossible
+    | Paren _ _ _ |
+        Tuple _ _ _ _ |
+        ListOf _ _ _ _ |
+        App _ _ |
+        Infix InfixBinary _ _ _ |
+        Infix InfixArrow _ _ _ |
+        Prefix _ _, _ => byComputing
+    | Infix _ _ _ _ | _, never => (Bool.falseNotTrue never).impossible
 
 theorem headCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): (expr.calm item).callHead = expr.callHead :=
   match expr, within with
     | Prefix operator operand, within =>
       rewrite numberAtomCalm operand False (Bool.andLeft within),
           signQuietCalm operator operand item (Bool.andLeft within)
-    | Atom _ _, _ => byComputing
-    | Paren _ _ _, _ => byComputing
-    | Tuple _ _ _ _, _ => byComputing
-    | ListOf _ _ _ _, _ => byComputing
-    | App _ _, _ => byComputing
-    | Infix InfixBinary _ _ _, _ => byComputing
-    | Infix InfixArrow _ _ _, _ => byComputing
-    | Infix _ _ _ _, never => (Bool.falseNotTrue never).impossible
-    | other, never => (Bool.falseNotTrue never).impossible
+    | Atom _ _ |
+        Paren _ _ _ |
+        Tuple _ _ _ _ |
+        ListOf _ _ _ _ |
+        App _ _ |
+        Infix InfixBinary _ _ _ |
+        Infix InfixArrow _ _ _, _ => byComputing
+    | Infix _ _ _ _ | _, never => (Bool.falseNotTrue never).impossible
 
 theorem argumentCalm ∀ (expr: Expr) (item: Bool)
     (within: expr.within1 = True):
@@ -422,15 +385,14 @@ theorem argumentCalm ∀ (expr: Expr) (item: Bool)
   match expr, within with
     | Prefix operator operand, within =>
       rewrite atomicCalm operand False (Bool.andLeft within), signQuietCalm operator operand item (Bool.andLeft within)
-    | Atom _ _, _ => byComputing
-    | Paren _ _ _, _ => byComputing
-    | Tuple _ _ _ _, _ => byComputing
-    | ListOf _ _ _ _, _ => byComputing
-    | App _ _, _ => byComputing
-    | Infix InfixBinary _ _ _, _ => byComputing
-    | Infix InfixArrow _ _ _, _ => byComputing
-    | Infix _ _ _ _, never => (Bool.falseNotTrue never).impossible
-    | other, never => (Bool.falseNotTrue never).impossible
+    | Atom _ _ |
+        Paren _ _ _ |
+        Tuple _ _ _ _ |
+        ListOf _ _ _ _ |
+        App _ _ |
+        Infix InfixBinary _ _ _ |
+        Infix InfixArrow _ _ _, _ => byComputing
+    | Infix _ _ _ _ | _, never => (Bool.falseNotTrue never).impossible
 
 theorem argumentsCalm ∀ (arguments: List Expr)
     (within: allWithin1 arguments = True):
@@ -463,20 +425,14 @@ theorem shapedCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): 
           calmAllEmpty arguments False,
           argumentsCalm arguments (Bool.andRight within),
           shapedAllCalm arguments False (Bool.andRight within)
-    | Infix InfixBinary left _ right, within =>
-      rewrite shapedCalm left item (Bool.andLeft within),
-          shapedCalm right False (Bool.andLeft (Bool.andRight within)),
-          levelCalm left item (Bool.andLeft within),
-          levelCalm right False (Bool.andLeft (Bool.andRight within))
-    | Infix InfixArrow left _ right, within =>
+    | Infix InfixBinary left _ right | Infix InfixArrow left _ right, within =>
       rewrite shapedCalm left item (Bool.andLeft within),
           shapedCalm right False (Bool.andLeft (Bool.andRight within)),
           levelCalm left item (Bool.andLeft within),
           levelCalm right False (Bool.andLeft (Bool.andRight within))
     | Prefix _ operand, within =>
       rewrite shapedCalm operand False (Bool.andLeft within), levelCalm operand False (Bool.andLeft within)
-    | Infix _ _ _ _, never => (Bool.falseNotTrue never).impossible
-    | other, never => (Bool.falseNotTrue never).impossible
+    | Infix _ _ _ _ | _, never => (Bool.falseNotTrue never).impossible
 
 theorem shapedAllCalm ∀ (items: List Expr) (item: Bool)
     (within: allWithin1 items = True):
@@ -508,13 +464,10 @@ theorem lexicalCalm ∀ (expr: Expr) (item: Bool)
         | False => rewrite lexicalAllCalm items True within
     | App head arguments, within =>
       rewrite lexicalCalm head item (Bool.andLeft within), lexicalAllCalm arguments False (Bool.andRight within)
-    | Infix InfixBinary left _ right, within =>
-      rewrite lexicalCalm left item (Bool.andLeft within), lexicalCalm right False (Bool.andLeft (Bool.andRight within))
-    | Infix InfixArrow left _ right, within =>
+    | Infix InfixBinary left _ right | Infix InfixArrow left _ right, within =>
       rewrite lexicalCalm left item (Bool.andLeft within), lexicalCalm right False (Bool.andLeft (Bool.andRight within))
     | Prefix _ operand, within => rewrite lexicalCalm operand False (Bool.andLeft within)
-    | Infix _ _ _ _, never => (Bool.falseNotTrue never).impossible
-    | other, never => (Bool.falseNotTrue never).impossible
+    | Infix _ _ _ _ | _, never => (Bool.falseNotTrue never).impossible
 
 theorem lexicalAllCalm ∀ (items: List Expr) (item: Bool)
     (within: allWithin1 items = True):

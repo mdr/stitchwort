@@ -42,23 +42,17 @@ def allKinded: List Piece → Bool
 
 theorem withTrailingTexts ∀ (leaves: List Leaf) (comment: Comment):
     tokenTexts (withTrailing leaves comment) = tokenTexts leaves :=
-  match leaves with
-    | [] => byComputing
-    | [last, ..earlier] => byComputing
+  match leaves with | [] | [_, .._] => byComputing
 
 theorem withTrailingKinded ∀ (leaves: List Leaf) (comment: Comment):
     (withTrailing leaves comment).all Leaf.kinded = leaves.all Leaf.kinded :=
-  match leaves with
-    | [] => byComputing
-    | [last, ..earlier] => byComputing
+  match leaves with | [] | [_, .._] => byComputing
 
 --| One piece adds its code to the front of the leaves' texts.
 theorem layTexts ∀ (laid: Laid) (piece: Piece):
     tokenTexts (laid.lay piece).leaves = codeOf piece ++ tokenTexts laid.leaves :=
   match piece with
-    | Code kind text => byComputing
-    | Gap count => byComputing
-    | Break => byComputing
+    | Code _ _ | Gap _ | Break => byComputing
     | Remark text =>
       match laid.freshLine with
         | True => byComputing
@@ -70,8 +64,7 @@ theorem layKinded ∀ (laid: Laid) (piece: Piece)
     (laid.lay piece).leaves.all Leaf.kinded = True :=
   match piece with
     | Code kind text => Bool.andIntro kinded old
-    | Gap count => old
-    | Break => old
+    | Gap _ | Break => old
     | Remark text =>
       match laid.freshLine with
         | True => old
@@ -121,11 +114,8 @@ theorem leavesTexts ∀ (pieces: List Piece):
 theorem addPieceCodeTexts ∀ (piece: Piece) (rest: List Piece):
     codeTexts (addPiece piece rest) = codeOf piece ++ codeTexts rest :=
   match piece, rest with
-    | Gap first, [Gap second, ..more] => byComputing
-    | Gap first, _ => byComputing
-    | Code kind text, _ => byComputing
-    | Break, _ => byComputing
-    | Remark text, _ => byComputing
+    | Gap _, [Gap _, .._] | _ => byComputing
+    | Code _ _ | Break | Remark _, _ => byComputing
 
 --| The code of the pieces is the words that aren't comments.
 --|
@@ -154,11 +144,8 @@ theorem wordStep ∀ (kinds: Text → Tok) (text: Text) (rest: List Text):
 theorem addPieceKinded ∀ (piece: Piece) (rest: List Piece):
     allKinded (addPiece piece rest) = (pieceKinded piece && allKinded rest) :=
   match piece, rest with
-    | Gap first, [Gap second, ..more] => byComputing
-    | Gap first, _ => byComputing
-    | Code kind text, _ => byComputing
-    | Break, _ => byComputing
-    | Remark text, _ => byComputing
+    | Gap _, [Gap _, .._] | _ => byComputing
+    | Code _ _ | Break | Remark _, _ => byComputing
 
 theorem pieceOfKinded ∀ (text: Text): pieceKinded (pieceOf lexKind text) = True :=
   match text.all (char => char == ' ') with

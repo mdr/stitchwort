@@ -100,8 +100,7 @@ theorem countTrailsAlike ∀ (before after: List Word)
 def Expr.closed: Expr → Bool
   | Atom _ _ => True
   | Paren _ inner close => isCloserText close.text && inner.closed
-  | Tuple _ items _ close => isCloserText close.text && allClosed items
-  | ListOf _ items _ close => isCloserText close.text && allClosed items
+  | Tuple _ items _ close | ListOf _ items _ close => isCloserText close.text && allClosed items
   | App head arguments => head.closed && allClosed arguments
   | Infix _ left _ right => left.closed && right.closed
   | Prefix _ operand => operand.closed
@@ -395,10 +394,7 @@ theorem plainItemCalm ∀ (expr: Expr) (item: Bool)
     (expr.calm item).plainItem = expr.plainItem :=
   match expr with
     | Atom kind word => rewrite keptNoted word item False
-    | Paren open inner close => byComputing
-    | Tuple open items comma close => byComputing
-    | ListOf open items comma close => byComputing
-    | App head arguments => byComputing
+    | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | App _ _ => byComputing
     | Infix kind left operator right =>
       match kind with
         | InfixBinary => byComputing
@@ -407,8 +403,7 @@ theorem plainItemCalm ∀ (expr: Expr) (item: Bool)
     | Prefix operator operand => byComputing
 
 theorem calmAllEmpty ∀ (items: List Expr) (item: Bool): (calmAll item items).isEmpty = items.isEmpty := match items with
-  | [] => byComputing
-  | [first, ..rest] => byComputing
+  | [] | [_, .._] => byComputing
 
 theorem calmItemsEmpty ∀ (items: List Expr): (calmItems items).isEmpty = items.isEmpty := match items with
   | [] => byComputing
@@ -438,8 +433,7 @@ theorem calmLeadPlain ∀ (items: List Expr)
 --| Proof idea: Cases on the expression; a tuple or list stays empty or not (`calmAllEmpty`, `calmItemsEmpty`), a prefix's operand keeps its constructor.
 theorem simpleCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): (expr.calm item).simple = expr.simple :=
   match expr with
-    | Atom kind word => byComputing
-    | Paren open inner close => byComputing
+    | Atom _ _ | Paren _ _ _ => byComputing
     | Tuple open items comma close => calmAllEmpty items True
     | ListOf open items comma close => calmItemsEmpty items
     | App head arguments => byComputing
@@ -482,11 +476,7 @@ theorem inChainCalm ∀ (expr: Expr) (item: Bool) (level: Option Nat)
     (within: expr.within1 = True):
     (expr.calm item).inChain level = expr.inChain level :=
   match expr with
-    | Atom kind word => byComputing
-    | Paren open inner close => byComputing
-    | Tuple open items comma close => byComputing
-    | ListOf open items comma close => byComputing
-    | App head arguments => byComputing
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | App _ _ => byComputing
     | Infix kind left operator right =>
       match kind with
         | InfixBinary => byComputing
@@ -501,11 +491,7 @@ theorem opensArmsCalm ∀ (expr: Expr) (item: Bool) (level: Option Nat)
     (within: expr.within1 = True):
     (expr.calm item).opensArms level = expr.opensArms level :=
   match expr with
-    | Atom kind word => byComputing
-    | Paren open inner close => byComputing
-    | Tuple open items comma close => byComputing
-    | ListOf open items comma close => byComputing
-    | App head arguments => byComputing
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | App _ _ => byComputing
     | Infix kind left operator right =>
       match kind with
         | InfixBinary =>
@@ -567,8 +553,7 @@ theorem parenInnerKept ∀ (inner: Expr) (around: Around)
     (each: (inner.calm False).el around = inner.el around):
     parenInner (inner.calm False) around = parenInner inner around :=
   match inner with
-    | Block _ _ _ => cases
-    | If _ _ _ _ _ _ _ => cases
+    | Block _ _ _ | If _ _ _ _ _ _ _ => cases
     | _ => each
 
 -- Documents equal part by part.
@@ -641,10 +626,7 @@ theorem numeralCalm ∀ (expr: Expr) (item: Bool)
     (within: expr.within1 = True):
     (expr.calm item).numeralApplication = expr.numeralApplication :=
   match expr with
-    | Atom kind word => byComputing
-    | Paren open inner close => byComputing
-    | Tuple open items comma close => byComputing
-    | ListOf open items comma close => byComputing
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ => byComputing
     | App head arguments =>
       match head with
         | Atom kind word =>
@@ -720,21 +702,13 @@ def calmList (first: Bool): List Expr → List Expr
   | [expr, ..rest] => [expr.calm first, ..calmAll True rest]
 
 theorem calmAllList ∀ (items: List Expr): calmAll True items = calmList True items := match items with
-  | [] => byComputing
-  | [first, ..rest] => byComputing
+  | [] | [_, .._] => byComputing
 
 theorem pickList ∀ (bare: Bool) (items: List Expr): pickItems bare items = calmList (!bare) items :=
-  match bare, items with
-    | True, [] => byComputing
-    | True, [first, ..rest] => byComputing
-    | False, [] => byComputing
-    | False, [first, ..rest] => byComputing
+  match bare, items with | True | False, [] | [_, .._] => byComputing
 
 theorem pickEmpty ∀ (bare: Bool) (items: List Expr): (pickItems bare items).isEmpty = items.isEmpty :=
-  rewrite pickList bare items then
-    match items with
-      | [] => byComputing
-      | [first, ..rest] => byComputing
+  rewrite pickList bare items then match items with | [] | [_, .._] => byComputing
 
 theorem pickPlain ∀ (bare: Bool) (items: List Expr)
     (within: allWithin1 items = True):
@@ -1024,8 +998,7 @@ theorem huggedKept ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word
 theorem takeCalm ∀ (items: List Expr) (item: Bool) (count: Nat):
     (calmAll item items).take count = calmAll item (items.take count) :=
   match items, count with
-    | [], Zero => byComputing
-    | [], Succ less => byComputing
+    | [], Zero | Succ _ => byComputing
     | [first, ..rest], Zero => byComputing
     | [first, ..rest], Succ less => Eq.cong (later => [first.calm item, ..later]) (takeCalm rest item less)
 
@@ -1462,8 +1435,7 @@ theorem takeWithin ∀ (items: List Expr) (count: Nat)
     (within: allWithin1 items = True):
     allWithin1 (items.take count) = True :=
   match items, count with
-    | [], Zero => byComputing
-    | [], Succ less => byComputing
+    | [], Zero | Succ _ => byComputing
     | [first, ..rest], Zero => byComputing
     | [first, ..rest], Succ less => Bool.andIntro (Bool.andLeft within) (takeWithin rest less (Bool.andRight within))
 
@@ -1504,8 +1476,7 @@ theorem lambdaHugNone ∀ (value: Expr) (semi: Bool) (inside: Around) (doc: Doc)
     (within: value.within1 = True):
     value.lambdaHug semi inside doc = None :=
   match value with
-    | Binding _ _ _ _ _ => cases
-    | Calc _ _ _ => cases
+    | Binding _ _ _ _ _ | Calc _ _ _ => cases
     | _ => byComputing
 
 theorem valueElPlain ∀ (value: Expr) (around: Around) (semi: Bool)
@@ -1519,11 +1490,7 @@ theorem opensCalm ∀ (value: Expr) (item: Bool)
     (within: value.within1 = True):
     (value.calm item).opensBracket = value.opensBracket :=
   match value with
-    | Atom kind word => byComputing
-    | Paren open inner close => byComputing
-    | Tuple open items comma close => byComputing
-    | ListOf open items comma close => byComputing
-    | App head arguments => byComputing
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | App _ _ => byComputing
     | Infix kind left operator right =>
       match kind with
         | InfixBinary => byComputing
@@ -1535,11 +1502,7 @@ theorem isBlockCalm ∀ (value: Expr) (item: Bool)
     (within: value.within1 = True):
     (value.calm item).isBlock = value.isBlock :=
   match value with
-    | Atom kind word => byComputing
-    | Paren open inner close => byComputing
-    | Tuple open items comma close => byComputing
-    | ListOf open items comma close => byComputing
-    | App head arguments => byComputing
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | App _ _ => byComputing
     | Infix kind left operator right =>
       match kind with
         | InfixBinary => byComputing
@@ -1568,8 +1531,7 @@ theorem lambdaHugCalm ∀ (value: Expr) (item semi: Bool) (inside: Around) (doc:
     (within: value.within1 = True):
     (value.calm item).lambdaHug semi inside doc = None :=
   match value with
-    | Binding _ _ _ _ _ => cases
-    | Calc _ _ _ => cases
+    | Binding _ _ _ _ _ | Calc _ _ _ => cases
     | _ => byComputing
 
 theorem valueElKept ∀ (value: Expr) (around: Around) (semi: Bool)
@@ -1606,11 +1568,7 @@ theorem anyTrailsAlike ∀ (before after: List Word)
       rewrite alikeTrails first second same, anyTrailsAlike more others rest
 
 theorem layoutBodyFalse ∀ (value: Expr) (within: value.within1 = True): value.layoutBody = False := match value with
-  | Atom kind word => byComputing
-  | Paren open inner close => byComputing
-  | Tuple open items comma close => byComputing
-  | ListOf open items comma close => byComputing
-  | App head arguments => byComputing
+  | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | App _ _ => byComputing
   | Infix kind left operator right =>
     match kind with
       | InfixBinary => byComputing
@@ -1622,11 +1580,7 @@ theorem layoutBodyCalm ∀ (value: Expr) (item: Bool)
     (within: value.within1 = True):
     (value.calm item).layoutBody = False :=
   match value with
-    | Atom kind word => byComputing
-    | Paren open inner close => byComputing
-    | Tuple open items comma close => byComputing
-    | ListOf open items comma close => byComputing
-    | App head arguments => byComputing
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | App _ _ => byComputing
     | Infix kind left operator right =>
       match kind with
         | InfixBinary => byComputing

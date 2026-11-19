@@ -55,8 +55,7 @@ def GoalRead (goal: Goal) (read: List Item) (expr: Expr): Prop := match goal.lev
 
 def GoalParsed (goal: Goal) (expr: Expr): Prop := match goal.level with
   | LevelArgument => ArgParsed expr
-  | LevelFull => Parsed1 1 expr
-  | LevelInline => Parsed1 1 expr
+  | LevelFull | LevelInline => Parsed1 1 expr
   | LevelLogic => Parsed1 4 expr
   | LevelComparison => Parsed1 6 expr
   | LevelAppend => Parsed1 12 expr
@@ -89,33 +88,19 @@ theorem outHead ∀ [expr: Expr] (out: Out expr): HeadParsed expr := within =>
   (Bool.falseNotTrue (rewrite withinFalseOfOut out at within)).impossible
 
 theorem argLevel ∀ (expr: Expr) (argument: expr.callArgument = True): 18 <= expr.level := match expr, argument with
-  | Atom kind word, argument => arithmetic
-  | Paren open inner close, argument => arithmetic
-  | Tuple open items trailing close, argument => arithmetic
-  | ListOf open items trailing close, argument => arithmetic
-  | Prefix operator operand, argument => arithmetic
+  | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | Prefix _ _, _ => arithmetic
   | other, argument => (Bool.falseNotTrue argument).impossible
 
 theorem headLevel ∀ (expr: Expr) (head: expr.callHead = True): 18 <= expr.level := match expr, head with
-  | Atom kind word, head => arithmetic
-  | Paren open inner close, head => arithmetic
-  | Tuple open items trailing close, head => arithmetic
-  | ListOf open items trailing close, head => arithmetic
-  | Prefix operator operand, head => arithmetic
+  | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | Prefix _ _, _ => arithmetic
   | other, head => (Bool.falseNotTrue head).impossible
 
 theorem atomicArgument ∀ (expr: Expr) (atomic: expr.primary = True): expr.callArgument = True := match expr, atomic with
-  | Atom kind word, atomic => byComputing
-  | Paren open inner close, atomic => byComputing
-  | Tuple open items trailing close, atomic => byComputing
-  | ListOf open items trailing close, atomic => byComputing
+  | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _, _ => byComputing
   | other, atomic => (Bool.falseNotTrue atomic).impossible
 
 theorem atomicHead ∀ (expr: Expr) (atomic: expr.primary = True): expr.callHead = True := match expr, atomic with
-  | Atom kind word, atomic => byComputing
-  | Paren open inner close, atomic => byComputing
-  | Tuple open items trailing close, atomic => byComputing
-  | ListOf open items trailing close, atomic => byComputing
+  | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _, _ => byComputing
   | other, atomic => (Bool.falseNotTrue atomic).impossible
 
 theorem atomArg ∀ [expr: Expr] (parsed: AtomParsed expr): ArgParsed expr := within =>
@@ -221,18 +206,8 @@ theorem readsAtBumpAt ∀ [start: Parse.Mark Item] [item: Item] [later: List Ite
 --| A token that opens an atom is no sign.
 theorem opensPlain ∀ (kind: Tok) (opens: kind.opensAtom = True): (kind == Minus || kind == Bang) = False :=
   match kind, opens with
-    | Lower, opens => byComputing
-    | Upper, opens => byComputing
-    | Num, opens => byComputing
-    | Float, opens => byComputing
-    | Str, opens => byComputing
-    | StrStart, opens => byComputing
-    | CharLit, opens => byComputing
-    | LParen, opens => byComputing
-    | LBracket, opens => byComputing
-    | LBrace, opens => byComputing
-    | Underscore, opens => byComputing
-    | Question, opens => byComputing
+    | Lower | Upper | Num | Float | Str | StrStart | CharLit | LParen | LBracket | LBrace | Underscore | Question, _ =>
+      byComputing
     | other, opens => (Bool.falseNotTrue opens).impossible
 
 -- What the parsers outside slice 1 give. Each is `Out` (the tree is outside the slice) or `True` (the tree is wrapped in
@@ -351,8 +326,7 @@ theorem reads0MatchesBarAhead ∀ (modes: Modes): Reads0 (() => matchesBarAhead 
 
 theorem minusBangSymbolic ∀ (kind: Tok) (is: (kind == Minus || kind == Bang) = True): kind.symbolic1 = True :=
   match kind, is with
-    | Minus, is => byComputing
-    | Bang, is => byComputing
+    | Minus | Bang, _ => byComputing
     | other, is => (Bool.falseNotTrue is).impossible
 
 --| A word read from a good item that is an operator of the alphabet is one `operatorTok` knows.
@@ -635,10 +609,7 @@ theorem givesFailName ∀ (modes: Modes) (what: Text) [holds: a → Prop]:
       | [] => givesFail modes what)
 
 theorem wordWithinWithin ∀ (kind: Tok) (word: kind.wordWithin1 = True): kind.within1 = True := match kind, word with
-  | Lower, word => byComputing
-  | Upper, word => byComputing
-  | Num, word => byComputing
-  | Float, word => byComputing
+  | Lower | Upper | Num | Float, _ => byComputing
   | other, word => (Bool.falseNotTrue word).impossible
 
 theorem wordLexesAs ∀ (word: Word) (kind: Tok) (lexes: LexesAs word.text kind): word.lexesAs kind = True :=
@@ -745,8 +716,7 @@ theorem negativeParsed ∀ (minus number: Word) (kind: Tok)
     ArgParsed (Prefix minus (Atom kind number)) ∧ HeadParsed (Prefix minus (Atom kind number)) :=
   let spelled: (operatorTok minus.text).isSome = True := rewrite minusIs
   let head: (Prefix minus (Atom kind number)).callHead = True := match numeral with
-    | Inl num => rewrite minusIs, num, quiet
-    | Inr float => rewrite minusIs, float, quiet
+    | Inl num | Inr num => rewrite minusIs, num, quiet
   Both
     (within =>
       let (shaped, lexical, atomic) := parsed (Bool.andLeft within)
@@ -756,8 +726,7 @@ theorem negativeParsed ∀ (minus number: Word) (kind: Tok)
       (Both shaped arithmetic, Both spelled lexical, head))
 
 theorem numeralOpens ∀ (kind: Tok) (numeral: kind = Num ∨ kind = Float): kind.opensAtom = True := match numeral with
-  | Inl num => rewrite num
-  | Inr float => rewrite float
+  | Inl num | Inr num => rewrite num
 
 theorem readsNegativeNumber ∀ (start: Parse.Mark Item) (minus number: Item) (later: List Item)
     (shape: start.rest = [minus, number, ..later])
@@ -786,8 +755,7 @@ theorem readsNegativeNumber ∀ (start: Parse.Mark Item) (minus number: Item) (l
                 byComputing)))))
 
 theorem signLike ∀ (kind: Tok) (sign: kind = Minus ∨ kind = Bang): kind.signLike = True := match sign with
-  | Inl minus => rewrite minus
-  | Inr bang => rewrite bang
+  | Inl minus | Inr minus => rewrite minus
 
 theorem minusSymbolic ∀ (kind: Tok) (is: kind = Minus): kind.symbolic1 = True := rewrite is
 
@@ -1593,10 +1561,7 @@ theorem cmpTakesGood ∀ (kind: Tok) (text: Text)
     (took: kind.isComparison = True):
     kind.symbolic1 = True ∧ (Spells kind text → leftNeeds InfixBinary text = 8 ∧ infixLevel InfixBinary text = 6) :=
   match kind, took with
-    | Equals, took => (byComputing, same => Both (rewrite same) (rewrite same))
-    | EqEq, took => (byComputing, same => Both (rewrite same) (rewrite same))
-    | Lt, took => (byComputing, same => Both (rewrite same) (rewrite same))
-    | Gt, took => (byComputing, same => Both (rewrite same) (rewrite same))
+    | Equals | EqEq | Lt | Gt, _ => (byComputing, same => Both (rewrite same) (rewrite same))
     | NotEq, took => (
       byComputing,
       spelled =>
@@ -2289,9 +2254,7 @@ theorem givesBlockResult ∀ (statements: List Statement)
       match [last, ..earlier].reverse with
         | [first, ..others] => Parse.givesDone (parsedOutside 1 _ byComputing)
         | [] => Parse.givesDone valueOk
-    | [LetStatement binding, ..others], ok => Parse.readsFatal _ _
-    | [LocalDef attributes header body, ..others], ok => Parse.readsFatal _ _
-    | [], ok => Parse.readsFatal _ _
+    | [LetStatement _, .._] | [LocalDef _ _ _, .._] | [], _ => Parse.readsFatal _ _
 
 theorem givesBlock ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
     (nested: Nested self)
@@ -2418,11 +2381,7 @@ theorem givesSemiAfter ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (va
     (nested: Nested self) (seen: Option Tok):
     Parse.Gives GoodItems (() => semiAfter self modes value semicolon seen) Out :=
   match seen with
-    | None => Parse.readsFatal _ _
-    | Some RParen => Parse.readsFatal _ _
-    | Some RBracket => Parse.readsFatal _ _
-    | Some RBrace => Parse.readsFatal _ _
-    | Some Comma => Parse.readsFatal _ _
+    | None | Some RParen | Some RBracket | Some RBrace | Some Comma => Parse.readsFatal _ _
     | Some other => Parse.givesThen (nested { modes, level = LevelFull }) (tail parsed => Parse.givesDone byComputing)
 
 theorem givesSemi ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (value: Expr)
@@ -2576,9 +2535,7 @@ theorem givesSectionOperand ∀ (self: Goal → {Parse Item} Expr) (inner: Modes
     Parse.Gives GoodItems (() => sectionOperand self inner operatorKind) (expr => True) :=
   match operatorKind with
     | Plus => givesSelfAny self nested { modes = inner, level = LevelMultiplicative }
-    | Star => givesSelfAny self nested { modes = inner, level = LevelUnary }
-    | Slash => givesSelfAny self nested { modes = inner, level = LevelUnary }
-    | Percent => givesSelfAny self nested { modes = inner, level = LevelUnary }
+    | Star | Slash | Percent => givesSelfAny self nested { modes = inner, level = LevelUnary }
     | AndAnd => givesSelfAny self nested { modes = inner, level = LevelComparison }
     | OrOr => Parse.givesThen (givesSelfAny self nested { modes = inner, level = LevelComparison }) (first _ =>
       Parse.givesThen
@@ -2633,13 +2590,9 @@ theorem givesRightOperand ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) 
     Parse.Gives GoodItems (() => rightOperand self inner operatorKind) (found => True) :=
   match operatorKind with
     | Plus => givesSelfAny self nested { modes = inner, level = LevelMultiplicative }
-    | Star => givesSelfAny self nested { modes = inner, level = LevelUnary }
-    | Slash => givesSelfAny self nested { modes = inner, level = LevelUnary }
-    | Percent => givesSelfAny self nested { modes = inner, level = LevelUnary }
+    | Star | Slash | Percent => givesSelfAny self nested { modes = inner, level = LevelUnary }
     | PlusPlus => givesSelfAny self nested { modes = inner, level = LevelAdditive }
-    | AndAnd => givesSelfAny self nested { modes = inner, level = LevelComparison }
-    | OrOr => givesSelfAny self nested { modes = inner, level = LevelComparison }
-    | IffArrow => givesSelfAny self nested { modes = inner, level = LevelComparison }
+    | AndAnd | OrOr | IffArrow => givesSelfAny self nested { modes = inner, level = LevelComparison }
     | other => givesSelfAny self nested { modes = inner, level = LevelAppend }
 
 theorem givesRightClose ∀ (inner: Modes) (open: Word) (operand: Expr) (operator: Word):
@@ -3195,9 +3148,7 @@ theorem givesCtorFieldsEnd ∀ (name: Word) (fields: FieldsPattern) (stops: Tok 
 
 theorem givesCtorListEnd ∀ (name: Word) (arguments: List Pattern):
     Parse.Gives GoodItems (() => ctorListEnd name arguments) (pat => True) :=
-  match arguments with
-    | [] => Parse.givesDone byComputing
-    | [first, ..rest] => Parse.givesDone byComputing
+  match arguments with | [] | [_, .._] => Parse.givesDone byComputing
 
 theorem givesCtorArgsOf ∀ (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (name: Word) (stops: Tok → Bool)
     (nested: PatternNested pself) (braced: Bool):
@@ -3541,9 +3492,7 @@ theorem givesRefuseAttributes ∀ (attributes: List Attributes) (what: Text):
 theorem givesParamNameOn ∀ (modes: Modes) (seen: Option Tok):
     Parse.Gives GoodItems (() => paramNameOn modes seen) (word => True) :=
   match seen with
-    | Some Upper => givesFail modes _
-    | Some LParen => givesFail modes _
-    | Some LBrace => givesFail modes _
+    | Some Upper | Some LParen | Some LBrace => givesFail modes _
     | other => givesLower modes "a parameter's name"
 
 theorem givesParamName ∀ (modes: Modes): Parse.Gives GoodItems (() => paramName modes) (word => True) :=
@@ -4267,8 +4216,7 @@ theorem givesCaseNamesOn ∀ (fuel: Nat) (modes: Modes) (found: List Word) (seen
     | Succ more, Some Lower =>
       Parse.givesThen (givesLower modes "a name") (name _ => givesCaseNames more modes [name, ..found])
     | Succ more, Some Underscore => Parse.givesThen givesBump (name _ => givesCaseNames more modes [name, ..found])
-    | Succ more, other => Parse.givesDone byComputing
-    | Zero, other => Parse.givesDone byComputing
+    | Succ _ | Zero, _ => Parse.givesDone byComputing
 
 theorem givesCaseNames ∀ (fuel: Nat) (modes: Modes) (found: List Word):
     Parse.Gives GoodItems (() => caseNames fuel modes found) (names => True) :=
@@ -4863,13 +4811,8 @@ theorem givesStepSign ∀ (modes: Modes): Parse.Gives GoodItems (() => stepSign 
     (start fine stops => givesFail modes _ start fine)
     (start item later shape fine stopped =>
       match item.kind with
-        | Equals => Parse.givesDone byComputing start fine
-        | Le => Parse.givesDone byComputing start fine
-        | Lt => Parse.givesDone byComputing start fine
-        | Ge => Parse.givesDone byComputing start fine
-        | Gt => Parse.givesDone byComputing start fine
-        | NotEq => Parse.readsFatal _ _ start fine
-        | EqEq => Parse.readsFatal _ _ start fine
+        | Equals | Le | Lt | Ge | Gt => Parse.givesDone byComputing start fine
+        | NotEq | EqEq => Parse.readsFatal _ _ start fine
         | other => givesFail modes _ start fine)
 
 theorem givesCalcProof ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (colonEq: Bool)

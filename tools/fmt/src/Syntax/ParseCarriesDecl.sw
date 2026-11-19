@@ -233,8 +233,7 @@ theorem nameKindCode ∀ (item: Item)
     (name: (item.kind == Lower || item.kind == Upper) = True):
     (item.kind == Comma) = False :=
   match item.kind, name with
-    | Lower, name => byComputing
-    | Upper, name => byComputing
+    | Lower | Upper, _ => byComputing
     | other, name => (Bool.falseNotTrue name).impossible
 
 theorem readsLowerQualified ∀ (modes: Modes) (what: Text):

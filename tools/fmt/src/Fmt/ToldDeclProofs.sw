@@ -19,8 +19,7 @@ import Syntax.SharedFacts (homedBackSuffix)
 --| One entry no wider than another: a blank line for a blank line, a word for the same word with flags that allow no
 --| more.
 def EntryRefines: Told → Told → Prop
-  | _, MaybeGap => False
-  | _, Lost => False
+  | _, MaybeGap | Lost => False
   | Gap, Gap => True
   | Said text starts follows, Said other first second =>
     text = other ∧ (starts = True → first = True) ∧ (follows = True → second = True)
@@ -158,15 +157,12 @@ theorem wordTellingRefines ∀ (text: Text) (spot: Spot) (flag: Bool)
       rewrite home byComputing, wordTellingLine text then refinesOne text True False True False (x => x) (x => x)
 
 theorem trailExact ∀ (word: Word): toldExact word.toldTrail = True := match word.comments.after with
-  | Some comment => byComputing
-  | None => byComputing
+  | Some _ | None => byComputing
 
 theorem shapePrinted ∀ (word: Word) (around: Around):
     (word.printed around).shapeW
       = word.toldLead around ++ [Said word.text True (!closerTrails word)] ++ word.toldTrail :=
-  match around.hoisted with
-    | True => byComputing
-    | False => byComputing
+  match around.hoisted with | True | False => byComputing
 
 --| What a leaf tells refines the printed word's shape.
 theorem leafTellingShape ∀ (word: Word) (around: Around) (spot: Spot)
@@ -212,9 +208,7 @@ def Word.shapeK (word: Word) (item hoisted: Bool): List Told :=
 
 theorem printedShape ∀ (word: Word) (around: Around):
     (word.printed around).shapeW = word.shapeK around.item around.hoisted :=
-  match around.hoisted with
-    | True => byComputing
-    | False => byComputing
+  match around.hoisted with | True | False => byComputing
 
 --| Where the shape of a document is told, whatever the spot.
 def Is (doc: Doc) (shape: List Told): Prop := ∀ (spot: Spot) => Refines (doc.tell spot).said shape
@@ -508,8 +502,7 @@ theorem closeHomes ∀ (close: Word) (xs prior: List Word) (around: Around)
 def Expr.nonCloser: Expr → Bool
   | Atom _ word => !isCloserText word.text
   | Paren open inner _ => !isCloserText open.text && inner.nonCloser
-  | Tuple open items _ _ => !isCloserText open.text && allNonCloser items
-  | ListOf open items _ _ => !isCloserText open.text && allNonCloser items
+  | Tuple open items _ _ | ListOf open items _ _ => !isCloserText open.text && allNonCloser items
   | App head arguments => head.nonCloser && allNonCloser arguments
   | Infix _ left operator right => left.nonCloser && !isCloserText operator.text && right.nonCloser
   | Prefix operator operand => !isCloserText operator.text && operand.nonCloser
@@ -522,11 +515,8 @@ def allNonCloser: List Expr → Bool
 theorem leadNonCloser ∀ (expr: Expr) (nonCloser: expr.nonCloser = True): isCloserText expr.lead.text = False :=
   match expr with
     | Atom kind word => Bool.notTrue _ nonCloser
-    | Paren open inner close => Bool.notTrue _ (Bool.andLeft nonCloser)
-    | Tuple open items comma close => Bool.notTrue _ (Bool.andLeft nonCloser)
-    | ListOf open items comma close => Bool.notTrue _ (Bool.andLeft nonCloser)
-    | App head arguments => leadNonCloser head (Bool.andLeft nonCloser)
-    | Infix kind left operator right => leadNonCloser left (Bool.andLeft nonCloser)
+    | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ => Bool.notTrue _ (Bool.andLeft nonCloser)
+    | App head _ | Infix _ head _ _ => leadNonCloser head (Bool.andLeft nonCloser)
     | Prefix operator operand => Bool.notTrue _ (Bool.andLeft nonCloser)
 
 --| An expression read back has a word that is no closer.
@@ -1074,8 +1064,7 @@ theorem eachTake ∀ (docs: List Doc) (shapes: List (List Told)) (count: Nat)
     (each: IsEach docs shapes):
     IsEach (docs.take count) (shapes.take count) :=
   match docs, shapes, count with
-    | [], [], Zero => byComputing
-    | [], [], Succ less => byComputing
+    | [], [], Zero | Succ _ => byComputing
     | [doc, ..more], [shape, ..rest], Zero => byComputing
     | [doc, ..more], [shape, ..rest], Succ less =>
       let (head, tail) := each
@@ -1085,8 +1074,7 @@ theorem eachDrop ∀ (docs: List Doc) (shapes: List (List Told)) (count: Nat)
     (each: IsEach docs shapes):
     IsEach (docs.drop count) (shapes.drop count) :=
   match docs, shapes, count with
-    | [], [], Zero => byComputing
-    | [], [], Succ less => byComputing
+    | [], [], Zero | Succ _ => byComputing
     | [doc, ..more], [shape, ..rest], Zero => each
     | [doc, ..more], [shape, ..rest], Succ less =>
       let (head, tail) := each
@@ -1095,8 +1083,7 @@ theorem eachDrop ∀ (docs: List Doc) (shapes: List (List Told)) (count: Nat)
 theorem takeDropJoin ∀ (shapes: List (List Told)) (count: Nat):
     joinShapes (shapes.take count) ++ joinShapes (shapes.drop count) = joinShapes shapes :=
   match shapes, count with
-    | [], Zero => byComputing
-    | [], Succ less => byComputing
+    | [], Zero | Succ _ => byComputing
     | [shape, ..rest], Zero => byComputing
     | [shape, ..rest], Succ less =>
       rewrite List.appendAssoc shape (joinShapes (rest.take less)) (joinShapes (rest.drop less)), takeDropJoin rest less
@@ -2219,8 +2206,7 @@ def Word.hoist (word: Word): Word :=
   { word | comments = { above = [], after = word.comments.after, blankBefore = False } }
 
 theorem noteBare ∀ (note: Note): dropCommas (noteTold note) = noteTold note := match note.blankBefore with
-  | True => byComputing
-  | False => byComputing
+  | True | False => byComputing
 
 theorem notesBare ∀ (notes: List Note): dropCommas (notesTold notes) = notesTold notes := match notes with
   | [] => byComputing
@@ -2229,13 +2215,10 @@ theorem notesBare ∀ (notes: List Note): dropCommas (notesTold notes) = notesTo
 theorem aboveBare ∀ (comments: Comments): dropCommas comments.toldAbove = comments.toldAbove :=
   rewrite dropAppend (notesTold comments.above) (if comments.blankBefore then [Gap] else []),
       notesBare comments.above then
-    match comments.blankBefore with
-      | True => byComputing
-      | False => byComputing
+    match comments.blankBefore with | True | False => byComputing
 
 theorem trailBare ∀ (word: Word): dropCommas word.toldTrail = word.toldTrail := match word.comments.after with
-  | Some comment => byComputing
-  | None => byComputing
+  | Some _ | None => byComputing
 
 theorem dropOne ∀ (text: Text) (flag: Bool)
     (notComma: (text == ",") = False):
@@ -2264,8 +2247,7 @@ def Word.notComma (word: Word): Bool := !(word.text == ",")
 def Expr.spelled: Expr → Bool
   | Atom _ word => word.notComma
   | Paren open inner close => open.notComma && inner.spelled && isCloserText close.text
-  | Tuple open items _ close => open.notComma && allSpelled items && isCloserText close.text
-  | ListOf open items _ close => open.notComma && allSpelled items && isCloserText close.text
+  | Tuple open items _ close | ListOf open items _ close => open.notComma && allSpelled items && isCloserText close.text
   | App head arguments => head.spelled && allSpelled arguments
   | Infix _ left operator right => left.spelled && operator.notComma && right.spelled
   | Prefix operator operand => operator.notComma && operand.spelled
@@ -2281,16 +2263,11 @@ def calmFrom (first: Bool): List Expr → List Expr
   | [item, ..rest] => [item.calm first, ..calmAll True rest]
 
 theorem calmAllFrom ∀ (items: List Expr): calmAll True items = calmFrom True items := match items with
-  | [] => byComputing
-  | [item, ..rest] => byComputing
+  | [] | [_, .._] => byComputing
 
 theorem calmItemsFrom ∀ (items: List Expr): calmItems items = calmFrom (!items.all Expr.plainItem) items :=
   match items.all Expr.plainItem with
-    | True =>
-      (match items with
-        | [] => byComputing
-        | [item, ..rest] => byComputing)
-    | False =>
+    | True | False =>
       (match items with
         | [] => byComputing
         | [item, ..rest] => byComputing)
@@ -2464,12 +2441,7 @@ theorem joinableTexts ∀ (kinds: Text → Tok) (expr: Expr)
       let (openCloser, openComma) := wordJoinsPlain open openWord
       let (innerCloser, innerComma) := joinableTexts kinds inner innerJoins
       (Bool.andIntro openCloser innerCloser, Bool.andIntro openComma (Bool.andIntro innerComma closeText))
-    | Tuple open items comma close =>
-      let ((openWord, _), (closeSound, closeText), itemsJoins) := joins
-      let (openCloser, openComma) := wordJoinsPlain open openWord
-      let (itemsCloser, itemsComma) := allJoinableTexts kinds items itemsJoins
-      (Bool.andIntro openCloser itemsCloser, Bool.andIntro openComma (Bool.andIntro itemsComma closeText))
-    | ListOf open items comma close =>
+    | Tuple open items _ _ | ListOf open items _ _ =>
       let ((openWord, _), (closeSound, closeText), itemsJoins) := joins
       let (openCloser, openComma) := wordJoinsPlain open openWord
       let (itemsCloser, itemsComma) := allJoinableTexts kinds items itemsJoins

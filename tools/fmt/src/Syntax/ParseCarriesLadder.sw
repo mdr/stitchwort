@@ -49,10 +49,7 @@ theorem comparisonSpells ∀ (kind: Tok) (text: Text)
     (good: kind.within1 = True → Spells kind text):
     binaryKind text = kind ∧ binaryText1 text = True ∧ (kind == Comma) = False :=
   match kind, took, good with
-    | Equals, took, good => rewrite good byComputing then (byComputing, byComputing, byComputing)
-    | EqEq, took, good => rewrite good byComputing then (byComputing, byComputing, byComputing)
-    | Lt, took, good => rewrite good byComputing then (byComputing, byComputing, byComputing)
-    | Gt, took, good => rewrite good byComputing then (byComputing, byComputing, byComputing)
+    | Equals | EqEq | Lt | Gt, _, good => rewrite good byComputing then (byComputing, byComputing, byComputing)
     | NotEq, took, good =>
       let spelled: text = "!=" ∨ text = "≠" := good byComputing
       match spelled with
@@ -493,9 +490,7 @@ theorem arrowText ∀ (operator: Item)
     (good: GoodItem operator):
     arrowText1 operator.text = True :=
   let spelled: operator.text = "->" ∨ operator.text = "→" := rewrite is at good (rewrite is)
-  match spelled with
-    | Inl same => rewrite same
-    | Inr same => rewrite same
+  match spelled with | Inl same | Inr same => rewrite same
 
 theorem keptArrow ∀ (operator: Item) [first rest: List Item] [left right: Expr]
     (isArrow: operator.kind = Arrow)
@@ -905,22 +900,19 @@ theorem readsExprInline ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 --| (a `let` with `;`).
 def StatementOut (statement: Statement): Prop := match statement with
   | ExprStatement value => Out value
-  | LetStatement binding => True
-  | LocalDef attributes header body => True
+  | LetStatement _ | LocalDef _ _ _ => True
 
 --| A line of a block carries its items: an expression does.
 def StatementKept (read: List Item) (statement: Statement): Prop := match statement with
   | ExprStatement value => KeptFull read value
-  | LetStatement binding => True
-  | LocalDef attributes header body => True
+  | LetStatement _ | LocalDef _ _ _ => True
 
 theorem statementKeptOut ∀ (read: List Item) [statement: Statement]
     (out: StatementOut statement):
     StatementKept read statement :=
   match statement, out with
     | ExprStatement value, out => keptFullOut read out
-    | LetStatement binding, out => byComputing
-    | LocalDef attributes header body, out => byComputing
+    | LetStatement _ | LocalDef _ _ _, _ => byComputing
 
 --| A parser whose lines are never expressions in the slice carries its items.
 theorem readsStatementOut ∀ [p: () → {Parse Item} Statement]
@@ -1152,9 +1144,7 @@ theorem readsBlockResult ∀ (statements: List Statement) (read: List Item)
       match rev: List.reverse [last, ..earlier] with
         | [first, ..rest] => Parse.readsDone _ _ (keptFullOut _ byComputing)
         | [] => Std.Void.impossible (arithmetic [rewrite rev at List.lengthReverse [last, ..earlier]])
-    | [LetStatement binding, ..others], got => Parse.readsFatal _ _
-    | [LocalDef attributes header body, ..others], got => Parse.readsFatal _ _
-    | [], got => Parse.readsFatal _ _
+    | [LetStatement _, .._] | [LocalDef _ _ _, .._] | [], _ => Parse.readsFatal _ _
 
 theorem readsBlock ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
     (nested: Nested self)

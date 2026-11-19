@@ -157,8 +157,7 @@ theorem gappedReady ∀ (kinds: Text → Tok) (trails: Bool) (first: Text) (edge
     Ready kinds trails first edge :=
   match edge, gapped with
     | Plain None, _ => byComputing
-    | Waiting None, waits => waits
-    | Waiting (Some word), waits => waits
+    | Waiting None | Waiting (Some _), waits => waits
 
 theorem freeReady ∀ (kinds: Text → Tok) (trails: Bool) (first: Text) (edge: Edge)
     (free: Free kinds trails edge):
@@ -166,23 +165,20 @@ theorem freeReady ∀ (kinds: Text → Tok) (trails: Bool) (first: Text) (edge: 
   match edge, free with
     | Plain None, _ => byComputing
     | Plain (Some word), any => any first
-    | Waiting None, waits => waits
-    | Waiting (Some word), waits => waits
+    | Waiting None | Waiting (Some _), waits => waits
 
 theorem freeEnded ∀ (kinds: Text → Tok) (trails: Bool) (edge: Edge) (free: Free kinds trails edge): Ended trails edge :=
   match edge, free with
     | Plain None, _ => byComputing
     | Plain (Some word), any => (any " ").left
-    | Waiting None, waits => waits
-    | Waiting (Some word), waits => waits
+    | Waiting None | Waiting (Some _), waits => waits
 
 theorem leftEnded ∀ (text: Text) (trails: Bool)
     (token: Token text) (edge: Edge)
     (left: Left text trails edge):
     Ended trails edge :=
   match edge, left with
-    | Plain None, never => (Bool.falseNotTrue never).impossible
-    | Waiting None, never => (Bool.falseNotTrue never).impossible
+    | Plain None | Waiting None, never => (Bool.falseNotTrue never).impossible
     | Plain (Some word), same => rewrite same then token
     | Waiting (Some word), (same, waits) => (waits, (rewrite same then token))
 
@@ -194,8 +190,7 @@ theorem endedReadyCloser ∀ (kinds: Text → Tok) (trails: Bool) (text: Text)
   match edge, ended with
     | Plain None, _ => byComputing
     | Plain (Some word), token => followsCloser kinds word text token closes
-    | Waiting None, waits => waits
-    | Waiting (Some word), waits => waits
+    | Waiting None | Waiting (Some _), waits => waits
 
 theorem endedWeaker ∀ (trails trails': Bool)
     (implies: trails = True → trails' = True) (edge: Edge)
@@ -479,16 +474,10 @@ theorem textPasses ∀ (kinds: Text → Tok) (before: Bool) (text: Text)
       | Waiting touching, _ => rewrite filled, solidTouch text solid, spaces then after (Plain (Some text)) byComputing
 
 theorem closesToken ∀ (text: Text) (closes: Closes text): Token text := match closes with
-  | Inl same => rewrite same
-  | Inr (Inl same) => rewrite same
-  | Inr (Inr (Inl same)) => rewrite same
-  | Inr (Inr (Inr same)) => rewrite same
+  | Inl same | Inr (Inl same) | Inr (Inr (Inl same)) | Inr (Inr (Inr same)) => rewrite same
 
 theorem closesSolid ∀ (text: Text) (closes: Closes text): isLayout text = False := match closes with
-  | Inl same => rewrite same
-  | Inr (Inl same) => rewrite same
-  | Inr (Inr (Inl same)) => rewrite same
-  | Inr (Inr (Inr same)) => rewrite same
+  | Inl same | Inr (Inl same) | Inr (Inr (Inl same)) | Inr (Inr (Inr same)) => rewrite same
 
 theorem closerCloses ∀ (text: Text) (closer: isCloserText text = True): Closes text := match paren: text == ")" with
   | True => Inl (DecEq.sound paren)
@@ -501,9 +490,7 @@ theorem closerCloses ∀ (text: Text) (closer: isCloserText text = True): Closes
 
 theorem closerNotComma ∀ (text: Text) (closer: isCloserText text = True): (text == ",") = False :=
   match closerCloses text closer with
-    | Inl same => rewrite same
-    | Inr (Inl same) => rewrite same
-    | Inr (Inr (Inl same)) => rewrite same
+    | Inl same | Inr (Inl same) | Inr (Inr (Inl same)) => rewrite same
     | Inr (Inr (Inr same)) => rewrite same at closer then cases
 
 --| A closer or comma: from where it may stand, the line ends with it, and a comment waiting before it still waits.
@@ -835,8 +822,7 @@ theorem leftWeaker ∀ (text: Text) (flag flag': Bool)
   match edge, left with
     | Plain (Some word), same => same
     | Waiting (Some word), (same, waits) => (same, implies waits)
-    | Plain None, never => (Bool.falseNotTrue never).impossible
-    | Waiting None, never => (Bool.falseNotTrue never).impossible
+    | Plain None | Waiting None, never => (Bool.falseNotTrue never).impossible
 
 --| A token's trailing comment, written after it on its line, where no comment waits yet.
 theorem trailingPasses ∀ (kinds: Text → Tok) (word: Word) (flag: Bool)
@@ -865,16 +851,14 @@ theorem bareFlag ∀ (closer before trails: Bool)
     (closer && (before && !(closer && trails))) = False :=
   rewrite trailing then
     match closer, before with
-      | True, True => byComputing
-      | True, False => byComputing
+      | True, True | False => byComputing
       | False, before => byComputing
 
 theorem leafFlag ∀ (closer before trails: Bool)
     (flag: (trails || (closer && (before && !(closer && trails)))) = True):
     (trails || (closer && before)) = True :=
   match closer, before, trails, flag with
-    | True, True, True, _ => byComputing
-    | True, True, False, _ => byComputing
+    | True, True, True | False, _ => byComputing
     | True, False, True, _ => byComputing
     | False, before, True, _ => byComputing
 
@@ -945,8 +929,8 @@ def OpenerJoins (kinds: Text → Tok) (word: Word): Prop :=
 def Joinable (kinds: Text → Tok): Expr → Prop
   | Atom _ word => WordJoins word
   | Paren open inner close => OpenerJoins kinds open ∧ CloserJoins close ∧ Joinable kinds inner
-  | Tuple open items _ close => OpenerJoins kinds open ∧ CloserJoins close ∧ AllJoinable kinds items
-  | ListOf open items _ close => OpenerJoins kinds open ∧ CloserJoins close ∧ AllJoinable kinds items
+  | Tuple open items _ close | ListOf open items _ close =>
+    OpenerJoins kinds open ∧ CloserJoins close ∧ AllJoinable kinds items
   | App head arguments => Joinable kinds head ∧ AllJoinable kinds arguments ∧ arguments ≠ []
   | Infix _ left operator right => Joinable kinds left ∧ WordJoins operator ∧ Joinable kinds right
   | Prefix operator operand =>
@@ -1155,11 +1139,8 @@ theorem framedPasses ∀ (kinds: Text → Tok) (first: Word) (around: Around) (d
 theorem leadJoins ∀ (kinds: Text → Tok) (expr: Expr) (joinable: Joinable kinds expr): WordJoins expr.lead :=
   match expr, joinable with
     | Atom kind word, joins => joins
-    | Paren open inner close, (opener, _) => opener.left
-    | Tuple open items comma close, (opener, _) => opener.left
-    | ListOf open items comma close, (opener, _) => opener.left
-    | App head arguments, (headJoins, _) => leadJoins kinds head headJoins
-    | Infix kind left operator right, (leftJoins, _) => leadJoins kinds left leftJoins
+    | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _, (opener, _) => opener.left
+    | App head _ | Infix _ head _ _, (headJoins, _) => leadJoins kinds head headJoins
     | Prefix operator operand, (operator, _) => operator
 
 theorem framedExprPasses ∀ (kinds: Text → Tok) (expr: Expr) (around: Around) (doc: Doc) (post: Edge → Prop)
@@ -1247,8 +1228,7 @@ theorem parenInnerPasses ∀ (kinds: Text → Tok) (inner: Expr) (around: Around
     (passes: Passes kinds (inner.el around) pre post):
     Passes kinds (parenInner inner around) pre post :=
   match inner with
-    | Block _ _ _ => cases
-    | If _ _ _ _ _ _ _ => cases
+    | Block _ _ _ | If _ _ _ _ _ _ _ => cases
     | _ => passes
 
 --| `( … )`: the opener, the element inside, which may follow it, and the closer.
@@ -2431,13 +2411,7 @@ theorem chainRightPasses ∀ (kinds: Text → Tok) (level: Option Nat) (right: E
   let spaced: PassesAll kinds [Doc.text " ", ..linkDocs level False right place] (Ended True) (Ended right.trails) :=
     passesCons kinds (Doc.text " ") _ (Ended True) (Gapped True) (Ended right.trails) (passesSpace kinds True) rest
   match right with
-    | Atom _ _ => spaced
-    | Paren _ _ _ => spaced
-    | Tuple _ _ _ _ => spaced
-    | ListOf _ _ _ _ => spaced
-    | App _ _ => spaced
-    | Infix _ _ _ _ => spaced
-    | Prefix _ _ => spaced
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | App _ _ | Infix _ _ _ _ | Prefix _ _ => spaced
 
 --| A chain's links: the first operand's, then each operator after a separator and its operand after a space.
 theorem chainLinksPasses ∀ (kinds: Text → Tok) (level: Option Nat) (first: Bool) (left: Expr) (operator: Word)
@@ -2509,12 +2483,7 @@ theorem linkDocsPasses ∀ (kinds: Text → Tok) (level: Option Nat) (first: Boo
       (Ended expr.trails)
       (elPasses kinds expr within joinable around)
   match expr, joinable with
-    | Atom _ _, _ => element
-    | Paren _ _ _, _ => element
-    | Tuple _ _ _ _, _ => element
-    | ListOf _ _ _ _, _ => element
-    | App _ _, _ => element
-    | Prefix _ _, _ => element
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | App _ _ | Prefix _ _, _ => element
     | Infix kind left operator right, (leftJoins, operatorJoins, rightJoins) =>
       match kind with
         | InfixBinary =>
@@ -2748,12 +2717,7 @@ theorem callHugPasses ∀ (kinds: Text → Tok) (value: Expr) (inside: Around)
             seq
             (List.snocNotNil front lastDoc))
           hugs
-    | Atom _ _, _ => byComputing
-    | Paren _ _ _, _ => byComputing
-    | Tuple _ _ _ _, _ => byComputing
-    | ListOf _ _ _ _, _ => byComputing
-    | Infix _ _ _ _, _ => byComputing
-    | Prefix _ _, _ => byComputing
+    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | Infix _ _ _ _ | Prefix _ _, _ => byComputing
 
 -- The body after `:=`.
 
@@ -2885,8 +2849,7 @@ theorem endedReadyColon ∀ (kinds: Text → Tok) (trails: Bool) (edge: Edge)
   match edge, ended with
     | Plain None, _ => byComputing
     | Plain (Some word), token => followsStops kinds word ":" ':' token byComputing stopsColon
-    | Waiting None, waits => waits
-    | Waiting (Some word), waits => waits
+    | Waiting None | Waiting (Some _), waits => waits
 
 --| A token that is no closer, then the line ends with it.
 theorem wordEnds ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key: Nat)

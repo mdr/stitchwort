@@ -383,11 +383,11 @@ theorem baseNotDot ∀ (sub: Goal → List Item → List Item → Expr → Prop)
     (item.kind == Dot) = False :=
   match reads with
     | Inl (_, _, word) => (wordKinds item.kind word).right.right.right.right
-    | Inr (Inl (_, _, _, _, _, isOpen, _)) => rewrite isOpen
-    | Inr (Inr (Inl (_, _, _, _, _, _, _, _, _, isOpen, _))) => rewrite isOpen
-    | Inr (Inr (Inr (Inl (_, _, _, isOpen, _)))) => rewrite isOpen
-    | Inr (Inr (Inr (Inr (Inl (_, _, _, _, _, _, isOpen, _))))) => rewrite isOpen
-    | Inr (Inr (Inr (Inr (Inr (Inl (_, _, _, isMinus, _)))))) => rewrite isMinus
+    | Inr (Inl (_, _, _, _, _, isOpen, _)) |
+        Inr (Inr (Inl (_, _, _, _, _, _, _, _, _, isOpen, _))) |
+        Inr (Inr (Inr (Inl (_, _, _, isOpen, _)))) |
+        Inr (Inr (Inr (Inr (Inl (_, _, _, _, _, _, isOpen, _))))) |
+        Inr (Inr (Inr (Inr (Inr (Inl (_, _, _, isOpen, _)))))) => rewrite isOpen
     | Inr (Inr (Inr (Inr (Inr (Inr (_, _, signed, _)))))) =>
       match signed with
         | Inl (isMinus, _) => rewrite isMinus
@@ -730,8 +730,7 @@ theorem runsAppTree ∀ (sub: Goal → List Item → List Item → Expr → Prop
 --| A sign is no `match`.
 theorem signNotMatch ∀ (kind: Tok) (signed: (kind == Minus || kind == Bang) = True): (kind == KwMatch) = False :=
   match kind, signed with
-    | Minus, _ => byComputing
-    | Bang, _ => byComputing
+    | Minus | Bang, _ => byComputing
     | other, signed => (Bool.falseNotTrue signed).impossible
 
 --| What `UnaryReads` holds of, `unary` reads.

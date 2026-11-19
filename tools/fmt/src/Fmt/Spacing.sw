@@ -24,14 +24,12 @@ def prefixGap (operator: Word) (operand: Expr): Doc :=
 
 --| A numeral: what `-` glued to it reads as one atom with.
 def Expr.numeral1: Expr → Bool
-  | Atom Num _ => True
-  | Atom Float _ => True
+  | Atom Num _ | Atom Float _ => True
   | _ => False
 
 --| An application whose head is a numeral (`numeral_application`).
 def Expr.numeralApplication: Expr → Bool
-  | App (Atom Num _) _ => True
-  | App (Atom Float _) _ => True
+  | App (Atom Num _) _ | App (Atom Float _) _ => True
   | _ => False
 
 --| The token an operator's spelling is, as the lexer reads it.

@@ -253,9 +253,7 @@ def BodyTag: DefBody → Nat
   | Arms _ => 2
 
 theorem primitiveKept ∀ (body: DefBody): BodyTag (walkDefBody blankPure body).blank = BodyTag body := match body with
-  | Primitive => byComputing
-  | Assigned colonEq value => byComputing
-  | Arms arms => byComputing
+  | Primitive | Assigned _ _ | Arms _ => byComputing
 
 theorem primitiveSame ∀ (parts twin: (Header, DefBody))
     (alike: PartsAlike parts twin):
@@ -629,9 +627,7 @@ theorem alikeOperationClause ∀ (bar barTwin: Comments) (operation operationTwi
 theorem clausesBlankCons ∀ (clause: HandlerClause) (rest: List HandlerClause):
     blankClauses (walkClauses blankPure [clause, ..rest])
       = blankClauses (walkClauses blankPure [clause]) ++ blankClauses (walkClauses blankPure rest) :=
-  match clause with
-    | ReturnClause bar keyword name arrow body => byComputing
-    | OperationClause bar operation argument comma continuation arrow body => byComputing
+  match clause with | ReturnClause _ _ _ _ _ | OperationClause _ _ _ _ _ _ _ => byComputing
 
 theorem clausesBlank ∀ (clauses twins: List HandlerClause)
     (alike: List.All2 ClauseAlike clauses twins):
@@ -1122,13 +1118,8 @@ theorem followsCalcProof ∀ [self selfTwin: Goal → {Parse Item} Expr]
 theorem followsStepSign ∀ (modes: Modes) (seen: Option Tok):
     Parse.Follows SameCode Same (() => stepSign modes seen) (() => stepSign modes seen) :=
   match seen with
-    | Some Equals => Parse.followsDone _ _ byComputing
-    | Some Le => Parse.followsDone _ _ byComputing
-    | Some Lt => Parse.followsDone _ _ byComputing
-    | Some Ge => Parse.followsDone _ _ byComputing
-    | Some Gt => Parse.followsDone _ _ byComputing
-    | Some NotEq => followsFatalAny calcRelations (() => Syntax.fatal calcRelations)
-    | Some EqEq => followsFatalAny calcRelations (() => Syntax.fatal calcRelations)
+    | Some Equals | Some Le | Some Lt | Some Ge | Some Gt => Parse.followsDone _ _ byComputing
+    | Some NotEq | Some EqEq => followsFatalAny calcRelations (() => Syntax.fatal calcRelations)
     | _ => followsFail modes "`=`, `<=`, `<`, `>=` or `>` after `_`" (() =>
       modes.fail "`=`, `<=`, `<`, `>=` or `>` after `_`")
 

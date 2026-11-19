@@ -319,9 +319,7 @@ theorem followsApp ∀ [self selfTwin: Goal → {Parse Item} Expr]
 -- Unary operators.
 
 theorem headKindDeaf ∀ (items: List Item): items.head.map Item.kind = (items.map Item.stripped).head.map Item.kind :=
-  match items with
-    | [] => byComputing
-    | [item, ..rest] => byComputing
+  match items with | [] | [_, .._] => byComputing
 
 theorem followsUnaryNext ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -1329,11 +1327,8 @@ theorem followsSemiAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
     Parse.Follows SameCode ExprsAlike (() => semiAfter self modes value semicolon seen) (() =>
       semiAfter selfTwin modes valueTwin semicolonTwin seen) :=
   match seen with
-    | None => followsFatalAny semicolonAtEnd (() => Syntax.fatal semicolonAtEnd)
-    | Some RParen => followsFatalAny semicolonAtEnd (() => Syntax.fatal semicolonAtEnd)
-    | Some RBracket => followsFatalAny semicolonAtEnd (() => Syntax.fatal semicolonAtEnd)
-    | Some RBrace => followsFatalAny semicolonAtEnd (() => Syntax.fatal semicolonAtEnd)
-    | Some Comma => followsFatalAny semicolonAtEnd (() => Syntax.fatal semicolonAtEnd)
+    | None | Some RParen | Some RBracket | Some RBrace | Some Comma =>
+      followsFatalAny semicolonAtEnd (() => Syntax.fatal semicolonAtEnd)
     | _ =>
       Parse.followsMap
         (right => Infix InfixSeq value semicolon right)

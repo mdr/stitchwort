@@ -47,16 +47,14 @@ import Syntax (
 def Expr.within4c: Expr → Bool
   | Atom kind word => kind.wordWithin2 || (kind == Str || kind == CharLit) && !word.text.contains "\n"
   | Paren _ inner _ => inner.within4c
-  | Tuple _ items _ _ => allInline4c items
-  | ListOf _ items _ _ => allInline4c items
+  | Tuple _ items _ _ | ListOf _ items _ _ => allInline4c items
   | App head arguments => head.inline4c && allInline4c arguments
-  | Infix InfixBinary left _ right => left.inline4c && right.within4c
-  | Infix InfixArrow left _ right => left.inline4c && right.within4c
+  | Infix InfixBinary left _ right | Infix InfixArrow left _ right => left.inline4c && right.within4c
   | Infix InfixMembership left _ right => left.inline4c && right.inline4c
   | Prefix operator operand => operand.inline4c && !(operator.text == "-" && operand.numeralField)
   | Binding BindsLambda None params _ body => !params.isEmpty && paramsWithin4c params && body.within4c
-  | Binding BindsForall (Some _) params _ body => !params.isEmpty && paramsWithin4c params && body.inline4c
-  | Binding BindsExists (Some _) params _ body => !params.isEmpty && paramsWithin4c params && body.inline4c
+  | Binding BindsForall (Some _) params _ body | Binding BindsExists (Some _) params _ body =>
+    !params.isEmpty && paramsWithin4c params && body.inline4c
   | Block first rest result =>
     first.within4c && statementsWithin4c rest && result.inline4c && laterLinesPlain rest result
   | LetIn binding _ body => binding.within4c && keepsLine binding.value && body.within4c
@@ -81,13 +79,8 @@ def allInline4c: List Expr → Bool
 --| Rust glues a spread's `..` (`..xs`, `..(f x)`); before anything else it
 --| copies the source's gap.
 def Expr.spreadStart: Expr → Bool
-  | Atom Lower _ => True
-  | Atom Upper _ => True
-  | Paren _ _ _ => True
-  | Tuple _ _ _ _ => True
-  | ListOf _ _ _ _ => True
-  | App head _ => head.spreadStart
-  | FieldAccess (Some target) _ _ => target.spreadStart
+  | Atom Lower _ | Atom Upper _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ => True
+  | App head _ | FieldAccess (Some head) _ _ => head.spreadStart
   | _ => False
 
 def Expr.isRecord: Expr → Bool
@@ -162,8 +155,7 @@ def patternsWithin4c: List Pattern → Bool
 --| A constructor's arguments: as `argumentsWithin4b`.
 def argumentsWithin4c: List Pattern → Bool
   | [] => True
-  | [PatternAbsurd _ _, .._] => False
-  | [PatternCtor _ _, .._] => False
+  | [PatternAbsurd _ _, .._] | [PatternCtor _ _, .._] => False
   | [pattern, ..rest] => pattern.within4c && argumentsWithin4c rest
 
 def tailWithin4c: Option (Word, Pattern) → Bool
@@ -186,8 +178,7 @@ def Word.commented (word: Word): Bool := word.noted || word.trails
 --| A binder's parameters: names, `_`, and typed groups.
 def paramsWithin4c: List Param → Bool
   | [] => True
-  | [NameParam _, ..rest] => paramsWithin4c rest
-  | [PatternParam (PatternWord _ _), ..rest] => paramsWithin4c rest
+  | [NameParam _, ..rest] | [PatternParam (PatternWord _ _), ..rest] => paramsWithin4c rest
   | [Grouped group, ..rest] => groupWithin4c GroupLambda group && paramsWithin4c rest
   | [_, ..rest] => False
 
@@ -219,8 +210,7 @@ def Header.within4c (header: Header): Bool := match header with
 def Decl.within4c: Decl → Bool
   | Definition [] header (Assigned _ value) => header.within4c && value.within4c
   | Definition [] header (Arms arms) => header.within4c && !arms.isEmpty && armsWithin4c arms
-  | Namespace _ _ => True
-  | Import _ _ _ _ _ => True
+  | Namespace _ _ | Import _ _ _ _ _ => True
   | Test _ name _ body => !name.text.contains "\n" && body.within4c
   | _ => False
 
@@ -229,8 +219,7 @@ def SourceFile.within4c (file: SourceFile): Bool := file.decls.all Decl.within4c
 --| Slice 4c's tokens: slice 4b's and membership's `∈` and `∉` (`in` and
 --| `!in`).
 def Tok.within4c: Tok → Bool
-  | KwIn => True
-  | NotIn => True
+  | KwIn | NotIn => True
   | kind => kind.within4b
 
 -- Printing.

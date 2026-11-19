@@ -220,9 +220,7 @@ theorem hasItemTrailingAt ∀ (behind: List Leaf) (steps: Nat) (comment: Comment
     hasItem (trailingAt behind steps comment) = hasItem behind :=
   match behind, steps with
     | [], _ => byComputing
-    | [leaf, ..earlier], Zero => byComputing
-    | [leaf, ..earlier], Succ Zero => byComputing
-    | [leaf, ..earlier], Succ (Succ more) => byComputing
+    | [_, .._], Zero | Succ Zero | Succ (Succ _) => byComputing
 
 theorem barishNop ∀ (above: Token) (x: Leaf) (rest: List Leaf)
     (nop: lastPair above.kind x rest = False):
@@ -1285,8 +1283,7 @@ theorem withoutRNop ∀ (leaf: Leaf) (behind after: List Leaf)
         | False => byComputing
 
 theorem hasItemDropRev ∀ (behind: List Leaf): hasItem (dropRev behind) = hasItem behind := match behind with
-  | [] => byComputing
-  | [x, ..rest] => byComputing
+  | [] | [_, .._] => byComputing
 
 theorem fwdPairDrop ∀ (behind: List Leaf) (leaf: Leaf) (after: List Leaf):
     fwdPair (dropRev behind) leaf after = fwdPair behind leaf after :=
@@ -1728,8 +1725,7 @@ def itemT: List Token → Bool
       | kind => !kind.isOpener
 
 theorem hasItemT ∀ (leaves: List Leaf): hasItem leaves = itemT (tokens leaves) := match leaves with
-  | [] => byComputing
-  | [leaf, ..rest] => byComputing
+  | [] | [_, .._] => byComputing
 
 --| No closer in `tokens` (newest first) right after a last comma that starts its line.
 def pairFreeT: List Token → Bool

@@ -15,10 +15,7 @@ import Syntax.ReadBackTree (..)
 --| The kinds that end every expression they follow in slice 1: the `:=` after a type, a comma or closer after a
 --| bracket's element.
 def endsOperand: Tok → Bool
-  | ColonEq => True
-  | Comma => True
-  | RParen => True
-  | RBracket => True
+  | ColonEq | Comma | RParen | RBracket => True
   | _ => False
 
 def endsHere: List Item → Bool
@@ -167,33 +164,33 @@ theorem operandEndsAt ∀ (modes: Modes) (next: Item) (later: List Item)
 
 --| The kinds of slice 1's items from a declaration's type on: its alphabet less `def` and `:`.
 def plainKind: Tok → Bool
-  | Lower => True
-  | Upper => True
-  | Num => True
-  | Float => True
-  | ColonEq => True
-  | LParen => True
-  | RParen => True
-  | LBracket => True
-  | RBracket => True
-  | Comma => True
-  | OrOr => True
-  | AndAnd => True
-  | Equals => True
-  | EqEq => True
-  | NotEq => True
-  | Lt => True
-  | Le => True
-  | Gt => True
-  | Ge => True
-  | PlusPlus => True
-  | Plus => True
-  | Minus => True
-  | Star => True
-  | Slash => True
-  | Percent => True
-  | Bang => True
-  | Arrow => True
+  | Lower |
+      Upper |
+      Num |
+      Float |
+      ColonEq |
+      LParen |
+      RParen |
+      LBracket |
+      RBracket |
+      Comma |
+      OrOr |
+      AndAnd |
+      Equals |
+      EqEq |
+      NotEq |
+      Lt |
+      Le |
+      Gt |
+      Ge |
+      PlusPlus |
+      Plus |
+      Minus |
+      Star |
+      Slash |
+      Percent |
+      Bang |
+      Arrow => True
   | _ => False
 
 def plainAll: List Item → Bool
@@ -364,9 +361,7 @@ theorem operandEndsNil ∀ (modes: Modes): OperandEnds modes [] := {
 }
 
 theorem noBarOne ∀ (modes: Modes) (item: Item): matchesBarOn modes [item] = False :=
-  let noPipe: isSome Pipe (peekIn modes 1 [item]) = False := match modes.stops item with
-    | True => byComputing
-    | False => byComputing
+  let noPipe: isSome Pipe (peekIn modes 1 [item]) = False := match modes.stops item with | True | False => byComputing
   rewrite noPipe then
     Bool.andFalseMiddle
       (wordOn modes "matches" [item])

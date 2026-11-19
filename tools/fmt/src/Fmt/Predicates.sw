@@ -133,26 +133,18 @@ def SourceFile.calm (file: SourceFile): SourceFile :=
 
 --| An atom or a bracket: what a call's argument may be, and what a sign on an argument may sit on.
 def Expr.primary: Expr → Bool
-  | Atom _ _ => True
-  | Paren _ _ _ => True
-  | Tuple _ _ _ _ => True
-  | ListOf _ _ _ _ => True
+  | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ => True
   | _ => False
 
 --| A numeral, which a `-` glued to it reads as one atom with.
 def Expr.numberAtom: Expr → Bool
-  | Atom Num _ => True
-  | Atom Float _ => True
+  | Atom Num _ | Atom Float _ => True
   | _ => False
 
 --| The leftmost token of an expression of the slice.
 def Expr.lead: Expr → Word
-  | Atom _ word => word
-  | Paren open _ _ => open
-  | Tuple open _ _ _ => open
-  | ListOf open _ _ _ => open
-  | App head _ => head.lead
-  | Infix _ left _ _ => left.lead
+  | Atom _ word | Paren word _ _ | Tuple word _ _ _ | ListOf word _ _ _ => word
+  | App head _ | Infix _ head _ _ => head.lead
   | Prefix operator _ => operator
   | _ => Word.none
 

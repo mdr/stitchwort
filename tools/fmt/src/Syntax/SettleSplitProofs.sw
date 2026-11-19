@@ -71,8 +71,7 @@ theorem endsOpenSnoc ∀ (zs: List Word) (word: Word)
     (open: isCloserText word.text = False):
     endsOpen (zs ++ [word]) = True :=
   match zs with
-    | [] => rewrite open
-    | [only] => rewrite open
+    | [] | [_] => rewrite open
     | [first, next, ..rest] => endsOpenSnoc [next, ..rest] word open
 
 --| The oldest word of a list read newest first is the first word of the list.

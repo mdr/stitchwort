@@ -39,8 +39,7 @@ def Quiet: Seam → Prop
   | _ => True
 
 theorem endingQuiet ∀ (seam: Seam) (quiet: Quiet seam): codeTouching seam.ending = [] := match seam, quiet with
-  | Begun, _ => byComputing
-  | Along word, _ => byComputing
+  | Begun | Along _, _ => byComputing
   | Awaiting word comment, quiet => rewrite quiet
 
 --| Where an element whose first code word is spaced `first` may start: at a line start or after a space only if it
@@ -53,8 +52,7 @@ def Fits (before: Bool) (first: Spacing) (seam: Seam): Prop := match seam with
 
 --| Where an element ends: a comment waits only if it ends with one (`trails`).
 def Ends (trails: Bool) (seam: Seam): Prop := match seam with
-  | Begun => True
-  | Along _ => True
+  | Begun | Along _ => True
   | Awaiting _ comment => trails = True ∧ isComment comment = True
 
 --| After a space or a line break: nothing on the line to touch.
@@ -65,19 +63,16 @@ def Gapped (trails: Bool) (seam: Seam): Prop := match seam with
 
 theorem fitsQuiet ∀ (before: Bool) (first: Spacing) (seam: Seam) (fits: Fits before first seam): Quiet seam :=
   match seam, fits with
-    | Begun, _ => byComputing
-    | Along word, _ => byComputing
+    | Begun | Along _, _ => byComputing
     | Awaiting word comment, (_, _, quiet) => quiet
 
 theorem endsQuiet ∀ (trails: Bool) (seam: Seam) (ends: Ends trails seam): Quiet seam := match seam, ends with
-  | Begun, _ => byComputing
-  | Along word, _ => byComputing
+  | Begun | Along _, _ => byComputing
   | Awaiting word comment, (_, quiet) => quiet
 
 --| Anything free may start where an element ended.
 theorem endsFits ∀ (trails: Bool) (seam: Seam) (ends: Ends trails seam): Fits trails Free seam := match seam, ends with
-  | Begun, _ => byComputing
-  | Along word, _ => byComputing
+  | Begun | Along _, _ => byComputing
   | Awaiting word comment, (waits, quiet) => (waits, byComputing, quiet)
 
 --| A code word that needn't be glued may start after a space.
@@ -95,8 +90,7 @@ theorem endsWeaker ∀ (trails trails': Bool)
     (ends: Ends trails seam):
     Ends trails' seam :=
   match seam, ends with
-    | Begun, _ => byComputing
-    | Along word, _ => byComputing
+    | Begun | Along _, _ => byComputing
     | Awaiting word comment, (waits, quiet) => (implies waits, quiet)
 
 theorem fitsWeaker ∀ (before before': Bool)
@@ -105,8 +99,7 @@ theorem fitsWeaker ∀ (before before': Bool)
     (fits: Fits before first seam):
     Fits before' first seam :=
   match seam, fits with
-    | Begun, loose => loose
-    | Along word, admits => admits
+    | Begun | Along _, loose => loose
     | Awaiting word comment, (waits, loose, quiet) => (implies waits, loose, quiet)
 
 -- The triples.
@@ -417,8 +410,7 @@ theorem stepsLine ∀ (trails: Bool): Steps Line (Ends trails) [] (Gapped trails
 theorem stepsSpace ∀ (trails: Bool): Steps (Doc.text " ") (Ends trails) [] (Gapped trails) :=
   seam trace next holds after =>
     match seam, holds with
-      | Begun, _ => stay (Gapped trails) [] (Along False) trace next byComputing after byComputing
-      | Along word, _ => stay (Gapped trails) [] (Along False) trace next byComputing after byComputing
+      | Begun | Along _, _ => stay (Gapped trails) [] (Along False) trace next byComputing after byComputing
       | Awaiting word comment, holds =>
         stay (Gapped trails) [] (Awaiting False comment) trace next byComputing after holds
 

@@ -51,9 +51,7 @@ theorem levelAtomic ∀ (expr: Expr) (high: 22 <= expr.level): expr.atomic = Tru
 theorem negativeKept ∀ (membership recordRow: Bool) (expr: Expr)
     (negative: expr.negativeNumeral = True):
     keepsBrackets membership recordRow expr = True :=
-  match expr with
-    | Prefix operator (Atom Num word) => cases
-    | Prefix operator (Atom Float word) => cases
+  match expr with | Prefix _ (Atom Num _) | Prefix _ (Atom Float _) => cases
 
 theorem enoughAbove ∀ (atomOnly: Bool) (floor more: Nat)
     (enough: atomOnly = True → 22 <= floor)
@@ -189,10 +187,7 @@ theorem commaExprWalk ∀ (expr: Expr): (withoutCommaExpr expr).walk meaningPure
 theorem commaPatternWalk ∀ (pattern: Pattern):
     (withoutCommaPattern pattern).walk meaningPure = pattern.walk meaningPure :=
   match pattern with
-    | PatternRecord fields =>
-      match fields with
-        | { open, fields, trailingComma, rest, close } => byComputing
-    | PatternCtorFields name fields =>
+    | PatternRecord fields | PatternCtorFields _ fields =>
       match fields with
         | { open, fields, trailingComma, rest, close } => byComputing
     | _ => cases
@@ -305,9 +300,8 @@ theorem dropLeftWalk ∀ (floor: Nat) (membership recordRow atomOnly: Bool) (exp
         (enoughAbove atomOnly floor (leftNeeds kind operator.text) enough)
     | Chain first rest =>
       rewrite dropLeftWalk (Nat.max floor 8) membership recordRow atomOnly first (enoughAbove atomOnly floor 8 enough)
-    | App head arguments => rewrite dropLeftWalk (Nat.max floor 22) membership recordRow True head (enoughHead floor)
-    | FieldAccess (Some target) dot field =>
-      rewrite dropLeftWalk (Nat.max floor 22) membership recordRow True target (enoughHead floor)
+    | App head _ | FieldAccess (Some head) _ _ =>
+      rewrite dropLeftWalk (Nat.max floor 22) membership recordRow True head (enoughHead floor)
     | _ => cases
 
 theorem rowWalk ∀ (expr: Expr): (dropAfterRow expr).walk meaningPure = expr.walk meaningPure := match expr with
@@ -348,8 +342,7 @@ theorem paramsBindersWalk ∀ (params: List Param):
       = (blankParams (walkParams meaningPure params)).map Param.plainType :=
   match params with
     | [] => byComputing
-    | [NameParam word, ..rest] => rewrite paramsBindersWalk rest
-    | [PatternParam pattern, ..rest] => rewrite paramsBindersWalk rest
+    | [NameParam _, ..rest] | [PatternParam _, ..rest] => rewrite paramsBindersWalk rest
     | [Grouped group, ..rest] => rewrite groupBindersWalk group, paramsBindersWalk rest
     | [TypedPattern open pattern colon annotation close, ..rest] => rewrite stripWalk annotation, paramsBindersWalk rest
 

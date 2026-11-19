@@ -34,15 +34,13 @@ import Syntax (
 def Expr.within2: Expr → Bool
   | Atom kind _ => kind.wordWithin2
   | Paren _ inner _ => inner.within2
-  | Tuple _ items _ _ => allWithin2 items
-  | ListOf _ items _ _ => allWithin2 items
+  | Tuple _ items _ _ | ListOf _ items _ _ => allWithin2 items
   | App head arguments => head.within2 && allWithin2 arguments
-  | Infix InfixBinary left _ right => left.within2 && right.within2
-  | Infix InfixArrow left _ right => left.within2 && right.within2
+  | Infix InfixBinary left _ right | Infix InfixArrow left _ right => left.within2 && right.within2
   | Prefix _ operand => operand.within2
-  | Binding BindsLambda None params _ body => !params.isEmpty && paramsWithin2 params && body.within2
-  | Binding BindsForall (Some _) params _ body => !params.isEmpty && paramsWithin2 params && body.within2
-  | Binding BindsExists (Some _) params _ body => !params.isEmpty && paramsWithin2 params && body.within2
+  | Binding BindsLambda None params _ body |
+      Binding BindsForall (Some _) params _ body |
+      Binding BindsExists (Some _) params _ body => !params.isEmpty && paramsWithin2 params && body.within2
   | _ => False
 
 def allWithin2: List Expr → Bool
@@ -96,15 +94,7 @@ def SourceFile.within2 (file: SourceFile): Bool := file.decls.all Decl.within2
 --| Slice 2's tokens: slice 1's, `theorem`, `∀`, `∃`, `=>`, `_`, `{`, `}`,
 --| `Type` and `Prop`.
 def Tok.within2 (kind: Tok): Bool := match kind with
-  | KwTheorem => True
-  | KwForall => True
-  | KwExists => True
-  | FatArrow => True
-  | Underscore => True
-  | LBrace => True
-  | RBrace => True
-  | TypeU => True
-  | PropU => True
+  | KwTheorem | KwForall | KwExists | FatArrow | Underscore | LBrace | RBrace | TypeU | PropU => True
   | _ => kind.within1
 
 -- Printing.

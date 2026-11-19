@@ -45,9 +45,7 @@ def writeKinds (text: Text) (kinds: Kinds): Option Kinds :=
 --| allows where it allows `AtStart`. A trailing comment is asked to be one rule N leaves (`commentText`), which is
 --| a comment to `Lays` (`commentIs`).
 def laysKinds (doc: Doc) (kinds: Kinds): Option Kinds := match doc with
-  | Doc.Nothing => Some kinds
-  | BreakParent => Some kinds
-  | Mark _ => Some kinds
+  | Doc.Nothing | BreakParent | Mark _ => Some kinds
   | Blank => if kinds.start then None else Some { kinds | start = kinds.broken, broken = False }
   | Chunk text _ => writeKinds text kinds
   | Closing text =>
@@ -56,19 +54,12 @@ def laysKinds (doc: Doc) (kinds: Kinds): Option Kinds := match doc with
       match writeKinds text { kinds | held = False } with
         | None => None
         | Some after => Some (after.union { Kinds.none | held = kinds.held })
-  | Line => if kinds.midLine then Some { kinds | broken = kinds.mid || kinds.held } else None
-  | SoftLine => if kinds.midLine then Some { kinds | broken = kinds.mid || kinds.held } else None
+  | Line | SoftLine => if kinds.midLine then Some { kinds | broken = kinds.mid || kinds.held } else None
   | HardLine => if kinds.midLine then Some { Kinds.none | broken = True } else None
-  | LineStart => Some kinds.started
-  | LineStartHere => Some kinds.started
-  | CloserLine _ => Some kinds.started
-  | Nest _ inner => laysKinds inner kinds
-  | Align inner => laysKinds inner kinds
-  | AlignInset inner => laysKinds inner kinds
+  | LineStart | LineStartHere | CloserLine _ => Some kinds.started
+  | Nest _ inner | Align inner | AlignInset inner => laysKinds inner kinds
   | Displaced inner => laysKinds inner { kinds | broken = kinds.broken || kinds.held, held = False }
-  | Group inner _ => laysKinds inner kinds
-  | NarrowGroup _ inner _ => laysKinds inner kinds
-  | IdGroup _ inner _ => laysKinds inner kinds
+  | Group inner _ | NarrowGroup _ inner _ | IdGroup _ inner _ => laysKinds inner kinds
   | IfBroken _ broken flat =>
     match laysKinds broken kinds, laysKinds flat kinds with
       | Some one, Some other => Some (one.union other)
@@ -121,20 +112,12 @@ def Kinds.has (kinds: Kinds) (place: Place): Bool := match place with
   | Held _ _ => kinds.held
 
 theorem unionLeft ∀ (one other: Kinds) (place: Place) (has: one.has place = True): (one.union other).has place = True :=
-  match place, has with
-    | AtStart column carry, has => Bool.orLeft has
-    | Broken column carry, has => Bool.orLeft has
-    | Mid column carry, has => Bool.orLeft has
-    | Held column carry, has => Bool.orLeft has
+  match place, has with | AtStart _ _ | Broken _ _ | Mid _ _ | Held _ _, has => Bool.orLeft has
 
 theorem unionRight ∀ (one other: Kinds) (place: Place)
     (has: other.has place = True):
     (one.union other).has place = True :=
-  match place, has with
-    | AtStart column carry, has => Bool.orRight has
-    | Broken column carry, has => Bool.orRight has
-    | Mid column carry, has => Bool.orRight has
-    | Held column carry, has => Bool.orRight has
+  match place, has with | AtStart _ _ | Broken _ _ | Mid _ _ | Held _ _, has => Bool.orRight has
 
 --| A place of kinds none of which is a line start has words on its line.
 theorem midLineOf ∀ (kinds: Kinds) (place: Place)
@@ -146,17 +129,12 @@ theorem midLineOf ∀ (kinds: Kinds) (place: Place)
       Void.impossible (Bool.falseNotTrue (Eq.trans (Bool.notTrue _ (Bool.andLeft mid)).flipped at))
     | Broken column carry, at =>
       Void.impossible (Bool.falseNotTrue (Eq.trans (Bool.notTrue _ (Bool.andRight mid)).flipped at))
-    | Mid column carry, at => byComputing
-    | Held column carry, at => byComputing
+    | Mid _ _ | Held _ _, _ => byComputing
 
 theorem hasCarry ∀ (kinds: Kinds) (place: Place) (carry: Carry)
     (at: kinds.has place = True):
     kinds.has (place.withCarry carry) = True :=
-  match place, at with
-    | AtStart column old, at => at
-    | Broken column old, at => at
-    | Mid column old, at => at
-    | Held column old, at => at
+  match place, at with | AtStart _ _ | Broken _ _ | Mid _ _ | Held _ _, at => at
 
 theorem heldCloses ∀ (held closes: Bool) (bad: (held && !closes) = False) (is: held = True): closes = True :=
   match held, closes, bad, is with
@@ -211,8 +189,7 @@ theorem laysOfKinds ∀ (doc: Doc) (indent: Nat) (kinds after: Kinds) (place: Pl
     (onward: ∀ (left: Place) (later: List Event) => after.has left = True → next left later):
     Lays doc indent place trace next :=
   match doc, checks with
-    | Doc.Nothing, checks => onward place trace (rewrite <- Option.someInjective checks then at)
-    | BreakParent, checks => onward place trace (rewrite <- Option.someInjective checks then at)
+    | Doc.Nothing | BreakParent, checks => onward place trace (rewrite <- Option.someInjective checks then at)
     | Mark key, checks => onward _ trace (rewrite <- Option.someInjective checks then hasCarry kinds place _ at)
     | Blank, checks =>
       match start: kinds.start, checks with
@@ -265,21 +242,7 @@ theorem laysOfKinds ∀ (doc: Doc) (indent: Nat) (kinds after: Kinds) (place: Pl
                     unheld
                 | Mid column carry, at =>
                   writeOfKinds indent text { kinds | held = False } middle (Mid column carry) trace next wrote at unheld
-    | Line, checks =>
-      match mid: kinds.midLine, checks with
-        | False, never => cases
-        | True, checks =>
-          let same := Option.someInjective checks
-          match place, at with
-            | AtStart column carry, at =>
-              Void.impossible (Bool.falseNotTrue (midLineOf kinds (AtStart column carry) mid at))
-            | Broken column carry, at =>
-              Void.impossible (Bool.falseNotTrue (midLineOf kinds (Broken column carry) mid at))
-            | Mid column carry, at =>
-              (onward _ _ (rewrite <- same then at), onward _ _ (rewrite <- same then Bool.orLeft at))
-            | Held column carry, at =>
-              (onward _ _ (rewrite <- same then at), onward _ _ (rewrite <- same then Bool.orRight at))
-    | SoftLine, checks =>
+    | Line | SoftLine, checks =>
       match mid: kinds.midLine, checks with
         | False, never => cases
         | True, checks =>
@@ -298,14 +261,7 @@ theorem laysOfKinds ∀ (doc: Doc) (indent: Nat) (kinds after: Kinds) (place: Pl
         | False, never => cases
         | True, checks => (midLineOf kinds place mid at, Inl (onward _ _ (rewrite <- Option.someInjective checks)))
     | LineStart, checks => startOfKinds kinds after place trace next (Option.someInjective checks) at onward indent
-    | LineStartHere, checks =>
-      let same := Option.someInjective checks
-      match place, at with
-        | AtStart column carry, at => onward _ _ (rewrite <- same then at)
-        | Broken column carry, at => onward _ _ (rewrite <- same then Bool.orLeft at)
-        | Mid column carry, at => onward _ _ (rewrite <- same then Bool.orRight (Bool.orLeft at))
-        | Held column carry, at => onward _ _ (rewrite <- same then Bool.orRight (Bool.orRight at))
-    | CloserLine key, checks =>
+    | LineStartHere | CloserLine _, checks =>
       let same := Option.someInjective checks
       match place, at with
         | AtStart column carry, at => onward _ _ (rewrite <- same then at)
@@ -340,9 +296,8 @@ theorem laysOfKinds ∀ (doc: Doc) (indent: Nat) (kinds after: Kinds) (place: Pl
           laysOfKinds inner _ _ after (Broken column carry) trace next checks (Bool.orLeft at) onward
         | Mid column carry, at => laysOfKinds inner _ _ after (Mid column carry) trace next checks at onward
         | Held column carry, at => laysOfKinds inner _ _ after _ trace next checks (Bool.orRight at) onward
-    | Group inner hard, checks => laysOfKinds inner indent kinds after place trace next checks at onward
-    | NarrowGroup max inner hard, checks => laysOfKinds inner indent kinds after place trace next checks at onward
-    | IdGroup id inner hard, checks => laysOfKinds inner indent kinds after place trace next checks at onward
+    | Group inner _ | NarrowGroup _ inner _ | IdGroup _ inner _, checks =>
+      laysOfKinds inner indent kinds after place trace next checks at onward
     | IfBroken id broken flat, checks =>
       match one: laysKinds broken kinds, other: laysKinds flat kinds, checks with
         | Some first, Some second, checks =>

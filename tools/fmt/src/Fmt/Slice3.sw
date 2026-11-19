@@ -21,15 +21,13 @@ import Syntax (Arm, BindingKind, Decl, DefBody, Expr, Guard, InfixKind, Let, Pat
 def Expr.within3: Expr → Bool
   | Atom kind _ => kind.wordWithin2
   | Paren _ inner _ => inner.within3
-  | Tuple _ items _ _ => allInline3 items
-  | ListOf _ items _ _ => allInline3 items
+  | Tuple _ items _ _ | ListOf _ items _ _ => allInline3 items
   | App head arguments => head.inline3 && allInline3 arguments
-  | Infix InfixBinary left _ right => left.inline3 && right.within3
-  | Infix InfixArrow left _ right => left.inline3 && right.within3
+  | Infix InfixBinary left _ right | Infix InfixArrow left _ right => left.inline3 && right.within3
   | Prefix _ operand => operand.inline3
   | Binding BindsLambda None params _ body => !params.isEmpty && paramsWithin2 params && body.within3
-  | Binding BindsForall (Some _) params _ body => !params.isEmpty && paramsWithin2 params && body.inline3
-  | Binding BindsExists (Some _) params _ body => !params.isEmpty && paramsWithin2 params && body.inline3
+  | Binding BindsForall (Some _) params _ body | Binding BindsExists (Some _) params _ body =>
+    !params.isEmpty && paramsWithin2 params && body.inline3
   | Block first rest result => first.within3 && statementsWithin3 rest && result.inline3 && laterLinesPlain rest result
   | LetIn binding _ body => binding.within3 && keepsLine binding.value && body.within3
   | If _ None condition _ whenTrue _ whenFalse => condition.inline3 && whenTrue.within3 && whenFalse.within3
@@ -97,29 +95,22 @@ def Pattern.isWord3: Pattern → Bool
   | _ => False
 
 def Tok.patternWord3: Tok → Bool
-  | Lower => True
-  | Upper => True
-  | Num => True
-  | Underscore => True
+  | Lower | Upper | Num | Underscore => True
   | _ => False
 
 --| Whether an expression `let`'s value prints as Rust's does before its
 --| `;`: a lambda keeps its body on its line only at the top of the value
 --| (`lambdaBoth`), so no other lambda may end there.
 def keepsLine: Expr → Bool
-  | Binding BindsLambda _ _ _ body => !body.endsWithLambda
-  | value => !value.endsWithLambda
+  | Binding BindsLambda _ _ _ body | body => !body.endsWithLambda
 
 --| Whether a lambda ends where the expression ends.
 def Expr.endsWithLambda: Expr → Bool
   | Binding BindsLambda _ _ _ _ => True
   | Binding _ _ _ _ body => body.endsWithLambda
   | App _ arguments => lastEndsWithLambda arguments
-  | Infix _ _ _ right => right.endsWithLambda
-  | Prefix _ operand => operand.endsWithLambda
-  | If _ _ _ _ _ _ whenFalse => whenFalse.endsWithLambda
-  | LetIn _ _ body => body.endsWithLambda
-  | Block _ _ result => result.endsWithLambda
+  | Infix _ _ _ right | Prefix _ right | If _ _ _ _ _ _ right | LetIn _ _ right | Block _ _ right =>
+    right.endsWithLambda
   | Match _ _ _ arms => lastArmEndsWithLambda arms
   | _ => False
 
@@ -143,14 +134,7 @@ def SourceFile.within3 (file: SourceFile): Bool := file.decls.all Decl.within3
 --| Slice 3's tokens: slice 2's, `let`, `;`, `if`, `then`, `else`,
 --| `match`, `with` and `|`.
 def Tok.within3 (kind: Tok): Bool := match kind with
-  | KwLet => True
-  | Semi => True
-  | KwIf => True
-  | KwThen => True
-  | KwElse => True
-  | KwMatch => True
-  | KwWith => True
-  | Pipe => True
+  | KwLet | Semi | KwIf | KwThen | KwElse | KwMatch | KwWith | Pipe => True
   | _ => kind.within2
 
 -- Printing.

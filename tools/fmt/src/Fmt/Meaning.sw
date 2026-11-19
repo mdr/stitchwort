@@ -162,8 +162,7 @@ def forgetLeft (atomOnly: Bool): Expr → Expr
   | other => other
 
 def Expr.negativeNumeral: Expr → Bool
-  | Prefix operator (Atom Num _) => operator.text == "-"
-  | Prefix operator (Atom Float _) => operator.text == "-"
+  | Prefix operator (Atom Num _) | Prefix operator (Atom Float _) => operator.text == "-"
   | _ => False
 
 --| The forms a pair may be forgotten around at an application's head: one
@@ -172,23 +171,23 @@ def Expr.negativeNumeral: Expr → Bool
 --| until someone checks its lowering. A constructor update
 --| (`C { r | x = 1 }`) lowers to an application, so it isn't here.
 def Expr.atomic: Expr → Bool
-  | Atom _ _ => True
-  | Paren _ _ _ => True
-  | Unit _ _ => True
-  | Universe _ _ => True
-  | Include _ _ => True
-  | Tuple _ _ _ _ => True
-  | ListOf _ _ _ _ => True
-  | Spread _ _ => True
-  | Record _ _ _ _ _ => True
-  | RecordField _ _ _ => True
+  | Atom _ _ |
+      Paren _ _ _ |
+      Unit _ _ |
+      Universe _ _ |
+      Include _ _ |
+      Tuple _ _ _ _ |
+      ListOf _ _ _ _ |
+      Spread _ _ |
+      Record _ _ _ _ _ |
+      RecordField _ _ _ => True
   | CtorFields _ (Record _ (Some _) _ _ _) => False
-  | CtorFields _ _ => True
-  | NamedArg _ _ _ _ _ => True
-  | FieldAccess (Some _) _ _ => True
-  | OperatorSection _ _ _ _ _ => True
-  | Annotation _ _ _ _ _ => True
-  | Interpolated _ => True
+  | CtorFields _ _ |
+      NamedArg _ _ _ _ _ |
+      FieldAccess (Some _) _ _ |
+      OperatorSection _ _ _ _ _ |
+      Annotation _ _ _ _ _ |
+      Interpolated _ => True
   | _ => False
 
 -- Parameter groups.

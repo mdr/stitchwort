@@ -853,8 +853,7 @@ theorem bitsFineAppend ∀ (kinds: Text → Tok) (front back: List Bit)
     BitsFine kinds (front ++ back) :=
   match front, frontFine with
     | [], _ => backFine
-    | [AWord word, ..rest], (fine, restFine) => (fine, bitsFineAppend kinds rest back restFine backFine)
-    | [AComma, ..rest], (fine, restFine) => (fine, bitsFineAppend kinds rest back restFine backFine)
+    | [AWord _, ..rest] | [AComma, ..rest], (fine, restFine) => (fine, bitsFineAppend kinds rest back restFine backFine)
 
 theorem bitShapeOne ∀ (word: Word): bitsShape [AWord word] = word.shapeW := List.appendNil word.shapeW
 
@@ -896,12 +895,6 @@ theorem shapeBits ∀ (expr: Expr) (item hoisted: Bool): expr.shape item hoisted
           <- shapeBits left item hoisted,
           <- shapeBits right False False
     | Prefix operator operand => rewrite <- shapeBits operand False False
-    | Binding _ _ _ _ _ => byComputing
-    | Effect _ _ => byComputing
-    | If _ _ _ _ _ _ _ => byComputing
-    | Match _ _ _ _ => byComputing
-    | Block _ _ _ => byComputing
-    | LetIn _ _ _ => byComputing
     | _ => byComputing
 
 theorem itemsShapeBits ∀ (first: Bool) (items: List Expr): itemsShape first items = bitsShape (itemsBits first items) :=
@@ -943,8 +936,7 @@ def Word.unreturned (word: Word): Bool := word.comments.above.all Note.unreturne
 def Expr.unreturned: Expr → Bool
   | Atom _ word => word.unreturned
   | Paren open inner close => open.unreturned && inner.unreturned && close.unreturned
-  | Tuple open items _ close => open.unreturned && allUnreturned items && close.unreturned
-  | ListOf open items _ close => open.unreturned && allUnreturned items && close.unreturned
+  | Tuple open items _ close | ListOf open items _ close => open.unreturned && allUnreturned items && close.unreturned
   | App head arguments => head.unreturned && allUnreturned arguments
   | Infix _ left operator right => left.unreturned && operator.unreturned && right.unreturned
   | Prefix operator operand => operator.unreturned && operand.unreturned
@@ -1051,9 +1043,8 @@ theorem bitFine ∀ (word: Word) (item hoisted: Bool)
 
 theorem prefixKindOk ∀ (text: Text) (spelled: PrefixSpells text): KindOk text ∧ isCloserText text = False :=
   match spelled with
-    | Inl same => rewrite same then ((byComputing, byComputing, byComputing, byComputing), byComputing)
-    | Inr (Inl same) => rewrite same then ((byComputing, byComputing, byComputing, byComputing), byComputing)
-    | Inr (Inr same) => rewrite same then ((byComputing, byComputing, byComputing, byComputing), byComputing)
+    | Inl same | Inr (Inl same) | Inr (Inr same) =>
+      rewrite same then ((byComputing, byComputing, byComputing, byComputing), byComputing)
 
 --| A slice 1 expression's bits are its calm words, with bare commas, and each token one the lexer reads back.
 --|

@@ -46,8 +46,7 @@ theorem dashed ∀ (chars: List Char)
               let isFirst: '-' = first := DecEq.sound (rewrite Text.sameCharEq '-' first at one then one)
               let isSecond: '-' = second := DecEq.sound (rewrite Text.sameCharEq '-' second at two then two)
               rewrite <- isFirst, <- isSecond then (others, byComputing, Bool.andRight (Bool.andRight whole))
-    | [], never => cases
-    | [_], never => cases
+    | [_], _ => cases
 
 --| A comment as rule N leaves it is one the lexer reads as a comment, and no layout.
 theorem commentIs ∀ (text: Text) (comment: commentText text = True): IsComment text ∧ isLayout text = False :=
@@ -282,12 +281,9 @@ theorem leadNotCloser ∀ (expr: Expr)
     | Atom kind word, within =>
       let (_, (_, _, closer, _)) := wordFacts kind word.text within
       closer
-    | Paren open _ _, _ => rewrite DecEq.sound (Bool.andLeft lexical)
-    | Tuple open _ _ _, _ => rewrite DecEq.sound (Bool.andLeft lexical)
-    | ListOf open _ _ _, _ => rewrite DecEq.sound (Bool.andLeft lexical)
-    | App head _, within => leadNotCloser head (Bool.andLeft within) (Bool.andLeft lexical)
-    | Infix InfixBinary left _ _, within => leadNotCloser left (Bool.andLeft within) (Bool.andLeft lexical)
-    | Infix InfixArrow left _ _, within => leadNotCloser left (Bool.andLeft within) (Bool.andLeft lexical)
+    | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _, _ => rewrite DecEq.sound (Bool.andLeft lexical)
+    | App head _ | Infix InfixBinary head _ _ | Infix InfixArrow head _ _, within =>
+      leadNotCloser head (Bool.andLeft within) (Bool.andLeft lexical)
     | Prefix operator _, within =>
       let (_, (_, _, closer, _)) := prefixToken operator.text (Bool.andRight within)
       closer

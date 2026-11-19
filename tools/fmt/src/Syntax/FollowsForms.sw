@@ -656,9 +656,7 @@ theorem followsSectionOperand ∀ [self selfTwin: Goal → {Parse Item} Expr]
       sectionOperand selfTwin modes operator) :=
   match operator with
     | Plus => knot { modes, level = LevelMultiplicative }
-    | Star => knot { modes, level = LevelUnary }
-    | Slash => knot { modes, level = LevelUnary }
-    | Percent => knot { modes, level = LevelUnary }
+    | Star | Slash | Percent => knot { modes, level = LevelUnary }
     | AndAnd => knot { modes, level = LevelComparison }
     | OrOr => Parse.followsThen (knot { modes, level = LevelComparison }) (first firstTwin firsts =>
       Parse.followsThen
@@ -736,13 +734,9 @@ theorem followsRightOperand ∀ [self selfTwin: Goal → {Parse Item} Expr]
       rightOperand selfTwin inner operatorKind) :=
   match operatorKind with
     | Plus => knot { modes = inner, level = LevelMultiplicative }
-    | Star => knot { modes = inner, level = LevelUnary }
-    | Slash => knot { modes = inner, level = LevelUnary }
-    | Percent => knot { modes = inner, level = LevelUnary }
+    | Star | Slash | Percent => knot { modes = inner, level = LevelUnary }
     | PlusPlus => knot { modes = inner, level = LevelAdditive }
-    | AndAnd => knot { modes = inner, level = LevelComparison }
-    | OrOr => knot { modes = inner, level = LevelComparison }
-    | IffArrow => knot { modes = inner, level = LevelComparison }
+    | AndAnd | OrOr | IffArrow => knot { modes = inner, level = LevelComparison }
     | _ => knot { modes = inner, level = LevelAppend }
 
 theorem followsRightClose ∀ (inner: Modes) (open openTwin: Word)
@@ -1326,11 +1320,7 @@ def BinderTypeFollows (self selfTwin: Goal → {Parse Item} Expr): Prop :=
 theorem paramsBlankCons ∀ (param: Param) (rest: List Param):
     blankParams (walkParams blankPure [param, ..rest])
       = blankParams (walkParams blankPure [param]) ++ blankParams (walkParams blankPure rest) :=
-  match param with
-    | NameParam word => byComputing
-    | PatternParam pattern => byComputing
-    | Grouped group => byComputing
-    | TypedPattern open pattern colon annotation close => byComputing
+  match param with | NameParam _ | PatternParam _ | Grouped _ | TypedPattern _ _ _ _ _ => byComputing
 
 theorem paramsBlank ∀ (params twins: List Param)
     (alike: List.All2 ParamsAlike params twins):
@@ -3887,10 +3877,7 @@ def StatementTag: Statement → Nat
 
 theorem tagOfWalked ∀ (statement: Statement):
     StatementTag (walkStatement blankPure statement).blank = StatementTag statement :=
-  match statement with
-    | LetStatement binding => byComputing
-    | LocalDef attributes header body => byComputing
-    | ExprStatement value => byComputing
+  match statement with | LetStatement _ | LocalDef _ _ _ | ExprStatement _ => byComputing
 
 theorem tagSame ∀ (statement twin: Statement)
     (alike: StatementsAlike statement twin):

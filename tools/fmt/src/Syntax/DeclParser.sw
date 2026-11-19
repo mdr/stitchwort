@@ -299,9 +299,7 @@ def itemsBare: List Item → Bool
 def paramName (modes: Modes): {Parse Item} Word := paramNameOn modes modes.peek
 
 def paramNameOn (modes: Modes): Option Tok → {Parse Item} Word
-  | Some Upper => modes.fail "a parameter's name"
-  | Some LParen => modes.fail "a parameter's name"
-  | Some LBrace => modes.fail "a parameter's name"
+  | Some Upper | Some LParen | Some LBrace => modes.fail "a parameter's name"
   | _ => modes.lower "a parameter's name"
 
 def paramNames (modes: Modes): {Parse Item} List Word := Parse.loop (() => paramNameStep modes (modes.at Lower))
@@ -439,12 +437,7 @@ def binderTypeOn (self: Goal → {Parse Item} Expr) (allowed: Modes) (seen: Opti
     | _, _ => full self allowed
 
 def typeStarts: Tok → Bool
-  | Upper => True
-  | Lower => True
-  | LParen => True
-  | LBracket => True
-  | TypeU => True
-  | PropU => True
+  | Upper | Lower | LParen | LBracket | TypeU | PropU => True
   | _ => False
 
 -- Types.
@@ -725,8 +718,7 @@ def declarationBodyOn (modes: Modes) (attributes: List Attributes): Option Tok �
 
 --| The declarations other than a plain definition or a theorem, and what a declaration can't start with.
 def declarationOther (modes: Modes) (attributes: List Attributes): Option Tok → {Parse Item} Decl
-  | Some KwType => dataDecl modes attributes
-  | Some KwInterface => dataDecl modes attributes
+  | Some KwType | Some KwInterface => dataDecl modes attributes
   | Some KwInstance => instanceDecl modes attributes
   | Some KwAbility => abilityDecl modes
   | Some KwTest => testDecl modes
@@ -1416,17 +1408,17 @@ def splitFrom (state: Splitter) (current: List Leaf) (groups: List (List Leaf)):
 
 --| A declaration's keyword, which starts a group even inside an open `@[`.
 def Tok.startsGroup: Tok → Bool
-  | KwType => True
-  | KwInterface => True
-  | KwDef => True
-  | KwTheorem => True
-  | KwExport => True
-  | KwOpaque => True
-  | KwInstance => True
-  | KwAbility => True
-  | KwTest => True
-  | KwNamespace => True
-  | KwImport => True
+  | KwType |
+      KwInterface |
+      KwDef |
+      KwTheorem |
+      KwExport |
+      KwOpaque |
+      KwInstance |
+      KwAbility |
+      KwTest |
+      KwNamespace |
+      KwImport => True
   | _ => False
 
 --| A file's tree (`parse_tokens`, then the lowering's checks): the first

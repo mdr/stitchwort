@@ -233,11 +233,7 @@ theorem readsAtBump ∀ [start: Parse.Mark Item] [item: Item] [later: List Item]
           })
 
 theorem symbolicWithin ∀ (kind: Tok) (symbolic: kind.symbolic1 = True): kind.within1 = True := match kind, symbolic with
-  | Lower, symbolic => (Bool.falseNotTrue symbolic).impossible
-  | Upper, symbolic => (Bool.falseNotTrue symbolic).impossible
-  | Num, symbolic => (Bool.falseNotTrue symbolic).impossible
-  | Float, symbolic => (Bool.falseNotTrue symbolic).impossible
-  | KwDef, symbolic => (Bool.falseNotTrue symbolic).impossible
+  | Lower | Upper | Num | Float | KwDef, symbolic => (Bool.falseNotTrue symbolic).impossible
   | other, symbolic => symbolic
 
 --| What an operator's text must be for a left-nested level: its table entries.
@@ -316,17 +312,14 @@ theorem mulTakesGood ∀ (kind: Tok) (text: Text)
     (took: (kind == Star || kind == Slash || kind == Percent) = True):
     kind.symbolic1 = True ∧ (Spells kind text → TextAt 16 16 text) :=
   match kind, took with
-    | Star, took => (byComputing, same => Both (rewrite same) (rewrite same))
-    | Slash, took => (byComputing, same => Both (rewrite same) (rewrite same))
-    | Percent, took => (byComputing, same => Both (rewrite same) (rewrite same))
+    | Star | Slash | Percent, _ => (byComputing, same => Both (rewrite same) (rewrite same))
     | other, took => (Bool.falseNotTrue took).impossible
 
 theorem addTakesGood ∀ (kind: Tok) (text: Text)
     (took: (kind == Plus || kind == Minus) = True):
     kind.symbolic1 = True ∧ (Spells kind text → TextAt 14 14 text) :=
   match kind, took with
-    | Plus, took => (byComputing, same => Both (rewrite same) (rewrite same))
-    | Minus, took => (byComputing, same => Both (rewrite same) (rewrite same))
+    | Plus | Minus, _ => (byComputing, same => Both (rewrite same) (rewrite same))
     | other, took => (Bool.falseNotTrue took).impossible
 
 --| `mul_expr`, from what `unary` gives.
@@ -640,8 +633,7 @@ theorem negativeNumeralKinds ∀ (items: List Item)
               Witness minus (Witness number (Witness later (Both byComputing (Both isMinus (Inr isNumber)))))
             | other, found => (Bool.falseNotTrue found).impossible
         | other, found => (Bool.falseNotTrue found).impossible
-    | [], found => (Bool.falseNotTrue found).impossible
-    | [only], found => (Bool.falseNotTrue found).impossible
+    | [] | [_], found => (Bool.falseNotTrue found).impossible
 
 --| A negative numeral's number is glued to its `-`.
 theorem negativeNumeralGlued ∀ (items: List Item)
@@ -677,5 +669,4 @@ theorem argumentPrefixOpens ∀ (items: List Item)
           let (signs, operand, spaced, glued, opens) := found
           Witness sign (Witness next (Witness later (Both byComputing (Both (Inr isMinus) opens))))
         | other, found => (Bool.falseNotTrue found).impossible
-    | [], found => (Bool.falseNotTrue found).impossible
-    | [only], found => (Bool.falseNotTrue found).impossible
+    | [] | [_], found => (Bool.falseNotTrue found).impossible

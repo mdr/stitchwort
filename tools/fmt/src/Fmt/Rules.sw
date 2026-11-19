@@ -162,8 +162,7 @@ def Word.opening (word: Word) (around: Around) (closer: Word): Doc :=
 def Expr.words: Expr → List Word
   | Atom _ word => [word]
   | Paren open inner close => [open, ..inner.words] ++ [close]
-  | Tuple open items _ close => [open, ..itemsWords items] ++ [close]
-  | ListOf open items _ close => [open, ..itemsWords items] ++ [close]
+  | Tuple open items _ close | ListOf open items _ close => [open, ..itemsWords items] ++ [close]
   | App head arguments => head.words ++ itemsWords arguments
   | Infix _ left operator right => left.words ++ [operator, ..right.words]
   | Prefix operator operand => [operator, ..operand.words]
@@ -276,8 +275,7 @@ def optionWords: Option Word → List Word
 
 def paramsWords: List Param → List Word
   | [] => []
-  | [NameParam word, ..rest] => [word, ..paramsWords rest]
-  | [PatternParam (PatternWord _ word), ..rest] => [word, ..paramsWords rest]
+  | [NameParam word, ..rest] | [PatternParam (PatternWord _ word), ..rest] => [word, ..paramsWords rest]
   | [Grouped group, ..rest] => groupWords group ++ paramsWords rest
   | [_, ..rest] => paramsWords rest
 
@@ -341,8 +339,8 @@ def Expr.el (expr: Expr) (around: Around): Doc :=
     | Tuple open items _ close => expr.framed around (commaBracket (list := False) open items close inside)
     | ListOf open items _ close => expr.framed around (commaBracket (list := True) open items close inside)
     | App head arguments => expr.framed around (appDocs head arguments inside).doc
-    | Infix InfixBinary left operator right => expr.framed around (chain expr.chainLevel left operator right inside)
-    | Infix InfixArrow left operator right => expr.framed around (chain expr.chainLevel left operator right inside)
+    | Infix InfixBinary left operator right | Infix InfixArrow left operator right =>
+      expr.framed around (chain expr.chainLevel left operator right inside)
     | Prefix operator operand =>
       expr.framed around
         (Doc.concat [
@@ -427,8 +425,7 @@ def framedBy (first: Word) (around: Around) (doc: Doc): Doc :=
 
 --| A parameter of a lambda or quantifier: a name, `_`, or a group.
 def Param.el (param: Param) (around: Around): Doc := match param with
-  | NameParam word => word.leaf around around.at
-  | PatternParam (PatternWord _ word) => word.leaf around around.at
+  | NameParam word | PatternParam (PatternWord _ word) => word.leaf around around.at
   | Grouped group => groupDoc group around
   | _ => Nothing
 
@@ -685,8 +682,7 @@ def huggedBracket (list: Bool) (open: Word) (items: List Expr) (close: Word) (ar
 def Expr.simple: Expr → Bool
   | Atom _ _ => True
   | FieldAccess (Some target) _ _ => target.simple
-  | Tuple _ items _ _ => items.isEmpty
-  | ListOf _ items _ _ => items.isEmpty
+  | Tuple _ items _ _ | ListOf _ items _ _ => items.isEmpty
   | Prefix _ (Atom _ _) => True
   | _ => False
 
@@ -765,19 +761,10 @@ def Tok.chainLevel: Tok → Option Nat
   | Arrow => Some 1
   | OrOr => Some 2
   | AndAnd => Some 3
-  | Equals => Some 4
-  | EqEq => Some 4
-  | NotEq => Some 4
-  | Lt => Some 4
-  | Le => Some 4
-  | Gt => Some 4
-  | Ge => Some 4
+  | Equals | EqEq | NotEq | Lt | Le | Gt | Ge => Some 4
   | PlusPlus => Some 5
-  | Plus => Some 6
-  | Minus => Some 6
-  | Star => Some 7
-  | Slash => Some 7
-  | Percent => Some 7
+  | Plus | Minus => Some 6
+  | Star | Slash | Percent => Some 7
   | PipeGt => Some 8
   | _ => None
 
@@ -786,15 +773,13 @@ def operatorLevel (operator: Word): Option Nat := Option.flatMap (operatorTok op
 
 --| A chain node's operator level, for `Binary` and `Arrow`.
 def Expr.chainLevel: Expr → Option Nat
-  | Infix InfixBinary _ operator _ => operatorLevel operator
-  | Infix InfixArrow _ operator _ => operatorLevel operator
+  | Infix InfixBinary _ operator _ | Infix InfixArrow _ operator _ => operatorLevel operator
   | _ => None
 
 --| Whether a node is part of the chain at `level`: a `Binary` or `Arrow`
 --| of that level (`chain_parts`).
 def Expr.inChain (expr: Expr) (level: Option Nat): Bool := match expr with
-  | Infix InfixBinary _ _ _ => level.isSome && expr.chainLevel == level
-  | Infix InfixArrow _ _ _ => level.isSome && expr.chainLevel == level
+  | Infix InfixBinary _ _ _ | Infix InfixArrow _ _ _ => level.isSome && expr.chainLevel == level
   | _ => False
 
 --| An operator chain (`chain`, S27, S29): on one line if it fits,
@@ -818,8 +803,7 @@ def chainOf (arms: Bool) (links: List Doc): Doc := match links with
 --| Whether the chain's first operand is a `match`.
 def Expr.opensArms (expr: Expr) (level: Option Nat): Bool := match expr with
   | Match _ _ _ _ => True
-  | Infix InfixBinary left _ _ => expr.inChain level && left.opensArms level
-  | Infix InfixArrow left _ _ => expr.inChain level && left.opensArms level
+  | Infix InfixBinary left _ _ | Infix InfixArrow left _ _ => expr.inChain level && left.opensArms level
   | _ => False
 
 --| The flattened chain's docs: the first operand's, then for each operator
@@ -842,9 +826,7 @@ def chainRight (level: Option Nat) (right: Expr) (rightAround: Around): List Doc
 --| else the element. A `match` that starts the chain is inside an arm for
 --| its own arms' sake (`arm_depth`).
 def linkDocs (level: Option Nat) (first: Bool) (expr: Expr) (around: Around): List Doc := match expr with
-  | Infix InfixBinary left operator right =>
-    if expr.inChain level then chainLinks level first left operator right around else [expr.el around]
-  | Infix InfixArrow left operator right =>
+  | Infix InfixBinary left operator right | Infix InfixArrow left operator right =>
     if expr.inChain level then chainLinks level first left operator right around else [expr.el around]
   | Match _ _ _ _ => [expr.el (if first then { around | inArm = True } else around)]
   | _ => [expr.el around]
@@ -904,10 +886,7 @@ def defFrom (headerDoc: Doc) (breaks: Bool) (assignDoc below choice: Doc): Doc :
 --| after the last parameter makes the header break, since the `:` can't
 --| join the comment's line.
 def Expr.layoutBody: Expr → Bool
-  | Match _ _ _ _ => True
-  | If _ _ _ _ _ _ _ => True
-  | Block _ _ _ => True
-  | Calc _ _ _ => True
+  | Match _ _ _ _ | If _ _ _ _ _ _ _ | Block _ _ _ | Calc _ _ _ => True
   | _ => False
 
 --| The last token that is no closer (`last_code`).
@@ -1033,19 +1012,14 @@ def valueEl (value: Expr) (around: Around) (semi: Bool): Doc := match value with
   | _ => value.el around
 
 def Expr.isSort: Expr → Bool
-  | Atom TypeU _ => True
-  | Atom PropU _ => True
-  | Universe _ _ => True
+  | Atom TypeU _ | Atom PropU _ | Universe _ _ => True
   | _ => False
 
 --| Whether a type reads as a proposition (`is_proposition`).
 def propositionIn (earlier: List Text): Expr → Bool
   | Infix InfixBinary _ operator _ => (operatorTok operator.text).any Tok.relation
   | Infix InfixArrow _ _ right => propositionIn earlier right
-  | Infix InfixMembership _ _ _ => True
-  | Infix InfixIff _ _ _ => True
-  | Chain _ _ => True
-  | Binding BindsExists _ _ _ _ => True
+  | Infix InfixMembership _ _ _ | Infix InfixIff _ _ _ | Chain _ _ | Binding BindsExists _ _ _ _ => True
   | Binding BindsForall _ _ _ body => propositionIn earlier body
   | Prefix operator _ => operatorTok operator.text == Some Bang
   | Paren _ inner _ => propositionIn earlier inner
@@ -1055,15 +1029,7 @@ def propositionIn (earlier: List Text): Expr → Bool
 
 --| The operators whose application is a proposition.
 def Tok.relation: Tok → Bool
-  | Equals => True
-  | NotEq => True
-  | Lt => True
-  | Le => True
-  | Gt => True
-  | Ge => True
-  | AndAnd => True
-  | OrOr => True
-  | EqEq => True
+  | Equals | NotEq | Lt | Le | Gt | Ge | AndAnd | OrOr | EqEq => True
   | _ => False
 
 --| Whether a name's last part starts with a capital: `Even`, `List.Sorted`.
@@ -1111,9 +1077,7 @@ def Expr.callHug (value: Expr) (inside: Around): Option Doc := match value with
 
 --| A value that opens its brackets on the `:=`'s line: a tuple, list or record.
 def Expr.opensBracket: Expr → Bool
-  | Tuple _ _ _ _ => True
-  | ListOf _ _ _ _ => True
-  | Record _ _ _ _ _ => True
+  | Tuple _ _ _ _ | ListOf _ _ _ _ | Record _ _ _ _ _ => True
   | _ => False
 
 --| A lambda's opened form, with its body below; a `calc` joins the line when `calc` and its first expression fit
@@ -1465,8 +1429,7 @@ def patternBracket (tuple: Bool) (open: Word) (items: List Pattern) (rest: List 
 
 --| A name or `_` with no comment above it: what a filled tuple pattern holds.
 def Pattern.plainName: Pattern → Bool
-  | PatternWord Lower word => !word.noted
-  | PatternWord Underscore word => !word.noted
+  | PatternWord Lower word | PatternWord Underscore word => !word.noted
   | _ => False
 
 --| A filled tuple pattern's cells: each item with its comma.

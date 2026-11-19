@@ -227,10 +227,7 @@ theorem codeAs ∀ [kind wanted: Tok] (is: kind = wanted) (code: (wanted == Comm
 
 theorem wordWithinNotComma ∀ (kind: Tok) (word: kind.wordWithin1 = True): (kind == Comma) = False :=
   match kind, word with
-    | Lower, word => byComputing
-    | Upper, word => byComputing
-    | Num, word => byComputing
-    | Float, word => byComputing
+    | Lower | Upper | Num | Float, _ => byComputing
     | other, word => (Bool.falseNotTrue word).impossible
 
 theorem itemWordsAfterComma ∀ (comma: Item) (rest: List Item)

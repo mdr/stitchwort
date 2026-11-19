@@ -164,15 +164,11 @@ def Hears (kinds: Text → Tok) (laid: Laid) (texts: List Text): Prop :=
 --| A comment after the newest leaf is its view's.
 theorem trailingViews ∀ (leaves: List Leaf) (comment: Comment):
     (withTrailing leaves comment).map Leaf.view = trailView (leaves.map Leaf.view) comment.text :=
-  match leaves with
-    | [] => byComputing
-    | [last, ..earlier] => byComputing
+  match leaves with | [] | [_, .._] => byComputing
 
 theorem startIsSome ∀ (texts: List Text):
     (if lineBlank texts then Some (lineWidth texts) else None).isSome = lineBlank texts :=
-  match lineBlank texts with
-    | True => byComputing
-    | False => byComputing
+  match lineBlank texts with | True | False => byComputing
 
 --| Spaces change nothing the lexer reads.
 theorem hearsSpaces ∀ (kinds: Text → Tok) (text: Text) (earlier: List Text)

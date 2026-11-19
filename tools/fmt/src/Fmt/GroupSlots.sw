@@ -56,10 +56,7 @@ theorem operatorNotComment ∀ (text: Text) (listed: operatorText1 text = True):
   spellsNotComment kind text spells
 
 theorem prefixNotComment ∀ (text: Text) (listed: prefixText1 text = True): text.startsWith "--" = False :=
-  match prefixSpellsOf text listed with
-    | Inl minus => rewrite minus
-    | Inr (Inl bang) => rewrite bang
-    | Inr (Inr not) => rewrite not
+  match prefixSpellsOf text listed with | Inl minus | Inr (Inl minus) | Inr (Inr minus) => rewrite minus
 
 theorem textPlain ∀ (text expected: Text)
     (is: (text == expected) = True)
@@ -220,25 +217,18 @@ theorem slotTexts ∀ (expr: Expr) (within: expr.within1 = True): expr.slots.map
     | Atom _ _, _ => byComputing
     | Paren open inner close, within =>
       rewrite List.mapAppend [Some open, ..inner.slots] [Some close] slotText, slotTexts inner within
-    | Tuple open items _ close, within =>
-      rewrite List.mapAppend [Some open, ..commaSlots items] [Some close] slotText, commaSlotTexts items within
-    | ListOf open items _ close, within =>
+    | Tuple open items _ close | ListOf open items _ close, within =>
       rewrite List.mapAppend [Some open, ..commaSlots items] [Some close] slotText, commaSlotTexts items within
     | App head arguments, within =>
       rewrite List.mapAppend head.slots (argumentSlots arguments) slotText,
           slotTexts head (Bool.andLeft within),
           argumentSlotTexts arguments (Bool.andRight within)
-    | Infix InfixBinary left operator right, within =>
-      rewrite List.mapAppend left.slots [Some operator, ..right.slots] slotText,
-          slotTexts left (Bool.andLeft within),
-          slotTexts right (Bool.andLeft (Bool.andRight within))
-    | Infix InfixArrow left operator right, within =>
+    | Infix InfixBinary left operator right | Infix InfixArrow left operator right, within =>
       rewrite List.mapAppend left.slots [Some operator, ..right.slots] slotText,
           slotTexts left (Bool.andLeft within),
           slotTexts right (Bool.andLeft (Bool.andRight within))
     | Prefix operator operand, within => rewrite slotTexts operand (Bool.andLeft within)
-    | Infix _ _ _ _, never => (Bool.falseNotTrue never).impossible
-    | other, never => (Bool.falseNotTrue never).impossible
+    | Infix _ _ _ _ | _, never => (Bool.falseNotTrue never).impossible
 
 theorem commaSlotTexts ∀ (items: List Expr)
     (within: allWithin1 items = True):
@@ -267,25 +257,18 @@ theorem slotWords ∀ (expr: Expr) (within: expr.within1 = True): someWords expr
     | Atom _ _, _ => byComputing
     | Paren open inner close, within =>
       rewrite someWordsAppend [Some open, ..inner.slots] [Some close], slotWords inner within
-    | Tuple open items _ close, within =>
-      rewrite someWordsAppend [Some open, ..commaSlots items] [Some close], commaSlotWords items within
-    | ListOf open items _ close, within =>
+    | Tuple open items _ close | ListOf open items _ close, within =>
       rewrite someWordsAppend [Some open, ..commaSlots items] [Some close], commaSlotWords items within
     | App head arguments, within =>
       rewrite someWordsAppend head.slots (argumentSlots arguments),
           slotWords head (Bool.andLeft within),
           argumentSlotWords arguments (Bool.andRight within)
-    | Infix InfixBinary left operator right, within =>
-      rewrite someWordsAppend left.slots [Some operator, ..right.slots],
-          slotWords left (Bool.andLeft within),
-          slotWords right (Bool.andLeft (Bool.andRight within))
-    | Infix InfixArrow left operator right, within =>
+    | Infix InfixBinary left operator right | Infix InfixArrow left operator right, within =>
       rewrite someWordsAppend left.slots [Some operator, ..right.slots],
           slotWords left (Bool.andLeft within),
           slotWords right (Bool.andLeft (Bool.andRight within))
     | Prefix operator operand, within => rewrite slotWords operand (Bool.andLeft within)
-    | Infix _ _ _ _, never => (Bool.falseNotTrue never).impossible
-    | other, never => (Bool.falseNotTrue never).impossible
+    | Infix _ _ _ _ | _, never => (Bool.falseNotTrue never).impossible
 
 theorem commaSlotWords ∀ (items: List Expr)
     (within: allWithin1 items = True):
@@ -323,15 +306,11 @@ theorem codeTextsCalm ∀ (expr: Expr) (item: Bool)
         | False => rewrite commaTextsCalmAll items True within
     | App head arguments, within =>
       rewrite codeTextsCalm head item (Bool.andLeft within), argumentTextsCalm arguments (Bool.andRight within)
-    | Infix InfixBinary left _ right, within =>
-      rewrite codeTextsCalm left item (Bool.andLeft within),
-          codeTextsCalm right False (Bool.andLeft (Bool.andRight within))
-    | Infix InfixArrow left _ right, within =>
+    | Infix InfixBinary left _ right | Infix InfixArrow left _ right, within =>
       rewrite codeTextsCalm left item (Bool.andLeft within),
           codeTextsCalm right False (Bool.andLeft (Bool.andRight within))
     | Prefix _ operand, within => rewrite codeTextsCalm operand False (Bool.andLeft within)
-    | Infix _ _ _ _, never => (Bool.falseNotTrue never).impossible
-    | other, never => (Bool.falseNotTrue never).impossible
+    | Infix _ _ _ _ | _, never => (Bool.falseNotTrue never).impossible
 
 theorem commaTextsCalmAll ∀ (items: List Expr) (item: Bool)
     (within: allWithin1 items = True):
@@ -389,8 +368,7 @@ theorem infixNotComma ∀ (kind: InfixKind) (tok: Tok) (is: infixTok kind tok = 
         | OrOr, _ => byComputing
 
 theorem signNotComma ∀ (tok: Tok) (sign: signKind tok = True): (tok == Comma) = False := match tok, sign with
-  | Minus, _ => byComputing
-  | Bang, _ => byComputing
+  | Minus | Bang, _ => byComputing
 
 theorem bracketCode ∀ (word: Word) (expected: Text)
     (is: (word.text == expected) = True)
@@ -613,9 +591,7 @@ theorem splitOfParts ∀ (group: List Leaf) (keyword: Comments) (name: Word)
     rewrite someWordsAppend result.slots [Some (fixedWord ":=" colonEq), ..value.slots],
         slotWords result resultWithin,
         slotWords value valueWithin
-  let nameCode: slotCode (Some name) = True := match lower with
-    | Inl same => rewrite same
-    | Inr same => rewrite same
+  let nameCode: slotCode (Some name) = True := match lower with | Inl same | Inr same => rewrite same
   let code: slots.all slotCode = True :=
     Bool.andIntro byComputing
       (Bool.andIntro nameCode
@@ -873,9 +849,7 @@ theorem calmShape ∀ (keyword: Comments) (name: Word) (colon colonEq: Comments)
         (colonEq.kept False False)
         (result.calm False)
         (value.calm False) :=
-  match top with
-    | True => byComputing
-    | False => byComputing
+  match top with | True | False => byComputing
 
 --| `printedSplit1` for a definition of slice 1's shape.
 --|
@@ -979,8 +953,6 @@ theorem printedSplit1 ∀ (decl read: Decl) (group: List Leaf)
         }
         (Assigned colonEq value), printed =>
       printedSplitParts keyword name colon colonEq result value read group printed
-    | Definition _ _ Primitive, (never, _) => (Bool.falseNotTrue never).impossible
-    | Definition _ _ (Arms _), (never, _) => (Bool.falseNotTrue never).impossible
-    | _, (never, _) => (Bool.falseNotTrue never).impossible
+    | Definition _ _ Primitive | Definition _ _ (Arms _) | _, (never, _) => (Bool.falseNotTrue never).impossible
 
 theorem operatorNotCommentExample: "+".startsWith "--" = False := operatorNotComment "+" byComputing

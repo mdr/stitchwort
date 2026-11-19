@@ -21,40 +21,29 @@ theorem wordsTwice ∀ (words: List Word): blankWords (blankWords words) = blank
 theorem commentsTwice ∀ (input: Option Comments): blankComments (blankComments input) = blankComments input := cases
 
 theorem pairTwice ∀ (input: Option (Word, Word)): blankPair (blankPair input) = blankPair input := match input with
-  | None => byComputing
-  | Some (first, second) => byComputing
+  | None | Some (_, _) => byComputing
 
 theorem wordMapTwice ∀ (input: Option Word): (input.map Word.blank).map Word.blank = input.map Word.blank := cases
 
 theorem commentsWordTwice ∀ (input: Option (Comments, Word)):
     blankCommentsWord (blankCommentsWord input) = blankCommentsWord input :=
-  match input with
-    | None => byComputing
-    | Some (first, second) => byComputing
+  match input with | None | Some (_, _) => byComputing
 
 theorem afterWalk ∀ (input: Option (Comments, Expr)):
     blankAfter (walkAfter meaningPure (blankAfter input)) = blankAfter (walkAfter meaningPure input) :=
-  match input with
-    | None => byComputing
-    | Some (first, second) => byComputing
+  match input with | None | Some (_, _) => byComputing
 
 theorem afterWordWalk ∀ (input: Option (Word, Expr)):
     blankAfterWord (walkAfter meaningPure (blankAfterWord input)) = blankAfterWord (walkAfter meaningPure input) :=
-  match input with
-    | None => byComputing
-    | Some (first, second) => byComputing
+  match input with | None | Some (_, _) => byComputing
 
 theorem baseWalk ∀ (input: Option (Expr, Word)):
     blankBase (walkBefore meaningPure (blankBase input)) = blankBase (walkBefore meaningPure input) :=
-  match input with
-    | None => byComputing
-    | Some (first, second) => byComputing
+  match input with | None | Some (_, _) => byComputing
 
 theorem tailWalk ∀ (input: Option (Word, Pattern)):
     blankAfterWord (walkTail meaningPure (blankAfterWord input)) = blankAfterWord (walkTail meaningPure input) :=
-  match input with
-    | None => byComputing
-    | Some (first, second) => byComputing
+  match input with | None | Some (_, _) => byComputing
 
 theorem linksWalk ∀ (links: List (Word, Expr)):
     blankLinks (walkLinks meaningPure (blankLinks links)) = blankLinks (walkLinks meaningPure links) :=
@@ -89,8 +78,7 @@ theorem paramsWalk ∀ (params: List Param):
     blankParams (walkParams meaningPure (blankParams params)) = blankParams (walkParams meaningPure params) :=
   match params with
     | [] => byComputing
-    | [NameParam word, ..rest] => rewrite paramsWalk rest
-    | [PatternParam pattern, ..rest] => rewrite paramsWalk rest
+    | [NameParam _, ..rest] | [PatternParam _, ..rest] => rewrite paramsWalk rest
     | [Grouped group, ..rest] => rewrite groupWalk group, paramsWalk rest
     | [TypedPattern open pattern colon annotation close, ..rest] => rewrite paramsWalk rest
 
@@ -103,8 +91,7 @@ theorem piecesWalk ∀ (pieces: List Piece):
     blankPieces (walkPieces meaningPure (blankPieces pieces)) = blankPieces (walkPieces meaningPure pieces) :=
   match pieces with
     | [] => byComputing
-    | [TextPiece word, ..rest] => rewrite piecesWalk rest
-    | [Interpolation open value close, ..rest] => rewrite piecesWalk rest
+    | [TextPiece _, ..rest] | [Interpolation _ _ _, ..rest] => rewrite piecesWalk rest
 
 theorem scrutineesWalk ∀ (scrutinees: List Scrutinee):
     blankScrutinees (walkScrutinees meaningPure (blankScrutinees scrutinees))
@@ -154,8 +141,7 @@ theorem clausesWalk ∀ (clauses: List HandlerClause):
     blankClauses (walkClauses meaningPure (blankClauses clauses)) = blankClauses (walkClauses meaningPure clauses) :=
   match clauses with
     | [] => byComputing
-    | [ReturnClause bar keyword name arrow body, ..rest] => rewrite clausesWalk rest
-    | [OperationClause bar operation argument comma continuation arrow body, ..rest] => rewrite clausesWalk rest
+    | [ReturnClause _ _ _ _ _, ..rest] | [OperationClause _ _ _ _ _ _ _, ..rest] => rewrite clausesWalk rest
 
 theorem inductArmsWalk ∀ (arms: List InductArm):
     blankInductArms (walkInductArms meaningPure (blankInductArms arms))
@@ -198,8 +184,7 @@ theorem blankExprWalk ∀ (expr: Expr): (blankExpr expr).walk meaningPure = expr
   | Effect row result => rewrite rowWalkBlank row
   | Block first rest result => rewrite statementWalk first, statementsWalk rest
   | LetIn binding semicolon body => rewrite letWalk binding
-  | Handle keyword computation withKeyword clauses => rewrite clausesWalk clauses
-  | Reify keyword reify computation withKeyword clauses => rewrite clausesWalk clauses
+  | Handle _ _ _ clauses | Reify _ _ _ _ clauses => rewrite clausesWalk clauses
   | Induct keyword induct call withKeyword arms => rewrite inductArmsWalk arms
   | Calc keyword first steps => rewrite calcStepsWalk steps
   | Rewrite keyword rules target body => rewrite rulesWalk rules, afterWalk target, afterWalk body
@@ -225,8 +210,7 @@ theorem fieldsPatternPlainWalk ∀ (fields: FieldsPattern):
 
 theorem blankPatternWalk ∀ (pattern: Pattern): (blankPattern pattern).walk meaningPure = pattern.walk meaningPure :=
   match pattern with
-    | PatternCtorFields name fields => rewrite fieldsPatternPlainWalk fields
-    | PatternRecord fields => rewrite fieldsPatternPlainWalk fields
+    | PatternCtorFields _ fields | PatternRecord fields => rewrite fieldsPatternPlainWalk fields
     | PatternList open items comma tail close => rewrite tailWalk tail
     | PatternOr first rest => rewrite patternLinksWalk rest
     | _ => cases

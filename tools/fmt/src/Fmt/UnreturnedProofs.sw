@@ -70,13 +70,7 @@ theorem exprUnreturned ∀ (expr: Expr)
       Bool.andIntro
         (Bool.andLeft words)
         (Bool.andIntro (exprUnreturned inner within (Bool.andLeft split)) (Bool.andLeft (Bool.andRight split)))
-    | Tuple open items comma close =>
-      let tail := Bool.andRight words
-      let split := rewrite List.allAppendAnd (itemsWords items) [close] Word.unreturned at tail then tail
-      Bool.andIntro
-        (Bool.andLeft words)
-        (Bool.andIntro (itemsUnreturned items within (Bool.andLeft split)) (Bool.andLeft (Bool.andRight split)))
-    | ListOf open items comma close =>
+    | Tuple _ items _ close | ListOf _ items _ close =>
       let tail := Bool.andRight words
       let split := rewrite List.allAppendAnd (itemsWords items) [close] Word.unreturned at tail then tail
       Bool.andIntro

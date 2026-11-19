@@ -94,31 +94,25 @@ theorem spellsOfTests ∀ (kind: Tok) (text: Text)
     | Upper, _, plain, _ => spellsOfText1 Upper text plain
     | Num, _, plain, _ => spellsOfText1 Num text plain
     | Float, _, plain, _ => spellsOfText1 Float text plain
-    | KwDef, _, _, fixed => DecEq.sound fixed
-    | Colon, _, _, fixed => DecEq.sound fixed
-    | ColonEq, _, _, fixed => DecEq.sound fixed
-    | LParen, _, _, fixed => DecEq.sound fixed
-    | RParen, _, _, fixed => DecEq.sound fixed
-    | LBracket, _, _, fixed => DecEq.sound fixed
-    | RBracket, _, _, fixed => DecEq.sound fixed
-    | Comma, _, _, fixed => DecEq.sound fixed
-    | Equals, _, _, fixed => DecEq.sound fixed
-    | EqEq, _, _, fixed => DecEq.sound fixed
-    | Lt, _, _, fixed => DecEq.sound fixed
-    | Gt, _, _, fixed => DecEq.sound fixed
-    | PlusPlus, _, _, fixed => DecEq.sound fixed
-    | Plus, _, _, fixed => DecEq.sound fixed
-    | Minus, _, _, fixed => DecEq.sound fixed
-    | Star, _, _, fixed => DecEq.sound fixed
-    | Slash, _, _, fixed => DecEq.sound fixed
-    | Percent, _, _, fixed => DecEq.sound fixed
-    | OrOr, _, _, fixed => Text.eqOfOrBeq fixed
-    | AndAnd, _, _, fixed => Text.eqOfOrBeq fixed
-    | NotEq, _, _, fixed => Text.eqOfOrBeq fixed
-    | Le, _, _, fixed => Text.eqOfOrBeq fixed
-    | Ge, _, _, fixed => Text.eqOfOrBeq fixed
-    | Bang, _, _, fixed => Text.eqOfOrBeq fixed
-    | Arrow, _, _, fixed => Text.eqOfOrBeq fixed
+    | KwDef |
+        Colon |
+        ColonEq |
+        LParen |
+        RParen |
+        LBracket |
+        RBracket |
+        Comma |
+        Equals |
+        EqEq |
+        Lt |
+        Gt |
+        PlusPlus |
+        Plus |
+        Minus |
+        Star |
+        Slash |
+        Percent, _, _, fixed => DecEq.sound fixed
+    | OrOr | AndAnd | NotEq | Le | Ge | Bang | Arrow, _, _, fixed => Text.eqOfOrBeq fixed
     | _, within, _, _ => (Bool.falseNotTrue within).impossible
 
 --| An item whose token passes both tests is good.
@@ -180,9 +174,7 @@ def Assembly.fixed1 (assembly: Assembly): Bool := (tokens assembly.leaves).all T
 --| A trailing comment keeps the leaves' tokens.
 theorem withTrailingTokens ∀ (leaves: List Leaf) (comment: Comment):
     tokens (withTrailing leaves comment) = tokens leaves :=
-  match leaves with
-    | [] => byComputing
-    | [last, ..earlier] => byComputing
+  match leaves with | [] | [_, .._] => byComputing
 
 --| Adding a lexeme of fixed spelling keeps every token spelled.
 theorem addFixed ∀ (assembly: Assembly) (source: Text) (lexeme: Parse.Located Lexeme)
@@ -190,8 +182,7 @@ theorem addFixed ∀ (assembly: Assembly) (source: Text) (lexeme: Parse.Located 
     (lexemeOk: lexemeFixed source lexeme = True):
     (assembly.add source lexeme).fixed1 = True :=
   match lexeme with
-    | { value = Spaces, offset, length } => fixed
-    | { value = LineBreak, offset, length } => fixed
+    | { value = Spaces, offset, length } | { value = LineBreak, offset, length } => fixed
     | { value = CommentLexeme, offset, length } =>
       match assembly.freshLine with
         | True => fixed
@@ -376,81 +367,72 @@ def symbolFixed1 (input: List Char): Bool := match symbol input with
 
 --| `symbol`'s choice is spelled as its kind is: by the same match as `symbol`'s, so each arm computes.
 theorem symbolFixed ∀ (input: List Char): symbolFixed1 input = True := match input with
-  | ['(', .._] => byComputing
-  | [')', .._] => byComputing
-  | ['[', .._] => byComputing
-  | [']', .._] => byComputing
-  | ['{', .._] => byComputing
-  | ['}', .._] => byComputing
-  | [',', .._] => byComputing
-  | [';', .._] => byComputing
-  | [':', '=', .._] => byComputing
-  | [':', .._] => byComputing
-  | ['=', '=', .._] => byComputing
-  | ['=', '>', .._] => byComputing
-  | ['=', .._] => byComputing
-  | ['|', '|', .._] => byComputing
-  | ['|', '>', .._] => byComputing
-  | ['|', .._] => byComputing
-  | ['&', '&', .._] => byComputing
-  | ['+', '+', .._] => byComputing
-  | ['+', .._] => byComputing
-  | ['-', '>', .._] => byComputing
-  | ['-', .._] => byComputing
-  | ['*', .._] => byComputing
-  | ['/', .._] => byComputing
-  | ['%', .._] => byComputing
-  | ['!', '=', .._] => byComputing
+  | ['(', .._] |
+      [')', .._] |
+      ['[', .._] |
+      [']', .._] |
+      ['{', .._] |
+      ['}', .._] |
+      [',', .._] |
+      [';', .._] |
+      [':', '=', .._] |
+      [':', .._] |
+      ['=', '=', .._] |
+      ['=', '>', .._] |
+      ['=', .._] |
+      ['|', '|', .._] |
+      ['|', '>', .._] |
+      ['|', .._] |
+      ['&', '&', .._] |
+      ['+', '+', .._] |
+      ['+', .._] |
+      ['-', '>', .._] |
+      ['-', .._] |
+      ['*', .._] |
+      ['/', .._] |
+      ['%', .._] |
+      ['!', '=', .._] => byComputing
   | ['!', 'i', 'n', next, .._] if !isWordChar next => cases
   | ['!', 'i', 'n'] => byComputing
   | ['!', .._] => cases
-  | ['<', '-', '>', .._] => byComputing
-  | ['<', '=', .._] => byComputing
-  | ['<', .._] => byComputing
-  | ['>', '=', .._] => byComputing
-  | ['>', .._] => byComputing
-  | ['?', .._] => byComputing
-  | ['@', '[', .._] => byComputing
-  | [_, .._] => byComputing
-  | [] => byComputing
+  | ['<', '-', '>', .._] |
+      ['<', '=', .._] |
+      ['<', .._] |
+      ['>', '=', .._] |
+      ['>', .._] |
+      ['?', .._] |
+      ['@', '[', .._] |
+      [_, .._] |
+      [] => byComputing
 
 --| A word is `def` when the lexer says so: by the same match as `wordKind`'s and `Tok.keyword`'s, so each arm computes.
 theorem wordKindFixed ∀ (afterDot: Bool) (word: Text): fixedKind1 (wordKind afterDot word) word = True :=
   match word with
-    | "_" => byComputing
-    | "Type" => byComputing
-    | "Prop" => byComputing
-    | "ability" => byComputing
-    | "algebra" => byComputing
-    | "arithmetic" => byComputing
-    | "calc" => byComputing
-    | "cases" => byComputing
-    | "decreasing" => byComputing
-    | "def" => byComputing
-    | "else" => byComputing
+    | "_" | "Type" | "Prop" | "ability" | "algebra" | "arithmetic" | "calc" | "cases" | "decreasing" | "def" | "else" =>
+      byComputing
     | "exists" => cases
     | "export" => byComputing
     | "forall" => cases
-    | "handle" => byComputing
-    | "if" => byComputing
-    | "import" => byComputing
-    | "in" => byComputing
-    | "include" => byComputing
-    | "instance" => byComputing
-    | "interface" => byComputing
-    | "let" => byComputing
-    | "match" => byComputing
-    | "namespace" => byComputing
-    | "opaque" => byComputing
-    | "return" => byComputing
-    | "rewrite" => byComputing
-    | "test" => byComputing
-    | "then" => byComputing
-    | "theorem" => byComputing
-    | "type" => byComputing
-    | "unfolding" => byComputing
-    | "where" => byComputing
-    | "with" => byComputing
+    | "handle" |
+        "if" |
+        "import" |
+        "in" |
+        "include" |
+        "instance" |
+        "interface" |
+        "let" |
+        "match" |
+        "namespace" |
+        "opaque" |
+        "return" |
+        "rewrite" |
+        "test" |
+        "then" |
+        "theorem" |
+        "type" |
+        "unfolding" |
+        "where" |
+        "with" => byComputing
     | _ => cases
 
 -- The lexer's parts whose values are not in question: each succeeds only having read a start of its input.
@@ -538,46 +520,36 @@ theorem readsAtQualifiedOn ∀ (more: Nat) (upper: Bool) (found: Option Bool) (s
 
 --| Num and Float.
 def Tok.isNumeral: Tok → Bool
-  | Num => True
-  | Float => True
+  | Num | Float => True
   | _ => False
 
 theorem wordKindNotNumeral ∀ (afterDot: Bool) (word: Text): (wordKind afterDot word).isNumeral = False :=
   match word with
-    | "_" => byComputing
-    | "Type" => byComputing
-    | "Prop" => byComputing
-    | "ability" => byComputing
-    | "algebra" => byComputing
-    | "arithmetic" => byComputing
-    | "calc" => byComputing
-    | "cases" => byComputing
-    | "decreasing" => byComputing
-    | "def" => byComputing
-    | "else" => byComputing
+    | "_" | "Type" | "Prop" | "ability" | "algebra" | "arithmetic" | "calc" | "cases" | "decreasing" | "def" | "else" =>
+      byComputing
     | "exists" => cases
     | "export" => byComputing
     | "forall" => cases
-    | "handle" => byComputing
-    | "if" => byComputing
-    | "import" => byComputing
-    | "in" => byComputing
-    | "include" => byComputing
-    | "instance" => byComputing
-    | "interface" => byComputing
-    | "let" => byComputing
-    | "match" => byComputing
-    | "namespace" => byComputing
-    | "opaque" => byComputing
-    | "return" => byComputing
-    | "rewrite" => byComputing
-    | "test" => byComputing
-    | "then" => byComputing
-    | "theorem" => byComputing
-    | "type" => byComputing
-    | "unfolding" => byComputing
-    | "where" => byComputing
-    | "with" => byComputing
+    | "handle" |
+        "if" |
+        "import" |
+        "in" |
+        "include" |
+        "instance" |
+        "interface" |
+        "let" |
+        "match" |
+        "namespace" |
+        "opaque" |
+        "return" |
+        "rewrite" |
+        "test" |
+        "then" |
+        "theorem" |
+        "type" |
+        "unfolding" |
+        "where" |
+        "with" => byComputing
     | _ => cases
 
 --| What a word's kind is, after the word characters `first`: what `wordKind` makes of them when nothing more is read; or,
@@ -1066,8 +1038,7 @@ theorem oneLocated ∀ (source: Text) (value: Lexeme) (from: Parse.Mark Char)
       (Bool.andIntro
         (match value, same, free with
           | TokenLexeme kind, _, free => (Bool.falseNotTrue free).impossible
-          | Spaces, same, _ => rewrite same
-          | LineBreak, same, _ => rewrite same
+          | Spaces | LineBreak, same, _ => rewrite same
           | CommentLexeme, same, _ => rewrite same)
         byComputing))
 
@@ -1114,9 +1085,7 @@ theorem itemFixed ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme))
       roundOfGivesFine (Parse.readsThen (soundSkip 1) (read u h => oneLocated source LineBreak start byComputing))
     | ['}', ..more] => roundOfReads (tokenFixed source RBrace 1 start step byComputing)
     | ['{', ..more] => roundOfReads (tokenFixed source LBrace 1 start step byComputing)
-    | [' ', ..more] =>
-      roundOfGivesFine (Parse.readsThen (soundSpan _) (read run h => oneLocated source Spaces start byComputing))
-    | ['\r', ..more] =>
+    | [' ', .._] | ['\r', .._] =>
       roundOfGivesFine (Parse.readsThen (soundSpan _) (read run h => oneLocated source Spaces start byComputing))
     | ['\t', ..more] => roundOfYields (yieldsFatal tabs _)
     | ['-', ..more] =>

@@ -644,9 +644,7 @@ theorem argsRunsAfter ∀ (arguments: List Expr)
 theorem nameKindFlat ∀ (kind: Tok)
     (isName: kind = Lower ∨ kind = Upper):
     kind.within1 = True ∧ arrowFollow kind = False ∧ kind.isOpener = False ∧ kind.isCloser = False :=
-  match isName with
-    | Inl same => rewrite same then (byComputing, byComputing, byComputing, byComputing)
-    | Inr same => rewrite same then (byComputing, byComputing, byComputing, byComputing)
+  match isName with | Inl same | Inr same => rewrite same then (byComputing, byComputing, byComputing, byComputing)
 
 def Scan.start: Scan := { previous = None, open = 0 }
 
@@ -881,9 +879,7 @@ theorem leafWithinAppend ∀ (xs ys: List Leaf): leafWithin (xs ++ ys) = (leafWi
 
 theorem headedWithin ∀ (above: List Comment) (blank: Nat) (leaves: List Leaf):
     leafWithin (headed above blank leaves) = leafWithin leaves :=
-  match leaves with
-    | [] => byComputing
-    | [first, ..rest] => byComputing
+  match leaves with | [] | [_, .._] => byComputing
 
 theorem declLaidWithin ∀ (decl: Decl) (empty: Bool)
     (within: leafWithin decl.leaves = True):
@@ -1052,9 +1048,7 @@ theorem textBytes ∀ (text: Text) (filled: text.toList ≠ []): (text.utf8Lengt
 
 theorem colLinesWithTrailing ∀ (leaves: List Leaf) (comment: Comment):
     colLines (withTrailing leaves comment) = colLines leaves :=
-  match leaves with
-    | [] => byComputing
-    | [last, ..earlier] => byComputing
+  match leaves with | [] | [_, .._] => byComputing
 
 theorem layOk ∀ (laid: Laid) (piece: Piece)
     (ok: laidOk laid = True) (plain: piece.Plain):
@@ -1375,16 +1369,11 @@ theorem declStartsKw ∀ (decl: Decl)
 
 theorem headedFirst ∀ (above: List Comment) (blank: Nat) (leaves: List Leaf):
     kindFirst (headed above blank leaves) = kindFirst leaves :=
-  match leaves with
-    | [] => byComputing
-    | [first, ..rest] => byComputing
+  match leaves with | [] | [_, .._] => byComputing
 
 theorem headedPairs ∀ (above: List Comment) (blank: Nat) (leaves: List Leaf):
     leafPairs (headed above blank leaves) = leafPairs leaves :=
-  match leaves with
-    | [] => byComputing
-    | [first] => byComputing
-    | [first, second, ..rest] => byComputing
+  match leaves with | [] | [_] | [_, _, .._] => byComputing
 
 -- Each leaf may follow the one before, across the file.
 
@@ -1462,8 +1451,7 @@ theorem lastPairFalse ∀ (above: Tok) (comma: Leaf) (older: List Leaf)
 --| Leaves that may each follow the one before have no last comma.
 theorem noLastOfPairs ∀ (leaves behind: List Leaf) (pairs: leafPairs leaves = True): noLast behind leaves = True :=
   match leaves with
-    | [] => byComputing
-    | [leaf] => byComputing
+    | [] | [_] => byComputing
     | [leaf, closer, ..more] =>
       Bool.andIntro
         (rewrite lastPairFalse closer.token.kind leaf behind (Bool.andRight (Bool.andLeft pairs)))
@@ -1532,8 +1520,7 @@ theorem plainOfPairs ∀ (leaves: List Leaf)
     (flat: commaFlat leaves = True):
     plainFrom (tokens leaves) = True :=
   match leaves with
-    | [] => byComputing
-    | [leaf] => byComputing
+    | [] | [_] => byComputing
     | [first, second, ..rest] =>
       Bool.andIntro
         (Bool.orSwapTrue _ _ (Bool.andLeft (Bool.andLeft pairs)))
@@ -1559,9 +1546,7 @@ theorem commaFlatAppend ∀ (xs ys: List Leaf): commaFlat (xs ++ ys) = (commaFla
 
 theorem headedFlat ∀ (above: List Comment) (blank: Nat) (leaves: List Leaf):
     commaFlat (headed above blank leaves) = commaFlat leaves :=
-  match leaves with
-    | [] => byComputing
-    | [first, ..rest] => byComputing
+  match leaves with | [] | [_, .._] => byComputing
 
 theorem groupsFlat ∀ (empty: Bool) (decls: List Decl)
     (hung: decls.all (decl => hangs decl.leaves) = True):

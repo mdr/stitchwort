@@ -27,8 +27,7 @@ import Fmt.TouchProofs (ElSteps, callHugSteps, elFree, elSteps, wordLeafSteps)
 theorem spacingAdmitsGlue ∀ (spacing: List Spacing) (found: List Item):
     spacingAdmits spacing found = admitsGlue spacing (found.map (item => item.glued)) :=
   match spacing, found with
-    | [], [] => byComputing
-    | [], [item, ..later] => byComputing
+    | [], [] | [_, .._] => byComputing
     | [first, ..rest], [] => byComputing
     | [first, ..rest], [item, ..later] => rewrite spacingAdmitsGlue rest later
 

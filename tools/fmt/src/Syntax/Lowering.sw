@@ -153,15 +153,11 @@ def spineRepeat (header: List Text): Expr → Option Text
 def Pattern.boundNames: Pattern → List Text
   | PatternWord kind word => if kind == Lower && word.text != "Quot.mk" then [word.text] else []
   | PatternCtor _ arguments => namesOf arguments
-  | PatternCtorFields _ fields => fieldsNames fields
-  | PatternRecord fields => fieldsNames fields
+  | PatternCtorFields _ fields | PatternRecord fields => fieldsNames fields
   | PatternTuple _ items _ _ => namesOf items
   | PatternList _ items _ tail _ => namesOf items ++ tailNames tail
-  | PatternNamed _ _ _ value _ => value.boundNames
-  | PatternOr first _ => first.boundNames
-  | PatternParen _ inner _ => inner.boundNames
-  | PatternNegative _ _ => []
-  | PatternAbsurd _ _ => []
+  | PatternNamed _ _ _ value _ | PatternOr value _ | PatternParen _ value _ => value.boundNames
+  | PatternNegative _ _ | PatternAbsurd _ _ => []
   | PatternAppend start _ rest => start.boundNames ++ rest.boundNames
 
 def namesOf: List Pattern → List Text
@@ -192,8 +188,7 @@ def Pattern.shown: Pattern → Text
   | PatternNamed open name colonEq value close => "${open.text}${name.text} ${colonEq.text} ${value.shown}${close.text}"
   | PatternOr first rest => first.shown ++ linksShown rest
   | PatternParen open inner close => open.text ++ inner.shown ++ close.text
-  | PatternNegative minus number => minus.text ++ number.text
-  | PatternAbsurd open close => open.text ++ close.text
+  | PatternNegative minus number | PatternAbsurd minus number => minus.text ++ number.text
   | PatternAppend start operator rest => "${start.shown} ${operator.text} ${rest.shown}"
 
 def commaIf (comma: Bool): Text := if comma then "," else ""

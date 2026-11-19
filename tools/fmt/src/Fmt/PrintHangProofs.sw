@@ -170,8 +170,7 @@ def lastComment: List Text → Bool
 
 --| No text follows a comment on its line: a line break comes next (the texts the last first).
 def CommentsEnd: List Text → Prop
-  | [] => True
-  | [_] => True
+  | [] | [_] => True
   | [text, earlier, ..rest] => (earlier.startsWith "--" = True → text = "\n") ∧ CommentsEnd [earlier, ..rest]
 
 --| What the layout and the trace agree on after some texts: at a line with only spaces on it, a fresh line at its
@@ -394,13 +393,8 @@ theorem addPieceLay ∀ (piece: Piece) (rest: List Piece) (laid: Laid):
       let joined: laid.lay (Gap (first + second)) = (laid.lay (Gap first)).lay (Gap second) :=
         rewrite Nat.addAssoc laid.column first second
       rewrite joined
-    | Gap first, [] => byComputing
-    | Gap first, [Code kind text, ..more] => byComputing
-    | Gap first, [Break, ..more] => byComputing
-    | Gap first, [Remark text, ..more] => byComputing
-    | Code kind text, rest => byComputing
-    | Break, rest => byComputing
-    | Remark text, rest => byComputing
+    | Gap _, [] | [Code _ _, .._] | [Break, .._] | [Remark _, .._] => byComputing
+    | Code _ _ | Break | Remark _, _ => byComputing
 
 --| The lexer's pieces of the texts lay as the texts do, one at a time.
 theorem pieceFoldLay ∀ (kinds: Text → Tok) (texts: List Text) (laid: Laid):
@@ -452,8 +446,7 @@ theorem commentLayout ∀ (text: Text) (starts: text.startsWith "--" = True): is
 --| Pieces that may stand after one another have no text after a comment on its line.
 theorem pairsEnd ∀ (kinds: Text → Tok) (out: List Text) (pairs: Pairs (Follows kinds) out): CommentsEnd out :=
   match out, pairs with
-    | [], _ => byComputing
-    | [text], _ => byComputing
+    | [] | [_], _ => byComputing
     | [text, earlier, ..rest], (_, pair, others) => (
       comment =>
         match pair with

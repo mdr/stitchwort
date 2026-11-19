@@ -215,44 +215,44 @@ def symbolInfo (input: List Char): Bool := match symbol input with
 
 --| `symbolInfo` of every input: one case per arm of `symbol`.
 theorem symbolFacts ∀ (input: List Char): symbolInfo input = True := match input with
-  | ['(', .._] => byComputing
-  | [')', .._] => byComputing
-  | ['[', .._] => byComputing
-  | [']', .._] => byComputing
-  | ['{', .._] => byComputing
-  | ['}', .._] => byComputing
-  | [',', .._] => byComputing
-  | [';', .._] => byComputing
-  | [':', '=', .._] => byComputing
-  | [':', .._] => byComputing
-  | ['=', '=', .._] => byComputing
-  | ['=', '>', .._] => byComputing
-  | ['=', .._] => byComputing
-  | ['|', '|', .._] => byComputing
-  | ['|', '>', .._] => byComputing
-  | ['|', .._] => byComputing
-  | ['&', '&', .._] => byComputing
-  | ['+', '+', .._] => byComputing
-  | ['+', .._] => byComputing
-  | ['-', '>', .._] => byComputing
-  | ['-', .._] => byComputing
-  | ['*', .._] => byComputing
-  | ['/', .._] => byComputing
-  | ['%', .._] => byComputing
-  | ['!', '=', .._] => byComputing
+  | ['(', .._] |
+      [')', .._] |
+      ['[', .._] |
+      [']', .._] |
+      ['{', .._] |
+      ['}', .._] |
+      [',', .._] |
+      [';', .._] |
+      [':', '=', .._] |
+      [':', .._] |
+      ['=', '=', .._] |
+      ['=', '>', .._] |
+      ['=', .._] |
+      ['|', '|', .._] |
+      ['|', '>', .._] |
+      ['|', .._] |
+      ['&', '&', .._] |
+      ['+', '+', .._] |
+      ['+', .._] |
+      ['-', '>', .._] |
+      ['-', .._] |
+      ['*', .._] |
+      ['/', .._] |
+      ['%', .._] |
+      ['!', '=', .._] => byComputing
   | ['!', 'i', 'n', next, .._] =>
     match g: !isWordChar next with
       | True => byComputing
       | False => byComputing
-  | ['!', 'i', 'n'] => byComputing
-  | ['!', .._] => byComputing
-  | ['<', '-', '>', .._] => byComputing
-  | ['<', '=', .._] => byComputing
-  | ['<', .._] => byComputing
-  | ['>', '=', .._] => byComputing
-  | ['>', .._] => byComputing
-  | ['?', .._] => byComputing
-  | ['@', '[', .._] => byComputing
+  | ['!', 'i', 'n'] |
+      ['!', .._] |
+      ['<', '-', '>', .._] |
+      ['<', '=', .._] |
+      ['<', .._] |
+      ['>', '=', .._] |
+      ['>', .._] |
+      ['?', .._] |
+      ['@', '[', .._] => byComputing
   | _ => byComputing
 
 def aliasPlain (char: Char): Bool := match Tok.unicodeAlias char with
@@ -260,34 +260,12 @@ def aliasPlain (char: Char): Bool := match Tok.unicodeAlias char with
   | None => True
 
 theorem aliasFacts ∀ (char: Char): aliasPlain char = True := match char with
-  | '∈' => byComputing
-  | '∉' => byComputing
-  | '→' => byComputing
-  | '↔' => byComputing
-  | '∧' => byComputing
-  | '∨' => byComputing
-  | '¬' => byComputing
-  | '≤' => byComputing
-  | '≥' => byComputing
-  | '≠' => byComputing
-  | '∃' => byComputing
-  | '∀' => byComputing
+  | '∈' | '∉' | '→' | '↔' | '∧' | '∨' | '¬' | '≤' | '≥' | '≠' | '∃' | '∀' => byComputing
   | _ => byComputing
 
 --| An ASCII character has no Unicode alias.
 theorem aliasAscii ∀ (char: Char) (ascii: (char.toNat < 128) = True): Tok.unicodeAlias char = None := match char with
-  | '∈' => (Bool.falseNotTrue ascii).impossible
-  | '∉' => (Bool.falseNotTrue ascii).impossible
-  | '→' => (Bool.falseNotTrue ascii).impossible
-  | '↔' => (Bool.falseNotTrue ascii).impossible
-  | '∧' => (Bool.falseNotTrue ascii).impossible
-  | '∨' => (Bool.falseNotTrue ascii).impossible
-  | '¬' => (Bool.falseNotTrue ascii).impossible
-  | '≤' => (Bool.falseNotTrue ascii).impossible
-  | '≥' => (Bool.falseNotTrue ascii).impossible
-  | '≠' => (Bool.falseNotTrue ascii).impossible
-  | '∃' => (Bool.falseNotTrue ascii).impossible
-  | '∀' => (Bool.falseNotTrue ascii).impossible
+  | '∈' | '∉' | '→' | '↔' | '∧' | '∨' | '¬' | '≤' | '≥' | '≠' | '∃' | '∀' => (Bool.falseNotTrue ascii).impossible
   | _ => byComputing
 
 --| `symbol` reads nothing that starts with a name's or a number's character.
@@ -318,9 +296,7 @@ theorem wordyCloser ∀ (char: Char) (more: List Char)
     (starts: wordy char = True):
     isCloserText (Text.fromList [char, ..more]) = False :=
   match char with
-    | ')' => (Bool.falseNotTrue starts).impossible
-    | ']' => (Bool.falseNotTrue starts).impossible
-    | '}' => (Bool.falseNotTrue starts).impossible
+    | ')' | ']' | '}' => (Bool.falseNotTrue starts).impossible
     | _ => arithmetic [starts]
 
 theorem wordyBreak ∀ (char: Char) (more: List Char) (starts: wordy char = True): startsBreak [char, ..more] = False :=
@@ -338,45 +314,44 @@ theorem wordyMarked ∀ (char: Char) (more: List Char) (kind: Tok)
   rewrite wordyCloser char more starts, wordyOperator char more starts, closer, arrow
 
 theorem upperLowerPlain ∀ (upper: Bool): plainKind (if upper then Upper else Lower) = True := match upper with
-  | True => byComputing
-  | False => byComputing
+  | True | False => byComputing
 
 --| The kinds a word gets are plain: one case per text `wordKind` or `Tok.keyword` names.
 theorem wordKindPlain ∀ (word: Text): plainKind (wordKind False word) = True := match word with
-  | "_" => byComputing
-  | "exists" => byComputing
-  | "forall" => byComputing
-  | "Type" => byComputing
-  | "Prop" => byComputing
-  | "ability" => byComputing
-  | "algebra" => byComputing
-  | "arithmetic" => byComputing
-  | "calc" => byComputing
-  | "cases" => byComputing
-  | "decreasing" => byComputing
-  | "def" => byComputing
-  | "else" => byComputing
-  | "export" => byComputing
-  | "handle" => byComputing
-  | "if" => byComputing
-  | "import" => byComputing
-  | "in" => byComputing
-  | "include" => byComputing
-  | "instance" => byComputing
-  | "interface" => byComputing
-  | "let" => byComputing
-  | "match" => byComputing
-  | "namespace" => byComputing
-  | "opaque" => byComputing
-  | "return" => byComputing
-  | "rewrite" => byComputing
-  | "test" => byComputing
-  | "then" => byComputing
-  | "theorem" => byComputing
-  | "type" => byComputing
-  | "unfolding" => byComputing
-  | "where" => byComputing
-  | "with" => byComputing
+  | "_" |
+      "exists" |
+      "forall" |
+      "Type" |
+      "Prop" |
+      "ability" |
+      "algebra" |
+      "arithmetic" |
+      "calc" |
+      "cases" |
+      "decreasing" |
+      "def" |
+      "else" |
+      "export" |
+      "handle" |
+      "if" |
+      "import" |
+      "in" |
+      "include" |
+      "instance" |
+      "interface" |
+      "let" |
+      "match" |
+      "namespace" |
+      "opaque" |
+      "return" |
+      "rewrite" |
+      "test" |
+      "then" |
+      "theorem" |
+      "type" |
+      "unfolding" |
+      "where" |
+      "with" => byComputing
   | _ => upperLowerPlain (word.toList.head.map Char.isAsciiUppercase |> .getOrElse False)
 
 --| Taking the `\r`s and spaces off the end of characters leaves no line break where there was none.
@@ -541,9 +516,7 @@ theorem soundReadEscape ∀ (rest: List Char): Sound (() => readEscape rest) := 
 theorem soundCharPiece: Sound (() => charPiece()) := soundThen soundMark (at =>
   match at.rest with
     | ['\\', ..rest] => soundThen soundMark (here => soundReadEscape here.rest)
-    | ['\'', ..rest] => soundStop
-    | ['\n', ..rest] => soundStop
-    | [] => soundStop
+    | ['\'', .._] | ['\n', .._] | [] => soundStop
     | _ => soundThen (soundSpan (char => char != '\'' && char != '\\' && char != '\n')) (run => soundDone run.length))
 
 theorem givesCharLiteral: Gives (() => charLiteral()) (lexeme => lexeme.value = TokenLexeme CharLit) :=
@@ -1026,8 +999,7 @@ theorem wordReads ∀ (start: Parse.Mark Char) (c: Char) (more: List Char)
                               (tokenAtOf c start after1 after3 read1 read3 _ kind moved1 moved3b head plain)))))
 
 theorem numberPlain ∀ (float: Bool): plainKind (if float then Float else Num) = True := match float with
-  | True => byComputing
-  | False => byComputing
+  | True | False => byComputing
 
 theorem numberReads ∀ (start: Parse.Mark Char) (c: Char) (more: List Char)
     (here: start.rest = [c, ..more])

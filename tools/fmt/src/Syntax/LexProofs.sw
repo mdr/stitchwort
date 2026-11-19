@@ -574,9 +574,7 @@ theorem addRemark ∀ (laid: Laid) (lineStart: Nat) (source: Text) (offset: Nat)
       (arithmetic: lineStart + laid.column - lineStart = laid.column),
       (arithmetic: lineStart + laid.column + utf8Chars text.toList
         = lineStart + (laid.column + utf8Chars text.toList)) then
-    match same: laid.freshLine with
-      | True => byComputing
-      | False => byComputing
+    match same: laid.freshLine with | True | False => byComputing
 
 --| `Assembly.add` of a piece's lexeme makes the next layout.
 theorem addPiece ∀ (laid: Laid) (lineStart: Nat) (source: Text) (offset: Nat) (piece: Piece)
@@ -1140,16 +1138,7 @@ theorem itemReadsWord ∀ (first: Char) (others rest: List Char) (kind: Tok)
     (kinded: wordKind False (Text.fromList [first, ..others]) = kind):
     ItemReads [first, ..others] (TokenLexeme kind) rest :=
   match first, starts with
-    | '\n', starts => (Bool.falseNotTrue starts).impossible
-    | '}', starts => (Bool.falseNotTrue starts).impossible
-    | '{', starts => (Bool.falseNotTrue starts).impossible
-    | ' ', starts => (Bool.falseNotTrue starts).impossible
-    | '\r', starts => (Bool.falseNotTrue starts).impossible
-    | '\t', starts => (Bool.falseNotTrue starts).impossible
-    | '-', starts => (Bool.falseNotTrue starts).impossible
-    | '"', starts => (Bool.falseNotTrue starts).impossible
-    | '\'', starts => (Bool.falseNotTrue starts).impossible
-    | '.', starts => (Bool.falseNotTrue starts).impossible
+    | '\n' | '}' | '{' | ' ' | '\r' | '\t' | '-' | '"' | '\'' | '.', starts => (Bool.falseNotTrue starts).impossible
     | other, starts => itemReadsVia [other, ..others] rest (TokenLexeme kind) (self source state =>
       starts2 honest =>
         rewrite starts then runsFromWordList state other others rest kind word starts ends noDot kinded starts2 honest)
@@ -1439,16 +1428,7 @@ theorem itemReadsQualified ∀ (first: Char) (others rest: List Char)
     (found: qualFound None comps = Some lastUpper):
     ItemReads ([first, ..others] ++ qualChars comps) (TokenLexeme (if lastUpper then Upper else Lower)) rest :=
   match first, starts with
-    | '\n', starts => (Bool.falseNotTrue starts).impossible
-    | '}', starts => (Bool.falseNotTrue starts).impossible
-    | '{', starts => (Bool.falseNotTrue starts).impossible
-    | ' ', starts => (Bool.falseNotTrue starts).impossible
-    | '\r', starts => (Bool.falseNotTrue starts).impossible
-    | '\t', starts => (Bool.falseNotTrue starts).impossible
-    | '-', starts => (Bool.falseNotTrue starts).impossible
-    | '"', starts => (Bool.falseNotTrue starts).impossible
-    | '\'', starts => (Bool.falseNotTrue starts).impossible
-    | '.', starts => (Bool.falseNotTrue starts).impossible
+    | '\n' | '}' | '{' | ' ' | '\r' | '\t' | '-' | '"' | '\'' | '.', starts => (Bool.falseNotTrue starts).impossible
     | other, starts =>
       itemReadsVia
         ([other, ..others] ++ qualChars comps)
@@ -1613,10 +1593,8 @@ theorem runsTailFractionExponent ∀ (fraction exponent rest: List Char)
     (ends: rest.takeWhile Char.isAsciiDigit = []):
     Parse.Runs (() => numberTail False) (fraction ++ exponent) rest True :=
   let stops: (exponent ++ rest).takeWhile Char.isAsciiDigit = [] := match exponent, exponentShape with
-    | exponent, Inl (Witness marker (Witness digit (Witness digits (Both same (Both isMarker rest2))))) =>
-      rewrite same then (rewrite (arithmetic [isMarker]: marker.isAsciiDigit = False))
-    | exponent, Inr
-        (Witness marker (Witness sign (Witness digit (Witness digits (Both same (Both isMarker rest2)))))) =>
+    | _, Inl (Witness marker (Witness _ (Witness _ (Both same (Both isMarker _))))) |
+        Inr (Witness marker (Witness _ (Witness _ (Witness _ (Both same (Both isMarker _)))))) =>
       rewrite same then (rewrite (arithmetic [isMarker]: marker.isAsciiDigit = False))
   match fraction, fractionShape with
     | fraction, Witness second (Witness more (Both same (Both digit digits))) =>
@@ -1860,16 +1838,7 @@ theorem itemReadsNum ∀ (first: Char) (others rest: List Char)
     (noE: rest.head ≠ Some 'e' ∧ rest.head ≠ Some 'E'):
     ItemReads [first, ..others] (TokenLexeme Num) rest :=
   match first, digit with
-    | '\n', digit => (Bool.falseNotTrue digit).impossible
-    | '}', digit => (Bool.falseNotTrue digit).impossible
-    | '{', digit => (Bool.falseNotTrue digit).impossible
-    | ' ', digit => (Bool.falseNotTrue digit).impossible
-    | '\r', digit => (Bool.falseNotTrue digit).impossible
-    | '\t', digit => (Bool.falseNotTrue digit).impossible
-    | '-', digit => (Bool.falseNotTrue digit).impossible
-    | '"', digit => (Bool.falseNotTrue digit).impossible
-    | '\'', digit => (Bool.falseNotTrue digit).impossible
-    | '.', digit => (Bool.falseNotTrue digit).impossible
+    | '\n' | '}' | '{' | ' ' | '\r' | '\t' | '-' | '"' | '\'' | '.', digit => (Bool.falseNotTrue digit).impossible
     | other, digit => itemReadsVia [other, ..others] rest (TokenLexeme Num) (self source state =>
       starts honest =>
         let all: [other, ..others].all Char.isAsciiDigit = True := Bool.andIntro digit digits
@@ -1921,10 +1890,8 @@ theorem exponentStops ∀ (exponent rest: List Char)
     (shape: ExponentAs exponent):
     (exponent ++ rest).takeWhile Char.isAsciiDigit = [] :=
   match exponent, shape with
-    | exponent, Inl (Witness marker (Witness digit (Witness digits (Both same (Both isMarker rest2))))) =>
-      rewrite same then (rewrite (arithmetic [isMarker]: marker.isAsciiDigit = False))
-    | exponent, Inr
-        (Witness marker (Witness sign (Witness digit (Witness digits (Both same (Both isMarker rest2)))))) =>
+    | _, Inl (Witness marker (Witness _ (Witness _ (Both same (Both isMarker _))))) |
+        Inr (Witness marker (Witness _ (Witness _ (Witness _ (Both same (Both isMarker _)))))) =>
       rewrite same then (rewrite (arithmetic [isMarker]: marker.isAsciiDigit = False))
 
 --| A float's tail doesn't start with a digit.
@@ -1966,16 +1933,7 @@ theorem itemReadsFloatTail ∀ (first: Char) (others tail rest read: List Char)
     ItemReads read (TokenLexeme Float) rest :=
   rewrite split then
     match first, digit with
-      | '\n', digit => (Bool.falseNotTrue digit).impossible
-      | '}', digit => (Bool.falseNotTrue digit).impossible
-      | '{', digit => (Bool.falseNotTrue digit).impossible
-      | ' ', digit => (Bool.falseNotTrue digit).impossible
-      | '\r', digit => (Bool.falseNotTrue digit).impossible
-      | '\t', digit => (Bool.falseNotTrue digit).impossible
-      | '-', digit => (Bool.falseNotTrue digit).impossible
-      | '"', digit => (Bool.falseNotTrue digit).impossible
-      | '\'', digit => (Bool.falseNotTrue digit).impossible
-      | '.', digit => (Bool.falseNotTrue digit).impossible
+      | '\n' | '}' | '{' | ' ' | '\r' | '\t' | '-' | '"' | '\'' | '.', digit => (Bool.falseNotTrue digit).impossible
       | other, digit => itemReadsVia ([other, ..others] ++ tail) rest (TokenLexeme Float) (self source state =>
         starts honest =>
           let all: [other, ..others].all Char.isAsciiDigit = True := Bool.andIntro digit digits
@@ -2081,9 +2039,7 @@ def MayFollow (kind: Tok) (text: Text) (rest: List Char): Prop := match kind wit
   | Lt => rest.head ≠ Some '=' ∧ rest.head ≠ Some '-'
   | Gt => rest.head ≠ Some '='
   | Bang => text = "!" → rest.head ≠ Some '=' ∧ rest.takeWhile isWordChar ≠ ['i', 'n']
-  | KwDef => rest.takeWhile isWordChar = [] ∧ rest.head ≠ Some '.'
-  | Lower => rest.takeWhile isWordChar = [] ∧ rest.head ≠ Some '.'
-  | Upper => rest.takeWhile isWordChar = [] ∧ rest.head ≠ Some '.'
+  | KwDef | Lower | Upper => rest.takeWhile isWordChar = [] ∧ rest.head ≠ Some '.'
   | Num => rest.takeWhile Char.isAsciiDigit = [] ∧ rest.head ≠ Some '.' ∧ (rest.head ≠ Some 'e' ∧ rest.head ≠ Some 'E')
   | Float => rest.takeWhile Char.isAsciiDigit = [] ∧ (rest.head ≠ Some 'e' ∧ rest.head ≠ Some 'E')
   | _ => True
@@ -2168,8 +2124,7 @@ theorem lexWord1 ∀ (kind: Tok) (text: Text) (rest: List Char)
 --| `--` and a line, spaces and a break as they are.
 def Piece.Spells: Piece → Prop
   | Code kind text => Syntax.Proofs.Spells kind text
-  | Gap count => True
-  | Break => True
+  | Gap _ | Break => True
   | Remark text =>
     ∃ (others: List Char) => text.toList = ['-', '-', ..others] ∧ others.all (char => char != '\n') = True
 
@@ -2319,50 +2274,18 @@ theorem floatTailNoBreak ∀ (tail: List Char) (shape: FloatTailAs tail): tail.a
 --| Proof idea: Each fixed spelling is a literal; names and numbers are made of characters that aren't a line break (`wordCharNoBreak`, `digitNoBreak`).
 theorem spellsPlain ∀ (kind: Tok) (text: Text) (spells: Spells kind text): (Code kind text).Plain :=
   match kind, spells with
-    | LParen, same => rewrite same then Both byDecision byComputing
-    | RParen, same => rewrite same then Both byDecision byComputing
-    | LBracket, same => rewrite same then Both byDecision byComputing
-    | RBracket, same => rewrite same then Both byDecision byComputing
-    | Comma, same => rewrite same then Both byDecision byComputing
-    | Colon, same => rewrite same then Both byDecision byComputing
-    | ColonEq, same => rewrite same then Both byDecision byComputing
-    | Equals, same => rewrite same then Both byDecision byComputing
-    | EqEq, same => rewrite same then Both byDecision byComputing
-    | Arrow, Inl same => rewrite same then Both byDecision byComputing
-    | Arrow, Inr same => rewrite same then Both byDecision byComputing
-    | OrOr, Inl same => rewrite same then Both byDecision byComputing
-    | OrOr, Inr same => rewrite same then Both byDecision byComputing
-    | AndAnd, Inl same => rewrite same then Both byDecision byComputing
-    | AndAnd, Inr same => rewrite same then Both byDecision byComputing
-    | Plus, same => rewrite same then Both byDecision byComputing
-    | PlusPlus, same => rewrite same then Both byDecision byComputing
-    | Minus, same => rewrite same then Both byDecision byComputing
-    | Star, same => rewrite same then Both byDecision byComputing
-    | Slash, same => rewrite same then Both byDecision byComputing
-    | Percent, same => rewrite same then Both byDecision byComputing
-    | NotEq, Inl same => rewrite same then Both byDecision byComputing
-    | NotEq, Inr same => rewrite same then Both byDecision byComputing
+    | LParen | RParen | LBracket | RBracket | Comma | Colon | ColonEq | Equals | EqEq, same =>
+      rewrite same then Both byDecision byComputing
+    | Arrow | OrOr | AndAnd, Inl same | Inr same => rewrite same then Both byDecision byComputing
+    | Plus | PlusPlus | Minus | Star | Slash | Percent, same => rewrite same then Both byDecision byComputing
+    | NotEq, Inl same | Inr same => rewrite same then Both byDecision byComputing
     | Lt, same => rewrite same then Both byDecision byComputing
-    | Le, Inl same => rewrite same then Both byDecision byComputing
-    | Le, Inr same => rewrite same then Both byDecision byComputing
+    | Le, Inl same | Inr same => rewrite same then Both byDecision byComputing
     | Gt, same => rewrite same then Both byDecision byComputing
-    | Ge, Inl same => rewrite same then Both byDecision byComputing
-    | Ge, Inr same => rewrite same then Both byDecision byComputing
-    | Bang, Inl same => rewrite same then Both byDecision byComputing
-    | Bang, Inr same => rewrite same then Both byDecision byComputing
+    | Ge | Bang, Inl same | Inr same => rewrite same then Both byDecision byComputing
     | KwDef, same => rewrite same then Both byDecision byComputing
-    | Lower, Witness first (Witness others (Witness comps (Both split (Both starts (Both word (Both tail kinded)))))) =>
-      Both
-        (rewrite split then different => cases)
-        (rewrite split then
-          Bool.andIntro
-            (wordCharNoBreak first (wordStartChar first starts))
-            (List.allAppendTrue others
-              (qualChars comps)
-              (char => char != '\n')
-              (List.allImpliesBool others isWordChar (char => char != '\n') wordCharNoBreak word)
-              (qualCharsNoBreak first.isAsciiUppercase comps tail)))
-    | Upper, Witness first (Witness others (Witness comps (Both split (Both starts (Both word (Both tail kinded)))))) =>
+    | Lower | Upper, Witness first
+        (Witness others (Witness comps (Both split (Both starts (Both word (Both tail _)))))) =>
       Both
         (rewrite split then different => cases)
         (rewrite split then
@@ -2412,13 +2335,10 @@ theorem mayFollowEnd ∀ (kind: Tok) (text: Text): MayFollow kind text [] := mat
   | Colon => byDecision
   | Equals => Both byDecision byDecision
   | Plus => byDecision
-  | Minus => Both byDecision byDecision
-  | Lt => Both byDecision byDecision
+  | Minus | Lt => Both byDecision byDecision
   | Gt => byDecision
   | Bang => same => Both byDecision byDecision
-  | KwDef => Both byComputing byDecision
-  | Lower => Both byComputing byDecision
-  | Upper => Both byComputing byDecision
+  | KwDef | Lower | Upper => Both byComputing byDecision
   | Num => Both byComputing (Both byDecision (Both byDecision byDecision))
   | Float => Both byComputing (Both byDecision byDecision)
   | other => byComputing
@@ -2427,11 +2347,7 @@ theorem mayFollowEnd ∀ (kind: Tok) (text: Text): MayFollow kind text [] := mat
 
 --| The kinds of slice 1's alphabet that are punctuation or operators: all but names, numbers and `def`.
 def Tok.symbolic1: Tok → Bool
-  | Lower => False
-  | Upper => False
-  | Num => False
-  | Float => False
-  | KwDef => False
+  | Lower | Upper | Num | Float | KwDef => False
   | kind => kind.within1
 
 --| `operatorTok`, which the rules use to tell which operator a word is, gives the kind the lexer gives, for each
@@ -2443,37 +2359,14 @@ theorem operatorTokOfSpells ∀ (kind: Tok) (text: Text)
     (symbolic: kind.symbolic1 = True):
     operatorTok text = Some kind :=
   match kind, spells, symbolic with
-    | LParen, same, symbolic => rewrite same
-    | RParen, same, symbolic => rewrite same
-    | LBracket, same, symbolic => rewrite same
-    | RBracket, same, symbolic => rewrite same
-    | Comma, same, symbolic => rewrite same
-    | Colon, same, symbolic => rewrite same
-    | ColonEq, same, symbolic => rewrite same
-    | Equals, same, symbolic => rewrite same
-    | EqEq, same, symbolic => rewrite same
-    | Arrow, Inl same, symbolic => rewrite same
-    | Arrow, Inr same, symbolic => rewrite same
-    | OrOr, Inl same, symbolic => rewrite same
-    | OrOr, Inr same, symbolic => rewrite same
-    | AndAnd, Inl same, symbolic => rewrite same
-    | AndAnd, Inr same, symbolic => rewrite same
-    | Plus, same, symbolic => rewrite same
-    | PlusPlus, same, symbolic => rewrite same
-    | Minus, same, symbolic => rewrite same
-    | Star, same, symbolic => rewrite same
-    | Slash, same, symbolic => rewrite same
-    | Percent, same, symbolic => rewrite same
-    | NotEq, Inl same, symbolic => rewrite same
-    | NotEq, Inr same, symbolic => rewrite same
+    | LParen | RParen | LBracket | RBracket | Comma | Colon | ColonEq | Equals | EqEq, same, _ => rewrite same
+    | Arrow | OrOr | AndAnd, Inl same | Inr same, _ => rewrite same
+    | Plus | PlusPlus | Minus | Star | Slash | Percent, same, _ => rewrite same
+    | NotEq, Inl same | Inr same, _ => rewrite same
     | Lt, same, symbolic => rewrite same
-    | Le, Inl same, symbolic => rewrite same
-    | Le, Inr same, symbolic => rewrite same
+    | Le, Inl same | Inr same, _ => rewrite same
     | Gt, same, symbolic => rewrite same
-    | Ge, Inl same, symbolic => rewrite same
-    | Ge, Inr same, symbolic => rewrite same
-    | Bang, Inl same, symbolic => rewrite same
-    | Bang, Inr same, symbolic => rewrite same
+    | Ge | Bang, Inl same | Inr same, _ => rewrite same
     | other, spells, symbolic => (Bool.falseNotTrue symbolic).impossible
 
 -- Pieces and the pieces next to them.
@@ -2540,44 +2433,25 @@ theorem notJustI ∀ (piece: Piece) (rest: List Char) (spells: piece.Spells) (fo
     | Remark text, Witness others (Both split _), _ =>
       let never: ['-', '-', ..others] = ['i'] := Eq.trans split.flipped single
       cases
-    | Code LParen text, same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code RParen text, same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code LBracket text, same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code RBracket text, same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code Comma text, same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code Colon text, same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code ColonEq text, same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code Equals text, same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code EqEq text, same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code Arrow text, Inl same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code Arrow text, Inr same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code OrOr text, Inl same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code OrOr text, Inr same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code AndAnd text, Inl same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code AndAnd text, Inr same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code Plus text, same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code PlusPlus text, same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code Minus text, same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code Star text, same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code Slash text, same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code Percent text, same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code NotEq text, Inl same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code NotEq text, Inr same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code LParen _ |
+        Code RParen _ |
+        Code LBracket _ |
+        Code RBracket _ |
+        Code Comma _ |
+        Code Colon _ |
+        Code ColonEq _ |
+        Code Equals _ |
+        Code EqEq _, same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code Arrow _ | Code OrOr _ | Code AndAnd _, Inl same | Inr same, _ =>
+      rewrite same at single then notI _ _ byDecision single
+    | Code Plus _ | Code PlusPlus _ | Code Minus _ | Code Star _ | Code Slash _ | Code Percent _, same, _ =>
+      rewrite same at single then notI _ _ byDecision single
+    | Code NotEq _, Inl same | Inr same, _ => rewrite same at single then notI _ _ byDecision single
     | Code Lt text, same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code Le text, Inl same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code Le text, Inr same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code Le _, Inl same | Inr same, _ => rewrite same at single then notI _ _ byDecision single
     | Code Gt text, same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code Ge text, Inl same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code Ge text, Inr same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code Bang text, Inl same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code Bang text, Inr same, _ => rewrite same at single then notI _ _ byDecision single
-    | Code KwDef text, _, Both ends _ =>
-      let never: [] = ['n'] := Eq.trans ends.flipped run
-      cases
-    | Code Lower text, _, Both ends _ =>
-      let never: [] = ['n'] := Eq.trans ends.flipped run
-      cases
-    | Code Upper text, _, Both ends _ =>
+    | Code Ge _ | Code Bang _, Inl same | Inr same, _ => rewrite same at single then notI _ _ byDecision single
+    | Code KwDef _ | Code Lower _ | Code Upper _, _, Both ends _ =>
       let never: [] = ['n'] := Eq.trans ends.flipped run
       cases
     | Code Num text, Witness first (Witness others (Both split (Both digit _))), _ =>
@@ -2610,20 +2484,12 @@ theorem followsAlike ∀ (piece: Piece) (before after: List Char)
     piece.Follows after :=
   let same := alike.left
   match piece, follows with
-    | Code Colon text, follows => rewrite <- same then follows
-    | Code Equals text, follows => rewrite <- same then follows
-    | Code Plus text, follows => rewrite <- same then follows
-    | Code Minus text, follows => rewrite <- same then follows
-    | Code Lt text, follows => rewrite <- same then follows
-    | Code Gt text, follows => rewrite <- same then follows
+    | Code Colon _ | Code Equals _ | Code Plus _ | Code Minus _ | Code Lt _ | Code Gt _, follows =>
+      rewrite <- same then follows
     | Code Bang text, follows => bang =>
       match follows bang with
         | Both noEq notIn => Both (rewrite <- same then noEq) (word => notIn (alike.right word))
-    | Code KwDef text, Both stops noDot =>
-      Both (List.takeWhileSameHead isWordChar before after same stops) (rewrite <- same then noDot)
-    | Code Lower text, Both stops noDot =>
-      Both (List.takeWhileSameHead isWordChar before after same stops) (rewrite <- same then noDot)
-    | Code Upper text, Both stops noDot =>
+    | Code KwDef _ | Code Lower _ | Code Upper _, Both stops noDot =>
       Both (List.takeWhileSameHead isWordChar before after same stops) (rewrite <- same then noDot)
     | Code Num text, Both stops (Both noDot noE) =>
       Both (List.takeWhileSameHead Char.isAsciiDigit before after same stops) (rewrite <- same then Both noDot noE)

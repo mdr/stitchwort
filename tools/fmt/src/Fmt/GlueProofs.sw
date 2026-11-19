@@ -163,12 +163,10 @@ theorem gapReach ∀ (before: Option Token) (fresh: Bool) (column count: Nat)
         | False, reached => arithmetic [reached]
 
 theorem freshGlue ∀ (before: Option Token) (column: Nat): glueAt before True column = False := match before with
-  | None => byComputing
-  | Some previous => byComputing
+  | None | Some _ => byComputing
 
 theorem freshReach ∀ (before: Option Token) (column: Nat): reachOf before True column = True := match before with
-  | None => byComputing
-  | Some previous => byComputing
+  | None | Some _ => byComputing
 
 --| Characters with no line break are one field of their split at line breaks.
 theorem splitOne ∀ (chars: List Char)
@@ -202,15 +200,11 @@ theorem codeReach ∀ (kind: Tok) (text: Text) (column: Nat) (fresh: Bool)
 
 theorem trailingGlued ∀ (leaves: List Leaf) (comment: Comment):
     gluedBack (withTrailing leaves comment) = gluedBack leaves :=
-  match leaves with
-    | [] => byComputing
-    | [last, ..earlier] => byComputing
+  match leaves with | [] | [_, .._] => byComputing
 
 theorem trailingToken ∀ (leaves: List Leaf) (comment: Comment):
     tokenOf (withTrailing leaves comment) = tokenOf leaves :=
-  match leaves with
-    | [] => byComputing
-    | [last, ..earlier] => byComputing
+  match leaves with | [] | [_, .._] => byComputing
 
 --| Spaces touch nothing, and move the column past where a token would be glued.
 theorem glueSpaces ∀ (kinds: Text → Tok) (text: Text) (earlier: List Text)

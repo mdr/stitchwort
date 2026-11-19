@@ -96,13 +96,8 @@ theorem addPieceChars ∀ (piece: Piece) (rest: List Piece):
     | Gap first, [Gap second, ..more] =>
       rewrite List.replicateAdd ' ' first second,
           List.appendAssoc (List.replicate first ' ') (List.replicate second ' ') (Parse.joinReads (pieceSteps more))
-    | Gap first, [] => byComputing
-    | Gap first, [Code kind text, ..more] => byComputing
-    | Gap first, [Break, ..more] => byComputing
-    | Gap first, [Remark text, ..more] => byComputing
-    | Code kind text, rest => byComputing
-    | Break, rest => byComputing
-    | Remark text, rest => byComputing
+    | Gap _, [] | [Code _ _, .._] | [Break, .._] | [Remark _, .._] => byComputing
+    | Code _ _ | Break | Remark _, _ => byComputing
 
 theorem pieceFoldChars ∀ (kinds: Text → Tok) (texts: List Text):
     Parse.joinReads (pieceSteps (pieceFold kinds texts)) = charsOf texts :=
@@ -173,16 +168,9 @@ theorem addPieceOk ∀ (piece: Piece) (rest: List Piece) (plain: piece.Plain) (s
   match piece, rest, plain, restPlain, restSpelled with
     | Gap first, [Gap second, ..more], firstPlain, (secondPlain, morePlain), (secondSpelled, moreSpelled) =>
       ((((same => cases), morePlain)), (byComputing, moreSpelled))
-    | Gap first, [], firstPlain, restPlain, restSpelled => ((firstPlain, restPlain), (spelled, restSpelled))
-    | Gap first, [Code kind text, ..more], firstPlain, restPlain, restSpelled =>
+    | Gap _, [] | [Code _ _, .._] | [Break, .._] | [Remark _, .._], firstPlain, restPlain, restSpelled =>
       ((firstPlain, restPlain), (spelled, restSpelled))
-    | Gap first, [Break, ..more], firstPlain, restPlain, restSpelled =>
-      ((firstPlain, restPlain), (spelled, restSpelled))
-    | Gap first, [Remark text, ..more], firstPlain, restPlain, restSpelled =>
-      ((firstPlain, restPlain), (spelled, restSpelled))
-    | Code kind text, rest, plain, restPlain, restSpelled => ((plain, restPlain), (spelled, restSpelled))
-    | Break, rest, plain, restPlain, restSpelled => ((plain, restPlain), (spelled, restSpelled))
-    | Remark text, rest, plain, restPlain, restSpelled => ((plain, restPlain), (spelled, restSpelled))
+    | Code _ _ | Break | Remark _, _, plain, restPlain, restSpelled => ((plain, restPlain), (spelled, restSpelled))
 
 theorem pieceFoldOk ∀ (kinds: Text → Tok) (texts: List Text)
     (good: AllGood kinds texts):
@@ -260,13 +248,10 @@ theorem mayFollowBreak ∀ (kind: Tok) (text: Text) (rest: List Char): MayFollow
     | Colon => byDecision
     | Equals => Both byDecision byDecision
     | Plus => byDecision
-    | Minus => Both byDecision byDecision
-    | Lt => Both byDecision byDecision
+    | Minus | Lt => Both byDecision byDecision
     | Gt => byDecision
     | Bang => same => Both byDecision byDecision
-    | KwDef => Both byComputing byDecision
-    | Lower => Both byComputing byDecision
-    | Upper => Both byComputing byDecision
+    | KwDef | Lower | Upper => Both byComputing byDecision
     | Num => Both byComputing (Both byDecision (Both byDecision byDecision))
     | Float => Both byComputing (Both byDecision byDecision)
     | other => byComputing
@@ -292,41 +277,17 @@ theorem spelledHead ∀ (kind: Tok) (text: Text)
     (spells: Syntax.Proofs.Spells kind text):
     text.toList.head ≠ Some ' ' ∧ text.toList.head ≠ Some '\r' :=
   match kind, spells with
-    | LParen, same => rewrite same then Both byDecision byDecision
-    | RParen, same => rewrite same then Both byDecision byDecision
-    | LBracket, same => rewrite same then Both byDecision byDecision
-    | RBracket, same => rewrite same then Both byDecision byDecision
-    | Comma, same => rewrite same then Both byDecision byDecision
-    | Colon, same => rewrite same then Both byDecision byDecision
-    | ColonEq, same => rewrite same then Both byDecision byDecision
-    | Equals, same => rewrite same then Both byDecision byDecision
-    | EqEq, same => rewrite same then Both byDecision byDecision
-    | Arrow, Inl same => rewrite same then Both byDecision byDecision
-    | Arrow, Inr same => rewrite same then Both byDecision byDecision
-    | OrOr, Inl same => rewrite same then Both byDecision byDecision
-    | OrOr, Inr same => rewrite same then Both byDecision byDecision
-    | AndAnd, Inl same => rewrite same then Both byDecision byDecision
-    | AndAnd, Inr same => rewrite same then Both byDecision byDecision
-    | Plus, same => rewrite same then Both byDecision byDecision
-    | PlusPlus, same => rewrite same then Both byDecision byDecision
-    | Minus, same => rewrite same then Both byDecision byDecision
-    | Star, same => rewrite same then Both byDecision byDecision
-    | Slash, same => rewrite same then Both byDecision byDecision
-    | Percent, same => rewrite same then Both byDecision byDecision
-    | NotEq, Inl same => rewrite same then Both byDecision byDecision
-    | NotEq, Inr same => rewrite same then Both byDecision byDecision
+    | LParen | RParen | LBracket | RBracket | Comma | Colon | ColonEq | Equals | EqEq, same =>
+      rewrite same then Both byDecision byDecision
+    | Arrow | OrOr | AndAnd, Inl same | Inr same => rewrite same then Both byDecision byDecision
+    | Plus | PlusPlus | Minus | Star | Slash | Percent, same => rewrite same then Both byDecision byDecision
+    | NotEq, Inl same | Inr same => rewrite same then Both byDecision byDecision
     | Lt, same => rewrite same then Both byDecision byDecision
-    | Le, Inl same => rewrite same then Both byDecision byDecision
-    | Le, Inr same => rewrite same then Both byDecision byDecision
+    | Le, Inl same | Inr same => rewrite same then Both byDecision byDecision
     | Gt, same => rewrite same then Both byDecision byDecision
-    | Ge, Inl same => rewrite same then Both byDecision byDecision
-    | Ge, Inr same => rewrite same then Both byDecision byDecision
-    | Bang, Inl same => rewrite same then Both byDecision byDecision
-    | Bang, Inr same => rewrite same then Both byDecision byDecision
+    | Ge | Bang, Inl same | Inr same => rewrite same then Both byDecision byDecision
     | KwDef, same => rewrite same then Both byDecision byDecision
-    | Lower, Witness first (Witness others (Witness comps (Both split (Both starts _)))) =>
-      rewrite split then wordStartHead first starts
-    | Upper, Witness first (Witness others (Witness comps (Both split (Both starts _)))) =>
+    | Lower | Upper, Witness first (Witness _ (Witness _ (Both split (Both starts _)))) =>
       rewrite split then wordStartHead first starts
     | Num, Witness first (Witness others (Both split (Both digit _))) => rewrite split then digitHead first digit
     | Float, Witness first (Witness others (Witness tail (Both split (Both digit _)))) =>
@@ -336,8 +297,7 @@ theorem spelledHead ∀ (kind: Tok) (text: Text)
 
 theorem followsEnd ∀ (piece: Piece): piece.Follows [] := match piece with
   | Gap count => Both byDecision byDecision
-  | Break => byComputing
-  | Remark text => byComputing
+  | Break | Remark _ => byComputing
   | Code kind text => mayFollowEnd kind text
 
 theorem foldNonEmpty ∀ (kinds: Text → Tok) (text: Text) (rest: List Text):
@@ -451,8 +411,7 @@ theorem followsOfPair ∀ (kinds: Text → Tok) (before after: Text)
 
 --| Neighbouring texts, in order, that aren't spaces read to follow one another as pieces.
 def Adj (kinds: Text → Tok): List Text → Prop
-  | [] => True
-  | [text] => True
+  | [] | [_] => True
   | [first, second, ..rest] =>
     (first.all (char => char == ' ') = False → (pieceOf kinds first).Follows (pieceOf kinds second).chars)
       ∧ Adj kinds [second, ..rest]
@@ -462,8 +421,7 @@ theorem adjOfChrono ∀ (kinds: Text → Tok) (texts: List Text)
     (good: AllGood kinds texts):
     Adj kinds texts :=
   match texts, chrono, good with
-    | [], _, _ => byComputing
-    | [text], _, _ => byComputing
+    | [] | [_], _, _ => byComputing
     | [first, second, ..rest], (firstFilled, pair, others), (firstGood, secondGood, restGood) => (
       (notSpaces => followsOfPair kinds first second firstGood secondGood notSpaces pair),
       adjOfChrono kinds [second, ..rest] others (secondGood, restGood)
@@ -483,9 +441,7 @@ theorem addPieceNotGap ∀ (piece: Piece) (later: List Piece) (notGap: ∀ (coun
     addPiece piece later = [piece, ..later] :=
   match piece, later with
     | Gap count, later => (notGap count byComputing).impossible
-    | Break, later => byComputing
-    | Code kind text, later => byComputing
-    | Remark text, later => byComputing
+    | Break | Code _ _ | Remark _, _ => byComputing
 
 theorem pieceOfNotGap ∀ (kinds: Text → Tok) (text: Text)
     (notSpaces: text.all (char => char == ' ') = False) (count: Nat)
@@ -499,10 +455,7 @@ theorem pieceOfNotGap ∀ (kinds: Text → Tok) (text: Text)
         | False => cases
 
 theorem addPieceEnd ∀ (piece: Piece): addPiece piece [] = [piece] := match piece with
-  | Gap count => byComputing
-  | Break => byComputing
-  | Code kind text => byComputing
-  | Remark text => byComputing
+  | Gap _ | Break | Code _ _ | Remark _ => byComputing
 
 --| How many spaces a piece of spaces is doesn't matter to what follows it.
 theorem gapCount ∀ (count count': Nat) (more: List Piece)

@@ -53,35 +53,28 @@ def Tok.shape (kind: Tok): PlainShape :=
 def tokenShapes (toks: List Token): List PlainShape := toks.map (token => token.kind.shape)
 
 def PlainShape.isItem: PlainShape → Bool
-  | ShapeComma => False
-  | ShapeNonItem => False
+  | ShapeComma | ShapeNonItem => False
   | _ => True
 
 --| What an expression's tokens end with.
 def PlainShape.isEnder: PlainShape → Bool
-  | ShapeCloser => True
-  | ShapeOther => True
+  | ShapeCloser | ShapeOther => True
   | _ => False
 
 --| What may not follow `->`.
 def PlainShape.follows: PlainShape → Bool
-  | ShapeComma => True
-  | ShapeCloser => True
-  | ShapeArrow => True
+  | ShapeComma | ShapeCloser | ShapeArrow => True
   | _ => False
 
 --| A comma or closer.
 def PlainShape.passes: PlainShape → Bool
-  | ShapeComma => True
-  | ShapeCloser => True
+  | ShapeComma | ShapeCloser => True
   | _ => False
 
 --| `sourcePlainFrom`'s test of one pair, without line starts: no `->` before a comma, closer or `->`; no comma before
 --| a comma; a comma before a closer only after an item (`item`, of the token before the comma).
 def shapeStep (item: Bool) (prev next: PlainShape): Bool := match prev, next with
-  | ShapeArrow, ShapeComma => False
-  | ShapeArrow, ShapeCloser => False
-  | ShapeArrow, ShapeArrow => False
+  | ShapeArrow, ShapeComma | ShapeCloser | ShapeArrow => False
   | ShapeComma, ShapeComma => False
   | ShapeComma, ShapeCloser => item
   | _, _ => True
@@ -100,8 +93,7 @@ def shapesLast (prev: PlainShape): List PlainShape → PlainShape
 def Expr.shapes: Expr → List PlainShape
   | Atom _ _ => [ShapeOther]
   | Paren _ inner _ => [ShapeNonItem, ..inner.shapes ++ [ShapeCloser]]
-  | Tuple _ items trailing _ => [ShapeNonItem, ..itemsShapes trailing items]
-  | ListOf _ items trailing _ => [ShapeNonItem, ..itemsShapes trailing items]
+  | Tuple _ items trailing _ | ListOf _ items trailing _ => [ShapeNonItem, ..itemsShapes trailing items]
   | App head arguments => head.shapes ++ argsShapes arguments
   | Infix InfixBinary left _ right => left.shapes ++ [ShapeOther, ..right.shapes]
   | Infix InfixArrow left _ right => left.shapes ++ [ShapeArrow, ..right.shapes]
@@ -136,10 +128,7 @@ def SourceFile.shapes (file: SourceFile): List PlainShape := declsShapes file.de
 -- The shapes are the kinds'.
 
 theorem atomShape1 ∀ (kind: Tok) (atom: kind.atom1 = True): kind.shape = ShapeOther := match kind with
-  | Lower => byComputing
-  | Upper => byComputing
-  | Num => byComputing
-  | Float => byComputing
+  | Lower | Upper | Num | Float => byComputing
 
 theorem binaryShape1 ∀ (text: Text): (binaryKind text).shape = ShapeOther := cases
 
@@ -303,8 +292,8 @@ theorem exprSeg1 ∀ (expr: Expr) (grammar: expr.grammar1 = True): Seg expr.shap
       (segOpened
         (inner.shapes ++ [ShapeCloser])
         (segAppend inner.shapes [ShapeCloser] (exprSeg1 inner grammar) afterClose))
-  | Tuple open items trailing close => segOpen (itemsShapes trailing items) (itemsOpened1 trailing items grammar)
-  | ListOf open items trailing close => segOpen (itemsShapes trailing items) (itemsOpened1 trailing items grammar)
+  | Tuple _ items trailing _ | ListOf _ items trailing _ =>
+    segOpen (itemsShapes trailing items) (itemsOpened1 trailing items grammar)
   | App head arguments =>
     segAppend head.shapes
       (argsShapes arguments)
@@ -447,26 +436,15 @@ theorem itemOfShape ∀ (kind: Tok): kind.shape.isItem = itemKind kind := match 
               | False => byComputing
 
 theorem followShape ∀ (kind: Tok) (follow: arrowFollow kind = True): kind.shape.follows = True :=
-  match kind, follow with
-    | Comma, _ => byComputing
-    | RParen, _ => byComputing
-    | RBracket, _ => byComputing
-    | RBrace, _ => byComputing
-    | Arrow, _ => byComputing
+  match kind, follow with | Comma | RParen | RBracket | RBrace | Arrow, _ => byComputing
 
 theorem passShape ∀ (kind: Tok) (passable: passableKind kind = True): kind.shape.passes = True :=
-  match kind, passable with
-    | Comma, _ => byComputing
-    | RParen, _ => byComputing
-    | RBracket, _ => byComputing
-    | RBrace, _ => byComputing
+  match kind, passable with | Comma | RParen | RBracket | RBrace, _ => byComputing
 
 theorem passFollows ∀ (shape: PlainShape) (passes: shape.passes = True): shape.follows = True := cases
 
 theorem closerShape ∀ (kind: Tok) (closer: kind.shape = ShapeCloser): kind.isCloser = True := match kind, closer with
-  | RParen, _ => byComputing
-  | RBracket, _ => byComputing
-  | RBrace, _ => byComputing
+  | RParen | RBracket | RBrace, _ => byComputing
 
 theorem arrowNotFollowed ∀ (flag: Bool) (next: PlainShape)
     (ok: shapeStep flag ShapeArrow next = True)
