@@ -1,5 +1,5 @@
 {
-  "next": 4150,
+  "next": 4151,
   "tickets": [
     {
       "id": 47,
@@ -26135,7 +26135,7 @@
     {
       "id": 4144,
       "title": "[Sonnet] fmt S1 comments anywhere E1: homedOfSettled (Fmt.ElementsProofs): a settled1 declaration is homed1 node by node (SW-4130 plan)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4144",
       "labels": [],
@@ -26206,6 +26206,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "docs: SW-4130 report on the ticket; Fmt/ElementsProofs.sw. Est. 60 + 30 min. Folds in SW-4082 where it applies.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4150,
+      "title": "[Sonnet] fmt multi-line read-back H7 (SW-4121 plan): the * + ++ and comparison chains: mulAccHung, mulHung, addAccHung, addBaseHung, addHung, appendHung, appendBaseHung, cmpAloneHung, cmpHung (ReadBackHungChains.sw)",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4150",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 60 min.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
