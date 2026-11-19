@@ -1011,8 +1011,6 @@ theorem followsRefuseEmpty ∀ (attributes twins: List Attributes) (empties: att
   match attributes, twins with
     | [], [] => Parse.followsDone () () Trivial
     | [x, ..xs], [y, ..ys] => followsFatalAny _ _
-    | [], [y, ..ys] => cases
-    | [x, ..xs], [] => cases
 
 theorem groupWalkAttributes ∀ (group: Group):
     (group.walk blankPure).blank.attributes = walkAttributes blankPure group.attributes :=
@@ -1200,3 +1198,617 @@ theorem followsPiExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
             (result => FunctionType binderTwin arrowTwin result)
             (result resultTwin results => alikeFunctionType binder binderTwin binders arrow arrowTwin arrows result resultTwin results)
             (followsResultType knot modes))))
+
+-- Definitions: headers and bodies.
+
+def HeaderAlike (header twin: Header): Prop := walkHeader blankPure header = walkHeader blankPure twin
+
+def DefBodyAlike (body twin: DefBody): Prop := (walkDefBody blankPure body).blank = (walkDefBody blankPure twin).blank
+
+theorem groupsBlankAlike ∀ (groups twins: List Group) (alike: List.All2 GroupsAlike groups twins):
+    blankGroups (walkGroups blankPure groups) = blankGroups (walkGroups blankPure twins) :=
+  match groups, twins with
+    | [], [] => byComputing
+    | [x, ..xs], [y, ..ys] =>
+      let (head, tail) := alike
+      calc blankGroups (walkGroups blankPure [x, ..xs])
+        _ = [(x.walk blankPure).blank, ..blankGroups (walkGroups blankPure xs)] := byComputing
+        _ = [(y.walk blankPure).blank, ..blankGroups (walkGroups blankPure ys)] :=
+          rewrite head, groupsBlankAlike xs ys tail
+        _ = blankGroups (walkGroups blankPure [y, ..ys]) := byComputing
+
+theorem unfoldingBlankAlike ∀ (found twin: Option (Comments, List Word))
+    (alike: Option.Alike (PairAlike Anything (List.All2 WordsAlike)) found twin):
+    blankUnfolding found = blankUnfolding twin :=
+  match found, twin with
+    | Some (c, names), Some (d, namesTwin) =>
+      let same: blankWords names = blankWords namesTwin := wordsBlankAlike names namesTwin alike.right
+      calc blankUnfolding (Some (c, names))
+        _ = Some (Comments.none, blankWords names) := byComputing
+        _ = Some (Comments.none, blankWords namesTwin) := rewrite same
+        _ = blankUnfolding (Some (d, namesTwin)) := byComputing
+    | None, None => byComputing
+
+theorem alikeHeader ∀ (exportKeyword exportTwin opaqueKeyword opaqueTwin: Option Comments)
+    (exports: Option.Alike Anything exportKeyword exportTwin) (opaques: Option.Alike Anything opaqueKeyword opaqueTwin)
+    (kind: DefKind) (keyword keywordTwin: Comments) (name nameTwin: Word) (names: WordsAlike name nameTwin)
+    (forallKeyword forallTwin: Option Word) (foralls: Option.Alike WordsAlike forallKeyword forallTwin)
+    (params paramsTwin: List Group) (paramses: List.All2 GroupsAlike params paramsTwin) (colon colonTwin: Comments)
+    (result resultTwin: Expr) (results: ExprsAlike result resultTwin)
+    (decreasingClause decreasingTwin: Option (Comments, Expr))
+    (decreasings: Option.Alike (PairAlike Anything ExprsAlike) decreasingClause decreasingTwin)
+    (unfoldingClause unfoldingTwin: Option (Comments, List Word))
+    (unfoldings: Option.Alike (PairAlike Anything (List.All2 WordsAlike)) unfoldingClause unfoldingTwin):
+    HeaderAlike
+      { exportKeyword, opaqueKeyword, kind, keyword, name, forallKeyword, params, colon, result, decreasingClause,
+        unfoldingClause }
+      { exportKeyword = exportTwin,
+        opaqueKeyword = opaqueTwin,
+        kind,
+        keyword = keywordTwin,
+        name = nameTwin,
+        forallKeyword = forallTwin,
+        params = paramsTwin,
+        colon = colonTwin,
+        result = resultTwin,
+        decreasingClause = decreasingTwin,
+        unfoldingClause = unfoldingTwin } :=
+  calc walkHeader blankPure
+      { exportKeyword, opaqueKeyword, kind, keyword, name, forallKeyword, params, colon, result, decreasingClause,
+        unfoldingClause }
+    _ = { exportKeyword = blankComments exportKeyword,
+          opaqueKeyword = blankComments opaqueKeyword,
+          kind,
+          keyword = Comments.none,
+          name = name.blank,
+          forallKeyword = forallKeyword.map Word.blank,
+          params = blankGroups (walkGroups blankPure params),
+          colon = Comments.none,
+          result = result.walk blankPure,
+          decreasingClause = blankAfter (walkAfter blankPure decreasingClause),
+          unfoldingClause = blankUnfolding unfoldingClause } := byComputing
+    _ = { exportKeyword = blankComments exportTwin,
+          opaqueKeyword = blankComments opaqueTwin,
+          kind,
+          keyword = Comments.none,
+          name = nameTwin.blank,
+          forallKeyword = forallTwin.map Word.blank,
+          params = blankGroups (walkGroups blankPure paramsTwin),
+          colon = Comments.none,
+          result = resultTwin.walk blankPure,
+          decreasingClause = blankAfter (walkAfter blankPure decreasingTwin),
+          unfoldingClause = blankUnfolding unfoldingTwin } :=
+      rewrite commentsBlankAlike exportKeyword exportTwin exports,
+        commentsBlankAlike opaqueKeyword opaqueTwin opaques,
+        names,
+        optionWordBlank forallKeyword forallTwin foralls,
+        groupsBlankAlike params paramsTwin paramses,
+        results,
+        afterAlike decreasingClause decreasingTwin decreasings,
+        unfoldingBlankAlike unfoldingClause unfoldingTwin unfoldings
+    _ = walkHeader blankPure
+      { exportKeyword = exportTwin,
+        opaqueKeyword = opaqueTwin,
+        kind,
+        keyword = keywordTwin,
+        name = nameTwin,
+        forallKeyword = forallTwin,
+        params = paramsTwin,
+        colon = colonTwin,
+        result = resultTwin,
+        decreasingClause = decreasingTwin,
+        unfoldingClause = unfoldingTwin } := byComputing
+
+theorem alikePrimitive: DefBodyAlike Primitive Primitive := byComputing
+
+theorem alikeAssigned ∀ (colonEq colonEqTwin: Comments) (value valueTwin: Expr) (values: ExprsAlike value valueTwin):
+    DefBodyAlike (Assigned colonEq value) (Assigned colonEqTwin valueTwin) :=
+  calc (walkDefBody blankPure (Assigned colonEq value)).blank
+    _ = Assigned Comments.none (value.walk blankPure) := byComputing
+    _ = Assigned Comments.none (valueTwin.walk blankPure) := rewrite values
+    _ = (walkDefBody blankPure (Assigned colonEqTwin valueTwin)).blank := byComputing
+
+theorem alikeArms ∀ (arms twins: List Arm) (alike: List.All2 ArmAlike arms twins):
+    DefBodyAlike (Arms arms) (Arms twins) :=
+  calc (walkDefBody blankPure (Arms arms)).blank
+    _ = Arms (blankArms (walkArms blankPure arms)) := byComputing
+    _ = Arms (blankArms (walkArms blankPure twins)) := rewrite armsBlank arms twins alike
+    _ = (walkDefBody blankPure (Arms twins)).blank := byComputing
+
+theorem alikeDefinition ∀ (attributes twinAttributes: List Attributes)
+    (attributeses: List.All2 AttributesAlike attributes twinAttributes) (header twin: Header)
+    (headers: HeaderAlike header twin) (body bodyTwin: DefBody) (bodies: DefBodyAlike body bodyTwin):
+    DeclsAlike (Definition attributes header body) (Definition twinAttributes twin bodyTwin) :=
+  calc (Definition attributes header body).walk blankPure
+    _ = Definition (walkAttributes blankPure attributes) (walkHeader blankPure header)
+      (walkDefBody blankPure body).blank := byComputing
+    _ = Definition (walkAttributes blankPure twinAttributes) (walkHeader blankPure twin)
+      (walkDefBody blankPure bodyTwin).blank :=
+      rewrite walkAttributesAlike attributes twinAttributes attributeses, headers, bodies
+    _ = (Definition twinAttributes twin bodyTwin).walk blankPure := byComputing
+
+theorem followsDefKindOf ∀ (modes: Modes):
+    Parse.Follows SameCode Same (() => defKindOf modes) (() => defKindOf modes) :=
+  followsThenEq (followsPeek modes) (seen => Parse.followsDone (defKindOn seen) (defKindOn seen) byComputing)
+
+theorem followsDefinitionName ∀ (modes: Modes):
+    Parse.Follows SameCode WordsAlike (() => definitionName modes) (() => definitionName modes) :=
+  followsThenEq
+    [j := upper => definitionNameAfter modes upper]
+    [k := upper => definitionNameAfter modes upper]
+    (followsAt modes Upper)
+    (upper =>
+      match upper with
+        | True => followsUpperQualified modes "a name"
+        | False => followsLowerQualified modes "a name")
+
+theorem followsForallEnd ∀ (modes: Modes) (word twin: Word) (words: WordsAlike word twin) (paren bracket: Bool):
+    Parse.Follows SameCode (Option.Alike WordsAlike) (() => forallEnd modes word paren bracket) (() =>
+      forallEnd modes twin paren bracket) :=
+  match paren || bracket with
+    | True => Parse.followsDone (Some word) (Some twin) words
+    | False =>
+      followsFail modes "a parameter such as `(x: Nat)` after `∀`" (() =>
+        modes.fail "a parameter such as `(x: Nat)` after `∀`")
+
+theorem followsForallBump ∀ (modes: Modes):
+    Parse.Follows SameCode (Option.Alike WordsAlike) (() => forallBump modes) (() => forallBump modes) :=
+  Parse.followsThen followsBump (word twin words =>
+    followsThenEq
+      [j := paren => forallEnd modes word paren (modes.at LBracket)]
+      [k := paren => forallEnd modes twin paren (modes.at LBracket)]
+      (followsAt modes LParen)
+      (paren =>
+        followsThenEq
+          [j := bracket => forallEnd modes word paren bracket]
+          [k := bracket => forallEnd modes twin paren bracket]
+          (followsAt modes LBracket)
+          (bracket => followsForallEnd modes word twin words paren bracket)))
+
+theorem followsForallAt ∀ (modes: Modes) (kind: DefKind) (found: Bool):
+    Parse.Follows SameCode (Option.Alike WordsAlike) (() => forallAt modes kind found) (() => forallAt modes kind found) :=
+  match found with
+    | True =>
+      match kind != DefTheorem with
+        | True => followsFatalAny _ (() => Syntax.fatal "`∀` before the parameters is only for theorems")
+        | False => followsForallBump modes
+    | False => Parse.followsDone None None Trivial
+
+theorem followsForallPart ∀ (modes: Modes) (kind: DefKind):
+    Parse.Follows SameCode (Option.Alike WordsAlike) (() => forallPart modes kind) (() => forallPart modes kind) :=
+  followsThenEq
+    [j := found => forallAt modes kind found]
+    [k := found => forallAt modes kind found]
+    (followsAt modes KwForall)
+    (found => followsForallAt modes kind found)
+
+theorem followsHeaderParamStep ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin) (modes: Modes) (atColon: Bool):
+    Parse.Follows SameCode (Option.Alike GroupsAlike) (() => headerParamStep self modes atColon) (() =>
+      headerParamStep selfTwin modes atColon) :=
+  match !atColon with
+    | True =>
+      Parse.followsMap
+        [alike := Option.Alike GroupsAlike]
+        [p := () => headerGroup self modes GroupParam None]
+        [q := () => headerGroup selfTwin modes GroupParam None]
+        (group => Some group)
+        (group => Some group)
+        (x y alike => alike)
+        (followsHeaderGroup knot modes GroupParam None)
+    | False => Parse.followsDone None None Trivial
+
+theorem followsHeaderParams ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin) (modes: Modes):
+    Parse.Follows SameCode (List.All2 GroupsAlike) (() => headerParams self modes) (() => headerParams selfTwin modes) :=
+  Parse.followsLoop _ _
+    (followsThenEq
+      [j := atColon => headerParamStep self modes atColon]
+      [k := atColon => headerParamStep selfTwin modes atColon]
+      (followsAt modes Colon)
+      (atColon => followsHeaderParamStep knot modes atColon))
+
+-- The clauses after the result type.
+
+theorem followsAllowColonEq ∀ (modes: Modes):
+    Parse.Follows SameCode Same (() => allowColonEq modes) (() => allowColonEq modes) :=
+  followsLook (allowColonEqOn modes) (allowColonEqOnDeaf modes)
+
+theorem followsDecreasingClauseOf ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin) (headerModes: Modes):
+    Parse.Follows SameCode (Option.Alike (PairAlike Anything ExprsAlike))
+      (() => decreasingClauseOf self headerModes)
+      (() => decreasingClauseOf selfTwin headerModes) :=
+  Parse.followsThen followsFixedFrom (keyword keywordTwin keywords =>
+    Parse.followsMap
+      [alike := Option.Alike (PairAlike Anything ExprsAlike)]
+      [p := () => self { modes = headerModes, level = LevelFull }]
+      [q := () => selfTwin { modes = headerModes, level = LevelFull }]
+      (tail => Some (keyword, tail))
+      (tail => Some (keywordTwin, tail))
+      (tail tailTwin tails => (keywords, tails))
+      (knot { modes = headerModes, level = LevelFull }))
+
+theorem followsDecreasingAt ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin) (headerModes: Modes) (isInstance found: Bool):
+    Parse.Follows SameCode (Option.Alike (PairAlike Anything ExprsAlike))
+      (() => decreasingAt self headerModes isInstance found)
+      (() => decreasingAt selfTwin headerModes isInstance found) :=
+  match found with
+    | True =>
+      match isInstance with
+        | True => followsFatalAny _ _
+        | False => followsDecreasingClauseOf knot headerModes
+    | False => Parse.followsDone None None Trivial
+
+theorem followsDecreasingPart ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin) (modes headerModes: Modes) (isInstance: Bool):
+    Parse.Follows SameCode (Option.Alike (PairAlike Anything ExprsAlike))
+      (() => decreasingPart self modes headerModes isInstance)
+      (() => decreasingPart selfTwin modes headerModes isInstance) :=
+  followsThenEq
+    [j := found => decreasingAt self headerModes isInstance found]
+    [k := found => decreasingAt selfTwin headerModes isInstance found]
+    (followsAt modes KwDecreasing)
+    (found => followsDecreasingAt knot headerModes isInstance found)
+
+theorem followsAfterDecreasingOf ∀ (modes: Modes) (clause clauseTwin: Option (Comments, Expr))
+    (clauses: Option.Alike (PairAlike Anything ExprsAlike) clause clauseTwin):
+    Parse.Follows SameCode Same (() => afterDecreasingOf modes clause) (() => afterDecreasingOf modes clauseTwin) :=
+  let same: clause.isSome = clauseTwin.isSome := optionIsSome clause clauseTwin clauses
+  rewrite same then
+    match clauseTwin.isSome with
+      | True => followsAllowColonEq modes
+      | False => Parse.followsDone modes modes byComputing
+
+def UnfoldingNamesFollow (modes: Modes) (fuel: Nat): Prop :=
+  ∀ (found twin: List Word) => List.All2 WordsAlike found twin
+    → Parse.Follows SameCode (List.All2 WordsAlike) (() => unfoldingNames fuel modes found) (() =>
+      unfoldingNames fuel modes twin)
+
+theorem followsUnfoldingName ∀ (modes: Modes) (upper: Bool):
+    Parse.Follows SameCode WordsAlike (() => unfoldingName modes upper) (() => unfoldingName modes upper) :=
+  match upper with
+    | True => followsUpperQualified modes "the name of an opaque definition"
+    | False => followsLowerQualified modes "the name of an opaque definition"
+
+theorem followsUnfoldingNext ∀ (more: Nat) (modes: Modes) (again: UnfoldingNamesFollow modes more)
+    (found twins: List Word) (founds: List.All2 WordsAlike found twins) (name nameTwin: Word)
+    (names: WordsAlike name nameTwin) (comma: Bool):
+    Parse.Follows SameCode (List.All2 WordsAlike) (() => unfoldingNext more modes found name comma) (() =>
+      unfoldingNext more modes twins nameTwin comma) :=
+  match comma with
+    | True => Parse.followsThen followsBump (skipped skippedTwin skips => again [name, ..found] [nameTwin, ..twins] (Both names founds))
+    | False => Parse.followsDone _ _ (List.all2Reverse [name, ..found] [nameTwin, ..twins] (Both names founds))
+
+theorem followsUnfoldingNames ∀ (fuel: Nat) (modes: Modes) (found twins: List Word)
+    (founds: List.All2 WordsAlike found twins):
+    Parse.Follows SameCode (List.All2 WordsAlike) (() => unfoldingNames fuel modes found) (() =>
+      unfoldingNames fuel modes twins) :=
+  match fuel with
+    | Succ more =>
+      followsThenEq
+        [j := upper => (let name := unfoldingName modes upper; unfoldingNext more modes found name (modes.at Comma))]
+        [k := upper => (let name := unfoldingName modes upper; unfoldingNext more modes twins name (modes.at Comma))]
+        (followsAt modes Upper)
+        (upper =>
+          Parse.followsThen (followsUnfoldingName modes upper) (name nameTwin names =>
+            followsThenEq
+              [j := comma => unfoldingNext more modes found name comma]
+              [k := comma => unfoldingNext more modes twins nameTwin comma]
+              (followsAt modes Comma)
+              (comma =>
+                followsUnfoldingNext more modes
+                  (again twinsAgain agains => followsUnfoldingNames more modes again twinsAgain agains)
+                  found
+                  twins
+                  founds
+                  name
+                  nameTwin
+                  names
+                  comma)))
+    | Zero => Parse.followsDone _ _ (List.all2Reverse found twins founds)
+
+theorem followsUnfoldingClauseOf ∀ (afterDecreasing: Modes):
+    Parse.Follows SameCode (Option.Alike (PairAlike Anything (List.All2 WordsAlike)))
+      (() => unfoldingClauseOf afterDecreasing)
+      (() => unfoldingClauseOf afterDecreasing) :=
+  Parse.followsThen followsFixedFrom (keyword keywordTwin keywords =>
+    followsFuel
+      [alike := Option.Alike (PairAlike Anything (List.All2 WordsAlike))]
+      (fuel => (let names := unfoldingNames fuel afterDecreasing []; Some (keyword, names)))
+      (fuel => (let names := unfoldingNames fuel afterDecreasing []; Some (keywordTwin, names)))
+      (fuel =>
+        Parse.followsMap
+          [alike := Option.Alike (PairAlike Anything (List.All2 WordsAlike))]
+          [p := () => unfoldingNames fuel afterDecreasing []]
+          [q := () => unfoldingNames fuel afterDecreasing []]
+          (names => Some (keyword, names))
+          (names => Some (keywordTwin, names))
+          (names namesTwin nameses => (keywords, nameses))
+          (followsUnfoldingNames fuel afterDecreasing [] [] Trivial)))
+
+theorem followsUnfoldingAt ∀ (afterDecreasing: Modes) (isInstance found: Bool):
+    Parse.Follows SameCode (Option.Alike (PairAlike Anything (List.All2 WordsAlike)))
+      (() => unfoldingAt afterDecreasing isInstance found)
+      (() => unfoldingAt afterDecreasing isInstance found) :=
+  match found with
+    | True =>
+      match isInstance with
+        | True => followsFatalAny _ (() => Syntax.fatal "an instance can't have `unfolding`")
+        | False => followsUnfoldingClauseOf afterDecreasing
+    | False => Parse.followsDone None None Trivial
+
+theorem followsUnfoldingPart ∀ (modes afterDecreasing: Modes) (isInstance: Bool):
+    Parse.Follows SameCode (Option.Alike (PairAlike Anything (List.All2 WordsAlike)))
+      (() => unfoldingPart modes afterDecreasing isInstance)
+      (() => unfoldingPart modes afterDecreasing isInstance) :=
+  followsThenEq
+    [j := found => unfoldingAt afterDecreasing isInstance found]
+    [k := found => unfoldingAt afterDecreasing isInstance found]
+    (followsAt afterDecreasing KwUnfolding)
+    (found => followsUnfoldingAt afterDecreasing isInstance found)
+
+theorem followsAfterUnfoldingOf ∀ (afterDecreasing: Modes) (clause clauseTwin: Option (Comments, List Word))
+    (clauses: Option.Alike (PairAlike Anything (List.All2 WordsAlike)) clause clauseTwin):
+    Parse.Follows SameCode Same (() => afterUnfoldingOf afterDecreasing clause) (() =>
+      afterUnfoldingOf afterDecreasing clauseTwin) :=
+  let same: clause.isSome = clauseTwin.isSome := optionIsSome clause clauseTwin clauses
+  rewrite same then
+    match clauseTwin.isSome with
+      | True => followsAllowColonEq afterDecreasing
+      | False => Parse.followsDone afterDecreasing afterDecreasing byComputing
+
+theorem followsClauseConflict ∀ (afterUnfolding: Modes) (clause clauseTwin: Option (Comments, List Word))
+    (clauses: Option.Alike (PairAlike Anything (List.All2 WordsAlike)) clause clauseTwin):
+    Parse.Follows SameCode Same (() => clauseConflict afterUnfolding clause) (() =>
+      clauseConflict afterUnfolding clauseTwin) :=
+  let same: clause.isSome = clauseTwin.isSome := optionIsSome clause clauseTwin clauses
+  followsThenEq
+    [j := found => conflictOn found clause]
+    [k := found => conflictOn found clauseTwin]
+    (followsAt afterUnfolding KwDecreasing)
+    (found =>
+      let conflict: conflictOn found clause = conflictOn found clauseTwin := Eq.cong (some => found && some) same
+      Parse.followsDone (conflictOn found clause) (conflictOn found clauseTwin) conflict)
+
+theorem followsBodyModesOf ∀ (afterUnfolding: Modes) (isInstance: Bool) (local: Option Nat):
+    Parse.Follows SameCode Same (() => bodyModesOf afterUnfolding isInstance local) (() =>
+      bodyModesOf afterUnfolding isInstance local) :=
+  match local with
+    | Some _ => Parse.followsDone afterUnfolding afterUnfolding byComputing
+    | None =>
+      followsThenEq
+        [j := recovering => recoverMode afterUnfolding isInstance recovering]
+        [k := recovering => recoverMode afterUnfolding isInstance recovering]
+        (followsAtEither afterUnfolding ColonEq Pipe)
+        (recovering =>
+          Parse.followsDone (recoverMode afterUnfolding isInstance recovering)
+            (recoverMode afterUnfolding isInstance recovering)
+            byComputing)
+
+-- Definition bodies.
+
+theorem followsAssignedEnd ∀ (colonEq colonEqTwin: Comments) (value valueTwin: Expr) (values: ExprsAlike value valueTwin)
+    (arms: Bool):
+    Parse.Follows SameCode DefBodyAlike (() => assignedEnd colonEq value arms) (() =>
+      assignedEnd colonEqTwin valueTwin arms) :=
+  match arms with
+    | True => followsFatalAny _ _
+    | False => Parse.followsDone _ _ (alikeAssigned colonEq colonEqTwin value valueTwin values)
+
+theorem followsAssignedValue ∀ (modes: Modes) (colonEq colonEqTwin: Comments) (value valueTwin: Expr)
+    (values: ExprsAlike value valueTwin):
+    Parse.Follows SameCode DefBodyAlike (() => assignedValue modes colonEq value) (() =>
+      assignedValue modes colonEqTwin valueTwin) :=
+  followsThenEq
+    [j := arms => assignedEnd colonEq value arms]
+    [k := arms => assignedEnd colonEqTwin valueTwin arms]
+    (followsAt modes Pipe)
+    (arms => followsAssignedEnd colonEq colonEqTwin value valueTwin values arms)
+
+theorem followsAssignedBody ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin) (modes: Modes):
+    Parse.Follows SameCode DefBodyAlike (() => assignedBody self modes) (() => assignedBody selfTwin modes) :=
+  Parse.followsThen followsFixedFrom (colonEq colonEqTwin colonEqs =>
+    Parse.followsThen (knot { modes, level = LevelFull }) (value valueTwin values =>
+      followsAssignedValue modes colonEq colonEqTwin value valueTwin values))
+
+theorem refusalBody ∀ (isInstance: Bool) (body twin: DefBody) (bodies: DefBodyAlike body twin) (items: List Item):
+    definitionRefusal isInstance body items = definitionRefusal isInstance twin items :=
+  match body, twin with
+    | Primitive, Primitive => byComputing
+    | Assigned a b, Assigned c d => byComputing
+    | Arms x, Arms y => byComputing
+
+theorem followsDefinitionWhere ∀ (isInstance: Bool) (body twin: DefBody) (bodies: DefBodyAlike body twin)
+    (items others: List Item) (same: List.All2 SameCode items others):
+    Parse.Follows SameCode DefBodyAlike (() => definitionWhere isInstance body items) (() =>
+      definitionWhere isInstance twin others) :=
+  let first: definitionRefusal isInstance body items = definitionRefusal isInstance body others :=
+    deafOfStripped (definitionRefusal isInstance body) (definitionRefusalDeaf isInstance body) items others same
+  rewrite first, refusalBody isInstance body twin bodies others then
+    match definitionRefusal isInstance twin others with
+      | Some message => followsFatalAny _ (() => Syntax.fatal message)
+      | None => Parse.followsDone body twin bodies
+
+theorem followsDefinitionChecked ∀ (isInstance: Bool) (body twin: DefBody) (bodies: DefBodyAlike body twin):
+    Parse.Follows SameCode DefBodyAlike (() => definitionChecked isInstance body) (() =>
+      definitionChecked isInstance twin) :=
+  followsOn
+    (items => definitionWhere isInstance body items)
+    (items => definitionWhere isInstance twin items)
+    (items others same => followsDefinitionWhere isInstance body twin bodies items others same)
+
+-- Arms.
+
+theorem itemToken ∀ (item other: Item) (same: SameCode item other): item.leaf.token = other.leaf.token :=
+  Eq.cong (found => found.leaf.token) same
+
+theorem anyAbsurdAlike ∀ (patterns twins: List Pattern) (alike: List.All2 PatternsAlike patterns twins):
+    anyAbsurd patterns = anyAbsurd twins :=
+  calc anyAbsurd patterns
+    _ = anyAbsurd (walkPatterns blankPure patterns) := anyAbsurdDeaf patterns
+    _ = anyAbsurd (walkPatterns blankPure twins) := rewrite walkPatternsAlike patterns twins alike
+    _ = anyAbsurd twins := Eq.flipped (anyAbsurdDeaf twins)
+
+theorem followsDefinitionArm ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin) (alts: AltPatternFollows) (modes: Modes):
+    Parse.Follows SameCode ArmAlike (() => definitionArm self modes) (() => definitionArm selfTwin modes) :=
+  Parse.followsThen followsBump (bar barTwin bars =>
+    Parse.followsThen (followsArmPatterns alts modes) (patterns patternsTwin patternses =>
+      Parse.followsThen (followsGuardOf knot modes) (guard guardTwin guards =>
+        let absurds: anyAbsurd patterns = anyAbsurd patternsTwin := anyAbsurdAlike patterns patternsTwin patternses
+        rewrite absurds then
+          Parse.followsMap
+            [alike := ArmAlike]
+            [p := () => armBody self modes (anyAbsurd patternsTwin) "`=>` and the arm's body"]
+            [q := () => armBody selfTwin modes (anyAbsurd patternsTwin) "`=>` and the arm's body"]
+            (body => { bar, patterns, guard, body })
+            (body => { bar = barTwin, patterns = patternsTwin, guard = guardTwin, body })
+            (body bodyTwin bodies =>
+              alikeArm bar barTwin bars patterns patternsTwin patternses guard guardTwin guards body bodyTwin bodies)
+            (followsArmBody knot modes (anyAbsurd patternsTwin) "`=>` and the arm's body"))))
+
+theorem followsDefinitionArmStep ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin) (alts: AltPatternFollows) (modes: Modes) (d column: Nat)
+    (items others: List Item) (same: List.All2 SameCode items others):
+    Parse.Follows SameCode (Option.Alike ArmAlike)
+      (() => definitionArmStep self modes d column items)
+      (() => definitionArmStep selfTwin modes d column others) :=
+  match items, others with
+    | [], [] => Parse.followsDone None None Trivial
+    | [next, ..rest], [nextTwin, ..restTwin] =>
+      let tokens: next.leaf.token = nextTwin.leaf.token := itemToken next nextTwin same.left
+      let starts: (!next.leaf.token.lineStart) = (!nextTwin.leaf.token.lineStart) :=
+        Eq.cong (token => !token.lineStart) tokens
+      let ends: (next.leaf.token.column <= d || next.kind == KwWhere)
+        = (nextTwin.leaf.token.column <= d || nextTwin.kind == KwWhere) :=
+        Eq.cong (token => token.column <= d || token.kind == KwWhere) tokens
+      let lines: (next.kind == Pipe && next.leaf.token.column == column)
+        = (nextTwin.kind == Pipe && nextTwin.leaf.token.column == column) :=
+        Eq.cong (token => token.kind == Pipe && token.column == column) tokens
+      let pipes: (next.kind == Pipe) = (nextTwin.kind == Pipe) := Eq.cong (token => token.kind == Pipe) tokens
+      match first: !next.leaf.token.lineStart, firstTwin: !nextTwin.leaf.token.lineStart with
+        | True, True => followsFail modes "the end of the arm" (() => modes.fail "the end of the arm")
+        | False, False =>
+          match second: next.leaf.token.column <= d || next.kind == KwWhere,
+              secondTwin: nextTwin.leaf.token.column <= d || nextTwin.kind == KwWhere with
+            | True, True => Parse.followsDone None None Trivial
+            | False, False =>
+              match third: next.kind == Pipe && next.leaf.token.column == column,
+                  thirdTwin: nextTwin.kind == Pipe && nextTwin.leaf.token.column == column with
+                | True, True =>
+                  followsThenEq
+                    [j := here => (let arm := definitionArm self { modes | allow = Some here }; Some arm)]
+                    [k := here => (let arm := definitionArm selfTwin { modes | allow = Some here }; Some arm)]
+                    followsOffset
+                    (here =>
+                      Parse.followsMap
+                        [alike := Option.Alike ArmAlike]
+                        (arm => Some arm)
+                        (arm => Some arm)
+                        (arm armTwin arms => arms)
+                        (followsDefinitionArm knot alts { modes | allow = Some here }))
+                | False, False =>
+                  match fourth: next.kind == Pipe, fourthTwin: nextTwin.kind == Pipe with
+                    | True, True => followsFatalAny _ _
+                    | False, False =>
+                      followsFatalAny
+                        [alike := Option.Alike ArmAlike]
+                        "expected `|` and another arm, or the end of the definition, but found ${next.spelled}"
+                        (() =>
+                          Syntax.fatal
+                            "expected `|` and another arm, or the end of the definition, but found ${nextTwin.spelled}")
+
+theorem followsDefinitionArmsFrom ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin) (alts: AltPatternFollows) (modes: Modes) (d: Nat):
+    Parse.Follows SameCode (List.All2 ArmAlike) (() => definitionArmsFrom self modes d) (() =>
+      definitionArmsFrom selfTwin modes d) :=
+  Parse.followsLoop _ _
+    (followsOn
+      (items => definitionArmStep self modes d (modes.limit.getOrElse 0) items)
+      (items => definitionArmStep selfTwin modes d (modes.limit.getOrElse 0) items)
+      (items others same => followsDefinitionArmStep knot alts modes d (modes.limit.getOrElse 0) items others same))
+
+theorem followsDefinitionArmsOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin) (alts: AltPatternFollows) (modes: Modes) (d: Nat) (items others: List Item)
+    (same: List.All2 SameCode items others):
+    Parse.Follows SameCode (List.All2 ArmAlike) (() => definitionArmsOn self modes d items) (() =>
+      definitionArmsOn selfTwin modes d others) :=
+  match items, others with
+    | [first, ..rest], [firstTwin, ..restTwin] =>
+      let tokens: first.leaf.token = firstTwin.leaf.token := itemToken first firstTwin same.left
+      rewrite tokens then
+        match !firstTwin.leaf.token.lineStart with
+          | True => followsFatalAny _ _
+          | False =>
+            match firstTwin.leaf.token.column <= d with
+              | True =>
+                followsFatalAny _ (() => Syntax.fatal "arms are indented further than the definition they belong to")
+              | False => followsDefinitionArmsFrom knot alts { modes | limit = Some firstTwin.leaf.token.column } d
+    | [], [] => followsFail modes "`|`" (() => modes.fail "`|`")
+
+theorem followsDefinitionArms ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin) (alts: AltPatternFollows) (modes: Modes) (d: Nat):
+    Parse.Follows SameCode (List.All2 ArmAlike) (() => definitionArms self modes d) (() =>
+      definitionArms selfTwin modes d) :=
+  followsOn
+    (items => definitionArmsOn self modes d items)
+    (items => definitionArmsOn selfTwin modes d items)
+    (items others same => followsDefinitionArmsOn knot alts modes d items others same)
+
+theorem followsArmsBody ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin) (alts: AltPatternFollows) (modes: Modes) (d: Nat):
+    Parse.Follows SameCode DefBodyAlike (() => armsBody self modes d) (() => armsBody selfTwin modes d) :=
+  Parse.followsMap
+    [alike := DefBodyAlike]
+    (arms => Arms arms)
+    (arms => Arms arms)
+    (arms armsTwin alike => alikeArms arms armsTwin alike)
+    (followsDefinitionArms knot alts modes d)
+
+theorem isEquationAlike ∀ (result twin: Expr) (alike: ExprsAlike result twin): isEquation result = isEquation twin :=
+  calc isEquation result
+    _ = isEquation (result.walk blankPure) := isEquationDeaf result
+    _ = isEquation (twin.walk blankPure) := rewrite alike
+    _ = isEquation twin := Eq.flipped (isEquationDeaf twin)
+
+theorem followsDefinitionBodyOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin) (alts: AltPatternFollows) (modes: Modes) (result resultTwin: Expr)
+    (results: ExprsAlike result resultTwin) (d: Nat) (seen: Option Tok):
+    Parse.Follows SameCode DefBodyAlike
+      (() => definitionBodyOn self modes result d seen)
+      (() => definitionBodyOn selfTwin modes resultTwin d seen) :=
+  match seen with
+    | Some kind =>
+      match kind == ColonEq with
+        | True => followsAssignedBody knot modes
+        | False =>
+          match kind == Pipe with
+            | True => followsArmsBody knot alts modes d
+            | False =>
+              match kind == Equals with
+                | True => followsFatalAny _ _
+                | False =>
+                  followsFail modes "`:=` and the body, or arms starting with `|` on their own lines" (() =>
+                    modes.fail "`:=` and the body, or arms starting with `|` on their own lines")
+    | None =>
+      rewrite isEquationAlike result resultTwin results then
+        match isEquation resultTwin with
+          | True => followsFatalAny _ _
+          | False => Parse.followsDone Primitive Primitive alikePrimitive
+
+theorem followsDefinitionBody ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin) (alts: AltPatternFollows) (modes: Modes) (result resultTwin: Expr)
+    (results: ExprsAlike result resultTwin) (isInstance: Bool) (d: Nat):
+    Parse.Follows SameCode DefBodyAlike
+      (() => definitionBody self modes result isInstance d)
+      (() => definitionBody selfTwin modes resultTwin isInstance d) :=
+  followsThenEq
+    [j := seen => definitionChecked isInstance (definitionBodyOn self modes result d seen)]
+    [k := seen => definitionChecked isInstance (definitionBodyOn selfTwin modes resultTwin d seen)]
+    (followsPeek modes)
+    (seen =>
+      Parse.followsThen (followsDefinitionBodyOn knot alts modes result resultTwin results d seen) (body bodyTwin bodies =>
+        followsDefinitionChecked isInstance body bodyTwin bodies))
