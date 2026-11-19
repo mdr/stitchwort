@@ -1,5 +1,5 @@
 {
-  "next": 4214,
+  "next": 4218,
   "tickets": [
     {
       "id": 47,
@@ -27013,7 +27013,7 @@
     {
       "id": 4210,
       "title": "[Fable, paper] fmt consolidation C5+C7: statement note for un-numbering slice 1's tree predicates (shaped1, settled1, lexical1, unreturned1 → one definition per predicate growing an arm per slice, slice entering only as a withinN hypothesis) and for converting slice 1's per-function shape walk to the uniform form the two-run framework uses (SW-4205 §4 A, §5 items 5 and 7): exact statements, what each existing lemma becomes, the lane cuts, estimates, and how main stays proved throughout",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -27058,6 +27058,58 @@
       "labels": [],
       "epic": "test-infra",
       "body": "Est. 40 min. D3692 tool friction.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4214,
+      "title": "[Sonnet] fmt consolidation L1: un-number the 77 tree properties (shaped1, lexical1, settled1, unreturned1, kinds1, …) per docs/proposals/fmt-consolidation-statements.md lane 1; Predicates1.sw → Predicates.sw, Kinds1.sw → Kinds.sw; grammar, driver, within1 and token tables stay numbered; after SW-4209",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "D3692 consolidation. Est. 45-60 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4215,
+      "title": "[Sonnet] fmt consolidation L2: InSlice, one definition the four parse specs (Parsed, ArgParsed, AtomParsed, HeadParsed) instantiate, per fmt-consolidation-statements.md lane 2; after L1",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "D3692 consolidation. Est. 45-60 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4216,
+      "title": "[Sonnet] fmt consolidation L3: split ParseWalk.sw (7,141 lines) into the slice's path, the outside parsers and the frame, per fmt-consolidation-statements.md lane 3; after L2",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "D3692 consolidation. Est. 45-60 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4217,
+      "title": "[Sonnet, paper] Correct the estimates built on SW-4205's wrong 16-theorems-per-function figure: retrospective §4 row A and §7 step 3, slice 2 sketch §4 and §5.1, using SW-4210's per-function-walked counts (1.3 / 1.8 / 1.6); mark each corrected number and its source",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 20 min. SW-4210 lane 4.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
