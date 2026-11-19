@@ -27716,8 +27716,8 @@
     {
       "id": 4263,
       "title": "[Sonnet] Functional induction D: or-patterns of match induct cases, dot-form calls, a ? hole listing every case, editor code action",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
@@ -27807,8 +27807,8 @@
     {
       "id": 4270,
       "title": "[Sonnet] Or-pattern joins the SW-4252 script couldn't find: cross-product cases in multi-column matches (Inl same | Inr same), and new catch-alls where all remaining constructors share a body (needs constructor lists); tools/fmt and std",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
@@ -27900,8 +27900,8 @@
     {
       "id": 4277,
       "title": "[DeepSeek] Fmt/SpeltSlots.sw tokLevelLow: replace the long per-kind arm list with one Finite.check, as SW-4221 did for within1Not",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
