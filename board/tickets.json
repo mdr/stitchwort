@@ -27353,7 +27353,7 @@
     {
       "id": 4236,
       "title": "[Opus] D3694: or-patterns bind names, the body checked once per alternative (docs/proposals/proof-match-likewise.md Design 2 with the four amendments in proof-match-likewise-prior-art.md): error names its alternative and the names' types there; one error when all fail alike; a hole lists each alternative's goal; guide + syntax.md; supersedes SW-676's same-type rule",
-      "status": "doing",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
