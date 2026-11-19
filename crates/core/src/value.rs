@@ -1464,7 +1464,7 @@ fn run(g: &Ev, mut control: Control) -> Result<Value> {
             }
             Control::Tree(node, env, stuck) => {
                 if let Some((id, ..)) = &stuck {
-                    g.machine.budget.enter_definition(id.0);
+                    g.machine.budget.enter_definition(id.0, g.env.def(*id).std);
                 }
                 let node = Term::strip_loc_rc(&node);
                 match &*node {
@@ -3121,6 +3121,14 @@ pub fn quote_folded(g: &Ev, level: usize, value: &Value) -> Result<Term> {
         force_unglued(g, level, value);
     }
     Ok(quote_as(g, level, value, Readback::Folded, None, None)?.expect("no cap"))
+}
+
+/// [`quote_folded`], or `None` if the term would have more than `cap` nodes.
+pub fn quote_folded_at_most(g: &Ev, level: usize, value: &Value, cap: u64) -> Result<Option<Term>> {
+    if g.machine.glue.get() && force_unglued_first() {
+        force_unglued(g, level, value);
+    }
+    quote_as(g, level, value, Readback::Folded, Some(cap), None)
 }
 
 /// [`quote_folded`], but every glued call is written as the call, one that

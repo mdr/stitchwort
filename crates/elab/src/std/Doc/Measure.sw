@@ -26,10 +26,6 @@ theorem Doc.ifSome ∀ (condition: Bool) (found width: Nat)
     found = width ∧ condition = False :=
   match condition, known with | False, same => (Option.someInjective same, byComputing)
 
---| A disjunction that is false has a false right side.
-theorem Doc.orFalseRight ∀ (left right: Bool) (plain: (left || right) = False): right = False :=
-  match left, right, plain with | False, False, _ => byComputing
-
 --| When `flatWidth` is a width, it is the length of the flat print, which
 --| holds no line break.
 theorem Doc.flatWidthPrint ∀ (doc: Doc) (width: Nat)

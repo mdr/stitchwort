@@ -8,7 +8,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
     "checks": "(varies)",
     "exhausted": true,
     "internalErrors": 0,
-    "matched": 72,
+    "matched": 79,
     "maxCandidates": 50,
     "outOfBudget": 6,
     "tried": 50,
@@ -97,12 +97,12 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
   ],
   "total": {
     "applicable": 10,
-    "closing": 5,
+    "closing": 7,
     "rewrites": 1
   },
   "version": 1,
   "warnings": [
-    "72 declarations match the target; the first 50 were tried (--candidates N for more)",
+    "79 declarations match the target; the first 50 were tried (--candidates N for more)",
     "6 comparisons ran out of steps (with Std.Float.Theory.overflowHalf, Std.Float.Theory.largestBelow, Std.Float.Theory.infinityAbove and 1 more): those may match and weren't listed"
   ]
 }

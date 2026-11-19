@@ -1,5 +1,5 @@
 --| Sums of lists over `Int`: the lemmas that need both `Int/Int.sw` and the
---| `List.sumBy` lemmas of `List/Lemmas.sw`.
+--| `List.sumBy` lemmas of `List/Map.sw`.
 -- They live here so that a program using only `Int` does not load the list
 -- files.
 

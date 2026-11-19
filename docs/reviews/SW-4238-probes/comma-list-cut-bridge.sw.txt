@@ -1,0 +1,109 @@
+-- SW-4238 probe (comma-list-cut-bridge). The comma list cut into four functions as in Parser.sw, with a Modes record, a peek method and the Reads0 bridge givesAfter0; givesCommaListFrom's proof with every [p := ...] [j := ...] deleted.
+-- Checked with the main checkout's release binary (stitchwort check), 19 Nov 2026: checks
+
+import Std (Parse, Option, Nat, Bool, List)
+
+def look(): {Parse Nat} Option Nat := Parse.next (n => True)
+
+theorem givesLook: Parse.Gives Parse.Invariant.any (() => look()) ((v: Option Nat) => True) :=
+  Parse.readsWeaken (Parse.readsNext (n => True)) (read value proved => byComputing)
+
+
+def Reads0 (p: () → {Parse Nat} a): Prop :=
+  ∀ (start: Parse.Mark Nat) => Parse.Fits Nat Parse.Invariant.any start.rest → Parse.ReadsAt start p (read value => read = [])
+
+theorem reads0Mark ∀ (f: Parse.Mark Nat → a): Reads0 (() => f (Parse.mark())) := start fine =>
+  Parse.readsInMark (here => f here) _ (here fine1 => Parse.readsAtDone _ (f here) _ byComputing) start fine
+
+type Modes = { limit: Nat, guard: Bool }
+
+def left(): {Parse Nat} List Nat := Parse.mark().rest
+
+def peekIn (modes: Modes) (items: List Nat): Option Nat := match items with
+  | [] => None
+  | [item, .._] => if item == modes.limit then None else Some item
+
+def Modes.peek (modes: Modes): {Parse Nat} Option Nat := peekIn modes left()
+
+theorem reads0Peek ∀ (modes: Modes): Reads0 (() => modes.peek) := reads0Mark (here => peekIn modes here.rest)
+
+theorem readsAtAfter0 ∀ [start: Parse.Mark Nat] [p: () → {Parse Nat} a]
+    [j: a → {Parse Nat} b] [spec: List Nat → b → Prop]
+    (first: Reads0 p)
+    (fine: Parse.Fits Nat Parse.Invariant.any start.rest)
+    (rest: ∀ (value: a) (after: Parse.Mark Nat) => after.rest = start.rest
+      → Parse.Fits Nat Parse.Invariant.any after.rest
+      → Parse.ReadsAt after (() => j value) spec):
+    Parse.ReadsAt start (() => j (p())) spec :=
+  Parse.readsAtThen (first start fine) (read value after starts empty =>
+    let same: after.rest = start.rest := rewrite empty at starts then starts.flipped
+    Parse.readsAtWeaken (rest value after same (Parse.Fits.after fine starts)) (taken result done =>
+      rewrite empty then done))
+
+theorem givesAfter0 ∀ [p: () → {Parse Nat} a] [j: a → {Parse Nat} b] [holds: b → Prop]
+    (first: Reads0 p)
+    (rest: ∀ (value: a) => Parse.Gives Parse.Invariant.any (() => j value) holds):
+    Parse.Gives Parse.Invariant.any (() => j (p())) holds :=
+  start fine => readsAtAfter0 first fine (value after same fine2 => rest value after fine2)
+
+-- The comma list cut as Parser.sw:1825-1848 cuts it.
+def commaListFrom (fuel: Nat) (modes: Modes) (ends: Nat → {Parse Nat} Bool) (next: () → {Parse Nat} a) (count: Nat) (current: a)
+    (found: List a):
+    {Parse Nat} (List a, Bool) :=
+  commaListOn fuel modes ends next count current found modes.peek
+
+def commaListOn (fuel: Nat) (modes: Modes) (ends: Nat → {Parse Nat} Bool) (next: () → {Parse Nat} a) (count: Nat) (current: a)
+    (found: List a) (seen: Option Nat):
+    {Parse Nat} (List a, Bool) :=
+  match fuel, seen with
+    | Succ more, Some kind =>
+      if kind == 0 then commaListComma more modes ends next count current found
+      else ([current, ..found].reverse, False)
+    | _, _ => ([current, ..found].reverse, False)
+
+def commaListComma (more: Nat) (modes: Modes) (ends: Nat → {Parse Nat} Bool) (next: () → {Parse Nat} a) (count: Nat) (current: a)
+    (found: List a):
+    {Parse Nat} (List a, Bool) :=
+  let comma := look()
+  commaListAfter more modes ends next count [current, ..found] (ends count)
+
+def commaListAfter (more: Nat) (modes: Modes) (ends: Nat → {Parse Nat} Bool) (next: () → {Parse Nat} a) (count: Nat)
+    (done: List a) (stop: Bool):
+    {Parse Nat} (List a, Bool) :=
+  if stop then (done.reverse, True) else commaListFrom more modes ends next (count + 1) (next()) done
+
+theorem givesCommaList ∀ (modes: Modes) (ends: Nat → {Parse Nat} Bool) (next: () → {Parse Nat} a) (holds: a → Prop)
+    (endsGives: ∀ (count: Nat) => Parse.Gives Parse.Invariant.any (() => ends count) (stop => True))
+    (nextGives: Parse.Gives Parse.Invariant.any next holds)
+    (fuel count: Nat) (current: a) (found: List a) (currentHolds: holds current)
+    (foundHolds: List.All holds found):
+    Parse.Gives Parse.Invariant.any (() => commaListFrom fuel modes ends next count current found) (pair =>
+      List.All holds pair.fst ∧ found.length + 1 <= pair.fst.length) :=
+  givesAfter0
+    (reads0Peek modes)
+    (seen =>
+      match fuel, seen with
+        | Succ more, Some kind =>
+          match isComma: kind == 0 with
+            | True =>
+              Parse.givesThen
+                givesLook
+                (comma _ =>
+                  Parse.givesThen
+                    (endsGives count)
+                    (stop _ =>
+                      match stop with
+                        | True => Parse.givesDone (List.allConsReverse holds current found currentHolds foundHolds)
+                        | False =>
+                          Parse.givesThen
+                            nextGives
+                            (value valueHolds =>
+                              Parse.givesWeaken
+                                (givesCommaList modes ends next holds endsGives nextGives more (count + 1) value
+                                  [current, ..found]
+                                  valueHolds
+                                  (currentHolds, foundHolds))
+                                (pair facts => (facts.left, arithmetic [facts.right])))))
+            | False => Parse.givesDone (List.allConsReverse holds current found currentHolds foundHolds)
+        | Succ more, None => Parse.givesDone (List.allConsReverse holds current found currentHolds foundHolds)
+        | Zero, seen => Parse.givesDone (List.allConsReverse holds current found currentHolds foundHolds))

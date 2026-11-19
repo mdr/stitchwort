@@ -21,6 +21,7 @@
 use std::rc::Rc;
 
 use crate::kernel;
+use stitchwort_core::budget::ResourceError;
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::value::{Head, quote, quote_at_most};
 use stitchwort_core::{DefId, Ev, Name, Term, Value, pretty};
@@ -771,7 +772,8 @@ fn generalised(
 ) -> Result<Term> {
     let mut too_large = None;
     if skip.is_none()
-        && let Some(m) = blocker(cx, &exprs, goal, base, None, &mut too_large)?
+        && let Some(m) = blocker(cx, &exprs, goal, base, None, &mut too_large)
+            .map_err(|e| ran_out_at(e, span, "while generalising this `match`"))?
     {
         crate::queue::note_match_waited(cx.e);
         let error = motive_error(
@@ -796,6 +798,30 @@ fn generalised(
     generalised_now(
         cx, columns, exprs, alts, absurd, span, kind, goal, base, skip, too_large,
     )
+}
+
+/// The type of variable `l`, read back unfolded for the occurrence test,
+/// or as written if that is too large: a hypothesis such as
+/// `big: q (grow 30 (Leaf x))` that is only along for the ride then doesn't
+/// make the `match` run out (SW-4091). The test may then miss a scrutinee
+/// hidden inside one of its calls, leaving that hypothesis unrefined (as
+/// the generalisation as written does); the motive is checked as usual.
+fn read_type(cx: &Ctx, base: usize, l: usize) -> std::result::Result<Term, ResourceError> {
+    let g = cx.g();
+    match quote(&g, base, &cx.types[l]) {
+        Err(e @ ResourceError::Size(_)) if g.machine.budget.exhausted().is_none() => {
+            let noted = g.machine.budget.take_too_large();
+            match stitchwort_core::value::quote_as_written(&g, base, &cx.types[l]) {
+                Ok(t) => Ok(t),
+                Err(ResourceError::Size(_)) if g.machine.budget.exhausted().is_none() => {
+                    g.machine.budget.set_too_large(noted);
+                    Err(e)
+                }
+                Err(e) => Err(e),
+            }
+        }
+        read => read,
+    }
 }
 
 /// The unknown a generalisation in context `base` would read unsolved, if
@@ -834,21 +860,28 @@ fn blocker(
         }
     }
     // Where the unfolded read-back is too large (and the `match` would fail
-    // with `E-RESOURCE`), the folded one: a call shows its arguments, and an
-    // unknown in what it computes to comes from them, as a definition's
-    // body is closed. One missed (in a helper not lifted yet) can only make
+    // with `E-RESOURCE`), the one as written: a call shows its arguments,
+    // and an unknown in what it computes to comes from them, as a
+    // definition's body is closed. (Not the folded one, which still computes
+    // a call that steps at once: `grow 30 (Leaf x)` in a hypothesis, SW-4091.) One missed (in a helper not lifted yet) can only make
     // the motive check, or the kernel, reject the result. The error is
     // passed on in `too_large`, so that the generalisation doesn't read the
     // same value back again only to run out again.
     let found_too_large = std::cell::RefCell::new(None);
-    let read = |v: &Value| -> Result<Term> {
+    // Only the goal's is passed on: a variable's type too large is read as
+    // written by the generalisation too ([`read_type`]).
+    let read = |v: &Value, is_goal: bool| -> Result<Term> {
         match quote(&g, base, v) {
             Err(e) => {
                 let e: Diagnostic = e.into();
                 match crate::undo::recoverable(cx, &e) {
                     true => {
-                        found_too_large.borrow_mut().get_or_insert(e);
-                        Ok(stitchwort_core::value::quote_folded(&g, base, v)?)
+                        if is_goal {
+                            found_too_large.borrow_mut().get_or_insert(e);
+                        } else {
+                            crate::undo::recovered(cx);
+                        }
+                        Ok(stitchwort_core::value::quote_as_written(&g, base, v)?)
                     }
                     false => Err(e),
                 }
@@ -858,7 +891,7 @@ fn blocker(
     };
     let unknown = (|| {
         for l in 0..base {
-            if let Some(m) = first_meta(&read(&cx.types[l])?, &unsolved) {
+            if let Some(m) = first_meta(&read(&cx.types[l], false)?, &unsolved) {
                 return Ok(Some(m));
             }
         }
@@ -867,7 +900,7 @@ fn blocker(
         }
         let pending = crate::queue::pending(cx)?;
         let is_pending = |m: usize| pending.contains(&m) && Some(m) != own;
-        Ok(first_meta(&read(goal)?, &is_pending))
+        Ok(first_meta(&read(goal, true)?, &is_pending))
     })();
     *too_large = found_too_large.into_inner();
     unknown
@@ -996,7 +1029,7 @@ fn generalised_now(
             .map(|l| match skip.is_some_and(|skip| skip(cx, l)) {
                 // Never copied, so never read (`cannot_occur` passes over it).
                 true => Ok(Term::Refl),
-                false => quote(&g, base, &cx.types[l]).map_err(in_match),
+                false => read_type(cx, base, l).map_err(in_match),
             })
             .collect::<Result<_>>()?;
         Ok((type_terms, quote(&g, base, goal).map_err(in_match)?))

@@ -174,7 +174,10 @@ expression: output
     │              ╰── p: Nat → Prop
     │                  ⊢ p 2
     │ 
-    │ Note: this arm is checked in 2 cases; the goal shown is the last of them
+    │ Note: this arm is checked once for each of its 2 alternatives; the goal above is the one in `2`, and the others are:
+    │         in `1`:
+    │           p: Nat → Prop
+    │           ⊢ p 1
 ────╯
 [GOAL] Goal: in `alternatives`
     ╭─[ goals/catch-all-facts.sw:39:10 ]

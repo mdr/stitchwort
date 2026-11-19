@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/or-pattern-error-every-alternative.sw:6:89 ]
+   │
+ 6 │ def label (payment: Payment): Text := match payment with | Cash amount | Card amount => amount
+   │                                                                                         ───┬──  
+   │                                                                                            ╰──── expected `Text`, but this has type `Nat`
+   │ 
+   │ Note: this error is in each of the 2 alternatives
+───╯

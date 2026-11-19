@@ -4,7 +4,7 @@
 --| came from: `xs.attach.sumBy (e => f e.value [decreasing := … e.isIn …])`.
 --| Membership itself, `List.Mem`, and its facts ([`List.memRangeFrom`],
 --| [`List.memRange`], [`List.memFilter`], [`List.memMap`]) are in Toolkit.sw and
---| Lemmas.sw.
+--| Membership.sw.
 -- (docs/proposals/well-founded-recursion.md, stage 3b)
 
 --| An element of `xs`, with the proof that it is one.

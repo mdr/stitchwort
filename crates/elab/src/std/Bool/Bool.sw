@@ -172,3 +172,106 @@ theorem Bool.andFalseLeftOf ∀ (a b c: Bool) (no: (a && b) = False): (a && b &&
 theorem Bool.andFalseMiddle ∀ (a c: Bool): (a && False && c) = False := match a with
   | True => byComputing
   | False => byComputing
+
+--| The `Bool` facts that lived in other files: the `Bool` lemmas from
+--| `List/SortLemmas.sw`, and the theorems about nothing but `Bool` from
+--| `Float`, `Float.Theory`, `Doc`, `Doc.Proofs` and `Quot`. They keep the
+--| names they had there.
+theorem Bool.toNatAddLeOne ∀ (b: Bool) (n: Nat) (h: Bool.toNat b + n ≤ 1): n ≤ 1 := match b, n with
+  | False, n => h
+  | True, Zero => byComputing
+
+theorem Bool.andFalse ∀ (b: Bool): (b ∧ False) = False := match b with
+  | True => byComputing
+  | False => byComputing
+
+theorem Bool.andTrue ∀ (b: Bool): (b ∧ True) = b := match b with
+  | True => byComputing
+  | False => byComputing
+
+theorem Float.notNotAndOr ∀ (a b c d: Bool)
+    (ha: a = False)
+    (hb: b = False)
+    (hd: d = True):
+    (¬a ∧ ¬b ∧ (c ∨ d)) = True :=
+  rewrite ha, hb, hd then
+    match c with
+      | True => byComputing
+      | False => byComputing
+
+theorem Float.notNotAndNotAnd ∀ (a b c d: Bool)
+    (ha: a = False)
+    (hb: b = False)
+    (hc: c = False)
+    (hd: d = True):
+    (¬a ∧ ¬b ∧ ¬c ∧ d) = True :=
+  rewrite ha, hb, hc, hd
+
+theorem Float.Theory.boolCases ∀ (b: Bool): (b = True) ∨ (b = False) := match b with
+  | True => Inl byComputing
+  | False => Inr byComputing
+
+theorem Float.Theory.andFalseRight ∀ (b: Bool): (b ∧ False) = False := match b with
+  | True => byComputing
+  | False => byComputing
+
+theorem Float.Theory.andTrueRight ∀ (b: Bool): (b ∧ True) = b := match b with
+  | True => byComputing
+  | False => byComputing
+
+theorem Float.Theory.andSwap ∀ (a b: Bool): (a ∧ b) = (b ∧ a) := match a, b with
+  | True, True => byComputing
+  | True, False => byComputing
+  | False, True => byComputing
+  | False, False => byComputing
+
+theorem Float.Theory.orFalse ∀ (x y: Bool) (hx: x = False) (hy: y = False): (x ∨ y) = False := rewrite hx, hy
+
+theorem Float.Theory.orLeftFalse ∀ (x y: Bool) (h: (x ∨ y) = False): x = False := match x with | False => byComputing
+
+theorem Float.Theory.orRightFalse ∀ (x y: Bool) (h: (x ∨ y) = False): y = False := match y with
+  | True => cases
+  | False => byComputing
+
+theorem Float.Theory.xorFalse ∀ (b: Bool): Bool.xor b False = b := match b with
+  | True => byComputing
+  | False => byComputing
+
+theorem Float.Theory.andFalseUp ∀ (a b c: Bool) (f: a = False → b = False) (k: (a ∧ c) = False): (b ∧ c) = False :=
+  match a, b with
+    | _, False => byComputing
+    | False, True => Void.impossible (Bool.trueNotFalse (f byComputing))
+    | True, True => k
+
+theorem Float.Theory.xorFalseUp ∀ (a b c: Bool)
+    (hc: c = False)
+    (f: a = False → b = False)
+    (k: Bool.xor a c = False):
+    Bool.xor b c = False :=
+  match a, b with
+    | False, False => k
+    | False, True => Void.impossible (Bool.trueNotFalse (f byComputing))
+    | True, True => k
+    | True, False => hc
+
+theorem Float.Theory.xorComm ∀ (a b: Bool): Bool.xor a b = Bool.xor b a := match a, b with
+  | True, True => byComputing
+  | True, False => byComputing
+  | False, True => byComputing
+  | False, False => byComputing
+
+--| A disjunction that is false has a false right side.
+theorem Doc.orFalseRight ∀ (left right: Bool) (plain: (left || right) = False): right = False :=
+  match left, right, plain with | False, False, _ => byComputing
+
+--| A flag is true or false.
+theorem Doc.Proofs.trueOrFalse ∀ (flag: Bool): flag = True ∨ flag = False := match flag with
+  | True => Inl byComputing
+  | False => Inr byComputing
+
+--| Booleans that are `True` together are equal.
+theorem Quot.boolEq ∀ (b c: Bool) (toC: b = True → c = True) (toB: c = True → b = True): b = c := match b, c with
+  | False, False => byComputing
+  | False, True => toB byComputing
+  | True, False => (toC byComputing).flipped
+  | True, True => byComputing

@@ -1,0 +1,58 @@
+-- SW-4238 probe (comma-list-one-function). The comma list of Parser.sw:1825-1848 as one function (std only, Nat items), proved by hand with no spelled arguments.
+-- Checked with the main checkout's release binary (stitchwort check), 19 Nov 2026: checks
+
+import Std (Parse, Option, Nat, Bool, List)
+
+def look(): {Parse Nat} Option Nat := Parse.next (n => True)
+
+theorem givesLook: Parse.Gives Parse.Invariant.any (() => look()) ((v: Option Nat) => True) :=
+  Parse.readsWeaken (Parse.readsNext (n => True)) (read value proved => byComputing)
+
+-- The comma list as one loop: the four functions of Parser.sw:1825-1848 with their `match` and `if`s inline.
+def commaList (fuel: Nat) (ends: Nat → {Parse Nat} Bool) (next: () → {Parse Nat} a) (count: Nat) (current: a)
+    (found: List a):
+    {Parse Nat} (List a, Bool) :=
+  match fuel, look() with
+    | Succ more, Some kind =>
+      if kind == 0 then
+        let comma := look()
+        if ends count then ([current, ..found].reverse, True)
+        else commaList more ends next (count + 1) (next()) [current, ..found]
+      else ([current, ..found].reverse, False)
+    | _, _ => ([current, ..found].reverse, False)
+
+theorem givesCommaList ∀ (ends: Nat → {Parse Nat} Bool) (next: () → {Parse Nat} a) (holds: a → Prop)
+    (endsGives: ∀ (count: Nat) => Parse.Gives Parse.Invariant.any (() => ends count) (stop => True))
+    (nextGives: Parse.Gives Parse.Invariant.any next holds)
+    (fuel count: Nat) (current: a) (found: List a) (currentHolds: holds current)
+    (foundHolds: List.All holds found):
+    Parse.Gives Parse.Invariant.any (() => commaList fuel ends next count current found) (pair =>
+      List.All holds pair.fst ∧ found.length + 1 <= pair.fst.length) :=
+  Parse.givesThen
+    givesLook
+    (seen _ =>
+      match fuel, seen with
+        | Succ more, Some kind =>
+          match isComma: kind == 0 with
+            | True =>
+              Parse.givesThen
+                givesLook
+                (comma _ =>
+                  Parse.givesThen
+                    (endsGives count)
+                    (stop _ =>
+                      match stop with
+                        | True => Parse.givesDone (List.allConsReverse holds current found currentHolds foundHolds)
+                        | False =>
+                          Parse.givesThen
+                            nextGives
+                            (value valueHolds =>
+                              Parse.givesWeaken
+                                (givesCommaList ends next holds endsGives nextGives more (count + 1) value
+                                  [current, ..found]
+                                  valueHolds
+                                  (currentHolds, foundHolds))
+                                (pair facts => (facts.left, arithmetic [facts.right])))))
+            | False => Parse.givesDone (List.allConsReverse holds current found currentHolds foundHolds)
+        | Succ more, None => Parse.givesDone (List.allConsReverse holds current found currentHolds foundHolds)
+        | Zero, seen => Parse.givesDone (List.allConsReverse holds current found currentHolds foundHolds))

@@ -1,0 +1,38 @@
+-- SW-4238 probe (inline-match-spelled-j). The same, with p and j spelled out as a hand proof would.
+-- Checked with the main checkout's release binary (stitchwort check), 19 Nov 2026: fails: _holds is Parse.givesThen's implicit holds, not worked out (the failure proof-walk-step.md §1 reports)
+
+import Std (Parse, Option, Nat, Bool, List)
+
+def step (fuel: Nat): {Parse Nat} Nat :=
+  let seen := Parse.next (n => True)
+  match fuel, seen with
+    | Succ more, Some n => if n == 0 then 5 else n
+    | _, _ => 7
+
+theorem givesNext: Parse.Gives Parse.Invariant.any (() => Parse.next (n => True)) ((v: Option Nat) => True) :=
+  Parse.readsWeaken (Parse.readsNext (n => True)) (read value proved => byComputing)
+
+-- B: each arm states its folded type, as the walk would.
+theorem givesStepB ∀ (fuel: Nat): Parse.Gives Parse.Invariant.any (() => step fuel) (v => True) :=
+  Parse.givesThen
+    [p := () => Parse.next (n => True)]
+    [j := (seen: Option Nat) => match fuel, seen with
+      | Succ more, Some n => if n == 0 then 5 else n
+      | _, _ => 7]
+    givesNext
+    (seen _ =>
+      match fuel, seen with
+        | Succ more, Some n =>
+          match c: n == 0 with
+            | True =>
+              let arm: Parse.Gives Parse.Invariant.any (() => 5) ((v: Nat) => True) := Parse.givesDone byComputing
+              arm
+            | False =>
+              let arm: Parse.Gives Parse.Invariant.any (() => n) ((v: Nat) => True) := Parse.givesDone byComputing
+              arm
+        | Succ more, None =>
+          let arm: Parse.Gives Parse.Invariant.any (() => 7) ((v: Nat) => True) := Parse.givesDone byComputing
+          arm
+        | Zero, seen =>
+          let arm: Parse.Gives Parse.Invariant.any (() => 7) ((v: Nat) => True) := Parse.givesDone byComputing
+          arm)

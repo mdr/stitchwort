@@ -70,7 +70,10 @@ expression: output
     │                         ╰── p: Option Bool → Prop
     │                             ⊢ p (Some True)
     │ 
-    │ Note: this arm is checked in 2 cases; the goal shown is the last of them
+    │ Note: this arm is checked once for each of its 2 alternatives; the goal above is the one in `Some True`, and the others are:
+    │         in `None`:
+    │           p: Option Bool → Prop
+    │           ⊢ p None
 ────╯
 [GOAL] Goal: in `alternatives`
     ╭─[ goals/arm-as-written-gaps.sw:25:10 ]

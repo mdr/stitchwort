@@ -12,6 +12,22 @@ and §4 (the `gives` tactic left for later; `readsThen` inference as built by
 SW-3561), [function-equations.md](function-equations.md) (why effectful
 definitions have no equations).
 
+> **Reviewed (SW-4238, Fable, 19 November 2026):**
+> [docs/reviews/SW-4238-walk-step-review.md](../reviews/SW-4238-walk-step-review.md).
+> The review recommends building it with changes, and they are not yet
+> folded into the text below. In short: (1) on single-file copies, the
+> elaborator already infers `p` and `j` and already steps through an
+> inline `match`, so §1's "why the arguments are spelled out", its probe
+> and the NOTES.md quote need correcting, a baseline lane comes first,
+> and parts (a) and (b) become one lane; (2) §3.4 unfolds a callee only
+> when the brackets say `unfold f`; (3) §3.2 allows one `@[walk]` lemma
+> per function and family, and local hypotheses serve calls of
+> parameters; (4) §3.2's cache gap is in std's lazy loading, not in
+> project imports; (5) §3.4 needs a rule for code after a split; (6)
+> Expand walk gets a command-line form in the first lane; (7) the two-run
+> walk is in the pilot's bars. §5's lanes, bars and D3695 are superseded
+> by the review's §4 to §6.
+
 Claims are marked **[measured]** (counted or run for this note), **[read]**
 (in the file or page named), **[sketch]** (proof text written for this note
 and not checked), or **[estimated]**.

@@ -2720,6 +2720,7 @@ fn push_def(
         validators: Vec::new(),
         run_body: None,
         param_default: false,
+        std: path.starts_with("Std."),
         tailrec: false,
         assumption: None,
         span,

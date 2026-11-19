@@ -17,6 +17,8 @@
 //! kernel. The module then reports the declaration as *unfinished*, not as
 //! an error (`module.rs`); what uses it is unfinished too.
 
+use std::rc::Rc;
+
 use stitchwort_core::globals::HashKey;
 use stitchwort_core::globals::State;
 use stitchwort_core::pretty::{Declaration, NameScope};
@@ -90,6 +92,8 @@ pub(crate) struct Pending {
     /// each one's level and type, and whether the compiler made it (`%…`).
     /// Its assumption takes them as parameters ([`Elaborator::assume_goals`]).
     pub(crate) applied: Vec<(usize, Value, bool)>,
+    /// [`Goals::alternative`] where the hole was checked.
+    alternative: Option<Rc<str>>,
 }
 
 /// A goal at an arm, as the arm is written ([`Pending::arm`]).
@@ -131,6 +135,46 @@ struct Found {
     base: Option<String>,
     /// The lemma's keyword, and what follows its name.
     lemma: Option<(&'static str, String)>,
+    /// For a hole in the body of an arm with or-pattern alternatives, each
+    /// alternative's goal as shown, so that one message lists them all
+    /// ([`merge_alternative_goals`]).
+    alternatives: Vec<(Rc<str>, String)>,
+}
+
+/// `found`, a goal printed at the span `earlier` was, as one message that
+/// also lists the other alternatives' goals when the two are from different
+/// alternatives of an or-pattern's arm and their goals differ: the body is
+/// checked once per alternative (D3694), and the last alone would hide the
+/// others. The label stays the last alternative's goal, which the index's
+/// goal data describes. Otherwise `found` replaces `earlier`, as a goal
+/// checked again does.
+fn merge_alternative_goals(earlier: Found, found: &mut Found) {
+    let (alternative, shown) = match found.alternatives.as_slice() {
+        [(a, s)] if !earlier.alternatives.is_empty() => (a.clone(), s.clone()),
+        _ => return,
+    };
+    let mut all = earlier.alternatives;
+    all.retain(|(a, _)| *a != alternative);
+    all.push((alternative.clone(), shown.clone()));
+    found.alternatives = all;
+    let others: Vec<String> = (found.alternatives.iter())
+        .filter(|(_, s)| *s != shown)
+        .map(|(a, s)| {
+            let indented: Vec<String> = s.lines().map(|l| format!("    {l}")).collect();
+            format!("  in {a}:\n{}", indented.join("\n"))
+        })
+        .collect();
+    if others.is_empty() {
+        return;
+    }
+    let d = &mut found.diagnostic;
+    d.notes.retain(|n| !n.starts_with("this arm is checked in"));
+    d.notes.push(format!(
+        "this arm is checked once for each of its {} alternatives; the goal above is the one \
+         in {alternative}, and the others are:\n{}",
+        found.alternatives.len(),
+        others.join("\n")
+    ));
 }
 
 /// The goals of the declaration being checked.
@@ -153,6 +197,9 @@ pub(crate) struct Goals {
     /// The arm being checked, if its goals need showing as written
     /// (`arm_display.rs`).
     pub(crate) arm: Option<std::rc::Rc<crate::arm_display::Arm>>,
+    /// The or-pattern alternatives that chose the leaf being checked, as
+    /// written, if it has any.
+    pub(crate) alternative: Option<Rc<str>>,
     /// The expressions the `match`es being checked match on
     /// ([`crate::arm_display::note_scrutinees`]).
     pub(crate) scrutinees: Vec<crate::arm_display::Scrutinee>,
@@ -557,6 +604,7 @@ fn hole_of(cx: &Ctx, expected: &Value, error: bool) -> Term {
         }
         None => Vec::new(),
     };
+    let alternative = cx.e.goals.borrow().alternative.clone();
     cx.e.goals.borrow_mut().pending.push(Pending {
         span: cx.span,
         meta: m,
@@ -575,6 +623,7 @@ fn hole_of(cx: &Ctx, expected: &Value, error: bool) -> Term {
         owner_args,
         level: cx.level(),
         applied,
+        alternative,
     });
     term
 }
@@ -1168,8 +1217,11 @@ impl Elaborator {
         self.decl.failed_mentioned.set(mentioned);
         *self.decl.stuck_on_goal.borrow_mut() = stuck;
         let mut goals = self.goals.borrow_mut();
-        for found in printed {
-            goals.found.retain(|f| f.span != found.span);
+        for mut found in printed {
+            if let Some(i) = goals.found.iter().position(|f| f.span == found.span) {
+                let earlier = goals.found.remove(i);
+                merge_alternative_goals(earlier, &mut found);
+            }
             goals.found.push(found);
         }
     }
@@ -1759,11 +1811,16 @@ impl Elaborator {
             prop: p.prop,
             lemma: None,
         });
+        let alternatives = match &leaf.alternative {
+            Some(a) => vec![(a.clone(), lines.join("\n"))],
+            None => Vec::new(),
+        };
         Found {
             span: p.span,
             diagnostic,
             base: p.lemma_base.clone(),
             lemma,
+            alternatives,
         }
     }
 
@@ -2094,7 +2151,7 @@ impl Elaborator {
     fn goal_snapshot_of(&self, p: &Pending) -> Option<GoalSnapshot> {
         let g = &self.ev();
         let level = p.names.len();
-        let quote = |v: &Value| stitchwort_core::value::quote_folded(g, level, v).ok();
+        let quote = |v: &Value| crate::check::quote_folded(g, level, v).ok();
         let mut vars: Vec<SnapVar> = Vec::new();
         for e in &p.context {
             vars.push(SnapVar {

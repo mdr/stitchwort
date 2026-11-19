@@ -1393,10 +1393,6 @@ theorem List.occurrencesConsTrue ∀ (xs: List a) (p: a → Bool) (x: a)
     List.occurrences [x, ..xs] p = Succ (List.occurrences xs p) :=
   rewrite px
 
-theorem Bool.toNatAddLeOne ∀ (b: Bool) (n: Nat) (h: Bool.toNat b + n ≤ 1): n ≤ 1 := match b, n with
-  | False, n => h
-  | True, Zero => byComputing
-
 --| No element of the rest has the key of the head that has `kk`, if the head's key isn't among theirs.
 theorem List.occurrencesKeyAbsent ∀ [auto eq: DecEq k] (xs: List a) (key: a → k) (x: a) (kk: k)
     (notMem: ¬(List.Mem (key x) (List.map xs key)))
@@ -1982,14 +1978,6 @@ theorem List.sortPerm ∀ [auto ord: Ord a] (xs: List a): List.Perm (List.sort x
 
 theorem List.sortLength ∀ [auto ord: Ord a] (xs: List a): List.length (List.sort xs) = List.length xs :=
   List.permLength (List.sort xs) xs (List.sortPerm xs)
-
-theorem Bool.andFalse ∀ (b: Bool): (b ∧ False) = False := match b with
-  | True => byComputing
-  | False => byComputing
-
-theorem Bool.andTrue ∀ (b: Bool): (b ∧ True) = b := match b with
-  | True => byComputing
-  | False => byComputing
 
 theorem Nat.addSubLeft ∀ (s m: Nat): (s + m) - s = m := rewrite Nat.addComm s m then Nat.addSub m s
 

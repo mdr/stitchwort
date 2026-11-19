@@ -640,12 +640,13 @@ fn small_programs_load_only_the_library_files_they_can_use() {
     // load `Mod/Mod.sw` (nor `Map`, `Set` or `Vec`).
     // `Result` is a core type, so the toolkit's dot calls (`.map`, `.flatMap`,
     // ...) may mean its functions too, but `Result/Result.sw` doesn't load
-    // with it: since SW-998 it needs `List/Lemmas.sw` (`List.All2`, in
+    // with it: since SW-998 it needs `List/Zip.sw` (`List.All2`, in
     // `Result.traverseAll2`), which needs the toolkit, and the toolkit can't
     // need a file that needs it (a cycle). The toolkit has no call on a
     // `Result`, so nothing is lost.
-    // The toolkit's lemmas are in `List/Lemmas.sw` and the `Option` helpers'
-    // in `Option/Lemmas.sw`, so neither loads, nor what only they use
+    // The toolkit's lemmas are in the other `List` lemma files and the
+    // `Option` helpers' in `Option/Lemmas.sw`, so neither loads, nor what only
+    // they use
     // (`Decidable/Decidable.sw`, `Logic/Logic.sw`). `∃` and the `Iff` and
     // `Exists` lemmas are in the core, and `List.memContains` uses the
     // decision's own `sound` and `complete` rather than `DecEq.sound` (a dot
@@ -1255,7 +1256,7 @@ fn a_nested_library_load_keeps_the_outer_units_omega_for_auto() {
             .elab
             .loaded_library_files()
             .iter()
-            .any(|f| f == "List/Lemmas.sw")
+            .any(|f| f == "List/Append.sw")
     );
     assert!(!session.elab.omega_for_auto());
 

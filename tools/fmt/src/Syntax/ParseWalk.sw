@@ -1954,20 +1954,16 @@ theorem andLevels ∀ (text: Text)
     (tested: (text == "&&" || text == "∧") = True):
     leftNeeds InfixBinary text = 6 ∧ infixLevel InfixBinary text = 5 :=
   match logic with
-    | Inl (Inl same) => Both (rewrite same) (rewrite same)
-    | Inl (Inr same) => Both (rewrite same) (rewrite same)
-    | Inr (Inl same) => (Bool.falseNotTrue (rewrite same at tested)).impossible
-    | Inr (Inr same) => (Bool.falseNotTrue (rewrite same at tested)).impossible
+    | Inl (Inl same | Inr same) => Both (rewrite same) (rewrite same)
+    | Inr (Inl same | Inr same) => (Bool.falseNotTrue (rewrite same at tested)).impossible
 
 theorem orLevels ∀ (text: Text)
     (logic: LogicText text)
     (tested: (text == "&&" || text == "∧") = False):
     leftNeeds InfixBinary text = 5 ∧ infixLevel InfixBinary text = 4 :=
   match logic with
-    | Inl (Inl same) => (Bool.falseNotTrue (rewrite <- tested, same)).impossible
-    | Inl (Inr same) => (Bool.falseNotTrue (rewrite <- tested, same)).impossible
-    | Inr (Inl same) => Both (rewrite same) (rewrite same)
-    | Inr (Inr same) => Both (rewrite same) (rewrite same)
+    | Inl (Inl same | Inr same) => (Bool.falseNotTrue (rewrite <- tested, same)).impossible
+    | Inr (Inl same | Inr same) => Both (rewrite same) (rewrite same)
 
 --| The next link after a conjunction is an `||`.
 def OrFirst: List (Word, Expr) → Prop
