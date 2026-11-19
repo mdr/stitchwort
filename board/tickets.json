@@ -1,5 +1,5 @@
 {
-  "next": 4176,
+  "next": 4177,
   "tickets": [
     {
       "id": 47,
@@ -26306,9 +26306,9 @@
     {
       "id": 4157,
       "title": "[Sonnet] fmt: merge duplicate lemmas across Fmt and Syntax (startBlocksNo = HangProofs.staleBlocks, wordIsNoArrow = SettleOutputProofs.wordNotArrow, hungStep = OutputFileProofs.hangsStep, readsAtMark/readsAtLeft in ParseCarriesDecl and GoodItemProofs/ParseWalk) (SW-4154 finding)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4157",
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 30 min.",
@@ -26552,6 +26552,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 45 min. After SW-4128 (A) and SW-4173 (K2) merge. Mechanical: one more conjunct per node lemma.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4176,
+      "title": "[Opus] fmt S1 glue: drop oneLine1 and spelledPlain1 from formatWithin1 (Driver1), close parsedPlaced1 if still open, and prove formatAccepts1 over all of Grammar1 (D3687); MustAccept1's 144 pass",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 60 min. After SW-4133 (lane 8) and SW-4175. Plan: docs/reviews/SW-4166-carried-walk-plan.md (glue). Not a narrowing: the driver accepts more. Then the Fable slice-1 checkpoint.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
