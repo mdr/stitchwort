@@ -25435,7 +25435,7 @@
     {
       "id": 4091,
       "title": "[Opus] tactics/kernel: a big rewrite on a goal like OperatorReads, or taking apart a large ∃ inside a mutual block, fails with E-RESOURCE (value too large to write out) (SW-4071); find why and fix, or document generalise-with-equations in the proving guide",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
