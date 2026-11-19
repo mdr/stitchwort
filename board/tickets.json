@@ -1,5 +1,5 @@
 {
-  "next": 4105,
+  "next": 4107,
   "tickets": [
     {
       "id": 47,
@@ -25303,12 +25303,12 @@
     {
       "id": 4081,
       "title": "[Opus] fmt S1 item invariant: glued items carry no comments between them (no trailing comment on the item before, none above the glued item), proved through the lexer and rule N; then shaped1's argument1/head1 refuse a comment on a glued sign and SW-4070's two trees (App f [Prefix (- -- c) x], App (Prefix (- -- c) 1) [n]) become witnesses (SW-4069 note; D3686 dropped)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\n\nLane notes (Opus, 18-19 Nov, ~40 min, est. 50): done, on lane/SW-4081 (c93d5d36e..3f862a9c6).\n- Invariant: the brief's unrestricted form is false after rule N (gluedBareFalse: in `f (a, -- c⏎ b)` rule 1 moves the comment onto `a` and `,` stays glued). Proved instead for a sign before an atom-opening item glued to it: `itemGlueQuiet`/`itemsQuiet` (Syntax.ParseProofs), `settledItemsQuiet` (Syntax.GlueQuietProofs, from `lex` + alphabet1, through laidOut, rules 1-5 and the bare last commas, per group of `settledOnce`).\n- Parse fact folded into shaped1: `argument1`/`head1` of a Prefix now also ask `signQuiet operator operand` (no comment after the sign, none above the operand's lead). GoodItems = every GoodItem ∧ QuietItems; parseShaped1/parseLexical1/parseCarries1/parseSettled1 take `quiet` beside `good`, discharged by settledItemsQuiet in the source-level theorems (no top theorem gains a hypothesis). ArgRead's atom branch tracks the lead (LeadRead). The separate signsQuiet1 predicate was dropped (shaped1 says it).\n- Witnesses: Fmt.Tests Shape1 (the two trees and a comment above an operand refused by shaped1; parse with commented non-glued signs accepted); settledItemsQuietExample.\n- Checks: Fmt.TopStatements (64 ns) and every touched namespace 0 errors; audits ParseProofs, PassProofs, ParseWalk, TouchProofs, GlueQuietProofs 0 failed; test Fmt.Tests 125/125, Syntax.Tests 52/52. Parser unchanged, so no fmt:twin.\n",
+      "body": "\n\nLane notes (Opus, 18-19 Nov, ~40 min, est. 50): done, on lane/SW-4081 (c93d5d36e..3f862a9c6).\n- Invariant: the brief's unrestricted form is false after rule N (gluedBareFalse: in `f (a, -- c⏎ b)` rule 1 moves the comment onto `a` and `,` stays glued). Proved instead for a sign before an atom-opening item glued to it: `itemGlueQuiet`/`itemsQuiet` (Syntax.ParseProofs), `settledItemsQuiet` (Syntax.GlueQuietProofs, from `lex` + alphabet1, through laidOut, rules 1-5 and the bare last commas, per group of `settledOnce`).\n- Parse fact folded into shaped1: `argument1`/`head1` of a Prefix now also ask `signQuiet operator operand` (no comment after the sign, none above the operand's lead). GoodItems = every GoodItem ∧ QuietItems; parseShaped1/parseLexical1/parseCarries1/parseSettled1 take `quiet` beside `good`, discharged by settledItemsQuiet in the source-level theorems (no top theorem gains a hypothesis). ArgRead's atom branch tracks the lead (LeadRead). The separate signsQuiet1 predicate was dropped (shaped1 says it).\n- Witnesses: Fmt.Tests Shape1 (the two trees and a comment above an operand refused by shaped1; parse with commented non-glued signs accepted); settledItemsQuietExample.\n- Checks: Fmt.TopStatements (64 ns) and every touched namespace 0 errors; audits ParseProofs, PassProofs, ParseWalk, TouchProofs, GlueQuietProofs 0 failed; test Fmt.Tests 125/125, Syntax.Tests 52/52. Parser unchanged, so no fmt:twin.\n\nMerged 19 Nov. 40 min (est. 50). Orchestrator checked: shaped1 tightened (argument1/head1 need signQuiet), proved of every parse; intermediate parse theorems gained quiet, supplied by settledItemsQuiet at source level (witness settledItemsQuietExample); top theorems unchanged. Brief's invariant false (gluedBareFalse).",
       "created": "2026-11-18",
       "updated": "2026-11-19",
       "commits": []
@@ -25609,6 +25609,32 @@
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
+      "body": "",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4105,
+      "title": "[Sonnet] fmt proofs tidy (SW-4081): drop the unreachable signQuiet False case in TouchProofs.prefixSteps; share ParseCarries' readsNegativeNumber/readsParenAtom copies with ParseWalk's lead-tracking specs",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4106,
+      "title": "[Sonnet] std Bool: andOf (a = True) (b = True): (a && b) = True; replace ParseWalk's local copy and ReadBackLine's andBoth (SW-4081)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
       "body": "",
       "created": "2026-11-19",
       "updated": "2026-11-19",
