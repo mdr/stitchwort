@@ -121,9 +121,11 @@ pub fn render(sources: &SourceMap, diagnostic: &Diagnostic, color: bool) -> Stri
         return out;
     };
 
+    // Characters, not bytes: ariadne's byte mode passes a character offset on as a
+    // byte offset for the labels of a file other than the report's own.
     let config = Config::default()
         .with_color(color)
-        .with_index_type(IndexType::Byte);
+        .with_index_type(IndexType::Char);
 
     let mut report = Report::build(kind, place(sources, primary))
         .with_config(config)
@@ -409,9 +411,30 @@ fn indent_continuations(out: &str, message: &str) -> String {
     joined
 }
 
-/// Where `span` is shown: the file's name and range, but for a span in the
-/// core, the name of the file of the core it is in, and the range within it.
+/// [`place_bytes`] with the range in characters of the file's text, as ariadne is
+/// configured to take it.
 fn place(sources: &SourceMap, span: stitchwort_syntax::Span) -> (String, std::ops::Range<usize>) {
+    let (name, bytes) = place_bytes(sources, span);
+    let file = sources.get(span.file);
+    let std = stitchwort_elab::std_text();
+    let core = file.name == "<prelude>"
+        && file.text.starts_with(std.prelude)
+        && (span.end as usize) <= std.prelude.len();
+    let text = if core {
+        &std.prelude[span.start as usize - bytes.start..]
+    } else {
+        file.text.as_str()
+    };
+    let chars = |offset: usize| text.char_indices().take_while(|(i, _)| *i < offset).count();
+    (name, chars(bytes.start)..chars(bytes.end))
+}
+
+/// Where `span` is shown: the file's name and range in bytes, but for a span in the
+/// core, the name of the file of the core it is in, and the range within it.
+fn place_bytes(
+    sources: &SourceMap,
+    span: stitchwort_syntax::Span,
+) -> (String, std::ops::Range<usize>) {
     let file = sources.get(span.file);
     let std = stitchwort_elab::std_text();
     // The core is a prefix of the prelude file: tests append to it.
@@ -431,7 +454,7 @@ fn place(sources: &SourceMap, span: stitchwort_syntax::Span) -> (String, std::op
 /// Where `span` starts, as shown: the file's name and the line (from 1),
 /// but for a span in the core, the core's file it is in and the line in it.
 pub fn location(sources: &SourceMap, span: stitchwort_syntax::Span) -> (String, usize) {
-    let (name, range) = place(sources, span);
+    let (name, range) = place_bytes(sources, span);
     let file = sources.get(span.file);
     let line = |offset: usize| {
         file.text[..offset.min(file.text.len())]
@@ -499,6 +522,21 @@ mod tests {
             .with_note("write `Nat -> {Partial} Nat` to allow it");
 
         insta::assert_snapshot!(render(&sources, &diagnostic, false));
+    }
+
+    /// ariadne mixes byte and char offsets for a file other than the report's
+    /// own: a non-ASCII character before a label in the second file panicked.
+    #[test]
+    fn labels_after_non_ascii_text_in_a_second_file_render() {
+        let mut sources = SourceMap::new();
+        let first = sources.add("a.sw", "x\n");
+        let second = sources.add("b.sw", "→→→→\nlength : Nat\n");
+        let diagnostic = Diagnostic::error("E-DUPLICATE", "`length` is already defined")
+            .with_label(Span::new(first, 0, 1), "here")
+            .with_label(Span::new(second, 13, 19), "and here");
+        let out = render(&sources, &diagnostic, false);
+        assert!(out.contains("b.sw:2:1"), "{out}");
+        assert!(out.contains("length : Nat"), "{out}");
     }
 
     #[test]
