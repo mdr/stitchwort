@@ -1,5 +1,5 @@
 {
-  "next": 4205,
+  "next": 4206,
   "tickets": [
     {
       "id": 47,
@@ -21424,12 +21424,12 @@
     {
       "id": 3788,
       "title": "[Sonnet] Float.sqrt as a primitive on the host's exact Math.sqrt (SW-3783)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "",
+      "body": "Lane (Sonnet): Float.sqrt as a definition through Float.Model.sqrtBits (integer Newton root, rounded once) with a native on the host's sqrt, pinned; commit 037fdfe9f on lane/SW-3788. Tests: sqrt_rounds_like_the_hardware, the_four_paths_agree, float gate, pinned hashes. No kernel change.\n",
       "created": "2026-11-17",
       "updated": "2026-11-19",
       "commits": []
@@ -26938,6 +26938,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "From docs/proposals/self-hosted-fmt-s2-sketch.md.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4205,
+      "title": "[Fable, paper] Slice 1 retrospective and strategy (D3691, Matt 19 Nov): how slice 1's proofs went and their friction; how far the full formatter is, realistically; a smarter strategy for formatter correctness; consolidating and simplifying the slice 1 proof now; Stitchwort changes that would make proving easier; what it means for slices 2-7",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 60 min. Paper.\n\nD3691 (Matt, 19 Nov 2026): 'doing smaller backlog work with Sonnet and DeepSeek is fine. But let's also run a Fable paper lane to do ... a retrospective on the slice one formatter proofs ... how far are we from the full stitchwort formatter? Is that just a Herculean task at the moment, or is it realistic? ... any way that we could be smarter and find a better strategy for proving formatter correctness? ... consolidate and go through the proof and improve it, make it more simple? ... anything about stitchwort that we should change to make it easier to prove things?'",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
