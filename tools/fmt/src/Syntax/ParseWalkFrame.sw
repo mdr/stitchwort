@@ -45,7 +45,7 @@ theorem givesUpperQualified ∀ (modes: Modes) (what: Text):
                     (mayFollowEnd item.kind item.text)))))
 
 theorem givesDefinitionName ∀ (modes: Modes): Parse.Gives GoodItems (() => definitionName modes) NameOk :=
-  givesAfter0 (reads0At modes Upper) (upper =>
+  Parse.givesAfter0 (reads0At modes Upper) (upper =>
     match upper with
       | True => givesUpperQualified modes "a name"
       | False => givesLowerQualified modes "a name")
@@ -76,12 +76,12 @@ theorem givesForallEnd ∀ (modes: Modes) (word: Word) (paren bracket: Bool):
 
 theorem givesForallBump ∀ (modes: Modes): Parse.Gives GoodItems (() => forallBump modes) (found => True) :=
   Parse.givesThen givesBump (taken _ =>
-    givesAfter0 (reads0At modes LParen) (paren =>
-      givesAfter0 (reads0At modes LBracket) (bracket => givesForallEnd modes taken paren bracket)))
+    Parse.givesAfter0 (reads0At modes LParen) (paren =>
+      Parse.givesAfter0 (reads0At modes LBracket) (bracket => givesForallEnd modes taken paren bracket)))
 
 theorem givesForallPart ∀ (modes: Modes) (kind: DefKind):
     Parse.Gives GoodItems (() => forallPart modes kind) (found => True) :=
-  givesAfter0 (reads0At modes KwForall) (found =>
+  Parse.givesAfter0 (reads0At modes KwForall) (found =>
     match found with
       | True =>
         match kind != DefTheorem with
@@ -98,7 +98,7 @@ theorem givesDecreasingClauseOf ∀ (self: Goal → {Parse Item} Expr) (headerMo
 theorem givesDecreasingPart ∀ (self: Goal → {Parse Item} Expr) (modes headerModes: Modes) (isInstance: Bool)
     (nested: Nested self):
     Parse.Gives GoodItems (() => decreasingPart self modes headerModes isInstance) (found => True) :=
-  givesAfter0 (reads0At modes KwDecreasing) (found =>
+  Parse.givesAfter0 (reads0At modes KwDecreasing) (found =>
     match found with
       | True =>
         match isInstance with
@@ -123,8 +123,8 @@ theorem givesUnfoldingNames ∀ (fuel: Nat) (modes: Modes) (found: List Word):
   match fuel with
     | Zero => Parse.givesDone byComputing
     | Succ more =>
-      Parse.givesThen (givesAfter0 (reads0At modes Upper) (upper => givesUnfoldingName modes upper)) (name _ =>
-        givesAfter0 (reads0At modes Comma) (comma => givesUnfoldingNext more modes found name comma))
+      Parse.givesThen (Parse.givesAfter0 (reads0At modes Upper) (upper => givesUnfoldingName modes upper)) (name _ =>
+        Parse.givesAfter0 (reads0At modes Comma) (comma => givesUnfoldingNext more modes found name comma))
 
 theorem givesUnfoldingClauseOf ∀ (afterDecreasing: Modes):
     Parse.Gives GoodItems (() => unfoldingClauseOf afterDecreasing) (found => True) :=
@@ -135,7 +135,7 @@ theorem givesUnfoldingClauseOf ∀ (afterDecreasing: Modes):
 
 theorem givesUnfoldingPart ∀ (modes afterDecreasing: Modes) (isInstance: Bool):
     Parse.Gives GoodItems (() => unfoldingPart modes afterDecreasing isInstance) (found => True) :=
-  givesAfter0 (reads0At afterDecreasing KwUnfolding) (found =>
+  Parse.givesAfter0 (reads0At afterDecreasing KwUnfolding) (found =>
     match found with
       | True =>
         match isInstance with
@@ -158,7 +158,7 @@ theorem givesNamespaceStep ∀ (seen: Seen) (modes: Modes):
       match seen.hasImports || seen.hasDecls with
         | True => Parse.readsFatal _ _
         | False => Parse.givesThen givesFixedFrom (keyword _ =>
-          givesAfter0 (reads0Peek modes) (seen => givesNamespaceAfter modes keyword seen))
+          Parse.givesAfter0 (reads0Peek modes) (seen => givesNamespaceAfter modes keyword seen))
 
 --| Everything `Frame` says, from what is not yet proved and `Nested`.
 def frameOf (self: Goal → {Parse Item} Expr) (nested: Nested self) (rest: FrameRest self): Frame self := {
@@ -182,10 +182,10 @@ theorem givesImportAliasWord ∀ (modes: Modes) (name: Word) (asWord: Comments) 
 
 theorem givesImportAlias ∀ (modes: Modes) (name: Word):
     Parse.Gives GoodItems (() => importAlias modes name) (found => True) :=
-  givesAfter0 (reads0WordAhead modes "as") (asNext =>
+  Parse.givesAfter0 (reads0WordAhead modes "as") (asNext =>
     match asNext with
       | True => Parse.givesThen givesFixedFrom (asWord _ =>
-        givesAfter0 reads0Left (items => givesImportAliasWord modes name asWord items))
+        Parse.givesAfter0 reads0Left (items => givesImportAliasWord modes name asWord items))
       | False => Parse.givesDone byComputing)
 
 theorem givesImportStop ∀ (modes: Modes) (path: Word) (found: List ImportItem) (dots: Bool):
@@ -196,25 +196,25 @@ theorem givesImportStop ∀ (modes: Modes) (path: Word) (found: List ImportItem)
 
 theorem givesImportItems ∀ (fuel: Nat) (modes: Modes) (path: Word) (found: List ImportItem):
     Parse.Gives GoodItems (() => importItems fuel modes path found) (names => True) :=
-  givesAfter0 reads0Left (items =>
+  Parse.givesAfter0 reads0Left (items =>
     match fuel, items with
       | Succ more, [item, ..rest] =>
         match named: (item.kind == Lower || item.kind == Upper) && !isQualified item && !modes.stops item with
           | True => Parse.givesThen givesBump (name _ =>
             Parse.givesThen (givesImportAlias modes name) (alias _ =>
-              givesAfter0 (reads0At modes Comma) (comma =>
+              Parse.givesAfter0 (reads0At modes Comma) (comma =>
                 match comma with
                   | True =>
                     Parse.givesThen givesBump (gone _ => givesImportItems more modes path [{ name, alias }, ..found])
                   | False => Parse.givesDone byComputing)))
-          | False => givesAfter0 (reads0At modes DotDot) (dots => givesImportStop modes path found dots)
-      | other, others => givesAfter0 (reads0At modes DotDot) (dots => givesImportStop modes path found dots))
+          | False => Parse.givesAfter0 (reads0At modes DotDot) (dots => givesImportStop modes path found dots)
+      | other, others => Parse.givesAfter0 (reads0At modes DotDot) (dots => givesImportStop modes path found dots))
 
 theorem givesImportedOf ∀ (modes: Modes) (path: Word) (dots: Bool):
     Parse.Gives GoodItems (() => importedOf modes path dots) (found => True) :=
   match dots with
     | True => Parse.givesThen givesFixedFrom (written _ =>
-      givesAfter0 (reads0At modes RParen) (closed =>
+      Parse.givesAfter0 (reads0At modes RParen) (closed =>
         match closed with
           | True => Parse.givesDone byComputing
           | False => Parse.readsFatal _ _))
@@ -228,18 +228,18 @@ theorem givesImportClose ∀ (modes: Modes) (keyword: Comments) (path: Word) (op
 theorem givesImportOpen ∀ (modes: Modes) (keyword: Comments) (path: Word):
     Parse.Gives GoodItems (() => importOpen modes keyword path) DeclOut :=
   Parse.givesThen (givesExpectFixed modes LParen "`(` and the names to import") (open _ =>
-    Parse.givesThen (givesAfter0 (reads0At modes DotDot) (dots => givesImportedOf modes path dots)) (imported _ =>
+    Parse.givesThen (Parse.givesAfter0 (reads0At modes DotDot) (dots => givesImportedOf modes path dots)) (imported _ =>
       givesImportClose modes keyword path open imported))
 
 theorem givesImportLine ∀ (modes: Modes): Parse.Gives GoodItems (() => importLine modes) DeclOut :=
   Parse.givesThen givesFixedFrom (keyword _ =>
     Parse.givesThen
-      (givesAfter0 (reads0At modes Upper) (upper =>
+      (Parse.givesAfter0 (reads0At modes Upper) (upper =>
         match upper with
           | True => givesBump
           | False => givesFail modes _))
       (path _ =>
-        givesAfter0 (reads0WordAhead modes "as") (asNext =>
+        Parse.givesAfter0 (reads0WordAhead modes "as") (asNext =>
           match asNext with
             | True => Parse.readsFatal _ _
             | False => givesImportOpen modes keyword path)))
@@ -254,7 +254,7 @@ theorem givesAssignedBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     Parse.Gives GoodItems (() => assignedBody self modes) BodyOk :=
   Parse.givesThen givesFixedFrom (colonEq _ =>
     Parse.givesThen (nested { modes, level = LevelFull }) (value parsed =>
-      givesAfter0 (reads0At modes Pipe) (arms =>
+      Parse.givesAfter0 (reads0At modes Pipe) (arms =>
         match arms with
           | True => Parse.readsFatal _ _
           | False => Parse.givesDone parsed)))
@@ -262,7 +262,7 @@ theorem givesAssignedBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 theorem givesDefinitionBodyOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (result: Expr) (d: Nat)
     (nested: Nested self):
     Parse.Gives GoodItems (() => definitionBodyOn self modes result d modes.peek) BodyOk :=
-  givesAfter0 (reads0Peek modes) (seen =>
+  Parse.givesAfter0 (reads0Peek modes) (seen =>
     match seen with
       | Some kind =>
         match isAssigned: kind == ColonEq with
@@ -283,13 +283,13 @@ theorem givesDefinitionBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes
     (nested: Nested self):
     Parse.Gives GoodItems (() => definitionBody self modes result isInstance d) BodyOk :=
   Parse.givesThen (givesDefinitionBodyOn self modes result d nested) (body bodyOk =>
-    givesAfter0 reads0Left (items =>
+    Parse.givesAfter0 reads0Left (items =>
       match definitionRefusal isInstance body items with
         | Some message => Parse.readsFatal _ _
         | None => Parse.givesDone bodyOk))
 
 theorem givesAllowColonEq ∀ (modes: Modes): Parse.Gives GoodItems (() => allowColonEq modes) (found => True) :=
-  givesAfter0 reads0Left (items => Parse.givesDone byComputing)
+  Parse.givesAfter0 reads0Left (items => Parse.givesDone byComputing)
 
 theorem givesAfterDecreasingOf ∀ (modes: Modes) (clause: Option (Comments, Expr)):
     Parse.Gives GoodItems (() => afterDecreasingOf modes clause) (found => True) :=
@@ -304,23 +304,23 @@ theorem givesAfterUnfoldingOf ∀ (afterDecreasing: Modes) (clause: Option (Comm
     | False => Parse.givesDone byComputing
 
 theorem reads0Recovers ∀ (afterUnfolding: Modes): Reads0 (() => recovers afterUnfolding) :=
-  reads0Then (reads0At afterUnfolding ColonEq) (found =>
+  Parse.reads0Then (reads0At afterUnfolding ColonEq) (found =>
     match found with
-      | True => reads0Done True
+      | True => Parse.reads0Done True
       | False => reads0At afterUnfolding Pipe)
 
 theorem givesBodyModes ∀ (afterUnfolding: Modes) (isInstance: Bool) (local: Option Nat):
     Parse.Gives GoodItems (() => bodyModesOf afterUnfolding isInstance local) (found => True) :=
   match local with
     | Some column => Parse.givesDone byComputing
-    | None => givesAfter0 (reads0Recovers afterUnfolding) (recovering => Parse.givesDone byComputing)
+    | None => Parse.givesAfter0 (reads0Recovers afterUnfolding) (recovering => Parse.givesDone byComputing)
 
 theorem reads0ClauseConflict ∀ (afterUnfolding: Modes) (clause: Option (Comments, List Word)):
     Reads0 (() => clauseConflict afterUnfolding clause) :=
-  reads0Then (reads0At afterUnfolding KwDecreasing) (found => reads0Done (conflictOn found clause))
+  Parse.reads0Then (reads0At afterUnfolding KwDecreasing) (found => Parse.reads0Done (conflictOn found clause))
 
 theorem givesDefKindOf ∀ (modes: Modes): Parse.Gives GoodItems (() => defKindOf modes) (kind => True) :=
-  givesOfReads0 (reads0Then (reads0Peek modes) (seen => reads0Done (defKindOn seen)))
+  givesOfReads0 (Parse.reads0Then (reads0Peek modes) (seen => Parse.reads0Done (defKindOn seen)))
 
 theorem givesDefinitionParts ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (exportKeyword opaqueKeyword: Option Comments) (local: Option Nat)
@@ -338,7 +338,7 @@ theorem givesDefinitionParts ∀ (self: Goal → {Parse Item} Expr) (modes: Mode
                   Parse.givesThen (givesAfterDecreasingOf modes decreasingClause) (afterDecreasing _ =>
                     Parse.givesThen (givesUnfoldingPart modes afterDecreasing _) (unfoldingClause _ =>
                       Parse.givesThen (givesAfterUnfoldingOf afterDecreasing unfoldingClause) (afterUnfolding _ =>
-                        givesAfter0 (reads0ClauseConflict afterUnfolding unfoldingClause) (conflict =>
+                        Parse.givesAfter0 (reads0ClauseConflict afterUnfolding unfoldingClause) (conflict =>
                           match conflict with
                             | True => Parse.readsFatal _ _
                             | False => Parse.givesThen (givesBodyModes afterUnfolding _ local) (bodyModes _ =>

@@ -223,3 +223,12 @@ theorem Parse.givesMark [inv: Parse.Invariant t]: Parse.Gives inv (() => Parse.m
 theorem Parse.givesExpected ∀ [inv: Parse.Invariant t] (what: Text) [holds: a → Prop]:
     Parse.Gives inv (() => Parse.expected what) holds :=
   Parse.readsExpected what
+
+--| A look-ahead that reads nothing, then `j` of what it found: `holds` of the
+--| value when it does of every `j value` ([`Parse.readsAtAfter0`] for
+--| [`Parse.Gives`]).
+theorem Parse.givesAfter0 ∀ [inv: Parse.Invariant t] [p: () → {Parse t} a] [j: a → {Parse t} b] [holds: b → Prop]
+    (first: Parse.Reads0 inv p)
+    (rest: ∀ (value: a) => Parse.Gives inv (() => j value) holds):
+    Parse.Gives inv (() => j (p())) holds :=
+  start fine => Parse.readsAtAfter0 first fine (value after same fine2 => rest value after fine2)

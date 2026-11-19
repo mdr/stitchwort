@@ -2349,3 +2349,49 @@ theorem Parse.readsAtMarkThen ∀ [start: Parse.Mark t] [j: Parse.Mark t → {Pa
     let given: Parse.runFrom state (() => (j start, Parse.mark())) = Ok (value, after) :=
       rewrite here at marked then marked
     reads total state value after here honest given
+
+--| A look-ahead: a parser that reads nothing, from every mark where `inv`
+--| holds of the input left. Look-aheads chain by [`Parse.reads0Then`], and
+--| [`Parse.readsAtAfter0`] and [`Parse.givesAfter0`] put one in front of a
+--| parser that reads or gives something.
+def Parse.Reads0 (inv: Parse.Invariant t) (p: () → {Parse t} a): Prop :=
+  ∀ (start: Parse.Mark t) => Parse.Fits t inv start.rest → Parse.ReadsAt start p (read value => read = [])
+
+--| A pure value is a look-ahead: it reads nothing.
+theorem Parse.reads0Done ∀ [inv: Parse.Invariant t] (x: a): Parse.Reads0 inv (() => x) := start fine =>
+  Parse.readsAtDone start x _ byComputing
+
+--| What a mark shows, read by a pure function of it: nothing is read.
+theorem Parse.reads0Mark ∀ [inv: Parse.Invariant t] (f: Parse.Mark t → a): Parse.Reads0 inv (() => f (Parse.mark())) :=
+  start fine =>
+    Parse.readsInMark (here => f here) _ (here fine1 => Parse.readsAtDone _ (f here) _ byComputing) start fine
+
+--| The mark itself is a look-ahead.
+theorem Parse.reads0Here [inv: Parse.Invariant t]: Parse.Reads0 inv (() => Parse.mark()) :=
+  Parse.reads0Mark (here => here)
+
+--| Look-aheads in sequence: `p`, then `j` of its value, when `p` and every
+--| `j value` read nothing.
+theorem Parse.reads0Then ∀ [inv: Parse.Invariant t] [p: () → {Parse t} a] [j: a → {Parse t} b]
+    (first: Parse.Reads0 inv p)
+    (rest: ∀ (value: a) => Parse.Reads0 inv (() => j value)):
+    Parse.Reads0 inv (() => j (p())) :=
+  start fine =>
+    Parse.readsAtThen (first start fine) (read value after starts empty =>
+      Parse.readsAtWeaken (rest value after (Parse.Fits.after fine starts)) (taken result nothing =>
+        rewrite empty then nothing))
+
+--| A look-ahead that reads nothing, then `j` of what it found, from a mark:
+--| `j` is read from the mark after it, which has the same items left.
+theorem Parse.readsAtAfter0 ∀ [inv: Parse.Invariant t] [start: Parse.Mark t] [p: () → {Parse t} a]
+    [j: a → {Parse t} b] [spec: List t → b → Prop]
+    (first: Parse.Reads0 inv p)
+    (fine: Parse.Fits t inv start.rest)
+    (rest: ∀ (value: a) (after: Parse.Mark t) => after.rest = start.rest
+      → Parse.Fits t inv after.rest
+      → Parse.ReadsAt after (() => j value) spec):
+    Parse.ReadsAt start (() => j (p())) spec :=
+  Parse.readsAtThen (first start fine) (read value after starts empty =>
+    let same: after.rest = start.rest := rewrite empty at starts then starts.flipped
+    Parse.readsAtWeaken (rest value after same (Parse.Fits.after fine starts)) (taken result done =>
+      rewrite empty then done))

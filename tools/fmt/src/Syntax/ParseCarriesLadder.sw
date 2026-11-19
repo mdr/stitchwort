@@ -124,15 +124,15 @@ theorem readsPipeChain ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (in
 -- Ranges and the pipelines around them.
 
 theorem reads0RangeChained ∀ (modes: Modes): Reads0 (() => modes.at DotDotLt || modes.at DotDotEq) :=
-  reads0Then (reads0At modes DotDotLt) (lt =>
+  Parse.reads0Then (reads0At modes DotDotLt) (lt =>
     match lt with
-      | True => reads0Done True
+      | True => Parse.reads0Done True
       | False => reads0At modes DotDotEq)
 
 --| A range is outside the slice: `..<` and `..=` aren't in it.
 theorem givesRangeEndOut ∀ (modes: Modes) (low: Expr) (operator: Word) (high: Expr):
     Parse.Gives GoodItems (() => rangeEnd modes low operator high) Out :=
-  givesAfter0 (reads0RangeChained modes) (chained =>
+  Parse.givesAfter0 (reads0RangeChained modes) (chained =>
     match chained with
       | True => Parse.readsFatal _ _
       | False => Parse.givesDone byComputing)
@@ -744,14 +744,14 @@ theorem readsAtAtomStuck ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (
     (fine: Parse.Fits Item GoodItems start.rest)
     (quiet: peekIn modes 0 start.rest = None):
     Parse.ReadsAt start (() => atom self modes head) Stuck :=
-  readsAtAfter0 (reads0Peek modes) fine (first after same fits =>
+  Parse.readsAtAfter0 (reads0Peek modes) fine (first after same fits =>
     readsAtStuckThen (readsAtAtomBaseStuck self modes after (rewrite same then quiet)))
 
 theorem readsAtAppStuck ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (start: Parse.Mark Item)
     (fine: Parse.Fits Item GoodItems start.rest)
     (quiet: peekIn modes 0 start.rest = None):
     Parse.ReadsAt start (() => app self modes) Stuck :=
-  readsAtAfter0 reads0Offset fine (at after same fits =>
+  Parse.readsAtAfter0 reads0Offset fine (at after same fits =>
     readsAtPeekNone after modes
       [k := seen => appHead self modes (isSome Dot seen && modes.sectionHead != Some at)]
       (rewrite same then quiet)
@@ -788,14 +788,14 @@ theorem readsAtPipedRangeStuck ∀ (self: Goal → {Parse Item} Expr) (modes: Mo
     (fine: Parse.Fits Item GoodItems start.rest)
     (quiet: peekIn modes 0 start.rest = None):
     Parse.ReadsAt start (() => pipedRange self modes) Stuck :=
-  readsAtAfter0 reads0HeadIndent fine (indentAt after same fits =>
+  Parse.readsAtAfter0 reads0HeadIndent fine (indentAt after same fits =>
     readsAtStuckThen (readsAtStuckThen (readsAtAppendStuck self modes after fits (rewrite same then quiet))))
 
 theorem readsAtCmpStuck ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (start: Parse.Mark Item)
     (fine: Parse.Fits Item GoodItems start.rest)
     (quiet: peekIn modes 0 start.rest = None):
     Parse.ReadsAt start (() => cmpExpr self modes) Stuck :=
-  readsAtAfter0
+  Parse.readsAtAfter0
     [p := () => left()]
     [j := items => cmpFirst self modes (items.head.map Item.kind)]
     reads0Left
@@ -808,7 +808,7 @@ theorem readsAtOperatorStuck ∀ (self: Goal → {Parse Item} Expr) (modes: Mode
     (fine: Parse.Fits Item GoodItems start.rest)
     (quiet: peekIn modes 0 start.rest = None):
     Parse.ReadsAt start (() => operatorExpr self modes) Stuck :=
-  readsAtAfter0 reads0Offset fine (at after same fits =>
+  Parse.readsAtAfter0 reads0Offset fine (at after same fits =>
     readsAtPeekNone after modes
       [k := seen => opSection self modes at (isSome Dot seen)]
       (rewrite same then quiet)
@@ -827,13 +827,13 @@ theorem readsAtExprPlainStopped ∀ (self: Goal → {Parse Item} Expr) (modes: M
       ∨ ∃ (item: Item) => ∃ (later: List Item) => start.rest = [item, ..later] ∧ modes.stops item = True):
     Parse.ReadsAt start (() => exprPlain self modes) KeptFull :=
   let quiet := peekNone modes start.rest stops
-  readsAtAfter0
+  Parse.readsAtAfter0
     (start2 fine2 => Parse.readsAtWeaken (readsAtImplicitHere start2 modes) (read found (empty, _) => empty))
     fine
     (implicit after same fits =>
       match implicit with
         | True => readsOutFull (outside.piExprs modes True) after fits
-        | False => readsAtAfter0 (reads0PiHere modes) fits (pi after2 same2 fits2 =>
+        | False => Parse.readsAtAfter0 (reads0PiHere modes) fits (pi after2 same2 fits2 =>
           match pi with
             | True => readsOutFull (outside.piExprs modes False) after2 fits2
             | False => readsAtOfStuck (readsAtOperatorStuck self modes after2 fits2 (rewrite same2, same then quiet))))
@@ -948,8 +948,8 @@ theorem givesLocalAttributedOut ∀ (self: Goal → {Parse Item} Expr) (allowed:
 theorem givesAttributedLocalOut ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (attributes: List Attributes)
     (nested: Nested self) (items: List Item):
     Parse.Gives GoodItems (() => attributedLocal self modes attributes items) StatementOut :=
-  givesAfter0 (reads0At (allowedAt modes items) KwDef) (atDef =>
-    givesAfter0 (reads0At (allowedAt modes items) KwTheorem) (atTheorem =>
+  Parse.givesAfter0 (reads0At (allowedAt modes items) KwDef) (atDef =>
+    Parse.givesAfter0 (reads0At (allowedAt modes items) KwTheorem) (atTheorem =>
       givesLocalAttributedOut self (allowedAt modes items) attributes nested atDef atTheorem))
 
 theorem givesLetStatementEndOut ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
@@ -965,7 +965,7 @@ theorem givesStatementOtherOut ∀ (self: Goal → {Parse Item} Expr) (modes: Mo
     Parse.Gives GoodItems (() => statementOther self modes kind) StatementOut :=
   match kind == KwLet with
     | True => Parse.givesThen (givesLetStatement self modes nested) (binding _ =>
-      givesAfter0
+      Parse.givesAfter0
         [p := () => modes.at Semi]
         [j := atSemi => letStatementEnd self modes binding atSemi]
         (reads0At modes Semi)
@@ -976,7 +976,7 @@ theorem givesStatementOtherOut ∀ (self: Goal → {Parse Item} Expr) (modes: Mo
         | False =>
           match kind == At with
             | True => Parse.givesThen (givesAttributesOf modes) (attributes _ =>
-              givesAfter0
+              Parse.givesAfter0
                 [p := () => left()]
                 [j := items => attributedLocal self modes attributes items]
                 reads0Left

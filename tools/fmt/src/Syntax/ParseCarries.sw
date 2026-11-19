@@ -66,7 +66,7 @@ theorem readsAfter0 ∀ [p: () → {Parse Item} a] [j: a → {Parse Item} b] [sp
     (first: Reads0 p)
     (rest: ∀ (value: a) => Parse.ReadsIn GoodItems (() => j value) spec):
     Parse.ReadsIn GoodItems (() => j (p())) spec :=
-  start fine => readsAtAfter0 first fine (value after same fits => rest value after fits)
+  start fine => Parse.readsAtAfter0 first fine (value after same fits => rest value after fits)
 
 --| `bump` then `k` of its word, from a mark whose next item is `item`: `item` is read, then what `k` reads from after
 --| it.
@@ -244,4 +244,4 @@ theorem readsTupleClose ∀ (modes: Modes): Parse.ReadsIn GoodItems (() => tuple
       | False => readsExpect modes RParen _)
 
 theorem readsTupleEnds ∀ (inner: Modes) (count: Nat): Reads0 (() => tupleEnds inner count) :=
-  reads0Then (reads0At inner RParen) (found => reads0Done _)
+  Parse.reads0Then (reads0At inner RParen) (found => Parse.reads0Done _)
