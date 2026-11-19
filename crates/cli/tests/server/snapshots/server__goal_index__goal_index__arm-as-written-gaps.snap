@@ -276,7 +276,7 @@ expression: json
     ],
     "message": "in `alternatives`",
     "notes": [
-      "this arm is checked in 2 cases; the goal shown is the last of them"
+      "this arm is checked once for each of its 2 alternatives; the goal above is the one in `Some True`, and the others are:\n  in `None`:\n    p: Option Bool → Prop\n    ⊢ p None"
     ],
     "range": [
       23,

@@ -128,7 +128,7 @@ fn arm_spans(tree: &Tree, out: &mut Vec<Span>) {
             span, alternatives, ..
         } => {
             out.push(*span);
-            out.extend(alternatives);
+            out.extend(alternatives.iter().map(|p| p.span()));
         }
         Tree::Absurd { span, .. } => out.push(*span),
         Tree::Missing { .. } => {}

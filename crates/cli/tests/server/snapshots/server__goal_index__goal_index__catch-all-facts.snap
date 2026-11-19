@@ -676,7 +676,7 @@ expression: json
     ],
     "message": "in `alternatives`",
     "notes": [
-      "this arm is checked in 2 cases; the goal shown is the last of them"
+      "this arm is checked once for each of its 2 alternatives; the goal above is the one in `2`, and the others are:\n  in `1`:\n    p: Nat → Prop\n    ⊢ p 1"
     ],
     "range": [
       37,

@@ -31,7 +31,8 @@ expression: json
     ],
     "message": "type mismatch",
     "notes": [
-      "this arm is checked in 12 cases, and this error is in the case where `s` is `\"\"`"
+      "this arm is checked in 12 cases, and this error is in the case where `s` is `\"\"`",
+      "this error is in the alternative `Some True`"
     ],
     "range": [
       8,

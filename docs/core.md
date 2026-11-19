@@ -644,7 +644,7 @@ The interpreter (`stitchwort run`) makes the same functions loops in its IR (`cr
 | `E-NOT-A-PROP` | A `theorem` whose type isn't a proposition |
 | `E-REFL` | `byComputing` used for sides that don't compute to the same value |
 | `E-NONEXHAUSTIVE` | Missing pattern-match case. A constructor case lists every missing case, as arms to paste (`| Tri _ _ => ?`, SW-1027; `docs/syntax.md` "Missing cases") |
-| `E-OR-PATTERN-BINDS` | An alternative of an or-pattern `p \| q` binds a variable |
+| `E-OR-PATTERN-BINDS` | A name is bound in some alternatives of an or-pattern `p \| q` but not all |
 | `E-MATCH-MOTIVE` | A `match` whose scrutinees can't be generalised in this version (the same variable twice, one scrutinee part of another, one's type mentioning another) or whose generalised type is ill-formed |
 | `E-TERMINATION` | Recursion that can't be shown to terminate, or a recursive call not given all its arguments |
 | `E-TAILREC` | A definition marked `@[tailrec]` that calls itself outside tail position (the label says what waits on the call), calls a definition that calls it back (mutual groups aren't covered yet), or never calls itself |

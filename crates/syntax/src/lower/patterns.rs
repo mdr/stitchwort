@@ -242,17 +242,54 @@ impl<'f> Lower<'f> {
                 ));
             }
         };
-        if let Some(name) = alternatives.iter().find_map(first_bound) {
-            return Err(Unsupported::Invalid(Box::new(
-                Diagnostic::error("E-OR-PATTERN-BINDS", "an or-pattern can't bind names")
-                    .with_label(name.span, format!("`{}` is bound here", name.text))
-                    .with_note(
-                        "write `_` for a part that isn't used, or match each alternative in an \
-                         arm of its own",
-                    ),
-            )));
+        if let Some(error) = self.unshared_name(&alternatives) {
+            return Err(Unsupported::Invalid(Box::new(error)));
         }
         Ok(Pattern::Or(alternatives, first.to(last)))
+    }
+
+    /// `E-OR-PATTERN-BINDS` if a name is bound in some of an or-pattern's
+    /// alternatives but not all: the arm's body is checked once per
+    /// alternative, with that alternative's bindings, so each must give it
+    /// every name it may use (D3694).
+    fn unshared_name(&self, alternatives: &[Pattern]) -> Option<Diagnostic> {
+        let names: Vec<Vec<&Name>> = (alternatives.iter())
+            .map(|alternative| {
+                let mut out = Vec::new();
+                bound_names(alternative, &mut out);
+                out
+            })
+            .collect();
+        let binds = |a: usize, x: &str| names[a].iter().any(|n| n.text == x);
+        let (with, name) = (names.iter().enumerate())
+            .flat_map(|(a, bound)| bound.iter().map(move |&n| (a, n)))
+            .find(|(_, n)| (0..alternatives.len()).any(|b| !binds(b, &n.text)))?;
+        let without = (0..alternatives.len()).find(|&b| !binds(b, &name.text))?;
+        let shown = |a: usize| {
+            let span = alternatives[a].span();
+            (self.text.get(span.start as usize..span.end as usize)).unwrap_or("this alternative")
+        };
+        Some(
+            Diagnostic::error(
+                "E-OR-PATTERN-BINDS",
+                format!(
+                    "`{}` is bound in `{}` but not in `{}`",
+                    name.text,
+                    shown(with),
+                    shown(without)
+                ),
+            )
+            .with_label(name.span, format!("`{}` is bound here", name.text))
+            .with_label(
+                alternatives[without].span(),
+                format!("this alternative doesn't bind `{}`", name.text),
+            )
+            .with_note(
+                "the arm's body is checked once for each alternative, so every alternative binds \
+                 the same names; write `_` for a part that isn't used, or match this alternative \
+                 in an arm of its own",
+            ),
+        )
     }
 
     /// `(p)`: `p`, except that a constructor written first inside, `(Some
@@ -357,19 +394,27 @@ fn items<'f>(node: Node<'f>, punctuation: &[Tok]) -> Vec<Element<'f>> {
 
 /// The first variable a pattern binds, if any (a punned record field is
 /// one).
-fn first_bound(p: &Pattern) -> Option<&Name> {
+/// The names `p` binds, left to right. An or-pattern inside binds its first
+/// alternative's: [`Lower::unshared_name`] has checked the others bind the
+/// same.
+fn bound_names<'p>(p: &'p Pattern, out: &mut Vec<&'p Name>) {
     match p {
-        Pattern::Var(name) => Some(name),
-        Pattern::Ctor(_, args, _) => args.iter().find_map(first_bound),
+        Pattern::Var(name) => out.push(name),
+        Pattern::Ctor(_, args, _) => args.iter().for_each(|p| bound_names(p, out)),
         Pattern::Tuple(a, b, _) | Pattern::Cons(a, b, _) => {
-            first_bound(a).or_else(|| first_bound(b))
+            bound_names(a, out);
+            bound_names(b, out);
         }
-        Pattern::Named(_, p, _) => first_bound(p),
-        Pattern::Prefix { rest, .. } => first_bound(rest),
+        Pattern::Named(_, p, _) => bound_names(p, out),
+        Pattern::Prefix { rest, .. } => bound_names(rest, out),
         Pattern::Record { fields, .. } | Pattern::CtorFields { fields, .. } => {
-            fields.iter().find_map(|(_, p)| first_bound(p))
+            fields.iter().for_each(|(_, p)| bound_names(p, out))
         }
-        Pattern::Or(alternatives, _) => alternatives.iter().find_map(first_bound),
-        _ => None,
+        Pattern::Or(alternatives, _) => {
+            if let Some(first) = alternatives.first() {
+                bound_names(first, out)
+            }
+        }
+        _ => {}
     }
 }

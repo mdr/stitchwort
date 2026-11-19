@@ -208,6 +208,21 @@ fn rejects_binding_in_or_patterns() {
         assert_eq!(error.code, "E-OR-PATTERN-BINDS", "{text}");
     }
     assert!(rhs_of("def f (o : Nat) : Nat := match o with | Some _ | None => 0\n").is_ok());
+    // Every alternative binding the same names, at any depth (D3694).
+    for text in [
+        "def f (o : Nat) : Nat := match o with | Inl x | Inr x => x\n",
+        "def f (o : Nat) : Nat := match o with | Inl (Inl x | Inr x) => x\n",
+        "def f (o : Nat) : Nat := match o with | (x, Inl y) | (y, Inr x) => x\n",
+        "def f (o : Nat) : Nat := match o with | Inl (Inl x | Inr x) | Inr x => x\n",
+    ] {
+        assert!(rhs_of(text).is_ok(), "{text}");
+    }
+    let error =
+        rhs_of("def f (o : Nat) : Nat := match o with | Inl (Inl x) | Inr _ => 0\n").unwrap_err();
+    assert_eq!(
+        error.message,
+        "`x` is bound in `Inl (Inl x)` but not in `Inr _`"
+    );
 }
 
 #[test]
