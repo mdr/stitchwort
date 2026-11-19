@@ -36,6 +36,9 @@ import Fmt.OutputStatements (tidiedOf)
 import Fmt.OneLineStatements (..)
 import Fmt.Driver1 (..)
 import Fmt.ElementsKeys (LedAt, anyKeys, ledItemHangs)
+import Fmt.ElementsParen (innerLowers, parenLedElHangs, parenPlainElHangs)
+import Fmt.ExprHangProofs (closeParen, openParen, parenInnerPlain)
+import Fmt.TrailsProofs (parenTrails)
 
 -- The invariant.
 
@@ -236,8 +239,8 @@ theorem prefixAny ∀ (operator: Word) (operand: Expr)
               byComputing)
   (hangs, level first around bare => hangs around bare)
 
---| A paren (open): any comments on its opener, what it holds and its closer. An opener with a comment after it is
---| `parenHeldHangs` (`Fmt.HeldParenProofs`).
+--| A paren (proved): any comments on its opener, what it holds and its closer. What it holds starts where it stands
+--| (`parenPlainElHangs`), or on the line after own-line comments above its first token (`parenLedElHangs`).
 theorem parenAny ∀ (open: Word) (inner: Expr) (close: Word)
     (within: (Paren open inner close).within1 = True)
     (lexical: (Paren open inner close).lexical1 = True)
@@ -245,7 +248,69 @@ theorem parenAny ∀ (open: Word) (inner: Expr) (close: Word)
     (homed: (Paren open inner close).homed1 = True)
     (facts: AnyFacts inner):
     AnyFacts (Paren open inner close) :=
-  ?
+  let isOpen: open.text = "(" := DecEq.sound (Bool.andLeft lexical)
+  let isClose: close.text = ")" := DecEq.sound (Bool.andLeft (Bool.andRight lexical))
+  let innerWithin: inner.within1 = True := within
+  let innerLexical: inner.lexical1 = True := Bool.andRight (Bool.andRight lexical)
+  let innerSound: inner.sound = True := Bool.andLeft (Bool.andRight sound)
+  let closeSound: close.sound = True := Bool.andRight (Bool.andRight sound)
+  let hangs: ∀ (around: Around) => (Paren open inner close).plainAt around = True
+    → HangsAt lexKind around.before (Paren open inner close).trails ((Paren open inner close).el around) :=
+    around bare indent column =>
+      let innerAround := around.next open.trails 1
+      let keys := anyKeys inner innerAround (around.at + 1) innerWithin (Nat.leRefl _)
+      rewrite parenTrails open inner close (rewrite isClose) (Inr (codedLex inner innerWithin innerLexical)) then
+        match above: inner.lead.comments.above with
+          | [] =>
+            let unnoted: inner.lead.noted = False := Eq.cong (notes => !notes.isEmpty) above
+            parenPlainElHangs lexKind open inner close around indent column
+              (rewrite isOpen then openParen)
+              (trailsOfSound open (Bool.andLeft sound))
+              (rewrite isClose then closeParen)
+              (notesOfWord close closeSound)
+              (trailsOfSound close closeSound)
+              (unledLeading open around around.at bare)
+              (parenInnerPlain inner innerAround innerWithin)
+              (inset =>
+                anyHangsOf inner facts innerAround (unnotedPlain inner innerAround unnoted byComputing) inset inset)
+              (trails inset =>
+                let (_, plainLowers) :=
+                  innerLowers inner innerAround inset
+                    (around.at + 1)
+                    innerWithin
+                    innerLexical
+                    byComputing
+                    byComputing
+                    (Nat.leRefl _)
+                plainLowers above trails)
+              keys
+          | [note, ..rest] =>
+            let quiet: ∀ (entry: Place) => (plainStart entry && note.blankBefore && innerAround.item) = False :=
+              entry => rewrite Bool.andFalse note.blankBefore then Bool.andFalse (plainStart entry)
+            parenLedElHangs lexKind open inner close around indent column
+              (rewrite isOpen then openParen)
+              (trailsOfSound open (Bool.andLeft sound))
+              (rewrite isClose then closeParen)
+              (notesOfWord close closeSound)
+              (trailsOfSound close closeSound)
+              (unledLeading open around around.at bare)
+              (parenInnerPlain inner innerAround innerWithin)
+              (inset state entry =>
+                ledAnyHangs inner innerAround inset state entry note rest innerWithin innerLexical innerSound facts
+                    byComputing above
+                    (quiet entry))
+              (inset =>
+                let (ledLowers, _) :=
+                  innerLowers inner innerAround inset
+                    (around.at + 1)
+                    innerWithin
+                    innerLexical
+                    byComputing
+                    byComputing
+                    (Nat.leRefl _)
+                ledLowers (rewrite above))
+              keys
+  (hangs, level first around bare => hangs around bare)
 
 --| A tuple (open): comments and kept blank lines on any item, after any item, and on the brackets.
 theorem tupleAny ∀ (open: Word) (items: List Expr) (trailing: Bool) (close: Word)
