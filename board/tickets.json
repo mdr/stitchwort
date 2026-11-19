@@ -1,5 +1,5 @@
 {
-  "next": 4211,
+  "next": 4212,
   "tickets": [
     {
       "id": 47,
@@ -26919,12 +26919,12 @@
     {
       "id": 4203,
       "title": "[Opus] slice1Formats: add that comments are kept (CommentsKept, Fmt/Meaning.sw:288, has no theorem) before slice 2's passes delete tokens (SW-4196 finding 2)",
-      "status": "doing",
+      "status": "backlog",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From docs/proposals/self-hosted-fmt-s2-sketch.md.",
+      "body": "From docs/proposals/self-hosted-fmt-s2-sketch.md.\n\nProgress (lane, 19 Nov 17:25, Opus): stopped as the brief says. CommentsKept's clause 1 (blankAbove in commentViews) is false of slice 1's formatter. Counterexample, in inGrammar1 and accepted by formatWithin1: source \"def d: A := f\\n\\n  -- c\\n  x\\n\" formats to \"def d: A :=\\n  f\\n    -- c\\n    x\\n\"; the comment's blank line above is dropped (settledBare view -- c own-line blankAbove=T, output's blankAbove=F). Cause: calm (Comments.kept, Fmt/Predicates1.sw) clears the first comment's blankBefore unless the token is a tuple/list item and not a closer. Same for an operator's operand, a closer, a type's first token. Kept: between declarations, above a list item. Clause 2 (holders, incl. blankBelow) held on every probe. No theorem written; nothing committed. Decision for Matt: narrow clause 1's blankAbove (e.g. to declarations' first tokens and items) or make the printer keep these blank lines. Also: main's Fmt.TopStatements doesn't check: meaningBlanksFirst was deleted by SW-4193 (176b98182) but slice1Formats uses it.\n\nD3693 (Matt, 19 Nov 2026): keep the blank line above a comment everywhere (\"Agreed. Keep the blank line everywhere.\"). SW-4211 changes both printers; then this ticket proves CommentsKept as stated.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -27019,6 +27019,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 45 min. Paper. D3692 (Matt, 19 Nov 2026): 'I would be happy to do the consolidation, the tidying of slice one proof, removing duplicate theorems, moving general lemmas into standard, splitting the biggest files, generalizing, etc. Anything we can do to make it nicer and more suitable for extension. And yes, fixing tool friction ... But I'm not eager to jump into work on slice two just yet.'",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4211,
+      "title": "[Opus] D3693: both formatters keep a blank line above a comment wherever the source has one (today only between declarations and above list/tuple items; dropped above a call argument, an operand, a closer, a type): Rust crates/fmt and self-hosted tools/fmt printer, the calm/Comments.kept predicate (Predicates1.sw) and the slice 1 proofs that rest on it; output stays idempotent; goldens and must-accept tests",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 60 min. D3693 (Matt, 19 Nov 2026): 'Keep the blank line everywhere.' Counterexamples and probe: SW-4203 notes; /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/sw4203/CommentsProbe.sw",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
