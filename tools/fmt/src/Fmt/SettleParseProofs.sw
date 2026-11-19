@@ -12,7 +12,8 @@
 --| What is proved here: the file's layer, from that fact for one declaration group (`groupKeepsTokens1`). The
 --| groups are cut by the tokens (`splitTokens`), the file is refused or not by its first token, and the groups'
 --| declarations are parsed one at a time, each with the same `Seen` on both sides since both are definitions.
---| `groupKeepsTokens1` itself is a walk of the parser beside `Syntax.ParseWalk`'s, and is open.
+--| `groupKeepsTokens1` itself comes from `groupKeepsTokens`, the two-run walk of the parser (`Syntax.FollowsParse`),
+--| with slice 1's grammar and the lowering error read off the blanked tree (`grammar1Deaf`, `loweringDeaf`).
 
 namespace Fmt.SettleParseProofs
 import Std (Bool, Eq, Fail, List, Nat, Option, Parse, Result, Text)
@@ -26,6 +27,8 @@ import Syntax.SettleProofs (alphabet1, plain1, sourcePlainOfPlain, tokens)
 import Syntax.GoodItemProofs (settledOnceTokens, spelledPlain1)
 import Syntax.ParseCarries (codeWords)
 import Syntax.ParseWalkOthers (parseCarriesSourceProved)
+import Syntax.DeafProofs (grammar1Deaf, loweringDeaf)
+import Syntax.FollowsParse (declarationKeepsTokens)
 
 -- One group.
 
@@ -34,14 +37,21 @@ def groupRun (seen: Seen) (group: List Leaf): Result Decl Parse.Failure := Parse
   let decl := declaration seen
   decl)
 
+--| The parser reads one declaration group's comments only into the tree: a group that parses parses as well with
+--| the same tokens and any comments, to the same declaration with its comments blanked. For any declaration, not
+--| only slice 1's: it is the two-run walk of the whole parser (`Syntax.FollowsParse.declarationKeepsTokens`).
+theorem groupKeepsTokens ∀ (seen: Seen) (group other: List Leaf) (decl: Decl)
+    (same: tokens group = tokens other)
+    (runs: groupRun seen group = Ok decl):
+    ∃ (twin: Decl) => groupRun seen other = Ok twin ∧ twin.walk blankPure = decl.walk blankPure :=
+  declarationKeepsTokens seen group other decl same runs
+
 --| The parser reads one declaration group's comments only into the tree: a group whose declaration is slice 1's
 --| parses as well with the same tokens and any comments, to the same declaration with its comments blanked, with
 --| the same lowering error (none, for slice 1's trees).
 --|
---| Open. It is a walk of the declaration parser on two item lists that differ only in their leaves' trivia: each
---| look-ahead reads `leaf.token` (or an item's `glued`, `afterOperand`, `afterDot`, `index`, `depth` and
---| `lineIndent`, all computed from tokens by `items`), and each word read is `leaf.word` of the item, whose blank is
---| the same on both sides.
+--| Slice 1's grammar and the lowering error are read off the blanked tree (`grammar1Deaf`, `loweringDeaf`), which
+--| `groupKeepsTokens` says is the same on both sides.
 theorem groupKeepsTokens1 ∀ (seen: Seen) (group other: List Leaf) (decl: Decl)
     (same: tokens group = tokens other)
     (runs: groupRun seen group = Ok decl)
@@ -50,7 +60,17 @@ theorem groupKeepsTokens1 ∀ (seen: Seen) (group other: List Leaf) (decl: Decl)
       ∧ twin.walk blankPure = decl.walk blankPure
       ∧ twin.grammar1 = True
       ∧ twin.loweringError = decl.loweringError :=
-  ?
+  let (twin, twinRuns, alike) := groupKeepsTokens seen group other decl same runs
+  let twinGrammar: twin.grammar1 = True := calc twin.grammar1
+    _ = (twin.walk blankPure).grammar1 := grammar1Deaf twin
+    _ = (decl.walk blankPure).grammar1 := rewrite alike
+    _ = decl.grammar1 := Eq.flipped (grammar1Deaf decl)
+    _ = True := grammar
+  let twinLowered: twin.loweringError = decl.loweringError := calc twin.loweringError
+    _ = (twin.walk blankPure).loweringError := loweringDeaf twin
+    _ = (decl.walk blankPure).loweringError := rewrite alike
+    _ = decl.loweringError := Eq.flipped (loweringDeaf decl)
+  (twin, twinRuns, alike, twinGrammar, twinLowered)
 
 -- The file.
 
