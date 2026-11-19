@@ -55,11 +55,11 @@ theorem readsNever ∀ [p: () → {Parse Item} a] [spec: List Item → a → Pro
 
 theorem readsFail ∀ (modes: Modes) (what: Text) [spec: List Item → a → Prop]:
     Parse.ReadsIn GoodItems (() => modes.fail what) spec :=
-  readsNever (holds => givesFail modes what [holds := holds])
+  readsNever (holds => givesFail modes what)
 
 theorem readsFailName ∀ (modes: Modes) (what: Text) [spec: List Item → a → Prop]:
     Parse.ReadsIn GoodItems (() => modes.failName what) spec :=
-  readsNever (holds => givesFailName modes what [holds := holds])
+  readsNever (holds => givesFailName modes what)
 
 --| A look-ahead, then `j` of what it found: `j` reads all that is read.
 theorem readsAfter0 ∀ [p: () → {Parse Item} a] [j: a → {Parse Item} b] [spec: List Item → b → Prop]
@@ -125,7 +125,7 @@ theorem sameOrOutThen ∀ [target middle value: Expr] [first second: List Item]
 
 theorem readsSuffixCalled ∀ (target: Expr) (callable paren: Bool):
     Parse.ReadsIn GoodItems (() => suffixCalled target callable paren) (SameOrOut target) :=
-  readsAfter0 [p := () => left()] [j := seen => suffixCalledOn target callable paren seen] reads0Left (seen =>
+  readsAfter0 reads0Left (seen =>
     match unitCall seen with
       | False => Parse.readsDone _ _ (Inl (byComputing, byComputing))
       | True =>
@@ -175,7 +175,7 @@ theorem readsSuffixes ∀ (fuel: Nat) (modes: Modes) (target: Expr) (callable pa
   match fuel with
     | Zero => Parse.readsDone _ _ (Inl (byComputing, byComputing))
     | Succ more => Parse.readsThen (readsSuffixCalled target callable paren) (r1 called calledKept =>
-      Parse.readsThen [first := read found => read = []] reads0Left (r2 seen empty =>
+      Parse.readsThen reads0Left (r2 seen empty =>
         Parse.readsWeaken
           (readsSuffixesOn more modes called paren seen (later again out =>
             readsSuffixesOut more modes later again paren out))
@@ -191,7 +191,7 @@ theorem readsAtomRecord ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (h
     | True =>
       match head with
         | False => Parse.readsDone _ _ (Inl (byComputing, byComputing))
-        | True => Parse.readsThen [first := read found => read = []] (reads0At modes LBrace) (r1 found empty =>
+        | True => Parse.readsThen (reads0At modes LBrace) (r1 found empty =>
           match found with
             | True => Parse.readsThen records (r2 fields _ =>
               Parse.readsDone (CtorFields base fields, False) _ (Inr byComputing))
@@ -246,4 +246,4 @@ theorem readsTupleClose ∀ (modes: Modes): Parse.ReadsIn GoodItems (() => tuple
       | False => readsExpect modes RParen _)
 
 theorem readsTupleEnds ∀ (inner: Modes) (count: Nat): Reads0 (() => tupleEnds inner count) :=
-  reads0Then [p := () => inner.at RParen] (reads0At inner RParen) (found => reads0Done _)
+  reads0Then (reads0At inner RParen) (found => reads0Done _)

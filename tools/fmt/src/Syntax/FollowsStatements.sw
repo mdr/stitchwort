@@ -377,7 +377,6 @@ theorem followsLetAnnotation ∀ [self selfTwin: Goal → {Parse Item} Expr]
   match atColon with
     | True => Parse.followsThen followsFixedFrom (colon colonTwin colons =>
       Parse.followsMap
-        [alike := CommentedAlike]
         (annotation => Some (colon, annotation))
         (annotation => Some (colonTwin, annotation))
         (annotation annotationTwin annotations => (colons, annotations))
@@ -396,7 +395,6 @@ theorem followsLetEquals ∀ [self selfTwin: Goal → {Parse Item} Expr]
     | True => followsFatalAny defEquals (() => Syntax.fatal defEquals)
     | False => Parse.followsThen (expects modes ColonEq "`:=`") (colonEq colonEqTwin colonEqs =>
       Parse.followsMap
-        [alike := LetsAlike]
         (value => { keyword, pattern, annotation, colonEq, value })
         (value =>
           { keyword = keywordTwin, pattern = patternTwin, annotation = annotationTwin, colonEq = colonEqTwin, value })
@@ -444,7 +442,6 @@ theorem followsLetEnd ∀ [self selfTwin: Goal → {Parse Item} Expr]
       Syntax.fatal "`let` needs a body after `;`: `(let x := e; body)`")
     | False =>
       Parse.followsMap
-        [alike := ExprsAlike]
         (body => LetIn binding semicolon body)
         (body => LetIn twin semicolonTwin body)
         (body bodyTwin bodies => alikeLetIn binding twin lets semicolon semicolonTwin body bodyTwin bodies)
@@ -475,10 +472,7 @@ theorem followsLetBody ∀ [self selfTwin: Goal → {Parse Item} Expr]
 theorem followsStatementValue ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (inlines: ExprInlineFollows self selfTwin) (modes: Modes):
     Parse.Follows SameCode StatementsAlike (() => statementValue self modes) (() => statementValue selfTwin modes) :=
-  Parse.followsMap
-    [alike := StatementsAlike]
-    ExprStatement
-    ExprStatement
+  Parse.followsMap ExprStatement ExprStatement
     (value valueTwin values => alikeExprStatement value valueTwin values)
     (inlines modes)
 
@@ -490,10 +484,7 @@ theorem followsLetStatementEnd ∀ [self selfTwin: Goal → {Parse Item} Expr]
       letStatementEnd selfTwin modes twin atSemi) :=
   match atSemi with
     | True =>
-      Parse.followsMap
-        [alike := StatementsAlike]
-        ExprStatement
-        ExprStatement
+      Parse.followsMap ExprStatement ExprStatement
         (value valueTwin values => alikeExprStatement value valueTwin values)
         (bodies modes binding twin lets)
     | False => Parse.followsDone _ _ (alikeLetStatement binding twin lets)
@@ -799,7 +790,6 @@ theorem followsOperationEnd ∀ [self selfTwin: Goal → {Parse Item} Expr]
       Syntax.fatal "an operation takes one argument; bracket a tuple: `(a, b)`")
     | False => Parse.followsThen (expects modes FatArrow "`=>`") (arrow arrowTwin arrows =>
       Parse.followsMap
-        [alike := ClauseAlike]
         (body => OperationClause bar operation argument comma continuation arrow body)
         (body => OperationClause barTwin operationTwin argumentTwin commaTwin continuationTwin arrowTwin body)
         (body bodyTwin bodies =>
@@ -841,7 +831,6 @@ theorem followsHandlerClauseOf ∀ [self selfTwin: Goal → {Parse Item} Expr]
         (name nameTwin names =>
           Parse.followsThen (expects modes FatArrow "`=>`") (arrow arrowTwin arrows =>
             Parse.followsMap
-              [alike := ClauseAlike]
               (body => ReturnClause bar keyword name arrow body)
               (body => ReturnClause barTwin keywordTwin nameTwin arrowTwin body)
               (body bodyTwin bodies =>
@@ -913,7 +902,6 @@ theorem followsHandleExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
     Parse.followsThen (knot { modes = modes.sealed, level = LevelInline }) (computation computationTwin computations =>
       Parse.followsThen (expects modes KwWith "`with`") (withKeyword withKeywordTwin withKeywords =>
         Parse.followsMap
-          [alike := ExprsAlike]
           (clauses => Handle keyword computation withKeyword clauses)
           (clauses => Handle keywordTwin computationTwin withKeywordTwin clauses)
           (clauses twins alike =>
@@ -933,7 +921,6 @@ theorem followsReifyComma ∀ [self selfTwin: Goal → {Parse Item} Expr]
       Syntax.fatal "`match reify` takes one computation, with nothing else to match")
     | False => Parse.followsThen (expects modes KwWith "`with`") (withKeyword withKeywordTwin withKeywords =>
       Parse.followsMap
-        [alike := ExprsAlike]
         (clauses => Reify keyword reify computation withKeyword clauses)
         (clauses => Reify keywordTwin reifyTwin computationTwin withKeywordTwin clauses)
         (clauses twins alike =>
@@ -1126,7 +1113,6 @@ theorem followsCalcProof ∀ [self selfTwin: Goal → {Parse Item} Expr]
   match colonEq with
     | True => Parse.followsThen followsFixedFrom (written writtenTwin writtens =>
       Parse.followsMap
-        [alike := CommentedAlike]
         (proof => Some (written, proof))
         (proof => Some (writtenTwin, proof))
         (proof proofTwin proofs => (writtens, proofs))
@@ -1253,10 +1239,7 @@ theorem followsCalcSteps ∀ [self selfTwin: Goal → {Parse Item} Expr]
                       founds
                       ascending
                       descending)
-          | _, _ => Parse.followsDone [alike := StepsAlike] _ _ (
-            List.all2Reverse found foundTwin founds,
-            (byComputing, byComputing)
-          ))
+          | _, _ => Parse.followsDone _ _ (List.all2Reverse found foundTwin founds, (byComputing, byComputing)))
 
 theorem followsCalcEnd ∀ (inner: Modes) (keyword keywordTwin: Comments) (first firstTwin: Expr)
     (firsts: ExprsAlike first firstTwin) (steps twins: List CalcStep)
@@ -1280,7 +1263,7 @@ theorem followsCalcBody ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (firsts: ExprsAlike first firstTwin):
     Parse.Follows SameCode ExprsAlike (() => calcBody self inner indent keyword first) (() =>
       calcBody selfTwin inner indent keywordTwin firstTwin) :=
-  Parse.followsThen [p := () => Parse.mark()] [q := () => Parse.mark()] Parse.followsMark (here hereTwin marks =>
+  Parse.followsThen Parse.followsMark (here hereTwin marks =>
     rewrite <- marks.right.right then
       Parse.followsThen
         (followsCalcSteps knot operands (here.left + 1) inner indent None [] [] Trivial False False)
@@ -1468,7 +1451,6 @@ theorem followsReverseIf ∀ (reverse: Bool):
   match reverse with
     | True => Parse.followsThen followsFixedFrom (less lessTwin lesses =>
       Parse.followsMap
-        [alike := ReverseAlike]
         (second => Some (less, second))
         (second => Some (lessTwin, second))
         (second secondTwin seconds => (lesses, seconds))
@@ -1515,7 +1497,6 @@ theorem followsRewriteBody ∀ [self selfTwin: Goal → {Parse Item} Expr]
   match hasThen with
     | True => Parse.followsThen followsFixedFrom (thenKeyword thenTwin thens =>
       Parse.followsMap
-        [alike := ExprsAlike]
         (body => Rewrite keyword rules target (Some (thenKeyword, body)))
         (body => Rewrite keywordTwin twinRules targetTwin (Some (thenTwin, body)))
         (body bodyTwin bodies =>
@@ -1558,7 +1539,6 @@ theorem followsTargetOf ∀ [self selfTwin: Goal → {Parse Item} Expr]
       targetOf selfTwin modes writtenTwin) :=
   followsThenEq followsHere (start =>
     Parse.followsMap
-      [alike := CommentedAlike]
       (target => Some (written, target))
       (target => Some (writtenTwin, target))
       (target targetTwin targets => (Trivial, targets))
@@ -1600,7 +1580,6 @@ theorem followsRewriteRule ∀ [self selfTwin: Goal → {Parse Item} Expr]
   Parse.followsThen (followsReverseOf modes) (reverse reverseTwin reverses =>
     followsThenEq followsHere (start =>
       Parse.followsMap
-        [alike := List.All2 RuleAlike]
         (rule => [{ reverse, rule }, ..found])
         (rule => [{ reverse = reverseTwin, rule }, ..foundTwin])
         (rule ruleTwin rules => Both (alikeRule reverse reverseTwin reverses rule ruleTwin rules) founds)
@@ -1632,7 +1611,6 @@ theorem followsSetRule ∀ [self selfTwin: Goal → {Parse Item} Expr]
       setRule selfTwin modes foundTwin) :=
   Parse.followsThen (followsReverseOf modes) (reverse reverseTwin reverses =>
     Parse.followsMap
-      [alike := List.All2 RuleAlike]
       (rule => [{ reverse, rule }, ..found])
       (rule => [{ reverse = reverseTwin, rule }, ..foundTwin])
       (rule ruleTwin rules => Both (alikeRule reverse reverseTwin reverses rule ruleTwin rules) founds)
@@ -1665,18 +1643,17 @@ theorem followsRuleSetAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
   match empty with
     | True => followsFatalAny "`rewrite repeatedly` needs at least one rule between its brackets" (() =>
       Syntax.fatal "`rewrite repeatedly` needs at least one rule between its brackets")
-    | False =>
-      Parse.followsThen [p := () => Parse.mark()] [q := () => Parse.mark()] Parse.followsMark (here hereTwin marks =>
-        rewrite <- marks.right.right then
-          Parse.followsThen
-            (followsSetRules knot (here.left + 1) modes.inBrackets [] [] Trivial)
-            (found foundTwin alike =>
-              match found, foundTwin with
-                | (rules, trailing), (twins, trailingTwin) =>
-                  rewrite <- alike.right then
-                    Parse.followsThen (expects modes.inBrackets RBracket "`,` or `]`") (close closeTwin closes =>
-                      Parse.followsDone _ _
-                        (alikeRuleSet open openTwin rules twins alike.left trailing close closeTwin))))
+    | False => Parse.followsThen Parse.followsMark (here hereTwin marks =>
+      rewrite <- marks.right.right then
+        Parse.followsThen
+          (followsSetRules knot (here.left + 1) modes.inBrackets [] [] Trivial)
+          (found foundTwin alike =>
+            match found, foundTwin with
+              | (rules, trailing), (twins, trailingTwin) =>
+                rewrite <- alike.right then
+                  Parse.followsThen (expects modes.inBrackets RBracket "`,` or `]`") (close closeTwin closes =>
+                    Parse.followsDone _ _
+                      (alikeRuleSet open openTwin rules twins alike.left trailing close closeTwin))))
 
 theorem followsRuleSet ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -1694,7 +1671,6 @@ theorem followsRewriteRulesOf ∀ [self selfTwin: Goal → {Parse Item} Expr]
   match repeatedly with
     | True => Parse.followsThen followsFixedFrom (written writtenTwin writtens =>
       Parse.followsMap
-        [alike := RulesAlike]
         (set => Repeatedly written set)
         (set => Repeatedly writtenTwin set)
         (set twin sets => alikeRepeatedly written writtenTwin set twin sets)
@@ -1709,7 +1685,6 @@ theorem followsRewriteRulesOf ∀ [self selfTwin: Goal → {Parse Item} Expr]
         (here hereTwin marks =>
           rewrite <- marks.right.right then
             Parse.followsMap
-              [alike := RulesAlike]
               (found => RuleList found)
               (found => RuleList found)
               (found twins alike => alikeRuleList found twins alike)
@@ -1758,7 +1733,6 @@ theorem followsCasesThen ∀ [self selfTwin: Goal → {Parse Item} Expr]
   match atThen with
     | True => Parse.followsThen followsFixedFrom (thenKeyword thenTwin thens =>
       Parse.followsMap
-        [alike := ExprsAlike]
         (body => Cases keyword.comments thenKeyword body)
         (body => Cases keywordTwin.comments thenTwin body)
         (body bodyTwin bodies =>

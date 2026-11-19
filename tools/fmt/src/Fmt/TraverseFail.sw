@@ -399,11 +399,7 @@ theorem declBlanks ∀ (on: Steps)
                 [g2 := v1 v2 v3 v4 => Data v1 isInterface Comments.none name.blank v2 v3 v4]
                 (attributesBlanks on deaf attributes)
                 (groupsBlanks on deaf params)
-                (Fail.toResultAlike2
-                  [g2 := w1 w2 => Some { colon = Comments.none, steps = w1, last = w2 }]
-                  (indicesBlanks on deaf steps)
-                  (exprBlanks on deaf last)
-                  (w1 w2 => byComputing))
+                (Fail.toResultAlike2 (indicesBlanks on deaf steps) (exprBlanks on deaf last) (w1 w2 => byComputing))
                 (Fail.toResultAlikePure byComputing)
                 (v1 v2 v3 v4 => deaf.decl (Data v1 isInterface keyword name v2 v3 v4))
             | Synonym equals annotation =>
@@ -411,11 +407,7 @@ theorem declBlanks ∀ (on: Steps)
                 [g2 := v1 v2 v3 v4 => Data v1 isInterface Comments.none name.blank v2 v3 v4]
                 (attributesBlanks on deaf attributes)
                 (groupsBlanks on deaf params)
-                (Fail.toResultAlike2
-                  [g2 := w1 w2 => Some { colon = Comments.none, steps = w1, last = w2 }]
-                  (indicesBlanks on deaf steps)
-                  (exprBlanks on deaf last)
-                  (w1 w2 => byComputing))
+                (Fail.toResultAlike2 (indicesBlanks on deaf steps) (exprBlanks on deaf last) (w1 w2 => byComputing))
                 (Fail.toResultAlike1 [g2 := w1 => Synonym Comments.none w1] (exprBlanks on deaf annotation) (w1 =>
                   byComputing))
                 (v1 v2 v3 v4 => deaf.decl (Data v1 isInterface keyword name v2 v3 v4))
@@ -424,11 +416,7 @@ theorem declBlanks ∀ (on: Steps)
                 [g2 := v1 v2 v3 v4 => Data v1 isInterface Comments.none name.blank v2 v3 v4]
                 (attributesBlanks on deaf attributes)
                 (groupsBlanks on deaf params)
-                (Fail.toResultAlike2
-                  [g2 := w1 w2 => Some { colon = Comments.none, steps = w1, last = w2 }]
-                  (indicesBlanks on deaf steps)
-                  (exprBlanks on deaf last)
-                  (w1 w2 => byComputing))
+                (Fail.toResultAlike2 (indicesBlanks on deaf steps) (exprBlanks on deaf last) (w1 w2 => byComputing))
                 (Fail.toResultAlike1 [g2 := w1 => RecordBody Comments.none w1] (fieldsBlanks on deaf fields) (w1 =>
                   byComputing))
                 (v1 v2 v3 v4 => deaf.decl (Data v1 isInterface keyword name v2 v3 v4))
@@ -437,11 +425,7 @@ theorem declBlanks ∀ (on: Steps)
                 [g2 := v1 v2 v3 v4 => Data v1 isInterface Comments.none name.blank v2 v3 v4]
                 (attributesBlanks on deaf attributes)
                 (groupsBlanks on deaf params)
-                (Fail.toResultAlike2
-                  [g2 := w1 w2 => Some { colon = Comments.none, steps = w1, last = w2 }]
-                  (indicesBlanks on deaf steps)
-                  (exprBlanks on deaf last)
-                  (w1 w2 => byComputing))
+                (Fail.toResultAlike2 (indicesBlanks on deaf steps) (exprBlanks on deaf last) (w1 w2 => byComputing))
                 (Fail.toResultAlike1 [g2 := w1 => Sum Comments.none w1] (constructorsBlanks on deaf constructors) (w1 =>
                   byComputing))
                 (v1 v2 v3 v4 => deaf.decl (Data v1 isInterface keyword name v2 v3 v4))

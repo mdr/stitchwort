@@ -1,142 +1,223 @@
 #!/usr/bin/env python3
-"""Delete the spelled arguments (`[p := …]`, `[j := …]`) a proof step does
-not need, and keep the ones it does. A "step" is a run of consecutive
-lines that each open a spelled group (a line starting `[p := `, `[q := `,
-`[j := ` or `[k := ` and running to its closing bracket), under one head
-line (`givesThen`, `followsThen`, …). The tool
+"""Delete the spelled arguments (`[p := …]`, `[alike := …]`, …) a proof
+step does not need, and keep the ones it does. A "unit" is a run of
+spelled groups with only whitespace between them (a group may start a
+line or sit in the middle of one, and may span lines), such as the
+`[p := …]` / `[j := …]` lines under a `givesThen`, or `[p := …] [q := …]`
+after `followsThen`. The tool
 
-  1. deletes every step's spelled groups and checks the file's namespace;
-  2. for each error it reports, puts back the nearest step above the
-     error's line (preferring the step whose head is the function the
-     error names) and checks again, until the namespace is clean;
-  3. tries dropping each put-back step on its own (unless --no-prune)
+  1. deletes every unit and checks the file's namespace;
+  2. for each error it reports, puts back the nearest unit before the
+     error (preferring the unit whose head, the function it follows, is the
+     one the error names) and checks again, until the namespace is clean;
+  3. tries dropping each put-back unit on its own (unless --no-prune)
      and keeps the drop when the namespace still checks.
 
 Statements and programs are untouched: only spelled arguments go, so what
-is proved is the same. The file is rewritten in place after every check;
-rerun after an interruption and it continues from the saved state
-(`$TMPDIR/spellings/<file>.json`). Run it from anywhere inside the repo,
-in the background for big files (a check of a namespace takes 10 to 60 s
-and a file may need dozens).
+is proved is the same. Groups are skipped on `--` comment lines and on the
+lines of a `theorem`/`def`/`lemma`/`fn` header (a statement's argument can't
+be told apart from a proof's by name alone); review the diff for statements
+that continue past a header line. The file is rewritten in place after every
+check; rerun after an interruption and it continues from the saved state
+(`$TMPDIR/spellings/<file>.json`). Run it in the background for big files
+(a check of a namespace takes 10 to 60 s and a file may need dozens).
 
-  tools/fmt/dev/spellings.py [--sw PATH] [--no-prune] FILE.sw
+  tools/fmt/dev/spellings.py [--sw PATH] [--names a,b,…|all] [--no-prune] FILE.sw
+  tools/fmt/dev/spellings.py --list [--names …] FILE.sw
   task fmt:unspell -- FILE.sw
 
-`--sw` is the release CLI (default `target/release/stitchwort` in the
-repo). Format the file afterwards (`stitchwort fmt FILE.sw`).
+  --names   which spelled names to try (default: p,q,j,k,alike,g2,spec,
+            weaker,holds,inv,x,first,second,self,selfTwin,item,start,
+            later,goals; `all` is every name, which includes the type
+            arguments `a`, `b` of statements)
+  --list    only count the groups per name, change nothing
+  --no-prune  skip step 3
+  --sw      the release CLI (default `target/release/stitchwort` in the repo)
+
+Format the file afterwards (`stitchwort fmt FILE.sw`). At the end it prints
+the deleted/kept group counts per name and the lines saved.
 """
 import json, os, re, subprocess, sys, tempfile
+from collections import Counter
 from pathlib import Path
 
-SPELLED = re.compile(r"^\s*\[(p|q|j|k) := ")
+DEFAULT_NAMES = "p,q,j,k,alike,g2,spec,weaker,holds,inv,x,first,second,self,selfTwin,item,start,later,goals"
+OPEN = re.compile(r"\[(\w+) := ")
+HEADER = re.compile(r"^\s*(theorem|def|lemma|fn|pub|private)\b")
 
 
-def groups(lines):
+def spans(text, names):
+    """[(start, end, name)] of each top-level spelled group (end exclusive)."""
     out, i = [], 0
-    while i < len(lines):
-        if SPELLED.match(lines[i]):
-            s, depth = i, 0
-            while i < len(lines):
-                depth += lines[i].count("[") - lines[i].count("]")
-                if depth <= 0:
-                    break
-                i += 1
-            out.append([s, i])
-        i += 1
+    for m in OPEN.finditer(text):
+        s = m.start()
+        if s < i or (names and m.group(1) not in names):
+            continue
+        ls = text.rfind("\n", 0, s) + 1
+        line = text[ls : text.find("\n", s) if "\n" in text[s:] else len(text)]
+        if line.lstrip().startswith("--") or HEADER.match(line):
+            continue
+        depth, j = 0, s
+        while j < len(text):
+            c = text[j]
+            depth += (c == "[") - (c == "]")
+            j += 1
+            if depth == 0:
+                break
+        if depth != 0:
+            continue
+        out.append((s, j, m.group(1)))
+        i = j
     return out
 
 
-def steps(lines):
-    """[(first line, last line, head function name)] of each step."""
+def units(text, names):
+    """[[start, end, head, [names]]]: runs of groups split only by whitespace."""
     out = []
-    for s, e in groups(lines):
-        if out and out[-1][1] + 1 == s:
+    for s, e, n in spans(text, names):
+        if out and not text[out[-1][1] : s].strip():
             out[-1][1] = e
+            out[-1][3].append(n)
+            continue
+        ls = text.rfind("\n", 0, s) + 1
+        before = text[ls:s]
+        if before.strip():
+            tok = before.split()[-1]
         else:
-            h = lines[s - 1].strip().lstrip("(") if s else ""
-            out.append([s, e, h.split()[0] if h else "?"])
+            prev = text[:ls].rstrip().split("\n")[-1].split() if text[:ls].strip() else []
+            tok = prev[0] if prev else "?"
+        out.append([s, e, tok.lstrip("(") or "?", [n]])
     return out
+
+
+def render(orig, us, keep):
+    """The text with the units not in `keep` deleted, and the kept segments
+    [(out_start, orig_start, length)] to map error positions back."""
+    pieces, segs, pos, outlen = [], [], 0, 0
+    for k, (s, e, _, _) in enumerate(us):
+        if k in keep:
+            continue
+        a = s
+        while a > pos and orig[a - 1] in " \t\n":
+            a -= 1
+        ws = orig[a:s]
+        if ws and a > 0 and "--" in orig[orig.rfind("\n", 0, a) + 1 : a]:
+            a += ws.rfind("\n") + 1 if "\n" in ws else 0
+        pieces.append(orig[pos:a])
+        segs.append((outlen, pos, a - pos))
+        outlen += a - pos
+        pos = e
+    pieces.append(orig[pos:])
+    segs.append((outlen, pos, len(orig) - pos))
+    return "".join(pieces), segs
+
+
+def to_orig(segs, off):
+    for o, s, n in reversed(segs):
+        if off >= o:
+            return s + min(off - o, n)
+    return 0
 
 
 def main():
     args = sys.argv[1:]
     prune = "--no-prune" not in args
     args = [a for a in args if a != "--no-prune"]
+    list_only = "--list" in args
+    args = [a for a in args if a != "--list"]
     sw = None
-    if "--sw" in args:
-        k = args.index("--sw")
-        sw = args[k + 1]
-        del args[k : k + 2]
+    names = DEFAULT_NAMES
+    for flag in ("--sw", "--names"):
+        if flag in args:
+            k = args.index(flag)
+            val = args[k + 1]
+            del args[k : k + 2]
+            if flag == "--sw":
+                sw = val
+            else:
+                names = val
+    names = None if names == "all" else set(names.split(","))
     if len(args) != 1:
         sys.exit(__doc__)
     path = Path(args[0]).resolve()
+    text = path.read_text()
+    if list_only:
+        c = Counter(n for _, _, n in spans(text, names))
+        print(path.name, dict(c))
+        return
     root = next(p for p in path.parents if (p / "stitchwort.yaml").exists())
     sw = sw or str(root.parent.parent / "target/release/stitchwort")
-    text = path.read_text()
     ns = re.search(r"^namespace (\S+)", text, re.M).group(1)
     state_dir = Path(os.environ.get("TMPDIR", tempfile.gettempdir())) / "spellings"
     state_dir.mkdir(exist_ok=True)
     state = state_dir / (path.name + ".json")
     if state.exists():
         saved = json.loads(state.read_text())
-        orig, keep = saved["orig"].split("\n"), set(saved["keep"])
+        orig, keep = saved["orig"], set(saved["keep"])
     else:
-        orig, keep = text.split("\n"), set()
+        orig, keep = text, set()
         state.write_text(json.dumps({"orig": text, "keep": []}))
-    st = steps(orig)
-    print(f"{path.name}: {len(st)} steps, namespace {ns}", flush=True)
+    us = units(orig, names)
+    print(f"{path.name}: {len(us)} units, namespace {ns}", flush=True)
 
     def write(keep):
-        rm = set()
-        for k, (s, e, _) in enumerate(st):
-            if k not in keep:
-                rm.update(range(s, e + 1))
-        kept = [i for i in range(len(orig)) if i not in rm]
-        path.write_text("\n".join(orig[i] for i in kept))
-        state.write_text(json.dumps({"orig": "\n".join(orig), "keep": sorted(keep)}))
-        return kept
+        out, segs = render(orig, us, keep)
+        path.write_text(out)
+        state.write_text(json.dumps({"orig": orig, "keep": sorted(keep)}))
+        return out, segs
 
     def check():
         r = subprocess.run(["nice", "-n", "15", sw, "check", ns], cwd=root, capture_output=True, text=True)
         return r.returncode, r.stdout + r.stderr
 
-    for rnd in range(200):
-        kept = write(keep)
-        rc, out = check()
+    for rnd in range(300):
+        out, segs = write(keep)
+        rc, msg = check()
         if rc == 0:
             break
-        blocks = re.split(r"^\[E-", out, flags=re.M)[1:]
+        starts = [0]
+        for m in re.finditer("\n", out):
+            starts.append(m.end())
         added = 0
-        for blk in blocks:
-            m = re.search(rf"{re.escape(path.name)}:(\d+):\d+ \]", blk)
-            if not m or int(m.group(1)) - 1 >= len(kept):
+        for blk in re.split(r"^\[E-", msg, flags=re.M)[1:]:
+            m = re.search(rf"{re.escape(path.name)}:(\d+):(\d+) \]", blk)
+            if not m or int(m.group(1)) > len(starts):
                 continue
-            oi = kept[int(m.group(1)) - 1]
+            off = starts[int(m.group(1)) - 1] + int(m.group(2)) - 1
+            oi = to_orig(segs, off)
             fn = re.search(r"is `([\w.]+)`'s implicit", blk)
-            cands = [k for k, (s, e, h) in enumerate(st) if k not in keep and s <= oi]
+            shown = [int(n) for n in re.findall(r"^\s*(\d+) │", blk, flags=re.M) if 0 < int(n) <= len(starts)]
+            end = to_orig(segs, starts[max(shown)] if shown else off)
+            inside = [k for k, u in enumerate(us) if k not in keep and oi <= u[0] <= end]
+            cands = [k for k, u in enumerate(us) if k not in keep and u[0] <= oi]
+            if inside:
+                cands = inside
             if not cands:
                 continue
-            pick = cands[-1]
+            pick = cands[-1] if not inside else cands[0]
             if fn:
                 short = fn.group(1).split(".")[-1]
-                pick = next((k for k in reversed(cands) if st[k][2].split(".")[-1] == short), pick)
+                pick = next((k for k in reversed(cands) if us[k][2].split(".")[-1] == short), pick)
             keep.add(pick)
             added += 1
-        print(f"round {rnd}: kept {len(keep)} of {len(st)}", flush=True)
+        print(f"round {rnd}: kept {len(keep)} of {len(us)}", flush=True)
         if not added:
-            sys.exit("stuck: errors not at any spelled step:\n" + out[:2000])
+            sys.exit("stuck: errors not at any spelled unit:\n" + msg[:2000])
     if prune:
         for k in sorted(keep):
             t = keep - {k}
             write(t)
             if check()[0] == 0:
                 keep = t
-                print(f"dropped step {k}", flush=True)
+                print(f"dropped unit {k}", flush=True)
     write(keep)
     state.unlink()
-    lines = sum(e - s + 1 for s, e, _ in st)
-    kl = sum(st[k][1] - st[k][0] + 1 for k in keep)
-    print(f"{path.name}: deleted {len(st) - len(keep)} of {len(st)} steps, kept {len(keep)}; lines saved {lines - kl}")
+    deleted, kept = Counter(), Counter()
+    for k, u in enumerate(us):
+        for n in u[3]:
+            (kept if k in keep else deleted)[n] += 1
+    print(f"{path.name}: deleted {sum(deleted.values())} groups {dict(deleted)}, kept {sum(kept.values())} {dict(kept)}")
+    print("run `stitchwort fmt` on the file; lines saved: see git diff --stat")
 
 
 main()

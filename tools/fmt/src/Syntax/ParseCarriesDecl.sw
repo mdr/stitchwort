@@ -83,7 +83,6 @@ theorem readsAtLoopFirst ∀ (step: () → {Parse Item} Option a) (spec first: L
             match v, holds1, rest with
               | None, holds1, rest =>
                 match Parse.readsPure
-                  [inv := GoodItems]
                   (List.reverse [])
                   middle.at
                   (fineNow.after (rewrite here then starts1))
@@ -223,7 +222,7 @@ theorem readsBumpAny: Parse.ReadsIn GoodItems (() => bump()) (read word =>
 --| `fixedFrom()` reads one item and gives its comments, from anywhere.
 theorem readsFixed: Parse.ReadsIn GoodItems (() => fixedFrom()) (read comments =>
       ∃ (item: Item) => read = [item] ∧ comments = item.leaf.word.comments) :=
-  Parse.readsThen [p := () => bump()] [j := word => word.comments] readsBumpAny (r word (item, single, same) =>
+  Parse.readsThen readsBumpAny (r word (item, single, same) =>
     Parse.readsDone word.comments _ (item, rewrite List.appendNil r then single, rewrite same))
 
 --| A name read: one item, a `Lower` or an `Upper`.
@@ -397,10 +396,8 @@ theorem readsAtAssignedBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes
 theorem readsArmsBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (d: Nat)
     (nested: Nested self):
     Parse.ReadsIn GoodItems (() => armsBody self modes d) BodyKept :=
-  Parse.readsThen
-    (givesAfter0 [p := () => left()] [j := items => definitionArmsOn self modes d items] reads0Left (items =>
-      givesDefinitionArmsOn self modes nested d items))
-    (r arms _ => Parse.readsDone (Arms arms) _ byComputing)
+  Parse.readsThen (givesAfter0 reads0Left (items => givesDefinitionArmsOn self modes nested d items)) (r arms _ =>
+    Parse.readsDone (Arms arms) _ byComputing)
 
 theorem readsDefinitionBodyOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (result: Expr) (d: Nat)
     (nested: Nested self)
@@ -428,7 +425,7 @@ theorem readsDefinitionBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes
     (carries: NestedKept self):
     Parse.ReadsIn GoodItems (() => definitionBody self modes result isInstance d) BodyKept :=
   Parse.readsThen (readsDefinitionBodyOn self modes result d nested carries) (r1 body carried =>
-    readsAfter0 [p := () => left()] [j := items => definitionWhere isInstance body items] reads0Left (items =>
+    readsAfter0 reads0Left (items =>
       match definitionRefusal isInstance body items with
         | Some message => Parse.readsFatal _ _
         | None => Parse.readsDone body _ (rewrite List.appendNil r1 then carried)))
@@ -750,7 +747,7 @@ theorem readsAttributesOf ∀ (modes: Modes):
     (Parse.readsLoop
       (() => attributeGroupStep modes)
       (read found => found = None → read = [])
-      (readsAfter0 [p := () => modes.at At] [j := found => attributeGroupAt modes found] (reads0At modes At) (found =>
+      (readsAfter0 (reads0At modes At) (found =>
         match found with
           | True => Parse.readsWeaken (readsAttributeGroupSome modes) (read result got =>
             equal => (Bool.falseNotTrue (got equal)).impossible)

@@ -68,7 +68,7 @@ theorem givesRuleSetOrMissing ∀ (modes: Modes) (found: Bool):
     | False => Parse.readsFatal _ _
 
 theorem givesAfterOpaque ∀ (modes: Modes): Parse.Gives GoodItems (() => afterOpaque modes) (found => True) :=
-  givesAfter0 [p := () => modes.peek] [j := seen => afterOpaqueOn modes seen] (reads0Peek modes) (seen =>
+  givesAfter0 (reads0Peek modes) (seen =>
     match seen with
       | Some KwDef => Parse.givesDone byComputing
       | Some KwTheorem => Parse.readsFatal _ _
@@ -195,7 +195,7 @@ theorem givesExportAfter ∀ (modes: Modes) (attributes: List Attributes) (expor
         givesDefinitionExported modes attributes exported (Some opaqued)))
     | False =>
       givesAfter0
-        (reads0Then [p := () => modes.at KwDef] (reads0At modes KwDef) (atDef =>
+        (reads0Then (reads0At modes KwDef) (atDef =>
           match atDef with
             | True => reads0Done True
             | False => reads0At modes KwTheorem))
@@ -212,10 +212,7 @@ theorem givesAbilityParamStep ∀ (modes: Modes) (atParen: Bool):
 
 theorem givesAbilityParams ∀ (modes: Modes): Parse.Gives GoodItems (() => abilityParams modes) (found => True) :=
   Parse.givesWeaken
-    [weaker := found => True]
-    (Parse.givesLoop
-      [holds := binder => True]
-      (givesAfter0 (reads0At modes LParen) (atParen => givesAbilityParamStep modes atParen)))
+    (Parse.givesLoop (givesAfter0 (reads0At modes LParen) (atParen => givesAbilityParamStep modes atParen)))
     (found ok => byComputing)
 
 theorem givesOperation ∀ (modes: Modes): Parse.Gives GoodItems (() => operation modes) (found => True) :=
@@ -241,10 +238,7 @@ theorem givesOperations ∀ (modes: Modes) (column: Nat):
     Parse.givesThen
       (Parse.givesWeaken
         [weaker := found => True]
-        (Parse.givesLoop
-          [holds := operation => True]
-          (givesAfter0 [p := () => left()] [j := items => operationNext modes column items] reads0Left (items =>
-            givesOperationNext modes column items)))
+        (Parse.givesLoop (givesAfter0 reads0Left (items => givesOperationNext modes column items)))
         (found ok => byComputing))
       (rest _ => Parse.givesDone byComputing))
 
@@ -294,8 +288,7 @@ theorem givesDataParamBracket ∀ (modes: Modes) (word: Text) (implicit: Bool):
             match binder.names.isEmpty with
               | True => Parse.readsFatal _ _
               | False => Parse.givesDone byComputing))
-    | False => givesAfter0 [p := () => left()] [j := items => dataParamLeft modes word items] reads0Left (items =>
-      givesDataParamLeft modes word items)
+    | False => givesAfter0 reads0Left (items => givesDataParamLeft modes word items)
 
 theorem reads0ImplicitAhead ∀ (modes: Modes):
     Reads0 (() => modes.at LBracket && implicitBinderAhead (Parse.mark().left + 1) left()) :=
@@ -316,10 +309,7 @@ theorem givesDataParamStep ∀ (modes: Modes) (word: Text) (atParen: Bool):
 theorem givesDataParams ∀ (modes: Modes) (word: Text) (name: Word):
     Parse.Gives GoodItems (() => dataParams modes word name) (found => True) :=
   Parse.givesWeaken
-    [weaker := found => True]
-    (Parse.givesLoop
-      [holds := group => True]
-      (givesAfter0 (reads0At modes LParen) (atParen => givesDataParamStep modes word atParen)))
+    (Parse.givesLoop (givesAfter0 (reads0At modes LParen) (atParen => givesDataParamStep modes word atParen)))
     (found ok => byComputing)
 
 theorem reads0PiBinderAhead ∀ (modes: Modes): Reads0 (() => isSome LParen modes.peek && piBinderAhead left()) :=
@@ -329,8 +319,7 @@ theorem reads0PiBinderAhead ∀ (modes: Modes): Reads0 (() => isSome LParen mode
     (reads0Peek modes)
     (seen =>
       match isSome LParen seen with
-        | True => reads0Then [p := () => left()] [j := items => piBinderAhead items] reads0Left (items =>
-          reads0Done (piBinderAhead items))
+        | True => reads0Then reads0Left (items => reads0Done (piBinderAhead items))
         | False => reads0Done False)
 
 theorem givesDataIndices ∀ (fuel: Nat) (modes: Modes) (found: List (Index, Word)):
@@ -491,17 +480,14 @@ theorem givesConstructorsAt ∀ (modes: Modes) (atPipe: Bool):
   match atPipe with
     | True =>
       Parse.givesWeaken
-        [weaker := found => True]
-        (Parse.givesLoop
-          [holds := constructor => True]
-          (givesAfter0 (reads0At modes Pipe) (atBar => givesConstructorStep modes atBar)))
+        (Parse.givesLoop (givesAfter0 (reads0At modes Pipe) (atBar => givesConstructorStep modes atBar)))
         (found ok => byComputing)
     | False => givesFail modes _
 
 theorem givesTypeSynonym ∀ (modes: Modes) (name: Word):
     Parse.Gives GoodItems (() => typeSynonym modes name) (synonym => True) :=
   Parse.givesThen (givesSelfAny expressionAt givesExpressionAt { modes, level = LevelFull }) (synonym _ =>
-    givesAfter0 [p := () => modes.at Pipe] (reads0At modes Pipe) (atPipe =>
+    givesAfter0 (reads0At modes Pipe) (atPipe =>
       match atPipe with
         | True => Parse.readsFatal _ _
         | False =>
@@ -612,8 +598,7 @@ theorem givesDeclarationOther ∀ (modes: Modes) (attributes: List Attributes) (
       givesAfter0
         (reads0Then (reads0WordAhead modes "rules") (ahead =>
           match ahead with
-            | True =>
-              reads0Then [p := () => modes.peekAt 1] (reads0PeekAt modes 1) (next => reads0Done (isSome Lower next))
+            | True => reads0Then (reads0PeekAt modes 1) (next => reads0Done (isSome Lower next))
             | False => reads0Done False))
         (found => givesRuleSetOrMissing modes found)
     | Some Upper => Parse.readsFatal _ _

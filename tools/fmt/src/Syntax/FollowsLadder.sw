@@ -421,8 +421,8 @@ theorem followsOperatorLinks ∀ (modes: Modes) (takes: Tok → Bool) (operand o
                 (value => Some (operatorTwin, value))
                 (value valueTwin values => (operators, values))
                 operands)
-            | False => Parse.followsDone [alike := Option.Alike (PairAlike WordsAlike ExprsAlike)] None None Trivial
-        | None => Parse.followsDone [alike := Option.Alike (PairAlike WordsAlike ExprsAlike)] None None Trivial))
+            | False => Parse.followsDone None None Trivial
+        | None => Parse.followsDone None None Trivial))
 
 theorem followsMulExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -758,7 +758,7 @@ theorem followsChainLink ∀ [self selfTwin: Goal → {Parse Item} Expr]
             | True => followsFatalAny _ (() => Syntax.fatal "`in` can't be part of a chain of comparisons")
             | False =>
               match !(kind == Lt || kind == Le || isDescending kind) with
-                | True => Parse.followsDone [alike := Option.Alike (PairAlike WordsAlike ExprsAlike)] None None Trivial
+                | True => Parse.followsDone None None Trivial
                 | False =>
                   match isDescending kind != descending with
                     | True => followsFatalAny _ (() =>
@@ -787,7 +787,7 @@ theorem followsChainOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
       (() => chainOn selfTwin modes descending seen) :=
   match seen with
     | Some kind => followsChainLink knot atoms braces matches clauses lambdaFacts modes descending kind
-    | None => Parse.followsDone [alike := Option.Alike (PairAlike WordsAlike ExprsAlike)] None None Trivial
+    | None => Parse.followsDone None None Trivial
 
 theorem followsChainLinks ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -1064,14 +1064,12 @@ theorem followsLogicOperand ∀ [self selfTwin: Goal → {Parse Item} Expr]
   match quantified with
     | True =>
       Parse.followsMap
-        [alike := Option.Alike (PairAlike WordsAlike ExprsAlike)]
         (operand => Some (operator, operand))
         (operand => Some (operatorTwin, operand))
         (operand operandTwin operands => (operators, operands))
         (quantifiers modes)
     | False =>
       Parse.followsMap
-        [alike := Option.Alike (PairAlike WordsAlike ExprsAlike)]
         (operand => Some (operator, operand))
         (operand => Some (operatorTwin, operand))
         (operand operandTwin operands => (operators, operands))
@@ -1111,8 +1109,8 @@ theorem followsLogicOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
     | Some kind =>
       match kind == AndAnd || kind == OrOr with
         | True => followsLogicLink knot atoms braces matches clauses lambdaFacts ifs quantifiers results modes
-        | False => Parse.followsDone [alike := Option.Alike (PairAlike WordsAlike ExprsAlike)] None None Trivial
-    | None => Parse.followsDone [alike := Option.Alike (PairAlike WordsAlike ExprsAlike)] None None Trivial
+        | False => Parse.followsDone None None Trivial
+    | None => Parse.followsDone None None Trivial
 
 theorem followsLogicLinks ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
