@@ -27078,8 +27078,8 @@
     {
       "id": 4215,
       "title": "[Sonnet] fmt consolidation L2: InSlice, one definition the four parse specs (Parsed, ArgParsed, AtomParsed, HeadParsed) instantiate, per fmt-consolidation-statements.md lane 2; after L1",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
@@ -27751,8 +27751,8 @@
     {
       "id": 4266,
       "title": "[DeepSeek] E-NO-INDUCT note: say 'doesn't call itself' only when the function really isn't recursive; otherwise name the gap (guarded overlap, non-tail call) (SW-4260 finding)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
