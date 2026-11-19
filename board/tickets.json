@@ -26802,12 +26802,12 @@
     {
       "id": 4194,
       "title": "[Opus] fmt: a fourth top statement saying D3687 in one sentence about the language's own parser (every source the language parses to a tree in Grammar1 is formatted, and the output parses to the same program), proved from the existing three (SW-4184 §3 item 2; SW-4191 says it doesn't block slice 1)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 30 min. Statement checked by the orchestrator statement by statement before merge.\n\nLane (Opus, 16:28-16:40, ~12 min): slice1Formats added in Fmt/TopStatements.sw (commit 31c2cc7c5 on lane/SW-4194). Hypothesis inGrammar1 source only; conclusion: formatWithin1 source = Ok out, lex/parseFile (the language's parse, no rule N) of source and of out give file and fileOut with equal meaning, inGrammar1 out = True, formatWithin1 out = Ok out. The language-parse form was reached. tools/fmt check: 131 namespaces, 0 errors, no goals; audit Fmt.TopStatements 32 passed. Existing statements, Grammar1, Driver1, MustAccept1 untouched.\n",
+      "body": "Est. 30 min. Statement checked by the orchestrator statement by statement before merge.\n\nLane (Opus, 16:28-16:40, ~12 min): slice1Formats added in Fmt/TopStatements.sw (commit 31c2cc7c5 on lane/SW-4194). Hypothesis inGrammar1 source only; conclusion: formatWithin1 source = Ok out, lex/parseFile (the language's parse, no rule N) of source and of out give file and fileOut with equal meaning, inGrammar1 out = True, formatWithin1 out = Ok out. The language-parse form was reached. tools/fmt check: 131 namespaces, 0 errors, no goals; audit Fmt.TopStatements 32 passed. Existing statements, Grammar1, Driver1, MustAccept1 untouched.\n\nStatement checked by the orchestrator (D2436): says what its name and doc claim; one hypothesis, inGrammar1; the language parse is lex + parseFile of the lexer leaves.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
