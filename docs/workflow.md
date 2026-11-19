@@ -103,13 +103,17 @@ checks the staged ones (D3681, SW-3952). The hooks are declared in
 
 - `rustfmt --check` on the staged `.rs` files (the dev shell's toolchain);
 - `dev/hooks/stitchwort-fmt-check` on the staged `.sw` files: `stitchwort fmt
-  --check` with the release binary of this checkout, else of the main
-  checkout or any folder above it (a scratch clone sits under the main
-  checkout), else a warning and no check. It covers every `.sw` file, as
-  `the_repository_sources_are_formatted` does; `fmt --check` itself skips the
-  paths in `DELIBERATELY_UNFORMATTED` (`crates/fmt/src/lib.rs`), named or not.
-  The hook is `verbose` in `flake.nix`, so prek shows the skip warning (it
-  hides a passing hook's output otherwise).
+  --check` with this worktree's (or clone's) own release binary if it has one,
+  else with the main checkout's or one from any folder above it (a scratch
+  clone sits under the main checkout), else a warning and no check. It covers
+  every `.sw` file, as `the_repository_sources_are_formatted` does; `fmt
+  --check` itself skips the paths in `DELIBERATELY_UNFORMATTED`
+  (`crates/fmt/src/lib.rs`), named or not. A lane that changes the syntax or
+  the formatter should build its own release binary first (`task build`, or
+  `cargo build --release -p stitchwort-cli`): otherwise the hook falls back to
+  the main checkout's older binary and judges the lane's files by it. The hook
+  is `verbose` in `flake.nix`, so prek shows the skip warning (it hides a
+  passing hook's output otherwise).
 
 A refused commit lists the files; run `stitchwort fmt FILE` or `rustfmt
 --edition 2024 FILE` and commit again. To commit unformatted files on
