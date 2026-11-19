@@ -27545,7 +27545,7 @@
     {
       "id": 4250,
       "title": "[Sonnet] Language server for or-patterns that bind: hover, go-to-definition and rename for a name bound in several alternatives (proof-match-likewise.md Design 2)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
