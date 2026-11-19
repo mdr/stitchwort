@@ -25539,14 +25539,14 @@
     {
       "id": 4099,
       "title": "[Opus] fmt S1 goal (B) edgeElements1 (Fmt.OneLineStatements): an edge-quiet declaration meets DeclElements: edgeFacts (leadFacts with expr.trails), last item/argument trails, the declaration's parts and the blank line below lead comments (SW-4096 note)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Expected: 60 min. Started 23:44, done 00:09 (about 25 min).\n\nProgress (Opus lane, 19 Nov 2026): edgeElements1 proved, statement unchanged; open goals 3 -> 2 (edgeQuietOneLine1, printedSplit1).\n- Fmt.EdgeKeyProofs: edgeKeys, the keys of an edge-quiet expression (closers quiet; other tokens' comments carry no key).\n- Fmt.EdgeHangProofs: EdgeFacts (LeadFacts with expr.trails for False) and edgeFacts over the seven node kinds; edgeItemsHang, edgeArgsHang, edgeLastHangs, edgeHugFacts; trails equations (infixTrails, prefixTrails, edgeCloseBefore, codedLex).\n- Fmt.EdgeDeclProofs: edgeElHangs (leadElHangs trailing), edgeHug, edgeType, edgeBody, soundCalm, lexicalCalm, edgeElementsOf; edgeElements1 moved here from OneLineStatements (its proof needs the class that module defines); TopStatements imports it from here.\n- Audits: EdgeKeyProofs 22 passed, EdgeHangProofs 28 passed, EdgeDeclProofs 15 passed; OneLineStatements and TopStatements fail only on the remaining open goals. test Fmt.Tests: 120 passed.\n",
       "created": "2026-11-18",
-      "updated": "2026-11-18",
+      "updated": "2026-11-19",
       "commits": []
     },
     {
