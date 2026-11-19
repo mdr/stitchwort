@@ -79,9 +79,13 @@ def HangState.afterName: HangState := { blocks = [], top = None, start = False, 
 
 --| The line rule steps over a definition's name to `afterName`, or refuses it.
 theorem nameStep ∀ (name: Leaf)
-    (isLower: name.token.kind = Lower):
+    (isLower: name.token.kind = Lower ∨ name.token.kind = Upper):
     HangState.initial.step name = None ∨ HangState.initial.step name = Some HangState.afterName :=
-  match name with | { token = { kind, text, column, lineStart }, trivia } => rewrite isLower then cases
+  match name with
+    | { token = { kind, text, column, lineStart }, trivia } =>
+      match isLower with
+        | Inl lower => rewrite lower then cases
+        | Inr upper => rewrite upper then cases
 
 --| The line rule steps over the `:` after the name to the type's start, or refuses it.
 theorem colonStep ∀ (colon: Leaf)
@@ -99,7 +103,7 @@ theorem colonEqStep ∀ (state: HangState) (colonEq: Leaf)
 
 --| After a definition's name and `:`, the line rule is at the type's start.
 theorem headerHung ∀ (name colon: Leaf) (rest: List Leaf)
-    (isLower: name.token.kind = Lower)
+    (isLower: name.token.kind = Lower ∨ name.token.kind = Upper)
     (isColon: colon.token.kind = Colon)
     (hung: hangsFrom HangState.initial [name, colon, ..rest] = True):
     hangsFrom HangState.atTop rest = True :=
@@ -149,7 +153,7 @@ theorem readsBackHung ∀ (seen: Seen) (group: List Leaf) (keyword name colon co
     (isItems: items group = [keyword, name, colon, ..typeRead ++ [colonEq, ..valueRead]])
     (hung: hangs group = True)
     (isDef: keyword.kind = KwDef)
-    (isLower: name.kind = Lower)
+    (isLower: name.kind = Lower ∨ name.kind = Upper)
     (isColon: colon.kind = Colon)
     (isColonEq: colonEq.kind = ColonEq)
     (typeSpelt: Spelt result typeRead)
@@ -289,7 +293,7 @@ theorem readsBackHungListExample: Parse.run (items (lexedLeaves listSource)) (()
     byComputing
     byComputing
     byComputing
-    byComputing
+    (Inl byComputing)
     byComputing
     byComputing
     (listAt 3, byComputing, byComputing, byComputing, byComputing)
@@ -350,7 +354,7 @@ theorem readsBackHungSignExample: Parse.run (items (lexedLeaves signSource)) (()
     byComputing
     byComputing
     byComputing
-    byComputing
+    (Inl byComputing)
     byComputing
     byComputing
     (signAt 3, byComputing, byComputing, byComputing, byComputing)
@@ -406,7 +410,7 @@ theorem readsBackHungTypeExample: Parse.run (items (lexedLeaves typeSource)) (()
     byComputing
     byComputing
     byComputing
-    byComputing
+    (Inl byComputing)
     byComputing
     byComputing
     (typeAt 3, byComputing, byComputing, byComputing, byComputing)
