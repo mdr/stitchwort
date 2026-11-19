@@ -1,5 +1,5 @@
 {
-  "next": 4161,
+  "next": 4162,
   "tickets": [
     {
       "id": 47,
@@ -26081,7 +26081,7 @@
     {
       "id": 4140,
       "title": "[Sonnet] std Parse/Follows.sw (SW-4132 lane 1): Parse.Follows and Mark.Alike from the prototype, ~14 lemmas (done, mark, next, fatal, then, loop, recursiveWith, withMark, run, never, weaken, map...), full API docs with the no-backtracking limit, prelude snapshot, guide mention beside Parse.Reads",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4140",
       "labels": [],
@@ -26094,9 +26094,9 @@
     {
       "id": 4141,
       "title": "[Sonnet] fmt (SW-4132 lane 2): doesn't-read-comments lemmas: stripped, SameCode, items commutes with stripping, the 78 look-aheads, the 33 tree functions, grammar1Deaf, loweringDeaf",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4141",
       "labels": [],
       "epic": "parser-proofs",
       "body": "docs/reviews/SW-4132-two-run-parse.md. Est. 35 min.",
@@ -26349,6 +26349,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 15 min. After SW-4149 (E6 edits ElementsProofs).",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4161,
+      "title": "[Sonnet] std: move Parse.runFromAddMark next to runFromForgetMark (Runs.sw), and Option.Alike, List.all2Append, List.all2Reverse into the Option and List lemma files (SW-4140 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "Est. 15 min. Prelude snapshot will change (moves).",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
