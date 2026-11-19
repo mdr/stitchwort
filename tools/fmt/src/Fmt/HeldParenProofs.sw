@@ -736,7 +736,7 @@ theorem parenAnyElHangs ∀ (kinds: Text → Tok) (open: Word) (inner: Expr) (cl
 -- What the brackets may hold, after the waiting comment.
 
 --| A token that is no item and is written by its node has no own-line comments before it to write.
-theorem quietLeading ∀ (word: Word) (around: Around) (key: Nat)
+theorem bareLeading ∀ (word: Word) (around: Around) (key: Nat)
     (hoisted: around.hoisted = False)
     (bare: word.comments.above = [])
     (single: around.item = False):
@@ -752,8 +752,7 @@ theorem atomLowers ∀ (kind: Tok) (word: Word) (around: Around) (indent low: Na
     (bare: word.comments.above = [])
     (single: around.item = False):
     HeldLowers ((Atom kind word).el around) indent low :=
-  leafLowers word around around.at indent low solid closer comma
-    (quietLeading word around around.at hoisted bare single)
+  leafLowers word around around.at indent low solid closer comma (bareLeading word around around.at hoisted bare single)
 
 --| A node written as its framed document, its first token with no own-line comments, after a waiting comment: its
 --| contents displaced, so `HeldLowers` holds of it.
