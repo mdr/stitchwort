@@ -27305,8 +27305,8 @@
     {
       "id": 4232,
       "title": "[Sonnet] Move givesAfter0 and readsAtAfter0 (formatter-local lemmas joining two Parse lemma kinds) into std with docs (SW-4231 finding)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
