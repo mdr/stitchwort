@@ -11,6 +11,8 @@
 --| The third top theorem, `formatAccepts1` (`Fmt.Accepts1`), says which sources the driver must accept:
 --| all of slice 1's grammar (`Fmt.Grammar1`).
 --|
+--| `slice1Formats` puts the three together in one statement about the language's own lexer and parser.
+--|
 --| What slice 1 covers: files of `def name: Type := value` with no parameters, the type and value names, numerals,
 --| brackets, tuples, lists, calls, `-`, `!`, `¬`, binary operators and `->`, with comments and blank lines, laid out
 --| over any number of lines; the driver refuses anything else.
@@ -26,7 +28,7 @@ import Fmt.OutputStatements (..)
 import Fmt.TriviaStatements (..)
 import Fmt.PassProofs (..)
 import Fmt.CalmTopProofs (..)
-import Fmt.Proofs (firstThreeKeepMeaning)
+import Fmt.Proofs (firstThreeKeepMeaning, meaningBlanksFirst)
 import Fmt.FileLexProofs (printedFileLexes1)
 import Fmt.OutputFileProofs (printedAlphabet1, printedNoLast1, printedPlain1)
 import Fmt.SettleOutputProofs (..)
@@ -39,12 +41,15 @@ import Fmt.TokenProofs (declRealOfLexical)
 import Fmt.SpellProofs (declSoundOfSettled)
 import Syntax.ParseWalk (parseLexical1, parseShaped1)
 import Syntax.ParseWalkOthers (frameRest, parseSettledSourceProved)
-import Syntax.GoodItemProofs (settledGood)
+import Syntax.GoodItemProofs (settledGood, settledOnceTokens)
 import Syntax.GlueQuietProofs (settledItemsQuiet)
 import Syntax.SettleProofs (alphabet1, plain1, settledKeepsTokens, sourcePlainOfPlain, tokens)
 import Syntax.SettleBareProofs (settledOnceNone)
 import Syntax.AutoPlaced (..)
 import Fmt.PlacedProofs (commaKeepsPlaced, parsedPlaced1)
+import Fmt.Grammar1 (..)
+import Fmt.Kinds1 (..)
+import Fmt.SettleParseProofs (parseKeepsTokens1, settledParses1)
 
 --| P2 is the identity on an expression with no last comma.
 theorem uncommaSame ∀ (expr: Expr) (free: expr.commaFree = True): expr.mapIn1 withoutCommaExpr = expr := match expr with
@@ -435,6 +440,105 @@ theorem tidiedDeclsUnreturnedOf ∀ (source out: Text) (lexed: Lexed) (parsed: S
   let (lexes, leaves, parses, within, _) := formats
   tidiedDeclsUnreturned1 source lexed parsed lexes leaves parses within
 
+-- All of slice 1 in one statement.
+
+--| The driver's alphabet is the grammar's: a token the driver lets through is one of the grammar's.
+theorem tokenAlphabetOfWithin1 ∀ (kind: Tok): (!kind.within1 || kind.alphabet1) = True := cases
+
+theorem leavesAlphabetOfWithin1 ∀ (leaves: List Leaf)
+    (within: alphabet1 leaves = True):
+    leaves.all (leaf => leaf.token.kind.alphabet1) = True :=
+  match leaves, within with
+    | [], within => byComputing
+    | [leaf, ..more], within =>
+      let both := tokenAlphabetOfWithin1 leaf.token.kind
+      Bool.andIntro
+        (rewrite Bool.andLeft within at both then both)
+        (leavesAlphabetOfWithin1 more (Bool.andRight within))
+
+--| A file within the driver's slice is a file of the grammar.
+theorem fileGrammarOfWithin1 ∀ (decls: List Decl)
+    (within: decls.all Decl.within1 = True):
+    decls.all Decl.grammar1 = True :=
+  match decls with
+    | [] => byComputing
+    | [decl, ..rest] =>
+      Bool.andIntro
+        (Decl.grammarOfWithin1 decl (Bool.andLeft within))
+        (fileGrammarOfWithin1 rest (Bool.andRight within))
+
+--| **Slice 1 (D3687).** For every source in slice 1's grammar, the formatter succeeds, giving `out`; the language's
+--| own lexer and parser read both `source` and `out`, to trees that mean the same program; `out` is in the grammar
+--| too; and formatting `out` gives `out` again.
+--|
+--| "The language's own" is `lex` then `parseFile` of the lexer's leaves, as `inGrammar1` reads a source: no step of
+--| the formatter (rule N, the tidy passes) is in it. "The same program" is `meaning`, which reads no comment, as in
+--| `formatKeepsProgram1`; the trees themselves may differ, in comments, blank lines and a list's or tuple's last
+--| comma, which the formatter drops.
+--|
+--| Proof idea: `formatAccepts1` gives `out`, and `formatIdempotent1` the second run. `formatKeepsProgram1` gives
+--| equal meanings for the trees the driver parses (after rule N). Rule N keeps every token (`settledOnceTokens`), so a
+--| parse of either side's leaves is the other side's but for comments (`settledParses1` for the source,
+--| `parseKeepsTokens1` for `out`, whose driver tree is within the slice and so of the grammar), and `meaning` ignores
+--| comments (`meaningBlanksFirst`). The second run's leaf test gives `out`'s alphabet.
+theorem slice1Formats ∀ (source: Text)
+    (inGrammar: inGrammar1 source = True):
+    ∃ (out: Text) (lexed lexedOut: Lexed) (file fileOut: SourceFile) => formatWithin1 source = Ok out
+      ∧ lex source = Ok lexed
+      ∧ parseFile lexed = Ok file
+      ∧ lex out = Ok lexedOut
+      ∧ parseFile lexedOut = Ok fileOut
+      ∧ fileOut.meaning = file.meaning
+      ∧ inGrammar1 out = True
+      ∧ formatWithin1 out = Ok out :=
+  let (out, formats) := formatAccepts1 source inGrammar
+  let again := formatIdempotent1 source out formats
+  let (before, after, parse1Source, parse1Out, _, means) := formatKeepsProgram1 source out formats
+  match lexes: lex source, inGrammar with
+    | Ok lexed, inGrammar =>
+      match parses: parseFile lexed, inGrammar with
+        | Err message, inGrammar => (Bool.falseNotTrue (Bool.andRight inGrammar)).impossible
+        | Ok file, inGrammar =>
+          let (settled, settles, alike, _) := settledParses1 lexed file parses (Bool.andRight inGrammar)
+          let settledBefore: settled = before := Result.okInjective (Eq.trans settles.flipped parse1Source)
+          let (lexedOut, parsedOut, accepted) := formatsOf out out again
+          let (lexesOut, leavesOut, parsesOut, withinOut, _) := accepted
+          let afterIs: after = parsedOut :=
+            Result.okInjective (Eq.trans (rewrite lexesOut at parse1Out then parse1Out).flipped parsesOut)
+          let (fileOut, outParses, outAlike, outGrammar) :=
+            parseKeepsTokens1 lexedOut.settledOnce lexedOut parsedOut
+              (settledOnceTokens lexedOut)
+              parsesOut
+              (fileGrammarOfWithin1 parsedOut.decls withinOut)
+          let meaningOut: fileOut.meaning = file.meaning := calc fileOut.meaning
+            _ = fileOut.withoutComments.meaning := (meaningBlanksFirst fileOut).flipped
+            _ = parsedOut.withoutComments.meaning := rewrite outAlike
+            _ = parsedOut.meaning := meaningBlanksFirst parsedOut
+            _ = after.meaning := rewrite afterIs
+            _ = before.meaning := means
+            _ = settled.meaning := rewrite settledBefore
+            _ = settled.withoutComments.meaning := (meaningBlanksFirst settled).flipped
+            _ = file.withoutComments.meaning := rewrite alike
+            _ = file.meaning := meaningBlanksFirst file
+          let outInGrammar: inGrammar1 out = True :=
+            rewrite lexesOut, outParses then
+              Bool.andIntro (leavesAlphabetOfWithin1 lexedOut.leaves (Bool.andLeft leavesOut)) outGrammar
+          (
+            out,
+            lexed,
+            lexedOut,
+            file,
+            fileOut,
+            formats,
+            byComputing,
+            parses,
+            lexesOut,
+            outParses,
+            meaningOut,
+            outInGrammar,
+            again
+          )
+
 -- A source the theorems apply to (D3684).
 
 --| A source with comments above, after and at the end of declarations, a value after a comment on the `:=` (so on the
@@ -446,6 +550,9 @@ def witnessOut: Text := "-- top\ndef d: A -> B := f (a, -b) [1, 2] -- end\n\ndef
 
 --| The top theorems' one hypothesis holds of `witnessSource`.
 theorem witnessFormats: formatWithin1 witnessSource = Ok witnessOut := byComputing
+
+--| `slice1Formats`' one hypothesis holds of `witnessSource`.
+theorem witnessInGrammar: inGrammar1 witnessSource = True := byComputing
 
 theorem witnessIdempotent: formatWithin1 witnessOut = Ok witnessOut :=
   formatIdempotent1 witnessSource witnessOut witnessFormats
