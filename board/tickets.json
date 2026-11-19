@@ -1,5 +1,5 @@
 {
-  "next": 4128,
+  "next": 4132,
   "tickets": [
     {
       "id": 47,
@@ -25910,6 +25910,58 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "docs/reviews/SW-4121-multiline-readback.md, H4 and O-list. Model: Sonnet. Est. 20 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4128,
+      "title": "[Opus] fmt S1 item 5 (D3689, SW-4120): the driver accepts the name auto: a parsed-tree fact (no list's first item is auto then an upper-case name), carried like shaped1 and used in read-back's list case; the spelling test on auto goes",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "docs/reviews/SW-4120-grammar1.md item 5. Model: Opus (new parser invariant). Est. 45 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4129,
+      "title": "[Opus] fmt S1 item 7 (SW-4120): prove rule N keeps the parse (parseFile of the settled leaves gives the tree of parseFile of the lexer's leaves, up to comment placement), linking inGrammar1 to the driver's parse",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "docs/reviews/SW-4120-grammar1.md item 7. Model: Opus. Est. 60-90 min; may need a Fable sketch first.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4130,
+      "title": "[Opus] fmt S1 piece E (SW-4119, D3687): DeclElements with comments anywhere inside a type or value (generalise edgeQuietOneLine1 / DeclQuiet), so the one-line test can leave the driver once read-back (SW-4126 plan) lands",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "docs/reviews/SW-4119-slice1-review.md piece E; SW-4120 item 1. Model: Opus first, then Sonnet per form. Est. 3-4 lanes.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4131,
+      "title": "[Fable paper] fmt S1 item 6 sketch (D3689): a last comma that starts its line before a closer (plain1): state what rule N and the settle proofs must say for it, check on generated cases, plan lanes; if it needs restating comment placement through every layer, set out the slice 3 option for Matt",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4131",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "docs/reviews/SW-4120-grammar1.md item 6. Model: Fable. Est. 45 min.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
