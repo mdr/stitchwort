@@ -61,3 +61,19 @@ theorem wordStartChar ∀ (char: Char) (starts: isWordStart char = True): isWord
 theorem andFalseRight ∀ (x: Bool): (x && False) = False := match x with
   | True => byComputing
   | False => byComputing
+
+theorem headerResultWithin ∀ (header: Header) (within: header.within1 = True): header.result.within1 = True :=
+  match header with
+    | {
+        exportKeyword = None,
+        opaqueKeyword = None,
+        kind = DefPlain,
+        keyword,
+        name,
+        forallKeyword = None,
+        params = [],
+        colon,
+        result,
+        decreasingClause = None,
+        unfoldingClause = None
+      } => Bool.andRight within

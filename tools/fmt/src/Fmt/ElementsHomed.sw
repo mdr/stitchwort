@@ -11,11 +11,9 @@ namespace Fmt.ElementsHomed
 import Std (Bool, DecEq, Eq, List, Nat, Option, Text)
 import Syntax (Decl, DefBody, Expr, Header, InfixKind, Tok, Word)
 import Fmt (..)
-import Fmt.TrailsProofs (Coded, trailsBackCoded)
-import Fmt.EdgeHangProofs (codedSnocLead)
+import Fmt.TrailsProofs (Coded, codedSnoc, trailsBackCoded)
 import Fmt.SpellProofs (firstWordLead, wordsLead)
-import Fmt.CalmProofs (headerResultWithin)
-import Syntax.SharedFacts (arrowsBarePrefix, arrowsBareSuffix, homedBackSuffix)
+import Syntax.SharedFacts (arrowsBarePrefix, arrowsBareSuffix, headerResultWithin, homedBackSuffix)
 
 -- What `settled1` gives the layout.
 
@@ -95,7 +93,7 @@ theorem bracketBack ∀ (open close: Word) (inside rest: List Word)
   let some: ((inside ++ [open]) ++ rest).isEmpty = False :=
     rewrite List.appendAssoc inside [open] rest then appendNonEmpty inside open rest
   let after := closerHomedOf close ((inside ++ [open]) ++ rest) closer some homed
-  (within, rewrite (trailsBackCoded (inside ++ [open]) rest (codedSnocLead inside open opens)).flipped then after)
+  (within, rewrite (trailsBackCoded (inside ++ [open]) rest (codedSnoc inside open opens)).flipped then after)
 
 -- Words read forwards.
 

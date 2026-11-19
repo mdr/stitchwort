@@ -1024,13 +1024,6 @@ theorem argumentsPrintable ∀ (arguments: List Expr)
         (exprPrintable argument False (Bool.andLeft within) (Bool.andLeft sound) (Bool.andLeft lexical) first)
         (argumentsPrintable rest (Bool.andRight within) (Bool.andRight sound) (Bool.andRight lexical) others)
 
---| An opening or closing bracket's words are pieces the lexer proofs can read.
-theorem bracketPrintable ∀ (word: Word) (kind: Tok) (hoisted: Bool)
-    (sound: word.sound = True)
-    (spells: Spells kind word.text):
-    Every (Printable lexKind) (word.spelledAt hoisted) :=
-  wordPrintable word kind hoisted sound spells
-
 --| The tokens of an expression, with their comments, are pieces the lexer proofs can read.
 --|
 --| Proof idea: Induction on the expression: each token by `wordPrintable` with its spelling, the pieces in order by
@@ -1048,12 +1041,12 @@ theorem exprPrintable ∀ (expr: Expr) (hoisted: Bool)
         (open.spelledAt hoisted)
         (inner.spelt False)
         (close.spelledAt False)
-        (bracketPrintable open LParen hoisted (Bool.andLeft sound) (DecEq.sound (Bool.andLeft lexical)))
+        (wordPrintable open LParen hoisted (Bool.andLeft sound) (DecEq.sound (Bool.andLeft lexical)))
         (exprPrintable inner False within
           (Bool.andLeft (Bool.andRight sound))
           (Bool.andRight (Bool.andRight lexical))
           innerSpelled)
-        (bracketPrintable close RParen False
+        (wordPrintable close RParen False
           (Bool.andRight (Bool.andRight sound))
           (DecEq.sound (Bool.andLeft (Bool.andRight lexical))))
     | Tuple open items comma close, itemsSpelled =>
@@ -1062,12 +1055,12 @@ theorem exprPrintable ∀ (expr: Expr) (hoisted: Bool)
         (open.spelledAt hoisted)
         (commaSpelt items)
         (close.spelledAt False)
-        (bracketPrintable open LParen hoisted (Bool.andLeft sound) (DecEq.sound (Bool.andLeft lexical)))
+        (wordPrintable open LParen hoisted (Bool.andLeft sound) (DecEq.sound (Bool.andLeft lexical)))
         (commaPrintable items within
           (Bool.andLeft (Bool.andRight sound))
           (Bool.andRight (Bool.andRight lexical))
           itemsSpelled)
-        (bracketPrintable close RParen False
+        (wordPrintable close RParen False
           (Bool.andRight (Bool.andRight sound))
           (DecEq.sound (Bool.andLeft (Bool.andRight lexical))))
     | ListOf open items comma close, itemsSpelled =>
@@ -1076,12 +1069,12 @@ theorem exprPrintable ∀ (expr: Expr) (hoisted: Bool)
         (open.spelledAt hoisted)
         (commaSpelt items)
         (close.spelledAt False)
-        (bracketPrintable open LBracket hoisted (Bool.andLeft sound) (DecEq.sound (Bool.andLeft lexical)))
+        (wordPrintable open LBracket hoisted (Bool.andLeft sound) (DecEq.sound (Bool.andLeft lexical)))
         (commaPrintable items within
           (Bool.andLeft (Bool.andRight sound))
           (Bool.andRight (Bool.andRight lexical))
           itemsSpelled)
-        (bracketPrintable close RBracket False
+        (wordPrintable close RBracket False
           (Bool.andRight (Bool.andRight sound))
           (DecEq.sound (Bool.andLeft (Bool.andRight lexical))))
     | App head arguments, (headSpelled, argumentsSpelled) =>

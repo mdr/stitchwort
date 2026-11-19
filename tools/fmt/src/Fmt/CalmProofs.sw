@@ -11,7 +11,7 @@ import Std (Bool, Doc, Eq, List, Nat, Option, Text)
 import Std.Doc (..)
 import Syntax (Comments, Decl, DefBody, DefKind, Expr, Header, InfixKind, Note, SourceFile, Tok, Word)
 import Fmt (..)
-import Syntax.SharedFacts (consCong)
+import Syntax.SharedFacts (consCong, headerResultWithin)
 
 -- A word and its calm word.
 
@@ -1947,22 +1947,6 @@ theorem lexicalClosed ∀ (expr: Expr) (lexical: expr.lexical1 = True): expr.clo
       (lexicalClosed left (Bool.andLeft lexical))
       (lexicalClosed right (Bool.andRight (Bool.andRight lexical)))
   | Prefix operator operand => lexicalClosed operand (Bool.andRight lexical)
-
-theorem headerResultWithin ∀ (header: Header) (within: header.within1 = True): header.result.within1 = True :=
-  match header with
-    | {
-        exportKeyword = None,
-        opaqueKeyword = None,
-        kind = DefPlain,
-        keyword,
-        name,
-        forallKeyword = None,
-        params = [],
-        colon,
-        result,
-        decreasingClause = None,
-        unfoldingClause = None
-      } => Bool.andRight within
 
 theorem headerCalmWithin ∀ (header: Header) (within: header.within1 = True): header.calm.within1 = True :=
   match header with

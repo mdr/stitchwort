@@ -22,7 +22,6 @@ import Fmt.ChainHangProofs (HangsAt, Links, arrowChainHangs, binaryChainHangs)
 import Fmt.ElementsChain (LedEl, arrowPair, binaryPair, operandLinks, orOfRight, unledLeading)
 import Fmt.ExprHangProofs (opensNoArms, prefixToken, wordFacts)
 import Fmt.SpellProofs (..)
-import Fmt.CalmProofs (headerResultWithin)
 import Fmt.TreeJoinProofs (lexKind)
 import Fmt.TokenProofs (declRealOfLexical)
 import Fmt.DeclHangProofs (BodyLays, OnLine, declStart, plainBody)
@@ -48,6 +47,7 @@ import Fmt.ElementsKeys (anyBrokenKeys, anyCellsKeys)
 import Fmt.BracketHangProofs (bracketTrails, groupedBracketHangs, listHangs, tupleHangs, tupleTrails)
 import Fmt.EdgeHangProofs (edgeCloseBefore)
 import Fmt.ExprHangProofs (closeBracket, openBracket)
+import Syntax.SharedFacts (headerResultWithin)
 
 -- The invariant.
 

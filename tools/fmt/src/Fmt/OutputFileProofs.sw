@@ -1644,8 +1644,6 @@ theorem printedGroups1 ∀ (file: SourceFile)
 
 theorem stepCommentExample: Scan.start.step "-- a" = Some Scan.start := stepComment Scan.start "-- a" byComputing
 
-theorem stepStartsExample: Scan.start.step "-- a" = Some Scan.start := stepStarts Scan.start "-- a" byComputing
-
 theorem goCloseExample: ({ previous = Some Lower, open = 1 }: Scan).go RParen
       = Some { previous = Some RParen, open = 0 } :=
   goClose

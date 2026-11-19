@@ -11,6 +11,7 @@ import Syntax.Proofs (..)
 import Syntax.ParseProofs (..)
 import Fmt.Grammar1 (..)
 import Fmt.Kinds1 (..)
+import Syntax.SharedFacts (headerResultWithin)
 
 -- What each level of the recursion gives.
 
@@ -6892,26 +6893,6 @@ theorem headerNameKind ∀ (header: Header)
           match (Bool.orReads _ _).forward (Bool.andLeft within) with
             | Inl lower => (Bool.orReads _ _).backward (Inl (Bool.andLeft lower))
             | Inr upper => (Bool.orReads _ _).backward (Inr (Bool.andLeft upper))
-        | other, others, kinds, foralls, parameters, decreasings, unfoldings, within =>
-          (Bool.falseNotTrue within).impossible
-
-theorem headerResultWithin ∀ (header: Header) (within: header.within1 = True): header.result.within1 = True :=
-  match header with
-    | {
-        exportKeyword,
-        opaqueKeyword,
-        kind,
-        keyword,
-        name,
-        forallKeyword,
-        params,
-        colon,
-        result,
-        decreasingClause,
-        unfoldingClause
-      } =>
-      match exportKeyword, opaqueKeyword, kind, forallKeyword, params, decreasingClause, unfoldingClause, within with
-        | None, None, DefPlain, None, [], None, None, within => Bool.andRight within
         | other, others, kinds, foralls, parameters, decreasings, unfoldings, within =>
           (Bool.falseNotTrue within).impossible
 

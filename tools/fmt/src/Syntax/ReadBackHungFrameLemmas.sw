@@ -291,16 +291,3 @@ theorem closeStepExample: { blocks = [], top = None, start = False, glue = False
     byComputing
     byComputing
     byComputing
-
---| `commaStep`'s: a comma in a bracket starts its next item.
-theorem commaStepExample: { blocks = [None], top = None, start = True, glue = False }
-      = { blocks = [None, ..[]], top = None, start = True, glue = False } :=
-  commaStep
-    { blocks = [None], top = None, start = False, glue = False }
-    { blocks = [None], top = None, start = True, glue = False }
-    (exampleLeaf Comma ",")
-    None
-    []
-    byComputing
-    byComputing
-    byComputing

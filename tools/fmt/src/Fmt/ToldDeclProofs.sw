@@ -11,7 +11,7 @@ import Fmt.TriviaStatements (..)
 import Fmt.CalmProofs (bracketFrom, bracketIs, lambdaHugNone, matchedNone, plainDef, plainDefIs, valueElPlain)
 import Fmt.SpellProofs (..)
 import Fmt.ToldWordProofs (..)
-import Fmt.TrailsProofs (Coded, trailsBackCoded)
+import Fmt.TrailsProofs (Coded, codedSnoc, trailsBackCoded)
 import Syntax.SharedFacts (homedBackSuffix)
 
 -- What a reading says, as a list of entries to refine.
@@ -472,16 +472,6 @@ theorem isComma: Is (Closing ",") [Said "," True True] := spot =>
     wordTellingRefines "," spot True (never => (Bool.trueNotFalse never).impossible)
 
 -- Where the code before a closer ends with a comment.
-
-theorem codedSnoc ∀ (front: List Word) (last: Word)
-    (code: isCloserText last.text = False):
-    Coded (front ++ [last]) = True :=
-  match front with
-    | [] => rewrite code
-    | [word, ..rest] =>
-      match isCloserText word.text with
-        | True => codedSnoc rest last code
-        | False => byComputing
 
 theorem closeBool ∀ (closer trails noted before: Bool)
     (cond: (!(closer && trails) || False || noted || before) = True):
