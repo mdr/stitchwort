@@ -27,6 +27,12 @@
 --|   sides (`followsCommaListFrom`). `Parse.loop` is `Parse.followsLoop`.
 --| - A parser passed as an argument (`next`, `ends`) comes with its own `Follows` fact, for the two runs' versions
 --|   (`followsCommaList`).
+--| - A `match` the parser writes inside a lambda (the step of a loop, of `operatorLinks`) is not restated in the
+--|   proof: restating it gives a different hidden function. Leave the step to unify (`Parse.followsLoop _ _ …`).
+--| - A function the proof calls at changed modes (`modes.inBrackets`, a `sectionHead`) has a cross-lane hypothesis
+--|   stated for every `modes`, not one.
+--| - Items the two runs compute from their own items (`negativeNumeral`, `headKind`, `pipeAheadOn`) are proved equal
+--|   with lane 2's `…Deaf` lemmas and rewritten, so those need no hypothesis.
 --|
 --| When `Parse.followsThen` can't find the parsers itself, give them: `[p := …] [q := …] [j := …] [k := …]`. This is
 --| needed for a step on `Parse.mark()` (`Parse.mark().left + 1` as fuel, `followsListItems`), for `||` or `&&` between

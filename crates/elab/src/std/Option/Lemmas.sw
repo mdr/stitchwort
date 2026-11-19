@@ -283,3 +283,11 @@ theorem Pair.mkInjectiveSnd ∀ [x1: a] [y1: b] [x2: a] [y2: b] (h: MkPair x1 y1
 theorem Pair.mkBeqMk ∀ [auto eqA: DecEq a] [auto eqB: DecEq b] (x1: a) (y1: b) (x2: a) (y2: b):
     ((x1, y1) == (x2, y2)) = (x1 == x2 ∧ y1 == y2) :=
   byComputing
+
+--| Two optional values are alike when both are `None`, or both are `Some`
+--| of alike values: what `next` and a `loop`'s step give.
+@[noReceiver]
+def Option.Alike (alike: a → b → Prop): Option a → Option b → Prop
+  | Some x, Some y => alike x y
+  | None, None => Unit
+  | _, _ => Void

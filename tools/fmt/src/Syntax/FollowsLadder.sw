@@ -49,7 +49,7 @@
 --|
 --| Helpers added here: `alikeInfix`, `alikeSection`, `alikeApp`, `alikeChain` (the trees), `linksAlike` (links
 --| `List.All2 (PairAlike WordsAlike ExprsAlike)` to the equality lane 2's `leftNestedDeaf` and friends take),
---| `all2Length`, `headKindDeaf`, and the look-aheads `followsStartsAtom`, `followsAndOrAhead`, `followsAtPipe`,
+--| `headKindDeaf`, and the look-aheads `followsStartsAtom`, `followsAndOrAhead`, `followsAtPipe`,
 --| `followsHeadIndent`, `followsSequenceAhead`, `followsMatchesBarAhead`, `followsQuantifierAhead`,
 --| `followsLambdaHere`, `followsAtUpperBrace`, `followsBareCases`.
 
@@ -117,11 +117,6 @@ theorem alikeChain ∀ (first firstTwin: Expr)
     _ = Chain (firstTwin.walk blankPure) (blankLinks (walkLinks blankPure restTwin)) :=
       rewrite firsts, linksAlike rest restTwin alike
     _ = (Chain firstTwin restTwin).walk blankPure := byComputing
-
-theorem all2Length ∀ [r: a → b → Prop] (xs: List a) (ys: List b) (alike: List.All2 r xs ys): xs.length = ys.length :=
-  match xs, ys with
-    | [], [] => byComputing
-    | [x, ..xs], [y, ..ys] => Eq.cong (n => n + 1) (all2Length xs ys alike.right)
 
 -- The facts about other lanes' functions that the ladder calls directly, each as lane 5 (or lane 7) states it.
 
@@ -1189,7 +1184,7 @@ theorem followsLogicChain ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (followsLogicLinks knot atoms braces matches clauses lambdaFacts ifs quantifiers results modes)
     (links linksTwin alike =>
       Parse.followsDone _ _
-        (rewrite all2Length links linksTwin alike then
+        (rewrite List.all2Length _ links linksTwin alike then
           groupLogicDeaf
             (linksTwin.length + 1)
             first

@@ -2165,7 +2165,7 @@ theorem followsMatchArm ∀ [self selfTwin: Goal → {Parse Item} Expr]
       matchArm more selfTwin modes scrutinees column foundTwin) :=
   Parse.followsThen followsBump (bar barTwin bars =>
     Parse.followsThen (followsArmPatterns alts modes) (patterns patternsTwin patternses =>
-      let lengths: patterns.length = patternsTwin.length := all2Length patterns patternsTwin patternses
+      let lengths: patterns.length = patternsTwin.length := List.all2Length _ patterns patternsTwin patternses
       rewrite lengths then
         match patternsTwin.length != scrutinees with
           | True =>
@@ -2256,7 +2256,7 @@ theorem followsClauseArmBody ∀ [self selfTwin: Goal → {Parse Item} Expr]
       (() => clauseArmBody more self modes kind column found bar patterns)
       (() => clauseArmBody more selfTwin modes kind column foundTwin barTwin patternsTwin) :=
   Parse.followsThen (followsGuardOf knot modes) (guard guardTwin guards =>
-    let lengths: patterns.length = patternsTwin.length := all2Length patterns patternsTwin patternses
+    let lengths: patterns.length = patternsTwin.length := List.all2Length _ patterns patternsTwin patternses
     rewrite anyAbsurdDeaf patterns,
         anyAbsurdDeaf patternsTwin,
         walkPatternsAlike patterns patternsTwin patternses,
@@ -2284,7 +2284,7 @@ theorem followsClauseArm ∀ [self selfTwin: Goal → {Parse Item} Expr]
       clauseArm more selfTwin modes kind count column foundTwin) :=
   Parse.followsThen followsBump (bar barTwin bars =>
     Parse.followsThen (followsArmPatterns alts modes) (patterns patternsTwin patternses =>
-      let lengths: patterns.length = patternsTwin.length := all2Length patterns patternsTwin patternses
+      let lengths: patterns.length = patternsTwin.length := List.all2Length _ patterns patternsTwin patternses
       match count with
         | Some first =>
           let differs: (first != patterns.length: Bool) = (first != patternsTwin.length: Bool) :=
@@ -2474,7 +2474,7 @@ theorem followsMatchTail ∀ [self selfTwin: Goal → {Parse Item} Expr]
         (let withKeyword := modes.expect KwWith "`with`";
          let arms := matchArms (Parse.mark().left + 1) selfTwin modes twins.length None [];
          if arms.isEmpty then modes.fail "`|` and an alternative" else Match keywordTwin twins withKeyword arms)) :=
-  let lengths: scrutinees.length = twins.length := all2Length scrutinees twins alike
+  let lengths: scrutinees.length = twins.length := List.all2Length _ scrutinees twins alike
   Parse.followsThen (followsExpect modes KwWith "`with`") (withKeyword withTwin withs =>
     Parse.followsThen [p := () => Parse.mark()] [q := () => Parse.mark()] Parse.followsMark (here hereTwin marks =>
       rewrite <- marks.right.right, lengths then

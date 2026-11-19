@@ -77,14 +77,6 @@ def Parse.FollowsAt (same: t → u → Prop) (alike: a → b → Prop) (start: P
       ∧ Parse.Mark.Alike same after afterTwin
       ∧ alike value twin
 
---| Two optional values are alike when both are `None`, or both are `Some`
---| of alike values: what `next` and a `loop`'s step give.
-@[noReceiver]
-def Option.Alike (alike: a → b → Prop): Option a → Option b → Prop
-  | Some x, Some y => alike x y
-  | None, None => Unit
-  | _, _ => Void
-
 --| What [`Parse.Follows`] says for runs from known marks, from the same fact
 --| for any alike marks: `FollowsAt` is the weaker statement.
 theorem Parse.followsAt ∀ [same: t → u → Prop] [alike: a → b → Prop] [first: () → {Parse t} a]
@@ -253,25 +245,6 @@ theorem Parse.followsWithMark ∀ [same: t → u → Prop] [alike: a → b → P
     let (twin, afterTwin, ranTwin, marksAfter, holds) :=
       each state.at other.at state other value after byComputing byComputing marks ranAt
     (twin, afterTwin, Eq.trans (Parse.runFromMark other (n => (l n, Parse.mark()))) ranTwin, marksAfter, holds)
-
---| Related lists joined are related: `xs ++ more` and `ys ++ moreTwin`.
-theorem List.all2Append ∀ [r: a → b → Prop] (xs: List a) (ys: List b) (more: List a) (moreTwin: List b)
-    (first: List.All2 r xs ys)
-    (second: List.All2 r more moreTwin):
-    List.All2 r (xs ++ more) (ys ++ moreTwin) :=
-  match xs, ys with
-    | [], [] => second
-    | [x, ..xs], [y, ..ys] => Both first.left (List.all2Append xs ys more moreTwin first.right second)
-
---| Related lists reversed are related.
-theorem List.all2Reverse ∀ [r: a → b → Prop] (xs: List a) (ys: List b)
-    (all: List.All2 r xs ys):
-    List.All2 r xs.reverse ys.reverse :=
-  match xs, ys with
-    | [], [] => Trivial
-    | [x, ..xs], [y, ..ys] =>
-      rewrite List.reverseCons x xs, List.reverseCons y ys then
-        List.all2Append xs.reverse ys.reverse [x] [y] (List.all2Reverse xs ys all.right) (Both all.left Trivial)
 
 --| `if` on two conditions that agree: `yes` follows `yesTwin` where they
 --| hold and `no` follows `noTwin` where they don't.
@@ -442,54 +415,6 @@ theorem Parse.followsRecursive ∀ [same: t → u → Prop] [alike: a → b → 
           Parse.recursiveFuel (n.left + 1) bodyTwin) :=
           rewrite marks.right.right then Parse.followsRecursiveFuel body bodyTwin bodies (n.left + 1)
         follows state other value after (rewrite atM, atN then marks) ran)
-
---| A parser's own run that succeeded has a run with the mark after it that
---| did: the converse of [`Parse.runFromForgetMark`]. By induction on the
---| parser's computation (`tree`, any computation has one).
-theorem Parse.runFromAddMark ∀ (p: () → {Parse t} a)
-    (tree: Effect.AlwaysTree (x => Unit) (p ()))
-    (s: Parse.State t) (v: a)
-    (h: Parse.runFrom s p = Ok v):
-    ∃ (m: Parse.Mark t) => Parse.runFrom s (() => (p(), Parse.mark())) = Ok (v, m) :=
-  match reify p with
-    | return x =>
-      let same: x = v := Result.okInjective h
-      Witness s.at (rewrite same)
-    | Parse.span passes, q =>
-      match tree with
-        | AlwaysCall later =>
-          Parse.runFromAddMark (() => q (s.span passes).fst) (later (s.span passes).fst) (s.span passes).snd v h
-    | Parse.next passes, q =>
-      match tree with
-        | AlwaysCall later =>
-          match Parse.runFromAddMark
-            (() => q (s.next passes).fst)
-            (later (s.next passes).fst)
-            (s.next passes).snd
-            v
-            (Eq.trans (Eq.flipped (Parse.runFromNext s passes q)) h) with
-            | Witness m ran => Witness m (Eq.trans (Parse.runFromNext s passes (y => (q y, Parse.mark()))) ran)
-    | Parse.literal literal, q =>
-      match tree with
-        | AlwaysCall later =>
-          match Parse.runFromAddMark
-            (() => q (s.literal literal).fst)
-            (later (s.literal literal).fst)
-            (s.literal literal).snd
-            v
-            (Eq.trans (Eq.flipped (Parse.runFromLiteral s literal q)) h) with
-            | Witness m ran => Witness m (Eq.trans (Parse.runFromLiteral s literal (y => (q y, Parse.mark()))) ran)
-    | Parse.mark u, q =>
-      match tree with
-        | AlwaysCall later => Parse.runFromAddMark (() => q s.at) (later s.at) s v h
-    | Parse.reset at, q =>
-      match tree with
-        | AlwaysCall later => Parse.runFromAddMark (() => q ()) (later ()) { s | at } v h
-    | Parse.note problem, q =>
-      match tree with
-        | AlwaysCall later => Parse.runFromAddMark (() => q ()) (later ()) (s.note problem) v h
-    | Parse.stop u, q => (Result.errNotOk h).impossible
-    | Parse.fatal message, q => (Result.errNotOk h).impossible
 
 --| A run from the start of `input` of a parser that `second` follows:
 --| where `first` parses `input` to `value`, `second` parses any `inputTwin`
