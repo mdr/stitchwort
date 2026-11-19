@@ -19,13 +19,10 @@ theorem runsAsValue ∀ (p: () → {Parse Char} a) (read rest: List Char) (v w: 
 def continues (char: Char): Bool := Parse.isDigit char ∨ char == ','
 
 theorem spaceStops ∀ (char: Char) (isSpace: Parse.isSpace char = True): continues char = False := match isSpace with
-  | Inl space => rewrite space.read
-  | Inr tab => rewrite tab.read
+  | Inl space | Inr space => rewrite space.read
 
 theorem spaceNotDigit ∀ (char: Char) (isSpace: Parse.isSpace char = True): Parse.isDigit char = False :=
-  match isSpace with
-    | Inl space => rewrite space.read
-    | Inr tab => rewrite tab.read
+  match isSpace with | Inl space | Inr space => rewrite space.read
 
 theorem continuesNotDigit ∀ (rest: List Char)
     (stops: Parse.CannotStart continues rest):
@@ -171,8 +168,7 @@ theorem declinesTicket ∀ (input: List Char) (stops: Parse.CannotStart continue
 -- character.
 
 theorem spaceIsName ∀ (char: Char) (isSpace: Parse.isSpace char = True): isNameChar char = True := match isSpace with
-  | Inl space => rewrite space.read
-  | Inr tab => rewrite tab.read
+  | Inl space | Inr space => rewrite space.read
 
 --| `rule` declines on a run of name characters and then a line feed.
 theorem declinesRuleBeforeBreak ∀ (run more: List Char)

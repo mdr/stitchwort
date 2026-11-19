@@ -45,8 +45,7 @@ theorem inTowelLists ∀ (patterns: List Pattern) (count: Nat) (towels: List Pat
     (short: towels.length ≤ count):
     towels ∈ towelLists patterns count :=
   match count, towels, from with
-    | Zero, [], from => Inl byComputing
-    | Succ count, [], from => Inl byComputing
+    | Zero | Succ _, [], _ => Inl byComputing
     | Succ count, [first, ..rest], Both firstMember restFrom =>
       Inr
         (List.memFlatMapIntro

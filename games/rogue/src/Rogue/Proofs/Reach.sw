@@ -230,12 +230,10 @@ theorem openCorridor ∀ (level: Level) (area: Area) (listed: List.Mem area leve
         Bool.orTrue (level.entrance.contains position)
 
 theorem minDistanceLeft ∀ (m n: Nat): m ≤ Nat.min m n + distanceBetween m n := match below: Nat.leq m n with
-  | True => arithmetic
-  | False => arithmetic
+  | True | False => arithmetic
 
 theorem minDistanceRight ∀ (m n: Nat): n ≤ Nat.min m n + distanceBetween m n := match below: Nat.leq m n with
-  | True => arithmetic
-  | False => arithmetic
+  | True | False => arithmetic
 
 --| A corridor's two legs, and the cell where they meet.
 def bend (origin target: Position): Position := { row = origin.row, column = target.column }

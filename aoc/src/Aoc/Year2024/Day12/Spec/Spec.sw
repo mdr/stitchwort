@@ -59,10 +59,8 @@ def isFence (region: Region) (plot: Position) (side: Direction): Bool :=
 --| The plot before `plot` along a fence on its `side`: left of it for a fence
 --| above or below, above it for a fence on the left or right.
 def alongBefore (plot: Position) (side: Direction): Option Position := match side with
-  | Up => plot.step Left
-  | Down => plot.step Left
-  | Left => plot.step Up
-  | Right => plot.step Up
+  | Up | Down => plot.step Left
+  | Left | Right => plot.step Up
 
 --| "Each straight section of fence counts as a side, regardless of how long
 --| it is": a run of fence facing the same way, plot after plot along a line.

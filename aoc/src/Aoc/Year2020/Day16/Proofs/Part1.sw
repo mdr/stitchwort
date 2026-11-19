@@ -8,9 +8,7 @@ import Std (Bool, Eq, List)
 theorem errorTerm ∀ (notes: Notes) (value: Nat):
     (if not (notes.fitsSomeField value) then value else 0)
       = (if Spec.validForSomeField notes.rules value then 0 else value) :=
-  match fits: Spec.validForSomeField notes.rules value with
-    | True => byComputing
-    | False => byComputing
+  match fits: Spec.validForSomeField notes.rules value with | True | False => byComputing
 
 theorem errorRateSpec ∀ (notes: Notes): Spec.Part1 notes notes.errorRate := calc notes.errorRate
   _ = (notes.nearby.flatMap .values).sumBy (value => if not (notes.fitsSomeField value) then value else 0) :=

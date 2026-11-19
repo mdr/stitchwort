@@ -27,8 +27,7 @@ theorem firstSeatCong ∀ (f g: Position → Option Seat)
             match g next with
               | None => byComputing
               | Some Floor => firstSeatCong f g same from direction (distance + 1) more
-              | Some Empty => byComputing
-              | Some Occupied => byComputing
+              | Some Empty | Some Occupied => byComputing
 
 --| The cell `distance` steps from `from` in `direction`, by what `find`
 --| says is there (`Spec.cellAlong` with the layout's `at`).
@@ -57,8 +56,7 @@ theorem walkSeen ∀ (find: Position → Option Seat) (from: Position) (directio
           match e: find next with
             | None => byComputing
             | Some Floor => walkSeen find from direction (distance + 1) more
-            | Some Empty => rewrite e
-            | Some Occupied => rewrite e
+            | Some Empty | Some Occupied => rewrite e
 
 --| Checking a position found for an occupied seat, with the table or
 --| with `at`.
@@ -138,15 +136,8 @@ theorem firstSeatPlan ∀ (f g: Position → Option Seat)
             | Some Floor =>
               match g next with
                 | Some Floor => firstSeatPlan f g same from direction (distance + 1) more
-                | Some Empty => cases
-                | Some Occupied => cases
-            | Some Empty =>
+                | Some Empty | Some Occupied => cases
+            | Some Empty | Some Occupied =>
               match g next with
                 | Some Floor => cases
-                | Some Empty => byComputing
-                | Some Occupied => byComputing
-            | Some Occupied =>
-              match g next with
-                | Some Floor => cases
-                | Some Empty => byComputing
-                | Some Occupied => byComputing
+                | Some Empty | Some Occupied => byComputing

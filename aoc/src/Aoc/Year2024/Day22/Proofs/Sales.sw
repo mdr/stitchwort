@@ -28,8 +28,7 @@ theorem keepFirstGet ∀ (key: Changes) (found: List (Changes, Nat)) (sales: Map
           let equal := same.read
           rewrite later, equal, Map.getInsertWith sales key entry.snd (new old => old) then
             match sales.get key with
-              | None => byComputing
-              | Some old => byComputing
+              | None | Some _ => byComputing
         | False =>
           rewrite later,
               Map.getInsertWithOther sales entry.fst entry.snd key (equal => same.read equal.flipped) (new old => old)
@@ -41,11 +40,8 @@ theorem findMapSells ∀ (sequence: Changes) (places: List (List Nat)):
       = (places.filterMap sale).find (entry => entry.fst == sequence) |> .map (entry => entry.snd) :=
   match places with
     | [] => byComputing
-    | [[], ..rest] => findMapSells sequence rest
-    | [[a], ..rest] => findMapSells sequence rest
-    | [[a, b], ..rest] => findMapSells sequence rest
-    | [[a, b, c], ..rest] => findMapSells sequence rest
-    | [[a, b, c, d], ..rest] => findMapSells sequence rest
+    | [[], ..rest] | [[_], ..rest] | [[_, _], ..rest] | [[_, _, _], ..rest] | [[_, _, _, _], ..rest] =>
+      findMapSells sequence rest
     | [[a, b, c, d, e, ..after], ..rest] =>
       match same: ({ first = change a b, second = change b c, third = change c d, fourth = change d e }: Changes)
         == sequence with

@@ -40,13 +40,9 @@ theorem flipEdges ∀ (image: Image):
         image.rows.map (row => row.last.getOrElse Calm)
       ] :=
   let top: (image.rows.map (.reverse)).headOr [] = (image.rows.headOr []).reverse := match image.rows with
-    | [] => byComputing
-    | [row, ..rest] => byComputing
+    | [] | [_, .._] => byComputing
   let bottom: (image.rows.map (.reverse)).last.getOrElse [] = (image.rows.last.getOrElse []).reverse :=
-    rewrite List.lastMap image.rows (.reverse) then
-      match image.rows.last with
-        | None => byComputing
-        | Some row => byComputing
+    rewrite List.lastMap image.rows (.reverse) then match image.rows.last with | None | Some _ => byComputing
   let right: (image.rows.map (.reverse)).map (row => row.last.getOrElse Calm)
     = image.rows.map (row => row.headOr Calm) :=
     rewrite List.mapMap image.rows (row => row.last.getOrElse Calm) (.reverse) then

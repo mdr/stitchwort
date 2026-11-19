@@ -32,8 +32,7 @@ theorem taken ∀ (a: Cell) (n: Nat):
     | Roll =>
       rewrite keepRemove Roll n then
         match Nat.leq (Succ n) 4 with
-          | True => byComputing
-          | False => byComputing
+          | True | False => byComputing
 
 --| Part 1 is right for every grid: the printed answer is the number of rolls
 --| with fewer than four rolls around them.

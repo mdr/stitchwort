@@ -10,8 +10,7 @@ import Std (Eq, List, Nat, Not, Option, Set, Void)
 
 --| Off the map, there is no route.
 theorem routeNone ∀ (lab: Lab) (steps: Nat): route lab None steps = [] := match steps with
-  | Zero => byComputing
-  | Succ steps => byComputing
+  | Zero | Succ _ => byComputing
 
 --| Once she has left, more steps add nothing to the route.
 theorem routeAfterGone ∀ (lab: Lab):

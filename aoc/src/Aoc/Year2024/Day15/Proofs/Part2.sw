@@ -466,8 +466,7 @@ theorem wholeOfSeparate ∀ (warehouse: Warehouse) (separate: WideSeparate wareh
 theorem moveWideWalls ∀ (warehouse: Warehouse) (direction: Direction):
     (warehouse.moveWide direction).walls = warehouse.walls :=
   match warehouse.gather direction Set.empty [warehouse.robot.step direction] (2 * warehouse.boxes.size + 1) with
-    | Some group => byComputing
-    | None => byComputing
+    | Some _ | None => byComputing
 
 --| After every move: the walls are where they were, nothing overlaps if
 --| nothing did at the start (so the robot is never on a wall or a box), and

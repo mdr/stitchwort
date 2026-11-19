@@ -38,17 +38,12 @@ theorem countQuadrants ∀ (f: (Direction, Direction) → Bool):
 theorem specSidesCell ∀ (region: Region) (row column: Nat):
     directions.count (isFirstSection region { row, column }) = starts (insideOf region) row column :=
   match row, column with
-    | Zero, Zero => Eq.trans (countDirections (isFirstSection region _)) byComputing
-    | Zero, Succ before => Eq.trans (countDirections (isFirstSection region _)) byComputing
-    | Succ up, Zero => Eq.trans (countDirections (isFirstSection region _)) byComputing
-    | Succ up, Succ before => Eq.trans (countDirections (isFirstSection region _)) byComputing
+    | Zero | Succ _, Zero | Succ _ => Eq.trans (countDirections (isFirstSection region _)) byComputing
 
 --| Each side of a plot touches the region where the grid's neighbour is in.
 theorem facesUp ∀ (region: Region) (row column: Nat):
     facesRegion region { row, column } Up = above (insideOf region) row column :=
-  match row with
-    | Zero => byComputing
-    | Succ up => byComputing
+  match row with | Zero | Succ _ => byComputing
 
 theorem facesDown ∀ (region: Region) (row column: Nat):
     facesRegion region { row, column } Down = below (insideOf region) row column :=
@@ -56,9 +51,7 @@ theorem facesDown ∀ (region: Region) (row column: Nat):
 
 theorem facesLeft ∀ (region: Region) (row column: Nat):
     facesRegion region { row, column } Left = leftOf (insideOf region) row column :=
-  match column with
-    | Zero => byComputing
-    | Succ before => byComputing
+  match column with | Zero | Succ _ => byComputing
 
 theorem facesRight ∀ (region: Region) (row column: Nat):
     facesRegion region { row, column } Right = rightOf (insideOf region) row column :=
@@ -74,20 +67,15 @@ theorem diagonalUpLeft ∀ (region: Region) (row column: Nat):
     diagonalIn region { row, column } Up Left = above (leftOf (insideOf region)) row column :=
   match row, column with
     | Zero, column => byComputing
-    | Succ up, Zero => byComputing
-    | Succ up, Succ before => byComputing
+    | Succ _, Zero | Succ _ => byComputing
 
 theorem diagonalUpRight ∀ (region: Region) (row column: Nat):
     diagonalIn region { row, column } Up Right = above (rightOf (insideOf region)) row column :=
-  match row with
-    | Zero => byComputing
-    | Succ up => byComputing
+  match row with | Zero | Succ _ => byComputing
 
 theorem diagonalDownLeft ∀ (region: Region) (row column: Nat):
     diagonalIn region { row, column } Down Left = below (leftOf (insideOf region)) row column :=
-  match column with
-    | Zero => byComputing
-    | Succ before => byComputing
+  match column with | Zero | Succ _ => byComputing
 
 theorem diagonalDownRight ∀ (region: Region) (row column: Nat):
     diagonalIn region { row, column } Down Right = below (rightOf (insideOf region)) row column :=
@@ -129,14 +117,12 @@ theorem isCornerSplit ∀ (garden: Garden) (plot: Position)
       = Bool.toNat (convex True verticalIn horizontalIn) + Bool.toNat (concave True verticalIn horizontalIn diagonal) :=
   rewrite verticalSame, horizontalSame then
     match verticalIn, horizontalIn with
-      | False, False => byComputing
-      | False, True => byComputing
+      | False, False | True => byComputing
       | True, False => byComputing
       | True, True =>
         rewrite across byComputing then
           match diagonal with
-            | True => byComputing
-            | False => byComputing
+            | True | False => byComputing
 
 --| The program's corners at a plot of a region are the grid's.
 theorem programCornersCell ∀ (garden: Garden) (start: Position) (plant: Char)

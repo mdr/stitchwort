@@ -119,9 +119,7 @@ theorem monstersTurnApart ∀ (dice: Dice) (state: State)
   match phase: state.phase with
     | Playing =>
       actAllApart dice state.level state.player 0 { moved = [], damage = 0, events = [] } state.monsters apart
-    | Won => apart
-    | Died => apart
-    | GaveUp => apart
+    | Won | Died | GaveUp => apart
 
 theorem positionsWound ∀ (target: Position) (damage: Nat) (monsters: List Monster):
     positions (monsters.map (wound target damage)) = positions monsters :=
@@ -184,9 +182,7 @@ theorem resolveApart ∀ (dice: Dice) (state: State) (command: Command)
           match stairs: isStairs state.level state.player with
             | True => descendApart dice state apart
             | False => apart
-    | Won => apart
-    | Died => apart
-    | GaveUp => apart
+    | Won | Died | GaveUp => apart
 
 --| No two monsters share a cell after a turn, whatever the seed.
 theorem stepApart ∀ (seed: Nat) (state: State) (command: Command)

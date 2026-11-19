@@ -95,8 +95,7 @@ def completionScore (closers: List Bracket): Nat :=
 --| An incomplete line's completion score; `None` for a corrupted line, or
 --| a complete one.
 def autocompleteScore (line: List Token): Option Nat := match scan [] line with
-  | Corrupted _ => None
-  | Unclosed [] => None
+  | Corrupted _ | Unclosed [] => None
   | Unclosed open => Some (completionScore open)
 
 --| The middle of the sorted scores (with an even number of them, the

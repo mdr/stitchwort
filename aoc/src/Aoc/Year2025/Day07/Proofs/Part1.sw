@@ -26,9 +26,7 @@ import Std (Bool, DecEq, Decidable, Eq, Fin, List, Nat, Option, Vec, Void)
 
 -- Bool and number facts ------------------------------------------------------
 
-theorem andOr ∀ (a: Bool) [x y: Bool]: ((a ∧ x) ∨ (a ∧ y)) = (a ∧ (x ∨ y)) := match a with
-  | True => byComputing
-  | False => byComputing
+theorem andOr ∀ (a: Bool) [x y: Bool]: ((a ∧ x) ∨ (a ∧ y)) = (a ∧ (x ∨ y)) := match a with | True | False => byComputing
 
 theorem natEqSelf ∀ (n: Nat): (n == n) = True := (DecEq.decide n n).complete byComputing
 

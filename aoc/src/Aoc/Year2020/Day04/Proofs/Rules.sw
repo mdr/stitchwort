@@ -34,9 +34,7 @@ theorem passportIdSpec ∀ (value: Text): Key.valid PassportId value = digits 9 
   | MkText chars => passportIdChars chars
 
 theorem hairColorChars ∀ (chars: List Char): hairColorValid (Text.fromList chars) = hairColor (Text.fromList chars) :=
-  match chars with
-    | ['#', ..digits] => byComputing
-    | _ => byComputing
+  match chars with | ['#', .._] | _ => byComputing
 
 theorem hairColorSpec ∀ (value: Text): Key.valid HairColor value = hairColor value := match value with
   | MkText chars => hairColorChars chars

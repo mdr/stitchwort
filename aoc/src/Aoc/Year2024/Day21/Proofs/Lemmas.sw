@@ -55,8 +55,7 @@ theorem flatMapSome ∀ (f: a → Option b) (x: Option a) (value: a) (same: x = 
   match x with | Some found => rewrite Option.someInjective same
 
 theorem flatMapIntoSome ∀ (x: Option a): x.flatMap (value => Some value) = x := match x with
-  | None => byComputing
-  | Some value => byComputing
+  | None | Some _ => byComputing
 
 --| Folding with `List.minByStep` keeps a value that passes, if all do.
 theorem minByStepPasses ∀ [auto ord: Ord b] (key: a → b) (passes: a → Bool):
@@ -68,5 +67,4 @@ theorem minByStepPasses ∀ [auto ord: Ord b] (key: a → b) (passes: a → Bool
     let othersGood := all.right
     match compared: Ord.compare (key best) (key next) with
       | Greater => minByStepPasses key passes next nextGood others othersGood
-      | Less => minByStepPasses key passes best good others othersGood
-      | Equal => minByStepPasses key passes best good others othersGood
+      | Less | Equal => minByStepPasses key passes best good others othersGood

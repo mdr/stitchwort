@@ -24,11 +24,7 @@ theorem alongTimes ∀ (location step: Location) (distance: Nat):
 
 theorem alongUnit ∀ (location: Location) (heading: Heading) (distance: Nat):
     along location (unit heading) distance = location.moved heading distance :=
-  match heading with
-    | North => Coords.ext _ _ (arithmetic) (arithmetic)
-    | South => Coords.ext _ _ (arithmetic) (arithmetic)
-    | East => Coords.ext _ _ (arithmetic) (arithmetic)
-    | West => Coords.ext _ _ (arithmetic) (arithmetic)
+  match heading with | North | South | East | West => Coords.ext _ _ (arithmetic) (arithmetic)
 
 --| Part 1's ship as the spec sees it: facing a step, not a heading.
 def Ship.inSpec (ship: Ship): Spec.Ship := { position = ship.location, facing = unit ship.facing }

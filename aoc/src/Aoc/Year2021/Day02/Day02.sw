@@ -46,8 +46,7 @@ def command(): {Parse Char} Command :=
 --| How far a command moves the submarine ahead.
 def Command.ahead: Command → Nat
   | Forward units => units
-  | Down units => 0
-  | Up units => 0
+  | Down _ | Up _ => 0
 
 --| How far a command takes it down (part 1's depth, part 2's aim); `up` is
 --| negative.

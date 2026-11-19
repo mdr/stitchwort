@@ -35,13 +35,11 @@ theorem stepAgrees ∀ (earlier: List Instruction) (total: Nat) (instruction: In
     | Do =>
       rewrite enabledAfterDo earlier then
         match enabled: enabledAfter earlier with
-          | True => rewrite Nat.addZero total then cases
-          | False => rewrite Nat.addZero total then cases
+          | True | False => rewrite Nat.addZero total then cases
     | Dont =>
       rewrite enabledAfterDont earlier then
         match enabled: enabledAfter earlier with
-          | True => rewrite Nat.addZero total then cases
-          | False => rewrite Nat.addZero total then cases
+          | True | False => rewrite Nat.addZero total then cases
 
 --| What the instruction at `index` adds, by the spec.
 def enabledResult (instructions: List Instruction) (index: Nat): Nat :=
@@ -116,10 +114,8 @@ theorem stepAtMost ∀ (tally: Tally) (instruction: Instruction):
   match instruction with
     | Mul left right =>
       match enabled: tally.enabled with
-        | True => cases
-        | False => cases
-    | Do => cases
-    | Dont => cases
+        | True | False => cases
+    | Do | Dont => cases
 
 --| The fold adds at most every result.
 theorem foldAtMost ∀ (instructions: List Instruction) (tally: Tally):

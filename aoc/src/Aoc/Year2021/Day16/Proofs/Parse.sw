@@ -12,22 +12,8 @@ theorem hexAgree ∀ (char: Char) (value: Nat)
     (h: hexValue char = Some value):
     hexDigitBits char = Some (digitBits value) :=
   match char with
-    | '0' => rewrite <- Option.someInjective h
-    | '1' => rewrite <- Option.someInjective h
-    | '2' => rewrite <- Option.someInjective h
-    | '3' => rewrite <- Option.someInjective h
-    | '4' => rewrite <- Option.someInjective h
-    | '5' => rewrite <- Option.someInjective h
-    | '6' => rewrite <- Option.someInjective h
-    | '7' => rewrite <- Option.someInjective h
-    | '8' => rewrite <- Option.someInjective h
-    | '9' => rewrite <- Option.someInjective h
-    | 'A' => rewrite <- Option.someInjective h
-    | 'B' => rewrite <- Option.someInjective h
-    | 'C' => rewrite <- Option.someInjective h
-    | 'D' => rewrite <- Option.someInjective h
-    | 'E' => rewrite <- Option.someInjective h
-    | 'F' => rewrite <- Option.someInjective h
+    | '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F' =>
+      rewrite <- Option.someInjective h
 
 --| `hexDigit` reads one hexadecimal digit and gives its value.
 theorem readsHexDigit: Parse.Reads hexDigit (read value =>

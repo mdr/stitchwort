@@ -16,9 +16,7 @@ theorem monstersTurnAtMost ∀ (dice: Dice) (state: State)
     (monstersTurn dice state).hitPoints ≤ maxHitPoints :=
   match phase: state.phase with
     | Playing => arithmetic
-    | Won => atMost
-    | Died => atMost
-    | GaveUp => atMost
+    | Won | Died | GaveUp => atMost
 
 theorem playerMovesAtMost ∀ (dice: Dice) (state: State) (direction: Direction)
     (atMost: state.hitPoints ≤ maxHitPoints):
@@ -53,9 +51,7 @@ theorem resolveAtMost ∀ (dice: Dice) (state: State) (command: Command)
           match stairs: isStairs state.level state.player with
             | True => descendAtMost dice state atMost
             | False => atMost
-    | Won => atMost
-    | Died => atMost
-    | GaveUp => atMost
+    | Won | Died | GaveUp => atMost
 
 --| Hit points never exceed the maximum after a turn, whatever the seed.
 theorem stepAtMost ∀ (seed: Nat) (state: State) (command: Command)

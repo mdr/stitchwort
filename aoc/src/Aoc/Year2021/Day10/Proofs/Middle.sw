@@ -65,8 +65,7 @@ theorem countSplit ∀ (a: Nat) (xs: List Nat):
       let split := countSplit a rest
       rewrite List.countCons rest x (score => not (a < score)), List.countCons rest x (score => a < score) then
         match above: a < x with
-          | True => arithmetic
-          | False => arithmetic
+          | True | False => arithmetic
 
 --| With an odd number of scores, a middle score can't be below another.
 theorem middleNotBelow ∀ (scores: List Nat) (a b: Nat)

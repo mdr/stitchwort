@@ -43,9 +43,7 @@ theorem nextFits ∀ (starting: Starting) (turns: Nat) (game: Game)
     starting.next game < starting.room turns :=
   let reply := replyBelow game _ playing.left
   let atMost := startingAtMost starting game.turn
-  match below: game.turn < starting.numbers.length with
-    | True => arithmetic
-    | False => arithmetic
+  match below: game.turn < starting.numbers.length with | True | False => arithmetic
 
 theorem takeTurnPlaying ∀ (starting: Starting) (turns: Nat) (game: Game)
     (playing: Playing starting (starting.room turns) game)

@@ -7,39 +7,22 @@ import Rogue (..)
 import Std (Eq, List, Option)
 
 theorem monstersTurnPlayer ∀ (dice: Dice) (state: State): (monstersTurn dice state).player = state.player :=
-  match phase: state.phase with
-    | Playing => byComputing
-    | Won => byComputing
-    | Died => byComputing
-    | GaveUp => byComputing
+  match phase: state.phase with | Playing | Won | Died | GaveUp => byComputing
 
 theorem monstersTurnLevel ∀ (dice: Dice) (state: State): (monstersTurn dice state).level = state.level :=
-  match phase: state.phase with
-    | Playing => byComputing
-    | Won => byComputing
-    | Died => byComputing
-    | GaveUp => byComputing
+  match phase: state.phase with | Playing | Won | Died | GaveUp => byComputing
 
 theorem pickUpPlayer ∀ (state: State) (loot: Loot): (pickUp state loot).player = state.player := match loot with
-  | Potion => byComputing
-  | Sword => byComputing
-  | Amulet => byComputing
+  | Potion | Sword | Amulet => byComputing
 
 theorem pickUpLevel ∀ (state: State) (loot: Loot): (pickUp state loot).level = state.level := match loot with
-  | Potion => byComputing
-  | Sword => byComputing
-  | Amulet => byComputing
+  | Potion | Sword | Amulet => byComputing
 
 theorem pickUpMonsters ∀ (state: State) (loot: Loot): (pickUp state loot).monsters = state.monsters := match loot with
-  | Potion => byComputing
-  | Sword => byComputing
-  | Amulet => byComputing
+  | Potion | Sword | Amulet => byComputing
 
 theorem pickUpHitPoints ∀ (state: State) (loot: Loot): (pickUp state loot).hitPoints = state.hitPoints :=
-  match loot with
-    | Potion => byComputing
-    | Sword => byComputing
-    | Amulet => byComputing
+  match loot with | Potion | Sword | Amulet => byComputing
 
 theorem enterPlayer ∀ (state: State) (target: Position): (enter state target).player = target :=
   match found: itemAt target state.items with

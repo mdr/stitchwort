@@ -15,9 +15,7 @@ theorem contentsAgree ∀ (rules: List Rule) (colour: Colour):
         (rule => Map.Spec.sameKey colour rule.colour)
         (rule => rule.colour == colour)
         (rule member => Map.Spec.sameKeyDecide colour rule.colour) then
-    match List.filter rules (rule => rule.colour == colour) with
-      | [] => byComputing
-      | [first, ..rest] => byComputing
+    match List.filter rules (rule => rule.colour == colour) with | [] | [_, .._] => byComputing
 
 theorem bagsAgree ∀ (rules: List Rule) (depth: Nat) (colour: Colour):
     ({ all = rules }: Rules).book.bagsToDepth depth colour = Spec.bagsWithin rules depth colour :=

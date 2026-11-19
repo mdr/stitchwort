@@ -40,8 +40,7 @@ theorem lookupRules ∀ (key: ElementPair) (rules: List Rule)
               | None =>
                 match c: Ord.compare key rule.pair with
                   | Equal => Void.impossible (t.read (Ord.equal key rule.pair c).flipped)
-                  | Less => byComputing
-                  | Greater => byComputing
+                  | Less | Greater => byComputing
 
 --| The program's table gives each pair the puzzle's insertion...
 theorem tableInsertion ∀ (rules: List Rule)

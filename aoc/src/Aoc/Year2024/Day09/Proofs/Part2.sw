@@ -37,9 +37,7 @@ theorem moveFileLeft ∀ (free: FreeSpace) (file: File): MovedLeft file (free.mo
       Both byComputing (Both byComputing (arithmetic))
 
 theorem moveFileKeeps ∀ (free: FreeSpace) (file: File): (free.moveFile file).snd.idAndLength = file.idAndLength :=
-  match fit: free.leftmostFit file.span.length file.span.start with
-    | None => byComputing
-    | Some span => byComputing
+  match fit: free.leftmostFit file.span.length file.span.start with | None | Some _ => byComputing
 
 --| The files are moved once each, highest number first, and keep their
 --| numbers and lengths.
@@ -68,9 +66,7 @@ theorem filesMoveLeft ∀ (diskMap: DiskMap):
       (List.scanLeft layout.fst.reverse initial (free file => (free.moveFile file).fst))
 
 theorem moveFileBlocks ∀ (free: FreeSpace) (file: File): (free.moveFile file).snd.blocks = file.blocks :=
-  match fit: free.leftmostFit file.span.length file.span.start with
-    | None => byComputing
-    | Some span => byComputing
+  match fit: free.leftmostFit file.span.length file.span.start with | None | Some _ => byComputing
 
 --| The moved files have the blocks the files had, highest number first.
 theorem movedBlocks ∀ (diskMap: DiskMap):

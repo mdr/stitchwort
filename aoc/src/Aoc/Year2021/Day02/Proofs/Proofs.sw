@@ -65,8 +65,7 @@ theorem aimedDepthAfter ∀ (start: AimedSubmarine) (commands: List Command):
         -- doesn't split a record's field (SW-1913).
         match command with
           | Forward _ => rewrite Int.addZero start.aim then arithmetic
-          | Down _ => arithmetic
-          | Up _ => arithmetic
+          | Down _ | Up _ => arithmetic
 
 def aimedSurface: AimedSubmarine := { horizontal = 0, depth = 0, aim = 0 }
 

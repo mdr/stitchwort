@@ -35,8 +35,7 @@ def parseInstructions (memory: Text): {Fail} List Instruction := Parse.all memor
 --| What a `mul` adds; `do()` and `don't()` add nothing.
 def Instruction.result: Instruction → Nat
   | Mul left right => left * right
-  | Do => 0
-  | Dont => 0
+  | Do | Dont => 0
 
 def solvePart1 (instructions: List Instruction): Nat := instructions.sumBy .result
 

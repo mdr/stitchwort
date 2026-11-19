@@ -60,12 +60,12 @@ type Corner (index: Nat): Prop = {
 }
 
 theorem sectionCorner ∀ (index: Nat) (small: index < 6): Corner index := match index with
-  | Zero => { top = arithmetic, left = arithmetic }
-  | Succ Zero => { top = arithmetic, left = arithmetic }
-  | Succ (Succ Zero) => { top = arithmetic, left = arithmetic }
-  | Succ (Succ (Succ Zero)) => { top = arithmetic, left = arithmetic }
-  | Succ (Succ (Succ (Succ Zero))) => { top = arithmetic, left = arithmetic }
-  | Succ (Succ (Succ (Succ (Succ Zero)))) => { top = arithmetic, left = arithmetic }
+  | Zero |
+      Succ Zero |
+      Succ (Succ Zero) |
+      Succ (Succ (Succ Zero)) |
+      Succ (Succ (Succ (Succ Zero))) |
+      Succ (Succ (Succ (Succ (Succ Zero)))) => { top = arithmetic, left = arithmetic }
 
 --| A room as `roomFrom` makes it in section `index`, from any rolls below
 --| their bounds (`roll most` is below `Succ most`), fits on the map.
@@ -117,9 +117,7 @@ theorem minPlusDistance ∀ (m n bound: Nat)
     (mSmall: m < bound)
     (nSmall: n < bound):
     Nat.min m n + distanceBetween m n < bound :=
-  match below: Nat.leq m n with
-    | True => arithmetic
-    | False => arithmetic
+  match below: Nat.leq m n with | True | False => arithmetic
 
 theorem corridorFits ∀ (origin target: Position)
     (from: OnScreen origin)
@@ -271,9 +269,7 @@ theorem resolveFramed ∀ (dice: Dice) (state: State) (command: Command)
           match stairs: isStairs state.level state.player with
             | True => generatedFramed dice.seed (state.level.depth + 1)
             | False => framed
-    | Won => framed
-    | Died => framed
-    | GaveUp => framed
+    | Won | Died | GaveUp => framed
 
 theorem stepFramed ∀ (seed: Nat) (state: State) (command: Command)
     (framed: Framed state.level):

@@ -11,22 +11,14 @@ import Std (Bool, Eq, Nat)
 theorem activeNextRule ∀ (active: Bool) (count near: Nat)
     (same: count = near):
     (count == 3 || (count == 2 && active)) = (if active then near == 2 || near == 3 else near == 3) :=
-  rewrite same then
-    match active with
-      | True => cases
-      | False => cases
+  rewrite same then match active with | True | False => cases
 
 theorem noneRule ∀ (active: Bool) (near: Nat)
     (none: 0 = near):
     False = (if active then near == 2 || near == 3 else near == 3) :=
-  rewrite <- none then
-    match active with
-      | True => byComputing
-      | False => byComputing
+  rewrite <- none then match active with | True | False => byComputing
 
-theorem lifeRuleDies ∀ (active: Bool): lifeRule active 0 = False := match active with
-  | True => byComputing
-  | False => byComputing
+theorem lifeRuleDies ∀ (active: Bool): lifeRule active 0 = False := match active with | True | False => byComputing
 
 theorem cycleActive ∀ (pocket: Pocket) (cube: Cube):
     pocket.cycle.active.contains cube = Spec.activeAfter pocket.active cube :=

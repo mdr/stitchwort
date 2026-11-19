@@ -18,9 +18,7 @@ theorem resolveFinished ∀ (dice: Dice) (state: State) (command: Command)
     resolve dice state command = state :=
   match phase: state.phase with
     | Playing => (over byComputing).impossible
-    | Won => byComputing
-    | Died => byComputing
-    | GaveUp => byComputing
+    | Won | Died | GaveUp => byComputing
 
 theorem resolveQuit ∀ (dice: Dice) (state: State)
     (playing: state.phase = Playing):
@@ -36,10 +34,7 @@ def threat (player: Position): List Monster → Nat
 theorem upToAtMost ∀ (dice: Dice) (index most: Nat): dice.upTo index most ≤ most unfolding Dice.upTo :=
   arithmetic [Nat.modLt (lcg (lcg (dice.seed + index * 7919)) / 65536) (most + 1)]
 
-theorem strengthPositive ∀ (kind: Kind): 1 ≤ kind.strength := match kind with
-  | Goblin => byComputing
-  | Orc => byComputing
-  | Troll => byComputing
+theorem strengthPositive ∀ (kind: Kind): 1 ≤ kind.strength := match kind with | Goblin | Orc | Troll => byComputing
 
 theorem blowAtMost ∀ (dice: Dice) (index: Nat) (kind: Kind): 1 + dice.upTo index (kind.strength - 1) ≤ kind.strength :=
   arithmetic [upToAtMost dice index (kind.strength - 1), strengthPositive kind]
@@ -67,9 +62,7 @@ theorem monstersTurnHurt ∀ (dice: Dice) (state: State):
   match phase: state.phase with
     | Playing =>
       arithmetic [actAllDamage dice state.level state.player 0 { moved = [], damage = 0, events = [] } state.monsters]
-    | Won => arithmetic
-    | Died => arithmetic
-    | GaveUp => arithmetic
+    | Won | Died | GaveUp => arithmetic
 
 theorem threatNone ∀ (player: Position) (monsters: List Monster)
     (none: List.All (monster => monster.position.isNextTo player = False) monsters):
@@ -79,11 +72,7 @@ theorem threatNone ∀ (player: Position) (monsters: List Monster)
     | [monster, ..rest], Both far others => rewrite far, threatNone player rest others
 
 theorem monstersTurnNoHeal ∀ (dice: Dice) (state: State): (monstersTurn dice state).hitPoints ≤ state.hitPoints :=
-  match phase: state.phase with
-    | Playing => arithmetic
-    | Won => arithmetic
-    | Died => arithmetic
-    | GaveUp => arithmetic
+  match phase: state.phase with | Playing | Won | Died | GaveUp => arithmetic
 
 --| With no monster next to the player, the monsters' turn costs nothing.
 theorem monstersTurnHarmless ∀ (dice: Dice) (state: State)
@@ -121,14 +110,10 @@ theorem resolveNoHeal ∀ (dice: Dice) (state: State) (command: Command)
           match stairs: isStairs state.level state.player with
             | True => arithmetic [descendHitPoints dice state]
             | False => arithmetic
-    | Won => arithmetic
-    | Died => arithmetic
-    | GaveUp => arithmetic
+    | Won | Died | GaveUp => arithmetic
 
 theorem healedAtMostPotion ∀ (hitPoints: Nat): healed hitPoints ≤ hitPoints + potionStrength :=
-  match fits: Nat.leq (hitPoints + potionStrength) maxHitPoints with
-    | True => arithmetic
-    | False => arithmetic
+  match fits: Nat.leq (hitPoints + potionStrength) maxHitPoints with | True | False => arithmetic
 
 --| And a potion heals at most `potionStrength`.
 theorem resolveDrinkHeals ∀ (dice: Dice) (state: State):
@@ -138,9 +123,7 @@ theorem resolveDrinkHeals ∀ (dice: Dice) (state: State):
       match none: state.potions == 0 with
         | True => arithmetic
         | False => arithmetic [monstersTurnNoHeal dice (drink state), healedAtMostPotion state.hitPoints]
-    | Won => arithmetic
-    | Died => arithmetic
-    | GaveUp => arithmetic
+    | Won | Died | GaveUp => arithmetic
 --| Moving onto a cell with no monster and no wall puts the player there.
 theorem resolveMoves ∀ (dice: Dice) (state: State) (direction: Direction)
     (playing: state.phase = Playing)

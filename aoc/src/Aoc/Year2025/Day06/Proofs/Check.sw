@@ -16,9 +16,7 @@ def acceptedOr (fallback: List Problem): Result (List Problem) Text → List Pro
 
 theorem acceptedOrCheck ∀ (lines: List Text):
     acceptedOr (parseWorksheet lines) (checkWorksheet lines) = parseWorksheet lines :=
-  match worksheetError lines with
-    | Some message => byComputing
-    | None => byComputing
+  match worksheetError lines with | Some _ | None => byComputing
 
 --| Whenever `checkWorksheet` accepts, what it gives is `parseWorksheet lines`.
 theorem checkWorksheetParses ∀ (lines: List Text) (problems: List Problem)

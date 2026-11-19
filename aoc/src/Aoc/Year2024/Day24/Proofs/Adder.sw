@@ -12,10 +12,7 @@ import Std (Bool, DecEq, Eq, Exists, List, Nat, Option, Void)
 
 --| Each operation gives the same with its inputs either way round.
 theorem gateOutputComm ∀ (operation: Operation) (a b: Bool): gateOutput operation a b = gateOutput operation b a :=
-  match operation with
-    | And => cases
-    | Or => cases
-    | Xor => cases
+  match operation with | And | Or | Xor => cases
 
 --| Whether a gate does `operation` on `a` and `b`, either way round, as
 --| `outputOf` looks for it.

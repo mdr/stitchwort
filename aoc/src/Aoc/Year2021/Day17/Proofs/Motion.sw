@@ -8,9 +8,7 @@ import Std (Bool, Eq, Int, Nat, Void)
 
 --| The program's drag, `dx - sign dx`, is the puzzle's.
 theorem dragSign ∀ (dx: Int): dx - dx.sign = drag dx := match dx with
-  | OfNat 0 => byComputing
-  | OfNat (Succ k) => byComputing
-  | NegSucc k => byComputing
+  | OfNat 0 | OfNat (Succ _) | NegSucc _ => byComputing
 
 theorem stepIsMove ∀ (probe: Probe): step probe = move probe := rewrite dragSign probe.velocity.x
 

@@ -98,8 +98,7 @@ theorem onwardCounts ∀ (device: Nat):
     let viaAdapter := onwardCounts device higher rest adapter
     let split := connectingCons device low adapter higher
     match c: canFeed low adapter with
-      | True => arithmetic
-      | False => arithmetic
+      | True | False => arithmetic
 
 theorem part2Rules ∀ (bag: Bag) (answer: Nat) (found: bag.arrangements = Some answer): Part2 bag.adapters answer :=
   match d: bag.device with

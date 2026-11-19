@@ -10,8 +10,7 @@ import Std (Fail, List, Parse, Result, Text, Void)
 theorem readsOperation: Parse.Reads operation OperationWritten :=
   Parse.readsWeaken (Parse.readsPickBy [Acc, Jmp, Nop] Operation.word) (read operation (Both member same) =>
     match operation with
-      | Acc => same
-      | Jmp => same
+      | Acc | Jmp => same
       | Nop => same)
 
 theorem readsArgument: Parse.Reads argument ArgumentWritten := Parse.readsInt

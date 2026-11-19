@@ -20,8 +20,7 @@ theorem acceptedOrCheck ∀ (lines: List Text):
     | Some message => byComputing
     | None =>
       match parseManifoldOption lines with
-        | Some manifold => byComputing
-        | None => byComputing
+        | Some _ | None => byComputing
 
 --| Whenever `checkManifold` accepts, `parseManifoldOption lines` is `Some` of what it gives.
 theorem checkManifoldParses ∀ (lines: List Text) (manifold: Manifold)

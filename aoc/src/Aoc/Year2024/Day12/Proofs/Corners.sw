@@ -62,9 +62,7 @@ def previous (first: Bool) (b: Nat → Bool): Nat → Bool
 
 theorem previousShift ∀ (b: Nat → Bool) (first: Bool) (n: Nat):
     previous (b 0) (i => b (Succ i)) n = previous first b (Succ n) :=
-  match n with
-    | Zero => byComputing
-    | Succ n => byComputing
+  match n with | Zero | Succ _ => byComputing
 
 --| Along a line, runs of `b` start where the one before isn't in `b`, and
 --| end where the one after isn't; the count differs only at the ends.
@@ -82,14 +80,7 @@ theorem telescope ∀ (n: Nat) (b: Nat → Bool) (first: Bool):
           (i => rewrite previousShift b first i)
       rewrite <- shifted, previousShift b first n at rest then
         match atZero: b 0, atOne: b 1, before: first with
-          | True, True, True => arithmetic [rest]
-          | True, True, False => arithmetic [rest]
-          | True, False, True => arithmetic [rest]
-          | True, False, False => arithmetic [rest]
-          | False, True, True => arithmetic [rest]
-          | False, True, False => arithmetic [rest]
-          | False, False, True => arithmetic [rest]
-          | False, False, False => arithmetic [rest]
+          | True | False, True | False, True | False => arithmetic [rest]
 
 --| As many runs start as end, on a line with nothing at `n`.
 theorem startsEqualEnds ∀ (n: Nat) (b: Nat → Bool)
@@ -228,14 +219,11 @@ theorem columnEndsSplit ∀ (plot out side sideOut: Bool):
 --| No inside corner without the horizontal neighbour, or the plot itself.
 theorem concaveNoHorizontal ∀ (plot vertical diagonal: Bool): concave plot vertical False diagonal = False :=
   match plot, vertical with
-    | True, True => byComputing
-    | True, False => byComputing
+    | True, True | False => byComputing
     | False, vertical => byComputing
 
 theorem concaveNoVertical ∀ (plot horizontal diagonal: Bool): concave plot False horizontal diagonal = False :=
-  match plot with
-    | True => byComputing
-    | False => byComputing
+  match plot with | True | False => byComputing
 
 --| A plot's sections of fence above it that start or end a side are the
 --| corners on that side: outside corners of the plot, or inside corners of

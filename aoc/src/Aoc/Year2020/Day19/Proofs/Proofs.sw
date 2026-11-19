@@ -28,8 +28,7 @@ theorem chainBounded ∀ (rules: Rules) (fuel number: Nat): rules.chain fuel num
                     | [] => arithmetic
                     | [only] => arithmetic [chainBounded rules more only]
                     | [first, second, ..others] => arithmetic
-      | Some (Letter letter) => arithmetic
-      | None => arithmetic
+      | Some (Letter _) | None => arithmetic
 
 theorem rankBelow ∀ (rules: Rules) (number: Nat): rules.rank number < rules.rankBound :=
   arithmetic [chainBounded rules (rules.numbered.length + 1) number]

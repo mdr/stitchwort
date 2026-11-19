@@ -35,8 +35,7 @@ theorem canEnterOpen ∀ (map: HeightMap) (position: Position):
     | None => byComputing
     | Some digit =>
       match digit.toNat != 9 with
-        | True => byComputing
-        | False => byComputing
+        | True | False => byComputing
 
 --| A walk in the graph is a path, through the walk's locations...
 theorem walkPath ∀ (map: HeightMap) (start: Position) (path: List (Position, Nat))

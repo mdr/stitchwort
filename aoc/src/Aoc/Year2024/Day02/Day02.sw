@@ -42,8 +42,7 @@ def Report.isSafe (report: Report): Bool :=
 --| only its two levels can be the one to take out: there, check the rest
 --| without each of them, and stop.
 def passesDampened (ok: Nat → Nat → Bool): List Nat → Bool
-  | [] => True
-  | [level] => True
+  | [] | [_] => True
   | [level, next, ..rest] =>
     if ok level next then passesDampenedAfter ok level next rest
     else [level, ..rest].chain ok || [next, ..rest].chain ok

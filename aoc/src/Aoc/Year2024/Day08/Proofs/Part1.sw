@@ -33,9 +33,7 @@ theorem twiceAsFarCases ∀ (ur uc vr vc: Int)
 theorem twiceAsFarOfCases ∀ (ur uc vr vc: Int)
     (choice: ((ur = 2 * vr) ∧ (uc = 2 * vc)) ∨ ((ur = 0 - 2 * vr) ∧ (uc = 0 - 2 * vc))):
     (ur * vc - uc * vr = 0) ∧ (ur * ur + uc * uc = 4 * (vr * vr + vc * vc)) :=
-  match choice with
-    | Inl (Both row column) => rewrite row, column then Both (algebra) (algebra)
-    | Inr (Both row column) => rewrite row, column then Both (algebra) (algebra)
+  match choice with | Inl (Both row column) | Inr (Both row column) => rewrite row, column then Both (algebra) (algebra)
 
 --| The two steps from `near` that `antinodesOf` can take.
 def pastStep (far near: Position): Offset := near.minus far

@@ -48,34 +48,18 @@ theorem numericPlaceOf ∀ (row column: Nat) (key: NumericKey)
     (found: keyAt numericRows { row, column } = Some key):
     ({ row, column }: Position) = Keypad.numeric.place key :=
   match row, column with
-    | 0, 0 => rewrite <- Option.someInjective found
-    | 0, 1 => rewrite <- Option.someInjective found
-    | 0, 2 => rewrite <- Option.someInjective found
-    | 1, 0 => rewrite <- Option.someInjective found
-    | 1, 1 => rewrite <- Option.someInjective found
-    | 1, 2 => rewrite <- Option.someInjective found
-    | 2, 0 => rewrite <- Option.someInjective found
-    | 2, 1 => rewrite <- Option.someInjective found
-    | 2, 2 => rewrite <- Option.someInjective found
-    | 3, 1 => rewrite <- Option.someInjective found
-    | 3, 2 => rewrite <- Option.someInjective found
-    | 0, Succ (Succ (Succ column)) => (Option.noneNotSome key found).impossible
-    | 1, Succ (Succ (Succ column)) => (Option.noneNotSome key found).impossible
-    | 2, Succ (Succ (Succ column)) => (Option.noneNotSome key found).impossible
-    | 3, Succ (Succ (Succ column)) => (Option.noneNotSome key found).impossible
+    | 0 | 1 | 2, 0 | 1 | 2 => rewrite <- Option.someInjective found
+    | 3, 1 | 2 => rewrite <- Option.someInjective found
+    | 0 | 1 | 2 | 3, Succ (Succ (Succ _)) => (Option.noneNotSome key found).impossible
     | Succ (Succ (Succ (Succ row))), column => (Option.noneNotSome key found).impossible
 
 theorem directionalPlaceOf ∀ (row column: Nat) (key: DirectionKey)
     (found: keyAt directionalRows { row, column } = Some key):
     ({ row, column }: Position) = Keypad.directional.place key :=
   match row, column with
-    | 0, 1 => rewrite <- Option.someInjective found
-    | 0, 2 => rewrite <- Option.someInjective found
-    | 1, 0 => rewrite <- Option.someInjective found
-    | 1, 1 => rewrite <- Option.someInjective found
-    | 1, 2 => rewrite <- Option.someInjective found
-    | 0, Succ (Succ (Succ column)) => (Option.noneNotSome key found).impossible
-    | 1, Succ (Succ (Succ column)) => (Option.noneNotSome key found).impossible
+    | 0, 1 | 2 => rewrite <- Option.someInjective found
+    | 1, 0 | 1 | 2 => rewrite <- Option.someInjective found
+    | 0 | 1, Succ (Succ (Succ _)) => (Option.noneNotSome key found).impossible
     | Succ (Succ row), column => (Option.noneNotSome key found).impossible
 
 --| The walk fact for your own presses, on a keypad where each key has one place.
