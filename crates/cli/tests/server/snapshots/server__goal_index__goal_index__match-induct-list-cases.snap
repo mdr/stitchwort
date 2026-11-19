@@ -1,0 +1,62 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "k",
+          "type": "Nat"
+        },
+        {
+          "name": "x",
+          "type": "Nat"
+        },
+        {
+          "name": "xs",
+          "type": "List Nat"
+        },
+        {
+          "name": "h1",
+          "type": "(k <= x) = False"
+        },
+        {
+          "name": "ih",
+          "type": "countAbove k xs ≤ xs.length"
+        }
+      ],
+      "lemma": "theorem leGoal1 (k: Nat) (x: Nat) (xs: List Nat) (h1: (k <= x) = False) (ih: countAbove k xs ≤ xs.length): countAbove k xs ≤ Succ xs.length := ?",
+      "target": "countAbove k xs ≤ [x, ..xs].length",
+      "targetComputed": "countAbove k xs ≤ Succ xs.length"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "k: Nat\nx: Nat\nxs: List Nat\nh1: (k <= x) = False\nih: countAbove k xs ≤ xs.length\n⊢ countAbove k xs ≤ [x, ..xs].length\n  computes to countAbove k xs ≤ Succ xs.length",
+        "range": [
+          8,
+          105,
+          8,
+          106
+        ]
+      }
+    ],
+    "message": "in `le`",
+    "notes": [
+      "1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it",
+      "this arm is checked once for each of its 3 alternatives; the goal above is the one in `eq2IfFalse x xs h1 ih`, and the others are:\n  in `eq1`:\n    k: Nat\n    xs: List Nat\n    ⊢ True = True\n  in `eq2IfTrue x xs h1 ih`:\n    k: Nat\n    x: Nat\n    xs: List Nat\n    h1: k ≤ x\n    ih: countAbove k xs ≤ xs.length\n    ⊢ countAbove k xs ≤ xs.length"
+    ],
+    "range": [
+      8,
+      105,
+      8,
+      106
+    ],
+    "severity": "goal"
+  }
+]
