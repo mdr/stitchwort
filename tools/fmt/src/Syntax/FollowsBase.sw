@@ -591,16 +591,10 @@ theorem followsTupleRest ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (firsts: ExprsAlike first firstTwin):
     Parse.Follows SameCode ExprsAlike (() => tupleRest self inner open first) (() =>
       tupleRest selfTwin inner openTwin firstTwin) :=
-  followsThenEq
-    [p := () => Parse.mark().left]
-    [q := () => Parse.mark().left]
-    [j := fuel => tupleFuel self inner open first fuel]
-    [k := fuel => tupleFuel selfTwin inner openTwin firstTwin fuel]
-    followsLeftCount
-    (fuel =>
-      Parse.followsThen followsBump (comma commaTwin commas =>
-        Parse.followsThen (followsFull knot inner) (second secondTwin seconds =>
-          followsTupleSecond knot inner open openTwin opens first firstTwin firsts fuel second secondTwin seconds)))
+  followsThenEq followsLeftCount (fuel =>
+    Parse.followsThen followsBump (comma commaTwin commas =>
+      Parse.followsThen (followsFull knot inner) (second secondTwin seconds =>
+        followsTupleSecond knot inner open openTwin opens first firstTwin firsts fuel second secondTwin seconds)))
 
 theorem followsBracketedAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -647,16 +641,10 @@ theorem followsListSpread ∀ [self selfTwin: Goal → {Parse Item} Expr]
 
 theorem followsAtEither ∀ (modes: Modes) (wanted other: Tok):
     Parse.Follows SameCode Same (() => modes.at wanted || modes.at other) (() => modes.at wanted || modes.at other) :=
-  followsThenEq
-    [p := () => modes.at wanted]
-    [q := () => modes.at wanted]
-    [j := here => here || modes.at other]
-    [k := here => here || modes.at other]
-    (followsAt modes wanted)
-    (here =>
-      match here with
-        | True => Parse.followsDone True True byComputing
-        | False => followsAt modes other)
+  followsThenEq (followsAt modes wanted) (here =>
+    match here with
+      | True => Parse.followsDone True True byComputing
+      | False => followsAt modes other)
 
 theorem followsListItem ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):
@@ -664,13 +652,8 @@ theorem followsListItem ∀ [self selfTwin: Goal → {Parse Item} Expr]
   followsThenEq (followsAt modes DotDot) (spread =>
     match spread with
       | True => Parse.followsThen followsBump (dots dotsTwin dotted =>
-        followsThenEq
-          [p := () => modes.at Comma || modes.at RBracket]
-          [q := () => modes.at Comma || modes.at RBracket]
-          [j := empty => listSpread self modes dots empty]
-          [k := empty => listSpread selfTwin modes dotsTwin empty]
-          (followsAtEither modes Comma RBracket)
-          (empty => followsListSpread knot modes dots dotsTwin dotted empty))
+        followsThenEq (followsAtEither modes Comma RBracket) (empty =>
+          followsListSpread knot modes dots dotsTwin dotted empty))
       | False => followsFull knot modes)
 
 theorem followsListItemsEnd ∀ [self selfTwin: Goal → {Parse Item} Expr] (inner: Modes) (open openTwin: Word)
@@ -696,41 +679,25 @@ theorem followsListItems ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (inner: Modes) (open openTwin: Word)
     (opens: WordsAlike open openTwin):
     Parse.Follows SameCode ExprsAlike (() => listItems self inner open) (() => listItems selfTwin inner openTwin) :=
-  Parse.followsThen
-    [p := () => listItem self inner]
-    [q := () => listItem selfTwin inner]
-    [j := first => listItemsFrom self inner open first]
-    [k := first => listItemsFrom selfTwin inner openTwin first]
-    (followsListItem knot inner)
-    (first firstTwin firsts =>
-      Parse.followsThen
-        [p := () => Parse.mark()]
-        [q := () => Parse.mark()]
-        [j := here =>
-          listItemsEnd self inner open
-            (commaList (here.left + 1) inner (count => inner.at RBracket) (() => listItem self inner) first [])]
-        [k := here =>
-          listItemsEnd selfTwin inner openTwin
-            (commaList (here.left + 1) inner (count => inner.at RBracket) (() => listItem selfTwin inner) firstTwin [])]
-        Parse.followsMark
-        (here hereTwin marks =>
-          rewrite <- marks.right.right then
-            Parse.followsThen
-              (followsCommaList inner
-                (count => inner.at RBracket)
-                (count => inner.at RBracket)
-                (count => followsAt inner RBracket)
-                (() => listItem self inner)
-                (() => listItem selfTwin inner)
-                (followsListItem knot inner)
-                (here.left + 1)
-                first
-                firstTwin
-                firsts
-                []
-                []
-                Trivial)
-              (pair pairTwin pairs => followsListItemsEnd inner open openTwin opens pair pairTwin pairs)))
+  Parse.followsThen (followsListItem knot inner) (first firstTwin firsts =>
+    Parse.followsThen Parse.followsMark (here hereTwin marks =>
+      rewrite <- marks.right.right then
+        Parse.followsThen
+          (followsCommaList inner
+            (count => inner.at RBracket)
+            (count => inner.at RBracket)
+            (count => followsAt inner RBracket)
+            (() => listItem self inner)
+            (() => listItem selfTwin inner)
+            (followsListItem knot inner)
+            (here.left + 1)
+            first
+            firstTwin
+            firsts
+            []
+            []
+            Trivial)
+          (pair pairTwin pairs => followsListItemsEnd inner open openTwin opens pair pairTwin pairs)))
 
 theorem followsListAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
