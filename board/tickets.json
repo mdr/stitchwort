@@ -26694,9 +26694,9 @@
     {
       "id": 4186,
       "title": "[Sonnet] stitchwort uses --unused lists only defs, not theorems (SW-4185 found it reports nothing unused over tools/fmt); include theorems (excluding tests and examples) or add --theorems; and a second pass over the Lays*/StandsProofs cluster for orphans",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4186",
       "labels": [],
       "epic": "dev-loop-speed",
       "body": "Est. 25 min. SW-4158 follow-up.",
