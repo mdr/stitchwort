@@ -641,7 +641,6 @@ theorem infixListed ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: 
   match kind with
     | InfixBinary => Bool.andLeft (Bool.andRight (Bool.andRight within))
     | InfixArrow => arrowListed operator.text (Bool.andRight (Bool.andRight within))
-    | _ => (Bool.falseNotTrue within).impossible
 
 --| `printLexes1`'s facts about the tokens of an expression, from the tree's.
 --|
