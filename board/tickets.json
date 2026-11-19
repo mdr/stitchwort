@@ -1,5 +1,5 @@
 {
-  "next": 4190,
+  "next": 4191,
   "tickets": [
     {
       "id": 47,
@@ -26709,7 +26709,7 @@
     {
       "id": 4187,
       "title": "[Opus, bug] Internal-error panic checking reject/export-indexed-family and reject/export-polymorphic: crates/core/src/value.rs:3599 'variable at level 0 read back with 0 in scope'; it fails stitchwort-cli running examples::rejected_examples_fail_for_the_expected_reason. Find whether it regressed (git log of value.rs and export checking), fix at the root, test; also make the examples test name the example that panicked",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4187",
       "labels": [],
@@ -26741,6 +26741,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 10 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4190,
+      "title": "[DeepSeek] par_map in crates/driver/src/driver.rs re-raises an item's panic without naming the item: take a label per item (file or example name) so project and accepted-example sweeps say which item panicked, as SW-4187 did for the reject examples; test it; mention the EXAMPLES= filter in docs/testing.md",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "Est. 20 min. SW-4187 finding.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
