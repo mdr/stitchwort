@@ -27078,15 +27078,17 @@
     {
       "id": 4215,
       "title": "[Sonnet] fmt consolidation L2: InSlice, one definition the four parse specs (Parsed, ArgParsed, AtomParsed, HeadParsed) instantiate, per fmt-consolidation-statements.md lane 2; after L1",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "D3692 consolidation. Est. 45-60 min.",
+      "body": "D3692 consolidation. Est. 45-60 min.\n\nSonnet lane: InSlice added in ParseProofs.sw, four specs restated, Parsed1 -> Parsed, 6 helpers folded into 3 lemmas. Whole-project check 0 errors, goal none, Fmt.Tests 441 passed. Commit a73a074fe on lane/SW-4215.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
-      "commits": []
+      "commits": [
+        "a73a074fe"
+      ]
     },
     {
       "id": 4216,
