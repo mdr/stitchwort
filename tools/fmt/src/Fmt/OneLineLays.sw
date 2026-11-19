@@ -8,9 +8,11 @@
 --| document lays, with any columns. `standsOfDoc` took that from `DeclHangs` (`doc1Hangs`), which is the circle;
 --| `standsOfLays` (`Fmt.StandsProofs`) takes it as it is. So:
 --|
---| - `laysSomehow1` (open, the one new fact): every slice 1 declaration's document lays. No columns are asked for,
---|   only what `Lays` asks of any document: a `Line` or spaces come after words, a `Blank` right after a line break,
---|   a trailing comment after words with none waiting, a `CloserLine` after its bracket's `Mark`.
+--| - `laysSomehow1` (from `doc1Checks`): every slice 1 declaration's document lays. `Lays` then asks nothing of
+--|   columns, only of the kind of place each piece is written at, which `laysKinds` (`Fmt.LaysKinds`) computes, and
+--|   `laysOfKinds` (proved) says a document that passes the check lays.
+--| - `doc1Checks` (open, the one new fact): every slice 1 declaration's document passes the check. It is an
+--|   equation between computed values, one for each rule.
 --| - `stands1OfLays` (proved from it): `printedStands1` with no `DeclHangs`.
 --| - `closersBareOfStands` and `blanksBelowOfStands` (open, bookkeeping): a declaration that `stands1` and prints on
 --|   one line has bare closers and no blank-line flag but below comments.
@@ -30,16 +32,47 @@ import Fmt.TreeJoinProofs (lexKind)
 import Fmt.DeclHangProofs (DeclHangs, atomDecl, atomDeclHangs, doc1Hangs, lexKindFixed)
 import Fmt.StandsProofs (..)
 import Fmt.OneLineParts (..)
+import Fmt.LaysKinds (..)
 
 -- The document lays.
 
---| Every slice 1 declaration's document lays, whatever its comments (open).
+--| The document meets `Lays`' conditions from the start of the output.
+def laysCheck (doc: Doc): Bool := (laysKinds doc { Kinds.none | start = True }).isSome
+
+--| A document that passes the check lays.
+theorem laysOfCheck ∀ (doc: Doc) (checks: laysCheck doc = True): LaysSomehow doc :=
+  match found: laysKinds doc { Kinds.none | start = True }, checks with
+    | Some after, _ =>
+      laysOfKinds doc 0
+        { Kinds.none | start = True }
+        after
+        (AtStart 0 Carry.none)
+        []
+        (place laid => True)
+        found
+        byComputing
+        (left later has => byComputing)
+    | None, never => cases
+
+--| Every slice 1 declaration's document passes the check, whatever its comments (open).
 --|
---| Route: a walk over the rules as `Fmt.HangProofs` and the `*HangProofs` modules make for `DeclHangs`, with the
---| place's kind (line start, after words, a comment waiting) and the marks carried, and no column: for each rule a
---| triple over `Lays` whose conditions say only which kinds of place it starts from and leaves. `doc1Hangs` is this
---| for the declarations `DeclHangs` covers (`laysOfHangs`); `DeclHangs` for every slice 1 declaration (SW-4082's
---| direction) gives it for all.
+--| Route: a walk over the rules as `Fmt.ToldWordProofs` and `Fmt.ToldDeclProofs` make for `Doc.tell`: for each
+--| function of `Rules.sw` that slice 1 meets, the kinds its document leaves from the kinds it may start at
+--| (`laysKinds (word.leaf around key) kinds = Some …`), by cases on the token's comments, then the elements by
+--| induction on the expression. The conditions to meet are few: a `Line`, a space, a `HardLine` and a trailing
+--| comment are written only after words; a `Blank` only after a `LineStart` or a `HardLine` that broke a line; a
+--| closer written while a comment waits is `)`, `]` or `,`; a comment is `commentText` (`settled1`). The check
+--| computes to `True` on the documents with closers that hold comments and kept blank lines (`laysCheckHolds`).
+theorem doc1Checks ∀ (decl: Decl) (doc: Doc)
+    (within: decl.within1 = True)
+    (shaped: decl.shaped1 = True)
+    (settled: decl.settled1 = True)
+    (lexical: decl.lexical1 = True)
+    (shows: decl.doc1 = Some doc):
+    laysCheck doc = True :=
+  ?
+
+--| Every slice 1 declaration's document lays, whatever its comments.
 theorem laysSomehow1 ∀ (decl: Decl) (doc: Doc)
     (within: decl.within1 = True)
     (shaped: decl.shaped1 = True)
@@ -47,7 +80,7 @@ theorem laysSomehow1 ∀ (decl: Decl) (doc: Doc)
     (lexical: decl.lexical1 = True)
     (shows: decl.doc1 = Some doc):
     LaysSomehow doc :=
-  ?
+  laysOfCheck doc (doc1Checks decl doc within shaped settled lexical shows)
 
 --| `LaysSomehow` asks no more than `DeclHangs` gives.
 theorem laysOfHangs ∀ (decl: Decl) (doc: Doc)
@@ -156,113 +189,7 @@ theorem blanksBelowUnreturned1 ∀ (decl: Decl)
     (stands1OfLays decl within shaped settled lexical plain)
     oneLine
 
--- What `LaysSomehow` asks, as a check.
-
---| The kinds of place the printer may be at (`Std.Doc.Proofs.Place`'s four, with no columns or carry).
-type Kinds = { start: Bool, broken: Bool, mid: Bool, held: Bool }
-
-def Kinds.none: Kinds := { start = False, broken = False, mid = False, held = False }
-
-def Kinds.union (one other: Kinds): Kinds := {
-  start = one.start || other.start,
-  broken = one.broken || other.broken,
-  mid = one.mid || other.mid,
-  held = one.held || other.held
-}
-
---| No place at a line start.
-def Kinds.midLine (kinds: Kinds): Bool := !kinds.start && !kinds.broken
-
---| A line break after words, or the line start already there.
-def Kinds.started (kinds: Kinds): Kinds :=
-  { start = kinds.start, broken = kinds.broken || kinds.mid || kinds.held, mid = False, held = False }
-
---| A chunk's text from places with no comment waiting (`WriteLays`).
-def writeKinds (text: Text) (kinds: Kinds): Option Kinds :=
-  if text.isEmpty then Some kinds
-  else if text.all (char => char == ' ') then (if kinds.midLine then Some kinds else None)
-  else if text == "\n" then None
-  else Some { Kinds.none | mid = kinds.start || kinds.broken || kinds.mid || kinds.held }
-
---| A trailing comment's text, as `Lays` asks it (`IsComment`, and no layout).
-def suffixText (comment: Text): Bool := match comment.toList with
-  | ['-', '-', ..others] => others.all (char => char != '\n')
-  | _ => False
-
---| `Lays`' conditions with any continuation, which read only the kind of place: the kinds `doc` may leave from
---| `kinds`, or `None` if a condition may fail. A `HardLine` is taken to leave `Broken`, which every later condition
---| allows where it allows `AtStart`.
-def laysKinds (doc: Doc) (kinds: Kinds): Option Kinds := match doc with
-  | Doc.Nothing => Some kinds
-  | BreakParent => Some kinds
-  | Mark _ => Some kinds
-  | Blank => if kinds.start then None else Some { kinds | start = kinds.broken, broken = False }
-  | Chunk text _ => writeKinds text kinds
-  | Closing text =>
-    if kinds.held && !Std.Doc.Proofs.closesText text then None
-    else
-      match writeKinds text { kinds | held = False } with
-        | None => None
-        | Some after => Some { after | held = kinds.held }
-  | Line => if kinds.midLine then Some { kinds | broken = kinds.mid || kinds.held } else None
-  | SoftLine => if kinds.midLine then Some { kinds | broken = kinds.mid || kinds.held } else None
-  | HardLine => if kinds.midLine then Some { Kinds.none | broken = True } else None
-  | LineStart => Some kinds.started
-  | LineStartHere => Some kinds.started
-  | CloserLine _ => Some kinds.started
-  | Nest _ inner => laysKinds inner kinds
-  | Align inner => laysKinds inner kinds
-  | AlignInset inner => laysKinds inner kinds
-  | Displaced inner => laysKinds inner { kinds | broken = kinds.broken || kinds.held, held = False }
-  | Group inner _ => laysKinds inner kinds
-  | NarrowGroup _ inner _ => laysKinds inner kinds
-  | IdGroup _ inner _ => laysKinds inner kinds
-  | IfBroken _ broken flat =>
-    match laysKinds broken kinds, laysKinds flat kinds with
-      | Some one, Some other => Some (one.union other)
-      | _, _ => None
-  | Flatten inner => laysKinds inner kinds
-  | OneLineBelow inner => if kinds.midLine then laysKinds inner { Kinds.none | broken = True } else None
-  | Concat docs => laysAllKinds docs kinds
-  | Fill items =>
-    match items with
-      | [] => Some kinds
-      | [first, ..others] =>
-        match laysKinds first kinds with
-          | None => None
-          | Some after => laysSepsKinds others after
-  | Choice options => laysOptionsKinds options kinds
-  | LineSuffix comment =>
-    if kinds.midLine && !kinds.held && suffixText comment && !Std.Doc.Proofs.isLayout comment then
-      Some { Kinds.none | held = True }
-    else None
-
-def laysAllKinds (docs: List Doc) (kinds: Kinds): Option Kinds := match docs with
-  | [] => Some kinds
-  | [doc, ..rest] =>
-    match laysKinds doc kinds with
-      | None => None
-      | Some after => laysAllKinds rest after
-
-def laysSepsKinds (items: List Doc) (kinds: Kinds): Option Kinds := match items with
-  | [] => Some kinds
-  | [item, ..more] =>
-    if kinds.midLine then
-      match laysKinds item { kinds | broken = kinds.mid || kinds.held } with
-        | None => None
-        | Some after => laysSepsKinds more after
-    else None
-
-def laysOptionsKinds (options: List Doc) (kinds: Kinds): Option Kinds := match options with
-  | [] => Some kinds
-  | [last] => laysKinds last kinds
-  | [option, ..others] =>
-    match laysKinds option kinds, laysOptionsKinds others kinds with
-      | Some one, Some other => Some (one.union other)
-      | _, _ => None
-
---| The document meets `Lays`' conditions from the start of the output.
-def laysCheck (doc: Doc): Bool := (laysKinds doc { Kinds.none | start = True }).isSome
+-- The check on sources.
 
 --| Every declaration's document of a source's printed tree meets `Lays`' conditions.
 def laysCheckOn (source: Text): Bool := match tidiedOf source with
@@ -311,7 +238,7 @@ theorem standsLineApart: (standsLineOf "def x: T := f (a -- c\n  ) -- d\n" == [T
 
 --| The check holds of the documents the route is for: closers that hold comments (after a comment, under own-line
 --| comments, after another closer), kept blank lines above items and below comments, and a comment owed past
---| closers and a comma. Evidence for `laysSomehow1`, not a proof: `laysKinds` is not yet proved to give `Lays`.
+--| closers and a comma: `doc1Checks` holds of them.
 theorem laysCheckHolds: (laysCheckOn "def x: F a -- c\n  := -- d\n  -- e\n  -- f\n\n  g (b, c -- h\n  )\n"
       && laysCheckOn "def x: T := f (a -- c\n  ) -- d\n"
       && laysCheckOn "def x: T := [a,\n\n  b]\n"
