@@ -1,5 +1,5 @@
 {
-  "next": 4206,
+  "next": 4207,
   "tickets": [
     {
       "id": 47,
@@ -21424,12 +21424,12 @@
     {
       "id": 3788,
       "title": "[Sonnet] Float.sqrt as a primitive on the host's exact Math.sqrt (SW-3783)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "floats",
-      "body": "Lane (Sonnet): Float.sqrt as a definition through Float.Model.sqrtBits (integer Newton root, rounded once) with a native on the host's sqrt, pinned; commit 037fdfe9f on lane/SW-3788. Tests: sqrt_rounds_like_the_hardware, the_four_paths_agree, float gate, pinned hashes. No kernel change.\n",
+      "body": "Lane (Sonnet): Float.sqrt as a definition through Float.Model.sqrtBits (integer Newton root, rounded once) with a native on the host's sqrt, pinned; commit 037fdfe9f on lane/SW-3788. Tests: sqrt_rounds_like_the_hardware, the_four_paths_agree, float gate, pinned hashes. No kernel change.\n\nModel result: Sonnet, worked, 20 min (est. 35).\n",
       "created": "2026-11-17",
       "updated": "2026-11-19",
       "commits": []
@@ -26951,6 +26951,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 60 min. Paper.\n\nD3691 (Matt, 19 Nov 2026): 'doing smaller backlog work with Sonnet and DeepSeek is fine. But let's also run a Fable paper lane to do ... a retrospective on the slice one formatter proofs ... how far are we from the full stitchwort formatter? Is that just a Herculean task at the moment, or is it realistic? ... any way that we could be smarter and find a better strategy for proving formatter correctness? ... consolidate and go through the proof and improve it, make it more simple? ... anything about stitchwort that we should change to make it easier to prove things?'",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4206,
+      "title": "[Sonnet] Test with_every_native_off_float_runs_out_of_budget hits the 16 GB memory cap (killed at ~16.1-16.3 GB after ~63 s) on main before and after SW-3788: find why it uses that much and bring it under a sane cap; Overmind's tiers may be failing on it",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "Est. 30 min. Found by SW-3788.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
