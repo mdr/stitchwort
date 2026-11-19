@@ -25984,12 +25984,12 @@
     {
       "id": 4133,
       "title": "[Opus] fmt S1 item 7b: prove groupKeepsTokens1 (Fmt.SettleParseProofs): two groups with the same tokens parse alike up to comments, using the two-run framework",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4133",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "After the Fable sketch SW-4132. Est. 3-6 lanes.",
+      "body": "After the Fable sketch SW-4132. Est. 3-6 lanes.\n\nLane note (Opus, 19 Nov 2026): commit b9d5bb1a7 on lane/SW-4133. New Syntax/FollowsParse.sw: expressionRuleFollows (ExpressionRule, every lane hypothesis supplied from the knot; no cycle), expressionSelfFollows, patternSelfFollows, declarationFollows, groupDeclarationFollows, declarationKeepsTokens. Fmt.SettleParseProofs: groupKeepsTokens as in SW-4132 s3 (no grammar1 hypothesis), groupKeepsTokens1 closed, statement unchanged. Whole-project check of tools/fmt: 0 errors, only formatAccepts1 and parsedPlaced1 open. audit Syntax.FollowsParse 6 passed; audit Fmt.SettleParseProofs 48 passed. No narrowing, no adapters needed, no Follows/parser files touched. About 12 min (est. 45).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -26545,13 +26545,13 @@
     },
     {
       "id": 4175,
-      "title": "[Sonnet] fmt S1 (SW-4166 follow-up, from lane A): Kept gains a 4th conjunct expr.autoPlaced1 False (no list at an inner full position starts with an auto call), proved at every node across ParseKept and K2's files; KeptAt at full goals from lane A's exprPlain upgrade lemma; closes lane A's open parser-placement goal with the glue lane",
+      "title": "[Sonnet→Opus] fmt S1 (SW-4166 follow-up): Kept gains autoPlaced1 False at every node, KeptFull/KeptAt at full goals; close the stopped-head case readsAtExprPlainStopped and parsedPlaced1",
       "status": "doing",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4175",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 45 min. After SW-4128 (A) and SW-4173 (K2) merge. Mechanical: one more conjunct per node lemma.",
+      "body": "Est. 45 min. After SW-4128 (A) and SW-4173 (K2) merge. Mechanical: one more conjunct per node lemma.\n\nSonnet lane 19 Nov: Kept has autoPlaced1 False, KeptFull at full goals, knot/ladder/decl done; exprPlain placed from implicitOn=False when head item not stopped. OPEN: readsAtExprPlainStopped (stopped head: needs a modes-aware stopped-start walk of the ladder). parsedPlaced1 still open. Whole check 0 errors, 4 goals (3 old + stopped).\n\n\nOrchestrator 14:05: Sonnet stopped with one new open goal (readsAtExprPlainStopped: a head [ stopped by stopsByLine). Rerun on Opus from its branch per D3682. Model result: Sonnet, needed fixes (stopped-head case left open), 25 min (est. 45).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
