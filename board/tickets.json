@@ -26293,7 +26293,7 @@
     {
       "id": 4156,
       "title": "[Sonnet] fmt: rename one of the two quietLeading lemmas (Fmt.ExprHangProofs vs Fmt.HeldParenProofs, different hypotheses; an import silently picks the wrong one) (SW-4146 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4160",
       "labels": [],
@@ -26345,7 +26345,7 @@
     {
       "id": 4160,
       "title": "[Sonnet] fmt: drop the duplicate elPartFor/endedLedSeat in ElementsProofs for AppHangProofs.partHangsFor (SW-4148 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4160",
       "labels": [],
