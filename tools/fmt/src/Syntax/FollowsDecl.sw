@@ -1812,3 +1812,61 @@ theorem followsDefinitionBody ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (seen =>
       Parse.followsThen (followsDefinitionBodyOn knot alts modes result resultTwin results d seen) (body bodyTwin bodies =>
         followsDefinitionChecked isInstance body bodyTwin bodies))
+
+theorem followsDefinitionParts ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin) (alts: AltPatternFollows) (modes: Modes)
+    (exportKeyword exportTwin opaqueKeyword opaqueTwin: Option Comments)
+    (exports: Option.Alike Anything exportKeyword exportTwin) (opaques: Option.Alike Anything opaqueKeyword opaqueTwin)
+    (local: Option Nat):
+    Parse.Follows SameCode (PairAlike HeaderAlike DefBodyAlike)
+      (() => definitionParts self modes exportKeyword opaqueKeyword local)
+      (() => definitionParts selfTwin modes exportTwin opaqueTwin local) :=
+  match local with
+    | Some column =>
+      followsThenEq (followsDefKindOf modes) (kind =>
+        Parse.followsThen followsFixedFrom (keyword keywordTwin keywords =>
+          Parse.followsThen (followsDefinitionName modes) (name nameTwin names =>
+            Parse.followsThen (followsForallPart modes kind) (forallKeyword forallTwin foralls =>
+              Parse.followsThen (followsHeaderParams knot modes.sealed) (params paramsTwin paramses =>
+                Parse.followsThen followsFixedFrom (colon colonTwin colons =>
+                  Parse.followsThen (followsResultType knot ({ modes | lines = [{ column = 0, many = False, kind = DefHeaderLine }] })) (result resultTwin results =>
+                    Parse.followsThen (followsDecreasingPart knot modes ({ modes | lines = [{ column = 0, many = False, kind = DefHeaderLine }] }) (kind == DefInstance)) (clause clauseTwin clauses =>
+                      followsThenEq (followsAfterDecreasingOf modes clause clauseTwin clauses) (afterDecreasing =>
+                        Parse.followsThen (followsUnfoldingPart modes afterDecreasing (kind == DefInstance)) (opacity opacityTwin opacities =>
+                          followsThenEq (followsAfterUnfoldingOf afterDecreasing opacity opacityTwin opacities) (afterUnfolding =>
+                            followsThenEq (followsClauseConflict afterUnfolding opacity opacityTwin opacities) (conflict =>
+                              match conflict with
+                                | True => followsFatalAny _ (() => Syntax.fatal "`clause` goes before `opacity`")
+                                | False =>
+                                  followsThenEq (followsBodyModesOf afterUnfolding (kind == DefInstance) local) (bodyModes =>
+                                    Parse.followsMap
+                                      [alike := PairAlike HeaderAlike DefBodyAlike]
+                                      (body => ({ exportKeyword, opaqueKeyword, kind, keyword, name, forallKeyword, params, colon, result, decreasingClause = clause, unfoldingClause = opacity }, body))
+                                      (body => ({ exportKeyword = exportTwin, opaqueKeyword = opaqueTwin, kind, keyword = keywordTwin, name = nameTwin, forallKeyword = forallTwin, params = paramsTwin, colon = colonTwin, result = resultTwin, decreasingClause = clauseTwin, unfoldingClause = opacityTwin }, body))
+                                      (body bodyTwin bodies =>
+                                        (alikeHeader exportKeyword exportTwin opaqueKeyword opaqueTwin exports opaques kind keyword keywordTwin name nameTwin names forallKeyword forallTwin foralls params paramsTwin paramses colon colonTwin result resultTwin results clause clauseTwin clauses opacity opacityTwin opacities, bodies))
+                                      (followsDefinitionBody knot alts bodyModes result resultTwin results (kind == DefInstance) (local.getOrElse 0)))))))))))))))
+    | None =>
+      followsThenEq (followsDefKindOf modes) (kind =>
+        Parse.followsThen followsFixedFrom (keyword keywordTwin keywords =>
+          Parse.followsThen (followsDefinitionName modes) (name nameTwin names =>
+            Parse.followsThen (followsForallPart modes kind) (forallKeyword forallTwin foralls =>
+              Parse.followsThen (followsHeaderParams knot modes.sealed) (params paramsTwin paramses =>
+                Parse.followsThen followsFixedFrom (colon colonTwin colons =>
+                  Parse.followsThen (followsResultType knot modes) (result resultTwin results =>
+                    Parse.followsThen (followsDecreasingPart knot modes modes (kind == DefInstance)) (clause clauseTwin clauses =>
+                      followsThenEq (followsAfterDecreasingOf modes clause clauseTwin clauses) (afterDecreasing =>
+                        Parse.followsThen (followsUnfoldingPart modes afterDecreasing (kind == DefInstance)) (opacity opacityTwin opacities =>
+                          followsThenEq (followsAfterUnfoldingOf afterDecreasing opacity opacityTwin opacities) (afterUnfolding =>
+                            followsThenEq (followsClauseConflict afterUnfolding opacity opacityTwin opacities) (conflict =>
+                              match conflict with
+                                | True => followsFatalAny _ (() => Syntax.fatal "`clause` goes before `opacity`")
+                                | False =>
+                                  followsThenEq (followsBodyModesOf afterUnfolding (kind == DefInstance) local) (bodyModes =>
+                                    Parse.followsMap
+                                      [alike := PairAlike HeaderAlike DefBodyAlike]
+                                      (body => ({ exportKeyword, opaqueKeyword, kind, keyword, name, forallKeyword, params, colon, result, decreasingClause = clause, unfoldingClause = opacity }, body))
+                                      (body => ({ exportKeyword = exportTwin, opaqueKeyword = opaqueTwin, kind, keyword = keywordTwin, name = nameTwin, forallKeyword = forallTwin, params = paramsTwin, colon = colonTwin, result = resultTwin, decreasingClause = clauseTwin, unfoldingClause = opacityTwin }, body))
+                                      (body bodyTwin bodies =>
+                                        (alikeHeader exportKeyword exportTwin opaqueKeyword opaqueTwin exports opaques kind keyword keywordTwin name nameTwin names forallKeyword forallTwin foralls params paramsTwin paramses colon colonTwin result resultTwin results clause clauseTwin clauses opacity opacityTwin opacities, bodies))
+                                      (followsDefinitionBody knot alts bodyModes result resultTwin results (kind == DefInstance) (local.getOrElse 0)))))))))))))))
