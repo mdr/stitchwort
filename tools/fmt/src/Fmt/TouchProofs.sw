@@ -56,24 +56,24 @@ theorem stepsBlankList ∀ (blank: Bool) (pre: Seam → Prop): StepsAll (if blan
 --| Own-line comments above a token, each ending its line.
 --|
 --| Proof idea: induction on the notes; each is an optional blank line, its text from a line start, and a line break.
-theorem notesAboveSteps ∀ (keep: Bool) (notes: List Note)
+theorem notesAboveSteps ∀ (notes: List Note)
     (sound: notesSound notes = True):
-    StepsAll (notesAbove keep notes) (seam => seam = Begun) [] (seam => seam = Begun) :=
+    StepsAll (notesAbove notes) (seam => seam = Begun) [] (seam => seam = Begun) :=
   match notes with
     | [] => stepsNil _ _ (seam holds => holds)
     | [note, ..rest] =>
       stepsAppend
-        (if note.blankBefore && keep then [Blank] else [])
-        ([Doc.text note.text, HardLine] ++ notesAbove True rest)
+        (if note.blankBefore then [Blank] else [])
+        ([Doc.text note.text, HardLine] ++ notesAbove rest)
         (seam => seam = Begun)
         (seam => seam = Begun)
         (seam => seam = Begun)
         []
         []
-        (stepsBlankList (note.blankBefore && keep) (seam => seam = Begun))
+        (stepsBlankList note.blankBefore (seam => seam = Begun))
         (stepsCons
           (Doc.text note.text)
-          [HardLine, ..notesAbove True rest]
+          [HardLine, ..notesAbove rest]
           (seam => seam = Begun)
           (seam => seam = Along True)
           (seam => seam = Begun)
@@ -81,14 +81,14 @@ theorem notesAboveSteps ∀ (keep: Bool) (notes: List Note)
           []
           (stepsComment note.text (Bool.andLeft sound))
           (stepsCons HardLine
-            (notesAbove True rest)
+            (notesAbove rest)
             (seam => seam = Along True)
             (seam => seam = Begun)
             (seam => seam = Begun)
             []
             []
             (stepsHard _ _ (seam along => rewrite along) byComputing)
-            (notesAboveSteps True rest (Bool.andRight sound))))
+            (notesAboveSteps rest (Bool.andRight sound))))
 
 theorem laterCloserNotesSteps ∀ (notes: List Note)
     (sound: notesSound notes = True):
@@ -127,16 +127,25 @@ theorem laterCloserNotesSteps ∀ (notes: List Note)
 theorem closerNotesSteps ∀ (note: Note) (rest: List Note)
     (sound: notesSound [note, ..rest] = True):
     StepsAll (closerNotes [note, ..rest]) (seam => seam = Begun) [] (seam => seam = Along True) :=
-  stepsCons
-    (Doc.text note.text)
-    (laterCloserNotes rest)
+  stepsAppend
+    (if note.blankBefore then [Blank] else [])
+    ([Doc.text note.text] ++ laterCloserNotes rest)
+    (seam => seam = Begun)
     (seam => seam = Begun)
     (seam => seam = Along True)
-    (seam => seam = Along True)
     []
     []
-    (stepsComment note.text (Bool.andLeft sound))
-    (laterCloserNotesSteps rest (Bool.andRight sound))
+    (stepsBlankList note.blankBefore (seam => seam = Begun))
+    (stepsCons
+      (Doc.text note.text)
+      (laterCloserNotes rest)
+      (seam => seam = Begun)
+      (seam => seam = Along True)
+      (seam => seam = Along True)
+      []
+      []
+      (stepsComment note.text (Bool.andLeft sound))
+      (laterCloserNotesSteps rest (Bool.andRight sound)))
 
 -- A token's own-line comments.
 
@@ -225,7 +234,7 @@ theorem leadingFresh ∀ (word: Word) (around: Around) (key: Nat) (before: Bool)
         | False =>
           let begun := fresh byComputing
           stepsAppend
-            [BreakParent, LineStart, ..notesAbove around.item [note, ..rest]]
+            [BreakParent, LineStart, ..notesAbove [note, ..rest]]
             (if blankBefore then [Blank] else [])
             (Fits before first)
             (seam => seam = Begun)
@@ -233,7 +242,7 @@ theorem leadingFresh ∀ (word: Word) (around: Around) (key: Nat) (before: Bool)
             []
             []
             (stepsCons BreakParent
-              [LineStart, ..notesAbove around.item [note, ..rest]]
+              [LineStart, ..notesAbove [note, ..rest]]
               (Fits before first)
               (Fits before first)
               (seam => seam = Begun)
@@ -241,14 +250,14 @@ theorem leadingFresh ∀ (word: Word) (around: Around) (key: Nat) (before: Bool)
               []
               (stepsBreakParent _)
               (stepsCons LineStart
-                (notesAbove around.item [note, ..rest])
+                (notesAbove [note, ..rest])
                 (Fits before first)
                 (seam => seam = Begun)
                 (seam => seam = Begun)
                 []
                 []
                 (stepsLineStart _ _ (seam fits => fitsQuiet before first seam fits) byComputing)
-                (notesAboveSteps around.item [note, ..rest] notes)))
+                (notesAboveSteps [note, ..rest] notes)))
             (allTo _ _ _ _ _ (stepsBlankList blankBefore (seam => seam = Begun)) (seam begun' =>
               rewrite begun' then begun))
 

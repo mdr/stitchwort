@@ -72,16 +72,6 @@ def notesTold: List Note → List Told
   | [] => []
   | [note, ..rest] => noteTold note ++ notesTold rest
 
---| The notes with the first one's blank-line flag cleared unless `keep`: what `notesAbove keep` and `closerNotes`
---| (`keep` false) write, as `Comments.kept` has it.
-def gated (keep: Bool): List Note → List Note
-  | [] => []
-  | [first, ..rest] => if keep then [first, ..rest] else [{ first | blankBefore = False }, ..rest]
-
-theorem gatedTrue ∀ (notes: List Note): gated True notes = notes := match notes with
-  | [] => byComputing
-  | [first, ..rest] => byComputing
-
 --| The comments after a closer's first, each on a line of its own after any blank line: told from any spot, since
 --| each starts with a `HardLine`.
 theorem laterCloserNotesTell ∀ (note: Note) (rest: List Note) (spot: Spot)
@@ -99,36 +89,39 @@ theorem laterCloserNotesTell ∀ (note: Note) (rest: List Note) (spot: Spot)
         | True => rewrite chunkTellSolid note.text Spot.lineStart solid, ih
         | False => rewrite chunkTellSolid note.text Spot.lineStart solid, ih
 
---| A closer's own-line comments, from a line start (`LineStartHere`): the first has no blank line above it.
+--| A closer's own-line comments, from a line start (`LineStartHere`): each on a line, a blank line above one if
+--| flagged.
 theorem closerNotesTell ∀ (notes: List Note)
     (sound: notesSound notes = True):
     Doc.tellAll (closerNotes notes) Spot.lineStart
-      = { said = notesTold (gated False notes), after = if notes.isEmpty then Spot.lineStart else Spot.afterWords } :=
+      = { said = notesTold notes, after = if notes.isEmpty then Spot.lineStart else Spot.afterWords } :=
   match notes with
     | [] => byComputing
     | [note, ..rest] =>
       let solid := commentNotLayout note.text (Bool.andLeft sound)
       match rest with
-        | [] => rewrite chunkTellSolid note.text Spot.lineStart solid
+        | [] =>
+          match note.blankBefore with
+            | True => rewrite chunkTellSolid note.text Spot.lineStart solid
+            | False => rewrite chunkTellSolid note.text Spot.lineStart solid
         | [next, ..more] =>
-          rewrite chunkTellSolid note.text Spot.lineStart solid,
-              laterCloserNotesTell next more Spot.afterWords (Bool.andRight sound)
+          let ih := laterCloserNotesTell next more Spot.afterWords (Bool.andRight sound)
+          match note.blankBefore with
+            | True => rewrite chunkTellSolid note.text Spot.lineStart solid, ih
+            | False => rewrite chunkTellSolid note.text Spot.lineStart solid, ih
 
 --| Own-line comments above a token, from a line start: each on a line, a blank line above one if flagged.
-theorem notesAboveTell ∀ (keep: Bool) (notes: List Note)
+theorem notesAboveTell ∀ (notes: List Note)
     (sound: notesSound notes = True):
-    Doc.tellAll (notesAbove keep notes) Spot.lineStart
-      = { said = notesTold (gated keep notes), after = Spot.lineStart } :=
+    Doc.tellAll (notesAbove notes) Spot.lineStart = { said = notesTold notes, after = Spot.lineStart } :=
   match notes with
     | [] => byComputing
     | [note, ..rest] =>
       let solid := commentNotLayout note.text (Bool.andLeft sound)
-      let ih := notesAboveTell True rest (Bool.andRight sound)
-      match note.blankBefore, keep with
-        | True, True => rewrite chunkTellSolid note.text Spot.lineStart solid, ih, gatedTrue rest
-        | True, False => rewrite chunkTellSolid note.text Spot.lineStart solid, ih, gatedTrue rest
-        | False, True => rewrite chunkTellSolid note.text Spot.lineStart solid, ih, gatedTrue rest
-        | False, False => rewrite chunkTellSolid note.text Spot.lineStart solid, ih, gatedTrue rest
+      let ih := notesAboveTell rest (Bool.andRight sound)
+      match note.blankBefore with
+        | True => rewrite chunkTellSolid note.text Spot.lineStart solid, ih
+        | False => rewrite chunkTellSolid note.text Spot.lineStart solid, ih
 
 -- A word's comments, as the rules keep their blank-line flags.
 
@@ -145,34 +138,21 @@ theorem keptNone ∀ (after: Option Text) (blankBefore item closer: Bool):
     | False, True => byComputing
     | False, False => byComputing
 
---| With comments above a token that is no closer: the first one's blank line only above an item, the blank line
---| below the last as written.
+--| With comments above a token that is no closer: the comments' blank lines and the blank line below the last as
+--| written.
 theorem keptNoted ∀ (first: Note) (rest: List Note) (after: Option Text) (blankBefore item: Bool):
     ({ above = [first, ..rest], after, blankBefore }.kept item False).toldAbove
-      = notesTold (gated item [first, ..rest]) ++ (if blankBefore then [Gap] else []) :=
-  match first.blankBefore, item, blankBefore with
-    | True, True, True => byComputing
-    | True, True, False => byComputing
-    | True, False, True => byComputing
-    | True, False, False => byComputing
-    | False, True, True => byComputing
-    | False, True, False => byComputing
-    | False, False, True => byComputing
-    | False, False, False => byComputing
+      = notesTold [first, ..rest] ++ (if blankBefore then [Gap] else []) :=
+  match blankBefore with
+    | True => byComputing
+    | False => byComputing
 
---| With comments above a closer: the first has no blank line above it and nothing is told below the last.
+--| With comments above a closer: nothing is told below the last.
 theorem keptCloser ∀ (first: Note) (rest: List Note) (after: Option Text) (blankBefore item: Bool):
-    ({ above = [first, ..rest], after, blankBefore }.kept item True).toldAbove
-      = notesTold (gated False [first, ..rest]) :=
-  match first.blankBefore, item, blankBefore with
-    | True, True, True => rewrite List.appendNil (notesTold rest)
-    | True, True, False => rewrite List.appendNil (notesTold rest)
-    | True, False, True => rewrite List.appendNil (notesTold rest)
-    | True, False, False => rewrite List.appendNil (notesTold rest)
-    | False, True, True => rewrite List.appendNil (notesTold rest)
-    | False, True, False => rewrite List.appendNil (notesTold rest)
-    | False, False, True => rewrite List.appendNil (notesTold rest)
-    | False, False, False => rewrite List.appendNil (notesTold rest)
+    ({ above = [first, ..rest], after, blankBefore }.kept item True).toldAbove = notesTold [first, ..rest] :=
+  match blankBefore with
+    | True => List.appendNil (notesTold [first, ..rest])
+    | False => List.appendNil (notesTold [first, ..rest])
 
 -- What a word writes before its text.
 
@@ -191,19 +171,19 @@ def Word.leadsLine (word: Word) (around: Around): Bool :=
   !around.hoisted && (!word.comments.above.isEmpty || (around.item && word.comments.blankBefore))
 
 --| The comments above a token, then its kept blank line, from a line start.
-theorem notesAboveBlankTell ∀ (keep: Bool) (notes: List Note) (blankBefore: Bool)
+theorem notesAboveBlankTell ∀ (notes: List Note) (blankBefore: Bool)
     (sound: notesSound notes = True):
-    Doc.tellAll (notesAbove keep notes ++ (if blankBefore then [Blank] else [])) Spot.lineStart
-      = { said = notesTold (gated keep notes) ++ (if blankBefore then [Gap] else []), after = Spot.lineStart } :=
+    Doc.tellAll (notesAbove notes ++ (if blankBefore then [Blank] else [])) Spot.lineStart
+      = { said = notesTold notes ++ (if blankBefore then [Gap] else []), after = Spot.lineStart } :=
   match blankBefore with
-    | True => rewrite tellAllAppend (notesAbove keep notes) [Blank] Spot.lineStart, notesAboveTell keep notes sound
-    | False => rewrite tellAllAppend (notesAbove keep notes) [] Spot.lineStart, notesAboveTell keep notes sound
+    | True => rewrite tellAllAppend (notesAbove notes) [Blank] Spot.lineStart, notesAboveTell notes sound
+    | False => rewrite tellAllAppend (notesAbove notes) [] Spot.lineStart, notesAboveTell notes sound
 
 --| A closer's own-line comments, written at the indentation of its items, and the line of its own that follows.
 theorem closerLeadTell ∀ (first: Note) (rest: List Note) (key: Nat) (spot: Spot)
     (sound: notesSound [first, ..rest] = True):
     Doc.tellAll [BreakParent, Nest 2 (Doc.concat [LineStartHere, ..closerNotes [first, ..rest]]), CloserLine key] spot
-      = { said = notesTold (gated False [first, ..rest]), after = Spot.lineStart } :=
+      = { said = notesTold [first, ..rest], after = Spot.lineStart } :=
   calc Doc.tellAll
     [BreakParent, Nest 2 (Doc.concat [LineStartHere, ..closerNotes [first, ..rest]]), CloserLine key]
     spot
@@ -214,8 +194,8 @@ theorem closerLeadTell ∀ (first: Note) (rest: List Note) (key: Nat) (spot: Spo
     _ = (Telling.quiet Spot.lineStart).andThen
         ((Doc.tellAll (closerNotes [first, ..rest]) Spot.lineStart).andThen (Telling.quiet Spot.lineStart)) :=
       byComputing
-    _ = { said = notesTold (gated False [first, ..rest]), after = Spot.lineStart } :=
-      rewrite closerNotesTell [first, ..rest] sound, List.appendNil (notesTold (gated False [first, ..rest]))
+    _ = { said = notesTold [first, ..rest], after = Spot.lineStart } :=
+      rewrite closerNotesTell [first, ..rest] sound, List.appendNil (notesTold [first, ..rest])
 
 --| `Word.leading` tells the word's own-line comments and kept blank line, from any spot, and ends at a line start if
 --| it wrote any.
@@ -241,7 +221,7 @@ theorem leadingTell ∀ (word: Word) (around: Around) (key: Nat) (spot: Spot)
           rewrite closerLeadTell first rest key spot (Bool.andLeft (Bool.andRight sound)),
               keptCloser first rest after blankBefore around.item
         | False =>
-          rewrite notesAboveBlankTell around.item [first, ..rest] blankBefore (Bool.andLeft (Bool.andRight sound)),
+          rewrite notesAboveBlankTell [first, ..rest] blankBefore (Bool.andLeft (Bool.andRight sound)),
               keptNoted first rest after blankBefore around.item
 
 -- A word's text.

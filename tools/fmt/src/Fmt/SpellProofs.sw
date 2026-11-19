@@ -285,41 +285,47 @@ theorem closerNotesSpells ∀ (notes: List Note)
   match notes with
     | [] => spellsNil
     | [note, ..rest] =>
-      spellsCons
-        (Doc.text note.text)
-        (laterCloserNotes rest)
-        [note.text]
-        (rest.map (note => note.text))
-        (spellsText note.text (commentNotLayout note.text (Bool.andLeft sound)))
-        (laterCloserNotesSpells rest (Bool.andRight sound))
+      spellsAppend
+        (if note.blankBefore then [Blank] else [])
+        ([Doc.text note.text] ++ laterCloserNotes rest)
+        []
+        [note.text, ..rest.map (note => note.text)]
+        (spellsBlankList note.blankBefore)
+        (spellsCons
+          (Doc.text note.text)
+          (laterCloserNotes rest)
+          [note.text]
+          (rest.map (note => note.text))
+          (spellsText note.text (commentNotLayout note.text (Bool.andLeft sound)))
+          (laterCloserNotesSpells rest (Bool.andRight sound)))
 
 --| Own-line comments above a token spell their texts.
 --|
 --| Proof idea: Induction on the notes; each is an optional blank line, its text and a line break.
-theorem notesAboveSpells ∀ (keep: Bool) (notes: List Note)
+theorem notesAboveSpells ∀ (notes: List Note)
     (sound: notesSound notes = True):
-    SpellsAll (notesAbove keep notes) (notes.map (note => note.text)) :=
+    SpellsAll (notesAbove notes) (notes.map (note => note.text)) :=
   match notes with
     | [] => spellsNil
     | [note, ..rest] =>
       spellsAppend
-        (if note.blankBefore && keep then [Blank] else [])
-        ([Doc.text note.text, HardLine] ++ notesAbove True rest)
+        (if note.blankBefore then [Blank] else [])
+        ([Doc.text note.text, HardLine] ++ notesAbove rest)
         []
         [note.text, ..rest.map (note => note.text)]
-        (spellsBlankList (note.blankBefore && keep))
+        (spellsBlankList note.blankBefore)
         (spellsCons
           (Doc.text note.text)
-          [HardLine, ..notesAbove True rest]
+          [HardLine, ..notesAbove rest]
           [note.text]
           (rest.map (note => note.text))
           (spellsText note.text (commentNotLayout note.text (Bool.andLeft sound)))
           (spellsCons HardLine
-            (notesAbove True rest)
+            (notesAbove rest)
             []
             (rest.map (note => note.text))
             spellsHardLine
-            (notesAboveSpells True rest (Bool.andRight sound))))
+            (notesAboveSpells rest (Bool.andRight sound))))
 
 -- A token and its comments.
 
@@ -381,21 +387,21 @@ theorem leadingSpells ∀ (word: Word) (around: Around) (key: Nat)
         | False =>
           spellsAllSame _ _ _
             (spellsAppend
-              [BreakParent, LineStart, ..notesAbove around.item [first, ..rest]]
+              [BreakParent, LineStart, ..notesAbove [first, ..rest]]
               (if blankBefore then [Blank] else [])
               [first.text, ..rest.map (note => note.text)]
               []
               (spellsCons BreakParent
-                [LineStart, ..notesAbove around.item [first, ..rest]]
+                [LineStart, ..notesAbove [first, ..rest]]
                 []
                 [first.text, ..rest.map (note => note.text)]
                 spellsBreakParent
                 (spellsCons LineStart
-                  (notesAbove around.item [first, ..rest])
+                  (notesAbove [first, ..rest])
                   []
                   [first.text, ..rest.map (note => note.text)]
                   spellsLineStart
-                  (notesAboveSpells around.item [first, ..rest] (Bool.andLeft (Bool.andRight sound)))))
+                  (notesAboveSpells [first, ..rest] (Bool.andLeft (Bool.andRight sound)))))
               (spellsBlankList blankBefore))
             (List.appendNil _)
 

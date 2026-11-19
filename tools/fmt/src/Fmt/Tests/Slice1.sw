@@ -93,3 +93,35 @@ test "a comment ending in carriage returns and spaces, in any order, loses all o
 
 test "a carriage return or tab that text follows in a comment is kept and the output is stable" :=
   settles "-- a\r\t\ndef d: A := b\n" && settles "-- a\rb\ndef d: A := b\n" && settles "def d: A := b -- a\rb \r\n"
+
+-- A blank line above an own-line comment is kept wherever the source has one (D3693); the expected texts are
+-- `stitchwort fmt`'s (crates/fmt golden `comment-blank-above`).
+
+test "a blank line above a comment over a call's argument is kept" :=
+  formats "def argument: A := f\n\n  -- c\n  x\n" "def argument: A :=\n  f\n\n    -- c\n    x\n"
+
+test "a blank line above a comment over an operator's right operand is kept" :=
+  formats "def operand: Nat := a +\n\n  -- c\n  b\n" "def operand: Nat :=\n  a\n    +\n\n      -- c\n      b\n"
+
+test "a blank line above a comment over an operator is kept" :=
+  formats "def operandBefore: Nat := a\n\n  -- c\n  + b\n" "def operandBefore: Nat :=\n  a\n\n    -- c\n    + b\n"
+
+test "a blank line above a comment over a list's closer is kept" :=
+  formats "def closer: List Nat := [\n  1,\n  2\n\n  -- c\n]\n" "def closer: List Nat := [1, 2\n\n  -- c\n]\n"
+
+test "a blank line above a comment over a bracket's closer is kept" :=
+  formats "def parenCloser: Nat := (a\n\n  -- c\n)\n" "def parenCloser: Nat :=\n  (a\n\n    -- c\n  )\n"
+
+test "a blank line above a comment over the type is kept" :=
+  formats "def resultType:\n\n  -- c\n  Nat := 1\n" "def resultType:\n\n    -- c\n    Nat :=\n  1\n"
+
+test "a blank line above a comment over the value is kept" :=
+  formats "def value: Nat :=\n\n  -- c\n  1\n" "def value: Nat :=\n\n  -- c\n  1\n"
+
+test "a blank line above a comment over a list item is kept" :=
+  formats "def item: List Nat := [\n  f a,\n\n  -- c\n  g b\n]\n"
+      "def item: List Nat := [\n  f a,\n\n  -- c\n  g b\n]\n"
+
+test "blank lines above and between comments are kept" :=
+  formats "def twoComments: A := f\n\n  -- c\n\n  -- d\n  x\n"
+      "def twoComments: A :=\n  f\n\n    -- c\n\n    -- d\n    x\n"

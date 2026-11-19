@@ -209,7 +209,7 @@ theorem wordsCalm ∀ (expr: Expr) (item: Bool)
 --|
 --| Proof idea: Cases on whether the token is hoisted, has own-line comments, and is a closer; in each the document
 --| `leading` builds is the same function of the flags, which `kept` changes only where `leading` ignores them (a
---| closer's, a flag above no item), so the four or eight Boolean cases each compute.
+--| closer's, a flag above no item), so the Boolean cases each compute.
 theorem leadingKept ∀ (word: Word) (around: Around) (key: Nat) (item closer: Bool)
     (same: around.item = item)
     (closes: (!closer || isCloserText word.text) = True):
@@ -229,16 +229,9 @@ theorem leadingKept ∀ (word: Word) (around: Around) (key: Nat) (item closer: B
         | False =>
           match closer with
             | False =>
-              rewrite same then
-                match item, blankBefore, first.blankBefore with
-                  | True, True, True => byComputing
-                  | True, True, False => byComputing
-                  | True, False, True => byComputing
-                  | True, False, False => byComputing
-                  | False, True, True => byComputing
-                  | False, True, False => byComputing
-                  | False, False, True => byComputing
-                  | False, False, False => byComputing
+              match blankBefore with
+                | True => byComputing
+                | False => byComputing
 
 --| A token's leaf is the same for its calm word.
 --|

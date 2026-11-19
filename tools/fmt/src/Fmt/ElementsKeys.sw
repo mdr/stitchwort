@@ -46,7 +46,8 @@ theorem laterCloserNotesKeys ∀ (low: Nat) (notes: List Note): allKeysFrom low 
 --| Own-line comments before a closer are text and line breaks.
 theorem closerNotesKeys ∀ (low: Nat) (notes: List Note): allKeysFrom low (closerNotes notes) = True := match notes with
   | [] => byComputing
-  | [note, ..rest] => rewrite laterCloserNotesKeys low rest
+  | [note, ..rest] =>
+    allKeysAppend low _ _ (allKeysIf low _ [Blank] [] byComputing byComputing) (rewrite laterCloserNotesKeys low rest)
 
 --| A token's own-line comments carry no key but a closer's `CloserLine`, at the key it is given.
 theorem leadingKeysAt ∀ (low key: Nat) (word: Word) (around: Around)
@@ -64,7 +65,7 @@ theorem leadingKeysAt ∀ (low key: Nat) (word: Word) (around: Around)
                   (rewrite closerNotesKeys low [note, ..rest]),
                 floor)
             (allKeysAppend low _ _
-              (rewrite notesAboveKeys low around.item [note, ..rest])
+              (rewrite notesAboveKeys low [note, ..rest])
               (allKeysIf low _ [Blank] [] byComputing byComputing))
 
 --| A token's keys are the one it is given.

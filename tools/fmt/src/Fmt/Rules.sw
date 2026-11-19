@@ -110,19 +110,17 @@ def Word.trailing (word: Word): List Doc := match word.comments.after with
 --| Own-line comments before a closer, at its items' indentation (S40).
 def closerNotes: List Note → List Doc
   | [] => []
-  | [note, ..rest] => [Doc.text note.text, ..laterCloserNotes rest]
+  | [note, ..rest] => (if note.blankBefore then [Blank] else []) ++ [Doc.text note.text] ++ laterCloserNotes rest
 
 def laterCloserNotes: List Note → List Doc
   | [] => []
   | [note, ..rest] =>
     [HardLine] ++ (if note.blankBefore then [Blank] else []) ++ [Doc.text note.text] ++ laterCloserNotes rest
 
---| Own-line comments, each on its line; a blank line above the first is
---| kept only before an item (`keep`).
-def notesAbove (keep: Bool): List Note → List Doc
+--| Own-line comments, each on its line, with the blank lines above them.
+def notesAbove: List Note → List Doc
   | [] => []
-  | [note, ..rest] =>
-    (if note.blankBefore && keep then [Blank] else []) ++ [Doc.text note.text, HardLine] ++ notesAbove True rest
+  | [note, ..rest] => (if note.blankBefore then [Blank] else []) ++ [Doc.text note.text, HardLine] ++ notesAbove rest
 
 --| Own-line comments and kept blank lines before a token (`leading`).
 --| `key` is its bracket pair's, for a closer. An item's blank line with
@@ -137,8 +135,7 @@ def Word.leading (word: Word) (around: Around) (key: Nat): List Doc :=
     (if around.item && comments.blankBefore then [BreakParent, LineStart, Blank] else [])
   else if isCloserText word.text then
     [BreakParent, Nest 2 (Doc.concat [LineStartHere, ..closerNotes comments.above]), CloserLine key]
-  else
-    [BreakParent, LineStart, ..notesAbove around.item comments.above] ++ (if comments.blankBefore then [Blank] else [])
+  else [BreakParent, LineStart, ..notesAbove comments.above] ++ (if comments.blankBefore then [Blank] else [])
 
 --| A token on its own (`leaf`). A closer after code that ends its line
 --| with a comment, and with a comment of its own, keeps a line of its own

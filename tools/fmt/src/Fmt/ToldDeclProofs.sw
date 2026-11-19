@@ -315,7 +315,9 @@ theorem framedShape ∀ (expr: Expr) (around: Around) (doc: Doc)
         | True => inner (expr.lead.placedSpot around spot)
         | False =>
           rewrite shapeLead expr around.item within then
-            refinesAppend _ _ _ _ (refinesSelf _ (toldAboveExact _)) (inner (expr.lead.placedSpot around spot))
+            refinesAppend _ _ _ _
+              (refinesSelf _ (toldAboveExact (expr.lead.kept around.item (isCloserText expr.lead.text)).comments))
+              (inner (expr.lead.placedSpot around spot))
 
 -- Brackets and prefix operators.
 

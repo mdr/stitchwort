@@ -27,7 +27,7 @@ STITCHWORT=$PWD/target/release/stitchwort \
 ```
 
 The first argument scales the run: `1` is SW-4121's full run (88 chunks
-of 250 files and the 66 hand cases; about 12 minutes of `stitchwort run`
+of 250 files and the 74 hand cases; about 12 minutes of `stitchwort run`
 at 4 s a chunk and check, plus a recheck of `tools/fmt` for the copied
 module); `0` runs one chunk of each mode and the hand cases, for a quick
 look (about 3.5 minutes, most of it the recheck). The second is the work folder for the generated cases and the
@@ -46,7 +46,7 @@ The files:
   any column), `legal` (columns the port allows), `long` (long names, so
   the printer breaks for width), `noted` (comments on most breaks),
   `longnoted`.
-- `hand.py OUT.cases`: the 66 hand-written sources (D3686's comment
+- `hand.py OUT.cases`: the 74 hand-written sources (D3686's comment
   between a sign and its operand among them).
 - `MultilineGate.sw`: `checkA`, `checkB` and their `main`s.
 - `tally.py WORK_DIR`: the counts below, from the results.
@@ -79,10 +79,11 @@ Check A, generated files (22,000):
 | accepted, one line, all seven tests pass | 2,832 |
 | **FAIL: accepted, and a test fails** | **0** |
 
-Hand cases (66): check A accepts all 66, 58 printing over several lines,
-all seven tests passing; check B finds 64 that keep `hangs` and parse to
-the same tree, and two that break `hangs` (a comment right after `->`)
-and parse to the same tree anyway.
+Hand cases (74, eight of them blank lines above comments since D3693):
+check A accepts all 74, 65 printing over several lines, all seven tests
+passing; check B finds 72 that keep `hangs` and parse to the same tree,
+and two that break `hangs` (a comment right after `->`) and parse to the
+same tree anyway.
 
 ## The element facts' check (SW-4130)
 
