@@ -59,17 +59,27 @@ struct Client {
 impl Client {
     /// A server with `src/shop.sw` open, checked through.
     fn start(capabilities: Value) -> Client {
+        Client::start_with(
+            capabilities,
+            [
+                ("src/shop.sw".to_string(), SHOP.to_string()),
+                ("src/report.sw".to_string(), REPORT.to_string()),
+            ]
+            .into(),
+        )
+    }
+
+    /// A server with `src/shop.sw` open over `files`.
+    fn start_with(
+        capabilities: Value,
+        files: std::collections::BTreeMap<String, String>,
+    ) -> Client {
+        let text = files["src/shop.sw"].clone();
         let memory = common::cached_memory(STACK);
         memory.add(MemoryProject {
             root: "/memory/proj".into(),
             sources: vec!["src".into()],
-            files: Arc::new(
-                [
-                    ("src/shop.sw".to_string(), SHOP.to_string()),
-                    ("src/report.sw".to_string(), REPORT.to_string()),
-                ]
-                .into(),
-            ),
+            files: Arc::new(files),
         });
         let mut c = Client {
             server: Inline::new(Options::new(STACK), memory).unwrap(),
@@ -80,7 +90,7 @@ impl Client {
         c.notify("initialized", json!({}));
         c.notify(
             "textDocument/didOpen",
-            json!({"textDocument": {"uri": SHOP_URI, "languageId": "stitchwort", "version": 1, "text": SHOP}}),
+            json!({"textDocument": {"uri": SHOP_URI, "languageId": "stitchwort", "version": 1, "text": text}}),
         );
         c.settle();
         c
@@ -380,5 +390,49 @@ fn a_client_that_can_show_buttons_is_offered_rename_anyway_and_applies_it() {
             .find(|m| m["method"] == "workspace/applyEdit")
             .unwrap_or_else(|| panic!("no edit asked for: {:?}", &c.seen[before..]));
         assert!(apply["params"]["edit"]["changes"][SHOP_URI].is_array());
+    });
+}
+
+/// A name an or-pattern binds in each alternative (`| Inl same | Inr same`,
+/// possibly at a different type in each) is one name for a rename: from a
+/// use or from any binding, every binding and every use is edited
+/// (SW-4250, D3694).
+#[test]
+fn rename_of_an_or_pattern_name_renames_every_binding_and_use() {
+    big_stack(|| {
+        for (use_of, name, bindings) in common::or_names() {
+            let (line, character) = common::use_at(use_of, name);
+            let mut wanted = bindings.clone();
+            wanted.push((line, character));
+            wanted.sort();
+            for from in std::iter::once((line, character)).chain(bindings) {
+                // A rename's edit is taken as the program's text: one
+                // server for each.
+                let mut c = Client::start_with(
+                    json!({}),
+                    [("src/shop.sw".to_string(), common::OR_BINDING.to_string())].into(),
+                );
+                let reply = c.rename(
+                    SHOP_URI,
+                    json!({"line": from.0, "character": from.1}),
+                    "renamed",
+                );
+                let edits = reply["result"]["changes"][SHOP_URI]
+                    .as_array()
+                    .unwrap_or_else(|| panic!("{name} from {from:?}: {reply}"));
+                let mut got: Vec<(u64, u64)> = edits
+                    .iter()
+                    .map(|e| {
+                        let at = &e["range"]["start"];
+                        (
+                            at["line"].as_u64().unwrap(),
+                            at["character"].as_u64().unwrap(),
+                        )
+                    })
+                    .collect();
+                got.sort();
+                assert_eq!(got, wanted, "{name} from {from:?}: {reply}");
+            }
+        }
     });
 }

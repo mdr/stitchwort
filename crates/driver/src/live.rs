@@ -99,6 +99,8 @@ pub struct LiveRef {
     /// field, the variable) have one range. A rename edits it to
     /// `{ label = name }` (the field) or `{ name = who }` (the variable).
     pub pun: bool,
+    /// A local variable's binding, not a use of it.
+    pub binding: bool,
 }
 
 /// A declaration of a file, for its outline.
@@ -363,6 +365,7 @@ fn answers_from_with<'t>(
             name_range: r.name_range,
             alias: r.alias,
             pun: r.pun,
+            binding: r.binding,
         });
     }
     // The outline: the program's declarations, by file.

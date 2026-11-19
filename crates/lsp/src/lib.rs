@@ -2392,9 +2392,19 @@ impl Main {
                         include_definition(&*self.source, &nav, uri, &text, at.position)
                     });
                     let found = lookup(&nav, uri, at.position);
-                    let location = include
-                        .or_else(|| found.and_then(|(root, ws, r)| ws.location(root, &r.target)));
-                    serde_json::to_value(location.map(GotoDefinitionResponse::Scalar))
+                    let response = include.map(GotoDefinitionResponse::Scalar).or_else(|| {
+                        let (root, ws, r) = found?;
+                        // A name an or-pattern binds in each alternative has
+                        // a definition in each: all of them, the first
+                        // alternative's first.
+                        let bindings = bindings_of(root, ws, &r);
+                        if bindings.len() > 1 {
+                            return Some(GotoDefinitionResponse::Array(bindings));
+                        }
+                        ws.location(root, &r.target)
+                            .map(GotoDefinitionResponse::Scalar)
+                    });
+                    serde_json::to_value(response)
                 }),
             request::DocumentLinkRequest::METHOD => {
                 parse::<lsp_types::DocumentLinkParams>(&request).map(|p| {
@@ -2921,6 +2931,37 @@ fn hover(h: pos::Hover) -> Hover {
         }),
         range: Some(range(h.range)),
     }
+}
+
+/// Where the local variable `r` refers to is bound, in order: one place,
+/// or several for a name an or-pattern binds in each alternative.
+fn bindings_of(root: &Path, ws: &WorkspaceNav, r: &LiveRef) -> Vec<Location> {
+    if r.kind != "local" {
+        return Vec::new();
+    }
+    let mut found = vec![r.target.range];
+    if let Some(file) = ws.files.get(&r.target.place) {
+        found.extend(
+            file.refs
+                .iter()
+                .filter(|o| o.binding && o.target == r.target)
+                .map(|o| o.range),
+        );
+    }
+    found.sort();
+    found.dedup();
+    found
+        .into_iter()
+        .filter_map(|range| {
+            ws.location(
+                root,
+                &Loc {
+                    place: r.target.place.clone(),
+                    range,
+                },
+            )
+        })
+        .collect()
 }
 
 /// Everything in the workspace that refers to what `r` does, in file and

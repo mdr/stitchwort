@@ -328,6 +328,9 @@ pub fn hover_at(
         return Some(found);
     }
     if let Some(r) = reference_at(file, place, line, character) {
+        if let Some(shown) = alternatives_hover(file, &r, text) {
+            return Some(shown);
+        }
         return Some(hover_of(&r));
     }
     // A `?` itself: its goal, as the Goals panel shows it.
@@ -347,6 +350,68 @@ pub fn hover_at(
         range: goal.range,
         markdown,
     })
+}
+
+/// The hover of a name an or-pattern binds in each alternative, when its
+/// type differs between them: one line for each, naming the alternative
+/// (the body is checked once per alternative, D3694). `None` for any other
+/// name, and for one with the same type everywhere (its ordinary hover).
+fn alternatives_hover(file: &FileAnswers, r: &LiveRef, text: Option<&str>) -> Option<Hover> {
+    if r.kind != "local" {
+        return None;
+    }
+    let mut bindings: Vec<&LiveRef> = file
+        .refs
+        .iter()
+        .filter(|o| o.binding && o.target == r.target)
+        .collect();
+    bindings.sort_by_key(|o| o.range);
+    bindings.dedup_by_key(|o| o.range);
+    if bindings.len() < 2 {
+        return None;
+    }
+    let types: Vec<Option<&str>> = bindings.iter().map(|b| b.ty.as_deref()).collect();
+    if types.iter().all(|t| *t == types[0]) {
+        return None;
+    }
+    let short = r.name.rsplit('.').next().unwrap_or(&r.name);
+    let mut markdown = String::from("```stitchwort\n");
+    for (i, binding) in bindings.iter().enumerate() {
+        let ty = binding.ty.as_deref().unwrap_or("(not used here)");
+        let label = text
+            .and_then(|t| alternative_label(t, binding.range))
+            .unwrap_or_else(|| format!("alternative {}", i + 1));
+        markdown.push_str(&format!("{short}: {ty}   -- in {label}\n"));
+    }
+    markdown.push_str(&format!(
+        "```\nlocal `{short}`, bound in each of {} alternatives",
+        bindings.len()
+    ));
+    Some(Hover {
+        range: r.range,
+        markdown,
+    })
+}
+
+/// The alternative of an or-pattern a binder at `range` is in, as written:
+/// the line's text from the last `|` or `(` before the binder to its end
+/// (`Inl same`), if that is one line.
+fn alternative_label(text: &str, range: Range) -> Option<String> {
+    let line = text.split('\n').nth(range[0] as usize)?;
+    let mut utf16 = 0;
+    let mut end = None;
+    for (at, c) in line.char_indices() {
+        if utf16 == range[3] {
+            end = Some(at);
+            break;
+        }
+        utf16 += c.len_utf16() as u32;
+    }
+    let end = end.or((utf16 == range[3]).then_some(line.len()))?;
+    let before = &line[..end];
+    let start = before.rfind(['|', '(']).map_or(0, |i| i + 1);
+    let label = before[start..].trim();
+    (!label.is_empty()).then(|| format!("`{label}`"))
 }
 
 /// The type of the smallest expression containing `selection`.

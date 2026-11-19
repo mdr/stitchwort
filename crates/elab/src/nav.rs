@@ -465,6 +465,10 @@ pub struct NavRef {
     /// A record field punned with a variable, `{ name }`: this and another
     /// reference (the field, the variable) are written by the same text.
     pub pun: bool,
+    /// The reference is a local variable's binding (it refers to the binder
+    /// it is, or, for a name an or-pattern binds in each alternative, to the
+    /// first alternative's).
+    pub binding: bool,
 }
 
 pub enum NavTarget {
@@ -743,6 +747,15 @@ impl Elaborator {
             if nav.generated == 0 {
                 nav.pending
                     .push((name.span, ty.clone(), cx.names.clone(), false));
+                // In an arm with or-pattern alternatives the body is checked
+                // once for each, and the type here is the last's: the
+                // alternative's own binder gets its type as well.
+                let binder = (self.goals.borrow().alternative_binders.iter().rev())
+                    .find(|(bound, _)| *bound == name.text)
+                    .map(|(_, at)| *at);
+                if let Some(at) = binder {
+                    nav.pending.push((at, ty.clone(), cx.names.clone(), false));
+                }
             }
         }
     }
@@ -1045,6 +1058,7 @@ impl Elaborator {
                 unfolded: symbols[index].unfolded.clone(),
                 defaults: nav.call_defaults.get(at).cloned(),
                 pun: false,
+                binding: false,
             });
         }
         // A name taken for an implicitly bound variable (`implicit_guesses`)
@@ -1100,6 +1114,7 @@ impl Elaborator {
                     .cloned(),
                 defaults: None,
                 pun: false,
+                binding: false,
             });
         }
         for local in &nav.locals {
@@ -1126,6 +1141,7 @@ impl Elaborator {
                     .cloned(),
                 defaults: nav.call_defaults.get(&local.span).cloned(),
                 pun: false,
+                binding: false,
             });
         }
         // Each declaration's own name refers to it, for hover and definition there.
@@ -1144,6 +1160,7 @@ impl Elaborator {
                 unfolded: symbols[i].unfolded.clone(),
                 defaults: None,
                 pun: false,
+                binding: false,
             });
         }
         // In `def Pt.sum`, the `Pt` is a reference to the type (when it's
@@ -1193,6 +1210,7 @@ impl Elaborator {
                 unfolded: symbols[index].unfolded.clone(),
                 defaults: None,
                 pun: false,
+                binding: false,
             });
         }
         // The same for a declaration outside the outline (the library's: only
@@ -1219,6 +1237,7 @@ impl Elaborator {
                 unfolded: symbol.unfolded.clone(),
                 defaults: None,
                 pun: false,
+                binding: false,
             });
         }
         // A local variable's binder refers to itself (a record field is a declaration, above).
@@ -1246,7 +1265,7 @@ impl Elaborator {
                 dot: None,
                 target: NavTarget::Binder {
                     name: binder.name.clone(),
-                    span: binder.span,
+                    span: binder.binder,
                 },
                 ty: nav
                     .local_types
@@ -1260,6 +1279,7 @@ impl Elaborator {
                 // fact (`build.rs`).
                 defaults: nav.call_defaults.get(&binder.span).cloned(),
                 pun: false,
+                binding: true,
             });
         }
         refs.sort_by_key(|r| (r.span.file.index(), r.span.start, r.span.end));
@@ -1630,6 +1650,9 @@ enum Work<'a> {
     Bind(&'a ast::Name),
     Unbind(&'a str),
     Use(&'a ast::Name),
+    /// The names an or-pattern binds in each alternative, with where, in
+    /// order: the later bindings of a name are the first's (below).
+    Alias(Vec<(&'a str, Span)>),
 }
 
 struct Walk<'n> {
@@ -2026,6 +2049,33 @@ impl Walk<'_> {
                     }
                     continue;
                 }
+                Work::Alias(names) => {
+                    // One name for the editor: the body is checked under each
+                    // alternative, but a use refers to the first binding (the
+                    // definition), and the later bindings are references to
+                    // it, so references and rename take them together. The
+                    // stack of `bound` keeps its depth for the `Unbind`s.
+                    let mut first: HashMap<&str, Span> = HashMap::default();
+                    for (name, span) in names {
+                        let &mut head = first.entry(name).or_insert(span);
+                        if head == span {
+                            continue;
+                        }
+                        for binder in self.nav.binders.iter_mut().rev() {
+                            if binder.span == span {
+                                binder.binder = head;
+                                break;
+                            }
+                        }
+                        if let Some(spans) = bound.get_mut(name) {
+                            spans
+                                .iter_mut()
+                                .filter(|s| **s == span)
+                                .for_each(|s| *s = head);
+                        }
+                    }
+                    continue;
+                }
                 Work::Use(n) => {
                     let first = n.text.split('.').next().unwrap_or_default();
                     if first.starts_with('%') {
@@ -2070,7 +2120,14 @@ impl Walk<'_> {
                         }
                         Pattern::Named(_, p, _) => then(&mut stack, vec![Work::Pattern(p)]),
                         Pattern::Or(alternatives, _) => {
-                            then(&mut stack, alternatives.iter().map(Work::Pattern).collect());
+                            let mut names = Vec::new();
+                            alternatives
+                                .iter()
+                                .for_each(|a| pattern_binder_spans(a, &mut names));
+                            let mut steps: Vec<Work> =
+                                alternatives.iter().map(Work::Pattern).collect();
+                            steps.push(Work::Alias(names));
+                            then(&mut stack, steps);
                         }
                         Pattern::Record { fields, .. } | Pattern::CtorFields { fields, .. } => {
                             then(
@@ -2331,6 +2388,33 @@ fn head_spans(mut head: &Expr) -> Option<[Span; 2]> {
 }
 
 /// The variables a pattern binds.
+/// [`pattern_binders`] with where each name is written.
+pub(crate) fn pattern_binder_spans<'a>(pattern: &'a Pattern, out: &mut Vec<(&'a str, Span)>) {
+    match pattern {
+        Pattern::Var(x) | Pattern::TextRest(x) => out.push((&x.text, x.span)),
+        Pattern::Prefix { rest, .. } => pattern_binder_spans(rest, out),
+        Pattern::Ctor(_, args, _) => args.iter().for_each(|p| pattern_binder_spans(p, out)),
+        Pattern::Tuple(a, b, _) | Pattern::Cons(a, b, _) => {
+            pattern_binder_spans(a, out);
+            pattern_binder_spans(b, out);
+        }
+        Pattern::Record { fields, .. } | Pattern::CtorFields { fields, .. } => fields
+            .iter()
+            .for_each(|(_, p)| pattern_binder_spans(p, out)),
+        Pattern::Named(_, p, _) => pattern_binder_spans(p, out),
+        Pattern::Or(alternatives, _) => alternatives
+            .iter()
+            .for_each(|p| pattern_binder_spans(p, out)),
+        Pattern::Wildcard(_)
+        | Pattern::Absurd(_)
+        | Pattern::Num(..)
+        | Pattern::NegNum(..)
+        | Pattern::Char(..)
+        | Pattern::Text(..)
+        | Pattern::Nil(_) => {}
+    }
+}
+
 fn pattern_binders<'a>(pattern: &'a Pattern, out: &mut Vec<&'a str>) {
     match pattern {
         Pattern::Var(x) | Pattern::TextRest(x) => out.push(&x.text),

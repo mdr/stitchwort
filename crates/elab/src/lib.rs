@@ -6387,6 +6387,13 @@ fn check_leaf_in(
         &mut cx.e.goals.borrow_mut().alternative,
         shown_alternative.clone(),
     );
+    let saved_binders = std::mem::replace(&mut cx.e.goals.borrow_mut().alternative_binders, {
+        let mut names = Vec::new();
+        alternatives
+            .iter()
+            .for_each(|p| nav::pattern_binder_spans(p, &mut names));
+        names.into_iter().map(|(n, s)| (n.to_string(), s)).collect()
+    });
     let result = {
         let in_tree = match rhs {
             Expr::Match { .. } if !guarded => matching::in_tree(cx, rhs, goal),
@@ -6410,6 +6417,7 @@ fn check_leaf_in(
         e
     });
     cx.e.goals.borrow_mut().alternative = saved_alternative;
+    cx.e.goals.borrow_mut().alternative_binders = saved_binders;
     arm_display::leave_arm(cx, shown_arm);
     cx.reset(mark);
     cx.names = saved_names;

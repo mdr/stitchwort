@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use serde_json::json;
+use serde_json::{Value, json};
 use stitchwort_lsp::{Inline, Memory, MemoryProject, Options};
 
 /// A project source whose checks replay the standard library from the test
@@ -93,4 +93,109 @@ fn fill(text: &str, memory: Arc<Memory>, stack: usize) {
         server.receive(&message.to_string());
     }
     while server.tick().1 {}
+}
+
+/// A program whose or-patterns bind `size` (two alternatives, then three)
+/// and a proof whose `same` has a different type in each alternative
+/// (SW-4250, D3694).
+pub const OR_BINDING: &str = "namespace Demo
+
+type Shape = | Circle (radius: Nat) | Square (side: Nat) | Dot (r: Nat)
+
+def size: Shape → Nat
+  | Circle size | Square size => size + 1
+  | Dot _ => 0
+
+def three: Shape → Nat
+  | Circle n | Square n | Dot n => n + 1
+
+def level (text: Text): Nat := if text == \"&&\" || text == \"∧\" then 5 else 4
+
+theorem andLevel ∀ (text: Text)
+    (spelt: text = \"&&\" ∨ text = \"∧\")
+    : level text = 5 :=
+  match spelt with
+    | Inl same | Inr same => rewrite same
+";
+
+/// The position `delta` characters into the `nth` `needle` of `text`.
+pub fn position_in(text: &str, needle: &str, nth: usize, delta: usize) -> Value {
+    let start = text.match_indices(needle).nth(nth).expect("in the text").0 + delta;
+    let before = &text[..start];
+    let line = before.matches('\n').count();
+    let character = before.rsplit('\n').next().unwrap_or("").chars().count();
+    json!({"line": line, "character": character})
+}
+
+pub fn locations(found: &Value) -> Vec<(u64, u64)> {
+    let list: Vec<&Value> = match found {
+        Value::Array(items) => items.iter().collect(),
+        Value::Null => Vec::new(),
+        one => vec![one],
+    };
+    let mut out: Vec<(u64, u64)> = list
+        .iter()
+        .map(|l| {
+            let start = &l["range"]["start"];
+            (
+                start["line"].as_u64().unwrap(),
+                start["character"].as_u64().unwrap(),
+            )
+        })
+        .collect();
+    out.sort();
+    out
+}
+
+/// Where `needle`'s `nth` occurrence starts, as (line, character).
+pub fn start_of(text: &str, needle: &str, nth: usize) -> (u64, u64) {
+    let p = position_in(text, needle, nth, 0);
+    (
+        p["line"].as_u64().unwrap(),
+        p["character"].as_u64().unwrap(),
+    )
+}
+
+/// The binder `name` inside the `nth` `alternative` text, as (line, character).
+pub fn binder_in(alternative: &str, name: &str) -> (u64, u64) {
+    let (line, character) = start_of(OR_BINDING, alternative, 0);
+    (line, character + alternative.find(name).unwrap() as u64)
+}
+
+/// The three kinds of name: two alternatives in a program, three, and the
+/// proof's, each with its use in the body.
+/// A use's snippet, its name, and the name's bindings in order.
+pub type OrName = (&'static str, &'static str, Vec<(u64, u64)>);
+
+pub fn or_names() -> Vec<OrName> {
+    vec![
+        (
+            "size + 1",
+            "size",
+            vec![
+                binder_in("Circle size", "size"),
+                binder_in("Square size", "size"),
+            ],
+        ),
+        (
+            "n + 1",
+            "n",
+            vec![
+                binder_in("Circle n |", "n"),
+                binder_in("Square n |", "n"),
+                binder_in("Dot n =>", "n"),
+            ],
+        ),
+        (
+            "rewrite same",
+            "same",
+            vec![binder_in("Inl same", "same"), binder_in("Inr same", "same")],
+        ),
+    ]
+}
+
+/// Where the use `use_of` (a snippet starting at or before the name) has `name`.
+pub fn use_at(use_of: &str, name: &str) -> (u64, u64) {
+    let (line, character) = start_of(OR_BINDING, use_of, 0);
+    (line, character + use_of.find(name).unwrap() as u64)
 }
