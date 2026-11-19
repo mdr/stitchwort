@@ -8,6 +8,7 @@ import Syntax.DeafProofs (..)
 import Syntax.FollowsBase (..)
 import Syntax.FollowsLadder (..)
 import Syntax.FollowsForms (..)
+import Syntax.FollowsStatements (..)
 
 -- Reading a fixed token: its comments are not compared.
 
@@ -36,7 +37,7 @@ def attributeBlank (attribute: Attribute): Attribute :=
 
 def AttributeAlike (attribute twin: Attribute): Prop := attributeBlank attribute = attributeBlank twin
 
-def AttributesAlike (attributes twin: Attributes): Prop := blankAttributes attributes = blankAttributes twin
+def AttributeGroupAlike (attributes twin: Attributes): Prop := blankAttributes attributes = blankAttributes twin
 
 theorem optionWordBlank ∀ (word twin: Option Word) (alike: Option.Alike WordsAlike word twin):
     word.map Word.blank = twin.map Word.blank :=
@@ -87,7 +88,7 @@ theorem attributeItemsAlike ∀ (items twins: List Attribute) (alike: List.All2 
 theorem alikeAttributes ∀ (at atTwin open openTwin: Comments) (items twins: List Attribute)
     (alike: List.All2 AttributeAlike items twins) (trailing trailingTwin: Bool) (trailings: trailing = trailingTwin)
     (close closeTwin: Comments):
-    AttributesAlike { at, open, items, trailingComma = trailing, close }
+    AttributeGroupAlike { at, open, items, trailingComma = trailing, close }
       { at = atTwin, open = openTwin, items = twins, trailingComma = trailingTwin, close = closeTwin } :=
   calc blankAttributes { at, open, items, trailingComma = trailing, close }
     _ = { at = Comments.none,
@@ -103,7 +104,7 @@ theorem alikeAttributes ∀ (at atTwin open openTwin: Comments) (items twins: Li
     _ = blankAttributes { at = atTwin, open = openTwin, items = twins, trailingComma = trailingTwin, close = closeTwin } :=
       byComputing
 
-theorem walkAttributesAlike ∀ (items twins: List Attributes) (alike: List.All2 AttributesAlike items twins):
+theorem walkAttributesAlike ∀ (items twins: List Attributes) (alike: List.All2 AttributeGroupAlike items twins):
     walkAttributes blankPure items = walkAttributes blankPure twins :=
   match items, twins with
     | [], [] => byComputing
@@ -154,7 +155,7 @@ theorem followsUpper ∀ (modes: Modes) (what: Text):
         | True => followsFatalAny _ _
         | False => Parse.followsDone name nameTwin names)
 
-theorem followsRefuseAttributes ∀ (attributes twins: List Attributes) (alike: List.All2 AttributesAlike attributes twins)
+theorem followsRefuseAttributes ∀ (attributes twins: List Attributes) (alike: List.All2 AttributeGroupAlike attributes twins)
     (what: Text):
     Parse.Follows SameCode Anything (() => refuseAttributes attributes what) (() => refuseAttributes twins what) :=
   match attributes, twins with
@@ -260,13 +261,13 @@ theorem followsAttributeItems ∀ (fuel: Nat) (modes: Modes) (found twins: List 
 
 theorem followsAttributeGroupEnd ∀ (modes: Modes) (at atTwin open openTwin: Comments)
     (pair pairTwin: (List Attribute, Bool)) (pairs: PairAlike (List.All2 AttributeAlike) Same pair pairTwin):
-    Parse.Follows SameCode (Option.Alike AttributesAlike)
+    Parse.Follows SameCode (Option.Alike AttributeGroupAlike)
       (() => attributeGroupEnd modes at open pair)
       (() => attributeGroupEnd modes atTwin openTwin pairTwin) :=
   match pair, pairTwin with
     | (items, trailing), (itemsTwin, trailingTwin) =>
       Parse.followsMap
-        [alike := Option.Alike AttributesAlike]
+        [alike := Option.Alike AttributeGroupAlike]
         [p := () => modes.expectFixed RBracket "`,` or `]` after the attribute"]
         [q := () => modes.expectFixed RBracket "`,` or `]` after the attribute"]
         (close => Some { at, open, items, trailingComma = trailing, close })
@@ -277,7 +278,7 @@ theorem followsAttributeGroupEnd ∀ (modes: Modes) (at atTwin open openTwin: Co
         (followsExpectFixed modes RBracket "`,` or `]` after the attribute")
 
 theorem followsAttributeGroup ∀ (modes: Modes):
-    Parse.Follows SameCode (Option.Alike AttributesAlike) (() => attributeGroup modes) (() => attributeGroup modes) :=
+    Parse.Follows SameCode (Option.Alike AttributeGroupAlike) (() => attributeGroup modes) (() => attributeGroup modes) :=
   Parse.followsThen followsFixedFrom (at atTwin ats =>
     Parse.followsThen (followsExpectFixed modes LBracket "`[`") (open openTwin opens =>
       Parse.followsThen
@@ -293,14 +294,14 @@ theorem followsAttributeGroup ∀ (modes: Modes):
               (pair pairTwin pairs => followsAttributeGroupEnd modes at atTwin open openTwin pair pairTwin pairs))))
 
 theorem followsAttributeGroupAt ∀ (modes: Modes) (found: Bool):
-    Parse.Follows SameCode (Option.Alike AttributesAlike) (() => attributeGroupAt modes found) (() =>
+    Parse.Follows SameCode (Option.Alike AttributeGroupAlike) (() => attributeGroupAt modes found) (() =>
       attributeGroupAt modes found) :=
   match found with
     | True => followsAttributeGroup modes
     | False => Parse.followsDone None None Trivial
 
 theorem followsAttributeGroupStep ∀ (modes: Modes):
-    Parse.Follows SameCode (Option.Alike AttributesAlike) (() => attributeGroupStep modes) (() =>
+    Parse.Follows SameCode (Option.Alike AttributeGroupAlike) (() => attributeGroupStep modes) (() =>
       attributeGroupStep modes) :=
   followsThenEq
     [j := found => attributeGroupAt modes found]
@@ -309,11 +310,11 @@ theorem followsAttributeGroupStep ∀ (modes: Modes):
     (found => followsAttributeGroupAt modes found)
 
 theorem followsAttributeGroups ∀ (modes: Modes):
-    Parse.Follows SameCode (List.All2 AttributesAlike) (() => attributeGroups modes) (() => attributeGroups modes) :=
+    Parse.Follows SameCode (List.All2 AttributeGroupAlike) (() => attributeGroups modes) (() => attributeGroups modes) :=
   Parse.followsLoop _ _ (followsAttributeGroupStep modes)
 
 theorem followsAttributesOf ∀ (modes: Modes):
-    Parse.Follows SameCode (List.All2 AttributesAlike) (() => attributesOf modes) (() => attributesOf modes) :=
+    Parse.Follows SameCode (List.All2 AttributeGroupAlike) (() => attributesOf modes) (() => attributesOf modes) :=
   followsAttributeGroups modes
 
 -- Groups.
@@ -353,7 +354,7 @@ theorem afterAlike ∀ (found twin: Option (Comments, Expr)) (alike: Option.Alik
     | None, None => byComputing
 
 theorem alikeGroup ∀ (kind: GroupKind) (implicit: Bool) (open openTwin: Comments)
-    (attributes twinAttributes: List Attributes) (attributeses: List.All2 AttributesAlike attributes twinAttributes)
+    (attributes twinAttributes: List Attributes) (attributeses: List.All2 AttributeGroupAlike attributes twinAttributes)
     (auto autoTwin: Option Comments) (autos: Option.Alike Anything auto autoTwin)
     (names twinNames: List Word) (nameses: List.All2 WordsAlike names twinNames)
     (colon colonTwin: Option Comments) (colons: Option.Alike Anything colon colonTwin)
@@ -1127,7 +1128,7 @@ theorem implicitAutoAlike ∀ (first firstTwin: Word) (firsts: WordsAlike first 
 
 theorem followsImplicitNamed ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (inner: Modes) (open openTwin: Comments) (attributes attributesTwin: List Attributes)
-    (attributeses: List.All2 AttributesAlike attributes attributesTwin) (split splitTwin: (Option Comments, List Word))
+    (attributeses: List.All2 AttributeGroupAlike attributes attributesTwin) (split splitTwin: (Option Comments, List Word))
     (splits: PairAlike (Option.Alike Anything) (List.All2 WordsAlike) split splitTwin):
     Parse.Follows SameCode GroupsAlike
       (() => implicitNamed self inner open attributes split)
@@ -1316,7 +1317,7 @@ theorem alikeArms ∀ (arms twins: List Arm) (alike: List.All2 ArmAlike arms twi
     _ = (walkDefBody blankPure (Arms twins)).blank := byComputing
 
 theorem alikeDefinition ∀ (attributes twinAttributes: List Attributes)
-    (attributeses: List.All2 AttributesAlike attributes twinAttributes) (header twin: Header)
+    (attributeses: List.All2 AttributeGroupAlike attributes twinAttributes) (header twin: Header)
     (headers: HeaderAlike header twin) (body bodyTwin: DefBody) (bodies: DefBodyAlike body bodyTwin):
     DeclsAlike (Definition attributes header body) (Definition twinAttributes twin bodyTwin) :=
   calc (Definition attributes header body).walk blankPure
@@ -1836,16 +1837,18 @@ theorem followsDefinitionParts ∀ [self selfTwin: Goal → {Parse Item} Expr]
                           followsThenEq (followsAfterUnfoldingOf afterDecreasing opacity opacityTwin opacities) (afterUnfolding =>
                             followsThenEq (followsClauseConflict afterUnfolding opacity opacityTwin opacities) (conflict =>
                               match conflict with
-                                | True => followsFatalAny _ (() => Syntax.fatal "`clause` goes before `opacity`")
+                                | True => followsFatalAny _ (() => Syntax.fatal "`decreasing` goes before `unfolding`")
                                 | False =>
-                                  followsThenEq (followsBodyModesOf afterUnfolding (kind == DefInstance) local) (bodyModes =>
+                                  (
                                     Parse.followsMap
                                       [alike := PairAlike HeaderAlike DefBodyAlike]
+                                      [p := () => definitionBody self afterUnfolding result (kind == DefInstance) (local.getOrElse 0)]
+                                      [q := () => definitionBody selfTwin afterUnfolding resultTwin (kind == DefInstance) (local.getOrElse 0)]
                                       (body => ({ exportKeyword, opaqueKeyword, kind, keyword, name, forallKeyword, params, colon, result, decreasingClause = clause, unfoldingClause = opacity }, body))
                                       (body => ({ exportKeyword = exportTwin, opaqueKeyword = opaqueTwin, kind, keyword = keywordTwin, name = nameTwin, forallKeyword = forallTwin, params = paramsTwin, colon = colonTwin, result = resultTwin, decreasingClause = clauseTwin, unfoldingClause = opacityTwin }, body))
                                       (body bodyTwin bodies =>
                                         (alikeHeader exportKeyword exportTwin opaqueKeyword opaqueTwin exports opaques kind keyword keywordTwin name nameTwin names forallKeyword forallTwin foralls params paramsTwin paramses colon colonTwin result resultTwin results clause clauseTwin clauses opacity opacityTwin opacities, bodies))
-                                      (followsDefinitionBody knot alts bodyModes result resultTwin results (kind == DefInstance) (local.getOrElse 0)))))))))))))))
+                                      (followsDefinitionBody knot alts afterUnfolding result resultTwin results (kind == DefInstance) (local.getOrElse 0)))))))))))))))
     | None =>
       followsThenEq (followsDefKindOf modes) (kind =>
         Parse.followsThen followsFixedFrom (keyword keywordTwin keywords =>
@@ -1860,11 +1863,13 @@ theorem followsDefinitionParts ∀ [self selfTwin: Goal → {Parse Item} Expr]
                           followsThenEq (followsAfterUnfoldingOf afterDecreasing opacity opacityTwin opacities) (afterUnfolding =>
                             followsThenEq (followsClauseConflict afterUnfolding opacity opacityTwin opacities) (conflict =>
                               match conflict with
-                                | True => followsFatalAny _ (() => Syntax.fatal "`clause` goes before `opacity`")
+                                | True => followsFatalAny _ (() => Syntax.fatal "`decreasing` goes before `unfolding`")
                                 | False =>
                                   followsThenEq (followsBodyModesOf afterUnfolding (kind == DefInstance) local) (bodyModes =>
                                     Parse.followsMap
                                       [alike := PairAlike HeaderAlike DefBodyAlike]
+                                      [p := () => definitionBody self bodyModes result (kind == DefInstance) (local.getOrElse 0)]
+                                      [q := () => definitionBody selfTwin bodyModes resultTwin (kind == DefInstance) (local.getOrElse 0)]
                                       (body => ({ exportKeyword, opaqueKeyword, kind, keyword, name, forallKeyword, params, colon, result, decreasingClause = clause, unfoldingClause = opacity }, body))
                                       (body => ({ exportKeyword = exportTwin, opaqueKeyword = opaqueTwin, kind, keyword = keywordTwin, name = nameTwin, forallKeyword = forallTwin, params = paramsTwin, colon = colonTwin, result = resultTwin, decreasingClause = clauseTwin, unfoldingClause = opacityTwin }, body))
                                       (body bodyTwin bodies =>
