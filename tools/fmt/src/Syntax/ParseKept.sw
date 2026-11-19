@@ -24,6 +24,8 @@ import Syntax.Proofs (..)
 import Syntax.ParseProofs (..)
 import Syntax.GoodItemProofs (textSpellsOfSpells)
 import Syntax.ParseWalk (..)
+import Syntax.ParseWalkLadder (..)
+import Syntax.ParseWalkStatements (..)
 import Syntax.AutoPlaced (..)
 import Syntax.ParseCarries (
   OneOf,
