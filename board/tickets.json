@@ -1,5 +1,5 @@
 {
-  "next": 4151,
+  "next": 4153,
   "tickets": [
     {
       "id": 47,
@@ -26122,12 +26122,12 @@
     {
       "id": 4143,
       "title": "[Opus] fmt multi-line read-back H5 (SW-4121 plan): atoms, brackets, items, and fullHungStep's block case (the one hard invariant): atomHung, tupleStepsHung, listStepsHung, openStepsHung (ReadBackHungAtoms.sw), fullHungStep (ReadBackHungFull.sw)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4143",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 75 min.",
+      "body": "Est. 75 min.\n\nProgress (lane, 19 Nov 2026, 09:36 to 09:57, Opus): all five proved on lane/SW-4143 (commit e38a7c77e). `fullHungStep` relies only on the open `inlineHung` (H8); the atoms and steps rely on nothing open. Helpers in the new `Syntax.ReadBackHungAtomsLemmas`. `openStepsHung`'s statement changed (it was false: `hung` and `deepAll` alone say nothing of the head's kind); it now takes `SpeltSteps exprs steps` and `last.kind.isCloser = True`, and drops `state`/`hung`. No caller yet. `check Syntax.ReadBackHungTop`: the five goals gone, nothing new. Audit of the three namespaces: 30 theorems, 29 pass, `fullHungStep` fails only for relying on `inlineHung`.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -26219,6 +26219,32 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 60 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4151,
+      "title": "[Opus] fmt multi-line read-back H8 (SW-4121 plan): && and ||, ->, operator and inline rungs: logicLinksHung, logicAfterLinksHung, logicOperatorHung, operatorHung, arrowHung, inlinePlainHung, inlineHung (ReadBackHungInline.sw)",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4151",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 60 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4152,
+      "title": "[Opus] fmt multi-line read-back H6 (SW-4121 plan): calls and signs: signArgHung, argumentHung, argsHung, appHung, headHung, appAnyHung, unaryHung (ReadBackHungApp.sw)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 60 min. Use ReadBackHungAtomsLemmas (leadHung, speltHung, hungStep, hungSplit).",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
