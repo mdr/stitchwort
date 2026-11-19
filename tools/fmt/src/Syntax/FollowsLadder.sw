@@ -194,16 +194,10 @@ theorem followsLambdaHere ∀ (modes: Modes):
 theorem followsAtUpperBrace ∀ (modes: Modes):
     Parse.Follows SameCode Same (() => modes.at Upper && isSome LBrace (modes.peekAt 1)) (() =>
       modes.at Upper && isSome LBrace (modes.peekAt 1)) :=
-  followsThenEq
-    [p := () => modes.at Upper]
-    [q := () => modes.at Upper]
-    [j := here => here && isSome LBrace (modes.peekAt 1)]
-    [k := here => here && isSome LBrace (modes.peekAt 1)]
-    (followsAt modes Upper)
-    (here =>
-      match here with
-        | True => followsThenEq (followsPeekAt modes 1) (seen => Parse.followsDone _ _ byComputing)
-        | False => Parse.followsDone False False byComputing)
+  followsThenEq (followsAt modes Upper) (here =>
+    match here with
+      | True => followsThenEq (followsPeekAt modes 1) (seen => Parse.followsDone _ _ byComputing)
+      | False => Parse.followsDone False False byComputing)
 
 -- Applications.
 
@@ -229,14 +223,7 @@ theorem followsArgumentAt ∀ [self selfTwin: Goal → {Parse Item} Expr]
     match sectionLineAt modes others with
       | True => followsFatalAny "a line can't start with a method section" (() =>
         Syntax.fatal "a line can't start with a method section")
-      | False =>
-        followsThenEq
-          [p := () => modes.at Upper && isSome LBrace (modes.peekAt 1)]
-          [q := () => modes.at Upper && isSome LBrace (modes.peekAt 1)]
-          [j := brace => argumentBrace self modes brace]
-          [k := brace => argumentBrace selfTwin modes brace]
-          (followsAtUpperBrace modes)
-          (brace => followsArgumentBrace knot braces modes brace)
+      | False => followsThenEq (followsAtUpperBrace modes) (brace => followsArgumentBrace knot braces modes brace)
 
 theorem followsArgument ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -262,11 +249,7 @@ theorem followsArguments ∀ [self selfTwin: Goal → {Parse Item} Expr]
   Parse.followsLoop
     (() => argumentStep self modes (startsAtom modes))
     (() => argumentStep selfTwin modes (startsAtom modes))
-    (followsThenEq
-      [j := starts => argumentStep self modes starts]
-      [k := starts => argumentStep selfTwin modes starts]
-      (followsStartsAtom modes)
-      (starts => followsArgumentStep knot braces modes starts))
+    (followsThenEq (followsStartsAtom modes) (starts => followsArgumentStep knot braces modes starts))
 
 theorem followsAppliedTo ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -514,13 +497,8 @@ theorem followsRangeEnd ∀ (modes: Modes) (low lowTwin: Expr)
     (highs: ExprsAlike high highTwin):
     Parse.Follows SameCode ExprsAlike (() => rangeEnd modes low operator high) (() =>
       rangeEnd modes lowTwin operatorTwin highTwin) :=
-  followsThenEq
-    [p := () => modes.at DotDotLt || modes.at DotDotEq]
-    [q := () => modes.at DotDotLt || modes.at DotDotEq]
-    [j := chained => rangeChained low operator high chained]
-    [k := chained => rangeChained lowTwin operatorTwin highTwin chained]
-    (followsAtEither modes DotDotLt DotDotEq)
-    (chained => followsRangeChained low lowTwin lows operator operatorTwin operators high highTwin highs chained)
+  followsThenEq (followsAtEither modes DotDotLt DotDotEq) (chained =>
+    followsRangeChained low lowTwin lows operator operatorTwin operators high highTwin highs chained)
 
 theorem followsRangeHigh ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -610,13 +588,8 @@ theorem followsPipeOperand ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (clauses: ClauseLambdaFollows self selfTwin) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => pipeOperand self modes) (() => pipeOperand selfTwin modes) :=
   followsThenEq followsOffset (start =>
-    followsThenEq
-      [p := () => modes.at Dot]
-      [q := () => modes.at Dot]
-      [j := section => pipeSection self modes start section]
-      [k := section => pipeSection selfTwin modes start section]
-      (followsAt modes Dot)
-      (section => followsPipeSection knot atoms braces matches clauses modes start section))
+    followsThenEq (followsAt modes Dot) (section =>
+      followsPipeSection knot atoms braces matches clauses modes start section))
 
 theorem followsPipeFunction ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -1092,8 +1065,6 @@ theorem followsLogicOperand ∀ [self selfTwin: Goal → {Parse Item} Expr]
     | True =>
       Parse.followsMap
         [alike := Option.Alike (PairAlike WordsAlike ExprsAlike)]
-        [p := () => Syntax.quantifier self modes]
-        [q := () => Syntax.quantifier selfTwin modes]
         (operand => Some (operator, operand))
         (operand => Some (operatorTwin, operand))
         (operand operandTwin operands => (operators, operands))
@@ -1101,8 +1072,6 @@ theorem followsLogicOperand ∀ [self selfTwin: Goal → {Parse Item} Expr]
     | False =>
       Parse.followsMap
         [alike := Option.Alike (PairAlike WordsAlike ExprsAlike)]
-        [p := () => cmpExpr self modes]
-        [q := () => cmpExpr selfTwin modes]
         (operand => Some (operator, operand))
         (operand => Some (operatorTwin, operand))
         (operand operandTwin operands => (operators, operands))
@@ -1121,15 +1090,9 @@ theorem followsLogicLink ∀ [self selfTwin: Goal → {Parse Item} Expr]
     Parse.Follows SameCode (Option.Alike (PairAlike WordsAlike ExprsAlike)) (() => logicLink self modes) (() =>
       logicLink selfTwin modes) :=
   Parse.followsThen followsBump (operator operatorTwin operators =>
-    followsThenEq
-      [p := () => quantifierAhead modes]
-      [q := () => quantifierAhead modes]
-      [j := quantified => logicOperand self modes operator quantified]
-      [k := quantified => logicOperand selfTwin modes operatorTwin quantified]
-      (followsQuantifierAhead modes)
-      (quantified =>
-        followsLogicOperand knot atoms braces matches clauses lambdaFacts ifs quantifiers results modes operator
-            operatorTwin operators quantified))
+    followsThenEq (followsQuantifierAhead modes) (quantified =>
+      followsLogicOperand knot atoms braces matches clauses lambdaFacts ifs quantifiers results modes operator
+          operatorTwin operators quantified))
 
 theorem followsLogicOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -1303,13 +1266,8 @@ theorem followsIffAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
   Parse.followsThen
     (followsIffRight knot atoms braces matches clauses lambdaFacts ifs quantifiers results modes quantified)
     (right rightTwin rights =>
-      followsThenEq
-        [p := () => modes.at IffArrow]
-        [q := () => modes.at IffArrow]
-        [j := chained => iffEnd left operator right chained]
-        [k := chained => iffEnd leftTwin operatorTwin rightTwin chained]
-        (followsAt modes IffArrow)
-        (chained => followsIffEnd left leftTwin lefts operator operatorTwin operators right rightTwin rights chained))
+      followsThenEq (followsAt modes IffArrow) (chained =>
+        followsIffEnd left leftTwin lefts operator operatorTwin operators right rightTwin rights chained))
 
 theorem followsIff ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -1325,15 +1283,9 @@ theorem followsIff ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (lefts: ExprsAlike left leftTwin):
     Parse.Follows SameCode ExprsAlike (() => iff self modes left) (() => iff selfTwin modes leftTwin) :=
   Parse.followsThen followsBump (operator operatorTwin operators =>
-    followsThenEq
-      [p := () => quantifierAhead modes]
-      [q := () => quantifierAhead modes]
-      [j := quantified => iffAfter self modes left operator quantified]
-      [k := quantified => iffAfter selfTwin modes leftTwin operatorTwin quantified]
-      (followsQuantifierAhead modes)
-      (quantified =>
-        followsIffAfter knot atoms braces matches clauses lambdaFacts ifs quantifiers results modes left leftTwin lefts
-            operator operatorTwin operators quantified))
+    followsThenEq (followsQuantifierAhead modes) (quantified =>
+      followsIffAfter knot atoms braces matches clauses lambdaFacts ifs quantifiers results modes left leftTwin lefts
+          operator operatorTwin operators quantified))
 
 theorem followsIffOf ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -1365,8 +1317,6 @@ theorem followsArrowEnd ∀ [self selfTwin: Goal → {Parse Item} Expr]
     Parse.Follows SameCode ExprsAlike (() => arrowEnd self modes value arrow) (() =>
       arrowEnd selfTwin modes valueTwin arrowTwin) :=
   Parse.followsMap
-    [p := () => resultType self modes]
-    [q := () => resultType selfTwin modes]
     (result => Infix InfixArrow value arrow result)
     (result => Infix InfixArrow valueTwin arrowTwin result)
     (result resultTwin results =>
@@ -1400,13 +1350,8 @@ theorem followsSemiExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (values: ExprsAlike value valueTwin):
     Parse.Follows SameCode ExprsAlike (() => semiExpr self modes value) (() => semiExpr selfTwin modes valueTwin) :=
   Parse.followsThen followsBump (semicolon semicolonTwin semicolons =>
-    followsThenEq
-      [p := () => modes.peek]
-      [q := () => modes.peek]
-      [j := seen => semiAfter self modes value semicolon seen]
-      [k := seen => semiAfter selfTwin modes valueTwin semicolonTwin seen]
-      (followsPeek modes)
-      (seen => followsSemiAfter knot modes value valueTwin values semicolon semicolonTwin semicolons seen))
+    followsThenEq (followsPeek modes) (seen =>
+      followsSemiAfter knot modes value valueTwin values semicolon semicolonTwin semicolons seen))
 
 theorem followsOpEnd ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -1446,18 +1391,12 @@ theorem followsOpIffed ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (iffeds: ExprsAlike iffed iffedTwin):
     Parse.Follows SameCode ExprsAlike (() => opIffed self modes section iffed) (() =>
       opIffed selfTwin modes section iffedTwin) :=
-  followsThenEq
-    [p := () => sequenceAhead modes]
-    [q := () => sequenceAhead modes]
-    [j := sequence => opSequence self modes (sectioned section iffed) sequence]
-    [k := sequence => opSequence selfTwin modes (sectioned section iffedTwin) sequence]
-    (followsSequenceAhead modes)
-    (sequence =>
-      followsOpSequence knot results modes
-        (sectioned section iffed)
-        (sectioned section iffedTwin)
-        (sectionedDeaf section iffed iffedTwin iffeds)
-        sequence)
+  followsThenEq (followsSequenceAhead modes) (sequence =>
+    followsOpSequence knot results modes
+      (sectioned section iffed)
+      (sectioned section iffedTwin)
+      (sectionedDeaf section iffed iffedTwin iffeds)
+      sequence)
 
 theorem followsOpLogic ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -1538,14 +1477,8 @@ theorem followsOpStart ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (results: ResultTypeFollows self selfTwin)
     (modes: Modes) (start: Nat):
     Parse.Follows SameCode ExprsAlike (() => opStart self modes start) (() => opStart selfTwin modes start) :=
-  followsThenEq
-    [p := () => modes.at Dot]
-    [q := () => modes.at Dot]
-    [j := section => opSection self modes start section]
-    [k := section => opSection selfTwin modes start section]
-    (followsAt modes Dot)
-    (section =>
-      followsOpSection knot atoms braces matches clauses lambdaFacts ifs quantifiers results modes start section)
+  followsThenEq (followsAt modes Dot) (section =>
+    followsOpSection knot atoms braces matches clauses lambdaFacts ifs quantifiers results modes start section)
 
 theorem followsOperatorExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)

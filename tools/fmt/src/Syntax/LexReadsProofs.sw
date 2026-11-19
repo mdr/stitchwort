@@ -79,21 +79,14 @@ theorem soundMark: Sound (() => Parse.mark()) :=
   Parse.readsWeaken [inv := Parse.Invariant.any] [p := () => Parse.mark()] Parse.readsMark (read value h => byComputing)
 
 theorem soundSpan ∀ (passes: Char → Bool): Sound (() => Parse.span passes) :=
-  Parse.readsWeaken
-    [inv := Parse.Invariant.any]
-    [p := () => Parse.span passes]
-    (Parse.readsSpan passes)
-    (read value h => byComputing)
+  Parse.readsWeaken [inv := Parse.Invariant.any] (Parse.readsSpan passes) (read value h => byComputing)
 
 theorem givesFatal ∀ (message: Text) (holds: a → Prop): Gives (() => Empty.absurd (Parse.fatal message)) holds :=
   Parse.readsFatal message (read value => holds value)
 
 theorem soundMany ∀ [p: () → {Parse Char} a] (sound: Sound p): Sound (() => Parse.many p) :=
-  Parse.readsWeaken
-    [inv := Parse.Invariant.any]
-    [p := () => Parse.many p]
-    (Parse.readsMany p (read value => Holds) sound)
-    (read value h => byComputing)
+  Parse.readsWeaken [inv := Parse.Invariant.any] (Parse.readsMany p (read value => Holds) sound) (read value h =>
+    byComputing)
 
 -- Characters taken0 and tokens.
 
@@ -552,11 +545,7 @@ theorem soundCharPiece: Sound (() => charPiece()) := soundThen soundMark (at =>
     | ['\'', ..rest] => soundStop
     | ['\n', ..rest] => soundStop
     | [] => soundStop
-    | _ =>
-      soundThen
-        [p := () => Parse.span (char => char != '\'' && char != '\\' && char != '\n')]
-        (soundSpan (char => char != '\'' && char != '\\' && char != '\n'))
-        (run => soundDone run.length))
+    | _ => soundThen (soundSpan (char => char != '\'' && char != '\\' && char != '\n')) (run => soundDone run.length))
 
 theorem givesCharLiteral: Gives (() => charLiteral()) (lexeme => lexeme.value = TokenLexeme CharLit) :=
   givesThen soundMark (from =>
@@ -1093,8 +1082,6 @@ theorem wordRound ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme))
     (starts: wordy c = True):
     Parse.ReadsAt start (() => [word False]) (RoundFine start.offset start.rest) :=
   atThen
-    [p := () => word False]
-    [j := made => [made]]
     (Parse.readsAtMarkThen [j := from => wordFrom False from] (wordReads start c more here wordChar))
     (read lexeme after starts1 moved1 made => Parse.readsAtDone after _ _ (tokenAtFine c start read lexeme starts made))
 
@@ -1104,8 +1091,6 @@ theorem numberRound ∀ (start: Parse.Mark Char) (c: Char) (more: List Char)
     (starts: wordy c = True):
     Parse.ReadsAt start (() => [number False]) (RoundFine start.offset start.rest) :=
   atThen
-    [p := () => number False]
-    [j := made => [made]]
     (Parse.readsAtMarkThen [j := from => numberFrom False from] (numberReads start c more here digit))
     (read lexeme after starts1 moved1 made => Parse.readsAtDone after _ _ (tokenAtFine c start read lexeme starts made))
 
@@ -1116,20 +1101,15 @@ theorem tokenRound ∀ (kind: Tok) (count: Nat) (start: Parse.Mark Char)
       && markedText (Text.fromList (start.rest.take count)) kind)
       = True):
     Parse.ReadsAt start (() => [tokenOf kind count]) (RoundFine start.offset start.rest) :=
-  atThen
-    [p := () => tokenOf kind count]
-    [j := made => [made]]
-    (atTokenOf kind count start)
-    (read lexeme after starts moved made =>
-      match made with
-        | Both taken isLexeme =>
-          let some: (!(start.rest.take count).isEmpty) = True := Bool.andLeft fine
-          let notBreak: (!startsBreak (start.rest.take count)) = True := Bool.andLeft (Bool.andRight fine)
-          let marked: markedText (Text.fromList (start.rest.take count)) kind = True :=
-            Bool.andRight (Bool.andRight fine)
-          let chunk: chunkFine read (start.rest.drop read.length) (TokenLexeme kind) = True :=
-            rewrite taken, some, notBreak, marked, Bool.orTrue (!kind.within1)
-          rewrite isLexeme then Parse.readsAtDone after _ _ (singleAt start read (TokenLexeme kind) chunk))
+  atThen (atTokenOf kind count start) (read lexeme after starts moved made =>
+    match made with
+      | Both taken isLexeme =>
+        let some: (!(start.rest.take count).isEmpty) = True := Bool.andLeft fine
+        let notBreak: (!startsBreak (start.rest.take count)) = True := Bool.andLeft (Bool.andRight fine)
+        let marked: markedText (Text.fromList (start.rest.take count)) kind = True := Bool.andRight (Bool.andRight fine)
+        let chunk: chunkFine read (start.rest.drop read.length) (TokenLexeme kind) = True :=
+          rewrite taken, some, notBreak, marked, Bool.orTrue (!kind.within1)
+        rewrite isLexeme then Parse.readsAtDone after _ _ (singleAt start read (TokenLexeme kind) chunk))
 
 theorem givesBind ∀ [p: () → {Parse Char} a] [j: a → {Parse Char} b] [first: a → Prop] [holds: b → Prop]
     (gives: Gives p first)
