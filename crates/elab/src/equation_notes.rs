@@ -32,6 +32,26 @@ pub(crate) fn unknown_equation(cx: &Ctx, name: &ast::Name) -> Option<Diagnostic>
     // `f.induct` of a definition that doesn't call itself.
     if suffix == "induct" {
         let written = def.name();
+        if crate::equations::calls_itself(e, *f) {
+            let why = e
+                .tables
+                .equation_skips
+                .iter()
+                .rev()
+                .find(|(g, s, _)| g == f && s == "induct")
+                .map_or_else(
+                    || {
+                        "its induction principle wasn't generated, and the reason wasn't recorded"
+                            .to_string()
+                    },
+                    |(_, _, why)| format!("its induction principle isn't generated: {why}"),
+                );
+            return Some(
+                Diagnostic::error("E-UNKNOWN-NAME", format!("unknown name `{written}.induct`"))
+                    .with_label(name.span, "no such induction principle")
+                    .with_note(format!("`{written}` calls itself, but {why}")),
+            );
+        }
         return Some(
             Diagnostic::error("E-UNKNOWN-NAME", format!("unknown name `{written}.induct`"))
                 .with_label(name.span, "no such induction principle")
