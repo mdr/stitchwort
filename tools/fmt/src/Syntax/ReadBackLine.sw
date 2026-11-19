@@ -10,7 +10,7 @@
 --| depth below (`appLine`). No list may start with `auto` on a type's name (`Expr.autoFree1`), which reads as an
 --| implicit binder. A prefix `-` or `!` reads its operand at the unary level (`unaryLine`), and `-` glued to a numeral
 --| reads as one atom, as `Spelt` says the parser sees it. A sign may start a call's argument (`f -x !b -1`), glued
---| to its atom and spaced from what precedes it (`argumentGlue`); not a call's head (`-1 n`). Binary operators read
+--| to its atom and spaced from what precedes it (`argumentGlue`); a call's head may be `-1` (`headLine`). Binary operators read
 --| as the parser's chains: `* / %` and `+ -` nest to the left, the spine flattened into links (`mulAcc`, `addAcc`), each
 --| operator ending the operand before it (`opEnds`) and spaced from the one after (`operandApart`, so `a - x` is no
 --| call `a -x`). `++` nests to the right (`appendLine`), and a comparison joins two such chains once (`cmpLine`). An
@@ -194,9 +194,10 @@ def operandApart: List Item → Bool
   | [first, .._] => !first.glued
   | [] => True
 
---| An expression that starts with a sign: a prefix, or an infix whose left side does.
+--| An expression that starts with a sign: a prefix, or a call or an infix whose head or left side does.
 def Expr.signed1: Expr → Bool
   | Prefix _ _ => True
+  | App head _ => head.signed1
   | Infix _ left _ _ => left.signed1
   | _ => False
 
@@ -255,7 +256,7 @@ def Spelt: Expr → List Item → Prop
   | App head [argument, ..more], read =>
     ∃ (headRead argRead: List Item) (steps: List (List Item, Expr)) => read
       = headRead ++ (argRead ++ Parse.loopReads [] steps)
-      ∧ head.atomic1 = True
+      ∧ headFits head headRead = True
       ∧ argumentFits argument argRead = True
       ∧ Spelt head headRead
       ∧ Spelt argument argRead
@@ -278,6 +279,14 @@ def Spelt: Expr → List Item → Prop
       ∧ Spelt left leftRead
       ∧ Spelt right rightRead
   | _, _ => Void
+
+def Expr.prefix1: Expr → Bool
+  | Prefix _ _ => True
+  | _ => False
+
+--| A call's head: an atom or a bracket, or a sign read as a negative numeral (`-1 n`), the one sign `unaryNext` hands
+--| to `app`.
+def headFits (head: Expr) (read: List Item): Bool := head.atomic1 || (head.prefix1 && negativeNumeral read)
 
 --| A call's arguments after the first, as `arguments`' rounds: each an atom, a bracket or a sign on one, spelt by its
 --| read.
@@ -443,8 +452,8 @@ theorem speltPlainStarts ∀ (expr: Expr) (read: List Item)
     | ListOf _ [] _ _, (first, last, isRead, _, isOpen, _), _ => (first, [last], isRead, rewrite isOpen)
     | ListOf _ [_, .._] _ _, (first, read1, steps, last, isRead, _, isOpen, _), _ =>
       (first, read1 ++ (commaReads steps ++ [last]), isRead, rewrite isOpen)
-    | App head [_, .._], (headRead, argRead, steps, isRead, headAtomic, _, headSpelt, _), _ =>
-      let (first, more, isHead, starts) := speltPlainStarts head headRead headSpelt (atomicUnsigned head headAtomic)
+    | App head [_, .._], (headRead, argRead, steps, isRead, _, _, headSpelt, _), unsigned =>
+      let (first, more, isHead, starts) := speltPlainStarts head headRead headSpelt unsigned
       (first, more ++ (argRead ++ Parse.loopReads [] steps), (rewrite isRead, isHead), starts)
     | Prefix _ _, _, never => (Bool.falseNotTrue never.flipped).impossible
     | Infix _ left _ _, (leftRead, arrow, rightRead, isRead, _, _, _, _, _, _, leftSpelt, _), unsigned =>
@@ -672,6 +681,21 @@ theorem speltOutside ∀ (modes: Modes)
           let in3: inLineAll [third, ..others] = True := rewrite <- isMore then Bool.andRight in2
           let open3 := quietStops modes third quiet (notTrueFalse _ (Bool.andLeft in3))
           rewrite isRead, isMore, open1, open2, open3 then signOutside sign.kind third.kind isSign thirdLead
+        | App head [_, .._], (headRead, argRead, steps, isRead, fits, _, headSpelt, _), signed =>
+          match head, headSpelt, fits, signed with
+            | Prefix _ operand, (sign, more, isHead, isSign, _, _, _, operandSpelt), _, _ =>
+              let tail := argRead ++ Parse.loopReads [] steps
+              let (third, others, isMore, thirdLead) := speltStarts operand more operandSpelt
+              let joined: read = [sign, third, ..others ++ tail] := rewrite isRead, isHead, isMore
+              let in2: inLineAll [sign, third, ..others ++ tail] = True := rewrite <- joined then inRead
+              let open2 := quietStops modes sign quiet (notTrueFalse _ (Bool.andLeft in2))
+              let in3: inLineAll [third, ..others ++ tail] = True := Bool.andRight in2
+              let open3 := quietStops modes third quiet (notTrueFalse _ (Bool.andLeft in3))
+              rewrite joined, open1, open2, open3 then signOutside sign.kind third.kind isSign thirdLead
+            | App _ _, _, never, _ => (Bool.falseNotTrue never).impossible
+            | Infix _ _ _ _, _, never, _ => (Bool.falseNotTrue never).impossible
+            | other, _, _, never => (Bool.falseNotTrue never).impossible
+        | App _ [], never, _ => Void.impossible never
         | Infix kind left _ _, (leftRead, arrow, rightRead, isRead, isOp, _, _, _, _, _, leftSpelt, _), _ =>
           let ins: inLineAll (leftRead ++ [arrow, ..rightRead]) = True := rewrite <- isRead then inRead
           let (inLeft, inArrowRight) := inLineSplit leftRead [arrow, ..rightRead] ins
@@ -1298,7 +1322,8 @@ theorem noAutoCall ∀ (head: Expr) (arguments: List Expr) (item: Item) (read la
           rewrite isRead, isHead then
             autoSecond item second (((read1 ++ (commaReads commas ++ [last])) ++ tail) ++ later) (rewrite isOpen)
         | App _ _, _, never => (Bool.falseNotTrue never).impossible
-        | Prefix _ _, _, never => (Bool.falseNotTrue never).impossible
+        | Prefix _ _, (second, _, isHead, signed, _), _ =>
+          rewrite isRead, isHead then autoSecond item second _ (signNotLower second.kind signed)
         | Infix _ _ _ _, _, never => (Bool.falseNotTrue never).impossible
         | _, never, _ => Void.impossible never
     | [], never => Void.impossible never
@@ -1549,6 +1574,7 @@ theorem argStarts ∀ (modes: Modes) (argument: Expr) (first: Item) (more later:
               isSign
               (argumentPrefixOf sign next (others ++ later) isSign glue inSign (startOpensAtom next.kind nextStarts))
         | Infix _ _ _ _, _, fits, _ => (Bool.falseNotTrue fits).impossible
+        | App _ _, _, fits, _ => (Bool.falseNotTrue fits).impossible
         | other, _, _, never => (Bool.falseNotTrue never).impossible
 
 --| A sign on an atom, spelt on one line, at the argument level: the sign glued to the atom, read as a negative numeral
@@ -1676,6 +1702,7 @@ theorem argumentLine ∀ (modes: Modes)
             inLine
             after
         | Infix _ _ _ _, _, fits, _, _, _ => (Bool.falseNotTrue fits).impossible
+        | App _ _, _, fits, _, _, _ => (Bool.falseNotTrue fits).impossible
         | other, _, _, _, _, never => (Bool.falseNotTrue never).impossible
   (
     (rewrite isRead, notDot),
@@ -1816,7 +1843,7 @@ theorem appLine ∀ (modes: Modes)
       isRead,
       (rewrite argsValues more steps argsSpelt),
       (rewrite joined, peekFirst modes first ((inside ++ tail) ++ rest) open1, notDot),
-      atomLine modes quiet True head headRead
+      headLine modes quiet head headRead
         (tail ++ rest)
         (Succ below)
         (arithmetic [deep])
@@ -1861,6 +1888,54 @@ theorem appLine ∀ (modes: Modes)
         inSteps
         ends
     )
+
+--| A call's head, spelt on one line: an atom or a bracket by `atomLine`, or `-` on a numeral read as one atom
+--| (`NumberBase`), as `headFits` says the parser sees it.
+theorem headLine ∀ (modes: Modes)
+    (quiet: Quiet modes)
+    (head: Expr) (read later: List Item) (depth: Nat)
+    (deep: head.nest1 <= depth)
+    (spelt: Spelt head read)
+    (fits: headFits head read = True)
+    (free: head.autoFree1 = True)
+    (lineRead: lineAll read = True)
+    (lineLater: lineAll later = True)
+    (openRead: openHead modes read = True)
+    (inLater: laterInLine read = True)
+    (after: ∀ (kind: Tok) => AtomEnds modes True kind later):
+    AtomReads (TreeN depth) modes True read later head :=
+  match atomic: head.atomic1 with
+    | True =>
+      atomLine modes quiet True head read later depth deep spelt atomic free lineRead lineLater openRead inLater after
+    | False =>
+      match head, spelt, fits, atomic with
+        | Prefix operator operand, (sign, more, isRead, _, isWord, numeral, _, operandSpelt), fits, _ =>
+          let neg: negativeNumeral [sign, ..more] = True := rewrite <- isRead then fits
+          match operand, operandSpelt, numeral neg with
+            | Atom kind word, (number, isNumber, isKind, isNumberWord, _), _ =>
+              let isMinus := negativeMinus sign more neg
+              let atNumber: negativeNumeral [sign, number] = True := rewrite <- isNumber then neg
+              let negNumber: negativeNumeral [sign, number, ..later] = True := atNumber
+              let openItems: openHead modes [sign, ..more] = True := rewrite <- isRead then openRead
+              (
+                sign,
+                more,
+                isRead,
+                openHeadStops modes sign more openItems,
+                after sign.kind,
+                Inr
+                  (Inr
+                    (Inr
+                      (Inr (Inr (Inl (number, isNumber, (rewrite isWord, isKind, isNumberWord), isMinus, negNumber))))))
+              )
+            | other, _, never => (Bool.falseNotTrue never).impossible
+        | App _ _, _, never, _ => (Bool.falseNotTrue never).impossible
+        | Infix _ _ _ _, _, never, _ => (Bool.falseNotTrue never).impossible
+        | Atom _ _, _, _, never => (Bool.falseNotTrue never.flipped).impossible
+        | Paren _ _ _, _, _, never => (Bool.falseNotTrue never.flipped).impossible
+        | Tuple _ _ _ _, _, _, never => (Bool.falseNotTrue never.flipped).impossible
+        | ListOf _ _ _ _, _, _, never => (Bool.falseNotTrue never.flipped).impossible
+        | _, never, _, _ => Void.impossible never
 
 --| A spelt expression, nothing after it continuing it, is what `app` reads: a call by `appLine`, an atom or bracket
 --| alone by `atomLine`.
@@ -2029,6 +2104,45 @@ theorem unaryLine ∀ (modes: Modes)
                       Inl ((rewrite peekFirst modes sign (more ++ rest) openSign, isMinus), atomReads, ends.noArgument)
                     )
                 | other, _, never => (Bool.falseNotTrue never).impossible
+        | App head [argument, ..arguments], spelt, signed, depth, deep =>
+          let (headRead, argRead, steps, isRead, fits, _, headSpelt, _, _) := spelt
+          match head, headSpelt, fits, signed with
+            | Prefix _ operand, (sign, more, isHead, _, _, numeral, _, operandSpelt), fits, _ =>
+              let neg: negativeNumeral [sign, ..more] = True := rewrite <- isHead then fits
+              match operand, operandSpelt, numeral neg with
+                | Atom _ _, (number, isNumber, _, _, _), _ =>
+                  let isMinus := negativeMinus sign more neg
+                  let tail := argRead ++ Parse.loopReads [] steps
+                  let joined: read = [sign, number, ..tail] := rewrite isRead, isHead, isNumber
+                  let atNumber: negativeNumeral [sign, number] = True := rewrite <- isNumber then neg
+                  let negAll: negativeNumeral [sign, number, ..tail ++ rest] = True := atNumber
+                  let openItems: openHead modes [sign, number, ..tail] = True := rewrite <- joined then openFirst
+                  let openSign := openHeadStops modes sign [number, ..tail] openItems
+                  let lineItems: lineAll [sign, number, ..tail] = True := rewrite <- joined then lineRead
+                  let noBar :=
+                    noBarLine modes sign
+                      ([number, ..tail] ++ rest)
+                      (lineJoin [number, ..tail] rest (Bool.andRight lineItems) lineRest)
+                  let call :=
+                    appLine modes quiet head argument arguments read rest depth deep spelt free lineRead lineRest
+                        openFirst inLater ends
+                  rewrite joined at call then
+                    rewrite joined then
+                      Inr (
+                        sign,
+                        [number, ..tail],
+                        byComputing,
+                        openSign,
+                        (rewrite isMinus),
+                        noBar,
+                        Inr ((rewrite isMinus), negAll),
+                        call
+                      )
+                | other, _, never => (Bool.falseNotTrue never).impossible
+            | App _ _, _, never, _ => (Bool.falseNotTrue never).impossible
+            | Infix _ _ _ _, _, never, _ => (Bool.falseNotTrue never).impossible
+            | other, _, _, never => (Bool.falseNotTrue never).impossible
+        | App _ [], never, _, _, _ => Void.impossible never
         | Infix _ _ _ _, _, _, _, _ => (Bool.falseNotTrue unary).impossible
         | other, _, never, _, _ => (Bool.falseNotTrue never).impossible
 
@@ -5230,6 +5344,93 @@ theorem readsBackCommentExample: Parse.run commentLine (() =>
           (plainHeader (commentAt 0) (commentAt 1) (commentAt 2) (Atom Upper (commentAt 3).leaf.word))
           (Assigned (commentAt 4).leaf.word.comments commentValue)) :=
   byComputing
+
+-- A call whose head is a negative numeral (SW-4077): `-1` glued, read as one atom, then the call's arguments.
+
+--| `def d: A := -1 n`.
+def negativeHeadLine: List Item := lexedItems "def d: A := -1 n\n"
+
+--| The lexer's item at `index` of `negativeHeadLine`.
+def negativeHeadAt (index: Nat): Item := match negativeHeadLine.drop index with
+  | [item, .._] => item
+  | [] => lexedAt 0
+
+theorem negativeHeadLineIs: negativeHeadLine
+      = [
+        negativeHeadAt 0,
+        negativeHeadAt 1,
+        negativeHeadAt 2,
+        negativeHeadAt 3,
+        negativeHeadAt 4,
+        negativeHeadAt 5,
+        negativeHeadAt 6,
+        negativeHeadAt 7
+      ] :=
+  byComputing
+
+def negativeHeadValue: Expr := App (Prefix (negativeHeadAt 5).leaf.word (Atom Num (negativeHeadAt 6).leaf.word)) [
+  Atom Lower (negativeHeadAt 7).leaf.word
+]
+
+--| `readsBackLine` reads `def d: A := -1 n` from the lexer's items: the head `-1` by `headLine`.
+theorem readsBackNegativeHeadExample: Parse.run
+      [
+        negativeHeadAt 0,
+        negativeHeadAt 1,
+        negativeHeadAt 2,
+        ..[negativeHeadAt 3] ++ [negativeHeadAt 4, ..[negativeHeadAt 5, negativeHeadAt 6, negativeHeadAt 7]]
+      ]
+      (() =>
+        let decl := declaration Seen.start
+        decl)
+      = Ok
+        (Definition []
+          (plainHeader
+            (negativeHeadAt 0)
+            (negativeHeadAt 1)
+            (negativeHeadAt 2)
+            (Atom Upper (negativeHeadAt 3).leaf.word))
+          (Assigned (negativeHeadAt 4).leaf.word.comments negativeHeadValue)) :=
+  readsBackLine Seen.start
+    (negativeHeadAt 0)
+    (negativeHeadAt 1)
+    (negativeHeadAt 2)
+    (negativeHeadAt 4)
+    [negativeHeadAt 3]
+    [negativeHeadAt 5, negativeHeadAt 6, negativeHeadAt 7]
+    (Atom Upper (negativeHeadAt 3).leaf.word)
+    negativeHeadValue
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    (negativeHeadAt 3, byComputing, byComputing, byComputing, byComputing)
+    (
+      [negativeHeadAt 5, negativeHeadAt 6],
+      [negativeHeadAt 7],
+      [],
+      byComputing,
+      byComputing,
+      byComputing,
+      (
+        negativeHeadAt 5,
+        [negativeHeadAt 6],
+        byComputing,
+        byComputing,
+        byComputing,
+        (_ => byComputing),
+        byComputing,
+        (negativeHeadAt 6, byComputing, byComputing, byComputing, byComputing)
+      ),
+      (negativeHeadAt 7, byComputing, byComputing, byComputing, byComputing),
+      byComputing
+    )
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
+    byComputing
 
 --| `def d: A := a - b - c`: `-` nests to the left, and spaced from its operand is no sign.
 theorem readsBackMinusExample: Parse.run
