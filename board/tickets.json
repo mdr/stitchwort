@@ -27692,7 +27692,7 @@
     {
       "id": 4261,
       "title": "[Opus] Functional induction B: G1, a guarded arm partly overlapped by a later arm gets f.induct, one case per arm with Lean's overlap hypothesis (D3697)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -27997,7 +27997,7 @@
     {
       "id": 4284,
       "title": "[Sonnet] std Fail.toResultSeqN and …Then infer their computations and values; drop the spelled arguments at 121 uses, mostly Fmt/Walk.sw (exprOk 327 → ~130 lines) (survey target 2)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
