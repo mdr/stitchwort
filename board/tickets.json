@@ -27735,8 +27735,8 @@
     {
       "id": 4264,
       "title": "[Sonnet] Functional induction E: formatter pilot, rewrite the withoutR family's proofs with match induct and delete unused step lemmas",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
