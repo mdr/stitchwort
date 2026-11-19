@@ -1,5 +1,5 @@
 {
-  "next": 4218,
+  "next": 4222,
   "tickets": [
     {
       "id": 47,
@@ -24646,7 +24646,7 @@
     {
       "id": 4032,
       "title": "[Sonnet] stitchwort check: when a check is killed by timeout or runs out, say so and exit non-zero (SW-4027: a check that hit timeout exited 0 with no output, read as a pass)",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
@@ -24655,7 +24655,7 @@
       "epic": "diagnostics",
       "body": "",
       "created": "2026-11-18",
-      "updated": "2026-11-18",
+      "updated": "2026-11-19",
       "commits": []
     },
     {
@@ -24850,14 +24850,14 @@
     {
       "id": 4047,
       "title": "[Opus] stitchwort proof tactics from SW-4024: a guarded arm in a proof match doesn't refine its guard (workaround match g: guard with); chained match e: c == '(' doesn't refine False arms so cases runs out of budget; E-NONEXHAUSTIVE false positive on an unguarded arm with a nested match body; readsThen/readsAtDone infer p/j/spec badly (motive comes out over the match's variables). Repro each, fix or file",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
       "created": "2026-11-18",
-      "updated": "2026-11-18",
+      "updated": "2026-11-19",
       "commits": []
     },
     {
@@ -25435,14 +25435,14 @@
     {
       "id": 4091,
       "title": "[Opus] tactics/kernel: a big rewrite on a goal like OperatorReads, or taking apart a large ∃ inside a mutual block, fails with E-RESOURCE (value too large to write out) (SW-4071); find why and fix, or document generalise-with-equations in the proving guide",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-18",
-      "updated": "2026-11-18",
+      "updated": "2026-11-19",
       "commits": []
     },
     {
@@ -25721,7 +25721,7 @@
     {
       "id": 4113,
       "title": "[Sonnet] checker: E-RESOURCE 'value too large to write out' when a let-pair destructure generalises a match in a context mentioning decl.leaves1 (SW-4077); point the error at the destructure, or avoid unfolding while generalising; proving guide: .left/.right workaround",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
@@ -26854,7 +26854,7 @@
     {
       "id": 4198,
       "title": "[Sonnet] proving guide: one section of proof-language behaviours lanes rediscover (SW-4195 friction 2): && and ++ associativity, != is the proposition (use == ... = False), method imports by name don't parse and (..) name clashes, rewrite rejects definition names, a match refines hypotheses so later rewrites find nothing, ?name holes rarely print goals",
-      "status": "backlog",
+      "status": "next",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
@@ -27104,12 +27104,66 @@
     {
       "id": 4217,
       "title": "[Sonnet, paper] Correct the estimates built on SW-4205's wrong 16-theorems-per-function figure: retrospective §4 row A and §7 step 3, slice 2 sketch §4 and §5.1, using SW-4210's per-function-walked counts (1.3 / 1.8 / 1.6); mark each corrected number and its source",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 20 min. SW-4210 lane 4.",
+      "body": "Est. 20 min. SW-4210 lane 4.\n\n19 Nov: corrected in place (retrospective summary, s1, s3, s4 row A, s5 item 7, s7, s8; S2 sketch summary and s5.1). S2 2,400-3,900 -> 2,150-3,450; S2-S7 13,000-34,000 -> 12,000-30,000 theorems; commit 1aadbdf8b on lane/SW-4217. Review.\n",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": [
+        "1aadbdf8b"
+      ]
+    },
+    {
+      "id": 4218,
+      "title": "[Sonnet] fmt consolidation C4: lift generic lemmas out of tools/fmt into std: list/option/Nat/Parse helpers whose statements mention no Fmt or Syntax type (est. 50-150; SW-4205 §5 item 4); dedupe against std, full API docs, repoint users; after SW-4209",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Matt, 19 Nov 2026: 'right now I focus on consolidation, making it clean, neat, and tidy, well-structured proof. Maybe finding avenues to simplify, maybe finding ways to improve stitchwort and standard library to support the proving.'",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4219,
+      "title": "[Opus, paper] Design note: 'remaining cases likewise' in a proof match (arms checked separately, one proof text for several arms), with or-patterns; evidence: dispatchers ~26% of fmt theorems, andLevels/orLevels four near-identical arms (SW-4205 §6 item 3); syntax and semantics, guide text, cost; for Matt's decision before building",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Matt, 19 Nov 2026: 'right now I focus on consolidation, making it clean, neat, and tidy, well-structured proof. Maybe finding avenues to simplify, maybe finding ways to improve stitchwort and standard library to support the proving.'",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4220,
+      "title": "[Sonnet] std: helpers so Parse.followsThen's function arguments needn't be given by hand ([p := …] [q := …] [j := …] [k := …], 15 times in one lane; SW-4205 §6 item 5), or say why inference can't; with the lane's examples rewritten",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Matt, 19 Nov 2026: 'right now I focus on consolidation, making it clean, neat, and tidy, well-structured proof. Maybe finding avenues to simplify, maybe finding ways to improve stitchwort and standard library to support the proving.'",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4221,
+      "title": "[Sonnet] Proving guide + pattern: deciding facts over finite token kinds by computation (Finite.check), with an example replacing a per-kind lemma family in tools/fmt (SW-4205 §6 item 7)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Matt, 19 Nov 2026: 'right now I focus on consolidation, making it clean, neat, and tidy, well-structured proof. Maybe finding avenues to simplify, maybe finding ways to improve stitchwort and standard library to support the proving.'",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
