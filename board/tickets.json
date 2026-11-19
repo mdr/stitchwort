@@ -27119,12 +27119,12 @@
     {
       "id": 4218,
       "title": "[Sonnet] fmt consolidation C4: lift generic lemmas out of tools/fmt into std: list/option/Nat/Parse helpers whose statements mention no Fmt or Syntax type (est. 50-150; SW-4205 §5 item 4); dedupe against std, full API docs, repoint users; after SW-4209",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Matt, 19 Nov 2026: 'right now I focus on consolidation, making it clean, neat, and tidy, well-structured proof. Maybe finding avenues to simplify, maybe finding ways to improve stitchwort and standard library to support the proving.'",
+      "body": "Matt, 19 Nov 2026: 'right now I focus on consolidation, making it clean, neat, and tidy, well-structured proof. Maybe finding avenues to simplify, maybe finding ways to improve stitchwort and standard library to support the proving.'\n\nLane notes (Sonnet, 19 Nov 2026, 17:53-18:35): branch lane/SW-4218. 92 generic theorems moved from tools/fmt into std (Bool/Bool.sw 15, List/Lemmas.sw 41, Text/Text.sw 8, Fail/Fail.sw 23, Parse/Reads.sw 3, Parse/Runs.sw 3), 11 copies replaced by std's own (Bool.andTrue, Bool.andFalse, Bool.notOfTrue/notOfFalse/notFalse, Bool.andIntro, List.takeOwnLength, and so on) or by one moved theorem. Whole-project check 126 namespaces, 0 errors; Fmt.Tests 425 passed; std files, pinned hashes, bound_to_the_prelude tests pass; prelude snapshot +149 lines (additions only). Scan script and candidate list were in the lane scratch.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
