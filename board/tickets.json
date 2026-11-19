@@ -27807,12 +27807,12 @@
     {
       "id": 4270,
       "title": "[Sonnet] Or-pattern joins the SW-4252 script couldn't find: cross-product cases in multi-column matches (Inl same | Inr same), and new catch-alls where all remaining constructors share a body (needs constructor lists); tools/fmt and std",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4252. Script: scratchpad sw4253/join.py.",
+      "body": "From SW-4252. Script: scratchpad sw4253/join.py.\n\nSW-4270 lane: commit 845318dc9 on lane/SW-4270. Scripts in scratchpad sw4270 (find.py, join.py, join2.py). Joined nested-difference arms (blocks/above = ([] | [_, .._])), FollowsDecl cross-product, Lexer guarded pair, Omega Mul arms. Whole fmt check clean, Fmt.Tests and Syntax.Tests pass.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
