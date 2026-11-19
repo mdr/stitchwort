@@ -3210,3 +3210,118 @@ theorem followsTypeAfterEquals ∀ (rule: ExpressionRule) (modes: Modes) (attrib
         | False =>
           Parse.followsThen (followsConstructorsOf rule modes) (constructors constructorsTwin constructorses =>
             Parse.followsDone _ _ (alikeData attributes attributesTwin attributeses False keyword keywordTwin name nameTwin names params paramsTwin paramses indices indicesTwin indiceses (Sum equals constructors) (Sum equalsTwin constructorsTwin) (alikeSum equals equalsTwin constructors constructorsTwin constructorses)))
+
+theorem followsTypeBody ∀ (rule: ExpressionRule) (modes: Modes) (attributes attributesTwin: List Attributes)
+    (attributeses: List.All2 AttributeGroupAlike attributes attributesTwin) (keyword keywordTwin: Comments)
+    (name nameTwin: Word) (names: WordsAlike name nameTwin) (params paramsTwin: List Group)
+    (paramses: List.All2 GroupsAlike params paramsTwin) (indices indicesTwin: Option Indices)
+    (indiceses: IndicesAlike indices indicesTwin) (indexed equalsNext: Bool):
+    Parse.Follows SameCode DeclsAlike
+      (() => typeBody modes attributes keyword name params indices indexed equalsNext)
+      (() => typeBody modes attributesTwin keywordTwin nameTwin paramsTwin indicesTwin indexed equalsNext) :=
+  match !equalsNext with
+    | True =>
+      Parse.followsDone _ _
+        (alikeData attributes attributesTwin attributeses False keyword keywordTwin name nameTwin names params paramsTwin
+          paramses indices indicesTwin indiceses Abstract Abstract alikeAbstract)
+    | False =>
+      Parse.followsThen followsFixedFrom (equals equalsTwin equalses =>
+        followsThenEq
+          [j := brace =>
+            typeAfterEquals modes attributes keyword name params indices indexed equals brace (modes.at Pipe)]
+          [k := brace =>
+            typeAfterEquals modes attributesTwin keywordTwin nameTwin paramsTwin indicesTwin indexed equalsTwin brace
+              (modes.at Pipe)]
+          (followsAt modes LBrace)
+          (brace =>
+            followsThenEq
+              [j := pipe => typeAfterEquals modes attributes keyword name params indices indexed equals brace pipe]
+              [k := pipe =>
+                typeAfterEquals modes attributesTwin keywordTwin nameTwin paramsTwin indicesTwin indexed equalsTwin brace
+                  pipe]
+              (followsAt modes Pipe)
+              (pipe =>
+                followsTypeAfterEquals rule modes attributes attributesTwin attributeses keyword keywordTwin name nameTwin names params paramsTwin paramses indices indicesTwin indiceses indexed equals equalsTwin brace pipe)))
+
+theorem followsTypeDecl ∀ (rule: ExpressionRule) (modes: Modes) (attributes attributesTwin: List Attributes)
+    (attributeses: List.All2 AttributeGroupAlike attributes attributesTwin) (keyword keywordTwin: Comments)
+    (name nameTwin: Word) (names: WordsAlike name nameTwin) (params paramsTwin: List Group)
+    (paramses: List.All2 GroupsAlike params paramsTwin) (indices indicesTwin: Option Indices)
+    (indiceses: IndicesAlike indices indicesTwin) (indexed: Bool):
+    Parse.Follows SameCode DeclsAlike
+      (() => typeDecl modes attributes keyword name params indices indexed)
+      (() => typeDecl modes attributesTwin keywordTwin nameTwin paramsTwin indicesTwin indexed) :=
+  followsThenEq
+    [j := equalsNext => typeBody modes attributes keyword name params indices indexed equalsNext]
+    [k := equalsNext => typeBody modes attributesTwin keywordTwin nameTwin paramsTwin indicesTwin indexed equalsNext]
+    (followsAt modes Equals)
+    (equalsNext => followsTypeBody rule modes attributes attributesTwin attributeses keyword keywordTwin name nameTwin names params paramsTwin paramses indices indicesTwin indiceses indexed equalsNext)
+
+theorem followsInterfaceFields ∀ (rule: ExpressionRule) (modes: Modes) (attributes attributesTwin: List Attributes)
+    (attributeses: List.All2 AttributeGroupAlike attributes attributesTwin) (keyword keywordTwin: Comments)
+    (name nameTwin: Word) (names: WordsAlike name nameTwin) (params paramsTwin: List Group)
+    (paramses: List.All2 GroupsAlike params paramsTwin) (indices indicesTwin: Option Indices)
+    (indiceses: IndicesAlike indices indicesTwin) (equals equalsTwin: Comments) (braced: Bool):
+    Parse.Follows SameCode DeclsAlike
+      (() => interfaceFields modes attributes keyword name params indices equals braced)
+      (() => interfaceFields modes attributesTwin keywordTwin nameTwin paramsTwin indicesTwin equalsTwin braced) :=
+  match !braced with
+    | True =>
+      followsFail modes "`{` and the interface's fields" (() => modes.fail "`{` and the interface's fields")
+    | False =>
+      Parse.followsMap
+        [alike := DeclsAlike]
+        [p := () => bracedFields modes]
+        [q := () => bracedFields modes]
+        (fields => Data attributes True keyword name params indices (RecordBody equals fields))
+        (fields => Data attributesTwin True keywordTwin nameTwin paramsTwin indicesTwin (RecordBody equalsTwin fields))
+        (fields fieldsTwin fieldses =>
+          alikeData attributes attributesTwin attributeses True keyword keywordTwin name nameTwin names params
+            paramsTwin paramses indices indicesTwin indiceses (RecordBody equals fields) (RecordBody equalsTwin fieldsTwin)
+            (alikeRecordBody equals equalsTwin fields fieldsTwin fieldses))
+        (followsBracedFields rule modes)
+
+theorem followsInterfaceDecl ∀ (rule: ExpressionRule) (modes: Modes) (attributes attributesTwin: List Attributes)
+    (attributeses: List.All2 AttributeGroupAlike attributes attributesTwin) (keyword keywordTwin: Comments)
+    (name nameTwin: Word) (names: WordsAlike name nameTwin) (params paramsTwin: List Group)
+    (paramses: List.All2 GroupsAlike params paramsTwin) (indices indicesTwin: Option Indices)
+    (indiceses: IndicesAlike indices indicesTwin) (indexed: Bool):
+    Parse.Follows SameCode DeclsAlike
+      (() => interfaceDecl modes attributes keyword name params indices indexed)
+      (() => interfaceDecl modes attributesTwin keywordTwin nameTwin paramsTwin indicesTwin indexed) :=
+  match indexed with
+    | True => followsFatalAny _ (() => Syntax.fatal "an interface can't have indices")
+    | False =>
+      Parse.followsThen (followsExpectFixed modes Equals "`=` and the interface's fields, `{ … }`") (equals equalsTwin equalses =>
+        followsThenEq
+          [j := braced => interfaceFields modes attributes keyword name params indices equals braced]
+          [k := braced =>
+            interfaceFields modes attributesTwin keywordTwin nameTwin paramsTwin indicesTwin equalsTwin braced]
+          (followsAt modes LBrace)
+          (braced => followsInterfaceFields rule modes attributes attributesTwin attributeses keyword keywordTwin name nameTwin names params paramsTwin paramses indices indicesTwin indiceses equals equalsTwin braced))
+
+theorem followsDataName ∀ (modes: Modes) (isInterface: Bool):
+    Parse.Follows SameCode WordsAlike (() => dataName modes isInterface) (() => dataName modes isInterface) :=
+  match isInterface with
+    | True => followsUpperQualified modes "an interface name (starting with an uppercase letter)"
+    | False => followsUpperQualified modes "a data type name (starting with an uppercase letter)"
+
+theorem followsDataIndicesPart ∀ (rule: ExpressionRule) (modes: Modes) (atColon: Bool):
+    Parse.Follows SameCode IndicesAlike (() => dataIndicesPart modes atColon) (() => dataIndicesPart modes atColon) :=
+  match atColon with
+    | True =>
+      Parse.followsThen followsFixedFrom (colon colonTwin colons =>
+        followsFuel
+          [alike := IndicesAlike]
+          (fuel =>
+            (let (steps, last) := dataIndices fuel modes [];
+             Some { colon, steps, last }))
+          (fuel =>
+            (let (steps, last) := dataIndices fuel modes [];
+             Some { colon = colonTwin, steps, last }))
+          (fuel =>
+            Parse.followsThen (followsDataIndices rule fuel modes [] [] Trivial) (pair pairTwin pairs =>
+              match pair, pairTwin with
+                | (steps, last), (twins, lastTwin) =>
+                  Parse.followsDone _ _ (alikeIndices colon colonTwin steps twins pairs.left last lastTwin pairs.right))))
+    | False => Parse.followsDone None None byComputing
