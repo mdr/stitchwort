@@ -1,5 +1,5 @@
 {
-  "next": 4186,
+  "next": 4187,
   "tickets": [
     {
       "id": 47,
@@ -25851,7 +25851,7 @@
     {
       "id": 4123,
       "title": "[Sonnet] fmt S1 driver: one refusal message per cause (alphabet, spelling, plain1, construct, one-line), naming the token or construct; fix stale 'open' in TopStatements header and declElementsOneLine1 doc (SW-4119, SW-4120)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4185",
       "labels": [],
@@ -26678,7 +26678,7 @@
     {
       "id": 4185,
       "title": "[Sonnet] fmt: remove dead slice-1 one-line and spelling machinery after SW-4176 (Decl.oneLine1 users, OneLineLays, StandsLine, printedSpelledPlain1, lexesPlain, spelledPlain1 if unused) — delete only what stitchwort uses shows nothing on the proof path refers to",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4185",
       "labels": [],
@@ -26690,6 +26690,19 @@
         "164d3cb16",
         "c37d14d02"
       ]
+    },
+    {
+      "id": 4186,
+      "title": "[Sonnet] stitchwort uses --unused lists only defs, not theorems (SW-4185 found it reports nothing unused over tools/fmt); include theorems (excluding tests and examples) or add --theorems; and a second pass over the Lays*/StandsProofs cluster for orphans",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "Est. 25 min. SW-4158 follow-up.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
     }
   ]
 }
