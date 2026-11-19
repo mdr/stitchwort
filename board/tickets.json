@@ -1,5 +1,5 @@
 {
-  "next": 4207,
+  "next": 4209,
   "tickets": [
     {
       "id": 47,
@@ -26735,7 +26735,7 @@
     {
       "id": 4189,
       "title": "[DeepSeek] fmt: delete the 13 orphan theorems SW-4186 listed (LaysApp appFromHug; LaysRules chainAll, plainEnds, stepConcat; LaysWords noHeldStarts; StandsProofs atomDeclStands, returnedFalls and six …Witness) after SW-4183 merges; check each is still unused",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -26789,7 +26789,7 @@
     {
       "id": 4193,
       "title": "[Sonnet] fmt tidy after slice 1: delete dead settledPlaced1 (SettleParseProofs.sw:310, plain1, no caller); drop settledParsesGrammar1's unused source/lexes/alphabet arguments if nothing needs them; fix tools/fmt/NOTES.md:1399-1400 (bareSettles now proved, up to line starts) and SettleParseProofs.sw:6's long doc line; with SW-4189's 13 orphans and SW-4192's marked copy if convenient (SW-4191 findings)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -26964,6 +26964,32 @@
       "labels": [],
       "epic": "test-infra",
       "body": "Est. 30 min. Found by SW-3788.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4207,
+      "title": "[Sonnet] stitchwort uses --unused --dead reports some declarations one line off (allAppendLeft at 112, declared at 111; SW-4193): fix the span used for FILE:LINE, with a test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "Est. 15 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4208,
+      "title": "[Idea] stitchwort delete NAME…: remove declarations by name (with their doc comments), reporting dependents; SW-4185 and SW-4193 lost ~20 min each to hand-cut blocks",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "From lane friction.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
