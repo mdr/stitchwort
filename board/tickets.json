@@ -1,5 +1,5 @@
 {
-  "next": 4159,
+  "next": 4160,
   "tickets": [
     {
       "id": 47,
@@ -26187,12 +26187,12 @@
     {
       "id": 4148,
       "title": "[Opus] fmt S1 comments anywhere E5: appAny and anyHug (after E2; ArgsHang restated with startFor) (SW-4130 plan)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4148",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "docs: SW-4130 report on the ticket; Fmt/ElementsProofs.sw. Est. 60-90 min. Folds in SW-4082 where it applies.",
+      "body": "docs: SW-4130 report on the ticket; Fmt/ElementsProofs.sw. Est. 60-90 min. Folds in SW-4082 where it applies.\n\nLane notes (Opus, 19 Nov 2026, 10:28 to 10:56, branch lane/SW-4148, commit 320d0a338; est. 75 min):\n- ArgsHang restated: HangsFor argument.noted (startFor) per argument and for the last's hug. Old form false for an argument with comments above it (gate: `def x: A := f\\n  -- c\\n  a` prints `a` starting a line after `f`; its doc opens with BreakParent, LineStart). AppArgs: filled only where `between`/`betweenFront` is False; LinedArgs takes startFor; new argumentDocsHang (between flag), keptArgsHang, partHangsFor, LineSeat/hardLineArg/argLineHangs. Callers fixed in ExprHangProofs, EdgeHangProofs, DeclFactsProofs (none in SW-4155's files). No statement narrowed.\n- New Fmt.ElementsApp: Led, LastHangs, lastLed, argsLed. appAny and anyHug proved but for:\n  (1) appAny, arguments = []: FALSE. App (Atom f) [] has within1/lexical1/sound/homed1 (computed), and appDocs f [] is Choice [Flatten (f Nothing), f Nest 2 [HardLine, Nothing]]; the second option ends at a line start, where Ended is False, so AnyFacts (App f []) fails. Fix: give anyFacts/appAny shaped1 (declElements1 already has it) or a nonempty-arguments fact; needs an ElementsProofs statement edit.\n  (2) appAny and anyHug, a last argument that is a tuple or list (the hug): with comments above it or after the argument before, huggedBracket lays the bracket undisplaced (framedBy displaces it), so its seat is right of its indentation; not derivable from AnyFacts and outside ElHangs. Fix options: rules change (huggedBracket framed like framedBy: hug = el up to Group's flag, proof then immediate; output changes: items indent under the bracket) or new hang machinery for a seat right of the indentation.\n- check Fmt.ElementsProofs: 0 errors; goals parenAny tupleAny listAny appAny x2 binaryAny arrowAny anyHug. check Fmt.TopStatements: 0 errors (formatAccepts1's goal is pre-existing). audit Fmt.ElementsApp 2 passed; audit Fmt.AppHangProofs 45 passed.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -26323,6 +26323,19 @@
       "labels": [],
       "epic": "dev-loop-speed",
       "body": "Est. 60 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4159,
+      "title": "[Opus] fmt: hugged bracket after a comment break lays out wrong in both formatters: 'f / -- c / (' then items at the bracket's column and ')' at column 0; frame huggedBracket like framedBy (items indented under the bracket, closer at the bracket's column), in Rules.sw and crates/fmt (D3677 shared bug), then prove appAny's and anyHug's hugged last-argument case (SW-4148 gap 2)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 90 min. After SW-4155 (Rules.sw framedBy). Orchestrator's call: shared formatter bug fix, output changes only for a hugged tuple/list argument with a comment above it or after the previous argument. Needs snapshot updates for any changed formatter tests; report every changed output. Repro: printf 'def x: List Nat := f\\n  -- the pairs\\n  (firstLongArgumentName, secondLongArgumentName, thirdLongArgumentName, fourthLongArgumentName)\\n' then stitchwort fmt.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
