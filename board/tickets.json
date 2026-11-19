@@ -25799,12 +25799,12 @@
     {
       "id": 4119,
       "title": "[Fable paper] Slice 1 review (Matt, 19 Nov): what the current proof covers, the gaps to the original milestone (all of slice 1, same program + idempotent), whether that is still the right milestone, what it takes, the best path; includes SW-4003's checklist",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4119",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Matt, 19 Nov 2026, after the one-line stage was found to rest on lane narrowings never put to him ('OK, so we quietly cheated'): 'Let's get Fable to have a look at it - to understand what is the current proof, what gaps we've still got to the initial milestone goal, whether that goal is still the right milestone, what it might take to get to that milestone, the best path forward.' Folds in SW-4003's checklist. Model: Fable. Est. 60 min. Note goes in docs/reviews/.",
+      "body": "\nMatt, 19 Nov 2026, after the one-line stage was found to rest on lane narrowings never put to him ('OK, so we quietly cheated'): 'Let's get Fable to have a look at it - to understand what is the current proof, what gaps we've still got to the initial milestone goal, whether that goal is still the right milestone, what it might take to get to that milestone, the best path forward.' Folds in SW-4003's checklist. Model: Fable. Est. 60 min. Note goes in docs/reviews/.\n\nMerged 19 Nov. Fable, 17 min (est. 60). Note: docs/reviews/SW-4119-slice1-review.md. Driver accepts 380 of ~515 slice 1 definitions in the repo [measured]; qualified names/exponents narrowing (SW-4018) turns away 94, one-line 29, upper-case 2, plain1 1, Prop/Type/() ~10. Recs 1-5 to Matt as D questions one at a time (D3687 first: the milestone definition). Findings to ticket: stale \"open\" in TopStatements header; one message for three refusals; no formatWithin1/formatWithin link and s1 gate tests within1 not the driver; 1_000 lexes as a call (both formatters); a dev task to measure driver acceptance on the repo.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
