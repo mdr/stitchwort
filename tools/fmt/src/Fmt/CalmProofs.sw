@@ -28,8 +28,7 @@ def AllAlike: List Word → List Word → Prop
   | _, _ => False
 
 theorem keptAlike ∀ (word: Word) (item closer: Bool): word.alike (word.kept item closer) := match word with
-  | { text, comments = { above = [], after, blankBefore } } => (byComputing, byComputing, byComputing, byComputing)
-  | { text, comments = { above = [first, ..rest], after, blankBefore } } =>
+  | { text, comments = { above = ([] | [_, .._]), after, blankBefore } } =>
     (byComputing, byComputing, byComputing, byComputing)
 
 theorem alikeTrails ∀ (before after: Word) (alike: before.alike after): before.trails = after.trails := match alike with
@@ -262,19 +261,7 @@ theorem openingKept ∀ (open close: Word) (around: Around) (item: Bool)
   match open, close with
     | { text, comments = { above = [], after, blankBefore } }, {
         text = other,
-        comments = { above = [], after = later, blankBefore = blank }
-      } =>
-      rewrite leadingKept
-        { text, comments = { above = [], after, blankBefore } }
-        around
-        around.at
-        item
-        False
-        same
-        byComputing
-    | { text, comments = { above = [], after, blankBefore } }, {
-        text = other,
-        comments = { above = [first, ..rest], after = later, blankBefore = blank }
+        comments = { above = ([] | [_, .._]), after = later, blankBefore = blank }
       } =>
       rewrite leadingKept
         { text, comments = { above = [], after, blankBefore } }
@@ -286,19 +273,7 @@ theorem openingKept ∀ (open close: Word) (around: Around) (item: Bool)
         byComputing
     | { text, comments = { above = [first, ..more], after, blankBefore } }, {
         text = other,
-        comments = { above = [], after = later, blankBefore = blank }
-      } =>
-      rewrite leadingKept
-        { text, comments = { above = [first, ..more], after, blankBefore } }
-        around
-        around.at
-        item
-        False
-        same
-        byComputing
-    | { text, comments = { above = [first, ..more], after, blankBefore } }, {
-        text = other,
-        comments = { above = [second, ..rest], after = later, blankBefore = blank }
+        comments = { above = ([] | [_, .._]), after = later, blankBefore = blank }
       } =>
       rewrite leadingKept
         { text, comments = { above = [first, ..more], after, blankBefore } }

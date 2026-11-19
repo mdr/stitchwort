@@ -2504,9 +2504,7 @@ theorem fieldPatternsBlankCons ∀ (field: FieldPattern) (rest: List FieldPatter
     blankFieldPatterns (walkFieldPatterns blankPure [field, ..rest])
       = blankFieldPatterns (walkFieldPatterns blankPure [field])
         ++ blankFieldPatterns (walkFieldPatterns blankPure rest) :=
-  match field with
-    | { name, value = Some (equals, pattern) } => byComputing
-    | { name, value = None } => byComputing
+  match field with | { name, value = (Some (_, _) | None) } => byComputing
 
 theorem fieldPatternsBlank ∀ (fields twins: List FieldPattern)
     (alike: List.All2 FieldPatternAlike fields twins):

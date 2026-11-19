@@ -92,9 +92,7 @@ theorem leavesHangFold ∀ (leaves: List Leaf): leavesHang leaves = leaves.rever
 --| A leaf steps by its token alone.
 theorem stepTrivia ∀ (state: HangState) (token: Token) (one other: Trivia):
     state.step { token, trivia = one } = state.step { token, trivia = other } :=
-  match state with
-    | { blocks = [], top, start, glue } => byComputing
-    | { blocks = [block, ..outer], top, start, glue } => byComputing
+  match state with | { blocks = ([] | [_, .._]), top, start, glue } => byComputing
 
 --| A comment trailing the newest leaf changes no token.
 theorem trailingHangSame ∀ (leaves: List Leaf) (comment: Comment):

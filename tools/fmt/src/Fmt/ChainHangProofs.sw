@@ -160,18 +160,14 @@ def stuckFrom (state: HangState): HangState := { blocks = state.blocks, top = st
 theorem gluedQuiet ∀ (state: HangState) (start: Option Nat)
     (quiet: state.start = False):
     gluedBy state start = stuckFrom state :=
-  match state, quiet with
-    | { blocks = [], top, start = False, glue }, _ => byComputing
-    | { blocks = [block, ..outer], top, start = False, glue }, _ => byComputing
+  match state, quiet with | { blocks = ([] | [_, .._]), top, start = False, glue }, _ => byComputing
 
 --| A word mid-line after `->` unglues the fold: back to what it was before the operator.
 theorem stuckUnglued ∀ (state: HangState)
     (quiet: state.start = False)
     (unglued: state.glue = False):
     openedBy (stuckFrom state) None = state :=
-  match state, quiet, unglued with
-    | { blocks = [], top, start = False, glue = False }, _, _ => byComputing
-    | { blocks = [block, ..outer], top, start = False, glue = False }, _, _ => byComputing
+  match state, quiet, unglued with | { blocks = ([] | [_, .._]), top, start = False, glue = False }, _, _ => byComputing
 
 --| `->` from its seat after the `Line`: the fold glued.
 theorem arrowArg ∀ (kinds: Text → Tok) (doc: Doc) (inset indent: Nat) (state: HangState) (before: Bool)
