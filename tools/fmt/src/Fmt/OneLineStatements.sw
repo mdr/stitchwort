@@ -1,5 +1,6 @@
---| `declElementsOneLine1` (`Fmt.TopStatements`) in two halves that meet at a test on the tree, `Decl.edgeQuiet1`
---| (SW-4096; docs/reviews/SW-4096-one-line-elements.md):
+--| The element facts for one-line declarations, in two halves that meet at a test on the tree, `Decl.edgeQuiet1`
+--| (SW-4096; docs/reviews/SW-4096-one-line-elements.md). The top theorems no longer use this route: they take
+--| `declElements1` (`Fmt.ElementsProofs`), which asks no one-line test.
 --|
 --| - `edgeQuietOneLine1` (`Fmt.OneLineParts`, from three open parts, the link): a slice 1 declaration that prints on
 --|   one line is `edgeQuiet1`. It reads the printed line starts back to the tree's comments and blank lines.

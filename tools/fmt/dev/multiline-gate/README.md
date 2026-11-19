@@ -83,3 +83,13 @@ Hand cases (66): check A accepts all 66, 58 printing over several lines,
 all seven tests passing; check B finds 64 that keep `hangs` and parse to
 the same tree, and two that break `hangs` (a comment right after `->`)
 and parse to the same tree anyway.
+
+## The element facts' check (SW-4130)
+
+`ElementsGate.sw` checks what `declElements1` (`Fmt.ElementsProofs`) gives through `printedHangs1`: for each
+declaration of a source's tidied tree, its tree facts, `settled1` and `homed1` (`homedOfSettled`), whether its
+comments are only at the edges (`edgeQuiet1`) and on one line, and whether the printed text keeps `hangs` at
+eight widths from 6 to 120. Copy it into `tools/fmt/src`, run `stitchwort run ElementsGate.main < FILE.cases`
+from `tools/fmt`, and delete it. On 19 Nov 2026 (the hand cases, and `gen.py` seeds 77 to 80 in modes `noted`,
+`longnoted`, `legal` and `wild`): 2,455 declarations with the tree facts, 1,938 of them with comments inside the
+type or value, all over several lines; `hangs` held at every width and `homed1` of every one.

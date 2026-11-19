@@ -537,8 +537,8 @@ theorem edgeElementsOf ∀ (decl: Decl)
           (Bool.andRight edge)
       )
 
---| The hangs (SW-4096's B): an `edgeQuiet1` slice 1 declaration meets `DeclElements`, however it is laid out. With
---| `edgeQuietOneLine1` (`Fmt.OneLineStatements`) it gives `declElementsOneLine1` (`Fmt.TopStatements`).
+--| The hangs (SW-4096's B): an `edgeQuiet1` slice 1 declaration meets `DeclElements`, however it is laid out.
+--| `declElements1` (`Fmt.ElementsProofs`) is the same for every slice 1 declaration.
 --|
 --| Proof idea: `edgeElementsOf`; `shaped1` is not needed.
 theorem edgeElements1 ∀ (decl: Decl)
