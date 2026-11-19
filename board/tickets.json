@@ -1,5 +1,5 @@
 {
-  "next": 4300,
+  "next": 4302,
   "tickets": [
     {
       "id": 47,
@@ -27997,12 +27997,12 @@
     {
       "id": 4284,
       "title": "[Sonnet] std Fail.toResultSeqN and …Then infer their computations and values; drop the spelled arguments at 121 uses, mostly Fmt/Walk.sw (exprOk 327 → ~130 lines) (survey target 2)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target 2. D3698 overnight.",
+      "body": "From the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target 2. D3698 overnight.\n\nLane note: done on lane/SW-4284. All std Seq lemmas now implicit (t, v, g, k); 111 uses simplified; fmt check, goal, Fmt.Tests pass; prelude hash snapshot updated.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -28036,8 +28036,8 @@
     {
       "id": 4287,
       "title": "[Sonnet] std Parse.readsFatal, followsDone, readsDone, readsAtDone, List.consInjectiveHead take implicit arguments; drop ~870 _ (survey target 5; touches AoC)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
@@ -28198,6 +28198,32 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "From the SW-4261 review (SW-4294).",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4300,
+      "title": "[Sonnet] std Fail.toResultPureSeq-style lemma for steps whose result is a pure/constant value (toResultPure, byComputing hypotheses), removing ~10 remaining [g := …]/[t3 := () => None] spellings in Fmt/Walk.sw declOk and ReadBackFile declLowers (SW-4284 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "From SW-4284.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4301,
+      "title": "[DeepSeek] task fmt:unspell handles positional arguments, not only [p := …] (SW-4284's unarg2.py in the orchestrator scratchpad is a start; it once truncated files: read before writing)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "From SW-4284.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
