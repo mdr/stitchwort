@@ -27013,12 +27013,12 @@
     {
       "id": 4210,
       "title": "[Fable, paper] fmt consolidation C5+C7: statement note for un-numbering slice 1's tree predicates (shaped1, settled1, lexical1, unreturned1 → one definition per predicate growing an arm per slice, slice entering only as a withinN hypothesis) and for converting slice 1's per-function shape walk to the uniform form the two-run framework uses (SW-4205 §4 A, §5 items 5 and 7): exact statements, what each existing lemma becomes, the lane cuts, estimates, and how main stays proved throughout",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 45 min. Paper. D3692 (Matt, 19 Nov 2026): 'I would be happy to do the consolidation, the tidying of slice one proof, removing duplicate theorems, moving general lemmas into standard, splitting the biggest files, generalizing, etc. Anything we can do to make it nicer and more suitable for extension. And yes, fixing tool friction ... But I'm not eager to jump into work on slice two just yet.'",
+      "body": "Est. 45 min. Paper. D3692 (Matt, 19 Nov 2026): 'I would be happy to do the consolidation, the tidying of slice one proof, removing duplicate theorems, moving general lemmas into standard, splitting the biggest files, generalizing, etc. Anything we can do to make it nicer and more suitable for extension. And yes, fixing tool friction ... But I'm not eager to jump into work on slice two just yet.'\n\nLane note (Fable, 19 Nov): docs/proposals/fmt-consolidation-statements.md on lane/SW-4210.\n- C7: no conversion needed. The shape walk is already one `Parse.Gives` lemma per function with std combinators: 665 theorems over 504 functions (1.3 each), tokens-kept 261 over 142 (1.8), two-run 854 over 524 (1.6). SW-4205's \"16 a function\" divided a whole-parser walk by slice 1's 58 functions; its idea A has no saving, and slice 2's parser-walk estimate (500-800) is about 2x high. Small tidy only: one `InSlice` spec (about 10 theorems fewer).\n- C5: un-number the 77 tree properties (1,772 lines, 64 files), keep the grammar, driver and gate numbered. 177 theorems then stand in a later slice as they are; 875 name the gate and need slice 2's switch. No top statement changes.\n- Lanes: 1 rename (Sonnet 45), 2 InSlice (Sonnet 45), 3 split ParseWalk.sw (Sonnet 60), 4 correct the retrospective's and sketch's estimates (20); only if slice 2: growth test (Opus 60), sketch revision (Fable 30).\n- For slice 2's B2: within2's arms for slice 1's forms differ from within1's (no spelling or operator tests), which blocks reusing slice 1's proof arms.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
