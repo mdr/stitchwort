@@ -334,13 +334,14 @@ theorem alphabet1Leaves ∀ (leaves: List Leaf)
     leaves.all (leaf => leaf.kind.within1) = True :=
   rewrite List.allMapBool leaves (token => token.kind.within1) (leaf => leaf.token) at within then within
 
-theorem within1NotLet ∀ (kind: Tok) (within: kind.within1 = True): (kind == KwLet) = False :=
-  let checked := Finite.check (kind => !kind.within1 || !(kind == KwLet)) byComputing kind
-  Bool.notTrue (kind == KwLet) (rewrite within at checked then checked)
-
-theorem within1NotPipe ∀ (kind: Tok) (within: kind.within1 = True): (kind == Pipe) = False :=
-  let checked := Finite.check (kind => !kind.within1 || !(kind == Pipe)) byComputing kind
-  Bool.notTrue (kind == Pipe) (rewrite within at checked then checked)
+--| A kind in slice 1's alphabet is none of the kinds outside it. Decided for every pair of kinds at once.
+theorem within1Not ∀ (kind other: Tok)
+    (without: other.within1 = False)
+    (within: kind.within1 = True):
+    (kind == other) = False :=
+  let checked :=
+    Finite.check (((kind, other)) => !kind.within1 || other.within1 || !(kind == other)) byComputing (kind, other)
+  Bool.notTrue (kind == other) (rewrite within, without at checked then checked)
 
 --| Without a `let` behind, no `:=` is an expression `let`'s.
 theorem letBeforeNone ∀ (behind: List Leaf) (depth: Nat)
@@ -361,7 +362,7 @@ theorem letBeforeNone ∀ (behind: List Leaf) (depth: Nat)
                     | True => letBeforeNone earlier depth noLet
                     | False =>
                       match isLet: leaf.kind == KwLet with
-                        | True => Eq.trans isLet.flipped (within1NotLet leaf.kind within)
+                        | True => Eq.trans isLet.flipped (within1Not leaf.kind KwLet byComputing within)
                         | False =>
                           match leaf.kind == Semi || leaf.kind == FatArrow || leaf.kind.startsDeclaration with
                             | True => byComputing
@@ -384,7 +385,7 @@ theorem letsQuiet1 ∀ (behind rest: List Leaf)
               rewrite letBeforeNone behind 0 behindWithin, Bool.andFalse (leaf.kind == ColonEq) then next
 
 theorem notPipe1 ∀ (leaf: Leaf) (within: leaf.kind.within1 = True): leaf.kind ≠ Pipe :=
-  DecEq.soundFalse leaf.kind Pipe (within1NotPipe leaf.kind within)
+  DecEq.soundFalse leaf.kind Pipe (within1Not leaf.kind Pipe byComputing within)
 
 --| Under slice 1's alphabet rule 1 walks past commas and closers only.
 theorem skippedQuiet1 ∀ (leaf: Leaf) (behind ahead: List Leaf)
