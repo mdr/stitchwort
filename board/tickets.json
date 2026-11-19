@@ -1,5 +1,5 @@
 {
-  "next": 4143,
+  "next": 4144,
   "tickets": [
     {
       "id": 47,
@@ -25943,12 +25943,12 @@
     {
       "id": 4130,
       "title": "[Opus] fmt S1 piece E (SW-4119, D3687): DeclElements with comments anywhere inside a type or value (generalise edgeQuietOneLine1 / DeclQuiet), so the one-line test can leave the driver once read-back (SW-4126 plan) lands",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4130",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "docs/reviews/SW-4119-slice1-review.md piece E; SW-4120 item 1. Model: Opus first, then Sonnet per form. Est. 3-4 lanes.",
+      "body": "docs/reviews/SW-4119-slice1-review.md piece E; SW-4120 item 1. Model: Opus first, then Sonnet per form. Est. 3-4 lanes.\n\nLane notes (Opus, 19 Nov 2026, 09:05 to 09:36, branch lane/SW-4130, commit 4c412968f; est. 75 min):\n- Route: edgeFacts' induction with no class, not laysKinds (that check drops columns; ElHangs is about them). Invariant AnyFacts = EdgeFacts at places where the first token writes nothing before it (Expr.plainAt = !lead.leadsLine). Children with comments above come from their hoisted form (ledHangs).\n- Fmt.ElementsProofs: declElements1 (hypotheses of declElementsOneLine1 minus oneLine) composed from anyFacts (induction, proved), ledHangs, anyType, anyOnLine, anyBody (proved). atomAny and prefixAny proved (prefix = pattern: elPartFor, prefixLedHangs, endedLedSeat). Open: parenAny, tupleAny, listAny, appAny, binaryAny, arrowAny, anyHug, homedOfSettled.\n- New condition homed1 (settled1's homedBack/arrowsBare per node), discharged by homedOfSettled (open); closed examples insideHomed, arrowsHomed, insideElements.\n- declElementsOneLine1 deleted; declHangsOneLine uses declElements1. Top theorems no longer rest on edgeQuietOneLine1 / OneLineParts / doc1Checks.\n- Computed: tools/fmt/dev/multiline-gate/ElementsGate.sw: 2,455 decls with the tree facts (1,938 with comments inside), hangs at 8 widths 6-120: 0 failures; homed1 of every settled one.\n- check Fmt.ElementsProofs 0 errors, 8 goals; check Fmt.TopStatements: 2 errors pre-existing on main (readsBackHung / readsBackDecl1, name.kind Lower vs Lower ∨ Upper), none new. audit Fmt.ElementsProofs: 32 passed, 16 failed (all on the 8 goals).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -26116,6 +26116,19 @@
       "commits": [
         "ed866b75e"
       ]
+    },
+    {
+      "id": 4143,
+      "title": "[Opus] fmt multi-line read-back H5 (SW-4121 plan): atoms, brackets, items, and fullHungStep's block case (the one hard invariant): atomHung, tupleStepsHung, listStepsHung, openStepsHung (ReadBackHungAtoms.sw), fullHungStep (ReadBackHungFull.sw)",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4143",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 75 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
     }
   ]
 }
