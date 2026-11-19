@@ -1,5 +1,5 @@
 {
-  "next": 4167,
+  "next": 4171,
   "tickets": [
     {
       "id": 47,
@@ -26408,7 +26408,7 @@
     {
       "id": 4165,
       "title": "[Opus] fmt (SW-4132 lane 3): pattern lane: the alike relations, two-run wrappers (followsBump, peeked, eat, expect, lower, fail), the knot's statement and the cross-file record, atoms, brackets and comma lists as the worked pattern; a how-to header for lanes 4-7 (Syntax/FollowsBase.sw)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4165",
       "labels": [],
@@ -26427,6 +26427,58 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 30 min paper. Inputs: SW-4138 report (Fmt/SourcePlainProofs.sw), SW-4128 notes, docs/reviews/SW-4120-grammar1.md, SW-4131, SW-4132.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4167,
+      "title": "[Sonnet] fmt (SW-4132 lane 4): two-run walk of Parser.sw first half: applications, unary, the operator ladder, ranges, comparisons, logic, pipes (Syntax/FollowsLadder.sw)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 50 min. Pattern: docs/reviews/SW-4165-follows-base.md and Syntax/FollowsBase.sw header.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4168,
+      "title": "[Sonnet] fmt (SW-4132 lane 5): two-run walk of Parser.sw second half: keyword expressions, lambdas, quantifiers, if, match, patterns, records, the rest (Syntax/FollowsForms.sw)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 50 min. Pattern: docs/reviews/SW-4165-follows-base.md and Syntax/FollowsBase.sw header.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4169,
+      "title": "[Sonnet] fmt (SW-4132 lane 6): two-run walk of DeclParser.sw: headers and groups (the bare flag, hard spot 1), types, the declarations (Syntax/FollowsDecl.sw)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 55 min. Pattern: docs/reviews/SW-4165-follows-base.md and Syntax/FollowsBase.sw header.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4170,
+      "title": "[Sonnet] fmt (SW-4132 lane 7): two-run walk of Statements.sw: blocks, let, local definitions, proof steps, handle (Syntax/FollowsStatements.sw)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 25 min. Pattern: docs/reviews/SW-4165-follows-base.md and Syntax/FollowsBase.sw header.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
