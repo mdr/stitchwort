@@ -10,8 +10,8 @@
 --| `laysKinds` (`Fmt.LaysKinds`) is no route here: it drops columns, and `ElHangs` is about them (a line's start
 --| against the block column in force, `Room`, `CloserRoom`).
 --|
---| What `settled1` says that the rules' layout needs, node by node, is `Expr.homed1`; `homedOfSettled` (open) reads
---| it off `settled1`.
+--| What `settled1` says that the rules' layout needs, node by node, is `Expr.homed1` (`Fmt.ElementsHomed`), which `homedOfSettled`
+--| reads off `settled1`.
 
 namespace Fmt.ElementsProofs
 import Std (Bool, DecEq, Doc, Eq, List, Nat, Option, Text, Void)
@@ -29,50 +29,12 @@ import Fmt.DeclHangProofs (BodyLays, OnLine, atomDecl, declStart, plainBody)
 import Fmt.DeclFactsProofs (DeclElements, HugOnLine, leadNotCloser, notesOfWord, plainBodyEl, trailsOfSound)
 import Fmt.EdgeHangProofs (atomTrailsIs, codedLex, prefixTrails, trailsSwap)
 import Fmt.EdgeDeclProofs (edgeNotedNodeHangs)
+import Fmt.ElementsHomed (..)
 import Fmt.ToldWordProofs (..)
 import Fmt.StandsProofs (..)
 import Fmt.OutputStatements (tidiedOf)
 import Fmt.OneLineStatements (..)
 import Fmt.Driver1 (..)
-
--- What `settled1` gives the layout.
-
---| A closer with a comment after it has comments above it, or follows code that ends its line with one (`before`).
-def Word.homedAfter (word: Word) (before: Bool): Bool := !word.trails || word.noted || before
-
---| `Decl.settled1`'s `homedBack` and `arrowsBare`, node by node: each closer is homed after the code before it in
---| its brackets, and `->` has no comment after it and its right operand none above its first token.
-def Expr.homed1: Expr → Bool
-  | Atom _ _ => True
-  | Paren open inner close => inner.homed1 && close.homedAfter (Paren open inner close).trailsBeforeClose
-  | Tuple open items trailing close =>
-    allHomed1 items && close.homedAfter (Tuple open items trailing close).trailsBeforeClose
-  | ListOf open items trailing close =>
-    allHomed1 items && close.homedAfter (ListOf open items trailing close).trailsBeforeClose
-  | App head arguments => head.homed1 && allHomed1 arguments
-  | Infix InfixBinary left _ right => left.homed1 && right.homed1
-  | Infix InfixArrow left operator right => left.homed1 && right.homed1 && !operator.trails && !right.noted
-  | Prefix _ operand => operand.homed1
-  | _ => False
-
-def allHomed1: List Expr → Bool
-  | [] => True
-  | [expr, ..rest] => expr.homed1 && allHomed1 rest
-
---| A slice 1 declaration's type and value are homed.
-def Decl.homed1: Decl → Bool
-  | Definition [] header (Assigned _ value) => header.result.homed1 && value.homed1
-  | _ => False
-
---| A settled slice 1 declaration's type and value are homed (open): `homedBack` and `arrowsBare` of the
---| declaration's words, read node by node. A closer's code before it, read back through closers, stops at a token
---| of its own brackets (the opener, at the latest), so the test is the node's own.
-theorem homedOfSettled ∀ (decl: Decl)
-    (within: decl.within1 = True)
-    (lexical: decl.lexical1 = True)
-    (settled: decl.settled1 = True):
-    decl.homed1 = True :=
-  ?
 
 -- The invariant.
 
