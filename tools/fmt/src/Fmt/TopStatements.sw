@@ -374,7 +374,7 @@ theorem outputParses1 ∀ (file: SourceFile)
   (
     printedFileLexes1 file within shaped settled lexical,
     rewrite once then
-      readsBackFile1 file file.lexed1.settled within shaped settled lexical commaFree oneLine hung
+      readsBackFile1 file file.lexed1.settled within shaped settled lexical commaFree hung
         (settledKeepsTokens file.lexed1)
         words
         ends
