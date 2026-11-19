@@ -204,8 +204,6 @@ theorem operatorHangs ∀ (operator: Word) (around: Around) (notes: List Note)
         inset state entry =>
           notedLeafHangs lexKind operator around around.at inset state entry note rest plain notComment solid closer
               comma hoisted above comments trailed
-              (rewrite single then
-                unblankedAt (plainStart entry) note.blankBefore False (Bool.andFalse note.blankBefore))
       (True, hangs)
 
 --| A binary operator, not an item, as a chain's operator: a plain token, starting the line after its own-line
@@ -305,8 +303,7 @@ theorem notedArrowGlues ∀ (word: Word) (around: Around) (key: Nat) (note: Note
         let pre := Entered inset inset around.before state entry (leadStart inset entry)
         let lined := LineAt inset column (Hang.At state)
         let post: Place → Hang → Prop := place hang => Ended glued False place ∧ hang = Hang.At glued
-        let blank: (plainStart entry && note.blankBefore && around.item) = False :=
-          rewrite single then unblankedAt (plainStart entry) note.blankBefore False (Bool.andFalse note.blankBefore)
+        let fresh := leadFresh inset state entry room
         let leading :=
           allHangsPre lexKind
             (word.leading around key)
@@ -315,7 +312,7 @@ theorem notedArrowGlues ∀ (word: Word) (around: Around) (key: Nat) (note: Note
             pre
             lined
             (leadingHangs lexKind word around key inset around.before state entry note rest hoisted noted closer
-                comments blank)
+                comments fresh)
             (place hang (isEntry, folded, (seated, _, _, _)) => (isEntry, folded, seated))
         let written := lineArrowHangs lexKind word.text inset column state arrow token solid room
         rewrite leafPiece word around key closer comma then

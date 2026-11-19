@@ -87,9 +87,9 @@ theorem heldRight ∀ (indent at: Nat) (carry: Carry)
   let landed: floored carry (Nat.max indent (at + 2)) = Nat.max indent (at + 2) := rewrite floor
   rewrite landed then arithmetic
 
---| The start of a line at `column`, no comment floor.
+--| The start of a line at `column`, right after its line break, no comment floor.
 def StartsAt (column: Nat) (place: Place): Prop := match place with
-  | AtStart at carry => at = column ∧ carry.floor = None
+  | AtStart _ _ => False
   | Broken at carry => at = column ∧ carry.floor = None
   | Mid _ _ => False
   | Held _ _ => False
@@ -101,19 +101,6 @@ theorem startTopHangs ∀ (kinds: Text → Tok) (doc: Doc) (column: Nat) (before
     HangLays kinds doc column (place hang => StartsAt column place ∧ hang = Hang.At topFrom) (TopDone trails) :=
   place trace next (starts, folded) after =>
     match place, starts with
-      | AtStart at carry, (atColumn, floor) =>
-        let landed: floored carry column = column := rewrite floor
-        let seat: Seat column column before topFrom (AtStart at carry) (Some at) :=
-          rewrite atColumn then ((byComputing, landed), Nat.leRefl column, arithmetic, (byComputing, arithmetic))
-        match noted, el with
-          | True, el =>
-            el topFrom (AtStart at carry) (AtStart at carry) trace next (byComputing, folded, seat) (left later (done,
-              landed) =>
-              after left later (Some at, done, landed))
-          | False, el =>
-            el topFrom (AtStart at carry) (AtStart at carry) trace next (byComputing, folded, seat) (left later (done,
-              landed) =>
-              after left later (Some at, done, landed))
       | Broken at carry, (atColumn, floor) =>
         let landed: floored carry column = column := rewrite floor
         let seat: Seat column column before topFrom (Broken at carry) (Some at) :=
@@ -170,7 +157,7 @@ theorem belowTopHangs ∀ (kinds: Text → Tok) (doc: Doc) (column: Nat) (before
       (AfterTop after)
       started
       (TopDone trails)
-      (hangsHard kinds column (AfterTop after) started (place hang (ended, folded) =>
+      (hangsHardBroken kinds column (AfterTop after) started (place hang (ended, folded) =>
         match place, ended with
           | Mid at carry, (floor, _) =>
             let landed: floored carry column = column := rewrite floor
@@ -377,8 +364,7 @@ theorem notedStepHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
           entry
           lined
           post
-          (leadingHangs kinds word around key indent before state place note rest hoisted noted closer comments
-            (rewrite fresh))
+          (leadingHangs kinds word around key indent before state place note rest hoisted noted closer comments fresh)
           (hangsCons kinds
             (Doc.text word.text)
             word.trailing

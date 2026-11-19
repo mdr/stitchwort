@@ -50,13 +50,14 @@ theorem tailAppend ∀ (kinds: Text → Tok) (before middle trails: Bool) (front
 --| the two agree at a line start, and mid-line or after a waiting comment the comment break is right of the line.
 theorem ledSeatOf ∀ (inset: Nat) (before: Bool) (state: HangState) (place: Place)
     (unglued: state.glue = False)
-    (seat: Seat inset inset before state place (wordStart inset place)):
+    (seat: Seat inset inset before state place (wordStart inset place))
+    (fresh: plainStart place = False):
     Seat inset inset before state place (leadStart inset place) :=
-  match place, seat with
-    | AtStart at carry, seat => seat
-    | Broken at carry, seat => seat
-    | Mid at carry, ((floor, left), shallow, clear, _) => ((floor, left), shallow, clear, (unglued, arithmetic))
-    | Held at carry, ((waits, floor, left), shallow, clear, _) =>
+  match place, seat, fresh with
+    | AtStart at carry, _, never => (Bool.trueNotFalse never).impossible
+    | Broken at carry, seat, _ => seat
+    | Mid at carry, ((floor, left), shallow, clear, _), _ => ((floor, left), shallow, clear, (unglued, arithmetic))
+    | Held at carry, ((waits, floor, left), shallow, clear, _), _ =>
       ((waits, floor, left), shallow, clear, (unglued, arithmetic))
 
 --| `argHangs`, the argument's first token where `startFor` says.
@@ -68,10 +69,10 @@ theorem argFor ∀ (kinds: Text → Tok) (doc: Doc) (inset indent: Nat) (state: 
     HangLays kinds doc inset (ArgSeat state inset before) (AfterWords state indent trails) :=
   match noted with
     | False => argHangs kinds doc inset indent state before trails quiet unglued clear el
-    | True => place trace next (folded, seat) after =>
+    | True => place trace next (folded, seat, fresh) after =>
       let same := openedQuiet state (leadStart inset place) quiet unglued
       el state place place trace next
-        (byComputing, folded, ledSeatOf inset before state place unglued seat)
+        (byComputing, folded, ledSeatOf inset before state place unglued seat fresh)
         (left later (ended, landed) =>
           after left later (rewrite same at ended then ended, rewrite same at landed then landed, clear))
 
@@ -178,7 +179,7 @@ theorem arrowArg ∀ (kinds: Text → Tok) (doc: Doc) (inset indent: Nat) (state
     (clear: (inForce state.blocks state.top <= indent) = True)
     (glues: GluesAt kinds before doc):
     HangLays kinds doc inset (ArgSeat state inset before) (AfterWords (stuckFrom state) indent False) :=
-  place trace next (folded, seat) after =>
+  place trace next (folded, seat, _) after =>
     let same := gluedQuiet state (wordStart inset place) quiet
     glues inset inset state place place trace next (byComputing, folded, seat) (left later (ended, landed) =>
       after left later (rewrite same at ended then ended, rewrite same at landed then landed, clear))
@@ -206,10 +207,10 @@ theorem arrowArgFor ∀ (kinds: Text → Tok) (doc: Doc) (inset indent: Nat) (st
     HangLays kinds doc inset (ArgSeat state inset before) (AfterWords (stuckFrom state) indent False) :=
   match noted with
     | False => arrowArg kinds doc inset indent state before quiet clear glues
-    | True => place trace next (folded, seat) after =>
+    | True => place trace next (folded, seat, fresh) after =>
       let same := gluedQuiet state (leadStart inset place) quiet
       glues inset state place place trace next
-        (byComputing, folded, ledSeatOf inset before state place unglued seat)
+        (byComputing, folded, ledSeatOf inset before state place unglued seat fresh)
         (left later (ended, landed) =>
           after left later (rewrite same at ended then ended, rewrite same at landed then landed, clear))
 

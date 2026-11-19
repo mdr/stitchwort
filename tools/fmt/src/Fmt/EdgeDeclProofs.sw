@@ -30,7 +30,6 @@ theorem edgeNotedNodeHangs ∀ (expr: Expr) (word: Word) (node: Around → Doc) 
     (noted: word.comments.above = [note, ..rest])
     (closer: isCloserText word.text = False)
     (comments: NotesComment [note, ..rest])
-    (quiet: (note.blankBefore && around.item) = False)
     (hoistedHangs: ∀ (inset: Nat) => ElHangs lexKind
       (expr.el { around | hoisted = True })
       inset
@@ -44,17 +43,6 @@ theorem edgeNotedNodeHangs ∀ (expr: Expr) (word: Word) (node: Around → Doc) 
   let unwrapped: framedBy word lifted (node lifted) = Doc.concat [Doc.concat [], Displaced (node around)] :=
     rewrite isNoted, same
   rewrite elIs around then
-    notedFramedHangs lexKind word around
-      (node around)
-      indent
-      trails
-      note
-      rest
-      hoisted
-      noted
-      closer
-      comments
-      quiet
-      (inset =>
-        let fact := hoistedHangs inset
-        rewrite elIs lifted, unwrapped at fact then fact)
+    notedFramedHangs lexKind word around (node around) indent trails note rest hoisted noted closer comments (inset =>
+      let fact := hoistedHangs inset
+      rewrite elIs lifted, unwrapped at fact then fact)

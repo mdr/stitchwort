@@ -130,9 +130,10 @@ theorem spacedHangs ∀ (kinds: Text → Tok) (first: Doc) (rest: List Doc) (ind
 
 -- A call's arguments, each an element laid at `inset`, the fold as after the call's first word.
 
---| Where an argument laid at `inset` starts: a seat there, after a waiting comment only if `before`.
+--| Where an argument laid at `inset` starts: a seat there, after a waiting comment only if `before`, after words or
+--| right after a line break (never a plain line start).
 def ArgSeat (state: HangState) (inset: Nat) (before: Bool): Place → Hang → Prop := place hang =>
-  hang = Hang.At state ∧ Seat inset inset before state place (wordStart inset place)
+  hang = Hang.At state ∧ Seat inset inset before state place (wordStart inset place) ∧ plainStart place = False
 
 --| An argument, from its seat: the fold after it as before it, which starts nothing and glues nothing.
 theorem argHangs ∀ (kinds: Text → Tok) (doc: Doc) (inset indent: Nat) (state: HangState) (before trails: Bool)
@@ -141,7 +142,7 @@ theorem argHangs ∀ (kinds: Text → Tok) (doc: Doc) (inset indent: Nat) (state
     (clear: (inForce state.blocks state.top <= indent) = True)
     (el: ElHangs kinds doc inset inset before trails wordStart):
     HangLays kinds doc inset (ArgSeat state inset before) (AfterWords state indent trails) :=
-  place trace next (folded, seat) after =>
+  place trace next (folded, seat, _) after =>
     let same := openedQuiet state (wordStart inset place) quiet unglued
     el state place place trace next (byComputing, folded, seat) (left later (ended, landed) =>
       after left later (rewrite same at ended then ended, rewrite same at landed then landed, clear))
@@ -152,22 +153,15 @@ theorem brokenArgSeat ∀ (inset: Nat) (state: HangState) (before: Bool) (carry:
     (bound: (inForce state.blocks state.top < inset) = True):
     ArgSeat state inset before (Broken (floored carry inset) (carry.breakTo inset)) (Hang.At state) :=
   let landed: floored carry inset = inset := rewrite floor
-  rewrite landed then (byComputing, ((byComputing, byComputing), Nat.leRefl inset, arithmetic, (unglued, arithmetic)))
-
-theorem startArgSeat ∀ (inset: Nat) (state: HangState) (before: Bool) (carry: Carry)
-    (unglued: state.glue = False)
-    (floor: carry.floor = None)
-    (bound: (inForce state.blocks state.top < inset) = True):
-    ArgSeat state inset before (AtStart (floored carry inset) (carry.breakTo inset)) (Hang.At state) :=
-  let landed: floored carry inset = inset := rewrite floor
-  rewrite landed then (byComputing, ((byComputing, byComputing), Nat.leRefl inset, arithmetic, (unglued, arithmetic)))
+  rewrite landed then
+    (byComputing, ((byComputing, byComputing), Nat.leRefl inset, arithmetic, (unglued, arithmetic)), byComputing)
 
 theorem midArgSeat ∀ (inset at: Nat) (state: HangState) (before: Bool) (carry: Carry)
     (floor: carry.floor = None)
     (left: (inForce state.blocks state.top <= at) = True)
     (bound: (inForce state.blocks state.top < inset) = True):
     ArgSeat state inset before (Mid at carry) (Hang.At state) :=
-  (byComputing, ((floor, left), Nat.leRefl inset, arithmetic, byComputing))
+  (byComputing, ((floor, left), Nat.leRefl inset, arithmetic, byComputing), byComputing)
 
 theorem heldArgSeat ∀ (inset at: Nat) (state: HangState) (carry: Carry)
     (unglued: state.glue = False)
@@ -176,7 +170,11 @@ theorem heldArgSeat ∀ (inset at: Nat) (state: HangState) (carry: Carry)
     (bound: (inForce state.blocks state.top < inset) = True):
     ArgSeat state inset True (Held at carry) (Hang.At state) :=
   let landed: floored carry (Nat.max inset (at + 2)) = Nat.max inset (at + 2) := rewrite floor
-  (byComputing, ((byComputing, floor, left), Nat.leRefl inset, arithmetic, (unglued, rewrite landed then arithmetic)))
+  (
+    byComputing,
+    ((byComputing, floor, left), Nat.leRefl inset, arithmetic, (unglued, rewrite landed then arithmetic)),
+    byComputing
+  )
 
 --| A `Line` before an argument laid deeper than the call: a space, or a line break at `inset`.
 theorem lineArg ∀ (kinds: Text → Tok) (inset indent: Nat) (state: HangState) (before: Bool)
@@ -209,20 +207,25 @@ def LinedArgs (kinds: Text → Tok) (inset: Nat) (before trails: Bool) (docs: Li
     trails
     docs
 
---| Where an argument on a line of its own starts: a seat at the start of a line.
-def LineSeat (state: HangState) (inset: Nat): Place → Hang → Prop := place hang =>
-  ArgSeat state inset False place hang ∧ plainStart place = True
+--| Whether the place is right after a line break.
+def brokenPlace: Place → Bool
+  | Broken _ _ => True
+  | _ => False
 
---| At the start of a line an element's first word starts it, whatever comments it has above it.
+--| Where an argument on a line of its own starts: a seat right after the line break before it.
+def LineSeat (state: HangState) (inset: Nat): Place → Hang → Prop := place hang =>
+  ArgSeat state inset False place hang ∧ brokenPlace place = True
+
+--| Right after a line break an element's first word starts the line, whatever comments it has above it.
 theorem lineStartFor ∀ (noted: Bool) (inset: Nat) (place: Place)
-    (start: plainStart place = True):
+    (start: brokenPlace place = True):
     startFor noted inset place = wordStart inset place :=
   match place, start with
-    | AtStart at carry, _ =>
+    | Broken at carry, _ =>
       match noted with
         | True => byComputing
         | False => byComputing
-    | Broken at carry, never => (Bool.falseNotTrue never).impossible
+    | AtStart at carry, never => (Bool.falseNotTrue never).impossible
     | Mid at carry, never => (Bool.falseNotTrue never).impossible
     | Held at carry, never => (Bool.falseNotTrue never).impossible
 
@@ -231,13 +234,14 @@ theorem hardLineArg ∀ (kinds: Text → Tok) (inset indent: Nat) (state: HangSt
     (unglued: state.glue = False)
     (deeper: (indent < inset) = True):
     HangLays kinds HardLine inset (AfterWords state indent before) (LineSeat state inset) :=
-  hangsHard kinds inset (AfterWords state indent before) (LineSeat state inset) (place hang (ended, folded, clear) =>
+  hangsHardBroken kinds inset (AfterWords state indent before) (LineSeat state inset) (place hang (ended, folded,
+    clear) =>
     let bound: (inForce state.blocks state.top < inset) = True := arithmetic
     match place, ended with
       | Mid at carry, (floor, _) =>
-        (byComputing, (rewrite folded then startArgSeat inset state False carry unglued floor bound, byComputing))
+        (byComputing, (rewrite folded then brokenArgSeat inset state False carry unglued floor bound, byComputing))
       | Held at carry, (_, floor, _) =>
-        (byComputing, (rewrite folded then startArgSeat inset state False carry unglued floor bound, byComputing)))
+        (byComputing, (rewrite folded then brokenArgSeat inset state False carry unglued floor bound, byComputing)))
 
 --| An argument on a line of its own, from its seat, its first word where `startFor` says: the fold after it as before
 --| it, as `argHangs`.
@@ -247,7 +251,7 @@ theorem argLineHangs ∀ (kinds: Text → Tok) (doc: Doc) (inset indent: Nat) (s
     (clear: (inForce state.blocks state.top <= indent) = True)
     (el: ElHangs kinds doc inset inset False trails (startFor noted)):
     HangLays kinds doc inset (LineSeat state inset) (AfterWords state indent trails) :=
-  place trace next ((folded, seat), start) after =>
+  place trace next ((folded, seat, _), start) after =>
     let first: startFor noted inset place = wordStart inset place := lineStartFor noted inset place start
     let seated: Seat inset inset False state place (startFor noted inset place) := rewrite first then seat
     let same := openedQuiet state (startFor noted inset place) quiet unglued

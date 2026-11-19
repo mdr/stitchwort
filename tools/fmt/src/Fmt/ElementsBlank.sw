@@ -170,7 +170,7 @@ theorem blankPlacedAt ∀ (kinds: Text → Tok) (first: Word) (around: Around) (
               (place hang (isEntry, folded, (seated, _, _, _)) => (isEntry, folded, seated)))
         let body :=
           linedDisplaced kinds doc indent column before trails state
-            (leadDeep indent before state entry seated)
+            (leadDeep indent before state entry seated fresh)
             room
             framed
         hangsConcat kinds

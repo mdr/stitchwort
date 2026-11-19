@@ -57,40 +57,44 @@ theorem openedItem ∀ (outer: List (Option Nat)) (top start: Option Nat):
     | None => byComputing
     | Some column => byComputing
 
---| An item seated at `inset` starts its line, if it does, at `inset` or right of it, its first token where
---| `startFor noted` says: on the line after comments above it (`noted`) or not.
-theorem startDeep ∀ (noted: Bool) (inset: Nat) (before: Bool) (state: HangState) (place: Place)
-    (seated: Seated inset before state place):
-    deepFrom inset (startFor noted inset place) = True :=
-  match noted, place, seated with
-    | False, AtStart at carry, (atInset, _) => rewrite atInset then Nat.leRefl inset
-    | False, Broken at carry, (atInset, _) => rewrite atInset then Nat.leRefl inset
-    | False, Mid at carry, _ => byComputing
-    | False, Held at carry, (_, floor, _) =>
-      let landed: floored carry (Nat.max inset (at + 2)) = Nat.max inset (at + 2) := rewrite floor
-      rewrite landed then arithmetic
-    | True, AtStart at carry, (atInset, _) => rewrite atInset then Nat.leRefl inset
-    | True, Broken at carry, (atInset, _) => rewrite atInset then Nat.leRefl inset
-    | True, Mid at carry, _ => arithmetic
-    | True, Held at carry, _ => arithmetic
-
 --| An item seated at `inset` starts its line, if it does, at `inset` or right of it.
 theorem seatDeep ∀ (inset: Nat) (before: Bool) (state: HangState) (place: Place)
     (seated: Seated inset before state place):
     deepFrom inset (wordStart inset place) = True :=
-  startDeep False inset before state place seated
+  match place, seated with
+    | AtStart at carry, (atInset, _) => rewrite atInset then Nat.leRefl inset
+    | Broken at carry, (atInset, _) => rewrite atInset then Nat.leRefl inset
+    | Mid at carry, _ => byComputing
+    | Held at carry, (_, floor, _) =>
+      let landed: floored carry (Nat.max inset (at + 2)) = Nat.max inset (at + 2) := rewrite floor
+      rewrite landed then arithmetic
+
+--| An item seated at `inset` starts its line, if it does, at `inset` or right of it, its first token where
+--| `startFor noted` says: on the line after comments above it (`noted`) or not.
+theorem startDeep ∀ (noted: Bool) (inset: Nat) (before: Bool) (state: HangState) (place: Place)
+    (seated: Seated inset before state place)
+    (fresh: plainStart place = False):
+    deepFrom inset (startFor noted inset place) = True :=
+  match noted, place, seated, fresh with
+    | False, place, seated, _ => seatDeep inset before state place seated
+    | True, AtStart at carry, _, never => (Bool.trueNotFalse never).impossible
+    | True, Broken at carry, (atInset, _), _ => rewrite atInset then Nat.leRefl inset
+    | True, Mid at carry, _, _ => arithmetic
+    | True, Held at carry, _, _ => arithmetic
 
 --| An item's seat with room for its first word where `wordStart` says has room for it where `startFor` says: the two
 --| agree at a line start and after a waiting comment, and mid-line the comment break is right of the line.
 theorem seatFor ∀ (noted: Bool) (inset: Nat) (before: Bool) (outer: List (Option Nat)) (top: Option Nat) (place: Place)
-    (seat: Seat inset inset before (itemState outer top) place (wordStart inset place)):
+    (seat: Seat inset inset before (itemState outer top) place (wordStart inset place))
+    (fresh: plainStart place = False):
     Seat inset inset before (itemState outer top) place (startFor noted inset place) :=
-  match noted, place, seat with
-    | False, place, seat => seat
-    | True, AtStart at carry, seat => seat
-    | True, Broken at carry, seat => seat
-    | True, Mid at carry, ((floor, left), column, clear, _) => ((floor, left), column, clear, (byComputing, arithmetic))
-    | True, Held at carry, ((waits, floor, left), column, clear, room) =>
+  match noted, place, seat, fresh with
+    | False, place, seat, _ => seat
+    | True, AtStart at carry, _, never => (Bool.trueNotFalse never).impossible
+    | True, Broken at carry, seat, _ => seat
+    | True, Mid at carry, ((floor, left), column, clear, _), _ =>
+      ((floor, left), column, clear, (byComputing, arithmetic))
+    | True, Held at carry, ((waits, floor, left), column, clear, room), _ =>
       let landed: floored carry (Nat.max inset (at + 2)) = Nat.max inset (at + 2) := rewrite floor
       ((waits, floor, left), column, clear, rewrite landed at room then room)
 
@@ -131,11 +135,11 @@ theorem itemHangs ∀ (kinds: Text → Tok) (doc: Doc) (inset: Nat) (outer: List
       place
       trace
       next
-      (byComputing, folded, seatFor noted inset before outer top place seat)
+      (byComputing, folded, seatFor noted inset before outer top place seat fresh)
       (left later (ended, done) =>
         after left later (
           start,
-          startDeep noted inset before (itemState outer top) place seated,
+          startDeep noted inset before (itemState outer top) place seated fresh,
           rewrite openedItem outer top start at ended then ended,
           rewrite openedItem outer top start at done then done
         ))
