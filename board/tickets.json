@@ -1,5 +1,5 @@
 {
-  "next": 4229,
+  "next": 4231,
   "tickets": [
     {
       "id": 47,
@@ -27171,7 +27171,7 @@
     {
       "id": 4222,
       "title": "[Fable] Comparative study: proving slice 1's kinds of theorems in Lean 4 and Rocq versus Stitchwort, by porting a small representative sample (not a full port): what each system's automation, libraries and proof style would save or cost; features worth adopting in Stitchwort",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -27255,6 +27255,32 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "Est. 60 min. Matt, 19 Nov 2026, on D3694: 'I think this needs a Fable design lane to look at how other people handle this, particularly in the theorem prover space.' Input: docs/proposals/proof-match-likewise.md (SW-4219).",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4229,
+      "title": "[Opus] Generated functional induction: f.induct following a function's own cases and recursive calls (Lean's functional induction), so proofs about f need no hand-built match with guard workarounds; SW-4222 sample: allTokensWithout 29 → ~15 lines; overlaps SW-4047",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From SW-4222 (docs/reviews/SW-4222-lean-rocq-comparison.md).",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4230,
+      "title": "[Sonnet] Printer triple lemmas (passesCons, passesAppend, …): make kinds/pre/middle/post implicit where inferable, removing explicit arguments at every use (SW-4222 finding)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From SW-4222 (docs/reviews/SW-4222-lean-rocq-comparison.md).",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
