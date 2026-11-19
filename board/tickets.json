@@ -1,5 +1,5 @@
 {
-  "next": 4185,
+  "next": 4186,
   "tickets": [
     {
       "id": 47,
@@ -25851,9 +25851,9 @@
     {
       "id": 4123,
       "title": "[Sonnet] fmt S1 driver: one refusal message per cause (alphabet, spelling, plain1, construct, one-line), naming the token or construct; fix stale 'open' in TopStatements header and declElementsOneLine1 doc (SW-4119, SW-4120)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4185",
       "labels": [],
       "epic": "parser-proofs",
       "body": "",
@@ -26669,6 +26669,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Est. 30 min. Paper. From SW-4183's report (board). Output: docs/reviews/SW-4184-slice1-checkpoint.md.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4185,
+      "title": "[Sonnet] fmt: remove dead slice-1 one-line and spelling machinery after SW-4176 (Decl.oneLine1 users, OneLineLays, StandsLine, printedSpelledPlain1, lexesPlain, spelledPlain1 if unused) — delete only what stitchwort uses shows nothing on the proof path refers to",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4185",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Est. 30 min. SW-4176 follow-up.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
