@@ -8038,14 +8038,14 @@
     {
       "id": 2152,
       "title": "[Sonnet] Goal printer: record updates (record_update) and Float's of_bits recognise Proj fields, not just accessor calls, so record updates print as written after record eta",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [
         "goals"
       ],
       "epic": "diagnostics",
-      "body": "From docs/proposals/goal-printing-gaps.md. Lane B; replaces SW-2076. 30 min.\n\nLane note: record_update and float_key accept Proj fields (core pretty.rs); unit test prints_a_record_of_projections_as_an_update. Could not reach a Proj from surface goals; no Float test.\n",
+      "body": "From docs/proposals/goal-printing-gaps.md. Lane B; replaces SW-2076. 30 min.\n\nLane note: record_update and float_key accept Proj fields (core pretty.rs); unit test prints_a_record_of_projections_as_an_update. Could not reach a Proj from surface goals; no Float test.\n\nModel result: Sonnet, needed fixes (Float half untested at first), 35 min (est. 30).\n",
       "created": "2026-11-07",
       "updated": "2026-11-19",
       "commits": []
