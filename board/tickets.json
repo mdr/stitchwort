@@ -26546,12 +26546,12 @@
     {
       "id": 4175,
       "title": "[Sonnet→Opus] fmt S1 (SW-4166 follow-up): Kept gains autoPlaced1 False at every node, KeptFull/KeptAt at full goals; close the stopped-head case readsAtExprPlainStopped and parsedPlaced1",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4175",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 45 min. After SW-4128 (A) and SW-4173 (K2) merge. Mechanical: one more conjunct per node lemma.\n\nSonnet lane 19 Nov: Kept has autoPlaced1 False, KeptFull at full goals, knot/ladder/decl done; exprPlain placed from implicitOn=False when head item not stopped. OPEN: readsAtExprPlainStopped (stopped head: needs a modes-aware stopped-start walk of the ladder). parsedPlaced1 still open. Whole check 0 errors, 4 goals (3 old + stopped).\n\n\nOrchestrator 14:05: Sonnet stopped with one new open goal (readsAtExprPlainStopped: a head [ stopped by stopsByLine). Rerun on Opus from its branch per D3682. Model result: Sonnet, needed fixes (stopped-head case left open), 25 min (est. 45).\n",
+      "body": "Est. 45 min. After SW-4128 (A) and SW-4173 (K2) merge. Mechanical: one more conjunct per node lemma.\n\nSonnet lane 19 Nov: Kept has autoPlaced1 False, KeptFull at full goals, knot/ladder/decl done; exprPlain placed from implicitOn=False when head item not stopped. OPEN: readsAtExprPlainStopped (stopped head: needs a modes-aware stopped-start walk of the ladder). parsedPlaced1 still open. Whole check 0 errors, 4 goals (3 old + stopped).\n\n\nOrchestrator 14:05: Sonnet stopped with one new open goal (readsAtExprPlainStopped: a head [ stopped by stopsByLine). Rerun on Opus from its branch per D3682. Model result: Sonnet, needed fixes (stopped-head case left open), 25 min (est. 45).\n\n\nOpus lane 19 Nov (14:05-): readsAtExprPlainStopped closed: at a stopped/missing head every look sees nothing (peekIn = None), so the operator ladder (offset, cmp, pipedRange, range, append, add, mul, unary, app, atom) reaches atomMissingAt None, which is fatal recovering or not (new `Stuck` walk in ParseCarriesLadder, using FollowsBase's `Never`); implicit/pi branches are Out. DeclKept/PartsKept gain `decl.autoPlaced1 = True` (from the KeptFull result and value). parsedPlaced1 CLOSED in PlacedProofs: per-group placement from runKept, lifted over parseGroups (parseGroupsPlaced), with settledGood + settledItemsQuiet for the settledOnce leaves. No statement narrowed; no new hypotheses on existing lemmas.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -26611,7 +26611,7 @@
     {
       "id": 4180,
       "title": "[DeepSeek] fmt docs: FollowsBase.sw:39-41 and FollowsDecl.sw:56-59 say Anything is used only on Comments and consumedBare; add the three () results (refuseAttributes, afterOpaque, afterOpaqueOn); groupKeepsTokens doc: same includes column and lineStart, twin's bare not known equal (SW-4177 follow-ups 2-3)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
