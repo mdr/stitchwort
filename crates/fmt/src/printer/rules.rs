@@ -32,8 +32,9 @@ pub(crate) struct Rules<'a> {
     src: &'a str,
     tokens: &'a [Token],
     roles: Vec<Role>,
-    /// Tokens before which an author's blank line is kept: the first token
-    /// of an item of a vertical list (E4).
+    /// Tokens before which an author's blank line with no comment below it
+    /// is kept: the first token of an item of a vertical list (E4). A blank
+    /// line above or below own-line comments is kept before any token.
     keep_blank: Vec<bool>,
     /// Tokens whose own-line comments the file prints, not the declaration:
     /// each declaration's first.
@@ -285,9 +286,9 @@ impl<'a> Rules<'a> {
             for (k, comment) in trivia.leading.iter().enumerate() {
                 if k > 0 {
                     comments.push(Doc::HardLine);
-                    if comment.blank_lines_before > 0 {
-                        comments.push(Doc::Blank);
-                    }
+                }
+                if comment.blank_lines_before > 0 {
+                    comments.push(Doc::Blank);
                 }
                 comments.push(Doc::text(&comment.text));
             }
@@ -299,8 +300,8 @@ impl<'a> Rules<'a> {
         } else if !self.file_comments[i] && !trivia.leading.is_empty() {
             parts.push(Doc::BreakParent);
             parts.push(Doc::LineStart);
-            for (k, comment) in trivia.leading.iter().enumerate() {
-                if comment.blank_lines_before > 0 && (k > 0 || keep) {
+            for comment in &trivia.leading {
+                if comment.blank_lines_before > 0 {
                     parts.push(Doc::Blank);
                 }
                 parts.push(Doc::text(&comment.text));
