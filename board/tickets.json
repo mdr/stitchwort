@@ -1,5 +1,5 @@
 {
-  "next": 4135,
+  "next": 4137,
   "tickets": [
     {
       "id": 47,
@@ -25891,12 +25891,12 @@
     {
       "id": 4126,
       "title": "[Opus] fmt multi-line read-back H0 (D3687, SW-4121): skeleton: readsBackHung and every lemma of the SW-4121 plan stated as open goals in new Syntax/ReadBackHung*.sw files, readsBackHung composed from them, PrintedGroup's oneLine1 clause becomes hangs, readsBackDecl1 re-proved from readsBackHung, three computed witnesses; bring SW-4121's generator and check functions into tools/fmt/dev as a rerunnable gate",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4126",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "docs/reviews/SW-4121-multiline-readback.md. Model: Opus. Est. 60 min.",
+      "body": "docs/reviews/SW-4121-multiline-readback.md. Model: Opus. Est. 60 min.\n\nLane notes (Opus, 19 Nov, 08:35 to 09:05, branch lane/SW-4126, commit b9f3fc5c3):\n- Syntax/ReadBackHung.sw (definitions, FullHungAt/FullHungBelow), ReadBackHungDeep (H1), Bounds (H2), Frame (H3), Atoms (H5), App (H6), Chains (H7), Inline (H8), Full (fullHungStep, H5's block case), Top (fullHung by induction on the depth, header steps, readsBackHung, 3 witnesses).\n- Open: 35 named lemmas plus formatAccepts1. readsBackHung relies directly on hungDeep, speltHangs and fullHungStep.\n- Design: the one-line family recurses from atomLine back to fullLine inside one file. To split it into files, each rung takes `inner: FullHungBelow depth` (fullHung below the depth); Top ties the knot.\n- PrintedGroup: oneLine1 is replaced by hangs decl.leaves1. readsBackFile1 no longer takes oneLine. oneLine1 is still used in the driver's test, Formats1, outputParses1 (hung1/stood1 through declHangsOneLine) and calmTopOneLine (pieces E, F).\n- Gate: tools/fmt/dev/multiline-gate/run.sh. A scale-0 run gave 0 FAIL; the hand counts match SW-4121.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -25956,12 +25956,12 @@
     {
       "id": 4131,
       "title": "[Fable paper] fmt S1 item 6 sketch (D3689): a last comma that starts its line before a closer (plain1): state what rule N and the settle proofs must say for it, check on generated cases, plan lanes; if it needs restating comment placement through every layer, set out the slice 3 option for Matt",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4131",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "docs/reviews/SW-4120-grammar1.md item 6. Model: Fable. Est. 45 min.",
+      "body": "docs/reviews/SW-4120-grammar1.md item 6. Model: Fable. Est. 45 min.\n\nLane note 19 Nov (Fable): note docs/reviews/SW-4131-own-line-comma.md, commit e32de50b8 on lane/SW-4131. Finding: plain1's comma clause is a proof shortcut (SW-4006, SW-4022), not a gap: since SW-3964 the driver moves a last comma's comments before rule N, and every settled, parser and printer fact holds with the comma on its own line. Only the hypothesis changes (plain1 -> sourcePlain1, strictly weaker) and one helper (tokensBare: the closer gains a line start). Checked on 65,218 sources (19,943 in the grammar, 14,349 with an own-line last comma), 0 failures. Stop rule not triggered; no decision for Matt. Plan: C1, one Sonnet lane, est. 40 min, after SW-4125 merges (same lines in Driver1, GoodItemProofs, hypothesis lists). Finding to ticket: C2, 'a parsed source is sourcePlain1' (the -> and first-token clauses), owed by formatAccepts1 and not in SW-4120's gap list; Opus, 45-90 min, with item 7's sketch. Took 28 min (est. 45).\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
@@ -26001,6 +26001,34 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "From SW-4129. Est. 20 min.",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4135,
+      "title": "[Bug, Sonnet] stitchwort check panics printing diagnostics: ariadne write.rs:267 'byte index 5 is not a char boundary; it is inside →' (a missing-import error in one file with a W-UNREACHABLE warning in another); later errors lost. Repro from SW-4126's lane; failing-first test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "",
+      "created": "2026-11-19",
+      "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4136,
+      "title": "[Sonnet] stitchwort goal: a namespace filter (goal NS…) so lanes can list open goals of what they touched without a 4-minute project-wide run (SW-4126, SW-4120 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "cli"
+      ],
+      "body": "",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
