@@ -26053,9 +26053,9 @@
     {
       "id": 4138,
       "title": "[Opus] fmt S1 C2 (SW-4131): every parsed slice 1 source is sourcePlain1 (the driver's plain test refuses nothing in the grammar), for formatAccepts1",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-4138",
       "labels": [],
       "epic": "parser-proofs",
       "body": "\ndocs/reviews/SW-4131-own-line-comma.md. Model: Opus. Est. 45-90 min, low confidence.\n\nOrchestrator 19 Nov: SW-4137 crossed SW-4129: Fmt.SettleParseProofs.settledPlaced1 still takes plain1 while the driver now tests sourcePlain1; fixed on main by weakening at the call (sourcePlainOfPlain). For formatAccepts1, settledParses1/settledPlaced1 should take sourcePlain1 (or SW-4133's whole-parser route drops it): do it here or in SW-4133.\n",
