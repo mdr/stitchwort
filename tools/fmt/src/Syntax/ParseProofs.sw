@@ -9,19 +9,26 @@ import Fmt (..)
 import Syntax.Proofs (..)
 import Fmt.Grammar1 (..)
 
---| What a parser function gives, when it gives a tree of slice 1: it is shaped, lexical, and at least at the level
---| `floor` of the precedence ladder. A tree outside the slice says nothing, so the constructs of later slices (a
---| `match`, a lambda, a section) need no case of their own.
-def Parsed1 (floor: Nat) (expr: Expr): Prop :=
-  expr.within1 = True → expr.shaped = True ∧ expr.lexical = True ∧ floor <= expr.level
+--| What a parser function gives of a tree of slice 1: it is shaped and lexical, and `holds` of it. A tree outside the
+--| slice says nothing, so the constructs of later slices (a `match`, a lambda, a section) need no case of their own.
+def InSlice (holds: Expr → Prop) (expr: Expr): Prop :=
+  expr.within1 = True → expr.shaped = True ∧ expr.lexical = True ∧ holds expr
+
+--| At least at the level `floor` of the precedence ladder.
+def Parsed (floor: Nat): Expr → Prop := InSlice (expr => floor <= expr.level)
+
+theorem inSliceWeaken ∀ (holds weaker: Expr → Prop) [expr: Expr]
+    (found: InSlice holds expr) (implies: holds expr → weaker expr):
+    InSlice weaker expr :=
+  within =>
+    let (shaped, lexical, fact) := found within
+    (shaped, lexical, implies fact)
 
 theorem parsedWeaken ∀ [floor lower: Nat] [expr: Expr]
-    (parsed: Parsed1 floor expr)
+    (parsed: Parsed floor expr)
     (below: lower <= floor):
-    Parsed1 lower expr :=
-  within =>
-    let (shaped, lexical, high) := parsed within
-    (shaped, lexical, arithmetic [high, below])
+    Parsed lower expr :=
+  inSliceWeaken (expr => floor <= expr.level) (expr => lower <= expr.level) parsed (high => arithmetic [high, below])
 
 --| A binary operator's right operand is at the level `rightNeeds` asks, given the floor its parser reads it at: the
 --| operator's own level, for a comparison (`leftNeeds` is 8) the 8 its operand needs, and for an operator that nests
@@ -41,15 +48,15 @@ theorem rightNeedsLe ∀ (text: Text) (rightFloor: Nat)
 
 --| A binary operator's tree is parsed when its operands are, at levels the operator's table allows.
 theorem infixParsed ∀ (left right: Expr) (operator: Word) (leftFloor rightFloor: Nat)
-    (leftParsed: Parsed1 leftFloor left)
-    (rightParsed: Parsed1 rightFloor right)
+    (leftParsed: Parsed leftFloor left)
+    (rightParsed: Parsed rightFloor right)
     (spelled: (operatorTok operator.text).isSome = True)
     (needs: leftNeeds InfixBinary operator.text <= leftFloor)
     (allows: infixLevel InfixBinary operator.text <= rightFloor)
     (compares: leftNeeds InfixBinary operator.text = 8 → 8 <= rightFloor)
     (leftward: leftNeeds InfixBinary operator.text = infixLevel InfixBinary operator.text
       → infixLevel InfixBinary operator.text + 2 <= rightFloor):
-    Parsed1 (infixLevel InfixBinary operator.text) (Infix InfixBinary left operator right) :=
+    Parsed (infixLevel InfixBinary operator.text) (Infix InfixBinary left operator right) :=
   within =>
     let (leftWithin, rightWithin, operatorWithin) := within
     let (leftShaped, leftLexical, leftHigh) := leftParsed leftWithin
@@ -62,8 +69,8 @@ theorem infixParsed ∀ (left right: Expr) (operator: Word) (leftFloor rightFloo
 
 --| `infixParsed` at the operator's own level.
 theorem infixParsedAt ∀ (left right: Expr) (operator: Word) (level leftFloor rightFloor: Nat)
-    (leftParsed: Parsed1 leftFloor left)
-    (rightParsed: Parsed1 rightFloor right)
+    (leftParsed: Parsed leftFloor left)
+    (rightParsed: Parsed rightFloor right)
     (spelled: (operatorTok operator.text).isSome = True)
     (needs: leftNeeds InfixBinary operator.text <= leftFloor)
     (allows: infixLevel InfixBinary operator.text <= rightFloor)
@@ -71,7 +78,7 @@ theorem infixParsedAt ∀ (left right: Expr) (operator: Word) (level leftFloor r
     (leftward: leftNeeds InfixBinary operator.text = infixLevel InfixBinary operator.text
       → infixLevel InfixBinary operator.text + 2 <= rightFloor)
     (own: infixLevel InfixBinary operator.text = level):
-    Parsed1 level (Infix InfixBinary left operator right) :=
+    Parsed level (Infix InfixBinary left operator right) :=
   rewrite <- own then
     infixParsed left right operator leftFloor rightFloor leftParsed rightParsed spelled needs allows compares leftward
 
@@ -80,16 +87,16 @@ def LeftLink (level: Nat) (link: (Word, Expr)): Prop :=
   (operatorTok link.fst.text).isSome = True
     ∧ leftNeeds InfixBinary link.fst.text = level
     ∧ infixLevel InfixBinary link.fst.text = level
-    ∧ Parsed1 (level + 2) link.snd
+    ∧ Parsed (level + 2) link.snd
 
 --| Folding links to the left keeps a tree parsed, at the links' level.
 --|
 --| Proof idea: by induction on the links; each link adds one `Infix` whose left operand is the tree so far, which is at
 --| the level the operator needs.
 theorem leftNestedParsed ∀ (level: Nat) (first: Expr) (links: List (Word, Expr))
-    (firstParsed: Parsed1 level first)
+    (firstParsed: Parsed level first)
     (linksParsed: List.All (LeftLink level) links):
-    Parsed1 level (leftNested first links) :=
+    Parsed level (leftNested first links) :=
   match links, linksParsed with
     | [], _ => firstParsed
     | [(operator, next), ..rest], (Both spelled (Both needs (Both own nextParsed)), restParsed) =>
@@ -113,15 +120,15 @@ def RightLink (level: Nat) (link: (Word, Expr)): Prop :=
   (operatorTok link.fst.text).isSome = True
     ∧ leftNeeds InfixBinary link.fst.text = level + 2
     ∧ infixLevel InfixBinary link.fst.text = level
-    ∧ Parsed1 (level + 2) link.snd
+    ∧ Parsed (level + 2) link.snd
 
 --| Folding links to the right keeps a tree parsed: its operands are at the next level up, the nested rest at this one.
 --| `high` keeps the level above a comparison's own (a comparison's right operand is read at 8).
 theorem rightNestedParsed ∀ (level: Nat) (first: Expr) (links: List (Word, Expr))
     (high: 7 <= level)
-    (firstParsed: Parsed1 (level + 2) first)
+    (firstParsed: Parsed (level + 2) first)
     (linksParsed: List.All (RightLink level) links):
-    Parsed1 level (rightNested first links) :=
+    Parsed level (rightNested first links) :=
   match links, linksParsed with
     | [], _ => parsedWeaken firstParsed (arithmetic)
     | [(operator, next), ..rest], (Both spelled (Both needs (Both own nextParsed)), restParsed) =>
@@ -245,9 +252,9 @@ theorem givesOperatorStep ∀ (modes: Modes) (takes: Tok → Bool) (operand: () 
     (link: (Word, Expr) → Prop)
     (linkOf: ∀ (item: Item) (value: Expr) => GoodItem item
       → takes item.kind = True
-      → Parsed1 floor value
+      → Parsed floor value
       → link (item.leaf.word, value))
-    (operandGives: Parse.Gives GoodItems operand (Parsed1 floor)):
+    (operandGives: Parse.Gives GoodItems operand (Parsed floor)):
     Parse.Gives GoodItems
       (() =>
         match modes.peek with
@@ -281,7 +288,7 @@ theorem leftLinkOf ∀ (takes: Tok → Bool) (level: Nat)
     (item: Item) (value: Expr)
     (good: GoodItem item)
     (took: takes item.kind = True)
-    (parsed: Parsed1 (level + 2) value):
+    (parsed: Parsed (level + 2) value):
     LeftLink level (item.leaf.word, value) :=
   let (symbolic, texts) := takesGood item.kind item.text took
   let within: item.kind.within1 = True := symbolicWithin item.kind symbolic
@@ -292,7 +299,7 @@ theorem leftLinkOf ∀ (takes: Tok → Bool) (level: Nat)
 theorem givesOperatorLinks ∀ (modes: Modes) (takes: Tok → Bool) (operand: () → {Parse Item} Expr) (level: Nat)
     (takesGood: ∀ (kind: Tok) (text: Text) => takes kind = True
       → kind.symbolic1 = True ∧ (Spells kind text → TextAt level level text))
-    (operandGives: Parse.Gives GoodItems operand (Parsed1 (level + 2))):
+    (operandGives: Parse.Gives GoodItems operand (Parsed (level + 2))):
     Parse.Gives GoodItems (() => operatorLinks modes takes operand) (List.All (LeftLink level)) :=
   Parse.givesLoop
     (givesOperatorStep modes takes operand (level + 2) (LeftLink level) (leftLinkOf takes level takesGood) operandGives)
@@ -301,9 +308,9 @@ theorem givesOperatorLinks ∀ (modes: Modes) (takes: Tok → Bool) (operand: ()
 theorem givesLeftChain ∀ (modes: Modes) (takes: Tok → Bool) (first operand: () → {Parse Item} Expr) (level: Nat)
     (takesGood: ∀ (kind: Tok) (text: Text) => takes kind = True
       → kind.symbolic1 = True ∧ (Spells kind text → TextAt level level text))
-    (firstGives: Parse.Gives GoodItems first (Parsed1 level))
-    (operandGives: Parse.Gives GoodItems operand (Parsed1 (level + 2))):
-    Parse.Gives GoodItems (() => leftNested (first()) (operatorLinks modes takes operand)) (Parsed1 level) :=
+    (firstGives: Parse.Gives GoodItems first (Parsed level))
+    (operandGives: Parse.Gives GoodItems operand (Parsed (level + 2))):
+    Parse.Gives GoodItems (() => leftNested (first()) (operatorLinks modes takes operand)) (Parsed level) :=
   Parse.givesThen firstGives (head headParsed =>
     Parse.givesThen (givesOperatorLinks modes takes operand level takesGood operandGives) (links linksParsed =>
       Parse.givesDone (leftNestedParsed level head links headParsed linksParsed)))
@@ -324,8 +331,8 @@ theorem addTakesGood ∀ (kind: Tok) (text: Text)
 
 --| `mul_expr`, from what `unary` gives.
 theorem givesMulExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
-    (unaryGives: Parse.Gives GoodItems (() => unary self modes) (Parsed1 18)):
-    Parse.Gives GoodItems (() => mulExpr self modes) (Parsed1 16) :=
+    (unaryGives: Parse.Gives GoodItems (() => unary self modes) (Parsed 18)):
+    Parse.Gives GoodItems (() => mulExpr self modes) (Parsed 16) :=
   givesLeftChain modes
     (kind => kind == Star || kind == Slash || kind == Percent)
     (() => unary self modes)
@@ -337,8 +344,8 @@ theorem givesMulExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 
 --| `add_expr`, from what `mul_expr` gives.
 theorem givesAddExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
-    (mulGives: Parse.Gives GoodItems (() => mulExpr self modes) (Parsed1 16)):
-    Parse.Gives GoodItems (() => addExpr self modes) (Parsed1 14) :=
+    (mulGives: Parse.Gives GoodItems (() => mulExpr self modes) (Parsed 16)):
+    Parse.Gives GoodItems (() => addExpr self modes) (Parsed 14) :=
   givesLeftChain modes
     (kind => kind == Plus || kind == Minus)
     (() => mulExpr self modes)
@@ -362,7 +369,7 @@ theorem rightLinkOf ∀ (takes: Tok → Bool) (level: Nat)
     (chosen: Item) (value: Expr)
     (good: GoodItem chosen)
     (took: takes chosen.kind = True)
-    (parsed: Parsed1 (level + 2) value):
+    (parsed: Parsed (level + 2) value):
     RightLink level (chosen.leaf.word, value) :=
   let (symbolic, texts) := takesGood chosen.kind chosen.text took
   let within: chosen.kind.within1 = True := symbolicWithin chosen.kind symbolic
@@ -374,8 +381,8 @@ theorem rightLinkOf ∀ (takes: Tok → Bool) (level: Nat)
 --| Proof idea: the links are read as `givesOperatorStep` reads any (an operator and its operand), then folded by
 --| `rightNestedParsed`.
 theorem givesAppendExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
-    (addGives: Parse.Gives GoodItems (() => addExpr self modes) (Parsed1 14)):
-    Parse.Gives GoodItems (() => appendExpr self modes) (Parsed1 12) :=
+    (addGives: Parse.Gives GoodItems (() => addExpr self modes) (Parsed 14)):
+    Parse.Gives GoodItems (() => appendExpr self modes) (Parsed 12) :=
   Parse.givesThen addGives (first firstParsed =>
     Parse.givesThen
       (Parse.givesLoop
@@ -465,9 +472,12 @@ theorem reads0StartsAtom ∀ (modes: Modes): Reads0 (() => startsAtom modes) :=
 
 -- Atoms and what follows them.
 
---| An expression outside slice 1 is parsed at every floor.
-theorem parsedOutside ∀ (floor: Nat) (expr: Expr) (outside: expr.within1 = False): Parsed1 floor expr := within =>
-  (Bool.falseNotTrue (rewrite outside at within)).impossible
+--| An expression outside slice 1 satisfies every in-slice spec.
+theorem inSliceOutside ∀ (holds: Expr → Prop) (expr: Expr) (outside: expr.within1 = False): InSlice holds expr :=
+  within => (Bool.falseNotTrue (rewrite outside at within)).impossible
+
+theorem parsedOutside ∀ (floor: Nat) (expr: Expr) (outside: expr.within1 = False): Parsed floor expr :=
+  inSliceOutside (expr => floor <= expr.level) expr outside
 
 theorem givesBump: Parse.Gives GoodItems (() => bump()) (word => True) :=
   Parse.givesThen
