@@ -26278,12 +26278,12 @@
     {
       "id": 4155,
       "title": "[Opus] fmt S1 rules: displace an item whose first token keeps a blank line (framedBy, Rules.sw:412: first.noted || (around.item && first.comments.blankBefore) || around.before), so blankItemHangs needs no BlankLined (SW-4153 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-4155",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Est. 60 min. Orchestrator's call (D3447-style: printed output unchanged, no narrowing): output must be byte-identical: check by printing the gate corpora and every slice 1 declaration in the repo before/after. Rust rule (crates/fmt rules.rs:399) is NOT changed (D3677 freeze). Touches SpellProofs, FinishProofs, HangProofs:1039, JoinProofs, HeldParenProofs, TouchProofs; after SW-4146 (parenAny). Then drop BlankLined from blankItemHangs. See SW-4153 report.",
+      "body": "Est. 60 min. Orchestrator's call (D3447-style: printed output unchanged, no narrowing): output must be byte-identical: check by printing the gate corpora and every slice 1 declaration in the repo before/after. Rust rule (crates/fmt rules.rs:399) is NOT changed (D3677 freeze). Touches SpellProofs, FinishProofs, HangProofs:1039, JoinProofs, HeldParenProofs, TouchProofs; after SW-4146 (parenAny). Then drop BlankLined from blankItemHangs. See SW-4153 report.\n\nLane notes (Opus, 19 Nov 2026, 10:34 to 11:28, branch lane/SW-4155, commit 47db5f59f; est. 60 min):\n- Rule: framedBy displaces when `Word.displaces` = `first.noted || (around.item && first.comments.blankBefore) || around.before` (was `first.noted || around.before`). No hoisted condition, as for noted: the hoisted form is displaced too, which is what blankItemHangs' hoistedHangs needs.\n- Byte-identical, doc1 and doc5a at widths 6..120 (8): gate corpora (gen.py 77-80 x noted/longnoted/legal/wild, each also blankified; hand + blankified hand; blank-mid.cases) 35 files, 6,500 decls: all same. tools/fmt/src: 160 of 164 files, 8,958 decls (6,294 with doc1, 8,848 with doc5a): all same; 4 Syntax proof files timed out at 90 s on both sides.\n- Proofs: blankPlacedAt one arm (linedDisplaced at any before); BlankLined, linedPlain, unconcatLays deleted; blankItemHangs/blankNodeAt/blankFramedAt/blankAnyHangs lose seatLined. Others switched to Word.displaces (+ displacesUnheld in HangProofs); CalmProofs.framedByKept splits on item, blankBefore.\n- check Fmt.TopStatements: 0 errors, same 7 goals. audit ElementsBlank 6/6; audit of the 10 edited namespaces: only ElementsProofs' open-goal failures (as main). MustAccept1 239/288 and Driver1 9/9, same as main.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
