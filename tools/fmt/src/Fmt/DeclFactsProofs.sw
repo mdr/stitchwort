@@ -269,18 +269,26 @@ theorem appDocsHug ∀ (kinds: Text → Tok) (head argument: Expr) (rest: List E
   let docs := argumentDocs around.inArm head (around.at + head.size) [argument, ..rest]
   let hug := (docs.snd.getOrElse (Nothing, None)).snd
   let trails := (lastArg argument rest).trails
-  let (fronted, chain, _, hugs) := argumentDocsHang kinds around.inArm head (around.at + head.size) argument rest facts
+  let (fronted, chain, _, hugs) :=
+    argumentDocsHang kinds around.inArm head
+      (around.at + head.size)
+      argument
+      rest
+      True
+      (never => (Bool.trueNotFalse never).impossible)
+      facts
   let frontSpaced: SpacedParts kinds indent head.trails fronted docs.fst :=
     chainedWeaker
-      (before middle doc => Hangs kinds before middle doc)
+      (ArgStep kinds True)
       (before middle doc => PartHangs kinds doc indent before middle)
       head.trails
       fronted
       docs.fst
-      (before middle doc hangs => elPart kinds doc indent before middle (hangs indent))
+      (before middle doc (noted, hangs, _) => partHangsFor kinds doc indent before middle noted (hangs indent))
       chain
   let hugged: ∀ (open: Doc) => hug = Some open → PartHangs kinds open indent fronted trails := open hugSame =>
-    elPart kinds open indent fronted trails (hugs open hugSame indent)
+    let (noted, hangs) := hugs open hugSame
+    partHangsFor kinds open indent fronted trails noted (hangs indent)
   let unfolded: (appFrom
     (around.at + 1)
     (keptFront head [argument, ..rest] + 1)

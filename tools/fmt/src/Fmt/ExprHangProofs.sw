@@ -25,7 +25,7 @@ import Syntax (Comments, Expr, InfixKind, Note, Tok, Word)
 import Fmt (..)
 import Fmt.HangProofs (..)
 import Fmt.MarkProofs (allKeysFrom, keysFrom)
-import Fmt.AppHangProofs (ArgsHang, Hangs, appElHangs, argAround, lastArg)
+import Fmt.AppHangProofs (ArgsHang, Hangs, HangsFor, appElHangs, argAround, lastArg)
 import Fmt.ChainHangProofs (
   GluesAt,
   HangsAt,
@@ -945,7 +945,11 @@ theorem argsHang ∀ (arm: Bool) (previous: Expr) (at: Nat) (arguments: List Exp
   match arguments with
     | [] => byComputing
     | [argument] =>
-      rewrite quietTrails argument (Bool.andLeft quiet) then
+      let unnoted: argument.noted = False :=
+        Eq.trans
+          (Eq.cong Word.noted (firstWordLead argument (Bool.andLeft within)))
+          (quietUnnoted argument (Bool.andLeft quiet))
+      rewrite quietTrails argument (Bool.andLeft quiet), unnoted then
         lastHangs argument
           (argAround arm previous at)
           previousQuiet
@@ -957,8 +961,13 @@ theorem argsHang ∀ (arm: Bool) (previous: Expr) (at: Nat) (arguments: List Exp
       let argumentQuiet := quietTrails argument (Bool.andLeft quiet)
       let facts :=
         leadFacts argument (Bool.andLeft within) (Bool.andLeft lexical) (quietLead argument (Bool.andLeft quiet)) keys
-      let first: Hangs lexKind previous.trails argument.trails (argument.el (argAround arm previous at)) :=
-        rewrite argumentQuiet then
+      let unnoted: argument.noted = False :=
+        Eq.trans
+          (Eq.cong Word.noted (firstWordLead argument (Bool.andLeft within)))
+          (quietUnnoted argument (Bool.andLeft quiet))
+      let first: HangsFor lexKind argument.noted previous.trails argument.trails
+        (argument.el (argAround arm previous at)) :=
+        rewrite argumentQuiet, unnoted then
           (inset =>
             leadHangsOf argument facts
               (argAround arm previous at)

@@ -26,8 +26,10 @@ import Fmt.CalmProofs (headerResultWithin)
 import Fmt.TreeJoinProofs (lexKind)
 import Fmt.TokenProofs (declRealOfLexical)
 import Fmt.DeclHangProofs (BodyLays, OnLine, atomDecl, declStart, plainBody)
-import Fmt.DeclFactsProofs (DeclElements, HugOnLine, leadNotCloser, notesOfWord, plainBodyEl, trailsOfSound)
-import Fmt.EdgeHangProofs (atomTrailsIs, codedLex, prefixTrails, trailsSwap)
+import Fmt.DeclFactsProofs (DeclElements, HugOnLine, appDocsHug, leadNotCloser, notesOfWord, plainBodyEl, trailsOfSound)
+import Fmt.EdgeHangProofs (atomTrailsIs, codedLex, lastLexical, lastWithin, prefixTrails, trailsSwap)
+import Fmt.AppHangProofs (ArgsHang, appElHangs, lastArg)
+import Fmt.TrailsProofs (appTrails)
 import Fmt.EdgeDeclProofs (edgeNotedNodeHangs)
 import Fmt.ElementsHomed (..)
 import Fmt.ToldWordProofs (..)
@@ -37,6 +39,7 @@ import Fmt.OneLineStatements (..)
 import Fmt.Driver1 (..)
 import Fmt.ElementsKeys (LedAt, anyKeys, ledItemHangs)
 import Fmt.ElementsBlank (BlankLined, blankItemHangs)
+import Fmt.ElementsApp (LastHangs, Led, argsLed, lastLed)
 
 -- The invariant.
 
@@ -277,7 +280,48 @@ theorem appAny ∀ (head: Expr) (arguments: List Expr)
     (headFacts: AnyFacts head)
     (argumentFacts: AllAnyFacts arguments):
     AnyFacts (App head arguments) :=
-  ?
+  match arguments, within with
+    | [], _ => ?
+    | [argument, ..rest], within =>
+      let code :=
+        codedLex
+          (lastArg argument rest)
+          (lastWithin argument rest (Bool.andRight within))
+          (lastLexical argument rest (Bool.andRight lexical))
+      let led: Led AnyFacts := expr around inset facts exprWithin exprLexical exprSound hoisted item =>
+        ledHangs expr around inset exprWithin exprLexical exprSound facts hoisted item
+      let hangs: ∀ (around: Around) => (App head [argument, ..rest]).plainAt around = True
+        → HangsAt lexKind around.before
+          (App head [argument, ..rest]).trails
+          ((App head [argument, ..rest]).el around) :=
+        around plain indent column =>
+          rewrite appTrails head argument rest code then
+            appElHangs lexKind head argument rest around indent column
+              (rewrite firstWordLead (App head [argument, ..rest]) within then
+                unledLeading (App head [argument, ..rest]).lead around around.at plain)
+              (inset seat =>
+                elUnheld lexKind
+                  (head.el { around | hoisted = True })
+                  inset
+                  seat
+                  around.before
+                  head.trails
+                  wordStart
+                  (anyHangsOf head headFacts { around | hoisted = True } byComputing inset seat))
+              (argsLed AnyFacts AllAnyFacts
+                (expr more both => both)
+                led
+                around.inArm
+                (previous at last held lastWithin lastLexical lastSound =>
+                  lastLed AnyFacts led around.inArm previous at last held lastWithin lastLexical lastSound (opens => ?))
+                head
+                (around.at + head.size)
+                [argument, ..rest]
+                (Bool.andRight within)
+                (Bool.andRight lexical)
+                (Bool.andRight sound)
+                argumentFacts)
+      (hangs, level first around plain => hangs around plain)
 
 --| A binary operator's chain (open): comments above and after any operand and after the operator.
 theorem binaryAny ∀ (left: Expr) (operator: Word) (right: Expr)
@@ -595,7 +639,52 @@ theorem anyHug ∀ (value: Expr) (around: Around)
     (sound: value.sound = True)
     (homed: value.homed1 = True):
     HugOnLine lexKind value around :=
-  ?
+  let inside := { around | hoisted = True }
+  match value, within with
+    | App head arguments, within => open same =>
+      match arguments, within, same with
+        | [], _, never => cases
+        | [argument, ..rest], within, same =>
+          let headFacts :=
+            anyFacts head (Bool.andLeft within) (Bool.andLeft lexical) (Bool.andLeft sound) (Bool.andLeft homed)
+          let led: Led AnyFacts := expr at inset facts exprWithin exprLexical exprSound hoisted item =>
+            ledHangs expr at inset exprWithin exprLexical exprSound facts hoisted item
+          let facts: ArgsHang lexKind inside.inArm head (inside.at + head.size) [argument, ..rest] :=
+            argsLed AnyFacts AllAnyFacts
+              (expr more both => both)
+              led
+              inside.inArm
+              (previous at last held lastWithin lastLexical lastSound =>
+                lastLed AnyFacts led inside.inArm previous at last held lastWithin lastLexical lastSound (opens => ?))
+              head
+              (inside.at + head.size)
+              [argument, ..rest]
+              (Bool.andRight within)
+              (Bool.andRight lexical)
+              (Bool.andRight sound)
+              (allAnyFacts
+                [argument, ..rest]
+                (Bool.andRight within)
+                (Bool.andRight lexical)
+                (Bool.andRight sound)
+                (Bool.andRight homed))
+          let headHangs: ElHangs lexKind (head.el inside) 0 0 False head.trails wordStart :=
+            elUnheld lexKind
+              (head.el inside)
+              0
+              0
+              inside.before
+              head.trails
+              wordStart
+              (anyHangsOf head headFacts inside byComputing 0 0)
+          ((lastArg argument rest).trails, appDocsHug lexKind head argument rest inside 0 0 headHangs facts open same)
+    | Atom _ _, _ => open never => cases
+    | Paren _ _ _, _ => open never => cases
+    | Tuple _ _ _ _, _ => open never => cases
+    | ListOf _ _ _ _, _ => open never => cases
+    | Infix InfixBinary _ _ _, _ => open never => cases
+    | Infix InfixArrow _ _ _, _ => open never => cases
+    | Prefix _ _, _ => open never => cases
 
 --| A slice 1 type hangs as `DeclElements` asks, where it stands in a declaration.
 theorem anyType ∀ (result: Expr) (before: Bool) (at: Nat) (inArm: Bool)
