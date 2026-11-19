@@ -118,6 +118,10 @@ pub struct Def {
     /// [`crate::check::mark_param_default`] while it is pending, for the
     /// helpers of the elaborator's parameter defaults; never hashed.
     pub(crate) param_default: bool,
+    /// Declared in the standard library (its [`Def::path`] starts `Std.`):
+    /// messages that name the definition being unfolded prefer one that
+    /// isn't. Never hashed.
+    pub(crate) std: bool,
     /// Declared `@[tailrec]` (docs/proposals/tailrec.md): the elaborator has
     /// checked that every recursive call is a tail call, and the JavaScript
     /// backend must make a loop of it. Set once, on a pending definition

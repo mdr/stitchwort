@@ -1464,7 +1464,7 @@ fn run(g: &Ev, mut control: Control) -> Result<Value> {
             }
             Control::Tree(node, env, stuck) => {
                 if let Some((id, ..)) = &stuck {
-                    g.machine.budget.enter_definition(id.0);
+                    g.machine.budget.enter_definition(id.0, g.env.def(*id).std);
                 }
                 let node = Term::strip_loc_rc(&node);
                 match &*node {
