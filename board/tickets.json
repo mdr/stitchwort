@@ -26748,12 +26748,12 @@
     {
       "id": 4190,
       "title": "[DeepSeek] par_map in crates/driver/src/driver.rs re-raises an item's panic without naming the item: take a label per item (file or example name) so project and accepted-example sweeps say which item panicked, as SW-4187 did for the reject examples; test it; mention the EXAMPLES= filter in docs/testing.md",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "Est. 20 min. SW-4187 finding.",
+      "body": "Est. 20 min. SW-4187 finding.\n\nModel result: DeepSeek, worked, 25 min (est. 20). Reviewed line by line.\n",
       "created": "2026-11-19",
       "updated": "2026-11-19",
       "commits": []
