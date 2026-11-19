@@ -779,18 +779,6 @@ theorem readsAtBumpAfter ∀ [start: Parse.Mark Item] [item: Item] [later: List 
     rewrite same then
       rest after (List.consInjective item later after.rest joined).flipped (Parse.Fits.after fine starts))
 
-theorem readsAtLeft ∀ (start: Parse.Mark Item):
-    Parse.ReadsAt start (() => left()) (read value => read = [] ∧ value = start.rest) :=
-  total state value after here honest h =>
-    let same: (state.at.rest, state.at) = (value, after) := Result.okInjective h
-    let valueSame: state.at.rest = value := Pair.mkInjectiveFst same
-    let atSame: state.at = after := Pair.mkInjectiveSnd same
-    let afterStart: after = start := Eq.trans atSame.flipped here
-    Witness []
-      (Both
-        (rewrite afterStart)
-        (Both (rewrite afterStart then honest) (Both byComputing (rewrite <- valueSame, here))))
-
 --| `left()` then `j` of the items left, from a mark; `j` is read from the mark after it, which has the same items.
 theorem readsAtAfterLeft ∀ [start: Parse.Mark Item] [j: List Item → {Parse Item} b] [spec: List Item → b → Prop]
     (fine: Parse.Fits Item GoodItems start.rest)
@@ -798,7 +786,7 @@ theorem readsAtAfterLeft ∀ [start: Parse.Mark Item] [j: List Item → {Parse I
       → Parse.Fits Item GoodItems after.rest
       → Parse.ReadsAt after (() => j start.rest) spec):
     Parse.ReadsAt start (() => j (left())) spec :=
-  Parse.readsAtThen (readsAtLeft start) (read value after starts (Both empty same) =>
+  Parse.readsAtThen (Parse.readsAtLeft start) (read value after starts (Both empty same) =>
     let tail: after.rest = start.rest := rewrite empty at starts then starts.flipped
     Parse.readsAtWeaken (rewrite same then rest after tail (Parse.Fits.after fine starts)) (taken result done =>
       rewrite empty then done))

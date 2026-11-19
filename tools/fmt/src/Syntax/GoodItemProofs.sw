@@ -383,14 +383,6 @@ theorem readsAtThenMoved ∀ [start: Parse.Mark Char] [p: () → {Parse Char} a]
                     (rewrite starts1, starts2, List.appendAssoc firstRead nextRead after.rest)
                     (Both honest2 holds2))
 
---| `k (Parse.mark())` from `start` is `k start`.
-theorem readsAtMark ∀ (k: Parse.Mark Char → {Parse Char} a) (spec: List Char → a → Prop) (start: Parse.Mark Char)
-    (each: Parse.ReadsAt start (() => k start) spec):
-    Parse.ReadsAt start (() => k (Parse.mark())) spec :=
-  total state value after here honest h =>
-    let ran: Parse.runFrom state (() => (k state.at, Parse.mark())) = Ok (value, after) := h
-    each total state value after here honest (rewrite <- here then ran)
-
 --| `next` of anything reads the first character left, if there is one.
 theorem readsAtNextAny ∀ (start: Parse.Mark Char):
     Parse.ReadsAt start (() => Parse.next (char => True)) (read v => read = start.rest.take 1) :=
@@ -456,13 +448,13 @@ theorem tokenOfText ∀ (source: Text) (kind: Tok) (count: Nat) (start: Parse.Ma
     Parse.ReadsAt start (() => tokenOf kind count) (read lexeme =>
       lexeme.value = TokenLexeme kind
         ∧ source.slice lexeme.offset (lexeme.offset + lexeme.length) = Text.fromList (start.rest.take count)) :=
-  readsAtMark
+  Parse.readsAtMark
     (from =>
       let skipped := skip count
       located (TokenLexeme kind) from) _
     start
     (readsAtThenMoved (readsAtSkip count start) (read u after starts moved taken =>
-      readsAtMark
+      Parse.readsAtMark
         (to => { value = TokenLexeme kind, offset = start.offset, length = to.offset - start.offset }) _
         after
         (Parse.readsAtDone after _ _
@@ -574,7 +566,7 @@ theorem givesLocated ∀ (value: Lexeme) (from: Parse.Mark Char):
 theorem readsAtLocated ∀ (value: Lexeme) (from start: Parse.Mark Char):
     Parse.ReadsAt start (() => located value from) (read lexeme =>
       lexeme = { value, offset = from.offset, length = start.offset - from.offset }) :=
-  readsAtMark
+  Parse.readsAtMark
     (to => { value, offset = from.offset, length = to.offset - from.offset }) _
     start
     (Parse.readsAtDone start _ _ byComputing)
@@ -612,7 +604,7 @@ theorem readsAtQualified ∀ (fuel: Nat) (upper: Bool) (found: Option Bool) (sta
   match fuel with
     | Zero => Parse.readsAtDone start found _ (Inl (Both byComputing byComputing))
     | Succ more =>
-      readsAtMark
+      Parse.readsAtMark
         (at => qualifiedOn more upper found at.rest) _
         start
         (readsAtQualifiedOn more upper found start start.rest byComputing)
@@ -1042,13 +1034,13 @@ theorem readsAtNumberTail ∀ (start: Parse.Mark Char): Parse.ReadsAt start (() 
       let exponent := exponentPart()
       fraction || exponent]
     [spec := NumberTail]
-    (readsAtMark fractionFrom _ start (readsAtFraction start))
+    (Parse.readsAtMark fractionFrom _ start (readsAtFraction start))
     (readF fraction after1 starts1 moved1 fractionRead =>
       readsAtThenMoved
         [p := () => exponentPart()]
         [j := exponent => fraction || exponent]
         [spec := read w => NumberTail (readF ++ read) w]
-        (readsAtMark exponentFrom _ after1 (readsAtExponent after1))
+        (Parse.readsAtMark exponentFrom _ after1 (readsAtExponent after1))
         (readE exponent after2 starts2 moved2 exponentRead =>
           match fractionRead, exponentRead with
             | Inl (noFraction, isFalse), Inl (noExponent, exponentFalse) =>
