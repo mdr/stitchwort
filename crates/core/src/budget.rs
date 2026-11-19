@@ -319,6 +319,10 @@ pub struct Budget {
     peak_frames: Cell<usize>,
     /// The definition whose case tree the reference evaluator last entered.
     entered: Cell<usize>,
+    /// The definition outside std last entered: what a message names in
+    /// preference to `entered`, since a std function (`List.length`
+    /// alternating with `replicate`) says nothing of what the user wrote.
+    entered_user: Cell<usize>,
     /// The definition last entered when the operation ran out of steps or
     /// frames, for whoever reports it ([`Budget::take_ran_out_in`]).
     ran_out_in: Cell<Option<usize>>,
@@ -365,6 +369,7 @@ impl Default for Budget {
             peak_readback: Cell::new(0),
             peak_frames: Cell::new(0),
             entered: Cell::new(usize::MAX),
+            entered_user: Cell::new(usize::MAX),
             ran_out_in: Cell::new(None),
             cancel: RefCell::new(None),
             watching: Cell::new(false),
@@ -462,12 +467,14 @@ impl Budget {
     /// message makes on the side, which may run out without saying so.
     pub fn aside<T>(&self, limits: Limits, f: impl FnOnce() -> T) -> T {
         let entered = self.entered.get();
+        let entered_user = self.entered_user.get();
         let ran_out_in = self.ran_out_in.get();
         let result = {
             let _attempt = self.attempt(limits);
             f()
         };
         self.entered.set(entered);
+        self.entered_user.set(entered_user);
         self.ran_out_in.set(ran_out_in);
         result
     }
@@ -506,6 +513,7 @@ impl Budget {
             out_of_stack: self.out_of_stack.replace(false),
         };
         self.entered.set(usize::MAX);
+        self.entered_user.set(usize::MAX);
         if self.cancel_requested() {
             self.exhausted.set(Some(ResourceError::Cancelled));
         }
@@ -877,15 +885,26 @@ impl Budget {
         stack_position() < self.stack_floor.get()
     }
 
-    /// The reference evaluator is entering definition `id`'s case tree.
+    /// The reference evaluator is entering definition `id`'s case tree;
+    /// `std` says it is from the standard library.
     #[inline]
-    pub fn enter_definition(&self, id: usize) {
+    pub fn enter_definition(&self, id: usize, std: bool) {
         self.entered.set(id);
+        if !std {
+            self.entered_user.set(id);
+        }
     }
 
-    /// The definition last entered, if any.
+    /// The definition last entered that isn't from std, or if the operation
+    /// has entered only std's, the last one; `None` if none.
     pub fn last_entered(&self) -> Option<usize> {
-        Some(self.entered.get()).filter(|id| *id != usize::MAX)
+        let user = self.entered_user.get();
+        Some(if user != usize::MAX {
+            user
+        } else {
+            self.entered.get()
+        })
+        .filter(|id| *id != usize::MAX)
     }
 
     /// Notes the definition last entered as where the operation ran out,
@@ -1243,7 +1262,7 @@ mod tests {
         };
         let _op = b.operation(limits);
         assert!(b.set_progress(Some(sink), 2 * POLL).is_none());
-        b.enter_definition(7);
+        b.enter_definition(7, false);
         assert_eq!(steps(&b, 9 * POLL as u32), Ok(()));
         assert_eq!(
             *told.borrow(),
