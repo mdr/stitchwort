@@ -938,7 +938,7 @@ impl crate::queue::Check for WaitingMatch {
         for s in &mut exprs {
             s.normal = None;
             s.ty = cx.eval(&cx.quote_folded(&s.ty)?)?;
-            s.ty_term = cx.quote_unfolded(&s.ty)?;
+            s.ty_term = cx.quote_or_written(&s.ty)?;
         }
         // Its own type, which it settles, is pending only for others.
         let own = match stitchwort_core::value::force(&g, goal.clone())? {
