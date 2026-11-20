@@ -286,8 +286,8 @@ theorem followsArguments ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (braces: BraceFollows self selfTwin) (modes: Modes):
     Parse.Follows SameCode (List.All2 ExprsAlike) (() => arguments self modes) (() => arguments selfTwin modes) :=
   Parse.followsLoop
-    (() => argumentStep self modes (startsAtom modes))
-    (() => argumentStep selfTwin modes (startsAtom modes))
+    [step := (() => argumentStep self modes (startsAtom modes))]
+    [stepTwin := (() => argumentStep selfTwin modes (startsAtom modes))]
     (followsThenEq (followsStartsAtom modes) (starts => followsArgumentStep knot braces modes starts))
 
 theorem followsAppliedTo ∀ [self selfTwin: Goal → {Parse Item} Expr]
@@ -430,7 +430,7 @@ theorem followsOperatorLinks ∀ (modes: Modes) (takes: Tok → Bool) (operand o
       (List.All2 (PairAlike WordsAlike ExprsAlike))
       (() => operatorLinks modes takes operand)
       (() => operatorLinks modes takes operandTwin) :=
-  Parse.followsLoop _ _
+  Parse.followsLoop
     (followsThenEq (followsPeek modes) (seen =>
       match seen with
         | Some kind =>
@@ -721,7 +721,7 @@ theorem followsChainLinks ∀ [self selfTwin: Goal → {Parse Item} Expr]
       (List.All2 (PairAlike WordsAlike ExprsAlike))
       (() => Syntax.chainLinks self modes descending)
       (() => Syntax.chainLinks selfTwin modes descending) :=
-  Parse.followsLoop _ _
+  Parse.followsLoop
     (followsPeeked modes
       (seen => chainOn self modes descending seen)
       (seen => chainOn selfTwin modes descending seen)
@@ -933,7 +933,7 @@ theorem followsLogicLinks ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: QuantifierFacts self selfTwin) (modes: Modes):
     Parse.Follows SameCode (List.All2 (PairAlike WordsAlike ExprsAlike)) (() => logicLinks self modes) (() =>
       logicLinks selfTwin modes) :=
-  Parse.followsLoop _ _
+  Parse.followsLoop
     (followsPeeked modes (seen => logicOn self modes seen) (seen => logicOn selfTwin modes seen) (seen =>
       followsLogicOn facts modes seen))
 

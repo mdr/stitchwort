@@ -317,7 +317,7 @@ theorem Parse.followsLoopFrom ∀ [same: t → u → Prop] [alike: a → b → P
 --| alike one by one (`List.All2 alike`). Both loops are given the same fuel,
 --| the items left, because the marks they start from are alike.
 theorem Parse.followsLoop ∀ [same: t → u → Prop] [alike: a → b → Prop]
-    (step: () → {Parse t} Option a) (stepTwin: () → {Parse u} Option b)
+    [step: () → {Parse t} Option a] [stepTwin: () → {Parse u} Option b]
     (steps: Parse.Follows same (Option.Alike alike) step stepTwin):
     Parse.Follows same (List.All2 alike) (() => Parse.loop step) (() => Parse.loop stepTwin) :=
   Parse.followsWithMark

@@ -271,7 +271,7 @@ theorem followsAttributePart ∀ (modes: Modes) (dot: Bool):
 theorem followsAttributeParts ∀ (modes: Modes):
     Parse.Follows SameCode (List.All2 (PairAlike Anything WordsAlike)) (() => attributeParts modes) (() =>
       attributeParts modes) :=
-  Parse.followsLoop _ _ (followsThenEq (followsAt modes Dot) (dot => followsAttributePart modes dot))
+  Parse.followsLoop (followsThenEq (followsAt modes Dot) (dot => followsAttributePart modes dot))
 
 def AttributeItemsFollow (modes: Modes) (fuel: Nat): Prop :=
   ∀ (found twin: List Attribute) => List.All2 AttributeAlike found twin
@@ -374,7 +374,7 @@ theorem followsAttributeGroupStep ∀ (modes: Modes):
 theorem followsAttributeGroups ∀ (modes: Modes):
     Parse.Follows SameCode (List.All2 AttributeGroupAlike) (() => attributeGroups modes) (() =>
       attributeGroups modes) :=
-  Parse.followsLoop _ _ (followsAttributeGroupStep modes)
+  Parse.followsLoop (followsAttributeGroupStep modes)
 
 theorem followsAttributesOf ∀ (modes: Modes):
     Parse.Follows SameCode (List.All2 AttributeGroupAlike) (() => attributesOf modes) (() => attributesOf modes) :=
@@ -496,7 +496,7 @@ theorem followsParamNameStep ∀ (modes: Modes) (atLower: Bool):
 
 theorem followsParamNames ∀ (modes: Modes):
     Parse.Follows SameCode (List.All2 WordsAlike) (() => paramNames modes) (() => paramNames modes) :=
-  Parse.followsLoop _ _ (followsThenEq (followsAt modes Lower) (atLower => followsParamNameStep modes atLower))
+  Parse.followsLoop (followsThenEq (followsAt modes Lower) (atLower => followsParamNameStep modes atLower))
 
 theorem followsLowerNameStep ∀ (modes: Modes) (atLower: Bool):
     Parse.Follows SameCode (Option.Alike WordsAlike) (() => lowerNameStep modes atLower) (() =>
@@ -508,7 +508,7 @@ theorem followsLowerNameStep ∀ (modes: Modes) (atLower: Bool):
 
 theorem followsLowerNames ∀ (modes: Modes):
     Parse.Follows SameCode (List.All2 WordsAlike) (() => lowerNames modes) (() => lowerNames modes) :=
-  Parse.followsLoop _ _ (followsThenEq (followsAt modes Lower) (atLower => followsLowerNameStep modes atLower))
+  Parse.followsLoop (followsThenEq (followsAt modes Lower) (atLower => followsLowerNameStep modes atLower))
 
 -- A binder's type.
 
@@ -1571,7 +1571,7 @@ theorem followsHeaderParams ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):
     Parse.Follows SameCode (List.All2 GroupsAlike) (() => headerParams self modes) (() =>
       headerParams selfTwin modes) :=
-  Parse.followsLoop _ _ (followsThenEq (followsAt modes Colon) (atColon => followsHeaderParamStep knot modes atColon))
+  Parse.followsLoop (followsThenEq (followsAt modes Colon) (atColon => followsHeaderParamStep knot modes atColon))
 
 -- The clauses after the result type.
 
@@ -1867,7 +1867,7 @@ theorem followsDefinitionArmsFrom ∀ [self selfTwin: Goal → {Parse Item} Expr
     (alts: AltPatternFollows) (modes: Modes) (d: Nat):
     Parse.Follows SameCode (List.All2 ArmAlike) (() => definitionArmsFrom self modes d) (() =>
       definitionArmsFrom selfTwin modes d) :=
-  Parse.followsLoop _ _
+  Parse.followsLoop
     (followsOn
       (items => definitionArmStep self modes d (modes.limit.getOrElse 0) items)
       (items => definitionArmStep selfTwin modes d (modes.limit.getOrElse 0) items)
@@ -3251,8 +3251,7 @@ theorem followsConstructorsAt ∀ (rule: ExpressionRule) (modes: Modes) (atBar: 
     Parse.Follows SameCode (List.All2 ConstructorAlike) (() => constructorsAt modes atBar) (() =>
       constructorsAt modes atBar) :=
   match atBar with
-    | True =>
-      Parse.followsLoop _ _ (followsThenEq (followsAt modes Pipe) (bar => followsConstructorStep rule modes bar))
+    | True => Parse.followsLoop (followsThenEq (followsAt modes Pipe) (bar => followsConstructorStep rule modes bar))
     | False => followsFail modes "`|` and a constructor, or `{` and a record's fields" (() =>
       modes.fail "`|` and a constructor, or `{` and a record's fields")
 
@@ -3327,8 +3326,7 @@ theorem followsDataParamStep ∀ (rule: ExpressionRule) (modes: Modes) (word: Te
 theorem followsDataParams ∀ (rule: ExpressionRule) (modes: Modes) (word: Text) (name nameTwin: Word):
     Parse.Follows SameCode (List.All2 GroupsAlike) (() => dataParams modes word name) (() =>
       dataParams modes word nameTwin) :=
-  Parse.followsLoop _ _
-    (followsThenEq (followsAt modes LParen) (atParen => followsDataParamStep rule modes word atParen))
+  Parse.followsLoop (followsThenEq (followsAt modes LParen) (atParen => followsDataParamStep rule modes word atParen))
 
 def IndicesFollow (modes: Modes) (fuel: Nat): Prop :=
   ∀ (found twins: List (Index, Word)) => List.All2 IndexStepAlike found twins
@@ -3693,7 +3691,7 @@ theorem followsOperations ∀ (rule: ExpressionRule) (modes: Modes) (column: Nat
       (rest => [first, ..rest])
       (rest => [firstTwin, ..rest])
       (rest restTwin rests => Both firsts rests)
-      (Parse.followsLoop _ _
+      (Parse.followsLoop
         (followsOn
           (items => operationNext modes column items)
           (items => operationNext modes column items)
@@ -3713,7 +3711,7 @@ theorem followsAbilityParamStep ∀ (rule: ExpressionRule) (modes: Modes) (atPar
 
 theorem followsAbilityParams ∀ (rule: ExpressionRule) (modes: Modes):
     Parse.Follows SameCode (List.All2 GroupsAlike) (() => abilityParams modes) (() => abilityParams modes) :=
-  Parse.followsLoop _ _ (followsThenEq (followsAt modes LParen) (atParen => followsAbilityParamStep rule modes atParen))
+  Parse.followsLoop (followsThenEq (followsAt modes LParen) (atParen => followsAbilityParamStep rule modes atParen))
 
 theorem followsAbilityOn ∀ (rule: ExpressionRule) (modes: Modes) (keyword keywordTwin: Comments) (name nameTwin: Word)
     (names: WordsAlike name nameTwin) (params paramsTwin: List Group)
