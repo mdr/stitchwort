@@ -29215,12 +29215,12 @@
     {
       "id": 4377,
       "title": "[Sonnet] Walk: check --only must load the @[walk] lemmas a walk uses (no declaration names them, so --only fails where a full check passes); before W4 (SW-4354 follow-up 1)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Lane note: fixed on lane/SW-4377 (847c56d49). plan_theorems keeps every @[walk*] theorem of the namespaces up to a kept decl containing a walk (WALK_MARKER ref); CLI test check_only_keeps_the_walk_lemmas_a_walk_uses.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
