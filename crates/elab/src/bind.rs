@@ -92,11 +92,11 @@ pub(crate) fn bind_argument(
             Err(e) if crate::undo::fatal(&e) => return Err(e),
             Err(_) => return Ok(None),
         };
-        let ty_term = cx.quote(&ty)?;
+        let ty_term = cx.quote_unfolded(&ty)?;
         if ty_term.mentions(0) {
             return Ok(None);
         }
-        let whole_term = cx.quote(&whole(cx, &ty)?)?;
+        let whole_term = cx.quote_unfolded(&whole(cx, &ty)?)?;
         if whole_term.mentions(0) {
             return Ok(None);
         }

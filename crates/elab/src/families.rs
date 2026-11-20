@@ -218,7 +218,7 @@ impl Elaborator {
                 return Err(wrong(cx, &value));
             }
         }
-        args[np..].iter().map(|a| cx.quote(a)).collect()
+        args[np..].iter().map(|a| cx.quote_or_written(a)).collect()
     }
 
     /// For a constructor that failed with its automatic fields at the front:

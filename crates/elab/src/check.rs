@@ -720,11 +720,17 @@ impl<'e> Ctx<'e> {
     /// Unfolded read-back, which runs out (E-RESOURCE size) where a user's
     /// hypothesis or goal unfolds past the limit: callers that only need a
     /// convertible term use [`Ctx::quote_or_written`] (SW-4336).
-    pub fn quote(&self, value: &Value) -> Result<Term> {
+    pub fn quote_unfolded(&self, value: &Value) -> Result<Term> {
         Ok(quote_unfolded(&self.g(), self.level(), value)?)
     }
 
-    /// [`Ctx::quote`], or the value as written ([`quote_or_written`]) where
+    /// Read-back of a small internal term (a builtin's type, a test value)
+    /// that cannot be a user's hypothesis or goal ([`quote_internal`]).
+    pub fn quote_internal(&self, value: &Value) -> Result<Term> {
+        Ok(quote_internal(&self.g(), self.level(), value)?)
+    }
+
+    /// [`Ctx::quote_unfolded`], or the value as written ([`quote_or_written`]) where
     /// it is too large to read back unfolded: for a term the elaboration
     /// keeps, such as the type an equation is at, when a user's hypothesis
     /// or goal makes the unfolding huge (SW-4237).
@@ -732,7 +738,7 @@ impl<'e> Ctx<'e> {
         Ok(quote_or_written(&self.g(), self.level(), value)?.0)
     }
 
-    /// [`Ctx::quote`] for a note in a message, or `None` past
+    /// [`Ctx::quote_unfolded`] for a note in a message, or `None` past
     /// [`UNFOLD_NODES`] nodes: `Parse.exactly 2^128 p` unfolds 2^128 levels
     /// deep, and a note does without a side that big (SW-2580).
     pub fn quote_for_note(&self, value: &Value) -> Option<Term> {
@@ -764,7 +770,7 @@ impl<'e> Ctx<'e> {
             .flatten()
     }
 
-    /// [`Ctx::quote`] with calls written as calls, not their unfoldings
+    /// [`Ctx::quote_unfolded`] with calls written as calls, not their unfoldings
     /// (`value::quote_folded`): for terms the elaboration produces, such as
     /// annotations and helper types. A value too large to write out that
     /// way is written as written instead ([`quote_folded`]).
@@ -3426,7 +3432,7 @@ fn inferred_row(cx: &Ctx) -> Result<(Term, Value)> {
 fn inferred_comp(cx: &Ctx, row: &Value, result: Term) -> Result<Term> {
     let comp_in = builtin_def(cx, Builtin::CompIn)?;
     Ok(Term::app(
-        Term::app(Term::Def(comp_in), cx.quote(row)?),
+        Term::app(Term::Def(comp_in), cx.quote_or_written(row)?),
         result,
     ))
 }

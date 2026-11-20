@@ -503,7 +503,7 @@ fn queue_item(
     let literal = check.literal();
     let closed = literal.is_some()
         && (matches!(&ty, Value::Neutral(Head::Meta(_), spine) if spine.is_empty()) || {
-            let t = cx.quote(&ty)?;
+            let t = cx.quote_unfolded(&ty)?;
             (0..cx.level()).all(|i| !t.mentions(i))
         });
     let placeholder = if closed {
@@ -2439,7 +2439,9 @@ mod tests {
         let (blocker, needs) = unknown(&cx);
         let placeholder = push(&cx, probe("a", &log, Term::Def(two)), needs);
         // Solved first, with `S (S Z)`.
-        let unfolded = cx.quote(&cx.eval(&Term::Def(two)).unwrap()).unwrap();
+        let unfolded = cx
+            .quote_internal(&cx.eval(&Term::Def(two)).unwrap())
+            .unwrap();
         assert!(!matches!(unfolded.strip_loc(), Term::Def(_)));
         let solved = cx.eval(&placeholder).unwrap();
         let value = cx.eval(&unfolded).unwrap();
@@ -2561,7 +2563,7 @@ mod tests {
         let mut cx = Ctx::new(&e, span());
         let log = Log::default();
         let (blocker, placeholder) = waiting_item(&cx, &log, Term::Def(two));
-        let ph = cx.quote(&placeholder).unwrap();
+        let ph = cx.quote_internal(&placeholder).unwrap();
         let zero = Term::ctor(n, 0, Vec::new());
         let stuck = Term::app(Term::app(Term::Def(pred), ph), zero.clone());
         let stuck = cx.eval(&stuck).unwrap();

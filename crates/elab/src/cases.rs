@@ -1121,7 +1121,7 @@ fn bool_clash(cx: &mut Ctx, goal: &Value, levels: &[usize]) -> Result<Option<Ter
         let body = Term::Eq(bool_ty(), Rc::new(Term::Var(1)), Rc::new(c));
         Term::J(Rc::new(motive(body)), Rc::new(Term::Refl), Rc::new(h))
     };
-    let e_term = cx.quote(&e)?;
+    let e_term = cx.quote_or_written(&e)?;
     let h_true = turned(var(t_level), ctor(tru), t_left);
     let h_false = turned(var(f_level), ctor(fls), f_left);
     let e_under = e_term.shift(&g, 2, 0)?;
@@ -1293,7 +1293,7 @@ pub(crate) fn is_proposition(cx: &Ctx, goal: &Value) -> Result<bool> {
         Value::Eq(..) => true,
         Value::Data(d, _) => g.data(d).sort() == Sort::Prop,
         other => {
-            let term = cx.quote(&other)?;
+            let term = cx.quote_unfolded(&other)?;
             let mut kcx = crate::rewrite::kernel_context(cx)?;
             match crate::kernel::without_glue(&g, || crate::kernel::infer(&mut kcx, &term)) {
                 Ok((_, ty)) => matches!(force(&g, ty)?, Value::Sort(Sort::Prop)),
@@ -1371,7 +1371,7 @@ fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
             unreachable!("a constructor")
         };
         // `case y of C … fi … => fi | _ => a`, under each branch's fields.
-        let a_term = cx.quote(&a)?;
+        let a_term = cx.quote_or_written(&a)?;
         let mut branches = Vec::new();
         for (k, ctor) in data.ctors().iter().enumerate() {
             let fields = ctor.fields.len();
@@ -1396,7 +1396,7 @@ fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
             unreachable!("a lambda")
         };
         let motive_body = Term::Eq(
-            Some(Rc::new(cx.quote(&field_ty)?.shift(&g, 2, 0)?)),
+            Some(Rc::new(cx.quote_or_written(&field_ty)?.shift(&g, 2, 0)?)),
             Rc::new(a_term.shift(&g, 2, 0)?),
             call.clone(),
         );
@@ -1410,7 +1410,7 @@ fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
             Rc::new(Term::Refl),
             Rc::new(Term::Var(cx.level() - 1 - level)),
         );
-        let fact_term = cx.quote(&fact)?;
+        let fact_term = cx.quote_or_written(&fact)?;
         run.facts.set(run.facts.get() + 1);
         let name = format!("{FACT}{}", run.facts.get());
         run.injected.borrow_mut().push(Name::from(name.as_str()));
@@ -1730,7 +1730,7 @@ fn apply_guarded(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Ter
             Some(k) => at(k),
         };
         let proof = Term::app(at(level), premise);
-        let fact_term = cx.quote(&fact)?;
+        let fact_term = cx.quote_or_written(&fact)?;
         run.facts.set(run.facts.get() + 1);
         let name = format!("{FACT}{}", run.facts.get());
         lets.push((Name::from(name.as_str()), fact_term.clone(), proof.clone()));
@@ -2758,9 +2758,9 @@ fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value, fallback: boo
     let term = cx.quote_folded(&atom.value)?;
     let holds = g.env.registry().def(Builtin::Holds);
     let term = match term.spine().0 {
-        Term::Def(id) if Some(*id) == holds => cx.quote(&atom.value)?,
+        Term::Def(id) if Some(*id) == holds => cx.quote_unfolded(&atom.value)?,
         Term::Proj(d, 0, _) if g.env.registry().data(Builtin::Decidable) == Some(*d) => {
-            cx.quote(&atom.value)?
+            cx.quote_unfolded(&atom.value)?
         }
         _ => term,
     };

@@ -2715,7 +2715,7 @@ impl Elaborator {
             for (i, b) in d.binders.iter().enumerate() {
                 let ty = eval(&cx.g(), &cx.env[1..], &b.ty)?;
                 if let Some(value) = &d.special[i] {
-                    let ty_term = cx.quote(&ty)?;
+                    let ty_term = cx.quote_or_written(&ty)?;
                     cx.define(
                         Some(&d.names[i]),
                         b.name.clone(),
@@ -6166,7 +6166,7 @@ impl Elaborator {
             for (i, b) in d.binders.iter().enumerate() {
                 let ty = eval(&cx.g(), &cx.env[1..], &b.ty)?;
                 if let Some(value) = &d.special[i] {
-                    let ty_term = cx.quote(&ty)?;
+                    let ty_term = cx.quote_or_written(&ty)?;
                     cx.define(
                         Some(&d.names[i]),
                         b.name.clone(),

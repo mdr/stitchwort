@@ -528,7 +528,7 @@ pub(crate) fn construct(
                 },
             };
             if given(i).is_some() && needed.contains(&i) && !simple(&term) {
-                let ty_term = cx.quote(&ty)?;
+                let ty_term = cx.quote_or_written(&ty)?;
                 let level = cx.level();
                 cx.define(
                     None,
@@ -592,7 +592,7 @@ fn call(
     let mut term = Term::Def(default.helper);
     for &l in &default.captures {
         let arg = if l < np {
-            cx.quote(&env[l])?
+            cx.quote_or_written(&env[l])?
         } else {
             let (t, at) = &terms[l - np];
             t.shift(&g, cx.level() - at, 0)?
@@ -1233,7 +1233,7 @@ pub(crate) fn local_defaults(
     };
     let prefix = args.len();
     let base = cx.level();
-    let ty = cx.quote(head_ty)?;
+    let ty = cx.quote_unfolded(head_ty)?;
     let telescope = telescope(&ty);
     let header = front + defaults.len();
     if telescope.len() < header {

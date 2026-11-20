@@ -323,7 +323,9 @@ fn search(
     // anything is solved ([`todays_instance`]): unless the unfolded goal
     // has an unknown the search as written could solve, after it.
     let unfolded = match unfolded {
-        Some(found) if mode == Mode::Complete && equation.open(&cx.quote(&equation.lhs)?) => {
+        Some(found)
+            if mode == Mode::Complete && equation.open(&cx.quote_unfolded(&equation.lhs)?) =>
+        {
             Some(found)
         }
         _ => None,
@@ -445,7 +447,7 @@ fn search_with(
     let todays = match todays {
         Todays::Before(todays) => todays,
         Todays::After(value, term) => {
-            let lhs = cx.quote(&equation.lhs)?;
+            let lhs = cx.quote_unfolded(&equation.lhs)?;
             if has_meta(&lhs) {
                 return Ok(None);
             }
@@ -460,7 +462,7 @@ fn search_with(
         }
     };
     if let Some(todays) = &todays
-        && !same(todays, &cx.quote(&equation.lhs)?)
+        && !same(todays, &cx.quote_unfolded(&equation.lhs)?)
     {
         return Ok(Some((Outcome::Incomplete, None)));
     }
@@ -524,8 +526,8 @@ fn hidden_copy_in(
     let g = cx.g();
     // The left side first: where it is too large to read back, the check
     // can't be made, and the goal's unfolding, often as large, isn't built.
-    let lhs_term = cx.quote(&equation.lhs)?;
-    let unfolded = cx.quote(&cx.eval(motive)?)?;
+    let lhs_term = cx.quote_unfolded(&equation.lhs)?;
+    let unfolded = cx.quote_unfolded(&cx.eval(motive)?)?;
     let Some(key) = key(&lhs_term, 0) else {
         // Nothing to compare by: don't trust the as-written result.
         return Ok(true);
@@ -589,7 +591,7 @@ fn todays_instance(
     )
     .and_then(|replaced| {
         if replaced.step.is_some() {
-            cx.quote(&equation.lhs).map(Some)
+            cx.quote_unfolded(&equation.lhs).map(Some)
         } else {
             Ok(None)
         }

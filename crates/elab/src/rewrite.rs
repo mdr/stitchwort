@@ -698,7 +698,7 @@ fn discharge(
             continue;
         }
         // Read again, so what matching solved is in it (and computes).
-        let ty = force(&g, cx.eval(&cx.quote(&premise.ty)?)?)?;
+        let ty = force(&g, cx.eval(&cx.quote_unfolded(&premise.ty)?)?)?;
         // An unknown type is nothing to look for.
         if matches!(ty, Value::Neutral(Head::Meta(_), _)) || !is_proof_type(cx, &ty)? {
             continue;
@@ -835,7 +835,7 @@ fn unproved_premise(
     } else {
         error
     };
-    let unknown = cx.quote(&premise.ty).is_ok_and(|t| {
+    let unknown = cx.quote_unfolded(&premise.ty).is_ok_and(|t| {
         t.subterms()
             .any(|(t, _)| matches!(t, Term::Meta(m) if *m >= rule_metas))
     });
@@ -882,7 +882,7 @@ fn rewrite_once(
     let goal_value = force(&g, goal.clone())?;
     let read_back = match repeated.and_then(|r| r.computed) {
         Some(term) => Ok(term.clone()),
-        None => cx.quote(&goal_value),
+        None => cx.quote_unfolded(&goal_value),
     };
     let mut goal_term = match read_back {
         Ok(term) => term,
@@ -901,11 +901,11 @@ fn rewrite_once(
     // is replaced, which only shows once it is found.
     let pending = pending_metas(&goal_term);
     if !pending.is_empty() && cx.e.prove_now(&|m| pending.contains(&m))? {
-        goal_term = cx.quote(&goal_value)?;
+        goal_term = cx.quote_unfolded(&goal_value)?;
     }
     let before = Snapshot::take(cx);
     let mut equation = elaborate_rule(cx, rule, place)?;
-    let lhs_term = cx.quote(&equation.lhs)?;
+    let lhs_term = cx.quote_unfolded(&equation.lhs)?;
     let Some(key) = key(&lhs_term, 0) else {
         return Err(waiting_head(cx, &lhs_term)?
             .unwrap_or_else(|| unknown_head(rule, place, &equation.premises)));
@@ -951,7 +951,7 @@ fn rewrite_once(
         stats.add(&replaced.stats);
         if let Some(step) = replaced.step {
             current = step.goal.clone();
-            current_term = cx.quote(&current)?;
+            current_term = cx.quote_unfolded(&current)?;
             steps.push(step);
         }
     }
@@ -1147,7 +1147,7 @@ fn unconfirmed(
 fn replaced_by_match(cx: &Ctx, lhs: &Value, place: Place, error: Diagnostic) -> Diagnostic {
     let g = cx.g();
     let level = cx.level();
-    let Ok(lhs_term) = cx.quote(lhs) else {
+    let Ok(lhs_term) = cx.quote_unfolded(lhs) else {
         return error;
     };
     for (base, needle, span, var, _) in cx.scrutinees.iter().rev() {
@@ -1252,8 +1252,8 @@ fn replace_occurrences(
 fn shown_after(cx: &Ctx, before: &Value, equation: &Equation, after: &Value) -> Option<Value> {
     let g = cx.g();
     let shown = stitchwort_core::value::quote_shown(&g, cx.level(), before).ok()?;
-    let lhs = cx.quote(&equation.lhs).ok()?;
-    let rhs = cx.quote(&equation.rhs).ok()?;
+    let lhs = cx.quote_unfolded(&equation.lhs).ok()?;
+    let rhs = cx.quote_unfolded(&equation.rhs).ok()?;
     let replaced = replace_with(
         &g,
         &shown,
@@ -1288,7 +1288,7 @@ pub(super) enum Reading {
 impl Reading {
     fn quote(self, cx: &Ctx, value: &Value) -> Result<Term> {
         match self {
-            Reading::Unfolded => cx.quote(value),
+            Reading::Unfolded => cx.quote_unfolded(value),
             Reading::Folded => cx.quote_folded(value),
             Reading::AsWritten => Ok(stitchwort_core::value::quote_as_written(
                 &cx.g(),
@@ -1539,7 +1539,7 @@ fn replace_occurrences_carrying(
     if open && found.conversions > 0 {
         let refreshed = goal_with(crate::interfaces::refresh(cx, &equation.rhs)?)?;
         if same(&cx.quote_folded(&refreshed)?, &cx.quote_folded(&next)?)
-            && same(&cx.quote(&refreshed)?, &cx.quote(&next)?)
+            && same(&cx.quote_unfolded(&refreshed)?, &cx.quote_unfolded(&next)?)
         {
             next = refreshed;
         }
@@ -1579,7 +1579,7 @@ fn replace_solving_instances(
     let replaced = replace_occurrences(
         cx, rule, place, equation, goal, shape, recent, false, remaining,
     )?;
-    if replaced.step.is_some() || !equation.open(&cx.quote(&equation.lhs)?) {
+    if replaced.step.is_some() || !equation.open(&cx.quote_unfolded(&equation.lhs)?) {
         return Ok(replaced);
     }
     let attempt = Snapshot::take(cx);
@@ -1717,7 +1717,7 @@ fn carried_equation(
     let equation = match place {
         Place::Target(_) | Place::Inside => q,
         Place::Goal => {
-            let rhs = cx.quote(&equation.rhs)?;
+            let rhs = cx.quote_unfolded(&equation.rhs)?;
             let to_rhs = carry.sym(&g, &rhs, equation.to_lhs.clone())?;
             carry.then(&g, &lhs.shift(&g, 2, 0)?, to_rhs.shift(&g, 2, 0)?, q)?
         }
@@ -2061,7 +2061,7 @@ fn has_carrier(cx: &Ctx, kcx: &mut kernel::Ctx, term: &Term, carrier: &Value) ->
         Err(_) => {}
     }
     let unsolved = |t: &Term| t.subterms().any(|(t, _)| matches!(t, Term::Meta(_)));
-    let carrier_term = cx.quote(carrier)?;
+    let carrier_term = cx.quote_unfolded(carrier)?;
     if unsolved(term) || unsolved(&carrier_term) {
         return Ok(true);
     }
@@ -2272,7 +2272,7 @@ fn round_trip_awaiting_helpers(
     proof: &Value,
     goal: &Value,
 ) -> Result<bool> {
-    if !crate::lift::mentions_draft(cx, &cx.quote(lhs)?) {
+    if !crate::lift::mentions_draft(cx, &cx.quote_unfolded(lhs)?) {
         return Ok(false);
     }
     let g = cx.g();
@@ -2350,7 +2350,7 @@ fn folded(cx: &Ctx, value: &Value) -> Option<Term> {
 /// A value for a message, as [`written`], as it computes: what the search
 /// compares (D484).
 fn shown_computed(cx: &Ctx, value: &Value) -> String {
-    match cx.quote(value) {
+    match cx.quote_unfolded(value) {
         Ok(term) => written(cx, &term),
         Err(_) => "…".into(),
     }
@@ -2510,8 +2510,8 @@ fn other_direction_rewrites(
     let mut remaining = search_budget(cx);
     let outcome = (|| -> Result<bool> {
         let equation = elaborate_rule(cx, &flipped, place)?;
-        let term = cx.quote(goal)?;
-        let lhs_term = cx.quote(&equation.lhs)?;
+        let term = cx.quote_unfolded(goal)?;
+        let lhs_term = cx.quote_unfolded(&equation.lhs)?;
         let Some(computed) = key(&lhs_term, 0) else {
             return Ok(false);
         };
@@ -2693,7 +2693,7 @@ fn nothing_found(
         }
     }
     // The pattern may be inside the body of an opaque definition in the goal.
-    if let (Some(pattern), Ok(goal_term)) = (folded(cx, lhs), cx.quote(goal)) {
+    if let (Some(pattern), Ok(goal_term)) = (folded(cx, lhs), cx.quote_unfolded(goal)) {
         let ids = crate::opaque::declined_holding(&cx.g(), &[goal_term], &pattern);
         for note in crate::opaque::opaque_notes(cx.e, &ids) {
             error = error.with_note(note);
@@ -2705,7 +2705,7 @@ fn nothing_found(
 /// The name of the latest variable in scope whose type has `lhs` in it, as
 /// it computes, other than the variable the rule applies.
 fn hypothesis_holding(cx: &Ctx, rule: &RewriteRule, lhs: &Value) -> Option<String> {
-    let needle = cx.quote(lhs).ok()?;
+    let needle = cx.quote_unfolded(lhs).ok()?;
     let mut head = &rule.proof;
     while let Expr::App(function, _) = head {
         head = function;
@@ -2719,7 +2719,7 @@ fn hypothesis_holding(cx: &Ctx, rule: &RewriteRule, lhs: &Value) -> Option<Strin
             return None;
         }
         let name = cx.name_of_level(level)?;
-        let ty = cx.quote(&cx.types[level]).ok()?;
+        let ty = cx.quote_unfolded(&cx.types[level]).ok()?;
         crate::matching::occurs(&needle, &ty).then(|| name.to_string())
     })
 }

@@ -329,7 +329,7 @@ fn flipped(cx: &Ctx, lib: &Lib, sort: Sort, h: Hyp) -> Result<Hyp> {
     };
     let proof = apps(
         Term::Def(flip),
-        vec![cx.quote(&h.l)?, cx.quote(&h.r)?, h.proof],
+        vec![cx.quote_unfolded(&h.l)?, cx.quote_unfolded(&h.r)?, h.proof],
     );
     let Value::Eq(t, l, r) = force(&cx.g(), h.ty)? else {
         unreachable!("a hypothesis is an equation")
@@ -361,7 +361,7 @@ fn scaled(cx: &mut Ctx, lib: &Lib, sort: Sort, coefficients: &[&Expr], h: Hyp) -
         });
     }
     let c = c.expect("at least one coefficient");
-    let (l, r) = (cx.quote(&h.l)?, cx.quote(&h.r)?);
+    let (l, r) = (cx.quote_unfolded(&h.l)?, cx.quote_unfolded(&h.r)?);
     let new_l = cx.eval(&apps(Term::Def(mul), vec![c.clone(), l.clone()]))?;
     let new_r = cx.eval(&apps(Term::Def(mul), vec![c.clone(), r.clone()]))?;
     Ok(Hyp {
@@ -937,7 +937,7 @@ impl Reader {
     /// The atom `value` is, adding it if it's new; its number in its sort's
     /// list.
     fn atom(&mut self, cx: &Ctx, lib: &Lib, sort: Sort, value: Value) -> Result<usize> {
-        let term = cx.quote(&value)?;
+        let term = cx.quote_unfolded(&value)?;
         for (i, a) in self.atoms.iter().enumerate() {
             if a.sort == sort && crate::matching::same(&a.term, &term) {
                 return Ok(self.index[i]);

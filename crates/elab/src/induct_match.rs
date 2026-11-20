@@ -492,8 +492,12 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
         term = Term::app(term, Term::Var(base - 1 - l));
     }
     if !cx.unify(&cur, goal)? {
-        let shown =
-            crate::pretty::term_for_message_in(&g, cx.e, &cx.shown_names(false), &cx.quote(&cur)?);
+        let shown = crate::pretty::term_for_message_in(
+            &g,
+            cx.e,
+            &cx.shown_names(false),
+            &cx.quote_unfolded(&cur)?,
+        );
         return Err(motive_error(
             span,
             "the motive worked out from the goal doesn't give the goal back",

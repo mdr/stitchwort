@@ -104,7 +104,7 @@ fn elaborate(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value, Ends)> {
     let queued_from = cx.e.attempt.queue.len();
     let (start, ty) = infer(cx, first)?;
     let (start, ty) = insert(cx, start, ty)?;
-    let ty_term = Rc::new(cx.quote(&ty)?);
+    let ty_term = Rc::new(cx.quote_or_written(&ty)?);
     let nat_ty = Value::Data(nat(cx)?, Vec::new().into());
     let mut link: Option<Link> = None;
     for (index, step) in steps.iter().enumerate() {

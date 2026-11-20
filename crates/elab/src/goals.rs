@@ -2254,11 +2254,11 @@ impl Elaborator {
         let mut binders = Vec::new();
         for v in &snapshot.vars {
             let ty = stitchwort_core::value::eval(g, &env, &v.ty)?;
-            let ty_term = cx.quote(&ty)?;
+            let ty_term = cx.quote_or_written(&ty)?;
             match &v.value {
                 Some(value) => {
                     let value = stitchwort_core::value::eval(g, &env, value)?;
-                    let value = cx.quote(&value)?;
+                    let value = cx.quote_or_written(&value)?;
                     let name = v.writable.then_some(&*v.name);
                     cx.define(name, v.name.clone(), ty, ty_term.clone(), value.clone())?;
                     binders.push(SnapBinder::Let(v.name.clone(), ty_term, value));
