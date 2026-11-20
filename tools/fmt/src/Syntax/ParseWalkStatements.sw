@@ -201,16 +201,12 @@ theorem givesLocalDef ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (att
 theorem givesLocalAttributed ∀ (self: Goal → {Parse Item} Expr) (allowed: Modes) (attributes: List Attributes)
     (nested: Nested self) (atDef atTheorem: Bool):
     Parse.Gives GoodItems (() => localAttributed self allowed attributes atDef atTheorem) StatementOk :=
-  match atDef || atTheorem with
-    | True => givesLocalDef self allowed attributes nested
-    | False => Parse.readsFatal
+  byWalking [givesLocalDef]
 
 theorem givesAttributedLocal ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (attributes: List Attributes)
     (nested: Nested self) (items: List Item):
     Parse.Gives GoodItems (() => attributedLocal self modes attributes items) StatementOk :=
-  Parse.givesAfter0 (reads0At (allowedAt modes items) KwDef) (atDef =>
-    Parse.givesAfter0 (reads0At (allowedAt modes items) KwTheorem) (atTheorem =>
-      givesLocalAttributed self (allowedAt modes items) attributes nested atDef atTheorem))
+  byWalking [givesLocalAttributed]
 
 theorem givesLetStatementEnd ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
@@ -224,22 +220,7 @@ theorem givesLetStatementEnd ∀ (self: Goal → {Parse Item} Expr) (modes: Mode
 theorem givesStatementOther ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: Tok)
     (nested: Nested self):
     Parse.Gives GoodItems (() => statementOther self modes kind) StatementOk :=
-  match kind == KwLet with
-    | True => Parse.givesThen (givesLetStatement self modes nested) (binding _ =>
-      Parse.givesAfter0 [p := () => modes.at Semi] (reads0At modes Semi) (atSemi =>
-        givesLetStatementEnd self modes nested binding atSemi))
-    | False =>
-      match kind == KwDef || kind == KwTheorem with
-        | True => givesLocalDef self modes [] nested
-        | False =>
-          match kind == At with
-            | True => Parse.givesThen (givesAttributesOf modes) (attributes _ =>
-              Parse.givesAfter0 [p := () => left()] reads0Left (items =>
-                givesAttributedLocal self modes attributes nested items))
-            | False =>
-              match kind == KwExport with
-                | True => Parse.readsFatal
-                | False => Parse.readsFatal
+  byWalking [givesLetStatement, givesLetStatementEnd, givesLocalDef, givesAttributesOf, givesAttributedLocal]
 
 -- The facts of the tiers above the atoms, from the walks of the tiers below.
 
@@ -307,33 +288,14 @@ theorem givesMembership ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (f
     (outside: OutsidePiped self)
     (bases: AtomBases self):
     Parse.Gives GoodItems (() => membership self modes first element) Out :=
-  match isSome Bang first with
-    | True => Parse.readsFatal
-    | False => Parse.givesThen givesBump (operator _ =>
-      Parse.givesThen (givesPipedOf self modes nested outside bases) (range _ => Parse.givesDone byComputing))
+  byWalking [givesBump, givesPipedOf]
 
 theorem givesChainLink ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (descending: Bool) (kind: Tok)
     (nested: Nested self)
     (outside: OutsidePiped self)
     (bases: AtomBases self):
     Parse.Gives GoodItems (() => chainLink self modes descending kind) (Parse.Perhaps (link => True)) :=
-  match kind == Equals || kind == EqEq with
-    | True => Parse.readsFatal
-    | False =>
-      match kind == NotEq with
-        | True => Parse.readsFatal
-        | False =>
-          match kind == KwIn || kind == NotIn with
-            | True => Parse.readsFatal
-            | False =>
-              match !(kind == Lt || kind == Le || isDescending kind) with
-                | True => Parse.givesDone byComputing
-                | False =>
-                  match isDescending kind != descending with
-                    | True => Parse.readsFatal
-                    | False => Parse.givesThen givesBump (operator _ =>
-                      Parse.givesThen (givesPipedOf self modes nested outside bases) (operand _ =>
-                        Parse.givesDone byComputing))
+  byWalking [givesBump, givesPipedOf]
 
 theorem givesChainOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (descending: Bool)
     (nested: Nested self)
