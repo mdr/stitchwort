@@ -536,10 +536,6 @@ theorem followsRowStart ∀ [self selfTwin: Goal → {Parse Item} Expr]
       followsFatalAny _ (() => Syntax.fatal "a record type can't be written here: `{` in a type starts an ability row")
     | False =>
       followsThenEq
-        [j := closed =>
-          (let abilities := rowAbilities self modes closed (modes.at Pipe); rowVariable modes open abilities)]
-        [k := closed =>
-          (let abilities := rowAbilities selfTwin modes closed (modes.at Pipe); rowVariable modes openTwin abilities)]
         (followsAt modes RBrace)
         (closed =>
           followsThenEq (followsAt modes Pipe) (pipe =>

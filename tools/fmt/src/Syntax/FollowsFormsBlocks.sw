@@ -492,9 +492,6 @@ theorem followsBlockLine ∀ [self selfTwin: Goal → {Parse Item} Expr]
       (() => blockLine more selfTwin modes column many foundTwin before others) :=
   rewrite deafOfStripped nextIndex nextIndexDeaf items others same then
     followsThenEq
-      [j := seen => blockKind more self modes column many found before { modes | allow = nextIndex others } seen]
-      [k := seen =>
-        blockKind more selfTwin modes column many foundTwin before { modes | allow = nextIndex others } seen]
       (followsPeek { modes | allow = nextIndex others })
       (seen =>
         followsBlockKind statements more modes
