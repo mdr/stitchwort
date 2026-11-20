@@ -1770,8 +1770,17 @@ pub(crate) fn find_ready_dictionaries(
     ty: &Value,
     only: Option<&[usize]>,
 ) -> Result<Option<Value>> {
-    let term = scanned(cx, ty)?;
     let g = cx.g();
+    // With no dictionary to find, only an equation is ever computed again,
+    // so a goal that isn't one is left as it is without the scan, which
+    // reads it back in normal form: in a goal about a large program (a
+    // two-run walk's `rewrite`, SW-4469) that is most of the cost.
+    if cx.e.attempt.obligations.borrow().is_empty()
+        && !matches!(force(&g, ty.clone())?, Value::Eq(..))
+    {
+        return Ok(None);
+    }
+    let term = scanned(cx, ty)?;
     let mut stale = stuck_term(cx, &term);
     let zonked = cx.e.zonk_keeping(&term, cx.level(), &|_| true)?;
     let mut keep = Vec::new();

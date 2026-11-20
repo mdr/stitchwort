@@ -668,6 +668,14 @@ pub(super) fn fit_expr(
 
 /// Whether `v` still mentions an unsolved unknown.
 pub(super) fn has_unknown(cx: &Ctx, v: &Value) -> Result<bool> {
+    // Unfolding adds no unknown, so one not in `v` as written isn't in its
+    // normal form either, which is costly to read back for a statement
+    // about a large program (SW-4469).
+    let folded =
+        cx.e.zonk_keeping(&cx.quote_folded(v)?, cx.level(), &|_| true)?;
+    if !folded.subterms().any(|(t, _)| matches!(t, Term::Meta(_))) {
+        return Ok(false);
+    }
     let term = crate::interfaces::scanned(cx, v)?;
     let term = cx.e.zonk_keeping(&term, cx.level(), &|_| true)?;
     Ok(term.subterms().any(|(t, _)| matches!(t, Term::Meta(_))))

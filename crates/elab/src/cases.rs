@@ -1486,6 +1486,22 @@ pub(crate) fn is_proposition(cx: &Ctx, goal: &Value) -> Result<bool> {
         Value::Eq(..) => true,
         Value::Data(d, _) => g.data(d).sort() == Sort::Prop,
         other => {
+            // The type read back as written first: its sort is the same as
+            // its unfolding's, since a term has one type up to conversion
+            // (no cumulativity, docs/core.md), and for a statement about a
+            // large program (`SelfFollows self selfTwin`, a two-run walk's
+            // premise) reading it back unfolded is most of the cost
+            // (SW-4469). Not with an unknown in it, which the kernel can't
+            // type, nor where the kernel refuses it: then as before.
+            let folded = cx.quote_folded(&other)?;
+            if !folded.subterms().any(|(t, _)| matches!(t, Term::Meta(_))) {
+                let mut kcx = crate::rewrite::kernel_context(cx)?;
+                match crate::kernel::without_glue(&g, || crate::kernel::infer(&mut kcx, &folded)) {
+                    Ok((_, ty)) => return Ok(matches!(force(&g, ty)?, Value::Sort(Sort::Prop))),
+                    Err(e) if crate::undo::fatal(&e) => return Err(e),
+                    Err(_) => {}
+                }
+            }
             let term = cx.quote_unfolded(&other)?;
             let mut kcx = crate::rewrite::kernel_context(cx)?;
             match crate::kernel::without_glue(&g, || crate::kernel::infer(&mut kcx, &term)) {
