@@ -28673,8 +28673,8 @@
     {
       "id": 4336,
       "title": "[Sonnet] Guard raw stitchwort_core::value::quote in crates/elab the way SW-4333 guarded quote_folded: classify the ~100 sites (can see a user hypothesis/goal or not), route the former through check::quote_or_written, then a clippy disallowed-methods entry with allows at the internal ones",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
