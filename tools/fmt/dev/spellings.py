@@ -43,33 +43,39 @@ import json, os, re, subprocess, sys, tempfile
 from collections import Counter
 from pathlib import Path
 
+import implicit
+
 DEFAULT_NAMES = "p,q,j,k,alike,g2,spec,weaker,holds,inv,x,first,second,self,selfTwin,item,start,later,goals"
-OPEN = re.compile(r"\[(\w+) := ")
 HEADER = re.compile(r"^\s*(theorem|def|lemma|fn|pub|private)\b")
 
 
 def spans(text, names):
-    """[(start, end, name)] of each top-level spelled group (end exclusive)."""
+    """[(start, end, name)] of each top-level spelled group (end exclusive).
+    Brackets in strings, characters and comments do not end a group."""
+    tokens = implicit.tokenize(text)
+    bmap = implicit.bracket_map(tokens)
     out, i = [], 0
-    for m in OPEN.finditer(text):
-        s = m.start()
-        if s < i or (names and m.group(1) not in names):
+    for ti, tok in enumerate(tokens):
+        if tok.start < i or tok.kind != "punct" or tok.text != "[":
             continue
+        if ti + 2 >= len(tokens):
+            continue
+        name, op = tokens[ti + 1], tokens[ti + 2]
+        if name.kind != "ident" or op.kind != "punct" or op.text != ":=":
+            continue
+        if names and name.text not in names:
+            continue
+        close = bmap.get(ti)
+        if close is None:
+            continue
+        s, e = tok.start, tokens[close].end
         ls = text.rfind("\n", 0, s) + 1
-        line = text[ls : text.find("\n", s) if "\n" in text[s:] else len(text)]
+        end = text.find("\n", s)
+        line = text[ls : end if end >= 0 else len(text)]
         if line.lstrip().startswith("--") or HEADER.match(line):
             continue
-        depth, j = 0, s
-        while j < len(text):
-            c = text[j]
-            depth += (c == "[") - (c == "]")
-            j += 1
-            if depth == 0:
-                break
-        if depth != 0:
-            continue
-        out.append((s, j, m.group(1)))
-        i = j
+        out.append((s, e, name.text))
+        i = e
     return out
 
 
@@ -94,6 +100,11 @@ def parse(text, names):
             tok = prev[0] if prev else "?"
         out.append([s, e, tok.lstrip("(") or "?", [n], [gi]])
     return gs, out
+
+
+def kept_units(keep, us):
+    """How many units still have at least one kept group."""
+    return sum(1 for u in us if set(u[4]) & keep)
 
 
 def render(orig, gs, keep):
@@ -237,7 +248,7 @@ def main():
                 pick = next((k for k in reversed(cands) if us[k][2].split(".")[-1] == short), pick)
             keep.update(us[pick][4])
             added += 1
-        print(f"round {rnd}: kept {len(keep)} of {len(us)}", flush=True)
+        print(f"round {rnd}: kept {kept_units(keep, us)} of {len(us)} units", flush=True)
         if not added:
             sys.exit("stuck: errors not at any spelled unit:\n" + msg[:2000])
     if do_prune:
