@@ -1,5 +1,5 @@
 {
-  "next": 4355,
+  "next": 4358,
   "tickets": [
     {
       "id": 47,
@@ -28595,12 +28595,12 @@
     {
       "id": 4330,
       "title": "[Opus] Unifier: abstract a stuck neutral call e in ?j e once ?p := () => e is known (kabstract-style, only when e is neutral and occurs as a whole; only in the fallback), to drop most [j :=][k :=] on Parse.followsThen (SW-4323 design)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From SW-4323's report.\n\nSW-4329 (20 Nov): ~30 [j :=][k :=] continuation-lambda pairs remain across 11 Follows files (DeclData 7, Ladder 4, DeclHeaders 4, DeclArms 4, …); dropping them gives a unification error.\n\nLane (Opus, 20 Nov 08:15, est. 60 min): repro examples/accept/continuation-solved-by-abstracting.sw; rule implemented as a last-resort `unify_abstracting` in finish_application against the expected type as written (43e328fa7); followsParenAhead checks without [j :=][k :=]. Unspelling the Follows files (spellings.py --names j,k) running.\n",
+      "body": "From SW-4323's report.\n\nSW-4329 (20 Nov): ~30 [j :=][k :=] continuation-lambda pairs remain across 11 Follows files (DeclData 7, Ladder 4, DeclHeaders 4, DeclArms 4, …); dropping them gives a unification error.\n\nLane (Opus, 20 Nov 08:15, est. 60 min): repro examples/accept/continuation-solved-by-abstracting.sw; rule implemented as a last-resort `unify_abstracting` in finish_application against the expected type as written (43e328fa7); followsParenAhead checks without [j :=][k :=]. Unspelling the Follows files (spellings.py --names j,k) running.\n\nDone 09:02 (47 min): 43e328fa7 (unifier: last-resort `unify_abstracting` in finish_application, against the expected type as written; `solve_abstracting` kabstracts one stuck non-variable spine argument that mentions no unknown and a variable the unknown cannot) + 8 fmt commits. 22 of 30 [j :=][k :=] pairs dropped (-160 lines in 8 Follows files). 8 remain (DeclData 1, DeclArms 1, DeclHeaders 2, FormsBlocks 1, FormsBinders 1, Forms 1, Statements 1): the occurrence reaches the comparison in another form (primitive projection after runFrom ran) or the rest lambda is checked against an unfolded Follows first. No hash changed (test:lane AREA=hashes); FollowsDeclData check time unchanged (47.5 s vs 48.3 s). Example examples/accept/continuation-solved-by-abstracting.sw fails before.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -28777,12 +28777,12 @@
     {
       "id": 4344,
       "title": "[Opus] D3699 follow-up: a && guard with a decided side whose proof the arm uses (if i < n && 0 < i => xs.getLt i) still gives P ∧ Q / ¬(P ∧ Q); move it to the Bool form (c = True/False) with the arm's proof taken from guard.read, so every Bool guard follows one rule (SW-4341 left)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4341. Wait for SW-4341 to merge.",
+      "body": "From SW-4341. Wait for SW-4341 to merge.\n\n20 Nov 08:48-09:04 (Opus lane, est. 45 min, took ~16): done on lane/SW-4344 (f8c0674ff, 7c820d131). Such a guard now gives `(i < n && 0 < i) = True` in eqK/induct's arm case and `… = False` below (NotGuard and partial overlap), as every Bool guard. Definition elaborated as before (hash unchanged); generated proofs go between the forms by the decisions' sound/refute/complete/toBoolOfNot, kernel-checked. Hashes changed: auto-conjunction modGuard.eq1/eq2 only (plus new pattern-guard-forms examples positiveGaps, capped). Tests: test:example (pattern-guard,match-induct,guard,chained,impossible,auto-conjunction; tier all) 7/7, soundness set 1/1, test:lane AREA=hashes 8/8, clippy elab clean. No std/aoc/rogue/fmt definition found with such a guard (all their && guards are plain Bool tests). Docs updated (syntax.md, guide ch. 10, proving guide, pattern-guards.md).\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -28842,8 +28842,8 @@
     {
       "id": 4349,
       "title": "[DeepSeek] board/board show N --body-only (print only the body), and use it in board/README.md's append recipe (SW-4343 friction)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "test-infra",
@@ -28908,6 +28908,45 @@
       "id": 4354,
       "title": "[Opus, paper] Walk W2: review of W1 (SW-4239), which generates kernel terms (D2364)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4355,
+      "title": "[Opus] Rest-lambda continuations: the 5 [j :=][k :=] pairs SW-4330 left (Statements, DeclData, DeclHeaders x2, FormsBlocks) fail because the rest lambda's body is checked against Follows unfolded through runFrom before ?j is known; hold the lambda until after the as-written comparison, or compare on the call (elaborator ordering)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4356,
+      "title": "[Sonnet] Accessor vs projection in SW-4330's abstraction: the needle Mark.left v is a call but the goal has the primitive projection state.at.left; normalise accessor calls to projections when matching the needle (FormsBinders, Forms pairs)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4357,
+      "title": "[Opus, paper] Review SW-4330 (the unifier's abstracting fallback for continuation arguments)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
