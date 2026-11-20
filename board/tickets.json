@@ -1,5 +1,5 @@
 {
-  "next": 4310,
+  "next": 4311,
   "tickets": [
     {
       "id": 47,
@@ -28328,6 +28328,19 @@
       "labels": [],
       "epic": "dev-loop-speed",
       "body": "From the SW-4297 merge, 20 Nov.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4310,
+      "title": "[DeepSeek] Fix Overmind red at 4daff76d3: 9 examples still call SW-4287's lemmas (Parse.readsFatal, followsDone, readsDone, readsAtDone, List.consInjectiveHead) with the now-implicit arguments: examples/accept/{pure-fold-in-parse-function,reads-then-finds-split,reads-chain-written-type-arguments,parse-lex-then-parse,reads-done-spec-from-expected,reads-named-parser}.sw and examples/reject/{reads-chain-unknown-name-last-step,reads-chain-swapped-pair,reads-then-wrong-first}.sw; accepted_examples_check and the differential test fail",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Overmind report 20 Nov ~01:15; last green 1572eb1cf.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
