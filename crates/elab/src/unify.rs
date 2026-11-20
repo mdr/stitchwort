@@ -666,15 +666,43 @@ fn eta_function(g: &Ev, level: usize, value: &Value) -> Result<bool> {
     let Some(Elim::App(last, _)) = spine.iter().last() else {
         return Ok(false);
     };
-    let innermost = matches!(
-        force_solved(g, last.clone())?,
-        Value::Neutral(Head::Var(v, _), s) if v == level + depth - 1 && s.is_empty()
-    );
-    if depth == 0 || !innermost {
+    let innermost = depth > 0
+        && matches!(
+            force_solved(g, last.clone())?,
+            Value::Neutral(Head::Var(v, _), s) if v == level + depth - 1 && s.is_empty()
+        );
+    if !innermost {
         return Ok(false);
     }
-    let term = crate::check::quote_folded(g, level, value)?;
-    Ok(eta_contract(g, &term)?.is_some_and(|f| !matches!(f.strip_loc(), Term::Lam(..))))
+    // A value too large to read back is no known function, not an error:
+    // the comparison goes on to fail as it would without this check. Running
+    // out of steps, stack or time stays an error.
+    let budget = &g.machine.budget;
+    let ran_out_in = budget.take_ran_out_in();
+    budget.set_ran_out_in(ran_out_in);
+    let too_large = budget.take_too_large();
+    budget.set_too_large(too_large);
+    let term = match crate::check::quote_folded(g, level, value) {
+        Ok(term) => term,
+        Err(ResourceError::Size(_)) if budget.exhausted().is_none() => {
+            budget.take_too_large();
+            budget.set_too_large(too_large);
+            budget.take_ran_out_in();
+            budget.set_ran_out_in(ran_out_in);
+            return Ok(false);
+        }
+        Err(e) => return Err(e),
+    };
+    let Some(contracted) = eta_contract(g, &term)? else {
+        return Ok(false);
+    };
+    // As bare, the function counts only if it isn't itself a lambda once
+    // unfolded: `x y => Flip r x y` is `Flip r`, which unfolds to one.
+    let env: Vec<Value> = (0..level).map(Value::var).collect();
+    Ok(!matches!(
+        force(g, eval(g, &env, &contracted)?)?,
+        Value::Lam(..)
+    ))
 }
 
 /// `t` eta-contracted, if it is a lambda that only applies a function to
@@ -4835,6 +4863,58 @@ mod tests {
 
     fn is_var(g: &Unifier<'_>, v: &Value, level: usize) -> bool {
         matches!(force(g, v.clone()).unwrap(), Value::Neutral(Head::Var(l, _), s) if l == level && s.is_empty())
+    }
+
+    /// Which lambdas `eta_contract` contracts, by de Bruijn index: `f` is
+    /// free variable `f`, and a lambda only contracts when its body applies
+    /// something that mentions none of its binders to all of them, in order,
+    /// with matching implicitness.
+    #[test]
+    fn eta_contract_contracts_only_lambdas_that_apply_a_function_to_their_variables() {
+        let fresh = Fresh::default();
+        let g = &fresh.unifier();
+        let var = |ix: usize| Rc::new(Term::Var(ix));
+        let app = |f: Rc<Term>, a: Rc<Term>, icit: Icit| Rc::new(Term::App(f, a, icit));
+        let lam = |icit: Icit, body: Rc<Term>| Rc::new(Term::Lam("x".into(), icit, body));
+        let (ex, im) = (Icit::Explicit, Icit::Implicit);
+        let contracted = |t: Rc<Term>| eta_contract(g, &t).ok().unwrap();
+        // `x y => f x y` is `f` (index 2 under two binders, 0 outside).
+        let t = lam(ex, lam(ex, app(app(var(2), var(1), ex), var(0), ex)));
+        assert!(matches!(contracted(t), Some(Term::Var(0))));
+        // `x y => f y x` applies in the wrong order.
+        let t = lam(ex, lam(ex, app(app(var(2), var(0), ex), var(1), ex)));
+        assert!(contracted(t).is_none());
+        // `x y => f y` is `x => f`: a lambda still.
+        let t = lam(ex, lam(ex, app(var(2), var(0), ex)));
+        assert!(contracted(t).is_none());
+        // `x y => h x x y`: the function mentions `x`.
+        let t = lam(
+            ex,
+            lam(
+                ex,
+                app(app(app(var(3), var(1), ex), var(1), ex), var(0), ex),
+            ),
+        );
+        assert!(contracted(t).is_none());
+        // `f x => f x`: the identity on `f`, whose application to `x` is not
+        // a function of anything else.
+        let t = lam(ex, lam(ex, app(var(1), var(0), ex)));
+        assert!(contracted(t).is_none());
+        // `{a} x => g {a} x` is `g`.
+        let t = lam(im, lam(ex, app(app(var(2), var(1), im), var(0), ex)));
+        assert!(matches!(contracted(t), Some(Term::Var(0))));
+        // `{a} x => g a x`: the lambda's implicit binder is applied
+        // explicitly.
+        let t = lam(im, lam(ex, app(app(var(2), var(1), ex), var(0), ex)));
+        assert!(contracted(t).is_none());
+        // `x => f a x` is `f a`, for the free variables `f` and `a`.
+        let t = lam(ex, app(app(var(2), var(1), ex), var(0), ex));
+        assert!(matches!(
+            contracted(t),
+            Some(Term::App(ref f, ref a, _)) if matches!(**f, Term::Var(1)) && matches!(**a, Term::Var(0))
+        ));
+        // Not a lambda.
+        assert!(contracted(app(var(1), var(0), ex)).is_none());
     }
 
     /// A `let` at level 0 whose value, after a case split, mentions the
