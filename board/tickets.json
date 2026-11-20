@@ -28691,7 +28691,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "From SW-4331, 20 Nov ~04:55.",
+      "body": "From SW-4331, 20 Nov ~04:55.\n\nAnother case (SW-4361, 20 Nov): a match/match reify whose goal holds a call that computes huge (grow 22 (Leaf 0) = grow 22 (Leaf 0)) runs out in the kernel, core/check.rs:1296 check_case reads the case goal with quote_kept (folded) and has no as-written fallback. Elaborator half done as a scratch patch (folded_or_written: quote_folded under a 50k-step cap, else as written; in as_written search reads, the unfold closure, motive_checks_now): scratchpad keep/sw4361/elab-partial.patch, probes large-goal-reify.sw, probe.sw, p5.sw. Apply after the kernel fallback, with a test.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -28803,12 +28803,12 @@
     {
       "id": 4346,
       "title": "[Sonnet] Text.read's eq4 shows an unreduced (x => 0 < x) (MkText x1).length = False: beta-reduce a guard's lambda applications when stating generated equations",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4341 (text-patterns-prefix Arg.read.eq4); predates it.",
+      "body": "From SW-4341 (text-patterns-prefix Arg.read.eq4); predates it.\nLane note: beta_ann in equations.rs reduces Ann-wrapped lambda heads in a guard's Bool; hashes moved: tok.eq1-37, Arg.read.eq3/4, finGuard, underThreshold eq (snapshots updated). Test doc_reduces_a_guards_decision_in_an_equation.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -28964,7 +28964,7 @@
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
-      "body": "",
+      "body": "\n\nAlso (SW-4346): a Bool guard fact prints as (0 < l.length) = False; consider showing ¬ 0 < l.length or l.length <= 0 — display only.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -28998,12 +28998,12 @@
     {
       "id": 4361,
       "title": "[Sonnet] match reify with a huge result type still runs out inside generalised_now (SW-4351 probe); find which read does it (alternatives' binding, read_type, occurrence test) and read as written",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
-      "body": "",
+      "body": "\n\nProgress (Sonnet, 20 Nov, stopped, no commits): trace shows two layers. (1) Elaborator, found and fixed in a scratch patch (/private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/sw4361/elab-partial.patch): a goal holding a call like grow 22 (Leaf 0) read back at generalised_now (matching.rs:1028, quote_internal of the goal) runs out of size, recovers into as_written::unconfirmed, whose search then fails because quote_folded of that goal (as_written.rs search, goal and hypothesis reads, and the unfolded() read) needs over the search's 1M steps before it reaches the 2M-node cap, and motive_checks_now's quote_folded needs more than UNCONFIRMED_BUDGET's 100k. With step-capped folded-or-written reads in those places the match generalises (W-MATCH-UNCONFIRMED). (2) Then the KERNEL fails: core check_case (check.rs:1296) does quote_kept (core quote_folded, no as-written fallback) of the case goal, which computes grow 22. That is a kernel read-back change (docs/core.md, soundness set), so not done. Probe: /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/sw4361/large-goal-reify.sw. Needs a decision on (2).\n\n\nOrchestrator, 20 Nov: closed into SW-4337 — the elaborator read is recoverable but the kernel check_case read-back runs out too; patch kept.\nModel result: Sonnet, failed (blocked by a kernel read, correctly stopped), 18 min (est. 30)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
