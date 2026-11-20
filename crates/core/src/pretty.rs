@@ -180,12 +180,18 @@ pub fn value(g: &Ev, names: &[Name], value: &Value) -> String {
 
 /// How a definition's name reads in a message: the generated transparent
 /// copy `f.%body` (docs/proposals/opaque-definitions.md §6.3) is "the body
-/// of `f`", in parentheses so `(body of f) x` still reads as a call.
+/// of `f`", in parentheses so `(body of f) x` still reads as a call. A
+/// `decreasing` definition's generated step `f.%step` (docs/core.md,
+/// "Definitions by recursion") is `f.step`, as an ability operation's
+/// `%op` is `Ability.op` (SW-4437).
 fn def_display(name: &str) -> String {
-    match name.strip_suffix(".%body") {
-        Some(owner) => format!("(body of {owner})"),
-        None => name.to_string(),
+    if let Some(owner) = name.strip_suffix(".%body") {
+        return format!("(body of {owner})");
     }
+    if let Some(owner) = name.strip_suffix(".%step") {
+        return format!("{owner}.step");
+    }
+    name.to_string()
 }
 
 /// The longest a term may be in a message before its inner parts are
