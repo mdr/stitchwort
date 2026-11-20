@@ -2,12 +2,12 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-REWRITE-NO-RULES] Error: `len` gives no rules: each of its arms is a constructor pattern, so its calls already compute
+[E-REWRITE-NO-RULES] Error: `len` gives no rules: each of its arms is an unguarded constructor pattern, so its calls already compute
     ╭─[ reject/rewrite-repeatedly-no-rules.sw:11:68 ]
     │
  11 │ theorem a ∀ (xs: List Nat): len xs = len xs := rewrite repeatedly [len] then byComputing
     │                                                                    ─┬─  
-    │                                                                     ╰─── every arm is a constructor pattern
+    │                                                                     ╰─── every arm is an unguarded constructor pattern
     │ 
     │ Note: close with `byComputing`, or list one of its arm equations instead (`rewrite len.eq1`)
 ────╯

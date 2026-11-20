@@ -870,7 +870,9 @@ Each was run on the example named; the output is quoted, shortened.
     unfolded the definition first: rewrite with a lemma about the unfolded
     form, or state the step with `calc`.
   - `E-REWRITE-NO-RULES`: a definition listed by name gives no rules because
-    every arm is a constructor pattern, so its calls already compute. Close
+    every arm is an unguarded constructor pattern, so its calls already
+    compute (a guarded arm is a rule, its guard a premise found as for
+    `rewrite f.eqK`: `examples/accept/rewrite-repeatedly-guarded.sw`). Close
     with `byComputing`, or list one of its arm equations instead
     (`rewrite f.eq1`). When other listed names do give rules, it is
     `W-REWRITE-NO-RULES` at that name and the call continues without it

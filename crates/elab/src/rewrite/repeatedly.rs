@@ -1119,8 +1119,8 @@ pub(crate) const NO_RULES: &str = "W-REWRITE-NO-RULES";
 const NO_RULES_ERROR: &str = "E-REWRITE-NO-RULES";
 
 /// `E-REWRITE-NO-RULES` or `W-REWRITE-NO-RULES` for a written rule that
-/// expands to no rule of its own. A function whose arms are all constructor
-/// patterns does this: a call on a constructor computes at once, so an arm
+/// expands to no rule of its own. A function whose arms are all unguarded
+/// constructor patterns does this: a call on a constructor computes at once, so an arm
 /// equation would only be matched against what it computes to.
 fn no_rules_diagnostic(rule: &RewriteRule, set: bool, severity: Severity) -> Diagnostic {
     let name = rule_name(rule);
@@ -1128,16 +1128,16 @@ fn no_rules_diagnostic(rule: &RewriteRule, set: bool, severity: Severity) -> Dia
         true => (
             format!(
                 "`{name}` gives no rules: each of its rules names a function whose arms are \
-                 constructor patterns, so its calls already compute"
+                 unguarded constructor patterns, so its calls already compute"
             ),
             "none of its rules gives anything to rewrite with",
         ),
         false => (
             format!(
-                "`{name}` gives no rules: each of its arms is a constructor pattern, so its calls \
+                "`{name}` gives no rules: each of its arms is an unguarded constructor pattern, so its calls \
                  already compute"
             ),
-            "every arm is a constructor pattern",
+            "every arm is an unguarded constructor pattern",
         ),
     };
     let note = match (severity, set) {
@@ -1636,6 +1636,7 @@ fn waits(cx: &mut Ctx, arm: &RewriteRule, d: DefId) -> Result<bool> {
         Ok(match &equation.lhs {
             Value::Call(id, spine, _) if *id == d => {
                 !stitchwort_core::value::matches_at_once(&g, d, spine)?
+                    || has_condition(cx, &equation)?
             }
             _ => false,
         })
@@ -1645,6 +1646,22 @@ fn waits(cx: &mut Ctx, arm: &RewriteRule, d: DefId) -> Result<bool> {
         Err(e) if !fatal(&e) => Ok(false),
         outcome => outcome,
     }
+}
+
+/// Whether `equation` holds only under a condition: a guard, or an earlier
+/// arm's guard or overlap that the arm's patterns alone don't rule out. A
+/// call of such an arm is stuck on the condition although its patterns are
+/// constructors, so the arm is a rule (`rewrite` finds its premises as it
+/// does for `f.eqK`).
+fn has_condition(cx: &Ctx, equation: &Equation) -> Result<bool> {
+    let g = cx.g();
+    for premise in &equation.premises {
+        let ty = force(&g, premise.ty.clone())?;
+        if super::is_proof_type(cx, &ty)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 /// The definition `proof` names, if it is one that isn't a proof: a
