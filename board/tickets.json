@@ -30382,12 +30382,12 @@
     {
       "id": 4466,
       "title": "[Opus] Walk gap 1 (SW-4421): a nested bind as the bound computation, let y := f (g ()); k y, gives Effect.bind (Effect.bind g f) k and the walk asks for a lemma for Effect.bind; split the inner bind first, as if written let x := g (); let y := f x; blocks 36 formatter proofs (letStatement, operationClause, rowVariable). Repro: def h(): {Parse Nat} Nat := let y := f (g ()); y / theorem givesH: Parse.Gives inv (() => h()) post := byWalking [givesF, givesG]",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nProgress (lane, 20 Nov 23:36): done on lane/SW-4466. A bind whose bound computation isn't one call (a nested bind, or an if/match) is walked as the family's then-lemma's first premise, its post what the rest of the code needs (found up front: the then-lemma instantiated at the goal, its last premise checked as the identity), and the walk goes on in k where it ends. No new lemma: givesThen twice. One-run and two-run; ReadsAt keeps the old stop (its then-lemma has a mark fact). A lemma for the bound computation as a whole still wins. Example walk-nested-bind.sw (expansion rechecked, hash snapshot). Converted givesLetStatement, givesRowVariable, givesExprBlock (theorem <=1.95x, files <=1.08x). Of the 34 blocked proofs found, 12 now walk; the rest stop on other gaps (lemmas missing, direct operations). Model result: opus, ~95 min (est. 60).\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
