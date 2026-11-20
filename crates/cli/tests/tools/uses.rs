@@ -14,6 +14,16 @@ fn stitchwort(cwd: &Path, args: &[&str]) -> Output {
         .expect("run stitchwort")
 }
 
+/// [`stitchwort`] through the check cache, as a plain run does.
+fn stitchwort_cached(cwd: &Path, args: &[&str]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+        .args(args)
+        .current_dir(cwd)
+        .stdin(Stdio::null())
+        .output()
+        .expect("run stitchwort")
+}
+
 /// Namespaces `A` and `B` both define `x`; `A.useA` and `A.alsoA` refer to
 /// `A.x`, `B.useB` to `B.x`, and `B.lonely` to nothing. In `B`, the theorem
 /// `lonelyFact` is used by nothing, `testedFact` only by a test (through
@@ -55,6 +65,24 @@ fn project(name: &str) -> PathBuf {
     dir
 }
 
+/// A namespace whose only file is not named after it: `Deep.Nest` lives in
+/// `src/impl.sw`, so resolving it by a file path guessed from its name would
+/// miss it.
+fn project_in_a_differently_named_file(name: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("stitchwort-uses-{}-{name}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("stitchwort.yaml"), "sources: [src]\n").unwrap();
+    std::fs::write(
+        dir.join("src/impl.sw"),
+        "namespace Deep.Nest\n\n\
+         def x: Nat := 1\n\n\
+         def useX: Nat := x + 1\n",
+    )
+    .unwrap();
+    dir
+}
+
 fn text(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes).to_string()
 }
@@ -74,6 +102,21 @@ fn uses_lists_only_the_users_of_the_named_declaration() {
     let json = text(&json.stdout);
     assert!(json.contains(r#""declaration":"B.useB""#), "{json}");
     assert!(!json.contains("A.useA"), "{json}");
+}
+
+#[test]
+fn a_namespace_in_a_file_not_named_after_it_is_found_with_the_cache_warm() {
+    let dir = project_in_a_differently_named_file("cached");
+    // `check` fills the cache, so `uses` may report namespaces from their
+    // entries instead of loading them.
+    let check = stitchwort_cached(&dir, &["check"]);
+    let out = stitchwort_cached(&dir, &["uses", "Deep.Nest.x"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(check.status.code(), Some(0), "{}", text(&check.stderr));
+    let stdout = text(&out.stdout);
+    assert_eq!(out.status.code(), Some(0), "{stdout}{}", text(&out.stderr));
+    assert!(stdout.contains("`Deep.Nest.x` is used by 1:"), "{stdout}");
+    assert!(stdout.contains("Deep.Nest.useX"), "{stdout}");
 }
 
 #[test]
