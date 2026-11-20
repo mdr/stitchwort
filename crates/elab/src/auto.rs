@@ -369,18 +369,18 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
     }
 }
 
-/// For a goal shown with a name the compiler generated, one with a `%`
-/// (`Packet.%m1%size items`, what `Packet.size (Packets items)` computes
-/// to: the call takes its step at once, so the goal can't be shown as
-/// written), a note saying what it is: a helper generated for nested type
-/// `Packet` (`derive_induct.rs`), which can't be written in source.
+/// For a goal shown with a generated helper's name, `(helper 1 of
+/// Packet.size)` (what `Packet.size (Packets items)` computes to: the call
+/// takes its step at once, so the goal can't be shown as written), a note
+/// saying what it is: a helper generated for nested type `Packet`
+/// (`derive_induct.rs`), which can't be written in source.
 fn hidden_name_note(shown: &str) -> Option<String> {
-    let name = shown
-        .split(|c: char| c.is_whitespace() || "()[]{},`".contains(c))
-        .find(|word| word.contains(".%"))?;
-    let owner = &name[..name.find(".%")?];
+    let start = shown.find("(helper ")?;
+    let inner = &shown[start + 1..start + shown[start..].find(')')?];
+    let function = inner.split_once(" of ")?.1;
+    let owner = function.rsplit_once('.')?.0;
     Some(format!(
-        "`{name}` is a helper the compiler generates for `{owner}` \
+        "`({inner})` is a helper the compiler generates for `{owner}` \
          (part of `{owner}.size`, `{owner}.induct` or their lemmas); it can't be written in source"
     ))
 }

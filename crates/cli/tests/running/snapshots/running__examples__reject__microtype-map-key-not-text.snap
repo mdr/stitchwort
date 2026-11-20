@@ -7,5 +7,5 @@ expression: output
    │
  8 │ export def size (m: Map Count Nat): Nat := Map.size m
    │ ───────────────────┬───────────────────  
-   │                    ╰───────────────────── parameter `m`: `Map Count Nat [ord := Count.%instOrd]` can't cross the JS boundary: only maps from `Text`, or from a `js.unboxed` record over `Text`, cross, as plain objects
+   │                    ╰───────────────────── parameter `m`: `Map Count Nat [ord := (Ord instance of Count)]` can't cross the JS boundary: only maps from `Text`, or from a `js.unboxed` record over `Text`, cross, as plain objects
 ───╯
