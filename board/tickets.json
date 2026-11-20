@@ -29761,8 +29761,8 @@
     {
       "id": 4419,
       "title": "[Opus] Partial unfold (docs/proposals/partial-unfold.md §7; bounded-readback stage 3, SW-1838, D2538): a middle search step for rewrite, match/cases and the transport: unfold only the calls on the path to the occurrence (arguments searched first; a call counts as opened only if it yields one), kept only under the existing checks, falling back to today's unfolded search; then drop the 68 [j := ..] pairs where they now go; Opus review after; Overmind no-cache run over fmt/aoc/rogue/std before merge",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
