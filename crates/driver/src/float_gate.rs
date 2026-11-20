@@ -224,10 +224,22 @@ struct Run {
 /// across them. `limits` bound each session (a mode that runs out fails its
 /// checks, saying so).
 pub fn run(modes: &[Mode], limits: Limits) -> Vec<Check> {
+    run_until(modes, limits, None)
+}
+
+/// [`run`], with each session stopped at `deadline` if it is still going.
+/// A session's `limits` don't bound the library's own declarations, which
+/// load under at least the default ones (SW-3711): a deadline is what stops
+/// a mode whose library checks never finish.
+pub fn run_until(
+    modes: &[Mode],
+    limits: Limits,
+    deadline: Option<std::time::Instant>,
+) -> Vec<Check> {
     let mut out = Vec::new();
     let mut runs = Vec::new();
     for &mode in modes {
-        let run = run_mode(mode, limits);
+        let run = run_mode(mode, limits, deadline);
         out.extend(run.checks.iter().cloned());
         runs.push((mode, run));
     }
@@ -283,11 +295,12 @@ fn normal(g: &Ev, level: usize, value: &Value) -> Result<String, String> {
         .map_err(|e| format!("{e:?}"))
 }
 
-fn run_mode(mode: Mode, limits: Limits) -> Run {
+fn run_mode(mode: Mode, limits: Limits, deadline: Option<std::time::Instant>) -> Run {
     let mut checks = Vec::new();
     let mut forms = Vec::new();
     let mut session = Session::new();
     session.elab.options.limits = limits;
+    session.elab.kernel.machine.budget.set_deadline(deadline);
     {
         let env = &mut session.elab.kernel.env;
         env.set_disable_natives(mode == Mode::AllNativesOff);
