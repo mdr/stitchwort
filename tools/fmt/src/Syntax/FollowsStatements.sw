@@ -530,8 +530,6 @@ theorem followsStatementOther ∀ [self selfTwin: Goal → {Parse Item} Expr]
           match kind == At with
             | True => Parse.followsThen (attributesOfFact modes) (attributes twinAttributes alike =>
               Parse.followsThen
-                [p := () => left()]
-                [q := () => left()]
                 [j := items => attributedLocal self modes attributes items]
                 [k := items => attributedLocal selfTwin modes twinAttributes items]
                 followsLeft

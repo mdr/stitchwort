@@ -1156,8 +1156,6 @@ theorem followsAtomAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
         | (based, callable), (basedTwin, callableTwin) =>
           rewrite <- pairs.right then
             Parse.followsThen
-              [p := () => Parse.mark()]
-              [q := () => Parse.mark()]
               [j := here =>
                 (let result := suffixes (here.left + 1) modes based callable (isSome LParen first);
                  (if isSome Dot first && !head then Section result else result))]

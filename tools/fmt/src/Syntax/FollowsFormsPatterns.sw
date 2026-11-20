@@ -946,8 +946,6 @@ theorem followsPlainPatternOn ∀ [pself pselfTwin: PatternGoal → {Parse Item}
     | Some Upper => followsPlainWord Upper
     | Some Lower =>
       followsThenEq
-        [p := () => wordAhead modes "Quot.mk"]
-        [q := () => wordAhead modes "Quot.mk"]
         [j := quot => PatternWord Lower (quotOrLower modes quot)]
         [k := quot => PatternWord Lower (quotOrLower modes quot)]
         (followsWordAhead modes "Quot.mk")

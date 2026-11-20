@@ -468,8 +468,6 @@ theorem followsSpecialAhead ∀ (modes: Modes) (word: Text):
 theorem followsFixedFrom: Parse.Follows SameCode Anything (() => fixedFrom()) (() => fixedFrom()) :=
   Parse.followsMap
     [alike := Anything]
-    [p := () => bump()]
-    [q := () => bump()]
     (found => found.comments)
     (found => found.comments)
     followsBump
