@@ -1,5 +1,5 @@
 {
-  "next": 4336,
+  "next": 4337,
   "tickets": [
     {
       "id": 47,
@@ -28634,7 +28634,7 @@
     {
       "id": 4333,
       "title": "[Sonnet] Audit the remaining direct core::value::quote_folded calls that bypass the too-large fallback (dot.rs 1480, equations.rs 2575/5443, effects.rs 1483/4671/5067-5139, interfaces.rs 2062, omega.rs 567, named.rs 727, search.rs, check.rs 5831), as SW-4237 did for quote(; consider a clippy-style lint or wrapper so raw read-backs can't be added",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -28647,7 +28647,7 @@
     {
       "id": 4334,
       "title": "[Sonnet] Regression from SW-4237: reject/rewrite-value-too-large.sw's Note 3 lost its specific text ('the value being written out was a call of grow, computed far enough to be very large') and now says 'it ran out while unfolding grow'; check::quote_or_written takes the too-large note and restores it only when the as-written read also fails with Size (other error paths drop it); restore the note on every failing path",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -28666,6 +28666,19 @@
       "labels": [],
       "epic": "diagnostics",
       "body": "From SW-4289.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4336,
+      "title": "[Sonnet] Guard raw stitchwort_core::value::quote in crates/elab the way SW-4333 guarded quote_folded: classify the ~100 sites (can see a user hypothesis/goal or not), route the former through check::quote_or_written, then a clippy disallowed-methods entry with allows at the internal ones",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "goal-as-written",
+      "body": "From SW-4333.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
