@@ -411,7 +411,8 @@ Import what you use: std's theorems live in namespaces that need an import
   directly (`Parse.mark().left`) can't be registered with `@[walk]`; name
   its lemma in the brackets instead (`byWalking [Parse.readsAtLeft start]`).
   Where two leaves need different proofs, run
-  `stitchwort check --expand-walk` and edit the chain it writes; keep the
+  `stitchwort check --expand-walk` and edit the chain it writes (or add
+  `--stdout` to print it, leaving the file alone); keep the
   walk only where it is shorter than the chain.
 - **`byComputing`** proves `a = b` only when both sides compute to the same value.
   `+` recurses on its first argument, so `1 + c` computes to `Succ c` and
