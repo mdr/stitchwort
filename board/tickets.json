@@ -29685,8 +29685,8 @@
     {
       "id": 4413,
       "title": "[Sonnet] When finish_application's comparison with the expected type fails, report that failure (or note it) rather than the earlier in-place lambda error (first_error), which misdiagnosed SW-4355; plus FollowsBase.sw's pair advice: after match/rewrite on a scrutinee inside a folded call, give j and k",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
