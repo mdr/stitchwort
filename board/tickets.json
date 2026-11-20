@@ -24293,14 +24293,14 @@
     {
       "id": 4005,
       "title": "[Sonnet] Disk: kache cache is 27 GB (~/Library/Caches/kache, auto-gc.log empty) and main's target/ 56 GB (debug 26, release 24); check kache 1.0.0's size cap and gc against its source/docs, set a cap in KACHE_CONFIG_SETUP, and add a task (sweep stale target artifacts) the orchestrator runs weekly; worktree:rm should delete the lane's scratch subfolder too (lanes copy a ~300 MB binary there; 9.5 GB of them piled up by 18 Nov)",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
       "body": "Orchestrator, 18 Nov: freed 9.5 GB of lane scratch and 19.25 GB of target/ with 'nix shell nixpkgs#cargo-sweep -c cargo sweep --time 2' (target 56 -> 33 GB; disk 88% -> 81%). kache is already self-limited: 'kache stats' shows a 23 GiB budget (5% of disk, floor 5 GiB, cap 100 GiB), 1.2 TiB pruned automatically; 'kache clean --dry-run' found no stale target dirs. Remaining scope: a weekly 'task disk:sweep' (cargo sweep --time 3 on main's target), worktree:rm deleting the lane's scratch folder, and optionally a lower kache budget via kache config.",
       "created": "2026-11-18",
-      "updated": "2026-11-18",
+      "updated": "2026-11-20",
       "commits": []
     },
     {
