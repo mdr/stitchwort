@@ -1,5 +1,5 @@
 {
-  "next": 4444,
+  "next": 4445,
   "tickets": [
     {
       "id": 47,
@@ -29765,7 +29765,7 @@
     {
       "id": 4419,
       "title": "[Opus] Partial unfold (docs/proposals/partial-unfold.md §7; bounded-readback stage 3, SW-1838, D2538): a middle search step for rewrite, match/cases and the transport: unfold only the calls on the path to the occurrence (arguments searched first; a call counts as opened only if it yields one), kept only under the existing checks, falling back to today's unfolded search; then drop the 68 [j := ..] pairs where they now go; Opus review after; Overmind no-cache run over fmt/aoc/rogue/std before merge",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -30077,6 +30077,19 @@
     {
       "id": 4443,
       "title": "[Opus] Goals: a closed goal like 0 < 1 shows as True = True everywhere (theorems and match arms), because natives aren't glued and evaluate at once; keep the written statement term beside each goal for display only (arms need the motive's term too), display only, no term or hash change (SW-4415 part 2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4444,
+      "title": "[Opus] Partial unfold: match keeps a partial result once its own checks pass but has no whole-match retry like rewrite's (SW-4419 e65b38b61); add snapshot-and-retry around a match that fails after using the step, with a reduced example; also cover a target rewrite used as a term (rewrite p at h with no expected type); and a metrics outcome for 'retried without the step'",
       "status": "backlog",
       "agent": "",
       "where": "",
