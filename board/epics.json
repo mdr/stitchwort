@@ -164,10 +164,11 @@
         "Completeness pilot and sweep over all 2020 days (SW-1612, SW-1624 to SW-1626, SW-1647)",
         "Parse.chainLeft with its reading lemma (SW-1567)",
         "Toy++ T0-T3: the toy formatter with takes, typed parameters and rule N (comment placement through settle), every theorem still proved (SW-3632, SW-3666, SW-3667, SW-3675, SW-3676)",
-        "Self-hosted formatter slice 1, one-line stage only (D3685), NOT all of slice 1: formatKeepsProgram1 and formatIdempotent1 proved with no open goals for what the driver accepts, verified on main 19 Nov 2026 02:10. The driver also refuses slice 1 inputs through narrowings made in lanes and never put to Matt (plain1; qualified names, exponents, auto, upper-case def names, Prop, ()); see 19 Nov work log (overnight 18-19 Nov: SW-4077, SW-4081, SW-4085, SW-4086, SW-4089, SW-4093, SW-4096 to SW-4099, SW-4107 to SW-4110, SW-4116, SW-4117)"
+        "Self-hosted formatter slice 1, one-line stage only (D3685), NOT all of slice 1: formatKeepsProgram1 and formatIdempotent1 proved with no open goals for what the driver accepts, verified on main 19 Nov 2026 02:10. The driver also refuses slice 1 inputs through narrowings made in lanes and never put to Matt (plain1; qualified names, exponents, auto, upper-case def names, Prop, ()); see 19 Nov work log (overnight 18-19 Nov: SW-4077, SW-4081, SW-4085, SW-4086, SW-4089, SW-4093, SW-4096 to SW-4099, SW-4107 to SW-4110, SW-4116, SW-4117)",
+        "Slice 1 proved over its grammar (D3687): formatAccepts1, slice1Formats, slice1KeepsComments (SW-4120, SW-4176, SW-4183, SW-4191, SW-4194, SW-4203, 19 Nov 2026)"
       ],
       "now": [
-        "Slice 1 one-line stage proved 19 Nov 2026; slice 1 itself not yet: multi-line declarations and the lane narrowings of what the driver accepts are still refused; next steps wait on Matt"
+        "Slice 1 proved over its agreed grammar (D3687; SW-4183, SW-4191, 19 Nov 2026): formatAccepts1 over all of inGrammar1, slice1Formats and slice1KeepsComments, no open goals. Now consolidation and simplification of that proof (D3692): walk W4 (SW-4421) running; SW-4293 open"
       ],
       "next": [
         "Toy++ T4 (trailing commas and the passes, docs/proposals/toy-plus-plus.md §5) after SW-3677",
