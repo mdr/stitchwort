@@ -8,5 +8,6 @@ expression: output
  3 │ theorem addZero ∀ (n: Nat): n + 0 = n := ?
    │                                          ┬  
    │                                          ╰── n: Nat
-   │                                              ⊢ n = n
+   │                                              ⊢ n + 0 = n
+   │                                                computes to n = n
 ───╯

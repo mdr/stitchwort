@@ -97,6 +97,16 @@ pub(crate) struct Pending {
     pub(crate) applied: Vec<(usize, Value, bool)>,
     /// [`Goals::alternative`] where the hole was checked.
     alternative: Option<Rc<str>>,
+    /// The declaration's statement as written, if the hole is checked
+    /// against it ([`Ctx::statement`]).
+    statement: Option<Rc<AsStated>>,
+}
+
+/// A goal's statement as written ([`Ctx::statement`]), and the values its
+/// variables have at the goal.
+struct AsStated {
+    statement: Rc<crate::check::Statement>,
+    env: Vec<Value>,
 }
 
 /// A goal at an arm, as the arm is written ([`Pending::arm`]).
@@ -115,6 +125,8 @@ struct ArmGoal {
     as_written: bool,
     /// What the arm's variables are known not to be, as `m ≠ 5`.
     facts: Vec<String>,
+    /// [`Pending::statement`], with the arm's values for the variables.
+    statement: Option<Rc<AsStated>>,
 }
 
 #[derive(Clone)]
@@ -396,6 +408,79 @@ fn written_unless_same(
         .filter(|w| w != shown && !shows_helper(w))
 }
 
+/// The statement as written ([`Pending::statement`]), with what the goal's
+/// patterns made of its variables put in, unless that prints as `shown` or
+/// isn't the goal `expected`: the first of the statements it was made from
+/// ([`crate::check::Statement::outer`]) that is. A value can't give back a
+/// call to a native with numbers (`0 < 1`): it computes at once, never kept
+/// as a call, so only the statement's term can.
+fn stated_unless_same(
+    g: &Ev,
+    scope: &dyn NameScope,
+    names: &[Name],
+    predicates: &[bool],
+    s: &AsStated,
+    expected: &Value,
+    shown: &str,
+) -> Option<String> {
+    let mut statement = Some(&s.statement);
+    while let Some(st) = statement {
+        if let Some(line) = stated(g, scope, names, predicates, st, &s.env, expected)
+            && line != shown
+            && !shows_helper(&line)
+        {
+            return Some(line);
+        }
+        statement = st.outer.as_ref();
+    }
+    None
+}
+
+/// Statement `st` printed with `env`'s values for its variables, if it is
+/// the goal `expected`.
+fn stated(
+    g: &Ev,
+    scope: &dyn NameScope,
+    names: &[Name],
+    predicates: &[bool],
+    st: &crate::check::Statement,
+    env: &[Value],
+    expected: &Value,
+) -> Option<String> {
+    let level = env.len();
+    if st.level > level {
+        return None;
+    }
+    // Checked aside, on a budget of its own: a goal with a huge normal
+    // form must not run out the declaration's budget for a display.
+    let same = g.machine.budget.aside(crate::assume::side_limits(), || {
+        stitchwort_core::value::eval(g, &env[..st.level], &st.term)
+            .is_ok_and(|v| stitchwort_core::value::conv(g, level, &v, expected).unwrap_or(false))
+    });
+    if !same {
+        return None;
+    }
+    let own = |l: usize| matches!(&env[l], Value::Neutral(Head::Var(m, _), spine) if *m == l && spine.is_empty());
+    let variable = |l: usize| -> crate::Result<Term> {
+        if own(l) {
+            return Ok(Term::Var(level - 1 - l));
+        }
+        Ok(crate::check::quote_folded(g, level, &env[l])?)
+    };
+    let term = crate::lift::replace_with(g, &st.term, st.level, &variable, &|_, _| None).ok()?;
+    // A lambda applied where it is written is the elaborator's (a lazy
+    // operand, `b <= a + 3` under `&&`), not the source's.
+    let lambda = |t: &Term| match t.strip_loc() {
+        Term::Ann(t, _) => matches!(t.strip_loc(), Term::Lam(..)),
+        t => matches!(t, Term::Lam(..)),
+    };
+    let redex = |t: &Term| matches!(t, Term::App(f, ..) if lambda(f));
+    if term.subterms().any(|(t, _)| redex(t)) {
+        return None;
+    }
+    Some(pretty::term_for_goal_in(g, scope, names, predicates, &term))
+}
+
 /// Whether `goal` is exactly the proposition `False = True`: what the `Bool`
 /// `False` written in a statement is read as (docs/proposals/bool-as-
 /// proposition.md §4). A goal like that has no proof, and a note pointing at
@@ -627,6 +712,10 @@ fn hole_of(cx: &Ctx, expected: &Value, error: bool) -> Term {
         None if error => None,
         None => arm_goal(cx, expected, &shown_names),
     };
+    let statement = match shown {
+        Some(_) => None,
+        None => as_stated(cx, &cx.env),
+    };
     let (owner, lemma_base) = cx.e.goal_owner();
     let owner_def = cx.e.owner_def();
     let owner_args = match owner_def {
@@ -662,8 +751,21 @@ fn hole_of(cx: &Ctx, expected: &Value, error: bool) -> Term {
         level: cx.level(),
         applied,
         alternative,
+        statement,
     });
     term
+}
+
+/// The statement as written, if the hole at `cx` is checked against it
+/// ([`Ctx::statement`]), with `env` the values of the variables there.
+fn as_stated(cx: &Ctx, env: &[Value]) -> Option<Rc<AsStated>> {
+    let s = cx.statement.as_ref()?;
+    (s.at == cx.span).then(|| {
+        Rc::new(AsStated {
+            statement: s.clone(),
+            env: env.to_vec(),
+        })
+    })
 }
 
 /// The goal at `cx` as its arm is written, if it differs from the leaf's or
@@ -706,6 +808,7 @@ fn arm_goal(cx: &Ctx, expected: &Value, shown_names: &[Name]) -> Option<Box<ArmG
         cases,
         as_written: view.goal.is_some(),
         facts,
+        statement: as_stated(cx, &view.env),
     }))
 }
 
@@ -1741,6 +1844,7 @@ impl Elaborator {
                     hidden: a.hidden.clone(),
                     superseded: a.superseded,
                     arm: None,
+                    statement: a.statement.clone(),
                     ..leaf.clone()
                 };
                 &viewed
@@ -1777,7 +1881,12 @@ impl Elaborator {
             "(the type here isn't known yet)".to_string()
         };
         let written = if known {
-            written_unless_same(g, &scope, &p.names, &predicates, &p.expected, &target)
+            written_unless_same(g, &scope, &p.names, &predicates, &p.expected, &target).or_else(
+                || {
+                    let s = p.statement.as_deref()?;
+                    stated_unless_same(g, &scope, &p.names, &predicates, s, &p.expected, &target)
+                },
+            )
         } else {
             None
         };

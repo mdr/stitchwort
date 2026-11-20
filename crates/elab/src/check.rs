@@ -141,7 +141,44 @@ pub struct Ctx<'e> {
     /// (`lib.rs`, `check_guard`): a guard on one of them refines by
     /// generalising, never by splitting it in place.
     pub(crate) guard_splits: Rc<[usize]>,
+    /// The declaration's statement as written, and the expression checked
+    /// against it (or against it with an arm's patterns put in): a `?`
+    /// there shows the statement as written where its value has computed
+    /// away (`0 < 1`, not `True = True`, as a native comparison is never
+    /// kept as a call). Display only.
+    pub(crate) statement: Option<Rc<Statement>>,
+    /// Whether the case tree being checked is the statement's: the whole
+    /// body, or a `match` that is the whole of an expression checked
+    /// against the statement ([`Ctx::statement`]), so each arm's right-hand
+    /// side is checked against the statement too.
+    pub(crate) statement_arms: bool,
     pub span: Span,
+}
+
+/// [`Ctx::statement`].
+pub(crate) struct Statement {
+    /// The statement, in the context of the first `level` variables.
+    pub term: Rc<Term>,
+    pub level: usize,
+    /// The expression checked against it.
+    pub at: Span,
+    /// The statement this one was made from, tried where this one isn't
+    /// the goal: a generalised `match`'s arms are checked against the
+    /// statement with its scrutinee abstracted, and the arm's goal may not
+    /// be that where the scrutinee written differs from the one matched.
+    pub outer: Option<Rc<Statement>>,
+}
+
+impl Statement {
+    /// The same statement, checked against the expression at `at`.
+    pub(crate) fn at(&self, at: Span) -> Statement {
+        Statement {
+            term: self.term.clone(),
+            level: self.level,
+            at,
+            outer: self.outer.clone(),
+        }
+    }
 }
 
 /// What `goals::hole` needs to show a `match reify` `return` clause's goal
@@ -236,6 +273,8 @@ impl Saved {
             guard_facts: Vec::new(),
             guard_copies: Rc::from([]),
             guard_splits: Rc::from([]),
+            statement: None,
+            statement_arms: false,
             span: self.span,
         }
     }
@@ -371,6 +410,8 @@ impl<'e> Ctx<'e> {
             guard_facts: Vec::new(),
             guard_copies: Rc::from([]),
             guard_splits: Rc::from([]),
+            statement: None,
+            statement_arms: false,
             span,
         }
     }
@@ -407,6 +448,8 @@ impl<'e> Ctx<'e> {
             guard_facts: Vec::new(),
             guard_copies: Rc::from([]),
             guard_splits: Rc::from([]),
+            statement: None,
+            statement_arms: false,
             span,
         }
     }
@@ -6955,7 +6998,22 @@ fn explicit_lambda(
     };
     let mark = cx.mark();
     let var = Value::var(cx.level());
+    // A lambda checked against the statement `∀ x, p x` has its body checked
+    // against `p x` (`Ctx::statement`).
+    let saved_statement = cx.statement.clone();
+    let under = (saved_statement.as_ref())
+        .filter(|s| s.at == span && s.level == cx.level())
+        .and_then(|s| match s.term.strip_loc() {
+            Term::Pi(_, Icit::Explicit, _, cod) => Some(Statement {
+                term: cod.clone(),
+                level: s.level + 1,
+                at: if rest.is_empty() { body.span() } else { span },
+                outer: None,
+            }),
+            _ => None,
+        });
     cx.bind(&first.text, dom.clone());
+    cx.statement = under.map(Rc::new);
     let cod = cod.apply(&cx.g(), var)?;
     note_binder_step(cx, StepForm::Lambda, first.span, None, expected, &cod);
     let check_body = |cx: &mut Ctx| {
@@ -6969,6 +7027,7 @@ fn explicit_lambda(
             )
         };
         cx.reset(mark);
+        cx.statement = saved_statement;
         result
     };
     let result = match &shadowed {

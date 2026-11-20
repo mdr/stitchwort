@@ -19,12 +19,13 @@ expression: json
         }
       ],
       "lemma": "theorem shortIncreasingGoal1 (xs: List Nat) (h: increasing xs): xs.length ≤ 5 := ?",
-      "target": "xs.length ≤ 5"
+      "target": "xs.length < 6",
+      "targetComputed": "xs.length ≤ 5"
     },
     "labels": [
       {
         "file": 0,
-        "message": "xs: List Nat\nh: increasing xs\n⊢ xs.length ≤ 5",
+        "message": "xs: List Nat\nh: increasing xs\n⊢ xs.length < 6\n  computes to xs.length ≤ 5",
         "range": [
           13,
           85,

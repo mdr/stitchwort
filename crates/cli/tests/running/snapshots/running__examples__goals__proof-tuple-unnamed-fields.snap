@@ -9,5 +9,6 @@ expression: output
    │                     ┬  
    │                     ╰── left✝: 1 = 1
    │                         right✝: 2 = 2
-   │                         ⊢ 1 = 1 ∧ 2 = 2
+   │                         ⊢ P True
+   │                           computes to 1 = 1 ∧ 2 = 2
 ───╯

@@ -417,7 +417,12 @@ fn check_match_once(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Term> {
     note_tuple_match(cx, scrutinees, span);
     let base = cx.level();
     let mark = cx.mark();
+    // A `match` that is the whole of an expression checked against the
+    // statement has arms checked against it too (`Ctx::statement`).
+    let arms = (cx.statement.as_ref()).is_some_and(|s| s.at == expr.span());
+    let statement_arms = std::mem::replace(&mut cx.statement_arms, arms);
     let result = lifted(cx, scrutinees, alts, span, kind, goal, base);
+    cx.statement_arms = statement_arms;
     cx.reset(mark);
     result
 }
@@ -1913,6 +1918,23 @@ fn in_arms(
     );
     let shown =
         crate::arm_display::note_scrutinees(cx, exprs.iter().map(|s| &s.term), base, &equations);
+    // The arms of a `match` on the statement are checked against its motive:
+    // the statement with each scrutinee written in it replaced by the
+    // variable standing for it, which an arm's pattern then fills in
+    // (`pick (n == 0) < 2` is `pick True < 2` in the `True` arm, where it
+    // computes to `True = True`).
+    let saved_statement = cx.statement.clone();
+    if cx.statement_arms
+        && let Some(outer) = &saved_statement
+        && let Some(term) = written_motive(cx, outer, exprs, base)
+    {
+        cx.statement = Some(Rc::new(crate::check::Statement {
+            term: Rc::new(term),
+            level: cx.level(),
+            at: outer.at,
+            outer: Some(outer.clone()),
+        }));
+    }
     let body = in_alternatives(cx, kind, alts, &levels, |cx| {
         let recheck = compiled.recheck(&levels, span, cx.level(), &motive);
         let body = crate::families::warn_unreachable_unless(cx, as_written, &recheck, |cx| {
@@ -1921,6 +1943,7 @@ fn in_arms(
         cx.scrutinees.truncate(known);
         body
     });
+    cx.statement = saved_statement;
     crate::arm_display::forget_scrutinees(cx, shown);
     // A pattern `let` is a `match` the compiler makes, not one written in the
     // source: its names are bound by the arms whether the goal changes or not.
@@ -2879,6 +2902,38 @@ impl Generalise<'_> {
                 .carried(g, met, &s, &c, x, &|part| self.apply_under(g, part, under))
         })())
     }
+}
+
+/// Statement `outer` as a generalised `match`'s motive, in the context the
+/// arms start from: each scrutinee (in the context of the first `base`
+/// variables) written in it replaced by the variable standing for it. Display
+/// only (`Ctx::statement`).
+fn written_motive(
+    cx: &Ctx,
+    outer: &crate::check::Statement,
+    exprs: &[Scrut],
+    base: usize,
+) -> Option<Term> {
+    let g = cx.g();
+    let level = cx.level();
+    if outer.level > base {
+        return None;
+    }
+    let at_base = lift::replace_with(
+        &g,
+        &outer.term,
+        outer.level,
+        &|l| Ok(Term::Var(base - 1 - l)),
+        &|_, _| None,
+    )
+    .ok()?;
+    let hook = |t: &Term, under: usize| {
+        let i = exprs
+            .iter()
+            .position(|s| same_shifted(&s.term, t, under, 0))?;
+        Some(Term::Var(level - 1 - (base + i) + under))
+    };
+    lift::replace_with(&g, &at_base, base, &|l| Ok(Term::Var(level - 1 - l)), &hook).ok()
 }
 
 #[cfg(test)]
