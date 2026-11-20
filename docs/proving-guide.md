@@ -396,7 +396,7 @@ Import what you use: std's theorems live in namespaces that need an import
 | Induction | recursion in the theorem (structural, or `decreasing`) |
 | Induction that follows a function's own cases | `match induct (f args) with` |
 | Induction over a nested type (`List T` inside `T`) | `T.induct`, `T.inductMem`, `T.size` |
-| What a parser gives or reads (`Parse.Gives`, `Parse.ReadsIn`, `Parse.ReadsAt`) | `byWalking [lemmas] then t` |
+| What a parser gives or reads (`Parse.Gives`, `Parse.ReadsIn`, `Parse.ReadsAt`), or that two runs follow each other (`Parse.Follows`) | `byWalking [lemmas] then t` |
 
 - **`byWalking [lemmas] then t`** writes the `givesThen`/`givesDone`/`givesWeaken`
   chain for a statement about a parser, following its code: a lemma per call,
@@ -413,6 +413,14 @@ Import what you use: std's theorems live in namespaces that need an import
   Where two leaves need different proofs, run
   `stitchwort check --expand-walk` and edit the chain it writes; keep the
   walk only where it is shorter than the chain.
+  A two-run statement (`Parse.Follows`) is walked in lockstep: the walk
+  needs no `followsThenEq`, since it rewrites values the lemma says are
+  equal itself, and a lemma's premise about a function the call passes on
+  (`endsFollow` for `tupleEnds inner`) is walked or taken from the
+  brackets. It stops where the two runs' code differs in shape. It can't
+  line up two runs whose calls get values that are related but not equal,
+  such as `Parse.mark()`'s alike marks feeding a fuel (`followsListItems`,
+  `followsAtomAfter`): keep those by hand.
 - **`byComputing`** proves `a = b` only when both sides compute to the same value.
   `+` recurses on its first argument, so `1 + c` computes to `Succ c` and
   `c + 1` doesn't (aoc/NOTES-2024.md:824–836). A goal stuck on a variable

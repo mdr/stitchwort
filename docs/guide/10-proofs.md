@@ -1215,6 +1215,8 @@ theorem givesCapped ∀ (limit: Nat): Parse.Gives Parse.Invariant.any (() => cap
 
 The walk splits where the program does (the `match` and the `if`, keeping the condition as a hypothesis), and closes what is left at each value by computing, a hypothesis, `arithmetic`, or the `t` after `then`. Its proof is an ordinary chain of the family's lemmas (`Parse.givesThen`, `Parse.givesDone`, `Parse.givesWeaken`), which the kernel checks as usual. `stitchwort check --expand-walk FILE` writes that chain into the file in place of the walk, and prints which lemma it used at each call; that is also the way to take over by hand where the leaves need different proofs.
 
+The same step proves that two runs of a parser agree (`Parse.Follows same alike (() => p x) (() => p y)`): it walks both runs side by side, takes one lemma for each pair of calls, splits once where both runs split on the same value, and stops, showing both, where the two runs' code takes different shapes.
+
 A function without a lemma is not looked into unless you ask: `byWalking [unfold helper]`. When the walk can't go on, `E-WALK` names the call, or the leaf, and shows the goal there. Details: [the syntax reference](../syntax.md#bywalking).
 
 ## The goal at any point, from the command line

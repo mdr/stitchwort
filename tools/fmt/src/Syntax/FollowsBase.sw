@@ -6,7 +6,9 @@
 --| How to write one. Each parser function `f` gets one lemma, `followsF`: called with alike arguments, `f` follows
 --| itself. Its only hypotheses are alike arguments, the knot (`SelfFollows self selfTwin`, or `PatternSelfFollows`),
 --| and one hypothesis for each function in another file that `f` calls directly (below). The proof follows `f`'s
---| body step by step:
+--| body step by step. Most of these proofs are walks, `byWalking [lemmas] then t` (docs/syntax.md, "byWalking"), which
+--| write the chain below themselves, with the lemmas tagged `@[walk]` here; the steps are what a walk does, and what to
+--| write by hand where it stops:
 --|
 --| - `let x := p(); rest` is `Parse.followsThen (followsP …) (x xTwin xs => …)`, where `xs` says `x` and `xTwin` are
 --|   alike. When `p` gives a `Bool`, `Nat`, `Tok` or `Option Tok` (a look-ahead, `modes.at`, `offset()`), its lemma

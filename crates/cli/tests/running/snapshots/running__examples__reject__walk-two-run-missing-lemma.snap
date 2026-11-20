@@ -1,0 +1,18 @@
+---
+source: crates/cli/tests/running/examples.rs
+assertion_line: 803
+expression: output
+---
+[E-WALK] Error: the walk stops: it has no lemma for this pair of calls of `here`, one in each run
+    ╭─[ reject/walk-two-run-missing-lemma.sw:20:100 ]
+    │
+ 20 │ theorem followsHereTwice: Parse.Follows SameNat SameNat (() => hereTwice()) (() => hereTwice()) := byWalking []
+    │                                                                                                    ────┬────  
+    │                                                                                                        ╰────── in `hereTwice`
+    │ 
+    │ Note 1: the calls are here () (first run) and here () (second run)
+    │ 
+    │ Note 2: give a lemma for it in the brackets, register one with `@[walk]`, or write `unfold here` in the brackets to walk its body
+    │ 
+    │ Note 3: the goal there is Parse.Follows SameNat SameNat (arg => hereTwice ()) (arg => hereTwice ())
+────╯

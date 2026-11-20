@@ -19,6 +19,9 @@
 //! for `Parse.givesAfter0`) is a bridge: a lemma in that relation fits a
 //! call there.
 //!
+//! A family's relation may have two thunks (`Parse.Follows`, two runs of a
+//! parser): its walk follows both runs in lockstep ([`two`]).
+//!
 //! **Steps.** The goal's own function is walked through once (its case
 //! tree split on, or its body unfolded); then, at each point of the body:
 //! - `Effect.bind c k`: a lemma for the call `c` (below), the family's
