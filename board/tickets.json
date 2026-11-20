@@ -30183,8 +30183,8 @@
     {
       "id": 4451,
       "title": "[Sonnet] Goals as written: the lemma offered for a goal (goal_index lemmas) still states the computed form (theorem plainGoal1 (n: Nat): True = True := ?) where the goal now shows the statement as written (0 < 1); state the lemma as written when it checks against the same goal (SW-4443 follow-up)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
