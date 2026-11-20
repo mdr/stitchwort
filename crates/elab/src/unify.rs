@@ -3061,7 +3061,13 @@ fn solve(g: &Unifier<'_>, level: usize, m: usize, spine: &[Elim], rhs: &Value) -
 /// `rhs` with an unknown in it is refused too, since renaming would prune
 /// that unknown's dependence on `v` (`?m e = F (?n v)` gives `?n := _ =>
 /// …`, one solution of several: `?n` may use `v` through `e`). Nothing is
-/// solved if `e` doesn't occur. Unlike [`solve`], the spine's other
+/// solved if `e` doesn't occur. If that finds nothing, the same is tried
+/// with both sides' accessor calls written as projections
+/// ([`accessors_as_projections`]), so a needle and a goal that spell a field
+/// differently meet; the solution is then spelled with projections, and the
+/// refusals above apply to the rewritten goal, which is convertible to the
+/// original, so a variable or unknown found only in an argument the rewrite
+/// drops doesn't count. Unlike [`solve`], the spine's other
 /// arguments must be distinct variables: `()` and ignorable positions
 /// aren't handled. The solution is checked by comparing `?m spine` with
 /// `rhs` again.
@@ -3102,7 +3108,38 @@ fn solve_abstracting(
     let Some((at, icit, e)) = needle else {
         return Ok(false);
     };
-    let needle = quote_as_written(g, level, &e)?;
+    // As written first, so a goal that matches keeps its solution as it is;
+    // with accessors as projections only where that found nothing.
+    for normalise in [false, true] {
+        if abstract_once(g, level, m, spine, rhs, (at, icit, &e), &seen, normalise)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+/// One attempt of [`solve_abstracting`], for the spine's stuck argument
+/// `(at, icit, e)` and its variables `seen`; `normalise` writes accessor
+/// calls as projections on both sides first.
+#[allow(clippy::too_many_arguments)]
+fn abstract_once(
+    g: &Unifier<'_>,
+    level: usize,
+    m: usize,
+    spine: &[Elim],
+    rhs: &Value,
+    (at, icit, e): (usize, Icit, &Value),
+    seen: &HashSet<usize>,
+    normalise: bool,
+) -> Result<bool> {
+    let written = |t: Term| {
+        if normalise {
+            accessors_as_projections(g, &t)
+        } else {
+            Ok(t)
+        }
+    };
+    let needle = written(quote_as_written(g, level, e)?)?;
     if needle.subterms().any(|(t, _)| matches!(t, Term::Meta(_)))
         || crate::matching::free_levels(&needle, level)
             .iter()
@@ -3110,7 +3147,7 @@ fn solve_abstracting(
     {
         return Ok(false);
     }
-    let hay = quote_as_written(g, level, rhs)?;
+    let hay = written(quote_as_written(g, level, rhs)?)?;
     if hay.subterms().any(|(t, _)| matches!(t, Term::Meta(_)))
         || !hay
             .subterms()
@@ -3139,6 +3176,54 @@ fn solve_abstracting(
     }
     undo_since(g, trail);
     Ok(false)
+}
+
+/// `term` with each saturated call of a field-accessor-shaped definition
+/// (`Mark.left {t} v`: a function whose body is a `case` on its last
+/// parameter, with one branch returning a field) written as the primitive
+/// projection it computes to (`v.2`), so that [`solve_abstracting`] finds a
+/// needle written one way in a goal that holds the other: a goal stated with
+/// accessors, after `Parse.runFrom` has run, reads the state's fields as
+/// projections. The test is structural, so a hand-written definition of that
+/// shape counts too. Only record types with eta, as the kernel only takes a
+/// projection of those; the arguments before the record are dropped because
+/// the body can't name them, whatever they are. Opaque definitions and ones
+/// with a native are left alone: they aren't convertible to the projection.
+fn accessors_as_projections(g: &Ev, term: &Term) -> Result<Term> {
+    term.rewrite_up(g, &mut |t| {
+        let (Term::Def(d), args) = t.spine() else {
+            return Ok(None);
+        };
+        // An opaque definition never unfolds, and one with a native isn't
+        // taken apart by record eta: neither is convertible to the projection.
+        if g.def(*d).opaque() || stitchwort_core::value::eta_held(g, *d) {
+            return Ok(None);
+        }
+        let Some(body) = g.def(*d).body() else {
+            return Ok(None);
+        };
+        if body.count_lams() != args.len() || args.is_empty() {
+            return Ok(None);
+        }
+        let Term::Case(0, data, branches) = body.peel_lams(args.len()).strip_loc() else {
+            return Ok(None);
+        };
+        let [branch] = &**branches else {
+            return Ok(None);
+        };
+        let Some(Term::Var(field)) = branch.body.as_ref().map(|b| b.strip_loc()) else {
+            return Ok(None);
+        };
+        if !g.data(*data).eta() || *field >= branch.names.len() {
+            return Ok(None);
+        }
+        let record = (*args[args.len() - 1]).clone();
+        Ok(Some(Term::Proj(
+            *data,
+            branch.names.len() - 1 - field,
+            Rc::new(record),
+        )))
+    })
 }
 
 /// [`unify_solving_arguments`], except that an unknown applied to variables

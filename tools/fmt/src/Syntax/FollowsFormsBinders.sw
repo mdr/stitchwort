@@ -175,22 +175,17 @@ theorem followsLambdaParen ∀ [self selfTwin: Goal → {Parse Item} Expr] (patt
   rewrite params then
     match annotatedParamAhead others with
       | True => followsLambdaGroup groups modes
-      | False =>
-        Parse.followsThen
-          [j := here => lambdaPattern self modes (annotatedPatternAhead (here.left + 1) items)]
-          [k := here => lambdaPattern selfTwin modes (annotatedPatternAhead (here.left + 1) others)]
-          Parse.followsMark
-          (here hereTwin marks =>
-            let typed: annotatedPatternAhead (here.left + 1) items = annotatedPatternAhead (hereTwin.left + 1) others :=
-              rewrite <- marks.right.right then
-                deafOfStripped
-                  (annotatedPatternAhead (here.left + 1))
-                  (annotatedPatternAheadDeaf (here.left + 1))
-                  items
-                  others
-                  same
-            rewrite typed then
-              followsLambdaPattern patterns binders modes (annotatedPatternAhead (hereTwin.left + 1) others))
+      | False => Parse.followsThen Parse.followsMark (here hereTwin marks =>
+        let typed: annotatedPatternAhead (here.left + 1) items = annotatedPatternAhead (hereTwin.left + 1) others :=
+          rewrite <- marks.right.right then
+            deafOfStripped
+              (annotatedPatternAhead (here.left + 1))
+              (annotatedPatternAheadDeaf (here.left + 1))
+              items
+              others
+              same
+        rewrite typed then
+          followsLambdaPattern patterns binders modes (annotatedPatternAhead (hereTwin.left + 1) others))
 
 theorem followsLambdaParam ∀ [self selfTwin: Goal → {Parse Item} Expr] (patterns: PatternOfFollows)
     (groups: HeaderGroupFollows self selfTwin)
