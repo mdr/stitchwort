@@ -4937,6 +4937,7 @@ fn proof_search(cx: &Ctx, value: &Expr) -> bool {
         Expr::Omega { .. } | Expr::Cases { .. } | Expr::Ring { .. } | Expr::Rewrite { .. } => true,
         Expr::Var(name) => name.text == "byComputing" && cx.lookup("byComputing").is_none(),
         Expr::Bracketed(inner, _) => proof_search(cx, inner),
+        Expr::Walk(walk) => walk.resume.is_some_and(|id| crate::walk::held_last(cx, id)),
         _ => false,
     }
 }

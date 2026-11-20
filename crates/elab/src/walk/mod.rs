@@ -157,6 +157,21 @@ struct NodeInfo {
     /// A split's branch: the goal before the split, which the branch's
     /// goal is with the split's equation's right side for its scrutinee.
     planned: Option<Rc<Planned>>,
+    /// Within the walk of a bound computation that isn't one call
+    /// ([`nested_bind`]): where that computation ends, the walk goes on in
+    /// the code after it. Kept by the places of the same walk, not by
+    /// leaves.
+    cont: Option<Rc<Cont>>,
+    /// The first premise of a [`nested_bind`]: each run's bound
+    /// computation, which this goal's thunks are.
+    nest: Option<Rc<Vec<Value>>>,
+}
+
+/// The code after a bound computation that isn't one call: each run's
+/// continuation, and the one this walk is itself inside, if any.
+struct Cont {
+    ks: Vec<Value>,
+    parent: Option<Rc<Cont>>,
 }
 
 /// The goal a split's branch has, read back folded: the generalised goal a
@@ -353,6 +368,8 @@ fn start(cx: &mut Ctx, walk: &Walk, expected: &Value) -> Result<Term> {
             through: Vec::new(),
             equate: None,
             planned: None,
+            cont: None,
+            nest: None,
         });
         (call, root)
     };
@@ -882,6 +899,11 @@ fn place(cx: &Ctx, info: &NodeInfo, kind: Kind, where_: &str) -> u32 {
         through: Vec::new(),
         equate: None,
         planned: None,
+        cont: match kind {
+            Kind::Step(_) => info.cont.clone(),
+            Kind::Leaf => None,
+        },
+        nest: None,
     });
     id
 }
@@ -945,6 +967,9 @@ fn step(
         .trace
         .clear();
     let info = node_info(cx, node);
+    if let Some(codes) = info.nest.clone() {
+        fix_nested_thunks(cx, &info, family, &args, &codes, expected)?;
+    }
     if family.thunks.len() == 2 {
         return two::step(cx, node, &info, family, args, top, expected);
     }
@@ -1284,8 +1309,7 @@ fn bind_step(
         .map(|c| Ok(force_solved(&cx.g(), c)?))
         .collect::<Result<Vec<_>>>()?;
     // `unfold f` on a call run here: its body, if that is one call too
-    // (`full self modes` is `self { … }`). A body that binds would need
-    // the binds reassociated, which the walk doesn't do.
+    // (`full self modes` is `self { … }`), or code [`nested_bind`] takes.
     for run in 0..cs.len() {
         let mut unfolded = 0;
         while let Some(Callee::Def(f)) = head_of(&cs[run])
@@ -1306,7 +1330,11 @@ fn bind_step(
                 ))],
             );
             cs[run] = force_solved(&g, unfold_once(&g, f, spine)?)?;
-            if !matches!(classify(cx, &cs[run], None)?, Code::Call(..)) {
+            let code = classify(cx, &cs[run], None)?;
+            if nestable(&code) {
+                break;
+            }
+            if !matches!(code, Code::Call(..)) {
                 return Err(stuck(
                     cx,
                     info,
@@ -1319,6 +1347,9 @@ fn bind_step(
                 ));
             }
         }
+    }
+    if let Some(term) = nested_bind(cx, node, info, family, &cs, &ks, expected)? {
+        return Ok(term);
     }
     let Some(callee) = head_of(&cs[0]) else {
         return Err(stuck(
@@ -1464,6 +1495,183 @@ fn bind_step(
     result
 }
 
+/// Whether code a bind runs is walked as a computation of its own
+/// ([`nested_bind`]) rather than given a lemma as a call.
+fn nestable(code: &Code) -> bool {
+    matches!(code, Code::Bind(..) | Code::Split { .. } | Code::Reduced(_))
+}
+
+/// Whether the walk's place `id` is checked after the other arguments of
+/// the application it is in: the first premise of a [`nested_bind`], whose
+/// post the identity after it fixes.
+pub(crate) fn held_last(cx: &Ctx, id: u32) -> bool {
+    (cx.e.session.walks.borrow().nodes.get(id as usize)).is_some_and(|n| n.nest.is_some())
+}
+
+/// A bind whose bound computation isn't one call: `let y := f (g ()); k y`
+/// is `Effect.bind (Effect.bind (g ()) f) k`, and the walk reads it as
+/// `let x := g (); let y := f x; k y`. The family's own then-lemma takes
+/// the bound computation, walked, as its first premise, with the post the
+/// rest of the code needs (`y => R … (() => k y) post`), so its last
+/// premise is the identity: `then (walk of f (g ())) (y yFacts => yFacts)`.
+/// Where the bound computation ends, in a value or a call, the walk goes on
+/// in `k` ([`Cont`]). A bound computation that splits is walked the same
+/// way. None where the code is a call, or the then-lemma's last premise
+/// isn't `∀ vs => first vs → …` with `first` its first premise's post
+/// (`Parse.readsAtThen`'s has a fact about the mark too).
+#[allow(clippy::too_many_arguments)]
+fn nested_bind(
+    cx: &mut Ctx,
+    node: u32,
+    info: &NodeInfo,
+    family: &Family,
+    cs: &[Value],
+    ks: &[Value],
+    expected: &Value,
+) -> Result<Option<Term>> {
+    for c in cs {
+        if !nestable(&classify(cx, c, None)?) {
+            return Ok(None);
+        }
+    }
+    let Some(&(then, _, _)) = (family.then.iter()).find(|(_, first, _)| *first == family.relation)
+    else {
+        return Ok(None);
+    };
+    let g = cx.g();
+    let Some(shape) = statement(g.def(then).ty()) else {
+        return Ok(None);
+    };
+    let explicit = shape.explicit();
+    let [first_at, rest_at] = explicit[..] else {
+        return Ok(None);
+    };
+    if statement(&shape.binders[first_at].1).is_none_or(|s| s.head != family.relation) {
+        return Ok(None);
+    }
+    // The last premise: `∀ v… => first v… → R …`, `first` an implicit of
+    // the lemma's applied to the values in order.
+    let rest = &shape.binders[rest_at].1;
+    let binders = premise_binders(rest);
+    let Some(values_count) = binders.len().checked_sub(1) else {
+        return Ok(None);
+    };
+    let mut t = rest.strip_loc();
+    for _ in 0..values_count {
+        let Term::Pi(_, _, _, cod) = t else {
+            return Ok(None);
+        };
+        t = cod.strip_loc();
+    }
+    let Term::Pi(_, _, hypothesis, _) = t else {
+        return Ok(None);
+    };
+    let (head, hyp_args) = hypothesis.spine();
+    let identity = matches!(head.strip_loc(), Term::Var(ix) if *ix >= values_count
+            && rest_at.checked_sub(1 + ix - values_count)
+                .is_some_and(|b| shape.binders[b].0 != Icit::Explicit))
+        && hyp_args.len() == values_count
+        && (hyp_args.iter().enumerate())
+            .all(|(i, a)| matches!(a.strip_loc(), Term::Var(ix) if *ix == values_count - 1 - i));
+    if !identity {
+        return Ok(None);
+    }
+    let first_name = match ks.first() {
+        Some(Value::Lam(name, ..)) if !generated(name.as_ref()) => name.to_string(),
+        _ => "value".to_string(),
+    };
+    let mut values: Vec<(usize, String)> = vec![(0, first_name.clone())];
+    let mut at = value_binders(rest);
+    if family.thunks.len() > 1 {
+        values.push((1, format!("{first_name}Twin")));
+    }
+    if at.len() != values.len() {
+        at = (0..values.len()).collect();
+    }
+    let named: Vec<(usize, String)> = at
+        .into_iter()
+        .zip(values.into_iter().map(|(_, n)| n))
+        .collect();
+    let names = rest_names(cx, &binders, &named);
+    let span = cx.span;
+    let inner = place(cx, info, Kind::Step(family.relation), &info.place);
+    {
+        let mut walks = cx.e.session.walks.borrow_mut();
+        let n = &mut walks.nodes[inner as usize];
+        n.nest = Some(Rc::new(cs.to_vec()));
+        n.cont = Some(Rc::new(Cont {
+            ks: ks.to_vec(),
+            parent: info.cont.clone(),
+        }));
+    }
+    let then_name = written_name(cx, then);
+    let facts = names.last().cloned().unwrap_or_default();
+    let e = app(
+        app(var(then_name.clone(), span), resume(inner, span)),
+        lambda(&names, var(facts.clone(), span), span),
+    );
+    note_trace(
+        cx,
+        node,
+        vec![Piece::Text(format!(
+            "{}: `{}` walked as the code it runs, then `{}`",
+            info.place,
+            cx.show(&cs[0]),
+            short_name(&then_name)
+        ))],
+    );
+    set_text(
+        cx,
+        node,
+        vec![
+            Piece::Text(format!("{}\n{MORE}(", short_name(&then_name))),
+            Piece::Child(inner),
+            Piece::Text(format!(")\n{MORE}({} {facts})", binding(&names))),
+        ],
+    );
+    check_written(cx, info, &e, expected, "the step").map(Some)
+}
+
+/// At the first premise of a [`nested_bind`]: the goal's thunks are the
+/// bound computations, `() => c`, which the application this premise is in
+/// leaves to be found (`p ()` against `c` is no pattern).
+fn fix_nested_thunks(
+    cx: &mut Ctx,
+    info: &NodeInfo,
+    family: &Family,
+    args: &[Value],
+    codes: &[Value],
+    expected: &Value,
+) -> Result<()> {
+    for (run, &at) in family.thunks.iter().enumerate() {
+        let g = cx.g();
+        let code = cx.quote_folded(&codes[run])?.shift(&g, 1, 0)?;
+        let thunk = cx.eval(&Term::Lam("arg".into(), Icit::Explicit, Rc::new(code)))?;
+        if !crate::undo::unify(cx, &args[at], &thunk)? {
+            return Err(stuck(
+                cx,
+                info,
+                expected,
+                "the goal for the code a bind runs isn't about that code",
+                &[format!("the code is {}", cx.show(&codes[run]))],
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// The place for a premise of a value's or a call's lemma about its
+/// value: a leaf, or, where the code ends a bound computation
+/// ([`nested_bind`]), the walk of the code after it.
+fn premise_place(cx: &Ctx, info: &NodeInfo, family: &Family) -> u32 {
+    let Some(cont) = &info.cont else {
+        return place(cx, info, Kind::Leaf, &info.place);
+    };
+    let next = place(cx, info, Kind::Step(family.relation), &info.place);
+    cx.e.session.walks.borrow_mut().nodes[next as usize].cont = cont.parent.clone();
+    next
+}
+
 /// The family's done-lemma at a value, its premise a leaf.
 fn done_step(
     cx: &mut Ctx,
@@ -1491,7 +1699,7 @@ fn done_step(
         // A premise is a proposition about the value; the others (the
         // value itself, a mark) unification finds.
         if is_premise_term(dom) {
-            let leaf = place(cx, info, Kind::Leaf, &info.place);
+            let leaf = premise_place(cx, info, family);
             e = app(e, resume(leaf, span));
             text.extend([
                 Piece::Text(" (".into()),
@@ -1553,9 +1761,13 @@ fn tail_call(
         ]
         .concat(),
     );
-    // As it is, if its post is the goal's.
+    // As it is, if its post is the goal's; never where the code after it
+    // is still to be walked.
     let snapshot = Snapshot::take(cx);
-    match check(cx, &lemma, expected) {
+    match (info.cont.is_none())
+        .then(|| check(cx, &lemma, expected))
+        .unwrap_or_else(|| Err(Diagnostic::error("E-WALK", "the code goes on")))
+    {
         Ok(term) => {
             cx.reset(mark);
             let mut text = lemma_text.clone();
@@ -1603,15 +1815,18 @@ fn tail_call(
     let implies = &shape.binders[implies_at].1;
     let binders = premise_binders(implies);
     let runs = family.thunks.len();
+    let bases = match &info.cont {
+        Some(cont) => value_names(cx, callee, &cont.ks[0], runs),
+        None => vec!["value".to_string(), "valueTwin".to_string()],
+    };
     let values: Vec<(usize, String)> = (0..runs)
         .map(|run| {
             let at = (binders.len() + run).saturating_sub(runs + 1);
-            let base = if run == 0 { "value" } else { "valueTwin" };
-            (at, fresh(cx, base, &[]))
+            (at, fresh(cx, &bases[run], &[]))
         })
         .collect();
     let names = rest_names(cx, &binders, &values);
-    let leaf = place(cx, info, Kind::Leaf, &info.place);
+    let leaf = premise_place(cx, info, family);
     let lambda = lambda(&names, resume(leaf, span), span);
     let mut text = vec![Piece::Text(format!("{}\n{MORE}", short_name(&name)))];
     let implication = [
