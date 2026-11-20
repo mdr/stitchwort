@@ -54,7 +54,7 @@ theorem productiveRanked ∀ (rules: Rules) (rank: Nat → Nat) (bound: Nat)
     let sequenceProductive := entryProductive.read sequence chosen
     match sequence with
       | [single] => Both (List.consNotNil single []) (only same =>
-        rewrite <- List.consInjectiveHead single only [] [] same then arithmetic [sequenceProductive])
+        rewrite <- List.consInjectiveHead same then arithmetic [sequenceProductive])
       | [first, second, ..others] => Both (List.consNotNil first [second, ..others]) (only same =>
         Void.impossible (List.consNotNil second others (Eq.cong (.drop 1) same))))
 

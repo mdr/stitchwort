@@ -70,10 +70,9 @@ theorem givesThen ∀ [p: () → {Parse Char} a] [j: a → {Parse Char} b] [hold
     Gives (() => j (p())) holds :=
   Parse.readsThen first (read v u => rest v)
 
-theorem givesDone ∀ (x: a) (holds: a → Prop) (proved: holds x): Gives (() => x) holds :=
-  Parse.readsDone x (read value => holds value) proved
+theorem givesDone ∀ (x: a) (holds: a → Prop) (proved: holds x): Gives (() => x) holds := Parse.readsDone x proved
 
-theorem soundDone ∀ (x: a): Sound (() => x) := Parse.readsDone x (read value => Holds) byComputing
+theorem soundDone ∀ (x: a): Sound (() => x) := Parse.readsDone x byComputing
 
 theorem soundMark: Sound (() => Parse.mark()) := Parse.readsWeaken Parse.readsMark (read value h => byComputing)
 
@@ -81,7 +80,7 @@ theorem soundSpan ∀ (passes: Char → Bool): Sound (() => Parse.span passes) :
   Parse.readsWeaken (Parse.readsSpan passes) (read value h => byComputing)
 
 theorem givesFatal ∀ (message: Text) (holds: a → Prop): Gives (() => Empty.absurd (Parse.fatal message)) holds :=
-  Parse.readsFatal message (read value => holds value)
+  Parse.readsFatal
 
 theorem soundMany ∀ [p: () → {Parse Char} a] (sound: Sound p): Sound (() => Parse.many p) :=
   Parse.readsWeaken (Parse.readsMany p (read value => Holds) sound) (read value h => byComputing)
@@ -106,7 +105,7 @@ theorem takeSplit ∀ (whole read later: List Char) (count: Nat)
 theorem atSkip ∀ (count: Nat) (start: Parse.Mark Char):
     Parse.ReadsAt start (() => skip count) (read u => read = start.rest.take count) :=
   match count with
-    | Zero => Parse.readsAtDone start () _ byComputing
+    | Zero => Parse.readsAtDone start () byComputing
     | Succ more => atThen (Parse.readsAtNextAny start) (read v after starts moved first =>
       Parse.readsAtWeaken (atSkip more after) (taken u later =>
         rewrite later then takeSplit start.rest read after.rest more starts first))
@@ -117,7 +116,7 @@ theorem atLocated ∀ (value: Lexeme) (from at: Parse.Mark Char):
       read = [] ∧ lexeme = { value, offset = from.offset, length = at.offset - from.offset }) :=
   atThen (Parse.readsAtMarkHere at) (read m after starts moved facts =>
     match facts with
-      | Both none same => rewrite none, same then Parse.readsAtDone after _ _ (Both byComputing byComputing))
+      | Both none same => rewrite none, same then Parse.readsAtDone after _ (Both byComputing byComputing))
 
 --| A token of `count` characters: what it read, located where it began.
 def TokenRead (start: Parse.Mark Char) (kind: Tok) (count: Nat) (read: List Char) (lexeme: Parse.Located Lexeme):
@@ -504,8 +503,7 @@ theorem givesDots: Gives (() => dots()) Foreign := givesThen soundMark (at =>
     | ['.', '.', ..rest] => dotsFrom DotDot 2 byComputing
     | _ => dotsFrom Dot 1 byComputing)
 
-theorem soundFatal ∀ (message: Text): Sound (() => (Empty.absurd (Parse.fatal message): a)) :=
-  Parse.readsFatal message (read value => Holds)
+theorem soundFatal ∀ (message: Text): Sound (() => (Empty.absurd (Parse.fatal message): a)) := Parse.readsFatal
 
 theorem soundStop: Sound (() => (Empty.absurd Parse.stop(): a)) := Parse.readsStop (read value => Holds)
 
@@ -840,7 +838,7 @@ theorem atSingle ∀ (value: Lexeme) (from at: Parse.Mark Char):
       read = [] ∧ lexemes = [{ value, offset = from.offset, length = at.offset - from.offset }]) :=
   atThen (atLocated value from at) (read lexeme after starts moved facts =>
     match facts with
-      | Both none same => rewrite none, same then Parse.readsAtDone after _ _ (Both byComputing byComputing))
+      | Both none same => rewrite none, same then Parse.readsAtDone after _ (Both byComputing byComputing))
 
 --| A round that read `read` and then located one lexeme from where it began.
 theorem singleRound ∀ (start after: Parse.Mark Char) (read: List Char) (value: Lexeme)
@@ -926,7 +924,7 @@ theorem commentRound ∀ (self: Place → {Parse Char} List (Parse.Located Lexem
                       let movedAll: after2.offset = start.offset + read.length :=
                         rewrite moved2, none2, moved then arithmetic []
                       rewrite none2, none3, isLexeme then
-                        Parse.readsAtDone after3 _ _ (singleRound start after2 read CommentLexeme movedAll fine))))
+                        Parse.readsAtDone after3 _ (singleRound start after2 read CommentLexeme movedAll fine))))
 
 --| A word or a number read from where `c` was next: a token of a kind that is not a closer or `->`, at `offset`, as
 --| long as what was read, which starts with `c`.
@@ -995,7 +993,7 @@ theorem wordReads ∀ (start: Parse.Mark Char) (c: Char) (more: List Char)
                           let moved3b: after3.offset = after1.offset + read3.length :=
                             rewrite moved2, none2 at moved3 then moved3
                           rewrite none2, none4, isLexeme then
-                            Parse.readsAtDone after4 _ _
+                            Parse.readsAtDone after4 _
                               (tokenAtOf c start after1 after3 read1 read3 _ kind moved1 moved3b head plain)))))
 
 theorem numberPlain ∀ (float: Bool): plainKind (if float then Float else Num) = True := match float with
@@ -1025,7 +1023,7 @@ theorem numberReads ∀ (start: Parse.Mark Char) (c: Char) (more: List Char)
                       moved2
                       head
                       (numberPlain float)
-                  rewrite none3, isLexeme then Parse.readsAtDone after3 _ _ tokenAt)))
+                  rewrite none3, isLexeme then Parse.readsAtDone after3 _ tokenAt)))
 
 --| One lexeme, located where the round began and as long as what it read, which is fine.
 theorem singleAt ∀ (start: Parse.Mark Char) (read: List Char) (value: Lexeme)
@@ -1053,7 +1051,7 @@ theorem wordRound ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme))
     (starts: wordy c = True):
     Parse.ReadsAt start (() => [word False]) (RoundFine start.offset start.rest) :=
   atThen (Parse.readsAtMarkThen (wordReads start c more here wordChar)) (read lexeme after starts1 moved1 made =>
-    Parse.readsAtDone after _ _ (tokenAtFine c start read lexeme starts made))
+    Parse.readsAtDone after _ (tokenAtFine c start read lexeme starts made))
 
 theorem numberRound ∀ (start: Parse.Mark Char) (c: Char) (more: List Char)
     (here: start.rest = [c, ..more])
@@ -1061,7 +1059,7 @@ theorem numberRound ∀ (start: Parse.Mark Char) (c: Char) (more: List Char)
     (starts: wordy c = True):
     Parse.ReadsAt start (() => [number False]) (RoundFine start.offset start.rest) :=
   atThen (Parse.readsAtMarkThen (numberReads start c more here digit)) (read lexeme after starts1 moved1 made =>
-    Parse.readsAtDone after _ _ (tokenAtFine c start read lexeme starts made))
+    Parse.readsAtDone after _ (tokenAtFine c start read lexeme starts made))
 
 --| `tokenOf kind count` as a round, where what it reads is a token's text that agrees with its kind.
 theorem tokenRound ∀ (kind: Tok) (count: Nat) (start: Parse.Mark Char)
@@ -1078,7 +1076,7 @@ theorem tokenRound ∀ (kind: Tok) (count: Nat) (start: Parse.Mark Char)
         let marked: markedText (Text.fromList (start.rest.take count)) kind = True := Bool.andRight (Bool.andRight fine)
         let chunk: chunkFine read (start.rest.drop read.length) (TokenLexeme kind) = True :=
           rewrite taken, some, notBreak, marked, Bool.orTrue (!kind.within1)
-        rewrite isLexeme then Parse.readsAtDone after _ _ (singleAt start read (TokenLexeme kind) chunk))
+        rewrite isLexeme then Parse.readsAtDone after _ (singleAt start read (TokenLexeme kind) chunk))
 
 theorem givesBind ∀ [p: () → {Parse Char} a] [j: a → {Parse Char} b] [first: a → Prop] [holds: b → Prop]
     (gives: Gives p first)

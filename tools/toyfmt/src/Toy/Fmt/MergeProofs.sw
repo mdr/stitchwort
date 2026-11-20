@@ -499,18 +499,17 @@ def renamed (names: NonEmptyList Named): ParameterGroup → ParameterGroup
 theorem mergeOntoSpare ∀ (group: ParameterGroup) (rest: List ParameterGroup)
     (kept: groupsWithoutSpareBrackets [group, ..rest] = [group, ..rest]):
     groupsWithoutSpareBrackets (mergeOnto group rest) = mergeOnto group rest :=
-  let groupKept := List.consInjectiveHead _ _ _ _ kept
+  let groupKept := List.consInjectiveHead kept
   let restKept := Eq.cong (.drop 1) kept
   match group, rest with
     | _, [] => rewrite groupKept
-    | Untyped _, [next, ..others] =>
-      rewrite groupKept, List.consInjectiveHead _ _ _ _ restKept, Eq.cong (.drop 1) restKept
+    | Untyped _, [next, ..others] => rewrite groupKept, List.consInjectiveHead restKept, Eq.cong (.drop 1) restKept
     | Typed _ _ (TypeBracketed _ _ _), [next, ..others] =>
-      rewrite groupKept, List.consInjectiveHead _ _ _ _ restKept, Eq.cong (.drop 1) restKept
+      rewrite groupKept, List.consInjectiveHead restKept, Eq.cong (.drop 1) restKept
     | Typed _ _ (TypeName _ _), [Untyped _, ..others] =>
-      rewrite groupKept, List.consInjectiveHead _ _ _ _ restKept, Eq.cong (.drop 1) restKept
+      rewrite groupKept, List.consInjectiveHead restKept, Eq.cong (.drop 1) restKept
     | Typed names colon (TypeName name comments), [Typed more colon2 annotation, ..others] =>
-      let nextKept := List.consInjectiveHead _ _ _ _ restKept
+      let nextKept := List.consInjectiveHead restKept
       let othersKept := Eq.cong (.drop 1) restKept
       match merges: (Typed names colon (TypeName name comments)).mergesInto (Typed more colon2 annotation) with
         | False => rewrite groupKept, nextKept, othersKept
@@ -524,7 +523,7 @@ theorem groupsMergeSpare ∀ (groups: List ParameterGroup)
     | [group, ..rest] =>
       let restKept := groupsMergeSpare rest (Eq.cong (.drop 1) kept)
       let ahead: groupsWithoutSpareBrackets [group, ..mergeGroups rest] = [group, ..mergeGroups rest] :=
-        rewrite List.consInjectiveHead _ _ _ _ kept, restKept
+        rewrite List.consInjectiveHead kept, restKept
       mergeOntoSpare group (mergeGroups rest) ahead
 
 theorem declarationMergeBrackets ∀ (line: Declaration)
@@ -543,7 +542,7 @@ theorem declarationsMergeBrackets ∀ (lines: List (Spaced Declaration))
   match lines with
     | [] => byComputing
     | [{ blankBefore, line }, ..rest] =>
-      let lineKept := Eq.cong (spaced => spaced.line) (List.consInjectiveHead _ _ _ _ kept)
+      let lineKept := Eq.cong (spaced => spaced.line) (List.consInjectiveHead kept)
       rewrite declarationMergeBrackets line lineKept, declarationsMergeBrackets rest (Eq.cong (.drop 1) kept)
 
 --| P4 keeps P3's work: the types it leaves are the types P3 left.

@@ -86,19 +86,9 @@ theorem unspacedFront ∀ (pending more: List (Spaced a)) (last: Spaced a)
     (unspaced: Unspaced (pending ++ [last, ..more])):
     Unspaced (pending ++ [last]) :=
   match pending, unspaced with
-    | [], unspaced =>
-      Eq.cong
-        ((first: Spaced a) => [first])
-        (List.consInjectiveHead { last | blankBefore = False } last more more unspaced)
+    | [], unspaced => Eq.cong ((first: Spaced a) => [first]) (List.consInjectiveHead unspaced)
     | [head, ..tail], unspaced =>
-      Eq.cong
-        ((first: Spaced a) => [first, ..tail ++ [last]])
-        (List.consInjectiveHead
-          { head | blankBefore = False }
-          head
-          (tail ++ [last, ..more])
-          (tail ++ [last, ..more])
-          unspaced)
+      Eq.cong ((first: Spaced a) => [first, ..tail ++ [last]]) (List.consInjectiveHead unspaced)
 
 theorem firstBlankSame ∀ (isFirst: Bool) (lines: List (Spaced Statement))
     (unspaced: isFirst = True → Unspaced lines):
@@ -1169,9 +1159,7 @@ theorem linesOut ∀ (column: Nat) (isFirst: Bool) (noted lines: List (Spaced St
                         byComputing,
                         (startsAtLine firstToken column
                           (Eq.trans (Eq.cong ((view: TokenView) => view.start) firstSame) starts)),
-                        (startNotLet firstToken.value.kind
-                          (rewrite List.consInjectiveHead firstToken found otherTokens foundOthers foundSplit then
-                            startKind)),
+                        (startNotLet firstToken.value.kind (rewrite List.consInjectiveHead foundSplit then startKind)),
                         (notedLine isFirst pending noted more blankBefore
                           (Bare value)
                           firstToken.value.above

@@ -10,13 +10,13 @@ import Std (Bool, Fail, List, NonEmptyList, Parse, Text, Void)
 theorem readsSlot: Parse.Reads slot SlotWritten :=
   Parse.readsThen (Parse.readsOptional (Parse.readsChar 'x')) (optionRead found maybe =>
     match found with
-      | Some u => Parse.readsDone OutOfService _ (rewrite List.appendNil optionRead then maybe)
+      | Some u => Parse.readsDone OutOfService (rewrite List.appendNil optionRead then maybe)
       | None => Parse.readsThen Parse.readsNat (digits id (Both nonEmpty (Both allDigits decimal)) =>
         match zero: id == 0 with
           | True => Parse.readsFail "a bus ID is at least 1" _
           | False =>
             Parse.readsDone
-              (Listed id) _
+              (Listed id)
               (rewrite maybe, List.appendNil digits then
                 Both nonEmpty
                   (Both allDigits (Both decimal (isZero => Bool.trueNotFalse (rewrite isZero at zero then zero)))))))
@@ -28,7 +28,7 @@ theorem readsNotes: Parse.Reads notes NotesWritten := Parse.readsThen Parse.read
       (Parse.readsSepBy1 slot (() => Parse.char ',') SlotWritten _ readsSlot (Parse.readsChar ','))
       (entries slots listed =>
         Parse.readsDone
-          { earliest, schedule = slots.toList } _
+          { earliest, schedule = slots.toList }
           (Witness digits
             (Witness lineBreak
               (Witness entries

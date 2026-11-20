@@ -55,7 +55,7 @@ theorem argStartsHung ∀ (modes: Modes) (argument: Expr) (first: Item) (more la
     | True =>
       match argument, spelt, fits, signed with
         | Prefix _ operand, (sign, inner, isRead, isSign, _, _, _, operandSpelt), fits, _ =>
-          let isSign1: first = sign := List.consInjectiveHead first sign more inner isRead
+          let isSign1: first = sign := List.consInjectiveHead isRead
           let isInner: more = inner := Eq.cong (.drop 1) isRead
           let (next, others, isOperand, nextStarts) :=
             speltPlainStarts operand inner operandSpelt (atomicUnsigned operand (Bool.andLeft fits))

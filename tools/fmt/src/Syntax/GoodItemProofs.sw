@@ -356,7 +356,7 @@ theorem tokenOfText ∀ (source: Text) (kind: Tok) (count: Nat) (start: Parse.Ma
       Parse.readsAtMark
         (to => { value = TokenLexeme kind, offset = start.offset, length = to.offset - start.offset }) _
         after
-        (Parse.readsAtDone after _ _
+        (Parse.readsAtDone after _
           (Both byComputing
             (rewrite sliceRead source start after read step moved, taken, List.takeOwnLength start.rest count)))))
 
@@ -444,7 +444,7 @@ theorem readsAtLocated ∀ (value: Lexeme) (from start: Parse.Mark Char):
   Parse.readsAtMark
     (to => { value, offset = from.offset, length = to.offset - from.offset }) _
     start
-    (Parse.readsAtDone start _ _ byComputing)
+    (Parse.readsAtDone start _ byComputing)
 
 --| A name's word characters go on in `qualScan1` without changing what it has.
 theorem qualScanWord ∀ (upper last: Bool) (word rest: List Char)
@@ -474,7 +474,7 @@ def QualScanned (upper: Bool) (found: Option Bool) (read: List Char) (value: Opt
 theorem readsAtQualified ∀ (fuel: Nat) (upper: Bool) (found: Option Bool) (start: Parse.Mark Char):
     Parse.ReadsAt start (() => qualified fuel upper found) (QualScanned upper found) :=
   match fuel with
-    | Zero => Parse.readsAtDone start found _ (Inl (Both byComputing byComputing))
+    | Zero => Parse.readsAtDone start found (Inl (Both byComputing byComputing))
     | Succ more =>
       Parse.readsAtMark
         (at => qualifiedOn more upper found at.rest) _
@@ -487,7 +487,7 @@ theorem readsAtQualifiedOn ∀ (more: Nat) (upper: Bool) (found: Option Bool) (s
   match input with
     | ['.', next, ..rest] =>
       match guard: upper && next.isAsciiLetter with
-        | False => Parse.readsAtDone start found _ (Inl (Both byComputing byComputing))
+        | False => Parse.readsAtDone start found (Inl (Both byComputing byComputing))
         | True =>
           let letter: next.isAsciiLetter = True := Bool.andRight guard
           let isUpper: upper = True := Bool.andLeft guard
@@ -516,7 +516,7 @@ theorem readsAtQualifiedOn ∀ (more: Nat) (upper: Bool) (found: Option Bool) (s
                     | Inl (none, same) => rewrite none, same
                     | Inr (_, scanned, _) => scanned
                   Inr (Both (Witness (read2 ++ taken) (rewrite r1)) (Both (Eq.trans scan ended) isSome)))))
-    | _ => Parse.readsAtDone start found _ (Inl (Both byComputing byComputing))
+    | _ => Parse.readsAtDone start found (Inl (Both byComputing byComputing))
 
 --| Num and Float.
 def Tok.isNumeral: Tok → Bool
@@ -641,17 +641,17 @@ theorem wordFine ∀ (source: Text) (from: Parse.Mark Char) (c: Char) (more: Lis
               match last with
                 | True =>
                   Parse.readsAtDone after2 Upper
-                    (taken kind => KindScanned first (read2 ++ taken) kind)
+                    [spec := (taken kind => KindScanned first (read2 ++ taken) kind)]
                     (Inr (Both (Both dotted (rewrite scan)) (Inl byComputing)))
                 | False =>
                   Parse.readsAtDone after2 Lower
-                    (taken kind => KindScanned first (read2 ++ taken) kind)
+                    [spec := (taken kind => KindScanned first (read2 ++ taken) kind)]
                     (Inr (Both (Both dotted (rewrite scan)) (Inr byComputing)))
             | None, Inr (_, _, some) => (Bool.falseNotTrue some).impossible
             | None, Inl (none, same) =>
               Parse.readsAtDone after2
                 (wordKind False (Text.fromList first))
-                (taken kind => KindScanned first (read2 ++ taken) kind)
+                [spec := (taken kind => KindScanned first (read2 ++ taken) kind)]
                 (Inl (Both (rewrite none) byComputing))))
       (readKind kind after3 starts3 moved3 kindRead =>
         Parse.readsAtWeaken (readsAtLocated (TokenLexeme kind) from after3) (taken lexeme same =>
@@ -763,7 +763,7 @@ theorem readsAtFraction ∀ (at: Parse.Mark Char): Parse.ReadsAt at (() => fract
                       (rewrite r1, shape at starts1 then starts1)).flipped
                   let r2: read2 = [next, ..more.takeWhile Char.isAsciiDigit] :=
                     rewrite spanned2.left, spanned2.right, rest1, digit
-                  Parse.readsAtDone after2 True _
+                  Parse.readsAtDone after2 True
                     (Inr
                       (Both byComputing
                         (Witness next
@@ -772,7 +772,7 @@ theorem readsAtFraction ∀ (at: Parse.Mark Char): Parse.ReadsAt at (() => fract
                             (Both
                               (rewrite r1, r2, List.appendNil (more.takeWhile Char.isAsciiDigit))
                               (Both digit (List.allTakeWhile Char.isAsciiDigit more)))))))))
-    | False => Parse.readsAtDone at False _ (Inl (Both byComputing byComputing))
+    | False => Parse.readsAtDone at False (Inl (Both byComputing byComputing))
 
 theorem digitNotSign ∀ (char: Char) (digit: char.isAsciiDigit = True): (char == '+' || char == '-') = False := cases
 
@@ -795,7 +795,7 @@ theorem readsAtExponent ∀ (at: Parse.Mark Char): Parse.ReadsAt at (() => expon
               let text: exponentText1 (read1 ++ (read2 ++ [])) = True :=
                 rewrite r1, r2, List.appendNil [next, ..rest.takeWhile Char.isAsciiDigit], digitNotSign next digit then
                   Bool.andIntro lead (Bool.andIntro digit (List.allTakeWhile Char.isAsciiDigit rest))
-              Parse.readsAtDone after2 True _ (Inr (Both byComputing text))
+              Parse.readsAtDone after2 True (Inr (Both byComputing text))
             | Inr
                 (Witness marker
                   (Witness sign
@@ -814,8 +814,8 @@ theorem readsAtExponent ∀ (at: Parse.Mark Char): Parse.ReadsAt at (() => expon
               let text: exponentText1 (read1 ++ (read2 ++ [])) = True :=
                 rewrite r1, r2, List.appendNil [next, ..rest.takeWhile Char.isAsciiDigit], signed then
                   Bool.andIntro lead (Bool.andIntro digit (List.allTakeWhile Char.isAsciiDigit rest))
-              Parse.readsAtDone after2 True _ (Inr (Both byComputing text))))
-    | None => Parse.readsAtDone at False _ (Inl (Both byComputing byComputing))
+              Parse.readsAtDone after2 True (Inr (Both byComputing text))))
+    | None => Parse.readsAtDone at False (Inl (Both byComputing byComputing))
 
 --| What a number's fraction and exponent read: nothing, giving `False`; or what follows the digits as slice 1's
 --| `floatRest1` takes it, giving `True`.
@@ -865,11 +865,11 @@ theorem readsAtNumberTail ∀ (start: Parse.Mark Char): Parse.ReadsAt start (() 
           match fractionRead, exponentRead with
             | Inl (noFraction, isFalse), Inl (noExponent, exponentFalse) =>
               Parse.readsAtDone after2
-                (fraction || exponent) _
+                (fraction || exponent)
                 (Inl (Both (rewrite noFraction, noExponent) (rewrite isFalse, exponentFalse)))
             | Inl (noFraction, isFalse), Inr (exponentTrue, spelled) =>
               Parse.readsAtDone after2
-                (fraction || exponent) _
+                (fraction || exponent)
                 (Inr
                   (Both (rewrite isFalse, exponentTrue) (digits all =>
                     rewrite noFraction, List.appendNil readE, floatRestSkip digits readE all then
@@ -877,7 +877,7 @@ theorem readsAtNumberTail ∀ (start: Parse.Mark Char): Parse.ReadsAt start (() 
             | Inr (isTrue, Witness digit (Witness more (Both shape (Both first allMore)))), Inl
                 (noExponent, exponentFalse) =>
               Parse.readsAtDone after2
-                (fraction || exponent) _
+                (fraction || exponent)
                 (Inr
                   (Both (rewrite isTrue) (digits all =>
                     rewrite shape, noExponent then
@@ -887,7 +887,7 @@ theorem readsAtNumberTail ∀ (start: Parse.Mark Char): Parse.ReadsAt start (() 
             | Inr (isTrue, Witness digit (Witness more (Both shape (Both first allMore)))), Inr
                 (exponentTrue, spelled) =>
               Parse.readsAtDone after2
-                (fraction || exponent) _
+                (fraction || exponent)
                 (Inr
                   (Both (rewrite isTrue) (digits all =>
                     rewrite shape then
@@ -1058,7 +1058,7 @@ theorem tokenFixed ∀ (source: Text) (kind: Tok) (count: Nat) (start: Parse.Mar
     match made with
       | Both isToken text =>
         let fixed: lexemeFixed source lexeme = True := rewrite isToken, text then spelled
-        Parse.readsAtDone after _ _ (Bool.andIntro fixed byComputing))
+        Parse.readsAtDone after _ (Bool.andIntro fixed byComputing))
 
 --| `symbol`'s token, read from where the input is, is spelled as its kind is.
 theorem symbolSpelled ∀ (start: Parse.Mark Char) (input: List Char) (kind: Tok) (count: Nat)
@@ -1110,7 +1110,7 @@ theorem itemFixed ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme))
           roundOfReads
             (atThen
               (Parse.readsAtMarkThen [j := from => wordFrom False from] (wordFine source start other more step here w))
-              (read lexeme after starts moved fine => Parse.readsAtDone after _ _ (Bool.andIntro fine byComputing)))
+              (read lexeme after starts moved fine => Parse.readsAtDone after _ (Bool.andIntro fine byComputing)))
         | False =>
           match d: other.isAsciiDigit with
             | True =>
@@ -1119,7 +1119,7 @@ theorem itemFixed ∀ (self: Place → {Parse Char} List (Parse.Located Lexeme))
                   (Parse.readsAtMarkThen
                     [j := from => numberFrom False from]
                     (numberFine source start other more step here d))
-                  (read lexeme after starts moved fine => Parse.readsAtDone after _ _ (Bool.andIntro fine byComputing)))
+                  (read lexeme after starts moved fine => Parse.readsAtDone after _ (Bool.andIntro fine byComputing)))
             | False =>
               match u: other.toNat >= 128 with
                 | True =>

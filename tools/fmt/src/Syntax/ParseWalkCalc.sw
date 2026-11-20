@@ -43,7 +43,7 @@ theorem givesStepSign ∀ (modes: Modes): Parse.Gives GoodItems (() => stepSign 
     (start item later shape fine stopped =>
       match item.kind with
         | Equals | Le | Lt | Ge | Gt => Parse.givesDone byComputing start fine
-        | NotEq | EqEq => Parse.readsFatal _ _ start fine
+        | NotEq | EqEq => Parse.readsFatal start fine
         | other => givesFail modes _ start fine)
 
 theorem givesCalcProof ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (colonEq: Bool)
@@ -103,7 +103,7 @@ theorem givesCalcSteps ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (in
               match column with
                 | Some first =>
                   match first != at with
-                    | True => Parse.readsFatal _ _
+                    | True => Parse.readsFatal
                     | False =>
                       givesCalcLine self modes indent more at found ascending descending nested outside bases
                         (column found ascending descending =>
@@ -128,7 +128,7 @@ theorem givesCalcBody ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (ind
               | True => givesFail inner _
               | False =>
                 match ascending && descending with
-                  | True => Parse.readsFatal _ _
+                  | True => Parse.readsFatal
                   | False => Parse.givesDone byComputing))
 
 theorem givesCalcAfter ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (indent: Nat) (keyword: Comments) (first: Expr)
@@ -141,7 +141,7 @@ theorem givesCalcAfter ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (in
     (start fine stops => givesCalcBody self inner indent keyword first nested outside bases start fine)
     (start item later shape fine stopped =>
       match item.kind.isComparison with
-        | True => Parse.readsFatal _ _ start fine
+        | True => Parse.readsFatal start fine
         | False => givesCalcBody self inner indent keyword first nested outside bases start fine)
 
 theorem givesCalcExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
@@ -242,7 +242,7 @@ theorem givesRuleSet ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
   Parse.givesThen givesFixedFrom (open _ =>
     Parse.givesAfter0 (reads0At modes RBracket) (empty =>
       match empty with
-        | True => Parse.readsFatal _ _
+        | True => Parse.readsFatal
         | False => Parse.givesThen Parse.givesMark (here _ =>
           Parse.givesThen (givesSetRules self modes.inBrackets nested (here.left + 1) []) (result _ =>
             match result with
@@ -267,10 +267,10 @@ theorem givesTargetAfter ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (
     Parse.Gives GoodItems (() => targetAfter self modes at modes.peek) (target => True) :=
   readsInPeeked modes
     (seen => targetAfter self modes at seen) _
-    (start fine stops => Parse.readsFatal _ _ start fine)
+    (start fine stops => Parse.readsFatal start fine)
     (start item later shape fine stopped =>
       match item.kind == KwThen || item.kind == KwIn with
-        | True => Parse.readsFatal _ _ start fine
+        | True => Parse.readsFatal start fine
         | False => givesTargetOf self modes at nested outside bases start fine)
 
 theorem givesRewriteTarget ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
@@ -299,7 +299,7 @@ theorem givesRewriteThen ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (
     Parse.Gives GoodItems (() => rewriteThen self modes column keyword rules target) Out :=
   Parse.givesAfter0 (reads0StartsAt modes KwIn column) (old =>
     match old with
-      | True => Parse.readsFatal _ _
+      | True => Parse.readsFatal
       | False => Parse.givesAfter0 (reads0StartsAt modes KwThen column) (hasThen =>
         givesRewriteBody self modes column keyword rules target nested hasThen))
 
