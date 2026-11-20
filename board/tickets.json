@@ -1,5 +1,5 @@
 {
-  "next": 4412,
+  "next": 4414,
   "tickets": [
     {
       "id": 47,
@@ -28922,7 +28922,7 @@
     {
       "id": 4355,
       "title": "[Opus] Rest-lambda continuations: the 5 [j :=][k :=] pairs SW-4330 left (Statements, DeclData, DeclHeaders x2, FormsBlocks) fail because the rest lambda's body is checked against Follows unfolded through runFrom before ?j is known; hold the lambda until after the as-written comparison, or compare on the call (elaborator ordering)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -29662,6 +29662,32 @@
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4412,
+      "title": "[Opus, paper] Design note: when a match scrutinee or rewrite rule occurs only inside a folded call, unfold just the calls on the path to it and keep the rest of the goal folded (goal-as-written); count which proofs that check today would change (D3688 risk); would let the last two continuation pairs go (FollowsDeclHeaders.followsRowStart, FollowsFormsBlocks.followsBlockLine) (SW-4355)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4413,
+      "title": "[Sonnet] When finish_application's comparison with the expected type fails, report that failure (or note it) rather than the earlier in-place lambda error (first_error), which misdiagnosed SW-4355; plus FollowsBase.sw's pair advice: after match/rewrite on a scrutinee inside a folded call, give j and k",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
