@@ -1,5 +1,5 @@
 {
-  "next": 4361,
+  "next": 4362,
   "tickets": [
     {
       "id": 47,
@@ -28868,12 +28868,12 @@
     {
       "id": 4351,
       "title": "[Sonnet] matching.rs ~725 and ~939: the other two unfolded reads of an expression scrutinee's type; probe match make x with (huge type) and route through quote_or_written if it runs out (SW-4342 left)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
-      "body": "From SW-4342.",
+      "body": "From SW-4342.\n\nLane notes: probes (match make x / match r: make x / pipe / two scrutinees) do not run out: all expression scrutinees already read via quote_or_written (~589). Site ~939 (WaitingMatch::resume) ran out (probe: match make acc inside a lambda whose param type is fixed later); routed through quote_or_written; example large-hypothesis-waiting + snapshot (commit 46fd244e8). Site ~727 (generalised_named, compiler-built matches: match reify, cases split): probe via match reify with huge result type still runs out elsewhere in the generalisation, so no test isolates it; left unchanged.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -28990,6 +28990,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4361,
+      "title": "[Sonnet] match reify with a huge result type still runs out inside generalised_now (SW-4351 probe); find which read does it (alternatives' binding, read_type, occurrence test) and read as written",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "goal-as-written",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
