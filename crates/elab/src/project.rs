@@ -614,6 +614,16 @@ fn theorem_name(decl: &Decl) -> Option<&str> {
 }
 
 /// The last segment of a written name.
+/// [`crate::module::WALK_MARKER`]'s text.
+const WALK_REF: &str = "%walk";
+
+/// Whether a declaration is tagged `@[walk]`, `@[walk.bind]`, `@[walk.done]`
+/// or `@[walk.weaken]`.
+fn is_walk_lemma(decl: &Decl) -> bool {
+    matches!(decl, Decl::Signature { attrs, .. }
+        if attrs.iter().any(|a| a.name.text == "walk" || a.name.text.starts_with("walk.")))
+}
+
 fn last_segment(text: &str) -> &str {
     text.rsplit('.').next().unwrap_or(text)
 }
@@ -673,6 +683,13 @@ fn quoted_list(items: &[String]) -> String {
 /// would use without writing its name, which no part of the language does
 /// for the theorems a project declares. Should one be skipped that was
 /// needed, the use fails (the name is unchecked), never passes.
+///
+/// A walk does use theorems without writing them: the `@[walk]`,
+/// `@[walk.bind]`, `@[walk.done]` and `@[walk.weaken]` lemmas of its
+/// namespace and those it depends on. So a theorem so tagged is kept when
+/// any kept declaration, in its namespace or a later one, contains a walk
+/// ([`WALK_MARKER`]). This keeps every tagged lemma of the earlier
+/// namespaces, which is a superset of the ones the walk can see.
 ///
 /// `Err` has a message for a name in `only` that is no theorem of a
 /// namespace pruned.
@@ -751,6 +768,7 @@ pub fn plan_theorems(namespaces: &[PlanNamespace], only: &[String]) -> Result<Th
                 None => true,
                 Some(written) => {
                     !ns.pruned
+                        || (is_walk_lemma(decl) && wanted.contains(WALK_REF))
                         || only.contains(format!("{}.{written}", ns.name).as_str())
                         || wanted.contains(last_segment(written))
                 }
@@ -767,7 +785,8 @@ pub fn plan_theorems(namespaces: &[PlanNamespace], only: &[String]) -> Result<Th
             for (i, (decl, _)) in groups.iter().enumerate() {
                 if !kept[i]
                     && let Some(written) = theorem_name(decl)
-                    && used.contains(&last_segment(written).to_string())
+                    && (used.contains(&last_segment(written).to_string())
+                        || (is_walk_lemma(decl) && used.contains(&WALK_REF.to_string())))
                 {
                     kept[i] = true;
                     changed = true;

@@ -648,6 +648,52 @@ fn check_only_named_theorems() {
     }
 }
 
+/// A walk uses `@[walk]` lemmas that no declaration names, so `check
+/// --only` keeps them for any kept theorem that walks (and only then).
+#[test]
+fn check_only_keeps_the_walk_lemmas_a_walk_uses() {
+    let dir = project(
+        "check_only_walk",
+        &[
+            ("stitchwort.yaml", "sources: [src]\n"),
+            (
+                "src/Look.sw",
+                "namespace Look\n\nimport Std (Parse, Option, Nat)\n\n\
+                 def look(): {Parse Nat} Option Nat := Parse.next (n => True)\n",
+            ),
+            (
+                "src/User.sw",
+                "namespace User\n\nimport Std (Parse, Option, Nat)\nimport Look (look)\n\n\
+                 @[walk]\ntheorem givesLook: Parse.Gives Parse.Invariant.any (() => look()) \
+                 ((v: Option Nat) => True) :=\n  Parse.readsWeaken (Parse.readsNext (n => True)) \
+                 (read value proved => byComputing)\n\n\
+                 def lookTwice(): {Parse Nat} Nat :=\n  let first := look()\n  \
+                 let second := look()\n  0\n\n\
+                 theorem givesLookTwice: Parse.Gives Parse.Invariant.any (() => lookTwice()) \
+                 (n => n = 0) := byWalking []\n\n\
+                 theorem unrelated : 1 = 1 := byComputing\n",
+            ),
+        ],
+    );
+    let output = stitchwort(&dir, &["check", "--only", "User.givesLookTwice"]);
+    assert!(output.status.success(), "{}", err(&output));
+    // The walk's lemma is checked with it; the unrelated theorem isn't.
+    assert!(
+        err(&output).contains("checked 2 of 3 theorems"),
+        "{}",
+        err(&output)
+    );
+
+    // Without a walk, a tagged lemma isn't needed.
+    let output = stitchwort(&dir, &["check", "--only", "User.unrelated"]);
+    assert!(output.status.success(), "{}", err(&output));
+    assert!(
+        err(&output).contains("checked 1 of 3 theorems"),
+        "{}",
+        err(&output)
+    );
+}
+
 /// A name that isn't a theorem of the namespaces being checked, but is the
 /// last part of one's qualified name, is told the qualified name(s).
 #[test]
