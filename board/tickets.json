@@ -28922,8 +28922,8 @@
     {
       "id": 4355,
       "title": "[Opus] Rest-lambda continuations: the 5 [j :=][k :=] pairs SW-4330 left (Statements, DeclData, DeclHeaders x2, FormsBlocks) fail because the rest lambda's body is checked against Follows unfolded through runFrom before ?j is known; hold the lambda until after the as-written comparison, or compare on the call (elaborator ordering)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
@@ -29031,12 +29031,12 @@
     {
       "id": 4363,
       "title": "[Opus] The SW-4330 abstracting fallback doesn't solve ?j start.rest when the callee's body is a match/if on it (readsParenOn, readsBracketAtom via readsAtAfterLeft; SW-4353): decide whether the walk (W1, SW-4239) covers it or the unifier should",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nOrchestrator, 20 Nov: closed. W1 (SW-4239) showed the walk covers this case: it reads j off the code through readsAtThen with Parse.readsAtLeft start in the brackets, so no [j := ..] is needed (the readsParenOn walk was not shorter for other reasons, so the hand proof was kept). No unifier change.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
