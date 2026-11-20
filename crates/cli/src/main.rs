@@ -3759,7 +3759,9 @@ fn goal_list(
     } else {
         Target::Namespaces(targets.to_vec())
     };
-    let Some((session, mut reliance, _)) = load_project_goals(project, &target, cache) else {
+    let Some((session, mut reliance, _)) =
+        load_project_goals(project, &target, Load::Diagnostics, cache)
+    else {
         return ExitCode::FAILURE;
     };
     if !targets.is_empty() {
@@ -3865,7 +3867,12 @@ fn uses(
     project: Option<&Path>,
     cache: &CacheArgs,
 ) -> ExitCode {
-    let Some((session, _, order)) = load_project_goals(project, &Target::Everything, cache) else {
+    // Every namespace must be loaded, not just reported from its cache entry:
+    // `defs_named` and `users_of` read the declarations and checked terms of
+    // the loaded namespaces (SW-4335).
+    let Some((session, _, order)) =
+        load_project_goals(project, &Target::Everything, Load::Everything, cache)
+    else {
         return ExitCode::FAILURE;
     };
     let by_namespace = |users: &[stitchwort_driver::uses::User]| {
@@ -3980,16 +3987,19 @@ fn one_named(
 }
 
 /// The project's open goals and its namespaces in canonical order, for
-/// `goal`'s listings. `None` (reported) if the project can't be loaded.
+/// `goal`'s listings and `uses`. `load` says whether every namespace must be
+/// loaded or a plain check's cache may answer for one. `None` (reported) if
+/// the project can't be loaded.
 fn load_project_goals(
     project: Option<&Path>,
     target: &Target,
+    load: Load,
     cache: &CacheArgs,
 ) -> Option<(Session, stitchwort_driver::reliance::Reliance, Vec<String>)> {
     let project = locate_project(project, "list goals of", "goal --at hello.sw:3")?;
     let mut session = new_session(false);
     use_cache(&mut session, cache, &project.dir);
-    let loaded = session.load_project_for(&project.files, &project.name, target, Load::Diagnostics);
+    let loaded = session.load_project_for(&project.files, &project.name, target, load);
     let order = match loaded {
         Ok(loaded) => loaded.checked,
         Err(diagnostics) => {
@@ -4007,7 +4017,8 @@ fn load_project_goals(
 /// their progress chapter by chapter. With `--json`: `namespaces` (`name`,
 /// `open`) and `open`.
 fn goal_summary(project: Option<&Path>, json: bool, cache: &CacheArgs) -> ExitCode {
-    let Some((session, reliance, order)) = load_project_goals(project, &Target::Everything, cache)
+    let Some((session, reliance, order)) =
+        load_project_goals(project, &Target::Everything, Load::Diagnostics, cache)
     else {
         return ExitCode::FAILURE;
     };
