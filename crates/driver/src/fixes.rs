@@ -150,7 +150,7 @@ pub fn fixes_for(
     if !missing_arms.is_empty()
         && let Some(edit) = add_arms(text, at, missing_arms)
     {
-        return vec![Fix {
+        let mut fixes = vec![Fix {
             title: if missing_arms.len() == 1 {
                 "Add the missing arm"
             } else {
@@ -161,6 +161,15 @@ pub fn fixes_for(
             applicability: Applicability::Certain,
             edits: vec![edit],
         }];
+        if let Some(edit) = add_or_arm(text, at, missing_arms) {
+            fixes.push(Fix {
+                title: "Add the missing arms as one or-pattern".to_string(),
+                kind: FixKind::AddArms,
+                applicability: Applicability::Certain,
+                edits: vec![edit],
+            });
+        }
+        return fixes;
     }
     Vec::new()
 }
@@ -386,6 +395,55 @@ fn text_columns(line: &str, byte: usize) -> usize {
 /// a declared name; each becomes a variable that isn't a name used in the
 /// declaration the match is in. A list's rest `.._` becomes `..xs`.
 pub fn add_arms(text: &str, range: Range, fills: &[String]) -> Option<Edit> {
+    arms_edit(text, range, |column, reserved| {
+        let mut new_text = String::new();
+        for fill in fills {
+            let mut used = reserved.to_vec();
+            new_text.push('\n');
+            new_text.push_str(&" ".repeat(column));
+            new_text.push_str("| ");
+            new_text.push_str(&bind(fill, &mut used));
+            new_text.push_str(" => ?");
+        }
+        new_text
+    })
+}
+
+/// Whether `fills` can be written as the alternatives of one or-pattern
+/// arm: two or more, each a single column that binds no name (no `_` or
+/// `‹name›`, which [`bind`] turns into variables). Such arms would each
+/// have a bare `?` body, and a binding or-pattern's body must make sense
+/// under every alternative's names, which a fresh `?` can't promise;
+/// multi-column fills (`A, B`) are out because `|` binds tighter than `,`.
+/// The goals of the arms aren't known here (the diagnostic carries only
+/// the patterns), so "would share a body" is this syntactic rule.
+fn shares_a_body(fills: &[String]) -> bool {
+    fills.len() >= 2
+        && fills
+            .iter()
+            .all(|f| !f.contains(['_', '‹', ',', '|']) && f.trim() == f)
+}
+
+/// The edit that adds one arm whose pattern is all of `fills` as
+/// alternatives (`| A | B | C => ?`), placed as [`add_arms`] places its
+/// arms. `None` when the fills don't [`shares_a_body`], or no arm is found.
+pub fn add_or_arm(text: &str, range: Range, fills: &[String]) -> Option<Edit> {
+    if !shares_a_body(fills) {
+        return None;
+    }
+    arms_edit(text, range, |column, _| {
+        format!("\n{}| {} => ?", " ".repeat(column), fills.join(" | "))
+    })
+}
+
+/// The insertion after the last arm of the `match` or equations at `range`,
+/// of the text `render` makes from the arms' column and the names the
+/// declaration uses.
+fn arms_edit(
+    text: &str,
+    range: Range,
+    render: impl FnOnce(usize, &[String]) -> String,
+) -> Option<Edit> {
     let lines: Vec<&str> = text.lines().collect();
     let first = range[0] as usize;
     let last = (range[2] as usize).min(lines.len().checked_sub(1)?);
@@ -418,15 +476,7 @@ pub fn add_arms(text: &str, range: Range, fills: &[String]) -> Option<Edit> {
     }
     let line = lines[end];
     let reserved = names_in_declaration(&lines, arm_line);
-    let mut new_text = String::new();
-    for fill in fills {
-        let mut used = reserved.clone();
-        new_text.push('\n');
-        new_text.push_str(&" ".repeat(column as usize));
-        new_text.push_str("| ");
-        new_text.push_str(&bind(fill, &mut used));
-        new_text.push_str(" => ?");
-    }
+    let new_text = render(column as usize, &reserved);
     let (l, c) = (
         u32::try_from(end).ok()?,
         u32::try_from(line.encode_utf16().count()).ok()?,
@@ -568,6 +618,24 @@ mod tests {
             rewrite_fix(text, REWRITE_THEN_REWRITE, "then", "rewrite"),
             "theorem t := rewrite a, b then c\n"
         );
+    }
+
+    #[test]
+    fn one_or_pattern_arm_joins_fills_that_bind_nothing() {
+        let text = "def f (c: Colour): Bool :=\n  match c with\n  | Red => True\n";
+        let range = [0, 0, 2, 0];
+        let fills = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let edit = add_or_arm(text, range, &fills(&["Green", "Blue"])).unwrap();
+        assert_eq!(edit.new_text, "\n  | Green | Blue => ?");
+        assert_eq!(edit.range, [2, 15, 2, 15]);
+        for no in [
+            &["Green"][..],
+            &["Green", "Some _"],
+            &["Green", "Dot ‹ref›"],
+            &["True, True", "True, False"],
+        ] {
+            assert_eq!(add_or_arm(text, range, &fills(no)), None, "{no:?}");
+        }
     }
 
     #[test]

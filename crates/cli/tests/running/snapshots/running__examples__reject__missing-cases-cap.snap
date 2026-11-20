@@ -31,3 +31,4 @@ and 3 more
     │       ╰────── missing cases: no arm matches 23 patterns
 ────╯
 try: add the missing arms
+try: add `| LB | LC | LD | LE | LF | LG | LH | LI | LJ | LK | LL | LM | LN | LO | LP | LQ | LR | LS | LT | LU => ?`

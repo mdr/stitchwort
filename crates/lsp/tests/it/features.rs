@@ -1019,6 +1019,106 @@ fn a_non_exhaustive_match_gets_its_missing_arms_added() {
     });
 }
 
+/// The quick fixes for the non-exhaustive match in `text` (opened in `s`),
+/// as `(title, text with the fix's edit applied)`.
+fn missing_arm_fixes(s: &mut Session, version: i32, text: &str) -> Vec<(String, String)> {
+    s.change(version, text);
+    let d = s
+        .diagnostics
+        .iter()
+        .find(|d| d["code"] == "E-NONEXHAUSTIVE")
+        .unwrap_or_else(|| panic!("{:?}", s.diagnostics))
+        .clone();
+    let actions = s.request(
+        "textDocument/codeAction",
+        json!({"textDocument": {"uri": URI}, "range": d["range"],
+               "context": {"diagnostics": [d]}}),
+    );
+    let mut out = Vec::new();
+    for action in actions.as_array().unwrap() {
+        let edit = &action["edit"]["documentChanges"][0]["edits"][0];
+        let line = edit["range"]["start"]["line"].as_u64().unwrap() as usize;
+        let character = edit["range"]["start"]["character"].as_u64().unwrap() as usize;
+        let offset: usize = text
+            .split_inclusive('\n')
+            .take(line)
+            .map(str::len)
+            .sum::<usize>()
+            + character;
+        let mut applied = text.to_string();
+        applied.insert_str(offset, edit["newText"].as_str().unwrap());
+        out.push((action["title"].as_str().unwrap().to_string(), applied));
+    }
+    out
+}
+
+#[test]
+fn missing_arms_that_bind_nothing_are_also_offered_as_one_or_pattern() {
+    big_stack(|| {
+        let mut s = Session::open("namespace Demo\n");
+        let text = "namespace Demo\n\ntype Colour = | Red | Green | Blue | Black\n\n\
+                    def warm: Colour -> Bool\n  | Red => True\n";
+        let fixes = missing_arm_fixes(&mut s, 2, text);
+        let titles: Vec<&str> = fixes.iter().map(|(t, _)| t.as_str()).collect();
+        // The one-arm-each fix stays first.
+        assert_eq!(
+            titles,
+            [
+                "Add the missing arms",
+                "Add the missing arms as one or-pattern"
+            ]
+        );
+        assert!(
+            fixes[0]
+                .1
+                .ends_with("  | Green => ?\n  | Blue => ?\n  | Black => ?\n")
+        );
+        let or = &fixes[1].1;
+        assert_eq!(
+            or,
+            &format!("{text}  | Green | Blue | Black => ?\n"),
+            "{or}"
+        );
+        // The edited text still parses and has no missing cases.
+        s.change(3, or);
+        let codes: Vec<&str> = s
+            .diagnostics
+            .iter()
+            .filter_map(|d| d["code"].as_str())
+            .collect();
+        assert!(
+            !codes
+                .iter()
+                .any(|c| *c == "E-NONEXHAUSTIVE" || c.starts_with("E-PARSE")),
+            "{codes:?}"
+        );
+    });
+}
+
+#[test]
+fn missing_arms_that_bind_names_or_two_columns_get_no_or_pattern() {
+    big_stack(|| {
+        let mut s = Session::open("namespace Demo\n");
+        // One missing arm binds a field.
+        let shapes = "namespace Demo\n\ntype Shape = | Dot | Line | Circle (r: Nat)\n\n\
+                      def a: Shape -> Nat\n  | Dot => 0\n";
+        let fixes = missing_arm_fixes(&mut s, 2, shapes);
+        let titles: Vec<&str> = fixes.iter().map(|(t, _)| t.as_str()).collect();
+        assert_eq!(titles, ["Add the missing arms"], "{fixes:?}");
+        // A single missing arm has nothing to join.
+        let one = "namespace Demo\n\ndef b: Option Nat -> Nat\n  | Some n => n\n";
+        let fixes = missing_arm_fixes(&mut s, 3, one);
+        assert_eq!(fixes.len(), 1, "{fixes:?}");
+        // Two columns: `|` binds tighter than `,`.
+        let two = "namespace Demo\n\ndef c: Bool -> Bool -> Nat\n  | True, True => 1\n";
+        let fixes = missing_arm_fixes(&mut s, 4, two);
+        assert!(
+            fixes.iter().all(|(t, _)| !t.contains("or-pattern")),
+            "{fixes:?}"
+        );
+    });
+}
+
 /// The code action at a proof goal runs no search (D3519) and queues none
 /// (SW-2959): the splits come from the published goal and the list answers
 /// at once, ending with "Search for a proof", whose command then runs the
