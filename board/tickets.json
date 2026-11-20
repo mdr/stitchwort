@@ -28543,8 +28543,8 @@
     {
       "id": 4326,
       "title": "[DeepSeek] Bug: rewrite repeatedly [g] panics (index out of bounds, crates/elab/src/rewrite/repeatedly.rs:833) when every arm of g is a constructor pattern, so the rule list is empty; repro docs/proposals/match-induct-friction/repeatedly-panic.sw; give a proper error (or no-op) with a reject example (SW-4304 finding)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
