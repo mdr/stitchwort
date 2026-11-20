@@ -1,5 +1,5 @@
 {
-  "next": 4393,
+  "next": 4394,
   "tickets": [
     {
       "id": 47,
@@ -29343,12 +29343,12 @@
     {
       "id": 4387,
       "title": "[Sonnet] Two check_cache tests fail on main, both from std drift, not code: a_refused_library_entry_takes_back_its_float_bindings (Float.sw no longer has the marker '-- The other rounding operations' it cuts at) and a_file_that_runs_out_of_resources_is_not_written (with work = 20_000 no library file loads within the limit any more, cold.written = 0). Make both find their cut and limit from something stable (a named marker the test owns, a limit measured from the first file), show each failing then passing",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "\n\nProgress (Sonnet lane): both tests fixed in crates/driver/tests/projects/check_cache.rs, commit aa57181c3. Float cut now by declaration (Float.sub's block). Resource test: SW-3711 floors library limits at the defaults, so a small work limit can't run a library file out; the test now doubles the stack limit from 16 KiB to the first that lets some files load but not all. Ran both tests (pass) and clippy -p stitchwort-driver --tests.\n",
+      "body": "\n\nProgress (Sonnet lane): both tests fixed in crates/driver/tests/projects/check_cache.rs, commit aa57181c3. Float cut now by declaration (Float.sub's block). Resource test: SW-3711 floors library limits at the defaults, so a small work limit can't run a library file out; the test now doubles the stack limit from 16 KiB to the first that lets some files load but not all. Ran both tests (pass) and clippy -p stitchwort-driver --tests.\n\n\nModel result: Sonnet, worked, 8 min (est. 30)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -29413,6 +29413,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4393,
+      "title": "[Sonnet] resources.rs tests may rely on small work/size limits against the library, which SW-3711 floors at the defaults: check each still tests what it says (SW-4387 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
