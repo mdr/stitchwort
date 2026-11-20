@@ -29094,12 +29094,12 @@
     {
       "id": 4368,
       "title": "[Sonnet] followsAtomAfter (FollowsForms.sw ~1177): with SW-4356 j is solved but the False branch's Parse.followsMap mismatches ('here' against 'state.at' in unitCall here.rest); find why and drop the last [j :=][k :=] pair there",
-      "status": "doing",
+      "status": "backlog",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nProgress (Sonnet lane, 20 Nov): pair kept, no code change. Cause (strong evidence, not a trace): with the pair dropped, followsThen's j/k are solved structurally from the False goal. That goal is the bare unfolded suffixes (mark().left + 1) ..., whose FIRST effect is the inner left() mark of suffixCalled, so ?j (mark()) := the continuation after that inner mark (y => unitCall y.rest ...), not the outer here.left+1 mark. j here then reads here.rest where the found side has state.at.rest. Closed needle mark() is refused by solve_abstracting (needle needs a variable the meta can't mention), so the abstracting fallback cannot correct it. True branch passes because the goal is Section (...), not Call-headed. Tried: pair dropped; only k dropped (twin side fails identically: hereTwin vs other.at); match moved inside/outside followsThen; branch order swapped: False fails every time. A model of the shape (examples-style, 2 marks) did not reproduce, so the exact trigger is some more detail of the real suffixes chain. Candidate elaborator rule, Opus review needed: for ?j (?p ()) with closed call needle, prefer abstracting occurrences of the needle in the goal over the first-order split when the goal's head call is the needle but occurs also as an argument.\n\n\nOrchestrator, 20 Nov: parked behind the walk. Cause found (the first-effect split picks the inner left() mark in the False branch; the abstracting fallback refuses a closed needle like mark()); fix would be a closed-needle rule in the unifier. The walk (W1, SW-4239) reads each step off the body itself, so it should make this pair unnecessary; decide after W1 with SW-4355 and SW-4363.\nModel result: Sonnet, worked (diagnosed; correctly stopped before a unifier change), 15 min (est. 35)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
