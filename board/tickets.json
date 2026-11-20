@@ -1,5 +1,5 @@
 {
-  "next": 4430,
+  "next": 4432,
   "tickets": [
     {
       "id": 47,
@@ -29763,12 +29763,12 @@
     {
       "id": 4419,
       "title": "[Opus] Partial unfold (docs/proposals/partial-unfold.md §7; bounded-readback stage 3, SW-1838, D2538): a middle search step for rewrite, match/cases and the transport: unfold only the calls on the path to the occurrence (arguments searched first; a call counts as opened only if it yields one), kept only under the existing checks, falling back to today's unfolded search; then drop the 68 [j := ..] pairs where they now go; Opus review after; Overmind no-cache run over fmt/aoc/rogue/std before merge",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Lane (Opus, 20 Nov 2026, 14:55-15:55, est. 100 min): built on lane/SW-4419.\n- crates/elab/src/unfold_path.rs: the walk (arguments first; a call opens only if its arguments mention the needle's variables outside occurrences and its unfolding yields an occurrence; no reopening of a definition inside itself; at most 64 openings per walk). Wired as the middle step in match/cases/guards (matching/as_written.rs first), the transport (transport_target) and rewrite (rewrite/as_written.rs first), only after the as-written attempt comes to nothing/incomplete; same checks; fallback on any failure. Metrics outcome `partial`.\n- Not for a `match reify` computation (arms showed handler internals; examples/goals/reify-return.sw).\n- Pairs: 46 of 59 [j := ..] pairs in tools/fmt dropped (8 need this step: followsRowStart, followsBlockLine, reads0AfterDecreasing, reads0AfterUnfolding, 4 in ParseWalkOthers; 38 were already unnecessary on main); 13 kept. All 14 touched namespaces check --no-cache.\n- Examples: accept/match-partial-unfold.sw, accept/rewrite-partial-unfold.sw (fail before, pass after). 150 hash snapshots re-recorded (prelude included).\n- Not built: per-cell memo; proof-position refinement of relevant variables; Rust unit tests for the walk; a fallback example.\n- Needs before merge: Overmind no-cache fmt/aoc/rogue/std run (proposal §7.5).\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -29898,6 +29898,32 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4430,
+      "title": "[Opus, paper] Review SW-4419 (partial unfold, D2538 bounded-readback stage 3): crates/elab/src/unfold_path.rs and its wiring into match/cases/guards, transport and rewrite; occurrence markers Ann(t, Meta(MAX-1)); reify exclusion; 150 hash snapshots moved incl. prelude; D2364",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4431,
+      "title": "[Sonnet] The 13 [j := ..] pairs SW-4419 kept (mostly E-TYPE-MISMATCH: FollowsDeclArms.followsDefinitionArmStep, FollowsForms.followsAtomAfter, GoodItemProofs.itemFixed x2, LexReadsProofs x3, ParseWalkCalc.givesCalcSteps, ParseWalkLadder.givesOpLogic, ParseWalkStatements.givesPipesFrom, ParseCarriesLadder.readsOpLogic/readsPipesFrom, GoodItemProofs.wordFine): trace why each still needs its pair and group the causes; plus a sweep for redundant [p := ..] arguments (38 of 59 [j :=] pairs were already unneeded)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
