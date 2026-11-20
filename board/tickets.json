@@ -28894,7 +28894,7 @@
     {
       "id": 4353,
       "title": "[Sonnet] Walk W0, the baseline (D3696; SW-4238 §4): in ParseWalk.sw's comma lists and brackets (~40 walks) and their FollowsBase.sw twins, drop every spelled [p :=] [q :=] [j :=] [k :=] that still checks and report the shape of those needed; merge the four comma-list functions into one and re-prove its Gives/ReadsAt/Follows lemmas by hand; record proof lines and check time as the pilot's before. After SW-4330",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
