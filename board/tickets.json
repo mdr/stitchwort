@@ -1,5 +1,5 @@
 {
-  "next": 4476,
+  "next": 4477,
   "tickets": [
     {
       "id": 47,
@@ -30421,12 +30421,12 @@
     {
       "id": 4469,
       "title": "[Opus] Walk gap 5 (SW-4421, W3 review follow-up 8): two-run walks (Parse.Follows) cost 10-20x the elaboration steps of the hand proof on small proofs (followsRewriteAfter 61k -> 1.19M steps) and 2-11x check time; profile where the steps go and cut them, so two-run walks pass the time bar",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Progress (lane, 20 Nov 23:17): profiled followsRewriteAfter with step counters around the walk's phases. The steps went to four normal-form read-backs of statements about parser code: rewrite's up-front unfolded goal and its hidden-copy check of the motive (for the walk's `rewrite <- valueFacts`), find_ready_dictionaries' scan (no obligations, goal not an equation), and fit_type's is_proposition / has_unknown on premises like `SelfFollows self selfTwin`. Each now takes a cheap exact path first (commit 1d182e475, crates/elab only); hashes unchanged. Walked, steps/ms before -> after (hand): followsRewriteAfter 1.19M/71.0 -> 109k/9.6 (61k/5.6); followsRewriteWith 1.05M/68.3 -> 221k/17.9 (143k/11.4); followsTargetAfter 1.10M/66.0 -> 748k/45.6 (483k/27.8); followsRewriteTargetIf 721k/44.6 -> 349k/23.5 (111k/9.2); followsReverseIf 10.9 -> 10.9 (8.1). Ratio now 1.3-1.7x, followsRewriteTargetIf 2.5x. Model result: opus, worked, ~78 min (est. 60).\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -30501,11 +30501,24 @@
     {
       "id": 4475,
       "title": "[Sonnet] Closer pilot findings (SW-4473): (1) _ for an argument fixed by a later argument's type can pick a different but equal document and report a type mismatch (framedExprPasses in the Tuple and ListOf arms of JoinProofs); find why the elaborator doesn't use the later argument's type; (2) W-REWRITE-REPEATEDLY-UNUSED fired when rewrite repeatedly [atomic, calm] closed a && goal without calm: a gap in how && goals are closed, or the warning is right and the rule unnecessary; repro in JoinProofs",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4476,
+      "title": "[Sonnet] rewrite speed-up (SW-4469 finding): skip rewrite's up-front unfolded read-back for any rule with no unknowns (the as-written search never uses it then), keeping the old path as fallback and guarding goals too large to read back; the hidden-copy shortcut stays variable-only; measure steps on std and tools/fmt rewrite-heavy namespaces; also do fit_type's is_proposition once instead of in two loops; performance-log entry",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "epic": "proof-automation",
+      "epic": "performance",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
