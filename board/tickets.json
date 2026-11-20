@@ -1,5 +1,5 @@
 {
-  "next": 4343,
+  "next": 4347,
   "tickets": [
     {
       "id": 47,
@@ -28738,12 +28738,12 @@
     {
       "id": 4341,
       "title": "[Opus] D3699: a Bool guard c gives guard: c = True, and where it fails c = False (NotGuard and the last part of notArmJ), in both f.eqK and match induct; a guard written as a proposition keeps today's forms (docs/proposals/match-induct-friction.md §1 A). Examples, syntax.md, guide ch. 10, pattern-guards.md. Then (same branch, Sonnet) sweep proofs onto the new forms before merge",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "D3699, Matt, 20 Nov 2026: yes (option A). Opus review before merge (kernel terms, D2364). Follow-ups: walkers guard by lastPair + converters removed (Sonnet).",
+      "body": "D3699, Matt, 20 Nov 2026: yes (option A). Opus review before merge (kernel terms, D2364). Follow-ups: walkers guard by lastPair + converters removed (Sonnet).\n\nProgress (Opus lane, 20 Nov): estimate 60 min, started 07:40.\n- 07:56 elaborator change done (equations.rs probe_row/GuardRead::fails_as_bool, NotGuard/Overlap; induct.rs refute/refute_guard): a guard written as a Bool gives c = True / c = False (also the tail of a partial-overlap notArmJ); a guard written as a proposition (`!=` and `≠` are one operator, `=`, `if h: P`) keeps P / ¬P. Examples, syntax.md, guide ch. 10, pattern-guards.md, proving guide updated; new examples/accept/pattern-guard-forms.sw. fmt converters simplified (guardOfPair removed); Syntax.Settle*Proofs and the other fmt proof namespaces check.\n- 08:02 printer change tried and reverted (bool_props::equality_test pins `(n.decEq 3).holds`; goals already show `xs == []` via the scoped decided_equation rule). Left in the old form: a `&&` guard with a decided side whose proof the arm uses (tested by Decidable.elim on P ∧ Q): still `P ∧ Q` / `¬(P ∧ Q)`; noted in syntax.md and pattern-guards.md. `!=` is the proposition operator (`≠`), so `n != 3` keeps `n ≠ 3` (the note's \"cost\" line assumed otherwise).\n- Tests: test:example NAME=pattern-guard,match-induct,guard,rewrite,repeatedly 7/7; examples::soundness (tier all) pass.\n- 08:08 done, branch lane/SW-4341, one commit e8d090bf1. Also: hash snapshots of 7 guarded examples changed (+ new pattern-guard-forms); prelude unchanged. Tests: snap:hashes (12/12), clippy -p stitchwort-elab clean, proofs decreasing_twins::a_call_in_a_guard_gets_the_equation pass; fmt check of Syntax.Settle{Bare,Mark,Once}Proofs, GlueQuietProofs, LexReadsProofs, GoodItemProofs, LexUnreturnedProofs, FollowsFormsBlocks, ParseProofs, ParseKept, ReadBackRuns pass; goal: none open; audit Syntax.SettleBareProofs: 0 failed, 9 warnings (the `…Pair` lemmas' lastPair hypothesis, as before). No proofs in std/aoc/rogue used the old forms. Follow-ups: the `&&` guard whose proof the arm uses (Decidable.elim) still `P ∧ Q`; walkers guarding by `lastPair` (Sonnet). Ready for Opus review (kernel terms, D2364).\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -28757,6 +28757,58 @@
       "labels": [],
       "epic": "goal-as-written",
       "body": "From SW-4339.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4343,
+      "title": "[Opus] Review SW-4341 (D3699 guard forms: equations.rs, equations/induct.rs refute/refute_guard index arithmetic, Bool overlap tails), per D2364",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Paper lane. Review lands in docs/reviews/SW-4341-guard-forms-review.md.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4344,
+      "title": "[Opus] D3699 follow-up: a && guard with a decided side whose proof the arm uses (if i < n && 0 < i => xs.getLt i) still gives P ∧ Q / ¬(P ∧ Q); move it to the Bool form (c = True/False) with the arm's proof taken from guard.read, so every Bool guard follows one rule (SW-4341 left)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From SW-4341. Wait for SW-4341 to merge.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4345,
+      "title": "[Sonnet] Printer: a Bool != inside a && guard shows as (x.decEq 4).not.holds in goals and stitchwort doc, and a lone == shows as (List.decEq … xs []).holds in doc (goals show xs == []): print decision tests as written (x != 4, xs == []) in both",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "From SW-4341; predates it.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4346,
+      "title": "[Sonnet] Text.read's eq4 shows an unreduced (x => 0 < x) (MkText x1).length = False: beta-reduce a guard's lambda applications when stating generated equations",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From SW-4341 (text-patterns-prefix Arg.read.eq4); predates it.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
