@@ -1615,7 +1615,25 @@ impl Elaborator {
             if c < d.base {
                 levels.insert(c);
             } else {
-                let extra = self.unrefine_call(d, &d.extra[c - d.base], d.base, &|_| true)?;
+                let Some(call) = d.extra.get(c - d.base) else {
+                    debug_assert!(
+                        false,
+                        "lift: capture {c} is past the draft's {} extra variables (base {}): \
+                         bindings were likely left in the context by an earlier attempt that \
+                         wasn't restored from its snapshot",
+                        d.extra.len(),
+                        d.base,
+                    );
+                    return Err(Diagnostic::error(
+                        "E-INTERNAL",
+                        "internal error: a lifted call captures a variable the match did not \
+                         record (bindings left in the context by an earlier attempt that \
+                         wasn't restored from its snapshot)",
+                    )
+                    .with_label(d.span, "here")
+                    .with_note("this is a bug in the compiler, not in your program"));
+                };
+                let extra = self.unrefine_call(d, call, d.base, &|_| true)?;
                 uses(&extra, d.base, &|_| None, &mut levels);
             }
         }
