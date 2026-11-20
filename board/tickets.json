@@ -1,5 +1,5 @@
 {
-  "next": 4402,
+  "next": 4405,
   "tickets": [
     {
       "id": 47,
@@ -29397,12 +29397,12 @@
     {
       "id": 4391,
       "title": "[Opus] Guard refinement, part 2: in arms below a guard, point copied variables at their copies (not only shift levels), and split a condition that is just a variable the way match g: does, so refinement succeeds instead of falling back; hide the guarded arm's own names from arms below (SW-4388 follow-ups)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Lane (Opus, 13:23-14:10, est. 60 min), branch lane/SW-4391, commit 0c05d1951.\n1. Copies: both the guarded arm (its leaf aliases) and the arms below are moved onto the copies (Tree::moved); was only a shift, so names/columns meant the originals and the arm fell back. Case: guard-refinement-copies.sw (falls back on main, refines here).\n2. Variable condition: the review's eitherWay already refines on main (the compiler splits b before the guard; the condition is a constant there). match g: c on a variable does NOT split the column, it generalises like the guard (checked). Implemented as a second try: where generalising fails and the condition is a Bool variable the arms below don't split, split it in place (matching::refined_in_place), then the unrefined retry. Case: guard-refinement-variable.sw byName. No existing hash moves.\n3. Hidden names: arms below suspend the refinement's rebind entries and rebind outer names to the copies. Case: guard-refinement-hidden-names.sw.\nTests: test:example guard/match/rewrite, goal_examples EXAMPLES=guard,catch-all, test:lane AREA=hashes, test:hashes guard,catch-all, fmt Syntax.GoodItemProofs.symbolFixed --only, clippy -p stitchwort-elab: all pass.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -29532,6 +29532,45 @@
       "where": "",
       "labels": [],
       "epic": "performance",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4402,
+      "title": "[Opus, paper] Review SW-4391 (guard refinement part 2): arms moved onto copies (Tree::moved), guarded arm's names hidden below, in-place split of a Bool variable condition as a second try (new term shape: lifted helper with case on a context variable); D2364",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4403,
+      "title": "[Sonnet] Goal display in a generalised guard arm shows wrong hypothesis types (h: 0 < pick (c == 'a') shown as True = True; also on main): repro theorem m4 forall (n: Nat) (c: Char) (h: 0 < pick (c == 'a')): pick (c == 'a') = 1 or 0 < 1 := match n with | 0 if g: c == 'a' => ? | _ => ?; and a type-mismatch note in a refined arm wrongly says both sides are True (let k: 0 < 1 := h2 with h2: 0 < pick b) (SW-4391 findings 1, 2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4404,
+      "title": "[DeepSeek] Debug env var (STITCHWORT_TRACE_GUARDS=1) printing for each proof guard whether it refined, split in place, or fell back, and why; correct guard-refinement.md and SW-4385-guard-review.md: match g: b generalises rather than splitting the column, and eitherWay refines (SW-4391 findings 3, friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
