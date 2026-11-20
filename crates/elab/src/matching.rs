@@ -584,7 +584,9 @@ fn lifted(
         } else {
             None
         };
-        let ty_term = cx.quote_unfolded(&ty)?;
+        // As written where unfolded is too large (a `let` annotated with a
+        // huge type): the occurrence tests then see a call, never a match.
+        let ty_term = cx.quote_or_written(&ty)?;
         // A `let`'s variable, matched by name: in the alternatives, the
         // name is the matched value, as a variable's name would be.
         let alias = match &s.expr {
