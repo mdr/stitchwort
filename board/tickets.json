@@ -28049,14 +28049,14 @@
     {
       "id": 4288,
       "title": "[DeepSeek] Split FollowsForms.sw and FollowsDecl.sw by their section comments, as SW-4216 split ParseWalk (survey target 6)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
       "body": "From the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target 6. D3698 overnight.",
       "created": "2026-11-19",
-      "updated": "2026-11-19",
+      "updated": "2026-11-20",
       "commits": []
     },
     {
