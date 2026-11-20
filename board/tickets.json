@@ -1,5 +1,5 @@
 {
-  "next": 4334,
+  "next": 4335,
   "tickets": [
     {
       "id": 47,
@@ -28640,6 +28640,19 @@
       "labels": [],
       "epic": "goal-as-written",
       "body": "From SW-4237.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4334,
+      "title": "[Sonnet] Regression from SW-4237: reject/rewrite-value-too-large.sw's Note 3 lost its specific text ('the value being written out was a call of grow, computed far enough to be very large') and now says 'it ran out while unfolding grow'; check::quote_or_written takes the too-large note and restores it only when the as-written read also fails with Size (other error paths drop it); restore the note on every failing path",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "goal-as-written",
+      "body": "Found by the SW-4326 verifier, 20 Nov ~04:25. Handed to the SW-4333 lane.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
