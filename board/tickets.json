@@ -1,5 +1,5 @@
 {
-  "next": 4350,
+  "next": 4352,
   "tickets": [
     {
       "id": 47,
@@ -28751,7 +28751,7 @@
     {
       "id": 4342,
       "title": "[Sonnet] A let with a huge annotation (let w: Wrap (grow 22 (Leaf x)) := make x, then a match on w) still runs out: find the read-back with STITCHWORT_TRACE_RESOURCE=1 and a line-tables build (docs/testing.md), route it through the fallback if convertible, with an example",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -28848,6 +28848,32 @@
       "labels": [],
       "epic": "test-infra",
       "body": "From SW-4343.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4350,
+      "title": "[Sonnet] STITCHWORT_TRACE_RESOURCE names the wrong frame on macOS: elab frames had no file:line in a line-tables build and identical functions were merged (quote_internal shown for quote_unfolded); add a task trace:resource that builds with line tables and function merging off, and correct docs/testing.md (SW-4342 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "From SW-4342.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4351,
+      "title": "[Sonnet] matching.rs ~725 and ~939: the other two unfolded reads of an expression scrutinee's type; probe match make x with (huge type) and route through quote_or_written if it runs out (SW-4342 left)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "goal-as-written",
+      "body": "From SW-4342.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
