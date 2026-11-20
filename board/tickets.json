@@ -1,5 +1,5 @@
 {
-  "next": 4366,
+  "next": 4367,
   "tickets": [
     {
       "id": 47,
@@ -28987,7 +28987,7 @@
     {
       "id": 4360,
       "title": "[Opus] SW-4359 N1: f.induct takes its IH from eqK's right side (now sound guard) while the split binds the arm's own h; a recursive call whose argument computes with an && guard's proof at a non-skipped position could make the kernel refuse f.induct. Reproducer first; if one exists use the split's h or skip with a reason (docs/reviews/SW-4344-and-guard-review.md)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -29057,6 +29057,19 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4366,
+      "title": "[Sonnet] stitchwort fmt breaks a long 'theorem … := match induct (…) with' header mid-argument and rejoins a break placed before match; break before match instead (SW-4360 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
