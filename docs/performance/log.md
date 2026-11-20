@@ -44,6 +44,95 @@ in [../proposals/README.md](../proposals/README.md).
 
 ---
 
+## 20 Nov 2026
+
+### SW-4469: two-run walks skip four unfolded read-backs
+
+Two-run walks (`Parse.Follows`, `tools/fmt`'s FollowsStatements) checked
+2 to 13 times slower than the hand proofs they replace (SW-4421's W4
+report). Profiled with temporary step counters (evaluation steps,
+`Budget::total_work`, exclusive per phase) around the walk's phases, on
+`followsRewriteAfter`: 1.19M steps walked, 61k by hand. Measured:
+
+| Where | Steps |
+|---|---|
+| Choosing the tail call's lemma: `is_proposition` on each premise (`SelfFollows self selfTwin`, ...), twice | 339k |
+| Same place: `has_unknown` on the premises | 102k |
+| The walk's `rewrite <- valueFacts`: the goal read back unfolded up front | 213k |
+| Same `rewrite`: the hidden-copy check reading the motive back unfolded | 212k |
+| Same `rewrite`: `find_ready_dictionaries`' normal-form scan | 215k |
+| Unifying lemmas' thunks with the calls | about 28k |
+
+Each is a read-back of a statement about parser code in normal form
+(16,388 nodes at the largest), which none of these places needed. Each now
+takes a cheap path first and keeps the old code for what that doesn't
+settle (crates/elab only, commit 1d182e475):
+
+- **`rewrite` by a hypothesis whose replaced side is a variable**, in a goal
+  with no unknowns (`rewrite.rs`, `variable_as_written`): the search as
+  written runs without the up-front unfolded read-back of the goal. A rule
+  with no unknowns of its own never uses that read-back in the search as
+  written (it is only for finding today's instance of an open rule), so
+  where that search keeps its result the outcome is the one the usual path
+  gives. If it doesn't, everything is undone (snapshot and search budget)
+  and the usual path runs from where it started.
+- **The hidden-copy check for a variable** (`as_written.rs`,
+  `hidden_copy_in`): a definition is closed, so a call's unfolding mentions
+  a variable of the goal only through the arguments the call shows, where
+  the search already replaced it. A folded motive that doesn't mention the
+  variable therefore has no copy unfolded either, and the check answers
+  "none" without reading the motive back. If the folded motive still
+  mentions it, the full check runs.
+- **`find_ready_dictionaries`** (`interfaces.rs`): with no dictionary
+  obligation pending, solving finds nothing, and only an equation is ever
+  computed again; so for a goal that isn't an equation the result was
+  always `None`, and it is now returned without the scan.
+- **`cases::is_proposition`**: the sort is inferred from the type read back
+  folded first. The kernel has no cumulativity (docs/core.md), so a term
+  has one type up to conversion, and by subject reduction its unfolding
+  has the same one: the folded and unfolded readings give the same sort.
+  Only when the folded term has an unknown (which the kernel can't type),
+  or the kernel refuses it, does it read back unfolded as before.
+- **The walk's `has_unknown`** (`walk/registry.rs`): unfolding adds no
+  unknown, so if the folded, zonked value has none, neither does its normal
+  form, and it answers `false` without the scan.
+
+Results, messages and terms unchanged: `hash_stability::*` (12 tests)
+passes without re-recording; walk, as-written, rewrite and soundness
+examples pass. Measured, `check --no-cache --timings`, one run each
+(times noisy, steps exact), elaboration steps and total ms:
+
+| Theorem | Hand | Walked before | Walked after | After ÷ hand, ms |
+|---|---|---|---|---|
+| followsRewriteAfter | 61k, 5.6 | 1.19M, 71.0 | 109k, 9.6 | 1.6x |
+| followsRewriteWith | 143k, 11.4 | 1.05M, 68.3 | 221k, 17.9 | 1.5x |
+| followsTargetAfter | 483k, 27.8 | 1.10M, 66.0 | 748k, 45.6 | 1.6x |
+| followsRewriteTargetIf | 111k, 9.2 | 721k, 44.6 | 349k, 23.5 | 2.5x |
+| followsReverseIf | 113k, 8.1 | 135k, 10.9 | 135k, 10.9 | 1.3x |
+| followsHere | 17.5k, 1.4 | 34k, 3.1 | 34k, 3.0 | 2.1x (1.6 ms more) |
+
+Hand proofs' steps unchanged. `followsRewriteAfter`'s `--expand-walk` text,
+checked as a hand proof: 710k to 285k steps. Not measured: instructions,
+the other 40 FollowsStatements walks, or the whole of `aoc/` (left to the
+rolling check).
+
+**What's left.** `followsRewriteTargetIf` (2.5x) and `followsHere` (2.1x,
+small in absolute terms) are still over the 1.5x bar, and weren't profiled
+after the change. `followsTargetAfter` and `followsRewriteWith` sit near
+it.
+
+**Tried and dropped.** A head filter in the walk's lemma fitting (a lemma
+whose thunk calls a different function than the call doesn't fit, without
+unifying): measured about 0.5k steps saved on `followsRewriteAfter`. Not
+kept: it would make fitting accept less than full unification does.
+
+**Not yet done.** The up-front unfolded read-back in `rewrite_once` could be
+skipped for any rule with no unknowns, not only a variable hypothesis: the
+search as written never uses it for such a rule. That would speed up
+hand-written rewrites by lemmas in large goals. It needs care where the
+goal is too large to read back, which today goes to the unconfirmed path
+first. The hidden-copy shortcut holds only for a variable.
+
 ## 17 Nov 2026
 
 ### SW-3752: `cases` tries a failing proof a second way (accepted cost)
