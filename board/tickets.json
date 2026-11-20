@@ -1,5 +1,5 @@
 {
-  "next": 4474,
+  "next": 4475,
   "tickets": [
     {
       "id": 47,
@@ -30460,7 +30460,7 @@
     {
       "id": 4472,
       "title": "[Opus] Closer stage 0 (docs/proposals/closer.md, SW-4242): F1 rewrite repeatedly can't close an ∧ goal whose parts compute (True = True ∧ … ∧ True = True; simp-revisited stage 3's conjunction closer); F2 cases splits a 60-kind token kind instead of the ∨ hypothesis first (signSymbolic hits E-CASES-BUDGET); F3 … then cases on a closed conjunction takes 46 ms against 1.8 ms; also F5 cases never applies an implication in scope (endedWeaker). Measure each against the probes in dev/patches/SW-4242-closer-probes.patch",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -30475,6 +30475,19 @@
     {
       "id": 4473,
       "title": "[Sonnet] Closer stage 0b (closer.md): a proving-guide section on finishing small proofs with today's tools (cases, rewrite repeatedly, or-patterns, _ arguments), then pilot two tools/fmt files (signSymbolic via or-pattern, drop minusSymbolic/bangSymbolic; passesAppend and Fmt/JoinProofs with _ arguments); bar: 5%% of proof lines with check time within 1.5x; after the stage 0 fixes",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4474,
+      "title": "[Sonnet] cases follow-ups (SW-4472): a way to say what cases splits (cases on x / closer.md F4; parenParsedP is out of budget without it), and a hypothesis written as is: kind = Minus is never used to substitute (signSymbolicT still splits 60 kinds per arm); docs/syntax.md still calls data declarations 'data' where the keyword is type; a workflow note: a copied binary needs --std-dir, and how to profile a check (macOS sample on repeated copies)",
       "status": "backlog",
       "agent": "",
       "where": "",
