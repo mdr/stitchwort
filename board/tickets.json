@@ -1,5 +1,5 @@
 {
-  "next": 4422,
+  "next": 4424,
   "tickets": [
     {
       "id": 47,
@@ -29631,12 +29631,12 @@
     {
       "id": 4409,
       "title": "[Opus] Carried-over cache stage 1 (D3703): split the check-cache key into a source key and a build stamp; reuse an entry from another build when the kernel side (crates/core and its build inputs) is unchanged; label carried entries in the editor and check output; editor uses them by default, lanes by a flag, verifier/tiers/Overmind never (docs/proposals/check-cache-across-updates.md)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "",
+      "body": "\n\nProgress (lane, Opus, 20 Nov): stage 1 built on lane/SW-4409.\n- Key = source only (format, modes/limits, unit text, deps' keys); stamp in the sealed header = kernel side (EVAL_FINGERPRINT), whole build (FINGERPRINT), library interface, exact flag. FORMAT 38.\n- Exact = same build + interface + exact flag. Carried over = carry-over on + same kernel side. A session that carried anything writes non-exact entries.\n- Carried entries: decode self-check (declarations re-hashed vs recorded), library_unchanged skipped (hash check only), never planned/skipped by a plain check.\n- Flag (orchestrator-accepted choice, from the design): `check --carry-over`, or STITCHWORT_CARRY_OVER=1. Label: last line of check. LSP: on for disk projects; logs \"N namespaces and M standard library files carried over\" once a check is done.\n- Store::read_others: other builds' entries for the same unit+key, newest first; eviction keeps each unit's newest entry past the grace.\n- Tests: 3 new in projects check_cache + 1 in crates/lsp (the_editor_carries_over_an_earlier_builds_entries) pass; existing binary(projects)&test(check_cache) 46/46 pass; CLI checked end to end with two release builds differing outside core. Commit 31eaee168. Ready for Opus review (D2364).\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -29792,6 +29792,32 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4422,
+      "title": "[Fable, paper] Review SW-4409 (carried-over cache stage 1, D3703): key/stamp split, kernel side = EVAL_FINGERPRINT, carried replay drops the library-key check and relies on dependency content hashes, decode self-check, exact-taint per session, eviction keeps newest per unit, editor on by default",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4423,
+      "title": "[Sonnet] Cache test and CLI follow-ups (SW-4409): editor cache tests load all of std up front (61 s): a smaller session or shared warm cache; check --json (the carry-over label has nowhere to go); an editor setting to turn carry-over off",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
