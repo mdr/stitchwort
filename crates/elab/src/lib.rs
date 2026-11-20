@@ -86,6 +86,7 @@ mod redundant;
 mod reify;
 mod rewind;
 mod rewrite;
+mod unfold_path;
 mod walk;
 pub use rewrite::{Closer, ExpandedRule, Expansion, RuleSource, expand_call, expand_file};
 pub use walk::{

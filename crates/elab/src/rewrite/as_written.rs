@@ -76,8 +76,26 @@ pub(super) fn first(
     unfolded: (&Value, &Term),
     remaining: &mut u64,
 ) -> Result<First> {
-    Ok(
-        match attempt(
+    let (found, outcome) = attempt(
+        cx,
+        rule,
+        place,
+        equation,
+        goal,
+        Some(unfolded),
+        remaining,
+        Mode::Complete,
+        Reading::Folded,
+        false,
+    )?;
+    if let Some(replaced) = found {
+        report(&outcome, Mode::Complete, Reading::Folded, rule);
+        return Ok(First::Kept(Box::new(replaced)));
+    }
+    // Not shown, or shown with a copy hidden: perhaps on a path through
+    // calls, which the middle step unfolds ([`crate::unfold_path`]).
+    if matches!(outcome, Outcome::Nothing | Outcome::Incomplete) {
+        let (found, _) = attempt(
             cx,
             rule,
             place,
@@ -87,12 +105,18 @@ pub(super) fn first(
             remaining,
             Mode::Complete,
             Reading::Folded,
-        )? {
-            (Some(replaced), _) => First::Kept(Box::new(replaced)),
-            (None, Outcome::RanOut) => First::RanOut,
-            (None, _) => First::Not,
-        },
-    )
+            true,
+        )?;
+        if let Some(replaced) = found {
+            report(&Outcome::Partial, Mode::Complete, Reading::Folded, rule);
+            return Ok(First::Kept(Box::new(replaced)));
+        }
+    }
+    report(&outcome, Mode::Complete, Reading::Folded, rule);
+    Ok(match outcome {
+        Outcome::RanOut => First::RanOut,
+        _ => First::Not,
+    })
 }
 
 /// The rewrite as written even if copies stay hidden, for when the usual
@@ -121,6 +145,7 @@ pub(super) fn rescue(
             remaining,
             Mode::Rescue,
             reading,
+            false,
         )?;
         if found.is_some() {
             return Ok(found);
@@ -157,6 +182,7 @@ pub(super) fn unconfirmed(
         remaining,
         Mode::Unconfirmed,
         Reading::Folded,
+        false,
     )?;
     let ran_out = matches!(outcome, Outcome::Unconfirmed);
     Ok(kept.map(|replaced| (replaced, ran_out || open)))
@@ -224,6 +250,9 @@ enum Outcome {
     RanOut,
     /// Kept by [`unconfirmed`] though a check ran out.
     Unconfirmed,
+    /// Kept, found with the calls on the path to it unfolded
+    /// ([`crate::unfold_path`]).
+    Partial,
     /// Found nothing as written.
     Nothing,
     /// Something on the folded path failed.
@@ -243,12 +272,13 @@ fn attempt(
     remaining: &mut u64,
     mode: Mode,
     reading: Reading,
+    on_path: bool,
 ) -> Result<(Option<Replaced>, Outcome)> {
     let snapshot = Snapshot::take(cx);
     // A failed attempt costs the usual search nothing.
     let mut spare = *remaining;
     let tried = search(
-        cx, rule, place, equation, goal, unfolded, mode, reading, &mut spare,
+        cx, rule, place, equation, goal, unfolded, mode, reading, on_path, &mut spare,
     );
     let (outcome, kept) = match tried {
         Ok((outcome @ (Outcome::Kept | Outcome::Unconfirmed), replaced)) => {
@@ -277,21 +307,31 @@ fn attempt(
             (Outcome::Failed, None)
         }
     };
-    if std::env::var_os("STITCHWORT_REWRITE_METRICS").is_some() {
-        let name = match (&outcome, mode) {
-            (Outcome::Kept, Mode::Rescue) if reading == Reading::AsWritten => "rescued-as-written",
-            (Outcome::Kept, Mode::Rescue) => "rescued",
-            (Outcome::Kept, _) => "folded",
-            (Outcome::Unconfirmed, _) => "unconfirmed",
-            (Outcome::RanOut, _) => "ran-out",
-            (Outcome::Incomplete, _) => "incomplete",
-            (Outcome::Nothing, _) => "nothing",
-            (Outcome::Failed, _) => "failed",
-            (Outcome::Unchecked, _) => "unchecked",
-        };
-        eprintln!("rewrite-as-written: {name} at={}", rule.proof.span().start);
+    // [`first`] counts its attempts together.
+    if mode != Mode::Complete {
+        report(&outcome, mode, reading, rule);
     }
     Ok((kept, outcome))
+}
+
+/// Prints `outcome` for `rule` when `STITCHWORT_REWRITE_METRICS` is set.
+fn report(outcome: &Outcome, mode: Mode, reading: Reading, rule: &RewriteRule) {
+    if std::env::var_os("STITCHWORT_REWRITE_METRICS").is_none() {
+        return;
+    }
+    let name = match (outcome, mode) {
+        (Outcome::Kept, Mode::Rescue) if reading == Reading::AsWritten => "rescued-as-written",
+        (Outcome::Kept, Mode::Rescue) => "rescued",
+        (Outcome::Kept, _) => "folded",
+        (Outcome::Partial, _) => "partial",
+        (Outcome::Unconfirmed, _) => "unconfirmed",
+        (Outcome::RanOut, _) => "ran-out",
+        (Outcome::Incomplete, _) => "incomplete",
+        (Outcome::Nothing, _) => "nothing",
+        (Outcome::Failed, _) => "failed",
+        (Outcome::Unchecked, _) => "unchecked",
+    };
+    eprintln!("rewrite-as-written: {name} at={}", rule.proof.span().start);
 }
 
 /// When [`search`] finds today's instance ([`todays_instance`]).
@@ -317,6 +357,7 @@ fn search(
     unfolded: Option<(&Value, &Term)>,
     mode: Mode,
     reading: Reading,
+    on_path: bool,
     remaining: &mut u64,
 ) -> Result<(Outcome, Option<Replaced>)> {
     // Today's choice of instance, for a rule with unknowns, found before
@@ -344,6 +385,7 @@ fn search(
             Todays::After(value, term),
             mode,
             reading,
+            on_path,
             remaining,
         )?;
         if let Some(decided) = decided {
@@ -365,9 +407,48 @@ fn search(
         Todays::Before(todays),
         mode,
         reading,
+        on_path,
         remaining,
     )?;
     Ok(decided.expect("decided with today's instance found first"))
+}
+
+/// The goal `written` with the calls on the path to an occurrence of the
+/// left side hidden inside them unfolded ([`crate::unfold_path`]); `None`
+/// if there are none. An occurrence is a candidate the search would take:
+/// the same as the left side read back as `reading` says, or one that
+/// unifies with it (perhaps by the arguments of calls of the same
+/// definition), whatever that solves undone.
+fn opened(cx: &mut Ctx, equation: &Equation, written: &Term, reading: Reading) -> Result<Option<Term>> {
+    let lhs = reading.quote(cx, &equation.lhs)?;
+    let Some(lhs_key) = key(&lhs, 0) else {
+        return Ok(None);
+    };
+    let level = cx.level();
+    let relevant = crate::matching::free_levels(&lhs, level);
+    let oracle = |cx: &mut Ctx, t: &Term, under: usize| -> Result<bool> {
+        let g = cx.g();
+        let candidate = if under == 0 {
+            t.clone()
+        } else {
+            replace_with(&g, t, level + under, &|l| Ok(Term::Var(level - 1 - l)), &|_, _| None)?
+        };
+        if same(&candidate, &lhs) {
+            return Ok(true);
+        }
+        let snapshot = Snapshot::take(cx);
+        let found = cx.eval(&candidate).and_then(|value| {
+            Ok(crate::undo::unify(cx, &value, &equation.lhs)?
+                || crate::undo::unify_solving_arguments(cx, &value, &equation.lhs)?)
+        });
+        snapshot.restore(cx);
+        match found {
+            Ok(found) => Ok(found),
+            Err(e) if fatal(&e) => Err(e),
+            Err(_) => Ok(false),
+        }
+    };
+    crate::unfold_path::opened(cx, written, &[lhs_key], &relevant, &oracle)
 }
 
 fn has_meta(term: &Term) -> bool {
@@ -386,6 +467,7 @@ fn search_with(
     todays: Todays,
     mode: Mode,
     reading: Reading,
+    on_path: bool,
     remaining: &mut u64,
 ) -> Result<Option<(Outcome, Option<Replaced>)>> {
     let mut written = reading.quote(cx, goal)?;
@@ -395,6 +477,12 @@ fn search_with(
     let pending = pending_metas(&written);
     if !pending.is_empty() && cx.e.prove_now(&|m| pending.contains(&m))? {
         written = reading.quote(cx, goal)?;
+    }
+    if on_path {
+        match opened(cx, equation, &written, reading)? {
+            Some(opened) => written = opened,
+            None => return Ok(Some((Outcome::Nothing, None))),
+        }
     }
     let replace = |cx: &mut Ctx, remaining: &mut u64| {
         replace_occurrences_as(
