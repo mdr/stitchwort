@@ -40,6 +40,33 @@ impl Elaborator {
                  function's calls, `R … (() => f x…) post` (docs/syntax.md, \"byWalking\")",
             )
         };
+        // A walk follows one run or two in lockstep; a relation with more
+        // thunks would be walked silently as one on its first.
+        let mut relations = vec![shape.head];
+        if tag == WALK_BIND
+            && let Some(&first) = shape.explicit().first()
+            && let Some(premise) = statement(&shape.binders[first].1)
+        {
+            relations.push(premise.head);
+        }
+        for relation in relations {
+            let thunks = thunk_params(g, relation).len();
+            if thunks > 2 {
+                return Err(Diagnostic::error(
+                    "E-WALK-LEMMA",
+                    format!(
+                        "`{name}` can't be `@[{tag}]`: `{}` takes {thunks} thunks, `() → {{e}} a`, \
+                         and a walk follows one run or two",
+                        g.def(relation).name(),
+                    ),
+                )
+                .with_label(at, "here")
+                .with_note(
+                    "a family relates one run of code, or two in lockstep; split a relation \
+                     over more thunks into relations over one or two",
+                ));
+            }
+        }
         let thunk = shape
             .args
             .iter()
@@ -56,6 +83,22 @@ impl Elaborator {
                 let first = &shape.binders[explicit[0]].1;
                 if statement(first).is_none() {
                     return Err(wrong("its first premise isn't a relation"));
+                }
+                let last = &shape.binders[explicit[explicit.len() - 1]].1;
+                if !matches!(last.strip_loc(), Term::Pi(..)) {
+                    return Err(Diagnostic::error(
+                        "E-WALK-LEMMA",
+                        format!(
+                            "`{name}` can't be `@[{tag}]`: its last premise binds nothing, so the walk \
+                             has no value to hand `j`"
+                        ),
+                    )
+                    .with_label(at, "here")
+                    .with_note(
+                        "a then-lemma's last premise is a `∀` over the first premise's results, \
+                         `(rest: ∀ (v: a) => first v → R … (() => j v) post)`; with none, `j` \
+                         never sees the value `p` returned",
+                    ));
                 }
                 self.unique_family_lemma(id, tag, at, &shape)?;
             }
@@ -218,6 +261,26 @@ pub(super) fn thunk_head(thunk: &Term) -> Option<DefId> {
     }
 }
 
+/// Which parameters of relation `rel` are thunks, by their types: `() → {e}
+/// a`, a function from `Unit`. Implicit parameters count, as the arguments
+/// of a statement do.
+pub(super) fn thunk_params(g: &stitchwort_core::ev::Ev<'_>, rel: DefId) -> Vec<usize> {
+    let mut out = Vec::new();
+    let mut t = g.def(rel).ty().strip_loc();
+    let mut i = 0;
+    while let Term::Pi(_, _, dom, cod) = t {
+        if let Term::Pi(_, Icit::Explicit, from, _) = dom.strip_loc()
+            && let Term::Data(d, _) = from.strip_loc()
+            && g.env.registry().is_data(Builtin::UnitType, *d)
+        {
+            out.push(i);
+        }
+        i += 1;
+        t = cod.strip_loc();
+    }
+    out
+}
+
 /// Whether one pair of calls can fit both lemmas: at every argument that is
 /// a thunk in both, the functions agree; an argument that is a thunk in only
 /// one is a run the other leaves open.
@@ -310,9 +373,7 @@ pub(super) fn families(cx: &Ctx) -> Vec<Family> {
         let family = match out.iter_mut().position(|f| f.relation == shape.head) {
             Some(i) => &mut out[i],
             None => {
-                let thunks: Vec<usize> = (0..shape.args.len())
-                    .filter(|&i| matches!(shape.args[i].strip_loc(), Term::Lam(..)))
-                    .collect();
+                let thunks = thunk_params(&g, shape.head);
                 if thunks.is_empty() {
                     continue;
                 }
@@ -333,12 +394,16 @@ pub(super) fn families(cx: &Ctx) -> Vec<Family> {
                 if let Some(&at) = explicit.first()
                     && let Some(first) = statement(&shape.binders[at].1)
                 {
-                    // The thunks (`p`, and `q` for two runs) are the
-                    // arguments whose binders are functions.
-                    let thunks: Vec<usize> = (0..first.args.len())
+                    // The thunks (`p`, and `q` for two runs) are the arguments
+                    // the premise's relation takes as thunks, where the lemma
+                    // passes one of its own parameters.
+                    let thunks: Vec<usize> = thunk_params(&g, first.head)
+                        .into_iter()
                         .filter(|&i| {
-                            matches!(first.args[i].strip_loc(), Term::Var(ix) if *ix < at
-                                && matches!(shape.binders[at - 1 - ix].1.strip_loc(), Term::Pi(..)))
+                            first
+                                .args
+                                .get(i)
+                                .is_some_and(|a| matches!(a.strip_loc(), Term::Var(ix) if *ix < at))
                         })
                         .collect();
                     if !thunks.is_empty() {
@@ -793,9 +858,21 @@ pub(super) fn choose(
             });
         }
     }
-    let what = match callee {
+    let show = |callee| match callee {
         Callee::Def(id) => format!("`{}`", written_name(cx, id)),
         Callee::Local(l) => format!("`{}`", cx.name_of_level(l).unwrap_or("a parameter")),
+    };
+    let what = show(callee);
+    // A pair whose runs call different functions names both; one function
+    // (the common case: a theorem about a function and itself) names it once.
+    let pair_what = if calls.len() > 1 {
+        let names: Vec<String> = calls.iter().filter_map(head_of).map(show).collect();
+        match names.as_slice() {
+            [first, second] if first != second => format!("{first} and {second}"),
+            _ => what.clone(),
+        }
+    } else {
+        what.clone()
     };
     let mut notes = vec![calls_shown(cx, calls)];
     match callee {
@@ -803,8 +880,9 @@ pub(super) fn choose(
             "{what} is a parameter: give its lemma in the brackets, or as a hypothesis"
         )),
         Callee::Def(_) => notes.push(format!(
-            "give a lemma for it in the brackets, register one with `@[walk]`, or write \
+            "give a lemma for {} in the brackets, register one with `@[walk]`, or write \
              `unfold {}` in the brackets to walk its body",
+            if calls.len() > 1 { "the pair" } else { "it" },
             what.trim_matches('`')
         )),
     }
@@ -813,7 +891,7 @@ pub(super) fn choose(
         info,
         expected,
         &if calls.len() > 1 {
-            format!("it has no lemma for this pair of calls of {what}, one in each run")
+            format!("it has no lemma for this pair of calls of {pair_what}, one in each run")
         } else {
             format!("it has no lemma for this call of {what}")
         },

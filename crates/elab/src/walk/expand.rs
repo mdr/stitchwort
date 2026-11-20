@@ -106,6 +106,46 @@ impl Walks {
     }
 }
 
+/// The characters of `s` outside string literals, with their byte offsets,
+/// the quotes themselves left out: a bracket in a string (`"("`) isn't one.
+fn outside_strings(s: &str) -> impl Iterator<Item = (usize, char)> + '_ {
+    let mut quoted = false;
+    let mut escaped = false;
+    s.char_indices().filter(move |&(_, c)| {
+        if escaped {
+            escaped = false;
+            false
+        } else if quoted && c == '\\' {
+            escaped = true;
+            false
+        } else if c == '"' {
+            quoted = !quoted;
+            false
+        } else {
+            !quoted
+        }
+    })
+}
+
+/// Whether `text` is one string literal, `"…"`: its first quote closes at
+/// the end.
+fn is_string_literal(text: &str) -> bool {
+    let mut chars = text.char_indices();
+    if chars.next().map(|(_, c)| c) != Some('"') {
+        return false;
+    }
+    let mut escaped = false;
+    for (i, c) in chars {
+        match c {
+            _ if escaped => escaped = false,
+            '\\' => escaped = true,
+            '"' => return i + 1 == text.len(),
+            _ => {}
+        }
+    }
+    false
+}
+
 /// Whether written pieces are one word, or one bracketed whole, needing no
 /// brackets as an argument.
 pub(super) fn atomic(pieces: &[Piece]) -> bool {
@@ -119,6 +159,9 @@ pub(super) fn atomic(pieces: &[Piece]) -> bool {
     if text.is_empty() {
         return false;
     }
+    if is_string_literal(&text) {
+        return true;
+    }
     if !text.contains([' ', '\n']) {
         return true;
     }
@@ -130,7 +173,7 @@ pub(super) fn atomic(pieces: &[Piece]) -> bool {
     }
     // The first bracket closes at the end, not before.
     let mut depth = 0usize;
-    for (i, c) in text.char_indices() {
+    for (i, c) in outside_strings(&text) {
         match c {
             '(' | '[' => depth += 1,
             ')' | ']' => {
@@ -220,7 +263,7 @@ fn quoted(text: &str, span: Span) -> String {
     let Some(mut out) = text.get(span.range()).map(str::to_string) else {
         return "?".into();
     };
-    let count = |s: &str, c: char| s.chars().filter(|&x| x == c).count();
+    let count = |s: &str, c: char| outside_strings(s).filter(|&(_, x)| x == c).count();
     let mut rest = text.get(span.range().end..).unwrap_or("").chars();
     while count(&out, '(') > count(&out, ')') && rest.next() == Some(')') {
         out.push(')');
@@ -256,19 +299,44 @@ pub(super) fn render(text: &str, pieces: &[Piece], indent: &str) -> String {
             }
         }
         out.push_str(line);
-        // Brackets in a string literal (`"`)`"`) don't count.
-        let mut quoted = false;
-        let mut escaped = false;
-        for c in line.chars() {
+        for (_, c) in outside_strings(line) {
             match c {
-                _ if escaped => escaped = false,
-                '\\' if quoted => escaped = true,
-                '"' => quoted = !quoted,
-                '(' | '[' if !quoted => depth += 1,
-                ')' | ']' if !quoted => depth = depth.saturating_sub(1),
+                '(' | '[' => depth += 1,
+                ')' | ']' => depth = depth.saturating_sub(1),
                 _ => {}
             }
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn text(s: &str) -> Vec<Piece> {
+        vec![Piece::Text(s.to_string())]
+    }
+
+    #[test]
+    fn quoted_ignores_brackets_in_strings() {
+        // The span ends inside the last argument's brackets; the `)` in the
+        // string isn't the one it needs.
+        let source = r#"f (g ")" x) y"#;
+        let start = source.find("f (g").expect("start");
+        let end = source.find(" x").expect("end") + 2;
+        let span = Span::new(Span::NOWHERE.file, start as u32, end as u32);
+        assert_eq!(quoted(source, span), r#"f (g ")" x)"#);
+    }
+
+    #[test]
+    fn strings_are_atomic() {
+        assert!(atomic(&text(r#""no (such) thing""#)));
+        assert!(atomic(&text(r#""say \"hi\" ]""#)));
+        assert!(!atomic(&text(r#""a" "b""#)));
+        assert!(!atomic(&text(r#""unclosed \""#)));
+        // Brackets in a string don't close a bracketed whole.
+        assert!(atomic(&text(r#"(f ")" x)"#)));
+        assert!(!atomic(&text(r#"(f ")") x"#)));
+    }
 }

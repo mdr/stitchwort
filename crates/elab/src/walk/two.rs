@@ -51,7 +51,7 @@ pub(super) fn step(
     let mut steps = 0;
     loop {
         steps += 1;
-        if steps > 1000 {
+        if steps > STEP_CAP {
             return Err(stuck(cx, info, expected, "the code keeps computing", &[]));
         }
         for run in 0..2 {
@@ -162,6 +162,7 @@ pub(super) fn step(
                 info,
                 family,
                 (scrutinee, data, names, vec![through, twin_through]),
+                false,
                 &goal,
             )
         }
@@ -201,6 +202,7 @@ pub(super) fn step(
                 info,
                 family,
                 (scrutinee, data, names, throughs),
+                run == 1,
                 &goal,
             )
         }

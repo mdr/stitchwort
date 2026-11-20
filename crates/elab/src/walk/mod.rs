@@ -82,6 +82,7 @@ use stitchwort_syntax::{Diagnostic, Span};
 use crate::Elaborator;
 use crate::check::{Ctx, Result, check, infer};
 use crate::undo::{Snapshot, fatal};
+use crate::unify::eta_contract;
 
 use expand::*;
 pub use expand::{Piece, WalkExpansion, expand_file, trace_line};
@@ -93,6 +94,10 @@ pub(crate) use registry::{WALK, WALK_BIND, WALK_DONE, WALK_WEAKEN};
 /// less one. Past this the walk stops (SW-4238 §3.5); a split whose arms
 /// share a long tail is better made a function with its own lemma.
 pub(crate) const PATH_CAP: usize = 64;
+
+/// The most steps the walk may take in the code before it stops: reductions
+/// and unfolds that never settle ("the code keeps computing").
+const STEP_CAP: usize = 1000;
 
 /// What the walks checked so far have recorded: one [`CallInfo`] per check
 /// of a written walk, and the places it went on from.
@@ -196,8 +201,13 @@ fn app(f: Expr, arg: Expr) -> Expr {
 
 /// A lambda the walk writes. Its names' spans are empty, at the walk's
 /// end: they were never written, and a binder named as a function is
-/// (`number`) is no lambda written by mistake (`W-LAMBDA-SHADOW`).
+/// (`number`) is no lambda written by mistake (`W-LAMBDA-SHADOW`). With no
+/// names (a premise that is no `∀`, so there is nothing to bind) it is
+/// the body itself: a lambda takes at least one parameter.
 fn lambda(names: &[String], body: Expr, span: Span) -> Expr {
+    if names.is_empty() {
+        return body;
+    }
     let at = Span {
         start: span.end,
         ..span
@@ -524,6 +534,53 @@ fn refold(cx: &mut Ctx, family: &Family, args: &[Value], bodies: &[Value]) -> Re
     cx.eval(&term)
 }
 
+/// The goal with its arguments other than the thunks eta-contracted, if
+/// that changes any (`x y => WordsAlike x y` to `WordsAlike`), and the
+/// arguments: the same goal by conversion. A then-lemma's post comes out
+/// eta-expanded where unification solved it from the unfolded relation
+/// (`?alike x y` against `WordsAlike x y`), and a lemma that leaves a run
+/// open (`second`) then fails to fit, since the unifier settles an unknown
+/// function facing a lambda only when a data unknown faces a known argument
+/// too (`unify_by_unknown_arguments`); the contracted post is a known
+/// argument, as the statement wrote it.
+fn eta_contracted(
+    cx: &mut Ctx,
+    family: &Family,
+    args: &[Value],
+    expected: &Value,
+) -> Result<Option<(Vec<Value>, Value)>> {
+    let g = cx.g();
+    let mut contracted = Vec::with_capacity(args.len());
+    for (i, a) in args.iter().enumerate() {
+        let lambda = matches!(force_solved(&g, a.clone())?, Value::Lam(..));
+        contracted.push(if lambda && !family.thunks.contains(&i) {
+            eta_contract(&g, &cx.quote_folded(a)?)?
+        } else {
+            None
+        });
+    }
+    if contracted.iter().all(Option::is_none) {
+        return Ok(None);
+    }
+    let terms = (args.iter().zip(contracted))
+        .map(|(a, c)| c.map_or_else(|| cx.quote_folded(a), Ok))
+        .collect::<Result<Vec<_>>>()?;
+    let icits = binder_icits(g.def(family.relation).ty());
+    let mut goal = Term::Def(family.relation);
+    for (i, t) in terms.iter().enumerate() {
+        let icit = icits.get(i).copied().unwrap_or(Icit::Explicit);
+        goal = Term::App(Rc::new(goal), Rc::new(t.clone()), icit);
+    }
+    let goal = cx.eval(&goal)?;
+    if !cx.conv_now(&goal, expected)? {
+        return Ok(None);
+    }
+    let args = (terms.iter())
+        .map(|t| cx.eval(t))
+        .collect::<Result<Vec<_>>>()?;
+    Ok(Some((args, goal)))
+}
+
 /// How each binder of a type, as written, is passed.
 fn binder_icits(ty: &Term) -> Vec<Icit> {
     let mut out = Vec::new();
@@ -768,6 +825,24 @@ fn note_trace(cx: &Ctx, node: u32, line: Vec<Piece>) {
         .push(line);
 }
 
+/// With `STITCHWORT_WALK_TRACE=1`, a line on stderr about what the walk
+/// tried at `node` and dropped: an error it recovers from (a direct fit
+/// before weakening) is otherwise never seen.
+fn debug_trace(cx: &Ctx, node: &NodeInfo, what: &str, expected: &Value, err: &Diagnostic) {
+    if std::env::var_os("STITCHWORT_WALK_TRACE").is_none_or(|v| v == "0") {
+        return;
+    }
+    let mut line = format!(
+        "walk trace: {}: {what}: {}: {}",
+        node.place, err.code, err.message
+    );
+    for n in &err.notes {
+        line.push_str(&format!("\n  note: {n}"));
+    }
+    line.push_str(&format!("\n  goal: {}", cx.show(expected)));
+    eprintln!("{line}");
+}
+
 /// `E-WALK` at the walk of `node`, about `what`, with the goal there.
 fn stuck(cx: &Ctx, node: &NodeInfo, expected: &Value, what: &str, notes: &[String]) -> Diagnostic {
     let walks = cx.e.session.walks.borrow();
@@ -797,6 +872,11 @@ fn step(
         .trace
         .clear();
     let info = node_info(cx, node);
+    let contracted = eta_contracted(cx, family, &args, expected)?;
+    let (args, expected) = match &contracted {
+        Some((args, goal)) => (args.clone(), goal),
+        None => (args, expected),
+    };
     if family.thunks.len() == 2 {
         return two::step(cx, node, &info, family, args, top, expected);
     }
@@ -814,7 +894,7 @@ fn step(
     let mut steps = 0;
     loop {
         steps += 1;
-        if steps > 1000 {
+        if steps > STEP_CAP {
             return Err(stuck(cx, &info, expected, "the code keeps computing", &[]));
         }
         let code = classify(cx, &body, through)?;
@@ -852,6 +932,7 @@ fn step(
                     &info,
                     family,
                     (scrutinee, data, names, vec![through]),
+                    false,
                     &goal,
                 );
             }
@@ -1280,7 +1361,7 @@ fn bind_step(
     let lambda = lambda(&names, resume(next, span), span);
     e = app(e, lambda);
     text.extend([
-        Piece::Text(format!(" ({} =>\n", names.join(" "))),
+        Piece::Text(format!(" ({}\n", binding(&names))),
         Piece::Child(next),
         Piece::Text(")".into()),
     ]);
@@ -1384,7 +1465,10 @@ fn tail_call(
             cx.reset(mark);
             return Err(e);
         }
-        Err(_) => snapshot.restore(cx),
+        Err(e) => {
+            debug_trace(cx, info, "direct fit failed", expected, &e);
+            snapshot.restore(cx);
+        }
     }
     let Some(weaken) = family.weaken else {
         return Err(stuck(
@@ -1426,7 +1510,10 @@ fn tail_call(
     let lambda = lambda(&names, resume(leaf, span), span);
     let mut text = vec![Piece::Text(format!("{}\n{MORE}", short_name(&name)))];
     let implication = [
-        Piece::Text(format!("({} => ", names.join(" "))),
+        Piece::Text(format!(
+            "({}",
+            binding(&names) + if names.is_empty() { "" } else { " " }
+        )),
         Piece::Child(leaf),
         Piece::Text(")".into()),
     ];
@@ -1449,13 +1536,15 @@ fn tail_call(
 
 /// A split where the program's case tree is stuck: a proof `match` on the
 /// same scrutinee, the program's names for the fields, and an equation
-/// named `branchN`.
+/// named `branchN`. `twin` is set for a split in the
+/// second run alone, whose field names take `Twin`.
 fn split(
     cx: &mut Ctx,
     node: u32,
     info: &NodeInfo,
     family: &Family,
     (scrutinee, data, names, through): (Value, DataId, Vec<Vec<String>>, Vec<Option<DefId>>),
+    twin: bool,
     expected: &Value,
 ) -> Result<Term> {
     let g = cx.g();
@@ -1509,6 +1598,8 @@ fn split(
                 .filter(|n| !generated(n))
                 .cloned()
                 .unwrap_or_else(|| format!("field{}", k + 1));
+            // The second run's names are told from the first's, which are in scope.
+            let base = if twin { format!("{base}Twin") } else { base };
             let n = fresh(cx, &base, &taken);
             taken.push(n.clone());
             fields.push(Pattern::Var(ast::Name { text: n, span }));
@@ -1560,4 +1651,14 @@ fn condition_text(shown: &str) -> String {
         return format!("{a} == {b}");
     }
     shown.to_string()
+}
+
+/// How a lambda over `names` reads in a step's text: `a b =>`, or
+/// nothing when there are no names.
+fn binding(names: &[String]) -> String {
+    if names.is_empty() {
+        String::new()
+    } else {
+        format!("{} =>", names.join(" "))
+    }
 }

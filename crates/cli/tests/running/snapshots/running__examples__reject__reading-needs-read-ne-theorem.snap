@@ -7,7 +7,7 @@ expression: output
    │
  7 │ theorem apart (a b: Nat) (same: (a == b) = False): a ≠ b := same
    │                                                             ──┬─  
-   │                                                               ╰─── expected `a ≠ b`, but this has type `(a.decEq b).holds = False`
+   │                                                               ╰─── expected `a ≠ b`, but this has type `(a == b) = False`
    │ 
-   │ Note: this is the test fact `(a.decEq b).holds = False`, which reads as `a ≠ b`: add `.read` to use it as that
+   │ Note: this is the test fact `(a == b) = False`, which reads as `a ≠ b`: add `.read` to use it as that
 ───╯

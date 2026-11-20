@@ -3655,6 +3655,7 @@ mod tests {
             &[(0, 0, Builtin::Nat)],
             &state::TablesDelta::default(),
             false,
+            super::Hit::Exact,
         );
         assert!(result.is_err(), "the entry was admitted");
         assert_eq!(e.session.cache_stats.refused, 1);

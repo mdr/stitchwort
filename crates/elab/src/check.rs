@@ -2394,7 +2394,7 @@ fn ne_read_as_prop_here(
     found_shown: &str,
 ) -> bool {
     expected_shown.contains(" ≠ ")
-        && (found_shown.contains("Decidable.holds") || found_shown.contains(".holds"))
+        && found_is_decided_test(found_shown)
         && is_bool_test(cx, found)
         && !crate::build::is_read(cx)
         && goal_wrote_ne(cx, expected)
@@ -2405,7 +2405,13 @@ fn ne_read_as_prop_here(
 /// because it sits beside `=` in a statement. Callers also ask
 /// [`goal_wrote_ne`], since the note quotes the source (SW-3125).
 pub(crate) fn ne_read_as_prop(expected: &str, found: &str) -> bool {
-    expected.contains(" ≠ ") && (found.contains("Decidable.holds") || found.contains(".holds"))
+    expected.contains(" ≠ ") && found_is_decided_test(found)
+}
+
+/// Whether the shown type of a `Bool` test is a decided `!=` (as a message
+/// writes it, `a != b`) or a `.holds` it couldn't write that way.
+fn found_is_decided_test(found: &str) -> bool {
+    found.contains("Decidable.holds") || found.contains(".holds") || found.contains(" != ")
 }
 
 /// Whether two forced types are built by the same outermost former (the
@@ -4828,12 +4834,24 @@ fn finish_application(
                 // The earlier error is the lambda's, found in place; the
                 // call's own type failing to match what is expected is the
                 // other half of the story, so say so (SW-4355 blamed the
-                // order of elaboration for it).
-                Some(first) => (*first).with_note(format!(
-                    "the call's own type `{}` also does not match the expected type `{}`",
-                    cx.show(&ty),
-                    cx.show_expected(expected)
-                )),
+                // order of elaboration for it). Only a type mismatch has this
+                // other half: an arithmetic failure or unknown name is not
+                // made clearer by it. Nor is a type whose every part is an
+                // unknown (`_ _`) worth printing. No length limit: the
+                // continuation cases it is for print types of 140 and 250
+                // characters, longer than the `decEq` type of the case it
+                // is noise in, so length cannot tell them apart.
+                Some(first) => {
+                    if first.code == "E-TYPE-MISMATCH" && !crate::numbers::all_unknown(cx, &ty)? {
+                        (*first).with_note(format!(
+                            "the call's own type `{}` also does not match the expected type `{}`",
+                            cx.show(&ty),
+                            cx.show_expected(expected)
+                        ))
+                    } else {
+                        *first
+                    }
+                }
                 None => cx.mismatch(expected, &ty),
             });
         }
@@ -6926,7 +6944,14 @@ fn explicit_lambda(
         }
     }
     let shadowed = lambda_shadow(cx, names, span)?;
-    let (first, rest) = names.split_first().expect("lambdas have parameters");
+    let Some((first, rest)) = names.split_first() else {
+        debug_assert!(false, "a lambda has parameters");
+        return Err(
+            Diagnostic::error("E-INTERNAL", "internal error: a lambda with no parameters")
+                .with_label(span, "here")
+                .with_note("this is a bug in the compiler, not in your program"),
+        );
+    };
     let mark = cx.mark();
     let var = Value::var(cx.level());
     cx.bind(&first.text, dom.clone());

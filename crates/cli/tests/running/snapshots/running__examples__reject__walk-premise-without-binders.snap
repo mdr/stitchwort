@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-WALK-LEMMA] Error: `mineThen` can't be `@[walk.bind]`: its last premise binds nothing, so the walk has no value to hand `j`
+    ╭─[ reject/walk-premise-without-binders.sw:12:3 ]
+    │
+ 12 │ @[walk.bind]
+    │   ────┬────  
+    │       ╰────── here
+    │ 
+    │ Note: a then-lemma's last premise is a `∀` over the first premise's results, `(rest: ∀ (v: a) => first v → R … (() => j v) post)`; with none, `j` never sees the value `p` returned
+────╯

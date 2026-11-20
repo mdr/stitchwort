@@ -18,7 +18,7 @@ expression: output
    │ Note 4: this statement is false; a counterexample:
    │           xs = []
    │           ys = []
-   │         `(List.decEq (x y => { holds = x.equal y, sound = h => x.equalSound y h, complete = h => J (n' e => x.equal n') x.equalRefl h }) xs ys).not.holds` is false:
+   │         `xs != ys` is false:
    │           left:  False
    │           right: True
 ───╯
