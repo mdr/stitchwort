@@ -648,6 +648,42 @@ fn check_only_named_theorems() {
     }
 }
 
+/// A name that isn't a theorem of the namespaces being checked, but is the
+/// last part of one's qualified name, is told the qualified name(s).
+#[test]
+fn check_only_suggests_a_qualified_name() {
+    let dir = project(
+        "check_only_suggests",
+        &[
+            ("stitchwort.yaml", ""),
+            (
+                "src/walk.sw",
+                "namespace Syntax.ParseWalk\n\ntheorem givesCommaListFrom : 1 = 1 := byComputing\n",
+            ),
+            (
+                "src/other.sw",
+                "namespace Syntax.Other\n\ntheorem unrelated : 1 = 1 := byComputing\n",
+            ),
+        ],
+    );
+    let expected = "there's no theorem `givesCommaListFrom` in the namespaces being \
+                    checked; did you mean `Syntax.ParseWalk.givesCommaListFrom`?";
+
+    // With the namespace named, and without one (the name finds it).
+    for args in [
+        &["check", "Syntax.ParseWalk", "--only", "givesCommaListFrom"][..],
+        &["check", "--only", "givesCommaListFrom"][..],
+    ] {
+        let output = stitchwort(&dir, args);
+        assert_eq!(output.status.code(), Some(1), "{args:?}: {}", err(&output));
+        assert!(
+            err(&output).contains(expected),
+            "{args:?}: {}",
+            err(&output)
+        );
+    }
+}
+
 fn copy_tree(from: &Path, to: &Path) {
     std::fs::create_dir_all(to).unwrap();
     for entry in std::fs::read_dir(from).unwrap() {
