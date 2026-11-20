@@ -2,8 +2,9 @@
 """Make a lemma's explicit binders implicit, then drop those positional
 arguments at every use of the lemma.
 
-  tools/fmt/dev/implicit.py [--dry-run] LEMMA BINDER [BINDER ...]
-  tools/fmt/dev/implicit.py [--dry-run] --from-file SPEC
+  tools/fmt/dev/implicit.py [--dry-run] [--force | --name-real]
+                            LEMMA BINDER [BINDER ...]
+  tools/fmt/dev/implicit.py [--dry-run] [--force | --name-real] --from-file SPEC
   task fmt:implicit -- LEMMA BINDER [BINDER ...]
 
 `SPEC` has one lemma per line, `Name: b1 b2` (blank lines and lines starting
@@ -19,6 +20,17 @@ one argument.  Only positional arguments are dropped: named arguments
 for a binder made implicit is changed to `[x := ...]`.  A use whose target
 arguments cannot all be identified is skipped and reported rather than
 edited, so arguments are never deleted from the wrong positions.
+
+An argument in a slot that becomes implicit must be the placeholder `_`.
+Anything else is a real term that would be silently lost, so it is
+reported as
+
+  REAL <file>:<line>: <lemma> slot <binder>: <argument text, first 60 chars>
+
+and the whole run is refused before any file is written.  `--force` drops
+such arguments anyway.  `--name-real` instead rewrites each one in place
+as `[binder := <argument>]`, keeping the argument's text; this is what a
+person does by hand today.  A multi-line argument keeps its layout.
 
 The default roots are tools/fmt/src, tools/toyfmt/src, crates/elab/src/std,
 aoc/src, games/rogue/src and examples.  Files are deduplicated by real path
@@ -464,6 +476,16 @@ def parse_application(text, tokens, bmap, start, prev_end, base_indent,
     return positional, named, filled
 
 
+def is_placeholder(text, start, end):
+    """True when the argument is the lone wildcard `_`."""
+    return text[start:end].strip() == "_"
+
+
+def argument_snippet(argument):
+    """The argument text on one line, for the REAL diagnostic."""
+    return argument.replace("\r", " ").replace("\n", " ")[:60]
+
+
 def removal_span(text, start, end):
     """Delete an argument plus the whitespace that introduced it."""
     s = start
@@ -576,6 +598,8 @@ def parse_specs(args):
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     dry = False
+    force = False
+    name_real = False
     from_file = None
     roots = []
     positional = []
@@ -584,6 +608,10 @@ def main(argv=None):
         arg = argv[i]
         if arg in ("--dry-run", "--dry"):
             dry = True
+        elif arg == "--force":
+            force = True
+        elif arg == "--name-real":
+            name_real = True
         elif arg == "--from-file":
             i += 1
             if i >= len(argv):
@@ -659,6 +687,7 @@ def main(argv=None):
         edits[decl_path].extend(info["edits"])
 
     uses = dropped = skipped = 0
+    real = []
     for path in files:
         text, tokens, bmap = loaded[path]
         for name, info in infos.items():
@@ -670,6 +699,7 @@ def main(argv=None):
                 if path == info["decl_path"] and i == info["decl_token"]:
                     continue
                 base = line_indent(text, tok.start)
+                line = text.count("\n", 0, tok.start) + 1
                 positional, named, filled = parse_application(
                     text, tokens, bmap, i + 1, tok.end, base,
                     info["explicit"])
@@ -680,20 +710,46 @@ def main(argv=None):
                     print(
                         "implicit.py: SKIP %s:%d %s: cannot identify "
                         "argument(s) for %s"
-                        % (path, text.count("\n", 0, tok.start) + 1, name,
+                        % (path, line, name,
                            ", ".join(info["explicit"][k] for k in missing)),
                         file=sys.stderr)
                     continue
                 uses += 1
                 for index, start, end in positional:
-                    if index in needed:
-                        s, e = removal_span(text, start, end)
-                        edits[path].append((s, e, ""))
-                        dropped += 1
+                    if index not in needed:
+                        continue
+                    binder = info["explicit"][index]
+                    argument = text[start:end]
+                    if not is_placeholder(text, start, end):
+                        real.append((path, line, name, binder, argument))
+                        if name_real:
+                            edits[path].append((
+                                start, end,
+                                "[%s := %s]" % (binder, argument)))
+                        elif force:
+                            s, e = removal_span(text, start, end)
+                            edits[path].append((s, e, ""))
+                            dropped += 1
+                        continue
+                    s, e = removal_span(text, start, end)
+                    edits[path].append((s, e, ""))
+                    dropped += 1
                 for arg_name, arg in named:
                     if arg_name in info["drop_names"] and text[arg.start] == "(":
                         edits[path].append((arg.start, arg.start + 1, "["))
                         edits[path].append((arg.end - 1, arg.end, "]"))
+
+    for path, line, name, binder, argument in real:
+        print("REAL %s:%d: %s slot %s: %s"
+              % (path, line, name, binder, argument_snippet(argument)),
+              file=sys.stderr)
+    if real and not (force or name_real):
+        print(
+            "implicit.py: refusing to drop %d real argument(s); use "
+            "--force to drop them or --name-real to name them"
+            % len(real),
+            file=sys.stderr)
+        return 1
 
     changed = 0
     for path in files:

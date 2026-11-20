@@ -43,7 +43,7 @@ starts by checking the project (about 25 s), then takes 850 MB to 1.5 GB.
 | `hangs.py` | `OUT …` | Checks K3a (section 1.4, in its final form `Fmt.hangs`, SW-3969) on the outputs in Python: where each line starts against the block column in force. Family A shows here as `closer-at-block`. `twin --stage hangs --batch LIST` evaluates `Fmt.hangs` itself on the same outputs, a line a declaration |
 | `classify.py` | `OUT` (`--bin STITCHWORT`) | Sorts the outputs that differ from `stitchwort fmt -` on the same input: glued pairs (section 3.5), layout, other |
 | `sketchall.py` | `--twin TWIN OUT …` | Runs the twin's `sketch` stage over the outputs |
-| `implicit.py` | `[--dry-run] [--roots DIRS] LEMMA BINDER …`, or `--from-file SPEC` | Makes the lemma's named explicit binders implicit and drops those positional arguments at every use (see below) |
+| `implicit.py` | `[--dry-run] [--force \| --name-real] [--roots DIRS] LEMMA BINDER …`, or `--from-file SPEC` | Makes the lemma's named explicit binders implicit and drops those positional arguments at every use (see below) |
 
 `--sketch` and `sketchall.py` need SW-3955's stages `words`, `calmwords`
 and `sketch` (the predicates of section 1, in a file `S1Sketch.sw`), which
@@ -68,6 +68,7 @@ and drop the matching arguments at every use":
 ```sh
 python3 tools/fmt/dev/implicit.py --dry-run Parse.readsDone x
 python3 tools/fmt/dev/implicit.py Parse.readsDone x
+python3 tools/fmt/dev/implicit.py --name-real Parse.readsDone x
 task fmt:implicit -- --dry-run Parse.readsDone x
 ```
 
@@ -87,11 +88,26 @@ the selected slots and keeps named arguments such as `[inv := …]`; an
 explicit named `(x := …)` for a binder made implicit is changed to
 `[x := …]`. If a use does not have enough arguments to identify every
 selected slot, it prints `SKIP` with the file and line and leaves that use
-alone rather than risking a wrong deletion. `--dry-run` prints a unified
-diff and writes nothing. Otherwise each file is read completely before it
-is edited, and the new text goes to a temporary file in the same directory
-that is renamed over the original, so an interrupted run cannot leave a
-truncated file.
+alone rather than risking a wrong deletion.
+
+An argument in a selected slot must be the placeholder `_`: dropping a
+real term would silently lose it. If any real term is found the run prints
+
+```
+REAL <file>:<line>: <lemma> slot <binder>: <argument text, first 60 chars>
+```
+
+for each one and refuses the whole run, exiting non-zero before writing
+any file, so nothing is half-applied. `--force` drops such arguments
+anyway. `--name-real` instead rewrites each real argument in place as
+`[binder := <argument>]`, keeping the argument's text (including a
+multi-line parenthesised argument's layout), which is what a person does
+by hand today. `--name-real` wins if both flags are given.
+
+`--dry-run` prints a unified diff and writes nothing. Otherwise each file
+is read completely before it is edited, and the new text goes to a
+temporary file in the same directory that is renamed over the original,
+so an interrupted run cannot leave a truncated file.
 
 `--from-file SPEC` does several lemmas at once, one `Name: b1 b2` per line
 (blank lines and lines starting with `#` or `--` are ignored).
