@@ -200,16 +200,28 @@ set's rules are only ever looked for. The partial step is skipped there: it woul
 fire where they didn't, in a different order, and make that pass dearer. The full pass uses it
 through the same `rewrite` search (SW-4430 M2).
 
-**A whole `rewrite` is retried without the step.** A rule's check sees only its own step,
-but the goal it leaves is partly folded, and a later rule (or the proof after `then`) can fail
-on that goal where it passed on the computed one: in `tools/fmt`'s
-`PrintHangProofs.stepColumn`, `Bool.andFalse glue` opened only `step`, and `staleBlocks`
-then failed its round trip inside the still-folded `past`. So a goal `rewrite` that fails after
-any rule kept a partial result is elaborated again, from a snapshot, with the step off, and
-that outcome stands: success, or the error it gave before the step existed
-(`examples/accept/rewrite-partial-unfold-retried.sw`). A `match` has no such retry yet: it
-keeps a partial result once its own checks pass, and an arm that then failed only because its
-goal stayed partly folded would be the same kind of break (none seen in `tools/fmt`).
+**A whole `rewrite` or `match` is retried without the step.** A site's check sees only its
+own step, but what it leaves is partly folded, and something later can fail on it where it
+passed on the computed goal: in `tools/fmt`'s `PrintHangProofs.stepColumn`, `Bool.andFalse
+glue` opened only `step`, and `staleBlocks` then failed its round trip inside the still-folded
+`past`. So a `rewrite` or `match` that fails after a result of the step was kept during it (by
+one of its own rules or its own motive, or by a `match`, `rewrite`, guard or transport inside
+it) is elaborated again, from a snapshot, with the step off everywhere inside, and that outcome
+stands: success, or the error it gave before the step existed
+(`unfold_path::retried`; `examples/accept/rewrite-partial-unfold-retried.sw`). This covers a
+goal `rewrite`, a `rewrite … at h` used as a term (its later rules see the type an earlier one
+left partly folded, the same way), and a lifted `match` with its arms, which see the goal its
+motive left. `examples/accept/partial-unfold-retried.sw` shows the last two: a `match` on
+`glue && False` opens only `step`, and the `False` arm's `rewrite … stale c bs` then fails its
+round trip inside the still-folded `past`; that `rewrite` used no step of its own, so only the
+`match`'s retry undoes it (SW-4444). A `match` that succeeds, or fails without the step
+having been used inside it, is untouched; so is a `match` split in its equation's case tree, which never generalises. A
+retry inside a retry already has the step off, so nesting costs at most one extra attempt per
+level, and only on a failure. An `if` with a refined guard keeps its own fall-back (in place,
+then unrefined) rather than this retry, though a partial result it keeps still counts for a
+`match` or `rewrite` around it. Under `STITCHWORT_MATCH_METRICS` and
+`STITCHWORT_REWRITE_METRICS` each retry prints `match-retried: without-partial-unfold at=…` or
+`rewrite-retried: without-partial-unfold at=…`.
 
 ## 4. D3688: can anything that checks today stop checking?
 
@@ -241,12 +253,19 @@ kind.
 
 ### 4.2 Later in the arm: yes, possibly, and the fallback does not reach it
 
+**Update (SW-4419, SW-4444).** As built, it does reach it within the same `rewrite` or `match`:
+one that fails after the step was used inside it is retried with the step off (§3). Both
+examples there break the first bullet below: a `rewrite` rule's round trip inside a call the
+step left folded failed where it passed on the computed goal. The analysis below is as written
+before that; a failure *after* the `match` or `rewrite` that kept the step (in a later
+statement of a declaration, say) is still not retried.
+
 The fallback is reached for every failure of the step itself, but not for a failure in a
 *later* step. Once the partial result is kept, the arm is elaborated against the partly
 folded goal, and nothing backtracks to retry the `match` unfolded. So a proof can succeed
 differently and then break later. Where the representation can matter:
 
-- **Later `match` and `rewrite`: robust.** Their own chain ends in today's search over the
+- **Later `match` and `rewrite`: robust (refuted for `rewrite`'s round trip, above).** Their own chain ends in today's search over the
   goal's *unfolded* read-back. The goal is convertible with today's, so that read-back is the
   same normal form, and so the same result. An earlier as-written or partial hit is kept only
   if it agrees with that same result. So by induction a chain of searches in the arm gives

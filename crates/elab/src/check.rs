@@ -2065,6 +2065,7 @@ impl<'e> Ctx<'e> {
                         .flatten();
                         if built.is_some() {
                             crate::matching::report_transport(outcome, *span);
+                            crate::matching::note_kept_as_written(outcome);
                             return Ok(built);
                         }
                         crate::matching::report_transport(
