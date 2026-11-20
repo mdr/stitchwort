@@ -28491,7 +28491,7 @@
     {
       "id": 4322,
       "title": "[DeepSeek] fmt:implicit: accept a namespace-qualified lemma name (Fmt.HangProofs.hangsCons) as well as the bare one, and show a bare-name example in tools/fmt/dev/README.md (SW-4316 friction)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
