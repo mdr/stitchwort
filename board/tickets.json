@@ -28517,12 +28517,12 @@
     {
       "id": 4324,
       "title": "[Sonnet] std Parse.followsMap: take first before maps so between is fixed before the maps lambda is checked (r11.sw shows it infers), update ~49 call sites, then task fmt:unspell over the tools/fmt Follows files (SW-4220 cause 2)",
-      "status": "doing",
-      "agent": "Claude",
+      "status": "backlog",
+      "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4220; repros in orchestrator scratchpad keep/sw4220/.",
+      "body": "\nFrom SW-4220; repros in orchestrator scratchpad keep/sw4220/.\n\nOrchestrator 20 Nov 07:15: stopped after 3.5 h with nothing committed and no reply to a wrap-up request at 05:40. Uncommitted work (13 files, +188/-188: std Parse.followsMap and tools/fmt Follows* call sites) saved as orchestrator scratchpad keep/sw4324/wip.patch; untested. Rerun from that patch with a fresh, tighter brief (check per file as it goes).\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
