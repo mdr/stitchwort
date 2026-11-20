@@ -28922,12 +28922,12 @@
     {
       "id": 4355,
       "title": "[Opus] Rest-lambda continuations: the 5 [j :=][k :=] pairs SW-4330 left (Statements, DeclData, DeclHeaders x2, FormsBlocks) fail because the rest lambda's body is checked against Follows unfolded through runFrom before ?j is known; hold the lambda until after the as-written comparison, or compare on the call (elaborator ordering)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Estimate: 60 min (Opus lane, 20 Nov 2026).\n\nProgress (lane, 20 Nov):\n- 3 of the 5 pairs (FollowsStatements followsStatementOther, FollowsDeclData followsDeclarationRefusal, FollowsDeclHeaders followsHeaderGroupColon) already elaborate on main without the pair: dropped, commit 8aa2a11c6 on lane/SW-4355. No elaborator change.\n- The other 2 (FollowsDeclHeaders followsRowStart, FollowsFormsBlocks followsBlockLine) fail for a different reason than the title says. Traced finish_application: the as-written call comparison itself fails (all five tries, abstracting included); the error shown is the earlier in-place lambda error (first_error), which is what suggested the ordering diagnosis. The goal comes from `match lower && isSome Colon second` / `rewrite deafOfStripped nextIndex …`, whose scrutinee/rule is hidden inside a folded call (rowStart, blockLine), so the usual (unfolded) search runs and the arm's goal is fully unfolded: Follows, Mark.Alike and runFrom gone, runPure already run against `state`. There `?j e` meets a continuation specialised to `state.at`, and `state` occurs outside the needle (later peeks read the same position), so the abstracting fallback rightly refuses. Experiment: the same proofs stated against the folded goal (the else branch as written; blockPeek … {modes | allow = nextIndex others}) check with no pair. So neither \"hold the lambda\" nor \"compare on the call\" can help; the fix is in how match/rewrite build the goal when the occurrence is inside a folded call (unfold only the calls on the path to it), a goal-as-written design question. Stopped for that.\n\n- Check times (elab/kernel ms, --no-cache, same binary, load ~7-12): Statements 3673/529 -> 3767/572; DeclData 10732/200 -> 9925/185; DeclHeaders 729/134 -> 768/141 (noise). Moved to review: decision needed on the match/rewrite goal shape for the last 2.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
