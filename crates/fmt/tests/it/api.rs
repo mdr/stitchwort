@@ -100,6 +100,24 @@ fn a_space_before_a_parenthesis_does_not_change_the_tree() {
 }
 
 #[test]
+fn glued_call_elements_get_a_space() {
+    // SW-4459: the self-hosted formatter prints a space between adjacent
+    // call elements; Rust copied the source's gap.
+    use stitchwort_syntax::equivalence::parse_shape;
+    for (glued, spaced) in [
+        ("def a: Nat := f[x]", "def a: Nat := f [x]"),
+        ("def a: Nat := f (x)[y]", "def a: Nat := f (x) [y]"),
+        ("def a: Nat := f [x]y", "def a: Nat := f [x] y"),
+        ("def a: Nat := f 2a", "def a: Nat := f 2 a"),
+        ("def a: Nat := f [x][y]", "def a: Nat := f [x] [y]"),
+        ("def a: Nat := byWalking[x]", "def a: Nat := byWalking [x]"),
+    ] {
+        assert_eq!(parse_shape(glued), parse_shape(spaced), "{glued}");
+        assert_eq!(format(glued).unwrap(), format!("{spaced}\n"));
+    }
+}
+
+#[test]
 fn a_theorem_with_explicit_parameters_gets_forall() {
     // D3472: written before the first parameter, after the name when the
     // parameters start on the next line, and not at all where only implicit
