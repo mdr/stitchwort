@@ -1,5 +1,5 @@
 {
-  "next": 4463,
+  "next": 4464,
   "tickets": [
     {
       "id": 47,
@@ -30333,6 +30333,19 @@
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4463,
+      "title": "[Sonnet] Consolidation: rename the tools/fmt names ending in 1 that aren't specific to slice 1 (printedLines1, parseSettled1, groupKeepsTokens1, numberText1, ...: about 194 names end in 1 today), as SW-4214 did for the tree properties, with their importers. Keep the 1 on definitions very specific to slice 1 (Matt, 20 Nov 2026: 'If there are definitions very specific to just slice 1, then we can keep them on 1 for now'): its grammar (inGrammar1, Expr.grammar1, Tok.alphabet1, ...), its driver and limits (formatWithin1, plain1, sourcePlain1, within1), and the top theorems (formatAccepts1, formatKeepsProgram1, formatIdempotent1); also leave numbered test data (source1..source141). List each kept name with why. No statement changes; MustAccept1.sw untouched. Start after W4 (SW-4421), which edits the same files.",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
