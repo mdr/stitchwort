@@ -3061,7 +3061,9 @@ fn solve(g: &Unifier<'_>, level: usize, m: usize, spine: &[Elim], rhs: &Value) -
 /// `rhs` with an unknown in it is refused too, since renaming would prune
 /// that unknown's dependence on `v` (`?m e = F (?n v)` gives `?n := _ =>
 /// …`, one solution of several: `?n` may use `v` through `e`). Nothing is
-/// solved if `e` doesn't occur. Unlike [`solve`], the spine's other
+/// solved if `e` doesn't occur. Both sides are compared with generated
+/// field accessors written as projections ([`accessors_as_projections`]).
+/// Unlike [`solve`], the spine's other
 /// arguments must be distinct variables: `()` and ignorable positions
 /// aren't handled. The solution is checked by comparing `?m spine` with
 /// `rhs` again.
@@ -3102,7 +3104,7 @@ fn solve_abstracting(
     let Some((at, icit, e)) = needle else {
         return Ok(false);
     };
-    let needle = quote_as_written(g, level, &e)?;
+    let needle = accessors_as_projections(g, &quote_as_written(g, level, &e)?)?;
     if needle.subterms().any(|(t, _)| matches!(t, Term::Meta(_)))
         || crate::matching::free_levels(&needle, level)
             .iter()
@@ -3110,7 +3112,7 @@ fn solve_abstracting(
     {
         return Ok(false);
     }
-    let hay = quote_as_written(g, level, rhs)?;
+    let hay = accessors_as_projections(g, &quote_as_written(g, level, rhs)?)?;
     if hay.subterms().any(|(t, _)| matches!(t, Term::Meta(_)))
         || !hay
             .subterms()
@@ -3139,6 +3141,46 @@ fn solve_abstracting(
     }
     undo_since(g, trail);
     Ok(false)
+}
+
+/// `term` with each saturated call of a generated field accessor (`Mark.left
+/// {t} v`, whose body is a `case` returning one field) written as the
+/// primitive projection it computes to (`v.2`), so that [`solve_abstracting`]
+/// finds a needle written one way in a goal that holds the other: a goal
+/// stated with accessors, after `Parse.runFrom` has run, reads the state's
+/// fields as projections. Only record types with eta, as the kernel only
+/// takes a projection of those; the arguments before the record are types
+/// and instances the projection leaves to inference.
+fn accessors_as_projections(g: &Ev, term: &Term) -> Result<Term> {
+    term.rewrite_up(g, &mut |t| {
+        let (Term::Def(d), args) = t.spine() else {
+            return Ok(None);
+        };
+        let Some(body) = g.def(*d).body() else {
+            return Ok(None);
+        };
+        if body.count_lams() != args.len() || args.is_empty() {
+            return Ok(None);
+        }
+        let Term::Case(0, data, branches) = body.peel_lams(args.len()).strip_loc() else {
+            return Ok(None);
+        };
+        let [branch] = &**branches else {
+            return Ok(None);
+        };
+        let Some(Term::Var(field)) = branch.body.as_ref().map(|b| b.strip_loc()) else {
+            return Ok(None);
+        };
+        if !g.data(*data).eta() || *field >= branch.names.len() {
+            return Ok(None);
+        }
+        let record = (*args[args.len() - 1]).clone();
+        Ok(Some(Term::Proj(
+            *data,
+            branch.names.len() - 1 - field,
+            Rc::new(record),
+        )))
+    })
 }
 
 /// [`unify_solving_arguments`], except that an unknown applied to variables
