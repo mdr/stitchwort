@@ -986,17 +986,13 @@ theorem declOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Decl): run
         | Some { colon, steps, last } =>
           match body with
             | Abstract =>
-              rewrite Fail.toResultSeq4Then
-                    [g := (v1 v2 v3 v4 => Data v1 isInterface keyword name v2 v3 v4)]
-                    [k := on.decl]
-                    [t4 := () => Abstract]
+              rewrite Fail.toResultSeq3Then
                     (attributesOk on p agree attributes)
                     (groupsOk on p agree params)
                     (Fail.toResultSeq2
                       [g := (w1 w2 => Some { colon, steps = w1, last = w2 })]
                       (indicesOk on p agree steps)
-                      (exprOk on p agree last))
-                    (Fail.toResultPure (Abstract)),
+                      (exprOk on p agree last)),
                   agree.decl
                     (Data
                       (walkAttributes p attributes)
@@ -1063,15 +1059,7 @@ theorem declOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Decl): run
         | None =>
           match body with
             | Abstract =>
-              rewrite Fail.toResultSeq4Then
-                    [g := (v1 v2 v3 v4 => Data v1 isInterface keyword name v2 v3 v4)]
-                    [k := on.decl]
-                    [t3 := () => None]
-                    [t4 := () => Abstract]
-                    (attributesOk on p agree attributes)
-                    (groupsOk on p agree params)
-                    (Fail.toResultPure (None))
-                    (Fail.toResultPure (Abstract)),
+              rewrite Fail.toResultSeq2Then (attributesOk on p agree attributes) (groupsOk on p agree params),
                   agree.decl
                     (Data
                       (walkAttributes p attributes)
@@ -1082,13 +1070,9 @@ theorem declOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Decl): run
                       (None)
                       (Abstract))
             | Synonym equals annotation =>
-              rewrite Fail.toResultSeq4Then
-                    [g := (v1 v2 v3 v4 => Data v1 isInterface keyword name v2 v3 v4)]
-                    [k := on.decl]
-                    [t3 := () => None]
+              rewrite Fail.toResultSeq3Then
                     (attributesOk on p agree attributes)
                     (groupsOk on p agree params)
-                    (Fail.toResultPure (None))
                     (Fail.toResultSeq1 [g := (w1 => Synonym equals w1)] (exprOk on p agree annotation)),
                   agree.decl
                     (Data
@@ -1100,13 +1084,9 @@ theorem declOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Decl): run
                       (None)
                       (Synonym equals (annotation.walk p)))
             | RecordBody equals fields =>
-              rewrite Fail.toResultSeq4Then
-                    [g := (v1 v2 v3 v4 => Data v1 isInterface keyword name v2 v3 v4)]
-                    [k := on.decl]
-                    [t3 := () => None]
+              rewrite Fail.toResultSeq3Then
                     (attributesOk on p agree attributes)
                     (groupsOk on p agree params)
-                    (Fail.toResultPure (None))
                     (Fail.toResultSeq1 [g := (w1 => RecordBody equals w1)] (fieldsOk on p agree fields)),
                   agree.decl
                     (Data
@@ -1118,13 +1098,9 @@ theorem declOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Decl): run
                       (None)
                       (RecordBody equals (fields.walk p)))
             | Sum equals constructors =>
-              rewrite Fail.toResultSeq4Then
-                    [g := (v1 v2 v3 v4 => Data v1 isInterface keyword name v2 v3 v4)]
-                    [k := on.decl]
-                    [t3 := () => None]
+              rewrite Fail.toResultSeq3Then
                     (attributesOk on p agree attributes)
                     (groupsOk on p agree params)
-                    (Fail.toResultPure (None))
                     (Fail.toResultSeq1 [g := (w1 => Sum equals w1)] (constructorsOk on p agree constructors)),
                   agree.decl
                     (Data
