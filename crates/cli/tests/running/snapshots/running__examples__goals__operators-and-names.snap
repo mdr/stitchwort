@@ -40,5 +40,6 @@ expression: output
  17 │ theorem hidden ∀ (count: Nat): count + Demo.Ops.count = Demo.Ops.count + count := ?
     │                                                                                   ┬  
     │                                                                                   ╰── count: Nat
-    │                                                                                       ⊢ count + 3 = count + 3
+    │                                                                                       ⊢ count + Demo.Ops.count = Demo.Ops.count + count
+    │                                                                                         computes to count + 3 = count + 3
 ────╯

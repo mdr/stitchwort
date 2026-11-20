@@ -175,10 +175,11 @@ pub(crate) struct Attempt {
 
 /// The warnings undoing an attempt drops ([`Mark`]): those that say
 /// something about what the attempt did.
-const UNDONE_WARNINGS: [&str; 5] = [
+const UNDONE_WARNINGS: [&str; 6] = [
     crate::no_effect::CODE,
     crate::rewrite::UNUSED_RULE,
     crate::rewrite::NO_RULES,
+    crate::walk::UNUSED_ITEM,
     "W-REWRITE-UNCONFIRMED",
     "W-MATCH-UNCONFIRMED",
 ];

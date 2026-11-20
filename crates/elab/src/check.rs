@@ -141,7 +141,48 @@ pub struct Ctx<'e> {
     /// (`lib.rs`, `check_guard`): a guard on one of them refines by
     /// generalising, never by splitting it in place.
     pub(crate) guard_splits: Rc<[usize]>,
+    /// The declaration's statement as written, and the expression checked
+    /// against it (or against it with an arm's patterns put in): a `?`
+    /// there shows the statement as written where its value has computed
+    /// away (`0 < 1`, not `True = True`, as a native comparison is never
+    /// kept as a call). Display only.
+    pub(crate) statement: Option<Rc<Statement>>,
+    /// Whether the case tree being checked is the statement's: the whole
+    /// body, or a `match` that is the whole of an expression checked
+    /// against the statement ([`Ctx::statement`]), so each arm's right-hand
+    /// side is checked against the statement too.
+    pub(crate) statement_arms: bool,
+    /// The types of the variables a lambda binds for the statement's `∀` or
+    /// `→`, as the statement writes them, by the variable's level and in
+    /// the context of the variables before it. Display only.
+    pub(crate) statement_params: Vec<(usize, Rc<Term>)>,
     pub span: Span,
+}
+
+/// [`Ctx::statement`].
+pub(crate) struct Statement {
+    /// The statement, in the context of the first `level` variables.
+    pub term: Rc<Term>,
+    pub level: usize,
+    /// The expression checked against it.
+    pub at: Span,
+    /// The statement this one was made from, tried where this one isn't
+    /// the goal: a generalised `match`'s arms are checked against the
+    /// statement with its scrutinee abstracted, and the arm's goal may not
+    /// be that where the scrutinee written differs from the one matched.
+    pub outer: Option<Rc<Statement>>,
+}
+
+impl Statement {
+    /// The same statement, checked against the expression at `at`.
+    pub(crate) fn at(&self, at: Span) -> Statement {
+        Statement {
+            term: self.term.clone(),
+            level: self.level,
+            at,
+            outer: self.outer.clone(),
+        }
+    }
 }
 
 /// What `goals::hole` needs to show a `match reify` `return` clause's goal
@@ -236,6 +277,9 @@ impl Saved {
             guard_facts: Vec::new(),
             guard_copies: Rc::from([]),
             guard_splits: Rc::from([]),
+            statement: None,
+            statement_arms: false,
+            statement_params: Vec::new(),
             span: self.span,
         }
     }
@@ -371,6 +415,9 @@ impl<'e> Ctx<'e> {
             guard_facts: Vec::new(),
             guard_copies: Rc::from([]),
             guard_splits: Rc::from([]),
+            statement: None,
+            statement_arms: false,
+            statement_params: Vec::new(),
             span,
         }
     }
@@ -407,6 +454,9 @@ impl<'e> Ctx<'e> {
             guard_facts: Vec::new(),
             guard_copies: Rc::from([]),
             guard_splits: Rc::from([]),
+            statement: None,
+            statement_arms: false,
+            statement_params: Vec::new(),
             span,
         }
     }
@@ -2065,6 +2115,7 @@ impl<'e> Ctx<'e> {
                         .flatten();
                         if built.is_some() {
                             crate::matching::report_transport(outcome, *span);
+                            crate::matching::note_kept_as_written(outcome);
                             return Ok(built);
                         }
                         crate::matching::report_transport(
@@ -2394,7 +2445,7 @@ fn ne_read_as_prop_here(
     found_shown: &str,
 ) -> bool {
     expected_shown.contains(" ≠ ")
-        && (found_shown.contains("Decidable.holds") || found_shown.contains(".holds"))
+        && found_is_decided_test(found_shown)
         && is_bool_test(cx, found)
         && !crate::build::is_read(cx)
         && goal_wrote_ne(cx, expected)
@@ -2405,7 +2456,13 @@ fn ne_read_as_prop_here(
 /// because it sits beside `=` in a statement. Callers also ask
 /// [`goal_wrote_ne`], since the note quotes the source (SW-3125).
 pub(crate) fn ne_read_as_prop(expected: &str, found: &str) -> bool {
-    expected.contains(" ≠ ") && (found.contains("Decidable.holds") || found.contains(".holds"))
+    expected.contains(" ≠ ") && found_is_decided_test(found)
+}
+
+/// Whether the shown type of a `Bool` test is a decided `!=` (as a message
+/// writes it, `a != b`) or a `.holds` it couldn't write that way.
+fn found_is_decided_test(found: &str) -> bool {
+    found.contains("Decidable.holds") || found.contains(".holds") || found.contains(" != ")
 }
 
 /// Whether two forced types are built by the same outermost former (the
@@ -4828,12 +4885,24 @@ fn finish_application(
                 // The earlier error is the lambda's, found in place; the
                 // call's own type failing to match what is expected is the
                 // other half of the story, so say so (SW-4355 blamed the
-                // order of elaboration for it).
-                Some(first) => (*first).with_note(format!(
-                    "the call's own type `{}` also does not match the expected type `{}`",
-                    cx.show(&ty),
-                    cx.show_expected(expected)
-                )),
+                // order of elaboration for it). Only a type mismatch has this
+                // other half: an arithmetic failure or unknown name is not
+                // made clearer by it. Nor is a type whose every part is an
+                // unknown (`_ _`) worth printing. No length limit: the
+                // continuation cases it is for print types of 140 and 250
+                // characters, longer than the `decEq` type of the case it
+                // is noise in, so length cannot tell them apart.
+                Some(first) => {
+                    if first.code == "E-TYPE-MISMATCH" && !crate::numbers::all_unknown(cx, &ty)? {
+                        (*first).with_note(format!(
+                            "the call's own type `{}` also does not match the expected type `{}`",
+                            cx.show(&ty),
+                            cx.show_expected(expected)
+                        ))
+                    } else {
+                        *first
+                    }
+                }
                 None => cx.mismatch(expected, &ty),
             });
         }
@@ -5057,7 +5126,15 @@ pub(crate) fn found_dictionaries(cx: &mut Ctx, own: &[usize], ty: Value) -> Resu
 /// Checks an explicit argument of `head` against its parameter type `dom`.
 fn check_arg(cx: &mut Ctx, head: &Term, value: &Expr, dom: &Value) -> Result<Term> {
     let expected = crate::reading::domain_as_written(cx, head, dom)?;
-    crate::queue::framed(
+    // A `?` as the argument shows the parameter's type as written
+    // (`0 < 1`, not `True = True`), where that is the goal.
+    let written = match value {
+        Expr::Goal(span) => parameter_statement(cx, head, *span),
+        _ => None,
+    };
+    let saved = std::mem::replace(&mut cx.statement, written.map(Rc::new));
+    let saved_arms = std::mem::replace(&mut cx.statement_arms, false);
+    let result = crate::queue::framed(
         cx,
         |cx| check(cx, value, &expected),
         |_| ArgFrame {
@@ -5065,7 +5142,40 @@ fn check_arg(cx: &mut Ctx, head: &Term, value: &Expr, dom: &Value) -> Result<Ter
             value: value.clone(),
             dom: dom.clone(),
         },
-    )
+    );
+    cx.statement = saved;
+    cx.statement_arms = saved_arms;
+    result
+}
+
+/// The next explicit parameter's type of `head` as `head`'s type writes it,
+/// as the statement a `?` at `at` is checked against ([`Ctx::statement`]).
+/// Only where the variables it mentions are the ones in scope here.
+fn parameter_statement(cx: &Ctx, head: &Term, at: Span) -> Option<Statement> {
+    let (ty, env) = crate::dot::written_type_term(cx, head).ok()?.or_else(|| {
+        // The type of a variable the statement's lambda bound.
+        let Term::Var(ix) = head.strip_loc() else {
+            return None;
+        };
+        let level = cx.level().checked_sub(1 + ix)?;
+        let (_, ty) = cx.statement_params.iter().find(|(l, _)| *l == level)?;
+        Some((ty.clone(), cx.env[..level].to_vec()))
+    })?;
+    let Term::Pi(_, Icit::Explicit, dom, _) = ty.strip_loc() else {
+        return None;
+    };
+    let g = cx.g();
+    let same_scope = env.len() <= cx.level()
+        && env
+            .iter()
+            .zip(&cx.env)
+            .all(|(a, b)| stitchwort_core::value::conv(&g, cx.level(), a, b).unwrap_or(false));
+    same_scope.then(|| Statement {
+        term: dom.clone(),
+        level: env.len(),
+        at,
+        outer: None,
+    })
 }
 
 /// An explicit argument, as an error frame (D2091): the callback notes of
@@ -6527,7 +6637,7 @@ fn check_value_against(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Valu
             Ok(Term::Ctor(unit, trivial, Vec::new()))
         }
         (Expr::Hole(_), _) => hole_against(cx, &expected),
-        (Expr::Goal(_), _) => Ok(crate::goals::hole(cx, &expected)),
+        (Expr::Goal(_), _) => Ok(crate::goals::hole_named(cx, &expected, named)),
         (Expr::Missing(_), _) => Ok(crate::goals::error_hole(cx, &expected)),
         (Expr::LocalDefs { defs, body, .. }, _) => {
             crate::local::around(cx, defs, |cx| check(cx, body, &expected))
@@ -6926,10 +7036,45 @@ fn explicit_lambda(
         }
     }
     let shadowed = lambda_shadow(cx, names, span)?;
-    let (first, rest) = names.split_first().expect("lambdas have parameters");
+    let Some((first, rest)) = names.split_first() else {
+        debug_assert!(false, "a lambda has parameters");
+        return Err(
+            Diagnostic::error("E-INTERNAL", "internal error: a lambda with no parameters")
+                .with_label(span, "here")
+                .with_note("this is a bug in the compiler, not in your program"),
+        );
+    };
     let mark = cx.mark();
     let var = Value::var(cx.level());
+    // A lambda checked against the statement `∀ x, p x` has its body checked
+    // against `p x` (`Ctx::statement`).
+    let saved_statement = cx.statement.clone();
+    let under = (saved_statement.as_ref())
+        .filter(|s| s.at == span && s.level == cx.level())
+        .and_then(|s| match s.term.strip_loc() {
+            Term::Pi(_, Icit::Explicit, written, cod) => Some((
+                written.clone(),
+                Statement {
+                    term: cod.clone(),
+                    level: s.level + 1,
+                    at: if rest.is_empty() { body.span() } else { span },
+                    outer: None,
+                },
+            )),
+            _ => None,
+        });
+    // The parameter's type as the statement writes it, for a `?` that is
+    // an argument of a call of it (`parameter_statement`).
+    let (written, under) = match under {
+        Some((written, under)) => (Some(written), Some(under)),
+        None => (None, None),
+    };
+    let params = cx.statement_params.len();
+    if let Some(written) = written {
+        cx.statement_params.push((cx.level(), written));
+    }
     cx.bind(&first.text, dom.clone());
+    cx.statement = under.map(Rc::new);
     let cod = cod.apply(&cx.g(), var)?;
     note_binder_step(cx, StepForm::Lambda, first.span, None, expected, &cod);
     let check_body = |cx: &mut Ctx| {
@@ -6943,6 +7088,8 @@ fn explicit_lambda(
             )
         };
         cx.reset(mark);
+        cx.statement = saved_statement;
+        cx.statement_params.truncate(params);
         result
     };
     let result = match &shadowed {
@@ -7600,6 +7747,17 @@ fn proof_condition<'n>(
     })
 }
 
+/// Prints one line about a proof guard the elaborator tried to refine when
+/// `STITCHWORT_TRACE_GUARDS` is set: `refined`, `split in place`, or `fell
+/// back to the unrefined split`, the last with why.
+fn trace_guard(outcome: &str, reason: Option<&str>, span: stitchwort_syntax::Span) {
+    let line = match reason {
+        Some(reason) => format!("guard: {outcome}: {reason}"),
+        None => format!("guard: {outcome}"),
+    };
+    crate::metrics::trace("STITCHWORT_TRACE_GUARDS", &line, span.start);
+}
+
 /// A guarded arm of a `match` (`lib.rs`, `check_guard`), checked as `if
 /// h: cond then <the arm> else <the arms below>`. Where the arm proves
 /// something, the guard refines the goal and the hypotheses as `match h:
@@ -7707,15 +7865,25 @@ pub(crate) fn check_guard_if(
     }
     let retry = decl.guard_no_retry.get() == 0;
     let before = crate::undo::Snapshot::take(cx);
+    // Why the refined split wasn't used, for the trace: the generalised
+    // attempt's arms failed (with the error's code), or the goal couldn't
+    // be generalised at all.
+    let mut fallback = "the goal could not be generalised".to_string();
     let generalised = match refine(cx, then, otherwise, false) {
-        Ok(Some(term)) => return Ok(term),
+        Ok(Some(term)) => {
+            trace_guard("refined", None, span);
+            return Ok(term);
+        }
         Ok(None) => false,
         Err(e)
             if !retry || crate::undo::fatal(&e) || cx.g().machine.budget.exhausted().is_some() =>
         {
             return Err(e);
         }
-        Err(_) => true,
+        Err(e) => {
+            fallback = format!("the refined arms failed ({})", e.code);
+            true
+        }
     };
     before.restore(cx);
     // A condition that is a `Bool` variable the arms below don't split is
@@ -7731,10 +7899,16 @@ pub(crate) fn check_guard_if(
             |cx| crate::undo::attempt(cx, |cx| refine(cx, then, otherwise, true)),
         )?;
         if let Some(Some(term)) = in_place {
+            trace_guard("split in place", None, span);
             return Ok(term);
         }
     }
     if !generalised {
+        trace_guard(
+            "fell back to the unrefined split",
+            Some(fallback.as_str()),
+            span,
+        );
         return proof_if(cx, name, prop, decision, then, otherwise, expected);
     }
     // Refined, an arm failed: D3688 says a proof that checked unrefined
@@ -7761,6 +7935,11 @@ pub(crate) fn check_guard_if(
         },
     )?;
     if let Some(term) = unrefined {
+        trace_guard(
+            "fell back to the unrefined split",
+            Some(fallback.as_str()),
+            span,
+        );
         return Ok(term);
     }
     match counted(
@@ -7768,8 +7947,18 @@ pub(crate) fn check_guard_if(
         |d| &d.guard_no_retry,
         |cx| refine(cx, then, otherwise, false),
     )? {
-        Some(term) => Ok(term),
-        None => proof_if(cx, name, prop, decision, then, otherwise, expected),
+        Some(term) => {
+            trace_guard("refined", None, span);
+            Ok(term)
+        }
+        None => {
+            trace_guard(
+                "fell back to the unrefined split",
+                Some(&format!("{fallback}; the unrefined split failed too")),
+                span,
+            );
+            proof_if(cx, name, prop, decision, then, otherwise, expected)
+        }
     }
 }
 

@@ -555,7 +555,10 @@ Import what you use: std's theorems live in namespaces that need an import
   in the goal *as written* first (the form goals are printed in, calls kept,
   so `rewrite isSafeCorrect _` finds `isSafe { levels = xs }` and the next
   goal keeps `isSafe`), and uses that when no copy of the left side is
-  left hidden inside a call; otherwise, and when it finds nothing, in the
+  left hidden inside a call. When the left side is only inside a call, it
+  next unfolds just the calls on the path to it and keeps the rest folded
+  (`Parse.Follows` around a parser stays `Parse.Follows`, and only that
+  parser is opened), under the same check. Otherwise it looks in the
   goal *as it computes*, so a rule can still rewrite inside a definition.
   When both find nothing, a call the goal shows that steps at once (an
   argument is known: `(printer.write " ").words`) is still found, with the
@@ -569,7 +572,10 @@ Import what you use: std's theorems live in namespaces that need an import
 - **`match e:` and `cases`** look for `e` the same way: in the goal and
   the hypotheses *as written* first, comparing up to computation, so
   `xs.map (f a)` finds the goal's `xs.map (y => f a y)` and the arms keep
-  the goal's calls (`double a`, not `a + a`). They keep that only when it
+  the goal's calls (`double a`, not `a + a`). When `e` is only inside a
+  call, they next unfold just the calls on the path to it, so the arms keep
+  the rest of the goal folded (`examples/accept/match-partial-unfold.sw`).
+  They keep either only when it
   replaces everything the search *as it computes* would; otherwise (a copy
   of `e` inside a definition the goal mentions, or an `e` that computes
   to a constructor) they replace what that search finds, and the arms'

@@ -601,13 +601,20 @@ tasks:
       - cargo run --release -q -p stitchwort-driver --example pins
 
   snap:hashes:
-    desc: 'Update the hash-stability snapshots (NAME=part of an example file name, e.g. NAME=ranges-omega, or a comma-separated list; all if unset; std changes run it without NAME), then list them'
+    desc: 'Update the hash-stability snapshots (NAME=part of an example file name, e.g. NAME=ranges-omega, or a comma-separated list; runs only the named examples and projects tests; without NAME, all of hash_stability:: for std changes), then list them'
     env:
       STITCHWORT_TIER: all
       INSTA_UPDATE: always
       EXAMPLES: '{{.NAME}}'
+      NAME: '{{.NAME}}'
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_ALL}} -- cargo nextest run --release -p stitchwort-driver --test library --no-fail-fast hash_stability::'
+      - |
+        if [ -z "${NAME}" ]; then
+          filter='test(/^hash_stability::/)'
+        else
+          filter='test(/^hash_stability::(examples|projects)$/)'
+        fi
+        {{.GUARD}} --cap-gb {{.MEM_CAP_ALL}} -- cargo nextest run --release -p stitchwort-driver --test library --no-fail-fast -E "$filter"
       - git status --short -- '*.snap'
 
   test:hashes:

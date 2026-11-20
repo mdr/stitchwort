@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: warnings
+---
+[W-WALK-UNUSED-ITEM] Warning: this lemma fits no call the walk met
+    ╭─[ accept/walk-unused-item.sw:18:25 ]
+    │
+ 18 │   byWalking [givesLook, oneEqOne]
+    │                         ────┬───  
+    │                             ╰───── unused
+    │ 
+    │ Note: remove it from the brackets; if a call was meant to use it, the walk didn't meet that call as written
+────╯

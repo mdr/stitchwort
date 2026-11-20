@@ -1046,7 +1046,7 @@ theorem readsParenOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     Parse.ReadsAt start (() => parenOn self modes second third) (read value => AtomAt item read value) :=
   match parenOutside second third with
     | True => givesOutAt item (outside.parenOthers modes second third) start fine
-    | False => readsAtAfterLeft [j := items => parenRest self modes items] fine (after same fits =>
+    | False => readsAtAfterLeft fine (after same fits =>
       readsParenRest self modes nested outside start.rest after item later (rewrite same then shape) isParen fits)
 
 theorem readsParenAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
@@ -1221,7 +1221,7 @@ theorem readsAtomOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     | True => readsNegativeAtom self modes nested start item later shape (DecEq.sound isMinus) fine
     | False =>
       match isBang: item.kind == Bang with
-        | True => readsAtAfterLeft [j := items => prefixBangOn self modes items] fine (after same fits =>
+        | True => readsAtAfterLeft fine (after same fits =>
           readsPrefixAtom self modes nested
             (argumentBang start.rest)
             after

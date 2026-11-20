@@ -113,6 +113,9 @@ pub(super) struct Written {
 pub(crate) enum Outcome {
     /// Agrees with the usual test (and perhaps found more).
     Kept,
+    /// As [`Outcome::Kept`], found with the calls on the path to it
+    /// unfolded ([`crate::unfold_path`]).
+    Partial,
     /// The usual test found nothing anywhere; this did.
     Rescued,
     /// Found, but it disagrees with the usual test: a copy is hidden in a
@@ -149,12 +152,33 @@ pub(crate) fn report_transport(outcome: Outcome, span: stitchwort_syntax::Span) 
     report_as("transport-as-written", outcome, span);
 }
 
+/// Prints that the `match` at `span` is made again without the partial
+/// unfold ([`crate::unfold_path::retried`]) when `STITCHWORT_MATCH_METRICS`
+/// is set.
+pub(super) fn report_retried(span: stitchwort_syntax::Span) {
+    crate::metrics::emit(
+        "STITCHWORT_MATCH_METRICS",
+        "match-retried: without-partial-unfold",
+        span.start,
+    );
+}
+
+/// Counts `outcome`, for a generalisation the caller kept, as a use of the
+/// partial unfold if it is one, so that the `match` or `rewrite` around it
+/// is retried without the step should it fail.
+pub(crate) fn note_kept(outcome: Outcome) {
+    if matches!(outcome, Outcome::Partial) {
+        crate::unfold_path::note_kept();
+    }
+}
+
 fn report_as(what: &str, outcome: Outcome, span: stitchwort_syntax::Span) {
-    if std::env::var_os("STITCHWORT_MATCH_METRICS").is_none() {
+    if !crate::metrics::wanted("STITCHWORT_MATCH_METRICS") {
         return;
     }
     let name = match outcome {
         Outcome::Kept => "folded",
+        Outcome::Partial => "partial",
         Outcome::Rescued => "rescued",
         Outcome::Incomplete => "incomplete",
         Outcome::Nothing => "nothing",
@@ -162,7 +186,11 @@ fn report_as(what: &str, outcome: Outcome, span: stitchwort_syntax::Span) {
         Outcome::Unchecked => "unchecked",
         Outcome::Unconfirmed => "unconfirmed",
     };
-    eprintln!("{what}: {name} at={}", span.start);
+    crate::metrics::emit(
+        "STITCHWORT_MATCH_METRICS",
+        &format!("{what}: {name}"),
+        span.start,
+    );
 }
 
 /// The generalisation as written, if it found something and passes checks
@@ -178,26 +206,43 @@ pub(super) fn first(
     skip: Option<Skip>,
     span: stitchwort_syntax::Span,
 ) -> Result<Option<Written>> {
-    let g = cx.g();
-    let snapshot = Snapshot::take(cx);
-    let mut remaining = search_budget(cx);
-    let tried = g.machine.budget.limited(&mut remaining, || {
-        search(cx, exprs, Some(today), goal, base, skip)
-    });
-    snapshot.restore(cx);
-    let outcome = match tried {
-        Ok(Some(Ok(written))) => return Ok(Some(written)),
-        Ok(Some(Err(outcome))) => outcome,
-        // Over this attempt's own budget.
-        Ok(None) => Outcome::Failed,
-        // A check too large to make, where the usual test could run: its
-        // result, as before stage 2.
-        Err(e) if fatal(&e) && !recoverable(cx, &e) => return Err(e),
-        Err(_) => {
-            recovered(cx);
-            Outcome::Failed
+    let mut outcome = Outcome::Failed;
+    for &reading in readings() {
+        let g = cx.g();
+        let snapshot = Snapshot::take(cx);
+        // Each attempt with its own budget: a failed one costs the next,
+        // and the usual test, nothing.
+        let mut remaining = search_budget(cx);
+        let tried = g.machine.budget.limited(&mut remaining, || {
+            search(cx, exprs, Some(today), goal, base, skip, reading)
+        });
+        snapshot.restore(cx);
+        let now = match tried {
+            Ok(Some(Ok(written))) => return Ok(Some(written)),
+            Ok(Some(Err(outcome))) => outcome,
+            // Over this attempt's own budget.
+            Ok(None) => Outcome::Failed,
+            // A check too large to make, where the usual test could run: its
+            // result, as before stage 2.
+            Err(e) if fatal(&e) && !recoverable(cx, &e) => return Err(e),
+            Err(_) => {
+                recovered(cx);
+                Outcome::Failed
+            }
+        };
+        match reading {
+            Reading::Folded => outcome = now,
+            // Counted as what the search as written came to.
+            Reading::OnPath => {}
         }
-    };
+        // Only an occurrence not shown, or one shown with a copy hidden,
+        // can be on a path through calls.
+        if !matches!(now, Outcome::Nothing | Outcome::Incomplete)
+            || exprs.iter().any(|s| !s.on_path)
+        {
+            break;
+        }
+    }
     report(outcome, span);
     Ok(None)
 }
@@ -216,10 +261,9 @@ pub(super) fn unconfirmed(
     let g = cx.g();
     let snapshot = Snapshot::take(cx);
     let mut remaining = search_budget(cx);
-    let tried = g
-        .machine
-        .budget
-        .limited(&mut remaining, || search(cx, exprs, None, goal, base, skip));
+    let tried = g.machine.budget.limited(&mut remaining, || {
+        search(cx, exprs, None, goal, base, skip, Reading::Folded)
+    });
     snapshot.restore(cx);
     let outcome = match tried {
         Ok(Some(Ok(written))) => return Ok(Some(written)),
@@ -261,6 +305,25 @@ pub(super) fn unconfirmed_warning(span: stitchwort_syntax::Span) -> Diagnostic {
     )
 }
 
+/// How [`search`] reads the goal and the variables' types.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Reading {
+    /// Back folded: calls as calls.
+    Folded,
+    /// Back folded, then with the calls on the path to a scrutinee hidden
+    /// inside them unfolded ([`crate::unfold_path`]).
+    OnPath,
+}
+
+/// The readings to try in turn: [`Reading::OnPath`] only while the partial
+/// unfold is on ([`crate::unfold_path::enabled`]).
+fn readings() -> &'static [Reading] {
+    match crate::unfold_path::enabled() {
+        true => &[Reading::Folded, Reading::OnPath],
+        false => &[Reading::Folded],
+    }
+}
+
 /// Checks 1, 2 and 4 against `today`, or (`None`, [`unconfirmed`]) only 4.
 fn search(
     cx: &mut Ctx,
@@ -269,6 +332,7 @@ fn search(
     goal: &Value,
     base: usize,
     skip: Option<Skip>,
+    reading: Reading,
 ) -> Result<std::result::Result<Written, Outcome>> {
     let g = cx.g();
     let e = exprs.len();
@@ -286,16 +350,40 @@ fn search(
         });
     }
     // From the values as bound, not forced: forcing unfolds an outer call.
-    let goal_written = match today.and_then(|today| today.goal_folded) {
+    let mut goal_written = match today.and_then(|today| today.goal_folded) {
         Some(folded) => folded.clone(),
         None => cx.quote_folded(goal)?,
     };
-    let types_written = (0..base)
+    let mut types_written = (0..base)
         .map(|l| match skip.is_some_and(|skip| skip(cx, l)) {
             true => Ok(None),
             false => cx.quote_folded(&cx.types[l]).map(Some),
         })
         .collect::<Result<Vec<_>>>()?;
+    if reading == Reading::OnPath {
+        let keys: Vec<Key> = needles.iter().map(|n| n.key.clone()).collect();
+        let level = cx.level();
+        let relevant: Vec<usize> = needles
+            .iter()
+            .flat_map(|n| free_levels(&n.written, level))
+            .collect();
+        let oracle = |cx: &mut Ctx, t: &Term, under: usize| is_needle(cx, &needles, t, under);
+        let mut opened = false;
+        if let Some(t) = crate::unfold_path::opened(cx, &goal_written, &keys, &relevant, &oracle)? {
+            goal_written = t;
+            opened = true;
+        }
+        for ty in types_written.iter_mut().flatten() {
+            if let Some(t) = crate::unfold_path::opened(cx, ty, &keys, &relevant, &oracle)? {
+                *ty = t;
+                opened = true;
+            }
+        }
+        // Nothing hidden on a path: the search as written has been made.
+        if !opened {
+            return Ok(Err(Outcome::Nothing));
+        }
+    }
     let is_let: Vec<bool> = (0..base).map(|l| cx.lets[l].is_some()).collect();
     let unrefined: Vec<bool> = (0..base)
         .map(|l| is_var(&cx.env[l], l) || is_let[l])
@@ -437,11 +525,54 @@ fn search(
         goal: goal_generalised,
         copied,
         found,
-        outcome: match todays_found {
-            true => Outcome::Kept,
-            false => Outcome::Rescued,
+        outcome: match (todays_found, reading) {
+            (true, Reading::Folded) => Outcome::Kept,
+            (true, Reading::OnPath) => Outcome::Partial,
+            (false, Reading::Folded) => Outcome::Rescued,
+            // Where the usual test refines nothing, the arms keep the goal
+            // as it is: a rescue through opened calls would replace an
+            // occurrence written differently, and the arms' goals would no
+            // longer be the ones the `match` gave before.
+            (false, Reading::OnPath) => return Ok(Err(Outcome::Nothing)),
         },
     }))
+}
+
+/// Whether `t`, under `under` binders of a target in the `match`'s context,
+/// is one of the scrutinees, by [`Finder::occurrence`]'s test, for
+/// [`crate::unfold_path`].
+fn is_needle(cx: &mut Ctx, needles: &[Needle], t: &Term, under: usize) -> Result<bool> {
+    let Some(k) = key(t, under) else {
+        return Ok(false);
+    };
+    let g = cx.g();
+    let level = cx.level();
+    let candidate = if under == 0 {
+        t.clone()
+    } else {
+        replace_with(
+            &g,
+            t,
+            level + under,
+            &|l| Ok(Term::Var(level - 1 - l)),
+            &|_, _| None,
+        )?
+    };
+    for needle in needles.iter().filter(|n| n.key == k) {
+        if same(&candidate, &needle.written) {
+            return Ok(true);
+        }
+        match cx
+            .eval(&candidate)
+            .and_then(|value| cx.conv_now(&value, &needle.value))
+        {
+            Ok(true) => return Ok(true),
+            Ok(false) => {}
+            Err(e) if fatal(&e) => return Err(e),
+            Err(_) => {}
+        }
+    }
+    Ok(false)
 }
 
 /// A generalised target read back unfolded, in [`search`].
@@ -489,20 +620,31 @@ pub(crate) fn transport_target(
     todays: &Term,
     todays_found: bool,
 ) -> Result<std::result::Result<(Term, Outcome), Outcome>> {
-    let g = cx.g();
-    let snapshot = Snapshot::take(cx);
-    let mut remaining = search_budget(cx);
-    let tried = g.machine.budget.limited(&mut remaining, || {
-        transport_search(cx, lhs, source, todays, todays_found)
-    });
-    snapshot.restore(cx);
-    match tried {
-        Ok(Some(found)) => Ok(found),
-        // Over this attempt's own budget.
-        Ok(None) => Ok(Err(Outcome::Failed)),
-        Err(e) if fatal(&e) => Err(e),
-        Err(_) => Ok(Err(Outcome::Failed)),
+    let mut outcome = Outcome::Failed;
+    for &reading in readings() {
+        let g = cx.g();
+        let snapshot = Snapshot::take(cx);
+        let mut remaining = search_budget(cx);
+        let tried = g.machine.budget.limited(&mut remaining, || {
+            transport_search(cx, lhs, source, todays, todays_found, reading)
+        });
+        snapshot.restore(cx);
+        let now = match tried {
+            Ok(Some(Ok(found))) => return Ok(Ok(found)),
+            Ok(Some(Err(outcome))) => outcome,
+            // Over this attempt's own budget.
+            Ok(None) => Outcome::Failed,
+            Err(e) if fatal(&e) => return Err(e),
+            Err(_) => Outcome::Failed,
+        };
+        if reading == Reading::Folded {
+            outcome = now;
+        }
+        if !matches!(now, Outcome::Nothing | Outcome::Incomplete) {
+            break;
+        }
     }
+    Ok(Err(outcome))
 }
 
 fn transport_search(
@@ -511,6 +653,7 @@ fn transport_search(
     source: &Value,
     todays: &Term,
     todays_found: bool,
+    reading: Reading,
 ) -> Result<std::result::Result<(Term, Outcome), Outcome>> {
     let g = cx.g();
     let level = cx.level();
@@ -518,14 +661,24 @@ fn transport_search(
     let Some(key) = key(&written, 0) else {
         return Ok(Err(Outcome::Nothing));
     };
-    let source_written = cx.quote_folded(source)?;
+    let needles = vec![Needle {
+        written,
+        value: lhs.clone(),
+        key,
+    }];
+    let mut source_written = cx.quote_folded(source)?;
+    if reading == Reading::OnPath {
+        let relevant = free_levels(&needles[0].written, level);
+        let oracle = |cx: &mut Ctx, t: &Term, under: usize| is_needle(cx, &needles, t, under);
+        let keys = [needles[0].key.clone()];
+        match crate::unfold_path::opened(cx, &source_written, &keys, &relevant, &oracle)? {
+            Some(t) => source_written = t,
+            None => return Ok(Err(Outcome::Nothing)),
+        }
+    }
     let finder = Finder {
         cx: RefCell::new(cx),
-        needles: vec![Needle {
-            written,
-            value: lhs.clone(),
-            key,
-        }],
+        needles,
         base: level,
         depth: level + 1,
         hits: RefCell::new(Vec::new()),
@@ -545,9 +698,12 @@ fn transport_search(
     if !finder.agree(&g, &unfolded, todays, 0)? {
         return Ok(Err(Outcome::Incomplete));
     }
-    let outcome = match todays_found {
-        true => Outcome::Kept,
-        false => Outcome::Rescued,
+    let outcome = match (todays_found, reading) {
+        (true, Reading::Folded) => Outcome::Kept,
+        (true, Reading::OnPath) => Outcome::Partial,
+        (false, Reading::Folded) => Outcome::Rescued,
+        // No rescue through opened calls, as in [`search`].
+        (false, Reading::OnPath) => return Ok(Err(Outcome::Nothing)),
     };
     Ok(Ok((generalised, outcome)))
 }

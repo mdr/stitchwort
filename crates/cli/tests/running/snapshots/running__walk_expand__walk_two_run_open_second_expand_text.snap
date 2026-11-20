@@ -38,6 +38,6 @@ def close(): {Parse Nat} Nat :=
 theorem followsClose: Parse.Follows SameNat SameNat (() => close()) (() => close()) :=
   Parse.followsThen followsHere (at atTwin atFacts =>
     rewrite <- atFacts then
-    (match branch1: (at.decEq 0).holds with
+    (match branch1: at == 0 with
       | False => followsHere
-      | True => followsFailAny ("nothing to close") (x => fail "nothing to close")))
+      | True => followsFailAny "nothing to close" (x => fail "nothing to close")))

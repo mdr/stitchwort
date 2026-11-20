@@ -58,6 +58,7 @@ mod local;
 mod logic;
 mod matching;
 mod membership;
+pub mod metrics;
 mod missing;
 mod module;
 mod named;
@@ -86,6 +87,7 @@ mod redundant;
 mod reify;
 mod rewind;
 mod rewrite;
+mod unfold_path;
 mod walk;
 pub use rewrite::{Closer, ExpandedRule, Expansion, RuleSource, expand_call, expand_file};
 pub use walk::{
@@ -4386,8 +4388,12 @@ impl Elaborator {
         let mark = cx.mark();
         let span = cx.span;
         let goal = cx.goal.take();
+        let statement = cx.statement.take();
+        let statement_arms = std::mem::replace(&mut cx.statement_arms, false);
         let result = self.body_in_parts(cx, ty, written, def_name, equations);
         cx.goal = goal;
+        cx.statement = statement;
+        cx.statement_arms = statement_arms;
         cx.reset(mark);
         cx.span = span;
         result
@@ -4524,6 +4530,15 @@ impl Elaborator {
         }
         let rest_written = written.clone();
         cx.goal = written.map(|w| (cx.level(), w));
+        cx.statement = cx.goal.as_ref().map(|(level, term)| {
+            Rc::new(crate::check::Statement {
+                term: term.clone(),
+                level: *level,
+                at: Span::NOWHERE,
+                outer: None,
+            })
+        });
+        cx.statement_arms = cx.statement.is_some();
         if let Some(h) = header {
             // Arms have exact arity: a pattern for every explicit argument
             // after the colon, counted up to the first thing that isn't a
@@ -6460,13 +6475,27 @@ fn check_leaf_in(
             .for_each(|p| nav::pattern_binder_spans(p, &mut names));
         names.into_iter().map(|(n, s)| (n.to_string(), s)).collect()
     });
+    // An arm of the statement's tree is checked against the statement, with
+    // the arm's patterns put in (`Ctx::statement`).
+    let saved_statement = cx.statement.clone();
+    let statement_arms = std::mem::replace(&mut cx.statement_arms, false);
+    if statement_arms && let Some(s) = &saved_statement {
+        cx.statement = Some(Rc::new(s.at(rhs.span())));
+    }
     let result = {
         let in_tree = match rhs {
-            Expr::Match { .. } if !guarded => matching::in_tree(cx, rhs, goal),
+            Expr::Match { .. } if !guarded => {
+                cx.statement_arms = statement_arms;
+                let in_tree = matching::in_tree(cx, rhs, goal);
+                cx.statement_arms = false;
+                in_tree
+            }
             _ => None,
         };
         in_tree.unwrap_or_else(|| check(cx, rhs, goal))
     };
+    cx.statement = saved_statement;
+    cx.statement_arms = statement_arms;
     let result = result.map_err(|e| {
         let had_note = e.notes.len();
         let mut e = arm_display::in_case(cx, e);

@@ -227,6 +227,33 @@ pub fn admit_trusted_data_group(
     timed(g, |g| k::admit_trusted_data_group(g, members))
 }
 
+// The check cache's re-check (check-cache-across-updates.md §4.4, stage
+// 2): an entry's terms through the checking calls, timed as kernel calls.
+// The terms are the ones the kernel gave back when they were first checked,
+// already saturated (`define_group` above), so they go to the kernel as
+// they are.
+
+pub fn recheck_def(
+    g: &mut Kernel,
+    name: &Name,
+    path: &Name,
+    ty: &Term,
+    theorem: bool,
+    span: Span,
+) -> Result<DefId> {
+    timed(g, |g| {
+        k::declare_def(g, name, path, ty, theorem, false, span)
+    })
+}
+
+pub fn recheck_group(g: &mut Kernel, members: &[(DefId, Term)]) -> Result<()> {
+    timed(g, |g| k::define_group(g, members))
+}
+
+pub fn recheck_run_body(g: &mut Kernel, id: DefId, body: &Term) -> Result<()> {
+    timed(g, |g| k::set_run_body(g, id, body))
+}
+
 /// The kernel's substitution for the elaborator's case splits, in a context
 /// whose environment is `env` (`check::substitute_in`): each value is read
 /// back with its calls folded (`value::quote_folded`), so a refined context

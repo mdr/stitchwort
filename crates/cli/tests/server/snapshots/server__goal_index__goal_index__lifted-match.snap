@@ -22,12 +22,13 @@ expression: json
           "type": "Bool"
         }
       ],
-      "target": "x ≤ 3 ∧ (match flag with …)"
+      "target": "Follows [x, ..rest] flag",
+      "targetComputed": "x ≤ 3 ∧ (match flag with …)"
     },
     "labels": [
       {
         "file": 0,
-        "message": "x: Nat\nrest: List Nat\nflag: Bool\n⊢ x ≤ 3 ∧ (match flag with …)",
+        "message": "x: Nat\nrest: List Nat\nflag: Bool\n⊢ Follows [x, ..rest] flag\n  computes to x ≤ 3 ∧ (match flag with …)",
         "range": [
           13,
           90,

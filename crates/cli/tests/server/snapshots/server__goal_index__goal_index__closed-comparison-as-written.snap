@@ -1,0 +1,412 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem plainGoal1 (n: Nat): True = True := ?",
+      "target": "0 < 1",
+      "targetComputed": "True = True"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\n⊢ 0 < 1\n  computes to True = True",
+        "range": [
+          6,
+          35,
+          6,
+          36
+        ]
+      }
+    ],
+    "message": "in `plain`",
+    "notes": [],
+    "range": [
+      6,
+      35,
+      6,
+      36
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [],
+      "lemma": "theorem armsGoal1: True = True := ?",
+      "target": "0 < 1",
+      "targetComputed": "True = True"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "⊢ 0 < 1\n  computes to True = True",
+        "range": [
+          9,
+          9,
+          9,
+          10
+        ]
+      }
+    ],
+    "message": "in `arms`",
+    "notes": [],
+    "range": [
+      9,
+      9,
+      9,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "facts": [
+        "n ≠ 0"
+      ],
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem armsGoal2 (n: Nat) (h: n ≠ 0): True = True := ?",
+      "target": "0 < 1",
+      "targetComputed": "True = True"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\nn ≠ 0\n⊢ 0 < 1\n  computes to True = True",
+        "range": [
+          10,
+          9,
+          10,
+          10
+        ]
+      }
+    ],
+    "message": "in `arms`",
+    "notes": [
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
+    ],
+    "range": [
+      10,
+      9,
+      10,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [],
+      "lemma": "theorem splitGoal1: True = True := ?",
+      "target": "0 * 2 < 3",
+      "targetComputed": "True = True"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "⊢ 0 * 2 < 3\n  computes to True = True",
+        "range": [
+          13,
+          9,
+          13,
+          10
+        ]
+      }
+    ],
+    "message": "in `split`",
+    "notes": [],
+    "range": [
+      13,
+      9,
+      13,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [],
+      "lemma": "theorem splitGoal2: True = True := ?",
+      "target": "1 * 2 < 3",
+      "targetComputed": "True = True"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "⊢ 1 * 2 < 3\n  computes to True = True",
+        "range": [
+          14,
+          9,
+          14,
+          10
+        ]
+      }
+    ],
+    "message": "in `split`",
+    "notes": [],
+    "range": [
+      14,
+      9,
+      14,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "facts": [
+        "n ≠ 0",
+        "n ≠ 1"
+      ],
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem splitGoal3 (n: Nat) (h: n ≠ 0) (h2: n ≠ 1): n * 2 ≤ 2 := ?",
+      "target": "n * 2 < 3",
+      "targetComputed": "n * 2 ≤ 2"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\nn ≠ 0\nn ≠ 1\n⊢ n * 2 < 3\n  computes to n * 2 ≤ 2",
+        "range": [
+          15,
+          9,
+          15,
+          10
+        ]
+      }
+    ],
+    "message": "in `split`",
+    "notes": [
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
+    ],
+    "range": [
+      15,
+      9,
+      15,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem nestedGoal1 (n: Nat): 2 ≤ 3 ∧ n = n := ?",
+      "target": "2 ≤ 3 ∧ n = n"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\n⊢ 2 ≤ 3 ∧ n = n",
+        "range": [
+          17,
+          44,
+          17,
+          45
+        ]
+      }
+    ],
+    "message": "in `nested`",
+    "notes": [],
+    "range": [
+      17,
+      44,
+      17,
+      45
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem decidedGoal1 (n: Nat): True = True := ?",
+      "target": "pick True < 2",
+      "targetComputed": "True = True"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\n⊢ pick True < 2\n  computes to True = True",
+        "range": [
+          24,
+          12,
+          24,
+          13
+        ]
+      }
+    ],
+    "message": "in `decided`",
+    "notes": [],
+    "range": [
+      24,
+      12,
+      24,
+      13
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem decidedGoal2 (n: Nat): True = True := ?",
+      "target": "pick False < 2",
+      "targetComputed": "True = True"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\n⊢ pick False < 2\n  computes to True = True",
+        "range": [
+          25,
+          13,
+          25,
+          14
+        ]
+      }
+    ],
+    "message": "in `decided`",
+    "notes": [],
+    "range": [
+      25,
+      13,
+      25,
+      14
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "h",
+          "type": "0 < 1 → 2 < 3"
+        }
+      ],
+      "lemma": "theorem apartGoal1 (h: 0 < 1 → 2 < 3): True = True := ?",
+      "target": "0 < 1",
+      "targetComputed": "True = True"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "h: 0 < 1 → 2 < 3\n⊢ 0 < 1\n  computes to True = True",
+        "range": [
+          30,
+          47,
+          30,
+          48
+        ]
+      }
+    ],
+    "message": "in `apart`",
+    "notes": [],
+    "range": [
+      30,
+      47,
+      30,
+      48
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        },
+        {
+          "name": "same",
+          "type": "n = n"
+        }
+      ],
+      "lemma": "theorem underGoal1 (n: Nat) (same: n = n): True = True := ?",
+      "target": "0 < 1",
+      "targetComputed": "True = True"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\nsame: n = n\n⊢ 0 < 1\n  computes to True = True",
+        "range": [
+          33,
+          51,
+          33,
+          52
+        ]
+      }
+    ],
+    "message": "in `under`",
+    "notes": [],
+    "range": [
+      33,
+      51,
+      33,
+      52
+    ],
+    "severity": "goal"
+  }
+]

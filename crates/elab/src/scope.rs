@@ -3211,6 +3211,16 @@ impl NameScope for Elaborator {
     fn ctor_name(&self, d: stitchwort_core::DataId, c: usize) -> Option<String> {
         self.ctor_qualified(d, c)
     }
+
+    /// As in a goal ([`crate::goals::GoalScope`]), so that a message writes
+    /// `c == 'a'` where a goal does.
+    fn eq_decision(&self, ty: &stitchwort_core::Term) -> Option<stitchwort_core::Term> {
+        crate::goals::GoalScope {
+            e: self,
+            span: Span::NOWHERE,
+        }
+        .eq_decision(ty)
+    }
 }
 
 impl Elaborator {

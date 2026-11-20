@@ -1,0 +1,27 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `bounded`
+    ╭─[ goals/match-no-rescue-through-calls.sw:23:15 ]
+    │
+ 23 │     | None => ?
+    │               ┬  
+    │               ╰── more: Nat
+    │                   lists: List (List Nat)
+    │                   cap: Nat
+    │                   found: (lists.map (chainThrough more)).maximum = None
+    │                   ⊢ chainOf more lists ≤ cap
+────╯
+[GOAL] Goal: in `bounded`
+    ╭─[ goals/match-no-rescue-through-calls.sw:24:20 ]
+    │
+ 24 │     | Some most => ?
+    │                    ┬  
+    │                    ╰── more: Nat
+    │                        lists: List (List Nat)
+    │                        cap: Nat
+    │                        most: Nat
+    │                        found: (lists.map (chainThrough more)).maximum = Some most
+    │                        ⊢ chainOf more lists ≤ cap
+────╯

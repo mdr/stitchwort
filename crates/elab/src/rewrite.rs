@@ -119,8 +119,16 @@ impl Place<'_> {
 }
 
 /// `rewrite` where nothing says what to prove.
+/// Retried without the partial unfold as a goal `rewrite` is
+/// ([`rewrite_goal`]): a later rule can fail on the type a rule left partly
+/// folded.
 pub(crate) fn infer_rewrite(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
-    infer_rewrite_inner(cx, expr).map_err(|d| resource_in_rewrite(d, expr))
+    crate::unfold_path::retried(
+        cx,
+        |cx| infer_rewrite_inner(cx, expr),
+        || report_retried(expr.span()),
+    )
+    .map_err(|d| resource_in_rewrite(d, expr))
 }
 
 /// An `E-RESOURCE` that has no place of its own (a value too large to show
@@ -354,8 +362,31 @@ pub(crate) fn check_rewrite(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Resu
         .map_err(|d| resource_in_rewrite(d, expr))
 }
 
-/// [`check_rewrite`]'s rewrite itself.
+/// [`check_rewrite`]'s rewrite itself, retried without the partial unfold
+/// if it fails after one of its rules kept a result of it
+/// ([`crate::unfold_path::retried`]): a partly folded goal can make a later
+/// rule, or the term after `then`, fail where the goal unfolded didn't
+/// (SW-4419: `staleBlocks` in `tools/fmt`'s `PrintHangProofs.stepColumn`,
+/// after `Bool.andFalse glue` had left `past` folded).
 fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
+    crate::unfold_path::retried(
+        cx,
+        |cx| rewrite_goal_once(cx, expr, expected),
+        || report_retried(expr.span()),
+    )
+}
+
+/// Prints that the `rewrite` at `span` is made again without the partial
+/// unfold, when `STITCHWORT_REWRITE_METRICS` is set.
+fn report_retried(span: Span) {
+    crate::metrics::emit(
+        "STITCHWORT_REWRITE_METRICS",
+        "rewrite-retried: without-partial-unfold",
+        format_args!("{}..{}", span.start, span.end),
+    );
+}
+
+fn rewrite_goal_once(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     let Expr::Rewrite {
         rules,
         target,
@@ -1027,7 +1058,8 @@ fn unproved_premise(
 /// How `rewrite repeatedly` asks [`rewrite_once`] to search.
 pub(super) struct Repeated<'a> {
     /// Only the goal as written ([`as_written::first`]): no comparison by
-    /// computing, and nothing inside functions passed to calls.
+    /// computing, no calls opened on the path to an occurrence
+    /// ([`crate::unfold_path`]), and nothing inside functions passed to calls.
     pub(super) written_only: bool,
     /// The goal, forced and read back, when the caller has it already.
     pub(super) computed: Option<&'a Term>,
@@ -1147,6 +1179,7 @@ fn rewrite_once(
             goal,
             (&current, &current_term),
             remaining,
+            !written_only,
         )? {
             as_written::First::Kept(replaced) => (*replaced, true),
             _ if written_only => {

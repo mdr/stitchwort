@@ -49,7 +49,7 @@ expression: json
     "message": "in `le`",
     "notes": [
       "1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it",
-      "this arm is checked once for each of its 3 alternatives; the goal above is the one in `eq2IfFalse x xs h1 ih`, and the others are:\n  in `eq1`:\n    k: Nat\n    xs: List Nat\n    ⊢ True = True\n  in `eq2IfTrue x xs h1 ih`:\n    k: Nat\n    x: Nat\n    xs: List Nat\n    h1: k ≤ x\n    ih: countAbove k xs ≤ xs.length\n    ⊢ countAbove k xs ≤ xs.length"
+      "this arm is checked once for each of its 3 alternatives; the goal above is the one in `eq2IfFalse x xs h1 ih`, and the others are:\n  in `eq1`:\n    k: Nat\n    xs: List Nat\n    ⊢ countAbove k [] ≤ [].length\n      computes to True = True\n  in `eq2IfTrue x xs h1 ih`:\n    k: Nat\n    x: Nat\n    xs: List Nat\n    h1: k ≤ x\n    ih: countAbove k xs ≤ xs.length\n    ⊢ countAbove k xs ≤ xs.length"
     ],
     "range": [
       8,

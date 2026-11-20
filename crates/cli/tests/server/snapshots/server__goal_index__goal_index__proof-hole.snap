@@ -15,12 +15,13 @@ expression: json
         }
       ],
       "lemma": "theorem addZeroGoal1 (n: Nat): n = n := ?",
-      "target": "n = n"
+      "target": "n + 0 = n",
+      "targetComputed": "n = n"
     },
     "labels": [
       {
         "file": 0,
-        "message": "n: Nat\n⊢ n = n",
+        "message": "n: Nat\n⊢ n + 0 = n\n  computes to n = n",
         "range": [
           2,
           41,

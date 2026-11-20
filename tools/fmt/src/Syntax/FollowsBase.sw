@@ -496,8 +496,8 @@ theorem followsTupleEnd ∀ (inner: Modes) (open openTwin: Word)
     (opens: WordsAlike open openTwin) (pair pairTwin: (List Expr, Bool))
     (pairs: PairAlike (List.All2 ExprsAlike) Same pair pairTwin):
     Parse.Follows SameCode ExprsAlike (() => tupleEnd inner open pair) (() => tupleEnd inner openTwin pairTwin) :=
-  byWalking [] then alikeTuple open openTwin opens items items1 pairs.left trailingComma trailingComma1 pairs.right
-      tupleCloseValue tupleCloseValueTwin tupleCloseValueFacts
+  byWalking [] then alikeTuple open openTwin opens items itemsTwin pairs.left trailingComma trailingCommaTwin
+      pairs.right tupleCloseValue tupleCloseValueTwin tupleCloseValueFacts
 
 theorem followsTupleSecond ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -557,8 +557,8 @@ theorem followsListItemsEnd ∀ [self selfTwin: Goal → {Parse Item} Expr] (inn
     (pairs: PairAlike (List.All2 ExprsAlike) Same pair pairTwin):
     Parse.Follows SameCode ExprsAlike (() => listItemsEnd self inner open pair) (() =>
       listItemsEnd selfTwin inner openTwin pairTwin) :=
-  byWalking [] then alikeListOf open openTwin opens items items1 pairs.left trailingComma trailingComma1 pairs.right
-      close closeTwin closeFacts
+  byWalking [] then alikeListOf open openTwin opens items itemsTwin pairs.left trailingComma trailingCommaTwin
+      pairs.right close closeTwin closeFacts
 
 theorem followsListItems ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)

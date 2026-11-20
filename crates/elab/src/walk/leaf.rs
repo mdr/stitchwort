@@ -76,8 +76,8 @@ pub(super) fn leaf(cx: &mut Ctx, id: u32, info: &NodeInfo, expected: &Value) -> 
         }
         if reg.data(Builtin::And) == Some(*d) {
             let span = cx.span;
-            let left = place(cx, info.call, Kind::Leaf, &info.place);
-            let right = place(cx, info.call, Kind::Leaf, &info.place);
+            let left = place(cx, info, Kind::Leaf, &info.place);
+            let right = place(cx, info, Kind::Leaf, &info.place);
             let pair = Expr::Tuple(
                 Box::new(resume(left, span)),
                 Box::new(resume(right, span)),
@@ -116,20 +116,23 @@ pub(super) fn leaf(cx: &mut Ctx, id: u32, info: &NodeInfo, expected: &Value) -> 
     // first that checks is used; where the goal still has an unknown, a
     // term that checks may fix it, so one is used only if it is the only
     // one that checks.
-    let items: Vec<Expr> = (cx.e.session.walks.borrow().calls[info.call].items.iter())
-        .filter_map(|item| match item {
-            Item::Lemma(e) => Some(e.clone()),
-            Item::Unfold(_) => None,
-        })
-        .collect();
-    let tries: Vec<Expr> = if has_unknown(cx, expected)? {
+    let items: Vec<(usize, Expr)> = (cx.e.session.walks.borrow().calls[info.call]
+        .items
+        .iter()
+        .enumerate())
+    .filter_map(|(at, item)| match item {
+        Item::Lemma(e) => Some((at, e.clone())),
+        Item::Unfold(_) => None,
+    })
+    .collect();
+    let tries: Vec<(usize, Expr)> = if has_unknown(cx, expected)? {
         let mut fits = Vec::new();
-        for e in &items {
+        for (at, e) in &items {
             let snapshot = Snapshot::take(cx);
             let checked = check(cx, e, expected);
             snapshot.restore(cx);
             match checked {
-                Ok(_) => fits.push(e.clone()),
+                Ok(_) => fits.push((*at, e.clone())),
                 Err(err) if fatal(&err) => return Err(err),
                 Err(_) => {}
             }
@@ -138,8 +141,9 @@ pub(super) fn leaf(cx: &mut Ctx, id: u32, info: &NodeInfo, expected: &Value) -> 
     } else {
         items
     };
-    for e in tries {
+    for (at, e) in tries {
         if let Some(term) = crate::undo::attempt(cx, |cx| check(cx, &e, expected))? {
+            mark_used(cx, info.call, at);
             let text = match &e {
                 Expr::Var(_) => vec![Piece::Source(e.span())],
                 _ => vec![
@@ -186,7 +190,7 @@ pub(super) fn leaf(cx: &mut Ctx, id: u32, info: &NodeInfo, expected: &Value) -> 
     {
         let relation = key.0;
         let span = cx.span;
-        let next = place(cx, info.call, Kind::Step(relation), &info.place);
+        let next = place(cx, info, Kind::Step(relation), &info.place);
         let e = if names.is_empty() {
             resume(next, span)
         } else {
@@ -242,7 +246,9 @@ pub(super) fn leaf(cx: &mut Ctx, id: u32, info: &NodeInfo, expected: &Value) -> 
             Err(e) => {
                 snapshot.restore(cx);
                 if let Some(walked) = walked {
-                    return Err(walked);
+                    return Err(
+                        walked.with_note(format!("there `then` gives {}: {}", e.code, e.message))
+                    );
                 }
                 return Err(stuck(
                     cx,

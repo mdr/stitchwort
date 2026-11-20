@@ -1,0 +1,198 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "c",
+          "type": "Char"
+        },
+        {
+          "name": "h",
+          "type": "0 < pick True"
+        },
+        {
+          "name": "g",
+          "type": "c == 'a'"
+        }
+      ],
+      "lemma": "theorem characterGoal1 (c: Char) (h: 0 < pick True) (g: c == 'a'): pick True = 1 ∨ 0 < 1 := ?",
+      "target": "pick True = 1 ∨ 0 < 1"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "c: Char\nh: 0 < pick True\ng: c == 'a'\n⊢ pick True = 1 ∨ 0 < 1",
+        "range": [
+          8,
+          24,
+          8,
+          25
+        ]
+      }
+    ],
+    "message": "in `character`",
+    "notes": [
+      "1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it"
+    ],
+    "range": [
+      8,
+      24,
+      8,
+      25
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        },
+        {
+          "name": "c",
+          "type": "Char"
+        },
+        {
+          "name": "h",
+          "type": "0 < pick (c == 'a')"
+        }
+      ],
+      "lemma": "theorem characterGoal2 (n: Nat) (c: Char) (h: 0 < pick (c == 'a')): pick (c == 'a') = 1 ∨ 0 < 1 := ?",
+      "target": "pick (c == 'a') = 1 ∨ 0 < 1"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\nc: Char\nh: 0 < pick (c == 'a')\n⊢ pick (c == 'a') = 1 ∨ 0 < 1",
+        "range": [
+          9,
+          9,
+          9,
+          10
+        ]
+      }
+    ],
+    "message": "in `character`",
+    "notes": [
+      "this arm is checked in 2 cases; the goal shown is the last of them"
+    ],
+    "range": [
+      9,
+      9,
+      9,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "b",
+          "type": "Bool"
+        },
+        {
+          "name": "h",
+          "type": "0 < pick True"
+        },
+        {
+          "name": "h2",
+          "type": "pick True = 1"
+        },
+        {
+          "name": "g",
+          "type": "b"
+        }
+      ],
+      "lemma": "theorem variableGoal1 (b: Bool) (h: 0 < pick True) (h2: pick True = 1) (g: b): pick True = 1 := ?",
+      "target": "pick True = 1"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "b: Bool\nh: 0 < pick True\nh2: pick True = 1\ng: b\n⊢ pick True = 1",
+        "range": [
+          12,
+          17,
+          12,
+          18
+        ]
+      }
+    ],
+    "message": "in `variable`",
+    "notes": [
+      "2 earlier hypotheses hidden by a later one of the same name (as a `match` or `rewrite … at` binds) aren't listed, as nothing shown mentions them"
+    ],
+    "range": [
+      12,
+      17,
+      12,
+      18
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        },
+        {
+          "name": "b",
+          "type": "Bool"
+        },
+        {
+          "name": "h",
+          "type": "0 < pick b"
+        },
+        {
+          "name": "h2",
+          "type": "pick b = 1"
+        }
+      ],
+      "lemma": "theorem variableGoal2 (n: Nat) (b: Bool) (h: 0 < pick b) (h2: pick b = 1): pick b = 1 := ?",
+      "target": "pick b = 1"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\nb: Bool\nh: 0 < pick b\nh2: pick b = 1\n⊢ pick b = 1",
+        "range": [
+          13,
+          9,
+          13,
+          10
+        ]
+      }
+    ],
+    "message": "in `variable`",
+    "notes": [
+      "this arm is checked in 2 cases; the goal shown is the last of them"
+    ],
+    "range": [
+      13,
+      9,
+      13,
+      10
+    ],
+    "severity": "goal"
+  }
+]

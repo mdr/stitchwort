@@ -442,6 +442,15 @@ enum Command {
         /// on with STITCHWORT_CARRY_OVER=1 when standard error is a terminal
         #[arg(long, conflicts_with_all = ["std", "expand_repeatedly", "expand_walk", "no_cache"])]
         carry_over: bool,
+        /// Check every check-cache entry used again with the kernel, rather
+        /// than trusting it: its terms go through the kernel's checks, and
+        /// only elaboration is skipped. No namespace is left out unloaded.
+        /// An entry the kernel refuses is elaborated instead. The output
+        /// says how many were checked again, and how many refused. With
+        /// --carry-over, the entries carried over are checked too (those
+        /// from a build with another kernel side always are)
+        #[arg(long, conflicts_with_all = ["std", "expand_repeatedly", "expand_walk", "no_cache"])]
+        recheck: bool,
         /// After the check, print stderr tables of where the time went: each
         /// namespace (a cached one is marked, not timed), then each
         /// declaration checked with its elaboration, kernel and total time,
@@ -1213,6 +1222,7 @@ fn run(cli: Cli) -> ExitCode {
             counterexamples,
             cache,
             carry_over,
+            recheck,
             timings: _,
         } => check(
             &targets,
@@ -1222,7 +1232,7 @@ fn run(cli: Cli) -> ExitCode {
             (expand_repeatedly, expand_walk, stdout),
             &counterexamples,
             &cache,
-            carry_over || carry_over_from_environment(),
+            (carry_over || carry_over_from_environment(), recheck),
         ),
         Command::StdSource { path } => match stitchwort_cli::nav::std_source(&path, STACK) {
             Some(text) => {
@@ -2250,7 +2260,7 @@ fn check(
     (expand, expand_walk, to_stdout): (bool, bool, bool),
     counterexamples: &CounterexampleArgs,
     cache: &CacheArgs,
-    carry_over: bool,
+    (carry_over, recheck): (bool, bool),
 ) -> ExitCode {
     if to_stdout && !expand_walk {
         eprintln!("error: --stdout is only for --expand-walk");
@@ -2280,6 +2290,7 @@ fn check(
             } else if !expand_walk {
                 use_cache(&mut session, cache, Path::new("."));
                 session.elab.set_carry_over(carry_over);
+                session.elab.set_recheck(recheck);
             }
             let mut reported = Vec::new();
             let loaded = load_file_into(
@@ -2298,7 +2309,7 @@ fn check(
             if loaded && goals == 0 {
                 eprintln!("checked {path}");
             }
-            report_carried_over(&session);
+            report_carried_over(&session, recheck);
             if let Some(index) = index {
                 ok = write_index(&session, loaded, index, "", &reported) && ok;
             }
@@ -2341,6 +2352,7 @@ fn check(
     } else if !expand_walk {
         use_cache(&mut session, cache, &project.dir);
         session.elab.set_carry_over(carry_over);
+        session.elab.set_recheck(recheck);
     }
     let mut reported = Vec::new();
     // Only the diagnostics are wanted, unless the loaded namespaces are
@@ -2386,7 +2398,7 @@ fn check(
             None => eprintln!("checked {count} namespace{plural} of {}", project.name),
         }
     }
-    report_carried_over(&session);
+    report_carried_over(&session, recheck);
     if let Some(index) = index {
         let root = format!("{}/", project.name);
         ok = write_index(&session, ok, index, &root, &reported) && ok;
@@ -2605,13 +2617,23 @@ fn write_walk_expansions(session: &Session, base: &Path, to_stdout: bool) -> boo
 /// After `check --carry-over`: how many units came from entries carried over
 /// from another build, which this build's elaborator didn't check
 /// (docs/proposals/check-cache-across-updates.md §8: the label is the whole
-/// defence against taking such a check for a full one).
-fn report_carried_over(session: &Session) {
-    if let Some(units) = session.elab.check_cache_stats().carried_over_units() {
+/// defence against taking such a check for a full one). Then, after a
+/// carry-over across a kernel change or `check --recheck`, how many entries
+/// this kernel checked again, and refused (with `recheck`, always a line).
+fn report_carried_over(session: &Session, recheck: bool) {
+    let stats = session.elab.check_cache_stats();
+    if let Some(units) = stats.carried_over_units() {
         eprintln!(
             "carried over from another build: {units}; this kernel accepted them, but this \
              build didn't elaborate them (a check without --carry-over does)"
         );
+    }
+    match stats.rechecked_units() {
+        Some(units) => eprintln!("checked again by this kernel, without elaborating: {units}"),
+        // So that `--recheck` with nothing to check (no cache, an empty
+        // one) doesn't look like an audit that passed.
+        None if recheck => eprintln!("checked again by this kernel: nothing"),
+        None => {}
     }
 }
 
@@ -4980,7 +5002,7 @@ fn print_audit(
 fn fmt_command(files: &[PathBuf], check: bool, project: Option<&Path>) -> ExitCode {
     let mut paths = Vec::new();
     let mut stdin = false;
-    let mut skipped = 0usize;
+    let mut skipped = Vec::new();
     if files.is_empty() {
         let Some(project) = locate_project(project, "format", "fmt hello.sw") else {
             return ExitCode::FAILURE;
@@ -5002,7 +5024,7 @@ fn fmt_command(files: &[PathBuf], check: bool, project: Option<&Path>) -> ExitCo
             } else if file.is_dir() {
                 for path in sw_files_in(file) {
                     if deliberately_unformatted(&path) {
-                        skipped += 1;
+                        skipped.push(path);
                     } else {
                         paths.push(path);
                     }
@@ -5011,7 +5033,7 @@ fn fmt_command(files: &[PathBuf], check: bool, project: Option<&Path>) -> ExitCo
                 // Named, but --check only reports: a caller (the pre-commit
                 // hook) passes whatever is staged. Formatting a named file
                 // in place is still done, since the user asked for that.
-                skipped += 1;
+                skipped.push(file.clone());
             } else {
                 paths.push(file.clone());
             }
@@ -5052,11 +5074,15 @@ fn fmt_command(files: &[PathBuf], check: bool, project: Option<&Path>) -> ExitCo
         failure |= !format_file(path, check, &mut would_change);
     }
 
-    if skipped > 0 {
+    if !skipped.is_empty() {
         eprintln!(
-            "{skipped} file{} skipped as deliberately unformatted",
-            if skipped == 1 { "" } else { "s" }
+            "{} file{} skipped as deliberately unformatted",
+            skipped.len(),
+            if skipped.len() == 1 { "" } else { "s" }
         );
+        for path in &skipped {
+            eprintln!("{}", path.display());
+        }
     }
 
     if failure {

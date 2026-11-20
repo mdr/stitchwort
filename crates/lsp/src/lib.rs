@@ -831,7 +831,8 @@ impl Search {
                     split.body.1,
                     cancel,
                     |session, context| session.split_patterns(&context?, &split.name),
-                );
+                )
+                .flatten();
                 let mut actions = fixes.as_array().cloned().unwrap_or_default();
                 if let Some(edit) = patterns
                     .filter(|p| p.len() > 1)
@@ -941,6 +942,7 @@ fn expand_action(
             with_project_session(server, None, cancel, |session| {
                 session.expansion_at_project(&name, &files, &relative, at)
             })
+            .flatten()
         }
         None => {
             let mut session = search_session(server);
@@ -1000,7 +1002,7 @@ impl Searcher {
     /// `Options::library`, which is where this load would look anyway.
     pub fn warm(&self) {
         let cancel = Arc::new(AtomicBool::new(false));
-        with_project_session(&self.options, None, cancel, |_| ());
+        let _ = with_project_session(&self.options, None, cancel, |_| ());
     }
 }
 
@@ -4889,7 +4891,7 @@ fn context_at(
     character: u32,
     cancel: Arc<AtomicBool>,
 ) -> serde_json::Value {
-    let found = with_context(server, source, target, line, character, cancel, |_, c| c);
+    let found = with_context(server, source, target, line, character, cancel, |_, c| c).flatten();
     match found {
         Some(c) => {
             let kind = |proof: bool| if proof { "proof" } else { "program" };
@@ -4936,7 +4938,7 @@ fn with_context<R>(
     character: u32,
     cancel: Arc<AtomicBool>,
     then: impl FnOnce(&Session, Option<pos::Context>) -> R,
-) -> R {
+) -> Option<R> {
     match target.project {
         Some((root, relative, open)) => {
             let base = source.files(&root);
@@ -4969,7 +4971,7 @@ fn with_context<R>(
                 .and_then(|n| n.to_str())
                 .unwrap_or("file.sw");
             let found = session.context_at_text(name, &target.text, line, character);
-            then(&session, found)
+            Some(then(&session, found))
         }
     }
 }
@@ -4993,8 +4995,9 @@ fn search_session(server: &Options) -> Session {
 /// library again is most of a search of a small project.
 struct Warm {
     /// What the session was made from; another stack or library bundle
-    /// makes another session.
-    key: (usize, Option<usize>),
+    /// makes another session. The bundle's key is its content hash, not its
+    /// address, which another bundle could reuse.
+    key: (usize, Option<Key>),
     session: Session,
     mark: stitchwort_driver::rewind::Mark,
 }
@@ -5015,12 +5018,9 @@ fn with_project_session<T>(
     cache: Option<&Path>,
     cancel: Arc<AtomicBool>,
     f: impl FnOnce(&mut Session) -> T,
-) -> T {
+) -> Option<T> {
     {
-        let key = (
-            server.stack,
-            server.library.get().map(|b| Arc::as_ptr(b) as usize),
-        );
+        let key = (server.stack, server.library.get().map(|b| b.id()));
         // Taken out while in use, so that a panic leaves none behind.
         let kept = WARM.with(|w| w.borrow_mut().take());
         let mut warm = match kept.filter(|w| w.key == key) {
@@ -5030,9 +5030,10 @@ fn with_project_session<T>(
                 if let Some(dir) = cache {
                     session.use_check_cache(dir);
                 }
+                // A failed load isn't repeated by `f` in the same request:
+                // its probe or search would load the library again.
                 if !session.load_libraries_for_probes() {
-                    session.share_cancel_flag(cancel);
-                    return f(&mut session);
+                    return None;
                 }
                 let mark = session.mark();
                 Warm { key, session, mark }
@@ -5050,7 +5051,7 @@ fn with_project_session<T>(
         let found = f(&mut warm.session);
         warm.session.rewind(&warm.mark);
         WARM.with(|w| *w.borrow_mut() = Some(warm));
-        found
+        Some(found)
     }
 }
 
@@ -5090,6 +5091,7 @@ fn members_at(
                     with_project_session(server, cache.as_deref(), cancel, |session| {
                         session.members_at_project(&name, &files, &relative, cache.as_deref(), dot)
                     })
+                    .flatten()
                 }
                 None => {
                     let mut session = search_session(server);
@@ -5177,7 +5179,8 @@ fn hole_splits(
         hole.character,
         cancel,
         |session, context| context.map(|c| session.splittable(&c)),
-    );
+    )
+    .flatten();
     variables
         .into_iter()
         .flatten()
@@ -5259,6 +5262,7 @@ fn project_closing_actions(
             options,
         )
     })
+    .flatten()
 }
 
 /// A range as the driver has it.

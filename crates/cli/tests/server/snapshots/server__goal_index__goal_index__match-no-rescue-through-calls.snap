@@ -1,0 +1,106 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "more",
+          "type": "Nat"
+        },
+        {
+          "name": "lists",
+          "type": "List (List Nat)"
+        },
+        {
+          "name": "cap",
+          "type": "Nat"
+        },
+        {
+          "name": "found",
+          "type": "(lists.map (chainThrough more)).maximum = None"
+        }
+      ],
+      "lemma": "theorem boundedGoal1 (more: Nat) (lists: List (List Nat)) (cap: Nat) (found: (lists.map (chainThrough more)).maximum = None): chainOf more lists ≤ cap := ?",
+      "target": "chainOf more lists ≤ cap"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "more: Nat\nlists: List (List Nat)\ncap: Nat\nfound: (lists.map (chainThrough more)).maximum = None\n⊢ chainOf more lists ≤ cap",
+        "range": [
+          22,
+          14,
+          22,
+          15
+        ]
+      }
+    ],
+    "message": "in `bounded`",
+    "notes": [],
+    "range": [
+      22,
+      14,
+      22,
+      15
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "more",
+          "type": "Nat"
+        },
+        {
+          "name": "lists",
+          "type": "List (List Nat)"
+        },
+        {
+          "name": "cap",
+          "type": "Nat"
+        },
+        {
+          "name": "most",
+          "type": "Nat"
+        },
+        {
+          "name": "found",
+          "type": "(lists.map (chainThrough more)).maximum = Some most"
+        }
+      ],
+      "lemma": "theorem boundedGoal2 (more: Nat) (lists: List (List Nat)) (cap: Nat) (most: Nat) (found: (lists.map (chainThrough more)).maximum = Some most): chainOf more lists ≤ cap := ?",
+      "target": "chainOf more lists ≤ cap"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "more: Nat\nlists: List (List Nat)\ncap: Nat\nmost: Nat\nfound: (lists.map (chainThrough more)).maximum = Some most\n⊢ chainOf more lists ≤ cap",
+        "range": [
+          23,
+          19,
+          23,
+          20
+        ]
+      }
+    ],
+    "message": "in `bounded`",
+    "notes": [],
+    "range": [
+      23,
+      19,
+      23,
+      20
+    ],
+    "severity": "goal"
+  }
+]

@@ -1743,15 +1743,6 @@ fn run_searches(
     jobs: &[String],
     kept: bool,
 ) -> (Vec<Value>, Vec<std::time::Duration>) {
-    let run = |searcher: &stitchwort_lsp::Searcher, jobs: &[String]| {
-        (jobs.iter())
-            .map(|job| {
-                let started = std::time::Instant::now();
-                let found: Value = serde_json::from_str(&searcher.run(job)).unwrap();
-                (found, started.elapsed())
-            })
-            .unzip::<_, _, Vec<_>, Vec<_>>()
-    };
     let on_thread = |jobs: Vec<String>, memory: Arc<Memory>| {
         std::thread::Builder::new()
             .stack_size(STACK)
@@ -1769,7 +1760,6 @@ fn run_searches(
             .join()
             .unwrap()
     };
-    let _ = run;
     if kept {
         return on_thread(jobs.to_vec(), memory.clone());
     }

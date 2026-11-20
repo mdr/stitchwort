@@ -1944,23 +1944,108 @@ fn a_carried_over_entry_is_used_only_when_asked() {
     let _ = std::fs::remove_dir_all(&copy);
 }
 
-/// An entry written by a build whose kernel side differs is a miss even
-/// when carrying over (stage 2 will check it again instead).
+/// [`ABC`] and a namespace with a data type, a function on it and a
+/// theorem whose statement names the function: on re-check, the type must
+/// be final before the function's body is checked, and the function before
+/// the theorem is declared. It also uses a library file (`ExitStatus`, and
+/// through it `Fin`, a data type), so library entries are re-checked too.
+const ABCD: &[(&str, &str)] = &[
+    ABC[0],
+    ABC[1],
+    ABC[2],
+    (
+        "src/D.sw",
+        "namespace D\n\nimport Std (ExitStatus)\n\ndef failure: Nat := ExitStatus.toNat (ExitStatus.of 1)\n\ntype Shape = | Dot | Line (n: Nat)\n\ndef Shape.size: (s: Shape) → Nat\n  | Dot => 0\n  | Line n => n\n\ntheorem Shape.dotSize: Shape.size Dot = 0 := byComputing\n",
+    ),
+];
+
+/// An entry written by a build whose kernel side differs is a miss
+/// without carrying over. Carrying over, this kernel checks it again
+/// (stage 2): every unit comes from it, counted as carried over and checked
+/// again, and the session holds what elaborating gives. The entries are
+/// then kept as this build's, so the next carrying session needs no
+/// re-check, and an exact check still misses.
 #[test]
-fn a_kernel_side_change_makes_a_carried_entry_a_miss() {
-    let dir = temp_project("carry-kernel", ABC);
+fn a_kernel_side_change_has_a_carried_entry_checked_again() {
+    let dir = temp_project("carry-kernel", ABCD);
     let cache = temp_dir("carry-kernel-cache");
     run_as_build(&dir, &cache, Some(("earlierbuild", "anotherkernel")), false);
-    let run = run_as_build(&dir, &cache, None, true);
+    let fresh = run(&Source::Project("p".to_string(), dir.clone()), true, None);
+    let exact = run_as_build(
+        &dir,
+        &copy_cache(&cache, "carry-kernel-exact", &[]),
+        None,
+        false,
+    );
     assert_eq!(
-        (
-            run.stats.namespace_hits,
-            run.stats.hits,
-            run.stats.carried_over()
-        ),
-        (0, 0, 0),
+        (exact.stats.namespace_hits, exact.stats.hits),
+        (0, 0),
         "{:?}",
-        run.stats
+        exact.stats
+    );
+
+    let rechecked = run_as_build(&dir, &cache, None, true);
+    let s = rechecked.stats;
+    assert_eq!(
+        (s.namespace_carried, s.namespace_rechecked, s.namespace_hits),
+        (4, 4, 4),
+        "{s:?}"
+    );
+    assert_eq!((s.rechecked, s.carried), (s.hits, s.hits), "{s:?}");
+    assert!(s.hits > 0, "no library file came from the cache: {s:?}");
+    assert_eq!((s.refused, s.refused_on_recheck), (0, 0), "{s:?}");
+    assert!(
+        rechecked.dump == fresh.dump,
+        "checking carried entries again changed the result: {}",
+        first_difference(&fresh.dump, &rechecked.dump)
+    );
+
+    let kept = run_as_build(&dir, &cache, None, true);
+    let s = kept.stats;
+    assert_eq!(
+        (s.namespace_carried, s.namespace_rechecked, s.rechecked),
+        (4, 0, 0),
+        "{s:?}"
+    );
+    assert!(
+        kept.dump == fresh.dump,
+        "the kept entries' trusted replay changed the result: {}",
+        first_difference(&fresh.dump, &kept.dump)
+    );
+    let exact = run_as_build(&dir, &cache, None, false);
+    assert_eq!(exact.stats.namespace_hits, 0, "{:?}", exact.stats);
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
+/// `--recheck` (`Elaborator::set_recheck`): this build's exact entries are
+/// checked again by the kernel instead of trusted, and stay exact: nothing
+/// is counted as carried over, and the session holds what elaborating
+/// gives.
+#[test]
+fn rechecking_exact_entries_keeps_them_exact() {
+    let dir = temp_project("recheck-exact", ABCD);
+    let cache = temp_dir("recheck-exact-cache");
+    let source = Source::Project("p".to_string(), dir.clone());
+    let fresh = run(&source, true, Some(&cache));
+    let rechecked = with_stack(STACK, || {
+        let mut session = Session::navigable_for_stack(STACK);
+        session.use_check_cache(&cache);
+        session.elab.set_recheck(true);
+        finish_run(session, &source)
+    });
+    let s = rechecked.stats;
+    assert_eq!(
+        (s.namespace_hits, s.namespace_rechecked, s.carried_over()),
+        (4, 4, 0),
+        "{s:?}"
+    );
+    assert_eq!(s.rechecked, s.hits, "{s:?}");
+    assert_eq!((s.refused, s.refused_on_recheck), (0, 0), "{s:?}");
+    assert!(
+        rechecked.dump == fresh.dump,
+        "checking exact entries again changed the result: {}",
+        first_difference(&fresh.dump, &rechecked.dump)
     );
     let _ = std::fs::remove_dir_all(&dir);
     let _ = std::fs::remove_dir_all(&cache);

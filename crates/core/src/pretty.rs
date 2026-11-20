@@ -218,7 +218,9 @@ pub fn value_for_message(g: &Ev, names: &[Name], value: &Value) -> String {
     value_within(g, None, names, value, MESSAGE_LIMIT, Prec::Arrow, None)
 }
 
-/// [`value_for_message`], with names as `scope` writes them.
+/// [`value_for_message`], with names as `scope` writes them, and a decided
+/// equation or comparison written as it was (`c == 'a'`) where `scope` says
+/// what `==` decides it by ([`NameScope::eq_decision`]).
 pub fn value_for_message_in(
     g: &Ev,
     scope: &dyn NameScope,
@@ -232,7 +234,7 @@ pub fn value_for_message_in(
         value,
         MESSAGE_LIMIT,
         Prec::Arrow,
-        None,
+        Some(&[]),
     )
 }
 
@@ -498,7 +500,7 @@ pub fn term_for_message_in(g: &Ev, scope: &dyn NameScope, names: &[Name], term_:
         term_,
         MESSAGE_LIMIT,
         Prec::Arrow,
-        None,
+        Some(&[]),
     )
 }
 
@@ -592,7 +594,15 @@ pub fn is_predicate_type(g: &Ev, level: usize, ty: &Value) -> bool {
 /// in brackets if it's an operation that binds more loosely than `=`
 /// (`(n < n) = True`).
 pub fn side_for_message_in(g: &Ev, scope: &dyn NameScope, names: &[Name], value: &Value) -> String {
-    value_within(g, Some(scope), names, value, MESSAGE_LIMIT, Prec::Add, None)
+    value_within(
+        g,
+        Some(scope),
+        names,
+        value,
+        MESSAGE_LIMIT,
+        Prec::Add,
+        Some(&[]),
+    )
 }
 
 /// [`term_within`] for a value, with calls shown as written.
@@ -1220,6 +1230,14 @@ impl<'g> Printer<'g> {
                 let mut text = (self.scope)
                     .and_then(|scope| scope.ctor_name(*d, *c))
                     .unwrap_or_else(|| ctor.name.to_string());
+                // An ability's operation is a constructor named `%op`, which
+                // source can't write; it is shown as the operation's own
+                // name, `Parse.mark`.
+                if let Some(op) = text.strip_prefix('%') {
+                    text = format!("{}.{op}", self.g.data(*d).name);
+                } else if let Some((ability, op)) = text.rsplit_once(".%") {
+                    text = format!("{ability}.{op}");
+                }
                 // A constructor declared with its fields in braces is shown
                 // by field name, as it can be written. (With implicit fields
                 // it is shown positionally, which braces can't say.)

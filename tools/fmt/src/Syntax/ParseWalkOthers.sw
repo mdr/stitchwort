@@ -299,11 +299,8 @@ theorem reads0ImplicitAhead ∀ (modes: Modes):
   Parse.reads0Then (reads0At modes LBracket) (atBracket =>
     match atBracket with
       | True => Parse.reads0Then (Parse.reads0Mark (here => here)) (here =>
-        Parse.reads0Then
-          [p := () => left()]
-          [j := items => implicitBinderAhead (here.left + 1) items]
-          reads0Left
-          (items => Parse.reads0Done (implicitBinderAhead (here.left + 1) items)))
+        Parse.reads0Then [p := () => left()] reads0Left (items =>
+          Parse.reads0Done (implicitBinderAhead (here.left + 1) items)))
       | False => Parse.reads0Done False)
 
 theorem givesDataParamStep ∀ (modes: Modes) (word: Text) (atParen: Bool):
@@ -320,14 +317,10 @@ theorem givesDataParams ∀ (modes: Modes) (word: Text) (name: Word):
     (found ok => byComputing)
 
 theorem reads0PiBinderAhead ∀ (modes: Modes): Reads0 (() => isSome LParen modes.peek && piBinderAhead left()) :=
-  Parse.reads0Then
-    [p := () => modes.peek]
-    [j := seen => isSome LParen seen && piBinderAhead left()]
-    (reads0Peek modes)
-    (seen =>
-      match isSome LParen seen with
-        | True => Parse.reads0Then reads0Left (items => Parse.reads0Done (piBinderAhead items))
-        | False => Parse.reads0Done False)
+  Parse.reads0Then [p := () => modes.peek] (reads0Peek modes) (seen =>
+    match isSome LParen seen with
+      | True => Parse.reads0Then reads0Left (items => Parse.reads0Done (piBinderAhead items))
+      | False => Parse.reads0Done False)
 
 theorem givesDataIndices ∀ (fuel: Nat) (modes: Modes) (found: List (Index, Word)):
     Parse.Gives GoodItems (() => dataIndices fuel modes found) (result => True) :=
@@ -542,12 +535,8 @@ theorem givesTypeAfterEquals ∀ (modes: Modes) (attributes: List Attributes) (k
         | False => Parse.givesThen (givesTypeSynonym modes name) (synonym _ => Parse.givesDone byComputing)
     | False =>
       match brace with
-        | True =>
-          Parse.givesAfter0
-            [p := () => left()]
-            [j := items => typeBraced modes attributes keyword name params indices equals (abilityRowInBraces items)]
-            reads0Left
-            (items => givesTypeBraced modes attributes keyword name params indices equals (abilityRowInBraces items))
+        | True => Parse.givesAfter0 [p := () => left()] reads0Left (items =>
+          givesTypeBraced modes attributes keyword name params indices equals (abilityRowInBraces items))
         | False =>
           Parse.givesThen
             (Parse.givesAfter0 (reads0At modes Pipe) (atPipe => givesConstructorsAt modes atPipe))
@@ -559,14 +548,9 @@ theorem givesTypeBody ∀ (modes: Modes) (attributes: List Attributes) (keyword:
   match !equalsNext with
     | True => Parse.givesDone byComputing
     | False => Parse.givesThen givesFixedFrom (equals _ =>
-      Parse.givesAfter0
-        [p := () => modes.at LBrace]
-        [j := brace =>
-          typeAfterEquals modes attributes keyword name params indices indexed equals brace (modes.at Pipe)]
-        (reads0At modes LBrace)
-        (brace =>
-          Parse.givesAfter0 (reads0At modes Pipe) (pipe =>
-            givesTypeAfterEquals modes attributes keyword name params indices indexed equals brace pipe)))
+      Parse.givesAfter0 [p := () => modes.at LBrace] (reads0At modes LBrace) (brace =>
+        Parse.givesAfter0 (reads0At modes Pipe) (pipe =>
+          givesTypeAfterEquals modes attributes keyword name params indices indexed equals brace pipe)))
 
 theorem givesTypeDecl ∀ (modes: Modes) (attributes: List Attributes) (keyword: Comments) (name: Word)
     (params: List Group) (indices: Option Indices) (indexed: Bool):

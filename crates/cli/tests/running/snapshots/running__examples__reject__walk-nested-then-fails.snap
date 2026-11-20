@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-WALK] Error: the walk stops: it has no lemma for this call of `lookOnce`
+    ╭─[ reject/walk-nested-then-fails.sw:25:3 ]
+    │
+ 25 │   byWalking [givesBoth] then byComputing
+    │   ────┬────  
+    │       ╰────── in `bothOnce`
+    │ 
+    │ Note 1: the call is lookOnce ()
+    │ 
+    │ Note 2: give a lemma for it in the brackets, register one with `@[walk]`, or write `unfold lookOnce` in the brackets to walk its body
+    │ 
+    │ Note 3: the goal there is Parse.Gives Parse.Invariant.any (x => lookOnce ()) _holds
+    │ 
+    │ Note 4: there `then` gives E-TYPE-MISMATCH: type mismatch
+────╯

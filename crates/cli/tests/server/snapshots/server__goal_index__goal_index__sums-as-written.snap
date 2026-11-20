@@ -15,12 +15,13 @@ expression: json
         }
       ],
       "lemma": "theorem plusOneGoal1 (x: Nat): x + 1 = x + 1 := ?",
-      "target": "x + 1 = x + 1"
+      "target": "x + 1 = 1 + x",
+      "targetComputed": "x + 1 = x + 1"
     },
     "labels": [
       {
         "file": 0,
-        "message": "x: Nat\n⊢ x + 1 = x + 1",
+        "message": "x: Nat\n⊢ x + 1 = 1 + x\n  computes to x + 1 = x + 1",
         "range": [
           4,
           45,
@@ -69,12 +70,13 @@ expression: json
         }
       ],
       "lemma": "theorem plusThreeGoal1 (x: Nat) (y: Nat): x + 3 = y + x + 2 := ?",
-      "target": "x + 3 = y + x + 2"
+      "target": "x + 3 = y + (x + 2)",
+      "targetComputed": "x + 3 = y + x + 2"
     },
     "labels": [
       {
         "file": 0,
-        "message": "x: Nat\ny: Nat\n⊢ x + 3 = y + x + 2",
+        "message": "x: Nat\ny: Nat\n⊢ x + 3 = y + (x + 2)\n  computes to x + 3 = y + x + 2",
         "range": [
           6,
           55,

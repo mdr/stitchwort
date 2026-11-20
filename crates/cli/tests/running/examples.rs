@@ -33,6 +33,7 @@ const KNOWN_GAP: &str = "-- known-gap";
 const EXPECT_ERROR: &str = "-- expect-error:";
 const EXPECT_WARNING: &str = "-- expect-warning:";
 const EXPECT_TEST_FAILURE: &str = "-- expect-test-failure:";
+const EXPECT_METRICS: &str = "-- metrics:";
 
 struct Example {
     /// Path relative to `examples/`, e.g. `reject/non-positive.sw`.
@@ -55,6 +56,18 @@ impl Example {
     /// its code reaches an open goal.
     fn expected_test_failure(&self) -> Option<&str> {
         self.declared(EXPECT_TEST_FAILURE)
+    }
+
+    /// The metrics outcomes declared in the file's leading comment lines
+    /// (`-- metrics: guard-as-written: unchecked`, one per line): each must
+    /// happen at least once while the example elaborates.
+    fn expected_metrics(&self) -> Vec<&str> {
+        self.text
+            .lines()
+            .take_while(|line| line.starts_with("--"))
+            .filter_map(|line| line.strip_prefix(EXPECT_METRICS))
+            .map(str::trim)
+            .collect()
     }
 
     fn declared(&self, prefix: &str) -> Option<&str> {
@@ -289,7 +302,30 @@ fn accepted_examples_check() {
 fn accepted_example(example: &Example) -> (Vec<String>, Option<String>) {
     let mut failures = Vec::new();
     let mut session = untimed(Session::for_stack(STACK));
-    if let Err(diagnostics) = session.load(&example.name, &example.text) {
+    let expected_metrics = example.expected_metrics();
+    if !expected_metrics.is_empty() {
+        stitchwort_elab::metrics::start_collecting();
+    }
+    let loaded = session.load(&example.name, &example.text);
+    if !expected_metrics.is_empty() {
+        let mut seen = stitchwort_elab::metrics::finish_collecting();
+        seen.sort();
+        seen.dedup();
+        for expected in &expected_metrics {
+            if !seen.iter().any(|line| line == expected) {
+                failures.push(format!(
+                    "{} never reaches `{expected}` (its `-- metrics:` header); seen: {}\n",
+                    example.name,
+                    if seen.is_empty() {
+                        "nothing".to_string()
+                    } else {
+                        seen.join("; ")
+                    }
+                ));
+            }
+        }
+    }
+    if let Err(diagnostics) = loaded {
         failures.push(format!(
             "{}:\n{}",
             example.name,
@@ -397,7 +433,26 @@ fn assert_goals(
             );
         }
     }
+    assert_no_compiler_names(name, &output);
     output
+}
+
+/// No goal shows a name the compiler made (`%mark`, `half.%step`): source
+/// can't write one. A `%` is one where a name follows it directly after a
+/// space, bracket or dot; `n % 2` and `n%2` are the modulo operator.
+fn assert_no_compiler_names(name: &str, output: &str) {
+    let chars: Vec<char> = output.chars().collect();
+    for (i, pair) in chars.windows(2).enumerate() {
+        let before = i.checked_sub(1).map(|j| chars[j]);
+        if pair[0] == '%'
+            && pair[1].is_ascii_alphabetic()
+            && before.is_some_and(|c| c == ' ' || c == '(' || c == '.')
+        {
+            let from = i.saturating_sub(40);
+            let around: String = chars[from..(i + 40).min(chars.len())].iter().collect();
+            panic!("{name}: a goal shows a compiler-made name, near `{around}`");
+        }
+    }
 }
 
 #[test]

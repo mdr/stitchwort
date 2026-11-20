@@ -34,7 +34,9 @@ use crate::lift::{self, Draft};
 use crate::{Row, check_tree_here};
 
 mod as_written;
-pub(crate) use as_written::{Outcome as AsWritten, report_transport, transport_target};
+pub(crate) use as_written::{
+    Outcome as AsWritten, note_kept as note_kept_as_written, report_transport, transport_target,
+};
 
 fn parts(expr: &Expr) -> (&[Scrutinee], &[Alt], stitchwort_syntax::Span, MatchKind) {
     let Expr::Match {
@@ -389,8 +391,19 @@ fn note_match_step(cx: &Ctx, alts: &[Alt], span: stitchwort_syntax::Span, goal: 
     );
 }
 
-/// A `match`, lifted (§4.4).
+/// A `match`, lifted (§4.4). Made again without the partial unfold if it
+/// fails after keeping a result of it ([`crate::unfold_path::retried`]):
+/// its motive, or a `match` or `rewrite` inside it, can leave an arm a goal
+/// partly folded that fails where the goal unfolded didn't.
 pub(crate) fn check_match(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Term> {
+    crate::unfold_path::retried(
+        cx,
+        |cx| check_match_once(cx, expr, goal),
+        || as_written::report_retried(parts(expr).2),
+    )
+}
+
+fn check_match_once(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Term> {
     if crate::patlet::applies(cx, expr, goal)?
         && let Some(term) = crate::patlet::check_let(cx, expr, goal)?
     {
@@ -404,7 +417,12 @@ pub(crate) fn check_match(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Ter
     note_tuple_match(cx, scrutinees, span);
     let base = cx.level();
     let mark = cx.mark();
+    // A `match` that is the whole of an expression checked against the
+    // statement has arms checked against it too (`Ctx::statement`).
+    let arms = (cx.statement.as_ref()).is_some_and(|s| s.at == expr.span());
+    let statement_arms = std::mem::replace(&mut cx.statement_arms, arms);
     let result = lifted(cx, scrutinees, alts, span, kind, goal, base);
+    cx.statement_arms = statement_arms;
     cx.reset(mark);
     result
 }
@@ -530,6 +548,9 @@ fn lifted(
     base: usize,
 ) -> Result<Term> {
     let g = cx.g();
+    // The scrutinees are elaborated outside the statement's tree: the flag
+    // is off until they are, and on again for the arms.
+    let statement_arms = std::mem::replace(&mut cx.statement_arms, false);
     // The scrutinees: variables stay as they are; anything else is
     // elaborated, to be generalised.
     let mut columns = Vec::new();
@@ -619,8 +640,10 @@ fn lifted(
             name,
             span: s.expr.span(),
             alias,
+            on_path: true,
         });
     }
+    cx.statement_arms = statement_arms;
     if exprs.is_empty() {
         let levels: Vec<usize> = columns
             .iter()
@@ -670,6 +693,11 @@ struct Scrut {
     span: stitchwort_syntax::Span,
     /// The `let` it names, if it's one by name.
     alias: Option<usize>,
+    /// Whether it is looked for inside calls on the path to it
+    /// ([`crate::unfold_path`]): not for a computation `match reify` made,
+    /// whose arms' goals then show the handlers' insides rather than
+    /// computing to what the statement says (`examples/goals/reify-return.sw`).
+    on_path: bool,
 }
 
 /// A `match` on one expression the compiler has elaborated itself (`term`,
@@ -687,7 +715,7 @@ pub(crate) fn generalised_term(
     span: stitchwort_syntax::Span,
     goal: &Value,
 ) -> Result<Term> {
-    generalised_named(
+    generalised_scrut(
         cx,
         term,
         ty,
@@ -698,6 +726,7 @@ pub(crate) fn generalised_term(
         absurd,
         span,
         goal,
+        false,
     )
 }
 
@@ -721,6 +750,36 @@ pub(crate) fn generalised_named(
     span: stitchwort_syntax::Span,
     goal: &Value,
 ) -> Result<Term> {
+    generalised_scrut(
+        cx,
+        term,
+        ty,
+        scrutinee_span,
+        name,
+        skip,
+        alts,
+        absurd,
+        span,
+        goal,
+        true,
+    )
+}
+
+/// [`generalised_named`], with [`Scrut::on_path`] as given.
+#[allow(clippy::too_many_arguments)]
+fn generalised_scrut(
+    cx: &mut Ctx,
+    term: Term,
+    ty: Value,
+    scrutinee_span: stitchwort_syntax::Span,
+    name: Option<ast::Name>,
+    skip: Option<Skip>,
+    alts: &[Alt],
+    absurd: &[Vec<Pattern>],
+    span: stitchwort_syntax::Span,
+    goal: &Value,
+    on_path: bool,
+) -> Result<Term> {
     let base = cx.level();
     let mark = cx.mark();
     let result = (|| {
@@ -733,6 +792,7 @@ pub(crate) fn generalised_named(
             name,
             span: scrutinee_span,
             alias: None,
+            on_path,
         };
         generalised(
             cx,
@@ -800,6 +860,7 @@ pub(crate) fn refined_guard(
             }),
             span,
             alias: None,
+            on_path: true,
         }];
         let mut too_large = None;
         if blocker(cx, &exprs, goal, base, None, &mut too_large)?.is_some() || too_large.is_some() {
@@ -859,6 +920,7 @@ pub(crate) fn refined_guard(
             .flatten();
             if let Some(bound) = kept {
                 as_written::report_guard(w.outcome, span);
+                as_written::note_kept(w.outcome);
                 return Ok(Some((bound, normal)));
             }
             // A motive that doesn't check leaves what it bound in `cx`.
@@ -1500,6 +1562,7 @@ fn generalised_now(
         .flatten();
         if let Some(bound) = bound {
             as_written::report(w.outcome, span);
+            as_written::note_kept(w.outcome);
             // Found as written, so not "not found".
             not_found.retain(|(i, _)| !w.found[*i]);
             kept = Some(bound);
@@ -1859,6 +1922,23 @@ fn in_arms(
     );
     let shown =
         crate::arm_display::note_scrutinees(cx, exprs.iter().map(|s| &s.term), base, &equations);
+    // The arms of a `match` on the statement are checked against its motive:
+    // the statement with each scrutinee written in it replaced by the
+    // variable standing for it, which an arm's pattern then fills in
+    // (`pick (n == 0) < 2` is `pick True < 2` in the `True` arm, where it
+    // computes to `True = True`).
+    let saved_statement = cx.statement.clone();
+    if cx.statement_arms
+        && let Some(outer) = &saved_statement
+        && let Some(term) = written_motive(cx, outer, exprs, base)
+    {
+        cx.statement = Some(Rc::new(crate::check::Statement {
+            term: Rc::new(term),
+            level: cx.level(),
+            at: outer.at,
+            outer: Some(outer.clone()),
+        }));
+    }
     let body = in_alternatives(cx, kind, alts, &levels, |cx| {
         let recheck = compiled.recheck(&levels, span, cx.level(), &motive);
         let body = crate::families::warn_unreachable_unless(cx, as_written, &recheck, |cx| {
@@ -1867,6 +1947,7 @@ fn in_arms(
         cx.scrutinees.truncate(known);
         body
     });
+    cx.statement = saved_statement;
     crate::arm_display::forget_scrutinees(cx, shown);
     // A pattern `let` is a `match` the compiler makes, not one written in the
     // source: its names are bound by the arms whether the goal changes or not.
@@ -2825,6 +2906,38 @@ impl Generalise<'_> {
                 .carried(g, met, &s, &c, x, &|part| self.apply_under(g, part, under))
         })())
     }
+}
+
+/// Statement `outer` as a generalised `match`'s motive, in the context the
+/// arms start from: each scrutinee (in the context of the first `base`
+/// variables) written in it replaced by the variable standing for it. Display
+/// only (`Ctx::statement`).
+fn written_motive(
+    cx: &Ctx,
+    outer: &crate::check::Statement,
+    exprs: &[Scrut],
+    base: usize,
+) -> Option<Term> {
+    let g = cx.g();
+    let level = cx.level();
+    if outer.level > base {
+        return None;
+    }
+    let at_base = lift::replace_with(
+        &g,
+        &outer.term,
+        outer.level,
+        &|l| Ok(Term::Var(base - 1 - l)),
+        &|_, _| None,
+    )
+    .ok()?;
+    let hook = |t: &Term, under: usize| {
+        let i = exprs
+            .iter()
+            .position(|s| same_shifted(&s.term, t, under, 0))?;
+        Some(Term::Var(level - 1 - (base + i) + under))
+    };
+    lift::replace_with(&g, &at_base, base, &|l| Ok(Term::Var(level - 1 - l)), &hook).ok()
 }
 
 #[cfg(test)]

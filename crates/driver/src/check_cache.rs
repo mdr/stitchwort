@@ -323,6 +323,9 @@ pub struct LibraryBundle {
     entries: std::collections::BTreeMap<(String, Key), Vec<u8>>,
     /// Paths under `std/` (`Float/Theory.sw`).
     pub left_out: std::collections::BTreeSet<String>,
+    /// A hash of the content above, for a key that outlives the bundle's
+    /// address: the language server's kept search session.
+    id: Key,
 }
 
 const BUNDLE_MAGIC: &[u8] = b"stitchwort library bundle 1\n";
@@ -335,6 +338,36 @@ impl LibraryBundle {
     /// The compiler this build's entries are made by.
     fn this_compiler() -> String {
         format!("stitchwort-{}-{}", env!("CARGO_PKG_VERSION"), FINGERPRINT)
+    }
+
+    /// A hash of a bundle's content, independent of where it is in memory.
+    fn content_id(
+        compiler: &str,
+        entries: &std::collections::BTreeMap<(String, Key), Vec<u8>>,
+        left_out: &std::collections::BTreeSet<String>,
+    ) -> Key {
+        let mut hasher = blake3::Hasher::new();
+        // Each field with its length, so adjacent ones can't run together.
+        let mut field = |bytes: &[u8]| {
+            hasher.update(&(bytes.len() as u64).to_le_bytes());
+            hasher.update(bytes);
+        };
+        field(compiler.as_bytes());
+        for ((unit, key), entry) in entries {
+            field(unit.as_bytes());
+            field(key);
+            field(entry);
+        }
+        for path in left_out {
+            field(path.as_bytes());
+        }
+        *hasher.finalize().as_bytes()
+    }
+
+    /// The bundle's content hash: equal bundles have the same id, whatever
+    /// their address, for a session key that outlives the bundle's address.
+    pub fn id(&self) -> Key {
+        self.id
     }
 
     pub fn len(&self) -> usize {
@@ -370,10 +403,14 @@ impl LibraryBundle {
             entries.insert((unit, key), chunk()?);
         }
         let left = String::from_utf8(chunk()?).ok()?;
+        let left_out: std::collections::BTreeSet<String> =
+            left.lines().map(str::to_string).collect();
+        let id = Self::content_id(&compiler, &entries, &left_out);
         Some(LibraryBundle {
             compiler,
             entries,
-            left_out: left.lines().map(str::to_string).collect(),
+            left_out,
+            id,
         })
     }
 
@@ -645,10 +682,13 @@ impl Default for BundleRecorder {
 impl BundleRecorder {
     /// The entries written so far, and `left_out`.
     pub fn finish(&self, left_out: std::collections::BTreeSet<String>) -> LibraryBundle {
+        let entries = self.entries.take();
+        let id = LibraryBundle::content_id(&self.compiler, &entries, &left_out);
         LibraryBundle {
             compiler: self.compiler.clone(),
-            entries: self.entries.take(),
+            entries,
             left_out,
+            id,
         }
     }
 }
@@ -698,6 +738,12 @@ mod tests {
         let read = LibraryBundle::decode(&bytes).expect("this build's bundle");
         assert_eq!(read.len(), 1);
         assert_eq!(read.left_out, bundle.left_out);
+        // The id is the content's, not the address's: it survives a round
+        // trip, and other content has another.
+        assert_eq!(read.id(), bundle.id());
+        let different = BundleRecorder::default();
+        different.write("std.List.Sort+nav+ty", &[4; 32], b"other entry");
+        assert_ne!(different.finish(Default::default()).id(), bundle.id());
         let store = BundleStore(std::sync::Arc::new(read));
         assert_eq!(
             store.read("std.List.Sort+nav+ty", &[1; 32]).as_deref(),

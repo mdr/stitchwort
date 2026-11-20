@@ -8,7 +8,8 @@ expression: output
  5 │ theorem plusOne ∀ (x: Nat): x + 1 = 1 + x := ?
    │                                              ┬  
    │                                              ╰── x: Nat
-   │                                                  ⊢ x + 1 = x + 1
+   │                                                  ⊢ x + 1 = 1 + x
+   │                                                    computes to x + 1 = x + 1
 ───╯
 [GOAL] Goal: in `plusThree`
    ╭─[ goals/sums-as-written.sw:7:56 ]
@@ -17,7 +18,8 @@ expression: output
    │                                                        ┬  
    │                                                        ╰── x: Nat
    │                                                            y: Nat
-   │                                                            ⊢ x + 3 = y + x + 2
+   │                                                            ⊢ x + 3 = y + (x + 2)
+   │                                                              computes to x + 3 = y + x + 2
    │ 
    │ Note: this statement is false; a counterexample:
    │         x = 0
