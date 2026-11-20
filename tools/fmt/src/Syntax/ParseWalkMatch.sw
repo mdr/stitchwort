@@ -19,80 +19,56 @@ import Fmt.Kinds (..)
 theorem givesScrutinee ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
     Parse.Gives GoodItems (() => scrutinee self modes) (found => True) :=
-  Parse.givesThen (givesNamedBinder modes) (name _ =>
-    Parse.givesThen (givesSelfAny self nested { modes = modes.sealed, level = LevelInline }) (value _ =>
-      Parse.givesDone byComputing))
+  byWalking [givesNamedBinder, givesSelfAny]
 
 theorem givesArmColumn ∀ (column: Option Nat): Parse.Gives GoodItems (() => armColumn column) (found => True) :=
-  Parse.givesAfter0 reads0Left (items => Parse.givesDone byComputing)
+  byWalking []
 
 theorem givesGuardAt ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self) (atIf: Bool):
     Parse.Gives GoodItems (() => guardAt self modes atIf) (found => True) :=
-  match atIf with
-    | True => Parse.givesThen givesBump (keyword _ =>
-      Parse.givesThen (givesNamedBinder modes) (binder _ =>
-        Parse.givesThen (givesFullAny self { modes | guard = True, lines = [] } nested) (condition _ =>
-          Parse.givesDone byComputing)))
-    | False => Parse.givesDone byComputing
+  byWalking [givesBump, givesNamedBinder, givesFullAny]
 
 theorem givesGuardOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
     Parse.Gives GoodItems (() => guardOf self modes) (found => True) :=
-  Parse.givesAfter0 (reads0At modes KwIf) (atIf => givesGuardAt self modes nested atIf)
+  byWalking [givesGuardAt]
 
 theorem givesArmBodyOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (absurd: Bool) (what: Text) (atArrow: Bool):
     Parse.Gives GoodItems (() => armBodyOf self modes absurd what atArrow) (found => True) :=
-  match absurd && !atArrow with
-    | True => Parse.givesDone byComputing
-    | False => Parse.givesThen (givesExpectAny modes FatArrow what) (arrow _ =>
-      Parse.givesThen (givesFullAny self modes nested) (value _ => Parse.givesDone byComputing))
+  byWalking [givesExpectAny, givesFullAny]
 
 theorem givesArmBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (absurd: Bool) (what: Text):
     Parse.Gives GoodItems (() => armBody self modes absurd what) (found => True) :=
-  Parse.givesAfter0 (reads0At modes FatArrow) (atArrow => givesArmBodyOf self modes nested absurd what atArrow)
+  byWalking [givesArmBodyOf]
 
 theorem givesMatchArm ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (scrutinees: Nat) (column: Option Nat) (found: List Arm):
     Parse.Gives GoodItems (() => matchArm more self modes scrutinees column found) (arms => True) :=
-  Parse.givesThen givesBump (bar _ =>
-    Parse.givesThen (givesArmPatterns modes) (patterns _ =>
-      match patterns.length != scrutinees with
-        | True => Parse.readsFatal
-        | False => Parse.givesThen (givesGuardOf self modes nested) (guard _ =>
-          Parse.givesThen (givesArmBody self modes nested (anyAbsurd patterns) "`=>`") (body _ =>
-            givesMatchArms more self modes nested scrutinees column [{ bar, patterns, guard, body }, ..found]))))
+  byWalking [givesBump, givesArmPatterns, givesGuardOf, givesArmBody, givesMatchArms]
 
 theorem givesMatchArmsAhead ∀ (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (scrutinees: Nat) (column: Option Nat) (found: List Arm) (lined atPipe: Bool):
     Parse.Gives GoodItems (() => matchArmsAhead fuel self modes scrutinees column found lined atPipe) (arms => True) :=
-  match fuel with
-    | Succ more =>
-      match atPipe && lined with
-        | True => givesMatchArm more self modes nested scrutinees column found
-        | False => Parse.givesDone byComputing
-    | Zero => Parse.givesDone byComputing
+  byWalking [givesMatchArm]
 
 theorem givesMatchArmsLined ∀ (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (scrutinees: Nat) (found: List Arm) (columned: (Bool, Option Nat)):
     Parse.Gives GoodItems (() => matchArmsLined fuel self modes scrutinees found columned) (arms => True) :=
-  match columned with
-    | (lined, column) => Parse.givesAfter0 (reads0At modes Pipe) (atPipe =>
-      givesMatchArmsAhead fuel self modes nested scrutinees column found lined atPipe)
+  byWalking [givesMatchArmsAhead]
 
 theorem givesMatchArms ∀ (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (scrutinees: Nat) (column: Option Nat) (found: List Arm):
     Parse.Gives GoodItems (() => matchArms fuel self modes scrutinees column found) (arms => True) :=
-  Parse.givesThen (givesArmColumn column) (columned _ =>
-    givesMatchArmsLined fuel self modes nested scrutinees found columned)
+  byWalking [givesArmColumn, givesMatchArmsLined]
 
 theorem givesClauseMatchesBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self) (atArrow: Bool):
@@ -115,51 +91,31 @@ theorem givesClauseArmBody ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (m
     (nested: Nested self)
     (kind: ClauseKind) (column: Option Nat) (found: List Arm) (bar: Word) (patterns: List Pattern):
     Parse.Gives GoodItems (() => clauseArmBody more self modes kind column found bar patterns) (arms => True) :=
-  Parse.givesThen (givesGuardOf self modes nested) (guard _ =>
-    Parse.givesThen (givesClauseBody self modes nested kind (anyAbsurd patterns)) (body _ =>
-      givesClauseArms more self modes nested kind (Some patterns.length) column [
-        { bar, patterns, guard, body },
-        ..found
-      ]))
+  byWalking [givesGuardOf, givesClauseBody, givesClauseArms]
 
 theorem givesClauseArm ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (kind: ClauseKind) (count column: Option Nat) (found: List Arm):
     Parse.Gives GoodItems (() => clauseArm more self modes kind count column found) (arms => True) :=
-  Parse.givesThen givesBump (bar _ =>
-    Parse.givesThen (givesArmPatterns modes) (patterns _ =>
-      match count with
-        | Some first =>
-          match first != patterns.length with
-            | True => Parse.readsFatal
-            | False => givesClauseArmBody more self modes nested kind column found bar patterns
-        | None => givesClauseArmBody more self modes nested kind column found bar patterns))
+  byWalking [givesBump, givesArmPatterns, givesClauseArmBody]
 
 theorem givesClauseArmsAhead ∀ (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (kind: ClauseKind) (count column: Option Nat) (found: List Arm) (lined atPipe: Bool):
     Parse.Gives GoodItems (() => clauseArmsAhead fuel self modes kind count column found lined atPipe) (arms => True) :=
-  match fuel with
-    | Succ more =>
-      match atPipe && lined with
-        | True => givesClauseArm more self modes nested kind count column found
-        | False => Parse.givesDone byComputing
-    | Zero => Parse.givesDone byComputing
+  byWalking [givesClauseArm]
 
 theorem givesClauseArmsLined ∀ (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (kind: ClauseKind) (count: Option Nat) (found: List Arm) (columned: (Bool, Option Nat)):
     Parse.Gives GoodItems (() => clauseArmsLined fuel self modes kind count found columned) (arms => True) :=
-  match columned with
-    | (lined, column) => Parse.givesAfter0 (reads0At modes Pipe) (atPipe =>
-      givesClauseArmsAhead fuel self modes nested kind count column found lined atPipe)
+  byWalking [givesClauseArmsAhead]
 
 theorem givesClauseArms ∀ (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (kind: ClauseKind) (count column: Option Nat) (found: List Arm):
     Parse.Gives GoodItems (() => clauseArms fuel self modes kind count column found) (arms => True) :=
-  Parse.givesThen (givesArmColumn column) (columned _ =>
-    givesClauseArmsLined fuel self modes nested kind count found columned)
+  byWalking [givesArmColumn, givesClauseArmsLined]
 
 theorem givesClauseLambda ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word)
     (word: Option Word) (kind: ClauseKind)
@@ -175,80 +131,54 @@ theorem givesClauseLambda ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) 
 
 theorem givesHandlerName ∀ (modes: Modes) (what: Text) (underscore: Bool):
     Parse.Gives GoodItems (() => handlerName modes what underscore) (word => True) :=
-  match underscore with
-    | True => givesBump
-    | False => givesLower modes what
+  byWalking [givesBump, givesLower]
 
 theorem givesHandlerNameAt ∀ (modes: Modes) (what: Text):
     Parse.Gives GoodItems (() => handlerName modes what (modes.at Underscore)) (word => True) :=
-  Parse.givesAfter0 (reads0At modes Underscore) (underscore => givesHandlerName modes what underscore)
+  byWalking [givesHandlerName]
 
 theorem givesOperationEnd ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (bar: Comments) (operation: Word) (argument: Pattern) (comma: Comments) (continuation: Word) (atComma: Bool):
     Parse.Gives GoodItems (() => operationEnd self modes bar operation argument comma continuation atComma) (found =>
       True) :=
-  match atComma with
-    | True => Parse.readsFatal
-    | False => Parse.givesThen (givesExpectFixed modes FatArrow "`=>`") (arrow _ =>
-      Parse.givesThen (givesFullAny self modes nested) (body _ => Parse.givesDone byComputing))
+  byWalking [givesExpectFixed, givesFullAny]
 
 theorem givesOperationClause ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (bar: Comments) (operation: Word) (argument: Pattern) (atArrow: Bool):
     Parse.Gives GoodItems (() => operationClause self modes bar operation argument atArrow) (found => True) :=
-  match atArrow with
-    | True => Parse.readsFatal
-    | False => Parse.givesThen (givesExpectFixed modes Comma "`,` and a name for the continuation") (comma _ =>
-      Parse.givesThen (givesHandlerNameAt modes "a name for the continuation") (continuation _ =>
-        Parse.givesAfter0 (reads0At modes Comma) (atComma =>
-          givesOperationEnd self modes nested bar operation argument comma continuation atComma)))
+  byWalking [givesExpectFixed, givesHandlerNameAt, givesOperationEnd]
 
 theorem givesHandlerClauseOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (bar: Comments) (atReturn: Bool):
     Parse.Gives GoodItems (() => handlerClauseOf self modes bar atReturn) (found => True) :=
-  match atReturn with
-    | True => Parse.givesThen givesFixedFrom (keyword _ =>
-      Parse.givesThen (givesHandlerNameAt modes "a name for the result") (name _ =>
-        Parse.givesThen (givesExpectFixed modes FatArrow "`=>`") (arrow _ =>
-          Parse.givesThen (givesFullAny self modes nested) (body _ => Parse.givesDone byComputing))))
-    | False => Parse.givesThen (givesLowerQualifiedAny modes "an operation, or `return`") (op _ =>
-      Parse.givesThen (givesPatternOf modes) (arg _ =>
-        Parse.givesAfter0 (reads0At modes FatArrow) (atArrow =>
-          givesOperationClause self modes nested bar op arg atArrow)))
+  byWalking [givesFixedFrom, givesHandlerNameAt, givesExpectFixed, givesFullAny, givesLowerQualifiedAny, givesPatternOf,
+    givesOperationClause]
 
 theorem givesHandlerClause ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self) (bar: Comments):
     Parse.Gives GoodItems (() => handlerClause self modes bar) (found => True) :=
-  Parse.givesAfter0 (reads0At modes KwReturn) (atReturn => givesHandlerClauseOf self modes nested bar atReturn)
+  byWalking [givesHandlerClauseOf]
 
 theorem givesClausesAhead ∀ (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (column: Option Nat) (found: List HandlerClause) (lined atPipe: Bool):
     Parse.Gives GoodItems (() => clausesAhead fuel self modes column found lined atPipe) (clauses => True) :=
-  match fuel with
-    | Succ more =>
-      match atPipe && lined with
-        | True => Parse.givesThen givesFixedFrom (bar _ =>
-          Parse.givesThen (givesHandlerClause self modes nested bar) (clause _ =>
-            givesClausesFrom more self modes nested column [clause, ..found]))
-        | False => Parse.givesDone byComputing
-    | Zero => Parse.givesDone byComputing
+  byWalking [givesFixedFrom, givesHandlerClause, givesClausesFrom]
 
 theorem givesClausesLined ∀ (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (found: List HandlerClause) (columned: (Bool, Option Nat)):
     Parse.Gives GoodItems (() => clausesLined fuel self modes found columned) (clauses => True) :=
-  match columned with
-    | (lined, column) => Parse.givesAfter0 (reads0At modes Pipe) (atPipe =>
-      givesClausesAhead fuel self modes nested column found lined atPipe)
+  byWalking [givesClausesAhead]
 
 theorem givesClausesFrom ∀ (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (column: Option Nat) (found: List HandlerClause):
     Parse.Gives GoodItems (() => clausesFrom fuel self modes column found) (clauses => True) :=
-  Parse.givesThen (givesArmColumn column) (columned _ => givesClausesLined fuel self modes nested found columned)
+  byWalking [givesArmColumn, givesClausesLined]
 
 theorem givesHandlerClauses ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
@@ -262,26 +192,18 @@ theorem givesHandlerClauses ∀ (self: Goal → {Parse Item} Expr) (modes: Modes
 theorem givesHandleExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
     Parse.Gives GoodItems (() => handleExpr self modes) Out :=
-  Parse.givesThen givesFixedFrom (keyword _ =>
-    Parse.givesThen (givesSelfAny self nested { modes = modes.sealed, level = LevelInline }) (computation _ =>
-      Parse.givesThen (givesExpectFixed modes KwWith "`with`") (withKeyword _ =>
-        Parse.givesThen (givesHandlerClauses self modes nested) (clauses _ => Parse.givesDone byComputing))))
+  byWalking [givesFixedFrom, givesSelfAny, givesExpectFixed, givesHandlerClauses]
 
 theorem givesReifyComma ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (keyword reify: Comments) (computation: Expr) (comma: Bool):
     Parse.Gives GoodItems (() => reifyComma self modes keyword reify computation comma) Out :=
-  match comma with
-    | True => Parse.readsFatal
-    | False => Parse.givesThen (givesExpectFixed modes KwWith "`with`") (withKeyword _ =>
-      Parse.givesThen (givesHandlerClauses self modes nested) (clauses _ => Parse.givesDone byComputing))
+  byWalking [givesExpectFixed, givesHandlerClauses]
 
 theorem givesReifyExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword reify: Comments)
     (nested: Nested self):
     Parse.Gives GoodItems (() => reifyExpr self modes keyword reify) Out :=
-  Parse.givesThen (givesSelfAny self nested { modes = modes.sealed, level = LevelInline }) (computation _ =>
-    Parse.givesAfter0 (reads0At modes Comma) (comma =>
-      givesReifyComma self modes nested keyword reify computation comma))
+  byWalking [givesSelfAny, givesReifyComma]
 
 theorem givesCaseNamesOn ∀ (fuel: Nat) (modes: Modes) (found: List Word) (seen: Option Tok):
     Parse.Gives GoodItems (() => caseNamesOn fuel modes found seen) (names => True) :=
@@ -293,7 +215,7 @@ theorem givesCaseNamesOn ∀ (fuel: Nat) (modes: Modes) (found: List Word) (seen
 
 theorem givesCaseNames ∀ (fuel: Nat) (modes: Modes) (found: List Word):
     Parse.Gives GoodItems (() => caseNames fuel modes found) (names => True) :=
-  Parse.givesAfter0 (reads0Peek modes) (seen => givesCaseNamesOn fuel modes found seen)
+  byWalking [givesCaseNamesOn]
 
 theorem givesInductAhead ∀ (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
@@ -316,15 +238,13 @@ theorem givesInductLined ∀ (fuel: Nat) (self: Goal → {Parse Item} Expr) (mod
     (nested: Nested self)
     (found: List InductArm) (columned: (Bool, Option Nat)):
     Parse.Gives GoodItems (() => inductLined fuel self modes found columned) (arms => True) :=
-  match columned with
-    | (lined, column) => Parse.givesAfter0 (reads0At modes Pipe) (atPipe =>
-      givesInductAhead fuel self modes nested column found lined atPipe)
+  byWalking [givesInductAhead]
 
 theorem givesInductArms ∀ (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (column: Option Nat) (found: List InductArm):
     Parse.Gives GoodItems (() => inductArms fuel self modes column found) (arms => True) :=
-  Parse.givesThen (givesArmColumn column) (columned _ => givesInductLined fuel self modes nested found columned)
+  byWalking [givesArmColumn, givesInductLined]
 
 theorem givesInductComma ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
@@ -342,8 +262,7 @@ theorem givesInductComma ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 theorem givesInductExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword induct: Comments)
     (nested: Nested self):
     Parse.Gives GoodItems (() => inductExpr self modes keyword induct) Out :=
-  Parse.givesThen (givesSelfAny self nested { modes = modes.sealed, level = LevelInline }) (call _ =>
-    Parse.givesAfter0 (reads0At modes Comma) (comma => givesInductComma self modes nested keyword induct call comma))
+  byWalking [givesSelfAny, givesInductComma]
 
 theorem reads0SpecialAhead ∀ (modes: Modes) (word: Text): Reads0 (() => specialAhead modes word) :=
   Parse.reads0Then (reads0WordAhead modes word) (found =>
@@ -389,9 +308,7 @@ theorem givesMatchPipe ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (ke
 theorem givesMatchReify ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word)
     (nested: Nested self) (reify: Bool):
     Parse.Gives GoodItems (() => matchReify self modes keyword reify) Out :=
-  match reify with
-    | True => Parse.givesThen givesFixedFrom (name _ => givesReifyExpr self modes keyword.comments name nested)
-    | False => Parse.givesAfter0 (reads0At modes Pipe) (piped => givesMatchPipe self modes keyword nested piped)
+  byWalking [givesFixedFrom, givesReifyExpr, givesMatchPipe]
 
 theorem givesMatchSpecial ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word)
     (nested: Nested self) (induct: Bool):
@@ -411,11 +328,7 @@ theorem givesMatchExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (ke
 theorem givesDefinitionArm ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
     Parse.Gives GoodItems (() => definitionArm self modes) (found => True) :=
-  Parse.givesThen givesBump (bar _ =>
-    Parse.givesThen (givesArmPatterns modes) (patterns _ =>
-      Parse.givesThen (givesGuardOf self modes nested) (guard _ =>
-        Parse.givesThen (givesArmBody self modes nested (anyAbsurd patterns) "`=>` and the arm's body") (body _ =>
-          Parse.givesDone byComputing))))
+  byWalking [givesBump, givesArmPatterns, givesGuardOf, givesArmBody]
 
 theorem givesDefinitionArmStep ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
@@ -456,15 +369,7 @@ theorem givesDefinitionArmsOn ∀ (self: Goal → {Parse Item} Expr) (modes: Mod
     (nested: Nested self)
     (d: Nat) (items: List Item):
     Parse.Gives GoodItems (() => definitionArmsOn self modes d items) (found => True) :=
-  match items with
-    | [first, ..rest] =>
-      match !first.leaf.token.lineStart with
-        | True => Parse.readsFatal
-        | False =>
-          match first.leaf.token.column <= d with
-            | True => Parse.readsFatal
-            | False => givesDefinitionArmsFrom self { modes | limit = Some first.leaf.token.column } nested d
-    | [] => givesFail modes _
+  byWalking [givesDefinitionArmsFrom, givesFail]
 
 theorem givesArmsBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (d: Nat)
     (nested: Nested self):

@@ -460,6 +460,7 @@ theorem inSliceOutside ∀ (holds: Expr → Prop) (expr: Expr) (outside: expr.wi
 theorem parsedOutside ∀ (floor: Nat) (expr: Expr) (outside: expr.within1 = False): Parsed floor expr :=
   inSliceOutside (expr => floor <= expr.level) expr outside
 
+@[walk]
 theorem givesBump: Parse.Gives GoodItems (() => bump()) (word => True) :=
   Parse.givesThen
     [first := found => True]
@@ -469,6 +470,7 @@ theorem givesBump: Parse.Gives GoodItems (() => bump()) (word => True) :=
         | Some item => Parse.givesDone byComputing
         | None => Parse.readsFatal)
 
+@[walk]
 theorem givesLeft: Parse.Gives GoodItems (() => left()) (found => True) :=
   Parse.readsInMark (here => here.rest) _ (start fine => Parse.readsAtDone _ start.rest byComputing)
 
@@ -525,10 +527,12 @@ theorem givesSuffixes ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) => e
           givesSuffixesOn holds outside more modes called paren seen calledParsed (later again againParsed =>
             givesSuffixes holds outside more modes later again paren againParsed)))
 
+@[walk]
 theorem givesAt ∀ (modes: Modes) (wanted: Tok): Parse.Gives GoodItems (() => modes.at wanted) (found => True) :=
   Parse.readsInMark (here => isSome wanted (peekIn modes 0 here.rest)) _ (start fine =>
     Parse.readsAtDone _ _ byComputing)
 
+@[walk]
 theorem givesPeek ∀ (modes: Modes): Parse.Gives GoodItems (() => modes.peek) (found => True) :=
   Parse.readsInMark (here => peekIn modes 0 here.rest) _ (start fine => Parse.readsAtDone _ _ byComputing)
 
@@ -586,9 +590,15 @@ theorem givesUnexpected ∀ (modes: Modes) (what: Text):
   Parse.givesThen givesLeft (seen _ => Parse.givesDone byComputing)
 
 --| A parse that fails gives anything.
+@[walk]
 theorem givesFail ∀ (modes: Modes) (what: Text) [holds: a → Prop]:
     Parse.Gives GoodItems (() => modes.fail what) holds :=
   Parse.givesThen (givesUnexpected modes what) (message _ => Parse.readsFatal)
+
+@[walk]
+theorem givesFatal ∀ [a: Type] (message: Text) [holds: a → Prop]:
+    Parse.Gives GoodItems (() => Syntax.fatal message) holds :=
+  Parse.readsFatal
 
 --| `expect` gives the word of a token of the kind it was asked for.
 theorem givesExpect ∀ (modes: Modes) (wanted: Tok) (what: Text)
