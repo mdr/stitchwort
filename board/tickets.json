@@ -1,5 +1,5 @@
 {
-  "next": 4348,
+  "next": 4350,
   "tickets": [
     {
       "id": 47,
@@ -28764,12 +28764,12 @@
     {
       "id": 4343,
       "title": "[Opus] Review SW-4341 (D3699 guard forms: equations.rs, equations/induct.rs refute/refute_guard index arithmetic, Bool overlap tails), per D2364",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Paper lane. Review lands in docs/reviews/SW-4341-guard-forms-review.md.",
+      "body": "Paper lane. Review lands in docs/reviews/SW-4341-guard-forms-review.md.\n\nProgress (Opus, 20 Nov): started 08:09, done 08:20 (est. 30 min). Review committed on lane/SW-4341 (3ced7d853). Verdict: merge after fixes. S1 syntax.md:2150 chain paragraph still says guard equations read as ∧; S2 no example covers a Decidable.elim-tested Bool guard over a partial overlap, or a two-equation Bool tail in refute_guard. Notes: if h: over a Bool test fails as = False (docs say ¬P); &&-with-proof exception missing in proving guide/guide ch. 10; explicit skip for normal=None (equations.rs:7440); friction note §1 still says n != 3 changes.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -28822,6 +28822,32 @@
       "labels": [],
       "epic": "dev-loop-speed",
       "body": "From SW-4329.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4348,
+      "title": "[Sonnet] equations.rs ~7440: when a Bool overlap meets a case without the expected b = X form, skip the equation with a clear reason instead of building an ill-typed term for the kernel to refuse (SW-4343 N3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From the SW-4341 review.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4349,
+      "title": "[DeepSeek] board/board show N --body-only (print only the body), and use it in board/README.md's append recipe (SW-4343 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "From SW-4343.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
