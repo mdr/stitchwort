@@ -11,6 +11,8 @@
 //! run it too (`stitchwort_web::float_gate`): the gate is to pass on both
 //! kernels.
 
+use std::time::{Duration, Instant};
+
 use num_bigint::BigInt;
 use stitchwort_core::float::{self, FloatNative};
 use stitchwort_core::native::nat_value;
@@ -220,26 +222,51 @@ struct Run {
     forms: Vec<(String, String)>,
 }
 
+/// How long [`run`] lets a [`Mode::AllNativesOff`] session run.
+///
+/// Since SW-3711 a library's own declarations load under at least the default
+/// limits whatever the session's, so a work limit cannot bound them. With
+/// every native off, `Float`'s `Nat` proofs count down one `Succ` at a time:
+/// a run can take minutes and many GB (16 GB in a test, SW-4206). [`run`]
+/// stops such a mode at this deadline instead, so no caller can run it
+/// unbounded. Other modes, which finish promptly, run without a deadline as
+/// before.
+pub const ALL_NATIVES_OFF_DEADLINE: Duration = Duration::from_secs(30);
+
 /// Runs every check in each of `modes`, then compares the normal forms
 /// across them. `limits` bound each session (a mode that runs out fails its
-/// checks, saying so).
+/// checks, saying so). A [`Mode::AllNativesOff`] session is also stopped at
+/// [`ALL_NATIVES_OFF_DEADLINE`], so a caller cannot leave it unbounded.
 pub fn run(modes: &[Mode], limits: Limits) -> Vec<Check> {
-    run_until(modes, limits, None)
+    run_with_deadline(modes, limits, ALL_NATIVES_OFF_DEADLINE)
+}
+
+/// [`run`], with `natives_off_deadline` in place of
+/// [`ALL_NATIVES_OFF_DEADLINE`]. The unit test uses about two seconds so it
+/// need not wait out the built-in thirty.
+fn run_with_deadline(modes: &[Mode], limits: Limits, natives_off_deadline: Duration) -> Vec<Check> {
+    run_with(modes, limits, |mode| {
+        (mode == Mode::AllNativesOff).then(|| Instant::now() + natives_off_deadline)
+    })
 }
 
 /// [`run`], with each session stopped at `deadline` if it is still going.
 /// A session's `limits` don't bound the library's own declarations, which
 /// load under at least the default ones (SW-3711): a deadline is what stops
 /// a mode whose library checks never finish.
-pub fn run_until(
+pub fn run_until(modes: &[Mode], limits: Limits, deadline: Option<Instant>) -> Vec<Check> {
+    run_with(modes, limits, |_| deadline)
+}
+
+fn run_with(
     modes: &[Mode],
     limits: Limits,
-    deadline: Option<std::time::Instant>,
+    deadline: impl Fn(Mode) -> Option<Instant>,
 ) -> Vec<Check> {
     let mut out = Vec::new();
     let mut runs = Vec::new();
     for &mode in modes {
-        let run = run_mode(mode, limits, deadline);
+        let run = run_mode(mode, limits, deadline(mode));
         out.extend(run.checks.iter().cloned());
         runs.push((mode, run));
     }
@@ -588,4 +615,30 @@ fn run_mode(mode: Mode, limits: Limits, deadline: Option<std::time::Instant>) ->
         }
     }
     Run { checks, forms }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// [`run`] bounds an `AllNativesOff` session by itself: a caller that
+    /// passes no deadline still gets one (shortened here so the test is
+    /// quick), and the mode ends with `E-RESOURCE`'s deadline error rather
+    /// than running for minutes.
+    #[test]
+    fn run_stops_all_natives_off_at_its_deadline() {
+        let deadline = Duration::from_secs(2);
+        let margin = Duration::from_secs(5);
+        let started = Instant::now();
+        let checks = run_with_deadline(&[Mode::AllNativesOff], Limits::default(), deadline);
+        let elapsed = started.elapsed();
+        assert!(elapsed < deadline + margin, "took {elapsed:?}");
+        let loaded = &checks[0];
+        assert!(!loaded.passed, "{loaded:?}");
+        assert!(loaded.detail.contains("E-RESOURCE"), "{loaded:?}");
+        assert!(
+            loaded.detail.contains("took longer than the time allowed"),
+            "{loaded:?}"
+        );
+    }
 }
