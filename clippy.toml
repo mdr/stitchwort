@@ -4,4 +4,5 @@ disallowed-types = [
 ]
 disallowed-methods = [
     { path = "stitchwort_core::value::quote_folded", reason = "fails with E-RESOURCE where a user's hypothesis or goal unfolds past the read-back limit: use stitchwort_elab's check::quote_folded, which falls back to the calls as written (SW-4333)" },
+    { path = "stitchwort_core::value::quote", reason = "fails with E-RESOURCE where a user's hypothesis or goal unfolds past the read-back limit: use check::quote_or_written where the term need only be convertible, check::quote_unfolded where the unfolded form is needed, check::quote_internal for small internal terms (SW-4336)" },
 ]

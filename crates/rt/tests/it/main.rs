@@ -1,5 +1,9 @@
 //! The crate's integration tests in one binary (docs/proposals/fewer-test-binaries.md).
 
+// These tests read back with `value::quote` directly (see clippy.toml: the
+// entry guards the elaborator's read-backs).
+#![allow(clippy::disallowed_methods)]
+
 mod alloc_trace;
 mod arrays;
 mod backend;

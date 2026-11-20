@@ -55,9 +55,10 @@
 use std::rc::Rc;
 use stitchwort_core::Ev;
 
+use crate::check::quote_internal;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Branch;
-use stitchwort_core::value::{conv, eval, quote};
+use stitchwort_core::value::{conv, eval};
 use stitchwort_core::{DataId, DefId, Icit, Name, Sort, Term, Value};
 use stitchwort_syntax::Diagnostic;
 
@@ -430,7 +431,7 @@ impl Elaborator {
         let data = g.data(d);
         let depth = data.params().len() + i;
         let value = eval(g, &vars(0..depth), &data.ctors()[c].fields[i].1)?;
-        Ok(quote(g, depth, &value)?)
+        Ok(quote_internal(g, depth, &value)?)
     }
 
     /// How `ty` (in a context of `depth` variables, `owner`'s parameters
@@ -630,7 +631,7 @@ impl Elaborator {
     fn pred_levels(&self, pred: &Pred, depth: usize, found: &mut dyn FnMut(usize)) -> R<()> {
         let g = &self.ev();
         let value = |v: &Value, found: &mut dyn FnMut(usize)| -> R<()> {
-            let t = quote(g, depth, v)?;
+            let t = quote_internal(g, depth, v)?;
             for (s, under) in t.subterms() {
                 if let Term::Var(ix) = s
                     && *ix >= under
@@ -1257,7 +1258,7 @@ impl Elaborator {
             Some(f) => {
                 let move_to = |v: &Value| -> R<Value> {
                     let depth = f.field_levels.last().map_or(np, |l| l + 1).max(np);
-                    let t = quote(g, depth, v)?;
+                    let t = quote_internal(g, depth, v)?;
                     let mut env: Vec<Value> = vec![stitchwort_core::value::unused(); depth];
                     for (j, slot) in env.iter_mut().enumerate().take(np) {
                         *slot = Value::var(j);

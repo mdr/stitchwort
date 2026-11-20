@@ -14,7 +14,8 @@
 
 use std::rc::Rc;
 
-use stitchwort_core::value::{Head, force, quote};
+use crate::check::quote_or_written;
+use stitchwort_core::value::{Head, force};
 use stitchwort_core::{Icit, Name, Term, Value};
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::Expr;
@@ -892,7 +893,7 @@ pub(crate) fn dependencies(cx: &Ctx, ty: &Value) -> Result<Vec<Vec<usize>>> {
             return Ok(out);
         };
         let i = out.len();
-        let dom = quote(&g, base + i, &dom)?;
+        let dom = quote_or_written(&g, base + i, &dom)?.0;
         out.push((0..i).filter(|j| dom.mentions(i - 1 - j)).collect());
         ty = cod.apply(&g, Value::var(base + i))?;
     }

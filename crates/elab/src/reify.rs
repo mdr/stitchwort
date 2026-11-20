@@ -23,8 +23,9 @@
 //! depends on how the computation is represented. R1 splits one step, on a
 //! thunk whose row is closed and lists its abilities.
 
+use crate::check::quote_internal;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::value::{force, quote};
+use stitchwort_core::value::force;
 use stitchwort_core::{Term, Value};
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{self, Alt, Clause, Expr, MatchKind, Pattern};
@@ -89,7 +90,7 @@ fn return_display(
         _ => None,
     })?;
     let base = cx.level();
-    let computation = quote(&cx.g(), base, &cx.eval(term).ok()?).ok()?;
+    let computation = quote_internal(&cx.g(), base, &cx.eval(term).ok()?).ok()?;
     let folded = quote_folded(&cx.g(), base, goal).ok()?;
     let thunk = match thunk {
         Expr::Var(name) => cx.lookup(&name.text),

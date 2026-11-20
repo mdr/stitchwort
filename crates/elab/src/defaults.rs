@@ -999,7 +999,7 @@ fn bind_needed(
         let Value::Pi(x, _, dom, cod) = force(&g, ty)? else {
             return Ok(term);
         };
-        parts.push((x.clone(), cx.quote(&dom)?));
+        parts.push((x.clone(), cx.quote_or_written(&dom)?));
         ty = cod.apply(&g, cx.eval(arg)?)?;
     }
     let k = lets.len();

@@ -1842,7 +1842,7 @@ impl Search<'_, '_> {
             return Ok(false);
         };
         let p = cod.apply(&g, Value::var(level))?;
-        let p = stitchwort_core::value::quote(&g, level + 1, &p)?;
+        let p = crate::check::quote_unfolded(&g, level + 1, &p)?;
         Ok(!crate::matching::occurs(
             &self.lhs_term.borrow().shift(&g, 1, 0)?,
             &p,

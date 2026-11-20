@@ -34,8 +34,9 @@ mod inputs;
 
 use std::rc::Rc;
 
+use crate::check::quote_internal;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::value::{eval, force, quote, quote_at_most};
+use stitchwort_core::value::{eval, force, quote_at_most};
 use stitchwort_core::{BigUint, DefId, Icit, Limits, Name, ResourceError, Sort, Term, Value};
 
 use crate::check::{Ctx, builtin_data, builtin_def};
@@ -349,7 +350,7 @@ impl Elaborator {
     /// unfolds it (docs/proposals/opaque-definitions.md §6.10).
     fn with_opaque_counterexample_note(&self, def: DefId, note: String) -> String {
         let g = &self.ev();
-        let Ok(statement) = quote(g, 0, g.def(def).ty_value()) else {
+        let Ok(statement) = quote_internal(g, 0, g.def(def).ty_value()) else {
             return note;
         };
         let ids: Vec<DefId> = crate::opaque::declined_in(g, [&statement])
@@ -927,7 +928,7 @@ impl Elaborator {
             ..self.options.limits
         });
         // In full first, so a `Float` keeps the proof it prints by.
-        if let Ok(t) = eval(g, &[], term).and_then(|v| quote(g, 0, &v))
+        if let Ok(t) = eval(g, &[], term).and_then(|v| quote_internal(g, 0, &v))
             && is_data(&t)
         {
             return shown::cut(&stitchwort_core::pretty::term_in(g, self, &[], &t));
@@ -942,7 +943,7 @@ impl Elaborator {
         let Some(value) = value else {
             return ("…".to_string(), None);
         };
-        match quote(g, 0, &value) {
+        match quote_internal(g, 0, &value) {
             Ok(t) => (
                 shown::cut(&stitchwort_core::pretty::term_in(g, self, &[], &t)),
                 Some(t),
@@ -1013,7 +1014,7 @@ impl Elaborator {
                 };
                 let in_full = {
                     let _op = g.machine.budget.operation(limits);
-                    eval(g, &env, term).and_then(|v| quote(g, 0, &v))
+                    eval(g, &env, term).and_then(|v| quote_internal(g, 0, &v))
                 };
                 if let Ok(t) = in_full
                     && is_data(&t)

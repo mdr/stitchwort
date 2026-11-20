@@ -233,7 +233,10 @@ pub fn exportable(g: &View<'_>, id: DefId) -> Result<ExportSig, Diagnostic> {
         // under them all.
         let types = tel.params.iter().map(|(_, ty, _)| ty).chain([&tel.result]);
         for (depth, ty) in types.enumerate() {
-            if quote(g, depth, ty)?
+            // A declaration's own parameter and result types: small.
+            #[allow(clippy::disallowed_methods)]
+            let read = quote(g, depth, ty)?;
+            if read
                 .subterms()
                 .any(|(t, _)| matches!(t, Term::Def(d) if *d == delay))
             {

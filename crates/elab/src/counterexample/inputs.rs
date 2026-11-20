@@ -15,9 +15,10 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use crate::check::quote_internal;
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::value::{conv, eval, force, quote};
+use stitchwort_core::value::{conv, eval, force};
 use stitchwort_core::{BigUint, DataId, DefId, Ev, Icit, Sort, Term, Value};
 
 /// The largest total input size enumerated.
@@ -224,7 +225,7 @@ impl<'g> Inputs<'g> {
         let Value::Data(d, args) = &ty else {
             return None;
         };
-        let key = stitchwort_core::pretty::term(g, &[], &quote(g, 0, &ty).ok()?);
+        let key = stitchwort_core::pretty::term(g, &[], &quote_internal(g, 0, &ty).ok()?);
         if let Some(&plan) = self.keys.get(&key) {
             return match self.plans[plan] {
                 Plan::Failed => None,
@@ -352,7 +353,7 @@ impl<'g> Inputs<'g> {
                 break;
             }
             let at = params.iter().position(|(p, _)| *p == x)?;
-            head = Term::app_icit(head, quote(g, 0, &args[at]).ok()?, icit);
+            head = Term::app_icit(head, quote_internal(g, 0, &args[at]).ok()?, icit);
             ty = force(g, cod.apply(g, args[at].clone()).ok()?).ok()?;
         }
         if explicit != 1 || args.len() < 2 {

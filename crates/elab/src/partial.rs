@@ -32,10 +32,11 @@
 
 use std::rc::Rc;
 
+use crate::check::quote_internal;
 use crate::kernel;
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::value::{Elim, Head, Spine, Value, eval, force, quote};
+use stitchwort_core::value::{Elim, Head, Spine, Value, eval, force};
 use stitchwort_core::{DataId, DefId, Icit, Name, Sort, Term};
 use stitchwort_syntax::ast::Decl;
 use stitchwort_syntax::{Diagnostic, Span};
@@ -655,7 +656,7 @@ impl Elaborator {
             params.push(Param {
                 name: x,
                 icit,
-                ty: quote(g, level, &dom)?,
+                ty: quote_internal(g, level, &dom)?,
             });
             ty = cod.apply(g, Value::var(level))?;
         }
@@ -664,7 +665,7 @@ impl Elaborator {
         };
         let arg = |i: usize| -> Result<Term> {
             match &spine[i] {
-                Elim::App(v, _) => Ok(quote(g, n, v)?),
+                Elim::App(v, _) => Ok(quote_internal(g, n, v)?),
                 Elim::J { .. } | Elim::Proj(..) => {
                     unreachable!("a `Delay` is applied to its arguments")
                 }
@@ -793,7 +794,12 @@ impl Elaborator {
             let res = eval(g, &env, &m.res)?;
             match &shared {
                 None => {
-                    shared = Some((quote(g, f, &ops)?, quote(g, f, &res)?, ops, res));
+                    shared = Some((
+                        quote_internal(g, f, &ops)?,
+                        quote_internal(g, f, &res)?,
+                        ops,
+                        res,
+                    ));
                 }
                 Some((_, _, ops0, res0)) => {
                     let same = stitchwort_core::value::conv(g, f, ops0, &ops)?

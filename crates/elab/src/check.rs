@@ -717,8 +717,11 @@ impl<'e> Ctx<'e> {
         Ok(eval(&self.g(), &self.env, term)?)
     }
 
+    /// Unfolded read-back, which runs out (E-RESOURCE size) where a user's
+    /// hypothesis or goal unfolds past the limit: callers that only need a
+    /// convertible term use [`Ctx::quote_or_written`] (SW-4336).
     pub fn quote(&self, value: &Value) -> Result<Term> {
-        Ok(quote(&self.g(), self.level(), value)?)
+        Ok(quote_unfolded(&self.g(), self.level(), value)?)
     }
 
     /// [`Ctx::quote`], or the value as written ([`quote_or_written`]) where
@@ -1655,8 +1658,10 @@ impl<'e> Ctx<'e> {
         let g = self.g();
         let level = self.level();
         let proof = crate::rewrite::is_proof_type(self, found).unwrap_or(false);
-        let (Ok(expected), Ok(found)) = (quote(&g, level, expected), quote(&g, level, found))
-        else {
+        let (Ok(expected), Ok(found)) = (
+            quote_unfolded(&g, level, expected),
+            quote_unfolded(&g, level, found),
+        ) else {
             return d;
         };
         for (base, needle, span, var, equation) in self.scrutinees.iter().rev() {
@@ -1803,7 +1808,7 @@ impl<'e> Ctx<'e> {
         let level = self.level();
         let quoted: Vec<Term> = sides
             .iter()
-            .filter_map(|side| quote(&g, level, side).ok())
+            .filter_map(|side| quote_unfolded(&g, level, side).ok())
             .collect();
         let mut wanted = self.e.decl.equation_wanted.borrow_mut();
         for (base, needle, span, _, equation) in &self.scrutinees {
@@ -1879,7 +1884,7 @@ impl<'e> Ctx<'e> {
     fn rewrite_scrutinee(&mut self, goal: &Value) -> Result<Option<(ScrutineeRewrite, Value)>> {
         let g = self.g();
         let level = self.level();
-        let goal_term = quote(&g, level, goal)?;
+        let goal_term = quote_unfolded(&g, level, goal)?;
         for (base, needle, span, _, equation) in self.scrutinees.clone().iter().rev() {
             let Some(equation) = *equation else { continue };
             let Ok(needle) = needle.shift(&g, level - base, 0) else {
@@ -1893,14 +1898,14 @@ impl<'e> Ctx<'e> {
                 continue;
             };
             let generalised = abstract_needle(&g, &goal_term, level, &needle, 1, &Term::Var(0))?;
-            let rhs = quote(&g, level, &rhs_value)?;
+            let rhs = quote_unfolded(&g, level, &rhs_value)?;
             let rewritten = self.eval(&Term::app(
                 Term::Lam("y".into(), Icit::Explicit, Rc::new(generalised.clone())),
                 rhs.clone(),
             ))?;
             let rewrite = ScrutineeRewrite {
                 carrier: (*carrier).clone(),
-                lhs: quote(&g, level, &lhs_value)?,
+                lhs: quote_unfolded(&g, level, &lhs_value)?,
                 lhs_value: (*lhs_value).clone(),
                 rhs,
                 equation,
@@ -1959,8 +1964,8 @@ impl<'e> Ctx<'e> {
     ) -> Result<Option<Term>> {
         let g = self.g();
         let level = self.level();
-        let found_term = quote(&g, level, found)?;
-        let expected_term = quote(&g, level, expected)?;
+        let found_term = quote_unfolded(&g, level, found)?;
+        let expected_term = quote_unfolded(&g, level, expected)?;
         let scrutinees = self.scrutinees.clone();
         for (base, needle, span, _, equation) in scrutinees.iter().rev() {
             let Some(equation) = *equation else { continue };
@@ -1973,7 +1978,10 @@ impl<'e> Ctx<'e> {
             let Value::Eq(_, lhs, rhs) = force(&g, self.types[equation].clone())? else {
                 continue;
             };
-            let (lhs, rhs) = (quote(&g, level, &lhs)?, quote(&g, level, &rhs)?);
+            let (lhs, rhs) = (
+                quote_unfolded(&g, level, &lhs)?,
+                quote_unfolded(&g, level, &rhs)?,
+            );
             let along = Along {
                 term,
                 carrier: &carrier,
@@ -2168,7 +2176,7 @@ impl<'e> Ctx<'e> {
         let Ok(value) = self.eval(&replaced) else {
             return false;
         };
-        quote(&g, level, &value).is_ok_and(|t| crate::matching::same(&t, refined))
+        quote_unfolded(&g, level, &value).is_ok_and(|t| crate::matching::same(&t, refined))
     }
 }
 
@@ -4091,7 +4099,7 @@ fn settle_from_expected(
             && given[l - base].is_none()
             && parameter_type_is(cx, want, want_spine, position, sort)?
         {
-            given[l - base] = Some(quote(&g, base, b)?);
+            given[l - base] = Some(quote_or_written(&g, base, b)?.0);
         }
     }
     if given.iter().all(Option::is_none) {
@@ -10584,6 +10592,34 @@ mod tests {
     }
 }
 
+/// `value` read back unfolded, for a small term the elaborator made itself
+/// (an instance's field, a declared type, a literal) or a read-back that
+/// has its own fallback (`.ok()?`, a cheap-limits side budget, a recovery):
+/// the elaborator's one raw `value::quote`, with
+/// [`quote_unfolded`], so that clippy finds any new direct call (SW-4336).
+#[allow(clippy::disallowed_methods)]
+pub(crate) fn quote_internal(
+    g: &Ev,
+    level: usize,
+    value: &Value,
+) -> std::result::Result<Term, ResourceError> {
+    quote(g, level, value)
+}
+
+/// `value` read back unfolded where the unfolded form is what the caller
+/// needs and the value may be a user's hypothesis or goal, so it can run out
+/// of resources (E-RESOURCE size): an occurrence or mention test, a
+/// comparison with another unfolded term, a scan for unsolved unknowns.
+/// Where the result need only be convertible, use [`quote_or_written`].
+#[allow(clippy::disallowed_methods)]
+pub(crate) fn quote_unfolded(
+    g: &Ev,
+    level: usize,
+    value: &Value,
+) -> std::result::Result<Term, ResourceError> {
+    quote(g, level, value)
+}
+
 /// `value` read back unfolded, or as written if that is too large (then with
 /// `true`): a convertible term, since a call as written computes to the same
 /// value. Anything else that fails, running out of work included, is
@@ -10599,7 +10635,7 @@ pub(crate) fn quote_or_written(
     // that finishes, as written or not, leaves the note as it was.
     let ran_out_in = budget.take_ran_out_in();
     budget.set_ran_out_in(ran_out_in);
-    match quote(g, level, value) {
+    match quote_unfolded(g, level, value) {
         Err(e @ ResourceError::Size(_)) if budget.exhausted().is_none() => {
             let noted = budget.take_too_large();
             let noted_in = budget.take_ran_out_in();

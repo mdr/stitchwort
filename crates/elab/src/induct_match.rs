@@ -33,12 +33,12 @@ use std::rc::Rc;
 use stitchwort_core::Ev;
 
 use stitchwort_core::collections::HashMap;
-use stitchwort_core::value::{force, quote};
+use stitchwort_core::value::force;
 use stitchwort_core::{Icit, Name, Term, Value};
 use stitchwort_syntax::ast::{Expr, InductAlt};
 use stitchwort_syntax::{Diagnostic, Span};
 
-use crate::check::{Ctx, Result, check, infer, insert};
+use crate::check::{Ctx, Result, check, infer, insert, quote_unfolded};
 use crate::lift;
 use crate::matching::{free_levels, is_var, occurs, same_shifted};
 
@@ -195,7 +195,7 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
     // The call, as the goal says it, for the occurrence test.
     let (call_term, call_ty) = infer(cx, call)?;
     let (call_term, _) = insert(cx, call_term, call_ty)?;
-    let call_normal = quote(&g, base, &cx.eval(&call_term)?)?;
+    let call_normal = quote_unfolded(&g, base, &cx.eval(&call_term)?)?;
     // `f.induct`.
     let induct_name = stitchwort_syntax::ast::Name {
         text: format!("{}.induct", head.text),
@@ -374,9 +374,9 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
         .with_note(format!("the cases are {}", list(&expected))));
     }
     // The motive.
-    let goal_term = quote(&g, base, goal)?;
+    let goal_term = quote_unfolded(&g, base, goal)?;
     let type_terms: Vec<Term> = (0..base)
-        .map(|l| quote(&g, base, &cx.types[l]))
+        .map(|l| quote_unfolded(&g, base, &cx.types[l]))
         .collect::<std::result::Result<_, _>>()?;
     // The variables to generalise: those whose types mention the call or a
     // target, and those whose types mention one generalised.

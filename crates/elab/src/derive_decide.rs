@@ -47,7 +47,8 @@
 
 use std::rc::Rc;
 
-use stitchwort_core::value::{eval, force, quote, unused};
+use crate::check::quote_internal;
+use stitchwort_core::value::{eval, force, unused};
 use stitchwort_core::{DataId, Icit, Name, Sort, Term, Value};
 use stitchwort_syntax::ast::{self, BinOp, Bracket, Decl, Expr, Pattern};
 
@@ -215,7 +216,7 @@ impl Elaborator {
                     .map(Value::var)
                     .chain((0..k).map(|_| unused()))
                     .collect();
-                let prop = quote(g, np, &eval(g, &env, field)?)?;
+                let prop = quote_internal(g, np, &eval(g, &env, field)?)?;
                 helpers.push((
                     format!("%field%{k}"),
                     pi(&params, Term::Sort(Sort::Prop)),

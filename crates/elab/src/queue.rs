@@ -1134,7 +1134,7 @@ impl Comparison {
         let mut found = Vec::new();
         for pair in &self.pairs {
             for side in [&pair.a, &pair.b] {
-                let term = stitchwort_core::value::quote(&cx.g(), pair.level, side)?;
+                let term = crate::check::quote_unfolded(&cx.g(), pair.level, side)?;
                 for (t, _) in term.subterms() {
                     if let Term::Meta(m) = t
                         && pending.contains(m)
