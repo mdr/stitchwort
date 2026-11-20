@@ -1,5 +1,5 @@
 {
-  "next": 4385,
+  "next": 4386,
   "tickets": [
     {
       "id": 47,
@@ -29187,12 +29187,12 @@
     {
       "id": 4375,
       "title": "[Opus, paper] Proposal note: a guard in a proof's match refines the goal and hypotheses like match g: cond (today it only binds a fact); repro, cause and plan in docs/reviews/SW-4047-guard-refinement.md; then implement on Matt's decision",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "\n\nNote: docs/proposals/guard-refinement.md (20 Nov). Rec option (c): guards refine like match g:, with a warning for a now-pointless rewrite and a fallback where the goal cannot be generalised; plus SW-4376. Waiting on D3701.\n",
+      "body": "\n\nNote: docs/proposals/guard-refinement.md (20 Nov). Rec option (c): guards refine like match g:, with a warning for a now-pointless rewrite and a fallback where the goal cannot be generalised; plus SW-4376. Waiting on D3701.\n\n\nD3701 (Matt, 20 Nov 2026): yes, \"I am happy to go with your recommendation\": a guard in a proof match refines goal and hypotheses like match g: on its condition, keeping D3699 fact forms (c = True / c = False; Prop guards split on the decision; && unsplit), a now-pointless rewrite is a warning W-REWRITE-GUARD-REFINED with a quick fix, and a fallback to today's split where the goal cannot be generalised; plus SW-4376 (show unnamed guard facts).\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -29306,6 +29306,19 @@
       "title": "[Sonnet] Walk: split checks its rebuilt goal against the given one (conv_now) and stops with E-WALK, not a kernel internal error; split walk.rs into walk/{registry,expand,leaf}.rs before W3 (SW-4354 follow-ups 11, 12)",
       "status": "backlog",
       "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4385,
+      "title": "[Opus] Guard refinement (D3701): a guard in a proof's match refines goal and hypotheses like match g: on its condition (docs/proposals/guard-refinement.md); W-REWRITE-GUARD-REFINED for a pointless rewrite; fallback where the goal can't be generalised",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
