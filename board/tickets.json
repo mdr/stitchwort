@@ -29973,12 +29973,12 @@
     {
       "id": 4435,
       "title": "[DeepSeek] fmt slice tests: a must-refuse / 'grammar still contains' list of closed examples for slice 1, so a parser change that shrinks inGrammar1 without touching a frozen file is visible (SW-4427 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nModel result: DeepSeek, needed fixes (marked the False boundary section frozen too; reworded in review), 25 min (est. 30)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
