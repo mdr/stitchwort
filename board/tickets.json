@@ -28231,12 +28231,12 @@
     {
       "id": 4302,
       "title": "[Opus] HangLays/Steps shape blocks inference of pre/middle/post (pre place (hangOf kinds trace) isn't a pattern once unfolded): restate HangLays with the hang as a bound variable (meaning unchanged; orchestrator statement check), or teach the unifier; est. ~400 more lines off the hangs/steps families (SW-4282 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4282; see its report in the worklog/ticket.",
+      "body": "From SW-4282; see its report in the worklog/ticket.\nLane note (Opus, 20 Nov): branch lane/SW-4302, commit 71554a02b, 11 files +1034/-1523 (net -489). HangLays/HangLaysAll bind the fold (`hangOf kinds trace = hang → pre place hang`, same for post); hangsBy/laysBy prove both directions to the plain reading. pre/middle/post implicit in 19 hangs… lemmas, weaker in the 4 Pre/Post lemmas; doc binders and hangsLast/hangsIfBroken indent stay explicit (doc under Lays still unfolds first: SW-4305). Steps/Is/IsAll not changed (Steps already applies pre/post to bound vars; Is's blocker is the doc inside `doc.tell spot`, a restatement can't fix it). Whole check 0 errors, no goals, Fmt.Tests 441 pass.\n",
       "created": "2026-11-19",
       "updated": "2026-11-20",
       "commits": []
