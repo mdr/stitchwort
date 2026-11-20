@@ -1,5 +1,5 @@
 {
-  "next": 4305,
+  "next": 4306,
   "tickets": [
     {
       "id": 47,
@@ -28036,7 +28036,7 @@
     {
       "id": 4287,
       "title": "[Sonnet] std Parse.readsFatal, followsDone, readsDone, readsAtDone, List.consInjectiveHead take implicit arguments; drop ~870 _ (survey target 5; touches AoC)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -28265,6 +28265,19 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "From SW-4264's report (worklog 19 Nov).",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4305,
+      "title": "[DeepSeek] std Parse.givesFail, followsFatalAny, followsLoop: implicit arguments where uses are always _ (survey target 5 rest; reuse scratchpad keep/imp-positional.py, dedupe symlinked dirs by realpath)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From SW-4287.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
