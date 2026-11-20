@@ -296,6 +296,9 @@ theorem wordOnDeaf ∀ (modes: Modes) (word: Text) (items: List Item):
     | [] => byComputing
     | [item, ..rest] => rewrite stopsDeaf modes item
 
+theorem walkOnDeaf ∀ (modes: Modes) (items: List Item): walkOn modes items = walkOn modes (items.map Item.stripped) :=
+  rewrite peekInDeaf modes 0 items
+
 theorem matchesBarOnDeaf ∀ (modes: Modes) (items: List Item):
     matchesBarOn modes items = matchesBarOn modes (items.map Item.stripped) :=
   rewrite wordOnDeaf modes "matches" items, peekInDeaf modes 1 items, peekInDeaf modes 2 items, peekInDeaf modes 3 items

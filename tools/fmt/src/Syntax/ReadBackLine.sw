@@ -900,6 +900,20 @@ theorem noAutoLine ∀ (expr: Expr) (item: Item) (more rest: List Item)
         noAutoLine left first inside ([arrow, ..rightRead] ++ rest) leftAt (Bool.andLeft free)
     | _, never, _ => Void.impossible never
 
+--| A kind an expression of this part starts with is no `byWalking`.
+theorem leadNotWalk ∀ (kind: Tok) (lead: leadKind kind = True): (kind == KwByWalking) = False := cases
+
+--| No walk starts an expression of this part: its first token is a name, a numeral, a bracket or a sign, and a walk
+--| starts with the keyword `byWalking`.
+theorem noWalkLine ∀ (modes: Modes) (expr: Expr) (item: Item) (more rest: List Item)
+    (spelt: Spelt expr [item, ..more]):
+    walkOn modes [item, ..more ++ rest] = False :=
+  let (first, inside, isRead, starts) := speltStarts expr [item, ..more] spelt
+  let lead: leadKind item.kind = True := rewrite firstKind item first more inside isRead then starts
+  match stops: modes.stops item with
+    | True => byComputing
+    | False => leadNotWalk item.kind lead
+
 --| The first item is no type's name.
 def headNotUpper: List Item → Bool
   | [] => True

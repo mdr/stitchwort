@@ -81,8 +81,8 @@ function keywords(text) {
   return found.sort((a, b) => a[0] - b[0]).map((f) => f[1]);
 }
 
-test('byWalking is a keyword only before a [', () => {
+test('byWalking is a keyword, once, wherever it is', () => {
   assert.deepStrictEqual(keywords('byWalking [a] then t'), ['byWalking', 'then']);
-  assert.deepStrictEqual(keywords('byWalking'), []);
+  assert.deepStrictEqual(keywords('byWalking'), ['byWalking']);
   assert.deepStrictEqual(keywords('xbyWalking ['), []);
 });

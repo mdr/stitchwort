@@ -14,6 +14,11 @@ def refuses (source: Text): Bool := match formatWithin source with
   | Err message => message.startsWith "outside slice"
   | Ok _ => False
 
+--| Whether the source is refused for any reason: outside the slices, or a parse error the Rust parser gives too.
+def fails (source: Text): Bool := match formatWithin source with
+  | Err _ => True
+  | Ok _ => False
+
 test "a slice 1 file is tidied and spaced" :=
   formats "def x:Nat:=f  (a,b)  [1,2,] -  -y\n" "def x: Nat := f (a, b) [1, 2] - -y\n"
 
@@ -58,6 +63,15 @@ test "a last comma on a line of its own leaves a blank line between the comments
 test "comments above the type's or the value's first token put it on a line of its own" :=
   formats "def d:\n  -- c\n  F A := b\n" "def d:\n    -- c\n    F A :=\n  b\n"
     && formats "def g: A :=\n  -- c\n  f b\n" "def g: A :=\n  -- c\n  f b\n"
+
+test "a walk followed by more of an expression is refused, as the Rust parser refuses it" :=
+  fails "def a: T := byWalking [x] y\n" && fails "def a: T := byWalking [x] + 1\n"
+
+test "`byWalking` is a keyword: as an operand or a name it is refused, as the Rust parser refuses it" :=
+  fails "def a: T := x + byWalking [y]\n" && fails "def byWalking: Nat := 1\n" && fails "def a: byWalking := b\n"
+
+test "a plain walk is slice 6a's, formatted as the Rust formatter does" :=
+  formats "def a: T := byWalking  [x,y]\n" "def a: T := byWalking [x, y]\n"
 
 test "a token outside the alphabet, or a construct outside the slice, is refused" :=
   refuses "def x: Nat := f .field\n" && refuses "def f (n: Nat := 1): Nat := n\n" && refuses "def x: Unit := ()\n"

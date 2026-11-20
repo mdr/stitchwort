@@ -298,6 +298,7 @@ theorem wordKindPlain ∀ (word: Text): plainKind (wordKind False word) = True :
       "ability" |
       "algebra" |
       "arithmetic" |
+      "byWalking" |
       "calc" |
       "cases" |
       "decreasing" |

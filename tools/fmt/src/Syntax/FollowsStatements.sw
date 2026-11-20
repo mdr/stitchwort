@@ -1730,6 +1730,63 @@ theorem followsCasesExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
     Parse.followsThen followsBump (keyword keywordTwin keywords =>
       followsThenEq (followsAt modes KwIn) (atIn => followsCasesIn knot modes keyword keywordTwin keywords atIn))
 
+-- Walks: `byWalking [items] then t`.
+
+theorem alikeWalk ∀ (keyword keywordTwin: Comments) (items itemsTwin: Expr)
+    (itemses: ExprsAlike items itemsTwin) (body bodyTwin: Option (Comments, Expr))
+    (bodies: CommentedAlike body bodyTwin):
+    ExprsAlike (Walk keyword items body) (Walk keywordTwin itemsTwin bodyTwin) :=
+  calc (Walk keyword items body).walk blankPure
+    _ = Walk Comments.none (items.walk blankPure) (blankAfter (walkAfter blankPure body)) := byComputing
+    _ = Walk Comments.none (itemsTwin.walk blankPure) (blankAfter (walkAfter blankPure bodyTwin)) :=
+      rewrite itemses, afterBlank body bodyTwin bodies
+    _ = (Walk keywordTwin itemsTwin bodyTwin).walk blankPure := byComputing
+
+theorem followsWalkBody ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (modes: Modes) (keyword keywordTwin: Comments) (items itemsTwin: Expr)
+    (itemses: ExprsAlike items itemsTwin) (hasThen: Bool):
+    Parse.Follows SameCode ExprsAlike (() => walkBody self modes keyword items hasThen) (() =>
+      walkBody selfTwin modes keywordTwin itemsTwin hasThen) :=
+  match hasThen with
+    | True => Parse.followsThen followsFixedFrom (thenKeyword thenTwin thens =>
+      Parse.followsMap
+        (body => Walk keyword items (Some (thenKeyword, body)))
+        (body => Walk keywordTwin itemsTwin (Some (thenTwin, body)))
+        (knot { modes, level = LevelThenBody })
+        (body bodyTwin bodies =>
+          alikeWalk keyword keywordTwin items itemsTwin itemses (Some (thenKeyword, body)) (Some (thenTwin, bodyTwin)) (
+            thens,
+            bodies
+          )))
+    | False => Parse.followsDone (alikeWalk keyword keywordTwin items itemsTwin itemses None None Trivial)
+
+theorem followsWalkFacts ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (modes: Modes) (column: Nat) (keyword keywordTwin: Comments) (items itemsTwin: Expr)
+    (itemses: ExprsAlike items itemsTwin):
+    Parse.Follows SameCode ExprsAlike (() => walkFacts self modes column keyword items) (() =>
+      walkFacts selfTwin modes column keywordTwin itemsTwin) :=
+  let spreads: hasSpread items = hasSpread itemsTwin := calc hasSpread items
+    _ = hasSpread (items.walk blankPure) := hasSpreadDeaf items
+    _ = hasSpread (itemsTwin.walk blankPure) := rewrite itemses
+    _ = hasSpread itemsTwin := Eq.flipped (hasSpreadDeaf itemsTwin)
+  rewrite spreads then
+    match hasSpread itemsTwin with
+      | True => followsFatalAny "a list of facts can't have a `..` spread" (() =>
+        Syntax.fatal "a list of facts can't have a `..` spread")
+      | False => followsThenEq (followsStartsAt modes KwThen column) (hasThen =>
+        followsWalkBody knot modes keyword keywordTwin items itemsTwin itemses hasThen)
+
+theorem followsWalkExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin):
+    WalkFollows self selfTwin :=
+  modes =>
+    followsThenEq followsColumnHere (column =>
+      Parse.followsThen followsFixedFrom (keyword keywordTwin keywords =>
+        Parse.followsThen (followsListExpr knot modes) (list listTwin lists =>
+          followsWalkFacts knot modes column keyword keywordTwin list listTwin lists)))
+
 theorem followsThenBodyOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (blocks: BlockFollows self selfTwin)
     (exprs: ExprFollows self selfTwin)
@@ -1863,7 +1920,8 @@ def keywordFactsOf [self selfTwin: Goal → {Parse Item} Expr]
     bodies = letBodyFollows knot,
     calcs = calcFollows knot expects lowers groups binders results,
     rewrites = rewriteFollows knot expects lowers,
-    casings = followsCasesExpr knot
+    casings = followsCasesExpr knot,
+    walks = followsWalkExpr knot
   }
 
 theorem exprInlineFollows ∀ [self selfTwin: Goal → {Parse Item} Expr]

@@ -42,6 +42,9 @@ def RewriteFollows (self selfTwin: Goal → {Parse Item} Expr): Prop :=
 def CasesFollows (self selfTwin: Goal → {Parse Item} Expr): Prop :=
   ∀ (modes: Modes) => Parse.Follows SameCode ExprsAlike (() => casesExpr self modes) (() => casesExpr selfTwin modes)
 
+def WalkFollows (self selfTwin: Goal → {Parse Item} Expr): Prop :=
+  ∀ (modes: Modes) => Parse.Follows SameCode ExprsAlike (() => walkExpr self modes) (() => walkExpr selfTwin modes)
+
 def LetStatementFollows (self selfTwin: Goal → {Parse Item} Expr): Prop :=
   ∀ (modes: Modes) => Parse.Follows SameCode LetsAlike (() => letStatement self modes) (() =>
     letStatement selfTwin modes)
@@ -50,7 +53,8 @@ def LetBodyFollows (self selfTwin: Goal → {Parse Item} Expr): Prop :=
   ∀ (modes: Modes) (binding twin: Let) => LetsAlike binding twin
     → Parse.Follows SameCode ExprsAlike (() => letBody self modes binding) (() => letBody selfTwin modes twin)
 
---| The tier 3 of the statement facts: the keyword expressions (`handle`, `let`, `calc`, `rewrite` and `cases`).
+--| The tier 3 of the statement facts: the keyword expressions (`handle`, `let`, `calc`, `rewrite` and `cases`), and
+--| walks.
 type KeywordFacts (self selfTwin: Goal → {Parse Item} Expr) = {
   below: PiFacts self selfTwin,
   handles: HandleFollows self selfTwin,
@@ -58,7 +62,8 @@ type KeywordFacts (self selfTwin: Goal → {Parse Item} Expr) = {
   bodies: LetBodyFollows self selfTwin,
   calcs: CalcFollows self selfTwin,
   rewrites: RewriteFollows self selfTwin,
-  casings: CasesFollows self selfTwin
+  casings: CasesFollows self selfTwin,
+  walks: WalkFollows self selfTwin
 }
 
 theorem followsLetExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
@@ -221,10 +226,21 @@ theorem followsExprLambda ∀ [self selfTwin: Goal → {Parse Item} Expr]
     | True => followsLambdaOf facts.below.below patternOfFollows modes None None Trivial
     | False => followsThenEq (followsLambdaResultHere modes) (refused => followsExprResult facts modes refused)
 
+theorem followsWalkHere ∀ (modes: Modes): Parse.Follows SameCode Same (() => walkHere modes) (() => walkHere modes) :=
+  followsLook (walkOn modes) (walkOnDeaf modes)
+
+theorem followsExprWalk ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (facts: KeywordFacts self selfTwin)
+    (modes: Modes) (walk: Bool):
+    Parse.Follows SameCode ExprsAlike (() => exprWalk self modes walk) (() => exprWalk selfTwin modes walk) :=
+  match walk with
+    | True => facts.walks modes
+    | False => followsThenEq (followsLambdaHere modes) (lambdas => followsExprLambda facts.below modes lambdas)
+
 theorem followsExprOther ∀ [self selfTwin: Goal → {Parse Item} Expr]
-    (facts: PiFacts self selfTwin) (modes: Modes):
+    (facts: KeywordFacts self selfTwin) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => exprOther self modes) (() => exprOther selfTwin modes) :=
-  followsThenEq (followsLambdaHere modes) (lambdas => followsExprLambda facts modes lambdas)
+  followsThenEq (followsWalkHere modes) (walk => followsExprWalk facts modes walk)
 
 theorem followsExprInlineOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: KeywordFacts self selfTwin)
@@ -237,8 +253,8 @@ theorem followsExprInlineOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
           followsExprKeyword facts.below.below.below.knot facts.below.below.below.groups facts.below.below.below.binders
               facts.below.below.inducts facts.below.below.reifies facts.handles facts.lets facts.bodies facts.calcs
               facts.rewrites facts.casings modes kind
-        | False => followsExprOther facts.below modes
-    | None => followsExprOther facts.below modes
+        | False => followsExprOther facts modes
+    | None => followsExprOther facts modes
 
 theorem followsExprInline ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: KeywordFacts self selfTwin) (modes: Modes):

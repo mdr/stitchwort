@@ -575,6 +575,28 @@ def casesThen (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word) 
     Cases keyword.comments thenKeyword (self { modes, level = LevelThenBody })
   else Atom KwCases keyword
 
+--| `byWalking [items]` or `byWalking [items] then t` (`walk_expr`), at the word: the items are a list's (`[]` too,
+--| with no `..` spread), and the body, as for `rewrite`, runs to the end of the expression. A `then` may start a line
+--| of its own at the word's column or right of it.
+def walkExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
+  let column := columnHere()
+  let keyword := fixedFrom()
+  let items := listExpr self modes
+  walkFacts self modes column keyword items
+
+def walkFacts (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (keyword: Comments) (items: Expr):
+    {Parse Item} Expr :=
+  if hasSpread items then fatal "a list of facts can't have a `..` spread"
+  else walkBody self modes keyword items (startsAt modes KwThen column)
+
+def walkBody (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Comments) (items: Expr) (hasThen: Bool):
+    {Parse Item} Expr :=
+  if hasThen then
+    let thenKeyword := fixedFrom()
+    let body := self { modes, level = LevelThenBody }
+    Walk keyword items (Some (thenKeyword, body))
+  else Walk keyword items None
+
 --| The body after `then` (`then_body`): when the `then` ended its line
 --| and the body starts at the enclosing block's column, the lines there
 --| are the body, a block of their own; otherwise an expression.

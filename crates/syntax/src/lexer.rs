@@ -124,6 +124,8 @@ pub enum Tok {
     KwNamespace,
     /// `calc e` followed by steps `_ = e := proof`, one per line.
     KwCalc,
+    /// `byWalking [lemmas] then t`: a walk over a function's calls (docs/syntax.md, "byWalking").
+    KwByWalking,
     /// `rewrite p then t`: replace `p`'s left side in the goal by its right.
     KwRewrite,
     /// `arithmetic` or `arithmetic [e1, e2]`: a linear arithmetic proof found by the
@@ -202,6 +204,7 @@ macro_rules! keyword_table {
 
 keyword_table! {
     "ability" => KwAbility,
+    "byWalking" => KwByWalking,
     "calc" => KwCalc,
     "cases" => KwCases,
     "decreasing" => KwDecreasing,

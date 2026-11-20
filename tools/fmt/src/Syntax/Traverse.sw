@@ -116,6 +116,9 @@ def Expr.traverse (expr: Expr) (on: Steps): {Fail} Expr :=
       let target' := traverseAfter on target
       Rewrite keyword rules' target' (traverseAfter on body)
     | Cases keyword thenKeyword body => Cases keyword thenKeyword (body.traverse on)
+    | Walk keyword items body =>
+      let items' := items.traverse on
+      Walk keyword items' (traverseAfter on body)
   on.expr rebuilt
 
 def traverseStatements (on: Steps) (input: List Statement): {Fail} List Statement := match input with

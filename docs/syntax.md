@@ -2778,7 +2778,7 @@ Examples: `examples/accept/cases-bool.sw`, `examples/accept/cases-data.sw`, `exa
 
 ### `byWalking`
 
-`byWalking [lemmas] then t` proves a statement about effectful code, `R … (() => code) post` in a **walk family** (std's `Parse.Gives`, `Parse.ReadsIn` and `Parse.ReadsAt`, and the two-run `Parse.Follows`, below), by following the code (docs/proposals/proof-walk-step.md; review: docs/reviews/SW-4238-walk-step-review.md). It is a term, like `cases`; `then t` is optional and goes on the same line or the next, indented at least as far. `byWalking` is a word only before `[`.
+`byWalking [lemmas] then t` proves a statement about effectful code, `R … (() => code) post` in a **walk family** (std's `Parse.Gives`, `Parse.ReadsIn` and `Parse.ReadsAt`, and the two-run `Parse.Follows`, below), by following the code (docs/proposals/proof-walk-step.md; review: docs/reviews/SW-4238-walk-step-review.md). It is a term, like `cases`; `then t` is optional and goes on the same line or the next, indented at least as far. `byWalking` is a reserved word, like `calc` (D3707): no name can be `byWalking`, and the keyword anywhere but where an expression starts is `E-PARSE` (`examples/reject/walk-keyword-*.sw`).
 
 ```
 theorem givesCapped ∀ (limit: Nat): Parse.Gives Parse.Invariant.any (() => capped limit) (n => n <= limit) :=

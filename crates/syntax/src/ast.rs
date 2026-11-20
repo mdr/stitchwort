@@ -307,11 +307,6 @@ pub enum Expr {
     Field(Box<Expr>, Name),
 }
 
-/// The word that starts a walk, `byWalking`: a word only before a `[` at
-/// the start of a term, so a name `byWalking` elsewhere stays a name. In one
-/// place, so renaming the step is one change.
-pub const WALK_WORD: &str = "byWalking";
-
 /// `byWalking [items] then t`.
 #[derive(Clone, Debug)]
 pub struct Walk {

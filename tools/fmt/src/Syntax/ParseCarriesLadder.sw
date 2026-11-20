@@ -860,12 +860,22 @@ theorem readsExprLambda ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (l
     | False =>
       readsAfter0 (reads0LambdaResultHere modes) (refused => readsExprResult self modes refused nested carries outside)
 
+theorem readsExprWalk ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (walk: Bool)
+    (nested: Nested self)
+    (carries: NestedKept self)
+    (outside: Outside self):
+    Parse.ReadsIn GoodItems (() => exprWalk self modes walk) KeptFull :=
+  match walk with
+    | True => readsOutFull (outside.walks modes)
+    | False =>
+      readsAfter0 (reads0LambdaHere modes) (lambdas => readsExprLambda self modes lambdas nested carries outside)
+
 theorem readsExprOther ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (carries: NestedKept self)
     (outside: Outside self):
     Parse.ReadsIn GoodItems (() => exprOther self modes) KeptFull :=
-  readsAfter0 (reads0LambdaHere modes) (lambdas => readsExprLambda self modes lambdas nested carries outside)
+  readsAfter0 (reads0WalkHere modes) (walk => readsExprWalk self modes walk nested carries outside)
 
 --| `expr_inline` carries its items: a keyword's expression, a lambda, a quantifier, an `if` or a pi type is outside
 --| the slice, and the rest is the operator ladder.

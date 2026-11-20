@@ -818,8 +818,15 @@ def matchedPiped (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat)
     {Parse Item} Expr :=
   if piped then pipeChain self modes indent matched else matched
 
-def exprOther (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
-  exprLambda self modes (lambdaHere modes)
+def exprOther (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := exprWalk self modes (walkHere modes)
+
+--| The keyword `byWalking` starts a walk (`expr_inline`).
+def walkHere (modes: Modes): {Parse Item} Bool := walkOn modes left()
+
+def walkOn (modes: Modes) (items: List Item): Bool := isSome KwByWalking (peekIn modes 0 items)
+
+def exprWalk (self: Goal → {Parse Item} Expr) (modes: Modes) (walk: Bool): {Parse Item} Expr :=
+  if walk then walkExpr self modes else exprLambda self modes (lambdaHere modes)
 
 def lambdaHere (modes: Modes): {Parse Item} Bool := lambdaAhead modes (Parse.mark().left + 1) left()
 

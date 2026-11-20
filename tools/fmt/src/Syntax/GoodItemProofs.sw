@@ -408,8 +408,18 @@ theorem symbolFixed ∀ (input: List Char): symbolFixed1 input = True := match i
 --| A word is `def` when the lexer says so: by the same match as `wordKind`'s and `Tok.keyword`'s, so each arm computes.
 theorem wordKindFixed ∀ (afterDot: Bool) (word: Text): fixedKind1 (wordKind afterDot word) word = True :=
   match word with
-    | "_" | "Type" | "Prop" | "ability" | "algebra" | "arithmetic" | "calc" | "cases" | "decreasing" | "def" | "else" =>
-      byComputing
+    | "_" |
+        "Type" |
+        "Prop" |
+        "ability" |
+        "algebra" |
+        "arithmetic" |
+        "byWalking" |
+        "calc" |
+        "cases" |
+        "decreasing" |
+        "def" |
+        "else" => byComputing
     | "exists" => cases
     | "export" => byComputing
     | "forall" => cases
@@ -525,8 +535,18 @@ def Tok.isNumeral: Tok → Bool
 
 theorem wordKindNotNumeral ∀ (afterDot: Bool) (word: Text): (wordKind afterDot word).isNumeral = False :=
   match word with
-    | "_" | "Type" | "Prop" | "ability" | "algebra" | "arithmetic" | "calc" | "cases" | "decreasing" | "def" | "else" =>
-      byComputing
+    | "_" |
+        "Type" |
+        "Prop" |
+        "ability" |
+        "algebra" |
+        "arithmetic" |
+        "byWalking" |
+        "calc" |
+        "cases" |
+        "decreasing" |
+        "def" |
+        "else" => byComputing
     | "exists" => cases
     | "export" => byComputing
     | "forall" => cases

@@ -157,6 +157,8 @@ type Expr =
   | Rewrite (keyword: Comments) (rules: Rules) (target: Option (Comments, Expr)) (body: Option (Comments, Expr))
   --| `cases then t` (`cases` alone is an `Atom`).
   | Cases (keyword: Comments) (thenKeyword: Comments) (body: Expr)
+  --| `byWalking [items] then t`: the word, its items as a list (`ListOf`), and the `then` body if there.
+  | Walk (keyword: Comments) (items: Expr) (body: Option (Comments, Expr))
 
 --| A line of a block before its value.
 type Statement =
@@ -377,6 +379,7 @@ def Expr.lines (expr: Expr) (depth: Nat): List Text :=
         | Repeatedly _ set => fixed d "repeatedly" ++ set.lines d
       node depth "Rewrite" (fixed d "rewrite" ++ ruled ++ afterLines d "at" target ++ afterLines d "then" body)
     | Cases _ _ body => node depth "Cases" (fixed d "cases" ++ fixed d "then" ++ body.lines d)
+    | Walk _ items body => node depth "Walk" (fixed d "byWalking" ++ items.lines d ++ afterLines d "then" body)
 
 --| A fixed token and the expression after it, if they are there.
 def afterLines (depth: Nat) (text: Text): Option (Comments, Expr) → List Text

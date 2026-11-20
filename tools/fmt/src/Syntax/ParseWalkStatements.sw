@@ -451,6 +451,7 @@ def outsideOf (self: Goal → {Parse Item} Expr) (nested: Nested self): Outside 
   piExprs = (modes implicit => givesPiExpr self modes implicit nested),
   ifKeywords = (modes => givesIfKeyword self modes nested),
   lambdas = (modes => givesLambda self modes None nested),
+  walks = (modes => givesWalkExpr self modes nested),
   keywords = (modes kind starts =>
     givesExprKeyword self modes kind nested
       (outsideComparedOf self nested)

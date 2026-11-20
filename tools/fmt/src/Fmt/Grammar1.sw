@@ -185,3 +185,24 @@ theorem inGrammar1PropExample: inGrammar1 "def p: Prop := a\n" = False := byComp
 
 --| A lambda is outside.
 theorem inGrammar1LambdaExample: inGrammar1 "def f: Nat → Nat := x => x\n" = False := byComputing
+
+--| A walk is outside (D3706): `byWalking` is a keyword (D3707), no token of slice 1's alphabet. So is every source
+--| the language's parser refuses after one (D3705): a call on it, an operator after it, a tuple with one first.
+theorem inGrammar1WalkExample: inGrammar1 "def a: T := byWalking [x]\n" = False := byComputing
+
+theorem inGrammar1WalkAppliedExample: inGrammar1 "def a: T := byWalking [x] y\n" = False := byComputing
+
+theorem inGrammar1WalkPlusExample: inGrammar1 "def a: T := byWalking [x] + 1\n" = False := byComputing
+
+theorem inGrammar1WalkArrowExample: inGrammar1 "def a: T := byWalking [x] -> B\n" = False := byComputing
+
+theorem inGrammar1WalkEqualsExample: inGrammar1 "def a: T := byWalking [x] == byWalking [y]\n" = False := byComputing
+
+theorem inGrammar1WalkAndExample: inGrammar1 "def a: T := byWalking [x] && y\n" = False := byComputing
+
+theorem inGrammar1WalkTupleExample: inGrammar1 "def a: T := (byWalking [x] y, 1)\n" = False := byComputing
+
+--| The keyword anywhere else is a parse error.
+theorem inGrammar1WalkNameExample: inGrammar1 "def a: T := x + byWalking [y]\n" = False := byComputing
+
+theorem inGrammar1WalkAloneExample: inGrammar1 "def a: byWalking := b\n" = False := byComputing

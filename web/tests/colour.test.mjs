@@ -38,7 +38,7 @@ test("clause lambda words are keywords only before a bar", () => {
   assert.deepStrictEqual(keywords("matches + some || x"), []);
 });
 
-test("byWalking is a keyword only before a bracket", () => {
+test("byWalking is a keyword, once, wherever it is", () => {
   assert.deepStrictEqual(keywords("byWalking [a] then t"), ["byWalking", "then"]);
-  assert.deepStrictEqual(keywords("byWalking"), []);
+  assert.deepStrictEqual(keywords("byWalking"), ["byWalking"]);
 });

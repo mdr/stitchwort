@@ -329,14 +329,17 @@ theorem plainNotKeyword ∀ (kind: Tok)
     startsKeywordExpr kind = False ∧ (kind == KwExists || kind == KwForall) = False ∧ (kind == KwIf) = False :=
   cases
 
---| `exprInline`'s look-aheads before an operator expression all say no on plain items not starting `[auto Upper`.
+--| `exprInline`'s look-aheads before an operator expression all say no on plain items not starting `[auto Upper` or
+--| a walk.
 theorem inlinePlainOf ∀ (modes: Modes) (item: Item) (rest: List Item)
     (plain: plainAll [item, ..rest] = True)
-    (noAuto: (item.kind == LBracket && namelessAutoAt [item, ..rest]) = False):
+    (noAuto: (item.kind == LBracket && namelessAutoAt [item, ..rest]) = False)
+    (noWalk: walkOn modes [item, ..rest] = False):
     InlinePlain modes item [item, ..rest] :=
   let (notKeyword, notQuantifier, notIf) := plainNotKeyword item.kind (Bool.andLeft plain)
   {
     notKeyword,
+    noWalk,
     noLambda = lambdaPlain ([item, ..rest].length + 1) modes 0 [item, ..rest] plain,
     noResult = resultPlain modes ([item, ..rest].length + 1) False [item, ..rest] plain,
     notQuantifier,

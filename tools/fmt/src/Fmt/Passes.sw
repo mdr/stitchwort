@@ -122,7 +122,8 @@ def Expr.level: Expr → Nat
       Induct _ _ _ _ _ |
       Calc _ _ _ |
       Rewrite _ _ _ _ |
-      Cases _ _ _ => 0
+      Cases _ _ _ |
+      Walk _ _ _ => 0
   | FunctionType _ _ _ | Effect _ _ => 1
   | _ => 22
 
@@ -212,7 +213,8 @@ def startsApart: Expr → Bool
       Induct _ _ _ _ _ |
       Calc _ _ _ |
       Rewrite _ _ _ _ |
-      Cases _ _ _ => True
+      Cases _ _ _ |
+      Walk _ _ _ => True
   | _ => False
 
 --| A bracket pair that stays: a negative numeral (`{Fail} -1` doesn't read

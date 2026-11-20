@@ -1041,7 +1041,7 @@ theorem runsInlineTree ∀ (sub: Goal → List Item → List Item → Expr → P
     (reads: InlineAt sub modes item more rest value):
     Parse.Runs (() => exprInline self modes) [item, ..more] rest value :=
   let (open, inline, operatorReads) := reads
-  runsExprInline self modes item more rest value open inline.notKeyword inline.noLambda inline.noResult
+  runsExprInline self modes item more rest value open inline.notKeyword inline.noWalk inline.noLambda inline.noResult
       inline.notQuantifier inline.notIf inline.noImplicit inline.noPi
       (runsOperatorTree sub self bound modes [item, ..more] rest value selfRuns small operatorReads)
 
