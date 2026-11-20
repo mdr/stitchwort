@@ -29553,8 +29553,8 @@
     {
       "id": 4403,
       "title": "[Sonnet] Goal display in a generalised guard arm shows wrong hypothesis types (h: 0 < pick (c == 'a') shown as True = True; also on main): repro theorem m4 forall (n: Nat) (c: Char) (h: 0 < pick (c == 'a')): pick (c == 'a') = 1 or 0 < 1 := match n with | 0 if g: c == 'a' => ? | _ => ?; and a type-mismatch note in a refined arm wrongly says both sides are True (let k: 0 < 1 := h2 with h2: 0 < pick b) (SW-4391 findings 1, 2)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
