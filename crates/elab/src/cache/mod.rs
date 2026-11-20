@@ -3097,7 +3097,7 @@ impl Elaborator {
                 &param_defaults,
                 (base_defs, base_datas),
                 library,
-                hit.recheck,
+                hit,
             )
             .and_then(|()| {
                 if bound_builtins(&self.ev(), base_defs, base_datas) != bound {
@@ -3194,7 +3194,8 @@ impl Elaborator {
 
     /// Submits the declarations, through the kernel's checking calls if
     /// `check` and its trusted admission otherwise
-    /// ([`Self::admit_replayed`]).
+    /// ([`Self::admit_replayed`]). `carried` entries' field sorts and
+    /// erasure are worked out again even on the trusted path.
     fn submit(
         &mut self,
         defs: &[DefEntry],
@@ -3202,8 +3203,9 @@ impl Elaborator {
         param_defaults: &HashSet<DefId>,
         (base_defs, base_datas): (usize, usize),
         library: bool,
-        check: bool,
+        hit: Hit,
     ) -> Read<()> {
+        let (check, carried) = (hit.recheck, !hit.exact);
         let refused = |d: stitchwort_syntax::Diagnostic| {
             let label = d.labels.first().map_or("", |l| l.message.as_str());
             Bad(format!("refused: {} ({label})", d.message))
@@ -3405,8 +3407,10 @@ impl Elaborator {
                                     (DataId(base_datas + m), ctors)
                                 })
                                 .collect();
-                            self.kernel_op(|g| kernel::admit_trusted_data_group(g, members))
-                                .map_err(refused)?;
+                            self.kernel_op(|g| {
+                                kernel::admit_trusted_data_group(g, members, carried)
+                            })
+                            .map_err(refused)?;
                         }
                         for m in &group.members {
                             data_final[*m] = true;
@@ -3447,6 +3451,17 @@ impl Elaborator {
                                     }
                                 })
                                 .map_err(refused)?;
+                                // A kept entry's run body is what this
+                                // kernel installed, as its terms are.
+                                // (`Term` has no equality; its debug text
+                                // shows every field, the erasure flags the
+                                // hash ignores included.)
+                                if check
+                                    && self.kernel.def(id).own_run_body().map(|t| format!("{t:?}"))
+                                        != Some(format!("{run:?}"))
+                                {
+                                    return bad("a run body came out differently");
+                                }
                             }
                         }
                     }
@@ -3940,53 +3955,53 @@ mod tests {
         assert_eq!((stats.refused_on_recheck, stats.refused), (1, 0));
     }
 
-    /// `type Box = MkBox (p: Prop)`, its field's sort and erasure recorded
-    /// as `sorts` and `erased`, which the content hash doesn't cover:
-    /// admitted trusted (whatever they say) or checked again. The result,
-    /// and how many data types it left.
-    fn admit_box(
-        sorts: Vec<stitchwort_core::Sort>,
-        erased: Vec<bool>,
-        recheck: bool,
-    ) -> (Result<(), super::Bad>, usize, super::Stats) {
-        use stitchwort_core::{Sort, Term};
-        let entry = |hash| super::DataEntry {
-            name: "Box".into(),
-            path: "Forged.Box".into(),
+    fn forged_span() -> stitchwort_syntax::Span {
+        let mut sources = stitchwort_syntax::SourceMap::new();
+        stitchwort_syntax::Span::new(sources.add("forged", "x"), 0, 1)
+    }
+
+    /// A data entry's declaration only: its constructors are `ctors`.
+    fn data_entry(
+        name: &str,
+        defs_before: usize,
+        ctors: Vec<super::CtorEntry>,
+        hash: Option<stitchwort_core::hash::ContentHash>,
+    ) -> super::DataEntry {
+        super::DataEntry {
+            name: name.into(),
+            path: format!("Forged.{name}").as_str().into(),
             params: Vec::new(),
             auto_params: Vec::new(),
             indices: Vec::new(),
-            sort: Sort::Type(0),
-            ctors: vec![super::CtorEntry {
-                name: "MkBox".into(),
-                fields: vec![("p".into(), Term::Sort(Sort::Prop))],
-                field_sorts: sorts.clone(),
-                field_erased: erased.clone(),
-                implicit: vec![false],
-                result: Vec::new(),
-                braced: false,
-            }],
+            sort: stitchwort_core::Sort::Type(0),
+            ctors,
             record: false,
             no_eta: false,
             group: vec![0],
-            defs_before: 0,
+            defs_before,
             datas_before: 0,
-            span: {
-                let mut sources = stitchwort_syntax::SourceMap::new();
-                stitchwort_syntax::Span::new(sources.add("forged", "x"), 0, 1)
-            },
+            span: forged_span(),
             hash,
-        };
-        let exact = |recheck| super::Hit {
-            exact: true,
-            recheck,
-        };
+        }
+    }
+
+    /// An entry's data type admitted trusted, to learn the hash it would
+    /// record, then (in a fresh elaborator) admitted again with that hash
+    /// as the trusted replay of a carried entry (`carried`) or an exact one,
+    /// or checked again (`recheck`). The result, how many data types it
+    /// left, and the counters.
+    fn admit_data(
+        entry: impl Fn(Option<stitchwort_core::hash::ContentHash>) -> super::DataEntry,
+        recheck: bool,
+        carried: bool,
+    ) -> (Result<(), super::Bad>, usize, super::Stats) {
+        let hit = |exact, recheck| super::Hit { exact, recheck };
         let tables = state::TablesDelta::default();
         // The hash it would record, so that only the derived fields can
-        // tell the two paths apart.
+        // tell the paths apart.
         let mut e = Elaborator::new();
         let base = e.kernel.env.datas().len();
-        e.admit_replayed(&[], &[entry(None)], &[], &tables, false, exact(false))
+        e.admit_replayed(&[], &[entry(None)], &[], &tables, false, hit(true, false))
             .expect("the trusted path admits it");
         let hash = {
             let g = &e.ev();
@@ -3994,9 +4009,40 @@ mod tests {
             super::data_hash(g, stitchwort_core::DataId(base)).unwrap()
         };
         let mut e = Elaborator::new();
-        let result = e.admit_replayed(&[], &[entry(hash)], &[], &tables, false, exact(recheck));
+        let result = e.admit_replayed(
+            &[],
+            &[entry(hash)],
+            &[],
+            &tables,
+            false,
+            hit(!carried, recheck),
+        );
         let added = e.kernel.env.datas().len() - base;
         (result, added, e.session.cache_stats)
+    }
+
+    /// `type Box = MkBox (p: Prop)`, its field's sort and erasure recorded
+    /// as `sorts` and `erased`, which the content hash doesn't cover.
+    fn admit_box(
+        sorts: Vec<stitchwort_core::Sort>,
+        erased: Vec<bool>,
+        recheck: bool,
+        carried: bool,
+    ) -> (Result<(), super::Bad>, usize, super::Stats) {
+        use stitchwort_core::{Sort, Term};
+        let entry = |hash| {
+            let ctor = super::CtorEntry {
+                name: "MkBox".into(),
+                fields: vec![("p".into(), Term::Sort(Sort::Prop))],
+                field_sorts: sorts.clone(),
+                field_erased: erased.clone(),
+                implicit: vec![false],
+                result: Vec::new(),
+                braced: false,
+            };
+            data_entry("Box", 0, vec![ctor], hash)
+        };
+        admit_data(entry, recheck, carried)
     }
 
     /// A data type whose recorded field sorts or erasure aren't what this
@@ -4008,7 +4054,7 @@ mod tests {
     fn checking_a_data_entry_again_refuses_field_sorts_or_erasure_this_kernel_wouldnt_give() {
         use stitchwort_core::Sort;
         let right = (vec![Sort::Type(0)], vec![true]);
-        let (ok, added, _) = admit_box(right.0.clone(), right.1.clone(), true);
+        let (ok, added, _) = admit_box(right.0.clone(), right.1.clone(), true, false);
         assert!(
             ok.is_ok() && added == 1,
             "the field's sort and erasure aren't {right:?}: {:?}",
@@ -4018,9 +4064,9 @@ mod tests {
             (vec![Sort::Prop], right.1.clone()),
             (right.0.clone(), vec![false]),
         ] {
-            let (trusted, added, _) = admit_box(sorts.clone(), erased.clone(), false);
+            let (trusted, added, _) = admit_box(sorts.clone(), erased.clone(), false, false);
             assert!(trusted.is_ok() && added == 1, "the trusted path refused it");
-            let (checked, added, stats) = admit_box(sorts, erased, true);
+            let (checked, added, stats) = admit_box(sorts, erased, true, false);
             let Err(super::Bad(why)) = checked else {
                 panic!("checking it again kept another kernel's field sorts or erasure");
             };
@@ -4031,5 +4077,294 @@ mod tests {
             assert_eq!(added, 0, "the refused entry wasn't undone");
             assert_eq!((stats.refused_on_recheck, stats.refused), (1, 0));
         }
+    }
+    /// The trusted replay of a carried-over entry (another build wrote it)
+    /// works the field sorts and erasure out again too: the content hash
+    /// doesn't cover them, so a build whose kernel computed them
+    /// differently would otherwise keep the old ones. An exact entry (this
+    /// build wrote it) takes them as written.
+    #[test]
+    fn a_carried_entry_on_the_trusted_path_is_refused_field_sorts_this_kernel_wouldnt_give() {
+        use stitchwort_core::Sort;
+        let (ok, added, _) = admit_box(vec![Sort::Type(0)], vec![true], false, true);
+        assert!(ok.is_ok() && added == 1, "{:?}", ok.err().map(|b| b.0));
+        let (exact, added, _) = admit_box(vec![Sort::Prop], vec![true], false, false);
+        assert!(exact.is_ok() && added == 1, "an exact entry is taken as is");
+        let (carried, added, stats) = admit_box(vec![Sort::Prop], vec![true], false, true);
+        let Err(super::Bad(why)) = carried else {
+            panic!("a carried entry's field sorts were taken as written");
+        };
+        assert!(why.contains("another sort or erasure"), "{why}");
+        assert_eq!(added, 0, "the refused entry wasn't undone");
+        assert_eq!((stats.refused, stats.refused_on_recheck), (1, 0));
+    }
+
+    /// `(P: Prop) -> P -> P`, a theorem proved by `fun P p => p`.
+    fn identity_def(
+        name: &str,
+        group: usize,
+        run_body: Option<stitchwort_core::Term>,
+    ) -> super::DefEntry {
+        use std::rc::Rc;
+        use stitchwort_core::{Icit, Sort, Term};
+        super::DefEntry {
+            name: name.into(),
+            path: format!("Forged.{name}").as_str().into(),
+            theorem: true,
+            instance: false,
+            fold: false,
+            opaque: false,
+            tailrec: false,
+            unfolding: Vec::new(),
+            span: forged_span(),
+            ty: Term::Pi(
+                "P".into(),
+                Icit::Explicit,
+                Rc::new(Term::Sort(Sort::Prop)),
+                Rc::new(Term::Pi(
+                    "p".into(),
+                    Icit::Explicit,
+                    Rc::new(Term::Var(0)),
+                    Rc::new(Term::Var(1)),
+                )),
+            ),
+            body: Term::Lam(
+                "P".into(),
+                Icit::Explicit,
+                Rc::new(Term::Lam("p".into(), Icit::Explicit, Rc::new(Term::Var(0)))),
+            ),
+            group: vec![group],
+            run_body,
+            hash: None,
+        }
+    }
+
+    /// `fun P p => let x: P := p; x`, with the `let`'s erasure flag as given.
+    fn let_run_body(erased: bool) -> stitchwort_core::Term {
+        use std::rc::Rc;
+        use stitchwort_core::{Icit, Term};
+        Term::Lam(
+            "P".into(),
+            Icit::Explicit,
+            Rc::new(Term::Lam(
+                "p".into(),
+                Icit::Explicit,
+                Rc::new(Term::Let(
+                    "x".into(),
+                    Rc::new(Term::Var(1)),
+                    Rc::new(Term::Var(0)),
+                    Rc::new(Term::Var(0)),
+                    erased,
+                )),
+            )),
+        )
+    }
+
+    fn admit_defs(
+        defs: &[super::DefEntry],
+        datas: &[super::DataEntry],
+        recheck: bool,
+        refuse_after: Option<&str>,
+    ) -> (Result<(), super::Bad>, (usize, usize), super::Stats) {
+        let mut e = Elaborator::new();
+        if let Some(path) = refuse_after {
+            e.refuse_replays_after(path);
+        }
+        let before = (e.kernel.env.defs().len(), e.kernel.env.datas().len());
+        let result = e.admit_replayed(
+            defs,
+            datas,
+            &[],
+            &state::TablesDelta::default(),
+            false,
+            super::Hit {
+                exact: true,
+                recheck,
+            },
+        );
+        let added = (
+            e.kernel.env.defs().len() - before.0,
+            e.kernel.env.datas().len() - before.1,
+        );
+        (result, added, e.session.cache_stats)
+    }
+
+    /// A run body the kernel gives back differently from the one recorded
+    /// (here a `let`'s erasure flag, which the kernel works out itself):
+    /// the trusted replay installs it as written, checking it again refuses
+    /// it, so a kept entry is in every part what this kernel installed.
+    #[test]
+    fn checking_an_entry_again_refuses_a_run_body_the_kernel_gives_back_differently() {
+        // The flag this kernel records for the `let`: it is the one that
+        // survives a re-check, with the hash the entry then records.
+        let hash = {
+            let mut e = Elaborator::new();
+            let base = e.kernel.env.defs().len();
+            let exact = super::Hit {
+                exact: true,
+                recheck: false,
+            };
+            let defs = [identity_def("f", 0, Some(let_run_body(true)))];
+            e.admit_replayed(
+                &defs,
+                &[],
+                &[],
+                &state::TablesDelta::default(),
+                false,
+                exact,
+            )
+            .expect("the trusted path admits it");
+            let g = &e.ev();
+            let _op = g.machine.budget.operation(e.options.limits);
+            super::def_hash(g, stitchwort_core::DefId(base)).unwrap()
+        };
+        let right = true;
+        let kept = || {
+            let mut def = identity_def("f", 0, Some(let_run_body(right)));
+            def.hash = hash;
+            [def]
+        };
+        let (r, added, _) = admit_defs(&kept(), &[], true, None);
+        assert!(r.is_ok() && added == (1, 0), "{:?}", r.err().map(|b| b.0));
+        let defs = |flag| {
+            let mut def = identity_def("f", 0, Some(let_run_body(flag)));
+            def.hash = hash;
+            [def]
+        };
+        let (trusted, added, _) = admit_defs(&defs(!right), &[], false, None);
+        assert!(trusted.is_ok() && added == (1, 0));
+        let (checked, added, stats) = admit_defs(&defs(!right), &[], true, None);
+        let Err(super::Bad(why)) = checked else {
+            panic!("a run body the kernel gives back differently was kept");
+        };
+        assert!(why.contains("run body came out differently"), "{why}");
+        assert_eq!(added, (0, 0), "the refused entry wasn't undone");
+        assert_eq!(stats.refused_on_recheck, 1);
+    }
+
+    /// An entry of two definitions, a data type and a last definition the
+    /// kernel refuses (a false theorem): nothing of it stays, the earlier
+    /// definitions and the type included, on the checked path and when a
+    /// test forces the refusal on the trusted one.
+    #[test]
+    fn a_refusal_part_way_through_an_entry_leaves_nothing_installed() {
+        use std::rc::Rc;
+        use stitchwort_core::{Icit, Sort, Term};
+        let mut forged = identity_def("c", 2, None);
+        forged.ty = Term::Pi(
+            "P".into(),
+            Icit::Explicit,
+            Rc::new(Term::Sort(Sort::Prop)),
+            Rc::new(Term::Var(0)),
+        );
+        forged.body = Term::Lam("P".into(), Icit::Explicit, Rc::new(Term::Var(0)));
+        let defs = [
+            identity_def("a", 0, None),
+            identity_def("b", 1, None),
+            forged,
+        ];
+        let ctor = super::CtorEntry {
+            name: "MkBox".into(),
+            fields: vec![("p".into(), Term::Sort(Sort::Prop))],
+            field_sorts: vec![Sort::Type(0)],
+            field_erased: vec![true],
+            implicit: vec![false],
+            result: Vec::new(),
+            braced: false,
+        };
+        let datas = [data_entry("Box", 2, vec![ctor], None)];
+        let (ok, added, _) = admit_defs(&defs, &datas, false, None);
+        assert!(
+            ok.is_ok() && added == (3, 1),
+            "the trusted path installs all"
+        );
+        let (checked, added, stats) = admit_defs(&defs, &datas, true, None);
+        let Err(super::Bad(why)) = checked else {
+            panic!("a false theorem was kept");
+        };
+        assert!(why.starts_with("refused:"), "{why}");
+        assert_eq!(added, (0, 0), "part of the refused entry stayed");
+        assert_eq!(stats.refused_on_recheck, 1);
+        // Forced after the data type, before the last definition.
+        let (forced, added, _) = admit_defs(&defs, &datas, false, Some("Forged.Box"));
+        assert!(forced.is_err());
+        assert_eq!(added, (0, 0), "part of the forced refusal stayed");
+    }
+
+    /// `type Bad = MkBad (f: Bad -> Prop)`: a negative occurrence the
+    /// trusted replay doesn't look for and checking it again refuses.
+    #[test]
+    fn checking_a_data_entry_again_refuses_a_type_that_isnt_positive() {
+        use std::rc::Rc;
+        use stitchwort_core::{DataId, Icit, Sort, Term};
+        let entry = |hash| {
+            let ctor = super::CtorEntry {
+                name: "MkBad".into(),
+                fields: vec![(
+                    "f".into(),
+                    Term::Pi(
+                        "_".into(),
+                        Icit::Explicit,
+                        Rc::new(Term::Data(DataId(0), Vec::new())),
+                        Rc::new(Term::Sort(Sort::Prop)),
+                    ),
+                )],
+                field_sorts: vec![Sort::Type(0)],
+                field_erased: vec![true],
+                implicit: vec![false],
+                result: Vec::new(),
+                braced: false,
+            };
+            data_entry("Bad", 0, vec![ctor], hash)
+        };
+        let (trusted, added, _) = admit_data(entry, false, false);
+        assert!(trusted.is_ok() && added == 1, "the trusted path refused it");
+        let (checked, added, stats) = admit_data(entry, true, false);
+        let Err(super::Bad(why)) = checked else {
+            panic!("a type with a negative occurrence was kept");
+        };
+        assert!(why.starts_with("refused:"), "{why}");
+        assert_eq!(added, 0, "the refused type wasn't undone");
+        assert_eq!((stats.refused_on_recheck, stats.refused), (1, 0));
+    }
+
+    /// `loop: (P: Prop) -> P := fun P => loop P`: a proof of anything by
+    /// looping. The trusted replay installs it; checking it again refuses it
+    /// for not terminating.
+    #[test]
+    fn checking_a_group_again_refuses_one_that_doesnt_terminate() {
+        use std::rc::Rc;
+        use stitchwort_core::{DefId, Icit, Sort, Term};
+        let looping = || {
+            let mut looping = identity_def("loop", 0, None);
+            looping.ty = Term::Pi(
+                "P".into(),
+                Icit::Explicit,
+                Rc::new(Term::Sort(Sort::Prop)),
+                Rc::new(Term::Var(0)),
+            );
+            looping.body = Term::Lam(
+                "P".into(),
+                Icit::Explicit,
+                Rc::new(Term::App(
+                    Rc::new(Term::Def(DefId(0))),
+                    Rc::new(Term::Var(0)),
+                    Icit::Explicit,
+                )),
+            );
+            looping
+        };
+        let (trusted, added, _) = admit_defs(&[looping()], &[], false, None);
+        assert!(
+            trusted.is_ok() && added == (1, 0),
+            "the trusted path refused it"
+        );
+        let (checked, added, stats) = admit_defs(&[looping()], &[], true, None);
+        let Err(super::Bad(why)) = checked else {
+            panic!("a looping proof was kept");
+        };
+        assert!(why.starts_with("refused:"), "{why}");
+        assert_eq!(added, (0, 0), "the refused group wasn't undone");
+        assert_eq!((stats.refused_on_recheck, stats.refused), (1, 0));
     }
 }

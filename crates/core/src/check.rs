@@ -3900,8 +3900,16 @@ pub fn admit_trusted_data_decls(
 /// [`define_data_group`] does, without checking them (types, universes,
 /// positivity): they must be the constructors `define_data_group`
 /// installed, with their field sorts and erasure. The trust boundary
-/// (above).
-pub fn admit_trusted_data_group(g: &mut Kernel, members: Vec<(DataId, Vec<Ctor>)>) -> Result<()> {
+/// (above). With `recompute_sorts` (an entry another build carried over)
+/// each field's sort and erasure is also worked out again, one `check_type`
+/// per field, and a constructor recording others is refused: those two
+/// aren't hashed, so a kernel that computes them differently would
+/// otherwise keep the recorded ones.
+pub fn admit_trusted_data_group(
+    g: &mut Kernel,
+    members: Vec<(DataId, Vec<Ctor>)>,
+    recompute_sorts: bool,
+) -> Result<()> {
     in_kernel_modes(g, |g| {
         install_data_group(g, members, |g, group, members| {
             for (d, ctors) in &members {
@@ -3932,9 +3940,48 @@ pub fn admit_trusted_data_group(g: &mut Kernel, members: Vec<(DataId, Vec<Ctor>)
                     }
                 }
             }
+            if recompute_sorts {
+                recompute_field_sorts(g, group, &members)?;
+            }
             Ok(members)
         })
     })
+}
+
+/// Refuses the trusted constructors `members` of the pending group `group`
+/// if a field's sort or erasure isn't what [`admit_data_group`] works out
+/// for it (the same `check_type` and `is_type_former` calls, in the same
+/// context), without its positivity and universe checks.
+fn recompute_field_sorts(g: &Ev, group: &[DataId], members: &[(DataId, Vec<Ctor>)]) -> Result<()> {
+    let first = g.data(group[0]);
+    let mut cx = Ctx::new(g, first.span);
+    for (x, ty) in &first.params {
+        let value = cx.eval(ty)?;
+        cx.bind(x.clone(), value);
+    }
+    for (d, ctors) in members {
+        let data = g.data(*d);
+        for ctor in ctors {
+            for (i, (x, ty)) in ctor.fields.iter().enumerate() {
+                cx.span = data.span;
+                let (ty, sort) = check_type(&mut cx, ty)?;
+                let value = cx.eval(&ty)?;
+                let erased = sort == Sort::Prop || is_type_former(g, cx.level(), &value)?;
+                if sort != ctor.field_sorts[i] || erased != ctor.field_erased[i] {
+                    return Err(malformed(
+                        &cx,
+                        format!(
+                            "field `{x}` of `{}` has another sort or erasure than recorded",
+                            ctor.name
+                        ),
+                    ));
+                }
+                cx.bind(x.clone(), value);
+            }
+            cx.unbind(ctor.fields.len());
+        }
+    }
+    Ok(())
 }
 
 /// Marks every pending declaration failed. For an elaborator that gives up

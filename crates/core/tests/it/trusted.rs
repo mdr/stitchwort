@@ -50,7 +50,7 @@ fn trusted_copy(a: &Kernel) -> Kernel {
                     braced: c.braced,
                 })
                 .collect();
-            check::admit_trusted_data_group(&mut b, vec![(ids[0], ctors)]).expect("defined");
+            check::admit_trusted_data_group(&mut b, vec![(ids[0], ctors)], true).expect("defined");
             j += 1;
         } else {
             let def = &a.env.defs()[i];
@@ -256,9 +256,46 @@ fn a_trusted_constructor_of_the_wrong_shape_is_refused() {
     assert_eq!(
         code(check::admit_trusted_data_group(
             &mut p.g,
-            vec![(ids[0], vec![ctor])]
+            vec![(ids[0], vec![ctor])],
+            false
         )),
         "E-MALFORMED"
     );
     assert_eq!(p.g.data(ids[0]).state(), State::Failed);
+}
+
+/// A constructor of the right shape whose field is recorded as a proof
+/// (`Prop`, erased) though it is a `Nat`: trusted admission takes it, and
+/// working the sorts out again refuses it.
+#[test]
+fn recomputing_field_sorts_refuses_a_wrong_recorded_sort() {
+    let admit = |recompute| {
+        let mut p = Prelude::new();
+        let ids = check::admit_trusted_data_decls(
+            &mut p.g,
+            vec![],
+            Sort::Type(0),
+            vec![DataDecl {
+                name: "Box".into(),
+                path: "Box".into(),
+                span: span(),
+                record: false,
+                indices: vec![],
+            }],
+        )
+        .unwrap();
+        let ctor = Ctor {
+            name: "MkBox".into(),
+            fields: vec![("n".into(), p.nat_ty())],
+            field_sorts: vec![Sort::Prop],
+            field_erased: vec![true],
+            result: vec![],
+            implicit: vec![false],
+            braced: false,
+        };
+        check::admit_trusted_data_group(&mut p.g, vec![(ids[0], vec![ctor])], recompute)
+            .map_err(|d| d.code)
+    };
+    assert!(admit(false).is_ok());
+    assert_eq!(admit(true), Err("E-MALFORMED".into()));
 }

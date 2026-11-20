@@ -223,8 +223,11 @@ pub fn admit_trusted_data_decls(
 pub fn admit_trusted_data_group(
     g: &mut Kernel,
     members: Vec<(DataId, Vec<stitchwort_core::globals::Ctor>)>,
+    recompute_sorts: bool,
 ) -> Result<()> {
-    timed(g, |g| k::admit_trusted_data_group(g, members))
+    timed(g, |g| {
+        k::admit_trusted_data_group(g, members, recompute_sorts)
+    })
 }
 
 // The check cache's re-check (check-cache-across-updates.md §4.4, stage
