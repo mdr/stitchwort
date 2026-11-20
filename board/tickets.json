@@ -30170,12 +30170,12 @@
     {
       "id": 4450,
       "title": "[Fable] Review SW-4410 (carried cache stage 2: entries whose kernel side changed are re-admitted through the kernel's checking calls instead of the trusted path; rechecked entries are re-saved as this build's, not exact; check --recheck rechecks every loaded entry): soundness of the recheck path against the trusted one (anything the trusted replay installs that the checking calls skip), the data-type final/builtins fix, the re-save rule, docs/core.md's new text; paper only",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "",
+      "body": "Review done (Fable, paper only, 20 Nov 2026). Verdict: merge after named fixes. M1: a re-checked entry is kept with the other kernel's field_sorts/field_erased, which the re-check recomputes but never compares and the hash doesn't cover; the next session's trusted replay installs them (conversion's proof fields, subsingleton elimination, eta and termination read them). Fix: compare after define_data_group, refuse on a difference. M2: a forged-field-sort test, and dump equality for the kept session. M3: docs/core.md wording. Follow-ups F1-F5 in the review (scratchpad sw4450/SW-4410-recheck-review.md, for docs/reviews/).",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
