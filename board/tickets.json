@@ -30211,12 +30211,12 @@
     {
       "id": 4453,
       "title": "[Opus] Match arms keep a Prop definition's head unfolded (match-partial-unfold shows forall ... instead of Parse.Follows ...): check_value_against forces the goal before check_match, so the motive is built from the unfolded value and SW-4419's 'Follows stays folded' never holds there; give check_match the unforced goal when it is a Prop call so the motive keeps the head (terms and hashes change; migration cost doesn't count); measure the effect on partial unfold and on tools/fmt check time (SW-4437 finding 1)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
-      "body": "",
+      "body": "\n\nProgress (Opus lane, 20 Nov 2026, 37 min, est. 60): commit 1223b918c on lane/SW-4453. check_value_against hands a match the unforced goal when it is a Prop call with no unknown in it (matching::check_match_named); if that fails, the match is checked again against the forced goal, as before. The goals/match-partial-unfold arm now shows `Parse.Follows SameNat SameNat (...) (...)`. The fallback fired 23 times on the measured fmt namespaces before the no-unknown guard (all on goals with `_j`, `_pre`, `_holds`, `_lower`) and once after it; it also fires on std Set/Spec.sw:850. fmt check of the 3 namespaces, no errors either way: 41.2 s user (after) vs 42.3 s (main), same load. 85 hashes moved in 11 snapshots, with no names changed.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
