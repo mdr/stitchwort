@@ -86,7 +86,12 @@ mod redundant;
 mod reify;
 mod rewind;
 mod rewrite;
+mod walk;
 pub use rewrite::{Closer, ExpandedRule, Expansion, RuleSource, expand_call, expand_file};
+pub use walk::{
+    Piece as WalkPiece, WalkExpansion, expand_file as expand_walk_file,
+    trace_line as walk_trace_line,
+};
 mod ring;
 mod rows;
 mod saturate;
@@ -4081,9 +4086,13 @@ impl Elaborator {
         }
         // Filed once proved, so its own proof reads its test as it would
         // without it.
-        if let Some(at) = self.definition_attributes(signature)?.reading {
+        let attributes = self.definition_attributes(signature)?;
+        if let Some(at) = attributes.reading {
             self.register_reading(id, at)?;
             self.check_reading_decisions(id, at);
+        }
+        if let Some((tag, at)) = attributes.walk {
+            self.register_walk(id, tag, at)?;
         }
         if self.kernel.def(id).tailrec() {
             self.check_tailrec(id)?;

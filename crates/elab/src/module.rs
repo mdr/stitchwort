@@ -4292,6 +4292,16 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                 out.push(Ref::Name(&REWRITE_MARKER));
                 then(&mut stack, body.iter().map(|b| Work::Expr(b)).collect());
             }
+            // A walk closes leaves by `arithmetic` and `cases`' closers
+            // (crates/elab/src/walk.rs).
+            Expr::Walk(w) => {
+                out.extend(crate::omega::LIBRARY_NAMES.iter().map(Ref::Name));
+                out.push(Ref::Name(&REWRITE_MARKER));
+                then(
+                    &mut stack,
+                    w.items.iter().chain(&w.body).map(Work::Expr).collect(),
+                );
+            }
             // And `algebra` (crates/elab/src/ring.rs).
             Expr::Ring { facts, .. } => {
                 out.extend(crate::ring::LIBRARY_NAMES.iter().map(Ref::Name));

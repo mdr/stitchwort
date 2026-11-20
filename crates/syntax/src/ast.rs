@@ -289,6 +289,12 @@ pub enum Expr {
         body: Option<Box<Expr>>,
         span: Span,
     },
+    /// `byWalking [lemmas] then t` (docs/syntax.md, "byWalking";
+    /// docs/proposals/proof-walk-step.md): a proof of a statement about
+    /// effectful code that follows the code's body, using a lemma at each
+    /// call and splitting where the code does. Boxed: rare, and it keeps
+    /// `Expr` small.
+    Walk(Box<Walk>),
     /// `algebra`, or `algebra [h1, h2]` with hypotheses (docs/syntax.md, algebra): a
     /// proof of an equation between polynomials over `Nat` or `Int`, checked
     /// by the kernel normalising both sides
@@ -299,6 +305,29 @@ pub enum Expr {
     },
     /// Field access `e.name`.
     Field(Box<Expr>, Name),
+}
+
+/// The word that starts a walk, `byWalking`: a word only before a `[` at
+/// the start of a term, so a name `byWalking` elsewhere stays a name. In one
+/// place, so renaming the step is one change.
+pub const WALK_WORD: &str = "byWalking";
+
+/// `byWalking [items] then t`.
+#[derive(Clone, Debug)]
+pub struct Walk {
+    /// What the brackets list, as written: lemmas, and `unfold f`, which
+    /// is read as such by the elaborator (an application of the word
+    /// `unfold` to a name).
+    pub items: Vec<Expr>,
+    /// `t`, tried at each leaf the walk's closers don't close.
+    pub body: Option<Expr>,
+    /// The word `byWalking`'s span.
+    pub keyword: Span,
+    /// From the word to the `]`, or to the end of `t`.
+    pub span: Span,
+    /// Never written: set by the elaborator on the rest of a walk it
+    /// builds, the number of the place in the walk it goes on from.
+    pub resume: Option<u32>,
 }
 
 /// One rule of a `rewrite`: a proof of an equation, used left to right or,
@@ -544,6 +573,7 @@ impl Expr {
             | Expr::Cases { span, .. }
             | Expr::Ring { span, .. }
             | Expr::Match { span, .. } => *span,
+            Expr::Walk(walk) => walk.span,
             // Down a chain of fields in a loop: `e.span()` here would reach
             // this arm for `e` too, twice per level (the start and the end),
             // so `x.f.g.h …` would take time exponential in its length.
@@ -629,6 +659,7 @@ fn has_nested(expr: &Expr) -> bool {
         Expr::LocalDefs { body, .. } => nested(body),
         Expr::Omega { facts, .. } | Expr::Ring { facts, .. } => facts.iter().any(nested),
         Expr::Cases { body, .. } => body.as_deref().is_some_and(nested),
+        Expr::Walk(walk) => walk.items.iter().any(nested) || walk.body.as_ref().is_some_and(nested),
         Expr::Induct { call, alts, .. } => nested(call) || alts.iter().any(|a| nested(&a.body)),
         Expr::Match {
             scrutinees, alts, ..
@@ -758,6 +789,14 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
             body: Some(body), ..
         } => take(body),
         Expr::Cases { body: None, .. } => {}
+        Expr::Walk(walk) => {
+            for item in &mut walk.items {
+                pending.push(std::mem::replace(item, Expr::Prop(Span::NOWHERE)));
+            }
+            if let Some(body) = &mut walk.body {
+                pending.push(std::mem::replace(body, Expr::Prop(Span::NOWHERE)));
+            }
+        }
         Expr::Induct { call, alts, .. } => {
             for e in std::iter::once(&mut **call).chain(alts.iter_mut().map(|a| &mut a.body)) {
                 if !is_leaf(e) {

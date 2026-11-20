@@ -75,6 +75,7 @@ theorem Parse.readsWithMark ∀ [inv: Parse.Invariant t] (k: Parse.Mark t → {P
     each start fine start fine total state value after here honest (rewrite <- here then ran)
 
 --| A value `holds` of: the last step of a [`Parse.givesThen`] chain.
+@[walk.done]
 theorem Parse.givesDone ∀ [inv: Parse.Invariant t] [x: a] [holds: a → Prop] (proved: holds x):
     Parse.Gives inv (() => x) holds :=
   Parse.readsDone x proved
@@ -82,6 +83,7 @@ theorem Parse.givesDone ∀ [inv: Parse.Invariant t] [x: a] [holds: a → Prop] 
 --| `p`, then `j` of its value: `holds` of what `j` gives, for each value
 --| `p` gives. `p` is read off `givesFirst` and `j` off the goal, as for
 --| [`Parse.readsThen`].
+@[walk.bind]
 theorem Parse.givesThen ∀ [inv: Parse.Invariant t] [p: () → {Parse t} a] [j: a → {Parse t} b]
     [first: a → Prop] [holds: b → Prop]
     (givesFirst: Parse.Gives inv p first)
@@ -90,6 +92,7 @@ theorem Parse.givesThen ∀ [inv: Parse.Invariant t] [p: () → {Parse t} a] [j:
   Parse.readsThen givesFirst (firstRead v facts => rest v facts)
 
 --| What a parser gives, a weaker property holds of.
+@[walk.weaken]
 theorem Parse.givesWeaken ∀ [inv: Parse.Invariant t] [p: () → {Parse t} a] [holds weaker: a → Prop]
     (gives: Parse.Gives inv p holds) (implies: ∀ (value: a) => holds value → weaker value):
     Parse.Gives inv p weaker :=
@@ -232,6 +235,7 @@ theorem Parse.givesFatal ∀ [inv: Parse.Invariant t] (message: Text) [holds: a 
 --| A look-ahead that reads nothing, then `j` of what it found: `holds` of the
 --| value when it does of every `j value` ([`Parse.readsAtAfter0`] for
 --| [`Parse.Gives`]).
+@[walk.bind]
 theorem Parse.givesAfter0 ∀ [inv: Parse.Invariant t] [p: () → {Parse t} a] [j: a → {Parse t} b] [holds: b → Prop]
     (first: Parse.Reads0 inv p)
     (rest: ∀ (value: a) => Parse.Gives inv (() => j value) holds):

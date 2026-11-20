@@ -1,7 +1,7 @@
 //! Proofs: `calc`, `rewrite`, `arithmetic`, `algebra` and `cases`.
 
 use crate::Span;
-use crate::ast::{BinOp, CalcStep, Decl, Expr, Name, RewriteRule};
+use crate::ast::{BinOp, CalcStep, Decl, Expr, Name, RewriteRule, Walk};
 use crate::lexer::Tok;
 use crate::tree::{Element, Node, NodeKind};
 
@@ -223,6 +223,37 @@ impl<'f> Lower<'f> {
             span: keyword.to(body.span()),
             body: Some(Box::new(body)),
         })
+    }
+}
+
+impl<'f> Lower<'f> {
+    /// `byWalking [items] then t`, spanning the word to the `]` or to the
+    /// end of `t`.
+    #[inline(never)]
+    pub(super) fn walk(&self, node: Node<'f>) -> Lowering<Expr> {
+        let kind = NodeKind::Walk;
+        let keyword = match node.children().next() {
+            Some(Element::Leaf(leaf)) => Some(leaf.span()),
+            _ => None,
+        };
+        let keyword = required(keyword, kind, "its word")?;
+        let list = required(node.child(NodeKind::List), kind, "its lemmas")?;
+        let Expr::List(items, list_span) = &mut self.list(list)? else {
+            unreachable!("a list lowers to a list")
+        };
+        let (items, list_span) = (std::mem::take(items), *list_span);
+        let body = match node.after(&Tok::KwThen) {
+            Some(body) => Some(self.expr(body)?),
+            None => None,
+        };
+        let end = body.as_ref().map_or(list_span, Expr::span);
+        Ok(Expr::Walk(Box::new(Walk {
+            items,
+            body,
+            keyword,
+            span: keyword.to(end),
+            resume: None,
+        })))
     }
 }
 

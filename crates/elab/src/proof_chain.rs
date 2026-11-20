@@ -202,6 +202,7 @@ pub(crate) fn sub_expressions<'a>(e: &'a Expr, out: &mut Vec<&'a Expr>) {
         }
         Expr::Omega { facts, .. } | Expr::Ring { facts, .. } => out.extend(facts.iter()),
         Expr::Cases { body, .. } => out.extend(body.as_deref()),
+        Expr::Walk(w) => out.extend(w.items.iter().chain(&w.body)),
     }
 }
 

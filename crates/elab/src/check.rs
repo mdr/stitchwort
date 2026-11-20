@@ -2668,6 +2668,7 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         Expr::Rewrite { .. } => crate::rewrite::infer_rewrite(cx, expr),
         Expr::Omega { .. } => Err(crate::omega::no_goal(cx, expr)),
         Expr::Cases { .. } => Err(crate::cases::no_goal(cx, expr)),
+        Expr::Walk(..) => Err(crate::walk::no_goal(cx, expr)),
         Expr::Ring { .. } => Err(crate::ring::no_goal(cx, expr)),
         Expr::LocalDefs { defs, body, .. } => crate::local::around(cx, defs, |cx| infer(cx, body)),
         Expr::Effect(row, ty) => infer_effect(cx, row, ty),
@@ -6224,6 +6225,10 @@ fn check_special(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Special>
         return Ok(Special::Done(crate::equations::probe(
             cx, expected, name.span,
         )));
+    }
+    // Before forcing: a walk reads its family off the goal as written.
+    if let Expr::Walk(..) = expr {
+        return crate::walk::check_walk(cx, expr, expected).map(Special::Done);
     }
     if let Expr::Interpolated(text, _) = expr {
         let term = check_inner(cx, text, expected)?;

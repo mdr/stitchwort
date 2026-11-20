@@ -2035,6 +2035,7 @@ pub(crate) fn has_number(expr: &Expr) -> bool {
             Expr::LocalDefs { body, .. } => stack.push(body),
             Expr::Omega { facts, .. } | Expr::Ring { facts, .. } => stack.extend(facts),
             Expr::Cases { body, .. } => stack.extend(body.as_deref()),
+            Expr::Walk(w) => stack.extend(w.items.iter().chain(&w.body)),
             Expr::Calc { first, steps, .. } => {
                 stack.push(first);
                 for step in steps {
