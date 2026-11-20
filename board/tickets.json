@@ -30289,12 +30289,12 @@
     {
       "id": 4459,
       "title": "[Sonnet] Formatter sync: Rust keeps glued spacing such as byWalking[x] and facts lists, the self-hosted formatter prints a space; make them behave the same (SW-4427 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane notes (Sonnet, 20 Nov): Rust was the formatter that differed (spacing.rs fell through to a copy for adjacent call elements the lexer splits). Added a rule: closes_operand or byWalking before opens_atom gets a space; )( stays kept. Test api::glued_call_elements_get_a_space (fails before). Twin text on goldens 62/142 before and after (the rest outside slice 6a); glued file identical after. fmt --check clean on std, aoc, tools/fmt, games; examples and docs list the same files as main. Commit on lane/SW-4459.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
