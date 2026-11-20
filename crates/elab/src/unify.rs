@@ -3050,13 +3050,21 @@ fn solve(g: &Unifier<'_>, level: usize, m: usize, spine: &[Elim], rhs: &Value) -
 /// Call left (rest => Done (isSome LParen x && piBinderAhead rest))`.
 ///
 /// Only where that is the one solution to take: `e` mentions no unknown,
-/// and mentions a variable that `?m` can't (`items`, bound inside the
+/// and mentions a variable `v` that `?m` can't (`items`, bound inside the
 /// other side). So no solution can keep any occurrence of `e`, and
 /// replacing all of them is not a choice among several, as it would be for
 /// an `e` that `?m` could mention (`?j (f a)` against `g (f a) (f a)` has
-/// four solutions). Nothing is solved if `e` doesn't occur, or if the
-/// variable also occurs outside `e`. The solution is checked by comparing
-/// `?m spine` with `rhs` again.
+/// four solutions). That needs `v` to occur nowhere else in `rhs`: the
+/// inner [`solve`]'s renaming refuses a solution that mentions it, so
+/// nothing is solved then
+/// (`examples/reject/continuation-abstracting-variable-outside.sw`). An
+/// `rhs` with an unknown in it is refused too, since renaming would prune
+/// that unknown's dependence on `v` (`?m e = F (?n v)` gives `?n := _ =>
+/// …`, one solution of several: `?n` may use `v` through `e`). Nothing is
+/// solved if `e` doesn't occur. Unlike [`solve`], the spine's other
+/// arguments must be distinct variables: `()` and ignorable positions
+/// aren't handled. The solution is checked by comparing `?m spine` with
+/// `rhs` again.
 fn solve_abstracting(
     g: &Unifier<'_>,
     level: usize,
@@ -3103,9 +3111,10 @@ fn solve_abstracting(
         return Ok(false);
     }
     let hay = quote_as_written(g, level, rhs)?;
-    if !hay
-        .subterms()
-        .any(|(t, under)| crate::matching::same_shifted(&needle, t, under, 0))
+    if hay.subterms().any(|(t, _)| matches!(t, Term::Meta(_)))
+        || !hay
+            .subterms()
+            .any(|(t, under)| crate::matching::same_shifted(&needle, t, under, 0))
     {
         return Ok(false);
     }
