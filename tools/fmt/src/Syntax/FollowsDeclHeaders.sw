@@ -26,15 +26,12 @@ theorem followsParamNameOn ∀ (modes: Modes) (seen: Option Tok):
 
 theorem followsParamName ∀ (modes: Modes):
     Parse.Follows SameCode WordsAlike (() => paramName modes) (() => paramName modes) :=
-  followsPeeked modes (seen => paramNameOn modes seen) (seen => paramNameOn modes seen) (seen =>
-    followsParamNameOn modes seen)
+  byWalking [followsParamNameOn]
 
 theorem followsParamNameStep ∀ (modes: Modes) (atLower: Bool):
     Parse.Follows SameCode (Option.Alike WordsAlike) (() => paramNameStep modes atLower) (() =>
       paramNameStep modes atLower) :=
-  match atLower with
-    | True => Parse.followsMap (word => Some word) (word => Some word) (followsParamName modes) (x y alike => alike)
-    | False => Parse.followsDone Trivial
+  byWalking [followsParamName]
 
 theorem followsParamNames ∀ (modes: Modes):
     Parse.Follows SameCode (List.All2 WordsAlike) (() => paramNames modes) (() => paramNames modes) :=
@@ -43,10 +40,7 @@ theorem followsParamNames ∀ (modes: Modes):
 theorem followsLowerNameStep ∀ (modes: Modes) (atLower: Bool):
     Parse.Follows SameCode (Option.Alike WordsAlike) (() => lowerNameStep modes atLower) (() =>
       lowerNameStep modes atLower) :=
-  match atLower with
-    | True =>
-      Parse.followsMap (word => Some word) (word => Some word) (followsLower modes "a name") (x y alike => alike)
-    | False => Parse.followsDone Trivial
+  byWalking [followsLower]
 
 theorem followsLowerNames ∀ (modes: Modes):
     Parse.Follows SameCode (List.All2 WordsAlike) (() => lowerNames modes) (() => lowerNames modes) :=
@@ -102,19 +96,12 @@ theorem followsBinderTypeSeen ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (allowed: Modes) (seen: Option Tok):
     Parse.Follows SameCode ExprsAlike (() => binderTypeSeen self allowed seen) (() =>
       binderTypeSeen selfTwin allowed seen) :=
-  followsOn
-    (items => binderTypeOn self allowed seen items)
-    (items => binderTypeOn selfTwin allowed seen items)
-    (itemList others same => followsBinderTypeOn knot allowed seen itemList others same)
+  byWalking [followsBinderTypeOn knot]
 
 theorem followsBinderType ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => binderType self modes) (() => binderType selfTwin modes) :=
-  followsThenEq (followsAllowBrace modes) (allowed =>
-    followsPeeked allowed
-      (seen => binderTypeSeen self allowed seen)
-      (seen => binderTypeSeen selfTwin allowed seen)
-      (seen => followsBinderTypeSeen knot allowed seen))
+  byWalking [followsAllowBrace, followsBinderTypeSeen knot]
 
 -- Header groups.
 
@@ -134,17 +121,7 @@ theorem followsHeaderDefault ∀ [self selfTwin: Goal → {Parse Item} Expr]
       (Option.Alike (PairAlike Anything ExprsAlike))
       (() => headerDefault self inner implicit atColonEq)
       (() => headerDefault selfTwin inner implicit atColonEq) :=
-  match atColonEq with
-    | True =>
-      match implicit with
-        | True => followsFatalAny _ _
-        | False => Parse.followsThen followsFixedFrom (colonEq colonEqTwin colonEqs =>
-          Parse.followsMap
-            (value => Some (colonEq, value))
-            (value => Some (colonEqTwin, value))
-            (followsFull knot inner)
-            (value valueTwin values => (colonEqs, values)))
-    | False => Parse.followsDone Trivial
+  byWalking [followsFatalAny, followsFixedFrom]
 
 theorem followsConsumedBare ∀ (started startedTwin: Parse.Mark Item):
     Parse.Follows SameCode Anything (() => consumedBare started) (() => consumedBare startedTwin) :=
@@ -266,10 +243,7 @@ theorem followsHeaderGroupNamed ∀ [self selfTwin: Goal → {Parse Item} Expr]
     Parse.Follows SameCode GroupsAlike
       (() => headerGroupNamed self inner kind refused implicit started open split)
       (() => headerGroupNamed selfTwin inner kind refused implicit startedTwin openTwin splitTwin) :=
-  match split, splitTwin with
-    | (auto, named), (autoTwin, namedTwin) => followsThenEq (followsAt inner Colon) (atColon =>
-      followsHeaderGroupColon knot inner kind refused implicit started startedTwin open openTwin auto autoTwin
-          splits.left named namedTwin splits.right atColon)
+  byWalking [followsHeaderGroupColon knot, splits.left, splits.right]
 
 theorem followsHeaderGroupTyped ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -391,17 +365,14 @@ theorem followsHeaderGroupSeen ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (modes: Modes) (kind: GroupKind) (refused: Option Text) (first: Option Tok):
     Parse.Follows SameCode GroupsAlike (() => headerGroupSeen self modes kind refused first) (() =>
       headerGroupSeen selfTwin modes kind refused first) :=
-  followsThenEq (followsPeekAt modes 1) (second => followsHeaderGroupOn knot modes kind refused first second)
+  byWalking [followsHeaderGroupOn knot]
 
 theorem followsHeaderGroup ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
     (modes: Modes) (kind: GroupKind) (refused: Option Text):
     Parse.Follows SameCode GroupsAlike (() => headerGroup self modes kind refused) (() =>
       headerGroup selfTwin modes kind refused) :=
-  followsPeeked modes
-    (first => headerGroupSeen self modes kind refused first)
-    (first => headerGroupSeen selfTwin modes kind refused first)
-    (first => followsHeaderGroupSeen knot modes kind refused first)
+  byWalking [followsHeaderGroupSeen knot]
 
 -- Rows and result types.
 
@@ -467,22 +438,15 @@ theorem alikeFunctionType ∀ (binder twin: Group)
 theorem followsRowPart ∀ (modes: Modes) (pipe: Bool):
     Parse.Follows SameCode (Option.Alike (PairAlike Anything WordsAlike)) (() => rowPart modes pipe) (() =>
       rowPart modes pipe) :=
-  match pipe with
-    | True => Parse.followsThen followsFixedFrom (bar barTwin bars =>
-      Parse.followsMap
-        (name => Some (bar, name))
-        (name => Some (barTwin, name))
-        (followsLower modes "a row variable")
-        (name nameTwin names => (bars, names)))
-    | False => Parse.followsDone Trivial
+  byWalking [followsFixedFrom, followsLower]
 
 theorem followsRowClose ∀ (modes: Modes) (open openTwin: Comments) (abilities twins: List Expr)
     (alike: List.All2 ExprsAlike abilities twins) (variable variableTwin: Option (Comments, Word))
     (variables: Option.Alike (PairAlike Anything WordsAlike) variable variableTwin):
     Parse.Follows SameCode RowsAlike (() => rowClose modes open abilities variable) (() =>
       rowClose modes openTwin twins variableTwin) :=
-  Parse.followsThen (followsExpectFixed modes RBrace "`}`") (close closeTwin closes =>
-    Parse.followsDone (alikeRow open openTwin abilities twins alike variable variableTwin variables close closeTwin))
+  byWalking [followsExpectFixed] then (alikeRow open openTwin abilities twins alike variable variableTwin variables
+      close closeTwin)
 
 theorem followsRowVariable ∀ (modes: Modes) (open openTwin: Comments) (abilities twins: List Expr)
     (alike: List.All2 ExprsAlike abilities twins):
@@ -542,9 +506,7 @@ theorem followsRowStart ∀ [self selfTwin: Goal → {Parse Item} Expr]
 theorem followsRowOf ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):
     Parse.Follows SameCode RowsAlike (() => rowOf self modes) (() => rowOf selfTwin modes) :=
-  Parse.followsThen (followsExpectFixed modes LBrace "`{`") (open openTwin opens =>
-    followsThenEq (followsAt modes Lower) (lower =>
-      followsThenEq (followsPeekAt modes 1) (second => followsRowStart knot modes open openTwin lower second)))
+  byWalking [followsExpectFixed, followsRowStart knot]
 
 theorem followsEffectResult ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (allowed: Modes):
@@ -560,9 +522,7 @@ theorem followsResultRow ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
     (allowed: Modes) (row: Bool):
     Parse.Follows SameCode ExprsAlike (() => resultRow self allowed row) (() => resultRow selfTwin allowed row) :=
-  match row with
-    | True => followsEffectResult knot allowed
-    | False => followsFull knot allowed
+  byWalking [followsEffectResult knot]
 
 theorem followsRowAhead ∀ (allowed: Modes):
     Parse.Follows SameCode Same (() => rowAhead allowed) (() => rowAhead allowed) :=
@@ -571,9 +531,9 @@ theorem followsRowAhead ∀ (allowed: Modes):
 theorem followsResultAllowed ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (allowed: Modes):
     Parse.Follows SameCode ExprsAlike (() => resultAllowed self allowed) (() => resultAllowed selfTwin allowed) :=
-  followsThenEq (followsRowAhead allowed) (row => followsResultRow knot allowed row)
+  byWalking [followsRowAhead, followsResultRow knot]
 
 theorem followsResultType ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => resultType self modes) (() => resultType selfTwin modes) :=
-  followsThenEq (followsAllowBrace modes) (allowed => followsResultAllowed knot allowed)
+  byWalking [followsAllowBrace, followsResultAllowed knot]
