@@ -87,17 +87,18 @@ expression: output
     │                    computes to True = True
 ────╯
 [GOAL] Goal: in `apart`
-    ╭─[ goals/closed-comparison-as-written.sw:30:48 ]
+    ╭─[ goals/closed-comparison-as-written.sw:31:48 ]
     │
- 30 │ theorem apart ∀ (h: 0 < 1 → 2 < 3): 2 < 3 := h ?
+ 31 │ theorem apart ∀ (h: 0 < 1 → 2 < 3): 2 < 3 := h ?
     │                                                ┬  
     │                                                ╰── h: 0 < 1 → 2 < 3
-    │                                                    ⊢ True = True
+    │                                                    ⊢ 0 < 1
+    │                                                      computes to True = True
 ────╯
 [GOAL] Goal: in `under`
-    ╭─[ goals/closed-comparison-as-written.sw:33:52 ]
+    ╭─[ goals/closed-comparison-as-written.sw:34:52 ]
     │
- 33 │ theorem under ∀ (n: Nat): n = n → 0 < 1 := same => ?
+ 34 │ theorem under ∀ (n: Nat): n = n → 0 < 1 := same => ?
     │                                                    ┬  
     │                                                    ╰── n: Nat
     │                                                        same: n = n

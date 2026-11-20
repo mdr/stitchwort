@@ -397,7 +397,11 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
         }
     }
     let mark = cx.mark();
-    let built = (|| -> Result<(Term, Value)> {
+    // The statement as written, where the goal is it ([`Ctx::statement`]).
+    let stated = (cx.statement.as_ref())
+        .filter(|s| s.at == expr.span() && s.level == base)
+        .map(|s| s.term.clone());
+    let built = (|| -> Result<(Term, Value, Option<Term>)> {
         // The motive's parameters, bound; the targets map onto them.
         let mut cur = (*motive_ty).clone();
         let mut names: Vec<Name> = Vec::new();
@@ -439,32 +443,58 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
             map: &map,
         };
         let mut body = abs.apply(&g, &goal_term)?;
+        // Only the targets and the premises are replaced: the call stays,
+        // with the case's targets in it (`countAbove k [x, ..xs]`).
+        let stated_body = stated.as_ref().and_then(|t| {
+            let to = |l: usize| Ok(Term::Var(depth - 1 - map.get(&l).copied().unwrap_or(l)));
+            lift::replace_with(&g, t, base, &to, &|_, _| None).ok()
+        });
         for (name, ty) in copy_types.into_iter().rev() {
             body = Term::Pi(name, Icit::Explicit, Rc::new(ty), Rc::new(body));
         }
         for name in names.into_iter().rev() {
             body = Term::Lam(name, Icit::Explicit, Rc::new(body));
         }
-        Ok((body, cur))
+        Ok((body, cur, stated_body))
     })();
     cx.reset(mark);
-    let (motive_term, _) = built?;
+    let (motive_term, _, stated_body) = built?;
+    let shape = Shape {
+        stated: stated_body,
+        base,
+        k,
+    };
     let motive = cx.eval(&motive_term)?;
     // `f.induct` with the motive; its cases are the alternatives.
     let ty = rest.apply(&g, motive.clone())?;
     let mut term = Term::app(with_prefix, motive_term);
     let mut cur = ty;
+    let mut cur_shape = rest_dummy.clone();
     for (i, alt) in chosen.iter().enumerate() {
         let alt = alt.expect("none missing");
         let Value::Pi(_, _, dom, cod) = force(&g, cur)? else {
             unreachable!("counted")
         };
+        // The same case with an unknown motive: its conclusion keeps the
+        // targets the case is for.
+        let Value::Pi(_, _, dom_shape, cod_shape) = force(&g, cur_shape)? else {
+            unreachable!("counted")
+        };
+        cur_shape = cod_shape.apply(&g, Value::var(DUMMY))?;
         let shown = (listing || alt.of > 1).then(|| shown_alternative(alt));
         let saved = std::mem::replace(
             &mut cx.e.goals.borrow_mut().alternative,
             shown.as_deref().map(Into::into),
         );
-        let case = alternative(cx, alt, &cases[i], &induct_name.text, &dom, &copied);
+        let case = alternative(
+            cx,
+            alt,
+            &cases[i],
+            &induct_name.text,
+            (&dom, &dom_shape),
+            &copied,
+            &shape,
+        );
         cx.e.goals.borrow_mut().alternative = saved;
         let case = case.map_err(|e| match &shown {
             Some(shown) if !listing => in_alternative(e, shown, alt),
@@ -580,6 +610,78 @@ fn same_names_in_each_case(alts: &[InductAlt]) -> Result<()> {
     Ok(())
 }
 
+/// The statement of a `match induct` as written, with the call and the
+/// targets abstracted, to show a case's goal as written.
+struct Shape {
+    /// In the context of `base` variables, then the motive's parameters
+    /// (`k` targets and the result) and the premises it takes.
+    stated: Option<Term>,
+    base: usize,
+    k: usize,
+}
+
+impl Shape {
+    /// The statement for one case: its targets put in place of the motive's
+    /// parameters. `shape` is the case's conclusion for an unknown motive,
+    /// `premises` the levels of the premises bound for `copied`. Display only,
+    /// so a case it can't be made for has none.
+    fn for_case(
+        &self,
+        cx: &Ctx,
+        shape: &Value,
+        copied: &[usize],
+        premises: &[usize],
+        at: Span,
+    ) -> Option<crate::check::Statement> {
+        let g = cx.g();
+        let stated = self.stated.as_ref()?;
+        let Value::Neutral(stitchwort_core::value::Head::Var(DUMMY, _), spine) =
+            force(&g, shape.clone()).ok()?
+        else {
+            return None;
+        };
+        let args: Vec<Term> = spine
+            .into_vec()
+            .into_iter()
+            .map(|e| match e {
+                stitchwort_core::value::Elim::App(v, _) => cx.quote_folded(&v).ok(),
+                _ => None,
+            })
+            .collect::<Option<_>>()?;
+        if args.len() != self.k + 1 {
+            return None;
+        }
+        let depth = cx.level();
+        let params = self.base + self.k + 1;
+        let term = lift::replace_with(
+            &g,
+            stated,
+            params + copied.len(),
+            &|l| {
+                let level = if l < self.base {
+                    match copied.iter().position(|&c| c == l) {
+                        Some(j) => premises[j],
+                        None => l,
+                    }
+                } else if l < params {
+                    return Ok(args[l - self.base].clone());
+                } else {
+                    premises[l - params]
+                };
+                Ok(Term::Var(depth - 1 - level))
+            },
+            &|_, _| None,
+        )
+        .ok()?;
+        Some(crate::check::Statement {
+            term: Rc::new(term),
+            level: depth,
+            at,
+            outer: None,
+        })
+    }
+}
+
 /// One alternative: its binders, the generalised variables refined, and the
 /// body, as a function of both, against the case's type `ty`.
 fn alternative(
@@ -587,8 +689,9 @@ fn alternative(
     alt: &InductAlt,
     case: &(Name, Vec<Name>),
     induct: &str,
-    ty: &Value,
+    (ty, shape_ty): (&Value, &Value),
     copied: &[usize],
+    shape: &Shape,
 ) -> Result<Term> {
     let (_, own) = case;
     if alt.binders.len() != own.len() {
@@ -613,6 +716,7 @@ fn alternative(
     let result = (|| -> Result<Term> {
         let mut lams: Vec<Name> = Vec::new();
         let mut cur = ty.clone();
+        let mut cur_shape = shape_ty.clone();
         for b in &alt.binders {
             let Value::Pi(name, _, dom, cod) = force(&g, cur)? else {
                 unreachable!("counted")
@@ -629,7 +733,11 @@ fn alternative(
             }
             lams.push(shown);
             cur = cod.apply(&g, Value::var(cx.level() - 1))?;
+            if let Value::Pi(_, _, _, cod) = force(&g, cur_shape.clone())? {
+                cur_shape = cod.apply(&g, Value::var(cx.level() - 1))?;
+            }
         }
+        let mut premises = Vec::new();
         for &l in copied {
             let Value::Pi(name, _, dom, cod) = force(&g, cur)? else {
                 return Err(motive_error(
@@ -640,10 +748,16 @@ fn alternative(
             cx.bind_hidden(name.clone(), (*dom).clone());
             let level = cx.level() - 1;
             cx.rebind(l, level);
+            premises.push(level);
             lams.push(name);
             cur = cod.apply(&g, Value::var(level))?;
         }
-        let mut body = check(cx, &alt.body, &cur)?;
+        let for_case =
+            (shape.for_case(cx, &cur_shape, copied, &premises, alt.body.span())).map(Rc::new);
+        let saved = std::mem::replace(&mut cx.statement, for_case);
+        let checked = check(cx, &alt.body, &cur);
+        cx.statement = saved;
+        let mut body = checked?;
         for name in lams.into_iter().rev() {
             body = Term::Lam(name, Icit::Explicit, Rc::new(body));
         }

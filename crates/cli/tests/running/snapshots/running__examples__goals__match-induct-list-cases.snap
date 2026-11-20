@@ -21,7 +21,8 @@ expression: output
    │           in `eq1`:
    │             k: Nat
    │             xs: List Nat
-   │             ⊢ True = True
+   │             ⊢ countAbove k [] ≤ [].length
+   │               computes to True = True
    │           in `eq2IfTrue x xs h1 ih`:
    │             k: Nat
    │             x: Nat

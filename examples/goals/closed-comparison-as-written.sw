@@ -25,8 +25,9 @@ theorem decided ∀ (n: Nat): pick (n == 0) < 2 := match n == 0 with
   | True => ?
   | False => ?
 
--- A goal that is not the statement's keeps its own: the argument here must
--- prove `0 < 1`, not the `2 < 3` the theorem states.
+-- A goal that is not the statement's is not shown as it: the argument here
+-- must prove `0 < 1` (the parameter's type as written), not the `2 < 3` the
+-- theorem states.
 theorem apart ∀ (h: 0 < 1 → 2 < 3): 2 < 3 := h ?
 
 -- Under a lambda for the statement's `→`, the goal is what it implies.

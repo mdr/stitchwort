@@ -152,6 +152,10 @@ pub struct Ctx<'e> {
     /// against the statement ([`Ctx::statement`]), so each arm's right-hand
     /// side is checked against the statement too.
     pub(crate) statement_arms: bool,
+    /// The types of the variables a lambda binds for the statement's `∀` or
+    /// `→`, as the statement writes them, by the variable's level and in
+    /// the context of the variables before it. Display only.
+    pub(crate) statement_params: Vec<(usize, Rc<Term>)>,
     pub span: Span,
 }
 
@@ -275,6 +279,7 @@ impl Saved {
             guard_splits: Rc::from([]),
             statement: None,
             statement_arms: false,
+            statement_params: Vec::new(),
             span: self.span,
         }
     }
@@ -412,6 +417,7 @@ impl<'e> Ctx<'e> {
             guard_splits: Rc::from([]),
             statement: None,
             statement_arms: false,
+            statement_params: Vec::new(),
             span,
         }
     }
@@ -450,6 +456,7 @@ impl<'e> Ctx<'e> {
             guard_splits: Rc::from([]),
             statement: None,
             statement_arms: false,
+            statement_params: Vec::new(),
             span,
         }
     }
@@ -5119,7 +5126,15 @@ pub(crate) fn found_dictionaries(cx: &mut Ctx, own: &[usize], ty: Value) -> Resu
 /// Checks an explicit argument of `head` against its parameter type `dom`.
 fn check_arg(cx: &mut Ctx, head: &Term, value: &Expr, dom: &Value) -> Result<Term> {
     let expected = crate::reading::domain_as_written(cx, head, dom)?;
-    crate::queue::framed(
+    // A `?` as the argument shows the parameter's type as written
+    // (`0 < 1`, not `True = True`), where that is the goal.
+    let written = match value {
+        Expr::Goal(span) => parameter_statement(cx, head, *span),
+        _ => None,
+    };
+    let saved = std::mem::replace(&mut cx.statement, written.map(Rc::new));
+    let saved_arms = std::mem::replace(&mut cx.statement_arms, false);
+    let result = crate::queue::framed(
         cx,
         |cx| check(cx, value, &expected),
         |_| ArgFrame {
@@ -5127,7 +5142,40 @@ fn check_arg(cx: &mut Ctx, head: &Term, value: &Expr, dom: &Value) -> Result<Ter
             value: value.clone(),
             dom: dom.clone(),
         },
-    )
+    );
+    cx.statement = saved;
+    cx.statement_arms = saved_arms;
+    result
+}
+
+/// The next explicit parameter's type of `head` as `head`'s type writes it,
+/// as the statement a `?` at `at` is checked against ([`Ctx::statement`]).
+/// Only where the variables it mentions are the ones in scope here.
+fn parameter_statement(cx: &Ctx, head: &Term, at: Span) -> Option<Statement> {
+    let (ty, env) = crate::dot::written_type_term(cx, head).ok()?.or_else(|| {
+        // The type of a variable the statement's lambda bound.
+        let Term::Var(ix) = head.strip_loc() else {
+            return None;
+        };
+        let level = cx.level().checked_sub(1 + ix)?;
+        let (_, ty) = cx.statement_params.iter().find(|(l, _)| *l == level)?;
+        Some((ty.clone(), cx.env[..level].to_vec()))
+    })?;
+    let Term::Pi(_, Icit::Explicit, dom, _) = ty.strip_loc() else {
+        return None;
+    };
+    let g = cx.g();
+    let same_scope = env.len() <= cx.level()
+        && env
+            .iter()
+            .zip(&cx.env)
+            .all(|(a, b)| stitchwort_core::value::conv(&g, cx.level(), a, b).unwrap_or(false));
+    same_scope.then(|| Statement {
+        term: dom.clone(),
+        level: env.len(),
+        at,
+        outer: None,
+    })
 }
 
 /// An explicit argument, as an error frame (D2091): the callback notes of
@@ -7004,14 +7052,27 @@ fn explicit_lambda(
     let under = (saved_statement.as_ref())
         .filter(|s| s.at == span && s.level == cx.level())
         .and_then(|s| match s.term.strip_loc() {
-            Term::Pi(_, Icit::Explicit, _, cod) => Some(Statement {
-                term: cod.clone(),
-                level: s.level + 1,
-                at: if rest.is_empty() { body.span() } else { span },
-                outer: None,
-            }),
+            Term::Pi(_, Icit::Explicit, written, cod) => Some((
+                written.clone(),
+                Statement {
+                    term: cod.clone(),
+                    level: s.level + 1,
+                    at: if rest.is_empty() { body.span() } else { span },
+                    outer: None,
+                },
+            )),
             _ => None,
         });
+    // The parameter's type as the statement writes it, for a `?` that is
+    // an argument of a call of it (`parameter_statement`).
+    let (written, under) = match under {
+        Some((written, under)) => (Some(written), Some(under)),
+        None => (None, None),
+    };
+    let params = cx.statement_params.len();
+    if let Some(written) = written {
+        cx.statement_params.push((cx.level(), written));
+    }
     cx.bind(&first.text, dom.clone());
     cx.statement = under.map(Rc::new);
     let cod = cod.apply(&cx.g(), var)?;
@@ -7028,6 +7089,7 @@ fn explicit_lambda(
         };
         cx.reset(mark);
         cx.statement = saved_statement;
+        cx.statement_params.truncate(params);
         result
     };
     let result = match &shadowed {
