@@ -362,7 +362,6 @@ theorem givesArgumentAt ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     | False =>
       Parse.givesAfter0
         [p := () => modes.at Upper && isSome LBrace (modes.peekAt 1)]
-        [j := brace => argumentBrace self modes brace]
         (Parse.reads0Then (reads0At modes Upper) (upper =>
           match upper with
             | True => Parse.reads0Then (reads0PeekAt modes 1) (found => Parse.reads0Done _)
@@ -1052,8 +1051,7 @@ theorem readsParenRest ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (fine: Parse.Fits Item GoodItems start.rest):
     Parse.ReadsAt start (() => parenRest self modes items) (read value => AtomAt item read value) :=
   match rightOperator items with
-    | Some inside =>
-      givesOutAt [p := () => rightSection self modes inside] item (outside.rightSections modes inside) start fine
+    | Some inside => givesOutAt item (outside.rightSections modes inside) start fine
     | None => readsBracketed self modes nested outside start item later shape isParen fine
 
 theorem readsParenOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
