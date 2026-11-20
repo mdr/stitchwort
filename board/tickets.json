@@ -1,5 +1,5 @@
 {
-  "next": 4451,
+  "next": 4452,
   "tickets": [
     {
       "id": 47,
@@ -30176,6 +30176,19 @@
       "labels": [],
       "epic": "dev-loop-speed",
       "body": "Review done (Fable, paper only, 20 Nov 2026). Verdict: merge after named fixes. M1: a re-checked entry is kept with the other kernel's field_sorts/field_erased, which the re-check recomputes but never compares and the hash doesn't cover; the next session's trusted replay installs them (conversion's proof fields, subsingleton elimination, eta and termination read them). Fix: compare after define_data_group, refuse on a difference. M2: a forged-field-sort test, and dump equality for the kept session. M3: docs/core.md wording. Follow-ups F1-F5 in the review (scratchpad sw4450/SW-4410-recheck-review.md, for docs/reviews/).",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4451,
+      "title": "[Sonnet] Goals as written: the lemma offered for a goal (goal_index lemmas) still states the computed form (theorem plainGoal1 (n: Nat): True = True := ?) where the goal now shows the statement as written (0 < 1); state the lemma as written when it checks against the same goal (SW-4443 follow-up)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "goal-as-written",
+      "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
