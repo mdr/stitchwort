@@ -1,5 +1,5 @@
 {
-  "next": 4395,
+  "next": 4398,
   "tickets": [
     {
       "id": 47,
@@ -27415,12 +27415,12 @@
     {
       "id": 4240,
       "title": "[Opus] Walk W3 (D3696): two-run families (Parse.Follows) in lockstep, per SW-4238 §3.10; after W1 (SW-4239)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Matt, 19 Nov 2026: 'please have on our backlog investigations into or actually doing some of the improvements that we found that would make Stitchwort more competitive with Lean and Rocq on these type of proofs.' Source: docs/reviews/SW-4222-lean-rocq-comparison.md §6.\n\nD3696 parked, Matt, 19 Nov 2026: 'It's a really promising idea. I'd like to study it further ... Can we park it as a very promising idea on the backlog? And I will have a read through the tutorial more closely tomorrow.' Tutorial: https://claude.ai/artifact/V1kPvxmw99KQtiscx9NAdi. Don't start build lanes until he decides.\n",
+      "body": "Matt, 19 Nov 2026: 'please have on our backlog investigations into or actually doing some of the improvements that we found that would make Stitchwort more competitive with Lean and Rocq on these type of proofs.' Source: docs/reviews/SW-4222-lean-rocq-comparison.md §6.\n\nD3696 parked, Matt, 19 Nov 2026: 'It's a really promising idea. I'd like to study it further ... Can we park it as a very promising idea on the backlog? And I will have a read through the tutorial more closely tomorrow.' Tutorial: https://claude.ai/artifact/V1kPvxmw99KQtiscx9NAdi. Don't start build lanes until he decides.\n\n\nProgress (lane, 20 Nov): started 12:53. 13:07 lockstep walk working on scratch examples; 13:18 pilot first walks; 13:49 25 FollowsBase two-run proofs walked (181 -> 31 proof lines), all 26 expansions check again; tests and docs next.\n\n\nLane done 14:00 (67 min of 120): branch lane/SW-4240, 5 commits 23355db88..d0263f9e3. Lockstep two-run walk (walk/two.rs), std Follows done/bind/weaken tagged (no hash moved), FollowsBase pilot 25 proofs 181 -> 31 proof lines, namespace check 505 -> 704 ms (1.39x), all 26 expansions re-check. SW-4368 pair in followsAtomAfter: walk can't replace it (alike marks feed the fuel); kept. Tests: test:example NAME=walk, walk_expansions_check_again (extended), test:lane AREA=hashes, check Syntax.FollowsBase and Syntax.ParseWalk, clippy. Model result: Opus, see report.\n",
       "created": "2026-11-19",
       "updated": "2026-11-20",
       "commits": []
@@ -29101,7 +29101,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\n\nProgress (Sonnet lane, 20 Nov): pair kept, no code change. Cause (strong evidence, not a trace): with the pair dropped, followsThen's j/k are solved structurally from the False goal. That goal is the bare unfolded suffixes (mark().left + 1) ..., whose FIRST effect is the inner left() mark of suffixCalled, so ?j (mark()) := the continuation after that inner mark (y => unitCall y.rest ...), not the outer here.left+1 mark. j here then reads here.rest where the found side has state.at.rest. Closed needle mark() is refused by solve_abstracting (needle needs a variable the meta can't mention), so the abstracting fallback cannot correct it. True branch passes because the goal is Section (...), not Call-headed. Tried: pair dropped; only k dropped (twin side fails identically: hereTwin vs other.at); match moved inside/outside followsThen; branch order swapped: False fails every time. A model of the shape (examples-style, 2 marks) did not reproduce, so the exact trigger is some more detail of the real suffixes chain. Candidate elaborator rule, Opus review needed: for ?j (?p ()) with closed call needle, prefer abstracting occurrences of the needle in the goal over the first-order split when the goal's head call is the needle but occurs also as an argument.\n\n\nOrchestrator, 20 Nov: parked behind the walk. Cause found (the first-effect split picks the inner left() mark in the False branch; the abstracting fallback refuses a closed needle like mark()); fix would be a closed-needle rule in the unifier. The walk (W1, SW-4239) reads each step off the body itself, so it should make this pair unnecessary; decide after W1 with SW-4355 and SW-4363.\nModel result: Sonnet, worked (diagnosed; correctly stopped before a unifier change), 15 min (est. 35)\n",
+      "body": "\n\nProgress (Sonnet lane, 20 Nov): pair kept, no code change. Cause (strong evidence, not a trace): with the pair dropped, followsThen's j/k are solved structurally from the False goal. That goal is the bare unfolded suffixes (mark().left + 1) ..., whose FIRST effect is the inner left() mark of suffixCalled, so ?j (mark()) := the continuation after that inner mark (y => unitCall y.rest ...), not the outer here.left+1 mark. j here then reads here.rest where the found side has state.at.rest. Closed needle mark() is refused by solve_abstracting (needle needs a variable the meta can't mention), so the abstracting fallback cannot correct it. True branch passes because the goal is Section (...), not Call-headed. Tried: pair dropped; only k dropped (twin side fails identically: hereTwin vs other.at); match moved inside/outside followsThen; branch order swapped: False fails every time. A model of the shape (examples-style, 2 marks) did not reproduce, so the exact trigger is some more detail of the real suffixes chain. Candidate elaborator rule, Opus review needed: for ?j (?p ()) with closed call needle, prefer abstracting occurrences of the needle in the goal over the first-order split when the goal's head call is the needle but occurs also as an argument.\n\n\nOrchestrator, 20 Nov: parked behind the walk. Cause found (the first-effect split picks the inner left() mark in the False branch; the abstracting fallback refuses a closed needle like mark()); fix would be a closed-needle rule in the unifier. The walk (W1, SW-4239) reads each step off the body itself, so it should make this pair unnecessary; decide after W1 with SW-4355 and SW-4363.\nModel result: Sonnet, worked (diagnosed; correctly stopped before a unifier change), 15 min (est. 35)\n\nW3 (SW-4240, 20 Nov): a walk cannot replace the pair either: the body computes to raw %mark operations, and the two runs' suffixes fuels differ (alike marks, not equal). Stays parked; see the alike-marks walk ticket.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -29441,6 +29441,45 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4395,
+      "title": "[Opus, paper] Review walk W3 (SW-4240): two-run lockstep walk, new leaf closers (also one-run), fixed-function-as-value fitting rule; generates proofs (D2364)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4396,
+      "title": "[Sonnet] Walk follow-ups from W3: followsTupleClose needs its open thunk written out in brackets (bare followsFatalAny gives E-TYPE-MISMATCH); arithmetic as a done leaf right after a twin rewrite doesn't check in expansion (alike not fixed in time); @[walk] uniqueness compares whole thunk-head lists so (fail, any) and (fail, bump) can both register then clash (SW-4240 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4397,
+      "title": "[Opus] Walk: line up two runs whose values are related but not equal (Parse.mark()'s alike marks used as fuel), a lemma shape or step of its own; would let followsAtomAfter's [j := ..][k := ..] pair go (SW-4240 finding, SW-4368)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
