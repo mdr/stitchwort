@@ -1,0 +1,43 @@
+---
+source: crates/cli/tests/running/walk_expand.rs
+expression: expanded
+---
+-- A lemma that leaves the second run open (`followsFailAny`, "`fail` is
+-- followed by any parser"), named bare in the brackets, fits a pair of
+-- calls after a bind. The bind's then-lemma gives the goal after it with
+-- the post as unification solved it, eta-expanded (`x y => SameNat x y`);
+-- the walk reads the goal with the post contracted (`SameNat`), as the
+-- statement wrote it, so the open run is solved from the call.
+
+import Std (Parse, Nat, Bool, Result, Empty, Text)
+
+def SameNat (x y: Nat): Prop := x = y
+
+def here(): {Parse Nat} Nat := Parse.mark().offset
+
+@[walk]
+theorem followsHere: Parse.Follows SameNat SameNat (() => here()) (() => here()) :=
+  Parse.followsMap [alike := SameNat] (m => m.offset) (m => m.offset) Parse.followsMark (m n alike => alike.right.left)
+
+def fail (message: Text): {Parse Nat} a := Empty.absurd (Parse.fatal message)
+
+theorem neverFail ∀ [a: Type] (message: Text) (state: Parse.State Nat) (value: a) (after: Parse.Mark Nat):
+    ¬(Parse.runFrom state (() => (fail message, Parse.mark())) = Ok (value, after)) :=
+  ran => (Result.errNotOk ran).impossible
+
+theorem followsFailAny ∀ [alike: a → b → Prop] (message: Text) (second: () → {Parse Nat} b):
+    Parse.Follows SameNat alike (() => fail message) second :=
+  Parse.followsNever (() => fail message) second (neverFail message)
+
+def closeAfter (atStart: Bool): {Parse Nat} Nat := if atStart then fail "nothing to close" else here()
+
+def close(): {Parse Nat} Nat :=
+  let at := here()
+  closeAfter (at == 0)
+
+theorem followsClose: Parse.Follows SameNat SameNat (() => close()) (() => close()) :=
+  Parse.followsThen followsHere (at atTwin atFacts =>
+    rewrite <- atFacts then
+    (match branch1: (at.decEq 0).holds with
+      | False => followsHere
+      | True => followsFailAny ("nothing to close") (x => fail "nothing to close")))
