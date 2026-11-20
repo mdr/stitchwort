@@ -28855,12 +28855,12 @@
     {
       "id": 4350,
       "title": "[Sonnet] STITCHWORT_TRACE_RESOURCE names the wrong frame on macOS: elab frames had no file:line in a line-tables build and identical functions were merged (quote_internal shown for quote_unfolded); add a task trace:resource that builds with line tables and function merging off, and correct docs/testing.md (SW-4342 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "From SW-4342.",
+      "body": "From SW-4342.\n\nProgress: task trace:resource + Cargo profile trace + docs/testing.md done on lane/SW-4350; shown on a grow-30 probe (frames now file:line, inlined frames expanded). Linker is lld on macOS (ICF off by default); the real merger is LLVM, off via -Zmerge-functions=disabled.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
