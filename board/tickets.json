@@ -28829,12 +28829,12 @@
     {
       "id": 4348,
       "title": "[Sonnet] equations.rs ~7440: when a Bool overlap meets a case without the expected b = X form, skip the equation with a clear reason instead of building an ill-typed term for the kernel to refuse (SW-4343 N3)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From the SW-4341 review.",
+      "body": "From the SW-4341 review.\n\nLane note: in the dec path `(None, None) if fails_as_bool` now skips with the \"Bool test in its statement but not where the definition tests it\" reason; no reproducer found (invariant holds for every guard tried). Branch lane/SW-4348.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
