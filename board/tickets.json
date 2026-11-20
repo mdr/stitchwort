@@ -30382,8 +30382,8 @@
     {
       "id": 4466,
       "title": "[Opus] Walk gap 1 (SW-4421): a nested bind as the bound computation, let y := f (g ()); k y, gives Effect.bind (Effect.bind g f) k and the walk asks for a lemma for Effect.bind; split the inner bind first, as if written let x := g (); let y := f x; blocks 36 formatter proofs (letStatement, operationClause, rowVariable). Repro: def h(): {Parse Nat} Nat := let y := f (g ()); y / theorem givesH: Parse.Gives inv (() => h()) post := byWalking [givesF, givesG]",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
@@ -30421,8 +30421,8 @@
     {
       "id": 4469,
       "title": "[Opus] Walk gap 5 (SW-4421, W3 review follow-up 8): two-run walks (Parse.Follows) cost 10-20x the elaboration steps of the hand proof on small proofs (followsRewriteAfter 61k -> 1.19M steps) and 2-11x check time; profile where the steps go and cut them, so two-run walks pass the time bar",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
