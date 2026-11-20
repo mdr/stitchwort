@@ -1,5 +1,5 @@
 {
-  "next": 4319,
+  "next": 4320,
   "tickets": [
     {
       "id": 47,
@@ -28101,7 +28101,7 @@
     {
       "id": 4292,
       "title": "[Sonnet] Small: the lexer's own Gives family, ~10 general facts to std, the 13 …Blank list lemmas (survey target 10)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -28445,6 +28445,19 @@
       "labels": [],
       "epic": "dev-loop-speed",
       "body": "From SW-4306.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4319,
+      "title": "[Sonnet] The five Blank-like lemmas SW-4292 left (statementsBlank, namesBlank, piecesBlank, patternLinksBlank, blankCalcStepsAlike): their cons step is byComputing or their Alike has another shape; prove them via List.all2Join or a variant, or say why not",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From SW-4292.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
