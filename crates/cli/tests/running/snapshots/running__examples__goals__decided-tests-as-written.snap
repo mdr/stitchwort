@@ -1,0 +1,16 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `shown`
+    ╭─[ goals/decided-tests-as-written.sw:13:3 ]
+    │
+ 13 │   ?
+    │   ┬  
+    │   ╰── x: Nat
+    │       xs: List Nat
+    │       h1: xs == []
+    │       h2: (x != 4) = True
+    │       h3: (xs == [] && x != 4) = True
+    │       ⊢ guarded x xs = 0
+────╯
