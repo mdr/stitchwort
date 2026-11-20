@@ -24293,8 +24293,8 @@
     {
       "id": 4005,
       "title": "[Sonnet] Disk: kache cache is 27 GB (~/Library/Caches/kache, auto-gc.log empty) and main's target/ 56 GB (debug 26, release 24); check kache 1.0.0's size cap and gc against its source/docs, set a cap in KACHE_CONFIG_SETUP, and add a task (sweep stale target artifacts) the orchestrator runs weekly; worktree:rm should delete the lane's scratch subfolder too (lanes copy a ~300 MB binary there; 9.5 GB of them piled up by 18 Nov)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
@@ -28959,8 +28959,8 @@
     {
       "id": 4358,
       "title": "[Sonnet] A comparison in a Bool guard's generated fact shows as computed: x < 5 as x <= 4, 0 < x as 1 <= x (SW-4341, SW-4344 equations); show it as written",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
