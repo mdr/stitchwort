@@ -275,7 +275,10 @@ fn tier_sample_at<T>(items: Vec<T>, broad_stride: usize, tier: Tier) -> Vec<T> {
 /// environment variable `seed_var` if set, otherwise the day (days since
 /// 1970, UTC). The offset moves by one each day, within the stride, so every
 /// item is covered exactly once in `stride` consecutive days' runs, although
-/// each run takes only a share. Every run on one day takes the same sample,
+/// each run takes only a share. A list shorter than the stride takes one
+/// item a day instead, its offset moving within the list, so every day's
+/// sample is non-empty (nothing when there are no items) and `len`
+/// consecutive days cover it. Every run on one day takes the same sample,
 /// so the rolling check's runs agree. Prints the seed (set the variable to
 /// repeat a sample). The all tier takes every item.
 #[doc(hidden)]
@@ -292,7 +295,8 @@ pub fn daily_tier_sample<T>(items: Vec<T>, broad_stride: usize, seed_var: &str) 
 }
 
 /// [`daily_tier_sample`] with the day and tier given, rather than read from
-/// the environment: for its test.
+/// the environment: for its test. A list shorter than the stride takes the
+/// offset within the list, so its one item a day is never skipped.
 #[doc(hidden)]
 pub fn daily_tier_sample_at<T>(
     items: Vec<T>,
@@ -301,7 +305,15 @@ pub fn daily_tier_sample_at<T>(
     tier: Tier,
 ) -> Vec<T> {
     let stride = tier_stride(broad_stride, tier);
-    let offset = (seed % stride as u64) as usize;
+    let len = items.len();
+    if len == 0 {
+        return Vec::new();
+    }
+    let offset = if len < stride {
+        (seed % len as u64) as usize
+    } else {
+        (seed % stride as u64) as usize
+    };
     items.into_iter().skip(offset).step_by(stride).collect()
 }
 
