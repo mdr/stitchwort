@@ -27750,12 +27750,12 @@
     {
       "id": 4265,
       "title": "[Sonnet] Differential oracle: lower Float.Model.isqrt/sqrtBits cost in the reference evaluator so their skipped comparisons run again (29 distinct skips of cap 60 on 19 Nov; SW-4255 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "From SW-4255 and Overmind's 19 Nov cycle: 28 std skips, mostly Float.Model around isqrt/sqrtBits.\n\nProgress (Sonnet lane, 20 Nov): cause is reference::conv keying a stuck-call pair by the printed normal forms of both (isqrt n is ~4^64 nodes: four uses of the guess per Newton step, 64 unrolled); the evaluator itself takes 182 steps. Fix: no key over 20k steps (commit 23cc7483c). Broad sample 50 distinct skips (96 repeats) -> 29 (33). Left: isqrt/sqrtBits applied to a variable (inherent tree size; fix would be in std or a DAG-aware read-back), and example-owned skips.\n",
+      "body": "From SW-4255 and Overmind's 19 Nov cycle: 28 std skips, mostly Float.Model around isqrt/sqrtBits.\n\nProgress (Sonnet lane, 20 Nov): cause is reference::conv keying a stuck-call pair by the printed normal forms of both (isqrt n is ~4^64 nodes: four uses of the guess per Newton step, 64 unrolled); the evaluator itself takes 182 steps. Fix: no key over 20k steps (commit 23cc7483c). Broad sample 50 distinct skips (96 repeats) -> 29 (33). Left: isqrt/sqrtBits applied to a variable (inherent tree size; fix would be in std or a DAG-aware read-back), and example-owned skips.\n\n\nModel result: Sonnet, worked (cause was the memo key printing, not evaluator cost), 25 min (est. 40)\n",
       "created": "2026-11-19",
       "updated": "2026-11-20",
       "commits": []
