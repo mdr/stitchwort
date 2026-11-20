@@ -1,5 +1,5 @@
 {
-  "next": 4374,
+  "next": 4375,
   "tickets": [
     {
       "id": 47,
@@ -29148,8 +29148,8 @@
     {
       "id": 4372,
       "title": "[DeepSeek] check --only NAME: when no theorem NAME is found but a qualified one ends with it (Syntax.ParseWalk.givesCommaListFrom), suggest the qualified name in the error (SW-4239 finding)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
@@ -29166,6 +29166,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4374,
+      "title": "[DeepSeek] Differential test: STITCHWORT_DIFFERENTIAL_ONLY=name to pick one example from the sample by name (today only index slicing; SW-4265 finding); document in docs/testing.md",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
