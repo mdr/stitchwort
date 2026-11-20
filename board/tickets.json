@@ -28296,7 +28296,7 @@
     {
       "id": 4307,
       "title": "[DeepSeek] task lane:merge guard: refuse (unless ALLOW=…) a lane branch whose diff against its merge-base touches board/tickets.json, docs/worklog/, docs/agent-feedback/, or reverts lines added on main since the merge-base (detect: files changed on both sides where the lane's version equals the merge-base version); print the full --stat before merging (SW-4285 stale squash undid SW-4287, 20 Nov)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
