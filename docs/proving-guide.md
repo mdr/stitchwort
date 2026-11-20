@@ -766,8 +766,10 @@ scratch file on 19 Nov 2026).
   '(' …` computes and a proof can follow a guarded program arm for arm.
   The arm gets the fact `(c == '(') = True` and the arms below `(c == '(')
   = False` (a decided proposition `P` gives `P` and `¬P`); `cases` and
-  `arithmetic` use them, but the goal shows the fact only when it is named
-  (`| c if g: c == '(' => …`). A `rewrite g` or `rewrite f.eqK … g` there
+  `arithmetic` use them, and the goal lists an unnamed guard's fact as a
+  line under the context, in the arm's names (`c == '('`, a `Bool` fact that is `True` printed bare, then `(c == '(') = False` below; a named
+  guard, `| c if g: c == '(' => …`, shows as `g`, in the arms below as the
+  fact), as it lists a catch-all's (`examples/goals/guard-facts.sw`). A `rewrite g` or `rewrite f.eqK … g` there
   finds nothing to rewrite: drop it (`W-REWRITE-GUARD-REFINED`, for a
   rewrite of the goal only; a `rewrite … at h` that finds nothing makes the
   arm fail refined, and the guard then splits as before). Where the goal

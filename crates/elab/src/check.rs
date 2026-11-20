@@ -128,6 +128,10 @@ pub struct Ctx<'e> {
     /// The call whose automatic argument is being proved, named in an
     /// `E-AUTO-FALSE` message (`auto.rs`).
     pub(crate) auto_call: Option<String>,
+    /// The levels of the unnamed guards' facts in scope (`if c` in a proof
+    /// arm), bound as `_`: the goal lists them under the context
+    /// (display only).
+    pub(crate) guard_facts: Vec<usize>,
     pub span: Span,
 }
 
@@ -220,6 +224,7 @@ impl Saved {
             reify_display: c.reify_display.clone(),
             cases: c.cases.clone(),
             auto_call: None,
+            guard_facts: Vec::new(),
             span: self.span,
         }
     }
@@ -352,6 +357,7 @@ impl<'e> Ctx<'e> {
             reify_display: None,
             cases: None,
             auto_call: None,
+            guard_facts: Vec::new(),
             span,
         }
     }
@@ -385,6 +391,7 @@ impl<'e> Ctx<'e> {
             reify_display: None,
             cases: None,
             auto_call: None,
+            guard_facts: Vec::new(),
             span,
         }
     }
@@ -457,6 +464,7 @@ impl<'e> Ctx<'e> {
         self.written.truncate(mark.level);
         self.kinds.truncate(mark.level);
         self.lets.truncate(mark.level);
+        self.guard_facts.retain(|&l| l < mark.level);
         self.scope.truncate(mark.scope);
         self.locals.truncate(mark.locals);
     }
@@ -7651,6 +7659,9 @@ pub(crate) fn check_guard_if(
             };
             let ty_term = cx.quote_folded(&ty)?;
             let mark = cx.mark();
+            if name == "_" {
+                cx.guard_facts.push(cx.level());
+            }
             cx.bind(name, ty);
             let result = body.check(cx, goal);
             cx.reset(mark);

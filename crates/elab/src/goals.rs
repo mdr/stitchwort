@@ -86,6 +86,9 @@ pub(crate) struct Pending {
     /// list a case split took apart), at most one for each of its type's
     /// binders.
     owner_args: Vec<Value>,
+    /// The levels of the unnamed guards' facts in scope, listed under the
+    /// context with the arm's facts ([`Ctx::guard_facts`]).
+    guard_facts: Vec<usize>,
     /// How many variables are in scope at the hole.
     pub(crate) level: usize,
     /// The variables the hole's metavariable is applied to, in that order:
@@ -655,6 +658,7 @@ fn hole_of(cx: &Ctx, expected: &Value, error: bool) -> Term {
         prop,
         owner_def,
         owner_args,
+        guard_facts: cx.guard_facts.clone(),
         level: cx.level(),
         applied,
         alternative,
@@ -1781,19 +1785,26 @@ impl Elaborator {
         if let Some(a) = arm {
             lines.extend(a.facts.iter().cloned());
         }
+        let guards: Vec<String> = p
+            .hidden
+            .iter()
+            .filter(|(l, _)| p.guard_facts.contains(l))
+            .map(|(_, ty)| show(ty))
+            .collect();
+        lines.extend(guards.iter().cloned());
         lines.push(format!("⊢ {}", written.as_deref().unwrap_or(&target)));
         if written.is_some() {
             lines.push(format!("  computes to {}", cut_computed(&target)));
         }
         let lemma = if known {
-            self.lemma_of(
-                p,
-                &hypotheses,
-                arm.map_or(&[][..], |a| a.facts.as_slice()),
-                &target,
-                &show,
-            )
-            .ok()
+            let all_facts: Vec<String> = arm
+                .map_or(&[][..], |a| a.facts.as_slice())
+                .iter()
+                .chain(&guards)
+                .cloned()
+                .collect();
+            self.lemma_of(p, &hypotheses, &all_facts, &target, &show)
+                .ok()
         } else {
             None
         };
@@ -1838,7 +1849,12 @@ impl Elaborator {
         }
         diagnostic.detail_mut().goal = Some(GoalData {
             hypotheses,
-            facts: arm.map(|a| a.facts.clone()).unwrap_or_default(),
+            facts: arm
+                .map_or(&[][..], |a| a.facts.as_slice())
+                .iter()
+                .chain(&guards)
+                .cloned()
+                .collect(),
             target,
             written,
             has_unknown,

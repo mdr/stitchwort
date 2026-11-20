@@ -1,0 +1,76 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `characters`
+   ╭─[ goals/guard-facts.sw:8:22 ]
+   │
+ 8 │   | c if c == '(' => ?
+   │                      ┬  
+   │                      ╰── p: Char → Prop
+   │                          c: Char
+   │                          c == '('
+   │                          ⊢ p c
+───╯
+[GOAL] Goal: in `characters`
+   ╭─[ goals/guard-facts.sw:9:22 ]
+   │
+ 9 │   | c if c == ')' => ?
+   │                      ┬  
+   │                      ╰── p: Char → Prop
+   │                          c: Char
+   │                          (c == '(') = False
+   │                          c == ')'
+   │                          ⊢ p c
+───╯
+[GOAL] Goal: in `characters`
+    ╭─[ goals/guard-facts.sw:10:10 ]
+    │
+ 10 │   | c => ?
+    │          ┬  
+    │          ╰── p: Char → Prop
+    │              c: Char
+    │              (c == '(') = False
+    │              (c == ')') = False
+    │              ⊢ p c
+────╯
+[GOAL] Goal: in `propositions`
+    ╭─[ goals/guard-facts.sw:13:19 ]
+    │
+ 13 │   | n if n < 3 => ?
+    │                   ┬  
+    │                   ╰── p: Nat → Prop
+    │                       n: Nat
+    │                       n < 3
+    │                       ⊢ p n
+────╯
+[GOAL] Goal: in `propositions`
+    ╭─[ goals/guard-facts.sw:14:10 ]
+    │
+ 14 │   | n => ?
+    │          ┬  
+    │          ╰── p: Nat → Prop
+    │              n: Nat
+    │              ¬(n < 3)
+    │              ⊢ p n
+────╯
+[GOAL] Goal: in `named`
+    ╭─[ goals/guard-facts.sw:17:23 ]
+    │
+ 17 │   | n if g: n == 0 => ?
+    │                       ┬  
+    │                       ╰── p: Nat → Prop
+    │                           n: Nat
+    │                           g: n == 0
+    │                           ⊢ p n
+────╯
+[GOAL] Goal: in `named`
+    ╭─[ goals/guard-facts.sw:18:10 ]
+    │
+ 18 │   | n => ?
+    │          ┬  
+    │          ╰── p: Nat → Prop
+    │              n: Nat
+    │              (n == 0) = False
+    │              ⊢ p n
+────╯
