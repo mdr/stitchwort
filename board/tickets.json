@@ -29055,12 +29055,12 @@
     {
       "id": 4365,
       "title": "[DeepSeek] D2180's skip note says 'the proof h' even when the guard's proof was found automatically from an && guard and never named; word it for that case (SW-4360)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\n\nModel result: DeepSeek, worked, 30 min (est. 25)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
