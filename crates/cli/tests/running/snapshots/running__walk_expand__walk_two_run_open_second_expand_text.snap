@@ -40,4 +40,4 @@ theorem followsClose: Parse.Follows SameNat SameNat (() => close()) (() => close
     rewrite <- atFacts then
     (match branch1: (at.decEq 0).holds with
       | False => followsHere
-      | True => followsFailAny ("nothing to close") (x => fail "nothing to close")))
+      | True => followsFailAny "nothing to close" (x => fail "nothing to close")))

@@ -940,6 +940,7 @@ fn step(
                     &info,
                     family,
                     (scrutinee, data, names, vec![through]),
+                    false,
                     &goal,
                 );
             }
@@ -1540,13 +1541,15 @@ fn tail_call(
 
 /// A split where the program's case tree is stuck: a proof `match` on the
 /// same scrutinee, the program's names for the fields, and an equation
-/// named `branchN`.
+/// named `branchN`. `twin` is set for a split in the
+/// second run alone, whose field names take `Twin`.
 fn split(
     cx: &mut Ctx,
     node: u32,
     info: &NodeInfo,
     family: &Family,
     (scrutinee, data, names, through): (Value, DataId, Vec<Vec<String>>, Vec<Option<DefId>>),
+    twin: bool,
     expected: &Value,
 ) -> Result<Term> {
     let g = cx.g();
@@ -1600,6 +1603,8 @@ fn split(
                 .filter(|n| !generated(n))
                 .cloned()
                 .unwrap_or_else(|| format!("field{}", k + 1));
+            // The second run's names are told from the first's, which are in scope.
+            let base = if twin { format!("{base}Twin") } else { base };
             let n = fresh(cx, &base, &taken);
             taken.push(n.clone());
             fields.push(Pattern::Var(ast::Name { text: n, span }));

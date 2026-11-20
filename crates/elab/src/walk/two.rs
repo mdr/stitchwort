@@ -162,6 +162,7 @@ pub(super) fn step(
                 info,
                 family,
                 (scrutinee, data, names, vec![through, twin_through]),
+                false,
                 &goal,
             )
         }
@@ -201,6 +202,7 @@ pub(super) fn step(
                 info,
                 family,
                 (scrutinee, data, names, throughs),
+                run == 1,
                 &goal,
             )
         }

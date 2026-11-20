@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/running/examples.rs
+assertion_line: 803
+expression: output
+---
+[E-WALK-LEMMA] Error: `threeDone` can't be `@[walk.done]`: `Three` takes 3 thunks, `() → {e} a`, and a walk follows one run or two
+    ╭─[ reject/walk-three-thunks.sw:10:3 ]
+    │
+ 10 │ @[walk.done]
+    │   ────┬────  
+    │       ╰────── here
+    │ 
+    │ Note: a family relates one run of code, or two in lockstep; split a relation over more thunks into relations over one or two
+────╯
