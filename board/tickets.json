@@ -1,5 +1,5 @@
 {
-  "next": 4442,
+  "next": 4443,
   "tickets": [
     {
       "id": 47,
@@ -30049,12 +30049,25 @@
     {
       "id": 4441,
       "title": "[Sonnet] Walk: refuse at @[walk.bind] registration a lemma whose last premise has no binders (today it reaches the walk and gives E-UNSOLVED; SW-4436); and find why the minimal family in examples/reject/walk-premise-without-binders.sw doesn't walk to completion",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "\n\nProgress (lane/SW-4441): registration now refuses a bind lemma whose last premise is no forall (E-WALK-LEMMA); reject example updated. The minimal family failed because 'Mine := True' computes the goal to True, so the walk can't read family/j/post back (goal 'Mine (arg => _j) _holds'); made Mine mention both args, new examples/accept/walk-minimal-family.sw walks. Model result: Sonnet, worked, 12 min (est. 30).\n",
+      "body": "\n\nProgress (lane/SW-4441): registration now refuses a bind lemma whose last premise is no forall (E-WALK-LEMMA); reject example updated. The minimal family failed because 'Mine := True' computes the goal to True, so the walk can't read family/j/post back (goal 'Mine (arg => _j) _holds'); made Mine mention both args, new examples/accept/walk-minimal-family.sw walks. Model result: Sonnet, worked, 12 min (est. 30).\n\n\nModel result: Sonnet, worked, 7 min (est. 30)\n",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4442,
+      "title": "[DeepSeek] Walk: when a family's relation computes to a constant (def Mine p post := True), E-WALK gives no hint; add a note when the goal no longer mentions the thunk and post, or a registration warning for a family relation whose unfolding drops them; and stitchwort fmt's 'N files skipped as deliberately unformatted' should name the files (SW-4441 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
