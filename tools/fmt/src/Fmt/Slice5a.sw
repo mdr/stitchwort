@@ -15,7 +15,8 @@
 --| `within5a`, and a token alphabet, `Tok.within5a`, which `formatWithin`
 --| checks before parsing.
 
-namespace Fmt
+namespace Fmt.Later
+import Fmt (..)
 import Std (Bool, Doc, List, Nat, Option, Result, Text)
 import Syntax (
   Arm,

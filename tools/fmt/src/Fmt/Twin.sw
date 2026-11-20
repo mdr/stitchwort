@@ -63,6 +63,7 @@
 namespace Fmt.Twin
 import Std (Args, ExitStatus, Files, IO, List, Nat, Option, Path, Result, Text)
 import Fmt (..)
+import Fmt.Later (..)
 import Syntax (Decl, Expr, Leaf, Lexed, SourceFile, codeOf, groupsOf, lex, parseExpression, parseFile)
 
 --| What the command line asks for: the stage whose answer to print, the file
