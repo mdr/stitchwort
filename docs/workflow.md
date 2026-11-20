@@ -537,12 +537,13 @@ lane missed it and a batch failed:
   several), and run `task test:one -- -E 'binary(library) & test(/hash_stability/)'`". `NAME`
   filters example file names, so it's the stem, not `examples` or `prelude`
   (5 Nov 2026: SW-1359, SW-1379, SW-1420; a name matching nothing now fails,
-  SW-1440). For a std change, "commit the regenerated prelude snapshot
+  SW-1440). To check them without updating, run `task test:hashes NAME=<the
+  same stem>`. For a std change, "commit the regenerated prelude snapshot
   (additions only)" (SW-1494).
 - **Changes a std file:** "check it from `crates/elab/src/std` with
   `stitchwort check --std --std-dir . FILE`; `core/*.sw` files can't be
   named this way and are covered by the hash snapshot run
-  (`task snap:hashes`)."
+  (`task test:hashes ALL=1` checks them; `task snap:hashes` updates them)."
 - **Changes std core** (Int, Nat, Text, Char, Bool definitions or lemmas):
   "run `task test:one -- -E '(package(stitchwort-cli) & binary(extraction) & test(/bound_to_the_prelude/)) | (package(stitchwort-driver) & binary(projects) & test(compact_text_is_bound_to_the_prelude))'`
   (about 20 s; the three extract tests are
