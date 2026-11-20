@@ -1188,13 +1188,7 @@ theorem readsBracketAt ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (fine: Parse.Fits Item GoodItems start.rest):
     Parse.ReadsAt start (() => bracketAt self modes second third) (read value => AtomAt item read value) :=
   match named: (isSome Lower second || isSome KwDecreasing second) && isSome ColonEq third with
-    | True =>
-      givesOutAt
-        [p := () => namedArgument self modes RBracket "`]`"]
-        item
-        (outside.namedArguments modes RBracket "`]`")
-        start
-        fine
+    | True => givesOutAt item (outside.namedArguments modes RBracket "`]`") start fine
     | False => readsListExpr self modes nested start item later shape isBracket fine
 
 theorem readsBracketAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)

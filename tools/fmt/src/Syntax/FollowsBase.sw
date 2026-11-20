@@ -655,8 +655,6 @@ theorem followsListItemsEnd ∀ [self selfTwin: Goal → {Parse Item} Expr] (inn
   match pair, pairTwin with
     | (items, trailing), (itemsTwin, trailingTwin) =>
       Parse.followsMap
-        [p := () => inner.expect RBracket "`,` or `]`"]
-        [q := () => inner.expect RBracket "`,` or `]`"]
         (close => ListOf open items trailing close)
         (close => ListOf openTwin itemsTwin trailingTwin close)
         (followsExpect inner RBracket "`,` or `]`")
