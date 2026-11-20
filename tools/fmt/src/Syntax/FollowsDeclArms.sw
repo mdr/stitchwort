@@ -184,14 +184,10 @@ theorem followsDefinitionBody ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (isInstance: Bool) (d: Nat):
     Parse.Follows SameCode DefBodyAlike (() => definitionBody self modes result isInstance d) (() =>
       definitionBody selfTwin modes resultTwin isInstance d) :=
-  followsThenEq
-    [j := seen => definitionChecked isInstance (definitionBodyOn self modes result d seen)]
-    [k := seen => definitionChecked isInstance (definitionBodyOn selfTwin modes resultTwin d seen)]
-    (followsPeek modes)
-    (seen =>
-      Parse.followsThen
-        (followsDefinitionBodyOn knot alts modes result resultTwin results d seen)
-        (body bodyTwin bodies => followsDefinitionChecked isInstance body bodyTwin bodies))
+  followsThenEq (followsPeek modes) (seen =>
+    Parse.followsThen
+      (followsDefinitionBodyOn knot alts modes result resultTwin results d seen)
+      (body bodyTwin bodies => followsDefinitionChecked isInstance body bodyTwin bodies))
 
 theorem followsDefinitionParts ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -1056,15 +1052,10 @@ theorem followsImportOpen ∀ (modes: Modes) (keyword keywordTwin: Comments) (pa
     Parse.Follows SameCode DeclsAlike (() => importOpen modes keyword path) (() =>
       importOpen modes keywordTwin pathTwin) :=
   Parse.followsThen (followsExpectFixed modes LParen "`(` and the names to import") (open openTwin opens =>
-    followsThenEq
-      [j := dots => (let imported := importedOf modes path dots; importClose modes keyword path open imported)]
-      [k := dots =>
-        (let imported := importedOf modes pathTwin dots; importClose modes keywordTwin pathTwin openTwin imported)]
-      (followsAt modes DotDot)
-      (dots =>
-        Parse.followsThen (followsImportedOf modes path pathTwin dots) (imported importedTwin importeds =>
-          followsImportClose modes keyword keywordTwin path pathTwin paths open openTwin imported importedTwin
-              importeds)))
+    followsThenEq (followsAt modes DotDot) (dots =>
+      Parse.followsThen (followsImportedOf modes path pathTwin dots) (imported importedTwin importeds =>
+        followsImportClose modes keyword keywordTwin path pathTwin paths open openTwin imported importedTwin
+            importeds)))
 
 theorem followsImportAfter ∀ (modes: Modes) (keyword keywordTwin: Comments) (path pathTwin: Word)
     (paths: WordsAlike path pathTwin) (asNext: Bool):
@@ -1084,11 +1075,7 @@ theorem followsImportPath ∀ (modes: Modes) (upper: Bool):
 theorem followsImportLine ∀ (modes: Modes):
     Parse.Follows SameCode DeclsAlike (() => importLine modes) (() => importLine modes) :=
   Parse.followsThen followsFixedFrom (keyword keywordTwin keywords =>
-    followsThenEq
-      [j := upper => (let path := importPath modes upper; importAfter modes keyword path (wordAhead modes "as"))]
-      [k := upper => (let path := importPath modes upper; importAfter modes keywordTwin path (wordAhead modes "as"))]
-      (followsAt modes Upper)
-      (upper =>
-        Parse.followsThen (followsImportPath modes upper) (path pathTwin paths =>
-          followsThenEq (followsWordAhead modes "as") (asNext =>
-            followsImportAfter modes keyword keywordTwin path pathTwin paths asNext))))
+    followsThenEq (followsAt modes Upper) (upper =>
+      Parse.followsThen (followsImportPath modes upper) (path pathTwin paths =>
+        followsThenEq (followsWordAhead modes "as") (asNext =>
+          followsImportAfter modes keyword keywordTwin path pathTwin paths asNext))))
