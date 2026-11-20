@@ -28634,12 +28634,12 @@
     {
       "id": 4333,
       "title": "[Sonnet] Audit the remaining direct core::value::quote_folded calls that bypass the too-large fallback (dot.rs 1480, equations.rs 2575/5443, effects.rs 1483/4671/5067-5139, interfaces.rs 2062, omega.rs 567, named.rs 727, search.rs, check.rs 5831), as SW-4237 did for quote(; consider a clippy-style lint or wrapper so raw read-backs can't be added",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
-      "body": "From SW-4237.",
+      "body": "From SW-4237.\n\n\nLane notes: 01cf42162 on lane/SW-4333. All direct core quote_folded calls in elab routed through check::quote_folded; examples large-hypothesis-handler and -named (failed before); clippy disallowed-methods guard on value::quote_folded; SW-4334 note fix (rewrite-value-too-large snapshot passes unchanged).\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -28647,7 +28647,7 @@
     {
       "id": 4334,
       "title": "[Sonnet] Regression from SW-4237: reject/rewrite-value-too-large.sw's Note 3 lost its specific text ('the value being written out was a call of grow, computed far enough to be very large') and now says 'it ran out while unfolding grow'; check::quote_or_written takes the too-large note and restores it only when the as-written read also fails with Size (other error paths drop it); restore the note on every failing path",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
