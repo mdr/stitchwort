@@ -794,7 +794,11 @@ Each was run on the example named; the output is quoted, shortened.
   (`examples/accept/unknown-solved-beside-lambda-argument.sw`). A thunk
   given as `() => …` needs no such neighbour: `Parse.Follows same alike
   (() => bump()) (() => bump())` fixes `p` and `q` of a lemma taking them
-  implicitly (`examples/accept/unknown-solved-facing-thunk.sw`). Where two
+  implicitly (`examples/accept/unknown-solved-facing-thunk.sw`). Its
+  continuations `j` and `k` are fixed too once `p` and `q` are: what the
+  first parser read, stuck inside the goal on a variable the goal binds,
+  is abstracted from the rest of the goal's parser
+  (`examples/accept/continuation-solved-by-abstracting.sw`). Where two
   docs compute alike (`[Doc.text t, ..rest]` and `rest` under
   `allKeysFrom`), a hypothesis read first can fix the wrong one: give it
   with `[docs := …]`.

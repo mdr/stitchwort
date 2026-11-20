@@ -145,6 +145,8 @@ pub(crate) struct Attempt {
     pub(crate) awaited_helpers: RefCell<Option<HashSet<usize>>>,
     /// While `unify::unify_solving_arguments` runs. Set by a guard.
     pub(crate) solving_arguments: Cell<bool>,
+    /// While `unify::unify_abstracting` runs. Set by a guard.
+    pub(crate) abstracting: Cell<bool>,
     /// How many comparisons of two calls of one definition by their
     /// arguments (`unify::unify_step`'s first rule) are open around the
     /// current pair. Set by a guard.
@@ -264,6 +266,7 @@ impl Attempt {
             postponed: _,
             awaited_helpers: _,
             solving_arguments: _,
+            abstracting: _,
             argument_checks: _,
             call_memo: _,
             pending: _,
@@ -317,6 +320,7 @@ impl Attempt {
             postponed: _,
             awaited_helpers: _,
             solving_arguments: _,
+            abstracting: _,
             argument_checks: _,
             call_memo: _,
             pending: _,
@@ -386,6 +390,7 @@ impl Attempt {
             postponed: _,
             awaited_helpers: _,
             solving_arguments: _,
+            abstracting: _,
             argument_checks: _,
             call_memo: _,
             pending: _,
@@ -444,6 +449,7 @@ impl Attempt {
             postponed: _,
             awaited_helpers: _,
             solving_arguments: _,
+            abstracting: _,
             argument_checks: _,
             call_memo: _,
             pending: _,
