@@ -28699,7 +28699,7 @@
     {
       "id": 4338,
       "title": "[DeepSeek] docs/testing.md STITCHWORT_TRACE_RESOURCE paragraph: say release backtraces lack lines and inlining hides sites; give a recipe (CARGO_PROFILE_RELEASE_DEBUG=line-tables-only cargo build --release, or a debug build) (SW-4331 friction)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
