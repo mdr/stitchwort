@@ -1,6 +1,10 @@
 # Proposal: `match` and `rewrite` unfold only the calls on the path to a hidden occurrence
 
-**Status:** draft 1, design only (SW-4412, from SW-4355; Opus paper lane, 20 Nov 2026).
+**Status:** built as the middle step (SW-4419, 20 Nov 2026): `crates/elab/src/unfold_path.rs`,
+wired into `rewrite`, `match`/`cases` (and guards) and the transport; metrics outcome `partial`.
+Not built: the per-cell memo of §2.1 rule 2(d) (a cap of 64 openings per walk instead), and the
+"outside proof positions" refinement of the relevant variables. Draft 1 was design only (SW-4412,
+from SW-4355; Opus paper lane, 20 Nov 2026).
 Written against `main` at `9a6caf2d2`. Nothing in the repository was edited; the probes ran
 the release CLI from that commit on a scratch copy of `tools/fmt` and `aoc` (§9). Migration
 cost (hashes, snapshots, proof edits) is not counted (D2303).

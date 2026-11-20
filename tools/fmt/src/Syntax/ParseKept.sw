@@ -798,7 +798,7 @@ theorem readsKeptParenOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     Parse.ReadsAt start (() => parenOn self modes second third) Kept :=
   match parenOutside second third with
     | True => readsOut (outside.parenOthers modes second third) start fine
-    | False => readsAtAfterLeft [j := items => parenRest self modes items] fine (after same fits =>
+    | False => readsAtAfterLeft fine (after same fits =>
       readsKeptParenRest self modes nested outside start.rest after item later (rewrite same then shape) isParen fits)
 
 --| Proof idea: the two look-aheads read nothing, so the items left are still the `(` and what follows it; then
@@ -970,7 +970,7 @@ theorem readsKeptAtomOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     | True => readsKeptNegativeAtom self modes nested start item later shape (DecEq.sound isMinus) fine
     | False =>
       match isBang: item.kind == Bang with
-        | True => readsAtAfterLeft [j := items => prefixBangOn self modes items] fine (after same fits =>
+        | True => readsAtAfterLeft fine (after same fits =>
           readsKeptPrefixAtom self modes nested
             (argumentBang start.rest)
             after
@@ -1071,7 +1071,6 @@ theorem readsArgument ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
       | False =>
         readsAfter0
           [p := () => modes.at Upper && isSome LBrace (modes.peekAt 1)]
-          [j := brace => argumentBrace self modes brace]
           (Parse.reads0Then (reads0At modes Upper) (upper =>
             match upper with
               | True => Parse.reads0Then (reads0PeekAt modes 1) (found => Parse.reads0Done _)
@@ -1192,13 +1191,8 @@ theorem readsUnarySome ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     | True => readsAtBumpRead shape fine (after tail fits =>
       readsOutAfter [item] (outside.matches modes item.leaf.word) after fits)
     | False =>
-      Parse.readsAtAfter0
-        [p := () => matchesBarAhead modes]
-        [j := bar => unaryBar self modes item.kind bar]
-        (reads0MatchesBarAhead modes)
-        fine
-        (bar after same fits =>
-          readsKeptUnaryBar self modes nested outside app after item later bar (rewrite same then shape) fits)
+      Parse.readsAtAfter0 [p := () => matchesBarAhead modes] (reads0MatchesBarAhead modes) fine (bar after same fits =>
+        readsKeptUnaryBar self modes nested outside app after item later bar (rewrite same then shape) fits)
 
 --| `unary`: a `-` or `!` and its operand, or an application; a `match` or clause lambda is outside the grammar.
 theorem readsUnary ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)

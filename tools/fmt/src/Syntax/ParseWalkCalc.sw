@@ -90,28 +90,22 @@ theorem givesCalcSteps ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (in
           calcStep Zero self modes indent column found ascending descending (calcNextOn modes indent items)]
         reads0Left
         (items => Parse.givesDone byComputing)
-    | Succ more =>
-      Parse.givesAfter0
-        [p := () => left()]
-        [j := items =>
-          calcStep (Succ more) self modes indent column found ascending descending (calcNextOn modes indent items)]
-        reads0Left
-        (items =>
-          match calcNextOn modes indent items with
-            | None => Parse.givesDone byComputing
-            | Some at =>
-              match column with
-                | Some first =>
-                  match first != at with
-                    | True => Parse.readsFatal
-                    | False =>
-                      givesCalcLine self modes indent more at found ascending descending nested outside bases
-                        (column found ascending descending =>
-                          givesCalcSteps self modes indent column nested outside bases more found ascending descending)
-                | None =>
+    | Succ more => Parse.givesAfter0 [p := () => left()] reads0Left (items =>
+      match calcNextOn modes indent items with
+        | None => Parse.givesDone byComputing
+        | Some at =>
+          match column with
+            | Some first =>
+              match first != at with
+                | True => Parse.readsFatal
+                | False =>
                   givesCalcLine self modes indent more at found ascending descending nested outside bases
                     (column found ascending descending =>
-                      givesCalcSteps self modes indent column nested outside bases more found ascending descending))
+                      givesCalcSteps self modes indent column nested outside bases more found ascending descending)
+            | None =>
+              givesCalcLine self modes indent more at found ascending descending nested outside bases
+                (column found ascending descending =>
+                  givesCalcSteps self modes indent column nested outside bases more found ascending descending))
 
 theorem givesCalcBody ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (indent: Nat) (keyword: Comments) (first: Expr)
     (nested: Nested self)

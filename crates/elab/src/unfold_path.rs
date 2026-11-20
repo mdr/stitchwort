@@ -39,11 +39,11 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use stitchwort_core::value::{eval, quote_folded, unfold_once};
+use stitchwort_core::value::{eval, unfold_once};
 use stitchwort_core::{DefId, Icit, Term, Value};
 use stitchwort_syntax::Diagnostic;
 
-use crate::check::{Ctx, Result};
+use crate::check::{Ctx, Result, quote_folded};
 use crate::lift::{replace_with, replace_with_under};
 use crate::rewrite::{Key, key, mentions_bound};
 
@@ -103,7 +103,7 @@ pub(crate) fn opened(
         &walked,
         level,
         &|l| Ok(Term::Var(level - 1 - l)),
-        &|t, _| marked(t).map(|e| e.clone()),
+        &|t, _| marked(t).cloned(),
     )?;
     Ok(Some(stripped))
 }

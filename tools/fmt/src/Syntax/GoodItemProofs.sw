@@ -746,9 +746,6 @@ theorem readsAtFraction ∀ (at: Parse.Mark Char): Parse.ReadsAt at (() => fract
         | Witness next (Witness more (Both shape digit)) =>
           readsAtThenMoved
             [p := () => skip 1]
-            [j := u =>
-              let decimals := Parse.span Char.isAsciiDigit
-              True]
             [spec := FractionRead]
             (atSkip 1 at)
             (read1 u after1 starts1 moved1 took1 =>

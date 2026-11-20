@@ -235,12 +235,9 @@ pub(super) fn unconfirmed(
     let g = cx.g();
     let snapshot = Snapshot::take(cx);
     let mut remaining = search_budget(cx);
-    let tried = g
-        .machine
-        .budget
-        .limited(&mut remaining, || {
-            search(cx, exprs, None, goal, base, skip, Reading::Folded)
-        });
+    let tried = g.machine.budget.limited(&mut remaining, || {
+        search(cx, exprs, None, goal, base, skip, Reading::Folded)
+    });
     snapshot.restore(cx);
     let outcome = match tried {
         Ok(Some(Ok(written))) => return Ok(Some(written)),

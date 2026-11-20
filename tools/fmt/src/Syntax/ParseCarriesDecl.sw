@@ -43,14 +43,10 @@ import Syntax.SettleProofs (alphabet1, tokens)
 theorem readsAtAtValue ∀ (start: Parse.Mark Item) (modes: Modes) (wanted: Tok):
     Parse.ReadsAt start (() => modes.at wanted) (read found =>
       read = [] ∧ found = isSome wanted (peekIn modes 0 start.rest)) :=
-  Parse.readsAtThen
-    [p := () => left()]
-    [j := items => isSome wanted (peekIn modes 0 items)]
-    (Parse.readsAtLeft start)
-    (read items after starts (empty, same) =>
-      Parse.readsAtDone after
-        (isSome wanted (peekIn modes 0 items))
-        (rewrite empty, same then (byComputing, byComputing)))
+  Parse.readsAtThen [p := () => left()] (Parse.readsAtLeft start) (read items after starts (empty, same) =>
+    Parse.readsAtDone after
+      (isSome wanted (peekIn modes 0 items))
+      (rewrite empty, same then (byComputing, byComputing)))
 
 --| The next item is of this kind.
 def NextIs (kind: Tok) (rest: List Item): Prop :=
@@ -191,15 +187,11 @@ theorem readsAtDefKind ∀ (start: Parse.Mark Item) (modes: Modes) (item: Item) 
     (ok: (item.kind == KwDef || item.kind == KwTheorem) = True)
     (notStopped: modes.stops item = False):
     Parse.ReadsAt start (() => defKindOf modes) (read kind => read = [] ∧ (kind = DefPlain → item.kind = KwDef)) :=
-  Parse.readsAtThen
-    [p := () => left()]
-    [j := items => defKindOn (peekIn modes 0 items)]
-    (Parse.readsAtLeft start)
-    (read items after starts (empty, same) =>
-      Parse.readsAtDone after
-        (defKindOn (peekIn modes 0 items))
-        (rewrite empty then
-          (byComputing, plain => kindPlainIsDef item.kind ok (rewrite same, shape, notStopped at plain then plain))))
+  Parse.readsAtThen [p := () => left()] (Parse.readsAtLeft start) (read items after starts (empty, same) =>
+    Parse.readsAtDone after
+      (defKindOn (peekIn modes 0 items))
+      (rewrite empty then
+        (byComputing, plain => kindPlainIsDef item.kind ok (rewrite same, shape, notStopped at plain then plain))))
 
 --| `fixedFrom()` reads the item that is next and gives its comments.
 theorem readsAtFixed ∀ (start: Parse.Mark Item) (item: Item) (later: List Item)
@@ -328,16 +320,14 @@ theorem readsUnfoldingPart ∀ (modes afterDecreasing: Modes) (isInstance: Bool)
 theorem reads0AfterDecreasing ∀ (modes: Modes) (clause: Option (Comments, Expr)):
     Reads0 (() => afterDecreasingOf modes clause) :=
   match clause.isSome with
-    | True => Parse.reads0Then [p := () => left()] [j := items => allowColonEqOn modes items] reads0Left (items =>
-      Parse.reads0Done (allowColonEqOn modes items))
+    | True => Parse.reads0Then [p := () => left()] reads0Left (items => Parse.reads0Done (allowColonEqOn modes items))
     | False => Parse.reads0Done modes
 
 theorem reads0AfterUnfolding ∀ (afterDecreasing: Modes) (clause: Option (Comments, List Word)):
     Reads0 (() => afterUnfoldingOf afterDecreasing clause) :=
   match clause.isSome with
     | True =>
-      Parse.reads0Then [p := () => left()] [j := items => allowColonEqOn afterDecreasing items] reads0Left (items =>
-        Parse.reads0Done (allowColonEqOn afterDecreasing items))
+      Parse.reads0Then [p := () => left()] reads0Left (items => Parse.reads0Done (allowColonEqOn afterDecreasing items))
     | False => Parse.reads0Done afterDecreasing
 
 theorem reads0BodyModes ∀ (afterUnfolding: Modes) (isInstance: Bool) (local: Option Nat):

@@ -226,22 +226,16 @@ theorem givesStatementOther ∀ (self: Goal → {Parse Item} Expr) (modes: Modes
     Parse.Gives GoodItems (() => statementOther self modes kind) StatementOk :=
   match kind == KwLet with
     | True => Parse.givesThen (givesLetStatement self modes nested) (binding _ =>
-      Parse.givesAfter0
-        [p := () => modes.at Semi]
-        [j := atSemi => letStatementEnd self modes binding atSemi]
-        (reads0At modes Semi)
-        (atSemi => givesLetStatementEnd self modes nested binding atSemi))
+      Parse.givesAfter0 [p := () => modes.at Semi] (reads0At modes Semi) (atSemi =>
+        givesLetStatementEnd self modes nested binding atSemi))
     | False =>
       match kind == KwDef || kind == KwTheorem with
         | True => givesLocalDef self modes [] nested
         | False =>
           match kind == At with
             | True => Parse.givesThen (givesAttributesOf modes) (attributes _ =>
-              Parse.givesAfter0
-                [p := () => left()]
-                [j := items => attributedLocal self modes attributes items]
-                reads0Left
-                (items => givesAttributedLocal self modes attributes nested items))
+              Parse.givesAfter0 [p := () => left()] reads0Left (items =>
+                givesAttributedLocal self modes attributes nested items))
             | False =>
               match kind == KwExport with
                 | True => Parse.readsFatal
@@ -287,24 +281,18 @@ theorem givesPipesFrom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (in
         [j := items => pipesStep Zero self modes indent value (pipeAheadOn modes indent items)]
         reads0Left
         (items => Parse.givesDone (Inl byComputing))
-    | Succ more =>
-      Parse.givesAfter0
-        [p := () => left()]
-        [j := items => pipesStep (Succ more) self modes indent value (pipeAheadOn modes indent items)]
-        reads0Left
-        (items =>
-          match pipeAheadOn modes indent items with
-            | False => Parse.givesDone (Inl byComputing)
-            | True => Parse.givesThen givesBump (operator _ =>
-              Parse.givesAfter0 (reads0LambdaHere modes) (lambdas =>
-                Parse.givesThen (givesPipeFunction self modes nested outside bases lambdas) (function _ =>
-                  Parse.givesWeaken
-                    (givesPipesFrom self modes indent nested outside bases more
-                      (Infix InfixPipe value operator function))
-                    (result same =>
-                      match same with
-                        | Inl equal => Inr (rewrite equal)
-                        | Inr out => Inr out)))))
+    | Succ more => Parse.givesAfter0 [p := () => left()] reads0Left (items =>
+      match pipeAheadOn modes indent items with
+        | False => Parse.givesDone (Inl byComputing)
+        | True => Parse.givesThen givesBump (operator _ =>
+          Parse.givesAfter0 (reads0LambdaHere modes) (lambdas =>
+            Parse.givesThen (givesPipeFunction self modes nested outside bases lambdas) (function _ =>
+              Parse.givesWeaken
+                (givesPipesFrom self modes indent nested outside bases more (Infix InfixPipe value operator function))
+                (result same =>
+                  match same with
+                    | Inl equal => Inr (rewrite equal)
+                    | Inr out => Inr out)))))
 
 theorem givesPipeChain ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat) (value: Expr)
     (nested: Nested self)

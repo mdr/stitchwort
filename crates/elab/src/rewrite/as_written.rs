@@ -419,7 +419,12 @@ fn search(
 /// the same as the left side read back as `reading` says, or one that
 /// unifies with it (perhaps by the arguments of calls of the same
 /// definition), whatever that solves undone.
-fn opened(cx: &mut Ctx, equation: &Equation, written: &Term, reading: Reading) -> Result<Option<Term>> {
+fn opened(
+    cx: &mut Ctx,
+    equation: &Equation,
+    written: &Term,
+    reading: Reading,
+) -> Result<Option<Term>> {
     let lhs = reading.quote(cx, &equation.lhs)?;
     let Some(lhs_key) = key(&lhs, 0) else {
         return Ok(None);
@@ -431,7 +436,13 @@ fn opened(cx: &mut Ctx, equation: &Equation, written: &Term, reading: Reading) -
         let candidate = if under == 0 {
             t.clone()
         } else {
-            replace_with(&g, t, level + under, &|l| Ok(Term::Var(level - 1 - l)), &|_, _| None)?
+            replace_with(
+                &g,
+                t,
+                level + under,
+                &|l| Ok(Term::Var(level - 1 - l)),
+                &|_, _| None,
+            )?
         };
         if same(&candidate, &lhs) {
             return Ok(true);

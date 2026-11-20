@@ -269,11 +269,8 @@ theorem givesImplicitBinderOf ∀ (self: Goal → {Parse Item} Expr) (modes: Mod
 theorem givesImplicitBinder ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
     Parse.Gives GoodItems (() => implicitBinder self modes) (found => True) :=
-  Parse.givesAfter0
-    [p := () => left()]
-    [j := items => implicitBinderOf self modes (namelessAutoAt items)]
-    reads0Left
-    (items => givesImplicitBinderOf self modes nested (namelessAutoAt items))
+  Parse.givesAfter0 [p := () => left()] reads0Left (items =>
+    givesImplicitBinderOf self modes nested (namelessAutoAt items))
 
 -- Lambdas, quantifiers and function types.
 
@@ -302,12 +299,8 @@ theorem givesLambdaParen ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     Parse.Gives GoodItems (() => lambdaParen self modes items) (found => True) :=
   match annotatedParamAhead items with
     | True => givesLambdaGroup self modes nested
-    | False =>
-      Parse.givesThen
-        [p := () => Parse.mark()]
-        [j := here => lambdaPattern self modes (annotatedPatternAhead (here.left + 1) items)]
-        Parse.givesMark
-        (here _ => givesLambdaPattern self modes nested (annotatedPatternAhead (here.left + 1) items))
+    | False => Parse.givesThen [p := () => Parse.mark()] Parse.givesMark (here _ =>
+      givesLambdaPattern self modes nested (annotatedPatternAhead (here.left + 1) items))
 
 theorem givesLambdaParam ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
@@ -437,11 +430,8 @@ theorem givesExistsExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     Parse.Gives GoodItems (() => existsExpr self modes) Out :=
   Parse.givesThen givesBump (keyword _ =>
     Parse.givesThen Parse.givesMark (here _ =>
-      Parse.givesAfter0
-        [p := () => left()]
-        [j := items => existsLambda self modes keyword (lambdaAhead modes (here.left + 1) items)]
-        reads0Left
-        (items => givesExistsLambda self modes nested keyword (lambdaAhead modes (here.left + 1) items))))
+      Parse.givesAfter0 [p := () => left()] reads0Left (items =>
+        givesExistsLambda self modes nested keyword (lambdaAhead modes (here.left + 1) items))))
 
 theorem givesQuantifierOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self) (items: List Item):

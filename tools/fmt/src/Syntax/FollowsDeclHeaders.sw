@@ -534,13 +534,10 @@ theorem followsRowStart ∀ [self selfTwin: Goal → {Parse Item} Expr]
   match lower && isSome Colon second with
     | True =>
       followsFatalAny _ (() => Syntax.fatal "a record type can't be written here: `{` in a type starts an ability row")
-    | False =>
-      followsThenEq
-        (followsAt modes RBrace)
-        (closed =>
-          followsThenEq (followsAt modes Pipe) (pipe =>
-            Parse.followsThen (followsRowAbilities knot modes closed pipe) (abilities twins alike =>
-              followsRowVariable modes open openTwin abilities twins alike)))
+    | False => followsThenEq (followsAt modes RBrace) (closed =>
+      followsThenEq (followsAt modes Pipe) (pipe =>
+        Parse.followsThen (followsRowAbilities knot modes closed pipe) (abilities twins alike =>
+          followsRowVariable modes open openTwin abilities twins alike)))
 
 theorem followsRowOf ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):
