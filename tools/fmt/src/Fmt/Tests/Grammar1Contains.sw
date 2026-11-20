@@ -250,7 +250,8 @@ theorem layoutHeaderTokensOnOwnLines: inGrammar1 "def\n  x\n  :\n  T\n  :=\n  y\
 
 theorem layoutExtraSpaces: inGrammar1 "def   x :   T   :=   f   (  a ,  b  )   [ c ]\n" = True := byComputing
 
--- Sources just outside slice 1, each easy to confuse with one above. A `False` here is the boundary, not a bug.
+-- Sources just outside slice 1, each easy to confuse with one above. These are not frozen: a slice
+-- that grows to take one in turns its `False` to `True` here.
 
 theorem falseLambda: inGrammar1 "def f: Nat → Nat := x => x\n" = False := byComputing
 
