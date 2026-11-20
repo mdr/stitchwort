@@ -1,5 +1,5 @@
 {
-  "next": 4341,
+  "next": 4342,
   "tickets": [
     {
       "id": 47,
@@ -28731,6 +28731,19 @@
       "labels": [],
       "epic": "goal-as-written",
       "body": "Found by the SW-4336 verifier, 20 Nov.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4341,
+      "title": "[Opus] D3699: a Bool guard c gives guard: c = True, and where it fails c = False (NotGuard and the last part of notArmJ), in both f.eqK and match induct; a guard written as a proposition keeps today's forms (docs/proposals/match-induct-friction.md §1 A). Examples, syntax.md, guide ch. 10, pattern-guards.md. Then (same branch, Sonnet) sweep proofs onto the new forms before merge",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "D3699, Matt, 20 Nov 2026: yes (option A). Opus review before merge (kernel terms, D2364). Follow-ups: walkers guard by lastPair + converters removed (Sonnet).",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
