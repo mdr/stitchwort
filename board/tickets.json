@@ -30369,7 +30369,7 @@
     {
       "id": 4465,
       "title": "[Opus] Goals as written: an if before a match loses the folded goal (check_if gets the forced goal), as let did before SW-4462; route the goal as written through if branches with the same fallback, measure tools/fmt (SW-4462 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
