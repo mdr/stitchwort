@@ -24,12 +24,7 @@ def CmpHungAt (modes: Modes) (depth: Nat): Prop :=
   ∀ (expr: Expr) (read rest: List Item) (state: HangState) => expr.nest <= depth
     → Spelt expr read
     → expr.autoPlaced False = True
-    → lineAll read = True
-    → lineAll rest = True
-    → openHead modes read = True
-    → bounds modes (state.enters read) = True
-    → hangsFrom state (leavesOf (read ++ rest)) = True
-    → deepAll (read ++ rest) = True
+    → HungAt modes state read rest
     → EndsAt modes 6 rest
     → 6 <= expr.level
     → CmpReads (TreeN depth) modes read rest expr
@@ -77,12 +72,14 @@ theorem logicLinksHung ∀ (modes: Modes)
           operand.deep
           operand.spelt
           operand.free
-          lineRead
-          (lineJoin after rest lineAfter lineRest)
-          (rewrite isRead then openHeadOf modes first more openFirst)
-          readBound
-          hungRead
-          deepRead
+          {
+            lineRead = lineRead,
+            lineRest = (lineJoin after rest lineAfter lineRest),
+            openFirst = (rewrite isRead then openHeadOf modes first more openFirst),
+            bound = readBound,
+            hung = hungRead,
+            deepItems = deepRead
+          }
           (linksEndsHung modes quiet depth later rest (next.enters read) laterSpelt readBound hungAfter ends)
           operand.fits,
         logicLinksHung modes quiet depth cmp later rest
@@ -135,12 +132,7 @@ theorem logicOperatorHung ∀ (modes: Modes)
     (deep: expr.nest <= depth)
     (spelt: Spelt expr read)
     (free: expr.autoPlaced False = True)
-    (lineRead: lineAll read = True)
-    (lineAfter: lineAll (read3 ++ rest) = True)
-    (openFirst: openHead modes read = True)
-    (bound: bounds modes (state.enters read) = True)
-    (hung: hangsFrom state (leavesOf (read ++ (read3 ++ rest))) = True)
-    (deepItems: deepAll (read ++ (read3 ++ rest)) = True)
+    (facts: HungAt modes state read (read3 ++ rest))
     (ends: EndsAt modes 5 (read3 ++ rest))
     (low: 4 <= expr.level)
     (noSection: isSome Dot (peekIn modes 0 ((read ++ read3) ++ rest)) = False)
@@ -149,17 +141,18 @@ theorem logicOperatorHung ∀ (modes: Modes)
   let (first, firstRead, links, isRead, operand, linksSpelt, group) := orFlat depth expr read spelt low free deep
   let linksRead := Parse.loopReads [] (linkSteps links)
   let after := read3 ++ rest
-  let (lineFirst, lineLinks) := lineSplit firstRead linksRead (rewrite <- isRead then lineRead)
+  let (lineFirst, lineLinks) := lineSplit firstRead linksRead (rewrite <- isRead then facts.lineRead)
   let (item, more, isFirst, _) := speltStarts first firstRead operand.spelt
-  let openItems: openHead modes ([item, ..more] ++ linksRead) = True := rewrite <- isFirst, <- isRead then openFirst
+  let openItems: openHead modes ([item, ..more] ++ linksRead) = True :=
+    rewrite <- isFirst, <- isRead then facts.openFirst
   let isAll: all = firstRead ++ linksRead ++ read3 :=
     rewrite whole, isRead then List.appendAssoc firstRead linksRead read3
   let hungFirst: hangsFrom state (leavesOf (firstRead ++ (linksRead ++ after))) = True :=
-    rewrite <- List.appendAssoc firstRead linksRead after, <- isRead then hung
+    rewrite <- List.appendAssoc firstRead linksRead after, <- isRead then facts.hung
   let deepFirst: deepAll (firstRead ++ (linksRead ++ after)) = True :=
-    rewrite <- List.appendAssoc firstRead linksRead after, <- isRead then deepItems
+    rewrite <- List.appendAssoc firstRead linksRead after, <- isRead then facts.deepItems
   let wholeBound: bounds modes (state.enters ([item, ..more] ++ linksRead)) = True :=
-    rewrite <- isFirst, <- isRead then bound
+    rewrite <- isFirst, <- isRead then facts.bound
   let firstBound: bounds modes (state.enters firstRead) = True := rewrite isFirst then wholeBound
   let hungLinks := speltAfterHung first firstRead (linksRead ++ after) state operand.spelt hungFirst
   let deepLinks := deepRest firstRead (linksRead ++ after) deepFirst
@@ -177,12 +170,15 @@ theorem logicOperatorHung ∀ (modes: Modes)
       operand.deep
       operand.spelt
       operand.free
-      lineFirst
-      (lineJoin linksRead after lineLinks lineAfter)
-      (rewrite isFirst then openHeadOf modes item more (openHeadStops modes item (more ++ linksRead) openItems))
-      firstBound
-      hungFirst
-      deepFirst
+      {
+        lineRead = lineFirst,
+        lineRest = (lineJoin linksRead after lineLinks facts.lineRest),
+        openFirst = (rewrite isFirst then
+          openHeadOf modes item more (openHeadStops modes item (more ++ linksRead) openItems)),
+        bound = firstBound,
+        hung = hungFirst,
+        deepItems = deepFirst
+      }
       (linksEndsHung modes quiet depth links after (state.enters firstRead) linksSpelt firstBound hungLinks ends)
       operand.fits,
     logicAfterLinksHung modes quiet depth links after first expr
@@ -197,7 +193,7 @@ theorem logicOperatorHung ∀ (modes: Modes)
         (state.enters firstRead)
         linksSpelt
         lineLinks
-        lineAfter
+        facts.lineRest
         firstBound
         hungLinks
         deepLinks
@@ -215,32 +211,21 @@ theorem operatorHung ∀ (modes: Modes)
     (deep: expr.nest <= depth)
     (spelt: Spelt expr read)
     (free: expr.autoPlaced False = True)
-    (lineRead: lineAll read = True)
-    (lineAfter: lineAll (read3 ++ rest) = True)
-    (openFirst: openHead modes read = True)
-    (bound: bounds modes (state.enters read) = True)
-    (hung: hangsFrom state (leavesOf (read ++ (read3 ++ rest))) = True)
-    (deepItems: deepAll (read ++ (read3 ++ rest)) = True)
+    (facts: HungAt modes state read (read3 ++ rest))
     (ends: EndsAt modes 5 (read3 ++ rest))
     (fits: 2 <= expr.level)
     (noSection: isSome Dot (peekIn modes 0 ((read ++ read3) ++ rest)) = False)
     (ending: EndReads (TreeN depth) modes expr (sequenceOn modes (read3 ++ rest)) read3 rest value):
     OperatorReads (TreeN depth) modes all rest value :=
   logicOperatorHung modes quiet expr read read3 rest depth all value state
-    (operand operandRead after operandState operandDeep operandSpelt operandFree lineOperand lineOperandAfter
-        openOperand operandBound operandHung operandDeepItems operandEnds operandFits =>
-      cmpHung modes quiet operand operandRead after depth operandState inner operandDeep operandSpelt operandFree
-          lineOperand lineOperandAfter openOperand operandBound operandHung operandDeepItems operandEnds operandFits)
+    (operand operandRead after operandState operandDeep operandSpelt operandFree facts operandEnds operandFits =>
+      cmpHung modes quiet operand operandRead after depth operandState inner operandDeep operandSpelt operandFree facts
+          operandEnds operandFits)
     whole
     deep
     spelt
     free
-    lineRead
-    lineAfter
-    openFirst
-    bound
-    hung
-    deepItems
+    facts
     ends
     (plainLevel expr read spelt fits)
     noSection
@@ -350,12 +335,14 @@ theorem arrowHung ∀ (modes: Modes)
           (arithmetic [deep])
           leftSpelt
           (autoPlacedInner left (Bool.andLeft free))
-          lineLeft
-          lineAfterLeft
-          openLeft
-          leftBound
-          hungLeft
-          deepLeft
+          {
+            lineRead = lineLeft,
+            lineRest = lineAfterLeft,
+            openFirst = openLeft,
+            bound = leftBound,
+            hung = hungLeft,
+            deepItems = deepLeft
+          }
           leftEnds
           leftFits
           noSection
@@ -405,12 +392,14 @@ theorem inlinePlainHung ∀ (modes: Modes)
       deep
       spelt
       (autoPlacedInner expr free)
-      lineRead
-      lineRest
-      (openHeadOf modes item more open)
-      bound
-      hung
-      deepItems
+      {
+        lineRead = lineRead,
+        lineRest = lineRest,
+        openFirst = (openHeadOf modes item more open),
+        bound = bound,
+        hung = hung,
+        deepItems = deepItems
+      }
       (endsAtUp modes 1 5 rest (arithmetic []) restEnds)
       fits
       noSection

@@ -55,6 +55,21 @@ def HangState.enters (state: HangState): List Item → HangState
 def HangState.nextItem (state: HangState): HangState :=
   { blocks = [None, ..state.blocks.drop 1], top = state.top, start = True, glue = False }
 
+--| The six facts the rungs of the read-back ladder (`atomHung` up to `operatorHung`) take about `read`, the items of the
+--| expression being read, and `rest`, the items that follow it (for a chain's later links, `rest` is those links and
+--| what follows), when `state` is the line rule's state before them: both are `lineAll` (`lineRead`, `lineRest`);
+--| `read`'s first item stops no reading at `modes` (`openFirst`, `openHead`); `modes` bounds the state `read`'s first
+--| item enters (`bound`); the rule hangs every leaf of `read ++ rest` from `state` (`hung`); and every closer and comma
+--| of `read ++ rest` is inside a bracket (`deepItems`, `deepAll`).
+type HungAt (modes: Modes) (state: HangState) (read rest: List Item) = {
+  lineRead: lineAll read = True,
+  lineRest: lineAll rest = True,
+  openFirst: openHead modes read = True,
+  bound: bounds modes (state.enters read) = True,
+  hung: hangsFrom state (leavesOf (read ++ rest)) = True,
+  deepItems: deepAll (read ++ rest) = True
+}
+
 --| `fullHung` at `depth`, as a hypothesis: what `expr` reads, on any lines, of an expression nested at most `depth`
 --| deep. The statement is `Syntax.ReadBackHungTop.fullHung`'s.
 def FullHungAt (depth: Nat): Prop :=

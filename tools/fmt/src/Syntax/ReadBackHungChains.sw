@@ -27,12 +27,7 @@ theorem mulAccHung ∀ (modes: Modes)
     (deep: expr.nest <= depth)
     (spelt: Spelt expr read)
     (free: expr.autoPlaced False = True)
-    (lineRead: lineAll read = True)
-    (lineAfter: lineAll (Parse.loopReads [] (linkSteps links) ++ rest) = True)
-    (openFirst: openHead modes read = True)
-    (bound: bounds modes (state.enters read) = True)
-    (hung: hangsFrom state (leavesOf (read ++ (Parse.loopReads [] (linkSteps links) ++ rest))) = True)
-    (deepItems: deepAll (read ++ (Parse.loopReads [] (linkSteps links) ++ rest)) = True)
+    (facts: HungAt modes state read (Parse.loopReads [] (linkSteps links) ++ rest))
     (after: UnaryEnds modes (Parse.loopReads [] (linkSteps links) ++ rest))
     (linked: LinkReads modes
       (kind => kind == Star || kind == Slash || kind == Percent)
@@ -56,12 +51,7 @@ theorem mulAccHung ∀ (modes: Modes)
         deep
         spelt
         free
-        lineRead
-        lineAfter
-        openFirst
-        bound
-        hung
-        deepItems
+        facts
         after
         unary,
       linked
@@ -72,15 +62,15 @@ theorem mulAccHung ∀ (modes: Modes)
             rightFits, apart, leftSpelt, rightSpelt), _, fits =>
           let rightAfter := Parse.loopReads [] (linkSteps links) ++ rest
           let hungL: hangsFrom state (leavesOf (leftRead ++ ([op, ..rightRead] ++ rightAfter))) = True :=
-            rewrite <- List.appendAssoc leftRead [op, ..rightRead] rightAfter, <- isRead then hung
+            rewrite <- List.appendAssoc leftRead [op, ..rightRead] rightAfter, <- isRead then facts.hung
           let deepL: deepAll (leftRead ++ ([op, ..rightRead] ++ rightAfter)) = True :=
-            rewrite <- List.appendAssoc leftRead [op, ..rightRead] rightAfter, <- isRead then deepItems
+            rewrite <- List.appendAssoc leftRead [op, ..rightRead] rightAfter, <- isRead then facts.deepItems
           let (after1, parts) :=
             hungParts modes quiet InfixBinary left right leftRead op rightRead rightAfter state leftSpelt rightSpelt
                 isOp
-                (rewrite <- isRead then lineRead)
-                (rewrite <- isRead then openFirst)
-                (rewrite <- isRead then bound)
+                (rewrite <- isRead then facts.lineRead)
+                (rewrite <- isRead then facts.openFirst)
+                (rewrite <- isRead then facts.bound)
                 hungL
                 deepL
           let at16: infixLevel InfixBinary operator.text = 16 := arithmetic [fits, level, binaryAtMost op.kind isOp]
@@ -91,18 +81,20 @@ theorem mulAccHung ∀ (modes: Modes)
               (arithmetic [deep])
               rightSpelt
               (Bool.andRight free)
-              (Bool.andRight parts.lineOpRight)
-              lineAfter
-              parts.openRight
-              parts.boundRight
-              parts.hungRight
-              parts.deepRight
+              {
+                lineRead = (Bool.andRight parts.lineOpRight),
+                lineRest = facts.lineRest,
+                openFirst = parts.openRight,
+                bound = parts.boundRight,
+                hung = parts.hungRight,
+                deepItems = parts.deepRight
+              }
               after
               (highUnary right rightRead rightSpelt (arithmetic [rightFits, rightNeed]))
           let tail := [(op, rightRead, right), ..links]
           let lineTail: lineAll (Parse.loopReads [] (linkSteps tail) ++ rest) = True :=
             rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then
-              lineJoin [op, ..rightRead] rightAfter parts.lineOpRight lineAfter
+              lineJoin [op, ..rightRead] rightAfter parts.lineOpRight facts.lineRest
           let afterTail: UnaryEnds modes (Parse.loopReads [] (linkSteps tail) ++ rest) :=
             rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then
               (opEnds modes 17 op
@@ -120,12 +112,14 @@ theorem mulAccHung ∀ (modes: Modes)
             (arithmetic [deep])
             leftSpelt
             (Bool.andLeft free)
-            parts.lineLeft
-            lineTail
-            parts.openLeft
-            parts.boundLeft
-            (rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then hungL)
-            (rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then deepL)
+            {
+              lineRead = parts.lineLeft,
+              lineRest = lineTail,
+              openFirst = parts.openLeft,
+              bound = parts.boundLeft,
+              hung = (rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then hungL),
+              deepItems = (rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then deepL)
+            }
             afterTail
             (parts.openOp, isMul, rightReads, linked)
             (arithmetic [leftFits, leftNeed])
@@ -141,12 +135,7 @@ theorem mulHung ∀ (modes: Modes)
     (deep: expr.nest <= depth)
     (spelt: Spelt expr read)
     (free: expr.autoPlaced False = True)
-    (lineRead: lineAll read = True)
-    (lineRest: lineAll rest = True)
-    (openFirst: openHead modes read = True)
-    (bound: bounds modes (state.enters read) = True)
-    (hung: hangsFrom state (leavesOf (read ++ rest)) = True)
-    (deepItems: deepAll (read ++ rest) = True)
+    (facts: HungAt modes state read rest)
     (ends: EndsAt modes 16 rest)
     (fits: 16 <= expr.level):
     MulReads (TreeN depth) modes read rest expr :=
@@ -156,12 +145,7 @@ theorem mulHung ∀ (modes: Modes)
     deep
     spelt
     free
-    lineRead
-    lineRest
-    openFirst
-    bound
-    hung
-    deepItems
+    facts
     ends.unary
     (ends.noMul (arithmetic []))
     fits
@@ -177,12 +161,7 @@ theorem addAccHung ∀ (modes: Modes)
     (deep: expr.nest <= depth)
     (spelt: Spelt expr read)
     (free: expr.autoPlaced False = True)
-    (lineRead: lineAll read = True)
-    (lineAfter: lineAll (Parse.loopReads [] (linkSteps links) ++ rest) = True)
-    (openFirst: openHead modes read = True)
-    (bound: bounds modes (state.enters read) = True)
-    (hung: hangsFrom state (leavesOf (read ++ (Parse.loopReads [] (linkSteps links) ++ rest))) = True)
-    (deepItems: deepAll (read ++ (Parse.loopReads [] (linkSteps links) ++ rest)) = True)
+    (facts: HungAt modes state read (Parse.loopReads [] (linkSteps links) ++ rest))
     (after: EndsAt modes 16 (Parse.loopReads [] (linkSteps links) ++ rest))
     (linked: LinkReads modes (kind => kind == Plus || kind == Minus) (MulReads (TreeN depth) modes) links rest)
     (fits: 14 <= expr.level):
@@ -208,27 +187,22 @@ theorem addAccHung ∀ (modes: Modes)
             deep
             sp
             free
-            lineRead
-            lineAfter
-            openFirst
-            bound
-            hung
-            deepItems
+            facts
             after
             linked
             (arithmetic [level, is16])
         | Inl is14 =>
           let rightAfter := Parse.loopReads [] (linkSteps links) ++ rest
           let hungL: hangsFrom state (leavesOf (leftRead ++ ([op, ..rightRead] ++ rightAfter))) = True :=
-            rewrite <- List.appendAssoc leftRead [op, ..rightRead] rightAfter, <- isRead then hung
+            rewrite <- List.appendAssoc leftRead [op, ..rightRead] rightAfter, <- isRead then facts.hung
           let deepL: deepAll (leftRead ++ ([op, ..rightRead] ++ rightAfter)) = True :=
-            rewrite <- List.appendAssoc leftRead [op, ..rightRead] rightAfter, <- isRead then deepItems
+            rewrite <- List.appendAssoc leftRead [op, ..rightRead] rightAfter, <- isRead then facts.deepItems
           let (after1, parts) :=
             hungParts modes quiet InfixBinary left right leftRead op rightRead rightAfter state leftSpelt rightSpelt
                 isOp
-                (rewrite <- isRead then lineRead)
-                (rewrite <- isRead then openFirst)
-                (rewrite <- isRead then bound)
+                (rewrite <- isRead then facts.lineRead)
+                (rewrite <- isRead then facts.openFirst)
+                (rewrite <- isRead then facts.bound)
                 hungL
                 deepL
           let at14: infixLevel InfixBinary operator.text = 14 := arithmetic [level, is14]
@@ -239,18 +213,20 @@ theorem addAccHung ∀ (modes: Modes)
               (arithmetic [deep])
               rightSpelt
               (Bool.andRight free)
-              (Bool.andRight parts.lineOpRight)
-              lineAfter
-              parts.openRight
-              parts.boundRight
-              parts.hungRight
-              parts.deepRight
+              {
+                lineRead = (Bool.andRight parts.lineOpRight),
+                lineRest = facts.lineRest,
+                openFirst = parts.openRight,
+                bound = parts.boundRight,
+                hung = parts.hungRight,
+                deepItems = parts.deepRight
+              }
               after
               (arithmetic [rightFits, rightNeed])
           let tail := [(op, rightRead, right), ..links]
           let lineTail: lineAll (Parse.loopReads [] (linkSteps tail) ++ rest) = True :=
             rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then
-              lineJoin [op, ..rightRead] rightAfter parts.lineOpRight lineAfter
+              lineJoin [op, ..rightRead] rightAfter parts.lineOpRight facts.lineRest
           let afterTail: EndsAt modes 16 (Parse.loopReads [] (linkSteps tail) ++ rest) :=
             rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then
               opEnds modes 16 op
@@ -268,20 +244,22 @@ theorem addAccHung ∀ (modes: Modes)
             (arithmetic [deep])
             leftSpelt
             (Bool.andLeft free)
-            parts.lineLeft
-            lineTail
-            parts.openLeft
-            parts.boundLeft
-            (rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then hungL)
-            (rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then deepL)
+            {
+              lineRead = parts.lineLeft,
+              lineRest = lineTail,
+              openFirst = parts.openLeft,
+              bound = parts.boundLeft,
+              hung = (rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then hungL),
+              deepItems = (rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then deepL)
+            }
             afterTail
             (parts.openOp, isAdd, rightReads, linked)
             (arithmetic [leftFits, leftNeed])
     | Infix InfixArrow _ _ _, _, fits => Void.impossible (arithmetic [fits])
     | Infix _ _ _ _, (_, _, _, _, never, _), _ => (Bool.falseNotTrue never).impossible
     | other, spelt, _ =>
-      addBaseHung modes quiet other read links rest depth all value state inner whole isValue deep spelt free lineRead
-          lineAfter openFirst bound hung deepItems after linked
+      addBaseHung modes quiet other read links rest depth all value state inner whole isValue deep spelt free facts
+          after linked
           (arithmetic [unaryLevel other read spelt byComputing])
 
 --| `+ -` links after a first operand above the `+` level.
@@ -295,12 +273,7 @@ theorem addBaseHung ∀ (modes: Modes)
     (deep: expr.nest <= depth)
     (spelt: Spelt expr read)
     (free: expr.autoPlaced False = True)
-    (lineRead: lineAll read = True)
-    (lineAfter: lineAll (Parse.loopReads [] (linkSteps links) ++ rest) = True)
-    (openFirst: openHead modes read = True)
-    (bound: bounds modes (state.enters read) = True)
-    (hung: hangsFrom state (leavesOf (read ++ (Parse.loopReads [] (linkSteps links) ++ rest))) = True)
-    (deepItems: deepAll (read ++ (Parse.loopReads [] (linkSteps links) ++ rest)) = True)
+    (facts: HungAt modes state read (Parse.loopReads [] (linkSteps links) ++ rest))
     (after: EndsAt modes 16 (Parse.loopReads [] (linkSteps links) ++ rest))
     (linked: LinkReads modes (kind => kind == Plus || kind == Minus) (MulReads (TreeN depth) modes) links rest)
     (high: 16 <= expr.level):
@@ -319,12 +292,7 @@ theorem addBaseHung ∀ (modes: Modes)
       deep
       spelt
       free
-      lineRead
-      lineAfter
-      openFirst
-      bound
-      hung
-      deepItems
+      facts
       after
       high,
     linked
@@ -338,12 +306,7 @@ theorem addHung ∀ (modes: Modes)
     (deep: expr.nest <= depth)
     (spelt: Spelt expr read)
     (free: expr.autoPlaced False = True)
-    (lineRead: lineAll read = True)
-    (lineRest: lineAll rest = True)
-    (openFirst: openHead modes read = True)
-    (bound: bounds modes (state.enters read) = True)
-    (hung: hangsFrom state (leavesOf (read ++ rest)) = True)
-    (deepItems: deepAll (read ++ rest) = True)
+    (facts: HungAt modes state read rest)
     (ends: EndsAt modes 14 rest)
     (fits: 14 <= expr.level):
     AddReads (TreeN depth) modes read rest expr :=
@@ -353,12 +316,7 @@ theorem addHung ∀ (modes: Modes)
     deep
     spelt
     free
-    lineRead
-    lineRest
-    openFirst
-    bound
-    hung
-    deepItems
+    facts
     (endsAtUp modes 14 16 rest (arithmetic []) ends)
     (ends.noAdd (arithmetic []))
     fits
@@ -371,12 +329,7 @@ theorem appendHung ∀ (modes: Modes)
     (deep: expr.nest <= depth)
     (spelt: Spelt expr read)
     (free: expr.autoPlaced False = True)
-    (lineRead: lineAll read = True)
-    (lineRest: lineAll rest = True)
-    (openFirst: openHead modes read = True)
-    (bound: bounds modes (state.enters read) = True)
-    (hung: hangsFrom state (leavesOf (read ++ rest)) = True)
-    (deepItems: deepAll (read ++ rest) = True)
+    (facts: HungAt modes state read rest)
     (ends: EndsAt modes 12 rest)
     (fits: 12 <= expr.level):
     AppendReads (TreeN depth) modes read rest expr :=
@@ -396,24 +349,19 @@ theorem appendHung ∀ (modes: Modes)
             deep
             sp
             free
-            lineRead
-            lineRest
-            openFirst
-            bound
-            hung
-            deepItems
+            facts
             ends
             (arithmetic [level, high])
         | Inl is12 =>
           let hungL: hangsFrom state (leavesOf (leftRead ++ ([op, ..rightRead] ++ rest))) = True :=
-            rewrite <- List.appendAssoc leftRead [op, ..rightRead] rest, <- isRead then hung
+            rewrite <- List.appendAssoc leftRead [op, ..rightRead] rest, <- isRead then facts.hung
           let deepL: deepAll (leftRead ++ ([op, ..rightRead] ++ rest)) = True :=
-            rewrite <- List.appendAssoc leftRead [op, ..rightRead] rest, <- isRead then deepItems
+            rewrite <- List.appendAssoc leftRead [op, ..rightRead] rest, <- isRead then facts.deepItems
           let (after1, parts) :=
             hungParts modes quiet InfixBinary left right leftRead op rightRead rest state leftSpelt rightSpelt isOp
-              (rewrite <- isRead then lineRead)
-              (rewrite <- isRead then openFirst)
-              (rewrite <- isRead then bound)
+              (rewrite <- isRead then facts.lineRead)
+              (rewrite <- isRead then facts.openFirst)
+              (rewrite <- isRead then facts.bound)
               hungL
               deepL
           let at12: infixLevel InfixBinary operator.text = 12 := arithmetic [level, is12]
@@ -424,12 +372,14 @@ theorem appendHung ∀ (modes: Modes)
               (arithmetic [deep])
               rightSpelt
               (Bool.andRight free)
-              (Bool.andRight parts.lineOpRight)
-              lineRest
-              parts.openRight
-              parts.boundRight
-              parts.hungRight
-              parts.deepRight
+              {
+                lineRead = (Bool.andRight parts.lineOpRight),
+                lineRest = facts.lineRest,
+                openFirst = parts.openRight,
+                bound = parts.boundRight,
+                hung = parts.hungRight,
+                deepItems = parts.deepRight
+              }
               ends
               (arithmetic [rightFits, rightNeed])
           let leftReads: AddReads (TreeN depth) modes leftRead ([op, ..rightRead] ++ rest) left :=
@@ -441,12 +391,14 @@ theorem appendHung ∀ (modes: Modes)
               (arithmetic [deep])
               leftSpelt
               (Bool.andLeft free)
-              parts.lineLeft
-              (lineJoin [op, ..rightRead] rest parts.lineOpRight lineRest)
-              parts.openLeft
-              parts.boundLeft
-              hungL
-              deepL
+              {
+                lineRead = parts.lineLeft,
+                lineRest = (lineJoin [op, ..rightRead] rest parts.lineOpRight facts.lineRest),
+                openFirst = parts.openLeft,
+                bound = parts.boundLeft,
+                hung = hungL,
+                deepItems = deepL
+              }
               (opEnds modes 14 op
                 (rightRead ++ rest)
                 InfixBinary
@@ -475,9 +427,8 @@ theorem appendHung ∀ (modes: Modes)
     | Infix InfixArrow _ _ _, _, fits => Void.impossible (arithmetic [fits])
     | Infix _ _ _ _, (_, _, _, _, never, _), _ => (Bool.falseNotTrue never).impossible
     | other, spelt, _ =>
-      appendBaseHung modes quiet other read rest depth state inner deep spelt free lineRead lineRest openFirst bound
-          hung deepItems ends
-          (arithmetic [unaryLevel other read spelt byComputing])
+      appendBaseHung modes quiet other read rest depth state inner deep spelt free facts ends
+        (arithmetic [unaryLevel other read spelt byComputing])
 
 --| The `++` level, its first operand above it.
 theorem appendBaseHung ∀ (modes: Modes)
@@ -487,12 +438,7 @@ theorem appendBaseHung ∀ (modes: Modes)
     (deep: expr.nest <= depth)
     (spelt: Spelt expr read)
     (free: expr.autoPlaced False = True)
-    (lineRead: lineAll read = True)
-    (lineRest: lineAll rest = True)
-    (openFirst: openHead modes read = True)
-    (bound: bounds modes (state.enters read) = True)
-    (hung: hangsFrom state (leavesOf (read ++ rest)) = True)
-    (deepItems: deepAll (read ++ rest) = True)
+    (facts: HungAt modes state read rest)
     (ends: EndsAt modes 12 rest)
     (high: 14 <= expr.level):
     AppendReads (TreeN depth) modes read rest expr :=
@@ -502,10 +448,9 @@ theorem appendBaseHung ∀ (modes: Modes)
     [],
     (List.appendNil read).flipped,
     byComputing,
-    addHung modes quiet expr read rest depth state inner deep spelt free lineRead lineRest openFirst bound hung
-        deepItems
-        (endsAtUp modes 12 14 rest (arithmetic []) ends)
-        high,
+    addHung modes quiet expr read rest depth state inner deep spelt free facts
+      (endsAtUp modes 12 14 rest (arithmetic []) ends)
+      high,
     ends.noAppend (arithmetic [])
   )
 
@@ -517,12 +462,7 @@ theorem cmpAloneHung ∀ (modes: Modes)
     (deep: expr.nest <= depth)
     (spelt: Spelt expr read)
     (free: expr.autoPlaced False = True)
-    (lineRead: lineAll read = True)
-    (lineRest: lineAll rest = True)
-    (openFirst: openHead modes read = True)
-    (bound: bounds modes (state.enters read) = True)
-    (hung: hangsFrom state (leavesOf (read ++ rest)) = True)
-    (deepItems: deepAll (read ++ rest) = True)
+    (facts: HungAt modes state read rest)
     (ends: EndsAt modes 6 rest)
     (high: 12 <= expr.level):
     CmpReads (TreeN depth) modes read rest expr :=
@@ -530,10 +470,9 @@ theorem cmpAloneHung ∀ (modes: Modes)
     (
       ends.noRange,
       ends.noPipe,
-      appendHung modes quiet expr read rest depth state inner deep spelt free lineRead lineRest openFirst bound hung
-          deepItems
-          (endsAtUp modes 6 12 rest (arithmetic []) ends)
-          high
+      appendHung modes quiet expr read rest depth state inner deep spelt free facts
+        (endsAtUp modes 6 12 rest (arithmetic []) ends)
+        high
     ),
     ends.noCmp (arithmetic [])
   )
@@ -546,12 +485,7 @@ theorem cmpHung ∀ (modes: Modes)
     (deep: expr.nest <= depth)
     (spelt: Spelt expr read)
     (free: expr.autoPlaced False = True)
-    (lineRead: lineAll read = True)
-    (lineRest: lineAll rest = True)
-    (openFirst: openHead modes read = True)
-    (bound: bounds modes (state.enters read) = True)
-    (hung: hangsFrom state (leavesOf (read ++ rest)) = True)
-    (deepItems: deepAll (read ++ rest) = True)
+    (facts: HungAt modes state read rest)
     (ends: EndsAt modes 6 rest)
     (fits: 6 <= expr.level):
     CmpReads (TreeN depth) modes read rest expr :=
@@ -571,24 +505,19 @@ theorem cmpHung ∀ (modes: Modes)
             deep
             sp
             free
-            lineRead
-            lineRest
-            openFirst
-            bound
-            hung
-            deepItems
+            facts
             ends
             (arithmetic [level, high])
         | Inl is6 =>
           let hungL: hangsFrom state (leavesOf (leftRead ++ ([op, ..rightRead] ++ rest))) = True :=
-            rewrite <- List.appendAssoc leftRead [op, ..rightRead] rest, <- isRead then hung
+            rewrite <- List.appendAssoc leftRead [op, ..rightRead] rest, <- isRead then facts.hung
           let deepL: deepAll (leftRead ++ ([op, ..rightRead] ++ rest)) = True :=
-            rewrite <- List.appendAssoc leftRead [op, ..rightRead] rest, <- isRead then deepItems
+            rewrite <- List.appendAssoc leftRead [op, ..rightRead] rest, <- isRead then facts.deepItems
           let (after1, parts) :=
             hungParts modes quiet InfixBinary left right leftRead op rightRead rest state leftSpelt rightSpelt isOp
-              (rewrite <- isRead then lineRead)
-              (rewrite <- isRead then openFirst)
-              (rewrite <- isRead then bound)
+              (rewrite <- isRead then facts.lineRead)
+              (rewrite <- isRead then facts.openFirst)
+              (rewrite <- isRead then facts.bound)
               hungL
               deepL
           let at6: infixLevel InfixBinary operator.text = 6 := arithmetic [level, is6]
@@ -611,12 +540,14 @@ theorem cmpHung ∀ (modes: Modes)
               (arithmetic [deep])
               leftSpelt
               (Bool.andLeft free)
-              parts.lineLeft
-              (lineJoin [op, ..rightRead] rest parts.lineOpRight lineRest)
-              parts.openLeft
-              parts.boundLeft
-              hungL
-              deepL
+              {
+                lineRead = parts.lineLeft,
+                lineRest = (lineJoin [op, ..rightRead] rest parts.lineOpRight facts.lineRest),
+                openFirst = parts.openLeft,
+                bound = parts.boundLeft,
+                hung = hungL,
+                deepItems = deepL
+              }
               leftEnds
               (aboveCmp left leftRead leftSpelt (arithmetic [leftFits, leftNeed]))
           let rightReads: AppendReads (TreeN depth) modes rightRead rest right :=
@@ -624,12 +555,14 @@ theorem cmpHung ∀ (modes: Modes)
               (arithmetic [deep])
               rightSpelt
               (Bool.andRight free)
-              (Bool.andRight parts.lineOpRight)
-              lineRest
-              parts.openRight
-              parts.boundRight
-              parts.hungRight
-              parts.deepRight
+              {
+                lineRead = (Bool.andRight parts.lineOpRight),
+                lineRest = facts.lineRest,
+                openFirst = parts.openRight,
+                bound = parts.boundRight,
+                hung = parts.hungRight,
+                deepItems = parts.deepRight
+              }
               (endsAtUp modes 6 12 rest (arithmetic []) ends)
               (aboveCmp right rightRead rightSpelt (arithmetic [rightFits, rightNeed]))
           let (rightFirst, rightMore, isRight, rightStarts) := speltStarts right rightRead rightSpelt
@@ -658,6 +591,5 @@ theorem cmpHung ∀ (modes: Modes)
     | Infix InfixArrow _ _ _, _, fits => Void.impossible (arithmetic [fits])
     | Infix _ _ _ _, (_, _, _, _, never, _), _ => (Bool.falseNotTrue never).impossible
     | other, spelt, _ =>
-      cmpAloneHung modes quiet other read rest depth state inner deep spelt free lineRead lineRest openFirst bound hung
-          deepItems ends
-          (arithmetic [unaryLevel other read spelt byComputing])
+      cmpAloneHung modes quiet other read rest depth state inner deep spelt free facts ends
+        (arithmetic [unaryLevel other read spelt byComputing])

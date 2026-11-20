@@ -36,19 +36,14 @@ theorem atomHung ∀ (modes: Modes)
     (spelt: Spelt expr read)
     (atomic: expr.primary = True)
     (free: expr.autoPlaced False = True)
-    (lineRead: lineAll read = True)
-    (lineRest: lineAll rest = True)
-    (openFirst: openHead modes read = True)
-    (bound: bounds modes (state.enters read) = True)
-    (hung: hangsFrom state (leavesOf (read ++ rest)) = True)
-    (deepItems: deepAll (read ++ rest) = True)
+    (facts: HungAt modes state read rest)
     (after: ∀ (kind: Tok) => AtomEnds modes head kind rest):
     AtomReads (TreeN depth) modes head read rest expr :=
   let innerModes := modes.inBrackets
   let innerQuiet := quietBrackets modes quiet
   match expr, spelt with
     | Atom kind word, (item, isRead, isKind, isWord, word) =>
-      let openItem: openHead modes [item] = True := rewrite <- isRead then openFirst
+      let openItem: openHead modes [item] = True := rewrite <- isRead then facts.openFirst
       rewrite isRead then
         (
           item,
@@ -62,20 +57,21 @@ theorem atomHung ∀ (modes: Modes)
       match depth, deep with
         | Zero, deep => Void.impossible (arithmetic [deep])
         | Succ below, deep =>
-          let lineItems: lineAll [first, ..inside ++ [last]] = True := rewrite <- isRead then lineRead
-          let openItems: openHead modes [first, ..inside ++ [last]] = True := rewrite <- isRead then openFirst
+          let lineItems: lineAll [first, ..inside ++ [last]] = True := rewrite <- isRead then facts.lineRead
+          let openItems: openHead modes [first, ..inside ++ [last]] = True := rewrite <- isRead then facts.openFirst
           let open1 := openHeadStops modes first (inside ++ [last]) openItems
           let (lineInside, lineLast) := lineSplit inside [last] (Bool.andRight lineItems)
           let assoc: (inside ++ [last]) ++ rest = inside ++ [last, ..rest] := List.appendAssoc inside [last] rest
           let shape: read ++ rest = [first, ..inside ++ [last, ..rest]] := rewrite isRead, assoc
           let hungItems: hangsFrom state (leavesOf [first, ..inside ++ [last, ..rest]]) = True :=
-            rewrite <- shape then hung
-          let deepItems1: deepAll [first, ..inside ++ [last, ..rest]] = True := rewrite <- shape then deepItems
+            rewrite <- shape then facts.hung
+          let deepItems1: deepAll [first, ..inside ++ [last, ..rest]] = True := rewrite <- shape then facts.deepItems
           let deepBody: deepAll (inside ++ [last, ..rest]) = True := Bool.andRight deepItems1
           let deepLast := deepHead last rest (deepRest inside [last, ..rest] deepBody)
           let (s1, steppedOpen, hungBody) := hungStep state first.leaf (leavesOf (inside ++ [last, ..rest])) hungItems
           let isS1 := hangOpenStep state s1 first.leaf (rewrite isOpen) steppedOpen
-          let enteredBound: bounds modes (state.entered first.leaf) = True := rewrite isRead at bound then bound
+          let boundNow := facts.bound
+          let enteredBound: bounds modes (state.entered first.leaf) = True := rewrite isRead at boundNow then boundNow
           let s1Bound: bounds modes s1 = True :=
             boundsCong modes s1 (state.entered first.leaf) (rewrite isS1) enteredBound
           let lastOpen := deepStops modes last quiet deepLast (rewrite isClose)
@@ -92,7 +88,7 @@ theorem atomHung ∀ (modes: Modes)
               bodySpelt
               free
               lineInside
-              (lineJoin [last] rest lineLast lineRest)
+              (lineJoin [last] rest lineLast facts.lineRest)
               (Inl (rewrite isS1))
               s1Bound
               hungBody
@@ -143,8 +139,8 @@ theorem atomHung ∀ (modes: Modes)
         | Zero, deep => Void.impossible (arithmetic [deep])
         | Succ below, deep =>
           let elements := [separator, ..read2] ++ (commaReads steps ++ [last])
-          let lineItems: lineAll [first, ..read1 ++ elements] = True := rewrite <- isRead then lineRead
-          let openItems: openHead modes [first, ..read1 ++ elements] = True := rewrite <- isRead then openFirst
+          let lineItems: lineAll [first, ..read1 ++ elements] = True := rewrite <- isRead then facts.lineRead
+          let openItems: openHead modes [first, ..read1 ++ elements] = True := rewrite <- isRead then facts.openFirst
           let open1 := openHeadStops modes first (read1 ++ elements) openItems
           let (line1, lineElements) := lineSplit read1 elements (Bool.andRight lineItems)
           let (line2, lineSteps) := lineSplit read2 (commaReads steps ++ [last]) (Bool.andRight lineElements)
@@ -152,8 +148,8 @@ theorem atomHung ∀ (modes: Modes)
           let assoc: (read1 ++ elements) ++ rest = read1 ++ (elements ++ rest) := List.appendAssoc read1 elements rest
           let shape: read ++ rest = [first, ..read1 ++ (elements ++ rest)] := rewrite isRead, assoc
           let hungItems: hangsFrom state (leavesOf [first, ..read1 ++ (elements ++ rest)]) = True :=
-            rewrite <- shape then hung
-          let deepItems1: deepAll [first, ..read1 ++ (elements ++ rest)] = True := rewrite <- shape then deepItems
+            rewrite <- shape then facts.hung
+          let deepItems1: deepAll [first, ..read1 ++ (elements ++ rest)] = True := rewrite <- shape then facts.deepItems
           let deep1: deepAll (read1 ++ (elements ++ rest)) = True := Bool.andRight deepItems1
           let deepElements: deepAll (elements ++ rest) = True := deepRest read1 (elements ++ rest) deep1
           let deepSeparator := deepHead separator _ deepElements
@@ -169,7 +165,8 @@ theorem atomHung ∀ (modes: Modes)
           let deepLast := deepHead last rest (deepRest (commaReads steps) [last, ..rest] deepSteps)
           let (s1, steppedOpen, hung1) := hungStep state first.leaf (leavesOf (read1 ++ (elements ++ rest))) hungItems
           let isS1 := hangOpenStep state s1 first.leaf (rewrite isOpen) steppedOpen
-          let enteredBound: bounds modes (state.entered first.leaf) = True := rewrite isRead at bound then bound
+          let boundNow := facts.bound
+          let enteredBound: bounds modes (state.entered first.leaf) = True := rewrite isRead at boundNow then boundNow
           let s1Bound: bounds modes s1 = True :=
             boundsCong modes s1 (state.entered first.leaf) (rewrite isS1) enteredBound
           let (_, hungAfterOne) := speltHung innerModes one read1 (elements ++ rest) s1 oneSpelt s1Bound hung1
@@ -205,7 +202,7 @@ theorem atomHung ∀ (modes: Modes)
               oneSpelt
               (Bool.andLeft free)
               line1
-              (lineJoin elements rest lineElements lineRest)
+              (lineJoin elements rest lineElements facts.lineRest)
               (Inl (rewrite isS1))
               s1Bound
               hung1
@@ -224,7 +221,7 @@ theorem atomHung ∀ (modes: Modes)
               twoSpelt
               (Bool.andLeft (Bool.andRight free))
               line2
-              (lineJoin (commaReads steps ++ [last]) rest lineSteps lineRest)
+              (lineJoin (commaReads steps ++ [last]) rest lineSteps facts.lineRest)
               (Inl (rewrite isS2))
               s2Bound
               hungTwo
@@ -238,7 +235,7 @@ theorem atomHung ∀ (modes: Modes)
               stepsSpelt
               (Bool.andRight (Bool.andRight free))
               lineCommas
-              (lineJoin [last] rest lineLast lineRest)
+              (lineJoin [last] rest lineLast facts.lineRest)
               roundsBound
               hungRounds
               deepSteps
@@ -304,9 +301,10 @@ theorem atomHung ∀ (modes: Modes)
                   )))
             )
     | ListOf open [] comma close, (first, last, isRead, isBare, isOpen, isOpenWord, isClose, isCloseWord) =>
-      let openItems: openHead modes [first, last] = True := rewrite <- isRead then openFirst
+      let openItems: openHead modes [first, last] = True := rewrite <- isRead then facts.openFirst
       let open1 := openHeadStops modes first [last] openItems
-      let deepList: deepAll [first, last, ..rest] = True := rewrite isRead at deepItems then deepItems
+      let deepItemsNow := facts.deepItems
+      let deepList: deepAll [first, last, ..rest] = True := rewrite isRead at deepItemsNow then deepItemsNow
       let deepLast := deepHead last rest (Bool.andRight deepList)
       rewrite isRead then
         (
@@ -336,16 +334,16 @@ theorem atomHung ∀ (modes: Modes)
         | Zero, deep => Void.impossible (arithmetic [deep])
         | Succ below, deep =>
           let elements := commaReads steps ++ [last]
-          let lineItems: lineAll [first, ..read1 ++ elements] = True := rewrite <- isRead then lineRead
-          let openItems: openHead modes [first, ..read1 ++ elements] = True := rewrite <- isRead then openFirst
+          let lineItems: lineAll [first, ..read1 ++ elements] = True := rewrite <- isRead then facts.lineRead
+          let openItems: openHead modes [first, ..read1 ++ elements] = True := rewrite <- isRead then facts.openFirst
           let open1 := openHeadStops modes first (read1 ++ elements) openItems
           let (line1, lineElements) := lineSplit read1 elements (Bool.andRight lineItems)
           let (lineCommas, lineLast) := lineSplit (commaReads steps) [last] lineElements
           let assoc: (read1 ++ elements) ++ rest = read1 ++ (elements ++ rest) := List.appendAssoc read1 elements rest
           let shape: read ++ rest = [first, ..read1 ++ (elements ++ rest)] := rewrite isRead, assoc
           let hungItems: hangsFrom state (leavesOf [first, ..read1 ++ (elements ++ rest)]) = True :=
-            rewrite <- shape then hung
-          let deepItems1: deepAll [first, ..read1 ++ (elements ++ rest)] = True := rewrite <- shape then deepItems
+            rewrite <- shape then facts.hung
+          let deepItems1: deepAll [first, ..read1 ++ (elements ++ rest)] = True := rewrite <- shape then facts.deepItems
           let deep1: deepAll (read1 ++ (elements ++ rest)) = True := Bool.andRight deepItems1
           let deepElements: deepAll (elements ++ rest) = True := deepRest read1 (elements ++ rest) deep1
           let stepsAssoc: (commaReads steps ++ [last]) ++ rest = commaReads steps ++ [last, ..rest] :=
@@ -354,7 +352,8 @@ theorem atomHung ∀ (modes: Modes)
           let deepLast := deepHead last rest (deepRest (commaReads steps) [last, ..rest] deepSteps)
           let (s1, steppedOpen, hung1) := hungStep state first.leaf (leavesOf (read1 ++ (elements ++ rest))) hungItems
           let isS1 := hangOpenStep state s1 first.leaf (rewrite isOpen) steppedOpen
-          let enteredBound: bounds modes (state.entered first.leaf) = True := rewrite isRead at bound then bound
+          let boundNow := facts.bound
+          let enteredBound: bounds modes (state.entered first.leaf) = True := rewrite isRead at boundNow then boundNow
           let s1Bound: bounds modes s1 = True :=
             boundsCong modes s1 (state.entered first.leaf) (rewrite isS1) enteredBound
           let (_, hungAfterOne) := speltHung innerModes one read1 (elements ++ rest) s1 oneSpelt s1Bound hung1
@@ -385,7 +384,7 @@ theorem atomHung ∀ (modes: Modes)
               oneSpelt
               (Bool.andLeft free)
               line1
-              (lineJoin elements rest lineElements lineRest)
+              (lineJoin elements rest lineElements facts.lineRest)
               (Inl (rewrite isS1))
               s1Bound
               hung1
@@ -404,7 +403,7 @@ theorem atomHung ∀ (modes: Modes)
               stepsSpelt
               (Bool.andRight free)
               lineCommas
-              (lineJoin [last] rest lineLast lineRest)
+              (lineJoin [last] rest lineLast facts.lineRest)
               roundsBound
               hungRounds
               deepSteps
