@@ -30475,8 +30475,8 @@
     {
       "id": 4473,
       "title": "[Sonnet] Closer stage 0b (closer.md): a proving-guide section on finishing small proofs with today's tools (cases, rewrite repeatedly, or-patterns, _ arguments), then pilot two tools/fmt files (signSymbolic via or-pattern, drop minusSymbolic/bangSymbolic; passesAppend and Fmt/JoinProofs with _ arguments); bar: 5%% of proof lines with check time within 1.5x; after the stage 0 fixes",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
