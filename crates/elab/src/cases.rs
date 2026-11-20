@@ -23,7 +23,10 @@
 //!    (docs/proposals/bool-as-proposition.md §9: `(a && b) = True` as `a ∧
 //!    b`), taken apart in turn;
 //! 5. **`t`**, for `cases then t`, elaborated in the case;
-//! 6. **`arithmetic`**, only where nothing is left to split (D1319).
+//! 6. **a conjunction** whose parts each close by 1 or 4, or are such
+//!    conjunctions in turn: the pair of their proofs ([`by_parts`],
+//!    SW-4472);
+//! 7. **`arithmetic`**, only where nothing is left to split (D1319).
 //!
 //! Between 5 and the splits, an equation 3 added with a variable side, `x =
 //! t`, puts `t` in place of `x` in the goal and the hypotheses, and the node
@@ -33,6 +36,12 @@
 //! case (an equation whose sides compute to the same thing, such as `b =
 //! True → fact` once `b` is split, or a hypothesis of type `P`) adds `Q`,
 //! and the case starts again (SW-948, [`apply_guarded`]).
+//!
+//! In the first try ([`Run::or_first`], SW-4472), a hypothesis `A ∨ B`,
+//! neither side known, is then split into a case with `A` and one with `B`,
+//! each a fact [`substitute`] may use ([`split_disjunction`]). A first try
+//! that split one and failed is followed by the same try without it, which
+//! is `cases` as it was before, so what that proved still checks.
 //!
 //! If nothing is added, `cases` finds an *atom* (§5.2): following what the
 //! goal is stuck on inwards (a definition's case tree, run on its arguments,
@@ -84,6 +93,11 @@
 //! §6.1.1): `theorem t: (x: Bool) → P x := cases` is the proof `x => cases`.
 //! This comes after the closers, so a `Π` goal they prove whole (a
 //! hypothesis of that type, `arithmetic` on `P → Void`, `t`) keeps that proof.
+//!
+//! A case still open then, not a `Π`, is closed if applying an implication
+//! once to a hypothesis, or a part of one, that is its premise lets a closer
+//! that doesn't split close it ([`apply_to_part`], SW-4472); otherwise
+//! nothing is added.
 //!
 //! A case still open then, not a `Π`, has the *last resort* split, if any
 //! ([`Finder::last_resort_atom`], SW-3752): on the first chain that has one,
@@ -210,6 +224,14 @@ pub(crate) struct Run {
     /// the hypotheses are split before the goal, and every case tries
     /// `arithmetic` before it is split.
     thrifty: bool,
+    /// The first try ([`cases_goal`]): a hypothesis `A ∨ B` is split before
+    /// what the goal is stuck on ([`or_hypothesis`]).
+    or_first: bool,
+    /// The names of the `∨` hypotheses split on the way to this case (a
+    /// copy keeps the name), never split again.
+    split_ors: RefCell<Vec<Name>>,
+    /// Whether an `∨` was split at all.
+    split_or: Cell<bool>,
 }
 
 #[derive(Default)]
@@ -280,7 +302,38 @@ fn cases_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         return node(cx, &run, expected);
     }
     let out_of_cases = Cell::new(false);
-    let first = attempt(cx, body, *span, expected, false, &out_of_cases);
+    // The first try splits a hypothesis `A ∨ B` before what the goal is
+    // stuck on (SW-4472): one split of two cases, where the goal's own
+    // atom may have sixty. A try that split one and failed is followed by
+    // the try without it, as `cases` was before, so what that proved it
+    // still proves.
+    let split_or = Cell::new(false);
+    let first = attempt(
+        cx,
+        body,
+        *span,
+        expected,
+        false,
+        true,
+        &out_of_cases,
+        &split_or,
+    );
+    let first = match first {
+        Err(e) if split_or.get() && !crate::undo::fatal(&e) => {
+            out_of_cases.set(false);
+            attempt(
+                cx,
+                body,
+                *span,
+                expected,
+                false,
+                false,
+                &out_of_cases,
+                &split_or,
+            )
+        }
+        first => first,
+    };
     // A `cases` that failed tries once more, another way (SW-3752): the
     // hypotheses, and the parts of them, are split before the goal, and
     // every case tries `arithmetic` before it is split. Split goal first,
@@ -297,7 +350,16 @@ fn cases_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         return Err(e);
     }
     let ran_out = out_of_cases.get();
-    match attempt(cx, body, *span, expected, true, &out_of_cases) {
+    match attempt(
+        cx,
+        body,
+        *span,
+        expected,
+        true,
+        false,
+        &out_of_cases,
+        &split_or,
+    ) {
         Ok(term) => Ok(term),
         Err(second) if crate::undo::fatal(&second) => Err(second),
         Err(_) if ran_out => Err(e.with_note(format!(
@@ -309,34 +371,52 @@ fn cases_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
 }
 
 /// One try of [`cases_goal`]'s `cases`; `thrifty` for the second
-/// ([`Run::thrifty`]). `out_of_cases` is set when it fails for making more
-/// than [`CASES`] cases.
+/// ([`Run::thrifty`]); `or_first` for one that splits `∨` hypotheses first
+/// ([`Run::or_first`]). `out_of_cases` is set when it fails for making more
+/// than [`CASES`] cases, `split_or` when it split an `∨`.
+#[allow(clippy::too_many_arguments)]
 fn attempt(
     cx: &mut Ctx,
     body: &Option<Box<Expr>>,
     span: Span,
     expected: &Value,
     thrifty: bool,
+    or_first: bool,
     out_of_cases: &Cell<bool>,
+    split_or: &Cell<bool>,
 ) -> Result<Term> {
     let snapshot = crate::undo::Snapshot::take(cx);
-    let result = attempt_once(cx, body, span, expected, thrifty, out_of_cases);
+    let result = attempt_once(
+        cx,
+        body,
+        span,
+        expected,
+        thrifty,
+        or_first,
+        out_of_cases,
+        split_or,
+    );
     if result.is_err() {
         snapshot.restore(cx);
     }
     result
 }
 
+#[allow(clippy::too_many_arguments)]
 fn attempt_once(
     cx: &mut Ctx,
     body: &Option<Box<Expr>>,
     span: Span,
     expected: &Value,
     thrifty: bool,
+    or_first: bool,
     out_of_cases: &Cell<bool>,
+    split_or: &Cell<bool>,
 ) -> Result<Term> {
     let run = Rc::new(Run {
         thrifty,
+        or_first,
+        split_ors: RefCell::new(Vec::new()),
         body: body.clone(),
         span,
         cases: Cell::new(1),
@@ -354,6 +434,7 @@ fn attempt_once(
         injected: RefCell::new(Vec::new()),
         substituted: RefCell::new(Vec::new()),
         splittable: RefCell::new(HashMap::default()),
+        split_or: Cell::new(false),
     });
     let saved = cx.cases.replace(run.clone());
     let errors = cx.e.attempt.branch_errors.borrow().len();
@@ -373,6 +454,7 @@ fn attempt_once(
         Err(e) => Err(e),
     };
     cx.cases = saved;
+    split_or.set(split_or.get() || run.split_or.get());
     let error = match result {
         Ok(term) => return Ok(term),
         Err(e) if crate::undo::fatal(&e) => return Err(e),
@@ -508,6 +590,14 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
             }
         }
     }
+    // A conjunction whose parts each close as above (SW-4472). After `t`,
+    // so a case `t` closed keeps its proof; before the splits, which a goal
+    // already proved doesn't need (a closed conjunction took 46 ms of
+    // splitting hypotheses, against 2 for the pair).
+    if let Some(term) = by_parts(cx, goal)? {
+        run.closed.borrow_mut().hypothesis += 1;
+        return Ok(term);
+    }
     // After the closers and `t`: a case they close at this node keeps its
     // proof. One closed deeper (after a split, an implication or `arithmetic`)
     // now goes through the substitution first, so its term changes.
@@ -516,6 +606,11 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
     }
     if let Some(term) = apply_guarded(cx, run, goal)? {
         return Ok(term);
+    }
+    if run.or_first
+        && let Some(level) = or_hypothesis(cx, run, goal)?
+    {
+        return split_disjunction(cx, run, level, goal);
     }
     if run.body.is_some()
         && let Some(atom) = visible_condition(cx, run, goal)?
@@ -564,6 +659,13 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
     // hypothesis, `arithmetic` or `t` proves whole keeps that proof; only a case
     // that would otherwise be open goes on to have its binders introduced.
     if let Some(term) = introduce(cx, run, goal)? {
+        return Ok(term);
+    }
+    // An implication applied to a part of a hypothesis (SW-4472), only
+    // where the case would otherwise be open or split anyway, and only to
+    // close it there: so the cases `cases` closed before keep their proofs.
+    if let Some(term) = apply_to_part(cx, run, goal)? {
+        run.closed.borrow_mut().hypothesis += 1;
         return Ok(term);
     }
     // The last resort (SW-3752): what the goal, or a hypothesis, is stuck on
@@ -974,6 +1076,76 @@ fn by_hypothesis_part(cx: &Ctx, goal: &Value) -> Result<Option<Term>> {
         }
     }
     Ok(None)
+}
+
+/// The most levels of `∧` [`by_parts`] goes into: past it the goal is left
+/// to the other closers.
+const MAX_CONJUNCTS_DEPTH: usize = 16;
+
+/// The two parts of `goal`, if it is a conjunction `p ∧ q`, and its type.
+pub(crate) fn conjuncts(cx: &Ctx, goal: &Value) -> Result<Option<(DataId, Value, Value)>> {
+    if let Value::Data(d, args) = force(&cx.g(), goal.clone())?
+        && cx.g().env.registry().is_data(Builtin::And, d)
+        && args.len() == 2
+    {
+        return Ok(Some((d, args[0].clone(), args[1].clone())));
+    }
+    Ok(None)
+}
+
+/// A conjunction each of whose parts closes by computing, by a hypothesis or
+/// a part of one, or is a conjunction closed so in turn: the pair of their
+/// proofs. No search: each part is tried by those closers only, so a goal
+/// that is already proved (`True = True ∧ (a == a) = True`) closes at once,
+/// and doesn't wait for a split or a decision procedure.
+fn by_parts(cx: &Ctx, goal: &Value) -> Result<Option<Term>> {
+    if conjuncts(cx, goal)?.is_none() {
+        return Ok(None);
+    }
+    // The hypotheses' parts are taken apart once, for every part of the goal.
+    let mut parts = None;
+    by_parts_at(cx, goal, 0, &mut parts)
+}
+
+fn by_parts_at(
+    cx: &Ctx,
+    goal: &Value,
+    depth: usize,
+    parts: &mut Option<Vec<(Term, Value)>>,
+) -> Result<Option<Term>> {
+    if depth >= MAX_CONJUNCTS_DEPTH {
+        return Ok(None);
+    }
+    let Some((and, p, q)) = conjuncts(cx, goal)? else {
+        return Ok(None);
+    };
+    let mut proofs = Vec::with_capacity(2);
+    for part in [p, q] {
+        let mut proof = by_computation(cx, &part)?;
+        if proof.is_none() {
+            proof = by_hypothesis(cx, &part)?;
+        }
+        if proof.is_none() {
+            let parts = match parts {
+                Some(parts) => parts,
+                None => parts.insert(crate::auto::hypothesis_parts(cx, &visible(cx))?),
+            };
+            for (term, ty) in parts.iter() {
+                if conv(&cx.g(), cx.level(), ty, &part)? {
+                    proof = Some(term.clone());
+                    break;
+                }
+            }
+        }
+        if proof.is_none() {
+            proof = by_parts_at(cx, &part, depth + 1, parts)?;
+        }
+        match proof {
+            Some(proof) => proofs.push(proof),
+            None => return Ok(None),
+        }
+    }
+    Ok(Some(Term::ctor(and, 0, proofs)))
 }
 
 /// An equation `l = r` of data `d` whose sides compute to constructors.
@@ -1760,6 +1932,102 @@ fn apply_guarded(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Ter
     let body = node(cx, run, goal);
     cx.reset(mark);
     let mut body = body?;
+    for (name, ty, value) in lets.into_iter().rev() {
+        body = Term::let_(name, ty, value, body);
+    }
+    Ok(Some(body))
+}
+
+/// A hypothesis `h: P → Q` (`Q` not mentioning the proof of `P`) applied
+/// once to a proof of `P` in scope that [`apply_guarded`] doesn't use: a
+/// hypothesis whose `P` isn't an equation, or a part of a hypothesis (a
+/// side of a conjunction, or what a test fact reads as). Each such `Q` is
+/// added, and the case is closed by the closers that don't split or search
+/// (a contradiction, a hypothesis or a part of one, a conjunction of those),
+/// or `None`, with nothing added. One application per implication, never
+/// chained: `ended: trails = True ∧ Token w` and `implies: trails = True →
+/// trails' = True` prove `trails' = True ∧ Token w`.
+fn apply_to_part(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>> {
+    let g = cx.g();
+    let levels = visible(cx);
+    let mut parts: Option<Vec<(Term, Value)>> = None;
+    let mut facts: Vec<(Value, usize, Term)> = Vec::new();
+    for &level in &levels {
+        let Value::Pi(_, Icit::Explicit, dom, closure) = force(&g, cx.types[level].clone())? else {
+            continue;
+        };
+        if closure.body.mentions(0) {
+            continue;
+        }
+        let premise = (*dom).clone();
+        if !is_fact(cx, &premise) {
+            continue;
+        }
+        let mut given = None;
+        for &k in &levels {
+            if k != level && conv(&g, cx.level(), &cx.types[k], &premise)? {
+                given = Some(Term::Var(cx.level() - 1 - k));
+                break;
+            }
+        }
+        if given.is_none() {
+            let parts = match &mut parts {
+                Some(parts) => parts,
+                None => parts.insert(crate::auto::hypothesis_parts(cx, &levels)?),
+            };
+            for (proof, ty) in parts.iter() {
+                if conv(&g, cx.level(), ty, &premise)? {
+                    given = Some(proof.clone());
+                    break;
+                }
+            }
+        }
+        let Some(given) = given else {
+            continue;
+        };
+        let fact = closure.apply(&g, Value::Refl)?;
+        let known = levels
+            .iter()
+            .any(|&k| conv(&g, cx.level(), &cx.types[k], &fact).unwrap_or(false));
+        if known {
+            continue;
+        }
+        facts.push((fact, level, given));
+    }
+    if facts.is_empty() {
+        return Ok(None);
+    }
+    let mark = cx.mark();
+    let facts_before = run.facts.get();
+    let mut lets = Vec::new();
+    for (fact, level, given) in facts {
+        // `given` was read back before any fact was defined: each fact
+        // defined since is one more binder over it.
+        let proof = Term::app(
+            Term::Var(cx.level() - 1 - level),
+            given.shift(&g, lets.len(), 0)?,
+        );
+        let fact_term = cx.quote_or_written(&fact)?;
+        run.facts.set(run.facts.get() + 1);
+        let name = format!("{FACT}{}", run.facts.get());
+        lets.push((Name::from(name.as_str()), fact_term.clone(), proof.clone()));
+        cx.define(Some(&name), name.as_str().into(), fact, fact_term, proof)?;
+    }
+    let closed = match by_contradiction(cx, goal, &visible(cx))? {
+        Some(term) => Some(term),
+        None => match by_hypothesis(cx, goal)? {
+            Some(term) => Some(term),
+            None => match by_hypothesis_part(cx, goal)? {
+                Some(term) => Some(term),
+                None => by_parts(cx, goal)?,
+            },
+        },
+    };
+    cx.reset(mark);
+    let Some(mut body) = closed else {
+        run.facts.set(facts_before);
+        return Ok(None);
+    };
     for (name, ty, value) in lets.into_iter().rev() {
         body = Term::let_(name, ty, value, body);
     }
@@ -2865,6 +3133,112 @@ fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value, fallback: boo
         run.span,
         goal,
     )
+}
+
+/// The latest hypothesis `A ∨ B` worth splitting in this case, for the first
+/// try ([`Run::or_first`]): one not split on the way here, neither of whose
+/// sides is already known (an equation whose sides compute to the same
+/// thing, or a hypothesis), under a goal that is a proposition, which is
+/// what a proof of `∨` may be taken apart into.
+fn or_hypothesis(cx: &Ctx, run: &Run, goal: &Value) -> Result<Option<usize>> {
+    let g = cx.g();
+    let levels = visible(cx);
+    let mut found = None;
+    for &level in &levels {
+        let Value::Data(d, args) = force(&g, cx.types[level].clone())? else {
+            continue;
+        };
+        if !g.env.registry().is_data(Builtin::Or, d) || args.len() != 2 {
+            continue;
+        }
+        if run.split_ors.borrow().contains(&cx.names[level]) {
+            continue;
+        }
+        let mut known = false;
+        for side in args.iter() {
+            known = known
+                || trivial(cx, side)
+                || levels
+                    .iter()
+                    .any(|&k| conv(&g, cx.level(), &cx.types[k], side).unwrap_or(false));
+        }
+        if !known {
+            found = Some(level);
+            break;
+        }
+    }
+    match found {
+        Some(level) if is_proposition(cx, goal)? => Ok(Some(level)),
+        _ => Ok(None),
+    }
+}
+
+/// Splits the hypothesis at `level`, `A ∨ B`, into a case with `A` and one
+/// with `B`, each a fact named as [`take_apart`]'s are (so [`substitute`]
+/// may use an equation `x = t` among them), and each case is this `cases`
+/// again. The split is the `match h with | Inl a | Inr b` a proof writes.
+fn split_disjunction(cx: &mut Ctx, run: &Rc<Run>, level: usize, goal: &Value) -> Result<Term> {
+    let g = cx.g();
+    let hypothesis = cx.names[level].clone();
+    let shown = hypothesis_name(cx, level, &hypothesis);
+    if !run.atoms.borrow().iter().any(|(a, _)| *a == shown) {
+        run.atoms.borrow_mut().push((shown, false));
+        run.atom_types.borrow_mut().push(None);
+    }
+    run.split_or.set(true);
+    run.cases.set(run.cases.get() + 1);
+    if run.cases.get() > if run.thrifty { THRIFTY_CASES } else { CASES } {
+        run.over.set(true);
+        let path = path(cx);
+        *run.open_at.borrow_mut() = Some(if path.is_empty() {
+            "the first, before any split".to_string()
+        } else {
+            path.join(", ")
+        });
+        return Err(Diagnostic::error("E-CASES-BUDGET", "over budget"));
+    }
+    let ty = cx.types[level].clone();
+    let Value::Data(or, _) = force(&g, ty.clone())? else {
+        unreachable!("an `∨`")
+    };
+    run.facts.set(run.facts.get() + 1);
+    let name = Name::from(format!("{FACT}{}", run.facts.get()).as_str());
+    run.injected.borrow_mut().push(name.clone());
+    let alts: Vec<Alt> = (0..2)
+        .map(|c| Alt {
+            guard: None,
+            patterns: vec![crate::internal_ctor_pattern(
+                or,
+                c,
+                vec![Pattern::Var(ast::Name {
+                    text: name.to_string(),
+                    span: run.span,
+                })],
+                run.span,
+            )],
+            body: Some(Expr::Cases {
+                body: run.body.clone(),
+                span: run.span,
+            }),
+            span: run.span,
+        })
+        .collect();
+    run.split_ors.borrow_mut().push(hypothesis);
+    let term = Term::Var(cx.level() - 1 - level);
+    let result = crate::matching::generalised_named(
+        cx,
+        term,
+        ty,
+        run.span,
+        None,
+        Some(stale),
+        &alts,
+        &[],
+        run.span,
+        goal,
+    );
+    run.split_ors.borrow_mut().pop();
+    result
 }
 
 /// The most nodes of a case's goal and hypotheses, read back unfolded, that

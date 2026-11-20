@@ -17,7 +17,8 @@
 //! either way, and then closes the goal: by computing (`byComputing`), by
 //! hypotheses that contradict each other, or by a hypothesis, or a part of
 //! one, of the goal's type (`cases`' closers, without splitting or
-//! `arithmetic`). The proof is the `J` chain the same `rewrite`s write, so
+//! `arithmetic`), or, for a conjunction, by closing each part so
+//! ([`close_parts`], SW-4472). The proof is the `J` chain the same `rewrite`s write, so
 //! the kernel checks it like any other.
 //!
 //! **Rules.** As `rewrite`'s: a proof of an equation (hypotheses and
@@ -1310,6 +1311,12 @@ fn close(
     if let Some(found) = try_close(cx, header, goal)? {
         return Ok(found);
     }
+    let snapshot = Snapshot::take(cx);
+    let errors = cx.e.attempt.branch_errors.borrow().len();
+    if let Some(term) = close_parts(cx, header, goal, 0)? {
+        return Ok((term, Closer::Cases));
+    }
+    restore(cx, snapshot, errors);
     Err(left_open(
         cx,
         header,
@@ -1320,6 +1327,35 @@ fn close(
         goal,
         written_goal,
     ))
+}
+
+/// The most levels of `∧` [`close_parts`] goes into.
+const MAX_CONJUNCTS_DEPTH: usize = 16;
+
+/// A conjunction each of whose parts [`try_close`] closes, or is a
+/// conjunction closed so in turn: the pair of their proofs. Only in
+/// [`close`], after the whole goal didn't close, so a call that closed
+/// before keeps its proof. Its expansion is `then cases`, whose closers
+/// include this one.
+fn close_parts(cx: &mut Ctx, header: Span, goal: &Value, depth: usize) -> Result<Option<Term>> {
+    if depth >= MAX_CONJUNCTS_DEPTH {
+        return Ok(None);
+    }
+    let Some((and, p, q)) = crate::cases::conjuncts(cx, goal)? else {
+        return Ok(None);
+    };
+    let mut proofs = Vec::with_capacity(2);
+    for part in [p, q] {
+        let proof = match try_close(cx, header, &part)? {
+            Some((proof, _)) => Some(proof),
+            None => close_parts(cx, header, &part, depth + 1)?,
+        };
+        match proof {
+            Some(proof) => proofs.push(proof),
+            None => return Ok(None),
+        }
+    }
+    Ok(Some(Term::ctor(and, 0, proofs)))
 }
 
 /// `E-REWRITE-REPEATEDLY`: the goal the rules left, which nothing closed.
