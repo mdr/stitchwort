@@ -28582,8 +28582,8 @@
     {
       "id": 4329,
       "title": "[Sonnet] After SW-4324 merges: sweep the remaining [p := () => …]/[q := …] (and any [j :=][k :=] that now infer) on followsThen/followsThenEq uses in tools/fmt with task fmt:unspell, checking each namespace; ~100-130 left (SW-4323 finding)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
