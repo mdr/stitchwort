@@ -3823,7 +3823,13 @@ impl Elaborator {
                             );
                         }
                         let uniq = if uses && !marked {
-                            Some(self.uniqueness(lib, &p, &args[2].0, depth)?)
+                            Some(self.uniqueness(
+                                lib,
+                                &p,
+                                &args[2].0,
+                                depth,
+                                named.map(|n| n.text.as_str()),
+                            )?)
                         } else {
                             None
                         };
@@ -4564,8 +4570,17 @@ impl Elaborator {
     /// A proof that any two proofs of `p` (decided by `decision`, at
     /// `depth`) are equal, for a branch of `if h: p` that uses `h` (§3.5,
     /// D2180): `p` an equation of `Bool`s (`<` and `≤` on `Nat` and `Int`
-    /// are), or one decided by a `DecEq` instance.
-    fn uniqueness(&self, lib: &BranchLib, p: &Term, decision: &Term, depth: usize) -> R<Uniq> {
+    /// are), or one decided by a `DecEq` instance. `proof` is the name the
+    /// guard gives its proof (`if h: P`), when it gives one: an unnamed
+    /// guard's is found automatically, and the note says so.
+    fn uniqueness(
+        &self,
+        lib: &BranchLib,
+        p: &Term,
+        decision: &Term,
+        depth: usize,
+        proof: Option<&str>,
+    ) -> R<Uniq> {
         let g = &self.ev();
         let env: Vec<Value> = (0..depth).map(Value::var).collect();
         if let Value::Eq(ty, l, r) = force(g, eval(g, &env, p)?)?
@@ -4590,11 +4605,15 @@ impl Elaborator {
                 ));
             }
         }
-        skip(
-            "its branch uses the proof `h` of a condition that isn't an equation in a type with \
+        let proof = match proof {
+            Some(name) => format!("the proof `{name}`"),
+            None => "the guard's proof".to_string(),
+        };
+        skip(format!(
+            "its branch uses {proof} of a condition that isn't an equation in a type with \
              `DecEq` (or a comparison), and the branch computes on it: two proofs of it \
-             aren't known to be equal (D2180)",
-        )
+             aren't known to be equal (D2180)"
+        ))
     }
 
     /// The declarations branch equations are made with.
@@ -7419,10 +7438,14 @@ impl<'a> Walk<'a> {
                 let uniq = if node.then.mentions(0)
                     && !self.e.proof_is_inert_in(&node.then, None, fvals.len())?
                 {
-                    Some(
-                        self.e
-                            .uniqueness(&blib, &read.args[0].0, &read.args[2].0, depth)?,
-                    )
+                    let proof = guard_name(self.d.rows[j].guard.as_ref());
+                    Some(self.e.uniqueness(
+                        &blib,
+                        &read.args[0].0,
+                        &read.args[2].0,
+                        depth,
+                        proof.as_deref(),
+                    )?)
                 } else {
                     None
                 };

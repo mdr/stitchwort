@@ -168,6 +168,45 @@ def f (x: Nat): Nat := match x with
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// A skipped guarded equation names the guard's proof only when the guard
+/// gives it one (`if ok: P`); an unnamed guard's proof, found automatically
+/// (`if a = b && b = 0`, `if (a = b) ∧ (b = 0)`), isn't `h` (SW-4365).
+#[test]
+fn doc_names_a_guards_proof_only_when_the_guard_names_it() {
+    let dir = folder("guard-proof-name");
+    let source = "\
+import Std (Nat, Eq)
+
+def takeAnd (a b n: Nat) [auto h: (a = b) ∧ (b = 0)]: Nat :=
+  match h with
+    | Both l r => J (x e => Nat) n l
+
+def unnamedAnd (a b n: Nat): Nat := if a = b && b = 0 then takeAnd a b n else 0
+
+def unnamedWritten (a b n: Nat): Nat :=
+  if (a = b) ∧ (b = 0) then takeAnd a b n else 0
+
+def named (a b n: Nat): Nat :=
+  if ok: (a = b) ∧ (b = 0) then takeAnd a b n else 0
+";
+    std::fs::write(dir.join("a.sw"), source).unwrap();
+    for (def, proof) in [
+        ("unnamedAnd", "the guard's proof"),
+        ("unnamedWritten", "the guard's proof"),
+        ("named", "the proof `ok`"),
+    ] {
+        let (code, out, err) = run("doc", &dir, &[def, "a.sw"]);
+        assert_eq!(code, 0, "{out}\n{err}");
+        let expected = format!("its branch uses {proof} of a condition");
+        assert!(
+            out.contains(&format!("Main.{def}.eq.ifTrue  {expected}")),
+            "{out}"
+        );
+        assert!(!out.contains("the proof `h`"), "{out}");
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// An arm that couldn't be stated is listed with its reason, and so is an
 /// `f.induct` that wasn't made (here because `eq3` is read per leaf,
 /// SW-1071).
