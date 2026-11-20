@@ -35,8 +35,9 @@
 //! instance T.%instShow : … -> Std.Show (T %p0) := { toText = T.%show, toSource = T.%show }
 //! ```
 
+use crate::check::quote_internal;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::value::{eval, force, quote, unused};
+use stitchwort_core::value::{eval, force, unused};
 use stitchwort_core::{DataId, Name, Sort, Term, Value};
 use stitchwort_syntax::ast::{self, Decl, Expr, Pattern};
 
@@ -254,7 +255,7 @@ impl Elaborator {
                         kinds.push(Field::Recursive(m));
                         continue;
                     }
-                    let term = quote(g, np, &value)?;
+                    let term = quote_internal(g, np, &value)?;
                     for j in 0..np {
                         if term.mentions(np - 1 - j) {
                             dicts[j] |= param_is_type[j];

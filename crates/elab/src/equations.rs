@@ -2573,7 +2573,7 @@ impl Elaborator {
             return Ok(None);
         }
         let l = crate::check::quote_folded(g, depth, &l)?;
-        let r = stitchwort_core::value::quote(g, depth, &r)?;
+        let r = crate::check::quote_internal(g, depth, &r)?;
         let eq = Term::Eq(Some(Rc::new(lib.bool_ty())), Rc::new(l), Rc::new(r));
         Ok(lib.bool_test(&eq).map(|_| eq))
     }
@@ -2828,7 +2828,7 @@ impl Elaborator {
         let mut lhs = Vec::new();
         for elim in spine.iter() {
             match elim {
-                Elim::App(v, _) => lhs.push(stitchwort_core::value::quote(g, depth, v)?),
+                Elim::App(v, _) => lhs.push(crate::check::quote_internal(g, depth, v)?),
                 _ => return skip("its arm's goal wasn't the probe's"),
             }
         }
@@ -2868,7 +2868,7 @@ impl Elaborator {
         }
         if any_refl {
             for t in &mut lhs {
-                *t = stitchwort_core::value::quote(g, depth, &eval(g, &to_refl, t)?)?;
+                *t = crate::check::quote_internal(g, depth, &eval(g, &to_refl, t)?)?;
             }
         }
         let mut types: HashMap<usize, Term> = HashMap::default();
@@ -4491,8 +4491,8 @@ impl Elaborator {
             && matches!(force(g, (*ty).clone())?, Value::Data(b, _) if b == lib.bool)
         {
             return Ok(Uniq::Bool(
-                stitchwort_core::value::quote(g, depth, &l)?,
-                stitchwort_core::value::quote(g, depth, &r)?,
+                crate::check::quote_internal(g, depth, &l)?,
+                crate::check::quote_internal(g, depth, &r)?,
             ));
         }
         if let (Some((unique, icits)), Some(decide)) = (&lib.deceq_unique, lib.deceq_decide) {
@@ -5733,7 +5733,9 @@ fn without_lets_of(cx: &Ctx, t: &Term) -> Result<Term> {
     let g = &cx.g();
     let values = (0..depth)
         .map(|l| match cx.lets[l] {
-            Some(_) => Ok(Some(stitchwort_core::value::quote(g, depth, &cx.env[l])?)),
+            Some(_) => Ok(Some(
+                crate::check::quote_or_written(g, depth, &cx.env[l])?.0,
+            )),
             None => Ok(None),
         })
         .collect::<Result<Vec<_>>>()?;

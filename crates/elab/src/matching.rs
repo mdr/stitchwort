@@ -20,10 +20,11 @@
 
 use std::rc::Rc;
 
+use crate::check::{quote_internal, quote_unfolded};
 use crate::kernel;
 use stitchwort_core::budget::ResourceError;
 use stitchwort_core::collections::HashMap;
-use stitchwort_core::value::{Head, quote, quote_at_most};
+use stitchwort_core::value::{Head, quote_at_most};
 use stitchwort_core::{DefId, Ev, Name, Term, Value, pretty};
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{self, Alt, Expr, MatchKind, Pattern, Scrutinee};
@@ -577,7 +578,7 @@ fn lifted(
         // ([`normals`]).
         let normal = if decided {
             Some(
-                (|| Ok(quote(&g, base, &cx.eval(&term)?)?))()
+                (|| Ok(quote_unfolded(&g, base, &cx.eval(&term)?)?))()
                     .map_err(|d| in_scrutinee(d, s.expr.span()))?,
             )
         } else {
@@ -859,7 +860,7 @@ fn blocker(
     // Only the goal's is passed on: a variable's type too large is read as
     // written by the generalisation too ([`read_type`]).
     let read = |v: &Value, is_goal: bool| -> Result<Term> {
-        match quote(&g, base, v) {
+        match quote_internal(&g, base, v) {
             Err(e) => {
                 let e: Diagnostic = e.into();
                 match crate::undo::recoverable(cx, &e) {
@@ -1020,7 +1021,10 @@ fn generalised_now(
                 false => read_type(cx, base, l).map_err(in_match),
             })
             .collect::<Result<_>>()?;
-        Ok((type_terms, quote(&g, base, goal).map_err(in_match)?))
+        Ok((
+            type_terms,
+            quote_internal(&g, base, goal).map_err(in_match)?,
+        ))
     };
     let (type_terms, goal_term) = match read() {
         Ok(read) => read,
@@ -2118,7 +2122,7 @@ fn unknown_left_for_lifting(cx: &Ctx, draft: &Draft) -> Result<bool> {
     let depth = draft.env.len();
     let unsolved = |m: usize| g.meta_solution(m).is_none() && !cx.metas().meta_frozen(m);
     for ty in &draft.types {
-        if first_meta(&quote(&g, depth, ty)?, &unsolved).is_some() {
+        if first_meta(&quote_unfolded(&g, depth, ty)?, &unsolved).is_some() {
             return Ok(false);
         }
     }

@@ -2854,7 +2854,7 @@ fn find_places(
 /// read after computation (a field's or an alternative's).
 fn normal_at(g: &Ev, depth: usize, t: &Term) -> R<Term> {
     let env: Vec<Value> = (0..depth).map(Value::var).collect();
-    Ok(stitchwort_core::value::quote(
+    Ok(crate::check::quote_internal(
         g,
         depth,
         &force(g, eval(g, &env, t)?)?,

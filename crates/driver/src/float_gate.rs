@@ -276,6 +276,7 @@ fn def(g: &Ev, name: &str) -> Result<DefId, String> {
 }
 
 /// The normal form of `value`, with `level` variables in scope, as text.
+#[allow(clippy::disallowed_methods)] // a float-gate test's small values
 fn normal(g: &Ev, level: usize, value: &Value) -> Result<String, String> {
     quote(g, level, value)
         .map(|t| format!("{t:?}"))

@@ -1566,7 +1566,7 @@ impl Elaborator {
             let value = eval(&self.ev(), &[], &term)?;
             let g = &self.ev();
             let show = |v: &Value| -> std::result::Result<String, stitchwort_core::ResourceError> {
-                pretty::term_in_full(g, &[], &stitchwort_core::value::quote(g, 0, v)?)
+                pretty::term_in_full(g, &[], &crate::check::quote_internal(g, 0, v)?)
             };
             Ok((show(&value)?, show(&ty)?))
         };

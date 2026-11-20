@@ -1737,6 +1737,8 @@ impl Session {
         };
         let &(op, at) = arms.get(usize::try_from(&*k).ok()?)?;
         let sides = fields(answer[1].clone())?;
+        // Too large to read back: no side, and the caller goes without.
+        #[allow(clippy::disallowed_methods)]
         let side = |v: &Value| stitchwort_core::value::quote(g, 0, v).ok();
         Some((op, at, side(&sides[0])?, side(&sides[1])?))
     }
@@ -1890,7 +1892,10 @@ impl Session {
             let Ok(v) = eval(g, &[], term) else {
                 return ("…".to_string(), None);
             };
-            match stitchwort_core::value::quote(g, 0, &v) {
+            // Too large to read back: shown as `…`, below.
+            #[allow(clippy::disallowed_methods)]
+            let read = stitchwort_core::value::quote(g, 0, &v);
+            match read {
                 Ok(t) => (
                     cut_to(&stitchwort_core::pretty::term(g, &[], &t), SHOWN_SIDE),
                     Some(t),

@@ -439,7 +439,7 @@ fn operand(
         return Ok(Shape::Kept(arg.clone()));
     }
     let name: Name = format!("%{}", operands.len()).as_str().into();
-    binders.push((name.clone(), cx.quote(dom)?));
+    binders.push((name.clone(), cx.quote_or_written(dom)?));
     cx.bind_hidden(name, dom.clone());
     operands.push(arg.clone());
     Ok(Shape::Operand(operands.len() - 1))

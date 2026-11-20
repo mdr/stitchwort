@@ -156,11 +156,12 @@
 use std::rc::Rc;
 use stitchwort_core::Ev;
 
+use crate::check::quote_internal;
 use crate::kernel;
 use num_bigint::BigUint;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::{Branch, NumArm};
-use stitchwort_core::value::{eval, force, quote, unused};
+use stitchwort_core::value::{eval, force, unused};
 use stitchwort_core::{DataId, DefId, Icit, Name, Sort, Term, Value};
 use stitchwort_syntax::Span;
 use stitchwort_syntax::ast::{self, BinOp, Decl, Expr, NeForm, Pattern};
@@ -469,7 +470,7 @@ impl Elaborator {
                     if matches!(value, Value::Pi(..)) {
                         continue;
                     }
-                    let term = quote(g, np, &value)?;
+                    let term = quote_internal(g, np, &value)?;
                     if !mentions_group(&term, &group) {
                         continue;
                     }
@@ -670,7 +671,7 @@ impl Elaborator {
                                  two values equal in their data can still differ there"
                             )));
                         };
-                        let carrier_term = quote(g, np + i, &carrier)?;
+                        let carrier_term = quote_internal(g, np + i, &carrier)?;
                         if let Some(&m) = group
                             .iter()
                             .find(|m| mentions_group(&carrier_term, std::slice::from_ref(*m)))
@@ -760,7 +761,7 @@ impl Elaborator {
                         group
                             .iter()
                             .find(|r| {
-                                quote(g, np, &member.ty())
+                                quote_internal(g, np, &member.ty())
                                     .is_ok_and(|t| mentions_group(&t, std::slice::from_ref(*r)))
                             })
                             .map(|r| g.data(*r).name().to_string())
@@ -802,7 +803,7 @@ impl Elaborator {
                                  can't tell apart"
                             ));
                         };
-                        let carrier_term = quote(g, np + i, &carrier)?;
+                        let carrier_term = quote_internal(g, np + i, &carrier)?;
                         if mentions_group(&carrier_term, &group) {
                             return in_container(&format!(
                                 "is an equation in a type that mentions the group, and \
@@ -848,7 +849,7 @@ impl Elaborator {
                         kinds.push(Field::Recursive(m));
                         continue;
                     }
-                    let term = quote(g, np, &value)?;
+                    let term = quote_internal(g, np, &value)?;
                     for j in 0..np {
                         if term.mentions(np - 1 - j) {
                             deciders[j] |= param_is_type[j];
@@ -952,7 +953,7 @@ impl Elaborator {
         if !self.has_member(d, &ty_member) {
             let data = self.kernel.data(d);
             let np = data.params().len();
-            let mut body = quote(&self.ev(), np, &member.ty())?;
+            let mut body = quote_internal(&self.ev(), np, &member.ty())?;
             let mut ty = Term::Sort(data.sort());
             for (x, t) in data.params().iter().rev() {
                 ty = Term::Pi(x.clone(), Icit::Explicit, Rc::new(t.clone()), Rc::new(ty));
@@ -1076,12 +1077,12 @@ impl Elaborator {
         let ty = Term::Pi(
             "default".into(),
             Icit::Explicit,
-            Rc::new(quote(g, np, &field)?),
+            Rc::new(quote_internal(g, np, &field)?),
             Rc::new(Term::Pi(
                 "r".into(),
                 Icit::Explicit,
                 Rc::new(Term::data(d, params)),
-                Rc::new(quote(g, np + 2, &field)?),
+                Rc::new(quote_internal(g, np + 2, &field)?),
             )),
         );
         let branches: Vec<Branch> = data
@@ -1161,9 +1162,9 @@ impl Elaborator {
             fields.push(eval(g, &env, &ctor.fields[k].1)?);
         }
         let tuple = |depth: usize| -> Result<Term> {
-            let mut ty = quote(g, depth, &fields[n - 1])?;
+            let mut ty = quote_internal(g, depth, &fields[n - 1])?;
             for k in (0..n - 1).rev() {
-                ty = Term::data(pair, vec![quote(g, depth, &fields[k])?, ty]);
+                ty = Term::data(pair, vec![quote_internal(g, depth, &fields[k])?, ty]);
             }
             Ok(ty)
         };
@@ -1329,7 +1330,7 @@ impl Elaborator {
                     Rc::new(tag_of_s),
                     Rc::new(Term::Nat(Rc::new(BigUint::from(c)))),
                 )),
-                Rc::new(quote(g, np + 2, &field)?),
+                Rc::new(quote_internal(g, np + 2, &field)?),
             )),
         );
         let mut branches = Vec::new();
@@ -1351,7 +1352,7 @@ impl Elaborator {
                 Term::app(
                     Term::app_icit(
                         Term::Def(elim),
-                        quote(g, np + 2 + n, &field)?,
+                        quote_internal(g, np + 2 + n, &field)?,
                         Icit::Implicit,
                     ),
                     refuted,
@@ -1697,7 +1698,11 @@ impl Elaborator {
                 .cloned()
                 .chain((0..i).map(|j| Value::var(np + j)))
                 .collect();
-            Ok(quote(g, np + i, &eval(g, &env, &ctor.fields[i].1)?)?)
+            Ok(quote_internal(
+                g,
+                np + i,
+                &eval(g, &env, &ctor.fields[i].1)?,
+            )?)
         };
         let mut binders: Vec<(Name, Term)> = owner.params().to_vec();
         for i in 0..k {

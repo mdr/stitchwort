@@ -3,12 +3,13 @@
 
 use std::rc::Rc;
 
+use crate::check::quote_internal;
 use stitchwort_core::budget::{ResourceError, Result};
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::value::{
     Closure, CompareAt, Elim, Head, Mode, Relation, ShapeKey, ShapeMemo, Spine, apply_icit, conv,
     eval, expand_step, force, force_solved, is_call_field, is_eta_type, is_folded, matches_at_once,
-    opens_by_tree, project, project_call, proof_field, proof_param, quote, quote_as_written,
+    opens_by_tree, project, project_call, proof_field, proof_param, quote_as_written,
     quote_at_most, quote_folded, same_closure_solved, same_stuck_trees, sealed, underapplied,
     unfold_folded, unfold_once,
 };
@@ -3248,7 +3249,7 @@ fn rename_other(
         Value::Lam(x, i, b) => Term::Lam(x, i, Rc::new(under(&b)?)),
         Value::Nat(n) => Term::Nat(n),
         // Closed: nothing to rename, and no metavariable to occur.
-        Value::Chars(c) => quote(g, cod, &Value::Chars(c))?,
+        Value::Chars(c) => quote_internal(g, cod, &Value::Chars(c))?,
         Value::NatAdd(k, base) => native::nat_add_term(g, &k, go(&base)?),
         Value::Eq(t, a, b) => Term::Eq(Some(Rc::new(go(&t)?)), Rc::new(go(&a)?), Rc::new(go(&b)?)),
         Value::Neutral(Head::Meta(m2), spine) if m2 != m => {
@@ -3767,7 +3768,7 @@ pub(crate) type Around = (usize, usize, Rc<Term>);
 pub(crate) fn value_forms(g: &Ev, level: usize, value: &Value) -> Result<Vec<Term>> {
     if !g.machine.glue.get() {
         // No calls: the forms are the same.
-        return Ok(vec![quote(g, level, value)?]);
+        return Ok(vec![quote_internal(g, level, value)?]);
     }
     let mut forms = vec![quote_as_written(g, level, value)?];
     for folded in [true, false] {
@@ -3776,7 +3777,7 @@ pub(crate) fn value_forms(g: &Ev, level: usize, value: &Value) -> Result<Vec<Ter
             // the fallback to the call as written is the `quote_as_written` above.
             #[allow(clippy::disallowed_methods)]
             true => quote_folded(g, level, value),
-            false => quote(g, level, value),
+            false => quote_internal(g, level, value),
         };
         let form = (g.machine.budget).aside(cheap_limits(), read);
         // Cancelled, or out of the operation's own stack: passed on.
@@ -4172,7 +4173,7 @@ fn zonk_solved(
         let unfolded = g
             .machine
             .budget
-            .aside(unfolding_limits(), || quote(g, level, &value));
+            .aside(unfolding_limits(), || quote_internal(g, level, &value));
         // Running out of the side budget is "no unfolding"; the
         // operation running out, or being cancelled, is passed on.
         if let Some(e) = g.machine.budget.exhausted() {
@@ -5453,7 +5454,7 @@ mod tests {
     }
 
     fn quoted(g: &Unifier<'_>, v: Value) -> String {
-        format!("{:?}", quote(g, 0, &v).unwrap())
+        format!("{:?}", quote_internal(g, 0, &v).unwrap())
     }
 
     #[test]

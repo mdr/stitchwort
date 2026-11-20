@@ -15,9 +15,10 @@
 //! reported as a mismatch. Nothing unchecked reaches the kernel, which
 //! re-checks the final term anyway.
 
+use crate::check::quote_or_written;
 use stitchwort_core::budget::ResourceError;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::value::{Head, eval, force, quote};
+use stitchwort_core::value::{Head, eval, force};
 use stitchwort_core::{Ev, Name, Term, Value};
 use stitchwort_syntax::Span;
 
@@ -255,7 +256,11 @@ pub(crate) fn postpone(cx: &mut Ctx, found: &Value, expected: &Value) -> Result<
 /// definition stuck on an unknown solved since takes its step.
 pub(crate) fn refresh_at(cx: &Ctx, level: usize, value: &Value) -> Result<Value> {
     let env: Vec<Value> = (0..level).map(Value::var).collect();
-    Ok(eval(&cx.g(), &env, &quote(&cx.g(), level, value)?)?)
+    Ok(eval(
+        &cx.g(),
+        &env,
+        &quote_or_written(&cx.g(), level, value)?.0,
+    )?)
 }
 
 impl Elaborator {

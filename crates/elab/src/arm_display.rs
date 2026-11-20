@@ -29,8 +29,9 @@
 
 use std::rc::Rc;
 
+use crate::check::quote_internal;
 use stitchwort_core::collections::HashMap;
-use stitchwort_core::value::{eval, quote};
+use stitchwort_core::value::eval;
 use stitchwort_core::{Term, Value};
 use stitchwort_syntax::Span;
 use stitchwort_syntax::ast::Expr;
@@ -674,13 +675,13 @@ fn computed_back(
 ) -> Option<Value> {
     let g = cx.g();
     let level = cx.level();
-    let mut term = quote(&g, level, leaf_goal).ok()?;
+    let mut term = quote_internal(&g, level, leaf_goal).ok()?;
     // Nothing computed: the leaf's goal is the shown one with the case's
     // values put in, which the shown goal already says.
     let unsplit = unsplit(arms);
     let values: Vec<(usize, Term)> = unsplit
         .iter()
-        .filter_map(|&x| Some((x, quote(&g, level, leaf_env.get(x)?).ok()?)))
+        .filter_map(|&x| Some((x, quote_internal(&g, level, leaf_env.get(x)?).ok()?)))
         .collect();
     let shown = quote_folded(&g, level, shown_goal).ok()?;
     let instance = crate::lift::replace_with(
@@ -706,7 +707,7 @@ fn computed_back(
         if fields.contains(&x) || cx.name_of_level(x).is_none() {
             continue;
         }
-        let value = quote(&g, level, leaf_env.get(x)?).ok()?;
+        let value = quote_internal(&g, level, leaf_env.get(x)?).ok()?;
         if matches!(value.strip_loc(), Term::Var(i) if level - 1 - *i == x) {
             continue;
         }
