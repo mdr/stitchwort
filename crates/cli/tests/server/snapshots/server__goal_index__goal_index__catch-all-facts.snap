@@ -523,6 +523,9 @@ expression: json
     "file": 0,
     "fixes": [],
     "goal": {
+      "facts": [
+        "b"
+      ],
       "hypotheses": [
         {
           "name": "p",
@@ -533,13 +536,13 @@ expression: json
           "type": "Bool"
         }
       ],
-      "lemma": "theorem guardedGoal1 (p: Nat → Prop) (b: Bool): p 5 := ?",
+      "lemma": "theorem guardedGoal1 (p: Nat → Prop) (b: Bool) (h: b): p 5 := ?",
       "target": "p 5"
     },
     "labels": [
       {
         "file": 0,
-        "message": "p: Nat → Prop\nb: Bool\n⊢ p 5",
+        "message": "p: Nat → Prop\nb: Bool\nb\n⊢ p 5",
         "range": [
           32,
           14,
