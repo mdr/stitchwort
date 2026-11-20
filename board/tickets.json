@@ -28608,8 +28608,8 @@
     {
       "id": 4331,
       "title": "[Sonnet] A match in a def whose result type is huge (f3: match x with Zero => mk 0 | Succ n => mk (Succ n) returning Wrap (grow 22 (Leaf x))) fails with E-RESOURCE in check_tree; find the site and route it through check::quote_or_written if the as-written read is sound there, with an example (SW-4237 finding; grow 22 only)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
