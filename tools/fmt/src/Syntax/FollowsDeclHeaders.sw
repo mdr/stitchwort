@@ -227,31 +227,18 @@ theorem followsHeaderGroupColon ∀ [self selfTwin: Goal → {Parse Item} Expr]
     | True => followsFatalAny _ (() => Syntax.fatal "a parameter needs a type")
     | False => Parse.followsThen followsFixedFrom (colon colonTwin colons =>
       Parse.followsThen (followsBinderType knot inner) (annotation annotationTwin annotations =>
-        followsThenEq
-          [j := atEquals =>
-            (let default := headerDefault self inner implicit atEquals;
-             let close := inner.expectFixed (closerOf implicit) (closeMessage implicit auto named);
-             let consumed := consumedBare started;
-             headerGroupEnd kind implicit open auto named colon annotation default close refused consumed)]
-          [k := atEquals =>
-            (let default := headerDefault selfTwin inner implicit atEquals;
-             let close := inner.expectFixed (closerOf implicit) (closeMessage implicit autoTwin namedTwin);
-             let consumed := consumedBare startedTwin;
-             headerGroupEnd kind implicit openTwin autoTwin namedTwin colonTwin annotationTwin default close refused
-                 consumed)]
-          (followsAt inner ColonEq)
-          (atEquals =>
-            Parse.followsThen (followsHeaderDefault knot inner implicit atEquals) (default defaultTwin defaults =>
-              Parse.followsThen
-                (followsExpectFixedTwo inner
-                  (closerOf implicit)
-                  (closeMessage implicit auto named)
-                  (closeMessage implicit autoTwin namedTwin))
-                (close closeTwin closes =>
-                  Parse.followsThen (followsConsumedBare started startedTwin) (consumed consumedTwin consumeds =>
-                    followsHeaderGroupEnd kind implicit open openTwin auto autoTwin autos named namedTwin nameds colon
-                        colonTwin annotation annotationTwin annotations default defaultTwin defaults close closeTwin
-                        refused consumed consumedTwin))))))
+        followsThenEq (followsAt inner ColonEq) (atEquals =>
+          Parse.followsThen (followsHeaderDefault knot inner implicit atEquals) (default defaultTwin defaults =>
+            Parse.followsThen
+              (followsExpectFixedTwo inner
+                (closerOf implicit)
+                (closeMessage implicit auto named)
+                (closeMessage implicit autoTwin namedTwin))
+              (close closeTwin closes =>
+                Parse.followsThen (followsConsumedBare started startedTwin) (consumed consumedTwin consumeds =>
+                  followsHeaderGroupEnd kind implicit open openTwin auto autoTwin autos named namedTwin nameds colon
+                      colonTwin annotation annotationTwin annotations default defaultTwin defaults close closeTwin
+                      refused consumed consumedTwin))))))
 
 theorem autoSplitAlike ∀ (implicit: Bool) (names namesTwin: List Word)
     (alike: List.All2 WordsAlike names namesTwin):
