@@ -29371,12 +29371,12 @@
     {
       "id": 4389,
       "title": "[Sonnet] W-REWRITE-GUARD-REFINED for rewrite ... at h too (only goal rewrites get it); update pattern-guards.md §3.3/§4 for D3701 (SW-4385 follow-ups)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Lane notes: rewrite_at now skips a pointless rule with W-REWRITE-GUARD-REFINED (also the inferred form, same path); fix leaves `h`; examples guard-refinement-rewrite-at (hash changed, now refines) and -at-term; docs updated. Branch lane/SW-4389, commit 29533b25f.\n",
+      "body": "Lane notes: rewrite_at now skips a pointless rule with W-REWRITE-GUARD-REFINED (also the inferred form, same path); fix leaves `h`; examples guard-refinement-rewrite-at (hash changed, now refines) and -at-term; docs updated. Branch lane/SW-4389, commit 29533b25f.\n\n\nModel result: Sonnet, worked, 12 min (est. 30)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
