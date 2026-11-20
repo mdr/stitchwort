@@ -29013,12 +29013,12 @@
     {
       "id": 4362,
       "title": "[DeepSeek] spellings.py (fmt:unspell) keeps units that check without them and prints 'kept 5 of 4' (SW-4353: readsBracketAt p, followsListItemsEnd p and q were removable by hand); find the miscount, add a test",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nModel result: DeepSeek, worked, 14 min (est. 20)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
