@@ -280,7 +280,7 @@ theorem followsArgumentStep ∀ [self selfTwin: Goal → {Parse Item} Expr]
     Parse.Follows SameCode (Option.Alike ExprsAlike) (() => argumentStep self modes starts) (() =>
       argumentStep selfTwin modes starts) :=
   match starts with
-    | True => Parse.followsMap (x => Some x) (x => Some x) (x y alike => alike) (followsArgument knot braces modes)
+    | True => Parse.followsMap (x => Some x) (x => Some x) (followsArgument knot braces modes) (x y alike => alike)
     | False => Parse.followsDone Trivial
 
 theorem followsArguments ∀ [self selfTwin: Goal → {Parse Item} Expr]
@@ -314,8 +314,8 @@ theorem followsAppEnd ∀ [self selfTwin: Goal → {Parse Item} Expr]
       Parse.followsMap
         (applied => sectioned section applied)
         (applied => sectioned section applied)
-        (applied appliedTwin alike => sectionedDeaf section applied appliedTwin alike)
         (followsAppliedTo knot braces modes head headTwin heads)
+        (applied appliedTwin alike => sectionedDeaf section applied appliedTwin alike)
     | False => Parse.followsDone (sectionedDeaf section head headTwin heads)
 
 theorem followsAppCalls ∀ [self selfTwin: Goal → {Parse Item} Expr]
@@ -374,8 +374,9 @@ theorem followsUnaryNext ∀ [self selfTwin: Goal → {Parse Item} Expr]
             Parse.followsMap
               (operand => Prefix operator operand)
               (operand => Prefix operatorTwin operand)
-              (operand operandTwin operands => alikePrefix operator operatorTwin operators operand operandTwin operands)
-              (facts.knot { modes, level = LevelUnary }))
+              (facts.knot { modes, level = LevelUnary })
+              (operand operandTwin operands =>
+                alikePrefix operator operatorTwin operators operand operandTwin operands))
           | False => followsApp facts modes
 
 theorem followsUnaryBar ∀ [self selfTwin: Goal → {Parse Item} Expr]
@@ -435,8 +436,8 @@ theorem followsOperatorLinks ∀ (modes: Modes) (takes: Tok → Bool) (operand o
               Parse.followsMap
                 (value => Some (operator, value))
                 (value => Some (operatorTwin, value))
-                (value valueTwin values => (operators, values))
-                operands)
+                operands
+                (value valueTwin values => (operators, values)))
             | False => Parse.followsDone Trivial
         | None => Parse.followsDone Trivial))
 
@@ -551,14 +552,14 @@ theorem followsPipeSection ∀ [self selfTwin: Goal → {Parse Item} Expr]
       Parse.followsMap
         (operand => Section operand)
         (operand => Section operand)
-        (operand operandTwin alike => alikeSection operand operandTwin alike)
         (followsAppendExpr facts { modes | sectionHead = Some start })
+        (operand operandTwin alike => alikeSection operand operandTwin alike)
     | False =>
       Parse.followsMap
         (operand => operand)
         (operand => operand)
-        (operand operandTwin alike => alike)
         (followsAppendExpr facts modes)
+        (operand operandTwin alike => alike)
 
 theorem followsPipeOperand ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: MatchFacts self selfTwin) (modes: Modes):
@@ -657,15 +658,12 @@ theorem followsMembership ∀ [self selfTwin: Goal → {Parse Item} Expr]
       Syntax.fatal "`!` here applies to the element, not to the membership test")
     | False => Parse.followsThen followsBump (operator operatorTwin operators =>
       Parse.followsMap
-        [alike := ExprsAlike]
-        [p := () => pipedRange self modes]
-        [q := () => pipedRange selfTwin modes]
         (range => Infix InfixMembership element operator range)
         (range => Infix InfixMembership elementTwin operatorTwin range)
+        (followsPipedRange facts modes)
         (range rangeTwin ranges =>
           alikeInfix InfixMembership element elementTwin elements operator operatorTwin operators range rangeTwin
-              ranges)
-        (followsPipedRange facts modes))
+              ranges))
 
 theorem followsChainLink ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: LambdaFacts self selfTwin)
@@ -691,13 +689,10 @@ theorem followsChainLink ∀ [self selfTwin: Goal → {Parse Item} Expr]
                       Syntax.fatal "a chain of comparisons goes one way: `<` and `<=` can't be mixed with `>` and `>=`")
                     | False => Parse.followsThen followsBump (operator operatorTwin operators =>
                       Parse.followsMap
-                        [alike := Option.Alike (PairAlike WordsAlike ExprsAlike)]
-                        [p := () => pipedRange self modes]
-                        [q := () => pipedRange selfTwin modes]
                         (operand => Some (operator, operand))
                         (operand => Some (operatorTwin, operand))
-                        (operand operandTwin operands => (operators, operands))
-                        (followsPipedRange facts modes))
+                        (followsPipedRange facts modes)
+                        (operand operandTwin operands => (operators, operands)))
 
 theorem followsChainOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: LambdaFacts self selfTwin)
@@ -802,9 +797,9 @@ theorem followsCmpIf ∀ [self selfTwin: Goal → {Parse Item} Expr]
       Parse.followsMap
         (whenTrue => Infix InfixBinary lhs operator whenTrue)
         (whenTrue => Infix InfixBinary lhsTwin operatorTwin whenTrue)
+        (facts.ifs modes indent keyword keywordTwin keywords)
         (whenTrue whenTrueTwin whens =>
-          alikeInfix InfixBinary lhs lhsTwin lhss operator operatorTwin operators whenTrue whenTrueTwin whens)
-        (facts.ifs modes indent keyword keywordTwin keywords)))
+          alikeInfix InfixBinary lhs lhsTwin lhss operator operatorTwin operators whenTrue whenTrueTwin whens)))
 
 theorem followsCmpAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: IfFacts self selfTwin)
@@ -896,14 +891,14 @@ theorem followsLogicOperand ∀ [self selfTwin: Goal → {Parse Item} Expr]
       Parse.followsMap
         (operand => Some (operator, operand))
         (operand => Some (operatorTwin, operand))
-        (operand operandTwin operands => (operators, operands))
         (facts.quantifiers modes)
+        (operand operandTwin operands => (operators, operands))
     | False =>
       Parse.followsMap
         (operand => Some (operator, operand))
         (operand => Some (operatorTwin, operand))
-        (operand operandTwin operands => (operators, operands))
         (followsCmpExpr facts.below modes)
+        (operand operandTwin operands => (operators, operands))
 
 theorem followsLogicLink ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: QuantifierFacts self selfTwin) (modes: Modes):
@@ -1040,9 +1035,9 @@ theorem followsArrowEnd ∀ [self selfTwin: Goal → {Parse Item} Expr]
   Parse.followsMap
     (result => Infix InfixArrow value arrow result)
     (result => Infix InfixArrow valueTwin arrowTwin result)
+    (results modes)
     (result resultTwin results =>
       alikeInfix InfixArrow value valueTwin values arrow arrowTwin arrows result resultTwin results)
-    (results modes)
 
 theorem followsSemiAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -1058,9 +1053,9 @@ theorem followsSemiAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
       Parse.followsMap
         (right => Infix InfixSeq value semicolon right)
         (right => Infix InfixSeq valueTwin semicolonTwin right)
+        (followsFull knot modes)
         (right rightTwin rights =>
           alikeInfix InfixSeq value valueTwin values semicolon semicolonTwin semicolons right rightTwin rights)
-        (followsFull knot modes)
 
 theorem followsSemiExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)

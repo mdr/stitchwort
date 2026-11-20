@@ -136,8 +136,8 @@ theorem followsGuardAt ∀ [self selfTwin: Goal → {Parse Item} Expr]
         Parse.followsMap
           (condition => Some { keyword, binder, condition })
           (condition => Some { keyword = keywordTwin, binder = binderTwin, condition })
-          (condition conditionTwin conditions => (keywords, binders, conditions))
-          (followsFull knot { modes | guard = True, lines = [] })))
+          (followsFull knot { modes | guard = True, lines = [] })
+          (condition conditionTwin conditions => (keywords, binders, conditions))))
     | False => Parse.followsDone Trivial
 
 theorem followsGuardOf ∀ [self selfTwin: Goal → {Parse Item} Expr]
@@ -156,8 +156,8 @@ theorem followsArmBodyOf ∀ [self selfTwin: Goal → {Parse Item} Expr]
       Parse.followsMap
         (value => Some (arrow, value))
         (value => Some (arrowTwin, value))
-        (value valueTwin values => (arrows, values))
-        (followsFull knot modes))
+        (followsFull knot modes)
+        (value valueTwin values => (arrows, values)))
 
 theorem followsArmBody ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -172,12 +172,8 @@ theorem followsArmPatterns ∀ (alts: AltPatternFollows) (modes: Modes):
     Parse.followsThen Parse.followsMark (here hereTwin marks =>
       rewrite <- marks.right.right then
         Parse.followsMap
-          [alike := List.All2 PatternsAlike]
-          [p := () => commaList (here.left + 1) modes (count => False) (() => altPattern modes) first []]
-          [q := () => commaList (here.left + 1) modes (count => False) (() => altPattern modes) firstTwin []]
           (found => found.fst)
           (found => found.fst)
-          (found foundTwin founds => founds.left)
           (followsCommaList modes
             (count => False)
             (count => False)
@@ -191,7 +187,8 @@ theorem followsArmPatterns ∀ (alts: AltPatternFollows) (modes: Modes):
             firsts
             []
             []
-            Trivial)))
+            Trivial)
+          (found foundTwin founds => founds.left)))
 
 theorem followsArmColumn ∀ (column: Option Nat):
     Parse.Follows SameCode Same (() => armColumn column) (() => armColumn column) :=
@@ -456,8 +453,8 @@ theorem followsScrutinee ∀ [self selfTwin: Goal → {Parse Item} Expr]
     Parse.followsMap
       (value => { name, value })
       (value => { name = nameTwin, value })
-      (value valueTwin values => alikeScrutinee name nameTwin names value valueTwin values)
-      (knot { modes = modes.sealed, level = LevelInline }))
+      (knot { modes = modes.sealed, level = LevelInline })
+      (value valueTwin values => alikeScrutinee name nameTwin names value valueTwin values))
 
 theorem followsWordAhead ∀ (modes: Modes) (word: Text):
     Parse.Follows SameCode Same (() => wordAhead modes word) (() => wordAhead modes word) :=
@@ -475,8 +472,8 @@ theorem followsFixedFrom: Parse.Follows SameCode Anything (() => fixedFrom()) ((
     [q := () => bump()]
     (found => found.comments)
     (found => found.comments)
-    (found foundTwin founds => Trivial)
     followsBump
+    (found foundTwin founds => Trivial)
 
 theorem followsMatchTail ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)

@@ -256,8 +256,8 @@ theorem followsNegativeDigits ∀ (modes: Modes) (minus minusTwin: Word)
       Parse.followsMap
         (found => PatternNegative minus found)
         (found => PatternNegative minusTwin found)
-        (found foundTwin founds => alikePatternNegative minus minusTwin found foundTwin minuses founds)
         followsBump
+        (found foundTwin founds => alikePatternNegative minus minusTwin found foundTwin minuses founds)
     | False => followsFail modes "a number" (() => modes.fail "a number")
 
 theorem followsNegativePattern ∀ (modes: Modes):
@@ -285,9 +285,9 @@ theorem followsPatternAppendOf ∀ [pself pselfTwin: PatternGoal → {Parse Item
             Parse.followsMap
               (rest => PatternAppend start operator rest)
               (rest => PatternAppend startTwin operatorTwin rest)
+              (pknot { modes, level = next })
               (rest restTwin rests =>
-                alikePatternAppend start startTwin starts operator operatorTwin operators rest restTwin rests)
-              (pknot { modes, level = next }))
+                alikePatternAppend start startTwin starts operator operatorTwin operators rest restTwin rests))
           | False => followsFatalAny "a text pattern can only take a fixed start" (() =>
             Syntax.fatal "a text pattern can only take a fixed start")
 
@@ -367,9 +367,9 @@ theorem followsAlternatives ∀ [pself pselfTwin: PatternGoal → {Parse Item} P
       Parse.followsMap
         (links => alternativesEnd first links)
         (links => alternativesEnd firstTwin links)
+        (followsAlternativeLinks pknot (here.left + 1) modes next [] [] Trivial)
         (links linksTwin alike =>
-          alternativesEndDeaf first firstTwin links linksTwin firsts (patternLinksBlank links linksTwin alike))
-        (followsAlternativeLinks pknot (here.left + 1) modes next [] [] Trivial))
+          alternativesEndDeaf first firstTwin links linksTwin firsts (patternLinksBlank links linksTwin alike)))
 
 -- Record patterns, `{ x, y = p, .. }`.
 
@@ -390,8 +390,8 @@ theorem followsFieldPatternValue ∀ [pself pselfTwin: PatternGoal → {Parse It
       Parse.followsMap
         (value => Some (word, value))
         (value => Some (twin, value))
-        (value valueTwin values => (equalses, values))
         (pknot { modes, level = PatternFieldValue })
+        (value valueTwin values => (equalses, values))
 
 theorem followsFieldPatternNext ∀ [pself pselfTwin: PatternGoal → {Parse Item} Pattern] (more: Nat)
     (modes: Modes) (found foundTwin: List FieldPattern)
@@ -455,8 +455,8 @@ theorem followsFieldPatternStep ∀ [pself pselfTwin: PatternGoal → {Parse Ite
       Parse.followsMap
         (found2 => (found.reverse, False, Some found2))
         (found2 => (foundTwin.reverse, False, Some found2))
-        (found2 foundTwin2 founds2 => (List.all2Reverse found foundTwin founds, byComputing, founds2))
         followsBump
+        (found2 foundTwin2 founds2 => (List.all2Reverse found foundTwin founds, byComputing, founds2))
     | False => followsThenEq (followsAt modes RBrace) (closed =>
       followsFieldPatternClose pknot more modes found foundTwin founds closed rest)
 
@@ -480,16 +480,13 @@ theorem followsFieldsPatternEnd ∀ (inner: Modes) (open openTwin: Word)
   match read, readTwin with
     | (fields, trailing, rest), (fieldsTwin, trailingTwin, restTwin) =>
       Parse.followsMap
-        [alike := FieldsPatternAlike]
-        [p := () => inner.expect RBrace "`,` or `}`"]
-        [q := () => inner.expect RBrace "`,` or `}`"]
         (close => { open, fields, trailingComma = trailing, rest, close })
         (close => { open = openTwin, fields = fieldsTwin, trailingComma = trailingTwin, rest = restTwin, close })
+        (followsExpect inner RBrace "`,` or `}`")
         (close closeTwin closes =>
           rewrite <- reads.right.left then
             alikeFieldsPattern open openTwin opens fields fieldsTwin reads.left trailing rest restTwin reads.right.right
                 close closeTwin closes)
-        (followsExpect inner RBrace "`,` or `}`")
 
 theorem followsFieldsPattern ∀ [pself pselfTwin: PatternGoal → {Parse Item} Pattern]
     (pknot: PatternSelfFollows pself pselfTwin) (modes: Modes):
@@ -552,13 +549,10 @@ theorem followsCtorRecordArgument ∀ [pself pselfTwin: PatternGoal → {Parse I
               "a record pattern after a constructor in an argument of `${nameTwin.text}` is written in brackets: `({ … })`")
       | False =>
         Parse.followsMap
-          [alike := PatternsAlike]
-          [p := () => fieldsPattern pself modes]
-          [q := () => fieldsPattern pselfTwin modes]
           (fields => PatternRecord fields)
           (fields => PatternRecord fields)
-          (fields fieldsTwin fieldses => alikePatternRecord fields fieldsTwin fieldses)
           (followsFieldsPattern pknot modes)
+          (fields fieldsTwin fieldses => alikePatternRecord fields fieldsTwin fieldses)
 
 theorem followsCtorArgMinus ∀ [pself pselfTwin: PatternGoal → {Parse Item} Pattern]
     (pknot: PatternSelfFollows pself pselfTwin)
@@ -681,10 +675,10 @@ theorem followsNamedPattern ∀ [pself pselfTwin: PatternGoal → {Parse Item} P
           Parse.followsMap
             (close => PatternNamed open name colonEq value close)
             (close => PatternNamed openTwin nameTwin colonEqTwin valueTwin close)
+            (followsExpect modes.inBrackets RBracket "`]`")
             (close closeTwin closes =>
               alikePatternNamed open openTwin name nameTwin colonEq colonEqTwin opens names colonEqs value valueTwin
-                  values close closeTwin closes)
-            (followsExpect modes.inBrackets RBracket "`]`")))))
+                  values close closeTwin closes)))))
 
 theorem followsTuplePatternEnd ∀ (modes: Modes) (open openTwin: Word)
     (opens: WordsAlike open openTwin) (pair pairTwin: (List Pattern, Bool))
@@ -694,15 +688,12 @@ theorem followsTuplePatternEnd ∀ (modes: Modes) (open openTwin: Word)
   match pair, pairTwin with
     | (items, trailing), (twins, trailingTwin) =>
       Parse.followsMap
-        [alike := PatternsAlike]
-        [p := () => modes.expect RParen "`)`"]
-        [q := () => modes.expect RParen "`)`"]
         (close => PatternTuple open items trailing close)
         (close => PatternTuple openTwin twins trailingTwin close)
+        (followsExpect modes RParen "`)`")
         (close closeTwin closes =>
           rewrite <- pairs.right then
             alikePatternTuple open openTwin opens items twins pairs.left trailing close closeTwin closes)
-        (followsExpect modes RParen "`)`")
 
 theorem followsParenPatternOf ∀ [pself pselfTwin: PatternGoal → {Parse Item} Pattern]
     (pknot: PatternSelfFollows pself pselfTwin)
@@ -734,8 +725,8 @@ theorem followsParenPatternOf ∀ [pself pselfTwin: PatternGoal → {Parse Item}
       Parse.followsMap
         (close => PatternParen open first close)
         (close => PatternParen openTwin firstTwin close)
-        (close closeTwin closes => alikePatternParen open openTwin opens first firstTwin firsts close closeTwin closes)
         (followsExpect modes RParen "`)`")
+        (close closeTwin closes => alikePatternParen open openTwin opens first firstTwin firsts close closeTwin closes)
 
 -- List patterns.
 
@@ -758,9 +749,9 @@ theorem followsListPatternClose ∀ (inner: Modes) (open openTwin: Word)
           Parse.followsMap
             (close => PatternList open items trailing (Some pair) close)
             (close => PatternList openTwin twins trailing (Some pairTwin) close)
+            (followsExpect inner RBracket "`]`: a `..` tail must be the last item")
             (close closeTwin closes =>
               alikePatternList open openTwin opens items twins alike trailing _ _ tails close closeTwin closes)
-            (followsExpect inner RBracket "`]`: a `..` tail must be the last item")
     | None, None =>
       Parse.followsMap
         [alike := PatternsAlike]
@@ -768,9 +759,9 @@ theorem followsListPatternClose ∀ (inner: Modes) (open openTwin: Word)
         [q := () => inner.expect RBracket "`,` or `]`"]
         (close => PatternList open items trailing None close)
         (close => PatternList openTwin twins trailing None close)
+        (followsExpect inner RBracket "`,` or `]`")
         (close closeTwin closes =>
           alikePatternList open openTwin opens items twins alike trailing None None Trivial close closeTwin closes)
-        (followsExpect inner RBracket "`,` or `]`")
 
 theorem followsListPatternEnd ∀ (inner: Modes) (open openTwin: Word)
     (opens: WordsAlike open openTwin) (read twin: (List Pattern, Bool, Option (Word, Pattern)))
@@ -813,8 +804,8 @@ theorem followsListPatternDots ∀ [pself pselfTwin: PatternGoal → {Parse Item
       Parse.followsMap
         (tail => (found.reverse, False, Some (dotsWord, tail)))
         (tail => (foundTwin.reverse, False, Some (dotsTwin, tail)))
-        (tail tailTwin tails => (List.all2Reverse found foundTwin founds, byComputing, (dotses, tails)))
-        (pknot { modes, level = PatternPlain }))
+        (pknot { modes, level = PatternPlain })
+        (tail tailTwin tails => (List.all2Reverse found foundTwin founds, byComputing, (dotses, tails))))
     | False => Parse.followsThen (followsListItemPattern pknot modes) (entry entryTwin entries =>
       Parse.followsThen (followsEat modes Comma) (comma commaTwin commas =>
         followsListPatternNext more modes found foundTwin founds entry entryTwin entries comma commaTwin commas rest))
@@ -917,8 +908,8 @@ theorem followsParenPattern ∀ [pself pselfTwin: PatternGoal → {Parse Item} P
       Parse.followsMap
         (close => PatternAbsurd open close)
         (close => PatternAbsurd openTwin close)
-        (close closeTwin closes => alikePatternAbsurd open openTwin close closeTwin opens closes)
-        followsBump)
+        followsBump
+        (close closeTwin closes => alikePatternAbsurd open openTwin close closeTwin opens closes))
     | Some Minus => followsParenMinusPattern pknot modes
     | _ => followsParenOpenPattern pknot modes
 
@@ -943,8 +934,8 @@ theorem followsPlainWord ∀ (kind: Tok):
   Parse.followsMap
     (found => PatternWord kind found)
     (found => PatternWord kind found)
-    (found foundTwin founds => alikePatternWord kind found foundTwin founds)
     followsBump
+    (found foundTwin founds => alikePatternWord kind found foundTwin founds)
 
 theorem followsPlainPatternOn ∀ [pself pselfTwin: PatternGoal → {Parse Item} Pattern]
     (pknot: PatternSelfFollows pself pselfTwin)
@@ -964,8 +955,8 @@ theorem followsPlainPatternOn ∀ [pself pselfTwin: PatternGoal → {Parse Item}
           Parse.followsMap
             (found => PatternWord Lower found)
             (found => PatternWord Lower found)
-            (found foundTwin founds => alikePatternWord Lower found foundTwin founds)
-            (followsQuotOrLower modes quot))
+            (followsQuotOrLower modes quot)
+            (found foundTwin founds => alikePatternWord Lower found foundTwin founds))
     | Some Underscore => followsPlainWord Underscore
     | Some Num => followsPlainWord Num
     | Some CharLit => followsPlainWord CharLit
@@ -976,8 +967,8 @@ theorem followsPlainPatternOn ∀ [pself pselfTwin: PatternGoal → {Parse Item}
       Parse.followsMap
         (fields => PatternRecord fields)
         (fields => PatternRecord fields)
-        (fields fieldsTwin fieldses => alikePatternRecord fields fieldsTwin fieldses)
         (followsFieldsPattern pknot modes)
+        (fields fieldsTwin fieldses => alikePatternRecord fields fieldsTwin fieldses)
     | Some LBracket => followsThenEq (followsPeekAt modes 1) (second => followsBracketPattern pknot modes second)
     | Some LParen => followsThenEq (followsPeekAt modes 1) (second => followsParenPattern pknot modes second)
     | _ => followsFailName modes "a pattern or `=`" (() => modes.failName "a pattern or `=`")

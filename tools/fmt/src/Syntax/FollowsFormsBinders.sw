@@ -258,9 +258,9 @@ theorem followsBindingEnd ∀ [self selfTwin: Goal → {Parse Item} Expr]
     Parse.followsMap
       (body => Binding kind keyword params arrow body)
       (body => Binding kind keywordTwin twins arrowTwin body)
+      (followsFull knot modes)
       (body bodyTwin bodies =>
-        alikeBinding kind keyword keywordTwin keywords params twins alike arrow arrowTwin arrows body bodyTwin bodies)
-      (followsFull knot modes))
+        alikeBinding kind keyword keywordTwin keywords params twins alike arrow arrowTwin arrows body bodyTwin bodies))
 
 theorem followsLambdaKeyword ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -410,6 +410,7 @@ theorem followsForallArrow ∀ [self selfTwin: Goal → {Parse Item} Expr]
       Parse.followsMap
         (body => Binding BindsForall (Some keyword) params arrow body)
         (body => Binding BindsForall (Some keywordTwin) twins arrowTwin body)
+        (followsFull knot modes)
         (body bodyTwin bodies =>
           alikeBinding BindsForall
             (Some keyword)
@@ -423,8 +424,7 @@ theorem followsForallArrow ∀ [self selfTwin: Goal → {Parse Item} Expr]
             arrows
             body
             bodyTwin
-            bodies)
-        (followsFull knot modes))
+            bodies))
     | False => followsFail modes "`=>` after the parameters of `${keyword.text}`" (() =>
       modes.fail "`=>` after the parameters of `${keywordTwin.text}`")
 
@@ -437,14 +437,8 @@ theorem followsForallExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
       match params, twins with
         | [], [] => followsFail modes "a parameter after `${keyword.text}`" (() =>
           modes.fail "a parameter after `${keywordTwin.text}`")
-        | [param, ..rest], [twin, ..restTwin] =>
-          followsThenEq
-            [p := () => modes.at FatArrow]
-            [q := () => modes.at FatArrow]
-            [j := atArrow => forallArrow self modes keyword [param, ..rest] atArrow]
-            [k := atArrow => forallArrow selfTwin modes keywordTwin [twin, ..restTwin] atArrow]
-            (followsAt modes FatArrow)
-            (atArrow => followsForallArrow knot modes keyword keywordTwin keywords _ _ alike atArrow)))
+        | [param, ..rest], [twin, ..restTwin] => followsThenEq (followsAt modes FatArrow) (atArrow =>
+          followsForallArrow knot modes keyword keywordTwin keywords _ _ alike atArrow)))
 
 -- Quantifiers: `∃` and `∀`.
 
@@ -585,8 +579,8 @@ theorem followsIfExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
               (whenFalse => If keyword binder condition thenKeyword whenTrue elseKeyword whenFalse)
               (whenFalse =>
                 If keywordTwin binderTwin conditionTwin thenKeywordTwin whenTrueTwin elseKeywordTwin whenFalse)
+              (followsFull knot modes)
               (whenFalse whenFalseTwin falses =>
                 alikeIf keyword keywordTwin keywords binder binderTwin binders condition conditionTwin conditions
                     thenKeyword thenKeywordTwin thens whenTrue whenTrueTwin trues elseKeyword elseKeywordTwin elses
-                    whenFalse whenFalseTwin falses)
-              (followsFull knot modes))))))
+                    whenFalse whenFalseTwin falses))))))

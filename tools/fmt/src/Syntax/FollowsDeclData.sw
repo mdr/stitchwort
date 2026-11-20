@@ -57,8 +57,8 @@ theorem followsFieldDefault ∀ (rule: ExpressionRule) (modes: Modes) (atColonEq
       Parse.followsMap
         (value => Some (colonEq, value))
         (value => Some (colonEqTwin, value))
-        (value valueTwin values => (colonEqs, values))
-        (followsExpressionAt rule { modes, level = LevelFull }))
+        (followsExpressionAt rule { modes, level = LevelFull })
+        (value valueTwin values => (colonEqs, values)))
     | False => Parse.followsDone Trivial
 
 def FieldsFromFollow (modes: Modes) (fuel: Nat): Prop :=
@@ -168,12 +168,12 @@ theorem followsBracedFields ∀ (rule: ExpressionRule) (modes: Modes):
           match pair, pairTwin with
             | (fields, trailing), (twins, trailingTwin) =>
               Parse.followsMap
-                [alike := FieldsAlike]
                 (close => { open, fields, trailingComma = trailing, close })
                 (close => { open = openTwin, fields = twins, trailingComma = trailingTwin, close })
+                (followsExpectFixed modes.inBrackets RBrace "`,` or `}`")
                 (close closeTwin closes =>
-                  alikeFields open openTwin fields twins pairs.left trailing trailingTwin pairs.right close closeTwin)
-                (followsExpectFixed modes.inBrackets RBrace "`,` or `}`"))))
+                  alikeFields open openTwin fields twins pairs.left trailing trailingTwin pairs.right close
+                      closeTwin))))
 
 -- Facts read off alike groups.
 
@@ -326,21 +326,16 @@ theorem followsConstructorParts ∀ (rule: ExpressionRule) (fuel: Nat) (modes: M
     Parse.Follows SameCode (List.All2 PartAlike) (() => constructorParts fuel modes name bracketed braced found) (() =>
       constructorParts fuel modes nameTwin bracketed braced twins) :=
   match fuel with
-    | Succ more =>
-      followsThenEq
-        [j := brace => constructorBraced more modes name bracketed braced found (brace && !braced)]
-        [k := brace => constructorBraced more modes nameTwin bracketed braced twins (brace && !braced)]
-        (followsAt modes LBrace)
-        (brace =>
-          followsConstructorBraced rule more modes name nameTwin
-            (again1 again2 agains3 agains4 agains5 =>
-              followsConstructorParts rule more modes name nameTwin again1 again2 agains3 agains4 agains5)
-            bracketed
-            braced
-            found
-            twins
-            founds
-            (brace && !braced))
+    | Succ more => followsThenEq (followsAt modes LBrace) (brace =>
+      followsConstructorBraced rule more modes name nameTwin
+        (again1 again2 agains3 agains4 agains5 =>
+          followsConstructorParts rule more modes name nameTwin again1 again2 agains3 agains4 agains5)
+        bracketed
+        braced
+        found
+        twins
+        founds
+        (brace && !braced))
     | Zero => Parse.followsDone (List.all2Reverse found twins founds)
 
 theorem followsConstructorResult ∀ (rule: ExpressionRule) (modes: Modes) (atColon: Bool):
@@ -351,8 +346,8 @@ theorem followsConstructorResult ∀ (rule: ExpressionRule) (modes: Modes) (atCo
       Parse.followsMap
         (result => Some (colon, result))
         (result => Some (colonTwin, result))
-        (result resultTwin results => (colons, results))
-        (followsExpressionAt rule { modes, level = LevelApp }))
+        (followsExpressionAt rule { modes, level = LevelApp })
+        (result resultTwin results => (colons, results)))
     | False => Parse.followsDone Trivial
 
 theorem followsConstructorStep ∀ (rule: ExpressionRule) (modes: Modes) (atBar: Bool):
@@ -388,10 +383,10 @@ theorem followsConstructorStep ∀ (rule: ExpressionRule) (modes: Modes) (atBar:
                             fields = fieldsTwin,
                             result
                           })
+                        (followsConstructorResult rule modes atColon)
                         (result resultTwin results =>
                           alikeConstructor bar barTwin attributes attributesTwin attributeses name nameTwin names fields
-                              fieldsTwin fieldses result resultTwin results)
-                        (followsConstructorResult rule modes atColon)))))))
+                              fieldsTwin fieldses result resultTwin results)))))))
     | False => Parse.followsDone Trivial
 
 theorem followsConstructorsAt ∀ (rule: ExpressionRule) (modes: Modes) (atBar: Bool):
@@ -576,13 +571,13 @@ theorem followsTypeBraced ∀ (rule: ExpressionRule) (modes: Modes) (attributes 
       Parse.followsMap
         (fields => Data attributes False keyword name params indices (RecordBody equals fields))
         (fields => Data attributesTwin False keywordTwin nameTwin paramsTwin indicesTwin (RecordBody equalsTwin fields))
+        (followsBracedFields rule modes)
         (fields fieldsTwin fieldses =>
           alikeData attributes attributesTwin attributeses False keyword keywordTwin name nameTwin names params
               paramsTwin paramses indices indicesTwin indiceses
               (RecordBody equals fields)
               (RecordBody equalsTwin fieldsTwin)
               (alikeRecordBody equals equalsTwin fields fieldsTwin fieldses))
-        (followsBracedFields rule modes)
 
 theorem stepsEmpty ∀ (steps: List (Index, Word)):
     (blankIndexSteps (walkIndices blankPure steps)).isEmpty = steps.isEmpty :=
@@ -664,17 +659,10 @@ theorem followsTypeBody ∀ (rule: ExpressionRule) (modes: Modes) (attributes at
         (alikeData attributes attributesTwin attributeses False keyword keywordTwin name nameTwin names params
             paramsTwin paramses indices indicesTwin indiceses Abstract Abstract alikeAbstract)
     | False => Parse.followsThen followsFixedFrom (equals equalsTwin equalses =>
-      followsThenEq
-        [j := brace =>
-          typeAfterEquals modes attributes keyword name params indices indexed equals brace (modes.at Pipe)]
-        [k := brace =>
-          typeAfterEquals modes attributesTwin keywordTwin nameTwin paramsTwin indicesTwin indexed equalsTwin brace
-            (modes.at Pipe)]
-        (followsAt modes LBrace)
-        (brace =>
-          followsThenEq (followsAt modes Pipe) (pipe =>
-            followsTypeAfterEquals rule modes attributes attributesTwin attributeses keyword keywordTwin name nameTwin
-                names params paramsTwin paramses indices indicesTwin indiceses indexed equals equalsTwin brace pipe)))
+      followsThenEq (followsAt modes LBrace) (brace =>
+        followsThenEq (followsAt modes Pipe) (pipe =>
+          followsTypeAfterEquals rule modes attributes attributesTwin attributeses keyword keywordTwin name nameTwin
+              names params paramsTwin paramses indices indicesTwin indiceses indexed equals equalsTwin brace pipe)))
 
 theorem followsTypeDecl ∀ (rule: ExpressionRule) (modes: Modes) (attributes attributesTwin: List Attributes)
     (attributeses: List.All2 AttributeGroupAlike attributes attributesTwin)
@@ -702,18 +690,15 @@ theorem followsInterfaceFields ∀ (rule: ExpressionRule) (modes: Modes) (attrib
     | True => followsFail modes "`{` and the interface's fields" (() => modes.fail "`{` and the interface's fields")
     | False =>
       Parse.followsMap
-        [alike := DeclsAlike]
-        [p := () => bracedFields modes]
-        [q := () => bracedFields modes]
         (fields => Data attributes True keyword name params indices (RecordBody equals fields))
         (fields => Data attributesTwin True keywordTwin nameTwin paramsTwin indicesTwin (RecordBody equalsTwin fields))
+        (followsBracedFields rule modes)
         (fields fieldsTwin fieldses =>
           alikeData attributes attributesTwin attributeses True keyword keywordTwin name nameTwin names params
               paramsTwin paramses indices indicesTwin indiceses
               (RecordBody equals fields)
               (RecordBody equalsTwin fieldsTwin)
               (alikeRecordBody equals equalsTwin fields fieldsTwin fieldses))
-        (followsBracedFields rule modes)
 
 theorem followsInterfaceDecl ∀ (rule: ExpressionRule) (modes: Modes) (attributes attributesTwin: List Attributes)
     (attributeses: List.All2 AttributeGroupAlike attributes attributesTwin)
@@ -809,9 +794,9 @@ theorem followsOperation ∀ (rule: ExpressionRule) (modes: Modes):
         Parse.followsMap
           (annotation => { name, colon, annotation })
           (annotation => { name = nameTwin, colon = colonTwin, annotation })
+          (followsExpressionAt rule { modes = { modes | allow = Some here }, level = LevelInline })
           (annotation annotationTwin annotations =>
-            alikeOperation name nameTwin names colon colonTwin annotation annotationTwin annotations)
-          (followsExpressionAt rule { modes = { modes | allow = Some here }, level = LevelInline }))))
+            alikeOperation name nameTwin names colon colonTwin annotation annotationTwin annotations))))
 
 theorem followsOperationNext ∀ (rule: ExpressionRule) (modes: Modes) (column: Nat) (items others: List Item)
     (same: List.All2 SameCode items others):
@@ -823,11 +808,8 @@ theorem followsOperationNext ∀ (rule: ExpressionRule) (modes: Modes) (column: 
       rewrite tokens then
         match nextTwin.leaf.token.lineStart && nextTwin.leaf.token.column == column with
           | True =>
-            Parse.followsMap
-              (found => Some found)
-              (found => Some found)
-              (x y alike => alike)
-              (followsOperation rule modes)
+            Parse.followsMap (found => Some found) (found => Some found) (followsOperation rule modes) (x y alike =>
+              alike)
           | False => Parse.followsDone Trivial
     | [], [] => Parse.followsDone Trivial
 
@@ -837,12 +819,12 @@ theorem followsOperations ∀ (rule: ExpressionRule) (modes: Modes) (column: Nat
     Parse.followsMap
       (rest => [first, ..rest])
       (rest => [firstTwin, ..rest])
-      (rest restTwin rests => Both firsts rests)
       (Parse.followsLoop
         (followsOn
           (items => operationNext modes column items)
           (items => operationNext modes column items)
-          (itemList others same => followsOperationNext rule modes column itemList others same))))
+          (itemList others same => followsOperationNext rule modes column itemList others same)))
+      (rest restTwin rests => Both firsts rests))
 
 theorem followsAbilityParamStep ∀ (rule: ExpressionRule) (modes: Modes) (atParen: Bool):
     Parse.Follows SameCode (Option.Alike GroupsAlike) (() => abilityParamStep modes atParen) (() =>
@@ -874,15 +856,12 @@ theorem followsAbilityOn ∀ (rule: ExpressionRule) (modes: Modes) (keyword keyw
           let tokens: first.leaf.token = firstTwin.leaf.token := itemToken first firstTwin same.left
           rewrite tokens then
             Parse.followsMap
-              [alike := DeclsAlike]
-              [p := () => operations { modes | limit = Some firstTwin.leaf.token.column } firstTwin.leaf.token.column]
-              [q := () => operations { modes | limit = Some firstTwin.leaf.token.column } firstTwin.leaf.token.column]
               (found => Ability keyword name params whereKeyword found)
               (found => Ability keywordTwin nameTwin paramsTwin whereTwin found)
+              (followsOperations rule { modes | limit = Some firstTwin.leaf.token.column } firstTwin.leaf.token.column)
               (found foundTwin founds =>
                 alikeAbility keyword keywordTwin name nameTwin names params paramsTwin paramses whereKeyword whereTwin
                     found foundTwin founds)
-              (followsOperations rule { modes | limit = Some firstTwin.leaf.token.column } firstTwin.leaf.token.column)
         | [], [] => followsFail modes "the ability's operations" (() => modes.fail "the ability's operations")
     | None => followsFail modes "the ability's operations" (() => modes.fail "the ability's operations")
 
@@ -913,9 +892,9 @@ theorem followsTestAfterName ∀ (rule: ExpressionRule) (modes: Modes)
       Parse.followsMap
         (body => Test keyword name colonEq body)
         (body => Test keywordTwin nameTwin colonEqTwin body)
+        (followsExpressionAt rule { modes, level = LevelFull })
         (body bodyTwin bodies =>
-          alikeTest keyword keywordTwin name nameTwin names colonEq colonEqTwin body bodyTwin bodies)
-        (followsExpressionAt rule { modes, level = LevelFull }))
+          alikeTest keyword keywordTwin name nameTwin names colonEq colonEqTwin body bodyTwin bodies))
 
 theorem followsTestName ∀ (modes: Modes) (atStr: Bool):
     Parse.Follows SameCode WordsAlike (() => testName modes atStr) (() => testName modes atStr) :=
@@ -951,9 +930,9 @@ theorem followsRuleSetOpen ∀ (rule: ExpressionRule) (modes: Modes) (keyword ke
       Parse.followsMap
         (rules => RuleSetDecl keyword name colonEq rules)
         (rules => RuleSetDecl keywordTwin nameTwin colonEqTwin rules)
+        (followsRuleSet (expressionKnot rule) (modes wanted what => followsExpectFixed modes wanted what) modes)
         (rules rulesTwin ruleses =>
           alikeRuleSetDecl keyword keywordTwin name nameTwin names colonEq colonEqTwin rules rulesTwin ruleses)
-        (followsRuleSet (expressionKnot rule) (modes wanted what => followsExpectFixed modes wanted what) modes)
     | False => followsFail modes "the set's rules, in brackets: `[r1, <- r2]`" (() =>
       modes.fail "the set's rules, in brackets: `[r1, <- r2]`")
 

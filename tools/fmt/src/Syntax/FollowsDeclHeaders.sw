@@ -33,7 +33,7 @@ theorem followsParamNameStep ∀ (modes: Modes) (atLower: Bool):
     Parse.Follows SameCode (Option.Alike WordsAlike) (() => paramNameStep modes atLower) (() =>
       paramNameStep modes atLower) :=
   match atLower with
-    | True => Parse.followsMap (word => Some word) (word => Some word) (x y alike => alike) (followsParamName modes)
+    | True => Parse.followsMap (word => Some word) (word => Some word) (followsParamName modes) (x y alike => alike)
     | False => Parse.followsDone Trivial
 
 theorem followsParamNames ∀ (modes: Modes):
@@ -45,7 +45,7 @@ theorem followsLowerNameStep ∀ (modes: Modes) (atLower: Bool):
       lowerNameStep modes atLower) :=
   match atLower with
     | True =>
-      Parse.followsMap (word => Some word) (word => Some word) (x y alike => alike) (followsLower modes "a name")
+      Parse.followsMap (word => Some word) (word => Some word) (followsLower modes "a name") (x y alike => alike)
     | False => Parse.followsDone Trivial
 
 theorem followsLowerNames ∀ (modes: Modes):
@@ -142,8 +142,8 @@ theorem followsHeaderDefault ∀ [self selfTwin: Goal → {Parse Item} Expr]
           Parse.followsMap
             (value => Some (colonEq, value))
             (value => Some (colonEqTwin, value))
-            (value valueTwin values => (colonEqs, values))
-            (followsFull knot inner))
+            (followsFull knot inner)
+            (value valueTwin values => (colonEqs, values)))
     | False => Parse.followsDone Trivial
 
 theorem followsConsumedBare ∀ (started startedTwin: Parse.Mark Item):
@@ -485,8 +485,8 @@ theorem followsRowPart ∀ (modes: Modes) (pipe: Bool):
       Parse.followsMap
         (name => Some (bar, name))
         (name => Some (barTwin, name))
-        (name nameTwin names => (bars, names))
-        (followsLower modes "a row variable"))
+        (followsLower modes "a row variable")
+        (name nameTwin names => (bars, names)))
     | False => Parse.followsDone Trivial
 
 theorem followsRowClose ∀ (modes: Modes) (open openTwin: Comments) (abilities twins: List Expr)
@@ -527,7 +527,6 @@ theorem followsRowAbilities ∀ [self selfTwin: Goal → {Parse Item} Expr]
           Parse.followsMap
             (pair => rowEntries pair)
             (pair => rowEntries pair)
-            (pair pairTwin pairs => rowEntriesAlike pair pairTwin pairs)
             (followsCommaList modes
               (count => False)
               (count => False)
@@ -541,7 +540,8 @@ theorem followsRowAbilities ∀ [self selfTwin: Goal → {Parse Item} Expr]
               firsts
               []
               []
-              Trivial)))
+              Trivial)
+            (pair pairTwin pairs => rowEntriesAlike pair pairTwin pairs)))
 
 theorem followsRowStart ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -582,8 +582,8 @@ theorem followsEffectResult ∀ [self selfTwin: Goal → {Parse Item} Expr]
     Parse.followsMap
       (result => Effect row result)
       (result => Effect rowTwin result)
-      (result resultTwin results => alikeEffect row rowTwin rows result resultTwin results)
-      (followsFull knot allowed))
+      (followsFull knot allowed)
+      (result resultTwin results => alikeEffect row rowTwin rows result resultTwin results))
 
 theorem followsResultRow ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
