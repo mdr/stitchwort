@@ -1,5 +1,5 @@
 {
-  "next": 4347,
+  "next": 4348,
   "tickets": [
     {
       "id": 47,
@@ -28582,7 +28582,7 @@
     {
       "id": 4329,
       "title": "[Sonnet] After SW-4324 merges: sweep the remaining [p := () => …]/[q := …] (and any [j :=][k :=] that now infer) on followsThen/followsThenEq uses in tools/fmt with task fmt:unspell, checking each namespace; ~100-130 left (SW-4323 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -28600,7 +28600,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From SW-4323's report.",
+      "body": "\nFrom SW-4323's report.\n\nSW-4329 (20 Nov): ~30 [j :=][k :=] continuation-lambda pairs remain across 11 Follows files (DeclData 7, Ladder 4, DeclHeaders 4, DeclArms 4, …); dropping them gives a unification error.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -28809,6 +28809,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "From SW-4341 (text-patterns-prefix Arg.read.eq4); predates it.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4347,
+      "title": "[DeepSeek] fmt:unspell: try each named argument of an adjacent [p][q][j][k] group on its own (or by --names), not the whole group at once; document --names in tools/fmt/dev/README.md (SW-4329 friction: the default pass dropped one unit, by-name passes saved 38 lines)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "From SW-4329.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
