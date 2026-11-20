@@ -29646,7 +29646,7 @@
     {
       "id": 4410,
       "title": "[Opus] Carried-over cache stage 2 (D3703): when the kernel side changed, re-check stored terms with the kernel only (skip elaboration); check --recheck; measure on tools/fmt; after stage 1",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
