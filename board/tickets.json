@@ -28504,8 +28504,8 @@
     {
       "id": 4323,
       "title": "[Opus] Unifier: let the SW-4305/4316 fallback solve a whole-argument unknown against a lambda in Parse.Follows-shaped calls (p/q thunks () => bump()), so ~150 hand-spelled [p :=][q :=][j :=][k :=] in tools/fmt go; recheck after SW-4316's relaxation (merged after SW-4220's probe); repros and a 16-group unspell patch in orchestrator scratchpad keep/sw4220/ (min1.sw, r7/r10/r11.sw, lambda-unify-unspell.patch); optional: abstract ?j (?p ()) once p is known; measure std hash changes (Std.Parse.readsToken moved under the unrestricted version)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
@@ -28517,8 +28517,8 @@
     {
       "id": 4324,
       "title": "[Sonnet] std Parse.followsMap: take first before maps so between is fixed before the maps lambda is checked (r11.sw shows it infers), update ~49 call sites, then task fmt:unspell over the tools/fmt Follows files (SW-4220 cause 2)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
