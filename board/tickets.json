@@ -5769,8 +5769,8 @@
     {
       "id": 1923,
       "title": "[DeepSeek] Driver tidy-ups: quadratic namespace-graph helpers; name Session::start's three booleans",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [
         "driver"
@@ -5778,7 +5778,7 @@
       "epic": "test-infra",
       "body": "From docs/reviews/code-review-driver.md (lane E). 45 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-20",
       "commits": []
     },
     {
