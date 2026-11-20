@@ -29161,8 +29161,8 @@
     {
       "id": 4373,
       "title": "[DeepSeek] check --expand-walk: add --stdout (print the expanded file instead of overwriting it), after SW-4239 merges (SW-4239 finding)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
