@@ -373,7 +373,7 @@ theorem givesArgument ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (outside: OutsideBraced self):
     Parse.Gives GoodItems (() => argument self modes) ArgParsed :=
-  Parse.givesAfter0 reads0Left (items => givesArgumentAt self modes nested outside items)
+  byWalking [givesArgumentAt]
 
 theorem givesArguments ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
@@ -1092,7 +1092,7 @@ theorem givesListItemAfter ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 theorem givesListItem ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
     Parse.Gives GoodItems (() => listItem self modes) (Parsed 1) :=
-  Parse.givesAfter0 (reads0At modes DotDot) (spread => givesListItemAfter self modes spread nested)
+  byWalking [givesListItemAfter]
 
 theorem givesListItemsEnd ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word)
     (items: List Expr) (trailing: Bool)
