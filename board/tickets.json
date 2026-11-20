@@ -5634,7 +5634,7 @@
     {
       "id": 1907,
       "title": "[DeepSeek] elab duplicates: matching::same vs same_shifted, three copies of a parameter-walk helper in check.rs",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [
