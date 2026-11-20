@@ -139,9 +139,7 @@ struct BinderRead {
 
 /// The token range of each top-level declaration, in order: the column-0 split
 /// the parser uses (attributes belong to the declaration after them). Together
-/// the ranges cover `tokens`, except that tokens before the first range (a file
-/// whose first column-0 token is `:=`, which starts no declaration) are in
-/// none. Fails if the first token isn't at column 0.
+/// the ranges cover `tokens`. Fails if the first token isn't at column 0.
 pub fn decl_ranges(tokens: &[Token]) -> Parsed<Vec<std::ops::Range<usize>>> {
     let groups = split_decls(tokens).map_err(|d| *d)?;
     // The groups run to the end of `tokens`, so the first starts after
@@ -169,7 +167,9 @@ fn split_decls(tokens: &[Token]) -> Result<Vec<&[Token]>> {
     }
     // A token at column 0 starts a declaration, except:
     // - `:=`, which ends a header (`decreasing e` then `:=`,
-    //   docs/proposals/well-founded-recursion.md §6.1);
+    //   docs/proposals/well-founded-recursion.md §6.1), unless it is the
+    //   file's first token: then it starts a group, whose parse reports that
+    //   a declaration can't start with it (SW-1918, review F11);
     // - a token inside an open `@[`, so a group of attributes may close with
     //   `]` at column 0 (but a declaration's keyword still starts one, so an
     //   unclosed `@[` doesn't swallow the rest of the file);
@@ -188,7 +188,7 @@ fn split_decls(tokens: &[Token]) -> Result<Vec<&[Token]>> {
     // Brackets open in the current declaration, of any kind.
     let mut open_brackets = 0usize;
     for (i, token) in tokens.iter().enumerate() {
-        if token.column == 0 && token.tok != Tok::ColonEq {
+        if token.column == 0 && (token.tok != Tok::ColonEq || starts.is_empty()) {
             let keyword = matches!(
                 token.tok,
                 Tok::KwType

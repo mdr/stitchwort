@@ -161,6 +161,14 @@ impl Parser<'_> {
                 Ok(NodeKind::Rules)
             }
             Some(Tok::Lower(_) | Tok::Upper(_)) => Err(self.missing_keyword().into()),
+            Some(Tok::ColonEq) => Err(error(
+                start,
+                "a declaration can't start with `:=`",
+            )
+            .with_note(
+                "a declaration starts with a keyword such as `def` or `theorem`; `:=` gives its body a value",
+            )
+            .into()),
             _ => Err(self.unexpected("a declaration").into()),
         }
     }

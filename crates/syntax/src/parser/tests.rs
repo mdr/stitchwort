@@ -341,6 +341,56 @@ fn an_error_keeps_what_finished_before_it() {
     );
 }
 
+/// A file whose first token is a column-0 `:=` is an error, and the
+/// declarations after it still parse (SW-1918, review F11).
+#[test]
+fn a_file_starting_with_colon_eq_is_an_error() {
+    let file = SourceMap::new().next_id();
+    let (module, errors) = parse_module_recovering(file, ":= 1\ndef f: Nat := 0\n", DEFAULT_STACK);
+    assert_eq!(errors.len(), 1, "{errors:#?}");
+    assert_eq!(errors[0].code, "E-PARSE");
+    assert_eq!(errors[0].message, "a declaration can't start with `:=`");
+    assert!(!module.decls.is_empty(), "{:#?}", module.decls);
+}
+
+/// The expression table is loosest-binding first, so the prefix operators
+/// come before application, and a pattern row isn't in it (SW-1918, review
+/// F17). The layout section says how a numeral before `'` reads.
+#[test]
+fn the_syntax_doc_expression_table_is_loosest_first() {
+    let docs = include_str!("../../../../docs/syntax.md");
+    let expressions = docs
+        .split("## Expressions")
+        .nth(1)
+        .expect("the expressions section")
+        .split("\n## ")
+        .next()
+        .unwrap();
+    let application = expressions
+        .find("| `f a b` |")
+        .expect("the application row");
+    let prefix = expressions.find("| `!a` |").expect("the prefix not row");
+    assert!(
+        prefix < application,
+        "`!a` binds looser than application, so its row comes first"
+    );
+    assert!(
+        !expressions.contains("| `(-k)` |"),
+        "`(-k)` is a pattern, so it isn't an expression-table row"
+    );
+    let layout = docs
+        .split("## Layout")
+        .nth(1)
+        .expect("the layout section")
+        .split("\n## ")
+        .next()
+        .unwrap();
+    assert!(
+        layout.contains("A numeral ends before a `'`"),
+        "the layout section says how a numeral before `'` reads"
+    );
+}
+
 /// A row starting the line after an arrow is a row wherever the line
 /// starts, also at the block's own column, where the line continues the
 /// arrow's (SW-3582); it used to read as a record applied to the type.
