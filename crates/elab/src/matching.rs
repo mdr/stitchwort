@@ -801,18 +801,20 @@ fn generalised(
 }
 
 /// The type of variable `l`, read back unfolded for the occurrence test,
-/// or as written if that is too large: a hypothesis such as
-/// `big: q (grow 30 (Leaf x))` that is only along for the ride then doesn't
-/// make the `match` run out (SW-4091). The test may then miss a scrutinee
-/// hidden inside one of its calls, leaving that hypothesis unrefined (as
-/// the generalisation as written does); the motive is checked as usual.
-fn read_type(cx: &Ctx, base: usize, l: usize) -> std::result::Result<Term, ResourceError> {
+/// or as written if that is too large (then with `true`): a hypothesis
+/// such as `big: q (grow 30 (Leaf x))` that is only along for the ride
+/// then doesn't make the `match` run out (SW-4091). The test may then miss
+/// a scrutinee hidden inside one of its calls, leaving that hypothesis
+/// unrefined (as the generalisation as written does); the motive is
+/// checked as usual. A `match` that refines such a hypothesis says so
+/// (`W-MATCH-UNCONFIRMED`, [`generalised_now`]).
+fn read_type(cx: &Ctx, base: usize, l: usize) -> std::result::Result<(Term, bool), ResourceError> {
     let g = cx.g();
     match quote(&g, base, &cx.types[l]) {
         Err(e @ ResourceError::Size(_)) if g.machine.budget.exhausted().is_none() => {
             let noted = g.machine.budget.take_too_large();
             match stitchwort_core::value::quote_as_written(&g, base, &cx.types[l]) {
-                Ok(t) => Ok(t),
+                Ok(t) => Ok((t, true)),
                 Err(ResourceError::Size(_)) if g.machine.budget.exhausted().is_none() => {
                     g.machine.budget.set_too_large(noted);
                     Err(e)
@@ -820,7 +822,7 @@ fn read_type(cx: &Ctx, base: usize, l: usize) -> std::result::Result<Term, Resou
                 Err(e) => Err(e),
             }
         }
-        read => read,
+        read => read.map(|t| (t, false)),
     }
 }
 
@@ -1024,11 +1026,11 @@ fn generalised_now(
     let in_match = |e: stitchwort_core::budget::ResourceError| {
         ran_out_at(e.into(), span, "while generalising this `match`")
     };
-    let read = || -> Result<(Vec<Term>, Term)> {
-        let type_terms: Vec<Term> = (0..base)
+    let read = || -> Result<(Vec<(Term, bool)>, Term)> {
+        let type_terms: Vec<(Term, bool)> = (0..base)
             .map(|l| match skip.is_some_and(|skip| skip(cx, l)) {
                 // Never copied, so never read (`cannot_occur` passes over it).
-                true => Ok(Term::Refl),
+                true => Ok((Term::Refl, false)),
                 false => read_type(cx, base, l).map_err(in_match),
             })
             .collect::<Result<_>>()?;
@@ -1045,6 +1047,8 @@ fn generalised_now(
         }
         Err(e) => return Err(e),
     };
+    // Which variables' types were read as written, too large unfolded.
+    let (type_terms, shown): (Vec<Term>, Vec<bool>) = type_terms.into_iter().unzip();
     let (normals, unread) = normals(cx, &exprs, &type_terms, &goal_term, base)?;
     // The first version's limitations (§4.4).
     for (i, a) in exprs.iter().enumerate() {
@@ -1175,6 +1179,20 @@ fn generalised_now(
         }
     }
     let as_written = kept.is_some();
+    // A hypothesis refined where its type was read as written was refined
+    // without the search for copies hidden inside its calls: as when the
+    // goal is too large ([`unconfirmed_now`]), the `match` says so.
+    let refined_as_shown = match written.as_ref().filter(|_| as_written) {
+        Some(w) => w.copied.iter().any(|(l, _)| shown[*l]),
+        None => copied.iter().any(|l| shown[*l]),
+    };
+    let at = exprs_span(&exprs, span);
+    let warn = move |cx: &mut Ctx, term: Result<Term>| {
+        if refined_as_shown && term.is_ok() {
+            warn_unconfirmed(cx, at);
+        }
+        term
+    };
     let (bound, motive_later) = match kept {
         Some(bound) => (bound, false),
         None => {
@@ -1264,9 +1282,10 @@ fn generalised_now(
         Ok((bound, later))
     };
     if skip.is_some() {
-        return arms(cx, &exprs, bound, motive_later, not_found);
+        let term = arms(cx, &exprs, bound, motive_later, not_found);
+        return warn(cx, term);
     }
-    with_hidden_equation(
+    let term = with_hidden_equation(
         cx,
         &exprs,
         before_bind,
@@ -1279,7 +1298,26 @@ fn generalised_now(
             arms(cx, exprs, bound, later, not_found)
         },
         (bound, motive_later),
-    )
+    );
+    warn(cx, term)
+}
+
+/// Where `W-MATCH-UNCONFIRMED` points: the (first) scrutinee.
+fn exprs_span(exprs: &[Scrut], span: stitchwort_syntax::Span) -> stitchwort_syntax::Span {
+    exprs.first().map_or(span, |s| s.span)
+}
+
+/// Adds `W-MATCH-UNCONFIRMED` for the `match` whose scrutinee is at `at`,
+/// once however often the `match` is elaborated.
+fn warn_unconfirmed(cx: &mut Ctx, at: stitchwort_syntax::Span) {
+    let warning = as_written::unconfirmed_warning(at);
+    let mut warnings = cx.e.attempt.lambda_warnings.borrow_mut();
+    let first = Some(at);
+    if !(warnings.iter())
+        .any(|w| w.code == warning.code && w.labels.first().map(|l| l.span) == first)
+    {
+        warnings.push(warning);
+    }
 }
 
 /// match-refinement.md R2 (S1): checks the arms of a `match` generalised
@@ -1418,16 +1456,8 @@ fn unconfirmed_now(
     };
     crate::undo::recovered(cx);
     as_written::report(written.outcome, span);
-    let at = exprs.first().map_or(span, |s| s.span);
-    let warning = as_written::unconfirmed_warning(at);
     if warn {
-        let mut warnings = cx.e.attempt.lambda_warnings.borrow_mut();
-        let first = Some(at);
-        if !(warnings.iter())
-            .any(|w| w.code == warning.code && w.labels.first().map(|l| l.span) == first)
-        {
-            warnings.push(warning);
-        }
+        warn_unconfirmed(cx, exprs_span(&exprs, span));
     }
     let normals = vec![None; exprs.len()];
     in_arms(

@@ -974,7 +974,9 @@ Each was run on the example named; the output is quoted, shortened.
   is read with its calls as written instead, and an open goal shows it that
   way (`examples/accept/large-hypothesis-carried.sw`, SW-4091). A
   `match` that can't see an occurrence of what it matches on inside such a
-  call leaves that hypothesis unrefined. What still runs out is a step whose
+  call leaves that hypothesis unrefined, and one that refines such a
+  hypothesis where it shows the term warns `W-MATCH-UNCONFIRMED`
+  (`examples/accept/large-hypothesis-match.sw`). What still runs out is a step whose
   own target is that large, such as `rewrite same at big` itself: the error
   points at the step. Then prove the step once with the large part as a
   function's argument and apply it, so that the value is never written
