@@ -3241,6 +3241,12 @@ impl Store for GatedCache {
     fn compiler(&self) -> &str {
         self.inner.compiler()
     }
+    fn kernel(&self) -> &str {
+        self.inner.kernel()
+    }
+    fn read_others(&self, unit: &str, key: &Key) -> Vec<Vec<u8>> {
+        self.inner.read_others(unit, key)
+    }
     fn salt(&self) -> [u8; 16] {
         self.inner.salt()
     }
@@ -3262,9 +3268,35 @@ struct ProjectWork {
     /// The texts on disk of the files open in the editor, by path.
     disk: BTreeMap<String, Option<String>>,
     writable: Rc<Cell<bool>>,
+    /// How many units carried over from another build have been logged.
+    carried_logged: usize,
 }
 
 impl ProjectWork {
+    /// Once a check of the project is done: a line saying how many units
+    /// came from entries carried over from another build, if more have
+    /// since it was last said, and whether it is the first time, when the
+    /// user is shown it too (the label is the defence against taking a
+    /// carried answer for a full one; check-cache-across-updates.md §6, §8).
+    fn carried_over_note(&mut self, dir: &Path) -> Option<(String, bool)> {
+        let stats = self.live.session.elab.check_cache_stats();
+        if stats.carried_over() <= self.carried_logged {
+            return None;
+        }
+        let first = self.carried_logged == 0;
+        self.carried_logged = stats.carried_over();
+        let units = stats.carried_over_units()?;
+        Some((
+            format!(
+                "{}: {units} carried over from an earlier build of Stitchwort: its kernel \
+                 accepted them, but this build hasn't elaborated them, so a change in what \
+                 they mean or a new error can be hidden; `stitchwort check` checks them in full",
+                dir.display(),
+            ),
+            first,
+        ))
+    }
+
     /// Whether `relative` (a path within the project) is one of its
     /// source files.
     fn holds(&self, relative: &str) -> bool {
@@ -4041,6 +4073,19 @@ impl Checker {
                 .cancellations
                 .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         }
+        if let (Ok(Progress::Checked { done: true, .. }), Work::Project(p)) =
+            (&progress, &mut *work)
+            && let Some((note, first)) = p.carried_over_note(key)
+        {
+            eprintln!("stitchwort lsp: {note}");
+            if first {
+                let shown = Notification::new(
+                    "window/showMessage".to_string(),
+                    serde_json::json!({ "type": lsp_types::MessageType::INFO, "message": note }),
+                );
+                let _ = self.sender.send(shown.into());
+            }
+        }
         if let Ok(Progress::Checked { focus, done }) = progress
             && (focus || done)
         {
@@ -4486,6 +4531,10 @@ impl Checker {
                 inner: CheckCache::at(&cache),
                 writable: writable.clone(),
             }));
+            // The editor starts warm after an update to Stitchwort that left
+            // the kernel side alone; what was carried over is logged (`step`)
+            // (docs/proposals/check-cache-across-updates.md §6).
+            session.elab.set_carry_over(true);
         } else if let Some(bundle) = self.options.library.get() {
             // The same project loaded again (the page re-opened it) gets the
             // store the first load filled (SW-3072): its entries are keyed by
@@ -4509,6 +4558,7 @@ impl Checker {
                 .collect(),
             disk: BTreeMap::new(),
             writable,
+            carried_logged: 0,
         })
     }
 }
@@ -5353,6 +5403,88 @@ fn goals_kept(before: &[lsp_types::Diagnostic], file: &FileAnswers) -> Vec<lsp_t
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A project on disk whose check cache holds entries an earlier build
+    /// of Stitchwort wrote, with this build's kernel side: the editor's
+    /// session loads its namespaces from them (carried over), and says so
+    /// once in the log (docs/proposals/check-cache-across-updates.md §6).
+    #[test]
+    fn the_editor_carries_over_an_earlier_builds_entries() {
+        const STACK: usize = 16 * 1024 * 1024;
+        stitchwort_driver::driver::with_stack(STACK, || {
+            stitchwort_elab::load_std_text().unwrap();
+            let nanos = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |d| d.as_nanos());
+            let dir = std::env::temp_dir().join(format!(
+                "stitchwort-lsp-carry-{}-{nanos}",
+                std::process::id()
+            ));
+            let write = |path: &str, text: &str| {
+                let full = dir.join(path);
+                std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+                std::fs::write(full, text).unwrap();
+            };
+            write("stitchwort.yaml", "sources: [src]\n");
+            write("src/A.sw", "namespace A\n\ndef one: Nat := 1\n");
+            write(
+                "src/B.sw",
+                "namespace B\n\nimport A (one)\n\ndef two: Nat := one + one\n",
+            );
+            let options = Options::new(STACK);
+            let source: Arc<dyn Source> = Arc::new(Disk);
+            let cache = source.project_cache(&dir).unwrap();
+            let project = source.project(&dir).unwrap();
+            let check = |live: &mut LiveProject| while live.step() != Ok(Progress::Done) {};
+
+            let mut session = session_for(&options);
+            session.use_check_cache_as_build(
+                &cache,
+                "earlierbuild",
+                stitchwort_driver::driver::KERNEL_FINGERPRINT,
+            );
+            let name = dir.file_name().unwrap().to_string_lossy().into_owned();
+            let mut earlier = LiveProject::new_except(
+                session,
+                &name,
+                project.config,
+                project.files,
+                &BTreeSet::new(),
+            );
+            check(&mut earlier);
+            assert_eq!(
+                earlier.session.elab.check_cache_stats().namespace_written,
+                2
+            );
+
+            let (sender, received) = crossbeam_channel::unbounded();
+            let mut checker = Checker::new(options, source, sender, Arc::default(), Arc::default());
+            let work = checker.load_project(&dir).unwrap();
+            checker
+                .work
+                .insert(dir.clone(), Work::Project(Box::new(work)));
+            while checker.work.values().any(Work::pending) {
+                checker.step(&dir);
+            }
+            let Some(Work::Project(work)) = checker.work.get(&dir) else {
+                panic!("the project is kept");
+            };
+            let stats = work.live.session.elab.check_cache_stats();
+            assert_eq!(stats.namespace_carried, 2, "{stats:?}");
+            let shown: Vec<String> = received
+                .try_iter()
+                .filter_map(|m| match m {
+                    Message::Notification(n) if n.method == "window/showMessage" => {
+                        Some(n.params["message"].as_str().unwrap_or_default().to_string())
+                    }
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(shown.len(), 1, "shown once: {shown:?}");
+            assert!(shown[0].contains("2 namespaces"), "{shown:?}");
+            let _ = std::fs::remove_dir_all(&dir);
+        });
+    }
 
     #[test]
     fn subsequence_ignores_case() {

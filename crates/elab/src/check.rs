@@ -4825,7 +4825,15 @@ fn finish_application(
                 })
         {
             return Err(match first_error.take() {
-                Some(first) => *first,
+                // The earlier error is the lambda's, found in place; the
+                // call's own type failing to match what is expected is the
+                // other half of the story, so say so (SW-4355 blamed the
+                // order of elaboration for it).
+                Some(first) => (*first).with_note(format!(
+                    "the call's own type `{}` also does not match the expected type `{}`",
+                    cx.show(&ty),
+                    cx.show_expected(expected)
+                )),
                 None => cx.mismatch(expected, &ty),
             });
         }

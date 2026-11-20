@@ -12,4 +12,6 @@ expression: output
     │ Note 1: `_p` is `app`'s implicit `p`, not worked out; give it with `[p := …]`
     │ 
     │ Note 2: `_g` is this call's `_` for `g`, not worked out
+    │ 
+    │ Note 3: the call's own type `_p True` also does not match the expected type `t _g`
 ────╯

@@ -431,6 +431,17 @@ enum Command {
         counterexamples: CounterexampleArgs,
         #[command(flatten)]
         cache: CacheArgs,
+        /// Also use check-cache entries carried over from another build of
+        /// Stitchwort: ones it wrote from the same source, when its kernel
+        /// side (`crates/core` and what that is built with) is this
+        /// build's. This kernel accepted their terms, but this build's
+        /// elaborator hasn't confirmed they are what the source now means:
+        /// a new error, warning or reading of a statement can be hidden
+        /// until a check without this option. The output says how many were
+        /// carried over (docs/proposals/check-cache-across-updates.md). Also
+        /// on with STITCHWORT_CARRY_OVER=1 when standard error is a terminal
+        #[arg(long, conflicts_with_all = ["std", "expand_repeatedly", "expand_walk", "no_cache"])]
+        carry_over: bool,
         /// After the check, print stderr tables of where the time went: each
         /// namespace (a cached one is marked, not timed), then each
         /// declaration checked with its elaboration, kernel and total time,
@@ -1201,6 +1212,7 @@ fn run(cli: Cli) -> ExitCode {
             stdout,
             counterexamples,
             cache,
+            carry_over,
             timings: _,
         } => check(
             &targets,
@@ -1210,6 +1222,7 @@ fn run(cli: Cli) -> ExitCode {
             (expand_repeatedly, expand_walk, stdout),
             &counterexamples,
             &cache,
+            carry_over || carry_over_from_environment(),
         ),
         Command::StdSource { path } => match stitchwort_cli::nav::std_source(&path, STACK) {
             Some(text) => {
@@ -2228,6 +2241,7 @@ fn report_library_warnings(session: &Session, named: &[String]) {
 }
 
 #[inline(never)]
+#[allow(clippy::too_many_arguments)]
 fn check(
     targets: &[String],
     project: Option<&Path>,
@@ -2236,6 +2250,7 @@ fn check(
     (expand, expand_walk, to_stdout): (bool, bool, bool),
     counterexamples: &CounterexampleArgs,
     cache: &CacheArgs,
+    carry_over: bool,
 ) -> ExitCode {
     if to_stdout && !expand_walk {
         eprintln!("error: --stdout is only for --expand-walk");
@@ -2264,6 +2279,7 @@ fn check(
                 session.elab.record_expansions();
             } else if !expand_walk {
                 use_cache(&mut session, cache, Path::new("."));
+                session.elab.set_carry_over(carry_over);
             }
             let mut reported = Vec::new();
             let loaded = load_file_into(
@@ -2282,6 +2298,7 @@ fn check(
             if loaded && goals == 0 {
                 eprintln!("checked {path}");
             }
+            report_carried_over(&session);
             if let Some(index) = index {
                 ok = write_index(&session, loaded, index, "", &reported) && ok;
             }
@@ -2323,6 +2340,7 @@ fn check(
         session.elab.record_expansions();
     } else if !expand_walk {
         use_cache(&mut session, cache, &project.dir);
+        session.elab.set_carry_over(carry_over);
     }
     let mut reported = Vec::new();
     // Only the diagnostics are wanted, unless the loaded namespaces are
@@ -2368,6 +2386,7 @@ fn check(
             None => eprintln!("checked {count} namespace{plural} of {}", project.name),
         }
     }
+    report_carried_over(&session);
     if let Some(index) = index {
         let root = format!("{}/", project.name);
         ok = write_index(&session, ok, index, &root, &reported) && ok;
@@ -2581,6 +2600,30 @@ fn write_walk_expansions(session: &Session, base: &Path, to_stdout: bool) -> boo
         eprintln!("expanded {done} walk{plural} in {}", path.display());
     }
     true
+}
+
+/// After `check --carry-over`: how many units came from entries carried over
+/// from another build, which this build's elaborator didn't check
+/// (docs/proposals/check-cache-across-updates.md §8: the label is the whole
+/// defence against taking such a check for a full one).
+fn report_carried_over(session: &Session) {
+    if let Some(units) = session.elab.check_cache_stats().carried_over_units() {
+        eprintln!(
+            "carried over from another build: {units}; this kernel accepted them, but this \
+             build didn't elaborate them (a check without --carry-over does)"
+        );
+    }
+}
+
+/// Whether `STITCHWORT_CARRY_OVER=1` turns carrying over on: only when
+/// standard error is a terminal, where the label is seen. A variable
+/// exported in a shell or a task would otherwise reach the verifier, the
+/// tiers and the rolling check, which must stay exact, with nothing in
+/// their commands to show it; scripts and agents pass `--carry-over`.
+fn carry_over_from_environment() -> bool {
+    use std::io::IsTerminal;
+    std::env::var("STITCHWORT_CARRY_OVER").is_ok_and(|v| v == "1")
+        && std::io::stderr().is_terminal()
 }
 
 fn discard(session: Session) {

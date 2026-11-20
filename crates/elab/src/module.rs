@@ -446,8 +446,12 @@ impl Elaborator {
             self.walk_for_navigation(&files.iter().map(|f| f.module).collect::<Vec<_>>());
         }
         let (items, decl_spans) = self.collect(files, &mut diagnostics);
-        // Claimed again by now, if this follows a failed replay.
-        self.session.replayed_names.clear();
+        // Claimed again by now, if this follows a failed replay. Not by a
+        // library file the replay loaded (`elaborate_namespace(None, ..)`):
+        // the namespace whose replay failed hasn't claimed its names yet.
+        if namespace.is_some() {
+            self.session.replayed_names.clear();
+        }
         let needs = self.dependencies(&items);
         self.set_library_reach(&needs);
         // For the check cache: the names collected, before the library

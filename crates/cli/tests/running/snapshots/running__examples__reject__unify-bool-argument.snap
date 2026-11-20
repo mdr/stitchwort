@@ -12,4 +12,6 @@ expression: output
     │ Note 1: `_f` is `atTrue`'s implicit `f`, not worked out; give it with `[f := …]`
     │ 
     │ Note 2: `_v` is `atTrue`'s implicit `v`, not worked out; give it with `[v := …]`
+    │ 
+    │ Note 3: the call's own type `_f True = _v` also does not match the expected type `double n = 4`
 ────╯

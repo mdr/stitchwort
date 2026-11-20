@@ -1,0 +1,20 @@
+---
+source: crates/cli/tests/running/examples.rs
+assertion_line: 803
+expression: output
+---
+[E-WALK] Error: the walk stops: the two runs differ here: the first runs a call and goes on, the second gives a value
+    ╭─[ reject/walk-two-run-shapes.sw:23:98 ]
+    │
+ 23 │ theorem followsReading: Parse.Follows SameNat (x y => True) (() => reading()) (() => fixed()) := byWalking []
+    │                                                                                                  ────┬────  
+    │                                                                                                      ╰────── in `reading` and `fixed`
+    │ 
+    │ Note 1: the first run is at Std.Effect.bind (here ()) (at => Done (at + 1))
+    │ 
+    │ Note 2: the second run is at Done 1
+    │ 
+    │ Note 3: a two-run walk follows both runs only where their code has the same shape; prove this point by hand, or with a lemma for the pair named in the brackets
+    │ 
+    │ Note 4: the goal there is Parse.Follows SameNat (x y => True = True) (arg => reading ()) (arg => fixed ())
+────╯

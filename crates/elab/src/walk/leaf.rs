@@ -3,7 +3,8 @@
 use super::*;
 
 /// A leaf: closed by a hypothesis, computation, a conjunction of closed
-/// parts, `arithmetic`, or the walk's `then t`.
+/// parts, `arithmetic`, a term in the brackets, a walk of its own (a
+/// statement in a family), or the walk's `then t`.
 pub(super) fn leaf(cx: &mut Ctx, id: u32, info: &NodeInfo, expected: &Value) -> Result<Term> {
     // A goal with an unknown the rest of the chain fixes (a value the
     // lemma's conclusion gives) waits for it: closed now, a hypothesis
@@ -109,6 +110,126 @@ pub(super) fn leaf(cx: &mut Ctx, id: u32, info: &NodeInfo, expected: &Value) -> 
         set_text(cx, id, vec![Piece::Text(text)]);
         return Ok(term);
     }
+    // A term in the brackets that is the goal: a lemma's premise about a
+    // function the call passes on (`followsTupleEnds inner` for `ends`),
+    // which no hypothesis says. For a closed goal any proof will do, so the
+    // first that checks is used; where the goal still has an unknown, a
+    // term that checks may fix it, so one is used only if it is the only
+    // one that checks.
+    let items: Vec<Expr> = (cx.e.session.walks.borrow().calls[info.call].items.iter())
+        .filter_map(|item| match item {
+            Item::Lemma(e) => Some(e.clone()),
+            Item::Unfold(_) => None,
+        })
+        .collect();
+    let tries: Vec<Expr> = if has_unknown(cx, expected)? {
+        let mut fits = Vec::new();
+        for e in &items {
+            let snapshot = Snapshot::take(cx);
+            let checked = check(cx, e, expected);
+            snapshot.restore(cx);
+            match checked {
+                Ok(_) => fits.push(e.clone()),
+                Err(err) if fatal(&err) => return Err(err),
+                Err(_) => {}
+            }
+        }
+        if fits.len() == 1 { fits } else { Vec::new() }
+    } else {
+        items
+    };
+    for e in tries {
+        if let Some(term) = crate::undo::attempt(cx, |cx| check(cx, &e, expected))? {
+            let text = match &e {
+                Expr::Var(_) => vec![Piece::Source(e.span())],
+                _ => vec![
+                    Piece::Text("(".into()),
+                    Piece::Source(e.span()),
+                    Piece::Text(")".into()),
+                ],
+            };
+            set_text(cx, id, text);
+            return Ok(term);
+        }
+    }
+    // A statement in a family is walked, as a premise about a function the
+    // call passes on is (`∀ count => Parse.Follows … (() => ends count) …`).
+    // A statement already being walked further out is not walked again:
+    // two lemmas whose premises are about each other's functions would
+    // otherwise walk one another for ever.
+    let mut walked = None;
+    let statement = family_statement(cx, expected)?;
+    if let Some((_, (relation, heads))) = &statement {
+        let nesting = cx.e.session.walks.borrow().nesting.clone();
+        let again = nesting.iter().any(|(r, h)| r == relation && h == heads);
+        if again || nesting.len() >= NESTING_CAP {
+            let what = if again {
+                "a premise's walk needs the same statement walked again".to_string()
+            } else {
+                format!("a premise's walk needs another's, more than {NESTING_CAP} deep")
+            };
+            walked = Some(stuck(
+                cx,
+                info,
+                expected,
+                &what,
+                &[
+                    "lemmas whose premises are about each other's functions: name one of the \
+                   premises in the brackets, or prove this leaf with `then t`"
+                        .into(),
+                ],
+            ));
+        }
+    }
+    if walked.is_none()
+        && let Some((names, key)) = statement
+    {
+        let relation = key.0;
+        let span = cx.span;
+        let next = place(cx, info.call, Kind::Step(relation), &info.place);
+        let e = if names.is_empty() {
+            resume(next, span)
+        } else {
+            lambda(&names, resume(next, span), span)
+        };
+        let snapshot = Snapshot::take(cx);
+        let before = crate::queue::queued(cx);
+        cx.e.session.walks.borrow_mut().nesting.push(key);
+        let mut checked = check(cx, &e, expected);
+        cx.e.session.walks.borrow_mut().nesting.pop();
+        // A leaf of the premise's walk left waiting for an unknown could
+        // fail later, after this leaf has stopped trying `then t`: the
+        // premise's walk is taken only if it is finished.
+        if checked.is_ok() && crate::queue::waiting_since(cx, before) {
+            checked = Err(stuck(
+                cx,
+                info,
+                expected,
+                "a premise's walk left a goal waiting for an unknown",
+                &[],
+            ));
+        }
+        match checked {
+            Ok(term) => {
+                let text = if names.is_empty() {
+                    vec![Piece::Child(next)]
+                } else {
+                    vec![
+                        Piece::Text(format!("({} => ", names.join(" "))),
+                        Piece::Child(next),
+                        Piece::Text(")".into()),
+                    ]
+                };
+                set_text(cx, id, text);
+                return Ok(term);
+            }
+            Err(e) if fatal(&e) => return Err(e),
+            Err(e) => {
+                snapshot.restore(cx);
+                walked = Some(e);
+            }
+        }
+    }
     let body = cx.e.session.walks.borrow().calls[info.call].body.clone();
     if let Some(body) = body {
         let snapshot = Snapshot::take(cx);
@@ -120,6 +241,9 @@ pub(super) fn leaf(cx: &mut Ctx, id: u32, info: &NodeInfo, expected: &Value) -> 
             Err(e) if fatal(&e) => return Err(e),
             Err(e) => {
                 snapshot.restore(cx);
+                if let Some(walked) = walked {
+                    return Err(walked);
+                }
                 return Err(stuck(
                     cx,
                     info,
@@ -129,6 +253,9 @@ pub(super) fn leaf(cx: &mut Ctx, id: u32, info: &NodeInfo, expected: &Value) -> 
                 ));
             }
         }
+    }
+    if let Some(walked) = walked {
+        return Err(walked);
     }
     Err(stuck(
         cx,
@@ -140,6 +267,56 @@ pub(super) fn leaf(cx: &mut Ctx, id: u32, info: &NodeInfo, expected: &Value) -> 
                 .into(),
         ],
     ))
+}
+
+/// How many premises' walks may be under way inside one another.
+const NESTING_CAP: usize = 8;
+
+/// A statement being walked as a premise: its relation and the functions
+/// its thunks call.
+pub(super) type Nested = (DefId, Vec<Option<DefId>>);
+
+/// Whether `goal` is, under some `∀`s, a family's relation as written:
+/// the names for the `∀`s' binders, the relation, and the functions its
+/// thunks call.
+fn family_statement(cx: &Ctx, goal: &Value) -> Result<Option<(Vec<String>, Nested)>> {
+    let g = cx.g();
+    let families = families(cx);
+    let mut names: Vec<String> = Vec::new();
+    let mut v = force_solved(&g, goal.clone())?;
+    loop {
+        if let Value::Call(id, spine, _) | Value::Neutral(Head::Def(id), spine) = &v
+            && let Some(f) = families.iter().find(|f| f.relation == *id)
+        {
+            if spine.len() != f.arity {
+                return Ok(None);
+            }
+            let mut heads = Vec::new();
+            for &t in &f.thunks {
+                let head = match arg(spine, t) {
+                    Some(thunk) => match head_of(&thunk_body(cx, &thunk)?) {
+                        Some(Callee::Def(d)) => Some(d),
+                        _ => None,
+                    },
+                    None => None,
+                };
+                heads.push(head);
+            }
+            return Ok(Some((names, (*id, heads))));
+        }
+        let Value::Pi(name, Icit::Explicit, _, cod) = &v else {
+            return Ok(None);
+        };
+        let base = if generated(name) {
+            "value"
+        } else {
+            name.as_ref()
+        };
+        let name = fresh(cx, base, &names);
+        let level = cx.level() + names.len();
+        names.push(name);
+        v = force_solved(&g, cod.apply(&g, Value::var(level))?)?;
+    }
 }
 
 /// `arithmetic`, with as few of the conjunctions' parts in scope as it

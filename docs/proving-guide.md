@@ -301,6 +301,17 @@ theorem, its hypotheses and the lemmas about the helper, as above.
    Hits are trusted without the kernel checking them again
    ([check-cache.md](proposals/check-cache.md), stage 3). Use `--no-cache`
    to time a check, and if you suspect a stale answer.
+   **After an update to Stitchwort** every entry is a miss for a plain
+   `check`: the new build hasn't checked anything yet. `check --carry-over`
+   also uses the earlier build's entries from the same source, when the
+   update left the kernel side (`crates/core`) alone, and its last line
+   says how many namespaces were carried over. Quote that line in a
+   report: the kernel accepted those proofs, but the new elaborator hasn't
+   confirmed the statements still read the same. Lanes that change the
+   compiler don't use it. `STITCHWORT_CARRY_OVER=1` does the same, but
+   only in a terminal, so agents pass the flag. The editor always carries
+   over, and shows a message saying how much
+   ([check-cache-across-updates.md](proposals/check-cache-across-updates.md)).
    **Editing a namespace many others import.** A change in `Fmt`
    (`tools/fmt/src/Fmt/Meaning.sw`) makes the next check recheck every
    namespace that depends on it: the whole `tools/fmt` project took 5:18
@@ -396,7 +407,7 @@ Import what you use: std's theorems live in namespaces that need an import
 | Induction | recursion in the theorem (structural, or `decreasing`) |
 | Induction that follows a function's own cases | `match induct (f args) with` |
 | Induction over a nested type (`List T` inside `T`) | `T.induct`, `T.inductMem`, `T.size` |
-| What a parser gives or reads (`Parse.Gives`, `Parse.ReadsIn`, `Parse.ReadsAt`) | `byWalking [lemmas] then t` |
+| What a parser gives or reads (`Parse.Gives`, `Parse.ReadsIn`, `Parse.ReadsAt`), or that two runs follow each other (`Parse.Follows`) | `byWalking [lemmas] then t` |
 
 - **`byWalking [lemmas] then t`** writes the `givesThen`/`givesDone`/`givesWeaken`
   chain for a statement about a parser, following its code: a lemma per call,
@@ -414,6 +425,14 @@ Import what you use: std's theorems live in namespaces that need an import
   `stitchwort check --expand-walk` and edit the chain it writes (or add
   `--stdout` to print it, leaving the file alone); keep the
   walk only where it is shorter than the chain.
+  A two-run statement (`Parse.Follows`) is walked in lockstep: the walk
+  needs no `followsThenEq`, since it rewrites values the lemma says are
+  equal itself, and a lemma's premise about a function the call passes on
+  (`endsFollow` for `tupleEnds inner`) is walked or taken from the
+  brackets. It stops where the two runs' code differs in shape. It can't
+  line up two runs whose calls get values that are related but not equal,
+  such as `Parse.mark()`'s alike marks feeding a fuel (`followsListItems`,
+  `followsAtomAfter`): keep those by hand.
 - **`byComputing`** proves `a = b` only when both sides compute to the same value.
   `+` recurses on its first argument, so `1 + c` computes to `Succ c` and
   `c + 1` doesn't (aoc/NOTES-2024.md:824–836). A goal stuck on a variable

@@ -723,7 +723,9 @@ impl LiveProject {
         let (stack, _) = stitchwort_syntax::stack::probe::take();
         if let Ok(Progress::Checked { .. }) = &result {
             let after = self.session.elab.check_cache_stats();
-            let how = if after.namespace_hits > before.namespace_hits {
+            let how = if after.namespace_carried > before.namespace_carried {
+                "carried over"
+            } else if after.namespace_hits > before.namespace_hits {
                 "replayed"
             } else if after.late_misses > before.late_misses {
                 "late miss"
