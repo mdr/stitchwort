@@ -566,6 +566,25 @@ pub(crate) fn unify_by_unknown_arguments(
             _ => false,
         })
     };
+    // Whether an unknown applied to the variables in scope where it was
+    // made is a thunk: a function of `()`, as a parser is.
+    let thunk = |arg: &Value, m: usize| -> Result<bool> {
+        let Value::Neutral(_, spine) = force_solved(g, arg.clone())? else {
+            return Ok(false);
+        };
+        let ty = g.store.metas.borrow()[m].ty.clone();
+        let Some((ty, _)) = ty.filter(|(_, scope)| *scope == spine.len()) else {
+            return Ok(false);
+        };
+        let Value::Pi(_, _, domain, _) = force(g, ty)? else {
+            return Ok(false);
+        };
+        let unit = g
+            .env
+            .registry()
+            .data(stitchwort_core::registry::Builtin::UnitType);
+        Ok(matches!(force(g, (*domain).clone())?, Value::Data(d, _) if Some(d) == unit))
+    };
     let mut whole = HashSet::default();
     let mut against_known = false;
     let mut against_lambda = false;
@@ -580,7 +599,8 @@ pub(crate) fn unify_by_unknown_arguments(
                     } else {
                         (y, x)
                     };
-                    if matches!(force(g, known.clone())?, Value::Lam(..)) {
+                    if matches!(force(g, known.clone())?, Value::Lam(..)) && !thunk(unknown_arg, m)?
+                    {
                         against_lambda = true;
                     } else {
                         against_known = true;
@@ -601,7 +621,11 @@ pub(crate) fn unify_by_unknown_arguments(
     // unknown that is data, not a function or a type, faces a known
     // argument too: `HangLays kinds ?doc indent pre ?post` against
     // `HangLays kinds BreakParent indent pre (place hang => …)`, where
-    // `?doc` blocks the unfolding.
+    // `?doc` blocks the unfolding. A thunk facing `() => …` counts as
+    // facing a known argument: it takes nothing the call could supply, so
+    // only its body, which the lambda gives whole, is left to settle, and
+    // `Parse.Follows ?same ?alike ?p ?q` against two parsers written
+    // `() => …` has no data unknown to wait for.
     if !against_known || (against_lambda && !data_against_known) {
         return Ok(false);
     }
