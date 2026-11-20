@@ -28478,12 +28478,12 @@
     {
       "id": 4321,
       "title": "[Sonnet] Prefix operators: a prefixes1 list for prefixSpellsOf/prefixFacts/prefixPlain/prefixToken, as SW-4286 did for binary operators (survey target 4 rest)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4286.",
+      "body": "From SW-4286.\n\nLane note (Sonnet, 20 Nov): stopped without changes. Prefix list has 3 entries; each of the four staircases is a 3-deep match of about 9 lines (prefixSpellsOf, prefixFacts, prefixPlain, prefixToken, about 40 lines in all). A prefixes1 list needs its own bridge (about 8 lines), per-theorem List.All fact lists and the allMem calls, so it would be as long or longer. No gain.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
