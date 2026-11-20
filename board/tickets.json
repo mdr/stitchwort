@@ -28439,7 +28439,7 @@
     {
       "id": 4318,
       "title": "[DeepSeek] fmt:implicit (tools/fmt/dev/implicit.py): warn, and refuse unless --force, when an argument it would drop is not _ (today it silently drops real terms in the slot; SW-4306 had to pre-convert real uses to named arguments by hand); add a test",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
