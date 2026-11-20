@@ -1,5 +1,5 @@
 {
-  "next": 4408,
+  "next": 4409,
   "tickets": [
     {
       "id": 47,
@@ -29540,7 +29540,7 @@
     {
       "id": 4402,
       "title": "[Opus, paper] Review SW-4391 (guard refinement part 2): arms moved onto copies (Tree::moved), guarded arm's names hidden below, in-place split of a Bool variable condition as a second try (new term shape: lifted helper with case on a context variable); D2364",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -29610,6 +29610,19 @@
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4408,
+      "title": "[Sonnet] Guard refinement tests and tidy (SW-4402 follow-ups): in-place guard then another guard; named in-place fact used as flag = True; goals snapshot without the unnamed True = True fact; a test pinning the retry for proofs that now fall back; refined_in_place passes columns through draft_with so a stuck helper displays as match flag with; only budget errors fatal in the in-place try; trim split_levels' dead arms and run it only for proofs",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
