@@ -1,5 +1,5 @@
 {
-  "next": 4475,
+  "next": 4476,
   "tickets": [
     {
       "id": 47,
@@ -30475,12 +30475,12 @@
     {
       "id": 4473,
       "title": "[Sonnet] Closer stage 0b (closer.md): a proving-guide section on finishing small proofs with today's tools (cases, rewrite repeatedly, or-patterns, _ arguments), then pilot two tools/fmt files (signSymbolic via or-pattern, drop minusSymbolic/bangSymbolic; passesAppend and Fmt/JoinProofs with _ arguments); bar: 5%% of proof lines with check time within 1.5x; after the stage 0 fixes",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nLane note (Sonnet): guide section 'Finishing small proofs' in docs/proving-guide.md; pilot applied in ParseWalk.sw and JoinProofs.sw: proof lines 532->488 (-8.3%) and 1556->1438 (-7.6%); file check time (elab+kernel, mean of two) 1387->1368 ms and 891->851 ms; bar met. Commit 7e5ef7b69 on lane/SW-4473.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -30488,6 +30488,19 @@
     {
       "id": 4474,
       "title": "[Sonnet] cases follow-ups (SW-4472): a way to say what cases splits (cases on x / closer.md F4; parenParsedP is out of budget without it), and a hypothesis written as is: kind = Minus is never used to substitute (signSymbolicT still splits 60 kinds per arm); docs/syntax.md still calls data declarations 'data' where the keyword is type; a workflow note: a copied binary needs --std-dir, and how to profile a check (macOS sample on repeated copies)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "\n\nSW-4473 found 8 more theorems in ParseWalk/JoinProofs hitting E-CASES-BUDGET where the hand proof splits one or two things (followsCloser, freeReady, endedReadyCloser, piecePasses, endedReadyColon, mayFollowStops, fillSeq, signFirstNot).\n",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4475,
+      "title": "[Sonnet] Closer pilot findings (SW-4473): (1) _ for an argument fixed by a later argument's type can pick a different but equal document and report a type mismatch (framedExprPasses in the Tuple and ListOf arms of JoinProofs); find why the elaborator doesn't use the later argument's type; (2) W-REWRITE-REPEATEDLY-UNUSED fired when rewrite repeatedly [atomic, calm] closed a && goal without calm: a gap in how && goals are closed, or the warning is right and the rule unnecessary; repro in JoinProofs",
       "status": "backlog",
       "agent": "",
       "where": "",
