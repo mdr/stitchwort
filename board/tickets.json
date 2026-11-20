@@ -28998,8 +28998,8 @@
     {
       "id": 4361,
       "title": "[Sonnet] match reify with a huge result type still runs out inside generalised_now (SW-4351 probe); find which read does it (alternatives' binding, read_type, occurrence test) and read as written",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
