@@ -375,7 +375,7 @@ guide's rule is what changes new proofs.
 - `cases` on `(5 <= level tok) = False`, with `level` an enumeration's
   table, splits the comparison and never `tok`, and fails; `match tok`
   with every arm `byComputing` proves it (p1 `lowC`) [measured].
-- `stitchwort fmt` puts an or-pattern on one line of any length (150
-  characters in p5) [measured].
+- `stitchwort fmt` put an or-pattern on one line of any length (150
+  characters in p5) [measured]; since SW-4224 (19 Nov) a long one breaks after each `|`.
 - An error in an or-pattern's arm doesn't say which alternative failed;
   a catch-all's does (p3) [measured].

@@ -29109,12 +29109,12 @@
     {
       "id": 4369,
       "title": "[Sonnet] Long or-pattern arms: stitchwort fmt joins | A | B | ... => onto one line of any length; break them (proof-match-likewise.md's formatter item; SW-4225 can now generate long ones)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\n\nLane note (Sonnet, 20 Nov): already fixed by SW-4224 (eb2d8236d, in main): the Rust formatter wraps a long or-pattern, each line ending with its |, continuing at +4; golden crates/fmt/tests/it/golden/or-patterns.*. Checked with a release build: an 18-alternative arm breaks one alternative a line and is idempotent. The brief layout (leading | per line) cannot parse: a line-start | starts the next arm (parser or_bar_ahead). No code change; no commit.\n\n\nOrchestrator, 20 Nov: duplicate of SW-4224 (merged 19 Nov; long or-patterns break after each |, since a line-start | starts a new arm). Closed; proposal line updated.\nModel result: Sonnet, worked (found the duplicate), 1 min (est. 30)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
