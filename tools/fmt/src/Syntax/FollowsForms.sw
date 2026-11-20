@@ -1036,29 +1036,28 @@ def PieceAlike: Piece → Piece → Prop
     WordsAlike open openTwin ∧ ExprsAlike value valueTwin ∧ WordsAlike close closeTwin
   | _, _ => Void
 
+theorem piecesBlankCons ∀ (piece: Piece) (rest: List Piece):
+    blankPieces (walkPieces blankPure [piece, ..rest])
+      = blankPieces (walkPieces blankPure [piece]) ++ blankPieces (walkPieces blankPure rest) :=
+  match piece with | TextPiece _ | Interpolation _ _ _ => byComputing
+
 theorem piecesBlank ∀ (pieces twins: List Piece)
     (alike: List.All2 PieceAlike pieces twins):
     blankPieces (walkPieces blankPure pieces) = blankPieces (walkPieces blankPure twins) :=
-  match pieces, twins with
-    | [], [] => byComputing
-    | [TextPiece word, ..rest], [TextPiece twin, ..restTwin] =>
-      calc blankPieces (walkPieces blankPure [TextPiece word, ..rest])
-        _ = [TextPiece word.blank, ..blankPieces (walkPieces blankPure rest)] := byComputing
-        _ = [TextPiece twin.blank, ..blankPieces (walkPieces blankPure restTwin)] :=
-          rewrite alike.left, piecesBlank rest restTwin alike.right
-        _ = blankPieces (walkPieces blankPure [TextPiece twin, ..restTwin]) := byComputing
-    | [Interpolation open value close, ..rest], [Interpolation openTwin valueTwin closeTwin, ..restTwin] =>
-      let (opens, values, closes) := alike.left
-      calc blankPieces (walkPieces blankPure [Interpolation open value close, ..rest])
-        _ = [Interpolation open.blank (value.walk blankPure) close.blank, ..blankPieces (walkPieces blankPure rest)] :=
-          byComputing
-        _ = [
-            Interpolation openTwin.blank (valueTwin.walk blankPure) closeTwin.blank,
-            ..blankPieces (walkPieces blankPure restTwin)
-          ] := rewrite opens, values, closes, piecesBlank rest restTwin alike.right
-        _ = blankPieces (walkPieces blankPure [Interpolation openTwin valueTwin closeTwin, ..restTwin]) := byComputing
-    | [TextPiece word, ..rest], [Interpolation open value close, ..restTwin] => alike.left.impossible
-    | [Interpolation open value close, ..rest], [TextPiece word, ..restTwin] => alike.left.impossible
+  List.all2Join
+    [f := list => blankPieces (walkPieces blankPure list)]
+    [key := piece => blankPieces (walkPieces blankPure [piece])]
+    (k rest => k ++ rest)
+    piecesBlankCons
+    (x y same =>
+      match x, y with
+        | TextPiece word, TextPiece twin => rewrite same
+        | Interpolation open value close, Interpolation openTwin valueTwin closeTwin =>
+          let (opens, values, closes) := same
+          rewrite opens, values, closes)
+    pieces
+    twins
+    alike
 
 theorem alikeInterpolated ∀ (pieces twins: List Piece)
     (alike: List.All2 PieceAlike pieces twins):

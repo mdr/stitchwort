@@ -284,16 +284,15 @@ theorem statementsBlankCons ∀ (statement: Statement) (rest: List Statement):
 theorem statementsBlank ∀ (statements twins: List Statement)
     (alike: List.All2 StatementsAlike statements twins):
     blankStatements (walkStatements blankPure statements) = blankStatements (walkStatements blankPure twins) :=
-  match statements, twins with
-    | [], [] => byComputing
-    | [statement, ..rest], [twin, ..restTwin] =>
-      calc blankStatements (walkStatements blankPure [statement, ..rest])
-        _ = [(walkStatement blankPure statement).blank, ..blankStatements (walkStatements blankPure rest)] :=
-          statementsBlankCons statement rest
-        _ = [(walkStatement blankPure twin).blank, ..blankStatements (walkStatements blankPure restTwin)] :=
-          rewrite alike.left, statementsBlank rest restTwin alike.right
-        _ = blankStatements (walkStatements blankPure [twin, ..restTwin]) :=
-          Eq.flipped (statementsBlankCons twin restTwin)
+  List.all2Join
+    [f := list => blankStatements (walkStatements blankPure list)]
+    [key := statement => (walkStatement blankPure statement).blank]
+    (k rest => [k, ..rest])
+    statementsBlankCons
+    (x y same => same)
+    statements
+    twins
+    alike
 
 theorem alikeBlock ∀ (first twin: Statement)
     (firsts: StatementsAlike first twin) (rest restTwin: List Statement)
