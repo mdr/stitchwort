@@ -1,5 +1,5 @@
 {
-  "next": 4425,
+  "next": 4427,
   "tickets": [
     {
       "id": 47,
@@ -29293,12 +29293,12 @@
     {
       "id": 4383,
       "title": "[Sonnet] tools/fmt parser and editor highlighting: know byWalking [..] then t (ParseWalk.sw now uses it; matters for D3573 switch-over) (SW-4354 follow-up 9)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\nLane notes (Sonnet): VS Code grammar done (byWalking before a `[`; `then` already a keyword). Self-hosted parser/printer NOT done: a new Expr constructor (Walk) touches Syntax/Expr.sw, Parser.sw, Statements.sw, Traverse, Fmt/{Walk,TraverseFail,Blank,Passes,Rules,Slice6a} and the Parse.Follows twin proofs (FollowsForms) plus Parse.Gives walks; scope decision needed (D3688). The Rust fmt has no Walk rule (generic join), and prints both files unchanged. Stopped for the orchestrator.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -29488,15 +29488,17 @@
     {
       "id": 4398,
       "title": "[Sonnet] Walk two-run registration: treat an open run as a wildcard so overlapping (fail, any) and (fail, bump) lemmas are refused at registration with E-WALK-LEMMA naming the pair; two-run 'two lemmas fit' reject; find why followsTupleClose needs its thunk written out (SW-4395 follow-ups 1, 2; before W4)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nProgress (Sonnet lane, 20 Nov 2026, 14:57-15:30): commit c2ddc8836 on lane/SW-4398. Overlap rule in register_walk (open run = wildcard), message names both lemmas and both pairs; rejects walk-two-run-overlapping-lemmas and walk-two-run-two-lemmas; syntax.md updated. followsTupleClose NOT fixed: bare followsFatalAny fails the direct check when the goal post is the eta form (x y => WordsAlike x y) and second is left as a hole (Param::Shown); explicit second or plain WordsAlike works. Binding Shown as a local def panics (metas undone after fit).\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
-      "commits": []
+      "commits": [
+        "c2ddc8836"
+      ]
     },
     {
       "id": 4399,
@@ -29831,6 +29833,32 @@
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4425,
+      "title": "[Opus] Walk: a bare lemma with an open second run fails under an eta-form post (followsTupleClose needs its thunk written out; followsFatalAny with post (x x1 => WordsAlike x x1) leaves _second unsolved): eta-reduce the expected post before the direct check, or fix the unifier for a hole under a lambda post; also a trace line for 'direct fit failed: <error>' (the walk swallows it); before W4 (SW-4398 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4426,
+      "title": "[Sonnet] Walk registration: a one-run and a two-run lemma of the same relation compare as overlapping (the extra position counts as a wildcard); decide and test; and find which two checked-in example files the pre-commit hook skips as deliberately unformatted (SW-4398 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
