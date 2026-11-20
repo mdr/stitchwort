@@ -214,7 +214,7 @@ fn family_statement(cx: &Ctx, goal: &Value) -> Result<Option<(Vec<String>, DefId
         if let Value::Call(id, spine, _) | Value::Neutral(Head::Def(id), spine) = &v
             && let Some(f) = families.iter().find(|f| f.relation == *id)
         {
-            return Ok((spine.len() == f.arity).then(|| (names, *id)));
+            return Ok((spine.len() == f.arity).then_some((names, *id)));
         }
         let Value::Pi(name, Icit::Explicit, _, cod) = &v else {
             return Ok(None);
