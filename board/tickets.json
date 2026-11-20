@@ -28959,7 +28959,7 @@
     {
       "id": 4358,
       "title": "[Sonnet] A comparison in a Bool guard's generated fact shows as computed: x < 5 as x <= 4, 0 < x as 1 <= x (SW-4341, SW-4344 equations); show it as written",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
