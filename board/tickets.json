@@ -29052,8 +29052,8 @@
     {
       "id": 4365,
       "title": "[DeepSeek] D2180's skip note says 'the proof h' even when the guard's proof was found automatically from an && guard and never named; word it for that case (SW-4360)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
