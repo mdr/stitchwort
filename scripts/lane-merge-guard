@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# The safety guard for `task lane:merge` (SW-4307).
+#
+#     scripts/lane-merge-guard LANE [MAIN]
+#
+# LANE is the lane branch (lane/SW-N) and MAIN the branch merged into
+# (default: main). Prints the lane's full diff --stat against the merge-base,
+# then refuses (exit 1) when:
+#
+#  - the lane changes board/tickets.json or anything under docs/worklog/ or
+#    docs/agent-feedback/, unless ALLOW_BOARD=1;
+#  - the lane restores a file to a version from before a recent first-parent
+#    merge on the merge-base's history, undoing that merge, unless
+#    ALLOW_REVERT=1.
+#
+# The second check catches the stale-squash incident (SW-4307): the lane was
+# based after another lane's merge M, but its tree had the files as they were
+# before M. For each of the last 40 first-parent merges M reachable from the
+# merge-base MB, and each file M changed, it flags the file when the lane's
+# blob equals M's first parent's blob and MB's blob differs from that one. A
+# normal lane that branched before M moved those files is not flagged: the
+# lane's blob then equals MB's, not M^1's.
+set -euo pipefail
+
+lane=${1:?usage: scripts/lane-merge-guard LANE [MAIN]}
+main=${2:-main}
+
+git rev-parse -q --verify "${lane}^{commit}" >/dev/null \
+  || { echo "lane-merge-guard: no branch $lane" >&2; exit 2; }
+git rev-parse -q --verify "${main}^{commit}" >/dev/null \
+  || { echo "lane-merge-guard: no branch $main" >&2; exit 2; }
+base=$(git merge-base "$main" "$lane") \
+  || { echo "lane-merge-guard: no merge base between $main and $lane" >&2; exit 1; }
+
+echo "Lane $lane against merge-base $base with $main:"
+if [ -z "$(git diff --name-only "$base" "$lane")" ]; then
+  echo "(no changes against the merge-base)"
+else
+  git --no-pager diff --stat "$base" "$lane"
+fi
+
+board_changed=()
+while IFS= read -r file; do
+  [ -n "$file" ] || continue
+  case "$file" in
+    board/tickets.json|docs/worklog/*|docs/agent-feedback/*)
+      board_changed+=("$file") ;;
+  esac
+done < <(git diff --name-only "$base" "$lane")
+
+if (( ${#board_changed[@]} > 0 )) && [ "${ALLOW_BOARD:-0}" != 1 ]; then
+  {
+    echo
+    echo "refusing: lane $lane changes board/work-log/agent-feedback files (set ALLOW_BOARD=1 to allow):"
+    printf '  %s\n' "${board_changed[@]}"
+  } >&2
+  exit 1
+fi
+
+# Blob id of FILE in REV, or one shared value when it is absent. Comparing
+# these is all the revert check needs, so it never reads file contents.
+blob_id() {
+  git rev-parse -q --verify "$1:$2" 2>/dev/null || echo '(missing)'
+}
+
+reverts=()
+while IFS= read -r merge; do
+  [ -n "$merge" ] || continue
+  subject=$(git log -1 --format=%s "$merge")
+  while IFS= read -r file; do
+    [ -n "$file" ] || continue
+    parent_id=$(blob_id "$merge^1" "$file")
+    [ "$(blob_id "$lane" "$file")" = "$parent_id" ] || continue
+    [ "$(blob_id "$base" "$file")" != "$parent_id" ] || continue
+    reverts+=("$file: restores $merge^1's version, undoing merge ${merge:0:12} \"$subject\"")
+  done < <(git diff --name-only "$merge^1" "$merge")
+done < <(git rev-list --first-parent --merges -n 40 "$base")
+
+if (( ${#reverts[@]} > 0 )) && [ "${ALLOW_REVERT:-0}" != 1 ]; then
+  {
+    echo
+    echo "refusing: lane $lane restores files from before recent merges on $base (set ALLOW_REVERT=1 to allow):"
+    printf '  %s\n' "${reverts[@]}"
+  } >&2
+  exit 1
+fi
