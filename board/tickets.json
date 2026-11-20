@@ -29841,12 +29841,12 @@
     {
       "id": 4425,
       "title": "[Opus] Walk: a bare lemma with an open second run fails under an eta-form post (followsTupleClose needs its thunk written out; followsFatalAny with post (x x1 => WordsAlike x x1) leaves _second unsolved): eta-reduce the expected post before the direct check, or fix the unifier for a hole under a lambda post; also a trace line for 'direct fit failed: <error>' (the walk swallows it); before W4 (SW-4398 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nProgress (lane, 20 Nov 16:05): cause found and fixed on lane/SW-4425 (a3c25af5f). The eta post comes from the two-run bind: Parse.followsThen's ?alike is solved from the unfolded relation (?alike x y against WordsAlike x y), so the goal after the bind carries x x1 => WordsAlike x x1. The fit then fails in the unifier's argument rule (unify_by_unknown_arguments): an unknown function (?alike) facing a lambda is settled only when a data unknown faces a known argument too, and ?second is a thunk. Fix in the walk: step eta-contracts the goal's non-thunk arguments and walks the contracted goal (conv-checked). followsTupleClose now bare; STITCHWORT_WALK_TRACE=1 prints 'direct fit failed'; new accept example walk-two-run-open-second.sw (fails on main). Unifier gap left (standalone repro: Follows SameNat (x y => SameNat x y) ... := followsFailAny \"no\" _ fails), suggested as a finding. Walk examples' proof hashes moved (walk.snap, walk-two-run.snap).\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
