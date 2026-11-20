@@ -1,5 +1,5 @@
 {
-  "next": 4414,
+  "next": 4416,
   "tickets": [
     {
       "id": 47,
@@ -27420,7 +27420,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Matt, 19 Nov 2026: 'please have on our backlog investigations into or actually doing some of the improvements that we found that would make Stitchwort more competitive with Lean and Rocq on these type of proofs.' Source: docs/reviews/SW-4222-lean-rocq-comparison.md §6.\n\nD3696 parked, Matt, 19 Nov 2026: 'It's a really promising idea. I'd like to study it further ... Can we park it as a very promising idea on the backlog? And I will have a read through the tutorial more closely tomorrow.' Tutorial: https://claude.ai/artifact/V1kPvxmw99KQtiscx9NAdi. Don't start build lanes until he decides.\n\n\nProgress (lane, 20 Nov): started 12:53. 13:07 lockstep walk working on scratch examples; 13:18 pilot first walks; 13:49 25 FollowsBase two-run proofs walked (181 -> 31 proof lines), all 26 expansions check again; tests and docs next.\n\n\nLane done 14:00 (67 min of 120): branch lane/SW-4240, 5 commits 23355db88..d0263f9e3. Lockstep two-run walk (walk/two.rs), std Follows done/bind/weaken tagged (no hash moved), FollowsBase pilot 25 proofs 181 -> 31 proof lines, namespace check 505 -> 704 ms (1.39x), all 26 expansions re-check. SW-4368 pair in followsAtomAfter: walk can't replace it (alike marks feed the fuel); kept. Tests: test:example NAME=walk, walk_expansions_check_again (extended), test:lane AREA=hashes, check Syntax.FollowsBase and Syntax.ParseWalk, clippy. Model result: Opus, see report.\n",
+      "body": "Matt, 19 Nov 2026: 'please have on our backlog investigations into or actually doing some of the improvements that we found that would make Stitchwort more competitive with Lean and Rocq on these type of proofs.' Source: docs/reviews/SW-4222-lean-rocq-comparison.md §6.\n\nD3696 parked, Matt, 19 Nov 2026: 'It's a really promising idea. I'd like to study it further ... Can we park it as a very promising idea on the backlog? And I will have a read through the tutorial more closely tomorrow.' Tutorial: https://claude.ai/artifact/V1kPvxmw99KQtiscx9NAdi. Don't start build lanes until he decides.\n\n\nProgress (lane, 20 Nov): started 12:53. 13:07 lockstep walk working on scratch examples; 13:18 pilot first walks; 13:49 25 FollowsBase two-run proofs walked (181 -> 31 proof lines), all 26 expansions check again; tests and docs next.\n\n\nLane done 14:00 (67 min of 120): branch lane/SW-4240, 5 commits 23355db88..d0263f9e3. Lockstep two-run walk (walk/two.rs), std Follows done/bind/weaken tagged (no hash moved), FollowsBase pilot 25 proofs 181 -> 31 proof lines, namespace check 505 -> 704 ms (1.39x), all 26 expansions re-check. SW-4368 pair in followsAtomAfter: walk can't replace it (alike marks feed the fuel); kept. Tests: test:example NAME=walk, walk_expansions_check_again (extended), test:lane AREA=hashes, check Syntax.FollowsBase and Syntax.ParseWalk, clippy. Model result: Opus, see report.\n\n\n20 Nov 14:35, review fixes (SW-4395): (1) nested walks keep a stack of (relation, thunk heads); a statement already being walked further out, or nesting past 8, stops with E-WALK (reject walk-nested-loop.sw; without the guard it ran until a 60 s CPU limit). (2) rewrite_twin skips the rewrite when the twin is not in the goal (followsHereUnused failed with E-REWRITE-NOTHING before) and rewrites forwards for a fact `twin = value` (followsHereThen). (3) bracket-term closer: under an unknown, only the one item that checks. (4) accept examples for the bracket closer, nested-walk-fails-then-t (one and two runs), fixed-function rule (one run), ReadsIn weaken; a nested walk that leaves a wait queued is now treated as failing and falls through to then t. Hash snapshots added for walk-two-run and project-walk-lemma-visibility.\n",
       "created": "2026-11-19",
       "updated": "2026-11-20",
       "commits": []
@@ -29631,8 +29631,8 @@
     {
       "id": 4409,
       "title": "[Opus] Carried-over cache stage 1 (D3703): split the check-cache key into a source key and a build stamp; reuse an entry from another build when the kernel side (crates/core and its build inputs) is unchanged; label carried entries in the editor and check output; editor uses them by default, lanes by a flag, verifier/tiers/Overmind never (docs/proposals/check-cache-across-updates.md)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
@@ -29670,8 +29670,8 @@
     {
       "id": 4412,
       "title": "[Opus, paper] Design note: when a match scrutinee or rewrite rule occurs only inside a folded call, unfold just the calls on the path to it and keep the rest of the goal folded (goal-as-written); count which proofs that check today would change (D3688 risk); would let the last two continuation pairs go (FollowsDeclHeaders.followsRowStart, FollowsFormsBlocks.followsBlockLine) (SW-4355)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
@@ -29683,6 +29683,32 @@
     {
       "id": 4413,
       "title": "[Sonnet] When finish_application's comparison with the expected type fails, report that failure (or note it) rather than the earlier in-place lambda error (first_error), which misdiagnosed SW-4355; plus FollowsBase.sw's pair advice: after match/rewrite on a scrutinee inside a folded call, give j and k",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4414,
+      "title": "[Opus, paper] Review SW-4403 (guard arms try the as-written goal first: refined_guard calls as_written::first, keeps it when motive_checks_now; helper motives now folded, four guard hash snapshots changed); D2364",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4415,
+      "title": "[Sonnet] Mismatch messages print a decided proposition's found type as 0 < pick (c.decEq 'a').holds: show it as written (c == 'a'); and a closed goal like 0 < 1 lists as True = True in every match arm (SW-4403 findings)",
       "status": "backlog",
       "agent": "",
       "where": "",
