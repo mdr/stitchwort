@@ -136,8 +136,6 @@ theorem followsExprKeyword ∀ [self selfTwin: Goal → {Parse Item} Expr]
 theorem followsLambdaResultHere ∀ (modes: Modes):
     Parse.Follows SameCode Same (() => lambdaResultHere modes) (() => lambdaResultHere modes) :=
   followsThenEq
-    [p := () => Parse.mark().left]
-    [q := () => Parse.mark().left]
     [j := fuel => lambdaResultType modes (fuel + 1) False left()]
     [k := fuel => lambdaResultType modes (fuel + 1) False left()]
     followsLeftCount
@@ -146,8 +144,6 @@ theorem followsLambdaResultHere ∀ (modes: Modes):
 theorem followsImplicitHere ∀ (modes: Modes):
     Parse.Follows SameCode Same (() => implicitHere modes) (() => implicitHere modes) :=
   followsThenEq
-    [p := () => Parse.mark().left]
-    [q := () => Parse.mark().left]
     [j := fuel => implicitOn (fuel + 1) left() modes.peek]
     [k := fuel => implicitOn (fuel + 1) left() modes.peek]
     followsLeftCount
@@ -442,14 +438,8 @@ theorem followsBlockItems ∀ [self selfTwin: Goal → {Parse Item} Expr] (more:
       (() => blockItems more selfTwin modes column many doneTwin before others) :=
   match items, others with
     | [], [] => Parse.followsDone dones
-    | [next, ..tail], [other, ..tailTwin] =>
-      followsThenEq
-        [p := () => offset()]
-        [q := () => offset()]
-        [j := now => blockOffset more self modes column many done before next now]
-        [k := now => blockOffset more selfTwin modes column many doneTwin before other now]
-        followsOffset
-        (now => followsBlockOffset more modes column many done doneTwin dones before next other same.left now rest)
+    | [next, ..tail], [other, ..tailTwin] => followsThenEq followsOffset (now =>
+      followsBlockOffset more modes column many done doneTwin dones before next other same.left now rest)
 
 theorem followsBlockDone ∀ [self selfTwin: Goal → {Parse Item} Expr] (more: Nat) (modes: Modes) (column: Nat)
     (many: Bool) (found foundTwin: List Statement)
@@ -509,8 +499,6 @@ theorem followsBlockLine ∀ [self selfTwin: Goal → {Parse Item} Expr]
       (() => blockLine more selfTwin modes column many foundTwin before others) :=
   rewrite deafOfStripped nextIndex nextIndexDeaf items others same then
     followsThenEq
-      [p := () => Modes.peek { modes | allow = nextIndex others }]
-      [q := () => Modes.peek { modes | allow = nextIndex others }]
       [j := seen => blockKind more self modes column many found before { modes | allow = nextIndex others } seen]
       [k := seen =>
         blockKind more selfTwin modes column many foundTwin before { modes | allow = nextIndex others } seen]

@@ -83,12 +83,6 @@ theorem declarationKeepsTokens ∀ (seen: Seen) (group other: List Leaf) (decl: 
       ∧ twin.walk blankPure = decl.walk blankPure :=
   let (twin, twinRuns, alike) :=
     Parse.followsRun
-      [first := () =>
-        let decl := declaration seen
-        decl]
-      [second := () =>
-        let decl := declaration seen
-        decl]
       (groupDeclarationFollows seen)
       (items group)
       (items other)

@@ -177,8 +177,6 @@ theorem followsLambdaParen ∀ [self selfTwin: Goal → {Parse Item} Expr] (patt
       | True => followsLambdaGroup groups modes
       | False =>
         Parse.followsThen
-          [p := () => Parse.mark()]
-          [q := () => Parse.mark()]
           [j := here => lambdaPattern self modes (annotatedPatternAhead (here.left + 1) items)]
           [k := here => lambdaPattern selfTwin modes (annotatedPatternAhead (here.left + 1) others)]
           Parse.followsMark
@@ -316,8 +314,6 @@ theorem followsExistsExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
     Parse.Follows SameCode ExprsAlike (() => existsExpr self modes) (() => existsExpr selfTwin modes) :=
   Parse.followsThen followsBump (keyword keywordTwin keywords =>
     Parse.followsThen
-      [p := () => Parse.mark()]
-      [q := () => Parse.mark()]
       [j := here => (let items := left(); existsLambda self modes keyword (lambdaAhead modes (here.left + 1) items))]
       [k := here =>
         (let items := left(); existsLambda selfTwin modes keywordTwin (lambdaAhead modes (here.left + 1) items))]
