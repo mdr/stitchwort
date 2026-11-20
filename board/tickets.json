@@ -28322,8 +28322,8 @@
     {
       "id": 4309,
       "title": "[DeepSeek] lane-merge-guard: a file the lane deletes that a recent merge added matches 'restores M^1 (missing)' and is refused (SW-4297's intended deletion of a duplicate example); list such deletions as warnings and refuse only when at least one modified (not deleted) file is restored, unless ALLOW_REVERT=1; add a test",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
