@@ -4828,12 +4828,24 @@ fn finish_application(
                 // The earlier error is the lambda's, found in place; the
                 // call's own type failing to match what is expected is the
                 // other half of the story, so say so (SW-4355 blamed the
-                // order of elaboration for it).
-                Some(first) => (*first).with_note(format!(
-                    "the call's own type `{}` also does not match the expected type `{}`",
-                    cx.show(&ty),
-                    cx.show_expected(expected)
-                )),
+                // order of elaboration for it). Only a type mismatch has this
+                // other half: an arithmetic failure or unknown name is not
+                // made clearer by it. Nor is a type whose every part is an
+                // unknown (`_ _`) worth printing. No length limit: the
+                // continuation cases it is for print types of 140 and 250
+                // characters, longer than the `decEq` type of the case it
+                // is noise in, so length cannot tell them apart.
+                Some(first) => {
+                    if first.code == "E-TYPE-MISMATCH" && !crate::numbers::all_unknown(cx, &ty)? {
+                        (*first).with_note(format!(
+                            "the call's own type `{}` also does not match the expected type `{}`",
+                            cx.show(&ty),
+                            cx.show_expected(expected)
+                        ))
+                    } else {
+                        *first
+                    }
+                }
                 None => cx.mismatch(expected, &ty),
             });
         }

@@ -1465,7 +1465,7 @@ impl crate::queue::Check for GroupType {
 }
 
 /// The unknown at the head of `v`, if it is one.
-fn head_meta(cx: &Ctx, v: &Value) -> Result<Option<usize>> {
+pub(crate) fn head_meta(cx: &Ctx, v: &Value) -> Result<Option<usize>> {
     Ok(match force(&cx.g(), v.clone())? {
         Value::Neutral(Head::Meta(m), _) => Some(m),
         _ => None,
@@ -2081,4 +2081,26 @@ pub(crate) fn has_number(expr: &Expr) -> bool {
         }
     }
     false
+}
+
+/// Whether `v` is an unknown applied to nothing but unknowns (`_ _`): a type
+/// that names nothing the reader could compare with another.
+pub(crate) fn all_unknown(cx: &Ctx, v: &Value) -> Result<bool> {
+    let Value::Neutral(Head::Meta(_), spine) = force(&cx.g(), v.clone())? else {
+        return Ok(false);
+    };
+    for elim in spine.iter() {
+        match elim {
+            stitchwort_core::value::Elim::App(arg, _) => {
+                if !matches!(
+                    force(&cx.g(), arg.clone())?,
+                    Value::Neutral(Head::Meta(_), _)
+                ) {
+                    return Ok(false);
+                }
+            }
+            _ => return Ok(false),
+        }
+    }
+    Ok(true)
 }
