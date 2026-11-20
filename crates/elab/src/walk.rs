@@ -15,17 +15,21 @@
 //! whose last is a `∀` over `p`'s value ending in `R` at `j`; `@[walk.done]`
 //! on `R … (() => x) post`; `@[walk.weaken]` on one whose first explicit
 //! premise is `R` with another post and whose last is the implication. A
-//! then-lemma whose first premise is in another family is a bridge.
+//! then-lemma whose first premise is in another relation (`Parse.Reads0`
+//! for `Parse.givesAfter0`) is a bridge: a lemma in that relation fits a
+//! call there.
 //!
-//! **Steps.** The goal's thunk is unfolded once if its head is a
-//! definition; then, at each point of the body:
+//! **Steps.** The goal's own function is walked through once (its case
+//! tree split on, or its body unfolded); then, at each point of the body:
 //! - `Effect.bind c k`: a lemma for the call `c` (below), the family's
 //!   then-lemma, and the walk goes on in `k`, its value named after `k`'s
-//!   binder (or the function called, for a binder the compiler made);
-//! - `if c` and a lifted `match` (whose case tree is read here, a level at
-//!   a time): a split on the scrutinee where the program's case tree is
-//!   stuck, a proof `match` with the program's own names for the fields,
-//!   `match branchN: c` for a condition that isn't a variable;
+//!   binder (or `<function>Value`, for a binder the compiler made);
+//! - `if c` (also on a proposition, `Decidable.elim`) and a lifted `match`
+//!   (whose case tree is read here, a level at a time): a split on the
+//!   scrutinee where the program's case tree is stuck, a proof
+//!   `match branchN: c` with the program's own names for the fields. A
+//!   branch's goal is the goal before the split with the equation's
+//!   pattern for the scrutinee ([`Planned`]), read folded;
 //! - a value, `Done x`: the family's done-lemma;
 //! - a call in tail position: its lemma, weakened when its post differs;
 //!   or, if the brackets say `unfold f`, its body, walked.
@@ -35,20 +39,24 @@
 //! function; a hypothesis in scope that fits; the `@[walk]` lemma for the
 //! function and family. Two that fit in one tier is an error, never a
 //! choice. A lemma fits when its thunk unifies with the call as written,
-//! its other arguments left to unification; a premise (a proposition) is a
-//! leaf.
+//! its other arguments fixed by the call, by a premise a hypothesis is, or
+//! as the one hypothesis of their type; a premise (a proposition) is a
+//! leaf. A value the call fixes that isn't a variable is passed as a local
+//! definition, so the premises after it are checked with it known.
 //!
 //! **Leaves** (a value's post, a lemma's premise, a weakening's
-//! implication) are closed by, in order: a hypothesis or a part of one (or
-//! two that contradict); computation; a conjunction built from its parts;
-//! `arithmetic`; then `t` from `then t`. A leaf none closes is `E-WALK`,
-//! with its goal and the path to it.
+//! implication) are closed by, in order: `()`; a hypothesis that is the
+//! goal; the closers of `cases` (a part of a hypothesis, two that
+//! contradict); computation; a conjunction built from its parts;
+//! `arithmetic`, with the parts of the conjunctions in scope; then `t` from
+//! `then t`. A leaf whose goal still has an unknown in it waits for it. A
+//! leaf none closes is `E-WALK`, with its goal and the path to it.
 //!
 //! **Stops.** Everything else is `E-WALK` at the walk, naming the call or
 //! construct and showing the goal: a call with no lemma (the note gives
 //! both fixes), two lemmas that fit, a construct the walk doesn't follow
-//! (`handle`, `translate`, effect-polymorphic code), more than [`PATH_CAP`]
-//! paths.
+//! (`handle`, `translate`, effect-polymorphic code, a `match` on numbers,
+//! an operation performed directly), more than [`PATH_CAP`] paths.
 //!
 //! **Expanding.** Every check of a walk records the chain it wrote, as text
 //! with the user's own terms quoted from the source ([`Piece`]), for
@@ -94,8 +102,6 @@ struct CallInfo {
     /// The theorem being proved, by name, and the function its statement
     /// is about: a call of that function uses the theorem.
     own: Option<(String, DefId)>,
-    /// How many paths the splits so far make, against [`PATH_CAP`].
-    paths: usize,
     root: u32,
 }
 
@@ -115,6 +121,8 @@ struct NodeInfo {
     text: Option<Vec<Piece>>,
     /// The lemma used here, and what was unfolded, for the trace.
     trace: Vec<Vec<Piece>>,
+    /// The paths a split here adds: its constructors but one.
+    split: usize,
     /// The function whose own case tree a split here was made in: the
     /// goal's code is still a call of it, walked through once more.
     through: Option<DefId>,
@@ -164,6 +172,31 @@ pub struct WalkExpansion {
 }
 
 impl Walks {
+    /// The paths the splits reached from `node`'s text add, and `extra`'s.
+    fn splits(&self, node: u32, extra: u32) -> usize {
+        let mut seen = vec![node];
+        let mut todo = vec![node];
+        let mut total = 0;
+        while let Some(n) = todo.pop() {
+            let Some(info) = self.nodes.get(n as usize) else {
+                continue;
+            };
+            total += info.split;
+            for piece in info.text.iter().flatten() {
+                if let Piece::Child(k) = piece
+                    && !seen.contains(k)
+                {
+                    seen.push(*k);
+                    todo.push(*k);
+                }
+            }
+        }
+        if !seen.contains(&extra) {
+            total += self.nodes[extra as usize].split;
+        }
+        total
+    }
+
     /// The expansion of call `c`, with its children's pieces in place.
     fn expansion(&self, c: usize) -> Option<WalkExpansion> {
         let call = &self.calls[c];
@@ -608,7 +641,6 @@ fn start(cx: &mut Ctx, walk: &Walk, expected: &Value) -> Result<Term> {
             items,
             body: walk.body.clone(),
             own,
-            paths: 1,
             root,
         });
         let place = match head_of(&body) {
@@ -621,6 +653,7 @@ fn start(cx: &mut Ctx, walk: &Walk, expected: &Value) -> Result<Term> {
             place: place.into(),
             text: None,
             trace: Vec::new(),
+            split: 0,
             through: None,
             planned: None,
         });
@@ -919,6 +952,14 @@ fn classify(cx: &Ctx, body: &Value, through: Option<DefId>) -> Result<Code> {
             return Ok(Code::Other("a `handle` or a `translate`"));
         }
     }
+    // An `if` on a proposition: `Decidable.elim d yes no`, whose body
+    // splits on `d.holds`, followed as the program's own split.
+    if reg.def(Builtin::ElimDec) == Some(id) && spine.len() >= 5 {
+        return Ok(Code::Reduced(force_solved(
+            &g,
+            unfold_once(&g, id, spine)?,
+        )?));
+    }
     if reg.def(Builtin::IfThenElse) == Some(id) && spine.len() >= 4 {
         // The condition as the code has it, which the split looks for in
         // the goal; forced only to see whether it computes.
@@ -1026,6 +1067,7 @@ fn place(cx: &Ctx, call: usize, kind: Kind, where_: &str) -> u32 {
         place: where_.into(),
         text: None,
         trace: Vec::new(),
+        split: 0,
         through: None,
         planned: None,
     });
@@ -1142,7 +1184,7 @@ fn step(
                     &info,
                     expected,
                     &format!("it doesn't follow {what}"),
-                    &[format!("the code there is {}", cx.show(&body))],
+                    &[],
                 ));
             }
         }
@@ -2033,9 +2075,13 @@ fn split(
     let ctors = g.data(data).ctors().len();
     {
         let mut walks = cx.e.session.walks.borrow_mut();
-        let call = &mut walks.calls[info.call];
-        call.paths += ctors.saturating_sub(1);
-        if call.paths > PATH_CAP {
+        walks.nodes[node as usize].split = ctors.saturating_sub(1);
+        // Counted over the chain as it now stands: a place checked again
+        // (the elaborator retrying an application) replaces its own text,
+        // so what it split before isn't counted twice.
+        let root = walks.calls[info.call].root;
+        let paths = 1 + walks.splits(root, node);
+        if paths > PATH_CAP {
             drop(walks);
             return Err(stuck(
                 cx,
@@ -2148,6 +2194,14 @@ fn leaf(cx: &mut Ctx, id: u32, info: &NodeInfo, expected: &Value) -> Result<Term
         ));
     }
     let g = cx.g();
+    let reg = g.env.registry();
+    if let Value::Data(d, _) = force(&g, expected.clone())?
+        && reg.data(Builtin::Unit) == Some(d)
+    {
+        let (d, c) = crate::check::builtin_ctor(cx, Builtin::Trivial)?;
+        set_text(cx, id, vec![Piece::Text("()".into())]);
+        return Ok(Term::Ctor(d, c, Vec::new()));
+    }
     // A hypothesis that is the goal, fixing what the goal leaves open
     // (a predicate only a premise mentions).
     for level in (0..cx.level()).rev() {

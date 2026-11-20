@@ -728,6 +728,8 @@ export type Drawing = { readonly type: string; readonly shapes: Shape[] };
 | `js.enum` (no argument) | a data type whose constructors have no fields | a plain string, one per constructor (its name, or its `js.name`), instead of an object |
 | `noReceiver` (no argument) | a definition | in a type's namespace, a function that isn't called with `.` or `|>`, so it may take the type's value after another parameter without the warning `W-RECEIVER-NOT-FIRST` |
 | `reading` (no argument) | a theorem `test ↔ P` (or `test = False ↔ P`) | facts about `test` are taken apart, built and read as `P` (see [Readings](#readings-reading-and-read)) |
+| `walk` (no argument) | a theorem `R … (() => f x…) post` in a walk family | the lemma every walk uses for a call of `f` in that family, one per function and family (see [`byWalking`](#bywalking)) |
+| `walk.bind`, `walk.done`, `walk.weaken` (no argument) | a theorem about `() => j (p())`, `() => x`, or a weaker post | declares a walk family: its lemma for a bind, a value, and weakening a post (see [`byWalking`](#bywalking)) |
 | `tailrec` (no argument) | a definition, an exported definition or a local definition | every recursive call of it is a tail call, so it runs as a loop on every backend (see below) |
 | `js.unboxed` (no argument) | a record without parameters with exactly one field that has a property | its field's own JS form (`string` for a `Text`), instead of an object; in TypeScript, `type T = string` (see Microtypes) |
 
@@ -2773,6 +2775,30 @@ theorem tenBothWays ∀ (t: Ten): sameBothWays t.bits = True := Finite.check (u 
 It is the way past `cases`' 64 cases: the proof stays one term however many values there are, and the kernel computes `p` for each. 2^10 values take about 0.1 s, 2^16 about 12 s (`examples/accept/finite-check.sw`, `examples/accept/finite-derive.sw`).
 
 Examples: `examples/accept/cases-bool.sw`, `examples/accept/cases-data.sw`, `examples/accept/cases-binders.sw`, `examples/accept/cases-decision.sw`, `examples/accept/cases-fallback.sw`, `examples/reject/cases-*.sw`.
+
+### `byWalking`
+
+`byWalking [lemmas] then t` proves a statement about effectful code, `R … (() => code) post` in a **walk family** (std's `Parse.Gives`, `Parse.ReadsIn` and `Parse.ReadsAt`), by following the code (docs/proposals/proof-walk-step.md; review: docs/reviews/SW-4238-walk-step-review.md). It is a term, like `cases`; `then t` is optional and goes on the same line or the next, indented at least as far. `byWalking` is a word only before `[`.
+
+```
+theorem givesCapped ∀ (limit: Nat): Parse.Gives Parse.Invariant.any (() => capped limit) (n => n <= limit) :=
+  byWalking []
+
+theorem givesCommaList … := byWalking [givesLook] then List.allConsReverse holds current found currentHolds foundHolds
+```
+
+The goal's own function is walked through once; from there, at each point of the code:
+
+- **A bind** `let v := c; rest` (or a call in an argument, which the compiler binds first): the lemma for the call `c`, then the family's `@[walk.bind]` lemma, and the walk goes on in `rest`, with `v` and its fact `vFacts` in scope. The names are the program's own (`let first := …` gives `first` and `firstFacts`); a call whose value isn't named gives `nextValue`, `nextValueFacts`.
+- **A call** chooses its lemma in this order: one in the brackets that fits it; the theorem being proved, at a recursive call of its function; a hypothesis that fits (a parameter's call, `next()` with `nextGives: Parse.Gives inv next holds`); the lemma registered for the function with `@[walk]`. Two that fit at the same tier are `E-WALK`. A lemma's premises are leaves (below); its other arguments are what the call fixes, or the one hypothesis of their type. In tail position, a lemma whose post isn't the goal's is weakened with the family's `@[walk.weaken]` lemma, its implication a leaf.
+- **`unfold f`** in the brackets walks through `f`'s body where it is called, and is never needed for a function with a lemma. A function without one isn't looked into otherwise. Where its value is used, `f`'s body must be one call.
+- **A split**: an `if` (on a `Bool` or a decidable proposition) or a `match` the code makes, followed along the compiled case tree: a proof `match branchN: scrutinee with` with the program's names for the fields, the equation `branchN` in scope. At most 64 paths in all; past that it stops and says to give the splitting part a lemma of its own.
+- **A value** `x`: the family's `@[walk.done]` lemma, its premise (`post x`) a leaf.
+- **A leaf** is closed by `()`, a hypothesis, computing, a pair of closed leaves for `∧`, `arithmetic` (with the parts of the conjunctions in scope), or `t`; a leaf with an unknown the rest of the chain fixes waits for it.
+
+What it stops on is `E-WALK`, naming the call or leaf and the place (`in commaList, Succ more, Some kind, True`), with the goal there: a call with no lemma, a leaf nothing closes, code it doesn't follow (a `handle`, a `translate`, effect-polymorphic code with a bare row `{e}`, a `match` on numbers, an operation performed directly), the path cap. A second `@[walk]` lemma for the same function and family is `E-WALK-LEMMA`.
+
+`stitchwort check --expand-walk FILE` (or a project's namespaces) replaces each walk with the chain of lemmas it stands for, writing the files back, and prints the lemma used at each call; a walk that stops is written as far as it got, with `?` where it stopped. Expand a walk to prove leaves that need different proofs. The walk adds nothing to the kernel: the chain is checked as written. Families are declared, not built in: a relation `R … (() => code) post` with `@[walk.bind]` on its lemma for `() => j (p())` (its first premise a statement about `p`, its last about `j v` for each value `v`), `@[walk.done]` on its lemma for `() => x`, and `@[walk.weaken]` on its lemma for another post; nothing in the walk names `Parse`. Examples: `examples/accept/walk.sw`, `examples/reject/walk-*.sw`.
 
 ### Numbers
 

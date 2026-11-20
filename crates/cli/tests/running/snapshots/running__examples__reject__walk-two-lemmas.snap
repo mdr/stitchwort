@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-WALK-LEMMA] Error: `look` already has a walk lemma in this family: `givesLook`
+    ╭─[ reject/walk-two-lemmas.sw:14:3 ]
+    │
+ 10 │ @[walk]
+    │   ──┬─  
+    │     ╰─── the first
+    │ 
+ 14 │ @[walk]
+    │   ──┬─  
+    │     ╰─── a second one
+    │ 
+    │ Note: a call uses its function's one registered lemma, never a choice between two; name the other where it is wanted, in a walk's brackets
+────╯

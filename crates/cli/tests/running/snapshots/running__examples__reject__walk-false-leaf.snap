@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-WALK] Error: the walk stops: a goal is left that the closers don't prove
+    ╭─[ reject/walk-false-leaf.sw:18:3 ]
+    │
+ 18 │   byWalking []
+    │   ────┬────  
+    │       ╰────── in `lookThenZero`
+    │ 
+    │ Note 1: prove it with `then t`, or expand the walk (`check --expand-walk`) and write it
+    │ 
+    │ Note 2: the goal there is 0 = 1
+────╯

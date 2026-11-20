@@ -868,10 +868,15 @@ impl Elaborator {
                 // A reading with an error is filed as its stand-in, so a fact
                 // read through it relies on it, as any other use does,
                 // instead of reading its test as what it unfolds to.
-                if let Ok(attributes) = self.definition_attributes(items[i].decl)
-                    && let Some(at) = attributes.reading
-                {
-                    let _ = self.register_reading(id, at);
+                if let Ok(attributes) = self.definition_attributes(items[i].decl) {
+                    if let Some(at) = attributes.reading {
+                        let _ = self.register_reading(id, at);
+                    }
+                    // A walk lemma too, so a walk through its function
+                    // relies on it rather than stopping for want of one.
+                    if let Some((tag, at)) = attributes.walk {
+                        let _ = self.register_walk(id, tag, at);
+                    }
                 }
             }
         }
