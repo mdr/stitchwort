@@ -29304,12 +29304,12 @@
     {
       "id": 4384,
       "title": "[Sonnet] Walk: split checks its rebuilt goal against the given one (conv_now) and stops with E-WALK, not a kernel internal error; split walk.rs into walk/{registry,expand,leaf}.rs before W3 (SW-4354 follow-ups 11, 12)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Lane SW-4384, commit 9a2376e07 on lane/SW-4384: walk.rs split into walk/{mod,registry,expand,leaf}.rs (pure move); split's rebuilt goal checked with conv_now in step before split, E-WALK on mismatch. No test reaches the mismatch (correct by construction). walk examples, walk_expansions_check_again, hashes lane pass.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
