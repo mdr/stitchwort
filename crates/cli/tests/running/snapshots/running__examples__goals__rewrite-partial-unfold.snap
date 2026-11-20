@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `followsLine`
+    ╭─[ goals/rewrite-partial-unfold.sw:18:21 ]
+    │
+ 18 │   rewrite same then ?
+    │                     ┬  
+    │                     ╰── items: List Nat
+    │                         others: List Nat
+    │                         same: size items = size others
+    │                         ⊢ ∀ (state other: Parse.State Nat) (value: Nat) (after: Parse.Mark Nat) => Parse.Mark.Alike SameNat state.at other.at → Parse.runFrom state (arg => Std.Effect.bind (Std.Effect.bind (here ()) (x => Done (x + size others))) (x => Call (L (%mark ())) (y => Done (x, y)))) = Ok (value, after) → ∃ (twin: Nat) => ∃ (afterTwin: Parse.Mark Nat) => Parse.runFrom other (arg => Std.Effect.bind (line others) (x => Call (L (%mark ())) (y => Done (x, y)))) = Ok (twin, afterTwin) ∧ Parse.Mark.Alike SameNat after afterTwin ∧ SameNat value twin
+────╯

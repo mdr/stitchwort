@@ -65,8 +65,14 @@ pub(super) enum First {
     Not,
 }
 
-/// The rewrite as written, if it found something and left no hidden copy.
-/// `goal` is the unforced goal (or type of the target).
+/// The rewrite as written, if it found something and left no hidden copy;
+/// failing that, with `on_path`, the same with the calls on the path to an
+/// occurrence hidden inside them unfolded ([`crate::unfold_path`]). `goal`
+/// is the unforced goal (or type of the target). `rewrite repeatedly`'s
+/// cheap pass, over the goal as written only, passes `on_path` false: there
+/// a set's rules are only ever looked for, and opening calls would let them
+/// fire where they didn't, and in a different order.
+#[allow(clippy::too_many_arguments)]
 pub(super) fn first(
     cx: &mut Ctx,
     rule: &RewriteRule,
@@ -75,6 +81,7 @@ pub(super) fn first(
     goal: &Value,
     unfolded: (&Value, &Term),
     remaining: &mut u64,
+    on_path: bool,
 ) -> Result<First> {
     let (found, outcome) = attempt(
         cx,
@@ -94,7 +101,7 @@ pub(super) fn first(
     }
     // Not shown, or shown with a copy hidden: perhaps on a path through
     // calls, which the middle step unfolds ([`crate::unfold_path`]).
-    if matches!(outcome, Outcome::Nothing | Outcome::Incomplete) {
+    if on_path && matches!(outcome, Outcome::Nothing | Outcome::Incomplete) {
         let (found, _) = attempt(
             cx,
             rule,

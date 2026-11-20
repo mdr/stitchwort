@@ -495,7 +495,12 @@ fn search(
         outcome: match (todays_found, reading) {
             (true, Reading::Folded) => Outcome::Kept,
             (true, Reading::OnPath) => Outcome::Partial,
-            (false, _) => Outcome::Rescued,
+            (false, Reading::Folded) => Outcome::Rescued,
+            // Where the usual test refines nothing, the arms keep the goal
+            // as it is: a rescue through opened calls would replace an
+            // occurrence written differently, and the arms' goals would no
+            // longer be the ones the `match` gave before.
+            (false, Reading::OnPath) => return Ok(Err(Outcome::Nothing)),
         },
     }))
 }
@@ -663,7 +668,9 @@ fn transport_search(
     let outcome = match (todays_found, reading) {
         (true, Reading::Folded) => Outcome::Kept,
         (true, Reading::OnPath) => Outcome::Partial,
-        (false, _) => Outcome::Rescued,
+        (false, Reading::Folded) => Outcome::Rescued,
+        // No rescue through opened calls, as in [`search`].
+        (false, Reading::OnPath) => return Ok(Err(Outcome::Nothing)),
     };
     Ok(Ok((generalised, outcome)))
 }

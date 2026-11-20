@@ -1027,7 +1027,8 @@ fn unproved_premise(
 /// How `rewrite repeatedly` asks [`rewrite_once`] to search.
 pub(super) struct Repeated<'a> {
     /// Only the goal as written ([`as_written::first`]): no comparison by
-    /// computing, and nothing inside functions passed to calls.
+    /// computing, no calls opened on the path to an occurrence
+    /// ([`crate::unfold_path`]), and nothing inside functions passed to calls.
     pub(super) written_only: bool,
     /// The goal, forced and read back, when the caller has it already.
     pub(super) computed: Option<&'a Term>,
@@ -1147,6 +1148,7 @@ fn rewrite_once(
             goal,
             (&current, &current_term),
             remaining,
+            !written_only,
         )? {
             as_written::First::Kept(replaced) => (*replaced, true),
             _ if written_only => {

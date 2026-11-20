@@ -105,6 +105,12 @@ pub(crate) fn opened(
         &|l| Ok(Term::Var(level - 1 - l)),
         &|t, _| marked(t).cloned(),
     )?;
+    debug_assert!(
+        !stripped
+            .subterms()
+            .any(|(t, _)| matches!(t, Term::Meta(OCCURRENCE))),
+        "an occurrence's mark survived the walk"
+    );
     Ok(Some(stripped))
 }
 
@@ -196,20 +202,26 @@ impl Walk<'_, '_, '_, '_> {
             return Ok(call);
         }
         self.tries.set(self.tries.get() + 1);
-        let body = {
+        let (opened_id, body) = {
             let cx = self.cx.borrow();
             let g = cx.g();
             let mut env = cx.env.clone();
             env.extend((0..under).map(|k| Value::var(self.level + k)));
-            let Value::Call(id, spine, _) = eval(&g, &env, &call)? else {
+            let Value::Call(opened_id, spine, _) = eval(&g, &env, &call)? else {
                 return Ok(call);
             };
-            let step = unfold_once(&g, id, spine)?;
-            quote_folded(&g, self.level + under, &step)?
+            let step = unfold_once(&g, opened_id, spine)?;
+            (opened_id, quote_folded(&g, self.level + under, &step)?)
         };
-        self.opening.borrow_mut().push(id);
+        // Both the call as written and the one it evaluated to: they differ
+        // for a definition that is another's call.
+        self.opening.borrow_mut().extend([id, opened_id]);
         let inside = self.walk(&body, under);
-        self.opening.borrow_mut().pop();
+        {
+            let mut opening = self.opening.borrow_mut();
+            let kept = opening.len() - 2;
+            opening.truncate(kept);
+        }
         let inside = inside?;
         if !inside.subterms().any(|(t, _)| marked(t).is_some()) {
             return Ok(call);

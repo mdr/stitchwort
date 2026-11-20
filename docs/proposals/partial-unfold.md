@@ -36,7 +36,8 @@ fails today **[ran]**. In the parser proofs I sampled, about 60% of `match`es an
 `rewrite`s take the unfolded path today; in three AoC 2020 days the figures are an upper bound
 of about 57% of `match`es and 9% of `rewrite`s (§6). The arm and next goals of all those sites
 become partly folded, so they are smaller and closer to the source. Every step this changes
-keeps a goal *convertible* with today's, checked. Nothing that checks today can fail at the
+keeps a goal *convertible* with today's, checked, except where the step also abstracts an
+occurrence written differently that today's syntactic search leaves (§4.1). Nothing that checks today can fail at the
 `match` or `rewrite` itself. A later step in the same arm can (§4.2), and that needs one
 measurement run before merging.
 
@@ -188,9 +189,16 @@ now gets the benefit at once with no proof migration, and the code becomes 6a's 
 unchanged. Those stages then only delete the agreement checks and today's search, as already
 planned.
 
-**The rescue** keeps its place. If today's search finds nothing, the partial step found
-nothing either (it is complete with respect to today's by the agreement check), so the rescue
-sees the same situation as now.
+**The rescue** keeps its place. As built, the partial step never rescues: where today's
+search finds nothing, its result is discarded (counted as `nothing`) even when it found an
+occurrence written differently inside an opened call, so the arms keep the goal unchanged, as
+now, and the rescue sees the same situation (SW-4430 M1; `examples/goals/
+match-no-rescue-through-calls.sw`).
+
+**`rewrite repeatedly`** has a cheap first pass over the goal as written only, where a rule
+set's rules are only ever looked for. The partial step is skipped there: it would let set rules
+fire where they didn't, in a different order, and make that pass dearer. The full pass uses it
+through the same `rewrite` search (SW-4430 M2).
 
 ## 4. D3688: can anything that checks today stop checking?
 
@@ -211,6 +219,14 @@ byte-for-byte what runs now. So a `match` or `rewrite` that succeeds today still
 one that fails today still fails, except where the partial result succeeds and today's would
 have failed: only a gain. **[checked: the fallback structure, `rewrite.rs:1142–1199`,
 `matching.rs:1441–1485`]**
+
+One qualification (SW-4430 W1). The agreement check lets the new reading abstract *more*
+than today's: an occurrence written differently (up to computation) inside an opened body,
+which today's syntactic search over the normal form leaves. Where that happens, the arms are
+today's with that extra occurrence replaced, so they are not convertible with today's. Stage 2's
+folded reading already does the same, and that was accepted there. A strict agreement mode for
+the partial reading would make the claim exact, if the measurement run shows breakage of this
+kind.
 
 ### 4.2 Later in the arm: yes, possibly, and the fallback does not reach it
 

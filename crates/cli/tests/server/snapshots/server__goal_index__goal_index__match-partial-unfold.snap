@@ -1,0 +1,45 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "lower",
+          "type": "Bool"
+        },
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "target": "∀ (state other: Parse.State Nat) (value: Nat) (after: Parse.Mark Nat) => Parse.Mark.Alike SameNat state.at other.at → Parse.runFrom state (arg => Call (L (%mark ())) (y => Call (L (%mark ())) (y1 => Done (Succ y.offset, y1)))) = Ok (value, after) → ∃ (twin: Nat) => ∃ (afterTwin: Parse.Mark Nat) => Parse.runFrom other (arg => Call (L (%mark ())) (y => Call (L (%mark ())) (y1 => Done (Succ y.offset, y1)))) = Ok (twin, afterTwin) ∧ Parse.Mark.Alike SameNat after afterTwin ∧ SameNat value twin"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "lower: Bool\nn: Nat\n⊢ ∀ (state other: Parse.State Nat) (value: Nat) (after: Parse.Mark Nat) => Parse.Mark.Alike SameNat state.at other.at → Parse.runFrom state (arg => Call (L (%mark ())) (y => Call (L (%mark ())) (y1 => Done (Succ y.offset, y1)))) = Ok (value, after) → ∃ (twin: Nat) => ∃ (afterTwin: Parse.Mark Nat) => Parse.runFrom other (arg => Call (L (%mark ())) (y => Call (L (%mark ())) (y1 => Done (Succ y.offset, y1)))) = Ok (twin, afterTwin) ∧ Parse.Mark.Alike SameNat after afterTwin ∧ SameNat value twin",
+        "range": [
+          17,
+          15,
+          17,
+          16
+        ]
+      }
+    ],
+    "message": "in `followsStart`",
+    "notes": [],
+    "range": [
+      17,
+      15,
+      17,
+      16
+    ],
+    "severity": "goal"
+  }
+]
