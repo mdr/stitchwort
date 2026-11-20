@@ -27400,8 +27400,8 @@
     {
       "id": 4239,
       "title": "[Opus] Walk W1 (D3696): the walk for one-run families, as widened by SW-4238 §5: binds, calls (brackets, own theorem, local hypotheses, registry), unfold on request, inner if/match with the path cap, values, weaken, closers, names, E-WALK, attributes, std's index entries, --expand-walk and the trace; guide and syntax.md; accept and reject examples. After W0 (SW-4353)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
