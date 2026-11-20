@@ -28283,8 +28283,8 @@
     {
       "id": 4306,
       "title": "[DeepSeek] std Parse.givesFail, followsFatalAny, followsLoop: implicit arguments where uses are always _ (survey target 5 rest; reuse scratchpad keep/imp-positional.py, dedupe symlinked dirs by realpath)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
