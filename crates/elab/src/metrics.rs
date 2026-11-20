@@ -5,6 +5,8 @@
 //! A line is `<what>: <outcome> at=<position>`; the collected form drops
 //! the position, so an example names an outcome without naming where.
 //! Collection is per thread, matching one elaboration per thread.
+//! `STITCHWORT_TRACE_GUARDS` uses [`trace`] instead: it prints for a
+//! person watching the run and is never collected.
 
 use std::cell::RefCell;
 use std::fmt::Display;
@@ -29,6 +31,14 @@ pub fn finish_collecting() -> Vec<String> {
 /// thread is collecting.
 pub(crate) fn wanted(var: &str) -> bool {
     std::env::var_os(var).is_some() || COLLECTED.with(|c| c.borrow().is_some())
+}
+
+/// Prints `outcome at=<at>` if `var` is set, without collecting: a trace is
+/// for someone watching this run, not a test's `-- metrics:` header.
+pub(crate) fn trace(var: &str, outcome: &str, at: impl Display) {
+    if std::env::var_os(var).is_some() {
+        eprintln!("{outcome} at={at}");
+    }
 }
 
 /// Prints `outcome at=<at>` if `var` is set, and collects `outcome` if this

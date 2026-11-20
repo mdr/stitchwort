@@ -7747,6 +7747,17 @@ fn proof_condition<'n>(
     })
 }
 
+/// Prints one line about a proof guard the elaborator tried to refine when
+/// `STITCHWORT_TRACE_GUARDS` is set: `refined`, `split in place`, or `fell
+/// back to the unrefined split`, the last with why.
+fn trace_guard(outcome: &str, reason: Option<&str>, span: stitchwort_syntax::Span) {
+    let line = match reason {
+        Some(reason) => format!("guard: {outcome}: {reason}"),
+        None => format!("guard: {outcome}"),
+    };
+    crate::metrics::trace("STITCHWORT_TRACE_GUARDS", &line, span.start);
+}
+
 /// A guarded arm of a `match` (`lib.rs`, `check_guard`), checked as `if
 /// h: cond then <the arm> else <the arms below>`. Where the arm proves
 /// something, the guard refines the goal and the hypotheses as `match h:
@@ -7854,15 +7865,25 @@ pub(crate) fn check_guard_if(
     }
     let retry = decl.guard_no_retry.get() == 0;
     let before = crate::undo::Snapshot::take(cx);
+    // Why the refined split wasn't used, for the trace: the generalised
+    // attempt's arms failed (with the error's code), or the goal couldn't
+    // be generalised at all.
+    let mut fallback = "the goal could not be generalised".to_string();
     let generalised = match refine(cx, then, otherwise, false) {
-        Ok(Some(term)) => return Ok(term),
+        Ok(Some(term)) => {
+            trace_guard("refined", None, span);
+            return Ok(term);
+        }
         Ok(None) => false,
         Err(e)
             if !retry || crate::undo::fatal(&e) || cx.g().machine.budget.exhausted().is_some() =>
         {
             return Err(e);
         }
-        Err(_) => true,
+        Err(e) => {
+            fallback = format!("the refined arms failed ({})", e.code);
+            true
+        }
     };
     before.restore(cx);
     // A condition that is a `Bool` variable the arms below don't split is
@@ -7878,10 +7899,16 @@ pub(crate) fn check_guard_if(
             |cx| crate::undo::attempt(cx, |cx| refine(cx, then, otherwise, true)),
         )?;
         if let Some(Some(term)) = in_place {
+            trace_guard("split in place", None, span);
             return Ok(term);
         }
     }
     if !generalised {
+        trace_guard(
+            "fell back to the unrefined split",
+            Some(fallback.as_str()),
+            span,
+        );
         return proof_if(cx, name, prop, decision, then, otherwise, expected);
     }
     // Refined, an arm failed: D3688 says a proof that checked unrefined
@@ -7908,6 +7935,11 @@ pub(crate) fn check_guard_if(
         },
     )?;
     if let Some(term) = unrefined {
+        trace_guard(
+            "fell back to the unrefined split",
+            Some(fallback.as_str()),
+            span,
+        );
         return Ok(term);
     }
     match counted(
@@ -7915,8 +7947,18 @@ pub(crate) fn check_guard_if(
         |d| &d.guard_no_retry,
         |cx| refine(cx, then, otherwise, false),
     )? {
-        Some(term) => Ok(term),
-        None => proof_if(cx, name, prop, decision, then, otherwise, expected),
+        Some(term) => {
+            trace_guard("refined", None, span);
+            Ok(term)
+        }
+        None => {
+            trace_guard(
+                "fell back to the unrefined split",
+                Some(&format!("{fallback}; the unrefined split failed too")),
+                span,
+            );
+            proof_if(cx, name, prop, decision, then, otherwise, expected)
+        }
     }
 }
 
