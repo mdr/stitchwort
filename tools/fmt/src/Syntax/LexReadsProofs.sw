@@ -49,13 +49,11 @@ theorem atThen ∀ [start: Parse.Mark t] [p: () → {Parse t} a] [j: a → {Pars
 --| A proposition with a proof, for a spec that says nothing (`Unit` here is `Fmt`'s document).
 def Holds: Prop := () = ()
 
-def Sound (parser: () → {Parse Char} a): Prop := Parse.ReadsIn Parse.Invariant.any parser (read value => Holds)
+def Sound (parser: () → {Parse Char} a): Prop := Parse.Gives Parse.Invariant.any parser (value => Holds)
 
---| What a parser gives, read anywhere.
-def Gives (parser: () → {Parse Char} a) (holds: a → Prop): Prop :=
-  Parse.ReadsIn Parse.Invariant.any parser (read value => holds value)
-
-theorem soundOf ∀ [p: () → {Parse Char} a] [holds: a → Prop] (gives: Gives p holds): Sound p :=
+theorem soundOf ∀ [p: () → {Parse Char} a] [holds: a → Prop]
+    (gives: Parse.Gives Parse.Invariant.any p holds):
+    Sound p :=
   Parse.readsWeaken gives (read value h => byComputing)
 
 theorem soundThen ∀ [p: () → {Parse Char} a] [j: a → {Parse Char} b]
@@ -64,14 +62,6 @@ theorem soundThen ∀ [p: () → {Parse Char} a] [j: a → {Parse Char} b]
     Sound (() => j (p())) :=
   Parse.readsThen first (read v u => rest v)
 
-theorem givesThen ∀ [p: () → {Parse Char} a] [j: a → {Parse Char} b] [holds: b → Prop]
-    (first: Sound p)
-    (rest: ∀ (v: a) => Gives (() => j v) holds):
-    Gives (() => j (p())) holds :=
-  Parse.readsThen first (read v u => rest v)
-
-theorem givesDone ∀ (x: a) (holds: a → Prop) (proved: holds x): Gives (() => x) holds := Parse.readsDone x proved
-
 theorem soundDone ∀ (x: a): Sound (() => x) := Parse.readsDone x byComputing
 
 theorem soundMark: Sound (() => Parse.mark()) := Parse.readsWeaken Parse.readsMark (read value h => byComputing)
@@ -79,27 +69,10 @@ theorem soundMark: Sound (() => Parse.mark()) := Parse.readsWeaken Parse.readsMa
 theorem soundSpan ∀ (passes: Char → Bool): Sound (() => Parse.span passes) :=
   Parse.readsWeaken (Parse.readsSpan passes) (read value h => byComputing)
 
-theorem givesFatal ∀ (message: Text) (holds: a → Prop): Gives (() => Empty.absurd (Parse.fatal message)) holds :=
-  Parse.readsFatal
-
 theorem soundMany ∀ [p: () → {Parse Char} a] (sound: Sound p): Sound (() => Parse.many p) :=
   Parse.readsWeaken (Parse.readsMany p (read value => Holds) sound) (read value h => byComputing)
 
 -- Characters taken0 and tokens.
-
-theorem takeSplit ∀ (whole read later: List Char) (count: Nat)
-    (starts: whole = read ++ later)
-    (first: read = whole.take 1):
-    read ++ later.take count = whole.take (count + 1) :=
-  match whole with
-    | [] =>
-      let none: read = [] := first
-      let empty: later = [] := (rewrite none at starts then starts).flipped
-      rewrite none, empty, List.takeNil count
-    | [char, ..more] =>
-      let same: read = [char] := first
-      let laterSame: later = more := (List.consInjective char more later (rewrite same at starts then starts)).flipped
-      rewrite same, laterSame
 
 --| `skip` reads the next `count` characters, or what is left if fewer.
 theorem atSkip ∀ (count: Nat) (start: Parse.Mark Char):
@@ -108,7 +81,7 @@ theorem atSkip ∀ (count: Nat) (start: Parse.Mark Char):
     | Zero => Parse.readsAtDone start () byComputing
     | Succ more => atThen (Parse.readsAtNextAny start) (read v after starts moved first =>
       Parse.readsAtWeaken (atSkip more after) (taken u later =>
-        rewrite later then takeSplit start.rest read after.rest more starts first))
+        rewrite later then List.takeAfterFirst start.rest read after.rest more starts first))
 
 --| `located` makes the lexeme from `from` to the mark where it is.
 theorem atLocated ∀ (value: Lexeme) (from at: Parse.Mark Char):
@@ -151,7 +124,7 @@ theorem atTokenOf ∀ (kind: Tok) (count: Nat) (start: Parse.Mark Char):
             tokenLocated kind count start after later taken0 afterRest afterAt moved2 taken))
 
 theorem soundTokenOf ∀ (kind: Tok) (count: Nat):
-    Gives (() => tokenOf kind count) (lexeme => lexeme.value = TokenLexeme kind) :=
+    Parse.Gives Parse.Invariant.any (() => tokenOf kind count) (lexeme => lexeme.value = TokenLexeme kind) :=
   start fine =>
     Parse.readsAtWeaken (atTokenOf kind count start) (read lexeme made =>
       match made with | Both taken isLexeme => rewrite isLexeme)
@@ -382,7 +355,7 @@ theorem soundSkip ∀ (count: Nat): Sound (() => skip count) := start fine =>
 
 --| `located value from` gives a lexeme of that value.
 theorem givesLocated ∀ (value: Lexeme) (from: Parse.Mark Char):
-    Gives (() => located value from) (lexeme => lexeme.value = value) :=
+    Parse.Gives Parse.Invariant.any (() => located value from) (lexeme => lexeme.value = value) :=
   start fine =>
     Parse.readsAtWeaken (atLocated value from start) (read lexeme made =>
       match made with | Both none same => rewrite same)
@@ -458,7 +431,7 @@ theorem foreignCons ∀ (lexeme: Parse.Located Lexeme) (rest: List (Parse.Locate
 theorem dotsAfter ∀ (kind: Tok) (count: Nat) (dot: Parse.Located Lexeme)
     (outside: kind.within1 = False)
     (isDot: dot.value = TokenLexeme kind):
-    Gives
+    Parse.Gives Parse.Invariant.any
       (() =>
         match Parse.mark().rest with
           | [next, .._] if next.isAsciiDigit => [dot, number True]
@@ -466,22 +439,20 @@ theorem dotsAfter ∀ (kind: Tok) (count: Nat) (dot: Parse.Located Lexeme)
           | _ => [dot])
       Foreign :=
   let first: dot.value.within = False := rewrite isDot then outside
-  givesThen soundMark (at =>
+  Parse.givesThen soundMark (at _ =>
     match at.rest with
-      | [] => givesDone [dot] Foreign (foreignCons dot [] first)
+      | [] => Parse.givesDone (foreignCons dot [] first)
       | [next, ..rest] =>
         match digit: next.isAsciiDigit with
-          | True =>
-            givesThen (soundNumber True) (lexeme => givesDone [dot, lexeme] Foreign (foreignCons dot [lexeme] first))
+          | True => Parse.givesThen (soundNumber True) (lexeme _ => Parse.givesDone (foreignCons dot [lexeme] first))
           | False =>
             match starts: isWordStart next with
-              | True =>
-                givesThen (soundWord True) (lexeme => givesDone [dot, lexeme] Foreign (foreignCons dot [lexeme] first))
-              | False => givesDone [dot] Foreign (foreignCons dot [] first))
+              | True => Parse.givesThen (soundWord True) (lexeme _ => Parse.givesDone (foreignCons dot [lexeme] first))
+              | False => Parse.givesDone (foreignCons dot [] first))
 
 theorem dotsFrom ∀ (kind: Tok) (count: Nat)
     (outside: kind.within1 = False):
-    Gives
+    Parse.Gives Parse.Invariant.any
       (() =>
         let dot := tokenOf kind count
         if count == 3 then [dot]
@@ -493,10 +464,10 @@ theorem dotsFrom ∀ (kind: Tok) (count: Nat)
       Foreign :=
   Parse.readsThen (soundTokenOf kind count) (read dot isDot =>
     match three: count == 3 with
-      | True => givesDone [dot] Foreign (foreignCons dot [] (rewrite isDot then outside))
+      | True => Parse.givesDone (foreignCons dot [] (rewrite isDot then outside))
       | False => dotsAfter kind count dot outside isDot)
 
-theorem givesDots: Gives (() => dots()) Foreign := givesThen soundMark (at =>
+theorem givesDots: Parse.Gives Parse.Invariant.any (() => dots()) Foreign := Parse.givesThen soundMark (at _ =>
   match at.rest with
     | ['.', '.', '<', ..rest] => dotsFrom DotDotLt 3 byComputing
     | ['.', '.', '=', ..rest] => dotsFrom DotDotEq 3 byComputing
@@ -517,17 +488,18 @@ theorem soundCharPiece: Sound (() => charPiece()) := soundThen soundMark (at =>
     | ['\'', .._] | ['\n', .._] | [] => soundStop
     | _ => soundThen (soundSpan (char => char != '\'' && char != '\\' && char != '\n')) (run => soundDone run.length))
 
-theorem givesCharLiteral: Gives (() => charLiteral()) (lexeme => lexeme.value = TokenLexeme CharLit) :=
-  givesThen soundMark (from =>
-    givesThen (soundSkip 1) (u =>
-      givesThen (soundMany [p := () => charPiece()] soundCharPiece) (counts =>
-        givesThen soundMark (at =>
+theorem givesCharLiteral: Parse.Gives Parse.Invariant.any (() => charLiteral()) (lexeme =>
+      lexeme.value = TokenLexeme CharLit) :=
+  Parse.givesThen soundMark (from _ =>
+    Parse.givesThen (soundSkip 1) (u _ =>
+      Parse.givesThen (soundMany [p := () => charPiece()] soundCharPiece) (counts _ =>
+        Parse.givesThen soundMark (at _ =>
           match at.rest with
-            | ['\'', ..rest] => givesThen (soundSkip 1) (u2 =>
+            | ['\'', ..rest] => Parse.givesThen (soundSkip 1) (u2 _ =>
               match one: counts.sum == 1 with
                 | True => givesLocated (TokenLexeme CharLit) from
-                | False => givesFatal charHoldsOne _)
-            | _ => givesFatal unclosedChar _))))
+                | False => Parse.givesFatal charHoldsOne)
+            | _ => Parse.givesFatal unclosedChar))))
 
 -- Text literals: whatever they read, they give a token outside the alphabet. Said of a run (`Yields`), not of what
 -- was read, so that nothing need be known of what a `${…}` inside reads.
@@ -948,19 +920,21 @@ theorem tokenAtOf ∀ (c: Char) (start after1 after3: Parse.Mark Char) (read1 re
   Both (Witness (tail ++ read3) (rewrite head, List.appendNil read3)) (Witness kind (Both plain (rewrite length)))
 
 theorem givesWordKind ∀ (more: Nat) (upper: Bool) (input first: List Char):
-    Gives
+    Parse.Gives Parse.Invariant.any
       (() =>
         match qualifiedOn more upper None input with
           | Some lastUpper => if lastUpper then Upper else Lower
           | None => wordKind False (Text.fromList first))
       (kind => plainKind kind = True) :=
-  givesThen (soundQualifiedOn more upper None input (upper2 found2 => soundQualified more upper2 found2)) (found =>
-    match found with
-      | Some lastUpper =>
-        match lastUpper with
-          | True => givesDone Upper _ byComputing
-          | False => givesDone Lower _ byComputing
-      | None => givesDone (wordKind False (Text.fromList first)) _ (wordKindPlain (Text.fromList first)))
+  Parse.givesThen
+    (soundQualifiedOn more upper None input (upper2 found2 => soundQualified more upper2 found2))
+    (found _ =>
+      match found with
+        | Some lastUpper =>
+          match lastUpper with
+            | True => Parse.givesDone byComputing
+            | False => Parse.givesDone byComputing
+        | None => Parse.givesDone (wordKindPlain (Text.fromList first)))
 
 theorem wordReads ∀ (start: Parse.Mark Char) (c: Char) (more: List Char)
     (here: start.rest = [c, ..more])
@@ -1078,22 +1052,16 @@ theorem tokenRound ∀ (kind: Tok) (count: Nat) (start: Parse.Mark Char)
           rewrite taken, some, notBreak, marked, Bool.orTrue (!kind.within1)
         rewrite isLexeme then Parse.readsAtDone after _ (singleAt start read (TokenLexeme kind) chunk))
 
-theorem givesBind ∀ [p: () → {Parse Char} a] [j: a → {Parse Char} b] [first: a → Prop] [holds: b → Prop]
-    (gives: Gives p first)
-    (rest: ∀ (v: a) => first v → Gives (() => j v) holds):
-    Gives (() => j (p())) holds :=
-  Parse.readsThen gives (read v h => rest v h)
-
 theorem roundOfGives ∀ [start: Parse.Mark Char]
     [p: () → {Parse Char} List (Parse.Located Lexeme)] [spec: List Char → List (Parse.Located Lexeme) → Prop]
-    (gives: Gives p Foreign):
+    (gives: Parse.Gives Parse.Invariant.any p Foreign):
     RoundOk start p spec :=
   total state value after here honest h =>
     match gives start { holds = Trivial } total state value after here honest h with
       | Witness read (Both starts (Both honestAfter outside)) => Inl outside
 
-theorem givesChar: Gives (() => [charLiteral()]) Foreign :=
-  givesBind givesCharLiteral (lexeme isChar => givesDone [lexeme] Foreign (foreignCons lexeme [] (rewrite isChar)))
+theorem givesChar: Parse.Gives Parse.Invariant.any (() => [charLiteral()]) Foreign :=
+  Parse.givesThen givesCharLiteral (lexeme isChar => Parse.givesDone (foreignCons lexeme [] (rewrite isChar)))
 
 theorem symbolFine ∀ (input: List Char) (kind: Tok) (count: Nat)
     (e: symbol input = Some (kind, count)):

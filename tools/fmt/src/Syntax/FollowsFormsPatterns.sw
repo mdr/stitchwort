@@ -34,17 +34,15 @@ theorem fieldPatternsBlankCons ∀ (field: FieldPattern) (rest: List FieldPatter
 theorem fieldPatternsBlank ∀ (fields twins: List FieldPattern)
     (alike: List.All2 FieldPatternAlike fields twins):
     blankFieldPatterns (walkFieldPatterns blankPure fields) = blankFieldPatterns (walkFieldPatterns blankPure twins) :=
-  match fields, twins with
-    | [], [] => byComputing
-    | [field, ..rest], [twin, ..restTwin] =>
-      calc blankFieldPatterns (walkFieldPatterns blankPure [field, ..rest])
-        _ = blankFieldPatterns (walkFieldPatterns blankPure [field])
-            ++ blankFieldPatterns (walkFieldPatterns blankPure rest) := fieldPatternsBlankCons field rest
-        _ = blankFieldPatterns (walkFieldPatterns blankPure [twin])
-            ++ blankFieldPatterns (walkFieldPatterns blankPure restTwin) :=
-          rewrite alike.left, fieldPatternsBlank rest restTwin alike.right
-        _ = blankFieldPatterns (walkFieldPatterns blankPure [twin, ..restTwin]) :=
-          Eq.flipped (fieldPatternsBlankCons twin restTwin)
+  List.all2Join
+    [f := list => blankFieldPatterns (walkFieldPatterns blankPure list)]
+    [key := field => blankFieldPatterns (walkFieldPatterns blankPure [field])]
+    (k rest => k ++ rest)
+    fieldPatternsBlankCons
+    (x y same => same)
+    fields
+    twins
+    alike
 
 theorem alikeFieldPattern ∀ (name nameTwin: Word)
     (names: WordsAlike name nameTwin) (value twin: Option (Word, Pattern))

@@ -115,14 +115,15 @@ theorem armsBlankCons ∀ (arm: Arm) (rest: List Arm):
 theorem armsBlank ∀ (arms twins: List Arm)
     (alike: List.All2 ArmAlike arms twins):
     blankArms (walkArms blankPure arms) = blankArms (walkArms blankPure twins) :=
-  match arms, twins with
-    | [], [] => byComputing
-    | [arm, ..rest], [twin, ..restTwin] =>
-      calc blankArms (walkArms blankPure [arm, ..rest])
-        _ = blankArms (walkArms blankPure [arm]) ++ blankArms (walkArms blankPure rest) := armsBlankCons arm rest
-        _ = blankArms (walkArms blankPure [twin]) ++ blankArms (walkArms blankPure restTwin) :=
-          rewrite alike.left, armsBlank rest restTwin alike.right
-        _ = blankArms (walkArms blankPure [twin, ..restTwin]) := Eq.flipped (armsBlankCons twin restTwin)
+  List.all2Join
+    [f := list => blankArms (walkArms blankPure list)]
+    [key := arm => blankArms (walkArms blankPure [arm])]
+    (k rest => k ++ rest)
+    armsBlankCons
+    (x y same => same)
+    arms
+    twins
+    alike
 
 theorem followsGuardAt ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -420,16 +421,15 @@ theorem scrutineesBlankCons ∀ (scrutinee: Scrutinee) (rest: List Scrutinee):
 theorem scrutineesBlank ∀ (scrutinees twins: List Scrutinee)
     (alike: List.All2 ScrutineeAlike scrutinees twins):
     blankScrutinees (walkScrutinees blankPure scrutinees) = blankScrutinees (walkScrutinees blankPure twins) :=
-  match scrutinees, twins with
-    | [], [] => byComputing
-    | [scrutinee, ..rest], [twin, ..restTwin] =>
-      calc blankScrutinees (walkScrutinees blankPure [scrutinee, ..rest])
-        _ = blankScrutinees (walkScrutinees blankPure [scrutinee]) ++ blankScrutinees (walkScrutinees blankPure rest) :=
-          scrutineesBlankCons scrutinee rest
-        _ = blankScrutinees (walkScrutinees blankPure [twin]) ++ blankScrutinees (walkScrutinees blankPure restTwin) :=
-          rewrite alike.left, scrutineesBlank rest restTwin alike.right
-        _ = blankScrutinees (walkScrutinees blankPure [twin, ..restTwin]) :=
-          Eq.flipped (scrutineesBlankCons twin restTwin)
+  List.all2Join
+    [f := list => blankScrutinees (walkScrutinees blankPure list)]
+    [key := scrutinee => blankScrutinees (walkScrutinees blankPure [scrutinee])]
+    (k rest => k ++ rest)
+    scrutineesBlankCons
+    (x y same => same)
+    scrutinees
+    twins
+    alike
 
 theorem alikeMatch ∀ (keyword keywordTwin: Word)
     (keywords: WordsAlike keyword keywordTwin) (scrutinees twins: List Scrutinee)

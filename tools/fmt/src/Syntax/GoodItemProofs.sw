@@ -774,8 +774,6 @@ theorem readsAtFraction ∀ (at: Parse.Mark Char): Parse.ReadsAt at (() => fract
                               (Both digit (List.allTakeWhile Char.isAsciiDigit more)))))))))
     | False => Parse.readsAtDone at False (Inl (Both byComputing byComputing))
 
-theorem digitNotSign ∀ (char: Char) (digit: char.isAsciiDigit = True): (char == '+' || char == '-') = False := cases
-
 theorem readsAtExponent ∀ (at: Parse.Mark Char): Parse.ReadsAt at (() => exponentFrom at) ExponentRead :=
   match e: exponentSkip at.rest with
     | Some count =>
@@ -793,7 +791,11 @@ theorem readsAtExponent ∀ (at: Parse.Mark Char): Parse.ReadsAt at (() => expon
               let r2: read2 = [next, ..rest.takeWhile Char.isAsciiDigit] :=
                 rewrite spanned2.left, spanned2.right, rest1, digit
               let text: exponentText1 (read1 ++ (read2 ++ [])) = True :=
-                rewrite r1, r2, List.appendNil [next, ..rest.takeWhile Char.isAsciiDigit], digitNotSign next digit then
+                rewrite r1,
+                    r2,
+                    List.appendNil [next, ..rest.takeWhile Char.isAsciiDigit],
+                    Char.beqFalseOfDigit next '+' digit byComputing,
+                    Char.beqFalseOfDigit next '-' digit byComputing then
                   Bool.andIntro lead (Bool.andIntro digit (List.allTakeWhile Char.isAsciiDigit rest))
               Parse.readsAtDone after2 True (Inr (Both byComputing text))
             | Inr
@@ -985,7 +987,10 @@ theorem nameSpellsText ∀ (kind: Tok) (text: Text) (first: Char)
 theorem exponentOfAs ∀ (exponent: List Char) (shape: ExponentAs exponent): exponentText1 exponent = True :=
   match shape with
     | Inl (Witness marker (Witness digit (Witness digits (Both same (Both lead (Both isDigit all)))))) =>
-      rewrite same, digitNotSign digit isDigit then Bool.andIntro lead (Bool.andIntro isDigit all)
+      rewrite same,
+          Char.beqFalseOfDigit digit '+' isDigit byComputing,
+          Char.beqFalseOfDigit digit '-' isDigit byComputing then
+        Bool.andIntro lead (Bool.andIntro isDigit all)
     | Inr
         (Witness marker
           (Witness sign (Witness digit (Witness digits (Both same (Both lead (Both signed (Both isDigit all)))))))) =>

@@ -192,6 +192,16 @@ theorem List.lengthReplicate ∀ (x: a) (n: Nat): List.length (List.replicate n 
   | Zero => byComputing
   | Succ n => Eq.cong Succ (List.lengthReplicate x n)
 
+--| A list whose elements are all `x` is `replicate` of its length.
+theorem List.replicateLengthOfAll ∀ [auto eq: DecEq a] (x: a) (xs: List a)
+    (all: xs.all (y => y == x) = True):
+    List.replicate xs.length x = xs :=
+  match xs with
+    | [] => byComputing
+    | [y, ..rest] =>
+      let same: y = x := DecEq.sound (Bool.andLeft all)
+      rewrite same then Eq.cong (later => [x, ..later]) (List.replicateLengthOfAll x rest (Bool.andRight all))
+
 --| `m + n` copies of `x` are `m` copies and then `n` copies:
 --| `replicate (m + n) x = replicate m x ++ replicate n x`.
 theorem List.replicateAdd ∀ (x: a) (m n: Nat): List.replicate (m + n) x = List.replicate m x ++ List.replicate n x :=

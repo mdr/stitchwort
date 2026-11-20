@@ -636,15 +636,15 @@ theorem clausesBlankCons ∀ (clause: HandlerClause) (rest: List HandlerClause):
 theorem clausesBlank ∀ (clauses twins: List HandlerClause)
     (alike: List.All2 ClauseAlike clauses twins):
     blankClauses (walkClauses blankPure clauses) = blankClauses (walkClauses blankPure twins) :=
-  match clauses, twins with
-    | [], [] => byComputing
-    | [clause, ..rest], [twin, ..restTwin] =>
-      calc blankClauses (walkClauses blankPure [clause, ..rest])
-        _ = blankClauses (walkClauses blankPure [clause]) ++ blankClauses (walkClauses blankPure rest) :=
-          clausesBlankCons clause rest
-        _ = blankClauses (walkClauses blankPure [twin]) ++ blankClauses (walkClauses blankPure restTwin) :=
-          rewrite alike.left, clausesBlank rest restTwin alike.right
-        _ = blankClauses (walkClauses blankPure [twin, ..restTwin]) := Eq.flipped (clausesBlankCons twin restTwin)
+  List.all2Join
+    [f := list => blankClauses (walkClauses blankPure list)]
+    [key := clause => blankClauses (walkClauses blankPure [clause])]
+    (k rest => k ++ rest)
+    clausesBlankCons
+    (x y same => same)
+    clauses
+    twins
+    alike
 
 theorem alikeHandle ∀ (keyword keywordTwin: Comments) (computation computationTwin: Expr)
     (computations: ExprsAlike computation computationTwin)
@@ -737,16 +737,15 @@ theorem inductArmsBlankCons ∀ (arm: InductArm) (rest: List InductArm):
 theorem inductArmsBlank ∀ (arms twins: List InductArm)
     (alike: List.All2 InductArmAlike arms twins):
     blankInductArms (walkInductArms blankPure arms) = blankInductArms (walkInductArms blankPure twins) :=
-  match arms, twins with
-    | [], [] => byComputing
-    | [arm, ..rest], [twin, ..restTwin] =>
-      calc blankInductArms (walkInductArms blankPure [arm, ..rest])
-        _ = blankInductArms (walkInductArms blankPure [arm]) ++ blankInductArms (walkInductArms blankPure rest) :=
-          inductArmsBlankCons arm rest
-        _ = blankInductArms (walkInductArms blankPure [twin]) ++ blankInductArms (walkInductArms blankPure restTwin) :=
-          rewrite alike.left, inductArmsBlank rest restTwin alike.right
-        _ = blankInductArms (walkInductArms blankPure [twin, ..restTwin]) :=
-          Eq.flipped (inductArmsBlankCons twin restTwin)
+  List.all2Join
+    [f := list => blankInductArms (walkInductArms blankPure list)]
+    [key := arm => blankInductArms (walkInductArms blankPure [arm])]
+    (k rest => k ++ rest)
+    inductArmsBlankCons
+    (x y same => same)
+    arms
+    twins
+    alike
 
 theorem alikeInduct ∀ (keyword keywordTwin induct inductTwin: Comments) (call callTwin: Expr)
     (calls: ExprsAlike call callTwin)
@@ -1343,15 +1342,15 @@ theorem ruleListBlankCons ∀ (rule: RewriteRule) (rest: List RewriteRule):
 theorem ruleListBlank ∀ (rules twins: List RewriteRule)
     (alike: List.All2 RuleAlike rules twins):
     blankRuleList (walkRuleList blankPure rules) = blankRuleList (walkRuleList blankPure twins) :=
-  match rules, twins with
-    | [], [] => byComputing
-    | [rule, ..rest], [twin, ..restTwin] =>
-      calc blankRuleList (walkRuleList blankPure [rule, ..rest])
-        _ = blankRuleList (walkRuleList blankPure [rule]) ++ blankRuleList (walkRuleList blankPure rest) :=
-          ruleListBlankCons rule rest
-        _ = blankRuleList (walkRuleList blankPure [twin]) ++ blankRuleList (walkRuleList blankPure restTwin) :=
-          rewrite alike.left, ruleListBlank rest restTwin alike.right
-        _ = blankRuleList (walkRuleList blankPure [twin, ..restTwin]) := Eq.flipped (ruleListBlankCons twin restTwin)
+  List.all2Join
+    [f := list => blankRuleList (walkRuleList blankPure list)]
+    [key := rule => blankRuleList (walkRuleList blankPure [rule])]
+    (k rest => k ++ rest)
+    ruleListBlankCons
+    (x y same => same)
+    rules
+    twins
+    alike
 
 theorem alikeRuleList ∀ (rules twins: List RewriteRule)
     (alike: List.All2 RuleAlike rules twins):

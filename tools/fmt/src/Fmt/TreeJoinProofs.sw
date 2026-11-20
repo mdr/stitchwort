@@ -73,8 +73,6 @@ def Quiet (kind: Tok): Prop := Comma ≠ kind ∧ RParen ≠ kind ∧ RBracket �
 
 theorem startNotDash ∀ (first: Char) (starts: isWordStart first = True): ('-' == first) = False := cases
 
-theorem digitNotDash ∀ (first: Char) (starts: first.isAsciiDigit = True): ('-' == first) = False := cases
-
 theorem headNotDash ∀ (text: Text) (first: Char) (others: List Char)
     (split: text.toList = [first, ..others])
     (differs: ('-' == first) = False):
@@ -108,9 +106,9 @@ theorem spellsNotComment ∀ (kind: Tok) (text: Text) (spells: Spells kind text)
     | Lower | Upper, Witness first (Witness others (Witness comps (Both split (Both starts rest)))) =>
       headNotDash text first (others ++ qualChars comps) split (startNotDash first starts)
     | Num, Witness first (Witness others (Both split (Both digit rest))) =>
-      headNotDash text first others split (digitNotDash first digit)
+      headNotDash text first others split (Char.beqFalseOfDigitRight '-' first byComputing digit)
     | Float, Witness first (Witness others (Witness tail (Both split (Both digit rest)))) =>
-      headNotDash text first (others ++ tail) split (digitNotDash first digit)
+      headNotDash text first (others ++ tail) split (Char.beqFalseOfDigitRight '-' first byComputing digit)
 
 --| A text that spells a token of another kind than `other` doesn't spell it.
 theorem notFixed ∀ (kind: Tok) (text other: Text)
@@ -163,11 +161,6 @@ theorem startBeq ∀ (first: Char)
     (first == '-') = False ∧ (first == '>') = False ∧ (first == '=') = False :=
   cases
 
-theorem digitBeq ∀ (first: Char)
-    (digit: first.isAsciiDigit = True):
-    (first == '-') = False ∧ (first == '>') = False ∧ (first == '=') = False :=
-  cases
-
 --| An expression's first token that isn't `-` starts with a character that is no `-`, `>` or `=`.
 theorem leadsHead ∀ (text: Text)
     (leads: Leads text)
@@ -191,7 +184,9 @@ theorem leadsHead ∀ (text: Text)
       let (dash, greater, equals) := startBeq first starts
       (first, others ++ qualChars comps, split, dash, greater, equals)
     | Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inl (Witness first (Witness others (Both split (Both digit rest))))))))))) =>
-      let (dash, greater, equals) := digitBeq first digit
+      let dash := Char.beqFalseOfDigit first '-' digit byComputing
+      let greater := Char.beqFalseOfDigit first '>' digit byComputing
+      let equals := Char.beqFalseOfDigit first '=' digit byComputing
       (first, others, split, dash, greater, equals)
     | Inr
         (Inr
@@ -199,12 +194,12 @@ theorem leadsHead ∀ (text: Text)
             (Inr
               (Inr
                 (Inr (Inr (Inr (Witness first (Witness others (Witness tail (Both split (Both digit rest)))))))))))) =>
-      let (dash, greater, equals) := digitBeq first digit
+      let dash := Char.beqFalseOfDigit first '-' digit byComputing
+      let greater := Char.beqFalseOfDigit first '>' digit byComputing
+      let equals := Char.beqFalseOfDigit first '=' digit byComputing
       (first, others ++ tail, split, dash, greater, equals)
 
 theorem digitWordChar ∀ (first: Char) (digit: first.isAsciiDigit = True): isWordChar first = True := cases
-
-theorem digitNotI ∀ (first: Char) (digit: first.isAsciiDigit = True): (first == 'i') = False := cases
 
 --| A name no keyword spells isn't `in` (so `!in` isn't read as `!in`'s operator).
 theorem wordNotIn ∀ (kind: Tok) (text: Text) (first: Char) (others: List Char)
@@ -273,7 +268,7 @@ theorem leadsNotIn ∀ (text: Text) (leads: Leads text): text.toList.takeWhile i
     same =>
       let wordChar := digitWordChar first digit
       let head := List.consInjectiveHead (rewrite split, wordChar at same then same)
-      DecEq.soundFalse first 'i' (digitNotI first digit) head
+      DecEq.soundFalse first 'i' (Char.beqFalseOfDigit first 'i' digit byComputing) head
 
 theorem minusFollows ∀ (text: Text)
     (leads: Leads text)
@@ -1204,11 +1199,6 @@ theorem startNotLayout ∀ (first: Char)
     (first == ' ') = False ∧ (first == '\n') = False :=
   cases
 
-theorem digitNotLayout ∀ (first: Char)
-    (digit: first.isAsciiDigit = True):
-    (first == ' ') = False ∧ (first == '\n') = False :=
-  cases
-
 theorem headNotLayout ∀ (text: Text) (first: Char) (others: List Char)
     (split: text.toList = [first, ..others])
     (space: (first == ' ') = False)
@@ -1238,10 +1228,12 @@ theorem spellsNotLayout ∀ (kind: Tok) (text: Text) (spells: Spells kind text):
       let (space, line) := startNotLayout first starts
       headNotLayout text first (others ++ qualChars comps) split space line
     | Num, Witness first (Witness others (Both split (Both digit rest))) =>
-      let (space, line) := digitNotLayout first digit
+      let space := Char.beqFalseOfDigit first ' ' digit byComputing
+      let line := Char.beqFalseOfDigit first '\n' digit byComputing
       headNotLayout text first others split space line
     | Float, Witness first (Witness others (Witness tail (Both split (Both digit rest)))) =>
-      let (space, line) := digitNotLayout first digit
+      let space := Char.beqFalseOfDigit first ' ' digit byComputing
+      let line := Char.beqFalseOfDigit first '\n' digit byComputing
       headNotLayout text first (others ++ tail) split space line
 
 def Word.real (word: Word): Bool := !isLayout word.text

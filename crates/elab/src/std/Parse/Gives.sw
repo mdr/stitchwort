@@ -224,6 +224,11 @@ theorem Parse.givesExpected ∀ [inv: Parse.Invariant t] (what: Text) [holds: a 
     Parse.Gives inv (() => Parse.expected what) holds :=
   Parse.readsExpected what
 
+--| A fatal error never succeeds, so it gives anything.
+theorem Parse.givesFatal ∀ [inv: Parse.Invariant t] (message: Text) [holds: a → Prop]:
+    Parse.Gives inv (() => Empty.absurd (Parse.fatal message)) holds :=
+  Parse.readsFatal
+
 --| A look-ahead that reads nothing, then `j` of what it found: `holds` of the
 --| value when it does of every `j value` ([`Parse.readsAtAfter0`] for
 --| [`Parse.Gives`]).
