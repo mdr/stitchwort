@@ -1,0 +1,46 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `followsStart`
+    ╭─[ goals/if-match-partial-unfold.sw:18:18 ]
+    │
+ 18 │       | False => ?
+    │                  ┬  
+    │                  ╰── lower: Bool
+    │                      n: Nat
+    │                      ⊢ Parse.Follows SameNat SameNat (arg => if False then Done 0 else Std.Effect.bind (here ()) (x => Done (Succ x))) (arg => if False then Done 0 else Std.Effect.bind (here ()) (x => Done (Succ x)))
+    │                        computes to ∀ (state other: Parse.State Nat) (value: Nat) (after: Parse.Mark Nat) => Parse.Mark.Alike SameNat state.at other.at → Parse.runFrom state (arg => Call (L (Parse.mark ())) (y => Call (L (Parse.mark ())) (y1 => Done (Succ y.offset, y1)))) = …
+────╯
+[GOAL] Goal: in `followsStart`
+    ╭─[ goals/if-match-partial-unfold.sw:22:18 ]
+    │
+ 22 │       | False => ?
+    │                  ┬  
+    │                  ╰── lower: Bool
+    │                      n: Nat
+    │                      ⊢ Parse.Follows SameNat SameNat (arg => if False then Done 0 else Std.Effect.bind (here ()) (x => Done (Succ x))) (arg => if False then Done 0 else Std.Effect.bind (here ()) (x => Done (Succ x)))
+    │                        computes to ∀ (state other: Parse.State Nat) (value: Nat) (after: Parse.Mark Nat) => Parse.Mark.Alike SameNat state.at other.at → Parse.runFrom state (arg => Call (L (Parse.mark ())) (y => Call (L (Parse.mark ())) (y1 => Done (Succ y.offset, y1)))) = …
+────╯
+[GOAL] Goal: in `followsStartH`
+    ╭─[ goals/if-match-partial-unfold.sw:26:20 ]
+    │
+ 26 │   if h: n = 0 then ?
+    │                    ┬  
+    │                    ╰── lower: Bool
+    │                        n: Nat
+    │                        h: n = 0
+    │                        ⊢ Parse.Follows SameNat SameNat (arg => start lower n) (arg => start lower n)
+    │                          computes to ∀ (state other: Parse.State Nat) (value: Nat) (after: Parse.Mark Nat) => Parse.Mark.Alike SameNat state.at other.at → Parse.runFrom state (arg => Std.Effect.bind (start lower n) (x => Call (L (Parse.mark ())) (y => Done (x, y)))) = Ok (val…
+────╯
+[GOAL] Goal: in `followsStartH`
+    ╭─[ goals/if-match-partial-unfold.sw:30:18 ]
+    │
+ 30 │       | False => ?
+    │                  ┬  
+    │                  ╰── lower: Bool
+    │                      n: Nat
+    │                      h: n ≠ 0
+    │                      ⊢ Parse.Follows SameNat SameNat (arg => if False then Done 0 else Std.Effect.bind (here ()) (x => Done (Succ x))) (arg => if False then Done 0 else Std.Effect.bind (here ()) (x => Done (Succ x)))
+    │                        computes to ∀ (state other: Parse.State Nat) (value: Nat) (after: Parse.Mark Nat) => Parse.Mark.Alike SameNat state.at other.at → Parse.runFrom state (arg => Call (L (Parse.mark ())) (y => Call (L (Parse.mark ())) (y1 => Done (Succ y.offset, y1)))) = …
+────╯

@@ -2897,7 +2897,15 @@ fn comp_check_in(
             // (SW-981).
             if !may_perform(cx, cond)? || performs_nothing(cx, cond)? {
                 return branches(cx, row, t, as_written, |cx, expected| {
-                    check_if(cx, binder.as_ref(), cond, then, otherwise, expected)
+                    check_if(
+                        cx,
+                        binder.as_ref(),
+                        cond,
+                        then,
+                        otherwise,
+                        expected,
+                        expected,
+                    )
                 });
             }
             if binder.is_some() {
@@ -2916,7 +2924,7 @@ fn comp_check_in(
             });
             sequence(cx, row, t, "%cond", c, bool_ty, true, |cx| {
                 branches(cx, row, t, as_written, |cx, expected| {
-                    check_if(cx, None, &var, then, otherwise, expected)
+                    check_if(cx, None, &var, then, otherwise, expected, expected)
                 })
             })
         }

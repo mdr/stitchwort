@@ -3140,21 +3140,21 @@ fn infer_if(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     let snapshot = crate::undo::Snapshot::take(cx);
     let ty = cx.fresh_meta();
     let ty = cx.eval(&ty)?;
-    let term = check_if(cx, binder.as_ref(), cond, then, otherwise, &ty)?;
+    let term = check_if(cx, binder.as_ref(), cond, then, otherwise, &ty, &ty)?;
     if crate::omega::is_prop(cx, &ty)? != Some(true) {
         return Ok((term, ty));
     }
     snapshot.restore(cx);
     match proof_branch_type(cx, then, otherwise)? {
         Some(ty) => {
-            let term = check_if(cx, binder.as_ref(), cond, then, otherwise, &ty)?;
+            let term = check_if(cx, binder.as_ref(), cond, then, otherwise, &ty, &ty)?;
             Ok((term, ty))
         }
         // Not inferable on its own: left as it was.
         None => {
             let ty = cx.fresh_meta();
             let ty = cx.eval(&ty)?;
-            let term = check_if(cx, binder.as_ref(), cond, then, otherwise, &ty)?;
+            let term = check_if(cx, binder.as_ref(), cond, then, otherwise, &ty, &ty)?;
             Ok((term, ty))
         }
     }
@@ -6728,7 +6728,7 @@ fn check_value_against(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Valu
                 ..
             },
             _,
-        ) => check_if(cx, binder.as_ref(), cond, then, otherwise, &expected),
+        ) => check_if(cx, binder.as_ref(), cond, then, otherwise, &expected, named),
         (Expr::Lam(names, body, span), Value::Pi(_, Icit::Explicit, dom, cod)) => {
             explicit_lambda(cx, expr, (names, body, *span), dom, cod, &expected)
                 .map_err(|error| fun_parameter_note(cx, names, error))
@@ -7534,6 +7534,11 @@ impl crate::queue::Check for Append {
 /// only if it fails is everything it did undone and `c` tried as a
 /// proposition. If that fails too, the `Bool` reading's error is reported,
 /// unless `c` is a proposition with no decision procedure.
+///
+/// The branches are checked against `named`, the goal as written (`expected`
+/// before it was forced), which `check` forces again: a `match` at the end
+/// of a branch then sees a call of a `Prop` definition folded
+/// ([`crate::matching::check_match_named`]).
 pub(crate) fn check_if(
     cx: &mut Ctx,
     binder: Option<&AstName>,
@@ -7541,6 +7546,7 @@ pub(crate) fn check_if(
     then: &Expr,
     otherwise: &Expr,
     expected: &Value,
+    named: &Value,
 ) -> Result<Term> {
     // A probe's steps: `then` and `else`, each with `h` in scope.
     if binder.is_some()
@@ -7584,6 +7590,7 @@ pub(crate) fn check_if(
                 hides_proof: false,
             },
             expected,
+            named,
         );
     }
     check_if_with(
@@ -7593,6 +7600,7 @@ pub(crate) fn check_if(
         &mut { then },
         &mut { otherwise },
         expected,
+        named,
     )
 }
 
@@ -7631,7 +7639,8 @@ impl<F: FnMut(&mut Ctx, &Value) -> Result<Term>> IfBranch for CheckedBranch<F> {
     }
 }
 
-/// [`check_if`] with its branches given as [`IfBranch`]es.
+/// [`check_if`] with its branches given as [`IfBranch`]es, each checked
+/// against `named`.
 pub(crate) fn check_if_with(
     cx: &mut Ctx,
     binder: Option<&AstName>,
@@ -7639,13 +7648,14 @@ pub(crate) fn check_if_with(
     then: &mut dyn IfBranch,
     otherwise: &mut dyn IfBranch,
     expected: &Value,
+    named: &Value,
 ) -> Result<Term> {
     // `ifThenElse` and `elimDec` return a `Type`; an `if` whose branches
     // prove a proposition is `Decidable.elimProof` instead (SW-1015).
     if proof_expected(cx, expected)? {
-        return check_proof_if(cx, binder, cond, then, otherwise, expected);
+        return check_proof_if(cx, binder, cond, then, otherwise, expected, named);
     }
-    check_if_in(cx, binder, cond, then, otherwise, expected)
+    check_if_in(cx, binder, cond, then, otherwise, expected, named)
 }
 
 /// Whether `expected` is known to be a proposition: an equation or a
@@ -7717,9 +7727,10 @@ fn check_proof_if(
     then: &mut dyn IfBranch,
     otherwise: &mut dyn IfBranch,
     expected: &Value,
+    named: &Value,
 ) -> Result<Term> {
     let (name, prop, decision) = proof_condition(cx, binder, cond)?;
-    proof_if(cx, name, prop, decision, then, otherwise, expected)
+    proof_if(cx, name, prop, decision, then, otherwise, expected, named)
 }
 
 /// The condition of an `if` whose branches are proofs: the name its proof
@@ -7779,7 +7790,7 @@ pub(crate) fn check_guard_if(
     expected: &Value,
 ) -> Result<Term> {
     if !proof_expected(cx, expected)? {
-        return check_if_in(cx, binder, cond, then, otherwise, expected);
+        return check_if_in(cx, binder, cond, then, otherwise, expected, expected);
     }
     let (name, prop, decision) = proof_condition(cx, binder, cond)?;
     let g = cx.g();
@@ -7864,7 +7875,9 @@ pub(crate) fn check_guard_if(
     };
     let decl = &cx.e.decl;
     if decl.unrefined_guards.get() > 0 {
-        return proof_if(cx, name, prop, decision, then, otherwise, expected);
+        return proof_if(
+            cx, name, prop, decision, then, otherwise, expected, expected,
+        );
     }
     let retry = decl.guard_no_retry.get() == 0;
     let before = crate::undo::Snapshot::take(cx);
@@ -7912,7 +7925,9 @@ pub(crate) fn check_guard_if(
             Some(fallback.as_str()),
             span,
         );
-        return proof_if(cx, name, prop, decision, then, otherwise, expected);
+        return proof_if(
+            cx, name, prop, decision, then, otherwise, expected, expected,
+        );
     }
     // Refined, an arm failed: D3688 says a proof that checked unrefined
     // still does (D3701), so the split is tried again without refining,
@@ -7932,6 +7947,7 @@ pub(crate) fn check_guard_if(
                     decision.clone(),
                     then,
                     otherwise,
+                    expected,
                     expected,
                 )
             })
@@ -7960,7 +7976,9 @@ pub(crate) fn check_guard_if(
                 Some(&format!("{fallback}; the unrefined split failed too")),
                 span,
             );
-            proof_if(cx, name, prop, decision, then, otherwise, expected)
+            proof_if(
+                cx, name, prop, decision, then, otherwise, expected, expected,
+            )
         }
     }
 }
@@ -7979,7 +7997,9 @@ fn counted<T>(
     result
 }
 
-/// [`check_proof_if`] with its condition elaborated.
+/// [`check_proof_if`] with its condition elaborated, the branches checked
+/// against `named`.
+#[allow(clippy::too_many_arguments)]
 fn proof_if(
     cx: &mut Ctx,
     name: &str,
@@ -7988,6 +8008,7 @@ fn proof_if(
     then: &mut dyn IfBranch,
     otherwise: &mut dyn IfBranch,
     expected: &Value,
+    named: &Value,
 ) -> Result<Term> {
     let result_ty = cx.quote_folded(expected)?;
     let prop_value = cx.eval(&prop)?;
@@ -7998,7 +8019,7 @@ fn proof_if(
         let name = if body.hides_proof() { "_" } else { name };
         let mark = cx.mark();
         cx.bind(name, ty);
-        let result = body.check(cx, expected);
+        let result = body.check(cx, named);
         cx.reset(mark);
         Ok(Term::Lam(name.into(), Icit::Explicit, Rc::new(result?)))
     };
@@ -8061,13 +8082,14 @@ fn check_if_in(
     then: &mut dyn IfBranch,
     otherwise: &mut dyn IfBranch,
     expected: &Value,
+    named: &Value,
 ) -> Result<Term> {
     let result_ty = cx.quote_folded(expected)?;
     let branch = |cx: &mut Ctx, name: &str, ty: Value, body: &mut dyn IfBranch| -> Result<Term> {
         let name = if body.hides_proof() { "_" } else { name };
         let mark = cx.mark();
         cx.bind(name, ty);
-        let result = body.check(cx, expected);
+        let result = body.check(cx, named);
         cx.reset(mark);
         Ok(Term::Lam(name.into(), Icit::Explicit, Rc::new(result?)))
     };
