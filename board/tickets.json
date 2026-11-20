@@ -30250,12 +30250,12 @@
     {
       "id": 4456,
       "title": "[Opus] A match whose goal is a Prop call with an unknown applied to the scrutinee (Reads0 (() => _j lt) inside reads0Then) can't be checked against the folded goal, so SW-4453 skips the folded try when the goal has unknowns (23 fallbacks in three fmt namespaces without that condition); make the folded motive work there so the condition can go; also the effect-context callers of check_match (effects.rs ~2935, ~2949) still pass the forced goal; and partial-unfold.md's 'Follows stays folded' now holds for match: update it (SW-4453 findings)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
-      "body": "",
+      "body": "\nProgress (lane, 20 Nov 21:23): cause found: the 23 folded tries the skip avoided all failed unfolded too (an argument checked before a later one fixes `_j`; `_j False` is solved by neither form; the argument is rechecked once `_j` is known). Skip dropped in matching::check_match_named; fallback kept. effects.rs callers left on check_match: they only see a forced goal (run_pure) or a Comp type, never a Prop call. partial-unfold.md updated (§2.2 update with limits). Examples (match,partial-unfold,guard,rewrite), hash snapshots (none moved), soundness set, Std.Set.Spec, the three fmt namespaces: pass. Commit fc2e9579d on lane/SW-4456.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
