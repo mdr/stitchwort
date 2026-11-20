@@ -100,6 +100,8 @@ pub(crate) const PATH_CAP: usize = 64;
 pub(crate) struct Walks {
     calls: Vec<CallInfo>,
     nodes: Vec<NodeInfo>,
+    /// The premises being walked inside one another now, outermost first.
+    nesting: Vec<leaf::Nested>,
 }
 
 struct CallInfo {

@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-WALK] Error: the walk stops: a premise's walk needs the same statement walked again
+    ╭─[ reject/walk-nested-loop.sw:26:76 ]
+    │
+ 26 │ theorem followsH: Parse.Follows SameNat SameNat (() => h()) (() => h()) := byWalking []
+    │                                                                            ────┬────  
+    │                                                                                ╰────── in `h`
+    │ 
+    │ Note 1: lemmas whose premises are about each other's functions: name one of the premises in the brackets, or prove this leaf with `then t`
+    │ 
+    │ Note 2: the goal there is ∀ (m: Nat) => Parse.Follows SameNat SameNat (arg => g m) (arg => g m)
+────╯

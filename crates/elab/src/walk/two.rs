@@ -296,7 +296,21 @@ fn rewrite_twin(
     let Value::Eq(_, left, right) = force(&g, cx.types[fact].clone())? else {
         return Ok(None);
     };
-    if !(cx.conv_now(&left, &Value::var(value))? && cx.conv_now(&right, &Value::var(twin))?) {
+    // `value = twin` is used backwards and `twin = value` forwards: either
+    // way the twin is replaced by the first run's value.
+    let reverse = if cx.conv_now(&left, &Value::var(value))?
+        && cx.conv_now(&right, &Value::var(twin))?
+    {
+        true
+    } else if cx.conv_now(&left, &Value::var(twin))? && cx.conv_now(&right, &Value::var(value))? {
+        false
+    } else {
+        return Ok(None);
+    };
+    // A twin the rest of the program doesn't use (`let _ := here(); 1`)
+    // isn't in the goal, and `rewrite` would find nothing to rewrite.
+    let goal = cx.quote_folded(expected)?;
+    if !goal.mentions(cx.level() - 1 - twin) {
         return Ok(None);
     }
     let span = cx.span;
@@ -304,7 +318,7 @@ fn rewrite_twin(
     // The goal `rewrite` leaves is unfolded; the walk reads it as this one,
     // folded, with the twin replaced.
     let planned = Rc::new(Planned {
-        goal: cx.quote_folded(expected)?,
+        goal,
         needle: Term::Var(cx.level() - 1 - twin),
         base: cx.level(),
         with: Replacement::Variable(value),
@@ -320,7 +334,7 @@ fn rewrite_twin(
     );
     let e = Expr::Rewrite {
         rules: vec![ast::RewriteRule {
-            reverse: true,
+            reverse,
             proof: var(equate.fact.clone(), span),
             unfold: false,
             span,
@@ -337,7 +351,11 @@ fn rewrite_twin(
         cx,
         node,
         vec![
-            Piece::Text(format!("rewrite <- {} then\n", equate.fact)),
+            Piece::Text(format!(
+                "rewrite {}{} then\n",
+                if reverse { "<- " } else { "" },
+                equate.fact
+            )),
             Piece::Child(next),
         ],
     );

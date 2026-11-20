@@ -84,3 +84,56 @@ def peekTwice(): {Parse Nat} Nat :=
   0
 
 theorem givesPeekTwice: Parse.Gives Parse.Invariant.any (() => peekTwice()) (n => n = 0) := byWalking []
+
+-- A lemma with a function parameter the call fixes (`next`, whose type's
+-- `a` is still unknown when the call is fitted): passed as the call's
+-- function, not taken for a premise. Its premise about `next` is walked.
+def bothLooks(): {Parse Nat} List (Option Nat) := both (() => look())
+
+theorem givesBothLooks: Parse.Gives Parse.Invariant.any (() => bothLooks()) (List.All ((v: Option Nat) => True)) :=
+  byWalking [givesBoth]
+
+-- A premise the walk can't prove (`lookOnce` has no lemma), proved by
+-- `then`.
+def bothOnce(): {Parse Nat} List (Option Nat) := both (() => lookOnce())
+
+theorem givesLookOnce: Parse.Gives Parse.Invariant.any (() => lookOnce()) ((v: Option Nat) => True) := byWalking []
+
+theorem givesBothOnce: Parse.Gives Parse.Invariant.any (() => bothOnce()) (List.All ((v: Option Nat) => True)) :=
+  byWalking [givesBoth] then givesLookOnce
+
+-- A premise proved by a term in the brackets: `orZeroSmall` is the
+-- `small` that `givesLookWith` needs for `orZero`.
+def lookWith (pick: Option Nat → Nat): {Parse Nat} Nat :=
+  let found := look()
+  pick found
+
+theorem givesLookWith ∀ (pick: Option Nat → Nat) (bound: Nat)
+    (small: ∀ (v: Option Nat) => pick v <= bound):
+    Parse.Gives Parse.Invariant.any (() => lookWith pick) (n => n <= bound) :=
+  byWalking [] then small found
+
+def orZero (v: Option Nat): Nat := match v with
+  | Some n => 0
+  | None => 1
+
+theorem orZeroSmall ∀ (v: Option Nat): orZero v <= 1 := match v with
+  | Some n => byComputing
+  | None => byComputing
+
+def lookSmall(): {Parse Nat} Nat := lookWith orZero
+
+theorem givesLookSmall: Parse.Gives Parse.Invariant.any (() => lookSmall()) (n => n <= 1) :=
+  byWalking [givesLookWith, orZeroSmall]
+
+-- A `ReadsIn` walk whose call's lemma says less than the goal: weakened
+-- with `Parse.readsWeaken`.
+@[walk]
+theorem readsLook: Parse.ReadsIn Parse.Invariant.any (() => look()) ((read: List Nat) (v: Option Nat) => True) :=
+  Parse.readsWeaken (Parse.readsNext (n => True)) (read value proved => byComputing)
+
+def lookAgain(): {Parse Nat} Option Nat := look()
+
+theorem readsLookAgain: Parse.ReadsIn Parse.Invariant.any (() => lookAgain()) ((read: List Nat) (v: Option Nat) =>
+      v = v) :=
+  byWalking []

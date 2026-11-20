@@ -63,3 +63,37 @@ def collectHeres (fuel: Nat): {Parse Nat} List Nat := collect fuel (() => here()
 theorem followsCollectHeres ∀ (fuel: Nat):
     Parse.Follows SameNat (List.All2 SameNat) (() => collectHeres fuel) (() => collectHeres fuel) :=
   byWalking [followsCollect]
+
+-- A value neither run uses: the twin isn't in the goal, so nothing is
+-- rewritten.
+def hereUnused(): {Parse Nat} Nat :=
+  let unused := here()
+  1
+
+theorem followsHereUnused: Parse.Follows SameNat SameNat (() => hereUnused()) (() => hereUnused()) := byWalking []
+
+-- A fact written the other way round, `twin = value`: rewritten forwards.
+def SameBack (x y: Nat): Prop := y = x
+
+theorem followsHereBack: Parse.Follows SameBack SameBack (() => here()) (() => here()) :=
+  Parse.followsMap [alike := SameBack] (m => m.offset) (m => m.offset) Parse.followsMark (m n alike =>
+    alike.right.left.flipped)
+
+def hereThen(): {Parse Nat} Nat :=
+  let at := here()
+  if at == 0 then 1 else at
+
+theorem followsHereThen: Parse.Follows SameBack SameBack (() => hereThen()) (() => hereThen()) :=
+  byWalking [followsHereBack]
+
+-- A premise the walk can't prove (`hereOnce` has no lemma), proved by
+-- `then`.
+def hereOnce(): {Parse Nat} Nat := here()
+
+theorem followsHereOnce: Parse.Follows SameNat SameNat (() => hereOnce()) (() => hereOnce()) := byWalking []
+
+def collectOnce (fuel: Nat): {Parse Nat} List Nat := collect fuel (() => hereOnce()) []
+
+theorem followsCollectOnce ∀ (fuel: Nat):
+    Parse.Follows SameNat (List.All2 SameNat) (() => collectOnce fuel) (() => collectOnce fuel) :=
+  byWalking [followsCollect] then followsHereOnce
