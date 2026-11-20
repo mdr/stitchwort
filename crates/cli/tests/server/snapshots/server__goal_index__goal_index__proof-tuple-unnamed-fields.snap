@@ -18,12 +18,13 @@ expression: json
           "type": "2 = 2"
         }
       ],
-      "target": "1 = 1 ∧ 2 = 2"
+      "target": "P True",
+      "targetComputed": "1 = 1 ∧ 2 = 2"
     },
     "labels": [
       {
         "file": 0,
-        "message": "left✝: 1 = 1\nright✝: 2 = 2\n⊢ 1 = 1 ∧ 2 = 2",
+        "message": "left✝: 1 = 1\nright✝: 2 = 2\n⊢ P True\n  computes to 1 = 1 ∧ 2 = 2",
         "range": [
           8,
           20,

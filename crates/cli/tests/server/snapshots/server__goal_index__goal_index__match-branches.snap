@@ -10,16 +10,17 @@ expression: json
     "goal": {
       "hypotheses": [],
       "lemma": "theorem addZeroGoal1: 0 = 0 := ?",
-      "target": "0 = 0"
+      "target": "0 + 0 = 0",
+      "targetComputed": "0 = 0"
     },
     "labels": [
       {
         "file": 0,
-        "message": "⊢ 0 = 0",
+        "message": "⊢ 0 + 0 = 0\n  computes to 0 = 0",
         "range": [
-          4,
+          5,
           12,
-          4,
+          5,
           13
         ]
       }
@@ -27,9 +28,9 @@ expression: json
     "message": "in `addZero`",
     "notes": [],
     "range": [
-      4,
+      5,
       12,
-      4,
+      5,
       13
     ],
     "severity": "goal"
@@ -46,16 +47,17 @@ expression: json
         }
       ],
       "lemma": "theorem addZeroGoal2 (k: Nat): Succ k = Succ k := ?",
-      "target": "Succ k = Succ k"
+      "target": "Succ k + 0 = Succ k",
+      "targetComputed": "Succ k = Succ k"
     },
     "labels": [
       {
         "file": 0,
-        "message": "k: Nat\n⊢ Succ k = Succ k",
+        "message": "k: Nat\n⊢ Succ k + 0 = Succ k\n  computes to Succ k = Succ k",
         "range": [
-          5,
+          6,
           14,
-          5,
+          6,
           15
         ]
       }
@@ -63,9 +65,9 @@ expression: json
     "message": "in `addZero`",
     "notes": [],
     "range": [
-      5,
+      6,
       14,
-      5,
+      6,
       15
     ],
     "severity": "goal"

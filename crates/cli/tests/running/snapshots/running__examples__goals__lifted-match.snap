@@ -10,7 +10,8 @@ expression: output
     │                                                                                           ╰── x: Nat
     │                                                                                               rest: List Nat
     │                                                                                               flag: Bool
-    │                                                                                               ⊢ x ≤ 3 ∧ (match flag with …)
+    │                                                                                               ⊢ Follows [x, ..rest] flag
+    │                                                                                                 computes to x ≤ 3 ∧ (match flag with …)
 ────╯
 [GOAL] Goal: in `statementMatch`
     ╭─[ goals/lifted-match.sw:22:3 ]

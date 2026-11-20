@@ -1,0 +1,106 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `plain`
+   ╭─[ goals/closed-comparison-as-written.sw:7:36 ]
+   │
+ 7 │ theorem plain ∀ (n: Nat): 0 < 1 := ?
+   │                                    ┬  
+   │                                    ╰── n: Nat
+   │                                        ⊢ 0 < 1
+   │                                          computes to True = True
+───╯
+[GOAL] Goal: in `arms`
+    ╭─[ goals/closed-comparison-as-written.sw:10:10 ]
+    │
+ 10 │   | 0 => ?
+    │          ┬  
+    │          ╰── ⊢ 0 < 1
+    │                computes to True = True
+────╯
+[GOAL] Goal: in `arms`
+    ╭─[ goals/closed-comparison-as-written.sw:11:10 ]
+    │
+ 11 │   | _ => ?
+    │          ┬  
+    │          ╰── n: Nat
+    │              n ≠ 0
+    │              ⊢ 0 < 1
+    │                computes to True = True
+    │ 
+    │ Note: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
+────╯
+[GOAL] Goal: in `split`
+    ╭─[ goals/closed-comparison-as-written.sw:14:10 ]
+    │
+ 14 │   | 0 => ?
+    │          ┬  
+    │          ╰── ⊢ 0 * 2 < 3
+    │                computes to True = True
+────╯
+[GOAL] Goal: in `split`
+    ╭─[ goals/closed-comparison-as-written.sw:15:10 ]
+    │
+ 15 │   | 1 => ?
+    │          ┬  
+    │          ╰── ⊢ 1 * 2 < 3
+    │                computes to True = True
+────╯
+[GOAL] Goal: in `split`
+    ╭─[ goals/closed-comparison-as-written.sw:16:10 ]
+    │
+ 16 │   | _ => ?
+    │          ┬  
+    │          ╰── n: Nat
+    │              n ≠ 0
+    │              n ≠ 1
+    │              ⊢ n * 2 < 3
+    │                computes to n * 2 ≤ 2
+    │ 
+    │ Note: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
+────╯
+[GOAL] Goal: in `nested`
+    ╭─[ goals/closed-comparison-as-written.sw:18:45 ]
+    │
+ 18 │ theorem nested ∀ (n: Nat): 2 ≤ 3 ∧ n = n := ?
+    │                                             ┬  
+    │                                             ╰── n: Nat
+    │                                                 ⊢ 2 ≤ 3 ∧ n = n
+────╯
+[GOAL] Goal: in `decided`
+    ╭─[ goals/closed-comparison-as-written.sw:25:13 ]
+    │
+ 25 │   | True => ?
+    │             ┬  
+    │             ╰── n: Nat
+    │                 ⊢ pick True < 2
+    │                   computes to True = True
+────╯
+[GOAL] Goal: in `decided`
+    ╭─[ goals/closed-comparison-as-written.sw:26:14 ]
+    │
+ 26 │   | False => ?
+    │              ┬  
+    │              ╰── n: Nat
+    │                  ⊢ pick False < 2
+    │                    computes to True = True
+────╯
+[GOAL] Goal: in `apart`
+    ╭─[ goals/closed-comparison-as-written.sw:30:48 ]
+    │
+ 30 │ theorem apart ∀ (h: 0 < 1 → 2 < 3): 2 < 3 := h ?
+    │                                                ┬  
+    │                                                ╰── h: 0 < 1 → 2 < 3
+    │                                                    ⊢ True = True
+────╯
+[GOAL] Goal: in `under`
+    ╭─[ goals/closed-comparison-as-written.sw:33:52 ]
+    │
+ 33 │ theorem under ∀ (n: Nat): n = n → 0 < 1 := same => ?
+    │                                                    ┬  
+    │                                                    ╰── n: Nat
+    │                                                        same: n = n
+    │                                                        ⊢ 0 < 1
+    │                                                          computes to True = True
+────╯

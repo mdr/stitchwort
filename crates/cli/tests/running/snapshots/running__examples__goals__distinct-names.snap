@@ -9,7 +9,8 @@ expression: output
     │                                                        ┬  
     │                                                        ╰── x: Nat
     │                                                            xs: List Nat
-    │                                                            ⊢ ∃ (x1: Nat) => x1 < x
+    │                                                            ⊢ Below x xs
+    │                                                              computes to ∃ (x1: Nat) => x1 < x
 ────╯
 [GOAL] Goal: in `samePoint`
     ╭─[ goals/distinct-names.sw:14:115 ]

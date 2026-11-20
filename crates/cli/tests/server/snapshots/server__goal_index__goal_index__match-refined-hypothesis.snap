@@ -27,12 +27,13 @@ expression: json
         }
       ],
       "lemma": "theorem boundedGoal1 (p: Nat → Prop) (small: ∀ (m: Nat) => p m → m < 3) (k: Nat) (holds: p (Succ k)): k ≤ 2 := ?",
-      "target": "k ≤ 2"
+      "target": "Succ k < 4",
+      "targetComputed": "k ≤ 2"
     },
     "labels": [
       {
         "file": 0,
-        "message": "p: Nat → Prop\nsmall: ∀ (m: Nat) => p m → m < 3\nk: Nat\nholds: p (Succ k)\n⊢ k ≤ 2",
+        "message": "p: Nat → Prop\nsmall: ∀ (m: Nat) => p m → m < 3\nk: Nat\nholds: p (Succ k)\n⊢ Succ k < 4\n  computes to k ≤ 2",
         "range": [
           4,
           14,

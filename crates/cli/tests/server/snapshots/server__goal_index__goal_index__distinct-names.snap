@@ -19,12 +19,13 @@ expression: json
         }
       ],
       "lemma": "theorem belowGoal1 (x: Nat) (xs: List Nat): ∃ (x1: Nat) => x1 < x := ?",
-      "target": "∃ (x1: Nat) => x1 < x"
+      "target": "Below x xs",
+      "targetComputed": "∃ (x1: Nat) => x1 < x"
     },
     "labels": [
       {
         "file": 0,
-        "message": "x: Nat\nxs: List Nat\n⊢ ∃ (x1: Nat) => x1 < x",
+        "message": "x: Nat\nxs: List Nat\n⊢ Below x xs\n  computes to ∃ (x1: Nat) => x1 < x",
         "range": [
           10,
           55,

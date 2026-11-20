@@ -155,12 +155,13 @@ expression: json
         }
       ],
       "lemma": "theorem hiddenGoal1 (count: Nat): count + 3 = count + 3 := ?",
-      "target": "count + 3 = count + 3"
+      "target": "count + Demo.Ops.count = Demo.Ops.count + count",
+      "targetComputed": "count + 3 = count + 3"
     },
     "labels": [
       {
         "file": 0,
-        "message": "count: Nat\n⊢ count + 3 = count + 3",
+        "message": "count: Nat\n⊢ count + Demo.Ops.count = Demo.Ops.count + count\n  computes to count + 3 = count + 3",
         "range": [
           16,
           82,

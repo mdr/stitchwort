@@ -25,7 +25,8 @@ expression: output
     │          ╰── n: Nat
     │              c: Char
     │              h2: 0 < pick (c == 'a')
-    │              ⊢ True = True
+    │              ⊢ 0 < 1
+    │                computes to True = True
     │ 
     │ Note: this arm is checked in 2 cases; the goal shown is the last of them
 ────╯

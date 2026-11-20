@@ -108,7 +108,8 @@ theorem timesOne ∀ (n: Nat): n * 1 = n := match n with
  5 │   | Succ k => ?
    │               ┬
    │               ╰── k: Nat
-   │                   ⊢ k * 1 + 1 = Succ k
+   │                   ⊢ Succ k * 1 = Succ k
+   │                     computes to k * 1 + 1 = Succ k
 ───╯
 1 goal open
 ```
@@ -126,7 +127,7 @@ A declaration with a `?` isn't an error, but it isn't finished either: it is che
 
 `stitchwort goal`, with no `--at`, lists every open goal with what relies on it, and `stitchwort audit` fails each of them and names the goal. A definition with a `?` has equation lemmas (`half.eq1`, `half.eq2`) too, and they are unfinished as well. You can state a lemma with `?` as its proof and use it in the main theorem first, then come back to it. In the editor, the goal shows on hover, and "Stitchwort: Show Goals" opens a panel that follows the cursor. It works anywhere in a file, not only on a `?`: put the cursor in a proof, on an arm's body or a step of a `calc`, and it shows the names in scope and `⊢` what that expression has to prove. In program code it shows `expected T` instead, or `has type T` where nothing was expected. Moving the cursor updates the panel after a short pause (about a third of a second, longer in a big file); until then the last answer stays, and where there is nothing to show (a comment, a pattern, a signature) it is kept, dimmed.
 
-The goal is shown as you wrote it, with the values of the case put in. When it computes to something that prints differently, a second line says so, dimmed in the editor: in the `Rock` arm of a proof that `beats m m = False`, the goal reads `⊢ beats Rock Rock = False`, then `computes to False = False`. The first line is the statement you are proving; the second is what `byComputing` and the checker see. A computed line over 240 characters is cut. Hypotheses are shown as the checker has them.
+The goal is shown as you wrote it, with the values of the case put in. When it computes to something that prints differently, a second line says so, dimmed in the editor: in the `Rock` arm of a proof that `beats m m = False`, the goal reads `⊢ beats Rock Rock = False`, then `computes to False = False`; a goal `0 < 1` reads `⊢ 0 < 1`, then `computes to True = True`. The first line is the statement you are proving; the second is what `byComputing` and the checker see. A computed line over 240 characters is cut. Hypotheses are shown as the checker has them.
 
 ## Proofs about lists
 
