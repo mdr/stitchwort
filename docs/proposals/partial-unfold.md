@@ -141,7 +141,7 @@ inside it).
   well-founded definition does not unfold in today's read-back either, so it is never opened.
   **[checked]**
 
-**Update (SW-4453, SW-4456).** "`Follows` stays folded" holds for `match` only since SW-4453.
+**Update (SW-4453, SW-4456, SW-4462).** "`Follows` stays folded" holds for `match` only since SW-4453.
 Before it, `check_match` was given the goal already forced, so a goal `Parse.Follows …` reached
 the walk as the `∀` it computes to, and there was no `Follows` left to keep. Now
 `matching::check_match_named` checks a `match` whose goal is a call of a `Prop` definition
@@ -153,9 +153,10 @@ folded tries that failed failed unfolded too **[ran]**: each was an argument che
 later argument fixed `_j`, where an arm's `_j False` is solved by neither form, and the argument
 is checked again once `_j` is known. The remaining limits:
 
-- **The call must be the goal at the `match`.** A `let` in front (`let m := n` then the
-  `match`) is given the forced goal and passes it on, so the arms see `Follows` unfolded
-  **[ran]**. The same goes for any form that hands its body the forced goal.
+- **The call must reach the `match` as written.** Since SW-4462 a `let` in front (`let m := n`
+  then the `match`), and local definitions in front, hand their body the goal as written, so the
+  arms see `Follows` folded (`examples/goals/let-match-partial-unfold.sw`) **[ran]**. A form
+  that hands its body the forced goal (an `if`'s branches, say) still loses the call.
 - **`match` in code that performs** (`effects::comp_check_in`) is not routed this way: what it is
   checked against is already forced (`run_pure`) or is a `Comp` type, never a `Prop` call
   **[checked]**.

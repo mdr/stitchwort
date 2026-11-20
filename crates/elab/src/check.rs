@@ -6639,8 +6639,11 @@ fn check_value_against(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Valu
         (Expr::Hole(_), _) => hole_against(cx, &expected),
         (Expr::Goal(_), _) => Ok(crate::goals::hole_named(cx, &expected, named)),
         (Expr::Missing(_), _) => Ok(crate::goals::error_hole(cx, &expected)),
+        // The body is checked against the goal as written, which `check`
+        // forces again, so a `match` at its end still sees a call of a
+        // `Prop` definition folded ([`crate::matching::check_match_named`]).
         (Expr::LocalDefs { defs, body, .. }, _) => {
-            crate::local::around(cx, defs, |cx| check(cx, body, &expected))
+            crate::local::around(cx, defs, |cx| check(cx, body, named))
         }
         (
             Expr::Let {
@@ -6651,7 +6654,7 @@ fn check_value_against(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Valu
                 ..
             },
             _,
-        ) => Ok(effects::pure_let(cx, name, ty.as_deref(), value, body, Some(&expected))?.0),
+        ) => Ok(effects::pure_let(cx, name, ty.as_deref(), value, body, Some(named))?.0),
         // `(A, B)` where a type is expected is `Pair A B`, and `(a, b)` where
         // a pair is expected is `MkPair a b`.
         (Expr::Tuple(a, b, _), Value::Sort(_)) => tuple_type(cx, a, b, &expected),
