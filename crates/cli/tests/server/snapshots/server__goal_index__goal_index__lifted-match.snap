@@ -22,6 +22,7 @@ expression: json
           "type": "Bool"
         }
       ],
+      "lemma": "theorem followsConsGoal1 (x: Nat) (rest: List Nat) (flag: Bool): Follows [x, ..rest] flag := ?",
       "target": "Follows [x, ..rest] flag",
       "targetComputed": "x ≤ 3 ∧ (match flag with …)"
     },

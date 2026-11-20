@@ -18,7 +18,7 @@ expression: json
           "type": "increasing xs"
         }
       ],
-      "lemma": "theorem shortIncreasingGoal1 (xs: List Nat) (h: increasing xs): xs.length ≤ 5 := ?",
+      "lemma": "theorem shortIncreasingGoal1 (xs: List Nat) (h: increasing xs): xs.length < 6 := ?",
       "target": "xs.length < 6",
       "targetComputed": "xs.length ≤ 5"
     },

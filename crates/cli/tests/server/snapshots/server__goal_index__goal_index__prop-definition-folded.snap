@@ -24,7 +24,7 @@ expression: json
           "type": "Nat"
         }
       ],
-      "lemma": "theorem topGoal1 (n: Nat): n ≤ 3 ∧ n ≠ 7 := ?",
+      "lemma": "theorem topGoal1 (n: Nat): Small n := ?",
       "target": "Small n",
       "targetComputed": "n ≤ 3 ∧ n ≠ 7"
     },

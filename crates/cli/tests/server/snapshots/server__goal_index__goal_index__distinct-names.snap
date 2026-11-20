@@ -18,7 +18,7 @@ expression: json
           "type": "List Nat"
         }
       ],
-      "lemma": "theorem belowGoal1 (x: Nat) (xs: List Nat): ∃ (x1: Nat) => x1 < x := ?",
+      "lemma": "theorem belowGoal1 (x: Nat) (xs: List Nat): Below x xs := ?",
       "target": "Below x xs",
       "targetComputed": "∃ (x1: Nat) => x1 < x"
     },

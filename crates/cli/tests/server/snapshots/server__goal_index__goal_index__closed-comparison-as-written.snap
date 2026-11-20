@@ -14,7 +14,7 @@ expression: json
           "type": "Nat"
         }
       ],
-      "lemma": "theorem plainGoal1 (n: Nat): True = True := ?",
+      "lemma": "theorem plainGoal1 (n: Nat): 0 < 1 := ?",
       "target": "0 < 1",
       "targetComputed": "True = True"
     },
@@ -342,7 +342,7 @@ expression: json
           "type": "0 < 1 → 2 < 3"
         }
       ],
-      "lemma": "theorem apartGoal1 (h: 0 < 1 → 2 < 3): True = True := ?",
+      "lemma": "theorem apartGoal1 (h: 0 < 1 → 2 < 3): 0 < 1 := ?",
       "target": "0 < 1",
       "targetComputed": "True = True"
     },
@@ -383,7 +383,7 @@ expression: json
           "type": "n = n"
         }
       ],
-      "lemma": "theorem underGoal1 (n: Nat) (same: n = n): True = True := ?",
+      "lemma": "theorem underGoal1 (n: Nat) (same: n = n): 0 < 1 := ?",
       "target": "0 < 1",
       "targetComputed": "True = True"
     },

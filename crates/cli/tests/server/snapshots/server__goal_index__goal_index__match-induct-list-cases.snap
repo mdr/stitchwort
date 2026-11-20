@@ -30,7 +30,7 @@ expression: json
           "type": "countAbove k xs ≤ xs.length"
         }
       ],
-      "lemma": "theorem leGoal1 (k: Nat) (x: Nat) (xs: List Nat) (h1: (k <= x) = False) (ih: countAbove k xs ≤ xs.length): countAbove k xs ≤ Succ xs.length := ?",
+      "lemma": "theorem leGoal1 (k: Nat) (x: Nat) (xs: List Nat) (h1: (k <= x) = False) (ih: countAbove k xs ≤ xs.length): countAbove k xs ≤ [x, ..xs].length := ?",
       "target": "countAbove k xs ≤ [x, ..xs].length",
       "targetComputed": "countAbove k xs ≤ Succ xs.length"
     },

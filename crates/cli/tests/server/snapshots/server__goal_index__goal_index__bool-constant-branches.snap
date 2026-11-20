@@ -68,7 +68,7 @@ expression: json
           "type": "Bool"
         }
       ],
-      "lemma": "theorem allTwoGoal1 (b: Bool) (c: Bool): (b && c && True) = b := ?",
+      "lemma": "theorem allTwoGoal1 (b: Bool) (c: Bool): [b, c].all (x => x) = b := ?",
       "target": "[b, c].all (x => x) = b",
       "targetComputed": "(b && c && True) = b"
     },
@@ -125,7 +125,7 @@ expression: json
           "type": "Bool"
         }
       ],
-      "lemma": "theorem anyTwoGoal1 (b: Bool) (c: Bool): (b || c || False) = b := ?",
+      "lemma": "theorem anyTwoGoal1 (b: Bool) (c: Bool): [b, c].any (x => x) = b := ?",
       "target": "[b, c].any (x => x) = b",
       "targetComputed": "(b || c || False) = b"
     },
