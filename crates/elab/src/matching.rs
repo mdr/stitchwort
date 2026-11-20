@@ -396,22 +396,22 @@ fn note_match_step(cx: &Ctx, alts: &[Alt], span: stitchwort_syntax::Span, goal: 
 /// then keeps the call, so the arms' goals show it folded and the partial
 /// unfold sees the call it is designed around, rather than the `∀` it
 /// computes to. Where that fails, the `match` is checked again against the
-/// forced `expected`, as before, and that outcome stands: keeping the head
-/// never makes a `match` fail that checks unfolded.
+/// forced `expected`, as before, and that outcome stands, so a `match` that
+/// checks unfolded still checks.
+///
+/// A call with an unknown in it (`Reads0 (() => _j lt)`, the continuation of
+/// a `reads0Then` not worked out yet) is kept folded too. Such a `match` is
+/// usually an argument checked before a later one fixes the unknown: an arm
+/// then compares `_j False` with what it proves, which no unknown applied
+/// to a constructor solves, folded or not, and the argument is checked again
+/// once the unknown is known.
 pub(crate) fn check_match_named(
     cx: &mut Ctx,
     expr: &Expr,
     expected: &Value,
     named: &Value,
 ) -> Result<Term> {
-    let g = cx.g();
-    // A call with an unknown in it (`Reads0 (() => _j x)`, the continuation
-    // of a `reads0Then` not yet worked out) is checked unfolded: kept folded,
-    // its arms fail to solve the unknown where unfolded they don't.
-    let folded = crate::goals::is_prop_call(&g, named)
-        && crate::check::quote_folded(&g, cx.level(), named)
-            .is_ok_and(|t| !t.subterms().any(|(t, _)| matches!(t, Term::Meta(_))));
-    if !folded {
+    if !crate::goals::is_prop_call(&cx.g(), named) {
         return check_match(cx, expr, expected);
     }
     let snapshot = crate::undo::Snapshot::take(cx);
