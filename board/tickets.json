@@ -28231,14 +28231,14 @@
     {
       "id": 4302,
       "title": "[Opus] HangLays/Steps shape blocks inference of pre/middle/post (pre place (hangOf kinds trace) isn't a pattern once unfolded): restate HangLays with the hang as a bound variable (meaning unchanged; orchestrator statement check), or teach the unifier; est. ~400 more lines off the hangs/steps families (SW-4282 finding)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
       "body": "From SW-4282; see its report in the worklog/ticket.",
       "created": "2026-11-19",
-      "updated": "2026-11-19",
+      "updated": "2026-11-20",
       "commits": []
     },
     {
