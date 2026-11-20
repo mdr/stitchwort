@@ -284,7 +284,7 @@ theorem exprRuns ∀ (expr: Expr) (hoisted: Bool)
       match kind, within with
         | Lower, within =>
           atomRuns word Lower hoisted sound
-            (spellsOfText1 Lower word.text (Bool.andRight within))
+            (spellsOfText1 Lower word.text within)
             byComputing
             byComputing
             byComputing
@@ -292,7 +292,7 @@ theorem exprRuns ∀ (expr: Expr) (hoisted: Bool)
             byComputing
         | Upper, within =>
           atomRuns word Upper hoisted sound
-            (spellsOfText1 Upper word.text (Bool.andRight within))
+            (spellsOfText1 Upper word.text within)
             byComputing
             byComputing
             byComputing
@@ -300,7 +300,7 @@ theorem exprRuns ∀ (expr: Expr) (hoisted: Bool)
             byComputing
         | Num, within =>
           atomRuns word Num hoisted sound
-            (spellsOfText1 Num word.text (Bool.andRight within))
+            (spellsOfText1 Num word.text within)
             byComputing
             byComputing
             byComputing
@@ -308,7 +308,7 @@ theorem exprRuns ∀ (expr: Expr) (hoisted: Bool)
             byComputing
         | Float, within =>
           atomRuns word Float hoisted sound
-            (spellsOfText1 Float word.text (Bool.andRight within))
+            (spellsOfText1 Float word.text within)
             byComputing
             byComputing
             byComputing

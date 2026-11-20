@@ -67,9 +67,8 @@ test "comments above the type's or the value's first token put it on a line of i
 test "a walk followed by more of an expression is refused, as the Rust parser refuses it" :=
   fails "def a: T := byWalking [x] y\n" && fails "def a: T := byWalking [x] + 1\n"
 
---| Outside slice 1 (`Fmt.Expr.within1`), the name as an operand is a call in later slices, as in Rust.
-test "the name `byWalking` as an operand is read as a call" :=
-  formats "def a: T := x + byWalking [y]\n" "def a: T := x + byWalking [y]\n"
+test "`byWalking` is a keyword: as an operand or a name it is refused, as the Rust parser refuses it" :=
+  fails "def a: T := x + byWalking [y]\n" && fails "def byWalking: Nat := 1\n" && fails "def a: byWalking := b\n"
 
 test "a plain walk is slice 6a's, formatted as the Rust formatter does" :=
   formats "def a: T := byWalking  [x,y]\n" "def a: T := byWalking [x, y]\n"

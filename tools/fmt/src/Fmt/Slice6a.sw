@@ -263,7 +263,7 @@ def SourceFile.within6a (file: SourceFile): Bool := file.decls.all Decl.within6a
 --| Slice 6a's tokens: slice 4c's, `rewrite`, `cases`, `calc`,
 --| `arithmetic`, `algebra` and `↔`.
 def Tok.within6a: Tok → Bool
-  | KwRewrite | KwCases | KwCalc | KwArithmetic | KwAlgebra | IffArrow => True
+  | KwRewrite | KwCases | KwCalc | KwByWalking | KwArithmetic | KwAlgebra | IffArrow => True
   | kind => kind.within4c
 
 -- Printing.

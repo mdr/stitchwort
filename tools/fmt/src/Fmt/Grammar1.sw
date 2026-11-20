@@ -87,8 +87,8 @@ def Tok.alphabet1: Tok → Bool
   | _ => False
 
 --| The token kinds of a name or numeral: a lower-case or upper-case name, plain or qualified, a whole number, and a
---| number with a fraction or an exponent. Any text the lexer reads as one of these is in, but for `byWalking`
---| (`Expr.grammar1`): the grammar puts no other test of its own on the spelling.
+--| number with a fraction or an exponent. Any text the lexer reads as one of these is in: the grammar puts no test
+--| of its own on the spelling.
 def Tok.atom1: Tok → Bool
   | Lower => True
   | Upper => True
@@ -99,10 +99,9 @@ def Tok.atom1: Tok → Bool
 --| Whether an expression is one of slice 1's, all the way down. An operator is whatever the parser built the node
 --| with: a binary node's is one of the `binary` operators of the grammar above, an arrow node's `->` or `→`, a prefix
 --| node's `-`, `!` or `¬`, since the parser builds those nodes from no other token. A list with a spread, a call
---| with a named argument and every other form are outside. So is the name `byWalking` (D3706): where an expression
---| starts, `byWalking [` reads as a walk, a proof step of slice 6a's, and the slice keeps the word out everywhere.
+--| with a named argument and every other form are outside.
 def Expr.grammar1: Expr → Bool
-  | Atom kind word => kind.atom1 && word.text != "byWalking"
+  | Atom kind _ => kind.atom1
   | Paren _ inner _ => inner.grammar1
   | Tuple _ items _ _ => allGrammar1 items
   | ListOf _ items _ _ => allGrammar1 items
@@ -187,8 +186,8 @@ theorem inGrammar1PropExample: inGrammar1 "def p: Prop := a\n" = False := byComp
 --| A lambda is outside.
 theorem inGrammar1LambdaExample: inGrammar1 "def f: Nat → Nat := x => x\n" = False := byComputing
 
---| A walk is outside (D3706), and so is every source the language's parser refuses after one (D3705): a call on
---| it, an operator after it, a tuple with one first.
+--| A walk is outside (D3706): `byWalking` is a keyword (D3707), no token of slice 1's alphabet. So is every source
+--| the language's parser refuses after one (D3705): a call on it, an operator after it, a tuple with one first.
 theorem inGrammar1WalkExample: inGrammar1 "def a: T := byWalking [x]\n" = False := byComputing
 
 theorem inGrammar1WalkAppliedExample: inGrammar1 "def a: T := byWalking [x] y\n" = False := byComputing
@@ -203,7 +202,7 @@ theorem inGrammar1WalkAndExample: inGrammar1 "def a: T := byWalking [x] && y\n" 
 
 theorem inGrammar1WalkTupleExample: inGrammar1 "def a: T := (byWalking [x] y, 1)\n" = False := byComputing
 
---| The name is out where it reads as no walk too: as an operand, or alone.
+--| The keyword anywhere else is a parse error.
 theorem inGrammar1WalkNameExample: inGrammar1 "def a: T := x + byWalking [y]\n" = False := byComputing
 
 theorem inGrammar1WalkAloneExample: inGrammar1 "def a: byWalking := b\n" = False := byComputing

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected a name, but found the keyword `byWalking`
+   ╭─[ reject/walk-keyword-name.sw:3:5 ]
+   │
+ 3 │ def byWalking: Nat := 1
+   │     ────┬────  
+   │         ╰────── expected a name, but found the keyword `byWalking`
+   │ 
+   │ Note: `byWalking` is a keyword, so it can't be used as a name
+───╯

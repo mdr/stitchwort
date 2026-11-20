@@ -3438,8 +3438,8 @@ impl<'t> Parser<'t> {
 
     /// `byWalking [items] then t`, at the word (docs/syntax.md,
     /// "byWalking"): the items are a list's (`[]` too), and the body, as
-    /// for `rewrite`, runs to the end of the expression. The word is a word
-    /// only before a `[`, so a name `byWalking` elsewhere stays a name.
+    /// for `rewrite`, runs to the end of the expression. The word is
+    /// reserved, as `calc` is: no name can be `byWalking`.
     #[inline(never)]
     fn walk_expr(&mut self, start: u32) -> Result<()> {
         let column = self.tokens[self.pos].column;
@@ -3504,9 +3504,7 @@ impl<'t> Parser<'t> {
         if self.eat(&Tok::KwCases) {
             return self.cases_expr(start);
         }
-        if matches!(self.peek(), Some(Tok::Lower(w)) if w == crate::ast::WALK_WORD)
-            && self.peek_at(1) == Some(&Tok::LBracket)
-        {
+        if self.peek() == Some(&Tok::KwByWalking) {
             return self.walk_expr(start);
         }
         if self.lambda_ahead()? {
@@ -5128,6 +5126,7 @@ fn describe(tok: &Tok) -> String {
         Tok::KwImport => "`import`".into(),
         Tok::KwInclude => "`include`".into(),
         Tok::KwNamespace => "`namespace`".into(),
+        Tok::KwByWalking => "`byWalking`".into(),
         Tok::KwCalc => "`calc`".into(),
         Tok::KwRewrite => "`rewrite`".into(),
         Tok::KwArithmetic => "`arithmetic`".into(),

@@ -97,8 +97,7 @@ theorem atomAny ∀ (kind: Tok) (word: Word)
     (within: (Atom kind word).within1 = True)
     (sound: (Atom kind word).sound = True):
     AnyFacts (Atom kind word) :=
-  let (plain, (notComment, solid, closer, comma)) :=
-    wordFacts kind word.text (Bool.andIntro (Bool.andLeft within) (Bool.andRight (Bool.andRight within)))
+  let (plain, (notComment, solid, closer, comma)) := wordFacts kind word.text within
   let hangs: ∀ (around: Around) => (Atom kind word).plainAt around = True
     → HangsAt lexKind around.before (Atom kind word).trails ((Atom kind word).el around) :=
     around bare indent column =>
@@ -941,8 +940,7 @@ theorem ledHangs ∀ (expr: Expr) (around: Around) (indent: Nat)
       | [note, ..rest] =>
         match expr, within with
           | Atom kind word, within =>
-            let (plain, (notComment, solid, wordCloser, comma)) :=
-              wordFacts kind word.text (Bool.andIntro (Bool.andLeft within) (Bool.andRight (Bool.andRight within)))
+            let (plain, (notComment, solid, wordCloser, comma)) := wordFacts kind word.text within
             let el: ElHangs lexKind (word.leaf around around.at) indent indent around.before word.trails leadStart :=
               state entry =>
                 notedLeafHangs lexKind word around around.at indent state entry note rest plain notComment solid

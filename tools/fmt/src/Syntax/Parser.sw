@@ -820,11 +820,10 @@ def matchedPiped (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat)
 
 def exprOther (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr := exprWalk self modes (walkHere modes)
 
---| `byWalking` before a `[` starts a walk (`expr_inline`, `WALK_WORD`); anywhere else it is a name.
+--| The keyword `byWalking` starts a walk (`expr_inline`).
 def walkHere (modes: Modes): {Parse Item} Bool := walkOn modes left()
 
-def walkOn (modes: Modes) (items: List Item): Bool :=
-  wordOn modes "byWalking" items && isSome LBracket (peekIn modes 1 items)
+def walkOn (modes: Modes) (items: List Item): Bool := isSome KwByWalking (peekIn modes 0 items)
 
 def exprWalk (self: Goal → {Parse Item} Expr) (modes: Modes) (walk: Bool): {Parse Item} Expr :=
   if walk then walkExpr self modes else exprLambda self modes (lambdaHere modes)

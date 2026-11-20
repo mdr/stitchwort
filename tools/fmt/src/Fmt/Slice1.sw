@@ -33,9 +33,9 @@ import Syntax (
 
 --| Whether the expression is one of slice 1's: a name or numeral, `( )`, a
 --| tuple, a list without spreads, an application, a binary operator or `→` whose text is one slice 1's alphabet spells, `-`, `!` or `¬`, all the way
---| down. The name `byWalking` is out (D3706): where an expression starts, `byWalking [` is a walk, slice 6a's.
+--| down.
 def Expr.within1: Expr → Bool
-  | Atom kind word => kind.wordWithin1 && word.text != "byWalking" && textSpells1 kind word.text
+  | Atom kind word => kind.wordWithin1 && textSpells1 kind word.text
   | Paren _ inner _ => inner.within1
   | Tuple _ items _ _ | ListOf _ items _ _ => allWithin1 items
   | App head arguments => head.within1 && allWithin1 arguments

@@ -3,9 +3,6 @@
 --| a declaration's type and value, a paren's inside, a tuple's or a list's item, and an arrow's right side. There such a
 --| list reads as a binder, so a parsed tree has none; anywhere else, as an argument or an operand, it is a list
 --| (`f [auto Ord]`, `x + [auto Ord]`). `Expr.autoPlaced` says so of a tree, and read-back takes it.
---|
---| It also says no name is `byWalking` (SW-4427): at a full expression's start, `byWalking [` reads as a walk, a form
---| outside slice 1, and the slice keeps the word out everywhere (`Fmt.Expr.within1`, `Fmt.Expr.grammar1`).
 
 namespace Syntax.AutoPlaced
 import Std (Bool, List, Text)
@@ -27,11 +24,10 @@ def arrowKind1: InfixKind → Bool
   | InfixArrow => True
   | _ => False
 
---| No list that starts a full expression starts with an `auto` call, and no name is `byWalking`. `full` says whether
---| `expr` starts one; it passes down the leftmost spine (a call's head, an operator's left side), which starts where
---| `expr` does, and every bracket's inside and an arrow's right side start one of their own.
+--| No list that starts a full expression starts with an `auto` call. `full` says whether `expr` starts one; it passes
+--| down the leftmost spine (a call's head, an operator's left side), which starts where `expr` does, and every
+--| bracket's inside and an arrow's right side start one of their own.
 def Expr.autoPlaced (expr: Expr) (full: Bool): Bool := match expr with
-  | Atom _ word => word.text != "byWalking"
   | Paren _ inner _ => inner.autoPlaced True
   | Tuple _ items _ _ => autoPlacedAll True items
   | ListOf _ [] _ _ => True
@@ -58,7 +54,7 @@ theorem autoPlacedInner ∀ (expr: Expr) (placed: expr.autoPlaced True = True): 
     | ListOf _ [one, ..others] _ _, placed => Bool.andIntro byComputing (Bool.andRight placed)
     | App head _ | Infix _ head _ _, placed =>
       Bool.andIntro (autoPlacedInner head (Bool.andLeft placed)) (Bool.andRight placed)
-    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | Prefix _ _, placed => placed
+    | Paren _ _ _ | Tuple _ _ _ _ | Prefix _ _, placed => placed
     | ListOf _ [] _ _, _ => byComputing
     | other, _ => cases
 

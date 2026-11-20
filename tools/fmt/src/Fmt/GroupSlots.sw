@@ -77,7 +77,7 @@ theorem wordsClean ∀ (expr: Expr)
     | Atom kind word, within =>
       Bool.andIntro
         (wordClean word
-          (spellsNotComment kind word.text (spellsOfText1 kind word.text (Bool.andRight (Bool.andRight within))))
+          (spellsNotComment kind word.text (spellsOfText1 kind word.text (Bool.andRight within)))
           (Bool.andLeft commented))
         byComputing
     | Paren open inner close, within =>

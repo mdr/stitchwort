@@ -85,6 +85,7 @@ type Tok =
   | KwInclude
   | KwNamespace
   | KwCalc
+  | KwByWalking
   | KwRewrite
   | KwArithmetic
   | KwAlgebra
@@ -173,6 +174,7 @@ def Tok.name: Tok → Text
   | KwInclude => "KwInclude"
   | KwNamespace => "KwNamespace"
   | KwCalc => "KwCalc"
+  | KwByWalking => "KwByWalking"
   | KwRewrite => "KwRewrite"
   | KwArithmetic => "KwArithmetic"
   | KwAlgebra => "KwAlgebra"
@@ -197,6 +199,7 @@ def Tok.keyword: Text → Option Tok
   | "ability" => Some KwAbility
   | "algebra" => Some KwAlgebra
   | "arithmetic" => Some KwArithmetic
+  | "byWalking" => Some KwByWalking
   | "calc" => Some KwCalc
   | "cases" => Some KwCases
   | "decreasing" => Some KwDecreasing

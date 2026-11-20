@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected an expression, but found `byWalking`
+   ╭─[ reject/walk-keyword-operand.sw:4:30 ]
+   │
+ 4 │ def a (x y: Nat): Nat := x + byWalking [y]
+   │                              ────┬────  
+   │                                  ╰────── expected an expression, but found `byWalking`
+───╯

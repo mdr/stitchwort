@@ -201,7 +201,7 @@ theorem unplacedTokens ∀ (expr: Expr)
         (rewrite isWords),
         isAuto
       )
-    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | Prefix _ _, _, inner, unplaced =>
+    | Paren _ _ _ | Tuple _ _ _ _ | Prefix _ _, _, inner, unplaced =>
       (Bool.falseNotTrue (Eq.trans unplaced.flipped inner)).impossible
 
 --| Items whose kinds and words start `[auto Upper` are what `namelessAutoAt` tests for.
@@ -374,16 +374,12 @@ theorem tokWithinOfAtom1 ∀ (kind: Tok) (atom: kind.atom1 = True): kind.within1
 
 --| A good item read as an atom: in the grammar, it is a name or numeral, spelled as the slice has them.
 theorem keptAtom ∀ (item: Item) (good: GoodItem item): Kept [item] (Atom item.kind item.leaf.word) := grammar =>
-  let atom := Bool.andLeft grammar
-  let word := wordOfAtom1 item.kind atom
+  let word := wordOfAtom1 item.kind grammar
   (
     (rewrite itemWordsCode item (wordWithinNotComma item.kind word)),
     byComputing,
-    Bool.andIntro word
-      (Bool.andIntro
-        (Bool.andRight grammar)
-        (spellsText1 item.kind item.text atom (good (tokWithinOfAtom1 item.kind atom)))),
-    Bool.andRight grammar
+    Bool.andIntro word (spellsText1 item.kind item.text grammar (good (tokWithinOfAtom1 item.kind grammar))),
+    byComputing
   )
 
 --| An item a prefix operator is read from: the kind and text are slice 1's, and it is no comma.

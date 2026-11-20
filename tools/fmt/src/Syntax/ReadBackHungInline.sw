@@ -353,7 +353,7 @@ theorem arrowHung ∀ (modes: Modes)
           (more ++ rest)
           (linePlain [item, ..more ++ rest] (lineJoin [item, ..more] rest lineRead lineRest))
           (noAutoLine (Infix InfixArrow left operator right) item more rest spelt free)
-          (noWalkLine modes (Infix InfixArrow left operator right) item more rest True spelt free),
+          (noWalkLine modes (Infix InfixArrow left operator right) item more rest spelt),
         operatorReads
       )
 
@@ -411,7 +411,7 @@ theorem inlinePlainHung ∀ (modes: Modes)
       (more ++ rest)
       (linePlain [item, ..more ++ rest] (lineJoin [item, ..more] rest lineRead lineRest))
       (noAutoLine expr item more rest spelt free)
-      (noWalkLine modes expr item more rest True spelt free),
+      (noWalkLine modes expr item more rest spelt),
     operatorReads
   )
 

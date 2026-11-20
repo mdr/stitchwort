@@ -2673,8 +2673,7 @@ export def area: Shape -> Nat
   // closing quote or the end of the line, with `\` escaping the next
   // character. A string's `${…}` interpolation holds ordinary code, braces
   // and all, delimited in its own colour. `auto` is only a keyword as the
-  // first word in `[…]`, as in the parser, `byWalking` only before a `[`
-  // (`byWalking [items] then t`), and `exists` and `forall` only where they
+  // first word in `[…]`, as in the parser, and `exists` and `forall` only where they
   // aren't after a `.` (`opt.exists p` is a call). A name after `def`, `theorem` or `instance`
   // is being defined; `:=` and `=>` are coloured as operators, like the rest
   // of the punctuation, and so are the Unicode spellings of operators
@@ -2682,7 +2681,7 @@ export def area: Shape -> Nat
   // text, so a long paste stays quick.
   const KEYWORDS = new Set(["type", "def", "theorem", "export", "test", "if", "then", "else",
                             "ability", "where", "handle", "with", "match", "return", "let", "Type", "Prop",
-                            "namespace", "import", "include", "calc", "rewrite", "arithmetic", "algebra", "cases", "decreasing", "opaque", "unfolding", "interface", "instance",
+                            "namespace", "import", "include", "calc", "byWalking", "rewrite", "arithmetic", "algebra", "cases", "decreasing", "opaque", "unfolding", "interface", "instance",
                             "in", "exists", "forall"]);
   const KINDS = ["keyword", "name", "defined", "number", "string", "interp", "comment", "operator"];
   const isWordStart = (c) => (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c === "_";
@@ -2757,9 +2756,7 @@ export def area: Shape -> Nat
         // (clause lambdas); anywhere else they are names.
         const bar = (word === "some" && previous === "match") || word === "matches"
           ? /^\s*\|(?![|>])/.test(text.slice(i, i + 40)) : false;
-        // `byWalking` starts a walk only before a `[`; anywhere else it is a name.
-        const walk = word === "byWalking" && /^\s*\[/.test(text.slice(i));
-        const k = (KEYWORDS.has(word) && !((word === "exists" || word === "forall") && previous === ".")) || bar || walk
+        const k = (KEYWORDS.has(word) && !((word === "exists" || word === "forall") && previous === ".")) || bar
             || (word === "auto" && previous === "[") ? "keyword"
           : word !== "_" && (previous === "def" || previous === "theorem" || previous === "instance") ? "defined"
           : c >= "A" && c <= "Z" ? "name"
