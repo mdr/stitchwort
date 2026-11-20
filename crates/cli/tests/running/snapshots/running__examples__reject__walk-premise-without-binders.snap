@@ -2,12 +2,12 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-UNSOLVED] Error: can't work out an implicit argument
-    ╭─[ reject/walk-premise-without-binders.sw:32:56 ]
+[E-WALK-LEMMA] Error: `mineThen` can't be `@[walk.bind]`: its last premise binds nothing, so the walk has no value to hand `j`
+    ╭─[ reject/walk-premise-without-binders.sw:12:3 ]
     │
- 32 │ theorem mineTwice: Mine (() => twice()) (n => True) := byWalking []
-    │                                                        ──────┬─────  
-    │                                                              ╰─────── the compiler couldn't work out what goes here
+ 12 │ @[walk.bind]
+    │   ────┬────  
+    │       ╰────── here
     │ 
-    │ Note: supply it explicitly with `f [x := …]`, or add a type annotation
+    │ Note: a then-lemma's last premise is a `∀` over the first premise's results, `(rest: ∀ (v: a) => first v → R … (() => j v) post)`; with none, `j` never sees the value `p` returned
 ────╯
