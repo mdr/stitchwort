@@ -28088,7 +28088,7 @@
     {
       "id": 4291,
       "title": "[DeepSeek] tools/fmt process leftovers: 59 'lane N' comments, 158 SW-… references in comments, 4 files whose namespace isn't their file name (survey target 9)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
