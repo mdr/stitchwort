@@ -28023,7 +28023,7 @@
     {
       "id": 4286,
       "title": "[Sonnet] One list of slice 1's operators and std List.allMember replace 21 literal-staircase theorems and the …A/B/C/D names (survey target 4)",
-      "status": "next",
+      "status": "doing",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -28452,8 +28452,8 @@
     {
       "id": 4319,
       "title": "[Sonnet] The five Blank-like lemmas SW-4292 left (statementsBlank, namesBlank, piecesBlank, patternLinksBlank, blankCalcStepsAlike): their cons step is byComputing or their Alike has another shape; prove them via List.all2Join or a variant, or say why not",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
