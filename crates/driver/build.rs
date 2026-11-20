@@ -26,7 +26,10 @@
 //! features, `Cargo.lock`, the toolchain). A test's content hash covers its
 //! program and the standard library it uses, so a change to the elaborator,
 //! the parser or std can only change a result by changing the hash. The
-//! check cache keeps the whole-graph fingerprint above.
+//! check cache stamps its entries with the whole-graph fingerprint above (an
+//! exact hit needs it) and with this one as the kernel-side fingerprint
+//! (`STITCHWORT_KERNEL_FINGERPRINT`), which a carried-over hit needs: so
+//! this one must keep covering all of `crates/core`.
 //!
 //! The bundle-staleness fingerprint ([`fingerprint::fingerprint`] without the
 //! toolchain) covers web's crate graph instead, so editing `crates/web` marks
@@ -105,10 +108,14 @@ fn main() {
         "cargo:rustc-env=STITCHWORT_EVAL_FINGERPRINT_CRATES={}",
         fingerprint::evaluation_crates(&root).join(",")
     );
-    println!(
-        "cargo:rustc-env=STITCHWORT_EVAL_FINGERPRINT={}",
-        fingerprint::evaluation_fingerprint(&root, &version, &target)
-    );
+    let evaluation = fingerprint::evaluation_fingerprint(&root, &version, &target);
+    println!("cargo:rustc-env=STITCHWORT_EVAL_FINGERPRINT={evaluation}");
+    // The kernel side: what decides whether core terms are accepted, which
+    // the check cache's carried-over entries rest on
+    // (docs/proposals/check-cache-across-updates.md §4.2). The evaluation
+    // fingerprint covers all of `crates/core`, so it is that one for now;
+    // see `fingerprint::evaluation_fingerprint` before narrowing either.
+    println!("cargo:rustc-env=STITCHWORT_KERNEL_FINGERPRINT={evaluation}");
     // The sources alone, the same for every target: so a test can tell
     // whether the WebAssembly bundle was built from these sources. Over
     // web's graph, not the driver's, because a change to the web crate's

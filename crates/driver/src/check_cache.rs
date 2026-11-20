@@ -32,7 +32,7 @@ use std::time::{Duration, SystemTime};
 
 use stitchwort_elab::cache::{Key, Store};
 
-use crate::driver::{EVAL_FINGERPRINT, FINGERPRINT};
+use crate::driver::{FINGERPRINT, KERNEL_FINGERPRINT};
 
 /// How long entries of other builds are kept.
 pub(crate) const GRACE: Duration = Duration::from_secs(24 * 60 * 60);
@@ -43,8 +43,7 @@ pub struct CheckCache {
     /// The build, as entries' file names give it: [`FINGERPRINT`].
     build: String,
     compiler: String,
-    /// The kernel side's fingerprint ([`EVAL_FINGERPRINT`]: `core`, `rt`
-    /// and what they are built with, the toolchain and the target).
+    /// The kernel side's fingerprint ([`KERNEL_FINGERPRINT`]).
     kernel: String,
     /// The folder's names when last listed, and its modification time
     /// then: the candidates for carried-over hits.
@@ -66,7 +65,7 @@ impl CheckCache {
     /// [`CheckCache::at`], keeping other builds' entries for `grace` only:
     /// the tests' cache, where every build of the code is a new build.
     pub fn with_grace(cache_dir: &Path, grace: Duration) -> CheckCache {
-        Self::for_build(cache_dir, grace, FINGERPRINT, EVAL_FINGERPRINT)
+        Self::for_build(cache_dir, grace, FINGERPRINT, KERNEL_FINGERPRINT)
     }
 
     /// For tests: the check cache in `cache_dir` as a build whose

@@ -458,7 +458,10 @@ SW-4409, 20 November 2026.
   side to match. An entry this build writes in a session that carried
   anything over is stamped not exact, so exactness passes only through
   exact entries (per session, not per unit: a session that carried
-  anything writes only carried-over entries).
+  anything writes only carried-over entries). A carried replay that
+  misses late (after it has declared names and loaded library files)
+  counts too (`Stats::namespace_carried_late`): what the session then
+  writes was elaborated over another build's state (SW-4422 M1).
 - **Where carried entries come from.** This build's own entry if it isn't
   exact, then other builds' entries for the same unit and key, newest
   first (`Store::read_others`; the folder is listed again only when it
@@ -475,16 +478,33 @@ SW-4409, 20 November 2026.
   admitted and compared with the hashes it records; a difference is a
   refusal, and the unit is elaborated.
 - **Who carries over.** The editor, for a project with a cache folder
-  (`set_carry_over`, `crates/lsp`), logging `N namespaces and M standard
-  library files carried over from another build` once a check is done and
-  more were carried. `stitchwort check --carry-over` (or
-  `STITCHWORT_CARRY_OVER=1`), whose last line says the same. Every other
+  (`set_carry_over`, `crates/lsp`). Once a check is done it logs how many
+  units were carried over whenever more were, and the first time in a
+  project's session it also shows the user the same line
+  (`window/showMessage`, Info). `stitchwort check --carry-over` (or
+  `STITCHWORT_CARRY_OVER=1`, honoured only when standard error is a
+  terminal, so an exported variable can't reach the verifier or the
+  tiers), whose last line says the same. Every other
   command, the verifier, the tiers and the test suites: exact only.
+- **A fix on the way:** a late miss after the replay had elaborated a
+  library file (whose own entry missed) used to report the namespace's
+  names as duplicates: the library file's elaboration cleared the names
+  the failed replay had declared for the namespace to claim again.
+  Routine once carried entries skip the library keys; fixed in
+  `module.rs` and tested by
+  `a_carried_namespace_whose_library_dependency_changed_is_elaborated_again`.
+- **The kernel side has its own name,** `KERNEL_FINGERPRINT`, equal to the
+  evaluation fingerprint for now; `fingerprint.rs` and `build.rs` say that
+  carried-over soundness rests on it covering all of `crates/core`, and
+  the coverage test names the checker's files.
 - **Not built:** `--json` for `check` (it has none); the healing and
   "changed what X elaborates to" report (stage 3); the re-check (stage 2).
 - **Tests** (`crates/driver/tests/projects/check_cache.rs`):
   `a_carried_over_entry_is_used_only_when_asked` (and that a carried
   session's dump equals a fresh one's), `a_kernel_side_change_makes_a_carried_entry_a_miss`,
-  `what_is_written_over_carried_entries_is_not_exact`; in `crates/lsp`,
+  `what_is_written_over_carried_entries_is_not_exact`,
+  `a_carried_entry_that_misses_late_leaves_the_session_carried`, and the
+  two library-change tests (each side in a child process, since a process
+  reads the library once); in `crates/lsp`,
   `the_editor_carries_over_an_earlier_builds_entries`. Another build is a
   store made with `CheckCache::as_build` (hidden, for tests).

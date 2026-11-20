@@ -3273,22 +3273,27 @@ struct ProjectWork {
 }
 
 impl ProjectWork {
-    /// Once a check of the project is done: a line for the client's log
-    /// saying how many units came from entries carried over from another
-    /// build, if more have since it was last said.
-    fn carried_over_note(&mut self, dir: &Path) -> Option<String> {
+    /// Once a check of the project is done: a line saying how many units
+    /// came from entries carried over from another build, if more have
+    /// since it was last said, and whether it is the first time, when the
+    /// user is shown it too (the label is the defence against taking a
+    /// carried answer for a full one; check-cache-across-updates.md §6, §8).
+    fn carried_over_note(&mut self, dir: &Path) -> Option<(String, bool)> {
         let stats = self.live.session.elab.check_cache_stats();
         if stats.carried_over() <= self.carried_logged {
             return None;
         }
+        let first = self.carried_logged == 0;
         self.carried_logged = stats.carried_over();
-        Some(format!(
-            "{}: {} namespaces and {} standard library files carried over from another \
-             build of Stitchwort: this kernel accepted them, but this build hasn't \
-             elaborated them (`stitchwort check` does)",
-            dir.display(),
-            stats.namespace_carried,
-            stats.carried
+        let units = stats.carried_over_units()?;
+        Some((
+            format!(
+                "{}: {units} carried over from an earlier build of Stitchwort: its kernel \
+                 accepted them, but this build hasn't elaborated them, so a change in what \
+                 they mean or a new error can be hidden; `stitchwort check` checks them in full",
+                dir.display(),
+            ),
+            first,
         ))
     }
 
@@ -4070,9 +4075,16 @@ impl Checker {
         }
         if let (Ok(Progress::Checked { done: true, .. }), Work::Project(p)) =
             (&progress, &mut *work)
-            && let Some(note) = p.carried_over_note(key)
+            && let Some((note, first)) = p.carried_over_note(key)
         {
             eprintln!("stitchwort lsp: {note}");
+            if first {
+                let shown = Notification::new(
+                    "window/showMessage".to_string(),
+                    serde_json::json!({ "type": lsp_types::MessageType::INFO, "message": note }),
+                );
+                let _ = self.sender.send(shown.into());
+            }
         }
         if let Ok(Progress::Checked { focus, done }) = progress
             && (focus || done)
@@ -5429,7 +5441,7 @@ mod tests {
             session.use_check_cache_as_build(
                 &cache,
                 "earlierbuild",
-                stitchwort_driver::driver::EVAL_FINGERPRINT,
+                stitchwort_driver::driver::KERNEL_FINGERPRINT,
             );
             let name = dir.file_name().unwrap().to_string_lossy().into_owned();
             let mut earlier = LiveProject::new_except(
@@ -5445,15 +5457,31 @@ mod tests {
                 2
             );
 
-            let (sender, _receiver) = crossbeam_channel::unbounded();
-            let checker = Checker::new(options, source, sender, Arc::default(), Arc::default());
-            let mut work = checker.load_project(&dir).unwrap();
-            check(&mut work.live);
+            let (sender, received) = crossbeam_channel::unbounded();
+            let mut checker = Checker::new(options, source, sender, Arc::default(), Arc::default());
+            let work = checker.load_project(&dir).unwrap();
+            checker
+                .work
+                .insert(dir.clone(), Work::Project(Box::new(work)));
+            while checker.work.values().any(Work::pending) {
+                checker.step(&dir);
+            }
+            let Some(Work::Project(work)) = checker.work.get(&dir) else {
+                panic!("the project is kept");
+            };
             let stats = work.live.session.elab.check_cache_stats();
             assert_eq!(stats.namespace_carried, 2, "{stats:?}");
-            let note = work.carried_over_note(&dir).unwrap();
-            assert!(note.contains("2 namespaces"), "{note}");
-            assert_eq!(work.carried_over_note(&dir), None, "said once");
+            let shown: Vec<String> = received
+                .try_iter()
+                .filter_map(|m| match m {
+                    Message::Notification(n) if n.method == "window/showMessage" => {
+                        Some(n.params["message"].as_str().unwrap_or_default().to_string())
+                    }
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(shown.len(), 1, "shown once: {shown:?}");
+            assert!(shown[0].contains("2 namespaces"), "{shown:?}");
             let _ = std::fs::remove_dir_all(&dir);
         });
     }

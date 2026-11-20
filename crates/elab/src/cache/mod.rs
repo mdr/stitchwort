@@ -180,13 +180,52 @@ pub struct Stats {
     /// `namespace_hits`.
     pub carried: usize,
     pub namespace_carried: usize,
+    /// Namespaces whose carried-over entry was found not to fit after its
+    /// replay had begun (a late miss): they were elaborated in what that
+    /// replay left, another build's state, so the session counts as having
+    /// carried something over. Not counted in `namespace_carried`.
+    pub namespace_carried_late: usize,
 }
 
 impl Stats {
     /// How many units, library files and namespaces, came from carried-over
     /// entries.
     pub fn carried_over(&self) -> usize {
-        self.carried + self.namespace_carried
+        self.carried + self.namespace_carried + self.namespace_carried_late
+    }
+
+    /// What was carried over, for the label a host shows (`check
+    /// --carry-over`'s last line, the editor's message), or `None` if
+    /// nothing was: `2 namespaces and 40 standard library files`, with any
+    /// namespaces elaborated over a carried entry that didn't fit.
+    pub fn carried_over_units(&self) -> Option<String> {
+        if self.carried_over() == 0 {
+            return None;
+        }
+        let count =
+            |n: usize, one: &str, many: &str| format!("{n} {}", if n == 1 { one } else { many });
+        let mut parts = Vec::new();
+        if self.namespace_carried > 0 {
+            parts.push(count(self.namespace_carried, "namespace", "namespaces"));
+        }
+        if self.carried > 0 {
+            parts.push(count(
+                self.carried,
+                "standard library file",
+                "standard library files",
+            ));
+        }
+        let mut units = parts.join(" and ");
+        if self.namespace_carried_late > 0 {
+            let late = count(self.namespace_carried_late, "namespace", "namespaces");
+            let late = format!("{late} elaborated over a carried entry that didn't fit");
+            units = if units.is_empty() {
+                late
+            } else {
+                format!("{units}; {late}")
+            };
+        }
+        Some(units)
     }
 }
 
@@ -811,6 +850,12 @@ impl Elaborator {
                 Err(Miss::Late(why)) => {
                     debug(&format!("{ns}: a miss after the replay began: {why}"));
                     self.session.cache_stats.late_misses += 1;
+                    // What the replay left (names, library reach, the
+                    // library files it loaded) is another build's: what is
+                    // elaborated over it, and written, is not exact.
+                    if hit == Hit::Carried {
+                        self.session.cache_stats.namespace_carried_late += 1;
+                    }
                     // Its files were walked already.
                     self.unit.skip_navigation_walk = true;
                 }

@@ -1453,6 +1453,14 @@ pub const FINGERPRINT_CRATES: &str = env!("STITCHWORT_FINGERPRINT_CRATES");
 /// that evaluates a term, or to the toolchain, starts a fresh cache.
 pub const EVAL_FINGERPRINT: &str = env!("STITCHWORT_EVAL_FINGERPRINT");
 
+/// The kernel side of the compiler: a fingerprint of what decides whether
+/// core terms are accepted (all of `crates/core`, with what it is built
+/// with, the toolchain and the target), made by `build.rs`. The check cache
+/// carries an entry over from another build only when this matches
+/// (docs/proposals/check-cache-across-updates.md), so it must never be
+/// narrower than `crates/core`; it is [`EVAL_FINGERPRINT`] for now.
+pub const KERNEL_FINGERPRINT: &str = env!("STITCHWORT_KERNEL_FINGERPRINT");
+
 /// The crates whose sources [`EVAL_FINGERPRINT`] covers (and the driver's
 /// `test_run.rs` besides), as directories relative to the workspace root,
 /// comma-separated.

@@ -439,7 +439,7 @@ enum Command {
         /// a new error, warning or reading of a statement can be hidden
         /// until a check without this option. The output says how many were
         /// carried over (docs/proposals/check-cache-across-updates.md). Also
-        /// on with STITCHWORT_CARRY_OVER=1
+        /// on with STITCHWORT_CARRY_OVER=1 when standard error is a terminal
         #[arg(long, conflicts_with_all = ["std", "expand_repeatedly", "expand_walk", "no_cache"])]
         carry_over: bool,
         /// After the check, print stderr tables of where the time went: each
@@ -1222,7 +1222,7 @@ fn run(cli: Cli) -> ExitCode {
             (expand_repeatedly, expand_walk, stdout),
             &counterexamples,
             &cache,
-            carry_over || std::env::var("STITCHWORT_CARRY_OVER").is_ok_and(|v| v == "1"),
+            carry_over || carry_over_from_environment(),
         ),
         Command::StdSource { path } => match stitchwort_cli::nav::std_source(&path, STACK) {
             Some(text) => {
@@ -2607,30 +2607,23 @@ fn write_walk_expansions(session: &Session, base: &Path, to_stdout: bool) -> boo
 /// (docs/proposals/check-cache-across-updates.md §8: the label is the whole
 /// defence against taking such a check for a full one).
 fn report_carried_over(session: &Session) {
-    let stats = session.elab.check_cache_stats();
-    if let Some(line) = carried_over_line(stats.namespace_carried, stats.carried) {
-        eprintln!("{line}");
+    if let Some(units) = session.elab.check_cache_stats().carried_over_units() {
+        eprintln!(
+            "carried over from another build: {units}; this kernel accepted them, but this \
+             build didn't elaborate them (a check without --carry-over does)"
+        );
     }
 }
 
-/// The line [`report_carried_over`] prints, if anything was carried over.
-fn carried_over_line(namespaces: usize, library_files: usize) -> Option<String> {
-    let plural =
-        |n: usize, one: &str, many: &str| format!("{n} {}", if n == 1 { one } else { many });
-    let units = match (namespaces, library_files) {
-        (0, 0) => return None,
-        (n, 0) => plural(n, "namespace", "namespaces"),
-        (0, f) => plural(f, "standard library file", "standard library files"),
-        (n, f) => format!(
-            "{} and {}",
-            plural(n, "namespace", "namespaces"),
-            plural(f, "standard library file", "standard library files")
-        ),
-    };
-    Some(format!(
-        "carried over from another build: {units}; this kernel accepted them, but this \
-         build didn't elaborate them (a check without --carry-over does)"
-    ))
+/// Whether `STITCHWORT_CARRY_OVER=1` turns carrying over on: only when
+/// standard error is a terminal, where the label is seen. A variable
+/// exported in a shell or a task would otherwise reach the verifier, the
+/// tiers and the rolling check, which must stay exact, with nothing in
+/// their commands to show it; scripts and agents pass `--carry-over`.
+fn carry_over_from_environment() -> bool {
+    use std::io::IsTerminal;
+    std::env::var("STITCHWORT_CARRY_OVER").is_ok_and(|v| v == "1")
+        && std::io::stderr().is_terminal()
 }
 
 fn discard(session: Session) {
