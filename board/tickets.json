@@ -1,5 +1,5 @@
 {
-  "next": 4370,
+  "next": 4371,
   "tickets": [
     {
       "id": 47,
@@ -27229,12 +27229,12 @@
     {
       "id": 4226,
       "title": "[Opus] cases fails on (5 <= level tok) = False with level a per-constructor table: it splits the comparison, never tok; a match tok with byComputing arms proves it (SW-4219 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From SW-4219.",
+      "body": "From SW-4219.\n\nLane (Opus, 20 Nov, ~16 min): branch lane/SW-4226, 061e2943d. Rule: in a case still open after the fallback, the second try walks the split equations (latest first) and splits the atom under them; a native Nat comparison is an atom whole, so `(5 <= level tok) = True` then splits `tok`. Second try only and only where a case would be open: first-try proofs, terms and errors unchanged. New example cases-under-comparison (3 theorems, E-CASES before) + hash snapshot; proving guide, syntax.md. Tests: test:example NAME=cases 7/7, test:lane AREA=hashes 8/8, clippy clean; all 16 reject cases-* outputs identical before/after.\n",
       "created": "2026-11-19",
       "updated": "2026-11-20",
       "commits": []
@@ -29115,6 +29115,19 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "\n\n\nLane note (Sonnet, 20 Nov): already fixed by SW-4224 (eb2d8236d, in main): the Rust formatter wraps a long or-pattern, each line ending with its |, continuing at +4; golden crates/fmt/tests/it/golden/or-patterns.*. Checked with a release build: an 18-alternative arm breaks one alternative a line and is idempotent. The brief layout (leading | per line) cannot parse: a line-start | starts the next arm (parser or_bar_ahead). No code change; no commit.\n\n\nOrchestrator, 20 Nov: duplicate of SW-4224 (merged 19 Nov; long or-patterns break after each |, since a line-start | starts a new arm). Closed; proposal line updated.\nModel result: Sonnet, worked (found the duplicate), 1 min (est. 30)\n",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4370,
+      "title": "[Opus, paper] Review SW-4226 (cases splits a finite value an earlier split's equation is stuck on, second try only)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
