@@ -1,5 +1,5 @@
 {
-  "next": 4471,
+  "next": 4472,
   "tickets": [
     {
       "id": 47,
@@ -27441,12 +27441,12 @@
     {
       "id": 4242,
       "title": "[Fable, paper] A general closer that chains facts in scope with a tagged lemma set, like Lean's grind / simp_all and Rocq's auto (SW-4222 §6.3b): what it would close in slice 1's proofs (measure on a sample), cost, check-time and brittleness risks; design or say no",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Matt, 19 Nov 2026: 'please have on our backlog investigations into or actually doing some of the improvements that we found that would make Stitchwort more competitive with Lean and Rocq on these type of proofs.' Source: docs/reviews/SW-4222-lean-rocq-comparison.md §6.",
+      "body": "Matt, 19 Nov 2026: 'please have on our backlog investigations into or actually doing some of the improvements that we found that would make Stitchwort more competitive with Lean and Rocq on these type of proofs.' Source: docs/reviews/SW-4222-lean-rocq-comparison.md §6.\n\nLane (Fable, paper, 20 Nov 21:46-22:00, est. 75 min): docs/proposals/closer.md on lane/SW-4242 (8cef4c964). By hand on SW-4222's 21 theorems and 30 drawn at random (seed 4242), with 23 probe proofs checked (dev/patches/SW-4242-closer-probes.patch). SW-4222 sample: 217 lines -> 197 with today's tools (17 measured, 3 est.) -> ~174 with a facts-in-scope closer (est.); Lean 159. Random 30: 314 -> 303 (measured) -> ~290 (est.). A default lemma set (SW-4241) closes ~0; no proof needs grind's congruence closure or pattern-matched library lemmas. Today's cases as a finisher is 4-25x slower than the hand term (2 ms -> 14-46 ms). Rec: stage 0 (three fixes to cases / rewrite repeatedly, teach, pilot two files; no decision), stage 1 byFacts [lemmas] (one D question for Matt, rec yes), stage 2 cases x then t after stage 1's bar; close SW-4241 as not now. Findings F1-F6 in §2.3 and §8.\n",
       "created": "2026-11-19",
       "updated": "2026-11-20",
       "commits": []
@@ -30302,12 +30302,12 @@
     {
       "id": 4460,
       "title": "[Sonnet] Goal lemmas: SW-4451 chooses the written form by three heuristics (not in a match arm, no pattern-refined variables, no open-typed equation), tested only on the examples; instead elaborate the written lemma's statement and compare it with the goal (the same check lemmas_check_as_the_same_goal makes) before offering it, and drop the heuristics if that's cheap enough (SW-4451 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
-      "body": "\n\nProgress (lane, Sonnet): 2397e0216 on lane/SW-4460. Direct check replaces the three rules of thumb: the written target is elaborated in a context of the lemma's parameters (hypotheses, facts), settled, and offered only if it converts with the goal and prints as the goal does. Cost 0.06 ms a goal on average (max 0.55 ms) on the goals examples; 900 goals in a synthetic file 55 ms of 11.8 s. No pre-filter kept. Lemmas 174, without 47; 8 snapshot files updated (more goals keep their written form: arms, 0 * 0 = 0 * 0, pick True < 2, Small (if True then n else 0)).\n",
+      "body": "\n\nProgress (lane, Sonnet): 2397e0216 on lane/SW-4460. Direct check replaces the three rules of thumb: the written target is elaborated in a context of the lemma's parameters (hypotheses, facts), settled, and offered only if it converts with the goal and prints as the goal does. Cost 0.06 ms a goal on average (max 0.55 ms) on the goals examples; 900 goals in a synthetic file 55 ms of 11.8 s. No pre-filter kept. Lemmas 174, without 47; 8 snapshot files updated (more goals keep their written form: arms, 0 * 0 = 0 * 0, pick True < 2, Small (if True then n else 0)).\n\n\nModel result: Sonnet, needed fixes (parsed the lemma under the real FileId, leaking a reference into the file; fixed with a scratch file and navigation off, test shown failing first), 70 min (est. 40)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -30439,6 +30439,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4471,
+      "title": "[Sonnet] Goals as written: survey the remaining forms that hand their body the forced goal (calc and cases bodies, a match at the end of a guarded arm, others) and route the goal as written where a match can follow; and tidy the expected/named pairs (proof_if needs allow too_many_arguments) into a Goal { forced, named } value (SW-4465 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "goal-as-written",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
