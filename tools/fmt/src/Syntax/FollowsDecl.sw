@@ -74,6 +74,10 @@ import Syntax.DeafProofs (..)
 import Syntax.FollowsBase (..)
 import Syntax.FollowsLadder (..)
 import Syntax.FollowsForms (..)
+import Syntax.FollowsFormsBinders (..)
+import Syntax.FollowsFormsArms (..)
+import Syntax.FollowsFormsPatterns (..)
+import Syntax.FollowsFormsBlocks (..)
 import Syntax.FollowsStatements (..)
 
 -- Reading a fixed token: its comments are not compared.

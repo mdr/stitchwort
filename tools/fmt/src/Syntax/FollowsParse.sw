@@ -20,6 +20,8 @@ import Syntax.DeafProofs (SameCode, groupItemsSameCode)
 import Syntax.FollowsBase (..)
 import Syntax.FollowsLadder (..)
 import Syntax.FollowsForms (..)
+import Syntax.FollowsFormsPatterns (..)
+import Syntax.FollowsFormsBlocks (..)
 import Syntax.FollowsStatements (..)
 import Syntax.FollowsDecl (..)
 
