@@ -316,7 +316,7 @@ fn rewrite_twin(
         return Ok(None);
     }
     let span = cx.span;
-    let next = place(cx, info.call, Kind::Step(family.relation), &info.place);
+    let next = place(cx, info, Kind::Step(family.relation), &info.place);
     // The goal `rewrite` leaves is unfolded; the walk reads it as this one,
     // folded, with the twin replaced.
     let planned = Rc::new(Planned {
