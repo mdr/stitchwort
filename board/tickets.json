@@ -30038,8 +30038,8 @@
     {
       "id": 4440,
       "title": "[Sonnet] Remove the walk's eta_contracted (crates/elab/src/walk/mod.rs, SW-4425) now that the unifier handles eta arguments (SW-4434); walk proof hashes move back; after SW-4434 merges",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
