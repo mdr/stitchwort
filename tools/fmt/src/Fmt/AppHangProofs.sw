@@ -53,7 +53,6 @@ theorem spacedRest ∀ (kinds: Text → Tok) (docs: List Doc) (indent: Nat) (sta
           holds)
     | [doc, ..rest], (middle, part, more) =>
       hangsCons
-        (Doc.text " ")
         [doc, ..rest.concatMap (doc => [Doc.text " ", doc])]
         (hangsBy (place trace next (ended, folded, clear) after =>
           (gapKeeps kinds
@@ -65,7 +64,7 @@ theorem spacedRest ∀ (kinds: Text → Tok) (docs: List Doc) (indent: Nat) (sta
                 (Inr byComputing)) place _ trace next byComputing
               (ended, folded, clear)
               (hangsAfter after)))
-        (hangsCons doc
+        (hangsCons
           (rest.concatMap (doc => [Doc.text " ", doc]))
           (partStep kinds doc indent state before middle quiet unglued part)
           (spacedRest kinds rest indent state middle trails quiet unglued more))
@@ -94,8 +93,7 @@ theorem spacedHangs ∀ (kinds: Text → Tok) (first: Doc) (rest: List Doc) (ind
       let pre := Entered indent column False state entry (wordStart indent entry)
       rewrite joinedWithIs (Doc.text " ") first rest then
         (hangsConcat
-              [first, ..rest.concatMap (doc => [Doc.text " ", doc])]
-              (hangsCons first
+              (hangsCons
                 (rest.concatMap (doc => [Doc.text " ", doc]))
                 (hangsPost (head state entry) (place hang (ended, folded) => (ended, folded, bound)))
                 (spacedRest kinds rest indent opened middle trails
@@ -254,10 +252,10 @@ theorem linedRest ∀ (kinds: Text → Tok) (docs: List Doc) (inset indent: Nat)
         hangsNil kinds inset (AfterWords state indent trails) (AfterWords state indent trails) (place hang holds =>
           holds)
     | [doc, ..rest], (middle, (noted, el), more) =>
-      hangsCons HardLine
+      hangsCons
         [doc, ..rest.concatMap (doc => [HardLine, doc])]
         (hardLineArg kinds inset indent state before unglued deeper)
-        (hangsCons doc
+        (hangsCons
           (rest.concatMap (doc => [HardLine, doc]))
           (argLineHangs kinds doc inset indent state middle noted quiet unglued clear el)
           (linedRest kinds rest inset indent state middle trails quiet unglued clear deeper more))
@@ -350,7 +348,6 @@ theorem linedPart ∀ (kinds: Text → Tok) (docs: List Doc) (more indent: Nat) 
   state entry quiet unglued =>
     hangsBy (place trace next (isEntry, folded, ended, clear) after =>
       (hangsConcat
-            (docs.concatMap (doc => [HardLine, doc]))
             (linedRest kinds docs (indent + more) indent state before trails quiet unglued clear arithmetic args))
           place _ trace next byComputing
           (rewrite isEntry then ended, folded, clear)

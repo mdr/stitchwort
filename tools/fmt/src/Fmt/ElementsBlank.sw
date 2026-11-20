@@ -42,10 +42,10 @@ theorem blankLeadingHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around
   let column := leadColumn indent entry
   let broken := BrokenAt indent column (Hang.At state)
   rewrite hoisted, unnoted, item, blank then
-    hangsCons BreakParent
+    hangsCons
       [LineStart, Blank]
       (hangsBreakParent kinds indent pre)
-      (hangsTwo LineStart
+      (hangsTwo
         (startHangsBroken kinds indent before state entry fresh)
         (blankHangs kinds indent column (Hang.At state)))
 
@@ -89,13 +89,8 @@ theorem blankLeafHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
             (place hang (isEntry, folded, (seated, _, _, _)) => (isEntry, folded, seated))
         rewrite leafPiece word around key closer comma then
           hangsConcat
-            (word.leading around key ++ [Doc.text word.text, ..word.trailing])
-            (hangsAppend
-              (word.leading around key)
-              leading
-              (hangsCons
-                (Doc.text word.text)
-                word.trailing
+            (hangsAppend leading
+              (hangsCons word.trailing
                 (lineWordHangs kinds word.text indent column state plain token solid room)
                 (trailingHangs kinds word indent opened trailed)))
             place _
@@ -140,7 +135,7 @@ theorem blankPlacedAt ∀ (kinds: Text → Tok) (first: Word) (around: Around) (
     match entered with
       | (_, _, (seated, _, _, room)) =>
         let leading :=
-          hangsConcat leadingDocs
+          hangsConcat
             (allHangsPre
               [weaker := pre]
               (blankLeadingHangs kinds first around around.at indent before state entry hoisted item unnoted blank
@@ -151,15 +146,7 @@ theorem blankPlacedAt ∀ (kinds: Text → Tok) (first: Word) (around: Around) (
             (leadDeep indent before state entry seated fresh)
             room
             framed
-        hangsConcat
-          [Doc.concat leadingDocs, Displaced doc]
-          (hangsTwo (Doc.concat leadingDocs) leading body)
-          place _
-          trace
-          next
-          byComputing
-          entered
-          (hangsAfter after))
+        hangsConcat (hangsTwo leading body) place _ trace next byComputing entered (hangsAfter after))
 
 --| A node framed by its first token, which has a kept blank line before it as an item and no comments above it, at
 --| one entry that isn't a plain line start: the blank line, then the node displaced from the start of the line after

@@ -266,19 +266,16 @@ theorem brokenItemsHang ∀ (kinds: Text → Tok) (bare arm first before seat: B
   match rest, each with
     | [], (el, _) =>
       hangsTwo
-        (if first then SoftLine else Line)
         (sepSeats kinds first inset outer top seat bound)
         (itemHangs kinds doc inset outer top seat item.trails el)
     | [next, ..more], (el, others) =>
       hangsCons
-        (if first then SoftLine else Line)
         [doc, Closing ",", ..brokenItems False arm False item.trails (at + item.size) [next, ..more]]
         (sepSeats kinds first inset outer top seat bound)
-        (hangsCons doc
+        (hangsCons
           [Closing ",", ..brokenItems False arm False item.trails (at + item.size) [next, ..more]]
           (itemHangs kinds doc inset outer top seat item.trails el)
           (hangsCons
-            (Closing ",")
             (brokenItems False arm False item.trails (at + item.size) [next, ..more])
             (commaHangs kinds inset outer top item.trails comma bound)
             (brokenItemsHang kinds False arm False item.trails item.trails
@@ -314,8 +311,7 @@ theorem cellCommaHangs ∀ (kinds: Text → Tok) (doc: Doc) (inset: Nat) (outer:
     (el: ItemHangs kinds doc inset seat trails):
     HangLays kinds (Doc.concat [doc, Closing ","]) inset (ItemSeat inset outer top seat) (ItemGap outer top trails) :=
   hangsConcat
-    [doc, Closing ","]
-    (hangsTwo doc
+    (hangsTwo
       (itemHangs kinds doc inset outer top seat trails el)
       (commaHangs kinds inset outer top trails comma bound))
 
@@ -423,7 +419,7 @@ theorem fillCellsHang ∀ (kinds: Text → Tok) (bare arm before seat: Bool) (at
 
 --| What holds of a document's places holds with the marks below `low` that were open at `origin` still kept, when
 --| its keys are at least `low` (`framed`).
-theorem hangsKept ∀ [kinds: Text → Tok] (doc: Doc) [indent: Nat] (low: Nat)
+theorem hangsKept ∀ [kinds: Text → Tok] [doc: Doc] [indent: Nat] (low: Nat)
     (origin: Carry) [pre post: Place → Hang → Prop]
     (keys: keysFrom low doc = True)
     (lays: HangLays kinds doc indent pre post):
@@ -437,7 +433,7 @@ theorem hangsKept ∀ [kinds: Text → Tok] (doc: Doc) [indent: Nat] (low: Nat)
         holds
         (hangsAfter (left later reached held => after left later (reached, held)))))
 
-theorem allHangsKept ∀ [kinds: Text → Tok] (docs: List Doc) [indent: Nat] (low: Nat)
+theorem allHangsKept ∀ [kinds: Text → Tok] [docs: List Doc] [indent: Nat] (low: Nat)
     (origin: Carry) [pre post: Place → Hang → Prop]
     (keys: allKeysFrom low docs = True)
     (lays: HangLaysAll kinds docs indent pre post):
@@ -454,7 +450,7 @@ theorem allHangsKept ∀ [kinds: Text → Tok] (docs: List Doc) [indent: Nat] (l
 --| Where a bracket's closer may take a line of its own (`flag`), the marks kept.
 def Marked (flag: Bool) (low: Nat) (origin carry: Carry): Prop := flag = True → MarksKept low origin carry
 
-theorem hangsMarked ∀ [kinds: Text → Tok] (doc: Doc) [indent: Nat] (low: Nat) (origin: Carry)
+theorem hangsMarked ∀ [kinds: Text → Tok] [doc: Doc] [indent: Nat] (low: Nat) (origin: Carry)
     (flag: Bool) [pre post: Place → Hang → Prop]
     (keys: keysFrom low doc = True)
     (lays: HangLays kinds doc indent pre post):
@@ -463,7 +459,7 @@ theorem hangsMarked ∀ [kinds: Text → Tok] (doc: Doc) [indent: Nat] (low: Nat
   match flag with
     | True =>
       hangsPost
-        (hangsPre (hangsKept doc low origin keys lays) (place hang (holds, kept) => (holds, kept byComputing)))
+        (hangsPre (hangsKept low origin keys lays) (place hang (holds, kept) => (holds, kept byComputing)))
         (place hang (reached, kept) => (reached, _ => kept))
     | False => hangsPost (hangsPre lays (place hang (holds, _) => holds)) (place hang reached =>
       (reached, never => (Bool.falseNotTrue never).impossible))
@@ -508,17 +504,13 @@ theorem markedOpeningHangs ∀ (kinds: Text → Tok) (word closer: Word) (around
   let written: Place → Hang → Prop := place hang => Ended opened False place ∧ hang = Hang.At opened
   let post: Place → Hang → Prop := place hang => Ended opened word.trails place ∧ hang = Hang.At opened
   let rest: HangLaysAll kinds [Doc.text word.text, ..word.trailing] indent ready post :=
-    hangsCons
-      (Doc.text word.text)
-      word.trailing
+    hangsCons word.trailing
       (openerStep kinds word.text indent column state start token)
       (trailingHangs kinds word indent opened trailed)
-  let kept := allHangsKept [Doc.text word.text, ..word.trailing] low origin (trailingKeys low word) rest
+  let kept := allHangsKept [docs := [Doc.text word.text, ..word.trailing]] low origin (trailingKeys low word) rest
   rewrite hoisted, notCloser, notComma, marks then
     hangsConcat
-      [Mark around.at, Doc.text word.text, ..word.trailing]
       (hangsCons
-        (Mark around.at)
         [Doc.text word.text, ..word.trailing]
         (hangsMark kinds around.at indent
           (Entered indent column False state entry start)
@@ -658,7 +650,7 @@ theorem closerStep ∀ (kinds: Text → Tok) (close: Word) (closeAround: Around)
         (folded, seat, fits)
         (hangsAfter after))
 
-theorem allHangsMarked ∀ [kinds: Text → Tok] (docs: List Doc) [indent: Nat] (low: Nat) (origin: Carry)
+theorem allHangsMarked ∀ [kinds: Text → Tok] [docs: List Doc] [indent: Nat] (low: Nat) (origin: Carry)
     (flag: Bool) [pre post: Place → Hang → Prop]
     (keys: allKeysFrom low docs = True)
     (lays: HangLaysAll kinds docs indent pre post):
@@ -667,7 +659,7 @@ theorem allHangsMarked ∀ [kinds: Text → Tok] (docs: List Doc) [indent: Nat] 
   match flag with
     | True =>
       allHangsPost
-        (allHangsPre (allHangsKept docs low origin keys lays) (place hang (holds, kept) => (holds, kept byComputing)))
+        (allHangsPre (allHangsKept low origin keys lays) (place hang (holds, kept) => (holds, kept byComputing)))
         (place hang (reached, kept) => (reached, _ => kept))
     | False => allHangsPost (allHangsPre lays (place hang (holds, _) => holds)) (place hang reached =>
       (reached, never => (Bool.falseNotTrue never).impossible))
@@ -852,7 +844,7 @@ theorem bracketContentHangs ∀ (kinds: Text → Tok) (list: Bool) (open: Word) 
           marked
         )
       let soft: HangLays kinds SoftLine indent contentsDone ready :=
-        hangsMarked SoftLine low origin flag byComputing
+        hangsMarked low origin flag byComputing
           (softSits kinds inset indent outer top
             (lastTrails open.trails items)
             close
@@ -871,26 +863,20 @@ theorem bracketContentHangs ∀ (kinds: Text → Tok) (list: Bool) (open: Word) 
                     byComputing ended folded,
                 marked
               )
-            (hangsConcat [prefix, closerDoc] (hangsTwo prefix opening (hangsPre closing gapReady))) place _ trace next
-                byComputing entered
-                (hangsAfter after)
+            (hangsConcat (hangsTwo opening (hangsPre closing gapReady))) place _ trace next byComputing entered
+              (hangsAfter after)
           | [item, ..rest], each, filledKeys, brokenKeys, closeBefore =>
             let cellDocs := cells bare around.inArm open.trails low [item, ..rest]
             let brokenDocs := brokenItems bare around.inArm True open.trails low [item, ..rest]
             let filled: HangLays kinds (Nest 2 (Fill cellDocs)) indent openDone contentsDone :=
               hangsNest 2 indent
-                (hangsMarked
-                  (Fill cellDocs)
-                  low
-                  origin
-                  flag
-                  filledKeys
+                (hangsMarked low origin flag filledKeys
                   (fillCellsHang kinds bare around.inArm open.trails open.trails low inset outer top item rest comma
                       inner each))
             let broken: HangLays kinds (Nest 2 (Doc.concat brokenDocs)) indent openDone contentsDone :=
               hangsNest 2 indent
-                (hangsConcat brokenDocs
-                  (allHangsMarked brokenDocs low origin flag brokenKeys
+                (hangsConcat
+                  (allHangsMarked low origin flag brokenKeys
                     (brokenItemsHang kinds bare around.inArm True open.trails open.trails low inset outer top item rest
                         comma inner each)))
             match fill: list
@@ -898,39 +884,29 @@ theorem bracketContentHangs ∀ (kinds: Text → Tok) (list: Bool) (open: Word) 
               && [item, ..rest].all Expr.plainItem with
               | True =>
                 (hangsConcat
-                      [prefix, Nest 2 (Fill cellDocs), closerDoc]
-                      (hangsCons prefix
+                      (hangsCons
                         [Nest 2 (Fill cellDocs), closerDoc]
                         opening
-                        (hangsTwo (Nest 2 (Fill cellDocs)) filled (hangsPre closing endReady)))) place _ trace next
-                    byComputing entered
+                        (hangsTwo filled (hangsPre closing endReady)))) place _ trace next byComputing entered
                     (hangsAfter after)
               | False =>
                 let tail: HangLaysAll kinds [Nest 2 (Doc.concat brokenDocs), SoftLine] indent openDone ready :=
-                  hangsTwo (Nest 2 (Doc.concat brokenDocs)) broken soft
+                  hangsTwo broken soft
                 match holds: (ListOf open [item, ..rest] False close).holdsTrailingComment with
                   | True =>
                     (hangsConcat
-                          [prefix, Nest 2 (Doc.concat brokenDocs), SoftLine, closerDoc, BreakParent]
-                          (hangsCons prefix
+                          (hangsCons
                             [Nest 2 (Doc.concat brokenDocs), SoftLine, closerDoc, BreakParent]
                             opening
-                            (hangsAppend
-                              [Nest 2 (Doc.concat brokenDocs), SoftLine]
-                              tail
-                              (hangsTwo closerDoc closing (hangsBreakParent kinds indent post))))) place _ trace next
-                        byComputing entered
+                            (hangsAppend tail (hangsTwo closing (hangsBreakParent kinds indent post))))) place _ trace
+                        next byComputing entered
                         (hangsAfter after)
                   | False =>
                     (hangsConcat
-                          [prefix, Nest 2 (Doc.concat brokenDocs), SoftLine, closerDoc]
-                          (hangsCons prefix
+                          (hangsCons
                             [Nest 2 (Doc.concat brokenDocs), SoftLine, closerDoc]
                             opening
-                            (hangsAppend
-                              [Nest 2 (Doc.concat brokenDocs), SoftLine]
-                              tail
-                              (hangsLast closerDoc indent closing)))) place _ trace next byComputing entered
+                            (hangsAppend tail (hangsLast indent closing)))) place _ trace next byComputing entered
                         (hangsAfter after))
 
 --| A tuple or list (`commaBracket`) as one element.
@@ -1145,7 +1121,7 @@ theorem parenHangs ∀ (kinds: Text → Tok) (open: Word) (inner: Expr) (close: 
       let opening: HangLays kinds prefix indent pre openDone :=
         bracketOpening kinds open close around indent column state entry opener hoisted openTrailed
       let middle: HangLays kinds innerDoc indent openDone innerDone :=
-        hangsMarked innerDoc low origin flag keys
+        hangsMarked low origin flag keys
           (heldInnerHangs kinds innerDoc indent outer top open.trails inner.trails quiet bound innerHangs)
       let closing: HangLays kinds closerDoc indent ready post :=
         closerStep kinds close closeAround around.at indent
@@ -1185,10 +1161,8 @@ theorem parenHangs ∀ (kinds: Text → Tok) (open: Word) (inner: Expr) (close: 
           marked
         )
       rewrite plain then
-        (hangsConcat
-              [prefix, innerDoc, closerDoc]
-              (hangsCons prefix [innerDoc, closerDoc] opening (hangsTwo innerDoc middle (hangsPre closing innerReady))))
-            place _ trace next byComputing entered
+        (hangsConcat (hangsCons [innerDoc, closerDoc] opening (hangsTwo middle (hangsPre closing innerReady)))) place _
+            trace next byComputing entered
             (hangsAfter after))
 
 -- A call's last argument.

@@ -552,23 +552,40 @@ pub(crate) fn unify_by_unknown_arguments(
             _ => None,
         })
     };
+    // Whether an unknown applied to the variables in scope where it was
+    // made has a type that is data: neither a function nor a type.
+    let of_data = |arg: &Value, m: usize| -> Result<bool> {
+        let Value::Neutral(_, spine) = force_solved(g, arg.clone())? else {
+            return Ok(false);
+        };
+        let ty = g.store.metas.borrow()[m].ty.clone();
+        Ok(match ty {
+            Some((ty, scope)) if scope == spine.len() => {
+                !matches!(force(g, ty)?, Value::Pi(..) | Value::Sort(..))
+            }
+            _ => false,
+        })
+    };
     let mut whole = HashSet::default();
     let mut against_known = false;
+    let mut against_lambda = false;
+    let mut data_against_known = false;
     for pair in s1.iter().zip(s2.iter()) {
         if let (Elim::App(x, _), Elim::App(y, _)) = pair {
             match (unknown(x)?, unknown(y)?) {
-                // Not a function: what an unknown function is (a parser,
-                // a spec) is usually settled by more than one argument, and
-                // the elaborator has its own order for those.
-                (Some(_), None) if matches!(force(g, y.clone())?, Value::Lam(..)) => {
-                    return Ok(false);
-                }
-                (None, Some(_)) if matches!(force(g, x.clone())?, Value::Lam(..)) => {
-                    return Ok(false);
-                }
                 (Some(m), None) | (None, Some(m)) => {
                     whole.insert(m);
-                    against_known = true;
+                    let (unknown_arg, known) = if unknown(x)?.is_some() {
+                        (x, y)
+                    } else {
+                        (y, x)
+                    };
+                    if matches!(force(g, known.clone())?, Value::Lam(..)) {
+                        against_lambda = true;
+                    } else {
+                        against_known = true;
+                        data_against_known |= of_data(unknown_arg, m)?;
+                    }
                 }
                 (Some(m), Some(n)) => {
                     whole.insert(m);
@@ -578,7 +595,14 @@ pub(crate) fn unify_by_unknown_arguments(
             }
         }
     }
-    if !against_known {
+    // An unknown function (a parser, a spec) facing a lambda is usually
+    // settled by more than one argument, and the elaborator has its own
+    // order for those; so it is solved with that lambda here only when an
+    // unknown that is data, not a function or a type, faces a known
+    // argument too: `HangLays kinds ?doc indent pre ?post` against
+    // `HangLays kinds BreakParent indent pre (place hang => …)`, where
+    // `?doc` blocks the unfolding.
+    if !against_known || (against_lambda && !data_against_known) {
         return Ok(false);
     }
     let trail = g.store.meta_trail.borrow().len();

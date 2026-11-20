@@ -304,8 +304,7 @@ theorem notedArrowGlues ∀ (word: Word) (around: Around) (key: Nat) (note: Note
             match trailing: word.comments.after, quiet with
               | None, _ =>
                 hangsConcat
-                  (word.leading around key ++ [Doc.text word.text])
-                  (hangsAppend (word.leading around key) leading (hangsLast (Doc.text word.text) inset written))
+                  (hangsAppend leading (hangsLast inset written))
                   place _
                   trace
                   next

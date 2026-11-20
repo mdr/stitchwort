@@ -8443,7 +8443,7 @@ fn propagate(
             Ok(Some(propagate_failed(
                 cx,
                 expr,
-                expected,
+                (expected, named),
                 &args,
                 propagated,
                 (by_holes, by_named),
@@ -8622,7 +8622,7 @@ fn after_arguments_failed(
 fn propagate_failed(
     cx: &mut Ctx,
     expr: &Expr,
-    expected: &Value,
+    (expected, named): (&Value, &Value),
     args: &[Arg],
     propagated: Diagnostic,
     (by_holes, by_named): (bool, bool),
@@ -8641,7 +8641,7 @@ fn propagate_failed(
     let old = (|| {
         let (term, found) = infer(cx, expr)?;
         let (term, found) = insert(cx, term, found)?;
-        compare(cx, term, &found, expected)
+        compare_named(cx, term, &found, expected, Some(named))
     })();
     let off = if by_holes {
         &cx.e.decl.no_hole_propagation

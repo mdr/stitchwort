@@ -525,8 +525,7 @@ theorem parenLedHangs ∀ (kinds: Text → Tok) (open: Word) (inner: Expr) (clos
             closeTrailed bound
       rewrite plain then
         hangsConcat
-          [prefix, innerDoc, closerDoc]
-          (hangsCons prefix [innerDoc, closerDoc] opening (hangsTwo innerDoc middle closing))
+          (hangsCons [innerDoc, closerDoc] opening (hangsTwo middle closing))
           place _
           trace
           next
