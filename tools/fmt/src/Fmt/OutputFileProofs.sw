@@ -1033,18 +1033,12 @@ def colLines (leaves: List Leaf): Bool := leaves.all (leaf => !(leaf.token.colum
 --| The layout so far: the line has a token on it or the column isn't 0, and each leaf made keeps `colLines`.
 def laidOk (laid: Laid): Bool := (laid.freshLine || !(laid.column == 0)) && colLines laid.leaves
 
-theorem nonZeroAdd ∀ (a b: Nat) (nonzero: (a == 0) = False): (b + a == 0) = False := match a with
-  | Succ k => byComputing
-
-theorem nonZeroAddLeft ∀ (a b: Nat) (nonzero: (a == 0) = False): (a + b == 0) = False := match a with
-  | Succ k => byComputing
-
 --| A text that isn't empty has bytes.
 theorem textBytes ∀ (text: Text) (filled: text.toList ≠ []): (text.utf8Length == 0) = False :=
   rewrite utf8OfText text then
     match text.toList with
       | [] => (filled byComputing).impossible
-      | [char, ..more] => nonZeroAddLeft (Char.utf8 char).length (utf8Chars more) (Char.utf8LengthNeZero char)
+      | [char, ..more] => Nat.addNeZeroLeft (Char.utf8 char).length (utf8Chars more) (Char.utf8LengthNeZero char)
 
 theorem colLinesWithTrailing ∀ (leaves: List Leaf) (comment: Comment):
     colLines (withTrailing leaves comment) = colLines leaves :=
@@ -1056,20 +1050,22 @@ theorem layOk ∀ (laid: Laid) (piece: Piece)
   match piece with
     | Code kind text =>
       Bool.andIntro
-        (rewrite nonZeroAdd text.utf8Length laid.column (textBytes text plain.left))
+        (rewrite Nat.addNeZeroRight text.utf8Length laid.column (textBytes text plain.left))
         (Bool.andIntro (Bool.orSwapTrue _ _ (Bool.andLeft ok)) (Bool.andRight ok))
     | Gap count =>
       match laid.freshLine with
         | True => ok
         | False =>
-          Bool.andIntro (rewrite nonZeroAddLeft laid.column count (Bool.notTrue _ (Bool.andLeft ok))) (Bool.andRight ok)
+          Bool.andIntro
+            (rewrite Nat.addNeZeroLeft laid.column count (Bool.notTrue _ (Bool.andLeft ok)))
+            (Bool.andRight ok)
     | Break => Bool.andRight ok
     | Remark text =>
       match laid.freshLine with
         | True => ok
         | False =>
           Bool.andIntro
-            (rewrite nonZeroAddLeft laid.column text.utf8Length (Bool.notTrue _ (Bool.andLeft ok)))
+            (rewrite Nat.addNeZeroLeft laid.column text.utf8Length (Bool.notTrue _ (Bool.andLeft ok)))
             (rewrite colLinesWithTrailing laid.leaves {
                   text = withoutReturn text,
                   column = laid.column,

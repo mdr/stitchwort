@@ -646,6 +646,28 @@ theorem Text.startsWithCharsAppend ∀ (t p: List Char): Text.startsWithChars p 
       (Eq.cong (b => if b then Text.startsWithChars ps (List.append ps t) else False) (Text.sameCharRefl c))
       (Text.startsWithCharsAppend t ps)
 
+--| A character after which the list continues starts with the same one as the whole list:
+--| `startsWithChars [mark]` of `ys ++ zs` is of `ys`, for a `ys` that isn't empty.
+theorem Text.startsWithCharsHead ∀ (mark: Char) (ys zs: List Char)
+    (filled: ys.isEmpty = False):
+    Text.startsWithChars [mark] (ys ++ zs) = Text.startsWithChars [mark] ys :=
+  match ys with | [y, ..more] => byComputing
+
+--| A digit is not equal to a character that isn't one, the digit on the left.
+theorem Char.beqFalseOfDigit ∀ (char other: Char)
+    (digit: char.isAsciiDigit = True)
+    (notDigit: other.isAsciiDigit = False):
+    (char == other) = False :=
+  DecEq.falseOfNe (same =>
+    Bool.falseNotTrue (notDigit.flipped.trans ((Eq.cong Char.isAsciiDigit same).flipped.trans digit)))
+
+--| [`Char.beqFalseOfDigit`] with the digit on the right.
+theorem Char.beqFalseOfDigitRight ∀ (other char: Char)
+    (notDigit: other.isAsciiDigit = False)
+    (digit: char.isAsciiDigit = True):
+    (other == char) = False :=
+  DecEq.falseOfNe (same => Bool.falseNotTrue (notDigit.flipped.trans ((Eq.cong Char.isAsciiDigit same).trans digit)))
+
 theorem Text.startsWithAppend ∀ (p t: Text): Text.startsWith (Text.append p t) p = True :=
   Text.startsWithCharsAppend (Text.toList t) (Text.toList p)
 

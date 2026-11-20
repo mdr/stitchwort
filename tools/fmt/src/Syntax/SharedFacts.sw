@@ -30,11 +30,6 @@ theorem arrowsBarePrefix ∀ (xs ys: List Word) (bare: arrowsBare (xs ++ ys) = T
     | [word, next, ..rest] =>
       Bool.andIntro (Bool.andLeft bare) (arrowsBarePrefix [next, ..rest] ys (Bool.andRight bare))
 
-theorem startsHeadChar ∀ (mark: Char) (ys zs: List Char)
-    (filled: ys.isEmpty = False):
-    Text.startsWithChars [mark] (ys ++ zs) = Text.startsWithChars [mark] ys :=
-  match ys with | [y, ..more] => byComputing
-
 theorem solidSpaces ∀ (text: Text) (solid: isLayout text = False): text.all (char => char == ' ') = False :=
   match spaces: text.all (char => char == ' ') with | False => byComputing
 

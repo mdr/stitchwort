@@ -2144,14 +2144,15 @@ theorem importItemsCons ∀ (item: ImportItem) (rest: List ImportItem):
 theorem importItemsBlank ∀ (items twins: List ImportItem)
     (alike: List.All2 ImportItemAlike items twins):
     blankImportItems items = blankImportItems twins :=
-  match items, twins with
-    | [], [] => byComputing
-    | [item, ..rest], [twin, ..restTwin] =>
-      let (head, tail) := alike
-      calc blankImportItems [item, ..rest]
-        _ = [importItemKey item, ..blankImportItems rest] := importItemsCons item rest
-        _ = [importItemKey twin, ..blankImportItems restTwin] := rewrite head, importItemsBlank rest restTwin tail
-        _ = blankImportItems [twin, ..restTwin] := Eq.flipped (importItemsCons twin restTwin)
+  List.all2Join
+    [f := list => blankImportItems list]
+    [key := importItemKey]
+    (k rest => [k, ..rest])
+    importItemsCons
+    (x y same => same)
+    items
+    twins
+    alike
 
 theorem alikeImportItem ∀ (name nameTwin: Word)
     (names: WordsAlike name nameTwin) (alias aliasTwin: Option (Comments, Word))
@@ -2228,15 +2229,15 @@ theorem operationsCons ∀ (operation: Operation) (rest: List Operation):
 theorem operationsBlank ∀ (items twins: List Operation)
     (alike: List.All2 OperationAlike items twins):
     blankOperations (walkOperations blankPure items) = blankOperations (walkOperations blankPure twins) :=
-  match items, twins with
-    | [], [] => byComputing
-    | [item, ..rest], [twin, ..restTwin] =>
-      let (head, tail) := alike
-      calc blankOperations (walkOperations blankPure [item, ..rest])
-        _ = [operationKey item, ..blankOperations (walkOperations blankPure rest)] := operationsCons item rest
-        _ = [operationKey twin, ..blankOperations (walkOperations blankPure restTwin)] :=
-          rewrite head, operationsBlank rest restTwin tail
-        _ = blankOperations (walkOperations blankPure [twin, ..restTwin]) := Eq.flipped (operationsCons twin restTwin)
+  List.all2Join
+    [f := list => blankOperations (walkOperations blankPure list)]
+    [key := operationKey]
+    (k rest => [k, ..rest])
+    operationsCons
+    (x y same => same)
+    items
+    twins
+    alike
 
 theorem alikeOperation ∀ (name nameTwin: Word)
     (names: WordsAlike name nameTwin)
@@ -2285,15 +2286,15 @@ theorem blankIndexStepsCons ∀ (step: (Index, Word)) (rest: List (Index, Word))
 theorem indexStepsBlank ∀ (steps twins: List (Index, Word))
     (alike: List.All2 IndexStepAlike steps twins):
     blankIndexSteps (walkIndices blankPure steps) = blankIndexSteps (walkIndices blankPure twins) :=
-  match steps, twins with
-    | [], [] => byComputing
-    | [step, ..rest], [twin, ..restTwin] =>
-      let (head, tail) := alike
-      calc blankIndexSteps (walkIndices blankPure [step, ..rest])
-        _ = [stepKey step, ..blankIndexSteps (walkIndices blankPure rest)] := blankIndexStepsCons step rest
-        _ = [stepKey twin, ..blankIndexSteps (walkIndices blankPure restTwin)] :=
-          rewrite head, indexStepsBlank rest restTwin tail
-        _ = blankIndexSteps (walkIndices blankPure [twin, ..restTwin]) := Eq.flipped (blankIndexStepsCons twin restTwin)
+  List.all2Join
+    [f := list => blankIndexSteps (walkIndices blankPure list)]
+    [key := stepKey]
+    (k rest => [k, ..rest])
+    blankIndexStepsCons
+    (x y same => same)
+    steps
+    twins
+    alike
 
 theorem alikeStepBinder ∀ (binder twin: Group)
     (binders: GroupsAlike binder twin) (arrow arrowTwin: Word)
@@ -2359,15 +2360,15 @@ theorem fieldsCons ∀ (field: Field) (rest: List Field):
 theorem fieldListBlank ∀ (fields twins: List Field)
     (alike: List.All2 FieldAlike fields twins):
     blankFieldList (walkFieldList blankPure fields) = blankFieldList (walkFieldList blankPure twins) :=
-  match fields, twins with
-    | [], [] => byComputing
-    | [field, ..rest], [twin, ..restTwin] =>
-      let (head, tail) := alike
-      calc blankFieldList (walkFieldList blankPure [field, ..rest])
-        _ = [fieldKey field, ..blankFieldList (walkFieldList blankPure rest)] := fieldsCons field rest
-        _ = [fieldKey twin, ..blankFieldList (walkFieldList blankPure restTwin)] :=
-          rewrite head, fieldListBlank rest restTwin tail
-        _ = blankFieldList (walkFieldList blankPure [twin, ..restTwin]) := Eq.flipped (fieldsCons twin restTwin)
+  List.all2Join
+    [f := list => blankFieldList (walkFieldList blankPure list)]
+    [key := fieldKey]
+    (k rest => [k, ..rest])
+    fieldsCons
+    (x y same => same)
+    fields
+    twins
+    alike
 
 theorem alikeField ∀ (attributes twinAttributes: List Attributes)
     (attributeses: List.All2 AttributeGroupAlike attributes twinAttributes) (name nameTwin: Word)
@@ -2447,14 +2448,15 @@ theorem partsCons ∀ (part: ConstructorPart) (rest: List ConstructorPart):
 theorem partsBlank ∀ (parts twins: List ConstructorPart)
     (alike: List.All2 PartAlike parts twins):
     blankParts (walkParts blankPure parts) = blankParts (walkParts blankPure twins) :=
-  match parts, twins with
-    | [], [] => byComputing
-    | [part, ..rest], [twin, ..restTwin] =>
-      let (head, tail) := alike
-      calc blankParts (walkParts blankPure [part, ..rest])
-        _ = [partKey part, ..blankParts (walkParts blankPure rest)] := partsCons part rest
-        _ = [partKey twin, ..blankParts (walkParts blankPure restTwin)] := rewrite head, partsBlank rest restTwin tail
-        _ = blankParts (walkParts blankPure [twin, ..restTwin]) := Eq.flipped (partsCons twin restTwin)
+  List.all2Join
+    [f := list => blankParts (walkParts blankPure list)]
+    [key := partKey]
+    (k rest => [k, ..rest])
+    partsCons
+    (x y same => same)
+    parts
+    twins
+    alike
 
 theorem alikePartGroup ∀ (group twin: Group)
     (groups: GroupsAlike group twin):
@@ -2490,16 +2492,15 @@ theorem constructorsCons ∀ (constructor: Constructor) (rest: List Constructor)
 theorem constructorsBlank ∀ (items twins: List Constructor)
     (alike: List.All2 ConstructorAlike items twins):
     blankConstructors (walkConstructors blankPure items) = blankConstructors (walkConstructors blankPure twins) :=
-  match items, twins with
-    | [], [] => byComputing
-    | [item, ..rest], [twin, ..restTwin] =>
-      let (head, tail) := alike
-      calc blankConstructors (walkConstructors blankPure [item, ..rest])
-        _ = [constructorKey item, ..blankConstructors (walkConstructors blankPure rest)] := constructorsCons item rest
-        _ = [constructorKey twin, ..blankConstructors (walkConstructors blankPure restTwin)] :=
-          rewrite head, constructorsBlank rest restTwin tail
-        _ = blankConstructors (walkConstructors blankPure [twin, ..restTwin]) :=
-          Eq.flipped (constructorsCons twin restTwin)
+  List.all2Join
+    [f := list => blankConstructors (walkConstructors blankPure list)]
+    [key := constructorKey]
+    (k rest => [k, ..rest])
+    constructorsCons
+    (x y same => same)
+    items
+    twins
+    alike
 
 theorem alikeConstructor ∀ (bar barTwin: Comments) (attributes twinAttributes: List Attributes)
     (attributeses: List.All2 AttributeGroupAlike attributes twinAttributes) (name nameTwin: Word)

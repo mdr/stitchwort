@@ -4,7 +4,7 @@
 --| the group's items too.
 
 namespace Fmt.SplitProofs
-import Std (Bool, Eq, List, Nat, Option, Text, Void)
+import Std (Bool, DecEq, Eq, List, Nat, Option, Text, Void)
 import Syntax (Comments, Decl, Expr, InfixKind, Item, Leaf, Tok, Token, Word, items, itemsAfter)
 import Syntax.SettleProofs (tokens)
 import Fmt (..)
@@ -206,8 +206,6 @@ def Chained: List Item → Bool
   | [first, second, ..rest] => (second.afterOperand == first.kind.closesOperand) && Chained [second, ..rest]
   | _ => True
 
-theorem boolEqSelf ∀ (b: Bool): (b == b) = True := match b with | True | False => byComputing
-
 theorem itemsChained ∀ (before: Option Token) (index depth lineIndent: Nat) (leaves: List Leaf):
     Chained (itemsAfter before index depth lineIndent leaves) = True :=
   match leaves with
@@ -221,7 +219,7 @@ theorem itemsChained ∀ (before: Option Token) (index depth lineIndent: Nat) (l
              else depth)
             (if leaf.token.lineStart then leaf.token.column else lineIndent)
             [next, ..rest],
-          boolEqSelf leaf.token.kind.closesOperand
+          DecEq.refl leaf.token.kind.closesOperand
 
 --| A group's items are chained.
 theorem groupChained ∀ (group: List Leaf): Chained (items group) = True := itemsChained None 0 0 0 group

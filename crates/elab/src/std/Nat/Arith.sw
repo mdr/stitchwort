@@ -779,6 +779,14 @@ theorem Nat.equalComm ∀ (a b: Nat): Nat.equal a b = Nat.equal b a := match a, 
   | Succ a, Zero => byComputing
   | Succ a, Succ b => Nat.equalComm a b
 
+--| Adding a nonzero number on the right keeps a sum nonzero.
+theorem Nat.addNeZeroRight ∀ (a b: Nat) (nonzero: (a == 0) = False): (b + a == 0) = False := match a with
+  | Succ k => byComputing
+
+--| Adding a nonzero number on the left keeps a sum nonzero.
+theorem Nat.addNeZeroLeft ∀ (a b: Nat) (nonzero: (a == 0) = False): (a + b == 0) = False := match a with
+  | Succ k => byComputing
+
 --| A sum is 0 only when both terms are.
 theorem Nat.addEqZero ∀ (a b: Nat) (h: a + b = 0): (a = 0) ∧ (b = 0) := match a with
   | Zero => Both byComputing h

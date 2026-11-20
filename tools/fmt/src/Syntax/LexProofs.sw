@@ -396,14 +396,6 @@ theorem addBreak ∀ (assembly: Assembly) (source: Text) (offset: Nat):
       } :=
   byComputing
 
-theorem cutOfMade ∀ (source: Text) (before middle after: List Char)
-    (made: source.toList = before ++ (middle ++ after)):
-    (source.toList.drop before.length).take (before.length + middle.length - before.length) = middle :=
-  let dropped: source.toList.drop before.length = middle ++ after :=
-    rewrite made then List.dropAppend before (middle ++ after)
-  let count: before.length + middle.length - before.length = middle.length := arithmetic
-  rewrite dropped, count then List.takeAppend middle after
-
 -- Pieces: what a printer writes, and the leaves they make.
 
 --| A piece of printed text: a token's spelling, spaces, a line break or a comment.
@@ -589,7 +581,7 @@ theorem addPiece ∀ (laid: Laid) (lineStart: Nat) (source: Text) (offset: Nat) 
 
 --| The fold `assemble` makes over the lexemes of pieces, from layout `laid`: the layout the pieces make.
 --|
---| Proof idea: Induction on the pieces: `addPiece` for the first, with the slice for its lexeme cut out of the source (`cutOfMade`), then the rest from the layout it leaves, at the offset after it.
+--| Proof idea: Induction on the pieces: `addPiece` for the first, with the slice for its lexeme cut out of the source (`List.takeDropAppend`), then the rest from the layout it leaves, at the offset after it.
 theorem foldPieces ∀ (source: Text) (pieces: List Piece) (before after: List Char) (laid: Laid) (lineStart: Nat)
     (made: source.toList = before ++ (Parse.joinReads (pieceSteps pieces) ++ after))
     (plain: AllPlain pieces):
@@ -606,7 +598,8 @@ theorem foldPieces ∀ (source: Text) (pieces: List Piece) (before after: List C
         rewrite List.appendAssoc before piece.chars (Parse.joinReads (pieceSteps more) ++ after) then split
       let step :=
         addPiece laid lineStart source before.length piece
-          (cutOfMade source before piece.chars (Parse.joinReads (pieceSteps more) ++ after) split)
+          (rewrite (arithmetic: before.length + piece.chars.length - before.length = piece.chars.length) then
+            List.takeDropAppend source.toList before piece.chars (Parse.joinReads (pieceSteps more) ++ after) split)
           pieceOk
       match foldPieces source more
         (before ++ piece.chars)

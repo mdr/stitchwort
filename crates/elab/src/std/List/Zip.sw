@@ -388,6 +388,23 @@ theorem List.all2MapBoth ∀ (r: b → c → Prop) (f: a → b) (g: a → c)
     | [x, ..xs] =>
       Both (pointwise x (Inl byComputing)) (List.all2MapBoth r f g xs (y member => pointwise y (Inr member)))
 
+--| A function that splits over `cons`, `f [x, ..rest] = join (key x) (f rest)`, gives the same on two lists
+--| that are alike (`List.All2 rel`) when `rel`-alike elements have the same `key`. `f` is typically a
+--| walk that collects something from each element, and `join` is `cons` or `++`.
+theorem List.all2Join ∀ [f: List a → c] [key: a → k] [rel: a → a → Prop] (join: k → c → c)
+    (cons: ∀ (x: a) (rest: List a) => f [x, ..rest] = join (key x) (f rest))
+    (same: ∀ (x y: a) => rel x y → key x = key y) (xs ys: List a)
+    (alike: List.All2 rel xs ys):
+    f xs = f ys :=
+  match xs, ys with
+    | [], [] => byComputing
+    | [x, ..rest], [y, ..restTwin] =>
+      calc f [x, ..rest]
+        _ = join (key x) (f rest) := cons x rest
+        _ = join (key y) (f restTwin) :=
+          Eq.cong2 join (same x y alike.left) (List.all2Join join cons same rest restTwin alike.right)
+        _ = f [y, ..restTwin] := Eq.flipped (cons y restTwin)
+
 --| Related lists are as long: the length half of `List.All2`.
 theorem List.all2Length ∀ (r: a → b → Prop) (xs: List a) (ys: List b) (all: List.All2 r xs ys): xs.length = ys.length :=
   match xs, ys with

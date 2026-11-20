@@ -51,19 +51,10 @@ theorem refinesSelf ∀ (told: List Told) (exact: toldExact told = True): Refine
   | [] => byComputing
   | [entry, ..rest] => (entrySelf entry (Bool.andLeft exact), refinesSelf rest (Bool.andRight exact))
 
-theorem orImplies ∀ (x y z: Bool)
-    (left: x = True → z = True)
-    (right: y = True → z = True)
-    (both: (x || y) = True):
-    z = True :=
-  match x with
-    | True => left byComputing
-    | False => right both
-
 --| Two entries that refine a shape merge into one that does.
 --|
 --| Proof idea: Cases on the shape's entry; the merged entry's flags are the two entries' `||`, which allow no more than
---| the shape's if each does (`orImplies`).
+--| the shape's if each does (`Bool.orElim`).
 theorem mergeEntryRefines ∀ (one other shape: Told)
     (left: EntryRefines one shape)
     (right: EntryRefines other shape):
@@ -77,7 +68,7 @@ theorem mergeEntryRefines ∀ (one other shape: Told)
         (
           Said text (s || s2) (f || f2),
           byComputing,
-          (byComputing, (both => orImplies s s2 first hs hs2 both, both => orImplies f f2 second hf hf2 both))
+          (byComputing, (both => Bool.orElim both hs hs2, both => Bool.orElim both hf hf2))
         )
 
 --| Two layouts that each refine a shape, merged, refine it: the rules' choices tell the same words.

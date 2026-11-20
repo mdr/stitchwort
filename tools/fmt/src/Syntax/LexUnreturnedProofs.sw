@@ -8,7 +8,6 @@ import Syntax (..)
 import Syntax.SettleProofs (leafTexts, leavesTextsSplit, lexedTexts, optionText, triviaTexts)
 import Syntax.SettleOnceProofs (textsParked, textsReverseOnto)
 import Syntax.LexLaidProofs (textsReversed)
-import Syntax.SharedFacts (startsHeadChar)
 
 --| A comment's text that ends in neither a carriage return nor a space.
 def plainEnd (text: Text): Bool := !text.endsWith "\r" && !text.endsWith " "
@@ -40,11 +39,11 @@ theorem keepEnds ∀ (char: Char) (kept: List Char)
           let filled: (List.reverse [next, ..more]).isEmpty = False := List.reverseOntoNonEmpty more [next] byComputing
           let goalCr: Text.startsWithChars ['\r'] (List.reverse [char, next, ..more]) = False :=
             rewrite List.reverseCons char [next, ..more],
-                startsHeadChar '\r' (List.reverse [next, ..more]) [char] filled then
+                Text.startsWithCharsHead '\r' (List.reverse [next, ..more]) [char] filled then
               cr
           let goalSp: Text.startsWithChars [' '] (List.reverse [char, next, ..more]) = False :=
             rewrite List.reverseCons char [next, ..more],
-                startsHeadChar ' ' (List.reverse [next, ..more]) [char] filled then
+                Text.startsWithCharsHead ' ' (List.reverse [next, ..more]) [char] filled then
               sp
           (goalCr, goalSp)
 

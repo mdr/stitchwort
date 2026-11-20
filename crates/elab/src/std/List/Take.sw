@@ -8,6 +8,22 @@ theorem List.dropAppend ∀ (start rest: List a): List.drop (List.append start r
     | [] => byComputing
     | [x, ..xs] => List.dropAppend xs rest
 
+--| A list split into `read` and `later`, where `read` is the list's first element or nothing at all,
+--| is taken one more element on by taking `count` of `later`.
+theorem List.takeAfterFirst ∀ (whole read later: List a) (count: Nat)
+    (starts: whole = read ++ later)
+    (first: read = whole.take 1):
+    read ++ later.take count = whole.take (count + 1) :=
+  match whole with
+    | [] =>
+      let none: read = [] := first
+      let empty: later = [] := (rewrite none at starts then starts).flipped
+      rewrite none, empty, List.takeNil count
+    | [char, ..more] =>
+      let same: read = [char] := first
+      let laterSame: later = more := (List.consInjective char more later (rewrite same at starts then starts)).flipped
+      rewrite same, laterSame
+
 --| Nothing is left of the empty list, however much is dropped.
 theorem List.dropNil ∀ (n: Nat): List.drop ([]: List a) n = [] := match n with | Zero | Succ _ => byComputing
 

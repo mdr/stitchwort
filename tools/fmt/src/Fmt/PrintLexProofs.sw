@@ -70,18 +70,9 @@ theorem concatChars ∀ (texts: List Text): List.concat (texts.map Text.toList) 
   | [] => byComputing
   | [text, ..rest] => Eq.cong (later => text.toList ++ later) (concatChars rest)
 
-theorem replicateSpaces ∀ (chars: List Char)
-    (spaces: chars.all (char => char == ' ') = True):
-    List.replicate chars.length ' ' = chars :=
-  match chars with
-    | [] => byComputing
-    | [first, ..rest] =>
-      let restSpaces := Bool.andRight spaces
-      rewrite DecEq.sound (Bool.andLeft spaces) then Eq.cong (later => [' ', ..later]) (replicateSpaces rest restSpaces)
-
 theorem pieceChars ∀ (kinds: Text → Tok) (text: Text): (pieceOf kinds text).chars = text.toList :=
   match spaces: text.all (char => char == ' ') with
-    | True => replicateSpaces text.toList spaces
+    | True => List.replicateLengthOfAll ' ' text.toList spaces
     | False =>
       match lineBreak: text == "\n" with
         | True => rewrite DecEq.sound lineBreak

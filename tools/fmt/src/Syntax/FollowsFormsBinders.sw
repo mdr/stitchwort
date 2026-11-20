@@ -47,15 +47,15 @@ theorem paramsBlankCons ∀ (param: Param) (rest: List Param):
 theorem paramsBlank ∀ (params twins: List Param)
     (alike: List.All2 ParamsAlike params twins):
     blankParams (walkParams blankPure params) = blankParams (walkParams blankPure twins) :=
-  match params, twins with
-    | [], [] => byComputing
-    | [param, ..rest], [twin, ..restTwin] =>
-      calc blankParams (walkParams blankPure [param, ..rest])
-        _ = blankParams (walkParams blankPure [param]) ++ blankParams (walkParams blankPure rest) :=
-          paramsBlankCons param rest
-        _ = blankParams (walkParams blankPure [twin]) ++ blankParams (walkParams blankPure restTwin) :=
-          rewrite alike.left, paramsBlank rest restTwin alike.right
-        _ = blankParams (walkParams blankPure [twin, ..restTwin]) := Eq.flipped (paramsBlankCons twin restTwin)
+  List.all2Join
+    [f := list => blankParams (walkParams blankPure list)]
+    [key := param => blankParams (walkParams blankPure [param])]
+    (k rest => k ++ rest)
+    paramsBlankCons
+    (param twin same => same)
+    params
+    twins
+    alike
 
 theorem alikeNameParam ∀ (word twin: Word)
     (words: WordsAlike word twin):

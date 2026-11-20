@@ -295,6 +295,12 @@ theorem List.dropAppendLength ∀ (xs ys: List a) (k: Nat)
     List.drop (List.append xs ys) k = ys :=
   rewrite <- h then List.dropAppend xs ys
 
+--| What lies between a start and a stop: from `before`, `middle.length` elements of a join of the three are `middle`.
+theorem List.takeDropAppend ∀ (xs before middle after: List a)
+    (made: xs = before ++ (middle ++ after)):
+    (xs.drop before.length).take middle.length = middle :=
+  rewrite made then rewrite List.dropAppend before (middle ++ after) then List.takeAppend middle after
+
 theorem List.headTake ∀ (xs: List a) (d: a) (k: Nat) (h: 1 ≤ k): List.headOr (List.take xs k) d = List.headOr xs d :=
   match xs, k with | [] | [_, .._], Succ _ => byComputing
 

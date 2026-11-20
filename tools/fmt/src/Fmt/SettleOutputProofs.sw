@@ -52,7 +52,7 @@ import Syntax.SettleSplitProofs (
   trailsBackAppend
 )
 import Syntax.ParseWalk (wordWithinWithin)
-import Syntax.SharedFacts (arrowsBareSuffix, startsHeadChar)
+import Syntax.SharedFacts (arrowsBareSuffix)
 
 -- What rule 1 has passed.
 
@@ -1521,10 +1521,10 @@ theorem trimReturnsSame ∀ (chars: List Char)
         | [next, ..more] =>
           let filled: (List.reverse [next, ..more]).isEmpty = False := List.reverseOntoNonEmpty more [next] byComputing
           let tail: Text.startsWithChars ['\r'] (List.reverse [next, ..more]) = False :=
-            rewrite <- startsHeadChar '\r' (List.reverse [next, ..more]) [char] filled then
+            rewrite <- Text.startsWithCharsHead '\r' (List.reverse [next, ..more]) [char] filled then
               rewrite List.reverseCons char [next, ..more] at plain then plain
           let tailSpace: Text.startsWithChars [' '] (List.reverse [next, ..more]) = False :=
-            rewrite <- startsHeadChar ' ' (List.reverse [next, ..more]) [char] filled then
+            rewrite <- Text.startsWithCharsHead ' ' (List.reverse [next, ..more]) [char] filled then
               rewrite List.reverseCons char [next, ..more] at unspaced then unspaced
           let same := trimReturnsSame [next, ..more] tail tailSpace
           match cut: char == '\r' with
