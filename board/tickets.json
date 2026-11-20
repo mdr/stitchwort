@@ -28959,15 +28959,17 @@
     {
       "id": 4358,
       "title": "[Sonnet] A comparison in a Bool guard's generated fact shows as computed: x < 5 as x <= 4, 0 < x as 1 <= x (SW-4341, SW-4344 equations); show it as written",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
-      "body": "\n\nAlso (SW-4346): a Bool guard fact prints as (0 < l.length) = False; consider showing ¬ 0 < l.length or l.length <= 0 — display only.\n",
+      "body": "\n\nAlso (SW-4346): a Bool guard fact prints as (0 < l.length) = False; consider showing ¬ 0 < l.length or l.length <= 0 — display only.\n\nLane note: cause was guard_terms using the plain decision (found on the computed proposition, x < 5 -> x <= 4); now stated from the written prop via written_comparison. Test doc_states_a_guards_comparison_as_written. No hashes moved in the hash lane.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
-      "commits": []
+      "commits": [
+        "7e42cbb4b"
+      ]
     },
     {
       "id": 4359,
