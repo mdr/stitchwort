@@ -837,12 +837,25 @@ theorem givesExprLambda ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (l
     | False => Parse.givesAfter0 (reads0LambdaResultHere modes) (refused =>
       givesExprResult self modes refused nested outside bases)
 
+theorem reads0WalkHere ∀ (modes: Modes): Reads0 (() => walkHere modes) :=
+  Parse.reads0Mark (here => walkOn modes here.rest)
+
+theorem givesExprWalk ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (walk: Bool)
+    (nested: Nested self)
+    (outside: Outside self)
+    (bases: AtomBases self):
+    Parse.Gives GoodItems (() => exprWalk self modes walk) (Parsed 1) :=
+  match walk with
+    | True => givesOutIn (expr => 1 <= expr.level) (outside.walks modes)
+    | False =>
+      Parse.givesAfter0 (reads0LambdaHere modes) (lambdas => givesExprLambda self modes lambdas nested outside bases)
+
 theorem givesExprOther ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (outside: Outside self)
     (bases: AtomBases self):
     Parse.Gives GoodItems (() => exprOther self modes) (Parsed 1) :=
-  Parse.givesAfter0 (reads0LambdaHere modes) (lambdas => givesExprLambda self modes lambdas nested outside bases)
+  Parse.givesAfter0 (reads0WalkHere modes) (walk => givesExprWalk self modes walk nested outside bases)
 
 theorem givesExprInline ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)

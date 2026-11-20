@@ -274,6 +274,7 @@ type Outside (self: Goal → {Parse Item} Expr) = {
   keywords: ∀ (modes: Modes) (kind: Tok) => startsKeywordExpr kind = True
     → Parse.Gives GoodItems (() => exprKeyword self modes kind) Out,
   lambdas: ∀ (modes: Modes) => Parse.Gives GoodItems (() => lambda self modes None) Out,
+  walks: ∀ (modes: Modes) => Parse.Gives GoodItems (() => walkExpr self modes) Out,
   ifKeywords: ∀ (modes: Modes) => Parse.Gives GoodItems (() => ifKeyword self modes) Out,
   piExprs: ∀ (modes: Modes) (implicit: Bool) => Parse.Gives GoodItems (() => piExpr self modes implicit) Out,
   statementOthers: ∀ (modes: Modes) (kind: Tok) => startsOtherStatement kind = True
