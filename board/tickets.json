@@ -29963,7 +29963,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "\nProgress (lane, 20 Nov): lane/SW-4434 f104f7721. In `unify_by_unknown_arguments`, a lambda that eta-contracts to a function that isn't a lambda, with no unknown at its head, now counts as a known argument (`eta_function`; `eta_contract` moved there from the walk). The new accept example `unify-eta-lambda-argument.sw` fails on main; no other snapshots moved. The walk's contraction from SW-4425 is now redundant: with it switched off, walk-two-run-open-second and fmt Syntax.FollowsBase still check. Not removed. The debug env var from the title was not in the brief and was not done.\n",
+      "body": "\nProgress (lane, 20 Nov): lane/SW-4434 f104f7721. In `unify_by_unknown_arguments`, a lambda that eta-contracts to a function that isn't a lambda, with no unknown at its head, now counts as a known argument (`eta_function`; `eta_contract` moved there from the walk). The new accept example `unify-eta-lambda-argument.sw` fails on main; no other snapshots moved. The walk's contraction from SW-4425 is now redundant: with it switched off, walk-two-run-open-second and fmt Syntax.FollowsBase still check. Not removed. The debug env var from the title was not in the brief and was not done.\n\nReview SW-4439 (docs/reviews/SW-4434-unifier-eta-review.md): merge after M1 (a too-large read-back in eta_function returns Ok(false) when the budget is not exhausted, restoring notes as quote_folded's fallback does). Do with it: F1 (evaluate the contracted term; require it not to unfold to a lambda), F2 (unit test of eta_function over the seven traced shapes; accept examples with an implicit binder and a dependent result type), F4 (check depth == 0 first). Verifier: full hash snapshots and std pins. Resume at the next free build slot.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -30023,7 +30023,7 @@
     {
       "id": 4439,
       "title": "[Opus, paper] Review SW-4434 (unifier: a lambda that eta-contracts counts as a known argument in unify_by_unknown_arguments; eta_function cheap check, eta_contract moved from walk to unify.rs); core change, D2506",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
