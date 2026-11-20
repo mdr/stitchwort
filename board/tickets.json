@@ -30082,7 +30082,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nProgress (lane, 20 Nov 18:05): started 17:52 (est. 45 min). Elaborator keeps the statement as written (Ctx::statement) beside the expression checked against it: body, lambdas for the statement's binders, arms of the body's tree and of a whole-body match (generalised match: statement with the scrutinee abstracted). A ? there whose value prints the same computed shows the statement with the arm's values put in, if conv-equal to the goal. Example examples/goals/closed-comparison-as-written.sw. Display only.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -30103,15 +30103,17 @@
     {
       "id": 4445,
       "title": "[DeepSeek] Example kind that asserts a STITCHWORT_MATCH_METRICS outcome (e.g. guard-as-written: unchecked in guard-refinement-as-written-unchecked.sw), so examples that cover a fallback path fail if a later change stops reaching it; also usable for match-as-written and transport-as-written (SW-4418 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nLane notes: collected in-process via crates/elab/src/metrics.rs (thread-local); `-- metrics: <line without at=>` header in accept examples; documented in examples/README.md. Commit 05a807b17. Verified failing with the retry and the guard Unchecked report disabled.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
-      "commits": []
+      "commits": [
+        "05a807b17"
+      ]
     },
     {
       "id": 4446,
