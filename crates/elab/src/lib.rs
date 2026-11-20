@@ -891,7 +891,10 @@ impl<'a> Tree<'a> {
 
     /// The tree with each level `l` at `at(l)` instead. A split's fields
     /// are bound from its `depth` up, so `at` must keep them in order and
-    /// above every level it sends anything else to.
+    /// above every level it sends anything else to. The one map that
+    /// doesn't keep levels in order, `check_guard`'s onto a refinement's
+    /// copies, is only used on the flat trees of a guard's arms ([`is_flat`]),
+    /// which bind no fields.
     fn moved(&self, at: &dyn Fn(usize) -> usize) -> Tree<'a> {
         match self {
             Tree::Leaf {
@@ -7063,6 +7066,10 @@ fn check_guard<'a>(
     // the originals, as a `match`'s arms do.
     let split_at = cx.level();
     let refined = |cx: &Ctx, tree: &Tree<'a>| -> Option<Tree<'a>> {
+        // `compile_guard` keeps the arms below a guard to leaves, missing
+        // cases and guards, and the guarded arm is a leaf: no split binds
+        // fields that the map onto the copies could reorder.
+        debug_assert!(is_flat(tree));
         let added = cx
             .level()
             .checked_sub(split_at + 1)

@@ -21,3 +21,14 @@ theorem byName ∀ (n: Nat) (flag: Bool) (v: Vec Nat (pick flag)): v = v := matc
 theorem belowFalse ∀ (flag: Bool): pick flag = 1 ∨ flag = False := match flag with
   | f if g: f => Inl byComputing
   | _ => Inr byComputing
+
+theorem pickAtMost ∀ (b: Bool): pick b <= 2 := match b with
+  | True => byComputing
+  | False => byComputing
+
+-- Only the split in place checks the guarded arm: `pick flag <= 2` computes
+-- only once `flag` is known, so not unrefined, and `same (pick flag) v`
+-- names `flag`, so not generalised.
+theorem onlyInPlace ∀ (n: Nat) (flag: Bool) (v: Vec Nat (pick flag)): pick flag <= 2 ∧ v = v := match n with
+  | 0 if flag => (byComputing, same (pick flag) v)
+  | _ => (pickAtMost flag, same (pick flag) v)
