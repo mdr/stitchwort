@@ -28062,14 +28062,14 @@
     {
       "id": 4289,
       "title": "[DeepSeek] Move slices 4a-6a out of the root namespace Fmt so later-slice edits stop rechecking 146 files (survey target 7)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
       "body": "From the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target 7. D3698 overnight.",
       "created": "2026-11-19",
-      "updated": "2026-11-19",
+      "updated": "2026-11-20",
       "commits": []
     },
     {
@@ -28634,8 +28634,8 @@
     {
       "id": 4333,
       "title": "[Sonnet] Audit the remaining direct core::value::quote_folded calls that bypass the too-large fallback (dot.rs 1480, equations.rs 2575/5443, effects.rs 1483/4671/5067-5139, interfaces.rs 2062, omega.rs 567, named.rs 727, search.rs, check.rs 5831), as SW-4237 did for quote(; consider a clippy-style lint or wrapper so raw read-backs can't be added",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
