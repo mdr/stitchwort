@@ -27229,14 +27229,14 @@
     {
       "id": 4226,
       "title": "[Opus] cases fails on (5 <= level tok) = False with level a per-constructor table: it splits the comparison, never tok; a match tok with byComputing arms proves it (SW-4219 finding)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
       "body": "From SW-4219.",
       "created": "2026-11-19",
-      "updated": "2026-11-19",
+      "updated": "2026-11-20",
       "commits": []
     },
     {
@@ -29109,8 +29109,8 @@
     {
       "id": 4369,
       "title": "[Sonnet] Long or-pattern arms: stitchwort fmt joins | A | B | ... => onto one line of any length; break them (proof-match-likewise.md's formatter item; SW-4225 can now generate long ones)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
