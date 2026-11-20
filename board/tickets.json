@@ -1,5 +1,5 @@
 {
-  "next": 4364,
+  "next": 4366,
   "tickets": [
     {
       "id": 47,
@@ -28987,12 +28987,12 @@
     {
       "id": 4360,
       "title": "[Opus] SW-4359 N1: f.induct takes its IH from eqK's right side (now sound guard) while the split binds the arm's own h; a recursive call whose argument computes with an && guard's proof at a non-skipped position could make the kernel refuse f.induct. Reproducer first; if one exists use the split's h or skip with a reason (docs/reviews/SW-4344-and-guard-review.md)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Estimate 35 min (lane started 10:10).\n10:20 No reproducer. The exact N1 shape (a recursive argument that computes with the guard's proof, `pick x y` doing `match ok | Both _ _ => x`) gets no eqK at all, before and after SW-4344: the eqK walk requires the arm's whole branch to reach h only at positions conversion skips (`proof_is_inert_in`, D2180, since SW-1429), because a conjunction has no uniqueness lemma. Skipped positions stay skipped for any proof, so sound (complete h) converts with h. Checked with the current binary: a proof field (mkGap into the accumulator), an inert parameter in an inner `if`, an inner split over a constructor holding the proof, and a `decreasing` proof from the guard all get f.induct. Commit 407694be6 only adds that reasoning as a comment at the IH site in induct.rs.\n10:22 Follow-up from the orchestrator: commit 50e761f7c adds examples/accept/and-guard-proof-in-induct.sw (collect, keep, climb, each with a proof by its f.induct) and its hash snapshot. test:example and test:lane AREA=hashes pass.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -29031,6 +29031,32 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4364,
+      "title": "[Opus] Equations for arms that compute with an && guard's proof: build the conjunction's uniqueness lemma from its decided parts (And of two Bool equations), so D2180 no longer skips eqK and f.induct there (SW-4360 pick.sw); low priority, nothing in the repo hits it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4365,
+      "title": "[DeepSeek] D2180's skip note says 'the proof h' even when the guard's proof was found automatically from an && guard and never named; word it for that case (SW-4360)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
