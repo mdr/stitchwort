@@ -28036,15 +28036,17 @@
     {
       "id": 4287,
       "title": "[Sonnet] std Parse.readsFatal, followsDone, readsDone, readsAtDone, List.consInjectiveHead take implicit arguments; drop ~870 _ (survey target 5; touches AoC)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target 5. D3698 overnight.",
+      "body": "From the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target 5. D3698 overnight.\n\n\nLane notes: Parse.readsFatal (message, spec), followsDone (x, y), readsDone (spec), readsAtDone (spec), List.consInjectiveHead (x y xs ys) now implicit; args dropped at every use (also non-underscore ones where inference worked); named at 7 uses. Commit 2852098d1. Checks: std files, 15 AoC days, tools/fmt check 0 errors, goal none, Fmt.Tests 441 pass, toyfmt check, snap:hashes updated.\n",
       "created": "2026-11-19",
-      "updated": "2026-11-19",
-      "commits": []
+      "updated": "2026-11-20",
+      "commits": [
+        "2852098d1"
+      ]
     },
     {
       "id": 4288,
