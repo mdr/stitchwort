@@ -1,5 +1,5 @@
 {
-  "next": 4305,
+  "next": 4306,
   "tickets": [
     {
       "id": 47,
@@ -27984,7 +27984,7 @@
     {
       "id": 4283,
       "title": "[Sonnet] Printer lemma families read their arguments off the premises (spells…, is…, lays…) (survey target 1, part B)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -28263,6 +28263,19 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "From SW-4264's report (worklog 19 Nov).",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4305,
+      "title": "[Opus] Unifier: match an applied predicate's head before unfolding it (Is _doc shape unfolds to its ∀ spot body; HangLays the same), so isCons/isAppend/isFill/isSpaced and HangLays-shaped lemmas can take implicit arguments; pairs with SW-4302/SW-4303 (SW-4283 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "From SW-4283; same cause as SW-4282's HangLays limit.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
