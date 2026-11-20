@@ -30064,8 +30064,8 @@
     {
       "id": 4442,
       "title": "[DeepSeek] Walk: when a family's relation computes to a constant (def Mine p post := True), E-WALK gives no hint; add a note when the goal no longer mentions the thunk and post, or a registration warning for a family relation whose unfolding drops them; and stitchwort fmt's 'N files skipped as deliberately unformatted' should name the files (SW-4441 findings)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
