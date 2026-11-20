@@ -1,5 +1,5 @@
 {
-  "next": 4315,
+  "next": 4316,
   "tickets": [
     {
       "id": 47,
@@ -28393,6 +28393,19 @@
       "labels": [],
       "epic": "test-infra",
       "body": "From SW-4312.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4315,
+      "title": "[Sonnet] build::the_roguelike_plays_as_it_does_under_run failed once under high load on Overmind (e861a4220: ending not printed after the alternate screen was left, build.rs:758), passed on the next cycle: make its pty wait robust to slow runs (wait for the leave-screen sequence rather than a fixed time)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "Overmind reports 20 Nov ~01:45 and ~02:10.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
