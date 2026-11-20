@@ -28790,12 +28790,12 @@
     {
       "id": 4345,
       "title": "[Sonnet] Printer: a Bool != inside a && guard shows as (x.decEq 4).not.holds in goals and stitchwort doc, and a lone == shows as (List.decEq … xs []).holds in doc (goals show xs == []): print decision tests as written (x != 4, xs == []) in both",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "From SW-4341; predates it.",
+      "body": "From SW-4341; predates it.\n\nLane (Sonnet): decided_equation now also prints holds {not (a = b)} (Decidable.not (f a b)) as `a != b`; doc (equations, theorems, hovers) asks the same eq_decision via pretty::term_deciding + Elaborator::eq_decider. Commits on lane/SW-4345. Tests: new goals example decided-tests-as-written + doc_equations test. large-hypothesis-goal / lemmas snapshots were already stale on main.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
