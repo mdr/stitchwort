@@ -1,5 +1,5 @@
 {
-  "next": 4391,
+  "next": 4393,
   "tickets": [
     {
       "id": 47,
@@ -29356,7 +29356,7 @@
     {
       "id": 4388,
       "title": "[Opus, paper] Review SW-4385 (guard refinement, D3701): changes theorem terms for guarded proof arms (D2364)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -29382,6 +29382,32 @@
     {
       "id": 4390,
       "title": "[Opus] A program guard that uses its proof (compiled as Decidable.elim, e.g. | xs if 0 < xs.length => xs.getLt 0) can't be refined: match g: 0 < xs.length fails with E-MATCH-MOTIVE too, so the guard falls back silently; guard-refinement.md §5.4 claimed otherwise (SW-4385 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4391,
+      "title": "[Opus] Guard refinement, part 2: in arms below a guard, point copied variables at their copies (not only shift levels), and split a condition that is just a variable the way match g: does, so refinement succeeds instead of falling back; hide the guarded arm's own names from arms below (SW-4388 follow-ups)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4392,
+      "title": "[DeepSeek] Optional W-GUARD-NOT-REFINED (or a note) when a proof's guard falls back to the unrefined split, saying why (SW-4388 follow-up)",
       "status": "backlog",
       "agent": "",
       "where": "",
