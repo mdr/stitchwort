@@ -346,7 +346,16 @@ fn the_evaluators_agree_on_the_prelude_and_every_example() {
         // a fixed sample below the all tier.
         // `STITCHWORT_DIFFERENTIAL_SKIP` and `_LIMIT` narrow the sweep to a
         // slice of the sample, to measure or bisect (docs/testing.md).
-        let mut sample = tier_sample(examples(), 4);
+        // `STITCHWORT_DIFFERENTIAL_ONLY` instead picks examples by name from
+        // every example, not just the tier's sample, so any one can run alone.
+        let all = examples();
+        let mut sample = match std::env::var("STITCHWORT_DIFFERENTIAL_ONLY") {
+            Ok(only) => all
+                .into_iter()
+                .filter(|(name, _)| name.contains(&only))
+                .collect(),
+            Err(_) => tier_sample(all, 4),
+        };
         if let Some(n) = std::env::var("STITCHWORT_DIFFERENTIAL_SKIP")
             .ok()
             .and_then(|v| v.parse::<usize>().ok())
@@ -408,6 +417,7 @@ fn report_skips() {
     let sliced = [
         "STITCHWORT_DIFFERENTIAL_SKIP",
         "STITCHWORT_DIFFERENTIAL_LIMIT",
+        "STITCHWORT_DIFFERENTIAL_ONLY",
         "STITCHWORT_DIFFERENTIAL_STEPS",
     ]
     .iter()
