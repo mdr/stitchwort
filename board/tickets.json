@@ -1,5 +1,5 @@
 {
-  "next": 4456,
+  "next": 4458,
   "tickets": [
     {
       "id": 47,
@@ -30211,7 +30211,7 @@
     {
       "id": 4453,
       "title": "[Opus] Match arms keep a Prop definition's head unfolded (match-partial-unfold shows forall ... instead of Parse.Follows ...): check_value_against forces the goal before check_match, so the motive is built from the unfolded value and SW-4419's 'Follows stays folded' never holds there; give check_match the unforced goal when it is a Prop call so the motive keeps the head (terms and hashes change; migration cost doesn't count); measure the effect on partial unfold and on tools/fmt check time (SW-4437 finding 1)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -30242,6 +30242,32 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4456,
+      "title": "[Opus] A match whose goal is a Prop call with an unknown applied to the scrutinee (Reads0 (() => _j lt) inside reads0Then) can't be checked against the folded goal, so SW-4453 skips the folded try when the goal has unknowns (23 fallbacks in three fmt namespaces without that condition); make the folded motive work there so the condition can go; also the effect-context callers of check_match (effects.rs ~2935, ~2949) still pass the forced goal; and partial-unfold.md's 'Follows stays folded' now holds for match: update it (SW-4453 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "goal-as-written",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4457,
+      "title": "[Sonnet] Profile: the same match is elaborated 3-4 times in some proofs (Fmt.HangProofs, ParseWalkLadder:209 and :684, std Set/Spec.sw:850), probably outer retries or speculative checks, and each repeats any fallback; profile one, find the callers, and say whether caching an arm's result is worth it (SW-4453 finding 2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
