@@ -1,5 +1,5 @@
 {
-  "next": 4421,
+  "next": 4422,
   "tickets": [
     {
       "id": 47,
@@ -27415,7 +27415,7 @@
     {
       "id": 4240,
       "title": "[Opus] Walk W3 (D3696): two-run families (Parse.Follows) in lockstep, per SW-4238 §3.10; after W1 (SW-4239)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -29774,6 +29774,19 @@
     {
       "id": 4420,
       "title": "[DeepSeek] STITCHWORT_MATCH_METRICS: add an outcome distinguishing 'nothing as written, but the usual search found it' from 'nothing anywhere'; and bounded-readback.md §4.2: search arguments before opening a call, and a call counts as opened only if it yields an occurrence (SW-4412 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4421,
+      "title": "[Opus] Walk W4: convert the remaining walk-shaped proofs in tools/fmt (ParseWalk*, Follows*) to byWalking, one namespace per pass, timing each theorem against the 1.5x bar; list proofs the walk can't take and why",
       "status": "backlog",
       "agent": "",
       "where": "",
