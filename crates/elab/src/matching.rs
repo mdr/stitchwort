@@ -773,10 +773,17 @@ pub(crate) fn refined_guard(
     scrutinee: Term,
     span: stitchwort_syntax::Span,
     goal: &Value,
+    in_place: bool,
     arm: &mut dyn FnMut(&mut Ctx, bool, &Value, usize) -> Result<Term>,
 ) -> Result<Option<Term>> {
     let g = cx.g();
     let base = cx.level();
+    if in_place {
+        return match in_place_level(cx, &scrutinee, base)? {
+            Some(level) => refined_in_place(cx, level, &scrutinee, span, goal, arm).map(Some),
+            None => Ok(None),
+        };
+    }
     let mark = cx.mark();
     let snapshot = crate::undo::Snapshot::take(cx);
     let bool_data = crate::check::builtin_data(cx, stitchwort_core::registry::Builtin::Bool)?;
@@ -869,10 +876,12 @@ pub(crate) fn refined_guard(
     let Bound {
         extra,
         equations,
+        copies,
         motive,
         ..
     } = bound;
     let x = base;
+    let copies: Rc<[(usize, usize)]> = copies.into();
     let equation = equations[0].1;
     // Within the arms, a proof whose type still has the condition where the
     // goal has `True` or `False` is carried along the equation, as in a
@@ -901,9 +910,11 @@ pub(crate) fn refined_guard(
             .expect("one value in, one out");
             let saved_env = std::mem::replace(&mut cx.env, env);
             let saved_types = std::mem::replace(&mut cx.types, refined);
+            let saved_copies = std::mem::replace(&mut cx.guard_copies, copies.clone());
             let case_mark = cx.mark();
             let result = arm(cx, holds, &case_goal, equation);
             cx.reset(case_mark);
+            cx.guard_copies = saved_copies;
             cx.env = saved_env;
             cx.types = saved_types;
             match result {
@@ -948,6 +959,112 @@ pub(crate) fn refined_guard(
     });
     cx.reset(mark);
     result.map(Some)
+}
+
+/// The level of the variable a guard's condition `scrutinee` is, if it is
+/// one the guard can split where it is ([`refined_in_place`]): a variable
+/// of the context, not a `let`, that the arms below don't split.
+fn in_place_level(cx: &Ctx, scrutinee: &Term, base: usize) -> Result<Option<usize>> {
+    let g = cx.g();
+    Ok(
+        match stitchwort_core::value::force(&g, cx.eval(scrutinee)?)? {
+            Value::Neutral(Head::Var(level, _), spine)
+                if spine.is_empty()
+                    && level < base
+                    && is_var(&cx.env[level], level)
+                    && cx.lets[level].is_none()
+                    && !cx.guard_splits.contains(&level) =>
+            {
+                Some(level)
+            }
+            _ => None,
+        },
+    )
+}
+
+/// [`refined_guard`] for a condition that is a variable of the context,
+/// `level`, which the arms don't split again: it is split where it is, as
+/// `match` splits a variable, so that in each arm the variable is `True`
+/// or `False` wherever it appears, under any name. The equation `arm` is
+/// given reads `True = True` (or `False = False`) once split.
+fn refined_in_place(
+    cx: &mut Ctx,
+    level: usize,
+    scrutinee: &Term,
+    span: stitchwort_syntax::Span,
+    goal: &Value,
+    arm: &mut dyn FnMut(&mut Ctx, bool, &Value, usize) -> Result<Term>,
+) -> Result<Term> {
+    let g = cx.g();
+    let base = cx.level();
+    let bool_data = crate::check::builtin_data(cx, stitchwort_core::registry::Builtin::Bool)?;
+    let goal_term = cx.quote_folded(goal)?;
+    cx.e.decl.guard_refined.borrow_mut().push(span);
+    let no_copies = std::mem::replace(&mut cx.guard_copies, Rc::from([]));
+    let body = (|| -> Result<Term> {
+        let mut cases: [Option<Term>; 2] = [None, None];
+        let mut failed = Vec::new();
+        for holds in [true, false] {
+            let ctor = usize::from(holds);
+            let value = Value::Ctor(bool_data, ctor, Vec::new().into());
+            let mut env = kernel::substitute_folded(&g, &cx.env, level, &value, &cx.env)?;
+            env[level] = value.clone();
+            let refined = kernel::substitute_folded(&g, &cx.env, level, &value, &cx.types)?;
+            let case_goal = kernel::substitute_folded(
+                &g,
+                &cx.env,
+                level,
+                &value,
+                &[stitchwort_core::value::eval(&g, &cx.env, &goal_term)?],
+            )?
+            .pop()
+            .expect("one value in, one out");
+            let saved_env = std::mem::replace(&mut cx.env, env);
+            let saved_types = std::mem::replace(&mut cx.types, refined);
+            let case_mark = cx.mark();
+            let result = (|| -> Result<Term> {
+                let equation = Term::Eq(
+                    Some(Rc::new(Term::Data(bool_data, Vec::new()))),
+                    Rc::new(scrutinee.clone()),
+                    Rc::new(Term::Ctor(bool_data, ctor, Vec::new())),
+                );
+                let ty = cx.eval(&equation)?;
+                let ty_term = cx.quote_folded(&ty)?;
+                cx.bind(GUARD_EQUATION, ty);
+                let body = arm(cx, holds, &case_goal, base)?;
+                Ok(Term::let_(GUARD_EQUATION.into(), ty_term, Term::Refl, body))
+            })();
+            cx.reset(case_mark);
+            cx.env = saved_env;
+            cx.types = saved_types;
+            match result {
+                Ok(term) => cases[ctor] = Some(term),
+                Err(e) if crate::undo::fatal(&e) || g.machine.budget.exhausted().is_some() => {
+                    return Err(e);
+                }
+                Err(e) => failed.push(e),
+            }
+        }
+        let mut failed = failed.into_iter();
+        if let Some(first) = failed.next() {
+            cx.e.attempt.branch_errors.borrow_mut().extend(failed);
+            return Err(first);
+        }
+        let branches: Vec<stitchwort_core::term::Branch> = cases
+            .into_iter()
+            .map(|body| stitchwort_core::term::Branch {
+                names: Vec::new(),
+                body: body.map(Rc::new),
+            })
+            .collect();
+        Ok(Term::Loc(
+            span,
+            Rc::new(Term::Case(base - 1 - level, bool_data, branches.into())),
+        ))
+    })();
+    cx.guard_copies = no_copies;
+    cx.e.decl.guard_refined.borrow_mut().pop();
+    lift::draft(cx, base, Vec::new(), body?, goal, span)
 }
 
 /// A `match` with expression scrutinees, generalised: now, or, if what its
@@ -1693,6 +1810,7 @@ fn in_arms(
         equations,
         depth,
         motive,
+        ..
     } = bound;
     let levels: Vec<usize> = columns
         .iter()
@@ -1820,6 +1938,8 @@ fn unrefined_goal(
 struct Bound {
     extra: Vec<Term>,
     equations: Vec<(usize, usize)>,
+    /// Each copied variable's level, with its copy's.
+    copies: Vec<(usize, usize)>,
     depth: usize,
     motive: Value,
 }
@@ -1927,9 +2047,12 @@ fn bind_generalised(
         .apply(&g, today.goal_term)?,
     };
     let motive = cx.eval(&goal_term)?;
+    let mut copies: Vec<(usize, usize)> = copies.into_iter().collect();
+    copies.sort_unstable();
     Ok(Bound {
         extra,
         equations,
+        copies,
         depth,
         motive,
     })
