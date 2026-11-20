@@ -1,5 +1,5 @@
 {
-  "next": 4452,
+  "next": 4453,
   "tickets": [
     {
       "id": 47,
@@ -29651,7 +29651,7 @@
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "\n\nProgress (lane, 20 Nov 19:05): built on lane/SW-4410. Carried entries from another kernel side are re-checked through the kernel's checking calls and kept as this build's (not exact); check --recheck re-checks every entry loaded (lake check reading). Measured on tools/fmt after a core comment change: (a) no carry-over 340 s / 3.85 GB; (b) stage 1 340 s / 3.85 GB (nothing carried); (c) stage 2 re-check 42.6 s / 1.55 GB, all 219 units re-checked, none refused; next carrying session 4.1 s. First measurement found a bug (checked data groups never marked final), fixed with tests. Note's As built (stage 2) and docs/core.md updated.\n",
+      "body": "\n\nProgress (lane, 20 Nov 19:05): built on lane/SW-4410. Carried entries from another kernel side are re-checked through the kernel's checking calls and kept as this build's (not exact); check --recheck re-checks every entry loaded (lake check reading). Measured on tools/fmt after a core comment change: (a) no carry-over 340 s / 3.85 GB; (b) stage 1 340 s / 3.85 GB (nothing carried); (c) stage 2 re-check 42.6 s / 1.55 GB, all 219 units re-checked, none refused; next carrying session 4.1 s. First measurement found a bug (checked data groups never marked final), fixed with tests. Note's As built (stage 2) and docs/core.md updated.\n\n\nReview fixes (lane, 20 Nov 19:36, commit 2a3978ba8): SW-4450 M1 (field sorts and erasure compared after a checked data group; refusal on a difference), M2 (data-entry unit test, fails without M1; driver test asserts hits > 0 via ExitStatus/Fin and kept.dump == fresh.dump), M3 (docs/core.md), F3 (--recheck always prints a line), F4 (comment). Tests: elab cache:: 3/3, driver projects 10/10, clippy elab+cli clean; soundness set fails only on fake-decision wording, already fixed on main (3f64e6c4e).\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -30188,6 +30188,19 @@
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4452,
+      "title": "[Sonnet] Carried cache follow-ups from SW-4450 (docs/reviews/SW-4410-recheck-review.md): F1 compare run bodies on a recheck; F2 tests (refusal part way through a multi-declaration entry, non-positive data type and non-terminating group on the checked path, undo of builtin bindings for a library entry, an end-to-end refused recheck, candidate preference, the CLI line); F5 run the field sorts/erasure comparison for carried entries on the trusted path too",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
