@@ -30103,8 +30103,8 @@
     {
       "id": 4445,
       "title": "[DeepSeek] Example kind that asserts a STITCHWORT_MATCH_METRICS outcome (e.g. guard-as-written: unchecked in guard-refinement-as-written-unchecked.sw), so examples that cover a fallback path fail if a later change stops reaching it; also usable for match-as-written and transport-as-written (SW-4418 finding)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
