@@ -28218,14 +28218,14 @@
     {
       "id": 4301,
       "title": "[DeepSeek] task fmt:unspell handles positional arguments, not only [p := …] (SW-4284's unarg2.py in the orchestrator scratchpad is a start; it once truncated files: read before writing)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
       "body": "From SW-4284.",
       "created": "2026-11-19",
-      "updated": "2026-11-19",
+      "updated": "2026-11-20",
       "commits": []
     },
     {
