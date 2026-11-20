@@ -253,6 +253,7 @@ status line now says the wrong thing; the details are in
 | [parse-proof-library.md](parse-proof-library.md) | Std's parser-proof library: the end state | proposed | SW-3493 |
 | [parser-input-naming.md](parser-input-naming.md) | Naming the character case of a generic parser | record (survey for D3588) | SW-3277 |
 | [proof-walk-step.md](proof-walk-step.md) | A walk step for proofs about effectful code: `walk [lemmas]` follows a parser's body with registered lemmas | proposed: D3695 | SW-4231 |
+| [closer.md](closer.md) | A closer for the leftovers: what `grind`, `simp_all` and `auto` would close in slice 1's proofs, measured on 50; recommends mending `cases` and `rewrite repeatedly`, then `byFacts [lemmas]` | proposed: one decision, not yet numbered | SW-4242 |
 | [std-lemma-references.md](std-lemma-references.md) | The compiler's references to std, checked | proposed | SW-1392 |
 | [std-naming.md](std-naming.md) | One name per operation in std, and how lemmas are named | proposed | SW-2179 |
 

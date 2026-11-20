@@ -1,0 +1,223 @@
+diff --git a/tools/fmt/src/Fmt/JoinProofs.sw b/tools/fmt/src/Fmt/JoinProofs.sw
+index 27b05d738..582e75829 100644
+--- a/tools/fmt/src/Fmt/JoinProofs.sw
++++ b/tools/fmt/src/Fmt/JoinProofs.sw
+@@ -2439,3 +2439,55 @@ theorem printLexes1 ∀ (kinds: Text → Tok) (decl: Decl) (doc: Doc) (width: Na
+       } :=
+   let (uniform, _, words) := doc1Spells decl doc within sound shows
+   printedLexes doc width kinds uniform (doc1Passes kinds decl doc within joins shows) (rewrite words then printable)
++
++theorem endedWeakerP ∀ (trails trails': Bool)
++    (implies: trails = True → trails' = True) (edge: Edge)
++    (ended: Ended trails edge):
++    Ended trails' edge :=
++  cases
++
++theorem endedWeakerQ ∀ (trails trails': Bool)
++    (implies: trails = True → trails' = True) (edge: Edge)
++    (ended: Ended trails edge):
++    Ended trails' edge :=
++  match trails, trails' with
++    | True, False => (Bool.falseNotTrue (implies byComputing)).impossible
++    | _, _ => cases
++
++theorem parenInnerPassesP ∀ (kinds: Text → Tok) (inner: Expr) (around: Around) (pre post: Edge → Prop)
++    (within: inner.within1 = True)
++    (passes: Passes kinds (inner.el around) pre post):
++    Passes kinds (parenInner inner around) pre post :=
++  cases
++
++theorem passesAppendP ∀ [kinds: Text → Tok] [front back: List Doc] [pre middle post: Edge → Prop]
++    (first: PassesAll kinds front pre middle)
++    (second: PassesAll kinds back middle post):
++    PassesAll kinds (front ++ back) pre post :=
++  edge next holds after =>
++    joinsAllAppend _ front back edge next (first edge _ holds (between reached => second between next reached after))
++
++theorem lastArgumentPassesP ∀ (kinds: Text → Tok) (argument: Expr) (around: Around)
++    (within: argument.within1 = True)
++    (joinable: Joinable kinds argument):
++    Passes kinds (lastArgument argument around).fst (Ready kinds True argument.lead.text) (Ended argument.trails)
++      ∧ HugPasses kinds
++        (lastArgument argument around).snd
++        (Ready kinds True argument.lead.text)
++        (Ended argument.trails) :=
++  match argument, joinable with
++    | Tuple open items comma close, (opener, closer, each) =>
++      let content := bracketContent False open items close { around | hoisted = True }
++      let elements := allElPasses kinds items within each
++      (
++        huggedBracketPasses kinds False open items close around content.forcesBreak opener closer elements,
++        huggedBracketPasses kinds False open items close around True opener closer elements
++      )
++    | ListOf open items comma close, (opener, closer, each) =>
++      let content := bracketContent True open items close { around | hoisted = True }
++      let elements := allElPasses kinds items within each
++      (
++        huggedBracketPasses kinds True open items close around content.forcesBreak opener closer elements,
++        huggedBracketPasses kinds True open items close around True opener closer elements
++      )
++    | other, joins => (elPasses kinds other within joins around, byComputing)
+diff --git a/tools/fmt/src/Syntax/ParseProofs.sw b/tools/fmt/src/Syntax/ParseProofs.sw
+index 7c7e96616..7099772b5 100644
+--- a/tools/fmt/src/Syntax/ParseProofs.sw
++++ b/tools/fmt/src/Syntax/ParseProofs.sw
+@@ -661,3 +661,5 @@ theorem argumentPrefixOpens ∀ (items: List Item)
+           Witness sign (Witness next (Witness later (Both byComputing (Both (Inr isMinus) opens))))
+         | other, found => (Bool.falseNotTrue found).impossible
+     | [] | [_], found => (Bool.falseNotTrue found).impossible
++
++theorem symbolicWithinP ∀ (kind: Tok) (symbolic: kind.symbolic1 = True): kind.within1 = True := cases
+diff --git a/tools/fmt/src/Syntax/ParseWalk.sw b/tools/fmt/src/Syntax/ParseWalk.sw
+index e8647591d..035a45779 100644
+--- a/tools/fmt/src/Syntax/ParseWalk.sw
++++ b/tools/fmt/src/Syntax/ParseWalk.sw
+@@ -1244,3 +1244,87 @@ theorem givesAtomBases ∀ (self: Goal → {Parse Item} Expr)
+       (seen => atomBaseOn self modes seen) _
+       (start fine stops => Parse.readsAtWeaken (outside.missings modes start fine) (read value out => outArgRead out))
+       (start item later shape fine stopped => readsAtomOf self modes nested outside start item later shape fine)
++
++theorem signSymbolicP ∀ (kind: Tok) (sign: kind = Minus ∨ kind = Bang): kind.symbolic1 = True := cases
++
++theorem parenParsedP ∀ (open close: Word) (inner: Expr)
++    (openText: open.text = "(")
++    (closeText: close.text = ")")
++    (parsed: Parsed 1 inner):
++    AtomParsed (Paren open inner close) :=
++  within =>
++    let (shaped, lexical, high) := parsed within
++    cases
++
++theorem parenParsedQ ∀ (open close: Word) (inner: Expr)
++    (openText: open.text = "(")
++    (closeText: close.text = ")")
++    (parsed: Parsed 1 inner):
++    AtomParsed (Paren open inner close) :=
++  within =>
++    let (shaped, lexical, high) := parsed within
++    rewrite repeatedly [openText, closeText, shaped, lexical]
++
++theorem parenParsedR ∀ (open close: Word) (inner: Expr)
++    (openText: open.text = "(")
++    (closeText: close.text = ")")
++    (parsed: Parsed 1 inner):
++    AtomParsed (Paren open inner close) :=
++  within =>
++    let (shaped, lexical, high) := parsed within
++    (shaped, rewrite repeatedly [openText, closeText, lexical], byComputing)
++
++theorem tupleParsedP ∀ (open close: Word) (items: List Expr) (trailing: Bool)
++    (openText: open.text = "(")
++    (closeText: close.text = ")")
++    (long: 2 <= items.length)
++    (parsed: List.All (Parsed 1) items):
++    AtomParsed (Tuple open items trailing close) :=
++  within =>
++    let (shaped, lexical) := itemsParsed 1 items parsed within
++    rewrite repeatedly [openText, closeText, shaped, lexical, long]
++
++theorem parenParsedS ∀ (open close: Word) (inner: Expr)
++    (openText: open.text = "(")
++    (closeText: close.text = ")")
++    (parsed: Parsed 1 inner):
++    AtomParsed (Paren open inner close) :=
++  within =>
++    let (shaped, lexical, high) := parsed within
++    rewrite repeatedly [openText, closeText, shaped, lexical] then cases
++
++theorem tupleParsedS ∀ (open close: Word) (items: List Expr) (trailing: Bool)
++    (openText: open.text = "(")
++    (closeText: close.text = ")")
++    (long: 2 <= items.length)
++    (parsed: List.All (Parsed 1) items):
++    AtomParsed (Tuple open items trailing close) :=
++  within =>
++    let (shaped, lexical) := itemsParsed 1 items parsed within
++    rewrite repeatedly [openText, closeText, shaped, lexical, long] then cases
++
++theorem parenParsedT ∀ (open close: Word) (inner: Expr)
++    (openText: open.text = "(")
++    (closeText: close.text = ")")
++    (parsed: Parsed 1 inner):
++    AtomParsed (Paren open inner close) :=
++  within =>
++    let (shaped, lexical, high) := parsed within
++    rewrite openText, closeText, shaped, lexical then cases
++
++theorem signSymbolicS ∀ (kind: Tok) (sign: kind = Minus ∨ kind = Bang): kind.symbolic1 = True := match sign with
++  | Inl is | Inr is => rewrite is
++
++theorem signSymbolicT ∀ (kind: Tok) (sign: kind = Minus ∨ kind = Bang): kind.symbolic1 = True := match sign with
++  | Inl is | Inr is => cases
++
++theorem itemsParsedP ∀ (floor: Nat) (items: List Expr)
++    (parsed: List.All (Parsed floor) items)
++    (within: allWithin1 items = True):
++    allShaped items = True ∧ allLexical items = True :=
++  match items, parsed, within with
++    | [], parsed, within => cases
++    | [first, ..rest], (firstParsed, restParsed), (Both firstWithin restWithin) =>
++      let (firstShaped, firstLexical, firstHigh) := firstParsed firstWithin
++      let (restShaped, restLexical) := itemsParsedP floor rest restParsed restWithin
++      rewrite repeatedly [firstShaped, firstLexical, restShaped, restLexical] then cases
+diff --git a/tools/fmt/src/Syntax/SettleBareProofs.sw b/tools/fmt/src/Syntax/SettleBareProofs.sw
+index 937be2aab..ceb5a3a2e 100644
+--- a/tools/fmt/src/Syntax/SettleBareProofs.sw
++++ b/tools/fmt/src/Syntax/SettleBareProofs.sw
+@@ -1751,3 +1751,21 @@ theorem settledOnceNone ∀ (lexed: Lexed) (none: noLast [] lexed.leaves = True)
+       (rewrite withBareRNone [] lexed.leaves none then List.reverseReverse lexed.leaves)
+   let free := pairFreeOfNoLast [] lexed.leaves none byComputing byComputing
+   rewrite bare, homePairFree [] None lexed.leaves free
++
++theorem commaDeletedDropP ∀ (comma closer: Leaf) (behind: List Leaf)
++    (pair: lastPair closer.token.kind comma behind = True):
++    (commaDeleted comma closer (dropRev behind)).fst = (commaDeleted comma closer behind).fst
++      ∧ (commaDeleted comma closer (dropRev behind)).snd = dropRev (commaDeleted comma closer behind).snd
++      ∧ hasItem (commaDeleted comma closer behind).snd = hasItem behind
++      ∧ (barishTop behind = True → barishTop (commaDeleted comma closer behind).snd = True) :=
++  cases
++
++theorem commaDeletedDropQ ∀ (comma closer: Leaf) (behind: List Leaf)
++    (pair: lastPair closer.token.kind comma behind = True):
++    (commaDeleted comma closer (dropRev behind)).fst = (commaDeleted comma closer behind).fst
++      ∧ (commaDeleted comma closer (dropRev behind)).snd = dropRev (commaDeleted comma closer behind).snd
++      ∧ hasItem (commaDeleted comma closer behind).snd = hasItem behind
++      ∧ (barishTop behind = True → barishTop (commaDeleted comma closer behind).snd = True) :=
++  match behind with
++    | [] => cases
++    | [prev, ..tail] => cases
+diff --git a/tools/fmt/src/Syntax/SettleOnceProofs.sw b/tools/fmt/src/Syntax/SettleOnceProofs.sw
+index f019cd2fb..8a096e577 100644
+--- a/tools/fmt/src/Syntax/SettleOnceProofs.sw
++++ b/tools/fmt/src/Syntax/SettleOnceProofs.sw
+@@ -1326,3 +1326,30 @@ theorem onceSettledProved ∀ (lexed: Lexed)
+     wordTextsS
+     endTextsS
+     afterNone
++
++theorem endsOnStepP ∀ (leaf: Leaf) (earlier: List Leaf):
++    endsOn [leaf, ..earlier]
++      = (leaf.trivia.trailing.isSome || (!(earlier.isEmpty || !passable leaf) && endsOn earlier)) :=
++  cases
++
++theorem andProbe ∀ (q: Token → Bool) (x: Token) (ys zs: List Token) (coming: (q x && ys.all q) = True) (kept: zs.all q = True):
++    (q x && zs.all q) = True :=
++  cases
++
++theorem andProbe2 ∀ (q: Token → Bool) (x: Token) (ys zs: List Token) (coming: (q x && ys.all q) = True) (kept: zs.all q = True):
++    (q x && zs.all q) = True ∧ ys.all q = True :=
++  cases
++
++theorem allTokensWithoutP ∀ (q: Token → Bool)
++    (blind: ∀ (token: Token) (start: Bool) => q { token | lineStart = start } = q token) (behind rest: List Leaf)
++    (kept: (tokens behind).all q = True)
++    (coming: (tokens rest).all q = True):
++    (tokens (withoutR behind rest)).all q = True :=
++  match induct (withoutR behind rest) with
++    | eq1 _ => kept
++    | eq2 behind comma closer after guard ih =>
++      let (tok, sndToks) := commaDeletedToken comma closer behind
++      let qfst: q (commaDeleted comma closer behind).fst.token = True :=
++        rewrite tok, blind closer.token (comma.token.lineStart || closer.token.lineStart) then cases
++      ih (rewrite sndToks then cases) cases
++    | eq3 behind leaf after _ ih => ih cases cases
