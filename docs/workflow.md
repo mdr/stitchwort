@@ -187,7 +187,10 @@ through `grep CONFLICT` hid its failure the same way. So:
   for Matt), run `git worktree remove .claude/worktrees/SW-N` instead. A
   deleted branch is recovered from the reflog or `git fsck --unreachable`;
   `git branch lane/SW-N` doesn't recreate it, it points a new branch at the
-  current `HEAD`.
+  current `HEAD`. With `SCRATCH=/path`, `task worktree:rm SCRATCH=/path --
+  SW-N` also deletes the lane's scratch subfolder `SCRATCH/sw<N>`
+  (SW-4353 gives `sw4353`) if it exists, and prints what it removed; without
+  `SCRATCH` it behaves exactly as before.
 - A lane that adds examples needs their hash snapshots. After merging one,
   check `git status` for its new `.snap` files; if they're missing, make them
   with `INSTA_UPDATE=always` on the `hash_stability` `examples` and
@@ -317,6 +320,21 @@ and deletes it once the work is merged or dropped (D2193, D2200, Matt,
 - The recipe is in `Taskfile.yml` (`LANE_SETUP`), so it changes in one
   place. Measurements behind it: sccache and a cloned `target/` were tried
   first (66 s and 48 s).
+
+The orchestrator runs `task disk:sweep` weekly in the checkouts that build.
+For the checkout it runs in, it runs `cargo sweep --time 3` on `target/`'s
+profile directories through `nix shell nixpkgs#cargo-sweep` (cargo-sweep
+isn't in the devShell; sweeping `target/` itself would walk into
+`target/bench` and `target/trace`), then deletes each directory directly
+under `target/release/incremental` and
+`target/*/release/incremental` that is more than two days old; cargo-sweep
+judges by file access time and misses these (15.5 GB of them were found on
+20 Nov 2026). It warns, with the size, if `target/debug` exists (nothing in
+this repo should build debug: the Taskfile's tests use `--release`), and
+prints `target/`'s size before and after and `df -h`. It never touches
+`target/bench`, `target/trace` or anything outside `target/`. `DRY=1` lists
+what it would delete, with sizes, and deletes nothing; `TARGET=DIR` points
+it at another `target/`.
 
 ### kache and stale artifacts (SW-2936, 11 Nov 2026)
 

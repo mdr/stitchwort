@@ -1126,6 +1126,96 @@ tasks:
         fi
         git -C '{{.ROOT_DIR}}' worktree remove --force '{{.ROOT_DIR}}/.claude/worktrees/'"$name"
         git -C '{{.ROOT_DIR}}' branch -D "lane/$name"
+        # A lane may also have a scratch subfolder of its own (SCRATCH=<dir>, e.g. the
+        # scratch clone's sw4353 for SW-4353). Delete it only when asked, so a plain
+        # worktree:rm behaves as before.
+        if [ -n '{{.SCRATCH}}' ]; then
+          scratch='{{.SCRATCH}}'
+          lane_dir=$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]' | tr -d '-')
+          if [ -d "$scratch/$lane_dir" ]; then
+            rm -rf -- "$scratch/$lane_dir"
+            echo "removed $scratch/$lane_dir"
+          fi
+        fi
+
+  disk:sweep:
+    desc: 'Reclaim disk in target/: cargo sweep, stale incremental dirs, a debug warning, then sizes and free space (DRY=1 lists only; TARGET=DIR for another target)'
+    summary: |
+      For this checkout's target/ (or TARGET=DIR): runs cargo-sweep's
+      `--time 3` on its profile directories (not on target/ itself, whose
+      recursive walk would reach target/bench and target/trace) through
+      `nix shell nixpkgs#cargo-sweep` (cargo-sweep isn't in the devShell),
+      then deletes directories directly under
+      target/release/incremental and target/*/release/incremental whose
+      modification time is more than two days old. cargo-sweep judges by
+      file access time and misses these (15.5 GB of them on 20 Nov 2026).
+      Warns if target/debug exists, with its size: nothing in this repo
+      should build debug, since Taskfile tests use --release. Prints
+      target/'s size before and after, and `df -h`. It never touches
+      target/bench, target/trace or anything outside target/. DRY=1 lists
+      what it would delete, with sizes, and deletes nothing.
+    vars:
+      TARGET: '{{.TARGET | default (printf "%s/target" .ROOT_DIR)}}'
+    cmds:
+      - |
+        set -eu
+        dry='{{.DRY}}'
+        target='{{.TARGET}}'
+        [ -n "$target" ] && [ "$target" != / ] || { echo "disk:sweep: refusing TARGET=$target" >&2; exit 2; }
+        size() { du -sh "$1" 2>/dev/null | awk '{print $1}'; }
+        if [ ! -d "$target" ]; then
+          echo "disk:sweep: $target does not exist; nothing to do"
+          exit 0
+        fi
+
+        echo "target before: $target ($(size "$target"))"
+        # Sweep each standard profile directory, not target/ itself: cargo-sweep
+        # walks recursively for .fingerprint folders, so on target/ it would
+        # clean target/bench and target/trace too (SW-4005). The glob below
+        # still allows the CARGO_BUILD_TARGET triples (target/<triple>/release).
+        sweep() {
+          [ -d "$1" ] && [ ! -L "$1" ] || return 0
+          if [ "$dry" = 1 ]; then
+            CARGO_TARGET_DIR="$1" nix shell nixpkgs#cargo-sweep -c cargo sweep --time 3 --dry-run
+          else
+            CARGO_TARGET_DIR="$1" nix shell nixpkgs#cargo-sweep -c cargo sweep --time 3
+          fi
+        }
+        sweep "$target/debug"
+        sweep "$target/release"
+        for dir in "$target"/*/release "$target"/*/debug; do
+          case "$dir" in
+            "$target/bench"/*|"$target/trace"/*) continue ;;
+          esac
+          sweep "$dir"
+        done
+
+        # cargo-sweep goes by access time; these folders are dated by mtime.
+        # The glob also matches custom target dirs such as target/bench, so
+        # skip bench and trace explicitly (nothing here may touch them).
+        for inc in "$target/release/incremental" "$target"/*/release/incremental; do
+          [ -d "$inc" ] && [ ! -L "$inc" ] || continue
+          case "$inc" in
+            "$target/bench"/*|"$target/trace"/*) continue ;;
+          esac
+          find "$inc" -mindepth 1 -maxdepth 1 -type d -mmin +2880 -print | while IFS= read -r dir; do
+            sz=$(size "$dir")
+            if [ "$dry" = 1 ]; then
+              echo "would delete: $dir ($sz)"
+            else
+              rm -rf -- "$dir"
+              echo "deleted: $dir ($sz)"
+            fi
+          done
+        done
+
+        if [ -d "$target/debug" ]; then
+          echo "warning: $target/debug exists ($(size "$target/debug")); nothing in this repo should build debug (Taskfile tests use --release)" >&2
+        fi
+
+        echo "target after: $target ($(size "$target"))"
+        echo "disk free:"
+        df -h "$target"
 
   lane:merge:
     silent: true
