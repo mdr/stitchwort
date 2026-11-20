@@ -29436,8 +29436,8 @@
     {
       "id": 4394,
       "title": "[DeepSeek] float_gate: give AllNativesOff runs a built-in deadline, so the playground or a tier's n0 run can't run to many GB now that library limits are floored (SW-4393 finding)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "test-infra",
