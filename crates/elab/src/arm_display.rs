@@ -848,7 +848,7 @@ pub(crate) fn in_case(
     cx: &Ctx,
     error: stitchwort_syntax::Diagnostic,
 ) -> stitchwort_syntax::Diagnostic {
-    if error.code == crate::goals::UNFINISHED || error.code == "E-RESOURCE" {
+    if error.code == crate::goals::UNFINISHED || crate::undo::fatal(&error) {
         return error;
     }
     if error

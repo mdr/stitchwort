@@ -1558,7 +1558,7 @@ impl Elaborator {
             // Running out of resources isn't a bug in the file: it's the
             // answer for the program that needed it, as for the core.
             // Nor is a syntax error in a library file being edited.
-            if diagnostics.iter().any(|d| d.code == "E-RESOURCE") || !file.parse_errors.is_empty() {
+            if diagnostics.iter().any(crate::undo::fatal) || !file.parse_errors.is_empty() {
                 return Err(diagnostics);
             }
             let mut all = vec![internal(format!("the library file `{name}` doesn't check"))];

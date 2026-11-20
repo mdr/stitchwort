@@ -126,7 +126,7 @@ pub(crate) fn infer_rewrite(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> 
 /// An `E-RESOURCE` that has no place of its own (a value too large to show
 /// comes from the kernel, which has no span) gets the `rewrite` it ran out in.
 fn resource_in_rewrite(d: Diagnostic, expr: &Expr) -> Diagnostic {
-    if d.code == "E-RESOURCE" && d.labels.is_empty() {
+    if crate::undo::fatal(&d) && d.labels.is_empty() {
         d.with_label(expr.span(), "ran out of resources in this `rewrite`")
     } else {
         d

@@ -85,7 +85,7 @@ impl Elaborator {
                     }
                     self.tables.helper_keys.add(key);
                 }
-                Err(e) if e.code == "E-RESOURCE" => return Err(e),
+                Err(e) if crate::undo::fatal(&e) => return Err(e),
                 // Not stated or not proved: left out, its name unknown.
                 Err(_) => {
                     self.scope.remove(&key);

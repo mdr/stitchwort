@@ -408,7 +408,7 @@ impl Elaborator {
         self.clear_metas();
         match result {
             Ok(()) => {}
-            Err(e) if e.code == "E-RESOURCE" => return Err(e),
+            Err(e) if crate::undo::fatal(&e) => return Err(e),
             Err(e) => refuse(self, format!("deriving it failed: {}", e.message)),
         }
         Ok(())

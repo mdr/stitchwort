@@ -2542,7 +2542,7 @@ impl Elaborator {
         self.kernel.machine.budget.restore(saved);
         match result {
             Err(Stop::Error(e))
-                if e.code == "E-RESOURCE" && self.kernel.machine.budget.exhausted().is_none() =>
+                if crate::undo::fatal(&e) && self.kernel.machine.budget.exhausted().is_none() =>
             {
                 Err(Stop::Skip(
                     "checking it takes more than the generator allows for one equation (its \

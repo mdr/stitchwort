@@ -3429,7 +3429,7 @@ impl Elaborator {
         let Err(d) = checked else {
             return Vec::new();
         };
-        if undo::fatal(&d) && d.code == "E-RESOURCE" {
+        if undo::fatal(&d) {
             return vec![d];
         }
         if shown || d.code == goals::UNFINISHED {
@@ -6237,7 +6237,7 @@ fn check_tree_from(cx: &mut Ctx, start: usize, tree: &Tree, goal: &Value) -> Res
 /// branches, which don't depend on it, so one run reports every bad branch.
 /// Running out of resources stops everything instead.
 fn branch_failed(cx: &Ctx, error: Diagnostic, failed: &mut Vec<Diagnostic>) -> Result<()> {
-    if error.code == "E-RESOURCE" || cx.g().machine.budget.exhausted().is_some() {
+    if crate::undo::fatal(&error) || cx.g().machine.budget.exhausted().is_some() {
         return Err(error);
     }
     failed.push(error);
@@ -6518,7 +6518,7 @@ fn in_alternative(
     cases: usize,
 ) -> Diagnostic {
     if error.code == goals::UNFINISHED
-        || error.code == "E-RESOURCE"
+        || crate::undo::fatal(&error)
         || error
             .detail
             .as_ref()

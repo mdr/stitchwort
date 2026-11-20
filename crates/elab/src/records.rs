@@ -175,7 +175,7 @@ impl Elaborator {
         let mut cx = Ctx::from_parts(self, env.to_vec(), types.to_vec(), names, span);
         let prop = cx.eval(&field_ty)?;
         let decision = auto::decide(&mut cx, &prop, 0).map_err(|e| {
-            if e.code == "E-RESOURCE" {
+            if crate::undo::fatal(&e) {
                 return e;
             }
             Diagnostic::error("E-EXPORT", format!("`{what}` can't be exported"))

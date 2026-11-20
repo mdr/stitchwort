@@ -130,7 +130,7 @@ impl Elaborator {
         self.clear_metas();
         match result {
             Ok(()) => {}
-            Err(e) if e.code == "E-RESOURCE" => return Err(e),
+            Err(e) if crate::undo::fatal(&e) => return Err(e),
             Err(e) => {
                 self.tables.no_finite.insert(
                     &self.session.owners,
