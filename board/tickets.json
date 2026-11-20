@@ -27750,14 +27750,14 @@
     {
       "id": 4265,
       "title": "[Sonnet] Differential oracle: lower Float.Model.isqrt/sqrtBits cost in the reference evaluator so their skipped comparisons run again (29 distinct skips of cap 60 on 19 Nov; SW-4255 finding)",
-      "status": "next",
+      "status": "doing",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
       "body": "From SW-4255 and Overmind's 19 Nov cycle: 28 std skips, mostly Float.Model around isqrt/sqrtBits.",
       "created": "2026-11-19",
-      "updated": "2026-11-19",
+      "updated": "2026-11-20",
       "commits": []
     },
     {
