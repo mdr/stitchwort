@@ -47,6 +47,7 @@ import Syntax.LexProofs (
   qualCharsStops
 )
 import Fmt (..)
+import Fmt.OperatorList (operators1, operatorListed)
 import Fmt.PrintLexProofs (Follows, Printable, pieceFold)
 import Fmt.SpellProofs (..)
 import Fmt.JoinProofs (DeclJoins, Joinable, AllJoinable, WordJoins, CloserJoins, OpenerJoins, Token, printLexes1)
@@ -515,88 +516,36 @@ def Decl.operators: Decl → Prop
 
 --| An infix operator `within1` lets through is a text some token of the alphabet is spelled with.
 --|
---| Proof idea: `operatorText1` is four chains of tests of the text against each spelling; the first chain that holds
---| (`operatorSpellsA` and the rest) has a test that names the token, and a chain running out contradicts the hypothesis.
-theorem operatorSpellsA ∀ (text: Text) (listed: operatorTextA1 text = True): OperatorSpells text :=
-  match a0: text == "->" with
-    | True => Witness Arrow (Both (Inl (DecEq.sound a0)) byDecision)
-    | False =>
-      match a1: text == "→" with
-        | True => Witness Arrow (Both (Inr (DecEq.sound a1)) byDecision)
-        | False =>
-          match a2: text == "||" with
-            | True => Witness OrOr (Both (Inl (DecEq.sound a2)) byDecision)
-            | False =>
-              match a3: text == "∨" with
-                | True => Witness OrOr (Both (Inr (DecEq.sound a3)) byDecision)
-                | False =>
-                  match a4: text == "&&" with
-                    | True => Witness AndAnd (Both (Inl (DecEq.sound a4)) byDecision)
-                    | False =>
-                      match a5: text == "∧" with
-                        | True => Witness AndAnd (Both (Inr (DecEq.sound a5)) byDecision)
-
-theorem operatorSpellsB ∀ (text: Text) (listed: operatorTextB1 text = True): OperatorSpells text :=
-  match a0: text == "+" with
-    | True => Witness Plus (Both (DecEq.sound a0) byDecision)
-    | False =>
-      match a1: text == "++" with
-        | True => Witness PlusPlus (Both (DecEq.sound a1) byDecision)
-        | False =>
-          match a2: text == "-" with
-            | True => Witness Minus (Both (DecEq.sound a2) byDecision)
-            | False =>
-              match a3: text == "*" with
-                | True => Witness Star (Both (DecEq.sound a3) byDecision)
-                | False =>
-                  match a4: text == "/" with
-                    | True => Witness Slash (Both (DecEq.sound a4) byDecision)
-                    | False =>
-                      match a5: text == "%" with
-                        | True => Witness Percent (Both (DecEq.sound a5) byDecision)
-
-theorem operatorSpellsC ∀ (text: Text) (listed: operatorTextC1 text = True): OperatorSpells text :=
-  match a0: text == "!=" with
-    | True => Witness NotEq (Both (Inl (DecEq.sound a0)) byDecision)
-    | False =>
-      match a1: text == "≠" with
-        | True => Witness NotEq (Both (Inr (DecEq.sound a1)) byDecision)
-        | False =>
-          match a2: text == "<" with
-            | True => Witness Lt (Both (DecEq.sound a2) byDecision)
-            | False =>
-              match a3: text == "<=" with
-                | True => Witness Le (Both (Inl (DecEq.sound a3)) byDecision)
-                | False =>
-                  match a4: text == "≤" with
-                    | True => Witness Le (Both (Inr (DecEq.sound a4)) byDecision)
-
-theorem operatorSpellsD ∀ (text: Text) (listed: operatorTextD1 text = True): OperatorSpells text :=
-  match a0: text == ">" with
-    | True => Witness Gt (Both (DecEq.sound a0) byDecision)
-    | False =>
-      match a1: text == ">=" with
-        | True => Witness Ge (Both (Inl (DecEq.sound a1)) byDecision)
-        | False =>
-          match a2: text == "≥" with
-            | True => Witness Ge (Both (Inr (DecEq.sound a2)) byDecision)
-            | False =>
-              match a3: text == "==" with
-                | True => Witness EqEq (Both (DecEq.sound a3) byDecision)
-                | False =>
-                  match a4: text == "=" with
-                    | True => Witness Equals (Both (DecEq.sound a4) byDecision)
+--| Proof idea: the text is on the list of operators (`operatorListed`), and `operatorsSpell` gives each operator on it a
+--| token that spells it.
+def operatorsSpell: List.All OperatorSpells operators1 := (
+  Witness Arrow (Both (Inl byComputing) byDecision),
+  Witness Arrow (Both (Inr byComputing) byDecision),
+  Witness OrOr (Both (Inl byComputing) byDecision),
+  Witness OrOr (Both (Inr byComputing) byDecision),
+  Witness AndAnd (Both (Inl byComputing) byDecision),
+  Witness AndAnd (Both (Inr byComputing) byDecision),
+  Witness Plus (Both byComputing byDecision),
+  Witness PlusPlus (Both byComputing byDecision),
+  Witness Minus (Both byComputing byDecision),
+  Witness Star (Both byComputing byDecision),
+  Witness Slash (Both byComputing byDecision),
+  Witness Percent (Both byComputing byDecision),
+  Witness NotEq (Both (Inl byComputing) byDecision),
+  Witness NotEq (Both (Inr byComputing) byDecision),
+  Witness Lt (Both byComputing byDecision),
+  Witness Le (Both (Inl byComputing) byDecision),
+  Witness Le (Both (Inr byComputing) byDecision),
+  Witness Gt (Both byComputing byDecision),
+  Witness Ge (Both (Inl byComputing) byDecision),
+  Witness Ge (Both (Inr byComputing) byDecision),
+  Witness EqEq (Both byComputing byDecision),
+  Witness Equals (Both byComputing byDecision),
+  Trivial
+)
 
 theorem operatorSpellsOf ∀ (text: Text) (listed: operatorText1 text = True): OperatorSpells text :=
-  match first: operatorTextA1 text with
-    | True => operatorSpellsA text first
-    | False =>
-      match second: operatorTextB1 text with
-        | True => operatorSpellsB text second
-        | False =>
-          match third: operatorTextC1 text with
-            | True => operatorSpellsC text third
-            | False => operatorSpellsD text listed
+  List.allMem OperatorSpells text operators1 operatorsSpell (operatorListed text listed)
 
 --| A prefix operator `within1` lets through is `-`, `!` or `¬`.
 theorem prefixSpellsOf ∀ (text: Text) (listed: prefixText1 text = True): PrefixSpells text :=
