@@ -29752,7 +29752,7 @@
     {
       "id": 4418,
       "title": "[Opus] Test for SW-4414 M1: build a refined guard whose as-written attempt comes back Unchecked (STITCHWORT_MATCH_METRICS guard-as-written: unchecked) while the unfolded path checks; show it failing with the snapshot restore in refined_guard removed (D3608); or argue no such guard exists and say so in a comment",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
