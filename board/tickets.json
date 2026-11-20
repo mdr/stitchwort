@@ -1,5 +1,5 @@
 {
-  "next": 4460,
+  "next": 4461,
   "tickets": [
     {
       "id": 47,
@@ -30183,12 +30183,12 @@
     {
       "id": 4451,
       "title": "[Sonnet] Goals as written: the lemma offered for a goal (goal_index lemmas) still states the computed form (theorem plainGoal1 (n: Nat): True = True := ?) where the goal now shows the statement as written (0 < 1); state the lemma as written when it checks against the same goal (SW-4443 follow-up)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
-      "body": "\n\nProgress: lane/SW-4451 ff2108df1. lemma_of tries the written form first (not for arm goals, nor where a pattern refined the statement's variables, nor open-type equations); falls back to computed. lemmas snapshot: 174 lemmas (was 173), 13 snapshots updated.\n",
+      "body": "\n\nProgress: lane/SW-4451 ff2108df1. lemma_of tries the written form first (not for arm goals, nor where a pattern refined the statement's variables, nor open-type equations); falls back to computed. lemmas snapshot: 174 lemmas (was 173), 13 snapshots updated.\n\n\nModel result: Sonnet, worked, 19 min (est. 35)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -30294,6 +30294,19 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4460,
+      "title": "[Sonnet] Goal lemmas: SW-4451 chooses the written form by three heuristics (not in a match arm, no pattern-refined variables, no open-typed equation), tested only on the examples; instead elaborate the written lemma's statement and compare it with the goal (the same check lemmas_check_as_the_same_goal makes) before offering it, and drop the heuristics if that's cheap enough (SW-4451 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "goal-as-written",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
