@@ -810,6 +810,20 @@ tasks:
     cmds:
       - nice -n 15 python3 tools/fmt/dev/spellings.py --sw '{{.SW}}' {{.CLI_ARGS}}
 
+  fmt:implicit:
+    desc: 'Make a lemma''s binders implicit and drop those positional arguments at every use (task fmt:implicit -- LEMMA BINDER...)'
+    summary: |
+      tools/fmt/dev/implicit.py: turns the named explicit binders of the
+      lemma's header, `(x: T)`, into `[x: T]` (splitting `(a b: T)` when
+      only some become implicit), then drops the matching positional
+      arguments at every use under the default roots (or `--roots`).
+      Arguments are read bracket-aware, named arguments are kept, and a use
+      whose arguments cannot be identified is skipped rather than edited.
+      `--dry-run` prints a unified diff; otherwise files are read fully and
+      replaced atomically. `--from-file` takes lines `Name: b1 b2`.
+    cmds:
+      - python3 tools/fmt/dev/implicit.py {{.CLI_ARGS}}
+
   lint:
     desc: rustfmt --check and clippy, as the gate runs them
     cmds:
