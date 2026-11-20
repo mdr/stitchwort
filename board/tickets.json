@@ -1,5 +1,5 @@
 {
-  "next": 4450,
+  "next": 4451,
   "tickets": [
     {
       "id": 47,
@@ -30163,6 +30163,19 @@
       "labels": [],
       "epic": "goal-as-written",
       "body": "\n\nProgress (Sonnet lane): all three done on lane/SW-4449 (ca5819f89): statement_arms off during scrutinee elaboration; a ? argument shows the parameter's written type; match induct cases show the written statement with the case's targets. Snapshots: closed-comparison-as-written (apart), match-induct-list-cases (eq1).\n\n\nModel result: Sonnet, worked, 23 min (est. 40)\n",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4450,
+      "title": "[Fable] Review SW-4410 (carried cache stage 2: entries whose kernel side changed are re-admitted through the kernel's checking calls instead of the trusted path; rechecked entries are re-saved as this build's, not exact; check --recheck rechecks every loaded entry): soundness of the recheck path against the trusted one (anything the trusted replay installs that the checking calls skip), the data-type final/builtins fix, the re-save rule, docs/core.md's new text; paper only",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []

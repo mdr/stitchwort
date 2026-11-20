@@ -7,7 +7,7 @@ expression: output
    │
  9 │ theorem oneIsTwo: 1 = 2 := (Nat.decEq 1 2).sound byComputing
    │                                                  ─────┬─────  
-   │                                                       ╰─────── `(Nat.decEq 1 2).holds` and `True` aren't equal
+   │                                                       ╰─────── `1 == 2` and `True` aren't equal
    │ 
    │ Note 1: computing the left side gives `False`
    │ 
