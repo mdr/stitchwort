@@ -212,8 +212,9 @@ enum DevCommand {
     /// and check that each reads back as the file, byte for byte. Prints
     /// the files that don't, and totals: declarations, ones that didn't
     /// parse, nodes, ones whose marks don't nest and internal errors. Exit
-    /// status 1 if any file fails, a declaration's marks don't nest or it is
-    /// an internal error, or (with --spans) a span is no node
+    /// status 1 if any file fails, a declaration doesn't parse or its marks
+    /// don't nest, or it is an internal error, or (with --spans) a span is
+    /// no node
     Tree {
         /// Files or folders
         paths: Vec<PathBuf>,
@@ -6321,10 +6322,12 @@ fn tree_command(
     }
     let mut total = stitchwort_syntax::tree::TreeStats::default();
     let mut failed = 0;
+    let mut parse_errors = 0;
     let (mut checked, mut misses, mut unparsed, mut internal) = (0, 0, 0, 0);
     let mut synthetic = std::collections::BTreeMap::new();
     for (file, text) in files.iter().zip(&texts) {
         let (module, errors, tree) = stitchwort_syntax::parse_module_and_tree(id, text, TREE_STACK);
+        parse_errors += errors.len();
         // The parser's own bugs, such as a tree that lost a node.
         for error in errors.iter().filter(|e| e.code == "E-INTERNAL") {
             internal += 1;
@@ -6405,7 +6408,7 @@ fn tree_command(
             time_parse(rounds, false).as_secs_f64() * 1000.0
         );
     }
-    if failed > 0 || total.misnested > 0 || misses > 0 || internal > 0 {
+    if failed > 0 || parse_errors > 0 || total.misnested > 0 || misses > 0 || internal > 0 {
         ExitCode::FAILURE
     } else {
         ExitCode::SUCCESS

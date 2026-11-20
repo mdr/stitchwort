@@ -12,7 +12,8 @@
 --| - `tree` (stage 2b): the file's tree as `stitchwort dev tree --print`
 --|   prints it, without its header and totals. A file with a declaration
 --|   that doesn't parse (an `Error` node there) is answered with status 1
---|   and the message, which the harness counts as a difference.
+--|   and nothing else, as `dev tree` exits 1 on it: the harness compares
+--|   the exit status, not a message.
 --| - `refusal` (stage 2b): nothing if the file parses, or status 2 and
 --|   `fmt -`'s first line, `[CODE] Error: MESSAGE`.
 --| - `passes` (stage 4a): the tree after each of the four tidy passes, `==
@@ -106,8 +107,8 @@ def stageAnswer (stage source: Text): Answer := match stage with
       | Ok lexed =>
         match parseFile lexed.settled with
           | Ok file => { out = file.dump, status = 0, message = "" }
-          | Err message => { out = "", status = 1, message = "error: ${message}" }
-      | Err message => { out = "", status = 1, message = "error: ${message}" }
+          | Err _ => { out = "", status = 1, message = "" }
+      | Err _ => { out = "", status = 1, message = "" }
   | "refusal" =>
     match lex source with
       | Ok lexed =>
