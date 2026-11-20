@@ -29631,7 +29631,7 @@
     {
       "id": 4409,
       "title": "[Opus] Carried-over cache stage 1 (D3703): split the check-cache key into a source key and a build stamp; reuse an entry from another build when the kernel side (crates/core and its build inputs) is unchanged; label carried entries in the editor and check output; editor uses them by default, lanes by a flag, verifier/tiers/Overmind never (docs/proposals/check-cache-across-updates.md)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
