@@ -158,7 +158,7 @@ theorem keptCloserLine ∀ (low key indent: Nat) (origin: Carry) (place: Place)
 --| Proof idea: by the document, as `laysWeaker`, with `origin` fixed: a word or a comment changes the floor only,
 --| a line break lowers the marks (`keptBreak`), a `Mark` or `CloserLine` keyed at or above `low` neither hides nor
 --| closes one below (`keptMark`, `keptClose`); a sequence carries the place's fact from one document to the next.
-theorem framed ∀ (low: Nat) (origin: Carry) (doc: Doc) (indent: Nat) (place: Place)
+theorem framed ∀ (low: Nat) (origin: Carry) [doc: Doc] (indent: Nat) (place: Place)
     (trace: List Event) (next: Place → List Event → Prop)
     (keys: keysFrom low doc = True)
     (kept: MarksKept low origin place.carry)
@@ -206,34 +206,32 @@ theorem framed ∀ (low: Nat) (origin: Carry) (doc: Doc) (indent: Nat) (place: P
         | Mid at carry, kept, lays => lays (keptMark low key at origin carry high kept)
         | Held at carry, kept, lays => lays (keptMark low key at origin carry high kept)
     | CloserLine key, high, lays => lays (keptCloserLine low key indent origin place high kept)
-    | Nest more inner, inside, lays => framed low origin inner (indent + more) place trace next inside kept lays
+    | Nest more inner, inside, lays => framed low origin (indent + more) place trace next inside kept lays
     | Align inner, inside, lays =>
       match place, kept, lays with
-        | AtStart at carry, kept, lays => framed low origin inner indent (AtStart at carry) trace next inside kept lays
-        | Broken at carry, kept, lays => framed low origin inner indent (Broken at carry) trace next inside kept lays
+        | AtStart at carry, kept, lays => framed low origin indent (AtStart at carry) trace next inside kept lays
+        | Broken at carry, kept, lays => framed low origin indent (Broken at carry) trace next inside kept lays
         | Mid at carry, kept, lays => column =>
-          framed low origin inner column (Mid at carry) trace next inside kept (lays column)
+          framed low origin column (Mid at carry) trace next inside kept (lays column)
         | Held at carry, kept, lays => column =>
-          framed low origin inner column (Held at carry) trace next inside kept (lays column)
+          framed low origin column (Held at carry) trace next inside kept (lays column)
     | AlignInset inner, inside, lays =>
       match place, kept, lays with
-        | AtStart at carry, kept, lays =>
-          framed low origin inner (indent + 2) (AtStart at carry) trace next inside kept lays
-        | Broken at carry, kept, lays =>
-          framed low origin inner (indent + 2) (Broken at carry) trace next inside kept lays
+        | AtStart at carry, kept, lays => framed low origin (indent + 2) (AtStart at carry) trace next inside kept lays
+        | Broken at carry, kept, lays => framed low origin (indent + 2) (Broken at carry) trace next inside kept lays
         | Mid at carry, kept, lays => column =>
-          framed low origin inner column (Mid at carry) trace next inside kept (lays column)
+          framed low origin column (Mid at carry) trace next inside kept (lays column)
         | Held at carry, kept, lays => column =>
-          framed low origin inner column (Held at carry) trace next inside kept (lays column)
+          framed low origin column (Held at carry) trace next inside kept (lays column)
     | Displaced inner, inside, lays =>
       match place, kept, lays with
         | AtStart at carry, kept, lays =>
-          framed low origin inner (Nat.max indent at) (AtStart at carry) trace next inside kept lays
+          framed low origin (Nat.max indent at) (AtStart at carry) trace next inside kept lays
         | Broken at carry, kept, lays =>
-          framed low origin inner (Nat.max indent at) (Broken at carry) trace next inside kept lays
-        | Mid at carry, kept, lays => framed low origin inner indent (Mid at carry) trace next inside kept lays
+          framed low origin (Nat.max indent at) (Broken at carry) trace next inside kept lays
+        | Mid at carry, kept, lays => framed low origin indent (Mid at carry) trace next inside kept lays
         | Held at carry, kept, lays =>
-          framed low origin inner
+          framed low origin
             (Nat.max indent (at + 2))
             (Broken (floored carry (Nat.max indent (at + 2))) (carry.breakTo (Nat.max indent (at + 2))))
             trace
@@ -242,17 +240,17 @@ theorem framed ∀ (low: Nat) (origin: Carry) (doc: Doc) (indent: Nat) (place: P
             (keptBreak low (Nat.max indent (at + 2)) origin carry kept)
             lays
     | Group inner _ | NarrowGroup _ inner _ | IdGroup _ inner _, inside, lays =>
-      framed low origin inner indent place trace next inside kept lays
+      framed low origin indent place trace next inside kept lays
     | IfBroken id broken flat, both, Both brokenLays flatLays =>
       let (brokenKeys, flatKeys) := (Bool.andReads _ _).forward both
       (
-        (framed low origin broken indent place trace next brokenKeys kept brokenLays),
-        (framed low origin flat indent place trace next flatKeys kept flatLays)
+        (framed low origin indent place trace next brokenKeys kept brokenLays),
+        (framed low origin indent place trace next flatKeys kept flatLays)
       )
-    | Flatten inner, inside, lays => framed low origin inner indent place trace next inside kept lays
+    | Flatten inner, inside, lays => framed low origin indent place trace next inside kept lays
     | OneLineBelow inner, inside, Both mid lays => (
       mid,
-      (framed low origin inner
+      (framed low origin
         (indent + 2)
         (Broken (floored place.carry (indent + 2)) (place.carry.breakTo (indent + 2)))
         trace
@@ -261,7 +259,7 @@ theorem framed ∀ (low: Nat) (origin: Carry) (doc: Doc) (indent: Nat) (place: P
         (keptBreak low (indent + 2) origin place.carry kept)
         lays)
     )
-    | Concat docs, inside, lays => allFramed low origin docs indent place trace next inside kept lays
+    | Concat docs, inside, lays => allFramed low origin indent place trace next inside kept lays
     | Fill items, inside, lays => fillFramed low origin items indent place trace next inside kept lays
     | Choice options, inside, lays => optionsFramed low origin options indent place trace next inside kept lays
     | LineSuffix comment, _, (isComment, word, lays) =>
@@ -299,7 +297,7 @@ theorem writeFramed ∀ (low: Nat) (origin: Carry) (indent: Nat) (text: Text) (p
                   (keptBreak low (Nat.max indent (at + 2)) origin carry kept)))
             )
 
-theorem allFramed ∀ (low: Nat) (origin: Carry) (docs: List Doc) (indent: Nat) (place: Place)
+theorem allFramed ∀ (low: Nat) (origin: Carry) [docs: List Doc] (indent: Nat) (place: Place)
     (trace: List Event) (next: Place → List Event → Prop)
     (keys: allKeysFrom low docs = True)
     (kept: MarksKept low origin place.carry)
@@ -309,7 +307,7 @@ theorem allFramed ∀ (low: Nat) (origin: Carry) (docs: List Doc) (indent: Nat) 
     | [], _, lays => lays kept
     | [doc, ..rest], both, lays =>
       let (first, others) := (Bool.andReads _ _).forward both
-      framed low origin doc indent place trace
+      framed low origin indent place trace
         (after later => LaysAll rest indent after later next)
         first
         kept
@@ -317,7 +315,7 @@ theorem allFramed ∀ (low: Nat) (origin: Carry) (docs: List Doc) (indent: Nat) 
           (after later =>
             LaysAll rest indent after later (final last => MarksKept low origin final.carry → next final last))
           (after later => MarksKept low origin after.carry → LaysAll rest indent after later next)
-          (after later more middle => allFramed low origin rest indent after later next others middle more)
+          (after later more middle => allFramed low origin indent after later next others middle more)
           lays)
 
 theorem sepsFramed ∀ (low: Nat) (origin: Carry) (items: List Doc) (indent: Nat) (place: Place)
@@ -337,7 +335,7 @@ theorem sepsFramed ∀ (low: Nat) (origin: Carry) (items: List Doc) (indent: Nat
         SepsLay more indent after later (final last => MarksKept low origin final.carry → next final last))
         → goes middle between :=
         middle between laid middleKept =>
-          framed low origin item indent middle between
+          framed low origin indent middle between
             (after later => SepsLay more indent after later next)
             first
             middleKept
@@ -365,7 +363,7 @@ theorem fillFramed ∀ (low: Nat) (origin: Carry) (items: List Doc) (indent: Nat
     | [], _, lays => lays kept
     | [first, ..others], both, lays =>
       let (firstKeys, otherKeys) := (Bool.andReads _ _).forward both
-      framed low origin first indent place trace
+      framed low origin indent place trace
         (after later => SepsLay others indent after later next)
         firstKeys
         kept
@@ -386,10 +384,10 @@ theorem optionsFramed ∀ (low: Nat) (origin: Carry) (options: List Doc) (indent
     | [], _, lays => lays kept
     | [last], both, lays =>
       let (lastKeys, _) := (Bool.andReads _ _).forward both
-      framed low origin last indent place trace next lastKeys kept lays
+      framed low origin indent place trace next lastKeys kept lays
     | [option, second, ..others], both, Both first rest =>
       let (optionKeys, otherKeys) := (Bool.andReads _ _).forward both
       (
-        (framed low origin option indent place trace next optionKeys kept first),
+        (framed low origin indent place trace next optionKeys kept first),
         (optionsFramed low origin [second, ..others] indent place trace next otherKeys kept rest)
       )

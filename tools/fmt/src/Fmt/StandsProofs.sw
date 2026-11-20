@@ -1405,7 +1405,7 @@ def LaysSomehow (doc: Doc): Prop := Std.Doc.Proofs.Lays doc 0 (AtStart 0 Carry.n
 --| (`Tucks`), and hearing them (`bitsHeard`) gives views that `heardStands` reads as `stands` of the bits' words,
 --| `decl.stood` (`declBits`). The lexer's leaves are those views (`leavesHeard`), as the joins end each comment's
 --| line (`pairsEnd`).
-theorem standsOfLays ∀ (decl: Decl) (doc: Doc)
+theorem standsOfLays ∀ (decl: Decl) [doc: Doc]
     (within: decl.within1 = True)
     (shaped: decl.shaped = True)
     (settled: decl.settled = True)
@@ -1455,7 +1455,7 @@ theorem standsOfDoc ∀ (decl: Decl) (doc: Doc)
     (facts: DeclHangs lexKind decl)
     (shows: decl.doc1 = Some doc):
     stands None decl.stood (Fmt.OutputStatements.laidOf doc).leaves.reverse = True :=
-  standsOfLays decl doc within shaped settled lexical plain
+  standsOfLays decl within shaped settled lexical plain
     (doc1Hangs lexKind decl doc within lexKindFixed facts shows
       (AtStart 0 Carry.none) _
       []

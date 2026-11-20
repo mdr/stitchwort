@@ -64,7 +64,7 @@ theorem notedFramedLowers ∀ (first: Word) (around: Around) (doc: Doc) (indent 
         let broken := Nat.max indent (at + 2)
         framed low
           (carry.breakTo broken)
-          after
+          [doc := after]
           indent
           (Broken (floored carry broken) (carry.startFloor broken))
           trace
@@ -76,7 +76,7 @@ theorem notedFramedLowers ∀ (first: Word) (around: Around) (doc: Doc) (indent 
         let broken := Nat.max indent (at + 2)
         framed low
           (carry.breakTo broken)
-          after
+          [doc := after]
           indent
           (Broken (floored carry broken) (carry.startFloor broken))
           trace
@@ -107,7 +107,7 @@ theorem notedLeafLowers ∀ (word: Word) (around: Around) (key indent low: Nat) 
         let broken := Nat.max indent (at + 2)
         framed low
           (carry.breakTo broken)
-          after
+          [doc := after]
           indent
           (Broken (floored carry broken) (carry.startFloor broken))
           trace
@@ -119,7 +119,7 @@ theorem notedLeafLowers ∀ (word: Word) (around: Around) (key indent low: Nat) 
         let broken := Nat.max indent (at + 2)
         framed low
           (carry.breakTo broken)
-          after
+          [doc := after]
           indent
           (Broken (floored carry broken) (carry.startFloor broken))
           trace
@@ -374,7 +374,7 @@ theorem ledInner ∀ (kinds: Text → Tok) (doc: Doc) (indent key: Nat) (entry: 
             let onLine: at = entry.indent := line
             let opened := kept key { key, marked = entry.indent, least = None } arithmetic (markedFound key entry)
             midLowers at carry trace next
-              (framed low origin doc indent
+              (framed low origin indent
                 (Mid at carry)
                 trace
                 (later laid => MarksKept low (carry.breakTo column) later.carry → next later laid)
@@ -434,7 +434,7 @@ theorem ledInner ∀ (kinds: Text → Tok) (doc: Doc) (indent key: Nat) (entry: 
             let onLine: at = entry.indent := line
             let opened := kept key { key, marked = entry.indent, least = None } arithmetic (markedFound key entry)
             heldLowers at carry trace next
-              (framed low origin doc indent
+              (framed low origin indent
                 (Held at carry)
                 trace
                 (later laid => MarksKept low (carry.breakTo column) later.carry → next later laid)
