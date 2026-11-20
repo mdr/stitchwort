@@ -60,9 +60,7 @@ theorem mayFollowStops ∀ (kind: Tok) (text: Text) (rest: List Char) (first: Ch
         | Lt => (List.headNeOfHead rest first '=' head notEquals, List.headNeOfHead rest first '-' head notMinus)
         | Gt => List.headNeOfHead rest first '=' head notEquals
         | Bang => bang => (List.headNeOfHead rest first '=' head notEquals, (run => (rewrite noWord at run then cases)))
-        | KwDef => (noWord, List.headNeOfHead rest first '.' head notDot)
-        | Lower => (noWord, List.headNeOfHead rest first '.' head notDot)
-        | Upper => (noWord, List.headNeOfHead rest first '.' head notDot)
+        | KwDef | Lower | Upper => (noWord, List.headNeOfHead rest first '.' head notDot)
         | Num => (
           noDigit,
           List.headNeOfHead rest first '.' head notDot,
@@ -155,9 +153,7 @@ def Free (kinds: Text → Tok) (trails: Bool) (edge: Edge): Prop := match edge w
 theorem gappedReady ∀ (kinds: Text → Tok) (trails: Bool) (first: Text) (edge: Edge)
     (gapped: Gapped trails edge):
     Ready kinds trails first edge :=
-  match edge, gapped with
-    | Plain None, _ => byComputing
-    | Waiting None | Waiting (Some _), waits => waits
+  cases
 
 theorem freeReady ∀ (kinds: Text → Tok) (trails: Bool) (first: Text) (edge: Edge)
     (free: Free kinds trails edge):
@@ -196,21 +192,13 @@ theorem endedWeaker ∀ (trails trails': Bool)
     (implies: trails = True → trails' = True) (edge: Edge)
     (ended: Ended trails edge):
     Ended trails' edge :=
-  match edge, ended with
-    | Plain None, _ => byComputing
-    | Plain (Some word), token => token
-    | Waiting None, waits => implies waits
-    | Waiting (Some word), (waits, token) => (implies waits, token)
+  cases
 
 theorem readyWeaker ∀ (kinds: Text → Tok) (before before': Bool) (first: Text)
     (implies: before = True → before' = True) (edge: Edge)
     (ready: Ready kinds before first edge):
     Ready kinds before' first edge :=
-  match edge, ready with
-    | Plain None, _ => byComputing
-    | Plain (Some word), follows => follows
-    | Waiting None, waits => implies waits
-    | Waiting (Some word), (waits, token) => (implies waits, token)
+  cases
 
 -- The triples.
 
@@ -275,14 +263,7 @@ theorem passesAppend ∀ [kinds: Text → Tok] [front back: List Doc] [pre middl
     (second: PassesAll kinds back middle post):
     PassesAll kinds (front ++ back) pre post :=
   edge next holds after =>
-    joinsAllAppend
-      (Follows kinds)
-      front
-      back
-      edge
-      next
-      (first edge (between => JoinsAll (Follows kinds) back between next) holds (between reached =>
-        second between next reached after))
+    joinsAllAppend _ front back edge next (first edge _ holds (between reached => second between next reached after))
 
 theorem passesLast ∀ [kinds: Text → Tok] [doc: Doc] [pre post: Edge → Prop]
     (only: Passes kinds doc pre post):
@@ -293,7 +274,7 @@ theorem emptyJoins ∀ (kinds: Text → Tok) (doc: Doc) (edge: Edge) (next: Edge
     (empty: doc.isEmpty = True)
     (joins: Joins (Follows kinds) doc edge next):
     next edge :=
-  match doc, empty, joins with | Doc.Nothing, _, joins => joins
+  cases
 
 theorem filterJoins ∀ (kinds: Text → Tok) (docs: List Doc) (edge: Edge) (next: Edge → Prop)
     (joins: JoinsAll (Follows kinds) docs edge next):
@@ -473,11 +454,9 @@ theorem textPasses ∀ (kinds: Text → Tok) (before: Bool) (text: Text)
       | Plain (Some word), follows => rewrite filled then ((rewrite solidGap text solid then follows), touched)
       | Waiting touching, _ => rewrite filled, solidTouch text solid, spaces then after (Plain (Some text)) byComputing
 
-theorem closesToken ∀ (text: Text) (closes: Closes text): Token text := match closes with
-  | Inl same | Inr (Inl same) | Inr (Inr (Inl same)) | Inr (Inr (Inr same)) => rewrite same
+theorem closesToken ∀ (text: Text) (closes: Closes text): Token text := cases
 
-theorem closesSolid ∀ (text: Text) (closes: Closes text): isLayout text = False := match closes with
-  | Inl same | Inr (Inl same) | Inr (Inr (Inl same)) | Inr (Inr (Inr same)) => rewrite same
+theorem closesSolid ∀ (text: Text) (closes: Closes text): isLayout text = False := cases
 
 theorem closerCloses ∀ (text: Text) (closer: isCloserText text = True): Closes text := match paren: text == ")" with
   | True => Inl (DecEq.sound paren)
@@ -488,10 +467,7 @@ theorem closerCloses ∀ (text: Text) (closer: isCloserText text = True): Closes
         match brace: text == "}" with
           | True => Inr (Inr (Inl (DecEq.sound brace)))
 
-theorem closerNotComma ∀ (text: Text) (closer: isCloserText text = True): (text == ",") = False :=
-  match closerCloses text closer with
-    | Inl same | Inr (Inl same) | Inr (Inr (Inl same)) => rewrite same
-    | Inr (Inr (Inr same)) => rewrite same at closer then cases
+theorem closerNotComma ∀ (text: Text) (closer: isCloserText text = True): (text == ",") = False := cases
 
 --| A closer or comma: from where it may stand, the line ends with it, and a comment waiting before it still waits.
 theorem closingPasses ∀ (kinds: Text → Tok) (before: Bool) (text: Text)
@@ -717,10 +693,7 @@ theorem leftWeaker ∀ (text: Text) (flag flag': Bool)
     (implies: flag = True → flag' = True) (edge: Edge)
     (left: Left text flag edge):
     Left text flag' edge :=
-  match edge, left with
-    | Plain (Some word), same => same
-    | Waiting (Some word), (same, waits) => (same, implies waits)
-    | Plain None | Waiting None, never => (Bool.falseNotTrue never).impossible
+  cases
 
 --| A token's trailing comment, written after it on its line, where no comment waits yet.
 theorem trailingPasses ∀ (kinds: Text → Tok) (word: Word) (flag: Bool)
@@ -747,18 +720,12 @@ theorem trailingPasses ∀ (kinds: Text → Tok) (word: Word) (flag: Bool)
 theorem bareFlag ∀ (closer before trails: Bool)
     (trailing: trails = True):
     (closer && (before && !(closer && trails))) = False :=
-  rewrite trailing then
-    match closer, before with
-      | True, True | False => byComputing
-      | False, before => byComputing
+  rewrite trailing then cases
 
 theorem leafFlag ∀ (closer before trails: Bool)
     (flag: (trails || (closer && (before && !(closer && trails)))) = True):
     (trails || (closer && before)) = True :=
-  match closer, before, trails, flag with
-    | True, True, True | False, _ => byComputing
-    | True, False, True, _ => byComputing
-    | False, before, True, _ => byComputing
+  cases
 
 --| A token's leaf, from where its text may stand: the line then ends with the text, with a comment waiting only if
 --| the token has a trailing comment, or is a closer after code that ends with one.
@@ -985,7 +952,7 @@ theorem atomTrails ∀ (word: Word) (before: Bool)
     (closer: isCloserText word.text = False)
     (flag: (word.trails || (isCloserText word.text && before)) = True):
     trailsBack [word] = True :=
-  rewrite closer at flag then match own: word.trails with | True => byComputing
+  cases
 
 --| A name or numeral.
 theorem atomPasses ∀ (kinds: Text → Tok) (kind: Tok) (word: Word) (around: Around)
@@ -993,8 +960,7 @@ theorem atomPasses ∀ (kinds: Text → Tok) (kind: Tok) (word: Word) (around: A
     Passes kinds ((Atom kind word).el around) (Ready kinds True word.text) (Ended (Atom kind word).trails) :=
   match joins with
     | (sound, token, comma, closer) => passesTo (wordLeafPasses kinds word around around.at joins) (edge left =>
-      endedWeaker word.trails
-        (trailsBack [word])
+      endedWeaker word.trails _
         (trails => atomTrails word False closer (rewrite trails))
         edge
         (leftEnded word.text word.trails token edge left))
@@ -1026,21 +992,17 @@ theorem closePasses ∀ (kinds: Text → Tok) (open close: Word) (middle: List W
         (passesTo
           (leafPasses kinds close around key sound token (closerNotComma close.text isCloser) (same => fresh))
           (edge left =>
-            endedWeaker
-              (close.trails || (isCloserText close.text && around.before))
-              (trailsBack ([open, ..middle] ++ [close]).reverse)
+            endedWeaker _ _
               (flag => closeTrails open close middle isCloser (rewrite <- before then flag))
               edge
-              (leftEnded close.text (close.trails || (isCloserText close.text && around.before)) token edge left)))
+              (leftEnded close.text _ token edge left)))
         (edge ended => endedReadyCloser kinds around.before close.text closes edge ended)
 
 theorem parenInnerPasses ∀ (kinds: Text → Tok) (inner: Expr) (around: Around) (pre post: Edge → Prop)
     (within: inner.within1 = True)
     (passes: Passes kinds (inner.el around) pre post):
     Passes kinds (parenInner inner around) pre post :=
-  match inner with
-    | Block _ _ _ | If _ _ _ _ _ _ _ => cases
-    | _ => passes
+  cases
 
 --| `( … )`: the opener, the element inside, which may follow it, and the closer.
 theorem parenPasses ∀ (kinds: Text → Tok) (open: Word) (inner: Expr) (close: Word) (around: Around)
@@ -1116,8 +1078,7 @@ theorem prefixPasses ∀ (kinds: Text → Tok) (operator: Word) (operand: Expr) 
         (gapPasses kinds operator operand joins.right.left glue)
         (passesFrom
           (passesTo (operandPasses (around.next operator.trails 1)) (edge ended =>
-            endedWeaker operand.trails
-              (Prefix operator operand).trails
+            endedWeaker operand.trails _
               (trails =>
                 rewrite List.reverseCons operator operand.words then
                   trailsBackAppend operand.words.reverse [operator] trails)
@@ -1175,8 +1136,7 @@ theorem seenAppend ∀ (seen words: List Word)
 theorem itemTrails ∀ (seen: List Word) (item: Expr) (edge: Edge)
     (ended: Ended item.trails edge):
     Ended (trailsBack (seen ++ itemsWords [item]).reverse) edge :=
-  endedWeaker item.trails
-    (trailsBack (seen ++ itemsWords [item]).reverse)
+  endedWeaker item.trails _
     (trails => rewrite List.appendNil item.words then seenAppend seen item.words trails)
     edge
     ended
@@ -1207,11 +1167,7 @@ theorem brokenRestPasses ∀ (kinds: Text → Tok) (seen: List Word) (items: Lis
         (passesCons
           (passesFrom
             (passesTo (passes (firstAround bare arm before at)) (edge ended =>
-              endedWeaker item.trails
-                (trailsBack (seen ++ item.words).reverse)
-                (seenAppend seen item.words)
-                edge
-                ended))
+              endedWeaker item.trails _ (seenAppend seen item.words) edge ended))
             (edge gapped => gappedReadyTrue kinds (trailsBack seen.reverse) item.lead.text edge gapped))
           (passesCons
             (commaPasses kinds (trailsBack (seen ++ item.words).reverse))
@@ -1251,11 +1207,7 @@ theorem brokenPasses ∀ (kinds: Text → Tok) (open: Word) (items: List Expr) (
         (passesCons
           (passesFrom
             (passesTo (passes (firstAround bare arm before at)) (edge ended =>
-              endedWeaker item.trails
-                (trailsBack ([open] ++ item.words).reverse)
-                (seenAppend [open] item.words)
-                edge
-                ended))
+              endedWeaker item.trails _ (seenAppend [open] item.words) edge ended))
             (edge free => freeReadyTrue kinds open.trails item.lead.text edge free))
           (passesCons
             (commaPasses kinds (trailsBack ([open] ++ item.words).reverse))
@@ -1292,11 +1244,7 @@ theorem sepsCellsJoin ∀ (kinds: Text → Tok) (seen: List Word) (items: List E
           (passesTwo
             (passesFrom
               (passesTo (passes (firstAround False arm before at)) (edge ended =>
-                endedWeaker item.trails
-                  (trailsBack (seen ++ item.words).reverse)
-                  (seenAppend seen item.words)
-                  edge
-                  ended))
+                endedWeaker item.trails _ (seenAppend seen item.words) edge ended))
               (edge gapped => gappedReadyTrue kinds (trailsBack seen.reverse) item.lead.text edge gapped))
             (commaPasses kinds (trailsBack (seen ++ item.words).reverse)))
           middle _
@@ -1340,11 +1288,7 @@ theorem cellsPasses ∀ (kinds: Text → Tok) (open: Word) (items: List Expr) (b
           (passesTwo
             (passesFrom
               (passesTo (passes (firstAround bare arm before at)) (edge ended =>
-                endedWeaker item.trails
-                  (trailsBack ([open] ++ item.words).reverse)
-                  (seenAppend [open] item.words)
-                  edge
-                  ended))
+                endedWeaker item.trails _ (seenAppend [open] item.words) edge ended))
               (edge free => freeReadyTrue kinds open.trails item.lead.text edge free))
             (commaPasses kinds (trailsBack ([open] ++ item.words).reverse)))
           edge _
@@ -1380,16 +1324,14 @@ theorem closerEnds ∀ (kinds: Text → Tok) (front: List Word) (close: Word) (a
         (passesTo
           (leafPasses kinds close around key sound token (closerNotComma close.text isCloser) (same => fresh))
           (edge left =>
-            endedWeaker
-              (close.trails || (isCloserText close.text && around.before))
-              (trailsBack (front ++ [close]).reverse)
+            endedWeaker _ _
               (flag =>
                 rewrite List.reverseSnoc front close then
                   match own: close.trails with
                     | True => byComputing
                     | False => rewrite isCloser at flag then rewrite isCloser then before flag)
               edge
-              (leftEnded close.text (close.trails || (isCloserText close.text && around.before)) token edge left)))
+              (leftEnded close.text _ token edge left)))
         (edge ended => endedReadyCloser kinds around.before close.text closes edge ended)
 
 theorem beforeCloseIs ∀ (open: Word) (items: List Expr) (close: Word):
@@ -1750,25 +1692,17 @@ theorem lastArgumentPasses ∀ (kinds: Text → Tok) (argument: Expr) (around: A
         huggedBracketPasses kinds True open items close around content.forcesBreak opener closer elements,
         huggedBracketPasses kinds True open items close around True opener closer elements
       )
-    | Atom kind word, joins => (elPasses kinds (Atom kind word) within joins around, byComputing)
-    | App head arguments, joins => (elPasses kinds (App head arguments) within joins around, byComputing)
-    | Infix kind left operator right, joins =>
-      (elPasses kinds (Infix kind left operator right) within joins around, byComputing)
-    | Prefix operator operand, joins => (elPasses kinds (Prefix operator operand) within joins around, byComputing)
-    | Paren open (Atom k w) close, joins =>
-      (elPasses kinds (Paren open (Atom k w) close) within joins around, byComputing)
-    | Paren open (Paren o i c) close, joins =>
-      (elPasses kinds (Paren open (Paren o i c) close) within joins around, byComputing)
-    | Paren open (Tuple o is m c) close, joins =>
-      (elPasses kinds (Paren open (Tuple o is m c) close) within joins around, byComputing)
-    | Paren open (ListOf o is m c) close, joins =>
-      (elPasses kinds (Paren open (ListOf o is m c) close) within joins around, byComputing)
-    | Paren open (App h xs) close, joins =>
-      (elPasses kinds (Paren open (App h xs) close) within joins around, byComputing)
-    | Paren open (Infix k l o r) close, joins =>
-      (elPasses kinds (Paren open (Infix k l o r) close) within joins around, byComputing)
-    | Paren open (Prefix o x) close, joins =>
-      (elPasses kinds (Paren open (Prefix o x) close) within joins around, byComputing)
+    | Atom _ _ |
+        App _ _ |
+        Infix _ _ _ _ |
+        Prefix _ _ |
+        Paren _ (Atom _ _) _ |
+        Paren _ (Paren _ _ _) _ |
+        Paren _ (Tuple _ _ _ _) _ |
+        Paren _ (ListOf _ _ _ _) _ |
+        Paren _ (App _ _) _ |
+        Paren _ (Infix _ _ _ _) _ |
+        Paren _ (Prefix _ _) _, joins => (elPasses kinds argument within joins around, byComputing)
 
 --| A call's arguments: the documents before the last and the last, in order, each after a separator; the last's
 --| hug passes as it does; and one document before the last for each argument but one.
@@ -1936,11 +1870,7 @@ theorem chainLinksPasses ∀ (kinds: Text → Tok) (level: Option Nat) (first: B
               (leftEnded operator.text operator.trails operatorJoins.right.left edge left)))
           (edge gapped => gappedReadyTrue kinds left.trails operator.text edge gapped))
         (allTo (chainRightPasses kinds level right rightAround rightWithin rightJoins) (edge ended =>
-          endedWeaker right.trails
-            (trailsBack (left.words ++ [operator, ..right.words]).reverse)
-            (opTrails left.words operator right.words)
-            edge
-            ended))))
+          endedWeaker right.trails _ (opTrails left.words operator right.words) edge ended))))
 
 --| A chain operand's documents: the links of a chain of the same level, else the element.
 theorem linkDocsPasses ∀ (kinds: Text → Tok) (level: Option Nat) (first: Bool) (expr: Expr) (around: Around)
@@ -1953,18 +1883,8 @@ theorem linkDocsPasses ∀ (kinds: Text → Tok) (level: Option Nat) (first: Boo
     | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | App _ _ | Prefix _ _, _ => element
     | Infix kind left operator right, (leftJoins, operatorJoins, rightJoins) =>
       match kind with
-        | InfixBinary =>
-          match inChain: (Infix InfixBinary left operator right).inChain level with
-            | True =>
-              chainLinksPasses kinds level first left operator right around
-                (Bool.andLeft within)
-                (Bool.andLeft (Bool.andRight within))
-                leftJoins
-                operatorJoins
-                rightJoins
-            | False => element
-        | InfixArrow =>
-          match inChain: (Infix InfixArrow left operator right).inChain level with
+        | InfixBinary | InfixArrow =>
+          match inChain: (Infix kind left operator right).inChain level with
             | True =>
               chainLinksPasses kinds level first left operator right around
                 (Bool.andLeft within)
@@ -2013,9 +1933,7 @@ theorem elPasses ∀ (kinds: Text → Tok) (expr: Expr)
     | Paren open inner close, (opener, closer, innerJoins) =>
       framedExprPasses kinds
         (Paren open inner close)
-        around
-        (parenDoc open inner close inside)
-        (Ended (Paren open inner close).trails)
+        around _ _
         within
         (opener, closer, innerJoins)
         (parenPasses kinds open inner close inside within opener closer (place =>
@@ -2024,8 +1942,7 @@ theorem elPasses ∀ (kinds: Text → Tok) (expr: Expr)
       framedExprPasses kinds
         (Tuple open items comma close)
         around
-        (commaBracket False open items close inside)
-        (Ended (Tuple open items comma close).trails)
+        (commaBracket False open items close inside) _
         within
         (opener, closer, each)
         (commaBracketPasses kinds False open items close inside opener closer (allElPasses kinds items within each))
@@ -2033,55 +1950,26 @@ theorem elPasses ∀ (kinds: Text → Tok) (expr: Expr)
       framedExprPasses kinds
         (ListOf open items comma close)
         around
-        (commaBracket True open items close inside)
-        (Ended (ListOf open items comma close).trails)
+        (commaBracket True open items close inside) _
         within
         (opener, closer, each)
         (commaBracketPasses kinds True open items close inside opener closer (allElPasses kinds items within each))
     | App head arguments, (headJoins, each, filled) =>
       framedExprPasses kinds
         (App head arguments)
-        around
-        (appDocs head arguments inside).doc
-        (Ended (App head arguments).trails)
+        around _ _
         within
         (headJoins, each, filled)
         (appPasses kinds head arguments inside (Bool.andLeft within) (Bool.andRight within) headJoins each filled)
     | Infix kind left operator right, (leftJoins, operatorJoins, rightJoins) =>
       match kind with
-        | InfixBinary =>
+        | InfixBinary | InfixArrow =>
           framedExprPasses kinds
-            (Infix InfixBinary left operator right)
-            around
-            (chain (Infix InfixBinary left operator right).chainLevel left operator right inside)
-            (Ended (Infix InfixBinary left operator right).trails)
+            (Infix kind left operator right)
+            around _ _
             within
             (leftJoins, operatorJoins, rightJoins)
-            (chainPasses kinds
-              (Infix InfixBinary left operator right).chainLevel
-              left
-              operator
-              right
-              inside
-              (Bool.andLeft within)
-              (Bool.andLeft (Bool.andRight within))
-              leftJoins
-              operatorJoins
-              rightJoins)
-        | InfixArrow =>
-          framedExprPasses kinds
-            (Infix InfixArrow left operator right)
-            around
-            (chain (Infix InfixArrow left operator right).chainLevel left operator right inside)
-            (Ended (Infix InfixArrow left operator right).trails)
-            within
-            (leftJoins, operatorJoins, rightJoins)
-            (chainPasses kinds
-              (Infix InfixArrow left operator right).chainLevel
-              left
-              operator
-              right
-              inside
+            (chainPasses kinds _ left operator right inside
               (Bool.andLeft within)
               (Bool.andLeft (Bool.andRight within))
               leftJoins
@@ -2091,13 +1979,7 @@ theorem elPasses ∀ (kinds: Text → Tok) (expr: Expr)
     | Prefix operator operand, (joins, operandJoins, glue) =>
       framedExprPasses kinds
         (Prefix operator operand)
-        around
-        (Doc.concat [
-          operator.leaf inside around.at,
-          prefixGap operator operand,
-          operand.el (around.next operator.trails 1)
-        ])
-        (Ended (Prefix operator operand).trails)
+        around _ _
         within
         (joins, operandJoins, glue)
         (prefixPasses kinds operator operand around joins glue (place =>

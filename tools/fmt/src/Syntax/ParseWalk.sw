@@ -76,21 +76,13 @@ theorem withinFalseOfOut ∀ [expr: Expr] (out: Out expr): expr.within1 = False 
 theorem inSliceOut ∀ (holds: Expr → Prop) [expr: Expr] (out: Out expr): InSlice holds expr :=
   inSliceOutside holds expr (withinFalseOfOut out)
 
-theorem argLevel ∀ (expr: Expr) (argument: expr.callArgument = True): 18 <= expr.level := match expr, argument with
-  | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | Prefix _ _, _ => arithmetic
-  | other, argument => (Bool.falseNotTrue argument).impossible
+theorem argLevel ∀ (expr: Expr) (argument: expr.callArgument = True): 18 <= expr.level := cases
 
-theorem headLevel ∀ (expr: Expr) (head: expr.callHead = True): 18 <= expr.level := match expr, head with
-  | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | Prefix _ _, _ => arithmetic
-  | other, head => (Bool.falseNotTrue head).impossible
+theorem headLevel ∀ (expr: Expr) (head: expr.callHead = True): 18 <= expr.level := cases
 
-theorem atomicArgument ∀ (expr: Expr) (atomic: expr.primary = True): expr.callArgument = True := match expr, atomic with
-  | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _, _ => byComputing
-  | other, atomic => (Bool.falseNotTrue atomic).impossible
+theorem atomicArgument ∀ (expr: Expr) (atomic: expr.primary = True): expr.callArgument = True := cases
 
-theorem atomicHead ∀ (expr: Expr) (atomic: expr.primary = True): expr.callHead = True := match expr, atomic with
-  | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _, _ => byComputing
-  | other, atomic => (Bool.falseNotTrue atomic).impossible
+theorem atomicHead ∀ (expr: Expr) (atomic: expr.primary = True): expr.callHead = True := cases
 
 theorem atomArg ∀ [expr: Expr] (parsed: AtomParsed expr): ArgParsed expr :=
   inSliceWeaken (expr => expr.primary = True) (expr => expr.callArgument = True) parsed (atomic =>
@@ -196,11 +188,7 @@ theorem readsAtBumpAt ∀ [start: Parse.Mark Item] [item: Item] [later: List Ite
     Both atom (within => (lead within, first)))
 
 --| A token that opens an atom is no sign.
-theorem opensPlain ∀ (kind: Tok) (opens: kind.opensAtom = True): (kind == Minus || kind == Bang) = False :=
-  match kind, opens with
-    | Lower | Upper | Num | Float | Str | StrStart | CharLit | LParen | LBracket | LBrace | Underscore | Question, _ =>
-      byComputing
-    | other, opens => (Bool.falseNotTrue opens).impossible
+theorem opensPlain ∀ (kind: Tok) (opens: kind.opensAtom = True): (kind == Minus || kind == Bang) = False := cases
 
 -- What the parsers outside slice 1 give. Each is `Out` (the tree is outside the slice) or `True` (the tree is wrapped in
 -- a node that is). `outsideOf` and `frameOf` prove them; `FrameRest` is what is still assumed.
@@ -291,10 +279,7 @@ theorem givesOutIn ∀ [p: () → {Parse Item} Expr] (holds: Expr → Prop)
 theorem reads0MatchesBarAhead ∀ (modes: Modes): Reads0 (() => matchesBarAhead modes) :=
   Parse.reads0Then reads0Left (items => Parse.reads0Done (matchesBarOn modes items))
 
-theorem minusBangSymbolic ∀ (kind: Tok) (is: (kind == Minus || kind == Bang) = True): kind.symbolic1 = True :=
-  match kind, is with
-    | Minus | Bang, _ => byComputing
-    | other, is => (Bool.falseNotTrue is).impossible
+theorem minusBangSymbolic ∀ (kind: Tok) (is: (kind == Minus || kind == Bang) = True): kind.symbolic1 = True := cases
 
 --| A word read from a good item that is an operator of the alphabet is one `operatorTok` knows.
 theorem operatorOfItem ∀ (item: Item)
@@ -324,7 +309,7 @@ theorem argsParsed ∀ (args: List Expr)
     | [first, ..rest], (firstParsed, restParsed), (Both firstWithin restWithin) =>
       let (firstShaped, firstLexical, firstArgument) := firstParsed firstWithin
       let (restShaped, restLexical, restArgument) := argsParsed rest restParsed restWithin
-      (Both firstShaped restShaped, Both firstLexical restLexical, Both firstArgument restArgument)
+      rewrite repeatedly [firstShaped, firstLexical, firstArgument, restShaped, restLexical, restArgument]
 
 --| A call is parsed: a head and arguments after it, at least one.
 theorem appParsed ∀ (head first: Expr) (more: List Expr)
@@ -578,9 +563,7 @@ theorem givesFailName ∀ (modes: Modes) (what: Text) [holds: a → Prop]:
           | False => givesFail modes what
       | [] => givesFail modes what)
 
-theorem wordWithinWithin ∀ (kind: Tok) (word: kind.wordWithin1 = True): kind.within1 = True := match kind, word with
-  | Lower | Upper | Num | Float, _ => byComputing
-  | other, word => (Bool.falseNotTrue word).impossible
+theorem wordWithinWithin ∀ (kind: Tok) (word: kind.wordWithin1 = True): kind.within1 = True := cases
 
 theorem wordLexesAs ∀ (word: Word) (kind: Tok) (lexes: LexesAs word.text kind): word.lexesAs kind = True :=
   rewrite lexes then Both (DecEq.refl word.text) (DecEq.refl kind)
@@ -637,12 +620,7 @@ theorem quietBeforeOf ∀ (sign next: Leaf)
     (untrailed: sign.trivia.trailing.isNone = True)
     (unled: next.trivia.leading.isEmpty = True):
     quietBefore sign.word next.word = True :=
-  match trailing: sign.trivia.trailing, untrailed with
-    | None, untrailed =>
-      match leading: next.trivia.leading, unled with
-        | [], unled => byComputing
-        | [comment, ..more], unled => (Bool.falseNotTrue unled).impossible
-    | Some comment, untrailed => (Bool.falseNotTrue untrailed).impossible
+  cases
 
 --| `left()` then `j` of the items left, from a mark; `j` is read from the mark after it, which has the same items.
 theorem readsAtAfterLeft ∀ [start: Parse.Mark Item] [j: List Item → {Parse Item} b] [spec: List Item → b → Prop]
@@ -695,8 +673,7 @@ theorem negativeParsed ∀ (minus number: Word) (kind: Tok)
       let (shaped, lexical, atomic) := parsed (Bool.andLeft within)
       (Both shaped arithmetic, Both spelled lexical, head))
 
-theorem numeralOpens ∀ (kind: Tok) (numeral: kind = Num ∨ kind = Float): kind.opensAtom = True := match numeral with
-  | Inl num | Inr num => rewrite num
+theorem numeralOpens ∀ (kind: Tok) (numeral: kind = Num ∨ kind = Float): kind.opensAtom = True := cases
 
 theorem readsNegativeNumber ∀ (start: Parse.Mark Item) (minus number: Item) (later: List Item)
     (shape: start.rest = [minus, number, ..later])
@@ -724,26 +701,15 @@ theorem readsNegativeNumber ∀ (start: Parse.Mark Item) (minus number: Item) (l
                 (quietPair fine shape)
                 byComputing)))))
 
-theorem signLike ∀ (kind: Tok) (sign: kind = Minus ∨ kind = Bang): kind.signLike = True := match sign with
-  | Inl minus | Inr minus => rewrite minus
-
-theorem minusSymbolic ∀ (kind: Tok) (is: kind = Minus): kind.symbolic1 = True := rewrite is
-
-theorem bangSymbolic ∀ (kind: Tok) (is: kind = Bang): kind.symbolic1 = True := rewrite is
+theorem signLike ∀ (kind: Tok) (sign: kind = Minus ∨ kind = Bang): kind.signLike = True := cases
 
 theorem signSymbolic ∀ (kind: Tok) (sign: kind = Minus ∨ kind = Bang): kind.symbolic1 = True := match sign with
-  | Inl minus => minusSymbolic kind minus
-  | Inr bang => bangSymbolic kind bang
+  | Inl is | Inr is => rewrite is
 
 theorem argumentMinusPrefix ∀ (items: List Item) (found: argumentMinus items = True): argumentPrefix items = True :=
-  match items, found with
-    | [sign, ..later], found => Bool.andRight found
-    | [], found => (Bool.falseNotTrue found).impossible
+  cases
 
-theorem argumentBangPrefix ∀ (items: List Item) (found: argumentBang items = True): argumentPrefix items = True :=
-  match items, found with
-    | [sign, ..later], found => Bool.andRight found
-    | [], found => (Bool.falseNotTrue found).impossible
+theorem argumentBangPrefix ∀ (items: List Item) (found: argumentBang items = True): argumentPrefix items = True := cases
 
 --| A sign that negates an argument: it is followed by a token that opens an atom, so what it negates is an atom or a
 --| bracket, never a sign (`ArgRead`).
@@ -884,7 +850,7 @@ theorem itemsParsed ∀ (floor: Nat) (items: List Expr)
     | [first, ..rest], (firstParsed, restParsed), (Both firstWithin restWithin) =>
       let (firstShaped, firstLexical, firstHigh) := firstParsed firstWithin
       let (restShaped, restLexical) := itemsParsed floor rest restParsed restWithin
-      (Both firstShaped restShaped, Both firstLexical restLexical)
+      rewrite repeatedly [firstShaped, firstLexical, restShaped, restLexical]
 
 theorem parenParsed ∀ (open close: Word) (inner: Expr)
     (openText: open.text = "(")
@@ -893,11 +859,7 @@ theorem parenParsed ∀ (open close: Word) (inner: Expr)
     AtomParsed (Paren open inner close) :=
   within =>
     let (shaped, lexical, high) := parsed within
-    (
-      shaped,
-      Both (Text.beqOfEq open.text "(" openText) (Both (Text.beqOfEq close.text ")" closeText) lexical),
-      byComputing
-    )
+    rewrite repeatedly [openText, closeText, shaped, lexical]
 
 theorem tupleParsed ∀ (open close: Word) (items: List Expr) (trailing: Bool)
     (openText: open.text = "(")
@@ -907,11 +869,7 @@ theorem tupleParsed ∀ (open close: Word) (items: List Expr) (trailing: Bool)
     AtomParsed (Tuple open items trailing close) :=
   within =>
     let (shaped, lexical) := itemsParsed 1 items parsed within
-    (
-      Both long shaped,
-      Both (Text.beqOfEq open.text "(" openText) (Both (Text.beqOfEq close.text ")" closeText) lexical),
-      byComputing
-    )
+    rewrite repeatedly [openText, closeText, shaped, lexical, long]
 
 theorem listParsed ∀ (open close: Word) (items: List Expr) (trailing: Bool)
     (openText: open.text = "[")
@@ -920,11 +878,7 @@ theorem listParsed ∀ (open close: Word) (items: List Expr) (trailing: Bool)
     AtomParsed (ListOf open items trailing close) :=
   within =>
     let (shaped, lexical) := itemsParsed 1 items parsed within
-    (
-      shaped,
-      Both (Text.beqOfEq open.text "[" openText) (Both (Text.beqOfEq close.text "]" closeText) lexical),
-      byComputing
-    )
+    rewrite repeatedly [openText, closeText, shaped, lexical]
 
 theorem givesTupleClose ∀ (modes: Modes): Parse.Gives GoodItems (() => tupleClose modes) (word => word.text = ")") :=
   Parse.givesAfter0 (reads0At modes Colon) (annotated =>
