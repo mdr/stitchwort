@@ -27372,7 +27372,7 @@
     {
       "id": 4237,
       "title": "[Sonnet] Audit elaborator read-backs that bypass the too-large fallback (unify.rs, effects.rs, closing.rs, omega.rs, named.rs, derive_induct.rs) and any uncapped read-back outside a check; route them through check.rs's fallback where a hypothesis or goal may be huge; a test per site changed (SW-4091 findings)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
