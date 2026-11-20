@@ -6,7 +6,7 @@ const lib = require('./lib');
 
 const USAGE = `usage: board <command> [args]
   list [--archived] [--status S] [--agent A] [--label L] [--epic ID] [--json]
-  show N [--json]                   (also finds archived tickets, read-only)
+  show N [--json | --body-only]     (also finds archived tickets, read-only)
   add "title" [--status S] [--agent A] [--where W] [--epic ID] [--label L]... [--body TEXT | --body-file F]
   move N STATUS
   assign N AGENT [--where W]        (also moves a backlog/next ticket to doing)
@@ -34,7 +34,7 @@ function parseArgs(argv) {
     if (a === '--') { pos.push(...argv.slice(i + 1)); break; }
     if (!a.startsWith('--')) { pos.push(a); continue; }
     let [name, value] = a.slice(2).split(/=(.*)/s, 2);
-    if (name === 'json' || name === 'archived' || name === 'force') { opt[name] = true; continue; }
+    if (name === 'json' || name === 'archived' || name === 'force' || name === 'body-only') { opt[name] = true; continue; }
     if (!WITH_VALUE.has(name)) throw new lib.BoardError(`unknown option --${name}`);
     if (value === undefined) {
       if (i + 1 >= argv.length) throw new lib.BoardError(`--${name} needs a value`);
@@ -125,10 +125,12 @@ function main(argv) {
     case 'show': {
       const id = needId(pos);
       noExtra(pos, 1);
+      if (opt.json && opt['body-only']) throw new lib.BoardError('use --json or --body-only, not both');
       const live = lib.load().tickets.find((x) => x.id === id);
       const t = live || lib.findArchived(id);
       if (!t) throw new lib.BoardError(`no ticket SW-${id}`);
-      console.log(opt.json ? JSON.stringify(t, null, 2) : show(t) + (live ? '' : '\n\n(archived, read-only)'));
+      if (opt['body-only']) process.stdout.write(t.body);
+      else console.log(opt.json ? JSON.stringify(t, null, 2) : show(t) + (live ? '' : '\n\n(archived, read-only)'));
       return 0;
     }
     case 'epics': {
