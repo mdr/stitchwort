@@ -451,20 +451,6 @@ def CommaRuns (modes: Modes) (ends: Nat → {Parse Item} Bool) (next: () → {Pa
       ∧ Parse.Runs next read (commaReads steps ++ rest) value
       ∧ CommaRuns modes ends next (count + 1) steps rest
 
-theorem runsCommaListOnEnd ∀ (fuel: Nat) (modes: Modes) (ends: Nat → {Parse Item} Bool) (next: () → {Parse Item} a)
-    (count: Nat) (current: a) (found: List a) (seen: Option Tok) (rest: List Item)
-    (noComma: isSome Comma seen = False):
-    Parse.Runs (() => commaListOn fuel modes ends next count current found seen) [] rest (
-      [current, ..found].reverse,
-      False
-    ) :=
-  match fuel, seen, noComma with
-    | Succ more, Some kind, noComma =>
-      let no: (kind == Comma) = False := noComma
-      rewrite no then Parse.runsPure ([current, ..found].reverse, False) rest
-    | Succ more, None, noComma => Parse.runsPure ([current, ..found].reverse, False) rest
-    | Zero, _, noComma => Parse.runsPure ([current, ..found].reverse, False) rest
-
 --| `commaListFrom` over a comma list without a trailing comma, with fuel for each comma: it reads the list and gives
 --| its elements.
 --|
@@ -481,13 +467,16 @@ theorem runsCommaListFrom ∀ (modes: Modes) (ends: Nat → {Parse Item} Bool) (
   match steps, fuel, enough, runs with
     | [], fuel, enough, closing =>
       runsLook
-        (() => modes.peek)
-        (seen => commaListOn fuel modes ends next count current found seen)
+        (() => modes.peek) _
         (peekIn modes 0 rest)
         []
         rest _
         (runsPeekOn modes rest)
-        (runsCommaListOnEnd fuel modes ends next count current found (peekIn modes 0 rest) rest closing)
+        (match fuel, peekIn modes 0 rest, closing with
+          | Succ more, Some kind, noComma =>
+            let no: (kind == Comma) = False := noComma
+            rewrite no then Parse.runsPure ([current, ..found].reverse, False) rest
+          | Succ more, None, noComma => Parse.runsPure ([current, ..found].reverse, False) rest)
     | [(comma, read, value), ..later], Succ more, enough, (open, isComma, goesOn, element, others) =>
       let inside :=
         runsCommaListFrom modes ends next later rest more
@@ -497,8 +486,7 @@ theorem runsCommaListFrom ∀ (modes: Modes) (ends: Nat → {Parse Item} Bool) (
           (arithmetic [enough])
           others
       runsLook
-        (() => modes.peek)
-        (seen => commaListOn (Succ more) modes ends next count current found seen)
+        (() => modes.peek) _
         (Some comma.kind)
         ([comma, ..read] ++ commaReads later)
         rest _
@@ -515,8 +503,7 @@ theorem runsCommaListFrom ∀ (modes: Modes) (ends: Nat → {Parse Item} Bool) (
             byComputing
             (runsBump comma ((read ++ commaReads later) ++ rest))
             (Parse.runsBind
-              (() => ends count)
-              (stop => commaListAfter more modes ends next count [current, ..found] stop)
+              (() => ends count) _
               []
               (read ++ commaReads later)
               (read ++ commaReads later)
@@ -524,9 +511,7 @@ theorem runsCommaListFrom ∀ (modes: Modes) (ends: Nat → {Parse Item} Bool) (
               False _
               byComputing
               (rewrite <- List.appendAssoc read (commaReads later) rest at goesOn then goesOn)
-              (Parse.runsBind next
-                (v => commaListFrom more modes ends next (count + 1) v [current, ..found])
-                read
+              (Parse.runsBind next _ read
                 (commaReads later)
                 (read ++ commaReads later)
                 rest

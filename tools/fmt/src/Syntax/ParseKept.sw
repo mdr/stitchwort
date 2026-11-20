@@ -569,8 +569,7 @@ theorem readsCommaListFrom ∀ (modes: Modes) (ends: Nat → {Parse Item} Bool) 
     Parse.ReadsIn GoodItems
       (() => commaListFrom fuel modes ends next count current found)
       (ListKept [current, ..found].reverse) :=
-  readsInPeeked modes
-    (seen => commaListOn fuel modes ends next count current found seen) _
+  readsInPeeked modes _ _
     (start fine stops =>
       match fuel with
         | Zero => Parse.readsAtDone _ _ ([], (List.appendNil _).flipped, restKeptNil)
