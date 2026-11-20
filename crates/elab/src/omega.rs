@@ -563,9 +563,7 @@ impl Ranges {
                     Value::Neutral(Head::Var(level, _), spine)
                         if level == cx.level() && spine.is_empty()
                 );
-                if !is_probe
-                    || stitchwort_core::value::quote_folded(&cx.g(), cx.level() + 1, &x)?
-                        .mentions(0)
+                if !is_probe || crate::check::quote_folded(&cx.g(), cx.level() + 1, &x)?.mentions(0)
                 {
                     return Ok(None);
                 }

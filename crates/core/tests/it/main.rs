@@ -1,5 +1,9 @@
 //! The crate's integration tests in one binary (docs/proposals/fewer-test-binaries.md).
 
+// The kernel's tests read back with `value::quote_folded` directly (see
+// clippy.toml: the entry guards the elaborator's read-backs).
+#![allow(clippy::disallowed_methods)]
+
 mod admission;
 mod assumptions;
 mod case_other_type;

@@ -1477,7 +1477,7 @@ fn unmentioned_alias(
         Ty::Value(value) => value,
         Ty::Term(term, env) => eval(&g, &env, &term).ok()?,
     };
-    let term = stitchwort_core::value::quote_folded(&g, cx.level(), &value).ok()?;
+    let term = crate::check::quote_folded(&g, cx.level(), &value).ok()?;
     if term
         .subterms()
         .any(|(t, _)| matches!(t, Term::Def(id) if *id == alias))

@@ -5828,7 +5828,7 @@ fn ignorable_arguments(cx: &Ctx, goal: &Value) -> Option<std::rc::Rc<[bool]>> {
     // unfolding does, and maybe more, so this can only mark an argument
     // not ignorable where the unfolding would have allowed it.
     let mut mark = |value: &Value| -> Option<()> {
-        let term = stitchwort_core::value::quote_folded(&cx.g(), level, value).ok()?;
+        let term = quote_folded(&cx.g(), level, value).ok()?;
         for (t, binders) in term.subterms() {
             if let Term::Var(i) | Term::Case(i, ..) | Term::NumCase(i, ..) = t
                 && *i >= binders
@@ -10595,13 +10595,23 @@ pub(crate) fn quote_or_written(
     value: &Value,
 ) -> std::result::Result<(Term, bool), ResourceError> {
     let budget = &g.machine.budget;
+    // A read-back that runs over notes where (`ran_out_in`) it ran out; one
+    // that finishes, as written or not, leaves the note as it was.
+    let ran_out_in = budget.take_ran_out_in();
+    budget.set_ran_out_in(ran_out_in);
     match quote(g, level, value) {
         Err(e @ ResourceError::Size(_)) if budget.exhausted().is_none() => {
             let noted = budget.take_too_large();
+            let noted_in = budget.take_ran_out_in();
             match stitchwort_core::value::quote_as_written(g, level, value) {
-                Ok(t) => Ok((t, true)),
+                Ok(t) => {
+                    budget.set_too_large(noted);
+                    budget.set_ran_out_in(ran_out_in);
+                    Ok((t, true))
+                }
                 Err(ResourceError::Size(_)) if budget.exhausted().is_none() => {
                     budget.set_too_large(noted);
+                    budget.set_ran_out_in(noted_in);
                     Err(e)
                 }
                 Err(e) => Err(e),

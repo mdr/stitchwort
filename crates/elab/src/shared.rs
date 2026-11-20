@@ -25,11 +25,11 @@ use std::rc::Rc;
 use crate::kernel;
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::term::Branch;
-use stitchwort_core::value::{conv, eval, force, quote_folded, unused};
+use stitchwort_core::value::{conv, eval, force, unused};
 use stitchwort_core::{DataId, DefId, Icit, Name, Sort, Term, Value};
 use stitchwort_syntax::ast::{self, Alt, Bracket, Expr, MatchKind, Pattern, Scrutinee};
 
-use crate::check::{Ctx, check};
+use crate::check::{Ctx, check, quote_folded};
 use crate::{Elaborator, Global, Result};
 
 /// Why a field every constructor names isn't shared.

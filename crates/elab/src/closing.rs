@@ -22,14 +22,14 @@
 
 use stitchwort_core::Ev;
 use stitchwort_core::pretty;
-use stitchwort_core::value::{Value, eval, force, quote_folded};
+use stitchwort_core::value::{Value, eval, force};
 use stitchwort_core::{DataId, Icit, Name, Term};
 use stitchwort_syntax::ast::Expr;
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::Elaborator;
 use crate::GoalSnapshot;
-use crate::check::{Ctx, infer};
+use crate::check::{Ctx, infer, quote_folded};
 use crate::search::{
     ATTEMPT, Candidate, Found, HeadKey, Hit, Item, Mode, Opts, Pattern, Place, Relation, Restore,
     Ty, constants, data_types, head_key, size, type_of_target,
