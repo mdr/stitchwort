@@ -5709,14 +5709,14 @@
     {
       "id": 1918,
       "title": "[DeepSeek] Syntax small fixes from the Opus review: F11, F17 (a file starting with := silently ignored, and the other low items)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "From docs/reviews/code-review-syntax-opus.md (lane 7). 30 min.",
+      "body": "From docs/reviews/code-review-syntax-opus.md (lane 7). 30 min.\n\nModel result: DeepSeek, worked (also fixed a failing syntax.md table test), 25 min (est. 30)\n",
       "created": "2026-11-07",
       "updated": "2026-11-20",
       "commits": []
@@ -27402,7 +27402,7 @@
     {
       "id": 4239,
       "title": "[Opus] Walk W1 (D3696): the walk for one-run families, as widened by SW-4238 §5: binds, calls (brackets, own theorem, local hypotheses, registry), unfold on request, inner if/match with the path cap, values, weaken, closers, names, E-WALK, attributes, std's index entries, --expand-walk and the trace; guide and syntax.md; accept and reject examples. After W0 (SW-4353)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
