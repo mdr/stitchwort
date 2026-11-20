@@ -612,7 +612,10 @@ fn take_apart(
         && g.env.registry().is_data(Builtin::And, d)
         && args.len() == 2
     {
-        let (p, q) = (cx.quote(&args[0])?, cx.quote(&args[1])?);
+        let (p, q) = (
+            cx.quote_or_written(&args[0])?,
+            cx.quote_or_written(&args[1])?,
+        );
         for (side, part_ty) in [(Builtin::AndLeft, &args[0]), (Builtin::AndRight, &args[1])] {
             let head = Term::Def(builtin_def(cx, side)?);
             let head = Term::app_icit(
@@ -883,7 +886,7 @@ fn membership_facts(cx: &mut Ctx, mems: &[DefId]) -> Result<Vec<(Term, Value)>> 
                 let Some(p) = params.next() else {
                     break;
                 };
-                term = Term::app_icit(term, cx.quote(p)?, icit);
+                term = Term::app_icit(term, cx.quote_or_written(p)?, icit);
                 ty = cod.apply(&g, p.clone())?;
             }
             if is_mem(&ty) {
@@ -985,7 +988,10 @@ fn lex_less(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Option<Term>> {
     };
     let less = builtin_def(cx, Builtin::LessThan)?;
     let less_than = |cx: &mut Ctx, a: &Value, b: &Value| -> Result<Value> {
-        let term = Term::app(Term::app(Term::Def(less), cx.quote(a)?), cx.quote(b)?);
+        let term = Term::app(
+            Term::app(Term::Def(less), cx.quote_or_written(a)?),
+            cx.quote_or_written(b)?,
+        );
         cx.eval(&term)
     };
     let first = less_than(cx, &a1, &b1)?;
@@ -1031,7 +1037,7 @@ pub fn decide(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
     let both = std::env::var_os("STITCHWORT_DECIDE_BOTH").is_some();
     let unfolded = if both {
         let snapshot = crate::undo::Snapshot::take(cx);
-        let written = cx.quote(prop);
+        let written = cx.quote_unfolded(prop);
         let found = decide_from(cx, written, depth);
         let shown = decided(cx, &found);
         snapshot.restore(cx);

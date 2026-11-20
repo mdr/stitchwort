@@ -2232,12 +2232,12 @@ impl Quoter {
         {
             let (x, d) = (x.clone(), d.clone());
             let i = self.atom(cx, value, None, true)?;
-            let x_term = cx.quote(&x)?;
-            let d_term = cx.quote(&d)?;
+            let x_term = cx.quote_unfolded(&x)?;
+            let d_term = cx.quote_unfolded(&d)?;
             let mut known = false;
             for e in &self.int_divisions {
-                if crate::matching::same(&cx.quote(&e.numerator)?, &x_term)
-                    && crate::matching::same(&cx.quote(&e.divisor)?, &d_term)
+                if crate::matching::same(&cx.quote_unfolded(&e.numerator)?, &x_term)
+                    && crate::matching::same(&cx.quote_unfolded(&e.divisor)?, &d_term)
                 {
                     known = true;
                     break;
@@ -2273,8 +2273,8 @@ impl Quoter {
         let gap = force(&cx.g(), gap.clone())?;
         let same = crate::matching::same;
         if let Some([n2, m2]) = call_args(&gap, lib.sub).as_deref()
-            && same(&cx.quote(n2)?, &cx.quote(n)?)
-            && same(&cx.quote(m2)?, &cx.quote(m)?)
+            && same(&cx.quote_unfolded(n2)?, &cx.quote_unfolded(n)?)
+            && same(&cx.quote_unfolded(m2)?, &cx.quote_unfolded(m)?)
         {
             return Ok(Some((m.clone(), n.clone())));
         }
@@ -2286,7 +2286,7 @@ impl Quoter {
             vec![cx.quote_folded(n)?, cx.quote_folded(m)?],
         );
         let computed = force(&cx.g(), cx.eval(&gap_of)?)?;
-        let matches = same(&cx.quote(&computed)?, &cx.quote(&gap)?);
+        let matches = same(&cx.quote_unfolded(&computed)?, &cx.quote_unfolded(&gap)?);
         Ok(matches.then(|| (m.clone(), n.clone())))
     }
 
@@ -2302,27 +2302,28 @@ impl Quoter {
         lib: &Lib,
         value: &Value,
     ) -> Result<Option<(Value, Value, BigUint)>> {
-        let (numerator, fuel, divisor, step) =
-            if let Some([fuel, n, d]) = call_args(value, lib.div_fuel).as_deref() {
-                (n.clone(), fuel.clone(), d.clone(), false)
-            } else if let Some([n, d]) = call_args(value, lib.div).as_deref() {
-                (n.clone(), n.clone(), d.clone(), false)
-            } else if let Some([_, fuel, n, d]) = call_args(value, lib.div_step).as_deref() {
-                let fuel = Term::ctor(lib.succ.0, lib.succ.1, vec![cx.quote_folded(fuel)?]);
-                // Only the step that `Nat.divFuel (Succ fuel) n d` takes, so
-                // that the facts about that call are about this atom.
-                let call = apps(
-                    Term::Def(lib.div_fuel),
-                    vec![fuel.clone(), cx.quote_folded(n)?, cx.quote_folded(d)?],
-                );
-                let computed = force(&cx.g(), cx.eval(&call)?)?;
-                if !crate::matching::same(&cx.quote(&computed)?, &cx.quote(value)?) {
-                    return Ok(None);
-                }
-                (n.clone(), cx.eval(&fuel)?, d.clone(), true)
-            } else {
+        let (numerator, fuel, divisor, step) = if let Some([fuel, n, d]) =
+            call_args(value, lib.div_fuel).as_deref()
+        {
+            (n.clone(), fuel.clone(), d.clone(), false)
+        } else if let Some([n, d]) = call_args(value, lib.div).as_deref() {
+            (n.clone(), n.clone(), d.clone(), false)
+        } else if let Some([_, fuel, n, d]) = call_args(value, lib.div_step).as_deref() {
+            let fuel = Term::ctor(lib.succ.0, lib.succ.1, vec![cx.quote_folded(fuel)?]);
+            // Only the step that `Nat.divFuel (Succ fuel) n d` takes, so
+            // that the facts about that call are about this atom.
+            let call = apps(
+                Term::Def(lib.div_fuel),
+                vec![fuel.clone(), cx.quote_folded(n)?, cx.quote_folded(d)?],
+            );
+            let computed = force(&cx.g(), cx.eval(&call)?)?;
+            if !crate::matching::same(&cx.quote_unfolded(&computed)?, &cx.quote_unfolded(value)?) {
                 return Ok(None);
-            };
+            }
+            (n.clone(), cx.eval(&fuel)?, d.clone(), true)
+        } else {
+            return Ok(None);
+        };
         // A divisor of 0 only as `Nat.divFuel f x 0`, which is what
         // `Nat.divZero`'s fact is about: a `Nat.divStep` by 0 always computes
         // (its comparison `Nat.leq 0 x` is `True`), so it isn't stuck here.
@@ -2376,9 +2377,9 @@ impl Quoter {
             (Some(t), Some(o)) if k_then == k_otherwise => (k_then, t, o),
             _ => (BigUint::default(), then, otherwise),
         };
-        let then = cx.quote(&then)?;
-        let otherwise = cx.quote(&otherwise)?;
-        let (ta, tb) = (cx.quote(a)?, cx.quote(b)?);
+        let then = cx.quote_unfolded(&then)?;
+        let otherwise = cx.quote_unfolded(&otherwise)?;
+        let (ta, tb) = (cx.quote_unfolded(a)?, cx.quote_unfolded(b)?);
         let same = crate::matching::same;
         let (a, b) = (
             from_view(k.clone(), Some(a.clone())),
@@ -2410,14 +2411,14 @@ impl Quoter {
             return Ok(None);
         };
         let t = t.clone();
-        let t_term = cx.quote(&t)?;
+        let t_term = cx.quote_unfolded(&t)?;
         let mut count: u32 = 0;
         let mut current = value.clone();
         loop {
             let current_forced = force(&g, current)?;
             match call_args(&current_forced, lib.add).as_deref() {
                 Some([x, rest]) => {
-                    if !crate::matching::same(&cx.quote(x)?, &t_term) {
+                    if !crate::matching::same(&cx.quote_unfolded(x)?, &t_term) {
                         return Ok(None);
                     }
                     count = count.saturating_add(1);
@@ -2428,7 +2429,8 @@ impl Quoter {
                     let zero = base.is_none() && k == BigUint::default();
                     // The last `t + 0` is `t` itself when `t` is stuck: `+`
                     // computes on its second argument too (`nat_add.rs`).
-                    if !zero && crate::matching::same(&cx.quote(&current_forced)?, &t_term) {
+                    if !zero && crate::matching::same(&cx.quote_unfolded(&current_forced)?, &t_term)
+                    {
                         count = count.saturating_add(1);
                         return Ok((count >= 2).then_some((BigUint::from(count), t)));
                     }
@@ -2515,7 +2517,7 @@ impl Quoter {
         unsupported: Option<&'static str>,
         int: bool,
     ) -> Result<usize> {
-        let term = cx.quote(&value)?;
+        let term = cx.quote_unfolded(&value)?;
         if let Some(i) = self
             .atoms
             .iter()
@@ -2582,10 +2584,10 @@ fn recomputed(cx: &Ctx, value: &Value) -> Result<Option<Value>> {
     if !matches!(value, Value::Neutral(Head::Def(_), _)) {
         return Ok(None);
     }
-    let term = cx.quote(value)?;
+    let term = cx.quote_unfolded(value)?;
     let again = force(&cx.g(), cx.eval(&term)?)?;
     if matches!(&again, Value::Neutral(Head::Def(_), _))
-        && crate::matching::same(&cx.quote(&again)?, &term)
+        && crate::matching::same(&cx.quote_unfolded(&again)?, &term)
     {
         return Ok(None);
     }
@@ -3320,12 +3322,12 @@ fn nat_abs_dichotomies(
 ) -> Result<Vec<Extra>> {
     let mut known = Vec::new();
     for e in extra {
-        known.push(cx.quote(&e.ty)?);
+        known.push(cx.quote_unfolded(&e.ty)?);
     }
     let mut made = Vec::new();
     for t in sizes {
         let (term, ty) = lemma(cx, lib.nat_abs_dichotomy, &[both(cx, t)?])?;
-        let quoted = cx.quote(&ty)?;
+        let quoted = cx.quote_unfolded(&ty)?;
         if known.iter().any(|k| crate::matching::same(k, &quoted)) {
             continue;
         }
@@ -3459,10 +3461,12 @@ fn linear_once(
     // `x * y` and `y * x` are two atoms, related by `Nat.mulComm x y` (or
     // `Int.mulComm`).
     for (k, (i, x, y, int)) in quoter.products.iter().enumerate() {
-        let (tx, ty) = (cx.quote(x)?, cx.quote(y)?);
+        let (tx, ty) = (cx.quote_unfolded(x)?, cx.quote_unfolded(y)?);
         for (j, x2, y2, int2) in &quoter.products[k + 1..] {
             let same = crate::matching::same;
-            if int != int2 || !(same(&tx, &cx.quote(y2)?) && same(&ty, &cx.quote(x2)?)) {
+            if int != int2
+                || !(same(&tx, &cx.quote_unfolded(y2)?) && same(&ty, &cx.quote_unfolded(x2)?))
+            {
                 continue;
             }
             let (which, name) = if *int {
@@ -3658,14 +3662,18 @@ fn division_facts(cx: &Ctx, lib: &Lib, quoter: &Quoter, division: &Division) -> 
     // fuel is `k` more (`n + 1 <= n + 2` computes to `n <= 1 + n`).
     // Otherwise only the lower bound is a fact.
     let same = crate::matching::same;
-    let enough_fuel = if same(&cx.quote(&division.numerator)?, &cx.quote(&division.fuel)?) {
+    let enough_fuel = if same(
+        &cx.quote_unfolded(&division.numerator)?,
+        &cx.quote_unfolded(&division.fuel)?,
+    ) {
         Some(lemma(cx, lib.le_refl, std::slice::from_ref(&numerator))?)
     } else {
         let (k, base) = stitchwort_core::native::view(&cx.g(), &division.numerator)?;
         let (k_fuel, base_fuel) = stitchwort_core::native::view(&cx.g(), &division.fuel)?;
         match (base, base_fuel) {
             (Some(base), Some(base_fuel))
-                if k_fuel >= k && same(&cx.quote(&base)?, &cx.quote(&base_fuel)?) =>
+                if k_fuel >= k
+                    && same(&cx.quote_unfolded(&base)?, &cx.quote_unfolded(&base_fuel)?) =>
             {
                 let more = number(&k_fuel - &k);
                 Some(lemma(cx, lib.le_add_left, &[more, both(cx, &base)?])?)

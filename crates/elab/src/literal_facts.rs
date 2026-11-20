@@ -94,8 +94,8 @@ pub(crate) fn prove(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
     let mut h = Term::Var(0);
     if !lit_on_right {
         // `h: lit = x` turned into `x = lit` by `J (y q => y = lit) byComputing h`.
-        let ty_term = cx.quote(&ty)?.shift(&g, 3, 0)?;
-        let lit_term = cx.quote(&lit)?.shift(&g, 3, 0)?;
+        let ty_term = cx.quote_or_written(&ty)?.shift(&g, 3, 0)?;
+        let lit_term = cx.quote_or_written(&lit)?.shift(&g, 3, 0)?;
         let body = Term::Eq(
             Some(Rc::new(ty_term)),
             Rc::new(Term::Var(1)),

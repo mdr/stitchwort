@@ -662,7 +662,7 @@ impl Finder<'_, '_> {
         for _ in 0..e {
             lambdas = Term::Lam("s".into(), Icit::Explicit, Rc::new(lambdas));
         }
-        let mut body = cx.quote(&cx.eval(&lambdas)?)?;
+        let mut body = cx.quote_unfolded(&cx.eval(&lambdas)?)?;
         for _ in 0..e {
             let Term::Lam(_, _, inner) = &body else {
                 return Ok(None);

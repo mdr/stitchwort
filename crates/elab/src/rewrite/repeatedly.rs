@@ -631,7 +631,7 @@ impl crate::Elaborator {
                 members.push((d, rule.reverse));
             }
             let (body, ty) = infer(&mut cx, &Expr::Unit(*span))?;
-            let ty = cx.quote(&ty)?;
+            let ty = cx.quote_or_written(&ty)?;
             (members, ty, body)
         };
         let id = crate::kernel::declare_def(
@@ -876,7 +876,9 @@ pub(super) fn rewrite_repeatedly(
         }
         if present.as_ref().is_none_or(|(v, _, _)| *v != version) {
             let g = cx.g();
-            let computed = force(&g, goal.clone()).ok().and_then(|v| cx.quote(&v).ok());
+            let computed = force(&g, goal.clone())
+                .ok()
+                .and_then(|v| cx.quote_unfolded(&v).ok());
             let keys = goal_keys(cx, &goal, computed.as_ref(), written_goal.as_ref());
             present = Some((version, computed, keys));
         }
@@ -1736,7 +1738,7 @@ pub(super) fn unfold_equation(cx: &mut Ctx, rule: &RewriteRule) -> Result<Equati
     // checked against the type of its proof, which a bare `byComputing`
     // doesn't give.
     let stated = Term::Eq(
-        Some(Rc::new(cx.quote(&ty)?)),
+        Some(Rc::new(cx.quote_or_written(&ty)?)),
         Rc::new(cx.quote_folded(&rhs)?),
         Rc::new(cx.quote_folded(&lhs)?),
     );
@@ -1803,7 +1805,7 @@ fn check_rule_inner(cx: &mut Ctx, rule: &RewriteRule) -> Result<Shape> {
         return Err(error);
     }
     let g = cx.g();
-    let computed = cx.quote(&force(&g, equation.lhs.clone())?)?;
+    let computed = cx.quote_unfolded(&force(&g, equation.lhs.clone())?)?;
     let shape = Shape {
         written: Some((lhs_key.clone(), calls(&lhs))),
         // Not the definitions it calls: computed with the rule's unknowns
@@ -1887,7 +1889,7 @@ fn unfixed(cx: &Ctx, rule: &RewriteRule, equation: &Equation) -> Result<Option<D
         }
         out
     };
-    let lhs = own(&cx.quote(&equation.lhs)?);
+    let lhs = own(&cx.quote_unfolded(&equation.lhs)?);
     let g = cx.g();
     let mut premises = Vec::new();
     for premise in &equation.premises {
@@ -1896,7 +1898,7 @@ fn unfixed(cx: &Ctx, rule: &RewriteRule, equation: &Equation) -> Result<Option<D
             premises.extend(own(&premise.meta));
         }
     }
-    let open = own(&cx.quote(&equation.rhs)?)
+    let open = own(&cx.quote_unfolded(&equation.rhs)?)
         .into_iter()
         .filter(|m| !lhs.contains(m) && !premises.contains(m))
         .collect::<Vec<_>>();

@@ -497,7 +497,7 @@ fn unit_parameter<'e>(cx: &mut Ctx, expr: &'e Expr, goal: &Value) -> Result<Opti
         return Ok(None);
     };
     let index = cx.level() - 1 - level;
-    if cx.quote(goal)?.mentions(index) {
+    if cx.quote_unfolded(goal)?.mentions(index) {
         return Ok(None);
     }
     let unit = Value::Data(
@@ -584,7 +584,7 @@ fn lifted(
         } else {
             None
         };
-        let ty_term = cx.quote(&ty)?;
+        let ty_term = cx.quote_unfolded(&ty)?;
         // A `let`'s variable, matched by name: in the alternatives, the
         // name is the matched value, as a variable's name would be.
         let alias = match &s.expr {
@@ -722,7 +722,7 @@ pub(crate) fn generalised_named(
     let base = cx.level();
     let mark = cx.mark();
     let result = (|| {
-        let ty_term = cx.quote(&ty)?;
+        let ty_term = cx.quote_unfolded(&ty)?;
         let scrut = Scrut {
             term,
             normal: None,
@@ -936,7 +936,7 @@ impl crate::queue::Check for WaitingMatch {
         for s in &mut exprs {
             s.normal = None;
             s.ty = cx.eval(&cx.quote_folded(&s.ty)?)?;
-            s.ty_term = cx.quote(&s.ty)?;
+            s.ty_term = cx.quote_unfolded(&s.ty)?;
         }
         // Its own type, which it settles, is pending only for others.
         let own = match stitchwort_core::value::force(&g, goal.clone())? {
@@ -2031,7 +2031,7 @@ fn check_motive(
     motive: &Value,
     span: stitchwort_syntax::Span,
 ) -> Result<bool> {
-    let draft = motive_draft(cx, base, extra, cx.quote(motive)?, span);
+    let draft = motive_draft(cx, base, extra, cx.quote_or_written(motive)?, span);
     match cx.e.lifted_type(&draft) {
         Ok(ty) => motive_holds(cx.e, &ty, span).map(|()| false),
         Err(d) if crate::undo::fatal(&d) => Err(d),

@@ -6613,7 +6613,7 @@ fn bind_text_rests(cx: &mut Ctx, texts: &[(&str, usize)]) -> Result<Vec<(Name, T
     let (text, mk_text) = check::builtin_ctor(cx, Builtin::MkText)?;
     let ty = Value::Data(text, Vec::new().into());
     for &(x, level) in texts {
-        let ty_term = cx.quote(&ty)?;
+        let ty_term = cx.quote_internal(&ty)?;
         let value = Term::ctor(text, mk_text, vec![Term::Var(cx.level() - 1 - level)]);
         let shown: Name = x.into();
         cx.define(
@@ -6917,7 +6917,7 @@ fn may_be_impossible(cx: &Ctx, columns: &[usize]) -> Result<bool> {
         {
             return Ok(true);
         }
-        let ty = cx.quote(&cx.types[level])?;
+        let ty = cx.quote_unfolded(&cx.types[level])?;
         if (columns.iter()).any(|&c| c < level && ty.mentions(cx.level() - 1 - c)) {
             return Ok(true);
         }
@@ -7553,7 +7553,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             cx.e.decl.leaf_log.borrow_mut().path.pop();
             let default = default.map_err(|d| {
                 let ix = cx.level() - 1 - x;
-                let mentioned = |v: &Value| cx.quote(v).is_ok_and(|t| t.mentions(ix));
+                let mentioned = |v: &Value| cx.quote_unfolded(v).is_ok_and(|t| t.mentions(ix));
                 let depends = mentioned(goal) || cx.types[*x + 1..].iter().any(mentioned);
                 if depends && ["E-TYPE-MISMATCH", "E-NOT-EMPTY", "E-REFL"].contains(&d.code) {
                     let n = default_name;

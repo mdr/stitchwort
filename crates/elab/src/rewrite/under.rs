@@ -350,7 +350,7 @@ fn by_lemma(
     // The unknowns as the call determined them.
     for (level, (arg, _)) in lemma_args.iter_mut().enumerate() {
         if desc.copy(level).is_none() {
-            *arg = cx.quote(&cx.eval(arg)?)?;
+            *arg = cx.quote_unfolded(&cx.eval(arg)?)?;
             if arg
                 .subterms()
                 .any(|(t, _)| matches!(t, Term::Meta(m) if *m >= metas))
@@ -543,7 +543,7 @@ fn rewrite_body(
     let snapshot = Snapshot::take(cx);
     let result = (|| -> Result<Option<(Term, Term)>> {
         let equation = elaborate_rule(cx, rule, Place::Inside)?;
-        let lhs_term = cx.quote(&equation.lhs)?;
+        let lhs_term = cx.quote_unfolded(&equation.lhs)?;
         let Some(computed) = key(&lhs_term, 0) else {
             return Ok(None);
         };
@@ -554,8 +554,8 @@ fn rewrite_body(
         if !equation.open(&lhs_term) {
             return Ok(None);
         }
-        let ty_term = cx.quote(ty)?;
-        let left = cx.quote(body)?;
+        let ty_term = cx.quote_unfolded(ty)?;
+        let left = cx.quote_unfolded(body)?;
         let goal = |right: &Value| {
             Value::Eq(
                 Rc::new(ty.clone()).into(),
@@ -575,7 +575,7 @@ fn rewrite_body(
                               solving_instances: bool,
                               remaining: &mut u64|
          -> Result<bool> {
-            let right = cx.quote(current)?;
+            let right = cx.quote_unfolded(current)?;
             let goal = goal(current);
             let shape = Shape::Right {
                 ty: &ty_term,
@@ -647,7 +647,7 @@ fn rewrite_body(
         if !changed {
             return Ok(None);
         }
-        Ok(Some((cx.quote(&current)?, proof)))
+        Ok(Some((cx.quote_or_written(&current)?, proof)))
     })();
     match &result {
         Ok(Some(_)) => {}
