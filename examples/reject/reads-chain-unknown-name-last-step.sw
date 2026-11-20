@@ -14,4 +14,4 @@ def Spec (read: List Char) (made: List Nat): Prop := made.length = 3
 
 theorem readsP: Parse.Reads p Spec := Parse.readsThen Parse.readsNat (r0 x0 h0 =>
   Parse.readsThen Parse.readsNat (r1 x1 h1 =>
-    Parse.readsThen Parse.readsNat (r2 x2 h2 => Parse.readsDone [x0, x1, xBad] _ byComputing)))
+    Parse.readsThen Parse.readsNat (r2 x2 h2 => Parse.readsDone [x0, x1, xBad] byComputing)))

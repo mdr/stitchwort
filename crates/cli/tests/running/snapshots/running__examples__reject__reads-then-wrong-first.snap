@@ -1,12 +1,11 @@
 ---
 source: crates/cli/tests/running/examples.rs
-assertion_line: 700
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: `Call (L (%mark ())) (r => Done r)` here, but `Parse.nat ()` is expected
     ╭─[ reject/reads-then-wrong-first.sw:14:19 ]
     │
- 14 │   Parse.readsThen Parse.readsMark (r x h => Parse.readsThen Parse.readsNat (r2 y h2 => Parse.readsDone (x + y) _ byComputing))
+ 14 │   Parse.readsThen Parse.readsMark (r x h => Parse.readsThen Parse.readsNat (r2 y h2 => Parse.readsDone (x + y) byComputing))
     │                   ───────┬───────  
     │                          ╰───────── this has the `found` type below
     │ 

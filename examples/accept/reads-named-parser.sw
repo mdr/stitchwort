@@ -31,7 +31,7 @@ theorem readsRange: Parse.Reads range Written := Parse.readsThen Parse.readsNat 
   Parse.readsThen (Parse.readsChar '-') (dashRead u dash =>
     Parse.readsThen Parse.readsNat (highRead high highDigits =>
       Parse.readsDone
-        { low, high } _
+        { low, high }
         (rewrite dash then Witness lowRead (Witness highRead (rewrite List.appendNil highRead))))))
 
 theorem readsBounds: Parse.Reads bounds Written := readsRange
@@ -41,7 +41,7 @@ theorem readsBoundsStepwise: Parse.Reads bounds Written := Parse.readsThen Parse
   Parse.readsThen (Parse.readsChar '-') (dashRead u dash =>
     Parse.readsThen Parse.readsNat (highRead high highDigits =>
       Parse.readsDone
-        { low, high } _
+        { low, high }
         (rewrite dash then Witness lowRead (Witness highRead (rewrite List.appendNil highRead))))))
 
 theorem readsLabelled: Parse.Reads labelled (read r => ∃ (rest: List Char) => read = ['#'] ++ rest ∧ Written rest r) :=
