@@ -241,11 +241,11 @@ test "count"    := Pair.fst (counted (u => ticks 3)) == 3
 /// error is running out (nothing else is wrong with the program). Tests that
 /// run either pass, as they do without a limit, or have no result.
 ///
-/// The limits are every one while they're small, then in growing steps: 161
-/// up to enough for everything, about 107 s, most of it the counterexample
-/// searches on the library's theorems that fail at limits from about 2,000
-/// to 8,000. Outside the all tier the test takes a corpus sweep's sample of
-/// them, every 4th in the broad tier (docs/testing.md).
+/// The limits are every one while they're small, then in growing steps, 161
+/// up to enough for everything. The library loads under at least the default
+/// limits (SW-3711), so only the program's own declarations run out; outside
+/// the all tier the test takes a corpus sweep's sample of them, every 4th in
+/// the broad tier (docs/testing.md).
 #[test]
 fn running_out_at_any_point_only_ever_means_no_answer() {
     let mut limits = Vec::new();
@@ -296,7 +296,10 @@ fn running_out_leaves_nothing_behind() {
         work: 200,
         ..Limits::default()
     };
-    assert!(session.load("first.sw", PROGRAM).is_err());
+    // The program's own declarations run out; the library, loaded under at
+    // least the default limits (SW-3711), doesn't.
+    let diagnostics = session.load("first.sw", PROGRAM).unwrap_err();
+    assert_eq!(first_error(&diagnostics), "E-RESOURCE", "{diagnostics:?}");
     assert!(session.elab.metas().metas.borrow().is_empty());
     assert_eq!(session.elab.kernel.machine.budget.exhausted(), None);
     // The same session, with enough resources, checks a new file as usual.
