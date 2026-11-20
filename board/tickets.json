@@ -1,5 +1,5 @@
 {
-  "next": 4449,
+  "next": 4450,
   "tickets": [
     {
       "id": 47,
@@ -30077,12 +30077,12 @@
     {
       "id": 4443,
       "title": "[Opus] Goals: a closed goal like 0 < 1 shows as True = True everywhere (theorems and match arms), because natives aren't glued and evaluate at once; keep the written statement term beside each goal for display only (arms need the motive's term too), display only, no term or hash change (SW-4415 part 2)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "\n\nProgress (lane, 20 Nov 18:05): started 17:52 (est. 45 min). Elaborator keeps the statement as written (Ctx::statement) beside the expression checked against it: body, lambdas for the statement's binders, arms of the body's tree and of a whole-body match (generalised match: statement with the scrutinee abstracted). A ? there whose value prints the same computed shows the statement with the arm's values put in, if conv-equal to the goal. Example examples/goals/closed-comparison-as-written.sw. Display only.\n\n\nDone (lane, 20 Nov 18:20, ~28 min of 45): b0639403d on lane/SW-4443. 11 goal snapshots (+ their index snapshots) and 1 reject read as written now, with 'computes to' below; guide's hole.sw output updated. Not covered: match induct alternatives (eq1 still True = True), a hole that is a call's argument (h ?), editor hover probes. Tests: goal_examples_report_their_goals (all goals), goal_examples_in_the_index, rejects guard-refined-written-in-arm + hole-name-after-question; clippy clean.\n",
+      "body": "\n\nProgress (lane, 20 Nov 18:05): started 17:52 (est. 45 min). Elaborator keeps the statement as written (Ctx::statement) beside the expression checked against it: body, lambdas for the statement's binders, arms of the body's tree and of a whole-body match (generalised match: statement with the scrutinee abstracted). A ? there whose value prints the same computed shows the statement with the arm's values put in, if conv-equal to the goal. Example examples/goals/closed-comparison-as-written.sw. Display only.\n\n\nDone (lane, 20 Nov 18:20, ~28 min of 45): b0639403d on lane/SW-4443. 11 goal snapshots (+ their index snapshots) and 1 reject read as written now, with 'computes to' below; guide's hole.sw output updated. Not covered: match induct alternatives (eq1 still True = True), a hole that is a call's argument (h ?), editor hover probes. Tests: goal_examples_report_their_goals (all goals), goal_examples_in_the_index, rejects guard-refined-written-in-arm + hole-name-after-question; clippy clean.\n\n\nOrchestrator's call: keep the broader effect (any goal whose top level computed away shows the statement as written, n + 0 = n not n = n), as the guide already promises.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -30149,6 +30149,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4449,
+      "title": "[Sonnet] Goals as written, follow-ups of SW-4443: a hole that is a call's argument (h ? with h: 0 < 1 -> 2 < 3) shows the parameter's written type; match induct alternatives substitute the case's target values into the written statement (induct_match.rs alternative); scope Ctx::statement_arms so it can't carry into check_match_once's scrutinee",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "goal-as-written",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
