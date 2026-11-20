@@ -30276,12 +30276,12 @@
     {
       "id": 4458,
       "title": "[DeepSeek] Formatter twin: on a parse error Rust's tree dump exits 0 and the self-hosted one exits 1 (every reject example differs at the tree stage, e.g. keyword-let-name.sw); make them agree (pick the Rust behaviour unless a test relies on exit 1) (SW-4427 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nModel result: DeepSeek, worked, 20 min (est. 20)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
