@@ -48,3 +48,49 @@ fn walk_expansions_check_again() {
         String::from_utf8_lossy(&check.stderr)
     );
 }
+
+#[test]
+fn walk_expand_stdout_leaves_the_file_alone() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("walk-expand-stdout");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("make the test's folder");
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/accept/walk.sw");
+    std::fs::copy(&source, dir.join("in-place.sw")).expect("copy the example");
+    std::fs::copy(&source, dir.join("stdout.sw")).expect("copy the example");
+    let original = std::fs::read(dir.join("stdout.sw")).expect("read the copy");
+
+    let in_place = output(
+        common::cli_with("check", &["--expand-walk", "in-place.sw"]),
+        &dir,
+    );
+    assert!(
+        in_place.status.success(),
+        "--expand-walk failed:\n{}",
+        String::from_utf8_lossy(&in_place.stderr)
+    );
+    let written = std::fs::read(dir.join("in-place.sw")).expect("read the expansion");
+
+    let printed = output(
+        common::cli_with("check", &["--expand-walk", "--stdout", "stdout.sw"]),
+        &dir,
+    );
+    assert!(
+        printed.status.success(),
+        "--expand-walk --stdout failed:\n{}",
+        String::from_utf8_lossy(&printed.stderr)
+    );
+    let unchanged = std::fs::read(dir.join("stdout.sw")).expect("read the copy again");
+    assert_eq!(
+        original, unchanged,
+        "--expand-walk --stdout changed the file"
+    );
+    assert_eq!(
+        written, printed.stdout,
+        "--expand-walk --stdout printed something other than the in-place expansion"
+    );
+    let trace = String::from_utf8_lossy(&printed.stderr);
+    assert!(
+        trace.contains("stdout.sw:") && trace.contains(": walk"),
+        "the trace isn't on standard error:\n{trace}"
+    );
+}
