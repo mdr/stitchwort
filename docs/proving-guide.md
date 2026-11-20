@@ -586,7 +586,9 @@ Import what you use: std's theorems live in namespaces that need an import
   => after = [closer, ..after1] → (isComma leaf && …) = False`: a guard
   written as a `Bool` is stated `c = True` in its own case and `c = False`
   below, `&&` unsplit (`guard.read` gives the `∧`), and one written as a
-  proposition (`if x = y`, `if n ≠ 3`, `if h: P`) as `P` and `¬P` (D3699).
+  proposition (`if x = y`, `if n ≠ 3`, `if h: P`) as `P` and `¬P` (D3699;
+  `if h: b = True` fails as `b = False`; a `&&` guard whose proof the arm
+  uses, `if i < n && 0 < i => xs.getLt i`, is still `P ∧ Q` and `¬(P ∧ Q)`).
   A proof that doesn't need it ignores it, or passes it whole to a lemma
   stated the way `f.eq3` states it; one that needs the next value splits
   `after` and applies it, the equation by `byComputing`, which gives the

@@ -408,7 +408,8 @@ p → … → c[σ] = False`, no longer `… → H → Void`). `&&` is not split
 proposition: a proof writes `guard.read` for that. A condition written as a
 proposition (`n != 3` and `n ≠ 3`, which are the same operator, `x = y`,
 `if h: P`) keeps the forms below (`P`, `¬P`, `Q` for `¬Q`; a partial overlap
-`… → P → Void`). Why: one condition had four forms depending on where it
+`… → P → Void`), except that an `if h: P` whose `P` is a `Bool` test `b =
+True` fails as `b = False`, a partial overlap ending `… → b = False`. Why: one condition had four forms depending on where it
 was written, and the reading of a `Bool` as a proposition is otherwise
 explicit (`.read`, D3486-D3488); Lean states a condition as the source
 tests it (docs/proposals/match-induct-friction.md §1). Not yet changed: a

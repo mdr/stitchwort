@@ -546,7 +546,7 @@ theorem skipThreeKeeps ∀ (n: Nat) (other: n ≠ 3): skipThree n = n := skipThr
 theorem skipThreeDrops: skipThree 3 = 0 := skipThree.eq2 3 byComputing
 ```
 
-`cap.eq1` has the hypothesis `n ≤ limit` (the comparison's `(n <= limit) = True`), and `cap.eq2` has `(n <= limit) = False`. A condition is stated in the form it is written. Written as a statement, it is that statement, even though the program tests it as a `Bool`: `n != 3` gives `n ≠ 3`, and for the arm below it, `n = 3`. Written as a `Bool` (a comparison, `xs == []`, `a && b`), it is stated as `c = True`, and as `c = False` below; a proof that wants `a && b` as the two facts `a ∧ b` writes `guard.read`. Equations are still numbered by arm, so a condition adds no name.
+`cap.eq1` has the hypothesis `n ≤ limit` (the comparison's `(n <= limit) = True`), and `cap.eq2` has `(n <= limit) = False`. A condition is stated in the form it is written. Written as a statement, it is that statement, even though the program tests it as a `Bool`: `n != 3` gives `n ≠ 3`, and for the arm below it, `n = 3`. Written as a `Bool` (a comparison, `xs == []`, `a && b`), it is stated as `c = True`, and as `c = False` below; a proof that wants `a && b` as the two facts `a ∧ b` writes `guard.read`. (For now, an `a && b` whose proof the arm uses, as in `if i < n && 0 < i => xs.getLt i`, is still stated as `P ∧ Q`, and `¬(P ∧ Q)` below.) Equations are still numbered by arm, so a condition adds no name.
 
 `cases` splits at conditions too, so it can work backwards from a hypothesis about a function with guarded arms: every arm but one gives some other result, which contradicts the hypothesis, and in the one left the condition held:
 
