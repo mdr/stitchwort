@@ -213,7 +213,9 @@ pub(super) fn first(
         }
         // Only an occurrence not shown, or one shown with a copy hidden,
         // can be on a path through calls.
-        if !matches!(now, Outcome::Nothing | Outcome::Incomplete) {
+        if !matches!(now, Outcome::Nothing | Outcome::Incomplete)
+            || exprs.iter().any(|s| !s.on_path)
+        {
             break;
         }
     }
