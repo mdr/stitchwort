@@ -27415,8 +27415,8 @@
     {
       "id": 4240,
       "title": "[Opus] Walk W3 (D3696): two-run families (Parse.Follows) in lockstep, per SW-4238 §3.10; after W1 (SW-4239)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
