@@ -30369,12 +30369,12 @@
     {
       "id": 4465,
       "title": "[Opus] Goals as written: an if before a match loses the folded goal (check_if gets the forced goal), as let did before SW-4462; route the goal as written through if branches with the same fallback, measure tools/fmt (SW-4462 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
-      "body": "",
+      "body": "\n\nProgress (Opus lane, 20 Nov 2026): lane/SW-4465 00b3d2efe. check_if and its helpers (check_if_with, check_proof_if, proof_if, check_if_in) take `named` and check each branch against it; check forces it again, and a match at a branch's end keeps check_match_named's fallback. Guarded match arms (check_guard_if) pass their own goal for both, so the guard trace on examples/accept/guard-refinement*.sw is identical before/after (25 lines). New goal example if-match-partial-unfold (if c and if h:): Follows folded after, unfolded ∀ before. tools/fmt 3 namespaces 39.4 s → 37.8 s; Std.Set.Spec 5.81 → 4.88 s. Hashes: 282 prelude (mostly Std.Float.Theory, Std.Doc.Proofs), float-playlist 3, readings-set-contains 1, names unchanged. Tests: test:example (match,partial-unfold,guard,rewrite,let,if), goal examples, snap:hashes, hash_stability prelude+examples, soundness set: all pass.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
