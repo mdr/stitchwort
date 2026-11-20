@@ -9,5 +9,6 @@ expression: output
     │                ┬  
     │                ╰── lower: Bool
     │                    n: Nat
-    │                    ⊢ ∀ (state other: Parse.State Nat) (value: Nat) (after: Parse.Mark Nat) => Parse.Mark.Alike SameNat state.at other.at → Parse.runFrom state (arg => Call (L (%mark ())) (y => Call (L (%mark ())) (y1 => Done (Succ y.offset, y1)))) = Ok (value, after) → ∃ (twin: Nat) => ∃ (afterTwin: Parse.Mark Nat) => Parse.runFrom other (arg => Call (L (%mark ())) (y => Call (L (%mark ())) (y1 => Done (Succ y.offset, y1)))) = Ok (twin, afterTwin) ∧ Parse.Mark.Alike SameNat after afterTwin ∧ SameNat value twin
+    │                    ⊢ ∀ (state other: Parse.State Nat) (value: Nat) (after: Parse.Mark Nat) => Parse.Mark.Alike SameNat state.at other.at → Parse.runFrom state (arg => Std.Effect.bind (if False then Done 0 else Std.Effect.bind (here ()) (x => Done (Succ x))) (x => Call (L (Parse.mark ())) (y => Done (x, y)))) = Ok (value, after) → ∃ (twin: Nat) => ∃ (afterTwin: Parse.Mark Nat) => Parse.runFrom other (arg => Std.Effect.bind (if False then Done 0 else Std.Effect.bind (here ()) (x => Done (Succ x))) (x => Call (L (Parse.mark ())) (y => Done (x, y)))) = Ok (twin, afterTwin) ∧ Parse.Mark.Alike SameNat after afterTwin ∧ SameNat value twin
+    │                      computes to ∀ (state other: Parse.State Nat) (value: Nat) (after: Parse.Mark Nat) => Parse.Mark.Alike SameNat state.at other.at → Parse.runFrom state (arg => Call (L (Parse.mark ())) (y => Call (L (Parse.mark ())) (y1 => Done (Succ y.offset, y1)))) = …
 ────╯

@@ -137,7 +137,11 @@ fn goal_examples_in_the_index() {
             );
             lines.push(format!("⊢ {}", goal["target"].as_str().unwrap()));
             if let Some(computed) = goal["targetComputed"].as_str() {
-                lines.push(format!("  computes to {computed}"));
+                // The label cuts a long one, as `--full-goals` is for.
+                lines.push(format!(
+                    "  computes to {}",
+                    stitchwort_syntax::cut_computed(computed)
+                ));
             }
             assert_eq!(
                 d["labels"][0]["message"].as_str().unwrap(),

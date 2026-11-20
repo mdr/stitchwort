@@ -1230,6 +1230,14 @@ impl<'g> Printer<'g> {
                 let mut text = (self.scope)
                     .and_then(|scope| scope.ctor_name(*d, *c))
                     .unwrap_or_else(|| ctor.name.to_string());
+                // An ability's operation is a constructor named `%op`, which
+                // source can't write; it is shown as the operation's own
+                // name, `Parse.mark`.
+                if let Some(op) = text.strip_prefix('%') {
+                    text = format!("{}.{op}", self.g.data(*d).name);
+                } else if let Some((ability, op)) = text.rsplit_once(".%") {
+                    text = format!("{ability}.{op}");
+                }
                 // A constructor declared with its fields in braces is shown
                 // by field name, as it can be written. (With implicit fields
                 // it is shown positionally, which braces can't say.)

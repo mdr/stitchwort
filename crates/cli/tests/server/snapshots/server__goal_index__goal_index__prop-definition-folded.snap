@@ -1,0 +1,129 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "counterexample": {
+      "bindings": [
+        {
+          "name": "n",
+          "value": "4"
+        }
+      ],
+      "types": [],
+      "verdict": "false"
+    },
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem topGoal1 (n: Nat): n ≤ 3 ∧ n ≠ 7 := ?",
+      "target": "Small n",
+      "targetComputed": "n ≤ 3 ∧ n ≠ 7"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\n⊢ Small n\n  computes to n ≤ 3 ∧ n ≠ 7",
+        "range": [
+          5,
+          35,
+          5,
+          36
+        ]
+      }
+    ],
+    "message": "in `top`",
+    "notes": [
+      "this statement is false; a counterexample:\n  n = 4\n`Small n` is false"
+    ],
+    "range": [
+      5,
+      35,
+      5,
+      36
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem viaMatchGoal1 (n: Nat): n ≤ 3 ∧ n ≠ 7 := ?",
+      "target": "Small (if True then n else 0)",
+      "targetComputed": "n ≤ 3 ∧ n ≠ 7"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\n⊢ Small (if True then n else 0)\n  computes to n ≤ 3 ∧ n ≠ 7",
+        "range": [
+          8,
+          12,
+          8,
+          13
+        ]
+      }
+    ],
+    "message": "in `viaMatch`",
+    "notes": [],
+    "range": [
+      8,
+      12,
+      8,
+      13
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem viaMatchGoal2 (n: Nat): 0 ≤ 3 ∧ 0 ≠ 7 := ?",
+      "target": "Small (if False then n else 0)",
+      "targetComputed": "0 ≤ 3 ∧ 0 ≠ 7"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\n⊢ Small (if False then n else 0)\n  computes to 0 ≤ 3 ∧ 0 ≠ 7",
+        "range": [
+          9,
+          13,
+          9,
+          14
+        ]
+      }
+    ],
+    "message": "in `viaMatch`",
+    "notes": [],
+    "range": [
+      9,
+      13,
+      9,
+      14
+    ],
+    "severity": "goal"
+  }
+]
