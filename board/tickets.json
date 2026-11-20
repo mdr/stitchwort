@@ -28569,12 +28569,12 @@
     {
       "id": 4328,
       "title": "[Sonnet] rewrite repeatedly [g]: include guarded arms (their calls don't compute while the guard is undecided; D3639's reason for leaving arms out applies), with an example (docs/proposals/match-induct-friction.md §2 B)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From SW-4304.",
+      "body": "From SW-4304.\n\n\nLane notes: commit eb7efaef3 on lane/SW-4328. waits() keeps an arm whose call matches at once when its equation has a proof premise (guard or overlap); premises are then found by rewrite as for f.eqK. Example examples/accept/rewrite-repeatedly-guarded.sw. Docs and no-rules wording updated.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
