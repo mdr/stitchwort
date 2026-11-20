@@ -28868,8 +28868,8 @@
     {
       "id": 4351,
       "title": "[Sonnet] matching.rs ~725 and ~939: the other two unfolded reads of an expression scrutinee's type; probe match make x with (huge type) and route through quote_or_written if it runs out (SW-4342 left)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
