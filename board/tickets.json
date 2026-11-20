@@ -28205,14 +28205,14 @@
     {
       "id": 4300,
       "title": "[Sonnet] std Fail.toResultPureSeq-style lemma for steps whose result is a pure/constant value (toResultPure, byComputing hypotheses), removing ~10 remaining [g := …]/[t3 := () => None] spellings in Fmt/Walk.sw declOk and ReadBackFile declLowers (SW-4284 finding)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "std-library",
       "body": "From SW-4284.",
       "created": "2026-11-19",
-      "updated": "2026-11-19",
+      "updated": "2026-11-20",
       "commits": []
     },
     {
@@ -28478,8 +28478,8 @@
     {
       "id": 4321,
       "title": "[Sonnet] Prefix operators: a prefixes1 list for prefixSpellsOf/prefixFacts/prefixPlain/prefixToken, as SW-4286 did for binary operators (survey target 4 rest)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
