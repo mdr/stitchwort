@@ -861,6 +861,8 @@ tasks:
       `--force` drops it or `--name-real` rewrites it as `[binder := term]`.
       `--dry-run` prints a unified diff; otherwise files are read fully and
       replaced atomically. `--from-file` takes lines `Name: b1 b2`.
+      `LEMMA` may be bare or namespace-qualified; a qualified name is
+      checked against the namespace the lemma is declared in.
     cmds:
       - python3 tools/fmt/dev/implicit.py {{.CLI_ARGS}}
 
