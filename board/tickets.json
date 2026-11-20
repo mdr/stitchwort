@@ -1,5 +1,5 @@
 {
-  "next": 4309,
+  "next": 4310,
   "tickets": [
     {
       "id": 47,
@@ -28315,6 +28315,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "From SW-4281 target 6; SW-4288's approach and checks.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4309,
+      "title": "[DeepSeek] lane-merge-guard: a file the lane deletes that a recent merge added matches 'restores M^1 (missing)' and is refused (SW-4297's intended deletion of a duplicate example); list such deletions as warnings and refuse only when at least one modified (not deleted) file is restored, unless ALLOW_REVERT=1; add a test",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "From the SW-4297 merge, 20 Nov.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
