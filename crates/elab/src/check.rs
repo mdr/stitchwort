@@ -132,6 +132,15 @@ pub struct Ctx<'e> {
     /// arm), bound as `_`: the goal lists them under the context
     /// (display only).
     pub(crate) guard_facts: Vec<usize>,
+    /// While a guard that refines a proof's goal checks its two arms
+    /// (`matching::refined_guard`): each variable it copied, with its copy's
+    /// level. The arms were compiled against the originals, and are moved
+    /// onto the copies (`lib.rs`, `check_guard`).
+    pub(crate) guard_copies: Rc<[(usize, usize)]>,
+    /// The levels the arms of the guard being checked split, below it
+    /// (`lib.rs`, `check_guard`): a guard on one of them refines by
+    /// generalising, never by splitting it in place.
+    pub(crate) guard_splits: Rc<[usize]>,
     pub span: Span,
 }
 
@@ -225,6 +234,8 @@ impl Saved {
             cases: c.cases.clone(),
             auto_call: None,
             guard_facts: Vec::new(),
+            guard_copies: Rc::from([]),
+            guard_splits: Rc::from([]),
             span: self.span,
         }
     }
@@ -358,6 +369,8 @@ impl<'e> Ctx<'e> {
             cases: None,
             auto_call: None,
             guard_facts: Vec::new(),
+            guard_copies: Rc::from([]),
+            guard_splits: Rc::from([]),
             span,
         }
     }
@@ -392,6 +405,8 @@ impl<'e> Ctx<'e> {
             cases: None,
             auto_call: None,
             guard_facts: Vec::new(),
+            guard_copies: Rc::from([]),
+            guard_splits: Rc::from([]),
             span,
         }
     }
@@ -7629,7 +7644,8 @@ pub(crate) fn check_guard_if(
     let span = cond.span();
     let refine = |cx: &mut Ctx,
                   then: &mut dyn IfBranch,
-                  otherwise: &mut dyn IfBranch|
+                  otherwise: &mut dyn IfBranch,
+                  in_place: bool|
      -> Result<Option<Term>> {
         let mut arm = |cx: &mut Ctx, holds: bool, goal: &Value, equation: usize| -> Result<Term> {
             let body: &mut dyn IfBranch = if holds { &mut *then } else { &mut *otherwise };
@@ -7659,7 +7675,12 @@ pub(crate) fn check_guard_if(
             };
             let ty_term = cx.quote_folded(&ty)?;
             let mark = cx.mark();
-            if name == "_" {
+            // A condition split where it is (a `Bool` variable) leaves the
+            // fact `True = True`, which says nothing worth listing.
+            let trivial = matches!(&ty, Value::Eq(_, a, b)
+                if matches!((&**a, &**b), (Value::Ctor(d, i, xs), Value::Ctor(e, j, ys))
+                    if d == e && i == j && xs.is_empty() && ys.is_empty()));
+            if name == "_" && !trivial {
                 cx.guard_facts.push(cx.level());
             }
             cx.bind(name, ty);
@@ -7667,7 +7688,7 @@ pub(crate) fn check_guard_if(
             cx.reset(mark);
             Ok(Term::let_(name.into(), ty_term, fact, result?))
         };
-        crate::matching::refined_guard(cx, scrutinee.clone(), span, expected, &mut arm)
+        crate::matching::refined_guard(cx, scrutinee.clone(), span, expected, in_place, &mut arm)
     };
     let decl = &cx.e.decl;
     if decl.unrefined_guards.get() > 0 {
@@ -7675,15 +7696,35 @@ pub(crate) fn check_guard_if(
     }
     let retry = decl.guard_no_retry.get() == 0;
     let before = crate::undo::Snapshot::take(cx);
-    match refine(cx, then, otherwise) {
+    let generalised = match refine(cx, then, otherwise, false) {
         Ok(Some(term)) => return Ok(term),
-        Ok(None) => return proof_if(cx, name, prop, decision, then, otherwise, expected),
+        Ok(None) => false,
         Err(e)
             if !retry || crate::undo::fatal(&e) || cx.g().machine.budget.exhausted().is_some() =>
         {
             return Err(e);
         }
-        Err(_) => {}
+        Err(_) => true,
+    };
+    before.restore(cx);
+    // A condition that is a `Bool` variable the arms below don't split is
+    // split where it is instead, as `match` splits a variable, so that the
+    // arms see it as `True` or `False` under any name: tried second, so a
+    // guard that refines generalised keeps its term. The guards inside
+    // don't retry, so that each guard of a chain costs a bounded number of
+    // attempts.
+    if retry {
+        let in_place = counted(
+            cx,
+            |d| &d.guard_no_retry,
+            |cx| crate::undo::attempt(cx, |cx| refine(cx, then, otherwise, true)),
+        )?;
+        if let Some(Some(term)) = in_place {
+            return Ok(term);
+        }
+    }
+    if !generalised {
+        return proof_if(cx, name, prop, decision, then, otherwise, expected);
     }
     // Refined, an arm failed: D3688 says a proof that checked unrefined
     // still does (D3701), so the split is tried again without refining,
@@ -7691,7 +7732,6 @@ pub(crate) fn check_guard_if(
     // proof costs a bounded number of attempts rather than doubling with
     // each guard of a chain. If that fails too, the refined errors are the
     // ones reported, checked again with no retry inside.
-    before.restore(cx);
     let unrefined = counted(
         cx,
         |d| &d.unrefined_guards,
@@ -7712,7 +7752,11 @@ pub(crate) fn check_guard_if(
     if let Some(term) = unrefined {
         return Ok(term);
     }
-    match counted(cx, |d| &d.guard_no_retry, |cx| refine(cx, then, otherwise))? {
+    match counted(
+        cx,
+        |d| &d.guard_no_retry,
+        |cx| refine(cx, then, otherwise, false),
+    )? {
         Some(term) => Ok(term),
         None => proof_if(cx, name, prop, decision, then, otherwise, expected),
     }

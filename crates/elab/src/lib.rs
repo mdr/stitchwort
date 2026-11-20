@@ -836,9 +836,67 @@ struct FinNumbers<'a> {
 impl<'a> Tree<'a> {
     /// The tree with each level from `from` up `by` further on.
     fn shifted(&self, from: usize, by: usize) -> Tree<'a> {
-        let at = |level: usize| if level >= from { level + by } else { level };
+        if by == 0 {
+            return self.clone();
+        }
+        self.moved(&|level: usize| if level >= from { level + by } else { level })
+    }
+
+    /// The levels below `below` that the tree splits, or may split to show
+    /// a case impossible, added to `out`.
+    fn split_levels(&self, below: usize, out: &mut Vec<usize>) {
+        let mut add = |level: usize| {
+            if level < below && !out.contains(&level) {
+                out.push(level);
+            }
+        };
         match self {
-            _ if by == 0 => self.clone(),
+            Tree::Leaf { .. } => {}
+            Tree::Guard {
+                leaf, otherwise, ..
+            } => {
+                leaf.split_levels(below, out);
+                otherwise.split_levels(below, out);
+            }
+            Tree::Absurd { level, .. } => add(*level),
+            Tree::Missing { columns, .. } => columns.iter().for_each(|&c| add(c)),
+            Tree::Case {
+                level, branches, ..
+            } => {
+                add(*level);
+                for (_, t) in branches {
+                    t.split_levels(below, out);
+                }
+            }
+            Tree::NumCase {
+                level,
+                arms,
+                default,
+                ..
+            } => {
+                add(*level);
+                for (_, t) in arms {
+                    t.split_levels(below, out);
+                }
+                default.split_levels(below, out);
+            }
+            Tree::FinNumbers { numbers, .. } => {
+                add(numbers.level);
+                for t in numbers.subtrees() {
+                    t.split_levels(below, out);
+                }
+            }
+        }
+    }
+
+    /// The tree with each level `l` at `at(l)` instead. A split's fields
+    /// are bound from its `depth` up, so `at` must keep them in order and
+    /// above every level it sends anything else to. The one map that
+    /// doesn't keep levels in order, `check_guard`'s onto a refinement's
+    /// copies, is only used on the flat trees of a guard's arms ([`is_flat`]),
+    /// which bind no fields.
+    fn moved(&self, at: &dyn Fn(usize) -> usize) -> Tree<'a> {
+        match self {
             Tree::Leaf {
                 aliases,
                 texts,
@@ -874,8 +932,8 @@ impl<'a> Tree<'a> {
                 otherwise,
             } => Tree::Guard {
                 guard,
-                leaf: Box::new(leaf.shifted(from, by)),
-                otherwise: Box::new(otherwise.shifted(from, by)),
+                leaf: Box::new(leaf.moved(at)),
+                otherwise: Box::new(otherwise.moved(at)),
             },
             Tree::Absurd { level, span } => Tree::Absurd {
                 level: at(*level),
@@ -899,7 +957,7 @@ impl<'a> Tree<'a> {
                 data: *data,
                 depth: at(*depth),
                 branches: (branches.iter())
-                    .map(|(names, t)| (names.clone(), t.shifted(from, by)))
+                    .map(|(names, t)| (names.clone(), t.moved(at)))
                     .collect(),
                 span: *span,
                 pattern: *pattern,
@@ -913,13 +971,13 @@ impl<'a> Tree<'a> {
             } => Tree::NumCase {
                 level: at(*level),
                 arms: (arms.iter())
-                    .map(|(n, t)| (n.clone(), t.shifted(from, by)))
+                    .map(|(n, t)| (n.clone(), t.moved(at)))
                     .collect(),
-                default: Box::new(default.shifted(from, by)),
+                default: Box::new(default.moved(at)),
                 span: *span,
             },
             Tree::FinNumbers { numbers, at: link } => Tree::FinNumbers {
-                numbers: Rc::new(numbers.shifted(from, by)),
+                numbers: Rc::new(numbers.moved(at)),
                 at: *link,
             },
         }
@@ -953,9 +1011,8 @@ impl<'a> FinNumbers<'a> {
             .chain(self.rest.iter().map(|t| (t, 1)))
     }
 
-    fn shifted(&self, from: usize, by: usize) -> FinNumbers<'a> {
-        let at = |level: usize| if level >= from { level + by } else { level };
-        let tree = |t: &Tree<'a>| t.shifted(from, by);
+    fn moved(&self, at: &dyn Fn(usize) -> usize) -> FinNumbers<'a> {
+        let tree = |t: &Tree<'a>| t.moved(at);
         FinNumbers {
             level: at(self.level),
             depth: at(self.depth),
@@ -6959,11 +7016,11 @@ fn guard_chain_missing<'t, 'a>(tree: &'t Tree<'a>) -> Option<&'t Tree<'a>> {
 /// A guarded arm: `if c then <arm> else <the arms below it>`, checked as an
 /// `if` is (docs/proposals/pattern-guards.md §3.3). The condition sees the
 /// arm's pattern variables by the names written; the arms below don't.
-fn check_guard(
+fn check_guard<'a>(
     cx: &mut Ctx,
     guard: &ast::Guard,
-    leaf: &Tree,
-    otherwise: &Tree,
+    leaf: &Tree<'a>,
+    otherwise: &Tree<'a>,
     goal: &Value,
 ) -> Result<Term> {
     let Tree::Leaf {
@@ -7002,42 +7059,83 @@ fn check_guard(
     }
     let otherwise = moved.as_ref().unwrap_or(otherwise);
     // `otherwise` is compiled for the context here and the one variable
-    // the `if` binds; a guard that refines a proof's goal binds more before
-    // it (`matching::refined_guard`), which the arms below move up past.
+    // the `if` binds, and both arms against the variables as they are here.
+    // A guard that refines a proof's goal (`matching::refined_guard`) binds
+    // more before that variable, among them copies of the variables whose
+    // types mention its condition, which both arms then see in place of
+    // the originals, as a `match`'s arms do.
     let split_at = cx.level();
+    let refined = |cx: &Ctx, tree: &Tree<'a>| -> Option<Tree<'a>> {
+        // `compile_guard` keeps the arms below a guard to leaves, missing
+        // cases and guards, and the guarded arm is a leaf: no split binds
+        // fields that the map onto the copies could reorder.
+        debug_assert!(is_flat(tree));
+        let added = cx
+            .level()
+            .checked_sub(split_at + 1)
+            .expect("a guard's arms are checked with at least the `if`'s one fact bound");
+        if added == 0 {
+            return None;
+        }
+        let copies = cx.guard_copies.clone();
+        let at = |level: usize| match level {
+            l if l >= split_at => l + added,
+            l => (copies.iter())
+                .find(|&&(original, _)| original == l)
+                .map_or(l, |&(_, copy)| copy),
+        };
+        Some(tree.moved(&at))
+    };
     let aliased = scope_start..cx.names_len();
     let entered = std::cell::Cell::new(false);
     let mut then = check::CheckedBranch {
         run: |cx: &mut Ctx, expected: &Value| {
             entered.set(true);
             cx.e.decl.leaf_log.borrow_mut().path.push(GUARD_THEN);
-            let result = check_leaf_in(cx, leaf, expected, true, true);
+            let moved = refined(cx, leaf);
+            let result = check_leaf_in(cx, moved.as_ref().unwrap_or(leaf), expected, true, true);
             cx.e.decl.leaf_log.borrow_mut().path.pop();
             result
         },
         hides_proof: false,
     };
-    // The arms below see none of what this arm named.
+    // The arms below see none of what this arm named, even where the
+    // refinement made the name refer to a copy.
     let mut rest = check::CheckedBranch {
         run: |cx: &mut Ctx, expected: &Value| {
             let names: Vec<_> = cx.names[..lets_from].to_vec();
             cx.names[..lets_from].clone_from_slice(&saved_names[..lets_from]);
             let hidden = cx.suspend_names(aliased.start, aliased.end);
+            let moved = refined(cx, otherwise);
+            // What the refinement named (copies, by the names that referred
+            // to the originals, this arm's among them) is named again from
+            // the names outside this arm.
+            let renamed = moved.as_ref().map(|_| {
+                let made = cx.suspend_names(aliased.start, cx.names_len());
+                for &(original, copy) in cx.guard_copies.clone().iter() {
+                    cx.rebind(original, copy);
+                }
+                made
+            });
             let order = std::mem::replace(&mut cx.order, saved_order.clone());
             cx.e.decl.leaf_log.borrow_mut().path.push(GUARD_ELSE);
-            let added = cx.level().checked_sub(split_at + 1).expect(
-                "the arms below a guard are checked with at least the `if`'s one fact bound",
-            );
-            let refined = (added > 0).then(|| otherwise.shifted(split_at, added));
-            let result = check_flat(cx, refined.as_ref().unwrap_or(otherwise), expected);
+            let tree = moved.as_ref().unwrap_or(otherwise);
+            let result = check_flat(cx, tree, expected);
             cx.e.decl.leaf_log.borrow_mut().path.pop();
             cx.order = order;
+            if let Some(made) = renamed {
+                cx.suspend_names(aliased.start, cx.names_len());
+                cx.restore_names(aliased.start, made);
+            }
             cx.restore_names(aliased.start, hidden);
             cx.names[..lets_from].clone_from_slice(&names);
             result
         },
         hides_proof: true,
     };
+    let mut splits = Vec::new();
+    otherwise.split_levels(split_at, &mut splits);
+    let outer_splits = std::mem::replace(&mut cx.guard_splits, splits.into());
     let result = check::check_guard_if(
         cx,
         guard.binder.as_ref(),
@@ -7045,20 +7143,22 @@ fn check_guard(
         &mut then,
         &mut rest,
         goal,
-    )
-    // The condition failed to elaborate as a pure expression: an operation
-    // in it is refused here, where nothing can be sequenced.
-    .map_err(|e| {
-        if entered.get() || e.code != "E-ABILITY" {
-            return e;
-        }
-        error(
-            "E-ABILITY",
-            guard.span,
-            "a condition after a pattern can't perform operations",
-        )
-        .with_note("run it before the `match` with `let`, or test it inside the arm")
-    });
+    );
+    cx.guard_splits = outer_splits;
+    let result = result
+        // The condition failed to elaborate as a pure expression: an operation
+        // in it is refused here, where nothing can be sequenced.
+        .map_err(|e| {
+            if entered.get() || e.code != "E-ABILITY" {
+                return e;
+            }
+            error(
+                "E-ABILITY",
+                guard.span,
+                "a condition after a pattern can't perform operations",
+            )
+            .with_note("run it before the `match` with `let`, or test it inside the arm")
+        });
     cx.reset(mark);
     cx.names = saved_names;
     cx.order = saved_order;

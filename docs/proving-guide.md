@@ -765,6 +765,11 @@ scratch file on 19 Nov 2026).
   `c == '('` by `True` in the arm and by `False` in the arms below, in the
   goal and in the hypotheses, so a goal stuck on the program's `if c ==
   '(' …` computes and a proof can follow a guarded program arm for arm.
+  A hypothesis whose type mentions the condition is refined too, under
+  the name the arm gives it; where that fails and the condition is a
+  `Bool` variable (`| 0 if flag => …`), it is split where it is, as
+  `match flag` would, so `flag` itself is `True` in the arm and `False`
+  below.
   The arm gets the fact `(c == '(') = True` and the arms below `(c == '(')
   = False` (a decided proposition `P` gives `P` and `¬P`); `cases` and
   `arithmetic` use them, and the goal lists an unnamed guard's fact as a
