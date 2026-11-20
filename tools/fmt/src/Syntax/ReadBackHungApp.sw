@@ -91,12 +91,14 @@ theorem signArgHung ∀ (modes: Modes)
                           operandSpelt
                           atomic
                           free
-                          lineMore
-                          lineLater
-                          openMore
-                          operandBound
-                          hungMore
-                          deepMore
+                          {
+                            lineRead = lineMore,
+                            lineRest = lineLater,
+                            openFirst = openMore,
+                            bound = operandBound,
+                            hung = hungMore,
+                            deepItems = deepMore
+                          }
                           after
                       ))))))
           | True =>
@@ -142,12 +144,14 @@ theorem argumentHung ∀ (modes: Modes)
       atomHung modes quiet False argument read later below state innerBelow deep spelt
         (signArgAtomic argument (Bool.andLeft fits) signed)
         free
-        lineRead
-        lineLater
-        openRead
-        entered
-        hung
-        deepItems
+        {
+          lineRead = lineRead,
+          lineRest = lineLater,
+          openFirst = openRead,
+          bound = entered,
+          hung = hung,
+          deepItems = deepItems
+        }
         after
     | True =>
       match argument, spelt, fits, free, deep, signed with
@@ -268,12 +272,7 @@ theorem appHung ∀ (modes: Modes)
     (deep: (App head [argument, ..more]).nest <= depth)
     (spelt: Spelt (App head [argument, ..more]) read)
     (free: (App head [argument, ..more]).autoPlaced False = True)
-    (lineRead: lineAll read = True)
-    (lineRest: lineAll rest = True)
-    (openFirst: openHead modes read = True)
-    (bound: bounds modes (state.enters read) = True)
-    (hung: hangsFrom state (leavesOf (read ++ rest)) = True)
-    (deepItems: deepAll (read ++ rest) = True)
+    (facts: HungAt modes state read rest)
     (ends: UnaryEnds modes rest):
     AppReads (TreeN depth) modes read rest (App head [argument, ..more]) :=
   let (headRead, argRead, steps, isRead, headAtomic, argFits, headSpelt, argSpelt, argsSpelt) := spelt
@@ -282,15 +281,15 @@ theorem appHung ∀ (modes: Modes)
   let joined: read = [first, ..inside ++ tail] := calc read
     _ = headRead ++ tail := isRead
     _ = [first, ..inside ++ tail] := rewrite isHead
-  let lines: lineAll (headRead ++ tail) = True := rewrite <- isRead then lineRead
+  let lines: lineAll (headRead ++ tail) = True := rewrite <- isRead then facts.lineRead
   let (lineHead, lineTail) := lineSplit headRead tail lines
   let (lineArg, lineSteps) := lineSplit argRead (Parse.loopReads [] steps) lineTail
-  let openRead: openHead modes [first, ..inside ++ tail] = True := rewrite <- joined then openFirst
+  let openRead: openHead modes [first, ..inside ++ tail] = True := rewrite <- joined then facts.openFirst
   let open1 := openHeadStops modes first (inside ++ tail) openRead
   let notDot := leadNotDot first.kind starts
   let assocAll: read ++ rest = headRead ++ (tail ++ rest) := rewrite isRead then List.appendAssoc headRead tail rest
-  let hungAll: hangsFrom state (leavesOf (headRead ++ (tail ++ rest))) = True := rewrite <- assocAll then hung
-  let deepAll1: deepAll (headRead ++ (tail ++ rest)) = True := rewrite <- assocAll then deepItems
+  let hungAll: hangsFrom state (leavesOf (headRead ++ (tail ++ rest))) = True := rewrite <- assocAll then facts.hung
+  let deepAll1: deepAll (headRead ++ (tail ++ rest)) = True := rewrite <- assocAll then facts.deepItems
   let (mid, afterHead, hungTail) :=
     hungSplit state
       (leavesOf headRead)
@@ -298,7 +297,7 @@ theorem appHung ∀ (modes: Modes)
       (rewrite <- leavesOfAppend headRead (tail ++ rest) then hungAll)
   let isMid: mid = state.enters headRead := speltEnters head headRead headSpelt state mid afterHead
   let sameEnters: state.enters read = state.enters headRead := rewrite joined, isHead
-  let headBound: bounds modes (state.enters headRead) = True := rewrite <- sameEnters then bound
+  let headBound: bounds modes (state.enters headRead) = True := rewrite <- sameEnters then facts.bound
   let assocTail: tail ++ rest = argRead ++ (Parse.loopReads [] steps ++ rest) :=
     List.appendAssoc argRead (Parse.loopReads [] steps) rest
   let hungArg: hangsFrom (state.enters headRead) (leavesOf (argRead ++ (Parse.loopReads [] steps ++ rest))) = True :=
@@ -326,8 +325,8 @@ theorem appHung ∀ (modes: Modes)
       argLead
       headBound
       (rewrite <- argShape then hungArg)
-  let lineAfterArg: lineAll (Parse.loopReads [] steps ++ rest) = True := lineJoin _ rest lineSteps lineRest
-  let lineAfterHead: lineAll (tail ++ rest) = True := lineJoin tail rest lineTail lineRest
+  let lineAfterArg: lineAll (Parse.loopReads [] steps ++ rest) = True := lineJoin _ rest lineSteps facts.lineRest
+  let lineAfterHead: lineAll (tail ++ rest) = True := lineJoin tail rest lineTail facts.lineRest
   let argAt: Spelt argument [argFirst, ..argMore] := rewrite <- isArg then argSpelt
   let argJoin: [argFirst, ..argMore] ++ (Parse.loopReads [] steps ++ rest)
     = (argRead ++ Parse.loopReads [] steps) ++ rest :=
@@ -400,7 +399,7 @@ theorem appHung ∀ (modes: Modes)
         argsSpelt
         (Bool.andRight (Bool.andRight free))
         lineSteps
-        lineRest
+        facts.lineRest
         stepsBound
         hungSteps
         deepSteps
@@ -426,8 +425,16 @@ theorem headHung ∀ (modes: Modes)
     AtomReads (TreeN depth) modes True read later head :=
   match atomic: head.primary with
     | True =>
-      atomHung modes quiet True head read later depth state inner deep spelt atomic free lineRead lineLater openRead
-          bound hung deepItems after
+      atomHung modes quiet True head read later depth state inner deep spelt atomic free
+        {
+          lineRead = lineRead,
+          lineRest = lineLater,
+          openFirst = openRead,
+          bound = bound,
+          hung = hung,
+          deepItems = deepItems
+        }
+        after
     | False =>
       match head, spelt, fits, atomic with
         | Prefix operator operand, (sign, more, isRead, _, isWord, numeral, _, operandSpelt), fits, _ =>
@@ -459,32 +466,25 @@ theorem appAnyHung ∀ (modes: Modes)
     (deep: expr.nest <= depth)
     (spelt: Spelt expr read)
     (free: expr.autoPlaced False = True)
-    (lineRead: lineAll read = True)
-    (lineRest: lineAll rest = True)
-    (openFirst: openHead modes read = True)
-    (bound: bounds modes (state.enters read) = True)
-    (hung: hangsFrom state (leavesOf (read ++ rest)) = True)
-    (deepItems: deepAll (read ++ rest) = True)
+    (facts: HungAt modes state read rest)
     (ends: UnaryEnds modes rest)
     (unsigned: expr.signed = False)
     (plain: expr.unary = True):
     AppReads (TreeN depth) modes read rest expr :=
   let alone: expr.primary = True → AppReads (TreeN depth) modes read rest expr := atomic =>
     let (item, more, isRead, starts) := speltStarts expr read spelt
-    let openItems: openHead modes [item, ..more] = True := rewrite <- isRead then openFirst
+    let openItems: openHead modes [item, ..more] = True := rewrite <- isRead then facts.openFirst
     let open1 := openHeadStops modes item more openItems
     let notDot := leadNotDot item.kind starts
     Inl (
       (rewrite isRead, peekFirst modes item (more ++ rest) open1, notDot),
-      atomHung modes quiet True expr read rest depth state inner deep spelt atomic free lineRead lineRest openFirst
-          bound hung deepItems
-          (kind => ends.atom True kind),
+      atomHung modes quiet True expr read rest depth state inner deep spelt atomic free facts (kind =>
+        ends.atom True kind),
       ends.noArgument
     )
   match expr, spelt with
     | App head [argument, ..more], spelt =>
-      appHung modes quiet head argument more read rest depth state inner deep spelt free lineRead lineRest openFirst
-          bound hung deepItems ends
+      appHung modes quiet head argument more read rest depth state inner deep spelt free facts ends
     | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _, _ => alone byComputing
     | Prefix _ _, _ => (Bool.falseNotTrue unsigned.flipped).impossible
     | Infix _ _ _ _, _ => (Bool.falseNotTrue plain).impossible
@@ -503,20 +503,15 @@ theorem unaryHung ∀ (modes: Modes)
     (deep: expr.nest <= depth)
     (spelt: Spelt expr read)
     (free: expr.autoPlaced False = True)
-    (lineRead: lineAll read = True)
-    (lineRest: lineAll rest = True)
-    (openFirst: openHead modes read = True)
-    (bound: bounds modes (state.enters read) = True)
-    (hung: hangsFrom state (leavesOf (read ++ rest)) = True)
-    (deepItems: deepAll (read ++ rest) = True)
+    (facts: HungAt modes state read rest)
     (ends: UnaryEnds modes rest)
     (unary: expr.unary = True):
     UnaryReads (TreeN depth) modes read rest expr :=
   match signed: expr.signed with
     | False =>
       let (item, more, isRead, starts) := speltPlainStarts expr read spelt signed
-      let openItems: openHead modes [item, ..more] = True := rewrite <- isRead then openFirst
-      let lineItems: lineAll [item, ..more] = True := rewrite <- isRead then lineRead
+      let openItems: openHead modes [item, ..more] = True := rewrite <- isRead then facts.openFirst
+      let lineItems: lineAll [item, ..more] = True := rewrite <- isRead then facts.lineRead
       let (_, notMatch, unsigned) := startFacts item.kind starts
       Inr (
         item,
@@ -524,25 +519,25 @@ theorem unaryHung ∀ (modes: Modes)
         isRead,
         openHeadStops modes item more openItems,
         notMatch,
-        noBarLine modes item (more ++ rest) (lineJoin more rest (Bool.andRight lineItems) lineRest),
+        noBarLine modes item (more ++ rest) (lineJoin more rest (Bool.andRight lineItems) facts.lineRest),
         Inl unsigned,
-        appAnyHung modes quiet expr read rest depth state inner deep spelt free lineRead lineRest openFirst bound hung
-            deepItems ends signed unary
+        appAnyHung modes quiet expr read rest depth state inner deep spelt free facts ends signed unary
       )
     | True =>
       match expr, spelt, signed, depth, deep, inner with
         | Prefix _ _, _, _, Zero, deep, _ => Void.impossible (arithmetic [deep])
         | Prefix operator operand, (sign, more, isRead, isSign, isWord, numeral, operandUnary, operandSpelt), _, Succ
               below, deep, inner =>
-          let openItems: openHead modes [sign, ..more] = True := rewrite <- isRead then openFirst
+          let openItems: openHead modes [sign, ..more] = True := rewrite <- isRead then facts.openFirst
           let openSign := openHeadStops modes sign more openItems
-          let lineItems: lineAll [sign, ..more] = True := rewrite <- isRead then lineRead
+          let lineItems: lineAll [sign, ..more] = True := rewrite <- isRead then facts.lineRead
           let lineMore: lineAll more = True := Bool.andRight lineItems
           let shape: read ++ rest = [sign, ..more ++ rest] := rewrite isRead
-          let hungItems: hangsFrom state (leavesOf [sign, ..more ++ rest]) = True := rewrite <- shape then hung
-          let deepSign: deepAll [sign, ..more ++ rest] = True := rewrite <- shape then deepItems
+          let hungItems: hangsFrom state (leavesOf [sign, ..more ++ rest]) = True := rewrite <- shape then facts.hung
+          let deepSign: deepAll [sign, ..more ++ rest] = True := rewrite <- shape then facts.deepItems
           let deepMore: deepAll (more ++ rest) = True := Bool.andRight deepSign
-          let signBound: bounds modes (state.entered sign.leaf) = True := rewrite isRead at bound then bound
+          let boundNow := facts.bound
+          let signBound: bounds modes (state.entered sign.leaf) = True := rewrite isRead at boundNow then boundNow
           let (s1, s1Bound, hungMore) :=
             pastFirst modes state sign (more ++ rest) (signLead sign.kind isSign) signBound hungItems
           let (first, others, isMore, lead) := speltStarts operand more operandSpelt
@@ -550,7 +545,7 @@ theorem unaryHung ∀ (modes: Modes)
           let (openOperand, enteredOperand, _) := leadHung modes s1 first (others ++ rest) quiet lead s1Bound hungFirst
           let openMore: openHead modes more = True := rewrite isMore then openHeadOf modes first others openOperand
           let boundMore: bounds modes (s1.enters more) = True := rewrite isMore then enteredOperand
-          let noBar := noBarLine modes sign (more ++ rest) (lineJoin more rest lineMore lineRest)
+          let noBar := noBarLine modes sign (more ++ rest) (lineJoin more rest lineMore facts.lineRest)
           let numeralAfter: negativeNumeral [sign, ..more ++ rest] = negativeNumeral [sign, ..more] := rewrite isMore
           match negative: negativeNumeral [sign, ..more] with
             | False => Inl (
@@ -568,12 +563,14 @@ theorem unaryHung ∀ (modes: Modes)
                 (arithmetic [deep])
                 operandSpelt
                 free
-                lineMore
-                lineRest
-                openMore
-                boundMore
-                hungMore
-                deepMore
+                {
+                  lineRead = lineMore,
+                  lineRest = facts.lineRest,
+                  openFirst = openMore,
+                  bound = boundMore,
+                  hung = hungMore,
+                  deepItems = deepMore
+                }
                 ends
                 operandUnary
             )
@@ -627,16 +624,15 @@ theorem unaryHung ∀ (modes: Modes)
                   let joined: read = [sign, number, ..tail] := rewrite isRead, isHead, isNumber
                   let atNumber: negativeNumeral [sign, number] = True := rewrite <- isNumber then neg
                   let negAll: negativeNumeral [sign, number, ..tail ++ rest] = True := atNumber
-                  let openItems: openHead modes [sign, number, ..tail] = True := rewrite <- joined then openFirst
+                  let openItems: openHead modes [sign, number, ..tail] = True := rewrite <- joined then facts.openFirst
                   let openSign := openHeadStops modes sign [number, ..tail] openItems
-                  let lineItems: lineAll [sign, number, ..tail] = True := rewrite <- joined then lineRead
+                  let lineItems: lineAll [sign, number, ..tail] = True := rewrite <- joined then facts.lineRead
                   let noBar :=
                     noBarLine modes sign
                       ([number, ..tail] ++ rest)
-                      (lineJoin [number, ..tail] rest (Bool.andRight lineItems) lineRest)
+                      (lineJoin [number, ..tail] rest (Bool.andRight lineItems) facts.lineRest)
                   let call :=
-                    appHung modes quiet head argument arguments read rest depth state inner deep spelt free lineRead
-                        lineRest openFirst bound hung deepItems ends
+                    appHung modes quiet head argument arguments read rest depth state inner deep spelt free facts ends
                   rewrite joined at call then
                     rewrite joined then
                       Inr (
