@@ -7,13 +7,13 @@ expression: output
     │
  11 │   Eq.trans (List.filterSkip _ _ _ (rewrite h)) e
     │                                            ┬  
-    │                                            ╰── `(Nat.decEq 0 0).holds` and `False` aren't equal
+    │                                            ╰── `0 == 0` and `False` aren't equal
     │ 
     │ Note 1: computing the left side gives `True`
     │ 
     │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
     │ 
-    │ Note 3: this is the goal after rewriting; `rewrite p` without `then` closes it with `byComputing`: `(Nat.decEq 0 0).holds = False`
+    │ Note 3: this is the goal after rewriting; `rewrite p` without `then` closes it with `byComputing`: `(0 == 0) = False`
     │ 
     │ Note 4: this statement is false; a counterexample:
     │           x = 0

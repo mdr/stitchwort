@@ -465,9 +465,9 @@ impl Elaborator {
 /// The names in scope where a goal at `span` is printed: the file's, as for
 /// a message, and also what `a == b` elaborates to there, so that a decided
 /// equation is printed as the `a == b` that gives it back.
-struct GoalScope<'e> {
-    e: &'e Elaborator,
-    span: Span,
+pub(crate) struct GoalScope<'e> {
+    pub(crate) e: &'e Elaborator,
+    pub(crate) span: Span,
 }
 
 impl NameScope for GoalScope<'_> {

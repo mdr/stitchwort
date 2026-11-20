@@ -2394,7 +2394,7 @@ fn ne_read_as_prop_here(
     found_shown: &str,
 ) -> bool {
     expected_shown.contains(" ≠ ")
-        && (found_shown.contains("Decidable.holds") || found_shown.contains(".holds"))
+        && found_is_decided_test(found_shown)
         && is_bool_test(cx, found)
         && !crate::build::is_read(cx)
         && goal_wrote_ne(cx, expected)
@@ -2405,7 +2405,13 @@ fn ne_read_as_prop_here(
 /// because it sits beside `=` in a statement. Callers also ask
 /// [`goal_wrote_ne`], since the note quotes the source (SW-3125).
 pub(crate) fn ne_read_as_prop(expected: &str, found: &str) -> bool {
-    expected.contains(" ≠ ") && (found.contains("Decidable.holds") || found.contains(".holds"))
+    expected.contains(" ≠ ") && found_is_decided_test(found)
+}
+
+/// Whether the shown type of a `Bool` test is a decided `!=` (as a message
+/// writes it, `a != b`) or a `.holds` it couldn't write that way.
+fn found_is_decided_test(found: &str) -> bool {
+    found.contains("Decidable.holds") || found.contains(".holds") || found.contains(" != ")
 }
 
 /// Whether two forced types are built by the same outermost former (the

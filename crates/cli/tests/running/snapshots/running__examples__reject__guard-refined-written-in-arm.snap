@@ -11,7 +11,7 @@ expression: output
     │ 
  12 │     let k: 0 < 1 := h3
     │                     ─┬  
-    │                      ╰── expected `0 < 1`, but this has type `0 < pick (c.decEq 'a').holds`
+    │                      ╰── expected `0 < 1`, but this has type `0 < pick (c == 'a')`
     │ 
     │ Note 1: what's expected was refined by the `match`: it has `True` where this has the scrutinee. The goal, the hypotheses and the `let`-bound lemmas from before the `match` are refined; the `match`'s own equation and terms written in the branch aren't
     │ 

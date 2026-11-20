@@ -7,5 +7,5 @@ expression: output
    │
  7 │ def neSymm (a: Nat) (b: Nat) (h: ((a != b): Bool) = True): (a != b) = (b != a) := h.read
    │                                                                                   ───┬──  
-   │                                                                                      ╰──── expected `(a ≠ b) = (b ≠ a)`, but this has type `(a.decEq b).holds = False`
+   │                                                                                      ╰──── expected `(a ≠ b) = (b ≠ a)`, but this has type `(a == b) = False`
 ───╯
