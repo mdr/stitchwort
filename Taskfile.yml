@@ -443,6 +443,34 @@ tasks:
     cmds:
       - node --test board.test.js
 
+  trace:resource:
+    desc: 'Where a resource error is raised: a trusted backtrace (task trace:resource -- FILE.sw)'
+    summary: |
+      Checks FILE with STITCHWORT_TRACE_RESOURCE=1 (SW-4332) using a binary
+      built for reading backtraces. The release binary's frames mislead on
+      macOS: no file:line, and LLVM's function merging folds identical
+      functions into one symbol, so a frame can name `quote_internal` where
+      `quote_unfolded` ran (SW-4338). This builds the `trace` profile
+      (Cargo.toml: release with line tables) into target/trace, so
+      target/release and the kache cache are left alone, with
+      `-Zmerge-functions=disabled` (nightly-only, so RUSTC_BOOTSTRAP=1 for
+      this build) and, on macOS, the linker's `-no_deduplicate`, which
+      also turns identical-code folding off (lld and ld64 both take it). The
+      first run is a full build, 5-8 minutes; later ones rebuild
+      incrementally by crate. Run it from `nix develop`.
+    env:
+      CARGO_TARGET_DIR: '{{.ROOT_DIR}}/target/trace'
+      CARGO_BUILD_RUSTC_WRAPPER: ''
+      RUSTC_BOOTSTRAP: '1'
+    cmds:
+      - |
+        flags='-Zmerge-functions=disabled'
+        if [ "$(uname -s)" = Darwin ]; then
+          flags="$flags -C link-arg=-fuse-ld=lld -C link-arg=-Wl,-no_deduplicate"
+        fi
+        RUSTFLAGS="$flags" cargo build --profile trace --bin stitchwort
+      - STITCHWORT_TRACE_RESOURCE=1 '{{.ROOT_DIR}}/target/trace/trace/stitchwort' check {{.CLI_ARGS}}
+
   # ------------------------------------------------------------- fuzzers
 
   # The fuzzers run in the release profile, with the tests' features and

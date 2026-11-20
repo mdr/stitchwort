@@ -61,6 +61,13 @@ unsafe_code = "deny"
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }
 
+# `task trace:resource` (docs/testing.md, "Tracing a resource error"): the
+# release code with line tables, so a backtrace's frames carry file:line.
+# The task builds it into its own target directory.
+[profile.trace]
+inherits = "release"
+debug = "line-tables-only"
+
 [profile.dev.package.insta]
 opt-level = 3
 
