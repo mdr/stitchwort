@@ -28049,7 +28049,7 @@
     {
       "id": 4288,
       "title": "[DeepSeek] Split FollowsForms.sw and FollowsDecl.sw by their section comments, as SW-4216 split ParseWalk (survey target 6)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
