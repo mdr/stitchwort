@@ -1,5 +1,5 @@
 {
-  "next": 4424,
+  "next": 4425,
   "tickets": [
     {
       "id": 47,
@@ -29800,7 +29800,7 @@
     {
       "id": 4422,
       "title": "[Fable, paper] Review SW-4409 (carried-over cache stage 1, D3703): key/stamp split, kernel side = EVAL_FINGERPRINT, carried replay drops the library-key check and relies on dependency content hashes, decode self-check, exact-taint per session, eviction keeps newest per unit, editor on by default",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -29813,6 +29813,19 @@
     {
       "id": 4423,
       "title": "[Sonnet] Cache test and CLI follow-ups (SW-4409): editor cache tests load all of std up front (61 s): a smaller session or shared warm cache; check --json (the carry-over label has nowhere to go); an editor setting to turn carry-over off",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4424,
+      "title": "[Sonnet] Carried cache follow-ups (SW-4422): digest of core built-ins' bindings in the stamp; self-check recomputes field_sorts/field_erased for carried entries; tests (self-check negative, exact preferred, read_others order, eviction newest, CLI label via flag and env, differential across a library change); eviction age cap for removed units; --index and 'checked N' mention carried; read_others clones per lookup; check-cache.md and check-cache-trust.md still put the build in the key",
       "status": "backlog",
       "agent": "",
       "where": "",
