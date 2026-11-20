@@ -801,7 +801,9 @@ def build_exe(args, sw: Path) -> Path:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0], formatter_class=argparse.RawDescriptionHelpFormatter,
-                                 epilog="input groups:\n" + "\n".join(f"  {k:15} {v}" for k, v in INPUT_GROUPS.items()))
+                                 epilog="the cache of Rust answers is keyed by input, not by binary, so use a fresh "
+                                        "FMT_TWIN_CACHE when comparing two Rust binaries.\n\n"
+                                        "input groups:\n" + "\n".join(f"  {k:15} {v}" for k, v in INPUT_GROUPS.items()))
     ap.add_argument("stage", nargs="?", help="tokens (1), tree (2), refusal, passes (4) text (5, 6), engine, s1, s2, s3, s4a, s5a, s4b, s4c or s6a")
     ap.add_argument("--inputs", default="", help="comma-separated input groups (see below)")
     ap.add_argument("--files", nargs="*", default=[], help="named files or folders")

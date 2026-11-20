@@ -549,16 +549,17 @@ empty line before `-- t14` in Rust and none in the Stitchwort formatter
 [run; 4 of 511 files]. Fix: the moved comment takes the comma's
 `blankLines`. No statement is false of it; the harness would report it.
 
-### 3.5 Glued call elements: the tree can't tell, and Rust copies
+### 3.5 Glued call elements: the tree can't tell, and only `)(` still differs
 
-SW-3950 named two pairs where Rust copies the source's gap and the rules
-write a space: `)(` and `f[x]`. The search found the class is every pair
-of adjacent call elements the lexer splits without a space [run, 53 of
-511 files]: `2a`, `3.5xs`, `)a`, `2(`, `](`, `)[`, `]a`, `)2`, `a[`.
-Rust keeps them glued; the Stitchwort formatter writes `2 a`. Nothing is
-false: the tree is the same either way and each formatter is stable. It
-is drift the harness will report on such a file; none is in the repo
-sample.
+SW-3950 named two pairs where Rust copied the source's gap and the rules
+write a space: `)(` and `f[x]`. SW-4459 made Rust space the second, as the
+rules already did, so `)(` is the one remaining difference: `spacing.rs`
+keeps it. The search found the class is every pair of adjacent call
+elements the lexer splits without a space [run, 53 of 511 files]: `2a`,
+`3.5xs`, `)a`, `2(`, `](`, `)[`, `]a`, `)2`, `a[`. Rust kept them glued
+then; both formatters now write `2 a`. Nothing is false: the tree is the
+same either way and each formatter is stable. Only a `)(` file can drift
+now; none is in the repo sample.
 
 ### 3.6 Prefix `-` and `!`
 
@@ -725,8 +726,8 @@ For the orchestrator to file. None blocks 14, 15, 16a or 19.
   `]`". Inside brackets a closer is exempt from the line rule everywhere
   but in `blockLines`' test for a next line. User-visible language, so
   Matt's if it is to change.
-- **Glued call elements drift from Rust** (§3.5): nine kinds of pair,
-  not two.
+- **Glued call elements no longer drift from Rust** (§3.5): SW-4459
+  spaces all nine kinds of pair, not just two; `)(` is still kept.
 - **The rules are quadratic on long chains** [run]: `Expr.size`,
   `trails` and `firstWord` rebuild `Expr.words` at each node. 300
   operands of a mixed chain took 71 s interpreted, 1,500 `+` over 120 s.

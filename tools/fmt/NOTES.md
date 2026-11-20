@@ -889,7 +889,7 @@ Continued lines, the `Def` frame, the traversal and P2 were already in (stages 2
 
 How the Rust rules' index-based reads became tree-shaped: an `Around` travels down with what a rule needs of a token's surroundings (the code before ends its line with a comment; the first token's comments are hoisted; it starts a comma-bracket item; the tokens before it in the declaration). Rust's `fresh_id` and `Mark(i)` keys are that token count: a call's `IdGroup` is keyed by its first token, which no other call in the declaration starts with, and the declaration's by 0. A stale key would matter, since `fitsFrom` reads recorded modes without recording. Every rule is structurally recursive (the first version dispatched through `Expr.node expr`, which the termination checker rightly refused).
 
-Spacing: in slice 1 every gap Rust copies from the source is fixed by the tree, since the parser read the gap to build it (an argument minus is a `Prefix` argument, `- 2 n` a `Prefix` of an application). Two pairs remain where Rust copies and the tree can't say: `)(` and a glued `f[x]`-like pair between call elements; the rules write a space. No sampled declaration has either.
+Spacing: in slice 1 every gap Rust copies from the source is fixed by the tree, since the parser read the gap to build it (an argument minus is a `Prefix` argument, `- 2 n` a `Prefix` of an application). One pair remains where Rust copies and the tree can't say: `)(`; the rules write a space. A glued `f[x]`-like pair between call elements is spaced by both now (SW-4459). No sampled declaration has either.
 
 ### The gate [measured, Speedwell, load about 15]
 
@@ -943,7 +943,7 @@ Keys as in slice 1: every `IdGroup` and `Mark` is keyed by a token count from th
 
 Slices 1 and 2 cover 7.3% of the sample's declarations (slice 1 alone: 45, 0.7%). The sample is drawn from the tracked files, so it moves with the tree: SW-3950's had 5,798 declarations, and this lane's first run, before its own files were committed, 6,061 (453 within, all matched). `dev/fmt-twin s1` stays 82 of 82 and 45 of 45. A hand file of headers (long, with premises, with comments after a group and before the `:`), lambdas (hugged, after `:=`, with a comment after `=>`, with filled parameters), long `∀` and `∃` and rows: `--stage text` identical to `stitchwort fmt -`.
 
-**Gaps Rust copies and the tree can't tell.** Rust keeps the source's gap in `)(` (spacing.rs's `kept`), so `∀ (a: A)(b: B) => P` and `(a: A)(b: B) => a` print as written, glued; and it copies the gap after a row's `}` when there was none (`{IO}Nat`). The rules write a space in both. A header's groups are separated by the fill's line breaks, so `def f (a: A)(b: B)` gets its space in both. No sampled declaration has either.
+**Gaps Rust copies and the tree can't tell.** Rust keeps the source's gap in `)(` (spacing.rs's `kept`), so `∀ (a: A)(b: B) => P` and `(a: A)(b: B) => a` print as written, glued. The rules write a space. A row's `}` when the source glued it (`{IO}Nat`) is spaced by both now (SW-4459). A header's groups are separated by the fill's line breaks, so `def f (a: A)(b: B)` gets its space in both. No sampled declaration has either.
 
 ### For the proof lanes
 
@@ -1096,7 +1096,7 @@ Opus, 18 November 2026. The declarations around definitions, and a definition's 
 
 **The file loop.** A `namespace` here is a line, not a block: the declarations after it are the file's, at column 0, so `printedBy` needed nothing new. Blank lines between declarations are as for definitions: the first token's `blankBefore` (one blank line at most, as Rust's `blank_lines_before > 0`), with own-line comments above a declaration printed by the file, each keeping a blank line above it.
 
-**The slice's edge.** Tests name themselves with text and most compare texts, so one-line text and character literals are in the slice (a token each, `simple` and a plain list item as Rust has them). Left out: a text block (a literal spanning lines, which Rust moves with its line, `TextBlock`) and interpolated text; `instance`, attributes, `export`, `opaque`, `decreasing` and `unfolding` (as before); arms whose patterns are tuples, lists, records or `(p)` (S4's patterns). A gap Rust copies that the tree can't say: a literal glued to the token before it (`f"x"`), printed with a space; no sampled declaration has one.
+**The slice's edge.** Tests name themselves with text and most compare texts, so one-line text and character literals are in the slice (a token each, `simple` and a plain list item as Rust has them). Left out: a text block (a literal spanning lines, which Rust moves with its line, `TextBlock`) and interpolated text; `instance`, attributes, `export`, `opaque`, `decreasing` and `unfolding` (as before); arms whose patterns are tuples, lists, records or `(p)` (S4's patterns). A literal glued to the token before it (`f"x"`) is spaced by both now (SW-4459); no sampled declaration has one.
 
 ### The gate [measured, Speedwell]
 
@@ -1187,7 +1187,7 @@ Opus, 18 November 2026. The records of the plan's S4 row, and membership, on top
 **The slice's edge.** Records are in values, arguments, headers' types and theorem statements (`{ p | x = 3 }.x = 3`); record patterns in arms, after `let` and as a constructor's argument. Left out:
 
 - **Gaps Rust copies that the tree can't say:** the empty record `{}` and pattern `{}` (Rust keeps the gap between the braces), and a spread whose list starts with anything but a name or a bracket (`..` before anything else keeps the source's gap, as for a list pattern's tail).
-- **Gaps Rust copies that the slice prints as a space:** a record right after a name or closer, or a name or bracket right after a record's `}`, as a call's arguments (`f{ a = 1 }`, `{ a = 1 }x`): `spacing.rs` has no rule for the pair and copies the source (`Gap::Copied`). They mean the same either way, so the slice prints the space Rust prints for the usual spaced source; the gate's 100% says no sampled declaration has one glued. The same holds for a record pattern after a constructor's earlier argument. A rule in `spacing.rs` (a space) would close it on the Rust side.
+- **A record beside a call element is spaced by both:** a record right after a name or closer, or a name or bracket right after a record's `}`, as a call's arguments (`f{ a = 1 }`, `{ a = 1 }x`), gets a space from `spacing.rs`'s adjacent-call-elements rule (SW-4459), as the slice already did. The gate's 100% says no sampled declaration has one glued. The same holds for a record pattern after a constructor's earlier argument.
 - **Comments** after a spread's `..`, after an update's record (Rust moves that comment past the `|`, `defer_trailing`, SW-3487), and anywhere in a `C { … }` pattern (printed by `join`, whose bracket keys the slice doesn't need yet).
 - **`C { … }` after anything but a plain constructor name**, field values that are blocks, and what slice 4b left out (the unit, sections, pipes, `rewrite`).
 
