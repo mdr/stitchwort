@@ -29685,12 +29685,12 @@
     {
       "id": 4413,
       "title": "[Sonnet] When finish_application's comparison with the expected type fails, report that failure (or note it) rather than the earlier in-place lambda error (first_error), which misdiagnosed SW-4355; plus FollowsBase.sw's pair advice: after match/rewrite on a scrutinee inside a folded call, give j and k",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nProgress (Sonnet lane, bad396895): finish_application keeps the lambda's error and adds a note with the call's own type and the expected one. New reject example continuation-error-names-expected-type; snapshots changed: continuation-abstracting-variable-outside, unify-bool-argument, unify-last-arguments-types-differ. FollowsBase.sw advice added.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
