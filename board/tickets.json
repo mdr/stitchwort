@@ -29516,12 +29516,12 @@
     {
       "id": 4400,
       "title": "[DeepSeek] Walk errors and tidy: two-run missing-lemma message names both runs' functions; shapes reject shows (x y => True) not (x y => True = True); show both nested-walk and then-t errors; one constant for the bare 1000 limit; proof-walk-step.md §3.4 note that equal values are rewritten (SW-4395 follow-ups 7, 9, 10)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nModel result: DeepSeek, worked, 20 min (est. 30)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
