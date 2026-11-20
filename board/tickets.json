@@ -30196,12 +30196,12 @@
     {
       "id": 4452,
       "title": "[Sonnet] Carried cache follow-ups from SW-4450 (docs/reviews/SW-4410-recheck-review.md): F1 compare run bodies on a recheck; F2 tests (refusal part way through a multi-declaration entry, non-positive data type and non-terminating group on the checked path, undo of builtin bindings for a library entry, an end-to-end refused recheck, candidate preference, the CLI line); F5 run the field sorts/erasure comparison for carried entries on the trusted path too",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "\n\nProgress (Sonnet lane): F5, F1 and the F2 tests done in c96d96ebf; F1 and F5 shown failing without their code; CLI recheck line test added. Not done: F3/F4 (F3 already in main).\n",
+      "body": "\n\nProgress (Sonnet lane): F5, F1 and the F2 tests done in c96d96ebf; F1 and F5 shown failing without their code; CLI recheck line test added. Not done: F3/F4 (F3 already in main).\n\n\nModel result: Sonnet, worked, 35 min (est. 45). Orchestrator checked the core change: it only adds a refusal on the trusted path (a refused entry is elaborated), so it accepts no more than before.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": [
