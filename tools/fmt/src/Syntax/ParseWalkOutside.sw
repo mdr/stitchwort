@@ -273,7 +273,9 @@ theorem givesOperatorClose ∀ (open operator: Word) (operand: Option Expr):
 
 theorem givesOperatorEnd ∀ (inner: Modes) (open operator: Word) (operand: Expr) (closed: Bool):
     Parse.Gives GoodItems (() => operatorEnd inner open operator operand closed) Out :=
-  byWalking [givesOperatorClose, givesFail]
+  match closed with
+    | True => givesOperatorClose open operator (Some operand)
+    | False => givesFail inner "`)` after the operand of a section"
 
 theorem givesOperatorHead ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word)
     (operatorKind: Tok) (operator: Word)
@@ -461,7 +463,8 @@ theorem givesRowOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 theorem givesEffectResult ∀ (self: Goal → {Parse Item} Expr) (allowed: Modes)
     (nested: Nested self):
     Parse.Gives GoodItems (() => effectResult self allowed) Out :=
-  byWalking [givesRowOf]
+  Parse.givesThen (givesRowOf self allowed nested) (row _ =>
+    Parse.givesThen (nested { modes = allowed, level = LevelFull }) (tail _ => Parse.givesDone byComputing))
 
 -- A list, read for nothing but that it is read.
 
@@ -496,12 +499,17 @@ theorem givesListItemsFromAny ∀ (self: Goal → {Parse Item} Expr) (inner: Mod
 theorem givesListItemsAny ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word)
     (nested: Nested self):
     Parse.Gives GoodItems (() => listItems self inner open) (found => True) :=
-  byWalking [givesListItemAny, givesListItemsFromAny]
+  Parse.givesThen (givesListItemAny self inner nested) (first _ => givesListItemsFromAny self inner open first nested)
 
 theorem givesListAfterAny ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word)
     (nested: Nested self) (seen: Option Tok):
     Parse.Gives GoodItems (() => listAfter self inner open seen) (found => True) :=
-  byWalking [givesListItemsAny, givesBump]
+  match seen with
+    | None => givesListItemsAny self inner open nested
+    | Some kind =>
+      match isClose: kind == RBracket with
+        | True => Parse.givesThen givesBump (close _ => Parse.givesDone byComputing)
+        | False => givesListItemsAny self inner open nested
 
 theorem givesListExprAny ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
@@ -592,7 +600,8 @@ theorem givesInterpolations ∀ (self: Goal → {Parse Item} Expr) (modes: Modes
 theorem givesInterpolated ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
     Parse.Gives GoodItems (() => interpolated self modes) Out :=
-  byWalking [givesBump, givesInterpolations]
+  Parse.givesThen givesBump (start _ =>
+    Parse.givesThen (givesInterpolations self modes nested) (found _ => Parse.givesDone byComputing))
 
 theorem givesAtomRest ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: Tok)
     (nested: Nested self):
