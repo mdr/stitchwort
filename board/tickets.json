@@ -29423,8 +29423,8 @@
     {
       "id": 4393,
       "title": "[Sonnet] resources.rs tests may rely on small work/size limits against the library, which SW-3711 floors at the defaults: check each still tests what it says (SW-4387 finding)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "test-infra",
