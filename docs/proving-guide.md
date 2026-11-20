@@ -443,8 +443,16 @@ Import what you use: std's theorems live in namespaces that need an import
 - **`cases`** finds what the goal is stuck on (a variable or call of a type
   with two or more constructors), splits it as a `match` would, and closes
   each case by computation, a contradictory hypothesis, a hypothesis of the
-  goal's type, `arithmetic`, or by running the goal's decision procedure (as
-  `byDecision` does). It introduces a goal's leading binders itself
+  goal's type, a conjunction whose parts each close so (the pair, before any
+  split: a goal `rewrite` has already proved takes `then cases` 2 ms, not
+  the 46 of splitting hypotheses it used to), `arithmetic`, or by running
+  the goal's decision procedure (as `byDecision` does). It splits a
+  hypothesis `A ∨ B` before what the goal is stuck on, so `sign: kind =
+  Minus ∨ kind = Bang` makes two cases instead of one per token kind; a
+  `cases` that fails that way tries again without it. Where a case would
+  otherwise stay open, it applies an implication `h: P → Q` once to a
+  hypothesis, or part of one, that says `P` (`implies (ended.1)` in
+  `endedWeaker`), never chained. It introduces a goal's leading binders itself
   (`theorem t: (x: Bool) → P x := cases`). When nothing is stuck and nothing
   closes it, it falls back to splitting a variable the goal mentions, the
   one that makes the fewest cases. In its second try only (after
@@ -546,7 +554,9 @@ Import what you use: std's theorems live in namespaces that need an import
   written: then give the arguments (`wordsSnoc comment [" ", ..out]`), or the
   search compares by computing, which is slow for large terms and may not
   find it. A rule that fits its own result (`Nat.addComm`) is refused; use
-  `algebra`. After `then`, state what is left (`then (t: P)`) or close with
+  `algebra`. What is left closes by computing, a hypothesis or a part of
+  one, or as a conjunction of parts that each close so: `True = True ∧ ("("
+  == "(" && True) = True` needs no `then cases`. After `then`, state what is left (`then (t: P)`) or close with
   `arithmetic` or `cases` (W-REWRITE-REPEATEDLY-UNSTATED).
 - **`rewrite p then t`** replaces `p`'s left side by its right side in the
   goal and checks `t` against the result; `rewrite <- p`, `rewrite p at h`.
