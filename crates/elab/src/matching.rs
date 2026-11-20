@@ -619,6 +619,7 @@ fn lifted(
             name,
             span: s.expr.span(),
             alias,
+            on_path: true,
         });
     }
     if exprs.is_empty() {
@@ -670,6 +671,11 @@ struct Scrut {
     span: stitchwort_syntax::Span,
     /// The `let` it names, if it's one by name.
     alias: Option<usize>,
+    /// Whether it is looked for inside calls on the path to it
+    /// ([`crate::unfold_path`]): not for a computation `match reify` made,
+    /// whose arms' goals then show the handlers' insides rather than
+    /// computing to what the statement says (`examples/goals/reify-return.sw`).
+    on_path: bool,
 }
 
 /// A `match` on one expression the compiler has elaborated itself (`term`,
@@ -687,7 +693,7 @@ pub(crate) fn generalised_term(
     span: stitchwort_syntax::Span,
     goal: &Value,
 ) -> Result<Term> {
-    generalised_named(
+    generalised_scrut(
         cx,
         term,
         ty,
@@ -698,6 +704,7 @@ pub(crate) fn generalised_term(
         absurd,
         span,
         goal,
+        false,
     )
 }
 
@@ -721,6 +728,36 @@ pub(crate) fn generalised_named(
     span: stitchwort_syntax::Span,
     goal: &Value,
 ) -> Result<Term> {
+    generalised_scrut(
+        cx,
+        term,
+        ty,
+        scrutinee_span,
+        name,
+        skip,
+        alts,
+        absurd,
+        span,
+        goal,
+        true,
+    )
+}
+
+/// [`generalised_named`], with [`Scrut::on_path`] as given.
+#[allow(clippy::too_many_arguments)]
+fn generalised_scrut(
+    cx: &mut Ctx,
+    term: Term,
+    ty: Value,
+    scrutinee_span: stitchwort_syntax::Span,
+    name: Option<ast::Name>,
+    skip: Option<Skip>,
+    alts: &[Alt],
+    absurd: &[Vec<Pattern>],
+    span: stitchwort_syntax::Span,
+    goal: &Value,
+    on_path: bool,
+) -> Result<Term> {
     let base = cx.level();
     let mark = cx.mark();
     let result = (|| {
@@ -733,6 +770,7 @@ pub(crate) fn generalised_named(
             name,
             span: scrutinee_span,
             alias: None,
+            on_path,
         };
         generalised(
             cx,
@@ -800,6 +838,7 @@ pub(crate) fn refined_guard(
             }),
             span,
             alias: None,
+            on_path: true,
         }];
         let mut too_large = None;
         if blocker(cx, &exprs, goal, base, None, &mut too_large)?.is_some() || too_large.is_some() {

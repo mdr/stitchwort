@@ -188,12 +188,8 @@ theorem givesCtorArgBrace ∀ (more: Nat) (pself: PatternGoal → {Parse Item} P
   match brace with
     | True => Parse.givesThen (givesCtorRecordArgument pself modes name found nested) (entry _ =>
       givesCtorArgList more pself modes name stops [entry, ..found] nested)
-    | False =>
-      Parse.givesAfter0
-        [p := () => left()]
-        [j := items => ctorArgMinus more pself modes name stops found (argumentMinus items)]
-        reads0Left
-        (items => givesCtorArgMinus more pself modes name stops found nested (argumentMinus items))
+    | False => Parse.givesAfter0 [p := () => left()] reads0Left (items =>
+      givesCtorArgMinus more pself modes name stops found nested (argumentMinus items))
 
 theorem givesCtorArgMinus ∀ (more: Nat) (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (name: Word)
     (stops: Tok → Bool) (found: List Pattern)

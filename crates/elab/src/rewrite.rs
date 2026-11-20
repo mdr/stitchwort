@@ -354,8 +354,32 @@ pub(crate) fn check_rewrite(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Resu
         .map_err(|d| resource_in_rewrite(d, expr))
 }
 
-/// [`check_rewrite`]'s rewrite itself.
+/// [`check_rewrite`]'s rewrite itself. If it fails after one of its rules
+/// kept a result of the partial unfold ([`crate::unfold_path`]), it is made
+/// again without that step, as before the step existed, and that result
+/// stands: a partly folded goal can make a later rule, or the term after
+/// `then`, fail where the goal unfolded didn't (SW-4419: `staleBlocks` in
+/// `tools/fmt`'s `PrintHangProofs.stepColumn`, after `Bool.andFalse glue`
+/// had left `past` folded). So a `rewrite` that checked before the step
+/// still checks.
 fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
+    if !crate::unfold_path::enabled() {
+        return rewrite_goal_once(cx, expr, expected);
+    }
+    let snapshot = Snapshot::take(cx);
+    let written = cx.written_goal.clone();
+    let before = crate::unfold_path::kept();
+    match rewrite_goal_once(cx, expr, expected) {
+        Err(e) if !fatal(&e) && crate::unfold_path::kept() > before => {
+            snapshot.restore(cx);
+            cx.written_goal = written;
+            crate::unfold_path::without(|| rewrite_goal_once(cx, expr, expected))
+        }
+        done => done,
+    }
+}
+
+fn rewrite_goal_once(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     let Expr::Rewrite {
         rules,
         target,
@@ -1027,7 +1051,8 @@ fn unproved_premise(
 /// How `rewrite repeatedly` asks [`rewrite_once`] to search.
 pub(super) struct Repeated<'a> {
     /// Only the goal as written ([`as_written::first`]): no comparison by
-    /// computing, and nothing inside functions passed to calls.
+    /// computing, no calls opened on the path to an occurrence
+    /// ([`crate::unfold_path`]), and nothing inside functions passed to calls.
     pub(super) written_only: bool,
     /// The goal, forced and read back, when the caller has it already.
     pub(super) computed: Option<&'a Term>,
@@ -1147,6 +1172,7 @@ fn rewrite_once(
             goal,
             (&current, &current_term),
             remaining,
+            !written_only,
         )? {
             as_written::First::Kept(replaced) => (*replaced, true),
             _ if written_only => {

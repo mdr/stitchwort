@@ -80,15 +80,11 @@ theorem givesAttributeItems ∀ (fuel: Nat) (modes: Modes) (found: List Attribut
         | False => Parse.givesThen (givesLowerQualifiedAny modes "an attribute's name, such as `js.name`") (name _ =>
           Parse.givesThen (givesAttributeParts modes) (parts _ =>
             Parse.givesThen (givesAttributeArgument modes) (written _ =>
-              Parse.givesAfter0
-                [p := () => modes.at Comma]
-                [j := comma => attributeNext more modes [{ name, parts, argument = written }, ..found] comma]
-                (reads0At modes Comma)
-                (comma =>
-                  match comma with
-                    | True => Parse.givesThen givesBump (gone _ =>
-                      givesAttributeItems more modes [{ name, parts, argument = written }, ..found])
-                    | False => Parse.givesDone byComputing)))))
+              Parse.givesAfter0 [p := () => modes.at Comma] (reads0At modes Comma) (comma =>
+                match comma with
+                  | True => Parse.givesThen givesBump (gone _ =>
+                    givesAttributeItems more modes [{ name, parts, argument = written }, ..found])
+                  | False => Parse.givesDone byComputing)))))
 
 theorem givesAttributeGroup ∀ (modes: Modes):
     Parse.Gives GoodItems (() => attributeGroup modes) (Parse.Perhaps (found => True)) :=
@@ -215,17 +211,9 @@ theorem givesAtomMissing ∀ (self: Goal → {Parse Item} Expr) (modes: Modes):
   Parse.givesAfter0 (reads0Peek modes) (seen =>
     match modes.recover && seen.isNone with
       | True =>
-        Parse.givesAfter0
-          [p := () => ranOutAtLine modes]
-          [j := ran => atomGap modes ran]
-          (reads0RanOutAtLine modes)
-          (ran => givesAtomGap modes ran)
+        Parse.givesAfter0 [p := () => ranOutAtLine modes] (reads0RanOutAtLine modes) (ran => givesAtomGap modes ran)
       | False =>
-        Parse.givesAfter0
-          [p := () => modes.peekAt 1]
-          [j := second => atomNamed modes second]
-          (reads0PeekAt modes 1)
-          (second => givesAtomNamed modes second))
+        Parse.givesAfter0 [p := () => modes.peekAt 1] (reads0PeekAt modes 1) (second => givesAtomNamed modes second))
 
 theorem givesNamedBinder ∀ (modes: Modes): Parse.Gives GoodItems (() => namedBinder modes) (found => True) :=
   Parse.givesAfter0 (reads0At modes Lower) (lower =>

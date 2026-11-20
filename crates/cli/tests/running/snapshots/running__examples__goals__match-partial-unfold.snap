@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `followsStart`
+    ╭─[ goals/match-partial-unfold.sw:18:16 ]
+    │
+ 18 │     | False => ?
+    │                ┬  
+    │                ╰── lower: Bool
+    │                    n: Nat
+    │                    ⊢ ∀ (state other: Parse.State Nat) (value: Nat) (after: Parse.Mark Nat) => Parse.Mark.Alike SameNat state.at other.at → Parse.runFrom state (arg => Call (L (%mark ())) (y => Call (L (%mark ())) (y1 => Done (Succ y.offset, y1)))) = Ok (value, after) → ∃ (twin: Nat) => ∃ (afterTwin: Parse.Mark Nat) => Parse.runFrom other (arg => Call (L (%mark ())) (y => Call (L (%mark ())) (y1 => Done (Succ y.offset, y1)))) = Ok (twin, afterTwin) ∧ Parse.Mark.Alike SameNat after afterTwin ∧ SameNat value twin
+────╯

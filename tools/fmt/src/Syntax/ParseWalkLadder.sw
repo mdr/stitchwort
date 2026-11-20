@@ -156,13 +156,8 @@ theorem givesUnarySome ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     | True => readsAtBumpThen shape fine (after fits =>
       givesOutIn (expr => 18 <= expr.level) (outside.below.matches modes item.leaf.word) after fits)
     | False =>
-      Parse.readsAtAfter0
-        [p := () => matchesBarAhead modes]
-        [j := bar => unaryBar self modes item.kind bar]
-        (reads0MatchesBarAhead modes)
-        fine
-        (bar after same fits =>
-          readsUnaryBar self modes nested outside bases after item later bar (rewrite same then shape) stopped fits)
+      Parse.readsAtAfter0 [p := () => matchesBarAhead modes] (reads0MatchesBarAhead modes) fine (bar after same fits =>
+        readsUnaryBar self modes nested outside bases after item later bar (rewrite same then shape) stopped fits)
 
 theorem givesUnary ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
@@ -393,13 +388,9 @@ theorem givesCmpOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (outside: OutsideCompared self)
     (bases: AtomBases self):
     Parse.Gives GoodItems (() => cmpExpr self modes) (Parsed 6) :=
-  Parse.givesAfter0
-    [p := () => left()]
-    [j := items => cmpFirst self modes (items.head.map Item.kind)]
-    reads0Left
-    (items =>
-      Parse.givesThen (givesPipedOf self modes nested outside.below bases) (lhs lhsParsed =>
-        givesCmpPiped self modes (items.head.map Item.kind) lhs nested outside bases lhsParsed))
+  Parse.givesAfter0 [p := () => left()] reads0Left (items =>
+    Parse.givesThen (givesPipedOf self modes nested outside.below bases) (lhs lhsParsed =>
+      givesCmpPiped self modes (items.head.map Item.kind) lhs nested outside bases lhsParsed))
 
 -- `&&` and `||`.
 
@@ -686,18 +677,14 @@ theorem givesOpLogic ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (sect
     (outside: OutsideIffed self)
     (parsed: Parsed 4 logic):
     Parse.Gives GoodItems (() => opLogic self modes section logic) (Parsed 1) :=
-  Parse.givesAfter0
-    [p := () => modes.at IffArrow]
-    [j := ahead => opIffed self modes section (iffOf self modes logic ahead)]
-    (reads0At modes IffArrow)
-    (ahead =>
-      Parse.givesThen
-        [p := () => iffOf self modes logic ahead]
-        [j := iffed => opIffed self modes section iffed]
-        (match ahead with
-          | True => givesOutIn (expr => 4 <= expr.level) (outside.iffs modes logic)
-          | False => Parse.givesDone parsed)
-        (iffed iffedParsed => givesOpIffed self modes section iffed nested outside iffedParsed))
+  Parse.givesAfter0 [p := () => modes.at IffArrow] (reads0At modes IffArrow) (ahead =>
+    Parse.givesThen
+      [p := () => iffOf self modes logic ahead]
+      [j := iffed => opIffed self modes section iffed]
+      (match ahead with
+        | True => givesOutIn (expr => 4 <= expr.level) (outside.iffs modes logic)
+        | False => Parse.givesDone parsed)
+      (iffed iffedParsed => givesOpIffed self modes section iffed nested outside iffedParsed))
 
 theorem givesLogicAfter ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (compared: Expr)
     (nested: Nested self)
@@ -705,14 +692,10 @@ theorem givesLogicAfter ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (c
     (bases: AtomBases self)
     (parsed: Parsed 6 compared):
     Parse.Gives GoodItems (() => logicAfter self modes compared) (Parsed 4) :=
-  Parse.givesAfter0
-    [p := () => left()]
-    [j := items => logicOf self modes compared (andOrOn modes items)]
-    reads0Left
-    (items =>
-      match andOrOn modes items with
-        | True => givesLogicChain self modes compared nested outside bases parsed
-        | False => Parse.givesDone (parsedWeaken parsed byComputing))
+  Parse.givesAfter0 [p := () => left()] reads0Left (items =>
+    match andOrOn modes items with
+      | True => givesLogicChain self modes compared nested outside bases parsed
+      | False => Parse.givesDone (parsedWeaken parsed byComputing))
 
 theorem givesOpCompared ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (section: Bool) (compared: Expr)
     (nested: Nested self)
@@ -743,24 +726,17 @@ theorem givesOperatorExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 -- `expr_inline`.
 
 theorem reads0LambdaHere ∀ (modes: Modes): Reads0 (() => lambdaHere modes) := Parse.reads0Then Parse.reads0Here (here =>
-  Parse.reads0Then [p := () => left()] [j := items => lambdaAhead modes (here.left + 1) items] reads0Left (items =>
-    Parse.reads0Done (lambdaAhead modes (here.left + 1) items)))
+  Parse.reads0Then [p := () => left()] reads0Left (items => Parse.reads0Done (lambdaAhead modes (here.left + 1) items)))
 
 theorem reads0LambdaResultHere ∀ (modes: Modes): Reads0 (() => lambdaResultHere modes) :=
   Parse.reads0Then Parse.reads0Here (here =>
-    Parse.reads0Then
-      [p := () => left()]
-      [j := items => lambdaResultType modes (here.left + 1) False items]
-      reads0Left
-      (items => Parse.reads0Done (lambdaResultType modes (here.left + 1) False items)))
+    Parse.reads0Then [p := () => left()] reads0Left (items =>
+      Parse.reads0Done (lambdaResultType modes (here.left + 1) False items)))
 
 theorem reads0ImplicitHere ∀ (modes: Modes): Reads0 (() => implicitHere modes) :=
   Parse.reads0Then Parse.reads0Here (here =>
-    Parse.reads0Then
-      [p := () => left()]
-      [j := items => implicitOn (here.left + 1) items modes.peek]
-      reads0Left
-      (items => Parse.reads0Then (reads0Peek modes) (seen => Parse.reads0Done (implicitOn (here.left + 1) items seen))))
+    Parse.reads0Then [p := () => left()] reads0Left (items =>
+      Parse.reads0Then (reads0Peek modes) (seen => Parse.reads0Done (implicitOn (here.left + 1) items seen))))
 
 theorem reads0PiHere ∀ (modes: Modes): Reads0 (() => piHere modes) := Parse.reads0Then reads0Left (items =>
   Parse.reads0Then (reads0Peek modes) (seen => Parse.reads0Done (piOn items seen)))
@@ -1034,12 +1010,8 @@ theorem givesExprBlock ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (it
     | Some limit =>
       match wider: item.leaf.token.column > limit with
         | True => givesBlock self modes item.leaf.token.column True nested outside bases
-        | False =>
-          Parse.givesAfter0
-            [p := () => left()]
-            [j := items => exprRuns self modes item limit (runsOutAt modes item limit items)]
-            reads0Left
-            (items => givesExprRuns self modes item limit (runsOutAt modes item limit items) nested outside bases)
+        | False => Parse.givesAfter0 [p := () => left()] reads0Left (items =>
+          givesExprRuns self modes item limit (runsOutAt modes item limit items) nested outside bases)
 
 theorem givesExprOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (items: List Item)
     (nested: Nested self)
