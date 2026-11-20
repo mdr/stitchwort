@@ -2,7 +2,7 @@
 source: crates/cli/tests/server/goal_index.rs
 expression: "format!(\"{made} lemmas, {} goals without one\\n\\n{}\", summary.len() - made,\nsummary.join(\"\\n\"))"
 ---
-170 lemmas, 48 goals without one
+173 lemmas, 48 goals without one
 
 arm-as-written-computes goal 1: no lemma
 arm-as-written-computes goal 2: theorem stepsGoal2: 0 ≠ 0 ∨ "" = "" := ?
@@ -186,6 +186,9 @@ param-default-shown goal 2: theorem scaledGoalGoal1 (a: Nat): scaled a = a + (a 
 param-default-shown goal 3: no lemma
 proof-hole goal 1: theorem addZeroGoal1 (n: Nat): n = n := ?
 proof-tuple-unnamed-fields goal 1: no lemma
+prop-definition-folded goal 1: theorem topGoal1 (n: Nat): n ≤ 3 ∧ n ≠ 7 := ?
+prop-definition-folded goal 2: theorem viaMatchGoal1 (n: Nat): n ≤ 3 ∧ n ≠ 7 := ?
+prop-definition-folded goal 3: theorem viaMatchGoal2 (n: Nat): 0 ≤ 3 ∧ 0 ≠ 7 := ?
 ranges goal 1: theorem lengthThroughGoal1 (n: Nat): (1 ..= n).length = n := ?
 ranges goal 2: theorem lengthUpToGoal1 (n: Nat): (0 ..= n).length = n + 1 := ?
 ranges goal 3: theorem membersGoal1 (x: Nat) (n: Nat): x ∈ 2 ..< n := ?
