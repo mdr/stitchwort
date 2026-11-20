@@ -772,7 +772,7 @@ scratch file on 19 Nov 2026).
   type `Nat → Nat`, which isn't an equation"). To unfold: `byComputing`
   when the call's arguments let it compute (a plain `double n` does, `n + n`
   being its body); `f.unfold x` for a `decreasing` definition (`rewrite
-  half.unfold n then …`; the goal then shows the step as `half.step …`); an
+  half.unfold n then …`; the goal then shows the step as `(step of half) …`); an
   arm's equation `f.eq2` where the call is stuck on a variable (§3, "Arms
   have equations").
 - **A `match` refines the hypotheses too.** After `match c: isBig n with`,

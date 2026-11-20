@@ -182,14 +182,15 @@ pub fn value(g: &Ev, names: &[Name], value: &Value) -> String {
 /// copy `f.%body` (docs/proposals/opaque-definitions.md §6.3) is "the body
 /// of `f`", in parentheses so `(body of f) x` still reads as a call. A
 /// `decreasing` definition's generated step `f.%step` (docs/core.md,
-/// "Definitions by recursion") is `f.step`, as an ability operation's
+/// "Definitions by recursion") is "(step of f)", like the body, since a
+/// user may have an `f.step` of their own; an ability operation's
 /// `%op` is `Ability.op` (SW-4437).
 fn def_display(name: &str) -> String {
     if let Some(owner) = name.strip_suffix(".%body") {
         return format!("(body of {owner})");
     }
     if let Some(owner) = name.strip_suffix(".%step") {
-        return format!("{owner}.step");
+        return format!("(step of {owner})");
     }
     name.to_string()
 }
