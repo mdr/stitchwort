@@ -29607,8 +29607,8 @@
     {
       "id": 4407,
       "title": "[DeepSeek] check --verify-cache (D2802) is missing from the CLI (CacheArgs has only --no-cache and --cache-dir): add it or correct the docs that mention it (SW-4405 finding)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
