@@ -29553,12 +29553,12 @@
     {
       "id": 4403,
       "title": "[Sonnet] Goal display in a generalised guard arm shows wrong hypothesis types (h: 0 < pick (c == 'a') shown as True = True; also on main): repro theorem m4 forall (n: Nat) (c: Char) (h: 0 < pick (c == 'a')): pick (c == 'a') = 1 or 0 < 1 := match n with | 0 if g: c == 'a' => ? | _ => ?; and a type-mismatch note in a refined arm wrongly says both sides are True (let k: 0 < 1 := h2 with h2: 0 < pick b) (SW-4391 findings 1, 2)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nLane notes (Sonnet): cause: refined_guard never tried as_written (match does), so copies and goal were read back unfolded and computed to True = True. Fixed by trying as_written first, falling back. Also reworded the byComputing note. Commit 4cbccd844. 4 guard-refinement hash snapshots changed (helper motives are folded now).\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
