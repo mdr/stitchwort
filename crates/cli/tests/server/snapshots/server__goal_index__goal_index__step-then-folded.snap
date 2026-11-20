@@ -18,7 +18,7 @@ expression: json
           "type": "Nat"
         }
       ],
-      "lemma": "theorem stepsAtOnceGoal1 (a: Nat) (b: Nat): concatenate a b = concatenate a b := ?",
+      "lemma": "theorem stepsAtOnceGoal1 (a: Nat) (b: Nat): (if True then concatenate a b else 0) = concatenate a b := ?",
       "target": "(if True then concatenate a b else 0) = concatenate a b",
       "targetComputed": "concatenate a b = concatenate a b"
     },

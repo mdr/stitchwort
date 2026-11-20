@@ -154,7 +154,7 @@ expression: json
           "type": "Nat"
         }
       ],
-      "lemma": "theorem hiddenGoal1 (count: Nat): count + 3 = count + 3 := ?",
+      "lemma": "theorem hiddenGoal1 (count: Nat): count + Demo.Ops.count = Demo.Ops.count + count := ?",
       "target": "count + Demo.Ops.count = Demo.Ops.count + count",
       "targetComputed": "count + 3 = count + 3"
     },

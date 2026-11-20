@@ -14,7 +14,7 @@ expression: json
           "type": "Nat"
         }
       ],
-      "lemma": "theorem addZeroGoal1 (n: Nat): n = n := ?",
+      "lemma": "theorem addZeroGoal1 (n: Nat): n + 0 = n := ?",
       "target": "n + 0 = n",
       "targetComputed": "n = n"
     },

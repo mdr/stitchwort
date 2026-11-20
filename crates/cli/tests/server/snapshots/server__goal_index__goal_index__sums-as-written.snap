@@ -14,7 +14,7 @@ expression: json
           "type": "Nat"
         }
       ],
-      "lemma": "theorem plusOneGoal1 (x: Nat): x + 1 = x + 1 := ?",
+      "lemma": "theorem plusOneGoal1 (x: Nat): x + 1 = 1 + x := ?",
       "target": "x + 1 = 1 + x",
       "targetComputed": "x + 1 = x + 1"
     },
@@ -69,7 +69,7 @@ expression: json
           "type": "Nat"
         }
       ],
-      "lemma": "theorem plusThreeGoal1 (x: Nat) (y: Nat): x + 3 = y + x + 2 := ?",
+      "lemma": "theorem plusThreeGoal1 (x: Nat) (y: Nat): x + 3 = y + (x + 2) := ?",
       "target": "x + 3 = y + (x + 2)",
       "targetComputed": "x + 3 = y + x + 2"
     },

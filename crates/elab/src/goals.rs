@@ -1949,8 +1949,29 @@ impl Elaborator {
                 .chain(&guards)
                 .cloned()
                 .collect();
-            self.lemma_of(p, &hypotheses, &all_facts, &target, &show)
-                .ok()
+            // The goal as written first: the pasted lemma reads like the
+            // goal shown. Where that text can't be pasted back as the same
+            // goal, the computed form.
+            // A variable a pattern made a constructor (`Succ k + 0`) prints
+            // as written but is another term once pasted, as `k + 1`.
+            let refined = p.statement.as_ref().is_some_and(|s| {
+                s.env.iter().enumerate().any(|(l, v)| {
+                    !matches!(v, Value::Neutral(Head::Var(m, _), spine) if *m == l && spine.is_empty())
+                })
+            });
+            // An arm's goal is computed under the arm's facts, which a
+            // pasted lemma's goal isn't (`f s` is `2` only given them).
+            written
+                .as_deref()
+                .filter(|_| arm.is_none() && !refined)
+                .and_then(|w| {
+                    self.lemma_of(p, &hypotheses, &all_facts, w, &show, false)
+                        .ok()
+                })
+                .or_else(|| {
+                    self.lemma_of(p, &hypotheses, &all_facts, &target, &show, true)
+                        .ok()
+                })
         } else {
             None
         };
@@ -2037,6 +2058,7 @@ impl Elaborator {
         facts: &[String],
         target: &str,
         show: &dyn Fn(&Value) -> String,
+        computed: bool,
     ) -> Result<(&'static str, String), &'static str> {
         let keyword = match p.prop {
             Some(true) => "theorem",
@@ -2165,6 +2187,9 @@ impl Elaborator {
                 if (quote_shown(g, level, &a).is_ok_and(|t| loose_ctor(g, &t)))
                     && (quote_shown(g, level, &b).is_ok_and(|t| loose_ctor(g, &t))) =>
             {
+                if !computed {
+                    return Err("written equation with an open type");
+                }
                 let (ty, a, b) = (show(&ty), show(&a), show(&b));
                 if target != format!("{a} = {b}") || unwritable(&ty) {
                     return Err("equation with an open type that can't be ascribed");
