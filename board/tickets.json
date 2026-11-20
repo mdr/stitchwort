@@ -29841,8 +29841,8 @@
     {
       "id": 4425,
       "title": "[Opus] Walk: a bare lemma with an open second run fails under an eta-form post (followsTupleClose needs its thunk written out; followsFatalAny with post (x x1 => WordsAlike x x1) leaves _second unsolved): eta-reduce the expected post before the direct check, or fix the unifier for a hole under a lambda post; also a trace line for 'direct fit failed: <error>' (the walk swallows it); before W4 (SW-4398 finding)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
@@ -29867,8 +29867,8 @@
     {
       "id": 4427,
       "title": "[Opus] Self-hosted formatter: a Walk form for byWalking [items] then t (Syntax/Expr, Parser, Statements, Traverse, Fmt rules and printer), with its Parse.Follows twin and Parse.Gives proofs; slice gates keep it outside slices 1 to 6a (no theorem or must-accept change); needed for the D3573 switch-over since ParseWalk.sw and FollowsBase.sw use it (SW-4383)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
