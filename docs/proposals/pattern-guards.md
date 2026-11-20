@@ -412,10 +412,13 @@ proposition (`n != 3` and `n ≠ 3`, which are the same operator, `x = y`,
 True` fails as `b = False`, a partial overlap ending `… → b = False`. Why: one condition had four forms depending on where it
 was written, and the reading of a `Bool` as a proposition is otherwise
 explicit (`.read`, D3486-D3488); Lean states a condition as the source
-tests it (docs/proposals/match-induct-friction.md §1). Not yet changed: a
-conjunction with a decided side whose proof the arm uses (`if i < n && 0 <
-i => xs.getLt i`), which the tree tests by `Decidable.elim` on `P ∧ Q`; it
-keeps `P ∧ Q` and `¬(P ∧ Q)` until its proofs go between the two forms.
+tests it (docs/proposals/match-induct-friction.md §1). A conjunction with
+a decided side whose proof the arm uses (`if i < n && 0 < i =>
+xs.getLt i`), which the tree tests by `Decidable.elim` on `P ∧ Q`, is
+stated as its `Bool` too (SW-4344): the generated proofs go between the
+forms by the conjunction's decision (`sound` gives the arm its proof of
+`P ∧ Q`, `refute` the failure below, `complete` and `toBoolOfNot` the
+facts of `f.induct`'s split), and the definition is elaborated as before.
 
 **Stage 2 (SW-1301), as built.** Stage 1's skip is gone; a guarded arm and
 the arms below it get equations, and `f.induct` its cases, as follows

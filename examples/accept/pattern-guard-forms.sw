@@ -123,3 +123,44 @@ theorem pairUpNext ∀ (head b c: Nat) (xs1 ys1: List Nat)
       → (b1 == c1) = False):
     (b == c) = False :=
   notArm1 b xs1 c ys1 byComputing byComputing
+
+-- A `&&` whose proof the arm uses (`gap` takes `x < y`) is tested by
+-- `Decidable.elim` on `x < y ∧ 0 < x`, and is still a `Bool`: the arm
+-- takes `(x < y && 0 < x) = True`, whose reading gives `gap` its proof,
+-- and below it, over a partial overlap, `… = False`.
+def positiveGaps: List Nat → Nat
+  | [x, y, ..rest] if x < y && 0 < x => gap x y + positiveGaps rest
+  | [_, ..rest] => positiveGaps rest
+  | [] => 0
+
+theorem positiveGapsStep ∀ (x y: Nat) (rest: List Nat)
+    (guard: (x < y && 0 < x) = True):
+    positiveGaps [x, y, ..rest] = gap x y + positiveGaps rest :=
+  positiveGaps.eq1 x y rest guard
+
+theorem positiveGapsSkip ∀ (head: Nat) (rest: List Nat)
+    (notArm1: ∀ (y: Nat) (rest1: List Nat) => rest = [y, ..rest1] → (head < y && 0 < head) = False):
+    positiveGaps [head, ..rest] = positiveGaps rest :=
+  positiveGaps.eq2 head rest notArm1
+
+-- `f.induct` gives each case the same facts: `guard.read.right` is `0 < x`.
+theorem positiveGapsCases ∀ (xs: List Nat): positiveGaps xs ≥ 0 := match induct (positiveGaps xs) with
+  | eq1 x y rest guard ih =>
+    let positive: 0 < x := guard.read.right
+    arithmetic
+  | eq2 head rest notArm1 ih =>
+    let skip := positiveGapsSkip head rest notArm1
+    arithmetic
+  | eq3 => arithmetic
+
+-- Where the arm's patterns take all of the values, the arm below takes
+-- the `= False` fact itself.
+def capped: List Nat → Nat
+  | [] => 0
+  | [x, ..rest] if x < 5 && 0 < x => gap x 5 + capped rest
+  | [_, ..rest] => capped rest
+
+theorem cappedOther ∀ (x: Nat) (rest: List Nat) (notArm2: (x < 5 && 0 < x) = False): capped [x, ..rest] = capped rest :=
+  capped.eq3 x rest notArm2
+
+theorem cappedZero ∀ (rest: List Nat): capped [0, ..rest] = capped rest := capped.eq3 0 rest byComputing

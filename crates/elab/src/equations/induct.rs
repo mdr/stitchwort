@@ -3683,12 +3683,33 @@ impl Tree<'_> {
             }
             None => {
                 let decision = self.guard_arg(&node, 2, fvals)?;
+                // A `Bool` stated over the proposition `P` tested: the facts
+                // are `d.complete h` and `Decidable.toBoolOfNot d r`, its
+                // `c = True` and `c = False`.
+                let tested = self.shapes[j]
+                    .as_ref()
+                    .ok()
+                    .and_then(|s| s.guard.as_ref())
+                    .is_some_and(|r| r.tested);
+                let (yes_fact, no_fact) = if tested {
+                    let fact = |which: usize| -> R<Term> {
+                        blib.to_bool_lemma(
+                            which,
+                            p.shift(&g, 1, 0)?,
+                            decision.shift(&g, 1, 0)?,
+                            Term::Var(0),
+                        )
+                    };
+                    (Some(fact(0)?), Some(fact(1)?))
+                } else {
+                    (None, None)
+                };
                 let yes = self.guard_side(
                     j,
                     &node.then,
                     PV::Var(depth),
                     crate::GUARD_THEN,
-                    None,
+                    yes_fact,
                     fvals,
                     path,
                 )?;
@@ -3697,7 +3718,7 @@ impl Tree<'_> {
                     &node.otherwise,
                     PV::Var(depth),
                     crate::GUARD_ELSE,
-                    None,
+                    no_fact,
                     fvals,
                     path,
                 )?;

@@ -917,6 +917,13 @@ struct GuardRead {
     /// the walk reads the tree's proposition the same way
     /// ([`Elaborator::bool_equation`]).
     unfolded: bool,
+    /// The tree tests a proposition `P` by `Decidable.elim` (an arm uses
+    /// its proof), but the condition is written as a `Bool` `c` that
+    /// isn't `P` by definition (`a && b` for `P ∧ Q`): `cond` is `c =
+    /// True`, and a proof goes between it and `P` through `c`'s
+    /// [`Decided`] view, `sound` for the arm and `refute` below it, the
+    /// `Bool` reading `.read` gives (D3699).
+    tested: bool,
     /// For a condition `¬Q` of a decided `Q` tested by its `Bool`
     /// (`n != 3`), `Q`: the arm below takes `Q`, not `¬¬Q`.
     negated: Option<Term>,
@@ -941,6 +948,25 @@ impl GuardRead {
         self.negated.is_none()
             && self.prop.is_none()
             && (!self.dec || blib.bool_test(&self.cond).is_some())
+    }
+
+    /// For a [tested](Self::tested) condition, the proof of the
+    /// proposition the tree tests from `h`, its hypothesis `c = True`,
+    /// with `cond` read where `h` is: `c`'s decision's `sound h`.
+    fn tested_proof(&self, blib: &BranchLib, g: &Ev, cond: &Term, h: Term) -> R<Term> {
+        let view = blib
+            .bool_test(cond)
+            .map(|(c, _)| blib.decided_view(g, &c))
+            .transpose()?
+            .flatten()
+            .ok_or_else(|| {
+                Stop::Skip(
+                    "an arm's condition is a `Bool` test in its statement but not where the \
+                     definition tests it"
+                        .into(),
+                )
+            })?;
+        view.lemma(blib, 2, h)
     }
 
     /// For a condition that [fails as a `Bool`](Self::fails_as_bool), the
@@ -2639,7 +2665,26 @@ impl Elaborator {
             } else {
                 None
             };
-            let cond = if let Some(eq) = &unfolded {
+            let blib = self.branch_lib()?;
+            // A `Bool` written over decided propositions whose proof the arm
+            // uses (`i < n && 0 < i`) is stated as the `Bool` all the same.
+            let tested = match &as_bool {
+                Some(c)
+                    if dec
+                        && written_bool
+                        && unfolded.is_none()
+                        && !self.guard_named(row)
+                        && blib.decided_view(&self.ev(), c)?.is_some() =>
+                {
+                    Some(Term::Eq(
+                        Some(Rc::new(blib.bool_ty())),
+                        Rc::new(c.clone()),
+                        Rc::new(blib.bool_value(true)),
+                    ))
+                }
+                _ => None,
+            };
+            let cond = if let Some(eq) = unfolded.as_ref().or(tested.as_ref()) {
                 Some(eq.clone())
             } else if dec {
                 Some(prop.clone())
@@ -2649,7 +2694,6 @@ impl Elaborator {
             let cond = cond.ok_or_else(|| {
                 Stop::Skip("its condition `if h: P` is tested as a `Bool`".into())
             })?;
-            let blib = self.branch_lib()?;
             // A condition written as a proposition and tested by its
             // decision's `Bool` is stated as that proposition; one written
             // as a `Bool` (`a && b`, `xs == []`) as the `Bool` (D3699).
@@ -2668,6 +2712,7 @@ impl Elaborator {
                 cond,
                 prop,
                 unfolded: unfolded.is_some(),
+                tested: tested.is_some(),
                 negated,
             });
         }
@@ -3282,10 +3327,18 @@ impl Elaborator {
             // The condition's proof, read at the shape's depth, is the
             // `guard` hypothesis, the last binder; a `Bool`'s `()` isn't.
             Some(r) if d.rows[k].guarded => {
-                let dec = shape.guard.as_ref().is_some_and(|r| r.dec);
+                let proof = match shape.guard.as_ref() {
+                    Some(read) if read.tested => {
+                        let blib = self.branch_lib()?;
+                        let cond = at(&read.cond, depth)?;
+                        Some(read.tested_proof(&blib, g, &cond, Term::Var(0))?)
+                    }
+                    Some(read) if read.dec => Some(Term::Var(0)),
+                    _ => None,
+                };
                 let r = remap(g, &r, shape.depth + 1, depth, &|l| {
                     if l == shape.depth {
-                        dec.then_some(Term::Var(0))
+                        proof.clone()
                     } else {
                         let j = shape.tele.iter().position(|&x| x == l)?;
                         Some(Term::Var(depth - 1 - j))
@@ -7288,7 +7341,17 @@ impl<'a> Walk<'a> {
                 .ok_or_else(|| Stop::Skip("its condition has no hypothesis".into()))?;
             let level = self.tk + i;
             let hyp = Term::Var(depth - 1 - level);
-            let binder = if node.dec { PV::Var(level) } else { unit()? };
+            // The proof the arm is given: the hypothesis itself, or for a
+            // `Bool` stated over the proposition tested, read from it.
+            let (hyp, binder) = match recorded {
+                Some(r) if r.tested && node.dec => {
+                    let cond = remap_shape(&g, &r.cond, self.shape, depth)?;
+                    let proof = r.tested_proof(&blib, &g, &cond, hyp)?;
+                    (proof.clone(), PV::Term(proof, depth))
+                }
+                _ if node.dec => (hyp, PV::Var(level)),
+                _ => (hyp, unit()?),
+            };
             let q = self.branch(&node.then, binder, crate::GUARD_THEN, fvals, path)?;
             if node.dec {
                 // `node.then` is in the tree's context, `fvals`, not the
@@ -7434,6 +7497,17 @@ impl<'a> Walk<'a> {
                 };
                 let void = match (&refutes, &normal) {
                     (Some(refutes), _) => Term::app(refutes.shift(&g, 1, 0)?, Term::Var(0)),
+                    // `refute d hyp h`, by the tree's decision `d` of `P`,
+                    // whose test is the `Bool` that `hyp` says is `False`.
+                    (None, None) if recorded.is_some_and(|r| r.tested) => Term::app(
+                        blib.to_bool_lemma(
+                            3,
+                            read.args[0].0.shift(&g, 1, 0)?,
+                            read.args[2].0.shift(&g, 1, 0)?,
+                            hyp.shift(&g, 1, 0)?,
+                        )?,
+                        Term::Var(0),
+                    ),
                     (None, Some((b, x))) => {
                         blib.normal_void(&g, b.shift(&g, 1, 0)?, *x, hyp.shift(&g, 1, 0)?)?
                     }
