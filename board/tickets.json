@@ -1,5 +1,5 @@
 {
-  "next": 4436,
+  "next": 4438,
   "tickets": [
     {
       "id": 47,
@@ -29768,7 +29768,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Lane (Opus, 20 Nov 2026, 14:55-15:55, est. 100 min): built on lane/SW-4419.\n- crates/elab/src/unfold_path.rs: the walk (arguments first; a call opens only if its arguments mention the needle's variables outside occurrences and its unfolding yields an occurrence; no reopening of a definition inside itself; at most 64 openings per walk). Wired as the middle step in match/cases/guards (matching/as_written.rs first), the transport (transport_target) and rewrite (rewrite/as_written.rs first), only after the as-written attempt comes to nothing/incomplete; same checks; fallback on any failure. Metrics outcome `partial`.\n- Not for a `match reify` computation (arms showed handler internals; examples/goals/reify-return.sw).\n- Pairs: 46 of 59 [j := ..] pairs in tools/fmt dropped (8 need this step: followsRowStart, followsBlockLine, reads0AfterDecreasing, reads0AfterUnfolding, 4 in ParseWalkOthers; 38 were already unnecessary on main); 13 kept. All 14 touched namespaces check --no-cache.\n- Examples: accept/match-partial-unfold.sw, accept/rewrite-partial-unfold.sw (fail before, pass after). 150 hash snapshots re-recorded (prelude included).\n- Not built: per-cell memo; proof-position refinement of relevant variables; Rust unit tests for the walk; a fallback example.\n- Needs before merge: Overmind no-cache fmt/aoc/rogue/std run (proposal §7.5).\n",
+      "body": "Lane (Opus, 20 Nov 2026, 14:55-15:55, est. 100 min): built on lane/SW-4419.\n- crates/elab/src/unfold_path.rs: the walk (arguments first; a call opens only if its arguments mention the needle's variables outside occurrences and its unfolding yields an occurrence; no reopening of a definition inside itself; at most 64 openings per walk). Wired as the middle step in match/cases/guards (matching/as_written.rs first), the transport (transport_target) and rewrite (rewrite/as_written.rs first), only after the as-written attempt comes to nothing/incomplete; same checks; fallback on any failure. Metrics outcome `partial`.\n- Not for a `match reify` computation (arms showed handler internals; examples/goals/reify-return.sw).\n- Pairs: 46 of 59 [j := ..] pairs in tools/fmt dropped (8 need this step: followsRowStart, followsBlockLine, reads0AfterDecreasing, reads0AfterUnfolding, 4 in ParseWalkOthers; 38 were already unnecessary on main); 13 kept. All 14 touched namespaces check --no-cache.\n- Examples: accept/match-partial-unfold.sw, accept/rewrite-partial-unfold.sw (fail before, pass after). 150 hash snapshots re-recorded (prelude included).\n- Not built: per-cell memo; proof-position refinement of relevant variables; Rust unit tests for the walk; a fallback example.\n- Needs before merge: Overmind no-cache fmt/aoc/rogue/std run (proposal §7.5).\n- 16:30: merged main (99f300687) into the branch (b1452fe82); review fixes SW-4430 M1-M4, F1, F8 in 1766973a3. M1 verified: without it, examples/goals/match-no-rescue-through-calls.sw refines both arms (None arm became True = True). The 8 step-dependent pairs still check; FollowsBase, ParseWalk and the 4 namespaces holding the 8 check --no-cache. Fallback example: accept/partial-unfold-falls-back.sw (64-opening cap; control with fewer calls gives `partial`).\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -29976,6 +29976,32 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4436,
+      "title": "[Sonnet] Server goal_index snapshot missing on main for examples/goals/guard-hypotheses-as-written.sw (from SW-4403): record and commit it; and the explicit_lambda panic 'lambdas have parameters' (check.rs ~6921) on mismatched inputs should be an error, not a panic (SW-4419 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4437,
+      "title": "[Sonnet] A hole's goal display unfolds a Prop definition's head (Parse.Follows shows as forall state other ...), and the partial-unfold match example shows Call (L (%mark ())) in a goal: show Prop definitions folded at holes and never display % names (with SW-4433 F3) (SW-4419 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
