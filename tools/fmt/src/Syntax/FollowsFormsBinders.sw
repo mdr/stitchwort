@@ -313,17 +313,12 @@ theorem followsExistsExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (patterns: PatternOfFollows) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => existsExpr self modes) (() => existsExpr selfTwin modes) :=
   Parse.followsThen followsBump (keyword keywordTwin keywords =>
-    Parse.followsThen
-      [j := here => (let items := left(); existsLambda self modes keyword (lambdaAhead modes (here.left + 1) items))]
-      [k := here =>
-        (let items := left(); existsLambda selfTwin modes keywordTwin (lambdaAhead modes (here.left + 1) items))]
-      Parse.followsMark
-      (here hereTwin marks =>
-        rewrite <- marks.right.right then
-          Parse.followsThen followsLeft (seen others same =>
-            rewrite lambdaAheadSame modes (here.left + 1) seen others same then
-              followsExistsLambda facts patterns modes keyword keywordTwin keywords
-                (lambdaAhead modes (here.left + 1) others))))
+    Parse.followsThen Parse.followsMark (here hereTwin marks =>
+      rewrite <- marks.right.right then
+        Parse.followsThen followsLeft (seen others same =>
+          rewrite lambdaAheadSame modes (here.left + 1) seen others same then
+            followsExistsLambda facts patterns modes keyword keywordTwin keywords
+              (lambdaAhead modes (here.left + 1) others))))
 
 -- `∀`.
 
