@@ -1,5 +1,5 @@
 {
-  "next": 4472,
+  "next": 4474,
   "tickets": [
     {
       "id": 47,
@@ -27433,15 +27433,15 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Matt, 19 Nov 2026: 'please have on our backlog investigations into or actually doing some of the improvements that we found that would make Stitchwort more competitive with Lean and Rocq on these type of proofs.' Source: docs/reviews/SW-4222-lean-rocq-comparison.md §6.",
+      "body": "Matt, 19 Nov 2026: 'please have on our backlog investigations into or actually doing some of the improvements that we found that would make Stitchwort more competitive with Lean and Rocq on these type of proofs.' Source: docs/reviews/SW-4222-lean-rocq-comparison.md §6.\n\nSW-4242 (closer.md): a default lemma set closes about nothing in slice 1 (1 proof of 50, no shorter); recommends not now.\n",
       "created": "2026-11-19",
-      "updated": "2026-11-19",
+      "updated": "2026-11-20",
       "commits": []
     },
     {
       "id": 4242,
       "title": "[Fable, paper] A general closer that chains facts in scope with a tagged lemma set, like Lean's grind / simp_all and Rocq's auto (SW-4222 §6.3b): what it would close in slice 1's proofs (measure on a sample), cost, check-time and brittleness risks; design or say no",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -30452,6 +30452,32 @@
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4472,
+      "title": "[Opus] Closer stage 0 (docs/proposals/closer.md, SW-4242): F1 rewrite repeatedly can't close an ∧ goal whose parts compute (True = True ∧ … ∧ True = True; simp-revisited stage 3's conjunction closer); F2 cases splits a 60-kind token kind instead of the ∨ hypothesis first (signSymbolic hits E-CASES-BUDGET); F3 … then cases on a closed conjunction takes 46 ms against 1.8 ms; also F5 cases never applies an implication in scope (endedWeaker). Measure each against the probes in dev/patches/SW-4242-closer-probes.patch",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4473,
+      "title": "[Sonnet] Closer stage 0b (closer.md): a proving-guide section on finishing small proofs with today's tools (cases, rewrite repeatedly, or-patterns, _ arguments), then pilot two tools/fmt files (signSymbolic via or-pattern, drop minusSymbolic/bangSymbolic; passesAppend and Fmt/JoinProofs with _ arguments); bar: 5%% of proof lines with check time within 1.5x; after the stage 0 fixes",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
