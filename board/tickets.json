@@ -30116,12 +30116,12 @@
     {
       "id": 4446,
       "title": "[Sonnet] lift.rs:1618 panics (index out of bounds) when a caller leaves bindings in cx; add a debug_assert on the lengths there with a message naming the likely cause (bindings left after a failed attempt without restore) (SW-4418 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Progress (Sonnet, 20 Nov): lift.rs positions now uses d.extra.get(): debug_assert with the cause, E-INTERNAL in release. Commit 8a8e15407 on lane/SW-4446. Shown with before_written.restore removed (matching.rs:918) in a debug build.\n",
+      "body": "Progress (Sonnet, 20 Nov): lift.rs positions now uses d.extra.get(): debug_assert with the cause, E-INTERNAL in release. Commit 8a8e15407 on lane/SW-4446. Shown with before_written.restore removed (matching.rs:918) in a debug build.\n\n\nModel result: Sonnet, worked, 20 min (est. 20). The new message shows in a debug build with before_written.restore removed; a release build with the same change now gives E-AUTO-STUCK instead (SW-4444's match retry, merged after SW-4418, likely changes the path), so the E-INTERNAL return is unexercised.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
