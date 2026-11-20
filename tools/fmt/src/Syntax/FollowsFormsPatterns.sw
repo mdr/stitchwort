@@ -262,8 +262,7 @@ theorem followsNegativeDigits ∀ (modes: Modes) (minus minusTwin: Word)
 
 theorem followsNegativePattern ∀ (modes: Modes):
     Parse.Follows SameCode PatternsAlike (() => negativePattern modes) (() => negativePattern modes) :=
-  Parse.followsThen followsBump (minus minusTwin minuses =>
-    followsThenEq (followsAt modes Num) (number => followsNegativeDigits modes minus minusTwin minuses number))
+  byWalking [followsNegativeDigits]
 
 theorem followsPatternAppendOf ∀ [pself pselfTwin: PatternGoal → {Parse Item} Pattern]
     (pknot: PatternSelfFollows pself pselfTwin)
@@ -297,7 +296,7 @@ theorem followsPatternAppend ∀ [pself pselfTwin: PatternGoal → {Parse Item} 
     (starts: PatternsAlike start startTwin) (next: PatternLevel):
     Parse.Follows SameCode PatternsAlike (() => patternAppend pself modes start next) (() =>
       patternAppend pselfTwin modes startTwin next) :=
-  followsThenEq (followsAt modes PlusPlus) (plus => followsPatternAppendOf pknot modes start startTwin starts next plus)
+  byWalking [followsPatternAppendOf]
 
 theorem followsAlternativeLinksOn ∀ [pself pselfTwin: PatternGoal → {Parse Item} Pattern]
     (pknot: PatternSelfFollows pself pselfTwin)
@@ -563,11 +562,7 @@ theorem followsCtorArgMinus ∀ [pself pselfTwin: PatternGoal → {Parse Item} P
         ctorArgList more pselfTwin modes nameTwin stops foundTwin)):
     Parse.Follows SameCode (List.All2 PatternsAlike) (() => ctorArgMinus more pself modes name stops found minus) (() =>
       ctorArgMinus more pselfTwin modes nameTwin stops foundTwin minus) :=
-  match minus with
-    | True => Parse.followsThen (followsNegativePattern modes) (entry entryTwin entries =>
-      rest [entry, ..found] [entryTwin, ..foundTwin] (Both entries founds))
-    | False => Parse.followsThen (pknot { modes, level = PatternPlain }) (entry entryTwin entries =>
-      rest [entry, ..found] [entryTwin, ..foundTwin] (Both entries founds))
+  byWalking [followsNegativePattern]
 
 theorem followsCtorArgBrace ∀ [pself pselfTwin: PatternGoal → {Parse Item} Pattern]
     (pknot: PatternSelfFollows pself pselfTwin)
@@ -638,32 +633,27 @@ theorem followsCtorArgs ∀ [pself pselfTwin: PatternGoal → {Parse Item} Patte
     (names: WordsAlike name nameTwin) (stops: Tok → Bool):
     Parse.Follows SameCode PatternsAlike (() => ctorArgs pself modes name stops) (() =>
       ctorArgs pselfTwin modes nameTwin stops) :=
-  followsThenEq (followsAt modes LBrace) (braced => followsCtorArgsOf pknot modes name nameTwin names stops braced)
+  byWalking [followsCtorArgsOf]
 
 -- Patterns of one item, bracketed, tuples and lists.
 
 theorem followsTupleItem ∀ [pself pselfTwin: PatternGoal → {Parse Item} Pattern]
     (pknot: PatternSelfFollows pself pselfTwin) (modes: Modes):
     Parse.Follows SameCode PatternsAlike (() => tupleItem pself modes) (() => tupleItem pselfTwin modes) :=
-  Parse.followsThen (pknot { modes, level = PatternTupleComponent }) (first firstTwin firsts =>
-    followsAlternatives pknot modes first firstTwin firsts PatternTupleComponent)
+  byWalking [followsAlternatives]
 
 theorem followsListItemPattern ∀ [pself pselfTwin: PatternGoal → {Parse Item} Pattern]
     (pknot: PatternSelfFollows pself pselfTwin) (modes: Modes):
     Parse.Follows SameCode PatternsAlike (() => listItemPattern pself modes) (() => listItemPattern pselfTwin modes) :=
-  Parse.followsThen (pknot { modes, level = PatternListComponent }) (first firstTwin firsts =>
-    followsAlternatives pknot modes first firstTwin firsts PatternListComponent)
+  byWalking [followsAlternatives]
 
 theorem followsCtorAhead ∀ (modes: Modes):
     Parse.Follows SameCode Same (() => ctorAhead modes) (() => ctorAhead modes) :=
-  followsThenEq (followsAt modes Upper) (upper =>
-    followsThenEq (followsWordAhead modes "Quot.mk") (quot => Parse.followsDone byComputing))
+  byWalking [followsWordAhead]
 
 theorem followsQuotOrLower ∀ (modes: Modes) (quot: Bool):
     Parse.Follows SameCode WordsAlike (() => quotOrLower modes quot) (() => quotOrLower modes quot) :=
-  match quot with
-    | True => followsBump
-    | False => followsLower modes "a pattern"
+  byWalking [followsLower]
 
 theorem followsNamedPattern ∀ [pself pselfTwin: PatternGoal → {Parse Item} Pattern]
     (pknot: PatternSelfFollows pself pselfTwin) (modes: Modes):
@@ -859,27 +849,20 @@ theorem followsParenPatternEnd ∀ [pself pselfTwin: PatternGoal → {Parse Item
     (firsts: PatternsAlike first firstTwin):
     Parse.Follows SameCode PatternsAlike (() => parenPatternEnd pself modes open first) (() =>
       parenPatternEnd pselfTwin modes openTwin firstTwin) :=
-  followsThenEq (followsAt modes Comma) (comma =>
-    followsParenPatternOf pknot modes open openTwin opens first firstTwin firsts comma)
+  byWalking [followsParenPatternOf]
 
 theorem followsParenMinusPattern ∀ [pself pselfTwin: PatternGoal → {Parse Item} Pattern]
     (pknot: PatternSelfFollows pself pselfTwin) (modes: Modes):
     Parse.Follows SameCode PatternsAlike (() => parenMinusPattern pself modes) (() =>
       parenMinusPattern pselfTwin modes) :=
-  Parse.followsThen followsBump (open openTwin opens =>
-    Parse.followsThen (followsTupleItem pknot modes.inBrackets) (first firstTwin firsts =>
-      followsParenPatternEnd pknot modes.inBrackets open openTwin opens first firstTwin firsts))
+  byWalking [followsTupleItem, followsParenPatternEnd]
 
 theorem followsParenComponent ∀ [pself pselfTwin: PatternGoal → {Parse Item} Pattern]
     (pknot: PatternSelfFollows pself pselfTwin)
     (inner: Modes) (isCtor: Bool):
     Parse.Follows SameCode PatternsAlike (() => parenComponent pself inner isCtor) (() =>
       parenComponent pselfTwin inner isCtor) :=
-  match isCtor with
-    | True => Parse.followsThen followsBump (name nameTwin names =>
-      followsCtorArgs pknot inner name nameTwin names (kind =>
-        kind == RParen || kind == Comma || kind == Pipe || kind == PlusPlus))
-    | False => pknot { modes = inner, level = PatternPlain }
+  byWalking [followsCtorArgs]
 
 theorem followsParenOpenPattern ∀ [pself pselfTwin: PatternGoal → {Parse Item} Pattern]
     (pknot: PatternSelfFollows pself pselfTwin) (modes: Modes):
@@ -927,7 +910,7 @@ theorem followsBracketPattern ∀ [pself pselfTwin: PatternGoal → {Parse Item}
     (modes: Modes) (second: Option Tok):
     Parse.Follows SameCode PatternsAlike (() => bracketPattern pself modes second) (() =>
       bracketPattern pselfTwin modes second) :=
-  followsThenEq (followsPeekAt modes 2) (third => followsBracketPatternOn pknot modes second third)
+  byWalking [followsBracketPatternOn]
 
 theorem followsPlainWord ∀ (kind: Tok):
     Parse.Follows SameCode PatternsAlike (() => PatternWord kind bump()) (() => PatternWord kind bump()) :=
@@ -970,8 +953,7 @@ theorem followsPlainPattern ∀ [pself pselfTwin: PatternGoal → {Parse Item} P
     (pknot: PatternSelfFollows pself pselfTwin) (modes: Modes):
     Parse.Follows SameCode PatternsAlike (() => Syntax.plainPattern pself modes) (() =>
       Syntax.plainPattern pselfTwin modes) :=
-  followsPeeked modes (seen => plainPatternOn pself modes seen) (seen => plainPatternOn pselfTwin modes seen) (seen =>
-    followsPlainPatternOn pknot modes seen)
+  byWalking [followsPlainPatternOn]
 
 -- Components of tuples, lists and alternatives, and the rule's knot.
 
@@ -980,72 +962,50 @@ theorem followsTupleSigned ∀ [pself pselfTwin: PatternGoal → {Parse Item} Pa
     (modes: Modes) (minus: Bool):
     Parse.Follows SameCode PatternsAlike (() => tupleSigned pself modes minus) (() =>
       tupleSigned pselfTwin modes minus) :=
-  match !minus with
-    | True => Parse.followsThen (followsPlainPattern pknot modes) (plain plainTwin plains =>
-      followsPatternAppend pknot modes plain plainTwin plains PatternTupleComponent)
-    | False => followsNegativePattern modes
+  byWalking [followsPlainPattern, followsPatternAppend, followsNegativePattern]
 
 theorem followsTupleComponentOf ∀ [pself pselfTwin: PatternGoal → {Parse Item} Pattern]
     (pknot: PatternSelfFollows pself pselfTwin)
     (modes: Modes) (isCtor: Bool):
     Parse.Follows SameCode PatternsAlike (() => tupleComponentOf pself modes isCtor) (() =>
       tupleComponentOf pselfTwin modes isCtor) :=
-  match isCtor with
-    | True => Parse.followsThen followsBump (name nameTwin names =>
-      Parse.followsThen
-        (followsCtorArgs pknot modes name nameTwin names (kind =>
-          kind == Comma || kind == RParen || kind == Pipe || kind == PlusPlus))
-        (ctor ctorTwin ctors => followsPatternAppend pknot modes ctor ctorTwin ctors PatternTupleComponent))
-    | False => followsThenEq (followsAt modes Minus) (minus => followsTupleSigned pknot modes minus)
+  byWalking [followsCtorArgs, followsPatternAppend, followsTupleSigned]
 
 theorem followsTupleComponent ∀ [pself pselfTwin: PatternGoal → {Parse Item} Pattern]
     (pknot: PatternSelfFollows pself pselfTwin) (modes: Modes):
     Parse.Follows SameCode PatternsAlike (() => tupleComponent pself modes) (() => tupleComponent pselfTwin modes) :=
-  followsThenEq (followsCtorAhead modes) (isCtor => followsTupleComponentOf pknot modes isCtor)
+  byWalking [followsCtorAhead, followsTupleComponentOf]
 
 theorem followsListComponentOf ∀ [pself pselfTwin: PatternGoal → {Parse Item} Pattern]
     (pknot: PatternSelfFollows pself pselfTwin)
     (modes: Modes) (isCtor: Bool):
     Parse.Follows SameCode PatternsAlike (() => listComponentOf pself modes isCtor) (() =>
       listComponentOf pselfTwin modes isCtor) :=
-  match isCtor with
-    | True => Parse.followsThen followsBump (name nameTwin names =>
-      Parse.followsThen
-        (followsCtorArgs pknot modes name nameTwin names (kind =>
-          kind == Comma || kind == RBracket || kind == Pipe || kind == PlusPlus))
-        (ctor ctorTwin ctors => followsPatternAppend pknot modes ctor ctorTwin ctors PatternListComponent))
-    | False => followsTupleComponent pknot modes
+  byWalking [followsCtorArgs, followsPatternAppend, followsTupleComponent]
 
 theorem followsListComponent ∀ [pself pselfTwin: PatternGoal → {Parse Item} Pattern]
     (pknot: PatternSelfFollows pself pselfTwin) (modes: Modes):
     Parse.Follows SameCode PatternsAlike (() => listComponent pself modes) (() => listComponent pselfTwin modes) :=
-  followsThenEq (followsCtorAhead modes) (isCtor => followsListComponentOf pknot modes isCtor)
+  byWalking [followsCtorAhead, followsListComponentOf]
 
 theorem followsAltPatternOneOf ∀ [pself pselfTwin: PatternGoal → {Parse Item} Pattern]
     (pknot: PatternSelfFollows pself pselfTwin)
     (modes: Modes) (isCtor: Bool):
     Parse.Follows SameCode PatternsAlike (() => altPatternOneOf pself modes isCtor) (() =>
       altPatternOneOf pselfTwin modes isCtor) :=
-  match isCtor with
-    | True => Parse.followsThen followsBump (name nameTwin names =>
-      Parse.followsThen (followsCtorArgs pknot modes name nameTwin names endsAltArguments) (ctor ctorTwin ctors =>
-        followsPatternAppend pknot modes ctor ctorTwin ctors PatternAltOne))
-    | False => followsTupleComponent pknot modes
+  byWalking [followsCtorArgs, followsPatternAppend, followsTupleComponent]
 
 theorem followsAltPatternOne ∀ [pself pselfTwin: PatternGoal → {Parse Item} Pattern]
     (pknot: PatternSelfFollows pself pselfTwin) (modes: Modes):
     Parse.Follows SameCode PatternsAlike (() => altPatternOne pself modes) (() => altPatternOne pselfTwin modes) :=
-  followsThenEq (followsCtorAhead modes) (isCtor => followsAltPatternOneOf pknot modes isCtor)
+  byWalking [followsCtorAhead, followsAltPatternOneOf]
 
 theorem followsFieldValuePattern ∀ [pself pselfTwin: PatternGoal → {Parse Item} Pattern]
     (pknot: PatternSelfFollows pself pselfTwin)
     (modes: Modes) (isCtor: Bool):
     Parse.Follows SameCode PatternsAlike (() => fieldValuePattern pself modes isCtor) (() =>
       fieldValuePattern pselfTwin modes isCtor) :=
-  match isCtor with
-    | True => Parse.followsThen followsBump (ctor ctorTwin ctors =>
-      followsCtorArgs pknot modes ctor ctorTwin ctors (kind => kind == Comma || kind == RBrace))
-    | False => followsPlainPattern pknot modes
+  byWalking [followsCtorArgs, followsPlainPattern]
 
 theorem patternRuleFollows ∀ (pself pselfTwin: PatternGoal → {Parse Item} Pattern)
     (pknot: PatternSelfFollows pself pselfTwin):
