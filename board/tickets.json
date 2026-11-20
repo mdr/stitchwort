@@ -30356,12 +30356,12 @@
     {
       "id": 4464,
       "title": "[Sonnet, paper] Where we stand against Lean/Rocq (SW-4222), measured on today's main: re-count the sample's 21 theorems (SW-4222 §2-3, its line-counting method) as they are proved now, after the walk (W1, W3), functional induction (SW-4260-4264) and the consolidation lanes; a table per kind (Stitchwort then, now, Lean, Rocq); then for each of §6's recommendations (6.1 walk, 6.2 induction along a function, 6.3 closer with default lemma sets, SW-4219 one proof text for several arms, SW-4220) say built / partly / not, with the tickets; and what the remaining gap is made of, in lines and kinds. No builds beyond reading; may run check on single namespaces to confirm a proof's current text.",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nProgress (Sonnet lane, 20 Nov): docs/reviews/SW-4464-lean-rocq-standing.md on lane/SW-4464 (b83945059). 21 sample theorems: 302 lines on 19 Nov, 217 now (Lean 159, Rocq 125); comma list 53 to 9, rule N 29 to 14. Closer (SW-4241/4242/3631) is the unbuilt feature. W4 touches no sample theorem yet.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
