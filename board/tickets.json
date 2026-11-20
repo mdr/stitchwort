@@ -1,5 +1,5 @@
 {
-  "next": 4311,
+  "next": 4312,
   "tickets": [
     {
       "id": 47,
@@ -28231,7 +28231,7 @@
     {
       "id": 4302,
       "title": "[Opus] HangLays/Steps shape blocks inference of pre/middle/post (pre place (hangOf kinds trace) isn't a pattern once unfolded): restate HangLays with the hang as a bound variable (meaning unchanged; orchestrator statement check), or teach the unifier; est. ~400 more lines off the hangs/steps families (SW-4282 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -28341,6 +28341,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Overmind report 20 Nov ~01:15; last green 1572eb1cf.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4311,
+      "title": "[Sonnet] Steps: try making stepsTwo/stepsCons pre/middle/post implicit (Steps already applies them only to bound variables); if it fails the cause is the doc-unfolding order (SW-4305) (SW-4302 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From SW-4302.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
