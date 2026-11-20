@@ -809,21 +809,7 @@ fn generalised(
 /// checked as usual. A `match` that refines such a hypothesis says so
 /// (`W-MATCH-UNCONFIRMED`, [`generalised_now`]).
 fn read_type(cx: &Ctx, base: usize, l: usize) -> std::result::Result<(Term, bool), ResourceError> {
-    let g = cx.g();
-    match quote(&g, base, &cx.types[l]) {
-        Err(e @ ResourceError::Size(_)) if g.machine.budget.exhausted().is_none() => {
-            let noted = g.machine.budget.take_too_large();
-            match stitchwort_core::value::quote_as_written(&g, base, &cx.types[l]) {
-                Ok(t) => Ok((t, true)),
-                Err(ResourceError::Size(_)) if g.machine.budget.exhausted().is_none() => {
-                    g.machine.budget.set_too_large(noted);
-                    Err(e)
-                }
-                Err(e) => Err(e),
-            }
-        }
-        read => read.map(|t| (t, false)),
-    }
+    crate::check::quote_or_written(&cx.g(), base, &cx.types[l])
 }
 
 /// The unknown a generalisation in context `base` would read unsolved, if

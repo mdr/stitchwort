@@ -1475,7 +1475,7 @@ fn head_meta(cx: &Ctx, v: &Value) -> Result<Option<usize>> {
 /// `a = b`, `a != b` or `a == b`, with both sides of type `t`.
 fn equation(cx: &mut Ctx, op: BinOp, a: Term, b: Term, t: &Value) -> Result<(Term, Value)> {
     let prop = Value::Sort(Sort::Prop);
-    let ty = cx.quote(t)?;
+    let ty = cx.quote_or_written(t)?;
     let eq = Term::Eq(Some(Rc::new(ty)), Rc::new(a), Rc::new(b));
     match op {
         BinOp::Eq => Ok((eq, prop)),

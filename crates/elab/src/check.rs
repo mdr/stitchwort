@@ -721,6 +721,14 @@ impl<'e> Ctx<'e> {
         Ok(quote(&self.g(), self.level(), value)?)
     }
 
+    /// [`Ctx::quote`], or the value as written ([`quote_or_written`]) where
+    /// it is too large to read back unfolded: for a term the elaboration
+    /// keeps, such as the type an equation is at, when a user's hypothesis
+    /// or goal makes the unfolding huge (SW-4237).
+    pub fn quote_or_written(&self, value: &Value) -> Result<Term> {
+        Ok(quote_or_written(&self.g(), self.level(), value)?.0)
+    }
+
     /// [`Ctx::quote`] for a note in a message, or `None` past
     /// [`UNFOLD_NODES`] nodes: `Parse.exactly 2^128 p` unfolds 2^128 levels
     /// deep, and a note does without a side that big (SW-2580).
@@ -9280,7 +9288,7 @@ type WrittenResult = (Value, Supply, Vec<Value>, Vec<(usize, Term)>);
 fn mentions_any(g: &Ev, level: usize, ty: &Value, count: usize) -> Result<bool> {
     // Calls stay folded: reading back their unfoldings can be costly, and a
     // call mentions every variable its unfolding does.
-    let term = stitchwort_core::value::quote_folded(g, level, ty)?;
+    let term = quote_folded(g, level, ty)?;
     Ok((0..count).any(|i| term.mentions(i)))
 }
 
@@ -10573,6 +10581,33 @@ mod tests {
             elaborate("(x => x: [a: Type] → a → a)").as_deref(),
             Ok("[a: Type] → a → a")
         );
+    }
+}
+
+/// `value` read back unfolded, or as written if that is too large (then with
+/// `true`): a convertible term, since a call as written computes to the same
+/// value. Anything else that fails, running out of work included, is
+/// passed on, and a value too large to write either way keeps the first
+/// error and its note of what was too large.
+pub(crate) fn quote_or_written(
+    g: &Ev,
+    level: usize,
+    value: &Value,
+) -> std::result::Result<(Term, bool), ResourceError> {
+    let budget = &g.machine.budget;
+    match quote(g, level, value) {
+        Err(e @ ResourceError::Size(_)) if budget.exhausted().is_none() => {
+            let noted = budget.take_too_large();
+            match stitchwort_core::value::quote_as_written(g, level, value) {
+                Ok(t) => Ok((t, true)),
+                Err(ResourceError::Size(_)) if budget.exhausted().is_none() => {
+                    budget.set_too_large(noted);
+                    Err(e)
+                }
+                Err(e) => Err(e),
+            }
+        }
+        read => read.map(|t| (t, false)),
     }
 }
 
