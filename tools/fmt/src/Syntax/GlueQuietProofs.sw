@@ -17,7 +17,7 @@ import Syntax.SettleProofs (alphabet1, laidOut)
 import Syntax.SettleSplitProofs (groupsConcat)
 import Syntax.LexLaidProofs (lexLaidProved)
 import Syntax.SettleOnceProofs (intoTrailing)
-import Syntax.SettleBareProofs (fwdPair, lastPair, withBareFromR, withBareR)
+import Syntax.SettleBareProofs (fwdPair, withBareFromR, withBareR)
 
 -- The invariant.
 

@@ -104,11 +104,6 @@ theorem homeFromHome1 ∀ (behind rest: List Leaf)
 -- closer, after an item (`hasItem`): in a list newest first, the closer, the
 -- comma, then the older leaves.
 
---| Whether `comma`, just older than a leaf of kind `above`, with `older`
---| behind it, is a last comma.
-def lastPair (above: Tok) (comma: Leaf) (older: List Leaf): Bool :=
-  comma.token.kind == Comma && above.isCloser && hasItem older
-
 --| What `withMarkedLastCommas` adds and rule N leaves, `behind` (newest first)
 --| after the leaf of kind `above`, without the last commas.
 def dr (above: Tok) (behind: List Leaf): List Leaf := match behind with
@@ -680,7 +675,7 @@ theorem dropRevOnto ∀ (rest acc: List Leaf)
       let claim := ih (gapAfterPair comma closer behind after pair)
       rewrite drPairTop closer comma behind pair at claim then claim
     | eq3 behind leaf after notArm2 ih =>
-      let claim := ih (gapAfterNop leaf behind after (fwdPairOfNoPair leaf behind after notArm2))
+      let claim := ih (gapAfterNop leaf behind after (fwdPairOfNotArm leaf behind after notArm2))
       rewrite drNopTop leaf behind gap at claim then claim
 
 theorem barishSuffix ∀ (y: Leaf) (ys: List Leaf) (ok: barishTop [y, ..ys] = True): barishTop ys = True := match ys with
@@ -732,7 +727,7 @@ theorem barishFOnto ∀ (rest acc: List Leaf)
             (Bool.andLeft (Bool.andRight (Bool.andRight parts)))
             (ih (gapAfterPair comma closer behind after pair) ok)))
     | eq3 behind leaf after notArm2 ih =>
-      ih (gapAfterNop leaf behind after (fwdPairOfNoPair leaf behind after notArm2)) ok
+      ih (gapAfterNop leaf behind after (fwdPairOfNotArm leaf behind after notArm2)) ok
 
 --| Leaves newest first, without their last commas and bare, are in order
 --| what the forward reading gives.
@@ -1118,7 +1113,7 @@ theorem arrowsDrop ∀ (done: List Leaf) (current: Leaf) (rest: List Leaf)
 --| `withBareLastCommas` with the leaves done returned newest first.
 def withBareR (behind rest: List Leaf): List Leaf := match rest with
   | [] => behind
-  | [comma, closer, ..after] if comma.kind == Comma && closer.kind.isCloser && hasItem behind =>
+  | [comma, closer, ..after] if lastPair closer.token.kind comma behind =>
     let (moved, earlier) := commaMoved comma closer behind
     withBareR [moved, { comma | trivia = Trivia.empty }, ..earlier] after
   | [leaf, ..after] => withBareR [leaf, ..behind] after
@@ -1131,7 +1126,7 @@ def withBareR (behind rest: List Leaf): List Leaf := match rest with
 --| proofs below relate to the leaves without the commas.
 def withMarkedLastCommas (behind rest: List Leaf): List Leaf := match rest with
   | [] => behind.reverse
-  | [comma, closer, ..after] if comma.kind == Comma && closer.kind.isCloser && hasItem behind =>
+  | [comma, closer, ..after] if lastPair closer.token.kind comma behind =>
     let (moved, earlier) := commaDeleted comma closer behind
     withMarkedLastCommas [moved, { comma | trivia = Trivia.empty }, ..earlier] after
   | [leaf, ..after] => withMarkedLastCommas [leaf, ..behind] after
@@ -1139,7 +1134,7 @@ def withMarkedLastCommas (behind rest: List Leaf): List Leaf := match rest with
 --| `withMarkedLastCommas` with the leaves done returned newest first.
 def withMarkedR (behind rest: List Leaf): List Leaf := match rest with
   | [] => behind
-  | [comma, closer, ..after] if comma.kind == Comma && closer.kind.isCloser && hasItem behind =>
+  | [comma, closer, ..after] if lastPair closer.token.kind comma behind =>
     let (moved, earlier) := commaDeleted comma closer behind
     withMarkedR [moved, { comma | trivia = Trivia.empty }, ..earlier] after
   | [leaf, ..after] => withMarkedR [leaf, ..behind] after
@@ -1147,7 +1142,7 @@ def withMarkedR (behind rest: List Leaf): List Leaf := match rest with
 --| `withoutLastCommas` with the leaves done returned newest first.
 def withoutR (behind rest: List Leaf): List Leaf := match rest with
   | [] => behind
-  | [comma, closer, ..after] if comma.kind == Comma && closer.kind.isCloser && hasItem behind =>
+  | [comma, closer, ..after] if lastPair closer.token.kind comma behind =>
     let (moved, earlier) := commaDeleted comma closer behind
     withoutR [moved, ..earlier] after
   | [leaf, ..after] => withoutR [leaf, ..behind] after
@@ -1193,7 +1188,7 @@ theorem commaDeletedDrop ∀ (comma closer: Leaf) (behind: List Leaf)
 --| as `notArm2`, that the leaf is no last comma: the pair test fails.
 theorem fwdPairOfNotArm ∀ (leaf: Leaf) (behind after: List Leaf)
     (notArm2: ∀ (closer: Leaf) (after1: List Leaf) => after = [closer, ..after1]
-      → (leaf.kind == Comma && closer.kind.isCloser && hasItem behind) = False):
+      → lastPair closer.token.kind leaf behind = False):
     fwdPair behind leaf after = False :=
   match after with
     | [] => byComputing
@@ -1204,17 +1199,8 @@ theorem notArmOfFwdPair ∀ (leaf: Leaf) (behind after: List Leaf)
     (nop: fwdPair behind leaf after = False)
     (closer: Leaf) (after1: List Leaf)
     (same: after = [closer, ..after1]):
-    (leaf.kind == Comma && closer.kind.isCloser && hasItem behind) = False :=
+    lastPair closer.token.kind leaf behind = False :=
   rewrite same at nop then nop
-
---| `notArm2` of the walkers whose guard is `lastPair` (`dropF`, `barishF`) as the pair test failing.
-theorem fwdPairOfNoPair ∀ (leaf: Leaf) (behind after: List Leaf)
-    (notArm2: ∀ (closer: Leaf) (after1: List Leaf) => after = [closer, ..after1]
-      → lastPair closer.token.kind leaf behind = False):
-    fwdPair behind leaf after = False :=
-  match after with
-    | [] => byComputing
-    | [closer, ..after1] => notArm2 closer after1 byComputing
 
 theorem hasItemDropRev ∀ (behind: List Leaf): hasItem (dropRev behind) = hasItem behind := match behind with
   | [] | [_, .._] => byComputing
