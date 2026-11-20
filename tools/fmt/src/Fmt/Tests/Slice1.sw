@@ -5,6 +5,7 @@
 
 namespace Fmt.Tests
 import Fmt (..)
+import Fmt.Later (formatWithin)
 import Std (Bool, Result, Text)
 
 def formats (source expected: Text): Bool := formatWithin source == Ok expected

@@ -16,7 +16,8 @@
 --| `within4a`, and a token alphabet, `Tok.within4a`. `formatWithin` is
 --| `Fmt.Slice5a`'s.
 
-namespace Fmt
+namespace Fmt.Later
+import Fmt (..)
 import Std (Bool, Doc, List, Nat, Option, Text)
 import Syntax (
   Arm,

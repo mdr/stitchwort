@@ -16,7 +16,8 @@
 --| As in the earlier slices, the slice is a test on the real tree,
 --| `within4b`, and a token alphabet, `Tok.within4b`.
 
-namespace Fmt
+namespace Fmt.Later
+import Fmt (..)
 import Std (Bool, Doc, List, Nat, Option, Text)
 import Syntax (
   Arm,
