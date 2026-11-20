@@ -692,13 +692,15 @@ theorem alikeReify ∀ (keyword keywordTwin reify reifyTwin: Comments) (computat
 theorem namesBlank ∀ (words twins: List Word)
     (alike: List.All2 WordsAlike words twins):
     blankWords words = blankWords twins :=
-  match words, twins with
-    | [], [] => byComputing
-    | [word, ..rest], [twin, ..restTwin] =>
-      calc blankWords [word, ..rest]
-        _ = [word.blank, ..blankWords rest] := byComputing
-        _ = [twin.blank, ..blankWords restTwin] := rewrite alike.left, namesBlank rest restTwin alike.right
-        _ = blankWords [twin, ..restTwin] := byComputing
+  List.all2Join
+    [f := blankWords]
+    [key := word => word.blank]
+    (k rest => [k, ..rest])
+    (x rest => byComputing)
+    (x y same => same)
+    words
+    twins
+    alike
 
 theorem alikeInductArm ∀ (bar barTwin: Comments) (case caseTwin: Word)
     (kinds: WordsAlike case caseTwin) (names twins: List Word)
@@ -1089,15 +1091,15 @@ theorem stepsBlankCons ∀ (step: CalcStep) (rest: List CalcStep):
 theorem blankCalcStepsAlike ∀ (steps twins: List CalcStep)
     (alike: List.All2 StepAlike steps twins):
     blankCalcSteps (walkSteps blankPure steps) = blankCalcSteps (walkSteps blankPure twins) :=
-  match steps, twins with
-    | [], [] => byComputing
-    | [step, ..rest], [twin, ..restTwin] =>
-      calc blankCalcSteps (walkSteps blankPure [step, ..rest])
-        _ = blankCalcSteps (walkSteps blankPure [step]) ++ blankCalcSteps (walkSteps blankPure rest) :=
-          stepsBlankCons step rest
-        _ = blankCalcSteps (walkSteps blankPure [twin]) ++ blankCalcSteps (walkSteps blankPure restTwin) :=
-          rewrite alike.left, blankCalcStepsAlike rest restTwin alike.right
-        _ = blankCalcSteps (walkSteps blankPure [twin, ..restTwin]) := Eq.flipped (stepsBlankCons twin restTwin)
+  List.all2Join
+    [f := list => blankCalcSteps (walkSteps blankPure list)]
+    [key := step => blankCalcSteps (walkSteps blankPure [step])]
+    (k rest => k ++ rest)
+    stepsBlankCons
+    (x y same => same)
+    steps
+    twins
+    alike
 
 theorem alikeCalc ∀ (keyword keywordTwin: Comments) (first firstTwin: Expr)
     (firsts: ExprsAlike first firstTwin) (steps twins: List CalcStep)
