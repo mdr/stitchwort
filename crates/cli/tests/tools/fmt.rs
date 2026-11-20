@@ -163,7 +163,10 @@ fn a_folder_walk_skips_deliberately_unformatted_files() {
     assert_eq!(text(&output), format!("{}\n", formatted.display()));
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("1 file skipped as deliberately unformatted"),
+        stderr.contains(&format!(
+            "1 file skipped as deliberately unformatted\n{}\n",
+            excluded.display()
+        )),
         "{stderr}"
     );
     assert_eq!(std::fs::read_to_string(&excluded).unwrap(), UNFORMATTED);
@@ -200,7 +203,10 @@ fn check_skips_a_named_deliberately_unformatted_file() {
     assert_eq!(text(&output), "");
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("1 file skipped as deliberately unformatted"),
+        stderr.contains(&format!(
+            "1 file skipped as deliberately unformatted\n{}\n",
+            excluded.display()
+        )),
         "{stderr}"
     );
 
