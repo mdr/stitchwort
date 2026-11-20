@@ -30222,8 +30222,8 @@
     {
       "id": 4454,
       "title": "[DeepSeek] Error notes print compiler-made names: half.%step in examples/reject/goal-shows-step-name's snapshot; print it as SW-4437 did for %op (pretty.rs), and extend the no-% check to reject example output except where a test expects it (SW-4437 finding 2)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
