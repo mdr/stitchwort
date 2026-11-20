@@ -339,6 +339,10 @@ pub(super) enum Param {
     Premise,
     /// A variable in scope, by name; `None` if it is left to unification.
     Value(Option<String>),
+    /// A value the call fixes whose type still has an unknown (a thunk the
+    /// lemma leaves open, `second`): left to unification, and written in
+    /// the expansion, where nothing else would fix it.
+    Shown(String),
     /// A value the call fixes that isn't a variable (`count + 1`): passed
     /// as a local definition, so the premises after it are checked with
     /// it known, and written as the value.
@@ -475,8 +479,11 @@ pub(super) fn fit_type(
                 let term = cx.quote_folded(&v)?;
                 let ty = cx.quote_folded(&dom)?;
                 let open = |t: &Term| t.subterms().any(|(t, _)| matches!(t, Term::Meta(_)));
-                if open(&term) || open(&ty) {
+                if open(&term) {
                     return Ok(Param::Value(None));
+                }
+                if open(&ty) {
+                    return Ok(Param::Shown(cx.show_term(&term)));
                 }
                 Ok(Param::Known {
                     shown: cx.show_term(&term),
@@ -774,7 +781,11 @@ pub(super) fn choose(
         cx,
         info,
         expected,
-        &format!("it has no lemma for this call of {what}"),
+        &if calls.len() > 1 {
+            format!("it has no lemma for this pair of calls of {what}, one in each run")
+        } else {
+            format!("it has no lemma for this call of {what}")
+        },
         &notes,
     ))
 }

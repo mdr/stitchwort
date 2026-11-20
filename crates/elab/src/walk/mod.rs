@@ -948,6 +948,10 @@ fn applied(
                     text.push(Piece::Text(" _".into()));
                 }
             },
+            Param::Shown(shown) => {
+                e = app(e, Expr::Hole(span));
+                text.push(Piece::Text(format!(" ({shown})")));
+            }
             Param::Known { term, ty, shown } => {
                 let name = format!("%walk{node}.{i}");
                 let ty = cx.eval(ty)?;

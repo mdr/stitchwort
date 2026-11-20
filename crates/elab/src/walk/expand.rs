@@ -200,7 +200,8 @@ pub fn expand_file(
             .collect();
         out.push_str(&text[at..range.start]);
         out.push_str(&render(text, &e.pieces, &indent));
-        at = range.end;
+        // Over the closing brackets the walk's span leaves out, as quoted.
+        at = range.start + quoted(text, e.span).len();
         done += 1;
     }
     out.push_str(&text[at..]);
@@ -211,6 +212,22 @@ pub fn expand_file(
 /// the line above), in [`render`].
 pub(super) const MORE: char = '\u{1}';
 
+/// The source at `span`, with the closing brackets after it that its own
+/// opening ones need: an application's span ends at its last argument's,
+/// inside that argument's brackets (`f x (() => y)` is quoted without its
+/// last `)`).
+fn quoted(text: &str, span: Span) -> String {
+    let Some(mut out) = text.get(span.range()).map(str::to_string) else {
+        return "?".into();
+    };
+    let count = |s: &str, c: char| s.chars().filter(|&x| x == c).count();
+    let mut rest = text.get(span.range().end..).unwrap_or("").chars();
+    while count(&out, '(') > count(&out, ')') && rest.next() == Some(')') {
+        out.push(')');
+    }
+    out
+}
+
 /// The pieces as text, each line after the first indented by `indent` and
 /// by the depth of the brackets open before it.
 pub(super) fn render(text: &str, pieces: &[Piece], indent: &str) -> String {
@@ -218,7 +235,7 @@ pub(super) fn render(text: &str, pieces: &[Piece], indent: &str) -> String {
     for p in pieces {
         match p {
             Piece::Text(t) => raw.push_str(t),
-            Piece::Source(span) => raw.push_str(text.get(span.range()).unwrap_or("?")),
+            Piece::Source(span) => raw.push_str(&quoted(text, *span)),
             Piece::Child(_) => {}
         }
     }
@@ -239,10 +256,16 @@ pub(super) fn render(text: &str, pieces: &[Piece], indent: &str) -> String {
             }
         }
         out.push_str(line);
+        // Brackets in a string literal (`"`)`"`) don't count.
+        let mut quoted = false;
+        let mut escaped = false;
         for c in line.chars() {
             match c {
-                '(' | '[' => depth += 1,
-                ')' | ']' => depth = depth.saturating_sub(1),
+                _ if escaped => escaped = false,
+                '\\' if quoted => escaped = true,
+                '"' => quoted = !quoted,
+                '(' | '[' if !quoted => depth += 1,
+                ')' | ']' if !quoted => depth = depth.saturating_sub(1),
                 _ => {}
             }
         }
