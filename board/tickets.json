@@ -29148,12 +29148,12 @@
     {
       "id": 4372,
       "title": "[DeepSeek] check --only NAME: when no theorem NAME is found but a qualified one ends with it (Syntax.ParseWalk.givesCommaListFrom), suggest the qualified name in the error (SW-4239 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\n\nModel result: DeepSeek, worked, 25 min (est. 20)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
