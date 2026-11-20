@@ -30157,12 +30157,12 @@
     {
       "id": 4449,
       "title": "[Sonnet] Goals as written, follow-ups of SW-4443: a hole that is a call's argument (h ? with h: 0 < 1 -> 2 < 3) shows the parameter's written type; match induct alternatives substitute the case's target values into the written statement (induct_match.rs alternative); scope Ctx::statement_arms so it can't carry into check_match_once's scrutinee",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
-      "body": "\n\nProgress (Sonnet lane): all three done on lane/SW-4449 (ca5819f89): statement_arms off during scrutinee elaboration; a ? argument shows the parameter's written type; match induct cases show the written statement with the case's targets. Snapshots: closed-comparison-as-written (apart), match-induct-list-cases (eq1).\n",
+      "body": "\n\nProgress (Sonnet lane): all three done on lane/SW-4449 (ca5819f89): statement_arms off during scrutinee elaboration; a ? argument shows the parameter's written type; match induct cases show the written statement with the case's targets. Snapshots: closed-comparison-as-written (apart), match-induct-list-cases (eq1).\n\n\nModel result: Sonnet, worked, 23 min (est. 40)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
