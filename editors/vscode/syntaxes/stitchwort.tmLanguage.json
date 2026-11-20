@@ -38,6 +38,11 @@
           "match": "\\b(type|theorem|def|export|test|interface|instance|if|then|else|ability|where|handle|with|match|return|let|import|include|namespace|calc|rewrite|arithmetic|algebra|cases|decreasing|opaque|unfolding)(?![A-Za-z0-9_'])"
         },
         {
+          "comment": "`byWalking` starts a walk only before a `[`; anywhere else it is a name",
+          "name": "keyword.control.stitchwort",
+          "match": "\\bbyWalking(?=\\s*\\[)"
+        },
+        {
           "comment": "`some` between `match` and `|`, and `matches` before a `|`, are keywords; anywhere else they are names",
           "match": "(?<=\\bmatch\\s)\\s*(some)(?=\\s*\\|(?![|>]))|\\b(matches)(?=\\s*\\|(?![|>]))",
           "captures": { "1": { "name": "keyword.control.stitchwort" }, "2": { "name": "keyword.control.stitchwort" } }
