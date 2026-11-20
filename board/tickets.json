@@ -28114,12 +28114,12 @@
     {
       "id": 4293,
       "title": "[Opus] ParseWalkStatements split: givesExpressionAt and outsideOf in their own namespace so ParseWalkOthers/ParseCarriesDecl stop depending on every part (SW-4273 finding)",
-      "status": "doing",
-      "agent": "Claude",
+      "status": "backlog",
+      "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target -. D3698 overnight.",
+      "body": "\nFrom the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target -. D3698 overnight.\n\nOrchestrator 20 Nov 03:25: DeepSeek run dropped. The dependency closure of givesExpressionAt/outsideOf is the whole file (all 40 declarations), so a pure move only renames it. A real gain needs restructuring: e.g. outsideOf taking the let/cases/statement facts as parameters, or splitting by what ParseWalkOthers/ParseCarriesDecl actually use. Back to backlog; Sonnet with a design sketch.\n",
       "created": "2026-11-19",
       "updated": "2026-11-20",
       "commits": []
