@@ -1010,6 +1010,15 @@ impl Elaborator {
             {
                 let g = &self.ev();
                 let depth = binders.len();
+                // For a `&&` guard stated as its `Bool` (`tested`), `cur`
+                // holds the arm's proof as `sound guard`, while the split
+                // below binds its own `h` (`guard` is `complete h`), so the
+                // IHs and the splits' conditions see `sound (complete h)`
+                // where the tree has `h`. They still convert: a conjunction
+                // has no proof-uniqueness lemma, so the arm has an equation
+                // only if its whole branch reaches `h` at positions
+                // conversion skips (`proof_is_inert_in`, D2180), and those
+                // stay skipped whatever proof fills them (SW-4360).
                 let mut ihs = Vec::new();
                 calls(g, d, &cur, (depth, 0), &[], &mut ihs)?;
                 let rhs = unmark(g, d, &cur)?;
