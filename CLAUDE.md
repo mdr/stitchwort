@@ -428,6 +428,14 @@ Matt. Every `-E` filter names a `binary(...)` or `package(...)`.
   `docs/syntax.md`; if the feature is one a newcomer would enjoy, it gets a
   feature-tour page too (`web/guide/`). The brief says so, and the
   orchestrator checks it in review (Matt, 5 Nov 2026).
+- The two formatters behave the same (Matt, 20 Nov 2026: "we should
+  keep the formatters in sync ... They should behave the same"). A lane
+  that adds or changes syntax also updates the self-hosted formatter
+  (`tools/fmt`) to the degree its slices reach: inside the slices'
+  grammar it reads and prints the construct as the Rust formatter does,
+  with its proofs extended to match; outside them it refuses the source,
+  never formats it differently. Moving a construct into or out of a slice
+  is scope, Matt's (D3688, D3704).
 - A lane that changes the kernel (a new term form, conversion or
   reduction rule, or what the kernel accepts) also updates the kernel
   spec, `docs/core.md`, in the same lane (D3210, Matt, 7 Nov 2026).
