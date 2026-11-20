@@ -752,8 +752,11 @@ scratch file on 19 Nov 2026).
   = False` (a decided proposition `P` gives `P` and `¬P`); `cases` and
   `arithmetic` use them, but the goal shows the fact only when it is named
   (`| c if g: c == '(' => …`). A `rewrite g` or `rewrite f.eqK … g` there
-  finds nothing to rewrite: drop it (`W-REWRITE-GUARD-REFINED`). Where the
-  goal can't be generalised, the guard gives the fact without refining;
+  finds nothing to rewrite: drop it (`W-REWRITE-GUARD-REFINED`, for a
+  rewrite of the goal only; a `rewrite … at h` that finds nothing makes the
+  arm fail refined, and the guard then splits as before). Where the goal
+  can't be generalised, or an arm fails refined but checks unrefined, the
+  guard gives the fact without refining;
   `match g: c == '(' with | True => … | False => …` then tells you why
   (`E-MATCH-MOTIVE`).
 - **A `?` prints its goal only when the checker reaches it, and only `?`

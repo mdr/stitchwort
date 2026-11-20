@@ -7016,7 +7016,9 @@ fn check_guard(
             let hidden = cx.suspend_names(aliased.start, aliased.end);
             let order = std::mem::replace(&mut cx.order, saved_order.clone());
             cx.e.decl.leaf_log.borrow_mut().path.push(GUARD_ELSE);
-            let added = cx.level() - (split_at + 1);
+            let added = cx.level().checked_sub(split_at + 1).expect(
+                "the arms below a guard are checked with at least the `if`'s one fact bound",
+            );
             let refined = (added > 0).then(|| otherwise.shifted(split_at, added));
             let result = check_flat(cx, refined.as_ref().unwrap_or(otherwise), expected);
             cx.e.decl.leaf_log.borrow_mut().path.pop();
