@@ -28114,14 +28114,14 @@
     {
       "id": 4293,
       "title": "[Opus] ParseWalkStatements split: givesExpressionAt and outsideOf in their own namespace so ParseWalkOthers/ParseCarriesDecl stop depending on every part (SW-4273 finding)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
       "body": "From the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target -. D3698 overnight.",
       "created": "2026-11-19",
-      "updated": "2026-11-19",
+      "updated": "2026-11-20",
       "commits": []
     },
     {
@@ -28413,8 +28413,8 @@
     {
       "id": 4316,
       "title": "[Opus] Unifier fallback (SW-4305): also solve unknowns against lambda arguments, so HangLays-headed lemmas infer their docs (12 lemmas SW-4317 had to leave explicit: hangsCons, hangsLast, hangsAppend, hangsConcat, hangsKept, hangsMarked, hangsTwo, hangsOfLays, allHangsKept, allHangsMarked, defFromHangs, headerHangs) and laysBy's three [doc := …] go; measured cost: Std.Parse.readsToken's hash changes",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
