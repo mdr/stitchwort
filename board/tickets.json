@@ -28413,12 +28413,12 @@
     {
       "id": 4316,
       "title": "[Opus] Unifier fallback (SW-4305): also solve unknowns against lambda arguments, so HangLays-headed lemmas infer their docs (12 lemmas SW-4317 had to leave explicit: hangsCons, hangsLast, hangsAppend, hangsConcat, hangsKept, hangsMarked, hangsTwo, hangsOfLays, allHangsKept, allHangsMarked, defFromHangs, headerHangs) and laysBy's three [doc := …] go; measured cost: Std.Parse.readsToken's hash changes",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Orchestrator's call 20 Nov: hash-neutral version merged first (SW-4305 report).",
+      "body": "Orchestrator's call 20 Nov: hash-neutral version merged first (SW-4305 report).\n\nLane 20 Nov (Opus, ~40 min): rule = an unknown facing a lambda is solved with it only when a data-typed unknown (not Pi/Sort) faces a known argument of the same call; propagate_failed now passes the expected type as written to compare_named. No hash change (hashes lane passed). 12 lemmas' doc binders implicit, laysBy's 3 [doc := …] gone, tools/fmt −173 lines; two allHangsKept uses name [docs := …]. Whole fmt check, goal, Fmt.Tests (441) clean. Commit c4d6667d1.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
