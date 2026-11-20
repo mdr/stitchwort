@@ -4916,13 +4916,47 @@ fn guard_terms(
         None => match crate::logic::condition(cx, cond, "if")?.decided_now(cx, cond.span())? {
             Condition::Bool(c) => (crate::logic::true_prop(cx, c.clone())?, Some(c), true),
             Condition::Decided { prop, decision } => {
+                let plain = matches!(decision, crate::bind::Decision::Plain(_));
                 let c = decision.into_bool(cx, prop.clone())?;
+                // A plain decision was found on the computed proposition,
+                // where `x < 5` has become `x <= 4`: a comparison is stated
+                // as it was written.
+                let c = written_comparison(cx, &prop).filter(|_| plain).unwrap_or(c);
                 (prop, Some(c), false)
             }
             Condition::Conjunction { as_bool, prop, .. } => (prop, Some(as_bool), true),
             Condition::Waiting { .. } => return Ok(None),
         },
     }))
+}
+
+/// The `Bool` of `prop` when it is `m < n` or `m <= n` on `Nat` or `Int`
+/// as written (`Nat.leq (Succ m) n`), not as it computes to when an operand
+/// is a literal (`Nat.leq m 4` for `m < 5`).
+fn written_comparison(cx: &Ctx, prop: &Term) -> Option<Term> {
+    let g = cx.g();
+    let reg = g.env.registry();
+    let (head, args) = prop.strip_loc().spine();
+    let Term::Def(id) = head.strip_loc() else {
+        return None;
+    };
+    let [m, n] = args[..] else {
+        return None;
+    };
+    let decider = [
+        (Builtin::LessThan, Builtin::DecLessThanNat),
+        (Builtin::LessEq, Builtin::DecLessEqNat),
+        (Builtin::IntLessThan, Builtin::DecLessThanInt),
+        (Builtin::IntLessEq, Builtin::DecLessEqInt),
+    ]
+    .into_iter()
+    .find(|(relation, _)| reg.loaded_def(*relation) == Some(*id))?
+    .1;
+    let decision = Term::app(
+        Term::app(Term::Def(reg.loaded_def(decider)?), m.clone()),
+        n.clone(),
+    );
+    crate::bind::comparison_in(&g, &decision)
 }
 
 /// A guard's condition elaborated in its arm's context `cx`, as
