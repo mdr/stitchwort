@@ -30527,8 +30527,8 @@
     {
       "id": 4477,
       "title": "[Opus] Walk W4b (after SW-4469 cut two-run walk cost): re-time the two-run walks W4 dropped for speed (FollowsStatements 12, FollowsDeclData 9; the walked text is at commit 9e0180f18 and the W4 branch history) and keep those now within SW-4238's bar (file 1.5x, no theorem over 3x); then try the Follows* namespaces W4 didn't reach (FollowsForms*, FollowsLadder, FollowsDecl*, ParseCarries*, ParseKept, ParseWalkDecls); profile followsRewriteTargetIf (2.5x) if cheap",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
@@ -30553,8 +30553,8 @@
     {
       "id": 4479,
       "title": "[Opus] Walk gaps (SW-4466): an operation called directly in bound code (an inlined Parse.mark()) blocks 9 formatter proofs (givesBlock, givesCalcBody, givesClauseLambda, givesConstructorParen, givesDataParamStep, givesListItemsFrom/Any, givesPipeChain, givesTupleRest); and ReadsAt nesting needs a bind-lemma shape carrying the mark fact",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
