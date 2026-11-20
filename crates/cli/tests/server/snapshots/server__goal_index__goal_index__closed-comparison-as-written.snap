@@ -343,16 +343,17 @@ expression: json
         }
       ],
       "lemma": "theorem apartGoal1 (h: 0 < 1 → 2 < 3): True = True := ?",
-      "target": "True = True"
+      "target": "0 < 1",
+      "targetComputed": "True = True"
     },
     "labels": [
       {
         "file": 0,
-        "message": "h: 0 < 1 → 2 < 3\n⊢ True = True",
+        "message": "h: 0 < 1 → 2 < 3\n⊢ 0 < 1\n  computes to True = True",
         "range": [
-          29,
+          30,
           47,
-          29,
+          30,
           48
         ]
       }
@@ -360,9 +361,9 @@ expression: json
     "message": "in `apart`",
     "notes": [],
     "range": [
-      29,
+      30,
       47,
-      29,
+      30,
       48
     ],
     "severity": "goal"
@@ -391,9 +392,9 @@ expression: json
         "file": 0,
         "message": "n: Nat\nsame: n = n\n⊢ 0 < 1\n  computes to True = True",
         "range": [
-          32,
+          33,
           51,
-          32,
+          33,
           52
         ]
       }
@@ -401,9 +402,9 @@ expression: json
     "message": "in `under`",
     "notes": [],
     "range": [
-      32,
+      33,
       51,
-      32,
+      33,
       52
     ],
     "severity": "goal"

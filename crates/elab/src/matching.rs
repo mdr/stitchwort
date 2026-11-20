@@ -548,6 +548,9 @@ fn lifted(
     base: usize,
 ) -> Result<Term> {
     let g = cx.g();
+    // The scrutinees are elaborated outside the statement's tree: the flag
+    // is off until they are, and on again for the arms.
+    let statement_arms = std::mem::replace(&mut cx.statement_arms, false);
     // The scrutinees: variables stay as they are; anything else is
     // elaborated, to be generalised.
     let mut columns = Vec::new();
@@ -640,6 +643,7 @@ fn lifted(
             on_path: true,
         });
     }
+    cx.statement_arms = statement_arms;
     if exprs.is_empty() {
         let levels: Vec<usize> = columns
             .iter()
