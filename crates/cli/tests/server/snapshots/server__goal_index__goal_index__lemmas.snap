@@ -2,7 +2,7 @@
 source: crates/cli/tests/server/goal_index.rs
 expression: "format!(\"{made} lemmas, {} goals without one\\n\\n{}\", summary.len() - made,\nsummary.join(\"\\n\"))"
 ---
-174 lemmas, 47 goals without one
+175 lemmas, 51 goals without one
 
 arm-as-written-computes goal 1: no lemma
 arm-as-written-computes goal 2: theorem stepsGoal2: f "" ≠ 0 ∨ "" = "" := ?
@@ -135,6 +135,10 @@ guard-hypotheses-as-written goal 1: theorem characterGoal1 (c: Char) (h: 0 < pic
 guard-hypotheses-as-written goal 2: theorem characterGoal2 (n: Nat) (c: Char) (h: 0 < pick (c == 'a')): pick (c == 'a') = 1 ∨ 0 < 1 := ?
 guard-hypotheses-as-written goal 3: theorem variableGoal1 (b: Bool) (h: 0 < pick True) (h2: pick True = 1) (g: b): pick True = 1 := ?
 guard-hypotheses-as-written goal 4: theorem variableGoal2 (n: Nat) (b: Bool) (h: 0 < pick b) (h2: pick b = 1): pick b = 1 := ?
+if-match-partial-unfold goal 1: no lemma
+if-match-partial-unfold goal 2: no lemma
+if-match-partial-unfold goal 3: theorem followsStartHGoal1 (lower: Bool) (n: Nat) (h: n = 0): Parse.Follows SameNat SameNat (arg => start lower n) (arg => start lower n) := ?
+if-match-partial-unfold goal 4: no lemma
 implicit-parameter goal 1: def identityGoal1 (a: Type) (x: a): a := ?
 implicit-parameter goal 2: theorem symmetricGoal1 (a: Type) (x: a) (y: a) (h: x = y): y = x := ?
 inferring-position goal 1: no lemma
@@ -143,6 +147,7 @@ interface-members goal 2: theorem equalSoundGoal1 (a: Type) (eq: DecEq a) (x: a)
 lambda-propagated-alias goal 1: def withGoalGoal1 (n: Nat) (counts: Counts): Nat := ?
 large-hypothesis-goal goal 1: no lemma
 lemma-used-later goal 1: theorem addZeroGoal1 (n: Nat): n + 0 = n := ?
+let-match-partial-unfold goal 1: no lemma
 let-proofs goal 1: no lemma
 let-values goal 1: no lemma
 lifted-match goal 1: theorem followsConsGoal1 (x: Nat) (rest: List Nat) (flag: Bool): Follows [x, ..rest] flag := ?

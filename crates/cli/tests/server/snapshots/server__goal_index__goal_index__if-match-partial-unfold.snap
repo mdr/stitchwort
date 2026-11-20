@@ -1,0 +1,175 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "lower",
+          "type": "Bool"
+        },
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "target": "Parse.Follows SameNat SameNat (arg => if False then Done 0 else Std.Effect.bind (here ()) (x => Done (Succ x))) (arg => if False then Done 0 else Std.Effect.bind (here ()) (x => Done (Succ x)))",
+      "targetComputed": "∀ (state other: Parse.State Nat) (value: Nat) (after: Parse.Mark Nat) => Parse.Mark.Alike SameNat state.at other.at → Parse.runFrom state (arg => Call (L (Parse.mark ())) (y => Call (L (Parse.mark ())) (y1 => Done (Succ y.offset, y1)))) = Ok (value, after) → ∃ (twin: Nat) => ∃ (afterTwin: Parse.Mark Nat) => Parse.runFrom other (arg => Call (L (Parse.mark ())) (y => Call (L (Parse.mark ())) (y1 => Done (Succ y.offset, y1)))) = Ok (twin, afterTwin) ∧ Parse.Mark.Alike SameNat after afterTwin ∧ SameNat value twin"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "lower: Bool\nn: Nat\n⊢ Parse.Follows SameNat SameNat (arg => if False then Done 0 else Std.Effect.bind (here ()) (x => Done (Succ x))) (arg => if False then Done 0 else Std.Effect.bind (here ()) (x => Done (Succ x)))\n  computes to ∀ (state other: Parse.State Nat) (value: Nat) (after: Parse.Mark Nat) => Parse.Mark.Alike SameNat state.at other.at → Parse.runFrom state (arg => Call (L (Parse.mark ())) (y => Call (L (Parse.mark ())) (y1 => Done (Succ y.offset, y1)))) = …",
+        "range": [
+          17,
+          17,
+          17,
+          18
+        ]
+      }
+    ],
+    "message": "in `followsStart`",
+    "notes": [],
+    "range": [
+      17,
+      17,
+      17,
+      18
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "lower",
+          "type": "Bool"
+        },
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "target": "Parse.Follows SameNat SameNat (arg => if False then Done 0 else Std.Effect.bind (here ()) (x => Done (Succ x))) (arg => if False then Done 0 else Std.Effect.bind (here ()) (x => Done (Succ x)))",
+      "targetComputed": "∀ (state other: Parse.State Nat) (value: Nat) (after: Parse.Mark Nat) => Parse.Mark.Alike SameNat state.at other.at → Parse.runFrom state (arg => Call (L (Parse.mark ())) (y => Call (L (Parse.mark ())) (y1 => Done (Succ y.offset, y1)))) = Ok (value, after) → ∃ (twin: Nat) => ∃ (afterTwin: Parse.Mark Nat) => Parse.runFrom other (arg => Call (L (Parse.mark ())) (y => Call (L (Parse.mark ())) (y1 => Done (Succ y.offset, y1)))) = Ok (twin, afterTwin) ∧ Parse.Mark.Alike SameNat after afterTwin ∧ SameNat value twin"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "lower: Bool\nn: Nat\n⊢ Parse.Follows SameNat SameNat (arg => if False then Done 0 else Std.Effect.bind (here ()) (x => Done (Succ x))) (arg => if False then Done 0 else Std.Effect.bind (here ()) (x => Done (Succ x)))\n  computes to ∀ (state other: Parse.State Nat) (value: Nat) (after: Parse.Mark Nat) => Parse.Mark.Alike SameNat state.at other.at → Parse.runFrom state (arg => Call (L (Parse.mark ())) (y => Call (L (Parse.mark ())) (y1 => Done (Succ y.offset, y1)))) = …",
+        "range": [
+          21,
+          17,
+          21,
+          18
+        ]
+      }
+    ],
+    "message": "in `followsStart`",
+    "notes": [],
+    "range": [
+      21,
+      17,
+      21,
+      18
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "lower",
+          "type": "Bool"
+        },
+        {
+          "name": "n",
+          "type": "Nat"
+        },
+        {
+          "name": "h",
+          "type": "n = 0"
+        }
+      ],
+      "lemma": "theorem followsStartHGoal1 (lower: Bool) (n: Nat) (h: n = 0): Parse.Follows SameNat SameNat (arg => start lower n) (arg => start lower n) := ?",
+      "target": "Parse.Follows SameNat SameNat (arg => start lower n) (arg => start lower n)",
+      "targetComputed": "∀ (state other: Parse.State Nat) (value: Nat) (after: Parse.Mark Nat) => Parse.Mark.Alike SameNat state.at other.at → Parse.runFrom state (arg => Std.Effect.bind (start lower n) (x => Call (L (Parse.mark ())) (y => Done (x, y)))) = Ok (value, after) → ∃ (twin: Nat) => ∃ (afterTwin: Parse.Mark Nat) => Parse.runFrom other (arg => Std.Effect.bind (start lower n) (x => Call (L (Parse.mark ())) (y => Done (x, y)))) = Ok (twin, afterTwin) ∧ Parse.Mark.Alike SameNat after afterTwin ∧ SameNat value twin"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "lower: Bool\nn: Nat\nh: n = 0\n⊢ Parse.Follows SameNat SameNat (arg => start lower n) (arg => start lower n)\n  computes to ∀ (state other: Parse.State Nat) (value: Nat) (after: Parse.Mark Nat) => Parse.Mark.Alike SameNat state.at other.at → Parse.runFrom state (arg => Std.Effect.bind (start lower n) (x => Call (L (Parse.mark ())) (y => Done (x, y)))) = Ok (val…",
+        "range": [
+          25,
+          19,
+          25,
+          20
+        ]
+      }
+    ],
+    "message": "in `followsStartH`",
+    "notes": [],
+    "range": [
+      25,
+      19,
+      25,
+      20
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "lower",
+          "type": "Bool"
+        },
+        {
+          "name": "n",
+          "type": "Nat"
+        },
+        {
+          "name": "h",
+          "type": "n ≠ 0"
+        }
+      ],
+      "target": "Parse.Follows SameNat SameNat (arg => if False then Done 0 else Std.Effect.bind (here ()) (x => Done (Succ x))) (arg => if False then Done 0 else Std.Effect.bind (here ()) (x => Done (Succ x)))",
+      "targetComputed": "∀ (state other: Parse.State Nat) (value: Nat) (after: Parse.Mark Nat) => Parse.Mark.Alike SameNat state.at other.at → Parse.runFrom state (arg => Call (L (Parse.mark ())) (y => Call (L (Parse.mark ())) (y1 => Done (Succ y.offset, y1)))) = Ok (value, after) → ∃ (twin: Nat) => ∃ (afterTwin: Parse.Mark Nat) => Parse.runFrom other (arg => Call (L (Parse.mark ())) (y => Call (L (Parse.mark ())) (y1 => Done (Succ y.offset, y1)))) = Ok (twin, afterTwin) ∧ Parse.Mark.Alike SameNat after afterTwin ∧ SameNat value twin"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "lower: Bool\nn: Nat\nh: n ≠ 0\n⊢ Parse.Follows SameNat SameNat (arg => if False then Done 0 else Std.Effect.bind (here ()) (x => Done (Succ x))) (arg => if False then Done 0 else Std.Effect.bind (here ()) (x => Done (Succ x)))\n  computes to ∀ (state other: Parse.State Nat) (value: Nat) (after: Parse.Mark Nat) => Parse.Mark.Alike SameNat state.at other.at → Parse.runFrom state (arg => Call (L (Parse.mark ())) (y => Call (L (Parse.mark ())) (y1 => Done (Succ y.offset, y1)))) = …",
+        "range": [
+          29,
+          17,
+          29,
+          18
+        ]
+      }
+    ],
+    "message": "in `followsStartH`",
+    "notes": [],
+    "range": [
+      29,
+      17,
+      29,
+      18
+    ],
+    "severity": "goal"
+  }
+]
