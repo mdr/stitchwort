@@ -29999,12 +29999,12 @@
     {
       "id": 4437,
       "title": "[Sonnet] A hole's goal display unfolds a Prop definition's head (Parse.Follows shows as forall state other ...), and the partial-unfold match example shows Call (L (%mark ())) in a goal: show Prop definitions folded at holes and never display % names (with SW-4433 F3) (SW-4419 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\nLane (Sonnet), 20 Nov: commit e1eddae24 on lane/SW-4437. Prop heads shown folded where a hole is checked directly against the call (named type kept, tried after the statement). Ability op ctor %op prints as Ability.op; goal outputs asserted free of compiler names. Not done: a match arm whose goal comes from a partial-unfold motive still shows Follows unfolded, because check_match gets the forced goal (the motive never has the Prop head); fixing it changes terms.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
