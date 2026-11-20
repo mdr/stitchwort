@@ -516,9 +516,7 @@ theorem givesListExprAny ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 
 theorem givesFactsEnd ∀ (kind: FactsKind) (keyword: Word) (list: Expr):
     Parse.Gives GoodItems (() => factsEnd kind keyword list) Out :=
-  match hasSpread list with
-    | True => Parse.readsFatal
-    | False => Parse.givesDone byComputing
+  byWalking []
 
 theorem givesFacts ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (token: Tok) (kind: FactsKind)
     (nested: Nested self)
