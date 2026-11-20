@@ -27149,14 +27149,14 @@
     {
       "id": 4220,
       "title": "[Sonnet] std: helpers so Parse.followsThen's function arguments needn't be given by hand ([p := …] [q := …] [j := …] [k := …], 15 times in one lane; SW-4205 §6 item 5), or say why inference can't; with the lane's examples rewritten",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
       "body": "Matt, 19 Nov 2026: 'right now I focus on consolidation, making it clean, neat, and tidy, well-structured proof. Maybe finding avenues to simplify, maybe finding ways to improve stitchwort and standard library to support the proving.'",
       "created": "2026-11-19",
-      "updated": "2026-11-19",
+      "updated": "2026-11-20",
       "commits": []
     },
     {
