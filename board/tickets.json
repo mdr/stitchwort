@@ -28621,8 +28621,8 @@
     {
       "id": 4332,
       "title": "[DeepSeek] Debug aid: STITCHWORT_TRACE_RESOURCE=1 prints a Rust backtrace where a ResourceError is converted to a diagnostic (E-RESOURCE points only at the declaration); document it in docs/testing.md (SW-4237 friction: 5 rebuilds with temporary backtrace patches)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
