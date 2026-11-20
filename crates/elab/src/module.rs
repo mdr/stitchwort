@@ -542,7 +542,7 @@ impl Elaborator {
             }
             let ran_out = diagnostics[before..]
                 .iter()
-                .any(|(_, d)| d.code == "E-RESOURCE");
+                .any(|(_, d)| crate::undo::fatal(d));
             self.blame_failed_dependency(&component, before, diagnostics.as_mut_slice());
             let ran_out = ran_out || self.blamed_on_ran_out(&component, &diagnostics[before..]);
             for &i in &component {
@@ -643,7 +643,7 @@ impl Elaborator {
                 let too_large = self.kernel.machine.budget.take_too_large();
                 let ran_out_in = self.kernel.machine.budget.take_ran_out_in();
                 for (position, d) in &mut diagnostics[before..] {
-                    if d.code == "E-RESOURCE" {
+                    if crate::undo::fatal(d) {
                         let notes =
                             self.ran_out_notes(&component, &d.message, too_large, ran_out_in);
                         // Where, before any advice the error came with.

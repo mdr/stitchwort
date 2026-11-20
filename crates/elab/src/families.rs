@@ -57,7 +57,7 @@ impl Elaborator {
             let ordered: Vec<&ast::Name> = order.iter().map(|&i| &autos[i]).collect();
             match self.ctor_attempt(d, ctor, span, &ordered, true) {
                 Ok(decl) => return Ok(decl),
-                Err(e) if e.code == "E-RESOURCE" => return Err(e),
+                Err(e) if crate::undo::fatal(&e) => return Err(e),
                 Err(e) => {
                     first_error.get_or_insert(e);
                 }

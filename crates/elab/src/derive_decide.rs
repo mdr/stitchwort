@@ -96,7 +96,7 @@ impl Elaborator {
         self.clear_metas();
         match result {
             Ok(()) => Ok(()),
-            Err(e) if e.code == "E-RESOURCE" => Err(e),
+            Err(e) if crate::undo::fatal(&e) => Err(e),
             Err(e) => {
                 self.tables.no_decide.insert(
                     &self.session.owners,
@@ -147,7 +147,7 @@ impl Elaborator {
                 let prop = force(&cx.g(), eval(&cx.g(), &env, ty)?)?;
                 match crate::auto::decide(&mut cx, &prop, 0) {
                     Ok(_) => {}
-                    Err(e) if e.code == "E-RESOURCE" => return Err(e),
+                    Err(e) if crate::undo::fatal(&e) => return Err(e),
                     Err(e) => {
                         why = Some(e.message);
                         break;

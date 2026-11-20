@@ -79,7 +79,7 @@ impl Elaborator {
         let result = self.definition(&signature, &[equation]);
         self.clear_metas();
         match result {
-            Err(e) if e.code == "E-RESOURCE" => Err(e),
+            Err(e) if crate::undo::fatal(&e) => Err(e),
             _ => Ok(()),
         }
     }

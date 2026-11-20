@@ -297,7 +297,7 @@ impl Elaborator {
         };
         match self.derive_nested_in(&mut st) {
             Ok(()) | Err(Stop::Unsupported) => Ok(()),
-            Err(Stop::Error(e)) if e.code == "E-RESOURCE" => Err(e),
+            Err(Stop::Error(e)) if crate::undo::fatal(&e) => Err(e),
             Err(Stop::Error(e)) => {
                 let name = self.kernel.data(d).name().to_string();
                 Err(Diagnostic::error(

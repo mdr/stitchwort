@@ -523,7 +523,7 @@ fn shown_alternative(alt: &InductAlt) -> String {
 /// or-pattern's is (D3694).
 fn in_alternative(mut error: Diagnostic, shown: &str, alt: &InductAlt) -> Diagnostic {
     if error.code == crate::goals::UNFINISHED
-        || error.code == "E-RESOURCE"
+        || crate::undo::fatal(&error)
         || error
             .detail
             .as_ref()

@@ -832,7 +832,7 @@ impl Elaborator {
 
     /// The request type couldn't be defined: an argument can't be packed.
     fn unpackable(&self, infos: &[Member], f: usize, e: Diagnostic) -> Diagnostic {
-        if e.code == "E-RESOURCE" {
+        if crate::undo::fatal(&e) {
             return e;
         }
         let m = &infos[0];

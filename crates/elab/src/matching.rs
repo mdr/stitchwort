@@ -1405,7 +1405,7 @@ fn unconfirmed_now(
     let fail = |cx: &Ctx, cause: Diagnostic| {
         cx.g().machine.budget.set_too_large(noted);
         cx.g().machine.budget.set_ran_out_in(ran_out_in);
-        let note = (cause.code == "E-RESOURCE")
+        let note = (crate::undo::fatal(&cause))
             .then(|| number_argument_note(cx, &exprs))
             .flatten();
         Err(match note {
@@ -1908,7 +1908,7 @@ fn in_scrutinee(d: Diagnostic, span: stitchwort_syntax::Span) -> Diagnostic {
 /// `d`, if it is running out of resources with nothing saying where,
 /// labelled `label` at `span`.
 fn ran_out_at(d: Diagnostic, span: stitchwort_syntax::Span, label: &str) -> Diagnostic {
-    if d.code == "E-RESOURCE" && d.labels.is_empty() {
+    if crate::undo::fatal(&d) && d.labels.is_empty() {
         d.with_label(span, label)
     } else {
         d
@@ -2218,50 +2218,7 @@ fn any_occurs(needles: &[Option<&Term>], hay: &Term) -> bool {
 /// metavariable is solved; an unsolved metavariable is only the same as
 /// itself, applied to the same arguments.
 pub(crate) fn same(a: &Term, b: &Term) -> bool {
-    use Term::*;
-    let all = |xs: &[Rc<Term>], ys: &[Rc<Term>]| {
-        xs.len() == ys.len() && xs.iter().zip(ys).all(|(x, y)| same(x, y))
-    };
-    match (a.strip_loc(), b.strip_loc()) {
-        (Var(x), Var(y)) => x == y,
-        (Def(x), Def(y)) => x == y,
-        (Nat(x), Nat(y)) => x == y,
-        (Chars(x), Chars(y)) => x.as_slice() == y.as_slice(),
-        (Sort(x), Sort(y)) => x == y,
-        (Refl, Refl) => true,
-        (Meta(x), Meta(y)) => x == y,
-        (Data(d, xs), Data(e, ys)) => d == e && all(xs, ys),
-        (Ctor(d, c, xs), Ctor(e, k, ys)) => d == e && c == k && all(xs, ys),
-        (Pi(_, i, a1, b1), Pi(_, j, a2, b2)) => i == j && same(a1, a2) && same(b1, b2),
-        (Lam(_, i, b1), Lam(_, j, b2)) => i == j && same(b1, b2),
-        (App(f1, a1, i), App(f2, a2, j)) => i == j && same(f1, f2) && same(a1, a2),
-        (Ann(e1, t1), Ann(e2, t2)) => same(e1, e2) && same(t1, t2),
-        (Eq(t1, a1, b1), Eq(t2, a2, b2)) => {
-            let types = match (t1, t2) {
-                (Some(t1), Some(t2)) => same(t1, t2),
-                (None, None) => true,
-                _ => false,
-            };
-            types && same(a1, a2) && same(b1, b2)
-        }
-        (J(m1, b1, p1), J(m2, b2, p2)) => same(m1, m2) && same(b1, b2) && same(p1, p2),
-        (Proj(d1, i1, t1), Proj(d2, i2, t2)) => d1 == d2 && i1 == i2 && same(t1, t2),
-        // Their erasure flags are worked out from the rest (hashing ignores
-        // them too).
-        (Let(_, t1, v1, b1, _), Let(_, t2, v2, b2, _)) => {
-            same(t1, t2) && same(v1, v2) && same(b1, b2)
-        }
-        (Quot(f1, xs, _), Quot(f2, ys, _)) => f1 == f2 && all(xs, ys),
-        // Every other pair differs (case trees aren't in types or
-        // scrutinees); listed by the left side so that a new kind of term is
-        // a compile error here.
-        (
-            Var(_) | Def(_) | Data(..) | Ctor(..) | Nat(_) | Chars(_) | Sort(_) | Pi(..) | Lam(..)
-            | App(..) | Ann(..) | Let(..) | Case(..) | NumCase(..) | Eq(..) | Refl | J(..)
-            | Proj(..) | Quot(..) | Loc(..) | Meta(_),
-            _,
-        ) => false,
-    }
+    same_shifted(a, b, 0, 0)
 }
 
 /// [`same`]`(&a.shift(by, 0), b)`, without making the shifted copy of `a`

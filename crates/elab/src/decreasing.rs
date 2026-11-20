@@ -1505,7 +1505,7 @@ impl Elaborator {
     }
 
     fn generator_failed(&self, plan: &Plan, d: Diagnostic) -> Diagnostic {
-        if d.code == "E-RESOURCE" || d.code == "E-DECREASING" {
+        if crate::undo::fatal(&d) || d.code == "E-DECREASING" {
             return d;
         }
         Diagnostic::error(

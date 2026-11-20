@@ -1142,7 +1142,7 @@ fn attempt<T>(cx: &mut Ctx, f: impl FnOnce(&mut Ctx) -> Result<Option<T>>) -> Re
 /// it failed by running out of resources: then there's no answer, and the
 /// search must stop rather than try something else.
 fn give_up_on<T>(e: Diagnostic) -> Result<Option<T>> {
-    if e.code == "E-RESOURCE" {
+    if crate::undo::fatal(&e) {
         Err(e)
     } else {
         Ok(None)

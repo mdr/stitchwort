@@ -5342,7 +5342,7 @@ pub fn coerce(cx: &mut Ctx, term: &Term, found: &Value, expected: &Value) -> Res
         match lift(cx, applied, rf, &re, &tf) {
             Ok(term) => Ok(Some(term)),
             // Running out of resources isn't "doesn't fit".
-            Err(e) if e.code == "E-RESOURCE" => Err(e),
+            Err(e) if crate::undo::fatal(&e) => Err(e),
             Err(_) => Ok(None),
         }
     })();
