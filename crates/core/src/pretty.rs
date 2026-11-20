@@ -218,7 +218,9 @@ pub fn value_for_message(g: &Ev, names: &[Name], value: &Value) -> String {
     value_within(g, None, names, value, MESSAGE_LIMIT, Prec::Arrow, None)
 }
 
-/// [`value_for_message`], with names as `scope` writes them.
+/// [`value_for_message`], with names as `scope` writes them, and a decided
+/// equation or comparison written as it was (`c == 'a'`) where `scope` says
+/// what `==` decides it by ([`NameScope::eq_decision`]).
 pub fn value_for_message_in(
     g: &Ev,
     scope: &dyn NameScope,
@@ -232,7 +234,7 @@ pub fn value_for_message_in(
         value,
         MESSAGE_LIMIT,
         Prec::Arrow,
-        None,
+        Some(&[]),
     )
 }
 
@@ -498,7 +500,7 @@ pub fn term_for_message_in(g: &Ev, scope: &dyn NameScope, names: &[Name], term_:
         term_,
         MESSAGE_LIMIT,
         Prec::Arrow,
-        None,
+        Some(&[]),
     )
 }
 
@@ -592,7 +594,15 @@ pub fn is_predicate_type(g: &Ev, level: usize, ty: &Value) -> bool {
 /// in brackets if it's an operation that binds more loosely than `=`
 /// (`(n < n) = True`).
 pub fn side_for_message_in(g: &Ev, scope: &dyn NameScope, names: &[Name], value: &Value) -> String {
-    value_within(g, Some(scope), names, value, MESSAGE_LIMIT, Prec::Add, None)
+    value_within(
+        g,
+        Some(scope),
+        names,
+        value,
+        MESSAGE_LIMIT,
+        Prec::Add,
+        Some(&[]),
+    )
 }
 
 /// [`term_within`] for a value, with calls shown as written.

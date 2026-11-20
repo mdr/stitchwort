@@ -2,16 +2,16 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-REWRITE-NOTHING] Error: `rewrite` found no `(a.decEq b).not.holds` in the goal
+[E-REWRITE-NOTHING] Error: `rewrite` found no `a != b` in the goal
    ╭─[ reject/rewrite-nothing-bool-ne-unicode.sw:4:11 ]
    │
  4 │   rewrite h
    │           ┬  
-   │           ╰── looking for `(a.decEq b).not.holds`
+   │           ╰── looking for `a != b`
    │ 
    │ Note 1: goal: `(a ≠ b) = (b ≠ a)`
    │ 
-   │ Note 2: the search compares what terms compute to: it looked for `(a.equal b).not`, what `(a.decEq b).not.holds` computes to, in what the goal computes to
+   │ Note 2: the search compares what terms compute to: it looked for `(a.equal b).not`, what `a != b` computes to, in what the goal computes to
    │ 
    │ Note 3: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
    │ 
