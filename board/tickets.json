@@ -29330,12 +29330,12 @@
     {
       "id": 4386,
       "title": "[DeepSeek] Test doc::tests::every_header_is_a_declaration_up_to_its_body fails on main: std's Doc.Proofs.agreesClear has a match inside its statement whose last line is '| Held _ _ => False)' (indented, inside brackets); the check should only flag a last line starting with | at the declaration's own indent (or not inside open brackets). Fix the test's heuristic or doc's header cut, whichever is wrong; show the header doc gives for agreesClear",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\n\nModel result: DeepSeek, worked (the test rule was too strict; doc's header was right), 15 min (est. 20)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -29343,8 +29343,8 @@
     {
       "id": 4387,
       "title": "[Sonnet] Two check_cache tests fail on main, both from std drift, not code: a_refused_library_entry_takes_back_its_float_bindings (Float.sw no longer has the marker '-- The other rounding operations' it cuts at) and a_file_that_runs_out_of_resources_is_not_written (with work = 20_000 no library file loads within the limit any more, cold.written = 0). Make both find their cut and limit from something stable (a named marker the test owns, a limit measured from the first file), show each failing then passing",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "test-infra",
