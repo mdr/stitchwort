@@ -1,5 +1,5 @@
 {
-  "next": 4434,
+  "next": 4435,
   "tickets": [
     {
       "id": 47,
@@ -29841,7 +29841,7 @@
     {
       "id": 4425,
       "title": "[Opus] Walk: a bare lemma with an open second run fails under an eta-form post (followsTupleClose needs its thunk written out; followsFatalAny with post (x x1 => WordsAlike x x1) leaves _second unsolved): eta-reduce the expected post before the direct check, or fix the unifier for a hole under a lambda post; also a trace line for 'direct fit failed: <error>' (the walk swallows it); before W4 (SW-4398 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -29945,6 +29945,19 @@
     {
       "id": 4433,
       "title": "[Sonnet] Partial unfold follow-ups (SW-4430): F2 walk only the hypotheses a match can copy; F3 replace the reify exclusion with 'never open compiler-generated definitions (% helpers, handler runtime)'; F4 transport_target honours Scrut::on_path; F5 docs (goal-as-written as-built, bounded-readback refinements and stage 3 built, cap and recursion guard in syntax.md and proving guide, close SW-1838); F6 unit tests for the walk; F7 share is_needle with Finder::occurrence; F9 partial applications in a spine; F10 per-cell memo and proof-position variables",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4434,
+      "title": "[Opus] Unifier: unify_by_unknown_arguments could treat a lambda that eta-contracts as a known argument; repro theorem t: Parse.Follows SameNat (x y => SameNat x y) (() => fail \"no\") (() => fail \"no\") := followsFailAny \"no\" _ ; core change, run task test:lane AREA=hashes; plus a debug env var tracing unifier fallbacks (SW-4425 findings)",
       "status": "backlog",
       "agent": "",
       "where": "",
