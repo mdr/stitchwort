@@ -28790,7 +28790,7 @@
     {
       "id": 4345,
       "title": "[Sonnet] Printer: a Bool != inside a && guard shows as (x.decEq 4).not.holds in goals and stitchwort doc, and a lone == shows as (List.decEq … xs []).holds in doc (goals show xs == []): print decision tests as written (x != 4, xs == []) in both",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
