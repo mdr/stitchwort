@@ -1,6 +1,7 @@
 -- A case with a condition is an `if` to a proof. Its equation takes the
 -- condition as a hypothesis, and the cases below it take that it failed.
--- A decided condition is stated as a proposition: `n != 3` gives `n ≠ 3`.
+-- The condition is stated as it is written: a statement such as `n != 3`
+-- gives `n ≠ 3`, and a `Bool` such as `xs == []` gives `(xs == []) = True`.
 def skipThree: Nat → Nat
   | n if n != 3 => n
   | _ => 0

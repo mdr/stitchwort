@@ -900,9 +900,11 @@ struct Shape {
 /// `Decidable.elim` on a proposition `cond` (a decided one whose proof an
 /// arm uses, or `if h: P`). `cond` is a term at the shape's depth.
 ///
-/// `prop` is set where the `Bool` is a decided proposition's,
-/// `Decidable.holds d` (but not a comparison's, which reads as itself):
-/// the hypotheses say the proposition, `P` and `¬P`.
+/// `prop` is set where the condition is written as a decided proposition
+/// (`n != 3`, `x = y`; not `xs == []`) and tested by its `Bool`,
+/// `Decidable.holds d`: the hypotheses say the proposition, `P` and `¬P`.
+/// A condition written as a `Bool` is stated `c = True` and `c = False`
+/// (D3699).
 #[derive(Clone)]
 struct GuardRead {
     dec: bool,
@@ -928,6 +930,32 @@ impl GuardRead {
             Some(p) => (true, p),
             None => (self.dec, &self.cond),
         }
+    }
+
+    /// Whether the condition's failure is stated as a `Bool` equation
+    /// (`c = False`, or `b = False` for a comparison stated `b = True`),
+    /// both where the arm's patterns are this arm's (`NotGuard`) and at
+    /// the end of an overlap hypothesis (D3699); otherwise as a
+    /// proposition (`¬P`, or `Q` for `¬Q`), the overlap ending `P → Void`.
+    fn fails_as_bool(&self, blib: &BranchLib) -> bool {
+        self.negated.is_none()
+            && self.prop.is_none()
+            && (!self.dec || blib.bool_test(&self.cond).is_some())
+    }
+
+    /// For a condition that [fails as a `Bool`](Self::fails_as_bool), the
+    /// failure of `cond`, its [stated](Self::stated) term at some depth.
+    fn failed_bool(&self, blib: &BranchLib, cond: Term) -> Term {
+        let (b, x) = if self.dec {
+            blib.bool_test(&cond).unwrap_or((cond, true))
+        } else {
+            (cond, true)
+        };
+        Term::Eq(
+            Some(Rc::new(blib.bool_ty())),
+            Rc::new(b),
+            Rc::new(blib.bool_value(!x)),
+        )
     }
 }
 
@@ -1845,8 +1873,10 @@ enum Hyp {
     /// types; each equation is a level of this arm's shape and a term in
     /// the earlier row's.
     ///
-    /// When the earlier row is guarded, its condition is one more premise:
-    /// `(vars) → x = p → … → c = True → Void` (`P` for a proposition).
+    /// When the earlier row is guarded, the end says its condition failed:
+    /// `(vars) → x = p → … → c = False` for one stated as a `Bool`, as
+    /// `NotGuard` says it (D3699), or for a proposition `P` one more
+    /// premise, `… → P → Void`.
     Overlap {
         row: usize,
         vars: Vec<usize>,
@@ -2595,7 +2625,7 @@ impl Elaborator {
             return skip("its `match`es couldn't be compiled again as the definition's were");
         }
         let (mut shape, condition) = shape?;
-        if let Some((prop, as_bool)) = condition {
+        if let Some((prop, as_bool, written_bool)) = condition {
             // `(x => 2 < x) (f n)` is the condition `2 < f n`.
             let g = &self.ev();
             let prop = beta_rec(g, prop)?;
@@ -2620,8 +2650,10 @@ impl Elaborator {
                 Stop::Skip("its condition `if h: P` is tested as a `Bool`".into())
             })?;
             let blib = self.branch_lib()?;
-            // `a == b` too is a `Bool` condition whose `Bool` is a decision's.
-            let prop = if !dec && blib.to_bool_lemmas.is_some() {
+            // A condition written as a proposition and tested by its
+            // decision's `Bool` is stated as that proposition; one written
+            // as a `Bool` (`a && b`, `xs == []`) as the `Bool` (D3699).
+            let prop = if !dec && !written_bool && blib.to_bool_lemmas.is_some() {
                 blib.decided_view(&self.ev(), &cond)?
                     .map(|view| view.prop(&blib))
             } else {
@@ -2681,12 +2713,7 @@ impl Elaborator {
     /// [`Self::probe_row`]'s shape, and for a guarded row its condition
     /// elaborated in the arm's context ([`guard_condition`]).
     #[allow(clippy::type_complexity)]
-    fn probe_row_in(
-        &mut self,
-        d: &Def,
-        row: &Row,
-        span: Span,
-    ) -> R<(Shape, Option<(Term, Option<Term>)>)> {
+    fn probe_row_in(&mut self, d: &Def, row: &Row, span: Span) -> R<(Shape, Option<GuardTerms>)> {
         let n = d.binders.len();
         // The predicate `%P: (params) → Prop` the goal applies to the
         // parameters, so the goal at the leaf shows what they are there.
@@ -3009,10 +3036,11 @@ impl Elaborator {
         let branch_errors = self.attempt.branch_errors.borrow().len();
         let mut cx = saved.ctx(self);
         let condition = guard_condition(&mut cx, guard).and_then(|c| {
-            c.map(|(prop, as_bool)| {
+            c.map(|(prop, as_bool, written_bool)| {
                 Ok((
                     without_lets_of(&cx, &prop)?,
                     as_bool.map(|b| without_lets_of(&cx, &b)).transpose()?,
+                    written_bool,
                 ))
             })
             .transpose()
@@ -4677,9 +4705,9 @@ impl Elaborator {
                         solved.insert(*l, t);
                     }
                 }
-                let (is_prop, cond) = match &read.negated {
-                    Some(q) => (true, q),
-                    None => read.stated(),
+                let cond = match &read.negated {
+                    Some(q) => q,
+                    None => read.stated().1,
                 };
                 let cond = remap(g, cond, other.depth, depth, &|l| solved.get(&l).cloned())?
                     .ok_or_else(|| {
@@ -4691,20 +4719,8 @@ impl Elaborator {
                 let blib = self.branch_lib()?;
                 Ok(if read.negated.is_some() {
                     cond
-                } else if read.prop.is_some() {
-                    Term::app(Term::Def(lib.not), cond)
-                } else if !is_prop {
-                    Term::Eq(
-                        Some(Rc::new(blib.bool_ty())),
-                        Rc::new(cond),
-                        Rc::new(blib.bool_value(false)),
-                    )
-                } else if let Some((b, x)) = blib.bool_test(&cond) {
-                    Term::Eq(
-                        Some(Rc::new(blib.bool_ty())),
-                        Rc::new(b),
-                        Rc::new(blib.bool_value(!x)),
-                    )
+                } else if read.fails_as_bool(&blib) {
+                    read.failed_bool(&blib, cond)
                 } else {
                     Term::app(Term::Def(lib.not), cond)
                 })
@@ -4757,19 +4773,26 @@ impl Elaborator {
                 }
                 let mut void = Term::Data(lib.void, Vec::new());
                 if *guarded {
-                    // `c = True → Void`, under the equations.
+                    // Under the equations, the condition failed as
+                    // `NotGuard` says it for a `Bool` (`c = False`), else
+                    // `P → Void`.
                     let read = other.guard.as_ref().ok_or_else(|| {
                         Stop::Skip("an earlier arm's condition wasn't read".into())
                     })?;
                     let at = inner + eq_terms.len();
                     let (is_prop, cond) = read.stated();
                     let cond = jmap(cond, at, vars.len())?;
-                    void = Term::Pi(
-                        "_".into(),
-                        Icit::Explicit,
-                        Rc::new(guard_holds(self, is_prop, cond)?),
-                        Rc::new(void),
-                    );
+                    let blib = self.branch_lib()?;
+                    void = if read.fails_as_bool(&blib) {
+                        read.failed_bool(&blib, cond)
+                    } else {
+                        Term::Pi(
+                            "_".into(),
+                            Icit::Explicit,
+                            Rc::new(guard_holds(self, is_prop, cond)?),
+                            Rc::new(void),
+                        )
+                    };
                 } else if vars.is_empty() && eq_terms.len() == 1 {
                     return Ok(Term::app(Term::Def(lib.not), eq_terms.pop().expect("one")));
                 }
@@ -4800,6 +4823,13 @@ fn guard_holds(e: &Elaborator, dec: bool, cond: Term) -> R<Term> {
     ))
 }
 
+/// A guard's condition as [`guard_condition`] elaborates it: the
+/// proposition it decides, its `Bool` (but for `if h: P`), and whether it
+/// was written as a `Bool` (`c`, `a && b`, `xs == []`) rather than as a
+/// proposition (`n ≠ 3`, `if h: P`), which decides the form its hypotheses
+/// take (D3699).
+type GuardTerms = (Term, Option<Term>, bool);
+
 /// [`guard_condition`] before the placeholders are looked at. A chain of
 /// comparisons with a computed middle has the middle put back in place, as
 /// a guard can't perform, so the equations read as the conjunction
@@ -4808,12 +4838,12 @@ fn guard_terms(
     cx: &mut Ctx,
     binder: Option<&ast::Name>,
     cond: &ast::Expr,
-) -> Result<Option<(Term, Option<Term>)>> {
+) -> Result<Option<GuardTerms>> {
     use crate::logic::Condition;
     if let Some((name, value, body)) = cond.as_chain_let() {
         let (terms, binding) =
             crate::chain::around(cx, name, value, |cx| guard_terms(cx, binder, body))?;
-        let Some((prop, as_bool)) = terms else {
+        let Some((prop, as_bool, written_bool)) = terms else {
             return Ok(None);
         };
         // The `Bool` is read back so the operands a decision bound as
@@ -4826,17 +4856,17 @@ fn guard_terms(
             }
             None => None,
         };
-        return Ok(Some((binding.inline(cx, &prop)?, as_bool)));
+        return Ok(Some((binding.inline(cx, &prop)?, as_bool, written_bool)));
     }
     Ok(Some(match binder {
-        Some(h) => (crate::check::if_h_condition(cx, h, cond)?.0, None),
+        Some(h) => (crate::check::if_h_condition(cx, h, cond)?.0, None, false),
         None => match crate::logic::condition(cx, cond, "if")?.decided_now(cx, cond.span())? {
-            Condition::Bool(c) => (crate::logic::true_prop(cx, c.clone())?, Some(c)),
+            Condition::Bool(c) => (crate::logic::true_prop(cx, c.clone())?, Some(c), true),
             Condition::Decided { prop, decision } => {
                 let c = decision.into_bool(cx, prop.clone())?;
-                (prop, Some(c))
+                (prop, Some(c), false)
             }
-            Condition::Conjunction { as_bool, prop, .. } => (prop, Some(as_bool)),
+            Condition::Conjunction { as_bool, prop, .. } => (prop, Some(as_bool), true),
             Condition::Waiting { .. } => return Ok(None),
         },
     }))
@@ -4847,8 +4877,9 @@ fn guard_terms(
 /// True`) and, but for `if h: P`, its `Bool` (a decided proposition's
 /// decision's, `a && b`'s reading). `None` if a placeholder is left in
 /// them.
-fn guard_condition(cx: &mut Ctx, guard: &ast::Guard) -> Result<Option<(Term, Option<Term>)>> {
-    let Some((prop, as_bool)) = guard_terms(cx, guard.binder.as_ref(), &guard.cond)? else {
+fn guard_condition(cx: &mut Ctx, guard: &ast::Guard) -> Result<Option<GuardTerms>> {
+    let Some((prop, as_bool, written_bool)) = guard_terms(cx, guard.binder.as_ref(), &guard.cond)?
+    else {
         return Ok(None);
     };
     let level = cx.level();
@@ -4865,7 +4896,7 @@ fn guard_condition(cx: &mut Ctx, guard: &ast::Guard) -> Result<Option<(Term, Opt
         },
         None => None,
     };
-    Ok(Some((prop, as_bool)))
+    Ok(Some((prop, as_bool, written_bool)))
 }
 
 /// `t`, at `at` in a leaf's context (the row's `tk` variables, the leaf's
@@ -7102,7 +7133,7 @@ impl<'a> Walk<'a> {
 
     /// An overlap hypothesis `hyp` for earlier row `row`, applied to that
     /// row's variables as they are here and the proofs of its equations:
-    /// `Void`, or for a guarded row, `c = True → Void`.
+    /// `Void`, or for a guarded row, `c = False` (`P → Void`).
     fn overlap_applied(
         &self,
         row: usize,
@@ -7286,16 +7317,25 @@ impl<'a> Walk<'a> {
             }
             let (i, h) = self.hyp_of(j)?;
             let hyp = Term::Var(depth - 1 - (self.tk + i));
-            // `c = True → Void` (`P → Void`) for an overlap, else `None`:
-            // the hypothesis is that the condition is false.
-            let refutes = match h {
+            let fails_as_bool = recorded.is_some_and(|r| r.fails_as_bool(&blib));
+            // `P → Void` for an overlap about a proposition, else `None`:
+            // `hyp` is then that the condition is false (an overlap's
+            // `c = False` applied to the values here).
+            let (hyp, refutes) = match h {
                 Hyp::Overlap {
                     vars,
                     eqs,
                     guarded: true,
                     ..
-                } => Some(self.overlap_applied(j, fvals, hyp.clone(), vars, eqs)?),
-                Hyp::NotGuard { .. } => None,
+                } => {
+                    let applied = self.overlap_applied(j, fvals, hyp.clone(), vars, eqs)?;
+                    if fails_as_bool {
+                        (applied, None)
+                    } else {
+                        (hyp, Some(applied))
+                    }
+                }
+                Hyp::NotGuard { .. } => (hyp, None),
                 _ => return skip("a guarded earlier arm's hypothesis isn't about its condition"),
             };
             if !node.dec {

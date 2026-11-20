@@ -44,23 +44,13 @@ def withoutR2 (behind rest: List Kind): List Kind := match rest with
       | [] => withoutR2 [leaf, ..behind] after
 
 -- `eq3`'s hypothesis says the pair test failed: applied to the next leaf,
--- it refutes the test's `True` side.
+-- it is `(isComma leaf && isCloser closer && hasItem b) = False`, which
+-- takes the `if`'s `else`.
 theorem sameWithout ∀ (behind rest: List Kind): withoutR behind rest = withoutR2 behind rest := match induct (withoutR
     behind rest) with
   | eq1 _ => byComputing
-  | eq2 b comma closer after guard ih =>
-    match pairTest: isComma comma && isCloser closer && hasItem b with
-      | True => ih
-      | False => cases
+  | eq2 b comma closer after guard ih => rewrite guard then ih
   | eq3 b leaf after notArm2 ih =>
     match after with
       | [] => byComputing
-      | [closer, ..after1] =>
-        match pairTest: isComma leaf && isCloser closer && hasItem b with
-          | False => ih
-          | True =>
-            (notArm2 closer after1 byComputing (
-              Bool.andLeft pairTest,
-              Bool.andLeft (Bool.andRight pairTest),
-              Bool.andRight (Bool.andRight pairTest)
-            )).impossible
+      | [closer, ..after1] => rewrite notArm2 closer after1 byComputing then ih

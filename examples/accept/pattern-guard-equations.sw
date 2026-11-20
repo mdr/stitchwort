@@ -2,9 +2,10 @@
 -- a guarded arm's equation takes its condition as a hypothesis, and an arm
 -- below it takes the hypothesis that the condition failed where the two
 -- overlap.
+import Std (Bool, DecEq)
 
--- One column. `clamp.eq1: n ≤ limit → clamp limit n = n`, and
--- `clamp.eq2: (n <= limit) = False → clamp limit n = limit`.
+-- One column. `clamp.eq1: (n <= limit) = True → clamp limit n = n` (shown
+-- `n ≤ limit`), and `clamp.eq2: (n <= limit) = False → clamp limit n = limit`.
 def clamp (limit: Nat): Nat → Nat
   | n if n <= limit => n
   | _ => limit
@@ -28,9 +29,10 @@ theorem pickZero ∀ (a: Nat): pick a 0 = a := pick.eq2 a (byComputing: (a < 0) 
 theorem pickOther ∀ (a b: Nat) (notLess: (a < Succ b) = False): pick a (Succ b) = 0 :=
   pick.eq3 a (Succ b) notLess (same => arithmetic)
 
--- A decided proposition is stated as itself, though the definition tests
--- its `Bool`: `skipThree.eq1` takes `n ≠ 3`, and `skipThree.eq2` `n = 3`
--- (`¬(n ≠ 3)`, where the proposition is an equation's negation).
+-- A condition written as a proposition (`!=` is `≠`) is stated as itself,
+-- though the definition tests its `Bool`: `skipThree.eq1` takes `n ≠ 3`, and
+-- `skipThree.eq2` `n = 3` (`¬(n ≠ 3)`, where the proposition is an
+-- equation's negation).
 def skipThree: Nat → Nat
   | n if n != 3 => n
   | _ => 0
@@ -39,14 +41,24 @@ theorem skipThreeOther ∀ (n: Nat) (other: n ≠ 3): skipThree n = n := skipThr
 
 theorem skipThreeThree: skipThree 3 = 0 := skipThree.eq2 3 byComputing
 
--- `==` on a type with a decision is its equation.
+-- `==` is a `Bool`: `emptyOrOne.eq1` takes `(xs == []) = True` and
+-- `emptyOrOne.eq2` `(xs == []) = False` (D3699). Written as the
+-- proposition, `xs = []`, it is stated as `xs = []` and `xs ≠ []`.
 def emptyOrOne: List Nat → Nat
   | xs if xs == [] => 0
   | _ => 1
 
-theorem emptyOrOneEmpty ∀ (xs: List Nat) (empty: xs = []): emptyOrOne xs = 0 := emptyOrOne.eq1 xs empty
+theorem emptyOrOneEmpty ∀ (xs: List Nat) (empty: (xs == []) = True): emptyOrOne xs = 0 := emptyOrOne.eq1 xs empty
 
-theorem emptyOrOneNot ∀ (xs: List Nat) (notEmpty: xs ≠ []): emptyOrOne xs = 1 := emptyOrOne.eq2 xs notEmpty
+theorem emptyOrOneNot ∀ (xs: List Nat) (notEmpty: (xs == []) = False): emptyOrOne xs = 1 := emptyOrOne.eq2 xs notEmpty
+
+def emptyOrTwo: List Nat → Nat
+  | xs if xs = [] => 0
+  | _ => 2
+
+theorem emptyOrTwoEmpty ∀ (xs: List Nat) (empty: xs = []): emptyOrTwo xs = 0 := emptyOrTwo.eq1 xs empty
+
+theorem emptyOrTwoNot ∀ (xs: List Nat) (notEmpty: xs ≠ []): emptyOrTwo xs = 2 := emptyOrTwo.eq2 xs notEmpty
 
 -- `if h: P` names the hypothesis; the arm below takes `¬P`.
 def needsPositive (n: Nat) [auto h: n > 0]: Nat := n - 1
@@ -59,16 +71,18 @@ theorem predecessorZero: predecessor 0 = 0 := predecessor.eq2 0 (positive => ari
 
 theorem predecessorPositive ∀ (n: Nat) (positive: n > 0): predecessor n = needsPositive n := predecessor.eq1 n positive
 
--- `&&` in a guard is stated as the conjunction of its two sides, and the arm
--- below takes its negation: `between.eq1: 3 ≤ n ∧ n ≤ 9 → between n = n`,
--- `between.eq2: ¬(3 ≤ n ∧ n ≤ 9) → between n = 0`.
+-- `&&` in a guard is a `Bool` like any other, not split (D3699):
+-- `between.eq1: (3 <= n && n <= 9) = True → between n = n`,
+-- `between.eq2: (3 <= n && n <= 9) = False → between n = 0`. The
+-- conjunction is `.read` away.
 def between: Nat → Nat
   | n if 3 <= n && n <= 9 => n
   | _ => 0
 
-theorem betweenInside ∀ (n: Nat) (inside: 3 ≤ n ∧ n ≤ 9): between n = n := between.eq1 n inside
+theorem betweenInside ∀ (n: Nat) (inside: 3 ≤ n ∧ n ≤ 9): between n = n :=
+  between.eq1 n (Bool.andIntro inside.left inside.right)
 
-theorem betweenOutside ∀ (n: Nat) (outside: ¬(3 ≤ n ∧ n ≤ 9)): between n = 0 := between.eq2 n outside
+theorem betweenOutside ∀ (n: Nat) (outside: (3 <= n && n <= 9) = False): between n = 0 := between.eq2 n outside
 
 -- An or-pattern with a guard: one equation for each alternative.
 def vowelWeight (strict: Bool): Char → Nat
@@ -136,8 +150,8 @@ theorem countDownIsN ∀ (n: Nat) (flag: Bool): countDown n flag = n :=
 theorem countDownBelow ∀ (n: Nat) (flag: Bool) (small: (1 <= n) = False): countDown n flag = 0 :=
   countDown.eq2 n flag small
 
--- A conjunction of three: `P ∧ Q ∧ R`, and `f.induct` gives each case the
--- conjunction, or its negation.
+-- A conjunction of three, with propositions among its sides: still the
+-- `Bool`, `= True` and `= False`, in the equations and `f.induct`'s cases.
 def countSome: List Nat → Nat
   | [] => 0
   | [x, ..rest] if x != 0 && x > 1 && x != 7 => 1 + countSome rest
@@ -156,7 +170,7 @@ theorem countSomeStep ∀ (x: Nat) (rest: List Nat)
     (big: x > 1)
     (notSeven: x ≠ 7):
     countSome [x, ..rest] = 1 + countSome rest :=
-  countSome.eq2 x rest (Both nonzero (Both big notSeven))
+  countSome.eq2 x rest (Bool.andIntro (DecEq.trueOfNe nonzero) (Bool.andIntro big (DecEq.trueOfNe notSeven)))
 
 -- A negated equation fails as the equation: `drop3.eq2` takes `head = 3`.
 def drop3: List Nat → List Nat

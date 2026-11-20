@@ -398,6 +398,24 @@ yet", so naming one is `E-NO-EQUATION` with that reason; no `f.induct` (the
 existing rule). Lifted `match` helpers (clause lambdas) follow the same
 rule through their `SourceArm`s (equations.rs:3592).
 
+**Changed by D3699 (Matt, 20 Nov 2026; SW-4341).** The forms below for a
+condition written as a `Bool` are replaced: it is stated in the form it is
+written, `c = True` for the arm's own hypothesis and `c[σ] = False` where it
+failed, both as `notArmJ` for an arm whose patterns the guarded arm's take
+all of and as the last part of a partial overlap's `notArmJ` (`∀ vars => x =
+p → … → c[σ] = False`, no longer `… → H → Void`). `&&` is not split into
+`P ∧ Q` and a decided proposition's `Bool` (`xs == []`) is not read as the
+proposition: a proof writes `guard.read` for that. A condition written as a
+proposition (`n != 3` and `n ≠ 3`, which are the same operator, `x = y`,
+`if h: P`) keeps the forms below (`P`, `¬P`, `Q` for `¬Q`; a partial overlap
+`… → P → Void`). Why: one condition had four forms depending on where it
+was written, and the reading of a `Bool` as a proposition is otherwise
+explicit (`.read`, D3486-D3488); Lean states a condition as the source
+tests it (docs/proposals/match-induct-friction.md §1). Not yet changed: a
+conjunction with a decided side whose proof the arm uses (`if i < n && 0 <
+i => xs.getLt i`), which the tree tests by `Decidable.elim` on `P ∧ Q`; it
+keeps `P ∧ Q` and `¬(P ∧ Q)` until its proofs go between the two forms.
+
 **Stage 2 (SW-1301), as built.** Stage 1's skip is gone; a guarded arm and
 the arms below it get equations, and `f.induct` its cases, as follows
 (`examples/accept/pattern-guard-equations.sw`).

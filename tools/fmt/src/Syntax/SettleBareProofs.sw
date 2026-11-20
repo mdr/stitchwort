@@ -1193,49 +1193,28 @@ theorem commaDeletedDrop ∀ (comma closer: Leaf) (behind: List Leaf)
 --| as `notArm2`, that the leaf is no last comma: the pair test fails.
 theorem fwdPairOfNotArm ∀ (leaf: Leaf) (behind after: List Leaf)
     (notArm2: ∀ (closer: Leaf) (after1: List Leaf) => after = [closer, ..after1]
-      → ¬(leaf.kind == Comma ∧ closer.kind.isCloser ∧ hasItem behind)):
+      → (leaf.kind == Comma && closer.kind.isCloser && hasItem behind) = False):
     fwdPair behind leaf after = False :=
   match after with
     | [] => byComputing
-    | [closer, ..after1] =>
-      match pairTest: leaf.token.kind == Comma && closer.token.kind.isCloser && hasItem behind with
-        | False => pairTest
-        | True =>
-          (notArm2 closer after1 byComputing (
-            Bool.andLeft pairTest,
-            Bool.andLeft (Bool.andRight pairTest),
-            Bool.andRight (Bool.andRight pairTest)
-          )).impossible
-
---| A last comma as the walkers' guard states it.
-theorem guardOfPair ∀ (comma closer: Leaf) (behind: List Leaf)
-    (pair: lastPair closer.token.kind comma behind = True):
-    comma.kind == Comma ∧ closer.kind.isCloser ∧ hasItem behind :=
-  (Bool.andLeft pair, Bool.andLeft (Bool.andRight pair), Bool.andRight (Bool.andRight pair))
+    | [closer, ..after1] => notArm2 closer after1 byComputing
 
 --| The walkers' `notArm2` for a leaf that is no last comma.
 theorem notArmOfFwdPair ∀ (leaf: Leaf) (behind after: List Leaf)
     (nop: fwdPair behind leaf after = False)
     (closer: Leaf) (after1: List Leaf)
     (same: after = [closer, ..after1]):
-    ¬(leaf.kind == Comma ∧ closer.kind.isCloser ∧ hasItem behind) :=
-  guard =>
-    let (isComma, isCloser, item) := guard
-    let pair: lastPair closer.token.kind leaf behind = True := (isComma, Bool.andIntro isCloser item)
-    let nop2: lastPair closer.token.kind leaf behind = False := rewrite same at nop then nop
-    rewrite pair at nop2 then cases
+    (leaf.kind == Comma && closer.kind.isCloser && hasItem behind) = False :=
+  rewrite same at nop then nop
 
 --| `notArm2` of the walkers whose guard is `lastPair` (`dropF`, `barishF`) as the pair test failing.
 theorem fwdPairOfNoPair ∀ (leaf: Leaf) (behind after: List Leaf)
     (notArm2: ∀ (closer: Leaf) (after1: List Leaf) => after = [closer, ..after1]
-      → ¬lastPair closer.token.kind leaf behind):
+      → lastPair closer.token.kind leaf behind = False):
     fwdPair behind leaf after = False :=
   match after with
     | [] => byComputing
-    | [closer, ..after1] =>
-      match pairTest: lastPair closer.token.kind leaf behind with
-        | False => pairTest
-        | True => (notArm2 closer after1 byComputing pairTest).impossible
+    | [closer, ..after1] => notArm2 closer after1 byComputing
 
 theorem hasItemDropRev ∀ (behind: List Leaf): hasItem (dropRev behind) = hasItem behind := match behind with
   | [] | [_, .._] => byComputing
@@ -1313,10 +1292,7 @@ theorem buildDrop ∀ (behind rest: List Leaf)
           { comma | trivia = Trivia.empty }
           (commaDeleted comma closer behind).snd
           pair2
-      rewrite withoutR.eq2 (dropRev behind) comma closer after (guardOfPair comma closer (dropRev behind) pairA),
-          hFst,
-          hSnd then
-        rewrite top at claim then claim
+      rewrite withoutR.eq2 (dropRev behind) comma closer after pairA, hFst, hSnd then rewrite top at claim then claim
     | eq3 behind leaf after notArm2 ih =>
       let pair := fwdPairOfNotArm leaf behind after notArm2
       let claim := ih (gapAfterNop leaf behind after pair) (barishAfterNop leaf behind after gap okB)
