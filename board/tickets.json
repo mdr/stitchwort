@@ -28387,8 +28387,8 @@
     {
       "id": 4314,
       "title": "[DeepSeek] Add task test:hashes NAME=… running hash_stability snapshots filtered to the named examples without updating them (lanes run the nextest command by hand today; SW-4312 friction)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "test-infra",
