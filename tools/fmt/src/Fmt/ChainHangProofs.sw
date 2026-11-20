@@ -38,9 +38,6 @@ theorem tailAppend ∀ (kinds: Text → Tok) (before middle trails: Bool) (front
     TailHangs kinds before trails (front ++ back) :=
   state indent inset quiet unglued clear deeper =>
     hangsAppend front
-      (AfterWords state indent before)
-      (AfterWords state indent middle)
-      (AfterWords state indent trails)
       (first state indent inset quiet unglued clear deeper)
       (second state indent inset quiet unglued clear deeper)
 
@@ -69,12 +66,12 @@ theorem argFor ∀ (kinds: Text → Tok) (doc: Doc) (inset indent: Nat) (state: 
     HangLays kinds doc inset (ArgSeat state inset before) (AfterWords state indent trails) :=
   match noted with
     | False => argHangs kinds doc inset indent state before trails quiet unglued clear el
-    | True => place trace next (folded, seat, fresh) after =>
+    | True => hangsBy (place trace next (folded, seat, fresh) after =>
       let same := openedQuiet state (leadStart inset place) quiet unglued
-      el state place place trace next
+      el state place place _ trace next byComputing
         (byComputing, folded, ledSeatOf inset before state place unglued seat fresh)
-        (left later (ended, landed) =>
-          after left later (rewrite same at ended then ended, rewrite same at landed then landed, clear))
+        (hangsAfter (left later (ended, landed) =>
+          after left later (rewrite same at ended then ended, rewrite same at landed then landed, clear))))
 
 --| An element after words, laid at `inset`, no deeper bound asked than the chain's, its first token where `startFor`
 --| says.
@@ -84,10 +81,10 @@ theorem partAtFor ∀ (kinds: Text → Tok) (doc: Doc) (indent inset: Nat) (stat
     (deeper: (indent < inset) = True)
     (el: ElHangs kinds doc inset inset before trails (startFor noted)):
     HangLays kinds doc inset (AfterWords state indent before) (AfterWords state indent trails) :=
-  place trace next (ended, folded, clear) after =>
-    partHangsFor kinds doc inset before trails noted el state place quiet unglued place trace next
+  hangsBy (place trace next (ended, folded, clear) after =>
+    (partHangsFor kinds doc inset before trails noted el state place quiet unglued) place _ trace next byComputing
       (byComputing, folded, ended, arithmetic)
-      (left later (done, landed) => after left later (done, landed, clear))
+      (hangsAfter (left later (done, landed) => after left later (done, landed, clear))))
 
 --| A run of a chain whose operator folds as a plain token (`Line`, the operator, a space, its operand's first doc,
 --| then the operand's own runs), the operator's and the operand's first tokens where `startFor` says.
@@ -104,39 +101,24 @@ theorem plainRunHangs ∀ (kinds: Text → Tok) (operatorDoc first: Doc)
   state indent inset quiet unglued clear deeper =>
     hangsCons Line
       [operatorDoc, Doc.text " ", first, ..rest]
-      (AfterWords state indent before)
-      (ArgSeat state inset before)
-      (AfterWords state indent trails)
       (lineArg kinds inset indent state before unglued deeper)
       (hangsCons operatorDoc
         [Doc.text " ", first, ..rest]
-        (ArgSeat state inset before)
-        (AfterWords state indent operated)
-        (AfterWords state indent trails)
         (argFor kinds operatorDoc inset indent state before operated noted quiet unglued clear (operatorHangs inset))
         (hangsCons
           (Doc.text " ")
           [first, ..rest]
-          (AfterWords state indent operated)
-          (AfterWords state indent operated)
-          (AfterWords state indent trails)
-          (place trace next (ended, folded, bounded) after =>
-            gapKeeps kinds
-              (Doc.text " ")
-              inset
-              state
-              operated
-              ((inForce state.blocks state.top <= indent) = True)
-              (Inr byComputing)
-              place
-              trace
-              next
-              (ended, folded, bounded)
-              after)
+          (hangsBy (place trace next (ended, folded, bounded) after =>
+            (gapKeeps kinds
+                  (Doc.text " ")
+                  inset
+                  state
+                  operated
+                  ((inForce state.blocks state.top <= indent) = True)
+                  (Inr byComputing)) place _ trace next byComputing
+                (ended, folded, bounded)
+                (hangsAfter after)))
           (hangsCons first rest
-            (AfterWords state indent operated)
-            (AfterWords state indent middle)
-            (AfterWords state indent trails)
             (partAtFor kinds first indent inset state operated middle next quiet unglued deeper (firstHangs inset))
             (runs state indent inset quiet unglued clear deeper))))
 
@@ -172,10 +154,12 @@ theorem arrowArg ∀ (kinds: Text → Tok) (doc: Doc) (inset indent: Nat) (state
     (clear: (inForce state.blocks state.top <= indent) = True)
     (glues: GluesAt kinds before doc):
     HangLays kinds doc inset (ArgSeat state inset before) (AfterWords (stuckFrom state) indent False) :=
-  place trace next (folded, seat, _) after =>
+  hangsBy (place trace next (folded, seat, _) after =>
     let same := gluedQuiet state (wordStart inset place) quiet
-    glues inset inset state place place trace next (byComputing, folded, seat) (left later (ended, landed) =>
-      after left later (rewrite same at ended then ended, rewrite same at landed then landed, clear))
+    (glues inset inset state place) place _ trace next byComputing
+      (byComputing, folded, seat)
+      (hangsAfter (left later (ended, landed) =>
+        after left later (rewrite same at ended then ended, rewrite same at landed then landed, clear))))
 
 --| `->` with own-line comments above it: from its seat, its token starting the line after them (`leadStart`), it ends
 --| mid-line with the fold glued, as `GluesAt`.
@@ -200,12 +184,12 @@ theorem arrowArgFor ∀ (kinds: Text → Tok) (doc: Doc) (inset indent: Nat) (st
     HangLays kinds doc inset (ArgSeat state inset before) (AfterWords (stuckFrom state) indent False) :=
   match noted with
     | False => arrowArg kinds doc inset indent state before quiet clear glues
-    | True => place trace next (folded, seat, fresh) after =>
+    | True => hangsBy (place trace next (folded, seat, fresh) after =>
       let same := gluedQuiet state (leadStart inset place) quiet
-      glues inset state place place trace next
+      glues inset state place place _ trace next byComputing
         (byComputing, folded, ledSeatOf inset before state place unglued seat fresh)
-        (left later (ended, landed) =>
-          after left later (rewrite same at ended then ended, rewrite same at landed then landed, clear))
+        (hangsAfter (left later (ended, landed) =>
+          after left later (rewrite same at ended then ended, rewrite same at landed then landed, clear))))
 
 --| The operand's first doc after `->` and its space: mid-line, so it starts no line, and the fold unglued again.
 theorem gluedPart ∀ (kinds: Text → Tok) (doc: Doc) (indent inset: Nat) (state: HangState) (trails: Bool)
@@ -214,20 +198,19 @@ theorem gluedPart ∀ (kinds: Text → Tok) (doc: Doc) (indent inset: Nat) (stat
     (deeper: (indent < inset) = True)
     (el: ElHangs kinds doc inset inset False trails wordStart):
     HangLays kinds doc inset (AfterWords (stuckFrom state) indent False) (AfterWords state indent trails) :=
-  place trace next (ended, folded, clear) after =>
+  hangsBy (place trace next (ended, folded, clear) after =>
     let back := stuckUnglued state quiet unglued
     match place, ended with
       | Mid at carry, (floor, left) =>
-        el
-          (stuckFrom state)
-          (Mid at carry)
-          (Mid at carry)
+        (el (stuckFrom state) (Mid at carry))
+          (Mid at carry) _
           trace
           next
+          byComputing
           (byComputing, folded, ((floor, left), Nat.leRefl inset, arithmetic, byComputing))
-          (left later (done, landed) =>
-            after left later (rewrite back at done then done, rewrite back at landed then landed, clear))
-      | Held at carry, (never, _, _) => (Bool.falseNotTrue never).impossible
+          (hangsAfter (left later (done, landed) =>
+            after left later (rewrite back at done then done, rewrite back at landed then landed, clear)))
+      | Held at carry, (never, _, _) => (Bool.falseNotTrue never).impossible)
 
 --| A run of a chain of `->` (`Line`, the arrow, a space, its operand's first doc, then the operand's own runs).
 --|
@@ -242,39 +225,24 @@ theorem arrowRunHangs ∀ (kinds: Text → Tok) (operatorDoc first: Doc) (rest: 
     let stuck := stuckFrom state
     hangsCons Line
       [operatorDoc, Doc.text " ", first, ..rest]
-      (AfterWords state indent before)
-      (ArgSeat state inset before)
-      (AfterWords state indent trails)
       (lineArg kinds inset indent state before unglued deeper)
       (hangsCons operatorDoc
         [Doc.text " ", first, ..rest]
-        (ArgSeat state inset before)
-        (AfterWords stuck indent False)
-        (AfterWords state indent trails)
         (arrowArgFor kinds operatorDoc inset indent state before noted quiet unglued clear glues)
         (hangsCons
           (Doc.text " ")
           [first, ..rest]
-          (AfterWords stuck indent False)
-          (AfterWords stuck indent False)
-          (AfterWords state indent trails)
-          (place trace next (ended, folded, bounded) after =>
-            gapKeeps kinds
-              (Doc.text " ")
-              inset
-              stuck
-              False
-              ((inForce stuck.blocks stuck.top <= indent) = True)
-              (Inr byComputing)
-              place
-              trace
-              next
-              (ended, folded, bounded)
-              after)
+          (hangsBy (place trace next (ended, folded, bounded) after =>
+            (gapKeeps kinds
+                  (Doc.text " ")
+                  inset
+                  stuck
+                  False
+                  ((inForce stuck.blocks stuck.top <= indent) = True)
+                  (Inr byComputing)) place _ trace next byComputing
+                (ended, folded, bounded)
+                (hangsAfter after)))
           (hangsCons first rest
-            (AfterWords stuck indent False)
-            (AfterWords state indent middle)
-            (AfterWords state indent trails)
             (gluedPart kinds first indent inset state middle quiet unglued deeper (firstHangs inset inset))
             (runs state indent inset quiet unglued clear deeper))))
 
@@ -342,7 +310,7 @@ theorem arrowLeafGlues ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
               ))
     rewrite leafIsText word around key closer comma bare then
       match after: word.comments.after, quiet with
-        | None, _ => hangsConcat [Doc.text word.text] pre post (hangsLast (Doc.text word.text) indent pre post written)
+        | None, _ => hangsConcat [Doc.text word.text] (hangsLast (Doc.text word.text) indent written)
 
 --| What a chain's operand asks (`linkDocs`): a chain of the same level its operands and operators, each operator
 --| folding as a plain token or as `->` after the operand before it and before a space, its token and the next
@@ -468,16 +436,11 @@ theorem linkDocsForm ∀ (kinds: Text → Tok) (led: Bool) (level: Option Nat) (
 theorem runsPart ∀ (kinds: Text → Tok) (docs: List Doc) (indent: Nat) (before trails: Bool)
     (runs: TailHangs kinds before trails docs):
     PartHangs kinds (Nest 2 (Doc.concat docs)) indent before trails :=
-  state entry quiet unglued place trace next (isEntry, folded, ended, clear) after =>
-    hangsConcat docs
-      (AfterWords state indent before)
-      (AfterWords state indent trails)
-      (runs state indent (indent + 2) quiet unglued clear arithmetic)
-      place
-      trace
-      next
-      (rewrite isEntry then ended, folded, clear)
-      (left later (done, landed, _) => after left later (done, landed))
+  state entry quiet unglued =>
+    hangsBy (place trace next (isEntry, folded, ended, clear) after =>
+      (hangsConcat docs (runs state indent (indent + 2) quiet unglued clear arithmetic)) place _ trace next byComputing
+        (rewrite isEntry then ended, folded, clear)
+        (hangsAfter (left later (done, landed, _) => after left later (done, landed))))
 
 --| An operator chain (`chain`) whose first operand opens no arms, as one element: the fold after it as after its
 --| first operand's first word.
@@ -505,14 +468,7 @@ theorem chainHangs ∀ (kinds: Text → Tok) (level: Option Nat) (left: Expr) (o
       trails
       (elUnheld kinds head indent column around.before middle wordStart (headHangs indent column))
       (runsPart kinds tail indent middle trails runs)
-  rewrite flat, linksAre then
-    state entry =>
-      hangsGroup inner.forcesBreak
-        (Entered indent column False state entry (wordStart indent entry))
-        (place hang =>
-          Ended (openedBy state (wordStart indent entry)) trails place
-            ∧ hang = Hang.At (openedBy state (wordStart indent entry)))
-        (lays state entry)
+  rewrite flat, linksAre then state entry => hangsGroup inner.forcesBreak (lays state entry)
 
 --| A chain of binary operators as an element, framed, its own-line comments written elsewhere or none.
 theorem binaryChainHangs ∀ (kinds: Text → Tok) (left: Expr) (operator: Word) (right: Expr) (around: Around)

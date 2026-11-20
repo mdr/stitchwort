@@ -1457,11 +1457,12 @@ theorem standsOfDoc ∀ (decl: Decl) (doc: Doc)
     stands None decl.stood (Fmt.OutputStatements.laidOf doc).leaves.reverse = True :=
   standsOfLays decl doc within shaped settled lexical plain
     (doc1Hangs lexKind decl doc within lexKindFixed facts shows
-      (AtStart 0 Carry.none)
+      (AtStart 0 Carry.none) _
       []
       (place laid => True)
+      byComputing
       (byComputing, byComputing)
-      (after later holds => byComputing))
+      (after hang later same holds => byComputing))
     shows
 
 --| `printedStands1`, as proved: the four tree facts, no comment ending in a carriage return, and `DeclHangs`. It is

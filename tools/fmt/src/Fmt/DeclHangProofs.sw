@@ -54,18 +54,25 @@ def WordToken (text: Text): Prop :=
 theorem spaceKeeps ∀ (kinds: Text → Tok) (indent: Nat) (state: HangState) (trails: Bool):
     HangLays kinds (Doc.text " ") indent (place hang => Ended state trails place ∧ hang = Hang.At state) (place hang =>
       Ended state trails place ∧ hang = Hang.At state) :=
-  place trace next holds after =>
+  hangsBy (place trace next holds after =>
     match place, holds with
       | Mid at carry, ((floor, left), folded) =>
         after (Mid at (floorAfter " " carry)) trace ((byComputing, left), folded)
       | Held at carry, holds => after (Held at carry) trace holds
-      | AtStart _ _ | Broken _ _, (never, _) => (Bool.falseNotTrue never).impossible
+      | AtStart _ _ | Broken _ _, (never, _) => (Bool.falseNotTrue never).impossible)
 
 theorem spaceTop ∀ (kinds: Text → Tok) (indent: Nat) (trails: Bool):
     HangLays kinds (Doc.text " ") indent (TopDone trails) (TopDone trails) :=
-  place trace next (top, holds) after =>
-    spaceKeeps kinds indent (topState top) trails place trace next holds (left later reached =>
-      after left later (top, reached))
+  hangsBy (place trace next (top, holds) after =>
+    spaceKeeps kinds indent
+      (topState top)
+      trails
+      place _
+      trace
+      next
+      byComputing
+      holds
+      (hangsAfter (left later reached => after left later (top, reached))))
 
 --| A word written after words, or on the comment break after a waiting comment, where nothing is in force: no
 --| floor after it, and nothing in force right of its line.
@@ -96,7 +103,7 @@ theorem startTopHangs ∀ (kinds: Text → Tok) (doc: Doc) (column: Nat) (before
     (deep: (0 < column) = True)
     (el: ElHangs kinds doc column column before trails (startFor noted)):
     HangLays kinds doc column (place hang => StartsAt column place ∧ hang = Hang.At topFrom) (TopDone trails) :=
-  place trace next (starts, folded) after =>
+  hangsBy (place trace next (starts, folded) after =>
     match place, starts with
       | Broken at carry, (atColumn, floor) =>
         let landed: floored carry column = column := rewrite floor
@@ -104,40 +111,49 @@ theorem startTopHangs ∀ (kinds: Text → Tok) (doc: Doc) (column: Nat) (before
           rewrite atColumn then ((byComputing, landed), Nat.leRefl column, arithmetic, (byComputing, arithmetic))
         match noted, el with
           | True, el =>
-            el topFrom (Broken at carry) (Broken at carry) trace next (byComputing, folded, seat) (left later (done,
-              landed) =>
-              after left later (Some at, done, landed))
+            (el topFrom (Broken at carry))
+              (Broken at carry) _
+              trace
+              next
+              byComputing
+              (byComputing, folded, seat)
+              (hangsAfter (left later (done, landed) => after left later (Some at, done, landed)))
           | False, el =>
-            el topFrom (Broken at carry) (Broken at carry) trace next (byComputing, folded, seat) (left later (done,
-              landed) =>
-              after left later (Some at, done, landed))
+            (el topFrom (Broken at carry))
+              (Broken at carry) _
+              trace
+              next
+              byComputing
+              (byComputing, folded, seat)
+              (hangsAfter (left later (done, landed) => after left later (Some at, done, landed))))
 
 --| The type or the body after a space on the `:`'s or the `:=`'s line: it starts no line, or, noted, the line after
 --| its comments, at the comment break right of column 0.
 theorem midTopHangs ∀ (kinds: Text → Tok) (doc: Doc) (indent: Nat) (trails noted: Bool)
     (el: ElHangs kinds doc indent indent False trails (startFor noted)):
     HangLays kinds doc indent (AfterTop False) (TopDone trails) :=
-  place trace next (ended, folded) after =>
+  hangsBy (place trace next (ended, folded) after =>
     match place, ended with
       | Mid at carry, (floor, left) =>
         match noted, el with
           | True, el =>
-            el topFrom
-              (Mid at carry)
-              (Mid at carry)
+            (el topFrom (Mid at carry))
+              (Mid at carry) _
               trace
               next
+              byComputing
               (byComputing, folded, ((floor, left), Nat.leRefl indent, arithmetic, (byComputing, arithmetic)))
-              (left later (done, landed) => after left later (Some (Nat.max indent (at + 2)), done, landed))
+              (hangsAfter (left later (done, landed) =>
+                after left later (Some (Nat.max indent (at + 2)), done, landed)))
           | False, el =>
-            el topFrom
-              (Mid at carry)
-              (Mid at carry)
+            (el topFrom (Mid at carry))
+              (Mid at carry) _
               trace
               next
+              byComputing
               (byComputing, folded, ((floor, left), Nat.leRefl indent, arithmetic, byComputing))
-              (left later (done, landed) => after left later (None, done, landed))
-      | Held at carry, (never, _, _) => (Bool.falseNotTrue never).impossible
+              (hangsAfter (left later (done, landed) => after left later (None, done, landed)))
+      | Held at carry, (never, _, _) => (Bool.falseNotTrue never).impossible)
 
 --| A line of its own below, at `column`, then the type or the body.
 theorem belowTopHangs ∀ (kinds: Text → Tok) (doc: Doc) (column: Nat) (before trails after noted: Bool)
@@ -147,12 +163,7 @@ theorem belowTopHangs ∀ (kinds: Text → Tok) (doc: Doc) (column: Nat) (before
   let started: Place → Hang → Prop := place hang => StartsAt column place ∧ hang = Hang.At topFrom
   hangsConcat
     [HardLine, doc]
-    (AfterTop after)
-    (TopDone trails)
     (hangsTwo HardLine
-      (AfterTop after)
-      started
-      (TopDone trails)
       (hangsHardBroken kinds column (AfterTop after) started (place hang (ended, folded) =>
         match place, ended with
           | Mid at carry, (floor, _) =>
@@ -181,18 +192,12 @@ theorem keywordHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around)
   let ended: Place → Hang → Prop := place hang =>
     Ended HangState.initial word.trails place ∧ hang = Hang.At HangState.initial
   rewrite leafIsText word around 0 closer comma bare then
-    hangsPost DeclStart ended
-      (AfterWords HangState.initial 0 word.trails)
+    hangsPost
       (hangsConcat
         [Doc.text word.text, ..word.trailing]
-        DeclStart
-        ended
         (hangsCons
           (Doc.text word.text)
           word.trailing
-          DeclStart
-          written
-          ended
           (hangsChunk kinds word.text word.text.length 0 DeclStart written solid (place trace (isEntry, folded) =>
             rewrite isEntry, folded then
               (
@@ -256,22 +261,15 @@ theorem headHangs ∀ (kinds: Text → Tok) (keyword name: Word) (start: Around)
   rewrite goal then
     hangsConcat
       [keywordDoc, Doc.text " ", nameDoc]
-      DeclStart
-      (AfterWords state 0 name.trails)
       (hangsCons keywordDoc
         [Doc.text " ", nameDoc]
-        DeclStart
-        (AfterWords state 0 keyword.trails)
-        (AfterWords state 0 name.trails)
         keywordLays
         (hangsTwo
           (Doc.text " ")
-          (AfterWords state 0 keyword.trails)
-          (AfterWords state 0 keyword.trails)
-          (AfterWords state 0 name.trails)
-          (place trace next (ended, folded, bound) after =>
-            spaceKeeps kinds 0 state keyword.trails place trace next (ended, folded) (left later (done, landed) =>
-              after left later (done, landed, bound)))
+          (hangsBy (place trace next (ended, folded, bound) after =>
+            (spaceKeeps kinds 0 state keyword.trails) place _ trace next byComputing
+              (ended, folded)
+              (hangsAfter (left later (done, landed) => after left later (done, landed, bound)))))
           (partStep kinds nameDoc 0 state keyword.trails name.trails byComputing byComputing namePart)))
 
 -- A header token with comments above it.
@@ -322,7 +320,7 @@ theorem notedStepHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
       indent
       (place hang => Ended state before place ∧ hang = Hang.At state)
       (place hang => Ended final word.trails place ∧ hang = Hang.At final) :=
-  place trace next (ended, folded) after =>
+  hangsBy (place trace next (ended, folded) after =>
     let seated: Seated indent before state place := match place, ended with | Mid _ _ | Held _ _, ended => ended
     let room: Room state (Some (leadColumn indent place)) := match place, ended with
       | Mid at carry, (floor, left) => (unglued, arithmetic)
@@ -334,29 +332,19 @@ theorem notedStepHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
     let written: Place → Hang → Prop := at hang => Ended final False at ∧ hang = Hang.At final
     let post: Place → Hang → Prop := at hang => Ended final word.trails at ∧ hang = Hang.At final
     rewrite leafPiece word around key closer comma then
-      hangsConcat
-        (word.leading around key ++ [Doc.text word.text, ..word.trailing])
-        entry
-        post
-        (hangsAppend
-          (word.leading around key)
-          entry
-          lined
-          post
-          (leadingHangs kinds word around key indent before state place note rest hoisted noted closer comments fresh)
-          (hangsCons
-            (Doc.text word.text)
-            word.trailing
-            lined
-            written
-            post
-            (lineStepHangs kinds word.text indent column state final token solid (step column room) (bound column))
-            (trailingHangs kinds word indent final trailed)))
-        place
-        trace
-        next
-        (byComputing, folded, seated)
-        after
+      (hangsConcat
+            (word.leading around key ++ [Doc.text word.text, ..word.trailing])
+            (hangsAppend
+              (word.leading around key)
+              (leadingHangs kinds word around key indent before state place note rest hoisted noted closer comments
+                  fresh)
+              (hangsCons
+                (Doc.text word.text)
+                word.trailing
+                (lineStepHangs kinds word.text indent column state final token solid (step column room) (bound column))
+                (trailingHangs kinds word indent final trailed)))) place _ trace next byComputing
+          (byComputing, folded, seated)
+          (hangsAfter after))
 
 -- `:` and `:=`.
 
@@ -374,14 +362,9 @@ theorem colonHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key 
   rewrite leafIsText word around key closer comma (bareCloserLeading word around key hoisted bare single) then
     hangsConcat
       [Doc.text word.text, ..word.trailing]
-      pre
-      (AfterTop word.trails)
       (hangsCons
         (Doc.text word.text)
         word.trailing
-        pre
-        (AfterTop False)
-        (AfterTop word.trails)
         (hangsChunk kinds word.text word.text.length indent pre (AfterTop False) solid (place trace (ended, folded,
           _) =>
           rewrite folded then
@@ -421,14 +404,9 @@ theorem assignHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key
   rewrite leafIsText word around key closer comma (bareCloserLeading word around key hoisted bare single) then
     hangsConcat
       [Doc.text word.text, ..word.trailing]
-      pre
-      (AfterTop word.trails)
       (hangsCons
         (Doc.text word.text)
         word.trailing
-        pre
-        (AfterTop False)
-        (AfterTop word.trails)
         (hangsChunk kinds word.text word.text.length indent pre (AfterTop False) solid (place trace (top, ended,
           folded) =>
           rewrite folded then
@@ -456,22 +434,19 @@ theorem colonNotedHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) 
     (trailed: TrailsComment word):
     HangLays kinds (word.leaf around key) indent (AfterWords HangState.initial 0 before) (AfterTop word.trails) :=
   let (notComment, solid, closer, comma) := token
-  place trace next (ended, folded, clear) after =>
-    notedStepHangs kinds word around key indent before HangState.initial topFrom note rest notComment solid closer comma
-        hoisted noted comments trailed byComputing
-        (column room =>
-          stepColon kinds HangState.initial word.text
-            (Some column)
-            (tokenCode word.text (Some column) notComment solid)
-            colon
-            byComputing
-            room)
-        (column => arithmetic)
-        place
-        trace
-        next
+  hangsBy (place trace next (ended, folded, clear) after =>
+    (notedStepHangs kinds word around key indent before HangState.initial topFrom note rest notComment solid closer
+            comma hoisted noted comments trailed byComputing
+            (column room =>
+              stepColon kinds HangState.initial word.text
+                (Some column)
+                (tokenCode word.text (Some column) notComment solid)
+                colon
+                byComputing
+                room)
+            (column => arithmetic)) place _ trace next byComputing
         (ended, folded)
-        after
+        (hangsAfter after))
 
 --| The `:=` with own-line comments above it, after the type: they sit above it, and the body then starts.
 theorem assignNotedHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat) (before: Bool)
@@ -484,36 +459,33 @@ theorem assignNotedHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around)
     (trailed: TrailsComment word):
     HangLays kinds (word.leaf around key) indent (TopDone before) (AfterTop word.trails) :=
   let (notComment, solid, closer, comma) := token
-  place trace next (top, ended, folded) after =>
-    notedStepHangs kinds word around key indent before
-      (topState top)
-      topFrom
-      note
-      rest
-      notComment
-      solid
-      closer
-      comma
-      hoisted
-      noted
-      comments
-      trailed
-      byComputing
-      (column room =>
-        stepAssign kinds
+  hangsBy (place trace next (top, ended, folded) after =>
+    (notedStepHangs kinds word around key indent before
           (topState top)
-          word.text
-          (Some column)
-          (tokenCode word.text (Some column) notComment solid)
-          assign
+          topFrom
+          note
+          rest
+          notComment
+          solid
+          closer
+          comma
+          hoisted
+          noted
+          comments
+          trailed
           byComputing
-          (_ => byComputing))
-      (column => arithmetic)
-      place
-      trace
-      next
-      (ended, folded)
-      after
+          (column room =>
+            stepAssign kinds
+              (topState top)
+              word.text
+              (Some column)
+              (tokenCode word.text (Some column) notComment solid)
+              assign
+              byComputing
+              (_ => byComputing))
+          (column => arithmetic)) place _ trace next byComputing
+        (ended, folded)
+        (hangsAfter after))
 
 --| The `:` after the head, with or without own-line comments above it.
 theorem colonAnyHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat) (before: Bool)
@@ -572,50 +544,24 @@ theorem headerHangs ∀ (kinds: Text → Tok) (headDoc colonDoc typeDoc: Doc) (n
     | True =>
       hangsConcat
         [headDoc, colonDoc, Nest 4 (Doc.concat [HardLine, typeDoc])]
-        DeclStart
-        (TopDone typeTrails)
         (hangsCons headDoc
           [colonDoc, Nest 4 (Doc.concat [HardLine, typeDoc])]
-          DeclStart
-          (AfterWords HangState.initial 0 named)
-          (TopDone typeTrails)
           head
-          (hangsTwo colonDoc
-            (AfterWords HangState.initial 0 named)
-            (AfterTop True)
-            (TopDone typeTrails)
-            colon
-            (hangsNest 4 0
-              (AfterTop True)
-              (TopDone typeTrails)
-              (belowTopHangs kinds typeDoc 4 True typeTrails True typeNoted byComputing typed))))
+          (hangsTwo colonDoc colon
+            (hangsNest 4 0 (belowTopHangs kinds typeDoc 4 True typeTrails True typeNoted byComputing typed))))
     | False =>
       hangsConcat
         [headDoc, colonDoc, Doc.text " ", Nest 4 typeDoc]
-        DeclStart
-        (TopDone typeTrails)
         (hangsCons headDoc
           [colonDoc, Doc.text " ", Nest 4 typeDoc]
-          DeclStart
-          (AfterWords HangState.initial 0 named)
-          (TopDone typeTrails)
           head
           (hangsCons colonDoc
             [Doc.text " ", Nest 4 typeDoc]
-            (AfterWords HangState.initial 0 named)
-            (AfterTop False)
-            (TopDone typeTrails)
             colon
             (hangsTwo
               (Doc.text " ")
-              (AfterTop False)
-              (AfterTop False)
-              (TopDone typeTrails)
               (spaceKeeps kinds 0 topFrom False)
-              (hangsNest 4 0
-                (AfterTop False)
-                (TopDone typeTrails)
-                (midTopHangs kinds typeDoc 4 typeTrails typeNoted typed)))))
+              (hangsNest 4 0 (midTopHangs kinds typeDoc 4 typeTrails typeNoted typed)))))
 
 -- The body (`bodyAfter`): the value below at 2, or one of the choice's forms.
 
@@ -629,34 +575,17 @@ theorem spaceDocHangs ∀ (kinds: Text → Tok) (doc: Doc)
   let (trails, el) := on
   hangsConcat
     [Doc.text " ", doc]
-    (AfterTop False)
-    Unbroken
     (hangsTwo
       (Doc.text " ")
-      (AfterTop False)
-      (AfterTop False)
-      Unbroken
       (spaceKeeps kinds 0 topFrom False)
-      (hangsPost
-        (AfterTop False)
-        (TopDone trails)
-        Unbroken
-        (midTopHangs kinds doc 0 trails False el)
-        (topDoneUnbroken trails)))
+      (hangsPost (midTopHangs kinds doc 0 trails False el) (topDoneUnbroken trails)))
 
 --| The value below at 2 on a line of its own.
 theorem belowHangs ∀ (kinds: Text → Tok) (doc: Doc) (before trails noted: Bool)
     (el: ElHangs kinds doc 2 2 before trails (startFor noted)):
     HangLays kinds (Nest 2 (Doc.concat [HardLine, doc])) 0 (AfterTop before) Unbroken :=
   hangsNest 2 0
-    (AfterTop before)
-    Unbroken
-    (hangsPost
-      (AfterTop before)
-      (TopDone trails)
-      Unbroken
-      (belowTopHangs kinds doc 2 before trails before noted byComputing el)
-      (topDoneUnbroken trails))
+    (hangsPost (belowTopHangs kinds doc 2 before trails before noted byComputing el) (topDoneUnbroken trails))
 
 --| The value one line below at 2, laid flat.
 theorem oneLineHangs ∀ (kinds: Text → Tok) (doc: Doc) (trails: Bool)
@@ -665,13 +594,7 @@ theorem oneLineHangs ∀ (kinds: Text → Tok) (doc: Doc) (trails: Bool)
   let started: Place → Hang → Prop := place hang => StartsAt 2 place ∧ hang = Hang.At topFrom
   hangsOneLineBelow 0
     (AfterTop False)
-    started
-    Unbroken
-    (hangsPost started
-      (TopDone trails)
-      Unbroken
-      (startTopHangs kinds doc 2 False trails False byComputing el)
-      (topDoneUnbroken trails))
+    (hangsPost (startTopHangs kinds doc 2 False trails False byComputing el) (topDoneUnbroken trails))
     (place hang (ended, folded) =>
       match place, ended with
         | Mid at carry, (floor, _) =>
@@ -692,7 +615,7 @@ theorem plainChoiceHangs ∀ (kinds: Text → Tok) (doc: Doc) (hug: Option Doc) 
         ++ (if hug.isSome then [OneLineBelow doc] else [])
         ++ optionList (hug.map (open => Doc.concat [Doc.text " ", open]))
         ++ [Nest 2 (Doc.concat [HardLine, doc])]) :=
-  let flat := hangsFlatten (AfterTop False) Unbroken (spaceDocHangs kinds doc onLine)
+  let flat := hangsFlatten (spaceDocHangs kinds doc onLine)
   let low := belowHangs kinds doc False trails False below
   match hug, hugs with
     | None, _ => (flat, low, byComputing)
@@ -710,7 +633,7 @@ theorem openChoiceHangs ∀ (kinds: Text → Tok) (doc: Doc) (trails: Bool)
       Nest 2 (Doc.concat [HardLine, doc])
     ] :=
   (
-    hangsFlatten (AfterTop False) Unbroken (spaceDocHangs kinds doc onLine),
+    hangsFlatten (spaceDocHangs kinds doc onLine),
     oneLineHangs kinds doc trails below,
     spaceDocHangs kinds doc onLine,
     belowHangs kinds doc False trails False below,
@@ -770,29 +693,23 @@ theorem bodyAfterHangs ∀ (kinds: Text → Tok) (value: Expr) (assign: Word) (a
               match opens: value.opensBracket with
                 | True => (
                   low,
-                  hangsChoice kinds
+                  hangsChoice
                     [
                       Flatten (Doc.concat [Doc.text " ", doc]),
                       OneLineBelow doc,
                       Doc.concat [Doc.text " ", doc],
                       Nest 2 (Doc.concat [HardLine, doc])
                     ]
-                    0
-                    (AfterTop False)
-                    Unbroken
                     (openChoiceHangs kinds doc trails below onLine)
                     keeps
                 )
                 | False => (
                   low,
-                  hangsChoice kinds
+                  hangsChoice
                     ([Flatten (Doc.concat [Doc.text " ", doc])]
                       ++ (if (value.callHug inside).isSome then [OneLineBelow doc] else [])
                       ++ optionList ((value.callHug inside).map (open => Doc.concat [Doc.text " ", open]))
                       ++ [Nest 2 (Doc.concat [HardLine, doc])])
-                    0
-                    (AfterTop False)
-                    Unbroken
                     (plainChoiceHangs kinds doc (value.callHug inside) trails below onLine hugs)
                     keeps
                 )
@@ -810,28 +727,15 @@ theorem defFromHangs ∀ (kinds: Text → Tok) (headerDoc: Doc) (breaks: Bool)
   let (low, chosen) := body
   hangsConcat
     [IdGroup 0 headerDoc breaks, Doc.text " ", assignDoc, IfBroken 0 below choice]
-    DeclStart
-    Unbroken
     (hangsCons
       (IdGroup 0 headerDoc breaks)
       [Doc.text " ", assignDoc, IfBroken 0 below choice]
-      DeclStart
-      (TopDone typeTrails)
-      Unbroken
-      (hangsIdGroup 0 breaks DeclStart (TopDone typeTrails) header)
+      (hangsIdGroup 0 breaks header)
       (hangsCons
         (Doc.text " ")
         [assignDoc, IfBroken 0 below choice]
-        (TopDone typeTrails)
-        (TopDone typeTrails)
-        Unbroken
         (spaceTop kinds 0 typeTrails)
-        (hangsTwo assignDoc
-          (TopDone typeTrails)
-          (AfterTop assignTrails)
-          Unbroken
-          assign
-          (hangsIfBroken 0 0 (AfterTop assignTrails) Unbroken low chosen))))
+        (hangsTwo assignDoc assign (hangsIfBroken 0 0 low chosen))))
 
 --| The lexer's kinds of slice 1's fixed tokens.
 def FixedKinds (kinds: Text → Tok): Prop := kinds "def" = KwDef ∧ kinds ":" = Colon ∧ kinds ":=" = ColonEq

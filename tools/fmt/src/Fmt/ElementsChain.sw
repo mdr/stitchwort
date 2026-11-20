@@ -283,43 +283,35 @@ theorem notedArrowGlues ∀ (word: Word) (around: Around) (key: Nat) (note: Note
     (comments: NotesComment [note, ..rest])
     (quiet: word.comments.after = None):
     LedGlues lexKind around.before (word.leaf around key) :=
-  inset state entry place trace next entered after =>
-    match entered with
-      | (_, _, (_, _, _, room)) =>
-        let column := leadColumn inset entry
-        let glued := gluedBy state (Some column)
-        let pre := Entered inset inset around.before state entry (leadStart inset entry)
-        let lined := LineAt inset column (Hang.At state)
-        let post: Place → Hang → Prop := place hang => Ended glued False place ∧ hang = Hang.At glued
-        let fresh := leadFresh inset state entry room
-        let leading :=
-          allHangsPre
-            (place hang => place = entry ∧ hang = Hang.At state ∧ Seated inset around.before state entry)
-            pre
-            lined
-            (leadingHangs lexKind word around key inset around.before state entry note rest hoisted noted closer
-                comments fresh)
-            (place hang (isEntry, folded, (seated, _, _, _)) => (isEntry, folded, seated))
-        let written := lineArrowHangs lexKind word.text inset column state arrow token solid room
-        rewrite leafPiece word around key closer comma then
-          match trailing: word.comments.after, quiet with
-            | None, _ =>
-              hangsConcat
-                (word.leading around key ++ [Doc.text word.text])
-                pre
-                post
-                (hangsAppend
-                  (word.leading around key)
-                  pre
-                  lined
-                  post
-                  leading
-                  (hangsLast (Doc.text word.text) inset lined post written))
-                place
-                trace
-                next
-                entered
-                after
+  inset state entry =>
+    hangsBy (place trace next entered after =>
+      match entered with
+        | (_, _, (_, _, _, room)) =>
+          let column := leadColumn inset entry
+          let glued := gluedBy state (Some column)
+          let pre := Entered inset inset around.before state entry (leadStart inset entry)
+          let lined := LineAt inset column (Hang.At state)
+          let post: Place → Hang → Prop := place hang => Ended glued False place ∧ hang = Hang.At glued
+          let fresh := leadFresh inset state entry room
+          let leading :=
+            allHangsPre
+              [weaker := pre]
+              (leadingHangs lexKind word around key inset around.before state entry note rest hoisted noted closer
+                  comments fresh)
+              (place hang (isEntry, folded, (seated, _, _, _)) => (isEntry, folded, seated))
+          let written := lineArrowHangs lexKind word.text inset column state arrow token solid room
+          rewrite leafPiece word around key closer comma then
+            match trailing: word.comments.after, quiet with
+              | None, _ =>
+                hangsConcat
+                  (word.leading around key ++ [Doc.text word.text])
+                  (hangsAppend (word.leading around key) leading (hangsLast (Doc.text word.text) inset written))
+                  place _
+                  trace
+                  next
+                  byComputing
+                  entered
+                  (hangsAfter after))
 
 theorem afterNone ∀ (word: Word) (quiet: word.trails = False): word.comments.after = None := match word, quiet with
   | { text, comments = { above, after = None, blankBefore } }, _ => byComputing
