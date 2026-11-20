@@ -29932,12 +29932,12 @@
     {
       "id": 4432,
       "title": "[Sonnet] SW-4413's note is noise in two rejects: hole-name-after-question shows 'the call's own type `_ _` also does not match' and omega-unsolved-hypothesis prints a long decEq type: add the note only when the call's own type has a head that isn't an unknown and the note is short enough to read (or both types differ at a named head); regenerate those two snapshots; run all rejects",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "\n\nProgress: note now only follows an E-TYPE-MISMATCH and is skipped when the call's type is an unknown applied to unknowns (`_ _`). No length limit: the wanted continuation cases print 140/250 chars, longer than the omega decEq type, so length can't separate them. Commit d524d236f on lane/SW-4432; the six snapshots need no change.\n",
+      "body": "\n\nProgress: note now only follows an E-TYPE-MISMATCH and is skipped when the call's type is an unknown applied to unknowns (`_ _`). No length limit: the wanted continuation cases print 140/250 chars, longer than the omega decEq type, so length can't separate them. Commit d524d236f on lane/SW-4432; the six snapshots need no change.\n\n\nModel result: Sonnet, worked, 16 min (est. 20)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
