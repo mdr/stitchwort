@@ -562,11 +562,37 @@ SW-4410, 20 November 2026.
   elaborating: 41 namespaces and 160 standard library files` (with `; N
   entries refused by it and elaborated` when any were). The editor's
   per-namespace trace says "carried over, checked again by the kernel".
+- **Measured** on `tools/fmt` (148 namespaces, 71 standard library
+  files; release builds, `nice -n 15`, one run each, nothing else
+  running), the kernel side changed by a comment in `crates/core`: a cold
+  check by the earlier build filled the cache, then the later build:
+
+  | Run | Wall | Peak RSS |
+  |---|---|---|
+  | (a) no carry-over: every unit elaborated | 340 s | 3.85 GB |
+  | (b) stage 1, `--carry-over`: nothing carried (kernel side differs) | 340 s | 3.85 GB |
+  | (c) stage 2, `--carry-over`: all 219 units re-checked, none refused | 42.6 s | 1.55 GB |
+  | the next `--carry-over` session (entries kept as this build's) | 4.1 s | 1.34 GB |
+  | `--recheck` over this build's exact entries | 42.2 s | 1.55 GB |
+  | plain warm check, exact entries | 2.1 s | 0.74 GB |
+
+  So the re-check is 12.5% of a cold check's time and 40% of its memory,
+  better than §3's estimate (21%, "90 to 120 s"): the kernel's share
+  measured there includes conversion work the elaborator's own calls
+  cause. The earlier build's cold check took 379 s and 3.33 GB. Run (b)
+  used stage 1's `crates/elab`, `cli` and `driver` from `main` at the
+  time (a few commits past this lane's base) with the same `crates/core`.
+- **A bug the first measurement found:** the checked data branch didn't
+  mark a re-checked data group final or bind its built-ins, so every
+  function matching on one waited for ever and the entry was refused (56
+  of 219 on fmt). The tests' project had no data type; they have one now.
 - **Not built:** re-checking only a sample; the healing of stage 3.
 - **Tests:** `a_kernel_side_change_has_a_carried_entry_checked_again`
   (replaces stage 1's `a_kernel_side_change_makes_a_carried_entry_a_miss`:
   carried and re-checked, the dump equals a fresh check's, kept for the
-  next carrying session, still a miss for an exact one) and
+  next carrying session, still a miss for an exact one; its project has a
+  data type, a function matching on it and a theorem naming the function)
+  and
   `rechecking_exact_entries_keeps_them_exact` in
   `crates/driver/tests/projects/check_cache.rs`;
   `checking_an_entry_again_refuses_a_false_theorem_the_trusted_replay_would_admit`
