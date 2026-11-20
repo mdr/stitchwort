@@ -1,6 +1,6 @@
 //! `check --expand-walk` end to end: the expansion it writes for every
-//! walk of `examples/accept/walk.sw`, `walk-two-run.sw` and
-//! `walk-two-run-open-second.sw` checks again, as the walk did
+//! walk of `examples/accept/walk.sw`, `walk-two-run.sw`,
+//! `walk-two-run-open-second.sw` and `walk-nested-bind.sw` checks again, as the walk did
 //! (docs/syntax.md, "byWalking").
 
 use std::path::Path;
@@ -27,6 +27,7 @@ fn walk_expansions_check_again() {
             "walk-two-run-open-second.sw",
             "walk_two_run_open_second_expand",
         ),
+        ("walk-nested-bind.sw", "walk_nested_bind_expand"),
     ] {
         expansion_checks_again(file, name);
     }

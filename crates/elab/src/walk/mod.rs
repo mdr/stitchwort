@@ -26,7 +26,10 @@
 //! tree split on, or its body unfolded); then, at each point of the body:
 //! - `Effect.bind c k`: a lemma for the call `c` (below), the family's
 //!   then-lemma, and the walk goes on in `k`, its value named after `k`'s
-//!   binder (or `<function>Value`, for a binder the compiler made);
+//!   binder (or `<function>Value`, for a binder the compiler made); where
+//!   `c` isn't one call (`f (g ())`, a split), it is walked as the
+//!   then-lemma's first premise and the walk goes on in `k` where it ends
+//!   ([`nested_bind`]);
 //! - `if c` (also on a proposition, `Decidable.elim`) and a lifted `match`
 //!   (whose case tree is read here, a level at a time): a split on the
 //!   scrutinee where the program's case tree is stuck, a proof
@@ -162,9 +165,21 @@ struct NodeInfo {
     /// the code after it. Kept by the places of the same walk, not by
     /// leaves.
     cont: Option<Rc<Cont>>,
-    /// The first premise of a [`nested_bind`]: each run's bound
-    /// computation, which this goal's thunks are.
-    nest: Option<Rc<Vec<Value>>>,
+    /// The first premise of a [`nested_bind`].
+    nest: Option<Rc<Nest>>,
+}
+
+/// What the goal at the first premise of a [`nested_bind`] is: the
+/// application it is in leaves its thunks and its post unknown (`p ()`
+/// against the code is no pattern, and the post is fixed only by the
+/// premise after it), so the walk fixes them.
+struct Nest {
+    /// Each run's bound computation: the thunks are `() => c`.
+    codes: Vec<Value>,
+    /// Which of the relation's arguments is the post, and what it is: what
+    /// the rest of the code needs of the values.
+    post_at: usize,
+    post: Term,
 }
 
 /// The code after a bound computation that isn't one call: each run's
@@ -967,8 +982,8 @@ fn step(
         .trace
         .clear();
     let info = node_info(cx, node);
-    if let Some(codes) = info.nest.clone() {
-        fix_nested_thunks(cx, &info, family, &args, &codes, expected)?;
+    if let Some(nest) = info.nest.clone() {
+        fix_nested_goal(cx, &info, family, &args, &nest, expected)?;
     }
     if family.thunks.len() == 2 {
         return two::step(cx, node, &info, family, args, top, expected);
@@ -1348,9 +1363,6 @@ fn bind_step(
             }
         }
     }
-    if let Some(term) = nested_bind(cx, node, info, family, &cs, &ks, expected)? {
-        return Ok(term);
-    }
     let Some(callee) = head_of(&cs[0]) else {
         return Err(stuck(
             cx,
@@ -1404,7 +1416,20 @@ fn bind_step(
     if !others.is_empty() {
         ranks.push(others);
     }
-    let chosen = choose(cx, info, callee, &cs, &ranks, expected)?;
+    // A lemma for what the bind runs as a whole comes first; where there
+    // is none and it isn't one call, it is walked.
+    let snapshot = Snapshot::take(cx);
+    let chosen = match choose(cx, info, callee, &cs, &ranks, expected) {
+        Ok(chosen) => chosen,
+        Err(e) if fatal(&e) => return Err(e),
+        Err(e) => {
+            snapshot.restore(cx);
+            match nested_bind(cx, node, outer, family, &cs, &ks, expected)? {
+                Some(term) => return Ok(term),
+                None => return Err(e),
+            }
+        }
+    };
     let then = family
         .then
         .iter()
@@ -1501,13 +1526,6 @@ fn nestable(code: &Code) -> bool {
     matches!(code, Code::Bind(..) | Code::Split { .. } | Code::Reduced(_))
 }
 
-/// Whether the walk's place `id` is checked after the other arguments of
-/// the application it is in: the first premise of a [`nested_bind`], whose
-/// post the identity after it fixes.
-pub(crate) fn held_last(cx: &Ctx, id: u32) -> bool {
-    (cx.e.session.walks.borrow().nodes.get(id as usize)).is_some_and(|n| n.nest.is_some())
-}
-
 /// A bind whose bound computation isn't one call: `let y := f (g ()); k y`
 /// is `Effect.bind (Effect.bind (g ()) f) k`, and the walk reads it as
 /// `let x := g (); let y := f x; k y`. The family's own then-lemma takes
@@ -1516,7 +1534,9 @@ pub(crate) fn held_last(cx: &Ctx, id: u32) -> bool {
 /// premise is the identity: `then (walk of f (g ())) (y yFacts => yFacts)`.
 /// Where the bound computation ends, in a value or a call, the walk goes on
 /// in `k` ([`Cont`]). A bound computation that splits is walked the same
-/// way. None where the code is a call, or the then-lemma's last premise
+/// way. Taken only where no lemma fits the bound computation as a whole
+/// (`givesHandlerNameAt` for `handlerName modes what (modes.at
+/// Underscore)`). None where the code is a call, or the then-lemma's last premise
 /// isn't `∀ vs => first vs → …` with `first` its first premise's post
 /// (`Parse.readsAtThen`'s has a fact about the mark too).
 #[allow(clippy::too_many_arguments)]
@@ -1567,13 +1587,17 @@ fn nested_bind(
         return Ok(None);
     };
     let (head, hyp_args) = hypothesis.spine();
-    let identity = matches!(head.strip_loc(), Term::Var(ix) if *ix >= values_count
-            && rest_at.checked_sub(1 + ix - values_count)
-                .is_some_and(|b| shape.binders[b].0 != Icit::Explicit))
-        && hyp_args.len() == values_count
-        && (hyp_args.iter().enumerate())
-            .all(|(i, a)| matches!(a.strip_loc(), Term::Var(ix) if *ix == values_count - 1 - i));
-    if !identity {
+    let post_binder = match head.strip_loc() {
+        Term::Var(ix) if *ix >= values_count => rest_at.checked_sub(1 + ix - values_count),
+        _ => None,
+    };
+    let Some(post_binder) = post_binder.filter(|&b| shape.binders[b].0 != Icit::Explicit) else {
+        return Ok(None);
+    };
+    if hyp_args.len() != values_count
+        || !(hyp_args.iter().enumerate())
+            .all(|(i, a)| matches!(a.strip_loc(), Term::Var(ix) if *ix == values_count - 1 - i))
+    {
         return Ok(None);
     }
     let first_name = match ks.first() {
@@ -1594,11 +1618,33 @@ fn nested_bind(
         .collect();
     let names = rest_names(cx, &binders, &named);
     let span = cx.span;
+    let identity = lambda(
+        &names,
+        var(names.last().cloned().unwrap_or_default(), span),
+        span,
+    );
+    let Some((post_at, post)) = nested_post(
+        cx,
+        then,
+        &shape,
+        (first_at, rest_at, post_binder),
+        family,
+        cs,
+        &identity,
+        expected,
+    )?
+    else {
+        return Ok(None);
+    };
     let inner = place(cx, info, Kind::Step(family.relation), &info.place);
     {
         let mut walks = cx.e.session.walks.borrow_mut();
         let n = &mut walks.nodes[inner as usize];
-        n.nest = Some(Rc::new(cs.to_vec()));
+        n.nest = Some(Rc::new(Nest {
+            codes: cs.to_vec(),
+            post_at,
+            post,
+        }));
         n.cont = Some(Rc::new(Cont {
             ks: ks.to_vec(),
             parent: info.cont.clone(),
@@ -1608,7 +1654,7 @@ fn nested_bind(
     let facts = names.last().cloned().unwrap_or_default();
     let e = app(
         app(var(then_name.clone(), span), resume(inner, span)),
-        lambda(&names, var(facts.clone(), span), span),
+        identity,
     );
     note_trace(
         cx,
@@ -1632,20 +1678,99 @@ fn nested_bind(
     check_written(cx, info, &e, expected, "the step").map(Some)
 }
 
+/// The post the first premise of a [`nested_bind`] has, and which of the
+/// relation's arguments it is: the then-lemma instantiated at `expected`,
+/// its thunks the bound computations, and its last premise checked as the
+/// identity, which fixes the post. Found aside, with everything it solved
+/// undone; None if it doesn't check.
+#[allow(clippy::too_many_arguments)]
+fn nested_post(
+    cx: &mut Ctx,
+    then: DefId,
+    shape: &Shape,
+    (first_at, rest_at, post_binder): (usize, usize, usize),
+    family: &Family,
+    codes: &[Value],
+    identity: &Expr,
+    expected: &Value,
+) -> Result<Option<(usize, Term)>> {
+    let Some(first) = statement(&shape.binders[first_at].1) else {
+        return Ok(None);
+    };
+    // The lemma's binder each of the first premise's arguments is, if it
+    // is one.
+    let binder_of = |arg: &Term| match arg.strip_loc() {
+        Term::Var(ix) => first_at.checked_sub(1 + ix),
+        _ => None,
+    };
+    let Some(post_at) = (0..first.args.len())
+        .find(|&i| !family.thunks.contains(&i) && binder_of(&first.args[i]) == Some(post_binder))
+    else {
+        return Ok(None);
+    };
+    let snapshot = Snapshot::take(cx);
+    let found = (|| -> Result<Option<Term>> {
+        let g = cx.g();
+        let mut ty = force(&g, g.def(then).ty_value().clone())?;
+        let mut metas = Vec::new();
+        let mut doms = Vec::new();
+        // As many binders as the lemma has as written: forced further, its
+        // conclusion would unfold into the relation's own `∀`s.
+        for _ in 0..shape.binders.len() {
+            let Value::Pi(_, _, dom, cod) = &ty else {
+                return Ok(None);
+            };
+            let m = cx.fresh_meta();
+            let v = cx.eval(&m)?;
+            doms.push((**dom).clone());
+            metas.push(v.clone());
+            ty = cod.apply(&g, v)?;
+            if metas.len() < shape.binders.len() {
+                ty = force(&g, ty)?;
+            }
+        }
+        for (run, &at) in family.thunks.iter().enumerate() {
+            let Some(b) = binder_of(&first.args[at]) else {
+                return Ok(None);
+            };
+            let code = cx.quote_folded(&codes[run])?.shift(&g, 1, 0)?;
+            let thunk = cx.eval(&Term::Lam("arg".into(), Icit::Explicit, Rc::new(code)))?;
+            if !crate::undo::unify(cx, &metas[b], &thunk)? {
+                return Ok(None);
+            }
+        }
+        // By the arguments, as [`read_goal`] compares: the goal's code
+        // against the lemma's `() => j (p())`, not their relation's
+        // unfoldings.
+        if !crate::undo::unify_solving_arguments(cx, &ty, expected)? {
+            return Ok(None);
+        }
+        if check(cx, identity, &doms[rest_at]).is_err() {
+            return Ok(None);
+        }
+        let post = force_solved(&g, metas[post_binder].clone())?;
+        let term = cx.quote_folded(&post)?;
+        let term = cx.e.zonk_keeping(&term, cx.level(), &|_| true)?;
+        Ok(Some(term))
+    })();
+    snapshot.restore(cx);
+    Ok(found?.map(|term| (post_at, term)))
+}
+
 /// At the first premise of a [`nested_bind`]: the goal's thunks are the
-/// bound computations, `() => c`, which the application this premise is in
-/// leaves to be found (`p ()` against `c` is no pattern).
-fn fix_nested_thunks(
+/// bound computations, `() => c`, and its post the one [`nested_post`]
+/// found.
+fn fix_nested_goal(
     cx: &mut Ctx,
     info: &NodeInfo,
     family: &Family,
     args: &[Value],
-    codes: &[Value],
+    nest: &Nest,
     expected: &Value,
 ) -> Result<()> {
+    let g = cx.g();
     for (run, &at) in family.thunks.iter().enumerate() {
-        let g = cx.g();
-        let code = cx.quote_folded(&codes[run])?.shift(&g, 1, 0)?;
+        let code = cx.quote_folded(&nest.codes[run])?.shift(&g, 1, 0)?;
         let thunk = cx.eval(&Term::Lam("arg".into(), Icit::Explicit, Rc::new(code)))?;
         if !crate::undo::unify(cx, &args[at], &thunk)? {
             return Err(stuck(
@@ -1653,9 +1778,19 @@ fn fix_nested_thunks(
                 info,
                 expected,
                 "the goal for the code a bind runs isn't about that code",
-                &[format!("the code is {}", cx.show(&codes[run]))],
+                &[format!("the code is {}", cx.show(&nest.codes[run]))],
             ));
         }
+    }
+    let post = cx.eval(&nest.post)?;
+    if !crate::undo::unify(cx, &args[nest.post_at], &post)? {
+        return Err(stuck(
+            cx,
+            info,
+            expected,
+            "the goal for the code a bind runs doesn't ask what the code after it needs",
+            &[format!("what it needs is {}", cx.show(&post))],
+        ));
     }
     Ok(())
 }
@@ -1762,29 +1897,28 @@ fn tail_call(
         .concat(),
     );
     // As it is, if its post is the goal's; never where the code after it
-    // is still to be walked.
-    let snapshot = Snapshot::take(cx);
-    match (info.cont.is_none())
-        .then(|| check(cx, &lemma, expected))
-        .unwrap_or_else(|| Err(Diagnostic::error("E-WALK", "the code goes on")))
-    {
-        Ok(term) => {
-            cx.reset(mark);
-            let mut text = lemma_text.clone();
-            if matches!(text.first(), Some(Piece::Text(t)) if t == "(") {
-                text.remove(0);
-                text.pop();
+    // is still to be walked, which the weakening's implication goes on in.
+    if info.cont.is_none() {
+        let snapshot = Snapshot::take(cx);
+        match check(cx, &lemma, expected) {
+            Ok(term) => {
+                cx.reset(mark);
+                let mut text = lemma_text.clone();
+                if matches!(text.first(), Some(Piece::Text(t)) if t == "(") {
+                    text.remove(0);
+                    text.pop();
+                }
+                set_text(cx, node, text);
+                return Ok(term);
             }
-            set_text(cx, node, text);
-            return Ok(term);
-        }
-        Err(e) if fatal(&e) => {
-            cx.reset(mark);
-            return Err(e);
-        }
-        Err(e) => {
-            debug_trace(cx, info, "direct fit failed", expected, &e);
-            snapshot.restore(cx);
+            Err(e) if fatal(&e) => {
+                cx.reset(mark);
+                return Err(e);
+            }
+            Err(e) => {
+                debug_trace(cx, info, "direct fit failed", expected, &e);
+                snapshot.restore(cx);
+            }
         }
     }
     let Some(weaken) = family.weaken else {
