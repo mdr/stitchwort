@@ -27214,15 +27214,17 @@
     {
       "id": 4225,
       "title": "[Sonnet] Editor: 'Add the missing arms' offers one or-pattern arm when the missing arms would share a body (proof-match-likewise.md)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From SW-4219.",
+      "body": "From SW-4219.\n- Lane: or-pattern action \"Add the missing arms as one or-pattern\" (fixes.rs add_or_arm), offered when 2+ missing fills are single-column and bind nothing; tests in crates/lsp/tests/it/features.rs; docs updated. Commit 5d8d76820.\n",
       "created": "2026-11-19",
       "updated": "2026-11-20",
-      "commits": []
+      "commits": [
+        "5d8d76820"
+      ]
     },
     {
       "id": 4226,
