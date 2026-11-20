@@ -219,8 +219,7 @@ theorem givesRangeHigh ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (lo
     (outside: OutsideBraced self)
     (bases: AtomBases self):
     Parse.Gives GoodItems (() => rangeHigh self modes low) (Parsed 12) :=
-  Parse.givesThen givesBump (operator _ =>
-    Parse.givesThen (givesAppendOf self modes nested outside bases) (high _ => givesRangeEnd modes low operator high))
+  byWalking [givesBump, givesAppendOf, givesRangeEnd]
 
 theorem givesRangeOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (low: Expr)
     (nested: Nested self)
@@ -228,15 +227,7 @@ theorem givesRangeOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (low:
     (bases: AtomBases self)
     (lowParsed: Parsed 12 low) (seen: Option Tok):
     Parse.Gives GoodItems (() => rangeOn self modes low seen) (Parsed 12) :=
-  match seen with
-    | Some kind =>
-      match isDots: kind == DotDot with
-        | True => Parse.readsFatal
-        | False =>
-          match isRange: kind == DotDotLt || kind == DotDotEq with
-            | True => givesRangeHigh self modes low nested outside bases
-            | False => Parse.givesDone lowParsed
-    | None => Parse.givesDone lowParsed
+  byWalking [givesRangeHigh]
 
 theorem givesRangeOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
@@ -853,7 +844,7 @@ theorem givesStatementValue ∀ (self: Goal → {Parse Item} Expr) (modes: Modes
     (outside: Outside self)
     (bases: AtomBases self):
     Parse.Gives GoodItems (() => statementValue self modes) StatementOk :=
-  Parse.givesThen (givesExprInline self modes nested outside bases) (value parsed => Parse.givesDone parsed)
+  byWalking [givesExprInline]
 
 theorem givesStatement ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
@@ -894,8 +885,7 @@ theorem givesBlockDone ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (modes
     (again: ∀ (found: List Statement) => List.All StatementOk found
       → Parse.Gives GoodItems (() => blockLines more self modes column many found) (List.All StatementOk)):
     Parse.Gives GoodItems (() => blockDone more self modes column many found before line) (List.All StatementOk) :=
-  Parse.givesAfter0 reads0Left (items =>
-    givesBlockItems more self modes column many [line, ..found] before items (lineOk, foundOk) again)
+  byWalking [givesBlockItems]
 
 theorem givesBlockKind ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
     (found: List Statement) (before: Nat) (statementModes: Modes) (seen: Option Tok)
@@ -908,13 +898,7 @@ theorem givesBlockKind ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (modes
     Parse.Gives GoodItems
       (() => blockKind more self modes column many found before statementModes seen)
       (List.All StatementOk) :=
-  Parse.givesThen
-    (givesStatement self
-      { statementModes | lines = [{ column, many, kind = lineKindOf seen }, ..modes.lines] }
-      nested
-      outside
-      bases)
-    (line lineOk => givesBlockDone more self modes column many found before line foundOk lineOk again)
+  byWalking [givesStatement, givesBlockDone]
 
 theorem givesBlockPeek ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
     (found: List Statement) (before: Nat) (statementModes: Modes)
@@ -927,8 +911,7 @@ theorem givesBlockPeek ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (modes
     Parse.Gives GoodItems
       (() => blockPeek more self modes column many found before statementModes)
       (List.All StatementOk) :=
-  Parse.givesAfter0 (reads0Peek statementModes) (seen =>
-    givesBlockKind more self modes column many found before statementModes seen nested outside bases foundOk again)
+  byWalking [givesBlockKind]
 
 theorem givesBlockLine ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
     (found: List Statement) (before: Nat) (items: List Item)
@@ -939,13 +922,7 @@ theorem givesBlockLine ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (modes
     (again: ∀ (found: List Statement) => List.All StatementOk found
       → Parse.Gives GoodItems (() => blockLines more self modes column many found) (List.All StatementOk)):
     Parse.Gives GoodItems (() => blockLine more self modes column many found before items) (List.All StatementOk) :=
-  givesBlockPeek more self modes column many found before
-    { modes | allow = nextIndex items }
-    nested
-    outside
-    bases
-    foundOk
-    again
+  byWalking [givesBlockPeek]
 
 theorem givesBlockLines ∀ (fuel: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat)
     (many: Bool) (found: List Statement)
@@ -1037,7 +1014,7 @@ theorem givesExprOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (outside: Outside self)
     (bases: AtomBases self):
     Parse.Gives GoodItems (() => expr self modes) (Parsed 1) :=
-  Parse.givesAfter0 reads0Left (items => givesExprOn self modes items nested outside bases)
+  byWalking [givesExprOn]
 
 theorem givesThenBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)

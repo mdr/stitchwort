@@ -18,8 +18,7 @@ theorem givesHereOn ∀ (items: List Item): Parse.Gives GoodItems (() => hereOn 
   | [item, ..rest] => Parse.givesDone byComputing
   | [] => Parse.givesThen (givesOfReads0 reads0Offset) (here _ => Parse.givesDone byComputing)
 
-theorem givesHere: Parse.Gives GoodItems (() => here()) (found => True) :=
-  Parse.givesAfter0 reads0Left (items => givesHereOn items)
+theorem givesHere: Parse.Gives GoodItems (() => here()) (found => True) := byWalking [givesHereOn]
 
 theorem givesColumnHere: Parse.Gives GoodItems (() => columnHere()) (found => True) := byWalking []
 
@@ -48,10 +47,7 @@ theorem givesStepSign ∀ (modes: Modes): Parse.Gives GoodItems (() => stepSign 
 theorem givesCalcProof ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (colonEq: Bool)
     (nested: Nested self):
     Parse.Gives GoodItems (() => calcProof self modes colonEq) (found => True) :=
-  match colonEq with
-    | True => Parse.givesThen givesFixedFrom (colonEqKeyword _ =>
-      Parse.givesThen (givesFullAny self modes nested) (proof _ => Parse.givesDone byComputing))
-    | False => Parse.givesDone byComputing
+  byWalking [givesFixedFrom, givesFullAny]
 
 theorem givesCalcLine ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (indent more at: Nat)
     (found: List CalcStep) (ascending descending: Bool)
@@ -185,11 +181,7 @@ theorem givesRewriteRule ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (
     (outside: OutsideBraced self)
     (bases: AtomBases self):
     Parse.Gives GoodItems (() => rewriteRule self modes found) (done => True) :=
-  Parse.givesThen (givesReverseOf modes) (reverse _ =>
-    Parse.givesThen givesHere (start _ =>
-      Parse.givesThen
-        (givesAppendOf self { modes | rewriteRule = Some start, rewriteAt = True } nested outside bases)
-        (rule _ => Parse.givesDone byComputing)))
+  byWalking [givesReverseOf, givesHere, givesAppendOf]
 
 theorem givesRewriteRules ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
@@ -209,8 +201,7 @@ theorem givesRewriteRules ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 theorem givesSetRule ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (found: List RewriteRule)
     (nested: Nested self):
     Parse.Gives GoodItems (() => setRule self modes found) (done => True) :=
-  Parse.givesThen (givesReverseOf modes) (reverse _ =>
-    Parse.givesThen (givesFullAny self modes nested) (rule _ => Parse.givesDone byComputing))
+  byWalking [givesReverseOf, givesFullAny]
 
 theorem givesSetRules ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
@@ -248,10 +239,7 @@ theorem givesTargetOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (at:
     (outside: OutsideBraced self)
     (bases: AtomBases self):
     Parse.Gives GoodItems (() => targetOf self modes at) (target => True) :=
-  Parse.givesThen givesHere (start _ =>
-    Parse.givesThen
-      (givesAppendOf self { modes | rewriteRule = Some start, rewriteAt = False } nested outside bases)
-      (target _ => Parse.givesDone byComputing))
+  byWalking [givesHere, givesAppendOf]
 
 theorem givesTargetAfter ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (at: Comments)
     (nested: Nested self)
@@ -280,11 +268,7 @@ theorem givesRewriteBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (
     (rules: Rules) (target: Option (Comments, Expr))
     (nested: Nested self) (hasThen: Bool):
     Parse.Gives GoodItems (() => rewriteBody self modes column keyword rules target hasThen) Out :=
-  match hasThen with
-    | True => Parse.givesThen givesFixedFrom (thenKeyword _ =>
-      Parse.givesThen (givesSelfAny self nested { modes, level = LevelThenBody }) (body _ =>
-        Parse.givesDone byComputing))
-    | False => Parse.givesDone byComputing
+  byWalking [givesFixedFrom, givesSelfAny]
 
 theorem givesRewriteThen ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (keyword: Comments)
     (rules: Rules) (target: Option (Comments, Expr))
@@ -323,20 +307,14 @@ theorem givesRewriteExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (outside: OutsideBraced self)
     (bases: AtomBases self):
     Parse.Gives GoodItems (() => rewriteExpr self modes) Out :=
-  Parse.givesThen givesColumnHere (column _ =>
-    Parse.givesThen givesFixedFrom (keyword _ =>
-      givesRewriteAfter self { modes | rewriteRule = None, rewriteAt = False } column keyword nested outside bases))
+  byWalking [givesColumnHere, givesFixedFrom, givesRewriteAfter]
 
 -- Walks: `byWalking [items] then t`, outside slice 1.
 
 theorem givesWalkBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Comments) (items: Expr)
     (nested: Nested self) (hasThen: Bool):
     Parse.Gives GoodItems (() => walkBody self modes keyword items hasThen) Out :=
-  match hasThen with
-    | True => Parse.givesThen givesFixedFrom (thenKeyword _ =>
-      Parse.givesThen (givesSelfAny self nested { modes, level = LevelThenBody }) (body _ =>
-        Parse.givesDone byComputing))
-    | False => Parse.givesDone byComputing
+  byWalking [givesFixedFrom, givesSelfAny]
 
 theorem givesWalkFacts ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (keyword: Comments) (items: Expr)
     (nested: Nested self):
@@ -349,7 +327,4 @@ theorem givesWalkFacts ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (co
 theorem givesWalkExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
     Parse.Gives GoodItems (() => walkExpr self modes) Out :=
-  Parse.givesThen givesColumnHere (column _ =>
-    Parse.givesThen givesFixedFrom (keyword _ =>
-      Parse.givesThen (givesListExprAny self modes nested) (list _ =>
-        givesWalkFacts self modes column keyword list nested)))
+  byWalking [givesColumnHere, givesFixedFrom, givesListExprAny, givesWalkFacts]

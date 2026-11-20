@@ -34,21 +34,13 @@ theorem givesLetPattern ∀ (modes: Modes): Parse.Gives GoodItems (() => letPatt
 theorem givesLetAnnotation ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self) (atColon: Bool):
     Parse.Gives GoodItems (() => letAnnotation self modes atColon) (found => True) :=
-  match atColon with
-    | True => Parse.givesThen givesFixedFrom (colon _ =>
-      Parse.givesThen (givesSelfAny self nested { modes = modes.sealed, level = LevelInline }) (annotation _ =>
-        Parse.givesDone byComputing))
-    | False => Parse.givesDone byComputing
+  byWalking [givesFixedFrom, givesSelfAny]
 
 theorem givesLetEquals ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (depth: Nat) (keyword: Comments) (pat: Pattern) (annotation: Option (Comments, Expr)) (atEquals: Bool):
     Parse.Gives GoodItems (() => letEquals self modes depth keyword pat annotation atEquals) (found => True) :=
-  match atEquals with
-    | True => Parse.readsFatal
-    | False => Parse.givesThen (givesExpectFixed modes ColonEq "`:=`") (colonEq _ =>
-      Parse.givesThen (givesFullAny self { modes | letValue = Some depth } nested) (value _ =>
-        Parse.givesDone byComputing))
+  byWalking [givesExpectFixed, givesFullAny]
 
 theorem givesLetStatement ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
@@ -66,9 +58,7 @@ theorem givesLetEnd ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (binding: Let) (semicolon: Comments) (atEnd: Bool):
     Parse.Gives GoodItems (() => letEnd self modes binding semicolon atEnd) Out :=
-  match atEnd with
-    | True => Parse.readsFatal
-    | False => Parse.givesThen (givesFullAny self modes nested) (body _ => Parse.givesDone byComputing)
+  byWalking [givesFullAny]
 
 theorem givesLetBodyOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
@@ -83,7 +73,7 @@ theorem givesLetBodyOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 theorem givesLetBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self) (binding: Let):
     Parse.Gives GoodItems (() => letBody self modes binding) Out :=
-  Parse.givesAfter0 (reads0At modes Semi) (atSemi => givesLetBodyOf self modes nested binding atSemi)
+  byWalking [givesLetBodyOf]
 
 theorem givesLetExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
@@ -94,25 +84,18 @@ theorem givesCasesThen ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (keyword: Word) (atThen: Bool):
     Parse.Gives GoodItems (() => casesThen self modes keyword atThen) Out :=
-  match atThen with
-    | True => Parse.givesThen givesFixedFrom (thenKeyword _ =>
-      Parse.givesThen (givesSelfAny self nested { modes, level = LevelThenBody }) (body _ =>
-        Parse.givesDone byComputing))
-    | False => Parse.givesDone byComputing
+  byWalking [givesFixedFrom, givesSelfAny]
 
 theorem givesCasesIn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (keyword: Word) (atIn: Bool):
     Parse.Gives GoodItems (() => casesIn self modes keyword atIn) Out :=
-  match atIn with
-    | True => Parse.readsFatal
-    | False => Parse.givesAfter0 (reads0At modes KwThen) (atThen => givesCasesThen self modes nested keyword atThen)
+  byWalking [givesCasesThen]
 
 theorem givesCasesExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
     Parse.Gives GoodItems (() => casesExpr self modes) Out :=
-  Parse.givesThen givesBump (keyword _ =>
-    Parse.givesAfter0 (reads0At modes KwIn) (atIn => givesCasesIn self modes nested keyword atIn))
+  byWalking [givesBump, givesCasesIn]
 
 theorem givesMatchedPiped ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat) (matched: Expr)
     (matchedOut: Out matched) (piped: Bool)
@@ -321,7 +304,7 @@ theorem givesChainAfter ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (l
     (outside: OutsidePiped self)
     (bases: AtomBases self):
     Parse.Gives GoodItems (() => chainAfter self modes lhs operator second descending) Out :=
-  Parse.givesThen (givesChainLinks self modes descending nested outside bases) (links _ => Parse.givesDone byComputing)
+  byWalking [givesChainLinks]
 
 theorem givesComparisonChain ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (lhs: Expr) (kind: Tok)
     (operator: Word) (second: Expr)
@@ -329,9 +312,7 @@ theorem givesComparisonChain ∀ (self: Goal → {Parse Item} Expr) (modes: Mode
     (outside: OutsidePiped self)
     (bases: AtomBases self):
     Parse.Gives GoodItems (() => comparisonChain self modes lhs kind operator second) Out :=
-  match kind == Equals || kind == EqEq || kind == NotEq with
-    | True => Parse.readsFatal
-    | False => givesChainAfter self modes lhs operator second (isDescending kind) nested outside bases
+  byWalking [givesChainAfter]
 
 theorem givesIffRight ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (quantified: Bool)
     (nested: Nested self)

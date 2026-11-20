@@ -70,14 +70,10 @@ type FrameRest (self: Goal → {Parse Item} Expr) = {
 
 theorem givesForallEnd ∀ (modes: Modes) (word: Word) (paren bracket: Bool):
     Parse.Gives GoodItems (() => forallEnd modes word paren bracket) (found => True) :=
-  match paren || bracket with
-    | True => Parse.givesDone byComputing
-    | False => givesFail modes _
+  byWalking [givesFail]
 
 theorem givesForallBump ∀ (modes: Modes): Parse.Gives GoodItems (() => forallBump modes) (found => True) :=
-  Parse.givesThen givesBump (taken _ =>
-    Parse.givesAfter0 (reads0At modes LParen) (paren =>
-      Parse.givesAfter0 (reads0At modes LBracket) (bracket => givesForallEnd modes taken paren bracket)))
+  byWalking [givesBump, givesForallEnd]
 
 theorem givesForallPart ∀ (modes: Modes) (kind: DefKind):
     Parse.Gives GoodItems (() => forallPart modes kind) (found => True) :=
@@ -167,15 +163,7 @@ def frameOf (self: Goal → {Parse Item} Expr) (nested: Nested self) (rest: Fram
 
 theorem givesImportAliasWord ∀ (modes: Modes) (name: Word) (asWord: Comments) (items: List Item):
     Parse.Gives GoodItems (() => importAliasWord modes name asWord items) (found => True) :=
-  match items with
-    | [alias, ..rest] =>
-      match named: (alias.kind == Lower || alias.kind == Upper) && !isQualified alias && !modes.stops alias with
-        | True =>
-          match startsUpper name.text != startsUpper alias.text with
-            | True => Parse.readsFatal
-            | False => Parse.givesThen givesBump (taken _ => Parse.givesDone byComputing)
-        | False => givesFail modes _
-    | [] => givesFail modes _
+  byWalking [givesBump, givesFail]
 
 theorem givesImportAlias ∀ (modes: Modes) (name: Word):
     Parse.Gives GoodItems (() => importAlias modes name) (found => True) :=
@@ -282,7 +270,7 @@ theorem givesDefinitionBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes
         | None => Parse.givesDone bodyOk))
 
 theorem givesAllowColonEq ∀ (modes: Modes): Parse.Gives GoodItems (() => allowColonEq modes) (found => True) :=
-  Parse.givesAfter0 reads0Left (items => Parse.givesDone byComputing)
+  byWalking []
 
 theorem givesAfterDecreasingOf ∀ (modes: Modes) (clause: Option (Comments, Expr)):
     Parse.Gives GoodItems (() => afterDecreasingOf modes clause) (found => True) :=

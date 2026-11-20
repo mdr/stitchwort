@@ -53,21 +53,13 @@ theorem givesAlternativeLinksOn ∀ (fuel: Nat) (pself: PatternGoal → {Parse I
     (next: PatternLevel) (found: List (Word, Pattern))
     (nested: PatternNested pself) (items: List Item):
     Parse.Gives GoodItems (() => alternativeLinksOn fuel pself modes next found items) (links => True) :=
-  match fuel, items with
-    | Succ more, [bar, ..rest] =>
-      match linkHere modes bar with
-        | True => Parse.givesThen givesBump (barLeaf _ =>
-          Parse.givesThen (nested { modes, level = next }) (alternative _ =>
-            givesAlternativeLinks more pself modes next [(barLeaf, alternative), ..found] nested))
-        | False => Parse.givesDone byComputing
-    | Succ more, [] => Parse.givesDone byComputing
-    | Zero, items => Parse.givesDone byComputing
+  byWalking [givesBump, givesAlternativeLinks]
 
 theorem givesAlternativeLinks ∀ (fuel: Nat) (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes)
     (next: PatternLevel) (found: List (Word, Pattern))
     (nested: PatternNested pself):
     Parse.Gives GoodItems (() => alternativeLinks fuel pself modes next found) (links => True) :=
-  Parse.givesAfter0 reads0Left (items => givesAlternativeLinksOn fuel pself modes next found nested items)
+  byWalking [givesAlternativeLinksOn]
 
 theorem givesAlternatives ∀ (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes)
     (first: Pattern) (next: PatternLevel)
@@ -170,7 +162,7 @@ theorem givesCtorFieldsEnd ∀ (name: Word) (fields: FieldsPattern) (stops: Tok 
 
 theorem givesCtorListEnd ∀ (name: Word) (arguments: List Pattern):
     Parse.Gives GoodItems (() => ctorListEnd name arguments) (pat => True) :=
-  match arguments with | [] | [_, .._] => Parse.givesDone byComputing
+  byWalking []
 
 theorem givesCtorArgsOf ∀ (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (name: Word) (stops: Tok → Bool)
     (nested: PatternNested pself) (braced: Bool):
@@ -192,14 +184,12 @@ theorem givesCtorArgs ∀ (pself: PatternGoal → {Parse Item} Pattern) (modes: 
 theorem givesTupleItem ∀ (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes)
     (nested: PatternNested pself):
     Parse.Gives GoodItems (() => tupleItem pself modes) (pat => True) :=
-  Parse.givesThen (nested { modes, level = PatternTupleComponent }) (first _ =>
-    givesAlternatives pself modes first PatternTupleComponent nested)
+  byWalking [givesAlternatives]
 
 theorem givesListItemPattern ∀ (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes)
     (nested: PatternNested pself):
     Parse.Gives GoodItems (() => listItemPattern pself modes) (pat => True) :=
-  Parse.givesThen (nested { modes, level = PatternListComponent }) (first _ =>
-    givesAlternatives pself modes first PatternListComponent nested)
+  byWalking [givesAlternatives]
 
 theorem givesTupleSigned ∀ (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes)
     (nested: PatternNested pself) (minus: Bool):

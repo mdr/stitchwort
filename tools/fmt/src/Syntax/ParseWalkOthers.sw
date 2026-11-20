@@ -42,16 +42,11 @@ theorem givesTestDecl ∀ (modes: Modes): Parse.Gives GoodItems (() => testDecl 
 
 theorem givesRuleSetName ∀ (modes: Modes) (atUpper: Bool):
     Parse.Gives GoodItems (() => ruleSetName modes atUpper) NameOk :=
-  match atUpper with
-    | True => givesUpperQualified modes "a name"
-    | False => givesLowerQualified modes "a name"
+  byWalking [givesUpperQualified, givesLowerQualified]
 
 theorem givesRuleSetOpen ∀ (modes: Modes) (keyword: Comments) (name: Word) (colonEq: Comments) (atBracket: Bool):
     Parse.Gives GoodItems (() => ruleSetOpen modes keyword name colonEq atBracket) DeclOut :=
-  match atBracket with
-    | True =>
-      Parse.givesThen (givesRuleSet expressionAt modes givesExpressionAt) (rules _ => Parse.givesDone byComputing)
-    | False => givesFail modes _
+  byWalking [givesRuleSet, givesExpressionAt, givesFail]
 
 theorem givesRuleSetAfterName ∀ (modes: Modes) (keyword: Comments) (name: Word) (atEquals: Bool):
     Parse.Gives GoodItems (() => ruleSetAfterName modes keyword name atEquals) DeclOut :=
@@ -179,9 +174,7 @@ theorem givesInstanceDecl ∀ (modes: Modes) (attributes: List Attributes):
 
 theorem givesExportPlain ∀ (modes: Modes) (attributes: List Attributes) (exported: Comments) (found: Bool):
     Parse.Gives GoodItems (() => exportPlain modes attributes exported found) DeclOut :=
-  match found with
-    | True => givesDefinitionExported modes attributes exported None
-    | False => givesFail modes _
+  byWalking [givesDefinitionExported, givesFail]
 
 theorem givesExportAfter ∀ (modes: Modes) (attributes: List Attributes) (exported: Comments) (atOpaque: Bool):
     Parse.Gives GoodItems (() => exportAfter modes attributes exported atOpaque) DeclOut :=
@@ -245,9 +238,7 @@ theorem givesAbilityDecl ∀ (modes: Modes): Parse.Gives GoodItems (() => abilit
 
 theorem givesDataName ∀ (modes: Modes) (isInterface: Bool):
     Parse.Gives GoodItems (() => dataName modes isInterface) NameOk :=
-  match isInterface with
-    | True => givesUpperQualified modes "an interface name (starting with an uppercase letter)"
-    | False => givesUpperQualified modes "a data type name (starting with an uppercase letter)"
+  byWalking [givesUpperQualified]
 
 theorem givesDataParamLeft ∀ (modes: Modes) (word: Text) (items: List Item):
     Parse.Gives GoodItems (() => dataParamLeft modes word items) (found => Parse.Perhaps (group => True) found) :=
@@ -255,16 +246,7 @@ theorem givesDataParamLeft ∀ (modes: Modes) (word: Text) (items: List Item):
 
 theorem givesDataParamBracket ∀ (modes: Modes) (word: Text) (implicit: Bool):
     Parse.Gives GoodItems (() => dataParamBracket modes word implicit) (found => Parse.Perhaps (group => True) found) :=
-  match implicit with
-    | True => Parse.givesThen (givesImplicitBinder expressionAt modes givesExpressionAt) (binder _ =>
-      Parse.givesThen (givesRefuseAttributes binder.attributes _) (refused _ =>
-        match binder.auto.isNone with
-          | True => Parse.readsFatal
-          | False =>
-            match binder.names.isEmpty with
-              | True => Parse.readsFatal
-              | False => Parse.givesDone byComputing))
-    | False => Parse.givesAfter0 reads0Left (items => givesDataParamLeft modes word items)
+  byWalking [givesImplicitBinder, givesExpressionAt, givesRefuseAttributes, givesDataParamLeft]
 
 theorem reads0ImplicitAhead ∀ (modes: Modes):
     Reads0 (() => modes.at LBracket && implicitBinderAhead (Parse.mark().left + 1) left()) :=
