@@ -30049,8 +30049,8 @@
     {
       "id": 4441,
       "title": "[Sonnet] Walk: refuse at @[walk.bind] registration a lemma whose last premise has no binders (today it reaches the walk and gives E-UNSOLVED; SW-4436); and find why the minimal family in examples/reject/walk-premise-without-binders.sw doesn't walk to completion",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
