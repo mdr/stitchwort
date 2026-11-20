@@ -5709,8 +5709,8 @@
     {
       "id": 1918,
       "title": "[DeepSeek] Syntax small fixes from the Opus review: F11, F17 (a file starting with := silently ignored, and the other low items)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [
         "syntax"
@@ -5718,7 +5718,7 @@
       "epic": "syntax-language",
       "body": "From docs/reviews/code-review-syntax-opus.md (lane 7). 30 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-20",
       "commits": []
     },
     {
