@@ -29200,12 +29200,12 @@
     {
       "id": 4376,
       "title": "[Sonnet] Goal display: show an unnamed guard's fact in a proof arm's goal (cases uses it but the user can't see it) (SW-4047 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "\nLane note (Sonnet, 20 Nov): unnamed guard facts listed under the context in the goal (Pending.guard_facts, Ctx.guard_facts); goals example guard-facts.sw; commit f97b42c89. The lemma of such a goal now takes the fact as a hypothesis, as for catch-all facts.\n",
+      "body": "\nLane note (Sonnet, 20 Nov): unnamed guard facts listed under the context in the goal (Pending.guard_facts, Ctx.guard_facts); goals example guard-facts.sw; commit f97b42c89. The lemma of such a goal now takes the fact as a hypothesis, as for catch-all facts.\n\n\nModel result: Sonnet, worked, 10 min (est. 25)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": [
