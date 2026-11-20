@@ -1,5 +1,5 @@
 {
-  "next": 4308,
+  "next": 4309,
   "tickets": [
     {
       "id": 47,
@@ -28101,14 +28101,14 @@
     {
       "id": 4292,
       "title": "[Sonnet] Small: the lexer's own Gives family, ~10 general facts to std, the 13 …Blank list lemmas (survey target 10)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
       "body": "From the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target 10. D3698 overnight.",
       "created": "2026-11-19",
-      "updated": "2026-11-19",
+      "updated": "2026-11-20",
       "commits": []
     },
     {
@@ -28302,6 +28302,19 @@
       "labels": [],
       "epic": "dev-loop-speed",
       "body": "Incident 20 Nov 00:15: SW-4285's squash carried a stale tree; fixed by hand.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4308,
+      "title": "[DeepSeek] Split FollowsDecl.sw (4,150 lines) by its section comments, as SW-4288 split FollowsForms (survey target 6, part 2); pure move, verify by sorted-lines diff",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From SW-4281 target 6; SW-4288's approach and checks.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
