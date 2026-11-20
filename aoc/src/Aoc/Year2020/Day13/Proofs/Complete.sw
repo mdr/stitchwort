@@ -132,7 +132,7 @@ theorem runsNotes ∀ (read: List Char) (notes2: Notes)
                       (read2 after u same3 => rewrite same3 then Parse.runsChar ',' after)
                       (read2 u same3 => rewrite same3 then List.consNotNil ',' [])
                       (read2 after u same3 =>
-                        rewrite same3 then (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found))
+                        rewrite same3 then (char more found => rewrite <- List.consInjectiveHead found))
                       (Parse.cannotStartAtBreaks Parse.isDigit byComputing byComputing ending breaks)
                       (Parse.declinesSepStep slot
                         (() => Parse.char ',')

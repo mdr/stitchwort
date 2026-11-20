@@ -25,7 +25,7 @@ theorem givesRefuseAttributes ∀ (attributes: List Attributes) (what: Text):
     Parse.Gives GoodItems (() => refuseAttributes attributes what) (unit => True) :=
   match attributes with
     | [] => Parse.givesDone byComputing
-    | [first, ..rest] => Parse.readsFatal _ _
+    | [first, ..rest] => Parse.readsFatal
 
 theorem givesParamNameOn ∀ (modes: Modes) (seen: Option Tok):
     Parse.Gives GoodItems (() => paramNameOn modes seen) (word => True) :=
@@ -72,7 +72,7 @@ theorem givesBinderTypeOn ∀ (self: Goal → {Parse Item} Expr) (allowed: Modes
       match skipGroup [] [open, ..rest] with
         | Some [next, ..more] =>
           match typeStarts next.kind with
-            | True => Parse.readsFatal _ _
+            | True => Parse.readsFatal
             | False => givesFullAny self allowed nested
         | other => givesFullAny self allowed nested
     | other, others => givesFullAny self allowed nested
@@ -94,7 +94,7 @@ theorem givesHeaderDefault ∀ (self: Goal → {Parse Item} Expr) (inner: Modes)
   match atColonEq with
     | True =>
       match implicit with
-        | True => Parse.readsFatal _ _
+        | True => Parse.readsFatal
         | False => Parse.givesThen givesFixedFrom (colonEq _ =>
           Parse.givesThen (givesFullAny self inner nested) (value _ => Parse.givesDone byComputing))
     | False => Parse.givesDone byComputing
@@ -106,7 +106,7 @@ theorem givesHeaderGroupEnd ∀ (kind: GroupKind) (implicit: Bool) (open: Commen
       (() => headerGroupEnd kind implicit open auto named colon annotation default close refused consumed)
       (found => True) :=
   match refused, default with
-    | Some message, Some value => Parse.readsFatal _ _
+    | Some message, Some value => Parse.readsFatal
     | Some message, None => Parse.givesDone byComputing
     | None, other => Parse.givesDone byComputing
 
@@ -118,7 +118,7 @@ theorem givesHeaderGroupColon ∀ (self: Goal → {Parse Item} Expr) (inner: Mod
       (() => headerGroupColon self inner kind refused implicit started open auto named atColon)
       (found => True) :=
   match atColon with
-    | False => Parse.readsFatal _ _
+    | False => Parse.readsFatal
     | True => Parse.givesThen givesFixedFrom (colon _ =>
       Parse.givesThen (givesBinderType self inner nested) (annotation _ =>
         Parse.givesThen
@@ -240,7 +240,7 @@ theorem givesBinderGroup ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
                 (default _ =>
                   Parse.givesThen (givesExpectFixed modes.inBrackets RParen "`)`") (close _ =>
                     match !defaults && default.isSome with
-                      | True => Parse.readsFatal _ _
+                      | True => Parse.readsFatal
                       | False => Parse.givesDone byComputing))))))))
 
 theorem givesImplicitNamed ∀ (self: Goal → {Parse Item} Expr) (inner: Modes)

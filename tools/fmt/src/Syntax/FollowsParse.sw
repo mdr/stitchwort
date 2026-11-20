@@ -65,7 +65,7 @@ theorem groupDeclarationFollows ∀ (seen: Seen):
       (() =>
         let decl := declaration seen
         decl) :=
-  Parse.followsThen (declarationFollows seen) (decl declTwin decls => Parse.followsDone decl declTwin decls)
+  Parse.followsThen (declarationFollows seen) (decl declTwin decls => Parse.followsDone decls)
 
 --| The parser reads a declaration group's comments only into the tree: a group's leaves parse to a declaration, and
 --| any leaves with the same tokens parse to one equal to it once both are blanked. Stated for the parser

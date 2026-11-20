@@ -249,7 +249,7 @@ theorem List.consInjective ∀ (x: a) (ys zs: List a) (p: [x, ..ys] = [x, ..zs])
 
 --| Two equal non-empty lists have the same head: the complement of
 --| [`List.consInjective`], which gives the tails when the heads are the same.
-theorem List.consInjectiveHead ∀ (x y: a) (xs ys: List a) (p: [x, ..xs] = [y, ..ys]): x = y :=
+theorem List.consInjectiveHead ∀ [x y: a] [xs ys: List a] (p: [x, ..xs] = [y, ..ys]): x = y :=
   Eq.cong (list => (list.get 0).getOrElse x) p
 
 --| Two non-empty lists are `==` when their heads are and their tails are.
@@ -258,8 +258,7 @@ theorem List.beqCons ∀ [auto eq: DecEq a] (x: a) (xs: List a) (y: a) (ys: List
   Bool.eqOf _ _
     (same =>
       let lists := DecEq.sound [x := [x, ..xs]] [y := [y, ..ys]] same
-      rewrite List.consInjectiveHead x y xs ys lists, (Eq.cong (.drop 1) lists: xs = ys) then
-        Both (DecEq.refl y) (DecEq.refl ys))
+      rewrite List.consInjectiveHead lists, (Eq.cong (.drop 1) lists: xs = ys) then Both (DecEq.refl y) (DecEq.refl ys))
     (both =>
       let Both heads tails := both
       rewrite heads.read, tails.read then DecEq.refl [y, ..ys])
@@ -962,11 +961,10 @@ theorem List.foldMinByFirstKeep ∀ [auto ord: Ord b] (f: a → b) (ys: List a) 
       ∧ (∀ (z: a) => z ∈ before → f (List.foldLeft ys start (List.minByStep f)) < f z) :=
   match split with
     | Witness [] (Witness after (Both same earlier)) =>
-      let isStart: start = List.foldLeft ys start (List.minByStep f) := List.consInjectiveHead start _ ys after same
+      let isStart: start = List.foldLeft ys start (List.minByStep f) := List.consInjectiveHead same
       Witness [] (Witness [y, ..ys] (Both (rewrite <- isStart) (z member => member.impossible)))
     | Witness [c, ..before] (Witness after (Both same earlier)) =>
-      let isStart: start = c :=
-        List.consInjectiveHead start c ys (before ++ [List.foldLeft ys start (List.minByStep f), ..after]) same
+      let isStart: start = c := List.consInjectiveHead same
       let rest: ys = before ++ [List.foldLeft ys start (List.minByStep f), ..after] := Eq.cong (.drop 1) same
       let belowStart: f (List.foldLeft ys start (List.minByStep f)) < f start :=
         rewrite <- isStart at (earlier c (Inl byComputing))

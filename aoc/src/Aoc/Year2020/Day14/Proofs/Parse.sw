@@ -19,14 +19,14 @@ theorem readsInstruction: Parse.Reads instruction InstructionWritten :=
       | Some u => Parse.readsThen (Parse.readsExactly 36 maskBit MaskBitWritten readsMaskBit) (symbols bits (Both each
           count) =>
         Parse.readsDone
-          (SetMask { bits }) _
+          (SetMask { bits })
           (Witness symbols (Both (rewrite maybe, List.appendNil symbols) (Both each count))))
       | None => Parse.readsThen (Parse.readsText "mem[") (openRead u opened =>
         Parse.readsThen Parse.readsNat (addressRead address addressDecimal =>
           Parse.readsThen (Parse.readsText "] = ") (closeRead u closed =>
             Parse.readsThen Parse.readsNat (valueRead value valueDecimal =>
               Parse.readsDone
-                (Write address value) _
+                (Write address value)
                 (Witness addressRead
                   (Witness valueRead
                     (Both

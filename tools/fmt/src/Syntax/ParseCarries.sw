@@ -127,12 +127,12 @@ theorem readsSuffixCalled ∀ (target: Expr) (callable paren: Bool):
     Parse.ReadsIn GoodItems (() => suffixCalled target callable paren) (SameOrOut target) :=
   readsAfter0 reads0Left (seen =>
     match unitCall seen with
-      | False => Parse.readsDone _ _ (Inl (byComputing, byComputing))
+      | False => Parse.readsDone _ (Inl (byComputing, byComputing))
       | True =>
         match callable || (paren && callableParen target) with
-          | False => Parse.readsDone _ _ (Inl (byComputing, byComputing))
+          | False => Parse.readsDone _ (Inl (byComputing, byComputing))
           | True => Parse.readsThen givesBump (r1 open _ =>
-            Parse.readsThen givesBump (r2 close _ => Parse.readsDone _ _ (Inr (Bool.andFalse target.grammar1)))))
+            Parse.readsThen givesBump (r2 close _ => Parse.readsDone _ (Inr (Bool.andFalse target.grammar1)))))
 
 --| `suffixes` after the call: a field access starts another round on a tree outside the slice, and nothing else is read.
 --|
@@ -145,13 +145,13 @@ theorem readsSuffixesOn ∀ (more: Nat) (modes: Modes) (called: Expr) (paren: Bo
   match items with
     | [dot, field, ..later] =>
       match dot.kind == Dot && !modes.stops dot && !sectionAt [dot, field, ..later] with
-        | False => Parse.readsDone _ _ (Inl (byComputing, byComputing))
+        | False => Parse.readsDone _ (Inl (byComputing, byComputing))
         | True =>
           match !((field.kind == Lower || field.kind == Upper) && !isQualified field && !modes.stops field) with
-            | True => Parse.readsFatal _ _
+            | True => Parse.readsFatal
             | False =>
               match !dot.glued || !field.glued with
-                | True => Parse.readsFatal _ _
+                | True => Parse.readsFatal
                 | False => Parse.readsThen givesBump (r1 dotLeaf _ =>
                   Parse.readsThen givesBump (r2 name _ =>
                     Parse.readsWeaken
@@ -159,9 +159,9 @@ theorem readsSuffixesOn ∀ (more: Nat) (modes: Modes) (called: Expr) (paren: Bo
                       (read value out => Inr out)))
     | [dot] =>
       match dot.kind == Dot && !modes.stops dot with
-        | True => Parse.readsFatal _ _
-        | False => Parse.readsDone _ _ (Inl (byComputing, byComputing))
-    | other => Parse.readsDone _ _ (Inl (byComputing, byComputing))
+        | True => Parse.readsFatal
+        | False => Parse.readsDone _ (Inl (byComputing, byComputing))
+    | other => Parse.readsDone _ (Inl (byComputing, byComputing))
 
 --| `suffixes` of a tree outside the slice gives one outside the slice.
 theorem readsSuffixesOut ∀ (fuel: Nat) (modes: Modes) (target: Expr) (callable paren: Bool)
@@ -173,7 +173,7 @@ theorem readsSuffixesOut ∀ (fuel: Nat) (modes: Modes) (target: Expr) (callable
 theorem readsSuffixes ∀ (fuel: Nat) (modes: Modes) (target: Expr) (callable paren: Bool):
     Parse.ReadsIn GoodItems (() => suffixes fuel modes target callable paren) (SameOrOut target) :=
   match fuel with
-    | Zero => Parse.readsDone _ _ (Inl (byComputing, byComputing))
+    | Zero => Parse.readsDone _ (Inl (byComputing, byComputing))
     | Succ more => Parse.readsThen (readsSuffixCalled target callable paren) (r1 called calledKept =>
       Parse.readsThen reads0Left (r2 seen empty =>
         Parse.readsWeaken
@@ -187,15 +187,15 @@ theorem readsAtomRecord ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (h
     Parse.ReadsIn GoodItems (() => atomRecord self modes head upper base callable) (read pair =>
       SameOrOut base read pair.fst) :=
   match upper with
-    | False => Parse.readsDone _ _ (Inl (byComputing, byComputing))
+    | False => Parse.readsDone _ (Inl (byComputing, byComputing))
     | True =>
       match head with
-        | False => Parse.readsDone _ _ (Inl (byComputing, byComputing))
+        | False => Parse.readsDone _ (Inl (byComputing, byComputing))
         | True => Parse.readsThen (reads0At modes LBrace) (r1 found empty =>
           match found with
-            | True => Parse.readsThen records (r2 fields _ =>
-              Parse.readsDone (CtorFields base fields, False) _ (Inr byComputing))
-            | False => Parse.readsDone _ _ (Inl (rewrite empty then byComputing, byComputing)))
+            | True =>
+              Parse.readsThen records (r2 fields _ => Parse.readsDone (CtorFields base fields, False) (Inr byComputing))
+            | False => Parse.readsDone _ (Inl (rewrite empty then byComputing, byComputing)))
 
 theorem readsAtomAfter ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (head: Bool) (first: Option Tok) (base: Expr)
     (records: Parse.Gives GoodItems (() => recordExpr self modes) Out):
@@ -211,8 +211,8 @@ theorem readsAtomAfter ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (he
         | (based, callable) => Parse.readsThen Parse.readsMark (r2 here empty =>
           Parse.readsThen (readsSuffixes (here.left + 1) modes based callable (isSome LParen first)) (r3 result kept =>
             match isSome Dot first && !head with
-              | True => Parse.readsDone _ _ (Inr byComputing)
-              | False => Parse.readsDone _ _ (rewrite empty, List.appendNil r3 then sameOrOutThen pairKept kept))))
+              | True => Parse.readsDone _ (Inr byComputing)
+              | False => Parse.readsDone _ (rewrite empty, List.appendNil r3 then sameOrOutThen pairKept kept))))
 
 -- Words of items, continued.
 
@@ -240,7 +240,7 @@ theorem itemWordsAfterComma ∀ (comma: Item) (rest: List Item)
 theorem readsTupleClose ∀ (modes: Modes): Parse.ReadsIn GoodItems (() => tupleClose modes) (OneOf RParen) :=
   readsAfter0 (reads0At modes Colon) (annotated =>
     match annotated with
-      | True => Parse.readsFatal _ _
+      | True => Parse.readsFatal
       | False => readsExpect modes RParen _)
 
 theorem readsTupleEnds ∀ (inner: Modes) (count: Nat): Reads0 (() => tupleEnds inner count) :=

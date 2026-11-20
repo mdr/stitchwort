@@ -22,7 +22,7 @@ theorem readsSequence: Parse.Reads sequence SequenceWritten :=
   Parse.readsThen
     (Parse.readsSepBy1 Parse.nat (() => Parse.char ' ') NumberWritten _ Parse.readsNat (Parse.readsChar ' '))
     (numbersRead numbers written =>
-      Parse.readsDone numbers.toList _
+      Parse.readsDone numbers.toList
         (Witness numbers (Both (rewrite List.appendNil numbersRead then written) byComputing)))
 
 theorem readsRuleBody: Parse.Reads ruleBody RuleWritten :=
@@ -31,13 +31,13 @@ theorem readsRuleBody: Parse.Reads ruleBody RuleWritten :=
       (Parse.readsThen (Parse.readsChar '"') (openRead u opened =>
         Parse.readsThen readsLetter (letterRead found (Both one lower) =>
           Parse.readsThen (Parse.readsChar '"') (closeRead u2 closed =>
-            Parse.readsDone (Letter found) _ (Both (rewrite opened, one, closed) lower)))))
+            Parse.readsDone (Letter found) (Both (rewrite opened, one, closed) lower)))))
       (Both
         (Parse.readsThen
           (Parse.readsSepBy1 sequence (() => Parse.text " | ") SequenceWritten _ readsSequence (Parse.readsText " | "))
           (sequencesRead sequences written =>
             Parse.readsDone
-              (Alternatives sequences.toList) _
+              (Alternatives sequences.toList)
               (Witness sequences (Both (rewrite List.appendNil sequencesRead then written) byComputing))))
         Trivial))
 
@@ -46,14 +46,14 @@ theorem readsNumbered: Parse.Reads numberedRule NumberedWritten :=
     Parse.readsThen (Parse.readsText ": ") (colonRead u colon =>
       Parse.readsThen readsRuleBody (ruleRead rule ruleWritten =>
         Parse.readsDone
-          (number, rule) _
+          (number, rule)
           (Witness numberRead
             (Witness ruleRead (Both (rewrite colon, List.appendNil ruleRead) (Both numberWritten ruleWritten)))))))
 
 theorem readsMessage: Parse.Reads message MessageWritten :=
   Parse.readsThen (Parse.readsMany1 letter LetterWritten readsLetter) (lettersRead letters written =>
     Parse.readsDone
-      { letters = letters.toList } _
+      { letters = letters.toList }
       (Witness letters (Both (rewrite List.appendNil lettersRead then written) byComputing)))
 
 theorem readsReceived: Parse.Reads received ReceivedWritten :=
@@ -61,7 +61,7 @@ theorem readsReceived: Parse.Reads received ReceivedWritten :=
     Parse.readsThen Parse.readsBlankLine (blank u blankWritten =>
       Parse.readsThen (Parse.readsLines message MessageWritten readsMessage) (messagesRead messages messagesWritten =>
         Parse.readsDone
-          { rules = { numbered = rules.toList }, messages = messages.toList } _
+          { rules = { numbered = rules.toList }, messages = messages.toList }
           (Witness rulesRead
             (Witness blank
               (Witness messagesRead
