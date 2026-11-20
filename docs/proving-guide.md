@@ -743,6 +743,15 @@ scratch file on 19 Nov 2026).
       | True => Void.impossible (Option.noneNotSome m found)
       | False => Option.someInjective found   -- not `(rewrite c at found)`
   ```
+- **A guard in a proof's `match` gives a fact but refines nothing.** In a
+  theorem, `| c if c == '(' => …` gives the arm the fact `(c == '(') =
+  True`, and the arms below it its failure; `cases` and `arithmetic` use
+  them, but the goal and the hypotheses keep `c == '('` as they had it, so
+  a goal stuck on the program's `if c == '(' …` stays stuck and
+  `byComputing` there fails. The fact is shown in the goal only when named
+  (`| c if g: c == '(' => …`). To follow a program's guard step by step,
+  match on its condition instead, which refines both: `match g: c == '('
+  with | True => … | False => …`.
 - **A `?` prints its goal only when the checker reaches it, and only `?`
   does.** There are no named holes in a proof: `?hole` is `?` applied to a
   name `hole` (`E-UNKNOWN-NAME` for it, and a goal `(x: _) → _`). A bare `?`
