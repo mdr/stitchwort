@@ -100,6 +100,10 @@ pub(crate) struct Pending {
     /// The declaration's statement as written, if the hole is checked
     /// against it ([`Ctx::statement`]).
     statement: Option<Rc<AsStated>>,
+    /// The goal's type as a call of a `Prop` definition, where it was
+    /// checked against one that forcing unfolded (`Parse.Follows a b`, whose
+    /// value is a `∀`): what the user wrote, shown in place of the unfolding.
+    named: Option<Value>,
 }
 
 /// A goal's statement as written ([`Ctx::statement`]), and the values its
@@ -665,7 +669,28 @@ fn display_goal(cx: &Ctx) -> Option<Value> {
 /// to the variables in scope (those a case split hasn't replaced), as a
 /// term. Notes the goal.
 pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
-    hole_of(cx, expected, false)
+    hole_of(cx, expected, None, false)
+}
+
+/// Whether `value` is a call of a definition whose result is a proposition
+/// (`Parse.Follows a b`), as opposed to one that computes a `Bool` or a
+/// number.
+fn is_prop_call(g: &Ev, value: &Value) -> bool {
+    let Value::Call(id, ..) = value else {
+        return false;
+    };
+    let mut ty = g.def(*id).ty().strip_loc();
+    while let Term::Pi(_, _, _, cod) = ty {
+        ty = cod.strip_loc();
+    }
+    matches!(ty, Term::Sort(stitchwort_core::Sort::Prop))
+}
+
+/// [`hole`] for a goal checked against `named`, the type before it was
+/// forced, if that is a call.
+pub(crate) fn hole_named(cx: &Ctx, expected: &Value, named: &Value) -> Term {
+    let named = is_prop_call(&cx.g(), named).then(|| named.clone());
+    hole_of(cx, expected, named, false)
 }
 
 /// A missing expression ([`stitchwort_syntax::ast::Expr::Missing`]) checked
@@ -674,10 +699,10 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
 /// never reaches the kernel; the declaration has failed already, for its
 /// syntax error.
 pub(crate) fn error_hole(cx: &Ctx, expected: &Value) -> Term {
-    hole_of(cx, expected, true)
+    hole_of(cx, expected, None, true)
 }
 
-fn hole_of(cx: &Ctx, expected: &Value, error: bool) -> Term {
+fn hole_of(cx: &Ctx, expected: &Value, named: Option<Value>, error: bool) -> Term {
     let g = cx.g();
     let m = cx.metas().new_meta(cx.span);
     cx.metas().freeze_meta(m);
@@ -752,6 +777,7 @@ fn hole_of(cx: &Ctx, expected: &Value, error: bool) -> Term {
         applied,
         alternative,
         statement,
+        named,
     });
     term
 }
@@ -1881,12 +1907,23 @@ impl Elaborator {
             "(the type here isn't known yet)".to_string()
         };
         let written = if known {
-            written_unless_same(g, &scope, &p.names, &predicates, &p.expected, &target).or_else(
-                || {
-                    let s = p.statement.as_deref()?;
-                    stated_unless_same(g, &scope, &p.names, &predicates, s, &p.expected, &target)
-                },
-            )
+            let by_value =
+                || written_unless_same(g, &scope, &p.names, &predicates, &p.expected, &target);
+            let by_statement = || {
+                let s = p.statement.as_deref()?;
+                stated_unless_same(g, &scope, &p.names, &predicates, s, &p.expected, &target)
+            };
+            // A `Prop` definition's call, as the goal was checked against
+            // it: the unfolding is what the value gives back, so the call
+            // is tried before it, after the statement.
+            match leaf.named.as_ref().filter(|_| arm.is_none()) {
+                Some(named) => by_statement()
+                    .or_else(|| {
+                        written_unless_same(g, &scope, &p.names, &predicates, named, &target)
+                    })
+                    .or_else(by_value),
+                None => by_value().or_else(by_statement),
+            }
         } else {
             None
         };

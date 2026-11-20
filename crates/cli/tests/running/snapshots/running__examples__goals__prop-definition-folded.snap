@@ -1,0 +1,35 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `top`
+   ╭─[ goals/prop-definition-folded.sw:6:36 ]
+   │
+ 6 │ theorem top ∀ (n: Nat): Small n := ?
+   │                                    ┬  
+   │                                    ╰── n: Nat
+   │                                        ⊢ Small n
+   │                                          computes to n ≤ 3 ∧ n ≠ 7
+   │ 
+   │ Note: this statement is false; a counterexample:
+   │         n = 4
+   │       `Small n` is false
+───╯
+[GOAL] Goal: in `viaMatch`
+   ╭─[ goals/prop-definition-folded.sw:9:13 ]
+   │
+ 9 │   | True => ?
+   │             ┬  
+   │             ╰── n: Nat
+   │                 ⊢ Small (if True then n else 0)
+   │                   computes to n ≤ 3 ∧ n ≠ 7
+───╯
+[GOAL] Goal: in `viaMatch`
+    ╭─[ goals/prop-definition-folded.sw:10:14 ]
+    │
+ 10 │   | False => ?
+    │              ┬  
+    │              ╰── n: Nat
+    │                  ⊢ Small (if False then n else 0)
+    │                    computes to 0 ≤ 3 ∧ 0 ≠ 7
+────╯

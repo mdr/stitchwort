@@ -6637,7 +6637,7 @@ fn check_value_against(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Valu
             Ok(Term::Ctor(unit, trivial, Vec::new()))
         }
         (Expr::Hole(_), _) => hole_against(cx, &expected),
-        (Expr::Goal(_), _) => Ok(crate::goals::hole(cx, &expected)),
+        (Expr::Goal(_), _) => Ok(crate::goals::hole_named(cx, &expected, named)),
         (Expr::Missing(_), _) => Ok(crate::goals::error_hole(cx, &expected)),
         (Expr::LocalDefs { defs, body, .. }, _) => {
             crate::local::around(cx, defs, |cx| check(cx, body, &expected))

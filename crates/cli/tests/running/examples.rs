@@ -433,7 +433,26 @@ fn assert_goals(
             );
         }
     }
+    assert_no_compiler_names(name, &output);
     output
+}
+
+/// No goal shows a name the compiler made (`%mark`, `half.%step`): source
+/// can't write one. A `%` is one where a name follows it directly after a
+/// space, bracket or dot; `n % 2` and `n%2` are the modulo operator.
+fn assert_no_compiler_names(name: &str, output: &str) {
+    let chars: Vec<char> = output.chars().collect();
+    for (i, pair) in chars.windows(2).enumerate() {
+        let before = i.checked_sub(1).map(|j| chars[j]);
+        if pair[0] == '%'
+            && pair[1].is_ascii_alphabetic()
+            && before.is_some_and(|c| c == ' ' || c == '(' || c == '.')
+        {
+            let from = i.saturating_sub(40);
+            let around: String = chars[from..(i + 40).min(chars.len())].iter().collect();
+            panic!("{name}: a goal shows a compiler-made name, near `{around}`");
+        }
+    }
 }
 
 #[test]
