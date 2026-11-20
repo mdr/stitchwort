@@ -28010,12 +28010,12 @@
     {
       "id": 4285,
       "title": "[Sonnet] Two-run walk: …Follows self selfTwin hypotheses as tiered records like the shape walk's Outside… (92 theorems) (survey target 3; statement-by-statement check)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target 3. D3698 overnight.",
+      "body": "From the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target 3. D3698 overnight.\n\nLane (Sonnet): 79 lemmas restated over 11 tier records; branch lane/SW-4285, commit 3b8365c4c; whole fmt check 0 errors, goal none, Fmt.Tests 441 pass.\n",
       "created": "2026-11-19",
       "updated": "2026-11-20",
       "commits": []
