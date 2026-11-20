@@ -29488,8 +29488,8 @@
     {
       "id": 4398,
       "title": "[Sonnet] Walk two-run registration: treat an open run as a wildcard so overlapping (fail, any) and (fail, bump) lemmas are refused at registration with E-WALK-LEMMA naming the pair; two-run 'two lemmas fit' reject; find why followsTupleClose needs its thunk written out (SW-4395 follow-ups 1, 2; before W4)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
