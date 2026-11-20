@@ -925,8 +925,8 @@ fn step(
                 let mut notes = Vec::new();
                 if ignores_arguments(cx, family) {
                     notes.push(format!(
-                        "the family's relation {} ignores its program or post (it computes to \
-                         True), so the walk can't read them; state the relation so it uses both",
+                        "the family's relation {} ignores its program and its post (its body mentions neither), \
+                         so the walk can't read them; state the relation so it uses both",
                         written_name(cx, family.relation)
                     ));
                 }
