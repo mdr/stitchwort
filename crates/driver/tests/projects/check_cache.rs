@@ -1944,6 +1944,20 @@ fn a_carried_over_entry_is_used_only_when_asked() {
     let _ = std::fs::remove_dir_all(&copy);
 }
 
+/// [`ABC`] and a namespace with a data type, a function on it and a
+/// theorem whose statement names the function: on re-check, the type must
+/// be final before the function's body is checked, and the function before
+/// the theorem is declared.
+const ABCD: &[(&str, &str)] = &[
+    ABC[0],
+    ABC[1],
+    ABC[2],
+    (
+        "src/D.sw",
+        "namespace D\n\ntype Shape = | Dot | Line (n: Nat)\n\ndef Shape.size: (s: Shape) → Nat\n  | Dot => 0\n  | Line n => n\n\ntheorem Shape.dotSize: Shape.size Dot = 0 := byComputing\n",
+    ),
+];
+
 /// An entry written by a build whose kernel side differs is a miss
 /// without carrying over. Carrying over, this kernel checks it again
 /// (stage 2): every unit comes from it, counted as carried over and checked
@@ -1952,7 +1966,7 @@ fn a_carried_over_entry_is_used_only_when_asked() {
 /// re-check, and an exact check still misses.
 #[test]
 fn a_kernel_side_change_has_a_carried_entry_checked_again() {
-    let dir = temp_project("carry-kernel", ABC);
+    let dir = temp_project("carry-kernel", ABCD);
     let cache = temp_dir("carry-kernel-cache");
     run_as_build(&dir, &cache, Some(("earlierbuild", "anotherkernel")), false);
     let fresh = run(&Source::Project("p".to_string(), dir.clone()), true, None);
@@ -1973,7 +1987,7 @@ fn a_kernel_side_change_has_a_carried_entry_checked_again() {
     let s = rechecked.stats;
     assert_eq!(
         (s.namespace_carried, s.namespace_rechecked, s.namespace_hits),
-        (3, 3, 3),
+        (4, 4, 4),
         "{s:?}"
     );
     assert_eq!((s.rechecked, s.carried), (s.hits, s.hits), "{s:?}");
@@ -1988,7 +2002,7 @@ fn a_kernel_side_change_has_a_carried_entry_checked_again() {
     let s = kept.stats;
     assert_eq!(
         (s.namespace_carried, s.namespace_rechecked, s.rechecked),
-        (3, 0, 0),
+        (4, 0, 0),
         "{s:?}"
     );
     let exact = run_as_build(&dir, &cache, None, false);
@@ -2003,7 +2017,7 @@ fn a_kernel_side_change_has_a_carried_entry_checked_again() {
 /// gives.
 #[test]
 fn rechecking_exact_entries_keeps_them_exact() {
-    let dir = temp_project("recheck-exact", ABC);
+    let dir = temp_project("recheck-exact", ABCD);
     let cache = temp_dir("recheck-exact-cache");
     let source = Source::Project("p".to_string(), dir.clone());
     let fresh = run(&source, true, Some(&cache));
@@ -2016,7 +2030,7 @@ fn rechecking_exact_entries_keeps_them_exact() {
     let s = rechecked.stats;
     assert_eq!(
         (s.namespace_hits, s.namespace_rechecked, s.carried_over()),
-        (3, 3, 0),
+        (4, 4, 0),
         "{s:?}"
     );
     assert_eq!(s.rechecked, s.hits, "{s:?}");

@@ -3199,7 +3199,10 @@ impl Elaborator {
         library: bool,
         check: bool,
     ) -> Read<()> {
-        let refused = |d: stitchwort_syntax::Diagnostic| Bad(format!("refused: {}", d.message));
+        let refused = |d: stitchwort_syntax::Diagnostic| {
+            let label = d.labels.first().map_or("", |l| l.message.as_str());
+            Bad(format!("refused: {} ({label})", d.message))
+        };
         // The groups, each with the entry's own declarations its terms
         // refer to (besides its members).
         struct Group {
@@ -3329,56 +3332,58 @@ impl Elaborator {
                     {
                         continue;
                     }
-                    if group.data && check {
-                        // The kernel works out each field's sort and
-                        // erasure again, rather than taking the entry's.
-                        let members = group
-                            .members
-                            .iter()
-                            .map(|&m| {
-                                let data = &datas[m];
-                                let ctors = data
-                                    .ctors
-                                    .iter()
-                                    .map(|c| kernel::CtorDecl {
-                                        name: c.name.clone(),
-                                        fields: (c.fields.iter())
-                                            .map(|(n, t)| (n.clone(), t.clone(), data.span))
-                                            .collect(),
-                                        result: c.result.clone(),
-                                        implicit: c.implicit.clone(),
-                                        braced: c.braced,
-                                    })
-                                    .collect();
-                                (DataId(base_datas + m), ctors)
-                            })
-                            .collect();
-                        self.kernel_op(|g| kernel::define_data_group(g, members))
-                            .map_err(refused)?;
-                    } else if group.data {
-                        let members = group
-                            .members
-                            .iter()
-                            .map(|&m| {
-                                let data = &datas[m];
-                                let ctors = data
-                                    .ctors
-                                    .iter()
-                                    .map(|c| Ctor {
-                                        name: c.name.clone(),
-                                        fields: c.fields.clone(),
-                                        field_sorts: c.field_sorts.clone(),
-                                        field_erased: c.field_erased.clone(),
-                                        result: c.result.clone(),
-                                        implicit: c.implicit.clone(),
-                                        braced: c.braced,
-                                    })
-                                    .collect();
-                                (DataId(base_datas + m), ctors)
-                            })
-                            .collect();
-                        self.kernel_op(|g| kernel::admit_trusted_data_group(g, members))
-                            .map_err(refused)?;
+                    if group.data {
+                        if check {
+                            // The kernel works out each field's sort and
+                            // erasure again, rather than taking the entry's.
+                            let members = group
+                                .members
+                                .iter()
+                                .map(|&m| {
+                                    let data = &datas[m];
+                                    let ctors = data
+                                        .ctors
+                                        .iter()
+                                        .map(|c| kernel::CtorDecl {
+                                            name: c.name.clone(),
+                                            fields: (c.fields.iter())
+                                                .map(|(n, t)| (n.clone(), t.clone(), data.span))
+                                                .collect(),
+                                            result: c.result.clone(),
+                                            implicit: c.implicit.clone(),
+                                            braced: c.braced,
+                                        })
+                                        .collect();
+                                    (DataId(base_datas + m), ctors)
+                                })
+                                .collect();
+                            self.kernel_op(|g| kernel::define_data_group(g, members))
+                                .map_err(refused)?;
+                        } else {
+                            let members = group
+                                .members
+                                .iter()
+                                .map(|&m| {
+                                    let data = &datas[m];
+                                    let ctors = data
+                                        .ctors
+                                        .iter()
+                                        .map(|c| Ctor {
+                                            name: c.name.clone(),
+                                            fields: c.fields.clone(),
+                                            field_sorts: c.field_sorts.clone(),
+                                            field_erased: c.field_erased.clone(),
+                                            result: c.result.clone(),
+                                            implicit: c.implicit.clone(),
+                                            braced: c.braced,
+                                        })
+                                        .collect();
+                                    (DataId(base_datas + m), ctors)
+                                })
+                                .collect();
+                            self.kernel_op(|g| kernel::admit_trusted_data_group(g, members))
+                                .map_err(refused)?;
+                        }
                         for m in &group.members {
                             data_final[*m] = true;
                             if library {
