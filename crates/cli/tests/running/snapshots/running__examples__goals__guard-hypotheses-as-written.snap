@@ -1,0 +1,54 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `character`
+   ╭─[ goals/guard-hypotheses-as-written.sw:9:25 ]
+   │
+ 9 │   | 0 if g: c == 'a' => ?
+   │                         ┬  
+   │                         ╰── c: Char
+   │                             h: 0 < pick True
+   │                             g: c == 'a'
+   │                             ⊢ pick True = 1 ∨ 0 < 1
+   │ 
+   │ Note: 1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it
+───╯
+[GOAL] Goal: in `character`
+    ╭─[ goals/guard-hypotheses-as-written.sw:10:10 ]
+    │
+ 10 │   | _ => ?
+    │          ┬  
+    │          ╰── n: Nat
+    │              c: Char
+    │              h: 0 < pick (c == 'a')
+    │              ⊢ pick (c == 'a') = 1 ∨ 0 < 1
+    │ 
+    │ Note: this arm is checked in 2 cases; the goal shown is the last of them
+────╯
+[GOAL] Goal: in `variable`
+    ╭─[ goals/guard-hypotheses-as-written.sw:13:18 ]
+    │
+ 13 │   | 0 if g: b => ?
+    │                  ┬  
+    │                  ╰── b: Bool
+    │                      h: 0 < pick True
+    │                      h2: pick True = 1
+    │                      g: b
+    │                      ⊢ pick True = 1
+    │ 
+    │ Note: 2 earlier hypotheses hidden by a later one of the same name (as a `match` or `rewrite … at` binds) aren't listed, as nothing shown mentions them
+────╯
+[GOAL] Goal: in `variable`
+    ╭─[ goals/guard-hypotheses-as-written.sw:14:10 ]
+    │
+ 14 │   | _ => ?
+    │          ┬  
+    │          ╰── n: Nat
+    │              b: Bool
+    │              h: 0 < pick b
+    │              h2: pick b = 1
+    │              ⊢ pick b = 1
+    │ 
+    │ Note: this arm is checked in 2 cases; the goal shown is the last of them
+────╯
