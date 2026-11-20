@@ -240,6 +240,17 @@ branches don't use the proof; the waiting decision. So "proofs see an
 ordinary `if`" holds by construction: the term is the one `if c then a else
 b` would make with `a` the arm and `b` the rest of the match.
 
+**In a proof (D3701, docs/proposals/guard-refinement.md).** Where the arm
+proves something, the guard node does more than an ordinary `if`: it
+refines like `match g: c with | True => a | False => rest`, so the
+condition is replaced by `True` in the arm and by `False` in the rows below,
+in the goal and in the hypotheses, and `f x` computes in each. When it
+can't (no well-typed motive, or the condition waits on an unknown), or when
+an arm fails refined but checks unrefined (D3688), it splits as `if` does,
+as described above. A `rewrite` the refinement made pointless, in the goal
+or `at h`, is skipped with `W-REWRITE-GUARD-REFINED` if the proof checks
+without it.
+
 **Names in the `else`.** `decided_if` binds the same name in both branches
 (check.rs:4560-4561). For a guard `if h: P`, `h` is the arm's; the rows
 below have their own patterns and must not see an `h` they didn't write. The
@@ -316,10 +327,16 @@ bounds depth only.
 
 ## 4. What the arm knows
 
-- **In the arm**, what `if c then a` gives `a`: for a decided proposition
-  (`n != 0`, `x < y`), an anonymous `_: c` that `auto` uses, so `| (n, len)
-  if n != 0 => len % n` checks the `%`'s proof obligation; for a `Bool`
-  (`here == wanted`, `xs.isEmpty`), nothing; an `&&` chain gives the arm nothing per conjunct (`if p && q` doesn't either, on `main`).
+- **In a program's arm**, what `if c then a` gives `a`: for a decided
+  proposition (`n != 0`, `x < y`), an anonymous `_: c` that `auto` uses, so
+  `| (n, len) if n != 0 => len % n` checks the `%`'s proof obligation; for a
+  `Bool` (`here == wanted`, `xs.isEmpty`), nothing; an `&&` chain gives the
+  arm nothing per conjunct.
+- **In a proof's arm** (D3701, D3699), the fact keeps the equations' form:
+  `c = True` for a `Bool` condition `c` and `P` for a decided proposition
+  (`c = False` and `¬P` below), and the arm's goal and hypotheses have
+  `True` where `c` was, so `rewrite g` and `rewrite f.eqK … g`, in the goal
+  or `at h`, find nothing and are skipped with `W-REWRITE-GUARD-REFINED`.
 - **Below it**, `_: Not c` in the rows' `else`, for the same conditions. In
   the bad case of §3.5 each copy knows the guards it passed.
 - **By name**: `| x if h: x < n => … h …`. In a proof about a guarded
@@ -327,9 +344,10 @@ bounds depth only.
   any `if` is: `match e: c with`, `if h: c`, or the generated equations
   (§6).
 
-Two things the arm doesn't know: a `Bool` guard gives no fact (as `if`
-gives none; write the proposition, `n != 0` rather than `not (n == 0)`), and
-an or-pattern's arm doesn't know which alternative matched.
+Two things the arm doesn't know: in a program, a `Bool` guard gives no fact
+(as `if` gives none; write the proposition, `n != 0` rather than `not (n ==
+0)`; a proof's arm does get `c = True`, above), and an or-pattern's arm
+doesn't know which alternative matched.
 
 ## 5. Coverage and warnings
 
