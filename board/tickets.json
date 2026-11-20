@@ -1,5 +1,5 @@
 {
-  "next": 4480,
+  "next": 4481,
   "tickets": [
     {
       "id": 47,
@@ -30501,12 +30501,12 @@
     {
       "id": 4475,
       "title": "[Sonnet] Closer pilot findings (SW-4473): (1) _ for an argument fixed by a later argument's type can pick a different but equal document and report a type mismatch (framedExprPasses in the Tuple and ListOf arms of JoinProofs); find why the elaborator doesn't use the later argument's type; (2) W-REWRITE-REPEATEDLY-UNUSED fired when rewrite repeatedly [atomic, calm] closed a && goal without calm: a gap in how && goals are closed, or the warning is right and the rule unnecessary; repro in JoinProofs",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nLane note (Sonnet): (1) Cause found, no fix merged. Expected-type-first unification compares Pass (framed ?d) with Pass (el ..); same_arguments_solving_nothing refuses the argument solution, both are unfolded to Joins, and Joins (Group x _) reduces to Joins x while Joins ?d is stuck, so ?d := x (inner of the group), not Group x; the later proof argument then mismatches. Only Group-like wrappers that Joins reads through trigger it (Paren and App arms accept _). Tried: in same_calls, solve by whole-argument unknowns (unify_by_unknown_arguments) first when one call is blocked, with narrowings (same-def after force; unknown against a Ctor); both still broke std/Args/Args.sw (Args.helpListsOption: List.memAppendRight/Left holes need the unfolding). Reproducer: scratchpad sw4475/repro-hole-argument.sw. (2) W-REWRITE-REPEATEDLY-UNUSED is right: close_parts closes a conjunct by a hypothesis (or part of one), so a listed hypothesis used only that way is never applied as a rewrite and can be dropped. No change.\n\n\nResult (Sonnet lane, 20 Nov): (2) the warning is right: rewrite repeatedly closes a conjunct by a hypothesis part via try_close, so a listed rule used only that way is never applied; no change. (1) cause found, not fixed: the expected type is unified before the later proof argument; Joins (Group x _) unfolds to Joins x and the unifier solves ?d := x (the contents), not Group x. Reproducer and the unfinished unifier patch (solve by whole-argument unknowns when one call is blocked; broke std Args.helpListsOption memAppend holes) in docs/reviews/SW-4475/. Follow-up filed.\nModel result: Sonnet, failed (problem 1: no small safe unifier rule; cause and repro delivered), 37 min (est. 40)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -30532,7 +30532,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\nProgress (lane, 23:55): FollowsStatements 11 of W4's 12 dropped walks kept (followsLetPatternOf 3.45x stays); FollowsDeclData +13 (two 3x+ stay); ParseWalkPatterns +16; ParseWalkDecls +2; FollowsFormsArms +8. Timing: warm dependency cache, target forced by a throwaway comment (13 s a run vs 115 s with --no-cache), hand and walk runs interleaved, mean of two.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -30555,6 +30555,19 @@
       "title": "[Opus] Walk gaps (SW-4466): an operation called directly in bound code (an inlined Parse.mark()) blocks 9 formatter proofs (givesBlock, givesCalcBody, givesClauseLambda, givesConstructorParen, givesDataParamStep, givesListItemsFrom/Any, givesPipeChain, givesTupleRest); and ReadsAt nesting needs a bind-lemma shape carrying the mark fact",
       "status": "doing",
       "agent": "Claude",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4480,
+      "title": "[Opus] A _ argument fixed by a later argument's type gets an equal but different solution (SW-4475 cause): unification of the expected type unfolds Joins (Group x _) to Joins x and solves ?d := x before the later proof argument is checked. Options: elaborate _ arguments after the later arguments, or have the unifier keep the written argument when solving from a forced call. Repro and failed patch in docs/reviews/SW-4475/ (the patch broke std Args.helpListsOption). Also: W-REWRITE-REPEATEDLY-UNUSED could say the rule's part was closed by a hypothesis in scope",
+      "status": "backlog",
+      "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",

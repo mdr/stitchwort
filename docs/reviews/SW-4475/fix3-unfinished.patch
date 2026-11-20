@@ -1,0 +1,61 @@
+diff --git a/crates/elab/src/unify.rs b/crates/elab/src/unify.rs
+index 3eebc6e5a..2b38d7a01 100644
+--- a/crates/elab/src/unify.rs
++++ b/crates/elab/src/unify.rs
+@@ -1691,6 +1691,25 @@ fn same_calls(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result<Opt
+             return Ok(Some(true));
+         }
+     }
++    // Calls of one definition where an unknown that stands for a whole
++    // argument faces a known one, and one call's unfolding is stuck on that
++    // unknown while the other's computes (`Joins ?doc …` against `Joins
++    // (Group x _) …`, which computes to `Joins x …`): the unfoldings would
++    // solve the unknown with what the other computed to (`?doc := x`, equal
++    // as far as `Joins` reads it, but not the argument written), so the
++    // arguments say what it is first. Only against a constructor, which the
++    // definition may read through; against a stuck call (`xs ++ ?ys` in a
++    // membership) the unfolding is what splits the unknown.
++    if !g.attempt.solving_arguments.get()
++        && (blocked(g, a)? || blocked(g, b)?)
++        && unknown_against_constructor(g, a, b)?
++    {
++        let trail = g.store.meta_trail.borrow().len();
++        if unify_by_unknown_arguments(g, level, a, b)? {
++            note_lossy(g, trail);
++            return Ok(Some(true));
++        }
++    }
+     // Inside the first rule's comparison of arguments, two calls of one
+     // definition whose arguments differ are answered "different" without
+     // unfolding them (SW-1506). That comparison is only a shortcut: when it
+@@ -1712,6 +1731,30 @@ fn same_calls(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result<Opt
+     Ok(None)
+ }
+ 
++/// Whether, in the calls `a` and `b` of one definition, an unknown stands for
++/// a whole argument against one that is a constructor once forced (`?doc`
++/// against `Doc.group x`, which is `Group x _`).
++fn unknown_against_constructor(g: &Unifier<'_>, a: &Value, b: &Value) -> Result<bool> {
++    let (Value::Call(_, s1, _), Value::Call(_, s2, _)) = (a, b) else {
++        return Ok(false);
++    };
++    for (x, y) in s1.iter().zip(s2.iter()) {
++        let (Elim::App(x, _), Elim::App(y, _)) = (x, y) else {
++            continue;
++        };
++        for (unknown, known) in [(x, y), (y, x)] {
++            if matches!(
++                force_solved(g, unknown.clone())?,
++                Value::Neutral(Head::Meta(m), _) if !frozen(g, m)
++            ) && matches!(force(g, known.clone())?, Value::Ctor(..))
++            {
++                return Ok(true);
++            }
++        }
++    }
++    Ok(false)
++}
++
+ /// [`unify_step`] after the rules for two calls of one definition: the
+ /// rules that look at `a` and `b` as they are, then those that force them,
+ /// then their shapes. Each part is out of line, so that this frame, under
