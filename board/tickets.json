@@ -1,5 +1,5 @@
 {
-  "next": 4388,
+  "next": 4391,
   "tickets": [
     {
       "id": 47,
@@ -29317,12 +29317,12 @@
     {
       "id": 4385,
       "title": "[Opus] Guard refinement (D3701): a guard in a proof's match refines goal and hypotheses like match g: on its condition (docs/proposals/guard-refinement.md); W-REWRITE-GUARD-REFINED for a pointless rewrite; fallback where the goal can't be generalised",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Progress (Opus lane, 20 Nov 12:12-12:45): built on lane/SW-4385, commit e4ca5b6f5. Guards in proof arms refine via matching::refined_guard (new entry point; closure arms); facts c = True / c = False for Bool guards, P / ¬P for decided ones; fallback to the old proof if when no motive/blocker/too large. W-REWRITE-GUARD-REFINED (quick fix 'Drop the rewrite') for a goal rewrite rule whose lhs has the guard condition and finds nothing, only when the proof checks without it. D3688: the 5 arms in the note still check (fmt symbolFixed with --no-cache --only), note's two rewrite repros check with the warning. Hashes changed: pattern-guards, pattern-guard-proofs, catch-all-facts (guarded theorems only); prelude unchanged. Tests: test:example guard, match, rewrite+catch-all; test:lane hashes; fixes unit tests. Finding: a program guard that uses its proof (Decidable.elim form) can't be refined, nor by match g: (E-MATCH-MOTIVE) - falls back.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -29348,6 +29348,45 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4388,
+      "title": "[Opus, paper] Review SW-4385 (guard refinement, D3701): changes theorem terms for guarded proof arms (D2364)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4389,
+      "title": "[Sonnet] W-REWRITE-GUARD-REFINED for rewrite ... at h too (only goal rewrites get it); update pattern-guards.md §3.3/§4 for D3701 (SW-4385 follow-ups)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4390,
+      "title": "[Opus] A program guard that uses its proof (compiled as Decidable.elim, e.g. | xs if 0 < xs.length => xs.getLt 0) can't be refined: match g: 0 < xs.length fails with E-MATCH-MOTIVE too, so the guard falls back silently; guard-refinement.md §5.4 claimed otherwise (SW-4385 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
