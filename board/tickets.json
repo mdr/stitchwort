@@ -30103,12 +30103,12 @@
     {
       "id": 4445,
       "title": "[DeepSeek] Example kind that asserts a STITCHWORT_MATCH_METRICS outcome (e.g. guard-as-written: unchecked in guard-refinement-as-written-unchecked.sw), so examples that cover a fallback path fail if a later change stops reaching it; also usable for match-as-written and transport-as-written (SW-4418 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "\n\nLane notes: collected in-process via crates/elab/src/metrics.rs (thread-local); `-- metrics: <line without at=>` header in accept examples; documented in examples/README.md. Commit 05a807b17. Verified failing with the retry and the guard Unchecked report disabled.\n",
+      "body": "\n\nLane notes: collected in-process via crates/elab/src/metrics.rs (thread-local); `-- metrics: <line without at=>` header in accept examples; documented in examples/README.md. Commit 05a807b17. Verified failing with the retry and the guard Unchecked report disabled.\n\n\nModel result: Sonnet, worked, 15 min (est. 40)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": [
