@@ -28361,12 +28361,12 @@
     {
       "id": 4312,
       "title": "[Opus] accept/as-written-unconfirmed.sw no longer gives W-MATCH-UNCONFIRMED on Speedwell (macOS), at main and already at 1572eb1cf, which Overmind (Linux) reported green: the match on settle x k limit now succeeds by the usual search instead of the as-written fallback, so accepted_examples_check fails here. Find whether the fallback trigger (search_budget / size limits in crates/elab/src/matching/as_written.rs) is platform- or environment-dependent (it must be deterministic), and restore the example's point (make it reliably too large, or fix the nondeterminism)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
-      "body": "Found 20 Nov ~01:50 verifying SW-4310; --no-cache gives the same. Not from tonight's merges.",
+      "body": "Found 20 Nov ~01:50 verifying SW-4310; --no-cache gives the same. Not from tonight's merges.\n\nLane (Opus, 20 Nov 01:51-02:06, est. 40 min): not machine-dependent. SW-4091 (4e6e65670) reads a too-large hypothesis as written for the usual occurrence test, so the match no longer takes the unconfirmed path; confirmed by reverting that one call (warning back). Overmind green because the quick tier samples every 4th accepted example and this one (index 18) is skipped. Fix on lane/SW-4312 (a9fc01ce7): generalised_now warns W-MATCH-UNCONFIRMED when it copies a hypothesis read as written; large-hypothesis-match and the large-hypothesis-goal goal example now warn too. Also refreshed as-written-unconfirmed-slow-check's snapshot (drift from c2c475f9e). To review.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
