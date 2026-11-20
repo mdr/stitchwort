@@ -29094,8 +29094,8 @@
     {
       "id": 4368,
       "title": "[Sonnet] followsAtomAfter (FollowsForms.sw ~1177): with SW-4356 j is solved but the False branch's Parse.followsMap mismatches ('here' against 'state.at' in unitCall here.rest); find why and drop the last [j :=][k :=] pair there",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
