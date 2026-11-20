@@ -29423,12 +29423,12 @@
     {
       "id": 4393,
       "title": "[Sonnet] resources.rs tests may rely on small work/size limits against the library, which SW-3711 floors at the defaults: check each still tests what it says (SW-4387 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\n\nProgress (lane/SW-4393, 7232384e3): audited every test setting small work/size/frames limits. with_every_native_off_float_runs_out_of_budget was broken by the floor (Float loads at 10B work with natives off: 16 GB, killed by memguard); now stops at a deadline (float_gate::run_until). running_out_leaves_nothing_behind only asserted is_err; now asserts E-RESOURCE first. Others still test their claim (user-code limits). Stale sweep comment updated.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
