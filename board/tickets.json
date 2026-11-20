@@ -27229,7 +27229,7 @@
     {
       "id": 4226,
       "title": "[Opus] cases fails on (5 <= level tok) = False with level a per-constructor table: it splits the comparison, never tok; a match tok with byComputing arms proves it (SW-4219 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
