@@ -408,13 +408,15 @@ Import what you use: std's theorems live in namespaces that need an import
   `byDecision` does). It introduces a goal's leading binders itself
   (`theorem t: (x: Bool) → P x := cases`). When nothing is stuck and nothing
   closes it, it falls back to splitting a variable the goal mentions, the
-  one that makes the fewest cases. A comparison of numbers is split whole,
-  true or false; if a case is still open after that, `cases` splits what
-  the comparison waits for, so `(5 <= level tok) = False`, with `level` a
+  one that makes the fewest cases. In its second try only (after
+  `arithmetic`, within the 256-case budget), a case still open with no
+  fallback split left splits a value of a finite type that an earlier
+  split's equation is still stuck on. A comparison of numbers is split
+  whole, true or false, so `(5 <= level tok) = False`, with `level` a
   table by `tok`'s constructors, splits `tok` in the case where the
   comparison is `True`, and each value contradicts it
-  (`examples/accept/cases-under-comparison.sw`). `cases then t` tries `t` in every case
-  first, and splits the condition of an `if` the goal shows before what it
+  (`examples/accept/cases-under-comparison.sw`). `cases then t` tries `t`
+  in every case first, and splits the condition of an `if` the goal shows before what it
   is stuck on inside definitions, so each case's goal keeps the calls `t`
   names. A hypothesis `h: Some x = Some y` (any one constructor on both
   sides) gives `x = y`, and `cases` then replaces `y` by `x` in the goal and
