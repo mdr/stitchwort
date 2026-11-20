@@ -1050,8 +1050,9 @@ tasks:
       appended after a blank line (the session's commit trailer). Before merging, scripts/lane-merge-guard prints
       the lane's full diff --stat against its merge-base with main and refuses a lane that changes
       board/tickets.json or docs/worklog/ or docs/agent-feedback/ (ALLOW_BOARD=1 allows it), or that restores
-      files to their state before a recent first-parent merge on the merge-base's history, undoing that merge
-      (ALLOW_REVERT=1 allows it). A conflict only in board/tickets.json keeps main's side (the board steps that
+      a modified file to its state before a recent first-parent merge on the merge-base's history, undoing
+      that merge (ALLOW_REVERT=1 allows it). A lane deleting a file such a merge added is only noted. A
+      conflict only in board/tickets.json keeps main's side (the board steps that
       follow set the ticket again); any other conflict aborts the merge. Exits non-zero unless the lane's tip is
       in main afterwards, so a chain joined with && stops there.
     env:

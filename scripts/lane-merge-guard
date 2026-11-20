@@ -9,8 +9,8 @@
 #
 #  - the lane changes board/tickets.json or anything under docs/worklog/ or
 #    docs/agent-feedback/, unless ALLOW_BOARD=1;
-#  - the lane restores a file to a version from before a recent first-parent
-#    merge on the merge-base's history, undoing that merge, unless
+#  - the lane restores a modified file to a version from before a recent
+#    first-parent merge on the merge-base's history, undoing that merge, unless
 #    ALLOW_REVERT=1.
 #
 # The second check catches the stale-squash incident (SW-4307): the lane was
@@ -19,7 +19,10 @@
 # merge-base MB, and each file M changed, it flags the file when the lane's
 # blob equals M's first parent's blob and MB's blob differs from that one. A
 # normal lane that branched before M moved those files is not flagged: the
-# lane's blob then equals MB's, not M^1's.
+# lane's blob then equals MB's, not M^1's. When the lane's blob is missing, M
+# added the file and the lane is deleting it: that is listed as a note, not a
+# refusal, since deleting a file another lane added may be intended (SW-4309).
+# Only a file the lane still has, restored to M^1's version, is refused.
 set -euo pipefail
 
 lane=${1:?usage: scripts/lane-merge-guard LANE [MAIN]}
@@ -59,22 +62,37 @@ fi
 
 # Blob id of FILE in REV, or one shared value when it is absent. Comparing
 # these is all the revert check needs, so it never reads file contents.
+missing='(missing)'
 blob_id() {
-  git rev-parse -q --verify "$1:$2" 2>/dev/null || echo '(missing)'
+  git rev-parse -q --verify "$1:$2" 2>/dev/null || echo "$missing"
 }
 
 reverts=()
+deletions=()
 while IFS= read -r merge; do
   [ -n "$merge" ] || continue
   subject=$(git log -1 --format=%s "$merge")
   while IFS= read -r file; do
     [ -n "$file" ] || continue
     parent_id=$(blob_id "$merge^1" "$file")
-    [ "$(blob_id "$lane" "$file")" = "$parent_id" ] || continue
+    lane_id=$(blob_id "$lane" "$file")
+    [ "$lane_id" = "$parent_id" ] || continue
     [ "$(blob_id "$base" "$file")" != "$parent_id" ] || continue
-    reverts+=("$file: restores $merge^1's version, undoing merge ${merge:0:12} \"$subject\"")
+    if [ "$lane_id" = "$missing" ]; then
+      deletions+=("$file: deleted; merge ${merge:0:12} \"$subject\" added it")
+    else
+      reverts+=("$file: restores $merge^1's version, undoing merge ${merge:0:12} \"$subject\"")
+    fi
   done < <(git diff --name-only "$merge^1" "$merge")
 done < <(git rev-list --first-parent --merges -n 40 "$base")
+
+if (( ${#deletions[@]} > 0 )); then
+  {
+    echo
+    echo "note: lane $lane deletes files a recent merge added:"
+    printf '  %s\n' "${deletions[@]}"
+  } >&2
+fi
 
 if (( ${#reverts[@]} > 0 )) && [ "${ALLOW_REVERT:-0}" != 1 ]; then
   {
