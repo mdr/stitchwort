@@ -287,6 +287,13 @@ the motive at `[leaf, ..behind]` then runs them. `quote_folded`
 (folded-calls.md stage 3, `crates/core/src/value.rs:3119`) keeps a glued
 call as the call.
 
+Correction (SW-4327, tested): switching that read-back to `quote_folded`
+changes nothing. The premise shows unfolded because goals print hypotheses
+with `value::quote_shown` (`crates/elab/src/goals.rs`), which writes a call
+that steps at once as its one step (`Readback::Shown`, deliberately: it
+shows `if True then a else b` as `a`). So option A below means changing the
+goal display for induction hypotheses, not the motive.
+
 ### 3.2 What Lean does
 
 Lean's `induction … using f.induct` abstracts the targets out of the goal
