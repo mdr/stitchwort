@@ -28595,7 +28595,7 @@
     {
       "id": 4330,
       "title": "[Opus] Unifier: abstract a stuck neutral call e in ?j e once ?p := () => e is known (kabstract-style, only when e is neutral and occurs as a whole; only in the fallback), to drop most [j :=][k :=] on Parse.followsThen (SW-4323 design)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
