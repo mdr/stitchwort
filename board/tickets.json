@@ -28387,7 +28387,7 @@
     {
       "id": 4314,
       "title": "[DeepSeek] Add task test:hashes NAME=… running hash_stability snapshots filtered to the named examples without updating them (lanes run the nextest command by hand today; SW-4312 friction)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -28465,7 +28465,7 @@
     {
       "id": 4320,
       "title": "[DeepSeek] Fix Overmind red at a466acdf3: SW-4313's daily_tier_sample_at returns nothing when the list is shorter than the stride and today's offset is past its end (goal_projects_report_their_goals: projects(\"goals\") empty, examples.rs:404)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
