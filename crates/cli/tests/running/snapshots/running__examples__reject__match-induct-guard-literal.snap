@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-NO-INDUCT] Error: `match induct` needs `lit.induct`, and `lit` has none
+    ╭─[ reject/match-induct-guard-literal.sw:13:17 ]
+    │
+ 13 │   match induct (lit xs) with
+    │                 ───┬──  
+    │                    ╰──── this call
+    │ 
+    │ Note 1: why: at one of its cases, an overlap hypothesis about a guarded earlier arm is needed where that arm's pattern has a number or character literal, which the split doesn't refine to a constructor
+    │ 
+    │ Note 2: `f.induct` is generated for a recursive definition where it can be stated and proved (docs/proposals/function-equations.md §5); recurse in the proof instead, as the definition does, with its equations for the steps
+────╯

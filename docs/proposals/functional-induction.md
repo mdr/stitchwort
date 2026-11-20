@@ -133,7 +133,8 @@ conditional step lemmas** whose job is one equation each.
 
    and `withoutR` gets no `f.induct`: "an overlap hypothesis about a guarded
    earlier arm is needed where that arm's patterns match, which stage 2a's
-   proof doesn't establish" [run: `g1-guarded-overlap.sw`]. Its third
+   proof doesn't establish" [run:
+   `examples/accept/match-induct-guarded-overlap.sw`]. Its third
    equation exists, in Lean's form (`∀ closer after1, after = [closer,
    ..after1] → ¬(…)`) [run], but the induction principle doesn't. Reading the
    arms of the 21 guarded definitions, at least 9 have this shape: `withoutR`,
