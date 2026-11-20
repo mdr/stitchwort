@@ -30315,12 +30315,12 @@
     {
       "id": 4461,
       "title": "[DeepSeek] After SW-4459 (Rust formatter spaces glued call elements): update tools/fmt/NOTES.md (line ~892, the records/literals lines ~1099 and ~1190) and docs/proposals/self-hosted-fmt-s1-sketch.md section 3.5, which still say Rust copies glued pairs; test f{ a = 1 } and f\"x\" with both formatters (dev/fmt-twin text, fresh FMT_TWIN_CACHE) and say whether they now agree; note ')(' stays the one known gap; also add to dev/fmt-twin --help that its cache is keyed by input, not binary",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nModel result: DeepSeek, worked, 15 min (est. 15)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
