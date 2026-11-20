@@ -28582,12 +28582,12 @@
     {
       "id": 4329,
       "title": "[Sonnet] After SW-4324 merges: sweep the remaining [p := () => …]/[q := …] (and any [j :=][k :=] that now infer) on followsThen/followsThenEq uses in tools/fmt with task fmt:unspell, checking each namespace; ~100-130 left (SW-4323 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From SW-4323. Wait for SW-4324 (followsMap order).",
+      "body": "\nFrom SW-4323. Wait for SW-4324 (followsMap order).\n\nLane result (branch lane/SW-4329, one squashed commit): dropped [p := …]/[q := …] on followsThen/followsThenEq in 8 files (Ladder, Forms, FormsBinders, FormsArms, FormsPatterns, FormsBlocks, Statements, Parse): 38 lines saved net. The default fmt:unspell treats adjacent [p][q][j][k] as one unit, so it kept all; rerun with --names p,q then --names j,k found the p/q drops. [j := …]/[k := …] (continuation lambdas, ~30 pairs) never infer; p/q stay in Base, Decl, FormsPatterns (1 pair each); alike/goals/self/selfTwin untouched.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
