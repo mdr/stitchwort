@@ -28309,7 +28309,7 @@
     {
       "id": 4308,
       "title": "[DeepSeek] Split FollowsDecl.sw (4,150 lines) by its section comments, as SW-4288 split FollowsForms (survey target 6, part 2); pure move, verify by sorted-lines diff",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
