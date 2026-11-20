@@ -2655,7 +2655,7 @@ impl Elaborator {
             // `(x => 2 < x) (f n)` is the condition `2 < f n`.
             let g = &self.ev();
             let prop = beta_rec(g, prop)?;
-            let as_bool = as_bool.map(|c| beta_rec(g, c)).transpose()?;
+            let as_bool = as_bool.map(|c| beta_rec(g, beta_ann(g, c)?)).transpose()?;
             let dec = self.guard_form(d, k, &shape)?;
             // A comparison is stated as the `Bool` equation it is, whichever
             // `if` the definition tests it by; `if h: P` is the proposition
@@ -5689,6 +5689,32 @@ fn rec_term(d: &Def, depth: usize) -> Term {
     let mut names: Vec<(Name, Icit)> = d.binders.iter().map(|b| (b.name.clone(), b.icit)).collect();
     names.push(("decreasing".into(), Icit::Auto));
     lams(&names, call)
+}
+
+/// `t` with each application of an annotated lambda, `((x => b): A → B) a`,
+/// as the application of the lambda: a decision's `Bool` is read off as
+/// such a redex, which [`beta_rec`] then reduces.
+fn beta_ann(g: &Ev, t: Term) -> stitchwort_core::budget::Result<Term> {
+    g.machine.budget.nesting("equations")?;
+    let go = |t: &Rc<Term>| -> stitchwort_core::budget::Result<Rc<Term>> {
+        Ok(Rc::new(beta_ann(g, (**t).clone())?))
+    };
+    Ok(match &t {
+        Term::App(f, a, i) => {
+            let f = match f.strip_loc() {
+                Term::Ann(lam, _) if matches!(lam.strip_loc(), Term::Lam(..)) => {
+                    Rc::new(beta_ann(g, (**lam).clone())?)
+                }
+                _ => go(f)?,
+            };
+            Term::App(f, go(a)?, *i)
+        }
+        Term::Loc(s, inner) => Term::Loc(*s, go(inner)?),
+        Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b)?),
+        Term::Pi(x, i, a, b) => Term::Pi(x.clone(), *i, go(a)?, go(b)?),
+        Term::Eq(ty, a, b) => Term::Eq(ty.as_ref().map(go).transpose()?, go(a)?, go(b)?),
+        _ => t,
+    })
 }
 
 /// Applications of `%rec`'s lambda, reduced: `((y => f y) a)` is `f a`.
