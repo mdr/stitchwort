@@ -29711,15 +29711,17 @@
     {
       "id": 4415,
       "title": "[Sonnet] Mismatch messages print a decided proposition's found type as 0 < pick (c.decEq 'a').holds: show it as written (c == 'a'); and a closed goal like 0 < 1 lists as True = True in every match arm (SW-4403 findings)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nProgress (lane, 20 Nov): part 1 done on lane/SW-4415 (fd0169409): messages print decided props as written (the elaborator's NameScope now has eq_decision; message printing turns on decided-equation writing). 11 reject snapshots improved. Part 2 (closed goal 0 < 1 shown as True = True) not done: native comparisons never glue, so the value has no call left to write back; needs the statement term kept beside the goal value. Reported.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
-      "commits": []
+      "commits": [
+        "fd0169409"
+      ]
     },
     {
       "id": 4416,
