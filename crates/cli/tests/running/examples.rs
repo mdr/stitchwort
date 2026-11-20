@@ -142,10 +142,12 @@ fn share<T>(items: Vec<T>) -> Vec<T> {
 
 /// Four consecutive days' quick samples take every example exactly once
 /// (stride 4, which is `broad_stride` 1 in the quick tier): no example is
-/// always left out, whether or not the count divides by four.
+/// always left out, whether or not the count divides by four. A list
+/// shorter than the stride yields one example a day (never an empty sample),
+/// and as many consecutive days as it has examples take every one once.
 #[test]
 fn four_consecutive_days_cover_every_example_once() {
-    for len in [0, 1, 4, 5, 12, 13, 17] {
+    for len in [4, 5, 12, 13, 17] {
         let indices: Vec<usize> = (0..len).collect();
         let mut seen = vec![0; len];
         for day in 0..4 {
@@ -158,6 +160,32 @@ fn four_consecutive_days_cover_every_example_once() {
             "{len} examples over four days: {seen:?}"
         );
     }
+    for len in 1..4usize {
+        let indices: Vec<usize> = (0..len).collect();
+        for day in 0..4u64 {
+            let sample = daily_tier_sample_at(indices.clone(), 1, day, Tier::Quick);
+            assert!(
+                !sample.is_empty(),
+                "{len} examples on day {day}: the sample is empty"
+            );
+        }
+        for start in 0..4u64 {
+            let mut seen = vec![0; len];
+            for day in start..start + len as u64 {
+                for index in daily_tier_sample_at(indices.clone(), 1, day, Tier::Quick) {
+                    seen[index] += 1;
+                }
+            }
+            assert!(
+                seen.iter().all(|count| *count == 1),
+                "{len} examples over {len} days from {start}: {seen:?}"
+            );
+        }
+    }
+    assert!(
+        daily_tier_sample_at(Vec::<usize>::new(), 1, 0, Tier::Quick).is_empty(),
+        "no examples: the sample is empty"
+    );
 }
 
 fn examples(dir: &str) -> Vec<Example> {
