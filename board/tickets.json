@@ -28075,14 +28075,14 @@
     {
       "id": 4290,
       "title": "[Sonnet] A record for the six hung-line hypotheses in ReadBackHung* (13 theorems) (survey target 8; statement-by-statement check)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
       "body": "From the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target 8. D3698 overnight.",
       "created": "2026-11-19",
-      "updated": "2026-11-19",
+      "updated": "2026-11-20",
       "commits": []
     },
     {
