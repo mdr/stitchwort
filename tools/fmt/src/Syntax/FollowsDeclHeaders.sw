@@ -501,13 +501,9 @@ theorem followsRowVariable ∀ (modes: Modes) (open openTwin: Comments) (abiliti
     (alike: List.All2 ExprsAlike abilities twins):
     Parse.Follows SameCode RowsAlike (() => rowVariable modes open abilities) (() =>
       rowVariable modes openTwin twins) :=
-  followsThenEq
-    [j := pipe => (let variable := rowPart modes pipe; rowClose modes open abilities variable)]
-    [k := pipe => (let variable := rowPart modes pipe; rowClose modes openTwin twins variable)]
-    (followsAt modes Pipe)
-    (pipe =>
-      Parse.followsThen (followsRowPart modes pipe) (variable variableTwin variables =>
-        followsRowClose modes open openTwin abilities twins alike variable variableTwin variables))
+  followsThenEq (followsAt modes Pipe) (pipe =>
+    Parse.followsThen (followsRowPart modes pipe) (variable variableTwin variables =>
+      followsRowClose modes open openTwin abilities twins alike variable variableTwin variables))
 
 theorem rowEntriesAlike ∀ (pair pairTwin: (List Expr, Bool))
     (pairs: PairAlike (List.All2 ExprsAlike) Same pair pairTwin):
@@ -559,14 +555,9 @@ theorem followsRowStart ∀ [self selfTwin: Goal → {Parse Item} Expr]
           (let abilities := rowAbilities selfTwin modes closed (modes.at Pipe); rowVariable modes openTwin abilities)]
         (followsAt modes RBrace)
         (closed =>
-          followsThenEq
-            [j := pipe => (let abilities := rowAbilities self modes closed pipe; rowVariable modes open abilities)]
-            [k := pipe =>
-              (let abilities := rowAbilities selfTwin modes closed pipe; rowVariable modes openTwin abilities)]
-            (followsAt modes Pipe)
-            (pipe =>
-              Parse.followsThen (followsRowAbilities knot modes closed pipe) (abilities twins alike =>
-                followsRowVariable modes open openTwin abilities twins alike)))
+          followsThenEq (followsAt modes Pipe) (pipe =>
+            Parse.followsThen (followsRowAbilities knot modes closed pipe) (abilities twins alike =>
+              followsRowVariable modes open openTwin abilities twins alike)))
 
 theorem followsRowOf ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):
