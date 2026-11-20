@@ -28803,7 +28803,7 @@
     {
       "id": 4346,
       "title": "[Sonnet] Text.read's eq4 shows an unreduced (x => 0 < x) (MkText x1).length = False: beta-reduce a guard's lambda applications when stating generated equations",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
