@@ -874,13 +874,7 @@ theorem givesBlockOffset ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (mod
     (again: ∀ (found: List Statement) => List.All StatementOk found
       → Parse.Gives GoodItems (() => blockLines more self modes column many found) (List.All StatementOk)):
     Parse.Gives GoodItems (() => blockOffset more self modes column many done before next now) (List.All StatementOk) :=
-  match more_: now != before
-    && many
-    && next.leaf.token.lineStart
-    && next.leaf.token.column == column
-    && !endsBlocks next.kind with
-    | True => again done doneOk
-    | False => Parse.givesDone doneOk
+  byWalking []
 
 theorem givesBlockItems ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
     (done: List Statement) (before: Nat) (items: List Item)
