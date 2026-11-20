@@ -1,8 +1,9 @@
--- A `rewrite … at h` that a guard's refinement made pointless: `h` is
--- already `1 = 2` in the refined arm, so the rule finds nothing there.
--- `W-REWRITE-GUARD-REFINED` covers only a rewrite of the goal; this proof
--- checked before guards refined (D3688), so the guard splits without
--- refining instead, and it still checks (SW-4388).
+-- expect-warning: W-REWRITE-GUARD-REFINED
+-- A `rewrite … at h` that a guard's refinement made pointless warns like a
+-- goal rewrite does (D3701): `h` is already `1 = 2` in the refined arm, so
+-- the rule finds nothing there. The rule is skipped, the proof checks
+-- without it, and the quick fix "Drop the rewrite" deletes it. Such proofs
+-- checked before guards refined, and still do (D3688).
 
 def weight (c: Char): Nat := match c with
   | c if c == '(' => 1

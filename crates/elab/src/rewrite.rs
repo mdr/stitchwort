@@ -215,6 +215,9 @@ fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Te
     };
     let mut term = fact;
     let mut outcome = Ok(());
+    // As in a goal `rewrite`: rules a guard's refinement left nothing to
+    // find, skipped if the proof checks without them.
+    let mut pointless: Vec<(usize, Diagnostic)> = Vec::new();
     for (index, rule) in rules.iter().enumerate() {
         let before = cx.e.records_steps(rule.span).then(|| ty.clone());
         match rewrite_once(
@@ -229,6 +232,9 @@ fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Te
             &mut stats,
             None,
         ) {
+            Err(e) if e.code == "E-REWRITE-NOTHING" && refined_by_guard(cx, rule, place)? => {
+                pointless.push((index, e));
+            }
             Ok(steps) => {
                 let used = cx.e.take_rule();
                 let mut shown_ty = None;
@@ -265,6 +271,44 @@ fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Te
     }
     report(*span, rules.len(), &stats, budget - remaining);
     outcome?;
+    if !pointless.is_empty() {
+        let skipped = Snapshot::take(cx);
+        return match close_at(cx, body.as_deref(), name, expected, term, ty) {
+            Ok(done) => {
+                let mut warnings = cx.e.attempt.lambda_warnings.borrow_mut();
+                for (index, _) in &pointless {
+                    let warning = guard_refined_warning(expr, *index, pointless.len());
+                    let at = warning.labels.first().map(|l| l.span);
+                    if !(warnings.iter())
+                        .any(|w| w.code == warning.code && w.labels.first().map(|l| l.span) == at)
+                    {
+                        warnings.push(warning);
+                    }
+                }
+                Ok(done)
+            }
+            Err(e) if fatal(&e) => Err(e),
+            // Without them it fails too: the rule's own error is the one to
+            // report.
+            Err(_) => {
+                skipped.restore(cx);
+                Err(pointless.swap_remove(0).1)
+            }
+        };
+    }
+    close_at(cx, body.as_deref(), name, expected, term, ty)
+}
+
+/// The rest of a `rewrite … at`, once its rules have run: `term`, of type
+/// `ty`, compared with the goal, or `body` checked with the target rebound.
+fn close_at(
+    cx: &mut Ctx,
+    body: Option<&Expr>,
+    name: Option<&AstName>,
+    expected: Option<&Value>,
+    term: Term,
+    ty: Value,
+) -> Result<(Term, Value)> {
     let Some(body) = body else {
         let Some(expected) = expected else {
             return Ok((term, ty));
@@ -370,7 +414,7 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             &mut stats,
             None,
         ) {
-            Err(e) if e.code == "E-REWRITE-NOTHING" && refined_by_guard(cx, rule)? => {
+            Err(e) if e.code == "E-REWRITE-NOTHING" && refined_by_guard(cx, rule, Place::Goal)? => {
                 pointless.push((index, e));
             }
             Ok(found) => {
@@ -474,7 +518,7 @@ fn close_rewrite(
 /// with `True` or `False` (`rewrite g` with the guard's own fact, or a
 /// guarded definition's equation, `rewrite clamp.eq1 limit n g`). Whatever
 /// elaborating the rule did is undone.
-fn refined_by_guard(cx: &mut Ctx, rule: &RewriteRule) -> Result<bool> {
+fn refined_by_guard(cx: &mut Ctx, rule: &RewriteRule, place: Place) -> Result<bool> {
     let guards: Vec<(usize, Term)> = {
         let refined = cx.e.decl.guard_refined.borrow();
         (cx.scrutinees.iter())
@@ -488,7 +532,7 @@ fn refined_by_guard(cx: &mut Ctx, rule: &RewriteRule) -> Result<bool> {
     let g = cx.g();
     let snapshot = Snapshot::take(cx);
     let outcome = (|| -> Result<bool> {
-        let equation = elaborate_rule(cx, rule, Place::Goal)?;
+        let equation = elaborate_rule(cx, rule, place)?;
         let lhs = cx.quote_unfolded(&equation.lhs)?;
         let depth = cx.level();
         for (base, normal) in guards {
@@ -511,12 +555,13 @@ fn refined_by_guard(cx: &mut Ctx, rule: &RewriteRule) -> Result<bool> {
 /// one of `pointless` such rules (D3701). Its label covers what the quick
 /// fix drops: the whole `rewrite … then` when every rule is pointless (or
 /// the `rewrite` itself, which the fix replaces with `byComputing`, when
-/// it has no `then`), else the rule and the comma beside it.
+/// it has no `then`; for `at h` the fix leaves `h`), else the rule and the comma beside it.
 fn guard_refined_warning(expr: &Expr, index: usize, pointless: usize) -> Diagnostic {
     let Expr::Rewrite {
         rules,
         keyword,
         then,
+        target,
         ..
     } = expr
     else {
@@ -525,7 +570,8 @@ fn guard_refined_warning(expr: &Expr, index: usize, pointless: usize) -> Diagnos
     let rule = rules[index].span;
     let (start, end) = if pointless == rules.len() {
         let last = rules.last().expect("a rule").span;
-        (keyword.start, then.map_or(last.end, |t| t.end))
+        let bare = target.as_ref().map_or(last.end, |t| t.span().end);
+        (keyword.start, then.map_or(bare, |t| t.end))
     } else if let Some(next) = rules.get(index + 1) {
         (rule.start, next.span.start)
     } else {
@@ -533,7 +579,10 @@ fn guard_refined_warning(expr: &Expr, index: usize, pointless: usize) -> Diagnos
     };
     Diagnostic::warning(
         crate::rewrite_then::GUARD_REFINED,
-        "this rule finds nothing: the guard above already replaced its condition in the goal",
+        match target {
+            Some(_) => "this rule finds nothing: the guard above already replaced its condition in the fact",
+            None => "this rule finds nothing: the guard above already replaced its condition in the goal",
+        },
     )
     .with_label(
         Span {

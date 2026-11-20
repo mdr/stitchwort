@@ -247,7 +247,8 @@ pub fn style_edits(text: &str, code: &str, at: Range) -> Vec<Edit> {
         }
         // The label covers a whole `rewrite … then`, which goes with the
         // whitespace after it; a whole `rewrite` without `then`, which
-        // `byComputing` replaces (it is what closed the goal); or one rule
+        // `byComputing` replaces (it is what closed the goal), or, ending in
+        // `at h`, `h` does (it is what the rewrite proved); or one rule
         // of several with its comma.
         REWRITE_GUARD_REFINED => {
             let Some(label) = text.get(from..to) else {
@@ -260,6 +261,8 @@ pub fn style_edits(text: &str, code: &str, at: Range) -> Vec<Edit> {
             } else if label.ends_with("then") {
                 let rest = &text[to..];
                 (to + rest.len() - rest.trim_start().len(), "")
+            } else if let Some(fact) = at_target(label) {
+                (to, fact)
             } else {
                 (to, "byComputing")
             };
@@ -270,6 +273,16 @@ pub fn style_edits(text: &str, code: &str, at: Range) -> Vec<Edit> {
         }
         _ => Vec::new(),
     }
+}
+
+/// The target `h` of a whole `rewrite … at h` label, or none for a goal
+/// rewrite (or a target that isn't balanced, which a rule's own `at` could
+/// leave).
+fn at_target(label: &str) -> Option<&str> {
+    let target = label[label.rfind(" at ")? + 4..].trim();
+    let balanced =
+        |open: char, close: char| target.matches(open).count() == target.matches(close).count();
+    (!target.is_empty() && balanced('(', ')') && balanced('[', ']')).then_some(target)
 }
 
 /// The range between two byte offsets.
@@ -661,6 +674,25 @@ mod tests {
         assert_eq!(
             rewrite_fix(text, REWRITE_GUARD_REFINED, "g", ", "),
             "theorem t := rewrite h then e\n"
+        );
+    }
+
+    #[test]
+    fn the_guard_refined_fix_for_at_keeps_the_fact() {
+        let text = "theorem t := rewrite w.eq1 c g at h then\n    arithmetic\n";
+        assert_eq!(
+            rewrite_fix(text, REWRITE_GUARD_REFINED, "rewrite", "then"),
+            "theorem t := arithmetic\n"
+        );
+        let text = "theorem t := Inl (rewrite w.eq1 c g at h)\n";
+        assert_eq!(
+            rewrite_fix(text, REWRITE_GUARD_REFINED, "rewrite", "at h"),
+            "theorem t := Inl (h)\n"
+        );
+        let text = "theorem t := rewrite g, h at k then e\n";
+        assert_eq!(
+            rewrite_fix(text, REWRITE_GUARD_REFINED, "g", ", "),
+            "theorem t := rewrite h at k then e\n"
         );
     }
 
