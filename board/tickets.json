@@ -30038,12 +30038,12 @@
     {
       "id": 4440,
       "title": "[Sonnet] Remove the walk's eta_contracted (crates/elab/src/walk/mod.rs, SW-4425) now that the unifier handles eta arguments (SW-4434); walk proof hashes move back; after SW-4434 merges",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "\nLane note: eta_contracted removed; walk examples, walk_expand and fmt Syntax.FollowsBase/ParseWalk check without it; hashes and expansion snapshots updated. Model result: Sonnet, worked, 15 min (est. 25).\n",
+      "body": "\nLane note: eta_contracted removed; walk examples, walk_expand and fmt Syntax.FollowsBase/ParseWalk check without it; hashes and expansion snapshots updated. Model result: Sonnet, worked, 15 min (est. 25).\n\n\nModel result: Sonnet, worked, 15 min (est. 25)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
