@@ -88,6 +88,7 @@ def blankExpr: Expr → Expr
   | Calc _ first steps => Calc Comments.none first (blankCalcSteps steps)
   | Rewrite _ rules target body => Rewrite Comments.none rules.blank (blankAfter target) (blankAfter body)
   | Cases _ _ body => Cases Comments.none Comments.none body
+  | Walk _ items body => Walk Comments.none items (blankAfter body)
   | other => other
 
 def blankBase (input: Option (Expr, Word)): Option (Expr, Word) := match input with

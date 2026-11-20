@@ -189,6 +189,7 @@ theorem blankExprWalk ∀ (expr: Expr): (blankExpr expr).walk meaningPure = expr
   | Induct keyword induct call withKeyword arms => rewrite inductArmsWalk arms
   | Calc keyword first steps => rewrite calcStepsWalk steps
   | Rewrite keyword rules target body => rewrite rulesWalk rules, afterWalk target, afterWalk body
+  | Walk keyword items body => rewrite afterWalk body
   | _ => cases
 
 theorem fieldPatternsWalk ∀ (fields: List FieldPattern):

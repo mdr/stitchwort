@@ -185,6 +185,7 @@ def Expr.words: Expr → List Word
     [fixedWord "rewrite" keyword, ..rules.words] ++ afterWords "at" target ++ afterWords "then" body
   | Facts _ keyword facts => [keyword, ..facts.words]
   | Cases keyword thenKeyword body => [fixedWord "cases" keyword, fixedWord "then" thenKeyword, ..body.words]
+  | Walk keyword items body => [fixedWord "byWalking" keyword, ..items.words] ++ afterWords "then" body
   | Calc keyword first steps => [fixedWord "calc" keyword, ..first.words] ++ stepsWords steps
   | _ => []
 
@@ -402,7 +403,23 @@ def Expr.el (expr: Expr) (around: Around): Doc :=
           thenWord.leaf (around.next casesWord.trails 1) (around.at + 1),
           body.after (around.next thenWord.trails 2)
         ])
+    | Walk keyword items body =>
+      let walkWord := fixedWord "byWalking" keyword
+      expr.framed around
+        (Doc.concat [
+          walkWord.leaf inside around.at,
+          Doc.text " ",
+          items.el (around.next walkWord.trails 1),
+          ..walkThenDocs body (around.next items.trails (1 + items.size))
+        ])
     | _ => Nothing
+
+--| A walk's `then` and body, if there, after its items (`join`); `around` is where the `then` stands.
+def walkThenDocs (body: Option (Comments, Expr)) (around: Around): List Doc := match body with
+  | Some (comments, value) =>
+    let thenWord := fixedWord "then" comments
+    [Doc.text " ", thenWord.leaf around around.at, value.after (around.next thenWord.trails 1)]
+  | None => []
 
 --| A node's document with its first token's own-line comments before it,
 --| displaced as `Word.displaces` says.

@@ -1,7 +1,8 @@
 --| Slice 6a of the proved formatter (docs/proposals/
 --| self-hosted-fmt-proof-plan.md §1.2), on top of slices 1 to 5a, 4b and
 --| 4c: the proof steps `rewrite` (its rules, `<-`, `at` and `then`
---| chains) and `cases then`, `arithmetic [h]` and `algebra [h]`, and `↔`.
+--| chains), `cases then`, `byWalking [h] then t`, `arithmetic [h]` and
+--| `algebra [h]`, and `↔`.
 --|
 --| `calc` is in too, its first expression one that can't hug.
 --|
@@ -45,8 +46,8 @@ import Syntax (
 -- The slice.
 
 --| Whether the expression is one of slices 1 to 5a's, 4b's, 4c's and 6a's,
---| all the way down: as `within4c`, with `rewrite`, `cases then`, facts
---| and `↔`.
+--| all the way down: as `within4c`, with `rewrite`, `cases then`, facts,
+--| walks (`byWalking [h] then t`) and `↔`.
 def Expr.within6a: Expr → Bool
   | Atom kind word => kind.wordWithin6a || (kind == Str || kind == CharLit) && !word.text.contains "\n"
   | Paren _ inner _ => inner.within6a
@@ -72,6 +73,7 @@ def Expr.within6a: Expr → Bool
   | Infix InfixIff left _ right => left.inline6a && right.within6a
   | Facts _ _ facts => facts.inline6a
   | Cases _ _ body => body.within6a
+  | Walk _ items body => items.inline6a && afterWithin6a True body
   | Rewrite _ (RuleList rules) target body | Rewrite _ (Repeatedly _ { rules, .. }) target body =>
     !rules.isEmpty && rulesWithin6a rules && afterWithin6a False target && afterWithin6a True body
   | Calc _ first steps => first.inline6a && first.hugsNowhere && !steps.isEmpty && stepsWithin6a steps

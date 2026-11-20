@@ -111,6 +111,9 @@ def Expr.walk (expr: Expr) (on: Pure): Expr :=
       let target' := walkAfter on target
       Rewrite keyword rules' target' (walkAfter on body)
     | Cases keyword thenKeyword body => Cases keyword thenKeyword (body.walk on)
+    | Walk keyword items body =>
+      let items' := items.walk on
+      Walk keyword items' (walkAfter on body)
   on.expr rebuilt
 
 def walkStatements (on: Pure) (input: List Statement): List Statement := match input with
@@ -682,6 +685,9 @@ theorem exprOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Expr): run
           agree.expr (Rewrite keyword (walkRules p rules) (walkAfter p target) (walkAfter p body))
     | Cases keyword thenKeyword body =>
       rewrite Fail.toResultSeq1Then (exprOk on p agree body), agree.expr (Cases keyword thenKeyword (body.walk p))
+    | Walk keyword items body =>
+      rewrite Fail.toResultSeq2Then (exprOk on p agree items) (afterOk on p agree body),
+          agree.expr (Walk keyword (items.walk p) (walkAfter p body))
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -1434,6 +1440,10 @@ theorem exprTwice ∀ (s m: Pure) (keeps: Keeps s m) (input: Expr): (input.walk 
           afterTwice s m keeps body
     | Cases keyword thenKeyword body =>
       rewrite keeps.expr (Cases keyword thenKeyword (body.walk s)), exprTwice s m keeps body
+    | Walk keyword items body =>
+      rewrite keeps.expr (Walk keyword (items.walk s) (walkAfter s body)),
+          exprTwice s m keeps items,
+          afterTwice s m keeps body
 
 --| Walking with `s` then `m` is walking with `m`. By induction: in each
 --| arm, `Keeps` takes `s`'s step off the rebuilt node, then the
