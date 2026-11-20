@@ -1,5 +1,5 @@
 {
-  "next": 4432,
+  "next": 4433,
   "tickets": [
     {
       "id": 47,
@@ -29919,6 +29919,19 @@
     {
       "id": 4431,
       "title": "[Sonnet] The 13 [j := ..] pairs SW-4419 kept (mostly E-TYPE-MISMATCH: FollowsDeclArms.followsDefinitionArmStep, FollowsForms.followsAtomAfter, GoodItemProofs.itemFixed x2, LexReadsProofs x3, ParseWalkCalc.givesCalcSteps, ParseWalkLadder.givesOpLogic, ParseWalkStatements.givesPipesFrom, ParseCarriesLadder.readsOpLogic/readsPipesFrom, GoodItemProofs.wordFine): trace why each still needs its pair and group the causes; plus a sweep for redundant [p := ..] arguments (38 of 59 [j :=] pairs were already unneeded)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4432,
+      "title": "[Sonnet] SW-4413's note is noise in two rejects: hole-name-after-question shows 'the call's own type `_ _` also does not match' and omega-unsolved-hypothesis prints a long decEq type: add the note only when the call's own type has a head that isn't an unknown and the note is short enough to read (or both types differ at a named head); regenerate those two snapshots; run all rejects",
       "status": "backlog",
       "agent": "",
       "where": "",
