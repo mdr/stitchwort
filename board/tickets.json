@@ -1,5 +1,5 @@
 {
-  "next": 4325,
+  "next": 4326,
   "tickets": [
     {
       "id": 47,
@@ -28205,7 +28205,7 @@
     {
       "id": 4300,
       "title": "[Sonnet] std Fail.toResultPureSeq-style lemma for steps whose result is a pure/constant value (toResultPure, byComputing hypotheses), removing ~10 remaining [g := …]/[t3 := () => None] spellings in Fmt/Walk.sw declOk and ReadBackFile declLowers (SW-4284 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -28523,6 +28523,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "From SW-4220; repros in orchestrator scratchpad keep/sw4220/.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4325,
+      "title": "[Opus] Unifier: an implicit step t can't be solved when the step reduces to a pure value (Fail.toResultPure None: goal has None, not ?t3 (); hypothesis body arg => Done None vs _ => ?t3); a fix would remove the remaining pure-step spellings; also word the '_t3 … not worked out' note to say the step is a pure value (SW-4300 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From SW-4300.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
