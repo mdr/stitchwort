@@ -2,7 +2,7 @@
 source: crates/cli/tests/server/goal_index.rs
 expression: "format!(\"{made} lemmas, {} goals without one\\n\\n{}\", summary.len() - made,\nsummary.join(\"\\n\"))"
 ---
-153 lemmas, 46 goals without one
+170 lemmas, 48 goals without one
 
 arm-as-written-computes goal 1: no lemma
 arm-as-written-computes goal 2: theorem stepsGoal2: 0 ≠ 0 ∨ "" = "" := ?
@@ -98,6 +98,17 @@ catch-all-facts goal 19: theorem columnsGoal1 (p: Nat → Nat → Prop) (y: Nat)
 catch-all-facts goal 20: theorem columnsGoal2 (p: Nat → Nat → Prop) (x: Nat) (h: x ≠ 0): p x 1 := ?
 catch-all-facts goal 21: theorem columnsGoal3 (p: Nat → Nat → Prop) (x: Nat) (y: Nat) (h: x ≠ 0) (h2: y ≠ 1): p x y := ?
 catch-all-facts goal 22: def holeyGoal1 (k: Nat) (hk: k ≠ 5): Nat := ?
+closed-comparison-as-written goal 1: theorem plainGoal1 (n: Nat): True = True := ?
+closed-comparison-as-written goal 2: theorem armsGoal1: True = True := ?
+closed-comparison-as-written goal 3: theorem armsGoal2 (n: Nat) (h: n ≠ 0): True = True := ?
+closed-comparison-as-written goal 4: theorem splitGoal1: True = True := ?
+closed-comparison-as-written goal 5: theorem splitGoal2: True = True := ?
+closed-comparison-as-written goal 6: theorem splitGoal3 (n: Nat) (h: n ≠ 0) (h2: n ≠ 1): n * 2 ≤ 2 := ?
+closed-comparison-as-written goal 7: theorem nestedGoal1 (n: Nat): 2 ≤ 3 ∧ n = n := ?
+closed-comparison-as-written goal 8: theorem decidedGoal1 (n: Nat): True = True := ?
+closed-comparison-as-written goal 9: theorem decidedGoal2 (n: Nat): True = True := ?
+closed-comparison-as-written goal 10: theorem apartGoal1 (h: 0 < 1 → 2 < 3): True = True := ?
+closed-comparison-as-written goal 11: theorem underGoal1 (n: Nat) (same: n = n): True = True := ?
 constant-by-name goal 1: theorem healedAtMostGoal1 (hitPoints: Nat) (rooms: List Nat) (same: rooms = startingRooms): healed hitPoints ≤ maxHitPoints := ?
 constructor-clash-qualified goal 1: theorem mkIsGoal1 (t: Text): mk t = Doc.Str t := ?
 counterexample-at-hole goal 1: theorem doubleIsSquareGoal1 (n: Nat): n + n = n * n := ?
@@ -120,6 +131,10 @@ guard-facts goal 4: theorem propositionsGoal1 (p: Nat → Prop) (n: Nat) (h: n <
 guard-facts goal 5: theorem propositionsGoal2 (p: Nat → Prop) (n: Nat) (h: ¬(n < 3)): p n := ?
 guard-facts goal 6: theorem namedGoal1 (p: Nat → Prop) (n: Nat) (g: n == 0): p n := ?
 guard-facts goal 7: theorem namedGoal2 (p: Nat → Prop) (n: Nat) (h: (n == 0) = False): p n := ?
+guard-hypotheses-as-written goal 1: theorem characterGoal1 (c: Char) (h: 0 < pick True) (g: c == 'a'): pick True = 1 ∨ 0 < 1 := ?
+guard-hypotheses-as-written goal 2: theorem characterGoal2 (n: Nat) (c: Char) (h: 0 < pick (c == 'a')): pick (c == 'a') = 1 ∨ 0 < 1 := ?
+guard-hypotheses-as-written goal 3: theorem variableGoal1 (b: Bool) (h: 0 < pick True) (h2: pick True = 1) (g: b): pick True = 1 := ?
+guard-hypotheses-as-written goal 4: theorem variableGoal2 (n: Nat) (b: Bool) (h: 0 < pick b) (h2: pick b = 1): pick b = 1 := ?
 implicit-parameter goal 1: def identityGoal1 (a: Type) (x: a): a := ?
 implicit-parameter goal 2: theorem symmetricGoal1 (a: Type) (x: a) (y: a) (h: x = y): y = x := ?
 inferring-position goal 1: no lemma
@@ -153,6 +168,9 @@ match-induct goal 1: theorem firstBigIsBigGoal1 (xs: List Nat) (y: Nat) (found: 
 match-induct goal 2: theorem firstBigIsBigGoal2 (xs: List Nat) (y: Nat) (x: Nat) (rest: List Nat) (big: 10 ≤ x) (found: Some x = Some y): 10 ≤ y := ?
 match-induct goal 3: theorem firstBigIsBigGoal3 (xs: List Nat) (y: Nat) (x: Nat) (rest: List Nat) (big: (10 <= x) = False) (ih: firstBig rest = Some y → 10 ≤ y) (found: firstBig rest = Some y): 10 ≤ y := ?
 match-induct-list-cases goal 1: theorem leGoal1 (k: Nat) (x: Nat) (xs: List Nat) (h1: (k <= x) = False) (ih: countAbove k xs ≤ xs.length): countAbove k xs ≤ Succ xs.length := ?
+match-no-rescue-through-calls goal 1: theorem boundedGoal1 (more: Nat) (lists: List (List Nat)) (cap: Nat) (found: (lists.map (chainThrough more)).maximum = None): chainOf more lists ≤ cap := ?
+match-no-rescue-through-calls goal 2: theorem boundedGoal2 (more: Nat) (lists: List (List Nat)) (cap: Nat) (most: Nat) (found: (lists.map (chainThrough more)).maximum = Some most): chainOf more lists ≤ cap := ?
+match-partial-unfold goal 1: no lemma
 match-refined-hypothesis goal 1: theorem boundedGoal1 (p: Nat → Prop) (small: ∀ (m: Nat) => p m → m < 3) (k: Nat) (holds: p (Succ k)): k ≤ 2 := ?
 match-unnamed-fields goal 1: theorem shownGoal1 (next: Bool) (all: next): next := ?
 match-unnamed-fields goal 2: no lemma
@@ -182,6 +200,7 @@ record-update goal 3: theorem paidGoal1 (player: Player) (amount: Nat) (same: ({
 reify-return goal 1: no lemma
 reify-return goal 2: theorem toResultThenGoal2 (a: Type) (b: Type) (t: () → {Fail} a) (k: a → {Fail} b) (msg: Text): (Err msg: Result b Text) = Err msg := ?
 reify-return goal 3: no lemma
+rewrite-partial-unfold goal 1: no lemma
 rewrite-repeatedly-then-goal goal 1: theorem leftGoal1 (xs: List Nat) (ys: List Nat): xs ++ ys = ys ++ xs := ?
 rewrite-steps goal 1: theorem rewriteStepsGoal1 (a: Nat) (b: Nat) (same: a = b): f (Succ b) = f (Succ b) := ?
 sections goal 1: no lemma
