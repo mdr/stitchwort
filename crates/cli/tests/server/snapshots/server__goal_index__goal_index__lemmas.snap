@@ -5,13 +5,13 @@ expression: "format!(\"{made} lemmas, {} goals without one\\n\\n{}\", summary.le
 174 lemmas, 47 goals without one
 
 arm-as-written-computes goal 1: no lemma
-arm-as-written-computes goal 2: theorem stepsGoal2: 0 ≠ 0 ∨ "" = "" := ?
+arm-as-written-computes goal 2: theorem stepsGoal2: f "" ≠ 0 ∨ "" = "" := ?
 arm-as-written-computes goal 3: theorem stepsGoal3 (s: Text) (h: s ≠ "ab") (h2: s ≠ ""): 2 ≠ 0 ∨ s = "" := ?
 arm-as-written-computes goal 4: no lemma
 arm-as-written-computes goal 5: no lemma
-arm-as-written-computes goal 6: theorem paintedGoal1: Red = Blue := ?
+arm-as-written-computes goal 6: theorem paintedGoal1: paint Red = Blue := ?
 arm-as-written-computes goal 7: theorem paintedGoal2 (c: Color): Blue = Blue := ?
-arm-as-written-computes goal 8: theorem someTrueGoal1: True = True := ?
+arm-as-written-computes goal 8: theorem someTrueGoal1: isSomeTrue (Some True) := ?
 arm-as-written-computes goal 9: theorem someTrueGoal2 (o: Option Bool): False = True := ?
 arm-as-written-error goal 1: no lemma
 arm-as-written-error goal 2: theorem oneCharacterGoal2 (p: Text → Prop) (hp: ∀ (c: Char) => p (MkText [c])): p "" := ?
@@ -69,7 +69,7 @@ arm-as-written-text goal 12: no lemma
 arm-as-written-text goal 13: theorem characterGoal2 (p: Char → Prop) (c: Char) (h: c ≠ 'a'): p c := ?
 arm-as-written-text goal 14: no lemma
 arm-as-written-text goal 15: theorem charactersGoal2 (p: List Char → Prop) (l: List Char): p l := ?
-beside-error goal 1: theorem zeroMulGoal1: 0 = 0 := ?
+beside-error goal 1: theorem zeroMulGoal1: 0 * 0 = 0 * 0 := ?
 bool-constant-branches goal 1: theorem orFalseGoal1 (b: Bool): b = (if b then True else False) := ?
 bool-constant-branches goal 2: theorem allTwoGoal1 (b: Bool) (c: Bool): [b, c].all (x => x) = b := ?
 bool-constant-branches goal 3: theorem anyTwoGoal1 (b: Bool) (c: Bool): [b, c].any (x => x) = b := ?
@@ -99,14 +99,14 @@ catch-all-facts goal 20: theorem columnsGoal2 (p: Nat → Nat → Prop) (x: Nat)
 catch-all-facts goal 21: theorem columnsGoal3 (p: Nat → Nat → Prop) (x: Nat) (y: Nat) (h: x ≠ 0) (h2: y ≠ 1): p x y := ?
 catch-all-facts goal 22: def holeyGoal1 (k: Nat) (hk: k ≠ 5): Nat := ?
 closed-comparison-as-written goal 1: theorem plainGoal1 (n: Nat): 0 < 1 := ?
-closed-comparison-as-written goal 2: theorem armsGoal1: True = True := ?
-closed-comparison-as-written goal 3: theorem armsGoal2 (n: Nat) (h: n ≠ 0): True = True := ?
-closed-comparison-as-written goal 4: theorem splitGoal1: True = True := ?
-closed-comparison-as-written goal 5: theorem splitGoal2: True = True := ?
-closed-comparison-as-written goal 6: theorem splitGoal3 (n: Nat) (h: n ≠ 0) (h2: n ≠ 1): n * 2 ≤ 2 := ?
+closed-comparison-as-written goal 2: theorem armsGoal1: 0 < 1 := ?
+closed-comparison-as-written goal 3: theorem armsGoal2 (n: Nat) (h: n ≠ 0): 0 < 1 := ?
+closed-comparison-as-written goal 4: theorem splitGoal1: 0 * 2 < 3 := ?
+closed-comparison-as-written goal 5: theorem splitGoal2: 1 * 2 < 3 := ?
+closed-comparison-as-written goal 6: theorem splitGoal3 (n: Nat) (h: n ≠ 0) (h2: n ≠ 1): n * 2 < 3 := ?
 closed-comparison-as-written goal 7: theorem nestedGoal1 (n: Nat): 2 ≤ 3 ∧ n = n := ?
-closed-comparison-as-written goal 8: theorem decidedGoal1 (n: Nat): True = True := ?
-closed-comparison-as-written goal 9: theorem decidedGoal2 (n: Nat): True = True := ?
+closed-comparison-as-written goal 8: theorem decidedGoal1 (n: Nat): pick True < 2 := ?
+closed-comparison-as-written goal 9: theorem decidedGoal2 (n: Nat): pick False < 2 := ?
 closed-comparison-as-written goal 10: theorem apartGoal1 (h: 0 < 1 → 2 < 3): 0 < 1 := ?
 closed-comparison-as-written goal 11: theorem underGoal1 (n: Nat) (same: n = n): 0 < 1 := ?
 constant-by-name goal 1: theorem healedAtMostGoal1 (hitPoints: Nat) (rooms: List Nat) (same: rooms = startingRooms): healed hitPoints ≤ maxHitPoints := ?
@@ -156,7 +156,7 @@ local-predicate-goal goal 3: theorem inArmsGoal1 (p: Option Bool → Prop): p (S
 local-predicate-goal goal 4: theorem inArmsGoal2 (p: Option Bool → Prop) (o: Option Bool): p o := ?
 logic-notation goal 1: theorem shownGoal1 (x: Nat) (y: Nat) (xs: List Nat) (p: Prop) (ne: x ≠ y) (out: y ∉ xs) (np: ¬p): (x ∈ xs ↔ p) ∧ (∃ (n: Nat) => n ≤ x ∨ n = y) := ?
 match-arm-pattern-order goal 1: def sumRestOrZeroGoal1 (xs: List Nat) (x: Nat) (rest: List Nat) (h: xs = [x, ..rest]): Nat := ?
-match-branches goal 1: theorem addZeroGoal1: 0 = 0 := ?
+match-branches goal 1: theorem addZeroGoal1: 0 + 0 = 0 := ?
 match-branches goal 2: theorem addZeroGoal2 (k: Nat): Succ k = Succ k := ?
 match-call-field-folded goal 1: theorem fitsGoal1 (n: Nat) (small: n ≤ 1): (pick n empty).items.length ≤ 100 := ?
 match-call-field-folded goal 2: theorem fitsGoal2 (n: Nat) (small: (n <= 1) = False): (pick n empty).items.length ≤ 100 := ?
@@ -171,8 +171,8 @@ match-induct-list-cases goal 1: theorem leGoal1 (k: Nat) (x: Nat) (xs: List Nat)
 match-no-rescue-through-calls goal 1: theorem boundedGoal1 (more: Nat) (lists: List (List Nat)) (cap: Nat) (found: (lists.map (chainThrough more)).maximum = None): chainOf more lists ≤ cap := ?
 match-no-rescue-through-calls goal 2: theorem boundedGoal2 (more: Nat) (lists: List (List Nat)) (cap: Nat) (most: Nat) (found: (lists.map (chainThrough more)).maximum = Some most): chainOf more lists ≤ cap := ?
 match-partial-unfold goal 1: no lemma
-match-refined-hypothesis goal 1: theorem boundedGoal1 (p: Nat → Prop) (small: ∀ (m: Nat) => p m → m < 3) (k: Nat) (holds: p (Succ k)): k ≤ 2 := ?
-match-unnamed-fields goal 1: theorem shownGoal1 (next: Bool) (all: next): next := ?
+match-refined-hypothesis goal 1: theorem boundedGoal1 (p: Nat → Prop) (small: ∀ (m: Nat) => p m → m < 3) (k: Nat) (holds: p (Succ k)): Succ k < 4 := ?
+match-unnamed-fields goal 1: theorem shownGoal1 (next: Bool) (all: next): allTrue [next] := ?
 match-unnamed-fields goal 2: no lemma
 operators-and-names goal 1: theorem onNatGoal1 (a: Nat) (b: Nat): (a < b && b <= a + 3 || b < a) = (gentle a b || b < a) := ?
 operators-and-names goal 2: theorem onIntGoal1 (a: Int) (b: Int) (h: a < b) (k: a ≤ b): (a < b && a <= b) = True := ?
@@ -187,8 +187,8 @@ param-default-shown goal 3: no lemma
 proof-hole goal 1: theorem addZeroGoal1 (n: Nat): n + 0 = n := ?
 proof-tuple-unnamed-fields goal 1: no lemma
 prop-definition-folded goal 1: theorem topGoal1 (n: Nat): Small n := ?
-prop-definition-folded goal 2: theorem viaMatchGoal1 (n: Nat): n ≤ 3 ∧ n ≠ 7 := ?
-prop-definition-folded goal 3: theorem viaMatchGoal2 (n: Nat): 0 ≤ 3 ∧ 0 ≠ 7 := ?
+prop-definition-folded goal 2: theorem viaMatchGoal1 (n: Nat): Small (if True then n else 0) := ?
+prop-definition-folded goal 3: theorem viaMatchGoal2 (n: Nat): Small (if False then n else 0) := ?
 ranges goal 1: theorem lengthThroughGoal1 (n: Nat): (1 ..= n).length = n := ?
 ranges goal 2: theorem lengthUpToGoal1 (n: Nat): (0 ..= n).length = n + 1 := ?
 ranges goal 3: theorem membersGoal1 (x: Nat) (n: Nat): x ∈ 2 ..< n := ?

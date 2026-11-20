@@ -46,7 +46,7 @@ expression: json
     "fixes": [],
     "goal": {
       "hypotheses": [],
-      "lemma": "theorem armsGoal1: True = True := ?",
+      "lemma": "theorem armsGoal1: 0 < 1 := ?",
       "target": "0 < 1",
       "targetComputed": "True = True"
     },
@@ -86,7 +86,7 @@ expression: json
           "type": "Nat"
         }
       ],
-      "lemma": "theorem armsGoal2 (n: Nat) (h: n ≠ 0): True = True := ?",
+      "lemma": "theorem armsGoal2 (n: Nat) (h: n ≠ 0): 0 < 1 := ?",
       "target": "0 < 1",
       "targetComputed": "True = True"
     },
@@ -120,7 +120,7 @@ expression: json
     "fixes": [],
     "goal": {
       "hypotheses": [],
-      "lemma": "theorem splitGoal1: True = True := ?",
+      "lemma": "theorem splitGoal1: 0 * 2 < 3 := ?",
       "target": "0 * 2 < 3",
       "targetComputed": "True = True"
     },
@@ -152,7 +152,7 @@ expression: json
     "fixes": [],
     "goal": {
       "hypotheses": [],
-      "lemma": "theorem splitGoal2: True = True := ?",
+      "lemma": "theorem splitGoal2: 1 * 2 < 3 := ?",
       "target": "1 * 2 < 3",
       "targetComputed": "True = True"
     },
@@ -193,7 +193,7 @@ expression: json
           "type": "Nat"
         }
       ],
-      "lemma": "theorem splitGoal3 (n: Nat) (h: n ≠ 0) (h2: n ≠ 1): n * 2 ≤ 2 := ?",
+      "lemma": "theorem splitGoal3 (n: Nat) (h: n ≠ 0) (h2: n ≠ 1): n * 2 < 3 := ?",
       "target": "n * 2 < 3",
       "targetComputed": "n * 2 ≤ 2"
     },
@@ -268,7 +268,7 @@ expression: json
           "type": "Nat"
         }
       ],
-      "lemma": "theorem decidedGoal1 (n: Nat): True = True := ?",
+      "lemma": "theorem decidedGoal1 (n: Nat): pick True < 2 := ?",
       "target": "pick True < 2",
       "targetComputed": "True = True"
     },
@@ -305,7 +305,7 @@ expression: json
           "type": "Nat"
         }
       ],
-      "lemma": "theorem decidedGoal2 (n: Nat): True = True := ?",
+      "lemma": "theorem decidedGoal2 (n: Nat): pick False < 2 := ?",
       "target": "pick False < 2",
       "targetComputed": "True = True"
     },

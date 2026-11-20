@@ -63,7 +63,7 @@ expression: json
           "type": "Nat"
         }
       ],
-      "lemma": "theorem viaMatchGoal1 (n: Nat): n ≤ 3 ∧ n ≠ 7 := ?",
+      "lemma": "theorem viaMatchGoal1 (n: Nat): Small (if True then n else 0) := ?",
       "target": "Small (if True then n else 0)",
       "targetComputed": "n ≤ 3 ∧ n ≠ 7"
     },
@@ -100,7 +100,7 @@ expression: json
           "type": "Nat"
         }
       ],
-      "lemma": "theorem viaMatchGoal2 (n: Nat): 0 ≤ 3 ∧ 0 ≠ 7 := ?",
+      "lemma": "theorem viaMatchGoal2 (n: Nat): Small (if False then n else 0) := ?",
       "target": "Small (if False then n else 0)",
       "targetComputed": "0 ≤ 3 ∧ 0 ≠ 7"
     },

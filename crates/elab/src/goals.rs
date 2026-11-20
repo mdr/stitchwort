@@ -1950,20 +1950,11 @@ impl Elaborator {
                 .cloned()
                 .collect();
             // The goal as written first: the pasted lemma reads like the
-            // goal shown. Where that text can't be pasted back as the same
-            // goal, the computed form.
-            // A variable a pattern made a constructor (`Succ k + 0`) prints
-            // as written but is another term once pasted, as `k + 1`.
-            let refined = p.statement.as_ref().is_some_and(|s| {
-                s.env.iter().enumerate().any(|(l, v)| {
-                    !matches!(v, Value::Neutral(Head::Var(m, _), spine) if *m == l && spine.is_empty())
-                })
-            });
-            // An arm's goal is computed under the arm's facts, which a
-            // pasted lemma's goal isn't (`f s` is `2` only given them).
+            // goal shown. Where that text, pasted, isn't the same goal, the
+            // computed form.
             written
                 .as_deref()
-                .filter(|_| arm.is_none() && !refined)
+                .filter(|w| self.written_is_the_goal(p, &hypotheses, &all_facts, w, &target, &show))
                 .and_then(|w| {
                     self.lemma_of(p, &hypotheses, &all_facts, w, &show, false)
                         .ok()
@@ -2185,11 +2176,9 @@ impl Elaborator {
         let ascribed = match force(g, p.expected.clone()) {
             Ok(Value::Eq(ty, a, b))
                 if (quote_shown(g, level, &a).is_ok_and(|t| loose_ctor(g, &t)))
-                    && (quote_shown(g, level, &b).is_ok_and(|t| loose_ctor(g, &t))) =>
+                    && (quote_shown(g, level, &b).is_ok_and(|t| loose_ctor(g, &t)))
+                    && computed =>
             {
-                if !computed {
-                    return Err("written equation with an open type");
-                }
                 let (ty, a, b) = (show(&ty), show(&a), show(&b));
                 if target != format!("{a} = {b}") || unwritable(&ty) {
                     return Err("equation with an open type that can't be ascribed");
@@ -2203,25 +2192,101 @@ impl Elaborator {
         for h in hypotheses {
             rest.push_str(&format!(" ({}: {})", h.name, bracketed(&h.ty)));
         }
-        // The facts are hypotheses of the lemma, named `h`, `h2`, … clear of
-        // the goal's own names.
-        let mut n = 0;
-        for fact in facts {
-            let name = loop {
-                n += 1;
-                let name = if n == 1 {
-                    "h".to_string()
-                } else {
-                    format!("h{n}")
-                };
-                if !hypotheses.iter().any(|h| h.name == name) {
-                    break name;
-                }
-            };
+        // The facts are hypotheses of the lemma.
+        for (name, fact) in fact_names(hypotheses, facts.len()).iter().zip(facts) {
             rest.push_str(&format!(" ({name}: {fact})"));
         }
         rest.push_str(&format!(": {} := ?", bracketed(target)));
         Ok((keyword, rest))
+    }
+
+    /// Whether the lemma of the goal `p` with its target written as
+    /// `written` is the same goal: its statement is elaborated as the
+    /// pasted lemma's would be (the hypotheses and facts printed as
+    /// `hypotheses` and `facts` its parameters, in that order, then the
+    /// target), and compared by conversion with the goal's target, each of
+    /// the lemma's parameters standing for the goal's variable it was made
+    /// from, and printed as `target`, the goal's. Anything that doesn't
+    /// parse, elaborate, or compare is no.
+    /// What the elaboration did is undone.
+    fn written_is_the_goal(
+        &self,
+        p: &Pending,
+        hypotheses: &[Hypothesis],
+        facts: &[String],
+        written: &str,
+        target: &str,
+        show: &dyn Fn(&Value) -> String,
+    ) -> bool {
+        if hypotheses.len() != p.context.len() {
+            return false;
+        }
+        // The goal's variable each fact stands for: the unnamed guards'
+        // (an arm's facts, which are no variables, stand for none).
+        let guards: Vec<usize> = p
+            .hidden
+            .iter()
+            .map(|(l, _)| *l)
+            .filter(|l| p.guard_facts.contains(l))
+            .collect();
+        let arm_facts = facts.len().saturating_sub(guards.len());
+        // The text is parsed as a file of its own, and everything the
+        // elaboration notes for the editor (references, types, warnings) is
+        // left out or cut, so nothing lands at a place in the real file.
+        let file = stitchwort_syntax::FileId::SCRATCH;
+        let parsed = |text: &str| stitchwort_syntax::parse_expression(file, text).ok();
+        let mut cx = Ctx::new(self, Span::point(file, 0));
+        let g = &self.ev();
+        let mut env: Vec<Value> = Vec::new();
+        let warnings = self.attempt.lambda_warnings.borrow().len();
+        let result = Elaborator::unnoted_in(&mut cx, |cx| {
+            crate::undo::transaction(cx, |cx| {
+                let metas = cx.metas().metas.borrow().len();
+                let queued = cx.e.attempt.queue.len();
+                for (h, e) in hypotheses.iter().zip(&p.context) {
+                    let Some(expr) = parsed(&h.ty) else {
+                        return Ok(None);
+                    };
+                    let (ty, _) = crate::check::check_type(cx, &expr)?;
+                    let ty = cx.eval(&ty)?;
+                    cx.bind(&h.name, ty);
+                    env.push(Value::var(e.level));
+                }
+                let names = fact_names(hypotheses, facts.len());
+                for (i, (name, fact)) in names.iter().zip(facts).enumerate() {
+                    let Some(expr) = parsed(fact) else {
+                        return Ok(None);
+                    };
+                    let (ty, _) = crate::check::check_type(cx, &expr)?;
+                    let ty = cx.eval(&ty)?;
+                    cx.bind(name, ty);
+                    env.push(match i.checked_sub(arm_facts) {
+                        Some(k) => Value::var(guards[k]),
+                        None => Value::Sort(Sort::Prop),
+                    });
+                }
+                let Some(expr) = parsed(written) else {
+                    return Ok(None);
+                };
+                let (term, _) = crate::check::check_type(cx, &expr)?;
+                // A literal nothing types is `Nat` by the end of a declaration.
+                Elaborator::settle_rule(cx, queued, metas)?;
+                let term = cx.e.zonk(&term, cx.level())?;
+                if term.subterms().any(|(t, _)| matches!(t, Term::Meta(_))) {
+                    return Ok(None);
+                }
+                // A body is checked against its type's weak head normal form
+                // (`0 < 1` is `True = True`), which is what the goal shows.
+                let lemma_target = force(g, stitchwort_core::value::eval(g, &env, &term)?)?;
+                // Convertible, and printed as the goal is: a lemma stating
+                // `Succ k` as `k + 1` is the same term, but not the goal shown.
+                let same = stitchwort_core::value::conv(g, p.level, &lemma_target, &p.expected)?
+                    && show(&lemma_target) == target;
+                Ok(same.then_some(()))
+            })
+        });
+        self.attempt.lambda_warnings.borrow_mut().truncate(warnings);
+        matches!(result, Ok(Some(())))
     }
 
     /// The goals printed since this was last called, in source order, each
@@ -2545,6 +2610,27 @@ fn number_arms(steps: &mut [StepAt]) {
             }
         }
     }
+}
+
+/// The names a lemma gives a goal's `count` facts: `h`, `h2`, …, clear of the
+/// goal's own names.
+fn fact_names(hypotheses: &[Hypothesis], count: usize) -> Vec<String> {
+    let mut n = 0;
+    (0..count)
+        .map(|_| {
+            loop {
+                n += 1;
+                let name = if n == 1 {
+                    "h".to_string()
+                } else {
+                    format!("h{n}")
+                };
+                if !hypotheses.iter().any(|h| h.name == name) {
+                    break name;
+                }
+            }
+        })
+        .collect()
 }
 
 /// Whether `term` is a constructor application whose type can't be worked
