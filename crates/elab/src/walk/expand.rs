@@ -1,0 +1,251 @@
+//! What a walk wrote, for `check --expand-walk`: the pieces of its chain, the
+//! trace of the lemmas used, and their rendering as text.
+
+use super::*;
+
+/// A piece of a walk's expansion.
+#[derive(Clone, Debug)]
+pub enum Piece {
+    Text(String),
+    /// The user's own text, as written there.
+    Source(Span),
+    /// What a place the walk went on from wrote.
+    Child(u32),
+}
+
+/// One check of a written walk, for `check --expand-walk`: where it is, the
+/// chain it stands for and the lemma used at each call.
+#[derive(Clone, Debug)]
+pub struct WalkExpansion {
+    pub span: Span,
+    pub pieces: Vec<Piece>,
+    pub trace: Vec<Vec<Piece>>,
+}
+
+impl Walks {
+    /// The paths the splits reached from `node`'s text add, and `extra`'s.
+    pub(super) fn splits(&self, node: u32, extra: u32) -> usize {
+        let mut seen = vec![node];
+        let mut todo = vec![node];
+        let mut total = 0;
+        while let Some(n) = todo.pop() {
+            let Some(info) = self.nodes.get(n as usize) else {
+                continue;
+            };
+            total += info.split;
+            for piece in info.text.iter().flatten() {
+                if let Piece::Child(k) = piece
+                    && !seen.contains(k)
+                {
+                    seen.push(*k);
+                    todo.push(*k);
+                }
+            }
+        }
+        if !seen.contains(&extra) {
+            total += self.nodes[extra as usize].split;
+        }
+        total
+    }
+
+    /// The expansion of call `c`, with its children's pieces in place.
+    pub(super) fn expansion(&self, c: usize) -> Option<WalkExpansion> {
+        let call = &self.calls[c];
+        let mut out = Vec::new();
+        let mut trace = Vec::new();
+        self.flatten(call.root, &mut out, &mut trace)?;
+        Some(WalkExpansion {
+            span: call.span,
+            pieces: out,
+            trace,
+        })
+    }
+
+    /// The pieces and trace of the places the final chain goes through:
+    /// a place tried and given up (a call first tried unweakened) isn't
+    /// reached from the root's text.
+    pub(super) fn flatten(
+        &self,
+        node: u32,
+        out: &mut Vec<Piece>,
+        trace: &mut Vec<Vec<Piece>>,
+    ) -> Option<()> {
+        let info = self.nodes.get(node as usize)?;
+        trace.extend(info.trace.iter().cloned());
+        let Some(text) = info.text.as_ref() else {
+            // Where the walk stopped: left open.
+            out.push(Piece::Text("?".into()));
+            return Some(());
+        };
+        let mut skip_close = false;
+        for (i, piece) in text.iter().enumerate() {
+            match piece {
+                Piece::Child(k) => {
+                    let mut child = Vec::new();
+                    self.flatten(*k, &mut child, trace)?;
+                    // `f (x)` is written `f x`.
+                    let opened = matches!(out.last(), Some(Piece::Text(t)) if t.ends_with('('));
+                    let closed =
+                        matches!(text.get(i + 1), Some(Piece::Text(t)) if t.starts_with(')'));
+                    if opened && closed && atomic(&child) {
+                        if let Some(Piece::Text(t)) = out.last_mut() {
+                            t.pop();
+                        }
+                        skip_close = true;
+                    }
+                    out.extend(child);
+                }
+                Piece::Text(t) if skip_close => {
+                    skip_close = false;
+                    out.push(Piece::Text(t[1..].to_string()));
+                }
+                other => out.push(other.clone()),
+            }
+        }
+        Some(())
+    }
+}
+
+/// Whether written pieces are one word, or one bracketed whole, needing no
+/// brackets as an argument.
+pub(super) fn atomic(pieces: &[Piece]) -> bool {
+    let mut text = String::new();
+    for p in pieces {
+        match p {
+            Piece::Text(t) => text.push_str(t),
+            _ => return false,
+        }
+    }
+    if text.is_empty() {
+        return false;
+    }
+    if !text.contains([' ', '\n']) {
+        return true;
+    }
+    let (Some(open), Some(close)) = (text.chars().next(), text.chars().last()) else {
+        return false;
+    };
+    if !matches!((open, close), ('(', ')') | ('[', ']')) {
+        return false;
+    }
+    // The first bracket closes at the end, not before.
+    let mut depth = 0usize;
+    for (i, c) in text.char_indices() {
+        match c {
+            '(' | '[' => depth += 1,
+            ')' | ']' => {
+                depth -= 1;
+                if depth == 0 {
+                    return i + c.len_utf8() == text.len();
+                }
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
+impl Elaborator {
+    /// What each walk checked so far wrote: for a walk checked more than
+    /// once, the last (`check --expand-walk`).
+    pub fn take_walk_expansions(&self) -> Vec<WalkExpansion> {
+        let walks = self.session.walks.borrow();
+        let mut out: Vec<WalkExpansion> = Vec::new();
+        for c in 0..walks.calls.len() {
+            if let Some(e) = walks.expansion(c) {
+                match out.iter_mut().find(|o| o.span == e.span) {
+                    Some(o) => *o = e,
+                    None => out.push(e),
+                }
+            }
+        }
+        out
+    }
+}
+
+/// A line of a walk's trace ([`WalkExpansion::trace`]) as text, from the
+/// text of the file it is in.
+pub fn trace_line(text: &str, line: &[Piece]) -> String {
+    line.iter()
+        .map(|p| match p {
+            Piece::Text(t) => t.as_str(),
+            Piece::Source(span) => text.get(span.range()).unwrap_or("?"),
+            Piece::Child(_) => "…",
+        })
+        .collect()
+}
+
+/// A file's text with each walk replaced by the chain it stands for, from
+/// the expansions recorded for it (those of other files ignored), indented
+/// where the walk was. How many were expanded.
+pub fn expand_file(
+    text: &str,
+    file: stitchwort_syntax::FileId,
+    expansions: &[WalkExpansion],
+) -> (String, usize) {
+    let mut mine: Vec<&WalkExpansion> = expansions.iter().filter(|e| e.span.file == file).collect();
+    mine.sort_by_key(|e| e.span.range().start);
+    let mut out = String::new();
+    let mut at = 0;
+    let mut done = 0;
+    for e in mine {
+        let range = e.span.range();
+        if range.start < at {
+            continue;
+        }
+        let line_start = text[..range.start].rfind('\n').map_or(0, |i| i + 1);
+        let indent: String = text[line_start..range.start]
+            .chars()
+            .take_while(|c| c.is_whitespace())
+            .collect();
+        out.push_str(&text[at..range.start]);
+        out.push_str(&render(text, &e.pieces, &indent));
+        at = range.end;
+        done += 1;
+    }
+    out.push_str(&text[at..]);
+    (out, done)
+}
+
+/// Starts a line that continues the one before (an argument of a call on
+/// the line above), in [`render`].
+pub(super) const MORE: char = '\u{1}';
+
+/// The pieces as text, each line after the first indented by `indent` and
+/// by the depth of the brackets open before it.
+pub(super) fn render(text: &str, pieces: &[Piece], indent: &str) -> String {
+    let mut raw = String::new();
+    for p in pieces {
+        match p {
+            Piece::Text(t) => raw.push_str(t),
+            Piece::Source(span) => raw.push_str(text.get(span.range()).unwrap_or("?")),
+            Piece::Child(_) => {}
+        }
+    }
+    let mut out = String::new();
+    let mut depth: usize = 0;
+    for (i, line) in raw.split('\n').enumerate() {
+        let mut line = line;
+        if i > 0 {
+            out.push('\n');
+            out.push_str(indent);
+            for _ in 0..depth {
+                out.push_str("  ");
+            }
+            // A line that goes on the one before: one level further in.
+            if let Some(rest) = line.strip_prefix(MORE) {
+                out.push_str("  ");
+                line = rest;
+            }
+        }
+        out.push_str(line);
+        for c in line.chars() {
+            match c {
+                '(' | '[' => depth += 1,
+                ')' | ']' => depth = depth.saturating_sub(1),
+                _ => {}
+            }
+        }
+    }
+    out
+}
