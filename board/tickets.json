@@ -1,5 +1,5 @@
 {
-  "next": 4321,
+  "next": 4322,
   "tickets": [
     {
       "id": 47,
@@ -28023,7 +28023,7 @@
     {
       "id": 4286,
       "title": "[Sonnet] One list of slice 1's operators and std List.allMember replace 21 literal-staircase theorems and the …A/B/C/D names (survey target 4)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -28471,6 +28471,19 @@
       "labels": [],
       "epic": "test-infra",
       "body": "Overmind report 20 Nov ~03:30; last green df69901f1.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4321,
+      "title": "[Sonnet] Prefix operators: a prefixes1 list for prefixSpellsOf/prefixFacts/prefixPlain/prefixToken, as SW-4286 did for binary operators (survey target 4 rest)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From SW-4286.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
