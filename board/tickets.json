@@ -29317,7 +29317,7 @@
     {
       "id": 4385,
       "title": "[Opus] Guard refinement (D3701): a guard in a proof's match refines goal and hypotheses like match g: on its condition (docs/proposals/guard-refinement.md); W-REWRITE-GUARD-REFINED for a pointless rewrite; fallback where the goal can't be generalised",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
