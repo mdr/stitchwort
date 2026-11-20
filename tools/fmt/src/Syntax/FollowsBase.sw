@@ -235,7 +235,7 @@ theorem followsEat ∀ (modes: Modes) (wanted: Tok):
     Parse.Follows SameCode (Option.Alike WordsAlike) (() => modes.eat wanted) (() => modes.eat wanted) :=
   followsThenEq (followsAt modes wanted) (here =>
     match here with
-      | True => Parse.followsMap (word => Some word) (word => Some word) (x y alike => alike) followsBump
+      | True => Parse.followsMap (word => Some word) (word => Some word) followsBump (x y alike => alike)
       | False => Parse.followsDone Trivial)
 
 theorem followsExpectOn ∀ (modes: Modes) (wanted: Tok) (what: Text) (seen: Option Tok):
@@ -406,11 +406,8 @@ theorem alikeSpread ∀ (dots dotsTwin: Word)
 -- Atoms.
 
 theorem followsWordAtom ∀ (kind: Tok): Parse.Follows SameCode ExprsAlike (() => wordAtom kind) (() => wordAtom kind) :=
-  Parse.followsMap
-    (spelled => Atom kind spelled)
-    (spelled => Atom kind spelled)
-    (spelled twin words => alikeAtom kind spelled twin words)
-    followsBump
+  Parse.followsMap (spelled => Atom kind spelled) (spelled => Atom kind spelled) followsBump (spelled twin words =>
+    alikeAtom kind spelled twin words)
 
 theorem followsNumberAfter ∀ (minus minusTwin: Word)
     (minuses: WordsAlike minus minusTwin) (items others: List Item)
@@ -420,10 +417,10 @@ theorem followsNumberAfter ∀ (minus minusTwin: Word)
   Parse.followsMap
     (digits => Prefix minus (Atom (numberKind items) digits))
     (digits => Prefix minusTwin (Atom (numberKind others) digits))
+    followsBump
     (digits digitsTwin numbers =>
       alikePrefix minus minusTwin minuses _ _
         (rewrite kinds then alikeAtom (numberKind others) digits digitsTwin numbers))
-    followsBump
 
 theorem followsNegativeNumber: Parse.Follows SameCode ExprsAlike (() => negativeNumber()) (() => negativeNumber()) :=
   Parse.followsThen followsBump (minus minusTwin minuses =>
@@ -492,8 +489,8 @@ theorem followsParenClose ∀ (inner: Modes) (open openTwin: Word)
   Parse.followsMap
     (close => Paren open first close)
     (close => Paren openTwin firstTwin close)
-    (close closeTwin closes => alikeParen open openTwin opens first firstTwin firsts close closeTwin closes)
     (followsExpect inner RParen "`)`")
+    (close closeTwin closes => alikeParen open openTwin opens first firstTwin firsts close closeTwin closes)
 
 theorem followsAnnotatedEnd ∀ (inner: Modes) (open openTwin: Word)
     (opens: WordsAlike open openTwin) (first firstTwin: Expr)
@@ -508,10 +505,10 @@ theorem followsAnnotatedEnd ∀ (inner: Modes) (open openTwin: Word)
       Parse.followsMap
         (close => Annotation open first colon annotation close)
         (close => Annotation openTwin firstTwin colonTwin annotationTwin close)
+        (followsExpect inner RParen "`)`")
         (close closeTwin closes =>
           alikeAnnotation open openTwin opens first firstTwin firsts colon colonTwin colons annotation annotationTwin
               annotations close closeTwin closes)
-        (followsExpect inner RParen "`)`")
 
 theorem followsAnnotated ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -544,15 +541,12 @@ theorem followsTupleEnd ∀ (inner: Modes) (open openTwin: Word)
   match pair, pairTwin with
     | (items, trailing), (itemsTwin, trailingTwin) =>
       Parse.followsMap
-        [alike := ExprsAlike]
-        [p := () => tupleClose inner]
-        [q := () => tupleClose inner]
         (close => Tuple open items trailing close)
         (close => Tuple openTwin itemsTwin trailingTwin close)
+        (followsTupleClose inner)
         (close closeTwin closes =>
           alikeTuple open openTwin opens items itemsTwin pairs.left trailing trailingTwin pairs.right close closeTwin
               closes)
-        (followsTupleClose inner)
 
 theorem followsTupleSecond ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -633,8 +627,8 @@ theorem followsListSpread ∀ [self selfTwin: Goal → {Parse Item} Expr]
       Parse.followsMap
         (list => Spread dots list)
         (list => Spread dotsTwin list)
-        (list listTwin lists => alikeSpread dots dotsTwin dotted list listTwin lists)
         (followsFull knot modes)
+        (list listTwin lists => alikeSpread dots dotsTwin dotted list listTwin lists)
 
 theorem followsAtEither ∀ (modes: Modes) (wanted other: Tok):
     Parse.Follows SameCode Same (() => modes.at wanted || modes.at other) (() => modes.at wanted || modes.at other) :=
@@ -666,10 +660,10 @@ theorem followsListItemsEnd ∀ [self selfTwin: Goal → {Parse Item} Expr] (inn
         [q := () => inner.expect RBracket "`,` or `]`"]
         (close => ListOf open items trailing close)
         (close => ListOf openTwin itemsTwin trailingTwin close)
+        (followsExpect inner RBracket "`,` or `]`")
         (close closeTwin closes =>
           alikeListOf open openTwin opens items itemsTwin pairs.left trailing trailingTwin pairs.right close closeTwin
               closes)
-        (followsExpect inner RBracket "`,` or `]`")
 
 theorem followsListItems ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -709,9 +703,9 @@ theorem followsListAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
           Parse.followsMap
             (close => ListOf open [] False close)
             (close => ListOf openTwin [] False close)
+            followsBump
             (close closeTwin closes =>
               alikeListOf open openTwin opens [] [] Trivial False False byComputing close closeTwin closes)
-            followsBump
         | False => followsListItems knot inner open openTwin opens
     | None => followsListItems knot inner open openTwin opens
 
@@ -759,8 +753,8 @@ theorem followsParenOther ∀ [self selfTwin: Goal → {Parse Item} Expr] (modes
       Parse.followsMap
         (close => Expr.Unit open close)
         (close => Expr.Unit openTwin close)
-        (close closeTwin closes => alikeUnit open openTwin opens close closeTwin closes)
-        followsBump)
+        followsBump
+        (close closeTwin closes => alikeUnit open openTwin opens close closeTwin closes))
     | False =>
       match isSome Lower second && isSome ColonEq third with
         | True => namedArguments RParen "`)`"

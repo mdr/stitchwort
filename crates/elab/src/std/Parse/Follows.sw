@@ -226,8 +226,8 @@ theorem Parse.followsWeaken ∀ [same: t → u → Prop] [alike weaker: a → b 
 --| alike values to alike values: [`Parse.followsThen`] with
 --| [`Parse.followsDone`].
 theorem Parse.followsMap ∀ [same: t → u → Prop] [between: a → b → Prop] [alike: c → d → Prop] [p: () → {Parse t} a]
-    [q: () → {Parse u} b] (f: a → c) (g: b → d) (maps: ∀ (x: a) (y: b) => between x y → alike (f x) (g y))
-    (first: Parse.Follows same between p q):
+    [q: () → {Parse u} b] (f: a → c) (g: b → d)
+    (first: Parse.Follows same between p q) (maps: ∀ (x: a) (y: b) => between x y → alike (f x) (g y)):
     Parse.Follows same alike (() => f (p())) (() => g (q())) :=
   Parse.followsThen first (x y holds => Parse.followsDone (maps x y holds))
 

@@ -241,15 +241,7 @@ theorem followsAttributeArgumentOn ∀ (modes: Modes) (seen: Option Tok):
     Parse.Follows SameCode (Option.Alike WordsAlike) (() => attributeArgumentOn modes seen) (() =>
       attributeArgumentOn modes seen) :=
   match isSome Str seen with
-    | True =>
-      Parse.followsMap
-        [alike := Option.Alike WordsAlike]
-        [p := () => bump()]
-        [q := () => bump()]
-        (word => Some word)
-        (word => Some word)
-        (x y alike => alike)
-        followsBump
+    | True => Parse.followsMap (word => Some word) (word => Some word) followsBump (x y alike => alike)
     | False =>
       match isSome StrStart seen with
         | True => followsFatalAny _ (() => Syntax.fatal "an attribute's argument is a plain string, without `\${…}`")
@@ -268,8 +260,8 @@ theorem followsAttributePart ∀ (modes: Modes) (dot: Bool):
       Parse.followsMap
         (part => Some (written, part))
         (part => Some (writtenTwin, part))
-        (part partTwin parts => (writtens, parts))
-        (followsLowerQualified modes "the rest of the attribute's name"))
+        (followsLowerQualified modes "the rest of the attribute's name")
+        (part partTwin parts => (writtens, parts)))
     | False => Parse.followsDone Trivial
 
 theorem followsAttributeParts ∀ (modes: Modes):
@@ -348,10 +340,10 @@ theorem followsAttributeGroupEnd ∀ (modes: Modes)
         [q := () => modes.expectFixed RBracket "`,` or `]` after the attribute"]
         (close => Some { at, open, items, trailingComma = trailing, close })
         (close => Some { at = atTwin, open = openTwin, items = itemsTwin, trailingComma = trailingTwin, close })
+        (followsExpectFixed modes RBracket "`,` or `]` after the attribute")
         (close closeTwin closes =>
           alikeAttributes at atTwin open openTwin items itemsTwin pairs.left trailing trailingTwin pairs.right close
               closeTwin)
-        (followsExpectFixed modes RBracket "`,` or `]` after the attribute")
 
 theorem followsAttributeGroup ∀ (modes: Modes):
     Parse.Follows SameCode (Option.Alike AttributeGroupAlike) (() => attributeGroup modes) (() =>

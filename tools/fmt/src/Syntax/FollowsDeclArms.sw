@@ -40,12 +40,11 @@ theorem followsDefinitionArm ∀ [self selfTwin: Goal → {Parse Item} Expr]
         let absurds: anyAbsurd patterns = anyAbsurd patternsTwin := anyAbsurdAlike patterns patternsTwin patternses
         rewrite absurds then
           Parse.followsMap
-            [alike := ArmAlike]
             (body => { bar, patterns, guard, body })
             (body => { bar = barTwin, patterns = patternsTwin, guard = guardTwin, body })
+            (followsArmBody knot modes (anyAbsurd patternsTwin) "`=>` and the arm's body")
             (body bodyTwin bodies =>
-              alikeArm bar barTwin bars patterns patternsTwin patternses guard guardTwin guards body bodyTwin bodies)
-            (followsArmBody knot modes (anyAbsurd patternsTwin) "`=>` and the arm's body"))))
+              alikeArm bar barTwin bars patterns patternsTwin patternses guard guardTwin guards body bodyTwin bodies))))
 
 theorem followsDefinitionArmStep ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -84,8 +83,8 @@ theorem followsDefinitionArmStep ∀ [self selfTwin: Goal → {Parse Item} Expr]
                       Parse.followsMap
                         (arm => Some arm)
                         (arm => Some arm)
-                        (arm armTwin arms => arms)
-                        (followsDefinitionArm knot alts { modes | allow = Some here }))
+                        (followsDefinitionArm knot alts { modes | allow = Some here })
+                        (arm armTwin arms => arms))
                 | False, False =>
                   match fourth: next.kind == Pipe, fourthTwin: nextTwin.kind == Pipe with
                     | True, True => followsFatalAny _ _
@@ -144,8 +143,8 @@ theorem followsArmsBody ∀ [self selfTwin: Goal → {Parse Item} Expr]
   Parse.followsMap
     (arms => Arms arms)
     (arms => Arms arms)
-    (arms armsTwin alike => alikeArms arms armsTwin alike)
     (followsDefinitionArms knot alts modes d)
+    (arms armsTwin alike => alikeArms arms armsTwin alike)
 
 theorem isEquationAlike ∀ (result twin: Expr) (alike: ExprsAlike result twin): isEquation result = isEquation twin :=
   calc isEquation result
@@ -233,15 +232,6 @@ theorem followsDefinitionParts ∀ [self selfTwin: Goal → {Parse Item} Expr]
                                           followsFatalAny _ (() => Syntax.fatal "`decreasing` goes before `unfolding`")
                                         | False =>
                                           (Parse.followsMap
-                                            [alike := PairAlike HeaderAlike DefBodyAlike]
-                                            [p := () =>
-                                              definitionBody self afterUnfolding result
-                                                (kind == DefInstance)
-                                                (local.getOrElse 0)]
-                                            [q := () =>
-                                              definitionBody selfTwin afterUnfolding resultTwin
-                                                (kind == DefInstance)
-                                                (local.getOrElse 0)]
                                             (body =>
                                               (
                                                 {
@@ -276,6 +266,9 @@ theorem followsDefinitionParts ∀ [self selfTwin: Goal → {Parse Item} Expr]
                                                 },
                                                 body
                                               ))
+                                            (followsDefinitionBody knot alts afterUnfolding result resultTwin results
+                                              (kind == DefInstance)
+                                              (local.getOrElse 0))
                                             (body bodyTwin bodies =>
                                               (
                                                 alikeHeader exportKeyword exportTwin opaqueKeyword opaqueTwin exports
@@ -284,10 +277,7 @@ theorem followsDefinitionParts ∀ [self selfTwin: Goal → {Parse Item} Expr]
                                                     resultTwin results clause clauseTwin clauses opacity opacityTwin
                                                     opacities,
                                                 bodies
-                                              ))
-                                            (followsDefinitionBody knot alts afterUnfolding result resultTwin results
-                                              (kind == DefInstance)
-                                              (local.getOrElse 0)))))))))))))))
+                                              )))))))))))))))
     | None => followsThenEq (followsDefKindOf modes) (kind =>
       Parse.followsThen followsFixedFrom (keyword keywordTwin keywords =>
         Parse.followsThen (followsDefinitionName modes) (name nameTwin names =>
@@ -350,6 +340,9 @@ theorem followsDefinitionParts ∀ [self selfTwin: Goal → {Parse Item} Expr]
                                                   },
                                                   body
                                                 ))
+                                              (followsDefinitionBody knot alts bodyModes result resultTwin results
+                                                (kind == DefInstance)
+                                                (local.getOrElse 0))
                                               (body bodyTwin bodies =>
                                                 (
                                                   alikeHeader exportKeyword exportTwin opaqueKeyword opaqueTwin exports
@@ -358,10 +351,7 @@ theorem followsDefinitionParts ∀ [self selfTwin: Goal → {Parse Item} Expr]
                                                       result resultTwin results clause clauseTwin clauses opacity
                                                       opacityTwin opacities,
                                                   bodies
-                                                ))
-                                              (followsDefinitionBody knot alts bodyModes result resultTwin results
-                                                (kind == DefInstance)
-                                                (local.getOrElse 0)))))))))))))))
+                                                )))))))))))))))
 
 -- Declarations: relations and the trees built from alike parts.
 
@@ -868,8 +858,8 @@ theorem followsNamespaceAfter ∀ (modes: Modes) (keyword keywordTwin: Comments)
       Parse.followsMap
         (name => Namespace keyword name)
         (name => Namespace keywordTwin name)
-        (name nameTwin names => alikeNamespace keyword keywordTwin name nameTwin names)
         followsBump
+        (name nameTwin names => alikeNamespace keyword keywordTwin name nameTwin names)
     | Some Lower => followsFatalAny _ _
     | _ => followsFail modes "a namespace, such as `Day05`" (() => modes.fail "a namespace, such as `Day05`")
 
@@ -914,13 +904,10 @@ theorem followsImportAliasWord ∀ (modes: Modes) (name nameTwin: Word)
                  Syntax.fatal "`${nameTwin.text}` starts with ${case}, so its new name must too"))
               | False =>
                 Parse.followsMap
-                  [alike := Option.Alike (PairAlike Anything WordsAlike)]
-                  [p := () => bump()]
-                  [q := () => bump()]
                   (word => Some (asWord, word))
                   (word => Some (asWordTwin, word))
-                  (theWord wordTwin words => (Trivial, words))
                   followsBump
+                  (theWord wordTwin words => (Trivial, words))
         | False, False => followsFail modes "the name to use instead, as in `x as y`" (() =>
           modes.fail "the name to use instead, as in `x as y`")
     | [], [] => followsFail modes "the name to use instead, as in `x as y`" (() =>
@@ -1036,8 +1023,8 @@ theorem followsImportNames ∀ (modes: Modes) (path pathTwin: Word):
       Parse.followsMap
         (items => ImportItems items)
         (items => ImportItems items)
-        (itemList twins alike => alikeImportItems itemList twins alike)
-        (followsImportItems fuel modes path pathTwin [] [] Trivial))
+        (followsImportItems fuel modes path pathTwin [] [] Trivial)
+        (itemList twins alike => alikeImportItems itemList twins alike))
 
 theorem followsImportAllEnd ∀ (path pathTwin: Word) (dots dotsTwin: Comments) (closed: Bool):
     Parse.Follows SameCode ImportedAlike (() => importAllEnd path dots closed) (() =>

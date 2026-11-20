@@ -66,8 +66,8 @@ theorem followsBinderDefault ∀ [self selfTwin: Goal → {Parse Item} Expr]
       Parse.followsMap
         (value => Some (colonEq, value))
         (value => Some (colonEqTwin, value))
-        (value valueTwin values => (colonEqs, values))
-        (followsFull knot inner))
+        (followsFull knot inner)
+        (value valueTwin values => (colonEqs, values)))
     | False => Parse.followsDone Trivial
 
 theorem followsBinderGroup ∀ [self selfTwin: Goal → {Parse Item} Expr]
@@ -269,9 +269,9 @@ theorem followsPiExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
           Parse.followsMap
             (result => FunctionType binder arrow result)
             (result => FunctionType binderTwin arrowTwin result)
+            (followsResultType knot modes)
             (result resultTwin results =>
-              alikeFunctionType binder binderTwin binders arrow arrowTwin arrows result resultTwin results)
-            (followsResultType knot modes))))
+              alikeFunctionType binder binderTwin binders arrow arrowTwin arrows result resultTwin results))))
 
 -- Definitions: headers and bodies.
 
@@ -487,13 +487,10 @@ theorem followsHeaderParamStep ∀ [self selfTwin: Goal → {Parse Item} Expr]
   match !atColon with
     | True =>
       Parse.followsMap
-        [alike := Option.Alike GroupsAlike]
-        [p := () => headerGroup self modes GroupParam None]
-        [q := () => headerGroup selfTwin modes GroupParam None]
         (group => Some group)
         (group => Some group)
-        (x y alike => alike)
         (followsHeaderGroup knot modes GroupParam None)
+        (x y alike => alike)
     | False => Parse.followsDone Trivial
 
 theorem followsHeaderParams ∀ [self selfTwin: Goal → {Parse Item} Expr]
@@ -518,8 +515,8 @@ theorem followsDecreasingClauseOf ∀ [self selfTwin: Goal → {Parse Item} Expr
     Parse.followsMap
       (tail => Some (keyword, tail))
       (tail => Some (keywordTwin, tail))
-      (tail tailTwin tails => (keywords, tails))
-      (knot { modes = headerModes, level = LevelFull }))
+      (knot { modes = headerModes, level = LevelFull })
+      (tail tailTwin tails => (keywords, tails)))
 
 theorem followsDecreasingAt ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -612,8 +609,8 @@ theorem followsUnfoldingClauseOf ∀ (afterDecreasing: Modes):
         Parse.followsMap
           (names => Some (keyword, names))
           (names => Some (keywordTwin, names))
-          (names namesTwin nameses => (keywords, nameses))
-          (followsUnfoldingNames fuel afterDecreasing [] [] Trivial)))
+          (followsUnfoldingNames fuel afterDecreasing [] [] Trivial)
+          (names namesTwin nameses => (keywords, nameses))))
 
 theorem followsUnfoldingAt ∀ (afterDecreasing: Modes) (isInstance found: Bool):
     Parse.Follows SameCode
