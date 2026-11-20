@@ -7571,6 +7571,13 @@ impl<'a> Walk<'a> {
                     (None, Some((b, x))) => {
                         blib.normal_void(&g, b.shift(&g, 1, 0)?, *x, hyp.shift(&g, 1, 0)?)?
                     }
+                    // `hyp` is `b = False`, not a function: applying it
+                    // would be ill-typed.
+                    (None, None) if fails_as_bool => {
+                        return skip(
+                            "an arm's condition is a `Bool` test in its statement but not where the definition tests it",
+                        );
+                    }
                     (None, None) => Term::app(hyp.shift(&g, 1, 0)?, Term::Var(0)),
                 };
                 let y = &read.args[3].0;
