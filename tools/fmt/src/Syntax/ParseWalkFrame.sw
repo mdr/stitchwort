@@ -92,8 +92,7 @@ theorem givesForallPart ∀ (modes: Modes) (kind: DefKind):
 theorem givesDecreasingClauseOf ∀ (self: Goal → {Parse Item} Expr) (headerModes: Modes)
     (nested: Nested self):
     Parse.Gives GoodItems (() => decreasingClauseOf self headerModes) (found => True) :=
-  Parse.givesThen givesFixedFrom (keyword _ =>
-    Parse.givesThen (nested { modes = headerModes, level = LevelFull }) (tail _ => Parse.givesDone byComputing))
+  byWalking [givesFixedFrom]
 
 theorem givesDecreasingPart ∀ (self: Goal → {Parse Item} Expr) (modes headerModes: Modes) (isInstance: Bool)
     (nested: Nested self):
@@ -114,9 +113,7 @@ theorem givesUnfoldingName ∀ (modes: Modes) (upper: Bool):
 
 theorem givesUnfoldingNext ∀ (more: Nat) (modes: Modes) (found: List Word) (name: Word) (comma: Bool):
     Parse.Gives GoodItems (() => unfoldingNext more modes found name comma) (names => True) :=
-  match comma with
-    | True => Parse.givesThen givesBump (gone _ => givesUnfoldingNames more modes [name, ..found])
-    | False => Parse.givesDone byComputing
+  byWalking [givesBump, givesUnfoldingNames]
 
 theorem givesUnfoldingNames ∀ (fuel: Nat) (modes: Modes) (found: List Word):
     Parse.Gives GoodItems (() => unfoldingNames fuel modes found) (names => True) :=
@@ -190,9 +187,7 @@ theorem givesImportAlias ∀ (modes: Modes) (name: Word):
 
 theorem givesImportStop ∀ (modes: Modes) (path: Word) (found: List ImportItem) (dots: Bool):
     Parse.Gives GoodItems (() => importStop modes path found dots) (names => True) :=
-  match dots && !found.isEmpty with
-    | True => Parse.readsFatal
-    | False => givesFail modes _
+  byWalking [givesFail]
 
 theorem givesImportItems ∀ (fuel: Nat) (modes: Modes) (path: Word) (found: List ImportItem):
     Parse.Gives GoodItems (() => importItems fuel modes path found) (names => True) :=
@@ -223,7 +218,7 @@ theorem givesImportedOf ∀ (modes: Modes) (path: Word) (dots: Bool):
 
 theorem givesImportClose ∀ (modes: Modes) (keyword: Comments) (path: Word) (open: Comments) (imported: Imported):
     Parse.Gives GoodItems (() => importClose modes keyword path open imported) DeclOut :=
-  Parse.givesThen (givesExpectFixed modes RParen "`)`") (close _ => Parse.givesDone byComputing)
+  byWalking [givesExpectFixed]
 
 theorem givesImportOpen ∀ (modes: Modes) (keyword: Comments) (path: Word):
     Parse.Gives GoodItems (() => importOpen modes keyword path) DeclOut :=
@@ -245,9 +240,7 @@ theorem givesImportLine ∀ (modes: Modes): Parse.Gives GoodItems (() => importL
             | False => givesImportOpen modes keyword path)))
 
 theorem givesImportStep ∀ (seen: Seen) (modes: Modes): Parse.Gives GoodItems (() => importStep seen modes) DeclOut :=
-  match seen.hasDecls with
-    | True => Parse.readsFatal
-    | False => givesImportLine modes
+  byWalking [givesImportLine]
 
 theorem givesAssignedBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
@@ -293,15 +286,11 @@ theorem givesAllowColonEq ∀ (modes: Modes): Parse.Gives GoodItems (() => allow
 
 theorem givesAfterDecreasingOf ∀ (modes: Modes) (clause: Option (Comments, Expr)):
     Parse.Gives GoodItems (() => afterDecreasingOf modes clause) (found => True) :=
-  match clause.isSome with
-    | True => givesAllowColonEq modes
-    | False => Parse.givesDone byComputing
+  byWalking [givesAllowColonEq]
 
 theorem givesAfterUnfoldingOf ∀ (afterDecreasing: Modes) (clause: Option (Comments, List Word)):
     Parse.Gives GoodItems (() => afterUnfoldingOf afterDecreasing clause) (found => True) :=
-  match clause.isSome with
-    | True => givesAllowColonEq afterDecreasing
-    | False => Parse.givesDone byComputing
+  byWalking [givesAllowColonEq]
 
 theorem reads0Recovers ∀ (afterUnfolding: Modes): Reads0 (() => recovers afterUnfolding) :=
   Parse.reads0Then (reads0At afterUnfolding ColonEq) (found =>
