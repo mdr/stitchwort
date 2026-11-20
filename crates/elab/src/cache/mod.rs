@@ -21,11 +21,9 @@
 //!   skipped, and an entry that is loaded is trusted: `--no-cache` is the
 //!   full check. `Elaborator::admit_replayed` is the one place that submits
 //!   them.
-//! - **The key** (§4.2) is computed before anything is elaborated: the
-//!   compiler build (Rust only: the library's text is not in it), the
-//!   format, the modes and limits that change results, the core's text and
-//!   the library's index of names ([`Elaborator::library_interface`]), and
-//!   the unit's text. For a library file: its path and text, and the keys
+//! - **The key** (§4.2) is computed before anything is elaborated, from
+//!   what is read: the format, the modes and limits that change results,
+//!   and the unit's text. For a library file: its path and text, and the keys
 //!   of the library files it needs. For a project namespace: the hash of
 //!   its sources the host gives ([`Elaborator::set_namespace_sources`]: its
 //!   files' names and text, the project's namespaces and `stitchwort.yaml`)
@@ -35,6 +33,18 @@
 //!   `check` deciding to leave the namespace out) first compares them
 //!   with the keys now. The files it `include`s are listed in its entry
 //!   with a hash of their text, and read again to check them.
+//! - **The stamp** says who wrote the entry: the compiler build, its kernel
+//!   side ([`Store::kernel`]), the library's index of names
+//!   ([`Elaborator::library_interface`], which every unit's elaboration
+//!   reads), and whether it is exact. An entry is an exact hit only for
+//!   the build that wrote it, against this index, in a session that
+//!   carried nothing over. Where carrying over is on
+//!   ([`Elaborator::set_carry_over`]), an entry with the same key whose
+//!   kernel side is this build's is a carried-over hit: some build with
+//!   this kernel accepted these terms from this source, but this build's
+//!   elaborator hasn't confirmed they are what it would make
+//!   (docs/proposals/check-cache-across-updates.md). Carried-over hits are
+//!   counted apart ([`Stats::carried_over`]) for the host to report.
 //! - **An entry that doesn't fit is a miss**: a corrupt one (checksum), one
 //!   for another key or cache directory (salt), one whose dependencies don't
 //!   have the expected hashes. The unit is then elaborated, and the entry
@@ -78,7 +88,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 37;
+pub const FORMAT: u32 = 38;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -91,13 +101,29 @@ pub type Key = [u8; 32];
 
 /// Where entries are kept, by unit (a library file) and key.
 pub trait Store {
-    /// The compiler build, part of every key: its version and a
-    /// fingerprint of its source.
+    /// The compiler build, part of every entry's stamp: its version and a
+    /// fingerprint of its source. An entry is an exact hit only for the
+    /// build that wrote it.
     fn compiler(&self) -> &str;
+    /// The kernel side of the compiler build, part of every entry's stamp:
+    /// a fingerprint of the Rust that decides whether core terms are
+    /// accepted (`crates/core` and what it is built with). An entry another
+    /// build wrote is a carried-over hit only when this matches
+    /// (docs/proposals/check-cache-across-updates.md §4.1). A store that
+    /// doesn't say has the whole build as its kernel side, so it never
+    /// carries anything over.
+    fn kernel(&self) -> &str {
+        self.compiler()
+    }
     /// The cache directory's random salt (§3.1): an entry written with
     /// another is a miss.
     fn salt(&self) -> [u8; 16];
     fn read(&self, unit: &str, key: &Key) -> Option<Vec<u8>>;
+    /// The entries other builds wrote for `unit` and `key`, newest first:
+    /// the candidates for a carried-over hit. None by default.
+    fn read_others(&self, _unit: &str, _key: &Key) -> Vec<Vec<u8>> {
+        Vec::new()
+    }
     /// Best effort: a cache that can't be written just means elaborating
     /// again next time.
     fn write(&self, unit: &str, key: &Key, entry: &[u8]);
@@ -128,8 +154,9 @@ pub struct Stats {
     pub namespace_waiting_on_error: usize,
     /// Namespace entries found not to fit after their replay had begun
     /// (loading the library files they need): the namespace is then
-    /// elaborated in what the replay left. Never expected; the differential
-    /// test checks there are none.
+    /// elaborated in what the replay left. Never expected of an exact entry;
+    /// the differential test checks there are none. (A carried-over entry
+    /// whose library files changed finds it out here.)
     pub late_misses: usize,
     /// Entries, of library files or namespaces, whose declarations the
     /// kernel refused partway through their replay, or that bound other
@@ -144,6 +171,46 @@ pub struct Stats {
     /// loading them, because nothing it checked needed them (SW-1193).
     /// Not counted in `namespace_hits`.
     pub namespace_skipped: usize,
+    /// Library files and namespaces loaded from a carried-over entry: one
+    /// another build wrote from the same source with the same kernel side,
+    /// or one this build wrote in a session that had carried something
+    /// over (docs/proposals/check-cache-across-updates.md). Their terms
+    /// were accepted by this kernel, but this build's elaborator has not
+    /// confirmed they are what it would make. Also counted in `hits` and
+    /// `namespace_hits`.
+    pub carried: usize,
+    pub namespace_carried: usize,
+}
+
+impl Stats {
+    /// How many units, library files and namespaces, came from carried-over
+    /// entries.
+    pub fn carried_over(&self) -> usize {
+        self.carried + self.namespace_carried
+    }
+}
+
+/// What an entry says about the build that wrote it, beside its key (which
+/// covers only what was read: the source).
+struct Stamp {
+    kernel: String,
+    compiler: String,
+    /// The library's index of names it was elaborated against
+    /// ([`Elaborator::library_interface`]).
+    interface: Key,
+    /// Whether the build elaborated it without anything carried over in
+    /// its session: only then can it be an exact hit.
+    exact: bool,
+}
+
+/// How an entry that opens can be used.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Hit {
+    /// Written by this build from this source, against this library.
+    Exact,
+    /// Carried over: from this source, accepted by this kernel side, but
+    /// not elaborated by this build (or elaborated over carried units).
+    Carried,
 }
 
 /// Why a namespace's entry wasn't used: found before anything changed, or
@@ -216,6 +283,67 @@ impl Elaborator {
         self.options.check_cache = None;
     }
 
+    /// Whether the check cache may give carried-over hits (off by
+    /// default): entries written by another build from the same source,
+    /// whose kernel side is this build's
+    /// (docs/proposals/check-cache-across-updates.md). Each is counted in
+    /// [`Stats::carried_over`], which the host must report.
+    pub fn set_carry_over(&mut self, on: bool) {
+        self.options.carry_over = on;
+    }
+
+    /// Whether this session has loaded anything carried over: entries it
+    /// writes are then carried-over ones too, never exact.
+    fn carried_anything(&self) -> bool {
+        self.session.cache_stats.carried_over() > 0
+    }
+
+    /// How an entry stamped `stamp` may be used in this session, or why it
+    /// can't.
+    fn usable(&self, stamp: &Stamp, store: &dyn Store) -> Read<Hit> {
+        if stamp.exact
+            && stamp.compiler == store.compiler()
+            && stamp.interface == self.library_interface()
+        {
+            return Ok(Hit::Exact);
+        }
+        if !self.options.carry_over {
+            return bad("written by another build, or against another library");
+        }
+        if stamp.kernel != store.kernel() {
+            return bad("written by a build with another kernel side");
+        }
+        Ok(Hit::Carried)
+    }
+
+    /// The entry to use for `unit` and `key`, and how: this build's own if
+    /// it is exact, else the first one, this build's or another's, that may
+    /// be carried over.
+    fn cache_read(&self, store: &dyn Store, unit: &str, key: &Key) -> Option<(Vec<u8>, Hit)> {
+        let salt = store.salt();
+        let mut why = None;
+        let own = store.read(unit, key);
+        if let Some(bytes) = own {
+            match open(&bytes, key, salt).and_then(|(stamp, ..)| self.usable(&stamp, store)) {
+                Ok(hit) => return Some((bytes, hit)),
+                Err(Bad(w)) => why = Some(w),
+            }
+        }
+        if self.options.carry_over {
+            for bytes in store.read_others(unit, key) {
+                if let Ok((stamp, ..)) = open(&bytes, key, salt)
+                    && matches!(self.usable(&stamp, store), Ok(Hit::Carried))
+                {
+                    return Some((bytes, Hit::Carried));
+                }
+            }
+        }
+        if let Some(why) = why {
+            debug(&format!("{unit}: a miss: {why}"));
+        }
+        None
+    }
+
     /// What the cache has done so far.
     pub fn check_cache_stats(&self) -> Stats {
         self.session.cache_stats
@@ -269,8 +397,6 @@ impl Elaborator {
     /// change to a file's text changes the key of every file that reaches it.
     fn library_keys(&self, roots: &BTreeSet<usize>) -> HashMap<usize, Key> {
         let index = self.library_index().expect("a library is installed");
-        let store = self.options.check_cache.as_ref().expect("a cache is set");
-        let interface = self.library_interface();
         let mut keys: HashMap<usize, Key> = HashMap::default();
         // Dependencies first: the edges never form a cycle (the index is
         // checked), so a work list in post-order ends.
@@ -291,9 +417,7 @@ impl Elaborator {
             };
             part(b"stitchwort check cache");
             part(&FORMAT.to_le_bytes());
-            part(store.compiler().as_bytes());
             part(self.modes().as_bytes());
-            part(&interface);
             part(index.files[file].path.as_bytes());
             part(index.files[file].text.as_bytes());
             for e in &index.files[file].edges {
@@ -340,13 +464,17 @@ impl Elaborator {
     /// nothing has changed).
     pub(crate) fn load_from_cache(&mut self, f: usize, unit: &str, key: &Key) -> bool {
         let store = self.options.check_cache.clone().expect("a cache is set");
-        let Some(bytes) = store.read(unit, key) else {
+        let Some((bytes, hit)) = self.cache_read(&*store, unit, key) else {
             self.session.cache_stats.misses += 1;
             return false;
         };
-        match self.replay(&bytes, key, store.salt()) {
+        match self.replay(&bytes, key, store.salt(), hit) {
             Ok(()) => {
                 self.session.cache_stats.hits += 1;
+                if hit == Hit::Carried {
+                    debug(&format!("std file {f}: carried over"));
+                    self.session.cache_stats.carried += 1;
+                }
                 true
             }
             Err(Bad(why)) => {
@@ -469,7 +597,11 @@ impl Elaborator {
             return None;
         }
         let store = self.options.check_cache.clone()?;
-        let bytes = store.read(&unit, &key)?;
+        // Only an exact entry: a carried-over one is loaded, so that its
+        // references are compared with the declarations now.
+        let (bytes, Hit::Exact) = self.cache_read(&*store, &unit, &key)? else {
+            return None;
+        };
         let why = match self.plan_entry(&bytes, &key, store.salt()) {
             Ok(warnings) => {
                 crate::timings::cached_namespace(ns);
@@ -482,7 +614,7 @@ impl Elaborator {
     }
 
     fn plan_entry(&self, bytes: &[u8], key: &Key, salt: [u8; 16]) -> Read<Vec<Diagnostic>> {
-        let (_, body) = open(bytes, key, salt)?;
+        let (_, _, body) = open(bytes, key, salt)?;
         let file_ids: HashMap<String, FileId> = self
             .namespace_file_names()
             .into_iter()
@@ -618,8 +750,6 @@ impl Elaborator {
             return None;
         }
         let source = self.session.namespace_sources.get(ns)?;
-        let store = self.options.check_cache.as_ref()?;
-        let library = self.library_interface();
         let mut h = blake3::Hasher::new();
         let mut part = |bytes: &[u8]| {
             h.update(&(bytes.len() as u64).to_le_bytes());
@@ -627,9 +757,7 @@ impl Elaborator {
         };
         part(b"stitchwort check cache: namespace");
         part(&FORMAT.to_le_bytes());
-        part(store.compiler().as_bytes());
         part(self.modes().as_bytes());
-        part(&library);
         part(ns.as_bytes());
         part(source);
         for dependency in closure {
@@ -660,12 +788,16 @@ impl Elaborator {
         // replayed: only checking notes the context.
         if !self.probes_one_of(files)
             && stitchwort_core::registry::check_complete_core(&self.ev()).is_ok()
-            && let Some(bytes) = store.read(unit, key)
+            && let Some((bytes, hit)) = self.cache_read(&*store, unit, key)
         {
-            match self.replay_namespace(ns, files, closure, &bytes, key, store.salt()) {
+            match self.replay_namespace(ns, files, closure, &bytes, key, store.salt(), hit) {
                 Ok(mut warnings) => {
                     self.session.replayed_names.clear();
                     self.session.cache_stats.namespace_hits += 1;
+                    if hit == Hit::Carried {
+                        debug(&format!("{ns}: carried over"));
+                        self.session.cache_stats.namespace_carried += 1;
+                    }
                     // Doc links aren't cached: they may point into other
                     // namespaces, which can change without this one's key
                     // changing (SW-1045). Entries written before that held
@@ -916,6 +1048,7 @@ impl Elaborator {
     /// to the kernel and its tables are filled in. A problem found before
     /// that begins is an early miss, after which nothing has changed; one
     /// found after it a late one.
+    #[allow(clippy::too_many_arguments)]
     fn replay_namespace(
         &mut self,
         ns: &str,
@@ -924,10 +1057,11 @@ impl Elaborator {
         bytes: &[u8],
         key: &Key,
         salt: [u8; 16],
+        hit: Hit,
     ) -> Result<Vec<Diagnostic>, Miss> {
         let early = |Bad(why)| Miss::Early(why);
         let late = |Bad(why)| Miss::Late(why);
-        let (deps, body) = open(bytes, key, salt).map_err(early)?;
+        let (_, deps, body) = open(bytes, key, salt).map_err(early)?;
         let file_ids: HashMap<String, FileId> = self
             .namespace_file_names()
             .into_iter()
@@ -935,7 +1069,12 @@ impl Elaborator {
             .collect();
         let mut head = self.read_head(body, &file_ids).map_err(early)?;
         self.includes_unchanged(&head.pre).map_err(early)?;
-        self.library_unchanged(&head.pre).map_err(early)?;
+        // A carried-over entry relies on the content hashes of what it
+        // refers to alone (`decode`): a library commit that adds lemmas
+        // elsewhere in a file it loads changes none of them (§4.2).
+        if hit == Hit::Exact {
+            self.library_unchanged(&head.pre).map_err(early)?;
+        }
 
         // From here on, as `elaborate_namespace_untimed` does.
         self.unit.namespace_root = format!("{ns}.");
@@ -982,7 +1121,7 @@ impl Elaborator {
         let d = self.decode(&deps, head, &pre.early).map_err(late)?;
         let warnings = std::mem::take(&mut pre.warnings);
         let base_defs = self.kernel.env.defs().len();
-        self.admit_replayed(&d.defs, &d.datas, &d.bound, &d.rest.tables, false)
+        self.admit_replayed(&d.defs, &d.datas, &d.bound, &d.rest.tables, false, hit)
             .map_err(late)?;
         self.replay_tables(d.rest, &pre.early);
         self.tables
@@ -1941,7 +2080,14 @@ impl Elaborator {
         body.usize(e.terms.node_count());
         body.raw(&e.terms.nodes.bytes);
         body.raw(&e.w.bytes);
-        Ok(seal(key, salt, &e.out.deps, &body.bytes))
+        let store = self.options.check_cache.as_ref().expect("a cache is set");
+        let stamp = Stamp {
+            kernel: store.kernel().to_string(),
+            compiler: store.compiler().to_string(),
+            interface: self.library_interface(),
+            exact: !self.carried_anything(),
+        };
+        Ok(seal(key, salt, &stamp, &e.out.deps, &body.bytes))
     }
 
     fn encode_extensions(&self, e: &mut Encoding, unit: &UnitOut) {
@@ -1962,12 +2108,16 @@ impl Elaborator {
 }
 
 /// The whole entry: the header, the body and a checksum (§5.3).
-fn seal(key: &Key, salt: [u8; 16], deps: &[Dep], body: &[u8]) -> Vec<u8> {
+fn seal(key: &Key, salt: [u8; 16], stamp: &Stamp, deps: &[Dep], body: &[u8]) -> Vec<u8> {
     let mut w = Writer::default();
     w.raw(MAGIC);
     w.raw(&FORMAT.to_le_bytes());
     w.raw(key);
     w.raw(&salt);
+    w.str(&stamp.kernel);
+    w.str(&stamp.compiler);
+    w.raw(&stamp.interface);
+    w.u8(u8::from(stamp.exact));
     w.usize(deps.len());
     for (kind, path, hash) in deps {
         w.u8(*kind);
@@ -1980,9 +2130,10 @@ fn seal(key: &Key, salt: [u8; 16], deps: &[Dep], body: &[u8]) -> Vec<u8> {
     w.bytes
 }
 
-/// The header's dependencies and the body, if `bytes` is a whole entry for
-/// `key` written with `salt`.
-fn open<'a>(bytes: &'a [u8], key: &Key, salt: [u8; 16]) -> Read<(Vec<Dep>, &'a [u8])> {
+/// The header's stamp and dependencies and the body, if `bytes` is a whole
+/// entry for `key` written with `salt`. Whether the stamp lets it be used is
+/// [`Elaborator::usable`]'s question.
+fn open<'a>(bytes: &'a [u8], key: &Key, salt: [u8; 16]) -> Read<(Stamp, Vec<Dep>, &'a [u8])> {
     if bytes.len() < 32 {
         return bad("too short");
     }
@@ -2003,6 +2154,16 @@ fn open<'a>(bytes: &'a [u8], key: &Key, salt: [u8; 16]) -> Read<(Vec<Dep>, &'a [
     if r.array::<16>()? != salt {
         return bad("another cache's entry");
     }
+    let stamp = Stamp {
+        kernel: r.string()?,
+        compiler: r.string()?,
+        interface: r.array::<32>()?,
+        exact: match r.u8()? {
+            0 => false,
+            1 => true,
+            _ => return bad("a stamp that is neither exact nor carried over"),
+        },
+    };
     let n = r.count(34)?;
     let mut deps = Vec::with_capacity(n);
     for _ in 0..n {
@@ -2014,7 +2175,7 @@ fn open<'a>(bytes: &'a [u8], key: &Key, salt: [u8; 16]) -> Read<(Vec<Dep>, &'a [
     if !r.done() {
         return bad("bytes after the body");
     }
-    Ok((deps, body))
+    Ok((stamp, deps, body))
 }
 
 // ---- Reading --------------------------------------------------------------
@@ -2694,8 +2855,8 @@ impl Elaborator {
 
     /// Loads library file `f` from an entry. On any problem, nothing has
     /// changed, and the reason is returned.
-    fn replay(&mut self, bytes: &[u8], key: &Key, salt: [u8; 16]) -> Read<()> {
-        let (deps, body) = open(bytes, key, salt)?;
+    fn replay(&mut self, bytes: &[u8], key: &Key, salt: [u8; 16], hit: Hit) -> Read<()> {
+        let (_, deps, body) = open(bytes, key, salt)?;
         let head = self.read_head(body, &self.std_file_ids())?;
         if !head.pre.is_empty() {
             return bad("a library file's entry with a namespace's parts");
@@ -2704,7 +2865,7 @@ impl Elaborator {
         if !d.rest.tables.tests.is_empty() {
             return bad("a library file's entry with tests");
         }
-        self.admit_replayed(&d.defs, &d.datas, &d.bound, &d.rest.tables, true)?;
+        self.admit_replayed(&d.defs, &d.datas, &d.bound, &d.rest.tables, true, hit)?;
         self.replay_tables(d.rest, &[]);
         Ok(())
     }
@@ -2728,6 +2889,13 @@ impl Elaborator {
     /// bound, what was added is removed and the file is elaborated instead.
     /// That is never expected (`Stats::refused`), unless the operation was
     /// cancelled meanwhile, which is not counted.
+    ///
+    /// A carried-over entry was encoded by another build, whose encoder may
+    /// differ from this build's decoder in a way a forgotten `FORMAT` bump
+    /// would hide. So its declarations are hashed as admitted and compared
+    /// with the hashes the entry records, rather than the recorded hashes
+    /// being taken as they are: a term decoded wrongly is refused
+    /// (check-cache-across-updates.md §4.2, "the decode self-check").
     fn admit_replayed(
         &mut self,
         defs: &[DefEntry],
@@ -2735,6 +2903,7 @@ impl Elaborator {
         bound: &[(u8, usize, Builtin)],
         tables: &state::TablesDelta,
         library: bool,
+        hit: Hit,
     ) -> Read<()> {
         if !library && !bound.is_empty() {
             self.session.cache_stats.refused += 1;
@@ -2755,6 +2924,10 @@ impl Elaborator {
                     return bad("other built-ins were bound");
                 }
                 Ok(())
+            })
+            .and_then(|()| match hit {
+                Hit::Exact => Ok(()),
+                Hit::Carried => self.hashes_as_recorded(defs, datas, base_defs, base_datas),
             });
         if let Err(why) = result {
             // A cancelled operation (an editor keystroke) ends the kernel's
@@ -2788,7 +2961,8 @@ impl Elaborator {
         // What the entry says the declarations hash to: the next entries
         // that name them are checked against these rather than hashing the
         // terms again. An entry is sealed (`open`), and one that lies about
-        // a hash makes the entries written against the true one miss.
+        // a hash makes the entries written against the true one miss. (A
+        // carried-over entry's were just computed, and are the same.)
         let mut hashes = self.kernel.caches.hashes.borrow_mut();
         for (i, def) in defs.iter().enumerate() {
             if let Some(h) = def.hash {
@@ -2798,6 +2972,35 @@ impl Elaborator {
         for (i, data) in datas.iter().enumerate() {
             if let Some(h) = data.hash {
                 hashes.insert(HashKey::Data(DataId(base_datas + i)), h);
+            }
+        }
+        Ok(())
+    }
+
+    /// For a carried-over entry: whether its declarations, as admitted,
+    /// hash to what the entry says. A declaration the entry records no hash
+    /// for (one that isn't final) must have none now either.
+    fn hashes_as_recorded(
+        &self,
+        defs: &[DefEntry],
+        datas: &[DataEntry],
+        base_defs: usize,
+        base_datas: usize,
+    ) -> Read<()> {
+        let g = &self.ev();
+        let _op = g.machine.budget.operation(self.options.limits);
+        for (i, def) in defs.iter().enumerate() {
+            match def_hash(g, DefId(base_defs + i)) {
+                Ok(h) if h == def.hash => {}
+                Ok(_) => return bad("a carried-over definition hashes differently as decoded"),
+                Err(_) => return bad("hashing a carried-over definition ran out"),
+            }
+        }
+        for (i, data) in datas.iter().enumerate() {
+            match data_hash(g, DataId(base_datas + i)) {
+                Ok(h) if h == data.hash => {}
+                Ok(_) => return bad("a carried-over data type hashes differently as decoded"),
+                Err(_) => return bad("hashing a carried-over data type ran out"),
             }
         }
         Ok(())

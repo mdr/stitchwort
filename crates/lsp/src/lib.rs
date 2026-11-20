@@ -3241,6 +3241,12 @@ impl Store for GatedCache {
     fn compiler(&self) -> &str {
         self.inner.compiler()
     }
+    fn kernel(&self) -> &str {
+        self.inner.kernel()
+    }
+    fn read_others(&self, unit: &str, key: &Key) -> Vec<Vec<u8>> {
+        self.inner.read_others(unit, key)
+    }
     fn salt(&self) -> [u8; 16] {
         self.inner.salt()
     }
@@ -3262,9 +3268,30 @@ struct ProjectWork {
     /// The texts on disk of the files open in the editor, by path.
     disk: BTreeMap<String, Option<String>>,
     writable: Rc<Cell<bool>>,
+    /// How many units carried over from another build have been logged.
+    carried_logged: usize,
 }
 
 impl ProjectWork {
+    /// Once a check of the project is done: a line for the client's log
+    /// saying how many units came from entries carried over from another
+    /// build, if more have since it was last said.
+    fn carried_over_note(&mut self, dir: &Path) -> Option<String> {
+        let stats = self.live.session.elab.check_cache_stats();
+        if stats.carried_over() <= self.carried_logged {
+            return None;
+        }
+        self.carried_logged = stats.carried_over();
+        Some(format!(
+            "{}: {} namespaces and {} standard library files carried over from another \
+             build of Stitchwort: this kernel accepted them, but this build hasn't \
+             elaborated them (`stitchwort check` does)",
+            dir.display(),
+            stats.namespace_carried,
+            stats.carried
+        ))
+    }
+
     /// Whether `relative` (a path within the project) is one of its
     /// source files.
     fn holds(&self, relative: &str) -> bool {
@@ -4041,6 +4068,12 @@ impl Checker {
                 .cancellations
                 .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         }
+        if let (Ok(Progress::Checked { done: true, .. }), Work::Project(p)) =
+            (&progress, &mut *work)
+            && let Some(note) = p.carried_over_note(key)
+        {
+            eprintln!("stitchwort lsp: {note}");
+        }
         if let Ok(Progress::Checked { focus, done }) = progress
             && (focus || done)
         {
@@ -4486,6 +4519,10 @@ impl Checker {
                 inner: CheckCache::at(&cache),
                 writable: writable.clone(),
             }));
+            // The editor starts warm after an update to Stitchwort that left
+            // the kernel side alone; what was carried over is logged (`step`)
+            // (docs/proposals/check-cache-across-updates.md §6).
+            session.elab.set_carry_over(true);
         } else if let Some(bundle) = self.options.library.get() {
             // The same project loaded again (the page re-opened it) gets the
             // store the first load filled (SW-3072): its entries are keyed by
@@ -4509,6 +4546,7 @@ impl Checker {
                 .collect(),
             disk: BTreeMap::new(),
             writable,
+            carried_logged: 0,
         })
     }
 }
@@ -5353,6 +5391,72 @@ fn goals_kept(before: &[lsp_types::Diagnostic], file: &FileAnswers) -> Vec<lsp_t
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A project on disk whose check cache holds entries an earlier build
+    /// of Stitchwort wrote, with this build's kernel side: the editor's
+    /// session loads its namespaces from them (carried over), and says so
+    /// once in the log (docs/proposals/check-cache-across-updates.md §6).
+    #[test]
+    fn the_editor_carries_over_an_earlier_builds_entries() {
+        const STACK: usize = 16 * 1024 * 1024;
+        stitchwort_driver::driver::with_stack(STACK, || {
+            stitchwort_elab::load_std_text().unwrap();
+            let nanos = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |d| d.as_nanos());
+            let dir = std::env::temp_dir().join(format!(
+                "stitchwort-lsp-carry-{}-{nanos}",
+                std::process::id()
+            ));
+            let write = |path: &str, text: &str| {
+                let full = dir.join(path);
+                std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+                std::fs::write(full, text).unwrap();
+            };
+            write("stitchwort.yaml", "sources: [src]\n");
+            write("src/A.sw", "namespace A\n\ndef one: Nat := 1\n");
+            write(
+                "src/B.sw",
+                "namespace B\n\nimport A (one)\n\ndef two: Nat := one + one\n",
+            );
+            let options = Options::new(STACK);
+            let source: Arc<dyn Source> = Arc::new(Disk);
+            let cache = source.project_cache(&dir).unwrap();
+            let project = source.project(&dir).unwrap();
+            let check = |live: &mut LiveProject| while live.step() != Ok(Progress::Done) {};
+
+            let mut session = session_for(&options);
+            session.use_check_cache_as_build(
+                &cache,
+                "earlierbuild",
+                stitchwort_driver::driver::EVAL_FINGERPRINT,
+            );
+            let name = dir.file_name().unwrap().to_string_lossy().into_owned();
+            let mut earlier = LiveProject::new_except(
+                session,
+                &name,
+                project.config,
+                project.files,
+                &BTreeSet::new(),
+            );
+            check(&mut earlier);
+            assert_eq!(
+                earlier.session.elab.check_cache_stats().namespace_written,
+                2
+            );
+
+            let (sender, _receiver) = crossbeam_channel::unbounded();
+            let checker = Checker::new(options, source, sender, Arc::default(), Arc::default());
+            let mut work = checker.load_project(&dir).unwrap();
+            check(&mut work.live);
+            let stats = work.live.session.elab.check_cache_stats();
+            assert_eq!(stats.namespace_carried, 2, "{stats:?}");
+            let note = work.carried_over_note(&dir).unwrap();
+            assert!(note.contains("2 namespaces"), "{note}");
+            assert_eq!(work.carried_over_note(&dir), None, "said once");
+            let _ = std::fs::remove_dir_all(&dir);
+        });
+    }
 
     #[test]
     fn subsequence_ignores_case() {

@@ -301,6 +301,16 @@ theorem, its hypotheses and the lemmas about the helper, as above.
    Hits are trusted without the kernel checking them again
    ([check-cache.md](proposals/check-cache.md), stage 3). Use `--no-cache`
    to time a check, and if you suspect a stale answer.
+   **After an update to Stitchwort** every entry is a miss for a plain
+   `check`: the new build hasn't checked anything yet. `check --carry-over`
+   (or `STITCHWORT_CARRY_OVER=1`) also uses the earlier build's entries
+   from the same source, when the update left the kernel side
+   (`crates/core`) alone, and its last line says how many namespaces were
+   carried over. Quote that line in a report: the kernel accepted those
+   proofs, but the new elaborator hasn't confirmed the statements still
+   read the same. Lanes that change the compiler don't use it; the editor
+   always does, and says so in its log
+   ([check-cache-across-updates.md](proposals/check-cache-across-updates.md)).
    **Editing a namespace many others import.** A change in `Fmt`
    (`tools/fmt/src/Fmt/Meaning.sw`) makes the next check recheck every
    namespace that depends on it: the whole `tools/fmt` project took 5:18

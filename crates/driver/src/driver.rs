@@ -858,6 +858,17 @@ impl Session {
             .set_check_cache(std::rc::Rc::new(crate::check_cache::CheckCache::at(dir)));
     }
 
+    /// For tests: [`Session::use_check_cache`] as another build would,
+    /// one whose fingerprint is `build` and whose kernel side's is `kernel`
+    /// ([`crate::check_cache::CheckCache::as_build`]).
+    #[doc(hidden)]
+    pub fn use_check_cache_as_build(&mut self, dir: &std::path::Path, build: &str, kernel: &str) {
+        self.elab
+            .set_check_cache(std::rc::Rc::new(crate::check_cache::CheckCache::as_build(
+                dir, build, kernel,
+            )));
+    }
+
     /// Lets `include` read the files of a project: from `files`, where the
     /// project's files are found by their path in it.
     pub fn include_from(&mut self, files: std::rc::Rc<dyn stitchwort_elab::project::IncludeFiles>) {

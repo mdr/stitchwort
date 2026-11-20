@@ -1,7 +1,8 @@
 # A check cache that survives Stitchwort updates (SW-4405)
 
-**Status:** design note, 20 November 2026, for Matt's decision (D3702 asked
-for it). Nothing is built. One question, D3703, is at the
+**Status:** D3703 yes (Matt, 20 November 2026). Stage 1 built (SW-4409;
+see [As built (stage 1)](#as-built-stage-1)); stage 2, the kernel re-check,
+is SW-4410. The design note's question, D3703, is at the
 [end](#9-decision-for-matt).
 
 It builds on [check-cache.md](check-cache.md) (what exists; D1660: a cache
@@ -436,3 +437,54 @@ kernel-side fingerprint, and the order of the stages.
 - Whether `check --verify-cache` (D2802) is built: `CacheArgs` has only
   `--no-cache` and `--cache-dir` at `bc550643d` [checked], so stage 3's
   comparison would be its first form.
+
+## As built (stage 1)
+
+SW-4409, 20 November 2026.
+
+- **Key and stamp.** The key (the entry's file name, as `{build}-{unit}-{key}`)
+  covers the format, the modes and limits, the unit's text and its
+  dependencies' keys: no compiler fingerprint and no library interface. The
+  sealed header holds the stamp: the kernel side's fingerprint, the whole
+  build's, the library interface digest, and whether the entry is exact.
+  `FORMAT` is 38.
+- **The kernel side** is the test cache's evaluation fingerprint
+  (`EVAL_FINGERPRINT`, `crates/driver/build.rs`): the sources of `core`,
+  `rt` and the workspace crates they are built with except `syntax`,
+  `dev-features`, the driver's `test_run.rs`, the manifests, `Cargo.lock`,
+  `rustc -vV` and the target. The store calls it `kernel()`.
+- **Exact** needs the stamp's build and interface to be this session's and
+  the exact flag. **Carried over** needs carrying over on and the kernel
+  side to match. An entry this build writes in a session that carried
+  anything over is stamped not exact, so exactness passes only through
+  exact entries (per session, not per unit: a session that carried
+  anything writes only carried-over entries).
+- **Where carried entries come from.** This build's own entry if it isn't
+  exact, then other builds' entries for the same unit and key, newest
+  first (`Store::read_others`; the folder is listed again only when it
+  changes). The build in the file name keeps two builds' exact entries
+  apart. Eviction keeps, besides this build's entries and other builds'
+  younger than a day, each unit's newest entry, which a later build may
+  carry over.
+- **Replay** of a carried namespace skips the library files' keys
+  (`library_unchanged`) and relies on the content hashes of what it refers
+  to (§4.2); a mismatch found then is a late miss. A plain `check` only
+  leaves out (SW-1193) namespaces with an exact entry: a carried one is
+  loaded, so that its references are compared.
+- **The decode self-check.** A carried entry's declarations are hashed as
+  admitted and compared with the hashes it records; a difference is a
+  refusal, and the unit is elaborated.
+- **Who carries over.** The editor, for a project with a cache folder
+  (`set_carry_over`, `crates/lsp`), logging `N namespaces and M standard
+  library files carried over from another build` once a check is done and
+  more were carried. `stitchwort check --carry-over` (or
+  `STITCHWORT_CARRY_OVER=1`), whose last line says the same. Every other
+  command, the verifier, the tiers and the test suites: exact only.
+- **Not built:** `--json` for `check` (it has none); the healing and
+  "changed what X elaborates to" report (stage 3); the re-check (stage 2).
+- **Tests** (`crates/driver/tests/projects/check_cache.rs`):
+  `a_carried_over_entry_is_used_only_when_asked` (and that a carried
+  session's dump equals a fresh one's), `a_kernel_side_change_makes_a_carried_entry_a_miss`,
+  `what_is_written_over_carried_entries_is_not_exact`; in `crates/lsp`,
+  `the_editor_carries_over_an_earlier_builds_entries`. Another build is a
+  store made with `CheckCache::as_build` (hidden, for tests).

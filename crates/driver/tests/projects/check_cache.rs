@@ -115,6 +115,11 @@ fn run_here(
     if let Some(dir) = cache {
         session.use_check_cache(dir);
     }
+    finish_run(session, source)
+}
+
+/// Loads `source` in `session`, made and set up by the caller.
+fn finish_run(mut session: Session, source: &Source) -> Run {
     let result: Result<(), Vec<Diagnostic>> = match source {
         Source::File(name, text) => session.load(name, text).map(|_| ()),
         Source::Project(name, path) => session
@@ -1842,4 +1847,138 @@ fn a_replayed_namespaces_instances_and_extensions_are_usable() {
         assert!(fresh.dump.contains("accepted true"), "{}", fresh.dump);
     }
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+// ---- Carried-over entries (check-cache-across-updates.md, stage 1) -------
+
+/// The kernel side of the build these tests are: what an entry another
+/// build wrote must have for this one to carry it over.
+const KERNEL: &str = stitchwort_driver::driver::EVAL_FINGERPRINT;
+
+/// Loads the project at `dir` with navigation through the cache in `cache`:
+/// as the build `build` (its fingerprint and its kernel side's) would, or
+/// as this one with `None`, carrying over entries if `carry`.
+fn run_as_build(dir: &Path, cache: &Path, build: Option<(&str, &str)>, carry: bool) -> Run {
+    let source = Source::Project("p".to_string(), dir.to_path_buf());
+    with_stack(STACK, || {
+        let mut session = Session::navigable_for_stack(STACK);
+        match build {
+            Some((build, kernel)) => session.use_check_cache_as_build(cache, build, kernel),
+            None => session.use_check_cache(cache),
+        }
+        session.elab.set_carry_over(carry);
+        finish_run(session, &source)
+    })
+}
+
+/// An entry another build wrote from the same source, with the same kernel
+/// side, is used only when carrying over is on: then every namespace and
+/// library file comes from it, is counted as carried over, and the session
+/// holds what elaborating gives. Without it, every one is a miss.
+#[test]
+fn a_carried_over_entry_is_used_only_when_asked() {
+    let dir = temp_project("carry", ABC);
+    let earlier = temp_dir("carry-cache");
+    let written = run_as_build(&dir, &earlier, Some(("earlierbuild", KERNEL)), false);
+    assert_eq!(written.stats.namespace_written, 3);
+    let copy = copy_cache(&earlier, "carry-cache-copy", &[]);
+    let fresh = run(&Source::Project("p".to_string(), dir.clone()), true, None);
+
+    let exact = run_as_build(&dir, &earlier, None, false);
+    assert_eq!(
+        (
+            exact.stats.namespace_hits,
+            exact.stats.hits,
+            exact.stats.carried_over()
+        ),
+        (0, 0, 0),
+        "{:?}",
+        exact.stats
+    );
+
+    let carried = run_as_build(&dir, &copy, None, true);
+    assert_eq!(
+        (
+            carried.stats.namespace_carried,
+            carried.stats.namespace_hits
+        ),
+        (3, 3),
+        "{:?}",
+        carried.stats
+    );
+    assert_eq!(
+        carried.stats.carried, carried.stats.hits,
+        "{:?}",
+        carried.stats
+    );
+    assert!(
+        carried.dump == fresh.dump,
+        "carrying over changed the result: {}",
+        first_difference(&fresh.dump, &carried.dump)
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&earlier);
+    let _ = std::fs::remove_dir_all(&copy);
+}
+
+/// An entry written by a build whose kernel side differs is a miss even
+/// when carrying over (stage 2 will check it again instead).
+#[test]
+fn a_kernel_side_change_makes_a_carried_entry_a_miss() {
+    let dir = temp_project("carry-kernel", ABC);
+    let cache = temp_dir("carry-kernel-cache");
+    run_as_build(&dir, &cache, Some(("earlierbuild", "anotherkernel")), false);
+    let run = run_as_build(&dir, &cache, None, true);
+    assert_eq!(
+        (
+            run.stats.namespace_hits,
+            run.stats.hits,
+            run.stats.carried_over()
+        ),
+        (0, 0, 0),
+        "{:?}",
+        run.stats
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
+/// What a session that carried something over writes is carried over too,
+/// never exact: an edited `B` elaborated over a carried `A` is a miss for
+/// an exact check, and a carried-over hit for the next carrying one.
+#[test]
+fn what_is_written_over_carried_entries_is_not_exact() {
+    let dir = temp_project("carry-taint", ABC);
+    let cache = temp_dir("carry-taint-cache");
+    run_as_build(&dir, &cache, Some(("earlierbuild", KERNEL)), false);
+    write_file(&dir, "src/B.sw", &format!("-- a comment\n{}", ABC[1].1));
+    let carrying = run_as_build(&dir, &cache, None, true);
+    assert_eq!(
+        (
+            carrying.stats.namespace_carried,
+            carrying.stats.namespace_written
+        ),
+        (2, 1),
+        "{:?}",
+        carrying.stats
+    );
+    let again = run_as_build(
+        &dir,
+        &copy_cache(&cache, "carry-taint-copy", &[]),
+        None,
+        true,
+    );
+    assert_eq!(again.stats.namespace_carried, 3, "{:?}", again.stats);
+    let exact = run_as_build(&dir, &cache, None, false);
+    assert_eq!(exact.stats.namespace_hits, 0, "{:?}", exact.stats);
+    // The exact check rewrote them as exact.
+    let warm = run_as_build(&dir, &cache, None, false);
+    assert_eq!(
+        (warm.stats.namespace_hits, warm.stats.carried_over()),
+        (3, 0),
+        "{:?}",
+        warm.stats
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
 }

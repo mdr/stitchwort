@@ -1999,6 +1999,12 @@ impl stitchwort_elab::cache::Store for Gated {
     fn compiler(&self) -> &str {
         self.inner.compiler()
     }
+    fn kernel(&self) -> &str {
+        self.inner.kernel()
+    }
+    fn read_others(&self, unit: &str, key: &stitchwort_elab::cache::Key) -> Vec<Vec<u8>> {
+        self.inner.read_others(unit, key)
+    }
     fn salt(&self) -> [u8; 16] {
         self.inner.salt()
     }
