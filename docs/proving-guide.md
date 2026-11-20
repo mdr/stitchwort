@@ -977,7 +977,9 @@ Each was run on the example named; the output is quoted, shortened.
 
   `E-RESOURCE` points at the declaration, not the pass that gave up. To see
   where it happened, run the check with `STITCHWORT_TRACE_RESOURCE=1` on a
-  release build: it prints the kind of limit and a backtrace on stderr
+  release build made with line tables
+  (`CARGO_PROFILE_RELEASE_DEBUG=line-tables-only`): it prints the kind of
+  limit and a backtrace on stderr with file and line numbers
   (`RUST_BACKTRACE` isn't needed; docs/testing.md).
 
   A check can take minutes before it runs out (its limit is 10 billion
