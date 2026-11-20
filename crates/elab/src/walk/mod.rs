@@ -544,6 +544,22 @@ fn binder_icits(ty: &Term) -> Vec<Icit> {
     out
 }
 
+/// Whether the family's relation, unfolded, no longer mentions its thunk or
+/// its post: a relation whose body is a constant such as `True`. The walk
+/// reads the family, the code and the post back from the goal, so it can't
+/// follow one that forgets them.
+fn ignores_arguments(cx: &Ctx, family: &Family) -> bool {
+    let g = cx.g();
+    let Some(body) = g.def(family.relation).body() else {
+        return false;
+    };
+    let params = g.def(family.relation).arity();
+    let body = body.peel_lams(params);
+    let mentioned = |i: usize| i < params && body.mentions(params - 1 - i);
+    let post = family.arity.checked_sub(1);
+    !family.thunks.iter().any(|&i| mentioned(i)) && !post.is_some_and(mentioned)
+}
+
 /// What a thunk's code is: the thunk applied to `()`.
 fn thunk_body(cx: &Ctx, thunk: &Value) -> Result<Value> {
     let g = cx.g();
@@ -906,12 +922,20 @@ fn step(
                 return tail_call(cx, node, &info, family, callee, vec![call], expected);
             }
             Code::Other(what) => {
+                let mut notes = Vec::new();
+                if ignores_arguments(cx, family) {
+                    notes.push(format!(
+                        "the family's relation {} ignores its program and its post (its body mentions neither), \
+                         so the walk can't read them; state the relation so it uses both",
+                        written_name(cx, family.relation)
+                    ));
+                }
                 return Err(stuck(
                     cx,
                     &info,
                     expected,
                     &format!("it doesn't follow {what}"),
-                    &[],
+                    &notes,
                 ));
             }
         }

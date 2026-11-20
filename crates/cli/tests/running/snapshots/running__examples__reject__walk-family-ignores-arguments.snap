@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-WALK] Error: the walk stops: it doesn't follow code the walk doesn't follow
+    ╭─[ reject/walk-family-ignores-arguments.sw:34:56 ]
+    │
+ 34 │ theorem mineTwice: Mine (() => twice()) (n => True) := byWalking []
+    │                                                        ────┬────  
+    │                                                            ╰────── in `twice`
+    │ 
+    │ Note 1: the family's relation Mine ignores its program and its post (its body mentions neither), so the walk can't read them; state the relation so it uses both
+    │ 
+    │ Note 2: the goal there is Mine (arg => _j) _holds
+────╯

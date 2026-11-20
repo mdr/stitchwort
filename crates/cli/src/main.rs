@@ -4980,7 +4980,7 @@ fn print_audit(
 fn fmt_command(files: &[PathBuf], check: bool, project: Option<&Path>) -> ExitCode {
     let mut paths = Vec::new();
     let mut stdin = false;
-    let mut skipped = 0usize;
+    let mut skipped = Vec::new();
     if files.is_empty() {
         let Some(project) = locate_project(project, "format", "fmt hello.sw") else {
             return ExitCode::FAILURE;
@@ -5002,7 +5002,7 @@ fn fmt_command(files: &[PathBuf], check: bool, project: Option<&Path>) -> ExitCo
             } else if file.is_dir() {
                 for path in sw_files_in(file) {
                     if deliberately_unformatted(&path) {
-                        skipped += 1;
+                        skipped.push(path);
                     } else {
                         paths.push(path);
                     }
@@ -5011,7 +5011,7 @@ fn fmt_command(files: &[PathBuf], check: bool, project: Option<&Path>) -> ExitCo
                 // Named, but --check only reports: a caller (the pre-commit
                 // hook) passes whatever is staged. Formatting a named file
                 // in place is still done, since the user asked for that.
-                skipped += 1;
+                skipped.push(file.clone());
             } else {
                 paths.push(file.clone());
             }
@@ -5052,11 +5052,15 @@ fn fmt_command(files: &[PathBuf], check: bool, project: Option<&Path>) -> ExitCo
         failure |= !format_file(path, check, &mut would_change);
     }
 
-    if skipped > 0 {
+    if !skipped.is_empty() {
         eprintln!(
-            "{skipped} file{} skipped as deliberately unformatted",
-            if skipped == 1 { "" } else { "s" }
+            "{} file{} skipped as deliberately unformatted",
+            skipped.len(),
+            if skipped.len() == 1 { "" } else { "s" }
         );
+        for path in &skipped {
+            eprintln!("{}", path.display());
+        }
     }
 
     if failure {
