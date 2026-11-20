@@ -28,6 +28,17 @@ enum Library<'a> {
     Files(&'a [(&'a str, &'a str)]),
 }
 
+/// What a session does as it starts, besides loading its prelude.
+#[derive(Clone, Copy, Default)]
+struct SessionOptions {
+    /// Load every library file now instead of on demand.
+    eager: bool,
+    /// Check the library files' `test`s too.
+    library_tests: bool,
+    /// Record what code navigation needs, from the core on.
+    navigation: bool,
+}
+
 /// A compiler session: the prelude plus whatever has been loaded since.
 pub struct Session {
     pub sources: SourceMap,
@@ -467,9 +478,10 @@ impl Session {
         Self::start(
             prelude(),
             Library::Standard,
-            true,
-            false,
-            false,
+            SessionOptions {
+                eager: true,
+                ..Default::default()
+            },
             Limits::for_stack(stack),
             StdCache::Test,
         )
@@ -483,9 +495,10 @@ impl Session {
         Self::start(
             prelude(),
             Library::Standard,
-            true,
-            false,
-            false,
+            SessionOptions {
+                eager: true,
+                ..Default::default()
+            },
             Limits::for_stack(stack),
             StdCache::Source,
         )
@@ -499,9 +512,10 @@ impl Session {
         Self::start(
             prelude(),
             Library::Standard,
-            true,
-            false,
-            false,
+            SessionOptions {
+                eager: true,
+                ..Default::default()
+            },
             Limits::for_stack(stack),
             StdCache::Source,
         )
@@ -519,9 +533,10 @@ impl Session {
         Self::start(
             prelude(),
             Library::Standard,
-            false,
-            false,
-            true,
+            SessionOptions {
+                navigation: true,
+                ..Default::default()
+            },
             Limits::default(),
             StdCache::Source,
         )
@@ -543,9 +558,7 @@ impl Session {
         Self::start(
             prelude,
             Library::Standard,
-            false,
-            false,
-            false,
+            SessionOptions::default(),
             Limits::default(),
             StdCache::Source,
         )
@@ -559,9 +572,10 @@ impl Session {
         Self::start(
             prelude(),
             Library::Standard,
-            true,
-            false,
-            false,
+            SessionOptions {
+                eager: true,
+                ..Default::default()
+            },
             Limits::default(),
             StdCache::Test,
         )
@@ -574,9 +588,10 @@ impl Session {
         Self::start(
             prelude(),
             Library::Standard,
-            true,
-            false,
-            false,
+            SessionOptions {
+                eager: true,
+                ..Default::default()
+            },
             Limits::default(),
             StdCache::Source,
         )
@@ -590,9 +605,7 @@ impl Session {
         Self::start(
             prelude(),
             Library::None,
-            false,
-            false,
-            false,
+            SessionOptions::default(),
             Limits::default(),
             StdCache::Source,
         )
@@ -612,9 +625,11 @@ impl Session {
         Self::start(
             prelude(),
             Library::Files(files),
-            eager,
-            library_tests,
-            false,
+            SessionOptions {
+                eager,
+                library_tests,
+                navigation: false,
+            },
             Limits::default(),
             StdCache::Source,
         )
@@ -628,9 +643,11 @@ impl Session {
         Self::start(
             prelude(),
             Library::Standard,
-            true,
-            true,
-            false,
+            SessionOptions {
+                eager: true,
+                library_tests: true,
+                navigation: false,
+            },
             Limits::default(),
             StdCache::Source,
         )
@@ -658,22 +675,18 @@ impl Session {
             elab,
             prelude,
             Library::Standard,
-            false,
-            false,
-            false,
+            SessionOptions::default(),
             Limits::default(),
             StdCache::Source,
         )
     }
 
     /// Loads the core (the prelude text given), then makes the library's
-    /// names known, and loads its files too if `eager`.
+    /// names known, and loads its files too if `options.eager`.
     fn start(
         prelude: &str,
         library: Library,
-        eager: bool,
-        library_tests: bool,
-        navigation: bool,
+        options: SessionOptions,
         limits: Limits,
         std_cache: StdCache,
     ) -> Result<Self, String> {
@@ -681,26 +694,26 @@ impl Session {
             Elaborator::new(),
             prelude,
             library,
-            eager,
-            library_tests,
-            navigation,
+            options,
             limits,
             std_cache,
         )
     }
 
     /// [`Session::start`] with the elaborator given, before anything loads.
-    #[allow(clippy::too_many_arguments)]
     fn start_in(
         elab: Elaborator,
         prelude: &str,
         library: Library,
-        eager: bool,
-        library_tests: bool,
-        navigation: bool,
+        options: SessionOptions,
         limits: Limits,
         std_cache: StdCache,
     ) -> Result<Self, String> {
+        let SessionOptions {
+            eager,
+            library_tests,
+            navigation,
+        } = options;
         let mut session = Session {
             sources: SourceMap::new(),
             elab,

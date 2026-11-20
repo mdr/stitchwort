@@ -6,6 +6,7 @@ use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, VecDeque};
 use std::path::{Path, PathBuf};
 
+use stitchwort_core::collections::HashSet;
 use stitchwort_elab::project::{
     Edge, NamespaceSyntax, PlanNamespace, SourceUnit, direct_names, plan_theorems,
 };
@@ -812,6 +813,8 @@ pub fn unknown_namespace(project: &str, name: &str, known: &BTreeSet<String>) ->
 pub struct Analysis {
     /// By name.
     pub namespaces: Vec<Namespace>,
+    /// Each namespace's position in `namespaces`, by name.
+    by_name: BTreeMap<String, usize>,
     /// Problems that stop everything: files with no namespace, names that
     /// can't be namespaces, namespaces that clash.
     pub diagnostics: Vec<Diagnostic>,
@@ -831,7 +834,7 @@ pub struct Namespace {
 
 impl Analysis {
     pub fn namespace(&self, name: &str) -> Option<&Namespace> {
-        self.namespaces.iter().find(|n| n.name == name)
+        self.by_name.get(name).map(|&i| &self.namespaces[i])
     }
 }
 
@@ -1012,8 +1015,12 @@ pub fn analyse_parsed(
     for (ns, edges) in namespaces.iter_mut().zip(edges) {
         ns.edges = edges;
     }
+    let by_name: BTreeMap<String, usize> = (0..namespaces.len())
+        .map(|i| (namespaces[i].name.clone(), i))
+        .collect();
     Analysis {
         namespaces,
+        by_name,
         diagnostics,
     }
 }
@@ -1221,9 +1228,10 @@ pub fn canonical_order(
     if order.len() == among.len() {
         return Ok(order);
     }
+    let ordered: HashSet<&str> = order.iter().map(String::as_str).collect();
     let left: BTreeSet<String> = among
         .iter()
-        .filter(|n| !order.contains(n))
+        .filter(|n| !ordered.contains(n.as_str()))
         .cloned()
         .collect();
     // Strongly connected components of the rest: u and v are together when
