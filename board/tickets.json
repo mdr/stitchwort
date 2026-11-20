@@ -30170,8 +30170,8 @@
     {
       "id": 4450,
       "title": "[Fable] Review SW-4410 (carried cache stage 2: entries whose kernel side changed are re-admitted through the kernel's checking calls instead of the trusted path; rechecked entries are re-saved as this build's, not exact; check --recheck rechecks every loaded entry): soundness of the recheck path against the trusted one (anything the trusted replay installs that the checking calls skip), the data-type final/builtins fix, the re-save rule, docs/core.md's new text; paper only",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
