@@ -1,5 +1,5 @@
 {
-  "next": 4331,
+  "next": 4334,
   "tickets": [
     {
       "id": 47,
@@ -27372,12 +27372,12 @@
     {
       "id": 4237,
       "title": "[Sonnet] Audit elaborator read-backs that bypass the too-large fallback (unify.rs, effects.rs, closing.rs, omega.rs, named.rs, derive_induct.rs) and any uncapped read-back outside a check; route them through check.rs's fallback where a hypothesis or goal may be huge; a test per site changed (SW-4091 findings)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From SW-4091. Test with grow 22, never ? with grow 30 (24 GB).",
+      "body": "\nFrom SW-4091. Test with grow 22, never ? with grow 30 (24 GB).\n\nLane (Sonnet): branch lane/SW-4237 commit 61f65796e. Probed with grow 22 hypotheses; fixed equation type, def parameter types in equations, unifier solution (second try as written), mentions_any, effect escapes; examples large-hypothesis-{equation,parameter,call,effect}. Not routed: kernel conv in match arms (check_tree), match motive over a huge goal.\n",
       "created": "2026-11-19",
       "updated": "2026-11-20",
       "commits": []
@@ -28601,6 +28601,45 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "From SW-4323's report.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4331,
+      "title": "[Sonnet] A match in a def whose result type is huge (f3: match x with Zero => mk 0 | Succ n => mk (Succ n) returning Wrap (grow 22 (Leaf x))) fails with E-RESOURCE in check_tree; find the site and route it through check::quote_or_written if the as-written read is sound there, with an example (SW-4237 finding; grow 22 only)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "goal-as-written",
+      "body": "From SW-4237.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4332,
+      "title": "[DeepSeek] Debug aid: STITCHWORT_TRACE_RESOURCE=1 prints a Rust backtrace where a ResourceError is converted to a diagnostic (E-RESOURCE points only at the declaration); document it in docs/testing.md (SW-4237 friction: 5 rebuilds with temporary backtrace patches)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "From SW-4237.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4333,
+      "title": "[Sonnet] Audit the remaining direct core::value::quote_folded calls that bypass the too-large fallback (dot.rs 1480, equations.rs 2575/5443, effects.rs 1483/4671/5067-5139, interfaces.rs 2062, omega.rs 567, named.rs 727, search.rs, check.rs 5831), as SW-4237 did for quote(; consider a clippy-style lint or wrapper so raw read-backs can't be added",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "goal-as-written",
+      "body": "From SW-4237.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
