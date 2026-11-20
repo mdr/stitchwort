@@ -266,6 +266,34 @@ fn lemmas_check_as_the_same_goal() {
     );
 }
 
+/// Deciding which lemma to offer elaborates the goal's written text as a
+/// file of its own; nothing it notes may land in the real file. Its text
+/// (`0 < 1`, `pick True < 2`) parsed at offsets of the real file once put
+/// references on the comment lines at the top of these examples.
+#[test]
+fn the_lemma_check_leaves_no_references_in_the_file() {
+    for name in [
+        "closed-comparison-as-written",
+        "arm-as-written-computes",
+        "match-branches",
+    ] {
+        let text = std::fs::read_to_string(goals_dir().join(format!("{name}.sw"))).unwrap();
+        let lines: Vec<&str> = text.lines().collect();
+        let index = index_of(&goals_dir(), &format!("{name}.sw"));
+        for r in index["refs"].as_array().unwrap() {
+            if r["file"] != 0 {
+                continue;
+            }
+            let line = r["range"][0].as_u64().unwrap() as usize;
+            assert!(
+                !lines[line].trim_start().starts_with("--"),
+                "{name}: a reference at {} in a comment: {r}",
+                r["range"]
+            );
+        }
+    }
+}
+
 /// A line of a goal longer than 400 characters is cut in the middle on the
 /// command line, unless `--full-goals`; the index has it all.
 #[test]

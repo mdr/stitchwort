@@ -2230,55 +2230,62 @@ impl Elaborator {
             .filter(|l| p.guard_facts.contains(l))
             .collect();
         let arm_facts = facts.len().saturating_sub(guards.len());
-        let file = p.span.file;
+        // The text is parsed as a file of its own, and everything the
+        // elaboration notes for the editor (references, types, warnings) is
+        // left out or cut, so nothing lands at a place in the real file.
+        let file = stitchwort_syntax::FileId::SCRATCH;
         let parsed = |text: &str| stitchwort_syntax::parse_expression(file, text).ok();
-        let mut cx = Ctx::new(self, p.span);
+        let mut cx = Ctx::new(self, Span::point(file, 0));
         let g = &self.ev();
         let mut env: Vec<Value> = Vec::new();
-        let result = crate::undo::transaction(&mut cx, |cx| {
-            let metas = cx.metas().metas.borrow().len();
-            let queued = cx.e.attempt.queue.len();
-            for (h, e) in hypotheses.iter().zip(&p.context) {
-                let Some(expr) = parsed(&h.ty) else {
+        let warnings = self.attempt.lambda_warnings.borrow().len();
+        let result = Elaborator::unnoted_in(&mut cx, |cx| {
+            crate::undo::transaction(cx, |cx| {
+                let metas = cx.metas().metas.borrow().len();
+                let queued = cx.e.attempt.queue.len();
+                for (h, e) in hypotheses.iter().zip(&p.context) {
+                    let Some(expr) = parsed(&h.ty) else {
+                        return Ok(None);
+                    };
+                    let (ty, _) = crate::check::check_type(cx, &expr)?;
+                    let ty = cx.eval(&ty)?;
+                    cx.bind(&h.name, ty);
+                    env.push(Value::var(e.level));
+                }
+                let names = fact_names(hypotheses, facts.len());
+                for (i, (name, fact)) in names.iter().zip(facts).enumerate() {
+                    let Some(expr) = parsed(fact) else {
+                        return Ok(None);
+                    };
+                    let (ty, _) = crate::check::check_type(cx, &expr)?;
+                    let ty = cx.eval(&ty)?;
+                    cx.bind(name, ty);
+                    env.push(match i.checked_sub(arm_facts) {
+                        Some(k) => Value::var(guards[k]),
+                        None => Value::Sort(Sort::Prop),
+                    });
+                }
+                let Some(expr) = parsed(written) else {
                     return Ok(None);
                 };
-                let (ty, _) = crate::check::check_type(cx, &expr)?;
-                let ty = cx.eval(&ty)?;
-                cx.bind(&h.name, ty);
-                env.push(Value::var(e.level));
-            }
-            let names = fact_names(hypotheses, facts.len());
-            for (i, (name, fact)) in names.iter().zip(facts).enumerate() {
-                let Some(expr) = parsed(fact) else {
+                let (term, _) = crate::check::check_type(cx, &expr)?;
+                // A literal nothing types is `Nat` by the end of a declaration.
+                Elaborator::settle_rule(cx, queued, metas)?;
+                let term = cx.e.zonk(&term, cx.level())?;
+                if term.subterms().any(|(t, _)| matches!(t, Term::Meta(_))) {
                     return Ok(None);
-                };
-                let (ty, _) = crate::check::check_type(cx, &expr)?;
-                let ty = cx.eval(&ty)?;
-                cx.bind(name, ty);
-                env.push(match i.checked_sub(arm_facts) {
-                    Some(k) => Value::var(guards[k]),
-                    None => Value::Sort(Sort::Prop),
-                });
-            }
-            let Some(expr) = parsed(written) else {
-                return Ok(None);
-            };
-            let (term, _) = crate::check::check_type(cx, &expr)?;
-            // A literal nothing types is `Nat` by the end of a declaration.
-            Elaborator::settle_rule(cx, queued, metas)?;
-            let term = cx.e.zonk(&term, cx.level())?;
-            if term.subterms().any(|(t, _)| matches!(t, Term::Meta(_))) {
-                return Ok(None);
-            }
-            // A body is checked against its type's weak head normal form
-            // (`0 < 1` is `True = True`), which is what the goal shows.
-            let lemma_target = force(g, stitchwort_core::value::eval(g, &env, &term)?)?;
-            // Convertible, and printed as the goal is: a lemma stating
-            // `Succ k` as `k + 1` is the same term, but not the goal shown.
-            let same = stitchwort_core::value::conv(g, p.level, &lemma_target, &p.expected)?
-                && show(&lemma_target) == target;
-            Ok(same.then_some(()))
+                }
+                // A body is checked against its type's weak head normal form
+                // (`0 < 1` is `True = True`), which is what the goal shows.
+                let lemma_target = force(g, stitchwort_core::value::eval(g, &env, &term)?)?;
+                // Convertible, and printed as the goal is: a lemma stating
+                // `Succ k` as `k + 1` is the same term, but not the goal shown.
+                let same = stitchwort_core::value::conv(g, p.level, &lemma_target, &p.expected)?
+                    && show(&lemma_target) == target;
+                Ok(same.then_some(()))
+            })
         });
+        self.attempt.lambda_warnings.borrow_mut().truncate(warnings);
         matches!(result, Ok(Some(())))
     }
 

@@ -5,6 +5,11 @@ use std::ops::Range;
 pub struct FileId(u32);
 
 impl FileId {
+    /// The file of text parsed only to be elaborated and thrown away, never
+    /// in any [`SourceMap`]: what is noted at its spans belongs to no real
+    /// file.
+    pub const SCRATCH: FileId = FileId(u32::MAX);
+
     /// Its position in the [`SourceMap`] it came from.
     pub fn index(self) -> usize {
         self.0 as usize
