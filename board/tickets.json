@@ -28400,8 +28400,8 @@
     {
       "id": 4315,
       "title": "[Sonnet] build::the_roguelike_plays_as_it_does_under_run failed once under high load on Overmind (e861a4220: ending not printed after the alternate screen was left, build.rs:758), passed on the next cycle: make its pty wait robust to slow runs (wait for the leave-screen sequence rather than a fixed time)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "test-infra",
