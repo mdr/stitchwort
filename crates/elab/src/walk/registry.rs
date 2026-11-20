@@ -431,7 +431,15 @@ pub(super) fn fit_type(
             .into_iter()
             .zip(&metas)
             .map(|(dom, m)| {
-                if crate::cases::is_proposition(cx, &dom)? {
+                // A function the call fixed (`second` in "`fail` is followed
+                // by any parser", solved from the thunk) is a value, even
+                // where its type's unknowns keep it from being seen as one.
+                let fixed = matches!(force(&cx.g(), dom.clone())?, Value::Pi(..))
+                    && !matches!(
+                        force(&cx.g(), cx.eval(m)?)?,
+                        Value::Neutral(Head::Meta(_), _)
+                    );
+                if !fixed && crate::cases::is_proposition(cx, &dom)? {
                     return Ok(Param::Premise);
                 }
                 let mut v = force(&cx.g(), cx.eval(m)?)?;

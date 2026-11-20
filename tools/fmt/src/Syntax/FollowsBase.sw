@@ -239,16 +239,11 @@ theorem followsOn ∀ [alike: a → b → Prop] (k: List Item → {Parse Item} a
 
 theorem followsEat ∀ (modes: Modes) (wanted: Tok):
     Parse.Follows SameCode (Option.Alike WordsAlike) (() => modes.eat wanted) (() => modes.eat wanted) :=
-  followsThenEq (followsAt modes wanted) (here =>
-    match here with
-      | True => Parse.followsMap (word => Some word) (word => Some word) followsBump (x y alike => alike)
-      | False => Parse.followsDone Trivial)
+  byWalking []
 
 theorem followsExpectOn ∀ (modes: Modes) (wanted: Tok) (what: Text) (seen: Option Tok):
     Parse.Follows SameCode WordsAlike (() => modes.expectOn wanted what seen) (() => modes.expectOn wanted what seen) :=
-  match isSome wanted seen with
-    | True => followsBump
-    | False => followsFail modes what (() => modes.fail what)
+  byWalking [followsFail]
 
 @[walk]
 theorem followsExpect ∀ (modes: Modes) (wanted: Tok) (what: Text):
@@ -275,7 +270,7 @@ theorem followsLowerOn ∀ (modes: Modes) (what: Text) (items others: List Item)
 
 theorem followsLower ∀ (modes: Modes) (what: Text):
     Parse.Follows SameCode WordsAlike (() => modes.lower what) (() => modes.lower what) :=
-  Parse.followsThen followsLeft (seen seenTwin same => followsLowerOn modes what seen seenTwin same)
+  byWalking [followsLowerOn]
 
 -- The knot.
 
@@ -414,25 +409,18 @@ theorem alikeSpread ∀ (dots dotsTwin: Word)
 -- Atoms.
 
 theorem followsWordAtom ∀ (kind: Tok): Parse.Follows SameCode ExprsAlike (() => wordAtom kind) (() => wordAtom kind) :=
-  Parse.followsMap (spelled => Atom kind spelled) (spelled => Atom kind spelled) followsBump (spelled twin words =>
-    alikeAtom kind spelled twin words)
+  byWalking [] then alikeAtom kind word wordTwin wordFacts
 
 theorem followsNumberAfter ∀ (minus minusTwin: Word)
     (minuses: WordsAlike minus minusTwin) (items others: List Item)
     (same: List.All2 SameCode items others):
     Parse.Follows SameCode ExprsAlike (() => numberAfter minus items) (() => numberAfter minusTwin others) :=
   let kinds: numberKind items = numberKind others := deafOfStripped numberKind numberKindDeaf items others same
-  Parse.followsMap
-    (digits => Prefix minus (Atom (numberKind items) digits))
-    (digits => Prefix minusTwin (Atom (numberKind others) digits))
-    followsBump
-    (digits digitsTwin numbers =>
-      alikePrefix minus minusTwin minuses _ _
-        (rewrite kinds then alikeAtom (numberKind others) digits digitsTwin numbers))
+  byWalking [] then alikePrefix minus minusTwin minuses _ _
+    (rewrite kinds then alikeAtom (numberKind others) number numberTwin numberFacts)
 
 theorem followsNegativeNumber: Parse.Follows SameCode ExprsAlike (() => negativeNumber()) (() => negativeNumber()) :=
-  Parse.followsThen followsBump (minus minusTwin minuses =>
-    Parse.followsThen followsLeft (seen seenTwin same => followsNumberAfter minus minusTwin minuses seen seenTwin same))
+  byWalking [followsNumberAfter]
 
 -- Comma lists.
 
@@ -448,10 +436,7 @@ theorem followsCommaListFrom ∀ [alike: a → b → Prop] (modes: Modes) (ends 
       (PairAlike (List.All2 alike) Same)
       (() => commaListFrom fuel modes ends next count current found)
       (() => commaListFrom fuel modes endsTwin nextTwin count currentTwin foundTwin) :=
-  byWalking [followsPeek modes, followsBump] then List.all2Reverse [current, ..found] [currentTwin, ..foundTwin] (
-    currents,
-    founds
-  )
+  byWalking [] then List.all2Reverse [current, ..found] [currentTwin, ..foundTwin] (currents, founds)
 
 theorem followsCommaList ∀ [alike: a → b → Prop] (modes: Modes) (ends endsTwin: Nat → {Parse Item} Bool)
     (endsFollow: ∀ (count: Nat) => Parse.Follows SameCode Same (() => ends count) (() => endsTwin count))
@@ -471,11 +456,7 @@ theorem followsParenClose ∀ (inner: Modes) (open openTwin: Word)
     (opens: WordsAlike open openTwin) (first firstTwin: Expr)
     (firsts: ExprsAlike first firstTwin):
     Parse.Follows SameCode ExprsAlike (() => parenClose inner open first) (() => parenClose inner openTwin firstTwin) :=
-  Parse.followsMap
-    (close => Paren open first close)
-    (close => Paren openTwin firstTwin close)
-    (followsExpect inner RParen "`)`")
-    (close closeTwin closes => alikeParen open openTwin opens first firstTwin firsts close closeTwin closes)
+  byWalking [] then alikeParen open openTwin opens first firstTwin firsts close closeTwin closeFacts
 
 theorem followsAnnotatedEnd ∀ (inner: Modes) (open openTwin: Word)
     (opens: WordsAlike open openTwin) (first firstTwin: Expr)
@@ -484,16 +465,8 @@ theorem followsAnnotatedEnd ∀ (inner: Modes) (open openTwin: Word)
     (annotations: ExprsAlike annotation annotationTwin) (comma: Bool):
     Parse.Follows SameCode ExprsAlike (() => annotatedEnd inner open first colon annotation comma) (() =>
       annotatedEnd inner openTwin firstTwin colonTwin annotationTwin comma) :=
-  match comma with
-    | True => followsFatalAny tupleAnnotation (() => Syntax.fatal tupleAnnotation)
-    | False =>
-      Parse.followsMap
-        (close => Annotation open first colon annotation close)
-        (close => Annotation openTwin firstTwin colonTwin annotationTwin close)
-        (followsExpect inner RParen "`)`")
-        (close closeTwin closes =>
-          alikeAnnotation open openTwin opens first firstTwin firsts colon colonTwin colons annotation annotationTwin
-              annotations close closeTwin closes)
+  byWalking [followsFatalAny] then alikeAnnotation open openTwin opens first firstTwin firsts colon colonTwin colons
+      annotation annotationTwin annotations close closeTwin closeFacts
 
 theorem followsAnnotated ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -512,24 +485,14 @@ theorem followsTupleEnds ∀ (inner: Modes) (count: Nat):
 @[walk]
 theorem followsTupleClose ∀ (modes: Modes):
     Parse.Follows SameCode WordsAlike (() => tupleClose modes) (() => tupleClose modes) :=
-  followsThenEq (followsAt modes Colon) (annotatedHere =>
-    match annotatedHere with
-      | True => followsFatalAny tupleAnnotation (() => Syntax.fatal tupleAnnotation)
-      | False => followsExpect modes RParen "`)`")
+  byWalking [followsFatalAny tupleAnnotation (() => Syntax.fatal tupleAnnotation), unfold tupleCloseAfter]
 
 theorem followsTupleEnd ∀ (inner: Modes) (open openTwin: Word)
     (opens: WordsAlike open openTwin) (pair pairTwin: (List Expr, Bool))
     (pairs: PairAlike (List.All2 ExprsAlike) Same pair pairTwin):
     Parse.Follows SameCode ExprsAlike (() => tupleEnd inner open pair) (() => tupleEnd inner openTwin pairTwin) :=
-  match pair, pairTwin with
-    | (items, trailing), (itemsTwin, trailingTwin) =>
-      Parse.followsMap
-        (close => Tuple open items trailing close)
-        (close => Tuple openTwin itemsTwin trailingTwin close)
-        (followsTupleClose inner)
-        (close closeTwin closes =>
-          alikeTuple open openTwin opens items itemsTwin pairs.left trailing trailingTwin pairs.right close closeTwin
-              closes)
+  byWalking [] then alikeTuple open openTwin opens items items1 pairs.left trailingComma trailingComma1 pairs.right
+      tupleCloseValue tupleCloseValueTwin tupleCloseValueFacts
 
 theorem followsTupleSecond ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -558,15 +521,7 @@ theorem followsBracketedAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (firsts: ExprsAlike first firstTwin) (seen: Option Tok):
     Parse.Follows SameCode ExprsAlike (() => bracketedAfter self inner open first seen) (() =>
       bracketedAfter selfTwin inner openTwin firstTwin seen) :=
-  match seen with
-    | Some kind =>
-      match kind == Comma with
-        | True => followsTupleRest knot inner open openTwin opens first firstTwin firsts
-        | False =>
-          match kind == Colon with
-            | True => followsAnnotated knot inner open openTwin opens first firstTwin firsts
-            | False => followsParenClose inner open openTwin opens first firstTwin firsts
-    | None => followsParenClose inner open openTwin opens first firstTwin firsts
+  byWalking [followsTupleRest, followsAnnotated, followsParenClose]
 
 theorem followsBracketed ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):
@@ -581,47 +536,24 @@ theorem followsListSpread ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (dotted: WordsAlike dots dotsTwin) (empty: Bool):
     Parse.Follows SameCode ExprsAlike (() => listSpread self modes dots empty) (() =>
       listSpread selfTwin modes dotsTwin empty) :=
-  match empty with
-    | True => followsFatalAny "expected a list after `..`, as in `[x, ..xs]`" (() =>
-      Syntax.fatal "expected a list after `..`, as in `[x, ..xs]`")
-    | False =>
-      Parse.followsMap
-        (list => Spread dots list)
-        (list => Spread dotsTwin list)
-        (followsFull knot modes)
-        (list listTwin lists => alikeSpread dots dotsTwin dotted list listTwin lists)
+  byWalking [followsFatalAny] then alikeSpread dots dotsTwin dotted fullValue fullValueTwin fullValueFacts
 
 theorem followsAtEither ∀ (modes: Modes) (wanted other: Tok):
     Parse.Follows SameCode Same (() => modes.at wanted || modes.at other) (() => modes.at wanted || modes.at other) :=
-  followsThenEq (followsAt modes wanted) (here =>
-    match here with
-      | True => Parse.followsDone byComputing
-      | False => followsAt modes other)
+  byWalking []
 
 theorem followsListItem ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => listItem self modes) (() => listItem selfTwin modes) :=
-  followsThenEq (followsAt modes DotDot) (spread =>
-    match spread with
-      | True => Parse.followsThen followsBump (dots dotsTwin dotted =>
-        followsThenEq (followsAtEither modes Comma RBracket) (empty =>
-          followsListSpread knot modes dots dotsTwin dotted empty))
-      | False => followsFull knot modes)
+  byWalking [followsAtEither, followsListSpread, unfold listItemAfter]
 
 theorem followsListItemsEnd ∀ [self selfTwin: Goal → {Parse Item} Expr] (inner: Modes) (open openTwin: Word)
     (opens: WordsAlike open openTwin) (pair pairTwin: (List Expr, Bool))
     (pairs: PairAlike (List.All2 ExprsAlike) Same pair pairTwin):
     Parse.Follows SameCode ExprsAlike (() => listItemsEnd self inner open pair) (() =>
       listItemsEnd selfTwin inner openTwin pairTwin) :=
-  match pair, pairTwin with
-    | (items, trailing), (itemsTwin, trailingTwin) =>
-      Parse.followsMap
-        (close => ListOf open items trailing close)
-        (close => ListOf openTwin itemsTwin trailingTwin close)
-        (followsExpect inner RBracket "`,` or `]`")
-        (close closeTwin closes =>
-          alikeListOf open openTwin opens items itemsTwin pairs.left trailing trailingTwin pairs.right close closeTwin
-              closes)
+  byWalking [] then alikeListOf open openTwin opens items items1 pairs.left trailingComma trailingComma1 pairs.right
+      close closeTwin closeFacts
 
 theorem followsListItems ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -654,18 +586,8 @@ theorem followsListAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (opens: WordsAlike open openTwin) (seen: Option Tok):
     Parse.Follows SameCode ExprsAlike (() => listAfter self inner open seen) (() =>
       listAfter selfTwin inner openTwin seen) :=
-  match seen with
-    | Some kind =>
-      match kind == RBracket with
-        | True =>
-          Parse.followsMap
-            (close => ListOf open [] False close)
-            (close => ListOf openTwin [] False close)
-            followsBump
-            (close closeTwin closes =>
-              alikeListOf open openTwin opens [] [] Trivial False False byComputing close closeTwin closes)
-        | False => followsListItems knot inner open openTwin opens
-    | None => followsListItems knot inner open openTwin opens
+  byWalking [followsListItems] then alikeListOf open openTwin opens [] [] () False False byComputing close closeTwin
+      closeFacts
 
 theorem followsListExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):
@@ -704,17 +626,7 @@ theorem followsParenOther ∀ [self selfTwin: Goal → {Parse Item} Expr] (modes
       operatorSection selfTwin modes)) (second third: Option Tok):
     Parse.Follows SameCode ExprsAlike (() => parenOther self modes second third) (() =>
       parenOther selfTwin modes second third) :=
-  match isSome RParen second with
-    | True => followsBumpThen (open => Expr.Unit open bump()) (open => Expr.Unit open bump()) (open openTwin opens =>
-      Parse.followsMap
-        (close => Expr.Unit open close)
-        (close => Expr.Unit openTwin close)
-        followsBump
-        (close closeTwin closes => alikeUnit open openTwin opens close closeTwin closes))
-    | False =>
-      match isSome Lower second && isSome ColonEq third with
-        | True => namedArguments RParen "`)`"
-        | False => operatorSections
+  byWalking [] then alikeUnit open openTwin openFacts close closeTwin closeFacts
 
 theorem followsParenAtom ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes)

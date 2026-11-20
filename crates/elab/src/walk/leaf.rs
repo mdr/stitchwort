@@ -140,16 +140,7 @@ pub(super) fn leaf(cx: &mut Ctx, id: u32, info: &NodeInfo, expected: &Value) -> 
         let e = if names.is_empty() {
             resume(next, span)
         } else {
-            Expr::Lam(
-                (names.iter())
-                    .map(|n| ast::Name {
-                        text: n.clone(),
-                        span,
-                    })
-                    .collect(),
-                Box::new(resume(next, span)),
-                span,
-            )
+            lambda(&names, resume(next, span), span)
         };
         let snapshot = Snapshot::take(cx);
         match check(cx, &e, expected) {

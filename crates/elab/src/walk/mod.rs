@@ -189,6 +189,26 @@ fn app(f: Expr, arg: Expr) -> Expr {
     Expr::App(Box::new(f), Box::new(arg))
 }
 
+/// A lambda the walk writes. Its names' spans are empty, at the walk's
+/// end: they were never written, and a binder named as a function is
+/// (`number`) is no lambda written by mistake (`W-LAMBDA-SHADOW`).
+fn lambda(names: &[String], body: Expr, span: Span) -> Expr {
+    let at = Span {
+        start: span.end,
+        ..span
+    };
+    Expr::Lam(
+        (names.iter())
+            .map(|n| ast::Name {
+                text: n.clone(),
+                span: at,
+            })
+            .collect(),
+        Box::new(body),
+        span,
+    )
+}
+
 fn resume(id: u32, span: Span) -> Expr {
     Expr::Walk(Box::new(Walk {
         items: Vec::new(),
@@ -1248,17 +1268,7 @@ fn bind_step(
             fact: names[names.len() - 1].clone(),
         }));
     }
-    let lambda = Expr::Lam(
-        names
-            .iter()
-            .map(|n| ast::Name {
-                text: n.clone(),
-                span,
-            })
-            .collect(),
-        Box::new(resume(next, span)),
-        span,
-    );
+    let lambda = lambda(&names, resume(next, span), span);
     e = app(e, lambda);
     text.extend([
         Piece::Text(format!(" ({} =>\n", names.join(" "))),
@@ -1404,17 +1414,7 @@ fn tail_call(
         .collect();
     let names = rest_names(cx, &binders, &values);
     let leaf = place(cx, info.call, Kind::Leaf, &info.place);
-    let lambda = Expr::Lam(
-        names
-            .iter()
-            .map(|n| ast::Name {
-                text: n.clone(),
-                span,
-            })
-            .collect(),
-        Box::new(resume(leaf, span)),
-        span,
-    );
+    let lambda = lambda(&names, resume(leaf, span), span);
     let mut text = vec![Piece::Text(format!("{}\n{MORE}", short_name(&name)))];
     let implication = [
         Piece::Text(format!("({} => ", names.join(" "))),
