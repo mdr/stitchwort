@@ -27214,14 +27214,14 @@
     {
       "id": 4225,
       "title": "[Sonnet] Editor: 'Add the missing arms' offers one or-pattern arm when the missing arms would share a body (proof-match-likewise.md)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
       "body": "From SW-4219.",
       "created": "2026-11-19",
-      "updated": "2026-11-19",
+      "updated": "2026-11-20",
       "commits": []
     },
     {
