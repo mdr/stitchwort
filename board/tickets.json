@@ -29568,8 +29568,8 @@
     {
       "id": 4404,
       "title": "[DeepSeek] Debug env var (STITCHWORT_TRACE_GUARDS=1) printing for each proof guard whether it refined, split in place, or fell back, and why; correct guard-refinement.md and SW-4385-guard-review.md: match g: b generalises rather than splitting the column, and eitherWay refines (SW-4391 findings 3, friction)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
@@ -30196,8 +30196,8 @@
     {
       "id": 4452,
       "title": "[Sonnet] Carried cache follow-ups from SW-4450 (docs/reviews/SW-4410-recheck-review.md): F1 compare run bodies on a recheck; F2 tests (refusal part way through a multi-declaration entry, non-positive data type and non-terminating group on the checked path, undo of builtin bindings for a library entry, an end-to-end refused recheck, candidate preference, the CLI line); F5 run the field sorts/erasure comparison for carried entries on the trusted path too",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
