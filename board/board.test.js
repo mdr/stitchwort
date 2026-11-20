@@ -92,6 +92,26 @@ test('list filters and show', () => {
   assert.match(cli(f, 'show', 'SW-1').out, /status:  doing/);
 });
 
+test('show --body-only prints the body exactly, with no header, and nothing for an empty body', () => {
+  const f = tmpFile();
+  const body = 'First line.\n\n- point one\n- point two\n\nLast line.';
+  cli(f, 'add', 'with a body', '--body', body);
+  cli(f, 'add', 'empty');
+  const raw = (...args) => {
+    const r = spawnSync(process.execPath, [CLI, ...args], { env: { ...process.env, BOARD_FILE: f }, encoding: 'utf8' });
+    return { code: r.status, out: r.stdout, err: r.stderr };
+  };
+  let r = raw('show', '1', '--body-only');
+  assert.equal(r.code, 0);
+  assert.equal(r.out, body);
+  assert.equal(r.err, '');
+  r = raw('show', 'SW-2', '--body-only');
+  assert.equal(r.code, 0);
+  assert.equal(r.out, '');
+  assert.equal(r.err, '');
+  assert.notEqual(raw('show', '1', '--json', '--body-only').code, 0);
+});
+
 test('errors are clear and exit non-zero without changing the file', () => {
   const f = tmpFile();
   cli(f, 'add', 'a');

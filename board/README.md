@@ -18,7 +18,7 @@ Only Node's standard library is used; there is nothing to install.
 
 ```
 board list [--archived] [--status S] [--agent A] [--label L] [--epic ID] [--json]
-board show N [--json]               # also finds archived tickets (read-only)
+board show N [--json | --body-only] # also finds archived tickets (read-only)
 board add "title" [--status S] [--agent A] [--where W] [--epic ID] [--label L]... [--body TEXT | --body-file F]
 board move N STATUS
 board assign N AGENT [--where W]     # a backlog/next ticket also moves to doing
@@ -38,6 +38,15 @@ board archive --before DATE         # move old done tickets to board/archive/
 - `add` prints the new id (`SW-12`), so scripts can capture it:
   `id=$(board/board add "Fix the thing" --label bug)`.
 - `--body-file -` reads the body from standard input.
+- `show --body-only` prints just the body, exactly as stored, with no header
+  lines (and no "(archived, read-only)" marker). To add a note to a ticket's
+  body, print the old body and pipe it with the new note into `edit`; do not
+  reconstruct the old body by hand:
+
+  ```
+  { board/board show N --body-only; printf '\n\n%s\n' "Progress: ..."; } |
+    board/board edit N --body-file -
+  ```
 - `archive` is described under "Archive" below; epics under "Epics".
 - Statuses: `backlog`, `next`, `doing`, `review`, `done`.
 - Agents: `Opus`, `Sonnet`, `DeepSeek`, `GLM`, `Matt`, `Claude`, or empty.
