@@ -6,7 +6,7 @@ Main.test "a record of the library compares" fca4178155a4c8d961d1834825c37fb4bae
 Main.test "records differing in a field are unequal" 2566faaecef9012ca4464a9cfec5744679519be44c1c29c42154a898757e21bf
 Main.test "a record of the library orders by its fields in turn" dabd0f504b9fff148b6cc19c74a76c731f61cd5017dda7124cb188c8858aa5b7
 Main.test "its text lists the fields" aeb111507e5bd495d0a4f181cb051b701ce63cba1bc4b68ffa7a5654553ac77e
-Main.test "keys compare and keep their declaration order" c9f928e2da788f301b60ffb604ba61b4c0e091503ed88f71c4d55e51905697ef
+Main.test "keys compare and keep their declaration order" 9666f700b949372f94e60f23e968d7538dbd62fbabaaf08f7883815de86b0e2a
 Main.test "the kinds of a path" c8e01e1e8d541221567536f83b31d96f3a6a2d22913c473254dc52214f702b4c
 Main.test "file errors compare by constructor, then by what they carry" 70b07c7787aa6832fdfc5c59212e96e855ebe03a4f6c3b702bc270ce4db78641
 Main.test "entries and file information compare" d8bf8da6c897789d308da04151ae1885ab898b444ab18e3f8f4ef8ae357eddd3
