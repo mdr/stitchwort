@@ -22,7 +22,9 @@ use std::path::{Path, PathBuf};
 
 use crate::common;
 
-use stitchwort_cli::driver::{Cache, Outcome, Session, par_map_labelled, tier_sample};
+use stitchwort_cli::driver::{
+    Cache, Outcome, Session, Tier, daily_tier_sample, daily_tier_sample_at, par_map_labelled, tier,
+};
 use stitchwort_cli::project::{DiskFiles, Target};
 use stitchwort_cli::render::{render, with_repeated_generic_notes_cut};
 use stitchwort_syntax::{Diagnostic, Severity, SourceMap};
@@ -124,13 +126,37 @@ fn filtering() -> bool {
 
 /// A sweep's share of the examples or projects of one folder: all of them
 /// when `EXAMPLES` picks some by name, otherwise this tier's sample
-/// (`tier_sample`: every one in the broad and all tiers, every fourth in
-/// the quick and lane tiers).
+/// (`daily_tier_sample`): every one in the broad and all tiers, every fourth
+/// in the quick and lane tiers, from a place that moves on daily
+/// (`EXAMPLES_SEED` pins it, and the seed is printed).
 fn share<T>(items: Vec<T>) -> Vec<T> {
     if filtering() {
         items
     } else {
-        tier_sample(items, 1)
+        match tier() {
+            Tier::Broad | Tier::All => items,
+            Tier::Quick | Tier::Lane => daily_tier_sample(items, 1, "EXAMPLES_SEED"),
+        }
+    }
+}
+
+/// Four consecutive days' quick samples take every example exactly once
+/// (stride 4, which is `broad_stride` 1 in the quick tier): no example is
+/// always left out, whether or not the count divides by four.
+#[test]
+fn four_consecutive_days_cover_every_example_once() {
+    for len in [0, 1, 4, 5, 12, 13, 17] {
+        let indices: Vec<usize> = (0..len).collect();
+        let mut seen = vec![0; len];
+        for day in 0..4 {
+            for index in daily_tier_sample_at(indices.clone(), 1, day, Tier::Quick) {
+                seen[index] += 1;
+            }
+        }
+        assert!(
+            seen.iter().all(|count| *count == 1),
+            "{len} examples over four days: {seen:?}"
+        );
     }
 }
 

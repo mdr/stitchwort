@@ -251,23 +251,35 @@ pub fn all_tier(test: &str) -> bool {
 /// whole corpus in `broad`.
 #[doc(hidden)]
 pub fn tier_sample<T>(items: Vec<T>, broad_stride: usize) -> Vec<T> {
-    let stride = match tier() {
+    tier_sample_at(items, broad_stride, tier())
+}
+
+/// [`tier_sample`]'s stride in `tier`.
+fn tier_stride(broad_stride: usize, tier: Tier) -> usize {
+    match tier {
         Tier::All => 1,
         Tier::Broad => broad_stride.max(1),
         Tier::Quick | Tier::Lane => 4 * broad_stride.max(1),
-    };
-    items.into_iter().step_by(stride).collect()
+    }
 }
 
-/// [`tier_sample`] of `items` rotated to start at today's place: the seed
-/// is the environment variable `seed_var` if set, otherwise the day (days
-/// since 1970, UTC). Every run on one day takes the same sample, so the
-/// rolling check's runs agree; from one day to the next it moves on, so
-/// every item is covered within a few days' runs although each run takes
-/// only a share. Prints the seed (set the variable to repeat a sample). The
-/// all tier takes every item.
+/// [`tier_sample`] with `tier` given, rather than read from the environment.
+fn tier_sample_at<T>(items: Vec<T>, broad_stride: usize, tier: Tier) -> Vec<T> {
+    items
+        .into_iter()
+        .step_by(tier_stride(broad_stride, tier))
+        .collect()
+}
+
+/// [`tier_sample`] of `items` starting at today's offset: the seed is the
+/// environment variable `seed_var` if set, otherwise the day (days since
+/// 1970, UTC). The offset moves by one each day, within the stride, so every
+/// item is covered exactly once in `stride` consecutive days' runs, although
+/// each run takes only a share. Every run on one day takes the same sample,
+/// so the rolling check's runs agree. Prints the seed (set the variable to
+/// repeat a sample). The all tier takes every item.
 #[doc(hidden)]
-pub fn daily_tier_sample<T>(mut items: Vec<T>, broad_stride: usize, seed_var: &str) -> Vec<T> {
+pub fn daily_tier_sample<T>(items: Vec<T>, broad_stride: usize, seed_var: &str) -> Vec<T> {
     let seed = std::env::var(seed_var)
         .ok()
         .and_then(|s| s.parse::<u64>().ok())
@@ -276,11 +288,21 @@ pub fn daily_tier_sample<T>(mut items: Vec<T>, broad_stride: usize, seed_var: &s
             now.map_or(0, |d| d.as_secs() / 86_400)
         });
     eprintln!("{seed_var}={seed} (set it to take the same sample again)");
-    if !items.is_empty() {
-        let by = (seed % items.len() as u64) as usize;
-        items.rotate_left(by);
-    }
-    tier_sample(items, broad_stride)
+    daily_tier_sample_at(items, broad_stride, seed, tier())
+}
+
+/// [`daily_tier_sample`] with the day and tier given, rather than read from
+/// the environment: for its test.
+#[doc(hidden)]
+pub fn daily_tier_sample_at<T>(
+    items: Vec<T>,
+    broad_stride: usize,
+    seed: u64,
+    tier: Tier,
+) -> Vec<T> {
+    let stride = tier_stride(broad_stride, tier);
+    let offset = (seed % stride as u64) as usize;
+    items.into_iter().skip(offset).step_by(stride).collect()
 }
 
 /// Where an eager session gets the standard library's files.
