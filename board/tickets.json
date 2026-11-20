@@ -30077,8 +30077,8 @@
     {
       "id": 4443,
       "title": "[Opus] Goals: a closed goal like 0 < 1 shows as True = True everywhere (theorems and match arms), because natives aren't glued and evaluate at once; keep the written statement term beside each goal for display only (arms need the motive's term too), display only, no term or hash change (SW-4415 part 2)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
@@ -30116,8 +30116,8 @@
     {
       "id": 4446,
       "title": "[Sonnet] lift.rs:1618 panics (index out of bounds) when a caller leaves bindings in cx; add a debug_assert on the lengths there with a message naming the likely cause (bindings left after a failed attempt without restore) (SW-4418 finding)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
@@ -30129,8 +30129,8 @@
     {
       "id": 4447,
       "title": "[DeepSeek] Taskfile: snap:hashes NAME=x runs all 12 hash_stability tests (78 s); make NAME narrow to the example tests only, and say in docs/workflow.md's brief lines that snap:hashes (not test:hashes with INSTA_UPDATE) records new example snapshots (lane friction SW-4418, SW-4441)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "test-infra",
