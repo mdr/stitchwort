@@ -1,5 +1,5 @@
 {
-  "next": 4335,
+  "next": 4336,
   "tickets": [
     {
       "id": 47,
@@ -28062,7 +28062,7 @@
     {
       "id": 4289,
       "title": "[DeepSeek] Move slices 4a-6a out of the root namespace Fmt so later-slice edits stop rechecking 146 files (survey target 7)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -28653,6 +28653,19 @@
       "labels": [],
       "epic": "goal-as-written",
       "body": "Found by the SW-4326 verifier, 20 Nov ~04:25. Handed to the SW-4333 lane.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4335,
+      "title": "[DeepSeek] stitchwort uses reports 'no declaration' for a declaration in a namespace whose files share a directory with another namespace's (Fmt.Later.* after SW-4289) while doc and check find it; repro in tools/fmt and fix, with a test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "From SW-4289.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
