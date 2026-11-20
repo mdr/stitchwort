@@ -94,3 +94,18 @@ A `soundness/` file whose first line starts with `-- known-gap` documents a
 soundness hole we haven't fixed yet (see DESIGN.md §11). It's expected to be
 accepted for now, and the test fails once the compiler starts rejecting it, as a
 reminder to remove the marker.
+
+An `accept/` file written to cover a fallback path declares the outcome it
+must reach, on leading comment lines:
+
+```
+-- metrics: guard-as-written: unchecked
+```
+
+While the example elaborates, the test collects the lines that
+`STITCHWORT_MATCH_METRICS` and `STITCHWORT_REWRITE_METRICS` print
+(`crates/elab/src/metrics.rs`), without their ` at=` position, and fails
+unless each declared line occurs at least once (`match-as-written: folded`,
+`rewrite-retried: without-partial-unfold`, and so on). A later change that
+stops the example reaching its path fails it, instead of leaving it passing
+through the main path.

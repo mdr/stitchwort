@@ -58,6 +58,7 @@ mod local;
 mod logic;
 mod matching;
 mod membership;
+pub mod metrics;
 mod missing;
 mod module;
 mod named;

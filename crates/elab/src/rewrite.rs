@@ -379,12 +379,11 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
 /// Prints that the `rewrite` at `span` is made again without the partial
 /// unfold, when `STITCHWORT_REWRITE_METRICS` is set.
 fn report_retried(span: Span) {
-    if std::env::var_os("STITCHWORT_REWRITE_METRICS").is_some() {
-        eprintln!(
-            "rewrite-retried: without-partial-unfold at={}..{}",
-            span.start, span.end
-        );
-    }
+    crate::metrics::emit(
+        "STITCHWORT_REWRITE_METRICS",
+        "rewrite-retried: without-partial-unfold",
+        format_args!("{}..{}", span.start, span.end),
+    );
 }
 
 fn rewrite_goal_once(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {

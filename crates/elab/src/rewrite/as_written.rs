@@ -327,7 +327,7 @@ fn attempt(
 
 /// Prints `outcome` for `rule` when `STITCHWORT_REWRITE_METRICS` is set.
 fn report(outcome: &Outcome, mode: Mode, reading: Reading, rule: &RewriteRule) {
-    if std::env::var_os("STITCHWORT_REWRITE_METRICS").is_none() {
+    if !crate::metrics::wanted("STITCHWORT_REWRITE_METRICS") {
         return;
     }
     let name = match (outcome, mode) {
@@ -342,7 +342,11 @@ fn report(outcome: &Outcome, mode: Mode, reading: Reading, rule: &RewriteRule) {
         (Outcome::Failed, _) => "failed",
         (Outcome::Unchecked, _) => "unchecked",
     };
-    eprintln!("rewrite-as-written: {name} at={}", rule.proof.span().start);
+    crate::metrics::emit(
+        "STITCHWORT_REWRITE_METRICS",
+        &format!("rewrite-as-written: {name}"),
+        rule.proof.span().start,
+    );
 }
 
 /// When [`search`] finds today's instance ([`todays_instance`]).
