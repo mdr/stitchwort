@@ -1044,15 +1044,21 @@ tasks:
 
   lane:merge:
     silent: true
-    desc: 'Merge a lane into main (task lane:merge MSG="Merge SW-1083: ..." -- SW-1083); fails unless the lane ends up in main'
+    desc: 'Merge a guarded lane into main (task lane:merge MSG="Merge SW-1083: ..." -- SW-1083); ALLOW_BOARD=1 and ALLOW_REVERT=1 override the guard'
     summary: |
       Refuses a main checkout with uncommitted changes. MSG is the merge commit's message; TRAILER, if set, is
-      appended after a blank line (the session's commit trailer). A conflict only in board/tickets.json keeps
-      main's side (the board steps that follow set the ticket again); any other conflict aborts the merge.
-      Exits non-zero unless the lane's tip is in main afterwards, so a chain joined with && stops there.
+      appended after a blank line (the session's commit trailer). Before merging, scripts/lane-merge-guard prints
+      the lane's full diff --stat against its merge-base with main and refuses a lane that changes
+      board/tickets.json or docs/worklog/ or docs/agent-feedback/ (ALLOW_BOARD=1 allows it), or that restores
+      files to their state before a recent first-parent merge on the merge-base's history, undoing that merge
+      (ALLOW_REVERT=1 allows it). A conflict only in board/tickets.json keeps main's side (the board steps that
+      follow set the ticket again); any other conflict aborts the merge. Exits non-zero unless the lane's tip is
+      in main afterwards, so a chain joined with && stops there.
     env:
       MERGE_MSG: '{{.MSG}}'
       MERGE_TRAILER: '{{.TRAILER}}'
+      ALLOW_BOARD: '{{.ALLOW_BOARD}}'
+      ALLOW_REVERT: '{{.ALLOW_REVERT}}'
     cmds:
       - |
         set -u
@@ -1062,6 +1068,7 @@ tasks:
         [ "$(git branch --show-current)" = main ] || { echo 'not on main' >&2; exit 1; }
         git diff --quiet && git diff --cached --quiet || { echo 'main checkout has uncommitted changes: commit them first' >&2; exit 1; }
         tip=$(git rev-parse -q --verify "lane/$name") || { echo "no branch lane/$name" >&2; exit 1; }
+        '{{.ROOT_DIR}}/scripts/lane-merge-guard' "lane/$name" main
         msg=$MERGE_MSG
         [ -z "$MERGE_TRAILER" ] || msg="$msg
 
