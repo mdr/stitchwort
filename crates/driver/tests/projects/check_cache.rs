@@ -659,14 +659,20 @@ fn writing_an_entry_deletes_the_units_older_ones() {
 /// A library file that runs out of resources is marked loaded (its error
 /// is the program's answer, E-RESOURCE), but no entry is written for it:
 /// a later run elaborates it again and runs out again.
+///
+/// The library is checked under at least the default work, size and frame
+/// limits whatever the session's (SW-3711), so only the stack limit, which
+/// depends on the thread, can make one of its files run out. How much
+/// stack the library's files need changes with std, so the test doesn't
+/// name an amount: it doubles the limit from a tiny one until the first
+/// that lets some files load but not all.
 #[test]
 fn a_file_that_runs_out_of_resources_is_not_written() {
-    let dir = temp_dir("resource");
-    let attempt = || {
+    let attempt = |dir: &Path, stack: usize| {
         with_stack(STACK, || {
             let mut session = Session::for_stack(STACK);
-            session.elab.options.limits.work = 20_000;
-            session.use_check_cache(&dir);
+            session.elab.options.limits.stack = stack;
+            session.use_check_cache(dir);
             let result = session.elab.load_all_libraries();
             (
                 result,
@@ -675,17 +681,27 @@ fn a_file_that_runs_out_of_resources_is_not_written() {
             )
         })
     };
-    let (result, cold, loaded) = attempt();
-    let errors = result.expect_err("the limit is too low for the library");
+    let mut stack = 16 * 1024;
+    let (dir, errors, cold, loaded) = loop {
+        assert!(stack <= STACK, "no stack limit made the library run out");
+        let dir = temp_dir("resource");
+        let (result, cold, loaded) = attempt(&dir, stack);
+        match result {
+            Err(errors) if cold.written > 0 => break (dir, errors, cold, loaded),
+            _ => {
+                let _ = std::fs::remove_dir_all(&dir);
+                stack *= 2;
+            }
+        }
+    };
     assert!(errors.iter().any(|d| d.code == "E-RESOURCE"), "{errors:?}");
     assert_eq!(cold.uncacheable, 0);
-    assert!(cold.written > 0, "some files load within the limit");
     assert_eq!(
         cold.written + 1,
         loaded,
         "every file but the one that ran out"
     );
-    let (result, warm, _) = attempt();
+    let (result, warm, _) = attempt(&dir, stack);
     assert!(result.is_err_and(|ds| ds.iter().any(|d| d.code == "E-RESOURCE")));
     assert_eq!((warm.hits, warm.misses), (cold.written, 1));
     let _ = std::fs::remove_dir_all(&dir);
@@ -1166,9 +1182,16 @@ fn std_with_cacheable_float() -> PathBuf {
     );
     let float = std.join("Float/Float.sw");
     let text = std::fs::read_to_string(&float).unwrap();
-    let cut = text
-        .find("\n-- The other rounding operations")
-        .expect("Float.sw's primitives, after `Float.sub`");
+    // `Float.sub` is the last declaration the cut file needs; the blank line
+    // after its block is the cut. Found by declaration, not by a comment,
+    // which std's edits move.
+    let sub = text
+        .find("\ndef Float.sub ")
+        .expect("Float.sw declares `Float.sub`");
+    let cut = sub
+        + text[sub..]
+            .find("\n\n")
+            .expect("a blank line after `Float.sub`");
     std::fs::write(&float, &text[..cut + 1]).unwrap();
     // The library must still declare every Float built-in, so the rest of
     // the file, primitives included, moves to a file of its own, which this

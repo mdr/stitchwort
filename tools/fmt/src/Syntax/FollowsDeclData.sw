@@ -1143,15 +1143,10 @@ theorem followsDeclarationRefusal ∀ (rule: ExpressionRule) (alts: AltPatternFo
   rewrite refused then
     match attributesRefused attributesTwin next with
       | Some message => followsFatalAny _ (() => Syntax.fatal message)
-      | None =>
-        followsThenEq
-          [j := kind => declarationFinish modes (declarationKind seen modes attributes kind)]
-          [k := kind => declarationFinish modes (declarationKind seen modes attributesTwin kind)]
-          (followsPeek modes)
-          (kind =>
-            Parse.followsThen
-              (followsDeclarationKind rule alts seen modes attributes attributesTwin attributeses kind)
-              (decl declTwin decls => followsDeclarationFinish modes decl declTwin decls))
+      | None => followsThenEq (followsPeek modes) (kind =>
+        Parse.followsThen
+          (followsDeclarationKind rule alts seen modes attributes attributesTwin attributeses kind)
+          (decl declTwin decls => followsDeclarationFinish modes decl declTwin decls))
 
 theorem followsDeclarationAttributes ∀ (rule: ExpressionRule) (alts: AltPatternFollows) (seen: Seen)
     (modes: Modes) (attributes attributesTwin: List Attributes)

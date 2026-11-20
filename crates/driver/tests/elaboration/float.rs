@@ -40,19 +40,22 @@ fn the_float_natives_agree_with_their_definitions() {
 
 /// With every native off (the `n0` mode), `Float` can't be checked at all:
 /// its proofs compute with 64-bit patterns, and without the number natives
-/// `Nat.leq` and `Nat.sub` count down one `Succ` at a time. The session runs
-/// out of its work budget instead of looping (a small one, so this is
-/// quick).
+/// `Nat.leq` and `Nat.sub` count down one `Succ` at a time. The session is
+/// stopped instead of looping. A work limit can't do it: `Float` loads under
+/// at least the default limits whatever the session's (SW-3711), and under
+/// them its check ran to 16 GB, so a deadline stops it (a few seconds are
+/// far short of a check that long).
 #[test]
 fn with_every_native_off_float_runs_out_of_budget() {
-    let limits = Limits {
-        work: 2_000_000,
-        ..Limits::default()
-    };
-    let checks = float_gate::run(&[Mode::AllNativesOff], limits);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    let checks = float_gate::run_until(&[Mode::AllNativesOff], Limits::default(), Some(deadline));
     let loaded = &checks[0];
     assert!(!loaded.passed, "{loaded:?}");
     assert!(loaded.detail.contains("E-RESOURCE"), "{loaded:?}");
+    assert!(
+        loaded.detail.contains("took longer than the time allowed"),
+        "{loaded:?}"
+    );
 }
 
 /// `Float` and the definitions with float natives are the declarations the

@@ -254,6 +254,18 @@ pub(crate) struct Decl {
     /// purpose: the attempt that wanted the equation is undone before the
     /// `match` reads it.
     pub(crate) equation_wanted: RefCell<Vec<Span>>,
+    /// The conditions (by span) of the guards whose refined arms are being
+    /// checked (`matching::refined_guard`): a `rewrite` in them that finds
+    /// nothing because the refinement already replaced the condition is a
+    /// warning, not an error (`W-REWRITE-GUARD-REFINED`, D3701).
+    pub(crate) guard_refined: RefCell<Vec<Span>>,
+    /// Above 0 while a guarded proof arm whose refined split failed is
+    /// checked again unrefined (`check::check_guard_if`): the guards inside
+    /// don't refine either.
+    pub(crate) unrefined_guards: Cell<usize>,
+    /// Above 0 while a refined split is checked again for its errors, after
+    /// the unrefined one failed too: the guards inside don't retry.
+    pub(crate) guard_no_retry: Cell<usize>,
     /// The clauses of a `match reify` being checked. Each one is required
     /// whatever its case, so `W-UNREACHABLE` doesn't offer to delete them
     /// (`reify.rs`, `families.rs`).
@@ -393,6 +405,9 @@ impl Decl {
             coverage_only,
             quiet_refl,
             equation_wanted,
+            guard_refined,
+            unrefined_guards,
+            guard_no_retry,
             keep_arms,
             kept_by_a_check,
             builds,
@@ -448,6 +463,9 @@ impl Decl {
             ("coverage_only", coverage_only.get() == 0),
             ("quiet_refl", quiet_refl.get() == 0),
             ("equation_wanted", equation_wanted.borrow().is_empty()),
+            ("guard_refined", guard_refined.borrow().is_empty()),
+            ("unrefined_guards", unrefined_guards.get() == 0),
+            ("guard_no_retry", guard_no_retry.get() == 0),
             ("keep_arms", keep_arms.borrow().is_empty()),
             ("kept_by_a_check", kept_by_a_check.borrow().is_empty()),
             ("builds", builds.borrow().is_empty()),

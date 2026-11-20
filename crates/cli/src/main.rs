@@ -421,6 +421,12 @@ enum Command {
         /// stopped. Checks without the check cache
         #[arg(long, conflicts_with_all = ["index", "counterexamples"])]
         expand_walk: bool,
+        /// With --expand-walk: print each file's expanded text on standard
+        /// output instead of writing it back, leaving the file unchanged.
+        /// The trace lines then go to standard error, so standard output is
+        /// just the file text
+        #[arg(long)]
+        stdout: bool,
         #[command(flatten)]
         counterexamples: CounterexampleArgs,
         #[command(flatten)]
@@ -1192,6 +1198,7 @@ fn run(cli: Cli) -> ExitCode {
             only,
             expand_repeatedly,
             expand_walk,
+            stdout,
             counterexamples,
             cache,
             timings: _,
@@ -1200,7 +1207,7 @@ fn run(cli: Cli) -> ExitCode {
             project.as_deref(),
             index.as_deref(),
             &only,
-            (expand_repeatedly, expand_walk),
+            (expand_repeatedly, expand_walk, stdout),
             &counterexamples,
             &cache,
         ),
@@ -2226,10 +2233,14 @@ fn check(
     project: Option<&Path>,
     index: Option<&str>,
     only: &[String],
-    (expand, expand_walk): (bool, bool),
+    (expand, expand_walk, to_stdout): (bool, bool, bool),
     counterexamples: &CounterexampleArgs,
     cache: &CacheArgs,
 ) -> ExitCode {
+    if to_stdout && !expand_walk {
+        eprintln!("error: --stdout is only for --expand-walk");
+        return ExitCode::FAILURE;
+    }
     let files = targets.iter().filter(|t| is_file_target(t)).count();
     if files > 0 && !only.is_empty() {
         eprintln!("error: --only names theorems of a project's namespaces, not of a file");
@@ -2281,7 +2292,7 @@ fn check(
                 ok = write_expansions(&session, Path::new(".")) && ok;
             }
             if expand_walk {
-                ok = write_walk_expansions(&session, Path::new(".")) && ok;
+                ok = write_walk_expansions(&session, Path::new("."), to_stdout) && ok;
             }
             discard(session);
         }
@@ -2376,7 +2387,7 @@ fn check(
         ok = write_expansions(&session, &project.dir) && ok;
     }
     if expand_walk {
-        ok = write_walk_expansions(&session, &project.dir) && ok;
+        ok = write_walk_expansions(&session, &project.dir, to_stdout) && ok;
     }
     discard(session);
     if stopped {
@@ -2519,8 +2530,10 @@ fn write_expansions(session: &Session, base: &Path) -> bool {
 /// `check --expand-walk`: writes back each file with a walk checked, each
 /// replaced by the chain it stands for
 /// ([`stitchwort_elab::expand_walk_file`]), and prints each walk's trace.
-/// A file's name is read from `base` if it isn't found as it is.
-fn write_walk_expansions(session: &Session, base: &Path) -> bool {
+/// With `to_stdout`, prints the expanded text on standard output instead of
+/// writing it, and puts the trace on standard error. A file's name is read
+/// from `base` if it isn't found as it is.
+fn write_walk_expansions(session: &Session, base: &Path, to_stdout: bool) -> bool {
     let expansions = session.elab.take_walk_expansions();
     for (file, source) in session.sources.iter() {
         let mine: Vec<_> = expansions.iter().filter(|e| e.span.file == file).collect();
@@ -2529,12 +2542,28 @@ fn write_walk_expansions(session: &Session, base: &Path) -> bool {
         }
         for e in &mine {
             let line = source.text[..e.span.range().start].matches('\n').count() + 1;
-            println!("{}:{line}: walk", source.name);
+            let header = format!("{}:{line}: walk", source.name);
+            if to_stdout {
+                eprintln!("{header}");
+            } else {
+                println!("{header}");
+            }
             for step in &e.trace {
-                println!("  {}", stitchwort_elab::walk_trace_line(&source.text, step));
+                let step = stitchwort_elab::walk_trace_line(&source.text, step);
+                if to_stdout {
+                    eprintln!("  {step}");
+                } else {
+                    println!("  {step}");
+                }
             }
         }
         let (text, done) = stitchwort_elab::expand_walk_file(&source.text, file, &expansions);
+        let plural = if done == 1 { "" } else { "s" };
+        if to_stdout {
+            print!("{text}");
+            eprintln!("expanded {done} walk{plural} in {}", source.name);
+            continue;
+        }
         let name = Path::new(&source.name);
         let path = [
             Some(name.to_path_buf()),
@@ -2549,7 +2578,6 @@ fn write_walk_expansions(session: &Session, base: &Path) -> bool {
             eprintln!("error: can't write {}: {e}", path.display());
             return false;
         }
-        let plural = if done == 1 { "" } else { "s" };
         eprintln!("expanded {done} walk{plural} in {}", path.display());
     }
     true

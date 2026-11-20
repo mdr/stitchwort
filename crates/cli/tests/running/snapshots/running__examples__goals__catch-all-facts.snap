@@ -140,6 +140,7 @@ expression: output
     │               ┬  
     │               ╰── p: Nat → Prop
     │                   b: Bool
+    │                   b
     │                   ⊢ p 5
 ────╯
 [GOAL] Goal: in `guarded`

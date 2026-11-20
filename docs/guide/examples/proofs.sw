@@ -218,6 +218,12 @@ theorem wordStartLetter ∀ (c: Char) (rest: List Char)
   cases
 -- end cases-guards
 
+-- begin guard-refines
+theorem capAtMost ∀ (limit n: Nat): cap limit n <= limit := match n with
+  | n if n <= limit => arithmetic
+  | _ => arithmetic
+-- end guard-refines
+
 -- begin guard-induct
 def countBig: List Nat → Nat
   | [] => 0

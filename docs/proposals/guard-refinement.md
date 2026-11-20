@@ -1,8 +1,10 @@
 # A guard in a proof's `match` that refines the goal
 
 **Status:** design note, 20 November 2026 (SW-4375, from SW-4047 item 1;
-docs/reviews/SW-4047-guard-refinement.md). Waiting on Matt: D3701 (§8).
-Nothing is built.
+docs/reviews/SW-4047-guard-refinement.md). D3701 decided yes (Matt, 20 Nov
+2026). Built: SW-4385, SW-4389, SW-4376; part 2 SW-4391. Two claims below
+were corrected in building: `match g: b` on a variable generalises rather
+than splitting the column, and `eitherWay` refines (SW-4391, SW-4402).
 
 Claims are marked **[source]** (read at `666429fbd`), **[measured]** (the
 main checkout's release binary, built 11:44 today, on scratch files in the

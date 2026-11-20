@@ -751,6 +751,322 @@ pub(crate) fn generalised_named(
     result
 }
 
+/// The name of the equation a guard refining a proof's goal binds
+/// ([`refined_guard`]). No source can name it: the arms get the guard's fact
+/// in its own form instead.
+const GUARD_EQUATION: &str = "%guard";
+
+/// A guard `cond` in a proof's `match`, split as `match h: cond with | True
+/// => … | False => …` splits (D3701, docs/proposals/guard-refinement.md):
+/// `scrutinee`, the `Bool` the condition tests, is generalised in the goal
+/// and the hypotheses, and `arm` is called once per case, `true` first, with
+/// the case's goal and the level of the equation `scrutinee = True` (or
+/// `False`). What `arm` returns is the case's body.
+///
+/// `None`, with nothing done, where the goal can't be generalised: what it
+/// reads waits on an unknown, something is too large to read back
+/// unfolded, or the motive doesn't check. The caller then splits as before,
+/// without refining, so that no proof that checks unrefined stops checking.
+/// An error from `arm` is passed on.
+pub(crate) fn refined_guard(
+    cx: &mut Ctx,
+    scrutinee: Term,
+    span: stitchwort_syntax::Span,
+    goal: &Value,
+    in_place: bool,
+    arm: &mut dyn FnMut(&mut Ctx, bool, &Value, usize) -> Result<Term>,
+) -> Result<Option<Term>> {
+    let g = cx.g();
+    let base = cx.level();
+    if in_place {
+        return match in_place_level(cx, &scrutinee, base)? {
+            Some(level) => refined_in_place(cx, level, &scrutinee, span, goal, arm).map(Some),
+            None => Ok(None),
+        };
+    }
+    let mark = cx.mark();
+    let snapshot = crate::undo::Snapshot::take(cx);
+    let bool_data = crate::check::builtin_data(cx, stitchwort_core::registry::Builtin::Bool)?;
+    let prepared = (|| -> Result<Option<(Bound, Term)>> {
+        let normal = quote_unfolded(&g, base, &cx.eval(&scrutinee)?)?;
+        let exprs = vec![Scrut {
+            term: scrutinee.clone(),
+            normal: Some(normal.clone()),
+            ty: Value::Data(bool_data, Vec::new().into()),
+            ty_term: Term::Data(bool_data, Vec::new()),
+            name: Some(ast::Name {
+                text: GUARD_EQUATION.into(),
+                span,
+            }),
+            span,
+            alias: None,
+        }];
+        let mut too_large = None;
+        if blocker(cx, &exprs, goal, base, None, &mut too_large)?.is_some() || too_large.is_some() {
+            return Ok(None);
+        }
+        let mut type_terms = Vec::with_capacity(base);
+        for l in 0..base {
+            match read_type(cx, base, l)? {
+                (ty, false) => type_terms.push(ty),
+                // Read as written: the occurrence test can't be trusted.
+                (_, true) => return Ok(None),
+            }
+        }
+        let goal_term = quote_internal(&g, base, goal)?;
+        let occurrences = [Some(&normal)];
+        let mut copied: Vec<usize> = Vec::new();
+        loop {
+            let before = copied.len();
+            for (l, ty) in type_terms.iter().enumerate() {
+                if copied.contains(&l) {
+                    continue;
+                }
+                let unrefined = is_var(&cx.env[l], l) || cx.lets[l].is_some();
+                if unrefined
+                    && (any_occurs(&occurrences, ty)
+                        || free_levels(ty, base).iter().any(|f| copied.contains(f)))
+                {
+                    copied.push(l);
+                }
+            }
+            if copied.len() == before {
+                break;
+            }
+        }
+        copied.sort_unstable();
+        let goal_folded = unrefined_goal(cx, &occurrences, &copied, goal, &goal_term, base)?;
+        let today = as_written::Today {
+            occurrences: &occurrences,
+            copied: &copied,
+            type_terms: &type_terms,
+            goal_term: &goal_term,
+            goal_folded: goal_folded.as_ref(),
+        };
+        let unbound = crate::undo::Snapshot::take(cx);
+        let bound = bind_generalised(cx, &exprs, &today, None, base, None)?;
+        if motive_checks_now(cx, base, &bound.extra, &bound.motive, span)? {
+            return Ok(Some((bound, normal)));
+        }
+        // A program's `if` that used the condition's proof is
+        // `Decidable.elim` on its decision: generalised with the decision's
+        // proofs carried along the equation ([`Transport`]), as a `match`
+        // on the decision's test is.
+        unbound.restore(cx);
+        let transport = Some(Transport::new(cx)?);
+        let bound = bind_generalised(cx, &exprs, &today, None, base, transport)?;
+        if motive_checks_now(cx, base, &bound.extra, &bound.motive, span)? {
+            return Ok(Some((bound, normal)));
+        }
+        Ok(None)
+    })();
+    let (bound, normal) = match prepared {
+        Ok(Some(prepared)) => prepared,
+        Err(e) if crate::undo::fatal(&e) && !crate::undo::recoverable(cx, &e) => return Err(e),
+        failed => {
+            if let Err(e) = &failed
+                && crate::undo::recoverable(cx, e)
+            {
+                crate::undo::recovered(cx);
+            }
+            snapshot.restore(cx);
+            return Ok(None);
+        }
+    };
+    let Bound {
+        extra,
+        equations,
+        copies,
+        motive,
+        ..
+    } = bound;
+    let x = base;
+    let copies: Rc<[(usize, usize)]> = copies.into();
+    let equation = equations[0].1;
+    // Within the arms, a proof whose type still has the condition where the
+    // goal has `True` or `False` is carried along the equation, as in a
+    // `match`'s arms (`Ctx::along_match_equation`).
+    let known = cx.scrutinees.len();
+    cx.scrutinees.push((base, normal, span, x, Some(equation)));
+    cx.e.decl.guard_refined.borrow_mut().push(span);
+    let shown = crate::arm_display::note_scrutinees(cx, [&scrutinee].into_iter(), base, &equations);
+    let body = (|| -> Result<Term> {
+        let goal_term = cx.quote_folded(&motive)?;
+        let mut cases: [Option<Term>; 2] = [None, None];
+        let mut failed = Vec::new();
+        for holds in [true, false] {
+            let value = Value::Ctor(bool_data, usize::from(holds), Vec::new().into());
+            let mut env = kernel::substitute_folded(&g, &cx.env, x, &value, &cx.env)?;
+            env[x] = value.clone();
+            let refined = kernel::substitute_folded(&g, &cx.env, x, &value, &cx.types)?;
+            let case_goal = kernel::substitute_folded(
+                &g,
+                &cx.env,
+                x,
+                &value,
+                &[stitchwort_core::value::eval(&g, &cx.env, &goal_term)?],
+            )?
+            .pop()
+            .expect("one value in, one out");
+            let saved_env = std::mem::replace(&mut cx.env, env);
+            let saved_types = std::mem::replace(&mut cx.types, refined);
+            let saved_copies = std::mem::replace(&mut cx.guard_copies, copies.clone());
+            let case_mark = cx.mark();
+            let result = arm(cx, holds, &case_goal, equation);
+            cx.reset(case_mark);
+            cx.guard_copies = saved_copies;
+            cx.env = saved_env;
+            cx.types = saved_types;
+            match result {
+                Ok(term) => cases[usize::from(holds)] = Some(term),
+                Err(e) if crate::undo::fatal(&e) || g.machine.budget.exhausted().is_some() => {
+                    return Err(e);
+                }
+                Err(e) => failed.push(e),
+            }
+        }
+        let mut failed = failed.into_iter();
+        if let Some(first) = failed.next() {
+            cx.e.attempt.branch_errors.borrow_mut().extend(failed);
+            return Err(first);
+        }
+        let branches: Vec<stitchwort_core::term::Branch> = cases
+            .into_iter()
+            .map(|body| stitchwort_core::term::Branch {
+                names: Vec::new(),
+                body: body.map(Rc::new),
+            })
+            .collect();
+        Ok(Term::Loc(
+            span,
+            Rc::new(Term::Case(cx.level() - 1 - x, bool_data, branches.into())),
+        ))
+    })();
+    crate::arm_display::forget_scrutinees(cx, shown);
+    cx.e.decl.guard_refined.borrow_mut().pop();
+    cx.scrutinees.truncate(known);
+    let result = body.and_then(|body| {
+        lift::draft_with(
+            cx,
+            base,
+            extra,
+            body,
+            &motive,
+            span,
+            false,
+            Some((vec![x], vec![Some(equation)])),
+        )
+    });
+    cx.reset(mark);
+    result.map(Some)
+}
+
+/// The level of the variable a guard's condition `scrutinee` is, if it is
+/// one the guard can split where it is ([`refined_in_place`]): a variable
+/// of the context, not a `let`, that the arms below don't split.
+fn in_place_level(cx: &Ctx, scrutinee: &Term, base: usize) -> Result<Option<usize>> {
+    let g = cx.g();
+    Ok(
+        match stitchwort_core::value::force(&g, cx.eval(scrutinee)?)? {
+            Value::Neutral(Head::Var(level, _), spine)
+                if spine.is_empty()
+                    && level < base
+                    && is_var(&cx.env[level], level)
+                    && cx.lets[level].is_none()
+                    && !cx.guard_splits.contains(&level) =>
+            {
+                Some(level)
+            }
+            _ => None,
+        },
+    )
+}
+
+/// [`refined_guard`] for a condition that is a variable of the context,
+/// `level`, which the arms don't split again: it is split where it is, as
+/// `match` splits a variable, so that in each arm the variable is `True`
+/// or `False` wherever it appears, under any name. The equation `arm` is
+/// given reads `True = True` (or `False = False`) once split.
+fn refined_in_place(
+    cx: &mut Ctx,
+    level: usize,
+    scrutinee: &Term,
+    span: stitchwort_syntax::Span,
+    goal: &Value,
+    arm: &mut dyn FnMut(&mut Ctx, bool, &Value, usize) -> Result<Term>,
+) -> Result<Term> {
+    let g = cx.g();
+    let base = cx.level();
+    let bool_data = crate::check::builtin_data(cx, stitchwort_core::registry::Builtin::Bool)?;
+    let goal_term = cx.quote_folded(goal)?;
+    cx.e.decl.guard_refined.borrow_mut().push(span);
+    let no_copies = std::mem::replace(&mut cx.guard_copies, Rc::from([]));
+    let body = (|| -> Result<Term> {
+        let mut cases: [Option<Term>; 2] = [None, None];
+        let mut failed = Vec::new();
+        for holds in [true, false] {
+            let ctor = usize::from(holds);
+            let value = Value::Ctor(bool_data, ctor, Vec::new().into());
+            let mut env = kernel::substitute_folded(&g, &cx.env, level, &value, &cx.env)?;
+            env[level] = value.clone();
+            let refined = kernel::substitute_folded(&g, &cx.env, level, &value, &cx.types)?;
+            let case_goal = kernel::substitute_folded(
+                &g,
+                &cx.env,
+                level,
+                &value,
+                &[stitchwort_core::value::eval(&g, &cx.env, &goal_term)?],
+            )?
+            .pop()
+            .expect("one value in, one out");
+            let saved_env = std::mem::replace(&mut cx.env, env);
+            let saved_types = std::mem::replace(&mut cx.types, refined);
+            let case_mark = cx.mark();
+            let result = (|| -> Result<Term> {
+                let equation = Term::Eq(
+                    Some(Rc::new(Term::Data(bool_data, Vec::new()))),
+                    Rc::new(scrutinee.clone()),
+                    Rc::new(Term::Ctor(bool_data, ctor, Vec::new())),
+                );
+                let ty = cx.eval(&equation)?;
+                let ty_term = cx.quote_folded(&ty)?;
+                cx.bind(GUARD_EQUATION, ty);
+                let body = arm(cx, holds, &case_goal, base)?;
+                Ok(Term::let_(GUARD_EQUATION.into(), ty_term, Term::Refl, body))
+            })();
+            cx.reset(case_mark);
+            cx.env = saved_env;
+            cx.types = saved_types;
+            match result {
+                Ok(term) => cases[ctor] = Some(term),
+                Err(e) if crate::undo::fatal(&e) || g.machine.budget.exhausted().is_some() => {
+                    return Err(e);
+                }
+                Err(e) => failed.push(e),
+            }
+        }
+        let mut failed = failed.into_iter();
+        if let Some(first) = failed.next() {
+            cx.e.attempt.branch_errors.borrow_mut().extend(failed);
+            return Err(first);
+        }
+        let branches: Vec<stitchwort_core::term::Branch> = cases
+            .into_iter()
+            .map(|body| stitchwort_core::term::Branch {
+                names: Vec::new(),
+                body: body.map(Rc::new),
+            })
+            .collect();
+        Ok(Term::Loc(
+            span,
+            Rc::new(Term::Case(base - 1 - level, bool_data, branches.into())),
+        ))
+    })();
+    cx.guard_copies = no_copies;
+    cx.e.decl.guard_refined.borrow_mut().pop();
+    lift::draft(cx, base, Vec::new(), body?, goal, span)
+}
+
 /// A `match` with expression scrutinees, generalised: now, or, if what its
 /// generalisation reads holds an unknown not solved yet, once it is solved
 /// (step 4.0 of stage 4, D2090; docs/proposals/postponement.md). The
@@ -1494,6 +1810,7 @@ fn in_arms(
         equations,
         depth,
         motive,
+        ..
     } = bound;
     let levels: Vec<usize> = columns
         .iter()
@@ -1621,6 +1938,8 @@ fn unrefined_goal(
 struct Bound {
     extra: Vec<Term>,
     equations: Vec<(usize, usize)>,
+    /// Each copied variable's level, with its copy's.
+    copies: Vec<(usize, usize)>,
     depth: usize,
     motive: Value,
 }
@@ -1728,9 +2047,12 @@ fn bind_generalised(
         .apply(&g, today.goal_term)?,
     };
     let motive = cx.eval(&goal_term)?;
+    let mut copies: Vec<(usize, usize)> = copies.into_iter().collect();
+    copies.sort_unstable();
     Ok(Bound {
         extra,
         equations,
+        copies,
         depth,
         motive,
     })

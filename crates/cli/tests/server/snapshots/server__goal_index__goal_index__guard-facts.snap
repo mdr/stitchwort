@@ -1,0 +1,310 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "facts": [
+        "c == '('"
+      ],
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Char → Prop"
+        },
+        {
+          "name": "c",
+          "type": "Char"
+        }
+      ],
+      "lemma": "theorem charactersGoal1 (p: Char → Prop) (c: Char) (h: c == '('): p c := ?",
+      "target": "p c"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Char → Prop\nc: Char\nc == '('\n⊢ p c",
+        "range": [
+          7,
+          21,
+          7,
+          22
+        ]
+      }
+    ],
+    "message": "in `characters`",
+    "notes": [],
+    "range": [
+      7,
+      21,
+      7,
+      22
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "facts": [
+        "(c == '(') = False",
+        "c == ')'"
+      ],
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Char → Prop"
+        },
+        {
+          "name": "c",
+          "type": "Char"
+        }
+      ],
+      "lemma": "theorem charactersGoal2 (p: Char → Prop) (c: Char) (h: (c == '(') = False) (h2: c == ')'): p c := ?",
+      "target": "p c"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Char → Prop\nc: Char\n(c == '(') = False\nc == ')'\n⊢ p c",
+        "range": [
+          8,
+          21,
+          8,
+          22
+        ]
+      }
+    ],
+    "message": "in `characters`",
+    "notes": [],
+    "range": [
+      8,
+      21,
+      8,
+      22
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "facts": [
+        "(c == '(') = False",
+        "(c == ')') = False"
+      ],
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Char → Prop"
+        },
+        {
+          "name": "c",
+          "type": "Char"
+        }
+      ],
+      "lemma": "theorem charactersGoal3 (p: Char → Prop) (c: Char) (h: (c == '(') = False) (h2: (c == ')') = False): p c := ?",
+      "target": "p c"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Char → Prop\nc: Char\n(c == '(') = False\n(c == ')') = False\n⊢ p c",
+        "range": [
+          9,
+          9,
+          9,
+          10
+        ]
+      }
+    ],
+    "message": "in `characters`",
+    "notes": [],
+    "range": [
+      9,
+      9,
+      9,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "facts": [
+        "n < 3"
+      ],
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Nat → Prop"
+        },
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem propositionsGoal1 (p: Nat → Prop) (n: Nat) (h: n < 3): p n := ?",
+      "target": "p n"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Nat → Prop\nn: Nat\nn < 3\n⊢ p n",
+        "range": [
+          12,
+          18,
+          12,
+          19
+        ]
+      }
+    ],
+    "message": "in `propositions`",
+    "notes": [],
+    "range": [
+      12,
+      18,
+      12,
+      19
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "facts": [
+        "¬(n < 3)"
+      ],
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Nat → Prop"
+        },
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem propositionsGoal2 (p: Nat → Prop) (n: Nat) (h: ¬(n < 3)): p n := ?",
+      "target": "p n"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Nat → Prop\nn: Nat\n¬(n < 3)\n⊢ p n",
+        "range": [
+          13,
+          9,
+          13,
+          10
+        ]
+      }
+    ],
+    "message": "in `propositions`",
+    "notes": [],
+    "range": [
+      13,
+      9,
+      13,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Nat → Prop"
+        },
+        {
+          "name": "n",
+          "type": "Nat"
+        },
+        {
+          "name": "g",
+          "type": "n == 0"
+        }
+      ],
+      "lemma": "theorem namedGoal1 (p: Nat → Prop) (n: Nat) (g: n == 0): p n := ?",
+      "target": "p n"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Nat → Prop\nn: Nat\ng: n == 0\n⊢ p n",
+        "range": [
+          16,
+          22,
+          16,
+          23
+        ]
+      }
+    ],
+    "message": "in `named`",
+    "notes": [],
+    "range": [
+      16,
+      22,
+      16,
+      23
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "facts": [
+        "(n == 0) = False"
+      ],
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Nat → Prop"
+        },
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem namedGoal2 (p: Nat → Prop) (n: Nat) (h: (n == 0) = False): p n := ?",
+      "target": "p n"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Nat → Prop\nn: Nat\n(n == 0) = False\n⊢ p n",
+        "range": [
+          17,
+          9,
+          17,
+          10
+        ]
+      }
+    ],
+    "message": "in `named`",
+    "notes": [],
+    "range": [
+      17,
+      9,
+      17,
+      10
+    ],
+    "severity": "goal"
+  }
+]

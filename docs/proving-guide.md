@@ -411,7 +411,8 @@ Import what you use: std's theorems live in namespaces that need an import
   directly (`Parse.mark().left`) can't be registered with `@[walk]`; name
   its lemma in the brackets instead (`byWalking [Parse.readsAtLeft start]`).
   Where two leaves need different proofs, run
-  `stitchwort check --expand-walk` and edit the chain it writes; keep the
+  `stitchwort check --expand-walk` and edit the chain it writes (or add
+  `--stdout` to print it, leaving the file alone); keep the
   walk only where it is shorter than the chain.
   A two-run statement (`Parse.Follows`) is walked in lockstep: the walk
   needs no `followsThenEq`, since it rewrites values the lemma says are
@@ -767,15 +768,29 @@ scratch file on 19 Nov 2026).
       | True => Void.impossible (Option.noneNotSome m found)
       | False => Option.someInjective found   -- not `(rewrite c at found)`
   ```
-- **A guard in a proof's `match` gives a fact but refines nothing.** In a
-  theorem, `| c if c == '(' => …` gives the arm the fact `(c == '(') =
-  True`, and the arms below it its failure; `cases` and `arithmetic` use
-  them, but the goal and the hypotheses keep `c == '('` as they had it, so
-  a goal stuck on the program's `if c == '(' …` stays stuck and
-  `byComputing` there fails. The fact is shown in the goal only when named
-  (`| c if g: c == '(' => …`). To follow a program's guard step by step,
-  match on its condition instead, which refines both: `match g: c == '('
-  with | True => … | False => …`.
+- **A guard in a proof's `match` refines the goal, as `match` on its
+  condition does** (D3701). In a theorem, `| c if c == '(' => …` replaces
+  `c == '('` by `True` in the arm and by `False` in the arms below, in the
+  goal and in the hypotheses, so a goal stuck on the program's `if c ==
+  '(' …` computes and a proof can follow a guarded program arm for arm.
+  A hypothesis whose type mentions the condition is refined too, under
+  the name the arm gives it; where that fails and the condition is a
+  `Bool` variable (`| 0 if flag => …`), it is split where it is, as
+  `match flag` would, so `flag` itself is `True` in the arm and `False`
+  below.
+  The arm gets the fact `(c == '(') = True` and the arms below `(c == '(')
+  = False` (a decided proposition `P` gives `P` and `¬P`); `cases` and
+  `arithmetic` use them, and the goal lists an unnamed guard's fact as a
+  line under the context, in the arm's names (`c == '('`, a `Bool` fact that is `True` printed bare, then `(c == '(') = False` below; a named
+  guard, `| c if g: c == '(' => …`, shows as `g`, in the arms below as the
+  fact), as it lists a catch-all's (`examples/goals/guard-facts.sw`). A `rewrite g` or `rewrite f.eqK … g` there
+  finds nothing to rewrite: drop it (`W-REWRITE-GUARD-REFINED`, for a
+  rewrite of the goal or `rewrite … at h`; the proof must check without
+  it, else the error stands and the guard splits as before). Where the goal
+  can't be generalised, or an arm fails refined but checks unrefined, the
+  guard gives the fact without refining;
+  `match g: c == '(' with | True => … | False => …` then tells you why
+  (`E-MATCH-MOTIVE`).
 - **A `?` prints its goal only when the checker reaches it, and only `?`
   does.** There are no named holes in a proof: `?hole` is `?` applied to a
   name `hole` (`E-UNKNOWN-NAME` for it, and a goal `(x: _) → _`). A bare `?`

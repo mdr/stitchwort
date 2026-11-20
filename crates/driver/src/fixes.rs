@@ -21,6 +21,7 @@ pub const THEOREM_FORALL: &str = binder_sweep::WARNING;
 pub const ARROW_FORALL: &str = "W-ARROW-FORALL";
 pub const REWRITE_THEN_COMPUTING: &str = "W-REWRITE-THEN-COMPUTING";
 pub const REWRITE_THEN_REWRITE: &str = "W-REWRITE-THEN-REWRITE";
+pub const REWRITE_GUARD_REFINED: &str = "W-REWRITE-GUARD-REFINED";
 
 /// How far a fix can be trusted, as Rust's `MachineApplicable` and
 /// `MaybeIncorrect`.
@@ -217,6 +218,7 @@ pub fn style_title(code: &str) -> Option<&'static str> {
         ARROW_FORALL => Some("Write ∀ instead of ->"),
         REWRITE_THEN_COMPUTING => Some("Drop `then byComputing`"),
         REWRITE_THEN_REWRITE => Some("Join into one `rewrite`"),
+        REWRITE_GUARD_REFINED => Some("Drop the rewrite"),
         _ => None,
     }
 }
@@ -243,8 +245,44 @@ pub fn style_edits(text: &str, code: &str, at: Range) -> Vec<Edit> {
                 new_text: new_text.to_string(),
             }]
         }
+        // The label covers a whole `rewrite … then`, which goes with the
+        // whitespace after it; a whole `rewrite` without `then`, which
+        // `byComputing` replaces (it is what closed the goal), or, ending in
+        // `at h`, `h` does (it is what the rewrite proved); or one rule
+        // of several with its comma.
+        REWRITE_GUARD_REFINED => {
+            let Some(label) = text.get(from..to) else {
+                return Vec::new();
+            };
+            let whole =
+                (label.strip_prefix("rewrite")).is_some_and(|r| r.starts_with(char::is_whitespace));
+            let (to, new_text) = if !whole {
+                (to, "")
+            } else if label.ends_with("then") {
+                let rest = &text[to..];
+                (to + rest.len() - rest.trim_start().len(), "")
+            } else if let Some(fact) = at_target(label) {
+                (to, fact)
+            } else {
+                (to, "byComputing")
+            };
+            vec![Edit {
+                range: span(text, from, to),
+                new_text: new_text.to_string(),
+            }]
+        }
         _ => Vec::new(),
     }
+}
+
+/// The target `h` of a whole `rewrite … at h` label, or none for a goal
+/// rewrite (or a target that isn't balanced, which a rule's own `at` could
+/// leave).
+fn at_target(label: &str) -> Option<&str> {
+    let target = label[label.rfind(" at ")? + 4..].trim();
+    let balanced =
+        |open: char, close: char| target.matches(open).count() == target.matches(close).count();
+    (!target.is_empty() && balanced('(', ')') && balanced('[', ']')).then_some(target)
 }
 
 /// The range between two byte offsets.
@@ -617,6 +655,44 @@ mod tests {
         assert_eq!(
             rewrite_fix(text, REWRITE_THEN_REWRITE, "then", "rewrite"),
             "theorem t := rewrite a, b then c\n"
+        );
+    }
+
+    #[test]
+    fn the_guard_refined_fix_drops_the_rewrite_or_its_rule() {
+        let text = "theorem t := rewrite c.eq1 n g then\n    arithmetic\n";
+        assert_eq!(
+            rewrite_fix(text, REWRITE_GUARD_REFINED, "rewrite", "then"),
+            "theorem t := arithmetic\n"
+        );
+        let text = "theorem t := Inl (rewrite g)\n";
+        assert_eq!(
+            rewrite_fix(text, REWRITE_GUARD_REFINED, "rewrite", "g"),
+            "theorem t := Inl (byComputing)\n"
+        );
+        let text = "theorem t := rewrite g, h then e\n";
+        assert_eq!(
+            rewrite_fix(text, REWRITE_GUARD_REFINED, "g", ", "),
+            "theorem t := rewrite h then e\n"
+        );
+    }
+
+    #[test]
+    fn the_guard_refined_fix_for_at_keeps_the_fact() {
+        let text = "theorem t := rewrite w.eq1 c g at h then\n    arithmetic\n";
+        assert_eq!(
+            rewrite_fix(text, REWRITE_GUARD_REFINED, "rewrite", "then"),
+            "theorem t := arithmetic\n"
+        );
+        let text = "theorem t := Inl (rewrite w.eq1 c g at h)\n";
+        assert_eq!(
+            rewrite_fix(text, REWRITE_GUARD_REFINED, "rewrite", "at h"),
+            "theorem t := Inl (h)\n"
+        );
+        let text = "theorem t := rewrite g, h at k then e\n";
+        assert_eq!(
+            rewrite_fix(text, REWRITE_GUARD_REFINED, "g", ", "),
+            "theorem t := rewrite h at k then e\n"
         );
     }
 

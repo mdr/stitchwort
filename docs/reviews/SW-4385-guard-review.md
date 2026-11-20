@@ -291,3 +291,8 @@ the `checked_sub` assertion in `check_guard`.
   (design §6's "a later W- warning"), so users can see why it didn't
   refine.
 - SW-4376 (show unnamed guard facts) still stands, as D3701 said.
+
+## Erratum (20 Nov, from SW-4391 and SW-4402)
+
+- §2 and §3a: `eitherWay` does not break. The compiler splits `b` above the guard (the arms below a guard are always flat), so it refines on main. The retry fix (must-fix 1) still stands for its other cases (the `rewrite ... at h` break).
+- §6: `match g: b` on a variable generalises the condition; it does not split the column (a named scrutinee is never treated as a variable column).

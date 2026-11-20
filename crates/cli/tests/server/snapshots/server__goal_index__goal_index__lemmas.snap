@@ -2,7 +2,7 @@
 source: crates/cli/tests/server/goal_index.rs
 expression: "format!(\"{made} lemmas, {} goals without one\\n\\n{}\", summary.len() - made,\nsummary.join(\"\\n\"))"
 ---
-146 lemmas, 46 goals without one
+153 lemmas, 46 goals without one
 
 arm-as-written-computes goal 1: no lemma
 arm-as-written-computes goal 2: theorem stepsGoal2: 0 ≠ 0 ∨ "" = "" := ?
@@ -89,7 +89,7 @@ catch-all-facts goal 10: theorem integersGoal2 (p: Int → Prop): p 3 := ?
 catch-all-facts goal 11: theorem integersGoal3 (p: Int → Prop) (m: Int) (h: m ≠ -1) (h2: m ≠ 3): p m := ?
 catch-all-facts goal 12: theorem blankGoal1 (p: Nat → Prop): p 5 := ?
 catch-all-facts goal 13: theorem blankGoal2 (p: Nat → Prop) (n: Nat) (h: n ≠ 5): p n := ?
-catch-all-facts goal 14: theorem guardedGoal1 (p: Nat → Prop) (b: Bool): p 5 := ?
+catch-all-facts goal 14: theorem guardedGoal1 (p: Nat → Prop) (b: Bool) (h: b): p 5 := ?
 catch-all-facts goal 15: theorem guardedGoal2 (p: Nat → Prop) (b: Bool): p 6 := ?
 catch-all-facts goal 16: theorem guardedGoal3 (p: Nat → Prop) (m: Nat) (b: Bool) (h: m ≠ 6): p m := ?
 catch-all-facts goal 17: theorem alternativesGoal1 (p: Nat → Prop): p 2 := ?
@@ -113,6 +113,13 @@ distinct-names goal 2: no lemma
 distinct-names goal 3: theorem symmetricGoal1 (left1: Tree) (right1: Tree) (left2: Tree) (right2: Tree) (same: Pair left1 right1 = Pair left2 right2): Pair left2 right2 = Pair left1 right1 := ?
 false-in-statement goal 1: theorem noProofGoal1 (n: Nat) (n0: n = 0): False = True := ?
 forall-printed goal 1: theorem shownGoal1 (p: Nat → Prop) (all: ∀ (n: Nat) => p n) (comm: ∀ (a b: Nat) => a + b = b + a) (positive: ∀ (n: Nat) => 0 < n → Positive n) (hidden: ∀ [n: Nat] => n = n) (q: Nat → Type) (bad: (n: Nat) → q n) (f: (n: Nat) → Vec Nat n): ∀ (xs ys: List Nat) => (xs ++ ys).length = xs.length + ys.length := ?
+guard-facts goal 1: theorem charactersGoal1 (p: Char → Prop) (c: Char) (h: c == '('): p c := ?
+guard-facts goal 2: theorem charactersGoal2 (p: Char → Prop) (c: Char) (h: (c == '(') = False) (h2: c == ')'): p c := ?
+guard-facts goal 3: theorem charactersGoal3 (p: Char → Prop) (c: Char) (h: (c == '(') = False) (h2: (c == ')') = False): p c := ?
+guard-facts goal 4: theorem propositionsGoal1 (p: Nat → Prop) (n: Nat) (h: n < 3): p n := ?
+guard-facts goal 5: theorem propositionsGoal2 (p: Nat → Prop) (n: Nat) (h: ¬(n < 3)): p n := ?
+guard-facts goal 6: theorem namedGoal1 (p: Nat → Prop) (n: Nat) (g: n == 0): p n := ?
+guard-facts goal 7: theorem namedGoal2 (p: Nat → Prop) (n: Nat) (h: (n == 0) = False): p n := ?
 implicit-parameter goal 1: def identityGoal1 (a: Type) (x: a): a := ?
 implicit-parameter goal 2: theorem symmetricGoal1 (a: Type) (x: a) (y: a) (h: x = y): y = x := ?
 inferring-position goal 1: no lemma
