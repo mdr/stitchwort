@@ -28023,12 +28023,12 @@
     {
       "id": 4286,
       "title": "[Sonnet] One list of slice 1's operators and std List.allMember replace 21 literal-staircase theorems and the …A/B/C/D names (survey target 4)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target 4. D3698 overnight.\n\nFirst attempt (Sonnet, 20 Nov, stopped at 69 min of 30 est.): 16 staircase theorems replaced by an operators1 list + List.allMember (94 added / 309 deleted in four files, plus ~70-line OperatorList.sw), but the bridge operatorListed (22 nested matches over contains) never finished checking (>250M evaluation steps). WIP: orchestrator scratchpad keep/sw4286-wip.patch and keep/sw4286-OperatorList.sw (based on main before SW-4282..4287). Next: state the bridge as x ∈ operators1 built from Inl/Inr, probe at 22 elements first; read check.log within 2 min (a \"still checking\" note means a blow-up). Model result: Sonnet, failed (evaluation blow-up in the bridge proof; waited ~60 min on a hung check), 69 min (est. 30).\n",
+      "body": "\nFrom the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target 4. D3698 overnight.\n\nFirst attempt (Sonnet, 20 Nov, stopped at 69 min of 30 est.): 16 staircase theorems replaced by an operators1 list + List.allMember (94 added / 309 deleted in four files, plus ~70-line OperatorList.sw), but the bridge operatorListed (22 nested matches over contains) never finished checking (>250M evaluation steps). WIP: orchestrator scratchpad keep/sw4286-wip.patch and keep/sw4286-OperatorList.sw (based on main before SW-4282..4287). Next: state the bridge as x ∈ operators1 built from Inl/Inr, probe at 22 elements first; read check.log within 2 min (a \"still checking\" note means a blow-up). Model result: Sonnet, failed (evaluation blow-up in the bridge proof; waited ~60 min on a hung check), 69 min (est. 30).\n\n\n\nSecond attempt (Sonnet, 20 Nov, ~10 min): bridge = four chunk lemmas (operatorListedA-D, Inl/Inr built, rewrite DecEq.sound) joined by operatorListed; checks in 1.3 s. 21 theorems replaced; tools/fmt +265/-321 in 5 files. Branch lane/SW-4286, commit ae2a2e5f6. Model result: Sonnet, worked, ~10 min (est. 35).\n",
       "created": "2026-11-19",
       "updated": "2026-11-20",
       "commits": []
