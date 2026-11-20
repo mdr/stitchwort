@@ -974,6 +974,12 @@ Each was run on the example named; the output is quoted, shortened.
   here with the number `12`, so it is computed in full: make the number a
   variable, stating a lemma for any `n`, and use the lemma with `12`"
   (`examples/reject/as-written-unconfirmed-slow-check.sw`).
+
+  `E-RESOURCE` points at the declaration, not the pass that gave up. To see
+  where it happened, run the check with `STITCHWORT_TRACE_RESOURCE=1` on a
+  release build: it prints the kind of limit and a backtrace on stderr
+  (`RUST_BACKTRACE` isn't needed; docs/testing.md).
+
   A check can take minutes before it runs out (its limit is 10 billion
   evaluation steps). While it runs, `stitchwort check` says which
   declaration it is on and what it is unfolding, after 250 million steps

@@ -87,6 +87,42 @@ impl ResourceError {
     pub fn is_size_message(message: &str) -> bool {
         message.contains(TOO_LARGE_TO_WRITE_OUT)
     }
+
+    /// What ran out, in a word or two, for the header
+    /// `STITCHWORT_TRACE_RESOURCE` prints (SW-4332).
+    fn kind(&self) -> String {
+        match self {
+            ResourceError::Work => "steps".to_owned(),
+            ResourceError::Depth => "depth".to_owned(),
+            ResourceError::Nesting(pass) => format!("nesting ({pass})"),
+            ResourceError::Size(_) => "size".to_owned(),
+            ResourceError::Deadline => "deadline".to_owned(),
+            ResourceError::Cancelled => "cancelled".to_owned(),
+        }
+    }
+}
+
+/// Whether `STITCHWORT_TRACE_RESOURCE=1`, read once so the check costs
+/// nothing when the variable is unset.
+fn trace_resource() -> bool {
+    static TRACE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *TRACE.get_or_init(|| std::env::var("STITCHWORT_TRACE_RESOURCE").is_ok_and(|v| v == "1"))
+}
+
+/// Names the resource that ran out and prints a backtrace when
+/// `STITCHWORT_TRACE_RESOURCE=1` (SW-4332). Every `E-RESOURCE` passes
+/// through [`Diagnostic::from`], so this shows the elaborator site that
+/// gave up.
+#[cold]
+#[inline(never)]
+fn trace_resource_error(e: &ResourceError) {
+    if trace_resource() {
+        eprintln!(
+            "STITCHWORT_TRACE_RESOURCE: resource error ({}): {e}\n{}",
+            e.kind(),
+            std::backtrace::Backtrace::force_capture()
+        );
+    }
 }
 
 impl fmt::Display for ResourceError {
@@ -120,6 +156,7 @@ impl From<ResourceError> for Diagnostic {
     #[cold]
     #[inline(never)]
     fn from(e: ResourceError) -> Diagnostic {
+        trace_resource_error(&e);
         Diagnostic::error("E-RESOURCE", format!("ran out of resources: {e}")).with_note(NO_ANSWER)
     }
 }
@@ -1042,6 +1079,24 @@ mod tests {
         }
         assert!(!ResourceError::Work.to_string().contains("write out"));
         assert_eq!(Limits::for_stack(1 << 20).size, 2_000_000);
+    }
+
+    #[test]
+    fn the_resource_kinds_are_named() {
+        assert_eq!(ResourceError::Work.kind(), "steps");
+        assert_eq!(ResourceError::Depth.kind(), "depth");
+        assert_eq!(
+            ResourceError::Nesting("elaborator").kind(),
+            "nesting (elaborator)"
+        );
+        assert_eq!(ResourceError::Size(1).kind(), "size");
+        assert_eq!(ResourceError::Deadline.kind(), "deadline");
+        assert_eq!(ResourceError::Cancelled.kind(), "cancelled");
+    }
+
+    #[test]
+    fn tracing_is_off_when_the_variable_is_unset() {
+        assert!(!trace_resource());
     }
 
     fn steps(b: &Budget, n: u32) -> Result<()> {
