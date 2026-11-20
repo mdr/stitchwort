@@ -28725,8 +28725,8 @@
     {
       "id": 4340,
       "title": "[DeepSeek] clippy items_after_test_module in crates/elab/src/check.rs (~10445): move the read-back helpers (quote_or_written etc.) above mod tests; no other change",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
