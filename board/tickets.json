@@ -1,5 +1,5 @@
 {
-  "next": 4353,
+  "next": 4355,
   "tickets": [
     {
       "id": 47,
@@ -27399,20 +27399,20 @@
     },
     {
       "id": 4239,
-      "title": "[Opus] Build the walk step, part (a): read p and j off the body in evaluation order and apply registered lemmas (subsumes SW-4220); pilot on the comma lists; after the Fable review settles the design and Matt's decision",
-      "status": "backlog",
+      "title": "[Opus] Walk W1 (D3696): the walk for one-run families, as widened by SW-4238 §5: binds, calls (brackets, own theorem, local hypotheses, registry), unfold on request, inner if/match with the path cap, values, weaken, closers, names, E-WALK, attributes, std's index entries, --expand-walk and the trace; guide and syntax.md; accept and reject examples. After W0 (SW-4353)",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
       "body": "Matt, 19 Nov 2026: 'please have on our backlog investigations into or actually doing some of the improvements that we found that would make Stitchwort more competitive with Lean and Rocq on these type of proofs.' Source: docs/reviews/SW-4222-lean-rocq-comparison.md §6.\n\nD3696 parked, Matt, 19 Nov 2026: 'It's a really promising idea. I'd like to study it further ... Can we park it as a very promising idea on the backlog? And I will have a read through the tutorial more closely tomorrow.' Tutorial: https://claude.ai/artifact/V1kPvxmw99KQtiscx9NAdi. Don't start build lanes until he decides.\n",
       "created": "2026-11-19",
-      "updated": "2026-11-19",
+      "updated": "2026-11-20",
       "commits": []
     },
     {
       "id": 4240,
-      "title": "[Opus] Build the walk step, part (b): split a definition's inner if/match inside the walk with the guard as a hypothesis (overlaps SW-4047); after part (a)",
+      "title": "[Opus] Walk W3 (D3696): two-run families (Parse.Follows) in lockstep, per SW-4238 §3.10; after W1 (SW-4239)",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -27420,7 +27420,7 @@
       "epic": "proof-automation",
       "body": "Matt, 19 Nov 2026: 'please have on our backlog investigations into or actually doing some of the improvements that we found that would make Stitchwort more competitive with Lean and Rocq on these type of proofs.' Source: docs/reviews/SW-4222-lean-rocq-comparison.md §6.\n\nD3696 parked, Matt, 19 Nov 2026: 'It's a really promising idea. I'd like to study it further ... Can we park it as a very promising idea on the backlog? And I will have a read through the tutorial more closely tomorrow.' Tutorial: https://claude.ai/artifact/V1kPvxmw99KQtiscx9NAdi. Don't start build lanes until he decides.\n",
       "created": "2026-11-19",
-      "updated": "2026-11-19",
+      "updated": "2026-11-20",
       "commits": []
     },
     {
@@ -28887,6 +28887,32 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "After SW-4341 (merged).",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4353,
+      "title": "[Sonnet] Walk W0, the baseline (D3696; SW-4238 §4): in ParseWalk.sw's comma lists and brackets (~40 walks) and their FollowsBase.sw twins, drop every spelled [p :=] [q :=] [j :=] [k :=] that still checks and report the shape of those needed; merge the four comma-list functions into one and re-prove its Gives/ReadsAt/Follows lemmas by hand; record proof lines and check time as the pilot's before. After SW-4330",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4354,
+      "title": "[Opus, paper] Walk W2: review of W1 (SW-4239), which generates kernel terms (D2364)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
