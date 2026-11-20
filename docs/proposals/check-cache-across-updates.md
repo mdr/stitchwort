@@ -2,7 +2,7 @@
 
 **Status:** D3703 yes (Matt, 20 November 2026). Stage 1 built (SW-4409;
 see [As built (stage 1)](#as-built-stage-1)); stage 2, the kernel re-check,
-is SW-4410. The design note's question, D3703, is at the
+built (SW-4410; see [As built (stage 2)](#as-built-stage-2)). The design note's question, D3703, is at the
 [end](#9-decision-for-matt).
 
 It builds on [check-cache.md](check-cache.md) (what exists; D1660: a cache
@@ -498,7 +498,8 @@ SW-4409, 20 November 2026.
   carried-over soundness rests on it covering all of `crates/core`, and
   the coverage test names the checker's files.
 - **Not built:** `--json` for `check` (it has none); the healing and
-  "changed what X elaborates to" report (stage 3); the re-check (stage 2).
+  "changed what X elaborates to" report (stage 3); the re-check (stage 2,
+  built since: below).
 - **Tests** (`crates/driver/tests/projects/check_cache.rs`):
   `a_carried_over_entry_is_used_only_when_asked` (and that a carried
   session's dump equals a fresh one's), `a_kernel_side_change_makes_a_carried_entry_a_miss`,
@@ -508,3 +509,102 @@ SW-4409, 20 November 2026.
   reads the library once); in `crates/lsp`,
   `the_editor_carries_over_an_earlier_builds_entries`. Another build is a
   store made with `CheckCache::as_build` (hidden, for tests).
+
+## As built (stage 2)
+
+SW-4410, 20 November 2026.
+
+- **When.** With carrying over on (the editor, `check --carry-over`), an
+  entry another build wrote from the same source whose kernel side differs
+  is no longer a miss: it is replayed with its terms checked again by this
+  kernel. Where a unit has candidates of both kinds, one this kernel side
+  accepted (no re-check) is preferred. Who gets what is stage 1's table,
+  unchanged: a re-checked entry is carried over, counted and labelled as
+  such, and a session that used one writes only non-exact entries.
+- **How.** `admit_replayed` takes a `recheck` flag (the `Hit` is now
+  `{exact, recheck}`); `submit` then calls the checking functions in place
+  of `admit_trusted_*`, in the same order: `declare_def` (export off, as
+  the trusted path), `define_group`, `set_run_body`,
+  `declare_indexed_data_group` and `define_data_group` (which works out
+  the fields' sorts and erasure again rather than taking the entry's). The
+  marks (`fold`, `instance`, `opaque`, `unfolding`, `tailrec`, parameter
+  defaults, auto parameters, `no_eta`) are set on the pending declarations
+  as on both paths before. The terms are the ones a kernel gave back, so
+  they are not saturated again (`elab/src/kernel.rs` `recheck_*`, timed as
+  kernel calls). Then the decode self-check compares hashes, as for every
+  carried entry: other entries name these declarations by the hashes this
+  one records, so a re-check whose terms hash differently is a miss too.
+  Any refusal undoes the entry (`forget_since`) and the unit is elaborated;
+  it is counted in `Stats::refused_on_recheck`, not `refused` (which the
+  differential tests require to be zero).
+- **Kept for next time.** An entry another build wrote that passes the
+  re-check is written again as this build's own: the same body and
+  dependencies, stamped with this build and its kernel side, not exact.
+  That is sound only because everything a trusted replay takes from the
+  entry has been compared with what this kernel produced: the terms by
+  their hashes, and the constructors' field sorts and erasure flags,
+  which the kernel works out again but the hash doesn't cover, directly
+  (a difference is a refusal; SW-4450's M1: a `Prop` sort kept from
+  another kernel would let conversion skip a data field). Run bodies are
+  type-checked, not compared; they never unfold in the kernel.
+  The next carrying session then takes it without a re-check (this kernel
+  has accepted it), and an exact check still misses it. Without this the
+  editor would pay the re-check on every start until a full check.
+- **`check --recheck`** reads §4.3's "the kernel-only pass over a cache"
+  as Lean's `lake check`: every entry the session loads, exact ones
+  included, goes through the checking calls instead of the trusted
+  admission, so nothing in the cache is trusted for the kernel's verdict.
+  A plain `check` then leaves no namespace out unloaded (SW-1193), since
+  each must be loaded to be checked. Alone it uses only exact entries,
+  which stay exact (the elaborator's side is this build's); with
+  `--carry-over` it re-checks the carried ones too, including those whose
+  kernel side matches. This is the reading that trusts least: the other
+  ("carry over, re-checking only where the kernel side differs") is just
+  `--carry-over` now. A refusal under `--recheck` of an entry this build
+  wrote is a finding: the trusted replay would have admitted it.
+- **The label.** `Stats::rechecked` and `namespace_rechecked` (also in
+  `hits`/`namespace_hits`, and in `carried`/`namespace_carried` when
+  carried), and `rechecked_units()`. The CLI's last lines: the carried-over
+  line as before, then `checked again by this kernel, without
+  elaborating: 41 namespaces and 160 standard library files` (with `; N
+  entries refused by it and elaborated` when any were). The editor's
+  per-namespace trace says "carried over, checked again by the kernel".
+- **Measured** on `tools/fmt` (148 namespaces, 71 standard library
+  files; release builds, `nice -n 15`, one run each, nothing else
+  running), the kernel side changed by a comment in `crates/core`: a cold
+  check by the earlier build filled the cache, then the later build:
+
+  | Run | Wall | Peak RSS |
+  |---|---|---|
+  | (a) no carry-over: every unit elaborated | 340 s | 3.85 GB |
+  | (b) stage 1, `--carry-over`: nothing carried (kernel side differs) | 340 s | 3.85 GB |
+  | (c) stage 2, `--carry-over`: all 219 units re-checked, none refused | 42.6 s | 1.55 GB |
+  | the next `--carry-over` session (entries kept as this build's) | 4.1 s | 1.34 GB |
+  | `--recheck` over this build's exact entries | 42.2 s | 1.55 GB |
+  | plain warm check, exact entries | 2.1 s | 0.74 GB |
+
+  So the re-check is 12.5% of a cold check's time and 40% of its memory,
+  better than §3's estimate (21%, "90 to 120 s"): the kernel's share
+  measured there includes conversion work the elaborator's own calls
+  cause. The earlier build's cold check took 379 s and 3.33 GB. Run (b)
+  used stage 1's `crates/elab`, `cli` and `driver` from `main` at the
+  time (a few commits past this lane's base) with the same `crates/core`.
+- **A bug the first measurement found:** the checked data branch didn't
+  mark a re-checked data group final or bind its built-ins, so every
+  function matching on one waited for ever and the entry was refused (56
+  of 219 on fmt). The tests' project had no data type; they have one now.
+- **Not built:** re-checking only a sample; the healing of stage 3.
+- **Tests:** `a_kernel_side_change_has_a_carried_entry_checked_again`
+  (replaces stage 1's `a_kernel_side_change_makes_a_carried_entry_a_miss`:
+  carried and re-checked, the dump equals a fresh check's, kept for the
+  next carrying session, still a miss for an exact one; its project has a
+  data type, a function matching on it and a theorem naming the function)
+  and
+  `rechecking_exact_entries_keeps_them_exact` in
+  `crates/driver/tests/projects/check_cache.rs`;
+  `checking_an_entry_again_refuses_a_false_theorem_the_trusted_replay_would_admit`
+  in `crates/elab/src/cache/mod.rs` (an entry with a "proof" of
+  `(P: Prop) -> P`: the trusted path installs it, the re-check refuses and
+  undoes it) and
+  `checking_a_data_entry_again_refuses_field_sorts_or_erasure_this_kernel_wouldnt_give`.
+  `--recheck` always says what it did, "nothing" included.
