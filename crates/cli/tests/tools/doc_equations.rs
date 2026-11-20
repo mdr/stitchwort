@@ -147,6 +147,27 @@ def f (xs: List Nat): Nat := match xs with
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// A guard's comparison with a literal is listed as written, `n < 5`, not
+/// as what it computes to, `n <= 4`.
+#[test]
+fn doc_states_a_guards_comparison_as_written() {
+    let dir = folder("guard-lt-literal");
+    let source = "\
+import Std (Nat)
+
+def f (x: Nat): Nat := match x with
+  | n if n < 5 => 1
+  | _ => 2
+";
+    std::fs::write(dir.join("a.sw"), source).unwrap();
+    let (code, out, err) = run("doc", &dir, &["f", "a.sw"]);
+    assert_eq!(code, 0, "{out}\n{err}");
+    assert!(out.contains("n < 5 → f n = 1"), "{out}");
+    assert!(out.contains("(x < 5) = False → f x = 2"), "{out}");
+    assert!(!out.contains("<= 4") && !out.contains("≤ 4"), "{out}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// An arm that couldn't be stated is listed with its reason, and so is an
 /// `f.induct` that wasn't made (here because `eq3` is read per leaf,
 /// SW-1071).
