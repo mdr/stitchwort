@@ -1791,27 +1791,14 @@ def commaList (fuel: Nat) (modes: Modes) (ends: Nat → {Parse Item} Bool) (next
 def commaListFrom (fuel: Nat) (modes: Modes) (ends: Nat → {Parse Item} Bool) (next: () → {Parse Item} a) (count: Nat)
     (current: a) (found: List a):
     {Parse Item} (List a, Bool) :=
-  commaListOn fuel modes ends next count current found modes.peek
-
-def commaListOn (fuel: Nat) (modes: Modes) (ends: Nat → {Parse Item} Bool) (next: () → {Parse Item} a) (count: Nat)
-    (current: a) (found: List a) (seen: Option Tok):
-    {Parse Item} (List a, Bool) :=
-  match fuel, seen with
+  match fuel, modes.peek with
     | Succ more, Some kind =>
-      if kind == Comma then commaListComma more modes ends next count current found
+      if kind == Comma then
+        let comma := bump()
+        if ends count then ([current, ..found].reverse, True)
+        else commaListFrom more modes ends next (count + 1) (next()) [current, ..found]
       else ([current, ..found].reverse, False)
     | _, _ => ([current, ..found].reverse, False)
-
-def commaListComma (more: Nat) (modes: Modes) (ends: Nat → {Parse Item} Bool) (next: () → {Parse Item} a) (count: Nat)
-    (current: a) (found: List a):
-    {Parse Item} (List a, Bool) :=
-  let comma := bump()
-  commaListAfter more modes ends next count [current, ..found] (ends count)
-
-def commaListAfter (more: Nat) (modes: Modes) (ends: Nat → {Parse Item} Bool) (next: () → {Parse Item} a) (count: Nat)
-    (done: List a) (stop: Bool):
-    {Parse Item} (List a, Bool) :=
-  if stop then (done.reverse, True) else commaListFrom more modes ends next (count + 1) (next()) done
 
 --| `(+ 1)`, `(&&)`: the operator first.
 def operatorSection (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
