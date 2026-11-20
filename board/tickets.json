@@ -30302,8 +30302,8 @@
     {
       "id": 4460,
       "title": "[Sonnet] Goal lemmas: SW-4451 chooses the written form by three heuristics (not in a match arm, no pattern-refined variables, no open-typed equation), tested only on the examples; instead elaborate the written lemma's statement and compare it with the goal (the same check lemmas_check_as_the_same_goal makes) before offering it, and drop the heuristics if that's cheap enough (SW-4451 finding)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
