@@ -29135,12 +29135,12 @@
     {
       "id": 4371,
       "title": "[Opus] cases: let the fallback also consider variables an earlier split's equation is stuck on (not only those the goal mentions), so goals computed to True = False close in the first try; changes terms of proofs only the second try closes today and needs the step-budget/second-try rule revisited (SW-4370 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nProgress (Opus lane, 20 Nov): measured with a temporary trace (first/second try times, under_split splits per cases; patch kept in the lane scratch, not committed). Second tries closed by under_split: 3 goals in the repo, all in examples/accept/cases-under-comparison.sw (the SW-4226 example); each costs 0.6-2.3 ms for failed first try + second try, under 5 ms in all. None in the cases-* examples otherwise (24 second tries, under_split never fired), none in std Bool, Doc/Ends, Doc/Places, List/Positions, Omega (no second tries at all), none in tools/fmt Syntax.ReadBackLine with its dependencies (4818 declarations, 61 second tries: 60 after first-try E-CASES-BUDGET out of cases, 1 after E-CASES; under_split fired in none). Decision: gain too small, no code change; recommend closing.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -29187,12 +29187,12 @@
     {
       "id": 4375,
       "title": "[Opus, paper] Proposal note: a guard in a proof's match refines the goal and hypotheses like match g: cond (today it only binds a fact); repro, cause and plan in docs/reviews/SW-4047-guard-refinement.md; then implement on Matt's decision",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nNote: docs/proposals/guard-refinement.md (20 Nov). Rec option (c): guards refine like match g:, with a warning for a now-pointless rewrite and a fallback where the goal cannot be generalised; plus SW-4376. Waiting on D3701.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
