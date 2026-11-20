@@ -197,7 +197,15 @@ impl Walk {
                         })
                         .collect();
                     let piped = self.piped == Some(e.span());
-                    self.calls.push((name.text.clone(), piped, spans));
+                    // `∀ (p q: T)` shares one parsed `T` between its binders,
+                    // so the same call is reached once per name.
+                    let seen = self
+                        .calls
+                        .iter()
+                        .any(|(n, _, s)| *n == name.text && *s == spans);
+                    if !seen {
+                        self.calls.push((name.text.clone(), piped, spans));
+                    }
                 } else {
                     self.expr(head);
                 }
