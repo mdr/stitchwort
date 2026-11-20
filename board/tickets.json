@@ -1,5 +1,5 @@
 {
-  "next": 4367,
+  "next": 4369,
   "tickets": [
     {
       "id": 47,
@@ -28933,15 +28933,17 @@
     {
       "id": 4356,
       "title": "[Sonnet] Accessor vs projection in SW-4330's abstraction: the needle Mark.left v is a call but the goal has the primitive projection state.at.left; normalise accessor calls to projections when matching the needle (FormsBinders, Forms pairs)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\nLane notes (Sonnet): commit c6490cabc on lane/SW-4356. solve_abstracting now writes accessor calls as projections (accessors_as_projections) on needle and hay. FollowsFormsBinders's pair dropped and checks. FollowsForms.followsAtomAfter's pair is NOT droppable: with it removed, the `False` branch's followsMap mismatches (`unitCall here.rest` against `state.at`), a different failure; pair left in place. New accept example continuation-abstracting-accessor (fails on main: E-REWRITE-NOTHING, passes now) with hash snapshot.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
-      "commits": []
+      "commits": [
+        "c6490cabc"
+      ]
     },
     {
       "id": 4357,
@@ -29065,6 +29067,32 @@
     {
       "id": 4366,
       "title": "[Sonnet] stitchwort fmt breaks a long 'theorem … := match induct (…) with' header mid-argument and rejoins a break placed before match; break before match instead (SW-4360 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4367,
+      "title": "[Opus, paper] Review SW-4356 (accessor calls as projections in the unifier's abstracting fallback)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4368,
+      "title": "[Sonnet] followsAtomAfter (FollowsForms.sw ~1177): with SW-4356 j is solved but the False branch's Parse.followsMap mismatches ('here' against 'state.at' in unitCall here.rest); find why and drop the last [j :=][k :=] pair there",
       "status": "backlog",
       "agent": "",
       "where": "",
