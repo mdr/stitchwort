@@ -28569,8 +28569,8 @@
     {
       "id": 4328,
       "title": "[Sonnet] rewrite repeatedly [g]: include guarded arms (their calls don't compute while the guard is undecided; D3639's reason for leaving arms out applies), with an example (docs/proposals/match-induct-friction.md §2 B)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
