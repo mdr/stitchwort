@@ -1122,8 +1122,8 @@ theorem followsInterpolations ∀ [self selfTwin: Goal → {Parse Item} Expr]
       interpolations selfTwin modes) :=
   Parse.followsThen
     (Parse.followsLoop
-      (() => interpolationStep self modes)
-      (() => interpolationStep selfTwin modes)
+      [step := (() => interpolationStep self modes)]
+      [stepTwin := (() => interpolationStep selfTwin modes)]
       (followsPeeked modes
         (seen => interpolationOn self modes seen)
         (seen => interpolationOn selfTwin modes seen)

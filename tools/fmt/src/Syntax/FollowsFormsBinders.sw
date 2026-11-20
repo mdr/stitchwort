@@ -242,7 +242,7 @@ theorem followsLambdaParams ∀ [self selfTwin: Goal → {Parse Item} Expr] (pat
     (binders: BinderTypeFollows self selfTwin) (modes: Modes):
     Parse.Follows SameCode (List.All2 ParamsAlike) (() => lambdaParams self modes) (() =>
       lambdaParams selfTwin modes) :=
-  Parse.followsLoop _ _
+  Parse.followsLoop
     (followsOn (seen => lambdaStep self modes seen) (seen => lambdaStep selfTwin modes seen) (seen others same =>
       followsLambdaStep patterns groups binders modes seen others same))
 
@@ -394,7 +394,7 @@ theorem followsForallParams ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (groups: HeaderGroupFollows self selfTwin) (modes: Modes):
     Parse.Follows SameCode (List.All2 ParamsAlike) (() => forallParams self modes) (() =>
       forallParams selfTwin modes) :=
-  Parse.followsLoop _ _
+  Parse.followsLoop
     (followsOn (seen => forallStep self modes seen) (seen => forallStep selfTwin modes seen) (seen others same =>
       followsForallStep groups modes seen others same))
 
