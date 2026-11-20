@@ -24850,14 +24850,14 @@
     {
       "id": 4047,
       "title": "[Opus] stitchwort proof tactics from SW-4024: a guarded arm in a proof match doesn't refine its guard (workaround match g: guard with); chained match e: c == '(' doesn't refine False arms so cases runs out of budget; E-NONEXHAUSTIVE false positive on an unguarded arm with a nested match body; readsThen/readsAtDone infer p/j/spec badly (motive comes out over the match's variables). Repro each, fix or file",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
       "created": "2026-11-18",
-      "updated": "2026-11-19",
+      "updated": "2026-11-20",
       "commits": []
     },
     {
