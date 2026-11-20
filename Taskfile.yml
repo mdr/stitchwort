@@ -582,6 +582,43 @@ tasks:
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_ALL}} -- cargo nextest run --release -p stitchwort-driver --test library --no-fail-fast hash_stability::'
       - git status --short -- '*.snap'
 
+  test:hashes:
+    desc: 'Check the hash snapshots of some examples without updating them (NAME=part of an example file name, or a comma-separated list; ALL=1 for every hash)'
+    summary: |
+      The read-only counterpart of `snap:hashes`: runs `hash_stability`'s
+      `examples` and `projects` tests for the examples and project folders
+      whose names contain NAME (part of a file name, or a comma-separated
+      list: task test:hashes NAME=reads-named-parser), with
+      STITCHWORT_TIER=all so
+      the named ones are not sampled out. INSTA_UPDATE=no makes a changed
+      hash fail the test and writes no `.snap.new`, so a lane can check its
+      work without touching the snapshots. Without NAME it refuses, since
+      every hash snapshot is the whole hash suite; ALL=1 runs all of
+      `hash_stability::` (the prelude too), as `snap:hashes` without NAME
+      does. It runs under the all tier's memory cap, and
+      STITCHWORT_TEST_THREADS and NEXTEST_TEST_THREADS pass through if set.
+      `task snap:hashes NAME=…` updates instead.
+    env:
+      STITCHWORT_TIER: all
+      INSTA_UPDATE: no
+      EXAMPLES: '{{.NAME}}'
+      NAME: '{{.NAME}}'
+      ALL: '{{.ALL}}'
+    cmds:
+      - |
+        if [ -z "${NAME}" ] && [ "${ALL}" != "1" ]; then
+          echo "test:hashes: NAME=<part of an example file name, or a comma-separated list> is required." >&2
+          echo "Checking every hash snapshot is the whole hash suite; set ALL=1 to run all of it." >&2
+          exit 2
+        fi
+      - |
+        if [ -z "${NAME}" ]; then
+          filter='test(/^hash_stability::/)'
+        else
+          filter='test(/^hash_stability::(examples|projects)$/)'
+        fi
+        {{.GUARD}} --cap-gb {{.MEM_CAP_ALL}} -- cargo nextest run --release -p stitchwort-driver --test library --no-fail-fast -E "$filter"
+
   snap:one:
     desc: 'Update the snapshots of the tests matching the arguments after `--`, then list them'
     env:
