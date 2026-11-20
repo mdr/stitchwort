@@ -446,8 +446,7 @@ theorem followsQuantifier ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: HeaderFacts self selfTwin)
     (patterns: PatternOfFollows) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => Syntax.quantifier self modes) (() => Syntax.quantifier selfTwin modes) :=
-  followsOn (seen => quantifierOn self modes seen) (seen => quantifierOn selfTwin modes seen) (seen others same =>
-    followsQuantifierOn facts patterns modes seen others same)
+  byWalking [followsQuantifierOn]
 
 -- `if`.
 
@@ -487,27 +486,19 @@ theorem followsExpectKeywordOn ∀ (modes: Modes) (wanted: Tok) (what: Text) (in
 theorem followsExpectKeyword ∀ (modes: Modes) (wanted: Tok) (what: Text) (indent: Nat):
     Parse.Follows SameCode WordsAlike (() => modes.expectKeyword wanted what indent) (() =>
       modes.expectKeyword wanted what indent) :=
-  followsThenEq (followsPeek modes) (seen =>
-    followsOn
-      (found => modes.expectKeywordOn wanted what indent seen found)
-      (found => modes.expectKeywordOn wanted what indent seen found)
-      (found others same => followsExpectKeywordOn modes wanted what indent seen found others same))
+  byWalking [followsExpectKeywordOn]
 
 theorem followsNamedBinderOn ∀ (modes: Modes) (lower: Bool) (second: Option Tok):
     Parse.Follows SameCode
       (Option.Alike (PairAlike WordsAlike WordsAlike))
       (() => namedBinderOn modes lower second)
       (() => namedBinderOn modes lower second) :=
-  match lower && isSome Colon second with
-    | True => Parse.followsThen (followsLower modes "a name") (name nameTwin names =>
-      Parse.followsThen followsBump (colon colonTwin colons => Parse.followsDone (names, colons)))
-    | False => Parse.followsDone Trivial
+  byWalking [followsLower]
 
 theorem followsNamedBinder ∀ (modes: Modes):
     Parse.Follows SameCode (Option.Alike (PairAlike WordsAlike WordsAlike)) (() => namedBinder modes) (() =>
       namedBinder modes) :=
-  followsThenEq (followsAt modes Lower) (lower =>
-    followsThenEq (followsPeekAt modes 1) (second => followsNamedBinderOn modes lower second))
+  byWalking [followsNamedBinderOn]
 
 theorem pairBlank ∀ (binder binderTwin: Option (Word, Word))
     (alike: Option.Alike (PairAlike WordsAlike WordsAlike) binder binderTwin):
