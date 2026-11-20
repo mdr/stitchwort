@@ -21,8 +21,7 @@ theorem givesHereOn ∀ (items: List Item): Parse.Gives GoodItems (() => hereOn 
 theorem givesHere: Parse.Gives GoodItems (() => here()) (found => True) :=
   Parse.givesAfter0 reads0Left (items => givesHereOn items)
 
-theorem givesColumnHere: Parse.Gives GoodItems (() => columnHere()) (found => True) :=
-  Parse.givesAfter0 reads0Left (items => Parse.givesDone byComputing)
+theorem givesColumnHere: Parse.Gives GoodItems (() => columnHere()) (found => True) := byWalking []
 
 -- `calc` and `rewrite`, from the compared tier's walks.
 
