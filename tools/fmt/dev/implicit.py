@@ -13,6 +13,12 @@ the command line become `[x: T]`; a grouped binder `(a b: T)` is split when
 only some of its names are named.  A binder already written `[x: T]` is left
 alone, and its argument is not dropped (it is already implicit).
 
+`LEMMA` may be bare (`hangsCons`) or namespace-qualified
+(`Fmt.HangProofs.hangsCons`).  A qualified name is checked against the file's
+`namespace` declaration (and the declaration's own dotted prefix), so a name
+from a different namespace is refused with the namespace where the lemma is
+declared instead of being edited.
+
 At every use, arguments are read bracket-aware, so record literals,
 parentheses spanning lines, lists, and string/character literals count as
 one argument.  Only positional arguments are dropped: named arguments
@@ -572,6 +578,77 @@ def write_atomic(path, text):
         raise
 
 
+# --------------------------------------------------------------- names
+
+def file_namespace(text, tokens):
+    """The namespace the file declares, or None when it declares none."""
+    for i, token in enumerate(tokens):
+        if token.kind != "ident" or token.text != "namespace":
+            continue
+        start = text.rfind("\n", 0, token.start) + 1
+        if text[start:token.start].strip():
+            continue
+        if i + 1 < len(tokens) and tokens[i + 1].kind == "ident":
+            return tokens[i + 1].text
+    return None
+
+
+def qualified_name(namespace, decl_name):
+    """A declaration's full name, given its file namespace and token text."""
+    if not namespace:
+        return decl_name
+    if decl_name == namespace or decl_name.startswith(namespace + "."):
+        return decl_name
+    return namespace + "." + decl_name
+
+
+def find_declarations(files, loaded, decl_name):
+    """Every (path, token index) declaration of `decl_name` under the roots."""
+    hits = []
+    for path in files:
+        text, tokens = loaded[path][0], loaded[path][1]
+        for index in find_declaration_tokens(tokens, text, decl_name):
+            hits.append((path, index))
+    return hits
+
+
+def resolve_declaration(given, files, loaded):
+    """The declaration name to use, its hits, and a namespace-mismatch error.
+
+    A bare name, or a name written exactly as the declaration token, is used
+    as given.  Otherwise a qualified name is split at each dot and the suffix
+    is tried, but only where the file's namespace makes the full name equal
+    the one given.
+    """
+    hits = find_declarations(files, loaded, given)
+    if hits or "." not in given:
+        return given, hits, None
+    parts = given.split(".")
+    mismatches = []
+    for k in range(1, len(parts)):
+        namespace = ".".join(parts[:k])
+        rest = ".".join(parts[k:])
+        rest_hits = find_declarations(files, loaded, rest)
+        if not rest_hits:
+            continue
+        exact = []
+        for path, index in rest_hits:
+            actual = qualified_name(loaded[path][3], rest)
+            if actual == given:
+                exact.append((path, index))
+            else:
+                mismatches.append((namespace, actual, rest, path))
+        if exact:
+            return rest, exact, None
+    if mismatches:
+        namespace, actual, rest, path = mismatches[0]
+        return None, [], (
+            "implicit.py: %s: namespace %s does not match %s, where %s "
+            "is declared (%s)"
+            % (given, namespace, actual, rest, path))
+    return given, [], None
+
+
 # ------------------------------------------------------------------- cli
 
 def parse_specs(args):
@@ -657,39 +734,44 @@ def main(argv=None):
     for path in files:
         text = read_text(path)
         tokens = tokenize(text)
-        loaded[path] = [text, tokens, bracket_map(tokens)]
+        loaded[path] = [text, tokens, bracket_map(tokens),
+                        file_namespace(text, tokens)]
 
     infos = {}
     edits = {path: [] for path in files}
     for name, binders in specs:
-        info = None
-        decl_path = None
-        for path in files:
-            text, tokens, bmap = loaded[path]
-            candidate = build_info(text, tokens, bmap, name, binders)
-            if candidate is not None:
-                if info is not None:
-                    raise SystemExit(
-                        "implicit.py: %s is declared in both %s and %s"
-                        % (name, decl_path, path))
-                info, decl_path = candidate, path
+        decl_name, hits, namespace_error = resolve_declaration(
+            name, files, loaded)
+        if namespace_error:
+            raise SystemExit(namespace_error)
+        if not hits:
+            raise SystemExit("implicit.py: no declaration of %s under the roots"
+                             % name)
+        paths = sorted({path for path, _ in hits})
+        if len(paths) > 1:
+            raise SystemExit(
+                "implicit.py: %s is declared in both %s and %s"
+                % (decl_name, paths[0], paths[1]))
+        decl_path = paths[0]
+        text, tokens, bmap = loaded[decl_path][:3]
+        info = build_info(text, tokens, bmap, decl_name, binders)
         if info is None:
             raise SystemExit("implicit.py: no declaration of %s under the roots"
                              % name)
         if not info["found"]:
             print("implicit.py: %s: already implicit: %s"
-                  % (name, ", ".join(info["already"])), file=sys.stderr)
+                  % (decl_name, ", ".join(info["already"])), file=sys.stderr)
         elif info["already"]:
             print("implicit.py: %s: already implicit: %s"
-                  % (name, ", ".join(info["already"])), file=sys.stderr)
+                  % (decl_name, ", ".join(info["already"])), file=sys.stderr)
         info["decl_path"] = decl_path
-        infos[name] = info
+        infos[decl_name] = info
         edits[decl_path].extend(info["edits"])
 
     uses = dropped = skipped = 0
     real = []
     for path in files:
-        text, tokens, bmap = loaded[path]
+        text, tokens, bmap = loaded[path][:3]
         for name, info in infos.items():
             if not info["drop_indices"]:
                 continue

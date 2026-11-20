@@ -222,6 +222,63 @@ def test_from_file():
         assert "From.two cc" in text, text
 
 
+def test_qualified_name():
+    with tempfile.TemporaryDirectory() as root:
+        path = os.path.join(root, "Demo.sw")
+        write(path, """
+            namespace Demo.Impl
+
+            theorem place (x: A) (y: B): P := byComputing
+            theorem Use.place: Q := place _ bb
+
+            theorem Insert.place (x: A) (y: B): P := byComputing
+            theorem Use.insert: Q := Insert.place _ bb
+            """)
+
+        before = read(path)
+        bare = run_result(root, "place", "x", dry=True)
+        qualified = run_result(root, "Demo.Impl.place", "x", dry=True)
+        assert bare.returncode == 0, bare.stderr
+        assert qualified.returncode == 0, qualified.stderr
+        assert qualified.stdout == bare.stdout, (
+            "bare:\n%s\nqualified:\n%s" % (bare.stdout, qualified.stdout))
+        assert read(path) == before, "dry run wrote the file"
+
+        bare = run_result(root, "Insert.place", "x", dry=True)
+        qualified = run_result(root, "Demo.Impl.Insert.place", "x", dry=True)
+        assert bare.returncode == 0, bare.stderr
+        assert qualified.returncode == 0, qualified.stderr
+        assert qualified.stdout == bare.stdout, (
+            "bare:\n%s\nqualified:\n%s" % (bare.stdout, qualified.stdout))
+        assert read(path) == before, "dry run wrote the file"
+
+        run(root, "Demo.Impl.place", "x")
+        run(root, "Demo.Impl.Insert.place", "x")
+        text = read(path)
+        assert "theorem place [x: A] (y: B):" in text, text
+        assert "Use.place: Q := place bb" in text, text
+        assert "theorem Insert.place [x: A] (y: B):" in text, text
+        assert "Use.insert: Q := Insert.place bb" in text, text
+
+
+def test_wrong_namespace_refused():
+    with tempfile.TemporaryDirectory() as root:
+        path = os.path.join(root, "Demo.sw")
+        write(path, """
+            namespace Demo.Impl
+
+            theorem place (x: A) (y: B): P := byComputing
+            theorem Use.place: Q := place _ bb
+            """)
+
+        before = read(path)
+        result = run_result(root, "Other.place", "x", dry=True)
+        assert result.returncode != 0, result
+        assert "namespace Other does not match" in result.stderr, result.stderr
+        assert "Demo.Impl.place" in result.stderr, result.stderr
+        assert read(path) == before, "refused run wrote the file"
+
+
 if __name__ == "__main__":
     test_main_cases()
     test_placeholder_argument_dropped()
@@ -230,4 +287,6 @@ if __name__ == "__main__":
     test_real_argument_named()
     test_symlink_dedup()
     test_from_file()
+    test_qualified_name()
+    test_wrong_namespace_refused()
     print("test_implicit.py: all tests passed")

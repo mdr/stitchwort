@@ -111,3 +111,13 @@ so an interrupted run cannot leave a truncated file.
 
 `--from-file SPEC` does several lemmas at once, one `Name: b1 b2` per line
 (blank lines and lines starting with `#` or `--` are ignored).
+
+A lemma may be named bare (`hangsCons`) or namespace-qualified
+(`Fmt.HangProofs.hangsCons`). The qualified form is checked against the
+namespace the lemma is declared in, and a name from another namespace is
+refused rather than edited. Both forms make the same edits:
+
+```sh
+python3 tools/fmt/dev/implicit.py --dry-run --force hangsCons docs
+python3 tools/fmt/dev/implicit.py --dry-run --force Fmt.HangProofs.hangsCons docs
+```
