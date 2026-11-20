@@ -30460,8 +30460,8 @@
     {
       "id": 4472,
       "title": "[Opus] Closer stage 0 (docs/proposals/closer.md, SW-4242): F1 rewrite repeatedly can't close an ∧ goal whose parts compute (True = True ∧ … ∧ True = True; simp-revisited stage 3's conjunction closer); F2 cases splits a 60-kind token kind instead of the ∨ hypothesis first (signSymbolic hits E-CASES-BUDGET); F3 … then cases on a closed conjunction takes 46 ms against 1.8 ms; also F5 cases never applies an implication in scope (endedWeaker). Measure each against the probes in dev/patches/SW-4242-closer-probes.patch",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
