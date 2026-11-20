@@ -29135,8 +29135,8 @@
     {
       "id": 4371,
       "title": "[Opus] cases: let the fallback also consider variables an earlier split's equation is stuck on (not only those the goal mentions), so goals computed to True = False close in the first try; changes terms of proofs only the second try closes today and needs the step-budget/second-try rule revisited (SW-4370 finding)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
@@ -29187,8 +29187,8 @@
     {
       "id": 4375,
       "title": "[Opus, paper] Proposal note: a guard in a proof's match refines the goal and hypotheses like match g: cond (today it only binds a fact); repro, cause and plan in docs/reviews/SW-4047-guard-refinement.md; then implement on Matt's decision",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
