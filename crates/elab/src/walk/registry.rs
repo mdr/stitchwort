@@ -84,6 +84,22 @@ impl Elaborator {
                 if statement(first).is_none() {
                     return Err(wrong("its first premise isn't a relation"));
                 }
+                let last = &shape.binders[explicit[explicit.len() - 1]].1;
+                if !matches!(last.strip_loc(), Term::Pi(..)) {
+                    return Err(Diagnostic::error(
+                        "E-WALK-LEMMA",
+                        format!(
+                            "`{name}` can't be `@[{tag}]`: its last premise binds nothing, so the walk \
+                             has no value to hand `j`"
+                        ),
+                    )
+                    .with_label(at, "here")
+                    .with_note(
+                        "a then-lemma's last premise is a `∀` over the first premise's results, \
+                         `(rest: ∀ (v: a) => first v → R … (() => j v) post)`; with none, `j` \
+                         never sees the value `p` returned",
+                    ));
+                }
                 self.unique_family_lemma(id, tag, at, &shape)?;
             }
             WALK_DONE | WALK_WEAKEN => {
