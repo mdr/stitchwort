@@ -29304,8 +29304,8 @@
     {
       "id": 4384,
       "title": "[Sonnet] Walk: split checks its rebuilt goal against the given one (conv_now) and stops with E-WALK, not a kernel internal error; split walk.rs into walk/{registry,expand,leaf}.rs before W3 (SW-4354 follow-ups 11, 12)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
@@ -29330,8 +29330,8 @@
     {
       "id": 4386,
       "title": "[DeepSeek] Test doc::tests::every_header_is_a_declaration_up_to_its_body fails on main: std's Doc.Proofs.agreesClear has a match inside its statement whose last line is '| Held _ _ => False)' (indented, inside brackets); the check should only flag a last line starting with | at the declaration's own indent (or not inside open brackets). Fix the test's heuristic or doc's header cut, whichever is wrong; show the header doc gives for agreesClear",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "test-infra",
