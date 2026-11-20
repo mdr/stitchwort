@@ -28504,12 +28504,12 @@
     {
       "id": 4323,
       "title": "[Opus] Unifier: let the SW-4305/4316 fallback solve a whole-argument unknown against a lambda in Parse.Follows-shaped calls (p/q thunks () => bump()), so ~150 hand-spelled [p :=][q :=][j :=][k :=] in tools/fmt go; recheck after SW-4316's relaxation (merged after SW-4220's probe); repros and a 16-group unspell patch in orchestrator scratchpad keep/sw4220/ (min1.sw, r7/r10/r11.sw, lambda-unify-unspell.patch); optional: abstract ?j (?p ()) once p is known; measure std hash changes (Std.Parse.readsToken moved under the unrestricted version)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From SW-4220 (20 Nov): cause 1 of 3.",
+      "body": "From SW-4220 (20 Nov): cause 1 of 3.\n\nLane (Opus, 20 Nov 03:44-04:00): commit 1f036fdfd on lane/SW-4323. Rule: an unknown whose type (applied to its scope) is a function of `()` counts as facing a known argument when it faces a lambda, so `Follows ?same ?alike ?p ?q` vs two `() => …` parsers solves without a data neighbour. No existing hash changed (test:lane AREA=hashes 8/8; readsToken untouched: its lambda is `read u => …`). Repros min1-3, r10, r11 fail on main, pass now. Unspelled the non-followsMap part of SW-4220's patch (FollowsDeclHeaders 2 theorems, FollowsLadder 1; 10 named args); followsMap hunks left for SW-4324. Example unknown-solved-facing-thunk.sw. ~129 `[p := () =>`/`[q := () =>` remain outside followsMap uses for a follow-up sweep.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
