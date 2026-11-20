@@ -1,5 +1,5 @@
 {
-  "next": 4461,
+  "next": 4462,
   "tickets": [
     {
       "id": 47,
@@ -30289,12 +30289,12 @@
     {
       "id": 4459,
       "title": "[Sonnet] Formatter sync: Rust keeps glued spacing such as byWalking[x] and facts lists, the self-hosted formatter prints a space; make them behave the same (SW-4427 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Lane notes (Sonnet, 20 Nov): Rust was the formatter that differed (spacing.rs fell through to a copy for adjacent call elements the lexer splits). Added a rule: closes_operand or byWalking before opens_atom gets a space; )( stays kept. Test api::glued_call_elements_get_a_space (fails before). Twin text on goldens 62/142 before and after (the rest outside slice 6a); glued file identical after. fmt --check clean on std, aoc, tools/fmt, games; examples and docs list the same files as main. Commit on lane/SW-4459.\n",
+      "body": "Lane notes (Sonnet, 20 Nov): Rust was the formatter that differed (spacing.rs fell through to a copy for adjacent call elements the lexer splits). Added a rule: closes_operand or byWalking before opens_atom gets a space; )( stays kept. Test api::glued_call_elements_get_a_space (fails before). Twin text on goldens 62/142 before and after (the rest outside slice 6a); glued file identical after. fmt --check clean on std, aoc, tools/fmt, games; examples and docs list the same files as main. Commit on lane/SW-4459.\n\n\nModel result: Sonnet, worked, 10 min (est. 30)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -30307,6 +30307,19 @@
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4461,
+      "title": "[DeepSeek] After SW-4459 (Rust formatter spaces glued call elements): update tools/fmt/NOTES.md (line ~892, the records/literals lines ~1099 and ~1190) and docs/proposals/self-hosted-fmt-s1-sketch.md section 3.5, which still say Rust copies glued pairs; test f{ a = 1 } and f\"x\" with both formatters (dev/fmt-twin text, fresh FMT_TWIN_CACHE) and say whether they now agree; note ')(' stays the one known gap; also add to dev/fmt-twin --help that its cache is keyed by input, not binary",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
