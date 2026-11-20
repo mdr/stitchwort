@@ -1,5 +1,5 @@
 {
-  "next": 4339,
+  "next": 4340,
   "tickets": [
     {
       "id": 47,
@@ -28400,7 +28400,7 @@
     {
       "id": 4315,
       "title": "[Sonnet] build::the_roguelike_plays_as_it_does_under_run failed once under high load on Overmind (e861a4220: ending not printed after the alternate screen was left, build.rs:758), passed on the next cycle: make its pty wait robust to slow runs (wait for the leave-screen sequence rather than a fixed time)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -28673,7 +28673,7 @@
     {
       "id": 4336,
       "title": "[Sonnet] Guard raw stitchwort_core::value::quote in crates/elab the way SW-4333 guarded quote_folded: classify the ~100 sites (can see a user hypothesis/goal or not), route the former through check::quote_or_written, then a clippy disallowed-methods entry with allows at the internal ones",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -28705,6 +28705,19 @@
       "labels": [],
       "epic": "diagnostics",
       "body": "From SW-4331.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4339,
+      "title": "[Sonnet] Classify the ~125 Ctx::quote callers (omega 40, rewrite 24, rewrite/* 22, others ~40) as SW-4336 did the direct value::quote sites; route annotation/hypothesis-type ones through quote_or_written; then guard Ctx::quote itself (clippy disallowed-methods on the method, or make it private behind the three named helpers)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "goal-as-written",
+      "body": "From SW-4336.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
