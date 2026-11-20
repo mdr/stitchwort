@@ -1,5 +1,5 @@
 {
-  "next": 4329,
+  "next": 4331,
   "tickets": [
     {
       "id": 47,
@@ -28504,7 +28504,7 @@
     {
       "id": 4323,
       "title": "[Opus] Unifier: let the SW-4305/4316 fallback solve a whole-argument unknown against a lambda in Parse.Follows-shaped calls (p/q thunks () => bump()), so ~150 hand-spelled [p :=][q :=][j :=][k :=] in tools/fmt go; recheck after SW-4316's relaxation (merged after SW-4220's probe); repros and a 16-group unspell patch in orchestrator scratchpad keep/sw4220/ (min1.sw, r7/r10/r11.sw, lambda-unify-unspell.patch); optional: abstract ?j (?p ()) once p is known; measure std hash changes (Std.Parse.readsToken moved under the unrestricted version)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -28575,6 +28575,32 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "From SW-4304.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4329,
+      "title": "[Sonnet] After SW-4324 merges: sweep the remaining [p := () => …]/[q := …] (and any [j :=][k :=] that now infer) on followsThen/followsThenEq uses in tools/fmt with task fmt:unspell, checking each namespace; ~100-130 left (SW-4323 finding)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From SW-4323. Wait for SW-4324 (followsMap order).",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4330,
+      "title": "[Opus] Unifier: abstract a stuck neutral call e in ?j e once ?p := () => e is known (kabstract-style, only when e is neutral and occurs as a whole; only in the fallback), to drop most [j :=][k :=] on Parse.followsThen (SW-4323 design)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From SW-4323's report.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
