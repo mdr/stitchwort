@@ -10441,6 +10441,118 @@ fn relabel_unknowns(text: &str, relabels: &[(String, String)]) -> String {
     out
 }
 
+/// `value` read back unfolded, for a small term the elaborator made itself
+/// (an instance's field, a declared type, a literal) or a read-back that
+/// has its own fallback (`.ok()?`, a cheap-limits side budget, a recovery):
+/// the elaborator's one raw `value::quote`, with
+/// [`quote_unfolded`], so that clippy finds any new direct call (SW-4336).
+#[allow(clippy::disallowed_methods)]
+pub(crate) fn quote_internal(
+    g: &Ev,
+    level: usize,
+    value: &Value,
+) -> std::result::Result<Term, ResourceError> {
+    quote(g, level, value)
+}
+
+/// `value` read back unfolded where the unfolded form is what the caller
+/// needs and the value may be a user's hypothesis or goal, so it can run out
+/// of resources (E-RESOURCE size): an occurrence or mention test, a
+/// comparison with another unfolded term, a scan for unsolved unknowns.
+/// Where the result need only be convertible, use [`quote_or_written`].
+#[allow(clippy::disallowed_methods)]
+pub(crate) fn quote_unfolded(
+    g: &Ev,
+    level: usize,
+    value: &Value,
+) -> std::result::Result<Term, ResourceError> {
+    quote(g, level, value)
+}
+
+/// `value` read back unfolded, or as written if that is too large (then with
+/// `true`): a convertible term, since a call as written computes to the same
+/// value. Anything else that fails, running out of work included, is
+/// passed on, and a value too large to write either way keeps the first
+/// error and its note of what was too large.
+pub(crate) fn quote_or_written(
+    g: &Ev,
+    level: usize,
+    value: &Value,
+) -> std::result::Result<(Term, bool), ResourceError> {
+    let budget = &g.machine.budget;
+    // A read-back that runs over notes where (`ran_out_in`) it ran out; one
+    // that finishes, as written or not, leaves the note as it was.
+    let ran_out_in = budget.take_ran_out_in();
+    budget.set_ran_out_in(ran_out_in);
+    match quote_unfolded(g, level, value) {
+        Err(e @ ResourceError::Size(_)) if budget.exhausted().is_none() => {
+            let noted = budget.take_too_large();
+            let noted_in = budget.take_ran_out_in();
+            match stitchwort_core::value::quote_as_written(g, level, value) {
+                Ok(t) => {
+                    budget.set_too_large(noted);
+                    budget.set_ran_out_in(ran_out_in);
+                    Ok((t, true))
+                }
+                Err(ResourceError::Size(_)) if budget.exhausted().is_none() => {
+                    budget.set_too_large(noted);
+                    budget.set_ran_out_in(noted_in);
+                    Err(e)
+                }
+                Err(e) => Err(e),
+            }
+        }
+        read => read.map(|t| (t, false)),
+    }
+}
+
+/// The most nodes [`quote_folded`] writes out before writing calls as
+/// written instead: the read-back size limit's default, which also bounds a
+/// read-back outside any operation (printing an open goal), where no limit
+/// applies.
+const FOLDED_NODES: u64 = 2_000_000;
+
+/// `value::quote_folded`, or, where a call that steps at once computes a
+/// value too large to write out (`grow 30 (Leaf x)` in a hypothesis that
+/// is only along for the ride), every call written as the call
+/// (`value::quote_as_written`): a convertible term, so a `rewrite`, a
+/// `match` or an open goal that merely carries such a hypothesis doesn't
+/// run out, or fill the memory (SW-4091). Only a value too large that way
+/// too is an error, the first one. The elaborator's only: the kernel reads
+/// back as it always has.
+pub(crate) fn quote_folded(
+    g: &Ev,
+    level: usize,
+    value: &Value,
+) -> std::result::Result<Term, ResourceError> {
+    use stitchwort_core::value::{quote_as_written, quote_folded_at_most};
+    let budget = &g.machine.budget;
+    // What a later report names as being unfolded, kept as it was if the
+    // fallback succeeds.
+    let ran_out_in = budget.take_ran_out_in();
+    budget.set_ran_out_in(ran_out_in);
+    let error = match quote_folded_at_most(g, level, value, FOLDED_NODES) {
+        Ok(Some(term)) => return Ok(term),
+        Ok(None) => None,
+        Err(e @ ResourceError::Size(_)) if budget.exhausted().is_none() => Some(e),
+        Err(e) => return Err(e),
+    };
+    let noted = budget.take_too_large();
+    let noted_in = budget.take_ran_out_in();
+    match quote_as_written(g, level, value) {
+        Ok(term) => {
+            budget.set_ran_out_in(ran_out_in);
+            Ok(term)
+        }
+        Err(e @ ResourceError::Size(_)) if budget.exhausted().is_none() => {
+            budget.set_too_large(noted);
+            budget.set_ran_out_in(noted_in);
+            Err(error.unwrap_or(e))
+        }
+        Err(e) => Err(e),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use stitchwort_syntax::SourceMap;
@@ -10589,117 +10701,5 @@ mod tests {
             elaborate("(x => x: [a: Type] → a → a)").as_deref(),
             Ok("[a: Type] → a → a")
         );
-    }
-}
-
-/// `value` read back unfolded, for a small term the elaborator made itself
-/// (an instance's field, a declared type, a literal) or a read-back that
-/// has its own fallback (`.ok()?`, a cheap-limits side budget, a recovery):
-/// the elaborator's one raw `value::quote`, with
-/// [`quote_unfolded`], so that clippy finds any new direct call (SW-4336).
-#[allow(clippy::disallowed_methods)]
-pub(crate) fn quote_internal(
-    g: &Ev,
-    level: usize,
-    value: &Value,
-) -> std::result::Result<Term, ResourceError> {
-    quote(g, level, value)
-}
-
-/// `value` read back unfolded where the unfolded form is what the caller
-/// needs and the value may be a user's hypothesis or goal, so it can run out
-/// of resources (E-RESOURCE size): an occurrence or mention test, a
-/// comparison with another unfolded term, a scan for unsolved unknowns.
-/// Where the result need only be convertible, use [`quote_or_written`].
-#[allow(clippy::disallowed_methods)]
-pub(crate) fn quote_unfolded(
-    g: &Ev,
-    level: usize,
-    value: &Value,
-) -> std::result::Result<Term, ResourceError> {
-    quote(g, level, value)
-}
-
-/// `value` read back unfolded, or as written if that is too large (then with
-/// `true`): a convertible term, since a call as written computes to the same
-/// value. Anything else that fails, running out of work included, is
-/// passed on, and a value too large to write either way keeps the first
-/// error and its note of what was too large.
-pub(crate) fn quote_or_written(
-    g: &Ev,
-    level: usize,
-    value: &Value,
-) -> std::result::Result<(Term, bool), ResourceError> {
-    let budget = &g.machine.budget;
-    // A read-back that runs over notes where (`ran_out_in`) it ran out; one
-    // that finishes, as written or not, leaves the note as it was.
-    let ran_out_in = budget.take_ran_out_in();
-    budget.set_ran_out_in(ran_out_in);
-    match quote_unfolded(g, level, value) {
-        Err(e @ ResourceError::Size(_)) if budget.exhausted().is_none() => {
-            let noted = budget.take_too_large();
-            let noted_in = budget.take_ran_out_in();
-            match stitchwort_core::value::quote_as_written(g, level, value) {
-                Ok(t) => {
-                    budget.set_too_large(noted);
-                    budget.set_ran_out_in(ran_out_in);
-                    Ok((t, true))
-                }
-                Err(ResourceError::Size(_)) if budget.exhausted().is_none() => {
-                    budget.set_too_large(noted);
-                    budget.set_ran_out_in(noted_in);
-                    Err(e)
-                }
-                Err(e) => Err(e),
-            }
-        }
-        read => read.map(|t| (t, false)),
-    }
-}
-
-/// The most nodes [`quote_folded`] writes out before writing calls as
-/// written instead: the read-back size limit's default, which also bounds a
-/// read-back outside any operation (printing an open goal), where no limit
-/// applies.
-const FOLDED_NODES: u64 = 2_000_000;
-
-/// `value::quote_folded`, or, where a call that steps at once computes a
-/// value too large to write out (`grow 30 (Leaf x)` in a hypothesis that
-/// is only along for the ride), every call written as the call
-/// (`value::quote_as_written`): a convertible term, so a `rewrite`, a
-/// `match` or an open goal that merely carries such a hypothesis doesn't
-/// run out, or fill the memory (SW-4091). Only a value too large that way
-/// too is an error, the first one. The elaborator's only: the kernel reads
-/// back as it always has.
-pub(crate) fn quote_folded(
-    g: &Ev,
-    level: usize,
-    value: &Value,
-) -> std::result::Result<Term, ResourceError> {
-    use stitchwort_core::value::{quote_as_written, quote_folded_at_most};
-    let budget = &g.machine.budget;
-    // What a later report names as being unfolded, kept as it was if the
-    // fallback succeeds.
-    let ran_out_in = budget.take_ran_out_in();
-    budget.set_ran_out_in(ran_out_in);
-    let error = match quote_folded_at_most(g, level, value, FOLDED_NODES) {
-        Ok(Some(term)) => return Ok(term),
-        Ok(None) => None,
-        Err(e @ ResourceError::Size(_)) if budget.exhausted().is_none() => Some(e),
-        Err(e) => return Err(e),
-    };
-    let noted = budget.take_too_large();
-    let noted_in = budget.take_ran_out_in();
-    match quote_as_written(g, level, value) {
-        Ok(term) => {
-            budget.set_ran_out_in(ran_out_in);
-            Ok(term)
-        }
-        Err(e @ ResourceError::Size(_)) if budget.exhausted().is_none() => {
-            budget.set_too_large(noted);
-            budget.set_ran_out_in(noted_in);
-            Err(error.unwrap_or(e))
-        }
-        Err(e) => Err(e),
     }
 }
