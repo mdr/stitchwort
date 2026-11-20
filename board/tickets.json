@@ -29869,7 +29869,7 @@
     {
       "id": 4427,
       "title": "[Opus] Self-hosted formatter: a Walk form for byWalking [items] then t (Syntax/Expr, Parser, Statements, Traverse, Fmt rules and printer), with its Parse.Follows twin and Parse.Gives proofs; slice gates keep it outside slices 1 to 6a (no theorem or must-accept change); needed for the D3573 switch-over since ParseWalk.sw and FollowsBase.sw use it (SW-4383)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
