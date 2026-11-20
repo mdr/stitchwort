@@ -2051,6 +2051,103 @@ fn rechecking_exact_entries_keeps_them_exact() {
     let _ = std::fs::remove_dir_all(&cache);
 }
 
+/// An entry another kernel side wrote that this kernel refuses on the
+/// re-check (`refuse_replays_after` makes it so after `B.two`'s group) is
+/// elaborated instead: the result is a fresh check's, the refusal is
+/// counted as one on a re-check and not as a plain one, and what the
+/// session writes is carried over, never exact.
+#[test]
+fn a_carried_entry_the_kernel_refuses_on_recheck_is_elaborated_instead() {
+    let dir = temp_project("recheck-refused", ABCD);
+    let cache = temp_dir("recheck-refused-cache");
+    run_as_build(&dir, &cache, Some(("earlierbuild", "anotherkernel")), false);
+    let fresh = run(&Source::Project("p".to_string(), dir.clone()), true, None);
+    let source = Source::Project("p".to_string(), dir.clone());
+    let refused = with_stack(STACK, || {
+        let mut session = Session::navigable_for_stack(STACK);
+        session.use_check_cache(&cache);
+        session.elab.set_carry_over(true);
+        session.elab.refuse_replays_after("B.two");
+        finish_run(session, &source)
+    });
+    let s = refused.stats;
+    assert_eq!((s.refused_on_recheck, s.refused), (1, 0), "{s:?}");
+    assert!(s.namespace_rechecked >= 1, "{s:?}");
+    assert!(
+        refused.dump == fresh.dump,
+        "a refused re-check changed the result: {}",
+        first_difference(&fresh.dump, &refused.dump)
+    );
+    // A carrying check finds the kept ones as this kernel's, needing no
+    // re-check, and `B`'s rewritten entry; an exact one misses everything.
+    let carried = run_as_build(&dir, &cache, None, true);
+    let s = carried.stats;
+    assert_eq!(
+        (
+            s.namespace_carried,
+            s.namespace_rechecked,
+            s.refused_on_recheck
+        ),
+        (4, 0, 0),
+        "{s:?}"
+    );
+    assert!(
+        carried.dump == fresh.dump,
+        "{}",
+        first_difference(&fresh.dump, &carried.dump)
+    );
+    let exact = run_as_build(&dir, &cache, None, false);
+    assert_eq!(exact.stats.namespace_hits, 0, "{:?}", exact.stats);
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
+/// Two other builds wrote an entry for each unit: one with this kernel
+/// side (written first), one with another (written last, so the one the
+/// cache lists first). Carrying over uses the one this kernel accepted,
+/// which needs no re-check; with `--recheck` every entry is checked again.
+#[test]
+fn a_carried_entry_this_kernel_accepted_is_preferred_to_one_needing_a_recheck() {
+    let dir = temp_project("prefer", ABCD);
+    let cache = temp_dir("prefer-cache");
+    run_as_build(&dir, &cache, Some(("matchingbuild", KERNEL)), false);
+    // Newest first: modification times have a coarse resolution.
+    std::thread::sleep(std::time::Duration::from_millis(1100));
+    run_as_build(
+        &dir,
+        &cache,
+        Some(("otherkernelbuild", "anotherkernel")),
+        false,
+    );
+    let fresh = run(&Source::Project("p".to_string(), dir.clone()), true, None);
+    let carried = run_as_build(&dir, &copy_cache(&cache, "prefer-copy", &[]), None, true);
+    let s = carried.stats;
+    assert_eq!(
+        (s.namespace_carried, s.namespace_rechecked, s.rechecked),
+        (4, 0, 0),
+        "an entry needing a re-check was used: {s:?}"
+    );
+    assert!(s.hits > 0, "{s:?}");
+    assert!(
+        carried.dump == fresh.dump,
+        "{}",
+        first_difference(&fresh.dump, &carried.dump)
+    );
+    let source = Source::Project("p".to_string(), dir.clone());
+    let again = with_stack(STACK, || {
+        let mut session = Session::navigable_for_stack(STACK);
+        session.use_check_cache(&cache);
+        session.elab.set_carry_over(true);
+        session.elab.set_recheck(true);
+        finish_run(session, &source)
+    });
+    let s = again.stats;
+    assert_eq!((s.namespace_rechecked, s.rechecked), (4, s.hits), "{s:?}");
+    assert_eq!((s.refused, s.refused_on_recheck), (0, 0), "{s:?}");
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
 /// What a session that carried something over writes is carried over too,
 /// never exact: an edited `B` elaborated over a carried `A` is a miss for
 /// an exact check, and a carried-over hit for the next carrying one.

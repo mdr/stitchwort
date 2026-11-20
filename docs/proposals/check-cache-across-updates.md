@@ -545,8 +545,14 @@ SW-4410, 20 November 2026.
   their hashes, and the constructors' field sorts and erasure flags,
   which the kernel works out again but the hash doesn't cover, directly
   (a difference is a refusal; SW-4450's M1: a `Prop` sort kept from
-  another kernel would let conversion skip a data field). Run bodies are
-  type-checked, not compared; they never unfold in the kernel.
+  another kernel would let conversion skip a data field). The trusted
+  replay of a carried entry works the same two out again too (SW-4452;
+  one `check_type` per field, `recompute_field_sorts`), which closes
+  stage 1's F2 (a forgotten `FORMAT` bump) for them. A run body is
+  type-checked and then compared with the entry's, by its debug text (the
+  `let` erasure flags the hash ignores included); a difference is a
+  refusal, so a kept entry is in every part what this kernel installed.
+  Run bodies never unfold in the kernel.
   The next carrying session then takes it without a re-check (this kernel
   has accepted it), and an exact check still misses it. Without this the
   editor would pay the re-check on every start until a full check.

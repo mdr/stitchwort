@@ -321,6 +321,58 @@ fn plain_check(project: &Path, cache: &Path, skip: bool, debug: bool) -> Output 
     )
 }
 
+/// `check --recheck` says what it did: after a cold run, every namespace
+/// is checked again by the kernel from its entry and none is reported as
+/// left out unloaded; with nothing to check again it says so, which must
+/// not look like an audit that passed.
+#[test]
+fn check_recheck_says_what_it_checked_again() {
+    let project = temp_dir("recheck-project");
+    for (path, text) in [
+        ("stitchwort.yaml", "sources: [src]\n"),
+        ("src/A.sw", "namespace A\n\ndef one: Nat := 1\n"),
+        (
+            "src/B.sw",
+            "namespace B\nimport A (one)\n\ndef two: Nat := one + one\n",
+        ),
+    ] {
+        let full = project.join(path);
+        std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+        std::fs::write(full, text).unwrap();
+    }
+    let cache = temp_dir("recheck-cache");
+    let run = |cache: &Path| {
+        stitchwort(
+            &[
+                "check",
+                "--project",
+                project.to_str().unwrap(),
+                "--cache-dir",
+                cache.to_str().unwrap(),
+                "--recheck",
+            ],
+            &[("STITCHWORT_CACHE_DEBUG", "1")],
+        )
+    };
+    let nothing = run(&cache);
+    let err = String::from_utf8_lossy(&nothing.stderr).into_owned();
+    assert!(nothing.status.success(), "{}", shown(&nothing));
+    assert!(
+        err.contains("checked again by this kernel: nothing"),
+        "{err}"
+    );
+    let again = run(&cache);
+    let err = String::from_utf8_lossy(&again.stderr).into_owned();
+    assert!(again.status.success(), "{}", shown(&again));
+    assert!(
+        err.contains("checked again by this kernel, without elaborating: 2 namespaces"),
+        "{err}"
+    );
+    assert!(skipped(&again).is_empty(), "{err}");
+    let _ = std::fs::remove_dir_all(&project);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
 /// The namespaces a debug run of [`plain_check`] says it didn't load.
 fn skipped(output: &Output) -> Vec<String> {
     let mut names: Vec<String> = String::from_utf8_lossy(&output.stderr)
