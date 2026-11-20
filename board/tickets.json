@@ -30090,8 +30090,8 @@
     {
       "id": 4444,
       "title": "[Opus] Partial unfold: match keeps a partial result once its own checks pass but has no whole-match retry like rewrite's (SW-4419 e65b38b61); add snapshot-and-retry around a match that fails after using the step, with a reduced example; also cover a target rewrite used as a term (rewrite p at h with no expected type); and a metrics outcome for 'retried without the step'",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
