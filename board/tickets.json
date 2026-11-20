@@ -29369,8 +29369,8 @@
     {
       "id": 4389,
       "title": "[Sonnet] W-REWRITE-GUARD-REFINED for rewrite ... at h too (only goal rewrites get it); update pattern-guards.md §3.3/§4 for D3701 (SW-4385 follow-ups)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
