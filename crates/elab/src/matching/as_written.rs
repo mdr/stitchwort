@@ -156,9 +156,11 @@ pub(crate) fn report_transport(outcome: Outcome, span: stitchwort_syntax::Span) 
 /// unfold ([`crate::unfold_path::retried`]) when `STITCHWORT_MATCH_METRICS`
 /// is set.
 pub(super) fn report_retried(span: stitchwort_syntax::Span) {
-    if std::env::var_os("STITCHWORT_MATCH_METRICS").is_some() {
-        eprintln!("match-retried: without-partial-unfold at={}", span.start);
-    }
+    crate::metrics::emit(
+        "STITCHWORT_MATCH_METRICS",
+        "match-retried: without-partial-unfold",
+        span.start,
+    );
 }
 
 /// Counts `outcome`, for a generalisation the caller kept, as a use of the
@@ -171,7 +173,7 @@ pub(crate) fn note_kept(outcome: Outcome) {
 }
 
 fn report_as(what: &str, outcome: Outcome, span: stitchwort_syntax::Span) {
-    if std::env::var_os("STITCHWORT_MATCH_METRICS").is_none() {
+    if !crate::metrics::wanted("STITCHWORT_MATCH_METRICS") {
         return;
     }
     let name = match outcome {
@@ -184,7 +186,11 @@ fn report_as(what: &str, outcome: Outcome, span: stitchwort_syntax::Span) {
         Outcome::Unchecked => "unchecked",
         Outcome::Unconfirmed => "unconfirmed",
     };
-    eprintln!("{what}: {name} at={}", span.start);
+    crate::metrics::emit(
+        "STITCHWORT_MATCH_METRICS",
+        &format!("{what}: {name}"),
+        span.start,
+    );
 }
 
 /// The generalisation as written, if it found something and passes checks

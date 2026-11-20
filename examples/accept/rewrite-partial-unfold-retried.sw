@@ -1,3 +1,4 @@
+-- metrics: rewrite-retried: without-partial-unfold
 -- A `rewrite` whose first rule took the partial unfold is made again
 -- without it if the whole `rewrite` then fails. `Bool.andFalse glue` finds
 -- `glue && False` by opening only `step`, so the goal keeps `s.past c False

@@ -1,3 +1,4 @@
+-- metrics: guard-as-written: unchecked
 -- A guard whose goal, generalised as written, doesn't type-check, so the
 -- guard falls back to the goal read back unfolded (SW-4418). Here the goal
 -- passes `scaled` a proof, `pickAtNonZero c`, whose type mentions `c == 0`

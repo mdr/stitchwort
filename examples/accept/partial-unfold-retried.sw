@@ -1,3 +1,5 @@
+-- metrics: match-retried: without-partial-unfold
+-- metrics: rewrite-retried: without-partial-unfold
 -- A `match` that kept the partial unfold is made again without it if the
 -- whole `match` then fails, and so is a `rewrite … at h` used as a term.
 -- `glue && False` is found by opening only `step`, so the `False` arm's
