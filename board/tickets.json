@@ -30157,8 +30157,8 @@
     {
       "id": 4449,
       "title": "[Sonnet] Goals as written, follow-ups of SW-4443: a hole that is a call's argument (h ? with h: 0 < 1 -> 2 < 3) shows the parameter's written type; match induct alternatives substitute the case's target values into the written statement (induct_match.rs alternative); scope Ctx::statement_arms so it can't carry into check_match_once's scrutinee",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
