@@ -164,6 +164,15 @@ pub(crate) fn gap(pair: &Pair) -> Gap {
             Gap::Rule(true)
         };
     }
+    // R4: adjacent call elements get a space, glued or not (`f[x]`, `]a`,
+    // `2a`, `)[`): the lexer splits them and the tree is the same with a
+    // space, so the formatters agree (SW-4459). `)(` is kept above.
+    if (closes_operand(left) || *left == KwByWalking)
+        && opens_atom(right)
+        && !(*left == RParen && *right == LParen)
+    {
+        return Gap::Rule(true);
+    }
     // `Circle { id = "a", … }`: a constructor and the braces naming its
     // fields, in an expression or a pattern (docs/proposals/variant-fields.md
     // §4.5). Whitespace never changes what braces after a name mean.
