@@ -1,5 +1,5 @@
 {
-  "next": 4427,
+  "next": 4429,
   "tickets": [
     {
       "id": 47,
@@ -29293,12 +29293,12 @@
     {
       "id": 4383,
       "title": "[Sonnet] tools/fmt parser and editor highlighting: know byWalking [..] then t (ParseWalk.sw now uses it; matters for D3573 switch-over) (SW-4354 follow-up 9)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\nLane notes (Sonnet): VS Code grammar done (byWalking before a `[`; `then` already a keyword). Self-hosted parser/printer NOT done: a new Expr constructor (Walk) touches Syntax/Expr.sw, Parser.sw, Statements.sw, Traverse, Fmt/{Walk,TraverseFail,Blank,Passes,Rules,Slice6a} and the Parse.Follows twin proofs (FollowsForms) plus Parse.Gives walks; scope decision needed (D3688). The Rust fmt has no Walk rule (generic join), and prints both files unchanged. Stopped for the orchestrator.\n",
+      "body": "\nLane notes (Sonnet): VS Code grammar done (byWalking before a `[`; `then` already a keyword). Self-hosted parser/printer NOT done: a new Expr constructor (Walk) touches Syntax/Expr.sw, Parser.sw, Statements.sw, Traverse, Fmt/{Walk,TraverseFail,Blank,Passes,Rules,Slice6a} and the Parse.Follows twin proofs (FollowsForms) plus Parse.Gives walks; scope decision needed (D3688). The Rust fmt has no Walk rule (generic join), and prints both files unchanged. Stopped for the orchestrator.\n\n\nModel result: Sonnet, worked (grammar only; parser stopped for scope, correctly), 5 min (est. 40)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -29488,12 +29488,12 @@
     {
       "id": 4398,
       "title": "[Sonnet] Walk two-run registration: treat an open run as a wildcard so overlapping (fail, any) and (fail, bump) lemmas are refused at registration with E-WALK-LEMMA naming the pair; two-run 'two lemmas fit' reject; find why followsTupleClose needs its thunk written out (SW-4395 follow-ups 1, 2; before W4)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\n\nProgress (Sonnet lane, 20 Nov 2026, 14:57-15:30): commit c2ddc8836 on lane/SW-4398. Overlap rule in register_walk (open run = wildcard), message names both lemmas and both pairs; rejects walk-two-run-overlapping-lemmas and walk-two-run-two-lemmas; syntax.md updated. followsTupleClose NOT fixed: bare followsFatalAny fails the direct check when the goal post is the eta form (x y => WordsAlike x y) and second is left as a hole (Param::Shown); explicit second or plain WordsAlike works. Binding Shown as a local def panics (metas undone after fit).\n",
+      "body": "\n\nProgress (Sonnet lane, 20 Nov 2026, 14:57-15:30): commit c2ddc8836 on lane/SW-4398. Overlap rule in register_walk (open run = wildcard), message names both lemmas and both pairs; rejects walk-two-run-overlapping-lemmas and walk-two-run-two-lemmas; syntax.md updated. followsTupleClose NOT fixed: bare followsFatalAny fails the direct check when the goal post is the eta form (x y => WordsAlike x y) and second is left as a hole (Param::Shown); explicit second or plain WordsAlike works. Binding Shown as a local def panics (metas undone after fit).\n\n\nModel result: Sonnet, needed fixes (followsTupleClose not fixed, filed SW-4425), 35 min (est. 35)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": [
@@ -29859,6 +29859,32 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4427,
+      "title": "[Opus] Self-hosted formatter: a Walk form for byWalking [items] then t (Syntax/Expr, Parser, Statements, Traverse, Fmt rules and printer), with its Parse.Follows twin and Parse.Gives proofs; slice gates keep it outside slices 1 to 6a (no theorem or must-accept change); needed for the D3573 switch-over since ParseWalk.sw and FollowsBase.sw use it (SW-4383)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4428,
+      "title": "[DeepSeek] Playground: add byWalking to web/index.html's KEYWORDS; add a keyword case to editors/vscode/test/grammar.test.js (byWalking [ is a keyword, bare byWalking is not) (SW-4383 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
