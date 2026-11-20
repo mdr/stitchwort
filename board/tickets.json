@@ -28556,8 +28556,8 @@
     {
       "id": 4327,
       "title": "[Sonnet] match induct: read the induction-hypothesis goal back with quote_folded instead of quote (crates/elab/src/induct_match.rs:377-379), so ih premises show the theorem's named calls (hasItem [leaf, ..behind]) not unfolded bodies; D480 calls-stay-folded applied; goals snapshot showing it (SW-4304 item 3; orchestrator's call under D480)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
