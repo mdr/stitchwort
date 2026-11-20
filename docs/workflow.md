@@ -532,6 +532,8 @@ own tickets as described in [board/README.md](../board/README.md).
 
 ### Writing a brief
 
+A new example's hash snapshot is recorded with `task snap:hashes NAME=<example>` and checked with `task test:hashes NAME=<example>`.
+
 Every brief states the worktree, the estimate and the targeted tests (CLAUDE.md,
 "Test budget"). Some kinds of work also need standard lines, each added after a
 lane missed it and a batch failed:
