@@ -1,5 +1,5 @@
 {
-  "next": 4433,
+  "next": 4434,
   "tickets": [
     {
       "id": 47,
@@ -29906,7 +29906,7 @@
     {
       "id": 4430,
       "title": "[Opus, paper] Review SW-4419 (partial unfold, D2538 bounded-readback stage 3): crates/elab/src/unfold_path.rs and its wiring into match/cases/guards, transport and rewrite; occurrence markers Ann(t, Meta(MAX-1)); reify exclusion; 150 hash snapshots moved incl. prelude; D2364",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -29934,6 +29934,19 @@
       "title": "[Sonnet] SW-4413's note is noise in two rejects: hole-name-after-question shows 'the call's own type `_ _` also does not match' and omega-unsolved-hypothesis prints a long decEq type: add the note only when the call's own type has a head that isn't an unknown and the note is short enough to read (or both types differ at a named head); regenerate those two snapshots; run all rejects",
       "status": "doing",
       "agent": "Claude",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4433,
+      "title": "[Sonnet] Partial unfold follow-ups (SW-4430): F2 walk only the hypotheses a match can copy; F3 replace the reify exclusion with 'never open compiler-generated definitions (% helpers, handler runtime)'; F4 transport_target honours Scrut::on_path; F5 docs (goal-as-written as-built, bounded-readback refinements and stage 3 built, cap and recursion guard in syntax.md and proving guide, close SW-1838); F6 unit tests for the walk; F7 share is_needle with Finder::occurrence; F9 partial applications in a spine; F10 per-cell memo and proof-position variables",
+      "status": "backlog",
+      "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
