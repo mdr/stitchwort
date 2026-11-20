@@ -600,7 +600,9 @@ pub(crate) fn unify_by_unknown_arguments(
                     } else {
                         (y, x)
                     };
-                    if matches!(force(g, known.clone())?, Value::Lam(..)) && !thunk(unknown_arg, m)?
+                    if matches!(force(g, known.clone())?, Value::Lam(..))
+                        && !thunk(unknown_arg, m)?
+                        && !eta_function(g, level, known)?
                     {
                         against_lambda = true;
                     } else {
@@ -626,7 +628,9 @@ pub(crate) fn unify_by_unknown_arguments(
     // facing a known argument: it takes nothing the call could supply, so
     // only its body, which the lambda gives whole, is left to settle, and
     // `Parse.Follows ?same ?alike ?p ?q` against two parsers written
-    // `() => …` has no data unknown to wait for.
+    // `() => …` has no data unknown to wait for. A lambda that only applies
+    // a known function to its variables (`x y => SameNat x y`) is that
+    // function, and counts as a known argument too.
     if !against_known || (against_lambda && !data_against_known) {
         return Ok(false);
     }
@@ -640,6 +644,55 @@ pub(crate) fn unify_by_unknown_arguments(
     }
     undo_since(g, trail);
     Ok(false)
+}
+
+/// Whether `value`, with `level` variables in scope, is a lambda that
+/// eta-contracts to a function that isn't one: `x y => SameNat x y`, which
+/// is `SameNat`. Only a body that ends by applying something to the
+/// innermost variable is read back to check the rest.
+fn eta_function(g: &Ev, level: usize, value: &Value) -> Result<bool> {
+    let mut body = force_solved(g, value.clone())?;
+    let mut depth = 0;
+    while let Value::Lam(_, _, closure) = body {
+        body = force_solved(g, closure.apply(g, Value::var(level + depth))?)?;
+        depth += 1;
+    }
+    // An unknown at the head (`x => ?f x`) is no known function.
+    let spine = match &body {
+        Value::Neutral(Head::Meta(_), _) => return Ok(false),
+        Value::Neutral(_, spine) | Value::Call(_, spine, _) => spine,
+        _ => return Ok(false),
+    };
+    let Some(Elim::App(last, _)) = spine.iter().last() else {
+        return Ok(false);
+    };
+    let innermost = matches!(
+        force_solved(g, last.clone())?,
+        Value::Neutral(Head::Var(v, _), s) if v == level + depth - 1 && s.is_empty()
+    );
+    if depth == 0 || !innermost {
+        return Ok(false);
+    }
+    let term = crate::check::quote_folded(g, level, value)?;
+    Ok(eta_contract(g, &term)?.is_some_and(|f| !matches!(f.strip_loc(), Term::Lam(..))))
+}
+
+/// `t` eta-contracted, if it is a lambda that only applies a function to
+/// its variables (`x y => f x y` is `f`), where `f` mentions none of them.
+pub(crate) fn eta_contract(g: &Ev, t: &Term) -> Result<Option<Term>> {
+    let Term::Lam(_, icit, body) = t.strip_loc() else {
+        return Ok(None);
+    };
+    let inner = eta_contract(g, body)?;
+    let body = inner.as_ref().unwrap_or(body);
+    if let Term::App(f, a, applied) = body.strip_loc()
+        && applied == icit
+        && matches!(a.strip_loc(), Term::Var(0))
+        && !f.mentions(0)
+    {
+        return Ok(Some(f.instantiate_var(g, 0)?));
+    }
+    Ok(None)
 }
 
 /// [`unify`], except that a helper's frozen metavariable in `awaited` (a
