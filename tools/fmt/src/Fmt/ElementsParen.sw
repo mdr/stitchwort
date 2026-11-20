@@ -315,18 +315,11 @@ theorem ledOpening ∀ (kinds: Text → Tok) (open close: Word) (around: Around)
     (close.noted || close.trails)
     (_ => HangLays kinds (open.opening around close) indent pre gap)
     (marks =>
-      hangsPost pre
-        (place hang =>
-          ((Ended (openingBy state start) open.trails place ∧ hang = Hang.At (openingBy state start))
-            ∧ place.indent = entry.indent)
-            ∧ MarksKept (around.at + 1) (markedCarry around.at entry) place.carry)
-        gap
+      hangsPost
         (lineOpeningHangs kinds open close around indent column state entry token hoisted trailed marks)
         (place hang (((ended, folded), line), kept) => ((ended, folded), _ => (kept, line))))
     (marks =>
-      hangsPost pre
-        (place hang => Ended (openingBy state start) open.trails place ∧ hang = Hang.At (openingBy state start))
-        gap
+      hangsPost
         (openingHangs kinds open close around indent column state entry token hoisted trailed)
         (place hang (ended, folded) =>
           ((ended, folded), never => (Bool.falseNotTrue (Eq.trans marks.flipped never)).impossible)))
@@ -353,7 +346,7 @@ theorem ledInner ∀ (kinds: Text → Tok) (doc: Doc) (indent key: Nat) (entry: 
   let origin := markedCarry key entry
   let state := itemState outer top
   let (midLowers, heldLowers) := lowers
-  place trace next ((ended, folded), cond) after =>
+  hangsBy (place trace next ((ended, folded), cond) after =>
     match place, ended with
       | Mid at carry, (floor, left) =>
         let column := Nat.max indent (at + 2)
@@ -366,8 +359,16 @@ theorem ledInner ∀ (kinds: Text → Tok) (doc: Doc) (indent key: Nat) (entry: 
           (hangOf kinds trace) :=
           (byComputing, folded, ((floor, left), Nat.leRefl indent, bound, (byComputing, room)))
         match marks: flag with
-          | False => el state (Mid at carry) (Mid at carry) trace next entered (later laid (done, landed) =>
-            after later laid (Some column, deep, (done, landed), never => (Bool.falseNotTrue never).impossible))
+          | False =>
+            el state
+              (Mid at carry)
+              (Mid at carry) _
+              trace
+              next
+              byComputing
+              entered
+              (hangsAfter (later laid (done, landed) =>
+                after later laid (Some column, deep, (done, landed), never => (Bool.falseNotTrue never).impossible)))
           | True =>
             let (kept, line) := cond byComputing
             let onLine: at = entry.indent := line
@@ -381,14 +382,15 @@ theorem ledInner ∀ (kinds: Text → Tok) (doc: Doc) (indent key: Nat) (entry: 
                 kept
                 (el state
                   (Mid at carry)
-                  (Mid at carry)
+                  (Mid at carry) _
                   trace
                   (later laid =>
                     MarksKept low origin later.carry
                       → MarksKept low (carry.breakTo column) later.carry
                       → next later laid)
+                  byComputing
                   entered
-                  (later laid (done, landed) _ lowered =>
+                  (hangsAfter (later laid (done, landed) _ lowered =>
                     after later laid (
                       Some column,
                       deep,
@@ -405,7 +407,7 @@ theorem ledInner ∀ (kinds: Text → Tok) (doc: Doc) (indent key: Nat) (entry: 
                             (rewrite onLine at lowered then lowered)
                             atOpener
                             bound
-                    ))))
+                    )))))
       | Held at carry, (waits, floor, left) =>
         let column := Nat.max indent (at + 2)
         let deep: (indent <= column) = True := arithmetic
@@ -417,8 +419,16 @@ theorem ledInner ∀ (kinds: Text → Tok) (doc: Doc) (indent key: Nat) (entry: 
           (hangOf kinds trace) :=
           (byComputing, folded, ((waits, floor, left), Nat.leRefl indent, bound, (byComputing, room)))
         match marks: flag with
-          | False => el state (Held at carry) (Held at carry) trace next entered (later laid (done, landed) =>
-            after later laid (Some column, deep, (done, landed), never => (Bool.falseNotTrue never).impossible))
+          | False =>
+            el state
+              (Held at carry)
+              (Held at carry) _
+              trace
+              next
+              byComputing
+              entered
+              (hangsAfter (later laid (done, landed) =>
+                after later laid (Some column, deep, (done, landed), never => (Bool.falseNotTrue never).impossible)))
           | True =>
             let (kept, line) := cond byComputing
             let onLine: at = entry.indent := line
@@ -432,14 +442,15 @@ theorem ledInner ∀ (kinds: Text → Tok) (doc: Doc) (indent key: Nat) (entry: 
                 kept
                 (el state
                   (Held at carry)
-                  (Held at carry)
+                  (Held at carry) _
                   trace
                   (later laid =>
                     MarksKept low origin later.carry
                       → MarksKept low (carry.breakTo column) later.carry
                       → next later laid)
+                  byComputing
                   entered
-                  (later laid (done, landed) _ lowered =>
+                  (hangsAfter (later laid (done, landed) _ lowered =>
                     after later laid (
                       Some column,
                       deep,
@@ -456,7 +467,7 @@ theorem ledInner ∀ (kinds: Text → Tok) (doc: Doc) (indent key: Nat) (entry: 
                             (rewrite onLine at lowered then lowered)
                             atOpener
                             bound
-                    ))))
+                    ))))))
 
 --| A `paren` holding anything `parenInner` writes as it is, its first token after own-line comments above it, as
 --| one element, whether or not the opener ends its line with a comment.
@@ -482,46 +493,46 @@ theorem parenLedHangs ∀ (kinds: Text → Tok) (open: Word) (inner: Expr) (clos
     (lowers: StartLowers (inner.el (around.next open.trails 1)) indent (around.at + 1))
     (keys: keysFrom (around.at + 1) (inner.el (around.next open.trails 1)) = True):
     ElHangs kinds (parenDoc open inner close around) indent column False (close.trails || inner.trails) wordStart :=
-  state entry place trace next entered after =>
-    let (_, _, (seated, below, clear, room)) := entered
-    let start := wordStart indent entry
-    let opened := openedBy state start
-    let outer := opened.blocks
-    let top := opened.top
-    let low := around.at + 1
-    let origin := markedCarry around.at entry
-    let flag := close.noted || close.trails
-    let innerAround := around.next open.trails 1
-    let innerDoc := inner.el innerAround
-    let closeAround := around.next inner.trails (1 + inner.size)
-    let closerDoc := close.leaf closeAround around.at
-    let prefix := open.opening around close
-    let bound: (inForce outer top <= indent) = True := openedBound indent column state entry seated below clear room
-    let atOpener := openerLine indent column state entry (seated, below, clear, room)
-    let pre := Entered indent column False state entry start
-    let gap := LedGap outer top open.trails flag low origin entry.indent
-    let done := HeldDone indent around.at outer top flag inner.trails
-    let post: Place → Hang → Prop := place hang =>
-      Ended opened (close.trails || inner.trails) place ∧ hang = Hang.At opened
-    let opening: HangLays kinds prefix indent pre gap :=
-      ledOpening kinds open close around indent column state entry opener hoisted openTrailed
-    let middle: HangLays kinds innerDoc indent gap done :=
-      ledInner kinds innerDoc indent around.at entry outer top open.trails flag inner.trails bound atOpener innerLed
-          lowers keys
-    let closing: HangLays kinds closerDoc indent done post :=
-      heldCloser kinds close closeAround around.at indent outer top closer byComputing byComputing closeComments
-          closeTrailed bound
-    rewrite plain then
-      hangsConcat
-        [prefix, innerDoc, closerDoc]
-        pre
-        post
-        (hangsCons prefix [innerDoc, closerDoc] pre gap post opening (hangsTwo innerDoc gap done post middle closing))
-        place
-        trace
-        next
-        entered
-        after
+  state entry =>
+    hangsBy (place trace next entered after =>
+      let (_, _, (seated, below, clear, room)) := entered
+      let start := wordStart indent entry
+      let opened := openedBy state start
+      let outer := opened.blocks
+      let top := opened.top
+      let low := around.at + 1
+      let origin := markedCarry around.at entry
+      let flag := close.noted || close.trails
+      let innerAround := around.next open.trails 1
+      let innerDoc := inner.el innerAround
+      let closeAround := around.next inner.trails (1 + inner.size)
+      let closerDoc := close.leaf closeAround around.at
+      let prefix := open.opening around close
+      let bound: (inForce outer top <= indent) = True := openedBound indent column state entry seated below clear room
+      let atOpener := openerLine indent column state entry (seated, below, clear, room)
+      let pre := Entered indent column False state entry start
+      let gap := LedGap outer top open.trails flag low origin entry.indent
+      let done := HeldDone indent around.at outer top flag inner.trails
+      let post: Place → Hang → Prop := place hang =>
+        Ended opened (close.trails || inner.trails) place ∧ hang = Hang.At opened
+      let opening: HangLays kinds prefix indent pre gap :=
+        ledOpening kinds open close around indent column state entry opener hoisted openTrailed
+      let middle: HangLays kinds innerDoc indent gap done :=
+        ledInner kinds innerDoc indent around.at entry outer top open.trails flag inner.trails bound atOpener innerLed
+            lowers keys
+      let closing: HangLays kinds closerDoc indent done post :=
+        heldCloser kinds close closeAround around.at indent outer top closer byComputing byComputing closeComments
+            closeTrailed bound
+      rewrite plain then
+        hangsConcat
+          [prefix, innerDoc, closerDoc]
+          (hangsCons prefix [innerDoc, closerDoc] opening (hangsTwo innerDoc middle closing))
+          place _
+          trace
+          next
+          byComputing
+          entered
+          (hangsAfter after))
 
 --| `parenLedHangs`, framed as an element.
 theorem parenLedElHangs ∀ (kinds: Text → Tok) (open: Word) (inner: Expr) (close: Word)

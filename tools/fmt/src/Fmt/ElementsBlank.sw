@@ -44,12 +44,8 @@ theorem blankLeadingHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around
   rewrite hoisted, unnoted, item, blank then
     hangsCons BreakParent
       [LineStart, Blank]
-      pre
-      pre
-      (LineAt indent column (Hang.At state))
       (hangsBreakParent kinds indent pre)
-      (hangsTwo LineStart pre broken
-        (LineAt indent column (Hang.At state))
+      (hangsTwo LineStart
         (startHangsBroken kinds indent before state entry fresh)
         (blankHangs kinds indent column (Hang.At state)))
 
@@ -77,7 +73,7 @@ theorem blankLeafHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
       (place hang =>
         Ended (openedBy state (leadStart indent entry)) word.trails place
           ∧ hang = Hang.At (openedBy state (leadStart indent entry))) :=
-  place trace next entered after =>
+  hangsBy (place trace next entered after =>
     match entered with
       | (_, _, (_, _, _, room)) =>
         let column := leadColumn indent entry
@@ -88,35 +84,26 @@ theorem blankLeafHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
         let post: Place → Hang → Prop := place hang => Ended opened word.trails place ∧ hang = Hang.At opened
         let leading :=
           allHangsPre
-            (place hang => place = entry ∧ hang = Hang.At state ∧ Seated indent around.before state entry)
-            pre
-            lined
+            [weaker := pre]
             (blankLeadingHangs kinds word around key indent around.before state entry hoisted item unnoted blank fresh)
             (place hang (isEntry, folded, (seated, _, _, _)) => (isEntry, folded, seated))
         rewrite leafPiece word around key closer comma then
           hangsConcat
             (word.leading around key ++ [Doc.text word.text, ..word.trailing])
-            pre
-            post
             (hangsAppend
               (word.leading around key)
-              pre
-              lined
-              post
               leading
               (hangsCons
                 (Doc.text word.text)
                 word.trailing
-                lined
-                written
-                post
                 (lineWordHangs kinds word.text indent column state plain token solid room)
                 (trailingHangs kinds word indent opened trailed)))
-            place
+            place _
             trace
             next
+            byComputing
             entered
-            after
+            (hangsAfter after))
 
 -- Nodes.
 
@@ -149,15 +136,13 @@ theorem blankPlacedAt ∀ (kinds: Text → Tok) (first: Word) (around: Around) (
   let post: Place → Hang → Prop := place hang => Ended opened trails place ∧ hang = Hang.At opened
   let leadingDocs := first.leading around around.at
   let pre := Entered indent indent before state entry (leadStart indent entry)
-  place trace next entered after =>
+  hangsBy (place trace next entered after =>
     match entered with
       | (_, _, (seated, _, _, room)) =>
         let leading :=
-          hangsConcat leadingDocs pre lined
+          hangsConcat leadingDocs
             (allHangsPre
-              (place hang => place = entry ∧ hang = Hang.At state ∧ Seated indent before state entry)
-              pre
-              lined
+              [weaker := pre]
               (blankLeadingHangs kinds first around around.at indent before state entry hoisted item unnoted blank
                   fresh)
               (place hang (isEntry, folded, (seated, _, _, _)) => (isEntry, folded, seated)))
@@ -168,14 +153,13 @@ theorem blankPlacedAt ∀ (kinds: Text → Tok) (first: Word) (around: Around) (
             framed
         hangsConcat
           [Doc.concat leadingDocs, Displaced doc]
-          pre
-          post
-          (hangsTwo (Doc.concat leadingDocs) pre lined post leading body)
-          place
+          (hangsTwo (Doc.concat leadingDocs) leading body)
+          place _
           trace
           next
+          byComputing
           entered
-          after
+          (hangsAfter after))
 
 --| A node framed by its first token, which has a kept blank line before it as an item and no comments above it, at
 --| one entry that isn't a plain line start: the blank line, then the node displaced from the start of the line after
