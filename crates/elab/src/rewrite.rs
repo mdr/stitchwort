@@ -1065,6 +1065,74 @@ pub(super) struct Repeated<'a> {
     pub(super) computed: Option<&'a Term>,
 }
 
+/// [`rewrite_once`] for a hypothesis whose side to replace is a variable
+/// (`same: x = y`, `rewrite <- same`), in a goal with no unknowns, where the
+/// search as written keeps its result ([`as_written::first`]): what the
+/// usual path gives then, without first reading the goal back unfolded,
+/// which a closed rule's search as written never uses. In a goal about a
+/// large program (two runs' values made equal, in a two-run walk) that
+/// read-back is most of the rewrite's cost (SW-4469). `None` otherwise, with
+/// everything undone, so that the usual path runs from where this started.
+fn variable_as_written(
+    cx: &mut Ctx,
+    rule: &RewriteRule,
+    place: Place,
+    goal: &Value,
+    remaining: &mut u64,
+    stats: &mut Stats,
+) -> Result<Option<Vec<Step>>> {
+    let Expr::Var(name) = &rule.proof else {
+        return Ok(None);
+    };
+    if rule.unfold || cx.local(&name.text)?.is_some() {
+        return Ok(None);
+    }
+    let Some(level) = cx.lookup(&name.text) else {
+        return Ok(None);
+    };
+    let g = cx.g();
+    let Value::Eq(_, left, right) = force(&g, cx.types[level].clone())? else {
+        return Ok(None);
+    };
+    let side = if rule.reverse { right } else { left };
+    if !matches!(
+        stitchwort_core::value::force_solved(&g, Value::clone(&side))?,
+        Value::Neutral(Head::Var(..), spine) if spine.is_empty()
+    ) || !pending_metas(&cx.quote_folded(goal)?).is_empty()
+    {
+        return Ok(None);
+    }
+    let snapshot = Snapshot::take(cx);
+    let budget = *remaining;
+    let mut found = Stats::default();
+    let outcome = (|| -> Result<Option<Step>> {
+        let equation = elaborate_rule(cx, rule, place)?;
+        let lhs_term = cx.quote_unfolded(&equation.lhs)?;
+        if key(&lhs_term, 0).is_none() || equation.open(&lhs_term) {
+            return Ok(None);
+        }
+        match as_written::first(cx, rule, place, &equation, goal, None, remaining, true)? {
+            as_written::First::Kept(replaced) => {
+                found = replaced.stats;
+                Ok(replaced.step)
+            }
+            _ => Ok(None),
+        }
+    })();
+    match outcome {
+        Ok(Some(step)) => {
+            stats.add(&found);
+            Ok(Some(vec![step]))
+        }
+        Err(e) if fatal(&e) => Err(e),
+        Ok(None) | Err(_) => {
+            snapshot.restore(cx);
+            *remaining = budget;
+            Ok(None)
+        }
+    }
+}
+
 /// One rule's rewrite of the goal (or of a target's type): the occurrences
 /// that mention no variable bound inside it, in one step, then those inside
 /// functions passed to calls, one step per call ([`under`]).
@@ -1087,6 +1155,11 @@ fn rewrite_once(
     // explain it.
     repeated: Option<&Repeated>,
 ) -> Result<Vec<Step>> {
+    if repeated.is_none()
+        && let Some(steps) = variable_as_written(cx, rule, place, goal, remaining, stats)?
+    {
+        return Ok(steps);
+    }
     let g = cx.g();
     let goal_value = force(&g, goal.clone())?;
     let read_back = match repeated.and_then(|r| r.computed) {
@@ -1177,7 +1250,7 @@ fn rewrite_once(
             place,
             &equation,
             goal,
-            (&current, &current_term),
+            Some((&current, &current_term)),
             remaining,
             !written_only,
         )? {

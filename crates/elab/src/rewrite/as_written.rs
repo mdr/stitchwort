@@ -68,7 +68,9 @@ pub(super) enum First {
 /// The rewrite as written, if it found something and left no hidden copy;
 /// failing that, with `on_path`, the same with the calls on the path to an
 /// occurrence hidden inside them unfolded ([`crate::unfold_path`]). `goal`
-/// is the unforced goal (or type of the target). `rewrite repeatedly`'s
+/// is the unforced goal (or type of the target), and `unfolded` the goal
+/// forced and read back unfolded, which only a rule with unknowns needs
+/// (to find today's instance). `rewrite repeatedly`'s
 /// cheap pass, over the goal as written only, passes `on_path` false: there
 /// a set's rules are only ever looked for, and opening calls would let them
 /// fire where they didn't, and in a different order.
@@ -79,7 +81,7 @@ pub(super) fn first(
     place: Place,
     equation: &Equation,
     goal: &Value,
-    unfolded: (&Value, &Term),
+    unfolded: Option<(&Value, &Term)>,
     remaining: &mut u64,
     on_path: bool,
 ) -> Result<First> {
@@ -89,7 +91,7 @@ pub(super) fn first(
         place,
         equation,
         goal,
-        Some(unfolded),
+        unfolded,
         remaining,
         Mode::Complete,
         Reading::Folded,
@@ -111,7 +113,7 @@ pub(super) fn first(
             place,
             equation,
             goal,
-            Some(unfolded),
+            unfolded,
             remaining,
             Mode::Complete,
             Reading::Folded,
@@ -641,6 +643,21 @@ fn hidden_copy_in(
     // The left side first: where it is too large to read back, the check
     // can't be made, and the goal's unfolding, often as large, isn't built.
     let lhs_term = cx.quote_unfolded(&equation.lhs)?;
+    // A variable can't be hidden inside a call: a definition is closed, so
+    // its unfolding mentions a variable of the goal's only through the
+    // arguments the call shows, where the search replaced it. So a motive
+    // that doesn't mention the variable has no copy unfolded either, and
+    // isn't read back unfolded: in a goal about a large program (the
+    // equation of two runs' values, in a two-run walk) that read-back is
+    // most of what the `rewrite` costs (SW-4469).
+    if let Term::Var(ix) = lhs_term
+        && key(&lhs_term, 0).is_some()
+        && let Term::Lam(_, _, inner) = motive
+        && let Term::Lam(_, _, body) = &**inner
+        && !body.mentions(ix + 2)
+    {
+        return Ok(false);
+    }
     let unfolded = cx.quote_unfolded(&cx.eval(motive)?)?;
     let Some(key) = key(&lhs_term, 0) else {
         // Nothing to compare by: don't trust the as-written result.
