@@ -567,6 +567,7 @@ theorem peekSome ∀ (modes: Modes) (items: List Item) (item: Item) (later: List
 
 -- The atoms.
 
+@[walk]
 theorem givesFailName ∀ (modes: Modes) (what: Text) [holds: a → Prop]:
     Parse.Gives GoodItems (() => modes.failName what) holds :=
   Parse.givesAfter0 reads0Left (items =>
