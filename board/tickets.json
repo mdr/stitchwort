@@ -29984,8 +29984,8 @@
     {
       "id": 4436,
       "title": "[Sonnet] Server goal_index snapshot missing on main for examples/goals/guard-hypotheses-as-written.sw (from SW-4403): record and commit it; and the explicit_lambda panic 'lambdas have parameters' (check.rs ~6921) on mismatched inputs should be an error, not a panic (SW-4419 findings)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
