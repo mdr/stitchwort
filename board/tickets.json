@@ -29293,8 +29293,8 @@
     {
       "id": 4383,
       "title": "[Sonnet] tools/fmt parser and editor highlighting: know byWalking [..] then t (ParseWalk.sw now uses it; matters for D3573 switch-over) (SW-4354 follow-up 9)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
