@@ -29568,12 +29568,12 @@
     {
       "id": 4404,
       "title": "[DeepSeek] Debug env var (STITCHWORT_TRACE_GUARDS=1) printing for each proof guard whether it refined, split in place, or fell back, and why; correct guard-refinement.md and SW-4385-guard-review.md: match g: b generalises rather than splitting the column, and eitherWay refines (SW-4391 findings 3, friction)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nModel result: DeepSeek, worked (docs already corrected; no example reaches the fallback line), 20 min (est. 20)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
