@@ -30328,15 +30328,17 @@
     {
       "id": 4462,
       "title": "[Opus] Goals as written: a let before a match loses the folded goal: check_value_against passes the forced goal into effects::pure_let, so the match's arms see Parse.Follows unfolded; pass the unforced goal (named) through let bodies like check_match_named does, with the same fallback; affects every let in a proof whose goal is a Prop call, so measure tools/fmt before/after (SW-4456 finding 1)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
-      "body": "",
+      "body": "\nProgress (Opus lane, 20 Nov 2026): lane/SW-4462 bcff00290. check_value_against now hands pure_let and local::around `named` (the goal as written); `check` forces it again, and the match keeps check_match_named's fallback. New goal example let-match-partial-unfold shows Follows folded (unfolded ∀ before). tools/fmt 3 namespaces: 37.4 s → 35.6 s; 347 folded tries, 24 fall back (23 before). Std.Set.Spec 4.80 → 4.82 s. Only match-as-written's letKept hashes moved. Tests: test:example (match,partial-unfold,guard,rewrite,let), goal examples, snap:hashes, soundness set: all pass.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
-      "commits": []
+      "commits": [
+        "bcff00290"
+      ]
     },
     {
       "id": 4463,
