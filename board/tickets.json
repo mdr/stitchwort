@@ -29503,12 +29503,12 @@
     {
       "id": 4399,
       "title": "[Sonnet] Walk thunks by type: recognise thunks by () -> {e} a, not syntax; refuse families with more than two thunks; second-run names in a lone split use Twin (not items1, y1); expand.rs quoted ignores brackets in strings (SW-4395 follow-ups 3, 4, 6)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nProgress (lane, e407b2a3a on lane/SW-4399): all four done. Thunks found by type (thunk_params, registry.rs); more than two refused at registration (E-WALK-LEMMA, reject example walk-three-thunks.sw); a lone second-run split names fields with Twin (followsTupleEnd and followsListItemsEnd's then-lines renamed to itemsTwin/trailingCommaTwin); expand.rs string-aware (outside_strings), strings atomic, two unit tests. Model result: Sonnet, worked, ~25 min (est. 40).\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
