@@ -75,6 +75,10 @@ impl Elaborator {
                          is a then-lemma)",
                     ));
                 };
+                // A two-run lemma is filed under both runs' functions: one
+                // about `bump` and `bump` and one about `fail` and any
+                // parser don't overlap.
+                let heads = thunk_heads(&shape);
                 for (&other, (other_tag, other_at)) in self.tables.walk_tags.iter() {
                     if other_tag != WALK || other == id || !crate::auto::visible(self, other) {
                         continue;
@@ -82,12 +86,7 @@ impl Elaborator {
                     let Some(s) = statement(g.def(other).ty()) else {
                         continue;
                     };
-                    let t2 = s
-                        .args
-                        .iter()
-                        .position(|a| matches!(a.strip_loc(), Term::Lam(..)));
-                    if s.head == shape.head && t2.and_then(|t| thunk_head(&s.args[t])) == Some(head)
-                    {
+                    if s.head == shape.head && thunk_heads(&s) == heads {
                         return Err(Diagnostic::error(
                             "E-WALK-LEMMA",
                             format!(
@@ -211,31 +210,46 @@ pub(super) fn thunk_head(thunk: &Term) -> Option<DefId> {
     }
 }
 
-/// Which argument of relation `rel` is the thunk: a family's, or the
-/// first premise's of a then-lemma.
-pub(super) fn thunk_index(cx: &Ctx, rel: DefId) -> Option<usize> {
+/// The functions a statement's thunks call, in order: one for a one-run
+/// family, two for a two-run one (`None` for a thunk that is a variable,
+/// as in "`fail` is followed by any parser").
+pub(super) fn thunk_heads(shape: &Shape) -> Vec<Option<DefId>> {
+    shape
+        .args
+        .iter()
+        .filter(|a| matches!(a.strip_loc(), Term::Lam(..)))
+        .map(thunk_head)
+        .collect()
+}
+
+/// Which arguments of relation `rel` are the thunks, in order: a
+/// family's, or the first premise's of a then-lemma. Empty if `rel` is
+/// neither.
+pub(super) fn thunk_indices(cx: &Ctx, rel: DefId) -> Vec<usize> {
     let all = families(cx);
     all.iter()
         .find(|f| f.relation == rel)
-        .map(|f| f.thunk)
+        .map(|f| f.thunks.clone())
         .or_else(|| {
             all.iter()
                 .flat_map(|f| f.then.iter())
                 .find(|(_, first, _)| *first == rel)
-                .map(|(_, _, i)| *i)
+                .map(|(_, _, i)| i.clone())
         })
+        .unwrap_or_default()
 }
 
 /// A family: its relation and its lemmas.
 #[derive(Clone)]
 pub(super) struct Family {
     pub(super) relation: DefId,
-    /// Which of the relation's arguments is the thunk.
-    pub(super) thunk: usize,
+    /// Which of the relation's arguments are the thunks: one, or two for a
+    /// family relating two runs (`Parse.Follows`), walked in lockstep.
+    pub(super) thunks: Vec<usize>,
     pub(super) arity: usize,
     /// The then-lemmas, each with the relation of its first premise and
-    /// which of that relation's arguments is the thunk.
-    pub(super) then: Vec<(DefId, DefId, usize)>,
+    /// which of that relation's arguments are the thunks.
+    pub(super) then: Vec<(DefId, DefId, Vec<usize>)>,
     pub(super) done: Option<DefId>,
     pub(super) weaken: Option<DefId>,
 }
@@ -252,7 +266,9 @@ pub(super) fn families(cx: &Ctx) -> Vec<Family> {
         .filter(|(id, _)| crate::auto::visible(cx.e, **id))
         .map(|(id, (tag, _))| (*id, tag.clone()))
         .collect();
-    tags.sort_by_key(|(id, _)| id.0);
+    // A weaken-lemma's statement has no thunk written as one (`R … first
+    // second`), so a family is made from its bind and done lemmas first.
+    tags.sort_by_key(|(id, tag)| (tag == WALK_WEAKEN, id.0));
     for (id, tag) in tags {
         if tag == WALK {
             continue;
@@ -263,16 +279,15 @@ pub(super) fn families(cx: &Ctx) -> Vec<Family> {
         let family = match out.iter_mut().position(|f| f.relation == shape.head) {
             Some(i) => &mut out[i],
             None => {
-                let Some(thunk) = shape
-                    .args
-                    .iter()
-                    .position(|a| matches!(a.strip_loc(), Term::Lam(..)))
-                else {
+                let thunks: Vec<usize> = (0..shape.args.len())
+                    .filter(|&i| matches!(shape.args[i].strip_loc(), Term::Lam(..)))
+                    .collect();
+                if thunks.is_empty() {
                     continue;
-                };
+                }
                 out.push(Family {
                     relation: shape.head,
-                    thunk,
+                    thunks,
                     arity: shape.args.len(),
                     then: Vec::new(),
                     done: None,
@@ -287,14 +302,16 @@ pub(super) fn families(cx: &Ctx) -> Vec<Family> {
                 if let Some(&at) = explicit.first()
                     && let Some(first) = statement(&shape.binders[at].1)
                 {
-                    // The thunk `p` is the argument whose binder is a
-                    // function.
-                    let thunk = first.args.iter().position(|a| {
-                        matches!(a.strip_loc(), Term::Var(ix) if *ix < at
-                            && matches!(shape.binders[at - 1 - ix].1.strip_loc(), Term::Pi(..)))
-                    });
-                    if let Some(thunk) = thunk {
-                        family.then.push((id, first.head, thunk));
+                    // The thunks (`p`, and `q` for two runs) are the
+                    // arguments whose binders are functions.
+                    let thunks: Vec<usize> = (0..first.args.len())
+                        .filter(|&i| {
+                            matches!(first.args[i].strip_loc(), Term::Var(ix) if *ix < at
+                                && matches!(shape.binders[at - 1 - ix].1.strip_loc(), Term::Pi(..)))
+                        })
+                        .collect();
+                    if !thunks.is_empty() {
+                        family.then.push((id, first.head, thunks));
                     }
                 }
             }
@@ -332,11 +349,13 @@ pub(super) enum Param {
     },
 }
 
-/// Whether a lemma of type `ty` fits `call` in one of `families`.
+/// Whether a lemma of type `ty` fits `calls` in one of `families`: one
+/// call, or for a two-run family the two runs' calls, each against its
+/// thunk.
 pub(super) fn fit_type(
     cx: &mut Ctx,
     ty: &Value,
-    call: &Value,
+    calls: &[Value],
     families: &[DefId],
 ) -> Result<Option<Fit>> {
     let mut found = None;
@@ -383,13 +402,17 @@ pub(super) fn fit_type(
         if !families.contains(rel) {
             return Ok(None);
         }
-        let index = thunk_index(cx, *rel);
-        let Some(thunk) = index.and_then(|i| arg(spine, i)) else {
+        let indices = thunk_indices(cx, *rel);
+        if indices.len() != calls.len() {
             return Ok(None);
-        };
-        let body = thunk_body(cx, &thunk)?;
-        if !cx.unify(&body, call)? {
-            return Ok(None);
+        }
+        for (&i, call) in indices.iter().zip(calls) {
+            let Some(thunk) = arg(spine, i) else {
+                return Ok(None);
+            };
+            if !unify_thunk(cx, &thunk, call)? {
+                return Ok(None);
+            }
         }
         // What the call leaves open (a predicate only its premises
         // mention), from the hypotheses: a premise exactly one of them is.
@@ -464,6 +487,22 @@ pub(super) fn fit_type(
     Ok(found)
 }
 
+/// Whether a lemma's thunk is `() => call`: its code unified with the
+/// call, or, where the lemma leaves the thunk open (`second` in "`fail` is
+/// followed by any parser"), the thunk unified with `() => call`, since
+/// `?second ()` is no pattern the unifier solves.
+fn unify_thunk(cx: &mut Ctx, thunk: &Value, call: &Value) -> Result<bool> {
+    let thunk = force_solved(&cx.g(), thunk.clone())?;
+    if matches!(thunk, Value::Neutral(Head::Meta(_), _)) {
+        let g = cx.g();
+        let code = cx.quote_folded(call)?.shift(&g, 1, 0)?;
+        let made = cx.eval(&Term::Lam("arg".into(), Icit::Explicit, Rc::new(code)))?;
+        return cx.unify(&thunk, &made);
+    }
+    let body = thunk_body(cx, &thunk)?;
+    cx.unify(&body, call)
+}
+
 /// The name of the variable `v` is, also eta-expanded (`x => holds x`).
 pub(super) fn variable_name(cx: &Ctx, v: &Value) -> Result<Option<String>> {
     let term = cx.quote_folded(v)?;
@@ -498,7 +537,7 @@ pub(super) fn variable_name(cx: &Ctx, v: &Value) -> Result<Option<String>> {
 pub(super) fn fit_expr(
     cx: &mut Ctx,
     e: &Expr,
-    call: &Value,
+    calls: &[Value],
     families: &[DefId],
 ) -> Result<Option<Fit>> {
     let snapshot = Snapshot::take(cx);
@@ -511,7 +550,7 @@ pub(super) fn fit_expr(
             return Ok(None);
         }
     };
-    let fit = fit_type(cx, &ty, call, families);
+    let fit = fit_type(cx, &ty, calls, families);
     snapshot.restore(cx);
     fit
 }
@@ -562,14 +601,14 @@ pub(super) fn first_rank<T>(
     Ok(Vec::new())
 }
 
-/// The lemma for `call` (whose head is `callee`), by the four tiers, and
-/// within each by `ranks`: families in order of preference. Two fits in
-/// one rank of one tier is an error.
+/// The lemma for `calls` (one, or one per run; the first's head is
+/// `callee`), by the four tiers, and within each by `ranks`: families in
+/// order of preference. Two fits in one rank of one tier is an error.
 pub(super) fn choose(
     cx: &mut Ctx,
     info: &NodeInfo,
     callee: Callee,
-    call: &Value,
+    calls: &[Value],
     ranks: &[Vec<DefId>],
     expected: &Value,
 ) -> Result<Chosen> {
@@ -584,7 +623,7 @@ pub(super) fn choose(
         let mut fits = Vec::new();
         for item in &items {
             if let Item::Lemma(e) = item
-                && let Some(fit) = fit_expr(cx, e, call, families)?
+                && let Some(fit) = fit_expr(cx, e, calls, families)?
             {
                 fits.push((e.clone(), fit));
             }
@@ -592,7 +631,7 @@ pub(super) fn choose(
         Ok(fits)
     })?;
     if fits.len() > 1 {
-        return Err(two_fit(cx, info, expected, call, "in the brackets"));
+        return Err(two_fit(cx, info, expected, calls, "in the brackets"));
     }
     if let Some((e, fit)) = fits.pop() {
         // As written, bracketed unless it is a name.
@@ -617,7 +656,7 @@ pub(super) fn choose(
     {
         let e = var(name.clone(), span);
         if let Some(fit) = first_rank(ranks, |families| {
-            Ok(fit_expr(cx, &e, call, families)?.into_iter().collect())
+            Ok(fit_expr(cx, &e, calls, families)?.into_iter().collect())
         })?
         .pop()
         {
@@ -641,7 +680,7 @@ pub(super) fn choose(
                 continue;
             }
             let ty = cx.types[level].clone();
-            if let Some(fit) = fit_type(cx, &ty, call, families)? {
+            if let Some(fit) = fit_type(cx, &ty, calls, families)? {
                 fits.push((name, fit));
             }
         }
@@ -653,7 +692,7 @@ pub(super) fn choose(
             cx,
             info,
             expected,
-            call,
+            calls,
             &format!("among the hypotheses ({})", names.join(", ")),
         ));
     }
@@ -683,7 +722,7 @@ pub(super) fn choose(
                     continue;
                 }
                 let ty = cx.eval(g.def(lemma).ty())?;
-                if let Some(fit) = fit_type(cx, &ty, call, families)? {
+                if let Some(fit) = fit_type(cx, &ty, calls, families)? {
                     fits.push((lemma, fit));
                 }
             }
@@ -694,7 +733,7 @@ pub(super) fn choose(
                 cx,
                 info,
                 expected,
-                call,
+                calls,
                 "among the registered lemmas",
             ));
         }
@@ -712,7 +751,7 @@ pub(super) fn choose(
         Callee::Def(id) => format!("`{}`", written_name(cx, id)),
         Callee::Local(l) => format!("`{}`", cx.name_of_level(l).unwrap_or("a parameter")),
     };
-    let mut notes = vec![format!("the call is {}", cx.show(call))];
+    let mut notes = vec![calls_shown(cx, calls)];
     match callee {
         Callee::Local(_) => notes.push(format!(
             "{what} is a parameter: give its lemma in the brackets, or as a hypothesis"
@@ -741,7 +780,7 @@ pub(super) fn two_fit(
     cx: &Ctx,
     info: &NodeInfo,
     expected: &Value,
-    call: &Value,
+    calls: &[Value],
     tier: &str,
 ) -> Diagnostic {
     stuck(
@@ -750,8 +789,23 @@ pub(super) fn two_fit(
         expected,
         &format!("two lemmas fit this call {tier}"),
         &[
-            format!("the call is {}", cx.show(call)),
+            calls_shown(cx, calls),
             "name the one wanted in the brackets: a walk never chooses between two".into(),
         ],
     )
+}
+
+/// A note showing the call, or each run's call.
+pub(super) fn calls_shown(cx: &Ctx, calls: &[Value]) -> String {
+    match calls {
+        [call] => format!("the call is {}", cx.show(call)),
+        _ => {
+            let shown: Vec<String> = calls.iter().map(|c| cx.show(c)).collect();
+            format!(
+                "the calls are {} (first run) and {} (second run)",
+                shown[0],
+                shown[1..].join(", ")
+            )
+        }
+    }
 }

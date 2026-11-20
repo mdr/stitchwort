@@ -109,6 +109,70 @@ pub(super) fn leaf(cx: &mut Ctx, id: u32, info: &NodeInfo, expected: &Value) -> 
         set_text(cx, id, vec![Piece::Text(text)]);
         return Ok(term);
     }
+    // A term in the brackets that is the goal: a lemma's premise about a
+    // function the call passes on (`followsTupleEnds inner` for `ends`),
+    // which no hypothesis says. The goal has no unknown here, so the first
+    // that checks is as good as any.
+    let items = cx.e.session.walks.borrow().calls[info.call].items.clone();
+    for item in items {
+        let Item::Lemma(e) = item else {
+            continue;
+        };
+        if let Some(term) = crate::undo::attempt(cx, |cx| check(cx, &e, expected))? {
+            let text = match &e {
+                Expr::Var(_) => vec![Piece::Source(e.span())],
+                _ => vec![
+                    Piece::Text("(".into()),
+                    Piece::Source(e.span()),
+                    Piece::Text(")".into()),
+                ],
+            };
+            set_text(cx, id, text);
+            return Ok(term);
+        }
+    }
+    // A statement in a family is walked, as a premise about a function the
+    // call passes on is (`∀ count => Parse.Follows … (() => ends count) …`).
+    let mut walked = None;
+    if let Some((names, relation)) = family_statement(cx, expected)? {
+        let span = cx.span;
+        let next = place(cx, info.call, Kind::Step(relation), &info.place);
+        let e = if names.is_empty() {
+            resume(next, span)
+        } else {
+            Expr::Lam(
+                (names.iter())
+                    .map(|n| ast::Name {
+                        text: n.clone(),
+                        span,
+                    })
+                    .collect(),
+                Box::new(resume(next, span)),
+                span,
+            )
+        };
+        let snapshot = Snapshot::take(cx);
+        match check(cx, &e, expected) {
+            Ok(term) => {
+                let text = if names.is_empty() {
+                    vec![Piece::Child(next)]
+                } else {
+                    vec![
+                        Piece::Text(format!("({} => ", names.join(" "))),
+                        Piece::Child(next),
+                        Piece::Text(")".into()),
+                    ]
+                };
+                set_text(cx, id, text);
+                return Ok(term);
+            }
+            Err(e) if fatal(&e) => return Err(e),
+            Err(e) => {
+                snapshot.restore(cx);
+                walked = Some(e);
+            }
+        }
+    }
     let body = cx.e.session.walks.borrow().calls[info.call].body.clone();
     if let Some(body) = body {
         let snapshot = Snapshot::take(cx);
@@ -120,6 +184,9 @@ pub(super) fn leaf(cx: &mut Ctx, id: u32, info: &NodeInfo, expected: &Value) -> 
             Err(e) if fatal(&e) => return Err(e),
             Err(e) => {
                 snapshot.restore(cx);
+                if let Some(walked) = walked {
+                    return Err(walked);
+                }
                 return Err(stuck(
                     cx,
                     info,
@@ -129,6 +196,9 @@ pub(super) fn leaf(cx: &mut Ctx, id: u32, info: &NodeInfo, expected: &Value) -> 
                 ));
             }
         }
+    }
+    if let Some(walked) = walked {
+        return Err(walked);
     }
     Err(stuck(
         cx,
@@ -140,6 +210,34 @@ pub(super) fn leaf(cx: &mut Ctx, id: u32, info: &NodeInfo, expected: &Value) -> 
                 .into(),
         ],
     ))
+}
+
+/// Whether `goal` is, under some `∀`s, a family's relation as written:
+/// the names for the `∀`s' binders, and the relation.
+fn family_statement(cx: &Ctx, goal: &Value) -> Result<Option<(Vec<String>, DefId)>> {
+    let g = cx.g();
+    let families = families(cx);
+    let mut names: Vec<String> = Vec::new();
+    let mut v = force_solved(&g, goal.clone())?;
+    loop {
+        if let Value::Call(id, spine, _) | Value::Neutral(Head::Def(id), spine) = &v
+            && let Some(f) = families.iter().find(|f| f.relation == *id)
+        {
+            return Ok((spine.len() == f.arity).then(|| (names, *id)));
+        }
+        let Value::Pi(name, Icit::Explicit, _, cod) = &v else {
+            return Ok(None);
+        };
+        let base = if generated(name) {
+            "value"
+        } else {
+            name.as_ref()
+        };
+        let name = fresh(cx, base, &names);
+        let level = cx.level() + names.len();
+        names.push(name);
+        v = force_solved(&g, cod.apply(&g, Value::var(level))?)?;
+    }
 }
 
 /// `arithmetic`, with as few of the conjunctions' parts in scope as it

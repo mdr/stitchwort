@@ -131,6 +131,7 @@ theorem neverThen ∀ [p: () → {Parse Item} a] [j: a → {Parse Item} b]
 theorem neverFail ∀ [a: Type] (modes: Modes) (what: Text): Never [a := a] (() => modes.fail what) :=
   neverThen (message => neverFatal message)
 
+@[walk]
 theorem followsBump: Parse.Follows SameCode WordsAlike (() => bump()) (() => bump()) :=
   Parse.followsThen
     (Parse.followsNext (item => True) (item => True) (x y same => byComputing))
@@ -145,6 +146,7 @@ theorem followsBumpThen ∀ [alike: a → b → Prop] (k: Word → {Parse Item} 
     Parse.Follows SameCode alike (() => k (bump())) (() => kTwin (bump())) :=
   Parse.followsThen followsBump rest
 
+@[walk]
 theorem followsLeft: Parse.Follows SameCode (List.All2 SameCode) (() => left()) (() => left()) :=
   Parse.followsThen Parse.followsMark (m n marks => Parse.followsDone marks.left)
 
@@ -200,19 +202,23 @@ theorem followsLook ∀ (read: List Item → r)
     Parse.Follows SameCode Same (() => read left()) (() => read left()) :=
   Parse.followsThen followsLeft (seen seenTwin same => Parse.followsDone (deafOfStripped read deaf seen seenTwin same))
 
+@[walk]
 theorem followsLeftCount: Parse.Follows SameCode Same (() => Parse.mark().left) (() => Parse.mark().left) :=
   Parse.followsThen Parse.followsMark (m n marks => Parse.followsDone marks.right.right)
 
 theorem followsOffset: Parse.Follows SameCode Same (() => offset()) (() => offset()) :=
   Parse.followsThen Parse.followsMark (m n marks => Parse.followsDone marks.right.left)
 
+@[walk]
 theorem followsPeek ∀ (modes: Modes): Parse.Follows SameCode Same (() => modes.peek) (() => modes.peek) :=
   followsLook (peekIn modes 0) (peekInDeaf modes 0)
 
+@[walk]
 theorem followsPeekAt ∀ (modes: Modes) (ahead: Nat):
     Parse.Follows SameCode Same (() => modes.peekAt ahead) (() => modes.peekAt ahead) :=
   followsLook (peekIn modes ahead) (peekInDeaf modes ahead)
 
+@[walk]
 theorem followsAt ∀ (modes: Modes) (wanted: Tok):
     Parse.Follows SameCode Same (() => modes.at wanted) (() => modes.at wanted) :=
   followsThenEq (followsPeek modes) (seen => Parse.followsDone byComputing)
@@ -244,6 +250,7 @@ theorem followsExpectOn ∀ (modes: Modes) (wanted: Tok) (what: Text) (seen: Opt
     | True => followsBump
     | False => followsFail modes what (() => modes.fail what)
 
+@[walk]
 theorem followsExpect ∀ (modes: Modes) (wanted: Tok) (what: Text):
     Parse.Follows SameCode WordsAlike (() => modes.expect wanted what) (() => modes.expect wanted what) :=
   followsThenEq (followsPeek modes) (seen => followsExpectOn modes wanted what seen)
@@ -278,6 +285,7 @@ def SelfFollows (self selfTwin: Goal → {Parse Item} Expr): Prop :=
 def PatternSelfFollows (pself pselfTwin: PatternGoal → {Parse Item} Pattern): Prop :=
   ∀ (goal: PatternGoal) => Parse.Follows SameCode PatternsAlike (() => pself goal) (() => pselfTwin goal)
 
+@[walk]
 theorem followsFull ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => full self modes) (() => full selfTwin modes) :=
@@ -428,6 +436,7 @@ theorem followsNegativeNumber: Parse.Follows SameCode ExprsAlike (() => negative
 
 -- Comma lists.
 
+@[walk]
 theorem followsCommaListFrom ∀ [alike: a → b → Prop] (modes: Modes) (ends endsTwin: Nat → {Parse Item} Bool)
     (endsFollow: ∀ (count: Nat) => Parse.Follows SameCode Same (() => ends count) (() => endsTwin count))
     (next: () → {Parse Item} a) (nextTwin: () → {Parse Item} b)
@@ -439,33 +448,10 @@ theorem followsCommaListFrom ∀ [alike: a → b → Prop] (modes: Modes) (ends 
       (PairAlike (List.All2 alike) Same)
       (() => commaListFrom fuel modes ends next count current found)
       (() => commaListFrom fuel modes endsTwin nextTwin count currentTwin foundTwin) :=
-  let sofar: List.All2 alike [current, ..found] [currentTwin, ..foundTwin] := Both currents founds
-  let done: PairAlike (List.All2 alike) Same ([current, ..found].reverse, False) (
-    [currentTwin, ..foundTwin].reverse,
-    False
-  ) :=
-    (List.all2Reverse [current, ..found] [currentTwin, ..foundTwin] sofar, byComputing)
-  followsThenEq (followsPeek modes) (seen =>
-    match fuel, seen with
-      | Succ more, Some kind =>
-        match kind == Comma with
-          | True => Parse.followsThen followsBump (comma commaTwin commas =>
-            followsThenEq (endsFollow count) (stop =>
-              match stop with
-                | True =>
-                  Parse.followsDone (List.all2Reverse [current, ..found] [currentTwin, ..foundTwin] sofar, byComputing)
-                | False => Parse.followsThen nexts (value valueTwin values =>
-                  followsCommaListFrom modes ends endsTwin endsFollow next nextTwin nexts more
-                    (count + 1)
-                    value
-                    valueTwin
-                    values
-                    [current, ..found]
-                    [currentTwin, ..foundTwin]
-                    sofar)))
-          | False => Parse.followsDone done
-      | Succ more, None => Parse.followsDone done
-      | Zero, _ => Parse.followsDone done)
+  byWalking [followsPeek modes, followsBump] then List.all2Reverse [current, ..found] [currentTwin, ..foundTwin] (
+    currents,
+    founds
+  )
 
 theorem followsCommaList ∀ [alike: a → b → Prop] (modes: Modes) (ends endsTwin: Nat → {Parse Item} Bool)
     (endsFollow: ∀ (count: Nat) => Parse.Follows SameCode Same (() => ends count) (() => endsTwin count))
@@ -477,8 +463,7 @@ theorem followsCommaList ∀ [alike: a → b → Prop] (modes: Modes) (ends ends
       (PairAlike (List.All2 alike) Same)
       (() => commaList fuel modes ends next current found)
       (() => commaList fuel modes endsTwin nextTwin currentTwin foundTwin) :=
-  followsCommaListFrom modes ends endsTwin endsFollow next nextTwin nexts fuel 1 current currentTwin currents found
-      foundTwin founds
+  byWalking []
 
 -- Brackets: `( … )`, tuples and annotations.
 
@@ -517,16 +502,14 @@ theorem followsAnnotated ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (firsts: ExprsAlike first firstTwin):
     Parse.Follows SameCode ExprsAlike (() => annotated self inner open first) (() =>
       annotated selfTwin inner openTwin firstTwin) :=
-  Parse.followsThen followsBump (colon colonTwin colons =>
-    Parse.followsThen (followsFull knot inner) (annotation annotationTwin annotations =>
-      followsThenEq (followsAt inner Comma) (comma =>
-        followsAnnotatedEnd inner open openTwin opens first firstTwin firsts colon colonTwin colons annotation
-            annotationTwin annotations comma)))
+  byWalking [followsAnnotatedEnd]
 
+@[walk]
 theorem followsTupleEnds ∀ (inner: Modes) (count: Nat):
     Parse.Follows SameCode Same (() => tupleEnds inner count) (() => tupleEnds inner count) :=
   followsThenEq (followsAt inner RParen) (closing => Parse.followsDone byComputing)
 
+@[walk]
 theorem followsTupleClose ∀ (modes: Modes):
     Parse.Follows SameCode WordsAlike (() => tupleClose modes) (() => tupleClose modes) :=
   followsThenEq (followsAt modes Colon) (annotatedHere =>
@@ -557,23 +540,7 @@ theorem followsTupleSecond ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (seconds: ExprsAlike second secondTwin):
     Parse.Follows SameCode ExprsAlike (() => tupleSecond self inner open first fuel second) (() =>
       tupleSecond selfTwin inner openTwin firstTwin fuel secondTwin) :=
-  Parse.followsThen
-    (followsCommaListFrom inner
-      (tupleEnds inner)
-      (tupleEnds inner)
-      (count => followsTupleEnds inner count)
-      (() => full self inner)
-      (() => full selfTwin inner)
-      (followsFull knot inner)
-      fuel
-      2
-      second
-      secondTwin
-      seconds
-      [first]
-      [firstTwin]
-      (Both firsts Trivial))
-    (pair pairTwin pairs => followsTupleEnd inner open openTwin opens pair pairTwin pairs)
+  byWalking [followsTupleEnd]
 
 theorem followsTupleRest ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -582,10 +549,7 @@ theorem followsTupleRest ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (firsts: ExprsAlike first firstTwin):
     Parse.Follows SameCode ExprsAlike (() => tupleRest self inner open first) (() =>
       tupleRest selfTwin inner openTwin firstTwin) :=
-  followsThenEq followsLeftCount (fuel =>
-    Parse.followsThen followsBump (comma commaTwin commas =>
-      Parse.followsThen (followsFull knot inner) (second secondTwin seconds =>
-        followsTupleSecond knot inner open openTwin opens first firstTwin firsts fuel second secondTwin seconds)))
+  byWalking [followsTupleSecond, unfold tupleFuel]
 
 theorem followsBracketedAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -607,10 +571,7 @@ theorem followsBracketedAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
 theorem followsBracketed ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => bracketed self modes) (() => bracketed selfTwin modes) :=
-  Parse.followsThen followsBump (open openTwin opens =>
-    Parse.followsThen (followsFull knot modes.inBrackets) (first firstTwin firsts =>
-      followsThenEq (followsPeek modes.inBrackets) (seen =>
-        followsBracketedAfter knot modes.inBrackets open openTwin opens first firstTwin firsts seen)))
+  byWalking [followsBracketedAfter, unfold bracketedTail, unfold bracketedFirst]
 
 -- Lists: `[ … ]`.
 
@@ -709,9 +670,7 @@ theorem followsListAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
 theorem followsListExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => listExpr self modes) (() => listExpr selfTwin modes) :=
-  Parse.followsThen followsBump (open openTwin opens =>
-    followsThenEq (followsPeek modes.inBrackets) (seen =>
-      followsListAfter knot modes.inBrackets open openTwin opens seen))
+  byWalking [followsListAfter, unfold listTail, unfold listPeek]
 
 -- A call into another file's function, taken as a hypothesis.
 
@@ -767,13 +726,7 @@ theorem followsParenAtom ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (rightSections: ∀ (inside: Nat) => Parse.Follows SameCode ExprsAlike (() => rightSection self modes inside) (() =>
       rightSection selfTwin modes inside)):
     Parse.Follows SameCode ExprsAlike (() => parenAtom self modes) (() => parenAtom selfTwin modes) :=
-  followsThenEq (followsPeekAt modes 1) (second =>
-    followsThenEq (followsPeekAt modes 2) (third =>
-      match parenOutside second third with
-        | True => followsParenOther modes namedArguments operatorSections second third
-        | False =>
-          followsOn (seen => parenRest self modes seen) (seen => parenRest selfTwin modes seen) (seen seenTwin same =>
-            followsParenRest knot modes rightSections seen seenTwin same)))
+  byWalking [followsParenOther, followsParenRest, unfold parenSecond, unfold parenOn]
 
 theorem followsBracketAtom ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes)
@@ -781,11 +734,7 @@ theorem followsBracketAtom ∀ [self selfTwin: Goal → {Parse Item} Expr]
       (() => namedArgument self modes closer closeText)
       (() => namedArgument selfTwin modes closer closeText)):
     Parse.Follows SameCode ExprsAlike (() => bracketAtom self modes) (() => bracketAtom selfTwin modes) :=
-  followsThenEq (followsPeekAt modes 1) (second =>
-    followsThenEq (followsPeekAt modes 2) (third =>
-      match (isSome Lower second || isSome KwDecreasing second) && isSome ColonEq third with
-        | True => namedArguments RBracket "`]`"
-        | False => followsListExpr knot modes))
+  byWalking [followsListExpr, unfold bracketSecond, unfold bracketAt]
 
 theorem wordsAlikeExample: WordsAlike witnessItem.leaf.word witnessSpaced.leaf.word :=
   wordsAlikeOfSame witnessItem witnessSpaced byComputing

@@ -66,6 +66,7 @@
 mod expand;
 mod leaf;
 mod registry;
+mod two;
 
 use std::rc::Rc;
 
@@ -127,9 +128,14 @@ struct NodeInfo {
     trace: Vec<Vec<Piece>>,
     /// The paths a split here adds: its constructors but one.
     split: usize,
-    /// The function whose own case tree a split here was made in: the
-    /// goal's code is still a call of it, walked through once more.
-    through: Option<DefId>,
+    /// For each run, the function whose own case tree a split here was
+    /// made in: that run's code is still a call of it, walked through once
+    /// more. Empty where none was.
+    through: Vec<Option<DefId>>,
+    /// After a two-run bind whose values the lemma says are equal: the
+    /// second run's value is rewritten to the first's before the walk goes
+    /// on, so that a split on it is made once, for both runs.
+    equate: Option<Rc<Equate>>,
     /// A split's branch: the goal before the split, which the branch's
     /// goal is with the split's equation's right side for its scrutinee.
     planned: Option<Rc<Planned>>,
@@ -137,15 +143,31 @@ struct NodeInfo {
 
 /// The goal a split's branch has, read back folded: the generalised goal a
 /// `match` gives its arms is unfolded (the scrutinee is found in the
-/// relation's unfolding), where the walk reads its thunk.
+/// relation's unfolding), where the walk reads its thunk. The same for the
+/// goal after a two-run walk's `rewrite`, which is unfolded too.
 struct Planned {
     /// The goal before the split, folded, in `base` variables.
     goal: Term,
     /// The scrutinee, in `base` variables.
     needle: Term,
     base: usize,
-    /// The equation the branch is checked with: `needle = pattern`.
-    equation: String,
+    /// What `needle` becomes in the branch.
+    with: Replacement,
+}
+
+enum Replacement {
+    /// The right side of the equation the branch is checked with:
+    /// `needle = pattern`.
+    Equation(String),
+    /// The variable at this level.
+    Variable(usize),
+}
+
+/// The names a two-run bind gave its values and their fact.
+struct Equate {
+    value: String,
+    twin: String,
+    fact: String,
 }
 
 #[derive(Clone, Copy)]
@@ -245,8 +267,10 @@ fn start(cx: &mut Ctx, walk: &Walk, expected: &Value) -> Result<Term> {
             inferred?;
         }
     }
-    let body = thunk_body(cx, &args[family.thunk])?;
-    let own = match head_of(&body) {
+    let bodies = (family.thunks.iter())
+        .map(|&i| thunk_body(cx, &args[i]))
+        .collect::<Result<Vec<_>>>()?;
+    let own = match head_of(&bodies[0]) {
         Some(Callee::Def(f)) => own_theorem(cx).map(|t| (t, f)),
         _ => None,
     };
@@ -262,10 +286,17 @@ fn start(cx: &mut Ctx, walk: &Walk, expected: &Value) -> Result<Term> {
             own,
             root,
         });
-        let place = match head_of(&body) {
-            Some(Callee::Def(f)) => format!("in `{}`", written_name(cx, f)),
-            _ => "in the goal's code".to_string(),
-        };
+        let mut names: Vec<String> = Vec::new();
+        for body in &bodies {
+            let name = match head_of(body) {
+                Some(Callee::Def(f)) => format!("`{}`", written_name(cx, f)),
+                _ => "the goal's code".to_string(),
+            };
+            if !names.contains(&name) {
+                names.push(name);
+            }
+        }
+        let place = format!("in {}", names.join(" and "));
         walks.nodes.push(NodeInfo {
             call,
             kind: Kind::Step(family.relation),
@@ -273,7 +304,8 @@ fn start(cx: &mut Ctx, walk: &Walk, expected: &Value) -> Result<Term> {
             text: None,
             trace: Vec::new(),
             split: 0,
-            through: None,
+            through: Vec::new(),
+            equate: None,
             planned: None,
         });
         root
@@ -345,15 +377,20 @@ fn go_on(cx: &mut Ctx, id: u32, expected: &Value) -> Result<Term> {
 
 /// A split branch's goal, folded, if it is `expected`.
 fn planned_goal(cx: &mut Ctx, planned: &Planned, expected: &Value) -> Result<Option<Value>> {
-    let Some(level) = cx.lookup(&planned.equation) else {
-        return Ok(None);
-    };
     let g = cx.g();
-    let Value::Eq(_, _, pattern) = force(&g, cx.types[level].clone())? else {
-        return Ok(None);
-    };
-    let with = cx.quote_folded(&pattern)?;
     let depth = cx.level();
+    let with = match &planned.with {
+        Replacement::Equation(equation) => {
+            let Some(level) = cx.lookup(equation) else {
+                return Ok(None);
+            };
+            let Value::Eq(_, _, pattern) = force(&g, cx.types[level].clone())? else {
+                return Ok(None);
+            };
+            cx.quote_folded(&pattern)?
+        }
+        Replacement::Variable(level) => Term::Var(depth - 1 - level),
+    };
     let term = crate::check::abstract_needle(
         &g,
         &planned.goal,
@@ -442,15 +479,16 @@ fn read_goal(
     Ok(None)
 }
 
-/// The family's relation applied to `args` with the thunk `() => body`:
-/// the goal, computed as far as the walk has, and not unfolded.
-fn refold(cx: &mut Ctx, family: &Family, args: &[Value], body: &Value) -> Result<Value> {
+/// The family's relation applied to `args` with the thunks `() => body`,
+/// one body per run: the goal, computed as far as the walk has, and not
+/// unfolded.
+fn refold(cx: &mut Ctx, family: &Family, args: &[Value], bodies: &[Value]) -> Result<Value> {
     let g = cx.g();
     let icits = binder_icits(g.def(family.relation).ty());
     let mut term = Term::Def(family.relation);
     for (i, a) in args.iter().enumerate() {
-        let arg = if i == family.thunk {
-            let code = cx.quote_folded(body)?.shift(&g, 1, 0)?;
+        let arg = if let Some(run) = family.thunks.iter().position(|&t| t == i) {
+            let code = cx.quote_folded(&bodies[run])?.shift(&g, 1, 0)?;
             Term::Lam("arg".into(), Icit::Explicit, Rc::new(code))
         } else {
             cx.quote_folded(a)?
@@ -686,7 +724,8 @@ fn place(cx: &Ctx, call: usize, kind: Kind, where_: &str) -> u32 {
         text: None,
         trace: Vec::new(),
         split: 0,
-        through: None,
+        through: Vec::new(),
+        equate: None,
         planned: None,
     });
     id
@@ -733,7 +772,10 @@ fn step(
         .trace
         .clear();
     let info = node_info(cx, node);
-    let mut body = thunk_body(cx, &args[family.thunk])?;
+    if family.thunks.len() == 2 {
+        return two::step(cx, node, &info, family, args, top, expected);
+    }
+    let mut body = thunk_body(cx, &args[family.thunks[0]])?;
     // The goal's own function is walked through, once: its case tree
     // split on, or its body unfolded.
     let mut through = if top {
@@ -742,7 +784,7 @@ fn step(
             _ => None,
         }
     } else {
-        info.through
+        info.through.first().copied().flatten()
     };
     let mut steps = 0;
     loop {
@@ -754,7 +796,9 @@ fn step(
         through = None;
         match code {
             Code::Reduced(next) => body = next,
-            Code::Bind(c, k) => return bind_step(cx, node, &info, family, c, k, expected),
+            Code::Bind(c, k) => {
+                return bind_step(cx, node, &info, family, vec![c], vec![k], expected);
+            }
             Code::Split {
                 scrutinee,
                 data,
@@ -764,7 +808,7 @@ fn step(
                 // The goal with the code as it now is, folded: the split
                 // finds its scrutinee in the thunk, and its branches' goals
                 // are the family's relation still.
-                let goal = refold(cx, family, &args, &body)?;
+                let goal = refold(cx, family, &args, std::slice::from_ref(&body))?;
                 // Each step from `expected` to `goal` is a definitional
                 // unfolding, so they agree; a step that isn't one would
                 // otherwise surface as the kernel's internal error.
@@ -782,7 +826,7 @@ fn step(
                     node,
                     &info,
                     family,
-                    (scrutinee, data, names, through),
+                    (scrutinee, data, names, vec![through]),
                     &goal,
                 );
             }
@@ -790,7 +834,7 @@ fn step(
             Code::Call(callee, call) => {
                 if let Callee::Def(f) = callee
                     && unfolds(cx, info.call, f)
-                    && !has_bracket_lemma(cx, &info, family, &call)?
+                    && !has_bracket_lemma(cx, &info, family, std::slice::from_ref(&call))?
                 {
                     let g = cx.g();
                     let spine = spine_of(&call).cloned().unwrap_or_default();
@@ -806,7 +850,7 @@ fn step(
                     body = force_solved(&g, unfold_once(&g, f, spine)?)?;
                     continue;
                 }
-                return tail_call(cx, node, &info, family, callee, call, expected);
+                return tail_call(cx, node, &info, family, callee, vec![call], expected);
             }
             Code::Other(what) => {
                 return Err(stuck(
@@ -830,11 +874,16 @@ fn unfolds(cx: &Ctx, call: usize, f: DefId) -> bool {
     })
 }
 
-fn has_bracket_lemma(cx: &mut Ctx, info: &NodeInfo, family: &Family, call: &Value) -> Result<bool> {
+fn has_bracket_lemma(
+    cx: &mut Ctx,
+    info: &NodeInfo,
+    family: &Family,
+    calls: &[Value],
+) -> Result<bool> {
     let items = cx.e.session.walks.borrow().calls[info.call].items.clone();
     for item in items {
         if let Item::Lemma(e) = item
-            && fit_expr(cx, &e, call, &[family.relation])?.is_some()
+            && fit_expr(cx, &e, calls, &[family.relation])?.is_some()
         {
             return Ok(true);
         }
@@ -949,15 +998,16 @@ fn premise_binders(ty: &Term) -> Vec<String> {
     out
 }
 
-/// Names for a `∀` premise's binders: `value` for its value binder (the
-/// one its continuation is applied to, else the first), `valueFacts` for the
-/// last, and the lemma's own names after `value` for the others.
-fn rest_names(cx: &Ctx, binders: &[String], value: &str, value_at: usize) -> Vec<String> {
+/// Names for a `∀` premise's binders: `values` gives the value binders
+/// (where each is, and its name); the last binder is `<first value>Facts`,
+/// and the others take the lemma's own names after the first value.
+fn rest_names(cx: &Ctx, binders: &[String], values: &[(usize, String)]) -> Vec<String> {
     let mut taken: Vec<String> = Vec::new();
     let n = binders.len();
+    let value = values.first().map_or("value", |(_, v)| v.as_str());
     for (i, b) in binders.iter().enumerate() {
-        let base = if i == value_at {
-            value.to_string()
+        let base = if let Some((_, v)) = values.iter().find(|(at, _)| *at == i) {
+            v.clone()
         } else if i + 1 == n {
             format!("{value}Facts")
         } else if generated(b) {
@@ -976,9 +1026,9 @@ fn rest_names(cx: &Ctx, binders: &[String], value: &str, value_at: usize) -> Vec
     taken
 }
 
-/// Which binder of a then-lemma's last premise is the value: the one its
-/// conclusion's continuation is applied to.
-fn value_binder(rest: &Term) -> usize {
+/// Which binders of a then-lemma's last premise are the values, one per
+/// run: those its conclusion's continuations are applied to, in order.
+fn value_binders(rest: &Term) -> Vec<usize> {
     let mut t = rest.strip_loc();
     let mut k = 0;
     while let Term::Pi(_, _, _, cod) = t {
@@ -986,6 +1036,7 @@ fn value_binder(rest: &Term) -> usize {
         k += 1;
     }
     let (_, args) = t.spine();
+    let mut out = Vec::new();
     for a in args {
         let Term::Lam(_, _, body) = a.strip_loc() else {
             continue;
@@ -997,69 +1048,106 @@ fn value_binder(rest: &Term) -> usize {
             && *ix >= 1
             && ix - 1 < k
         {
-            return k - 1 - (ix - 1);
+            out.push(k - 1 - (ix - 1));
         }
     }
-    0
+    out
 }
 
-/// `Effect.bind c k`: the call's lemma and the family's then-lemma, then
-/// the walk goes on in `k`.
+/// The names of a bind's values: the program's own for the first run (or
+/// one after the call, for a binder the compiler made), and that with
+/// `Twin` for the second.
+fn value_names(cx: &Ctx, callee: Callee, k: &Value, runs: usize) -> Vec<String> {
+    let call_name = match callee {
+        Callee::Def(id) => short_name(&written_name(cx, id))
+            .rsplit('.')
+            .next()
+            .unwrap_or("value")
+            .to_string(),
+        Callee::Local(l) => cx.name_of_level(l).unwrap_or("value").to_string(),
+    };
+    // Not the callee's own name, which a binder would hide.
+    let first = match k {
+        Value::Lam(name, ..) if !generated(name.as_ref()) => name.to_string(),
+        _ => format!("{call_name}Value"),
+    };
+    let mut out = vec![first.clone()];
+    if runs > 1 {
+        out.push(format!("{first}Twin"));
+    }
+    out
+}
+
+/// `Effect.bind c k` in each run: the calls' lemma and the family's
+/// then-lemma, then the walk goes on in the `k`s.
 #[allow(clippy::too_many_arguments)]
 fn bind_step(
     cx: &mut Ctx,
     node: u32,
     info: &NodeInfo,
     family: &Family,
-    c: Value,
-    k: Value,
+    cs: Vec<Value>,
+    ks: Vec<Value>,
     expected: &Value,
 ) -> Result<Term> {
-    let mut c = force_solved(&cx.g(), c)?;
+    let mut cs = (cs.into_iter())
+        .map(|c| Ok(force_solved(&cx.g(), c)?))
+        .collect::<Result<Vec<_>>>()?;
     // `unfold f` on a call run here: its body, if that is one call too
     // (`full self modes` is `self { … }`). A body that binds would need
     // the binds reassociated, which the walk doesn't do.
-    let mut unfolded = 0;
-    while let Some(Callee::Def(f)) = head_of(&c)
-        && unfolds(cx, info.call, f)
-        && !has_bracket_lemma(cx, info, family, &c)?
-        && unfolded < 16
-    {
-        unfolded += 1;
-        let g = cx.g();
-        let spine = spine_of(&c).cloned().unwrap_or_default();
-        note_trace(
-            cx,
-            node,
-            vec![Piece::Text(format!(
-                "{}: `{}` unfolded",
-                info.place,
-                written_name(cx, f)
-            ))],
-        );
-        c = force_solved(&g, unfold_once(&g, f, spine)?)?;
-        if !matches!(classify(cx, &c, None)?, Code::Call(..)) {
-            return Err(stuck(
+    for run in 0..cs.len() {
+        let mut unfolded = 0;
+        while let Some(Callee::Def(f)) = head_of(&cs[run])
+            && unfolds(cx, info.call, f)
+            && !has_bracket_lemma(cx, info, family, &cs)?
+            && unfolded < 16
+        {
+            unfolded += 1;
+            let g = cx.g();
+            let spine = spine_of(&cs[run]).cloned().unwrap_or_default();
+            note_trace(
                 cx,
-                info,
-                expected,
-                &format!(
-                    "`{}` is unfolded where its value is used, and its body isn't one call",
+                node,
+                vec![Piece::Text(format!(
+                    "{}: `{}` unfolded",
+                    info.place,
                     written_name(cx, f)
-                ),
-                &["give a lemma for it instead".into()],
-            ));
+                ))],
+            );
+            cs[run] = force_solved(&g, unfold_once(&g, f, spine)?)?;
+            if !matches!(classify(cx, &cs[run], None)?, Code::Call(..)) {
+                return Err(stuck(
+                    cx,
+                    info,
+                    expected,
+                    &format!(
+                        "`{}` is unfolded where its value is used, and its body isn't one call",
+                        written_name(cx, f)
+                    ),
+                    &["give a lemma for it instead".into()],
+                ));
+            }
         }
     }
-    let Some(callee) = head_of(&c) else {
+    let Some(callee) = head_of(&cs[0]) else {
         return Err(stuck(
             cx,
             info,
             expected,
             "the code runs something that isn't a call",
-            &[format!("it is {}", cx.show(&c))],
+            &[format!("it is {}", cx.show(&cs[0]))],
         ));
     };
+    if let Some(other) = cs[1..].iter().find(|c| head_of(c).is_none()) {
+        return Err(stuck(
+            cx,
+            info,
+            expected,
+            "the second run runs something that isn't a call",
+            &[format!("it is {}", cx.show(other))],
+        ));
+    }
     // The goal's own family first, then the first premises of its bind
     // lemmas (`Reads0` for `Gives`), then the other families: a lemma in
     // one the family's own is defined by (`ReadsIn … spec` for `Gives`)
@@ -1082,7 +1170,7 @@ fn bind_step(
     if !others.is_empty() {
         ranks.push(others);
     }
-    let chosen = choose(cx, info, callee, &c, &ranks, expected)?;
+    let chosen = choose(cx, info, callee, &cs, &ranks, expected)?;
     let then = family
         .then
         .iter()
@@ -1102,25 +1190,17 @@ fn bind_step(
             &[],
         ));
     };
-    let call_name = match callee {
-        Callee::Def(id) => short_name(&written_name(cx, id))
-            .rsplit('.')
-            .next()
-            .unwrap_or("value")
-            .to_string(),
-        Callee::Local(l) => cx.name_of_level(l).unwrap_or("value").to_string(),
-    };
-    // The program's own name for the value, else one after the call (not
-    // the callee's own name, which a binder would hide).
-    let binder = match &k {
-        Value::Lam(name, ..) if !generated(name.as_ref()) => name.to_string(),
-        _ => format!("{call_name}Value"),
-    };
+    let values = value_names(cx, callee, &ks[0], cs.len());
+    let shown: Vec<String> = cs.iter().map(|c| format!("`{}`", cx.show(c))).collect();
     note_trace(
         cx,
         node,
         [
-            vec![Piece::Text(format!("{}: `{}`: ", info.place, cx.show(&c)))],
+            vec![Piece::Text(format!(
+                "{}: {}: ",
+                info.place,
+                shown.join(" and ")
+            ))],
             chosen.text.clone(),
             vec![Piece::Text(format!(
                 " ({}), then `{}`",
@@ -1152,8 +1232,22 @@ fn bind_step(
     }
     let rest = &then_shape.binders[explicit[explicit.len() - 1]].1;
     let binders = premise_binders(rest);
-    let names = rest_names(cx, &binders, &binder, value_binder(rest));
+    let mut at = value_binders(rest);
+    if at.len() != values.len() {
+        at = (0..values.len()).collect();
+    }
+    let named: Vec<(usize, String)> = at.into_iter().zip(values).collect();
+    let names = rest_names(cx, &binders, &named);
     let next = place(cx, info.call, Kind::Step(family.relation), &info.place);
+    if let [(first, _), (second, _)] = &named[..]
+        && binders.len() > 2
+    {
+        cx.e.session.walks.borrow_mut().nodes[next as usize].equate = Some(Rc::new(Equate {
+            value: names[*first].clone(),
+            twin: names[*second].clone(),
+            fact: names[names.len() - 1].clone(),
+        }));
+    }
     let lambda = Expr::Lam(
         names
             .iter()
@@ -1233,20 +1327,21 @@ fn tail_call(
     info: &NodeInfo,
     family: &Family,
     callee: Callee,
-    call: Value,
+    calls: Vec<Value>,
     expected: &Value,
 ) -> Result<Term> {
-    let chosen = choose(cx, info, callee, &call, &[vec![family.relation]], expected)?;
+    let chosen = choose(cx, info, callee, &calls, &[vec![family.relation]], expected)?;
     let mark = cx.mark();
     let (lemma, lemma_text) = applied(cx, node, info, &chosen)?;
+    let shown: Vec<String> = calls.iter().map(|c| format!("`{}`", cx.show(c))).collect();
     note_trace(
         cx,
         node,
         [
             vec![Piece::Text(format!(
-                "{}: `{}`: ",
+                "{}: {}: ",
                 info.place,
-                cx.show(&call)
+                shown.join(" and ")
             ))],
             chosen.text.clone(),
             vec![Piece::Text(format!(" ({})", chosen.how))],
@@ -1285,33 +1380,58 @@ fn tail_call(
     let name = written_name(cx, weaken);
     let shape = statement(cx.g().def(weaken).ty()).expect("a weaken-lemma is a relation");
     let explicit = shape.explicit();
-    let implies = &shape.binders[explicit[explicit.len() - 1]].1;
+    // The premise in the family's relation takes the call's lemma; the
+    // other is the implication, in whichever order the lemma has them
+    // (`Parse.givesWeaken gives implies`, `Parse.followsWeaken implies
+    // follows`).
+    let lemma_first = statement(&shape.binders[explicit[0]].1)
+        .is_some_and(|s| s.head == family.relation)
+        || explicit.len() < 2;
+    let implies_at = if lemma_first {
+        explicit[explicit.len() - 1]
+    } else {
+        explicit[0]
+    };
+    let implies = &shape.binders[implies_at].1;
     let binders = premise_binders(implies);
-    let value = fresh(cx, "value", &[]);
-    let at = binders.len().saturating_sub(2);
-    let names = rest_names(cx, &binders, &value, at);
+    let runs = family.thunks.len();
+    let values: Vec<(usize, String)> = (0..runs)
+        .map(|run| {
+            let at = (binders.len() + run).saturating_sub(runs + 1);
+            let base = if run == 0 { "value" } else { "valueTwin" };
+            (at, fresh(cx, base, &[]))
+        })
+        .collect();
+    let names = rest_names(cx, &binders, &values);
     let leaf = place(cx, info.call, Kind::Leaf, &info.place);
-    let e = app(
-        app(var(name.clone(), span), lemma),
-        Expr::Lam(
-            names
-                .iter()
-                .map(|n| ast::Name {
-                    text: n.clone(),
-                    span,
-                })
-                .collect(),
-            Box::new(resume(leaf, span)),
-            span,
-        ),
+    let lambda = Expr::Lam(
+        names
+            .iter()
+            .map(|n| ast::Name {
+                text: n.clone(),
+                span,
+            })
+            .collect(),
+        Box::new(resume(leaf, span)),
+        span,
     );
     let mut text = vec![Piece::Text(format!("{}\n{MORE}", short_name(&name)))];
-    text.extend(lemma_text);
-    text.extend([
-        Piece::Text(format!("\n{MORE}({} => ", names.join(" "))),
+    let implication = [
+        Piece::Text(format!("({} => ", names.join(" "))),
         Piece::Child(leaf),
         Piece::Text(")".into()),
-    ]);
+    ];
+    let e = if lemma_first {
+        text.extend(lemma_text);
+        text.push(Piece::Text(format!("\n{MORE}")));
+        text.extend(implication);
+        app(app(var(name.clone(), span), lemma), lambda)
+    } else {
+        text.extend(implication);
+        text.push(Piece::Text(format!("\n{MORE}")));
+        text.extend(lemma_text);
+        app(app(var(name.clone(), span), lambda), lemma)
+    };
     set_text(cx, node, text);
     let result = check_written(cx, info, &e, expected, "the weakened call");
     cx.reset(mark);
@@ -1326,7 +1446,7 @@ fn split(
     node: u32,
     info: &NodeInfo,
     family: &Family,
-    (scrutinee, data, names, through): (Value, DataId, Vec<Vec<String>>, Option<DefId>),
+    (scrutinee, data, names, through): (Value, DataId, Vec<Vec<String>>, Vec<Option<DefId>>),
     expected: &Value,
 ) -> Result<Term> {
     let g = cx.g();
@@ -1362,7 +1482,7 @@ fn split(
         goal: cx.quote_folded(expected)?,
         needle: term.clone(),
         base: cx.level(),
-        equation: equation.clone(),
+        with: Replacement::Equation(equation.clone()),
     });
     let mut alts = Vec::new();
     let mut text = vec![Piece::Text(format!("(match {equation}: {shown} with"))];
@@ -1399,7 +1519,7 @@ fn split(
         let next = place(cx, info.call, Kind::Step(family.relation), &where_);
         {
             let mut walks = cx.e.session.walks.borrow_mut();
-            walks.nodes[next as usize].through = through;
+            walks.nodes[next as usize].through = through.clone();
             walks.nodes[next as usize].planned = Some(planned.clone());
         }
         alts.push(Alt {
