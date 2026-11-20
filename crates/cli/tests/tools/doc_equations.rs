@@ -126,6 +126,27 @@ def guarded (x: Nat) (xs: List Nat): Nat :=
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// A guard on a decided comparison (`l.length > 0`) is listed as the
+/// comparison, `0 < l.length`, not as the lambda its decision is read off
+/// as applied to its operand, `(x => 0 < x) l.length`.
+#[test]
+fn doc_reduces_a_guards_decision_in_an_equation() {
+    let dir = folder("guard-beta");
+    let source = "\
+import Std (Nat, List)
+
+def f (xs: List Nat): Nat := match xs with
+  | [a, ..l] if l.length > 0 => 1
+  | _ => 2
+";
+    std::fs::write(dir.join("a.sw"), source).unwrap();
+    let (code, out, err) = run("doc", &dir, &["f", "a.sw"]);
+    assert_eq!(code, 0, "{out}\n{err}");
+    assert!(out.contains("0 < l.length → f [a, ..l] = 1"), "{out}");
+    assert!(!out.contains("x =>"), "{out}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// An arm that couldn't be stated is listed with its reason, and so is an
 /// `f.induct` that wasn't made (here because `eq3` is read per leaf,
 /// SW-1071).
