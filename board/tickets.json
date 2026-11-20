@@ -1,5 +1,5 @@
 {
-  "next": 4419,
+  "next": 4421,
   "tickets": [
     {
       "id": 47,
@@ -29670,12 +29670,12 @@
     {
       "id": 4412,
       "title": "[Opus, paper] Design note: when a match scrutinee or rewrite rule occurs only inside a folded call, unfold just the calls on the path to it and keep the rest of the goal folded (goal-as-written); count which proofs that check today would change (D3688 risk); would let the last two continuation pairs go (FollowsDeclHeaders.followsRowStart, FollowsFormsBlocks.followsBlockLine) (SW-4355)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\nNote: docs/proposals/partial-unfold.md (20 Nov). Rec: build now as a middle search step (as written, then unfold only the calls on the path, then fully unfolded); it is bounded-readback stage 3 (SW-1838, D2538) wired into rewrite/match/cases/transport. Orchestrator call: build (SW-4419).\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -29748,6 +29748,32 @@
     {
       "id": 4418,
       "title": "[Opus] Test for SW-4414 M1: build a refined guard whose as-written attempt comes back Unchecked (STITCHWORT_MATCH_METRICS guard-as-written: unchecked) while the unfolded path checks; show it failing with the snapshot restore in refined_guard removed (D3608); or argue no such guard exists and say so in a comment",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4419,
+      "title": "[Opus] Partial unfold (docs/proposals/partial-unfold.md §7; bounded-readback stage 3, SW-1838, D2538): a middle search step for rewrite, match/cases and the transport: unfold only the calls on the path to the occurrence (arguments searched first; a call counts as opened only if it yields one), kept only under the existing checks, falling back to today's unfolded search; then drop the 68 [j := ..] pairs where they now go; Opus review after; Overmind no-cache run over fmt/aoc/rogue/std before merge",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4420,
+      "title": "[DeepSeek] STITCHWORT_MATCH_METRICS: add an outcome distinguishing 'nothing as written, but the usual search found it' from 'nothing anywhere'; and bounded-readback.md §4.2: search arguments before opening a call, and a call counts as opened only if it yields an occurrence (SW-4412 findings)",
       "status": "backlog",
       "agent": "",
       "where": "",
