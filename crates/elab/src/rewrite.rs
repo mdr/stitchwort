@@ -119,8 +119,16 @@ impl Place<'_> {
 }
 
 /// `rewrite` where nothing says what to prove.
+/// Retried without the partial unfold as a goal `rewrite` is
+/// ([`rewrite_goal`]): a later rule can fail on the type a rule left partly
+/// folded.
 pub(crate) fn infer_rewrite(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
-    infer_rewrite_inner(cx, expr).map_err(|d| resource_in_rewrite(d, expr))
+    crate::unfold_path::retried(
+        cx,
+        |cx| infer_rewrite_inner(cx, expr),
+        || report_retried(expr.span()),
+    )
+    .map_err(|d| resource_in_rewrite(d, expr))
 }
 
 /// An `E-RESOURCE` that has no place of its own (a value too large to show
@@ -354,28 +362,28 @@ pub(crate) fn check_rewrite(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Resu
         .map_err(|d| resource_in_rewrite(d, expr))
 }
 
-/// [`check_rewrite`]'s rewrite itself. If it fails after one of its rules
-/// kept a result of the partial unfold ([`crate::unfold_path`]), it is made
-/// again without that step, as before the step existed, and that result
-/// stands: a partly folded goal can make a later rule, or the term after
-/// `then`, fail where the goal unfolded didn't (SW-4419: `staleBlocks` in
-/// `tools/fmt`'s `PrintHangProofs.stepColumn`, after `Bool.andFalse glue`
-/// had left `past` folded). So a `rewrite` that checked before the step
-/// still checks.
+/// [`check_rewrite`]'s rewrite itself, retried without the partial unfold
+/// if it fails after one of its rules kept a result of it
+/// ([`crate::unfold_path::retried`]): a partly folded goal can make a later
+/// rule, or the term after `then`, fail where the goal unfolded didn't
+/// (SW-4419: `staleBlocks` in `tools/fmt`'s `PrintHangProofs.stepColumn`,
+/// after `Bool.andFalse glue` had left `past` folded).
 fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
-    if !crate::unfold_path::enabled() {
-        return rewrite_goal_once(cx, expr, expected);
-    }
-    let snapshot = Snapshot::take(cx);
-    let written = cx.written_goal.clone();
-    let before = crate::unfold_path::kept();
-    match rewrite_goal_once(cx, expr, expected) {
-        Err(e) if !fatal(&e) && crate::unfold_path::kept() > before => {
-            snapshot.restore(cx);
-            cx.written_goal = written;
-            crate::unfold_path::without(|| rewrite_goal_once(cx, expr, expected))
-        }
-        done => done,
+    crate::unfold_path::retried(
+        cx,
+        |cx| rewrite_goal_once(cx, expr, expected),
+        || report_retried(expr.span()),
+    )
+}
+
+/// Prints that the `rewrite` at `span` is made again without the partial
+/// unfold, when `STITCHWORT_REWRITE_METRICS` is set.
+fn report_retried(span: Span) {
+    if std::env::var_os("STITCHWORT_REWRITE_METRICS").is_some() {
+        eprintln!(
+            "rewrite-retried: without-partial-unfold at={}..{}",
+            span.start, span.end
+        );
     }
 }
 

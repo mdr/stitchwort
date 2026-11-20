@@ -152,6 +152,24 @@ pub(crate) fn report_transport(outcome: Outcome, span: stitchwort_syntax::Span) 
     report_as("transport-as-written", outcome, span);
 }
 
+/// Prints that the `match` at `span` is made again without the partial
+/// unfold ([`crate::unfold_path::retried`]) when `STITCHWORT_MATCH_METRICS`
+/// is set.
+pub(super) fn report_retried(span: stitchwort_syntax::Span) {
+    if std::env::var_os("STITCHWORT_MATCH_METRICS").is_some() {
+        eprintln!("match-retried: without-partial-unfold at={}", span.start);
+    }
+}
+
+/// Counts `outcome`, for a generalisation the caller kept, as a use of the
+/// partial unfold if it is one, so that the `match` or `rewrite` around it
+/// is retried without the step should it fail.
+pub(crate) fn note_kept(outcome: Outcome) {
+    if matches!(outcome, Outcome::Partial) {
+        crate::unfold_path::note_kept();
+    }
+}
+
 fn report_as(what: &str, outcome: Outcome, span: stitchwort_syntax::Span) {
     if std::env::var_os("STITCHWORT_MATCH_METRICS").is_none() {
         return;
@@ -183,7 +201,7 @@ pub(super) fn first(
     span: stitchwort_syntax::Span,
 ) -> Result<Option<Written>> {
     let mut outcome = Outcome::Failed;
-    for reading in [Reading::Folded, Reading::OnPath] {
+    for &reading in readings() {
         let g = cx.g();
         let snapshot = Snapshot::take(cx);
         // Each attempt with its own budget: a failed one costs the next,
@@ -289,6 +307,15 @@ enum Reading {
     /// Back folded, then with the calls on the path to a scrutinee hidden
     /// inside them unfolded ([`crate::unfold_path`]).
     OnPath,
+}
+
+/// The readings to try in turn: [`Reading::OnPath`] only while the partial
+/// unfold is on ([`crate::unfold_path::enabled`]).
+fn readings() -> &'static [Reading] {
+    match crate::unfold_path::enabled() {
+        true => &[Reading::Folded, Reading::OnPath],
+        false => &[Reading::Folded],
+    }
 }
 
 /// Checks 1, 2 and 4 against `today`, or (`None`, [`unconfirmed`]) only 4.
@@ -588,7 +615,7 @@ pub(crate) fn transport_target(
     todays_found: bool,
 ) -> Result<std::result::Result<(Term, Outcome), Outcome>> {
     let mut outcome = Outcome::Failed;
-    for reading in [Reading::Folded, Reading::OnPath] {
+    for &reading in readings() {
         let g = cx.g();
         let snapshot = Snapshot::take(cx);
         let mut remaining = search_budget(cx);

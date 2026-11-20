@@ -34,7 +34,9 @@ use crate::lift::{self, Draft};
 use crate::{Row, check_tree_here};
 
 mod as_written;
-pub(crate) use as_written::{Outcome as AsWritten, report_transport, transport_target};
+pub(crate) use as_written::{
+    Outcome as AsWritten, note_kept as note_kept_as_written, report_transport, transport_target,
+};
 
 fn parts(expr: &Expr) -> (&[Scrutinee], &[Alt], stitchwort_syntax::Span, MatchKind) {
     let Expr::Match {
@@ -389,8 +391,19 @@ fn note_match_step(cx: &Ctx, alts: &[Alt], span: stitchwort_syntax::Span, goal: 
     );
 }
 
-/// A `match`, lifted (§4.4).
+/// A `match`, lifted (§4.4). Made again without the partial unfold if it
+/// fails after keeping a result of it ([`crate::unfold_path::retried`]):
+/// its motive, or a `match` or `rewrite` inside it, can leave an arm a goal
+/// partly folded that fails where the goal unfolded didn't.
 pub(crate) fn check_match(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Term> {
+    crate::unfold_path::retried(
+        cx,
+        |cx| check_match_once(cx, expr, goal),
+        || as_written::report_retried(parts(expr).2),
+    )
+}
+
+fn check_match_once(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Term> {
     if crate::patlet::applies(cx, expr, goal)?
         && let Some(term) = crate::patlet::check_let(cx, expr, goal)?
     {
@@ -898,6 +911,7 @@ pub(crate) fn refined_guard(
             .flatten();
             if let Some(bound) = kept {
                 as_written::report_guard(w.outcome, span);
+                as_written::note_kept(w.outcome);
                 return Ok(Some((bound, normal)));
             }
             // A motive that doesn't check leaves what it bound in `cx`.
@@ -1539,6 +1553,7 @@ fn generalised_now(
         .flatten();
         if let Some(bound) = bound {
             as_written::report(w.outcome, span);
+            as_written::note_kept(w.outcome);
             // Found as written, so not "not found".
             not_found.retain(|(i, _)| !w.found[*i]);
             kept = Some(bound);

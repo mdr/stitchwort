@@ -48,8 +48,8 @@ use crate::lift::{replace_with, replace_with_under};
 use crate::rewrite::{Key, key, mentions_bound};
 
 thread_local! {
-    /// Set while a `rewrite` is elaborated again without the step
-    /// ([`without`]).
+    /// Set while a `rewrite` or `match` is elaborated again without the
+    /// step ([`without`], [`retried`]).
     static OFF: Cell<bool> = const { Cell::new(false) };
     /// How many results of the step have been kept on this thread.
     static KEPT: Cell<u64> = const { Cell::new(0) };
@@ -77,6 +77,41 @@ pub(crate) fn without<T>(f: impl FnOnce() -> T) -> T {
     let out = f();
     OFF.with(|o| o.set(was));
     out
+}
+
+/// `once`, and if it fails after a result of the step was kept during it,
+/// `once` again from where it started with the step off, as before the step
+/// existed; that second outcome stands, success or error. `retrying` runs
+/// just before the second attempt (it prints the metrics line).
+///
+/// A site's checks see only its own step, but what it leaves is partly
+/// folded, and something later in the same `rewrite` or `match` (a later
+/// rule, an arm, the term after `then`) can fail on it where it passed on
+/// the computed goal (SW-4419, docs/proposals/partial-unfold.md §3). So a
+/// `rewrite` or `match` that checked before the step still checks. Running
+/// out of resources is passed on, not retried. A retry inside a retry has
+/// the step off already, so nesting costs at most one extra attempt per
+/// level.
+pub(crate) fn retried<T>(
+    cx: &mut Ctx,
+    mut once: impl FnMut(&mut Ctx) -> Result<T>,
+    retrying: impl FnOnce(),
+) -> Result<T> {
+    if !enabled() {
+        return once(cx);
+    }
+    let snapshot = crate::undo::Snapshot::take(cx);
+    let written = cx.written_goal.clone();
+    let before = kept();
+    match once(cx) {
+        Err(e) if !crate::undo::fatal(&e) && kept() > before => {
+            snapshot.restore(cx);
+            cx.written_goal = written;
+            retrying();
+            without(|| once(cx))
+        }
+        done => done,
+    }
 }
 
 /// Whether a candidate, under the given number of binders of the target, is
