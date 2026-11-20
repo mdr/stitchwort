@@ -3,11 +3,11 @@ source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-REFL] Error: `byComputing` can't prove this
-    ╭─[ reject/reads-chain-swapped-pair.sw:17:57 ]
+    ╭─[ reject/reads-chain-swapped-pair.sw:17:55 ]
     │
- 17 │     Parse.readsDone (second, first) _ (rewrite firstIs, secondIs)))
-    │                                                         ────┬───  
-    │                                                             ╰───── `[first, second]` and `[second, first]` aren't equal
+ 17 │     Parse.readsDone (second, first) (rewrite firstIs, secondIs)))
+    │                                                       ────┬───  
+    │                                                           ╰───── `[first, second]` and `[second, first]` aren't equal
     │ 
     │ Note 1: `byComputing` proves `a = b` only when both sides compute to the same value
     │ 

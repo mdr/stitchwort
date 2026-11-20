@@ -20,5 +20,6 @@ theorem readsPair: Parse.Reads pair Written := Parse.readsThen Parse.readsNat (l
   Parse.readsThen (Parse.readsChar ',') (commaRead u comma =>
     Parse.readsThen Parse.readsNat (highRead high highDigits =>
       Parse.readsDone
-        { first = low, second = high } _
+        { first = low, second = high }
+        [spec := _]
         (Witness lowRead (Witness highRead (rewrite comma, List.appendNil highRead))))))

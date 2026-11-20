@@ -74,7 +74,7 @@ theorem readsPlus: Parse.Reads plus (read token => read ≠ []) :=
       Plus)
     (read value => read ≠ [])
     (Parse.readsThen (Parse.readsChar '+') (charRead u isPlus =>
-      Parse.readsDone Plus _ (rewrite isPlus then List.appendNotNilLeft ['+'] [] (List.consNotNil '+' []))))
+      Parse.readsDone Plus (rewrite isPlus then List.appendNotNilLeft ['+'] [] (List.consNotNil '+' []))))
 
 theorem readsLexToken: Parse.Reads lexToken TokenRead := Parse.readsThen Parse.readsSpaces (spaces u spaced =>
   Parse.readsWeaken

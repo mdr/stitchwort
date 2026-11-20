@@ -16,7 +16,7 @@ def counted (n: Nat): {Parse Char} Nat :=
 def afterMark(): {Parse Char} Nat := counted (Parse.mark().left + 1)
 
 theorem readsCounted ∀ (n: Nat): Parse.Reads (() => counted n) (taken v => v = n) :=
-  Parse.readsThen (Parse.readsChar 'x') (r u h => Parse.readsDone n _ byComputing)
+  Parse.readsThen (Parse.readsChar 'x') (r u h => Parse.readsDone n byComputing)
 
 theorem readsAfterMark: Parse.Reads afterMark (taken v => v ≠ 0) := Parse.readsThen Parse.readsMark (markRead at none =>
   Parse.readsWeaken (readsCounted (at.left + 1)) (taken v same => rewrite same then Std.Nat.succNotZero at.left))
@@ -34,7 +34,7 @@ def afterItem (item: () → {Parse t} Nat): {Parse t} Nat :=
 theorem readsNumbered ∀ [inv: Parse.Invariant t] (item: () → {Parse t} Nat)
     (readsItem: Parse.ReadsIn inv item (taken v => True)) (n: Nat):
     Parse.ReadsIn inv (() => numbered item n) (taken v => v = n) :=
-  Parse.readsThen readsItem (r u h => Parse.readsDone n _ byComputing)
+  Parse.readsThen readsItem (r u h => Parse.readsDone n byComputing)
 
 theorem readsAfterItem ∀ [inv: Parse.Invariant t] (item: () → {Parse t} Nat)
     (readsItem: Parse.ReadsIn inv item (taken v => True)):
