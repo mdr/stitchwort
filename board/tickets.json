@@ -30237,8 +30237,8 @@
     {
       "id": 4455,
       "title": "[Sonnet] Messages still print compiler-made names: Parse.%res (an ability's result declaration, ability-row-arguments), Count.%instOrd and UserId.%instOrd (derived instances, microtype-map-*), Packet.%m1%size (generated size lemma, named on purpose in nested-data-auto-other-list and docs/syntax.md); give each a readable form (e.g. 'the derived Ord instance of Count'), then add a no-% check to reject output with the deliberate cases listed (SW-4454 findings)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
