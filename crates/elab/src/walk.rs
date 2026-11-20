@@ -1321,13 +1321,10 @@ fn fit_type(cx: &mut Ctx, ty: &Value, call: &Value, families: &[DefId]) -> Resul
                             continue;
                         }
                         let ty = cx.types[level].clone();
-                        if crate::undo::attempt(cx, |cx| {
-                            Ok(cx.unify(&ty, &dom)?.then_some(()).ok_or_else(|| {
-                                Diagnostic::error("E-WALK", "no").with_label(cx.span, "")
-                            })?)
-                        })?
-                        .is_some()
-                        {
+                        let snapshot = Snapshot::take(cx);
+                        let fits = cx.unify(&ty, &dom)?;
+                        snapshot.restore(cx);
+                        if fits {
                             found.push(level);
                         }
                     }
@@ -1852,7 +1849,7 @@ fn bind_step(
     // The program's own name for the value, else one after the call (not
     // the callee's own name, which a binder would hide).
     let binder = match &k {
-        Value::Lam(name, ..) if !generated(&name.to_string()) => name.to_string(),
+        Value::Lam(name, ..) if !generated(name.as_ref()) => name.to_string(),
         _ => format!("{call_name}Value"),
     };
     note_trace(
