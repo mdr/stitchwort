@@ -598,8 +598,7 @@ impl HelperWalk<'_> {
                 };
                 let (v, vat) = &vals[hl];
                 let (ty, tat) = &tys[hl];
-                let env: Vec<Value> = (0..*tat).map(Value::var).collect();
-                let ty = stitchwort_core::value::quote(g, *tat, &force(g, eval(g, &env, ty)?)?)?;
+                let ty = normal_at(g, *tat, ty)?;
                 let Term::Data(dd, dargs) = ty.strip_loc() else {
                     return unread();
                 };
@@ -1533,9 +1532,7 @@ impl Elaborator {
                     .map(|(a, _)| (a.clone(), depth))
                     .collect();
                 let col_ty = instantiate(g, &hb[col].ty, col, &at, depth)?;
-                let env: Vec<Value> = (0..depth).map(Value::var).collect();
-                let col_ty =
-                    stitchwort_core::value::quote(g, depth, &force(g, eval(g, &env, &col_ty)?)?)?;
+                let col_ty = normal_at(g, depth, &col_ty)?;
                 let Term::Data(data, data_args) = col_ty.strip_loc() else {
                     return skip("a lifted `match`'s scrutinee isn't of a data type");
                 };
@@ -2049,8 +2046,7 @@ impl Elaborator {
             vals.push((Term::Var(cur - 1 - node.fields[j]), cur));
         }
         let fty = instantiate(g, &fields[k].1, np + k, &vals, cur)?;
-        let env: Vec<Value> = (0..cur).map(Value::var).collect();
-        let fty = stitchwort_core::value::quote(g, cur, &force(g, eval(g, &env, &fty)?)?)?;
+        let fty = normal_at(g, cur, &fty)?;
         let Term::Data(fd, fargs) = fty.strip_loc() else {
             return skip("a nested pattern's field isn't of a data type");
         };
@@ -2854,6 +2850,17 @@ fn find_places(
     }
 }
 
+/// `t`, a term at `depth`, normalised by evaluation and quoted back: a type
+/// read after computation (a field's or an alternative's).
+fn normal_at(g: &Ev, depth: usize, t: &Term) -> R<Term> {
+    let env: Vec<Value> = (0..depth).map(Value::var).collect();
+    Ok(stitchwort_core::value::quote(
+        g,
+        depth,
+        &force(g, eval(g, &env, t)?)?,
+    )?)
+}
+
 /// `t` as a constructor applied to fields (a number as `Zero` or `Succ`).
 fn ctor_of(g: &Ev, t: &Term) -> Option<(DataId, usize, Vec<Term>)> {
     match t.strip_loc() {
@@ -2964,9 +2971,7 @@ impl Tree<'_> {
             );
         };
         // The type of the equation's sides: the row variable's.
-        let env: Vec<Value> = (0..depth).map(Value::var).collect();
-        let root_ty =
-            stitchwort_core::value::quote(&g, depth, &force(&g, eval(&g, &env, &types[e])?)?)?;
+        let root_ty = normal_at(&g, depth, &types[e])?;
         let Term::Data(root, args) = root_ty.strip_loc() else {
             return skip("an overlap hypothesis's equation isn't about a data type");
         };
@@ -3041,7 +3046,8 @@ impl Tree<'_> {
         let Some((_, fact, at)) = self.facts.iter().rev().find(|(r, ..)| *r == j).cloned() else {
             return skip(
                 "at one of its cases, an overlap hypothesis about a guarded earlier arm is \
-                 needed where that arm's condition wasn't tested",
+                 needed where that arm's pattern has a number or character literal, which the \
+                 split doesn't refine to a constructor",
             );
         };
         // Each variable's place: the first equation whose pattern has it,
@@ -3052,7 +3058,6 @@ impl Tree<'_> {
         let mut roots = Vec::new();
         {
             let g = self.g();
-            let env: Vec<Value> = (0..depth).map(Value::var).collect();
             for (e, ty) in types.iter().enumerate() {
                 let at_e = depth + vars + e;
                 let Term::Eq(_, x, p) = binders[vars + e].strip_loc() else {
@@ -3066,8 +3071,7 @@ impl Tree<'_> {
                     Stop::Skip("an overlap hypothesis's value depends on its variables".into())
                 })?;
                 sides.push(x);
-                let root_ty =
-                    stitchwort_core::value::quote(&g, depth, &force(&g, eval(&g, &env, ty)?)?)?;
+                let root_ty = normal_at(&g, depth, ty)?;
                 let Term::Data(root, args) = root_ty.strip_loc() else {
                     return skip("an overlap hypothesis's equation isn't about a data type");
                 };
@@ -3129,13 +3133,12 @@ impl Tree<'_> {
         };
         let void_here = if read.negated.is_some() {
             Term::app(h.clone(), fact.clone())
-        } else if read.prop.is_some() {
-            Term::app(fact.clone(), h.clone())
         } else if !is_prop {
             bool_clash(true)
-        } else if let Some((_, x)) = blib.bool_test(cond) {
+        } else if let Some((_, x)) = blib.bool_test(cond).filter(|_| read.prop.is_none()) {
             bool_clash(x)
         } else {
+            // A proposition stated as itself (not `b = X`): the fact says it.
             Term::app(fact.clone(), h.clone())
         };
         let void = g
@@ -3221,9 +3224,7 @@ impl Tree<'_> {
                     Stop::Skip("a pattern's field's type depends on an earlier field".into())
                 })?;
                 let next = if i + 1 < path.len() {
-                    let env: Vec<Value> = (0..at).map(Value::var).collect();
-                    let ty =
-                        stitchwort_core::value::quote(&g, at, &force(&g, eval(&g, &env, &ty)?)?)?;
+                    let ty = normal_at(&g, at, &ty)?;
                     let Term::Data(_, a) = ty.strip_loc() else {
                         return skip("a pattern's field isn't of a data type");
                     };
