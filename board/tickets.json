@@ -1,5 +1,5 @@
 {
-  "next": 4455,
+  "next": 4456,
   "tickets": [
     {
       "id": 47,
@@ -30222,8 +30222,21 @@
     {
       "id": 4454,
       "title": "[DeepSeek] Error notes print compiler-made names: half.%step in examples/reject/goal-shows-step-name's snapshot; print it as SW-4437 did for %op (pretty.rs), and extend the no-% check to reject example output except where a test expects it (SW-4437 finding 2)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "\n\nModel result: DeepSeek, needed fixes (printed f.step, which a user name could share; changed to (step of f) in review), 25 min (est. 20)\n",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4455,
+      "title": "[Sonnet] Messages still print compiler-made names: Parse.%res (an ability's result declaration, ability-row-arguments), Count.%instOrd and UserId.%instOrd (derived instances, microtype-map-*), Packet.%m1%size (generated size lemma, named on purpose in nested-data-auto-other-list and docs/syntax.md); give each a readable form (e.g. 'the derived Ord instance of Count'), then add a no-% check to reject output with the deliberate cases listed (SW-4454 findings)",
+      "status": "backlog",
+      "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
