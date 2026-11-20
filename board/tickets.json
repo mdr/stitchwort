@@ -4674,14 +4674,14 @@
     {
       "id": 1822,
       "title": "[Sonnet] Kept session clean-ups: cache key relies on the bundle's pointer address; library loaded twice when it fails to load; dead run closure in searches_in_a_row_give_what_fresh_ones_do; its code-action comparison depends on wall-clock limits (flaky risk)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 6). Small. Expected: 30 min.",
+      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 6). Small. Expected: 30 min.\n\nModel result: DeepSeek, worked (item 4 already fixed by SW-1820; review question on the lost message checked, none lost), 30 min (est. 30)\n",
       "created": "2026-11-07",
       "updated": "2026-11-20",
       "commits": []
