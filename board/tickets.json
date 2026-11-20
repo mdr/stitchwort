@@ -30183,12 +30183,12 @@
     {
       "id": 4451,
       "title": "[Sonnet] Goals as written: the lemma offered for a goal (goal_index lemmas) still states the computed form (theorem plainGoal1 (n: Nat): True = True := ?) where the goal now shows the statement as written (0 < 1); state the lemma as written when it checks against the same goal (SW-4443 follow-up)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
-      "body": "",
+      "body": "\n\nProgress: lane/SW-4451 ff2108df1. lemma_of tries the written form first (not for arm goals, nor where a pattern refined the statement's variables, nor open-type equations); falls back to computed. lemmas snapshot: 174 lemmas (was 173), 13 snapshots updated.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
