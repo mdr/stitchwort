@@ -1,5 +1,5 @@
 {
-  "next": 4466,
+  "next": 4471,
   "tickets": [
     {
       "id": 47,
@@ -29791,12 +29791,12 @@
     {
       "id": 4421,
       "title": "[Opus] Walk W4: convert the remaining walk-shaped proofs in tools/fmt (ParseWalk*, Follows*) to byWalking, one namespace per pass, timing each theorem against the 1.5x bar; list proofs the walk can't take and why",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Progress (lane, 20 Nov 21:52): 12 namespaces passed over (FollowsStatements, FollowsDeclData, ParseWalk, ParseWalkOutside, Others, Binders, Patterns, Match, Statements, Frame, Ladder, Calc). 112 walks kept within 1.5x of the hand proof's time (proof lines 456 -> 116); statements unchanged (checked by script). New: givesFatal, and @[walk] on givesBump/Left/At/Peek/Fail/FailName/Lower/Gap. Two-run walks run 2-11x the hand proof (FollowsStatements: 46 walk, 4 kept; FollowsDeclData: 22 walk, 2 kept); one-run walks 1.0-2x. Gaps: nested bind as a bound value (36 proofs), Parse.loop (17), bracket term with a ∀ left, unfold of a match-on-argument helper loops. Not done: FollowsForms*, FollowsLadder, FollowsDecl*, ParseCarries*, ParseKept. Model result: opus, ~70 min (est. 90).\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -30302,12 +30302,12 @@
     {
       "id": 4460,
       "title": "[Sonnet] Goal lemmas: SW-4451 chooses the written form by three heuristics (not in a match arm, no pattern-refined variables, no open-typed equation), tested only on the examples; instead elaborate the written lemma's statement and compare it with the goal (the same check lemmas_check_as_the_same_goal makes) before offering it, and drop the heuristics if that's cheap enough (SW-4451 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
-      "body": "",
+      "body": "\n\nProgress (lane, Sonnet): 2397e0216 on lane/SW-4460. Direct check replaces the three rules of thumb: the written target is elaborated in a context of the lemma's parameters (hypotheses, facts), settled, and offered only if it converts with the goal and prints as the goal does. Cost 0.06 ms a goal on average (max 0.55 ms) on the goals examples; 900 goals in a synthetic file 55 ms of 11.8 s. No pre-filter kept. Lemmas 174, without 47; 8 snapshot files updated (more goals keep their written form: arms, 0 * 0 = 0 * 0, pick True < 2, Small (if True then n else 0)).\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -30374,6 +30374,71 @@
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4466,
+      "title": "[Opus] Walk gap 1 (SW-4421): a nested bind as the bound computation, let y := f (g ()); k y, gives Effect.bind (Effect.bind g f) k and the walk asks for a lemma for Effect.bind; split the inner bind first, as if written let x := g (); let y := f x; blocks 36 formatter proofs (letStatement, operationClause, rowVariable). Repro: def h(): {Parse Nat} Nat := let y := f (g ()); y / theorem givesH: Parse.Gives inv (() => h()) post := byWalking [givesF, givesG]",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4467,
+      "title": "[Opus] Walk gap 2 (SW-4421): a bracket term or hypothesis with a forall left doesn't fit: byWalking [followsPattern patternRuleFollows] finds no lemma for pattern { modes, level = PatternTupleComponent } (the fully applied form fits); hypothesis definitions: DefinitionPartsFollows self selfTwin (a forall) doesn't fit definitionParts self modes None None (Some d); suspected unifying the lemma's unknown against a constructor/record value. Repro: followsLetPatternOf, followsLocalDef in tools/fmt FollowsStatements",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4468,
+      "title": "[Opus] Walk gaps 3-4 (SW-4421): unfold f where f's body matches on its argument stops with 'the code keeps computing' (clausesLined, caseNamesOn, rewriteMore, setMore; repro byWalking [unfold clausesLined, unfold clausesAhead] on followsClausesFrom); and a goal whose function's arguments are calls binds (allowed.at KwDef) first then asks for a lemma for the goal's own function (workaround unfold localAttributed)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4469,
+      "title": "[Opus] Walk gap 5 (SW-4421, W3 review follow-up 8): two-run walks (Parse.Follows) cost 10-20x the elaboration steps of the hand proof on small proofs (followsRewriteAfter 61k -> 1.19M steps) and 2-11x check time; profile where the steps go and cut them, so two-run walks pass the time bar",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4470,
+      "title": "[Sonnet] Walk lemmas missing (SW-4421): @[walk] Gives lemmas for peekAt, offset, headIndent, ctorAhead, wordAhead, and a walk lemma for Parse.loop (17 proofs); and a peek lemma that remembers the peeked value (helpers given a peeked value need readsInPeeked today)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
