@@ -2682,7 +2682,7 @@ export def area: Shape -> Nat
   const KEYWORDS = new Set(["type", "def", "theorem", "export", "test", "if", "then", "else",
                             "ability", "where", "handle", "with", "match", "return", "let", "Type", "Prop",
                             "namespace", "import", "include", "calc", "rewrite", "arithmetic", "algebra", "cases", "decreasing", "opaque", "unfolding", "interface", "instance",
-                            "in", "exists", "forall"]);
+                            "in", "exists", "forall", "byWalking"]);
   const KINDS = ["keyword", "name", "defined", "number", "string", "interp", "comment", "operator"];
   const isWordStart = (c) => (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c === "_";
   const isWord = (c) => isWordStart(c) || (c >= "0" && c <= "9") || c === "'";

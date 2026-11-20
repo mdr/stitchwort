@@ -53,3 +53,36 @@ test('after a keyword the grammar cannot see the word, so it does not glue', () 
   // `then-1` colours the `1` and leaves the `-` as an operator.
   assert.deepStrictEqual(numbers('then-1'), ['1']);
 });
+
+function keywordPatterns(node, out = []) {
+  if (node && typeof node === 'object') {
+    const captured = Object.values(node.captures || {})
+      .some((c) => c && c.name === 'keyword.control.stitchwort');
+    if ((node.name === 'keyword.control.stitchwort' || captured) && node.match) {
+      out.push(new RegExp(node.match, 'g'));
+    }
+    for (const v of Object.values(node)) keywordPatterns(v, out);
+  }
+  return out;
+}
+
+/** The texts coloured as keywords; earlier patterns take their span first. */
+function keywords(text) {
+  const taken = new Array(text.length).fill(false);
+  const found = [];
+  for (const re of keywordPatterns(grammar)) {
+    for (const m of text.matchAll(re)) {
+      const end = m.index + m[0].length;
+      if (taken.slice(m.index, end).some(Boolean)) continue;
+      taken.fill(true, m.index, end);
+      found.push([m.index, m[0]]);
+    }
+  }
+  return found.sort((a, b) => a[0] - b[0]).map((f) => f[1]);
+}
+
+test('byWalking is a keyword only before a [', () => {
+  assert.deepStrictEqual(keywords('byWalking [a] then t'), ['byWalking', 'then']);
+  assert.deepStrictEqual(keywords('byWalking'), []);
+  assert.deepStrictEqual(keywords('xbyWalking ['), []);
+});
