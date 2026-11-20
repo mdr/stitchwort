@@ -419,6 +419,21 @@ fn thunk_head(thunk: &Term) -> Option<DefId> {
     }
 }
 
+/// Which argument of relation `rel` is the thunk: a family's, or the
+/// first premise's of a then-lemma.
+fn thunk_index(cx: &Ctx, rel: DefId) -> Option<usize> {
+    let all = families(cx);
+    all.iter()
+        .find(|f| f.relation == rel)
+        .map(|f| f.thunk)
+        .or_else(|| {
+            all.iter()
+                .flat_map(|f| f.then.iter())
+                .find(|(_, first, _)| *first == rel)
+                .map(|(_, _, i)| *i)
+        })
+}
+
 /// A family: its relation and its lemmas.
 #[derive(Clone)]
 struct Family {
@@ -426,8 +441,9 @@ struct Family {
     /// Which of the relation's arguments is the thunk.
     thunk: usize,
     arity: usize,
-    /// The then-lemmas, each with the relation of its first premise.
-    then: Vec<(DefId, DefId)>,
+    /// The then-lemmas, each with the relation of its first premise and
+    /// which of that relation's arguments is the thunk.
+    then: Vec<(DefId, DefId, usize)>,
     done: Option<DefId>,
     weaken: Option<DefId>,
 }
@@ -472,11 +488,18 @@ fn families(cx: &Ctx) -> Vec<Family> {
         match tag.as_str() {
             WALK_BIND => {
                 let explicit = shape.explicit();
-                if let Some(first) = explicit
-                    .first()
-                    .and_then(|&i| statement(&shape.binders[i].1))
+                if let Some(&at) = explicit.first()
+                    && let Some(first) = statement(&shape.binders[at].1)
                 {
-                    family.then.push((id, first.head));
+                    // The thunk `p` is the argument whose binder is a
+                    // function.
+                    let thunk = first.args.iter().position(|a| {
+                        matches!(a.strip_loc(), Term::Var(ix) if *ix < at
+                            && matches!(shape.binders[at - 1 - ix].1.strip_loc(), Term::Pi(..)))
+                    });
+                    if let Some(thunk) = thunk {
+                        family.then.push((id, first.head, thunk));
+                    }
                 }
             }
             WALK_DONE => family.done = family.done.or(Some(id)),
@@ -1179,12 +1202,22 @@ fn fit_type(cx: &mut Ctx, ty: &Value, call: &Value, families: &[DefId]) -> Resul
         let mut metas = Vec::new();
         // Down the lemma's `∀`s to a family's relation, which is not
         // unfolded further.
+        let mut unfolds = 0;
         let shown = loop {
             let shown = force_solved(&g, ty)?;
             if let Value::Call(rel, ..) | Value::Neutral(Head::Def(rel), _) = &shown
                 && families.contains(rel)
             {
                 break shown;
+            }
+            // A name for a family's statement (`Reads0 p` for
+            // `Parse.Reads0 GoodItems p`), unfolded to it.
+            if let Value::Call(f, spine, _) = &shown
+                && unfolds < 4
+            {
+                unfolds += 1;
+                ty = unfold_once(&g, *f, spine.clone())?;
+                continue;
             }
             let Value::Pi(_, icit, dom, cod) = force(&g, shown)? else {
                 return Ok(None::<()>);
@@ -1205,10 +1238,7 @@ fn fit_type(cx: &mut Ctx, ty: &Value, call: &Value, families: &[DefId]) -> Resul
         if !families.contains(rel) {
             return Ok(None);
         }
-        let index = self::families(cx)
-            .iter()
-            .find(|f| f.relation == *rel)
-            .map(|f| f.thunk);
+        let index = thunk_index(cx, *rel);
         let Some(thunk) = index.and_then(|i| arg(spine, i)) else {
             return Ok(None);
         };
@@ -1236,7 +1266,36 @@ fn fit_type(cx: &mut Ctx, ty: &Value, call: &Value, families: &[DefId]) -> Resul
                 if crate::cases::is_proposition(cx, &dom)? {
                     return Ok(Param::Premise);
                 }
-                let v = force(&cx.g(), cx.eval(m)?)?;
+                let mut v = force(&cx.g(), cx.eval(m)?)?;
+                // Still unknown: the one hypothesis of its type
+                // (`outside: OutsideAtoms self`).
+                if matches!(v, Value::Neutral(Head::Meta(_), _)) {
+                    let mut found = Vec::new();
+                    for level in (0..cx.level()).rev() {
+                        let Some(name) = cx.name_of_level(level) else {
+                            continue;
+                        };
+                        if generated(name) || cx.lookup(name) != Some(level) {
+                            continue;
+                        }
+                        let ty = cx.types[level].clone();
+                        if crate::undo::attempt(cx, |cx| {
+                            Ok(cx.unify(&ty, &dom)?.then_some(()).ok_or_else(|| {
+                                Diagnostic::error("E-WALK", "no").with_label(cx.span, "")
+                            })?)
+                        })?
+                        .is_some()
+                        {
+                            found.push(level);
+                        }
+                    }
+                    if let [level] = found[..] {
+                        let var = Value::var(level);
+                        if crate::undo::unify(cx, &v, &var)? {
+                            v = var;
+                        }
+                    }
+                }
                 if let Some(name) = variable_name(cx, &v)? {
                     return Ok(Param::Value(Some(name)));
                 }
@@ -1347,8 +1406,17 @@ fn choose(
         return Err(two_fit(cx, info, expected, call, "in the brackets"));
     }
     if let Some((e, fit)) = fits.pop() {
+        // As written, bracketed unless it is a name.
+        let text = match &e {
+            Expr::Var(_) => vec![Piece::Source(e.span())],
+            _ => vec![
+                Piece::Text("(".into()),
+                Piece::Source(e.span()),
+                Piece::Text(")".into()),
+            ],
+        };
         return Ok(Chosen {
-            text: vec![Piece::Source(e.span())],
+            text,
             expr: e,
             fit,
             how: "named in the brackets".into(),
@@ -1655,7 +1723,42 @@ fn bind_step(
     k: Value,
     expected: &Value,
 ) -> Result<Term> {
-    let c = force_solved(&cx.g(), c)?;
+    let mut c = force_solved(&cx.g(), c)?;
+    // `unfold f` on a call run here: its body, if that is one call too
+    // (`full self modes` is `self { … }`). A body that binds would need
+    // the binds reassociated, which the walk doesn't do.
+    let mut unfolded = 0;
+    while let Some(Callee::Def(f)) = head_of(&c)
+        && unfolds(cx, info.call, f)
+        && !has_bracket_lemma(cx, info, family, &c)?
+        && unfolded < 16
+    {
+        unfolded += 1;
+        let g = cx.g();
+        let spine = spine_of(&c).cloned().unwrap_or_default();
+        note_trace(
+            cx,
+            node,
+            vec![Piece::Text(format!(
+                "{}: `{}` unfolded",
+                info.place,
+                written_name(cx, f)
+            ))],
+        );
+        c = force_solved(&g, unfold_once(&g, f, spine)?)?;
+        if !matches!(classify(cx, &c, None)?, Code::Call(..)) {
+            return Err(stuck(
+                cx,
+                info,
+                expected,
+                &format!(
+                    "`{}` is unfolded where its value is used, and its body isn't one call",
+                    written_name(cx, f)
+                ),
+                &["give a lemma for it instead".into()],
+            ));
+        }
+    }
     let Some(callee) = head_of(&c) else {
         return Err(stuck(
             cx,
@@ -1665,15 +1768,29 @@ fn bind_step(
             &[format!("it is {}", cx.show(&c))],
         ));
     };
-    let firsts: Vec<DefId> = family.then.iter().map(|(_, f)| *f).collect();
+    let firsts: Vec<DefId> = family.then.iter().map(|(_, f, _)| *f).collect();
     let mut ordered = vec![family.relation];
     ordered.extend(firsts.iter().copied().filter(|f| *f != family.relation));
+    // Then the other families: a lemma in one the family's own is defined
+    // by (`ReadsIn … spec` for `Gives`) goes to the family's own then-lemma,
+    // and the check sees through the definition.
+    for other in families(cx) {
+        if !ordered.contains(&other.relation) {
+            ordered.push(other.relation);
+        }
+    }
     let chosen = choose(cx, info, callee, &c, &ordered, expected)?;
-    let Some(&(then, _)) = family
+    let then = family
         .then
         .iter()
-        .find(|(_, first)| *first == chosen.fit.family)
-    else {
+        .find(|(_, first, _)| *first == chosen.fit.family)
+        .or_else(|| {
+            family
+                .then
+                .iter()
+                .find(|(_, first, _)| *first == family.relation)
+        });
+    let Some(&(then, _, _)) = then else {
         return Err(stuck(
             cx,
             info,
@@ -1933,7 +2050,7 @@ fn split(
     let is_var = matches!(&scrutinee, Value::Neutral(Head::Var(..), s) if s.is_empty());
     let term = cx.quote_folded(&scrutinee)?;
     let ty = crate::cases::atom_type(cx, &term, data)?;
-    let shown = cx.show(&scrutinee);
+    let shown = condition_text(&cx.show(&scrutinee));
     let _ = is_var;
     let depth = (0..cx.level())
         .filter(|&l| cx.name_of_level(l).is_some_and(|n| n.starts_with("branch")))
@@ -1998,6 +2115,20 @@ fn split(
         span,
     });
     crate::matching::generalised_named(cx, term, ty, span, name, None, &alts, &[], span, expected)
+}
+
+/// A condition as source: `a == b` is shown as the derived instance's
+/// `(T.%decide a b).holds`, which can't be written.
+fn condition_text(shown: &str) -> String {
+    if let Some(inner) = shown
+        .strip_prefix('(')
+        .and_then(|s| s.strip_suffix(").holds"))
+        && let Some((_, args)) = inner.split_once(".%decide ")
+        && let [a, b] = args.split(' ').collect::<Vec<_>>()[..]
+    {
+        return format!("{a} == {b}");
+    }
+    shown.to_string()
 }
 
 /// A leaf: closed by a hypothesis, computation, a conjunction of closed
