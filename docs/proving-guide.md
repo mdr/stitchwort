@@ -869,6 +869,13 @@ Each was run on the example named; the output is quoted, shortened.
     `a ∧ b` or `¬(a ∧ b)` (`examples/accept/match-if-and.sw`). Usually the goal
     unfolded the definition first: rewrite with a lemma about the unfolded
     form, or state the step with `calc`.
+  - `E-REWRITE-NO-RULES`: a definition listed by name gives no rules because
+    every arm is a constructor pattern, so its calls already compute. Close
+    with `byComputing`, or list one of its arm equations instead
+    (`rewrite f.eq1`). When other listed names do give rules, it is
+    `W-REWRITE-NO-RULES` at that name and the call continues without it
+    (`examples/reject/rewrite-repeatedly-no-rules.sw`,
+    `examples/accept/rewrite-repeatedly-no-rules-warning.sw`).
   - `W-MATCH-NOT-FOUND`: a `match h: e` whose `e` is in neither the goal nor
     a hypothesis (as they compute) refines nothing, so each arm has the goal
     unchanged. It is given when the arms don't use `h`, and also when they

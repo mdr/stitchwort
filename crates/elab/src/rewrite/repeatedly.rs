@@ -47,7 +47,7 @@ use stitchwort_core::collections::HashMap;
 use stitchwort_core::value::{Elim, Spine, force, unfold_once};
 use stitchwort_core::{DefId, Term, Value};
 use stitchwort_syntax::ast::{Expr, Name as AstName, RewriteRule};
-use stitchwort_syntax::{Diagnostic, Span};
+use stitchwort_syntax::{Diagnostic, Severity, Span};
 
 use super::{
     Equation, Key, Place, Repeated, Stats, Step, elaborate_rule, goal_as_written, key,
@@ -705,7 +705,14 @@ pub(super) fn rewrite_repeatedly(
     };
     let header = keyword.to(written.last().map_or(*keyword, |r| r.span));
     let mut rules = Vec::new();
+    // Written rules that give no listed rule: a function whose arms are all
+    // constructor patterns (its calls compute at once), or a set whose
+    // members are such functions. Reported below, once the whole list is
+    // known: an error if nothing at all is left to rewrite with, a warning
+    // for each otherwise.
+    let mut no_rules: Vec<(usize, bool)> = Vec::new();
     for (origin, rule) in written.iter().enumerate() {
+        let before = rules.len();
         let named = set_named(cx, &rule.proof)?;
         let origin_set = named.is_some();
         let members: Vec<Member> = match &named {
@@ -762,6 +769,27 @@ pub(super) fn rewrite_repeatedly(
                     source,
                 });
             }
+        }
+        if rules.len() == before {
+            no_rules.push((origin, origin_set));
+        }
+    }
+    if rules.is_empty() {
+        let (origin, set) = no_rules
+            .first()
+            .copied()
+            .expect("every written rule gave no rule");
+        return Err(no_rules_diagnostic(&written[origin], set, Severity::Error));
+    }
+    for &(origin, set) in &no_rules {
+        let warning = no_rules_diagnostic(&written[origin], set, Severity::Warning);
+        let span = Some(written[origin].proof.span());
+        let mut warnings = cx.e.attempt.lambda_warnings.borrow_mut();
+        if !warnings
+            .iter()
+            .any(|w| w.code == warning.code && w.labels.first().map(|l| l.span) == span)
+        {
+            warnings.push(warning);
         }
     }
     // With a target, its type is what the rules rewrite: the "goal" below.
@@ -1083,6 +1111,65 @@ fn rebound(
     Ok((Term::let_(x, ty_term, term, body), block_ty))
 }
 
+/// `W-REWRITE-NO-RULES`: a listed function or set that gave no rules while
+/// other listed rules did.
+pub(crate) const NO_RULES: &str = "W-REWRITE-NO-RULES";
+
+/// `E-REWRITE-NO-RULES`: the whole list gave no rules.
+const NO_RULES_ERROR: &str = "E-REWRITE-NO-RULES";
+
+/// `E-REWRITE-NO-RULES` or `W-REWRITE-NO-RULES` for a written rule that
+/// expands to no rule of its own. A function whose arms are all constructor
+/// patterns does this: a call on a constructor computes at once, so an arm
+/// equation would only be matched against what it computes to.
+fn no_rules_diagnostic(rule: &RewriteRule, set: bool, severity: Severity) -> Diagnostic {
+    let name = rule_name(rule);
+    let (message, label) = match set {
+        true => (
+            format!(
+                "`{name}` gives no rules: each of its rules names a function whose arms are \
+                 constructor patterns, so its calls already compute"
+            ),
+            "none of its rules gives anything to rewrite with",
+        ),
+        false => (
+            format!(
+                "`{name}` gives no rules: each of its arms is a constructor pattern, so its calls \
+                 already compute"
+            ),
+            "every arm is a constructor pattern",
+        ),
+    };
+    let note = match (severity, set) {
+        (Severity::Error, true) => {
+            "close with `byComputing`, or list one of the functions' arm equations instead \
+             (`rewrite f.eq1`)"
+                .to_string()
+        }
+        (Severity::Error, false) => format!(
+            "close with `byComputing`, or list one of its arm equations instead \
+             (`rewrite {name}.eq1`)"
+        ),
+        (_, true) => {
+            "take it out of the list: `byComputing` proves goals over calls like these, or list \
+             one of the functions' arm equations (`rewrite f.eq1`)"
+                .to_string()
+        }
+        (_, false) => format!(
+            "take it out of the list: `byComputing` proves goals over calls like these, or use \
+             one of its arm equations (`rewrite {name}.eq1`)"
+        ),
+    };
+    let mut diagnostic = Diagnostic::warning(NO_RULES, message)
+        .with_label(rule.proof.span(), label)
+        .with_note(note);
+    if severity == Severity::Error {
+        diagnostic.severity = Severity::Error;
+        diagnostic.code = NO_RULES_ERROR;
+    }
+    diagnostic
+}
+
 /// The code of the warning for a listed rule that never applied.
 pub(crate) const UNUSED_RULE: &str = "W-REWRITE-REPEATEDLY-UNUSED";
 
@@ -1104,7 +1191,12 @@ fn note_unused(
     let at = |w: &Diagnostic, span: Span| {
         w.code == UNUSED_RULE && w.labels.first().map(|l| l.span) == Some(span)
     };
-    for (rule, applied) in written.iter().zip(applied) {
+    for ((origin, rule), applied) in written.iter().enumerate().zip(applied) {
+        if !rules.iter().any(|r| r.origin == origin) {
+            // It gave no rules at all, and was reported as
+            // `W-REWRITE-NO-RULES` (or the call failed).
+            continue;
+        }
         if applied {
             if !fired.contains(&rule.span) {
                 fired.push(rule.span);
