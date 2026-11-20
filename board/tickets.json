@@ -1,5 +1,5 @@
 {
-  "next": 4398,
+  "next": 4402,
   "tickets": [
     {
       "id": 47,
@@ -29449,7 +29449,7 @@
     {
       "id": 4395,
       "title": "[Opus, paper] Review walk W3 (SW-4240): two-run lockstep walk, new leaf closers (also one-run), fixed-function-as-value fitting rule; generates proofs (D2364)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -29480,6 +29480,58 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4398,
+      "title": "[Sonnet] Walk two-run registration: treat an open run as a wildcard so overlapping (fail, any) and (fail, bump) lemmas are refused at registration with E-WALK-LEMMA naming the pair; two-run 'two lemmas fit' reject; find why followsTupleClose needs its thunk written out (SW-4395 follow-ups 1, 2; before W4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4399,
+      "title": "[Sonnet] Walk thunks by type: recognise thunks by () -> {e} a, not syntax; refuse families with more than two thunks; second-run names in a lone split use Twin (not items1, y1); expand.rs quoted ignores brackets in strings (SW-4395 follow-ups 3, 4, 6)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4400,
+      "title": "[DeepSeek] Walk errors and tidy: two-run missing-lemma message names both runs' functions; shapes reject shows (x y => True) not (x y => True = True); show both nested-walk and then-t errors; one constant for the bare 1000 limit; proof-walk-step.md §3.4 note that equal values are rewritten (SW-4395 follow-ups 7, 9, 10)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4401,
+      "title": "[Sonnet] Walk check time: leaves elaborate every bracket item and try a nested walk before then t; reorder or filter, measure median of 3 runs per theorem on FollowsBase (worst 2.9x vs 3x bar) (SW-4395 follow-up 8)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
