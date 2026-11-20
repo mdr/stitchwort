@@ -1,5 +1,5 @@
 {
-  "next": 4371,
+  "next": 4372,
   "tickets": [
     {
       "id": 47,
@@ -29122,7 +29122,20 @@
     {
       "id": 4370,
       "title": "[Opus, paper] Review SW-4226 (cases splits a finite value an earlier split's equation is stuck on, second try only)",
-      "status": "doing",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4371,
+      "title": "[Opus] cases: let the fallback also consider variables an earlier split's equation is stuck on (not only those the goal mentions), so goals computed to True = False close in the first try; changes terms of proofs only the second try closes today and needs the step-budget/second-try rule revisited (SW-4370 finding)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
