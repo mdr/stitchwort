@@ -1,5 +1,5 @@
 {
-  "next": 4478,
+  "next": 4480,
   "tickets": [
     {
       "id": 47,
@@ -30382,7 +30382,7 @@
     {
       "id": 4466,
       "title": "[Opus] Walk gap 1 (SW-4421): a nested bind as the bound computation, let y := f (g ()); k y, gives Effect.bind (Effect.bind g f) k and the walk asks for a lemma for Effect.bind; split the inner bind first, as if written let x := g (); let y := f x; blocks 36 formatter proofs (letStatement, operationClause, rowVariable). Repro: def h(): {Parse Nat} Nat := let y := f (g ()); y / theorem givesH: Parse.Gives inv (() => h()) post := byWalking [givesF, givesG]",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -30475,12 +30475,12 @@
     {
       "id": 4473,
       "title": "[Sonnet] Closer stage 0b (closer.md): a proving-guide section on finishing small proofs with today's tools (cases, rewrite repeatedly, or-patterns, _ arguments), then pilot two tools/fmt files (signSymbolic via or-pattern, drop minusSymbolic/bangSymbolic; passesAppend and Fmt/JoinProofs with _ arguments); bar: 5%% of proof lines with check time within 1.5x; after the stage 0 fixes",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "\n\nLane note (Sonnet): guide section 'Finishing small proofs' in docs/proving-guide.md; pilot applied in ParseWalk.sw and JoinProofs.sw: proof lines 532->488 (-8.3%) and 1556->1438 (-7.6%); file check time (elab+kernel, mean of two) 1387->1368 ms and 891->851 ms; bar met. Commit 7e5ef7b69 on lane/SW-4473.\n",
+      "body": "\n\nLane note (Sonnet): guide section 'Finishing small proofs' in docs/proving-guide.md; pilot applied in ParseWalk.sw and JoinProofs.sw: proof lines 532->488 (-8.3%) and 1556->1438 (-7.6%); file check time (elab+kernel, mean of two) 1387->1368 ms and 891->851 ms; bar met. Commit 7e5ef7b69 on lane/SW-4473.\n\n\nModel result: Sonnet, needed fixes (the guide quoted pre-SW-4472 timings; re-measured), 35 min (est. 45)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -30527,6 +30527,32 @@
     {
       "id": 4477,
       "title": "[Opus] Walk W4b (after SW-4469 cut two-run walk cost): re-time the two-run walks W4 dropped for speed (FollowsStatements 12, FollowsDeclData 9; the walked text is at commit 9e0180f18 and the W4 branch history) and keep those now within SW-4238's bar (file 1.5x, no theorem over 3x); then try the Follows* namespaces W4 didn't reach (FollowsForms*, FollowsLadder, FollowsDecl*, ParseCarries*, ParseKept, ParseWalkDecls); profile followsRewriteTargetIf (2.5x) if cheap",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4478,
+      "title": "[Sonnet] Walk follow-ups (SW-4466): convert the nine formatter proofs that now walk (givesBinderGroup, givesBracedFields, givesDataDeclOn, givesHeaderGroupColon, givesImplicitBinder, givesImportOpen, givesRowStart, givesRuleSetDecl, givesTestDecl; all under 3x) and time the five unconfirmed (givesConstructorParts, givesCtorArgBrace, givesDataIndices, givesFieldPatternClose, givesUnfoldingNames) under SW-4238's bar; add the missing lemmas where small (calcStep, cmpFirst, importPath, pipesStep, rangeChained; see SW-4470 for peekAt/ctorAhead)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4479,
+      "title": "[Opus] Walk gaps (SW-4466): an operation called directly in bound code (an inlined Parse.mark()) blocks 9 formatter proofs (givesBlock, givesCalcBody, givesClauseLambda, givesConstructorParen, givesDataParamStep, givesListItemsFrom/Any, givesPipeChain, givesTupleRest); and ReadsAt nesting needs a bind-lemma shape carrying the mark fact",
       "status": "backlog",
       "agent": "",
       "where": "",
