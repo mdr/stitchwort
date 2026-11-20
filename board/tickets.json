@@ -1,5 +1,5 @@
 {
-  "next": 4320,
+  "next": 4321,
   "tickets": [
     {
       "id": 47,
@@ -28458,6 +28458,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "From SW-4292.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4320,
+      "title": "[DeepSeek] Fix Overmind red at a466acdf3: SW-4313's daily_tier_sample_at returns nothing when the list is shorter than the stride and today's offset is past its end (goal_projects_report_their_goals: projects(\"goals\") empty, examples.rs:404)",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "Overmind report 20 Nov ~03:30; last green df69901f1.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
