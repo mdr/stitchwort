@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# Test `task disk:sweep`'s stale-incremental deletion against a fake target
+# tree, in DRY=1 and real mode (SW-4005). It never touches this checkout's
+# target/: TARGET points the task at a temporary directory.
+#
+#   nix develop -c bash dev/disk-sweep-test
+#
+# Checks that a directory more than two days old (by mtime) is listed and then
+# deleted, a fresh one is kept, the target/*/release/incremental form is swept,
+# and target/debug, target/bench and target/trace are left alone. It also puts
+# old cargo-sweep artifacts under each profile: the release and debug ones are
+# swept, while bench's and trace's must survive (cargo-sweep would clean them
+# too if it were run on target/ itself).
+set -eu
+
+root=$(cd "$(dirname "$0")/.." && pwd -P)
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/disk-sweep-test.XXXXXX")
+trap 'rm -rf "$tmp"' EXIT
+
+target=$tmp/target
+old=$target/release/incremental/old
+fresh=$target/release/incremental/fresh
+triple_old=$target/x86_64-unknown-linux-gnu/release/incremental/old
+bench_old=$target/bench/release/incremental/benchold
+trace_old=$target/trace/release/incremental/traceold
+debug_dir=$target/debug/stale
+
+mkdir -p "$old" "$fresh" "$triple_old" "$bench_old" "$trace_old" "$debug_dir"
+for d in "$old" "$fresh" "$triple_old" "$bench_old" "$trace_old" "$debug_dir"; do
+  dd if=/dev/zero of="$d/blob" bs=1024 count=8 2>/dev/null
+done
+
+# A cargo-sweep profile: deps/<name>-<16 hex>.rlib keyed by a .fingerprint dir.
+# build/ has to exist or cargo-sweep's clean fails.
+artifact() {
+  profile=$1 name=$2
+  hash=0123456789abcdef
+  mkdir -p "$profile/deps" "$profile/build" "$profile/.fingerprint/$name-$hash"
+  echo artifact > "$profile/deps/lib$name-$hash.rlib"
+  echo '{}' > "$profile/.fingerprint/$name-$hash/fingerprint"
+}
+artifact "$target/release" release
+artifact "$target/debug" debug
+artifact "$target/bench/release" bench
+artifact "$target/trace/release" trace
+
+# Three days old, so find's -mmin +2880 sees it and cargo-sweep's --time 3
+# sees it too; touch -d sets access and modification time, both.
+age() {
+  touch -d '3 days ago' "$1" 2>/dev/null \
+    || touch -t "$(date -v-3d '+%Y%m%d%H%M')" "$1"
+}
+age "$old"
+age "$triple_old"
+age "$bench_old"
+age "$trace_old"
+for pair in release:release debug:debug bench/release:bench trace/release:trace; do
+  profile=${pair%%:*}
+  name=${pair#*:}
+  age "$target/$profile/deps/lib$name-0123456789abcdef.rlib"
+  age "$target/$profile/.fingerprint/$name-0123456789abcdef/fingerprint"
+done
+
+echo '== DRY=1 =='
+dry_out=$(task -d "$root" disk:sweep TARGET="$target" DRY=1 2>&1)
+printf '%s\n' "$dry_out"
+printf '%s\n' "$dry_out" | grep -F "would delete: $old" >/dev/null
+printf '%s\n' "$dry_out" | grep -F "would delete: $triple_old" >/dev/null
+for kept in "$bench_old" "$trace_old"; do
+  if printf '%s\n' "$dry_out" | grep -F "would delete: $kept" >/dev/null; then
+    echo "FAIL: DRY=1 listed $kept" >&2
+    exit 1
+  fi
+done
+[ -d "$old" ] && [ -d "$triple_old" ] || { echo 'FAIL: DRY=1 deleted something' >&2; exit 1; }
+
+echo '== real =='
+task -d "$root" disk:sweep TARGET="$target"
+[ ! -d "$old" ] || { echo "FAIL: $old was not deleted" >&2; exit 1; }
+[ ! -d "$triple_old" ] || { echo "FAIL: $triple_old was not deleted" >&2; exit 1; }
+[ -d "$fresh" ] || { echo "FAIL: $fresh was deleted" >&2; exit 1; }
+[ -d "$bench_old" ] || { echo "FAIL: $bench_old was deleted" >&2; exit 1; }
+[ -d "$trace_old" ] || { echo "FAIL: $trace_old was deleted" >&2; exit 1; }
+[ -d "$debug_dir" ] || { echo "FAIL: $debug_dir was deleted" >&2; exit 1; }
+[ ! -e "$target/release/deps/librelease-0123456789abcdef.rlib" ] \
+  || { echo 'FAIL: release artifact was not swept' >&2; exit 1; }
+[ ! -e "$target/debug/deps/libdebug-0123456789abcdef.rlib" ] \
+  || { echo 'FAIL: debug artifact was not swept' >&2; exit 1; }
+[ -e "$target/bench/release/deps/libbench-0123456789abcdef.rlib" ] \
+  || { echo 'FAIL: bench artifact was swept' >&2; exit 1; }
+[ -e "$target/trace/release/deps/libtrace-0123456789abcdef.rlib" ] \
+  || { echo 'FAIL: trace artifact was swept' >&2; exit 1; }
+
+echo 'ok: old incremental directories removed; fresh, bench, trace and debug kept'
