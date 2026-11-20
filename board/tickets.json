@@ -1,5 +1,5 @@
 {
-  "next": 4318,
+  "next": 4319,
   "tickets": [
     {
       "id": 47,
@@ -28283,7 +28283,7 @@
     {
       "id": 4306,
       "title": "[DeepSeek] std Parse.givesFail, followsFatalAny, followsLoop: implicit arguments where uses are always _ (survey target 5 rest; reuse scratchpad keep/imp-positional.py, dedupe symlinked dirs by realpath)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -28432,6 +28432,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Follow-up of SW-4305.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4318,
+      "title": "[DeepSeek] fmt:implicit (tools/fmt/dev/implicit.py): warn, and refuse unless --force, when an argument it would drop is not _ (today it silently drops real terms in the slot; SW-4306 had to pre-convert real uses to named arguments by hand); add a test",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "From SW-4306.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
