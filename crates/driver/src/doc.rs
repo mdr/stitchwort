@@ -1745,6 +1745,40 @@ mod tests {
         assert!(!named_after("Std.Nat.addrOf", "Std.Nat.add"));
     }
 
+    /// A line's leading spaces and tabs.
+    fn indent(line: &str) -> usize {
+        line.len() - line.trim_start_matches([' ', '\t']).len()
+    }
+
+    /// Whether `at` in `text` is inside a bracket still open, going by the
+    /// tokens so that a bracket in a string or a comment doesn't count.
+    fn inside_brackets(text: &str, at: usize) -> bool {
+        let mut depth = 0i32;
+        for t in lex_recovering(SourceMap::new().next_id(), text).tokens {
+            if t.span.start as usize >= at {
+                break;
+            }
+            match t.tok {
+                Tok::LParen | Tok::LBracket | Tok::LBrace => depth += 1,
+                Tok::RParen | Tok::RBracket | Tok::RBrace => depth -= 1,
+                _ => {}
+            }
+        }
+        depth > 0
+    }
+
+    /// Whether a header ends before its body. A `|` that starts its last line
+    /// is a body's arm when the line is at the declaration's own indent or
+    /// outside brackets; a `match` in the statement is inside brackets, so
+    /// its arms stay.
+    fn header_ends_before_body(header: &str) -> bool {
+        let last = header.lines().last().unwrap_or_default();
+        let trimmed = last.trim_start();
+        !trimmed.starts_with('|')
+            || (indent(header) < indent(last)
+                && inside_brackets(header, header.len() - trimmed.len()))
+    }
+
     #[test]
     fn every_header_is_a_declaration_up_to_its_body() {
         let decls = Decls::new(Vec::new());
@@ -1753,13 +1787,36 @@ mod tests {
             assert!(!h.is_empty(), "{}", e.path);
             assert!(!h.starts_with('|'), "{}: {h}", e.path);
             if matches!(e.kind, Kind::Definition | Kind::Theorem | Kind::Instance) {
-                // The header ends before a body, whose arms start a line at
-                // the declaration's own indent (a `match` in a hypothesis is
-                // inside brackets and stays).
-                let last = h.lines().last().unwrap_or_default();
-                assert!(!last.trim_start().starts_with('|'), "{}: {h}", e.path);
+                assert!(header_ends_before_body(&e.header), "{}: {h}", e.path);
             }
         }
+    }
+
+    #[test]
+    fn a_match_inside_a_statement_stays_in_the_header() {
+        let decls = Decls::new(vec![Input {
+            display: "Demo.sw".to_string(),
+            text: "namespace Demo\n\ntheorem matchInBrackets ∀ (place: Bool):\n    (match place with\n      | True => False\n      | False => True) = True :=\n  match place with\n    | True => True\n    | False => False\n"
+                .to_string(),
+            namespace: Some("Demo".to_string()),
+        }]);
+        let found = decls.resolve("Demo.matchInBrackets");
+        let [i] = found.entries[..] else {
+            panic!("one entry, got {}", found.entries.len());
+        };
+        let e = decls.entry(i);
+        assert_eq!(
+            e.header,
+            "theorem matchInBrackets ∀ (place: Bool):\n    (match place with\n      | True => False\n      | False => True) = True"
+        );
+        assert!(header_ends_before_body(&e.header), "{}", e.header);
+        // The check still catches a header that runs into a body's arms.
+        assert!(!header_ends_before_body(
+            "theorem matchInBrackets:\n  | True => False"
+        ));
+        assert!(!header_ends_before_body(
+            "theorem matchInBrackets:\n| True => False"
+        ));
     }
 
     /// A rule set is a declaration with a page: its header is the whole
