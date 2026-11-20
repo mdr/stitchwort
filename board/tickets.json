@@ -4674,8 +4674,8 @@
     {
       "id": 1822,
       "title": "[Sonnet] Kept session clean-ups: cache key relies on the bundle's pointer address; library loaded twice when it fails to load; dead run closure in searches_in_a_row_give_what_fresh_ones_do; its code-action comparison depends on wall-clock limits (flaky risk)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [
         "lsp"
@@ -4683,7 +4683,7 @@
       "epic": "editor-playground",
       "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 6). Small. Expected: 30 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-20",
       "commits": []
     },
     {
