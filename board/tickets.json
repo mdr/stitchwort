@@ -1,5 +1,5 @@
 {
-  "next": 4312,
+  "next": 4313,
   "tickets": [
     {
       "id": 47,
@@ -28354,6 +28354,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "From SW-4302.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4312,
+      "title": "[Opus] accept/as-written-unconfirmed.sw no longer gives W-MATCH-UNCONFIRMED on Speedwell (macOS), at main and already at 1572eb1cf, which Overmind (Linux) reported green: the match on settle x k limit now succeeds by the usual search instead of the as-written fallback, so accepted_examples_check fails here. Find whether the fallback trigger (search_budget / size limits in crates/elab/src/matching/as_written.rs) is platform- or environment-dependent (it must be deterministic), and restore the example's point (make it reliably too large, or fix the nondeterminism)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "goal-as-written",
+      "body": "Found 20 Nov ~01:50 verifying SW-4310; --no-cache gives the same. Not from tonight's merges.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
