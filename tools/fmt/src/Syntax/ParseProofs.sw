@@ -595,6 +595,11 @@ theorem givesFail ∀ (modes: Modes) (what: Text) [holds: a → Prop]:
     Parse.Gives GoodItems (() => modes.fail what) holds :=
   Parse.givesThen (givesUnexpected modes what) (message _ => Parse.readsFatal)
 
+@[walk]
+theorem givesFatal ∀ [a: Type] (message: Text) [holds: a → Prop]:
+    Parse.Gives GoodItems (() => Syntax.fatal message) holds :=
+  Parse.readsFatal
+
 --| `expect` gives the word of a token of the kind it was asked for.
 theorem givesExpect ∀ (modes: Modes) (wanted: Tok) (what: Text)
     (within: wanted.within1 = True):
