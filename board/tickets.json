@@ -30289,8 +30289,8 @@
     {
       "id": 4459,
       "title": "[Sonnet] Formatter sync: Rust keeps glued spacing such as byWalking[x] and facts lists, the self-hosted formatter prints a space; make them behave the same (SW-4427 finding)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
