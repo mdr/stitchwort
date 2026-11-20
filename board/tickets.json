@@ -1,5 +1,5 @@
 {
-  "next": 4316,
+  "next": 4318,
   "tickets": [
     {
       "id": 47,
@@ -28270,7 +28270,7 @@
     {
       "id": 4305,
       "title": "[Opus] Unifier: match an applied predicate's head before unfolding it (Is _doc shape unfolds to its ∀ spot body; HangLays the same), so isCons/isAppend/isFill/isSpaced and HangLays-shaped lemmas can take implicit arguments; pairs with SW-4302/SW-4303 (SW-4283 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -28406,6 +28406,32 @@
       "labels": [],
       "epic": "test-infra",
       "body": "Overmind reports 20 Nov ~01:45 and ~02:10.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4316,
+      "title": "[Opus] Unifier fallback (SW-4305): also solve unknowns against lambda arguments, so laysBy's three [doc := …] annotations go and HangLays lemmas can take predicates implicitly; measured cost: Std.Parse.readsToken's hash changes (valid other elaboration). Do with the HangLays doc sweep; delete the two lambda arms in unify_by_unknown_arguments and check the sweep needs it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Orchestrator's call 20 Nov: hash-neutral version merged first (SW-4305 report).",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4317,
+      "title": "[Sonnet] With SW-4305's unifier fallback merged: sweep the Is/IsAll-shaped lemmas in tools/fmt (beyond isCons/isAppend) making doc binders implicit with task fmt:implicit; check only edited namespaces",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "Follow-up of SW-4305.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
