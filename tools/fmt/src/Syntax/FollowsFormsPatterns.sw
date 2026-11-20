@@ -944,17 +944,12 @@ theorem followsPlainPatternOn ∀ [pself pselfTwin: PatternGoal → {Parse Item}
       plainPatternOn pselfTwin modes seen) :=
   match seen with
     | Some Upper => followsPlainWord Upper
-    | Some Lower =>
-      followsThenEq
-        [j := quot => PatternWord Lower (quotOrLower modes quot)]
-        [k := quot => PatternWord Lower (quotOrLower modes quot)]
-        (followsWordAhead modes "Quot.mk")
-        (quot =>
-          Parse.followsMap
-            (found => PatternWord Lower found)
-            (found => PatternWord Lower found)
-            (followsQuotOrLower modes quot)
-            (found foundTwin founds => alikePatternWord Lower found foundTwin founds))
+    | Some Lower => followsThenEq (followsWordAhead modes "Quot.mk") (quot =>
+      Parse.followsMap
+        (found => PatternWord Lower found)
+        (found => PatternWord Lower found)
+        (followsQuotOrLower modes quot)
+        (found foundTwin founds => alikePatternWord Lower found foundTwin founds))
     | Some Underscore => followsPlainWord Underscore
     | Some Num => followsPlainWord Num
     | Some CharLit => followsPlainWord CharLit
