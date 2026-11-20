@@ -3074,17 +3074,46 @@ fn rename(
     value: &Value,
     in_call: bool,
 ) -> Renamed<Term> {
-    let size = Sized {
-        nodes: std::cell::Cell::new(0),
-        limit: g.machine.budget.size_limit(),
-        root_def: match value {
-            Value::Neutral(Head::Def(id), _) | Value::Call(id, ..) => Some(id.0),
-            _ => None,
-        },
+    let read = |at_once_as_written: bool| {
+        let size = Sized {
+            nodes: std::cell::Cell::new(0),
+            limit: g.machine.budget.size_limit(),
+            root_def: match value {
+                Value::Neutral(Head::Def(id), _) | Value::Call(id, ..) => Some(id.0),
+                _ => None,
+            },
+            at_once_as_written,
+        };
+        let renamed = rename_in(g, &size, m, renaming, dom, cod, value, in_call);
+        g.machine.budget.note_readback(size.nodes.get());
+        renamed
     };
-    let renamed = rename_in(g, &size, m, renaming, dom, cod, value, in_call);
-    g.machine.budget.note_readback(size.nodes.get());
-    renamed
+    let budget = &g.machine.budget;
+    let ran_out_in = budget.take_ran_out_in();
+    budget.set_ran_out_in(ran_out_in);
+    match read(false) {
+        // A hypothesis's call that steps at once and computes to a huge
+        // value (`q (grow 22 (Leaf x))`) would make the solution too large
+        // to write: written as the call it is convertible, and small
+        // (SW-4237).
+        Err(Fail::Out(e @ ResourceError::Size(_))) if budget.exhausted().is_none() => {
+            let noted = budget.take_too_large();
+            let noted_in = budget.take_ran_out_in();
+            match read(true) {
+                Err(Fail::Out(ResourceError::Size(_))) if budget.exhausted().is_none() => {
+                    budget.set_too_large(noted);
+                    budget.set_ran_out_in(noted_in);
+                    Err(Fail::Out(e))
+                }
+                Ok(term) => {
+                    budget.set_ran_out_in(ran_out_in);
+                    Ok(term)
+                }
+                other => other,
+            }
+        }
+        other => other,
+    }
 }
 
 /// How many nodes [`rename`] has written, of how many it may.
@@ -3093,6 +3122,9 @@ struct Sized {
     limit: u64,
     /// The definition whose call the whole value was, for the report.
     root_def: Option<usize>,
+    /// Write a call that steps at once as the call too, as [`rename`]'s
+    /// second try does when the first was too large.
+    at_once_as_written: bool,
 }
 
 // `rename_in` recurses once per level of the value, and a value can be
@@ -3121,7 +3153,9 @@ fn rename_in(
     }
     let go = |v: &Value| rename_in(g, size, m, renaming, dom, cod, v, in_call);
     let value = match force_solved(g, value.clone())? {
-        Value::Call(id, spine, unfolding) if !matches_at_once(g, id, &spine)? => {
+        Value::Call(id, spine, unfolding)
+            if size.at_once_as_written || !matches_at_once(g, id, &spine)? =>
+        {
             match rename_call(g, size, m, renaming, dom, cod, id, &spine)? {
                 Some(term) => return Ok(term),
                 None => force(g, Value::Call(id, spine, unfolding))?,

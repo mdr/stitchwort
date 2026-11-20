@@ -3833,7 +3833,7 @@ fn row_in_result(cx: &Ctx, ty: &Value) -> Result<bool> {
     let Some(tail) = &row.tail else {
         return Ok(false);
     };
-    let Some(m) = cx.quote(tail)?.subterms().find_map(|(t, _)| {
+    let Some(m) = cx.quote_or_written(tail)?.subterms().find_map(|(t, _)| {
         if let Term::Meta(m) = t {
             Some(*m)
         } else {
@@ -3843,7 +3843,7 @@ fn row_in_result(cx: &Ctx, ty: &Value) -> Result<bool> {
         return Ok(false);
     };
     Ok(cx
-        .quote(&t)?
+        .quote_or_written(&t)?
         .subterms()
         .any(|(t, _)| matches!(t, Term::Meta(n) if *n == m)))
 }
@@ -4120,7 +4120,7 @@ fn value_span(arg: &Expr) -> stitchwort_syntax::Span {
 
 /// Whether `ty` mentions an unknown nothing has solved.
 fn unsettled(cx: &Ctx, ty: &Value) -> Result<bool> {
-    let term = cx.quote(ty)?;
+    let term = cx.quote_or_written(ty)?;
     let term = cx.e.zonk_keeping(&term, cx.level(), &|_| true)?;
     Ok(term.subterms().any(|(t, _)| match t {
         Term::Meta(m) => cx.g().meta_solution(*m).is_none(),
@@ -4144,7 +4144,7 @@ fn written_outside(cx: &Ctx, term: &Term, base: usize) -> Result<Option<crate::d
         if !ty.mentions(ix) {
             continue;
         }
-        let quoted = cx.quote(v)?;
+        let quoted = cx.quote_or_written(v)?;
         if (0..inner).any(|i| quoted.mentions(i)) {
             return Ok(None);
         }
@@ -4269,14 +4269,14 @@ fn run_argument(
 /// it can't mention them, and only a type that still mentions one escapes.
 fn escapes(cx: &Ctx, ty: &Value, count: usize) -> Result<Option<Diagnostic>> {
     let level = cx.level();
-    let quoted = cx.quote(ty)?;
+    let quoted = cx.quote_or_written(ty)?;
     if !(0..count).any(|i| quoted.mentions(i)) {
         return Ok(None);
     }
     if crate::unify::strengthen(&cx.u(), level, level - count, ty)?.is_some() {
         return Ok(None);
     }
-    let quoted = cx.quote(ty)?;
+    let quoted = cx.quote_or_written(ty)?;
     let error = cx.error(
         "E-EFFECT-ESCAPE",
         "the result's type depends on the result of an operation",
@@ -5244,7 +5244,7 @@ pub fn partial_mismatch(
             t.subterms()
                 .any(|(t, _)| matches!(t, Term::Data(d, _) if *d == req))
         };
-        if mentions(&cx.quote(found)?) && !mentions(&cx.quote(expected)?) {
+        if mentions(&cx.quote_or_written(found)?) && !mentions(&cx.quote_or_written(expected)?) {
             return Ok(Some(escape(cx)));
         }
     }

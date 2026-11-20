@@ -2874,7 +2874,7 @@ impl Elaborator {
         let mut types: HashMap<usize, Term> = HashMap::default();
         for l in 1..depth {
             if own(l) {
-                types.insert(l, stitchwort_core::value::quote(g, depth, &cx.types[l])?);
+                types.insert(l, crate::check::quote_or_written(g, depth, &cx.types[l])?.0);
             }
         }
         // The variables the equation takes: those its arguments mention,
@@ -5240,7 +5240,7 @@ fn performs_abilities(
             v = cod.apply(g, eval(g, &[], t)?)?;
             continue;
         }
-        if mentions_computation(g, &stitchwort_core::value::quote(g, depth, &dom)?) {
+        if mentions_computation(g, &crate::check::quote_or_written(g, depth, &dom)?.0) {
             return Ok(true);
         }
         v = cod.apply(g, Value::var(depth))?;
@@ -5248,7 +5248,7 @@ fn performs_abilities(
     }
     Ok(mentions_computation(
         g,
-        &stitchwort_core::value::quote(g, depth, &v)?,
+        &crate::check::quote_or_written(g, depth, &v)?.0,
     ))
 }
 
