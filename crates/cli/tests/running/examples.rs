@@ -437,8 +437,9 @@ fn assert_goals(
     output
 }
 
-/// No goal shows a name the compiler made (`%mark`, `half.%step`): source
-/// can't write one. A `%` is one where a name follows it directly after a
+/// No goal or rejection shows a name the compiler made (`%mark`,
+/// `half.%step`): source can't write one. There are no deliberate
+/// exceptions. A `%` is one where a name follows it directly after a
 /// space, bracket or dot; `n % 2` and `n%2` are the modulo operator.
 fn assert_no_compiler_names(name: &str, output: &str) {
     let chars: Vec<char> = output.chars().collect();
@@ -450,7 +451,7 @@ fn assert_no_compiler_names(name: &str, output: &str) {
         {
             let from = i.saturating_sub(40);
             let around: String = chars[from..(i + 40).min(chars.len())].iter().collect();
-            panic!("{name}: a goal shows a compiler-made name, near `{around}`");
+            panic!("{name}: the output shows a compiler-made name, near `{around}`");
         }
     }
 }
@@ -511,7 +512,7 @@ fn rejected_examples_fail_for_the_expected_reason() {
         STACK,
         &examples("reject"),
         |example| example.name.clone(),
-        assert_rejected,
+        |example| assert_rejected_with(example, true),
     );
 }
 
@@ -839,6 +840,13 @@ fn paste_listed_arms(example: &Example) -> Vec<usize> {
 }
 
 fn assert_rejected(example: &Example) {
+    assert_rejected_with(example, false);
+}
+
+/// [`assert_rejected`]; with `names_checked`, the output may not show a
+/// compiler-made name ([`assert_no_compiler_names`]). The `reject/` folder
+/// is checked; `soundness/` is not yet.
+fn assert_rejected_with(example: &Example, names_checked: bool) {
     let Some(expected) = example.expected_error() else {
         panic!(
             "{} must declare the error it expects, e.g. `{EXPECT_ERROR} E-POSITIVITY`",
@@ -855,6 +863,9 @@ fn assert_rejected(example: &Example) {
                 example.name
             );
             assert_unknowns_allowed(example, &diagnostics, &output);
+            if names_checked {
+                assert_no_compiler_names(&example.name, &output);
+            }
             insta::assert_snapshot!(snapshot_name(example), output);
         }
     }

@@ -184,13 +184,32 @@ pub fn value(g: &Ev, names: &[Name], value: &Value) -> String {
 /// `decreasing` definition's generated step `f.%step` (docs/core.md,
 /// "Definitions by recursion") is "(step of f)", like the body, since a
 /// user may have an `f.step` of their own; an ability operation's
-/// `%op` is `Ability.op` (SW-4437).
+/// `%op` is `Ability.op` (SW-4437). A derived instance `T.%instOrd` is
+/// "(Ord instance of T)", an ability's generated result declaration
+/// `Parse.%res` is "(result of Parse)", and the helper `T.%m1%size` made
+/// for a nested type's container is "(helper 1 of T.size)"; all in
+/// parentheses, like the body, so they read as one name in a call. None of
+/// these can be written in source.
 fn def_display(name: &str) -> String {
     if let Some(owner) = name.strip_suffix(".%body") {
         return format!("(body of {owner})");
     }
     if let Some(owner) = name.strip_suffix(".%step") {
         return format!("(step of {owner})");
+    }
+    if let Some(owner) = name.strip_suffix(".%res") {
+        return format!("(result of {owner})");
+    }
+    if let Some((owner, class)) = name.rsplit_once(".%inst") {
+        return format!("({class} instance of {owner})");
+    }
+    if let Some((owner, rest)) = name.rsplit_once(".%m")
+        && let Some((index, what)) = rest.split_once('%')
+        && !index.is_empty()
+        && index.bytes().all(|b| b.is_ascii_digit())
+        && !what.contains('%')
+    {
+        return format!("(helper {index} of {owner}.{what})");
     }
     name.to_string()
 }
