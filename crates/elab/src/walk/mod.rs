@@ -82,6 +82,7 @@ use stitchwort_syntax::{Diagnostic, Span};
 use crate::Elaborator;
 use crate::check::{Ctx, Result, check, infer};
 use crate::undo::{Snapshot, fatal};
+use crate::unify::eta_contract;
 
 use expand::*;
 pub use expand::{Piece, WalkExpansion, expand_file, trace_line};
@@ -578,24 +579,6 @@ fn eta_contracted(
         .map(|t| cx.eval(t))
         .collect::<Result<Vec<_>>>()?;
     Ok(Some((args, goal)))
-}
-
-/// `t` eta-contracted, if it is a lambda that only applies a function to
-/// its variables (`x y => f x y` is `f`), where `f` mentions none of them.
-fn eta_contract(g: &stitchwort_core::Ev, t: &Term) -> Result<Option<Term>> {
-    let Term::Lam(_, icit, body) = t.strip_loc() else {
-        return Ok(None);
-    };
-    let inner = eta_contract(g, body)?;
-    let body = inner.as_ref().unwrap_or(body);
-    if let Term::App(f, a, applied) = body.strip_loc()
-        && applied == icit
-        && matches!(a.strip_loc(), Term::Var(0))
-        && !f.mentions(0)
-    {
-        return Ok(Some(f.instantiate_var(g, 0)?));
-    }
-    Ok(None)
 }
 
 /// How each binder of a type, as written, is passed.
