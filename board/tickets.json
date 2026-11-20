@@ -30460,15 +30460,17 @@
     {
       "id": 4472,
       "title": "[Opus] Closer stage 0 (docs/proposals/closer.md, SW-4242): F1 rewrite repeatedly can't close an ∧ goal whose parts compute (True = True ∧ … ∧ True = True; simp-revisited stage 3's conjunction closer); F2 cases splits a 60-kind token kind instead of the ∨ hypothesis first (signSymbolic hits E-CASES-BUDGET); F3 … then cases on a closed conjunction takes 46 ms against 1.8 ms; also F5 cases never applies an implication in scope (endedWeaker). Measure each against the probes in dev/patches/SW-4242-closer-probes.patch",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\nProgress (Opus lane, 20 Nov 22:08-22:43, est. 60 min): branch lane/SW-4472, commit e4e42d2fd.\n- F1 done: rewrite repeatedly closes a conjunction by parts (only after the whole goal fails). parenParsedQ, tupleParsedP now check (3.4, 4.3 ms).\n- F3 profiled (sample): time was cases splitting hypotheses' atoms under an already-proved conjunction. cases now closes a conjunction by parts after `t`, before splits: parenParsedT 48.5 -> 2.7 ms, tupleParsedS 55.6 -> 3.8, itemsParsedP 28.1 -> 3.3.\n- F2 done: first try splits ∨ hypotheses before atoms; a failing ∨ try is followed by the old tries, so acceptance can't shrink. signSymbolicP: E-CASES-BUDGET -> 0.6 ms.\n- F5 done as a bounded step: one application of P → Q to a hypothesis or part of one, only where the case would go to last resort/fallback/open, kept only if a non-splitting closer then closes it. endedWeakerP now checks (4.9 ms).\n- Namespaces (check --no-cache, once each): ParseWalk 770 -> 718 ms, JoinProofs 1438 -> 1291 ms (noise level about 10%).\n- Moved to review.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
-      "commits": []
+      "commits": [
+        "e4e42d2fd"
+      ]
     },
     {
       "id": 4473,
