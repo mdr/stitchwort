@@ -1,5 +1,5 @@
 {
-  "next": 4322,
+  "next": 4323,
   "tickets": [
     {
       "id": 47,
@@ -28413,7 +28413,7 @@
     {
       "id": 4316,
       "title": "[Opus] Unifier fallback (SW-4305): also solve unknowns against lambda arguments, so HangLays-headed lemmas infer their docs (12 lemmas SW-4317 had to leave explicit: hangsCons, hangsLast, hangsAppend, hangsConcat, hangsKept, hangsMarked, hangsTwo, hangsOfLays, allHangsKept, allHangsMarked, defFromHangs, headerHangs) and laysBy's three [doc := …] go; measured cost: Std.Parse.readsToken's hash changes",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -28484,6 +28484,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "From SW-4286.\n\nLane note (Sonnet, 20 Nov): stopped without changes. Prefix list has 3 entries; each of the four staircases is a 3-deep match of about 9 lines (prefixSpellsOf, prefixFacts, prefixPlain, prefixToken, about 40 lines in all). A prefixes1 list needs its own bridge (about 8 lines), per-theorem List.All fact lists and the allMem calls, so it would be as long or longer. No gain.\n",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4322,
+      "title": "[DeepSeek] fmt:implicit: accept a namespace-qualified lemma name (Fmt.HangProofs.hangsCons) as well as the bare one, and show a bare-name example in tools/fmt/dev/README.md (SW-4316 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "From SW-4316.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
