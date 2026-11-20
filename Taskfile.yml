@@ -840,9 +840,10 @@ tasks:
       tools/fmt/dev/spellings.py: deletes every spelled argument of the
       file's proof steps (line-start or mid-line groups; --names picks the
       names), checks the file's namespace, puts back the units the errors
-      point at, then tries dropping each put-back one. Long: run it in the
-      background, one file at a time in dependency order. Format the file
-      afterwards (task fmt:sw).
+      point at, then tries dropping each put-back unit whole and, when that
+      fails, each argument on its own. Long: run it in the background, one
+      file at a time in dependency order. Format the file afterwards
+      (task fmt:sw).
     deps: [build]
     cmds:
       - nice -n 15 python3 tools/fmt/dev/spellings.py --sw '{{.SW}}' {{.CLI_ARGS}}

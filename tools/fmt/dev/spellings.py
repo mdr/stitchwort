@@ -10,8 +10,10 @@ after `followsThen`. The tool
   2. for each error it reports, puts back the nearest unit before the
      error (preferring the unit whose head, the function it follows, is the
      one the error names) and checks again, until the namespace is clean;
-  3. tries dropping each put-back unit on its own (unless --no-prune)
-     and keeps the drop when the namespace still checks.
+  3. tries dropping each put-back unit whole (unless --no-prune); if the
+     whole unit does not check, it tries each of its groups on its own and
+     keeps the drops that check (so `[p := …] [q := …]` can keep one and
+     drop the other).
 
 Statements and programs are untouched: only spelled arguments go, so what
 is proved is the same. Groups are skipped on `--` comment lines and on the
@@ -71,13 +73,17 @@ def spans(text, names):
     return out
 
 
-def units(text, names):
-    """[[start, end, head, [names]]]: runs of groups split only by whitespace."""
+def parse(text, names):
+    """(groups, units): groups are [(start, end, name)]; a unit is
+    [start, end, head, [names], [group indices]], a run of groups split only
+    by whitespace."""
+    gs = spans(text, names)
     out = []
-    for s, e, n in spans(text, names):
+    for gi, (s, e, n) in enumerate(gs):
         if out and not text[out[-1][1] : s].strip():
             out[-1][1] = e
             out[-1][3].append(n)
+            out[-1][4].append(gi)
             continue
         ls = text.rfind("\n", 0, s) + 1
         before = text[ls:s]
@@ -86,15 +92,15 @@ def units(text, names):
         else:
             prev = text[:ls].rstrip().split("\n")[-1].split() if text[:ls].strip() else []
             tok = prev[0] if prev else "?"
-        out.append([s, e, tok.lstrip("(") or "?", [n]])
-    return out
+        out.append([s, e, tok.lstrip("(") or "?", [n], [gi]])
+    return gs, out
 
 
-def render(orig, us, keep):
-    """The text with the units not in `keep` deleted, and the kept segments
+def render(orig, gs, keep):
+    """The text with the groups not in `keep` deleted, and the kept segments
     [(out_start, orig_start, length)] to map error positions back."""
     pieces, segs, pos, outlen = [], [], 0, 0
-    for k, (s, e, _, _) in enumerate(us):
+    for k, (s, e, _) in enumerate(gs):
         if k in keep:
             continue
         a = s
@@ -119,9 +125,33 @@ def to_orig(segs, off):
     return 0
 
 
+def prune(keep, us, write, check):
+    """Drop each kept unit whole if it checks, else try its groups one at a
+    time. Returns the new set of kept group indices."""
+    for k, u in enumerate(us):
+        groups = u[4]
+        if not any(g in keep for g in groups):
+            continue
+        t = keep - set(groups)
+        write(t)
+        if check()[0] == 0:
+            keep = t
+            print(f"dropped unit {k}", flush=True)
+            continue
+        for g in groups:
+            if g not in keep:
+                continue
+            t = keep - {g}
+            write(t)
+            if check()[0] == 0:
+                keep = t
+                print(f"dropped group {g}", flush=True)
+    return keep
+
+
 def main():
     args = sys.argv[1:]
-    prune = "--no-prune" not in args
+    do_prune = "--no-prune" not in args
     args = [a for a in args if a != "--no-prune"]
     list_only = "--list" in args
     args = [a for a in args if a != "--list"]
@@ -153,17 +183,23 @@ def main():
     state = state_dir / (path.name + ".json")
     if state.exists():
         saved = json.loads(state.read_text())
-        orig, keep = saved["orig"], set(saved["keep"])
+        orig = saved["orig"]
+        gs, us = parse(orig, names)
+        if saved.get("v") == 2:
+            keep = set(saved["keep"])
+        else:
+            # Old state held unit indices; keep every group of those units.
+            keep = {g for k in saved.get("keep", []) if 0 <= k < len(us) for g in us[k][4]}
     else:
         orig, keep = text, set()
-        state.write_text(json.dumps({"orig": text, "keep": []}))
-    us = units(orig, names)
+        gs, us = parse(orig, names)
+        state.write_text(json.dumps({"v": 2, "orig": text, "keep": []}))
     print(f"{path.name}: {len(us)} units, namespace {ns}", flush=True)
 
     def write(keep):
-        out, segs = render(orig, us, keep)
+        out, segs = render(orig, gs, keep)
         path.write_text(out)
-        state.write_text(json.dumps({"orig": orig, "keep": sorted(keep)}))
+        state.write_text(json.dumps({"v": 2, "orig": orig, "keep": sorted(keep)}))
         return out, segs
 
     def check():
@@ -188,8 +224,9 @@ def main():
             fn = re.search(r"is `([\w.]+)`'s implicit", blk)
             shown = [int(n) for n in re.findall(r"^\s*(\d+) │", blk, flags=re.M) if 0 < int(n) <= len(starts)]
             end = to_orig(segs, starts[max(shown)] if shown else off)
-            inside = [k for k, u in enumerate(us) if k not in keep and oi <= u[0] <= end]
-            cands = [k for k, u in enumerate(us) if k not in keep and u[0] <= oi]
+            unit_kept = [bool(set(u[4]) & keep) for u in us]
+            inside = [k for k, u in enumerate(us) if not unit_kept[k] and oi <= u[0] <= end]
+            cands = [k for k, u in enumerate(us) if not unit_kept[k] and u[0] <= oi]
             if inside:
                 cands = inside
             if not cands:
@@ -198,26 +235,21 @@ def main():
             if fn:
                 short = fn.group(1).split(".")[-1]
                 pick = next((k for k in reversed(cands) if us[k][2].split(".")[-1] == short), pick)
-            keep.add(pick)
+            keep.update(us[pick][4])
             added += 1
         print(f"round {rnd}: kept {len(keep)} of {len(us)}", flush=True)
         if not added:
             sys.exit("stuck: errors not at any spelled unit:\n" + msg[:2000])
-    if prune:
-        for k in sorted(keep):
-            t = keep - {k}
-            write(t)
-            if check()[0] == 0:
-                keep = t
-                print(f"dropped unit {k}", flush=True)
+    if do_prune:
+        keep = prune(keep, us, write, check)
     write(keep)
     state.unlink()
     deleted, kept = Counter(), Counter()
-    for k, u in enumerate(us):
-        for n in u[3]:
-            (kept if k in keep else deleted)[n] += 1
+    for g, (_, _, n) in enumerate(gs):
+        (kept if g in keep else deleted)[n] += 1
     print(f"{path.name}: deleted {sum(deleted.values())} groups {dict(deleted)}, kept {sum(kept.values())} {dict(kept)}")
     print("run `stitchwort fmt` on the file; lines saved: see git diff --stat")
 
 
-main()
+if __name__ == "__main__":
+    main()
