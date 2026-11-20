@@ -25,9 +25,7 @@ import Syntax.ParseSettledStatements (parseCarriesSource, parseSettledSource)
 
 theorem givesTestName ∀ (modes: Modes) (atStr: Bool):
     Parse.Gives GoodItems (() => testName modes atStr) (word => True) :=
-  match atStr with
-    | True => givesBump
-    | False => givesFail modes _
+  byWalking [givesBump, givesFail]
 
 theorem givesTestAfterName ∀ (modes: Modes) (keyword: Comments) (name: Word) (atEquals: Bool):
     Parse.Gives GoodItems (() => testAfterName modes keyword name atEquals) DeclOut :=
@@ -228,12 +226,7 @@ theorem givesOperation ∀ (modes: Modes): Parse.Gives GoodItems (() => operatio
 
 theorem givesOperationNext ∀ (modes: Modes) (column: Nat) (items: List Item):
     Parse.Gives GoodItems (() => operationNext modes column items) (found => Parse.Perhaps (operation => True) found) :=
-  match items with
-    | [next, ..rest] =>
-      match next.leaf.token.lineStart && next.leaf.token.column == column with
-        | True => Parse.givesThen (givesOperation modes) (found _ => Parse.givesDone byComputing)
-        | False => Parse.givesDone byComputing
-    | [] => Parse.givesDone byComputing
+  byWalking [givesOperation]
 
 theorem givesOperations ∀ (modes: Modes) (column: Nat):
     Parse.Gives GoodItems (() => operations modes column) (found => True) :=
@@ -248,21 +241,10 @@ theorem givesOperations ∀ (modes: Modes) (column: Nat):
 theorem givesAbilityOn ∀ (modes: Modes) (keyword: Comments) (name: Word) (params: List Group) (whereKeyword: Comments)
     (seen: Option Tok) (items: List Item):
     Parse.Gives GoodItems (() => abilityOn modes keyword name params whereKeyword seen items) DeclOut :=
-  match seen, items with
-    | Some kind, [first, ..rest] =>
-      Parse.givesThen
-        (givesOperations { modes | limit = Some first.leaf.token.column } first.leaf.token.column)
-        (found _ => Parse.givesDone byComputing)
-    | other, others => givesFail modes _
+  byWalking [givesOperations, givesFail]
 
 theorem givesAbilityDecl ∀ (modes: Modes): Parse.Gives GoodItems (() => abilityDecl modes) DeclOut :=
-  Parse.givesThen givesFixedFrom (keyword _ =>
-    Parse.givesThen (givesUpperQualified modes "an ability name (starting with an uppercase letter)") (name _ =>
-      Parse.givesThen (givesAbilityParams modes) (params _ =>
-        Parse.givesThen (givesExpectFixed modes KwWhere "`where`") (whereKeyword _ =>
-          Parse.givesAfter0 (reads0Peek modes) (seen =>
-            Parse.givesAfter0 reads0Left (items =>
-              givesAbilityOn modes keyword name params whereKeyword seen items))))))
+  byWalking [givesFixedFrom, givesUpperQualified, givesAbilityParams, givesExpectFixed, givesAbilityOn]
 
 -- `type` and `interface`: the name, parameters and indices.
 
@@ -340,9 +322,7 @@ theorem givesDataIndexAt ∀ (more: Nat) (modes: Modes) (found: List (Index, Wor
 
 theorem givesDataIndexNext ∀ (more: Nat) (modes: Modes) (found: List (Index, Word)) (index: Expr) (atArrow: Bool):
     Parse.Gives GoodItems (() => dataIndexNext more modes found index atArrow) (result => True) :=
-  match atArrow with
-    | True => Parse.givesThen givesBump (arrow _ => givesDataIndices more modes _)
-    | False => Parse.givesDone byComputing
+  byWalking [givesBump, givesDataIndices]
 
 theorem givesDataIndicesPart ∀ (modes: Modes) (atColon: Bool):
     Parse.Gives GoodItems (() => dataIndicesPart modes atColon) (found => True) :=
@@ -366,9 +346,7 @@ theorem givesFieldDefault ∀ (modes: Modes) (atColonEq: Bool):
 
 theorem givesFieldsFrom ∀ (fuel: Nat) (modes: Modes) (found: List Field):
     Parse.Gives GoodItems (() => fieldsFrom fuel modes found) (result => True) :=
-  match fuel with
-    | Zero => Parse.givesDone byComputing
-    | Succ more => Parse.givesAfter0 (reads0At modes RBrace) (atBrace => givesFieldsAt more modes found atBrace)
+  byWalking [givesFieldsAt]
 
 theorem givesFieldsAt ∀ (more: Nat) (modes: Modes) (found: List Field) (atBrace: Bool):
     Parse.Gives GoodItems (() => fieldsAt more modes found atBrace) (result => True) :=
@@ -385,9 +363,7 @@ theorem givesFieldsAt ∀ (more: Nat) (modes: Modes) (found: List Field) (atBrac
 
 theorem givesFieldsNext ∀ (more: Nat) (modes: Modes) (done: List Field) (atComma: Bool):
     Parse.Gives GoodItems (() => fieldsNext more modes done atComma) (result => True) :=
-  match atComma with
-    | True => Parse.givesThen givesBump (comma _ => givesFieldsFrom more modes done)
-    | False => Parse.givesDone byComputing
+  byWalking [givesBump, givesFieldsFrom]
 
 theorem givesBracedFieldsIn ∀ (inner: Modes) (atBrace: Bool):
     Parse.Gives GoodItems (() => bracedFieldsIn inner atBrace) (result => True) :=
@@ -503,9 +479,7 @@ theorem givesTypeSynonym ∀ (modes: Modes) (name: Word):
 theorem givesInterfaceFields ∀ (modes: Modes) (attributes: List Attributes) (keyword: Comments) (name: Word)
     (params: List Group) (indices: Option Indices) (equals: Comments) (braced: Bool):
     Parse.Gives GoodItems (() => interfaceFields modes attributes keyword name params indices equals braced) DeclOut :=
-  match !braced with
-    | True => givesFail modes _
-    | False => Parse.givesThen (givesBracedFields modes) (fields _ => Parse.givesDone byComputing)
+  byWalking [givesFail, givesBracedFields]
 
 theorem givesInterfaceDecl ∀ (modes: Modes) (attributes: List Attributes) (keyword: Comments) (name: Word)
     (params: List Group) (indices: Option Indices) (indexed: Bool):
@@ -545,18 +519,12 @@ theorem givesTypeAfterEquals ∀ (modes: Modes) (attributes: List Attributes) (k
 theorem givesTypeBody ∀ (modes: Modes) (attributes: List Attributes) (keyword: Comments) (name: Word)
     (params: List Group) (indices: Option Indices) (indexed equalsNext: Bool):
     Parse.Gives GoodItems (() => typeBody modes attributes keyword name params indices indexed equalsNext) DeclOut :=
-  match !equalsNext with
-    | True => Parse.givesDone byComputing
-    | False => Parse.givesThen givesFixedFrom (equals _ =>
-      Parse.givesAfter0 [p := () => modes.at LBrace] (reads0At modes LBrace) (brace =>
-        Parse.givesAfter0 (reads0At modes Pipe) (pipe =>
-          givesTypeAfterEquals modes attributes keyword name params indices indexed equals brace pipe)))
+  byWalking [givesFixedFrom, givesTypeAfterEquals]
 
 theorem givesTypeDecl ∀ (modes: Modes) (attributes: List Attributes) (keyword: Comments) (name: Word)
     (params: List Group) (indices: Option Indices) (indexed: Bool):
     Parse.Gives GoodItems (() => typeDecl modes attributes keyword name params indices indexed) DeclOut :=
-  Parse.givesAfter0 (reads0At modes Equals) (equalsNext =>
-    givesTypeBody modes attributes keyword name params indices indexed equalsNext)
+  byWalking [givesTypeBody]
 
 theorem givesDataDeclOn ∀ (modes: Modes) (attributes: List Attributes) (isInterface: Bool):
     Parse.Gives GoodItems (() => dataDeclOn modes attributes isInterface) DeclOut :=
@@ -572,7 +540,7 @@ theorem givesDataDeclOn ∀ (modes: Modes) (attributes: List Attributes) (isInte
 
 theorem givesDataDecl ∀ (modes: Modes) (attributes: List Attributes):
     Parse.Gives GoodItems (() => dataDecl modes attributes) DeclOut :=
-  Parse.givesAfter0 (reads0At modes KwInterface) (isInterface => givesDataDeclOn modes attributes isInterface)
+  byWalking [givesDataDeclOn]
 
 -- All of them.
 
