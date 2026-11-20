@@ -1732,9 +1732,12 @@ impl<'e> Ctx<'e> {
                     && crate::matching::same(l, r)
                     && let Ok(side) = self.eval(l)
                 {
+                    // What's expected may be written as a decided
+                    // proposition (`0 < 1`), whose sides aren't what it
+                    // says: so say what it computes to.
+                    let side = self.show(&side);
                     d = d.with_note(format!(
-                        "both sides of what's expected are `{}`, so `byComputing` proves it",
-                        self.show(&side)
+                        "what's expected computes to `{side} = {side}`, so `byComputing` proves it"
                     ));
                 } else if let Some(note) = name_it {
                     d = d.with_note(note);

@@ -843,6 +843,28 @@ pub(crate) fn refined_guard(
             goal_term: &goal_term,
             goal_folded: goal_folded.as_ref(),
         };
+        // The goal and the hypotheses are looked at as written first, as
+        // `match` does ([`as_written`]), so that the arms show `0 < pick
+        // True` and `0 < 1`, not what they compute to (`True = True`). No
+        // `W-MATCH-UNCONFIRMED` here: a guard's goal is never too large to
+        // read back unfolded, or `blocker` above would have refused it.
+        let written = as_written::first(cx, &exprs, &today, goal, base, None, span)?;
+        if let Some(w) = &written {
+            let before_written = crate::undo::Snapshot::take(cx);
+            let kept = crate::undo::attempt(cx, |cx| {
+                let bound = bind_generalised(cx, &exprs, &today, Some(w), base, None)?;
+                let checks = motive_checks_now(cx, base, &bound.extra, &bound.motive, span)?;
+                Ok(checks.then_some(bound))
+            })?
+            .flatten();
+            if let Some(bound) = kept {
+                as_written::report_guard(w.outcome, span);
+                return Ok(Some((bound, normal)));
+            }
+            // A motive that doesn't check leaves what it bound in `cx`.
+            before_written.restore(cx);
+            as_written::report_guard(as_written::Outcome::Unchecked, span);
+        }
         let unbound = crate::undo::Snapshot::take(cx);
         let bound = bind_generalised(cx, &exprs, &today, None, base, None)?;
         if motive_checks_now(cx, base, &bound.extra, &bound.motive, span)? {

@@ -1,0 +1,31 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/guard-refined-written-in-arm.sw:12:21 ]
+    │
+ 10 │   | 0 if g: c == 'a' =>
+    │             ────┬───  
+    │                 ╰───── this `match` replaced its scrutinee with `True` in this branch
+    │ 
+ 12 │     let k: 0 < 1 := h3
+    │                     ─┬  
+    │                      ╰── expected `0 < 1`, but this has type `0 < pick (c.decEq 'a').holds`
+    │ 
+    │ Note 1: what's expected was refined by the `match`: it has `True` where this has the scrutinee. The goal, the hypotheses and the `let`-bound lemmas from before the `match` are refined; the `match`'s own equation and terms written in the branch aren't
+    │ 
+    │ Note 2: what's expected computes to `True = True`, so `byComputing` proves it
+────╯
+[GOAL] Goal: in `written`
+    ╭─[ reject/guard-refined-written-in-arm.sw:14:10 ]
+    │
+ 14 │   | _ => ?
+    │          ┬  
+    │          ╰── n: Nat
+    │              c: Char
+    │              h2: 0 < pick (c == 'a')
+    │              ⊢ True = True
+    │ 
+    │ Note: this arm is checked in 2 cases; the goal shown is the last of them
+────╯

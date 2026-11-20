@@ -1,5 +1,5 @@
 {
-  "next": 4416,
+  "next": 4419,
   "tickets": [
     {
       "id": 47,
@@ -29553,12 +29553,12 @@
     {
       "id": 4403,
       "title": "[Sonnet] Goal display in a generalised guard arm shows wrong hypothesis types (h: 0 < pick (c == 'a') shown as True = True; also on main): repro theorem m4 forall (n: Nat) (c: Char) (h: 0 < pick (c == 'a')): pick (c == 'a') = 1 or 0 < 1 := match n with | 0 if g: c == 'a' => ? | _ => ?; and a type-mismatch note in a refined arm wrongly says both sides are True (let k: 0 < 1 := h2 with h2: 0 < pick b) (SW-4391 findings 1, 2)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "\n\nLane notes (Sonnet): cause: refined_guard never tried as_written (match does), so copies and goal were read back unfolded and computed to True = True. Fixed by trying as_written first, falling back. Also reworded the byComputing note. Commit 4cbccd844. 4 guard-refinement hash snapshots changed (helper motives are folded now).\n",
+      "body": "\n\nLane notes (Sonnet): cause: refined_guard never tried as_written (match does), so copies and goal were read back unfolded and computed to True = True. Fixed by trying as_written first, falling back. Also reworded the byComputing note. Commit 4cbccd844. 4 guard-refinement hash snapshots changed (helper motives are folded now).\n\n\nOrchestrator, 20 Nov: merged with SW-4414 M1 (restore on a failed as-written attempt) untested: no guard reaching Unchecked could be built; the restore follows generalised_now. Test filed as SW-4418.\nModel result: Sonnet, needed fixes (as-written attempt not undone on failure; M2 test not found), 17 min (est. 35)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -29696,7 +29696,7 @@
     {
       "id": 4414,
       "title": "[Opus, paper] Review SW-4403 (guard arms try the as-written goal first: refined_guard calls as_written::first, keeps it when motive_checks_now; helper motives now folded, four guard hash snapshots changed); D2364",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -29709,6 +29709,45 @@
     {
       "id": 4415,
       "title": "[Sonnet] Mismatch messages print a decided proposition's found type as 0 < pick (c.decEq 'a').holds: show it as written (c == 'a'); and a closed goal like 0 < 1 lists as True = True in every match arm (SW-4403 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4416,
+      "title": "[Opus] Guard as-written follow-up (SW-4414 F2): after a kept as-written attempt, should an arm failure retry the unfolded refined split before the unrefined one (bounded like guard_no_retry)? Measure guard outcomes across std, AoC and tools/fmt first; extends the D3688 promise to that route",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4417,
+      "title": "[Sonnet] Walk queue guard (SW-4240): find a case where a nested walk succeeds but leaves a wait queued; make it an example, or show none exists; and check --expand-walk overwrites the checked file without warning: say so in --help and the guide, or make --stdout the default for files with uncommitted changes",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4418,
+      "title": "[Opus] Test for SW-4414 M1: build a refined guard whose as-written attempt comes back Unchecked (STITCHWORT_MATCH_METRICS guard-as-written: unchecked) while the unfolded path checks; show it failing with the snapshot restore in refined_guard removed (D3608); or argue no such guard exists and say so in a comment",
       "status": "backlog",
       "agent": "",
       "where": "",
