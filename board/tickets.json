@@ -28166,7 +28166,7 @@
     {
       "id": 4297,
       "title": "[DeepSeek] E-NO-INDUCT reason for a guarded arm with a literal in its pattern says 'condition wasn't tested'; say 'number or character literal' as induct.rs's doc comment does; plus nits F4-F6 (void_here's repeated else, a quote(force(eval)) helper, drop the duplicate g1-guarded-overlap.sw) (SW-4261 review F1, F4-F6)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
