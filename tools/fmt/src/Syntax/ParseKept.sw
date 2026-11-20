@@ -212,16 +212,16 @@ theorem autoItemsAhead ∀ (read rest: List Item) (kinds: List Tok) (open auto: 
     namelessAutoAt (read ++ rest) = True :=
   match read, readKinds with
     | [first, second, third, ..more], readKinds =>
-      let firstKind: first.kind = LBracket := List.consInjectiveHead readKinds
+      let firstKind: first.kind = LBracket := List.consInjectiveHead _ _ _ _ readKinds
       let afterFirst := Eq.cong (.drop 1) readKinds
-      let secondKind: second.kind = Lower := List.consInjectiveHead afterFirst
-      let thirdKind: third.kind = Upper := List.consInjectiveHead (Eq.cong (.drop 1) afterFirst)
+      let secondKind: second.kind = Lower := List.consInjectiveHead _ _ _ _ afterFirst
+      let thirdKind: third.kind = Upper := List.consInjectiveHead _ _ _ _ (Eq.cong (.drop 1) afterFirst)
       let wordsAre: itemWords [first, second, third, ..more]
         = [first.leaf.word, second.leaf.word, ..itemWords [third, ..more]] :=
         rewrite itemWordsCons first [second, third, ..more] (codeAs firstKind byComputing),
             itemWordsCons second [third, ..more] (codeAs secondKind byComputing)
       let secondWord: second.leaf.word = auto :=
-        List.consInjectiveHead (Eq.cong (.drop 1) (Eq.trans wordsAre.flipped readWords))
+        List.consInjectiveHead _ _ _ _ (Eq.cong (.drop 1) (Eq.trans wordsAre.flipped readWords))
       let secondText: second.text = "auto" := Eq.trans (Eq.cong (word => word.text) secondWord) isAuto
       rewrite secondKind, secondText, thirdKind
     | _, _ => cases
@@ -264,7 +264,7 @@ theorem keptPlacedUp ∀ (read rest: List Item) (expr: Expr)
       let ahead := autoItemsAhead read rest kinds open auto words readKinds (Eq.trans isWords.flipped treeWords) isAuto
       match read, readKinds with
         | [first, ..more], readKinds =>
-          let firstKind: first.kind = LBracket := List.consInjectiveHead readKinds
+          let firstKind: first.kind = LBracket := List.consInjectiveHead _ _ _ _ readKinds
           (Bool.falseNotTrue (Eq.trans (noBinder first (more ++ rest) byComputing firstKind).flipped ahead)).impossible
 
 --| `implicitOn` at a `[` that isn't stopped: a `[auto Upper` binder, or one of the other binders, ahead.
@@ -298,7 +298,7 @@ theorem namelessAutoOfImplicit ∀ (fuel: Nat) (item: Item) (later: List Item) (
 theorem readsAtPeekValue ∀ (start: Parse.Mark Item) (modes: Modes):
     Parse.ReadsAt start (() => modes.peek) (read found => read = [] ∧ found = peekIn modes 0 start.rest) :=
   Parse.readsAtThen (Parse.readsAtLeft start) (read items after starts (empty, same) =>
-    Parse.readsAtDone after (peekIn modes 0 items) (rewrite empty, same then (byComputing, byComputing)))
+    Parse.readsAtDone after (peekIn modes 0 items) _ (rewrite empty, same then (byComputing, byComputing)))
 
 --| What `implicitHere` gives, from a mark: whether `[` there starts an implicit binder, by the items left.
 theorem readsAtImplicitHere ∀ (start: Parse.Mark Item) (modes: Modes):
@@ -310,7 +310,7 @@ theorem readsAtImplicitHere ∀ (start: Parse.Mark Item) (modes: Modes):
     (Parse.readsAtThen (Parse.readsAtLeft start) (read items after starts (empty, same) =>
       let tail: after.rest = start.rest := rewrite empty at starts then starts.flipped
       Parse.readsAtThen (readsAtPeekValue after modes) (read2 seen after2 starts2 (empty2, same2) =>
-        Parse.readsAtDone after2 (implicitOn (start.left + 1) items seen) (
+        Parse.readsAtDone after2 (implicitOn (start.left + 1) items seen) _ (
           rewrite empty, empty2 then byComputing,
           rewrite same, same2, tail
         ))))
@@ -416,7 +416,7 @@ theorem readsKeptWordAtom ∀ (start: Parse.Mark Item) (item: Item) (later: List
     (shape: start.rest = [item, ..later])
     (fine: Parse.Fits Item GoodItems start.rest):
     Parse.ReadsAt start (() => wordAtom item.kind) Kept :=
-  readsAtBumpRead shape fine (after tail fits => Parse.readsAtDone after _ (keptAtom item (goodHead fine shape)))
+  readsAtBumpRead shape fine (after tail fits => Parse.readsAtDone after _ _ (keptAtom item (goodHead fine shape)))
 
 theorem readsKeptPrefixAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: NestedKept self)
@@ -429,7 +429,7 @@ theorem readsKeptPrefixAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes
   match negates with
     | True => readsAtBumpRead shape fine (after tail fits =>
       Parse.readsAtThen (nested { modes, level = LevelArgument } after fits) (read operand after2 starts kept =>
-        Parse.readsAtDone after2 _ (rewrite List.appendNil read then keptPrefix item read operand prefix kept)))
+        Parse.readsAtDone after2 _ _ (rewrite List.appendNil read then keptPrefix item read operand prefix kept)))
     | False => readsFailName modes _ start fine
 
 theorem readsKeptNegativeNumber ∀ (start: Parse.Mark Item) (minus number: Item) (later: List Item)
@@ -445,7 +445,7 @@ theorem readsKeptNegativeNumber ∀ (start: Parse.Mark Item) (minus number: Item
       rewrite tail then
         readsAtBumpRead (rewrite same, tail) fits2 (after3 tail3 fits3 =>
           Parse.readsAtDone after3
-            (Prefix minus.leaf.word (Atom number.kind number.leaf.word))
+            (Prefix minus.leaf.word (Atom number.kind number.leaf.word)) _
             (keptPrefix minus [number] (Atom number.kind number.leaf.word) prefix (keptAtom number numberGood)))))
 
 theorem readsKeptNegativeAtomOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
@@ -573,18 +573,18 @@ theorem readsCommaListFrom ∀ (modes: Modes) (ends: Nat → {Parse Item} Bool) 
     (seen => commaListOn fuel modes ends next count current found seen) _
     (start fine stops =>
       match fuel with
-        | Zero => Parse.readsAtDone _ _ ([], (List.appendNil _).flipped, restKeptNil)
-        | Succ more => Parse.readsAtDone _ _ ([], (List.appendNil _).flipped, restKeptNil))
+        | Zero => Parse.readsAtDone _ _ _ ([], (List.appendNil _).flipped, restKeptNil)
+        | Succ more => Parse.readsAtDone _ _ _ ([], (List.appendNil _).flipped, restKeptNil))
     (start item later shape fine stopped =>
       match fuel with
-        | Zero => Parse.readsAtDone _ _ ([], (List.appendNil _).flipped, restKeptNil)
+        | Zero => Parse.readsAtDone _ _ _ ([], (List.appendNil _).flipped, restKeptNil)
         | Succ more =>
           match isComma: item.kind == Comma with
-            | False => Parse.readsAtDone _ _ ([], (List.appendNil _).flipped, restKeptNil)
+            | False => Parse.readsAtDone _ _ _ ([], (List.appendNil _).flipped, restKeptNil)
             | True => readsAtBumpRead shape fine (after tail fits =>
               Parse.readsAtThen (endsReads count after fits) (r1 stop after2 starts1 empty =>
                 match stop with
-                  | True => Parse.readsAtDone after2 _ (
+                  | True => Parse.readsAtDone after2 _ _ (
                     [],
                     (List.appendNil _).flipped,
                     (rewrite empty then restKeptComma item (DecEq.sound isComma))
@@ -684,7 +684,7 @@ theorem readsParenClose ∀ (inner: Modes) (open: Item) (inside: List Item) (fir
     Parse.ReadsIn GoodItems (() => parenClose inner open.leaf.word first) (read value =>
       Kept [open, ..inside ++ read] value) :=
   Parse.readsThen (readsExpect inner RParen "`)`") (rc close one =>
-    Parse.readsDone _ (rewrite List.appendNil rc then keptParen open inside rc first close isOpen kept one))
+    Parse.readsDone _ _ (rewrite List.appendNil rc then keptParen open inside rc first close isOpen kept one))
 
 --| A tuple's tail, from the comma after its first tree: the comma, the second tree, the rest of the list and `)`.
 --|
@@ -729,7 +729,7 @@ theorem readsTupleRest ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (op
                     let all: ItemsKept (inside ++ [comma, ..r2 ++ r3]) items trailing :=
                       rewrite split then itemsKeptCons kept tail
                     let whole := keptTuple open (inside ++ [comma, ..r2 ++ r3]) rc items trailing close isOpen all one
-                    Parse.readsAtDone after5 _
+                    Parse.readsAtDone after5 _ _
                       (rewrite List.appendNil rc then
                         rewrite List.appendAssoc inside [comma, ..r2 ++ r3] rc, List.appendAssoc r2 r3 rc at whole then
                           whole))))))
@@ -836,9 +836,9 @@ theorem readsListItem ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
               | False => reads0At modes RBracket))
           (empty =>
             match empty with
-              | True => Parse.readsFatal
+              | True => Parse.readsFatal _ _
               | False => Parse.readsThen (nested { modes, level = LevelFull }) (r2 value _ =>
-                Parse.readsDone _ (keptFullOut _ byComputing))))
+                Parse.readsDone _ _ (keptFullOut _ byComputing))))
       | False => nested { modes, level = LevelFull })
 
 theorem readsListItemsEnd ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Item) (inside: List Item)
@@ -848,7 +848,7 @@ theorem readsListItemsEnd ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) 
     Parse.ReadsIn GoodItems (() => listItemsEnd self inner open.leaf.word (items, trailing)) (read value =>
       Kept [open, ..inside ++ read] value) :=
   Parse.readsThen (readsExpect inner RBracket "`,` or `]`") (rc close one =>
-    Parse.readsDone _ (rewrite List.appendNil rc then keptList open inside rc items trailing close isOpen kept one))
+    Parse.readsDone _ _ (rewrite List.appendNil rc then keptList open inside rc items trailing close isOpen kept one))
 
 --| Proof idea: the mark reads nothing; the comma list after the first item gives more trees kept by what it read
 --| (`ListKept`), and `]` is one item, so `keptList` applies to the first tree and the rest together.
@@ -904,7 +904,7 @@ theorem readsListPeek ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (ope
       match isClose: item.kind == RBracket with
         | True => readsAtBumpRead shape fine (after tail fits =>
           Parse.readsAtDone after
-            (ListOf open.leaf.word [] False item.leaf.word)
+            (ListOf open.leaf.word [] False item.leaf.word) _
             (keptList open [] [item] [] False item.leaf.word isOpen itemsKeptNil (
               item,
               byComputing,
@@ -1068,7 +1068,7 @@ theorem readsArgument ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     Parse.ReadsIn GoodItems (() => argument self modes) Kept :=
   readsAfter0 reads0Left (items =>
     match sectionLineAt modes items with
-      | True => Parse.readsFatal
+      | True => Parse.readsFatal _ _
       | False =>
         readsAfter0
           [p := () => modes.at Upper && isSome LBrace (modes.peekAt 1)]
@@ -1089,8 +1089,8 @@ theorem readsArguments ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
       (readsAfter0 (reads0StartsAtom modes) (starts =>
         match starts with
           | True => Parse.readsThen (readsArgument self modes nested outside) (read value kept =>
-            Parse.readsDone (Some value) (rewrite List.appendNil read then kept))
-          | False => Parse.readsDone None byComputing)))
+            Parse.readsDone (Some value) _ (rewrite List.appendNil read then kept))
+          | False => Parse.readsDone None _ byComputing)))
     (read values rounds => roundsKept rounds)
 
 theorem readsAppliedTo ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
@@ -1101,7 +1101,7 @@ theorem readsAppliedTo ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     Parse.ReadsIn GoodItems (() => appliedTo self modes head) (read value => Kept (before ++ read) value) :=
   Parse.readsThen (readsArgument self modes nested outside) (r1 first firstKept =>
     Parse.readsThen (readsArguments self modes nested outside) (r2 more others =>
-      Parse.readsDone _ (rewrite List.appendNil r2 then keptApp kept (argsKeptCons firstKept others))))
+      Parse.readsDone _ _ (rewrite List.appendNil r2 then keptApp kept (argsKeptCons firstKept others))))
 
 theorem keptSectioned ∀ (section: Bool) [read: List Item] [applied: Expr]
     (kept: Kept read applied):
@@ -1119,8 +1119,8 @@ theorem readsAppEnd ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
       Kept (before ++ read) value) :=
   match applies with
     | True => Parse.readsThen (readsAppliedTo self modes nested outside before head kept) (read applied appliedKept =>
-      Parse.readsDone _ (rewrite List.appendNil read then keptSectioned section appliedKept))
-    | False => Parse.readsDone _ (rewrite List.appendNil before then keptSectioned section kept)
+      Parse.readsDone _ _ (rewrite List.appendNil read then keptSectioned section appliedKept))
+    | False => Parse.readsDone _ _ (rewrite List.appendNil before then keptSectioned section kept)
 
 theorem readsAppHead ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: NestedKept self)
@@ -1164,7 +1164,7 @@ theorem readsKeptUnaryNext ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
           let prefix := prefixItemOf item signed (goodHead fine shape)
           readsAtBumpRead shape fine (after tail fits =>
             Parse.readsAtThen (nested { modes, level = LevelUnary } after fits) (read operand after2 starts kept =>
-              Parse.readsAtDone after2 _ (rewrite List.appendNil read then keptPrefix item read operand prefix kept)))
+              Parse.readsAtDone after2 _ _ (rewrite List.appendNil read then keptPrefix item read operand prefix kept)))
         | False => app start fine
 
 theorem readsKeptUnaryBar ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
@@ -1298,17 +1298,17 @@ theorem readsOperatorStep ∀ (modes: Modes) (takes: Tok → Bool) (operand: () 
       (Parse.Maybe LinkKept) :=
   Parse.readsInMark _ _ (start fine =>
     match start with
-      | { rest = [], offset, left } => Parse.readsAtDone _ None byComputing
+      | { rest = [], offset, left } => Parse.readsAtDone _ None _ byComputing
       | { rest = [item, ..later], offset, left } =>
         match stopped: modes.stops item with
-          | True => Parse.readsAtDone _ None byComputing
+          | True => Parse.readsAtDone _ None _ byComputing
           | False =>
             match took: takes item.kind with
-              | False => Parse.readsAtDone _ None byComputing
+              | False => Parse.readsAtDone _ None _ byComputing
               | True => Parse.readsAtThen (readsAtBump byComputing) (read word after starts (single, same) =>
                 Parse.readsAtThen (operandReads after (Parse.Fits.after fine starts)) (more value later2 starts2 kept =>
                   Parse.readsAtDone later2
-                    (Some (word, value))
+                    (Some (word, value)) _
                     (rewrite single then
                       (
                         item,
@@ -1328,7 +1328,7 @@ theorem readsLeftChain ∀ (modes: Modes) (takes: Tok → Bool) (first operand: 
   Parse.readsThen firstReads (r1 head kept =>
     Parse.readsThen
       (Parse.readsLoop _ _ (readsOperatorStep modes takes operand binary operandReads))
-      (r2 links rounds => Parse.readsDone _ (rewrite List.appendNil r2 then keptLeftNested links kept rounds)))
+      (r2 links rounds => Parse.readsDone _ _ (rewrite List.appendNil r2 then keptLeftNested links kept rounds)))
 
 theorem mulSpells ∀ (kind: Tok) (text: Text)
     (took: (kind == Star || kind == Slash || kind == Percent) = True)
@@ -1387,7 +1387,7 @@ theorem readsAppendExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
           (() => addExpr self modes)
           (operator took good => appendSpells operator.kind operator.text took good)
           addReads))
-      (r2 links rounds => Parse.readsDone _ (rewrite List.appendNil r2 then keptRightNested links kept rounds)))
+      (r2 links rounds => Parse.readsDone _ _ (rewrite List.appendNil r2 then keptRightNested links kept rounds)))
 
 -- The recursion.
 

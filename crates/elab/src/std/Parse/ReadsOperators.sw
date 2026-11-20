@@ -15,7 +15,7 @@ theorem Parse.readsRecursiveWithFuel ∀ [inv: Parse.Invariant t]
     (fuel: Nat) (argument: b):
     Parse.ReadsIn inv (() => Parse.recursiveWithFuel fuel body argument) (spec argument) :=
   match fuel with
-    | Zero => Parse.readsFatal
+    | Zero => Parse.readsFatal _ (spec argument)
     | Succ more =>
       readsBody
         (inner => Parse.recursiveWithFuel more body inner)
@@ -229,7 +229,7 @@ theorem Parse.readsOperatorsFrom ∀ [inv: Parse.Invariant t] (fine: t → Prop)
                         (step lowest highest level associativity combine item left right fineItem found above below
                             holds facts))
                     (taken value isGrouped => isGrouped)
-                | None => Parse.readsDone left (finish lowest highest left holds))
+                | None => Parse.readsDone left _ (finish lowest highest left holds))
           readsRound state.at among total state value after byComputing honest ran)
 
 --| `operandsFrom` gives a value that is `grouped lowest`, from operands
@@ -255,10 +255,10 @@ theorem Parse.readsOperandsFrom ∀ [inv: Parse.Invariant t] (fine: t → Prop)
       grouped lowest value) :=
   match depth with
     | Zero => Parse.readsThen readsOperand (firstRead first isAtom =>
-      Parse.readsDone first (finish lowest 0 first (start lowest 0 first isAtom)))
+      Parse.readsDone first _ (finish lowest 0 first (start lowest 0 first isAtom)))
     | Succ inner => Parse.readsThen readsOperand (firstRead first isAtom =>
       match within: lowest < count with
-        | False => Parse.readsDone first (finish lowest 0 first (start lowest 0 first isAtom))
+        | False => Parse.readsDone first _ (finish lowest 0 first (start lowest 0 first isAtom))
         | True =>
           Parse.readsThen
             [j := at => Parse.operatorsFrom (at.left + 1) inner what levels count operand lowest (count - 1) first]
@@ -377,7 +377,7 @@ theorem Parse.readsOperatorsFromLeft ∀ [inv: Parse.Invariant t] (what: Text) (
                       (combine left right)
                       (keep level associativity combine item left right found holds))
                     (taken value isKept => isKept)
-                | None => Parse.readsDone left holds)
+                | None => Parse.readsDone left _ holds)
           readsRound state.at fine total state value after byComputing honest ran)
 
 --| `operandsFrom` reads its first operand first and builds on it: what
@@ -398,12 +398,12 @@ theorem Parse.readsOperandsFromLeft ∀ [inv: Parse.Invariant t] (what: Text) (l
         ∧ kept start value) :=
   match depth with
     | Zero => Parse.readsThen readsOperand (firstRead start isFirst =>
-      Parse.readsDone start
+      Parse.readsDone start _
         (Witness firstRead (Witness [] (Witness start (Both byComputing (Both isFirst (same start)))))))
     | Succ inner => Parse.readsThen readsOperand (firstRead start isFirst =>
       match within: lowest < count with
         | False =>
-          Parse.readsDone start
+          Parse.readsDone start _
             (Witness firstRead (Witness [] (Witness start (Both byComputing (Both isFirst (same start))))))
         | True =>
           Parse.readsThen
@@ -642,10 +642,10 @@ theorem Parse.readsOperandsFromRead ∀ [inv: Parse.Invariant t] (what: Text) (l
     Parse.ReadsIn inv (() => Parse.operandsFrom depth what levels count operand lowest) spec :=
   match depth with
     | Zero => Parse.readsThen readsOperand (firstRead first holds =>
-      Parse.readsDone first (rewrite List.appendNil firstRead then holds))
+      Parse.readsDone first _ (rewrite List.appendNil firstRead then holds))
     | Succ inner => Parse.readsThen readsOperand (firstRead first holds =>
       match within: lowest < count with
-        | False => Parse.readsDone first (rewrite List.appendNil firstRead then holds)
+        | False => Parse.readsDone first _ (rewrite List.appendNil firstRead then holds)
         | True =>
           Parse.readsThen
             [j := at => Parse.operatorsFrom (at.left + 1) inner what levels count operand lowest (count - 1) first]

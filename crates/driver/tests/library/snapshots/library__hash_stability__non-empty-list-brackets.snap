@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 Main.threeBrackets e7c06efbb4597992df8bab6f7f61f0e098aff4609976572a7f871bd2dd49b7b1
@@ -30,6 +31,6 @@ Main.orNone.eq2 a0658c7e458d38142235d3809c16c01c94240090cb2d8a0f2d1ca341e0de50b7
 Main.len b90fd387b7742e84efe88266774f6e9f2b5b898c7e100be55ab3b275f7b6f9e2
 Main.shortLines c185e6594e818b64c921cfe7f61952867b020a35fab5dbb9bf51d62e3ba07fd9
 Main.maxOfTwo 422113449eab541eb0cdeaff72c36f6bb8bb657eab40f6ad9d8f69f8cef4d7bc
-Main.test "brackets are records" 373606c94b58f52205deaddec33d2e5efa932a648424d53a0380210025b96074
+Main.test "brackets are records" ab16cafd004648b2c386360ebc58e849394c1c0b11058bee8c2aaa8efdc91417
 Main.test "sizes" 9391bcc85207875807192df644cf5922e865298a7201a60c572bf3a3c0d2aecc
 Main.test "a literal argument" b030f763f8034966c65616f1d515757b946676990168abfeea7718aaebfbe30c

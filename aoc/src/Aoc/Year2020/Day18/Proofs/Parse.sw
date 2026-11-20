@@ -42,13 +42,13 @@ theorem readsOperand ∀ (strengthOf: Operator → Nat) (strength: Nat) (express
   Parse.readsOneOf _ _
     (Both
       (Parse.readsThen Parse.readsNat (numberRead value number =>
-        Parse.readsDone (Number value) (Both (rewrite List.appendNil numberRead then number) (Both Trivial Trivial))))
+        Parse.readsDone (Number value) _ (Both (rewrite List.appendNil numberRead then number) (Both Trivial Trivial))))
       (Both
         (Parse.readsThen (Parse.readsChar '(') (openRead u opened =>
           Parse.readsThen readsExpression (innerRead inner (Both written (Both follows binds)) =>
             Parse.readsThen (Parse.readsChar ')') (closeRead u2 closed =>
               Parse.readsDone
-                (Parenthesised inner)
+                (Parenthesised inner) _
                 (Both
                   (Witness innerRead
                     (Both

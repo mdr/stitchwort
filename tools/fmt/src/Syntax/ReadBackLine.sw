@@ -843,7 +843,7 @@ theorem autoSecond ∀ (item second: Item) (later: List Item)
 theorem firstKind ∀ (item first: Item) (more inside: List Item)
     (isRead: [item, ..more] = [first, ..inside]):
     item.kind = first.kind :=
-  rewrite List.consInjectiveHead isRead
+  rewrite List.consInjectiveHead item first more inside isRead
 
 --| No `[auto Upper` starts a list on one line with no calls: a word inside is followed by a comma or `]`.
 --| No `[auto Upper` starts a list in this part, which has no calls: a word inside is followed by a comma or `]`.
@@ -881,7 +881,7 @@ theorem noAutoLine ∀ (expr: Expr) (item: Item) (more rest: List Item)
       let joined: [item, ..more] = [first, ..inside ++ (argRead ++ Parse.loopReads [] steps)] := calc [item, ..more]
         _ = headRead ++ (argRead ++ Parse.loopReads [] steps) := isRead
         _ = [first, ..inside ++ (argRead ++ Parse.loopReads [] steps)] := rewrite isHead
-      let isItem: item = first := List.consInjectiveHead joined
+      let isItem: item = first := List.consInjectiveHead item first more _ joined
       let isMore: more = inside ++ (argRead ++ Parse.loopReads [] steps) := Eq.cong (.drop 1) joined
       let headAt: Spelt head [first, ..inside] := rewrite <- isHead then headSpelt
       rewrite isItem, isMore, List.appendAssoc inside (argRead ++ Parse.loopReads [] steps) rest then
@@ -893,7 +893,7 @@ theorem noAutoLine ∀ (expr: Expr) (item: Item) (more rest: List Item)
       let joined: [item, ..more] = [first, ..inside ++ [arrow, ..rightRead]] := calc [item, ..more]
         _ = leftRead ++ [arrow, ..rightRead] := isRead
         _ = [first, ..inside ++ [arrow, ..rightRead]] := rewrite isLeft
-      let isItem: item = first := List.consInjectiveHead joined
+      let isItem: item = first := List.consInjectiveHead item first more _ joined
       let isMore: more = inside ++ [arrow, ..rightRead] := Eq.cong (.drop 1) joined
       let leftAt: Spelt left [first, ..inside] := rewrite <- isLeft then leftSpelt
       rewrite isItem, isMore, List.appendAssoc inside [arrow, ..rightRead] rest then
@@ -1097,7 +1097,7 @@ theorem speltNoUnit ∀ (expr: Expr) (first: Item) (more later: List Item)
       let joined: [first, ..more] = [start, ..inside ++ (argRead ++ Parse.loopReads [] steps)] := calc [first, ..more]
         _ = headRead ++ (argRead ++ Parse.loopReads [] steps) := isRead
         _ = [start, ..inside ++ (argRead ++ Parse.loopReads [] steps)] := rewrite isHead
-      let isFirst: first = start := List.consInjectiveHead joined
+      let isFirst: first = start := List.consInjectiveHead first start more _ joined
       let isMore: more = inside ++ (argRead ++ Parse.loopReads [] steps) := Eq.cong (.drop 1) joined
       let headAt: Spelt head [start, ..inside] := rewrite <- isHead then headSpelt
       rewrite isFirst, isMore, List.appendAssoc inside (argRead ++ Parse.loopReads [] steps) later then
@@ -1111,7 +1111,7 @@ theorem speltNoUnit ∀ (expr: Expr) (first: Item) (more later: List Item)
       let joined: [first, ..more] = [start, ..inside ++ [arrow, ..rightRead]] := calc [first, ..more]
         _ = leftRead ++ [arrow, ..rightRead] := isRead
         _ = [start, ..inside ++ [arrow, ..rightRead]] := rewrite isLeft
-      let isFirst: first = start := List.consInjectiveHead joined
+      let isFirst: first = start := List.consInjectiveHead first start more _ joined
       let isMore: more = inside ++ [arrow, ..rightRead] := Eq.cong (.drop 1) joined
       let leftAt: Spelt left [start, ..inside] := rewrite <- isLeft then leftSpelt
       rewrite isFirst, isMore, List.appendAssoc inside [arrow, ..rightRead] later then

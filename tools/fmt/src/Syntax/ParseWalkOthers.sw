@@ -32,7 +32,7 @@ theorem givesTestName ∀ (modes: Modes) (atStr: Bool):
 theorem givesTestAfterName ∀ (modes: Modes) (keyword: Comments) (name: Word) (atEquals: Bool):
     Parse.Gives GoodItems (() => testAfterName modes keyword name atEquals) DeclOut :=
   match atEquals with
-    | True => Parse.readsFatal
+    | True => Parse.readsFatal _ _
     | False => Parse.givesThen (givesExpectFixed modes ColonEq "`:=`") (colonEq _ =>
       Parse.givesThen (givesSelfAny expressionAt givesExpressionAt { modes, level = LevelFull }) (body _ =>
         Parse.givesDone byComputing))
@@ -58,7 +58,7 @@ theorem givesRuleSetOpen ∀ (modes: Modes) (keyword: Comments) (name: Word) (co
 theorem givesRuleSetAfterName ∀ (modes: Modes) (keyword: Comments) (name: Word) (atEquals: Bool):
     Parse.Gives GoodItems (() => ruleSetAfterName modes keyword name atEquals) DeclOut :=
   match atEquals with
-    | True => Parse.readsFatal
+    | True => Parse.readsFatal _ _
     | False => Parse.givesThen (givesExpectFixed modes ColonEq "`:=`") (colonEq _ =>
       Parse.givesAfter0 (reads0At modes LBracket) (atBracket => givesRuleSetOpen modes keyword name colonEq atBracket))
 
@@ -71,13 +71,13 @@ theorem givesRuleSetOrMissing ∀ (modes: Modes) (found: Bool):
     Parse.Gives GoodItems (() => ruleSetOrMissing modes found) DeclOut :=
   match found with
     | True => givesRuleSetDecl modes
-    | False => Parse.readsFatal
+    | False => Parse.readsFatal _ _
 
 theorem givesAfterOpaque ∀ (modes: Modes): Parse.Gives GoodItems (() => afterOpaque modes) (found => True) :=
   Parse.givesAfter0 (reads0Peek modes) (seen =>
     match seen with
       | Some KwDef => Parse.givesDone byComputing
-      | Some KwTheorem | Some KwInstance | Some KwExport => Parse.readsFatal
+      | Some KwTheorem | Some KwInstance | Some KwExport => Parse.readsFatal _ _
       | other => givesFail modes _)
 
 -- `export`, `opaque` and `instance`: definitions with a header that has a keyword slice 1 doesn't.
@@ -177,7 +177,7 @@ theorem givesInstanceOf ∀ (attributes: List Attributes) (parts: (Header, DefBo
       match isInstance: header.kind == DefInstance with
         | True =>
           Parse.givesDone (definitionOut attributes header body (headerOutOfKind header (DecEq.sound isInstance)))
-        | False => Parse.readsFatal
+        | False => Parse.readsFatal _ _
 
 theorem givesInstanceDecl ∀ (modes: Modes) (attributes: List Attributes):
     Parse.Gives GoodItems (() => instanceDecl modes attributes) DeclOut :=
@@ -277,7 +277,7 @@ theorem givesDataParamLeft ∀ (modes: Modes) (word: Text) (items: List Item):
   match items with
     | [param, ..rest] =>
       match param.kind == Lower && !isQualified param && !modes.stops param with
-        | True => Parse.readsFatal
+        | True => Parse.readsFatal _ _
         | False => Parse.givesDone byComputing
     | [] => Parse.givesDone byComputing
 
@@ -287,10 +287,10 @@ theorem givesDataParamBracket ∀ (modes: Modes) (word: Text) (implicit: Bool):
     | True => Parse.givesThen (givesImplicitBinder expressionAt modes givesExpressionAt) (binder _ =>
       Parse.givesThen (givesRefuseAttributes binder.attributes _) (refused _ =>
         match binder.auto.isNone with
-          | True => Parse.readsFatal
+          | True => Parse.readsFatal _ _
           | False =>
             match binder.names.isEmpty with
-              | True => Parse.readsFatal
+              | True => Parse.readsFatal _ _
               | False => Parse.givesDone byComputing))
     | False => Parse.givesAfter0 reads0Left (items => givesDataParamLeft modes word items)
 
@@ -332,7 +332,7 @@ theorem reads0PiBinderAhead ∀ (modes: Modes): Reads0 (() => isSome LParen mode
 theorem givesDataIndices ∀ (fuel: Nat) (modes: Modes) (found: List (Index, Word)):
     Parse.Gives GoodItems (() => dataIndices fuel modes found) (result => True) :=
   match fuel with
-    | Zero => Parse.readsFatal
+    | Zero => Parse.readsFatal _ _
     | Succ more =>
       Parse.givesAfter0 (reads0PiBinderAhead modes) (atBinder => givesDataIndexAt more modes found atBinder)
 
@@ -415,7 +415,7 @@ theorem givesBracedFields ∀ (modes: Modes): Parse.Gives GoodItems (() => brace
 theorem givesUpper ∀ (modes: Modes) (what: Text): Parse.Gives GoodItems (() => modes.upper what) (word => True) :=
   Parse.givesThen (givesUpperQualified modes what) (name _ =>
     match name.text.contains "." with
-      | True => Parse.readsFatal
+      | True => Parse.readsFatal _ _
       | False => Parse.givesDone byComputing)
 
 theorem givesConstructorBracket ∀ (more: Nat) (modes: Modes) (name: Word) (bracketed braced: Bool)
@@ -424,7 +424,7 @@ theorem givesConstructorBracket ∀ (more: Nat) (modes: Modes) (name: Word) (bra
   match implicit with
     | True => Parse.givesThen (givesImplicitBinder expressionAt modes givesExpressionAt) (binder _ =>
       match binder.auto.isSome with
-        | True => Parse.readsFatal
+        | True => Parse.readsFatal _ _
         | False => givesConstructorParts more modes name bracketed braced _)
     | False => Parse.givesDone byComputing
 
@@ -434,7 +434,7 @@ theorem givesConstructorParen ∀ (more: Nat) (modes: Modes) (name: Word) (brack
   match atParen with
     | True =>
       match braced with
-        | True => Parse.readsFatal
+        | True => Parse.readsFatal _ _
         | False => Parse.givesThen (givesBinderGroup expressionAt modes givesExpressionAt True) (binder _ =>
           givesConstructorParts more modes name True braced _)
     | False => Parse.givesAfter0 (reads0ImplicitAhead modes) (implicit =>
@@ -446,10 +446,10 @@ theorem givesConstructorBraced ∀ (more: Nat) (modes: Modes) (name: Word) (brac
   match atBrace with
     | True =>
       match bracketed with
-        | True => Parse.readsFatal
+        | True => Parse.readsFatal _ _
         | False => Parse.givesThen (givesBracedFields modes) (fields _ =>
           match fields.fields.isEmpty with
-            | True => Parse.readsFatal
+            | True => Parse.readsFatal _ _
             | False => givesConstructorParts more modes name bracketed True _)
     | False => Parse.givesAfter0 (reads0At modes LParen) (atParen =>
       givesConstructorParen more modes name bracketed braced found atParen)
@@ -499,10 +499,10 @@ theorem givesTypeSynonym ∀ (modes: Modes) (name: Word):
   Parse.givesThen (givesSelfAny expressionAt givesExpressionAt { modes, level = LevelFull }) (synonym _ =>
     Parse.givesAfter0 (reads0At modes Pipe) (atPipe =>
       match atPipe with
-        | True => Parse.readsFatal
+        | True => Parse.readsFatal _ _
         | False =>
           match annotatedArgument synonym with
-            | True => Parse.readsFatal
+            | True => Parse.readsFatal _ _
             | False => Parse.givesDone byComputing))
 
 -- `type` and `interface`, assembled.
@@ -518,7 +518,7 @@ theorem givesInterfaceDecl ∀ (modes: Modes) (attributes: List Attributes) (key
     (params: List Group) (indices: Option Indices) (indexed: Bool):
     Parse.Gives GoodItems (() => interfaceDecl modes attributes keyword name params indices indexed) DeclOut :=
   match indexed with
-    | True => Parse.readsFatal
+    | True => Parse.readsFatal _ _
     | False => Parse.givesThen (givesExpectFixed modes Equals "`=` and the interface's fields, `{ … }`") (equals _ =>
       Parse.givesAfter0 (reads0At modes LBrace) (braced =>
         givesInterfaceFields modes attributes keyword name params indices equals braced))
@@ -527,7 +527,7 @@ theorem givesTypeBraced ∀ (modes: Modes) (attributes: List Attributes) (keywor
     (params: List Group) (indices: Option Indices) (equals: Comments) (row: Option Text):
     Parse.Gives GoodItems (() => typeBraced modes attributes keyword name params indices equals row) DeclOut :=
   match row with
-    | Some written => Parse.readsFatal
+    | Some written => Parse.readsFatal _ _
     | None => Parse.givesThen (givesBracedFields modes) (fields _ => Parse.givesDone byComputing)
 
 theorem givesTypeAfterEquals ∀ (modes: Modes) (attributes: List Attributes) (keyword: Comments) (name: Word)
@@ -538,7 +538,7 @@ theorem givesTypeAfterEquals ∀ (modes: Modes) (attributes: List Attributes) (k
   match !(brace || pipe) with
     | True =>
       match indexed with
-        | True => Parse.readsFatal
+        | True => Parse.readsFatal _ _
         | False => Parse.givesThen (givesTypeSynonym modes name) (synonym _ => Parse.givesDone byComputing)
     | False =>
       match brace with
@@ -610,7 +610,7 @@ theorem givesDeclarationOther ∀ (modes: Modes) (attributes: List Attributes) (
             | True => Parse.reads0Then (reads0PeekAt modes 1) (next => Parse.reads0Done (isSome Lower next))
             | False => Parse.reads0Done False))
         (found => givesRuleSetOrMissing modes found)
-    | Some Upper => Parse.readsFatal
+    | Some Upper => Parse.readsFatal _ _
     | other => givesFail modes _
 
 --| What `FrameRest` assumed: the declarations other than a definition, a namespace line or an import are outside slice 1.

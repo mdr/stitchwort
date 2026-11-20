@@ -33,7 +33,7 @@ theorem readsLine: Parse.Reads line Written := Parse.readsThen Parse.readsNat (l
           Parse.readsThen (Parse.readsText ": ") (colonRead u3 colon =>
             Parse.readsThen (Parse.readsTakeWhile1) (passwordRead password (Both nonEmpty (Both lowers made)) =>
               Parse.readsDone
-                { low, high, letter, password }
+                { low, high, letter, password } _
                 (rewrite made then
                   Witness lowRead
                     (Witness highRead

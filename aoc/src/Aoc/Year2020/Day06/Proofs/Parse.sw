@@ -34,7 +34,7 @@ theorem readsPerson: Parse.Reads person PersonWritten :=
     match eachLetters lettersRead letters.toList each with
       | Both same questions =>
         Parse.readsDone
-          { answers = letters.toList.toSet }
+          { answers = letters.toList.toSet } _
           (rewrite List.appendNil lettersRead, same then
             Both
               (NonEmptyList.toListNotNil letters)
@@ -46,7 +46,7 @@ def GroupWritten (read: List Char) (group: Group): Prop :=
 
 theorem readsGroup: Parse.Reads group GroupWritten :=
   Parse.readsThen (Parse.readsLines person _ readsPerson) (peopleRead people written =>
-    Parse.readsDone { people } (rewrite List.appendNil peopleRead then written))
+    Parse.readsDone { people } _ (rewrite List.appendNil peopleRead then written))
 
 --| If `parseGroups` reads `input`, the input is the groups written out, a
 --| blank line between each two, then any line breaks.

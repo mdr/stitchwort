@@ -23,7 +23,7 @@ theorem gluedSameTokens ∀ (before: Option Token) (first second: List Leaf)
   match first, second, same with
     | [], [], _ => byComputing
     | [leaf, ..rest], [other, ..others], same =>
-      let head: leaf.token = other.token := List.consInjectiveHead same
+      let head: leaf.token = other.token := List.consInjectiveHead _ _ _ _ same
       let tail: tokens rest = tokens others := Eq.cong (.drop 1) same
       rewrite head, gluedSameTokens (Some other.token) rest others tail
     | [], [other, ..others], never => (List.nilNotCons other.token (tokens others) never).impossible

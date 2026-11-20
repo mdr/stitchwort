@@ -77,7 +77,7 @@ theorem Parse.readsWithMark ∀ [inv: Parse.Invariant t] (k: Parse.Mark t → {P
 --| A value `holds` of: the last step of a [`Parse.givesThen`] chain.
 theorem Parse.givesDone ∀ [inv: Parse.Invariant t] [x: a] [holds: a → Prop] (proved: holds x):
     Parse.Gives inv (() => x) holds :=
-  Parse.readsDone x proved
+  Parse.readsDone x _ proved
 
 --| `p`, then `j` of its value: `holds` of what `j` gives, for each value
 --| `p` gives. `p` is read off `givesFirst` and `j` off the goal, as for

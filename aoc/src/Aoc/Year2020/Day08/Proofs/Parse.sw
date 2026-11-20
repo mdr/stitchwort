@@ -20,7 +20,7 @@ theorem readsInstruction: Parse.Reads instruction InstructionWritten :=
     Parse.readsThen (Parse.readsChar ' ') (spaceRead u space =>
       Parse.readsThen readsArgument (argumentRead argument signed =>
         Parse.readsDone
-          { operation, argument }
+          { operation, argument } _
           (Witness operationRead
             (Witness argumentRead (Both (rewrite space, List.appendNil argumentRead) (Both written signed)))))))
 

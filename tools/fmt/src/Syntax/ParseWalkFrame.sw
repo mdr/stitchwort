@@ -85,7 +85,7 @@ theorem givesForallPart ∀ (modes: Modes) (kind: DefKind):
     match found with
       | True =>
         match kind != DefTheorem with
-          | True => Parse.readsFatal
+          | True => Parse.readsFatal _ _
           | False => givesForallBump modes
       | False => Parse.givesDone byComputing)
 
@@ -102,7 +102,7 @@ theorem givesDecreasingPart ∀ (self: Goal → {Parse Item} Expr) (modes header
     match found with
       | True =>
         match isInstance with
-          | True => Parse.readsFatal
+          | True => Parse.readsFatal _ _
           | False => givesDecreasingClauseOf self headerModes nested
       | False => Parse.givesDone byComputing)
 
@@ -139,7 +139,7 @@ theorem givesUnfoldingPart ∀ (modes afterDecreasing: Modes) (isInstance: Bool)
     match found with
       | True =>
         match isInstance with
-          | True => Parse.readsFatal
+          | True => Parse.readsFatal _ _
           | False => givesUnfoldingClauseOf afterDecreasing
       | False => Parse.givesDone byComputing)
 
@@ -147,16 +147,16 @@ theorem givesNamespaceAfter ∀ (modes: Modes) (keyword: Comments) (seen: Option
     Parse.Gives GoodItems (() => namespaceAfter modes keyword seen) DeclOut :=
   match seen with
     | Some Upper => Parse.givesThen givesBump (name _ => Parse.givesDone byComputing)
-    | Some Lower => Parse.readsFatal
+    | Some Lower => Parse.readsFatal _ _
     | other => givesFail modes _
 
 theorem givesNamespaceStep ∀ (seen: Seen) (modes: Modes):
     Parse.Gives GoodItems (() => namespaceStep seen modes) DeclOut :=
   match seen.hasNamespace with
-    | True => Parse.readsFatal
+    | True => Parse.readsFatal _ _
     | False =>
       match seen.hasImports || seen.hasDecls with
-        | True => Parse.readsFatal
+        | True => Parse.readsFatal _ _
         | False => Parse.givesThen givesFixedFrom (keyword _ =>
           Parse.givesAfter0 (reads0Peek modes) (seen => givesNamespaceAfter modes keyword seen))
 
@@ -175,7 +175,7 @@ theorem givesImportAliasWord ∀ (modes: Modes) (name: Word) (asWord: Comments) 
       match named: (alias.kind == Lower || alias.kind == Upper) && !isQualified alias && !modes.stops alias with
         | True =>
           match startsUpper name.text != startsUpper alias.text with
-            | True => Parse.readsFatal
+            | True => Parse.readsFatal _ _
             | False => Parse.givesThen givesBump (taken _ => Parse.givesDone byComputing)
         | False => givesFail modes _
     | [] => givesFail modes _
@@ -191,7 +191,7 @@ theorem givesImportAlias ∀ (modes: Modes) (name: Word):
 theorem givesImportStop ∀ (modes: Modes) (path: Word) (found: List ImportItem) (dots: Bool):
     Parse.Gives GoodItems (() => importStop modes path found dots) (names => True) :=
   match dots && !found.isEmpty with
-    | True => Parse.readsFatal
+    | True => Parse.readsFatal _ _
     | False => givesFail modes _
 
 theorem givesImportItems ∀ (fuel: Nat) (modes: Modes) (path: Word) (found: List ImportItem):
@@ -217,7 +217,7 @@ theorem givesImportedOf ∀ (modes: Modes) (path: Word) (dots: Bool):
       Parse.givesAfter0 (reads0At modes RParen) (closed =>
         match closed with
           | True => Parse.givesDone byComputing
-          | False => Parse.readsFatal))
+          | False => Parse.readsFatal _ _))
     | False => Parse.givesThen Parse.givesMark (here _ =>
       Parse.givesThen (givesImportItems (here.left + 1) modes path []) (imported _ => Parse.givesDone byComputing))
 
@@ -241,12 +241,12 @@ theorem givesImportLine ∀ (modes: Modes): Parse.Gives GoodItems (() => importL
       (path _ =>
         Parse.givesAfter0 (reads0WordAhead modes "as") (asNext =>
           match asNext with
-            | True => Parse.readsFatal
+            | True => Parse.readsFatal _ _
             | False => givesImportOpen modes keyword path)))
 
 theorem givesImportStep ∀ (seen: Seen) (modes: Modes): Parse.Gives GoodItems (() => importStep seen modes) DeclOut :=
   match seen.hasDecls with
-    | True => Parse.readsFatal
+    | True => Parse.readsFatal _ _
     | False => givesImportLine modes
 
 theorem givesAssignedBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
@@ -256,7 +256,7 @@ theorem givesAssignedBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     Parse.givesThen (nested { modes, level = LevelFull }) (value parsed =>
       Parse.givesAfter0 (reads0At modes Pipe) (arms =>
         match arms with
-          | True => Parse.readsFatal
+          | True => Parse.readsFatal _ _
           | False => Parse.givesDone parsed)))
 
 theorem givesDefinitionBodyOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (result: Expr) (d: Nat)
@@ -272,11 +272,11 @@ theorem givesDefinitionBodyOn ∀ (self: Goal → {Parse Item} Expr) (modes: Mod
               | True => givesArmsBody self modes d nested
               | False =>
                 match isEquals: kind == Equals with
-                  | True => Parse.readsFatal
+                  | True => Parse.readsFatal _ _
                   | False => givesFail modes _
       | None =>
         match isEquation result with
-          | True => Parse.readsFatal
+          | True => Parse.readsFatal _ _
           | False => Parse.givesDone byComputing)
 
 theorem givesDefinitionBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (result: Expr) (isInstance: Bool) (d: Nat)
@@ -285,7 +285,7 @@ theorem givesDefinitionBody ∀ (self: Goal → {Parse Item} Expr) (modes: Modes
   Parse.givesThen (givesDefinitionBodyOn self modes result d nested) (body bodyOk =>
     Parse.givesAfter0 reads0Left (items =>
       match definitionRefusal isInstance body items with
-        | Some message => Parse.readsFatal
+        | Some message => Parse.readsFatal _ _
         | None => Parse.givesDone bodyOk))
 
 theorem givesAllowColonEq ∀ (modes: Modes): Parse.Gives GoodItems (() => allowColonEq modes) (found => True) :=
@@ -340,7 +340,7 @@ theorem givesDefinitionParts ∀ (self: Goal → {Parse Item} Expr) (modes: Mode
                       Parse.givesThen (givesAfterUnfoldingOf afterDecreasing unfoldingClause) (afterUnfolding _ =>
                         Parse.givesAfter0 (reads0ClauseConflict afterUnfolding unfoldingClause) (conflict =>
                           match conflict with
-                            | True => Parse.readsFatal
+                            | True => Parse.readsFatal _ _
                             | False => Parse.givesThen (givesBodyModes afterUnfolding _ local) (bodyModes _ =>
                               Parse.givesThen (givesDefinitionBody self bodyModes result _ _ nested) (body bodyOk =>
                                 Parse.givesDone (resultParsed, nameOk, bodyOk)))))))))))))))

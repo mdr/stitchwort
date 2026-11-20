@@ -65,7 +65,7 @@ theorem List.takeOfDropCons ∀ (xs: List a) (k: Nat) (y: a) (ys: List a)
     List.take xs (k + 1) = List.append (List.take xs k) [y] ∧ k < List.length xs :=
   match xs, k with
     | [], Zero => cases
-    | [x, ..xs], Zero => Both (rewrite List.consInjectiveHead d) (arithmetic)
+    | [x, ..xs], Zero => Both (rewrite List.consInjectiveHead x y xs ys d) (arithmetic)
     | [x, ..xs], Succ k =>
       let (Both taken below) := List.takeOfDropCons xs k y ys d
       Both (rewrite taken) (arithmetic)

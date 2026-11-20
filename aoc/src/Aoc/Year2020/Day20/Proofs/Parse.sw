@@ -15,7 +15,7 @@ theorem readsPixel: Parse.Reads pixel PixelWritten :=
 
 theorem readsRow: Parse.Reads pixelRow RowWritten :=
   Parse.readsThen (Parse.readsMany1 pixel PixelWritten readsPixel) (pixelsRead pixels each =>
-    Parse.readsDone pixels.toList
+    Parse.readsDone pixels.toList _
       (Both (rewrite List.appendNil pixelsRead then each) (NonEmptyList.toListNotNil pixels)))
 
 theorem readsTile: Parse.Reads tile TileWritten := Parse.readsThen (Parse.readsText "Tile ") (headRead u head =>
@@ -24,7 +24,7 @@ theorem readsTile: Parse.Reads tile TileWritten := Parse.readsThen (Parse.readsT
       Parse.readsThen Parse.readsNewline (breakRead u3 break =>
         Parse.readsThen (Parse.readsLines pixelRow RowWritten readsRow) (rowsRead rows rowsWritten =>
           Parse.readsDone
-            { id, image = { rows = rows.toList } }
+            { id, image = { rows = rows.toList } } _
             (Witness idRead
               (Witness breakRead
                 (Witness rowsRead
@@ -35,7 +35,7 @@ theorem readsTile: Parse.Reads tile TileWritten := Parse.readsThen (Parse.readsT
 theorem readsJigsaw: Parse.Reads jigsaw JigsawWritten :=
   Parse.readsThen (Parse.readsSections tile TileWritten readsTile) (tilesRead tiles written =>
     Parse.readsDone
-      { tiles = tiles.toList }
+      { tiles = tiles.toList } _
       (Witness tiles (Both (rewrite List.appendNil tilesRead then written) byComputing)))
 
 theorem parseWritten ∀ (input: Text) (parsed: Jigsaw)

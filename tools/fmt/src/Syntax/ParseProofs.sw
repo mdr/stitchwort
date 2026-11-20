@@ -232,9 +232,12 @@ theorem readsAtBump ∀ [start: Parse.Mark Item] [item: Item] [later: List Item]
       match v, taken with
         | Some found, (same, passes) =>
           let split: [found, ..after.rest] = [item, ..later] := rewrite <- shape, starts, same
-          let isItem: found = item := List.consInjectiveHead split
-          Parse.readsAtDone after found.leaf.word (Both (rewrite same, isItem) (rewrite isItem))
-        | None, empty => Parse.readsFatal [inv := Parse.Invariant.any] after { holds = Trivial })
+          let isItem: found = item := List.consInjectiveHead found item after.rest later split
+          Parse.readsAtDone after found.leaf.word _ (Both (rewrite same, isItem) (rewrite isItem))
+        | None, empty =>
+          Parse.readsFatal [inv := Parse.Invariant.any] "the parser read past the end of its input" _ after {
+            holds = Trivial
+          })
 
 theorem symbolicWithin ∀ (kind: Tok) (symbolic: kind.symbolic1 = True): kind.within1 = True := match kind, symbolic with
   | Lower | Upper | Num | Float | KwDef, symbolic => (Bool.falseNotTrue symbolic).impossible
@@ -263,19 +266,19 @@ theorem givesOperatorStep ∀ (modes: Modes) (takes: Tok → Bool) (operand: () 
       (Parse.Perhaps link) :=
   Parse.readsInMark _ _ (start fine =>
     match start with
-      | { rest = [], offset, left } => Parse.readsAtDone _ None byComputing
+      | { rest = [], offset, left } => Parse.readsAtDone _ None _ byComputing
       | { rest = [item, ..later], offset, left } =>
         match stopped: modes.stops item with
-          | True => Parse.readsAtDone _ None byComputing
+          | True => Parse.readsAtDone _ None _ byComputing
           | False =>
             match took: takes item.kind with
-              | False => Parse.readsAtDone _ None byComputing
+              | False => Parse.readsAtDone _ None _ byComputing
               | True => Parse.readsAtThen (readsAtBump byComputing) (read word after starts (Both single same) =>
                 Parse.readsAtThen
                   (operandGives after (Parse.Fits.after fine starts))
                   (more value later2 starts2 parsed =>
                     Parse.readsAtDone later2
-                      (Some (word, value))
+                      (Some (word, value)) _
                       (rewrite same then linkOf item value (goodFirst fine) took parsed))))
 
 --| What an operator's text must be for a left-nested level: its table entries.
@@ -467,10 +470,10 @@ theorem givesBump: Parse.Gives GoodItems (() => bump()) (word => True) :=
     (found done =>
       match found with
         | Some item => Parse.givesDone byComputing
-        | None => Parse.readsFatal)
+        | None => Parse.readsFatal "the parser read past the end of its input" _)
 
 theorem givesLeft: Parse.Gives GoodItems (() => left()) (found => True) :=
-  Parse.readsInMark (here => here.rest) _ (start fine => Parse.readsAtDone _ start.rest byComputing)
+  Parse.readsInMark (here => here.rest) _ (start fine => Parse.readsAtDone _ start.rest _ byComputing)
 
 theorem givesSuffixCalled ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) => expr.grammar1 = False → holds expr)
     (target: Expr) (callable paren: Bool) (parsed: holds target):
@@ -498,16 +501,16 @@ theorem givesSuffixesOn ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) =>
         | False => Parse.givesDone parsed
         | True =>
           match !((field.kind == Lower || field.kind == Upper) && !isQualified field && !modes.stops field) with
-            | True => Parse.readsFatal
+            | True => Parse.readsFatal _ _
             | False =>
               match !dot.glued || !field.glued with
-                | True => Parse.readsFatal
+                | True => Parse.readsFatal _ _
                 | False => Parse.givesThen givesBump (dotLeaf _ =>
                   Parse.givesThen givesBump (name _ =>
                     next (FieldAccess (Some called) dotLeaf name) True (outside _ byComputing)))
     | [dot] =>
       match dot.kind == Dot && !modes.stops dot with
-        | True => Parse.readsFatal
+        | True => Parse.readsFatal _ _
         | False => Parse.givesDone parsed
     | other => Parse.givesDone parsed
 
@@ -527,10 +530,10 @@ theorem givesSuffixes ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) => e
 
 theorem givesAt ∀ (modes: Modes) (wanted: Tok): Parse.Gives GoodItems (() => modes.at wanted) (found => True) :=
   Parse.readsInMark (here => isSome wanted (peekIn modes 0 here.rest)) _ (start fine =>
-    Parse.readsAtDone _ _ byComputing)
+    Parse.readsAtDone _ _ _ byComputing)
 
 theorem givesPeek ∀ (modes: Modes): Parse.Gives GoodItems (() => modes.peek) (found => True) :=
-  Parse.readsInMark (here => peekIn modes 0 here.rest) _ (start fine => Parse.readsAtDone _ _ byComputing)
+  Parse.readsInMark (here => peekIn modes 0 here.rest) _ (start fine => Parse.readsAtDone _ _ _ byComputing)
 
 theorem givesAtomRecord ∀ (holds: Expr → Prop) (outside: ∀ (expr: Expr) => expr.grammar1 = False → holds expr)
     (self: Goal → {Parse Item} Expr) (modes: Modes) (head upper: Bool) (base: Expr)
@@ -588,7 +591,7 @@ theorem givesUnexpected ∀ (modes: Modes) (what: Text):
 --| A parse that fails gives anything.
 theorem givesFail ∀ (modes: Modes) (what: Text) [holds: a → Prop]:
     Parse.Gives GoodItems (() => modes.fail what) holds :=
-  Parse.givesThen (givesUnexpected modes what) (message _ => Parse.readsFatal)
+  Parse.givesThen (givesUnexpected modes what) (message _ => Parse.readsFatal _ _)
 
 --| `expect` gives the word of a token of the kind it was asked for.
 theorem givesExpect ∀ (modes: Modes) (wanted: Tok) (what: Text)

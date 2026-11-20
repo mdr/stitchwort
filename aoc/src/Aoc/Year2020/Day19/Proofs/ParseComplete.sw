@@ -44,7 +44,7 @@ def SeqFollow (after: List Char): Prop :=
 theorem followNotDigit ∀ (after: List Char) (follow: SeqFollow after): Parse.CannotStart Parse.isDigit after :=
   match follow with
     | Inl stops => char more found => Bool.orFalseLeft _ _ (stops char more found)
-    | Inr (Witness more same) => rewrite same then (char more2 found => rewrite <- List.consInjectiveHead found)
+    | Inr (Witness more same) => rewrite same then (char more2 found => rewrite <- List.consInjectiveHead _ _ _ _ found)
 
 --| A sequence's numbers end where the next space isn't followed by a number: at ` | ` or the line's end.
 theorem declinesNumberStep ∀ (after: List Char)
@@ -97,7 +97,7 @@ theorem runsSequence ∀ (read: List Char) (seq: List Nat)
                 (read2 after2 u same2 => rewrite same2 then Parse.runsChar ' ' after2)
                 (read2 u same2 => rewrite same2 then List.consNotNil ' ' [])
                 (read2 after2 u same2 =>
-                  rewrite same2 then (char more found => rewrite <- List.consInjectiveHead found))
+                  rewrite same2 then (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found))
                 (followNotDigit after follow)
                 (declinesNumberStep after follow)
                 read
@@ -228,7 +228,8 @@ theorem runsNumbered ∀ (read: List Char) (numbered: (Nat, Rule))
           after
           number _
           byComputing
-          (runsNumber numberRead number _ numberWritten (char more found => rewrite <- List.consInjectiveHead found))
+          (runsNumber numberRead number _ numberWritten (char more found =>
+            rewrite <- List.consInjectiveHead _ _ _ _ found))
           (Parse.runsBind
             (() => Parse.text ": ") _
             ": ".toList

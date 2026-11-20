@@ -199,7 +199,7 @@ instance NonEmptyList.instShow [auto show: Show a]: Show (NonEmptyList a) :=
 theorem NonEmptyList.toListInjective ∀ (xs ys: NonEmptyList a) (same: xs.toList = ys.toList): xs = ys :=
   match xs, ys with
     | { head = x, tail = s }, { head = y, tail = t } =>
-      let heads := List.consInjectiveHead same
+      let heads := List.consInjectiveHead x y s t same
       let tails: s = t := Eq.cong (.drop 1) same
       rewrite heads, tails
 

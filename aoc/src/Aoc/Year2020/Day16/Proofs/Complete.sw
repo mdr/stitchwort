@@ -99,7 +99,8 @@ theorem runsRule ∀ (read: List Char) (rule2: Rule)
                 after
                 first _
                 byComputing
-                (runsRange firstRead first firstWritten _ (char more found => rewrite <- List.consInjectiveHead found))
+                (runsRange firstRead first firstWritten _ (char more found =>
+                  rewrite <- List.consInjectiveHead _ _ _ _ found))
                 (Parse.runsBind
                   (() => Parse.text " or ") _
                   " or ".toList
@@ -141,7 +142,7 @@ theorem runsTicket ∀ (read: List Char) (ticket2: Ticket)
                 (read2 after2 u same2 => rewrite same2 then Parse.runsChar ',' after2)
                 (read2 u same2 => rewrite same2 then List.consNotNil ',' [])
                 (read2 after2 u same2 =>
-                  rewrite same2 then (char more found => rewrite <- List.consInjectiveHead found))
+                  rewrite same2 then (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found))
                 (continuesNotDigit after stops)
                 (Parse.declinesSepStep Parse.nat
                   (() => Parse.char ',')

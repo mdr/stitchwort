@@ -1,5 +1,5 @@
 {
-  "next": 4306,
+  "next": 4305,
   "tickets": [
     {
       "id": 47,
@@ -27984,14 +27984,14 @@
     {
       "id": 4283,
       "title": "[Sonnet] Printer lemma families read their arguments off the premises (spells…, is…, lays…) (survey target 1, part B)",
-      "status": "doing",
-      "agent": "Claude",
+      "status": "next",
+      "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
       "body": "From the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target 1. D3698 overnight.\n\nFrom SW-4282: use its script, scratchpad keep/implicit.py (positional binders made implicit where a later premise names them as a bare predicate argument; dropped at uses). Keep pre/middle/post/weaker explicit where the predicate applies them to a computed hang (HangLays-like); check per namespace (stitchwort check Fmt.X) as the inner loop.\n",
       "created": "2026-11-19",
-      "updated": "2026-11-20",
+      "updated": "2026-11-19",
       "commits": []
     },
     {
@@ -28036,17 +28036,15 @@
     {
       "id": 4287,
       "title": "[Sonnet] std Parse.readsFatal, followsDone, readsDone, readsAtDone, List.consInjectiveHead take implicit arguments; drop ~870 _ (survey target 5; touches AoC)",
-      "status": "done",
+      "status": "doing",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target 5. D3698 overnight.\n\n\nLane notes: Parse.readsFatal (message, spec), followsDone (x, y), readsDone (spec), readsAtDone (spec), List.consInjectiveHead (x y xs ys) now implicit; args dropped at every use (also non-underscore ones where inference worked); named at 7 uses. Commit 2852098d1. Checks: std files, 15 AoC days, tools/fmt check 0 errors, goal none, Fmt.Tests 441 pass, toyfmt check, snap:hashes updated.\n",
+      "body": "From the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target 5. D3698 overnight.",
       "created": "2026-11-19",
-      "updated": "2026-11-20",
-      "commits": [
-        "2852098d1"
-      ]
+      "updated": "2026-11-19",
+      "commits": []
     },
     {
       "id": 4288,
@@ -28265,19 +28263,6 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "From SW-4264's report (worklog 19 Nov).",
-      "created": "2026-11-20",
-      "updated": "2026-11-20",
-      "commits": []
-    },
-    {
-      "id": 4305,
-      "title": "[DeepSeek] std Parse.givesFail, followsFatalAny, followsLoop: implicit arguments where uses are always _ (survey target 5 rest; reuse scratchpad keep/imp-positional.py, dedupe symlinked dirs by realpath)",
-      "status": "next",
-      "agent": "",
-      "where": "",
-      "labels": [],
-      "epic": "parser-proofs",
-      "body": "From SW-4287.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []

@@ -11,7 +11,7 @@ theorem readsRange: Parse.Reads range RangeWritten := Parse.readsThen Parse.read
   Parse.readsThen (Parse.readsChar '-') (dashRead u dash =>
     Parse.readsThen Parse.readsNat (highRead high highNumber =>
       Parse.readsDone
-        { low, high }
+        { low, high } _
         (Witness lowRead
           (Witness highRead (Both (rewrite dash, List.appendNil highRead) (Both lowNumber highNumber)))))))
 
@@ -22,7 +22,7 @@ theorem readsRule: Parse.Reads rule RuleWritten := Parse.readsThen Parse.readsTa
       Parse.readsThen (Parse.readsText " or ") (orRead u2 or =>
         Parse.readsThen readsRange (secondRead second secondWritten =>
           Parse.readsDone
-            { field, first, second }
+            { field, first, second } _
             (rewrite made then
               Witness firstRead
                 (Witness secondRead
@@ -35,7 +35,7 @@ theorem readsTicket: Parse.Reads ticket TicketWritten :=
     (Parse.readsSepBy1 Parse.nat (() => Parse.char ',') NumberWritten _ Parse.readsNat (Parse.readsChar ','))
     (valuesRead values written =>
       Parse.readsDone
-        { values = values.toList }
+        { values = values.toList } _
         (Witness values (Both (rewrite List.appendNil valuesRead then written) byComputing)))
 
 theorem readsNotes: Parse.Reads notes NotesWritten :=
@@ -51,7 +51,7 @@ theorem readsNotes: Parse.Reads notes NotesWritten :=
                     (Parse.readsLines ticket TicketWritten readsTicket)
                     (nearbyRead nearby nearbyWritten =>
                       Parse.readsDone
-                        { rules = rules.toList, yours, nearby = nearby.toList }
+                        { rules = rules.toList, yours, nearby = nearby.toList } _
                         (Witness rulesRead
                           (Witness yoursRead
                             (Witness nearbyRead

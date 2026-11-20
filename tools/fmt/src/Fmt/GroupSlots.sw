@@ -483,7 +483,7 @@ theorem slotsFromTexts ∀ (read: List Item) (slots: List (Option Word))
   match read, slots with
     | [], [] => Trivial
     | [item, ..rest], [Some word, ..more] =>
-      let textIs: item.leaf.token.text = word.text := List.consInjectiveHead texts
+      let textIs: item.leaf.token.text = word.text := List.consInjectiveHead _ _ _ _ texts
       let kindLex: item.leaf.token.kind = lexKind item.leaf.token.text := DecEq.sound (Bool.andLeft kinded)
       let kindIs: item.leaf.token.kind = lexKind word.text := rewrite textIs at kindLex then kindLex
       let notComma: (lexKind word.text == Comma) = False :=
@@ -491,7 +491,7 @@ theorem slotsFromTexts ∀ (read: List Item) (slots: List (Option Word))
       let joined: [item.leaf.word, ..itemWords rest] = [word, ..someWords more] :=
         rewrite kindIs, notComma at words then words
       (
-        (List.consInjectiveHead joined, kindIs),
+        (List.consInjectiveHead _ _ _ _ joined, kindIs),
         slotsFromTexts rest more
           (List.consTailEq _ _ _ _ texts)
           (Bool.andRight kinded)
@@ -499,7 +499,7 @@ theorem slotsFromTexts ∀ (read: List Item) (slots: List (Option Word))
           (Bool.andRight code)
       )
     | [item, ..rest], [None, ..more] =>
-      let textIs: item.leaf.token.text = "," := List.consInjectiveHead texts
+      let textIs: item.leaf.token.text = "," := List.consInjectiveHead _ _ _ _ texts
       let kindLex: item.leaf.token.kind = lexKind item.leaf.token.text := DecEq.sound (Bool.andLeft kinded)
       let kindIs: item.leaf.token.kind = Comma := rewrite textIs at kindLex then kindLex
       let tail: itemWords rest = someWords more := rewrite kindIs at words then words

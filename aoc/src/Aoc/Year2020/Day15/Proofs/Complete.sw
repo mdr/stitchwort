@@ -39,7 +39,8 @@ theorem runsStarting ∀ (read: List Char) (starting2: Starting)
               (read2 v after ok stops => runsNumber read2 v after ok stops)
               (read2 after u same => rewrite same then Parse.runsChar ',' after)
               (read2 u same => rewrite same then List.consNotNil ',' [])
-              (read2 after u same => rewrite same then (char more found => rewrite <- List.consInjectiveHead found))
+              (read2 after u same =>
+                rewrite same then (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found))
               (Parse.cannotStartAtBreaks Parse.isDigit byComputing byComputing ending breaks)
               (Parse.declinesSepStep Parse.nat
                 (() => Parse.char ',')

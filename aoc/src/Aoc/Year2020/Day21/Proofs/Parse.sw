@@ -21,11 +21,11 @@ theorem readsWord: Parse.Reads word (read taken =>
 theorem readsIngredient: Parse.Reads ingredient IngredientWritten :=
   Parse.readsThen readsWord (nameRead name (Both named (Both letters made)) =>
     Parse.readsThen (Parse.readsChar ' ') (spaceRead u space =>
-      Parse.readsDone { name } (rewrite made then Both (rewrite space) (Both named letters))))
+      Parse.readsDone { name } _ (rewrite made then Both (rewrite space) (Both named letters))))
 
 theorem readsAllergen: Parse.Reads allergen AllergenWritten := Parse.readsThen readsWord (nameRead name (Both named
   (Both letters made)) =>
-  Parse.readsDone { name } (rewrite made then Both (List.appendNil nameRead) (Both named letters)))
+  Parse.readsDone { name } _ (rewrite made then Both (List.appendNil nameRead) (Both named letters)))
 
 theorem readsFood: Parse.Reads food FoodWritten :=
   Parse.readsThen
@@ -42,7 +42,7 @@ theorem readsFood: Parse.Reads food FoodWritten :=
           (allergensRead allergens allergensWritten =>
             Parse.readsThen (Parse.readsChar ')') (closeRead u2 close =>
               Parse.readsDone
-                { ingredients = ingredients.toList, allergens = allergens.toList }
+                { ingredients = ingredients.toList, allergens = allergens.toList } _
                 (Witness ingredientsRead
                   (Witness allergensRead
                     (Both
@@ -54,7 +54,7 @@ theorem readsFood: Parse.Reads food FoodWritten :=
 theorem readsFoodList: Parse.Reads foodList FoodListWritten :=
   Parse.readsThen (Parse.readsLines food FoodWritten readsFood) (foodsRead foods written =>
     Parse.readsDone
-      { foods = foods.toList }
+      { foods = foods.toList } _
       (Witness foods (Both (rewrite List.appendNil foodsRead then written) byComputing)))
 
 theorem parseWritten ∀ (input: Text) (list: FoodList)
