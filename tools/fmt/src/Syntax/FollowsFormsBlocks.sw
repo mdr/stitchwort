@@ -135,28 +135,21 @@ theorem followsExprKeyword ∀ [self selfTwin: Goal → {Parse Item} Expr]
 
 theorem followsLambdaResultHere ∀ (modes: Modes):
     Parse.Follows SameCode Same (() => lambdaResultHere modes) (() => lambdaResultHere modes) :=
-  followsThenEq
-    [j := fuel => lambdaResultType modes (fuel + 1) False left()]
-    [k := fuel => lambdaResultType modes (fuel + 1) False left()]
-    followsLeftCount
-    (fuel => followsLook (lambdaResultType modes (fuel + 1) False) (lambdaResultTypeDeaf modes (fuel + 1) False))
+  followsThenEq followsLeftCount (fuel =>
+    followsLook (lambdaResultType modes (fuel + 1) False) (lambdaResultTypeDeaf modes (fuel + 1) False))
 
 theorem followsImplicitHere ∀ (modes: Modes):
     Parse.Follows SameCode Same (() => implicitHere modes) (() => implicitHere modes) :=
-  followsThenEq
-    [j := fuel => implicitOn (fuel + 1) left() modes.peek]
-    [k := fuel => implicitOn (fuel + 1) left() modes.peek]
-    followsLeftCount
-    (fuel =>
-      Parse.followsThen followsLeft (rest others same =>
-        followsThenEq (followsPeek modes) (seen =>
-          Parse.followsDone
-            (deafOfStripped
-              (found => implicitOn (fuel + 1) found seen)
-              (found => implicitOnDeaf (fuel + 1) found seen)
-              rest
-              others
-              same))))
+  followsThenEq followsLeftCount (fuel =>
+    Parse.followsThen followsLeft (rest others same =>
+      followsThenEq (followsPeek modes) (seen =>
+        Parse.followsDone
+          (deafOfStripped
+            (found => implicitOn (fuel + 1) found seen)
+            (found => implicitOnDeaf (fuel + 1) found seen)
+            rest
+            others
+            same))))
 
 theorem followsPiHere ∀ (modes: Modes): Parse.Follows SameCode Same (() => piHere modes) (() => piHere modes) :=
   Parse.followsThen followsLeft (rest others same =>
