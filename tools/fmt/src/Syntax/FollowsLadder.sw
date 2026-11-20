@@ -224,11 +224,7 @@ theorem followsQuantifierAhead ∀ (modes: Modes):
 
 theorem followsLambdaHere ∀ (modes: Modes):
     Parse.Follows SameCode Same (() => lambdaHere modes) (() => lambdaHere modes) :=
-  followsThenEq
-    [j := fuel => lambdaAhead modes (fuel + 1) left()]
-    [k := fuel => lambdaAhead modes (fuel + 1) left()]
-    followsLeftCount
-    (fuel => followsLook (lambdaAhead modes (fuel + 1)) (lambdaAheadDeaf modes (fuel + 1)))
+  followsThenEq followsLeftCount (fuel => followsLook (lambdaAhead modes (fuel + 1)) (lambdaAheadDeaf modes (fuel + 1)))
 
 theorem followsAtUpperBrace ∀ (modes: Modes):
     Parse.Follows SameCode Same (() => modes.at Upper && isSome LBrace (modes.peekAt 1)) (() =>
@@ -337,11 +333,7 @@ theorem followsAppAt ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: AtomFacts self selfTwin)
     (modes: Modes) (start: Nat):
     Parse.Follows SameCode ExprsAlike (() => appAt self modes start) (() => appAt selfTwin modes start) :=
-  followsThenEq
-    [j := here => appHead self modes (here && modes.sectionHead != Some start)]
-    [k := here => appHead selfTwin modes (here && modes.sectionHead != Some start)]
-    (followsAt modes Dot)
-    (here => followsAppHead facts modes (here && modes.sectionHead != Some start))
+  followsThenEq (followsAt modes Dot) (here => followsAppHead facts modes (here && modes.sectionHead != Some start))
 
 theorem followsApp ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: AtomFacts self selfTwin) (modes: Modes):
@@ -603,11 +595,7 @@ theorem followsPipeChain ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (values: ExprsAlike value valueTwin):
     Parse.Follows SameCode ExprsAlike (() => pipeChain self modes indent value) (() =>
       pipeChain selfTwin modes indent valueTwin) :=
-  followsThenEq
-    [j := fuel => pipesFrom (fuel + 1) self modes indent value]
-    [k := fuel => pipesFrom (fuel + 1) selfTwin modes indent valueTwin]
-    followsLeftCount
-    (fuel => followsPipesFrom facts modes indent (fuel + 1) value valueTwin values)
+  followsThenEq followsLeftCount (fuel => followsPipesFrom facts modes indent (fuel + 1) value valueTwin values)
 
 theorem followsPipedEnd ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: LambdaFacts self selfTwin)
@@ -1111,13 +1099,9 @@ theorem followsOpLogic ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (logics: ExprsAlike logic logicTwin):
     Parse.Follows SameCode ExprsAlike (() => opLogic self modes section logic) (() =>
       opLogic selfTwin modes section logicTwin) :=
-  followsThenEq
-    [j := ahead => opIffed self modes section (iffOf self modes logic ahead)]
-    [k := ahead => opIffed selfTwin modes section (iffOf selfTwin modes logicTwin ahead)]
-    (followsAt modes IffArrow)
-    (ahead =>
-      Parse.followsThen (followsIffOf facts modes logic logicTwin logics ahead) (iffed iffedTwin iffeds =>
-        followsOpIffed facts.below.below.below.below.knot facts.results modes section iffed iffedTwin iffeds))
+  followsThenEq (followsAt modes IffArrow) (ahead =>
+    Parse.followsThen (followsIffOf facts modes logic logicTwin logics ahead) (iffed iffedTwin iffeds =>
+      followsOpIffed facts.below.below.below.below.knot facts.results modes section iffed iffedTwin iffeds))
 
 theorem followsOpCompared ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: QuantifierFacts self selfTwin)

@@ -81,74 +81,35 @@ theorem followsBinderGroup ∀ [self selfTwin: Goal → {Parse Item} Expr]
         Parse.followsThen (followsLowerNames modes.inBrackets) (more moreTwin mores =>
           Parse.followsThen (followsExpectFixed modes.inBrackets Colon "`:`") (colon colonTwin colons =>
             Parse.followsThen (followsBinderType knot modes.inBrackets) (annotation annotationTwin annotations =>
-              followsThenEq
-                [alike := GroupsAlike]
-                [j := atEquals =>
-                  (let default := binderDefault self modes.inBrackets atEquals;
-                   let close := modes.inBrackets.expectFixed RParen "`)`";
-                   if !defaults && default.isSome then Syntax.fatal defaultPlaces
-                   else
-                     {
-                       kind = GroupBinder,
-                       implicit = False,
-                       open,
-                       attributes,
-                       auto = None,
-                       names = [first, ..more],
-                       colon = Some colon,
-                       annotation = Some annotation,
-                       default,
-                       close,
-                       bare = False
-                     })]
-                [k := atEquals =>
-                  (let default := binderDefault selfTwin modes.inBrackets atEquals;
-                   let close := modes.inBrackets.expectFixed RParen "`)`";
-                   if !defaults && default.isSome then Syntax.fatal defaultPlaces
-                   else
-                     {
-                       kind = GroupBinder,
-                       implicit = False,
-                       open = openTwin,
-                       attributes = attributesTwin,
-                       auto = None,
-                       names = [firstTwin, ..moreTwin],
-                       colon = Some colonTwin,
-                       annotation = Some annotationTwin,
-                       default,
-                       close,
-                       bare = False
-                     })]
-                (followsAt modes.inBrackets ColonEq)
-                (atEquals =>
-                  Parse.followsThen
-                    (followsBinderDefault knot modes.inBrackets atEquals)
-                    (default defaultTwin defaults2 =>
-                      Parse.followsThen (followsExpectFixed modes.inBrackets RParen "`)`") (close closeTwin closes =>
-                        let same: default.isSome = defaultTwin.isSome := optionIsSome default defaultTwin defaults2
-                        rewrite same then
-                          match !defaults && defaultTwin.isSome with
-                            | True => followsFatalAny _ _
-                            | False =>
-                              Parse.followsDone
-                                (alikeGroup GroupBinder False open openTwin attributes attributesTwin attributeses None
-                                    None Trivial
-                                    [first, ..more]
-                                    [firstTwin, ..moreTwin]
-                                    (Both firsts mores)
-                                    (Some colon)
-                                    (Some colonTwin)
-                                    Trivial
-                                    (Some annotation)
-                                    (Some annotationTwin)
-                                    annotations
-                                    default
-                                    defaultTwin
-                                    defaults2
-                                    close
-                                    closeTwin
-                                    False
-                                    False))))))))))
+              followsThenEq [alike := GroupsAlike] (followsAt modes.inBrackets ColonEq) (atEquals =>
+                Parse.followsThen
+                  (followsBinderDefault knot modes.inBrackets atEquals)
+                  (default defaultTwin defaults2 =>
+                    Parse.followsThen (followsExpectFixed modes.inBrackets RParen "`)`") (close closeTwin closes =>
+                      let same: default.isSome = defaultTwin.isSome := optionIsSome default defaultTwin defaults2
+                      rewrite same then
+                        match !defaults && defaultTwin.isSome with
+                          | True => followsFatalAny _ _
+                          | False =>
+                            Parse.followsDone
+                              (alikeGroup GroupBinder False open openTwin attributes attributesTwin attributeses None
+                                  None Trivial
+                                  [first, ..more]
+                                  [firstTwin, ..moreTwin]
+                                  (Both firsts mores)
+                                  (Some colon)
+                                  (Some colonTwin)
+                                  Trivial
+                                  (Some annotation)
+                                  (Some annotationTwin)
+                                  annotations
+                                  default
+                                  defaultTwin
+                                  defaults2
+                                  close
+                                  closeTwin
+                                  False
+                                  False))))))))))
 
 theorem implicitAutoAlike ∀ (first firstTwin: Word)
     (firsts: WordsAlike first firstTwin) (rest restTwin: List Word)
@@ -577,23 +538,18 @@ theorem followsUnfoldingNames ∀ (fuel: Nat) (modes: Modes) (found twins: List 
     Parse.Follows SameCode (List.All2 WordsAlike) (() => unfoldingNames fuel modes found) (() =>
       unfoldingNames fuel modes twins) :=
   match fuel with
-    | Succ more =>
-      followsThenEq
-        [j := upper => (let name := unfoldingName modes upper; unfoldingNext more modes found name (modes.at Comma))]
-        [k := upper => (let name := unfoldingName modes upper; unfoldingNext more modes twins name (modes.at Comma))]
-        (followsAt modes Upper)
-        (upper =>
-          Parse.followsThen (followsUnfoldingName modes upper) (name nameTwin names =>
-            followsThenEq (followsAt modes Comma) (comma =>
-              followsUnfoldingNext more modes
-                (again twinsAgain agains => followsUnfoldingNames more modes again twinsAgain agains)
-                found
-                twins
-                founds
-                name
-                nameTwin
-                names
-                comma)))
+    | Succ more => followsThenEq (followsAt modes Upper) (upper =>
+      Parse.followsThen (followsUnfoldingName modes upper) (name nameTwin names =>
+        followsThenEq (followsAt modes Comma) (comma =>
+          followsUnfoldingNext more modes
+            (again twinsAgain agains => followsUnfoldingNames more modes again twinsAgain agains)
+            found
+            twins
+            founds
+            name
+            nameTwin
+            names
+            comma)))
     | Zero => Parse.followsDone (List.all2Reverse found twins founds)
 
 theorem followsUnfoldingClauseOf ∀ (afterDecreasing: Modes):

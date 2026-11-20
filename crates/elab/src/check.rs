@@ -2242,7 +2242,7 @@ struct Along<'a> {
 
 /// `term` (in a context of `level` variables) with each occurrence of
 /// `needle` replaced by `with`, in a context of `extra` more variables.
-fn abstract_needle(
+pub(crate) fn abstract_needle(
     g: &Ev,
     term: &Term,
     level: usize,
@@ -4715,6 +4715,7 @@ fn finish_application(
         searches,
         after_expected,
         expecting,
+        expecting_named,
         queued_from,
         metas_from,
         ..
@@ -4790,7 +4791,11 @@ fn finish_application(
                     &ty,
                     expected,
                     &own_dictionaries(&term),
-                )?)
+                )?
+                || match &expecting_named {
+                    Some(named) => crate::undo::unify_abstracting(cx, &ty, named)?,
+                    None => false,
+                })
         {
             return Err(match first_error.take() {
                 Some(first) => *first,

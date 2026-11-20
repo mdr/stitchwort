@@ -184,6 +184,14 @@ pub(crate) fn unify_solving_arguments(cx: &mut Ctx, a: &Value, b: &Value) -> Res
     .is_some())
 }
 
+/// [`crate::unify::unify_abstracting`], undoing what it solved if it fails.
+pub(crate) fn unify_abstracting(cx: &mut Ctx, a: &Value, b: &Value) -> Result<bool> {
+    Ok(transaction(cx, |cx| {
+        Ok(crate::unify::unify_abstracting(&cx.u(), cx.level(), a, b)?.then_some(()))
+    })?
+    .is_some())
+}
+
 /// [`crate::unify::unify_by_unknown_arguments`], undoing what it solved if it fails.
 pub(crate) fn unify_by_unknown_arguments(cx: &mut Ctx, a: &Value, b: &Value) -> Result<bool> {
     Ok(transaction(cx, |cx| {

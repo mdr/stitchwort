@@ -3013,6 +3013,9 @@ fn solve(g: &Unifier<'_>, level: usize, m: usize, spine: &[Elim], rhs: &Value) -
                 Value::Ctor(d, _, fields) if fields.is_empty() && has_one_value(g, d) => {
                     icits.push(*icit);
                 }
+                _ if g.attempt.abstracting.get() => {
+                    return solve_abstracting(g, level, m, spine, rhs);
+                }
                 _ => return Ok(false),
             },
             Elim::J { .. } | Elim::Proj(..) => return Ok(false),
@@ -3036,6 +3039,125 @@ fn solve(g: &Unifier<'_>, level: usize, m: usize, spine: &[Elim], rhs: &Value) -
     let value = eval(g, &[], &solution)?;
     g.store.solve_meta(m, value);
     Ok(true)
+}
+
+/// [`solve`] for `?m spine = rhs` where the spine is distinct variables but
+/// for one argument `e`, a stuck computation ([`unify_abstracting`]): the
+/// solution is `rhs` with each occurrence of `e` (as written) replaced by
+/// the parameter in its place, as Lean's `kabstract` makes a motive.
+/// `?j (peekIn modes 0 items)` against `Call left (rest => Done (isSome
+/// LParen (peekIn modes 0 items) && piBinderAhead rest))` gives `?j := x =>
+/// Call left (rest => Done (isSome LParen x && piBinderAhead rest))`.
+///
+/// Only where that is the one solution to take: `e` mentions no unknown,
+/// and mentions a variable `v` that `?m` can't (`items`, bound inside the
+/// other side). So no solution can keep any occurrence of `e`, and
+/// replacing all of them is not a choice among several, as it would be for
+/// an `e` that `?m` could mention (`?j (f a)` against `g (f a) (f a)` has
+/// four solutions). That needs `v` to occur nowhere else in `rhs`: the
+/// inner [`solve`]'s renaming refuses a solution that mentions it, so
+/// nothing is solved then
+/// (`examples/reject/continuation-abstracting-variable-outside.sw`). An
+/// `rhs` with an unknown in it is refused too, since renaming would prune
+/// that unknown's dependence on `v` (`?m e = F (?n v)` gives `?n := _ =>
+/// …`, one solution of several: `?n` may use `v` through `e`). Nothing is
+/// solved if `e` doesn't occur. Unlike [`solve`], the spine's other
+/// arguments must be distinct variables: `()` and ignorable positions
+/// aren't handled. The solution is checked by comparing `?m spine` with
+/// `rhs` again.
+fn solve_abstracting(
+    g: &Unifier<'_>,
+    level: usize,
+    m: usize,
+    spine: &[Elim],
+    rhs: &Value,
+) -> Result<bool> {
+    let _once = ScopedCell::set(&g.attempt.abstracting, false);
+    let mut seen = HashSet::default();
+    let mut needle = None;
+    for (at, elim) in spine.iter().enumerate() {
+        let Elim::App(arg, icit) = elim else {
+            return Ok(false);
+        };
+        match force_solved(g, arg.clone())? {
+            Value::Neutral(Head::Var(l, _), s) if s.is_empty() => {
+                if !seen.insert(l) {
+                    return Ok(false);
+                }
+            }
+            e @ (Value::Neutral(Head::Var(..) | Head::Def(_), _) | Value::Call(..))
+                if needle.is_none() =>
+            {
+                if !matches!(
+                    force(g, e.clone())?,
+                    Value::Neutral(Head::Var(..) | Head::Def(_), _)
+                ) {
+                    return Ok(false);
+                }
+                needle = Some((at, *icit, e));
+            }
+            _ => return Ok(false),
+        }
+    }
+    let Some((at, icit, e)) = needle else {
+        return Ok(false);
+    };
+    let needle = quote_as_written(g, level, &e)?;
+    if needle.subterms().any(|(t, _)| matches!(t, Term::Meta(_)))
+        || crate::matching::free_levels(&needle, level)
+            .iter()
+            .all(|l| seen.contains(l))
+    {
+        return Ok(false);
+    }
+    let hay = quote_as_written(g, level, rhs)?;
+    if hay.subterms().any(|(t, _)| matches!(t, Term::Meta(_)))
+        || !hay
+            .subterms()
+            .any(|(t, under)| crate::matching::same_shifted(&needle, t, under, 0))
+    {
+        return Ok(false);
+    }
+    let Ok(abstracted) = crate::check::abstract_needle(g, &hay, level, &needle, 1, &Term::Var(0))
+    else {
+        return Ok(false);
+    };
+    let env: Vec<Value> = (0..=level).map(Value::var).collect();
+    let body = eval(g, &env, &abstracted)?;
+    let mut opened = spine.to_vec();
+    opened[at] = Elim::App(Value::var(level), icit);
+    let trail = g.store.meta_trail.borrow().len();
+    if solve(g, level + 1, m, &opened, &body)?
+        && unify(
+            g,
+            level,
+            &Value::Neutral(Head::Meta(m), spine.iter().cloned().collect()),
+            rhs,
+        )?
+    {
+        return Ok(true);
+    }
+    undo_since(g, trail);
+    Ok(false)
+}
+
+/// [`unify_solving_arguments`], except that an unknown applied to variables
+/// and one stuck computation `e`, as `?j e`, is solved by abstracting `e`
+/// from the other side ([`solve_abstracting`]). For a caller whose other
+/// comparisons have all failed: `Parse.followsThen`'s continuation `?j`,
+/// once its first parser `?p` is known, meets `?j (?p ())` inside the
+/// goal's parser, `?p ()` unfolded to a computation stuck on what the
+/// parser read, where no pattern can solve it.
+pub(crate) fn unify_abstracting(
+    g: &Unifier<'_>,
+    level: usize,
+    a: &Value,
+    b: &Value,
+) -> Result<bool> {
+    let _abstracting = ScopedCell::set(&g.attempt.abstracting, true);
+    let _solving = ScopedCell::set(&g.attempt.solving_arguments, true);
+    let _memo = Scoped::set(&g.attempt.call_memo, None);
+    unify(g, level, a, b)
 }
 
 /// Whether data type `d` has exactly one value: one constructor, without

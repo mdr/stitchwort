@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/continuation-abstracting-variable-outside.sw:24:73 ]
+    │
+ 24 │   Parse.followsThen followsHere (x y same => Parse.followsDone (rewrite same))
+    │                                                                         ──┬─  
+    │                                                                           ╰─── `byComputing` proves an equation, but the expected type is `_alike _ _`
+────╯
