@@ -1081,19 +1081,11 @@ theorem followsDeclarationBody ∀ (rule: ExpressionRule) (alts: AltPatternFollo
 
 theorem followsNamespaceStep ∀ (seen: Seen) (modes: Modes):
     Parse.Follows SameCode DeclsAlike (() => namespaceStep seen modes) (() => namespaceStep seen modes) :=
-  match seen.hasNamespace with
-    | True => followsFatalAny _ (() => Syntax.fatal "a file has only one namespace line")
-    | False =>
-      match seen.hasImports || seen.hasDecls with
-        | True =>
-          followsFatalAny _ (() => Syntax.fatal "the namespace line must come first, before imports and declarations")
-        | False => followsNamespaceLine modes
+  byWalking [followsFatalAny, followsNamespaceLine]
 
 theorem followsImportStep ∀ (seen: Seen) (modes: Modes):
     Parse.Follows SameCode DeclsAlike (() => importStep seen modes) (() => importStep seen modes) :=
-  match seen.hasDecls with
-    | True => followsFatalAny _ (() => Syntax.fatal "imports go at the top of the file")
-    | False => followsImportLine modes
+  byWalking [followsFatalAny, followsImportLine]
 
 theorem followsDeclarationKind ∀ (rule: ExpressionRule) (alts: AltPatternFollows) (seen: Seen)
     (modes: Modes) (attributes attributesTwin: List Attributes)
