@@ -27984,14 +27984,14 @@
     {
       "id": 4283,
       "title": "[Sonnet] Printer lemma families read their arguments off the premises (spells…, is…, lays…) (survey target 1, part B)",
-      "status": "next",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "From the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target 1. D3698 overnight.\n\nFrom SW-4282: use its script, scratchpad keep/implicit.py (positional binders made implicit where a later premise names them as a bare predicate argument; dropped at uses). Keep pre/middle/post/weaker explicit where the predicate applies them to a computed hang (HangLays-like); check per namespace (stitchwort check Fmt.X) as the inner loop.\n",
+      "body": "\nFrom the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target 1. D3698 overnight.\n\nFrom SW-4282: use its script, scratchpad keep/implicit.py (positional binders made implicit where a later premise names them as a bare predicate argument; dropped at uses). Keep pre/middle/post/weaker explicit where the predicate applies them to a computed hang (HangLays-like); check per namespace (stitchwort check Fmt.X) as the inner loop.\n\n\nLane notes: spells… (all but eachUniform, spellsJoinedWith.docs), refinesAppend, isConcat, isLast/isNest/isGroup/isIdGroup/isFlatten/isOneLineBelow/isIfBroken/isChoice/isSame/isAllSame/isEq, lays…OfKinds/startOfKinds made implicit. isCons/isAppend/isFill/isSpaced stay explicit (Is/IsAll unfold). Fmt whole check 0 errors, goal none, Fmt.Tests 441 pass.\n",
       "created": "2026-11-19",
-      "updated": "2026-11-19",
+      "updated": "2026-11-20",
       "commits": []
     },
     {
