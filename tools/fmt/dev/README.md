@@ -44,6 +44,7 @@ starts by checking the project (about 25 s), then takes 850 MB to 1.5 GB.
 | `classify.py` | `OUT` (`--bin STITCHWORT`) | Sorts the outputs that differ from `stitchwort fmt -` on the same input: glued pairs (section 3.5), layout, other |
 | `sketchall.py` | `--twin TWIN OUT …` | Runs the twin's `sketch` stage over the outputs |
 | `implicit.py` | `[--dry-run] [--force \| --name-real] [--roots DIRS] LEMMA BINDER …`, or `--from-file SPEC` | Makes the lemma's named explicit binders implicit and drops those positional arguments at every use (see below) |
+| `spellings.py` | `[--sw PATH] [--names a,b,… or all] [--no-prune] [--list] FILE.sw` | Deletes the spelled named arguments a proof step does not need, keeping those the namespace still checks (see below) |
 
 `--sketch` and `sketchall.py` need SW-3955's stages `words`, `calmwords`
 and `sketch` (the predicates of section 1, in a file `S1Sketch.sw`), which
@@ -121,3 +122,44 @@ refused rather than edited. Both forms make the same edits:
 python3 tools/fmt/dev/implicit.py --dry-run --force hangsCons docs
 python3 tools/fmt/dev/implicit.py --dry-run --force Fmt.HangProofs.hangsCons docs
 ```
+
+## Deleting unneeded spelled arguments
+
+`spellings.py` (also `task fmt:unspell -- FILE.sw`) deletes the spelled
+named arguments (`[p := …]`, `[alike := …]`, …) a proof step does not need
+and keeps the ones it does. A *unit* is a run of spelled groups with only
+whitespace between them, such as the `[p := …]` / `[j := …]` lines under a
+`givesThen`, or `[p := …] [q := …]` after `followsThen`.
+
+The tool deletes every unit and checks the file's namespace. For each
+error it puts back the nearest unit before the error (preferring the unit
+whose head, the function it follows, is the one the error names), until
+the namespace is clean. It then prunes the put-back units:
+
+1. it tries each unit whole, one check per unit;
+2. when the whole unit does not check, it tries each named argument in that
+   unit on its own, keeping each drop that checks.
+
+So a group no longer goes all or none: if `[q := …]` is needed and
+`[p := …]` is not, only `p` is deleted. Trying the whole unit first keeps
+the common case fast; the per-argument fallback costs one extra check for
+each argument in a unit that cannot all go.
+
+`--names a,b,…` limits the run to those spelled names. The default is
+`p,q,j,k,alike,g2,spec,weaker,holds,inv,x,first,second,self,selfTwin,item,start,later,goals`;
+`--names all` considers every name, including the type arguments `a` and
+`b` of statements. Groups whose names are not selected are left untouched,
+so the same result no longer needs separate `--names p,q` and `--names
+j,k` runs.
+
+`--list` only counts the groups per name and changes nothing, which is the
+safe read-only way to see what a file offers. There is no full `--dry-run`:
+the tool rewrites the file in place after each check and saves its progress
+in `$TMPDIR/spellings/<file>.json`, so an interrupted run continues from
+that state. `--no-prune` stops after the put-back step, keeping whole units
+only. `--sw PATH` names the release CLI (default
+`target/release/stitchwort` in the repo).
+
+A namespace check takes 10 to 60 s and a file may need dozens, so run it in
+the background, one file at a time, in dependency order. Format the file
+afterwards with `task fmt:sw -- FILE.sw`.
