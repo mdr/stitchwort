@@ -58,7 +58,7 @@ theorem givesCountZeros ∀ (fuel count: Nat):
     | Succ more => Parse.givesThen givesLook (lookValue lookValueFacts =>
       (match branch2: lookValue with
         | None => Parse.givesDone arithmetic
-        | Some n => (match branch3: (n.decEq 0).holds with
+        | Some n => (match branch3: n == 0 with
           | False => Parse.givesDone arithmetic
           | True => Parse.givesWeaken
             (givesCountZeros more (Succ count))
