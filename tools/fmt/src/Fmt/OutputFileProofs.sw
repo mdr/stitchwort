@@ -18,6 +18,7 @@ import Syntax.LexProofs (AllPlain, Laid, Piece, Spells, utf8Chars, utf8OfText)
 import Syntax.SettleProofs (alphabet1, arrowFollow, plain1, plainFrom, tokens, within1Not)
 import Syntax.SettleBareProofs (lastPair, noLast)
 import Fmt (..)
+import Fmt.OperatorList (operators1, operatorListed)
 import Fmt.SpellProofs (..)
 import Fmt.TreeJoinProofs (..)
 import Fmt.TokenProofs (declRealOfLexical, printedTokens1)
@@ -186,89 +187,9 @@ theorem runsAfter ∀ (texts: List Text) (runs: Runs texts): RunsAfter texts := 
 --| The kind the lexer gives a text is a token of the alphabet that is no bracket.
 def opKind (text: Text): Bool := (lexKind text).within1 && !(lexKind text).isOpener && !(lexKind text).isCloser
 
-theorem opCase ∀ (text literal: Text)
-    (same: (text == literal) = True)
-    (facts: opKind literal = True):
-    opKind text = True :=
-  rewrite DecEq.sound same then facts
-
-theorem opKindA ∀ (text: Text) (listed: operatorTextA1 text = True): opKind text = True := match a0: text == "->" with
-  | True => opCase text "->" a0 byComputing
-  | False =>
-    match a1: text == "→" with
-      | True => opCase text "→" a1 byComputing
-      | False =>
-        match a2: text == "||" with
-          | True => opCase text "||" a2 byComputing
-          | False =>
-            match a3: text == "∨" with
-              | True => opCase text "∨" a3 byComputing
-              | False =>
-                match a4: text == "&&" with
-                  | True => opCase text "&&" a4 byComputing
-                  | False =>
-                    match a5: text == "∧" with
-                      | True => opCase text "∧" a5 byComputing
-
-theorem opKindB ∀ (text: Text) (listed: operatorTextB1 text = True): opKind text = True := match a0: text == "+" with
-  | True => opCase text "+" a0 byComputing
-  | False =>
-    match a1: text == "++" with
-      | True => opCase text "++" a1 byComputing
-      | False =>
-        match a2: text == "-" with
-          | True => opCase text "-" a2 byComputing
-          | False =>
-            match a3: text == "*" with
-              | True => opCase text "*" a3 byComputing
-              | False =>
-                match a4: text == "/" with
-                  | True => opCase text "/" a4 byComputing
-                  | False =>
-                    match a5: text == "%" with
-                      | True => opCase text "%" a5 byComputing
-
-theorem opKindC ∀ (text: Text) (listed: operatorTextC1 text = True): opKind text = True := match a0: text == "!=" with
-  | True => opCase text "!=" a0 byComputing
-  | False =>
-    match a1: text == "≠" with
-      | True => opCase text "≠" a1 byComputing
-      | False =>
-        match a2: text == "<" with
-          | True => opCase text "<" a2 byComputing
-          | False =>
-            match a3: text == "<=" with
-              | True => opCase text "<=" a3 byComputing
-              | False =>
-                match a4: text == "≤" with
-                  | True => opCase text "≤" a4 byComputing
-
-theorem opKindD ∀ (text: Text) (listed: operatorTextD1 text = True): opKind text = True := match a0: text == ">" with
-  | True => opCase text ">" a0 byComputing
-  | False =>
-    match a1: text == ">=" with
-      | True => opCase text ">=" a1 byComputing
-      | False =>
-        match a2: text == "≥" with
-          | True => opCase text "≥" a2 byComputing
-          | False =>
-            match a3: text == "==" with
-              | True => opCase text "==" a3 byComputing
-              | False =>
-                match a4: text == "=" with
-                  | True => opCase text "=" a4 byComputing
-
 --| An infix operator `within1` lets through has such a kind.
 theorem opKindOf ∀ (text: Text) (listed: operatorText1 text = True): opKind text = True :=
-  match first: operatorTextA1 text with
-    | True => opKindA text first
-    | False =>
-      match second: operatorTextB1 text with
-        | True => opKindB text second
-        | False =>
-          match third: operatorTextC1 text with
-            | True => opKindC text third
-            | False => opKindD text listed
+  List.allMember opKind operators1 byComputing text (operatorListed text listed)
 
 -- The tokens of an expression.
 
@@ -1624,13 +1545,7 @@ theorem wordRunExample: Scan.start.run ((fixedWord "a" Comments.none).spelledAt 
       = Some { previous = Some Lower, open = 0 } :=
   wordRun (fixedWord "a" Comments.none) False Scan.start { previous = Some Lower, open = 0 } byComputing byComputing
 
-theorem opKindAExample: opKind "->" = True := opKindA "->" byComputing
-
-theorem opKindBExample: opKind "+" = True := opKindB "+" byComputing
-
-theorem opKindCExample: opKind "!=" = True := opKindC "!=" byComputing
-
-theorem opKindDExample: opKind ">" = True := opKindD ">" byComputing
+theorem opKindOfExample: opKind "+" = True := opKindOf "+" byComputing
 
 theorem leavesStartDefExample: kindFirst exampleDecl.leaves = True :=
   leavesStartDef exampleDecl.leaves (exampleDecl.spelt.filter notComment) byComputing byComputing byComputing

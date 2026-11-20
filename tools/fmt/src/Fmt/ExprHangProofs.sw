@@ -7,6 +7,7 @@ import Std.Doc (..)
 import Std.Doc.Proofs (..)
 import Syntax (Comments, Expr, InfixKind, Note, Tok, Word)
 import Fmt (..)
+import Fmt.OperatorList (operators1, operatorListed)
 import Fmt.HangProofs (..)
 import Fmt.MarkProofs (allKeysFrom, keysFrom)
 import Fmt.AppHangProofs (ArgsHang, HangsFor, appElHangs, argAround, lastArg)
@@ -111,82 +112,34 @@ theorem plainOperator ∀ (text: Text)
 theorem arrowOperator ∀ (text: Text) (arrow: lexKind text = Arrow) (word: wordText text = True): OperatorFacts text :=
   (Inr arrow, wordTokenOf text word)
 
-theorem operatorA ∀ (text: Text) (listed: operatorTextA1 text = True): OperatorFacts text := match a0: text == "->" with
-  | True => rewrite DecEq.sound a0 then arrowOperator _ byComputing byComputing
-  | False =>
-    match a1: text == "→" with
-      | True => rewrite DecEq.sound a1 then arrowOperator _ byComputing byComputing
-      | False =>
-        match a2: text == "||" with
-          | True => rewrite DecEq.sound a2 then plainOperator _ byComputing byComputing
-          | False =>
-            match a3: text == "∨" with
-              | True => rewrite DecEq.sound a3 then plainOperator _ byComputing byComputing
-              | False =>
-                match a4: text == "&&" with
-                  | True => rewrite DecEq.sound a4 then plainOperator _ byComputing byComputing
-                  | False =>
-                    match a5: text == "∧" with
-                      | True => rewrite DecEq.sound a5 then plainOperator _ byComputing byComputing
-
-theorem operatorB ∀ (text: Text) (listed: operatorTextB1 text = True): OperatorFacts text := match a0: text == "+" with
-  | True => rewrite DecEq.sound a0 then plainOperator _ byComputing byComputing
-  | False =>
-    match a1: text == "++" with
-      | True => rewrite DecEq.sound a1 then plainOperator _ byComputing byComputing
-      | False =>
-        match a2: text == "-" with
-          | True => rewrite DecEq.sound a2 then plainOperator _ byComputing byComputing
-          | False =>
-            match a3: text == "*" with
-              | True => rewrite DecEq.sound a3 then plainOperator _ byComputing byComputing
-              | False =>
-                match a4: text == "/" with
-                  | True => rewrite DecEq.sound a4 then plainOperator _ byComputing byComputing
-                  | False =>
-                    match a5: text == "%" with
-                      | True => rewrite DecEq.sound a5 then plainOperator _ byComputing byComputing
-
-theorem operatorC ∀ (text: Text) (listed: operatorTextC1 text = True): OperatorFacts text := match a0: text == "!=" with
-  | True => rewrite DecEq.sound a0 then plainOperator _ byComputing byComputing
-  | False =>
-    match a1: text == "≠" with
-      | True => rewrite DecEq.sound a1 then plainOperator _ byComputing byComputing
-      | False =>
-        match a2: text == "<" with
-          | True => rewrite DecEq.sound a2 then plainOperator _ byComputing byComputing
-          | False =>
-            match a3: text == "<=" with
-              | True => rewrite DecEq.sound a3 then plainOperator _ byComputing byComputing
-              | False =>
-                match a4: text == "≤" with
-                  | True => rewrite DecEq.sound a4 then plainOperator _ byComputing byComputing
-
-theorem operatorD ∀ (text: Text) (listed: operatorTextD1 text = True): OperatorFacts text := match a0: text == ">" with
-  | True => rewrite DecEq.sound a0 then plainOperator _ byComputing byComputing
-  | False =>
-    match a1: text == ">=" with
-      | True => rewrite DecEq.sound a1 then plainOperator _ byComputing byComputing
-      | False =>
-        match a2: text == "≥" with
-          | True => rewrite DecEq.sound a2 then plainOperator _ byComputing byComputing
-          | False =>
-            match a3: text == "==" with
-              | True => rewrite DecEq.sound a3 then plainOperator _ byComputing byComputing
-              | False =>
-                match a4: text == "=" with
-                  | True => rewrite DecEq.sound a4 then plainOperator _ byComputing byComputing
+def operatorsFacts: List.All OperatorFacts operators1 := (
+  arrowOperator _ byComputing byComputing,
+  arrowOperator _ byComputing byComputing,
+  plainOperator _ byComputing byComputing,
+  plainOperator _ byComputing byComputing,
+  plainOperator _ byComputing byComputing,
+  plainOperator _ byComputing byComputing,
+  plainOperator _ byComputing byComputing,
+  plainOperator _ byComputing byComputing,
+  plainOperator _ byComputing byComputing,
+  plainOperator _ byComputing byComputing,
+  plainOperator _ byComputing byComputing,
+  plainOperator _ byComputing byComputing,
+  plainOperator _ byComputing byComputing,
+  plainOperator _ byComputing byComputing,
+  plainOperator _ byComputing byComputing,
+  plainOperator _ byComputing byComputing,
+  plainOperator _ byComputing byComputing,
+  plainOperator _ byComputing byComputing,
+  plainOperator _ byComputing byComputing,
+  plainOperator _ byComputing byComputing,
+  plainOperator _ byComputing byComputing,
+  plainOperator _ byComputing byComputing,
+  Trivial
+)
 
 theorem operatorFacts ∀ (text: Text) (listed: operatorText1 text = True): OperatorFacts text :=
-  match a: operatorTextA1 text with
-    | True => operatorA text a
-    | False =>
-      match b: operatorTextB1 text with
-        | True => operatorB text b
-        | False =>
-          match c: operatorTextC1 text with
-            | True => operatorC text c
-            | False => operatorD text listed
+  List.allMem OperatorFacts text operators1 operatorsFacts (operatorListed text listed)
 
 -- Shapes `within1` fixes.
 

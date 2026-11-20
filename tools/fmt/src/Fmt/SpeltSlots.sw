@@ -9,6 +9,7 @@ import Syntax (Expr, InfixKind, Item, Leaf, Tok, Token, Word, lex, negativeNumer
 import Syntax.ReadBackLine (..)
 import Syntax.ReadBackRuns (commaReads)
 import Fmt (..)
+import Fmt.OperatorList (operators1, operatorListed)
 import Fmt.OutputStatements (..)
 import Fmt.TreeJoinProofs (lexKind)
 import Fmt.SplitProofs (Chained)
@@ -78,88 +79,41 @@ theorem arrowFacts ∀ (text: Text) (arrow: arrowText1 text = True): InfixFacts 
       match a1: text == "→" with
         | True => rewrite DecEq.sound a1 then (byComputing, byComputing)
 
-theorem binaryFactsA ∀ (text: Text)
-    (listed: operatorTextA1 text = True)
-    (notArrow: arrowText1 text = False):
-    InfixFacts InfixBinary text :=
-  match a0: text == "->" with
-    | False =>
-      match a1: text == "→" with
-        | False =>
-          match a2: text == "||" with
-            | True => rewrite DecEq.sound a2 then (byComputing, byComputing)
-            | False =>
-              match a3: text == "∨" with
-                | True => rewrite DecEq.sound a3 then (byComputing, byComputing)
-                | False =>
-                  match a4: text == "&&" with
-                    | True => rewrite DecEq.sound a4 then (byComputing, byComputing)
-                    | False =>
-                      match a5: text == "∧" with
-                        | True => rewrite DecEq.sound a5 then (byComputing, byComputing)
-
-theorem binaryFactsB ∀ (text: Text) (listed: operatorTextB1 text = True): InfixFacts InfixBinary text :=
-  match a0: text == "+" with
-    | True => rewrite DecEq.sound a0 then (byComputing, byComputing)
-    | False =>
-      match a1: text == "++" with
-        | True => rewrite DecEq.sound a1 then (byComputing, byComputing)
-        | False =>
-          match a2: text == "-" with
-            | True => rewrite DecEq.sound a2 then (byComputing, byComputing)
-            | False =>
-              match a3: text == "*" with
-                | True => rewrite DecEq.sound a3 then (byComputing, byComputing)
-                | False =>
-                  match a4: text == "/" with
-                    | True => rewrite DecEq.sound a4 then (byComputing, byComputing)
-                    | False =>
-                      match a5: text == "%" with
-                        | True => rewrite DecEq.sound a5 then (byComputing, byComputing)
-
-theorem binaryFactsC ∀ (text: Text) (listed: operatorTextC1 text = True): InfixFacts InfixBinary text :=
-  match a0: text == "!=" with
-    | True => rewrite DecEq.sound a0 then (byComputing, byComputing)
-    | False =>
-      match a1: text == "≠" with
-        | True => rewrite DecEq.sound a1 then (byComputing, byComputing)
-        | False =>
-          match a2: text == "<" with
-            | True => rewrite DecEq.sound a2 then (byComputing, byComputing)
-            | False =>
-              match a3: text == "<=" with
-                | True => rewrite DecEq.sound a3 then (byComputing, byComputing)
-                | False =>
-                  match a4: text == "≤" with
-                    | True => rewrite DecEq.sound a4 then (byComputing, byComputing)
-
-theorem binaryFactsD ∀ (text: Text) (listed: operatorTextD1 text = True): InfixFacts InfixBinary text :=
-  match a0: text == ">" with
-    | True => rewrite DecEq.sound a0 then (byComputing, byComputing)
-    | False =>
-      match a1: text == ">=" with
-        | True => rewrite DecEq.sound a1 then (byComputing, byComputing)
-        | False =>
-          match a2: text == "≥" with
-            | True => rewrite DecEq.sound a2 then (byComputing, byComputing)
-            | False =>
-              match a3: text == "==" with
-                | True => rewrite DecEq.sound a3 then (byComputing, byComputing)
-                | False =>
-                  match a4: text == "=" with
-                    | True => rewrite DecEq.sound a4 then (byComputing, byComputing)
+def binaryOperatorFacts: List.All (text => arrowText1 text = False → InfixFacts InfixBinary text) operators1 := (
+  same => (Bool.trueNotFalse same).impossible,
+  same => (Bool.trueNotFalse same).impossible,
+  _ => (byComputing, byComputing),
+  _ => (byComputing, byComputing),
+  _ => (byComputing, byComputing),
+  _ => (byComputing, byComputing),
+  _ => (byComputing, byComputing),
+  _ => (byComputing, byComputing),
+  _ => (byComputing, byComputing),
+  _ => (byComputing, byComputing),
+  _ => (byComputing, byComputing),
+  _ => (byComputing, byComputing),
+  _ => (byComputing, byComputing),
+  _ => (byComputing, byComputing),
+  _ => (byComputing, byComputing),
+  _ => (byComputing, byComputing),
+  _ => (byComputing, byComputing),
+  _ => (byComputing, byComputing),
+  _ => (byComputing, byComputing),
+  _ => (byComputing, byComputing),
+  _ => (byComputing, byComputing),
+  _ => (byComputing, byComputing),
+  Trivial
+)
 
 theorem binaryFacts ∀ (text: Text) (binary: binaryText1 text = True): InfixFacts InfixBinary text :=
   let notArrow: arrowText1 text = False := Bool.notTrue (arrowText1 text) (Bool.andRight binary)
-  match first: operatorTextA1 text with
-    | True => binaryFactsA text first notArrow
-    | False =>
-      match second: operatorTextB1 text with
-        | True => binaryFactsB text second
-        | False =>
-          match third: operatorTextC1 text with
-            | True => binaryFactsC text third
-            | False => binaryFactsD text (Bool.andLeft binary)
+  List.allMem
+    (x => arrowText1 x = False → InfixFacts InfixBinary x)
+    text
+    operators1
+    binaryOperatorFacts
+    (operatorListed text (Bool.andLeft binary))
+    notArrow
 
 --| The operator of an infix in slice 1 is the token `Spelt` asks for, at its level.
 theorem infixFacts ∀ (kind: InfixKind) (text: Text) (fits: infixText kind text = True): InfixFacts kind text :=
