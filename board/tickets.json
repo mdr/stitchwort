@@ -28374,8 +28374,8 @@
     {
       "id": 4313,
       "title": "[DeepSeek] Quick tier: rotate the every-fourth accepted/rejected example sample daily (as daily_tier_sample does for sweeps) so every example is checked within four days; today the same three quarters are never checked, which hid SW-4091's and c2c475f9e's snapshot drifts (SW-4312 finding)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "test-infra",
