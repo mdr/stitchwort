@@ -24,6 +24,7 @@ import Syntax.FollowsFormsPatterns (..)
 import Syntax.FollowsFormsBlocks (..)
 import Syntax.FollowsStatements (..)
 import Syntax.FollowsDecl (..)
+import Syntax.FollowsDeclData (..)
 
 -- The knots.
 
