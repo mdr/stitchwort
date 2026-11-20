@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/continuation-error-names-expected-type.sw:23:73 ]
+    │
+ 23 │   Parse.followsThen followsHere (x y same => Parse.followsDone (rewrite same))
+    │                                                                         ──┬─  
+    │                                                                           ╰─── `byComputing` proves an equation, but the expected type is `_alike _ _`
+    │ 
+    │ Note: the call's own type `Parse.Follows SameNat _alike (arg => Std.Effect.bind (here ()) (x => _j)) (arg => Std.Effect.bind (here ()) (x => _k))` also does not match the expected type `∀ (state other: Parse.State Nat) (value: Bool) (after: Parse.Mark Nat) => Parse.Mark.Alike SameNat state.at other.at → Parse.runFrom state (arg => …) = Ok (value, after) → ∃ (twin: Bool) => ∃ (afterTwin: Parse.Mark …) => … ∧ …`
+────╯

@@ -41,6 +41,9 @@
 --| two parsers, which read the second only when needed (`followsAtEither`), and after a `match` on a pair. Write the
 --| parser's `fatal` as `Syntax.fatal` in a statement here.
 --|
+--| Likewise after a `match` or `rewrite` whose scrutinee or rule sits inside a folded call: the goal is unfolded, so
+--| give `j` and `k`. SW-4419 will lift this when it merges.
+--|
 --| The relations: words, expressions, patterns, groups, parameters, statements, `let`s and declarations are alike
 --| when they are equal once walked with `blankPure` and, for those the walk doesn't blank itself, blanked
 --| (`GroupsAlike`). Lists are `List.All2` of the element's relation, pairs `PairAlike`. `Bool`, `Nat`, `Tok`,
