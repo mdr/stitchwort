@@ -1,8 +1,10 @@
+-- expect-warning: W-MATCH-UNCONFIRMED
 -- A `match` on a call (`outer x k 12`) that a hypothesis mentions, where
 -- that hypothesis is too large to compute in full (each round of `outer`
 -- runs `inner`, which unfolds `settle … 40`): the hypothesis is read with
 -- its calls as written, the call is found there, and the `match` refines
--- it (SW-4091). With the call in the goal instead, the goal itself is too
+-- it (SW-4091), warning that copies hidden inside calls weren't looked
+-- for. With the call in the goal instead, the goal itself is too
 -- large and the `match` runs out:
 -- examples/reject/as-written-unconfirmed-slow-check.sw.
 import Std (Bool, Eq, List, Nat, Option, Void)

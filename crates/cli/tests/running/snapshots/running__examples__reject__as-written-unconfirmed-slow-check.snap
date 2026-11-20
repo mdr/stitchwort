@@ -15,5 +15,7 @@ expression: output
     │     
     │     Note 2: it happened while checking `slowCheck`
     │     
-    │     Note 3: `outer` is called here with the number `12`, so it is computed in full: make the number a variable, stating a lemma for any `n`, and use the lemma with `12`
+    │     Note 3: it ran out while unfolding `step`
+    │     
+    │     Note 4: `outer` is called here with the number `12`, so it is computed in full: make the number a variable, stating a lemma for any `n`, and use the lemma with `12`
 ────╯
