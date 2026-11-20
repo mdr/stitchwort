@@ -28412,8 +28412,8 @@
     },
     {
       "id": 4316,
-      "title": "[Opus] Unifier fallback (SW-4305): also solve unknowns against lambda arguments, so laysBy's three [doc := …] annotations go and HangLays lemmas can take predicates implicitly; measured cost: Std.Parse.readsToken's hash changes (valid other elaboration). Do with the HangLays doc sweep; delete the two lambda arms in unify_by_unknown_arguments and check the sweep needs it",
-      "status": "backlog",
+      "title": "[Opus] Unifier fallback (SW-4305): also solve unknowns against lambda arguments, so HangLays-headed lemmas infer their docs (12 lemmas SW-4317 had to leave explicit: hangsCons, hangsLast, hangsAppend, hangsConcat, hangsKept, hangsMarked, hangsTwo, hangsOfLays, allHangsKept, allHangsMarked, defFromHangs, headerHangs) and laysBy's three [doc := …] go; measured cost: Std.Parse.readsToken's hash changes",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
@@ -28426,7 +28426,7 @@
     {
       "id": 4317,
       "title": "[Sonnet] With SW-4305's unifier fallback merged: sweep the Is/IsAll-shaped lemmas in tools/fmt (beyond isCons/isAppend) making doc binders implicit with task fmt:implicit; check only edited namespaces",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
