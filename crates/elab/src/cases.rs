@@ -105,8 +105,12 @@
 //! A `cases` that fails tries once more ([`Run::thrifty`]): the
 //! hypotheses and their parts first (records and the last resort's splits
 //! too), then the last resort's splits of the goal, then its atoms; with
-//! `arithmetic` tried before every split, and [`THRIFTY_CASES`] cases. The
-//! first try's proofs are unchanged.
+//! `arithmetic` tried before every split, and [`THRIFTY_CASES`] cases. In a
+//! case still open after its fallback, it splits what an earlier split's
+//! own equation is still stuck on ([`Finder::under_split`], SW-4226): the
+//! search takes a native comparison (`5 <= level tok`) whole, so once it is
+//! split, `tok` under it is split too. The first try's proofs are
+//! unchanged.
 //!
 //! A case nothing closes, with nothing left to split, is `E-CASES`, showing
 //! the path of choices to it and the hypotheses in scope (only the latest
@@ -576,6 +580,23 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
     // each case it is a constructor, which may let a closer finish.
     if let Some(atom) = fallback {
         return split_on(cx, run, atom, goal, true);
+    }
+    // What an earlier split's own equation is still stuck on (SW-4226):
+    // after `5 <= level tok` is split, the case `(5 <= level tok) = True`
+    // has the goal `True = False`, which mentions nothing, while the
+    // comparison, which the search took whole, still waits for `tok`.
+    // Splitting `tok` computes the equation in each case, and the cases
+    // where it is false contradict it. Only in the second try, and only in
+    // a case that would otherwise be open: the first try is as it was, so
+    // its proofs keep their terms and a failure it reports doesn't turn
+    // into running out of steps, which would skip the second try.
+    let under_split = if run.thrifty {
+        Finder::new(cx, run).under_split()?
+    } else {
+        None
+    };
+    if let Some(atom) = under_split {
+        return split_on(cx, run, atom, goal, false);
     }
     let error = open_case(cx, run, goal, stuck, failed_body);
     Err(match decided {
@@ -2392,6 +2413,34 @@ impl<'a, 'e> Finder<'a, 'e> {
             side: false,
             numbers: None,
         }))
+    }
+
+    /// An atom inside what an earlier split's equation is stuck on, latest
+    /// split first: the search takes a call it can't see into (a native
+    /// comparison of numbers, `Nat.leq 5 (level tok)`) as a whole, so once
+    /// that call is split its arguments may still wait for a value
+    /// (`level tok` for `tok`). The equations are left out of every other
+    /// search, as what they equate is known in the case.
+    fn under_split(&mut self) -> Result<Option<Atom>> {
+        let cx = self.cx;
+        let g = cx.g();
+        for level in (0..cx.level()).rev() {
+            if !is_equation(cx, level) || stale(cx, level) {
+                continue;
+            }
+            let Value::Eq(_, l, r) = force(&g, cx.types[level].clone())? else {
+                continue;
+            };
+            for side in [l, r] {
+                let side = force(&g, (*side).clone())?;
+                if is_stuck(&side)
+                    && let Some(atom) = self.walk(&side)?
+                {
+                    return Ok(Some(atom));
+                }
+            }
+        }
+        Ok(None)
     }
 
     /// How many splits in this case split `value`, as far as can be read
