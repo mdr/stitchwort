@@ -1,5 +1,5 @@
 {
-  "next": 4323,
+  "next": 4325,
   "tickets": [
     {
       "id": 47,
@@ -27149,12 +27149,12 @@
     {
       "id": 4220,
       "title": "[Sonnet] std: helpers so Parse.followsThen's function arguments needn't be given by hand ([p := …] [q := …] [j := …] [k := …], 15 times in one lane; SW-4205 §6 item 5), or say why inference can't; with the lane's examples rewritten",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Matt, 19 Nov 2026: 'right now I focus on consolidation, making it clean, neat, and tidy, well-structured proof. Maybe finding avenues to simplify, maybe finding ways to improve stitchwort and standard library to support the proving.'",
+      "body": "Matt, 19 Nov 2026: 'right now I focus on consolidation, making it clean, neat, and tidy, well-structured proof. Maybe finding avenues to simplify, maybe finding ways to improve stitchwort and standard library to support the proving.'\n\nSW-4220 findings (Sonnet lane, 20 Nov): no std change helps. Causes: (1) unifier refuses to solve an unknown against a lambda in unify_by_unknown_arguments (SW-4305), and p, q are thunks `() => …`; (2) Parse.followsMap takes `maps` before `first`, so its flex-flex `between x y` vs `alike (f x) (g y)` is met before first fixes between. Experiment: allowing lambdas there (crates/elab/src/unify.rs, the two `Value::Lam` arms) lets task fmt:unspell drop 16 groups in FollowsDeclHeaders and FollowsLadder alone; reordering followsMap (first before maps) is then needed for the followsMap uses. Repros in scratchpad sw4220 (min1.sw, r11.sw). Needs an Opus unifier ticket.\n",
       "created": "2026-11-19",
       "updated": "2026-11-20",
       "commits": []
@@ -28205,12 +28205,12 @@
     {
       "id": 4300,
       "title": "[Sonnet] std Fail.toResultPureSeq-style lemma for steps whose result is a pure/constant value (toResultPure, byComputing hypotheses), removing ~10 remaining [g := …]/[t3 := () => None] spellings in Fmt/Walk.sw declOk and ReadBackFile declLowers (SW-4284 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "From SW-4284.",
+      "body": "From SW-4284.\n\nLane note (Sonnet): no new std lemma needed. Pure steps (None, Abstract) are left out of the lemma instead: Seq2Then/Seq3Then over the real steps, with the constants staying in the goal, infer g and k. Nine spellings gone in declOk (commit 67a685c54). ReadBackFile declLowers needs its spellings: Seq3Let's steps 1 and 3 are real computations, and k/g in a Let chain can't be inferred. The nested inner g spellings (Seq1/Seq2 hypotheses) remain, since their v is only known from the goal.\n",
       "created": "2026-11-19",
       "updated": "2026-11-20",
       "commits": []
@@ -28497,6 +28497,32 @@
       "labels": [],
       "epic": "dev-loop-speed",
       "body": "From SW-4316.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4323,
+      "title": "[Opus] Unifier: let the SW-4305/4316 fallback solve a whole-argument unknown against a lambda in Parse.Follows-shaped calls (p/q thunks () => bump()), so ~150 hand-spelled [p :=][q :=][j :=][k :=] in tools/fmt go; recheck after SW-4316's relaxation (merged after SW-4220's probe); repros and a 16-group unspell patch in orchestrator scratchpad keep/sw4220/ (min1.sw, r7/r10/r11.sw, lambda-unify-unspell.patch); optional: abstract ?j (?p ()) once p is known; measure std hash changes (Std.Parse.readsToken moved under the unrestricted version)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From SW-4220 (20 Nov): cause 1 of 3.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4324,
+      "title": "[Sonnet] std Parse.followsMap: take first before maps so between is fixed before the maps lambda is checked (r11.sw shows it infers), update ~49 call sites, then task fmt:unspell over the tools/fmt Follows files (SW-4220 cause 2)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From SW-4220; repros in orchestrator scratchpad keep/sw4220/.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
