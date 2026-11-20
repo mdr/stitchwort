@@ -1,5 +1,5 @@
 {
-  "next": 4441,
+  "next": 4442,
   "tickets": [
     {
       "id": 47,
@@ -29984,12 +29984,12 @@
     {
       "id": 4436,
       "title": "[Sonnet] Server goal_index snapshot missing on main for examples/goals/guard-hypotheses-as-written.sw (from SW-4403): record and commit it; and the explicit_lambda panic 'lambdas have parameters' (check.rs ~6921) on mismatched inputs should be an error, not a panic (SW-4419 findings)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "\n\nProgress (lane, branch lane/SW-4436): snapshot added (guard-hypotheses-as-written). Panic: a walk then-lemma whose last premise is no forall gave an empty name list; walk lambda() now returns the body when empty; explicit_lambda returns E-INTERNAL (debug_assert) instead of panicking. Reject example walk-premise-without-binders.sw panicked before the fix, now E-UNSOLVED.\n",
+      "body": "\n\nProgress (lane, branch lane/SW-4436): snapshot added (guard-hypotheses-as-written). Panic: a walk then-lemma whose last premise is no forall gave an empty name list; walk lambda() now returns the body when empty; explicit_lambda returns E-INTERNAL (debug_assert) instead of panicking. Reject example walk-premise-without-binders.sw panicked before the fix, now E-UNSOLVED.\n\n\nModel result: Sonnet, worked, 15 min (est. 30)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -30036,6 +30036,19 @@
     {
       "id": 4440,
       "title": "[Sonnet] Remove the walk's eta_contracted (crates/elab/src/walk/mod.rs, SW-4425) now that the unifier handles eta arguments (SW-4434); walk proof hashes move back; after SW-4434 merges",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4441,
+      "title": "[Sonnet] Walk: refuse at @[walk.bind] registration a lemma whose last premise has no binders (today it reaches the walk and gives E-UNSOLVED; SW-4436); and find why the minimal family in examples/reject/walk-premise-without-binders.sw doesn't walk to completion",
       "status": "backlog",
       "agent": "",
       "where": "",
