@@ -180,7 +180,6 @@ theorem displacedLowers ∀ (doc: Doc) (indent low: Nat)
   at carry trace next lays =>
     framed low
       (carry.breakTo (Nat.max indent (at + 2)))
-      doc
       (Nat.max indent (at + 2))
       (Broken (floored carry (Nat.max indent (at + 2))) (carry.breakTo (Nat.max indent (at + 2))))
       trace
@@ -236,7 +235,7 @@ theorem heldWriteThen ∀ (indent low: Nat) (text: Text) (rest: List Doc) (at: N
         rewrite wordFilled text solid, solidSpaces text solid then
           (
             line,
-            allFramed low origin rest indent
+            allFramed low origin indent
               (Mid broken (floorAfter text origin))
               (trace ++ [{ word = text, start = Some broken }])
               next
@@ -454,7 +453,7 @@ theorem heldInner ∀ (kinds: Text → Tok) (doc: Doc) (indent key: Nat) (entry:
             let seat := endedSeat indent True state (Mid at carry) byComputing ended bound
             let entered: Entered indent indent True state (Mid at carry) None (Mid at carry) (hangOf kinds trace) :=
               (byComputing, folded, seat)
-            framed low origin doc indent
+            framed low origin indent
               (Mid at carry)
               trace
               next
@@ -498,7 +497,7 @@ theorem heldInner ∀ (kinds: Text → Tok) (doc: Doc) (indent key: Nat) (entry:
             let landed: floored carry column = column := rewrite floor
             let opened := kept key { key, marked = entry.indent, least = None } arithmetic (markedFound key entry)
             lowers at carry trace next
-              (framed low origin doc indent
+              (framed low origin indent
                 (Held at carry)
                 trace
                 (later laid => MarksKept low (carry.breakTo column) later.carry → next later laid)

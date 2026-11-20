@@ -430,7 +430,7 @@ theorem hangsKept ∀ [kinds: Text → Tok] (doc: Doc) [indent: Nat] (low: Nat)
     HangLays kinds doc indent (place hang => pre place hang ∧ MarksKept low origin place.carry) (place hang =>
       post place hang ∧ MarksKept low origin place.carry) :=
   hangsBy (place trace next (holds, kept) after =>
-    framed low origin doc indent place trace next keys kept
+    framed low origin indent place trace next keys kept
       (lays place _ trace
         (left later => MarksKept low origin left.carry → next left later)
         byComputing
@@ -444,7 +444,7 @@ theorem allHangsKept ∀ [kinds: Text → Tok] (docs: List Doc) [indent: Nat] (l
     HangLaysAll kinds docs indent (place hang => pre place hang ∧ MarksKept low origin place.carry) (place hang =>
       post place hang ∧ MarksKept low origin place.carry) :=
   allHangsBy (place trace next (holds, kept) after =>
-    allFramed low origin docs indent place trace next keys kept
+    allFramed low origin indent place trace next keys kept
       (lays place _ trace
         (left later => MarksKept low origin left.carry → next left later)
         byComputing

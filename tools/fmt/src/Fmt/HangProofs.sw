@@ -227,7 +227,7 @@ theorem hangsTwo ∀ [kinds: Text → Tok] (first: Doc) [second: Doc] [indent: N
   hangsCons first [second] one (hangsLast second indent other)
 
 --| Documents one after another, then more: the first lot, then the second from where the first leaves off.
-theorem laysAllAppend ∀ (front back: List Doc) (indent: Nat) (place: Place)
+theorem laysAllAppend ∀ [front: List Doc] (back: List Doc) (indent: Nat) (place: Place)
     (trace: List Event) (next: Place → List Event → Prop)
     (lays: LaysAll front indent place trace (between later => LaysAll back indent between later next)):
     LaysAll (front ++ back) indent place trace next :=
@@ -237,7 +237,7 @@ theorem laysAllAppend ∀ (front back: List Doc) (indent: Nat) (place: Place)
       laysWeaker doc indent place trace
         (between later => LaysAll rest indent between later (after more => LaysAll back indent after more next))
         (between later => LaysAll (rest ++ back) indent between later next)
-        (between later reached => laysAllAppend rest back indent between later next reached)
+        (between later reached => laysAllAppend back indent between later next reached)
         lays
 
 theorem hangsAppend ∀ [kinds: Text → Tok] (front: List Doc) [back: List Doc]
@@ -246,20 +246,20 @@ theorem hangsAppend ∀ [kinds: Text → Tok] (front: List Doc) [back: List Doc]
     (second: HangLaysAll kinds back indent middle post):
     HangLaysAll kinds (front ++ back) indent pre post :=
   place hang trace next same holds after =>
-    laysAllAppend front back indent place trace next
+    laysAllAppend back indent place trace next
       (first place hang trace
         (between later => LaysAll back indent between later next)
         same
         holds
         (between fold later folds reached => second between fold later next folds reached after))
 
-theorem emptyLays ∀ (doc: Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop)
+theorem emptyLays ∀ [doc: Doc] (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop)
     (empty: doc.isEmpty = True)
     (lays: Lays doc indent place trace next):
     next place trace :=
   match doc, empty, lays with | Doc.Nothing, _, lays => lays
 
-theorem filterLays ∀ (docs: List Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop)
+theorem filterLays ∀ [docs: List Doc] (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop)
     (lays: LaysAll docs indent place trace next):
     LaysAll (docs.filter (doc => not doc.isEmpty)) indent place trace next :=
   match docs, lays with
@@ -267,20 +267,20 @@ theorem filterLays ∀ (docs: List Doc) (indent: Nat) (place: Place) (trace: Lis
     | [doc, ..rest], lays =>
       match empty: doc.isEmpty with
         | True =>
-          filterLays rest indent place trace next
-            (emptyLays doc indent place trace (after later => LaysAll rest indent after later next) empty lays)
+          filterLays indent place trace next
+            (emptyLays indent place trace (after later => LaysAll rest indent after later next) empty lays)
         | False =>
           laysWeaker doc indent place trace
             (after later => LaysAll rest indent after later next)
             (after later => LaysAll (rest.filter (doc => not doc.isEmpty)) indent after later next)
-            (after later others => filterLays rest indent after later next others)
+            (after later others => filterLays indent after later next others)
             lays
 
 --| `Doc.concat` lays as the documents one after another.
-theorem concatLays ∀ (docs: List Doc) (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop)
+theorem concatLays ∀ [docs: List Doc] (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop)
     (lays: LaysAll docs indent place trace next):
     Lays (Doc.concat docs) indent place trace next :=
-  let kept := filterLays docs indent place trace next lays
+  let kept := filterLays indent place trace next lays
   match found: docs.filter (doc => not doc.isEmpty) with
     | [] => kept
     | [only] =>
@@ -295,7 +295,7 @@ theorem hangsConcat ∀ [kinds: Text → Tok] (docs: List Doc) [indent: Nat] [pr
     (each: HangLaysAll kinds docs indent pre post):
     HangLays kinds (Doc.concat docs) indent pre post :=
   place hang trace next same holds after =>
-    concatLays docs indent place trace next (each place hang trace next same holds after)
+    concatLays indent place trace next (each place hang trace next same holds after)
 
 -- The document's constructors that put down no word.
 
