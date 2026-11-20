@@ -5,7 +5,7 @@ namespace Syntax.ParseWalkBinders
 import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Parse, Result, Text)
 import Syntax (..)
 import Fmt (..)
-import Syntax.Proofs (..)
+import Syntax.LexProofs (..)
 import Syntax.ParseProofs (..)
 import Syntax.ParseWalk (..)
 import Syntax.ParseWalkLadder (..)

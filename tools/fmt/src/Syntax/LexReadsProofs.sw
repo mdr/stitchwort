@@ -1,4 +1,4 @@
---| What the lexer's `item` reads (SW-4023): the soundness half of `Syntax.Proofs`'s `ItemReads`, for the lexemes of
+--| What the lexer's `item` reads (SW-4023): the soundness half of `Syntax.LexProofs`'s `ItemReads`, for the lexemes of
 --| any source. From each mark, `item` at the top level reads one lexeme located where it began (`itemRound`,
 --| `RoundFine`), unless it gave a token outside slice 1's alphabet; so `lexemes` of a source, when all of the
 --| alphabet, cuts it into lexemes that are each what they say (`lexemesRounds`).

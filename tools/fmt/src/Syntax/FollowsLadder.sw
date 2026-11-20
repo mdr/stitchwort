@@ -1,5 +1,5 @@
 --| Two runs of the parser on items that differ only in their comments give alike trees (docs/reviews/
---| SW-4132-two-run-parse.md, lane 4): `followsF`, one lemma for each parser function of the first half of
+--| SW-4132-two-run-parse.md): `followsF`, one lemma for each parser function of the first half of
 --| `Syntax/Parser.sw`, says that `F` follows itself on alike arguments, by the pattern of `Syntax/FollowsBase.sw`.
 --|
 --| Covered (Parser.sw, in the order of the file):
@@ -19,38 +19,39 @@
 --| - applications: `app`, `appAt`, `appHead`, `appCalls`, `appEnd`, `appliedTo`, `arguments`, `argumentStep`,
 --|   `argument`, `argumentAt`, `argumentBrace`, `startsAtom`, `bareCases`.
 --|
---| The boundary with lane 5 (`Syntax/FollowsForms.sw`): lane 5 has everything before `andOrAhead` (the keyword
+--| The boundary with `Syntax/FollowsForms.sw`: that file has everything before `andOrAhead` (the keyword
 --| expressions, `exprPi`, `lambdaHere`, ...), the quantifiers, lambdas, `if`, `namedBinder` and `Modes.expectKeyword`
 --| between `iffEnd` and `atPipe`, and every function from `atom` on (atoms, suffixes, records, `match`, clause
 --| lambdas, patterns). Three look-aheads over the items left that are defined there or in Statements.sw are proved
---| here too, as short lemmas from lane 2's `…Deaf` facts, so that no hypothesis is needed for them: `lambdaHere`
---| (`followsLambdaHere`), `matchesBarAhead` and `sequenceAhead`.
+--| here too, as short lemmas from the `…Deaf` facts in `Syntax/DeafProofs.sw`, so that no hypothesis is needed for
+--| them: `lambdaHere` (`followsLambdaHere`), `matchesBarAhead` and `sequenceAhead`.
 --|
 --| Hypotheses. Each lemma takes the knot (`SelfFollows self selfTwin`), alike arguments, and the `Follows` fact of
---| each function of another lane that it calls directly. Those facts are the definitions below, each for every
---| `modes` (the ladder calls the same function at changed modes, `modes.inBrackets` or a `sectionHead`); lane 8
---| supplies them from the other lanes' lemmas. A lemma takes them as one tier record (`AtomFacts` up to `QuantifierFacts`,
---| below), the lowest that holds what it calls:
+--| each function in another file that it calls directly. Those facts are the definitions below, each for every
+--| `modes` (the ladder calls the same function at changed modes, `modes.inBrackets` or a `sectionHead`); the
+--| functions are in `Syntax/Parser.sw` and `Syntax/DeclParser.sw`, the facts are proved in `Syntax/FollowsForms.sw`
+--| and its continuations, and `Syntax/FollowsParse.sw` supplies them. A lemma takes them as one tier record
+--| (`AtomFacts` up to `QuantifierFacts`, below), the lowest that holds what it calls:
 --|
---| - `AtomFollows`: `atom self modes True` (lane 5);
---| - `BraceFollows`: `braceArgument self modes` (lane 5);
---| - `MatchFollows`: `matchExpr self modes keyword` for alike keywords (lane 5);
---| - `ClauseLambdaFollows`: `clauseLambda self modes keyword None ClauseMatches` for alike keywords (lane 5);
---| - `LambdaFollows`: `lambda self modes None` (lane 5);
---| - `IfFollows`: `ifExpr self modes indent keyword` for alike keywords (lane 5);
---| - `QuantifierFollows`: `quantifier self modes` (lane 5);
---| - `ResultTypeFollows`: `resultType self modes` (DeclParser.sw, lane 6).
+--| - `AtomFollows`: `atom self modes True`;
+--| - `BraceFollows`: `braceArgument self modes`;
+--| - `MatchFollows`: `matchExpr self modes keyword` for alike keywords;
+--| - `ClauseLambdaFollows`: `clauseLambda self modes keyword None ClauseMatches` for alike keywords;
+--| - `LambdaFollows`: `lambda self modes None`;
+--| - `IfFollows`: `ifExpr self modes indent keyword` for alike keywords;
+--| - `QuantifierFollows`: `quantifier self modes`;
+--| - `ResultTypeFollows`: `resultType self modes` (`Syntax/DeclParser.sw`).
 --|
 --| Nothing here reads a comment, and the only relation on a `Bool` that isn't equality, `Anything`, isn't used at
 --| all: every `Bool` the ladder reads (`modes.at`, the look-aheads, `startsAtom`) is `Same` in the two runs. Items
 --| the two runs compute from their own items (`negativeNumeral`, `sectionLineAt`, `pipeAheadOn`, `headKind`) are
---| proved equal with lane 2's lemmas and rewritten. A `match` that the parser writes inside a lambda (the step of
---| `operatorLinks`, of the loops) is not restated in a proof: restating gives a different hidden function, so the
---| loop's step is left to unify (`Parse.followsLoop _ _ …`).
+--| proved equal with the `…Deaf` lemmas in `Syntax/DeafProofs.sw` and rewritten. A `match` that the parser writes
+--| inside a lambda (the step of `operatorLinks`, of the loops) is not restated in a proof: restating gives a
+--| different hidden function, so the loop's step is left to unify (`Parse.followsLoop _ _ …`).
 --|
 --| Helpers added here: `alikeInfix`, `alikeSection`, `alikeApp`, `alikeChain` (the trees), `linksAlike` (links
---| `List.All2 (PairAlike WordsAlike ExprsAlike)` to the equality lane 2's `leftNestedDeaf` and friends take),
---| `headKindDeaf`, and the look-aheads `followsStartsAtom`, `followsAndOrAhead`, `followsAtPipe`,
+--| `List.All2 (PairAlike WordsAlike ExprsAlike)` to the equality that `Syntax/DeafProofs.sw`'s `leftNestedDeaf` and
+--| friends take), `headKindDeaf`, and the look-aheads `followsStartsAtom`, `followsAndOrAhead`, `followsAtPipe`,
 --| `followsHeadIndent`, `followsSequenceAhead`, `followsMatchesBarAhead`, `followsQuantifierAhead`,
 --| `followsLambdaHere`, `followsAtUpperBrace`, `followsBareCases`.
 
@@ -59,7 +60,7 @@ import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Parse, Result, Text, Unit,
 import Syntax (..)
 import Fmt (..)
 import Fmt.Walk (..)
-import Fmt.Proofs (blankPure)
+import Fmt.BlankProofs (blankPure)
 import Syntax.DeafProofs (..)
 import Syntax.FollowsBase (..)
 
@@ -119,7 +120,8 @@ theorem alikeChain ∀ (first firstTwin: Expr)
       rewrite firsts, linksAlike rest restTwin alike
     _ = (Chain firstTwin restTwin).walk blankPure := byComputing
 
--- The facts about other lanes' functions that the ladder calls directly, each as lane 5 (or lane 7) states it.
+-- The facts about other files' functions that the ladder calls directly, each as `Syntax/FollowsForms.sw` (or
+-- `Syntax/FollowsStatements.sw`) states it.
 
 def AtomFollows (self selfTwin: Goal → {Parse Item} Expr): Prop :=
   ∀ (modes: Modes) => Parse.Follows SameCode ExprsAlike (() => atom self modes True) (() => atom selfTwin modes True)
@@ -157,7 +159,7 @@ def ResultTypeFollows (self selfTwin: Goal → {Parse Item} Expr): Prop :=
 -- The facts above in tiers: the expression ladder's lemmas take the lowest tier that holds what they call, so each passes
 -- on one record in place of a run of hypotheses. Every field is the `Follows` fact its name says, for the same `self` and
 -- `selfTwin`; `.below` reaches the tier under. `atomFactsOf` and the builders after it (in `FollowsForms`) make a tier
--- from the facts about the other lanes' functions.
+-- from the facts about the other files' functions.
 
 --| The tier 0 of the ladder's facts: the knot, atoms, and `C { … }` arguments, which every expression lemma needs.
 type AtomFacts (self selfTwin: Goal → {Parse Item} Expr) = {

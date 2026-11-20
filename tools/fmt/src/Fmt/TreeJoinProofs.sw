@@ -29,7 +29,7 @@ import Syntax (
   lex,
   wordKind
 )
-import Syntax.Proofs (
+import Syntax.LexProofs (
   ExponentAs,
   FloatTailAs,
   FractionAs,

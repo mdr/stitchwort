@@ -23,7 +23,7 @@ import Std.Doc.Proofs (
   spacedComments
 )
 import Syntax (..)
-import Syntax.Proofs (AllPlain, AllSpelled, Laid, PairsFollow, Piece, lexPrintedPairs, pieceSteps, piecesText)
+import Syntax.LexProofs (AllPlain, AllSpelled, Laid, PairsFollow, Piece, lexPrintedPairs, pieceSteps, piecesText)
 import Fmt (..)
 import Fmt.PrintLexProofs (
   Chrono,
@@ -1044,8 +1044,7 @@ theorem filePiecesOk ∀ (file: SourceFile)
         )
 
 --| `printedFileLexes1`: the file loop's text lexes, to the declarations' leaves in order, each `def` holding its
---| declaration's own-line comments, and the file's last comments at the end. It was an open goal of
---| `Fmt.OutputStatements` (SW-4025).
+--| declaration's own-line comments, and the file's last comments at the end.
 --|
 --| Proof idea: the text is the file's pieces (`fileText`), which are plain, spelled and follow one another
 --| (`filePiecesOk`), so `lexPrintedPairs` reads it as `Laid.lay` folded over them; that fold makes each declaration's

@@ -10,7 +10,7 @@ import Std (Bool, Eq, Fail, List, Nat, Option, Result, Text)
 import Syntax (..)
 import Fmt (..)
 import Fmt.Walk (..)
-import Fmt.Proofs (blankPure)
+import Fmt.BlankProofs (blankPure)
 
 --| Each of `on`'s steps, on a node blanked, fails as on the node, or finishes with its result blanked: the step
 --| doesn't read comments, and keeps the blanking of what it returns.

@@ -6,9 +6,10 @@
 --| `meaning`'s walk gives of it (`blankKeeps`), since that walk blanks the
 --| same comments again. One lemma a blanking function, each "blank, walk,
 --| blank is walk, blank".
-namespace Fmt.Proofs
+namespace Fmt.BlankProofs
 import Fmt (..)
 import Fmt.Walk (..)
+import Fmt.MeaningProofs (meaningAgrees, meaningPure)
 import Std (Bool, Eq, Fail, List, Nat, Option, Result, Text)
 import Syntax (..)
 

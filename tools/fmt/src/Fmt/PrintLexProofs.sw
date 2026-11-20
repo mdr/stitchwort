@@ -21,7 +21,7 @@ import Std.Doc.Proofs (
   wordsOf
 )
 import Syntax (Lexed, Tok, isWordStart, lex)
-import Syntax.Proofs (..)
+import Syntax.LexProofs (..)
 
 --| How a printed piece reads: spaces, a line break, a comment or a token of the given kind.
 def pieceOf (kinds: Text → Tok) (text: Text): Piece :=
@@ -50,7 +50,7 @@ def Follows (kinds: Text → Tok) (word next: Text): Prop :=
 def Printable (kinds: Text → Tok) (text: Text): Prop :=
   isLayout text = True
     ∨ (text.startsWith "--" = True ∧ text.contains "\n" = False)
-    ∨ (Syntax.Proofs.Spells (kinds text) text ∧ isLayout text = False ∧ text.startsWith "--" = False)
+    ∨ (Syntax.LexProofs.Spells (kinds text) text ∧ isLayout text = False ∧ text.startsWith "--" = False)
 
 --| A piece of the output: not empty, and one the lexer proofs can read.
 def Good (kinds: Text → Tok) (text: Text): Prop := text.isEmpty = False ∧ Printable kinds text
@@ -265,7 +265,7 @@ theorem digitHead ∀ (first: Char) (digit: first.isAsciiDigit = True): Some fir
 --|
 --| Proof idea: One case for each kind and spelling, with the first character of a name or numeral from its spelling.
 theorem spelledHead ∀ (kind: Tok) (text: Text)
-    (spells: Syntax.Proofs.Spells kind text):
+    (spells: Syntax.LexProofs.Spells kind text):
     text.toList.head ≠ Some ' ' ∧ text.toList.head ≠ Some '\r' :=
   match kind, spells with
     | LParen | RParen | LBracket | RBracket | Comma | Colon | ColonEq | Equals | EqEq, same =>

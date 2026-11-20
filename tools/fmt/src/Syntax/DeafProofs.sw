@@ -5,7 +5,7 @@ import Fmt (..)
 import Fmt.Grammar1 (..)
 import Fmt.Walk (..)
 import Fmt.TraverseFail (Blanks, declBlanks)
-import Fmt.Proofs (blankPure)
+import Fmt.BlankProofs (blankPure)
 import Syntax.SettleProofs (tokens)
 
 def Leaf.stripped (leaf: Leaf): Leaf := { leaf | trivia = Trivia.empty }

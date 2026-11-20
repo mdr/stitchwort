@@ -7,7 +7,7 @@ namespace Fmt.LedProofs
 import Std (Bool, Doc, List, Nat, Option, Text)
 import Std.Doc.Proofs (printedPieces)
 import Syntax (..)
-import Syntax.Proofs (Laid, Piece)
+import Syntax.LexProofs (Laid, Piece)
 import Fmt (..)
 import Fmt.OutputStatements (..)
 import Fmt.TreeJoinProofs (lexKind)

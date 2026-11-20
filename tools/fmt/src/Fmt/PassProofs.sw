@@ -1,7 +1,9 @@
 namespace Fmt.PassProofs
 import Fmt (..)
 import Fmt.Walk (..)
-import Fmt.Proofs (..)
+import Fmt.BlankProofs (..)
+import Fmt.MeaningProofs (..)
+import Fmt.MergeProofs (..)
 import Std (Bool, Eq, Fail, List, Nat, Option, Result, Text)
 import Syntax (..)
 

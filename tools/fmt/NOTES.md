@@ -752,7 +752,7 @@ Opus, 17 November 2026.
 | `…Ok` (39): with agreeing steps the traversal finishes with the walk's result; `…Twice` (39): walking with `s` then `m` is walking with `m`; `applyKeeps`: `(file.apply on).apply mean = file.apply mean` | `src/Fmt/Walk.sw` |
 | P1, P2 and P3 keep `meaning` file by file (`forallKeepsFile`, `commaKeepsFile`, `bracketKeepsFile`) and the three in order (`firstThreeKeepMeaning`); P3's facts through the walk: `dropLeftWalk` (with `negativeWalk`, `atomicWalk`), `spineWalk`, `stripWalk`, `groupBindersWalk`, `paramsBindersWalk`, `headerBindersWalk` | `src/Fmt/MeaningProofs.sw` |
 
-No axioms (`stitchwort axioms Fmt.Proofs.firstThreeKeepMeaning`).
+No axioms (`stitchwort axioms Fmt.MeaningProofs.firstThreeKeepMeaning`).
 
 ### How
 
@@ -1005,7 +1005,7 @@ What keeps the rest of the sample out [measured with `dev tree --print`, my own 
 
 ## Slice 1 lexer proofs (SW-3965, Sonnet, 18 November 2026)
 
-`Syntax/LexProofs.sw` (namespace `Syntax.Proofs`), 150 theorems, `stitchwort audit Syntax.Proofs` clean. What is
+`Syntax/LexProofs.sw` (namespace `Syntax.LexProofs`), 150 theorems, `stitchwort audit Syntax.LexProofs` clean. What is
 proved, for the alphabet of slice 1 only:
 
 - **`item` per lexeme** (`ItemReads read lexeme rest`): the 24 fixed spellings, the 7 Unicode ones, spaces, a line

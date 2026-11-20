@@ -28,7 +28,8 @@ import Fmt.OutputStatements (..)
 import Fmt.TriviaStatements (..)
 import Fmt.PassProofs (..)
 import Fmt.CalmTopProofs (..)
-import Fmt.Proofs (firstThreeKeepMeaning, meaningBlanksFirst)
+import Fmt.BlankProofs (meaningBlanksFirst)
+import Fmt.MeaningProofs (firstThreeKeepMeaning)
 import Fmt.FileLexProofs (printedFileLexes1)
 import Fmt.OutputFileProofs (printedAlphabet1, printedNoLast1, printedPlain1)
 import Fmt.SettleOutputProofs (..)
@@ -167,7 +168,7 @@ theorem tidiedDeclsUnreturned1 ∀ (source: Text) (lexed: Lexed) (parsed: Source
   rewrite tidyComma1 parsed within then
     (commaUnreturned source lexed parsed lexes (Bool.andLeft leaves) (Bool.andRight leaves) parses within).left
 
---| `tidiedUnreturned1` (SW-3973's parser side): the tree the formatter prints has no own-line comment ending in a
+--| `tidiedUnreturned1`: the tree the formatter prints has no own-line comment ending in a
 --| carriage return or a space, which is `printedSettle1`'s hypothesis `unreturned`. Same route and hypotheses as
 --| `tidiedDeclsUnreturned1`.
 theorem tidiedUnreturned1 ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)

@@ -11,7 +11,7 @@
 --|    token (`lexPrinted`, `lexPieces`, `lexPrintedPairs`).
 --| 4. One standalone read-back for each token kind (`lexesAs…`) and `operatorTokLexes`.
 
-namespace Syntax.Proofs
+namespace Syntax.LexProofs
 import Std (Bool, Char, DecEq, Effect, Eq, byDecision, List, Nat, Option, Pair, Parse, Result, Text, Void)
 import Syntax (..)
 import Fmt (..)
@@ -2116,7 +2116,7 @@ theorem lexWord1 ∀ (kind: Tok) (text: Text) (rest: List Char)
 --| A piece is spelled so that the lexer reads it as the lexeme it stands for: a token as `Spells` says, a comment as
 --| `--` and a line, spaces and a break as they are.
 def Piece.Spells: Piece → Prop
-  | Code kind text => Syntax.Proofs.Spells kind text
+  | Code kind text => Syntax.LexProofs.Spells kind text
   | Gap _ | Break => True
   | Remark text =>
     ∃ (others: List Char) => text.toList = ['-', '-', ..others] ∧ others.all (char => char != '\n') = True

@@ -9,7 +9,7 @@ namespace Syntax.ParseWalk
 import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Parse, Result, Text)
 import Syntax (..)
 import Fmt (..)
-import Syntax.Proofs (..)
+import Syntax.LexProofs (..)
 import Syntax.ParseProofs (..)
 import Fmt.Grammar1 (..)
 import Fmt.Kinds (..)
@@ -203,7 +203,7 @@ theorem opensPlain ∀ (kind: Tok) (opens: kind.opensAtom = True): (kind == Minu
     | other, opens => (Bool.falseNotTrue opens).impossible
 
 -- What the parsers outside slice 1 give. Each is `Out` (the tree is outside the slice) or `True` (the tree is wrapped in
--- a node that is). `outsideOf` and `frameOf` prove them; `FrameRest` is what is still assumed (SW-4000's follow-up).
+-- a node that is). `outsideOf` and `frameOf` prove them; `FrameRest` is what is still assumed.
 
 --| A line of a block is good when it is an expression that is: `let`s and local definitions are outside the slice.
 def StatementOk (statement: Statement): Prop := match statement with

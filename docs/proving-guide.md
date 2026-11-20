@@ -293,10 +293,9 @@ theorem, its hypotheses and the lemmas about the helper, as above.
 5. **The check cache.** `check`, `test` and `run` reuse checked
    namespaces from `.stitchwort/cache` in the project folder, keyed by the
    source, its dependencies and the compiler. A namespace is the name on the
-   file's `namespace` line, not its path:
-   `tools/fmt/src/Syntax/LexProofs.sw` declares `namespace Syntax.Proofs`, so
-   that file is checked as `check Syntax.Proofs` (while
-   `check Syntax.LexProofs` is `E-NAMESPACE-UNKNOWN`); find the line with
+   file's `namespace` line, not its path: `tools/fmt/src/Syntax/LexProofs.sw`
+   declares `namespace Syntax.LexProofs`, so that file is checked as
+   `check Syntax.LexProofs`; find the line with
    `grep -m1 '^namespace' FILE`. A warm check of a proof
    namespace takes about 0.25 s, a cold one seconds (agentic-proving.md §6).
    Hits are trusted without the kernel checking them again

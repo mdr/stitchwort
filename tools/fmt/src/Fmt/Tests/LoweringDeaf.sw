@@ -3,7 +3,7 @@
 namespace Fmt.Tests
 import Fmt (..)
 import Fmt.Walk (..)
-import Fmt.Proofs (blankPure)
+import Fmt.BlankProofs (blankPure)
 import Std (Bool, List, Option, Parse, Result, Text)
 import Syntax (Decl, Seen, declaration, groupsOf, items, lex)
 

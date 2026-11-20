@@ -1,10 +1,10 @@
 --| Two runs of the parser on items that differ only in their comments give alike trees (docs/reviews/
---| SW-4132-two-run-parse.md, lane 5): `followsF`, one lemma for each parser function of lane 5's part of
+--| SW-4132-two-run-parse.md): `followsF`, one lemma for each parser function of the forms' part of
 --| `Syntax/Parser.sw`, says that `F` follows itself on alike arguments, by the pattern of `Syntax/FollowsBase.sw`.
 --| The proofs are split across `FollowsForms…` files, each importing only the earlier ones it needs, so an edit
 --| rechecks that file and what imports it. This file has the shared helpers and the lemmas about atoms and sections.
 --|
---| Lane 5's part: everything before `andOrAhead` (the expression entry, blocks, and the keyword, lambda and `if`
+--| The forms' part: everything before `andOrAhead` (the expression entry, blocks, and the keyword, lambda and `if`
 --| dispatch), the quantifier, lambda, `if` and `namedBinder` functions between `iffEnd` and `atPipe`, and
 --| everything from `atom` on (atoms, suffixes, sections, records, text, `match`, clause lambdas and patterns).
 --|
@@ -38,35 +38,37 @@
 --|   alternatives, alternativeLinks, alternativeLinksOn, wholeExpression
 --|
 --| Read through, with no lemma of their own, because the lemma of the function that calls them runs over their
---| bodies: `Modes.gapOn` (`Modes.gap`, lane 3), `blockPeek`, `suffixesAfterCall`, `interpolationStep`,
+--| bodies: `Modes.gapOn` (`Modes.gap`, `Syntax/FollowsBase.sw`), `blockPeek`, `suffixesAfterCall`, `interpolationStep`,
 --| `matchArmsLined`, `matchArmsAhead`, `clauseArmsLined`, `clauseArmsAhead`, `ctorArgListOn`. `patternOf`,
 --| `patternRule` and `altPattern` are `patternOfFollows`, `patternRuleFollows` and `altPatternFollows`, and
 --| `clauseLambda` and `lambda` are `followsClauseLambdaOf`/`followsClauseLambda` and `followsLambdaOf`/`followsLambda`.
---| Lane 3's file has the rest of the atoms (`wordAtom`, `negativeNumber`, the brackets, tuples, lists and comma
---| lists), and lane 4's the look-aheads this lane calls (`lambdaHere`, `headIndent`, `matchesBarAhead`,
---| `quantifierAhead`).
+--| The rest of the atoms (`wordAtom`, `negativeNumber`, the brackets, tuples, lists and comma lists) have their
+--| lemmas in `Syntax/FollowsBase.sw`, and the look-aheads this file calls (`lambdaHere`, `headIndent`,
+--| `matchesBarAhead`, `quantifierAhead`) theirs in `Syntax/FollowsLadder.sw`.
 --|
 --| Hypotheses. A lemma takes the knot (`SelfFollows self selfTwin`, or `PatternSelfFollows`), alike arguments, and the
---| `Follows` fact of each function of another lane that it calls, each as a `def` below or in `FollowsLadder`; the facts
---| come bundled in tier records (`HeaderFacts` up to `ThenFacts`, and `AtomFacts` up to `QuantifierFacts`):
+--| `Follows` fact of each function in another file that it calls, each as a `def` below or in `FollowsLadder`; the
+--| facts come bundled in tier records (`HeaderFacts` up to `ThenFacts`, and `AtomFacts` up to `QuantifierFacts`):
 --|
---| - lane 6: `HeaderGroupFollows` (`headerGroup`), `BinderTypeFollows` (`binderType`), `PiExprFollows` (`piExpr`),
---|   `ResultTypeFollows` (`resultType`, in `FollowsLadder`);
---| - lane 7: `StatementFollows` (`statement`), `LetStatementFollows`, `LetBodyFollows`, `HandleFollows`,
---|   `CalcFollows`, `RewriteFollows`, `CasesFollows`, `ThenBodyFollows`, `InductFollows` and `ReifyFollows`
+--| - `Syntax/FollowsDecl.sw`: `HeaderGroupFollows` (`headerGroup`), `BinderTypeFollows` (`binderType`),
+--|   `PiExprFollows` (`piExpr`), `ResultTypeFollows` (`resultType`, in `FollowsLadder`);
+--| - `Syntax/FollowsStatements.sw`: `StatementFollows` (`statement`), `LetStatementFollows`, `LetBodyFollows`,
+--|   `HandleFollows`, `CalcFollows`, `RewriteFollows`, `CasesFollows`, `ThenBodyFollows`, `InductFollows` and
+--|   `ReifyFollows`
 --|   (`inductExpr`, `reifyExpr`: stated for any comments, since a keyword's comments are `Anything`).
 --|
---| `PatternOfFollows` and `AltPatternFollows` are facts about this lane's own `patternOf` and `altPattern`: they are
---| proved here (`patternOfFollows`, `altPatternFollows`), from `patternRuleFollows` and lane 3's `followsPattern`, so
---| they need no hypothesis. `followsExpressionRule` is the rule lemma that lane 8 gives `followsExpression`; it takes
---| the other lanes' facts above.
+--| `PatternOfFollows` and `AltPatternFollows` are facts about this file's own `patternOf` and `altPattern`: they are
+--| proved here (`patternOfFollows`, `altPatternFollows`), from `patternRuleFollows` and `followsPattern` in
+--| `Syntax/FollowsBase.sw`, so they need no hypothesis. `followsExpressionRule` is the rule lemma that
+--| `Syntax/FollowsParse.sw` gives `followsExpression`; it takes the other files' facts above.
 --|
---| Lane 4's `AtomFollows`, `BraceFollows`, `MatchFollows`, `ClauseLambdaFollows`, `LambdaFollows`, `IfFollows` and
---| `QuantifierFollows` are proved at the end of the lemmas about forms (`atomFollows`, `braceFollows`, `matchFollows`,
+--| `Syntax/FollowsLadder.sw`'s `AtomFollows`, `BraceFollows`, `MatchFollows`, `ClauseLambdaFollows`, `LambdaFollows`,
+--| `IfFollows` and `QuantifierFollows` are proved at the end of the lemmas about forms (`atomFollows`, `braceFollows`,
+--| `matchFollows`,
 --| `clauseLambdaFollows`, `lambdaFollows`, `ifFollows`, `quantifierFollows`), from the knot and the facts above.
 --|
 --| Nothing here reads a comment. Two helpers duplicate a function that `DeclParser.sw` owns, so that this file doesn't
---| wait for lane 6: `followsRanOutAtLine` (`ranOutAtLine`) and `followsFixedFrom` (`fixedFrom`).
+--| wait for `Syntax/FollowsDecl.sw`: `followsRanOutAtLine` (`ranOutAtLine`) and `followsFixedFrom` (`fixedFrom`).
 --|
 --| Helpers added here: the trees (`alikeInclude`, `alikeBinding`, `alikeIf`, `alikeMatch`, `alikeClauseLambda`,
 --| `alikeRecord`, `alikeInterpolated`, `alikeBlock`, the pattern constructors), the relations `PieceAlike`,
@@ -79,7 +81,7 @@ import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Parse, Result, Text, Unit,
 import Syntax (..)
 import Fmt (..)
 import Fmt.Walk (..)
-import Fmt.Proofs (blankPure)
+import Fmt.BlankProofs (blankPure)
 import Syntax.DeafProofs (..)
 import Syntax.FollowsBase (..)
 import Syntax.FollowsLadder (..)

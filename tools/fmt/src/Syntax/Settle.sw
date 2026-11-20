@@ -347,7 +347,7 @@ def withoutLastCommas (behind rest: List Leaf): List Leaf := match rest with
 --| comments moved as `withoutLastCommas` moves them, the comma left with
 --| no comment and no blank line, still starting its line if it did. Every
 --| token stays the lexer's. Rule N then treats the comma as if it weren't
---| there (the search in SW-3964 found no case where it doesn't; its walk
+--| there (a search found no case where it doesn't; its walk
 --| reads the comma's line start as the closer's, `startsWalk`), and the
 --| parser still reads it, so a file reads as the source does, commas and
 --| all.

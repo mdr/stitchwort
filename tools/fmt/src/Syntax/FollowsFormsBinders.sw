@@ -1,6 +1,6 @@
 --| Two runs of the parser on items that differ only in their comments give alike trees (docs/reviews/
---| SW-4132-two-run-parse.md, lane 5), continued from `Syntax.FollowsForms`: the binders, lambdas and quantifiers.
---| It has the facts about the other lanes' functions that the forms call, the statement-level facts in tiers,
+--| SW-4132-two-run-parse.md), continued from `Syntax.FollowsForms`: the binders, lambdas and quantifiers.
+--| It has the facts about the other files' functions that the forms call, the statement-level facts in tiers,
 --| parameters, lambdas and `∃`, `∀`, and `if`.
 
 namespace Syntax.FollowsFormsBinders
@@ -8,13 +8,13 @@ import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Parse, Result, Text, Unit,
 import Syntax (..)
 import Fmt (..)
 import Fmt.Walk (..)
-import Fmt.Proofs (blankPure)
+import Fmt.BlankProofs (blankPure)
 import Syntax.DeafProofs (..)
 import Syntax.FollowsBase (..)
 import Syntax.FollowsLadder (..)
 import Syntax.FollowsForms (..)
 
--- Facts about the functions of other lanes that the forms below call directly, each for every argument.
+-- Facts about the functions in other files that the forms below call directly, each for every argument.
 
 def PatternOfFollows: Prop :=
   ∀ (modes: Modes) => Parse.Follows SameCode PatternsAlike (() => patternOf modes) (() => patternOf modes)

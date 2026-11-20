@@ -5,7 +5,7 @@ namespace Syntax.ParseWalkFrame
 import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Parse, Result, Text)
 import Syntax (..)
 import Fmt (..)
-import Syntax.Proofs (..)
+import Syntax.LexProofs (..)
 import Syntax.ParseProofs (..)
 import Syntax.ParseWalk (..)
 import Syntax.ParseWalkLadder (..)
@@ -61,7 +61,7 @@ type Frame (self: Goal → {Parse Item} Expr) = {
     DeclOut
 }
 
---| The part of `Frame` SW-4000 has not yet proved (`frameOf` gives the rest).
+--| The part of `Frame` not yet proved (`frameOf` gives the rest).
 type FrameRest (self: Goal → {Parse Item} Expr) = {
   others: ∀ (modes: Modes) (attributes: List Attributes) (seen: Option Tok) => Parse.Gives GoodItems
     (() => declarationOther modes attributes seen)

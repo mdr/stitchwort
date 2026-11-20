@@ -1,11 +1,11 @@
 --| Two runs of the parser on items that differ only in their comments give trees that are alike: equal once their
---| comments are blanked (docs/reviews/SW-4132-two-run-parse.md, lane 3). This file has the relations, the two-run
+--| comments are blanked (docs/reviews/SW-4132-two-run-parse.md). This file has the relations, the two-run
 --| forms of the parser's own operations (`bump`, `peek`, `eat`, `expect`, `lower`, the failures), the recursion's knot,
---| and atoms, brackets, tuples, lists and comma lists walked as the pattern for the rest of the parser (lanes 4 to 7).
+--| and atoms, brackets, tuples, lists and comma lists walked as the pattern for the rest of the parser.
 --|
 --| How to write one. Each parser function `f` gets one lemma, `followsF`: called with alike arguments, `f` follows
 --| itself. Its only hypotheses are alike arguments, the knot (`SelfFollows self selfTwin`, or `PatternSelfFollows`),
---| and one hypothesis for each function of another lane that `f` calls directly (below). The proof follows `f`'s
+--| and one hypothesis for each function in another file that `f` calls directly (below). The proof follows `f`'s
 --| body step by step:
 --|
 --| - `let x := p(); rest` is `Parse.followsThen (followsP …) (x xTwin xs => …)`, where `xs` says `x` and `xTwin` are
@@ -16,9 +16,9 @@
 --|   tree to the constructor with blanked words (`byComputing`), `rewrite` with the parts' facts, and back.
 --| - A `match` or `if` on a value both runs share (a `Same` value, an argument) is a `match` in the proof. On a value
 --|   each run computes from its own items (`peekIn`, `rightOperator`, `item.kind`), first prove the two equal with
---|   lane 2's lemmas (`deafOfStripped f fDeaf items others same`, `deafItem`, `stopsSame`), then `rewrite` with that
---|   and `match` on the twin's value (`followsParenRest`), or match both and leave out the arms the checker calls
---|   unreachable (`followsLowerOn`).
+--|   the lemmas in `Syntax/DeafProofs.sw` (`deafOfStripped f fDeaf items others same`, `deafItem`, `stopsSame`), then
+--|   `rewrite` with that and `match` on the twin's value (`followsParenRest`), or match both and leave out the arms
+--|   the checker calls unreachable (`followsLowerOn`).
 --| - `f … left()` (an `…On` function given the items left) is `followsOn`, with a lemma for `f` on two lists related
 --|   by `List.All2 SameCode`.
 --| - A branch that only fails is `followsFail`, `followsFailName`, `followsGap` or `followsFatalAny`. After a `match`
@@ -29,10 +29,10 @@
 --|   (`followsCommaList`).
 --| - A `match` the parser writes inside a lambda (the step of a loop, of `operatorLinks`) is not restated in the
 --|   proof: restating it gives a different hidden function. Leave the step to unify (`Parse.followsLoop _ _ …`).
---| - A function the proof calls at changed modes (`modes.inBrackets`, a `sectionHead`) has a cross-lane hypothesis
+--| - A function the proof calls at changed modes (`modes.inBrackets`, a `sectionHead`) has a cross-file hypothesis
 --|   stated for every `modes`, not one.
 --| - Items the two runs compute from their own items (`negativeNumeral`, `headKind`, `pipeAheadOn`) are proved equal
---|   with lane 2's `…Deaf` lemmas and rewritten, so those need no hypothesis.
+--|   with the `…Deaf` lemmas in `Syntax/DeafProofs.sw` and rewritten, so those need no hypothesis.
 --|
 --| When `Parse.followsThen` can't find the parsers itself, give them: `[p := …] [q := …] [j := …] [k := …]`. This is
 --| needed for a step on `Parse.mark()` (`Parse.mark().left + 1` as fuel, `followsListItems`), for `||` or `&&` between
@@ -47,11 +47,11 @@
 --| the `()` results of `refuseAttributes`, `afterOpaque` and `afterOpaqueOn`, which compute nothing. No other `Bool`
 --| may be related by `Anything`.
 --|
---| Calls between lanes. The files call each other (`statement` calls `exprInline`; `exprKeyword` calls
+--| Calls between files. The files call each other (`statement` calls `exprInline`; `exprKeyword` calls
 --| `letStatement`), so one record of every cross-file fact could never be built. Instead each lemma takes, as a
---| hypothesis, the `Follows` fact of each function in another lane's file that it calls directly, written out as
---| that lane's lemma will state it (`rightSections` in `followsParenRest`). Lane 8 supplies them in call order, which
---| has no cycle, since the parser recurses only through `self`, `pself` and fuel.
+--| hypothesis, the `Follows` fact of each function in another file that it calls directly, written out as
+--| that file's lemma will state it (`rightSections` in `followsParenRest`). `Syntax/FollowsParse.sw` supplies them in
+--| call order, which has no cycle, since the parser recurses only through `self`, `pself` and fuel.
 --|
 --| A worked example, `bracketed`:
 --|
@@ -71,7 +71,7 @@ import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Parse, Result, Text, Unit,
 import Syntax (..)
 import Fmt (..)
 import Fmt.Walk (..)
-import Fmt.Proofs (blankPure)
+import Fmt.BlankProofs (blankPure)
 import Syntax.DeafProofs (..)
 
 -- The alike relations.
@@ -722,7 +722,7 @@ theorem followsListExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
     followsThenEq (followsPeek modes.inBrackets) (seen =>
       followsListAfter knot modes.inBrackets open openTwin opens seen))
 
--- A call into another lane's function, taken as a hypothesis.
+-- A call into another file's function, taken as a hypothesis.
 
 theorem followsParenRest ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes)

@@ -1,5 +1,5 @@
 --| Two runs of the parser on items that differ only in their comments give alike trees (docs/reviews/
---| SW-4132-two-run-parse.md, lane 5), continued from `Syntax.FollowsFormsArms`: patterns. It has the patterns'
+--| SW-4132-two-run-parse.md), continued from `Syntax.FollowsFormsArms`: patterns. It has the patterns'
 --| trees and parser, record patterns, constructor patterns, bracketed, tuple and list patterns, the components of
 --| tuples, lists and alternatives, and the rule's knot; and the ladder's tiers, built from the facts proved above and
 --| the statement-level facts they need.
@@ -9,7 +9,7 @@ import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Parse, Result, Text, Unit,
 import Syntax (..)
 import Fmt (..)
 import Fmt.Walk (..)
-import Fmt.Proofs (blankPure)
+import Fmt.BlankProofs (blankPure)
 import Syntax.DeafProofs (..)
 import Syntax.FollowsBase (..)
 import Syntax.FollowsLadder (..)
