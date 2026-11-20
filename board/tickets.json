@@ -27441,14 +27441,14 @@
     {
       "id": 4242,
       "title": "[Fable, paper] A general closer that chains facts in scope with a tagged lemma set, like Lean's grind / simp_all and Rocq's auto (SW-4222 §6.3b): what it would close in slice 1's proofs (measure on a sample), cost, check-time and brittleness risks; design or say no",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
       "body": "Matt, 19 Nov 2026: 'please have on our backlog investigations into or actually doing some of the improvements that we found that would make Stitchwort more competitive with Lean and Rocq on these type of proofs.' Source: docs/reviews/SW-4222-lean-rocq-comparison.md §6.",
       "created": "2026-11-19",
-      "updated": "2026-11-19",
+      "updated": "2026-11-20",
       "commits": []
     },
     {
