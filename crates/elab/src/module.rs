@@ -2053,6 +2053,9 @@ impl Elaborator {
                 }
             };
             for (r, in_header) in decl_refs(item.decl, item.equations) {
+                if matches!(r, Ref::Name(n) if std::ptr::eq(n, &*WALK_MARKER)) {
+                    continue;
+                }
                 if matches!(r, Ref::Name(n) if std::ptr::eq(n, &*REWRITE_MARKER)) {
                     if let Some(index) = &library
                         && own.is_none()
@@ -3916,6 +3919,15 @@ pub(crate) static REWRITE_MARKER: std::sync::LazyLock<ast::Name> =
         span: Span::NOWHERE,
     });
 
+/// A reference no declaration can have: a walk (`byWalking`) is here. It
+/// uses the `@[walk]` lemmas in sight without writing their names, so
+/// `check --only` keeps them ([`crate::project::plan_theorems`]).
+pub(crate) static WALK_MARKER: std::sync::LazyLock<ast::Name> =
+    std::sync::LazyLock::new(|| ast::Name {
+        text: "%walk".to_string(),
+        span: Span::NOWHERE,
+    });
+
 /// What a guarded arm's generated equations refer to, written nowhere: a
 /// guard on a decided proposition tested by its `Bool` is stated as the
 /// proposition, and its proofs go between the two with these
@@ -4302,6 +4314,7 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
             Expr::Walk(w) => {
                 out.extend(crate::omega::LIBRARY_NAMES.iter().map(Ref::Name));
                 out.push(Ref::Name(&REWRITE_MARKER));
+                out.push(Ref::Name(&WALK_MARKER));
                 then(
                     &mut stack,
                     w.items.iter().chain(&w.body).map(Work::Expr).collect(),
