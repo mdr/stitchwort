@@ -1,5 +1,5 @@
 {
-  "next": 4438,
+  "next": 4439,
   "tickets": [
     {
       "id": 47,
@@ -29503,12 +29503,12 @@
     {
       "id": 4399,
       "title": "[Sonnet] Walk thunks by type: recognise thunks by () -> {e} a, not syntax; refuse families with more than two thunks; second-run names in a lone split use Twin (not items1, y1); expand.rs quoted ignores brackets in strings (SW-4395 follow-ups 3, 4, 6)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\n\nProgress (lane, e407b2a3a on lane/SW-4399): all four done. Thunks found by type (thunk_params, registry.rs); more than two refused at registration (E-WALK-LEMMA, reject example walk-three-thunks.sw); a lone second-run split names fields with Twin (followsTupleEnd and followsListItemsEnd's then-lines renamed to itemsTwin/trailingCommaTwin); expand.rs string-aware (outside_strings), strings atomic, two unit tests. Model result: Sonnet, worked, ~25 min (est. 40).\n",
+      "body": "\n\nProgress (lane, e407b2a3a on lane/SW-4399): all four done. Thunks found by type (thunk_params, registry.rs); more than two refused at registration (E-WALK-LEMMA, reject example walk-three-thunks.sw); a lone second-run split names fields with Twin (followsTupleEnd and followsListItemsEnd's then-lines renamed to itemsTwin/trailingCommaTwin); expand.rs string-aware (outside_strings), strings atomic, two unit tests. Model result: Sonnet, worked, ~25 min (est. 40).\n\n\nModel result: Sonnet, worked, 19 min (est. 40)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -29958,12 +29958,12 @@
     {
       "id": 4434,
       "title": "[Opus] Unifier: unify_by_unknown_arguments could treat a lambda that eta-contracts as a known argument; repro theorem t: Parse.Follows SameNat (x y => SameNat x y) (() => fail \"no\") (() => fail \"no\") := followsFailAny \"no\" _ ; core change, run task test:lane AREA=hashes; plus a debug env var tracing unifier fallbacks (SW-4425 findings)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\nProgress (lane, 20 Nov): lane/SW-4434 f104f7721. In `unify_by_unknown_arguments`, a lambda that eta-contracts to a function that isn't a lambda, with no unknown at its head, now counts as a known argument (`eta_function`; `eta_contract` moved there from the walk). The new accept example `unify-eta-lambda-argument.sw` fails on main; no other snapshots moved. The walk's contraction from SW-4425 is now redundant: with it switched off, walk-two-run-open-second and fmt Syntax.FollowsBase still check. Not removed. The debug env var from the title was not in the brief and was not done.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -29997,6 +29997,19 @@
     {
       "id": 4437,
       "title": "[Sonnet] A hole's goal display unfolds a Prop definition's head (Parse.Follows shows as forall state other ...), and the partial-unfold match example shows Call (L (%mark ())) in a goal: show Prop definitions folded at holes and never display % names (with SW-4433 F3) (SW-4419 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4438,
+      "title": "[Sonnet] Walk: user-written then lines that name a split's fields depend on generated names (SW-4399 renamed items1 to itemsTwin and broke FollowsBase): name fields from the program's own names, or make then robust; and a family-matching miss (Builtin::Unit vs UnitType) silently dropped every family: error or debug-assert when a tagged lemma registers no family (SW-4399 findings)",
       "status": "backlog",
       "agent": "",
       "where": "",
