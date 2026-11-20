@@ -1,5 +1,5 @@
 {
-  "next": 4326,
+  "next": 4329,
   "tickets": [
     {
       "id": 47,
@@ -28257,7 +28257,7 @@
     {
       "id": 4304,
       "title": "[Opus] match induct pilot friction (SW-4264): (1) the guard and notArmK come as ∧ Props while formatter lemmas use the Bool form (fwdPair … = False, lastPair … = True), forcing bridge lemmas in every family: consider stating them as the guard's Bool = True/False (design; may need a D question); (2) only the principle's call unfolds, so comparing two walkers needs f.eq2/eq3 by hand; (3) ih premises display as unfolded matches, not the named predicates",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -28536,6 +28536,45 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "From SW-4300.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4326,
+      "title": "[DeepSeek] Bug: rewrite repeatedly [g] panics (index out of bounds, crates/elab/src/rewrite/repeatedly.rs:833) when every arm of g is a constructor pattern, so the rule list is empty; repro docs/proposals/match-induct-friction/repeatedly-panic.sw; give a proper error (or no-op) with a reject example (SW-4304 finding)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From SW-4304.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4327,
+      "title": "[Sonnet] match induct: read the induction-hypothesis goal back with quote_folded instead of quote (crates/elab/src/induct_match.rs:377-379), so ih premises show the theorem's named calls (hasItem [leaf, ..behind]) not unfolded bodies; D480 calls-stay-folded applied; goals snapshot showing it (SW-4304 item 3; orchestrator's call under D480)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From docs/proposals/match-induct-friction.md §3; repro ih-display.sw.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4328,
+      "title": "[Sonnet] rewrite repeatedly [g]: include guarded arms (their calls don't compute while the guard is undecided; D3639's reason for leaving arms out applies), with an example (docs/proposals/match-induct-friction.md §2 B)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From SW-4304.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
