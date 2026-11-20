@@ -2913,7 +2913,8 @@ impl Tree<'_> {
     /// here is `ty` (`(vars) → x = p → … → Void`, or `Not (x = p)`), with
     /// `vars` variables and the row variables of type `types` in its
     /// equations: an equation whose sides differ in a constructor gives
-    /// `Void` by `J` with a hidden definition that tells the two apart.
+    /// `Void` by `J` with a hidden definition that tells the two apart
+    /// (and, where the type ends `c = False`, anything from it).
     /// About a guarded row (`guarded`, its index) whose patterns match the
     /// leaf's values, its condition failed above: [`Self::refute_guard`].
     fn refute(
@@ -2924,9 +2925,23 @@ impl Tree<'_> {
         guarded: Option<usize>,
         depth: usize,
     ) -> R<Term> {
+        // A guarded row's condition that fails as a `Bool` is the
+        // conclusion (`c = False`), not a premise.
+        let bool_tail = match guarded {
+            Some(j) => {
+                let blib = self.e.branch_lib()?;
+                self.shapes[j]
+                    .as_ref()
+                    .ok()
+                    .and_then(|s| s.guard.as_ref())
+                    .ok_or_else(|| Stop::Skip("an earlier arm's condition wasn't read".into()))?
+                    .fails_as_bool(&blib)
+            }
+            None => false,
+        };
         let g = self.g();
         let not = g.env.registry().def(Builtin::Not);
-        // The binders: the variables, then the equations.
+        // The binders: the variables, then the equations; and what's left.
         let mut binders: Vec<Term> = Vec::new();
         let mut t = ty.strip_loc();
         loop {
@@ -2942,11 +2957,11 @@ impl Tree<'_> {
                 _ => break,
             }
         }
-        // A guarded row's condition is the last premise, after the
-        // equations.
-        let eqs = binders
-            .len()
-            .saturating_sub(vars + usize::from(guarded.is_some()));
+        let tail = t.clone();
+        // A guarded row's condition is otherwise the last premise, after
+        // the equations.
+        let premise = usize::from(guarded.is_some() && !bool_tail);
+        let eqs = binders.len().saturating_sub(vars + premise);
         if eqs != types.len() {
             return skip("an overlap hypothesis isn't as stage 2a reads it");
         }
@@ -2962,7 +2977,8 @@ impl Tree<'_> {
         }
         let Some((e, path, at)) = found else {
             if let Some(j) = guarded {
-                return self.refute_guard(&binders, vars, types, j, depth);
+                let tail = bool_tail.then_some(&tail);
+                return self.refute_guard(&binders, vars, types, j, tail, depth);
             }
             return skip(
                 "at one of its cases, an overlap hypothesis's equations don't differ in a \
@@ -2996,7 +3012,6 @@ impl Tree<'_> {
             .registry()
             .ctor(Builtin::Trivial)
             .ok_or_else(|| Stop::Skip("no `Trivial`".into()))?;
-        let premise = usize::from(guarded.is_some());
         let inner = vars + eqs + premise;
         let mut applied = Term::Def(disc);
         for a in &args {
@@ -3011,11 +3026,14 @@ impl Tree<'_> {
                 Rc::new(Term::app(applied, Term::Var(1))),
             )),
         );
-        let void = Term::J(
+        let mut void = Term::J(
             Rc::new(motive),
             Rc::new(Term::Ctor(unit, trivial, Vec::new())),
             Rc::new(Term::Var(eqs - 1 - e + premise)),
         );
+        if bool_tail {
+            void = self.e.branch_lib()?.exfalso(tail, void);
+        }
         let names: Vec<(Name, Icit)> = (0..inner)
             .map(|i| (format!("x{i}").into(), Icit::Explicit))
             .collect();
@@ -3027,7 +3045,9 @@ impl Tree<'_> {
     /// condition was tested above and failed (G1, D3697). `binders` are the
     /// hypothesis's: its `vars` variables, its equations `x = p` (`x` a
     /// value here, of the row variable's type in `types`) and `j`'s
-    /// condition at the variables. Along each equation by `J`, the
+    /// condition at the variables, or, where it fails as a `Bool`, `tail`,
+    /// the conclusion `c = False`, which is the split's fact carried back.
+    /// Along each equation by `J`, the
     /// variables in its `p` become projections of the equation's side
     /// (hidden definitions, [`Elaborator::induct_field`]): at `p` they
     /// compute to the variables, at `x` to the values here, where the
@@ -3038,10 +3058,12 @@ impl Tree<'_> {
         vars: usize,
         types: &[Term],
         j: usize,
+        tail: Option<&Term>,
         depth: usize,
     ) -> R<Term> {
         let eqs = types.len();
-        let top = depth + vars + eqs + 1;
+        let premise = usize::from(tail.is_none());
+        let top = depth + vars + eqs + premise;
         let under = top + 2;
         let Some((_, fact, at)) = self.facts.iter().rev().find(|(r, ..)| *r == j).cloned() else {
             return skip(
@@ -3105,7 +3127,7 @@ impl Tree<'_> {
         let g = self.g();
         // Under `h'`, the condition at the values here: `Void` from it and
         // the fact, in the form `NotGuard` states the fact.
-        let fact = fact.shift(&g, top + 1 - at, 0)?;
+        let fact = fact.shift(&g, top + premise - at, 0)?;
         let h = Term::Var(0);
         let (is_prop, cond) = read.stated();
         let bool_clash = |x: bool| {
@@ -3131,7 +3153,10 @@ impl Tree<'_> {
             };
             Term::app(Term::Def(apart), swapped)
         };
-        let void_here = if read.negated.is_some() {
+        let void_here = if tail.is_some() {
+            // The conclusion is the fact itself, carried back below.
+            fact.clone()
+        } else if read.negated.is_some() {
             Term::app(h.clone(), fact.clone())
         } else if !is_prop {
             bool_clash(true)
@@ -3146,10 +3171,18 @@ impl Tree<'_> {
             .registry()
             .data(Builtin::Void)
             .ok_or_else(|| Stop::Skip("no `Void`".into()))?;
-        let mut proof = Term::Lam("h".into(), Icit::Explicit, Rc::new(void_here));
-        let stated = &binders[vars + eqs];
+        // `c = False` at the values here (a `Bool`'s failure), or
+        // `h' => Void` from the condition `h'` (a proposition's).
+        let (mut proof, stated) = match tail {
+            Some(tail) => (void_here, tail),
+            None => (
+                Term::Lam("h".into(), Icit::Explicit, Rc::new(void_here)),
+                &binders[vars + eqs],
+            ),
+        };
+        let stated_at = depth + vars + eqs;
         for e in (0..eqs).rev() {
-            let body = remap(&g, stated, top - 1, under, &|l| {
+            let body = remap(&g, stated, stated_at, under, &|l| {
                 if l < depth || l >= depth + vars {
                     return Some(Term::Var(under - 1 - l));
                 }
@@ -3166,19 +3199,20 @@ impl Tree<'_> {
                     "an earlier arm's condition uses a variable its patterns don't bind".into(),
                 )
             })?;
+            let body = if tail.is_some() {
+                body
+            } else {
+                Term::Pi(
+                    "_".into(),
+                    Icit::Explicit,
+                    Rc::new(body),
+                    Rc::new(Term::Data(void, Vec::new())),
+                )
+            };
             let motive = Term::Lam(
                 "y".into(),
                 Icit::Explicit,
-                Rc::new(Term::Lam(
-                    "e".into(),
-                    Icit::Explicit,
-                    Rc::new(Term::Pi(
-                        "_".into(),
-                        Icit::Explicit,
-                        Rc::new(body),
-                        Rc::new(Term::Data(void, Vec::new())),
-                    )),
-                )),
+                Rc::new(Term::Lam("e".into(), Icit::Explicit, Rc::new(body))),
             );
             let eq = Term::Var(top - 1 - (depth + vars + e));
             proof = Term::J(Rc::new(motive), Rc::new(proof), Rc::new(eq));
@@ -3186,7 +3220,14 @@ impl Tree<'_> {
         let names: Vec<(Name, Icit)> = (0..top - depth)
             .map(|i| (format!("x{i}").into(), Icit::Explicit))
             .collect();
-        Ok(lams(&names, Term::app(proof, Term::Var(0))))
+        Ok(lams(
+            &names,
+            if tail.is_some() {
+                proof
+            } else {
+                Term::app(proof, Term::Var(0))
+            },
+        ))
     }
 
     /// `y` (at `at`, a value of the data type `args` are the arguments

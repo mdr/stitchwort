@@ -346,7 +346,7 @@ theorem markedBareR ∀ (behind rest: List Leaf)
       ]
         = markRev [moved.fst, bare, ..moved.snd] :=
         rewrite fstEq, barePlain, commaMovedSndMark comma closer behind
-      rewrite withMarkedR.eq2 (markRev behind) comma closer after (guardOfPair comma closer (markRev behind) pairM) then
+      rewrite withMarkedR.eq2 (markRev behind) comma closer after pairM then
         Eq.trans (Eq.cong (acc => withMarkedR acc after) accEq) (ih (gapAfterPair bare moved.fst moved.snd after pair2))
     | eq3 behind leaf after notArm2 ih =>
       let pair := fwdPairOfNotArm leaf behind after notArm2

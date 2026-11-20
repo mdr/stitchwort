@@ -32,15 +32,14 @@ theorem threeShorter ∀ (behind rest: List Kind):
 
 -- `eq4`'s hypotheses, one per guarded arm above it, as `three.eq4` takes
 -- them: applied to the next kind, the second says the leaf isn't a comma.
+-- A `Bool` guard's hypothesis ends `… = False` (D3699).
 theorem leafNotComma ∀ (behind: List Kind) (leaf: Kind) (after: List Kind)
-    (notArm2: ∀ (b c: Kind) (after1: List Kind) => after = [b, c, ..after1] → ¬(isComma leaf ∧ isCloser c))
-    (notArm3: ∀ (b: Kind) (after1: List Kind) => after = [b, ..after1] → ¬isComma leaf)
+    (notArm2: ∀ (b c: Kind) (after1: List Kind) => after = [b, c, ..after1] → (isComma leaf && isCloser c) = False)
+    (notArm3: ∀ (b: Kind) (after1: List Kind) => after = [b, ..after1] → isComma leaf = False)
     (next: Kind) (after1: List Kind)
     (here: after = [next, ..after1]):
     isComma leaf = False :=
-  match comma: isComma leaf with
-    | False => byComputing
-    | True => (notArm3 next after1 here comma).impossible
+  notArm3 next after1 here
 
 -- The case's hypotheses go straight to a lemma stated as `three.eq4`
 -- states them.

@@ -583,24 +583,22 @@ Import what you use: std's theorems live in namespaces that need an import
   the guarded arm's patterns match, its condition is false. For
   `| [comma, closer, ..after] if isComma comma && … => … | [leaf, ..after]
   => …`, case `eq3` binds `notArm2: ∀ (closer: Kind) (after1: List Kind)
-  => after = [closer, ..after1] → ¬(isComma leaf ∧ …)`. A proof that
-  doesn't need it ignores it, or passes it whole to a lemma stated the
-  way `f.eq3` states it; one that needs the next value splits `after` and
-  applies it, the equation by `byComputing`:
+  => after = [closer, ..after1] → (isComma leaf && …) = False`: a guard
+  written as a `Bool` is stated `c = True` in its own case and `c = False`
+  below, `&&` unsplit (`guard.read` gives the `∧`), and one written as a
+  proposition (`if x = y`, `if n ≠ 3`, `if h: P`) as `P` and `¬P` (D3699;
+  `if h: b = True` fails as `b = False`; a `&&` guard whose proof the arm
+  uses, `if i < n && 0 < i => xs.getLt i`, is still `P ∧ Q` and `¬(P ∧ Q)`).
+  A proof that doesn't need it ignores it, or passes it whole to a lemma
+  stated the way `f.eq3` states it; one that needs the next value splits
+  `after` and applies it, the equation by `byComputing`, which gives the
+  `= False` fact to `rewrite` with:
 
   ```
   | eq3 b leaf after notArm2 ih =>
     match after with
       | [] => byComputing
-      | [closer, ..after1] =>
-        match pairTest: isComma leaf && isCloser closer && hasItem b with
-          | False => ih
-          | True =>
-            (notArm2 closer after1 byComputing (
-              Bool.andLeft pairTest,
-              Bool.andLeft (Bool.andRight pairTest),
-              Bool.andRight (Bool.andRight pairTest)
-            )).impossible
+      | [closer, ..after1] => rewrite notArm2 closer after1 byComputing then ih
   ```
 
   Several guarded arms above one arm give it one such hypothesis each,

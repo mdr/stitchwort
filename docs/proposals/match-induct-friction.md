@@ -159,7 +159,10 @@ proof that wants the conjunction writes `guard.read`.
 What it costs: a single decided `==`/`!=` written as a `Bool` (`xs == []`,
 `n != 3`) now gives `(xs == []) = True`, not `xs = []`, so `omega` or a
 `rewrite` wants `.read` first, or the guard written as the proposition
-(`if n ≠ 3`). That is the rule `if` already has.
+(`if n ≠ 3`). That is the rule `if` already has. [As built (SW-4341): `!=`
+is the proposition operator, `n ≠ 3` spelled in ASCII, so a guard `n != 3`
+keeps `n ≠ 3`; only `==` and other `Bool`s change. See pattern-guards.md,
+"Changed by D3699".]
 
 - *Effort* [estimated from similar past lanes]: an Opus lane in
   `crates/elab/src/equations.rs` (`probe_row`: stop deriving `prop` and
@@ -363,7 +366,9 @@ The orchestrator numbers these.
 - *What it should do.* The pilot's converters go to one two-line `match`
   [estimated: about 40 of 44 lines]; one condition has one form wherever it
   is written. Cost: a guard `n != 3` gives `(n != 3) = True`, not `n ≠ 3`;
-  write `if n ≠ 3` or use `.read` for that. About 55 hypothesis uses in 15
+  write `if n ≠ 3` or use `.read` for that. [As built (SW-4341): `!=` is
+  the proposition `≠`, so `n != 3` keeps `n ≠ 3`; `xs == []` is the case
+  that changes.] About 55 hypothesis uses in 15
   files move [measured].
 
 **D question 2 (optional; rec: the orchestrator's call as a fix): induction
