@@ -308,6 +308,11 @@ def hasItem: List Leaf → Bool
       | Pipe => False
       | kind => !kind.isOpener
 
+--| Whether `comma`, just older than a leaf of kind `above`, with `older`
+--| behind it, is a last comma.
+def lastPair (above: Tok) (comma: Leaf) (older: List Leaf): Bool :=
+  comma.token.kind == Comma && above.isCloser && hasItem older
+
 --| A last comma's comments moved as deleting the comma from the text moves
 --| them: the closer after it, and `behind` (newest first), the leaves before
 --| it. The comma's own-line comments go above the closer; its trailing
@@ -338,7 +343,7 @@ def commaDeleted (comma closer: Leaf) (behind: List Leaf): (Leaf, List Leaf) := 
 --| The leaves without each comma directly before a closer (`commaDeleted`).
 def withoutLastCommas (behind rest: List Leaf): List Leaf := match rest with
   | [] => behind.reverse
-  | [comma, closer, ..after] if comma.kind == Comma && closer.kind.isCloser && hasItem behind =>
+  | [comma, closer, ..after] if lastPair closer.token.kind comma behind =>
     let (moved, earlier) := commaDeleted comma closer behind
     withoutLastCommas [moved, ..earlier] after
   | [leaf, ..after] => withoutLastCommas [leaf, ..behind] after
@@ -353,7 +358,7 @@ def withoutLastCommas (behind rest: List Leaf): List Leaf := match rest with
 --| all.
 def withBareLastCommas (behind rest: List Leaf): List Leaf := match rest with
   | [] => behind.reverse
-  | [comma, closer, ..after] if comma.kind == Comma && closer.kind.isCloser && hasItem behind =>
+  | [comma, closer, ..after] if lastPair closer.token.kind comma behind =>
     let (moved, earlier) := commaMoved comma closer behind
     withBareLastCommas [moved, { comma | trivia = Trivia.empty }, ..earlier] after
   | [leaf, ..after] => withBareLastCommas [leaf, ..behind] after
