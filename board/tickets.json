@@ -28933,7 +28933,7 @@
     {
       "id": 4356,
       "title": "[Sonnet] Accessor vs projection in SW-4330's abstraction: the needle Mark.left v is a call but the goal has the primitive projection state.at.left; normalise accessor calls to projections when matching the needle (FormsBinders, Forms pairs)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
