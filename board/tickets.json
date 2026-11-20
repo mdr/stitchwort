@@ -1,5 +1,5 @@
 {
-  "next": 4465,
+  "next": 4466,
   "tickets": [
     {
       "id": 47,
@@ -30328,7 +30328,7 @@
     {
       "id": 4462,
       "title": "[Opus] Goals as written: a let before a match loses the folded goal: check_value_against passes the forced goal into effects::pure_let, so the match's arms see Parse.Follows unfolded; pass the unforced goal (named) through let bodies like check_match_named does, with the same fallback; affects every let in a proof whose goal is a Prop call, so measure tools/fmt before/after (SW-4456 finding 1)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -30361,6 +30361,19 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4465,
+      "title": "[Opus] Goals as written: an if before a match loses the folded goal (check_if gets the forced goal), as let did before SW-4462; route the goal as written through if branches with the same fallback, measure tools/fmt (SW-4462 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "goal-as-written",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
