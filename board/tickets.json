@@ -1,5 +1,5 @@
 {
-  "next": 4439,
+  "next": 4441,
   "tickets": [
     {
       "id": 47,
@@ -30010,6 +30010,32 @@
     {
       "id": 4438,
       "title": "[Sonnet] Walk: user-written then lines that name a split's fields depend on generated names (SW-4399 renamed items1 to itemsTwin and broke FollowsBase): name fields from the program's own names, or make then robust; and a family-matching miss (Builtin::Unit vs UnitType) silently dropped every family: error or debug-assert when a tagged lemma registers no family (SW-4399 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4439,
+      "title": "[Opus, paper] Review SW-4434 (unifier: a lambda that eta-contracts counts as a known argument in unify_by_unknown_arguments; eta_function cheap check, eta_contract moved from walk to unify.rs); core change, D2506",
+      "status": "doing",
+      "agent": "Claude",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4440,
+      "title": "[Sonnet] Remove the walk's eta_contracted (crates/elab/src/walk/mod.rs, SW-4425) now that the unifier handles eta arguments (SW-4434); walk proof hashes move back; after SW-4434 merges",
       "status": "backlog",
       "agent": "",
       "where": "",
