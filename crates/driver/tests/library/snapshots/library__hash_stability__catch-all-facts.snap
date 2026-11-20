@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
-assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 Main.notFiveIsZero e4d1ebf4a23623e6eb42d73ba2f974182127f091ac98aa681c38bd018756019b
@@ -30,8 +29,9 @@ Main.texts.%match1 3c50c839217af69add3bddb145cdc16d26837ec36dd839508501add56c435
 Main.texts.%match3 ea4d37ab016dadfd9af26ab75ed1009b5d95bd798f74d93f6721308685ca5626
 Main.texts.%match2 3c50c839217af69add3bddb145cdc16d26837ec36dd839508501add56c435ec5
 Main.texts.%match4 ea4d37ab016dadfd9af26ab75ed1009b5d95bd798f74d93f6721308685ca5626
-Main.afterGuard 6e1c034682390a4a462d748746c6ae662764f83ca3d40572c506139c34ef4baf
-Main.afterGuard.%match1 113e1114ed57b6c1c4e1ff11f73032084630d1af2886d81e7c3a1a7f3532d1d7
+Main.afterGuard 3fbe80fd96cb09d05272a61eea600c916ff8947fa75b65eee51ef73d5bf64c04
+Main.afterGuard.%match1 5ecdefd97aef46842e47c0e0e5479d0e48e4407a5a8922d5b728519f15d29d65
+Main.afterGuard.%match2 113e1114ed57b6c1c4e1ff11f73032084630d1af2886d81e7c3a1a7f3532d1d7
 Main.sum 275e6709a242e082a3e553ca69151c5e08dbfb99e40655a8b855c998fcf8c8a6
 Main.sum.%match1 37a8b07668942675a8baa190eab746c91352eb480b4e285a9cbe37ebc061693a
 Main.wrapped 4e153fdcbc6ebb11e2cdcf86e7aa4a2c63d796ab9e730e60303051f456e641a5

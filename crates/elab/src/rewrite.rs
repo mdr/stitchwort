@@ -354,6 +354,9 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     };
     let mut steps: Vec<Step> = Vec::new();
     let mut outcome = Ok(());
+    // The rules that found nothing because a guard's refinement already
+    // replaced what they rewrite: skipped, if the proof checks without them.
+    let mut pointless: Vec<(usize, Diagnostic)> = Vec::new();
     for (index, rule) in rules.iter().enumerate() {
         match rewrite_once(
             cx,
@@ -367,6 +370,9 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             &mut stats,
             None,
         ) {
+            Err(e) if e.code == "E-REWRITE-NOTHING" && refined_by_guard(cx, rule)? => {
+                pointless.push((index, e));
+            }
             Ok(found) => {
                 let used = cx.e.take_rule();
                 let before = cx.e.records_steps(rule.span).then(|| goal.clone());
@@ -396,6 +402,45 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     }
     report(*span, rules.len(), &stats, budget - remaining);
     outcome?;
+    if !pointless.is_empty() {
+        let skipped = Snapshot::take(cx);
+        return match close_rewrite(cx, body.as_deref(), rules, &goal, steps) {
+            Ok(term) => {
+                let mut warnings = cx.e.attempt.lambda_warnings.borrow_mut();
+                for (index, _) in &pointless {
+                    let warning = guard_refined_warning(expr, *index, pointless.len());
+                    let at = warning.labels.first().map(|l| l.span);
+                    if !(warnings.iter())
+                        .any(|w| w.code == warning.code && w.labels.first().map(|l| l.span) == at)
+                    {
+                        warnings.push(warning);
+                    }
+                }
+                Ok(term)
+            }
+            Err(e) if fatal(&e) => Err(e),
+            // Without them it fails too: the rule's own error is the one to
+            // report.
+            Err(_) => {
+                skipped.restore(cx);
+                Err(pointless.swap_remove(0).1)
+            }
+        };
+    }
+    close_rewrite(cx, body.as_deref(), rules, &goal, steps)
+}
+
+/// The rest of a goal `rewrite` once its rules have run: `body` (or
+/// `byComputing` without one) checked against the goal they left, carried
+/// back through `steps`.
+fn close_rewrite(
+    cx: &mut Ctx,
+    body: Option<&Expr>,
+    rules: &[RewriteRule],
+    goal: &Value,
+    steps: Vec<Step>,
+) -> Result<Term> {
+    let goal = goal.clone();
     let base = match body {
         Some(body) => check(cx, body, &goal)?,
         None => {
@@ -421,6 +466,89 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         term = Term::J(Rc::new(step.motive), Rc::new(term), Rc::new(step.proof));
     }
     Ok(term)
+}
+
+/// Whether `rule`, which found nothing in the goal, is about the condition
+/// of a guard that refined the goal (`matching::refined_guard`): its left
+/// side, computed, contains the condition, which the refinement replaced
+/// with `True` or `False` (`rewrite g` with the guard's own fact, or a
+/// guarded definition's equation, `rewrite clamp.eq1 limit n g`). Whatever
+/// elaborating the rule did is undone.
+fn refined_by_guard(cx: &mut Ctx, rule: &RewriteRule) -> Result<bool> {
+    let guards: Vec<(usize, Term)> = {
+        let refined = cx.e.decl.guard_refined.borrow();
+        (cx.scrutinees.iter())
+            .filter(|(_, _, span, _, _)| refined.contains(span))
+            .map(|(base, normal, ..)| (*base, normal.clone()))
+            .collect()
+    };
+    if guards.is_empty() {
+        return Ok(false);
+    }
+    let g = cx.g();
+    let snapshot = Snapshot::take(cx);
+    let outcome = (|| -> Result<bool> {
+        let equation = elaborate_rule(cx, rule, Place::Goal)?;
+        let lhs = cx.quote_unfolded(&equation.lhs)?;
+        let depth = cx.level();
+        for (base, normal) in guards {
+            let normal = normal.shift(&g, depth - base, 0)?;
+            if crate::matching::occurs(&normal, &lhs) {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    })();
+    snapshot.restore(cx);
+    match outcome {
+        Err(e) if fatal(&e) => Err(e),
+        Err(_) => Ok(false),
+        found => found,
+    }
+}
+
+/// `W-REWRITE-GUARD-REFINED` for rule `index` of the goal rewrite `expr`,
+/// one of `pointless` such rules (D3701). Its label covers what the quick
+/// fix drops: the whole `rewrite … then` when every rule is pointless (or
+/// the `rewrite` itself, which the fix replaces with `byComputing`, when
+/// it has no `then`), else the rule and the comma beside it.
+fn guard_refined_warning(expr: &Expr, index: usize, pointless: usize) -> Diagnostic {
+    let Expr::Rewrite {
+        rules,
+        keyword,
+        then,
+        ..
+    } = expr
+    else {
+        unreachable!("only called on a rewrite");
+    };
+    let rule = rules[index].span;
+    let (start, end) = if pointless == rules.len() {
+        let last = rules.last().expect("a rule").span;
+        (keyword.start, then.map_or(last.end, |t| t.end))
+    } else if let Some(next) = rules.get(index + 1) {
+        (rule.start, next.span.start)
+    } else {
+        (rules[index - 1].span.end, rule.end)
+    };
+    Diagnostic::warning(
+        crate::rewrite_then::GUARD_REFINED,
+        "this rule finds nothing: the guard above already replaced its condition in the goal",
+    )
+    .with_label(
+        Span {
+            file: rule.file,
+            start,
+            end,
+        },
+        "nothing to rewrite here: drop this",
+    )
+    .with_note(
+        "a guard in a proof's `match` refines the goal as `match` on its condition does, so a \
+         rewrite by the guard's fact, or by an equation that has the condition, is no longer \
+         needed; the proof checks without it",
+    )
+    .with_note("the quick fix \"Drop the rewrite\" does it (docs/syntax.md, pattern guards)")
 }
 
 /// A rule's step, for a probe: the goal before and after it.

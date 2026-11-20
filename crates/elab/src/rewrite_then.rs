@@ -19,6 +19,8 @@ use crate::proof_chain::sub_expressions;
 
 pub(crate) const COMPUTING: &str = "W-REWRITE-THEN-COMPUTING";
 pub(crate) const REWRITE: &str = "W-REWRITE-THEN-REWRITE";
+/// A rewrite a guard's refinement made pointless (`rewrite.rs`, D3701).
+pub(crate) const GUARD_REFINED: &str = "W-REWRITE-GUARD-REFINED";
 
 /// The `then` span and body of `e` if it is a rewrite of the goal that has
 /// both.
