@@ -29011,8 +29011,8 @@
     {
       "id": 4362,
       "title": "[DeepSeek] spellings.py (fmt:unspell) keeps units that check without them and prints 'kept 5 of 4' (SW-4353: readsBracketAt p, followsListItemsEnd p and q were removable by hand); find the miscount, add a test",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
