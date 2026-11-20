@@ -1,5 +1,5 @@
 {
-  "next": 4337,
+  "next": 4339,
   "tickets": [
     {
       "id": 47,
@@ -28608,12 +28608,12 @@
     {
       "id": 4331,
       "title": "[Sonnet] A match in a def whose result type is huge (f3: match x with Zero => mk 0 | Succ n => mk (Succ n) returning Wrap (grow 22 (Leaf x))) fails with E-RESOURCE in check_tree; find the site and route it through check::quote_or_written if the as-written read is sound there, with an example (SW-4237 finding; grow 22 only)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
-      "body": "From SW-4237.",
+      "body": "From SW-4237.\n\n\nLane note (20 Nov, Sonnet): the site is the elaborator's substitute_folded (kernel::substitute_folded -> core::check::substitute_in, Folded read-back of the context and goal with x := Zero/Succ n), reached from check_tree's Case/NumCase branches. A fallback to as-written there (patch: /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/sw4331/elab-fallback.patch) gets the elaborator through; then the KERNEL itself fails in the same way: core::check::Ctx::quote_kept (check_case, check_num_case, sort_of) and substitute_in in the kernel read the goal back folded, so it ran out in check_other. Fixing that is a kernel change (convertible, as D1293 argues, but the kernel is trusted code: Opus, docs/core.md, examples::soundness). Nothing committed. Example: /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/sw4331/large-hypothesis-result-match.sw.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -28679,6 +28679,32 @@
       "labels": [],
       "epic": "goal-as-written",
       "body": "From SW-4333.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4337,
+      "title": "[Opus] Kernel: as-written fallback for the kernel's folded read-backs (core::check quote_kept in check_case/check_num_case/check_other, substitute_in for refined types and goal, sort_of), so a match in a def whose result type is huge (Wrap (grow 22 (Leaf x))) checks; convertible (D1293) but changes what the kernel accepts: proposal note first, docs/core.md, examples::soundness; needs Matt's go-ahead. Elaborator half done as a patch: orchestrator scratchpad keep/sw4331/elab-fallback.patch + large-hypothesis-result-match.sw (SW-4331)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "From SW-4331, 20 Nov ~04:55.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4338,
+      "title": "[DeepSeek] docs/testing.md STITCHWORT_TRACE_RESOURCE paragraph: say release backtraces lack lines and inlining hides sites; give a recipe (CARGO_PROFILE_RELEASE_DEBUG=line-tables-only cargo build --release, or a debug build) (SW-4331 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "From SW-4331.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
