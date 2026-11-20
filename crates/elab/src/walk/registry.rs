@@ -842,9 +842,21 @@ pub(super) fn choose(
             });
         }
     }
-    let what = match callee {
+    let show = |callee| match callee {
         Callee::Def(id) => format!("`{}`", written_name(cx, id)),
         Callee::Local(l) => format!("`{}`", cx.name_of_level(l).unwrap_or("a parameter")),
+    };
+    let what = show(callee);
+    // A pair whose runs call different functions names both; one function
+    // (the common case: a theorem about a function and itself) names it once.
+    let pair_what = if calls.len() > 1 {
+        let names: Vec<String> = calls.iter().filter_map(head_of).map(show).collect();
+        match names.as_slice() {
+            [first, second] if first != second => format!("{first} and {second}"),
+            _ => what.clone(),
+        }
+    } else {
+        what.clone()
     };
     let mut notes = vec![calls_shown(cx, calls)];
     match callee {
@@ -852,8 +864,9 @@ pub(super) fn choose(
             "{what} is a parameter: give its lemma in the brackets, or as a hypothesis"
         )),
         Callee::Def(_) => notes.push(format!(
-            "give a lemma for it in the brackets, register one with `@[walk]`, or write \
+            "give a lemma for {} in the brackets, register one with `@[walk]`, or write \
              `unfold {}` in the brackets to walk its body",
+            if calls.len() > 1 { "the pair" } else { "it" },
             what.trim_matches('`')
         )),
     }
@@ -862,7 +875,7 @@ pub(super) fn choose(
         info,
         expected,
         &if calls.len() > 1 {
-            format!("it has no lemma for this pair of calls of {what}, one in each run")
+            format!("it has no lemma for this pair of calls of {pair_what}, one in each run")
         } else {
             format!("it has no lemma for this call of {what}")
         },

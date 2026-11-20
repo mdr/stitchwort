@@ -299,7 +299,9 @@ doesn't infer it.
   pair of calls given one two-run lemma; an `if` in each splits on both
   conditions with the agreement as a goal (`Parse.followsIf`'s `agree`), and
   a `match` on scrutinees the `between` facts make equal splits once.
-  Bodies whose shapes differ stop with both shown.
+  Bodies whose shapes differ stop with both shown. As built (SW-4240), the
+  equal values are rewritten to the first run's and the split is made once
+  after; `followsIf`'s agreement goal is not built.
 
 **Names.** A value is named after the program's binder (`let seen :=
 modes.peek` gives `seen`), or, when the call is an argument, after the
