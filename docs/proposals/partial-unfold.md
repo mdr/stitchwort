@@ -141,6 +141,28 @@ inside it).
   well-founded definition does not unfold in today's read-back either, so it is never opened.
   **[checked]**
 
+**Update (SW-4453, SW-4456).** "`Follows` stays folded" holds for `match` only since SW-4453.
+Before it, `check_match` was given the goal already forced, so a goal `Parse.Follows …` reached
+the walk as the `∀` it computes to, and there was no `Follows` left to keep. Now
+`matching::check_match_named` checks a `match` whose goal is a call of a `Prop` definition
+against the call as written first, and against the forced goal if that fails; the outcome of
+the second check stands, so nothing that checked before fails. SW-4456 dropped its exception
+for a call holding an unknown (`Reads0 (() => _j lt)` inside a `reads0Then`). In
+`Fmt.PrintHangProofs`, `Syntax.FollowsBase` and `Syntax.ParseWalkLadder`, every one of the 23
+folded tries that failed failed unfolded too **[ran]**: each was an argument checked before a
+later argument fixed `_j`, where an arm's `_j False` is solved by neither form, and the argument
+is checked again once `_j` is known. The remaining limits:
+
+- **The call must be the goal at the `match`.** A `let` in front (`let m := n` then the
+  `match`) is given the forced goal and passes it on, so the arms see `Follows` unfolded
+  **[ran]**. The same goes for any form that hands its body the forced goal.
+- **`match` in code that performs** (`effects::comp_check_in`) is not routed this way: what it is
+  checked against is already forced (`run_pure`) or is a `Comp` type, never a `Prop` call
+  **[checked]**.
+- **A folded try that succeeds can solve an unknown differently** from the unfolded one
+  (first-order on the call's arguments), and a later step can fail on that; the fallback covers
+  only failures inside the `match` (§4.2).
+
 ### 2.3 How this differs from bounded-readback's `find`, and why it matters
 
 Bounded-readback §4.2 states the skipping rule top-down: "if some relevant variable is
