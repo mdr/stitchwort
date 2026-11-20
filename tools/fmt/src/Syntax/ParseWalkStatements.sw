@@ -45,14 +45,7 @@ theorem givesLetEquals ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 theorem givesLetStatement ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
     Parse.Gives GoodItems (() => letStatement self modes) (found => True) :=
-  Parse.givesThen givesHere (pair _ =>
-    Parse.givesThen givesFixedFrom (keyword _ =>
-      Parse.givesThen (givesLetPattern modes) (pat _ =>
-        Parse.givesThen
-          (Parse.givesAfter0 (reads0At modes Colon) (atColon => givesLetAnnotation self modes nested atColon))
-          (annotation _ =>
-            Parse.givesAfter0 (reads0At modes Equals) (atEquals =>
-              givesLetEquals self modes nested pair.snd keyword pat annotation atEquals)))))
+  byWalking [givesFixedFrom, givesHere, givesLetAnnotation, givesLetEquals, givesLetPattern]
 
 theorem givesLetEnd ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)

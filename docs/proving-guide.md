@@ -433,6 +433,11 @@ Import what you use: std's theorems live in namespaces that need an import
   line up two runs whose calls get values that are related but not equal,
   such as `Parse.mark()`'s alike marks feeding a fuel (`followsListItems`,
   `followsAtomAfter`): keep those by hand.
+  A call nested in an argument (`let y := f (g ())`, `size (look()) + 1`)
+  needs no lemma for the nesting: the walk reads it as `let x := g ();
+  let y := f x`, writing `givesThen (givesThen … (x xFacts => …)) (y
+  yFacts => yFacts)`; only `Parse.ReadsAt`, whose bind lemma has a fact
+  about the mark too, still stops there.
   Where a call's lemma doesn't fit as it is and the walk weakens it, the
   error is the weakening's; `STITCHWORT_WALK_TRACE=1` prints the direct
   fit's own error on standard error ("direct fit failed: …"), with the goal.

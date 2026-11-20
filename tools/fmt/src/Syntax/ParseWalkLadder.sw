@@ -989,13 +989,7 @@ theorem givesExprBlock ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (it
     (outside: Outside self)
     (bases: AtomBases self):
     Parse.Gives GoodItems (() => exprBlock self modes item) (Parsed 1) :=
-  match modes.limit with
-    | None => givesBlock self modes item.leaf.token.column True nested outside bases
-    | Some limit =>
-      match wider: item.leaf.token.column > limit with
-        | True => givesBlock self modes item.leaf.token.column True nested outside bases
-        | False => Parse.givesAfter0 [p := () => left()] reads0Left (items =>
-          givesExprRuns self modes item limit (runsOutAt modes item limit items) nested outside bases)
+  byWalking [givesBlock, givesExprRuns]
 
 theorem givesExprOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (items: List Item)
     (nested: Nested self)

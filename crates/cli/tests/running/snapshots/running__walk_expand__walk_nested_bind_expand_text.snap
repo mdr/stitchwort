@@ -1,0 +1,126 @@
+---
+source: crates/cli/tests/running/walk_expand.rs
+expression: expanded
+---
+-- A bind whose bound computation isn't one call (docs/syntax.md,
+-- "byWalking"): `let y := size (look()); k y` runs `look()`, then
+-- `size` of its value, then `k`. The walk reads it as `let x := look();
+-- let y := size x; k y`: the bound computation is walked as the first
+-- premise of the family's bind lemma, and where it ends, in a call or a
+-- value, the walk goes on in the code after it. One run and two.
+
+import Std (Parse, Option, Nat, Bool, List)
+
+def look(): {Parse Nat} Option Nat := Parse.next (n => True)
+
+@[walk]
+theorem givesLook: Parse.Gives Parse.Invariant.any (() => look()) ((v: Option Nat) => True) :=
+  Parse.readsWeaken (Parse.readsNext (n => True)) (read value proved => byComputing)
+
+def size (found: Option Nat): {Parse Nat} Nat := match found with
+  | Some n => n
+  | None => 0
+
+@[walk]
+theorem givesSize ∀ (found: Option Nat): Parse.Gives Parse.Invariant.any (() => size found) (n => n = n) := (match branch1: found with
+  | None => Parse.givesDone byComputing
+  | Some n => Parse.givesDone byComputing)
+
+-- The bound computation ends in a call: `y` and its fact are `size`'s.
+def sizeOfLook(): {Parse Nat} Nat :=
+  let y := size (look())
+  y + 1
+
+theorem givesSizeOfLook: Parse.Gives Parse.Invariant.any (() => sizeOfLook()) (n => 1 <= n) := Parse.givesThen
+  (Parse.givesThen givesLook (lookValue lookValueFacts =>
+    Parse.givesWeaken
+      (givesSize lookValue)
+      (y yFacts => Parse.givesDone lookValueFacts)))
+  (y yFacts => yFacts)
+
+-- It ends in a value, `found` computed from `look()`'s, and the split
+-- after it is on that.
+def present(): {Parse Nat} Bool :=
+  let found := (look()).isSome
+  if found then True else False
+
+theorem givesPresent: Parse.Gives Parse.Invariant.any (() => present()) (b => True) := Parse.givesThen
+  (Parse.givesThen givesLook (lookValue lookValueFacts =>
+    Parse.givesDone (match branch1: lookValue.isSome with
+      | False => Parse.givesDone lookValueFacts
+      | True => Parse.givesDone lookValueFacts)))
+  (found foundFacts => foundFacts)
+
+-- Two in one expression, neither named; and one whose bound computation
+-- splits, a call in one branch and a value in the other.
+def total(): {Parse Nat} Nat := size (look()) + size (look())
+
+theorem givesTotal: Parse.Gives Parse.Invariant.any (() => total()) (n => n = n) := Parse.givesThen
+  (Parse.givesThen givesLook (lookValue lookValueFacts =>
+    Parse.givesWeaken
+      (givesSize lookValue)
+      (sizeValue sizeValueFacts => Parse.givesThen
+        (Parse.givesThen givesLook (lookValue1 lookValueFacts1 =>
+          Parse.givesWeaken
+            (givesSize lookValue1)
+            (sizeValue1 sizeValue1Facts => Parse.givesDone byComputing)))
+        (value valueFacts => valueFacts))))
+  (value valueFacts => valueFacts)
+
+def sizeIfPresent(): {Parse Nat} Nat :=
+  let y := size (if (look()).isSome then Some (size (look())) else None)
+  y + 1
+
+theorem givesSizeIfPresent: Parse.Gives Parse.Invariant.any (() => sizeIfPresent()) (n => 1 <= n) := Parse.givesThen
+  (Parse.givesThen
+    (Parse.givesThen
+      (Parse.givesThen givesLook (lookValue lookValueFacts =>
+        Parse.givesDone (match branch1: lookValue.isSome with
+          | False => Parse.givesDone (Parse.givesWeaken
+              (givesSize None)
+              (y yFacts => Parse.givesDone lookValueFacts))
+          | True => Parse.givesThen
+            (Parse.givesThen givesLook (lookValue1 lookValueFacts1 =>
+              Parse.givesWeaken
+                (givesSize lookValue1)
+                (sizeValue sizeValueFacts => Parse.givesDone (Parse.givesWeaken
+                    (givesSize (Some sizeValue))
+                    (y yFacts => Parse.givesDone lookValueFacts1)))))
+            (value valueFacts => valueFacts))))
+      (value valueFacts => valueFacts))
+    (value valueFacts => valueFacts))
+  (y yFacts => yFacts)
+
+-- Two runs: the pair of bound computations walked in lockstep, with the
+-- values' equality rewritten as for any bind.
+def SameNat (x y: Nat): Prop := x = y
+
+def here(): {Parse Nat} Nat := Parse.mark().offset
+
+@[walk]
+theorem followsHere: Parse.Follows SameNat SameNat (() => here()) (() => here()) :=
+  Parse.followsMap [alike := SameNat] (m => m.offset) (m => m.offset) Parse.followsMark (m n alike => alike.right.left)
+
+def double (n: Nat): {Parse Nat} Nat :=
+  let at := here()
+  n + n + at
+
+@[walk]
+theorem followsDouble ∀ (n nTwin: Nat)
+    (same: n = nTwin):
+    Parse.Follows SameNat SameNat (() => double n) (() => double nTwin) :=
+  Parse.followsThen followsHere (at atTwin atFacts =>
+    rewrite <- atFacts then
+    Parse.followsDone arithmetic)
+
+def doubleHere(): {Parse Nat} Nat :=
+  let d := double (here())
+  d + 1
+
+theorem followsDoubleHere: Parse.Follows SameNat SameNat (() => doubleHere()) (() => doubleHere()) := Parse.followsThen
+  (Parse.followsThen followsHere (hereValue hereValueTwin hereValueFacts =>
+    rewrite <- hereValueFacts then
+    Parse.followsWeaken
+      (d dTwin dFacts => Parse.followsDone arithmetic)
+      (followsDouble hereValue hereValue byComputing)))
+  (d dTwin dFacts => dFacts)

@@ -7,5 +7,5 @@ walk-two-run-open-second.sw:35: walk
   in `close`: `at` and `atTwin` are equal, by `atFacts`
   in `close`: `closeAfter` unfolded
   in `close`: `closeAfter` unfolded
-  in `close`, `False`: `here ()` and `here ()`: followsHere (registered `@[walk]`)
+  the second call of `here` in `close`, `False`: `here ()` and `here ()`: followsHere (registered `@[walk]`)
   in `close`, `True`: `fail "nothing to close"` and `fail "nothing to close"`: followsFailAny (named in the brackets)

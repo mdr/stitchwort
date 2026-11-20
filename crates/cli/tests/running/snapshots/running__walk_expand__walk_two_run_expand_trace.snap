@@ -5,7 +5,7 @@ expression: trace
 walk-two-run.sw:27: walk
   in `hereTwice`: `here ()` and `here ()`: followsHere (registered `@[walk]`), then `Parse.followsThen`
   in `hereTwice`: `first` and `firstTwin` are equal, by `firstFacts`
-  in `hereTwice`: `here ()` and `here ()`: followsHere (registered `@[walk]`), then `Parse.followsThen`
+  the second call of `here` in `hereTwice`: `here ()` and `here ()`: followsHere (registered `@[walk]`), then `Parse.followsThen`
   in `hereTwice`: `second` and `secondTwin` are equal, by `secondFacts`
 walk-two-run.sw:46: walk
   in `collect`, `Succ more`: `here ()` and `here ()`: followsHere (registered `@[walk]`), then `Parse.followsThen`

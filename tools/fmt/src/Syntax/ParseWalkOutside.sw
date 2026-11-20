@@ -421,8 +421,7 @@ theorem givesRowClose ∀ (modes: Modes) (open: Comments) (abilities: List Expr)
 
 theorem givesRowVariable ∀ (modes: Modes) (open: Comments) (abilities: List Expr):
     Parse.Gives GoodItems (() => rowVariable modes open abilities) (row => True) :=
-  Parse.givesThen (Parse.givesAfter0 (reads0At modes Pipe) (pipe => givesRowPart modes pipe)) (variable _ =>
-    givesRowClose modes open abilities variable)
+  byWalking [givesRowClose, givesRowPart]
 
 theorem givesRowStart ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (open: Comments)
     (nested: Nested self)

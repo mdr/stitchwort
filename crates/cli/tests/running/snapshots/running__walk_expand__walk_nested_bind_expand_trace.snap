@@ -1,0 +1,37 @@
+---
+source: crates/cli/tests/running/walk_expand.rs
+expression: trace
+---
+walk-nested-bind.sw:21: walk
+walk-nested-bind.sw:28: walk
+  in `sizeOfLook`: `Std.Effect.bind (look ()) (x => size x)` walked as the code it runs, then `Parse.givesThen`
+  in `sizeOfLook`: `look ()`: givesLook (registered `@[walk]`), then `Parse.givesThen`
+  in `sizeOfLook`: `size lookValue`: givesSize (registered `@[walk]`)
+walk-nested-bind.sw:36: walk
+  in `present`: `Std.Effect.bind (look ()) (x => Done x.isSome)` walked as the code it runs, then `Parse.givesThen`
+  in `present`: `look ()`: givesLook (registered `@[walk]`), then `Parse.givesThen`
+walk-nested-bind.sw:42: walk
+  in `total`: `Std.Effect.bind (look ()) (x => size x)` walked as the code it runs, then `Parse.givesThen`
+  in `total`: `look ()`: givesLook (registered `@[walk]`), then `Parse.givesThen`
+  in `total`: `size lookValue`: givesSize (registered `@[walk]`)
+  in `total`: `Std.Effect.bind (look ()) (x => size x)` walked as the code it runs, then `Parse.givesThen`
+  the second call of `look` in `total`: `look ()`: givesLook (registered `@[walk]`), then `Parse.givesThen`
+  the second call of `size` in `total`: `size lookValue1`: givesSize (registered `@[walk]`)
+walk-nested-bind.sw:48: walk
+  in `sizeIfPresent`: `Std.Effect.bind (Std.Effect.bind (Std.Effect.bind (look ()) (x => Done x.isSome)) (cond => if cond then Std.Effect.bind (Std.Effect.bind (look ()) (x => size x)) (x => Done (Some x)) else Done None)) (x => size x)` walked as the code it runs, then `Parse.givesThen`
+  in `sizeIfPresent`: `Std.Effect.bind (Std.Effect.bind (look ()) (x => Done x.isSome)) (cond => if cond then Std.Effect.bind (Std.Effect.bind (look ()) (x => size x)) (x => Done (Some x)) else Done None)` walked as the code it runs, then `Parse.givesThen`
+  in `sizeIfPresent`: `Std.Effect.bind (look ()) (x => Done x.isSome)` walked as the code it runs, then `Parse.givesThen`
+  in `sizeIfPresent`: `look ()`: givesLook (registered `@[walk]`), then `Parse.givesThen`
+  in `sizeIfPresent`, `False`: `Done 0`: givesSize (registered `@[walk]`)
+  in `sizeIfPresent`, `True`: `Std.Effect.bind (look ()) (x => size x)` walked as the code it runs, then `Parse.givesThen`
+  the second call of `look` in `sizeIfPresent`, `True`: `look ()`: givesLook (registered `@[walk]`), then `Parse.givesThen`
+  in `sizeIfPresent`, `True`: `size lookValue1`: givesSize (registered `@[walk]`)
+  the second call of `size` in `sizeIfPresent`, `True`: `Done sizeValue`: givesSize (registered `@[walk]`)
+walk-nested-bind.sw:68: walk
+  in `double`: `here ()` and `here ()`: followsHere (registered `@[walk]`), then `Parse.followsThen`
+  in `double`: `at` and `atTwin` are equal, by `atFacts`
+walk-nested-bind.sw:74: walk
+  in `doubleHere`: `Std.Effect.bind (here ()) (x => double x)` walked as the code it runs, then `Parse.followsThen`
+  in `doubleHere`: `here ()` and `here ()`: followsHere (registered `@[walk]`), then `Parse.followsThen`
+  in `doubleHere`: `hereValue` and `hereValueTwin` are equal, by `hereValueFacts`
+  in `doubleHere`: `double hereValue` and `double hereValue`: followsDouble (registered `@[walk]`)
