@@ -759,15 +759,22 @@ scratch file on 19 Nov 2026).
       | True => Void.impossible (Option.noneNotSome m found)
       | False => Option.someInjective found   -- not `(rewrite c at found)`
   ```
-- **A guard in a proof's `match` gives a fact but refines nothing.** In a
-  theorem, `| c if c == '(' => …` gives the arm the fact `(c == '(') =
-  True`, and the arms below it its failure; `cases` and `arithmetic` use
-  them, but the goal and the hypotheses keep `c == '('` as they had it, so
-  a goal stuck on the program's `if c == '(' …` stays stuck and
-  `byComputing` there fails. The fact is shown in the goal only when named
-  (`| c if g: c == '(' => …`). To follow a program's guard step by step,
-  match on its condition instead, which refines both: `match g: c == '('
-  with | True => … | False => …`.
+- **A guard in a proof's `match` refines the goal, as `match` on its
+  condition does** (D3701). In a theorem, `| c if c == '(' => …` replaces
+  `c == '('` by `True` in the arm and by `False` in the arms below, in the
+  goal and in the hypotheses, so a goal stuck on the program's `if c ==
+  '(' …` computes and a proof can follow a guarded program arm for arm.
+  The arm gets the fact `(c == '(') = True` and the arms below `(c == '(')
+  = False` (a decided proposition `P` gives `P` and `¬P`); `cases` and
+  `arithmetic` use them, but the goal shows the fact only when it is named
+  (`| c if g: c == '(' => …`). A `rewrite g` or `rewrite f.eqK … g` there
+  finds nothing to rewrite: drop it (`W-REWRITE-GUARD-REFINED`, for a
+  rewrite of the goal only; a `rewrite … at h` that finds nothing makes the
+  arm fail refined, and the guard then splits as before). Where the goal
+  can't be generalised, or an arm fails refined but checks unrefined, the
+  guard gives the fact without refining;
+  `match g: c == '(' with | True => … | False => …` then tells you why
+  (`E-MATCH-MOTIVE`).
 - **A `?` prints its goal only when the checker reaches it, and only `?`
   does.** There are no named holes in a proof: `?hole` is `?` applied to a
   name `hole` (`E-UNKNOWN-NAME` for it, and a goal `(x: _) → _`). A bare `?`

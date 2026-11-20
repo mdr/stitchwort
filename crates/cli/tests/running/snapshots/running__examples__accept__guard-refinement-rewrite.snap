@@ -1,0 +1,40 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: warnings
+---
+[W-REWRITE-GUARD-REFINED] Warning: this rule finds nothing: the guard above already replaced its condition in the goal
+    ╭─[ accept/guard-refinement-rewrite.sw:14:27 ]
+    │
+ 14 │   | n if g: n <= limit => rewrite clamp.eq1 limit n g then arithmetic
+    │                           ────────────────┬───────────────  
+    │                                           ╰───────────────── nothing to rewrite here: drop this
+    │ 
+    │ Note 1: a guard in a proof's `match` refines the goal as `match` on its condition does, so a rewrite by the guard's fact, or by an equation that has the condition, is no longer needed; the proof checks without it
+    │ 
+    │ Note 2: the quick fix "Drop the rewrite" does it (docs/syntax.md, pattern guards)
+────╯
+try: drop the rewrite
+[W-REWRITE-GUARD-REFINED] Warning: this rule finds nothing: the guard above already replaced its condition in the goal
+    ╭─[ accept/guard-refinement-rewrite.sw:15:10 ]
+    │
+ 15 │   | n => rewrite clamp.eq2 limit n _ then arithmetic
+    │          ────────────────┬───────────────  
+    │                          ╰───────────────── nothing to rewrite here: drop this
+    │ 
+    │ Note 1: a guard in a proof's `match` refines the goal as `match` on its condition does, so a rewrite by the guard's fact, or by an equation that has the condition, is no longer needed; the proof checks without it
+    │ 
+    │ Note 2: the quick fix "Drop the rewrite" does it (docs/syntax.md, pattern guards)
+────╯
+try: drop the rewrite
+[W-REWRITE-GUARD-REFINED] Warning: this rule finds nothing: the guard above already replaced its condition in the goal
+    ╭─[ accept/guard-refinement-rewrite.sw:18:30 ]
+    │
+ 18 │   | c if g: c == '(' => Inl (rewrite g)
+    │                              ────┬────  
+    │                                  ╰────── nothing to rewrite here: drop this
+    │ 
+    │ Note 1: a guard in a proof's `match` refines the goal as `match` on its condition does, so a rewrite by the guard's fact, or by an equation that has the condition, is no longer needed; the proof checks without it
+    │ 
+    │ Note 2: the quick fix "Drop the rewrite" does it (docs/syntax.md, pattern guards)
+────╯
+try: drop the rewrite

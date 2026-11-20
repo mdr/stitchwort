@@ -567,6 +567,17 @@ theorem wordStartLetter ∀ (c: Char) (rest: List Char)
   cases
 ```
 
+A proof can follow a function's arms with the same conditions. In a theorem, a guarded arm refines the goal and the hypotheses as `match` on its condition would: the condition is replaced by `True` in the arm and by `False` in the arms below, so a call stuck on it computes. The arm gets the condition as a fact, and the arms below that it failed, in the same forms as the equations:
+
+<!-- snippet: proofs.sw#guard-refines -->
+```stitchwort
+theorem capAtMost ∀ (limit n: Nat): cap limit n <= limit := match n with
+  | n if n <= limit => arithmetic
+  | _ => arithmetic
+```
+
+In the first arm the goal is `n ≤ limit`, and in the second `limit ≤ limit`. A `rewrite` by the condition's fact or by `cap.eq1` there finds nothing left to rewrite, and the compiler says so with a warning and a quick fix to drop it.
+
 `match induct` splits at each condition too: the case of a guarded arm knows the condition, and the case of the arms below it knows it failed. The cases are named by arm, `eq1`, `eq2`, `eq3`, and `eq2` and `eq3` each get the fact; leaving `eq2` as `?` shows it:
 
 <!-- snippet: proofs.sw#guard-induct -->

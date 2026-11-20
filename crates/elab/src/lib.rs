@@ -7001,6 +7001,10 @@ fn check_guard(
         moved = Some(moved.as_ref().unwrap_or(otherwise).shifted(lets_from, 1));
     }
     let otherwise = moved.as_ref().unwrap_or(otherwise);
+    // `otherwise` is compiled for the context here and the one variable
+    // the `if` binds; a guard that refines a proof's goal binds more before
+    // it (`matching::refined_guard`), which the arms below move up past.
+    let split_at = cx.level();
     let aliased = scope_start..cx.names_len();
     let entered = std::cell::Cell::new(false);
     let mut then = check::CheckedBranch {
@@ -7021,7 +7025,11 @@ fn check_guard(
             let hidden = cx.suspend_names(aliased.start, aliased.end);
             let order = std::mem::replace(&mut cx.order, saved_order.clone());
             cx.e.decl.leaf_log.borrow_mut().path.push(GUARD_ELSE);
-            let result = check_flat(cx, otherwise, expected);
+            let added = cx.level().checked_sub(split_at + 1).expect(
+                "the arms below a guard are checked with at least the `if`'s one fact bound",
+            );
+            let refined = (added > 0).then(|| otherwise.shifted(split_at, added));
+            let result = check_flat(cx, refined.as_ref().unwrap_or(otherwise), expected);
             cx.e.decl.leaf_log.borrow_mut().path.pop();
             cx.order = order;
             cx.restore_names(aliased.start, hidden);
@@ -7030,7 +7038,7 @@ fn check_guard(
         },
         hides_proof: true,
     };
-    let result = check::check_if_with(
+    let result = check::check_guard_if(
         cx,
         guard.binder.as_ref(),
         &guard.cond,

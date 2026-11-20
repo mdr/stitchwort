@@ -7534,7 +7534,19 @@ fn check_proof_if(
     otherwise: &mut dyn IfBranch,
     expected: &Value,
 ) -> Result<Term> {
-    let (name, prop, decision) = match binder {
+    let (name, prop, decision) = proof_condition(cx, binder, cond)?;
+    proof_if(cx, name, prop, decision, then, otherwise, expected)
+}
+
+/// The condition of an `if` whose branches are proofs: the name its proof
+/// is bound by (`_` without `if h:`), the proposition, and a decision of it
+/// (`Bool.decTrue c` for a `Bool` `c`).
+fn proof_condition<'n>(
+    cx: &mut Ctx,
+    binder: Option<&'n AstName>,
+    cond: &Expr,
+) -> Result<(&'n str, Term, Term)> {
+    Ok(match binder {
         Some(h) => {
             let (prop, decision) = if_h_condition(cx, h, cond)?;
             (h.text.as_str(), prop, decision)
@@ -7551,7 +7563,174 @@ fn check_proof_if(
                 unreachable!("decided_now decides a waiting condition")
             }
         },
+    })
+}
+
+/// A guarded arm of a `match` (`lib.rs`, `check_guard`), checked as `if
+/// h: cond then <the arm> else <the arms below>`. Where the arm proves
+/// something, the guard refines the goal and the hypotheses as `match h:
+/// cond with | True => … | False => …` does (D3701,
+/// docs/proposals/guard-refinement.md), keeping the facts D3699 gives the
+/// arms: a `Bool` guard `c` gives `c = True` to the arm and `c = False` to
+/// the arms below, a decided proposition `p` gives `p` and `¬p`. Where the
+/// goal can't be generalised ([`crate::matching::refined_guard`]), the
+/// split is the plain one of an `if` that proves something.
+pub(crate) fn check_guard_if(
+    cx: &mut Ctx,
+    binder: Option<&AstName>,
+    cond: &Expr,
+    then: &mut dyn IfBranch,
+    otherwise: &mut dyn IfBranch,
+    expected: &Value,
+) -> Result<Term> {
+    if !proof_expected(cx, expected)? {
+        return check_if_in(cx, binder, cond, then, otherwise, expected);
+    }
+    let (name, prop, decision) = proof_condition(cx, binder, cond)?;
+    let g = cx.g();
+    // A `Bool` test (`c`, `a && b`, or `if h: c = True`) is split on
+    // itself, and its facts are the split's equation, `c = True` and `c =
+    // False`; any other proposition on its decision's test, its facts made
+    // from the equation by `sound` and `refute`.
+    let tested = match prop.strip_loc() {
+        Term::Eq(_, lhs, rhs)
+            if matches!(rhs.strip_loc(), Term::Ctor(d, 1, args)
+                if args.is_empty() && Some(*d) == g.env.registry().data(Builtin::Bool)) =>
+        {
+            Some((**lhs).clone())
+        }
+        _ => None,
     };
+    let scrutinee = match &tested {
+        Some(c) => c.clone(),
+        None => match crate::bind::comparison_in(&g, &decision) {
+            Some(direct) => direct,
+            None => Term::app(
+                Term::app_icit(
+                    Term::Def(builtin_def(cx, Builtin::Holds)?),
+                    prop.clone(),
+                    Icit::Implicit,
+                ),
+                decision.clone(),
+            ),
+        },
+    };
+    let decidable = builtin_data(cx, Builtin::Decidable)?;
+    let refute = builtin_def(cx, Builtin::Refute)?;
+    let base = cx.level();
+    let span = cond.span();
+    let refine = |cx: &mut Ctx,
+                  then: &mut dyn IfBranch,
+                  otherwise: &mut dyn IfBranch|
+     -> Result<Option<Term>> {
+        let mut arm = |cx: &mut Ctx, holds: bool, goal: &Value, equation: usize| -> Result<Term> {
+            let body: &mut dyn IfBranch = if holds { &mut *then } else { &mut *otherwise };
+            let name = if body.hides_proof() { "_" } else { name };
+            let g = cx.g();
+            let eq = Term::Var(cx.level() - 1 - equation);
+            let (fact, ty) = match &tested {
+                Some(_) => (eq, cx.types[equation].clone()),
+                None => {
+                    let shift = |t: &Term| t.shift(&g, cx.level() - base, 0);
+                    let (prop, decision) = (shift(&prop)?, shift(&decision)?);
+                    let prop_value = cx.eval(&prop)?;
+                    if holds {
+                        let sound = Term::Proj(decidable, 1, Rc::new(decision));
+                        (Term::app(sound, eq), prop_value)
+                    } else {
+                        let not = builtin_def(cx, Builtin::Not)?;
+                        let not_prop = stitchwort_core::value::apply(
+                            &g,
+                            cx.eval(&Term::Def(not))?,
+                            prop_value,
+                        )?;
+                        let refuted = Term::app_icit(Term::Def(refute), prop, Icit::Implicit);
+                        (Term::app(Term::app(refuted, decision), eq), not_prop)
+                    }
+                }
+            };
+            let ty_term = cx.quote_folded(&ty)?;
+            let mark = cx.mark();
+            cx.bind(name, ty);
+            let result = body.check(cx, goal);
+            cx.reset(mark);
+            Ok(Term::let_(name.into(), ty_term, fact, result?))
+        };
+        crate::matching::refined_guard(cx, scrutinee.clone(), span, expected, &mut arm)
+    };
+    let decl = &cx.e.decl;
+    if decl.unrefined_guards.get() > 0 {
+        return proof_if(cx, name, prop, decision, then, otherwise, expected);
+    }
+    let retry = decl.guard_no_retry.get() == 0;
+    let before = crate::undo::Snapshot::take(cx);
+    match refine(cx, then, otherwise) {
+        Ok(Some(term)) => return Ok(term),
+        Ok(None) => return proof_if(cx, name, prop, decision, then, otherwise, expected),
+        Err(e)
+            if !retry || crate::undo::fatal(&e) || cx.g().machine.budget.exhausted().is_some() =>
+        {
+            return Err(e);
+        }
+        Err(_) => {}
+    }
+    // Refined, an arm failed: D3688 says a proof that checked unrefined
+    // still does (D3701), so the split is tried again without refining,
+    // and the guards inside it don't refine either, so that a failing
+    // proof costs a bounded number of attempts rather than doubling with
+    // each guard of a chain. If that fails too, the refined errors are the
+    // ones reported, checked again with no retry inside.
+    before.restore(cx);
+    let unrefined = counted(
+        cx,
+        |d| &d.unrefined_guards,
+        |cx| {
+            crate::undo::attempt(cx, |cx| {
+                proof_if(
+                    cx,
+                    name,
+                    prop.clone(),
+                    decision.clone(),
+                    then,
+                    otherwise,
+                    expected,
+                )
+            })
+        },
+    )?;
+    if let Some(term) = unrefined {
+        return Ok(term);
+    }
+    match counted(cx, |d| &d.guard_no_retry, |cx| refine(cx, then, otherwise))? {
+        Some(term) => Ok(term),
+        None => proof_if(cx, name, prop, decision, then, otherwise, expected),
+    }
+}
+
+/// `f`, with the declaration's counter `which` one higher while it runs.
+fn counted<T>(
+    cx: &mut Ctx,
+    which: fn(&crate::state::Decl) -> &std::cell::Cell<usize>,
+    f: impl FnOnce(&mut Ctx) -> Result<T>,
+) -> Result<T> {
+    let counter = which(&cx.e.decl);
+    counter.set(counter.get() + 1);
+    let result = f(cx);
+    let counter = which(&cx.e.decl);
+    counter.set(counter.get() - 1);
+    result
+}
+
+/// [`check_proof_if`] with its condition elaborated.
+fn proof_if(
+    cx: &mut Ctx,
+    name: &str,
+    prop: Term,
+    decision: Term,
+    then: &mut dyn IfBranch,
+    otherwise: &mut dyn IfBranch,
+    expected: &Value,
+) -> Result<Term> {
     let result_ty = cx.quote_folded(expected)?;
     let prop_value = cx.eval(&prop)?;
     let not = builtin_def(cx, Builtin::Not)?;
