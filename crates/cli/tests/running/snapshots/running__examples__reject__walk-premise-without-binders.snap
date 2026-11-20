@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-UNSOLVED] Error: can't work out an implicit argument
+    ╭─[ reject/walk-premise-without-binders.sw:32:56 ]
+    │
+ 32 │ theorem mineTwice: Mine (() => twice()) (n => True) := byWalking []
+    │                                                        ──────┬─────  
+    │                                                              ╰─────── the compiler couldn't work out what goes here
+    │ 
+    │ Note: supply it explicitly with `f [x := …]`, or add a type annotation
+────╯

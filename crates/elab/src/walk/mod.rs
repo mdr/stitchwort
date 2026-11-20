@@ -196,8 +196,13 @@ fn app(f: Expr, arg: Expr) -> Expr {
 
 /// A lambda the walk writes. Its names' spans are empty, at the walk's
 /// end: they were never written, and a binder named as a function is
-/// (`number`) is no lambda written by mistake (`W-LAMBDA-SHADOW`).
+/// (`number`) is no lambda written by mistake (`W-LAMBDA-SHADOW`). With no
+/// names (a premise that is no `∀`, so there is nothing to bind) it is
+/// the body itself: a lambda takes at least one parameter.
 fn lambda(names: &[String], body: Expr, span: Span) -> Expr {
+    if names.is_empty() {
+        return body;
+    }
     let at = Span {
         start: span.end,
         ..span
@@ -1369,7 +1374,7 @@ fn bind_step(
     let lambda = lambda(&names, resume(next, span), span);
     e = app(e, lambda);
     text.extend([
-        Piece::Text(format!(" ({} =>\n", names.join(" "))),
+        Piece::Text(format!(" ({}\n", binding(&names))),
         Piece::Child(next),
         Piece::Text(")".into()),
     ]);
@@ -1518,7 +1523,10 @@ fn tail_call(
     let lambda = lambda(&names, resume(leaf, span), span);
     let mut text = vec![Piece::Text(format!("{}\n{MORE}", short_name(&name)))];
     let implication = [
-        Piece::Text(format!("({} => ", names.join(" "))),
+        Piece::Text(format!(
+            "({}",
+            binding(&names) + if names.is_empty() { "" } else { " " }
+        )),
         Piece::Child(leaf),
         Piece::Text(")".into()),
     ];
@@ -1656,4 +1664,14 @@ fn condition_text(shown: &str) -> String {
         return format!("{a} == {b}");
     }
     shown.to_string()
+}
+
+/// How a lambda over `names` reads in a step's text: `a b =>`, or
+/// nothing when there are no names.
+fn binding(names: &[String]) -> String {
+    if names.is_empty() {
+        String::new()
+    } else {
+        format!("{} =>", names.join(" "))
+    }
 }

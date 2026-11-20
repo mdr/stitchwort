@@ -6938,7 +6938,14 @@ fn explicit_lambda(
         }
     }
     let shadowed = lambda_shadow(cx, names, span)?;
-    let (first, rest) = names.split_first().expect("lambdas have parameters");
+    let Some((first, rest)) = names.split_first() else {
+        debug_assert!(false, "a lambda has parameters");
+        return Err(
+            Diagnostic::error("E-INTERNAL", "internal error: a lambda with no parameters")
+                .with_label(span, "here")
+                .with_note("this is a bug in the compiler, not in your program"),
+        );
+    };
     let mark = cx.mark();
     let var = Value::var(cx.level());
     cx.bind(&first.text, dom.clone());
