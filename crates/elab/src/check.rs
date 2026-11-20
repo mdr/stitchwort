@@ -6708,7 +6708,7 @@ fn check_value_against(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Valu
             Ok(crate::numbers::group(cx, expr, Some(&expected))?.0)
         }
         (Expr::Neg(..), _) => Ok(crate::numbers::group(cx, expr, Some(&expected))?.0),
-        (Expr::Match { .. }, _) => crate::matching::check_match(cx, expr, &expected),
+        (Expr::Match { .. }, _) => crate::matching::check_match_named(cx, expr, &expected, named),
         (Expr::Reify { .. }, _) => crate::reify::check_reify(cx, expr, &expected),
         (Expr::Induct { .. }, _) => crate::induct_match::check_induct(cx, expr, &expected),
         (Expr::Calc { .. }, _) => crate::calc::check_calc(cx, expr, &expected),

@@ -675,7 +675,7 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
 /// Whether `value` is a call of a definition whose result is a proposition
 /// (`Parse.Follows a b`), as opposed to one that computes a `Bool` or a
 /// number.
-fn is_prop_call(g: &Ev, value: &Value) -> bool {
+pub(crate) fn is_prop_call(g: &Ev, value: &Value) -> bool {
     let Value::Call(id, ..) = value else {
         return false;
     };

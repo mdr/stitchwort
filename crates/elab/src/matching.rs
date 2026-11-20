@@ -391,6 +391,41 @@ fn note_match_step(cx: &Ctx, alts: &[Alt], span: stitchwort_syntax::Span, goal: 
     );
 }
 
+/// [`check_match`] against `named`, the goal before it was forced, where
+/// that is a call of a `Prop` definition (`Parse.Follows a b`): the motive
+/// then keeps the call, so the arms' goals show it folded and the partial
+/// unfold sees the call it is designed around, rather than the `∀` it
+/// computes to. Where that fails, the `match` is checked again against the
+/// forced `expected`, as before, and that outcome stands: keeping the head
+/// never makes a `match` fail that checks unfolded.
+pub(crate) fn check_match_named(
+    cx: &mut Ctx,
+    expr: &Expr,
+    expected: &Value,
+    named: &Value,
+) -> Result<Term> {
+    let g = cx.g();
+    // A call with an unknown in it (`Reads0 (() => _j x)`, the continuation
+    // of a `reads0Then` not yet worked out) is checked unfolded: kept folded,
+    // its arms fail to solve the unknown where unfolded they don't.
+    let folded = crate::goals::is_prop_call(&g, named)
+        && crate::check::quote_folded(&g, cx.level(), named)
+            .is_ok_and(|t| !t.subterms().any(|(t, _)| matches!(t, Term::Meta(_))));
+    if !folded {
+        return check_match(cx, expr, expected);
+    }
+    let snapshot = crate::undo::Snapshot::take(cx);
+    let written = cx.written_goal.clone();
+    match check_match(cx, expr, named) {
+        Err(e) if !crate::undo::fatal(&e) => {
+            snapshot.restore(cx);
+            cx.written_goal = written;
+            check_match(cx, expr, expected)
+        }
+        done => done,
+    }
+}
+
 /// A `match`, lifted (§4.4). Made again without the partial unfold if it
 /// fails after keeping a result of it ([`crate::unfold_path::retried`]):
 /// its motive, or a `match` or `rewrite` inside it, can leave an arm a goal
