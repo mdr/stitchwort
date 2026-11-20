@@ -30209,8 +30209,8 @@
     {
       "id": 4453,
       "title": "[Opus] Match arms keep a Prop definition's head unfolded (match-partial-unfold shows forall ... instead of Parse.Follows ...): check_value_against forces the goal before check_match, so the motive is built from the unfolded value and SW-4419's 'Follows stays folded' never holds there; give check_match the unforced goal when it is a Prop call so the motive keeps the head (terms and hashes change; migration cost doesn't count); measure the effect on partial unfold and on tools/fmt check time (SW-4437 finding 1)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
