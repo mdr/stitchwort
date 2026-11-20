@@ -28712,7 +28712,7 @@
     {
       "id": 4339,
       "title": "[Sonnet] Classify the ~125 Ctx::quote callers (omega 40, rewrite 24, rewrite/* 22, others ~40) as SW-4336 did the direct value::quote sites; route annotation/hypothesis-type ones through quote_or_written; then guard Ctx::quote itself (clippy disallowed-methods on the method, or make it private behind the three named helpers)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
