@@ -28842,7 +28842,7 @@
     {
       "id": 4349,
       "title": "[DeepSeek] board/board show N --body-only (print only the body), and use it in board/README.md's append recipe (SW-4343 friction)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -28868,7 +28868,7 @@
     {
       "id": 4351,
       "title": "[Sonnet] matching.rs ~725 and ~939: the other two unfolded reads of an expression scrutinee's type; probe match make x with (huge type) and route through quote_or_written if it runs out (SW-4342 left)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
