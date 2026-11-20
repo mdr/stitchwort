@@ -134,6 +134,12 @@ pub(super) fn report(outcome: Outcome, span: stitchwort_syntax::Span) {
     report_as("match-as-written", outcome, span);
 }
 
+/// Prints `outcome` for the guard whose condition is at `span`
+/// ([`super::refined_guard`]) when `STITCHWORT_MATCH_METRICS` is set.
+pub(super) fn report_guard(outcome: Outcome, span: stitchwort_syntax::Span) {
+    report_as("guard-as-written", outcome, span);
+}
+
 /// Prints `outcome` for the transport along the equation of the `match`
 /// whose scrutinee is at `span` ([`transport_target`]) when
 /// `STITCHWORT_MATCH_METRICS` is set. [`Outcome::Unchecked`] is a target
