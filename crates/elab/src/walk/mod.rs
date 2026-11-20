@@ -524,6 +524,71 @@ fn refold(cx: &mut Ctx, family: &Family, args: &[Value], bodies: &[Value]) -> Re
     cx.eval(&term)
 }
 
+/// The goal with its arguments other than the thunks eta-contracted, if
+/// that changes any (`x y => WordsAlike x y` to `WordsAlike`), and the
+/// arguments: the same goal by conversion. A then-lemma's post comes out
+/// eta-expanded where unification solved it from the unfolded relation
+/// (`?alike x y` against `WordsAlike x y`), and a lemma that leaves a run
+/// open (`second`) then fails to fit, since the unifier settles an unknown
+/// function facing a lambda only when a data unknown faces a known argument
+/// too (`unify_by_unknown_arguments`); the contracted post is a known
+/// argument, as the statement wrote it.
+fn eta_contracted(
+    cx: &mut Ctx,
+    family: &Family,
+    args: &[Value],
+    expected: &Value,
+) -> Result<Option<(Vec<Value>, Value)>> {
+    let g = cx.g();
+    let mut contracted = Vec::with_capacity(args.len());
+    for (i, a) in args.iter().enumerate() {
+        let lambda = matches!(force_solved(&g, a.clone())?, Value::Lam(..));
+        contracted.push(if lambda && !family.thunks.contains(&i) {
+            eta_contract(&g, &cx.quote_folded(a)?)?
+        } else {
+            None
+        });
+    }
+    if contracted.iter().all(Option::is_none) {
+        return Ok(None);
+    }
+    let terms = (args.iter().zip(contracted))
+        .map(|(a, c)| c.map_or_else(|| cx.quote_folded(a), Ok))
+        .collect::<Result<Vec<_>>>()?;
+    let icits = binder_icits(g.def(family.relation).ty());
+    let mut goal = Term::Def(family.relation);
+    for (i, t) in terms.iter().enumerate() {
+        let icit = icits.get(i).copied().unwrap_or(Icit::Explicit);
+        goal = Term::App(Rc::new(goal), Rc::new(t.clone()), icit);
+    }
+    let goal = cx.eval(&goal)?;
+    if !cx.conv_now(&goal, expected)? {
+        return Ok(None);
+    }
+    let args = (terms.iter())
+        .map(|t| cx.eval(t))
+        .collect::<Result<Vec<_>>>()?;
+    Ok(Some((args, goal)))
+}
+
+/// `t` eta-contracted, if it is a lambda that only applies a function to
+/// its variables (`x y => f x y` is `f`), where `f` mentions none of them.
+fn eta_contract(g: &stitchwort_core::Ev, t: &Term) -> Result<Option<Term>> {
+    let Term::Lam(_, icit, body) = t.strip_loc() else {
+        return Ok(None);
+    };
+    let inner = eta_contract(g, body)?;
+    let body = inner.as_ref().unwrap_or(body);
+    if let Term::App(f, a, applied) = body.strip_loc()
+        && applied == icit
+        && matches!(a.strip_loc(), Term::Var(0))
+        && !f.mentions(0)
+    {
+        return Ok(Some(f.instantiate_var(g, 0)?));
+    }
+    Ok(None)
+}
+
 /// How each binder of a type, as written, is passed.
 fn binder_icits(ty: &Term) -> Vec<Icit> {
     let mut out = Vec::new();
@@ -768,6 +833,24 @@ fn note_trace(cx: &Ctx, node: u32, line: Vec<Piece>) {
         .push(line);
 }
 
+/// With `STITCHWORT_WALK_TRACE=1`, a line on stderr about what the walk
+/// tried at `node` and dropped: an error it recovers from (a direct fit
+/// before weakening) is otherwise never seen.
+fn debug_trace(cx: &Ctx, node: &NodeInfo, what: &str, expected: &Value, err: &Diagnostic) {
+    if std::env::var_os("STITCHWORT_WALK_TRACE").is_none_or(|v| v == "0") {
+        return;
+    }
+    let mut line = format!(
+        "walk trace: {}: {what}: {}: {}",
+        node.place, err.code, err.message
+    );
+    for n in &err.notes {
+        line.push_str(&format!("\n  note: {n}"));
+    }
+    line.push_str(&format!("\n  goal: {}", cx.show(expected)));
+    eprintln!("{line}");
+}
+
 /// `E-WALK` at the walk of `node`, about `what`, with the goal there.
 fn stuck(cx: &Ctx, node: &NodeInfo, expected: &Value, what: &str, notes: &[String]) -> Diagnostic {
     let walks = cx.e.session.walks.borrow();
@@ -797,6 +880,11 @@ fn step(
         .trace
         .clear();
     let info = node_info(cx, node);
+    let contracted = eta_contracted(cx, family, &args, expected)?;
+    let (args, expected) = match &contracted {
+        Some((args, goal)) => (args.clone(), goal),
+        None => (args, expected),
+    };
     if family.thunks.len() == 2 {
         return two::step(cx, node, &info, family, args, top, expected);
     }
@@ -1384,7 +1472,10 @@ fn tail_call(
             cx.reset(mark);
             return Err(e);
         }
-        Err(_) => snapshot.restore(cx),
+        Err(e) => {
+            debug_trace(cx, info, "direct fit failed", expected, &e);
+            snapshot.restore(cx);
+        }
     }
     let Some(weaken) = family.weaken else {
         return Err(stuck(

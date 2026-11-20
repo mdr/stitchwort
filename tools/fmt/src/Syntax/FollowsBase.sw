@@ -487,7 +487,7 @@ theorem followsTupleEnds ∀ (inner: Modes) (count: Nat):
 @[walk]
 theorem followsTupleClose ∀ (modes: Modes):
     Parse.Follows SameCode WordsAlike (() => tupleClose modes) (() => tupleClose modes) :=
-  byWalking [followsFatalAny tupleAnnotation (() => Syntax.fatal tupleAnnotation), unfold tupleCloseAfter]
+  byWalking [followsFatalAny, unfold tupleCloseAfter]
 
 theorem followsTupleEnd ∀ (inner: Modes) (open openTwin: Word)
     (opens: WordsAlike open openTwin) (pair pairTwin: (List Expr, Bool))

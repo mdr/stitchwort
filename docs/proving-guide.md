@@ -433,6 +433,9 @@ Import what you use: std's theorems live in namespaces that need an import
   line up two runs whose calls get values that are related but not equal,
   such as `Parse.mark()`'s alike marks feeding a fuel (`followsListItems`,
   `followsAtomAfter`): keep those by hand.
+  Where a call's lemma doesn't fit as it is and the walk weakens it, the
+  error is the weakening's; `STITCHWORT_WALK_TRACE=1` prints the direct
+  fit's own error on standard error ("direct fit failed: …"), with the goal.
 - **`byComputing`** proves `a = b` only when both sides compute to the same value.
   `+` recurses on its first argument, so `1 + c` computes to `Succ c` and
   `c + 1` doesn't (aoc/NOTES-2024.md:824–836). A goal stuck on a variable
