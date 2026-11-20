@@ -185,6 +185,20 @@ pub struct Stats {
     /// replay left, another build's state, so the session counts as having
     /// carried something over. Not counted in `namespace_carried`.
     pub namespace_carried_late: usize,
+    /// Library files and namespaces whose entry's terms this kernel checked
+    /// again instead of trusting them: carried over from a build with
+    /// another kernel side (check-cache-across-updates.md §4.4, stage 2),
+    /// or any entry with `check --recheck`. Also counted in `hits` and
+    /// `namespace_hits`, and in `carried` and `namespace_carried` when
+    /// carried over.
+    pub rechecked: usize,
+    pub namespace_rechecked: usize,
+    /// Entries this kernel refused when it checked them again: what they
+    /// added was undone and the unit elaborated. Expected after a kernel
+    /// change that refuses a term it used to accept; for an entry this
+    /// build wrote (`check --recheck`), it means the trusted replay would
+    /// have admitted what this kernel refuses. Not counted in `refused`.
+    pub refused_on_recheck: usize,
 }
 
 impl Stats {
@@ -227,6 +241,40 @@ impl Stats {
         }
         Some(units)
     }
+
+    /// What this kernel checked again, for the line a host shows beside
+    /// [`Self::carried_over_units`]: `2 namespaces and 40 standard library
+    /// files`, with how many it refused, or `None` if it checked none.
+    pub fn rechecked_units(&self) -> Option<String> {
+        if self.rechecked + self.namespace_rechecked + self.refused_on_recheck == 0 {
+            return None;
+        }
+        let count =
+            |n: usize, one: &str, many: &str| format!("{n} {}", if n == 1 { one } else { many });
+        let mut parts = Vec::new();
+        if self.namespace_rechecked > 0 {
+            parts.push(count(self.namespace_rechecked, "namespace", "namespaces"));
+        }
+        if self.rechecked > 0 {
+            parts.push(count(
+                self.rechecked,
+                "standard library file",
+                "standard library files",
+            ));
+        }
+        let mut units = if parts.is_empty() {
+            "nothing".to_string()
+        } else {
+            parts.join(" and ")
+        };
+        if self.refused_on_recheck > 0 {
+            units = format!(
+                "{units}; {} refused by it and elaborated",
+                count(self.refused_on_recheck, "entry", "entries")
+            );
+        }
+        Some(units)
+    }
 }
 
 /// What an entry says about the build that wrote it, beside its key (which
@@ -244,12 +292,17 @@ struct Stamp {
 
 /// How an entry that opens can be used.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum Hit {
-    /// Written by this build from this source, against this library.
-    Exact,
-    /// Carried over: from this source, accepted by this kernel side, but
-    /// not elaborated by this build (or elaborated over carried units).
-    Carried,
+struct Hit {
+    /// Written by this build from this source, against this library; or
+    /// else carried over: from this source, but not elaborated by this
+    /// build (or elaborated over carried units).
+    exact: bool,
+    /// Whether its terms go through the kernel's checks again
+    /// ([`Elaborator::submit`]'s checking calls) rather than its trusted
+    /// admission: always when a build with another kernel side wrote it
+    /// (check-cache-across-updates.md §4.4, stage 2), and for every entry
+    /// with `check --recheck`.
+    recheck: bool,
 }
 
 /// Why a namespace's entry wasn't used: found before anything changed, or
@@ -331,6 +384,17 @@ impl Elaborator {
         self.options.carry_over = on;
     }
 
+    /// Whether every entry the check cache loads goes through the kernel's
+    /// checks again instead of its trusted admission (`check --recheck`;
+    /// off by default): Lean's `lake check`, for a cache. Plain `check`
+    /// then leaves no namespace out (SW-1193), since each must be loaded to
+    /// be checked. Each is counted in [`Stats::rechecked`]. Entries carried
+    /// over from a build with another kernel side are checked again
+    /// whatever this says.
+    pub fn set_recheck(&mut self, on: bool) {
+        self.options.recheck = on;
+    }
+
     /// Whether this session has loaded anything carried over: entries it
     /// writes are then carried-over ones too, never exact.
     fn carried_anything(&self) -> bool {
@@ -340,24 +404,30 @@ impl Elaborator {
     /// How an entry stamped `stamp` may be used in this session, or why it
     /// can't.
     fn usable(&self, stamp: &Stamp, store: &dyn Store) -> Read<Hit> {
+        let recheck = self.options.recheck;
         if stamp.exact
             && stamp.compiler == store.compiler()
             && stamp.interface == self.library_interface()
         {
-            return Ok(Hit::Exact);
+            return Ok(Hit {
+                exact: true,
+                recheck,
+            });
         }
         if !self.options.carry_over {
             return bad("written by another build, or against another library");
         }
-        if stamp.kernel != store.kernel() {
-            return bad("written by a build with another kernel side");
-        }
-        Ok(Hit::Carried)
+        // Accepted by another kernel: this one checks it again (stage 2).
+        Ok(Hit {
+            exact: false,
+            recheck: recheck || stamp.kernel != store.kernel(),
+        })
     }
 
     /// The entry to use for `unit` and `key`, and how: this build's own if
-    /// it is exact, else the first one, this build's or another's, that may
-    /// be carried over.
+    /// it is usable, else the first one another build wrote that may be
+    /// carried over, preferring one this kernel side accepted (which needs
+    /// no re-check) to one another kernel side did.
     fn cache_read(&self, store: &dyn Store, unit: &str, key: &Key) -> Option<(Vec<u8>, Hit)> {
         let salt = store.salt();
         let mut why = None;
@@ -369,12 +439,20 @@ impl Elaborator {
             }
         }
         if self.options.carry_over {
+            let mut to_recheck = None;
             for bytes in store.read_others(unit, key) {
                 if let Ok((stamp, ..)) = open(&bytes, key, salt)
-                    && matches!(self.usable(&stamp, store), Ok(Hit::Carried))
+                    && let Ok(hit) = self.usable(&stamp, store)
+                    && !hit.exact
                 {
-                    return Some((bytes, Hit::Carried));
+                    if !hit.recheck || self.options.recheck {
+                        return Some((bytes, hit));
+                    }
+                    to_recheck.get_or_insert((bytes, hit));
                 }
+            }
+            if to_recheck.is_some() {
+                return to_recheck;
             }
         }
         if let Some(why) = why {
@@ -510,9 +588,13 @@ impl Elaborator {
         match self.replay(&bytes, key, store.salt(), hit) {
             Ok(()) => {
                 self.session.cache_stats.hits += 1;
-                if hit == Hit::Carried {
+                if !hit.exact {
                     debug(&format!("std file {f}: carried over"));
                     self.session.cache_stats.carried += 1;
+                }
+                if hit.recheck {
+                    self.session.cache_stats.rechecked += 1;
+                    keep_rechecked(&*store, unit, key, &bytes, hit);
                 }
                 true
             }
@@ -638,7 +720,11 @@ impl Elaborator {
         let store = self.options.check_cache.clone()?;
         // Only an exact entry: a carried-over one is loaded, so that its
         // references are compared with the declarations now.
-        let (bytes, Hit::Exact) = self.cache_read(&*store, &unit, &key)? else {
+        // Nor with `--recheck`, which loads every entry to check it again.
+        if self.options.recheck {
+            return None;
+        }
+        let (bytes, Hit { exact: true, .. }) = self.cache_read(&*store, &unit, &key)? else {
             return None;
         };
         let why = match self.plan_entry(&bytes, &key, store.salt()) {
@@ -833,9 +919,13 @@ impl Elaborator {
                 Ok(mut warnings) => {
                     self.session.replayed_names.clear();
                     self.session.cache_stats.namespace_hits += 1;
-                    if hit == Hit::Carried {
+                    if !hit.exact {
                         debug(&format!("{ns}: carried over"));
                         self.session.cache_stats.namespace_carried += 1;
+                    }
+                    if hit.recheck {
+                        self.session.cache_stats.namespace_rechecked += 1;
+                        keep_rechecked(&*store, unit, key, &bytes, hit);
                     }
                     // Doc links aren't cached: they may point into other
                     // namespaces, which can change without this one's key
@@ -853,7 +943,7 @@ impl Elaborator {
                     // What the replay left (names, library reach, the
                     // library files it loaded) is another build's: what is
                     // elaborated over it, and written, is not exact.
-                    if hit == Hit::Carried {
+                    if !hit.exact {
                         self.session.cache_stats.namespace_carried_late += 1;
                     }
                     // Its files were walked already.
@@ -1117,7 +1207,7 @@ impl Elaborator {
         // A carried-over entry relies on the content hashes of what it
         // refers to alone (`decode`): a library commit that adds lemmas
         // elsewhere in a file it loads changes none of them (§4.2).
-        if hit == Hit::Exact {
+        if hit.exact {
             self.library_unchanged(&head.pre).map_err(early)?;
         }
 
@@ -1582,6 +1672,30 @@ fn first_line_differing(a: &str, b: &str) -> String {
 
 /// With `STITCHWORT_CACHE_DEBUG` set, says why an entry wasn't used or
 /// written, on stderr.
+/// After an entry another build wrote has passed this kernel's checks:
+/// keeps it as this build's own, stamped with this build and its kernel
+/// side and not exact, so that the next session carries it over without
+/// checking it again (this kernel has accepted it). Nothing for an entry
+/// this build wrote.
+fn keep_rechecked(store: &dyn Store, unit: &str, key: &Key, bytes: &[u8], hit: Hit) {
+    if hit.exact {
+        return;
+    }
+    let Ok((stamp, deps, body)) = open(bytes, key, store.salt()) else {
+        return;
+    };
+    if stamp.compiler == store.compiler() {
+        return;
+    }
+    let stamp = Stamp {
+        kernel: store.kernel().to_string(),
+        compiler: store.compiler().to_string(),
+        interface: stamp.interface,
+        exact: false,
+    };
+    store.write(unit, key, &seal(key, store.salt(), &stamp, &deps, body));
+}
+
 fn debug(what: &str) {
     if std::env::var_os("STITCHWORT_CACHE_DEBUG").is_some() {
         eprintln!("check cache: {what}");
@@ -2941,6 +3055,15 @@ impl Elaborator {
     /// with the hashes the entry records, rather than the recorded hashes
     /// being taken as they are: a term decoded wrongly is refused
     /// (check-cache-across-updates.md §4.2, "the decode self-check").
+    ///
+    /// An entry to be checked again (`hit.recheck`: written by a build with
+    /// another kernel side, or any entry with `check --recheck`) goes
+    /// through the kernel's checking calls instead of the trusted
+    /// admission, as elaborating submits declarations: types, bodies,
+    /// termination, constructors, universes and positivity are all checked
+    /// by this kernel, so this path trusts nothing in the entry. Its hashes
+    /// are compared too, since the entries that refer to its declarations
+    /// name them by the hashes it records.
     fn admit_replayed(
         &mut self,
         defs: &[DefEntry],
@@ -2963,22 +3086,35 @@ impl Elaborator {
         let forced = self.options.refuse_replays_after.is_some();
         let witness = stitchwort_core::globals::CHECK_UNDOS.then(|| self.undo_witness(forced));
         let result = self
-            .submit(defs, datas, &param_defaults, base_defs, base_datas, library)
+            .submit(
+                defs,
+                datas,
+                &param_defaults,
+                (base_defs, base_datas),
+                library,
+                hit.recheck,
+            )
             .and_then(|()| {
                 if bound_builtins(&self.ev(), base_defs, base_datas) != bound {
                     return bad("other built-ins were bound");
                 }
                 Ok(())
             })
-            .and_then(|()| match hit {
-                Hit::Exact => Ok(()),
-                Hit::Carried => self.hashes_as_recorded(defs, datas, base_defs, base_datas),
+            .and_then(|()| {
+                if hit.exact && !hit.recheck {
+                    return Ok(());
+                }
+                self.hashes_as_recorded(defs, datas, base_defs, base_datas)
             });
         if let Err(why) = result {
             // A cancelled operation (an editor keystroke) ends the kernel's
             // calls with an error that isn't the entry's fault: not counted.
             if !self.kernel.machine.budget.cancelled() {
-                self.session.cache_stats.refused += 1;
+                if hit.recheck {
+                    self.session.cache_stats.refused_on_recheck += 1;
+                } else {
+                    self.session.cache_stats.refused += 1;
+                }
             }
             // Nothing else refers to what was added yet. Not
             // `Kernel::rewind`: an operation may be running (a namespace
@@ -3051,14 +3187,17 @@ impl Elaborator {
         Ok(())
     }
 
+    /// Submits the declarations, through the kernel's checking calls if
+    /// `check` and its trusted admission otherwise
+    /// ([`Self::admit_replayed`]).
     fn submit(
         &mut self,
         defs: &[DefEntry],
         datas: &[DataEntry],
         param_defaults: &HashSet<DefId>,
-        base_defs: usize,
-        base_datas: usize,
+        (base_defs, base_datas): (usize, usize),
         library: bool,
+        check: bool,
     ) -> Read<()> {
         let refused = |d: stitchwort_syntax::Diagnostic| Bad(format!("refused: {}", d.message));
         // The groups, each with the entry's own declarations its terms
@@ -3190,7 +3329,33 @@ impl Elaborator {
                     {
                         continue;
                     }
-                    if group.data {
+                    if group.data && check {
+                        // The kernel works out each field's sort and
+                        // erasure again, rather than taking the entry's.
+                        let members = group
+                            .members
+                            .iter()
+                            .map(|&m| {
+                                let data = &datas[m];
+                                let ctors = data
+                                    .ctors
+                                    .iter()
+                                    .map(|c| kernel::CtorDecl {
+                                        name: c.name.clone(),
+                                        fields: (c.fields.iter())
+                                            .map(|(n, t)| (n.clone(), t.clone(), data.span))
+                                            .collect(),
+                                        result: c.result.clone(),
+                                        implicit: c.implicit.clone(),
+                                        braced: c.braced,
+                                    })
+                                    .collect();
+                                (DataId(base_datas + m), ctors)
+                            })
+                            .collect();
+                        self.kernel_op(|g| kernel::define_data_group(g, members))
+                            .map_err(refused)?;
+                    } else if group.data {
                         let members = group
                             .members
                             .iter()
@@ -3227,8 +3392,14 @@ impl Elaborator {
                             .iter()
                             .map(|&m| (DefId(base_defs + m), defs[m].body.clone()))
                             .collect();
-                        self.kernel_op(|g| kernel::admit_trusted_group(g, &members))
-                            .map_err(refused)?;
+                        self.kernel_op(|g| {
+                            if check {
+                                kernel::recheck_group(g, &members)
+                            } else {
+                                kernel::admit_trusted_group(g, &members)
+                            }
+                        })
+                        .map_err(refused)?;
                         for m in &group.members {
                             def_final[*m] = true;
                             if library {
@@ -3238,8 +3409,13 @@ impl Elaborator {
                         }
                         for m in &group.members {
                             if let Some(run) = &defs[*m].run_body {
+                                let id = DefId(base_defs + m);
                                 self.kernel_op(|g| {
-                                    kernel::admit_trusted_run_body(g, DefId(base_defs + m), run)
+                                    if check {
+                                        kernel::recheck_run_body(g, id, run)
+                                    } else {
+                                        kernel::admit_trusted_run_body(g, id, run)
+                                    }
                                 })
                                 .map_err(refused)?;
                             }
@@ -3286,7 +3462,13 @@ impl Elaborator {
                     .collect();
                 let (params, sort) = (first.params.clone(), first.sort);
                 let ids = self
-                    .kernel_op(|g| kernel::admit_trusted_data_decls(g, params, sort, members))
+                    .kernel_op(|g| {
+                        if check {
+                            kernel::declare_indexed_data_group(g, params, sort, members)
+                        } else {
+                            kernel::admit_trusted_data_decls(g, params, sort, members)
+                        }
+                    })
                     .map_err(refused)?;
                 for (&m, id) in groups[gi].members.iter().zip(&ids) {
                     let data = &datas[m];
@@ -3311,14 +3493,12 @@ impl Elaborator {
                 module_of(&def.name, &def.path)?;
                 let id = self
                     .kernel_op(|g| {
-                        kernel::admit_trusted_def(
-                            g,
-                            &def.name,
-                            &def.path,
-                            &def.ty,
-                            def.theorem,
-                            def.span,
-                        )
+                        let admit = if check {
+                            kernel::recheck_def
+                        } else {
+                            kernel::admit_trusted_def
+                        };
+                        admit(g, &def.name, &def.path, &def.ty, def.theorem, def.span)
                     })
                     .map_err(refused)?;
                 if id.0 != base_defs + next_def || *self.kernel.def(id).path() != def.path {
@@ -3655,10 +3835,79 @@ mod tests {
             &[(0, 0, Builtin::Nat)],
             &state::TablesDelta::default(),
             false,
-            super::Hit::Exact,
+            super::Hit {
+                exact: true,
+                recheck: false,
+            },
         );
         assert!(result.is_err(), "the entry was admitted");
         assert_eq!(e.session.cache_stats.refused, 1);
         assert_eq!(e.kernel.bindings_dump(), before, "something was admitted");
+    }
+
+    /// An entry claiming a proof of `(P: Prop) -> P` whose body is
+    /// `fun P => P`. The trusted admission installs it as written; checking
+    /// it again refuses it, undoes it, and counts it as refused on a
+    /// re-check, not as `refused` (which is never expected).
+    #[test]
+    fn checking_an_entry_again_refuses_a_false_theorem_the_trusted_replay_would_admit() {
+        use std::rc::Rc;
+        use stitchwort_core::{Icit, Sort, Term};
+        let entry = || super::DefEntry {
+            name: "everything".into(),
+            path: "Forged.everything".into(),
+            theorem: true,
+            instance: false,
+            fold: false,
+            opaque: false,
+            tailrec: false,
+            unfolding: Vec::new(),
+            span: {
+                let mut sources = stitchwort_syntax::SourceMap::new();
+                stitchwort_syntax::Span::new(sources.add("forged", "x"), 0, 1)
+            },
+            ty: Term::Pi(
+                "P".into(),
+                Icit::Explicit,
+                Rc::new(Term::Sort(Sort::Prop)),
+                Rc::new(Term::Var(0)),
+            ),
+            body: Term::Lam("P".into(), Icit::Explicit, Rc::new(Term::Var(0))),
+            group: vec![0],
+            run_body: None,
+            hash: None,
+        };
+        let admit = |recheck: bool| {
+            let mut e = Elaborator::new();
+            let defs = e.kernel.env.defs().len();
+            let result = e.admit_replayed(
+                &[entry()],
+                &[],
+                &[],
+                &state::TablesDelta::default(),
+                false,
+                super::Hit {
+                    exact: true,
+                    recheck,
+                },
+            );
+            let added = e.kernel.env.defs().len() - defs;
+            (result, added, e.session.cache_stats)
+        };
+        let (trusted, added, _) = admit(false);
+        assert!(
+            trusted.is_ok() && added == 1,
+            "the trusted replay is expected to install it unchecked"
+        );
+        let (checked, added, stats) = admit(true);
+        let Err(super::Bad(why)) = checked else {
+            panic!("checking it again admitted a false theorem");
+        };
+        assert!(
+            why.starts_with("refused:"),
+            "not the kernel's refusal: {why}"
+        );
+        assert_eq!(added, 0, "the refused entry wasn't undone");
+        assert_eq!((stats.refused_on_recheck, stats.refused), (1, 0));
     }
 }

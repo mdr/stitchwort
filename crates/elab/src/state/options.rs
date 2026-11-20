@@ -61,6 +61,11 @@ pub struct Options {
     /// (docs/proposals/check-cache-across-updates.md). On in the editor and
     /// with `check --carry-over`; off by default.
     pub(crate) carry_over: bool,
+    /// Whether every entry the check cache loads is checked again by the
+    /// kernel, its terms through the checking calls instead of the trusted
+    /// admission (`check --recheck`). Entries carried over from a build
+    /// with another kernel side are checked again whatever this says.
+    pub(crate) recheck: bool,
     /// For tests: every namespace replay fails part way
     /// (`fail_namespace_replays_late`).
     pub(crate) fail_replays_late: bool,
@@ -148,6 +153,7 @@ impl Options {
             check_cache: _,
             // Which entries may be read, not what checking gives.
             carry_over: _,
+            recheck: _,
             fail_replays_late: _,
             refuse_replays_after: _,
             // Names a test's own definition.

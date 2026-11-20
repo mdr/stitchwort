@@ -1944,23 +1944,87 @@ fn a_carried_over_entry_is_used_only_when_asked() {
     let _ = std::fs::remove_dir_all(&copy);
 }
 
-/// An entry written by a build whose kernel side differs is a miss even
-/// when carrying over (stage 2 will check it again instead).
+/// An entry written by a build whose kernel side differs is a miss
+/// without carrying over. Carrying over, this kernel checks it again
+/// (stage 2): every unit comes from it, counted as carried over and checked
+/// again, and the session holds what elaborating gives. The entries are
+/// then kept as this build's, so the next carrying session needs no
+/// re-check, and an exact check still misses.
 #[test]
-fn a_kernel_side_change_makes_a_carried_entry_a_miss() {
+fn a_kernel_side_change_has_a_carried_entry_checked_again() {
     let dir = temp_project("carry-kernel", ABC);
     let cache = temp_dir("carry-kernel-cache");
     run_as_build(&dir, &cache, Some(("earlierbuild", "anotherkernel")), false);
-    let run = run_as_build(&dir, &cache, None, true);
+    let fresh = run(&Source::Project("p".to_string(), dir.clone()), true, None);
+    let exact = run_as_build(
+        &dir,
+        &copy_cache(&cache, "carry-kernel-exact", &[]),
+        None,
+        false,
+    );
     assert_eq!(
-        (
-            run.stats.namespace_hits,
-            run.stats.hits,
-            run.stats.carried_over()
-        ),
-        (0, 0, 0),
+        (exact.stats.namespace_hits, exact.stats.hits),
+        (0, 0),
         "{:?}",
-        run.stats
+        exact.stats
+    );
+
+    let rechecked = run_as_build(&dir, &cache, None, true);
+    let s = rechecked.stats;
+    assert_eq!(
+        (s.namespace_carried, s.namespace_rechecked, s.namespace_hits),
+        (3, 3, 3),
+        "{s:?}"
+    );
+    assert_eq!((s.rechecked, s.carried), (s.hits, s.hits), "{s:?}");
+    assert_eq!((s.refused, s.refused_on_recheck), (0, 0), "{s:?}");
+    assert!(
+        rechecked.dump == fresh.dump,
+        "checking carried entries again changed the result: {}",
+        first_difference(&fresh.dump, &rechecked.dump)
+    );
+
+    let kept = run_as_build(&dir, &cache, None, true);
+    let s = kept.stats;
+    assert_eq!(
+        (s.namespace_carried, s.namespace_rechecked, s.rechecked),
+        (3, 0, 0),
+        "{s:?}"
+    );
+    let exact = run_as_build(&dir, &cache, None, false);
+    assert_eq!(exact.stats.namespace_hits, 0, "{:?}", exact.stats);
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
+/// `--recheck` (`Elaborator::set_recheck`): this build's exact entries are
+/// checked again by the kernel instead of trusted, and stay exact: nothing
+/// is counted as carried over, and the session holds what elaborating
+/// gives.
+#[test]
+fn rechecking_exact_entries_keeps_them_exact() {
+    let dir = temp_project("recheck-exact", ABC);
+    let cache = temp_dir("recheck-exact-cache");
+    let source = Source::Project("p".to_string(), dir.clone());
+    let fresh = run(&source, true, Some(&cache));
+    let rechecked = with_stack(STACK, || {
+        let mut session = Session::navigable_for_stack(STACK);
+        session.use_check_cache(&cache);
+        session.elab.set_recheck(true);
+        finish_run(session, &source)
+    });
+    let s = rechecked.stats;
+    assert_eq!(
+        (s.namespace_hits, s.namespace_rechecked, s.carried_over()),
+        (3, 3, 0),
+        "{s:?}"
+    );
+    assert_eq!(s.rechecked, s.hits, "{s:?}");
+    assert_eq!((s.refused, s.refused_on_recheck), (0, 0), "{s:?}");
+    assert!(
+        rechecked.dump == fresh.dump,
+        "checking exact entries again changed the result: {}",
+        first_difference(&fresh.dump, &rechecked.dump)
     );
     let _ = std::fs::remove_dir_all(&dir);
     let _ = std::fs::remove_dir_all(&cache);
