@@ -34,7 +34,7 @@ theorem givesParamNameOn ∀ (modes: Modes) (seen: Option Tok):
     | other => givesLower modes "a parameter's name"
 
 theorem givesParamName ∀ (modes: Modes): Parse.Gives GoodItems (() => paramName modes) (word => True) :=
-  Parse.givesAfter0 (reads0Peek modes) (seen => givesParamNameOn modes seen)
+  byWalking [givesParamNameOn]
 
 theorem givesParamNames ∀ (modes: Modes): Parse.Gives GoodItems (() => paramNames modes) (found => True) :=
   Parse.givesWeaken
@@ -60,8 +60,7 @@ theorem givesConsumedBare ∀ (started: Parse.Mark Item):
     Parse.Gives GoodItems (() => consumedBare started) (found => True) :=
   Parse.givesThen Parse.givesMark (here _ => Parse.givesDone byComputing)
 
-theorem givesAllowBrace ∀ (modes: Modes): Parse.Gives GoodItems (() => allowBrace modes) (found => True) :=
-  Parse.givesAfter0 reads0Left (items => Parse.givesDone byComputing)
+theorem givesAllowBrace ∀ (modes: Modes): Parse.Gives GoodItems (() => allowBrace modes) (found => True) := byWalking []
 
 theorem givesBinderTypeOn ∀ (self: Goal → {Parse Item} Expr) (allowed: Modes)
     (nested: Nested self)
@@ -105,10 +104,7 @@ theorem givesHeaderGroupEnd ∀ (kind: GroupKind) (implicit: Bool) (open: Commen
     Parse.Gives GoodItems
       (() => headerGroupEnd kind implicit open auto named colon annotation default close refused consumed)
       (found => True) :=
-  match refused, default with
-    | Some message, Some value => Parse.readsFatal
-    | Some message, None => Parse.givesDone byComputing
-    | None, other => Parse.givesDone byComputing
+  byWalking []
 
 theorem givesHeaderGroupColon ∀ (self: Goal → {Parse Item} Expr) (inner: Modes)
     (nested: Nested self)
@@ -151,9 +147,7 @@ theorem givesHeaderGroupAuto ∀ (self: Goal → {Parse Item} Expr) (inner: Mode
     (nested: Nested self)
     (kind: GroupKind) (open: Comments) (auto: Word):
     Parse.Gives GoodItems (() => headerGroupAuto self inner kind open auto) (found => True) :=
-  Parse.givesThen (givesFullAny self inner nested) (annotation _ =>
-    Parse.givesThen (givesExpectFixed inner RBracket "`]` to close the parameter `[auto …]`") (close _ =>
-      Parse.givesDone byComputing))
+  byWalking [givesFullAny, givesExpectFixed]
 
 theorem givesHeaderGroupNames ∀ (self: Goal → {Parse Item} Expr) (inner: Modes)
     (nested: Nested self)
