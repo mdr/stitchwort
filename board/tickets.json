@@ -29791,8 +29791,8 @@
     {
       "id": 4421,
       "title": "[Opus] Walk W4: convert the remaining walk-shaped proofs in tools/fmt (ParseWalk*, Follows*) to byWalking, one namespace per pass, timing each theorem against the 1.5x bar; list proofs the walk can't take and why",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
@@ -29973,8 +29973,8 @@
     {
       "id": 4435,
       "title": "[DeepSeek] fmt slice tests: a must-refuse / 'grammar still contains' list of closed examples for slice 1, so a parser change that shrinks inGrammar1 without touching a frozen file is visible (SW-4427 finding)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
