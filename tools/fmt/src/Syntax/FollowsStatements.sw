@@ -66,6 +66,10 @@ import Syntax.DeafProofs (..)
 import Syntax.FollowsBase (..)
 import Syntax.FollowsLadder (..)
 import Syntax.FollowsForms (..)
+import Syntax.FollowsFormsBinders (..)
+import Syntax.FollowsFormsArms (..)
+import Syntax.FollowsFormsPatterns (..)
+import Syntax.FollowsFormsBlocks (..)
 
 -- Relations on the parts of a statement, a handler, a `calc` and a `rewrite`.
 
