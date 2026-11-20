@@ -1,5 +1,5 @@
 {
-  "next": 4416,
+  "next": 4418,
   "tickets": [
     {
       "id": 47,
@@ -29696,7 +29696,7 @@
     {
       "id": 4414,
       "title": "[Opus, paper] Review SW-4403 (guard arms try the as-written goal first: refined_guard calls as_written::first, keeps it when motive_checks_now; helper motives now folded, four guard hash snapshots changed); D2364",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -29709,6 +29709,32 @@
     {
       "id": 4415,
       "title": "[Sonnet] Mismatch messages print a decided proposition's found type as 0 < pick (c.decEq 'a').holds: show it as written (c == 'a'); and a closed goal like 0 < 1 lists as True = True in every match arm (SW-4403 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4416,
+      "title": "[Opus] Guard as-written follow-up (SW-4414 F2): after a kept as-written attempt, should an arm failure retry the unfolded refined split before the unrefined one (bounded like guard_no_retry)? Measure guard outcomes across std, AoC and tools/fmt first; extends the D3688 promise to that route",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4417,
+      "title": "[Sonnet] Walk queue guard (SW-4240): find a case where a nested walk succeeds but leaves a wait queued; make it an example, or show none exists; and check --expand-walk overwrites the checked file without warning: say so in --help and the guide, or make --stdout the default for files with uncommitted changes",
       "status": "backlog",
       "agent": "",
       "where": "",
