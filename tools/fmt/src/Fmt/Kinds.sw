@@ -91,7 +91,7 @@ theorem Word.nameGrammar1 ∀ (word: Word) (within: word.nameWithin1 = True): is
 
 --| A tree `within1` lets through is in the grammar: `within1` tests each node as `grammar1` does, and texts too.
 theorem Expr.grammarOfWithin1 ∀ (expr: Expr) (within: expr.within1 = True): expr.grammar1 = True := match expr with
-  | Atom kind word => Bool.andLeft within
+  | Atom kind word => Bool.andIntro (Bool.andLeft within) (Bool.andLeft (Bool.andRight within))
   | Paren open inner close => Expr.grammarOfWithin1 inner within
   | Tuple _ items _ _ | ListOf _ items _ _ => allGrammarOfWithin1 items within
   | App head arguments =>

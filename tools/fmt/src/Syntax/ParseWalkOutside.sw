@@ -576,7 +576,7 @@ theorem givesFacts ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (token:
     Parse.givesAfter0 (reads0At modes LBracket) (bracket =>
       match bracket with
         | True => Parse.givesThen (givesListExprAny self modes nested) (list _ => givesFactsEnd kind keyword list)
-        | False => Parse.givesDone (Tok.atomFalseOfWord1 token plain)))
+        | False => Parse.givesDone (rewrite Tok.atomFalseOfWord1 token plain)))
 
 theorem givesIncludeAtom ∀ (modes: Modes): Parse.Gives GoodItems (() => includeAtom modes) Out :=
   Parse.givesThen givesBump (keyword _ =>

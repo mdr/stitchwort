@@ -594,7 +594,7 @@ theorem atomNotMinus ∀ (kind: Tok) (word: Word) (within: (Atom kind word).with
   match minus: word.text == "-" with
     | False => byComputing
     | True =>
-      let spells: textSpells1 kind word.text = True := Bool.andRight within
+      let spells: textSpells1 kind word.text = True := Bool.andRight (Bool.andRight within)
       let wordKind: kind.wordWithin1 = True := Bool.andLeft within
       let bad: textSpells1 kind "-" = True := rewrite DecEq.sound minus at spells then spells
       match kind, wordKind, bad with

@@ -493,7 +493,8 @@ theorem ledItemHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: Han
   let closer := leadNotCloser expr within lexical
   match expr, within with
     | Atom kind word, within =>
-      let (plain, (notComment, solid, wordCloser, comma)) := wordFacts kind word.text within
+      let (plain, (notComment, solid, wordCloser, comma)) :=
+        wordFacts kind word.text (Bool.andIntro (Bool.andLeft within) (Bool.andRight (Bool.andRight within)))
       rewrite atomTrailsIs kind word then
         notedLeafHangs lexKind word around around.at indent state entry note rest plain notComment solid wordCloser
             comma hoisted noted comments

@@ -637,10 +637,13 @@ theorem leadsOf ∀ (expr: Expr)
   match expr, spelled with
     | Atom kind word, _ =>
       match kind, within with
-        | Lower, within => Inr (Inr (Inr (Inr (Inr (Inl (spellsOfText1 Lower word.text within))))))
-        | Upper, within => Inr (Inr (Inr (Inr (Inr (Inr (Inl (spellsOfText1 Upper word.text within)))))))
-        | Num, within => Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inl (spellsOfText1 Num word.text within))))))))
-        | Float, within => Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inr (spellsOfText1 Float word.text within))))))))
+        | Lower, within => Inr (Inr (Inr (Inr (Inr (Inl (spellsOfText1 Lower word.text (Bool.andRight within)))))))
+        | Upper, within =>
+          Inr (Inr (Inr (Inr (Inr (Inr (Inl (spellsOfText1 Upper word.text (Bool.andRight within))))))))
+        | Num, within =>
+          Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inl (spellsOfText1 Num word.text (Bool.andRight within)))))))))
+        | Float, within =>
+          Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inr (spellsOfText1 Float word.text (Bool.andRight within)))))))))
         | other, within => (Bool.falseNotTrue within).impossible
     | Paren _ _ _ | Tuple _ _ _ _, _ => Inl (DecEq.sound (Bool.andLeft lexical))
     | ListOf open items comma close, _ => Inr (Inl (DecEq.sound (Bool.andLeft lexical)))
@@ -710,7 +713,7 @@ theorem joinable ∀ (expr: Expr)
   match expr, spelled with
     | Atom kind word, _ =>
       spellsJoins word kind sound
-        (spellsOfText1 kind word.text (Bool.andRight within))
+        (spellsOfText1 kind word.text (Bool.andRight (Bool.andRight within)))
         (wordQuiet kind (Bool.andLeft within))
     | Paren open inner close, innerSpelled => (
       bracketOpener open LParen (Bool.andLeft sound) (DecEq.sound (Bool.andLeft lexical)) byDecision (text rest =>
@@ -912,7 +915,8 @@ theorem exprPrintable ∀ (expr: Expr) (hoisted: Bool)
     (lexical: expr.lexical = True) (spelled: expr.operators):
     Every (Printable lexKind) (expr.spelt hoisted) :=
   match expr, spelled with
-    | Atom kind word, _ => wordPrintable word kind hoisted sound (spellsOfText1 kind word.text (Bool.andRight within))
+    | Atom kind word, _ =>
+      wordPrintable word kind hoisted sound (spellsOfText1 kind word.text (Bool.andRight (Bool.andRight within)))
     | Paren open inner close, innerSpelled =>
       everyThree
         (Printable lexKind)
@@ -1206,7 +1210,9 @@ theorem exprReal ∀ (expr: Expr)
     expr.words.all Word.real = True :=
   match expr, spelled with
     | Atom kind word, _ =>
-      Bool.andIntro (wordReal word kind (spellsOfText1 kind word.text (Bool.andRight within))) byComputing
+      Bool.andIntro
+        (wordReal word kind (spellsOfText1 kind word.text (Bool.andRight (Bool.andRight within))))
+        byComputing
     | Paren open inner close, _ =>
       realAppend
         [open, ..inner.words]

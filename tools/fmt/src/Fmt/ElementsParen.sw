@@ -167,7 +167,8 @@ theorem innerLowers ∀ (expr: Expr) (around: Around) (indent low: Nat)
   let closer := leadNotCloser expr within lexical
   match expr, within with
     | Atom kind word, within =>
-      let (plain, (notComment, solid, wordCloser, comma)) := wordFacts kind word.text within
+      let (plain, (notComment, solid, wordCloser, comma)) :=
+        wordFacts kind word.text (Bool.andIntro (Bool.andLeft within) (Bool.andRight (Bool.andRight within)))
       (
         noted =>
           match above: word.comments.above with

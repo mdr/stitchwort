@@ -226,7 +226,8 @@ theorem blankItemHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: H
     LedAt lexKind (expr.el around) indent around.before expr.trails state entry :=
   match expr, within with
     | Atom kind word, within =>
-      let (plain, (notComment, solid, wordCloser, comma)) := wordFacts kind word.text within
+      let (plain, (notComment, solid, wordCloser, comma)) :=
+        wordFacts kind word.text (Bool.andIntro (Bool.andLeft within) (Bool.andRight (Bool.andRight within)))
       rewrite atomTrailsIs kind word then
         blankLeafHangs lexKind word around around.at indent state entry plain notComment solid wordCloser comma hoisted
             item unnoted blank

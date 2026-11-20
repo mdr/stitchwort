@@ -900,6 +900,68 @@ theorem noAutoLine ∀ (expr: Expr) (item: Item) (more rest: List Item)
         noAutoLine left first inside ([arrow, ..rightRead] ++ rest) leftAt (Bool.andLeft free)
     | _, never, _ => Void.impossible never
 
+--| Items whose first isn't a lower-case word start no walk.
+theorem noWalkKind ∀ (modes: Modes) (item: Item) (later: List Item)
+    (notLower: (item.kind == Lower) = False):
+    walkOn modes [item, ..later] = False :=
+  Bool.andFalseLeft _ _ (Bool.andFalseLeft _ _ notLower)
+
+--| Items whose first isn't `byWalking` start no walk.
+theorem noWalkText ∀ (modes: Modes) (item: Item) (later: List Item)
+    (notWalk: (item.text == "byWalking") = False):
+    walkOn modes [item, ..later] = False :=
+  Bool.andFalseLeft _ _ (Bool.andFalseRight _ _ (Bool.andFalseLeft _ _ notWalk))
+
+--| The first token of an expression placed as `Syntax.AutoPlaced.Expr.autoPlaced` has it is a bracket, a sign, or a
+--| name other than `byWalking`.
+def NotWalkWord (item: Item): Prop := (item.kind == Lower) = False ∨ (item.text == "byWalking") = False
+
+theorem notWalkFirst ∀ (expr: Expr) (item: Item) (more: List Item) (full: Bool)
+    (spelt: Spelt expr [item, ..more])
+    (free: expr.autoPlaced full = True):
+    NotWalkWord item :=
+  match expr, spelt, free with
+    | Atom kind word, (first, isRead, _, isWord, _), free =>
+      let isItem: item = first := List.consInjectiveHead isRead
+      let notWalk: (word.text == "byWalking") = False := Bool.notTrue _ free
+      let sameText: first.text = word.text := Eq.cong (spelling => spelling.text) isWord
+      Inr (rewrite isItem, sameText then notWalk)
+    | Paren _ _ _, (first, inside, _, isRead, isOpen, _), _ => Inl (rewrite firstKind item first more _ isRead, isOpen)
+    | Tuple _ [_, _, .._] _ _, (first, _, _, _, _, _, isRead, _, isOpen, _), _ =>
+      Inl (rewrite firstKind item first more _ isRead, isOpen)
+    | ListOf _ [] _ _, (first, last, isRead, _, isOpen, _), _ =>
+      Inl (rewrite firstKind item first more _ isRead, isOpen)
+    | ListOf _ [_, .._] _ _, (first, _, _, _, isRead, _, isOpen, _), _ =>
+      Inl (rewrite firstKind item first more _ isRead, isOpen)
+    | App head [argument, ..arguments], (headRead, argRead, steps, isRead, _, _, headSpelt, _), free =>
+      let (first, inside, isHead, _) := speltStarts head headRead headSpelt
+      let joined: [item, ..more] = [first, ..inside ++ (argRead ++ Parse.loopReads [] steps)] := calc [item, ..more]
+        _ = headRead ++ (argRead ++ Parse.loopReads [] steps) := isRead
+        _ = [first, ..inside ++ (argRead ++ Parse.loopReads [] steps)] := rewrite isHead
+      let isItem: item = first := List.consInjectiveHead joined
+      let headAt: Spelt head [first, ..inside] := rewrite <- isHead then headSpelt
+      rewrite isItem then notWalkFirst head first inside full headAt (Bool.andLeft free)
+    | Prefix _ _, (sign, _, isRead, signed, _), _ =>
+      Inl (rewrite firstKind item sign more _ isRead, signNotLower sign.kind signed)
+    | Infix _ left _ _, (leftRead, arrow, rightRead, isRead, _, _, _, _, _, _, leftSpelt, _), free =>
+      let (first, inside, isLeft, _) := speltStarts left leftRead leftSpelt
+      let joined: [item, ..more] = [first, ..inside ++ [arrow, ..rightRead]] := calc [item, ..more]
+        _ = leftRead ++ [arrow, ..rightRead] := isRead
+        _ = [first, ..inside ++ [arrow, ..rightRead]] := rewrite isLeft
+      let isItem: item = first := List.consInjectiveHead joined
+      let leftAt: Spelt left [first, ..inside] := rewrite <- isLeft then leftSpelt
+      rewrite isItem then notWalkFirst left first inside full leftAt (Bool.andLeft free)
+    | _, never, _ => Void.impossible never
+
+--| No walk starts an expression placed as `Syntax.AutoPlaced.Expr.autoPlaced` has it.
+theorem noWalkLine ∀ (modes: Modes) (expr: Expr) (item: Item) (more rest: List Item) (full: Bool)
+    (spelt: Spelt expr [item, ..more])
+    (free: expr.autoPlaced full = True):
+    walkOn modes [item, ..more ++ rest] = False :=
+  match notWalkFirst expr item more full spelt free with
+    | Inl notLower => noWalkKind modes item (more ++ rest) notLower
+    | Inr notWalk => noWalkText modes item (more ++ rest) notWalk
+
 --| The first item is no type's name.
 def headNotUpper: List Item → Bool
   | [] => True

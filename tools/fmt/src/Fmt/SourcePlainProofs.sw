@@ -138,7 +138,7 @@ theorem prefixShape1 ∀ (text: Text): (prefixKind text).shape = ShapeOther := c
 --| gives the kinds gives the shapes.
 theorem Expr.shapesOfKinds1 ∀ (expr: Expr) (grammar: expr.grammar1 = True): expr.shapes = expr.kinds.map Tok.shape :=
   match expr with
-    | Atom kind word => rewrite atomShape1 kind grammar
+    | Atom kind word => rewrite atomShape1 kind (Bool.andLeft grammar)
     | Paren open inner close => rewrite List.mapAppend inner.kinds [RParen] Tok.shape, Expr.shapesOfKinds1 inner grammar
     | Tuple open items trailing close => rewrite itemsShapesOfKinds1 RParen byComputing trailing items grammar
     | ListOf open items trailing close => rewrite itemsShapesOfKinds1 RBracket byComputing trailing items grammar

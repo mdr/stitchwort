@@ -1058,7 +1058,7 @@ theorem exprBits ∀ (expr: Expr) (item: Bool)
     bitsWords (expr.bits item False) = (expr.calm item).words ∧ BitsFine lexKind (expr.bits item False) :=
   match expr with
     | Atom kind word =>
-      let spells := spellsOfText1 kind word.text (Bool.andRight within)
+      let spells := spellsOfText1 kind word.text (Bool.andRight (Bool.andRight within))
       let quiet := wordQuiet kind (Bool.andLeft within)
       let (_, notCloser) := spellsQuiet kind word.text spells quiet
       (

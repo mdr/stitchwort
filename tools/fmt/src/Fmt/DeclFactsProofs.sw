@@ -279,7 +279,8 @@ theorem leadNotCloser ∀ (expr: Expr)
     isCloserText expr.lead.text = False :=
   match expr, within with
     | Atom kind word, within =>
-      let (_, (_, _, closer, _)) := wordFacts kind word.text within
+      let (_, (_, _, closer, _)) :=
+        wordFacts kind word.text (Bool.andIntro (Bool.andLeft within) (Bool.andRight (Bool.andRight within)))
       closer
     | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _, _ => rewrite DecEq.sound (Bool.andLeft lexical)
     | App head _ | Infix InfixBinary head _ _ | Infix InfixArrow head _ _, within =>

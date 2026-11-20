@@ -1879,6 +1879,19 @@ theorem runsOperatorExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (
 
 -- An expression on its line: the look-aheads for what isn't an operator expression.
 
+theorem runsWalkHere ∀ (modes: Modes) (items: List Item)
+    (no: walkOn modes items = False):
+    Parse.Runs (() => walkHere modes) [] items False :=
+  runsLook
+    (() => left())
+    (later => walkOn modes later)
+    items
+    []
+    items
+    False
+    (runsLeftOn items)
+    (runsSame _ [] items _ False no (Parse.runsPure _ items))
+
 theorem runsLambdaHere ∀ (modes: Modes) (items: List Item)
     (no: lambdaAhead modes (items.length + 1) items = False):
     Parse.Runs (() => lambdaHere modes) [] items False :=
@@ -1965,6 +1978,7 @@ theorem runsExprInline ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (it
     (more rest: List Item) (value: Expr)
     (open: modes.stops item = False)
     (notKeyword: startsKeywordExpr item.kind = False)
+    (noWalk: walkOn modes [item, ..more ++ rest] = False)
     (noLambda: lambdaAhead modes ([item, ..more ++ rest].length + 1) [item, ..more ++ rest] = False)
     (noResult: lambdaResultType modes ([item, ..more ++ rest].length + 1) False [item, ..more ++ rest] = False)
     (notQuantifier: (item.kind == KwExists || item.kind == KwForall) = False)
@@ -1985,47 +1999,55 @@ theorem runsExprInline ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (it
     (rewrite <- peeked then runsPeekOn modes items)
     (rewrite notKeyword then
       runsLook
-        (() => lambdaHere modes)
-        (lambdas => exprLambda self modes lambdas)
+        (() => walkHere modes)
+        (walk => exprWalk self modes walk)
         False
         [item, ..more]
         rest
         value
-        (runsLambdaHere modes items noLambda)
+        (runsWalkHere modes items noWalk)
         (runsLook
-          (() => lambdaResultHere modes)
-          (refused => exprResult self modes refused)
+          (() => lambdaHere modes)
+          (lambdas => exprLambda self modes lambdas)
           False
           [item, ..more]
           rest
           value
-          (runsLambdaResultHere modes items noResult)
+          (runsLambdaHere modes items noLambda)
           (runsLook
-            (() => modes.peek)
-            (seen => exprBinder self modes seen)
-            (Some item.kind)
+            (() => lambdaResultHere modes)
+            (refused => exprResult self modes refused)
+            False
             [item, ..more]
             rest
             value
-            (rewrite <- peeked then runsPeekOn modes items)
-            (rewrite notQuantifier, notIf then
-              runsLook
-                (() => implicitHere modes)
-                (implicit => exprImplicit self modes implicit)
-                False
-                [item, ..more]
-                rest
-                value
-                (runsImplicitHere modes items (rewrite peeked then noImplicit))
-                (runsLook
-                  (() => piHere modes)
-                  (pi => exprPi self modes pi)
+            (runsLambdaResultHere modes items noResult)
+            (runsLook
+              (() => modes.peek)
+              (seen => exprBinder self modes seen)
+              (Some item.kind)
+              [item, ..more]
+              rest
+              value
+              (rewrite <- peeked then runsPeekOn modes items)
+              (rewrite notQuantifier, notIf then
+                runsLook
+                  (() => implicitHere modes)
+                  (implicit => exprImplicit self modes implicit)
                   False
                   [item, ..more]
                   rest
                   value
-                  (runsPiHere modes items (rewrite peeked then noPi))
-                  opRuns)))))
+                  (runsImplicitHere modes items (rewrite peeked then noImplicit))
+                  (runsLook
+                    (() => piHere modes)
+                    (pi => exprPi self modes pi)
+                    False
+                    [item, ..more]
+                    rest
+                    value
+                    (runsPiHere modes items (rewrite peeked then noPi))
+                    opRuns))))))
 
 -- Lines and blocks.
 
@@ -2714,6 +2736,7 @@ theorem runsResultPlain ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (r
 --| What `exprInline` looks for before an operator expression, none of it there.
 type InlinePlain (modes: Modes) (item: Item) (items: List Item): Prop = {
   notKeyword: startsKeywordExpr item.kind = False,
+  noWalk: walkOn modes items = False,
   noLambda: lambdaAhead modes (items.length + 1) items = False,
   noResult: lambdaResultType modes (items.length + 1) False items = False,
   notQuantifier: (item.kind == KwExists || item.kind == KwForall) = False,
