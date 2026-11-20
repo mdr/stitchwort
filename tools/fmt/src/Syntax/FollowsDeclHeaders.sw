@@ -280,15 +280,9 @@ theorem followsHeaderGroupNamed ∀ [self selfTwin: Goal → {Parse Item} Expr]
       (() => headerGroupNamed self inner kind refused implicit started open split)
       (() => headerGroupNamed selfTwin inner kind refused implicit startedTwin openTwin splitTwin) :=
   match split, splitTwin with
-    | (auto, named), (autoTwin, namedTwin) =>
-      followsThenEq
-        [j := atColon => headerGroupColon self inner kind refused implicit started open auto named atColon]
-        [k := atColon =>
-          headerGroupColon selfTwin inner kind refused implicit startedTwin openTwin autoTwin namedTwin atColon]
-        (followsAt inner Colon)
-        (atColon =>
-          followsHeaderGroupColon knot inner kind refused implicit started startedTwin open openTwin auto autoTwin
-              splits.left named namedTwin splits.right atColon)
+    | (auto, named), (autoTwin, namedTwin) => followsThenEq (followsAt inner Colon) (atColon =>
+      followsHeaderGroupColon knot inner kind refused implicit started startedTwin open openTwin auto autoTwin
+          splits.left named namedTwin splits.right atColon)
 
 theorem followsHeaderGroupTyped ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -528,42 +522,26 @@ theorem followsRowAbilities ∀ [self selfTwin: Goal → {Parse Item} Expr]
   match closed || pipe with
     | True => Parse.followsDone Trivial
     | False => Parse.followsThen (knot { modes, level = LevelApp }) (first firstTwin firsts =>
-      Parse.followsThen
-        [p := () => Parse.mark()]
-        [q := () => Parse.mark()]
-        [j := here =>
-          rowEntries
-            (commaList (here.left + 1) modes (count => False) (() => self { modes, level = LevelApp }) first [])]
-        [k := here =>
-          rowEntries
-            (commaList
-              (here.left + 1)
-              modes
+      Parse.followsThen Parse.followsMark (here hereTwin marks =>
+        rewrite marks.right.right then
+          Parse.followsMap
+            (pair => rowEntries pair)
+            (pair => rowEntries pair)
+            (pair pairTwin pairs => rowEntriesAlike pair pairTwin pairs)
+            (followsCommaList modes
               (count => False)
+              (count => False)
+              (count => Parse.followsDone byComputing)
+              (() => self { modes, level = LevelApp })
               (() => selfTwin { modes, level = LevelApp })
+              (knot { modes, level = LevelApp })
+              (hereTwin.left + 1)
+              first
               firstTwin
-              [])]
-        Parse.followsMark
-        (here hereTwin marks =>
-          rewrite marks.right.right then
-            Parse.followsMap
-              (pair => rowEntries pair)
-              (pair => rowEntries pair)
-              (pair pairTwin pairs => rowEntriesAlike pair pairTwin pairs)
-              (followsCommaList modes
-                (count => False)
-                (count => False)
-                (count => Parse.followsDone byComputing)
-                (() => self { modes, level = LevelApp })
-                (() => selfTwin { modes, level = LevelApp })
-                (knot { modes, level = LevelApp })
-                (hereTwin.left + 1)
-                first
-                firstTwin
-                firsts
-                []
-                []
-                Trivial)))
+              firsts
+              []
+              []
+              Trivial)))
 
 theorem followsRowStart ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)

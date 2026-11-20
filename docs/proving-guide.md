@@ -791,7 +791,10 @@ Each was run on the example named; the output is quoted, shortened.
   `(place hang => …)` is solved with it only when a data unknown of the
   same call (a `doc`, not a function or a type) faces a known argument
   too, as in `HangLays kinds doc indent pre post`
-  (`examples/accept/unknown-solved-beside-lambda-argument.sw`). Where two
+  (`examples/accept/unknown-solved-beside-lambda-argument.sw`). A thunk
+  given as `() => …` needs no such neighbour: `Parse.Follows same alike
+  (() => bump()) (() => bump())` fixes `p` and `q` of a lemma taking them
+  implicitly (`examples/accept/unknown-solved-facing-thunk.sw`). Where two
   docs compute alike (`[Doc.text t, ..rest]` and `rest` under
   `allKeysFrom`), a hypothesis read first can fix the wrong one: give it
   with `[docs := …]`.

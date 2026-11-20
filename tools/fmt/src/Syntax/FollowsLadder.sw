@@ -401,14 +401,8 @@ theorem followsUnarySome ∀ [self selfTwin: Goal → {Parse Item} Expr]
   match kind == KwMatch with
     | True =>
       Parse.followsThen followsBump (keyword keywordTwin keywords => facts.matches modes keyword keywordTwin keywords)
-    | False =>
-      followsThenEq
-        [p := () => matchesBarAhead modes]
-        [q := () => matchesBarAhead modes]
-        [j := bar => unaryBar self modes kind bar]
-        [k := bar => unaryBar selfTwin modes kind bar]
-        (followsMatchesBarAhead modes)
-        (bar => followsUnaryBar facts.below.knot facts.below.atoms facts.below.braces facts.clauses modes kind bar)
+    | False => followsThenEq (followsMatchesBarAhead modes) (bar =>
+      followsUnaryBar facts.below.knot facts.below.atoms facts.below.braces facts.clauses modes kind bar)
 
 theorem followsUnaryOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: MatchFacts self selfTwin)
