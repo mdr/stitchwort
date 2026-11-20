@@ -1,5 +1,5 @@
 {
-  "next": 4375,
+  "next": 4377,
   "tickets": [
     {
       "id": 47,
@@ -24850,12 +24850,12 @@
     {
       "id": 4047,
       "title": "[Opus] stitchwort proof tactics from SW-4024: a guarded arm in a proof match doesn't refine its guard (workaround match g: guard with); chained match e: c == '(' doesn't refine False arms so cases runs out of budget; E-NONEXHAUSTIVE false positive on an unguarded arm with a nested match body; readsThen/readsAtDone infer p/j/spec badly (motive comes out over the match's variables). Repro each, fix or file",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\n\nProgress (lane, 20 Nov): repro'd on main's binary. (1) still fails: a guard in a proof match gives a hidden fact (cases/arithmetic use it) but refines neither goal nor hypotheses, so byComputing on a goal stuck on the program's if fails; not local (the guard is check_proof_if's elimProof with a constant motive; refining needs matching.rs's generalisation for a leaf + fallthrough tree) -> ticket text in the lane report; proving-guide note added (ef862ac6e). (2) not reproduced in 6 variants (if-chains, guard chains, hypotheses, cases in False arms all close). (3) not reproduced in 8 variants (nested match under unguarded arm after guarded ones, in defs and theorems, several scrutinees). (4) not reproduced minimally; SW-4287's sweep kept 7 [spec := ...] hints in GoodItemProofs, so it still bites there; left for the walk (SW-4239). Repros: lane scratch sw4047/r*.sw.\n",
       "created": "2026-11-18",
       "updated": "2026-11-20",
       "commits": []
@@ -29179,6 +29179,32 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4375,
+      "title": "[Opus, paper] Proposal note: a guard in a proof's match refines the goal and hypotheses like match g: cond (today it only binds a fact); repro, cause and plan in docs/reviews/SW-4047-guard-refinement.md; then implement on Matt's decision",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4376,
+      "title": "[Sonnet] Goal display: show an unnamed guard's fact in a proof arm's goal (cases uses it but the user can't see it) (SW-4047 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
