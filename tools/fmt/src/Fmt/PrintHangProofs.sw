@@ -460,7 +460,7 @@ theorem pairsEnd ∀ (kinds: Text → Tok) (out: List Text) (pairs: Pairs (Follo
 --|
 --| Proof idea: `hangsPrinted` takes the triple to the printed trace; `printedJoins` says no text follows a comment on
 --| its line (`pairsEnd`); `leavesHangOfTrace` takes the trace's fold to the leaves `printedLexes` says the lexer reads.
-theorem hangsOfLays ∀ (kinds: Text → Tok) (doc: Doc) (width: Nat)
+theorem hangsOfLays ∀ (kinds: Text → Tok) [doc: Doc] (width: Nat)
     (uniform: Uniform doc)
     (joins: Joins (Follows kinds) doc (Plain None) (after => True))
     (all: Every (Printable kinds) doc.words)

@@ -411,7 +411,7 @@ theorem notedFramedAt ∀ (kinds: Text → Tok) (first: Word) (around: Around) (
         let post: Place → Hang → Prop := place hang => Ended opened trails place ∧ hang = Hang.At opened
         let leadingDocs := first.leading around around.at
         let leading :=
-          hangsConcat leadingDocs
+          hangsConcat
             (allHangsPre
               [weaker := pre]
               (leadingHangs kinds first around around.at indent around.before state entry note rest hoisted noted closer
@@ -426,15 +426,7 @@ theorem notedFramedAt ∀ (kinds: Text → Tok) (first: Word) (around: Around) (
         let isNoted: first.noted = True := rewrite noted
         let unframed: framedBy first around doc = Doc.concat [Doc.concat leadingDocs, Displaced doc] := rewrite isNoted
         rewrite unframed then
-          hangsConcat
-            [Doc.concat leadingDocs, Displaced doc]
-            (hangsTwo (Doc.concat leadingDocs) leading displaced)
-            place _
-            trace
-            next
-            byComputing
-            entered
-            (hangsAfter after))
+          hangsConcat (hangsTwo leading displaced) place _ trace next byComputing entered (hangsAfter after))
 
 --| A node with own-line comments above its first token, at one entry (`edgeNotedNodeHangs` with `notedFramedAt`).
 theorem notedNodeAt ∀ (expr: Expr) (word: Word) (node: Around → Doc) (around: Around) (indent: Nat) (trails: Bool)

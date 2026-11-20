@@ -37,7 +37,7 @@ theorem tailAppend ∀ (kinds: Text → Tok) (before middle trails: Bool) (front
     (second: TailHangs kinds middle trails back):
     TailHangs kinds before trails (front ++ back) :=
   state indent inset quiet unglued clear deeper =>
-    hangsAppend front
+    hangsAppend
       (first state indent inset quiet unglued clear deeper)
       (second state indent inset quiet unglued clear deeper)
 
@@ -99,14 +99,13 @@ theorem plainRunHangs ∀ (kinds: Text → Tok) (operatorDoc first: Doc)
     (runs: TailHangs kinds middle trails rest):
     TailHangs kinds before trails [Line, operatorDoc, Doc.text " ", first, ..rest] :=
   state indent inset quiet unglued clear deeper =>
-    hangsCons Line
+    hangsCons
       [operatorDoc, Doc.text " ", first, ..rest]
       (lineArg kinds inset indent state before unglued deeper)
-      (hangsCons operatorDoc
+      (hangsCons
         [Doc.text " ", first, ..rest]
         (argFor kinds operatorDoc inset indent state before operated noted quiet unglued clear (operatorHangs inset))
         (hangsCons
-          (Doc.text " ")
           [first, ..rest]
           (hangsBy (place trace next (ended, folded, bounded) after =>
             (gapKeeps kinds
@@ -118,7 +117,7 @@ theorem plainRunHangs ∀ (kinds: Text → Tok) (operatorDoc first: Doc)
                   (Inr byComputing)) place _ trace next byComputing
                 (ended, folded, bounded)
                 (hangsAfter after)))
-          (hangsCons first rest
+          (hangsCons rest
             (partAtFor kinds first indent inset state operated middle next quiet unglued deeper (firstHangs inset))
             (runs state indent inset quiet unglued clear deeper))))
 
@@ -223,14 +222,13 @@ theorem arrowRunHangs ∀ (kinds: Text → Tok) (operatorDoc first: Doc) (rest: 
     TailHangs kinds before trails [Line, operatorDoc, Doc.text " ", first, ..rest] :=
   state indent inset quiet unglued clear deeper =>
     let stuck := stuckFrom state
-    hangsCons Line
+    hangsCons
       [operatorDoc, Doc.text " ", first, ..rest]
       (lineArg kinds inset indent state before unglued deeper)
-      (hangsCons operatorDoc
+      (hangsCons
         [Doc.text " ", first, ..rest]
         (arrowArgFor kinds operatorDoc inset indent state before noted quiet unglued clear glues)
         (hangsCons
-          (Doc.text " ")
           [first, ..rest]
           (hangsBy (place trace next (ended, folded, bounded) after =>
             (gapKeeps kinds
@@ -242,7 +240,7 @@ theorem arrowRunHangs ∀ (kinds: Text → Tok) (operatorDoc first: Doc) (rest: 
                   (Inr byComputing)) place _ trace next byComputing
                 (ended, folded, bounded)
                 (hangsAfter after)))
-          (hangsCons first rest
+          (hangsCons rest
             (gluedPart kinds first indent inset state middle quiet unglued deeper (firstHangs inset inset))
             (runs state indent inset quiet unglued clear deeper))))
 
@@ -309,8 +307,7 @@ theorem arrowLeafGlues ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
                 stepArrow kinds state word.text start (tokenCode word.text start token solid) arrow room
               ))
     rewrite leafIsText word around key closer comma bare then
-      match after: word.comments.after, quiet with
-        | None, _ => hangsConcat [Doc.text word.text] (hangsLast (Doc.text word.text) indent written)
+      match after: word.comments.after, quiet with | None, _ => hangsConcat (hangsLast indent written)
 
 --| What a chain's operand asks (`linkDocs`): a chain of the same level its operands and operators, each operator
 --| folding as a plain token or as `->` after the operand before it and before a space, its token and the next
@@ -438,7 +435,7 @@ theorem runsPart ∀ (kinds: Text → Tok) (docs: List Doc) (indent: Nat) (befor
     PartHangs kinds (Nest 2 (Doc.concat docs)) indent before trails :=
   state entry quiet unglued =>
     hangsBy (place trace next (isEntry, folded, ended, clear) after =>
-      (hangsConcat docs (runs state indent (indent + 2) quiet unglued clear arithmetic)) place _ trace next byComputing
+      (hangsConcat (runs state indent (indent + 2) quiet unglued clear arithmetic)) place _ trace next byComputing
         (rewrite isEntry then ended, folded, clear)
         (hangsAfter (left later (done, landed, _) => after left later (done, landed))))
 

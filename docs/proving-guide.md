@@ -786,10 +786,16 @@ Each was run on the example named; the output is quoted, shortened.
   of type `Is (Nest 2 x) shape`, even though `Is` computes on `doc`, so
   lemmas can take such binders implicitly
   (`examples/accept/unknown-solved-from-whole-arguments.sw`). Only an
-  unknown that is a whole argument of the call is solved so, and not
-  against a function written as a lambda: one inside an argument
-  (`Is (Nest ?n x) shape`), or a predicate given as `(place hang => …)`,
-  still needs the computation, or `[x := …]`, to fix it.
+  unknown that is a whole argument of the call is solved so: one inside an
+  argument (`Is (Nest ?n x) shape`) still needs the computation, or
+  `[x := …]`, to fix it. An unknown predicate facing one given as
+  `(place hang => …)` is solved with it only when a data unknown of the
+  same call (a `doc`, not a function or a type) faces a known argument
+  too, as in `HangLays kinds doc indent pre post`
+  (`examples/accept/unknown-solved-beside-lambda-argument.sw`). Where two
+  docs compute alike (`[Doc.text t, ..rest]` and `rest` under
+  `allKeysFrom`), a hypothesis read first can fix the wrong one: give it
+  with `[docs := …]`.
 - **`E-REFL`**: the two sides don't compute to the same value. Usually the
   goal is stuck on a variable (needs a `match`, `cases`, or a lemma such as
   `Nat.addComm`), or the statement is false; check the counterexample note.

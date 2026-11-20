@@ -87,9 +87,7 @@ theorem lineTrailingHangs ∀ (kinds: Text → Tok) (word: Word) (indent: Nat) (
   match after: word.comments.after, trailed with
     | None, _ => hangsNil kinds indent pre pre (place hang held => held)
     | Some comment, (isComment, layout) =>
-      hangsLast
-        (LineSuffix comment)
-        indent
+      hangsLast indent
         (hangsSuffix kinds indent pre post isComment layout (place hang ((ended, folded), onLine) =>
           match place, ended, onLine with
             | Mid at carry, (floor, left), onLine =>
@@ -135,17 +133,13 @@ theorem lineOpeningHangs ∀ (kinds: Text → Tok) (word closer: Word) (around: 
   let post: Place → Hang → Prop := place hang =>
     (Ended opened word.trails place ∧ hang = Hang.At opened) ∧ place.indent = line
   let rest: HangLaysAll kinds [Doc.text word.text, ..word.trailing] indent ready post :=
-    hangsCons
-      (Doc.text word.text)
-      word.trailing
+    hangsCons word.trailing
       (lineOpenerStep kinds word.text indent column state start line token)
       (lineTrailingHangs kinds word indent opened line trailed)
-  let kept := allHangsKept [Doc.text word.text, ..word.trailing] low origin (trailingKeys low word) rest
+  let kept := allHangsKept [docs := [Doc.text word.text, ..word.trailing]] low origin (trailingKeys low word) rest
   rewrite hoisted, notCloser, notComma, marks then
     hangsConcat
-      [Mark around.at, Doc.text word.text, ..word.trailing]
       (hangsCons
-        (Mark around.at)
         [Doc.text word.text, ..word.trailing]
         (hangsMark kinds around.at indent
           (Entered indent column False state entry start)
@@ -617,10 +611,8 @@ theorem parenHeldHangs ∀ (kinds: Text → Tok) (open: Word) (inner: Expr) (clo
         heldCloser kinds close closeAround around.at indent outer top closer byComputing byComputing closeComments
             closeTrailed bound
       rewrite plain then
-        (hangsConcat
-              [prefix, innerDoc, closerDoc]
-              (hangsCons prefix [innerDoc, closerDoc] opening (hangsTwo innerDoc middle closing))) place _ trace next
-            byComputing entered
+        (hangsConcat (hangsCons [innerDoc, closerDoc] opening (hangsTwo middle closing))) place _ trace next byComputing
+            entered
             (hangsAfter after))
 
 -- What the brackets may hold, after the waiting comment.
