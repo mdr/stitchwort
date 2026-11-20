@@ -1947,14 +1947,15 @@ fn a_carried_over_entry_is_used_only_when_asked() {
 /// [`ABC`] and a namespace with a data type, a function on it and a
 /// theorem whose statement names the function: on re-check, the type must
 /// be final before the function's body is checked, and the function before
-/// the theorem is declared.
+/// the theorem is declared. It also uses a library file (`ExitStatus`, and
+/// through it `Fin`, a data type), so library entries are re-checked too.
 const ABCD: &[(&str, &str)] = &[
     ABC[0],
     ABC[1],
     ABC[2],
     (
         "src/D.sw",
-        "namespace D\n\ntype Shape = | Dot | Line (n: Nat)\n\ndef Shape.size: (s: Shape) → Nat\n  | Dot => 0\n  | Line n => n\n\ntheorem Shape.dotSize: Shape.size Dot = 0 := byComputing\n",
+        "namespace D\n\nimport Std (ExitStatus)\n\ndef failure: Nat := ExitStatus.toNat (ExitStatus.of 1)\n\ntype Shape = | Dot | Line (n: Nat)\n\ndef Shape.size: (s: Shape) → Nat\n  | Dot => 0\n  | Line n => n\n\ntheorem Shape.dotSize: Shape.size Dot = 0 := byComputing\n",
     ),
 ];
 
@@ -1991,6 +1992,7 @@ fn a_kernel_side_change_has_a_carried_entry_checked_again() {
         "{s:?}"
     );
     assert_eq!((s.rechecked, s.carried), (s.hits, s.hits), "{s:?}");
+    assert!(s.hits > 0, "no library file came from the cache: {s:?}");
     assert_eq!((s.refused, s.refused_on_recheck), (0, 0), "{s:?}");
     assert!(
         rechecked.dump == fresh.dump,
@@ -2004,6 +2006,11 @@ fn a_kernel_side_change_has_a_carried_entry_checked_again() {
         (s.namespace_carried, s.namespace_rechecked, s.rechecked),
         (4, 0, 0),
         "{s:?}"
+    );
+    assert!(
+        kept.dump == fresh.dump,
+        "the kept entries' trusted replay changed the result: {}",
+        first_difference(&fresh.dump, &kept.dump)
     );
     let exact = run_as_build(&dir, &cache, None, false);
     assert_eq!(exact.stats.namespace_hits, 0, "{:?}", exact.stats);

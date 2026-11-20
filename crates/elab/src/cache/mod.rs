@@ -3061,9 +3061,14 @@ impl Elaborator {
     /// through the kernel's checking calls instead of the trusted
     /// admission, as elaborating submits declarations: types, bodies,
     /// termination, constructors, universes and positivity are all checked
-    /// by this kernel, so this path trusts nothing in the entry. Its hashes
-    /// are compared too, since the entries that refer to its declarations
-    /// name them by the hashes it records.
+    /// by this kernel, so this path trusts nothing in the entry for the
+    /// kernel's verdict (its side tables, names and marks are taken as
+    /// written, as on the trusted path). Its hashes are compared too, since
+    /// the entries that refer to its declarations name them by the hashes
+    /// it records, and so are its constructors' field sorts and erasure,
+    /// which the kernel works out again but doesn't hash: a re-checked
+    /// entry may be kept as this build's (`keep_rechecked`) and installed
+    /// as written by the next session.
     fn admit_replayed(
         &mut self,
         defs: &[DefEntry],
@@ -3359,6 +3364,25 @@ impl Elaborator {
                                 .collect();
                             self.kernel_op(|g| kernel::define_data_group(g, members))
                                 .map_err(refused)?;
+                            // Not hashed, but read by the checker (a `Prop`
+                            // field is skipped by conversion) and installed
+                            // as written by a later trusted replay of this
+                            // entry, once it is kept as this build's
+                            // (`keep_rechecked`): they must be this kernel's.
+                            for &m in &group.members {
+                                let installed = self.kernel.data(DataId(base_datas + m)).ctors();
+                                let recorded = &datas[m].ctors;
+                                if installed.len() != recorded.len()
+                                    || installed.iter().zip(recorded).any(|(k, e)| {
+                                        k.field_sorts != e.field_sorts
+                                            || k.field_erased != e.field_erased
+                                    })
+                                {
+                                    return bad(
+                                        "a data type's field sorts or erasure came out differently",
+                                    );
+                                }
+                            }
                         } else {
                             let members = group
                                 .members
@@ -3914,5 +3938,98 @@ mod tests {
         );
         assert_eq!(added, 0, "the refused entry wasn't undone");
         assert_eq!((stats.refused_on_recheck, stats.refused), (1, 0));
+    }
+
+    /// `type Box = MkBox (p: Prop)`, its field's sort and erasure recorded
+    /// as `sorts` and `erased`, which the content hash doesn't cover:
+    /// admitted trusted (whatever they say) or checked again. The result,
+    /// and how many data types it left.
+    fn admit_box(
+        sorts: Vec<stitchwort_core::Sort>,
+        erased: Vec<bool>,
+        recheck: bool,
+    ) -> (Result<(), super::Bad>, usize, super::Stats) {
+        use stitchwort_core::{Sort, Term};
+        let entry = |hash| super::DataEntry {
+            name: "Box".into(),
+            path: "Forged.Box".into(),
+            params: Vec::new(),
+            auto_params: Vec::new(),
+            indices: Vec::new(),
+            sort: Sort::Type(0),
+            ctors: vec![super::CtorEntry {
+                name: "MkBox".into(),
+                fields: vec![("p".into(), Term::Sort(Sort::Prop))],
+                field_sorts: sorts.clone(),
+                field_erased: erased.clone(),
+                implicit: vec![false],
+                result: Vec::new(),
+                braced: false,
+            }],
+            record: false,
+            no_eta: false,
+            group: vec![0],
+            defs_before: 0,
+            datas_before: 0,
+            span: {
+                let mut sources = stitchwort_syntax::SourceMap::new();
+                stitchwort_syntax::Span::new(sources.add("forged", "x"), 0, 1)
+            },
+            hash,
+        };
+        let exact = |recheck| super::Hit {
+            exact: true,
+            recheck,
+        };
+        let tables = state::TablesDelta::default();
+        // The hash it would record, so that only the derived fields can
+        // tell the two paths apart.
+        let mut e = Elaborator::new();
+        let base = e.kernel.env.datas().len();
+        e.admit_replayed(&[], &[entry(None)], &[], &tables, false, exact(false))
+            .expect("the trusted path admits it");
+        let hash = {
+            let g = &e.ev();
+            let _op = g.machine.budget.operation(e.options.limits);
+            super::data_hash(g, stitchwort_core::DataId(base)).unwrap()
+        };
+        let mut e = Elaborator::new();
+        let result = e.admit_replayed(&[], &[entry(hash)], &[], &tables, false, exact(recheck));
+        let added = e.kernel.env.datas().len() - base;
+        (result, added, e.session.cache_stats)
+    }
+
+    /// A data type whose recorded field sorts or erasure aren't what this
+    /// kernel works out: the trusted replay installs them as written (and
+    /// a `Prop` sort would make conversion skip a data field); checking it
+    /// again refuses it and undoes it, so a re-checked entry kept as this
+    /// build's never carries another kernel's.
+    #[test]
+    fn checking_a_data_entry_again_refuses_field_sorts_or_erasure_this_kernel_wouldnt_give() {
+        use stitchwort_core::Sort;
+        let right = (vec![Sort::Type(0)], vec![true]);
+        let (ok, added, _) = admit_box(right.0.clone(), right.1.clone(), true);
+        assert!(
+            ok.is_ok() && added == 1,
+            "the field's sort and erasure aren't {right:?}: {:?}",
+            ok.err().map(|b| b.0)
+        );
+        for (sorts, erased) in [
+            (vec![Sort::Prop], right.1.clone()),
+            (right.0.clone(), vec![false]),
+        ] {
+            let (trusted, added, _) = admit_box(sorts.clone(), erased.clone(), false);
+            assert!(trusted.is_ok() && added == 1, "the trusted path refused it");
+            let (checked, added, stats) = admit_box(sorts, erased, true);
+            let Err(super::Bad(why)) = checked else {
+                panic!("checking it again kept another kernel's field sorts or erasure");
+            };
+            assert!(
+                why.contains("field sorts"),
+                "refused for another reason: {why}"
+            );
+            assert_eq!(added, 0, "the refused entry wasn't undone");
+            assert_eq!((stats.refused_on_recheck, stats.refused), (1, 0));
+        }
     }
 }

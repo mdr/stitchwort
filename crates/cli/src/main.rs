@@ -2309,7 +2309,7 @@ fn check(
             if loaded && goals == 0 {
                 eprintln!("checked {path}");
             }
-            report_carried_over(&session);
+            report_carried_over(&session, recheck);
             if let Some(index) = index {
                 ok = write_index(&session, loaded, index, "", &reported) && ok;
             }
@@ -2398,7 +2398,7 @@ fn check(
             None => eprintln!("checked {count} namespace{plural} of {}", project.name),
         }
     }
-    report_carried_over(&session);
+    report_carried_over(&session, recheck);
     if let Some(index) = index {
         let root = format!("{}/", project.name);
         ok = write_index(&session, ok, index, &root, &reported) && ok;
@@ -2619,8 +2619,8 @@ fn write_walk_expansions(session: &Session, base: &Path, to_stdout: bool) -> boo
 /// (docs/proposals/check-cache-across-updates.md §8: the label is the whole
 /// defence against taking such a check for a full one). Then, after a
 /// carry-over across a kernel change or `check --recheck`, how many entries
-/// this kernel checked again, and refused.
-fn report_carried_over(session: &Session) {
+/// this kernel checked again, and refused (with `recheck`, always a line).
+fn report_carried_over(session: &Session, recheck: bool) {
     let stats = session.elab.check_cache_stats();
     if let Some(units) = stats.carried_over_units() {
         eprintln!(
@@ -2628,8 +2628,12 @@ fn report_carried_over(session: &Session) {
              build didn't elaborate them (a check without --carry-over does)"
         );
     }
-    if let Some(units) = stats.rechecked_units() {
-        eprintln!("checked again by this kernel, without elaborating: {units}");
+    match stats.rechecked_units() {
+        Some(units) => eprintln!("checked again by this kernel, without elaborating: {units}"),
+        // So that `--recheck` with nothing to check (no cache, an empty
+        // one) doesn't look like an audit that passed.
+        None if recheck => eprintln!("checked again by this kernel: nothing"),
+        None => {}
     }
 }
 

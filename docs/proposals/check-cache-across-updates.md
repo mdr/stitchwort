@@ -540,6 +540,13 @@ SW-4410, 20 November 2026.
 - **Kept for next time.** An entry another build wrote that passes the
   re-check is written again as this build's own: the same body and
   dependencies, stamped with this build and its kernel side, not exact.
+  That is sound only because everything a trusted replay takes from the
+  entry has been compared with what this kernel produced: the terms by
+  their hashes, and the constructors' field sorts and erasure flags,
+  which the kernel works out again but the hash doesn't cover, directly
+  (a difference is a refusal; SW-4450's M1: a `Prop` sort kept from
+  another kernel would let conversion skip a data field). Run bodies are
+  type-checked, not compared; they never unfold in the kernel.
   The next carrying session then takes it without a re-check (this kernel
   has accepted it), and an exact check still misses it. Without this the
   editor would pay the re-check on every start until a full check.
@@ -598,4 +605,6 @@ SW-4410, 20 November 2026.
   `checking_an_entry_again_refuses_a_false_theorem_the_trusted_replay_would_admit`
   in `crates/elab/src/cache/mod.rs` (an entry with a "proof" of
   `(P: Prop) -> P`: the trusted path installs it, the re-check refuses and
-  undoes it).
+  undoes it) and
+  `checking_a_data_entry_again_refuses_field_sorts_or_erasure_this_kernel_wouldnt_give`.
+  `--recheck` always says what it did, "nothing" included.
