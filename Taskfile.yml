@@ -819,6 +819,9 @@ tasks:
       arguments at every use under the default roots (or `--roots`).
       Arguments are read bracket-aware, named arguments are kept, and a use
       whose arguments cannot be identified is skipped rather than edited.
+      An argument in a dropped slot must be `_`; a real term is reported as
+      `REAL file:line: lemma slot binder: ...` and refuses the run, unless
+      `--force` drops it or `--name-real` rewrites it as `[binder := term]`.
       `--dry-run` prints a unified diff; otherwise files are read fully and
       replaced atomically. `--from-file` takes lines `Name: b1 b2`.
     cmds:
