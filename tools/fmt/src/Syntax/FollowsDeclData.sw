@@ -52,14 +52,7 @@ theorem fieldsEmpty ∀ (fields twin: Fields)
 theorem followsFieldDefault ∀ (rule: ExpressionRule) (modes: Modes) (atColonEq: Bool):
     Parse.Follows SameCode (Option.Alike (PairAlike Anything ExprsAlike)) (() => fieldDefault modes atColonEq) (() =>
       fieldDefault modes atColonEq) :=
-  match atColonEq with
-    | True => Parse.followsThen followsFixedFrom (colonEq colonEqTwin colonEqs =>
-      Parse.followsMap
-        (value => Some (colonEq, value))
-        (value => Some (colonEqTwin, value))
-        (followsExpressionAt rule { modes, level = LevelFull })
-        (value valueTwin values => (colonEqs, values)))
-    | False => Parse.followsDone Trivial
+  byWalking [followsFixedFrom, followsExpressionAt rule { modes, level = LevelFull }]
 
 def FieldsFromFollow (modes: Modes) (fuel: Nat): Prop :=
   ∀ (found twins: List Field) => List.All2 FieldAlike found twins
@@ -71,9 +64,7 @@ theorem followsFieldsNext ∀ (more: Nat) (modes: Modes)
     (dones: List.All2 FieldAlike done twins) (comma: Bool):
     Parse.Follows SameCode (PairAlike (List.All2 FieldAlike) Same) (() => fieldsNext more modes done comma) (() =>
       fieldsNext more modes twins comma) :=
-  match comma with
-    | True => Parse.followsThen followsBump (skippedItems skippedTwin skips => again done twins dones)
-    | False => Parse.followsDone (List.all2Reverse done twins dones, byComputing)
+  byWalking [] then (List.all2Reverse done twins dones, byComputing)
 
 theorem followsFieldsAt ∀ (rule: ExpressionRule) (more: Nat) (modes: Modes)
     (again: FieldsFromFollow modes more) (found twins: List Field)
@@ -307,14 +298,7 @@ theorem followsConstructorParts ∀ (rule: ExpressionRule) (fuel: Nat) (modes: M
 theorem followsConstructorResult ∀ (rule: ExpressionRule) (modes: Modes) (atColon: Bool):
     Parse.Follows SameCode (Option.Alike (PairAlike Anything ExprsAlike)) (() => constructorResult modes atColon) (() =>
       constructorResult modes atColon) :=
-  match atColon with
-    | True => Parse.followsThen followsFixedFrom (colon colonTwin colons =>
-      Parse.followsMap
-        (result => Some (colon, result))
-        (result => Some (colonTwin, result))
-        (followsExpressionAt rule { modes, level = LevelApp })
-        (result resultTwin results => (colons, results)))
-    | False => Parse.followsDone Trivial
+  byWalking [followsFixedFrom, followsExpressionAt rule { modes, level = LevelApp }]
 
 theorem followsConstructorStep ∀ (rule: ExpressionRule) (modes: Modes) (atBar: Bool):
     Parse.Follows SameCode (Option.Alike ConstructorAlike) (() => constructorStep modes atBar) (() =>
@@ -365,7 +349,7 @@ theorem followsConstructorsAt ∀ (rule: ExpressionRule) (modes: Modes) (atBar: 
 
 theorem followsConstructorsOf ∀ (rule: ExpressionRule) (modes: Modes):
     Parse.Follows SameCode (List.All2 ConstructorAlike) (() => constructorsOf modes) (() => constructorsOf modes) :=
-  followsThenEq (followsAt modes Pipe) (atBar => followsConstructorsAt rule modes atBar)
+  byWalking [followsConstructorsAt]
 
 -- Data parameters and indices.
 
@@ -619,16 +603,9 @@ theorem followsTypeBody ∀ (rule: ExpressionRule) (modes: Modes) (attributes at
     Parse.Follows SameCode DeclsAlike
       (() => typeBody modes attributes keyword name params indices indexed equalsNext)
       (() => typeBody modes attributesTwin keywordTwin nameTwin paramsTwin indicesTwin indexed equalsNext) :=
-  match !equalsNext with
-    | True =>
-      Parse.followsDone
-        (alikeData attributes attributesTwin attributeses False keyword keywordTwin name nameTwin names params
-            paramsTwin paramses indices indicesTwin indiceses Abstract Abstract alikeAbstract)
-    | False => Parse.followsThen followsFixedFrom (equals equalsTwin equalses =>
-      followsThenEq (followsAt modes LBrace) (brace =>
-        followsThenEq (followsAt modes Pipe) (pipe =>
-          followsTypeAfterEquals rule modes attributes attributesTwin attributeses keyword keywordTwin name nameTwin
-              names params paramsTwin paramses indices indicesTwin indiceses indexed equals equalsTwin brace pipe)))
+  byWalking [followsFixedFrom, followsTypeAfterEquals rule] then (alikeData attributes attributesTwin attributeses False
+      keyword keywordTwin name nameTwin names params paramsTwin paramses indices indicesTwin indiceses Abstract Abstract
+      alikeAbstract)
 
 theorem followsTypeDecl ∀ (rule: ExpressionRule) (modes: Modes) (attributes attributesTwin: List Attributes)
     (attributeses: List.All2 AttributeGroupAlike attributes attributesTwin)
@@ -717,8 +694,7 @@ theorem followsDataDeclOn ∀ (rule: ExpressionRule) (modes: Modes) (attributes 
 theorem followsDataDecl ∀ (rule: ExpressionRule) (modes: Modes) (attributes attributesTwin: List Attributes)
     (attributeses: List.All2 AttributeGroupAlike attributes attributesTwin):
     Parse.Follows SameCode DeclsAlike (() => dataDecl modes attributes) (() => dataDecl modes attributesTwin) :=
-  followsThenEq (followsAt modes KwInterface) (isInterface =>
-    followsDataDeclOn rule modes attributes attributesTwin attributeses isInterface)
+  byWalking [followsDataDeclOn]
 
 -- Abilities, tests and rule sets.
 
@@ -827,11 +803,7 @@ theorem followsTestName ∀ (modes: Modes) (atStr: Bool):
 
 theorem followsTestDecl ∀ (rule: ExpressionRule) (modes: Modes):
     Parse.Follows SameCode DeclsAlike (() => testDecl modes) (() => testDecl modes) :=
-  Parse.followsThen followsFixedFrom (keyword keywordTwin keywords =>
-    followsThenEq (followsAt modes Str) (atStr =>
-      Parse.followsThen (followsTestName modes atStr) (name nameTwin names =>
-        followsThenEq (followsAt modes Equals) (equalsNext =>
-          followsTestAfterName rule modes keyword keywordTwin name nameTwin names equalsNext))))
+  byWalking [followsFixedFrom, followsTestName, followsTestAfterName rule]
 
 theorem followsRuleSetName ∀ (modes: Modes) (atUpper: Bool):
     Parse.Follows SameCode WordsAlike (() => ruleSetName modes atUpper) (() => ruleSetName modes atUpper) :=
@@ -862,11 +834,7 @@ theorem followsRuleSetAfterName ∀ (rule: ExpressionRule) (modes: Modes)
 
 theorem followsRuleSetDecl ∀ (rule: ExpressionRule) (modes: Modes):
     Parse.Follows SameCode DeclsAlike (() => ruleSetDecl modes) (() => ruleSetDecl modes) :=
-  Parse.followsThen followsFixedFrom (keyword keywordTwin keywords =>
-    followsThenEq (followsAt modes Upper) (atUpper =>
-      Parse.followsThen (followsRuleSetName modes atUpper) (name nameTwin names =>
-        followsThenEq (followsAt modes Equals) (equalsNext =>
-          followsRuleSetAfterName rule modes keyword keywordTwin name nameTwin names equalsNext))))
+  byWalking [followsFixedFrom, followsRuleSetName, followsRuleSetAfterName rule]
 
 -- Definitions and instances.
 
@@ -956,9 +924,7 @@ theorem followsRulesAhead ∀ (modes: Modes):
 
 theorem followsRuleSetOrMissing ∀ (rule: ExpressionRule) (modes: Modes) (found: Bool):
     Parse.Follows SameCode DeclsAlike (() => ruleSetOrMissing modes found) (() => ruleSetOrMissing modes found) :=
-  match found with
-    | True => followsRuleSetDecl rule modes
-    | False => followsFatalAny _ _
+  byWalking [followsRuleSetDecl, followsFatalAny]
 
 theorem followsExportPlain ∀ (rule: ExpressionRule) (alts: AltPatternFollows)
     (modes: Modes) (attributes attributesTwin: List Attributes)
@@ -1033,10 +999,7 @@ theorem followsDeclarationBody ∀ (rule: ExpressionRule) (alts: AltPatternFollo
     (attributeses: List.All2 AttributeGroupAlike attributes attributesTwin):
     Parse.Follows SameCode DeclsAlike (() => declarationBody modes attributes) (() =>
       declarationBody modes attributesTwin) :=
-  followsPeeked modes
-    (seen => declarationBodyOn modes attributes seen)
-    (seen => declarationBodyOn modes attributesTwin seen)
-    (seen => followsDeclarationBodyOn rule alts modes attributes attributesTwin attributeses seen)
+  byWalking [followsDeclarationBodyOn]
 
 theorem followsNamespaceStep ∀ (seen: Seen) (modes: Modes):
     Parse.Follows SameCode DeclsAlike (() => namespaceStep seen modes) (() => namespaceStep seen modes) :=
@@ -1051,15 +1014,7 @@ theorem followsDeclarationKind ∀ (rule: ExpressionRule) (alts: AltPatternFollo
     (attributeses: List.All2 AttributeGroupAlike attributes attributesTwin) (next: Option Tok):
     Parse.Follows SameCode DeclsAlike (() => declarationKind seen modes attributes next) (() =>
       declarationKind seen modes attributesTwin next) :=
-  match next with
-    | Some kind =>
-      match kind == KwNamespace with
-        | True => followsNamespaceStep seen modes
-        | False =>
-          match kind == KwImport with
-            | True => followsImportStep seen modes
-            | False => followsDeclarationBody rule alts modes attributes attributesTwin attributeses
-    | None => followsDeclarationBody rule alts modes attributes attributesTwin attributeses
+  byWalking [followsNamespaceStep, followsImportStep, followsDeclarationBody]
 
 theorem followsDeclarationEnd ∀ (modes: Modes) (decl declTwin: Decl)
     (decls: DeclsAlike decl declTwin) (items others: List Item)
@@ -1101,15 +1056,11 @@ theorem followsDeclarationAttributes ∀ (rule: ExpressionRule) (alts: AltPatter
     (attributeses: List.All2 AttributeGroupAlike attributes attributesTwin):
     Parse.Follows SameCode DeclsAlike (() => declarationAttributes seen modes attributes) (() =>
       declarationAttributes seen modes attributesTwin) :=
-  followsPeeked modes
-    (next => declarationRefusal seen modes attributes next)
-    (next => declarationRefusal seen modes attributesTwin next)
-    (next => followsDeclarationRefusal rule alts seen modes attributes attributesTwin attributeses next)
+  byWalking [followsDeclarationRefusal]
 
 theorem followsDeclaration ∀ (rule: ExpressionRule) (alts: AltPatternFollows) (seen: Seen):
     Parse.Follows SameCode DeclsAlike (() => declaration seen) (() => declaration seen) :=
-  Parse.followsThen (followsAttributesOf Modes.start) (attributes attributesTwin attributeses =>
-    followsDeclarationAttributes rule alts seen Modes.start attributes attributesTwin attributeses)
+  byWalking [followsAttributesOf, followsDeclarationAttributes]
 
 -- The facts that other files assume of this file's functions, each proved from the lemmas above.
 
