@@ -82,7 +82,6 @@ use stitchwort_syntax::{Diagnostic, Span};
 use crate::Elaborator;
 use crate::check::{Ctx, Result, check, infer};
 use crate::undo::{Snapshot, fatal};
-use crate::unify::eta_contract;
 
 use expand::*;
 pub use expand::{Piece, WalkExpansion, expand_file, trace_line};
@@ -534,53 +533,6 @@ fn refold(cx: &mut Ctx, family: &Family, args: &[Value], bodies: &[Value]) -> Re
     cx.eval(&term)
 }
 
-/// The goal with its arguments other than the thunks eta-contracted, if
-/// that changes any (`x y => WordsAlike x y` to `WordsAlike`), and the
-/// arguments: the same goal by conversion. A then-lemma's post comes out
-/// eta-expanded where unification solved it from the unfolded relation
-/// (`?alike x y` against `WordsAlike x y`), and a lemma that leaves a run
-/// open (`second`) then fails to fit, since the unifier settles an unknown
-/// function facing a lambda only when a data unknown faces a known argument
-/// too (`unify_by_unknown_arguments`); the contracted post is a known
-/// argument, as the statement wrote it.
-fn eta_contracted(
-    cx: &mut Ctx,
-    family: &Family,
-    args: &[Value],
-    expected: &Value,
-) -> Result<Option<(Vec<Value>, Value)>> {
-    let g = cx.g();
-    let mut contracted = Vec::with_capacity(args.len());
-    for (i, a) in args.iter().enumerate() {
-        let lambda = matches!(force_solved(&g, a.clone())?, Value::Lam(..));
-        contracted.push(if lambda && !family.thunks.contains(&i) {
-            eta_contract(&g, &cx.quote_folded(a)?)?
-        } else {
-            None
-        });
-    }
-    if contracted.iter().all(Option::is_none) {
-        return Ok(None);
-    }
-    let terms = (args.iter().zip(contracted))
-        .map(|(a, c)| c.map_or_else(|| cx.quote_folded(a), Ok))
-        .collect::<Result<Vec<_>>>()?;
-    let icits = binder_icits(g.def(family.relation).ty());
-    let mut goal = Term::Def(family.relation);
-    for (i, t) in terms.iter().enumerate() {
-        let icit = icits.get(i).copied().unwrap_or(Icit::Explicit);
-        goal = Term::App(Rc::new(goal), Rc::new(t.clone()), icit);
-    }
-    let goal = cx.eval(&goal)?;
-    if !cx.conv_now(&goal, expected)? {
-        return Ok(None);
-    }
-    let args = (terms.iter())
-        .map(|t| cx.eval(t))
-        .collect::<Result<Vec<_>>>()?;
-    Ok(Some((args, goal)))
-}
-
 /// How each binder of a type, as written, is passed.
 fn binder_icits(ty: &Term) -> Vec<Icit> {
     let mut out = Vec::new();
@@ -872,11 +824,6 @@ fn step(
         .trace
         .clear();
     let info = node_info(cx, node);
-    let contracted = eta_contracted(cx, family, &args, expected)?;
-    let (args, expected) = match &contracted {
-        Some((args, goal)) => (args.clone(), goal),
-        None => (args, expected),
-    };
     if family.thunks.len() == 2 {
         return two::step(cx, node, &info, family, args, top, expected);
     }

@@ -55,7 +55,7 @@ theorem followsCollect ∀ [alike: a → b → Prop] (next: () → {Parse Nat} a
     | Zero => Parse.followsDone founds
     | Succ more => Parse.followsThen followsHere (at atTwin atFacts =>
       rewrite <- atFacts then
-      (match branch2: (at.decEq 0).holds with
+      (match branch2: at == 0 with
         | False => Parse.followsThen nexts (value valueTwin valueFacts =>
           followsCollect next nextTwin nexts more [value, ..found] [valueTwin, ..foundTwin] (valueFacts, founds))
         | True => Parse.followsDone founds)))
@@ -106,7 +106,7 @@ def hereThen(): {Parse Nat} Nat :=
 theorem followsHereThen: Parse.Follows SameBack SameBack (() => hereThen()) (() => hereThen()) :=
   Parse.followsThen followsHereBack (at atTwin atFacts =>
     rewrite atFacts then
-    (match branch1: (at.decEq 0).holds with
+    (match branch1: at == 0 with
       | False => Parse.followsDone byComputing
       | True => Parse.followsDone byComputing))
 
