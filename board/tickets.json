@@ -1,5 +1,5 @@
 {
-  "next": 4443,
+  "next": 4444,
   "tickets": [
     {
       "id": 47,
@@ -29711,12 +29711,12 @@
     {
       "id": 4415,
       "title": "[Sonnet] Mismatch messages print a decided proposition's found type as 0 < pick (c.decEq 'a').holds: show it as written (c == 'a'); and a closed goal like 0 < 1 lists as True = True in every match arm (SW-4403 findings)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "\n\nProgress (lane, 20 Nov): part 1 done on lane/SW-4415 (fd0169409): messages print decided props as written (the elaborator's NameScope now has eq_decision; message printing turns on decided-equation writing). 11 reject snapshots improved. Part 2 (closed goal 0 < 1 shown as True = True) not done: native comparisons never glue, so the value has no call left to write back; needs the statement term kept beside the goal value. Reported.\n",
+      "body": "\n\nProgress (lane, 20 Nov): part 1 done on lane/SW-4415 (fd0169409): messages print decided props as written (the elaborator's NameScope now has eq_decision; message printing turns on decided-equation writing). 11 reject snapshots improved. Part 2 (closed goal 0 < 1 shown as True = True) not done: native comparisons never glue, so the value has no call left to write back; needs the statement term kept beside the goal value. Reported.\n\n\nModel result: Sonnet, worked (part 1; part 2 split to a new ticket), 14 min (est. 35)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": [
@@ -30064,6 +30064,19 @@
     {
       "id": 4442,
       "title": "[DeepSeek] Walk: when a family's relation computes to a constant (def Mine p post := True), E-WALK gives no hint; add a note when the goal no longer mentions the thunk and post, or a registration warning for a family relation whose unfolding drops them; and stitchwort fmt's 'N files skipped as deliberately unformatted' should name the files (SW-4441 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4443,
+      "title": "[Opus] Goals: a closed goal like 0 < 1 shows as True = True everywhere (theorems and match arms), because natives aren't glued and evaluate at once; keep the written statement term beside each goal for display only (arms need the motive's term too), display only, no term or hash change (SW-4415 part 2)",
       "status": "backlog",
       "agent": "",
       "where": "",
