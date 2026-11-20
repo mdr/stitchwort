@@ -29503,8 +29503,8 @@
     {
       "id": 4399,
       "title": "[Sonnet] Walk thunks by type: recognise thunks by () -> {e} a, not syntax; refuse families with more than two thunks; second-run names in a lone split use Twin (not items1, y1); expand.rs quoted ignores brackets in strings (SW-4395 follow-ups 3, 4, 6)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
