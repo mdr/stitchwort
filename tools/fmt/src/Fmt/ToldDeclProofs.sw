@@ -374,7 +374,7 @@ def joinShapes: List (List Told) → List Told
 
 theorem isNil: IsAll [] [] := spot => byComputing
 
-theorem isCons ∀ (doc: Doc) (docs: List Doc) (first second: List Told)
+theorem isCons ∀ [doc: Doc] (docs: List Doc) (first second: List Told)
     (head: Is doc first)
     (tail: IsAll docs second):
     IsAll [doc, ..docs] (first ++ second) :=
@@ -398,7 +398,7 @@ theorem isSame ∀ [doc: Doc] [shape: List Told] (shape': List Told)
 theorem isConcat ∀ [docs: List Doc] [shape: List Told] (all: IsAll docs shape): Is (Doc.concat docs) shape := spot =>
   rewrite concatTell docs spot then all spot
 
-theorem isAppend ∀ (front back: List Doc) (one two: List Told)
+theorem isAppend ∀ [front back: List Doc] (one two: List Told)
     (first: IsAll front one)
     (second: IsAll back two):
     IsAll (front ++ back) (one ++ two) :=
@@ -574,7 +574,6 @@ theorem brokenItemsShape ∀ (bare arm first before: Bool) (at: Nat) (items: Lis
     | [item], (kept, _) =>
       let (head, _) := itemsHomed item [] prior homed
       isCons
-        (if first then SoftLine else Line)
         [item.el (firstAround bare arm before at)]
         []
         (item.shape (!bare) False)
@@ -590,7 +589,6 @@ theorem brokenItemsShape ∀ (bare arm first before: Bool) (at: Nat) (items: Lis
     | [item, ..rest], (kept, others) =>
       let (head, tail) := itemsHomed item rest prior homed
       isCons
-        (if first then SoftLine else Line)
         [
           item.el (firstAround bare arm before at),
           Closing ",",
@@ -600,7 +598,6 @@ theorem brokenItemsShape ∀ (bare arm first before: Bool) (at: Nat) (items: Lis
         (item.shape (!bare) False ++ [Said "," True True] ++ itemsShape True rest)
         (isSeparator first)
         (isCons
-          (item.el (firstAround bare arm before at))
           [Closing ",", ..brokenItems False arm False item.trails (at + item.size) rest]
           (item.shape (!bare) False)
           ([Said "," True True] ++ itemsShape True rest)
@@ -612,7 +609,6 @@ theorem brokenItemsShape ∀ (bare arm first before: Bool) (at: Nat) (items: Lis
             (Bool.andLeft nonCloser)
             head)
           (isCons
-            (Closing ",")
             (brokenItems False arm False item.trails (at + item.size) rest)
             [Said "," True True]
             (itemsShape True rest)
@@ -670,7 +666,6 @@ theorem cellsShape ∀ (bare arm before: Bool) (at: Nat) (items: List Expr) (pri
       (
         isConcat
           (isCons
-            (item.el (firstAround bare arm before at))
             [Closing ","]
             (item.shape (!bare) False)
             [Said "," True True]
@@ -707,20 +702,18 @@ theorem bracketFromShape ∀ (list empty plain holds: Bool) (prefix closer: Doc)
     (emptyItems: empty = True → items = []):
     Is (bracketFrom list empty plain holds prefix closer filled broken) (opens ++ items ++ closes) :=
   match empty with
-    | True =>
-      rewrite emptyItems byComputing then isConcat (isCons prefix [closer] opens closes prefixIs (isLast closerIs))
+    | True => rewrite emptyItems byComputing then isConcat (isCons [closer] opens closes prefixIs (isLast closerIs))
     | False =>
       match list && !holds && plain with
         | True =>
           isConcat
             [docs := [prefix, Nest 2 (Fill filled), closer]]
-            (isCons prefix
+            (isCons
               [Nest 2 (Fill filled), closer]
               opens
               (items ++ closes)
               prefixIs
               (isCons
-                (Nest 2 (Fill filled))
                 [closer]
                 items
                 closes
@@ -732,38 +725,34 @@ theorem bracketFromShape ∀ (list empty plain holds: Bool) (prefix closer: Doc)
               isConcat
                 (isAllSame _
                   (isAppend
-                    [prefix, Nest 2 (Doc.concat broken), SoftLine, closer]
-                    [BreakParent]
                     (opens ++ items ++ closes)
                     []
-                    (isCons prefix
+                    (isCons
                       [Nest 2 (Doc.concat broken), SoftLine, closer]
                       opens
                       (items ++ closes)
                       prefixIs
                       (isCons
-                        (Nest 2 (Doc.concat broken))
                         [SoftLine, closer]
                         items
                         closes
                         (isNest 2 (isConcat brokenIs))
-                        (isCons SoftLine [closer] [] closes isSoftLine (isLast closerIs))))
+                        (isCons [closer] [] closes isSoftLine (isLast closerIs))))
                     (isLast isBreakParent))
                   (List.appendNil _))
             | False =>
               isConcat
-                (isCons prefix
+                (isCons
                   [Nest 2 (Doc.concat broken), SoftLine, closer]
                   opens
                   (items ++ closes)
                   prefixIs
                   (isCons
-                    (Nest 2 (Doc.concat broken))
                     [SoftLine, closer]
                     items
                     closes
                     (isNest 2 (isConcat brokenIs))
-                    (isCons SoftLine [closer] [] closes isSoftLine (isLast closerIs))))
+                    (isCons [closer] [] closes isSoftLine (isLast closerIs))))
 
 theorem bracketReverse ∀ (open: Word) (items: List Expr) (close: Word):
     ([open, ..itemsWords items] ++ [close]).reverse = [close, ..((itemsWords items).reverse ++ [open])] :=
@@ -1094,13 +1083,12 @@ theorem joinedAll ∀ (docs: List Doc) (shapes: List (List Told))
     | [doc, next, ..more], [shape] => cases
     | [doc, next, ..more], [shape, second, ..rest] =>
       let (head, tail) := each
-      isCons doc
+      isCons
         [Doc.text " ", ..Doc.joinedWith (Doc.text " ") [next, ..more]]
         shape
         (joinShapes [second, ..rest])
         head
         (isCons
-          (Doc.text " ")
           (Doc.joinedWith (Doc.text " ") [next, ..more])
           []
           (joinShapes [second, ..rest])
@@ -1119,17 +1107,12 @@ theorem concatMapAll ∀ (docs: List Doc) (shapes: List (List Told))
     | [], [] => isNil
     | [doc, ..more], [shape, ..rest] =>
       let (head, tail) := each
-      isCons HardLine
+      isCons
         [doc, ..more.concatMap (doc => [HardLine, doc])]
         []
         (shape ++ joinShapes rest)
         isHardLine
-        (isCons doc
-          (more.concatMap (doc => [HardLine, doc]))
-          shape
-          (joinShapes rest)
-          head
-          (concatMapAll more rest tail))
+        (isCons (more.concatMap (doc => [HardLine, doc])) shape (joinShapes rest) head (concatMapAll more rest tail))
 
 --| A call that breaks keeps some elements on its line and the rest each on a line of its own: the shape is the
 --| elements'.
@@ -1153,7 +1136,6 @@ theorem frontRestShape ∀ (id keep: Nat) (fillFront: Bool) (docs: List Doc) (sh
   rewrite <- takeDropJoin shapes keep then
     isConcat
       (isCons
-        (if fillFront then IdGroup id (Nest 4 (Fill (docs.take keep))) False else spaced (docs.take keep))
         [
           if fillFront then
             IfBroken id
@@ -1262,12 +1244,11 @@ theorem appFromShape ∀ (id keep: Nat) (between betweenFront: Bool) (headDoc la
               isConcat
                 (isAllSame _
                   (isCons
-                    (Flatten (spaced [headDoc, ..front]))
                     [Doc.text " ", opened]
                     (headShape ++ joinShapes frontShapes)
                     ([] ++ lastShape)
                     (isFlatten (isSpaced [headDoc, ..front] [headShape, ..frontShapes] (headIs, frontEach)))
-                    (isCons (Doc.text " ") [opened] [] lastShape isSpace (isLast (hugIs opened byComputing))))
+                    (isCons [opened] [] lastShape isSpace (isLast (hugIs opened byComputing))))
                   (rewrite joinSnoc [headShape, ..frontShapes] lastShape))
             (
               isChoice
@@ -1376,8 +1357,7 @@ theorem chainRightShape ∀ (level: Option Nat) (right: Expr) (around: Around)
     IsAll (chainRight level right around) (right.shape around.item around.hoisted) :=
   match right with
     | Block _ _ _ => cases
-    | _ =>
-      isCons (Doc.text " ") (linkDocs level False right around) [] (right.shape around.item around.hoisted) isSpace link
+    | _ => isCons (linkDocs level False right around) [] (right.shape around.item around.hoisted) isSpace link
 
 --| What `homedBack` says of the words before an operator's operands, from the chain's.
 theorem infixHomed ∀ (left: Expr) (operator: Word) (right: Expr) (prior: List Word)
@@ -1419,16 +1399,10 @@ theorem chainLinksShape ∀ (level: Option Nat) (first: Bool) (left: Expr) (oper
       (left.shape around.item around.hoisted ++ operator.shapeK False False ++ right.shape False False) :=
   let (leftHomed, rightHomed) := infixHomed left operator right prior homed
   isAppend
-    (linkDocs level first left around)
-    [
-      Line,
-      operator.leaf (around.next left.trails left.size) (around.next left.trails left.size).at,
-      ..chainRight level right (around.next operator.trails (left.size + 1))
-    ]
     (left.shape around.item around.hoisted)
     (operator.shapeK False False ++ right.shape False False)
     (linkDocsShape level first left around prior leftWithin leftSound leftNonCloser leftHomed)
-    (isCons Line
+    (isCons
       [
         operator.leaf (around.next left.trails left.size) (around.next left.trails left.size).at,
         ..chainRight level right (around.next operator.trails (left.size + 1))
@@ -1437,7 +1411,6 @@ theorem chainLinksShape ∀ (level: Option Nat) (first: Bool) (left: Expr) (oper
       (operator.shapeK False False ++ right.shape False False)
       isLine
       (isCons
-        (operator.leaf (around.next left.trails left.size) (around.next left.trails left.size).at)
         (chainRight level right (around.next operator.trails (left.size + 1)))
         (operator.shapeK False False)
         (right.shape False False)
@@ -1771,7 +1744,7 @@ theorem spacedHugShape ∀ (hug: Option Doc) (shape: List Told)
     | Some opened, each =>
       (doc same =>
         rewrite <- Option.someInjective same then
-          isConcat (isCons (Doc.text " ") [opened] [] shape isSpace (isLast (each opened byComputing))))
+          isConcat (isCons [opened] [] shape isSpace (isLast (each opened byComputing))))
 
 --| A body after `:=` tells the value in both its forms.
 --|
@@ -1789,7 +1762,7 @@ theorem bodyAfterShape ∀ (value: Expr) (assign: Word) (around: Around) (semi: 
   let docIs: Is (value.el around) (value.shape False False) :=
     isSame _ (elShape value around prior within sound nonCloser homed) (rewrite low, plain)
   let belowIs: Is (Nest 2 (Doc.concat [HardLine, value.el around])) (value.shape False False) :=
-    isNest 2 (isConcat (isCons HardLine [value.el around] [] (value.shape False False) isHardLine (isLast docIs)))
+    isNest 2 (isConcat (isCons [value.el around] [] (value.shape False False) isHardLine (isLast docIs)))
   let inside: Around := { around | hoisted = True }
   rewrite matchedNone value inside within,
       valueElPlain value around semi within,
@@ -1806,8 +1779,7 @@ theorem bodyAfterShape ∀ (value: Expr) (assign: Word) (around: Around) (semi: 
               (callHugShape value inside prior within sound nonCloser homed hugged is)
               (rewrite plain then (shapeUnnoted value within unnoted).flipped))
         let flat: Is (Flatten (Doc.concat [Doc.text " ", value.el around])) (value.shape False False) :=
-          isFlatten
-            (isConcat (isCons (Doc.text " ") [value.el around] [] (value.shape False False) isSpace (isLast docIs)))
+          isFlatten (isConcat (isCons [value.el around] [] (value.shape False False) isSpace (isLast docIs)))
         (
           belowIs,
           isChoice (Flatten (Doc.concat [Doc.text " ", value.el around])) _ (
@@ -1828,8 +1800,7 @@ theorem bodyAfterShape ∀ (value: Expr) (assign: Word) (around: Around) (semi: 
                 (value.shape False False)
                 (match value.opensBracket with
                   | True => (
-                    isConcat
-                      (isCons (Doc.text " ") [value.el around] [] (value.shape False False) isSpace (isLast docIs)),
+                    isConcat (isCons [value.el around] [] (value.shape False False) isSpace (isLast docIs)),
                     byComputing
                   )
                   | False => allIsOption _ _ (spacedHugShape _ _ hugIs))
@@ -1869,30 +1840,23 @@ theorem defFromShape ∀ (headerDoc assignDoc below choice: Doc)
     Is (defFrom headerDoc breaks assignDoc below choice) (headerShape ++ assignShape ++ bodyShape) :=
   isConcat
     (isCons
-      (IdGroup 0 headerDoc breaks)
       [Doc.text " ", assignDoc, IfBroken 0 below choice]
       headerShape
       (assignShape ++ bodyShape)
       (isIdGroup 0 breaks header)
       (isCons
-        (Doc.text " ")
         [assignDoc, IfBroken 0 below choice]
         []
         (assignShape ++ bodyShape)
         isSpace
-        (isCons assignDoc
-          [IfBroken 0 below choice]
-          assignShape
-          bodyShape
-          assigns
-          (isLast (isIfBroken 0 belowIs choiceIs)))))
+        (isCons [IfBroken 0 below choice] assignShape bodyShape assigns (isLast (isIfBroken 0 belowIs choiceIs)))))
 
 theorem typedShape ∀ (trails: Bool) (typeDoc: Doc) (shape: List Told)
     (is: Is typeDoc shape):
     IsAll (if trails then [Nest 4 (Doc.concat [HardLine, typeDoc])] else [Doc.text " ", Nest 4 typeDoc]) shape :=
   match trails with
-    | True => isLast (isNest 4 (isConcat (isCons HardLine [typeDoc] [] shape isHardLine (isLast is))))
-    | False => isCons (Doc.text " ") [Nest 4 typeDoc] [] shape isSpace (isLast (isNest 4 is))
+    | True => isLast (isNest 4 (isConcat (isCons [typeDoc] [] shape isHardLine (isLast is))))
+    | False => isCons [Nest 4 typeDoc] [] shape isSpace (isLast (isNest 4 is))
 
 --| What `homedBack` says of the words before the type and before the value, from the declaration's.
 theorem declHomed ∀ (keyword name colonWord: Word) (result: Expr) (assign: Word) (value: Expr)
@@ -2044,11 +2008,9 @@ theorem plainDefShape ∀ (keyword: Comments) (name: Word) (colon: Comments) (re
             ++ colonWord.shapeK False False
             ++ result.shape False False)
           (isAppend
-            [headDoc, colonLeaf]
-            typed
             (((fixedWord "def" keyword).shapeK False True ++ name.shapeK False False) ++ colonWord.shapeK False False)
             (result.shape False False)
-            (isCons headDoc
+            (isCons
               [colonLeaf]
               ((fixedWord "def" keyword).shapeK False True ++ name.shapeK False False)
               (colonWord.shapeK False False)

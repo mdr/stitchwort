@@ -7805,11 +7805,11 @@ fn inferred_against(
         return Ok(term);
     }
     if !matches!(expr, Expr::App(..)) {
-        return compare(cx, term, &found, expected);
+        return compare_named(cx, term, &found, expected, Some(named));
     }
     crate::queue::framed(
         cx,
-        |cx| compare(cx, term, &found, expected),
+        |cx| compare_named(cx, term, &found, expected, Some(named)),
         |_| CallFrame {
             expr: expr.clone(),
             found: found.clone(),
@@ -8231,6 +8231,24 @@ fn decided(cx: &mut Ctx, span: Span, term: &Term) -> Result<Term> {
 
 /// `term`, of type `found`, where `expected` is expected.
 pub(crate) fn compare(cx: &mut Ctx, term: Term, found: &Value, expected: &Value) -> Result<Term> {
+    compare_named(cx, term, found, expected, None)
+}
+
+/// [`compare`], where `named` is `expected` as written, before it was
+/// forced, if the caller has it. Then, when everything else has failed,
+/// `found` and `named` that are calls of one definition are compared by
+/// their arguments, solving the unknowns that stand for whole arguments
+/// ([`crate::unify::unify_by_unknown_arguments`]): `Is ?doc shape`
+/// against `Is (Nest 2 x) shape`, with `Is` a `∀` over a computation on
+/// `doc`, where `?doc` blocks one unfolding while the other computes, so
+/// comparing the unfoldings can't solve it.
+fn compare_named(
+    cx: &mut Ctx,
+    term: Term,
+    found: &Value,
+    expected: &Value,
+    named: Option<&Value>,
+) -> Result<Term> {
     if unifies_with_instances(cx, found, expected)? {
         return Ok(term);
     }
@@ -8259,6 +8277,11 @@ pub(crate) fn compare(cx: &mut Ctx, term: Term, found: &Value, expected: &Value)
         return Ok(term);
     }
     if let Some(term) = cx.along_match_equation(&term, found, expected)? {
+        return Ok(term);
+    }
+    if let Some(named) = named
+        && crate::undo::unify_by_unknown_arguments(cx, found, named)?
+    {
         return Ok(term);
     }
     compare_failed(cx, term, found, expected)

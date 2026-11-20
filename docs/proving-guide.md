@@ -781,7 +781,15 @@ Each was run on the example named; the output is quoted, shortened.
   ```
   (`examples/reject/dot-cannot-infer.sw`.) `E-UNSOLVED` ("can't work out an
   implicit argument") is the same problem for an implicit: give it with
-  `f [x := …]`.
+  `f [x := …]`. An implicit that a definition applied to it fixes, as
+  `doc` in a lemma's `(head: Is doc shape)`, is worked out from an argument
+  of type `Is (Nest 2 x) shape`, even though `Is` computes on `doc`, so
+  lemmas can take such binders implicitly
+  (`examples/accept/unknown-solved-from-whole-arguments.sw`). Only an
+  unknown that is a whole argument of the call is solved so, and not
+  against a function written as a lambda: one inside an argument
+  (`Is (Nest ?n x) shape`), or a predicate given as `(place hang => …)`,
+  still needs the computation, or `[x := …]`, to fix it.
 - **`E-REFL`**: the two sides don't compute to the same value. Usually the
   goal is stuck on a variable (needs a `match`, `cases`, or a lemma such as
   `Nat.addComm`), or the statement is false; check the counterexample note.

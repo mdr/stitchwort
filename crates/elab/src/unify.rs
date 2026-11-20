@@ -519,6 +519,80 @@ pub(crate) fn unify_solving_arguments(
     unify(g, level, a, b)
 }
 
+/// Whether `a` and `b`, two calls of the same definition, are equal by
+/// their arguments, solving only unknowns that stand for whole arguments
+/// of either call (`?doc`, perhaps applied to the variables in scope), at
+/// least one of them against an argument that isn't an unknown:
+/// `Lays ?doc indent place` against `Lays (Nest 2 x) indent place`. For a
+/// caller whose plain comparison ([`unify`]) of the two failed: an unknown
+/// that blocks one call's unfolding while the other's computes can't be
+/// solved by comparing the unfoldings, but the arguments say what it is.
+/// Nothing is solved if it fails, or if making the arguments equal would
+/// solve any other unknown (a helper's, inside a function argument, say):
+/// [`unify_solving_arguments`] in general can choose a solution that a
+/// later comparison rejects where the unfoldings would have agreed.
+pub(crate) fn unify_by_unknown_arguments(
+    g: &Unifier<'_>,
+    level: usize,
+    a: &Value,
+    b: &Value,
+) -> Result<bool> {
+    let (Value::Call(i1, s1, _), Value::Call(i2, s2, _)) = (a, b) else {
+        return Ok(false);
+    };
+    if i1 != i2 {
+        return Ok(false);
+    }
+    if s1.len() != s2.len() {
+        return Ok(false);
+    }
+    let unknown = |arg: &Value| -> Result<Option<usize>> {
+        Ok(match force_solved(g, arg.clone())? {
+            Value::Neutral(Head::Meta(m), _) if !frozen(g, m) => Some(m),
+            _ => None,
+        })
+    };
+    let mut whole = HashSet::default();
+    let mut against_known = false;
+    for pair in s1.iter().zip(s2.iter()) {
+        if let (Elim::App(x, _), Elim::App(y, _)) = pair {
+            match (unknown(x)?, unknown(y)?) {
+                // Not a function: what an unknown function is (a parser,
+                // a spec) is usually settled by more than one argument, and
+                // the elaborator has its own order for those.
+                (Some(_), None) if matches!(force(g, y.clone())?, Value::Lam(..)) => {
+                    return Ok(false);
+                }
+                (None, Some(_)) if matches!(force(g, x.clone())?, Value::Lam(..)) => {
+                    return Ok(false);
+                }
+                (Some(m), None) | (None, Some(m)) => {
+                    whole.insert(m);
+                    against_known = true;
+                }
+                (Some(m), Some(n)) => {
+                    whole.insert(m);
+                    whole.insert(n);
+                }
+                (None, None) => {}
+            }
+        }
+    }
+    if !against_known {
+        return Ok(false);
+    }
+    let trail = g.store.meta_trail.borrow().len();
+    let same = unify_solving_arguments(g, level, a, b)?;
+    let only_whole = g.store.meta_trail.borrow()[trail..]
+        .iter()
+        .all(|(m, _)| whole.contains(m));
+    if same && only_whole {
+        return Ok(true);
+    }
+    undo_since(g, trail);
+    Ok(false)
+}
+
 /// [`unify`], except that a helper's frozen metavariable in `awaited` (a
 /// `match` or local definition not lifted yet) is taken as equal to
 /// whatever it is compared with. If that succeeds, the comparison holds only
