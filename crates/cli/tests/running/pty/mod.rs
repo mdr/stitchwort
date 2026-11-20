@@ -31,11 +31,17 @@ pub const KEYS_MODE_PATIENCE: Duration = Duration::from_secs(60);
 pub const ENTER_SCREEN: &str = "\x1b[?1049h\x1b[?25l\x1b[?7l";
 pub const LEAVE_SCREEN: &str = "\x1b[?7h\x1b[?25h\x1b[?1049l";
 
+/// Written by the shell to the terminal once the command has ended: the last
+/// thing on the pty's stream, so that `wait` knows the collector has read
+/// every byte the command printed before it. [`Session::screen`] hides it.
+pub const EXIT_MARKER: &str = "\x1estitchwort-exit\x1f";
+
 /// The shell that leads the session: it runs its arguments as the command,
-/// reports its exit status on standard error, and waits to be killed.
-/// `trap : INT` keeps the shell alive through Ctrl-C; the command still gets
-/// `SIGINT` with its default action, since a trap's handler isn't inherited.
-const SHELL: &str = r#"trap : INT; "$@"; echo "exit $?" >&2; exec sleep 60"#;
+/// reports its exit status on standard error, writes [`EXIT_MARKER`] to the
+/// terminal, and waits to be killed. `trap : INT` keeps the shell alive
+/// through Ctrl-C; the command still gets `SIGINT` with its default action,
+/// since a trap's handler isn't inherited.
+const SHELL: &str = r#"trap : INT; "$@"; status=$?; echo "exit $status" >&2; printf '\036stitchwort-exit\037' >/dev/tty; exec sleep 60"#;
 
 /// Collects what `from` produces, as it arrives.
 fn collect(mut from: impl Read + Send + 'static) -> Arc<Mutex<Vec<u8>>> {
@@ -148,7 +154,18 @@ impl Session {
     }
 
     pub fn screen(&self) -> String {
-        String::from_utf8_lossy(&self.screen.lock().unwrap()).into_owned()
+        let screen = String::from_utf8_lossy(&self.screen.lock().unwrap()).into_owned();
+        screen.replace(EXIT_MARKER, "")
+    }
+
+    /// Whether the collector has read [`EXIT_MARKER`], and so everything the
+    /// command printed before it.
+    fn saw_exit_marker(&self) -> bool {
+        self.screen
+            .lock()
+            .unwrap()
+            .windows(EXIT_MARKER.len())
+            .any(|bytes| bytes == EXIT_MARKER.as_bytes())
     }
 
     /// Waits until the terminal is in keys mode (`true`) or not.
@@ -171,7 +188,10 @@ impl Session {
 
     /// Waits for the program to end: its exit status, as the shell reports
     /// it (128 plus the signal's number for one ended by a signal), and what
-    /// it wrote to standard error.
+    /// it wrote to standard error. Then waits until the collector has read
+    /// the terminal's [`EXIT_MARKER`]: the shell writes it after the exit
+    /// status, and the terminal is one stream in order, so everything the
+    /// program printed before it is in `screen()` by then (SW-4315).
     pub fn wait(&self) -> (i32, String) {
         let start = Instant::now();
         loop {
@@ -180,6 +200,15 @@ impl Session {
                 && errors.ends_with('\n')
                 && let Ok(code) = errors[at + 5..].trim().parse()
             {
+                let reported = Instant::now();
+                while !self.saw_exit_marker() {
+                    assert!(
+                        reported.elapsed() < PATIENCE,
+                        "the terminal never showed its end marker: {:?}",
+                        self.screen()
+                    );
+                    std::thread::sleep(Duration::from_millis(2));
+                }
                 return (code, errors[..at].to_string());
             }
             assert!(
