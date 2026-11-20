@@ -18,5 +18,6 @@ mod run;
 mod run_js;
 mod run_reference;
 mod test_files;
+mod walk_expand;
 
 use stitchwort_test_alloc as _;

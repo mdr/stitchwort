@@ -1193,6 +1193,30 @@ theorem orElseIsGetOrElse ∀ (fallback: a) (t: () → {Fail} a):
 
 In each clause, the computation in the goal is replaced by what it did, and both handlers compute. `reify` is only allowed in proofs: a program can run a computation or hand it to a handler, but can't look inside it.
 
+## Walking effectful code: `byWalking`
+
+A statement about a parser, such as `Parse.Gives inv (() => p x) post` ("whatever `p x` gives, `post` holds of it"), is proved by following the code: a lemma for each call it makes, a `match` wherever it decides something, and the statement's own post at each value it gives. `byWalking [lemmas] then t` writes that proof for you. It follows the code step by step and, at each call, uses the lemma you named in the brackets, the theorem being proved (at a recursive call), a hypothesis about a parameter, or the lemma registered for the function with `@[walk]`, in that order:
+
+<!-- snippet: proofs.sw#walk -->
+```stitchwort
+def nextNumber(): {Parse Nat} Option Nat := Parse.next (n => True)
+
+@[walk]
+theorem givesNextNumber: Parse.Gives Parse.Invariant.any (() => nextNumber()) ((seen: Option Nat) => True) :=
+  Parse.readsWeaken (Parse.readsNext (n => True)) (read value proved => byComputing)
+
+def capped (limit: Nat): {Parse Nat} Nat := match nextNumber() with
+  | Some n => if n <= limit then n else limit
+  | None => 0
+
+theorem givesCapped ∀ (limit: Nat): Parse.Gives Parse.Invariant.any (() => capped limit) (n => n <= limit) :=
+  byWalking []
+```
+
+The walk splits where the program does (the `match` and the `if`, keeping the condition as a hypothesis), and closes what is left at each value by computing, a hypothesis, `arithmetic`, or the `t` after `then`. Its proof is an ordinary chain of the family's lemmas (`Parse.givesThen`, `Parse.givesDone`, `Parse.givesWeaken`), which the kernel checks as usual. `stitchwort check --expand-walk FILE` writes that chain into the file in place of the walk, and prints which lemma it used at each call; that is also the way to take over by hand where the leaves need different proofs.
+
+A function without a lemma is not looked into unless you ask: `byWalking [unfold helper]`. When the walk can't go on, `E-WALK` names the call, or the leaf, and shows the goal there. Details: [the syntax reference](../syntax.md#bywalking).
+
 ## The goal at any point, from the command line
 
 To see what a step of a finished proof has to prove, without editing it, ask for the goal at a line and column (counted from 1):

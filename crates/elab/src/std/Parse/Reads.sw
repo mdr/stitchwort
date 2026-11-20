@@ -439,6 +439,7 @@ theorem Parse.readsPure ∀ [inv: Parse.Invariant t] (x: a):
     let valueSame: x = value := Pair.mkInjectiveFst same
     Witness [] (rewrite <- atSame then Both byComputing (Both honest (Both byComputing valueSame.flipped))))
 
+@[walk.weaken]
 theorem Parse.readsWeaken ∀ [inv: Parse.Invariant t] [p: () → {Parse t} a] [spec weaker: List t → a → Prop]
     (reads: Parse.ReadsIn inv p spec) (implies: ∀ (read: List t) (value: a) => spec read value → weaker read value):
     Parse.ReadsIn inv p weaker :=
@@ -713,6 +714,7 @@ theorem Parse.readsSatisfy [inv: Parse.Invariant t] [what: Text] [passes: t → 
 --| is used inside an argument (`count (Parse.mark().left + 1)`) splits
 --| there. A goal already computed past that step (a `match` on a condition
 --| of the parser's) has no `j` to read off: name it (`[j := …]`).
+@[walk.bind]
 theorem Parse.readsThen ∀ [inv: Parse.Invariant t] [p: () → {Parse t} a] [j: a → {Parse t} b]
     [first: List t → a → Prop] [spec: List t → b → Prop]
     (readsFirst: Parse.ReadsIn inv p first)
@@ -745,6 +747,7 @@ theorem Parse.readsThen ∀ [inv: Parse.Invariant t] [p: () → {Parse t} a] [j:
 --| after whatever it read. For a proof that needs the marks, such as one
 --| whose spec says where a value was read, or one through
 --| [`Parse.readsInPeek`].
+@[walk.bind]
 theorem Parse.readsAtThen ∀ [start: Parse.Mark t] [p: () → {Parse t} a] [j: a → {Parse t} b]
     [first: List t → a → Prop] [spec: List t → b → Prop]
     (readsFirst: Parse.ReadsAt start p first)
@@ -778,6 +781,7 @@ theorem Parse.readsInPeek ∀ [inv: Parse.Invariant t] (k: Option t → {Parse t
 
 --| A value, read as `spec` says when `spec` holds of nothing read and it: the
 --| last step of a [`Parse.readsThen`] chain.
+@[walk.done]
 theorem Parse.readsDone ∀ [inv: Parse.Invariant t] (x: a) [spec: List t → a → Prop] (holds: spec [] x):
     Parse.ReadsIn inv (() => x) spec :=
   Parse.readsWeaken (Parse.readsPure x) (read v h => match h with | Both none same => rewrite none, same then holds)
@@ -805,6 +809,7 @@ theorem Parse.readsInMark ∀ [inv: Parse.Invariant t] (k: Parse.Mark t → {Par
     each start fine total state value after here honest (rewrite <- here then ran)
 
 --| [`Parse.readsDone`] from one mark.
+@[walk.done]
 theorem Parse.readsAtDone ∀ (start: Parse.Mark t) (x: a) [spec: List t → a → Prop] (holds: spec [] x):
     Parse.ReadsAt start (() => x) spec :=
   Parse.readsDone [inv := Parse.Invariant.any] x holds start { holds = Trivial }
@@ -826,6 +831,7 @@ theorem Parse.readsAtLeft ∀ (start: Parse.Mark t):
   Parse.readsAtMark (here => here.rest) _ start (Parse.readsAtDone start start.rest (byComputing, byComputing))
 
 --| [`Parse.readsWeaken`] from one mark.
+@[walk.weaken]
 theorem Parse.readsAtWeaken ∀ [start: Parse.Mark t] [p: () → {Parse t} a] [spec weaker: List t → a → Prop]
     (reads: Parse.ReadsAt start p spec) (implies: ∀ (read: List t) (value: a) => spec read value → weaker read value):
     Parse.ReadsAt start p weaker :=
@@ -2382,6 +2388,7 @@ theorem Parse.reads0Then ∀ [inv: Parse.Invariant t] [p: () → {Parse t} a] [j
 
 --| A look-ahead that reads nothing, then `j` of what it found, from a mark:
 --| `j` is read from the mark after it, which has the same items left.
+@[walk.bind]
 theorem Parse.readsAtAfter0 ∀ [inv: Parse.Invariant t] [start: Parse.Mark t] [p: () → {Parse t} a]
     [j: a → {Parse t} b] [spec: List t → b → Prop]
     (first: Parse.Reads0 inv p)

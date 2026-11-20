@@ -2921,7 +2921,7 @@ fn finite_atoms(cx: &mut Ctx, run: &Run) -> Result<Option<Vec<String>>> {
 
 /// The type of the atom `term`, of data `d`: `d` itself if it has no
 /// parameters, and otherwise as the kernel infers it.
-fn atom_type(cx: &Ctx, term: &Term, d: DataId) -> Result<Value> {
+pub(crate) fn atom_type(cx: &Ctx, term: &Term, d: DataId) -> Result<Value> {
     let g = cx.g();
     if g.data(d).params().is_empty() {
         return Ok(Value::Data(d, Vec::new().into()));

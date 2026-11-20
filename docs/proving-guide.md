@@ -396,7 +396,23 @@ Import what you use: std's theorems live in namespaces that need an import
 | Induction | recursion in the theorem (structural, or `decreasing`) |
 | Induction that follows a function's own cases | `match induct (f args) with` |
 | Induction over a nested type (`List T` inside `T`) | `T.induct`, `T.inductMem`, `T.size` |
+| What a parser gives or reads (`Parse.Gives`, `Parse.ReadsIn`, `Parse.ReadsAt`) | `byWalking [lemmas] then t` |
 
+- **`byWalking [lemmas] then t`** writes the `givesThen`/`givesDone`/`givesWeaken`
+  chain for a statement about a parser, following its code: a lemma per call,
+  a `match` where the code splits, the post at each value (docs/syntax.md,
+  `byWalking`). Use it where the hand chain would only restate the code: one
+  lemma per call, the same leaf proof at every value (give it as `then t`,
+  naming the walk's binders: `first`, `firstFacts`, `nextValueFacts`).
+  Register a function's lemma with `@[walk]` where every walk should use it,
+  The walk reads the continuation off the code, so it needs no
+  `[j := …]`-style lemma (`readsAtAfterLeft`): it binds with the family's
+  own bind lemma (`readsAtThen`). A call that performs an operation
+  directly (`Parse.mark().left`) can't be registered with `@[walk]`; name
+  its lemma in the brackets instead (`byWalking [Parse.readsAtLeft start]`).
+  Where two leaves need different proofs, run
+  `stitchwort check --expand-walk` and edit the chain it writes; keep the
+  walk only where it is shorter than the chain.
 - **`byComputing`** proves `a = b` only when both sides compute to the same value.
   `+` recurses on its first argument, so `1 + c` computes to `Succ c` and
   `c + 1` doesn't (aoc/NOTES-2024.md:824–836). A goal stuck on a variable

@@ -1,5 +1,5 @@
 -- Chapter 10: proofs.
-import Std (Eq, Exists, Fail, Fin, Iff, Int, List, Nat, Option, Quot, Vec, byDecision)
+import Std (Eq, Exists, Fail, Fin, Iff, Int, List, Nat, Option, Parse, Quot, Vec, byDecision)
 import Std.Exists (Witness)
 
 -- begin byComputing
@@ -326,6 +326,21 @@ theorem orElseIsGetOrElse ∀ (fallback: a) (t: () → {Fail} a):
     | return x => byComputing
     | Fail.stop message, _ => byComputing
 -- end reify
+
+-- begin walk
+def nextNumber(): {Parse Nat} Option Nat := Parse.next (n => True)
+
+@[walk]
+theorem givesNextNumber: Parse.Gives Parse.Invariant.any (() => nextNumber()) ((seen: Option Nat) => True) :=
+  Parse.readsWeaken (Parse.readsNext (n => True)) (read value proved => byComputing)
+
+def capped (limit: Nat): {Parse Nat} Nat := match nextNumber() with
+  | Some n => if n <= limit then n else limit
+  | None => 0
+
+theorem givesCapped ∀ (limit: Nat): Parse.Gives Parse.Invariant.any (() => capped limit) (n => n <= limit) :=
+  byWalking []
+-- end walk
 
 -- begin funext
 theorem doubleIsTimesTwo: double = (n => 2 * n) := Quot.funext Nat (n => Nat) double (n => 2 * n) twiceIsDouble

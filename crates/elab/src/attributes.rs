@@ -109,6 +109,33 @@ pub(crate) const REGISTRY: &[Spec] = &[
               `P`; one per test, declared with the test's function",
     },
     Spec {
+        name: crate::walk::WALK,
+        targets: &[Target::Theorem],
+        argument: "",
+        doc: "a theorem `R … (() => f x…) post` that a walk (`byWalking`) uses at a call of `f` \
+              in family `R`; one per function and family",
+    },
+    Spec {
+        name: crate::walk::WALK_BIND,
+        targets: &[Target::Theorem],
+        argument: "",
+        doc: "a family's lemma for `() => j (p())`, from a lemma about `p` and one about `j` of \
+              each value, that a walk uses at a call whose value is used",
+    },
+    Spec {
+        name: crate::walk::WALK_DONE,
+        targets: &[Target::Theorem],
+        argument: "",
+        doc: "a family's lemma for `() => x`, that a walk uses at a value",
+    },
+    Spec {
+        name: crate::walk::WALK_WEAKEN,
+        targets: &[Target::Theorem],
+        argument: "",
+        doc: "a family's lemma from one post to a weaker one, that a walk uses where a lemma's \
+              post isn't the goal's",
+    },
+    Spec {
         name: "js.tag",
         targets: &[Target::DataType],
         argument: "KEY",
@@ -156,6 +183,9 @@ pub(crate) struct DefinitionAttributes {
     pub(crate) tailrec: Option<Span>,
     /// Where `@[reading]` is written, if it is.
     pub(crate) reading: Option<Span>,
+    /// A walk attribute (`@[walk]`, `@[walk.bind]`, …) and where it is
+    /// written, if there is one (`walk.rs`).
+    pub(crate) walk: Option<(&'static str, Span)>,
 }
 
 /// Where a group of attributes is written, for checking and for messages.
@@ -354,6 +384,14 @@ impl Elaborator {
             no_receiver: checked.get(NO_RECEIVER).is_some(),
             tailrec: checked.get(TAILREC).map(|(a, _)| a.span),
             reading: checked.get(READING).map(|(a, _)| a.span),
+            walk: [
+                crate::walk::WALK,
+                crate::walk::WALK_BIND,
+                crate::walk::WALK_DONE,
+                crate::walk::WALK_WEAKEN,
+            ]
+            .into_iter()
+            .find_map(|tag| checked.get(tag).map(|(a, _)| (tag, a.span))),
         })
     }
 

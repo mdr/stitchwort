@@ -860,26 +860,7 @@ theorem givesCommaListFrom ∀ (modes: Modes) (ends: Nat → {Parse Item} Bool)
     (foundHolds: List.All holds found):
     Parse.Gives GoodItems (() => commaListFrom fuel modes ends next count current found) (pair =>
       List.All holds pair.fst ∧ found.length + 1 <= pair.fst.length) :=
-  Parse.givesAfter0 (reads0Peek modes) (seen =>
-    match fuel, seen with
-      | Succ more, Some kind =>
-        match isComma: kind == Comma with
-          | True => Parse.givesThen givesBump (comma _ =>
-            Parse.givesThen (endsGives count) (stop _ =>
-              match stop with
-                | True => Parse.givesDone (List.allConsReverse holds current found currentHolds foundHolds)
-                | False => Parse.givesThen nextGives (value valueHolds =>
-                  Parse.givesWeaken
-                    (givesCommaListFrom modes ends next holds endsGives nextGives more
-                      (count + 1)
-                      value
-                      [current, ..found]
-                      valueHolds
-                      (currentHolds, foundHolds))
-                    (pair facts => (facts.left, arithmetic [facts.right])))))
-          | False => Parse.givesDone (List.allConsReverse holds current found currentHolds foundHolds)
-      | Succ more, None => Parse.givesDone (List.allConsReverse holds current found currentHolds foundHolds)
-      | Zero, seen => Parse.givesDone (List.allConsReverse holds current found currentHolds foundHolds))
+  byWalking [reads0Peek modes, givesBump] then List.allConsReverse holds current found currentHolds foundHolds
 
 -- Brackets.
 
@@ -1003,6 +984,7 @@ theorem givesTupleRest ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (op
       Parse.givesThen (nested { modes = inner, level = LevelFull }) (second secondParsed =>
         givesTupleSecond self inner open first here.left second nested openText parsed secondParsed)))
 
+@[walk]
 theorem givesBracketedFirst ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (first: Expr)
     (nested: Nested self)
     (outside: OutsideAtoms self)
@@ -1025,8 +1007,7 @@ theorem givesBracketedTail ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (outside: OutsideAtoms self)
     (openText: open.text = "("):
     Parse.Gives GoodItems (() => bracketedTail self modes open) (AtomFrom open) :=
-  Parse.givesThen (nested { modes = modes.inBrackets, level = LevelFull }) (first parsed =>
-    givesBracketedFirst self modes.inBrackets open first nested outside openText parsed)
+  byWalking [unfold full]
 
 theorem readsBracketed ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
@@ -1105,6 +1086,7 @@ theorem givesListItemAfter ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
         (empty => givesListSpread self modes dots empty nested))
     | False => nested { modes, level = LevelFull }
 
+@[walk]
 theorem givesListItem ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
     Parse.Gives GoodItems (() => listItem self modes) (Parsed 1) :=
@@ -1118,6 +1100,7 @@ theorem givesListItemsEnd ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) 
   Parse.givesThen (givesExpect inner RBracket _ byComputing) (close closeText =>
     Parse.givesDone (Both (listParsed open close items trailing openText closeText parsed) (within => byComputing)))
 
+@[walk]
 theorem givesListItemsFrom ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (first: Expr)
     (nested: Nested self)
     (openText: open.text = "[")
@@ -1144,8 +1127,7 @@ theorem givesListItems ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (op
     (nested: Nested self)
     (openText: open.text = "["):
     Parse.Gives GoodItems (() => listItems self inner open) (AtomFrom open) :=
-  Parse.givesThen (givesListItem self inner nested) (first firstParsed =>
-    givesListItemsFrom self inner open first nested openText firstParsed)
+  byWalking []
 
 theorem givesListAfter ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word)
     (nested: Nested self)

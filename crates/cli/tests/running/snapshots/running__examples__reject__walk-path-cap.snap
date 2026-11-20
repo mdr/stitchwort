@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-WALK] Error: the walk stops: it would follow more than 64 paths
+    ╭─[ reject/walk-path-cap.sw:18:3 ]
+    │
+ 18 │   byWalking [unfold s1, unfold s2, unfold s3, unfold s4, unfold s5, unfold s6]
+    │   ────┬────  
+    │       ╰────── in `s7`, `False`, `True`, `True`, `True`, `True`, `True`
+    │ 
+    │ Note 1: make the split a function with a lemma of its own, and use that lemma
+    │ 
+    │ Note 2: the goal there is Parse.Gives Parse.Invariant.any (arg => if g then Done 1 else Done 0) (n => n ≤ 1)
+────╯

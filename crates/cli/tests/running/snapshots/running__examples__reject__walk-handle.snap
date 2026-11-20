@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-WALK] Error: the walk stops: it doesn't follow a `handle` or a `translate`
+    ╭─[ reject/walk-handle.sw:17:3 ]
+    │
+ 17 │   byWalking []
+    │   ────┬────  
+    │       ╰────── in `answered`
+    │ 
+    │ Note: the goal there is Parse.Gives Parse.Invariant.any (arg => answered ()) (n => n = 0)
+────╯

@@ -1,0 +1,23 @@
+---
+source: crates/cli/tests/running/walk_expand.rs
+expression: trace
+---
+walk.sw:24: walk
+  in `lookTwice`: `look ()`: givesLook (registered `@[walk]`), then `Parse.givesThen`
+  in `lookTwice`: `look ()`: givesLook (registered `@[walk]`), then `Parse.givesThen`
+walk.sw:33: walk
+  in `capped`: `look ()`: givesLook (registered `@[walk]`), then `Parse.givesThen`
+walk.sw:45: walk
+  in `countZeros`, `Succ more`: `look ()`: givesLook (registered `@[walk]`), then `Parse.givesThen`
+  in `countZeros`, `Succ more`, `Some n`, `True`: `countZeros more (Succ count)`: givesCountZeros (the theorem itself)
+walk.sw:56: walk
+  in `both`: `next ()`: nextGives (a hypothesis), then `Parse.givesThen`
+  in `both`: `next ()`: nextGives (a hypothesis), then `Parse.givesThen`
+walk.sw:67: walk
+  in `lookOnceTwice`: `lookOnce` unfolded
+  in `lookOnceTwice`: `look ()`: givesLook (registered `@[walk]`), then `Parse.givesThen`
+  in `lookOnceTwice`: `lookOnce` unfolded
+  in `lookOnceTwice`: `look ()`: givesLook (registered `@[walk]`), then `Parse.givesThen`
+walk.sw:86: walk
+  in `peekTwice`: `peek ()`: givesPeek (registered `@[walk]`), then `Parse.givesThen`
+  in `peekTwice`: `peek ()`: givesPeek (registered `@[walk]`), then `Parse.givesThen`

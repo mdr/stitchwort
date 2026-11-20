@@ -414,6 +414,13 @@ enum Command {
         /// checked in (under `cases then`) is left as it is, and listed
         #[arg(long, conflicts_with_all = ["index", "counterexamples"])]
         expand_repeatedly: bool,
+        /// Replace each walk (`byWalking [lemmas] then t`) in the files
+        /// checked by the chain of lemmas it stands for, writing the files
+        /// back, and print which lemma each walk used at each call. A walk
+        /// that stops is written as far as it got, with `?` where it
+        /// stopped. Checks without the check cache
+        #[arg(long, conflicts_with_all = ["index", "counterexamples"])]
+        expand_walk: bool,
         #[command(flatten)]
         counterexamples: CounterexampleArgs,
         #[command(flatten)]
@@ -1184,6 +1191,7 @@ fn run(cli: Cli) -> ExitCode {
             index,
             only,
             expand_repeatedly,
+            expand_walk,
             counterexamples,
             cache,
             timings: _,
@@ -1192,7 +1200,7 @@ fn run(cli: Cli) -> ExitCode {
             project.as_deref(),
             index.as_deref(),
             &only,
-            expand_repeatedly,
+            (expand_repeatedly, expand_walk),
             &counterexamples,
             &cache,
         ),
@@ -2218,7 +2226,7 @@ fn check(
     project: Option<&Path>,
     index: Option<&str>,
     only: &[String],
-    expand: bool,
+    (expand, expand_walk): (bool, bool),
     counterexamples: &CounterexampleArgs,
     cache: &CacheArgs,
 ) -> ExitCode {
@@ -2243,7 +2251,7 @@ fn check(
             let mut session = new_session(index.is_some());
             if expand {
                 session.elab.record_expansions();
-            } else {
+            } else if !expand_walk {
                 use_cache(&mut session, cache, Path::new("."));
             }
             let mut reported = Vec::new();
@@ -2272,6 +2280,9 @@ fn check(
             if expand && loaded {
                 ok = write_expansions(&session, Path::new(".")) && ok;
             }
+            if expand_walk {
+                ok = write_walk_expansions(&session, Path::new(".")) && ok;
+            }
             discard(session);
         }
         return if stopped {
@@ -2299,7 +2310,7 @@ fn check(
     let mut session = new_session(index.is_some());
     if expand {
         session.elab.record_expansions();
-    } else {
+    } else if !expand_walk {
         use_cache(&mut session, cache, &project.dir);
     }
     let mut reported = Vec::new();
@@ -2363,6 +2374,9 @@ fn check(
     }
     if expand && ok {
         ok = write_expansions(&session, &project.dir) && ok;
+    }
+    if expand_walk {
+        ok = write_walk_expansions(&session, &project.dir) && ok;
     }
     discard(session);
     if stopped {
@@ -2500,6 +2514,45 @@ fn write_expansions(session: &Session, base: &Path) -> bool {
         eprintln!("expanded {done} call{plural} in {}", path.display());
     }
     ok
+}
+
+/// `check --expand-walk`: writes back each file with a walk checked, each
+/// replaced by the chain it stands for
+/// ([`stitchwort_elab::expand_walk_file`]), and prints each walk's trace.
+/// A file's name is read from `base` if it isn't found as it is.
+fn write_walk_expansions(session: &Session, base: &Path) -> bool {
+    let expansions = session.elab.take_walk_expansions();
+    for (file, source) in session.sources.iter() {
+        let mine: Vec<_> = expansions.iter().filter(|e| e.span.file == file).collect();
+        if mine.is_empty() {
+            continue;
+        }
+        for e in &mine {
+            let line = source.text[..e.span.range().start].matches('\n').count() + 1;
+            println!("{}:{line}: walk", source.name);
+            for step in &e.trace {
+                println!("  {}", stitchwort_elab::walk_trace_line(&source.text, step));
+            }
+        }
+        let (text, done) = stitchwort_elab::expand_walk_file(&source.text, file, &expansions);
+        let name = Path::new(&source.name);
+        let path = [
+            Some(name.to_path_buf()),
+            Some(base.join(name)),
+            base.parent().map(|p| p.join(name)),
+        ]
+        .into_iter()
+        .flatten()
+        .find(|p| p.exists())
+        .unwrap_or_else(|| name.to_path_buf());
+        if let Err(e) = std::fs::write(&path, text) {
+            eprintln!("error: can't write {}: {e}", path.display());
+            return false;
+        }
+        let plural = if done == 1 { "" } else { "s" };
+        eprintln!("expanded {done} walk{plural} in {}", path.display());
+    }
+    true
 }
 
 fn discard(session: Session) {

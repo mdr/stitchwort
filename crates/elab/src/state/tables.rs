@@ -87,6 +87,10 @@ pub(crate) struct Tables {
     /// The `rules` declarations, by the definition each declares: its
     /// rules, other sets already put in their place (`rewrite/repeatedly.rs`).
     pub(crate) rule_sets: OwnedBy<DefId, Rc<RuleSet>>,
+    /// The theorems marked `@[walk]`, `@[walk.bind]`, `@[walk.done]` or
+    /// `@[walk.weaken]`, by theorem: which, and where it was written
+    /// (`walk.rs`).
+    pub(crate) walk_tags: OwnedBy<DefId, (String, Span)>,
     /// A data type's fields' default values (docs/proposals/named-arguments.md
     /// §5.1, §5.2): for each constructor and field, the generated helper that
     /// computes the default, if it has one. Set once the type is admitted (or
@@ -152,6 +156,7 @@ pub(crate) struct Mark {
     readings: OwnedMark,
     total_rows: OwnedMark,
     rule_sets: OwnedMark,
+    walk_tags: OwnedMark,
     field_defaults: OwnedMark,
     param_defaults: OwnedMark,
     update_shown: OwnedMark,
@@ -183,6 +188,7 @@ pub(crate) struct Delta {
     readings: Vec<(DefId, Rc<ReadingInfo>)>,
     total_rows: Vec<(DefId, Span)>,
     rule_sets: Vec<(DefId, Rc<RuleSet>)>,
+    walk_tags: Vec<(DefId, (String, Span))>,
     field_defaults: Vec<(DataId, Rc<FieldDefaults>)>,
     param_defaults: Vec<(DefId, Rc<ParamDefaults>)>,
     update_shown: Vec<(DefId, Rc<UpdateShown>)>,
@@ -245,6 +251,7 @@ impl Tables {
             readings,
             total_rows,
             rule_sets,
+            walk_tags,
             field_defaults,
             param_defaults,
             update_shown,
@@ -276,6 +283,7 @@ impl Tables {
             readings: readings.mark(ids),
             total_rows: total_rows.mark(ids),
             rule_sets: rule_sets.mark(ids),
+            walk_tags: walk_tags.mark(ids),
             field_defaults: field_defaults.mark(ids),
             param_defaults: param_defaults.mark(ids),
             update_shown: update_shown.mark(ids),
@@ -308,6 +316,7 @@ impl Tables {
             readings,
             total_rows,
             rule_sets,
+            walk_tags,
             field_defaults,
             param_defaults,
             update_shown,
@@ -338,6 +347,7 @@ impl Tables {
         readings.rewind(&m.readings);
         total_rows.rewind(&m.total_rows);
         rule_sets.rewind(&m.rule_sets);
+        walk_tags.rewind(&m.walk_tags);
         field_defaults.rewind(&m.field_defaults);
         param_defaults.rewind(&m.param_defaults);
         update_shown.rewind(&m.update_shown);
@@ -379,6 +389,7 @@ impl Tables {
             readings,
             total_rows,
             rule_sets,
+            walk_tags,
             field_defaults,
             param_defaults,
             update_shown,
@@ -445,6 +456,7 @@ impl Tables {
         equations_done.encode_since(&m.equations_done, e)?;
         total_rows.encode_since(&m.total_rows, e)?;
         rule_sets.encode_since(&m.rule_sets, e)?;
+        walk_tags.encode_since(&m.walk_tags, e)?;
         extensions(e);
         tests.encode_since(&m.tests, e)?;
         Ok(())
@@ -483,6 +495,7 @@ impl Tables {
         let equations_done = GrowVec::decode(b)?;
         let total_rows = OwnedBy::decode(b)?;
         let rule_sets = OwnedBy::decode(b)?;
+        let walk_tags = OwnedBy::decode(b)?;
         extensions(b)?;
         let tests = GrowVec::decode(b)?;
         Ok(Delta {
@@ -504,6 +517,7 @@ impl Tables {
             readings,
             total_rows,
             rule_sets,
+            walk_tags,
             field_defaults,
             param_defaults,
             update_shown,
@@ -534,6 +548,7 @@ impl Tables {
             readings,
             total_rows,
             rule_sets,
+            walk_tags,
             field_defaults,
             param_defaults,
             update_shown,
@@ -566,6 +581,7 @@ impl Tables {
             readings: d_readings,
             total_rows: d_total_rows,
             rule_sets: d_rule_sets,
+            walk_tags: d_walk_tags,
             field_defaults: d_field_defaults,
             param_defaults: d_param_defaults,
             update_shown: d_update_shown,
@@ -591,6 +607,7 @@ impl Tables {
         readings.replay(d_readings, owners);
         total_rows.replay(d_total_rows, owners);
         rule_sets.replay(d_rule_sets, owners);
+        walk_tags.replay(d_walk_tags, owners);
         field_defaults.replay(d_field_defaults, owners);
         param_defaults.replay(d_param_defaults, owners);
         update_shown.replay(d_update_shown, owners);
@@ -624,6 +641,7 @@ impl Tables {
             readings,
             total_rows,
             rule_sets,
+            walk_tags,
             field_defaults,
             param_defaults,
             update_shown,
@@ -648,6 +666,7 @@ impl Tables {
         readings.dump("reading", out);
         total_rows.dump("total_row", out);
         rule_sets.dump("rule_set", out);
+        walk_tags.dump("walk_tag", out);
         field_defaults.dump("field defaults", out);
         param_defaults.dump("param defaults", out);
         update_shown.dump("update shown", out);
@@ -735,6 +754,7 @@ impl Tables {
             readings: _,
             total_rows: _,
             rule_sets: _,
+            walk_tags: _,
             field_defaults: _,
             param_defaults: _,
             update_shown: _,

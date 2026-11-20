@@ -141,6 +141,9 @@ pub struct Session {
     /// What each `rewrite repeatedly` did, for expanding it into `rewrite`
     /// steps: `None` unless asked for ([`crate::Elaborator::record_expansions`]).
     pub(crate) expansions: RefCell<Option<Vec<crate::rewrite::Expansion>>>,
+    /// The walks checked and the chains they wrote (`walk.rs`), for
+    /// `check --expand-walk`.
+    pub(crate) walks: RefCell<crate::walk::Walks>,
 }
 
 /// What a rewind mark keeps of a [`Session`]: the bookkeeping a later load
@@ -197,6 +200,7 @@ impl Session {
             failed_decls: _,
             // Recorded for the caller, never taken back.
             expansions: _,
+            walks: _,
             derive_waiting,
         } = self;
         Mark {
@@ -248,6 +252,7 @@ impl Session {
             failed_decls: _,
             // Recorded for the caller, never taken back.
             expansions: _,
+            walks: _,
             derive_waiting,
         } = self;
         *project_namespaces = mark.project_namespaces.clone();

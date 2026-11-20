@@ -468,6 +468,11 @@ fn walk_at(
                 walk(e, body, bound, false, uses)?;
             }
         }
+        Expr::Walk(w) => {
+            for item in w.items.iter().chain(&w.body) {
+                walk(e, item, bound, false, uses)?;
+            }
+        }
         Expr::Calc { first, steps, .. } => {
             walk(e, first, bound, false, uses)?;
             for step in steps {
