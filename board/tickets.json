@@ -1,5 +1,5 @@
 {
-  "next": 4406,
+  "next": 4408,
   "tickets": [
     {
       "id": 47,
@@ -29579,12 +29579,38 @@
     {
       "id": 4405,
       "title": "[Fable, paper] Design note: a check cache that survives Stitchwort updates (kernel-only recheck of stored terms, keys on produced hashes, an explicit elaborator version, or other), weighing each against stale-entry risk; recommendation for Matt (D3702)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "D3702 (Matt, 20 Nov 2026): \"start a fable paper lane on this\". Measured before: fmt project warm 2.6 s / 0.8 GB; cold after a Stitchwort update 428 s / 4.0 GB; CommentsKeptProof uncached 413 s / 3.8 GB; ParseWalk uncached 23 s / 0.7 GB.\n",
+      "body": "D3702 (Matt, 20 Nov 2026): \"start a fable paper lane on this\". Measured before: fmt project warm 2.6 s / 0.8 GB; cold after a Stitchwort update 428 s / 4.0 GB; CommentsKeptProof uncached 413 s / 3.8 GB; ParseWalk uncached 23 s / 0.7 GB.\n\nNote: docs/proposals/check-cache-across-updates.md (20 Nov). Rec: carried-over entries, editor by default, lanes on request, never verifier/tiers/Overmind; trusted when the kernel side is unchanged (78% of cache-invalidating commits), kernel re-check otherwise (~21% of check time). D3703 to Matt.\n",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4406,
+      "title": "[Sonnet] Check cache: the library's name index is in every key, so each new std lemma makes every project cold; key on what each namespace actually uses (SW-4405 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4407,
+      "title": "[DeepSeek] check --verify-cache (D2802) is missing from the CLI (CacheArgs has only --no-cache and --cache-dir): add it or correct the docs that mention it (SW-4405 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
