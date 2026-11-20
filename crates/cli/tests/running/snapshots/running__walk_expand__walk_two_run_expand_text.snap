@@ -71,8 +71,8 @@ theorem followsSumWith ∀ (pair pairTwin: (Nat, Nat))
   Parse.followsThen followsHere (at atTwin atFacts =>
     rewrite <- atFacts then
     (match branch1: pair with
-      | MkPair field1 y => (match branch2: pairTwin with
-        | MkPair field1Twin yTwin => Parse.followsDone arithmetic)))
+      | MkPair x y => (match branch2: pairTwin with
+        | MkPair xTwin yTwin => Parse.followsDone arithmetic)))
 
 -- A premise about a function the call passes on, walked: `collect`'s
 -- lemma needs `nexts` for `() => here()`, which the registered lemma
