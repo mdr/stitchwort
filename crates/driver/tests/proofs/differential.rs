@@ -770,3 +770,26 @@ fn the_evaluators_agree_on_let() {
         assert_eq!(normal(g, 0, &fast), "Nat(10000)");
     });
 }
+
+/// Two stuck calls are compared by their case trees, and looked up by their
+/// printed normal forms. `Float.Model.isqrt`'s is a tree of about 4^64 nodes
+/// (a Newton step uses the last guess four times, 64 steps unrolled), so
+/// printing it to look the pair up took over the budget and the comparison
+/// was skipped; it is now compared without a record (SW-4265).
+#[test]
+fn a_pair_of_calls_with_an_enormous_normal_form_compares_without_printing_it() {
+    with_stack(STACK, || {
+        let mut session = Session::for_stack(STACK);
+        session
+            .load("isqrt", "import Std (Float)\ndef probe (n: Nat): Nat := Float.Model.isqrt n + Float.Model.pow2 n\n")
+            .expect("checks");
+        let g = &session.elab.ev();
+        let value = |name: &str| value::eval(g, &[], &Term::Def(def(g, name))).expect("no limits");
+        let (isqrt, pow2) = (value("Float.Model.isqrt"), value("Float.Model.pow2"));
+        reference::set_budget(Some(1_000_000));
+        let slow = reference::conv(g, 0, &isqrt, &pow2);
+        reference::set_budget(None);
+        assert!(!slow.expect("within the budget"));
+        assert!(!value::conv(g, 0, &isqrt, &pow2).expect("no limits"));
+    });
+}

@@ -967,12 +967,16 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
             // quoted pair, printed: its own key, not the machine's
             // `identical`.
             let open = OpenTrees::enter();
-            let key = (
-                mode,
-                level,
-                format!("{:?}", quote(g, level, a)?),
-                format!("{:?}", quote(g, level, b)?),
-            );
+            let key = match call_pair_key(g, mode, level, a, b)? {
+                Some(key) => key,
+                // Too big to print: compared without a record.
+                None => {
+                    return Ok(
+                        (i1 == i2 && conv_spines(g, level, Some(*i1), s1, s2, mode)?)
+                            || same_trees(g, level, tree_of(g, a), tree_of(g, b), mode)?,
+                    );
+                }
+            };
             if let Some(same) = open.known(&key) {
                 same
             } else {
@@ -1019,6 +1023,40 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
 /// A pair of calls compared by their trees: the mode, the level and the
 /// two, quoted.
 type CallPair = (Mode, usize, String, String);
+
+/// Steps the printed key of a pair of calls may take to build ([`CallPair`]).
+/// A stuck call can have a normal form exponentially larger than the call
+/// (std's `Float.Model.isqrt n` unrolls 64 Newton steps that each use the
+/// last guess four times, a tree of about 4^64 nodes), and printing it to
+/// look the pair up costs more than the comparison it would save; such a
+/// pair is compared without a record (SW-4265).
+const KEY_STEPS: u64 = 20_000;
+
+/// The key under which a pair of calls' result is remembered, or `None` if
+/// printing the pair takes more than [`KEY_STEPS`]. The steps it takes count
+/// against the thread's budget, if it has one; the budget running out is
+/// still an error.
+fn call_pair_key(
+    g: &Ev,
+    mode: Mode,
+    level: usize,
+    a: &Value,
+    b: &Value,
+) -> Result<Option<CallPair>> {
+    let outer = STEPS.with(|s| s.get());
+    let allowed = outer.map_or(KEY_STEPS, |left| left.min(KEY_STEPS));
+    STEPS.with(|s| s.set(Some(allowed)));
+    let key = quote(g, level, a)
+        .and_then(|a| quote(g, level, b).map(|b| (a, b)))
+        .map(|(a, b)| (mode, level, format!("{a:?}"), format!("{b:?}")));
+    let left = STEPS.with(|s| s.get()).unwrap_or(0);
+    STEPS.with(|s| s.set(outer.map(|o| o - (allowed - left))));
+    match key {
+        Ok(key) => Ok(Some(key)),
+        Err(crate::budget::ResourceError::Work) if outer.is_none_or(|o| o > KEY_STEPS) => Ok(None),
+        Err(e) => Err(e),
+    }
+}
 
 thread_local! {
     /// How many tree comparisons are open, and the pairs of calls found
