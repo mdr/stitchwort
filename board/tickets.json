@@ -1,5 +1,5 @@
 {
-  "next": 4372,
+  "next": 4374,
   "tickets": [
     {
       "id": 47,
@@ -29135,6 +29135,32 @@
     {
       "id": 4371,
       "title": "[Opus] cases: let the fallback also consider variables an earlier split's equation is stuck on (not only those the goal mentions), so goals computed to True = False close in the first try; changes terms of proofs only the second try closes today and needs the step-budget/second-try rule revisited (SW-4370 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4372,
+      "title": "[DeepSeek] check --only NAME: when no theorem NAME is found but a qualified one ends with it (Syntax.ParseWalk.givesCommaListFrom), suggest the qualified name in the error (SW-4239 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4373,
+      "title": "[DeepSeek] check --expand-walk: add --stdout (print the expanded file instead of overwriting it), after SW-4239 merges (SW-4239 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
