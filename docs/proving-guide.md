@@ -689,6 +689,137 @@ Import what you use: std's theorems live in namespaces that need an import
   a tuple pattern (`let (x, a, b) := h`), `match`, `.left`, `.right`;
   `Void.impossible` from a contradiction.
 
+### Finishing small proofs
+
+Before writing a hand-built term (`Bool.andIntro`, `Bool.andLeft`, a tuple of
+`Both`s, a `match` whose arms only repeat), try the shorter finisher. This is
+what SW-4472's `cases` and `rewrite repeatedly` close today (SW-4473's pilot in
+`tools/fmt/src/Syntax/ParseWalk.sw` and `Fmt/JoinProofs.sw`; probes in
+`dev/patches/SW-4242-closer-probes.patch`).
+
+| The goal | Use | Instead of |
+|---|---|---|
+| A conjunction, or `(a && b) = True`, whose parts follow from facts you hold by rewriting | `rewrite repeatedly [h1, h2, …]` | `(Both a b, Both c d, …)`, `Bool.andIntro` |
+| Every case of a small finite type closes the same way, or by a hypothesis | `cases` | a `match` of arms that repeat, ending `(Bool.falseNotTrue h).impossible` |
+| A hypothesis `A ∨ B`, each side giving the same proof by `rewrite` | `match h with \| Inl is \| Inr is => rewrite is` | one lemma per side and an arm calling each |
+| An argument the goal or another argument fixes | `_` | spelling out a long type or term |
+
+- **`rewrite repeatedly [hs]` for a conjunction built of parts.** Name the
+  hypotheses that say what each part is; it rewrites with each and closes the
+  conjunction part by part (SW-4472). Before and after, from `parenParsed`:
+
+  ```
+  (shaped, Both (Text.beqOfEq open.text "(" openText)
+    (Both (Text.beqOfEq close.text ")" closeText) lexical), byComputing)
+  ```
+  ```
+  rewrite repeatedly [openText, closeText, shaped, lexical]
+  ```
+
+  `tupleParsed`, `listParsed`, `itemsParsed` and `argsParsed` went the same
+  way. It warns (`W-REWRITE-REPEATEDLY-UNUSED`) about a hypothesis it never
+  applied, so a list that is too long says so; a part that isn't a rewrite
+  (`18 <= level`, an arithmetic fact) stays a hand term in a tuple beside it.
+- **`cases` for a split whose arms say the same thing.** When the hand proof
+  is `match x, h with` and every arm is `byComputing`, a hypothesis, or the
+  absurd `(Bool.falseNotTrue h).impossible`, `cases` splits what the goal is
+  stuck on and closes each case. `endedWeaker`, whose arms are the cases of
+  an `Ended` and an implication, is the whole proof:
+
+  ```
+  match edge, ended with
+    | Plain None, _ => byComputing
+    | Plain (Some word), token => token
+    | Waiting None, waits => implies waits
+    | Waiting (Some word), (waits, token) => (implies waits, token)
+  ```
+  ```
+  cases
+  ```
+
+  It applies the implication `implies: trails = True → trails' = True` to
+  `waits` itself, once (SW-4472). It splits an `∨` hypothesis before the goal's
+  variable, so `sign: kind = Minus ∨ kind = Bang` costs two cases, not one
+  per token kind. Also `wordWithinWithin`, `argLevel`, `atomicArgument`,
+  `leftWeaker`, `quietBeforeOf` (two nested `match`es, 8 lines).
+- **An or-pattern when the arms are the same text.** `signSymbolic` was a
+  lemma per side (`minusSymbolic`, `bangSymbolic`) and an arm calling each:
+  `match sign with | Inl is | Inr is => rewrite is` replaces all three
+  (`cases` alone works too, at the cost below). The same goes for a long
+  list of constructors with one body: in `lastArgumentPasses`, eleven arms
+  `| Paren open (Atom k w) close, joins => (elPasses kinds (Paren open (Atom k w) close) within joins around, byComputing)`
+  became one or-pattern arm whose body names the matched `argument`:
+
+  ```
+  | Atom _ _ | App _ _ | Infix _ _ _ _ | Prefix _ _ | Paren _ (Atom _ _) _ | … , joins =>
+    (elPasses kinds argument within joins around, byComputing)
+  ```
+
+  Use `_` for fields the body doesn't need; the formatter ends each line of a
+  long or-pattern with `|`. A `match kind with | InfixBinary | InfixArrow =>`
+  likewise merges two arms that differed only in the constructor, the body
+  writing `Infix kind …`.
+- **`_` for what the goal fixes.** In a call, an argument the expected type or
+  a later argument determines can be `_`, which shortens multi-line calls:
+
+  ```
+  endedWeaker item.trails
+    (trailsBack (seen ++ item.words).reverse)
+    (seenAppend seen item.words)
+    edge
+    ended
+  ```
+  ```
+  endedWeaker item.trails _ (seenAppend seen item.words) edge ended
+  ```
+
+  `passesAppend` (`joinsAllAppend _ front back edge next (first edge _ holds …)`)
+  and `framedExprPasses kinds expr around _ _ within …` are the same. When
+  `_` is the wrong guess the error is a type mismatch at the call: write the
+  argument back (`framedExprPasses` needs its `doc` spelled in the bracket
+  arms, where the argument's own type is a different but equal document).
+
+**Costs, and when not to.** A finisher is slower than a hand term on a tiny
+goal: it searches. Measured on SW-4473's branch (the SW-4472 binary, `check
+--only <theorem> <Ns> --timings`, two runs each, ms):
+
+| Theorem | Hand term | Finisher |
+|---|---|---|
+| `parenParsed` | 1.8, 1.8 | `rewrite repeatedly` 3.7, 3.9; with `then cases` 3.4, 3.5 |
+| `tupleParsed` | 2.2, 2.2 | `rewrite repeatedly` 4.7, 4.9; with `then cases` 4.5, 4.5 |
+| `itemsParsed` | 2.3, 2.3 | `rewrite repeatedly` 3.8, 3.9; with `then cases` 3.5, 3.7 |
+| `parenInnerPasses` | 84.3, 92.9 | `cases` 128.4, 120.5 |
+| `endsOnStep` | 2.5, 2.0 | `cases` 13.9, 13.2 |
+| `allTokensWithout` | 12.3, 10.8 | `cases` at each step 46.8, 38.0 |
+
+`rewrite repeatedly` costs about 2 ms more than the hand tuple, and the `then
+cases` after it costs nothing extra now (before SW-4472 it cost 25 to 45 ms:
+the older probe notes' figures for these theorems no longer hold). A bare
+`cases` on a goal with a real split costs 10 to 40 ms more, and more where
+it has to split a large type. So:
+
+- Prefer `rewrite repeatedly` for a conjunction of rewritable parts; add
+  `then cases` only when a part is left that isn't a rewrite.
+- Keep a hand term where `cases` would split a type of many constructors with
+  nothing to guide it (`E-CASES-BUDGET` over 64 cases, as in `followsCloser`,
+  `freeReady`, `mayFollowStops`, `fillSeq`), or where the goal is
+  a call of a lemma you must name (`cases` doesn't use lemmas: `leftEnded`
+  and `closeTrails` end in `E-CASES`, `signFirstAppend` in "found nothing to
+  split on").
+- Don't put `cases` in a theorem the whole file leans on for its check time
+  (the walk's leaves, anything called from a hundred places) unless it
+  measures no slower: check the file with `check --no-cache --timings` before
+  and after.
+- A shorter proof that is slower by a few milliseconds each in a 6-minute
+  check is fine; one that turns a 2 ms theorem into 50 ms in a loop is not.
+
+The pilot's result, `tools/fmt/src/Syntax/ParseWalk.sw` and
+`Fmt/JoinProofs.sw` (statements unchanged): proof lines 532 to 488 (8.3%) and
+1556 to 1438 (7.6%); whole-file lines 1247 to 1201 and 2441 to 2323; check
+time within noise of before (about 0.95x and 0.99x, mean of two runs).
+Theorems that tried `cases` and kept the hand term, with the reason, are
+listed above.
+
 ### One proof for several cases
 
 When arms of a proof read the same, write the text once: an or-pattern, or
