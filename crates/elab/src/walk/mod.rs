@@ -94,6 +94,10 @@ pub(crate) use registry::{WALK, WALK_BIND, WALK_DONE, WALK_WEAKEN};
 /// share a long tail is better made a function with its own lemma.
 pub(crate) const PATH_CAP: usize = 64;
 
+/// The most steps the walk may take in the code before it stops: reductions
+/// and unfolds that never settle ("the code keeps computing").
+const STEP_CAP: usize = 1000;
+
 /// What the walks checked so far have recorded: one [`CallInfo`] per check
 /// of a written walk, and the places it went on from.
 #[derive(Default)]
@@ -902,7 +906,7 @@ fn step(
     let mut steps = 0;
     loop {
         steps += 1;
-        if steps > 1000 {
+        if steps > STEP_CAP {
             return Err(stuck(cx, &info, expected, "the code keeps computing", &[]));
         }
         let code = classify(cx, &body, through)?;

@@ -242,7 +242,9 @@ pub(super) fn leaf(cx: &mut Ctx, id: u32, info: &NodeInfo, expected: &Value) -> 
             Err(e) => {
                 snapshot.restore(cx);
                 if let Some(walked) = walked {
-                    return Err(walked);
+                    return Err(
+                        walked.with_note(format!("there `then` gives {}: {}", e.code, e.message))
+                    );
                 }
                 return Err(stuck(
                     cx,
