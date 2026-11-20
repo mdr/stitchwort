@@ -47,6 +47,38 @@ use crate::check::{Ctx, Result, quote_folded};
 use crate::lift::{replace_with, replace_with_under};
 use crate::rewrite::{Key, key, mentions_bound};
 
+thread_local! {
+    /// Set while a `rewrite` is elaborated again without the step
+    /// ([`without`]).
+    static OFF: Cell<bool> = const { Cell::new(false) };
+    /// How many results of the step have been kept on this thread.
+    static KEPT: Cell<u64> = const { Cell::new(0) };
+}
+
+/// Whether the step may run: not inside [`without`].
+pub(crate) fn enabled() -> bool {
+    !OFF.with(Cell::get)
+}
+
+/// How many of the step's results have been kept on this thread so far, to
+/// tell whether an attempt used it.
+pub(crate) fn kept() -> u64 {
+    KEPT.with(Cell::get)
+}
+
+/// Counts a result of the step that its caller kept.
+pub(crate) fn note_kept() {
+    KEPT.with(|k| k.set(k.get() + 1));
+}
+
+/// `f` with the step off, as before it existed.
+pub(crate) fn without<T>(f: impl FnOnce() -> T) -> T {
+    let was = OFF.with(|o| o.replace(true));
+    let out = f();
+    OFF.with(|o| o.set(was));
+    out
+}
+
 /// Whether a candidate, under the given number of binders of the target, is
 /// an occurrence: the site's own comparison, which leaves the context as it
 /// found it.

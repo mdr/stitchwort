@@ -101,7 +101,10 @@ pub(super) fn first(
     }
     // Not shown, or shown with a copy hidden: perhaps on a path through
     // calls, which the middle step unfolds ([`crate::unfold_path`]).
-    if on_path && matches!(outcome, Outcome::Nothing | Outcome::Incomplete) {
+    if on_path
+        && crate::unfold_path::enabled()
+        && matches!(outcome, Outcome::Nothing | Outcome::Incomplete)
+    {
         let (found, _) = attempt(
             cx,
             rule,
@@ -115,6 +118,7 @@ pub(super) fn first(
             true,
         )?;
         if let Some(replaced) = found {
+            crate::unfold_path::note_kept();
             report(&Outcome::Partial, Mode::Complete, Reading::Folded, rule);
             return Ok(First::Kept(Box::new(replaced)));
         }

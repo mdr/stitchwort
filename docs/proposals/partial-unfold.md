@@ -200,6 +200,17 @@ set's rules are only ever looked for. The partial step is skipped there: it woul
 fire where they didn't, in a different order, and make that pass dearer. The full pass uses it
 through the same `rewrite` search (SW-4430 M2).
 
+**A whole `rewrite` is retried without the step.** A rule's check sees only its own step,
+but the goal it leaves is partly folded, and a later rule (or the proof after `then`) can fail
+on that goal where it passed on the computed one: in `tools/fmt`'s
+`PrintHangProofs.stepColumn`, `Bool.andFalse glue` opened only `step`, and `staleBlocks`
+then failed its round trip inside the still-folded `past`. So a goal `rewrite` that fails after
+any rule kept a partial result is elaborated again, from a snapshot, with the step off, and
+that outcome stands: success, or the error it gave before the step existed
+(`examples/accept/rewrite-partial-unfold-retried.sw`). A `match` has no such retry yet: it
+keeps a partial result once its own checks pass, and an arm that then failed only because its
+goal stayed partly folded would be the same kind of break (none seen in `tools/fmt`).
+
 ## 4. D3688: can anything that checks today stop checking?
 
 D3688 is about proved tools accepting less and conditions added to top theorems. This change
