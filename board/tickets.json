@@ -28257,12 +28257,12 @@
     {
       "id": 4304,
       "title": "[Opus] match induct pilot friction (SW-4264): (1) the guard and notArmK come as ∧ Props while formatter lemmas use the Bool form (fwdPair … = False, lastPair … = True), forcing bridge lemmas in every family: consider stating them as the guard's Bool = True/False (design; may need a D question); (2) only the principle's call unfolds, so comparing two walkers needs f.eq2/eq3 by hand; (3) ih premises display as unfolded matches, not the named predicates",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From SW-4264's report (worklog 19 Nov).",
+      "body": "From SW-4264's report (worklog 19 Nov).\n\nLane notes (Opus, paper, 03:35-03:45): docs/proposals/match-induct-friction.md on lane/SW-4304 (de3f3455d). (1) rec: Bool guard stated as c = True / c = False in f.eqK and f.induct, as if does and Lean's bif (D question 1); (2) rec: teach rewrite g.eqK then (already finds args and hyps); bug: rewrite repeatedly [g] panics when every arm is constructor-only (repeatedly.rs:833) and leaves out guarded arms; (3) rec: quote_folded in induct_match.rs:377-379 (D question 2, optional, orchestrator may take as fix). Review.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
