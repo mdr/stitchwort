@@ -29200,8 +29200,8 @@
     {
       "id": 4376,
       "title": "[Sonnet] Goal display: show an unnamed guard's fact in a proof arm's goal (cases uses it but the user can't see it) (SW-4047 finding)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
