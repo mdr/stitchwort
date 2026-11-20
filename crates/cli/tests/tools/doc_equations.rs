@@ -100,6 +100,32 @@ fn doc_lists_generated_equations_in_their_own_section() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// A `Bool` test of equality in an equation's condition is listed as it is
+/// written: `xs == []` and `x != 4`, not `List.decEq …` and
+/// `(x.decEq 4).not.holds`.
+#[test]
+fn doc_writes_decided_equalities_in_an_equation_as_written() {
+    let dir = folder("decided");
+    let source = "\
+import Std (Nat, List)
+
+def guarded (x: Nat) (xs: List Nat): Nat :=
+  if xs == [] && x != 4 then 0 else 1
+";
+    std::fs::write(dir.join("a.sw"), source).unwrap();
+    let (code, out, err) = run("doc", &dir, &["guarded", "a.sw"]);
+    assert_eq!(code, 0, "{out}\n{err}");
+    assert!(
+        out.contains("(xs == [] && x != 4) = True → guarded x xs = 0"),
+        "{out}"
+    );
+    assert!(
+        out.contains("(xs == [] && x != 4) = False → guarded x xs = 1"),
+        "{out}"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// An arm that couldn't be stated is listed with its reason, and so is an
 /// `f.induct` that wasn't made (here because `eq3` is read per leaf,
 /// SW-1071).

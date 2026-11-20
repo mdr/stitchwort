@@ -99,6 +99,18 @@ pub fn term(g: &Ev, names: &[Name], term: &Term) -> String {
     Printer::new(g, None).print(&mut names, term, Prec::Arrow)
 }
 
+/// [`term`], writing decided equations as `a == b` and `a != b` as a goal
+/// does, by what `decider` ([`NameScope::eq_decision`]) says `==` decides
+/// them by; names are written in full, as [`term`] does. For a statement
+/// shown outside a goal (`stitchwort doc`).
+pub fn term_deciding(g: &Ev, decider: &dyn NameScope, names: &[Name], term: &Term) -> String {
+    let mut names = names.to_vec();
+    let printer = Printer::new(g, None);
+    printer.equations.set(true);
+    *printer.decider.borrow_mut() = Some(decider);
+    printer.print(&mut names, term, Prec::Arrow)
+}
+
 /// [`term`], with names as `scope` writes them.
 pub fn term_in(g: &Ev, scope: &dyn NameScope, names: &[Name], term: &Term) -> String {
     let mut names = names.to_vec();
@@ -725,6 +737,9 @@ struct Printer<'g> {
     /// The names in scope, to shorten declarations' names by; without it,
     /// names are written from the root.
     scope: Option<&'g dyn NameScope>,
+    /// What decides an equation by `==`, where there is no `scope` to say
+    /// ([`term_deciding`]).
+    decider: RefCell<Option<&'g dyn NameScope>>,
     /// By context level, whether the variable's type ends in `Prop`
     /// ([`is_predicate_type`]); empty when the types aren't known.
     predicates: RefCell<Vec<bool>>,
@@ -745,6 +760,7 @@ impl<'g> Printer<'g> {
             equations: Cell::new(false),
             unfold_not: Cell::new(false),
             scope,
+            decider: RefCell::new(None),
             predicates: RefCell::new(Vec::new()),
             meant: RefCell::new(HashMap::default()),
         }
@@ -1681,10 +1697,10 @@ impl<'g> Printer<'g> {
             let rhs = self.print(names, rhs, Prec::Range);
             return Some((format!("{lhs} {op} {rhs}"), Prec::Eq));
         }
-        if let Some((lhs, rhs)) = self.decided_equation(names.len(), term) {
+        if let Some((op, lhs, rhs)) = self.decided_equation(names.len(), term) {
             let lhs = self.print(names, lhs, Prec::Range);
             let rhs = self.print(names, rhs, Prec::Add);
-            return Some((format!("{lhs} == {rhs}"), Prec::Eq));
+            return Some((format!("{lhs} {op} {rhs}"), Prec::Eq));
         }
         if let Some(range) = self.range(names, *id, args) {
             return Some((range, Prec::Range));
@@ -2364,18 +2380,24 @@ impl<'g> Printer<'g> {
         }
     }
 
-    /// The sides of `Decidable.holds {a = b} d`, to be written `a == b`:
-    /// only where that elaborates to this term or one it computes to, and
-    /// only in a goal. `a == b` elaborates to `holds {a = b} (f a b)`, `f`
-    /// what the scope's `==` decides an equation of the type by
-    /// ([`NameScope::eq_decision`]). `d` is that, or something it computes
-    /// to with the goal's `level` variables unknown, which `a == b` pasted
+    /// The operator and sides of `Decidable.holds {a = b} d`, to be written
+    /// `a == b`, or of `Decidable.holds {¬(a = b)} d`, to be written `a !=
+    /// b`: only where that elaborates to this term or one it computes to,
+    /// and only in a goal. `a == b` elaborates to `holds {a = b} (f a b)`,
+    /// `f` what the scope's `==` decides an equation of the type by
+    /// ([`NameScope::eq_decision`]); `a != b` to `holds {¬(a = b)}
+    /// (Decidable.not (f a b))`. `d` is that, or something it computes to
+    /// with the goal's `level` variables unknown, which `a == b` pasted
     /// back checks as the same.
-    fn decided_equation<'t>(&self, level: usize, term: &'t Term) -> Option<(&'t Term, &'t Term)> {
+    fn decided_equation<'t>(
+        &self,
+        level: usize,
+        term: &'t Term,
+    ) -> Option<(&'static str, &'t Term, &'t Term)> {
         if !self.equations.get() || self.show_hidden.get() {
             return None;
         }
-        let scope = self.scope?;
+        let scope = self.scope.or(*self.decider.borrow())?;
         let (head, args) = full_spine(term);
         let Term::Def(id) = head else {
             return None;
@@ -2386,13 +2408,29 @@ impl<'g> Printer<'g> {
         let [(prop, Icit::Implicit), (decision, Icit::Explicit)] = args[..] else {
             return None;
         };
-        let Term::Eq(Some(ty), a, b) = prop.strip_loc() else {
+        let (op, equation, decision) = match self.negated(prop) {
+            Some(equation) => {
+                let (head, args) = full_spine(decision);
+                let Term::Def(not) = head else {
+                    return None;
+                };
+                let [(_, Icit::Implicit), (inner, Icit::Explicit)] = args[..] else {
+                    return None;
+                };
+                if &*self.g.def(*not).path != "Std.Decidable.not" {
+                    return None;
+                }
+                ("!=", equation, inner)
+            }
+            None => ("==", prop, decision),
+        };
+        let Term::Eq(Some(ty), a, b) = equation.strip_loc() else {
             return None;
         };
         let f = scope.eq_decision(ty)?;
         let written = Term::app(Term::app(f, (**a).clone()), (**b).clone());
         if same_term(&written, decision) {
-            return Some((&**a, &**b));
+            return Some((op, &**a, &**b));
         }
         // Computed: compare the two with the goal's variables unknown. A
         // goal with a metavariable in it is left as it is.
@@ -2407,7 +2445,7 @@ impl<'g> Printer<'g> {
         let decision = crate::value::eval(self.g, &env, decision).ok()?;
         crate::value::conv(self.g, level, &written, &decision)
             .ok()?
-            .then_some((&**a, &**b))
+            .then_some((op, &**a, &**b))
     }
 
     /// The operator and operands of `a < b` or `a <= b` as propositions

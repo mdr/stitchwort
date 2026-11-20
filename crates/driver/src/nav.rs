@@ -471,7 +471,13 @@ pub fn index_data_of(
     let generated = crate::doc::generated_equations(&session.elab.ev());
     let equations_text = |name: &str| -> Option<String> {
         let ids = generated.get(name)?;
-        Some(crate::doc::equations_hover(&session.elab.ev(), ids))
+        Some(crate::doc::equations_hover(
+            &session.elab.ev(),
+            &session
+                .elab
+                .eq_decider(session.elab.ev().def(ids.first()?.1).span()),
+            ids,
+        ))
     };
     let mut symbols = Vec::with_capacity(index.symbols.len());
     // The links in the docs of the program's declarations that name a

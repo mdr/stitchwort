@@ -1,0 +1,58 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "x",
+          "type": "Nat"
+        },
+        {
+          "name": "xs",
+          "type": "List Nat"
+        },
+        {
+          "name": "h1",
+          "type": "xs == []"
+        },
+        {
+          "name": "h2",
+          "type": "(x != 4) = True"
+        },
+        {
+          "name": "h3",
+          "type": "(xs == [] && x != 4) = True"
+        }
+      ],
+      "lemma": "theorem shownGoal1 (x: Nat) (xs: List Nat) (h1: xs == []) (h2: (x != 4) = True) (h3: (xs == [] && x != 4) = True): guarded x xs = 0 := ?",
+      "target": "guarded x xs = 0"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "x: Nat\nxs: List Nat\nh1: xs == []\nh2: (x != 4) = True\nh3: (xs == [] && x != 4) = True\n⊢ guarded x xs = 0",
+        "range": [
+          12,
+          2,
+          12,
+          3
+        ]
+      }
+    ],
+    "message": "in `shown`",
+    "notes": [],
+    "range": [
+      12,
+      2,
+      12,
+      3
+    ],
+    "severity": "goal"
+  }
+]

@@ -429,6 +429,36 @@ fn shows_helper(text: &str) -> bool {
         .any(|after| after.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
 }
 
+/// What `a == b` decides an equation by, for printing a statement outside a
+/// goal (`stitchwort doc`) as written: [`GoalScope`]'s
+/// [`NameScope::eq_decision`] alone, searching as at `span`.
+pub struct EqDecider<'e>(&'e Elaborator, Span);
+
+impl NameScope for EqDecider<'_> {
+    fn names(&self, _written: &str, _declaration: Declaration) -> bool {
+        false
+    }
+
+    fn full_name(&self, declaration: Declaration) -> String {
+        self.0.full_name(declaration)
+    }
+
+    fn eq_decision(&self, ty: &Term) -> Option<Term> {
+        GoalScope {
+            e: self.0,
+            span: self.1,
+        }
+        .eq_decision(ty)
+    }
+}
+
+impl Elaborator {
+    /// See [`EqDecider`].
+    pub fn eq_decider(&self, span: Span) -> EqDecider<'_> {
+        EqDecider(self, span)
+    }
+}
+
 /// The names in scope where a goal at `span` is printed: the file's, as for
 /// a message, and also what `a == b` elaborates to there, so that a decided
 /// equation is printed as the `a == b` that gives it back.

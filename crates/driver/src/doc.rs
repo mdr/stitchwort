@@ -16,6 +16,7 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Serialize;
+use stitchwort_core::pretty::NameScope;
 use stitchwort_core::{DataId, DefId, Ev, Term};
 use stitchwort_syntax::ast::{Decl, Expr, Import, Module};
 use stitchwort_syntax::docs::{
@@ -1194,16 +1195,17 @@ impl Session {
             if example || r.generated || !seen.insert(r.name.clone()) {
                 continue;
             }
-            let ty = def_named(g, &r.name).map(|id| g.def(id).ty().clone());
+            let id = def_named(g, &r.name);
+            let ty = id.map(|id| g.def(id).ty().clone());
             let named = named_after(&r.name, path);
             let group = match (&ty, target) {
                 (Some(ty), Some(x)) if named && rewrites(ty, x, iff) => 0,
                 _ if named => 1,
                 _ => 2,
             };
-            let statement = match &ty {
-                Some(ty) => statement(g, ty),
-                None => r.ty.clone(),
+            let statement = match (&ty, id) {
+                (Some(ty), Some(id)) => statement(g, &self.elab.eq_decider(g.def(id).span()), ty),
+                _ => r.ty.clone(),
             };
             groups[group].push(TheoremJson {
                 name: r.name.clone(),
@@ -1249,6 +1251,7 @@ impl Session {
         let Some(f) = def_named(g, path) else {
             return Ok(None);
         };
+        let decider = self.elab.eq_decider(g.def(f).span());
         // `f.eq2`, `f.eq2.or1`: the owner's path, then the reserved suffix.
         let found = generated_equations(g).remove(path).unwrap_or_default();
         let transparent_tree =
@@ -1262,7 +1265,7 @@ impl Session {
                 let (file, line) = crate::render::location(&self.sources, d.span());
                 EquationJson {
                     name: shown_name(d.path()),
-                    statement: statement(g, d.ty()),
+                    statement: statement(g, &decider, d.ty()),
                     line,
                     file,
                     stuck: !stitchwort_elab::is_function_induct(g, d.name())
@@ -1369,7 +1372,11 @@ pub(crate) fn generated_equations(g: &Ev) -> BTreeMap<String, Vec<(Vec<usize>, D
 
 /// A definition's generated equations as hover shows them: the count and
 /// the first few (function-equations §3.4), in markdown.
-pub(crate) fn equations_hover(g: &Ev, ids: &[(Vec<usize>, DefId)]) -> String {
+pub(crate) fn equations_hover(
+    g: &Ev,
+    decider: &dyn NameScope,
+    ids: &[(Vec<usize>, DefId)],
+) -> String {
     const HOVER_SHOWN: usize = 4;
     // `f.induct`, listed first, isn't an equation: not counted (SW-1073).
     let inducts = (ids.iter())
@@ -1382,7 +1389,11 @@ pub(crate) fn equations_hover(g: &Ev, ids: &[(Vec<usize>, DefId)]) -> String {
     );
     for (_, id) in ids.iter().take(HOVER_SHOWN) {
         let d = g.def(*id);
-        out.push_str(&format!("\n- `{}`: `{}`", d.name(), statement(g, d.ty())));
+        out.push_str(&format!(
+            "\n- `{}`: `{}`",
+            d.name(),
+            statement(g, decider, d.ty())
+        ));
     }
     if ids.len() > HOVER_SHOWN {
         out.push_str(&format!("\n- … and {} more", ids.len() - HOVER_SHOWN));
@@ -1446,7 +1457,7 @@ fn rewrites(ty: &Term, x: DefId, iff: Option<DataId>) -> bool {
 
 /// A theorem's statement without its leading parameters that only later ones
 /// use (`[a: Type] → (xs: List a) → …`): the premises and the conclusion.
-fn statement(g: &Ev, ty: &Term) -> String {
+fn statement(g: &Ev, decider: &dyn NameScope, ty: &Term) -> String {
     let mut names = Vec::new();
     let mut t = ty.strip_loc();
     while let Term::Pi(name, _, _, cod) = t
@@ -1455,7 +1466,7 @@ fn statement(g: &Ev, ty: &Term) -> String {
         names.push(name.clone());
         t = cod.strip_loc();
     }
-    stitchwort_core::pretty::term(g, &names, t)
+    stitchwort_core::pretty::term_deciding(g, decider, &names, t)
 }
 
 // ---- Text --------------------------------------------------------------
