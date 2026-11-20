@@ -2,7 +2,7 @@
 source: crates/cli/tests/server/goal_index.rs
 expression: "format!(\"{made} lemmas, {} goals without one\\n\\n{}\", summary.len() - made,\nsummary.join(\"\\n\"))"
 ---
-142 lemmas, 45 goals without one
+146 lemmas, 46 goals without one
 
 arm-as-written-computes goal 1: no lemma
 arm-as-written-computes goal 2: theorem stepsGoal2: 0 ≠ 0 ∨ "" = "" := ?
@@ -111,6 +111,7 @@ decreasing-callback-argument goal 2: no lemma
 distinct-names goal 1: theorem belowGoal1 (x: Nat) (xs: List Nat): ∃ (x1: Nat) => x1 < x := ?
 distinct-names goal 2: no lemma
 distinct-names goal 3: theorem symmetricGoal1 (left1: Tree) (right1: Tree) (left2: Tree) (right2: Tree) (same: Pair left1 right1 = Pair left2 right2): Pair left2 right2 = Pair left1 right1 := ?
+false-in-statement goal 1: theorem noProofGoal1 (n: Nat) (n0: n = 0): False = True := ?
 forall-printed goal 1: theorem shownGoal1 (p: Nat → Prop) (all: ∀ (n: Nat) => p n) (comm: ∀ (a b: Nat) => a + b = b + a) (positive: ∀ (n: Nat) => 0 < n → Positive n) (hidden: ∀ [n: Nat] => n = n) (q: Nat → Type) (bad: (n: Nat) → q n) (f: (n: Nat) → Vec Nat n): ∀ (xs ys: List Nat) => (xs ++ ys).length = xs.length + ys.length := ?
 implicit-parameter goal 1: def identityGoal1 (a: Type) (x: a): a := ?
 implicit-parameter goal 2: theorem symmetricGoal1 (a: Type) (x: a) (y: a) (h: x = y): y = x := ?
@@ -118,6 +119,7 @@ inferring-position goal 1: no lemma
 interface-members goal 1: theorem compareSameGoal1 (a: Type) (ord: Ord a) (x: a) (y: a): Ord.compare x y = Ord.compare x y := ?
 interface-members goal 2: theorem equalSoundGoal1 (a: Type) (eq: DecEq a) (x: a) (y: a) (h: x == y): x = y := ?
 lambda-propagated-alias goal 1: def withGoalGoal1 (n: Nat) (counts: Counts): Nat := ?
+large-hypothesis-goal goal 1: no lemma
 lemma-used-later goal 1: theorem addZeroGoal1 (n: Nat): n = n := ?
 let-proofs goal 1: no lemma
 let-values goal 1: no lemma
@@ -143,6 +145,7 @@ match-hypothesis-folded goal 1: theorem steppedGoal1 (row: Nat) (column: Nat) (w
 match-induct goal 1: theorem firstBigIsBigGoal1 (xs: List Nat) (y: Nat) (found: None = Some y): 10 ≤ y := ?
 match-induct goal 2: theorem firstBigIsBigGoal2 (xs: List Nat) (y: Nat) (x: Nat) (rest: List Nat) (big: 10 ≤ x) (found: Some x = Some y): 10 ≤ y := ?
 match-induct goal 3: theorem firstBigIsBigGoal3 (xs: List Nat) (y: Nat) (x: Nat) (rest: List Nat) (big: (10 <= x) = False) (ih: firstBig rest = Some y → 10 ≤ y) (found: firstBig rest = Some y): 10 ≤ y := ?
+match-induct-list-cases goal 1: theorem leGoal1 (k: Nat) (x: Nat) (xs: List Nat) (h1: (k <= x) = False) (ih: countAbove k xs ≤ xs.length): countAbove k xs ≤ Succ xs.length := ?
 match-refined-hypothesis goal 1: theorem boundedGoal1 (p: Nat → Prop) (small: ∀ (m: Nat) => p m → m < 3) (k: Nat) (holds: p (Succ k)): k ≤ 2 := ?
 match-unnamed-fields goal 1: theorem shownGoal1 (next: Bool) (all: next): next := ?
 match-unnamed-fields goal 2: no lemma
@@ -152,6 +155,7 @@ operators-and-names goal 3: theorem throughOrdGoal1 (t: Type) (ord: Ord t) (a: t
 operators-and-names goal 4: theorem hiddenGoal1 (count: Nat): count + 3 = count + 3 := ?
 or-pattern-error-alternative goal 1: no lemma
 or-pattern-error-alternative goal 2: theorem alternativesGoal2 (p: Text → Option Bool → Prop) (hn: ∀ (s: Text) => p s None) (s: Text) (o: Option Bool): p s o := ?
+or-pattern-hole-per-alternative goal 1: theorem shortTextGoal1 (text: Text) (same: text = "bb"): text.length = 1 := ?
 param-default-shown goal 1: theorem rangeGoalGoal1 (a: Nat) (b: Nat): range a b = [a, b, 1] := ?
 param-default-shown goal 2: theorem scaledGoalGoal1 (a: Nat): scaled a = a + (a * 2) := ?
 param-default-shown goal 3: no lemma
@@ -172,6 +176,7 @@ reify-return goal 1: no lemma
 reify-return goal 2: theorem toResultThenGoal2 (a: Type) (b: Type) (t: () → {Fail} a) (k: a → {Fail} b) (msg: Text): (Err msg: Result b Text) = Err msg := ?
 reify-return goal 3: no lemma
 rewrite-repeatedly-then-goal goal 1: theorem leftGoal1 (xs: List Nat) (ys: List Nat): xs ++ ys = ys ++ xs := ?
+rewrite-steps goal 1: theorem rewriteStepsGoal1 (a: Nat) (b: Nat) (same: a = b): f (Succ b) = f (Succ b) := ?
 sections goal 1: no lemma
 sections goal 2: theorem countBelowGoal1 (xs: List Nat) (n: Nat): xs.count (< n) ≤ xs.length := ?
 settle-from-expected-retried goal 1: theorem holedGoal1: double 0 = 0 := ?

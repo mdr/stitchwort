@@ -4,6 +4,36 @@ expression: json
 ---
 [
   {
+    "code": "W-MATCH-UNCONFIRMED",
+    "file": 0,
+    "fixes": [],
+    "labels": [
+      {
+        "file": 0,
+        "message": "this is refined where the goal and hypotheses show it",
+        "range": [
+          12,
+          90,
+          12,
+          95
+        ]
+      }
+    ],
+    "message": "this `match` refined the goal and hypotheses as they are written, without checking for copies of its expression hidden inside calls",
+    "notes": [
+      "the goal or a hypothesis is too large once its calls are computed, so the usual search, over what they compute to, couldn't run",
+      "a copy left inside a call shows up as an error in an arm; the proof itself is checked in full",
+      "to let the full search run, make the large argument a variable: state a lemma for any `n`"
+    ],
+    "range": [
+      12,
+      90,
+      12,
+      95
+    ],
+    "severity": "warning"
+  },
+  {
     "code": "GOAL",
     "file": 0,
     "fixes": [],
