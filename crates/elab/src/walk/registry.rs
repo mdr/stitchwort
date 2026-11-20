@@ -732,11 +732,11 @@ pub(super) fn choose(
     // 1. The brackets.
     let mut fits = first_rank(ranks, |families| {
         let mut fits = Vec::new();
-        for item in &items {
+        for (at, item) in items.iter().enumerate() {
             if let Item::Lemma(e) = item
                 && let Some(fit) = fit_expr(cx, e, calls, families)?
             {
-                fits.push((e.clone(), fit));
+                fits.push((at, e.clone(), fit));
             }
         }
         Ok(fits)
@@ -744,7 +744,8 @@ pub(super) fn choose(
     if fits.len() > 1 {
         return Err(two_fit(cx, info, expected, calls, "in the brackets"));
     }
-    if let Some((e, fit)) = fits.pop() {
+    if let Some((at, e, fit)) = fits.pop() {
+        mark_used(cx, info.call, at);
         // As written, bracketed unless it is a name.
         let text = match &e {
             Expr::Var(_) => vec![Piece::Source(e.span())],

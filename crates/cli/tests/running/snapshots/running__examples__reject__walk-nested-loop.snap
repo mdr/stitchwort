@@ -7,7 +7,7 @@ expression: output
     │
  26 │ theorem followsH: Parse.Follows SameNat SameNat (() => h()) (() => h()) := byWalking []
     │                                                                            ────┬────  
-    │                                                                                ╰────── in `h`
+    │                                                                                ╰────── the second call of `f` in `h`
     │ 
     │ Note 1: lemmas whose premises are about each other's functions: name one of the premises in the brackets, or prove this leaf with `then t`
     │ 
