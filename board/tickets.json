@@ -1,5 +1,5 @@
 {
-  "next": 4445,
+  "next": 4448,
   "tickets": [
     {
       "id": 47,
@@ -29752,12 +29752,12 @@
     {
       "id": 4418,
       "title": "[Opus] Test for SW-4414 M1: build a refined guard whose as-written attempt comes back Unchecked (STITCHWORT_MATCH_METRICS guard-as-written: unchecked) while the unfolded path checks; show it failing with the snapshot restore in refined_guard removed (D3608); or argue no such guard exists and say so in a comment",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nProgress (Opus, 20 Nov): such a guard exists. examples/accept/guard-refinement-as-written-unchecked.sw: the goal passes `scaled 1 (c == 0) (pickAtNonZero c)`, a proof whose type mentions `c == 0` but whose term doesn't, so the as-written motive `scaled 1 x (pickAtNonZero c)` is ill-typed (guard-as-written: unchecked) while the unfolded goal drops the proof and checks; arms see 1 ≠ 0 / 2 ≠ 0. With before_written.restore(cx) removed (temporary build), checking it panics: lift.rs:1618:59 index out of bounds (len 2, index 2). Hash snapshot added; test:example passes. Commit 58146aaac. ~5 min of agent time.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -30095,6 +30095,45 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4445,
+      "title": "[DeepSeek] Example kind that asserts a STITCHWORT_MATCH_METRICS outcome (e.g. guard-as-written: unchecked in guard-refinement-as-written-unchecked.sw), so examples that cover a fallback path fail if a later change stops reaching it; also usable for match-as-written and transport-as-written (SW-4418 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4446,
+      "title": "[Sonnet] lift.rs:1618 panics (index out of bounds) when a caller leaves bindings in cx; add a debug_assert on the lengths there with a message naming the likely cause (bindings left after a failed attempt without restore) (SW-4418 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4447,
+      "title": "[DeepSeek] Taskfile: snap:hashes NAME=x runs all 12 hash_stability tests (78 s); make NAME narrow to the example tests only, and say in docs/workflow.md's brief lines that snap:hashes (not test:hashes with INSTA_UPDATE) records new example snapshots (lane friction SW-4418, SW-4441)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
