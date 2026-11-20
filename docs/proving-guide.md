@@ -779,15 +779,26 @@ what SW-4472's `cases` and `rewrite repeatedly` close today (SW-4473's pilot in
   argument back (`framedExprPasses` needs its `doc` spelled in the bracket
   arms, where the argument's own type is a different but equal document).
 
-**Costs, and when not to.** `cases` as a finisher is slower than a hand term
-on a tiny goal: it searches. Measured on the probes, `parenInnerPasses` is
-91 ms by hand and 134 ms with `cases`; `endsOnStep` 2.3 against 14.1;
-`allTokensWithout` 11 against 43; `itemsParsed` with `then cases` after
-`rewrite repeatedly` 2.3 against 27, and `parenParsed` 1.8 against 46, while
-the same `rewrite repeatedly` as the whole proof (no `then cases`) was 2.9.
-So:
+**Costs, and when not to.** A finisher is slower than a hand term on a tiny
+goal: it searches. Measured on SW-4473's branch (the SW-4472 binary, `check
+--only <theorem> <Ns> --timings`, two runs each, ms):
 
-- Finish with `rewrite repeatedly` alone where it closes the goal; add
+| Theorem | Hand term | Finisher |
+|---|---|---|
+| `parenParsed` | 1.8, 1.8 | `rewrite repeatedly` 3.7, 3.9; with `then cases` 3.4, 3.5 |
+| `tupleParsed` | 2.2, 2.2 | `rewrite repeatedly` 4.7, 4.9; with `then cases` 4.5, 4.5 |
+| `itemsParsed` | 2.3, 2.3 | `rewrite repeatedly` 3.8, 3.9; with `then cases` 3.5, 3.7 |
+| `parenInnerPasses` | 84.3, 92.9 | `cases` 128.4, 120.5 |
+| `endsOnStep` | 2.5, 2.0 | `cases` 13.9, 13.2 |
+| `allTokensWithout` | 12.3, 10.8 | `cases` at each step 46.8, 38.0 |
+
+`rewrite repeatedly` costs about 2 ms more than the hand tuple, and the `then
+cases` after it costs nothing extra now (before SW-4472 it cost 25 to 45 ms:
+the older probe notes' figures for these theorems no longer hold). A bare
+`cases` on a goal with a real split costs 10 to 40 ms more, and more where
+it has to split a large type. So:
+
+- Prefer `rewrite repeatedly` for a conjunction of rewritable parts; add
   `then cases` only when a part is left that isn't a rewrite.
 - Keep a hand term where `cases` would split a type of many constructors with
   nothing to guide it (`E-CASES-BUDGET` over 64 cases, as in `followsCloser`,
