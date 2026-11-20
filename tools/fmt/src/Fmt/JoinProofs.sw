@@ -13,7 +13,7 @@ import Std (Bool, Char, DecEq, Doc, Eq, List, Nat, Option, Text, Void, byDecisio
 import Std.Doc (..)
 import Std.Doc.Proofs (..)
 import Syntax (Expr, Tok, Word, isWordChar)
-import Syntax.Proofs (Laid, MayFollow)
+import Syntax.LexProofs (Laid, MayFollow)
 import Fmt (..)
 import Fmt.PrintLexProofs (Follows)
 import Fmt.SpellProofs (..)

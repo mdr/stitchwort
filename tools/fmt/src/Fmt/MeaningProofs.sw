@@ -12,7 +12,7 @@
 --|
 --| P4, and the four passes together, are in `MergeProofs.sw`.
 
-namespace Fmt.Proofs
+namespace Fmt.MeaningProofs
 import Fmt (..)
 import Fmt.Walk (..)
 import Std (Bool, Eq, Fail, List, Nat, Option, Result, Text)

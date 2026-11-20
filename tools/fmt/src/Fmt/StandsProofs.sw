@@ -47,7 +47,7 @@ import Syntax (
   withTrailing,
   withoutReturn
 )
-import Syntax.Proofs (Spells)
+import Syntax.LexProofs (Spells)
 import Fmt (..)
 import Fmt.TreeJoinProofs (
   declJoins,
@@ -76,7 +76,7 @@ import Fmt.SpellProofs (..)
 import Fmt.TriviaStatements (..)
 import Fmt.ToldWordProofs (..)
 import Fmt.ToldDeclProofs (..)
-import Syntax.Proofs (Laid)
+import Syntax.LexProofs (Laid)
 import Fmt.PrintHangProofs (
   CommentsEnd,
   Tracks,

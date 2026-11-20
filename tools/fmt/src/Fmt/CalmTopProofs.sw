@@ -10,7 +10,9 @@ import Fmt.OutputStatements (..)
 import Fmt.PassProofs (..)
 import Fmt.Driver1 (..)
 import Fmt.Walk (..)
-import Fmt.Proofs (..)
+import Fmt.BlankProofs (..)
+import Fmt.MeaningProofs (..)
+import Fmt.MergeProofs (..)
 
 --| `plainDef` reads no blank-line flag of the keyword: the `def` is hoisted, and its own-line comments and blank
 --| line are the file loop's.

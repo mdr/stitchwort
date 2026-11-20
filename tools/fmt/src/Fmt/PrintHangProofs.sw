@@ -26,7 +26,7 @@ import Std.Doc.Proofs (
   printedPieces
 )
 import Syntax (Comment, Leaf, Lexed, Tok, Token, Trivia, lex, withTrailing)
-import Syntax.Proofs (Laid, Piece)
+import Syntax.LexProofs (Laid, Piece)
 import Fmt (HangState, hangs, hangsFrom, startBlocks)
 import Fmt.HangProofs (
   Hang,

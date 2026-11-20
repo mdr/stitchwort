@@ -1,5 +1,5 @@
 --| Two runs of the parser on items that differ only in their comments give alike trees (docs/reviews/
---| SW-4132-two-run-parse.md, lane 7): `followsF`, one lemma for each parser function of `Syntax/Statements.sw`, says
+--| SW-4132-two-run-parse.md): `followsF`, one lemma for each parser function of `Syntax/Statements.sw`, says
 --| that `F` follows itself on alike arguments, by the pattern of `Syntax/FollowsBase.sw`.
 --|
 --| Covered with a lemma of their own (79 functions, in the order of the file):
@@ -16,38 +16,44 @@
 --|   thenBodyOn
 --|
 --| Without a lemma: `startsOtherStatement`, `allowedAt`, `letAtEnd`, `sequenceOn`, `calcNextOn`, `ownLineOn`,
---| `reverseMinus`, `columnOn` (pure; lane 2's `…Deaf` lemmas), `calcRelations`, `atWithoutTarget`, `oldIn` (text),
+--| `reverseMinus`, `columnOn` (pure; the `…Deaf` lemmas in `Syntax/DeafProofs.sw`), `calcRelations`, `atWithoutTarget`,
+--| `oldIn` (text),
 --| and `clausesLined`, `clausesAhead`, `inductLined`, `inductAhead`, `calcStep`, `rewriteMore`, `setMore`,
---| `setRulesAfter` (the lemma of the function that calls them runs over their bodies, as `matchArmsLined` is in lane
---| 5). `sequenceAhead` is lane 4's (`followsSequenceAhead`).
+--| `setRulesAfter` (the lemma of the function that calls them runs over their bodies, as `matchArmsLined` is in
+--| `Syntax/FollowsFormsArms.sw`). `sequenceAhead`'s lemma is in `Syntax/FollowsLadder.sw` (`followsSequenceAhead`).
 --|
 --| Hypotheses. A lemma takes the knot (`SelfFollows self selfTwin`), alike arguments, and the `Follows` fact of each
---| function of another lane that it calls, as a `def` below:
+--| function in another file that it calls, as a `def` below:
 --|
---| - lane 6 (`Syntax/DeclParser.sw`): `ExpectFixedFollows` (`Modes.expectFixed`), `LowerQualifiedFollows`
+--| - `Syntax/DeclParser.sw`: `ExpectFixedFollows` (`Modes.expectFixed`), `LowerQualifiedFollows`
 --|   (`Modes.lowerQualified`), `AttributesOfFollows` (`attributesOf`) and `DefinitionPartsFollows` (`definitionParts`
 --|   with no `export` or `opaque`). They are stated with this file's own relations `AttributesAlike` and `PartsAlike`
---|   (the attributes walked with `blankPure`; the header walked and the body walked and blanked), so lane 6's lemmas
---|   need an adapter if they use other relations. `followsExpectFixed` and `followsLowerQualified` of lane 6 are
---|   `ExpectFixedFollows` and `LowerQualifiedFollows` as they stand.
---| - lanes 4 and 5, where the lemma needs many hypotheses of its own: `ExprInlineFollows`, `CalcOperandFollows`,
---|   `AppendExprFollows`, `BlockFollows` and `ExprFollows`, each proved at the end from the knot and the facts
---|   below (`exprInlineFollows`, `calcOperandFollows`, `appendExprFollows`; `blocks` and `exprs` are lane 5's
---|   `followsBlock` and `followsExpr`, in `thenBodyFollows`).
+--|   (the attributes walked with `blankPure`; the header walked and the body walked and blanked), so
+--|   `Syntax/FollowsDecl.sw`'s lemmas need an adapter if they use other relations. `followsExpectFixed` and
+--|   `followsLowerQualified` in `Syntax/FollowsDecl.sw` are `ExpectFixedFollows` and `LowerQualifiedFollows` as they
+--|   stand.
+--| - `Syntax/FollowsLadder.sw` and the `Syntax/FollowsForms…` files, where the lemma needs many hypotheses of its
+--|   own: `ExprInlineFollows`, `CalcOperandFollows`, `AppendExprFollows`, `BlockFollows` and `ExprFollows`, each
+--|   proved at the end from the knot and the facts below (`exprInlineFollows`, `calcOperandFollows`,
+--|   `appendExprFollows`; `blocks` and `exprs` are `followsBlock` and `followsExpr` in
+--|   `Syntax/FollowsFormsBlocks.sw`, in `thenBodyFollows`).
 --|
---| Lane 5's ten facts about this file (`StatementFollows`, `LetStatementFollows`, `LetBodyFollows`, `HandleFollows`,
---| `CalcFollows`, `RewriteFollows`, `CasesFollows`, `ThenBodyFollows`, `InductFollows`, `ReifyFollows`) are proved in
---| the last section (`statementFollows`, `letStatementFollows`, `letBodyFollows`, `handleFollows`, `calcFollows`,
---| `rewriteFollows`, `followsCasesExpr`, `thenBodyFollows`, `inductFollows`, `reifyFollows`), none with a cycle: lane 5's
---| `followsExprInline` takes the facts about `handleExpr`, `letStatement`, `letBody`, `calcExpr`, `rewriteExpr` and
---| `casesExpr`, but not `statement`'s, and `thenBodyFollows` uses `statementFollows`. Lane 8 supplies the lane 6 and lane 5 facts the
---| closing theorems take (`HeaderGroupFollows`, `BinderTypeFollows`, `PiExprFollows`, `ResultTypeFollows`, and
---| lane 6's four above).
+--| The ten facts that `Syntax/FollowsForms.sw` and its continuations state about this file (`StatementFollows`,
+--| `LetStatementFollows`, `LetBodyFollows`, `HandleFollows`, `CalcFollows`, `RewriteFollows`, `CasesFollows`,
+--| `ThenBodyFollows`, `InductFollows`, `ReifyFollows`) are proved in the last section (`statementFollows`,
+--| `letStatementFollows`, `letBodyFollows`, `handleFollows`, `calcFollows`,
+--| `rewriteFollows`, `followsCasesExpr`, `thenBodyFollows`, `inductFollows`, `reifyFollows`), none with a cycle:
+--| `followsExprInline` in `Syntax/FollowsForms.sw` takes the facts about `handleExpr`, `letStatement`, `letBody`,
+--| `calcExpr`, `rewriteExpr` and `casesExpr`, but not `statement`'s, and `thenBodyFollows` uses `statementFollows`.
+--| `Syntax/FollowsParse.sw` supplies the facts from `Syntax/FollowsDecl.sw` and the `Syntax/FollowsForms…` files that
+--| the closing theorems take (`HeaderGroupFollows`, `BinderTypeFollows`, `PiExprFollows`, `ResultTypeFollows`, and
+--| `Syntax/FollowsDecl.sw`'s four above).
 --|
 --| Nothing here reads a comment: a keyword's comments are `Anything`, and `Handle`, `Reify`, `Induct`, `Calc`,
 --| `Rewrite`, `Cases` and `LetIn` are alike whatever those comments are (`inductFollows` and `reifyFollows` hold for
---| any comments, as lane 5 states them). A statement's `LocalDef` is alike when its attributes and header are equal
---| once walked and its body walked and blanked; `localDef` reads the header's `unfolding` clause and whether the body
+--| any comments, as `Syntax/FollowsForms.sw` states them). A statement's `LocalDef` is alike when its attributes and
+--| header are equal once walked and its body walked and blanked; `localDef` reads the header's `unfolding` clause and
+--| whether the body
 --| is a primitive from these (`unfoldingSame`, `primitiveSame`).
 --|
 --| Helpers added here: the relations `CommentedAlike`, `AttributesAlike`, `PartsAlike`, `ClauseAlike`, `InductArmAlike`,
@@ -61,7 +67,7 @@ import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Parse, Result, Text, Unit,
 import Syntax (..)
 import Fmt (..)
 import Fmt.Walk (..)
-import Fmt.Proofs (blankPure)
+import Fmt.BlankProofs (blankPure)
 import Syntax.DeafProofs (..)
 import Syntax.FollowsBase (..)
 import Syntax.FollowsLadder (..)
@@ -99,7 +105,7 @@ def RuleSetAlike (set twin: RuleSet): Prop := walkRuleSet blankPure set = walkRu
 
 def RulesAlike (rules twin: Rules): Prop := (walkRules blankPure rules).blank = (walkRules blankPure twin).blank
 
--- Facts about the functions of lane 6 (`Syntax/DeclParser.sw`) that this file calls directly, each for every argument.
+-- Facts about the functions in `Syntax/DeclParser.sw` that this file calls directly, each for every argument.
 
 def ExpectFixedFollows: Prop :=
   ∀ (modes: Modes) (wanted: Tok) (what: Text) => Parse.Follows SameCode Anything
@@ -118,7 +124,8 @@ def DefinitionPartsFollows (self selfTwin: Goal → {Parse Item} Expr): Prop :=
     (() => definitionParts self modes None None local)
     (() => definitionParts selfTwin modes None None local)
 
--- Facts about the functions of lanes 4 and 5 that this file calls and whose lemmas take many hypotheses.
+-- Facts about the functions that `Syntax/FollowsLadder.sw` and the `Syntax/FollowsForms…` files cover, and whose
+-- lemmas take many hypotheses.
 
 def ExprInlineFollows (self selfTwin: Goal → {Parse Item} Expr): Prop :=
   ∀ (modes: Modes) => Parse.Follows SameCode ExprsAlike (() => exprInline self modes) (() => exprInline selfTwin modes)
@@ -1792,8 +1799,8 @@ theorem followsThenBody ∀ [self selfTwin: Goal → {Parse Item} Expr]
     followsOn (seen => thenBodyOn self modes seen) (seen => thenBodyOn selfTwin modes seen) (seen others same =>
       followsThenBodyOn blocks exprs modes seen others same)
 
--- Lane 5's facts about this file's functions (`StatementFollows` and the rest), proved from the knot, the facts about
--- lane 6's functions and the facts lane 5 itself proves.
+-- The facts that `Syntax/FollowsForms.sw` and its continuations state about this file's functions (`StatementFollows`
+-- and the rest), proved from the knot, the facts about `Syntax/DeclParser.sw`'s functions and those proved here.
 
 theorem letStatementFollows ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (expects: ExpectFixedFollows):
@@ -1858,8 +1865,8 @@ theorem calcFollows ∀ [self selfTwin: Goal → {Parse Item} Expr]
     CalcFollows self selfTwin :=
   followsCalcExpr knot (calcOperandFollows knot expects lowers groups binders results)
 
---| The tier 3 of the statement facts, built from the knot, the facts about lane 6's functions and the header's, pi's and
---| result type's.
+--| The tier 3 of the statement facts, built from the knot, the facts about `Syntax/DeclParser.sw`'s functions and the
+--| header's, pi's and result type's.
 def keywordFactsOf [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
     (expects: ExpectFixedFollows) (lowers: LowerQualifiedFollows)

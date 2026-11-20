@@ -3,7 +3,7 @@
 --|
 --| `Expr.words` leaves commas out, so it can't say where a tuple's or a list's commas are; `Expr.kinds` keeps them, at
 --| the places `Fmt.SourcePlainProofs.itemsShapes` has them. An operator's kind is read off its text: the one token kind
---| `Syntax.Proofs.Spells` spells with it.
+--| `Syntax.LexProofs.Spells` spells with it.
 
 namespace Fmt.Kinds
 import Std (Bool, DecEq, List, Option, Result, Text)

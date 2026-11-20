@@ -25,32 +25,32 @@
 --|   `meaning`, as the dump shows it, or where they don't. No Rust side.
 --| - `meaningdump`: the file's `meaning`, as the dump shows it, for
 --|   `dev/fmt-meaning-oracle` to compare two files' meanings. No Rust side.
---| - `engine` (SW-3905): the file is a `stitchwort dev doc` dump, not a
+--| - `engine`: the file is a `stitchwort dev doc` dump, not a
 --|   source: each declaration's layout document is built as a `Doc`,
 --|   printed in 120 columns and compared with Rust's text; the answer is a
 --|   line a declaration (`Fmt.DocDump.answer`). `dev/fmt-twin engine` writes
 --|   the dumps and reads the answers.
---| - `text` (slices 1 to 5a, 4b, 4c and 6a, SW-3950 to SW-3999): the file
+--| - `text` (slices 1 to 5a, 4b, 4c and 6a): the file
 --|   formatted (`formatWithin`), for a file within the slices; any other is
 --|   answered with status 3 and `outside slice 6a`, or the refusal as in
 --|   `refusal`.
---| - `s1` (slice 1, SW-3950): a line a declaration, `decl N within` and a
+--| - `s1` (slice 1): a line a declaration, `decl N within` and a
 --|   line `text ESCAPED` with the declaration formatted, as `stitchwort dev
 --|   doc`'s `text` line has Rust's, or `decl N outside`; or the refusal as
 --|   in `refusal`. `dev/fmt-twin s1` compares the declarations within the
 --|   slice with Rust's.
---| - `s2` (slices 1 and 2, SW-3959): as `s1`, for the declarations within
+--| - `s2` (slices 1 and 2): as `s1`, for the declarations within
 --|   slices 1 and 2; `dev/fmt-twin s2` compares them with Rust's.
---| - `s3` (slices 1 to 3, SW-3961): the same for slices 1 to 3.
---| - `s4a` (slices 1 to 4a, SW-3980): the same for slices 1 to 4a.
---| - `s5a` (slices 1 to 5a, SW-3990): the same for slices 1 to 5a.
---| - `s4b` (slices 1 to 5a and 4b, SW-3992): the same with slice 4b's
+--| - `s3` (slices 1 to 3): the same for slices 1 to 3.
+--| - `s4a` (slices 1 to 4a): the same for slices 1 to 4a.
+--| - `s5a` (slices 1 to 5a): the same for slices 1 to 5a.
+--| - `s4b` (slices 1 to 5a and 4b): the same with slice 4b's
 --|   patterns.
---| - `s4c` (slices 1 to 5a, 4b and 4c, SW-3995): the same with slice 4c's
+--| - `s4c` (slices 1 to 5a, 4b and 4c): the same with slice 4c's
 --|   records and membership.
---| - `s6a` (slices 1 to 5a, 4b, 4c and 6a, SW-3999): the same with slice
+--| - `s6a` (slices 1 to 5a, 4b, 4c and 6a): the same with slice
 --|   6a's `rewrite`, `cases then`, facts and `↔`.
---| - `hangs` (SW-3969): a line a declaration, `decl N hangs` or `decl N
+--| - `hangs`: a line a declaration, `decl N hangs` or `decl N
 --|   breaks`, its leaves after rule N against `hangs`, the line rule the
 --|   read-back proofs assume (`dev/hangs.py` checks the same in Python).
 --| - the later stages are still the stage 0 stub: the file as it is.

@@ -13,7 +13,7 @@ namespace Syntax.ParseSettledStatements
 import Std (Bool, Eq, List, Nat, Option, Result, Text)
 import Syntax (..)
 import Fmt (..)
-import Syntax.Proofs (..)
+import Syntax.LexProofs (..)
 import Syntax.ParseProofs (..)
 import Syntax.ParseWalkFrame (..)
 import Syntax.ParseCarries (codeWords)
@@ -108,7 +108,7 @@ def Lexed.laid1 (lexed: Lexed): Bool :=
     && lexed.end.trailing.isNone
 
 --| The lexer's side: what it reads from any source in slice 1's alphabet is `laid1`. It is the lexer's soundness
---| (what a successful `lex` gave), where `Syntax.Proofs` has only its completeness for printed pieces.
+--| (what a successful `lex` gave), where `Syntax.LexProofs` has only its completeness for printed pieces.
 theorem lexLaid1 ∀ (source: Text) (lexed: Lexed)
     (lexes: lex source = Ok lexed)
     (within: alphabet1 lexed.leaves = True):

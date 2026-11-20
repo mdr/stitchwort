@@ -14,7 +14,7 @@ namespace Fmt.OutputStatements
 import Std (Bool, Doc, Eq, List, Nat, Option, Result, Text)
 import Std.Doc.Proofs (printedPieces)
 import Syntax (..)
-import Syntax.Proofs (Laid)
+import Syntax.LexProofs (Laid)
 import Fmt (..)
 import Fmt.PrintLexProofs (pieceFold)
 import Fmt.SpellProofs (..)

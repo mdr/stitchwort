@@ -1,5 +1,5 @@
 --| Two runs of the parser on items that differ only in their comments give alike trees (docs/reviews/
---| SW-4132-two-run-parse.md, lane 5), continued from `Syntax.FollowsFormsPatterns`: expressions that start with a
+--| SW-4132-two-run-parse.md), continued from `Syntax.FollowsFormsPatterns`: expressions that start with a
 --| keyword, a lambda, a quantifier, `if` or a binder; blocks; and the rule that `expression` is built from.
 
 namespace Syntax.FollowsFormsBlocks
@@ -7,7 +7,7 @@ import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Parse, Result, Text, Unit,
 import Syntax (..)
 import Fmt (..)
 import Fmt.Walk (..)
-import Fmt.Proofs (blankPure)
+import Fmt.BlankProofs (blankPure)
 import Syntax.DeafProofs (..)
 import Syntax.FollowsBase (..)
 import Syntax.FollowsLadder (..)

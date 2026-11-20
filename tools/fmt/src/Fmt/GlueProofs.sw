@@ -7,7 +7,7 @@ namespace Fmt.GlueProofs
 import Std (Bool, Char, DecEq, Decidable, Doc, Eq, List, Nat, Option, Text, Void)
 import Std.Doc.Proofs (Touch, endsInWord, isLayout, touchAfter, touchesOf)
 import Syntax (Comment, Leaf, Tok, Token, endColumn, items, itemsAfter, withTrailing)
-import Syntax.Proofs (Laid, Piece)
+import Syntax.LexProofs (Laid, Piece)
 import Fmt.PrintLexProofs (AllGood, Good, pieceFold, pieceOf, pieceOfOk)
 import Fmt.PrintHangProofs (
   CommentsEnd,

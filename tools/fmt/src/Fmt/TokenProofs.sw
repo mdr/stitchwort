@@ -7,7 +7,7 @@ namespace Fmt.TokenProofs
 import Std (Bool, DecEq, Doc, Eq, List, Nat, Option, Text, Void)
 import Std.Doc.Proofs (isLayout, printedPieces, wordsOf)
 import Syntax (..)
-import Syntax.Proofs (Laid, Piece)
+import Syntax.LexProofs (Laid, Piece)
 import Fmt (..)
 import Fmt.PrintLexProofs (addPiece, pieceFold, pieceOf)
 import Fmt.SpellProofs (..)

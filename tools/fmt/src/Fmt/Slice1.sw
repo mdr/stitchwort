@@ -44,7 +44,7 @@ def Expr.within1: Expr → Bool
   | Prefix operator operand => operand.within1 && prefixText1 operator.text
   | _ => False
 
---| The infix operators of slice 1: each text some token of its alphabet is spelled with (`Syntax.Proofs.Spells`),
+--| The infix operators of slice 1: each text some token of its alphabet is spelled with (`Syntax.LexProofs.Spells`),
 --| none a comma or closer. `|>` is out: it is no token of the alphabet. In four runs, so the proof that they spell
 --| (`operatorSpellsOf`) stays shallow.
 def operatorText1 (text: Text): Bool :=
@@ -105,7 +105,7 @@ def Tok.wordWithin1: Tok → Bool
 
 --| A name or numeral's text is spelled as the lexer proofs need: a name (word characters, or components joined by
 --| `.` after an upper-case one, as `List.map`; `auto` too, a name to the lexer), a numeral of digits, or digits with a fraction, an exponent or both
---| (`1.5`, `1e3`, `1.5e-13`). `Syntax.Proofs.Spells` says the same as a proposition (`spellsOfText1`).
+--| (`1.5`, `1e3`, `1.5e-13`). `Syntax.LexProofs.Spells` says the same as a proposition (`spellsOfText1`).
 def textSpells1 (kind: Tok) (text: Text): Bool := match kind with
   | Lower => nameText1 Lower text.toList
   | Upper => nameText1 Upper text.toList

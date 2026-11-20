@@ -3,7 +3,7 @@ import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Parse, Result, Text, Unit,
 import Syntax (..)
 import Fmt (..)
 import Fmt.Walk (..)
-import Fmt.Proofs (blankPure)
+import Fmt.BlankProofs (blankPure)
 import Syntax.DeafProofs (..)
 import Syntax.FollowsBase (..)
 import Syntax.FollowsLadder (..)
@@ -1250,7 +1250,7 @@ theorem followsDeclaration ∀ (rule: ExpressionRule) (alts: AltPatternFollows) 
   Parse.followsThen (followsAttributesOf Modes.start) (attributes attributesTwin attributeses =>
     followsDeclarationAttributes rule alts seen Modes.start attributes attributesTwin attributeses)
 
--- The facts that other lanes assume of this file's functions, each proved from the lemmas above.
+-- The facts that other files assume of this file's functions, each proved from the lemmas above.
 
 theorem followsResultTypeAll ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin):

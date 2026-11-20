@@ -7,7 +7,7 @@ namespace Syntax.ParseCarriesLadder
 import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Parse, Result, Text, Void)
 import Syntax (..)
 import Fmt (..)
-import Syntax.Proofs (..)
+import Syntax.LexProofs (..)
 import Syntax.ParseProofs (..)
 import Syntax.ParseWalk (..)
 import Syntax.ParseWalkLadder (..)

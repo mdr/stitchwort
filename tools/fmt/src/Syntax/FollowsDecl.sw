@@ -1,5 +1,5 @@
 --| Two runs of the parser on items that differ only in their comments give alike trees (docs/reviews/
---| SW-4132-two-run-parse.md, lane 6): `followsF`, one lemma for each parser function of `Syntax/DeclParser.sw`, says
+--| SW-4132-two-run-parse.md): `followsF`, one lemma for each parser function of `Syntax/DeclParser.sw`, says
 --| that `F` follows itself on alike arguments, by the pattern of `Syntax/FollowsBase.sw`.
 --|
 --| Covered (DeclParser.sw, in the order of the file):
@@ -38,20 +38,23 @@
 --|   `namespaceStep`, `importStep`, `declarationFinish`, `declarationEnd`, `declarationBody`, `declarationBodyOn`,
 --|   `declarationOther`, `exportAfter`, `exportPlain`, `afterOpaque`, `afterOpaqueOn`.
 --|
---| Not covered: `expressionAt` is the knot (`expressionKnot`, from the rule lemma `ExpressionRule` that lane 8 proves);
+--| Not covered: `expressionAt` is the knot (`expressionKnot`, from the rule lemma `ExpressionRule` that
+--| `Syntax/FollowsParse.sw` proves);
 --| the pure functions (`Seen`, `attributesRefused`, `ranOutOn`, `typeStarts`, `autoSplit`, `implicitAuto`, `isEquation`,
---| ...) have lane 2's `…Deaf` facts or local alike lemmas; `ranOutAtLine` and `fixedFrom` are lane 5's
---| (`FollowsForms`); and the file's loop, `parseFile`, `parseFileGroups`, `parseGroups`, `groupsOf` and `splitFrom`,
---| which run `Parse.run` over each group's items, belong to lane 8 (`Parse.followsRun`).
+--| ...) have the `…Deaf` facts in `Syntax/DeafProofs.sw` or local alike lemmas; `ranOutAtLine` and `fixedFrom` are in
+--| `Syntax/FollowsForms.sw`; and the file's loop, `parseFile`, `parseFileGroups`, `parseGroups`, `groupsOf` and
+--| `splitFrom`,
+--| which run `Parse.run` over each group's items, belong to `Syntax/FollowsParse.sw` (`Parse.followsRun`).
 --|
 --| Hypotheses. Each lemma takes the knot (`SelfFollows self selfTwin`, or `ExpressionRule` for the functions that
---| start a recursion with `expressionAt`) and alike arguments. Of other lanes' functions it uses, directly as lemmas
+--| start a recursion with `expressionAt`) and alike arguments. Of other files' functions it uses, directly as lemmas
 --| (nothing here is called from their files): `followsFull`, `followsGuardOf`, `followsArmBody`, `alikeArm`, `armsBlank`,
---| `followsWordAhead`, `followsRuleSet` (lanes 5 and 7). The only hypothesis a lane-5 function still needs is
---| `AltPatternFollows` (`followsArmPatterns`), taken by the lemmas that read arms. The closing section proves the
---| facts the other lanes assume of this file: `ResultTypeFollows` (lane 4), `HeaderGroupFollows`, `BinderTypeFollows`,
---| `PiExprFollows` (lane 5), `ExpectFixedFollows`, `LowerQualifiedFollows`, `AttributesOfFollows` and
---| `DefinitionPartsFollows` (lane 7).
+--| `followsWordAhead`, `followsRuleSet` (`Syntax/FollowsBase.sw`, the `Syntax/FollowsForms…` files and
+--| `Syntax/FollowsStatements.sw`). The only hypothesis a function from the `Syntax/FollowsForms…` files still needs
+--| is `AltPatternFollows` (`followsArmPatterns`), taken by the lemmas that read arms. The closing section proves the
+--| facts the other files assume of this file: `ResultTypeFollows` (`Syntax/FollowsLadder.sw`), `HeaderGroupFollows`,
+--| `BinderTypeFollows`, `PiExprFollows` (the `Syntax/FollowsForms…` files), `ExpectFixedFollows`,
+--| `LowerQualifiedFollows`, `AttributesOfFollows` and `DefinitionPartsFollows` (`Syntax/FollowsStatements.sw`).
 --|
 --| The `bare` flag (hard spot 1). `consumedBare`'s `Bool` is the one value read from comments; `followsConsumedBare`
 --| relates it by `Anything`, `followsHeaderGroupEnd` takes the two runs' `consumed` flags unrelated, and `alikeGroup`
@@ -59,8 +62,9 @@
 --| results of `refuseAttributes`, `afterOpaque` and `afterOpaqueOn`, which compute nothing. No other `Bool` is related
 --| by `Anything`.
 --|
---| Relations (this file's own): `AttributeAlike`, `AttributeGroupAlike` (one group of attributes; lane 7's
---| `AttributesAlike` is the list), `RowsAlike`, `HeaderAlike`, `DefBodyAlike`, `ImportItemAlike`, `ImportedAlike`,
+--| Relations (this file's own): `AttributeAlike`, `AttributeGroupAlike` (one group of attributes; `AttributesAlike` in
+--| `Syntax/FollowsStatements.sw` is the list), `RowsAlike`, `HeaderAlike`, `DefBodyAlike`, `ImportItemAlike`,
+--| `ImportedAlike`,
 --| `OperationAlike`, `IndexStepAlike`, `IndicesAlike`, `FieldAlike`, `FieldsAlike`, `PartAlike`, `ConstructorAlike`,
 --| `DataBodyAlike`; each is equality of the node walked with `blankPure` and blanked, via a `…Key` function.
 
@@ -69,7 +73,7 @@ import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Parse, Result, Text, Unit,
 import Syntax (..)
 import Fmt (..)
 import Fmt.Walk (..)
-import Fmt.Proofs (blankPure)
+import Fmt.BlankProofs (blankPure)
 import Syntax.DeafProofs (..)
 import Syntax.FollowsBase (..)
 import Syntax.FollowsLadder (..)

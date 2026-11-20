@@ -6,7 +6,7 @@ namespace Syntax.ParseProofs
 import Std (Bool, DecEq, Eq, List, Nat, Option, Parse, Text)
 import Syntax (..)
 import Fmt (..)
-import Syntax.Proofs (..)
+import Syntax.LexProofs (..)
 import Fmt.Grammar1 (..)
 
 --| What a parser function gives of a tree of slice 1: it is shaped and lexical, and `holds` of it. A tree outside the

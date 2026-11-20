@@ -1,11 +1,12 @@
---| The two-run walk's knots tied (docs/reviews/SW-4132-two-run-parse.md, lane 8): `expressionRule` and `patternRule`
+--| The two-run walk's knots tied (docs/reviews/SW-4132-two-run-parse.md): `expressionRule` and `patternRule`
 --| each follow themselves given a knot, so `expressionAt` and `pattern` follow themselves outright, and with them
 --| `declaration`. A declaration group's items with the same tokens then parse alike (`declarationKeepsTokens`), which
 --| `Fmt.SettleParseProofs.groupKeepsTokens` states for `groupRun`.
 --|
---| The other lanes' files each take the facts of the functions they call in another file as hypotheses. They are
---| supplied here in call order: lane 6's (`Syntax.FollowsDecl`) need only the knot, lane 7's (`Syntax.FollowsStatements`)
---| lane 6's and the knot, and lane 5's rule lemma (`followsExpressionRule`) all of them. `patternRule`'s lemma
+--| The other files each take the facts of the functions they call in another file as hypotheses. They are
+--| supplied here in call order: `Syntax/FollowsDecl.sw` needs only the knot, `Syntax/FollowsStatements.sw` the
+--| knot and `Syntax/FollowsDecl.sw`'s facts, and the rule lemma `followsExpressionRule` in `Syntax/FollowsForms.sw`
+--| all of them. `patternRule`'s lemma
 --| (`patternRuleFollows`) needs nothing from another file. So the only cycle is the knot itself, which
 --| `Parse.followsRecursiveWith` ties.
 
@@ -14,7 +15,7 @@ import Std (Bool, Eq, List, Nat, Option, Parse, Result)
 import Syntax (..)
 import Fmt (..)
 import Fmt.Walk (..)
-import Fmt.Proofs (blankPure)
+import Fmt.BlankProofs (blankPure)
 import Syntax.SettleProofs (tokens)
 import Syntax.DeafProofs (SameCode, groupItemsSameCode)
 import Syntax.FollowsBase (..)
@@ -28,8 +29,8 @@ import Syntax.FollowsDeclData (..)
 
 -- The knots.
 
---| `expressionRule` follows itself at a knot: lane 5's rule lemma, with every other lane's fact it takes built from
---| the knot.
+--| `expressionRule` follows itself at a knot: the rule lemma in `Syntax/FollowsForms.sw`, with every fact from another
+--| file that it takes built from the knot.
 theorem expressionRuleFollows: ExpressionRule := self selfTwin knot =>
   let expects := followsExpectFixedAll
   let lowers := followsLowerQualifiedAll

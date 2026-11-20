@@ -14,7 +14,7 @@ namespace Syntax.GoodItemProofs
 import Std (Bool, Char, DecEq, Empty, Eq, List, Nat, Option, Pair, Parse, Result, Text, Void)
 import Syntax (..)
 import Fmt (..)
-import Syntax.Proofs (
+import Syntax.LexProofs (
   ExponentAs,
   FloatTailAs,
   FractionAs,

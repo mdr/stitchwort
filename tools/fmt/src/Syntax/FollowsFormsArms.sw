@@ -1,14 +1,14 @@
 --| Two runs of the parser on items that differ only in their comments give alike trees (docs/reviews/
---| SW-4132-two-run-parse.md, lane 5), continued from `Syntax.FollowsFormsBinders`: arms and `match`. It has the
---| facts about patterns (`AltPatternFollows`), arms, clause lambdas, `match`, and lane 4's facts about this lane's
---| functions.
+--| SW-4132-two-run-parse.md), continued from `Syntax.FollowsFormsBinders`: arms and `match`. It has the
+--| facts about patterns (`AltPatternFollows`), arms, clause lambdas, `match`, and the facts about this file's
+--| functions that `Syntax/FollowsLadder.sw` assumes.
 
 namespace Syntax.FollowsFormsArms
 import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Parse, Result, Text, Unit, Void)
 import Syntax (..)
 import Fmt (..)
 import Fmt.Walk (..)
-import Fmt.Proofs (blankPure)
+import Fmt.BlankProofs (blankPure)
 import Syntax.DeafProofs (..)
 import Syntax.FollowsBase (..)
 import Syntax.FollowsLadder (..)
@@ -593,7 +593,7 @@ theorem followsMatchExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
   followsThenEq (followsSpecialAhead modes "induct") (induct =>
     followsMatchSpecial knot alts inducts reifies modes keyword keywordTwin keywords induct)
 
--- Lane 4's facts about this lane's functions, proved from the lemmas above.
+-- The facts about this file's functions that `Syntax/FollowsLadder.sw` assumes, proved from the lemmas above.
 
 theorem atomFollows ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin):

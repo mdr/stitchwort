@@ -1,7 +1,8 @@
 --| P4's traversal steps, and their pure form (`Fmt.Walk`'s `Agrees`).
-namespace Fmt.Proofs
+namespace Fmt.MergeProofs
 import Fmt (..)
 import Fmt.Walk (..)
+import Fmt.MeaningProofs (..)
 import Std (Bool, Eq, Fail, List, Nat, Option, Result, Text)
 import Syntax (..)
 

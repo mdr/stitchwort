@@ -14,7 +14,7 @@
 namespace Fmt.OutputFileProofs
 import Std (Bool, Char, DecEq, Eq, List, Nat, Option, Text, Void)
 import Syntax (..)
-import Syntax.Proofs (AllPlain, Laid, Piece, Spells, utf8Chars, utf8OfText)
+import Syntax.LexProofs (AllPlain, Laid, Piece, Spells, utf8Chars, utf8OfText)
 import Syntax.SettleProofs (alphabet1, arrowFollow, plain1, plainFrom, tokens, within1Not)
 import Syntax.SettleBareProofs (lastPair, noLast)
 import Fmt (..)
