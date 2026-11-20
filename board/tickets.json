@@ -28426,7 +28426,7 @@
     {
       "id": 4317,
       "title": "[Sonnet] With SW-4305's unifier fallback merged: sweep the Is/IsAll-shaped lemmas in tools/fmt (beyond isCons/isAppend) making doc binders implicit with task fmt:implicit; check only edited namespaces",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
