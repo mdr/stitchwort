@@ -30129,12 +30129,12 @@
     {
       "id": 4447,
       "title": "[DeepSeek] Taskfile: snap:hashes NAME=x runs all 12 hash_stability tests (78 s); make NAME narrow to the example tests only, and say in docs/workflow.md's brief lines that snap:hashes (not test:hashes with INSTA_UPDATE) records new example snapshots (lane friction SW-4418, SW-4441)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\n\nModel result: DeepSeek, worked (dropped a redundant docs line in review), 12 min (est. 15)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
