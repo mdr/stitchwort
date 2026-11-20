@@ -128,7 +128,7 @@ theorem signFirstNot ∀ [read rest later: List Item] [item: Item]
   match signed with
     | Witness first (Witness more (Both split sign)) =>
       let joined: [item, ..later] = [first, ..more ++ rest] := rewrite split at whole then whole
-      let same: item = first := List.consInjectiveHead joined
+      let same: item = first := List.consInjectiveHead item first later (more ++ rest) joined
       match sign with
         | Inl minus => Bool.trueNotFalse (rewrite same, minus at plain then plain)
         | Inr bang => Bool.trueNotFalse (rewrite same, bang at plain then plain)
@@ -156,7 +156,7 @@ theorem argReadLead ∀ [read rest later: List Item] [item: Item] [expr: Expr]
     | Inl (Both atom lead) => Both atom (within =>
       let (first, more, split, same) := lead within
       let joined: [item, ..later] = [first, ..more ++ rest] := rewrite split at whole then whole
-      rewrite List.consInjectiveHead joined then same)
+      rewrite List.consInjectiveHead item first later (more ++ rest) joined then same)
     | Inr (Both signed parsed) => (signFirstNot signed whole plain).impossible
 
 --| An atom read at an item leads with the item's word.
@@ -358,7 +358,7 @@ theorem givesArgumentAt ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (outside: OutsideBraced self) (items: List Item):
     Parse.Gives GoodItems (() => argumentAt self modes items) ArgParsed :=
   match sectionLineAt modes items with
-    | True => Parse.readsFatal
+    | True => Parse.readsFatal _ _
     | False =>
       Parse.givesAfter0
         [p := () => modes.at Upper && isSome LBrace (modes.peekAt 1)]
@@ -573,7 +573,7 @@ theorem givesFailName ∀ (modes: Modes) (what: Text) [holds: a → Prop]:
     match items with
       | [item, ..rest] =>
         match keywordHere modes item with
-          | True => Parse.readsFatal
+          | True => Parse.readsFatal _ _
           | False => givesFail modes what
       | [] => givesFail modes what)
 
@@ -600,7 +600,7 @@ theorem readsWordAtom ∀ (start: Parse.Mark Item) (item: Item) (later: List Ite
     (fine: Parse.Fits Item GoodItems start.rest):
     Parse.ReadsAt start (() => wordAtom item.kind) (read value => AtomAt item read value) :=
   readsAtBumpAt shape fine (after tail fits =>
-    Parse.readsAtDone after _ (Both (atomParsed item (goodHead fine shape)) (within => byComputing)))
+    Parse.readsAtDone after _ _ (Both (atomParsed item (goodHead fine shape)) (within => byComputing)))
 
 theorem prefixArgParsed ∀ (operator: Word) (operand: Expr)
     (spelled: (operatorTok operator.text).isSome = True)
@@ -710,7 +710,7 @@ theorem readsNegativeNumber ∀ (start: Parse.Mark Item) (minus number: Item) (l
       rewrite tail then
         readsAtBumpThen (rewrite same, tail) fits2 (after3 fits3 =>
           Parse.readsAtDone after3
-            (Prefix minus.leaf.word (Atom number.kind number.leaf.word))
+            (Prefix minus.leaf.word (Atom number.kind number.leaf.word)) _
             (negativeParsed minus.leaf.word number.leaf.word number.kind
               (minusText minus (goodHead fine shape) isMinus)
               numeral
@@ -771,7 +771,7 @@ theorem readsPrefixAtom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
               _ = read ++ after2.rest := starts
             let (atom, lead) := argReadLead foundRead whole (opensPlain next.kind opens)
             let pair: start.rest = [item, next, ..rest] := rewrite shape, tailSame
-            Parse.readsAtDone after2 _
+            Parse.readsAtDone after2 _ _
               (prefixArgParsed item.leaf.word operand
                 (operatorOfItem item (goodHead fine shape) (signSymbolic item.kind sign))
                 atom
@@ -947,7 +947,7 @@ theorem listParsed ∀ (open close: Word) (items: List Expr) (trailing: Bool)
 theorem givesTupleClose ∀ (modes: Modes): Parse.Gives GoodItems (() => tupleClose modes) (word => word.text = ")") :=
   Parse.givesAfter0 (reads0At modes Colon) (annotated =>
     match annotated with
-      | True => Parse.readsFatal
+      | True => Parse.readsFatal _ _
       | False => givesExpect modes RParen _ byComputing)
 
 theorem givesParenClose ∀ (inner: Modes) (open: Word) (first: Expr)
@@ -1090,7 +1090,7 @@ theorem givesListSpread ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (d
     (nested: Nested self):
     Parse.Gives GoodItems (() => listSpread self modes dots empty) (Parsed 1) :=
   match empty with
-    | True => Parse.readsFatal
+    | True => Parse.readsFatal _ _
     | False => Parse.givesThen (nested { modes, level = LevelFull }) (value valueParsed =>
       Parse.givesDone (parsedOutside 1 _ byComputing))
 
@@ -1160,7 +1160,7 @@ theorem givesListAfter ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (op
       match isClose: item.kind == RBracket with
         | True => readsAtBumpThen shaped fine (after fits =>
           Parse.readsAtDone after
-            (ListOf open [] False item.leaf.word)
+            (ListOf open [] False item.leaf.word) _
             (Both
               (listParsed open item.leaf.word [] False openText
                 (closeSpelled item (goodHead fine shaped) (DecEq.sound isClose))

@@ -12,7 +12,7 @@ theorem readsColour: Parse.Reads colour ColourWritten :=
     Parse.readsThen (Parse.readsChar ' ') (spaceRead u space =>
       Parse.readsThen Parse.readsTakeWhile1 (hueRead hue (Both hueNonEmpty (Both hueLetters hueIs)) =>
         Parse.readsDone
-          { shade, hue }
+          { shade, hue } _
           (rewrite shadeIs, hueIs, space, List.appendNil hueRead then
             Both byComputing (Both (Both shadeNonEmpty shadeLetters) (Both hueNonEmpty hueLetters))))))
 
@@ -22,7 +22,7 @@ theorem readsContent: Parse.Reads content ContentWritten :=
       Parse.readsThen readsColour (colourRead colour written =>
         Parse.readsThen (Parse.readsText (if count == 1 then " bag" else " bags")) (bagRead u bag =>
           Parse.readsDone
-            { count, colour }
+            { count, colour } _
             (Witness digitsRead
               (Witness colourRead
                 (Both
@@ -50,7 +50,7 @@ theorem readsRule: Parse.Reads rule RuleWritten := Parse.readsThen readsColour (
     Parse.readsThen readsContents (contentsRead contents listed =>
       Parse.readsThen (Parse.readsChar '.') (stopRead u stop =>
         Parse.readsDone
-          { colour, contents }
+          { colour, contents } _
           (Witness colourRead (Witness contentsRead (Both (rewrite contain, stop) (Both written listed))))))))
 
 --| If `parseRules` reads `input`, each of its lines is a rule written out.

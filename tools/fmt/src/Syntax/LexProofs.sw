@@ -2404,7 +2404,7 @@ theorem inOfAppend ∀ (front back: List Char)
     | [first, ..more] =>
       match firstWord: isWordChar first with
         | True =>
-          let isI: first = 'i' := List.consInjectiveHead run
+          let isI: first = 'i' := List.consInjectiveHead first 'i' _ ['n'] run
           let tail: (more ++ back).takeWhile isWordChar = ['n'] :=
             List.consInjective first _ ['n'] (rewrite isI at run then rewrite isI then run)
           match more with
@@ -2412,13 +2412,13 @@ theorem inOfAppend ∀ (front back: List Char)
             | [second, ..later] =>
               match secondWord: isWordChar second with
                 | True =>
-                  let isN: second = 'n' := List.consInjectiveHead tail
+                  let isN: second = 'n' := List.consInjectiveHead second 'n' _ [] tail
                   let rest: (later ++ back).takeWhile isWordChar = [] :=
                     List.consInjective second _ [] (rewrite isN at tail then rewrite isN then tail)
                   Inl (rewrite isI, isN, List.takeWhileNilPrefix isWordChar later back rest)
 
 theorem notI ∀ (char: Char) (others: List Char) (differs: char ≠ 'i') (same: [char, ..others] = ['i']): Void :=
-  differs (List.consInjectiveHead same)
+  differs (List.consInjectiveHead char 'i' others [] same)
 
 theorem notJustI ∀ (piece: Piece) (rest: List Char) (spells: piece.Spells) (follows: piece.Follows rest)
     (single: piece.chars = ['i'])
@@ -2455,11 +2455,11 @@ theorem notJustI ∀ (piece: Piece) (rest: List Char) (spells: piece.Spells) (fo
       let never: [] = ['n'] := Eq.trans ends.flipped run
       cases
     | Code Num text, Witness first (Witness others (Both split (Both digit _))), _ =>
-      let isI: first = 'i' := List.consInjectiveHead (Eq.trans split.flipped single)
+      let isI: first = 'i' := List.consInjectiveHead first 'i' others [] (Eq.trans split.flipped single)
       rewrite isI at digit then cases
     | Code Float text, Witness first (Witness others (Witness tail (Both split (Both digit _)))), _ =>
       let joined: [first, ..others ++ tail] = ['i'] := Eq.trans split.flipped single
-      let isI: first = 'i' := List.consInjectiveHead joined
+      let isI: first = 'i' := List.consInjectiveHead first 'i' _ [] joined
       rewrite isI at digit then cases
 
 --| A piece's characters, and the same with what may follow the piece after them, start alike.

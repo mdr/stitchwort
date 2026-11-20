@@ -36,7 +36,7 @@ theorem readsPass: Parse.Reads pass PassWritten :=
     Parse.readsThen (Parse.readsExactly 3 leftRight _ (readsHalf 'L' 'R')) (columnRead column (Both columnEach
         columnLength) =>
       Parse.readsDone
-        { row, column }
+        { row, column } _
         (Both
           (arithmetic)
           (Both

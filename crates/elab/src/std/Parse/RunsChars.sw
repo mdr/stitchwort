@@ -1167,7 +1167,7 @@ theorem Parse.cannotStartAtBreaks ∀ (canStart: Char → Bool)
   match input, only with
     | [], only => char more found => Void.impossible (List.consNotNil char more found.flipped)
     | [first, ..others], only => char more found =>
-      rewrite <- List.consInjectiveHead found then
+      rewrite <- List.consInjectiveHead _ _ _ _ found then
         match Parse.lineBreakChar first only.left with
           | Inl same => rewrite same then lf
           | Inr same => rewrite same then cr
@@ -1179,8 +1179,8 @@ theorem Parse.cannotStartAfterBreak ∀ (canStart: Char → Bool)
     (isBreak: Parse.LineBreak lineBreak):
     Parse.CannotStart canStart (lineBreak ++ after) :=
   match isBreak with
-    | Inl same => rewrite same then (char more found => rewrite <- List.consInjectiveHead found then lf)
-    | Inr same => rewrite same then (char more found => rewrite <- List.consInjectiveHead found then cr)
+    | Inl same => rewrite same then (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found then lf)
+    | Inr same => rewrite same then (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found then cr)
 
 --| A blank line, then anything, doesn't start with what `canStart` allows,
 --| if it allows no line break, space or tab.
@@ -1341,7 +1341,8 @@ theorem Parse.declinesLinesAtBlank ∀ (p: () → {Parse Char} a) (canStart: Cha
       let after := middle ++ (last ++ more)
       let afterCannot: Parse.CannotStart canStart after := match middle with
         | [] => Parse.cannotStartAfterBreak canStart lf cr last more lastBreak
-        | [blank1, ..others] => char rest found => rewrite <- List.consInjectiveHead found then space blank1 spaced.left
+        | [blank1, ..others] => char rest found =>
+          rewrite <- List.consInjectiveHead _ _ _ _ found then space blank1 spaced.left
       rewrite split, List.appendAssoc first (middle ++ last) more, List.appendAssoc middle last more then
         Parse.declinesAfter Parse.newline
           (u => p())

@@ -155,7 +155,7 @@ theorem givesItemsFrom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (headed: HeadedItems found):
     Parse.Gives GoodTokens (() => itemsFrom fuel self closer found) ParsedListFound :=
   match fuel with
-    | Zero => Parse.readsFatal
+    | Zero => Parse.readsFatal _ _
     | Succ more => Parse.givesThen (givesItem self nested) (read parsed =>
       match read, parsed with
         | (value, True), (valueShaped, valueLexical, valueHeaded) =>
@@ -585,7 +585,7 @@ theorem givesBodyFuel ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     Parse.Gives GoodTokens (() => bodyFuel fuel self layout) (ParsedBody layout) :=
   Parse.readsPeek _ _ (start fine =>
     match fuel with
-      | Zero => Parse.readsFatal
+      | Zero => Parse.readsFatal _ _
       | Succ more =>
         match layout with
           | InBrackets => givesInline self InBrackets nested

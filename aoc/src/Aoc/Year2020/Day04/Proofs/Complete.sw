@@ -292,7 +292,7 @@ theorem declinesStepAtBlank ∀ (blank more: List Char)
       let afterCannot: Parse.CannotStart isValueChar after := match middle with
         | [] => Parse.cannotStartAfterBreak isValueChar byComputing byComputing last more lastBreak
         | [blank1, ..others] => char rest found =>
-          rewrite <- List.consInjectiveHead found then spaceNotValue blank1 spaced.left
+          rewrite <- List.consInjectiveHead _ _ _ _ found then spaceNotValue blank1 spaced.left
       rewrite split, List.appendAssoc first (middle ++ last) more, List.appendAssoc middle last more then
         declinesStepAfterBreak first after firstBreak afterCannot
 
@@ -328,7 +328,7 @@ theorem runsPassport ∀ (read: List Char) (who: Passport)
                   | Inr isBreak => Parse.lineBreakNotEmpty read2 u isBreak)
               (read2 after u written3 =>
                 match written3 with
-                  | Inl same => rewrite same then (char more found => rewrite <- List.consInjectiveHead found)
+                  | Inl same => rewrite same then (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found)
                   | Inr isBreak => Parse.cannotStartAfterBreak isValueChar byComputing byComputing read2 after isBreak)
               (Parse.cannotStartAtLinesEnd isValueChar byComputing byComputing spaceNotValue rest end)
               (declinesStepAtLinesEnd rest end)

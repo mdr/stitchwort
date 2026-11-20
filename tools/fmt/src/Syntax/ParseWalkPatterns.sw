@@ -53,7 +53,7 @@ theorem givesPatternAppendOf ∀ (pself: PatternGoal → {Parse Item} Pattern) (
       match isTextPattern start with
         | True => Parse.givesThen givesBump (operator _ =>
           Parse.givesThen (nested { modes, level = next }) (tail _ => Parse.givesDone byComputing))
-        | False => Parse.readsFatal
+        | False => Parse.readsFatal _ _
 
 theorem givesPatternAppend ∀ (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes)
     (start: Pattern) (next: PatternLevel)
@@ -160,7 +160,7 @@ theorem givesCtorRecordArgument ∀ (pself: PatternGoal → {Parse Item} Pattern
     (nested: PatternNested pself):
     Parse.Gives GoodItems (() => ctorRecordArgument pself modes name found) (pat => True) :=
   match lastIsUpper name found with
-    | True => Parse.readsFatal
+    | True => Parse.readsFatal _ _
     | False => Parse.givesThen (givesFieldsPattern pself modes nested) (fields _ => Parse.givesDone byComputing)
 
 theorem givesCtorArgList ∀ (fuel: Nat) (pself: PatternGoal → {Parse Item} Pattern) (modes: Modes) (name: Word)
@@ -211,7 +211,7 @@ theorem givesCtorFieldsEnd ∀ (name: Word) (fields: FieldsPattern) (stops: Tok 
     | Some kind =>
       match stops kind with
         | True => Parse.givesDone byComputing
-        | False => Parse.readsFatal
+        | False => Parse.readsFatal _ _
     | None => Parse.givesDone byComputing
 
 theorem givesCtorListEnd ∀ (name: Word) (arguments: List Pattern):
@@ -346,7 +346,7 @@ theorem givesListPatternClose ∀ (inner: Modes) (open: Word) (items: List Patte
     (tail: Option (Word, Pattern)) (comma: Bool):
     Parse.Gives GoodItems (() => listPatternClose inner open items trailingComma tail comma) (pat => True) :=
   match tail, comma with
-    | Some pair, True => Parse.readsFatal
+    | Some pair, True => Parse.readsFatal _ _
     | Some pair, False =>
       Parse.givesThen (givesExpectAny inner RBracket "`]`: a `..` tail must be the last item") (close _ =>
         Parse.givesDone byComputing)
@@ -484,7 +484,7 @@ theorem givesPlainPatternOn ∀ (pself: PatternGoal → {Parse Item} Pattern) (m
     | Some Num => givesBumpedWord Num
     | Some CharLit => givesBumpedWord CharLit
     | Some Str => givesBumpedWord Str
-    | Some StrStart => Parse.readsFatal
+    | Some StrStart => Parse.readsFatal _ _
     | Some LBrace => Parse.givesThen (givesFieldsPattern pself modes nested) (fields _ => Parse.givesDone byComputing)
     | Some LBracket =>
       Parse.givesAfter0 (reads0PeekAt modes 1) (second => givesBracketPattern pself modes nested second)

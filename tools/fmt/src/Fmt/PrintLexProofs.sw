@@ -490,10 +490,10 @@ theorem foldAlike ∀ (kinds: Text → Tok) (text: Text) (rest: List Text) (piec
     | False =>
       let first: pieceOf kinds text = piece :=
         List.consInjectiveHead
-          [x := pieceOf kinds text]
-          [y := piece]
-          [xs := pieceFold kinds rest]
-          [ys := more]
+          (pieceOf kinds text)
+          piece
+          (pieceFold kinds rest)
+          more
           (Eq.trans (foldNotSpaces kinds text rest spaces).flipped made)
       alikeOfEq (pieceOf kinds text).chars piece.chars (Eq.cong (later => later.chars) first)
 

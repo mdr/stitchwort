@@ -87,7 +87,7 @@ theorem Parse.followsAt ∀ [same: t → u → Prop] [alike: a → b → Prop] [
     follows state other value after (rewrite atStart, atTwin then marks) ran
 
 --| A finished value: `x` follows `y` where they are alike. Nothing is read.
-theorem Parse.followsDone ∀ [same: t → u → Prop] [alike: a → b → Prop] [x: a] [y: b] (holds: alike x y):
+theorem Parse.followsDone ∀ [same: t → u → Prop] [alike: a → b → Prop] (x: a) (y: b) (holds: alike x y):
     Parse.Follows same alike (() => x) (() => y) :=
   state other value after marks ran =>
     let got := Result.okInjective ran
@@ -229,7 +229,7 @@ theorem Parse.followsMap ∀ [same: t → u → Prop] [between: a → b → Prop
     [q: () → {Parse u} b] (f: a → c) (g: b → d) (maps: ∀ (x: a) (y: b) => between x y → alike (f x) (g y))
     (first: Parse.Follows same between p q):
     Parse.Follows same alike (() => f (p())) (() => g (q())) :=
-  Parse.followsThen first (x y holds => Parse.followsDone (maps x y holds))
+  Parse.followsThen first (x y holds => Parse.followsDone (f x) (g y) (maps x y holds))
 
 --| `k (Parse.mark())` follows `l (Parse.mark())` where `l n` follows `k m`
 --| from any alike marks `m`, `n`: [`Parse.FollowsAt`], which lets the proof
@@ -277,7 +277,7 @@ theorem Parse.followsLoopFrom ∀ [same: t → u → Prop] [alike: a → b → P
     | Zero => state other value after marks ran => (Result.errNotOk ran).impossible
     | Succ more => Parse.followsThen steps (result resultTwin alikeResult =>
       match result, resultTwin with
-        | None, None => Parse.followsDone (List.all2Reverse found foundTwin founds)
+        | None, None => Parse.followsDone found.reverse foundTwin.reverse (List.all2Reverse found foundTwin founds)
         | Some value, Some twin =>
           Parse.followsWithMark
             (after =>

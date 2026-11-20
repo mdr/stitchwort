@@ -27,7 +27,7 @@ theorem readsInstruction: Parse.Reads instruction InstructionWritten :=
         | True => Parse.readsFail "a turn has to be a multiple of 90 degrees" _
         | False =>
           Parse.readsDone
-            { action, value }
+            { action, value } _
             (Witness letter
               (Witness digits
                 (Both

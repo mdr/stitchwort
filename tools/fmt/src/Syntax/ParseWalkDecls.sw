@@ -105,7 +105,7 @@ theorem givesDeclaration ∀ (seen: Seen) (nested: Nested expressionAt)
   Parse.givesThen (frame.attributes Modes.start) (attributes _ =>
     Parse.givesAfter0 (reads0Peek Modes.start) (next =>
       match attributesRefused attributes next with
-        | Some message => Parse.readsFatal
+        | Some message => Parse.readsFatal _ _
         | None => Parse.givesThen (givesDeclarationKind seen Modes.start attributes nested outside frame) (decl ok =>
           givesDeclarationFinish Modes.start decl ok)))
 

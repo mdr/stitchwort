@@ -35,19 +35,15 @@ theorem expressionRuleFollows: ExpressionRule := self selfTwin knot =>
   let pis := followsPiExprAll knot
   let results := followsResultTypeAll knot
   let definitions := followsDefinitionPartsAll knot altPatternFollows
-  followsExpressionRule knot groups binders
-    (inductFollows knot expects)
-    (reifyFollows knot expects lowers)
-    pis
-    results
-    (handleFollows knot expects lowers)
-    (letStatementFollows knot expects)
-    (letBodyFollows knot)
-    (calcFollows knot expects lowers groups binders results)
-    (rewriteFollows knot expects lowers)
-    (followsCasesExpr knot)
-    (statementFollows knot expects lowers followsAttributesOfAll definitions groups binders pis results)
-    (thenBodyFollows knot expects lowers followsAttributesOfAll definitions groups binders pis results)
+  let keywords := keywordFactsOf knot expects lowers groups binders pis results
+  let statements: StatementFacts self selfTwin := {
+    below = keywords,
+    statements = statementFollows knot expects lowers followsAttributesOfAll definitions groups binders pis results
+  }
+  followsExpressionRule {
+    below = statements,
+    thens = thenBodyFollows knot expects lowers followsAttributesOfAll definitions groups binders pis results
+  }
 
 --| A declaration follows itself, for every `Seen`.
 theorem declarationFollows ∀ (seen: Seen):
@@ -65,7 +61,7 @@ theorem groupDeclarationFollows ∀ (seen: Seen):
       (() =>
         let decl := declaration seen
         decl) :=
-  Parse.followsThen (declarationFollows seen) (decl declTwin decls => Parse.followsDone decls)
+  Parse.followsThen (declarationFollows seen) (decl declTwin decls => Parse.followsDone decl declTwin decls)
 
 --| The parser reads a declaration group's comments only into the tree: a group's leaves parse to a declaration, and
 --| any leaves with the same tokens parse to one equal to it once both are blanked. Stated for the parser

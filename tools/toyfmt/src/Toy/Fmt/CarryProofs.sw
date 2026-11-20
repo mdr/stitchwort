@@ -350,7 +350,7 @@ theorem readsSkipAt ∀ (start: Parse.Mark Tok) (token: Tok) (later: List Tok)
         (rewrite here then honest)
         h with
         | (isSome, starts, honestAfter) => ([token], (rewrite <- here then starts), honestAfter, byComputing))
-    (read skipped middle starts single => Parse.readsAtDone middle () (rewrite single))
+    (read skipped middle starts single => Parse.readsAtDone middle () _ (rewrite single))
 
 --| `skip` of the layout's first token, seen at `start`, then the rest.
 theorem skipStarted ∀ [inv: Parse.Invariant Tok] [j: () → {Parse Tok} b] [measure: b → List Comment] [extra: b → Prop]
@@ -408,7 +408,7 @@ theorem ontoDone ∀ [inv: Parse.Invariant Tok] [measure: a → List Comment] [e
     [before: List Comment → List Comment] [x: a] (holds: extra x)
     (same: measure x = before []):
     Parse.ReadsIn inv (() => x) (Onto layout before measure extra) :=
-  Parse.readsDone x (holds, (past => same))
+  Parse.readsDone x _ (holds, (past => same))
 
 -- Chains through a step that needs the next token `Tidy`.
 
@@ -464,7 +464,7 @@ theorem lastlyTidy ∀ [p: () → {Parse Tok} a] [f: a → b] [first: a → List
   start fine tidy =>
     Parse.readsAtThen (readsLast start fine tidy) (read v after starts carried =>
       Parse.readsAtDone after
-        (f v)
+        (f v) _
         (rewrite List.appendNil read then
           (
             (holds v),

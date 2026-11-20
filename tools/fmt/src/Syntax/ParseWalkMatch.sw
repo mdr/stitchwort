@@ -63,7 +63,7 @@ theorem givesMatchArm ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (modes:
   Parse.givesThen givesBump (bar _ =>
     Parse.givesThen (givesArmPatterns modes) (patterns _ =>
       match patterns.length != scrutinees with
-        | True => Parse.readsFatal
+        | True => Parse.readsFatal _ _
         | False => Parse.givesThen (givesGuardOf self modes nested) (guard _ =>
           Parse.givesThen (givesArmBody self modes nested (anyAbsurd patterns) "`=>`") (body _ =>
             givesMatchArms more self modes nested scrutinees column [{ bar, patterns, guard, body }, ..found]))))
@@ -131,7 +131,7 @@ theorem givesClauseArm ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (modes
       match count with
         | Some first =>
           match first != patterns.length with
-            | True => Parse.readsFatal
+            | True => Parse.readsFatal _ _
             | False => givesClauseArmBody more self modes nested kind column found bar patterns
         | None => givesClauseArmBody more self modes nested kind column found bar patterns))
 
@@ -189,7 +189,7 @@ theorem givesOperationEnd ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     Parse.Gives GoodItems (() => operationEnd self modes bar operation argument comma continuation atComma) (found =>
       True) :=
   match atComma with
-    | True => Parse.readsFatal
+    | True => Parse.readsFatal _ _
     | False => Parse.givesThen (givesExpectFixed modes FatArrow "`=>`") (arrow _ =>
       Parse.givesThen (givesFullAny self modes nested) (body _ => Parse.givesDone byComputing))
 
@@ -198,7 +198,7 @@ theorem givesOperationClause ∀ (self: Goal → {Parse Item} Expr) (modes: Mode
     (bar: Comments) (operation: Word) (argument: Pattern) (atArrow: Bool):
     Parse.Gives GoodItems (() => operationClause self modes bar operation argument atArrow) (found => True) :=
   match atArrow with
-    | True => Parse.readsFatal
+    | True => Parse.readsFatal _ _
     | False => Parse.givesThen (givesExpectFixed modes Comma "`,` and a name for the continuation") (comma _ =>
       Parse.givesThen (givesHandlerNameAt modes "a name for the continuation") (continuation _ =>
         Parse.givesAfter0 (reads0At modes Comma) (atComma =>
@@ -272,7 +272,7 @@ theorem givesReifyComma ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (keyword reify: Comments) (computation: Expr) (comma: Bool):
     Parse.Gives GoodItems (() => reifyComma self modes keyword reify computation comma) Out :=
   match comma with
-    | True => Parse.readsFatal
+    | True => Parse.readsFatal _ _
     | False => Parse.givesThen (givesExpectFixed modes KwWith "`with`") (withKeyword _ =>
       Parse.givesThen (givesHandlerClauses self modes nested) (clauses _ => Parse.givesDone byComputing))
 
@@ -331,7 +331,7 @@ theorem givesInductComma ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (keyword induct: Comments) (call: Expr) (comma: Bool):
     Parse.Gives GoodItems (() => inductComma self modes keyword induct call comma) Out :=
   match comma with
-    | True => Parse.readsFatal
+    | True => Parse.readsFatal _ _
     | False => Parse.givesThen (givesExpectFixed modes KwWith "`with`") (withKeyword _ =>
       Parse.givesThen Parse.givesMark (here _ =>
         Parse.givesThen (givesInductArms (here.left + 1) self modes nested None []) (arms _ =>
@@ -436,8 +436,8 @@ theorem givesDefinitionArmStep ∀ (self: Goal → {Parse Item} Expr) (modes: Mo
                     Parse.givesDone byComputing))
                 | False =>
                   match next.kind == Pipe with
-                    | True => Parse.readsFatal
-                    | False => Parse.readsFatal
+                    | True => Parse.readsFatal _ _
+                    | False => Parse.readsFatal _ _
 
 theorem givesDefinitionArmsFrom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self) (d: Nat):
@@ -459,10 +459,10 @@ theorem givesDefinitionArmsOn ∀ (self: Goal → {Parse Item} Expr) (modes: Mod
   match items with
     | [first, ..rest] =>
       match !first.leaf.token.lineStart with
-        | True => Parse.readsFatal
+        | True => Parse.readsFatal _ _
         | False =>
           match first.leaf.token.column <= d with
-            | True => Parse.readsFatal
+            | True => Parse.readsFatal _ _
             | False => givesDefinitionArmsFrom self { modes | limit = Some first.leaf.token.column } nested d
     | [] => givesFail modes _
 

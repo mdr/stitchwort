@@ -240,7 +240,7 @@ theorem nameNotIn ∀ (kind: Tok) (text: Text) (first: Char) (others: List Char)
             (qualChars [(letter, letters), ..more])
             (Bool.andIntro (Syntax.SharedFacts.wordStartChar first starts) word)
             byComputing
-      let head := List.consInjectiveHead (Eq.trans whole.flipped same)
+      let head := List.consInjectiveHead first 'i' others ['n'] (Eq.trans whole.flipped same)
       let notUpper: first.isAsciiUppercase = False := rewrite head
       Bool.falseNotTrue (Eq.trans notUpper.flipped isUpper)
 
@@ -272,7 +272,7 @@ theorem leadsNotIn ∀ (text: Text) (leads: Leads text): text.toList.takeWhile i
         (Inr (Inr (Inr (Inr (Inr (Inr (Inr (Witness first (Witness _ (Witness _ (Both split (Both digit _)))))))))))) =>
     same =>
       let wordChar := digitWordChar first digit
-      let head := List.consInjectiveHead (rewrite split, wordChar at same then same)
+      let head := List.consInjectiveHead first 'i' _ ['n'] (rewrite split, wordChar at same then same)
       DecEq.soundFalse first 'i' (digitNotI first digit) head
 
 theorem minusFollows ∀ (text: Text)
@@ -1218,7 +1218,7 @@ theorem headNotLayout ∀ (text: Text) (first: Char) (others: List Char)
   match isLine: text == "\n" with
     | True =>
       let same := DecEq.sound isLine
-      let head := List.consInjectiveHead (rewrite same at split then split)
+      let head := List.consInjectiveHead '\n' first [] others (rewrite same at split then split)
       (DecEq.soundFalse first '\n' line head.flipped).impossible
     | False => rewrite blanks
 
