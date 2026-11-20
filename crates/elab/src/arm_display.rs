@@ -30,13 +30,13 @@
 use std::rc::Rc;
 
 use stitchwort_core::collections::HashMap;
-use stitchwort_core::value::{eval, quote, quote_folded};
+use stitchwort_core::value::{eval, quote};
 use stitchwort_core::{Term, Value};
 use stitchwort_syntax::Span;
 use stitchwort_syntax::ast::Expr;
 
 use crate::Tree;
-use crate::check::Ctx;
+use crate::check::{Ctx, quote_folded};
 use crate::kernel;
 
 /// What the first split of a case tree found, shared by all its splits.

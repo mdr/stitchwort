@@ -1402,7 +1402,7 @@ const BLOCKED_DEPTH: usize = 3;
 /// a computation stuck on an unknown solved since takes its steps.
 fn afresh(g: &Unifier<'_>, level: usize, v: &Value) -> Result<Value> {
     let env: Vec<Value> = (0..level).map(Value::var).collect();
-    eval(g, &env, &quote_folded(g, level, v)?)
+    eval(g, &env, &crate::check::quote_folded(g, level, v)?)
 }
 
 /// Whether `v` may be a definition stuck on an unknown that has been solved
@@ -3106,6 +3106,7 @@ fn rename(
                     Err(Fail::Out(e))
                 }
                 Ok(term) => {
+                    budget.set_too_large(noted);
                     budget.set_ran_out_in(ran_out_in);
                     Ok(term)
                 }
@@ -3771,6 +3772,9 @@ pub(crate) fn value_forms(g: &Ev, level: usize, value: &Value) -> Result<Vec<Ter
     let mut forms = vec![quote_as_written(g, level, value)?];
     for folded in [true, false] {
         let read = || match folded {
+            // Within `cheap_limits`: a form too large to read is left out, so
+            // the fallback to the call as written is the `quote_as_written` above.
+            #[allow(clippy::disallowed_methods)]
             true => quote_folded(g, level, value),
             false => quote(g, level, value),
         };
@@ -4840,6 +4844,7 @@ mod tests {
         // ?m x0 x1 = first x0 x1, so ?m = a b => first a b, not a b => a.
         let (m, lhs) = meta(g, &[0, 1]);
         assert!(unify(g, 2, &lhs, &first_of(g, id, 2, 0, 1)).unwrap());
+        #[allow(clippy::disallowed_methods)]
         let solution = quote_folded(g, 0, &g.meta_solution(m).expect("solved")).unwrap();
         assert!(
             solution

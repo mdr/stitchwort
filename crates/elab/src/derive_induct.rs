@@ -57,10 +57,11 @@ use stitchwort_core::Ev;
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Branch;
-use stitchwort_core::value::{conv, eval, quote, quote_folded};
+use stitchwort_core::value::{conv, eval, quote};
 use stitchwort_core::{DataId, DefId, Icit, Name, Sort, Term, Value};
 use stitchwort_syntax::Diagnostic;
 
+use crate::check::quote_folded;
 use crate::{Elaborator, Global, kernel};
 
 /// Why generation stops: a shape it doesn't cover (nothing is generated),

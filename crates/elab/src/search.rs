@@ -115,7 +115,7 @@ pub struct Pattern {
 impl Pattern {
     /// The pattern, read back folded, for messages and the JSON's `query`.
     pub fn show(&self, g: &Ev) -> String {
-        match stitchwort_core::value::quote_folded(g, 0, &self.value) {
+        match crate::check::quote_folded(g, 0, &self.value) {
             Ok(t) => stitchwort_core::pretty::term(g, &[], &t),
             Err(_) => "?".into(),
         }
@@ -124,7 +124,7 @@ impl Pattern {
     /// [`Pattern::show`] with calls written as calls, so that
     /// `List.append` and `Text.append` differ (both print as `++`).
     pub fn show_calls(&self, g: &Ev) -> String {
-        match stitchwort_core::value::quote_folded(g, 0, &self.value) {
+        match crate::check::quote_folded(g, 0, &self.value) {
             Ok(t) => stitchwort_core::pretty::term_calls(g, &[], &t),
             Err(_) => "?".into(),
         }
@@ -442,7 +442,7 @@ fn split_conjunction(
     }
     for (right, side) in [(false, &args[0]), (true, &args[1])] {
         let here = part.then(right);
-        out.push((here, stitchwort_core::value::quote_folded(g, level, side)?));
+        out.push((here, crate::check::quote_folded(g, level, side)?));
         split_conjunction(g, side.clone(), level, and, here, out)?;
     }
     Ok(())
@@ -816,7 +816,7 @@ fn rep(g: &Ev, m: usize) -> Res<Now> {
     Ok(match v {
         Value::Neutral(Head::Meta(r), s) if s.is_empty() => Now::Meta(r),
         Value::Neutral(Head::Var(..), s) if s.is_empty() && level > 0 => Now::Var,
-        v => Now::Size(size(&stitchwort_core::value::quote_folded(g, level, &v)?)),
+        v => Now::Size(size(&crate::check::quote_folded(g, level, &v)?)),
     })
 }
 
@@ -1018,8 +1018,8 @@ impl Elaborator {
                 ));
             }
             let make = |value: Value, via: Option<Via>| -> Pattern {
-                let zonked = stitchwort_core::value::quote_folded(g, 0, &value)
-                    .unwrap_or_else(|_| term.clone());
+                let zonked =
+                    crate::check::quote_folded(g, 0, &value).unwrap_or_else(|_| term.clone());
                 let metas = self.metas().metas.borrow().len();
                 Pattern {
                     head: head_key(&zonked),
@@ -1270,7 +1270,7 @@ impl Elaborator {
         {
             return Ok(None);
         }
-        let quoted = stitchwort_core::value::quote_folded(g, 0, &value)?;
+        let quoted = crate::check::quote_folded(g, 0, &value)?;
         let metas = self.metas().metas.borrow().len();
         Ok(Some(Pattern {
             head: head_key(&quoted),
@@ -1364,7 +1364,7 @@ impl Elaborator {
         let found = (|| {
             let _op = g.machine.budget.attempt(ATTEMPT);
             let v = eval(g, &[], ty)?;
-            stitchwort_core::value::quote_folded(g, 0, &v)
+            crate::check::quote_folded(g, 0, &v)
         })();
         g.machine.glue.set(was);
         let mut index = Index {
@@ -1762,7 +1762,7 @@ fn type_holes(
             if s.is_empty() {
                 g.store.set_meta_type(m, (*dom).clone(), 0);
             } else if s.iter().all(|e| matches!(e, Elim::App(_, Icit::Explicit))) {
-                let mut function = stitchwort_core::value::quote_folded(g, 0, &dom)?;
+                let mut function = crate::check::quote_folded(g, 0, &dom)?;
                 for _ in 0..s.len() {
                     let domain = g.store.new_meta(span);
                     function = Term::Pi(

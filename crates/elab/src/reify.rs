@@ -24,13 +24,13 @@
 //! thunk whose row is closed and lists its abilities.
 
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::value::{force, quote, quote_folded};
+use stitchwort_core::value::{force, quote};
 use stitchwort_core::{Term, Value};
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{self, Alt, Clause, Expr, MatchKind, Pattern};
 
 use crate::Global;
-use crate::check::{Ctx, Result, builtin_data, infer, infer_unrun, insert};
+use crate::check::{Ctx, Result, builtin_data, infer, infer_unrun, insert, quote_folded};
 use crate::effects::{REC, Row, comp_parts};
 use crate::{UNIT_PATTERN, internal_ctor_pattern};
 

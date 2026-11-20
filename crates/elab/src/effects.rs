@@ -616,7 +616,7 @@ fn fits_row(cx: &Ctx, level: usize, row: &Row, res_arg: &Value) -> Result<bool> 
 fn same_results(cx: &Ctx, level: usize, written: &Value, own: &Value) -> Result<Option<bool>> {
     let g = &cx.u();
     let unknown = |v: &Value| -> Result<bool> {
-        let t = stitchwort_core::value::quote(g, level, v)?;
+        let t = crate::check::quote_or_written(g, level, v)?.0;
         Ok(t.subterms().any(|(t, _)| matches!(t, Term::Meta(_))))
     };
     if unknown(written)? || unknown(own)? {
@@ -1479,8 +1479,7 @@ fn res_ending(cx: &Ctx, labels: &[Label], end_ops: Value, end_res: Value) -> Res
 /// row `from`, moved by `m` into `from`'s abilities followed by `tail`.
 fn widen(cx: &Ctx, from: &Row, t: &Value, tail: Term, m: Term, term: Term) -> Result<Term> {
     let level = cx.level();
-    let quote_at =
-        |depth: usize, v: &Value| stitchwort_core::value::quote_folded(&cx.g(), level + depth, v);
+    let quote_at = |depth: usize, v: &Value| crate::check::quote_folded(&cx.g(), level + depth, v);
     // `t => Plus A (Plus B … t)`.
     let pre_body = ops_ending(cx, &from.labels, Value::var(level))?;
     let pre = Term::Lam("t".into(), Icit::Explicit, Rc::new(quote_at(1, &pre_body)?));
@@ -4668,7 +4667,7 @@ fn make_call(
         injected = Term::ctor(plus, 1, vec![injected]);
     }
     let comp = comp_type(cx, &row.total(), result_ty.clone())?;
-    let comp_inner = stitchwort_core::value::quote_folded(&cx.g(), cx.level() + 1, &comp)?;
+    let comp_inner = crate::check::quote_folded(&cx.g(), cx.level() + 1, &comp)?;
     let done = Term::Ann(
         Rc::new(Term::ctor(data(cx, Builtin::Comp)?, 0, vec![Term::Var(0)])),
         Rc::new(comp_inner),
@@ -5064,7 +5063,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
         let with_implicits = |b: Builtin, depth: usize| -> Result<Term> {
             let mut term = Term::Def(def(cx, b)?);
             for v in [&rest_ops, &rest_res, &out_ops, &out_res] {
-                let v = stitchwort_core::value::quote_folded(&cx.g(), level + depth, v)?;
+                let v = crate::check::quote_folded(&cx.g(), level + depth, v)?;
                 term = Term::app_icit(term, v, Icit::Implicit);
             }
             Ok(term)
@@ -5097,9 +5096,8 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             // `callD d out (sigInject m o) (y => k (…))`: the operation
             // performed in a row that may be partial, then the handler goes
             // on.
-            let quoted = |v: &Value, depth: usize| {
-                stitchwort_core::value::quote_folded(&cx.g(), level + depth, v)
-            };
+            let quoted =
+                |v: &Value, depth: usize| crate::check::quote_folded(&cx.g(), level + depth, v);
             let out_row = row_value(cx, &out.without_div())?;
             let mut call_d = Term::app_icit(
                 Term::Def(def(cx, Builtin::CallD)?),
@@ -5114,7 +5112,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             // `bindD (lift (Call (sigInject m o) Done)) (\y -> k (…))`: the
             // carrier is a `Delay`, so the operation is performed, and then
             // the handler goes on.
-            let quoted = |v: &Value| stitchwort_core::value::quote_folded(&cx.g(), level + 2, v);
+            let quoted = |v: &Value| crate::check::quote_folded(&cx.g(), level + 2, v);
             let ans = Term::app(quoted(&out_res)?, inject.clone());
             let done = Term::Lam(
                 "y".into(),
@@ -5135,9 +5133,8 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             // the handler's result is a `CompIn e t`, and an operation
             // forwarded to `{e}` is a tree.
             let tail = out.tail.as_ref().expect("bare");
-            let quoted = |v: &Value, depth: usize| {
-                stitchwort_core::value::quote_folded(&cx.g(), level + depth, v)
-            };
+            let quoted =
+                |v: &Value, depth: usize| crate::check::quote_folded(&cx.g(), level + depth, v);
             let lift_in = Term::app(
                 Term::app(
                     Term::app_icit(

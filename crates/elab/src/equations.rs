@@ -2572,7 +2572,7 @@ impl Elaborator {
         if !matches!(force(g, (*ty).clone())?, Value::Data(b, _) if b == lib.bool) {
             return Ok(None);
         }
-        let l = stitchwort_core::value::quote_folded(g, depth, &l)?;
+        let l = crate::check::quote_folded(g, depth, &l)?;
         let r = stitchwort_core::value::quote(g, depth, &r)?;
         let eq = Term::Eq(Some(Rc::new(lib.bool_ty())), Rc::new(l), Rc::new(r));
         Ok(lib.bool_test(&eq).map(|_| eq))
@@ -5440,7 +5440,7 @@ fn pure_at_empty(g: &Ev, t: &Term, depth: usize) -> stitchwort_core::budget::Res
     let env: Vec<Value> = (0..depth).map(Value::var).collect();
     let value = eval(g, &env, &t)?;
     let stepped = force(g, value)?;
-    let back = stitchwort_core::value::quote_folded(g, depth, &stepped)?;
+    let back = crate::check::quote_folded(g, depth, &stepped)?;
     if matches!(back.spine().0, Term::Def(d) if d == id) {
         return Ok(t);
     }

@@ -4,6 +4,10 @@
 //! The checker here is the small trusted kernel that re-checks every
 //! definition the elaborator produces (DESIGN.md §11). See `docs/core.md`.
 
+// clippy.toml's `disallowed-methods` entry for `value::quote_folded` guards
+// the elaborator's read-backs; the kernel reads back as it always has.
+#![allow(clippy::disallowed_methods)]
+
 #[cfg(test)]
 use stitchwort_test_alloc as _;
 

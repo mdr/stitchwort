@@ -2059,11 +2059,7 @@ impl Elaborator {
             Value::Ctor(_, 0, fields)
                 if matches!(fields[field], Value::Neutral(Head::Def(_), _)) =>
             {
-                Some(stitchwort_core::value::quote_folded(
-                    g,
-                    depth,
-                    &fields[field],
-                )?)
+                Some(crate::check::quote_folded(g, depth, &fields[field])?)
             }
             _ => None,
         })
