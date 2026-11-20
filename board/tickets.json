@@ -29161,12 +29161,12 @@
     {
       "id": 4373,
       "title": "[DeepSeek] check --expand-walk: add --stdout (print the expanded file instead of overwriting it), after SW-4239 merges (SW-4239 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nModel result: DeepSeek, worked, 20 min (est. 20)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
