@@ -627,7 +627,7 @@ theorem rightNestedDeaf ∀ (first firstTwin: Expr) (links linksTwin: List (Word
   match links, linksTwin with
     | [], [] => sameFirst
     | [(operator, next), ..rest], [(operatorTwin, nextTwin), ..restTwin] =>
-      let heads := List.consInjectiveHead _ _ _ _ sameLinks
+      let heads := List.consInjectiveHead sameLinks
       let tails := Eq.cong (.drop 1) sameLinks
       let sameOperator: operator.blank = operatorTwin.blank := Pair.mkInjectiveFst heads
       let sameNext: next.walk blankPure = nextTwin.walk blankPure := Pair.mkInjectiveSnd heads
@@ -642,7 +642,7 @@ theorem leftNestedDeaf ∀ (first firstTwin: Expr) (links linksTwin: List (Word,
   match links, linksTwin with
     | [], [] => sameFirst
     | [(operator, next), ..rest], [(operatorTwin, nextTwin), ..restTwin] =>
-      let heads := List.consInjectiveHead _ _ _ _ sameLinks
+      let heads := List.consInjectiveHead sameLinks
       let tails := Eq.cong (.drop 1) sameLinks
       let sameOperator: operator.blank = operatorTwin.blank := Pair.mkInjectiveFst heads
       let sameNext: next.walk blankPure = nextTwin.walk blankPure := Pair.mkInjectiveSnd heads
@@ -693,7 +693,7 @@ theorem conjunctionOfDeaf ∀ (first firstTwin: Expr) (links linksTwin: List (Wo
   match links, linksTwin with
     | [], [] => (sameFirst, sameLinks)
     | [(and, next), ..rest], [(andTwin, nextTwin), ..restTwin] =>
-      let heads := List.consInjectiveHead _ _ _ _ sameLinks
+      let heads := List.consInjectiveHead sameLinks
       let tails := Eq.cong (.drop 1) sameLinks
       let sameAnd: and.blank = andTwin.blank := Pair.mkInjectiveFst heads
       let sameNext: next.walk blankPure = nextTwin.walk blankPure := Pair.mkInjectiveSnd heads
@@ -720,7 +720,7 @@ theorem groupFromDeaf ∀ (fuel: Nat) (conjunction conjunctionTwin: Expr) (after
     | Zero, _, _ => sameConjunction
     | Succ more, [], [] => sameConjunction
     | Succ more, [(or, next), ..rest], [(orTwin, nextTwin), ..restTwin] =>
-      let heads := List.consInjectiveHead _ _ _ _ sameAfter
+      let heads := List.consInjectiveHead sameAfter
       let tails := Eq.cong (.drop 1) sameAfter
       let sameOr: or.blank = orTwin.blank := Pair.mkInjectiveFst heads
       let sameNext: next.walk blankPure = nextTwin.walk blankPure := Pair.mkInjectiveSnd heads
@@ -773,7 +773,7 @@ theorem sameCodeOfMaps ∀ (xs ys: List Item)
   match xs, ys with
     | [], [] => Trivial
     | [x, ..more], [y, ..moreTwin] =>
-      let head := List.consInjectiveHead _ _ _ _ same
+      let head := List.consInjectiveHead same
       let tail := Eq.cong (.drop 1) same
       (head, sameCodeOfMaps more moreTwin tail)
 
@@ -783,7 +783,7 @@ theorem tokensStripped ∀ (group other: List Leaf)
   match group, other with
     | [], [] => byComputing
     | [leaf, ..more], [twin, ..moreTwin] =>
-      let head: leaf.token = twin.token := List.consInjectiveHead _ _ _ _ same
+      let head: leaf.token = twin.token := List.consInjectiveHead same
       let tail := Eq.cong (.drop 1) same
       rewrite head, tokensStripped more moreTwin tail
 

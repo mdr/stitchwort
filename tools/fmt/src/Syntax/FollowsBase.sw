@@ -136,7 +136,7 @@ theorem followsBump: Parse.Follows SameCode WordsAlike (() => bump()) (() => bum
     (Parse.followsNext (item => True) (item => True) (x y same => byComputing))
     (found foundTwin alike =>
       match found, foundTwin with
-        | Some item, Some other => Parse.followsDone _ _ (wordsAlikeOfSame item other alike)
+        | Some item, Some other => Parse.followsDone (wordsAlikeOfSame item other alike)
         | None, None => Parse.followsFatal _ _)
 
 theorem followsBumpThen ∀ [alike: a → b → Prop] (k: Word → {Parse Item} a) (kTwin: Word → {Parse Item} b)
@@ -146,7 +146,7 @@ theorem followsBumpThen ∀ [alike: a → b → Prop] (k: Word → {Parse Item} 
   Parse.followsThen followsBump rest
 
 theorem followsLeft: Parse.Follows SameCode (List.All2 SameCode) (() => left()) (() => left()) :=
-  Parse.followsThen Parse.followsMark (m n marks => Parse.followsDone m.rest n.rest marks.left)
+  Parse.followsThen Parse.followsMark (m n marks => Parse.followsDone marks.left)
 
 theorem neverFailNameOn ∀ [a: Type] (modes: Modes) (what: Text) (items: List Item):
     Never [a := a] (() => modes.failNameOn what items) :=
@@ -198,14 +198,13 @@ theorem followsThenEq ∀ [alike: c → d → Prop] [p q: () → {Parse Item} a]
 theorem followsLook ∀ (read: List Item → r)
     (deaf: ∀ (items: List Item) => read items = read (items.map Item.stripped)):
     Parse.Follows SameCode Same (() => read left()) (() => read left()) :=
-  Parse.followsThen followsLeft (seen seenTwin same =>
-    Parse.followsDone _ _ (deafOfStripped read deaf seen seenTwin same))
+  Parse.followsThen followsLeft (seen seenTwin same => Parse.followsDone (deafOfStripped read deaf seen seenTwin same))
 
 theorem followsLeftCount: Parse.Follows SameCode Same (() => Parse.mark().left) (() => Parse.mark().left) :=
-  Parse.followsThen Parse.followsMark (m n marks => Parse.followsDone m.left n.left marks.right.right)
+  Parse.followsThen Parse.followsMark (m n marks => Parse.followsDone marks.right.right)
 
 theorem followsOffset: Parse.Follows SameCode Same (() => offset()) (() => offset()) :=
-  Parse.followsThen Parse.followsMark (m n marks => Parse.followsDone m.offset n.offset marks.right.left)
+  Parse.followsThen Parse.followsMark (m n marks => Parse.followsDone marks.right.left)
 
 theorem followsPeek ∀ (modes: Modes): Parse.Follows SameCode Same (() => modes.peek) (() => modes.peek) :=
   followsLook (peekIn modes 0) (peekInDeaf modes 0)
@@ -216,7 +215,7 @@ theorem followsPeekAt ∀ (modes: Modes) (ahead: Nat):
 
 theorem followsAt ∀ (modes: Modes) (wanted: Tok):
     Parse.Follows SameCode Same (() => modes.at wanted) (() => modes.at wanted) :=
-  followsThenEq (followsPeek modes) (seen => Parse.followsDone _ _ byComputing)
+  followsThenEq (followsPeek modes) (seen => Parse.followsDone byComputing)
 
 theorem followsPeeked ∀ [alike: a → b → Prop] (modes: Modes)
     (k: Option Tok → {Parse Item} a) (kTwin: Option Tok → {Parse Item} b)
@@ -237,7 +236,7 @@ theorem followsEat ∀ (modes: Modes) (wanted: Tok):
   followsThenEq (followsAt modes wanted) (here =>
     match here with
       | True => Parse.followsMap (word => Some word) (word => Some word) (x y alike => alike) followsBump
-      | False => Parse.followsDone None None Trivial)
+      | False => Parse.followsDone Trivial)
 
 theorem followsExpectOn ∀ (modes: Modes) (wanted: Tok) (what: Text) (seen: Option Tok):
     Parse.Follows SameCode WordsAlike (() => modes.expectOn wanted what seen) (() => modes.expectOn wanted what seen) :=
@@ -456,10 +455,8 @@ theorem followsCommaListFrom ∀ [alike: a → b → Prop] (modes: Modes) (ends 
           | True => Parse.followsThen followsBump (comma commaTwin commas =>
             followsThenEq (endsFollow count) (stop =>
               match stop with
-                | True => Parse.followsDone _ _ (
-                  List.all2Reverse [current, ..found] [currentTwin, ..foundTwin] sofar,
-                  byComputing
-                )
+                | True =>
+                  Parse.followsDone (List.all2Reverse [current, ..found] [currentTwin, ..foundTwin] sofar, byComputing)
                 | False => Parse.followsThen nexts (value valueTwin values =>
                   followsCommaListFrom modes ends endsTwin endsFollow next nextTwin nexts more
                     (count + 1)
@@ -469,9 +466,9 @@ theorem followsCommaListFrom ∀ [alike: a → b → Prop] (modes: Modes) (ends 
                     [current, ..found]
                     [currentTwin, ..foundTwin]
                     sofar)))
-          | False => Parse.followsDone _ _ done
-      | Succ more, None => Parse.followsDone _ _ done
-      | Zero, _ => Parse.followsDone _ _ done)
+          | False => Parse.followsDone done
+      | Succ more, None => Parse.followsDone done
+      | Zero, _ => Parse.followsDone done)
 
 theorem followsCommaList ∀ [alike: a → b → Prop] (modes: Modes) (ends endsTwin: Nat → {Parse Item} Bool)
     (endsFollow: ∀ (count: Nat) => Parse.Follows SameCode Same (() => ends count) (() => endsTwin count))
@@ -531,7 +528,7 @@ theorem followsAnnotated ∀ [self selfTwin: Goal → {Parse Item} Expr]
 
 theorem followsTupleEnds ∀ (inner: Modes) (count: Nat):
     Parse.Follows SameCode Same (() => tupleEnds inner count) (() => tupleEnds inner count) :=
-  followsThenEq (followsAt inner RParen) (closing => Parse.followsDone _ _ byComputing)
+  followsThenEq (followsAt inner RParen) (closing => Parse.followsDone byComputing)
 
 theorem followsTupleClose ∀ (modes: Modes):
     Parse.Follows SameCode WordsAlike (() => tupleClose modes) (() => tupleClose modes) :=
@@ -643,7 +640,7 @@ theorem followsAtEither ∀ (modes: Modes) (wanted other: Tok):
     Parse.Follows SameCode Same (() => modes.at wanted || modes.at other) (() => modes.at wanted || modes.at other) :=
   followsThenEq (followsAt modes wanted) (here =>
     match here with
-      | True => Parse.followsDone True True byComputing
+      | True => Parse.followsDone byComputing
       | False => followsAt modes other)
 
 theorem followsListItem ∀ [self selfTwin: Goal → {Parse Item} Expr]

@@ -269,7 +269,7 @@ theorem arrowHung ∀ (modes: Modes)
   let joined: [item, ..more] = [first, ..inside ++ [arrow, ..rightRead]] := calc [item, ..more]
     _ = leftRead ++ [arrow, ..rightRead] := isRead
     _ = [first, ..inside ++ [arrow, ..rightRead]] := rewrite isLeft
-  let isItem: item = first := List.consInjectiveHead item first more _ joined
+  let isItem: item = first := List.consInjectiveHead joined
   let itemLead: leadKind item.kind = True := rewrite isItem then starts
   let (lineLeft, lineOpRight) := lineSplit leftRead [arrow, ..rightRead] (rewrite <- isRead then lineRead)
   let lineRight: lineAll rightRead = True := Bool.andRight lineOpRight

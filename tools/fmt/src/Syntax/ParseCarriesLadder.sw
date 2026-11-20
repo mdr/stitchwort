@@ -38,7 +38,7 @@ theorem readsThenAfter ∀ [p: () → {Parse Item} a] [j: a → {Parse Item} Exp
 theorem readsDoneAfter ∀ (before: List Item) (value: Expr)
     (carried: Kept before value):
     Parse.ReadsIn GoodItems (() => value) (read tree => Kept (before ++ read) tree) :=
-  Parse.readsDone _ _ (rewrite List.appendNil before then carried)
+  Parse.readsDone _ (rewrite List.appendNil before then carried)
 
 --| `readsOut` for a tree that follows items already read.
 theorem readsOutFrom ∀ (before: List Item) [p: () → {Parse Item} Expr]
@@ -92,7 +92,7 @@ theorem readsPipesFrom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (in
         [p := () => left()]
         [j := items => pipesStep Zero self modes indent value (pipeAheadOn modes indent items)]
         reads0Left
-        (items => Parse.readsDone _ _ (Inl (byComputing, byComputing)))
+        (items => Parse.readsDone _ (Inl (byComputing, byComputing)))
     | Succ more =>
       readsAfter0
         [p := () => left()]
@@ -100,7 +100,7 @@ theorem readsPipesFrom ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (in
         reads0Left
         (items =>
           match pipeAheadOn modes indent items with
-            | False => Parse.readsDone _ _ (Inl (byComputing, byComputing))
+            | False => Parse.readsDone _ (Inl (byComputing, byComputing))
             | True => Parse.readsThen givesBump (r1 operator _ =>
               readsAfter0 (reads0LambdaHere modes) (lambdas =>
                 Parse.readsThen (givesPipeFunction self modes nested outside bases lambdas) (r2 function _ =>
@@ -134,7 +134,7 @@ theorem givesRangeEndOut ∀ (modes: Modes) (low: Expr) (operator: Word) (high: 
     Parse.Gives GoodItems (() => rangeEnd modes low operator high) Out :=
   Parse.givesAfter0 (reads0RangeChained modes) (chained =>
     match chained with
-      | True => Parse.readsFatal _ _
+      | True => Parse.readsFatal
       | False => Parse.givesDone byComputing)
 
 theorem givesRangeHighOut ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (low: Expr)
@@ -155,7 +155,7 @@ theorem readsRangeOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (low:
   match seen with
     | Some kind =>
       match isDots: kind == DotDot with
-        | True => Parse.readsFatal _ _
+        | True => Parse.readsFatal
         | False =>
           match isRange: kind == DotDotLt || kind == DotDotEq with
             | True => readsOutFrom before (givesRangeHighOut self modes low nested outside bases)
@@ -250,9 +250,8 @@ theorem readsCmpChain ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (lhs
         | True => Parse.readsWeaken (outside.comparisonChains modes lhs kind item.leaf.word second) (read tree out =>
           keptOut _ out)
         | False =>
-          Parse.readsDone _ _ (rewrite List.appendNil secondRead then keptInfix item binary lhsCarried secondCarried)
-    | None =>
-      Parse.readsDone _ _ (rewrite List.appendNil secondRead then keptInfix item binary lhsCarried secondCarried)
+          Parse.readsDone _ (rewrite List.appendNil secondRead then keptInfix item binary lhsCarried secondCarried)
+    | None => Parse.readsDone _ (rewrite List.appendNil secondRead then keptInfix item binary lhsCarried secondCarried)
 
 theorem readsCmpAfter ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (lhs: Expr) (kind: Tok)
     (item: Item) (before: List Item)
@@ -300,7 +299,7 @@ theorem readsCmpPiped ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (fir
     Parse.ReadsIn GoodItems (() => cmpPiped self modes first lhs) (read tree => Kept (before ++ read) tree) :=
   readsInPeeked modes
     (seen => cmpOn self modes first lhs seen) _
-    (start fine stops => Parse.readsAtDone start lhs _ (rewrite List.appendNil before then lhsCarried))
+    (start fine stops => Parse.readsAtDone start lhs (rewrite List.appendNil before then lhsCarried))
     (start item later shape fine stopped =>
       match isMember: item.kind == KwIn || item.kind == NotIn with
         | True => readsOutFrom before (outside.below.below.memberships modes first lhs) start fine
@@ -309,7 +308,7 @@ theorem readsCmpPiped ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (fir
             | True =>
               readsCarriedCmpCompare self modes lhs before nested carries outside lhsCarried start item later shape
                   isCmp fine
-            | False => Parse.readsAtDone start lhs _ (rewrite List.appendNil before then lhsCarried))
+            | False => Parse.readsAtDone start lhs (rewrite List.appendNil before then lhsCarried))
 
 theorem readsCmpExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
@@ -417,7 +416,7 @@ theorem readsLogicOperand ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) 
       Parse.Maybe LinkKept ([item] ++ read) link) :=
   match quantified with
     | True => Parse.readsThen (outside.below.below.quantifiers modes) (r1 operand out =>
-      Parse.readsDone (Some (item.leaf.word, operand)) _ (
+      Parse.readsDone (Some (item.leaf.word, operand)) (
         item,
         r1 ++ [],
         byComputing,
@@ -426,7 +425,7 @@ theorem readsLogicOperand ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) 
         keptOut _ out
       ))
     | False => Parse.readsThen (readsCmpExpr self modes nested carries outside) (r1 operand carried =>
-      Parse.readsDone (Some (item.leaf.word, operand)) _ (
+      Parse.readsDone (Some (item.leaf.word, operand)) (
         item,
         r1 ++ [],
         byComputing,
@@ -442,7 +441,7 @@ theorem readsLogicOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     Parse.ReadsIn GoodItems (() => logicOn self modes modes.peek) (Parse.Maybe LinkKept) :=
   readsInPeeked modes
     (seen => logicOn self modes seen) _
-    (start fine stops => Parse.readsAtDone start None _ byComputing)
+    (start fine stops => Parse.readsAtDone start None byComputing)
     (start item later shape fine stopped =>
       match isLogic: item.kind == AndAnd || item.kind == OrOr with
         | True => readsAtBumpRead shape fine (after tail fits =>
@@ -454,7 +453,7 @@ theorem readsLogicOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
                 quantified)
             after
             fits)
-        | False => Parse.readsAtDone start None _ byComputing)
+        | False => Parse.readsAtDone start None byComputing)
 
 theorem readsLogicChain ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (first: Expr) (before: List Item)
     (nested: Nested self)
@@ -463,7 +462,7 @@ theorem readsLogicChain ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (f
     (carried: Kept before first):
     Parse.ReadsIn GoodItems (() => logicChain self modes first) (read tree => Kept (before ++ read) tree) :=
   Parse.readsThen (Parse.readsLoop _ _ (readsLogicOn self modes nested carries outside)) (r2 links rounds =>
-    Parse.readsDone _ _
+    Parse.readsDone _
       (rewrite List.appendNil r2 then
         keptGroupLogic (links.length + 1) first links before r2 carried rounds arithmetic))
 
@@ -535,7 +534,7 @@ theorem readsArrowEnd ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (val
     Parse.ReadsIn GoodItems (() => arrowEnd self modes value item.leaf.word) (read tree =>
       Kept (before ++ [item, ..read]) tree) :=
   Parse.readsThen (readsResultType self modes carries outside) (r2 right rightCarried =>
-    Parse.readsDone _ _ (rewrite List.appendNil r2 then keptArrow item isArrow good carried rightCarried))
+    Parse.readsDone _ (rewrite List.appendNil r2 then keptArrow item isArrow good carried rightCarried))
 
 theorem readsOpSequence ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (value: Expr)
     (sequence: Bool) (before: List Item)
@@ -545,7 +544,7 @@ theorem readsOpSequence ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (v
     Parse.ReadsIn GoodItems (() => opSequence self modes value sequence) (read tree => Kept (before ++ read) tree) :=
   readsInPeeked modes
     (seen => opEnd self modes value sequence seen) _
-    (start fine stops => Parse.readsAtDone start value _ (rewrite List.appendNil before then carried))
+    (start fine stops => Parse.readsAtDone start value (rewrite List.appendNil before then carried))
     (start item later shape fine stopped =>
       match isArrow: item.kind == Arrow with
         | True => readsAtBumpRead shape fine (after tail fits =>
@@ -558,7 +557,7 @@ theorem readsOpSequence ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (v
         | False =>
           match isSemi: item.kind == Semi && sequence with
             | True => readsOutFrom before [p := () => semiExpr self modes value] (outside.semis modes value) start fine
-            | False => Parse.readsAtDone start value _ (rewrite List.appendNil before then carried))
+            | False => Parse.readsAtDone start value (rewrite List.appendNil before then carried))
 
 theorem readsOpIffed ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (section: Bool) (iffed: Expr) (before: List Item)
     (carries: NestedKept self)
@@ -854,7 +853,7 @@ theorem readsExprBinder ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
           match isIf: item.kind == KwIf with
             | True => readsOutFull [p := () => ifKeyword self modes] (outside.ifKeywords modes) start fine
             | False => readsAtExprPlain self modes nested carries outside start fine (head headLater same =>
-              match List.consInjectiveHead _ _ _ _ (Eq.trans shape.flipped same) with
+              match List.consInjectiveHead (Eq.trans shape.flipped same) with
                 | headSame => rewrite headSame.flipped then stopped))
 
 theorem readsExprResult ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (refused: Bool)
@@ -863,7 +862,7 @@ theorem readsExprResult ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (r
     (outside: Outside self):
     Parse.ReadsIn GoodItems (() => exprResult self modes refused) KeptFull :=
   match refused with
-    | True => Parse.readsFatal _ _
+    | True => Parse.readsFatal
     | False => readsExprBinder self modes nested carries outside
 
 theorem readsExprLambda ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (lambdas: Bool)
@@ -934,8 +933,8 @@ theorem givesLocalDefOut ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (
       match parts with
         | (header, body) =>
           match header.unfoldingClause, body with
-            | Some clause, other => Parse.readsFatal _ _
-            | None, Primitive => Parse.readsFatal _ _
+            | Some clause, other => Parse.readsFatal
+            | None, Primitive => Parse.readsFatal
             | None, other => Parse.givesDone byComputing))
 
 theorem givesLocalAttributedOut ∀ (self: Goal → {Parse Item} Expr) (allowed: Modes) (attributes: List Attributes)
@@ -943,7 +942,7 @@ theorem givesLocalAttributedOut ∀ (self: Goal → {Parse Item} Expr) (allowed:
     Parse.Gives GoodItems (() => localAttributed self allowed attributes atDef atTheorem) StatementOut :=
   match atDef || atTheorem with
     | True => givesLocalDefOut self allowed attributes nested
-    | False => Parse.readsFatal _ _
+    | False => Parse.readsFatal
 
 theorem givesAttributedLocalOut ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (attributes: List Attributes)
     (nested: Nested self) (items: List Item):
@@ -983,8 +982,8 @@ theorem givesStatementOtherOut ∀ (self: Goal → {Parse Item} Expr) (modes: Mo
                 (items => givesAttributedLocalOut self modes attributes nested items))
             | False =>
               match kind == KwExport with
-                | True => Parse.readsFatal _ _
-                | False => Parse.readsFatal _ _
+                | True => Parse.readsFatal
+                | False => Parse.readsFatal
 
 theorem readsStatementValue ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
@@ -992,7 +991,7 @@ theorem readsStatementValue ∀ (self: Goal → {Parse Item} Expr) (modes: Modes
     (outside: Outside self):
     Parse.ReadsIn GoodItems (() => statementValue self modes) StatementKept :=
   Parse.readsThen (readsExprInline self modes nested carries outside) (r1 value carried =>
-    Parse.readsDone (ExprStatement value) _ (rewrite List.appendNil r1 then carried))
+    Parse.readsDone (ExprStatement value) (rewrite List.appendNil r1 then carried))
 
 theorem readsStatement ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
@@ -1046,7 +1045,7 @@ theorem readsBlockOffset ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (mod
         | Inl (empty, same) => Inl (empty, same, lineCarried)
         | Inr (Inl (line2, same, carried)) => Inr (rewrite same then arithmetic)
         | Inr (Inr length) => Inr (arithmetic [length]))
-    | False => Parse.readsDone _ _ (Inl (byComputing, byComputing, lineCarried))
+    | False => Parse.readsDone _ (Inl (byComputing, byComputing, lineCarried))
 
 theorem readsBlockItems ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
     (found: List Statement) (line: Statement) (first: List Item) (before: Nat) (items: List Item)
@@ -1060,7 +1059,7 @@ theorem readsBlockItems ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (mode
   match items with
     | [next, ..rest] => readsAfter0 reads0Offset (now =>
       readsBlockOffset more self modes column many found line first before next now lineCarried again)
-    | [] => Parse.readsDone _ _ (Inl (byComputing, byComputing, lineCarried))
+    | [] => Parse.readsDone _ (Inl (byComputing, byComputing, lineCarried))
 
 theorem readsBlockDone ∀ (more: Nat) (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
     (found: List Statement) (line: Statement) (first: List Item) (before: Nat)
@@ -1121,7 +1120,7 @@ theorem readsBlockLines ∀ (fuel: Nat) (self: Goal → {Parse Item} Expr) (mode
     (outside: Outside self):
     Parse.ReadsIn GoodItems (() => blockLines fuel self modes column many found) (BlockRead found) :=
   match fuel with
-    | Zero => Parse.readsDone _ _ (Inl (byComputing, byComputing))
+    | Zero => Parse.readsDone _ (Inl (byComputing, byComputing))
     | Succ more => readsAfter0 reads0Offset (before =>
       readsAfter0 reads0Left (items =>
         readsBlockPeek more self modes column many found before
@@ -1140,15 +1139,14 @@ theorem readsBlockResult ∀ (statements: List Statement) (read: List Item)
       match got with
         | Inl (empty, same) => Std.Void.impossible (arithmetic [Eq.cong (list => list.length) same])
         | Inr (Inl (line, same, carried)) =>
-          Parse.readsDone value _
-            (rewrite List.appendNil read then
-              (rewrite <- List.consInjectiveHead (ExprStatement value) line [] [] same at carried then carried))
+          Parse.readsDone value
+            (rewrite List.appendNil read then (rewrite <- List.consInjectiveHead same at carried then carried))
         | Inr (Inr length) => Std.Void.impossible (arithmetic [length])
     | [ExprStatement value, last, ..earlier], got =>
       match rev: List.reverse [last, ..earlier] with
-        | [first, ..rest] => Parse.readsDone _ _ (keptFullOut _ byComputing)
+        | [first, ..rest] => Parse.readsDone _ (keptFullOut _ byComputing)
         | [] => Std.Void.impossible (arithmetic [rewrite rev at List.lengthReverse [last, ..earlier]])
-    | [LetStatement _, .._] | [LocalDef _ _ _, .._] | [], _ => Parse.readsFatal _ _
+    | [LetStatement _, .._] | [LocalDef _ _ _, .._] | [], _ => Parse.readsFatal
 
 theorem readsBlock ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
     (nested: Nested self)
@@ -1177,8 +1175,8 @@ theorem readsExprRuns ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (ite
   match runs with
     | True => readsAfter0 reads0Left (items =>
       match blockEnd modes.lines items.head with
-        | Some ending => Parse.readsFatal _ _
-        | None => Parse.readsFatal _ _)
+        | Some ending => Parse.readsFatal
+        | None => Parse.readsFatal)
     | False =>
       match same: item.leaf.token.column == limit with
         | True => readsBlock self modes item.leaf.token.column False nested carries outside

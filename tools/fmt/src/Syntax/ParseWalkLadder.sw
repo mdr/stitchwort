@@ -117,7 +117,7 @@ theorem readsUnaryNext ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
       match signed: item.kind == Minus || item.kind == Bang with
         | True => readsAtBumpThen shape fine (after fits =>
           Parse.readsAtThen (nested { modes, level = LevelUnary } after fits) (read operand after2 starts parsed =>
-            Parse.readsAtDone after2 _ _
+            Parse.readsAtDone after2 _
               (prefixParsed item.leaf.word operand
                 (operatorOfItem item (goodHead fine shape) (minusBangSymbolic item.kind signed))
                 parsed)))
@@ -216,7 +216,7 @@ theorem givesRangeEnd ∀ (modes: Modes) (low: Expr) (operator: Word) (high: Exp
         | False => reads0At modes DotDotEq))
     (chained =>
       match chained with
-        | True => Parse.readsFatal _ _
+        | True => Parse.readsFatal
         | False => Parse.givesDone (parsedOutside 12 _ byComputing))
 
 theorem givesRangeHigh ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (low: Expr)
@@ -236,7 +236,7 @@ theorem givesRangeOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (low:
   match seen with
     | Some kind =>
       match isDots: kind == DotDot with
-        | True => Parse.readsFatal _ _
+        | True => Parse.readsFatal
         | False =>
           match isRange: kind == DotDotLt || kind == DotDotEq with
             | True => givesRangeHigh self modes low nested outside bases
@@ -824,7 +824,7 @@ theorem givesExprResult ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (r
     (bases: AtomBases self):
     Parse.Gives GoodItems (() => exprResult self modes refused) (Parsed 1) :=
   match refused with
-    | True => Parse.readsFatal _ _
+    | True => Parse.readsFatal
     | False => givesExprBinder self modes nested outside bases
 
 theorem givesExprLambda ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (lambdas: Bool)
@@ -987,7 +987,7 @@ theorem givesBlockResult ∀ (statements: List Statement)
       match [last, ..earlier].reverse with
         | [first, ..others] => Parse.givesDone (parsedOutside 1 _ byComputing)
         | [] => Parse.givesDone valueOk
-    | [LetStatement _, .._] | [LocalDef _ _ _, .._] | [], _ => Parse.readsFatal _ _
+    | [LetStatement _, .._] | [LocalDef _ _ _, .._] | [], _ => Parse.readsFatal
 
 theorem givesBlock ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (column: Nat) (many: Bool)
     (nested: Nested self)
@@ -1017,8 +1017,8 @@ theorem givesExprRuns ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (ite
   match runs with
     | True => Parse.givesAfter0 reads0Left (items =>
       match blockEnd modes.lines items.head with
-        | Some ending => Parse.readsFatal _ _
-        | None => Parse.readsFatal _ _)
+        | Some ending => Parse.readsFatal
+        | None => Parse.readsFatal)
     | False =>
       match same: item.leaf.token.column == limit with
         | True => givesBlock self modes item.leaf.token.column False nested outside bases

@@ -67,7 +67,7 @@ theorem givesAttributeArgument ∀ (modes: Modes):
       | True => Parse.givesThen givesBump (taken _ => Parse.givesDone byComputing)
       | False =>
         match isSome StrStart seen with
-          | True => Parse.readsFatal _ _
+          | True => Parse.readsFatal
           | False => Parse.givesDone byComputing)
 
 theorem givesAttributeItems ∀ (fuel: Nat) (modes: Modes) (found: List Attribute):
@@ -116,7 +116,7 @@ theorem givesSemiAfter ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (va
     (nested: Nested self) (seen: Option Tok):
     Parse.Gives GoodItems (() => semiAfter self modes value semicolon seen) Out :=
   match seen with
-    | None | Some RParen | Some RBracket | Some RBrace | Some Comma => Parse.readsFatal _ _
+    | None | Some RParen | Some RBracket | Some RBrace | Some Comma => Parse.readsFatal
     | Some other => Parse.givesThen (nested { modes, level = LevelFull }) (tail parsed => Parse.givesDone byComputing)
 
 theorem givesSemi ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (value: Expr)
@@ -139,7 +139,7 @@ theorem givesExpectAny ∀ (modes: Modes) (wanted: Tok) (what: Text):
 theorem givesAnnotatedEnd ∀ (inner: Modes) (open: Word) (first: Expr) (colon: Word) (annotation: Expr) (comma: Bool):
     Parse.Gives GoodItems (() => annotatedEnd inner open first colon annotation comma) Out :=
   match comma with
-    | True => Parse.readsFatal _ _
+    | True => Parse.readsFatal
     | False => Parse.givesThen (givesExpectAny inner RParen "`)`") (close _ => Parse.givesDone byComputing)
 
 theorem givesAnnotated ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (first: Expr)
@@ -156,7 +156,7 @@ theorem givesLower ∀ (modes: Modes) (what: Text): Parse.Gives GoodItems (() =>
         match named: item.kind == Lower && !modes.stops item with
           | True =>
             match qualified: isQualified item with
-              | True => Parse.readsFatal _ _
+              | True => Parse.readsFatal
               | False => givesBump
           | False => givesFailName modes what
       | [] => givesFailName modes what)
@@ -193,8 +193,8 @@ theorem givesGap ∀ (modes: Modes) (message: Text) [holds: a → Prop]:
     Parse.Gives GoodItems (() => modes.gap message) holds :=
   Parse.givesAfter0 reads0Left (items =>
     match blockEnd modes.lines items.head with
-      | Some ending => Parse.readsFatal _ _
-      | None => Parse.readsFatal _ _)
+      | Some ending => Parse.readsFatal
+      | None => Parse.readsFatal)
 
 theorem reads0RanOutAtLine ∀ (modes: Modes): Reads0 (() => ranOutAtLine modes) :=
   Parse.reads0Then (reads0Peek modes) (seen =>
@@ -487,7 +487,7 @@ theorem givesRowStart ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (ope
     (lower: Bool) (second: Option Tok):
     Parse.Gives GoodItems (() => rowStart self modes open lower second) (row => True) :=
   match lower && isSome Colon second with
-    | True => Parse.readsFatal _ _
+    | True => Parse.readsFatal
     | False =>
       Parse.givesThen
         (Parse.givesAfter0 (reads0At modes RBrace) (closed =>
@@ -565,7 +565,7 @@ theorem givesListExprAny ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 theorem givesFactsEnd ∀ (kind: FactsKind) (keyword: Word) (list: Expr):
     Parse.Gives GoodItems (() => factsEnd kind keyword list) Out :=
   match hasSpread list with
-    | True => Parse.readsFatal _ _
+    | True => Parse.readsFatal
     | False => Parse.givesDone byComputing
 
 theorem givesFacts ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (token: Tok) (kind: FactsKind)
@@ -599,7 +599,7 @@ theorem givesUniverseAtom ∀ (modes: Modes): Parse.Gives GoodItems (() => unive
           match named: level.kind == Num && !modes.stops level with
             | True =>
               match big: (level.text.toNat |> .getOrElse 0) > 65535 with
-                | True => Parse.readsFatal _ _
+                | True => Parse.readsFatal
                 | False => Parse.givesThen givesBump (digits _ => Parse.givesDone byComputing)
             | False => Parse.givesDone byComputing
         | [] => Parse.givesDone byComputing))
@@ -611,8 +611,8 @@ theorem givesSectionStart ∀ (modes: Modes): Parse.Gives GoodItems (() => secti
         | [name, ..rest] =>
           match named: name.kind == Lower && name.glued && !isQualified name && !modes.stops name with
             | True => Parse.givesThen givesBump (field _ => Parse.givesDone byComputing)
-            | False => Parse.readsFatal _ _
-        | [] => Parse.readsFatal _ _))
+            | False => Parse.readsFatal
+        | [] => Parse.readsFatal))
 
 theorem givesInterpolationOpen ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):

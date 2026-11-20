@@ -1647,13 +1647,13 @@ theorem arrowFromFlat ∀ (xs ys: List Token) (same: xs.map flatToken = ys.map f
   match xs, ys, same with
     | [], [], _ => byComputing
     | [x, ..xr], [y, ..yr], same =>
-      let head: flatToken x = flatToken y := List.consInjectiveHead _ _ _ _ same
+      let head: flatToken x = flatToken y := List.consInjectiveHead same
       let tail: xr.map flatToken = yr.map flatToken := Eq.cong (.drop 1) same
       let kind: x.kind = y.kind := rewrite <- flatKind x, <- flatKind y then Eq.cong (token => token.kind) head
       match xr, yr, tail with
         | [], [], _ => byComputing
         | [x2, ..xr2], [y2, ..yr2], tail2 =>
-          let head2: flatToken x2 = flatToken y2 := List.consInjectiveHead _ _ _ _ tail2
+          let head2: flatToken x2 = flatToken y2 := List.consInjectiveHead tail2
           let kind2: x2.kind = y2.kind :=
             rewrite <- flatKind x2, <- flatKind y2 then Eq.cong (token => token.kind) head2
           rewrite kind, kind2, arrowFromFlat [x2, ..xr2] [y2, ..yr2] tail2
@@ -1668,7 +1668,7 @@ theorem allFlat ∀ (p: Token → Bool)
   match xs, ys, same with
     | [], [], _ => byComputing
     | [x, ..xr], [y, ..yr], same =>
-      let head: flatToken x = flatToken y := List.consInjectiveHead _ _ _ _ same
+      let head: flatToken x = flatToken y := List.consInjectiveHead same
       let tail: xr.map flatToken = yr.map flatToken := Eq.cong (.drop 1) same
       let px: p x = p y := rewrite <- blind x, <- blind y then Eq.cong p head
       rewrite px, allFlat p blind xr yr tail

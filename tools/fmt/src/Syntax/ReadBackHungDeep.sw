@@ -26,7 +26,7 @@ theorem hangsFromTokens ∀ (state: HangState) (first second: List Leaf)
   match first, second with
     | [], [] => byComputing
     | [leaf, ..rest], [other, ..more] =>
-      let head := List.consInjectiveHead _ _ _ _ same
+      let head := List.consInjectiveHead same
       let tail := Eq.cong (.drop 1) same
       rewrite stepSameToken state leaf other head then
         match state.step other with
@@ -38,7 +38,7 @@ theorem hangsTokens ∀ (first second: List Leaf) (same: tokens first = tokens s
   match first, second with
     | [], [] => byComputing
     | [leaf, ..rest], [other, ..more] =>
-      let head: leaf.token = other.token := List.consInjectiveHead _ _ _ _ same
+      let head: leaf.token = other.token := List.consInjectiveHead same
       let tail := Eq.cong (.drop 1) same
       rewrite head, hangsFromTokens HangState.initial rest more tail
 

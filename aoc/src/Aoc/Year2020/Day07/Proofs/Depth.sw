@@ -133,15 +133,14 @@ theorem walkRepeats ∀ (rules: List Rule) (start: Colour) (between: List Colour
     List.repeatSplit [start, ..between] notDistinct
   match before, split with
     | [], split =>
-      let sameStart: start = repeated :=
-        List.consInjectiveHead start repeated between (inside ++ [repeated, ..after]) split
+      let sameStart: start = repeated := List.consInjectiveHead split
       let sameBetween: between = inside ++ [repeated, ..after] :=
         List.consInjective repeated between _ (rewrite sameStart at split then split)
       let (Both loop _) :=
         walkSplit rules repeated after finish repeated inside (rewrite sameStart, sameBetween at walk then walk)
       rewrite sameStart then loopDeepEvery rules repeated inside loop depth
     | [first, ..earlier], split =>
-      let sameStart: start = first := List.consInjectiveHead start first between _ split
+      let sameStart: start = first := List.consInjectiveHead split
       let sameBetween: between = earlier ++ [repeated, ..(inside ++ [repeated, ..after])] :=
         List.consInjective first between _ (rewrite sameStart at split then split)
       let (Both toRepeat fromRepeat) :=

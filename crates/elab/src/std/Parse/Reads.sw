@@ -508,7 +508,7 @@ theorem Parse.readsStop ∀ [inv: Parse.Invariant t] (spec: List t → a → Pro
     Parse.ReadsIn inv (() => Empty.absurd Parse.stop()) spec :=
   start fine total state value after here honest h => (Result.errNotOk h).impossible
 
-theorem Parse.readsFatal ∀ [inv: Parse.Invariant t] (message: Text) (spec: List t → a → Prop):
+theorem Parse.readsFatal ∀ [inv: Parse.Invariant t] [message: Text] [spec: List t → a → Prop]:
     Parse.ReadsIn inv (() => Empty.absurd (Parse.fatal message)) spec :=
   start fine total state value after here honest h => (Result.errNotOk h).impossible
 
@@ -570,7 +570,7 @@ theorem Parse.nextTakes ∀ (total: Nat) (state: Parse.State t) (value: Option t
       let valueSame: Some char = value := Pair.mkInjectiveFst same
       let atSame: (state.advance more 1).at = after := Pair.mkInjectiveSnd same
       let counted: state.at.left = more.length + 1 := honest.left
-      let isItem: char = item := List.consInjectiveHead char item more later shape
+      let isItem: char = item := List.consInjectiveHead shape
       rewrite <- valueSame, <- atSame, <- isItem then
         (byComputing, byComputing, (arithmetic [counted]), (arithmetic [counted, honest.right]))
 
@@ -778,7 +778,7 @@ theorem Parse.readsInPeek ∀ [inv: Parse.Invariant t] (k: Option t → {Parse t
 
 --| A value, read as `spec` says when `spec` holds of nothing read and it: the
 --| last step of a [`Parse.readsThen`] chain.
-theorem Parse.readsDone ∀ [inv: Parse.Invariant t] (x: a) (spec: List t → a → Prop) (holds: spec [] x):
+theorem Parse.readsDone ∀ [inv: Parse.Invariant t] (x: a) [spec: List t → a → Prop] (holds: spec [] x):
     Parse.ReadsIn inv (() => x) spec :=
   Parse.readsWeaken (Parse.readsPure x) (read v h => match h with | Both none same => rewrite none, same then holds)
 
@@ -805,9 +805,9 @@ theorem Parse.readsInMark ∀ [inv: Parse.Invariant t] (k: Parse.Mark t → {Par
     each start fine total state value after here honest (rewrite <- here then ran)
 
 --| [`Parse.readsDone`] from one mark.
-theorem Parse.readsAtDone ∀ (start: Parse.Mark t) (x: a) (spec: List t → a → Prop) (holds: spec [] x):
+theorem Parse.readsAtDone ∀ (start: Parse.Mark t) (x: a) [spec: List t → a → Prop] (holds: spec [] x):
     Parse.ReadsAt start (() => x) spec :=
-  Parse.readsDone [inv := Parse.Invariant.any] x spec holds start { holds = Trivial }
+  Parse.readsDone [inv := Parse.Invariant.any] x holds start { holds = Trivial }
 
 --| A look at the mark, from a mark: `k (Parse.mark())` reads what `k start` reads.
 --| Lets a proof about a parser that inspects its position, such as `mark()` passed to
@@ -823,7 +823,7 @@ theorem Parse.readsAtMark ∀ (k: Parse.Mark t → {Parse t} a) (spec: List t �
 --| the rest of the input at `start`.
 theorem Parse.readsAtLeft ∀ (start: Parse.Mark t):
     Parse.ReadsAt start (() => Parse.mark().rest) (read value => read = [] ∧ value = start.rest) :=
-  Parse.readsAtMark (here => here.rest) _ start (Parse.readsAtDone start start.rest _ (byComputing, byComputing))
+  Parse.readsAtMark (here => here.rest) _ start (Parse.readsAtDone start start.rest (byComputing, byComputing))
 
 --| [`Parse.readsWeaken`] from one mark.
 theorem Parse.readsAtWeaken ∀ [start: Parse.Mark t] [p: () → {Parse t} a] [spec weaker: List t → a → Prop]
@@ -859,7 +859,7 @@ theorem Parse.readsOne ∀ [inv: Parse.Invariant t] (what: Text) (select: t → 
       ∃ (item: t) => read = [item] ∧ select item = Some value) :=
   Parse.readsThen Parse.readsSatisfy (firstRead item facts =>
     match e: select item with
-      | Some value => Parse.readsDone value _ (Witness item (Both (rewrite And.left facts) e))
+      | Some value => Parse.readsDone value (Witness item (Both (rewrite And.left facts) e))
       | None => Parse.readsExpected what)
 
 --| [`Parse.readsOne`] where every item left is `fine`: the item `one`
@@ -1337,7 +1337,7 @@ theorem Parse.readsChainLeft ∀ [inv: Parse.Invariant t] (operand: () → {Pars
         (Parse.readsThen readsOperator (operatorRead combine operatorHolds =>
           Parse.readsThen readsOperand (operandRead right operandHolds =>
             Parse.readsDone
-              (combine, right) _
+              (combine, right)
               (Witness operatorRead
                 (Witness operandRead (Both (rewrite List.appendNil operandRead) (Both operatorHolds operandHolds))))))))
       (restRead steps each =>
@@ -1347,7 +1347,7 @@ theorem Parse.readsChainLeft ∀ [inv: Parse.Invariant t] (operand: () → {Pars
             Parse.chainLeftFold spec operatorSpec result step steps first firstRead restRead
               (start firstRead first firstHolds)
               each
-        Parse.readsDone folded (read value => result (firstRead ++ (restRead ++ read)) value) holds))
+        Parse.readsDone folded holds))
 
 --| Replace a repetition's values, one part at a time: if each value `spec`
 --| read can be another value `other` read, and `related` to it, then the
@@ -1917,7 +1917,7 @@ theorem Parse.readsRecursiveFuel ∀ [inv: Parse.Invariant t]
     (fuel: Nat):
     Parse.ReadsIn inv (() => Parse.recursiveFuel fuel body) spec :=
   match fuel with
-    | Zero => Parse.readsFatal _ spec
+    | Zero => Parse.readsFatal
     | Succ more => readsBody (() => Parse.recursiveFuel more body) (Parse.readsRecursiveFuel body spec readsBody more)
 
 --| `recursive body` reads what `spec` says, when `body` reads what `spec`
@@ -2359,12 +2359,11 @@ def Parse.Reads0 (inv: Parse.Invariant t) (p: () → {Parse t} a): Prop :=
 
 --| A pure value is a look-ahead: it reads nothing.
 theorem Parse.reads0Done ∀ [inv: Parse.Invariant t] (x: a): Parse.Reads0 inv (() => x) := start fine =>
-  Parse.readsAtDone start x _ byComputing
+  Parse.readsAtDone start x byComputing
 
 --| What a mark shows, read by a pure function of it: nothing is read.
 theorem Parse.reads0Mark ∀ [inv: Parse.Invariant t] (f: Parse.Mark t → a): Parse.Reads0 inv (() => f (Parse.mark())) :=
-  start fine =>
-    Parse.readsInMark (here => f here) _ (here fine1 => Parse.readsAtDone _ (f here) _ byComputing) start fine
+  start fine => Parse.readsInMark (here => f here) _ (here fine1 => Parse.readsAtDone _ (f here) byComputing) start fine
 
 --| The mark itself is a look-ahead.
 theorem Parse.reads0Here [inv: Parse.Invariant t]: Parse.Reads0 inv (() => Parse.mark()) :=

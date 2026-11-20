@@ -14,7 +14,6 @@ theorem Parse.readsLocated ∀ [inv: Parse.Invariant Char] (p: () → {Parse Cha
       Parse.readsThen Parse.readsMark (finishRead finish finishFacts =>
         Parse.readsDone
           { value, offset = start.offset, length = finish.offset - start.offset }
-          (read located => spec (startRead ++ (firstRead ++ (finishRead ++ read))) located.value)
           (rewrite startFacts, finishFacts, List.appendNil firstRead then firstFacts))))
 
 --| `Parse.tokens` gave a value: lexing all of the input gave the tokens

@@ -25,7 +25,7 @@ theorem readsField: Parse.Reads field FieldWritten :=
     Parse.readsThen (Parse.readsChar ':') (colonRead u colon =>
       Parse.readsThen (Parse.readsTakeWhile1) (valueRead value (Both nonEmpty (Both chars made)) =>
         Parse.readsDone
-          { key, value } _
+          { key, value }
           (rewrite made then Both (rewrite keyIs, colon, List.appendNil valueRead) (Both nonEmpty chars)))))
 
 theorem readsFieldBreak: Parse.Reads fieldBreak FieldBreak :=
@@ -37,7 +37,7 @@ theorem readsFieldBreak: Parse.Reads fieldBreak FieldBreak :=
 
 theorem readsPassport: Parse.Reads passport PassportWritten :=
   Parse.readsThen (Parse.readsSepBy1 field fieldBreak _ _ readsField readsFieldBreak) (fieldsRead fields written =>
-    Parse.readsDone { fields } _ (rewrite List.appendNil fieldsRead then written))
+    Parse.readsDone { fields } (rewrite List.appendNil fieldsRead then written))
 
 theorem parseWritten ∀ (input: Text) (passports: List Passport)
     (parsed: Fail.toResult (() => parsePassports input) = Ok passports):
@@ -69,7 +69,7 @@ theorem firstPassportWritten ∀ (input: Text) (first: Passport) (rest: List Pas
                   (Witness firstRead (Witness restRead (Witness value (Both split (Both written (Both isHead each))))))
                   same))
               done))) =>
-      let firstIs: first = listed.head := List.consInjectiveHead first listed.head rest listed.tail same
+      let firstIs: first = listed.head := List.consInjectiveHead same
       Witness firstRead
         (Witness
           (restRead ++ ending)

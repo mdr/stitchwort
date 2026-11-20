@@ -1,5 +1,5 @@
 {
-  "next": 4306,
+  "next": 4308,
   "tickets": [
     {
       "id": 47,
@@ -28036,14 +28036,14 @@
     {
       "id": 4287,
       "title": "[Sonnet] std Parse.readsFatal, followsDone, readsDone, readsAtDone, List.consInjectiveHead take implicit arguments; drop ~870 _ (survey target 5; touches AoC)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
       "body": "From the consolidation survey, docs/reviews/SW-4281-consolidation-survey.md, target 5. D3698 overnight.",
       "created": "2026-11-19",
-      "updated": "2026-11-19",
+      "updated": "2026-11-20",
       "commits": []
     },
     {
@@ -28276,6 +28276,32 @@
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "From SW-4283; same cause as SW-4282's HangLays limit.",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4306,
+      "title": "[DeepSeek] std Parse.givesFail, followsFatalAny, followsLoop: implicit arguments where uses are always _ (survey target 5 rest; reuse scratchpad keep/imp-positional.py, dedupe symlinked dirs by realpath)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "From SW-4287 (refiled: the first filing was lost when SW-4285's merge carried a stale board).",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4307,
+      "title": "[DeepSeek] task lane:merge guard: refuse (unless ALLOW=…) a lane branch whose diff against its merge-base touches board/tickets.json, docs/worklog/, docs/agent-feedback/, or reverts lines added on main since the merge-base (detect: files changed on both sides where the lane's version equals the merge-base version); print the full --stat before merging (SW-4285 stale squash undid SW-4287, 20 Nov)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "Incident 20 Nov 00:15: SW-4285's squash carried a stale tree; fixed by hand.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []

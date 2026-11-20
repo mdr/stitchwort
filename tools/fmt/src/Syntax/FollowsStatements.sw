@@ -295,7 +295,7 @@ theorem followsHereOn ∀ (items others: List Item)
         (found twin founds => Eq.cong (n => (n, 0)) founds)
         followsOffset
     | [item, ..rest], [other, ..restTwin] =>
-      Parse.followsDone _ _
+      Parse.followsDone
         (Eq.cong2 (index depth => (index, depth)) (indexSameOf item other same.left) (depthSameOf item other same.left))
 
 theorem followsHere: Parse.Follows SameCode Same (() => here()) (() => here()) :=
@@ -331,9 +331,9 @@ theorem followsLocalDefMatch ∀ (attributes twinAttributes: List Attributes)
       match body, twinBody with
         | Primitive, Primitive => followsFatalAny localNeedsBody (() => Syntax.fatal localNeedsBody)
         | Assigned colonEq value, Assigned colonEqTwin valueTwin =>
-          Parse.followsDone _ _ (alikeLocalDef attributes twinAttributes attributeses header twinHeader _ _ parts)
+          Parse.followsDone (alikeLocalDef attributes twinAttributes attributeses header twinHeader _ _ parts)
         | Arms arms, Arms armsTwin =>
-          Parse.followsDone _ _ (alikeLocalDef attributes twinAttributes attributeses header twinHeader _ _ parts)
+          Parse.followsDone (alikeLocalDef attributes twinAttributes attributeses header twinHeader _ _ parts)
         | Primitive, Assigned colonEqTwin valueTwin =>
           let clash := primitive
           cases
@@ -379,7 +379,7 @@ theorem followsLetAnnotation ∀ [self selfTwin: Goal → {Parse Item} Expr]
         (annotation => Some (colonTwin, annotation))
         (annotation annotationTwin annotations => (colons, annotations))
         (knot { modes = modes.sealed, level = LevelInline }))
-    | False => Parse.followsDone None None Trivial
+    | False => Parse.followsDone Trivial
 
 theorem followsLetEquals ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -485,7 +485,7 @@ theorem followsLetStatementEnd ∀ [self selfTwin: Goal → {Parse Item} Expr]
       Parse.followsMap ExprStatement ExprStatement
         (value valueTwin values => alikeExprStatement value valueTwin values)
         (bodies modes binding twin lets)
-    | False => Parse.followsDone _ _ (alikeLetStatement binding twin lets)
+    | False => Parse.followsDone (alikeLetStatement binding twin lets)
 
 theorem followsLocalAttributed ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (definitions: DefinitionPartsFollows self selfTwin)
@@ -857,7 +857,7 @@ theorem followsClausesFrom ∀ [self selfTwin: Goal → {Parse Item} Expr]
     match columned with
       | (lined, next) => followsThenEq (followsAt modes Pipe) (atPipe =>
         match fuel with
-          | Zero => Parse.followsDone _ _ (List.all2Reverse found foundTwin founds)
+          | Zero => Parse.followsDone (List.all2Reverse found foundTwin founds)
           | Succ more =>
             match atPipe && lined with
               | True => Parse.followsThen followsFixedFrom (bar barTwin bars =>
@@ -868,7 +868,7 @@ theorem followsClausesFrom ∀ [self selfTwin: Goal → {Parse Item} Expr]
                       [clause, ..found]
                       [clauseTwin, ..foundTwin]
                       (Both clauses founds)))
-              | False => Parse.followsDone _ _ (List.all2Reverse found foundTwin founds)))
+              | False => Parse.followsDone (List.all2Reverse found foundTwin founds)))
 
 theorem followsHandlerClausesEnd ∀ (modes: Modes) (clauses twins: List HandlerClause)
     (alike: List.All2 ClauseAlike clauses twins):
@@ -877,7 +877,7 @@ theorem followsHandlerClausesEnd ∀ (modes: Modes) (clauses twins: List Handler
   rewrite List.all2IsEmpty clauses twins alike then
     match twins.isEmpty with
       | True => followsFail modes "`|` and a handler clause" (() => modes.fail "`|` and a handler clause")
-      | False => Parse.followsDone _ _ alike
+      | False => Parse.followsDone alike
 
 theorem followsHandlerClauses ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -950,7 +950,7 @@ theorem followsCaseNames ∀ (fuel: Nat) (modes: Modes) (found foundTwin: List W
           followsCaseNames more modes [name, ..found] [nameTwin, ..foundTwin] (Both names founds))
         | Succ more, Some Underscore => Parse.followsThen followsBump (name nameTwin names =>
           followsCaseNames more modes [name, ..found] [nameTwin, ..foundTwin] (Both names founds))
-        | _, _ => Parse.followsDone _ _ (List.all2Reverse found foundTwin founds))
+        | _, _ => Parse.followsDone (List.all2Reverse found foundTwin founds))
 
 theorem followsInductArms ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -962,7 +962,7 @@ theorem followsInductArms ∀ [self selfTwin: Goal → {Parse Item} Expr]
     match columned with
       | (lined, next) => followsThenEq (followsAt modes Pipe) (atPipe =>
         match fuel with
-          | Zero => Parse.followsDone _ _ (List.all2Reverse found foundTwin founds)
+          | Zero => Parse.followsDone (List.all2Reverse found foundTwin founds)
           | Succ more =>
             match atPipe && lined with
               | True => Parse.followsThen followsFixedFrom (bar barTwin bars =>
@@ -990,7 +990,7 @@ theorem followsInductArms ∀ [self selfTwin: Goal → {Parse Item} Expr]
                                   (alikeInductArm bar barTwin label labelTwin labels names namesTwin nameses arrow
                                       arrowTwin body bodyTwin bodies)
                                   founds)))))))
-              | False => Parse.followsDone _ _ (List.all2Reverse found foundTwin founds)))
+              | False => Parse.followsDone (List.all2Reverse found foundTwin founds)))
 
 theorem followsInductEnd ∀ (modes: Modes) (keyword keywordTwin induct inductTwin: Comments) (call callTwin: Expr)
     (calls: ExprsAlike call callTwin)
@@ -1003,7 +1003,7 @@ theorem followsInductEnd ∀ (modes: Modes) (keyword keywordTwin induct inductTw
       | True => followsFail modes "`|` and an alternative named after a case" (() =>
         modes.fail "`|` and an alternative named after a case")
       | False =>
-        Parse.followsDone _ _
+        Parse.followsDone
           (alikeInduct keyword keywordTwin induct inductTwin call callTwin calls withKeyword withKeywordTwin arms twins
               alike)
 
@@ -1113,12 +1113,12 @@ theorem followsCalcProof ∀ [self selfTwin: Goal → {Parse Item} Expr]
         (proof => Some (writtenTwin, proof))
         (proof proofTwin proofs => (writtens, proofs))
         (followsFull knot modes))
-    | False => Parse.followsDone None None Trivial
+    | False => Parse.followsDone Trivial
 
 theorem followsStepSign ∀ (modes: Modes) (seen: Option Tok):
     Parse.Follows SameCode Same (() => stepSign modes seen) (() => stepSign modes seen) :=
   match seen with
-    | Some Equals | Some Le | Some Lt | Some Ge | Some Gt => Parse.followsDone _ _ byComputing
+    | Some Equals | Some Le | Some Lt | Some Ge | Some Gt => Parse.followsDone byComputing
     | Some NotEq | Some EqEq => followsFatalAny calcRelations (() => Syntax.fatal calcRelations)
     | _ => followsFail modes "`=`, `<=`, `<`, `>=` or `>` after `_`" (() =>
       modes.fail "`=`, `<=`, `<`, `>=` or `>` after `_`")
@@ -1230,7 +1230,7 @@ theorem followsCalcSteps ∀ [self selfTwin: Goal → {Parse Item} Expr]
                       founds
                       ascending
                       descending)
-          | _, _ => Parse.followsDone _ _ (List.all2Reverse found foundTwin founds, (byComputing, byComputing)))
+          | _, _ => Parse.followsDone (List.all2Reverse found foundTwin founds, (byComputing, byComputing)))
 
 theorem followsCalcEnd ∀ (inner: Modes) (keyword keywordTwin: Comments) (first firstTwin: Expr)
     (firsts: ExprsAlike first firstTwin) (steps twins: List CalcStep)
@@ -1245,7 +1245,7 @@ theorem followsCalcEnd ∀ (inner: Modes) (keyword keywordTwin: Comments) (first
         match ascending && descending with
           | True => followsFatalAny "a `calc` chain goes one way: `<` and `<=` can't be mixed with `>` and `>=`" (() =>
             Syntax.fatal "a `calc` chain goes one way: `<` and `<=` can't be mixed with `>` and `>=`")
-          | False => Parse.followsDone _ _ (alikeCalc keyword keywordTwin first firstTwin firsts steps twins alike)
+          | False => Parse.followsDone (alikeCalc keyword keywordTwin first firstTwin firsts steps twins alike)
 
 theorem followsCalcBody ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -1420,14 +1420,13 @@ theorem followsReverseOn ∀ (modes: Modes) (less: Bool) (items others: List Ite
     (same: List.All2 SameCode items others):
     Parse.Follows SameCode Same (() => reverseOn modes less items) (() => reverseOn modes less others) :=
   match items, others with
-    | [], [] => Parse.followsDone False False byComputing
-    | [first], [firstTwin] => Parse.followsDone False False byComputing
+    | [], [] => Parse.followsDone byComputing
+    | [first], [firstTwin] => Parse.followsDone byComputing
     | [first, minus, ..rest], [firstTwin, minusTwin, ..restTwin] =>
       match less with
         | True => followsThenEq (followsPeekAt modes 1) (second =>
-          Parse.followsDone _ _
-            (Eq.cong (glued => reverseMinus glued second) (gluedSame minus minusTwin same.right.left)))
-        | False => Parse.followsDone False False byComputing
+          Parse.followsDone (Eq.cong (glued => reverseMinus glued second) (gluedSame minus minusTwin same.right.left)))
+        | False => Parse.followsDone byComputing
     | [first], [firstTwin, minusTwin, ..restTwin] => same.right.impossible
     | [first, minus, ..rest], [firstTwin] => same.right.impossible
 
@@ -1446,7 +1445,7 @@ theorem followsReverseIf ∀ (reverse: Bool):
         (second => Some (lessTwin, second))
         (second secondTwin seconds => (lesses, seconds))
         followsFixedFrom)
-    | False => Parse.followsDone None None Trivial
+    | False => Parse.followsDone Trivial
 
 theorem followsReverseOf ∀ (modes: Modes):
     Parse.Follows SameCode ReverseAlike (() => reverseOf modes) (() => reverseOf modes) :=
@@ -1455,8 +1454,8 @@ theorem followsReverseOf ∀ (modes: Modes):
 theorem followsRepeatedlyOn ∀ (outer: Modes) (word: Bool):
     Parse.Follows SameCode Same (() => repeatedlyOn outer word) (() => repeatedlyOn outer word) :=
   match word with
-    | True => followsThenEq (followsPeekAt outer 1) (seen => Parse.followsDone _ _ byComputing)
-    | False => Parse.followsDone False False byComputing
+    | True => followsThenEq (followsPeekAt outer 1) (seen => Parse.followsDone byComputing)
+    | False => Parse.followsDone byComputing
 
 theorem followsRepeatedlyAhead ∀ (outer: Modes):
     Parse.Follows SameCode Same (() => repeatedlyAhead outer) (() => repeatedlyAhead outer) :=
@@ -1469,7 +1468,7 @@ theorem followsOwnLineAt ∀ (wanted: Tok) (column: Nat):
 theorem followsStartsOn ∀ (here: Bool) (wanted: Tok) (column: Nat):
     Parse.Follows SameCode Same (() => startsOn here wanted column) (() => startsOn here wanted column) :=
   match here with
-    | True => Parse.followsDone True True byComputing
+    | True => Parse.followsDone byComputing
     | False => followsOwnLineAt wanted column
 
 theorem followsStartsAt ∀ (modes: Modes) (wanted: Tok) (column: Nat):
@@ -1497,7 +1496,7 @@ theorem followsRewriteBody ∀ [self selfTwin: Goal → {Parse Item} Expr]
             (thens, bodies))
         (knot { modes, level = LevelThenBody }))
     | False =>
-      Parse.followsDone _ _
+      Parse.followsDone
         (alikeRewrite keyword keywordTwin rules twinRules ruleses target targetTwin targets None None Trivial)
 
 theorem followsRewriteOldIn ∀ [self selfTwin: Goal → {Parse Item} Expr]
@@ -1555,7 +1554,7 @@ theorem followsRewriteTargetIf ∀ [self selfTwin: Goal → {Parse Item} Expr]
   match atAhead with
     | True => Parse.followsThen followsFixedFrom (written writtenTwin writtens =>
       followsThenEq (followsPeek modes) (seen => followsTargetAfter appends modes written writtenTwin seen))
-    | False => Parse.followsDone None None Trivial
+    | False => Parse.followsDone Trivial
 
 theorem followsRewriteTarget ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (appends: AppendExprFollows self selfTwin) (modes: Modes):
@@ -1589,8 +1588,8 @@ theorem followsRewriteRules ∀ [self selfTwin: Goal → {Parse Item} Expr]
           match comma with
             | True => Parse.followsThen followsBump (comma commaTwin commas =>
               followsRewriteRules appends more modes done doneTwin dones)
-            | False => Parse.followsDone _ _ (List.all2Reverse done doneTwin dones)
-        | Zero => Parse.followsDone _ _ (List.all2Reverse done doneTwin dones)))
+            | False => Parse.followsDone (List.all2Reverse done doneTwin dones)
+        | Zero => Parse.followsDone (List.all2Reverse done doneTwin dones)))
 
 def SetRulesAlike (found twin: (List RewriteRule, Bool)): Prop := PairAlike (List.All2 RuleAlike) Same found twin
 
@@ -1621,10 +1620,10 @@ theorem followsSetRules ∀ [self selfTwin: Goal → {Parse Item} Expr]
             | True => Parse.followsThen followsBump (written writtenTwin writtens =>
               followsThenEq (followsAt modes RBracket) (closed =>
                 match closed with
-                  | True => Parse.followsDone _ _ (List.all2Reverse done doneTwin dones, byComputing)
+                  | True => Parse.followsDone (List.all2Reverse done doneTwin dones, byComputing)
                   | False => followsSetRules knot more modes done doneTwin dones))
-            | False => Parse.followsDone _ _ (List.all2Reverse done doneTwin dones, byComputing)
-        | Zero => Parse.followsDone _ _ (List.all2Reverse done doneTwin dones, byComputing)))
+            | False => Parse.followsDone (List.all2Reverse done doneTwin dones, byComputing)
+        | Zero => Parse.followsDone (List.all2Reverse done doneTwin dones, byComputing)))
 
 theorem followsRuleSetAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -1643,8 +1642,7 @@ theorem followsRuleSetAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
               | (rules, trailing), (twins, trailingTwin) =>
                 rewrite <- alike.right then
                   Parse.followsThen (expects modes.inBrackets RBracket "`,` or `]`") (close closeTwin closes =>
-                    Parse.followsDone _ _
-                      (alikeRuleSet open openTwin rules twins alike.left trailing close closeTwin))))
+                    Parse.followsDone (alikeRuleSet open openTwin rules twins alike.left trailing close closeTwin))))
 
 theorem followsRuleSet ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -1729,7 +1727,7 @@ theorem followsCasesThen ∀ [self selfTwin: Goal → {Parse Item} Expr]
         (body bodyTwin bodies =>
           alikeCases keyword.comments keywordTwin.comments thenKeyword thenTwin body bodyTwin bodies)
         (knot { modes, level = LevelThenBody }))
-    | False => Parse.followsDone _ _ (alikeAtom KwCases keyword keywordTwin keywords)
+    | False => Parse.followsDone (alikeAtom KwCases keyword keywordTwin keywords)
 
 theorem followsCasesIn ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
