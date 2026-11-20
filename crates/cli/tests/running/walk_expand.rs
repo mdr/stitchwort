@@ -1,6 +1,6 @@
 //! `check --expand-walk` end to end: the expansion it writes for every
-//! walk of `examples/accept/walk.sw` checks again, as the walk did
-//! (docs/syntax.md, "byWalking").
+//! walk of `examples/accept/walk.sw` and `walk-two-run.sw` checks again,
+//! as the walk did (docs/syntax.md, "byWalking").
 
 use std::path::Path;
 use std::process::{Command, Output, Stdio};
@@ -19,31 +19,41 @@ fn output(mut command: Command, dir: &Path) -> Output {
 
 #[test]
 fn walk_expansions_check_again() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("walk-expand");
+    for (file, name) in [
+        ("walk.sw", "walk_expand"),
+        ("walk-two-run.sw", "walk_two_run_expand"),
+    ] {
+        expansion_checks_again(file, name);
+    }
+}
+
+/// Expands the walks of `examples/accept/<file>`, snapshots the trace and
+/// the text as `<name>_trace` and `<name>_text`, and checks the text.
+fn expansion_checks_again(file: &str, name: &str) {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(name);
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("make the test's folder");
-    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/accept/walk.sw");
-    std::fs::copy(&source, dir.join("walk.sw")).expect("copy the example");
+    let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/accept")
+        .join(file);
+    std::fs::copy(&source, dir.join(file)).expect("copy the example");
 
-    let expand = output(
-        common::cli_with("check", &["--expand-walk", "walk.sw"]),
-        &dir,
-    );
+    let expand = output(common::cli_with("check", &["--expand-walk", file]), &dir);
     let stderr = String::from_utf8_lossy(&expand.stderr);
     assert!(expand.status.success(), "--expand-walk failed:\n{stderr}");
     let trace = String::from_utf8_lossy(&expand.stdout).into_owned();
-    let expanded = std::fs::read_to_string(dir.join("walk.sw")).expect("read the expansion");
+    let expanded = std::fs::read_to_string(dir.join(file)).expect("read the expansion");
     let left = (expanded.lines())
         .filter(|l| !l.trim_start().starts_with("--") && l.contains("byWalking"))
         .count();
     assert_eq!(left, 0, "a walk was left unexpanded:\n{expanded}");
-    insta::assert_snapshot!("walk_expand_trace", trace);
-    insta::assert_snapshot!("walk_expand_text", expanded);
+    insta::assert_snapshot!(format!("{name}_trace"), trace);
+    insta::assert_snapshot!(format!("{name}_text"), expanded);
 
-    let check = output(common::cli_with("check", &["--no-cache", "walk.sw"]), &dir);
+    let check = output(common::cli_with("check", &["--no-cache", file]), &dir);
     assert!(
         check.status.success(),
-        "the expansion doesn't check:\n{}{}",
+        "the expansion of {file} doesn't check:\n{}{}",
         String::from_utf8_lossy(&check.stdout),
         String::from_utf8_lossy(&check.stderr)
     );

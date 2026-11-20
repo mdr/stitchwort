@@ -21,3 +21,16 @@ walk.sw:67: walk
 walk.sw:86: walk
   in `peekTwice`: `peek ()`: givesPeek (registered `@[walk]`), then `Parse.givesThen`
   in `peekTwice`: `peek ()`: givesPeek (registered `@[walk]`), then `Parse.givesThen`
+walk.sw:94: walk
+  in `bothLooks`: `both (arg => look ())`: givesBoth (named in the brackets)
+  in `bothLooks`: `look ()`: givesLook (registered `@[walk]`)
+walk.sw:100: walk
+  in `lookOnce`: `look ()`: givesLook (registered `@[walk]`)
+walk.sw:103: walk
+  in `bothOnce`: `both (arg => lookOnce ())`: givesBoth (named in the brackets)
+walk.sw:114: walk
+  in `lookWith`: `look ()`: givesLook (registered `@[walk]`), then `Parse.givesThen`
+walk.sw:127: walk
+  in `lookSmall`: `lookWith orZero`: givesLookWith (named in the brackets)
+walk.sw:139: walk
+  in `lookAgain`: `look ()`: readsLook (registered `@[walk]`)

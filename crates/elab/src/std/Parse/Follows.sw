@@ -87,6 +87,7 @@ theorem Parse.followsAt ∀ [same: t → u → Prop] [alike: a → b → Prop] [
     follows state other value after (rewrite atStart, atTwin then marks) ran
 
 --| A finished value: `x` follows `y` where they are alike. Nothing is read.
+@[walk.done]
 theorem Parse.followsDone ∀ [same: t → u → Prop] [alike: a → b → Prop] [x: a] [y: b] (holds: alike x y):
     Parse.Follows same alike (() => x) (() => y) :=
   state other value after marks ran =>
@@ -188,6 +189,7 @@ theorem Parse.followsNever ∀ [same: t → u → Prop] [alike: a → b → Prop
 --| `alike`, then `k (q())` follows `j (p())`. The one lemma that joins
 --| parsers: a function that reads one piece then another is a chain of
 --| these, with [`Parse.followsDone`] at its end.
+@[walk.bind]
 theorem Parse.followsThen ∀ [same: t → u → Prop] [between: a → b → Prop] [alike: c → d → Prop] [p: () → {Parse t} a]
     [q: () → {Parse u} b] [j: a → {Parse t} c] [k: b → {Parse u} d]
     (first: Parse.Follows same between p q)
@@ -214,6 +216,7 @@ theorem Parse.followsThen ∀ [same: t → u → Prop] [between: a → b → Pro
 
 --| A weaker relation between the values: if `second` follows `first` with
 --| `alike`, it does with anything `alike` implies.
+@[walk.weaken]
 theorem Parse.followsWeaken ∀ [same: t → u → Prop] [alike weaker: a → b → Prop] [first: () → {Parse t} a]
     [second: () → {Parse u} b] (implies: ∀ (x: a) (y: b) => alike x y → weaker x y)
     (follows: Parse.Follows same alike first second):

@@ -728,7 +728,7 @@ export type Drawing = { readonly type: string; readonly shapes: Shape[] };
 | `js.enum` (no argument) | a data type whose constructors have no fields | a plain string, one per constructor (its name, or its `js.name`), instead of an object |
 | `noReceiver` (no argument) | a definition | in a type's namespace, a function that isn't called with `.` or `|>`, so it may take the type's value after another parameter without the warning `W-RECEIVER-NOT-FIRST` |
 | `reading` (no argument) | a theorem `test ↔ P` (or `test = False ↔ P`) | facts about `test` are taken apart, built and read as `P` (see [Readings](#readings-reading-and-read)) |
-| `walk` (no argument) | a theorem `R … (() => f x…) post` in a walk family | the lemma every walk uses for a call of `f` in that family, one per function and family (see [`byWalking`](#bywalking)) |
+| `walk` (no argument) | a theorem `R … (() => f x…) post` in a walk family | the lemma every walk uses for a call of `f` in that family, one per function and family; for a two-run family, one per pair of functions (see [`byWalking`](#bywalking)) |
 | `walk.bind`, `walk.done`, `walk.weaken` (no argument) | a theorem about `() => j (p())`, `() => x`, or a weaker post | declares a walk family: its lemma for a bind, a value, and weakening a post (see [`byWalking`](#bywalking)) |
 | `tailrec` (no argument) | a definition, an exported definition or a local definition | every recursive call of it is a tail call, so it runs as a loop on every backend (see below) |
 | `js.unboxed` (no argument) | a record without parameters with exactly one field that has a property | its field's own JS form (`string` for a `Text`), instead of an object; in TypeScript, `type T = string` (see Microtypes) |
@@ -2778,7 +2778,7 @@ Examples: `examples/accept/cases-bool.sw`, `examples/accept/cases-data.sw`, `exa
 
 ### `byWalking`
 
-`byWalking [lemmas] then t` proves a statement about effectful code, `R … (() => code) post` in a **walk family** (std's `Parse.Gives`, `Parse.ReadsIn` and `Parse.ReadsAt`), by following the code (docs/proposals/proof-walk-step.md; review: docs/reviews/SW-4238-walk-step-review.md). It is a term, like `cases`; `then t` is optional and goes on the same line or the next, indented at least as far. `byWalking` is a word only before `[`.
+`byWalking [lemmas] then t` proves a statement about effectful code, `R … (() => code) post` in a **walk family** (std's `Parse.Gives`, `Parse.ReadsIn` and `Parse.ReadsAt`, and the two-run `Parse.Follows`, below), by following the code (docs/proposals/proof-walk-step.md; review: docs/reviews/SW-4238-walk-step-review.md). It is a term, like `cases`; `then t` is optional and goes on the same line or the next, indented at least as far. `byWalking` is a word only before `[`.
 
 ```
 theorem givesCapped ∀ (limit: Nat): Parse.Gives Parse.Invariant.any (() => capped limit) (n => n <= limit) :=
@@ -2794,11 +2794,28 @@ The goal's own function is walked through once; from there, at each point of the
 - **`unfold f`** in the brackets walks through `f`'s body where it is called, and is never needed for a function with a lemma. A function without one isn't looked into otherwise. Where its value is used, `f`'s body must be one call.
 - **A split**: an `if` (on a `Bool` or a decidable proposition) or a `match` the code makes, followed along the compiled case tree: a proof `match branchN: scrutinee with` with the program's names for the fields, the equation `branchN` in scope. At most 64 paths in all; past that it stops and says to give the splitting part a lemma of its own.
 - **A value** `x`: the family's `@[walk.done]` lemma, its premise (`post x`) a leaf.
-- **A leaf** is closed by `()`, a hypothesis, computing, a pair of closed leaves for `∧`, `arithmetic` (with the parts of the conjunctions in scope), or `t`; a leaf with an unknown the rest of the chain fixes waits for it.
+- **A leaf** is closed by `()`, a hypothesis, computing, a pair of closed leaves for `∧`, `arithmetic` (with the parts of the conjunctions in scope), a term in the brackets that is the leaf's goal (`followsTupleEnds inner` for a premise about `tupleEnds inner`; the first that checks, or, where the goal still has an unknown, the only one), a walk of the leaf if it is itself a statement in a family (under its `∀`s: a lemma's premise `∀ count => Parse.Follows … (() => ends count) …` is walked to the call's lemma; taken only if it finishes with nothing left waiting, and never a statement about the same functions as one being walked further out, which is `E-WALK` if `t` doesn't close the leaf), or `t`; a leaf with an unknown the rest of the chain fixes waits for it.
+
+**Two runs.** A family whose relation has two thunks, `Parse.Follows same alike (() => first) (() => second)` ("whenever the first run succeeds, the second does, with alike values"), is walked in **lockstep**: both runs' code at once, each computed on alone as far as it goes, then:
+
+- a bind in each: one lemma for the pair of calls (`followsBump` for `bump()` and `bump()`; a two-run lemma is registered under both functions), then the family's bind lemma (`Parse.followsThen`), the values named `v` and `vTwin` and their fact `vFacts`. Where the fact says the two values are equal (`Same v vTwin`, `v = vTwin`) and the rest of the code uses them, the walk writes `rewrite <- vFacts then …` (`rewrite vFacts then …` for a fact `vTwin = v`), so that from there both runs have `v`;
+- a split in each on the same value (after that rewrite, a `match` or `if` on `v`): one split, for both runs;
+- a split in either on a value of a type with one constructor (a pair): that run's split alone;
+- a value in each: `Parse.followsDone`, its premise `alike x xTwin` a leaf; a call in each: the pair's lemma, weakened with `Parse.followsWeaken` if its relation isn't the goal's.
+
+Anything else is a place where the two runs differ in shape (a bind in one, a value in the other; splits on two different values), and the walk stops there with `E-WALK`, showing both runs' code: it never guesses how they line up. A lemma that leaves the second run open (`followsFail modes what second`: a run that fails is followed by any) fits whatever the second run does.
+
+```
+theorem followsCollect ∀ [alike: a → b → Prop] (next: () → {Parse Nat} a) (nextTwin: () → {Parse Nat} b)
+    (nexts: Parse.Follows SameNat alike next nextTwin)
+    (fuel: Nat) (found: List a) (foundTwin: List b) (founds: List.All2 alike found foundTwin):
+    Parse.Follows SameNat (List.All2 alike) (() => collect fuel next found) (() => collect fuel nextTwin foundTwin) :=
+  byWalking []
+```
 
 What it stops on is `E-WALK`, naming the call or leaf and the place (`in commaList, Succ more, Some kind, True`), with the goal there: a call with no lemma, a leaf nothing closes, code it doesn't follow (a `handle`, a `translate`, effect-polymorphic code with a bare row `{e}`, a `match` on numbers, an operation performed directly), the path cap. A second `@[walk]` lemma for the same function and family is `E-WALK-LEMMA`, and so is a family's second `@[walk.done]` or `@[walk.weaken]` lemma, or a second `@[walk.bind]` lemma with the same first premise's relation: a family has one of each, so the walk never chooses between two.
 
-`stitchwort check --expand-walk FILE` (or a project's namespaces) replaces each walk with the chain of lemmas it stands for, writing the files back, and prints the lemma used at each call; with `--stdout` it prints the expanded text instead and leaves the files unchanged, putting the lemma trace on standard error. A walk that stops is written as far as it got, with `?` where it stopped. Expand a walk to prove leaves that need different proofs. The walk adds nothing to the kernel: the chain is checked as written. Families are declared, not built in: a relation `R … (() => code) post` with `@[walk.bind]` on its lemma for `() => j (p())` (its first premise a statement about `p`, its last about `j v` for each value `v`), `@[walk.done]` on its lemma for `() => x`, and `@[walk.weaken]` on its lemma for another post; nothing in the walk names `Parse`. Examples: `examples/accept/walk.sw`, `examples/reject/walk-*.sw`.
+`stitchwort check --expand-walk FILE` (or a project's namespaces) replaces each walk with the chain of lemmas it stands for, writing the files back, and prints the lemma used at each call; with `--stdout` it prints the expanded text instead and leaves the files unchanged, putting the lemma trace on standard error. A walk that stops is written as far as it got, with `?` where it stopped. Expand a walk to prove leaves that need different proofs. The walk adds nothing to the kernel: the chain is checked as written. Families are declared, not built in: a relation `R … (() => code) post` with `@[walk.bind]` on its lemma for `() => j (p())` (its first premise a statement about `p`, its last about `j v` for each value `v`), `@[walk.done]` on its lemma for `() => x`, and `@[walk.weaken]` on its lemma for another post; nothing in the walk names `Parse`. A family has one thunk or two; a two-run family's bind lemma has two thunks in its first premise (`p`, `q`) and its last premise is a `∀` over both values. Examples: `examples/accept/walk.sw`, `examples/accept/walk-two-run.sw`, `examples/reject/walk-*.sw`.
 
 ### Numbers
 

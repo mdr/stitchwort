@@ -1,0 +1,29 @@
+---
+source: crates/cli/tests/running/walk_expand.rs
+expression: trace
+---
+walk-two-run.sw:27: walk
+  in `hereTwice`: `here ()` and `here ()`: followsHere (registered `@[walk]`), then `Parse.followsThen`
+  in `hereTwice`: `first` and `firstTwin` are equal, by `firstFacts`
+  in `hereTwice`: `here ()` and `here ()`: followsHere (registered `@[walk]`), then `Parse.followsThen`
+  in `hereTwice`: `second` and `secondTwin` are equal, by `secondFacts`
+walk-two-run.sw:46: walk
+  in `collect`, `Succ more`: `here ()` and `here ()`: followsHere (registered `@[walk]`), then `Parse.followsThen`
+  in `collect`, `Succ more`: `at` and `atTwin` are equal, by `atFacts`
+  in `collect`, `Succ more`, `False`: `next ()` and `nextTwin ()`: nexts (a hypothesis), then `Parse.followsThen`
+  in `collect`, `Succ more`, `False`: `collect more next [value, ..found]` and `collect more nextTwin [valueTwin, ..foundTwin]`: followsCollect (the theorem itself)
+walk-two-run.sw:56: walk
+  in `sumWith`: `here ()` and `here ()`: followsHere (registered `@[walk]`), then `Parse.followsThen`
+  in `sumWith`: `at` and `atTwin` are equal, by `atFacts`
+walk-two-run.sw:65: walk
+  in `collectHeres`: `collect fuel (arg => here ()) []` and `collect fuel (arg => here ()) []`: followsCollect (named in the brackets)
+  in `collectHeres`: `here ()` and `here ()`: followsHere (registered `@[walk]`)
+walk-two-run.sw:73: walk
+  in `hereUnused`: `here ()` and `here ()`: followsHere (registered `@[walk]`), then `Parse.followsThen`
+walk-two-run.sw:87: walk
+  in `hereThen`: `here ()` and `here ()`: followsHereBack (named in the brackets), then `Parse.followsThen`
+  in `hereThen`: `at` and `atTwin` are equal, by `atFacts`
+walk-two-run.sw:93: walk
+  in `hereOnce`: `here ()` and `here ()`: followsHere (registered `@[walk]`)
+walk-two-run.sw:99: walk
+  in `collectOnce`: `collect fuel (arg => hereOnce ()) []` and `collect fuel (arg => hereOnce ()) []`: followsCollect (named in the brackets)

@@ -835,6 +835,18 @@ fn unfilled_among(cx: &Ctx, term: &Term, unfilled: &[usize]) -> Result<Option<us
 /// `match`). Each is solved by the end of the declaration, by
 /// an item's resumption or default, or its item is reported stuck; so a
 /// comparison that fails only on one of them can wait for it.
+/// How many items the queue has had: with [`waiting_since`], whether a
+/// check left something waiting.
+pub(crate) fn queued(cx: &Ctx) -> usize {
+    cx.e.attempt.queue.len()
+}
+
+/// Whether an item queued since the queue had `before` items still waits.
+pub(crate) fn waiting_since(cx: &Ctx, before: usize) -> bool {
+    let q = &cx.e.attempt.queue;
+    (before..q.len()).any(|i| !matches!(q.state(i), State::Done))
+}
+
 pub(crate) fn pending(cx: &Ctx) -> Result<HashSet<usize>> {
     let g = cx.g();
     let q = &cx.e.attempt.queue;
