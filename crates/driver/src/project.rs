@@ -134,10 +134,35 @@ impl Session {
                                 own.insert(n.clone());
                             }
                             None => {
-                                return Err(vec![Diagnostic::error(
-                                    "E-UNKNOWN-THEOREM",
-                                    format!("there's no theorem `{full}` in the project"),
-                                )]);
+                                // The name may be a theorem's last part: check
+                                // its namespace, so `plan_theorems` can name
+                                // the qualified theorem it might mean.
+                                let suffix = format!(".{full}");
+                                let mut found = false;
+                                for ns in &analysis.namespaces {
+                                    let has =
+                                        ns.modules.iter().flat_map(|m| &m.decls).any(|decl| {
+                                            matches!(
+                                                decl,
+                                                Decl::Signature {
+                                                    name,
+                                                    theorem: true,
+                                                    ..
+                                                } if format!("{}.{}", ns.name, name.text)
+                                                    .ends_with(&suffix)
+                                            )
+                                        });
+                                    if has {
+                                        own.insert(ns.name.clone());
+                                        found = true;
+                                    }
+                                }
+                                if !found {
+                                    return Err(vec![Diagnostic::error(
+                                        "E-UNKNOWN-THEOREM",
+                                        format!("there's no theorem `{full}` in the project"),
+                                    )]);
+                                }
                             }
                         }
                     }

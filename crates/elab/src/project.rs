@@ -618,6 +618,47 @@ fn last_segment(text: &str) -> &str {
     text.rsplit('.').next().unwrap_or(text)
 }
 
+/// The qualified names of the theorems, in `namespaces`, that end in
+/// `.{full}`: what a name in `only` may have left out. At most three, sorted
+/// and without repeats.
+fn theorems_ending_with(namespaces: &[PlanNamespace], full: &str) -> Vec<String> {
+    let suffix = format!(".{full}");
+    let mut found: BTreeSet<String> = BTreeSet::new();
+    for ns in namespaces {
+        for decl in ns.modules.iter().flat_map(|m| &m.decls) {
+            if let Decl::Signature {
+                name,
+                theorem: true,
+                ..
+            } = decl
+            {
+                let qualified = format!("{}.{}", ns.name, name.text);
+                if qualified.ends_with(&suffix) {
+                    found.insert(qualified);
+                }
+            }
+        }
+    }
+    let mut found: Vec<String> = found.into_iter().collect();
+    found.truncate(3);
+    found
+}
+
+/// `did you mean`'s list: `` `a` ``, `` `a` or `b` ``, or
+/// `` `a`, `b` or `c` ``.
+fn quoted_list(items: &[String]) -> String {
+    match items {
+        [one] => format!("`{one}`"),
+        [a, b] => format!("`{a}` or `{b}`"),
+        [a, b, c] => format!("`{a}`, `{b}` or `{c}`"),
+        _ => items
+            .iter()
+            .map(|i| format!("`{i}`"))
+            .collect::<Vec<_>>()
+            .join(", "),
+    }
+}
+
 /// Which theorems of the pruned namespaces must still be checked for
 /// `only` (full names) to be: the named ones; and every theorem that a
 /// declaration kept refers to, by name, in its own namespace or in a
@@ -662,9 +703,13 @@ pub fn plan_theorems(namespaces: &[PlanNamespace], only: &[String]) -> Result<Th
         }
         match found {
             None => {
-                return Err(format!(
-                    "there's no theorem `{full}` in the namespaces being checked"
-                ));
+                let mut message =
+                    format!("there's no theorem `{full}` in the namespaces being checked");
+                let suggestions = theorems_ending_with(namespaces, full);
+                if !suggestions.is_empty() {
+                    message.push_str(&format!("; did you mean {}?", quoted_list(&suggestions)));
+                }
+                return Err(message);
             }
             Some((_, _, false)) => {
                 return Err(format!("`{full}` is not a theorem"));
