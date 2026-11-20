@@ -29280,12 +29280,12 @@
     {
       "id": 4382,
       "title": "[DeepSeek] Walk errors: E-WALK names which occurrence when a function makes the same call twice; warn about bracket items that fit no call; generated() must not treat a user binder named x as compiler-made (SW-4354 follow-ups 7, 8, 10)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nModel result: DeepSeek, worked, 35 min (est. 30)\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
