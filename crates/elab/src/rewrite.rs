@@ -69,7 +69,7 @@ use crate::undo::{Snapshot, fatal};
 mod as_written;
 mod repeatedly;
 pub use repeatedly::{Closer, ExpandedRule, Expansion, RuleSource, expand_call, expand_file};
-pub(crate) use repeatedly::{RuleSet, UNUSED_RULE};
+pub(crate) use repeatedly::{NO_RULES, RuleSet, UNUSED_RULE};
 mod under;
 
 /// Evaluation steps all the comparisons of one `rewrite` may use between
