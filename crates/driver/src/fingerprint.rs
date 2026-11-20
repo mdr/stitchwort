@@ -109,6 +109,9 @@ pub fn source_files(root: &std::path::Path, crate_dir: &str) -> Vec<std::path::P
 /// what a test computes once its term is fixed: `syntax` is the parser, which
 /// `core` uses for spans and diagnostics only. Listed so that a new
 /// dependency of `core` or `rt` is fingerprinted by default, not left out.
+/// For the same reason `syntax` can't change the kernel's verdict either
+/// (the kernel-side fingerprint is this one): spans, diagnostics and the
+/// stack probe can make a check fail, never make one pass.
 pub const NOT_EVALUATION: &[&str] = &["crates/syntax"];
 
 /// Files outside the evaluation crates that decide a test's outcome: the
@@ -147,7 +150,17 @@ pub fn evaluation_files(root: &std::path::Path) -> Vec<std::path::PathBuf> {
 
 /// The fingerprint of what evaluates tests ([`evaluation_files`]), with
 /// `Cargo.lock`, the toolchain and the target: the part of the test cache's
-/// key that stands for the compiler. A test's content hash covers the
+/// key that stands for the compiler.
+///
+/// It is also the kernel-side fingerprint (`KERNEL_FINGERPRINT`), which the
+/// check cache's carried-over entries rest on
+/// (docs/proposals/check-cache-across-updates.md §4.2): an entry another
+/// build wrote is trusted without a re-check only when this matches, so it
+/// must cover everything that decides whether the kernel accepts a term,
+/// which is all of `crates/core` (the checker, termination, conversion,
+/// natives, hashing, pins, the registry). Narrowing it for the test cache
+/// (to leave out the type checker, say) would narrow the kernel side
+/// silently: give the two their own constructions first. A test's content hash covers the
 /// program and everything it uses, the standard library included, so this
 /// covers only the Rust that runs a term (docs/proposals/test-cache-key.md).
 pub fn evaluation_fingerprint(root: &std::path::Path, rustc: &str, target: &str) -> String {
@@ -451,6 +464,28 @@ mod tests {
         }
         let files = super::evaluation_files(&root);
         assert!(files.contains(&PathBuf::from("crates/driver/src/test_run.rs")));
+        // The kernel side, which carried-over check-cache entries rest on:
+        // what decides the kernel's verdict.
+        for file in [
+            "check.rs",
+            "termination.rs",
+            "hash.rs",
+            "pins.rs",
+            "registry.rs",
+            "sct.rs",
+            "native.rs",
+        ] {
+            let path = PathBuf::from("crates/core/src").join(file);
+            assert!(
+                files.contains(&path),
+                "{} in the kernel side",
+                path.display()
+            );
+        }
+        assert_eq!(
+            crate::driver::KERNEL_FINGERPRINT,
+            crate::driver::EVAL_FINGERPRINT
+        );
     }
 
     /// The directories of `start`'s package and every workspace crate it

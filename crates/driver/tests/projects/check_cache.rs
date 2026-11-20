@@ -115,6 +115,11 @@ fn run_here(
     if let Some(dir) = cache {
         session.use_check_cache(dir);
     }
+    finish_run(session, source)
+}
+
+/// Loads `source` in `session`, made and set up by the caller.
+fn finish_run(mut session: Session, source: &Source) -> Run {
     let result: Result<(), Vec<Diagnostic>> = match source {
         Source::File(name, text) => session.load(name, text).map(|_| ()),
         Source::Project(name, path) => session
@@ -1158,28 +1163,36 @@ fn a_namespace_entry_refused_part_way_gives_the_same_result() {
     );
 }
 
+/// Copies the directory `from` to `to`, recursively.
+fn copy_dir(from: &Path, to: &Path) {
+    std::fs::create_dir_all(to).unwrap();
+    for entry in std::fs::read_dir(from).unwrap() {
+        let entry = entry.unwrap();
+        let target = to.join(entry.file_name());
+        if entry.file_type().unwrap().is_dir() {
+            copy_dir(&entry.path(), &target);
+        } else {
+            std::fs::copy(entry.path(), &target).unwrap();
+        }
+    }
+}
+
+/// A copy of the standard library in a new directory.
+fn std_copy(name: &str) -> PathBuf {
+    let std = temp_dir(name);
+    copy_dir(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../elab/src/std"),
+        &std,
+    );
+    std
+}
+
 /// The standard library with `Float/Float.sw` cut before its primitives,
 /// which keep it out of the cache, so that its entry, with the Float
 /// built-ins it binds, can be written and replayed; the rest goes to
 /// `Float/Rest.sw`. In a new directory.
 fn std_with_cacheable_float() -> PathBuf {
-    fn copy(from: &Path, to: &Path) {
-        std::fs::create_dir_all(to).unwrap();
-        for entry in std::fs::read_dir(from).unwrap() {
-            let entry = entry.unwrap();
-            let target = to.join(entry.file_name());
-            if entry.file_type().unwrap().is_dir() {
-                copy(&entry.path(), &target);
-            } else {
-                std::fs::copy(entry.path(), &target).unwrap();
-            }
-        }
-    }
-    let std = temp_dir("float-std");
-    copy(
-        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../elab/src/std"),
-        &std,
-    );
+    let std = std_copy("float-std");
     let float = std.join("Float/Float.sw");
     let text = std::fs::read_to_string(&float).unwrap();
     // `Float.sub` is the last declaration the cut file needs; the blank line
@@ -1842,4 +1855,309 @@ fn a_replayed_namespaces_instances_and_extensions_are_usable() {
         assert!(fresh.dump.contains("accepted true"), "{}", fresh.dump);
     }
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+// ---- Carried-over entries (check-cache-across-updates.md, stage 1) -------
+
+/// The kernel side of the build these tests are: what an entry another
+/// build wrote must have for this one to carry it over.
+const KERNEL: &str = stitchwort_driver::driver::KERNEL_FINGERPRINT;
+
+/// Loads the project at `dir` with navigation through the cache in `cache`:
+/// as the build `build` (its fingerprint and its kernel side's) would, or
+/// as this one with `None`, carrying over entries if `carry`.
+fn run_as_build(dir: &Path, cache: &Path, build: Option<(&str, &str)>, carry: bool) -> Run {
+    run_as_build_late(dir, cache, build, carry, false)
+}
+
+/// [`run_as_build`], with every namespace replay failing late if `late`
+/// (`Elaborator::fail_namespace_replays_late`).
+fn run_as_build_late(
+    dir: &Path,
+    cache: &Path,
+    build: Option<(&str, &str)>,
+    carry: bool,
+    late: bool,
+) -> Run {
+    let source = Source::Project("p".to_string(), dir.to_path_buf());
+    with_stack(STACK, || {
+        let mut session = Session::navigable_for_stack(STACK);
+        match build {
+            Some((build, kernel)) => session.use_check_cache_as_build(cache, build, kernel),
+            None => session.use_check_cache(cache),
+        }
+        session.elab.set_carry_over(carry);
+        if late {
+            session.elab.fail_namespace_replays_late();
+        }
+        finish_run(session, &source)
+    })
+}
+
+/// An entry another build wrote from the same source, with the same kernel
+/// side, is used only when carrying over is on: then every namespace and
+/// library file comes from it, is counted as carried over, and the session
+/// holds what elaborating gives. Without it, every one is a miss.
+#[test]
+fn a_carried_over_entry_is_used_only_when_asked() {
+    let dir = temp_project("carry", ABC);
+    let earlier = temp_dir("carry-cache");
+    let written = run_as_build(&dir, &earlier, Some(("earlierbuild", KERNEL)), false);
+    assert_eq!(written.stats.namespace_written, 3);
+    let copy = copy_cache(&earlier, "carry-cache-copy", &[]);
+    let fresh = run(&Source::Project("p".to_string(), dir.clone()), true, None);
+
+    let exact = run_as_build(&dir, &earlier, None, false);
+    assert_eq!(
+        (
+            exact.stats.namespace_hits,
+            exact.stats.hits,
+            exact.stats.carried_over()
+        ),
+        (0, 0, 0),
+        "{:?}",
+        exact.stats
+    );
+
+    let carried = run_as_build(&dir, &copy, None, true);
+    assert_eq!(
+        (
+            carried.stats.namespace_carried,
+            carried.stats.namespace_hits
+        ),
+        (3, 3),
+        "{:?}",
+        carried.stats
+    );
+    assert_eq!(
+        carried.stats.carried, carried.stats.hits,
+        "{:?}",
+        carried.stats
+    );
+    assert!(
+        carried.dump == fresh.dump,
+        "carrying over changed the result: {}",
+        first_difference(&fresh.dump, &carried.dump)
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&earlier);
+    let _ = std::fs::remove_dir_all(&copy);
+}
+
+/// An entry written by a build whose kernel side differs is a miss even
+/// when carrying over (stage 2 will check it again instead).
+#[test]
+fn a_kernel_side_change_makes_a_carried_entry_a_miss() {
+    let dir = temp_project("carry-kernel", ABC);
+    let cache = temp_dir("carry-kernel-cache");
+    run_as_build(&dir, &cache, Some(("earlierbuild", "anotherkernel")), false);
+    let run = run_as_build(&dir, &cache, None, true);
+    assert_eq!(
+        (
+            run.stats.namespace_hits,
+            run.stats.hits,
+            run.stats.carried_over()
+        ),
+        (0, 0, 0),
+        "{:?}",
+        run.stats
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
+/// What a session that carried something over writes is carried over too,
+/// never exact: an edited `B` elaborated over a carried `A` is a miss for
+/// an exact check, and a carried-over hit for the next carrying one.
+#[test]
+fn what_is_written_over_carried_entries_is_not_exact() {
+    let dir = temp_project("carry-taint", ABC);
+    let cache = temp_dir("carry-taint-cache");
+    run_as_build(&dir, &cache, Some(("earlierbuild", KERNEL)), false);
+    write_file(&dir, "src/B.sw", &format!("-- a comment\n{}", ABC[1].1));
+    let carrying = run_as_build(&dir, &cache, None, true);
+    assert_eq!(
+        (
+            carrying.stats.namespace_carried,
+            carrying.stats.namespace_written
+        ),
+        (2, 1),
+        "{:?}",
+        carrying.stats
+    );
+    let again = run_as_build(
+        &dir,
+        &copy_cache(&cache, "carry-taint-copy", &[]),
+        None,
+        true,
+    );
+    assert_eq!(again.stats.namespace_carried, 3, "{:?}", again.stats);
+    let exact = run_as_build(&dir, &cache, None, false);
+    assert_eq!(exact.stats.namespace_hits, 0, "{:?}", exact.stats);
+    // The exact check rewrote them as exact.
+    let warm = run_as_build(&dir, &cache, None, false);
+    assert_eq!(
+        (warm.stats.namespace_hits, warm.stats.carried_over()),
+        (3, 0),
+        "{:?}",
+        warm.stats
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
+/// A carried-over replay that fails after it began leaves another build's
+/// state behind (the names it declared, the library files it loaded): what
+/// the session then elaborates and writes is not exact, and is counted for
+/// the label.
+#[test]
+fn a_carried_entry_that_misses_late_leaves_the_session_carried() {
+    let dir = temp_project("carry-late", ABC);
+    let cache = temp_dir("carry-late-cache");
+    run_as_build(&dir, &cache, Some(("earlierbuild", KERNEL)), false);
+    let late = run_as_build_late(&dir, &cache, None, true, true);
+    assert_eq!(
+        (
+            late.stats.namespace_carried_late,
+            late.stats.namespace_carried,
+            late.stats.namespace_written
+        ),
+        (3, 0, 3),
+        "{:?}",
+        late.stats
+    );
+    assert!(late.stats.carried_over_units().is_some());
+    let exact = run_as_build(&dir, &cache, None, false);
+    assert_eq!(exact.stats.namespace_hits, 0, "{:?}", exact.stats);
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
+/// Set in the child processes of [`carry_across_a_library_change`], which
+/// each read their own copy of the library (a process reads it once).
+const CARRY_CHILD: &str = "STITCHWORT_CARRY_CHILD";
+
+/// A namespace `A` that refers to `ExitStatus.carryProbe`, a declaration
+/// the test adds to `ExitStatus/ExitStatus.sw`, and a namespace `C` that
+/// uses no library file.
+const PROBE: &[(&str, &str)] = &[
+    (
+        "src/A.sw",
+        "namespace A\n\nimport Std (ExitStatus)\n\ndef probe: Nat := ExitStatus.carryProbe + 1\n",
+    ),
+    ("src/C.sw", "namespace C\n\ndef three: Nat := 3\n"),
+];
+
+/// The probe declaration, as the earlier build's library has it.
+const PROBE_BEFORE: &str =
+    "\n--| A declaration for the check cache's tests.\ndef ExitStatus.carryProbe: Nat := 1\n";
+
+/// The project in [`PROBE`] is checked by an earlier build with a library
+/// ending in [`PROBE_BEFORE`], then by this build, carrying over, with the
+/// library ending in `after` instead; `expect` checks that session's
+/// statistics, and the session must hold what a fresh check does. Each
+/// side runs in a child process (the test binary again, as test `name`),
+/// since a process reads the library once.
+fn carry_across_a_library_change(name: &str, after: &str, expect: fn(&Stats)) {
+    if let Some(phase) = std::env::var_os(CARRY_CHILD) {
+        let var = |v: &str| PathBuf::from(std::env::var_os(v).unwrap());
+        stitchwort_elab::use_std_dir(&var("CARRY_STD")).expect("a library of its own");
+        let (dir, cache) = (var("CARRY_DIR"), var("CARRY_CACHE"));
+        if phase == "write" {
+            let written = run_as_build(&dir, &cache, Some(("earlierbuild", KERNEL)), false);
+            assert_eq!(written.stats.namespace_written, 2, "{:?}", written.stats);
+            return;
+        }
+        let fresh = run(&Source::Project("p".to_string(), dir.clone()), true, None);
+        let carried = run_as_build(&dir, &cache, None, true);
+        assert!(fresh.dump.contains("\naccepted true\n"), "{}", fresh.dump);
+        assert!(
+            carried.dump == fresh.dump,
+            "carrying over changed the result: {}",
+            first_difference(&fresh.dump, &carried.dump)
+        );
+        expect(&carried.stats);
+        return;
+    }
+    let library = |name: &str, tail: &str| {
+        let std = std_copy(name);
+        let file = std.join("ExitStatus/ExitStatus.sw");
+        let text = std::fs::read_to_string(&file).unwrap();
+        std::fs::write(&file, format!("{text}{tail}")).unwrap();
+        std
+    };
+    let before = library("carry-std-before", PROBE_BEFORE);
+    let after = library("carry-std-after", after);
+    let dir = temp_project("carry-std-project", PROBE);
+    let cache = temp_dir("carry-std-cache");
+    for (phase, std) in [("write", &before), ("carry", &after)] {
+        let out = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                &format!("check_cache::{name}"),
+                "--exact",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env(CARRY_CHILD, phase)
+            .env("CARRY_STD", std)
+            .env("CARRY_DIR", &dir)
+            .env("CARRY_CACHE", &cache)
+            .output()
+            .expect("can run the test binary");
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        assert!(
+            out.status.success() && stdout.contains("1 passed"),
+            "the {phase} child failed ({}):\n{stdout}\n{}",
+            out.status,
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+    for d in [&before, &after, &dir, &cache] {
+        let _ = std::fs::remove_dir_all(d);
+    }
+}
+
+/// A carried namespace's entry isn't used when a library declaration it
+/// refers to changed, though its own source didn't: the library files'
+/// keys aren't compared for a carried entry, so the content hashes are
+/// what find it. It is elaborated again, over what the replay left, and
+/// counted; `C` is still carried.
+#[test]
+fn a_carried_namespace_whose_library_dependency_changed_is_elaborated_again() {
+    carry_across_a_library_change(
+        "a_carried_namespace_whose_library_dependency_changed_is_elaborated_again",
+        "\n--| A declaration for the check cache's tests.\ndef ExitStatus.carryProbe: Nat := 2\n",
+        |stats| {
+            assert_eq!(
+                (
+                    stats.namespace_carried,
+                    stats.namespace_carried_late,
+                    stats.namespace_written
+                ),
+                (1, 1, 1),
+                "{stats:?}"
+            );
+        },
+    );
+}
+
+/// A change to a library file a carried namespace loads, elsewhere than
+/// what it refers to, doesn't stop it being carried over.
+#[test]
+fn a_library_change_a_carried_namespace_does_not_use_still_carries() {
+    carry_across_a_library_change(
+        "a_library_change_a_carried_namespace_does_not_use_still_carries",
+        &format!("{PROBE_BEFORE}\n--| Another.\ndef ExitStatus.carryOther: Nat := 5\n"),
+        |stats| {
+            assert_eq!(
+                (
+                    stats.namespace_carried,
+                    stats.namespace_carried_late,
+                    stats.namespace_misses
+                ),
+                (2, 0, 0),
+                "{stats:?}"
+            );
+        },
+    );
 }

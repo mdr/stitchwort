@@ -3,9 +3,14 @@
 //! next to `tests/`), one file per entry.
 //!
 //! - **Names.** An entry's file is `{fingerprint}-{unit}-{key}`: the
-//!   compiler build, the unit (a library file, `std.List.Toolkit`, or a
-//!   project namespace, `ns.Aoc.Year2025.Day05`; `+nav` when navigation is
-//!   recorded), and the entry's key in hex.
+//!   compiler build that wrote it, the unit (a library file,
+//!   `std.List.Toolkit`, or a project namespace, `ns.Aoc.Year2025.Day05`;
+//!   `+nav` when navigation is recorded), and the entry's key in hex. The
+//!   key covers only the source (docs/proposals/check-cache-across-updates.md
+//!   §4.1), so another build's entry for the same unit and key is a
+//!   candidate for a carried-over hit ([`Store::read_others`]); the build in
+//!   the name keeps each build's own entries apart, so two builds sharing a
+//!   folder don't overwrite each other's.
 //! - **The header.** `check/header` holds the directory's random salt
 //!   (§3.1), made the first time the directory is used. Every entry
 //!   carries it, so an entry copied from another cache directory is a miss.
@@ -15,7 +20,8 @@
 //! - **Eviction (D283).** Writing an entry deletes the unit's other entries
 //!   for this build; the first write of a run deletes entries of other
 //!   builds that are more than a day old (two builds may share a project
-//!   folder, hence the grace period).
+//!   folder, hence the grace period), except each unit's newest entry,
+//!   which a later build may carry over.
 //!
 //! The elaborator encodes, checks and replays entries; this only stores
 //! them.
@@ -26,7 +32,7 @@ use std::time::{Duration, SystemTime};
 
 use stitchwort_elab::cache::{Key, Store};
 
-use crate::driver::FINGERPRINT;
+use crate::driver::{FINGERPRINT, KERNEL_FINGERPRINT};
 
 /// How long entries of other builds are kept.
 pub(crate) const GRACE: Duration = Duration::from_secs(24 * 60 * 60);
@@ -34,7 +40,14 @@ pub(crate) const GRACE: Duration = Duration::from_secs(24 * 60 * 60);
 /// A check cache in a directory.
 pub struct CheckCache {
     dir: PathBuf,
+    /// The build, as entries' file names give it: [`FINGERPRINT`].
+    build: String,
     compiler: String,
+    /// The kernel side's fingerprint ([`KERNEL_FINGERPRINT`]).
+    kernel: String,
+    /// The folder's names when last listed, and its modification time
+    /// then: the candidates for carried-over hits.
+    listing: std::cell::RefCell<Option<(SystemTime, Vec<String>)>>,
     salt: [u8; 16],
     /// Whether this run has written yet (the first write sweeps).
     written: Cell<bool>,
@@ -52,11 +65,27 @@ impl CheckCache {
     /// [`CheckCache::at`], keeping other builds' entries for `grace` only:
     /// the tests' cache, where every build of the code is a new build.
     pub fn with_grace(cache_dir: &Path, grace: Duration) -> CheckCache {
+        Self::for_build(cache_dir, grace, FINGERPRINT, KERNEL_FINGERPRINT)
+    }
+
+    /// For tests: the check cache in `cache_dir` as a build whose
+    /// fingerprint is `build` and whose kernel side's is `kernel` would
+    /// use it, to stand for another build of the compiler.
+    #[doc(hidden)]
+    pub fn as_build(cache_dir: &Path, build: &str, kernel: &str) -> CheckCache {
+        Self::for_build(cache_dir, GRACE, build, kernel)
+    }
+
+    fn for_build(cache_dir: &Path, grace: Duration, build: &str, kernel: &str) -> CheckCache {
         let dir = cache_dir.join("check");
         let salt = salt(&dir);
+        let version = env!("CARGO_PKG_VERSION");
         CheckCache {
             dir,
-            compiler: format!("stitchwort-{}-{}", env!("CARGO_PKG_VERSION"), FINGERPRINT),
+            build: build.to_string(),
+            compiler: format!("stitchwort-{version}-{build}"),
+            kernel: format!("stitchwort-{version}-kernel-{kernel}"),
+            listing: std::cell::RefCell::new(None),
             salt,
             written: Cell::new(false),
             grace,
@@ -64,8 +93,30 @@ impl CheckCache {
     }
 
     fn file(&self, unit: &str, key: &Key) -> PathBuf {
-        self.dir
-            .join(format!("{}-{unit}-{}", FINGERPRINT, hex(key)))
+        self.dir.join(format!("{}-{unit}-{}", self.build, hex(key)))
+    }
+
+    /// The names in the folder, listed again only when it has changed.
+    fn names(&self) -> Vec<String> {
+        let Some(modified) = std::fs::metadata(&self.dir).and_then(|m| m.modified()).ok() else {
+            return Vec::new();
+        };
+        let mut listing = self.listing.borrow_mut();
+        if let Some((when, names)) = &*listing
+            && *when == modified
+        {
+            return names.clone();
+        }
+        let names: Vec<String> = std::fs::read_dir(&self.dir)
+            .map(|entries| {
+                entries
+                    .flatten()
+                    .filter_map(|e| e.file_name().into_string().ok())
+                    .collect()
+            })
+            .unwrap_or_default();
+        *listing = Some((modified, names.clone()));
+        names
     }
 
     /// Deletes this unit's other entries for this build, and on the first
@@ -76,8 +127,16 @@ impl CheckCache {
         let Ok(entries) = std::fs::read_dir(&self.dir) else {
             return;
         };
-        let own = format!("{}-{unit}-", FINGERPRINT);
+        let own = format!("{}-{unit}-", self.build);
+        let mine = format!("{}-", self.build);
         let now = SystemTime::now();
+        // Other builds' entries past the grace period, by unit, with when
+        // each was written: all but each unit's newest are deleted.
+        let mut old: std::collections::BTreeMap<String, Vec<(SystemTime, PathBuf)>> =
+            std::collections::BTreeMap::new();
+        // The newest entry of each unit, of any build.
+        let mut newest: std::collections::BTreeMap<String, SystemTime> =
+            std::collections::BTreeMap::new();
         for entry in entries.flatten() {
             let path = entry.path();
             let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
@@ -86,17 +145,37 @@ impl CheckCache {
             if name == "header" || path == keep {
                 continue;
             }
-            let stale = name.starts_with(&own)
-                || (first
-                    && !name.starts_with(&format!("{}-", FINGERPRINT))
-                    && entry
-                        .metadata()
-                        .and_then(|m| m.modified())
-                        .ok()
-                        .and_then(|t| now.duration_since(t).ok())
-                        .is_some_and(|age| age > self.grace));
-            if stale {
+            if name.starts_with(&own) {
                 let _ = std::fs::remove_file(&path);
+                continue;
+            }
+            if !first {
+                continue;
+            }
+            let modified = entry.metadata().and_then(|m| m.modified()).ok();
+            let age = modified.and_then(|t| now.duration_since(t).ok());
+            if name.starts_with(".tmp-") {
+                if age.is_some_and(|age| age > self.grace) {
+                    let _ = std::fs::remove_file(&path);
+                }
+                continue;
+            }
+            let (Some(unit), Some(modified)) = (entry_unit(name), modified) else {
+                continue;
+            };
+            let latest = newest.entry(unit.to_string()).or_insert(modified);
+            *latest = (*latest).max(modified);
+            if !name.starts_with(&mine) && age.is_some_and(|age| age > self.grace) {
+                old.entry(unit.to_string())
+                    .or_default()
+                    .push((modified, path.clone()));
+            }
+        }
+        for (unit, entries) in old {
+            for (modified, path) in entries {
+                if newest.get(&unit).is_some_and(|&n| n > modified) {
+                    let _ = std::fs::remove_file(&path);
+                }
             }
         }
     }
@@ -105,6 +184,30 @@ impl CheckCache {
 impl Store for CheckCache {
     fn compiler(&self) -> &str {
         &self.compiler
+    }
+
+    fn kernel(&self) -> &str {
+        &self.kernel
+    }
+
+    fn read_others(&self, unit: &str, key: &Key) -> Vec<Vec<u8>> {
+        let suffix = format!("-{unit}-{}", hex(key));
+        let mine = format!("{}-", self.build);
+        let mut found: Vec<(SystemTime, PathBuf)> = self
+            .names()
+            .into_iter()
+            .filter(|name| name.ends_with(&suffix) && !name.starts_with(&mine))
+            .filter_map(|name| {
+                let path = self.dir.join(name);
+                let modified = std::fs::metadata(&path).and_then(|m| m.modified()).ok()?;
+                Some((modified, path))
+            })
+            .collect();
+        found.sort_by_key(|(modified, _)| std::cmp::Reverse(*modified));
+        found
+            .into_iter()
+            .filter_map(|(_, path)| std::fs::read(path).ok())
+            .collect()
     }
 
     fn salt(&self) -> [u8; 16] {
@@ -135,6 +238,13 @@ fn write_atomically(dir: &Path, path: &Path, bytes: &[u8]) -> std::io::Result<()
         let _ = std::fs::remove_file(&temp);
     }
     result
+}
+
+/// The unit of the entry file `name` (`{build}-{unit}-{key}`).
+fn entry_unit(name: &str) -> Option<&str> {
+    let (_, rest) = name.split_once('-')?;
+    let (unit, _) = rest.rsplit_once('-')?;
+    Some(unit)
 }
 
 fn hex(bytes: &[u8]) -> String {
@@ -198,10 +308,10 @@ fn random_salt() -> [u8; 16] {
 ///   the library files that don't check under the limits it was made with
 ///   (`left_out`), which a session like it should not load up front.
 /// - **Validity:** an entry is looked up by its key, which covers the
-///   compiler build, the modes and limits, and the file's text and its
-///   dependencies' keys; so a bundle from another build, or a session made
-///   differently, finds only misses, and the file is checked as without a
-///   cache. A bundle from another compiler is not read at all
+///   modes and limits, and the file's text and its dependencies' keys, and
+///   its stamp names the compiler build; so a session made differently
+///   finds only misses, and the file is checked as without a cache. A
+///   bundle from another compiler is not read at all
 ///   ([`LibraryBundle::decode`]), so its `left_out` isn't used either.
 /// - **Trust:** its entries are admitted without the kernel's checks, as
 ///   a cache directory's are (check-cache.md, D1660). The salt that keeps a

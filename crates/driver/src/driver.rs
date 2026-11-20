@@ -858,6 +858,17 @@ impl Session {
             .set_check_cache(std::rc::Rc::new(crate::check_cache::CheckCache::at(dir)));
     }
 
+    /// For tests: [`Session::use_check_cache`] as another build would,
+    /// one whose fingerprint is `build` and whose kernel side's is `kernel`
+    /// ([`crate::check_cache::CheckCache::as_build`]).
+    #[doc(hidden)]
+    pub fn use_check_cache_as_build(&mut self, dir: &std::path::Path, build: &str, kernel: &str) {
+        self.elab
+            .set_check_cache(std::rc::Rc::new(crate::check_cache::CheckCache::as_build(
+                dir, build, kernel,
+            )));
+    }
+
     /// Lets `include` read the files of a project: from `files`, where the
     /// project's files are found by their path in it.
     pub fn include_from(&mut self, files: std::rc::Rc<dyn stitchwort_elab::project::IncludeFiles>) {
@@ -1441,6 +1452,14 @@ pub const FINGERPRINT_CRATES: &str = env!("STITCHWORT_FINGERPRINT_CRATES");
 /// the program and the standard library it uses. Only a change to the Rust
 /// that evaluates a term, or to the toolchain, starts a fresh cache.
 pub const EVAL_FINGERPRINT: &str = env!("STITCHWORT_EVAL_FINGERPRINT");
+
+/// The kernel side of the compiler: a fingerprint of what decides whether
+/// core terms are accepted (all of `crates/core`, with what it is built
+/// with, the toolchain and the target), made by `build.rs`. The check cache
+/// carries an entry over from another build only when this matches
+/// (docs/proposals/check-cache-across-updates.md), so it must never be
+/// narrower than `crates/core`; it is [`EVAL_FINGERPRINT`] for now.
+pub const KERNEL_FINGERPRINT: &str = env!("STITCHWORT_KERNEL_FINGERPRINT");
 
 /// The crates whose sources [`EVAL_FINGERPRINT`] covers (and the driver's
 /// `test_run.rs` besides), as directories relative to the workspace root,

@@ -56,6 +56,11 @@ pub struct Options {
     /// Where library files' results are kept between runs, if anywhere
     /// (`cache`). Installed by the host before anything loads.
     pub(crate) check_cache: Option<Rc<dyn cache::Store>>,
+    /// Whether the check cache may give carried-over hits: entries another
+    /// build wrote from the same source, with the same kernel side
+    /// (docs/proposals/check-cache-across-updates.md). On in the editor and
+    /// with `check --carry-over`; off by default.
+    pub(crate) carry_over: bool,
     /// For tests: every namespace replay fails part way
     /// (`fail_namespace_replays_late`).
     pub(crate) fail_replays_late: bool,
@@ -141,6 +146,8 @@ impl Options {
             library_tests: _,
             // Where entries are kept, and a test's way of making replays fail.
             check_cache: _,
+            // Which entries may be read, not what checking gives.
+            carry_over: _,
             fail_replays_late: _,
             refuse_replays_after: _,
             // Names a test's own definition.
