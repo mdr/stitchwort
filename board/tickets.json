@@ -1,5 +1,5 @@
 {
-  "next": 4342,
+  "next": 4343,
   "tickets": [
     {
       "id": 47,
@@ -28744,6 +28744,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "D3699, Matt, 20 Nov 2026: yes (option A). Opus review before merge (kernel terms, D2364). Follow-ups: walkers guard by lastPair + converters removed (Sonnet).",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4342,
+      "title": "[Sonnet] A let with a huge annotation (let w: Wrap (grow 22 (Leaf x)) := make x, then a match on w) still runs out: find the read-back with STITCHWORT_TRACE_RESOURCE=1 and a line-tables build (docs/testing.md), route it through the fallback if convertible, with an example",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "goal-as-written",
+      "body": "From SW-4339.",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
