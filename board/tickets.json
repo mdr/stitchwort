@@ -1,5 +1,5 @@
 {
-  "next": 4462,
+  "next": 4463,
   "tickets": [
     {
       "id": 47,
@@ -30250,7 +30250,7 @@
     {
       "id": 4456,
       "title": "[Opus] A match whose goal is a Prop call with an unknown applied to the scrutinee (Reads0 (() => _j lt) inside reads0Then) can't be checked against the folded goal, so SW-4453 skips the folded try when the goal has unknowns (23 fallbacks in three fmt namespaces without that condition); make the folded motive work there so the condition can go; also the effect-context callers of check_match (effects.rs ~2935, ~2949) still pass the forced goal; and partial-unfold.md's 'Follows stays folded' now holds for match: update it (SW-4453 findings)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -30268,7 +30268,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nSW-4456 found where the repeats come from in tools/fmt: an argument with a match is checked before a later argument fixes the continuation unknown _j (reads0Then), fails (folded and unfolded, 23 times in three namespaces), and is checked again once _j is known. Ask whether such arguments could be postponed until the unknown is solved.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -30321,6 +30321,19 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "\n\nModel result: DeepSeek, worked, 15 min (est. 15)\n",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4462,
+      "title": "[Opus] Goals as written: a let before a match loses the folded goal: check_value_against passes the forced goal into effects::pure_let, so the match's arms see Parse.Follows unfolded; pass the unforced goal (named) through let bodies like check_match_named does, with the same fallback; affects every let in a proof whose goal is a Prop call, so measure tools/fmt before/after (SW-4456 finding 1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "goal-as-written",
+      "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
