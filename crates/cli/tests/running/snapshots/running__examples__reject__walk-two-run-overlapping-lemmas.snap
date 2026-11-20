@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-WALK-LEMMA] Error: `followsFailBump` and `followsFailAny` both fit the same pair of calls, (`fail`, `bump`) and (`fail`, any)
+    ╭─[ reject/walk-two-run-overlapping-lemmas.sw:23:3 ]
+    │
+ 19 │ @[walk]
+    │   ──┬─  
+    │     ╰─── the first
+    │ 
+ 23 │ @[walk]
+    │   ──┬─  
+    │     ╰─── a second one
+    │ 
+    │ Note: a call uses its function's one registered lemma, never a choice between two (a run a lemma leaves open, a variable, fits every function); name the other where it is wanted, in a walk's brackets
+────╯

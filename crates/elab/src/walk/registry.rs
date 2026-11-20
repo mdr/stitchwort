@@ -75,10 +75,10 @@ impl Elaborator {
                          is a then-lemma)",
                     ));
                 };
-                // A two-run lemma is filed under both runs' functions: one
-                // about `bump` and `bump` and one about `fail` and any
-                // parser don't overlap.
-                let heads = thunk_heads(&shape);
+                // A run a lemma leaves open (a variable, "any parser") fits
+                // every function, so `(fail, any)` overlaps `(fail, bump)`:
+                // a pair of calls would have two lemmas, and which is used
+                // must never be a choice.
                 for (&other, (other_tag, other_at)) in self.tables.walk_tags.iter() {
                     if other_tag != WALK || other == id || !crate::auto::visible(self, other) {
                         continue;
@@ -86,23 +86,31 @@ impl Elaborator {
                     let Some(s) = statement(g.def(other).ty()) else {
                         continue;
                     };
-                    if s.head == shape.head && thunk_heads(&s) == heads {
-                        return Err(Diagnostic::error(
-                            "E-WALK-LEMMA",
-                            format!(
-                                "`{}` already has a walk lemma in this family: `{}`",
-                                g.def(head).name(),
-                                g.def(other).name()
-                            ),
+                    if s.head != shape.head || !runs_overlap(&shape, &s) {
+                        continue;
+                    }
+                    let (mine, theirs) = runs_text(|f| g.def(f).name().to_string(), &shape, &s);
+                    let message = if mine.contains(", ") {
+                        format!(
+                            "`{name}` and `{}` both fit the same pair of calls, {mine} and {theirs}",
+                            g.def(other).name(),
                         )
+                    } else {
+                        format!(
+                            "`{}` already has a walk lemma in this family: `{}`",
+                            g.def(head).name(),
+                            g.def(other).name()
+                        )
+                    };
+                    return Err(Diagnostic::error("E-WALK-LEMMA", message)
                         .with_label(at, "a second one")
                         .with_label(*other_at, "the first")
                         .with_note(
                             "a call uses its function's one registered lemma, never a choice \
-                             between two; name the other where it is wanted, in a walk's \
+                             between two (a run a lemma leaves open, a variable, fits every \
+                             function); name the other where it is wanted, in a walk's \
                              brackets",
                         ));
-                    }
                 }
             }
         }
@@ -210,16 +218,39 @@ pub(super) fn thunk_head(thunk: &Term) -> Option<DefId> {
     }
 }
 
-/// The functions a statement's thunks call, in order: one for a one-run
-/// family, two for a two-run one (`None` for a thunk that is a variable,
-/// as in "`fail` is followed by any parser").
-pub(super) fn thunk_heads(shape: &Shape) -> Vec<Option<DefId>> {
-    shape
-        .args
-        .iter()
-        .filter(|a| matches!(a.strip_loc(), Term::Lam(..)))
-        .map(thunk_head)
-        .collect()
+/// Whether one pair of calls can fit both lemmas: at every argument that is
+/// a thunk in both, the functions agree; an argument that is a thunk in only
+/// one is a run the other leaves open.
+fn runs_overlap(a: &Shape, b: &Shape) -> bool {
+    (0..a.args.len().min(b.args.len())).all(|i| {
+        let (x, y) = (&a.args[i], &b.args[i]);
+        match (x.strip_loc(), y.strip_loc()) {
+            (Term::Lam(..), Term::Lam(..)) => match (thunk_head(x), thunk_head(y)) {
+                (Some(f), Some(g)) => f == g,
+                _ => true,
+            },
+            _ => true,
+        }
+    })
+}
+
+/// Two lemmas' runs as a message writes them, ``(`fail`, any)``, over the
+/// arguments that call a function in either (a post is not one).
+fn runs_text(name: impl Fn(DefId) -> String, a: &Shape, b: &Shape) -> (String, String) {
+    let at: Vec<usize> = (0..a.args.len().min(b.args.len()))
+        .filter(|&i| thunk_head(&a.args[i]).is_some() || thunk_head(&b.args[i]).is_some())
+        .collect();
+    let show = |s: &Shape| {
+        let parts: Vec<String> = at
+            .iter()
+            .map(|&i| match thunk_head(&s.args[i]) {
+                Some(f) => format!("`{}`", name(f)),
+                None => "any".to_string(),
+            })
+            .collect();
+        format!("({})", parts.join(", "))
+    };
+    (show(a), show(b))
 }
 
 /// Which arguments of relation `rel` are the thunks, in order: a

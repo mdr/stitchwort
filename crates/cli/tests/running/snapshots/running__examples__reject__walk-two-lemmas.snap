@@ -13,5 +13,5 @@ expression: output
     │   ──┬─  
     │     ╰─── a second one
     │ 
-    │ Note: a call uses its function's one registered lemma, never a choice between two; name the other where it is wanted, in a walk's brackets
+    │ Note: a call uses its function's one registered lemma, never a choice between two (a run a lemma leaves open, a variable, fits every function); name the other where it is wanted, in a walk's brackets
 ────╯
