@@ -1,0 +1,3 @@
+# A walk uses only the `@[walk]` lemmas its namespace can see: `Aside`'s
+# lemma for `look`, checked first, is not `User`'s, which doesn't import it.
+sources: [src]

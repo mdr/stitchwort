@@ -87,7 +87,7 @@ pub(crate) struct Tables {
     /// The `rules` declarations, by the definition each declares: its
     /// rules, other sets already put in their place (`rewrite/repeatedly.rs`).
     pub(crate) rule_sets: OwnedBy<DefId, Rc<RuleSet>>,
-    /// The theorems marked `@[walk]`, `@[walk.then]`, `@[walk.done]` or
+    /// The theorems marked `@[walk]`, `@[walk.bind]`, `@[walk.done]` or
     /// `@[walk.weaken]`, by theorem: which, and where it was written
     /// (`walk.rs`).
     pub(crate) walk_tags: OwnedBy<DefId, (String, Span)>,

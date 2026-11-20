@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `givesLookk`
+    ╭─[ reject/walk-bad-bracket-item.sw:18:104 ]
+    │
+ 18 │ theorem givesLookTwice: Parse.Gives Parse.Invariant.any (() => lookTwice()) (n => n = 0) := byWalking [givesLookk]
+    │                                                                                                        ─────┬────  
+    │                                                                                                             ╰────── not in scope
+    │ 
+    │ Note: did you mean `givesLook`?
+────╯

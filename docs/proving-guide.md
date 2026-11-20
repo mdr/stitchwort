@@ -405,9 +405,12 @@ Import what you use: std's theorems live in namespaces that need an import
   lemma per call, the same leaf proof at every value (give it as `then t`,
   naming the walk's binders: `first`, `firstFacts`, `nextValueFacts`).
   Register a function's lemma with `@[walk]` where every walk should use it,
-  and leave `[j := …]`-style lemmas (`readsAtAfterLeft`) and calls that
-  perform an operation directly (`Parse.mark().left`) to a hand proof: the
-  walk stops on them. Where two leaves need different proofs, run
+  The walk reads the continuation off the code, so it needs no
+  `[j := …]`-style lemma (`readsAtAfterLeft`): it binds with the family's
+  own bind lemma (`readsAtThen`). A call that performs an operation
+  directly (`Parse.mark().left`) can't be registered with `@[walk]`; name
+  its lemma in the brackets instead (`byWalking [Parse.readsAtLeft start]`).
+  Where two leaves need different proofs, run
   `stitchwort check --expand-walk` and edit the chain it writes; keep the
   walk only where it is shorter than the chain.
 - **`byComputing`** proves `a = b` only when both sides compute to the same value.

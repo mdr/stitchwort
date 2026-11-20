@@ -350,11 +350,13 @@ impl Elaborator {
                 if statement(first).is_none() {
                     return Err(wrong("its first premise isn't a relation"));
                 }
+                self.unique_family_lemma(id, tag, at, &shape)?;
             }
             WALK_DONE | WALK_WEAKEN => {
                 if thunk.is_none() && tag == WALK_DONE {
                     return Err(wrong("a done-lemma's statement is about a thunk `() => x`"));
                 }
+                self.unique_family_lemma(id, tag, at, &shape)?;
             }
             _ => {
                 let Some(t) = thunk else {
@@ -367,7 +369,7 @@ impl Elaborator {
                     ));
                 };
                 for (&other, (other_tag, other_at)) in self.tables.walk_tags.iter() {
-                    if other_tag != WALK || other == id {
+                    if other_tag != WALK || other == id || !crate::auto::visible(self, other) {
                         continue;
                     }
                     let Some(s) = statement(g.def(other).ty()) else {
@@ -401,6 +403,50 @@ impl Elaborator {
         self.tables
             .walk_tags
             .insert(&self.session.owners, id, (tag.to_string(), at));
+        Ok(())
+    }
+}
+
+impl Elaborator {
+    /// `E-WALK-LEMMA` if theorem `id`, tagged `tag` at `at`, would be a
+    /// family's second done or weaken lemma, or its second bind lemma for
+    /// the same first-premise relation: the walk would pick one by load
+    /// order.
+    fn unique_family_lemma(&self, id: DefId, tag: &str, at: Span, shape: &Shape) -> Result<()> {
+        let g = &self.ev();
+        let first = |s: &Shape| {
+            (s.explicit().first()).and_then(|&i| statement(&s.binders[i].1).map(|f| f.head))
+        };
+        for (&other, (other_tag, other_at)) in self.tables.walk_tags.iter() {
+            if other_tag != tag || other == id || !crate::auto::visible(self, other) {
+                continue;
+            }
+            let Some(s) = statement(g.def(other).ty()) else {
+                continue;
+            };
+            if s.head != shape.head || (tag == WALK_BIND && first(&s) != first(shape)) {
+                continue;
+            }
+            let what = match tag {
+                WALK_BIND => "a bind lemma for this first premise's relation",
+                WALK_DONE => "a done-lemma",
+                _ => "a weaken-lemma",
+            };
+            return Err(Diagnostic::error(
+                "E-WALK-LEMMA",
+                format!(
+                    "the family of `{}` already has {what}: `{}`",
+                    g.def(shape.head).name(),
+                    g.def(other).name()
+                ),
+            )
+            .with_label(at, "a second one")
+            .with_label(*other_at, "the first")
+            .with_note(
+                "a family has one done-lemma, one weaken-lemma and one bind lemma for each \
+                 first-premise relation, so the walk never chooses between two",
+            ));
+        }
         Ok(())
     }
 }
@@ -486,7 +532,11 @@ struct Family {
 fn families(cx: &Ctx) -> Vec<Family> {
     let g = cx.g();
     let mut out: Vec<Family> = Vec::new();
+    // Only what the walk's module can see: its own, the namespaces it
+    // depends on, the library files it needs. Never a lemma only because
+    // the run happened to check its namespace first.
     let mut tags: Vec<(DefId, String)> = (cx.e.tables.walk_tags.iter())
+        .filter(|(id, _)| crate::auto::visible(cx.e, **id))
         .map(|(id, (tag, _))| (*id, tag.clone()))
         .collect();
     tags.sort_by_key(|(id, _)| id.0);
@@ -625,13 +675,23 @@ fn start(cx: &mut Ctx, walk: &Walk, expected: &Value) -> Result<Term> {
             }
             other => Item::Lemma(other.clone()),
         })
-        .collect();
+        .collect::<Vec<_>>();
+    // An item that doesn't elaborate is the writer's mistake, not a lemma
+    // that fits nothing: reported as it stands.
+    for item in &items {
+        if let Item::Lemma(e) = item {
+            let snapshot = Snapshot::take(cx);
+            let inferred = infer(cx, e);
+            snapshot.restore(cx);
+            inferred?;
+        }
+    }
     let body = thunk_body(cx, &args[family.thunk])?;
     let own = match head_of(&body) {
         Some(Callee::Def(f)) => own_theorem(cx).map(|t| (t, f)),
         _ => None,
     };
-    let (call, root) = {
+    let root = {
         let mut walks = cx.e.session.walks.borrow_mut();
         let call = walks.calls.len();
         let root = walks.nodes.len() as u32;
@@ -657,9 +717,8 @@ fn start(cx: &mut Ctx, walk: &Walk, expected: &Value) -> Result<Term> {
             through: None,
             planned: None,
         });
-        (call, root)
+        root
     };
-    let _ = call;
     step(cx, root, &family, args, true, expected)
 }
 
@@ -1289,16 +1348,16 @@ fn fit_type(cx: &mut Ctx, ty: &Value, call: &Value, families: &[DefId]) -> Resul
             return Ok(None);
         }
         // What the call leaves open (a predicate only its premises
-        // mention), from the hypotheses: a premise one of them is.
+        // mention), from the hypotheses: a premise exactly one of them is.
+        // Two that would fix it differently leave it open.
         for dom in &params {
-            if !crate::cases::is_proposition(cx, dom)? {
+            if !crate::cases::is_proposition(cx, dom)? || !has_unknown(cx, dom)? {
                 continue;
             }
-            for level in (0..cx.level()).rev() {
+            let levels: Vec<usize> = (0..cx.level()).collect();
+            if let [level] = unifying(cx, &levels, dom)?[..] {
                 let ty = cx.types[level].clone();
-                if crate::undo::unify(cx, &ty, dom)? {
-                    break;
-                }
+                crate::undo::unify(cx, &ty, dom)?;
             }
         }
         let params = params
@@ -1408,6 +1467,29 @@ fn fit_expr(cx: &mut Ctx, e: &Expr, call: &Value, families: &[DefId]) -> Result<
     fit
 }
 
+/// Whether `v` still mentions an unsolved unknown.
+fn has_unknown(cx: &Ctx, v: &Value) -> Result<bool> {
+    let term = crate::interfaces::scanned(cx, v)?;
+    let term = cx.e.zonk_keeping(&term, cx.level(), &|_| true)?;
+    Ok(term.subterms().any(|(t, _)| matches!(t, Term::Meta(_))))
+}
+
+/// The hypotheses among `levels` whose types unify with `ty`, each tried
+/// and undone, so none fixes an unknown.
+fn unifying(cx: &mut Ctx, levels: &[usize], ty: &Value) -> Result<Vec<usize>> {
+    let mut out = Vec::new();
+    for &level in levels {
+        let hyp = cx.types[level].clone();
+        let snapshot = Snapshot::take(cx);
+        let fits = cx.unify(&hyp, ty)?;
+        snapshot.restore(cx);
+        if fits {
+            out.push(level);
+        }
+    }
+    Ok(out)
+}
+
 /// A lemma chosen for a call: its term as written, with what goes on it.
 struct Chosen {
     expr: Expr,
@@ -1416,14 +1498,30 @@ struct Chosen {
     how: String,
 }
 
-/// The lemma for `call` (whose head is `callee`), in one of `families`,
-/// by the four tiers.
+/// The fits of the first of `ranks` (families, most wanted first) that has
+/// any: a lower rank is asked only when no family of a higher one fits.
+fn first_rank<T>(
+    ranks: &[Vec<DefId>],
+    mut fits: impl FnMut(&[DefId]) -> Result<Vec<T>>,
+) -> Result<Vec<T>> {
+    for rank in ranks {
+        let found = fits(rank)?;
+        if !found.is_empty() {
+            return Ok(found);
+        }
+    }
+    Ok(Vec::new())
+}
+
+/// The lemma for `call` (whose head is `callee`), by the four tiers, and
+/// within each by `ranks`: families in order of preference. Two fits in
+/// one rank of one tier is an error.
 fn choose(
     cx: &mut Ctx,
     info: &NodeInfo,
     callee: Callee,
     call: &Value,
-    families: &[DefId],
+    ranks: &[Vec<DefId>],
     expected: &Value,
 ) -> Result<Chosen> {
     let (items, own) = {
@@ -1433,14 +1531,17 @@ fn choose(
     };
     let span = cx.span;
     // 1. The brackets.
-    let mut fits = Vec::new();
-    for item in &items {
-        if let Item::Lemma(e) = item
-            && let Some(fit) = fit_expr(cx, e, call, families)?
-        {
-            fits.push((e.clone(), fit));
+    let mut fits = first_rank(ranks, |families| {
+        let mut fits = Vec::new();
+        for item in &items {
+            if let Item::Lemma(e) = item
+                && let Some(fit) = fit_expr(cx, e, call, families)?
+            {
+                fits.push((e.clone(), fit));
+            }
         }
-    }
+        Ok(fits)
+    })?;
     if fits.len() > 1 {
         return Err(two_fit(cx, info, expected, call, "in the brackets"));
     }
@@ -1466,7 +1567,11 @@ fn choose(
         && *f == id
     {
         let e = var(name.clone(), span);
-        if let Some(fit) = fit_expr(cx, &e, call, families)? {
+        if let Some(fit) = first_rank(ranks, |families| {
+            Ok(fit_expr(cx, &e, call, families)?.into_iter().collect())
+        })?
+        .pop()
+        {
             let short = name.rsplit('.').next().unwrap_or(name).to_string();
             return Ok(Chosen {
                 expr: var(short.clone(), span),
@@ -1477,19 +1582,22 @@ fn choose(
         }
     }
     // 3. A hypothesis in scope.
-    let mut fits = Vec::new();
-    for level in (0..cx.level()).rev() {
-        let Some(name) = cx.name_of_level(level).map(str::to_string) else {
-            continue;
-        };
-        if cx.lookup(&name) != Some(level) {
-            continue;
+    let mut fits = first_rank(ranks, |families| {
+        let mut fits = Vec::new();
+        for level in (0..cx.level()).rev() {
+            let Some(name) = cx.name_of_level(level).map(str::to_string) else {
+                continue;
+            };
+            if cx.lookup(&name) != Some(level) {
+                continue;
+            }
+            let ty = cx.types[level].clone();
+            if let Some(fit) = fit_type(cx, &ty, call, families)? {
+                fits.push((name, fit));
+            }
         }
-        let ty = cx.types[level].clone();
-        if let Some(fit) = fit_type(cx, &ty, call, families)? {
-            fits.push((name, fit));
-        }
-    }
+        Ok(fits)
+    })?;
     if fits.len() > 1 {
         let names: Vec<String> = fits.iter().map(|(n, _)| format!("`{n}`")).collect();
         return Err(two_fit(
@@ -1512,21 +1620,26 @@ fn choose(
     if let Callee::Def(id) = callee {
         let g = cx.g();
         let registered: Vec<DefId> = (cx.e.tables.walk_tags.iter())
-            .filter(|(_, (tag, _))| tag == WALK)
+            .filter(|(lemma, (tag, _))| tag == WALK && crate::auto::visible(cx.e, **lemma))
             .map(|(lemma, _)| *lemma)
             .filter(|lemma| {
-                statement(g.def(*lemma).ty()).is_some_and(|s| {
-                    families.contains(&s.head) && s.args.iter().any(|a| thunk_head(a) == Some(id))
-                })
+                statement(g.def(*lemma).ty())
+                    .is_some_and(|s| s.args.iter().any(|a| thunk_head(a) == Some(id)))
             })
             .collect();
-        let mut fits = Vec::new();
-        for lemma in registered {
-            let ty = cx.eval(g.def(lemma).ty())?;
-            if let Some(fit) = fit_type(cx, &ty, call, families)? {
-                fits.push((lemma, fit));
+        let mut fits = first_rank(ranks, |families| {
+            let mut fits = Vec::new();
+            for &lemma in &registered {
+                if !statement(g.def(lemma).ty()).is_some_and(|s| families.contains(&s.head)) {
+                    continue;
+                }
+                let ty = cx.eval(g.def(lemma).ty())?;
+                if let Some(fit) = fit_type(cx, &ty, call, families)? {
+                    fits.push((lemma, fit));
+                }
             }
-        }
+            Ok(fits)
+        })?;
         if fits.len() > 1 {
             return Err(two_fit(
                 cx,
@@ -1588,11 +1701,11 @@ fn two_fit(cx: &Ctx, info: &NodeInfo, expected: &Value, call: &Value, tier: &str
     )
 }
 
-/// `chosen` applied to its parameters left: a premise is a leaf, a value
-/// is its name when unification finds a variable, else `_`.
-/// The chosen lemma applied: a leaf for each premise. A [`Param::Known`]
-/// is bound as a local definition, so the caller resets `cx` to a mark
-/// taken before, once the application is checked.
+/// The chosen lemma applied, at `node`: a leaf for each premise, a value
+/// by its name when unification finds a variable, else `_`. A
+/// [`Param::Known`] is bound as a local definition named after `node`, so
+/// the caller resets `cx` to a mark taken before, once the application is
+/// checked.
 fn applied(
     cx: &mut Ctx,
     node: u32,
@@ -1641,7 +1754,6 @@ fn applied(
     if !bare {
         text.push(Piece::Text(")".into()));
     }
-    let _ = node;
     Ok((e, text))
 }
 
@@ -1807,18 +1919,29 @@ fn bind_step(
             &[format!("it is {}", cx.show(&c))],
         ));
     };
-    let firsts: Vec<DefId> = family.then.iter().map(|(_, f, _)| *f).collect();
-    let mut ordered = vec![family.relation];
-    ordered.extend(firsts.iter().copied().filter(|f| *f != family.relation));
-    // Then the other families: a lemma in one the family's own is defined
-    // by (`ReadsIn … spec` for `Gives`) goes to the family's own then-lemma,
-    // and the check sees through the definition.
-    for other in families(cx) {
-        if !ordered.contains(&other.relation) {
-            ordered.push(other.relation);
-        }
+    // The goal's own family first, then the first premises of its bind
+    // lemmas (`Reads0` for `Gives`), then the other families: a lemma in
+    // one the family's own is defined by (`ReadsIn … spec` for `Gives`)
+    // goes to the family's own bind lemma, and the check sees through the
+    // definition.
+    let mut ranks = vec![vec![family.relation]];
+    let mut seen = vec![family.relation];
+    let firsts: Vec<DefId> = (family.then.iter())
+        .map(|(_, f, _)| *f)
+        .filter(|f| !seen.contains(f))
+        .collect();
+    seen.extend(&firsts);
+    if !firsts.is_empty() {
+        ranks.push(firsts);
     }
-    let chosen = choose(cx, info, callee, &c, &ordered, expected)?;
+    let others: Vec<DefId> = (families(cx).into_iter())
+        .map(|f| f.relation)
+        .filter(|r| !seen.contains(r))
+        .collect();
+    if !others.is_empty() {
+        ranks.push(others);
+    }
+    let chosen = choose(cx, info, callee, &c, &ranks, expected)?;
     let then = family
         .then
         .iter()
@@ -1877,7 +2000,7 @@ fn bind_step(
     let mut text = vec![Piece::Text(short_name(&then_name)), Piece::Text(" ".into())];
     text.extend(lemma_text);
     e = app(e, lemma);
-    for &i in &explicit[1..explicit.len() - 1] {
+    for _ in 2..explicit.len() {
         let leaf = place(cx, info.call, Kind::Leaf, &info.place);
         e = app(e, resume(leaf, span));
         text.extend([
@@ -1885,7 +2008,6 @@ fn bind_step(
             Piece::Child(leaf),
             Piece::Text(")".into()),
         ]);
-        let _ = i;
     }
     let rest = &then_shape.binders[explicit[explicit.len() - 1]].1;
     let binders = premise_binders(rest);
@@ -1973,7 +2095,7 @@ fn tail_call(
     call: Value,
     expected: &Value,
 ) -> Result<Term> {
-    let chosen = choose(cx, info, callee, &call, &[family.relation], expected)?;
+    let chosen = choose(cx, info, callee, &call, &[vec![family.relation]], expected)?;
     let mark = cx.mark();
     let (lemma, lemma_text) = applied(cx, node, info, &chosen)?;
     note_trace(
@@ -1992,7 +2114,6 @@ fn tail_call(
     );
     // As it is, if its post is the goal's.
     let snapshot = Snapshot::take(cx);
-    let walks_before = cx.e.session.walks.borrow().nodes.len();
     match check(cx, &lemma, expected) {
         Ok(term) => {
             cx.reset(mark);
@@ -2010,7 +2131,6 @@ fn tail_call(
         }
         Err(_) => snapshot.restore(cx),
     }
-    let _ = walks_before;
     let Some(weaken) = family.weaken else {
         return Err(stuck(
             cx,
@@ -2058,8 +2178,8 @@ fn tail_call(
 }
 
 /// A split where the program's case tree is stuck: a proof `match` on the
-/// same scrutinee, the program's names for the fields, an equation named
-/// `branchN` when the scrutinee isn't a variable.
+/// same scrutinee, the program's names for the fields, and an equation
+/// named `branchN`.
 fn split(
     cx: &mut Ctx,
     node: u32,
@@ -2090,11 +2210,9 @@ fn split(
         }
     }
     let span = cx.span;
-    let is_var = matches!(&scrutinee, Value::Neutral(Head::Var(..), s) if s.is_empty());
     let term = cx.quote_folded(&scrutinee)?;
     let ty = crate::cases::atom_type(cx, &term, data)?;
     let shown = condition_text(&cx.show(&scrutinee));
-    let _ = is_var;
     let depth = (0..cx.level())
         .filter(|&l| cx.name_of_level(l).is_some_and(|n| n.starts_with("branch")))
         .count();
@@ -2199,17 +2317,26 @@ fn leaf(cx: &mut Ctx, id: u32, info: &NodeInfo, expected: &Value) -> Result<Term
         set_text(cx, id, vec![Piece::Text("()".into())]);
         return Ok(Term::Ctor(d, c, Vec::new()));
     }
-    // A hypothesis that is the goal, fixing what the goal leaves open
-    // (a predicate only a premise mentions).
-    for level in (0..cx.level()).rev() {
-        let Some(name) = cx.name_of_level(level).map(str::to_string) else {
-            continue;
-        };
-        if generated(&name) || cx.lookup(&name) != Some(level) {
-            continue;
-        }
+    // A hypothesis that is the goal. Where the goal leaves something open
+    // (a predicate only a premise mentions), only the one hypothesis that
+    // fits may fix it; with two, the leaf goes on to the other closers.
+    let named: Vec<usize> = (0..cx.level())
+        .filter(|&level| {
+            cx.name_of_level(level)
+                .is_some_and(|n| !generated(n) && cx.lookup(n) == Some(level))
+        })
+        .collect();
+    let candidates = unifying(cx, &named, expected)?;
+    let pick = match candidates[..] {
+        [] => None,
+        [level] => Some(level),
+        [.., last] if !has_unknown(cx, expected)? => Some(last),
+        _ => None,
+    };
+    if let Some(level) = pick {
         let ty = cx.types[level].clone();
         if crate::undo::unify(cx, &ty, expected)? {
+            let name = cx.name_of_level(level).unwrap_or_default().to_string();
             set_text(cx, id, vec![Piece::Text(name)]);
             return Ok(Term::Var(cx.level() - 1 - level));
         }

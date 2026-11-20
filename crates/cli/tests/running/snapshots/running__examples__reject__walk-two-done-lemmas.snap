@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-WALK-LEMMA] Error: the family of `Parse.Gives` already has a done-lemma: `Parse.givesDone`
+    ╭─[ reject/walk-two-done-lemmas.sw:8:3 ]
+    │
+  8 │ @[walk.done]
+    │   ────┬────  
+    │       ╰────── a second one
+    │
+    ├─[ std/Parse/Gives.sw:78:3 ]
+    │
+ 78 │ @[walk.done]
+    │   ────┬────  
+    │       ╰────── the first
+    │ 
+    │ Note: a family has one done-lemma, one weaken-lemma and one bind lemma for each first-premise relation, so the walk never chooses between two
+────╯

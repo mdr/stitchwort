@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-WALK] Error: the walk stops: two lemmas fit this call among the hypotheses (`nextGivesAgain`, `nextGives`)
+    ╭─[ reject/walk-two-hypotheses.sw:15:3 ]
+    │
+ 15 │   byWalking [] then (firstFacts, secondFacts, ())
+    │   ────┬────  
+    │       ╰────── in `twice`
+    │ 
+    │ Note 1: the call is next ()
+    │ 
+    │ Note 2: name the one wanted in the brackets: a walk never chooses between two
+    │ 
+    │ Note 3: the goal there is Parse.Gives Parse.Invariant.any (arg => twice next) (List.All holds)
+────╯

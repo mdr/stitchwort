@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-WALK] Error: the walk stops: two lemmas fit this call in the brackets
+    ╭─[ reject/walk-two-bracket-lemmas.sw:20:3 ]
+    │
+ 20 │   byWalking [givesLook, givesLookAgain]
+    │   ────┬────  
+    │       ╰────── in `lookTwice`
+    │ 
+    │ Note 1: the call is look ()
+    │ 
+    │ Note 2: name the one wanted in the brackets: a walk never chooses between two
+    │ 
+    │ Note 3: the goal there is Parse.Gives Parse.Invariant.any (arg => lookTwice ()) (n => n = 0)
+────╯

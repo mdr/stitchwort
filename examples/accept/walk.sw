@@ -65,3 +65,22 @@ def lookOnceTwice(): {Parse Nat} Nat :=
 
 theorem givesLookOnceTwice: Parse.Gives Parse.Invariant.any (() => lookOnceTwice()) (n => n = 0) :=
   byWalking [unfold lookOnce]
+
+-- A function with a lemma in two families: a `Gives` walk takes its
+-- `Gives` lemma, the family it walks in first, not its `ReadsIn` one.
+def peek(): {Parse Nat} Option Nat := Parse.next (n => True)
+
+@[walk]
+theorem readsPeek: Parse.ReadsIn Parse.Invariant.any (() => peek()) ((read: List Nat) (v: Option Nat) => True) :=
+  Parse.readsWeaken (Parse.readsNext (n => True)) (read value proved => byComputing)
+
+@[walk]
+theorem givesPeek: Parse.Gives Parse.Invariant.any (() => peek()) ((v: Option Nat) => True) :=
+  Parse.readsWeaken (Parse.readsNext (n => True)) (read value proved => byComputing)
+
+def peekTwice(): {Parse Nat} Nat :=
+  let first := peek()
+  let second := peek()
+  0
+
+theorem givesPeekTwice: Parse.Gives Parse.Invariant.any (() => peekTwice()) (n => n = 0) := byWalking []
