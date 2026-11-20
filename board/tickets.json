@@ -1,5 +1,5 @@
 {
-  "next": 4394,
+  "next": 4395,
   "tickets": [
     {
       "id": 47,
@@ -26963,14 +26963,14 @@
     {
       "id": 4206,
       "title": "[Sonnet] Test with_every_native_off_float_runs_out_of_budget hits the 16 GB memory cap (killed at ~16.1-16.3 GB after ~63 s) on main before and after SW-3788: find why it uses that much and bring it under a sane cap; Overmind's tiers may be failing on it",
-      "status": "next",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "Est. 30 min. Found by SW-3788.",
+      "body": "Est. 30 min. Found by SW-3788.\n\nOrchestrator, 20 Nov: fixed by SW-4393 (cause: SW-3711 floors library limits, so the 2M work limit no longer bounded Float with natives off; the test now has a 5 s deadline, passes in 5.2 s).\n",
       "created": "2026-11-19",
-      "updated": "2026-11-19",
+      "updated": "2026-11-20",
       "commits": []
     },
     {
@@ -29423,12 +29423,25 @@
     {
       "id": 4393,
       "title": "[Sonnet] resources.rs tests may rely on small work/size limits against the library, which SW-3711 floors at the defaults: check each still tests what it says (SW-4387 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "\n\nProgress (lane/SW-4393, 7232384e3): audited every test setting small work/size/frames limits. with_every_native_off_float_runs_out_of_budget was broken by the floor (Float loads at 10B work with natives off: 16 GB, killed by memguard); now stops at a deadline (float_gate::run_until). running_out_leaves_nothing_behind only asserted is_err; now asserts E-RESOURCE first. Others still test their claim (user-code limits). Stale sweep comment updated.\n",
+      "body": "\n\nProgress (lane/SW-4393, 7232384e3): audited every test setting small work/size/frames limits. with_every_native_off_float_runs_out_of_budget was broken by the floor (Float loads at 10B work with natives off: 16 GB, killed by memguard); now stops at a deadline (float_gate::run_until). running_out_leaves_nothing_behind only asserted is_err; now asserts E-RESOURCE first. Others still test their claim (user-code limits). Stale sweep comment updated.\n\n\nModel result: Sonnet, worked, 13 min (est. 30)\n",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4394,
+      "title": "[DeepSeek] float_gate: give AllNativesOff runs a built-in deadline, so the playground or a tier's n0 run can't run to many GB now that library limits are floored (SW-4393 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
