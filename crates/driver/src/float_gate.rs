@@ -11,7 +11,9 @@
 //! run it too (`stitchwort_web::float_gate`): the gate is to pass on both
 //! kernels.
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
+
+use stitchwort_core::budget::Instant;
 
 use num_bigint::BigInt;
 use stitchwort_core::float::{self, FloatNative};
@@ -322,7 +324,7 @@ fn normal(g: &Ev, level: usize, value: &Value) -> Result<String, String> {
         .map_err(|e| format!("{e:?}"))
 }
 
-fn run_mode(mode: Mode, limits: Limits, deadline: Option<std::time::Instant>) -> Run {
+fn run_mode(mode: Mode, limits: Limits, deadline: Option<Instant>) -> Run {
     let mut checks = Vec::new();
     let mut forms = Vec::new();
     let mut session = Session::new();
