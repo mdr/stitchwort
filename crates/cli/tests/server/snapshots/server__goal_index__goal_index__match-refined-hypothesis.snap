@@ -26,7 +26,7 @@ expression: json
           "type": "p (Succ k)"
         }
       ],
-      "lemma": "theorem boundedGoal1 (p: Nat → Prop) (small: ∀ (m: Nat) => p m → m < 3) (k: Nat) (holds: p (Succ k)): k ≤ 2 := ?",
+      "lemma": "theorem boundedGoal1 (p: Nat → Prop) (small: ∀ (m: Nat) => p m → m < 3) (k: Nat) (holds: p (Succ k)): Succ k < 4 := ?",
       "target": "Succ k < 4",
       "targetComputed": "k ≤ 2"
     },

@@ -18,7 +18,7 @@ expression: json
           "type": "next"
         }
       ],
-      "lemma": "theorem shownGoal1 (next: Bool) (all: next): next := ?",
+      "lemma": "theorem shownGoal1 (next: Bool) (all: next): allTrue [next] := ?",
       "target": "allTrue [next]",
       "targetComputed": "next"
     },

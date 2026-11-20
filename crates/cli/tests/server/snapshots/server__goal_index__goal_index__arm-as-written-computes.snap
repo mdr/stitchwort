@@ -40,7 +40,7 @@ expression: json
     "fixes": [],
     "goal": {
       "hypotheses": [],
-      "lemma": "theorem stepsGoal2: 0 ≠ 0 ∨ \"\" = \"\" := ?",
+      "lemma": "theorem stepsGoal2: f \"\" ≠ 0 ∨ \"\" = \"\" := ?",
       "target": "f \"\" ≠ 0 ∨ \"\" = \"\"",
       "targetComputed": "0 ≠ 0 ∨ \"\" = \"\""
     },
@@ -201,7 +201,7 @@ expression: json
     "fixes": [],
     "goal": {
       "hypotheses": [],
-      "lemma": "theorem paintedGoal1: Red = Blue := ?",
+      "lemma": "theorem paintedGoal1: paint Red = Blue := ?",
       "target": "paint Red = Blue",
       "targetComputed": "Red = Blue"
     },
@@ -272,7 +272,7 @@ expression: json
     "fixes": [],
     "goal": {
       "hypotheses": [],
-      "lemma": "theorem someTrueGoal1: True = True := ?",
+      "lemma": "theorem someTrueGoal1: isSomeTrue (Some True) := ?",
       "target": "isSomeTrue (Some True)",
       "targetComputed": "True = True"
     },
