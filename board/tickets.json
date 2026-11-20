@@ -28660,8 +28660,8 @@
     {
       "id": 4335,
       "title": "[DeepSeek] stitchwort uses reports 'no declaration' for a declaration in a namespace whose files share a directory with another namespace's (Fmt.Later.* after SW-4289) while doc and check find it; repro in tools/fmt and fix, with a test",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
