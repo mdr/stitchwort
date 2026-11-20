@@ -28829,7 +28829,7 @@
     {
       "id": 4348,
       "title": "[Sonnet] equations.rs ~7440: when a Bool overlap meets a case without the expected b = X form, skip the equation with a clear reason instead of building an ill-typed term for the kernel to refuse (SW-4343 N3)",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
