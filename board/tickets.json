@@ -28816,7 +28816,7 @@
     {
       "id": 4347,
       "title": "[DeepSeek] fmt:unspell: try each named argument of an adjacent [p][q][j][k] group on its own (or by --names), not the whole group at once; document --names in tools/fmt/dev/README.md (SW-4329 friction: the default pass dropped one unit, by-name passes saved 38 lines)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
