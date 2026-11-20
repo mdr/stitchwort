@@ -1,5 +1,5 @@
 {
-  "next": 4362,
+  "next": 4364,
   "tickets": [
     {
       "id": 47,
@@ -28894,12 +28894,12 @@
     {
       "id": 4353,
       "title": "[Sonnet] Walk W0, the baseline (D3696; SW-4238 §4): in ParseWalk.sw's comma lists and brackets (~40 walks) and their FollowsBase.sw twins, drop every spelled [p :=] [q :=] [j :=] [k :=] that still checks and report the shape of those needed; merge the four comma-list functions into one and re-prove its Gives/ReadsAt/Follows lemmas by hand; record proof lines and check time as the pilot's before. After SW-4330",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nProgress (Sonnet lane, 20 Nov): W0 done on lane/SW-4353 (4 commits). Step 2: of 6 pqjk spellings in the comma-list/bracket walks, 2 are still needed (the j of readsParenOn and of readsBracketAtom, a call whose argument is `start.rest` against a match/if in the callee); 4 dropped (3 by hand that the unspell tool had kept). Step 3: comma list merged into one function; Gives and Follows proofs check unchanged, Kept and Runs re-proved (net -1 line, -7 lines). Fmt.Tests 441 pass. See lane report.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -29004,6 +29004,32 @@
       "labels": [],
       "epic": "goal-as-written",
       "body": "\n\nProgress (Sonnet, 20 Nov, stopped, no commits): trace shows two layers. (1) Elaborator, found and fixed in a scratch patch (/private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/sw4361/elab-partial.patch): a goal holding a call like grow 22 (Leaf 0) read back at generalised_now (matching.rs:1028, quote_internal of the goal) runs out of size, recovers into as_written::unconfirmed, whose search then fails because quote_folded of that goal (as_written.rs search, goal and hypothesis reads, and the unfolded() read) needs over the search's 1M steps before it reaches the 2M-node cap, and motive_checks_now's quote_folded needs more than UNCONFIRMED_BUDGET's 100k. With step-capped folded-or-written reads in those places the match generalises (W-MATCH-UNCONFIRMED). (2) Then the KERNEL fails: core check_case (check.rs:1296) does quote_kept (core quote_folded, no as-written fallback) of the case goal, which computes grow 22. That is a kernel read-back change (docs/core.md, soundness set), so not done. Probe: /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/sw4361/large-goal-reify.sw. Needs a decision on (2).\n\n\nOrchestrator, 20 Nov: closed into SW-4337 — the elaborator read is recoverable but the kernel check_case read-back runs out too; patch kept.\nModel result: Sonnet, failed (blocked by a kernel read, correctly stopped), 18 min (est. 30)\n",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4362,
+      "title": "[DeepSeek] spellings.py (fmt:unspell) keeps units that check without them and prints 'kept 5 of 4' (SW-4353: readsBracketAt p, followsListItemsEnd p and q were removable by hand); find the miscount, add a test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4363,
+      "title": "[Opus] The SW-4330 abstracting fallback doesn't solve ?j start.rest when the callee's body is a match/if on it (readsParenOn, readsBracketAtom via readsAtAfterLeft; SW-4353): decide whether the walk (W1, SW-4239) covers it or the unifier should",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
