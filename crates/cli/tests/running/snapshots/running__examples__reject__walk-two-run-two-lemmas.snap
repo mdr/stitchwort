@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-WALK] Error: the walk stops: two lemmas fit this call in the brackets
+    ╭─[ reject/walk-two-run-two-lemmas.sw:22:3 ]
+    │
+ 22 │   byWalking [followsHere, followsHereAgain]
+    │   ────┬────  
+    │       ╰────── in `hereTwice`
+    │ 
+    │ Note 1: the calls are here () (first run) and here () (second run)
+    │ 
+    │ Note 2: name the one wanted in the brackets: a walk never chooses between two
+    │ 
+    │ Note 3: the goal there is Parse.Follows SameNat SameNat (arg => hereTwice ()) (arg => hereTwice ())
+────╯
