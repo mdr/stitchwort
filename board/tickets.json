@@ -29280,8 +29280,8 @@
     {
       "id": 4382,
       "title": "[DeepSeek] Walk errors: E-WALK names which occurrence when a function makes the same call twice; warn about bracket items that fit no call; generated() must not treat a user binder named x as compiler-made (SW-4354 follow-ups 7, 8, 10)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
@@ -29646,12 +29646,12 @@
     {
       "id": 4410,
       "title": "[Opus] Carried-over cache stage 2 (D3703): when the kernel side changed, re-check stored terms with the kernel only (skip elaboration); check --recheck; measure on tools/fmt; after stage 1",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "",
+      "body": "\n\nProgress (lane, 20 Nov 19:05): built on lane/SW-4410. Carried entries from another kernel side are re-checked through the kernel's checking calls and kept as this build's (not exact); check --recheck re-checks every entry loaded (lake check reading). Measured on tools/fmt after a core comment change: (a) no carry-over 340 s / 3.85 GB; (b) stage 1 340 s / 3.85 GB (nothing carried); (c) stage 2 re-check 42.6 s / 1.55 GB, all 219 units re-checked, none refused; next carrying session 4.1 s. First measurement found a bug (checked data groups never marked final), fixed with tests. Note's As built (stage 2) and docs/core.md updated.\n",
       "created": "2026-11-20",
       "updated": "2026-11-20",
       "commits": []
@@ -29999,8 +29999,8 @@
     {
       "id": 4437,
       "title": "[Sonnet] A hole's goal display unfolds a Prop definition's head (Parse.Follows shows as forall state other ...), and the partial-unfold match example shows Call (L (%mark ())) in a goal: show Prop definitions folded at holes and never display % names (with SW-4433 F3) (SW-4419 finding)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
