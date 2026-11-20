@@ -1,5 +1,5 @@
 {
-  "next": 4448,
+  "next": 4449,
   "tickets": [
     {
       "id": 47,
@@ -30090,7 +30090,7 @@
     {
       "id": 4444,
       "title": "[Opus] Partial unfold: match keeps a partial result once its own checks pass but has no whole-match retry like rewrite's (SW-4419 e65b38b61); add snapshot-and-retry around a match that fails after using the step, with a reduced example; also cover a target rewrite used as a term (rewrite p at h with no expected type); and a metrics outcome for 'retried without the step'",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -30134,6 +30134,19 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4448,
+      "title": "[Opus] Partial unfold: failures after the match or rewrite that used the step are never retried (a later use of a partly folded h2 from let h2 := rewrite ... at h), nor a nested guarded if whose arm fails on a partly folded goal (guard_no_retry), nor a match split in its equation's case tree; find whether any occurs in aoc/tools/fmt (Overmind: count *-retried lines), then decide a fix (SW-4444 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
