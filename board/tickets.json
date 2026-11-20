@@ -5634,8 +5634,8 @@
     {
       "id": 1907,
       "title": "[DeepSeek] elab duplicates: matching::same vs same_shifted, three copies of a parameter-walk helper in check.rs",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [
         "elab"
@@ -5643,7 +5643,7 @@
       "epic": "elaborator-kernel",
       "body": "From docs/reviews/code-review-elab-checking.md (tickets to file, 7; F11-F13). 30 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-20",
       "commits": []
     },
     {
