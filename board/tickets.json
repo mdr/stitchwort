@@ -1,5 +1,5 @@
 {
-  "next": 4304,
+  "next": 4305,
   "tickets": [
     {
       "id": 47,
@@ -27735,7 +27735,7 @@
     {
       "id": 4264,
       "title": "[Sonnet] Functional induction E: formatter pilot, rewrite the withoutR family's proofs with match induct and delete unused step lemmas",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -28252,6 +28252,19 @@
       "body": "From SW-4282.",
       "created": "2026-11-19",
       "updated": "2026-11-19",
+      "commits": []
+    },
+    {
+      "id": 4304,
+      "title": "[Opus] match induct pilot friction (SW-4264): (1) the guard and notArmK come as ∧ Props while formatter lemmas use the Bool form (fwdPair … = False, lastPair … = True), forcing bridge lemmas in every family: consider stating them as the guard's Bool = True/False (design; may need a D question); (2) only the principle's call unfolds, so comparing two walkers needs f.eq2/eq3 by hand; (3) ih premises display as unfolded matches, not the named predicates",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From SW-4264's report (worklog 19 Nov).",
+      "created": "2026-11-20",
+      "updated": "2026-11-20",
       "commits": []
     }
   ]
