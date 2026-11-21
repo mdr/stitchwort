@@ -1,5 +1,5 @@
 {
-  "next": 4517,
+  "next": 4519,
   "tickets": [
     {
       "id": 47,
@@ -30904,7 +30904,7 @@
     {
       "id": 4506,
       "title": "[Opus] rewrite with a lambda left side and an unknown in its carrier fails on the right candidate: rewrite etaTwo _ on a goal holding x y => p x y gives 'expected Nat → Nat → Bool, but this has type _a → _a → _b' (rewrite etaTwo p checks); lambdas carry no domain type so the carrier's unknowns are never filled; take the candidate's type from where it was found in the goal; repros in SW-4500's report (incomplete, not unsound)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -31034,6 +31034,32 @@
     {
       "id": 4516,
       "title": "[Sonnet] byFacts pilot outside the formatter (SW-4483 review bars G1-G4, docs/reviews/SW-4483-byfacts-in-context.md §5): the §1.2 goals, rows 7, 10, 17, 18, 20, 25, 34, 37, and G3's files (one std Doc/ file, one AoC day heavy on Both, games/rogue Reach.sw); report each bar met or not",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4517,
+      "title": "[Opus] rewrite through the as-written matcher doesn't solve a rule's unknowns: rewrite etaTwo _ fails on a lambda the goal's unfolding computes away (def apply (g) := g 1 2; goal apply (x y => p x y) = apply p), and E-REWRITE-NOTHING renders the lambda left side as x y => _y instead of x y => _f x y (SW-4506)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4518,
+      "title": "[Sonnet] The && fallback (auto::AndSides, SW-4485/SW-4507) silently does nothing in a module that never names Std, because Std.Bool.andLeft/andRight load only when the source names Std: make them load whenever cases or auto may need them (add them to the names that trigger loading), with an example using only cases or [auto]; document how a std lemma used by a tactic gets loaded in docs/workflow.md",
       "status": "backlog",
       "agent": "",
       "where": "",
