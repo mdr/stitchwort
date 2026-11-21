@@ -458,24 +458,32 @@ theorem givesListItemAny ∀ (self: Goal → {Parse Item} Expr) (inner: Modes)
     Parse.Gives GoodItems (() => listItem self inner) (found => True) :=
   Parse.givesWeaken (givesListItem self inner nested) (found parsed => byComputing)
 
+--| [`givesListItemCommas`] for items read for nothing but that they are
+--| read.
+theorem givesListItemCommasAny ∀ (self: Goal → {Parse Item} Expr) (inner: Modes)
+    (nested: Nested self)
+    (fuel: Nat) (current: Expr) (found: List Expr)
+    (foundRead: List.All (item => True) found):
+    Parse.Gives GoodItems
+      (() => commaList fuel inner (count => inner.at RBracket) (() => listItem self inner) current found)
+      (pair => List.All (item => True) pair.fst ∧ found.length + 1 <= pair.fst.length) :=
+  givesCommaListFrom inner
+    (count => inner.at RBracket)
+    (() => listItem self inner)
+    (item => True)
+    (count => givesAt inner RBracket)
+    (givesListItemAny self inner nested)
+    fuel
+    1
+    current
+    found
+    byComputing
+    foundRead
+
 theorem givesListItemsFromAny ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (first: Expr)
     (nested: Nested self):
     Parse.Gives GoodItems (() => listItemsFrom self inner open first) (found => True) :=
-  Parse.givesThen Parse.givesMark (here _ =>
-    Parse.givesThen
-      (givesCommaListFrom inner
-        (count => inner.at RBracket)
-        (() => listItem self inner)
-        (found => True)
-        (count => givesAt inner RBracket)
-        (givesListItemAny self inner nested)
-        (here.left + 1)
-        1
-        first
-        []
-        byComputing
-        ())
-      (pair _ => givesListItemsEndAny self inner open pair))
+  byWalking [givesListItemCommasAny, givesListItemsEndAny]
 
 theorem givesListItemsAny ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word)
     (nested: Nested self):

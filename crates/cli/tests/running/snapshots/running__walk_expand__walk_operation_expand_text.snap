@@ -1,0 +1,111 @@
+---
+source: crates/cli/tests/running/walk_expand.rs
+expression: expanded
+---
+-- An operation performed directly in the code walked (docs/syntax.md,
+-- "byWalking"): `Parse.mark()` is a call of the operation `mark`, whose
+-- lemma is found as a function's is (std's `Parse.givesMark` is
+-- `@[walk]`), and code after it is read as a bind of the operation. A
+-- fuel taken from the mark (`Parse.mark().left + 1`) gives a call that
+-- computes at once, `down (Succ m.left)`; it is still the call, and its
+-- lemma fits it by its arguments, as it fits `downFrom 5 3`.
+
+import Std (Parse, Option, Nat, Bool, List)
+
+def look(): {Parse Nat} Option Nat := Parse.next (n => True)
+
+@[walk]
+theorem givesLook: Parse.Gives Parse.Invariant.any (() => look()) ((v: Option Nat) => True) :=
+  Parse.readsWeaken (Parse.readsNext (n => True)) (read value proved => byComputing)
+
+-- The mark bound, then used.
+def marked(): {Parse Nat} Nat :=
+  let here := Parse.mark()
+  let found := look()
+  here.left
+
+theorem givesMarked: Parse.Gives Parse.Invariant.any (() => marked()) (n => n = n) := Parse.givesThen Parse.givesMark (here hereFacts =>
+  Parse.givesThen givesLook (found foundFacts =>
+    Parse.givesDone byComputing))
+
+-- The mark inside a bound computation.
+def nested(): {Parse Nat} Nat :=
+  let y := Parse.mark().left + 1
+  let found := look()
+  y
+
+theorem givesNested: Parse.Gives Parse.Invariant.any (() => nested()) (n => 1 <= n) := Parse.givesThen
+  (Parse.givesThen
+    [p := () =>
+      let value := Parse.mark()
+      value.left]
+    [first := x => Parse.Gives Parse.Invariant.any (() => Succ x) (x1 => Parse.Gives Parse.Invariant.any (() =>
+          let found := look ()
+          x1) (x2 => 1 ≤ x2))]
+    (Parse.givesThen Parse.givesMark (markValue markValueFacts =>
+      Parse.givesDone (Parse.givesDone (Parse.givesThen givesLook (found foundFacts =>
+            Parse.givesDone foundFacts)))))
+    (value valueFacts => valueFacts))
+  (y yFacts => yFacts)
+
+def down (fuel: Nat): {Parse Nat} Nat := match fuel with
+  | Zero => 0
+  | Succ more =>
+    let x := look()
+    down more
+
+theorem givesDown ∀ (fuel: Nat): Parse.Gives Parse.Invariant.any (() => down fuel) (n => True) := (match branch1: fuel with
+  | Zero => Parse.givesDone byComputing
+  | Succ more => Parse.givesThen givesLook (x xFacts =>
+    givesDown more))
+
+-- A fuel from the mark, in tail position and bound.
+def fromMark(): {Parse Nat} Nat := down (Parse.mark().left + 1)
+
+theorem givesFromMark: Parse.Gives Parse.Invariant.any (() => fromMark()) (n => True) := Parse.givesThen
+  (Parse.givesThen
+    [p := () =>
+      let value := Parse.mark()
+      value.left]
+    [first := x => Parse.Gives Parse.Invariant.any (() => Succ x) (x1 => Parse.Gives Parse.Invariant.any (() => down x1) (x2 => True = True))]
+    (Parse.givesThen Parse.givesMark (markValue markValueFacts =>
+      Parse.givesDone (Parse.givesDone (givesDown (Succ markValue.left)))))
+    (value valueFacts => valueFacts))
+  (value valueFacts => valueFacts)
+
+def bound(): {Parse Nat} Nat :=
+  let n := down (Parse.mark().left + 1)
+  n
+
+theorem givesBound: Parse.Gives Parse.Invariant.any (() => bound()) (n => True) := Parse.givesThen
+  (Parse.givesThen
+    [p := () =>
+      let value := Parse.mark()
+      let value1 := value.left
+      Succ value1]
+    [first := x => Parse.Gives Parse.Invariant.any (() => down x) (x1 => Parse.Gives Parse.Invariant.any (() => x1) (x2 => True = True))]
+    (Parse.givesThen
+      [p := () =>
+        let value := Parse.mark()
+        value.left]
+      [first := x => Parse.Gives Parse.Invariant.any (() => Succ x) (x1 => Parse.Gives Parse.Invariant.any (() => down x1) (x2 => Parse.Gives Parse.Invariant.any (() => x2) (x3 => True = True)))]
+      (Parse.givesThen Parse.givesMark (markValue markValueFacts =>
+        Parse.givesDone (Parse.givesDone (Parse.givesWeaken
+              (givesDown (Succ markValue.left))
+              (n nFacts => Parse.givesDone nFacts)))))
+      (value valueFacts => valueFacts))
+    (value valueFacts => valueFacts))
+  (n nFacts => nFacts)
+
+-- A call whose arguments make it compute at once, with no operation in
+-- sight: the lemma's call, stuck on its unknowns, is matched by arguments.
+def downFrom (fuel extra: Nat): {Parse Nat} Nat := downStep fuel (look())
+
+def downStep (fuel: Nat) (seen: Option Nat): {Parse Nat} Nat := down fuel
+
+theorem givesDownFrom ∀ (fuel extra: Nat): Parse.Gives Parse.Invariant.any (() => downFrom fuel extra) (n => True) :=
+  Parse.givesThen givesLook (seen _ => givesDown fuel)
+
+def five(): {Parse Nat} Nat := downFrom 5 3
+
+theorem givesFive: Parse.Gives Parse.Invariant.any (() => five()) (n => True) := givesDownFrom 5 3

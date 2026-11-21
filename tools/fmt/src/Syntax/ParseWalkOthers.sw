@@ -257,12 +257,16 @@ theorem reads0ImplicitAhead ∀ (modes: Modes):
           Parse.reads0Done (implicitBinderAhead (here.left + 1) items)))
       | False => Parse.reads0Done False)
 
+--| A parameter group whose types are expressions: [`givesBinderGroup`] at
+--| `expressionAt`, so that a walk meets the call with a lemma that fits it
+--| as written rather than one with a function and its lemma to find.
+theorem givesExpressionBinderGroup ∀ (modes: Modes) (defaults: Bool):
+    Parse.Gives GoodItems (() => binderGroup expressionAt modes defaults) (found => True) :=
+  givesBinderGroup expressionAt modes givesExpressionAt defaults
+
 theorem givesDataParamStep ∀ (modes: Modes) (word: Text) (atParen: Bool):
     Parse.Gives GoodItems (() => dataParamStep modes word atParen) (found => Parse.Perhaps (group => True) found) :=
-  match atParen with
-    | True => Parse.givesThen (givesBinderGroup expressionAt modes givesExpressionAt False) (binder _ =>
-      Parse.givesThen (givesRefuseAttributes binder.attributes _) (refused _ => Parse.givesDone byComputing))
-    | False => Parse.givesAfter0 (reads0ImplicitAhead modes) (implicit => givesDataParamBracket modes word implicit)
+  byWalking [givesExpressionBinderGroup, givesRefuseAttributes, reads0ImplicitAhead, givesDataParamBracket]
 
 theorem givesDataParams ∀ (modes: Modes) (word: Text) (name: Word):
     Parse.Gives GoodItems (() => dataParams modes word name) (found => True) :=
