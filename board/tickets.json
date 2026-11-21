@@ -1,5 +1,5 @@
 {
-  "next": 4542,
+  "next": 4544,
   "tickets": [
     {
       "id": 47,
@@ -31099,12 +31099,12 @@
     {
       "id": 4521,
       "title": "[Sonnet] Slice 1 shortening lane 2 (SW-4519 map): cases x then t over the 60 tools/fmt theorems with the most repeated match arms, plus the ...Deaf ladders (124 theorems, 694 lines, mostly arms ending byComputing); lines before/after, time bar; statements unchanged; stay out of SW-4515's 31 theorems and lane 1's two files",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\n\nProgress (lane, 21 Nov): branch lane/SW-4521, commit 1af30c07c. Slice 1 proof lines 50,185 to 49,822 (-363) in 42 files / 95 theorems, statements unchanged. Idioms: cases x, y then byComputing; | _ => cases x then byComputing; merged or-pattern arms. Per-file timing only run on Syntax.DeafProofs (1330 to 1195 ms) and Fmt.MarkProofs (78 to 84 ms); the rest not timed (see report).\n",
+      "body": "Model result: Sonnet, worked (363 lines, half the map's low estimate; time bar measured on 2 of 42 files), 55 min (est. 40)\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
@@ -31348,12 +31348,12 @@
     {
       "id": 4540,
       "title": "[Opus] SW-4537 port batch C: the printer and top strata, 13 theorems (blankItemHangs, exprBlanks, wordsCalmKeep), to Lean 4 and Rocq per docs/reviews/SW-4537-lean-rocq-sample.md, compiled; per-theorem counts, support lines, time, set-asides, mathlib notes",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nProgress (lane, 21 Nov 2026, 20:06): all 13 theorems ported to Lean 4.35 and Rocq 9.1 and compiled, on lane/SW-4540 (83c5f5c8d): docs/reviews/SW-4537/BatchC.lean, BatchC.v, batchC.csv, batchC.md. Lines, statement + proof: Stitchwort 68 + 302 = 370, Lean 66 + 77 = 143, Rocq 63 + 68 = 131. No set-asides by rule (a) and no reserves used. exprBlanks' support is 316 lines in Lean and 330 in Rocq, over rule (b)'s 300; it is kept in the csv and flagged for the orchestrator (reserve appFromSpells not ported). No mathlib notes. About 26 min to compiled and counted ports (estimate 25).\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
@@ -31366,6 +31366,32 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4542,
+      "title": "[Sonnet] cases gaps from SW-4521: name an expression (cases recordScan 0 [first] then …), a budget that copes with big enums (Tok, 64 constructors, cases tok then byComputing ran 79 s and failed), don't split a record field of another named value; and document in docs/guide/10-proofs.md which forms cases accepts",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4543,
+      "title": "[Opus] Syntax.ParseCarriesDecl.readsAtDefinitionParts re-checks very slowly once anything under its imports changes (an uncached run passed 2 billion steps at 9 min; SW-4521): profile and cut, it blocks timing most Fmt files",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
       "body": "",
       "created": "2026-11-21",
       "updated": "2026-11-21",
