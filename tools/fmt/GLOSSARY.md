@@ -51,7 +51,7 @@ identity there.
 **Printer, rules, document.** The *rules* (Fmt/Rules.sw) turn a tidied declaration into a layout *document*
 (`Doc`, from Std: text, line breaks, groups and the like); Std's printer then lays the document out at the
 formatter's width. The proofs reason about the document, not about the printer's algorithm.
-**Defined:** Fmt/Rules.sw (whole file); `Decl.leaves` (Fmt/OutputStatements.sw:33) is the declaration's printed
+**Defined:** Fmt/Rules.sw (whole file); `Decl.leaves` (Fmt/OutputStatements.sw:26) is the declaration's printed
 text lexed again.
 
 **Two runs.** Idempotence compares the formatter's first run on a source with its second run on the first run's
@@ -102,7 +102,7 @@ the line's indentation. **Defined:** `Item` (Syntax/Parser.sw:30).
 **Glued.** A token with no space or line break before it, so the lexer reads it as touching the previous one
 (`-1` against `- 1`). The printer says which words touch (`Touches`); the lexer says which are glued; the proof
 connects them. **Defined:** the `glued` field of `Item` (Syntax/Parser.sw:30), `printedSpacing1` (Fmt/SpacingProofs.sw:402),
-`Spacing = Free | Glued | Apart` (Fmt/OutputStatements.sw:49).
+`Spacing = Free | Glued | Apart` (Fmt/OutputStatements.sw:42).
 
 **Last comma.** A comma before a closing bracket (`[1, 2,]`). The tree has none; P2 deletes it. Comment
 placement runs first with the last commas left in "bare" (their comments moved first) so that its answer
@@ -112,10 +112,10 @@ matches Rust's (see `settledOnce`). **Defined:** `withBareLastCommas` (Syntax/Se
 and every comment gone: two files are "the same program" when their meanings are equal. `calmTop` is a tree as
 the second run will parse it: blank-line flags that nothing prints are cleared (see Calm), and the first thing
 in the file loses its blank line. **Defined:** `SourceFile.meaning` (Fmt/Meaning.sw:98), `SourceFile.calmTop`
-(Fmt/OutputStatements.sw:178).
+(Fmt/OutputStatements.sw:171).
 
 **Printed text (`printed1`).** The text the file loop prints for a tree. **Defined:** `SourceFile.printed1`
-(Fmt/Slice1.sw:289). `SourceFile.lexed` (Fmt/OutputStatements.sw:148) writes out, as leaves, what the lexer
+(Fmt/Slice1.sw:289). `SourceFile.lexed` (Fmt/OutputStatements.sw:141) writes out, as leaves, what the lexer
 will read back from it.
 
 ## Comments

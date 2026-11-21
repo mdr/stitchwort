@@ -1,5 +1,5 @@
 {
-  "next": 4553,
+  "next": 4556,
   "tickets": [
     {
       "id": 47,
@@ -31281,7 +31281,7 @@
     {
       "id": 4535,
       "title": "[Sonnet] Reading pass for tools/fmt (SW-4531 step 3): a glossary of the predicates' words (Deaf, Calm, Hangs, ...) and a proof map; = True dropped where D3482's short form leaves hashes unchanged (5,308 spellings); proof ideas for the long proofs without one (D3657; about 578)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -31516,6 +31516,45 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4553,
+      "title": "[Opus] One-file pilot by hand of a traversal lemma for the ...Blanks families (SW-4547's class e, the long case splits: each arm rebuilds a different constructor around its own recursive calls; exprBlanks 86 lines against 10 in Lean and Rocq via simp with the equation lemmas): state once that traversing a node gives its children's traversals rebuilt, prove exprBlanks and two siblings from it, measure lines and steps against the D3696 bar, and say how far it generalises (SW-4523's families) before any sweep",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4554,
+      "title": "[Sonnet] cases over several record fields costs about 5x the steps of the hand nested match (headerResult1 5.4x, wordUnled 5.7x; it splits every field rather than stopping at the first contradiction), and a failing cases on an Expr takes minutes before its budget error (SW-4547): profile and fix, then retry headerResult1 (35 to 4 lines)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4555,
+      "title": "[DeepSeek] Run tools/fmt/dev/check-glossary.sh in the quick tier (it caught 4 drifted line references within minutes of merging); rename the clashing Quiet and Kept definitions (each has unrelated definitions in two or more files; SW-4535) and rule1Drop/rule2Drop/rule3Drop in Syntax/SettleBareProofs.sw to the comment-placement step names",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-21",
       "updated": "2026-11-21",
