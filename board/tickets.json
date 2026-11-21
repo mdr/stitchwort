@@ -1,5 +1,5 @@
 {
-  "next": 4546,
+  "next": 4547,
   "tickets": [
     {
       "id": 47,
@@ -31216,12 +31216,12 @@
     {
       "id": 4530,
       "title": "[Sonnet] Implicit value parameters for tools/fmt lemma families called many times with goal-fixed arguments (as SW-4520 did for five blank* lemmas: ElementsBlank -18%): find the families by call count, make the always-fixed value parameters implicit, measure lines and the D3696 time bar; plus rewrite repeatedly [List.appendAssoc] for ToldDeclProofs' 10+ repeated appendAssoc rewrites (shapeLead's rewrite List.appendAssoc _ _ _ relies on first match and doubled its steps)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\n\nLane notes (Sonnet, 21 Nov 2026): 110 lemma families made implicit in tools/fmt (rewrite-used, recursive, @[walk], Walk files and TopStatements-defined ones left alone); proof lines 13,039 -> 12,794 over 37 files (-245, 1.9%), statements 5,117 -> 5,118; steps within 1.1x per file except ElementsKeys 1.08; branch lane/SW-4530 commit 1d840f806. The rewrite repeatedly [List.appendAssoc] part of this ticket was not done. Model result: Sonnet, worked, ~50 min (est. 40).\n",
+      "body": "\n\n\nLane notes (Sonnet, 21 Nov 2026): 110 lemma families made implicit in tools/fmt (rewrite-used, recursive, @[walk], Walk files and TopStatements-defined ones left alone); proof lines 13,039 -> 12,794 over 37 files (-245, 1.9%), statements 5,117 -> 5,118; steps within 1.1x per file except ElementsKeys 1.08; branch lane/SW-4530 commit 1d840f806. The rewrite repeatedly [List.appendAssoc] part of this ticket was not done. Model result: Sonnet, worked, ~50 min (est. 40).\n\n\nModel result: Sonnet, worked (245 lines, far under ElementsBlank's 18%; time bar met), 69 min (est. 40)\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
@@ -31400,12 +31400,12 @@
     {
       "id": 4544,
       "title": "[Opus] SW-4537 stage 2 combine: fix count_ports.py (-- is a comment only in .lean; Rocq bullets), rewrap pilot and batches to 100 columns, recount all 33 theorems, run estimate.py: per-stratum and whole-slice ratios to Lean and Rocq with 90% intervals, by lines and characters, with and without exprBlanks (support over the 300-line rule; orchestrator kept it), and the fairness notes; plain-words summary for Matt",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nProgress (Opus lane, 21 Nov 2026, 20:07 to 20:30): count_ports.py fixed (Rocq -- bullets; 100-column check; homeStands once); pilot and batch A rewrapped to 100 columns, all files recompiled; reserve appFromSpells ported (Reserve.lean/.v). Slice 1 lines: Lean 0.82 (90% 0.71 to 0.92), Rocq 0.76 (0.66 to 0.87); chars 0.83, 0.77. exprBlanks set aside: 0.83/0.77 with the reserve, 0.86/0.80 at the printer's worst ratio. Results: docs/reviews/SW-4537-results.md. Commit ee742d9e7 on lane/SW-4544.\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
@@ -31413,7 +31413,22 @@
     {
       "id": 4545,
       "title": "[Sonnet] differential::the_evaluators_agree_on_the_prelude_and_every_example overflows its stack (SIGABRT, deterministic) on examples/accept/fin-pattern-numbers.sw whenever the broad sample includes it (index divisible by 4: failed at 2a196474d and d038b5ca1, the only 2 of 53 cycles that sampled it; STITCHWORT_DIFFERENTIAL_ONLY=accept/fin-pattern-numbers.sw reproduces in 8 s; Overmind 21 Nov). Find which evaluator overflows (likely the recursive reference evaluator on its million-case test); fix by running the comparison on a thread with a stated larger stack or making the evaluator not recurse that deep, not by skipping the example unless the reference evaluator is by design recursive (then the skip marker with its reason). Test: that ONLY run passing",
-      "status": "doing",
+      "status": "review",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "\nLane note: the overflow is in the recursive reference evaluator (reference::eval of 'test \"a million\"', a Fin of 1,000,000), before the machine runs; the machine side is fine. Added the existing differential skip marker (commit 0ed31a0a6). Only-run fails before, passes after; STITCHWORT_TIER=lane run passes.\n",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": [
+        "0ed31a0a6"
+      ]
+    },
+    {
+      "id": 4546,
+      "title": "[Sonnet] Differential sweep: give the recursive reference evaluator a depth guard (ResourceError::Depth exists, unused on that path) so an example too deep for it is skipped and counted under MAX_SKIPPED instead of aborting the whole test process; then fin-pattern-numbers.sw's manual skip marker can go and a new deep example can't hide behind the sample again (SW-4545)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
