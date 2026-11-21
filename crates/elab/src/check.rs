@@ -7127,6 +7127,35 @@ fn explicit_lambda(
     ))
 }
 
+/// Whether `a` and `b`, with no unknown left in either, compute to the same
+/// value as the kernel computes them: read back folded and evaluated
+/// unglued, each call running once. Glued, unification compares calls by
+/// their lazily kept unfoldings and can compute the same call many times
+/// over: a parser's run against the tree it gives cost 91M steps glued and
+/// 2.9M unglued (SW-4536). The kernel converts `Term::Refl`'s sides unglued
+/// too, so a `true` here is what it will accept. A `false` leaves the
+/// answer, and any message, to unification.
+fn same_unglued(cx: &mut Ctx, a: &Value, b: &Value) -> Result<bool> {
+    let closed = |cx: &Ctx, v: &Value| -> Result<Option<Term>> {
+        let term = cx.quote_folded(v)?;
+        let term = cx.e.zonk_keeping(&term, cx.level(), &|_| true)?;
+        let open = term.subterms().any(|(t, _)| matches!(t, Term::Meta(_)));
+        Ok((!open).then_some(term))
+    };
+    let (Some(ta), Some(tb)) = (closed(cx, a)?, closed(cx, b)?) else {
+        return Ok(false);
+    };
+    let g = cx.g();
+    let was = g.machine.glue.replace(false);
+    let same = (|| -> Result<bool> {
+        let a = cx.eval(&ta)?;
+        let b = cx.eval(&tb)?;
+        Ok(stitchwort_core::value::conv(&g, cx.level(), &a, &b)?)
+    })();
+    g.machine.glue.set(was);
+    same
+}
+
 /// The builtin `byComputing` checked against the equation `a = b`.
 #[inline(never)]
 fn rfl_against_equation(
@@ -7136,7 +7165,8 @@ fn rfl_against_equation(
     expected: &Value,
 ) -> Result<Term> {
     cx.e.note_builtin(name);
-    if crate::undo::unify(cx, a, b)?
+    if same_unglued(cx, a, b)?
+        || crate::undo::unify(cx, a, b)?
         || crate::lift::await_helpers(cx, a, b, crate::lift::Failure::Refl)?
         || refl_after_instances(cx, a, b)?
         || crate::queue::compare_waiting(cx, a, b, crate::queue::Failure::Refl)?

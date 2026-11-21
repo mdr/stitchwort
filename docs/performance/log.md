@@ -46,6 +46,54 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 21 Nov 2026
 
+### SW-4536: `byComputing` on a goal with no unknowns compares unglued, as the kernel does; the parser-run examples' elaboration 15-130x fewer steps, a 26-namespace check 19% fewer
+
+Profiling three of the seven slowest declarations of the tools/fmt check
+(Overmind, 21 Nov) by probes in a scratch copy of the namespace and an
+env-gated step count around `rfl_against_equation`'s unification:
+
+- **Measured:** `readsBackCommentExample` (one `byComputing`: the parser
+  run on a lexed line against the tree it gives) cost 95.6M steps, of
+  which the elaborator's unification of the two sides was about 90M; the
+  kernel checked the same equation in 63-70 ms. Running the lexer and
+  parser once costs 0.66M (lexing 0.22M of it). Trying `value::conv`
+  before unification changed nothing (91.3M on a copy of the goal): the
+  cost is the glued evaluation, which compares calls through their lazily
+  kept unfoldings and recomputes the same call many times, not
+  unification's own bookkeeping. That experiment, applied to every
+  `byComputing`, also ran a dependency check for over 14 minutes before
+  it was stopped; not kept.
+- **The change:** `same_unglued` (`crates/elab/src/check.rs`) reads both
+  sides back folded, fills in solved unknowns, and, if no unknown is left,
+  evaluates them unglued and converts them, as the kernel does with
+  `Term::Refl`; `true` is `Term::Refl` at once, `false` falls through to
+  the unification path as before, so answers, messages and terms are
+  unchanged (hashes too: the term is `Term::Refl` either way).
+- **Measured after** (`check --no-cache Syntax.ReadBackHungTop
+  --timings=all`, 26 namespaces, 5,532 declarations, steps):
+
+  | declaration | before | after |
+  |---|---:|---:|
+  | `ReadBackLine.readsBackCommentExample` | 95,631,434 | 2,868,867 |
+  | `ReadBackHungTop.readsBackHungListExample` | 285,064,200 | 149,944,146 |
+  | `ReadBackHungTop.readsBackHungSignExample` | 181,473,032 | 96,885,507 |
+  | `ReadBackHungTop.readsBackHungTypeExample` | 5,304,693 | 4,481,259 |
+  | `ReadBackLine.commentSpeltExample` | 1,095,691 | 3,964,250 |
+  | `ReadBackRuns.runsDefinitionParts` | 165,348,000 | 165,363,193 |
+  | all 5,532 | 1,620,932,571 | 1,310,746,986 |
+
+  By namespace: `Syntax.ReadBackHungTop` 473.8M to 253.3M (elab 45.6 s to
+  1.0 s; kernel 18 s unchanged), `Syntax.ReadBackLine` 143.6M to 53.7M;
+  the others within +0.2%. The wall time of the check fell from 168 s to
+  105 s. Accepted regressions: `commentSpeltExample` 1.1M to 4.0M (its
+  glued comparison was cheap and the unglued one runs the lexer per
+  item) and a few `Std.Doc.Proofs` declarations up to +1%.
+- **Left:** the two hung examples' remaining steps are the kernel's (18 s
+  for the namespace): every `listAt k` / `signAt k` re-lexes the whole
+  source (0.22M steps each), several hundred times over the proof's
+  `byComputing` witnesses. `standsEachFile`, `printedFinish1`,
+  `atomHung` and `runsDefinitionParts` were not profiled.
+
 ### SW-4512: "does this type still hold an unknown?" stops reading back at the first one; walks and hand proofs about parsers 13-20% fewer steps, the walk's 3x gap unchanged
 
 Asked to bring the walks of three slice 1 formatter theorems under 2x
