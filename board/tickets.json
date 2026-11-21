@@ -1,5 +1,5 @@
 {
-  "next": 4530,
+  "next": 4531,
   "tickets": [
     {
       "id": 47,
@@ -31086,12 +31086,12 @@
     {
       "id": 4520,
       "title": "[Sonnet] Slice 1 shortening lane 1 (SW-4519 map): pilot writing _ (or making a lemma's parameter implicit) for arguments the goal or another argument already fixes (proving guide rule 9), in tools/fmt ReadBackRuns.sw and ElementsBlank.sw; lines before/after and D3696 time bar per file; statements unchanged",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\n\n\nLane notes (Sonnet, 21 Nov): pilot on ElementsBlank (205 to 169 proof lines) and ToldDeclProofs (1449 to 1390), commit 0c8b66590 on lane/SW-4520; both check; slowest ratio 1.6x (shapeLead). ReadBackRuns left alone per orchestrator.\n",
+      "body": "\nModel result: Sonnet, worked (left a stray .edits file, removed at merge), 24 min (est. 35).\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
@@ -31203,6 +31203,19 @@
     {
       "id": 4529,
       "title": "[DeepSeek] tools/fmt alike... theorems (alikePrefix, alikeAnnotation and siblings) close with rewrite repeatedly [their facts] in one line, as alikeParen now does (SW-4515); convert where shorter, statements unchanged, check each namespace edited",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4530,
+      "title": "[Sonnet] Implicit value parameters for tools/fmt lemma families called many times with goal-fixed arguments (as SW-4520 did for five blank* lemmas: ElementsBlank -18%): find the families by call count, make the always-fixed value parameters implicit, measure lines and the D3696 time bar; plus rewrite repeatedly [List.appendAssoc] for ToldDeclProofs' 10+ repeated appendAssoc rewrites (shapeLead's rewrite List.appendAssoc _ _ _ relies on first match and doubled its steps)",
       "status": "backlog",
       "agent": "",
       "where": "",
