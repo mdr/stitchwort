@@ -1,5 +1,5 @@
 {
-  "next": 4491,
+  "next": 4492,
   "tickets": [
     {
       "id": 47,
@@ -30566,7 +30566,7 @@
     {
       "id": 4480,
       "title": "[Opus] A _ argument fixed by a later argument's type gets an equal but different solution (SW-4475 cause): unification of the expected type unfolds Joins (Group x _) to Joins x and solves ?d := x before the later proof argument is checked. Options: elaborate _ arguments after the later arguments, or have the unifier keep the written argument when solving from a forced call. Repro and failed patch in docs/reviews/SW-4475/ (the patch broke std Args.helpListsOption). Also: W-REWRITE-REPEATEDLY-UNUSED could say the rule's part was closed by a hypothesis in scope",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -30696,6 +30696,19 @@
     {
       "id": 4490,
       "title": "[Sonnet] Parse errors for a proof word as a bare argument: Both byFacts y and the same with byWalking give an unhelpful parse error; suggest brackets (SW-4489 finding 11). Also: cases reports 'found nothing to split on' for h: a ∨ b with goal c (pre-existing, SW-4489)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4491,
+      "title": "[Opus, paper] Design note: postponed unification for a call compared with a call (SW-4480 finding): same_arguments_solving_nothing throws away a solution valid as written for one only the unfolding agrees with; with no expected type (let h := framedPass (Box flag) _ pre post (groupedPass ...)) the _ still becomes the group's contents; hold the comparison until another constraint chooses; include a performance-log entry for SW-4480's retry on failing calls; correct the SW-4475 notes (the cause is the later argument checked in place, not the expected type first)",
       "status": "backlog",
       "agent": "",
       "where": "",
