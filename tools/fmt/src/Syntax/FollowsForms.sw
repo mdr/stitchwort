@@ -908,6 +908,18 @@ def PieceAlike: Piece → Piece → Prop
     WordsAlike open openTwin ∧ ExprsAlike value valueTwin ∧ WordsAlike close closeTwin
   | _, _ => Void
 
+--| A list with `x` in front: the join of a blanked item and the rest.
+def prepend (x: a) (xs: List a): List a := [x, ..xs]
+
+--| Blanking a walked list gives the same for two lists of alike items: a one-item list blanks to its item's key and
+--| the rest, alike items have the same key, and walking then blanking a list adds each key in front of the rest's.
+theorem blankedListAlike ∀ [walk blank: List a → List a] [key: a → k] [rel: a → a → Prop] (join: k → List a → List a)
+    (cons: ∀ (x: a) (rest: List a) => blank (walk [x, ..rest]) = join (key x) (blank (walk rest)))
+    (same: ∀ (x y: a) => rel x y → key x = key y) (xs ys: List a)
+    (alike: List.All2 rel xs ys):
+    blank (walk xs) = blank (walk ys) :=
+  List.all2Join [f := list => blank (walk list)] [key := key] join cons same xs ys alike
+
 theorem piecesBlankCons ∀ (piece: Piece) (rest: List Piece):
     blankPieces (walkPieces blankPure [piece, ..rest])
       = blankPieces (walkPieces blankPure [piece]) ++ blankPieces (walkPieces blankPure rest) :=
@@ -916,9 +928,7 @@ theorem piecesBlankCons ∀ (piece: Piece) (rest: List Piece):
 theorem piecesBlank ∀ (pieces twins: List Piece)
     (alike: List.All2 PieceAlike pieces twins):
     blankPieces (walkPieces blankPure pieces) = blankPieces (walkPieces blankPure twins) :=
-  List.all2Join
-    [f := list => blankPieces (walkPieces blankPure list)]
-    [key := piece => blankPieces (walkPieces blankPure [piece])]
+  blankedListAlike
     (k rest => k ++ rest)
     piecesBlankCons
     (x y same =>
