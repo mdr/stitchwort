@@ -31268,12 +31268,12 @@
     {
       "id": 4534,
       "title": "[Sonnet] Bundle hypotheses into named records for tools/fmt lemmas with eight or more binders (634 theorems; modes: Modes written 1,290 times), pilot on Fmt/DeclHangProofs.sw after SW-4530: lines of proof and statement before/after, steps against the D3696 bar; no top or acceptance theorem touched (SW-4531 step 1)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\nLane note (21 Nov 2026): pilot done on lane/SW-4534 (commit 8b16ee548). Records Written, NotedAbove, DefHangs (+ defHeader, NoMatchOrLambda) in DeclHangProofs; statements 237 to 191, proofs 471 to 479, file net -8 non-comment lines, steps 0.88x for the file (defDocHangs 1.93x, notedStepHangs 1.79x, under 3x). Report: docs/reviews/SW-4534-bundled-hypotheses-pilot.md. Prediction: about -1,000 lines slice-wide at best, binders down more than lines.\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
