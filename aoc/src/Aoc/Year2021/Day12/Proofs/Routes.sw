@@ -30,9 +30,9 @@ theorem routesFollow ∀ (next: Cave → List Cave) (unvisited: List Cave) (spar
             match e: step unvisited spare cave other with
               | Finish =>
                 match inTail with
-                  | Inl empty => rewrite <- empty then Both member byComputing
+                  | Inl empty => rewrite <- empty then byFacts
                   | Inr nothing => nothing.impossible
-              | Continue left stillSpare => Both member (routesFollow next left stillSpare other more tail inTail)))
+              | Continue left stillSpare => byFacts [routesFollow]))
 
 --| ...and every route that follows them is listed, if the search goes deep
 --| enough.

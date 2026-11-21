@@ -54,7 +54,7 @@ theorem connectedNamed ∀ (passages: List Passage) (a b: Cave)
       let named := endsNamed passages { from, to } member
       match joins with
         | Inl (Both fromA toB) => rewrite <- fromA.read, <- toB.read then named
-        | Inr (Both fromB toA) => rewrite <- fromB.read, <- toA.read then Both named.right named.left
+        | Inr (Both fromB toA) => rewrite <- fromB.read, <- toA.read then cases
 
 --| The caves a passage leads to from `cave`, as the program finds them, are
 --| those connected to it...

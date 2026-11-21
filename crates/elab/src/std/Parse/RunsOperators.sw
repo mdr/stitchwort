@@ -521,31 +521,14 @@ def Parse.operatorsExampleTree: Parse.OperatorTree Char Nat :=
 theorem Parse.runsOperatorsExample: Parse.run "9-1-2*3".toList (() =>
       Parse.operators "an operator" Parse.operatorsExampleLevels Parse.operatorsExampleDigit)
       = Ok 2 :=
-  Parse.runsRun
-    (() => Parse.operators "an operator" Parse.operatorsExampleLevels Parse.operatorsExampleDigit)
-    "9-1-2*3".toList
-    2
+  Parse.runsRun _ "9-1-2*3".toList 2
     (Parse.runsOperators "an operator" Parse.operatorsExampleLevels Parse.operatorsExampleDigit
         Parse.operatorsExampleTree []
-        (Both byComputing
-          (Both
-            (arithmetic [])
-            (Both
-              (arithmetic [])
-              (Both
-                (arithmetic [])
-                (Both
-                  (Both byComputing
-                    (Both (arithmetic []) (Both (arithmetic []) (Both (arithmetic []) (Both byComputing byComputing)))))
-                  (Both byComputing
-                    (Both
-                      (arithmetic [])
-                      (Both (arithmetic []) (Both (arithmetic []) (Both byComputing byComputing))))))))))
-        (Both
-          (Both
-            (Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '9' 9 _ byComputing)
-            (Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '1' 1 _ byComputing))
-          (Both
-            (Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '2' 2 _ byComputing)
-            (Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '3' 3 _ byComputing)))
+        (byFacts)
+        (byFacts [
+          Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '9' 9,
+          Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '1' 1,
+          Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '2' 2,
+          Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '3' 3
+        ])
         byComputing)

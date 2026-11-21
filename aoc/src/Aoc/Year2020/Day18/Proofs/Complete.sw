@@ -369,8 +369,7 @@ theorem goodStepsSnoc ∀ (strengthOf: Operator → Nat) (strength bound: Nat) (
     GoodSteps strengthOf strength bound (steps ++ [(read, (combine, right))]) :=
   match steps, good with
     | [], good => Both new Trivial
-    | [(first, (c, r)), ..steps], Both here later =>
-      Both here (goodStepsSnoc strengthOf strength bound read combine right steps later new)
+    | [(first, (c, r)), ..steps], Both here later => byFacts [goodStepsSnoc]
 
 --| Every expression at a level is its first operand, binding more strongly, followed by a
 --| chain of steps, the parser's.
