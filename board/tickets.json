@@ -1,5 +1,5 @@
 {
-  "next": 4526,
+  "next": 4529,
   "tickets": [
     {
       "id": 47,
@@ -31086,7 +31086,7 @@
     {
       "id": 4520,
       "title": "[Sonnet] Slice 1 shortening lane 1 (SW-4519 map): pilot writing _ (or making a lemma's parameter implicit) for arguments the goal or another argument already fixes (proving guide rule 9), in tools/fmt ReadBackRuns.sw and ElementsBlank.sw; lines before/after and D3696 time bar per file; statements unchanged",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -31112,12 +31112,12 @@
     {
       "id": 4522,
       "title": "[Opus paper] Slice 1 shortening lane 3 (SW-4519 map): design note for a walk over the read-back proofs (Parse.Runs, RunsFrom, read-back records; 205 theorems, 4,933 lines), why Parse.runsBind doesn't fit the walk's lemma shape, and whether std's Parse.runs* should take implicit arguments; price it; any new proof syntax is Matt's",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "21 Nov 18:27-18:37 (Opus paper lane, est. 35 min): note docs/proposals/walk-runs.md on lane/SW-4522 (ce7e0cd65).\nRecommendation: option E. A stop-indexed Parse.RunsOn p input rest value, with Runs redefined from it (the same proposition; 104 proofs that open the definition migrate). Two walk changes: exact families (a bind lemma that fixes the value) and decided splits (a hypothesis decides the split; dead branches are closed). About 2,000-2,450 of the 3,242 lines in the 179 parser-run theorems [estimated]. The 26 read-back record theorems (1,691 lines) are out of reach of any walk.\nPlan: 1 std RunsOn (Sonnet 40), 2 walk (Opus 50), 3 ReadBackRuns pilot (Sonnet 35), 4 sweep (Sonnet/DeepSeek 2x35), 5 RunsFrom/ItemReads (Opus paper 20, then Sonnet 35).\nOne decision for Matt (§6). No new syntax. Sequencing note: SW-4520's pilot should move off ReadBackRuns.sw.\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
@@ -31156,6 +31156,45 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4526,
+      "title": "[Sonnet] walk-runs stage 1 (docs/proposals/walk-runs.md, SW-4522): std Parse.RunsOn p input rest value; Parse.Runs p read rest v redefined as RunsOn p (read ++ rest) rest v with an equivalence lemma; migrate the proofs that open the definitions; re-record hashes (prelude, examples, projects)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4527,
+      "title": "[Opus] The walk walks dead branches: close a branch whose equation contradicts a hypothesis, and take a split a hypothesis decides (rewrite the stuck test by it), for every walk family (walk-runs.md option E's decided splits; SW-4522)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4528,
+      "title": "[Sonnet] The 26 read-back record theorems in tools/fmt ReadBackHung* (AtomReads, MulReads, ...; 1,691 lines) as a shortening target: _ for fixed arguments, byFacts, anonymous constructors for their tuples (SW-4522)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-21",
       "updated": "2026-11-21",
