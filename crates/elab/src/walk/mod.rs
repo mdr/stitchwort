@@ -1753,7 +1753,9 @@ fn nested_bind(
     };
     let written = if info.nest.is_some() {
         let root = info.nest.as_ref().map_or(expected, |n| &n.root);
-        nest_implicits(cx, &shape, (first_at, post_binder), family, cs, &post, root)?
+        // Text only: a read-back that fails leaves the implicits to be found.
+        nest_implicits(cx, &shape, (first_at, post_binder), family, cs, &post, root)
+            .unwrap_or_default()
     } else {
         String::new()
     };
