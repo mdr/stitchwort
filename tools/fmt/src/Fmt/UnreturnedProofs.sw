@@ -219,7 +219,7 @@ theorem commaUnreturned ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
   let (pieces, ends) := parsedUnreturned source lexed parsed lexes alphabet plain parses within
   let mapped := commaMap parsed within
   let (_, endSame) := commaKeepsComments parsed within
-  let commaWithin := commaKeepsWithin parsed within
+  let commaWithin := commaKeepsWithin within
   let uncommaWords: (parsed.decls.map Decl.uncomma).map Decl.words = parsed.decls.map Decl.words :=
     declsWordsUncomma parsed.decls
   let decls: parsed.withoutTrailingCommas.decls.all Decl.unreturned = True :=

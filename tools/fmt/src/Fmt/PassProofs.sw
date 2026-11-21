@@ -370,7 +370,7 @@ theorem declsUncommaWithin ∀ (decls: List Decl)
       Bool.andIntro (declUncommaWithin first (Bool.andLeft within)) (declsUncommaWithin rest (Bool.andRight within))
 
 --| P2 keeps the file within slice 1.
-theorem commaKeepsWithin ∀ (file: SourceFile)
+theorem commaKeepsWithin ∀ [file: SourceFile]
     (within: file.within1 = True):
     file.withoutTrailingCommas.within1 = True :=
   rewrite commaMap file within, declsUncommaWithin file.decls within

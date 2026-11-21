@@ -67,7 +67,7 @@ theorem argFor ∀ (kinds: Text → Tok) (doc: Doc) (inset indent: Nat) (state: 
   match noted with
     | False => argHangs kinds doc inset indent state before trails quiet unglued clear el
     | True => hangsBy (place trace next (folded, seat, fresh) after =>
-      let same := openedQuiet state (leadStart inset place) quiet unglued
+      let same := openedQuiet (leadStart inset place) quiet unglued
       el state place place _ trace next byComputing
         (byComputing, folded, ledSeatOf inset before state place unglued seat fresh)
         (hangsAfter (left later (ended, landed) =>
@@ -303,11 +303,11 @@ theorem arrowLeafGlues ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
               (
                 endedGlued state start False
                   (wordAfter indent word.text entry)
-                  (wordEnded indent column before word.text state entry token seated room),
+                  (wordEnded [text := word.text] token seated room),
                 stepArrow kinds state word.text start (tokenCode word.text start token solid) arrow room
               ))
     rewrite leafIsText word around key closer comma bare then
-      match after: word.comments.after, quiet with | None, _ => hangsConcat (hangsLast indent written)
+      match after: word.comments.after, quiet with | None, _ => hangsConcat (hangsLast written)
 
 --| What a chain's operand asks (`linkDocs`): a chain of the same level its operands and operators, each operator
 --| folding as a plain token or as `->` after the operand before it and before a space, its token and the next
@@ -349,8 +349,8 @@ def PairFacts (kinds: Text → Tok) (level: Option Nat) (first: Bool) (left: Exp
   PairLinks kinds False level first left operator right around leftTrails trails
 
 --| Two operands and their operator (`chainLinks`): a head at the chain's seat, then runs.
-theorem chainLinksForm ∀ (kinds: Text → Tok) (led: Bool) (level: Option Nat) (first: Bool) (left: Expr) (operator: Word)
-    (right: Expr) (around: Around) (leftTrails trails: Bool)
+theorem chainLinksForm ∀ [kinds: Text → Tok] [led: Bool] [level: Option Nat] [first: Bool] [left: Expr] [operator: Word]
+    [right: Expr] [around: Around] [leftTrails trails: Bool]
     (leftFacts: ∀ (trails: Bool) => Links kinds led level first left around trails
       → ∃ (head: Doc) => ∃ (tail: List Doc) => ∃ (middle: Bool) => linkDocs level first left around = [head, ..tail]
         ∧ LinkEl kinds led around.before middle head
@@ -402,7 +402,7 @@ theorem linkDocsForm ∀ (kinds: Text → Tok) (led: Bool) (level: Option Nat) (
     | Infix InfixBinary left operator right, facts =>
       match chained: (Infix InfixBinary left operator right).inChain level, facts with
         | True, (leftTrails, pair) =>
-          chainLinksForm kinds led level first left operator right around leftTrails trails
+          chainLinksForm
             (leftTrails => linkDocsForm kinds led level first left around leftTrails)
             (next rightTrails =>
               linkDocsForm kinds next level False right (around.next operator.trails (left.size + 1)) rightTrails)
@@ -412,7 +412,7 @@ theorem linkDocsForm ∀ (kinds: Text → Tok) (led: Bool) (level: Option Nat) (
     | Infix InfixArrow left operator right, facts =>
       match chained: (Infix InfixArrow left operator right).inChain level, facts with
         | True, (leftTrails, pair) =>
-          chainLinksForm kinds led level first left operator right around leftTrails trails
+          chainLinksForm
             (leftTrails => linkDocsForm kinds led level first left around leftTrails)
             (next rightTrails =>
               linkDocsForm kinds next level False right (around.next operator.trails (left.size + 1)) rightTrails)
@@ -450,19 +450,15 @@ theorem chainHangs ∀ (kinds: Text → Tok) (level: Option Nat) (left: Expr) (o
     (facts: PairFacts kinds level True left operator right around leftTrails trails):
     ElHangs kinds (chain level left operator right around) indent column False trails wordStart :=
   let (head, tail, middle, linksAre, headHangs, runs) :=
-    chainLinksForm kinds False level True left operator right around leftTrails trails
+    chainLinksForm
       (leftTrails => linkDocsForm kinds False level True left around leftTrails)
       (next rightTrails =>
         linkDocsForm kinds next level False right (around.next operator.trails (left.size + 1)) rightTrails)
       facts
   let inner := Doc.concat [head, Nest 2 (Doc.concat tail)]
   let lays: ElHangs kinds inner indent column False trails wordStart :=
-    elThen kinds head
+    elThen head
       (Nest 2 (Doc.concat tail))
-      indent
-      column
-      middle
-      trails
       (elUnheld kinds head indent column around.before middle wordStart (headHangs indent column))
       (runsPart kinds tail indent middle trails runs)
   rewrite flat, linksAre then state entry => hangsGroup inner.forcesBreak (lays state entry)
@@ -489,9 +485,8 @@ theorem binaryChainHangs ∀ (kinds: Text → Tok) (left: Expr) (operator: Word)
       trails
       wordStart :=
   let level := (Infix InfixBinary left operator right).chainLevel
-  framedHangs kinds
+  framedHangs
     (Infix InfixBinary left operator right).firstWord
-    around
     (chain level left operator right { around | hoisted = True })
     indent
     column
@@ -522,9 +517,8 @@ theorem arrowChainHangs ∀ (kinds: Text → Tok) (left: Expr) (operator: Word) 
       trails
       wordStart :=
   let level := (Infix InfixArrow left operator right).chainLevel
-  framedHangs kinds
+  framedHangs
     (Infix InfixArrow left operator right).firstWord
-    around
     (chain level left operator right { around | hoisted = True })
     indent
     column

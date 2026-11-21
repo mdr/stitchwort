@@ -145,7 +145,7 @@ theorem formatsOf ∀ (source out: Text)
 theorem tidyIs1 ∀ (file: SourceFile)
     (within: file.within1 = True):
     file.withForall.withoutTrailingCommas.withoutSpareBrackets.withMergedParameters = file.withoutTrailingCommas :=
-  let commaWithin := commaKeepsWithin file within
+  let commaWithin := commaKeepsWithin within
   rewrite forallSame1 file within,
       bracketsSame1 file.withoutTrailingCommas commaWithin,
       mergeSame1 file.withoutTrailingCommas commaWithin
@@ -208,7 +208,7 @@ theorem tidiedFacts ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
   let settled := parseSettledSourceProved source lexed parsed lexes alphabet plain parses within
   rewrite tidyComma1 parsed within then
     (
-      commaKeepsWithin parsed within,
+      commaKeepsWithin within,
       rewrite commaKeepsShaped parsed within then shaped,
       rewrite commaKeepsSettled parsed within then settled,
       rewrite commaKeepsLexical parsed within then lexical,
@@ -383,7 +383,7 @@ theorem formatKeepsProgram1 ∀ (source out: Text)
   let (lexed, parsed, accepted) := formatsOf source out formats
   let (lexes, leaves, parses, within, outIs) := accepted
   let (facts, lexOut, parseOut) := printedOf source out lexed parsed accepted
-  let commaWithin := commaKeepsWithin parsed within
+  let commaWithin := commaKeepsWithin within
   let kept: parsed.withoutTrailingCommas.meaning = parsed.meaning :=
     let three := firstThreeKeepMeaning parsed
     rewrite forallSame1 parsed within, bracketsSame1 parsed.withoutTrailingCommas commaWithin at three then three

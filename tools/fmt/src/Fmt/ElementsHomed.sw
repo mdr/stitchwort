@@ -92,7 +92,7 @@ theorem bracketBack ∀ (open close: Word) (inside rest: List Word)
 -- Words read forwards.
 
 --| `->` is read with its next word: drop the first word.
-theorem arrowsTail ∀ (x: Word) (zs: List Word) (arrows: arrowsBare [x, ..zs] = True): arrowsBare zs = True :=
+theorem arrowsTail ∀ [x: Word] (zs: List Word) (arrows: arrowsBare [x, ..zs] = True): arrowsBare zs = True :=
   match zs with
     | [] => byComputing
     | [z, ..more] => Bool.andRight arrows
@@ -106,7 +106,7 @@ theorem joinBack ∀ (front back rest: List Word)
   homedBehind back.reverse front.reverse rest (rewrite (List.reverseAppend front back).flipped then homed)
 
 --| A word then a run.
-theorem consBack ∀ (head: Word) (tail rest: List Word)
+theorem consBack ∀ [head: Word] (tail: List Word) [rest: List Word]
     (homed: homedBack ([head, ..tail].reverse ++ rest) = True):
     homedBack (tail.reverse ++ ([head] ++ rest)) = True :=
   rewrite (List.appendAssoc tail.reverse [head] rest).flipped, (List.reverseCons head tail).flipped then homed
@@ -127,7 +127,7 @@ theorem arrowTokOf ∀ (text: Text) (arrow: arrowText1 text = True): operatorTok
   Bool.orElim arrow (isArrow => rewrite DecEq.sound isArrow) (isArrow => rewrite DecEq.sound isArrow)
 
 --| A bracket's node: its closer is a closer and its opener is none.
-theorem bracketHomed ∀ (open close: Word) (inside rest: List Word)
+theorem bracketHomed ∀ [open close: Word] (inside: List Word) [rest: List Word]
     (closer: isCloserText close.text = True)
     (opens: isCloserText open.text = False)
     (homed: homedBack (([open, ..inside] ++ [close]).reverse ++ rest) = True):
@@ -138,10 +138,10 @@ theorem bracketHomed ∀ (open close: Word) (inside rest: List Word)
       (Eq.subst (words => homedBack (words ++ rest) = True) (bracketReverse open close inside) homed)
   (within, rewrite bracketReverse open close inside then after)
 
-theorem arrowsInside ∀ (open close: Word) (inside: List Word)
+theorem arrowsInside ∀ [open close: Word] (inside: List Word)
     (arrows: arrowsBare ([open, ..inside] ++ [close]) = True):
     arrowsBare inside = True :=
-  arrowsTail open inside (arrowsBarePrefix [open, ..inside] [close] arrows)
+  arrowsTail inside (arrowsBarePrefix [open, ..inside] [close] arrows)
 
 -- The induction.
 
@@ -158,40 +158,40 @@ theorem homedAt ∀ (expr: Expr)
         (Bool.andLeft within)
         (Bool.andRight lexical)
         ([operator] ++ rest)
-        (consBack operator operand.words rest homed)
-        (arrowsTail operator operand.words arrows)
+        (consBack operand.words homed)
+        (arrowsTail operand.words arrows)
     | Paren open inner close, within =>
       let isClose: close.text = ")" := DecEq.sound (Bool.andLeft (Bool.andRight lexical))
       let isOpen: open.text = "(" := DecEq.sound (Bool.andLeft lexical)
-      let (holds, closes) := bracketHomed open close inner.words rest (rewrite isClose) (rewrite isOpen) homed
+      let (holds, closes) := bracketHomed inner.words (rewrite isClose) (rewrite isOpen) homed
       Bool.andIntro
         (homedAt inner within
           (Bool.andRight (Bool.andRight lexical))
           ([open] ++ rest)
           holds
-          (arrowsInside open close inner.words arrows))
+          (arrowsInside inner.words arrows))
         closes
     | Tuple open items trailing close, within =>
       let isClose: close.text = ")" := DecEq.sound (Bool.andLeft (Bool.andRight lexical))
       let isOpen: open.text = "(" := DecEq.sound (Bool.andLeft lexical)
-      let (holds, closes) := bracketHomed open close (itemsWords items) rest (rewrite isClose) (rewrite isOpen) homed
+      let (holds, closes) := bracketHomed (itemsWords items) (rewrite isClose) (rewrite isOpen) homed
       Bool.andIntro
         (allHomedAt items within
           (Bool.andRight (Bool.andRight lexical))
           ([open] ++ rest)
           holds
-          (arrowsInside open close (itemsWords items) arrows))
+          (arrowsInside (itemsWords items) arrows))
         closes
     | ListOf open items trailing close, within =>
       let isClose: close.text = "]" := DecEq.sound (Bool.andLeft (Bool.andRight lexical))
       let isOpen: open.text = "[" := DecEq.sound (Bool.andLeft lexical)
-      let (holds, closes) := bracketHomed open close (itemsWords items) rest (rewrite isClose) (rewrite isOpen) homed
+      let (holds, closes) := bracketHomed (itemsWords items) (rewrite isClose) (rewrite isOpen) homed
       Bool.andIntro
         (allHomedAt items within
           (Bool.andRight (Bool.andRight lexical))
           ([open] ++ rest)
           holds
-          (arrowsInside open close (itemsWords items) arrows))
+          (arrowsInside (itemsWords items) arrows))
         closes
     | App head arguments, within =>
       let (headBack, argumentsBack) := joinBack head.words (itemsWords arguments) rest homed
@@ -217,13 +217,13 @@ theorem homedAt ∀ (expr: Expr)
           rest
           leftBack
           (arrowsBarePrefix left.words [operator, ..right.words] arrows)
-      let rightArrows := arrowsTail operator right.words (arrowsBareSuffix left.words [operator, ..right.words] arrows)
+      let rightArrows := arrowsTail right.words (arrowsBareSuffix left.words [operator, ..right.words] arrows)
       Bool.andIntro leftHomed
         (homedAt right
           (Bool.andLeft (Bool.andRight within))
           (Bool.andRight (Bool.andRight lexical))
           ([operator] ++ (left.words.reverse ++ rest))
-          (consBack operator right.words _ rightBack)
+          (consBack right.words rightBack)
           rightArrows)
     | Infix InfixArrow left operator right, within =>
       let rightWithin: right.within1 = True := Bool.andLeft (Bool.andRight within)
@@ -240,8 +240,8 @@ theorem homedAt ∀ (expr: Expr)
         homedAt right rightWithin
           (Bool.andRight (Bool.andRight lexical))
           ([operator] ++ (left.words.reverse ++ rest))
-          (consBack operator right.words _ rightBack)
-          (arrowsTail operator right.words tailArrows)
+          (consBack right.words rightBack)
+          (arrowsTail right.words tailArrows)
       let (more, words) := wordsLead right rightWithin
       let bare :=
         arrowOf operator right.lead more
@@ -316,6 +316,5 @@ theorem homedOfSettled ∀ (decl: Decl)
           (arrowsBarePrefix header.result.words [colonEqWord, ..value.words] tailArrows))
         (homedAt value valueWithin valueLexical
           ([colonEqWord] ++ (header.result.words.reverse ++ (head.reverse ++ [])))
-          (consBack colonEqWord value.words _ valueBack)
-          (arrowsTail colonEqWord value.words
-            (arrowsBareSuffix header.result.words [colonEqWord, ..value.words] tailArrows)))
+          (consBack value.words valueBack)
+          (arrowsTail value.words (arrowsBareSuffix header.result.words [colonEqWord, ..value.words] tailArrows)))

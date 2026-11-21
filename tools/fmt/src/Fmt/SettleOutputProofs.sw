@@ -110,7 +110,7 @@ theorem matchedEmpty ∀ (behind: List Leaf) (m: matched behind [] = True): behi
       | False => Void.impossible (Bool.falseNotTrue m)
 
 --| What `fits` says, as equations.
-theorem fitsParts ∀ (leaf: Leaf) (word: Word)
+theorem fitsParts ∀ [leaf: Leaf] (word: Word)
     (fits: leaf.fits word = True):
     leaf.token.text = word.text
       ∧ leaf.word.comments.above = word.comments.above
@@ -131,7 +131,7 @@ theorem fitsParts ∀ (leaf: Leaf) (word: Word)
 theorem fitsWord ∀ (leaf: Leaf) (word: Word) (fits: leaf.fits word = True): leaf.word = word := match word with
   | { text, comments = { above, after, blankBefore } } =>
     let (textSame, aboveSame, blankSame, afterSame, _) :=
-      fitsParts leaf { text, comments = { above, after, blankBefore } } fits
+      fitsParts { text, comments = { above, after, blankBefore } } fits
     rewrite textSame, aboveSame, blankSame, afterSame
 
 --| Where rule 1 looks back for a comment ending the line before a closer, the leaves have one exactly when the words
@@ -156,7 +156,7 @@ theorem endsOnMatched ∀ (behind: List Leaf) (done: List Word)
         | False =>
           match done with
             | [word, ..older] =>
-              let (textSame, _, _, afterSame, agrees) := fitsParts leaf word (Bool.andLeft m)
+              let (textSame, _, _, afterSame, agrees) := fitsParts word (Bool.andLeft m)
               let later := Bool.andRight m
               match trailing: leaf.trivia.trailing with
                 | Some comment => rewrite <- afterSame
@@ -958,7 +958,7 @@ theorem atomNotArrow ∀ (kind: Tok) (text: Text)
             (Bool.andLeft (rewrite leaves at all then all))
             (wordIsNoArrow kind word)
 
-theorem closeQuiet ∀ (close: Word) (text: Text)
+theorem closeQuiet ∀ [close: Word] (text: Text)
     (same: close.text = text)
     (plain: (operatorTok text == Some Arrow) = False):
     endsQuiet [close] = True :=
@@ -976,17 +976,17 @@ theorem exprEndsQuiet ∀ (expr: Expr)
       endsQuietJoin
         [open, ..inner.words]
         [close]
-        (closeQuiet close ")" (DecEq.sound (Bool.andLeft (Bool.andRight lexical))) byComputing)
+        (closeQuiet ")" (DecEq.sound (Bool.andLeft (Bool.andRight lexical))) byComputing)
     | Tuple open items _ close =>
       endsQuietJoin
         [open, ..itemsWords items]
         [close]
-        (closeQuiet close ")" (DecEq.sound (Bool.andLeft (Bool.andRight lexical))) byComputing)
+        (closeQuiet ")" (DecEq.sound (Bool.andLeft (Bool.andRight lexical))) byComputing)
     | ListOf open items _ close =>
       endsQuietJoin
         [open, ..itemsWords items]
         [close]
-        (closeQuiet close "]" (DecEq.sound (Bool.andLeft (Bool.andRight lexical))) byComputing)
+        (closeQuiet "]" (DecEq.sound (Bool.andLeft (Bool.andRight lexical))) byComputing)
     | App head arguments =>
       endsQuietAppend head.words
         (itemsWords arguments)
@@ -1256,7 +1256,7 @@ theorem pairPush ∀ (leaf: Leaf) (acc: List Leaf)
 theorem leadingEmptySame ∀ (leaf: Leaf) (word: Word)
     (fits: leaf.fits word = True):
     leaf.trivia.leading.isEmpty = word.comments.above.isEmpty :=
-  let (_, aboveSame, _, _, _) := fitsParts leaf word fits
+  let (_, aboveSame, _, _, _) := fitsParts word fits
   match leaf.trivia.leading with | [] | [_, .._] => rewrite <- aboveSame
 
 theorem listReverseJoin ∀ (word: Word) (older after: List Word):
@@ -1297,7 +1297,7 @@ theorem arrowsOnto ∀ (behind acc: List Leaf) (done after: List Word)
           match done with
             | [word, ..older] =>
               let fits := Bool.andLeft m
-              let (textSame, _, _, trailSame, _) := fitsParts leaf word fits
+              let (textSame, _, _, trailSame, _) := fitsParts word fits
               let emptySame := leadingEmptySame leaf word fits
               let joined: arrowsBare (older.reverse ++ [word, ..after]) = True :=
                 rewrite listReverseJoin word older after at words then words

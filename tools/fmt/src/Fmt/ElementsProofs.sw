@@ -69,7 +69,7 @@ def AllAnyFacts: List Expr → Prop
   | [] => True
   | [expr, ..rest] => AnyFacts expr ∧ AllAnyFacts rest
 
-theorem anyHangsOf ∀ (expr: Expr)
+theorem anyHangsOf ∀ [expr: Expr]
     (facts: AnyFacts expr) (around: Around)
     (plain: expr.plainAt around = True):
     HangsAt lexKind around.before expr.trails (expr.el around) :=
@@ -77,7 +77,7 @@ theorem anyHangsOf ∀ (expr: Expr)
   hangs around plain
 
 --| An element not an item, its first token with no comments above, writes nothing before it.
-theorem unnotedPlain ∀ (expr: Expr) (around: Around)
+theorem unnotedPlain ∀ [expr: Expr] [around: Around]
     (unnoted: expr.lead.noted = False)
     (single: around.item = False):
     expr.plainAt around = True :=
@@ -123,7 +123,7 @@ theorem prefixLedHangs ∀ (kinds: Text → Tok) (operator: Word) (operand: Expr
       (startFor operand.noted)):
     ElHangs kinds (Expr.el (Prefix operator operand) around) indent column around.before trails wordStart :=
   let inside := { around | hoisted = True }
-  framedHangs kinds operator around
+  framedHangs operator
     (Doc.concat [
       operator.leaf inside around.at,
       prefixGap operator operand,
@@ -134,14 +134,11 @@ theorem prefixLedHangs ∀ (kinds: Text → Tok) (operator: Word) (operand: Expr
     trails
     bare
     (inset seat =>
-      elGapThen kinds
+      elGapThen
+        [middle := operator.trails]
         (operator.leaf inside around.at)
         (prefixGap operator operand)
         (operand.el (around.next operator.trails 1))
-        inset
-        seat
-        operator.trails
-        trails
         (elUnheld kinds
           (operator.leaf inside around.at)
           inset
@@ -182,7 +179,7 @@ theorem prefixAny ∀ (operator: Word) (operand: Expr)
           (unledLeading operator around around.at bare)
           (trailsOfSound operator (Bool.andLeft sound))
           (inset =>
-            ledHangs operand
+            ledHangs
               (around.next operator.trails 1)
               inset
               operandWithin
@@ -225,8 +222,7 @@ theorem parenAny ∀ (open: Word) (inner: Expr) (close: Word)
               (trailsOfSound close closeSound)
               (unledLeading open around around.at bare)
               (parenInnerPlain inner innerAround innerWithin)
-              (inset =>
-                anyHangsOf inner facts innerAround (unnotedPlain inner innerAround unnoted byComputing) inset inset)
+              (inset => anyHangsOf facts innerAround (unnotedPlain unnoted byComputing) inset inset)
               (trails inset =>
                 let (_, plainLowers) :=
                   innerLowers inner innerAround inset
@@ -392,9 +388,8 @@ theorem framedLedHangs ∀ (first: Word) (around: Around) (doc: Doc) (indent: Na
     ElHangs lexKind (framedBy first around doc) indent indent around.before trails (startFor first.noted) :=
   match first with
     | { text, comments = { above = [], after, blankBefore } } =>
-      framedHangs lexKind
+      framedHangs
         { text, comments = { above = [], after, blankBefore } }
-        around
         doc
         indent
         indent
@@ -405,7 +400,7 @@ theorem framedLedHangs ∀ (first: Word) (around: Around) (doc: Doc) (indent: Na
       let word := { text, comments = { above = [note, ..rest], after, blankBefore } }
       notedFramedHangs lexKind word around doc indent trails note rest hoisted byComputing closer
         (notesOfWord word sound)
-        (inset => framedHangs lexKind word { around | hoisted = True } doc inset inset trails byComputing el)
+        (inset => framedHangs [around := { around | hoisted = True }] word doc inset inset trails byComputing el)
 
 --| A tuple or list as a call's last argument (`huggedBracket`), as it is and opened, whatever its comments: framed by
 --| its opener (`framedLedHangs`), its parts in a group (`groupedBracketHangs`) whose items hang by their facts
@@ -534,7 +529,7 @@ theorem appArgsHang ∀ (arm: Bool) (head: Expr) (at: Nat) (arguments: List Expr
     (brackets: AllBracketFacts arguments):
     ArgsHang lexKind arm head at arguments :=
   let led: Led ArgFacts := expr around inset held exprWithin exprLexical exprSound hoisted item =>
-    ledHangs expr around inset exprWithin exprLexical exprSound held.left hoisted item
+    ledHangs around inset exprWithin exprLexical exprSound held.left hoisted item
   argsLed ArgFacts AllArgFacts
     (expr more both => ((both.left.left, both.right.left), (both.left.right, both.right.right)))
     led
@@ -589,7 +584,7 @@ theorem appAny ∀ (head: Expr) (arguments: List Expr)
                   around.before
                   head.trails
                   wordStart
-                  (anyHangsOf head headFacts { around | hoisted = True } byComputing inset seat))
+                  (anyHangsOf headFacts { around | hoisted = True } byComputing inset seat))
               (appArgsHang around.inArm head
                 (around.at + head.size)
                 [argument, ..rest]
@@ -620,9 +615,9 @@ theorem binaryAny ∀ (left: Expr) (operator: Word) (right: Expr)
   let (_, leftLinks) := leftFacts
   let (_, rightLinks) := rightFacts
   let leftLed: LedEl left := at inset hoisted item =>
-    ledHangs left at inset leftWithin (Bool.andLeft lexical) (Bool.andLeft sound) leftFacts hoisted item
+    ledHangs at inset leftWithin (Bool.andLeft lexical) (Bool.andLeft sound) leftFacts hoisted item
   let rightLed: LedEl right := at inset hoisted item =>
-    ledHangs right at inset rightWithin rightLexical (Bool.andRight (Bool.andRight sound)) rightFacts hoisted item
+    ledHangs at inset rightWithin rightLexical (Bool.andRight (Bool.andRight sound)) rightFacts hoisted item
   let trailsIs := infixTrails InfixBinary left operator right (codedLex right rightWithin rightLexical)
   let hangs: ∀ (around: Around) => (Infix InfixBinary left operator right).plainAt around = True
     → HangsAt lexKind around.before
@@ -689,9 +684,9 @@ theorem arrowAny ∀ (left: Expr) (operator: Word) (right: Expr)
   let (_, leftLinks) := leftFacts
   let (_, rightLinks) := rightFacts
   let leftLed: LedEl left := at inset hoisted item =>
-    ledHangs left at inset leftWithin (Bool.andLeft lexical) (Bool.andLeft sound) leftFacts hoisted item
+    ledHangs at inset leftWithin (Bool.andLeft lexical) (Bool.andLeft sound) leftFacts hoisted item
   let rightLed: LedEl right := at inset hoisted item =>
-    ledHangs right at inset rightWithin rightLexical (Bool.andRight (Bool.andRight sound)) rightFacts hoisted item
+    ledHangs at inset rightWithin rightLexical (Bool.andRight (Bool.andRight sound)) rightFacts hoisted item
   let trailsIs := infixTrails InfixArrow left operator right (codedLex right rightWithin rightLexical)
   let hangs: ∀ (around: Around) => (Infix InfixArrow left operator right).plainAt around = True
     → HangsAt lexKind around.before
@@ -910,7 +905,7 @@ theorem allBracketFacts ∀ (items: List Expr)
 --|
 --| Proof idea: cases from the facts: with no comments, the element where it is plain; with comments, a
 --| name or numeral by `notedLeafHangs` and a node by `edgeNotedNodeHangs` from its hoisted form's facts.
-theorem ledHangs ∀ (expr: Expr) (around: Around) (indent: Nat)
+theorem ledHangs ∀ [expr: Expr] (around: Around) (indent: Nat)
     (within: expr.within1 = True)
     (lexical: expr.lexical = True)
     (sound: expr.sound = True)
@@ -926,22 +921,22 @@ theorem ledHangs ∀ (expr: Expr) (around: Around) (indent: Nat)
     around.before
     expr.trails
     wordStart :=
-    inset => anyHangsOf expr facts { around | hoisted = True } byComputing inset inset
+    inset => anyHangsOf facts { around | hoisted = True } byComputing inset inset
   let comments: NotesComment expr.lead.comments.above := notesOfWord expr.lead (leadSound expr sound)
   let closer := leadNotCloser expr within lexical
   rewrite sameNoted then
     match above: expr.lead.comments.above with
       | [] =>
         let unnoted: expr.lead.noted = False := Eq.cong (notes => !notes.isEmpty) above
-        anyHangsOf expr facts around (unnotedPlain expr around unnoted item) indent indent
+        anyHangsOf facts around (unnotedPlain unnoted item) indent indent
       | [note, ..rest] =>
         match expr, within with
           | Atom kind word, within =>
             let (plain, (notComment, solid, wordCloser, comma)) := wordFacts kind word.text within
             let el: ElHangs lexKind (word.leaf around around.at) indent indent around.before word.trails leadStart :=
               state entry =>
-                notedLeafHangs lexKind word around around.at indent state entry note rest plain notComment solid
-                    wordCloser comma hoisted above comments
+                notedLeafHangs around.at indent state entry rest plain notComment solid wordCloser comma hoisted above
+                    comments
                     (trailsOfSound word sound)
             trailsSwap lexKind _ indent indent around.before _ _ leadStart (atomTrailsIs kind word).flipped el
           | Paren open inner close, _ =>
@@ -1079,7 +1074,7 @@ theorem ledAnyHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: Hang
     (noted: expr.lead.comments.above = [note, ..rest]):
     LedAt lexKind (expr.el around) indent around.before expr.trails state entry :=
   ledItemHangs expr around indent state entry note rest within lexical sound hoisted noted (inset =>
-    anyHangsOf expr facts { around | hoisted = True } byComputing inset inset)
+    anyHangsOf facts { around | hoisted = True } byComputing inset inset)
 
 --| `ledHangs` for every slice 1 expression with the tree facts.
 theorem anyElHangs ∀ (expr: Expr) (around: Around) (indent: Nat)
@@ -1091,7 +1086,7 @@ theorem anyElHangs ∀ (expr: Expr) (around: Around) (indent: Nat)
     (hoisted: around.hoisted = False)
     (item: around.item = False):
     ElHangs lexKind (expr.el around) indent indent around.before expr.trails (startFor expr.noted) :=
-  ledHangs expr around indent within lexical sound (anyFacts expr within lexical sound homed shaped) hoisted item
+  ledHangs around indent within lexical sound (anyFacts expr within lexical sound homed shaped) hoisted item
 
 --| A call value's hug, if it has one, hangs on the `:=`'s line (proved): the function and the
 --| arguments before the last, then the last argument opened, whatever their comments.
@@ -1144,7 +1139,7 @@ theorem anyHug ∀ (value: Expr) (around: Around)
               inside.before
               head.trails
               wordStart
-              (anyHangsOf head headFacts inside byComputing 0 0)
+              (anyHangsOf headFacts inside byComputing 0 0)
           ((lastArg argument rest).trails, appDocsHug lexKind head argument rest inside 0 0 headHangs facts open same)
     | Atom _ _ |
         Paren _ _ _ |
@@ -1197,7 +1192,7 @@ theorem anyOnLine ∀ (value: Expr) (at: Nat) (inArm: Bool)
     _ = value.noted := (Eq.cong Word.noted (firstWordLead value within)).flipped
     _ = False := unnoted
   let line: ElHangs lexKind (value.el around) 0 0 False value.trails wordStart :=
-    anyHangsOf value facts around (unnotedPlain value around leadUnnoted byComputing) 0 0
+    anyHangsOf facts around (unnotedPlain leadUnnoted byComputing) 0 0
   (
     (value.trails, rewrite plainBodyEl value around then line),
     open same => anyHug value around within lexical sound homed shaped open same

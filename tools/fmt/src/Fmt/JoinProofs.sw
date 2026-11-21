@@ -688,7 +688,7 @@ theorem leftWeaker ∀ (text: Text) (flag flag': Bool)
   cases
 
 --| A token's trailing comment, written after it on its line, where no comment waits yet.
-theorem trailingPasses ∀ (kinds: Text → Tok) (word: Word) (flag: Bool)
+theorem trailingPasses ∀ (kinds: Text → Tok) [word: Word] (flag: Bool)
     (sound: afterSound word.comments.after = True)
     (token: Token word.text)
     (bare: word.trails = True → flag = False):
@@ -745,7 +745,7 @@ theorem leafPasses ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key:
         (passesCons
           (piecePasses kinds flag word.text solid comma)
           (allTo
-            (trailingPasses kinds word (isCloserText word.text && flag) after token (trailing =>
+            (trailingPasses kinds (isCloserText word.text && flag) after token (trailing =>
               bareFlag (isCloserText word.text) around.before word.trails trailing))
             (edge left =>
               leftWeaker word.text
@@ -839,14 +839,14 @@ theorem markListPasses ∀ (kinds: Text → Tok) (marked: Bool) (key: Nat) (pre:
     | False => passesNil kinds pre pre (edge holds => holds)
 
 --| A token's own-line comments, whatever the code before ends with: `leading` doesn't read it.
-theorem leadingTrue ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key: Nat)
+theorem leadingTrue ∀ (kinds: Text → Tok) [word: Word] (around: Around) (key: Nat)
     (sound: word.sound = True)
     (closer: isCloserText word.text = False):
     PassesAll kinds (word.leading around key) (Ready kinds True word.text) (Ready kinds True word.text) :=
   leadingPasses kinds word { around | before = True } key sound closer
 
 --| A token that is no closer: from where it may stand, even with a comment waiting, the line then ends with it.
-theorem wordLeafPasses ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key: Nat)
+theorem wordLeafPasses ∀ (kinds: Text → Tok) [word: Word] (around: Around) (key: Nat)
     (joins: WordJoins word):
     Passes kinds (word.leaf around key) (Ready kinds True word.text) (Left word.text word.trails) :=
   match joins with
@@ -857,7 +857,7 @@ theorem wordLeafPasses ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
       passesConcat
         (rewrite ownEmpty word.text (!word.noted && around.before && word.trails) key notCloser then
           passesAppend
-            (leadingTrue kinds word around key sound notCloser)
+            (leadingTrue kinds around key sound notCloser)
             (passesCons
               (passesTo piecePass (edge left =>
                 leftWeaker word.text
@@ -866,7 +866,7 @@ theorem wordLeafPasses ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
                   (flag => rewrite notCloser at flag then flag)
                   edge
                   left))
-              (allTo (trailingPasses kinds word False after token (trailing => byComputing)) (edge left =>
+              (allTo (trailingPasses kinds False after token (trailing => byComputing)) (edge left =>
                 leftWeaker word.text
                   (word.trails || False)
                   word.trails
@@ -886,7 +886,7 @@ theorem openingPasses ∀ (kinds: Text → Tok) (word: Word) (around: Around) (c
       let piecePass := piecePasses kinds True word.text solid comma
       passesConcat
         (passesAppend
-          (leadingTrue kinds word around around.at sound notCloser)
+          (leadingTrue kinds around around.at sound notCloser)
           (passesAppend
             (markListPasses kinds marked around.at (Ready kinds True word.text))
             (passesCons
@@ -897,7 +897,7 @@ theorem openingPasses ∀ (kinds: Text → Tok) (word: Word) (around: Around) (c
                   (flag => rewrite notCloser at flag then flag)
                   edge
                   left))
-              (allTo (trailingPasses kinds word False after token (trailing => byComputing)) (edge left =>
+              (allTo (trailingPasses kinds False after token (trailing => byComputing)) (edge left =>
                 match edge, left with
                   | Plain (Some last), same => rewrite same then free
                   | Waiting (Some last), (same, waits) =>
@@ -918,7 +918,7 @@ theorem framedPasses ∀ (kinds: Text → Tok) (first: Word) (around: Around) (d
   let placedPasses: Passes kinds placed pre post := match first.displaces around with
     | True => passesDisplaced inner byComputing
     | False => inner
-  passesConcat (passesTwo (passesConcat (leadingTrue kinds first around around.at sound closer)) placedPasses)
+  passesConcat (passesTwo (passesConcat (leadingTrue kinds around around.at sound closer)) placedPasses)
 
 --| The leftmost token of an element is one that joins as a token.
 theorem leadJoins ∀ (kinds: Text → Tok) (expr: Expr) (joinable: Joinable kinds expr): WordJoins expr.lead :=
@@ -951,7 +951,7 @@ theorem atomPasses ∀ (kinds: Text → Tok) (kind: Tok) (word: Word) (around: A
     (joins: WordJoins word):
     Passes kinds ((Atom kind word).el around) (Ready kinds True word.text) (Ended (Atom kind word).trails) :=
   match joins with
-    | (sound, token, comma, closer) => passesTo (wordLeafPasses kinds word around around.at joins) (edge left =>
+    | (sound, token, comma, closer) => passesTo (wordLeafPasses kinds around around.at joins) (edge left =>
       endedWeaker word.trails _
         (trails => atomTrails word False closer (rewrite trails))
         edge
@@ -1065,7 +1065,7 @@ theorem prefixPasses ∀ (kinds: Text → Tok) (operator: Word) (operand: Expr) 
       (Ended (Prefix operator operand).trails) :=
   passesConcat
     (passesCons
-      (wordLeafPasses kinds operator { around | hoisted = True } around.at joins)
+      (wordLeafPasses kinds { around | hoisted = True } around.at joins)
       (passesTwo
         (gapPasses kinds operator operand joins.right.left glue)
         (passesFrom
@@ -1087,7 +1087,7 @@ def EachEl (kinds: Text → Tok): List Expr → Prop
     (∀ (place: Around) => Passes kinds (expr.el place) (Ready kinds True expr.lead.text) (Ended expr.trails))
       ∧ EachEl kinds rest
 
-theorem gappedReadyTrue ∀ (kinds: Text → Tok) (trails: Bool) (first: Text) (edge: Edge)
+theorem gappedReadyTrue ∀ (kinds: Text → Tok) (trails: Bool) (first: Text) [edge: Edge]
     (gapped: Gapped trails edge):
     Ready kinds True first edge :=
   readyWeaker kinds trails True first (holds => byComputing) edge (gappedReady kinds trails first edge gapped)
@@ -1125,7 +1125,7 @@ theorem seenAppend ∀ (seen words: List Word)
     trailsBack (seen ++ words).reverse = True :=
   rewrite List.reverseAppend seen words then trailsBackAppend words.reverse seen.reverse trails
 
-theorem itemTrails ∀ (seen: List Word) (item: Expr) (edge: Edge)
+theorem itemTrails ∀ (seen: List Word) [item: Expr] [edge: Edge]
     (ended: Ended item.trails edge):
     Ended (trailsBack (seen ++ itemsWords [item]).reverse) edge :=
   endedWeaker item.trails _
@@ -1151,8 +1151,8 @@ theorem brokenRestPasses ∀ (kinds: Text → Tok) (seen: List Word) (items: Lis
       passesTwo
         (passesLine kinds (trailsBack seen.reverse))
         (passesFrom
-          (passesTo (passes (firstAround bare arm before at)) (edge ended => itemTrails seen item edge ended))
-          (edge gapped => gappedReadyTrue kinds (trailsBack seen.reverse) item.lead.text edge gapped))
+          (passesTo (passes (firstAround bare arm before at)) (edge ended => itemTrails seen ended))
+          (edge gapped => gappedReadyTrue kinds (trailsBack seen.reverse) item.lead.text gapped))
     | [item, second, ..more], (passes, rest) =>
       passesCons
         (passesLine kinds (trailsBack seen.reverse))
@@ -1160,7 +1160,7 @@ theorem brokenRestPasses ∀ (kinds: Text → Tok) (seen: List Word) (items: Lis
           (passesFrom
             (passesTo (passes (firstAround bare arm before at)) (edge ended =>
               endedWeaker item.trails _ (seenAppend seen item.words) edge ended))
-            (edge gapped => gappedReadyTrue kinds (trailsBack seen.reverse) item.lead.text edge gapped))
+            (edge gapped => gappedReadyTrue kinds (trailsBack seen.reverse) item.lead.text gapped))
           (passesCons
             (commaPasses kinds (trailsBack (seen ++ item.words).reverse))
             (rewrite <- List.appendAssoc seen item.words (itemsWords [second, ..more]) then
@@ -1191,7 +1191,7 @@ theorem brokenPasses ∀ (kinds: Text → Tok) (open: Word) (items: List Expr) (
       passesTwo
         (passesSoft kinds (Free kinds open.trails) (Free kinds open.trails) (edge free => free) byComputing)
         (passesFrom
-          (passesTo (passes (firstAround bare arm before at)) (edge ended => itemTrails [open] item edge ended))
+          (passesTo (passes (firstAround bare arm before at)) (edge ended => itemTrails [open] ended))
           (edge free => freeReadyTrue kinds open.trails item.lead.text edge free))
     | [item, second, ..more], (passes, rest) =>
       passesCons
@@ -1228,8 +1228,8 @@ theorem sepsCellsJoin ∀ (kinds: Text → Tok) (seen: List Word) (items: List E
       passes
         (firstAround False arm before at)
         middle _
-        (gappedReadyTrue kinds (trailsBack seen.reverse) item.lead.text middle gapped)
-        (left itemEnded => after left (itemTrails seen item left itemEnded)))
+        (gappedReadyTrue kinds (trailsBack seen.reverse) item.lead.text gapped)
+        (left itemEnded => after left (itemTrails seen itemEnded)))
     | [item, second, ..more], (passes, rest) =>
       passesLine kinds (trailsBack seen.reverse) edge _ ended (middle gapped =>
         passesConcat
@@ -1237,7 +1237,7 @@ theorem sepsCellsJoin ∀ (kinds: Text → Tok) (seen: List Word) (items: List E
             (passesFrom
               (passesTo (passes (firstAround False arm before at)) (edge ended =>
                 endedWeaker item.trails _ (seenAppend seen item.words) edge ended))
-              (edge gapped => gappedReadyTrue kinds (trailsBack seen.reverse) item.lead.text edge gapped))
+              (edge gapped => gappedReadyTrue kinds (trailsBack seen.reverse) item.lead.text gapped))
             (commaPasses kinds (trailsBack (seen ++ item.words).reverse)))
           middle _
           gapped
@@ -1274,7 +1274,7 @@ theorem cellsPasses ∀ (kinds: Text → Tok) (open: Word) (items: List Expr) (b
           (firstAround bare arm before at)
           edge _
           (freeReadyTrue kinds open.trails item.lead.text edge free)
-          (left ended => after left (itemTrails [open] item left ended))
+          (left ended => after left (itemTrails [open] ended))
       | [item, second, ..more], (passes, rest) =>
         passesConcat
           (passesTwo
@@ -1437,7 +1437,7 @@ theorem joinedSeq ∀ (kinds: Text → Tok) (docs: List Doc) (pre post: Edge →
     | [doc, next, ..more], (first, rest) =>
       passesCons first (passesCons (passesSpace kinds True) (joinedSeq kinds [next, ..more] (Gapped True) post rest))
 
-theorem spacedSeq ∀ (kinds: Text → Tok) (docs: List Doc) (pre post: Edge → Prop)
+theorem spacedSeq ∀ [kinds: Text → Tok] (docs: List Doc) (pre post: Edge → Prop)
     (seq: PassesSeq kinds pre post docs):
     Passes kinds (spaced docs) pre post :=
   passesConcat (joinedSeq kinds docs pre post seq)
@@ -1528,7 +1528,7 @@ theorem appFromPasses ∀ (kinds: Text → Tok) (id keep: Nat) (between betweenF
   match full: keep == docs.length with
     | True =>
       match between with
-        | True => spacedSeq kinds docs pre post seq
+        | True => spacedSeq docs pre post seq
         | False => passesNest 4 (fillSeq kinds docs pre post seq)
     | False =>
       let (keptSeq, droppedSeq) :=
@@ -1549,7 +1549,7 @@ theorem appFromPasses ∀ (kinds: Text → Tok) (id keep: Nat) (between betweenF
           (List.consNotNil headDoc front)
           (List.consNotNil lastDoc [])
           seq
-      let flat: Passes kinds (Flatten (spaced docs)) pre post := passesFlatten (spacedSeq kinds docs pre post seq)
+      let flat: Passes kinds (Flatten (spaced docs)) pre post := passesFlatten (spacedSeq docs pre post seq)
       let rest := Doc.concat (docs.drop keep |> .concatMap (doc => [HardLine, doc]))
       let restPasses: Passes kinds rest (Ended True) post :=
         passesConcat
@@ -1559,7 +1559,7 @@ theorem appFromPasses ∀ (kinds: Text → Tok) (id keep: Nat) (between betweenF
       let restDoc := if fillFront then IfBroken id (Nest 4 rest) (Nest 2 rest) else Nest 2 rest
       let frontPass: Passes kinds frontDoc pre (Ended True) := match fillFront with
         | True => passesIdGroup id False (passesNest 4 (fillSeq kinds (docs.take keep) pre (Ended True) keptSeq))
-        | False => spacedSeq kinds (docs.take keep) pre (Ended True) keptSeq
+        | False => spacedSeq (docs.take keep) pre (Ended True) keptSeq
       let restPass: Passes kinds restDoc (Ended True) post := match fillFront with
         | True => passesIfBroken id (passesNest 4 restPasses) (passesNest 2 restPasses)
         | False => passesNest 2 restPasses
@@ -1570,7 +1570,7 @@ theorem appFromPasses ∀ (kinds: Text → Tok) (id keep: Nat) (between betweenF
           let hugged: Passes kinds (Doc.concat [Flatten (spaced [headDoc, ..front]), Doc.text " ", open]) pre post :=
             passesConcat
               (passesCons
-                (passesFlatten (spacedSeq kinds [headDoc, ..front] pre (Ended True) headSeq))
+                (passesFlatten (spacedSeq [headDoc, ..front] pre (Ended True) headSeq))
                 (passesTwo (passesSpace kinds True) opens))
           passesChoiceOf
             [Doc.concat [Flatten (spaced [headDoc, ..front]), Doc.text " ", open], Doc.concat [frontDoc, restDoc]]
@@ -1579,7 +1579,7 @@ theorem appFromPasses ∀ (kinds: Text → Tok) (id keep: Nat) (between betweenF
 
 -- Calls.
 
-theorem seqPrepend ∀ (kinds: Text → Tok) (pre post: Edge → Prop) (doc: Doc) (docs: List Doc)
+theorem seqPrepend ∀ [kinds: Text → Tok] (pre post: Edge → Prop) (doc: Doc) (docs: List Doc)
     (first: Passes kinds doc pre (Ended True))
     (rest: PassesSeq kinds (Gapped True) post docs)
     (filled: docs ≠ []):
@@ -1625,7 +1625,7 @@ theorem commaBracketPasses ∀ (kinds: Text → Tok) (list: Bool) (open: Word) (
     (bracketContentPasses kinds list open items close around opener closer each)
 
 --| A bracket as a call's last argument, as it stands and opened.
-theorem huggedBracketPasses ∀ (kinds: Text → Tok) (list: Bool) (open: Word) (items: List Expr) (close: Word)
+theorem huggedBracketPasses ∀ [kinds: Text → Tok] (list: Bool) [open: Word] [items: List Expr] [close: Word]
     (around: Around) (hard: Bool)
     (opener: OpenerJoins kinds open)
     (closer: CloserJoins close)
@@ -1674,15 +1674,15 @@ theorem lastArgumentPasses ∀ (kinds: Text → Tok) (argument: Expr) (around: A
       let content := bracketContent False open items close { around | hoisted = True }
       let elements := allElPasses kinds items within each
       (
-        huggedBracketPasses kinds False open items close around content.forcesBreak opener closer elements,
-        huggedBracketPasses kinds False open items close around True opener closer elements
+        huggedBracketPasses False around content.forcesBreak opener closer elements,
+        huggedBracketPasses False around True opener closer elements
       )
     | ListOf open items comma close, (opener, closer, each) =>
       let content := bracketContent True open items close { around | hoisted = True }
       let elements := allElPasses kinds items within each
       (
-        huggedBracketPasses kinds True open items close around content.forcesBreak opener closer elements,
-        huggedBracketPasses kinds True open items close around True opener closer elements
+        huggedBracketPasses True around content.forcesBreak opener closer elements,
+        huggedBracketPasses True around True opener closer elements
       )
     | Atom _ _ |
         App _ _ |
@@ -1721,8 +1721,8 @@ theorem argumentsSeq ∀ (kinds: Text → Tok) (arm: Bool) (previous: Expr) (at:
       let place := { before = previous.trails, hoisted = False, item = False, at, inArm = arm }
       let (lastPass, hugPass) := lastArgumentPasses kinds argument place (Bool.andLeft within) joins
       (
-        passesFrom (passesTo lastPass (edge ended => itemTrails seen argument edge ended)) (edge gapped =>
-          gappedReadyTrue kinds True argument.lead.text edge gapped),
+        passesFrom (passesTo lastPass (edge ended => itemTrails seen ended)) (edge gapped =>
+          gappedReadyTrue kinds True argument.lead.text gapped),
         hugFrom kinds
           (lastArgument argument place).snd
           (Ready kinds True argument.lead.text)
@@ -1730,8 +1730,8 @@ theorem argumentsSeq ∀ (kinds: Text → Tok) (arm: Bool) (previous: Expr) (at:
           (Ended argument.trails)
           (Ended (trailsBack (seen ++ itemsWords [argument]).reverse))
           hugPass
-          (edge gapped => gappedReadyTrue kinds True argument.lead.text edge gapped)
-          (edge ended => itemTrails seen argument edge ended),
+          (edge gapped => gappedReadyTrue kinds True argument.lead.text gapped)
+          (edge ended => itemTrails seen ended),
         byComputing
       )
     | [argument, next, ..more], (joins, rest) =>
@@ -1746,7 +1746,7 @@ theorem argumentsSeq ∀ (kinds: Text → Tok) (arm: Bool) (previous: Expr) (at:
           (Bool.andRight within)
           rest
       (
-        seqPrepend kinds
+        seqPrepend
           (Gapped True)
           (Ended (trailsBack (seen ++ itemsWords [argument, next, ..more]).reverse))
           (argument.el place)
@@ -1754,7 +1754,7 @@ theorem argumentsSeq ∀ (kinds: Text → Tok) (arm: Bool) (previous: Expr) (at:
           (passesFrom
             (passesTo (elPasses kinds argument (Bool.andLeft within) joins place) (edge ended =>
               endedTrue argument.trails edge ended))
-            (edge gapped => gappedReadyTrue kinds True argument.lead.text edge gapped))
+            (edge gapped => gappedReadyTrue kinds True argument.lead.text gapped))
           (rewrite List.appendAssoc seen argument.words (itemsWords [next, ..more]) at seq then seq)
           (List.snocNotNil later.fst (later.snd.getOrElse (Nothing, None)).fst),
         rewrite List.appendAssoc seen argument.words (itemsWords [next, ..more]) at hugs then hugs,
@@ -1793,7 +1793,7 @@ theorem appPasses ∀ (kinds: Text → Tok) (head: Expr) (arguments: List Expr) 
       (results.snd.getOrElse (Nothing, None)).snd
       pre
       post
-      (seqPrepend kinds pre post
+      (seqPrepend pre post
         (head.el around)
         (front ++ [lastDoc])
         (passesTo (elPasses kinds head headWithin headJoins around) (edge ended => endedTrue head.trails edge ended))
@@ -1829,7 +1829,7 @@ theorem chainRightPasses ∀ (kinds: Text → Tok) (level: Option Nat) (right: E
     PassesAll kinds (chainRight level right place) (Ended True) (Ended right.trails) :=
   let rest: PassesAll kinds (linkDocs level False right place) (Gapped True) (Ended right.trails) :=
     allFrom (linkDocsPasses kinds level False right place within joinable) (edge gapped =>
-      gappedReadyTrue kinds True right.lead.text edge gapped)
+      gappedReadyTrue kinds True right.lead.text gapped)
   let spaced: PassesAll kinds [Doc.text " ", ..linkDocs level False right place] (Ended True) (Ended right.trails) :=
     passesCons (passesSpace kinds True) rest
   match right with
@@ -1857,10 +1857,10 @@ theorem chainLinksPasses ∀ (kinds: Text → Tok) (level: Option Nat) (first: B
       (passesLine kinds left.trails)
       (passesCons
         (passesFrom
-          (passesTo (wordLeafPasses kinds operator operatorAround operatorAround.at operatorJoins) (edge left =>
+          (passesTo (wordLeafPasses kinds operatorAround operatorAround.at operatorJoins) (edge left =>
             endedTrue operator.trails edge
               (leftEnded operator.text operator.trails operatorJoins.right.left edge left)))
-          (edge gapped => gappedReadyTrue kinds left.trails operator.text edge gapped))
+          (edge gapped => gappedReadyTrue kinds left.trails operator.text gapped))
         (allTo (chainRightPasses kinds level right rightAround rightWithin rightJoins) (edge ended =>
           endedWeaker right.trails _ (opTrails left.words operator right.words) edge ended))))
 
@@ -2002,7 +2002,7 @@ theorem appFromHugPasses ∀ (kinds: Text → Tok) (id keep: Nat) (between betwe
           passesConcat
             [docs := [Flatten (spaced [headDoc, ..front]), Doc.text " ", open]]
             (passesCons
-              (passesFlatten (spacedSeq kinds [headDoc, ..front] pre (Ended True) headSeq))
+              (passesFlatten (spacedSeq [headDoc, ..front] pre (Ended True) headSeq))
               (passesTwo (passesSpace kinds True) opens))
 
 theorem callHugPasses ∀ (kinds: Text → Tok) (value: Expr) (inside: Around)
@@ -2036,7 +2036,7 @@ theorem callHugPasses ∀ (kinds: Text → Tok) (value: Expr) (inside: Around)
           (results.snd.getOrElse (Nothing, None)).snd
           pre
           post
-          (seqPrepend kinds pre post
+          (seqPrepend pre post
             (head.el inside)
             (front ++ [lastDoc])
             (passesTo (elPasses kinds head (Bool.andLeft within) headJoins inside) (edge ended =>
@@ -2077,7 +2077,7 @@ theorem bodyAfterPasses ∀ (kinds: Text → Tok) (value: Expr) (assign: Word) (
   let ready := Ready kinds True value.lead.text
   let element: Passes kinds (value.el around) ready post := passesTo (elPasses kinds value within joinable around) ends
   let afterGap: Passes kinds (value.el around) (Gapped True) post :=
-    passesFrom element (edge gapped => gappedReadyTrue kinds True value.lead.text edge gapped)
+    passesFrom element (edge gapped => gappedReadyTrue kinds True value.lead.text gapped)
   let spacedPass: Passes kinds (Doc.concat [Doc.text " ", value.el around]) (Ended True) post :=
     passesConcat (passesTwo (passesSpace kinds True) afterGap)
   let below: Passes kinds (Nest 2 (Doc.concat [HardLine, value.el around])) (Ended True) post :=
@@ -2123,7 +2123,7 @@ theorem bodyAfterPasses ∀ (kinds: Text → Tok) (value: Expr) (assign: Word) (
                       (Ended value.trails)
                       post
                       hugs
-                      (edge gapped => gappedReadyTrue kinds True value.lead.text edge gapped)
+                      (edge gapped => gappedReadyTrue kinds True value.lead.text gapped)
                       ends))
               (below, byComputing)))
       )
@@ -2139,13 +2139,13 @@ theorem endedReadyColon ∀ (kinds: Text → Tok) (trails: Bool) (edge: Edge)
 theorem wordEnds ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key: Nat)
     (joins: WordJoins word):
     Passes kinds (word.leaf around key) (Ready kinds True word.text) (Ended True) :=
-  passesTo (wordLeafPasses kinds word around key joins) (edge left =>
+  passesTo (wordLeafPasses kinds around key joins) (edge left =>
     endedTrue word.trails edge (leftEnded word.text word.trails joins.right.left edge left))
 
 theorem wordAfterGap ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key: Nat)
     (joins: WordJoins word):
     Passes kinds (word.leaf around key) (Gapped True) (Ended True) :=
-  passesFrom (wordEnds kinds word around key joins) (edge gapped => gappedReadyTrue kinds True word.text edge gapped)
+  passesFrom (wordEnds kinds word around key joins) (edge gapped => gappedReadyTrue kinds True word.text gapped)
 
 --| A definition's type: below the `:` if a comment follows it, else after a space.
 theorem typedPasses ∀ (kinds: Text → Tok) (trails: Bool) (typeDoc: Doc) (first: Text)
@@ -2162,7 +2162,7 @@ theorem typedPasses ∀ (kinds: Text → Tok) (trails: Bool) (typeDoc: Doc) (fir
     | False =>
       passesTwo
         (passesSpace kinds True)
-        (passesNest 4 (passesFrom typePass (edge gapped => gappedReadyTrue kinds True first edge gapped)))
+        (passesNest 4 (passesFrom typePass (edge gapped => gappedReadyTrue kinds True first gapped)))
 
 --| A plain definition: its keyword, name, `:`, type, `:=` and body, from the start of a line.
 --|
@@ -2194,7 +2194,7 @@ theorem plainDefPasses ∀ (kinds: Text → Tok) (keyword: Comments) (name: Word
     passesTo (elPasses kinds result resultWithin resultJoins (start.next colonWord.trails 3)) (edge ended =>
       endedTrue result.trails edge ended)
   let headPass: Passes kinds headDoc (Ready kinds True "def") (Ended True) :=
-    spacedSeq kinds
+    spacedSeq
       [keywordWord.leaf start 0, name.leaf (start.next keywordWord.trails 1) 1]
       (Ready kinds True "def")
       (Ended True)

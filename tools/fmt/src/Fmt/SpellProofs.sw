@@ -283,7 +283,7 @@ theorem notesAboveSpells ∀ (notes: List Note)
 
 -- A token and its comments.
 
-theorem spellsAllSame ∀ [docs: List Doc] [texts: List Text] (texts': List Text)
+theorem spellsAllSame ∀ [docs: List Doc] [texts texts': List Text]
     (spells: SpellsAll docs texts)
     (same: texts = texts'):
     SpellsAll docs texts' :=
@@ -295,7 +295,7 @@ def Word.notesAt (word: Word) (hoisted: Bool): List Text := if hoisted then [] e
 --| What a token writes before it spells its own-line comments, unless an enclosing element wrote them.
 --|
 --| Proof idea: Cases on whether the token is hoisted, has own-line comments and is a closer; each branch is a list of layout documents around `closerNotes` or `notesAbove`.
-theorem leadingSpells ∀ (word: Word) (around: Around) (key: Nat)
+theorem leadingSpells ∀ [word: Word] (around: Around) (key: Nat)
     (sound: word.sound = True):
     SpellsAll (word.leading around key) (word.notesAt around.hoisted) :=
   match word, around.hoisted with
@@ -308,7 +308,7 @@ theorem leadingSpells ∀ (word: Word) (around: Around) (key: Nat)
       match isCloserText text with
         | True =>
           spellsCons spellsBreakParent
-            (spellsAllSame _
+            (spellsAllSame
               (spellsCons
                 (spellsNest 2
                   (spellsConcat
@@ -317,7 +317,7 @@ theorem leadingSpells ∀ (word: Word) (around: Around) (key: Nat)
                 (spellsLast (spellsCloserLine key)))
               (List.appendNil _))
         | False =>
-          spellsAllSame _
+          spellsAllSame
             (spellsAppend
               (spellsCons spellsBreakParent
                 (spellsCons spellsLineStart (notesAboveSpells [first, ..rest] (Bool.andLeft (Bool.andRight sound)))))
@@ -354,7 +354,7 @@ theorem leafSpells ∀ (word: Word) (around: Around) (key: Nat)
     Spells (word.leaf around key) (word.spelledAt around.hoisted) :=
   spellsConcat
     (spellsAppend
-      (leadingSpells word around key sound)
+      (leadingSpells around key sound)
       (spellsAppend
         (spellsCloserLineList key (isCloserText word.text && !word.noted && around.before && word.trails))
         (spellsCons
@@ -466,7 +466,7 @@ theorem openingSpells ∀ (word: Word) (around: Around) (closer: Word)
     Spells (word.opening around closer) (word.spelledAt around.hoisted) :=
   spellsConcat
     (spellsAppend
-      (leadingSpells word around around.at sound)
+      (leadingSpells around around.at sound)
       (spellsAppend
         (spellsMarkList around.at (closer.noted || closer.trails))
         (spellsCons
@@ -482,7 +482,7 @@ theorem framedSpells ∀ (first: Word) (around: Around) (doc: Doc) (texts: List 
     Spells (framedBy first around doc) (first.notesAt around.hoisted ++ texts) :=
   spellsConcat
     (spellsCons
-      (spellsConcat (leadingSpells first around around.at sound))
+      (spellsConcat (leadingSpells around around.at sound))
       (spellsLast
         (match first.displaces around with
           | True => spellsDisplaced inner
@@ -619,7 +619,7 @@ theorem chainOfSpells ∀ (arms: Bool) (links: List Doc) (texts: List Text)
     | [head, ..tail], ((headUniform, tailUniform), (headMarked, tailMarked), words) =>
       spellsGroup
         (spellsConcat
-          (spellsAllSame _
+          (spellsAllSame
             (spellsCons
               (headUniform, headMarked, byComputing)
               (spellsLast (spellsNest (if arms then 0 else 2) (spellsConcat (tailUniform, tailMarked, byComputing)))))
@@ -636,8 +636,8 @@ theorem chainRightSpells ∀ (level: Option Nat) (right: Expr) (around: Around)
 --| A chain's lines spell the first operand, the operator and the last operand.
 --|
 --| Proof idea: The first operand's lines (`linkDocsSpells`), a `Line`, the operator's leaf and what follows it (`chainRightSpells`).
-theorem chainLinksSpells ∀ (level: Option Nat) (first: Bool) (left: Expr) (operator: Word)
-    (right: Expr) (around: Around)
+theorem chainLinksSpells ∀ (level: Option Nat) (first: Bool) [left: Expr] [operator: Word]
+    [right: Expr] (around: Around)
     (leftWithin: left.within1 = True)
     (rightWithin: right.within1 = True)
     (leftSound: left.sound = True)
@@ -669,7 +669,7 @@ theorem linkDocsSpells ∀ (level: Option Nat) (first: Bool) (expr: Expr) (aroun
         | InfixBinary =>
           match (Infix InfixBinary left operator right).inChain level with
             | True =>
-              chainLinksSpells level first left operator right around
+              chainLinksSpells level first around
                 (Bool.andLeft within)
                 (Bool.andLeft (Bool.andRight within))
                 (Bool.andLeft sound)
@@ -679,7 +679,7 @@ theorem linkDocsSpells ∀ (level: Option Nat) (first: Bool) (expr: Expr) (aroun
         | InfixArrow =>
           match (Infix InfixArrow left operator right).inChain level with
             | True =>
-              chainLinksSpells level first left operator right around
+              chainLinksSpells level first around
                 (Bool.andLeft within)
                 (Bool.andLeft (Bool.andRight within))
                 (Bool.andLeft sound)
@@ -711,7 +711,7 @@ theorem cellsSpells ∀ (bare arm before: Bool) (at: Nat) (items: List Expr)
     | [item], (first, _) =>
       spellsLast (first (Bool.andLeft within) (Bool.andLeft sound) (firstAround bare arm before at))
     | [item, ..rest], (first, others) =>
-      spellsAllSame _
+      spellsAllSame
         (spellsCons
           (spellsConcat
             (spellsCons
@@ -737,7 +737,7 @@ theorem brokenItemsSpells ∀ (bare arm first before: Bool) (at: Nat) (items: Li
     | [item, ..rest], (kept, others) =>
       spellsCons
         (spellsSeparator first)
-        (spellsAllSame _
+        (spellsAllSame
           (spellsCons
             (kept (Bool.andLeft within) (Bool.andLeft sound) (firstAround bare arm before at))
             (spellsCons spellsComma
@@ -777,7 +777,7 @@ theorem bracketFromSpells ∀ (list empty plain holds: Bool) (prefix closer: Doc
           match holds with
             | True =>
               spellsConcat
-                (spellsAllSame _
+                (spellsAllSame
                   (spellsAppend
                     (spellsCons prefixSpells
                       (spellsCons
@@ -798,7 +798,7 @@ theorem commaSpeltEmpty ∀ (items: List Expr) (empty: items.isEmpty = True): co
 --| A tuple or list spells its opener, its items with commas and its closer.
 --|
 --| Proof idea: `bracketIs` (`bracketContent` is `bracketFrom`), then `bracketFromSpells` with the opener, closer, cells and lines each spelling.
-theorem bracketContentSpells ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around)
+theorem bracketContentSpells ∀ (list: Bool) [open: Word] [items: List Expr] [close: Word] (around: Around)
     (within: allWithin1 items = True)
     (sound: allSound items = True)
     (openSound: open.sound = True)
@@ -984,7 +984,7 @@ theorem appFromSpells ∀ (id keep: Nat) (between betweenFront: Bool) (headDoc l
             (Doc.concat [Flatten (spaced [headDoc, ..front]), Doc.text " ", opened])
             (headTexts ++ frontTexts ++ lastTexts) :=
             spellsConcat
-              (spellsAllSame _
+              (spellsAllSame
                 (spellsCons
                   (spellsFlatten (spellsSpaced (spellsCons headSpells frontSpells)))
                   (spellsCons spellsSpace (spellsLast (hugSpells opened byComputing))))
@@ -1041,7 +1041,7 @@ theorem huggedSpells ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wo
       (huggedBracket list open items close around)
       (open.spelledAt around.hoisted ++ commaSpelt items ++ close.spelledAt False) :=
   let content :=
-    bracketContentSpells list open items close
+    bracketContentSpells list
       { around | hoisted = True }
       within
       sound
@@ -1257,11 +1257,7 @@ theorem elSpells ∀ (expr: Expr) (around: Around)
               (left.spelt True ++ operator.spelledAt False ++ right.spelt False)
               (chainLinksSpells
                 (Infix InfixBinary left operator right).chainLevel
-                True
-                left
-                operator
-                right
-                { around | hoisted = True }
+                True { around | hoisted = True }
                 (Bool.andLeft within)
                 (Bool.andLeft (Bool.andRight within))
                 (Bool.andLeft sound)
@@ -1282,11 +1278,7 @@ theorem elSpells ∀ (expr: Expr) (around: Around)
               (left.spelt True ++ operator.spelledAt False ++ right.spelt False)
               (chainLinksSpells
                 (Infix InfixArrow left operator right).chainLevel
-                True
-                left
-                operator
-                right
-                { around | hoisted = True }
+                True { around | hoisted = True }
                 (Bool.andLeft within)
                 (Bool.andLeft (Bool.andRight within))
                 (Bool.andLeft sound)
@@ -1301,8 +1293,8 @@ theorem elSpells ∀ (expr: Expr) (around: Around)
         within
         sound
         (spellsGroup
-          (bracketContentSpells False open items close
-            { around | hoisted = True }
+          (bracketContentSpells
+            False { around | hoisted = True }
             within
             (Bool.andLeft (Bool.andRight sound))
             (Bool.andLeft sound)
@@ -1316,8 +1308,8 @@ theorem elSpells ∀ (expr: Expr) (around: Around)
         within
         sound
         (spellsGroup
-          (bracketContentSpells True open items close
-            { around | hoisted = True }
+          (bracketContentSpells
+            True { around | hoisted = True }
             within
             (Bool.andLeft (Bool.andRight sound))
             (Bool.andLeft sound)
@@ -1526,7 +1518,7 @@ theorem plainDefSpells ∀ (keyword: Comments) (name: Word) (colon: Comments) (r
         (spellsLast (leafSpells name (start.next (fixedWord "def" keyword).trails 1) 1 nameSound)))
   defFromSpells _ _ _ _ _ _ _ _
     (spellsConcat
-      (spellsAllSame _
+      (spellsAllSame
         (spellsAppend
           (spellsCons headSpells
             (spellsLast

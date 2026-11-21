@@ -72,7 +72,7 @@ theorem runAppend ∀ (xs ys: List Text) (scan mid: Scan)
         | Some next => runAppend rest ys next mid first
 
 --| A token that is neither a bracket nor a comma or `->`: anything may come before it.
-theorem goFlat ∀ (scan: Scan) (kind: Tok)
+theorem goFlat ∀ (scan: Scan) [kind: Tok]
     (within: kind.within1 = True)
     (lead: arrowFollow kind = False)
     (opens: kind.isOpener = False)
@@ -194,7 +194,7 @@ theorem opKindOf ∀ (text: Text) (listed: operatorText1 text = True): opKind te
 -- The tokens of an expression.
 
 --| A name or numeral, which anything may precede and follow.
-theorem atomRuns ∀ (word: Word) (kind: Tok) (hoisted: Bool)
+theorem atomRuns ∀ [word: Word] [kind: Tok] (hoisted: Bool)
     (sound: word.sound = True)
     (spells: Spells kind word.text)
     (within: kind.within1 = True)
@@ -212,7 +212,7 @@ theorem atomRuns ∀ (word: Word) (kind: Tok) (hoisted: Bool)
           (stepToken scan word.text kind
             (lexKindOfSpells kind word.text spells)
             (spellsNotComment kind word.text spells))
-          (goFlat scan kind within lead opens closes)),
+          (goFlat scan within lead opens closes)),
       quiet
     )
 
@@ -283,7 +283,7 @@ theorem exprRuns ∀ (expr: Expr) (hoisted: Bool)
     | Atom kind word, _ =>
       match kind, within with
         | Lower, within =>
-          atomRuns word Lower hoisted sound
+          atomRuns hoisted sound
             (spellsOfText1 Lower word.text within)
             byComputing
             byComputing
@@ -291,7 +291,7 @@ theorem exprRuns ∀ (expr: Expr) (hoisted: Bool)
             byComputing
             byComputing
         | Upper, within =>
-          atomRuns word Upper hoisted sound
+          atomRuns hoisted sound
             (spellsOfText1 Upper word.text within)
             byComputing
             byComputing
@@ -299,7 +299,7 @@ theorem exprRuns ∀ (expr: Expr) (hoisted: Bool)
             byComputing
             byComputing
         | Num, within =>
-          atomRuns word Num hoisted sound
+          atomRuns hoisted sound
             (spellsOfText1 Num word.text within)
             byComputing
             byComputing
@@ -307,7 +307,7 @@ theorem exprRuns ∀ (expr: Expr) (hoisted: Bool)
             byComputing
             byComputing
         | Float, within =>
-          atomRuns word Float hoisted sound
+          atomRuns hoisted sound
             (spellsOfText1 Float word.text within)
             byComputing
             byComputing
@@ -474,19 +474,19 @@ theorem prefixStep ∀ (scan: Scan) (text: Text)
         (rewrite same then
           Eq.trans
             (stepToken scan "-" Minus byComputing byComputing)
-            (goFlat scan Minus byComputing byComputing byComputing byComputing))
+            (goFlat scan byComputing byComputing byComputing byComputing))
     | Inr (Inl same) =>
       Witness Bang
         (rewrite same then
           Eq.trans
             (stepToken scan "!" Bang byComputing byComputing)
-            (goFlat scan Bang byComputing byComputing byComputing byComputing))
+            (goFlat scan byComputing byComputing byComputing byComputing))
     | Inr (Inr same) =>
       Witness Bang
         (rewrite same then
           Eq.trans
             (stepToken scan "¬" Bang byComputing byComputing)
-            (goFlat scan Bang byComputing byComputing byComputing byComputing))
+            (goFlat scan byComputing byComputing byComputing byComputing))
 
 --| A bracket's items, with the commas between them: a run from any state when there is an item.
 theorem commaRuns ∀ (first: Expr) (rest: List Expr)
@@ -621,7 +621,7 @@ theorem declRuns ∀ (decl: Decl)
               (Bool.andLeft sound)
               (Eq.trans
                 (stepToken Scan.start "def" KwDef byComputing byComputing)
-                (goFlat Scan.start KwDef byComputing byComputing byComputing byComputing))
+                (goFlat Scan.start byComputing byComputing byComputing byComputing))
           let nameRun: afterKeyword.run (name.spelledAt False) = Some afterName :=
             wordRun name False afterKeyword afterName
               (Bool.andLeft (Bool.andRight sound))
@@ -629,13 +629,13 @@ theorem declRuns ∀ (decl: Decl)
                 (stepToken afterKeyword name.text nameKind
                   (lexKindOfSpells nameKind name.text nameSpells)
                   (spellsNotComment nameKind name.text nameSpells))
-                (goFlat afterKeyword nameKind nameWithinKind nameLead nameOpens nameCloses))
+                (goFlat afterKeyword nameWithinKind nameLead nameOpens nameCloses))
           let colonRun: afterName.run (colonWord.spelledAt False) = Some afterColon :=
             wordRun colonWord False afterName afterColon
               (Bool.andLeft (Bool.andRight (Bool.andRight sound)))
               (Eq.trans
                 (stepToken afterName ":" Colon byComputing byComputing)
-                (goFlat afterName Colon byComputing byComputing byComputing byComputing))
+                (goFlat afterName byComputing byComputing byComputing byComputing))
           match resultRuns afterColon with
             | Witness lastResult (resultRun, quietResult) =>
               let afterResult: Scan := { previous = Some lastResult, open = 0 }
@@ -645,7 +645,7 @@ theorem declRuns ∀ (decl: Decl)
                   (Bool.andLeft (Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight sound)))))
                   (Eq.trans
                     (stepToken afterResult ":=" ColonEq byComputing byComputing)
-                    (goFlat afterResult ColonEq byComputing byComputing byComputing byComputing))
+                    (goFlat afterResult byComputing byComputing byComputing byComputing))
               match valueRuns afterAssign with
                 | Witness lastValue (valueRun, quietValue) =>
                   let front: Scan.start.run (keywordWord.spelledAt True ++ name.spelledAt False) = Some afterName :=
@@ -774,7 +774,7 @@ theorem leafScan ∀ (leaves: List Leaf) (scan end: Scan)
 -- A declaration's leaves.
 
 --| The leaves of a declaration are in the alphabet, and each may follow the one before.
-theorem declLeaves ∀ (decl: Decl)
+theorem declLeaves ∀ [decl: Decl]
     (within: decl.within1 = True)
     (shaped: decl.shaped = True)
     (settled: decl.settled = True)
@@ -821,7 +821,7 @@ theorem groupsWithin ∀ (empty: Bool) (decls: List Decl)
     | [] => byComputing
     | [decl, ..rest] =>
       let (leavesWithin, leavesPairs) :=
-        declLeaves decl (Bool.andLeft within) (Bool.andLeft shaped) (Bool.andLeft settled) (Bool.andLeft lexical)
+        declLeaves (Bool.andLeft within) (Bool.andLeft shaped) (Bool.andLeft settled) (Bool.andLeft lexical)
       rewrite leafWithinAppend (decl.laid empty) (groupsFrom False rest).concat,
           declLaidWithin decl empty leavesWithin then
         groupsWithin False rest
@@ -1009,7 +1009,7 @@ theorem declColLines ∀ (decl: Decl)
     (settled: decl.settled = True)
     (lexical: decl.lexical = True):
     colLines decl.leaves = True :=
-  let (plain, _, _, _) := declPiecesOk decl within shaped settled lexical
+  let (plain, _, _, _) := declPiecesOk within shaped settled lexical
   let made := Bool.andRight (foldOk decl.pieces Laid.start byComputing plain)
   rewrite leavesOfPieces decl then
     List.allReverseOntoTrue
@@ -1152,7 +1152,7 @@ theorem laidSplit ∀ (decl: Decl) (empty: Bool) (rest current: List Leaf) (grou
         (decl.laid empty).reverse
         (if current.isEmpty then groups else [current.reverse, ..groups])
         rest :=
-  let (leavesWithin, _) := declLeaves decl within shaped settled lexical
+  let (leavesWithin, _) := declLeaves within shaped settled lexical
   let (deepAll, balancedAll) := declDepth decl within shaped settled lexical
   let lined := declColLines decl within shaped settled lexical
   let starts := declStartsKw decl within shaped settled lexical
@@ -1324,7 +1324,7 @@ theorem groupsPairs ∀ (empty: Bool) (decls: List Decl)
     | [] => (byComputing, byComputing)
     | [decl, ..rest] =>
       let (leavesWithin, leavesPairs) :=
-        declLeaves decl (Bool.andLeft within) (Bool.andLeft shaped) (Bool.andLeft settled) (Bool.andLeft lexical)
+        declLeaves (Bool.andLeft within) (Bool.andLeft shaped) (Bool.andLeft settled) (Bool.andLeft lexical)
       let first :=
         declStartsKw decl (Bool.andLeft within) (Bool.andLeft shaped) (Bool.andLeft settled) (Bool.andLeft lexical)
       let (restPairs, restStarts) :=

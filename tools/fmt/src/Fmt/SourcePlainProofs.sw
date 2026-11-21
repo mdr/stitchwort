@@ -208,7 +208,7 @@ def After (shapes: List PlainShape): Prop :=
 def Opened (shapes: List PlainShape): Prop :=
   ∀ (item: Bool) => shapesFrom item ShapeNonItem shapes = True ∧ (shapesLast ShapeNonItem shapes).isEnder = True
 
-theorem enderStep ∀ (flag: Bool) (prev next: PlainShape)
+theorem enderStep ∀ (flag: Bool) [prev: PlainShape] (next: PlainShape)
     (ender: prev.isEnder = True):
     shapeStep flag prev next = True :=
   cases
@@ -255,7 +255,7 @@ theorem segAfter ∀ (xs: List PlainShape) (seg: Seg xs): After xs := flag prev 
 --| An operator or comma between the end of an item and an expression.
 theorem afterGlue ∀ (glue: PlainShape) (ys: List PlainShape) (seg: Seg ys): After [glue, ..ys] := flag prev ender =>
   let (runs, ends) := seg prev.isItem glue
-  (Bool.andIntro (enderStep flag prev glue ender) runs, ends)
+  (Bool.andIntro (enderStep flag glue ender) runs, ends)
 
 theorem segOther ∀ (ys: List PlainShape) (seg: Seg ys): Seg [ShapeOther, ..ys] := flag prev =>
   let (runs, ends) := seg prev.isItem ShapeOther
@@ -268,13 +268,13 @@ theorem segOpen ∀ (ys: List PlainShape) (opened: Opened ys): Seg [ShapeNonItem
 theorem segOpened ∀ (ys: List PlainShape) (seg: Seg ys): Opened ys := flag => seg flag ShapeNonItem
 
 theorem afterClose: After [ShapeCloser] := flag prev ender =>
-  (Bool.andIntro (enderStep flag prev ShapeCloser ender) byComputing, byComputing)
+  (Bool.andIntro (enderStep flag ShapeCloser ender) byComputing, byComputing)
 
 --| A last comma: after the end of an item, so the closer after it passes.
 theorem afterTrailing: After [ShapeComma, ShapeCloser] := flag prev ender =>
   let itemBefore: prev.isItem = True := enderItem prev ender
   let closes: shapeStep prev.isItem ShapeComma ShapeCloser = True := rewrite itemBefore
-  (Bool.andIntro (enderStep flag prev ShapeComma ender) (Bool.andIntro closes byComputing), byComputing)
+  (Bool.andIntro (enderStep flag ShapeComma ender) (Bool.andIntro closes byComputing), byComputing)
 
 -- The tree's half.
 
@@ -668,7 +668,7 @@ theorem kindShapesAppend ∀ (first rest: List Item):
     (itemKinds (first ++ rest)).map Tok.shape = (itemKinds first).map Tok.shape ++ (itemKinds rest).map Tok.shape :=
   rewrite itemKindsAppend first rest, List.mapAppend (itemKinds first) (itemKinds rest) Tok.shape
 
-theorem itemShapeOther ∀ (item: Item) (kind: Tok)
+theorem itemShapeOther ∀ [item: Item] [kind: Tok]
     (is: item.kind = kind)
     (other: kind.shape = ShapeOther):
     (itemKinds [item]).map Tok.shape = [ShapeOther] :=
@@ -680,8 +680,8 @@ theorem itemShapeName ∀ (item: Item)
     (name: (item.kind == Lower || item.kind == Upper) = True):
     (itemKinds [item]).map Tok.shape = [ShapeOther] :=
   match (Bool.orReads _ _).forward name with
-    | Inl lower => itemShapeOther item Lower (DecEq.sound lower) byComputing
-    | Inr upper => itemShapeOther item Upper (DecEq.sound upper) byComputing
+    | Inl lower => itemShapeOther (DecEq.sound lower) byComputing
+    | Inr upper => itemShapeOther (DecEq.sound upper) byComputing
 
 theorem bodyShapes ∀ (item: Item) (rest: List Item)
     (is: item.kind = ColonEq):
@@ -710,9 +710,9 @@ theorem declShapesOfKinds1 ∀ (decl: Decl) (read: List Item)
               kindShapesAppend ([defItem] ++ [nameItem] ++ [colonItem]) rResult,
               kindShapesAppend ([defItem] ++ [nameItem]) [colonItem],
               kindShapesAppend [defItem] [nameItem],
-              itemShapeOther defItem KwDef isDef byComputing,
+              itemShapeOther isDef byComputing,
               itemShapeName nameItem isName,
-              itemShapeOther colonItem Colon isColon byComputing,
+              itemShapeOther isColon byComputing,
               bodyShapes bodyItem rValue isColonEq,
               <- resultKinds,
               <- valueKinds,

@@ -103,7 +103,7 @@ theorem prefixToken ∀ (text: Text)
 --| What an infix operator's token is: plain, or `->`.
 def OperatorFacts (text: Text): Prop := (Fmt.HangProofs.Plain (lexKind text) ∨ lexKind text = Arrow) ∧ WordToken text
 
-theorem plainOperator ∀ (text: Text)
+theorem plainOperator ∀ [text: Text]
     (plain: plainKind (lexKind text) = True)
     (word: wordText text = True):
     OperatorFacts text :=
@@ -115,26 +115,26 @@ theorem arrowOperator ∀ (text: Text) (arrow: lexKind text = Arrow) (word: word
 def operatorsFacts: List.All OperatorFacts operators1 := (
   arrowOperator _ byComputing byComputing,
   arrowOperator _ byComputing byComputing,
-  plainOperator _ byComputing byComputing,
-  plainOperator _ byComputing byComputing,
-  plainOperator _ byComputing byComputing,
-  plainOperator _ byComputing byComputing,
-  plainOperator _ byComputing byComputing,
-  plainOperator _ byComputing byComputing,
-  plainOperator _ byComputing byComputing,
-  plainOperator _ byComputing byComputing,
-  plainOperator _ byComputing byComputing,
-  plainOperator _ byComputing byComputing,
-  plainOperator _ byComputing byComputing,
-  plainOperator _ byComputing byComputing,
-  plainOperator _ byComputing byComputing,
-  plainOperator _ byComputing byComputing,
-  plainOperator _ byComputing byComputing,
-  plainOperator _ byComputing byComputing,
-  plainOperator _ byComputing byComputing,
-  plainOperator _ byComputing byComputing,
-  plainOperator _ byComputing byComputing,
-  plainOperator _ byComputing byComputing,
+  plainOperator byComputing byComputing,
+  plainOperator byComputing byComputing,
+  plainOperator byComputing byComputing,
+  plainOperator byComputing byComputing,
+  plainOperator byComputing byComputing,
+  plainOperator byComputing byComputing,
+  plainOperator byComputing byComputing,
+  plainOperator byComputing byComputing,
+  plainOperator byComputing byComputing,
+  plainOperator byComputing byComputing,
+  plainOperator byComputing byComputing,
+  plainOperator byComputing byComputing,
+  plainOperator byComputing byComputing,
+  plainOperator byComputing byComputing,
+  plainOperator byComputing byComputing,
+  plainOperator byComputing byComputing,
+  plainOperator byComputing byComputing,
+  plainOperator byComputing byComputing,
+  plainOperator byComputing byComputing,
+  plainOperator byComputing byComputing,
   Trivial
 )
 

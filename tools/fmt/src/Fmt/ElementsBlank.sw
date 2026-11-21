@@ -93,7 +93,7 @@ theorem blankLeafHangs ∀ [kinds: Text → Tok] [word: Word] [around: Around] [
             (hangsAppend leading
               (hangsCons word.trailing
                 (lineWordHangs kinds word.text indent column state plain token solid room)
-                (trailingHangs kinds word indent opened trailed)))
+                (trailingHangs kinds indent opened trailed)))
             place _
             trace
             next

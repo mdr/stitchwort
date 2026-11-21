@@ -190,7 +190,7 @@ theorem closerLeadTell ∀ (first: Note) (rest: List Note) (key: Nat) (spot: Spo
 --| Proof idea: cases on whether the word is hoisted, has comments above it, and is a closer; each branch's documents
 --| are told by the lemmas on notes (`notesAboveTell`, `closerNotesTell`) and by computing, `Comments.kept` read by
 --| `keptNone`, `keptToldAbove` and `keptCloser`.
-theorem leadingTell ∀ (word: Word) (around: Around) (key: Nat) (spot: Spot)
+theorem leadingTell ∀ [word: Word] (around: Around) (key: Nat) (spot: Spot)
     (sound: word.sound = True):
     Doc.tellAll (word.leading around key) spot
       = { said = word.toldLead around, after = if word.leadsLine around then Spot.lineStart else spot } :=
@@ -295,7 +295,7 @@ theorem leafTell ∀ (word: Word) (around: Around) (key: Nat) (spot: Spot)
           ++ [piece word.text]
           ++ word.trailing)
         spot,
-      leadingTell word around key spot sound,
+      leadingTell around key spot sound,
       bodyTell word
         (isCloserText word.text && !word.noted && around.before && word.trails)
         key
@@ -329,7 +329,7 @@ theorem openingTell ∀ (word: Word) (around: Around) (closer: Word) (spot: Spot
         (word.leading around around.at)
         ((if closer.noted || closer.trails then [Mark around.at] else []) ++ [piece word.text] ++ word.trailing)
         spot,
-      leadingTell word around around.at spot sound,
+      leadingTell around around.at spot sound,
       markTell
         (closer.noted || closer.trails)
         around.at
@@ -366,7 +366,7 @@ theorem framedTell ∀ (first: Word) (around: Around) (doc: Doc) (spot: Spot)
         [Doc.concat (first.leading around around.at), if first.displaces around then Displaced doc else doc]
         spot,
       concatTell (first.leading around around.at) spot,
-      leadingTell first around around.at spot sound then
+      leadingTell around around.at spot sound then
     match first.displaces around with
       | True => rewrite List.appendNil (doc.tell (first.leadSpot around spot).displaced).said
       | False => rewrite List.appendNil (doc.tell (first.leadSpot around spot)).said
