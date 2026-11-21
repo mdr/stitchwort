@@ -1,5 +1,5 @@
 {
-  "next": 4541,
+  "next": 4542,
   "tickets": [
     {
       "id": 47,
@@ -30982,7 +30982,7 @@
     {
       "id": 4512,
       "title": "[Opus] A nested bind in a walk costs 2.5-3x the hand proof even with a direct lemma (givesListItemsFrom 233k steps vs 73k; SW-4495): profile the nested-bind machinery (fix_nested_goal etc. in crates/elab/src/walk) and cut it; givesListItemsFrom/FromAny and givesDataParamStep sit near the 3x bar",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -31353,6 +31353,19 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4541,
+      "title": "[Opus] Walk nested binds: reassociate a bind whose bound computation performs an operation (Effect.bind (Call o k1) k), so the walk writes the hand proof's chain instead of three identity then-lemmas checked against the whole goal (28k-48k steps each); and explain explicit_arg's own 28k steps in givesListItemsFrom (SW-4512 follow-up; walks still 3.1-3.3x hand proofs in steps)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-21",
       "updated": "2026-11-21",
