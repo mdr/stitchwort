@@ -30982,12 +30982,12 @@
     {
       "id": 4512,
       "title": "[Opus] A nested bind in a walk costs 2.5-3x the hand proof even with a direct lemma (givesListItemsFrom 233k steps vs 73k; SW-4495): profile the nested-bind machinery (fix_nested_goal etc. in crates/elab/src/walk) and cut it; givesListItemsFrom/FromAny and givesDataParamStep sit near the 3x bar",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "SW-4512",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nProgress (lane, 21 Nov 19:15; stopped near 1.5x of the 45 min estimate; no code committed): I profiled givesListItemsFrom by step attribution, using an env-gated self-step counter over the walk, the elaborator's application path and the unifier's outermost run. The patch is in the lane scratch as sw4512-profile-and-experiments.patch. Baseline 233,170 steps; the hand proof is 73,311 (measured in a scratch copy of tools/fmt). Self steps: unify 98-122k over about 330 calls; `crate::interfaces::unsolved_in(dom)` in check.rs `lambda_arg` 53k over just 6 calls (a normal-form read-back of a continuation's domain, `∀ v => first v → Gives inv (() => j v) holds`, to ask whether it has an unknown; the answer is yes each time); explicit_arg 28k; walk lemma search (fit_*) 18k; nested_post 4k; fix_nested_goal 3.4k. The three outer nested-bind levels (identity givesThen) cost 28-48k each against the full goal. Tried: (1) giving the then-lemma's p, j and first, already found by nested_post, as [name := …] through a new \"given\" place kind: 233k -> 215k (-8%), not kept; (2) answering unsolved_in from the folded read-back first: no gain, since the unknowns sit only inside Parse.Gives's arguments, so it falls back to the normal form. Next: make the scan stop at the first unsolved unknown while reading back (a short-circuiting quote_at_most). The hot calls all answer yes, so this should cut most of the 53k, and likely part of explicit_arg's 28k; then re-measure. New estimate 30-45 min.\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
