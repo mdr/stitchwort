@@ -1,5 +1,5 @@
 {
-  "next": 4501,
+  "next": 4502,
   "tickets": [
     {
       "id": 47,
@@ -30761,7 +30761,7 @@
     {
       "id": 4495,
       "title": "[Opus] --expand-walk for a bind inside a bound computation: write the inner Parse.givesThen's holds explicitly ([holds := value => ...], the first implicit nested_bind computes in crates/elab/src/walk/mod.rs), so the expansions of givesNested, givesFromMark and givesBound in examples/accept/walk-operation.sw elaborate; then add walk-operation to walk_expand.rs. Also: a @[walk] instance of givesCommaListFrom for listItem (givesListItemsFrom/Any at 3.2x), and a lemma for the givesBinderGroup ... givesRefuseAttributes pair (givesDataParamStep 3.07x) (SW-4487)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -30831,6 +30831,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4501,
+      "title": "[Sonnet] task test:example NAME=a,b,c fails every test in 0.02 s with no reason when one listed name matches no example file: name the unmatched entry and stop with a clear message (SW-4496)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-21",
       "updated": "2026-11-21",
