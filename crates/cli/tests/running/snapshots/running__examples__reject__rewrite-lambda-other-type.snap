@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-REWRITE-NOTHING] Error: `rewrite` found no `x => _` in the goal
+   ╭─[ reject/rewrite-lambda-other-type.sw:9:105 ]
+   │
+ 9 │ theorem otherType ∀ (h: (Bool → Bool) → Nat): h ((c: Bool) => False) = h ((d: Bool) => True) := rewrite constNat _
+   │                                                                                                         ─────┬────  
+   │                                                                                                              ╰────── looking for `x => _`
+   │ 
+   │ Note 1: goal: `h (c => False) = h (d => True)`
+   │ 
+   │ Note 2: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
+   │ 
+   │ Note 3: to replace the right side by the left, write `rewrite <- …`
+───╯
