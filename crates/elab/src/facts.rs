@@ -155,6 +155,8 @@ struct Item {
     text: Txt,
     key: Option<Key>,
     span: Span,
+    /// How an error names it: as written where that is short, else by position.
+    written: String,
     used: bool,
 }
 
@@ -235,6 +237,8 @@ fn facts_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             text,
             key,
             span: item.span(),
+            written: crate::omega::written(item)
+                .unwrap_or_else(|| format!("item {}", items.len() + 1)),
             used: false,
         });
     }
@@ -1286,7 +1290,7 @@ impl Search<'_> {
         }
         for item in &self.items {
             if fits(item.key, goal_key) {
-                out.push(format!("listed: {}", cx.show(&item.ty)));
+                out.push(format!("{} (listed): {}", item.written, cx.show(&item.ty)));
             }
         }
         Ok(out)

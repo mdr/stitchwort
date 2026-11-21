@@ -198,7 +198,7 @@ pub(crate) fn check_omega(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result
 /// and common (names, numbers, applications, dots and operators); `None` for
 /// the rest, which a message names by position. The elaborator holds no
 /// source text, so this prints the syntax tree.
-fn written(expr: &Expr) -> Option<String> {
+pub(crate) fn written(expr: &Expr) -> Option<String> {
     fn go(expr: &Expr, nested: bool) -> Option<String> {
         let wrap = |text: String| if nested { format!("({text})") } else { text };
         Some(match expr {
