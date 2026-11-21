@@ -1,5 +1,5 @@
 {
-  "next": 4504,
+  "next": 4506,
   "tickets": [
     {
       "id": 47,
@@ -30800,7 +30800,7 @@
     {
       "id": 4498,
       "title": "[Opus] Long .read chains check in exponential time: a hand-written h.read.right.read.right... takes 1.1 s for 8 conjuncts, 3.7 s for 10, over 2 min for 20 (SW-4488), so --expand-facts terms for long && chains are impractical; fix in the reading code; also profile byFacts phase 1 on a 20-conjunct test fact (18 ms); and the review's remaining notes: a project-namespace expansion test, refusing a non-proposition goal up front",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -30870,6 +30870,32 @@
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4504,
+      "title": "[Opus] Dot chains are still cubic (SW-4498): dot::prefix_form infers each receiver speculatively and then again for real (SW-129's design), so h.read.right... at 80 conjuncts takes 10.7 s; find the function without the speculative elaboration, or keep its result; also the section lookup near dot.rs l. 1110 builds a full error to drop it (use find_quietly)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4505,
+      "title": "[Sonnet] Docs for lanes: how to record new insta snapshots in this repo (docs/testing.md), and how to profile the elaborator on macOS (samply or /usr/bin/sample; docs/performance/) (SW-4498)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
       "body": "",
       "created": "2026-11-21",
       "updated": "2026-11-21",
