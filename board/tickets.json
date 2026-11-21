@@ -30761,12 +30761,12 @@
     {
       "id": 4495,
       "title": "[Opus] --expand-walk for a bind inside a bound computation: write the inner Parse.givesThen's holds explicitly ([holds := value => ...], the first implicit nested_bind computes in crates/elab/src/walk/mod.rs), so the expansions of givesNested, givesFromMark and givesBound in examples/accept/walk-operation.sw elaborate; then add walk-operation to walk_expand.rs. Also: a @[walk] instance of givesCommaListFrom for listItem (givesListItemsFrom/Any at 3.2x), and a lemma for the givesBinderGroup ... givesRefuseAttributes pair (givesDataParamStep 3.07x) (SW-4487)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nDone (lane, 21 Nov 17:58, 70 min, est. 50): commits 7dd28adec, c4612d354, 3197e2584, 3e3aabb88 on lane/SW-4495. (1) --expand-walk writes [p := () => code] [first := post] on a nested bind inside another (new walk/source.rs reads code back as a block; nothing written where it can't); walk-operation.sw added to walk_expand, existing snapshots unchanged. (2) givesListItemCommas (@[walk]) + givesListItemCommasAny: givesListItemsFrom 7.1 -> 19.9 ms (2.8x), FromAny 7.0 -> 17.8 (2.5x). (3) givesExpressionBinderGroup: givesDataParamStep walked, steps 111k hand / 195k walk (292k without the lemma); ms noisy under load (~1.8-2x). Tests: test:example NAME=walk (7 pass), walk_expand (2 pass). Statements unchanged, no refusals.\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
