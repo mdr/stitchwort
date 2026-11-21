@@ -54,7 +54,7 @@ use std::rc::Rc;
 
 use stitchwort_core::globals::State;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::value::{Head, force};
+use stitchwort_core::value::{Head, conv, force, is_folded, unfold_folded};
 use stitchwort_core::{DataId, DefId, Ev, Icit, Name, Term, Value};
 use stitchwort_syntax::{Diagnostic, Span};
 
@@ -337,8 +337,11 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
                 return Ok(proof);
             }
             let latest_first: Vec<usize> = (0..cx.level()).rev().collect();
-            let parts = hypothesis_parts(cx, &latest_first)?;
+            let (parts, cut) = hypothesis_parts_cut(cx, &latest_first)?;
             if let Some(proof) = from_hypothesis_parts(cx, &goal, &parts)? {
+                return Ok(proof);
+            }
+            if cut && let Some(proof) = AndSides::collect(cx, &latest_first)?.find(cx, &goal)? {
                 return Ok(proof);
             }
             if let Some(proof) = crate::literal_facts::prove(cx, &goal)? {
@@ -577,57 +580,57 @@ pub(crate) fn hypothesis_parts_cut(
     cx: &Ctx,
     levels: &[usize],
 ) -> Result<(Vec<(Term, Value)>, bool)> {
-    let mut parts = Vec::new();
-    let mut reads = 0;
-    let mut cut = false;
+    let mut taking = Taking::default();
     for &level in levels {
         let proof = Term::Var(cx.level() - 1 - level);
-        take_apart(
-            cx,
-            proof,
-            &cx.types[level],
-            1,
-            false,
-            &mut reads,
-            &mut cut,
-            &mut parts,
-        )?;
+        take_apart(cx, proof, &cx.types[level], 1, false, &mut taking)?;
     }
     // Stable: each kind keeps its order.
-    parts.sort_by_key(|(_, _, read)| *read);
-    let parts = parts
+    taking.parts.sort_by_key(|(_, _, read)| *read);
+    let parts = taking
+        .parts
         .into_iter()
         .map(|(proof, ty, _)| (proof, ty))
         .collect();
-    Ok((parts, cut))
+    Ok((parts, taking.cut))
 }
 
-/// Adds to `parts` those of `proof: ty`: if `ty` is a conjunction `p ∧ q`,
-/// `And.left proof: p` and `And.right proof: q`; if it is a test fact with
-/// a reading, `proof` read as it; each followed by its own. `read` says
-/// whether a reading was used on the way to `proof`, and `reads` counts
-/// the test facts read so far, up to [`MAX_READS`]; `cut` is set where a
-/// bound stops it.
-#[allow(clippy::too_many_arguments)]
+/// What [`take_apart`] collects over all the hypotheses.
+#[derive(Default)]
+struct Taking {
+    /// Each part with its proof and whether a reading was used on the way.
+    parts: Vec<(Term, Value, bool)>,
+    /// How many test facts have been read, up to [`MAX_READS`].
+    reads: usize,
+    /// Whether a bound stopped the search with something left.
+    cut: bool,
+}
+
+/// Adds to `taking.parts` those of `proof: ty`: if `ty` is a conjunction
+/// `p ∧ q`, `And.left proof: p` and `And.right proof: q`; if it is a test
+/// fact with a reading, `proof` read as it; each followed by its own.
+/// `read` says whether a reading was used on the way to `proof`.
 fn take_apart(
     cx: &Ctx,
     proof: Term,
     ty: &Value,
     depth: usize,
     read: bool,
-    reads: &mut usize,
-    cut: &mut bool,
-    parts: &mut Vec<(Term, Value, bool)>,
+    taking: &mut Taking,
 ) -> Result<()> {
+    let g = cx.g();
+    let conjunction = match force(&g, ty.clone())? {
+        Value::Data(d, args) if g.env.registry().is_data(Builtin::And, d) && args.len() == 2 => {
+            Some(args)
+        }
+        _ => None,
+    };
     if depth > MAX_PART_DEPTH {
-        *cut = true;
+        // Only a part with something left to take apart is a cut.
+        taking.cut = conjunction.is_some() || crate::reading::test_fact(cx, ty)?.is_some();
         return Ok(());
     }
-    let g = cx.g();
-    if let Value::Data(d, args) = force(&g, ty.clone())?
-        && g.env.registry().is_data(Builtin::And, d)
-        && args.len() == 2
-    {
+    if let Some(args) = conjunction {
         let (p, q) = (
             cx.quote_or_written(&args[0])?,
             cx.quote_or_written(&args[1])?,
@@ -640,19 +643,19 @@ fn take_apart(
                 Icit::Implicit,
             );
             let part = Term::app(head, proof.clone());
-            parts.push((part.clone(), part_ty.clone(), read));
-            take_apart(cx, part, part_ty, depth + 1, read, reads, cut, parts)?;
+            taking.parts.push((part.clone(), part_ty.clone(), read));
+            take_apart(cx, part, part_ty, depth + 1, read, taking)?;
         }
         return Ok(());
     }
     if crate::reading::test_fact(cx, ty)?.is_none() {
         return Ok(());
     }
-    if *reads >= MAX_READS {
-        *cut = true;
+    if taking.reads >= MAX_READS {
+        taking.cut = true;
         return Ok(());
     }
-    *reads += 1;
+    taking.reads += 1;
     // A hypothesis is read by its type as written; a part of one already
     // has the type a conjunction or a reading gave it.
     let ty = if depth == 1 {
@@ -668,10 +671,128 @@ fn take_apart(
         crate::reading::hypothesis_quantifier_reads(cx, &proof, &ty)?,
     ];
     for (part, part_ty) in readings.into_iter().flatten() {
-        parts.push((part.clone(), part_ty.clone(), true));
-        take_apart(cx, part, &part_ty, depth + 1, true, reads, cut, parts)?;
+        taking.parts.push((part.clone(), part_ty.clone(), true));
+        take_apart(cx, part, &part_ty, depth + 1, true, taking)?;
     }
     Ok(())
+}
+
+/// The most `&&`s [`AndSides::collect`] takes apart, over all the
+/// hypotheses. Once they are spent it stops looking and keeps the sides
+/// found so far, so a side past them is not found.
+const AND_SIDES: usize = 256;
+
+/// The sides of the hypotheses `(a && b) = True` in scope, and sides of
+/// sides, as goals `t = True` they prove by `Bool.andLeft` and
+/// `Bool.andRight`. Only the `&&`s are followed, unfolding a call only to
+/// see whether it is one, so a long conjunction of tests costs a step per
+/// `&&`: reading every test in it as [`hypothesis_parts`] does stops at its
+/// bound well before the end of `(a && b && c && d && e) = True` when each
+/// of `a` to `e` is a call with tests of its own, and the goal `e = True`
+/// would then go to splitting (a `cases` given as an argument took 9 s to
+/// fail so, SW-4485). Collected once, then searched for each goal.
+pub(crate) struct AndSides {
+    /// `Std.Bool.andLeft` and `andRight`; `None` where the library file
+    /// that has them isn't loaded.
+    lemmas: Option<(DefId, DefId)>,
+    /// In the order a search finds them: left before right.
+    sides: Vec<AndSide>,
+}
+
+/// One side of a `&&`, as a test.
+struct AndSide {
+    test: Value,
+    /// The level of the hypothesis it is in.
+    level: usize,
+    /// The way down to it: at each `&&`, its two sides and whether the
+    /// left was taken.
+    way: Vec<(bool, Value, Value)>,
+}
+
+impl AndSides {
+    /// The sides of the hypotheses at `levels`.
+    pub(crate) fn collect(cx: &Ctx, levels: &[usize]) -> Result<AndSides> {
+        let lemmas = match (
+            cx.e.named("Std.Bool.andLeft"),
+            cx.e.named("Std.Bool.andRight"),
+        ) {
+            (Some((Global::Def(left), _)), Some((Global::Def(right), _))) => Some((*left, *right)),
+            _ => None,
+        };
+        let mut found = AndSides {
+            lemmas,
+            sides: Vec::new(),
+        };
+        if lemmas.is_none() {
+            return Ok(found);
+        }
+        let g = cx.g();
+        let mut budget = AND_SIDES;
+        for &level in levels {
+            let Some((test, true)) = crate::reading::test_fact(cx, &cx.types[level])? else {
+                continue;
+            };
+            let mut stack = vec![(test, Vec::new())];
+            while let Some((test, way)) = stack.pop() {
+                let mut test = force(&g, test)?;
+                if is_folded(&g, &test)
+                    && let Some(unfolded) = unfold_folded(&g, &test)?
+                {
+                    test = force(&g, unfolded)?;
+                }
+                let Some((a, b)) = crate::facts::and_sides(cx, &test)? else {
+                    continue;
+                };
+                if budget == 0 {
+                    return Ok(found);
+                }
+                budget -= 1;
+                let mut left_way = way.clone();
+                left_way.push((true, a.clone(), b.clone()));
+                let mut right_way = way;
+                right_way.push((false, a.clone(), b.clone()));
+                for (test, way) in [(&a, &left_way), (&b, &right_way)] {
+                    found.sides.push(AndSide {
+                        test: test.clone(),
+                        level,
+                        way: way.clone(),
+                    });
+                }
+                // The left side is searched first, as it is written first.
+                stack.push((b, right_way));
+                stack.push((a, left_way));
+            }
+        }
+        Ok(found)
+    }
+
+    /// A proof of `goal`, if it is `t = True` for one of the sides.
+    pub(crate) fn find(&self, cx: &Ctx, goal: &Value) -> Result<Option<Term>> {
+        let Some((left, right)) = self.lemmas else {
+            return Ok(None);
+        };
+        let Some((target, true)) = crate::reading::test_fact(cx, goal)? else {
+            return Ok(None);
+        };
+        let g = cx.g();
+        for side in &self.sides {
+            if !conv(&g, cx.level(), &side.test, &target)? {
+                continue;
+            }
+            let mut proof = Term::Var(cx.level() - 1 - side.level);
+            for (is_left, a, b) in &side.way {
+                let f = if *is_left { left } else { right };
+                let head = Term::app_icit(
+                    Term::app_icit(Term::Def(f), cx.quote_or_written(a)?, Icit::Implicit),
+                    cx.quote_or_written(b)?,
+                    Icit::Implicit,
+                );
+                proof = Term::app(head, proof);
+            }
+            return Ok(Some(proof));
+        }
+        Ok(None)
+    }
 }
 
 /// How many binders a `∀` fact may have for [`from_rules`] to apply it.
