@@ -31281,12 +31281,12 @@
     {
       "id": 4535,
       "title": "[Sonnet] Reading pass for tools/fmt (SW-4531 step 3): a glossary of the predicates' words (Deaf, Calm, Hangs, ...) and a proof map; = True dropped where D3482's short form leaves hashes unchanged (5,308 spellings); proof ideas for the long proofs without one (D3657; about 578)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane (Sonnet), 21 Nov 2026, branch lane/SW-4535 (b48667d69): this commit does only the glossary and proof map part of the ticket, plus the \"rule N\" rename (SW-4548 ranked item 1a). Added tools/fmt/GLOSSARY.md (79 entries), PROOF-MAP.md (diagram, 12 file groups), dev/check-glossary.sh. \"Rule N\" is now \"comment placement\" with steps back-walk, comma carry, arrow lift, let lift, trim (prose only; rule1Drop, rule2Drop and rule3Drop in Syntax/SettleBareProofs.sw are identifiers, not renamed). Not done: the = True drop and proof ideas parts of the title.\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
@@ -31441,12 +31441,12 @@
     {
       "id": 4547,
       "title": "[Sonnet] Case-split pilot before any sweep (SW-4537 gap 1, est. 14% of slice 1): on the sample's case-split theorems (exprBlanks, headerResult1, wordsCalmKeep and the others gaps.py ranks as case splits) plus two randomly chosen whole Fmt/Syntax files, rewrite each case-split proof with features that exist today (cases x then t, cases a, b then t, | _ => cases x then t, or-patterns, auto/byFacts as the closer); measure proof lines before/after per theorem and per file, steps against the D3696 bar, and classify what stays long by the missing feature (closer needs hypotheses or lemmas like simp_all [..]; split of a nested match on a record; cases on an expression; big enums); predict a whole-slice sweep's yield from the measured share",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nLane note (Sonnet, 21 Nov): branch lane/SW-4547, doc docs/reviews/SW-4547-case-split-pilot.md. 3 sample theorems rewritten, 2 kept (exprBlanks -3, codeTextsOf -5; steps 1.00x, 1.10x), 2 reverted for steps over 3x (headerResult1 5.4x, wordUnled 5.7x). Random files (seed 4547: ElementsChain, SplitProofs): 5 kept lines of 477 (1.0%). Stopped at 1.5x estimate.\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
@@ -31470,12 +31470,12 @@
     {
       "id": 4549,
       "title": "[DeepSeek] tools/fmt small read fixes from SW-4548: OutputStatements.sw's header says it holds unproved statements (none are; fix the header); plainOfShapes' doc names a parameter prev it doesn't have; the five-part flat test written five times in Syntax/ReadBackHungFrameLemmas.sw becomes one named def; lastWithin and lastLexical in Fmt/EdgeHangProofs.sw are one proof twice (one std List.all/last lemma)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Model result: DeepSeek, needed fixes (new def named isFlatKind was true of the non-flat kinds, doc inverted; renamed breaksFlat in review; item 4 left alone, judged inapplicable), 15 min (est. 20)\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []

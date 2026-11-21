@@ -11,6 +11,9 @@ import Syntax.ReadBackHung (..)
 import Fmt.HangProofs (staleBlocks)
 import Syntax.SharedFacts (commaNotCloser)
 
+--| Whether a token kind is a bracket, a comma, `:=` or `:`: the kinds a flat leaf is not.
+def breaksFlat (kind: Tok): Bool := kind == Comma || kind.isCloser || kind == ColonEq || kind == Colon || kind.isOpener
+
 --| An atom's kind is no bracket, comma, `:=` or `:`.
 theorem wordIsFlat ∀ (kind: Tok)
     (word: kind.wordWithin1 = True):
@@ -32,7 +35,7 @@ theorem wordIsNoArrow ∀ (kind: Tok) (word: kind.wordWithin1 = True): (kind == 
 theorem signIsNoArrow ∀ (kind: Tok) (signed: signKind kind = True): (kind == Arrow) = False := cases
 
 theorem flatParts ∀ (kind: Tok)
-    (flat: (kind == Comma || kind.isCloser || kind == ColonEq || kind == Colon || kind.isOpener) = False):
+    (flat: breaksFlat kind = False):
     (kind == Comma) = False
       ∧ kind.isCloser = False
       ∧ (kind == ColonEq) = False
@@ -43,12 +46,7 @@ theorem flatParts ∀ (kind: Tok)
 --| A leaf that is no bracket, comma, `:=` or `:` and no `->`, stepped over from a state, enters it: the state its
 --| expression's first leaf placed.
 theorem flatStep ∀ (state next: HangState) (leaf: Leaf)
-    (flat: (leaf.token.kind == Comma
-      || leaf.token.kind.isCloser
-      || leaf.token.kind == ColonEq
-      || leaf.token.kind == Colon
-      || leaf.token.kind.isOpener)
-      = False)
+    (flat: breaksFlat leaf.token.kind = False)
     (noArrow: (leaf.token.kind == Arrow) = False)
     (stepped: state.step leaf = Some next):
     next = state.entered leaf :=
@@ -126,12 +124,7 @@ theorem enteredIdle ∀ (state: HangState) (leaf: Leaf)
 --| An idle state stepped over a flat leaf that is no `->` keeps its columns.
 theorem idleStep ∀ (state next: HangState) (leaf: Leaf)
     (idle: state.start = False)
-    (flat: (leaf.token.kind == Comma
-      || leaf.token.kind.isCloser
-      || leaf.token.kind == ColonEq
-      || leaf.token.kind == Colon
-      || leaf.token.kind.isOpener)
-      = False)
+    (flat: breaksFlat leaf.token.kind = False)
     (noArrow: (leaf.token.kind == Arrow) = False)
     (stepped: state.step leaf = Some next):
     next = { blocks = state.blocks, top = state.top, start = False, glue = False } :=
@@ -144,12 +137,7 @@ theorem idleStep ∀ (state next: HangState) (leaf: Leaf)
 --| The same over `->`, which glues the next leaf to it.
 theorem idleArrow ∀ (state next: HangState) (leaf: Leaf)
     (idle: state.start = False)
-    (flat: (leaf.token.kind == Comma
-      || leaf.token.kind.isCloser
-      || leaf.token.kind == ColonEq
-      || leaf.token.kind == Colon
-      || leaf.token.kind.isOpener)
-      = False)
+    (flat: breaksFlat leaf.token.kind = False)
     (arrow: (leaf.token.kind == Arrow) = True)
     (stepped: state.step leaf = Some next):
     next = { blocks = state.blocks, top = state.top, start = False, glue = True } :=
@@ -227,12 +215,7 @@ theorem closerEntered ∀ (state inside next: HangState) (first last: Leaf)
 --| An operator or sign between two leaves of one expression, stepped over by the state the first entered, leaves
 --| the next leaf's entry as the first's.
 theorem afterOperator ∀ (state next: HangState) (first op later: Leaf)
-    (flat: (op.token.kind == Comma
-      || op.token.kind.isCloser
-      || op.token.kind == ColonEq
-      || op.token.kind == Colon
-      || op.token.kind.isOpener)
-      = False)
+    (flat: breaksFlat op.token.kind = False)
     (stepped: (state.entered first).step op = Some next):
     next.entered later = state.entered first :=
   match e: op.token.kind == Arrow with
