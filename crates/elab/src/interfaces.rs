@@ -1456,6 +1456,25 @@ pub(crate) fn refresh(cx: &Ctx, v: &Value) -> Result<Value> {
     cx.eval(&term)
 }
 
+/// Whether `v` mentions an unknown that nothing has solved: whether
+/// [`unsolved_in`] finds one, with the normal form's read-back stopped at
+/// the first it meets (`value::normal_form_meets`), where the callers only
+/// ask whether there is one.
+pub(crate) fn has_unsolved(cx: &Ctx, v: &Value) -> Result<bool> {
+    let g = cx.g();
+    let unsolved = |m: usize| g.meta_solution(m).is_none();
+    match stitchwort_core::value::normal_form_meets(&g, cx.level(), v, SCAN_LIMIT, &unsolved)? {
+        Some(met) => Ok(met.is_some()),
+        None => {
+            let term = cx.quote_folded(v)?;
+            let term = cx.e.zonk_keeping(&term, cx.level(), &|_| true)?;
+            Ok(term
+                .subterms()
+                .any(|(t, _)| matches!(t, Term::Meta(m) if unsolved(*m))))
+        }
+    }
+}
+
 /// An unknown that `v` mentions and that nothing has solved, if any.
 pub(crate) fn unsolved_in(cx: &Ctx, v: &Value) -> Result<Option<usize>> {
     let term = scanned(cx, v)?;
@@ -1708,7 +1727,7 @@ impl Elaborator {
                 if !unsolved_placeholder(&cx, &ob.meta)? {
                     continue;
                 }
-                if unsolved_in(&cx, &arg)?.is_none() {
+                if !has_unsolved(&cx, &arg)? {
                     ready.push(ob.clone());
                 }
             }

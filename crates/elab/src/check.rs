@@ -4333,7 +4333,7 @@ fn lambda_arg<'a>(
     // its goal (postponement.md §5.11, kept).
     let late_able = held.expecting.is_some()
         && only_lambdas_depend_on_it(&cod.body, &[])
-        && crate::interfaces::unsolved_in(cx, &dom)?.is_some();
+        && crate::interfaces::has_unsolved(cx, &dom)?;
     if !late_able {
         // A lambda whose parameter is a proposition not yet known, which
         // it can't take apart (a tuple pattern can't tell `∧` from `∃`),
@@ -4560,7 +4560,7 @@ fn explicit_arg_ready<'a>(
         && cx.e.decl.late_literals.get() > 0
         && only_lambdas_depend_on_it(&cod.body, later)
         && numbers_in_list(value)
-        && crate::interfaces::unsolved_in(cx, &dom)?.is_some()
+        && crate::interfaces::has_unsolved(cx, &dom)?
     {
         let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &dom, &cod)?;
         held.postponed.push((value, dom, placeholder, id));
@@ -4647,7 +4647,7 @@ fn explicit_arg_failed<'a>(
         return Err(unit_call_hint(cx, &term, value, &dom, next_is_unit, e));
     };
     snapshot.restore(cx);
-    if crate::interfaces::unsolved_in(cx, &dom)?.is_none() {
+    if !crate::interfaces::has_unsolved(cx, &dom)? {
         return Err(unit_call_hint(cx, &term, value, &dom, next_is_unit, e));
     }
     first_error.get_or_insert_with(|| Box::new(e));
@@ -4677,7 +4677,7 @@ fn by_arguments_first(
 ) -> Result<Option<(Term, Value)>> {
     let waiting = held.hold_lambdas && ready.snapshot.is_some();
     let after_holes = held.holes_by_arguments && ready.hole_of.is_none();
-    if !(waiting || after_holes) || crate::interfaces::unsolved_in(cx, &ready.dom)?.is_none() {
+    if !(waiting || after_holes) || !crate::interfaces::has_unsolved(cx, &ready.dom)? {
         return Ok(None);
     }
     by_arguments_in_place(cx, &ready.term, &ready.cod, value, &ready.dom)
@@ -5621,7 +5621,7 @@ fn total_lambda_note(
              building it must finish, so the callback can't run anything that might not"
         ));
     }
-    if matches!(crate::interfaces::unsolved_in(cx, dom), Ok(Some(_))) {
+    if matches!(crate::interfaces::has_unsolved(cx, dom), Ok(true)) {
         return e;
     }
     let param = cx.show(dom);
@@ -5758,7 +5758,7 @@ fn partial_callback(cx: &Ctx, head: &Term, arg: &Expr, dom: &Value) -> Option<Di
     // is not one a signature edit can fix: the row variable stands for total
     // rows only.
     let open = in_std
-        || matches!(crate::interfaces::unsolved_in(cx, dom), Ok(Some(_)))
+        || matches!(crate::interfaces::has_unsolved(cx, dom), Ok(true))
         || param.contains('|');
     let mut diagnostic = Diagnostic::error(
         "E-PARTIAL-CALLBACK",
@@ -7716,7 +7716,7 @@ fn proof_branch_type(cx: &mut Ctx, then: &Expr, otherwise: &Expr) -> Result<Opti
         let snapshot = crate::undo::Snapshot::take(cx);
         let found = crate::undo::attempt(cx, |cx| {
             let (_, ty) = infer(cx, branch)?;
-            if crate::interfaces::unsolved_in(cx, &ty)?.is_some() || !proof_expected(cx, &ty)? {
+            if crate::interfaces::has_unsolved(cx, &ty)? || !proof_expected(cx, &ty)? {
                 return Ok(None);
             }
             // Quoted before the undo, so the type doesn't depend on anything
