@@ -31216,12 +31216,12 @@
     {
       "id": 4530,
       "title": "[Sonnet] Implicit value parameters for tools/fmt lemma families called many times with goal-fixed arguments (as SW-4520 did for five blank* lemmas: ElementsBlank -18%): find the families by call count, make the always-fixed value parameters implicit, measure lines and the D3696 time bar; plus rewrite repeatedly [List.appendAssoc] for ToldDeclProofs' 10+ repeated appendAssoc rewrites (shapeLead's rewrite List.appendAssoc _ _ _ relies on first match and doubled its steps)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nLane notes (Sonnet, 21 Nov 2026): 110 lemma families made implicit in tools/fmt (rewrite-used, recursive, @[walk], Walk files and TopStatements-defined ones left alone); proof lines 13,039 -> 12,794 over 37 files (-245, 1.9%), statements 5,117 -> 5,118; steps within 1.1x per file except ElementsKeys 1.08; branch lane/SW-4530 commit 1d840f806. The rewrite repeatedly [List.appendAssoc] part of this ticket was not done. Model result: Sonnet, worked, ~50 min (est. 40).\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
@@ -31413,7 +31413,7 @@
     {
       "id": 4545,
       "title": "[Sonnet] differential::the_evaluators_agree_on_the_prelude_and_every_example overflows its stack (SIGABRT, deterministic) on examples/accept/fin-pattern-numbers.sw whenever the broad sample includes it (index divisible by 4: failed at 2a196474d and d038b5ca1, the only 2 of 53 cycles that sampled it; STITCHWORT_DIFFERENTIAL_ONLY=accept/fin-pattern-numbers.sw reproduces in 8 s; Overmind 21 Nov). Find which evaluator overflows (likely the recursive reference evaluator on its million-case test); fix by running the comparison on a thread with a stated larger stack or making the evaluator not recurse that deep, not by skipping the example unless the reference evaluator is by design recursive (then the skip marker with its reason). Test: that ONLY run passing",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
