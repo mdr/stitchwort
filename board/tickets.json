@@ -1,5 +1,5 @@
 {
-  "next": 4490,
+  "next": 4491,
   "tickets": [
     {
       "id": 47,
@@ -30683,12 +30683,25 @@
     {
       "id": 4489,
       "title": "[Opus, paper] Review of SW-4488 (byFacts stage 1a): the kernel terms it builds, soundness of phase 1/2 and the equation rule, the no-guessing rule for unknowns, bounds and failure cost, the expanded text, the error, the self-hosted formatter refusing the word without narrowing; against closer.md stage 1 and SW-4483's six changes",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-4489",
       "labels": [],
       "epic": "proof-automation",
       "body": "\n\nProgress (Opus paper lane, 21 Nov 2026, 10:45-11:00): review written, docs/reviews/SW-4488-byfacts-review.md on lane/SW-4489 (424a9ab9e). 3 must-fix (nested ctor-equation shift -> E-TYPE-MISMATCH; --expand-facts under cases then writes non-checking text; part depth 12 cuts && chains cases closes), 10 should-fix (first-fit order dependence, substitution blocked/ill-typed motive, shared substitution budget, 97 ms failure with 120 facts, a/¬a and Void not refuted, E-FACTS gaps, then t sees substituted goal, parse message, --timings attempts, docs), 7 notes. No unsoundness found; cases.rs refactor unchanged in effect; formatter: proof bodies only, no top theorem or acceptance file changed. Moved to review.\n",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4490,
+      "title": "[Sonnet] Parse errors for a proof word as a bare argument: Both byFacts y and the same with byWalking give an unhelpful parse error; suggest brackets (SW-4489 finding 11). Also: cases reports 'found nothing to split on' for h: a ∨ b with goal c (pre-existing, SW-4489)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
