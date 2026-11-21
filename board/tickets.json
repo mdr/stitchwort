@@ -1,5 +1,5 @@
 {
-  "next": 4489,
+  "next": 4491,
   "tickets": [
     {
       "id": 47,
@@ -30488,14 +30488,14 @@
     {
       "id": 4474,
       "title": "[Sonnet] cases follow-ups (SW-4472): a way to say what cases splits (cases on x / closer.md F4; parenParsedP is out of budget without it), and a hypothesis written as is: kind = Minus is never used to substitute (signSymbolicT still splits 60 kinds per arm); docs/syntax.md still calls data declarations 'data' where the keyword is type; a workflow note: a copied binary needs --std-dir, and how to profile a check (macOS sample on repeated copies)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "\n\nSW-4473 found 8 more theorems in ParseWalk/JoinProofs hitting E-CASES-BUDGET where the hand proof splits one or two things (followsCloser, freeReady, endedReadyCloser, piecePasses, endedReadyColon, mayFollowStops, fillSeq, signFirstNot).\n",
+      "body": "\n\nSW-4473 found 8 more theorems in ParseWalk/JoinProofs hitting E-CASES-BUDGET where the hand proof splits one or two things (followsCloser, freeReady, endedReadyCloser, piecePasses, endedReadyColon, mayFollowStops, fillSeq, signFirstNot).\n\n\nD3709 (Matt, 21 Nov 2026: yes): the syntax is cases x then t, and cases x, y then t for several; plain cases and cases then t unchanged. Model: Opus (core tactic, D2506).\n",
       "created": "2026-11-20",
-      "updated": "2026-11-20",
+      "updated": "2026-11-21",
       "commits": []
     },
     {
@@ -30566,14 +30566,14 @@
     {
       "id": 4480,
       "title": "[Opus] A _ argument fixed by a later argument's type gets an equal but different solution (SW-4475 cause): unification of the expected type unfolds Joins (Group x _) to Joins x and solves ?d := x before the later proof argument is checked. Options: elaborate _ arguments after the later arguments, or have the unifier keep the written argument when solving from a forced call. Repro and failed patch in docs/reviews/SW-4475/ (the patch broke std Args.helpListsOption). Also: W-REWRITE-REPEATEDLY-UNUSED could say the rule's part was closed by a hypothesis in scope",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
       "body": "",
       "created": "2026-11-20",
-      "updated": "2026-11-20",
+      "updated": "2026-11-21",
       "commits": []
     },
     {
@@ -30657,8 +30657,8 @@
     {
       "id": 4487,
       "title": "[Sonnet] Walk follow-ups (SW-4479): convert the formatter proofs that now walk within the bar (givesTupleRest, givesBlock, givesCalcBody, givesDataParamStep, givesConstructorParen group; givesClauseLambda 2.0x, givesPipeChain 2.3x, givesListItemsFromAny 3.8x stay by hand unless re-timed under the file bar); state givesListItemsEnd over a pair variable so givesListItemsFrom walks; --expand-walk text for a bind inside a bound computation leaves the inner givesThen's post to inference and doesn't elaborate (givesNested, givesFromMark, givesBound in walk-operation.sw): write the post explicitly, then add the example to walk_expand",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
@@ -30670,8 +30670,34 @@
     {
       "id": 4488,
       "title": "[Opus] byFacts stage 1a (D3708 revised, Matt, 21 Nov 2026: yes): the proof word byFacts [terms], per docs/proposals/closer.md stage 1 with SW-4483's six changes (two phases; ∃ facts and records of proofs taken apart; unknowns fixed by a fact, never guessed; its own equation rule; terms only, no rules sets, warn on unused; compute once, match by head, count attempts, fail fast); E-FACTS shows what is left after phase 1; byFacts then ?; check --expand-facts; docs, accept and reject examples; the self-hosted formatter refuses the word until a slice reaches it",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "\nProgress (Opus lane, 21 Nov 2026, 09:0x-10:45): built on lane/SW-4488 (bac6cb40e, 3cb9620d2, 4b80a0942, 08a0d29d1). byFacts [terms] then t in both parsers (reserved word), crates/elab/src/facts.rs (two phases, depth 3, 200 attempts), E-FACTS with parts left open and nearest facts, W-FACTS-UNUSED, check --expand-facts. All 13 SW-4483 probes close and expand to terms that check (facts_expand test). G1: probes 0.1-0.5 ms each. G4: rejects 0.1, 0.3 and 2.4 ms. No existing hash moved; no kernel change. Self-hosted fmt lexes Tok.KwByFacts and refuses it (no slice has it). Docs: syntax.md, proving-guide, guide ch. 10; editor and playground keywords. Moved to review.\n",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4489,
+      "title": "[Opus, paper] Review of SW-4488 (byFacts stage 1a): the kernel terms it builds, soundness of phase 1/2 and the equation rule, the no-guessing rule for unknowns, bounds and failure cost, the expanded text, the error, the self-hosted formatter refusing the word without narrowing; against closer.md stage 1 and SW-4483's six changes",
+      "status": "done",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-4489",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "\n\nProgress (Opus paper lane, 21 Nov 2026, 10:45-11:00): review written, docs/reviews/SW-4488-byfacts-review.md on lane/SW-4489 (424a9ab9e). 3 must-fix (nested ctor-equation shift -> E-TYPE-MISMATCH; --expand-facts under cases then writes non-checking text; part depth 12 cuts && chains cases closes), 10 should-fix (first-fit order dependence, substitution blocked/ill-typed motive, shared substitution budget, 97 ms failure with 120 facts, a/¬a and Void not refuted, E-FACTS gaps, then t sees substituted goal, parse message, --timings attempts, docs), 7 notes. No unsoundness found; cases.rs refactor unchanged in effect; formatter: proof bodies only, no top theorem or acceptance file changed. Moved to review.\n",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4490,
+      "title": "[Sonnet] Parse errors for a proof word as a bare argument: Both byFacts y and the same with byWalking give an unhelpful parse error; suggest brackets (SW-4489 finding 11). Also: cases reports 'found nothing to split on' for h: a ∨ b with goal c (pre-existing, SW-4489)",
+      "status": "backlog",
+      "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
