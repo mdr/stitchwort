@@ -48,6 +48,22 @@ theorem topDoneUnbroken ∀ [trails: Bool] (place: Place) (hang: Hang) (done: To
 def WordToken (text: Text): Prop :=
   text.startsWith "--" = False ∧ isLayout text = False ∧ isCloserText text = False ∧ (text == ",") = False
 
+--| A header word's tree facts that every hang proof of it reads: written as a token, no comment hoisted above it by its
+--| `Around`, and its trailing comment, if it has one, a comment.
+type Written (word: Word) (around: Around): Prop = {
+  token: WordToken word.text,
+  hoisted: around.hoisted = False,
+  trailed: TrailsComment word
+}
+
+--| A header word with own-line comments above it: the first of them, the rest, and that they are comments.
+type NotedAbove (word: Word) = {
+  note: Note,
+  rest: List Note,
+  noted: word.comments.above = [note, ..rest],
+  comments: NotesComment [note, ..rest]
+}
+
 -- Pieces.
 
 --| A space after words keeps the place and the fold.
@@ -295,16 +311,10 @@ theorem lineStepHangs ∀ (kinds: Text → Tok) (text: Text) (indent column: Nat
 --| Proof idea: `leadingHangs` takes the seat to the start of the token's line, `lineStepHangs` writes the token
 --| there (right of what `Ended` leaves in force, since the comment break is two right of the line), and
 --| `trailingHangs` its trailing comment.
-theorem notedStepHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat) (before: Bool)
-    (state final: HangState) (note: Note) (rest: List Note)
-    (token: word.text.startsWith "--" = False)
-    (solid: isLayout word.text = False)
-    (closer: isCloserText word.text = False)
-    (comma: (word.text == ",") = False)
-    (hoisted: around.hoisted = False)
-    (noted: word.comments.above = [note, ..rest])
-    (comments: NotesComment [note, ..rest])
-    (trailed: TrailsComment word)
+theorem notedStepHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat)
+    (before: Bool) (state final: HangState)
+    (facts: Written word around)
+    (above: NotedAbove word)
     (unglued: state.glue = False)
     (step: ∀ (column: Nat) => Room state (Some column)
       → hangStep kinds (Hang.At state) { word = word.text, start = Some column } = Hang.At final)
@@ -314,6 +324,7 @@ theorem notedStepHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
       indent
       (place hang => Ended state before place ∧ hang = Hang.At state)
       (place hang => Ended final word.trails place ∧ hang = Hang.At final) :=
+  let (notComment, solid, closer, comma) := facts.token
   hangsBy (place trace next (ended, folded) after =>
     let seated: Seated indent before state place := match place, ended with | Mid _ _ | Held _ _, ended => ended
     let room: Room state (Some (leadColumn indent place)) := match place, ended with
@@ -328,10 +339,13 @@ theorem notedStepHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
     rewrite leafPiece word around key closer comma then
       (hangsConcat
             (hangsAppend
-              (leadingHangs kinds key indent before state rest hoisted noted closer comments fresh)
+              (leadingHangs kinds key indent before state above.rest facts.hoisted above.noted closer above.comments
+                  fresh)
               (hangsCons word.trailing
-                (lineStepHangs kinds word.text indent column state final token solid (step column room) (bound column))
-                (trailingHangs kinds indent final trailed)))) place _ trace next byComputing
+                (lineStepHangs kinds word.text indent column state final notComment solid
+                  (step column room)
+                  (bound column))
+                (trailingHangs kinds indent final facts.trailed)))) place _ trace next byComputing
           (byComputing, folded, seated)
           (hangsAfter after))
 
@@ -340,15 +354,13 @@ theorem notedStepHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
 --| The header's `:` after the head: the type starts.
 theorem colonHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat) (before: Bool)
     (colon: kinds word.text = Colon)
-    (token: WordToken word.text)
+    (facts: Written word around)
     (bare: word.comments.above = [])
-    (hoisted: around.hoisted = False)
-    (single: around.item = False)
-    (trailed: TrailsComment word):
+    (single: around.item = False):
     HangLays kinds (word.leaf around key) indent (AfterWords HangState.initial 0 before) (AfterTop word.trails) :=
-  let (notComment, solid, closer, comma) := token
+  let (notComment, solid, closer, comma) := facts.token
   let pre := AfterWords HangState.initial 0 before
-  rewrite leafIsText word around key closer comma (bareCloserLeading word around key hoisted bare single) then
+  rewrite leafIsText word around key closer comma (bareCloserLeading word around key facts.hoisted bare single) then
     hangsConcat
       (hangsCons word.trailing
         (hangsChunk kinds word.text word.text.length indent pre (AfterTop False) solid (place trace (ended, folded,
@@ -374,20 +386,18 @@ theorem colonHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key 
               )
               | AtStart at carry, never => (Bool.falseNotTrue never).impossible
               | Broken at carry, never => (Bool.falseNotTrue never).impossible))
-        (trailingHangs kinds indent topFrom trailed))
+        (trailingHangs kinds indent topFrom facts.trailed))
 
 --| The `:=` after the type: the body starts.
 theorem assignHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat) (before: Bool)
     (assign: kinds word.text = ColonEq)
-    (token: WordToken word.text)
+    (facts: Written word around)
     (bare: word.comments.above = [])
-    (hoisted: around.hoisted = False)
-    (single: around.item = False)
-    (trailed: TrailsComment word):
+    (single: around.item = False):
     HangLays kinds (word.leaf around key) indent (TopDone before) (AfterTop word.trails) :=
-  let (notComment, solid, closer, comma) := token
+  let (notComment, solid, closer, comma) := facts.token
   let pre := TopDone before
-  rewrite leafIsText word around key closer comma (bareCloserLeading word around key hoisted bare single) then
+  rewrite leafIsText word around key closer comma (bareCloserLeading word around key facts.hoisted bare single) then
     hangsConcat
       (hangsCons word.trailing
         (hangsChunk kinds word.text word.text.length indent pre (AfterTop False) solid (place trace (top, ended,
@@ -404,58 +414,41 @@ theorem assignHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key
                 byComputing
                 (_ => byComputing)
             )))
-        (trailingHangs kinds indent topFrom trailed))
+        (trailingHangs kinds indent topFrom facts.trailed))
 
 --| The `:` with own-line comments above it, after the name: they sit above it, and the type then starts.
 theorem colonNotedHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat) (before: Bool)
-    (note: Note) (rest: List Note)
     (colon: kinds word.text = Colon)
-    (token: WordToken word.text)
-    (hoisted: around.hoisted = False)
-    (noted: word.comments.above = [note, ..rest])
-    (comments: NotesComment [note, ..rest])
-    (trailed: TrailsComment word):
+    (facts: Written word around)
+    (above: NotedAbove word):
     HangLays kinds (word.leaf around key) indent (AfterWords HangState.initial 0 before) (AfterTop word.trails) :=
-  let (notComment, solid, closer, comma) := token
+  let (notComment, solid, closer, comma) := facts.token
   hangsBy (place trace next (ended, folded, clear) after =>
-    (notedStepHangs kinds word around key indent before HangState.initial topFrom note rest notComment solid closer
-            comma hoisted noted comments trailed byComputing
-            (column room =>
-              stepColon kinds HangState.initial word.text
-                (Some column)
-                (tokenCode word.text (Some column) notComment solid)
-                colon
-                byComputing
-                room)
-            (column => arithmetic)) place _ trace next byComputing
+    (notedStepHangs kinds word around key indent before HangState.initial topFrom facts above byComputing
+          (column room =>
+            stepColon kinds HangState.initial word.text
+              (Some column)
+              (tokenCode word.text (Some column) notComment solid)
+              colon
+              byComputing
+              room)
+          (column => arithmetic)) place _ trace next byComputing
         (ended, folded)
         (hangsAfter after))
 
 --| The `:=` with own-line comments above it, after the type: they sit above it, and the body then starts.
 theorem assignNotedHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat) (before: Bool)
-    (note: Note) (rest: List Note)
     (assign: kinds word.text = ColonEq)
-    (token: WordToken word.text)
-    (hoisted: around.hoisted = False)
-    (noted: word.comments.above = [note, ..rest])
-    (comments: NotesComment [note, ..rest])
-    (trailed: TrailsComment word):
+    (facts: Written word around)
+    (above: NotedAbove word):
     HangLays kinds (word.leaf around key) indent (TopDone before) (AfterTop word.trails) :=
-  let (notComment, solid, closer, comma) := token
+  let (notComment, solid, closer, comma) := facts.token
   hangsBy (place trace next (top, ended, folded) after =>
     (notedStepHangs kinds word around key indent before
           (topState top)
           topFrom
-          note
-          rest
-          notComment
-          solid
-          closer
-          comma
-          hoisted
-          noted
-          comments
-          trailed
+          facts
+          above
           byComputing
           (column room =>
             stepAssign kinds
@@ -473,38 +466,40 @@ theorem assignNotedHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around)
 --| The `:` after the head, with or without own-line comments above it.
 theorem colonAnyHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat) (before: Bool)
     (colon: kinds word.text = Colon)
-    (token: WordToken word.text)
+    (facts: Written word around)
     (comments: NotesComment word.comments.above)
-    (hoisted: around.hoisted = False)
-    (single: around.item = False)
-    (trailed: TrailsComment word):
+    (single: around.item = False):
     HangLays kinds (word.leaf around key) indent (AfterWords HangState.initial 0 before) (AfterTop word.trails) :=
   notesCases
     (HangLays kinds (word.leaf around key) indent (AfterWords HangState.initial 0 before) (AfterTop word.trails))
     word.comments.above
-    (bare => colonHangs kinds word around key indent before colon token bare hoisted single trailed)
+    (bare => colonHangs kinds word around key indent before colon facts bare single)
     (note rest noted =>
-      colonNotedHangs kinds word around key indent before note rest colon token hoisted noted
-        (rewrite noted at comments then comments)
-        trailed)
+      colonNotedHangs kinds word around key indent before colon facts {
+        note,
+        rest,
+        noted,
+        comments = rewrite noted at comments then comments
+      })
 
 --| The `:=` after the type, with or without own-line comments above it.
 theorem assignAnyHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat) (before: Bool)
     (assign: kinds word.text = ColonEq)
-    (token: WordToken word.text)
+    (facts: Written word around)
     (comments: NotesComment word.comments.above)
-    (hoisted: around.hoisted = False)
-    (single: around.item = False)
-    (trailed: TrailsComment word):
+    (single: around.item = False):
     HangLays kinds (word.leaf around key) indent (TopDone before) (AfterTop word.trails) :=
   notesCases
     (HangLays kinds (word.leaf around key) indent (TopDone before) (AfterTop word.trails))
     word.comments.above
-    (bare => assignHangs kinds word around key indent before assign token bare hoisted single trailed)
+    (bare => assignHangs kinds word around key indent before assign facts bare single)
     (note rest noted =>
-      assignNotedHangs kinds word around key indent before note rest assign token hoisted noted
-        (rewrite noted at comments then comments)
-        trailed)
+      assignNotedHangs kinds word around key indent before assign facts {
+        note,
+        rest,
+        noted,
+        comments = rewrite noted at comments then comments
+      })
 
 -- The header.
 
@@ -627,11 +622,14 @@ def BodyLays (kinds: Text → Tok) (value: Expr) (around: Around) (before: Bool)
       → OnLine kinds (plainBody value around)
         ∧ (∀ (open: Doc) => value.callHug { around | hoisted = True } = Some open → OnLine kinds open))
 
---| What `bodyAfter` asks of a value: that it is no `match`, lambda or `calc` (`withinPlainBody`), and `BodyLays`.
-def BodyHangs (kinds: Text → Tok) (value: Expr) (around: Around) (before: Bool): Prop :=
+--| A value is no `match`, lambda or `calc`: `BodyHangs`' first two facts.
+def NoMatchOrLambda (value: Expr) (around: Around): Prop :=
   value.matchedParts { around | hoisted = True } = None
     ∧ value.lambdaHug False { around | hoisted = True } (plainBody value around) = None
-    ∧ BodyLays kinds value around before
+
+--| What `bodyAfter` asks of a value: that it is no `match`, lambda or `calc` (`withinPlainBody`), and `BodyLays`.
+def BodyHangs (kinds: Text → Tok) (value: Expr) (around: Around) (before: Bool): Prop :=
+  NoMatchOrLambda value around ∧ BodyLays kinds value around before
 
 --| Both of `bodyAfter`'s forms, after the `:=`.
 --|
@@ -643,7 +641,7 @@ theorem bodyAfterHangs ∀ (kinds: Text → Tok) (value: Expr) (assign: Word) (a
     HangLays kinds (bodyAfter value assign around False).fst 0 (AfterTop assign.trails) Unbroken
       ∧ HangLays kinds (bodyAfter value assign around False).snd 0 (AfterTop assign.trails) Unbroken :=
   let inside := { around | hoisted = True }
-  let (matched, lambda, ((trails, below), quietly)) := body
+  let ((matched, lambda), ((trails, below), quietly)) := body
   let doc := plainBody value around
   let keeps: ∀ (place: Place) (hang: Hang) => AfterTop False place hang → Unbroken place hang := place hang (_,
     folded) =>
@@ -714,6 +712,47 @@ def FixedKinds (kinds: Text → Tok): Prop := kinds "def" = KwDef ∧ kinds ":" 
 --| The start of a declaration, as `defDoc` has it.
 def declStart: Around := { before = False, hoisted = True, item = False, at = 0, inArm = False }
 
+--| A slice 1 declaration's header with no parameters, from its parts.
+def defHeader (exportKeyword opaqueKeyword: Option Comments) (keyword: Comments) (name: Word) (colon: Comments)
+    (result: Expr) (decreasingClause: Option (Comments, Expr)) (unfoldingClause: Option (Comments, List Word)):
+    Header :=
+  {
+    exportKeyword,
+    opaqueKeyword,
+    kind = DefPlain,
+    keyword,
+    name,
+    forallKeyword = None,
+    params = [],
+    colon,
+    result,
+    decreasingClause,
+    unfoldingClause
+  }
+
+--| What `defDocHangs` asks of a definition `def name: T := e` beyond its fixed kinds and its value being no `match`,
+--| lambda or `calc`: how its tokens' comments read, its name's kind and spelling, its type's elements and its value's
+--| `BodyLays`.
+type DefHangs (kinds: Text → Tok) (header: Header) (colonEq: Comments) (value: Expr): Prop = {
+  keywordTrailed: TrailsComment (fixedWord "def" header.keyword),
+  plain: Fmt.HangProofs.Plain (kinds header.name.text),
+  nameToken: WordToken header.name.text,
+  nameComments: NotesComment header.name.comments.above,
+  nameTrailed: TrailsComment header.name,
+  colonComments: NotesComment header.colon.above,
+  colonTrailed: TrailsComment (fixedWord ":" header.colon),
+  assignComments: NotesComment colonEq.above,
+  assignTrailed: TrailsComment (fixedWord ":=" colonEq),
+  typed: ∃ (trails: Bool) => ElHangs kinds
+    (header.result.el (declStart.next header.colon.after.isSome 3))
+    4
+    4
+    header.colon.after.isSome
+    trails
+    (startFor header.result.noted),
+  body: BodyLays kinds value (declStart.next colonEq.after.isSome (4 + header.result.size)) colonEq.after.isSome
+}
+
 --| `def name: T := e` lays from the start of the output with the fold never broken.
 --|
 --| Proof idea: the header (`headerHangs`, from `headHangs` and `colonHangs`, the type at 4) to where the type
@@ -723,45 +762,21 @@ theorem defDocHangs ∀ (kinds: Text → Tok) (exportKeyword opaqueKeyword: Opti
     (name: Word) (colon: Comments) (result: Expr) (decreasingClause: Option (Comments, Expr))
     (unfoldingClause: Option (Comments, List Word)) (colonEq: Comments) (value: Expr)
     (fixed: FixedKinds kinds)
-    (keywordTrailed: TrailsComment (fixedWord "def" keyword))
-    (plain: Fmt.HangProofs.Plain (kinds name.text))
-    (nameToken: WordToken name.text)
-    (nameComments: NotesComment name.comments.above)
-    (nameTrailed: TrailsComment name)
-    (colonComments: NotesComment colon.above)
-    (colonTrailed: TrailsComment (fixedWord ":" colon))
-    (assignComments: NotesComment colonEq.above)
-    (assignTrailed: TrailsComment (fixedWord ":=" colonEq))
-    (typed: ∃ (trails: Bool) => ElHangs kinds
-      (result.el (declStart.next colon.after.isSome 3))
-      4
-      4
-      colon.after.isSome
-      trails
-      (startFor result.noted))
-    (body: BodyHangs kinds value (declStart.next colonEq.after.isSome (4 + result.size)) colonEq.after.isSome):
+    (facts: DefHangs kinds
+      (defHeader exportKeyword opaqueKeyword keyword name colon result decreasingClause unfoldingClause)
+      colonEq
+      value)
+    (unmatched: NoMatchOrLambda value (declStart.next colonEq.after.isSome (4 + result.size))):
     HangLays kinds
       (defDoc
-        {
-          exportKeyword,
-          opaqueKeyword,
-          kind = DefPlain,
-          keyword,
-          name,
-          forallKeyword = None,
-          params = [],
-          colon,
-          result,
-          decreasingClause,
-          unfoldingClause
-        }
+        (defHeader exportKeyword opaqueKeyword keyword name colon result decreasingClause unfoldingClause)
         colonEq
         value)
       0
       DeclStart
       Unbroken :=
   let (isDef, isColon, isAssign) := fixed
-  let (typeTrails, typeHangs) := typed
+  let (typeTrails, typeHangs) := facts.typed
   let keywordWord := fixedWord "def" keyword
   let colonWord := fixedWord ":" colon
   let assignWord := fixedWord ":=" colonEq
@@ -772,18 +787,20 @@ theorem defDocHangs ∀ (kinds: Text → Tok) (exportKeyword opaqueKeyword: Opti
       (byComputing, byComputing, byComputing, byComputing)
       byComputing
       byComputing
-      keywordTrailed
-      plain
-      nameToken
-      nameComments
-      nameTrailed
+      facts.keywordTrailed
+      facts.plain
+      facts.nameToken
+      facts.nameComments
+      facts.nameTrailed
   let colonLays :=
     colonAnyHangs kinds colonWord colonAround 2 0 name.trails isColon
-      (byComputing, byComputing, byComputing, byComputing)
-      colonComments
+      {
+        token = (byComputing, byComputing, byComputing, byComputing),
+        hoisted = byComputing,
+        trailed = facts.colonTrailed
+      }
+      facts.colonComments
       byComputing
-      byComputing
-      colonTrailed
   let header := headerHangs kinds name.trails colon.after.isSome typeTrails result.noted head colonLays typeHangs
   let assignAround := declStart.next result.trails (3 + result.size)
   let assignLays :=
@@ -792,11 +809,13 @@ theorem defDocHangs ∀ (kinds: Text → Tok) (exportKeyword opaqueKeyword: Opti
       0
       typeTrails
       isAssign
-      (byComputing, byComputing, byComputing, byComputing)
-      assignComments
+      {
+        token = (byComputing, byComputing, byComputing, byComputing),
+        hoisted = byComputing,
+        trailed = facts.assignTrailed
+      }
+      facts.assignComments
       byComputing
-      byComputing
-      assignTrailed
   let headerDoc :=
     Doc.concat
       ([spaced (headDocs declStart [keywordWord, name]), colonWord.leaf colonAround 2]
@@ -809,7 +828,10 @@ theorem defDocHangs ∀ (kinds: Text → Tok) (exportKeyword opaqueKeyword: Opti
     Unbroken :=
     breaks =>
       defFromHangs kinds breaks typeTrails colonEq.after.isSome header assignLays
-        (bodyAfterHangs kinds value assignWord (declStart.next colonEq.after.isSome (4 + result.size)) body)
+        (bodyAfterHangs kinds value assignWord (declStart.next colonEq.after.isSome (4 + result.size)) (
+          unmatched,
+          facts.body
+        ))
   let inside :=
     ([keywordWord, name].reverse.drop 1 |> .any Word.trails)
       || ([]: List Syntax.Group).any groupHoldsComment
@@ -821,26 +843,9 @@ theorem defDocHangs ∀ (kinds: Text → Tok) (exportKeyword opaqueKeyword: Opti
 -- Slice 1's declarations.
 
 --| What `printedHangs` still asks of a slice 1 declaration beyond `within1`, `shaped`, `sound` and `lexical`: the
---| facts `defDocHangs` takes, about its tokens' comments and its type's and value's elements.
+--| facts `DefHangs` names, about its tokens' comments and its type's and value's elements.
 def DeclHangs (kinds: Text → Tok): Decl → Prop
-  | Definition [] header (Assigned colonEq value) =>
-    TrailsComment (fixedWord "def" header.keyword)
-      ∧ Fmt.HangProofs.Plain (kinds header.name.text)
-      ∧ WordToken header.name.text
-      ∧ NotesComment header.name.comments.above
-      ∧ TrailsComment header.name
-      ∧ NotesComment header.colon.above
-      ∧ TrailsComment (fixedWord ":" header.colon)
-      ∧ NotesComment colonEq.above
-      ∧ TrailsComment (fixedWord ":=" colonEq)
-      ∧ (∃ (trails: Bool) => ElHangs kinds
-        (header.result.el (declStart.next header.colon.after.isSome 3))
-        4
-        4
-        header.colon.after.isSome
-        trails
-        (startFor header.result.noted))
-      ∧ BodyLays kinds value (declStart.next colonEq.after.isSome (4 + header.result.size)) colonEq.after.isSome
+  | Definition [] header (Assigned colonEq value) => DefHangs kinds header colonEq value
   | _ => False
 
 theorem lexKindFixed: FixedKinds lexKind := (byComputing, byComputing, byComputing)
@@ -853,8 +858,7 @@ theorem doc1Hangs ∀ (kinds: Text → Tok) (decl: Decl) (doc: Doc)
     (shows: decl.doc1 = Some doc):
     HangLays kinds doc 0 DeclStart Unbroken :=
   match decl, facts with
-    | Definition [] header (Assigned colonEq value), (keywordTrailed, plain, nameToken, nameComments, nameTrailed,
-        colonComments, colonTrailed, assignComments, assignTrailed, typed, body) =>
+    | Definition [] header (Assigned colonEq value), facts =>
       match header with
         | {
             exportKeyword,
@@ -870,13 +874,14 @@ theorem doc1Hangs ∀ (kinds: Text → Tok) (decl: Decl) (doc: Doc)
             unfoldingClause
           } =>
           let around := declStart.next colonEq.after.isSome (4 + result.size)
-          let (matched, lambda) :=
-            withinPlainBody value { around | hoisted = True } False (plainBody value around) (Bool.andRight within)
           rewrite <- Option.someInjective shows then
             defDocHangs kinds exportKeyword opaqueKeyword keyword name colon result decreasingClause unfoldingClause
-                colonEq value fixed keywordTrailed plain nameToken nameComments nameTrailed colonComments colonTrailed
-                assignComments assignTrailed typed
-                (matched, lambda, body)
+                colonEq value fixed facts
+                (withinPlainBody value
+                  { around | hoisted = True }
+                  False
+                  (plainBody value around)
+                  (Bool.andRight within))
         | _ => cases
 
 --| `printedHangs`: the text the rules print for a slice 1 declaration, at any width, lexes to leaves whose fold
@@ -904,7 +909,7 @@ theorem printedHangs ∀ (decl: Decl) (doc: Doc) (width: Nat)
 
 -- From `within1`.
 
---| A slice 1 value is no `match`, lambda or `calc`: `BodyHangs`' first two facts.
+--| A slice 1 value is no `match`, lambda or `calc`: `NoMatchOrLambda`.
 theorem withinPlainBody ∀ (value: Expr) (inside: Around) (semi: Bool) (doc: Doc)
     (within: value.within1 = True):
     value.matchedParts inside = None ∧ value.lambdaHug semi inside doc = None :=
