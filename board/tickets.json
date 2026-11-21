@@ -31112,7 +31112,7 @@
     {
       "id": 4522,
       "title": "[Opus paper] Slice 1 shortening lane 3 (SW-4519 map): design note for a walk over the read-back proofs (Parse.Runs, RunsFrom, read-back records; 205 theorems, 4,933 lines), why Parse.runsBind doesn't fit the walk's lemma shape, and whether std's Parse.runs* should take implicit arguments; price it; any new proof syntax is Matt's",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
