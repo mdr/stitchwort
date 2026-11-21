@@ -3288,6 +3288,72 @@ fn quote_as(
     cap: Option<u64>,
     max_depth: Option<usize>,
 ) -> Result<Option<Term>> {
+    match quote_as_until(g, level, value, mode, cap, max_depth, None)? {
+        Quoted::Term(term) => Ok(term),
+        Quoted::Met(_) => unreachable!("nothing stops a read-back without `stop`"),
+    }
+}
+
+/// What [`quote_as_until`] finds.
+enum Quoted {
+    /// The read-back, or `None` past its cap.
+    Term(Option<Term>),
+    /// An unknown `stop` accepted, met before the read-back was finished.
+    Met(usize),
+}
+
+/// The normal form of `value`, as [`quote_at_most`] reads it back, holds an
+/// unknown `stop` accepts: `Some(Some(m))` with one, `Some(None)` with none,
+/// `None` if it has more than `cap` nodes. The read-back stops at the first
+/// unknown it meets, rather than finishing the term to scan it, which can
+/// cost as much as computing every call the value mentions: whether a
+/// continuation's goal still holds an unknown, asked of a relation about a
+/// parser, was a quarter of a walk's steps (SW-4512). `m` is the first met
+/// in the read-back's order, which needn't be the first in the finished
+/// term's.
+pub fn normal_form_meets(
+    g: &Ev,
+    level: usize,
+    value: &Value,
+    cap: u64,
+    stop: &dyn Fn(usize) -> bool,
+) -> Result<Option<Option<usize>>> {
+    let scan = |term: &Term| {
+        term.subterms().find_map(|(t, _)| match t {
+            Term::Meta(m) if stop(*m) => Some(*m),
+            _ => None,
+        })
+    };
+    Ok(
+        match quote_as_until(
+            g,
+            level,
+            value,
+            Readback::Unfolded,
+            Some(cap),
+            None,
+            Some(stop),
+        )? {
+            Quoted::Met(m) => Some(Some(m)),
+            Quoted::Term(Some(term)) => Some(scan(&term)),
+            Quoted::Term(None) => None,
+        },
+    )
+}
+
+/// [`quote_as`], stopping at an unknown `stop` accepts where it meets one
+/// as a value to read back: an unknown no solution replaced, or the erased
+/// placeholder. One it doesn't meet that way (a value that only forces to
+/// one) is in the finished term.
+fn quote_as_until(
+    g: &Ev,
+    level: usize,
+    value: &Value,
+    mode: Readback,
+    cap: Option<u64>,
+    max_depth: Option<usize>,
+    stop: Option<&dyn Fn(usize) -> bool>,
+) -> Result<Quoted> {
     // A work list rather than recursion: `tasks` are values still to visit
     // and terms still to assemble, and `done` holds finished terms, which
     // each assembly takes its parts from.
@@ -3313,13 +3379,25 @@ fn quote_as(
                 size += 1;
                 if cap.is_some_and(|cap| size > cap) {
                     g.machine.budget.note_readback(size);
-                    return Ok(None);
+                    return Ok(Quoted::Term(None));
                 }
                 if size > limit {
                     g.machine.budget.note_readback(size);
                     g.machine.budget.set_too_large(root_def);
                     g.machine.budget.note_ran_out();
                     return Err(ResourceError::Size(limit));
+                }
+                if let Some(stop) = stop {
+                    let met = match &value {
+                        Value::Neutral(Head::Meta(m), _) if g.meta_solution(*m).is_none() => {
+                            Some(*m)
+                        }
+                        Value::Neutral(Head::Var(l, _), _) if *l == erase::ERASED => Some(ELIDED),
+                        _ => None,
+                    };
+                    if let Some(m) = met.filter(|&m| stop(m)) {
+                        return Ok(Quoted::Met(m));
+                    }
                 }
                 visit(g, level, value, depth, mode, &mut tasks, &mut done)?;
             }
@@ -3383,7 +3461,7 @@ fn quote_as(
         }
     }
     g.machine.budget.note_readback(size);
-    Ok(Some(done.pop().expect("one term")))
+    Ok(Quoted::Term(Some(done.pop().expect("one term"))))
 }
 
 /// Quotation still to do.

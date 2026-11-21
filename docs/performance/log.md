@@ -46,6 +46,70 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 21 Nov 2026
 
+### SW-4512: "does this type still hold an unknown?" stops reading back at the first one; walks and hand proofs about parsers 13-20% fewer steps, the walk's 3x gap unchanged
+
+Asked to bring the walks of three slice 1 formatter theorems under 2x
+their hand proofs (SW-4495 left them at 1.8-3.3x in steps), this lane
+profiled `givesListItemsFrom` (233,170 steps, hand proof 73,311). macOS
+`sample` can't pick 18 ms out of a 60 s check, so steps were attributed
+instead: an env-gated counter of each part's own steps, over the walk, the
+elaborator's application path and the unifier's outermost runs (kept as a
+patch, not merged).
+
+- **Measured, by own steps:** unification 98-122k over about 330
+  comparisons; `crate::interfaces::unsolved_in` in `lambda_arg` 53k over
+  **6** calls; `explicit_arg` 28k; the walk's lemma search 18k;
+  `nested_post` 4k; `fix_nested_goal` 3.4k. The nested-bind machinery
+  itself is small; the three outer nested binds' then-lemmas cost
+  28-48k each as checked against the whole goal.
+- **The hotspot:** `unsolved_in` asks whether a type (here a
+  continuation's domain, `∀ v => first v → Parse.Gives inv (() => j v)
+  holds`) still holds an unknown by reading back its whole normal form
+  (up to 100,000 nodes) and then scanning it: as much work as running the
+  parser code the relation is about. The answer was yes each time.
+- **The change:** `value::normal_form_meets` reads the normal form back
+  as before but stops at the first unsolved unknown (or erased
+  placeholder) it meets as a value to read back; a value that only
+  forces to one is still found in the finished term, and past the cap it
+  falls back to the folded read-back as `scanned` does.
+  `interfaces::has_unsolved` uses it for the nine callers that only ask
+  yes or no (`check.rs`, `rows.rs`, `interfaces.rs`); the three that use
+  which unknown it is keep `unsolved_in`, whose first unknown is in the
+  finished term's order. The answers are the same: an unknown met is in
+  the normal form, and over the cap the folded form, which has every
+  unknown the normal form has, says yes too. A run that used to stop
+  for size or steps in that read-back can now finish.
+- **Tried and dropped:** (1) giving a nested bind's then-lemma the `p`,
+  `j` and `first` that `nested_post` already found, as `[name := …]`:
+  233k to 215k, a new kind of walk place for 8%, and the terms may
+  change; (2) answering from the folded read-back first: no gain, as the
+  unknowns sit in `Parse.Gives`'s arguments, which a call may drop, so
+  it had to fall back.
+
+Steps (`check --no-cache … --only … --timings=all`, release build, one run
+each; ms are under load and only indicative):
+
+| theorem | walk before | walk after | hand before | hand after | walk / hand before | after |
+|---|---|---|---|---|---|---|
+| `givesListItemsFrom` | 233,170 | 187,303 | 73,311 | 59,576 | 3.18x | 3.14x |
+| `givesListItemsFromAny` | 221,603 | 177,507 | 67,734 | 54,499 | 3.27x | 3.26x |
+| `givesDataParamStep` | 195,467 | 180,051 | 111,155 | 96,447 | 1.76x | 1.87x |
+
+Term nodes are the same before and after for each theorem and each
+namespace (Syntax.ParseWalk 13,508, ParseWalkOutside 1,842,
+ParseWalkOthers 25,727), as are the kernel's times. The namespaces'
+elaboration, ms (same runs, walks as merged): ParseWalk 245.7 to 220.7,
+ParseWalkOutside 46.7 to 46.5, ParseWalkOthers 1,166.9 to 1,035.1.
+
+The target was missed: the hand proofs gain as much as the walks, so the
+ratios barely move. What the walk adds on top of a hand proof is mostly
+the nested binds' three identity then-lemmas checked against the whole
+goal, and the elaboration of the continuation lambdas around them; the
+next step is a walk that reassociates a bind whose bound computation
+performs an operation (`Effect.bind (Call o k1) k` computes to
+`Call o (y => Effect.bind (k1 y) k)`), so it writes the hand proof's
+chain, or one that gives the then-lemma's implicits it already knows.
+
 ### SW-4498: a chain of `.read`s checked in exponential time; now about cubic in steps, 57 ms for twenty conjuncts
 
 A test fact read by hand to the end of an `&&` chain,

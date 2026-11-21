@@ -484,7 +484,7 @@ fn settled_first(cx: &Ctx, a: (&Value, &Value), b: (&Value, &Value)) -> Result<S
             }
             _ => crate::unify::rigid_head(&g, &other).is_some(),
         };
-        if !decided && crate::interfaces::unsolved_in(cx, &other)?.is_some() {
+        if !decided && crate::interfaces::has_unsolved(cx, &other)? {
             return Ok(SettledFirst::Waiting);
         }
         return Ok(SettledFirst::No);
