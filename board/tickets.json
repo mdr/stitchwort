@@ -1,5 +1,5 @@
 {
-  "next": 4531,
+  "next": 4532,
   "tickets": [
     {
       "id": 47,
@@ -31164,12 +31164,12 @@
     {
       "id": 4526,
       "title": "[Sonnet] walk-runs stage 1 (docs/proposals/walk-runs.md, SW-4522): std Parse.RunsOn p input rest value; Parse.Runs p read rest v redefined as RunsOn p (read ++ rest) rest v with an equivalence lemma; migrate the proofs that open the definitions; re-record hashes (prelude, examples, projects)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Lane lane/SW-4526, commit fad362e42. Done: RunsOn/RunsFromOn added, Runs/RunsFrom redefined from them (runsIff, runsFromIff), runsOnThen/Done/Weaken/Same/Map and satisfy/next/one/span/optional forms; only 5 std proofs needed edits (RunsChars 2, Runs 3, RunsOperators example); tools/fmt, toyfmt, aoc checked namespaces pass unchanged. Hashes moved: prelude, parse-lex-then-parse. Not done: walk tags (stage 2), oneOf/many/loop RunsOn forms.",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
@@ -31216,6 +31216,19 @@
     {
       "id": 4530,
       "title": "[Sonnet] Implicit value parameters for tools/fmt lemma families called many times with goal-fixed arguments (as SW-4520 did for five blank* lemmas: ElementsBlank -18%): find the families by call count, make the always-fixed value parameters implicit, measure lines and the D3696 time bar; plus rewrite repeatedly [List.appendAssoc] for ToldDeclProofs' 10+ repeated appendAssoc rewrites (shapeLead's rewrite List.appendAssoc _ _ _ relies on first match and doubled its steps)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4531,
+      "title": "[Fable paper] Stock take of the slice 1 proof shortening (D3692) after 21 Nov's pilots: is the work on track for a clean, short proof that compares well with Lean and Rocq; what to stop, what to do next, and D3711 in that light; docs/reviews/SW-N-slice1-stock-take.md",
       "status": "backlog",
       "agent": "",
       "where": "",
