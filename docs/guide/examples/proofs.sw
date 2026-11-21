@@ -113,6 +113,14 @@ theorem clampBelow ∀ (lo hi x: Nat) (ordered: lo ≤ hi): clamp lo hi x ≤ hi
 theorem someSame ∀ (f: Nat → Nat) (x y: Nat) (h: Some x = Some y): f x = f y := cases
 -- end cases-constructors
 
+-- begin cases-parts
+type Between (low n high: Nat): Prop = { above: low ≤ n, below: n ≤ high }
+
+theorem betweenOf ∀ (low n high: Nat) (inside: (low <= n && n <= high) = True): Between low n high := cases
+
+theorem modusPonens ∀ (a b c: Prop) (f: a → b → c) (x: a) (y: b): c := cases
+-- end cases-parts
+
 -- begin cases-once
 def total: List Nat → Nat
   | [] => 0

@@ -568,8 +568,18 @@ fn from_hypothesis_parts(
 /// first, in the order of `levels`, then those a reading gave: a goal a
 /// conjunction proved before keeps that proof.
 pub(crate) fn hypothesis_parts(cx: &Ctx, levels: &[usize]) -> Result<Vec<(Term, Value)>> {
+    Ok(hypothesis_parts_cut(cx, levels)?.0)
+}
+
+/// [`hypothesis_parts`], and whether taking them apart stopped at a bound
+/// ([`MAX_PART_DEPTH`], [`MAX_READS`]) with something left.
+pub(crate) fn hypothesis_parts_cut(
+    cx: &Ctx,
+    levels: &[usize],
+) -> Result<(Vec<(Term, Value)>, bool)> {
     let mut parts = Vec::new();
     let mut reads = 0;
+    let mut cut = false;
     for &level in levels {
         let proof = Term::Var(cx.level() - 1 - level);
         take_apart(
@@ -579,22 +589,26 @@ pub(crate) fn hypothesis_parts(cx: &Ctx, levels: &[usize]) -> Result<Vec<(Term, 
             1,
             false,
             &mut reads,
+            &mut cut,
             &mut parts,
         )?;
     }
     // Stable: each kind keeps its order.
     parts.sort_by_key(|(_, _, read)| *read);
-    Ok(parts
+    let parts = parts
         .into_iter()
         .map(|(proof, ty, _)| (proof, ty))
-        .collect())
+        .collect();
+    Ok((parts, cut))
 }
 
 /// Adds to `parts` those of `proof: ty`: if `ty` is a conjunction `p ∧ q`,
 /// `And.left proof: p` and `And.right proof: q`; if it is a test fact with
 /// a reading, `proof` read as it; each followed by its own. `read` says
 /// whether a reading was used on the way to `proof`, and `reads` counts
-/// the test facts read so far, up to [`MAX_READS`].
+/// the test facts read so far, up to [`MAX_READS`]; `cut` is set where a
+/// bound stops it.
+#[allow(clippy::too_many_arguments)]
 fn take_apart(
     cx: &Ctx,
     proof: Term,
@@ -602,9 +616,11 @@ fn take_apart(
     depth: usize,
     read: bool,
     reads: &mut usize,
+    cut: &mut bool,
     parts: &mut Vec<(Term, Value, bool)>,
 ) -> Result<()> {
     if depth > MAX_PART_DEPTH {
+        *cut = true;
         return Ok(());
     }
     let g = cx.g();
@@ -625,11 +641,15 @@ fn take_apart(
             );
             let part = Term::app(head, proof.clone());
             parts.push((part.clone(), part_ty.clone(), read));
-            take_apart(cx, part, part_ty, depth + 1, read, reads, parts)?;
+            take_apart(cx, part, part_ty, depth + 1, read, reads, cut, parts)?;
         }
         return Ok(());
     }
-    if *reads >= MAX_READS || crate::reading::test_fact(cx, ty)?.is_none() {
+    if crate::reading::test_fact(cx, ty)?.is_none() {
+        return Ok(());
+    }
+    if *reads >= MAX_READS {
+        *cut = true;
         return Ok(());
     }
     *reads += 1;
@@ -649,7 +669,7 @@ fn take_apart(
     ];
     for (part, part_ty) in readings.into_iter().flatten() {
         parts.push((part.clone(), part_ty.clone(), true));
-        take_apart(cx, part, &part_ty, depth + 1, true, reads, parts)?;
+        take_apart(cx, part, &part_ty, depth + 1, true, reads, cut, parts)?;
     }
     Ok(())
 }
