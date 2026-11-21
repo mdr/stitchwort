@@ -21,6 +21,13 @@ theorem Parse.runsNext ∀ (passes: t → Bool) (item: t) (rest: List t)
         (rewrite Parse.runFromNextThere state passes item rest _ starts holds)
         (Both byComputing (Both (arithmetic [honest, lengths]) byComputing)))
 
+--| `next` on input that starts with an item that passes: it stops after it
+--| and gives `Some` of it.
+theorem Parse.runsOnNext ∀ (passes: t → Bool) (item: t) (rest: List t)
+    (holds: passes item = True):
+    Parse.RunsOn (() => Parse.next passes) [item, ..rest] rest (Some item) :=
+  Parse.runsNext passes item rest holds
+
 --| Whether `rest` starts with an operator of level `lowest` or tighter: what
 --| `Parse.operators` would go on to read after an operand of that level.
 def Parse.operatorAhead (levels: List (Parse.Level t a)) (lowest: Nat) (rest: List t): Bool := match rest with
@@ -525,10 +532,11 @@ theorem Parse.runsOperatorsExample: Parse.run "9-1-2*3".toList (() =>
     (Parse.runsOperators "an operator" Parse.operatorsExampleLevels Parse.operatorsExampleDigit
         Parse.operatorsExampleTree []
         (byFacts)
-        (byFacts [
-          Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '9' 9,
-          Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '1' 1,
-          Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '2' 2,
-          Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '3' 3
-        ])
+        (Both
+          (Both
+            (Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '9' 9 _ byComputing)
+            (Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '1' 1 _ byComputing))
+          (Both
+            (Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '2' 2 _ byComputing)
+            (Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '3' 3 _ byComputing)))
         byComputing)

@@ -25,7 +25,7 @@ theorem Parse.runsText ∀ (expected: Text) (rest: List Char):
       (state.advance rest expected.toList.length).at
       (Both
         (rewrite Parse.runFromTextThere state expected rest _ starts)
-        (Both byComputing (Both (arithmetic [honest, lengths]) byComputing)))
+        (Both byComputing (Both (arithmetic [honest, lengths]) (arithmetic [List.lengthAppend expected.toList rest]))))
 
 --| `nat` on a run of digits, with `rest` not starting with another digit (the
 --| digits are read to the end, so "12" isn't 1 followed by 2): it reads `digits`
@@ -41,7 +41,7 @@ theorem Parse.runsNat ∀ (digits rest: List Char)
       (state.advance rest digits.length).at
       (Both
         (rewrite Parse.runFromNatThere state digits rest _ starts some all stops)
-        (Both byComputing (Both (arithmetic [honest, lengths]) byComputing)))
+        (Both byComputing (Both (arithmetic [honest, lengths]) (arithmetic [List.lengthAppend digits rest]))))
 
 --| `spaces` on a run of spaces and tabs, with `rest` not starting with one.
 theorem Parse.runsSpaces ∀ (blanks rest: List Char)

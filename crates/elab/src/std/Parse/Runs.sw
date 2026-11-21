@@ -30,27 +30,87 @@ import Effect.AlwaysTreeOf (AlwaysCall)
 -- up is `many`'s fatal "matched without reading anything", which `many`'s
 -- lemma rules out by requiring each round to read something.
 
---| `parser` run from `state` succeeds, reading exactly `read` of the input
---| (which is `read` followed by `rest`) and giving `value`: it stops with
---| `rest` left and the offset moved on by `read`'s length. `Parse.Runs`
---| quantifies it over states; a few lemmas about `many` need one state's
---| offset.
-def Parse.RunsFrom (state: Parse.State t) (parser: () → {Parse t} a) (read rest: List t) (value: a): Prop :=
-  state.at.rest = read ++ rest
+--| `parser` run from `state` on `input` succeeds with `value` and stops with
+--| `rest` left: `rest` is what remains of `input`, and the offset has moved on
+--| by the length of what was consumed (`input.length - rest.length`, stated as
+--| `after.offset + rest.length = state.at.offset + input.length` so that it
+--| needs no subtraction). Describing a run by where it stops, rather than by
+--| how the input splits, lets a sequence chain `input → mid → rest` by
+--| unification ([`Parse.runsOnThen`]). [`Parse.RunsFrom`] is the case that
+--| `input = read ++ rest`; [`Parse.RunsOn`] quantifies over states.
+def Parse.RunsFromOn (state: Parse.State t) (parser: () → {Parse t} a) (input rest: List t) (value: a): Prop :=
+  state.at.rest = input
     → state.at.left = state.at.rest.length
     → ∃ (after: Parse.Mark t) => Parse.runFrom state (() => (parser(), Parse.mark())) = Ok (value, after)
       ∧ after.rest = rest
       ∧ after.left = rest.length
-      ∧ after.offset = state.at.offset + read.length
+      ∧ after.offset + rest.length = state.at.offset + input.length
 
---| `parser`, run on input that is `read` followed by `rest` (from any honest
+--| `parser`, run on `input` from any honest state (as in [`Parse.Reads`]),
+--| succeeds with `value` and stops with `rest` left. It says `rest` is a
+--| suffix of `input` (by the offsets and honesty). [`Parse.Runs`] is the case
+--| `input = read ++ rest`.
+def Parse.RunsOn (parser: () → {Parse t} a) (input rest: List t) (value: a): Prop :=
+  ∀ (state: Parse.State t) => Parse.RunsFromOn state parser input rest value
+
+--| `parser` run from `state` succeeds, reading exactly `read` of the input
+--| (which is `read` followed by `rest`) and giving `value`: it stops with
+--| `rest` left and the offset moved on by `read`'s length. `Parse.Runs`
+--| quantifies it over states; a few lemmas about `many` need one state's
+--| offset. Defined as [`Parse.RunsFromOn`] on `read ++ rest`; the offset clause
+--| there is `after.offset + rest.length = state.at.offset + (read ++ rest).length`,
+--| and [`Parse.runsFromIff`] gives today's form.
+def Parse.RunsFrom (state: Parse.State t) (parser: () → {Parse t} a) (read rest: List t) (value: a): Prop :=
+  Parse.RunsFromOn state parser (read ++ rest) rest value
+
+--| `parser` run on input that is `read` followed by `rest` (from any honest
 --| state, as in [`Parse.Reads`]), succeeds with `value`, having read exactly
 --| `read`. The converse of `Reads`: `Reads` says a success read a start of the
 --| input, `Runs` that it succeeds and says where it stops. Success depends
 --| on `rest` where the parser looks ahead (see [`Parse.runsNat`]), and not on
---| anything before the input.
+--| anything before the input. Defined as [`Parse.RunsOn`] on `read ++ rest`
+--| ([`Parse.runsIff`] states it in the earlier form).
 def Parse.Runs (parser: () → {Parse t} a) (read rest: List t) (value: a): Prop :=
-  ∀ (state: Parse.State t) => Parse.RunsFrom state parser read rest value
+  Parse.RunsOn parser (read ++ rest) rest value
+
+--| `RunsFrom` in the form it had before it was defined from `RunsFromOn`:
+--| the offset clause says `read.length` was consumed. Checks that the
+--| re-typing kept the proposition.
+theorem Parse.runsFromIff ∀ (state: Parse.State t) (parser: () → {Parse t} a) (read rest: List t) (value: a):
+    Parse.RunsFrom state parser read rest value
+      ↔ (state.at.rest = read ++ rest
+        → state.at.left = state.at.rest.length
+        → ∃ (after: Parse.Mark t) => Parse.runFrom state (() => (parser(), Parse.mark())) = Ok (value, after)
+          ∧ after.rest = rest
+          ∧ after.left = rest.length
+          ∧ after.offset = state.at.offset + read.length) :=
+  {
+    forward = runs =>
+      starts honest =>
+        match runs starts honest with
+          | Witness m (Both ran (Both mrest (Both mleft moff))) =>
+            Witness m
+              (Both ran (Both mrest (Both mleft (rewrite List.lengthAppend read rest at moff then arithmetic [moff])))),
+    backward = runs =>
+      starts honest =>
+        match runs starts honest with
+          | Witness m (Both ran (Both mrest (Both mleft moff))) =>
+            Witness m (Both ran (Both mrest (Both mleft (rewrite List.lengthAppend read rest then arithmetic [moff]))))
+  }
+
+--| `Runs` in its earlier form, quantified over states.
+theorem Parse.runsIff ∀ (parser: () → {Parse t} a) (read rest: List t) (value: a):
+    Parse.Runs parser read rest value
+      ↔ ∀ (state: Parse.State t) => (state.at.rest = read ++ rest
+        → state.at.left = state.at.rest.length
+        → ∃ (after: Parse.Mark t) => Parse.runFrom state (() => (parser(), Parse.mark())) = Ok (value, after)
+          ∧ after.rest = rest
+          ∧ after.left = rest.length
+          ∧ after.offset = state.at.offset + read.length) :=
+  {
+    forward = runs => state => (Parse.runsFromIff state parser read rest value).forward (runs state),
+    backward = runs => state => (Parse.runsFromIff state parser read rest value).backward (runs state)
+  }
 
 --| `p` ran from `s` to a point `after` (`runFrom s (p(), mark())` gave
 --| `after.at`), and `k (j v)` goes on from there to an `Ok`: so `k (j (p()))`
@@ -608,14 +668,24 @@ theorem Parse.runsFromBindAt ∀ (state: Parse.State t) (p: () → {Parse t} a) 
       | Witness m (Both ran (Both mrest (Both mleft moff))) =>
         let middle: Parse.State t := { state | at = m }
         let honest1: middle.at.left = middle.at.rest.length := rewrite mrest then mleft
-        match runsNext middle mrest honest1 moff mrest honest1 with
+        let moffFirst: m.offset = state.at.offset + first.length :=
+          arithmetic [moff, List.lengthAppend first (next ++ rest)]
+        match runsNext middle mrest honest1 moffFirst mrest honest1 with
           | Witness m2 (Both ran2 (Both m2rest (Both m2left m2off))) =>
             let tree := Effect.Always.tree (x => Unit) (p ()) (Effect.alwaysUnit (p ()))
             Witness m2
               (Both
                 (Parse.runFromThenBack2 p tree state j (x => (x, Parse.mark())) v middle _ ran ran2)
                 (Both m2rest
-                  (Both m2left (rewrite joined, List.lengthAppend first next then arithmetic [moff, m2off]))))
+                  (Both m2left
+                    (rewrite joined then
+                      arithmetic [
+                        moffFirst,
+                        m2off,
+                        List.lengthAppend next rest,
+                        List.lengthAppend first next,
+                        List.lengthAppend (first ++ next) rest
+                      ]))))
 
 --| `p` then `j` of its value, from one state: `p` reads `first` and gives `v`
 --| wherever it is run, and `j v` reads `next` from where `p` stopped (given the
@@ -663,7 +733,7 @@ theorem Parse.runsSpan ∀ (passes: t → Bool) (taken rest: List t)
       (state.advance rest taken.length).at
       (Both
         (rewrite Parse.runFromSpanThere state passes taken rest (found => (found, Parse.mark())) starts all stops)
-        (Both byComputing (Both (arithmetic [honest, lengths]) byComputing)))
+        (Both byComputing (Both (arithmetic [honest, lengths]) (arithmetic [List.lengthAppend taken rest]))))
 
 --| `satisfy` where the next item passes: it reads it.
 theorem Parse.runsSatisfy ∀ (what: Text) (passes: t → Bool) (char: t) (rest: List t)
@@ -675,7 +745,7 @@ theorem Parse.runsSatisfy ∀ (what: Text) (passes: t → Bool) (char: t) (rest:
       (state.advance rest 1).at
       (Both
         (rewrite Parse.runFromNextThere state passes char rest _ starts holds)
-        (Both byComputing (Both (arithmetic [honest, lengths]) byComputing)))
+        (Both byComputing (Both (arithmetic [honest, lengths]) (arithmetic [List.lengthAppend [char] rest]))))
 
 --| What `one` does with what `select` gave for the item it read: the value
 --| if there is one, else "expected `what`". Stated apart from `one` so that
@@ -735,10 +805,11 @@ theorem Parse.runsSpan1 ∀ (what: Text) (passes: t → Bool) (taken rest: List 
         (Parse.runsSpan passes [item, ..others] rest all stops)
         (Parse.runsPure [item, ..others] rest)
 
---| `optional p` where `p` succeeds: it reads what `p` read and gives `Some`.
-theorem Parse.runsOptional ∀ (p: () → {Parse t} a) (read rest: List t) (v: a)
-    (runsP: Parse.Runs p read rest v):
-    Parse.Runs (() => Parse.optional p) read rest (Some v) :=
+--| `optional p` where `p` runs: it stops where `p` does and gives `Some` of
+--| its value.
+theorem Parse.runsOnOptional ∀ (p: () → {Parse t} a) (input rest: List t) (v: a)
+    (runsP: Parse.RunsOn p input rest v):
+    Parse.RunsOn (() => Parse.optional p) input rest (Some v) :=
   state starts honest =>
     match runsP state starts honest with
       | Witness m (Both ran (Both mrest (Both mleft moff))) =>
@@ -752,6 +823,12 @@ theorem Parse.runsOptional ∀ (p: () → {Parse t} a) (read rest: List t) (v: a
               ran
               byComputing)
             (Both mrest (Both mleft moff)))
+
+--| `optional p` where `p` succeeds: it reads what `p` read and gives `Some`.
+theorem Parse.runsOptional ∀ (p: () → {Parse t} a) (read rest: List t) (v: a)
+    (runsP: Parse.Runs p read rest v):
+    Parse.Runs (() => Parse.optional p) read rest (Some v) :=
+  Parse.runsOnOptional p (read ++ rest) rest v runsP
 
 --| `p` fails on `input`, wherever it fails: `optional p` backs up to the start
 --| and gives `None`. The parsers here back up on any failure, not only one
@@ -852,6 +929,87 @@ theorem Parse.runsOneOfFirst ∀ (first: () → {Parse t} a) (others: List (() �
         (List.appendNil read).flipped
         (Parse.runsOptional first read rest v runsFirst)
         (Parse.runsPure v rest)
+
+--| Runs described by where they stop ([`Parse.RunsOn`]). The arguments that
+--| unification fixes are implicit, so a chain of these reads like the parser:
+--| `Parse.runsOnThen first next` with `first` and `next` themselves such
+--| lemmas. Each is the form of the `Runs` lemma of the same name without
+--| the split of the input into what is read and what is left.
+
+--| A value reads nothing: `value` is `x` and the input is what is left.
+theorem Parse.runsOnDone ∀ [x: a] [input rest: List t] [value: a]
+    (stays: input = rest)
+    (gives: x = value):
+    Parse.RunsOn (() => x) input rest value :=
+  rewrite stays then rewrite <- gives then Parse.runsPure x rest
+
+--| `p` run on `input` stops with `rest` left and gives `value`, whatever
+--| else is true of `rest` and `value`: stop at an equal `rest` with an equal
+--| value.
+theorem Parse.runsOnWeaken ∀ [p: () → {Parse t} a] [input rest rest2: List t] [v w: a]
+    (runs: Parse.RunsOn p input rest v)
+    (stops: rest = rest2)
+    (gives: v = w):
+    Parse.RunsOn p input rest2 w :=
+  rewrite <- stops then rewrite <- gives then runs
+
+--| `p`'s run gives whatever its value equals, stopping where it did.
+theorem Parse.runsOnSame ∀ [p: () → {Parse t} a] [input rest: List t] [v w: a]
+    (runs: Parse.RunsOn p input rest v)
+    (gives: v = w):
+    Parse.RunsOn p input rest w :=
+  rewrite <- gives then runs
+
+--| Sequencing: `p` runs on `input` and stops with `mid` left, giving `v`,
+--| then `j v` runs on `mid` and stops with `rest` left, giving `value`: the
+--| whole runs on `input` and stops with `rest`, giving `value`. A chain
+--| `input → mid → rest` that unification follows without subtracting
+--| lists ([`Parse.runsBind`] splits the input by hand instead). `p` and `j`
+--| are read off the goal, so `v` and `mid` come from the first premise.
+theorem Parse.runsOnThen ∀ [p: () → {Parse t} a] [j: a → {Parse t} b] [input mid rest: List t] [v: a] [value: b]
+    (first: Parse.RunsOn p input mid v)
+    (next: Parse.RunsOn (() => j v) mid rest value):
+    Parse.RunsOn (() => j (p())) input rest value :=
+  state starts honest =>
+    match first state starts honest with
+      | Witness m (Both ran (Both mrest (Both mleft moff))) =>
+        let middle: Parse.State t := { state | at = m }
+        let honest1: middle.at.left = middle.at.rest.length := rewrite mrest then mleft
+        match next middle mrest honest1 with
+          | Witness m2 (Both ran2 (Both m2rest (Both m2left m2off))) =>
+            let tree := Effect.Always.tree (x => Unit) (p ()) (Effect.alwaysUnit (p ()))
+            Witness m2
+              (Both
+                (Parse.runFromThenBack2 p tree state j (x => (x, Parse.mark())) v middle _ ran ran2)
+                (Both m2rest (Both m2left (arithmetic [moff, m2off]))))
+
+--| A pure function of a value, as a run: it stops where `p` did.
+theorem Parse.runsOnMap ∀ [p: () → {Parse t} a] (f: a → b) [input rest: List t] [v: a]
+    (runs: Parse.RunsOn p input rest v):
+    Parse.RunsOn (() => f (p())) input rest (f v) :=
+  Parse.runsOnThen runs (Parse.runsOnDone [x := f v] byComputing byComputing)
+
+--| `satisfy` on input that starts with an item that passes: it stops after it.
+theorem Parse.runsOnSatisfy ∀ (what: Text) (passes: t → Bool) (char: t) (rest: List t)
+    (holds: passes char = True):
+    Parse.RunsOn (() => Parse.satisfy what passes) [char, ..rest] rest char :=
+  Parse.runsSatisfy what passes char rest holds
+
+--| `one` on input that starts with an item `select` gives a value for: it
+--| stops after it and gives that value.
+theorem Parse.runsOnOne ∀ (what: Text) (select: t → Option a) (item: t) (value: a) (rest: List t)
+    (selected: select item = Some value):
+    Parse.RunsOn (() => Parse.one what select) [item, ..rest] rest value :=
+  Parse.runsOne what select item value rest selected
+
+--| `span passes` on input that is a run `taken` of items that all pass, then
+--| `rest`, which doesn't start with one that passes: it stops at `rest` and
+--| gives `taken`.
+theorem Parse.runsOnSpan ∀ (passes: t → Bool) (taken rest: List t)
+    (all: taken.all passes = True)
+    (stops: rest.takeWhile passes = []):
+    Parse.RunsOn (() => Parse.span passes) (taken ++ rest) rest taken :=
+  Parse.runsSpan passes taken rest all stops
 
 --| `oneOf [first, next, ..more]` where `first` declines on the input and
 --| `oneOf [next, ..more]` succeeds there: it gives that value. Not Parsec's
@@ -1339,7 +1497,7 @@ theorem Parse.runsLiteral ∀ (literal: Parse.Literal t)
       (state.advance rest literal.items.length).at
       (Both
         (rewrite Parse.runFromLiteralThere state literal rest (hit => (hit, Parse.mark())) reflexive starts)
-        (Both byComputing (Both (arithmetic [honest, lengths]) byComputing)))
+        (Both byComputing (Both (arithmetic [honest, lengths]) (arithmetic [List.lengthAppend literal.items rest]))))
 
 --| If `optionalFrom s0 q` backs up from `s`, so does `optionalFrom start q`,
 --| to `start`: `q` stops on its own, wherever the optional took its mark.
@@ -2515,7 +2673,7 @@ theorem Parse.runsAttempt ∀ (p: () → {Parse t} a) (read rest: List t) (v: a)
         let tree := Effect.Always.tree (x => Unit) (p ()) (Effect.alwaysUnit (p ()))
         let progressed: ((m.offset > state.at.offset): Bool) = ((0 < read.length): Bool) :=
           match c: ((0 < read.length): Bool) with
-            | True | False => arithmetic [moff, c]
+            | True | False => arithmetic [moff, c, List.lengthAppend read rest]
         Witness m
           (Both
             (rewrite <- progressed then
