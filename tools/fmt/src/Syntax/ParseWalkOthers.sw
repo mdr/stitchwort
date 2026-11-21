@@ -364,14 +364,7 @@ theorem givesConstructorBracket ∀ (more: Nat) (modes: Modes) (name: Word) (bra
 theorem givesConstructorParen ∀ (more: Nat) (modes: Modes) (name: Word) (bracketed braced: Bool)
     (found: List ConstructorPart) (atParen: Bool):
     Parse.Gives GoodItems (() => constructorParen more modes name bracketed braced found atParen) (parts => True) :=
-  match atParen with
-    | True =>
-      match braced with
-        | True => Parse.readsFatal
-        | False => Parse.givesThen (givesBinderGroup expressionAt modes givesExpressionAt True) (binder _ =>
-          givesConstructorParts more modes name True braced _)
-    | False => Parse.givesAfter0 (reads0ImplicitAhead modes) (implicit =>
-      givesConstructorBracket more modes name bracketed braced found implicit)
+  byWalking [givesBinderGroup, givesExpressionAt, givesConstructorParts, givesConstructorBracket]
 
 theorem givesConstructorBraced ∀ (more: Nat) (modes: Modes) (name: Word) (bracketed braced: Bool)
     (found: List ConstructorPart) (atBrace: Bool):
@@ -381,12 +374,7 @@ theorem givesConstructorBraced ∀ (more: Nat) (modes: Modes) (name: Word) (brac
 theorem givesConstructorParts ∀ (fuel: Nat) (modes: Modes) (name: Word)
     (bracketed braced: Bool) (found: List ConstructorPart):
     Parse.Gives GoodItems (() => constructorParts fuel modes name bracketed braced found) (parts => True) :=
-  match fuel with
-    | Zero => Parse.givesDone byComputing
-    | Succ more =>
-      Parse.givesAfter0
-        (Parse.reads0Then (reads0At modes LBrace) (atBrace => Parse.reads0Done (atBrace && !braced)))
-        (atBrace => givesConstructorBraced more modes name bracketed braced found atBrace)
+  byWalking [givesConstructorBraced]
 
 theorem givesConstructorResult ∀ (modes: Modes) (atColon: Bool):
     Parse.Gives GoodItems (() => constructorResult modes atColon) (found => True) :=

@@ -256,8 +256,7 @@ theorem givesPipeChain ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (in
     (outside: OutsideBraced self)
     (bases: AtomBases self):
     Parse.Gives GoodItems (() => pipeChain self modes indent value) (result => result = value ∨ Out result) :=
-  Parse.givesThen Parse.givesMark (here _ =>
-    givesPipesFrom self modes indent nested outside bases (here.left + 1) value)
+  byWalking [givesPipesFrom]
 
 theorem givesMembership ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (first: Option Tok) (element: Expr)
     (nested: Nested self)
