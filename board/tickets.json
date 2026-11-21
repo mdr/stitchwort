@@ -1,5 +1,5 @@
 {
-  "next": 4493,
+  "next": 4494,
   "tickets": [
     {
       "id": 47,
@@ -30722,11 +30722,24 @@
     {
       "id": 4492,
       "title": "[Opus, paper] Review of SW-4474 (cases x then t): kernel terms of the named split and its field splits, the x = C substitution in the new form, plain cases unchanged, errors, parser and lowering, docs; against D3709",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "\n\nProgress (Opus paper lane, 21 Nov 11:10-11:22, est. 30 min): review in docs/reviews/SW-4474-cases-named-review.md, branch lane/SW-4492 commit cb18b2141. No must-fix. Should fix: (1) t can't name the variable the named split split (goal has False, t's d is still d; cases then t with the same t proves it), docs silent; (2) cases a, right = ... in a record/tuple literal takes right as a target, bare parse error; (3) no reject example for a proposition other than ∨; (4) guide omits the limits. Soundness, termination, plain cases unchanged, parser (no existing program changes meaning): checked, fine. Moved to review.\n",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4493,
+      "title": "[Opus] Slice 6a takes in cases x then t (D3710, Matt, 21 Nov 2026: yes): the self-hosted formatter reads and prints cases x, y then t (and cases x) as the Rust formatter does: Cases with targets in Expr, parser, printer, within6a and Tok.within6a, the walk and slice proofs extended to match, following SW-4427 (byWalking); nothing accepted today refused, MustAccept1 and top theorems untouched. After SW-4474 merges.",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-21",
       "updated": "2026-11-21",
