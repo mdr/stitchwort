@@ -130,7 +130,8 @@ Definition blockResult (statements : list Statement) : P Item Expr :=
   end.
 
 (* sample: readsBlockResult *)
-Lemma readsBlockResult (statements : list Statement) (read : list Item) (got : BlockRead [] read statements) :
+Lemma readsBlockResult (statements : list Statement) (read : list Item)
+  (got : BlockRead [] read statements) :
   ReadsIn GoodItems (blockResult statements) (fun more tree => KeptFull (read ++ more) tree).
 Proof.
   intros start _ value after ran.
@@ -192,15 +193,18 @@ Axiom followsParenRest : forall self selfTwin, SelfFollows self selfTwin -> fora
 Lemma followsParenAtom self selfTwin (knot : SelfFollows self selfTwin) (modes : Modes)
   (namedArguments : forall closer closeText, Follows SameCode ExprsAlike
     (namedArgument self modes closer closeText) (namedArgument selfTwin modes closer closeText))
-  (operatorSections : Follows SameCode ExprsAlike (operatorSection self modes) (operatorSection selfTwin modes))
+  (operatorSections : Follows SameCode ExprsAlike (operatorSection self modes)
+    (operatorSection selfTwin modes))
   (rightSections : forall inside,
-    Follows SameCode ExprsAlike (rightSection self modes inside) (rightSection selfTwin modes inside)) :
+    Follows SameCode ExprsAlike (rightSection self modes inside)
+      (rightSection selfTwin modes inside)) :
   Follows SameCode ExprsAlike (parenAtom self modes) (parenAtom selfTwin modes).
 Proof.
   apply followsBind with (mid := eq); [apply followsPeekAt | intros second ? <-].
   apply followsBind with (mid := eq); [apply followsPeekAt | intros third ? <-].
   unfold parenOn. destruct (parenOutside second third); [now apply followsParenOther |].
-  apply followsBind with (mid := Forall2 SameCode); [apply followsLeft | now apply followsParenRest].
+  apply followsBind with (mid := Forall2 SameCode);
+    [apply followsLeft | now apply followsParenRest].
 Qed.
 
 End TwoRun1.
@@ -320,16 +324,19 @@ Axiom runsBlockLinesOneLine : forall more self modes column many found (state : 
   RunsFrom state (blockLines (S more) self modes column many found) read rst (first :: found).
 
 (* sample: runsBlockOneLine *)
-Lemma runsBlockOneLine self modes column many (state : Mark Item) (read rst : list Item) (value : Expr)
+Lemma runsBlockOneLine self modes column many (state : Mark Item) (read rst : list Item)
+  (value : Expr)
   (line : forall kind (middle : Mark Item), offset middle = offset state ->
     RunsFrom middle
-      (statement self (lineModes (blockModes modes column many) column many (nextIndex (read ++ rst)) kind))
+      (statement self (lineModes (blockModes modes column many) column many
+        (nextIndex (read ++ rst)) kind))
       read rst (ExprStatement value))
   (ends : continuesAt column rst = false) :
   RunsFrom state (block self modes column many) read rst value.
 Proof.
   intros shape.
-  destruct (runsBlockLinesOneLine (List.length (rest state)) self _ column many [] state read rst _ line ends shape)
+  destruct (runsBlockLinesOneLine (List.length (rest state)) self _ column many [] state
+    read rst _ line ends shape)
     as (after & ran & R & O).
   exists after. unfold block, bind, mark. now rewrite ran.
 Qed.
@@ -606,9 +613,10 @@ Axiom signOr : forall k, signKind k = true -> (Tok_beq k Minus || Tok_beq k Bang
 Axiom belowLess : forall small big, small <= big -> FullHungBelow big -> FullHungBelow small.
 
 (* sample: unaryHung *)
-Fixpoint unaryHung (modes : Modes) (quiet : Quiet modes) (expr : Expr) (read rst : list Item) (depth : nat)
-  (state : HangState) (inner : FullHungBelow depth) (deep : nest expr <= depth) (spelt : Spelt expr read)
-  (free : autoPlaced expr false = true) (facts : HungAt modes state read rst) (ends : UnaryEnds modes rst)
+Fixpoint unaryHung (modes : Modes) (quiet : Quiet modes) (expr : Expr) (read rst : list Item)
+  (depth : nat) (state : HangState) (inner : FullHungBelow depth) (deep : nest expr <= depth)
+  (spelt : Spelt expr read) (free : autoPlaced expr false = true)
+  (facts : HungAt modes state read rst) (ends : UnaryEnds modes rst)
   (isUnary : unary expr = true) {struct depth} :
   UnaryReads (TreeN depth) modes read rst expr.
 Proof.
@@ -623,7 +631,8 @@ Proof.
     - apply noBarLine, lineJoin; [exact L | apply (lineRest _ _ _ _ facts)].
     - now left.
     - exact (appAnyHung _ quiet _ _ _ _ _ inner deep spelt free facts ends isSigned isUnary). }
-  destruct expr as [| head [| argument arguments] | | operator operand]; try discriminate; simpl in spelt.
+  destruct expr as [| head [| argument arguments] | | operator operand];
+    try discriminate; simpl in spelt.
   - contradiction.
   - pose proof (appHung _ quiet _ _ _ _ _ _ _ inner deep spelt free facts ends) as call.
     destruct spelt as (headRead & argRead & steps & -> & fits & _ & headSpelt & _).
@@ -661,7 +670,8 @@ Proof.
       * right. split; [now rewrite isMinus | exact negative].
       * left. split; [| split; [| exact (noArgument _ _ ends)]].
         -- simpl. now rewrite (peekFirst _ _ _ openSign), isMinus.
-        -- exists sign, [number]. split; [reflexivity | split; [exact openSign | split; [apply (atom _ _ ends) |]]].
+        -- exists sign, [number]. split; [reflexivity |
+           split; [exact openSign | split; [apply (atom _ _ ends) |]]].
            do 5 right. left. exists number. rewrite <- isWord, <- isKind, <- isNumberWord.
            repeat split; [exact isMinus | exact negative].
     + left. exists sign, (first :: others), operand. repeat split; auto using signOr.
