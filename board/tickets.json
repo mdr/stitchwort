@@ -1,5 +1,5 @@
 {
-  "next": 4494,
+  "next": 4495,
   "tickets": [
     {
       "id": 47,
@@ -30722,7 +30722,7 @@
     {
       "id": 4492,
       "title": "[Opus, paper] Review of SW-4474 (cases x then t): kernel terms of the named split and its field splits, the x = C substitution in the new form, plain cases unchanged, errors, parser and lowering, docs; against D3709",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -30740,6 +30740,19 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4494,
+      "title": "[Opus] Plain cases uses the x = C substitution too (SW-4474/SW-4492): a hypothesis that a variable is a constructor (kind = Minus) substitutes in plain cases, so signSymbolicT stops splitting 60 kinds per arm; it changes the proof terms of 6 example files and 4 std lemmas (hashes move: re-record with the full filter) and standsOwesNothing's generated matches (3 -> 8); needs whole-std and AoC timing by Overmind before merge",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-21",
       "updated": "2026-11-21",
