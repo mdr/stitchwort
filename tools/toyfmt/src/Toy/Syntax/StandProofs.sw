@@ -134,10 +134,9 @@ theorem operatorStops ∀ (rest: List Char) (stops: StopsAt isOperatorChar rest)
           let head: char = '-' := Eq.cong (chars => chars.headOr ' ') same
           let minus: isOperatorChar '-' = False := rewrite <- head then fails
           Bool.falseNotTrue minus.flipped)
-        (other tail same holds =>
+        (other tail same =>
           let head: char = other := Eq.cong (chars => chars.headOr ' ') same
-          let passes: isOperatorChar char = True := rewrite head then holds
-          Bool.falseNotTrue (Eq.trans fails.flipped passes))
+          rewrite <- head then fails)
 
 --| The last character of an operator run before text that starts with no
 --| operator character: the run goes on to it (no comment starts there).
