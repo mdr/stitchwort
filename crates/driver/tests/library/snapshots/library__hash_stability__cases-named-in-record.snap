@@ -1,0 +1,16 @@
+---
+source: crates/driver/tests/library/hash_stability.rs
+assertion_line: 354
+expression: "lines(session, d, f)"
+---
+data Main.Both 6ca027a4bffa3aad2f9400a2517a50dc72274134999f5200ee352e5e86a870aa
+Main.Both.left db580a5f75f2e61662aeae16f38ec8184fefa3211b729df9aff629a292645793
+Main.Both.right f5440f057515665c754b406637cb251b2495934afe1f1ca35ed25f6482d9e7dd
+Main.Both.%show 401dfa08bf766b0fb5e94517d3078627803e17ae2f983285f9a5916ec660aedc
+Main.Both.%instShow 8b8aca8141b046eddb01ae55ae18eee1c7e1444c235d3fca036cc06c3aa1a5d6
+Main.both 5fe10ffb5197de473ebf9e7ce28c310e62be142626dab27e8bce9d08b9d0ef5c
+Main.both.%match1 c08b6700ffa0757a736e6afb68caab6a2d070c04cf1a6bb0d97fc468cf53087e
+Main.both.%match2 2866000022210f7ea298ae1066345eed7e9f0485ad2b29153b66a8900c9c81cf
+Main.pair 6b8fda5fde6404628b61400bcc67c1cd22f7d4ee72b6205fedc5f4991beb068e
+Main.pair.%match1 c08b6700ffa0757a736e6afb68caab6a2d070c04cf1a6bb0d97fc468cf53087e
+Main.pair.%match2 2866000022210f7ea298ae1066345eed7e9f0485ad2b29153b66a8900c9c81cf
