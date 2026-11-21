@@ -1,0 +1,542 @@
+[
+ {
+  "stratum": "walk",
+  "role": "main",
+  "n": 1,
+  "name": "readsAtAtValue",
+  "file": "Syntax/ParseCarriesDecl.sw",
+  "line": 43,
+  "stmt": 3,
+  "proof": 4
+ },
+ {
+  "stratum": "walk",
+  "role": "main",
+  "n": 2,
+  "name": "readsBlockResult",
+  "file": "Syntax/ParseCarriesLadder.sw",
+  "line": 1098,
+  "stmt": 3,
+  "proof": 13
+ },
+ {
+  "stratum": "walk",
+  "role": "reserve",
+  "n": 3,
+  "name": "readsTupleRest",
+  "file": "Syntax/ParseKept.sw",
+  "line": 693,
+  "stmt": 10,
+  "proof": 32
+ },
+ {
+  "stratum": "walk",
+  "role": "reserve",
+  "n": 4,
+  "name": "readsPrefixAtom",
+  "file": "Syntax/ParseWalk.sw",
+  "line": 714,
+  "stmt": 8,
+  "proof": 29
+ },
+ {
+  "stratum": "walk",
+  "role": "reserve",
+  "n": 5,
+  "name": "givesLambdaParam",
+  "file": "Syntax/ParseWalkBinders.sw",
+  "line": 262,
+  "stmt": 4,
+  "proof": 10
+ },
+ {
+  "stratum": "two-run",
+  "role": "main",
+  "n": 1,
+  "name": "followsParenAtom",
+  "file": "Syntax/FollowsBase.sw",
+  "line": 633,
+  "stmt": 10,
+  "proof": 1
+ },
+ {
+  "stratum": "two-run",
+  "role": "main",
+  "n": 2,
+  "name": "followsListPatternStep",
+  "file": "Syntax/FollowsFormsPatterns.sw",
+  "line": 803,
+  "stmt": 9,
+  "proof": 8
+ },
+ {
+  "stratum": "two-run",
+  "role": "reserve",
+  "n": 3,
+  "name": "followsUnfoldingClauseOf",
+  "file": "Syntax/FollowsDeclBinders.sw",
+  "line": 516,
+  "stmt": 5,
+  "proof": 10
+ },
+ {
+  "stratum": "two-run",
+  "role": "reserve",
+  "n": 4,
+  "name": "followsAlternativeLinksOn",
+  "file": "Syntax/FollowsFormsPatterns.sw",
+  "line": 301,
+  "stmt": 14,
+  "proof": 14
+ },
+ {
+  "stratum": "two-run",
+  "role": "reserve",
+  "n": 5,
+  "name": "followsExprWalk",
+  "file": "Syntax/FollowsFormsBlocks.sw",
+  "line": 225,
+  "stmt": 4,
+  "proof": 3
+ },
+ {
+  "stratum": "readback",
+  "role": "main",
+  "n": 1,
+  "name": "runsBlockOneLine",
+  "file": "Syntax/ReadBackProofs.sw",
+  "line": 120,
+  "stmt": 10,
+  "proof": 23
+ },
+ {
+  "stratum": "readback",
+  "role": "main",
+  "n": 2,
+  "name": "openWithin",
+  "file": "Syntax/ReadBackHungFrameLemmas.sw",
+  "line": 193,
+  "stmt": 4,
+  "proof": 1
+ },
+ {
+  "stratum": "readback",
+  "role": "main",
+  "n": 3,
+  "name": "unaryHung",
+  "file": "Syntax/ReadBackHungApp.sw",
+  "line": 499,
+  "stmt": 11,
+  "proof": 145
+ },
+ {
+  "stratum": "readback",
+  "role": "main",
+  "n": 4,
+  "name": "runsWalkHere",
+  "file": "Syntax/ReadBackRuns.sw",
+  "line": 1882,
+  "stmt": 3,
+  "proof": 9
+ },
+ {
+  "stratum": "readback",
+  "role": "reserve",
+  "n": 5,
+  "name": "runsItems",
+  "file": "Syntax/LexProofs.sw",
+  "line": 242,
+  "stmt": 8,
+  "proof": 12
+ },
+ {
+  "stratum": "readback",
+  "role": "reserve",
+  "n": 6,
+  "name": "runsTupleClose",
+  "file": "Syntax/ReadBackRuns.sw",
+  "line": 540,
+  "stmt": 4,
+  "proof": 10
+ },
+ {
+  "stratum": "readback",
+  "role": "reserve",
+  "n": 7,
+  "name": "listStepsHung",
+  "file": "Syntax/ReadBackHungAtoms.sw",
+  "line": 555,
+  "stmt": 15,
+  "proof": 73
+ },
+ {
+  "stratum": "tree",
+  "role": "main",
+  "n": 1,
+  "name": "argumentMinusDeaf",
+  "file": "Syntax/DeafProofs.sw",
+  "line": 201,
+  "stmt": 1,
+  "proof": 3
+ },
+ {
+  "stratum": "tree",
+  "role": "main",
+  "n": 2,
+  "name": "walkAttributesAlike",
+  "file": "Syntax/FollowsDecl.sw",
+  "line": 187,
+  "stmt": 3,
+  "proof": 8
+ },
+ {
+  "stratum": "tree",
+  "role": "reserve",
+  "n": 3,
+  "name": "alikeFunctionType",
+  "file": "Syntax/FollowsDeclHeaders.sw",
+  "line": 427,
+  "stmt": 5,
+  "proof": 5
+ },
+ {
+  "stratum": "tree",
+  "role": "reserve",
+  "n": 4,
+  "name": "implicitBinderAheadDeaf",
+  "file": "Syntax/DeafProofs.sw",
+  "line": 178,
+  "stmt": 2,
+  "proof": 9
+ },
+ {
+  "stratum": "tree",
+  "role": "reserve",
+  "n": 5,
+  "name": "alikeData",
+  "file": "Syntax/FollowsDeclArms.sw",
+  "line": 809,
+  "stmt": 10,
+  "proof": 24
+ },
+ {
+  "stratum": "lexer",
+  "role": "main",
+  "n": 1,
+  "name": "itemsShapesOfKinds1",
+  "file": "Fmt/SourcePlainProofs.sw",
+  "line": 160,
+  "stmt": 5,
+  "proof": 6
+ },
+ {
+  "stratum": "lexer",
+  "role": "main",
+  "n": 2,
+  "name": "headerResult1",
+  "file": "Fmt/SourcePlainProofs.sw",
+  "line": 353,
+  "stmt": 1,
+  "proof": 36
+ },
+ {
+  "stratum": "lexer",
+  "role": "main",
+  "n": 3,
+  "name": "plainOfShapes",
+  "file": "Fmt/SourcePlainProofs.sw",
+  "line": 508,
+  "stmt": 3,
+  "proof": 9
+ },
+ {
+  "stratum": "lexer",
+  "role": "reserve",
+  "n": 4,
+  "name": "wordyOperator",
+  "file": "Syntax/LexReadsProofs.sw",
+  "line": 259,
+  "stmt": 3,
+  "proof": 3
+ },
+ {
+  "stratum": "lexer",
+  "role": "reserve",
+  "n": 5,
+  "name": "parsedSourcePlain1",
+  "file": "Fmt/SourcePlainProofs.sw",
+  "line": 750,
+  "stmt": 6,
+  "proof": 10
+ },
+ {
+  "stratum": "lexer",
+  "role": "reserve",
+  "n": 6,
+  "name": "utf8OfAsciiRun",
+  "file": "Syntax/LexProofs.sw",
+  "line": 323,
+  "stmt": 3,
+  "proof": 6
+ },
+ {
+  "stratum": "settle",
+  "role": "main",
+  "n": 1,
+  "name": "endsQuietJoin",
+  "file": "Fmt/SettleOutputProofs.sw",
+  "line": 912,
+  "stmt": 1,
+  "proof": 6
+ },
+ {
+  "stratum": "settle",
+  "role": "main",
+  "n": 2,
+  "name": "settledHomed",
+  "file": "Syntax/SettleProofs.sw",
+  "line": 1695,
+  "stmt": 5,
+  "proof": 45
+ },
+ {
+  "stratum": "settle",
+  "role": "main",
+  "n": 3,
+  "name": "homeStands",
+  "file": "Fmt/SettleOutputProofs.sw",
+  "line": 323,
+  "stmt": 9,
+  "proof": 258
+ },
+ {
+  "stratum": "settle",
+  "role": "reserve",
+  "n": 4,
+  "name": "arrowsFromTokens",
+  "file": "Syntax/SettleProofs.sw",
+  "line": 117,
+  "stmt": 2,
+  "proof": 25
+ },
+ {
+  "stratum": "settle",
+  "role": "reserve",
+  "n": 5,
+  "name": "lastArgumentFinishes",
+  "file": "Fmt/FinishProofs.sw",
+  "line": 203,
+  "stmt": 4,
+  "proof": 32
+ },
+ {
+  "stratum": "settle",
+  "role": "reserve",
+  "n": 6,
+  "name": "homeStands",
+  "file": "Fmt/SettleOutputProofs.sw",
+  "line": 323,
+  "stmt": 9,
+  "proof": 258
+ },
+ {
+  "stratum": "printer",
+  "role": "main",
+  "n": 1,
+  "name": "closerFitsOf",
+  "file": "Fmt/BracketHangProofs.sw",
+  "line": 560,
+  "stmt": 7,
+  "proof": 9
+ },
+ {
+  "stratum": "printer",
+  "role": "main",
+  "n": 2,
+  "name": "heldItemSeat",
+  "file": "Fmt/BracketHangProofs.sw",
+  "line": 157,
+  "stmt": 5,
+  "proof": 6
+ },
+ {
+  "stratum": "printer",
+  "role": "main",
+  "n": 3,
+  "name": "stepsIfBroken",
+  "file": "Fmt/TouchSteps.sw",
+  "line": 335,
+  "stmt": 4,
+  "proof": 1
+ },
+ {
+  "stratum": "printer",
+  "role": "main",
+  "n": 4,
+  "name": "parenInnerKept",
+  "file": "Fmt/CalmProofs.sw",
+  "line": 526,
+  "stmt": 4,
+  "proof": 3
+ },
+ {
+  "stratum": "printer",
+  "role": "main",
+  "n": 5,
+  "name": "exprBlanks",
+  "file": "Fmt/TraverseFail.sw",
+  "line": 41,
+  "stmt": 3,
+  "proof": 92
+ },
+ {
+  "stratum": "printer",
+  "role": "main",
+  "n": 6,
+  "name": "refinesAppend",
+  "file": "Fmt/ToldDeclProofs.sw",
+  "line": 34,
+  "stmt": 4,
+  "proof": 5
+ },
+ {
+  "stratum": "printer",
+  "role": "main",
+  "n": 7,
+  "name": "notedCloserHangs",
+  "file": "Fmt/HangProofs.sw",
+  "line": 2061,
+  "stmt": 13,
+  "proof": 19
+ },
+ {
+  "stratum": "printer",
+  "role": "main",
+  "n": 8,
+  "name": "anyHangsOf",
+  "file": "Fmt/ElementsProofs.sw",
+  "line": 72,
+  "stmt": 4,
+  "proof": 2
+ },
+ {
+  "stratum": "printer",
+  "role": "main",
+  "n": 9,
+  "name": "blankItemHangs",
+  "file": "Fmt/ElementsBlank.sw",
+  "line": 212,
+  "stmt": 16,
+  "proof": 97
+ },
+ {
+  "stratum": "printer",
+  "role": "main",
+  "n": 10,
+  "name": "placedSteps",
+  "file": "Fmt/TouchProofs.sw",
+  "line": 483,
+  "stmt": 4,
+  "proof": 3
+ },
+ {
+  "stratum": "printer",
+  "role": "main",
+  "n": 11,
+  "name": "statementsWalk",
+  "file": "Fmt/BlankProofs.sw",
+  "line": 125,
+  "stmt": 3,
+  "proof": 5
+ },
+ {
+  "stratum": "printer",
+  "role": "reserve",
+  "n": 12,
+  "name": "appFromSpells",
+  "file": "Fmt/SpellProofs.sw",
+  "line": 935,
+  "stmt": 7,
+  "proof": 75
+ },
+ {
+  "stratum": "printer",
+  "role": "reserve",
+  "n": 13,
+  "name": "blankLeafHangs",
+  "file": "Fmt/ElementsBlank.sw",
+  "line": 56,
+  "stmt": 20,
+  "proof": 27
+ },
+ {
+  "stratum": "printer",
+  "role": "reserve",
+  "n": 14,
+  "name": "textPasses",
+  "file": "Fmt/JoinProofs.sw",
+  "line": 436,
+  "stmt": 3,
+  "proof": 9
+ },
+ {
+  "stratum": "top",
+  "role": "main",
+  "n": 1,
+  "name": "wordsCalmKeep",
+  "file": "Fmt/CommentsKeptProof.sw",
+  "line": 276,
+  "stmt": 4,
+  "proof": 61
+ },
+ {
+  "stratum": "top",
+  "role": "main",
+  "n": 2,
+  "name": "firstThreeKeepMeaning",
+  "file": "Fmt/MeaningProofs.sw",
+  "line": 436,
+  "stmt": 2,
+  "proof": 1
+ },
+ {
+  "stratum": "top",
+  "role": "main",
+  "n": 3,
+  "name": "witnessUnreturned:",
+  "file": "Fmt/TopStatements.sw",
+  "line": 586,
+  "stmt": 2,
+  "proof": 7
+ },
+ {
+  "stratum": "top",
+  "role": "reserve",
+  "n": 4,
+  "name": "declsAll",
+  "file": "Fmt/TopStatements.sw",
+  "line": 265,
+  "stmt": 13,
+  "proof": 17
+ },
+ {
+  "stratum": "top",
+  "role": "reserve",
+  "n": 5,
+  "name": "leavesWords",
+  "file": "Fmt/CommentsKeptProof.sw",
+  "line": 131,
+  "stmt": 4,
+  "proof": 35
+ },
+ {
+  "stratum": "top",
+  "role": "reserve",
+  "n": 6,
+  "name": "sourceComments",
+  "file": "Fmt/CommentsKeptProof.sw",
+  "line": 488,
+  "stmt": 7,
+  "proof": 41
+ }
+]
