@@ -31454,15 +31454,18 @@
     {
       "id": 4548,
       "title": "[Fable] Slice 1 readability against Lean and Rocq: on SW-4537's 30 ported theorems (all compiled), judge how each reads in the three systems to a newcomer who knows the problem but not the code (can you see what is proved and why; names, statement shape, proof idea visible, lemma interfaces, noise) with a stated rubric, scored blind where possible; then read tools/fmt's top theorems and three random proof files as such a reader would, and say what most stands between slice 1 and clean, ranked, each with evidence and the cheapest fix with today's features; nothing that narrows a slice or touches a top theorem",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Progress (lane, 21 Nov 20:47): done in about 7 min. docs/reviews/SW-4548-slice1-readability.md on lane/SW-4548 (scores in docs/reviews/SW-4548/scores.csv). Level overall against the ports (S+N+T 10.2 / 10.4 / 10.3 of 15): our proofs noisier (3.1 against 4.1), easier to follow (3.9 against 3.0); names 2.7 and descriptions 2.6 are the low scores and the ports inherit them. Top three: glossary and proof map; proof ideas for the longest 200 unexplained proofs; the stock take's interface and = True passes. Found: Fmt/OutputStatements.sw's header says its goals are open, and none is.\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
-      "commits": []
+      "commits": [
+        "31cb50b95",
+        "25c2dafde"
+      ]
     }
   ]
 }
