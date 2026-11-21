@@ -1,0 +1,16 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `partly`
+   ╭─[ goals/facts-then-goal.sw:4:73 ]
+   │
+ 4 │ theorem partly ∀ (a b c: Prop) (x: a) (f: a → b): b ∧ c := byFacts then ?
+   │                                                                         ┬  
+   │                                                                         ╰── a: Prop
+   │                                                                             b: Prop
+   │                                                                             c: Prop
+   │                                                                             x: a
+   │                                                                             f: a → b
+   │                                                                             ⊢ c
+───╯

@@ -86,6 +86,7 @@ impl<'f> Lower<'f> {
             Omega | Ring => self.with_facts(node),
             Cases => self.cases(node),
             Walk => self.walk(node),
+            Facts => self.facts(node),
             // Tokens the parser skipped past a syntax error it recovered
             // from: not looked inside.
             Error if !node.root().recoveries().is_empty() => skipped(node),

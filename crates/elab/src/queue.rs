@@ -1002,6 +1002,7 @@ impl Check for WaitingTactic {
     fn display(&self, _cx: &Ctx) -> Option<String> {
         Some(match &self.expr {
             Expr::Cases { .. } => "(cases …)".into(),
+            Expr::Facts(..) => "(byFacts …)".into(),
             Expr::Omega { .. } => "(arithmetic …)".into(),
             Expr::Ring { .. } => "(algebra …)".into(),
             _ => "(rewrite …)".into(),

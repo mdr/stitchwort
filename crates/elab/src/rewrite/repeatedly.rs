@@ -1980,6 +1980,7 @@ fn stated(body: &Expr) -> bool {
         | Expr::Omega { .. }
         | Expr::Ring { .. }
         | Expr::Cases { .. }
+        | Expr::Facts(..)
         | Expr::LocalDefs { .. }
         | Expr::Rewrite {
             repeatedly: Some(_),

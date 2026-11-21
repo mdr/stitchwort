@@ -298,6 +298,11 @@ pub enum Expr {
     /// call and splitting where the code does. Boxed: rare, and it keeps
     /// `Expr` small.
     Walk(Box<Walk>),
+    /// `byFacts [items] then t` (docs/syntax.md, "byFacts";
+    /// docs/proposals/closer.md, stage 1): a proof of a proposition from
+    /// the facts in scope, taken apart, and the terms listed, by a bounded
+    /// search. Boxed, as a walk is.
+    Facts(Box<Facts>),
     /// `algebra`, or `algebra [h1, h2]` with hypotheses (docs/syntax.md, algebra): a
     /// proof of an equation between polynomials over `Nat` or `Int`, checked
     /// by the kernel normalising both sides
@@ -326,6 +331,19 @@ pub struct Walk {
     /// Never written: set by the elaborator on the rest of a walk it
     /// builds, the number of the place in the walk it goes on from.
     pub resume: Option<u32>,
+}
+
+/// `byFacts [items] then t`.
+#[derive(Clone, Debug)]
+pub struct Facts {
+    /// The terms the brackets list, as written; empty without brackets.
+    pub items: Vec<Expr>,
+    /// `t`, tried on each part of the goal the search leaves open.
+    pub body: Option<Expr>,
+    /// The word `byFacts`'s span.
+    pub keyword: Span,
+    /// From the word to the `]` (or the word itself), or to the end of `t`.
+    pub span: Span,
 }
 
 /// One rule of a `rewrite`: a proof of an equation, used left to right or,
@@ -572,6 +590,7 @@ impl Expr {
             | Expr::Ring { span, .. }
             | Expr::Match { span, .. } => *span,
             Expr::Walk(walk) => walk.span,
+            Expr::Facts(facts) => facts.span,
             // Down a chain of fields in a loop: `e.span()` here would reach
             // this arm for `e` too, twice per level (the start and the end),
             // so `x.f.g.h …` would take time exponential in its length.
@@ -658,6 +677,9 @@ fn has_nested(expr: &Expr) -> bool {
         Expr::Omega { facts, .. } | Expr::Ring { facts, .. } => facts.iter().any(nested),
         Expr::Cases { body, .. } => body.as_deref().is_some_and(nested),
         Expr::Walk(walk) => walk.items.iter().any(nested) || walk.body.as_ref().is_some_and(nested),
+        Expr::Facts(facts) => {
+            facts.items.iter().any(nested) || facts.body.as_ref().is_some_and(nested)
+        }
         Expr::Induct { call, alts, .. } => nested(call) || alts.iter().any(|a| nested(&a.body)),
         Expr::Match {
             scrutinees, alts, ..
@@ -792,6 +814,14 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
                 pending.push(std::mem::replace(item, Expr::Prop(Span::NOWHERE)));
             }
             if let Some(body) = &mut walk.body {
+                pending.push(std::mem::replace(body, Expr::Prop(Span::NOWHERE)));
+            }
+        }
+        Expr::Facts(facts) => {
+            for item in &mut facts.items {
+                pending.push(std::mem::replace(item, Expr::Prop(Span::NOWHERE)));
+            }
+            if let Some(body) = &mut facts.body {
                 pending.push(std::mem::replace(body, Expr::Prop(Span::NOWHERE)));
             }
         }

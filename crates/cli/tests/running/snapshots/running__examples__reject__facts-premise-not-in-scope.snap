@@ -1,0 +1,18 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-FACTS] Error: `byFacts` left a part of the goal open
+   ╭─[ reject/facts-premise-not-in-scope.sw:7:75 ]
+   │
+ 7 │ theorem noMiddle ∀ (g: Nat → Prop) (x z: Nat) (hz: g z): x * x < z * z := byFacts [lessTrans]
+   │                                                                           ───┬───  
+   │                                                                              ╰───── not proved from the facts in scope
+   │ 
+   │ Note 1: left open: `x * x < z * z`
+   │         nearest, by the head of their conclusions:
+   │           lessTrans (listed): ∀ (a b c: Nat) => a < b → b < c → a < c
+   │             its premise `x * x < _` wasn't proved
+   │ 
+   │ Note 2: `byFacts then ?` shows each part left open as a goal; `byFacts [lemma]` adds a lemma to apply
+───╯

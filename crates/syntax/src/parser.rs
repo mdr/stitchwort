@@ -3480,6 +3480,27 @@ impl<'t> Parser<'t> {
         Ok(())
     }
 
+    /// `byFacts [items] then t`, at the word (docs/syntax.md, "byFacts"):
+    /// as a walk, but the list is optional. Reserved, as `byWalking` is.
+    #[inline(never)]
+    fn facts_expr(&mut self, start: u32) -> Result<()> {
+        let column = self.tokens[self.pos].column;
+        self.bump();
+        if self.peek() == Some(&Tok::LBracket) {
+            self.fact_list()?;
+        }
+        let own_line = self
+            .tokens
+            .get(self.pos)
+            .is_some_and(|t| t.tok == Tok::KwThen && t.line_start && t.column >= column);
+        if self.peek() == Some(&Tok::KwThen) || own_line {
+            self.bump();
+            self.then_body()?;
+        }
+        self.node(start, NodeKind::Facts);
+        Ok(())
+    }
+
     /// `(x : A) -> B` or `[x : A] -> B`. Out of line, as `if_expr` is.
     #[inline(never)]
     fn pi_expr(&mut self, start: u32, implicit: bool) -> Result<()> {
@@ -3529,6 +3550,9 @@ impl<'t> Parser<'t> {
         }
         if self.peek() == Some(&Tok::KwByWalking) {
             return self.walk_expr(start);
+        }
+        if self.peek() == Some(&Tok::KwByFacts) {
+            return self.facts_expr(start);
         }
         if self.lambda_ahead()? {
             return self.lambda(start, NodeKind::Lambda);
@@ -5150,6 +5174,7 @@ fn describe(tok: &Tok) -> String {
         Tok::KwInclude => "`include`".into(),
         Tok::KwNamespace => "`namespace`".into(),
         Tok::KwByWalking => "`byWalking`".into(),
+        Tok::KwByFacts => "`byFacts`".into(),
         Tok::KwCalc => "`calc`".into(),
         Tok::KwRewrite => "`rewrite`".into(),
         Tok::KwArithmetic => "`arithmetic`".into(),

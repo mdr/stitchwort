@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected a name, but found the keyword `byFacts`
+   ╭─[ reject/facts-keyword-name.sw:3:5 ]
+   │
+ 3 │ def byFacts: Nat := 1
+   │     ───┬───  
+   │        ╰───── expected a name, but found the keyword `byFacts`
+   │ 
+   │ Note: `byFacts` is a keyword, so it can't be used as a name
+───╯

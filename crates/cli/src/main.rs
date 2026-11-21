@@ -422,10 +422,16 @@ enum Command {
         /// stopped. Checks without the check cache
         #[arg(long, conflicts_with_all = ["index", "counterexamples"])]
         expand_walk: bool,
-        /// With --expand-walk: print each file's expanded text on standard
-        /// output instead of writing it back, leaving the file unchanged.
-        /// The trace lines then go to standard error, so standard output is
-        /// just the file text
+        /// Replace each `byFacts` in the files checked by the term it found
+        /// (`imp h.left`), writing the files back. A `byFacts` that left a
+        /// part to `then t`, or used an equation's field, is left as it is.
+        /// Checks without the check cache
+        #[arg(long, conflicts_with_all = ["index", "counterexamples", "expand_walk", "expand_repeatedly"])]
+        expand_facts: bool,
+        /// With --expand-walk or --expand-facts: print each file's expanded
+        /// text on standard output instead of writing it back, leaving the
+        /// file unchanged. A walk's trace lines then go to standard error,
+        /// so standard output is just the file text
         #[arg(long)]
         stdout: bool,
         #[command(flatten)]
@@ -441,7 +447,7 @@ enum Command {
         /// until a check without this option. The output says how many were
         /// carried over (docs/proposals/check-cache-across-updates.md). Also
         /// on with STITCHWORT_CARRY_OVER=1 when standard error is a terminal
-        #[arg(long, conflicts_with_all = ["std", "expand_repeatedly", "expand_walk", "no_cache"])]
+        #[arg(long, conflicts_with_all = ["std", "expand_repeatedly", "expand_walk", "expand_facts", "no_cache"])]
         carry_over: bool,
         /// Check every check-cache entry used again with the kernel, rather
         /// than trusting it: its terms go through the kernel's checks, and
@@ -450,7 +456,7 @@ enum Command {
         /// says how many were checked again, and how many refused. With
         /// --carry-over, the entries carried over are checked too (those
         /// from a build with another kernel side always are)
-        #[arg(long, conflicts_with_all = ["std", "expand_repeatedly", "expand_walk", "no_cache"])]
+        #[arg(long, conflicts_with_all = ["std", "expand_repeatedly", "expand_walk", "expand_facts", "no_cache"])]
         recheck: bool,
         /// After the check, print stderr tables of where the time went: each
         /// namespace (a cached one is marked, not timed), then each
@@ -1219,6 +1225,7 @@ fn run(cli: Cli) -> ExitCode {
             only,
             expand_repeatedly,
             expand_walk,
+            expand_facts,
             stdout,
             counterexamples,
             cache,
@@ -1230,7 +1237,7 @@ fn run(cli: Cli) -> ExitCode {
             project.as_deref(),
             index.as_deref(),
             &only,
-            (expand_repeatedly, expand_walk, stdout),
+            (expand_repeatedly, expand_walk, expand_facts, stdout),
             &counterexamples,
             &cache,
             (carry_over || carry_over_from_environment(), recheck),
@@ -2258,13 +2265,13 @@ fn check(
     project: Option<&Path>,
     index: Option<&str>,
     only: &[String],
-    (expand, expand_walk, to_stdout): (bool, bool, bool),
+    (expand, expand_walk, expand_facts, to_stdout): (bool, bool, bool, bool),
     counterexamples: &CounterexampleArgs,
     cache: &CacheArgs,
     (carry_over, recheck): (bool, bool),
 ) -> ExitCode {
-    if to_stdout && !expand_walk {
-        eprintln!("error: --stdout is only for --expand-walk");
+    if to_stdout && !expand_walk && !expand_facts {
+        eprintln!("error: --stdout is only for --expand-walk and --expand-facts");
         return ExitCode::FAILURE;
     }
     let files = targets.iter().filter(|t| is_file_target(t)).count();
@@ -2288,7 +2295,7 @@ fn check(
             let mut session = new_session(index.is_some());
             if expand {
                 session.elab.record_expansions();
-            } else if !expand_walk {
+            } else if !expand_walk && !expand_facts {
                 use_cache(&mut session, cache, Path::new("."));
                 session.elab.set_carry_over(carry_over);
                 session.elab.set_recheck(recheck);
@@ -2323,6 +2330,9 @@ fn check(
             if expand_walk {
                 ok = write_walk_expansions(&session, Path::new("."), to_stdout) && ok;
             }
+            if expand_facts {
+                ok = write_facts_expansions(&session, Path::new("."), to_stdout) && ok;
+            }
             discard(session);
         }
         return if stopped {
@@ -2350,7 +2360,7 @@ fn check(
     let mut session = new_session(index.is_some());
     if expand {
         session.elab.record_expansions();
-    } else if !expand_walk {
+    } else if !expand_walk && !expand_facts {
         use_cache(&mut session, cache, &project.dir);
         session.elab.set_carry_over(carry_over);
         session.elab.set_recheck(recheck);
@@ -2420,6 +2430,9 @@ fn check(
     }
     if expand_walk {
         ok = write_walk_expansions(&session, &project.dir, to_stdout) && ok;
+    }
+    if expand_facts {
+        ok = write_facts_expansions(&session, &project.dir, to_stdout) && ok;
     }
     discard(session);
     if stopped {
@@ -2611,6 +2624,47 @@ fn write_walk_expansions(session: &Session, base: &Path, to_stdout: bool) -> boo
             return false;
         }
         eprintln!("expanded {done} walk{plural} in {}", path.display());
+    }
+    true
+}
+
+/// `check --expand-facts`: writes back each file with a `byFacts` checked,
+/// each replaced by the term it found ([`stitchwort_elab::expand_walk_file`],
+/// which writes the pieces). With `to_stdout`, prints the expanded text on
+/// standard output instead, leaving the file unchanged.
+fn write_facts_expansions(session: &Session, base: &Path, to_stdout: bool) -> bool {
+    let (expansions, kept) = session.elab.take_facts_expansions();
+    for (file, source) in session.sources.iter() {
+        for (span, why) in kept.iter().filter(|(s, _)| s.file == file) {
+            let line = source.text[..span.start as usize].matches('\n').count() + 1;
+            eprintln!("{}:{line}: not expanded: {why}", source.name);
+        }
+        let listed = to_stdout && kept.iter().any(|(s, _)| s.file == file);
+        if !listed && !expansions.iter().any(|e| e.span.file == file) {
+            continue;
+        }
+        let (text, done) = stitchwort_elab::expand_walk_file(&source.text, file, &expansions);
+        let plural = if done == 1 { "" } else { "s" };
+        if to_stdout {
+            print!("{text}");
+            eprintln!("expanded {done} byFacts call{plural} in {}", source.name);
+            continue;
+        }
+        let name = Path::new(&source.name);
+        let path = [
+            Some(name.to_path_buf()),
+            Some(base.join(name)),
+            base.parent().map(|p| p.join(name)),
+        ]
+        .into_iter()
+        .flatten()
+        .find(|p| p.exists())
+        .unwrap_or_else(|| name.to_path_buf());
+        if let Err(e) = std::fs::write(&path, text) {
+            eprintln!("error: can't write {}: {e}", path.display());
+            return false;
+        }
+        eprintln!("expanded {done} byFacts call{plural} in {}", path.display());
     }
     true
 }

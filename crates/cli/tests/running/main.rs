@@ -8,6 +8,7 @@ mod aoc_answers;
 mod build;
 mod effect_runtime;
 mod examples;
+mod facts_expand;
 mod files;
 mod float;
 mod float_paths;

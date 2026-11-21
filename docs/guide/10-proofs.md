@@ -457,6 +457,23 @@ theorem bonusGrows ∀ (lit: Bool) (n: Nat): n < bonus lit n := cases lit then a
 theorem smallSum ∀ (n: Nat) (h: n = 1 ∨ n = 2 ∨ n = 4): n + n ≤ 8 := cases h then arithmetic
 ```
 
+## From the facts: `byFacts`
+
+Some goals need no splitting at all: they follow from what is in scope, by taking facts apart and applying them. `byFacts` does that. It introduces the goal's `→` and `∀`, takes every fact apart (an `∧` into its sides, `(a && b) = True` into its parts, a record of proofs into its fields, an `∃` into its witness and fact), splits the goal into its parts the same way, and closes each part by computing, by a fact, or by applying a fact or a lemma you list in brackets, whose premises it proves in turn, three deep:
+
+<!-- snippet: proofs.sw#facts -->
+```
+theorem chained ∀ (a b c d: Prop) (f: a → b) (g: b → c) (k: c → d) (x: a): d := byFacts
+
+theorem applyToPart ∀ (a b c: Prop) (h: a ∧ b) (f: a → c): c ∧ b := byFacts
+
+theorem lessTrans ∀ (a b c: Nat) (ab: a < b) (bc: b < c): a < c := arithmetic
+
+theorem viaMiddle ∀ (x y z: Nat) (h: x < y ∧ y < z): x < z := byFacts [lessTrans]
+```
+
+It never guesses: `lessTrans`'s `b` appears in neither the goal nor the call, and is fixed only because `h.left` says `x < y`. It never splits data or an `∨` either, so it fails fast; when a case split is what's needed, that's `cases`, and `cases then byFacts` does both. When it fails, the error shows each part of the goal it left open and the facts that came nearest; `byFacts then ?` shows those parts as goals. `stitchwort check --expand-facts` writes each `byFacts` back as the term it found (`k (g (f x))`, `Both (f h.left) h.right`).
+
 ## Induction that follows a function
 
 Induction on a list or a number is induction on the type. A function with an `if` in it has more cases than its type does: one for each branch. Every recursive function comes with an **induction principle** shaped like its own equations, and `match induct (f args)` proves a statement about a call of `f` by it. The goal is worked out from the statement, so the proof has one alternative for each branch of `f`, named after its equation (`eq2IfTrue` is the true branch of the `if` in arm 2), and each gets the variables of the branch, the fact the branch was taken under, and an induction hypothesis for each recursive call:

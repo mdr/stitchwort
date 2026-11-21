@@ -2752,6 +2752,7 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         Expr::Omega { .. } => Err(crate::omega::no_goal(cx, expr)),
         Expr::Cases { .. } => Err(crate::cases::no_goal(cx, expr)),
         Expr::Walk(..) => Err(crate::walk::no_goal(cx, expr)),
+        Expr::Facts(..) => Err(crate::facts::no_goal(cx, expr)),
         Expr::Ring { .. } => Err(crate::ring::no_goal(cx, expr)),
         Expr::LocalDefs { defs, body, .. } => crate::local::around(cx, defs, |cx| infer(cx, body)),
         Expr::Effect(row, ty) => infer_effect(cx, row, ty),
@@ -4946,7 +4947,11 @@ fn finish_application(
 /// before a `_` was solved stays stuck (SW-1007).
 fn proof_search(cx: &Ctx, value: &Expr) -> bool {
     match value {
-        Expr::Omega { .. } | Expr::Cases { .. } | Expr::Ring { .. } | Expr::Rewrite { .. } => true,
+        Expr::Omega { .. }
+        | Expr::Cases { .. }
+        | Expr::Facts(..)
+        | Expr::Ring { .. }
+        | Expr::Rewrite { .. } => true,
         Expr::Var(name) => name.text == "byComputing" && cx.lookup("byComputing").is_none(),
         Expr::Bracketed(inner, _) => proof_search(cx, inner),
         _ => false,
@@ -6730,6 +6735,7 @@ fn check_value_against(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Valu
         (Expr::Rewrite { .. }, _) => crate::rewrite::check_rewrite(cx, expr, &expected),
         (Expr::Omega { .. }, _) => crate::omega::check_omega(cx, expr, &expected),
         (Expr::Cases { .. }, _) => crate::cases::check_cases(cx, expr, &expected),
+        (Expr::Facts(..), _) => crate::facts::check_facts(cx, expr, &expected),
         (Expr::Ring { .. }, _) => crate::ring::check_ring(cx, expr, &expected),
         (
             Expr::If {

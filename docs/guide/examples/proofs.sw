@@ -140,6 +140,16 @@ theorem bonusGrows ∀ (lit: Bool) (n: Nat): n < bonus lit n := cases lit then a
 theorem smallSum ∀ (n: Nat) (h: n = 1 ∨ n = 2 ∨ n = 4): n + n ≤ 8 := cases h then arithmetic
 -- end cases-named
 
+-- begin facts
+theorem chained ∀ (a b c d: Prop) (f: a → b) (g: b → c) (k: c → d) (x: a): d := byFacts
+
+theorem applyToPart ∀ (a b c: Prop) (h: a ∧ b) (f: a → c): c ∧ b := byFacts
+
+theorem lessTrans ∀ (a b c: Nat) (ab: a < b) (bc: b < c): a < c := arithmetic
+
+theorem viaMiddle ∀ (x y z: Nat) (h: x < y ∧ y < z): x < z := byFacts [lessTrans]
+-- end facts
+
 -- begin spec
 -- The specification: the plain recursive sum.
 def sumTo: Nat → Nat

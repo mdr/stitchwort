@@ -144,6 +144,9 @@ pub struct Session {
     /// The walks checked and the chains they wrote (`walk.rs`), for
     /// `check --expand-walk`.
     pub(crate) walks: RefCell<crate::walk::Walks>,
+    /// What each `byFacts` checked would be written as (`facts.rs`), for
+    /// `check --expand-facts`.
+    pub(crate) facts: RefCell<Vec<crate::walk::WalkExpansion>>,
 }
 
 /// What a rewind mark keeps of a [`Session`]: the bookkeeping a later load
@@ -201,6 +204,7 @@ impl Session {
             // Recorded for the caller, never taken back.
             expansions: _,
             walks: _,
+            facts: _,
             derive_waiting,
         } = self;
         Mark {
@@ -253,6 +257,7 @@ impl Session {
             // Recorded for the caller, never taken back.
             expansions: _,
             walks: _,
+            facts: _,
             derive_waiting,
         } = self;
         *project_namespaces = mark.project_namespaces.clone();

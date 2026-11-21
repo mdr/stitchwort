@@ -70,6 +70,9 @@ test "a walk followed by more of an expression is refused, as the Rust parser re
 test "`byWalking` is a keyword: as an operand or a name it is refused, as the Rust parser refuses it" :=
   fails "def a: T := x + byWalking [y]\n" && fails "def byWalking: Nat := 1\n" && fails "def a: byWalking := b\n"
 
+test "`byFacts` is a keyword no slice reaches yet: refused wherever it is" :=
+  fails "def a: T := byFacts\n" && fails "def a: T := byFacts [x]\n" && fails "def byFacts: Nat := 1\n"
+
 test "a plain walk is slice 6a's, formatted as the Rust formatter does" :=
   formats "def a: T := byWalking  [x,y]\n" "def a: T := byWalking [x, y]\n"
 

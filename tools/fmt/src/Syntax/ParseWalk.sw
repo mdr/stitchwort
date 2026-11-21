@@ -935,10 +935,7 @@ theorem givesTupleRest ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (op
     (openText: open.text = "(")
     (parsed: Parsed 1 first):
     Parse.Gives GoodItems (() => tupleRest self inner open first) (AtomFrom open) :=
-  Parse.givesThen Parse.givesMark (here _ =>
-    Parse.givesThen givesBump (comma _ =>
-      Parse.givesThen (nested { modes = inner, level = LevelFull }) (second secondParsed =>
-        givesTupleSecond self inner open first here.left second nested openText parsed secondParsed)))
+  byWalking [givesBump, givesTupleSecond, unfold tupleFuel]
 
 @[walk]
 theorem givesBracketedFirst ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (first: Expr)
@@ -1048,13 +1045,13 @@ theorem givesListItem ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     Parse.Gives GoodItems (() => listItem self modes) (Parsed 1) :=
   byWalking [givesListItemAfter]
 
-theorem givesListItemsEnd ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word)
-    (items: List Expr) (trailing: Bool)
+theorem givesListItemsEnd ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (pair: (List Expr, Bool))
     (openText: open.text = "[")
-    (parsed: List.All (Parsed 1) items):
-    Parse.Gives GoodItems (() => listItemsEnd self inner open (items, trailing)) (AtomFrom open) :=
-  Parse.givesThen (givesExpect inner RBracket _ byComputing) (close closeText =>
-    Parse.givesDone (Both (listParsed open close items trailing openText closeText parsed) (within => byComputing)))
+    (parsed: List.All (Parsed 1) pair.fst):
+    Parse.Gives GoodItems (() => listItemsEnd self inner open pair) (AtomFrom open) :=
+  match pair with
+    | (items, trailing) => Parse.givesThen (givesExpect inner RBracket _ byComputing) (close closeText =>
+      Parse.givesDone (Both (listParsed open close items trailing openText closeText parsed) (within => byComputing)))
 
 @[walk]
 theorem givesListItemsFrom ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (first: Expr)
@@ -1076,8 +1073,7 @@ theorem givesListItemsFrom ∀ (self: Goal → {Parse Item} Expr) (inner: Modes)
         []
         firstParsed
         ())
-      (pair facts =>
-        match pair with | (items, trailing) => givesListItemsEnd self inner open items trailing openText facts.left))
+      (pair facts => givesListItemsEnd self inner open pair openText facts.left))
 
 theorem givesListItems ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word)
     (nested: Nested self)

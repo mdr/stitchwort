@@ -1,5 +1,5 @@
 {
-  "next": 4495,
+  "next": 4499,
   "tickets": [
     {
       "id": 47,
@@ -30493,7 +30493,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "\n\nSW-4473 found 8 more theorems in ParseWalk/JoinProofs hitting E-CASES-BUDGET where the hand proof splits one or two things (followsCloser, freeReady, endedReadyCloser, piecePasses, endedReadyColon, mayFollowStops, fillSeq, signFirstNot).\n\n\nD3709 (Matt, 21 Nov 2026: yes): the syntax is cases x then t, and cases x, y then t for several; plain cases and cases then t unchanged. Model: Opus (core tactic, D2506).\n\n\nProgress (Opus lane, 21 Nov 10:26-11:12, est. 90 min): branch lane/SW-4474, commit 239b93f09.\n- Built: cases x then t / cases x, y then t, and cases x without then (closers only); both Rust parser paths (tree + lowering); E-CASES for a name not in scope or unsplittable; E-CASES-BUDGET names the split that went over; t's failure shows the case path as before. Nested ∨ sides split before t; data fields split deeper (stuck-on first), never recursive fields. Written var = ctor hypotheses substituted in named mode only.\n- Plain cases unchanged: no existing hash or reject snapshot moved. A version that also let plain cases substitute written facts moved 6 example files' and 4 std lemmas' hashes (standsOwesNothing 3 -> 8 matches): left out, a follow-up.\n- Self-hosted parser refuses the new form (parse error), so outside every slice; slice 6a is Matt's call.\n- JoinProofs: freeReady, endedReadyCloser, endedReadyColon converted (4 lines -> 1 each; 1.9->2.1, 1.9->2.8, 2.0->2.8 ms); followsCloser checks but 8x (dropped); the other 4 don't fit one t; parenParsedP has nothing to name.\n- docs/syntax.md 'data' wording not found (nothing to fix).\n- Moved to review.\n",
+      "body": "\n\nSW-4473 found 8 more theorems in ParseWalk/JoinProofs hitting E-CASES-BUDGET where the hand proof splits one or two things (followsCloser, freeReady, endedReadyCloser, piecePasses, endedReadyColon, mayFollowStops, fillSeq, signFirstNot).\n\n\nD3709 (Matt, 21 Nov 2026: yes): the syntax is cases x then t, and cases x, y then t for several; plain cases and cases then t unchanged. Model: Opus (core tactic, D2506).\n\n\nProgress (Opus lane, 21 Nov 10:26-11:12, est. 90 min): branch lane/SW-4474, commit 239b93f09.\n- Built: cases x then t / cases x, y then t, and cases x without then (closers only); both Rust parser paths (tree + lowering); E-CASES for a name not in scope or unsplittable; E-CASES-BUDGET names the split that went over; t's failure shows the case path as before. Nested ∨ sides split before t; data fields split deeper (stuck-on first), never recursive fields. Written var = ctor hypotheses substituted in named mode only.\n- Plain cases unchanged: no existing hash or reject snapshot moved. A version that also let plain cases substitute written facts moved 6 example files' and 4 std lemmas' hashes (standsOwesNothing 3 -> 8 matches): left out, a follow-up.\n- Self-hosted parser refuses the new form (parse error), so outside every slice; slice 6a is Matt's call.\n- JoinProofs: freeReady, endedReadyCloser, endedReadyColon converted (4 lines -> 1 each; 1.9->2.1, 1.9->2.8, 2.0->2.8 ms); followsCloser checks but 8x (dropped); the other 4 don't fit one t; parenParsedP has nothing to name.\n- docs/syntax.md 'data' wording not found (nothing to fix).\n- Moved to review.\n\nReview fixes (11:17-11:33, est. 30 min): b721ffe3a, merge b84b59d5f, bdf0a6c5c. F1 (a): a named value in t is a let of the case's constructor form (cases-named-in-t.sw, the review's w14). F2: a name before = := => : ends the target list (cases-named-in-record.sw, syntax test). F3: reject cases-named-proposition.sw. F4 and notes 10 and docs: guide and syntax.md updated. Tests after merging main: cases examples, soundness + rejected, syntax tests, hash snapshots (only the named examples' own hashes moved, for the lets).\n",
       "created": "2026-11-20",
       "updated": "2026-11-21",
       "commits": []
@@ -30644,12 +30644,12 @@
     {
       "id": 4486,
       "title": "[Sonnet] Toy formatter may not check at 599e0332e: check --only Toy.Fmt.Proofs.viewsCons Toy.Fmt.Proofs gave E-TYPE-MISMATCH near Toy.Syntax.operatorNext.eq3 (SW-4483, run once); reproduce with a plain check of the namespace, find the cause or confirm it is an --only effect",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nLane notes (Sonnet): the type mismatch is the D3699 change (08:27 20 Nov; a Bool guard gives c = False): operatorNext.eq3 now states notArm2 as isOperatorChar char = False, so the lambda no longer takes a `holds` binder. Fixed the proof (91c6bda2e on lane/SW-4486). Separate finding: Toy.Fmt.Proofs panics (\"applying a constructor\", crates/core/src/value.rs:1328) from SW-4419 (26a4cbd5c), in as_written is_needle via unfold_path.\n\n\nModel result: Sonnet, worked (cause bisected to D3699/SW-4341; found a second bug, filed), 19 min (est. 30)\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
@@ -30657,12 +30657,12 @@
     {
       "id": 4487,
       "title": "[Sonnet] Walk follow-ups (SW-4479): convert the formatter proofs that now walk within the bar (givesTupleRest, givesBlock, givesCalcBody, givesDataParamStep, givesConstructorParen group; givesClauseLambda 2.0x, givesPipeChain 2.3x, givesListItemsFromAny 3.8x stay by hand unless re-timed under the file bar); state givesListItemsEnd over a pair variable so givesListItemsFrom walks; --expand-walk text for a bind inside a bound computation leaves the inner givesThen's post to inference and doesn't elaborate (givesNested, givesFromMark, givesBound in walk-operation.sw): write the post explicitly, then add the example to walk_expand",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nReview (lane, 21 Nov 11:30): commit c1afd5841 on lane/SW-4487. Walk now: givesTupleRest, givesBlock, givesCalcBody, givesConstructorParen and Parts, givesClauseLambda, givesPipeChain. Kept by hand (over 3x): givesDataParamStep 3.07x, givesListItemsFrom 3.2x, givesListItemsFromAny 3.2x. givesListItemsEnd now over a pair (hand givesListItemsFrom calls it without a match). Expansion fix (step 3) not done: needs the inner givesThen's holds written out (see report). Namespaces check --no-cache clean.\n\n\nModel result: Sonnet, worked (7 kept, 3 over 3x left by hand; the expansion fix was not small, left to SW-4495), 55 min (est. 45)\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
@@ -30670,12 +30670,12 @@
     {
       "id": 4488,
       "title": "[Opus] byFacts stage 1a (D3708 revised, Matt, 21 Nov 2026: yes): the proof word byFacts [terms], per docs/proposals/closer.md stage 1 with SW-4483's six changes (two phases; ∃ facts and records of proofs taken apart; unknowns fixed by a fact, never guessed; its own equation rule; terms only, no rules sets, warn on unused; compute once, match by head, count attempts, fail fast); E-FACTS shows what is left after phase 1; byFacts then ?; check --expand-facts; docs, accept and reject examples; the self-hosted formatter refuses the word until a slice reaches it",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "\nProgress (Opus lane, 21 Nov 2026, 09:0x-10:45): built on lane/SW-4488 (bac6cb40e, 3cb9620d2, 4b80a0942, 08a0d29d1). byFacts [terms] then t in both parsers (reserved word), crates/elab/src/facts.rs (two phases, depth 3, 200 attempts), E-FACTS with parts left open and nearest facts, W-FACTS-UNUSED, check --expand-facts. All 13 SW-4483 probes close and expand to terms that check (facts_expand test). G1: probes 0.1-0.5 ms each. G4: rejects 0.1, 0.3 and 2.4 ms. No existing hash moved; no kernel change. Self-hosted fmt lexes Tok.KwByFacts and refuses it (no slice has it). Docs: syntax.md, proving-guide, guide ch. 10; editor and playground keywords. Moved to review.\n",
+      "body": "\nProgress (Opus lane, 21 Nov 2026, 09:0x-10:45): built on lane/SW-4488 (bac6cb40e, 3cb9620d2, 4b80a0942, 08a0d29d1). byFacts [terms] then t in both parsers (reserved word), crates/elab/src/facts.rs (two phases, depth 3, 200 attempts), E-FACTS with parts left open and nearest facts, W-FACTS-UNUSED, check --expand-facts. All 13 SW-4483 probes close and expand to terms that check (facts_expand test). G1: probes 0.1-0.5 ms each. G4: rejects 0.1, 0.3 and 2.4 ms. No existing hash moved; no kernel change. Self-hosted fmt lexes Tok.KwByFacts and refuses it (no slice has it). Docs: syntax.md, proving-guide, guide ch. 10; editor and playground keywords. Moved to review.\n\nReview fixes (Opus lane, 21 Nov 2026, 11:00-11:31): ce4312a92 on lane/SW-4488, after merging main. Fixed from docs/reviews/SW-4488-byfacts-review.md: 1 (nested equation shift), 2 (--expand-facts leaves and lists calls that differ across cases or use a field equation), 3 (1,000-part limit instead of depth 12), 4 (backtracking over facts for premise unknowns and witnesses, counted), 5-6 (substitution blocking fixed, per-branch budget, said in E-FACTS), 7 (contradiction once per fact list, arithmetic counted, failed parts remembered, ancestor premises cut), 8 (Void fact, ¬a beside a), 9 (failed premise named, field parts named), 10 (then t sees the part as written), 12 (--timings byFacts attempts table), 13 (docs). 11 left (filed). Review's missing tests added. Timings: stress 5.0 ms (was 97), slowFail3 1.7 ms (was 22), rejects at most 3.9 ms, probes at most 0.4 ms. No existing hash moved. Back in review.\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
@@ -30748,6 +30748,58 @@
     {
       "id": 4494,
       "title": "[Opus] Plain cases uses the x = C substitution too (SW-4474/SW-4492): a hypothesis that a variable is a constructor (kind = Minus) substitutes in plain cases, so signSymbolicT stops splitting 60 kinds per arm; it changes the proof terms of 6 example files and 4 std lemmas (hashes move: re-record with the full filter) and standsOwesNothing's generated matches (3 -> 8); needs whole-std and AoC timing by Overmind before merge",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4495,
+      "title": "[Opus] --expand-walk for a bind inside a bound computation: write the inner Parse.givesThen's holds explicitly ([holds := value => ...], the first implicit nested_bind computes in crates/elab/src/walk/mod.rs), so the expansions of givesNested, givesFromMark and givesBound in examples/accept/walk-operation.sw elaborate; then add walk-operation to walk_expand.rs. Also: a @[walk] instance of givesCommaListFrom for listItem (givesListItemsFrom/Any at 3.2x), and a lemma for the givesBinderGroup ... givesRefuseAttributes pair (givesDataParamStep 3.07x) (SW-4487)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4496,
+      "title": "[Opus] Kernel panic 'internal error: applying a constructor' (crates/core/src/value.rs:1328) from as_written::is_needle -> conv_now's eta step, when the partial unfold (SW-4419, 26a4cbd5c) offers a lambda of different arity (Lam(_, Ctor)) as a candidate for the needle; check --no-cache Toy.Fmt.Proofs in tools/toyfmt crashes. Make the kernel return an error that conv_now's callers treat as not equal (and/or skip mismatched candidates); narrow to the theorem and add a small example that panics before the fix. Found by SW-4486.",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4497,
+      "title": "[Sonnet] D3699 follow-up: grep tools/, aoc/ and games/ for proofs that bind the old four-name form of a Bool guard's False fact (x tail same holds => ...) and check toyfmt's other namespaces one at a time (SW-4486: Toy.Syntax.Proofs broke unnoticed for 27 h)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4498,
+      "title": "[Opus] Long .read chains check in exponential time: a hand-written h.read.right.read.right... takes 1.1 s for 8 conjuncts, 3.7 s for 10, over 2 min for 20 (SW-4488), so --expand-facts terms for long && chains are impractical; fix in the reading code; also profile byFacts phase 1 on a 20-conjunct test fact (18 ms); and the review's remaining notes: a project-namespace expansion test, refusing a non-proposition goal up front",
       "status": "backlog",
       "agent": "",
       "where": "",

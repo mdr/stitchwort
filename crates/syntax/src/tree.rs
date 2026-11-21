@@ -320,6 +320,8 @@ pub enum NodeKind {
     Cases,
     /// `byWalking [items] then t`
     Walk,
+    /// `byFacts [items] then t`
+    Facts,
 
     // Patterns.
     /// `Cons x xs`: a constructor with arguments, in a `PatternParen` if bracketed

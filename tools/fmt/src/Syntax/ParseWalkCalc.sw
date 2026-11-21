@@ -107,18 +107,7 @@ theorem givesCalcBody ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (ind
     (outside: OutsideCompared self)
     (bases: AtomBases self):
     Parse.Gives GoodItems (() => calcBody self inner indent keyword first) Out :=
-  Parse.givesThen Parse.givesMark (here _ =>
-    Parse.givesThen
-      (givesCalcSteps self inner indent None nested outside bases (here.left + 1) [] False False)
-      (result _ =>
-        match result with
-          | (steps, ascending, descending) =>
-            match steps.isEmpty with
-              | True => givesFail inner _
-              | False =>
-                match ascending && descending with
-                  | True => Parse.readsFatal
-                  | False => Parse.givesDone byComputing))
+  byWalking [givesCalcSteps, unfold calcEnd, givesFail]
 
 theorem givesCalcAfter ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (indent: Nat) (keyword: Comments) (first: Expr)
     (nested: Nested self)

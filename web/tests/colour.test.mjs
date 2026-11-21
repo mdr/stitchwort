@@ -42,3 +42,8 @@ test("byWalking is a keyword, once, wherever it is", () => {
   assert.deepStrictEqual(keywords("byWalking [a] then t"), ["byWalking", "then"]);
   assert.deepStrictEqual(keywords("byWalking"), ["byWalking"]);
 });
+
+test("byFacts is a keyword, with or without brackets", () => {
+  assert.deepStrictEqual(keywords("byFacts [a] then t"), ["byFacts", "then"]);
+  assert.deepStrictEqual(keywords("byFacts"), ["byFacts"]);
+});
