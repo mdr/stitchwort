@@ -30787,15 +30787,17 @@
     {
       "id": 4497,
       "title": "[Sonnet] D3699 follow-up: grep tools/, aoc/ and games/ for proofs that bind the old four-name form of a Bool guard's False fact (x tail same holds => ...) and check toyfmt's other namespaces one at a time (SW-4486: Toy.Syntax.Proofs broke unnoticed for 27 h)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nProgress: one hit, StringProofs.plainStarts (guard passed as a tuple of two propositions; now Both, checks). Toy.Syntax.Proofs etc. check; Toy.Fmt.Proofs files Direct/Event/Place/Proofs/RuleJoin/Text panic (SW-4496), rest checked per theorem with --only.\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
-      "commits": []
+      "commits": [
+        "69e88df2e"
+      ]
     },
     {
       "id": 4498,
