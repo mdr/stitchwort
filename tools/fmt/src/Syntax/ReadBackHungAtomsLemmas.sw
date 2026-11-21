@@ -75,23 +75,13 @@ theorem deepStops ∀ (modes: Modes) (item: Item)
 theorem enteredSame ∀ (state: HangState) (leaf: Leaf)
     (fresh: (state.start && leaf.token.lineStart) = False):
     inForce (state.entered leaf).blocks (state.entered leaf).top = inForce state.blocks state.top :=
-  match state with
-    | { blocks, top, start, glue } =>
-      rewrite fresh then
-        match blocks with
-          | [] => byComputing
-          | [block, ..outer] => byComputing
+  match state with | { blocks, top, start, glue } => rewrite fresh then cases blocks then byComputing
 
 --| Entering at a leaf that starts an item and its line puts that leaf's column in force.
 theorem enteredFresh ∀ (state: HangState) (leaf: Leaf)
     (fresh: (state.start && leaf.token.lineStart) = True):
     inForce (state.entered leaf).blocks (state.entered leaf).top = leaf.token.column :=
-  match state with
-    | { blocks, top, start, glue } =>
-      rewrite fresh then
-        match blocks with
-          | [] => byComputing
-          | [block, ..outer] => byComputing
+  match state with | { blocks, top, start, glue } => rewrite fresh then cases blocks then byComputing
 
 --| The bound holds of a state whose column in force is no further left.
 theorem boundsAbove ∀ (modes: Modes) (now before: HangState)
@@ -323,8 +313,7 @@ theorem speltOutsideHung ∀ (modes: Modes)
               let (open3, _, _) :=
                 leadHung modes next third ((others ++ tail) ++ after) quiet thirdLead nextBound hungMore
               rewrite joined, open1, open2, open3 then signOutside sign.kind third.kind isSign thirdLead
-            | App _ _, _, never, _ => (Bool.falseNotTrue never).impossible
-            | Infix _ _ _ _, _, never, _ => (Bool.falseNotTrue never).impossible
+            | App _ _ | Infix _ _ _ _, _, never, _ => (Bool.falseNotTrue never).impossible
             | other, _, _, never => (Bool.falseNotTrue never).impossible
         | App _ [], never, _ => Void.impossible never
         | Infix kind left _ _, (leftRead, arrow, rightRead, isRead, isOp, _, _, _, _, _, leftSpelt, _), _ =>

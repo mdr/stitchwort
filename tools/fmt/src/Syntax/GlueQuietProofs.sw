@@ -56,16 +56,11 @@ theorem quietUntrail ∀ (s l o t e: Bool) (quiet: quietOf s l o t e = True): qu
 
 theorem quietNotSign ∀ (l o t e: Bool): quietOf False l o t e = True := byComputing
 
-theorem quietNotOpens ∀ (s l t e: Bool): quietOf s l False t e = True := match s, l with
-  | False, _ => byComputing
-  | True, True | False => byComputing
+theorem quietNotOpens ∀ (s l t e: Bool): quietOf s l False t e = True := cases s, l then byComputing
 
 theorem quietStarts ∀ (s o t e: Bool): quietOf s True o t e = True := match s with | False | True => byComputing
 
-theorem quietBoth ∀ (s l o: Bool): quietOf s l o True True = True := match s, l, o with
-  | False, _, _ => byComputing
-  | True, True, _ => byComputing
-  | True, False, False | True => byComputing
+theorem quietBoth ∀ (s l o: Bool): quietOf s l o True True = True := cases s, l, o then byComputing
 
 theorem isNoneOfSome ∀ (option: Option Comment) (none: option.isSome = False): option.isNone = True := match option with
   | None => byComputing
@@ -226,8 +221,7 @@ theorem looseSelf ∀ (free: Bool) (leaf: Leaf): Loose free leaf leaf := (
         | True => byComputing
         | False =>
           match leaf.kind.opensAtom with
-            | True => byComputing
-            | False => byComputing
+            | True | False => byComputing
 )
 
 --| A leaf that opens no atom, with its trailing comment taken off (if any) and own-line comments put on.
@@ -291,8 +285,7 @@ theorem looseUnled ∀ (free: Bool) (leaf: Leaf): Loose free leaf (leaf.withLead
       match leaf.kind.opensAtom with
         | True =>
           match leaf.trivia.leading.isEmpty with
-            | True => byComputing
-            | False => byComputing
+            | True | False => byComputing
         | False => byComputing
 )
 
@@ -381,8 +374,7 @@ theorem looseEmptied ∀ (free: Bool) (leaf after: Leaf)
           match leaf.kind.opensAtom with
             | True =>
               match leaf.trivia.leading.isEmpty with
-                | True => byComputing
-                | False => byComputing
+                | True | False => byComputing
             | False => byComputing
   )
 

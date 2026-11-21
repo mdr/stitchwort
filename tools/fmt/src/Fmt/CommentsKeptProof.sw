@@ -315,17 +315,7 @@ theorem wordsCalmKeep ∀ (expr: Expr) (item: Bool)
         (itemsKeepAll arguments False (Bool.andRight within) (Bool.andRight closed))
     | Infix kind left operator right =>
       match kind with
-        | InfixBinary =>
-          allKeepAppend left.words
-            (left.calm item).words
-            [operator, ..right.words]
-            [operator.kept False False, ..(right.calm False).words]
-            (wordsCalmKeep left item (Bool.andLeft within) (Bool.andLeft closed))
-            (
-              keptKeeps operator False False byComputing,
-              wordsCalmKeep right False (Bool.andLeft (Bool.andRight within)) (Bool.andRight closed)
-            )
-        | InfixArrow =>
+        | InfixBinary | InfixArrow =>
           allKeepAppend left.words
             (left.calm item).words
             [operator, ..right.words]
@@ -387,19 +377,11 @@ theorem declsCalmKeep ∀ (decls: List Decl)
 
 theorem toppedViews ∀ (comments: Comments) (rest: List CommentView):
     unheaded (comments.topped.views ++ rest) = unheaded (comments.views ++ rest) :=
-  match comments with
-    | { above, after, blankBefore } =>
-      match above with
-        | [] => byComputing
-        | [first, ..more] => byComputing
+  match comments with | { above, after, blankBefore } => cases above then byComputing
 
 theorem toppedHolder ∀ (comments: Comments):
     (fixedWord "def" comments.topped).holder = (fixedWord "def" comments).holder :=
-  match comments with
-    | { above, after, blankBefore } =>
-      match above with
-        | [] => byComputing
-        | [first, ..more] => byComputing
+  match comments with | { above, after, blankBefore } => cases above then byComputing
 
 --| A file's words whose first word's comments are topped read as before, but the first comment's blank line above.
 theorem toppedWords ∀ (comments: Comments) (words: List Word) (end: List CommentView):

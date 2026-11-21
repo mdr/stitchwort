@@ -594,10 +594,7 @@ theorem followsAssignedBody ∀ [self selfTwin: Goal → {Parse Item} Expr]
 theorem refusalBody ∀ (isInstance: Bool) (body twin: DefBody)
     (bodies: DefBodyAlike body twin) (items: List Item):
     definitionRefusal isInstance body items = definitionRefusal isInstance twin items :=
-  match body, twin with
-    | Primitive, Primitive => byComputing
-    | Assigned a b, Assigned c d => byComputing
-    | Arms x, Arms y => byComputing
+  cases body, twin then byComputing
 
 theorem followsDefinitionWhere ∀ (isInstance: Bool) (body twin: DefBody)
     (bodies: DefBodyAlike body twin) (items others: List Item)

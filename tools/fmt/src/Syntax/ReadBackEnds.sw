@@ -55,58 +55,7 @@ type EndKind (kind: Tok): Prop = {
 }
 
 theorem endKind ∀ (kind: Tok) (ends: endsOperand kind = True): EndKind kind := match kind, ends with
-  | ColonEq, _ => {
-    notOpen = byComputing,
-    notDot = byComputing,
-    notArgument = byComputing,
-    notCases = byComputing,
-    unsigned = byComputing,
-    notMul = byComputing,
-    notAdd = byComputing,
-    notAppend = byComputing,
-    notRange = byComputing,
-    notPipe = byComputing,
-    notCmp = byComputing,
-    notAndOr = byComputing,
-    notIff = byComputing,
-    notArrow = byComputing,
-    notSemi = byComputing
-  }
-  | Comma, _ => {
-    notOpen = byComputing,
-    notDot = byComputing,
-    notArgument = byComputing,
-    notCases = byComputing,
-    unsigned = byComputing,
-    notMul = byComputing,
-    notAdd = byComputing,
-    notAppend = byComputing,
-    notRange = byComputing,
-    notPipe = byComputing,
-    notCmp = byComputing,
-    notAndOr = byComputing,
-    notIff = byComputing,
-    notArrow = byComputing,
-    notSemi = byComputing
-  }
-  | RParen, _ => {
-    notOpen = byComputing,
-    notDot = byComputing,
-    notArgument = byComputing,
-    notCases = byComputing,
-    unsigned = byComputing,
-    notMul = byComputing,
-    notAdd = byComputing,
-    notAppend = byComputing,
-    notRange = byComputing,
-    notPipe = byComputing,
-    notCmp = byComputing,
-    notAndOr = byComputing,
-    notIff = byComputing,
-    notArrow = byComputing,
-    notSemi = byComputing
-  }
-  | RBracket, _ => {
+  | ColonEq | Comma | RParen | RBracket, _ => {
     notOpen = byComputing,
     notDot = byComputing,
     notArgument = byComputing,
@@ -247,9 +196,7 @@ theorem lambdaPlain ∀ (fuel: Nat) (modes: Modes) (count: Nat) (items: List Ite
               match implicitGroupAt [item, ..rest] || namelessAutoAt [item, ..rest] with
                 | True => grouped
                 | False => byComputing
-            | Underscore, never => (Bool.falseNotTrue never).impossible
-            | LBrace, never => (Bool.falseNotTrue never).impossible
-            | FatArrow, never => (Bool.falseNotTrue never).impossible
+            | Underscore | LBrace | FatArrow, never => (Bool.falseNotTrue never).impossible
             | other, _ => byComputing
 
 theorem plainNotColon ∀ (kind: Tok) (plain: plainKind kind = True): (kind == Colon) = False := match kind, plain with
@@ -279,8 +226,7 @@ theorem resultPlain ∀ (modes: Modes) (fuel: Nat) (bracketedLast: Bool) (items:
               match isQualified item with
                 | True => noColon
                 | False => resultPlain modes more False rest later
-            | LParen, _ => grouped
-            | LBracket, _ => grouped
+            | LParen | LBracket, _ => grouped
             | Underscore, never => (Bool.falseNotTrue never).impossible
             | other, _ => noColon
 

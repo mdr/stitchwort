@@ -290,8 +290,7 @@ theorem spacingCalm ∀ (expr: Expr) (item argument: Bool)
     | Prefix operator operand, within =>
       rewrite operandSpacingCalm argument operator operand item (Bool.andLeft within) then
         match operandSpacing argument operator operand with
-          | Some _ => rewrite spacingCalm operand False False (Bool.andLeft within)
-          | None => rewrite spacingCalm operand False False (Bool.andLeft within)
+          | Some _ | None => rewrite spacingCalm operand False False (Bool.andLeft within)
     | Infix _ _ _ _ | _, never => (Bool.falseNotTrue never).impossible
 
 theorem commaSpacingCalmAll ∀ (items: List Expr) (item: Bool)

@@ -183,8 +183,8 @@ theorem groupsFromTokens ∀ (empty: Bool) (decls: List Decl):
 theorem exprChecks ∀ (expr: Expr) (within: expr.within1 = True): runExpr checkSteps expr = Ok expr := match expr with
   | Atom kind word => byComputing
   | Paren open inner close => rewrite Fail.toResultSeq1Then (exprChecks inner within)
-  | Tuple open items trailingComma close => rewrite Fail.toResultSeq1Then (exprsChecks items within)
-  | ListOf open items trailingComma close => rewrite Fail.toResultSeq1Then (exprsChecks items within)
+  | Tuple open items trailingComma close | ListOf open items trailingComma close =>
+    rewrite Fail.toResultSeq1Then (exprsChecks items within)
   | App head arguments =>
     rewrite Fail.toResultSeq2Then (exprChecks head (Bool.andLeft within)) (exprsChecks arguments (Bool.andRight within))
   | Infix kind left operator right =>
@@ -194,7 +194,6 @@ theorem exprChecks ∀ (expr: Expr) (within: expr.within1 = True): runExpr check
       | _ => cases
     rewrite Fail.toResultSeq2Then (exprChecks left sides.left) (exprChecks right sides.right)
   | Prefix operator operand => rewrite Fail.toResultSeq1Then (exprChecks operand (Bool.andLeft within))
-
 theorem exprsChecks ∀ (items: List Expr) (within: allWithin1 items = True): runExprs checkSteps items = Ok items :=
   match items with
     | [] => byComputing

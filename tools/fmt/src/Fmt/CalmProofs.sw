@@ -216,21 +216,13 @@ theorem leadingKept ∀ (word: Word) (around: Around) (key: Nat) (item closer: B
   match word, around.hoisted with
     | { text, comments = { above, after, blankBefore } }, True => byComputing
     | { text, comments = { above = [], after, blankBefore } }, False =>
-      rewrite same then
-        match item, blankBefore with
-          | True, True => byComputing
-          | True, False => byComputing
-          | False, True => byComputing
-          | False, False => byComputing
+      rewrite same then cases item, blankBefore then byComputing
     | { text, comments = { above = [first, ..rest], after, blankBefore } }, False =>
       match isCloserText text with
         | True => byComputing
         | False =>
           match closer with
-            | False =>
-              match blankBefore with
-                | True => byComputing
-                | False => byComputing
+            | False => cases blankBefore then byComputing
 
 --| A token's leaf is the same for its calm word.
 --|
@@ -408,29 +400,9 @@ theorem calmLeadPlain ∀ (items: List Expr)
 --| Proof idea: Cases on the expression; a tuple or list stays empty or not (`calmAllEmpty`, `calmItemsEmpty`), a prefix's operand keeps its constructor.
 theorem simpleCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): (expr.calm item).simple = expr.simple :=
   match expr with
-    | Atom _ _ | Paren _ _ _ => byComputing
     | Tuple open items comma close => calmAllEmpty items True
     | ListOf open items comma close => calmItemsEmpty items
-    | App head arguments => byComputing
-    | Infix kind left operator right =>
-      match kind with
-        | InfixBinary => byComputing
-        | InfixArrow => byComputing
-        | _ => cases
-    | Prefix operator operand =>
-      match operand with
-        | Atom kind word => byComputing
-        | Paren open inner close => byComputing
-        | Tuple open items comma close => byComputing
-        | ListOf open items comma close => byComputing
-        | App head arguments => byComputing
-        | Infix kind left operator right =>
-          match kind with
-            | InfixBinary => byComputing
-            | InfixArrow => byComputing
-            | _ => cases
-        | Prefix operator operand => byComputing
-        | _ => cases
+    | _ => cases
 
 --| In the slice, with its closers closers.
 def Expr.good (expr: Expr): Bool := expr.within1 && expr.closed
@@ -495,10 +467,7 @@ theorem framedByKept ∀ (first: Word) (around: Around) (doc: Doc) (item: Bool)
             same
             byComputing,
           same then
-        match item, blankBefore with
-          | True, True => byComputing
-          | True, False => byComputing
-          | False, _ => byComputing
+        cases item, blankBefore then byComputing
     | { text, comments = { above = [head, ..rest], after, blankBefore } } =>
       rewrite leadingKept
         { text, comments = { above = [head, ..rest], after, blankBefore } }
@@ -601,31 +570,9 @@ theorem numeralCalm ∀ (expr: Expr) (item: Bool)
     (within: expr.within1 = True):
     (expr.calm item).numeralApplication = expr.numeralApplication :=
   match expr with
-    | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ => byComputing
-    | App head arguments =>
-      match head with
-        | Atom kind word =>
-          match kind with
-            | Num => byComputing
-            | Float => byComputing
-            | _ => byComputing
-        | Paren open inner close => byComputing
-        | Tuple open items comma close => byComputing
-        | ListOf open items comma close => byComputing
-        | App inner more => byComputing
-        | Infix kind left operator right =>
-          match kind with
-            | InfixBinary => byComputing
-            | InfixArrow => byComputing
-            | _ => cases
-        | Prefix operator operand => byComputing
-        | _ => cases
-    | Infix kind left operator right =>
-      match kind with
-        | InfixBinary => byComputing
-        | InfixArrow => byComputing
-        | _ => cases
-    | Prefix operator operand => byComputing
+    | App head arguments => cases head then byComputing
+    | Infix kind left operator right => cases kind then byComputing
+    | _ => byComputing
 
 theorem prefixGapCalm ∀ (operator: Word) (operand: Expr) (item: Bool)
     (within: operand.within1 = True):

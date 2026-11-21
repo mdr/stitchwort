@@ -135,8 +135,7 @@ theorem anyBrokenKeys ∀ (items: List Expr) (low: Nat) (bare arm first before: 
     | [item] =>
       let one := anyKeys item (firstAround bare arm before at) low (Bool.andLeft within) floor
       match first with
-        | True => rewrite one
-        | False => rewrite one
+        | True | False => rewrite one
     | [item, next, ..more] =>
       let one := anyKeys item (firstAround bare arm before at) low (Bool.andLeft within) floor
       let rest :=
@@ -151,8 +150,7 @@ theorem anyBrokenKeys ∀ (items: List Expr) (low: Nat) (bare arm first before: 
           (Bool.andRight within)
           (keysAbove low at item.size floor)
       match first with
-        | True => rewrite one, rest
-        | False => rewrite one, rest
+        | True | False => rewrite one, rest
 
 --| A bracket's parts, in any of `bracketContent`'s layouts.
 theorem anyContentKeys ∀ (low: Nat) (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around)

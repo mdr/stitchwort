@@ -163,10 +163,7 @@ theorem endsOnMatched ∀ (behind: List Leaf) (done: List Word)
                 | None =>
                   rewrite <- afterSame, <- textSame, <- agrees then
                     match closer: leaf.kind.isCloser with
-                      | False =>
-                        match earlier with
-                          | [] => byComputing
-                          | [_, .._] => byComputing
+                      | False => cases earlier then byComputing
                       | True =>
                         match earlier with
                           | [] => rewrite List.eqNilOfIsEmpty older later
@@ -697,8 +694,7 @@ theorem standsRest ∀ (decls: List Decl)
       let blankRead: ((if keyword.blankBefore && !(False && keyword.above.isEmpty) then 1 else 0) > 0)
         = keyword.blankBefore :=
         match keyword.blankBefore with
-          | True => byComputing
-          | False => byComputing
+          | True | False => byComputing
       Bool.andIntro
         (standsDecl header colonEq value False keyword
           (Bool.andLeft stood)
@@ -998,12 +994,7 @@ theorem exprEndsQuiet ∀ (expr: Expr)
         (itemsQuiet arguments (Bool.andRight within) (Bool.andRight lexical))
     | Infix kind left operator right =>
       match kind with
-        | InfixBinary =>
-          endsQuietJoin left.words
-            [operator, ..right.words]
-            (endsQuietCons operator right.words
-              (exprEndsQuiet right (Bool.andLeft (Bool.andRight within)) (Bool.andRight (Bool.andRight lexical))))
-        | InfixArrow =>
+        | InfixBinary | InfixArrow =>
           endsQuietJoin left.words
             [operator, ..right.words]
             (endsQuietCons operator right.words
@@ -1313,8 +1304,7 @@ theorem arrowsOnto ∀ (behind acc: List Leaf) (done after: List Word)
               let newLead: leadMatch [leaf, ..acc] [word, ..after] = True :=
                 rewrite comma, emptySame then
                   match word.comments.above.isEmpty with
-                    | True => byComputing
-                    | False => byComputing
+                    | True | False => byComputing
               let pair: arrowPair leaf acc = True := match isArrow: leaf.kind == Arrow with
                 | False =>
                   match acc with
@@ -1472,10 +1462,7 @@ theorem noteBack ∀ (note: Note)
       let kept: trimReturns written.toList = written.toList :=
         trimReturnsSame written.toList (Bool.notTrue _ (Bool.andLeft plain)) (Bool.notTrue _ (Bool.andRight plain))
       let unspacedKept: Text.startsWithChars [' '] (written.toList.reverseOnto []) = False := unspaced
-      rewrite kept, unspacedKept then
-        match written, blankBefore with
-          | MkText chars, True => byComputing
-          | MkText chars, False => byComputing
+      rewrite kept, unspacedKept then cases written, blankBefore then byComputing
 
 theorem notesBack ∀ (notes: List Note)
     (plain: notes.all Note.unreturned = True)
@@ -1531,8 +1518,7 @@ theorem trimReturnsSame ∀ (chars: List Char)
             | True => rewrite same
             | False =>
               match cutSpace: char == ' ' with
-                | True => rewrite same
-                | False => rewrite same
+                | True | False => rewrite same
 
 --| A text that doesn't end in a carriage return or a space keeps it all when the lexer takes those off.
 theorem unreturnedSame ∀ (text: Text)
@@ -1775,12 +1761,7 @@ def readNotes (comments: List Comment): List Note :=
 theorem noteRead ∀ (note: Note)
     (plain: note.unreturned = True):
     { text = (noteComment note).text, blankBefore = (noteComment note).blankLines > 0 } = note :=
-  match note with
-    | { text, blankBefore } =>
-      rewrite unreturnedSame text plain then
-        match blankBefore with
-          | True => byComputing
-          | False => byComputing
+  match note with | { text, blankBefore } => rewrite unreturnedSame text plain then cases blankBefore then byComputing
 
 theorem notesRead ∀ (notes: List Note)
     (plain: notes.all Note.unreturned = True):

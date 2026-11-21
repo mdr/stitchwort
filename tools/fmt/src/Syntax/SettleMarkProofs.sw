@@ -255,22 +255,7 @@ theorem markFwdUnstarted ∀ (behind rest: List Leaf):
 
 theorem commaMovedFstAny ∀ (comma closer: Leaf) (one two: List Leaf):
     (commaMoved comma closer one).fst = (commaMoved comma closer two).fst :=
-  match trailing: comma.trivia.trailing with
-    | None => byComputing
-    | Some comment =>
-      match starts: comma.token.lineStart with
-        | True =>
-          match one, two with
-            | [], [] => byComputing
-            | [], [x, ..xs] => byComputing
-            | [x, ..xs], [] => byComputing
-            | [x, ..xs], [y, ..ys] => byComputing
-        | False =>
-          match one, two with
-            | [], [] => byComputing
-            | [], [x, ..xs] => byComputing
-            | [x, ..xs], [] => byComputing
-            | [x, ..xs], [y, ..ys] => byComputing
+  cases comma, one, two then byComputing
 
 theorem commaMovedSndMark ∀ (comma closer: Leaf) (behind: List Leaf):
     (commaMoved comma closer (markRev behind)).snd = markRev (commaMoved comma closer behind).snd :=
@@ -569,9 +554,7 @@ theorem dropFUnstarted ∀ (behind rest: List Leaf):
       match after with
         | [] => byComputing
         | [closer, ..after2] =>
-          let itemSame: hasItem (behind.map Leaf.unstarted) = hasItem behind := match behind with
-            | [] => byComputing
-            | [x, ..xs] => byComputing
+          let itemSame: hasItem (behind.map Leaf.unstarted) = hasItem behind := cases behind then byComputing
           rewrite itemSame then
             match pair: lastPair closer.token.kind leaf behind with
               | True => rewrite dropFUnstarted [closer, leaf, ..behind] after2

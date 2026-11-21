@@ -81,13 +81,11 @@ theorem laterCloserNotesTell ∀ (note: Note) (rest: List Note) (spot: Spot)
   match rest with
     | [] =>
       match note.blankBefore with
-        | True => rewrite chunkTellSolid note.text Spot.lineStart solid
-        | False => rewrite chunkTellSolid note.text Spot.lineStart solid
+        | True | False => rewrite chunkTellSolid note.text Spot.lineStart solid
     | [next, ..more] =>
       let ih := laterCloserNotesTell next more Spot.afterWords (Bool.andRight sound)
       match note.blankBefore with
-        | True => rewrite chunkTellSolid note.text Spot.lineStart solid, ih
-        | False => rewrite chunkTellSolid note.text Spot.lineStart solid, ih
+        | True | False => rewrite chunkTellSolid note.text Spot.lineStart solid, ih
 
 --| A closer's own-line comments, from a line start (`LineStartHere`): each on a line, a blank line above one if
 --| flagged.
@@ -102,13 +100,11 @@ theorem closerNotesTell ∀ (notes: List Note)
       match rest with
         | [] =>
           match note.blankBefore with
-            | True => rewrite chunkTellSolid note.text Spot.lineStart solid
-            | False => rewrite chunkTellSolid note.text Spot.lineStart solid
+            | True | False => rewrite chunkTellSolid note.text Spot.lineStart solid
         | [next, ..more] =>
           let ih := laterCloserNotesTell next more Spot.afterWords (Bool.andRight sound)
           match note.blankBefore with
-            | True => rewrite chunkTellSolid note.text Spot.lineStart solid, ih
-            | False => rewrite chunkTellSolid note.text Spot.lineStart solid, ih
+            | True | False => rewrite chunkTellSolid note.text Spot.lineStart solid, ih
 
 --| Own-line comments above a token, from a line start: each on a line, a blank line above one if flagged.
 theorem notesAboveTell ∀ (notes: List Note)
@@ -120,8 +116,7 @@ theorem notesAboveTell ∀ (notes: List Note)
       let solid := commentNotLayout note.text (Bool.andLeft sound)
       let ih := notesAboveTell rest (Bool.andRight sound)
       match note.blankBefore with
-        | True => rewrite chunkTellSolid note.text Spot.lineStart solid, ih
-        | False => rewrite chunkTellSolid note.text Spot.lineStart solid, ih
+        | True | False => rewrite chunkTellSolid note.text Spot.lineStart solid, ih
 
 -- A word's comments, as the rules keep their blank-line flags.
 
@@ -402,8 +397,7 @@ theorem gapTell ∀ (operator: Word) (operand: Expr) (spot: Spot)
         | True, never => (Bool.trueNotFalse never).impossible
         | False, _ =>
           match operator.text == "-" && (operand.firstWord.text == "-" || operand.numeralApplication) with
-            | True => byComputing
-            | False => byComputing
+            | True | False => byComputing
 
 --| After a word, the printer is never at a line start.
 theorem wordTellingFresh ∀ (text: Text) (spot: Spot): (wordTelling text spot).after.fresh = False :=

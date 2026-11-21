@@ -426,9 +426,7 @@ theorem ownClear ∀ (noted before: Bool):
      else if noted then False
      else before)
       = False :=
-  match noted, before with
-    | True, _ => byComputing
-    | False, True | False => byComputing
+  cases noted, before then byComputing
 
 theorem ownWeaker ∀ (noted before trails: Bool)
     (held: (if (True && !noted && before && trails) then False
@@ -527,10 +525,7 @@ theorem spacingFree ∀ (expr: Expr)
       (rest ++ argumentsSpacing arguments, rewrite head)
     | Infix kind left operator right =>
       match kind with
-        | InfixBinary =>
-          let (rest, left) := spacingFree left (Bool.andLeft within)
-          (rest ++ [Free, ..spacedFirst Apart (right.spacing False)], rewrite left)
-        | InfixArrow =>
+        | InfixBinary | InfixArrow =>
           let (rest, left) := spacingFree left (Bool.andLeft within)
           (rest ++ [Free, ..spacedFirst Apart (right.spacing False)], rewrite left)
         | _ => cases

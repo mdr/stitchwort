@@ -87,8 +87,7 @@ theorem addPieceChars ∀ (piece: Piece) (rest: List Piece):
     | Gap first, [Gap second, ..more] =>
       rewrite List.replicateAdd ' ' first second,
           List.appendAssoc (List.replicate first ' ') (List.replicate second ' ') (Parse.joinReads (pieceSteps more))
-    | Gap _, [] | [Code _ _, .._] | [Break, .._] | [Remark _, .._] => byComputing
-    | Code _ _ | Break | Remark _, _ => byComputing
+    | _, _ => cases piece, rest then byComputing
 
 theorem pieceFoldChars ∀ (kinds: Text → Tok) (texts: List Text):
     Parse.joinReads (pieceSteps (pieceFold kinds texts)) = charsOf texts :=

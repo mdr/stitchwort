@@ -391,8 +391,7 @@ theorem addPieceLay ∀ (piece: Piece) (rest: List Piece) (laid: Laid):
       let joined: laid.lay (Gap (first + second)) = (laid.lay (Gap first)).lay (Gap second) :=
         rewrite Nat.addAssoc laid.column first second
       rewrite joined
-    | Gap _, [] | [Code _ _, .._] | [Break, .._] | [Remark _, .._] => byComputing
-    | Code _ _ | Break | Remark _, _ => byComputing
+    | _, _ => cases piece, rest then byComputing
 
 --| The lexer's pieces of the texts lay as the texts do, one at a time.
 theorem pieceFoldLay ∀ (kinds: Text → Tok) (texts: List Text) (laid: Laid):

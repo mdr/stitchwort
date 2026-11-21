@@ -402,41 +402,22 @@ theorem recordBracesAheadDeaf ∀ (items: List Item):
     recordBracesAhead items = recordBracesAhead (items.map Item.stripped) :=
   match items with
     | [] | [_] => byComputing
-    | [a, first] =>
-      rewrite <- recordScanDeaf 0 [first] then
-        match e: recordScan 0 [first] with
-          | Some True => byComputing
-          | Some False => byComputing
-          | None =>
-            rewrite afterCloseBraceDeaf 0 [first] then
-              match f: afterCloseBrace 0 [first] with
-                | None => byComputing
-                | Some after =>
-                  match first.kind == Upper with
-                    | True => byComputing
-                    | False =>
-                      match after with
-                        | [] => byComputing
-                        | [next, ..rest] => byComputing
+    | [a, first] => rewrite <- recordScanDeaf 0 [first] then cases then rewrite afterCloseBraceDeaf 0 [first] then cases
     | [a, first, second, ..more] =>
       match first.kind == Lower && second.kind == Colon with
         | True => byComputing
         | False =>
           rewrite <- recordScanDeaf 0 [first, second, ..more] then
-            match e: recordScan 0 [first, second, ..more] with
-              | Some True => byComputing
-              | Some False => byComputing
+            match recordScan 0 [first, second, ..more] with
+              | Some _ => cases
               | None =>
                 rewrite afterCloseBraceDeaf 0 [first, second, ..more] then
-                  match f: afterCloseBrace 0 [first, second, ..more] with
+                  match afterCloseBrace 0 [first, second, ..more] with
                     | None => byComputing
                     | Some after =>
                       match first.kind == Upper with
                         | True => byComputing
-                        | False =>
-                          match after with
-                            | [] => byComputing
-                            | [next, ..rest] => byComputing
+                        | False => cases after
 
 theorem rowOnDeaf ∀ (atBrace: Bool) (items: List Item): rowOn atBrace items = rowOn atBrace (items.map Item.stripped) :=
   rewrite recordBracesAheadDeaf items
@@ -844,28 +825,8 @@ theorem headerGrammar1Deaf ∀ (header: Header): header.grammar1 = (walkHeader b
         decreasingClause,
         unfoldingClause
       } =>
-      match exportKeyword with
-        | Some comments => byComputing
-        | None =>
-          match opaqueKeyword with
-            | Some comments => byComputing
-            | None =>
-              match kind with
-                | DefTheorem => byComputing
-                | DefInstance => byComputing
-                | DefPlain =>
-                  match forallKeyword with
-                    | Some word => byComputing
-                    | None =>
-                      match params with
-                        | [group, ..groups] => byComputing
-                        | [] =>
-                          match decreasingClause with
-                            | Some (comments, bound) => byComputing
-                            | None =>
-                              match unfoldingClause with
-                                | Some (comments, names) => byComputing
-                                | None => rewrite exprGrammar1Deaf result
+      cases exportKeyword, opaqueKeyword, kind, forallKeyword, params, decreasingClause, unfoldingClause then rewrite exprGrammar1Deaf
+          result
 
 --| Slice 1's grammar doesn't see comments: a declaration is in it exactly when its blanked tree is.
 theorem grammar1Deaf ∀ (decl: Decl): decl.grammar1 = (decl.walk blankPure).grammar1 := match decl with
@@ -875,8 +836,7 @@ theorem grammar1Deaf ∀ (decl: Decl): decl.grammar1 = (decl.walk blankPure).gra
       | [] =>
         match body with
           | Assigned colonEq value => rewrite headerGrammar1Deaf header, exprGrammar1Deaf value
-          | Primitive => byComputing
-          | Arms arms => byComputing
+          | _ => cases body then byComputing
   | _ => cases
 
 -- What the lowering's checks read.

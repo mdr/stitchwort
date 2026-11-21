@@ -41,9 +41,7 @@ theorem wordUnled ∀ (word: Word) (around: Around)
     (!word.leadsLine around) = True :=
   match word, around, unnoted with
     | { text, comments = { above = [], after, blankBefore } }, { before, hoisted, item = False, at, inArm }, _ =>
-      match hoisted with
-        | True => byComputing
-        | False => byComputing
+      cases hoisted then byComputing
 
 --| A token whose first line writes nothing before it has no leading documents.
 theorem unledLeading ∀ (word: Word) (around: Around) (key: Nat)
@@ -369,9 +367,7 @@ theorem unnotedUnled ∀ (word: Word) (around: Around)
     word.leadsLine around = False :=
   match word, around, single with
     | { text, comments = { above = [], after, blankBefore } }, { before, hoisted, item = False, at, inArm }, _ =>
-      match hoisted with
-        | True => byComputing
-        | False => byComputing
+      cases hoisted then byComputing
 
 --| An arrow chain's two operands and operator, its first operand's `Links` given: `->` with no comment after it,
 --| any above it, and the right operand with none above its first token (`homed`).

@@ -244,10 +244,7 @@ theorem unfoldingKept ∀ (header: Header):
         result,
         decreasingClause,
         unfoldingClause
-      } =>
-      match unfoldingClause with
-        | Some (written, names) => byComputing
-        | None => byComputing
+      } => cases unfoldingClause then byComputing
 
 theorem unfoldingSame ∀ (parts twin: (Header, DefBody))
     (alike: PartsAlike parts twin):

@@ -92,12 +92,7 @@ theorem foldKinded ∀ (pieces: List Piece) (laid: Laid)
 theorem codesBackReverse ∀ (pieces: List Piece): (codesBack pieces).reverse = codeTexts pieces := match pieces with
   | [] => byComputing
   | [piece, ..rest] =>
-    rewrite List.reverseAppend (codesBack rest) (codeOf piece), codesBackReverse rest then
-      match piece with
-        | Code kind text => byComputing
-        | Gap count => byComputing
-        | Break => byComputing
-        | Remark text => byComputing
+    rewrite List.reverseAppend (codesBack rest) (codeOf piece), codesBackReverse rest then cases piece then byComputing
 
 --| The leaves' texts, in order, are the `Code` pieces' texts.
 theorem leavesTexts ∀ (pieces: List Piece):
@@ -113,9 +108,7 @@ theorem leavesTexts ∀ (pieces: List Piece):
 --| Joining adjacent spaces keeps the code.
 theorem addPieceCodeTexts ∀ (piece: Piece) (rest: List Piece):
     codeTexts (addPiece piece rest) = codeOf piece ++ codeTexts rest :=
-  match piece, rest with
-    | Gap _, [Gap _, .._] | _ => byComputing
-    | Code _ _ | Break | Remark _, _ => byComputing
+  cases piece, rest then byComputing
 
 --| The code of the pieces is the words that aren't comments.
 --|
@@ -138,14 +131,11 @@ theorem wordStep ∀ (kinds: Text → Tok) (text: Text) (rest: List Text):
         | True => byComputing
         | False =>
           match remark: text.startsWith "--" with
-            | True => byComputing
-            | False => byComputing
+            | True | False => byComputing
 
 theorem addPieceKinded ∀ (piece: Piece) (rest: List Piece):
     allKinded (addPiece piece rest) = (pieceKinded piece && allKinded rest) :=
-  match piece, rest with
-    | Gap _, [Gap _, .._] | _ => byComputing
-    | Code _ _ | Break | Remark _, _ => byComputing
+  cases piece, rest then byComputing
 
 theorem pieceOfKinded ∀ (text: Text): pieceKinded (pieceOf lexKind text) = True :=
   match text.all (char => char == ' ') with

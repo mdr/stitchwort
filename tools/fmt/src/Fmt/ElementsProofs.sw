@@ -84,10 +84,7 @@ theorem unnotedPlain ∀ (expr: Expr) (around: Around)
   match lead: expr.lead, unnoted with
     | { text, comments = { above = [], after, blankBefore } }, _ =>
       match around, single with
-        | { before, hoisted, item = False, at, inArm }, _ =>
-          match hoisted with
-            | True => byComputing
-            | False => byComputing
+        | { before, hoisted, item = False, at, inArm }, _ => cases hoisted then byComputing
     | { text, comments = { above = [note, ..rest], after, blankBefore } }, never => (Bool.trueNotFalse never).impossible
 
 -- The node kinds.

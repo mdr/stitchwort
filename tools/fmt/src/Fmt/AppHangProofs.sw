@@ -197,10 +197,7 @@ theorem lineStartFor ∀ (noted: Bool) (inset: Nat) (place: Place)
     (start: brokenPlace place = True):
     startFor noted inset place = wordStart inset place :=
   match place, start with
-    | Broken at carry, _ =>
-      match noted with
-        | True => byComputing
-        | False => byComputing
+    | Broken at carry, _ => cases noted then byComputing
     | AtStart _ _ | Mid _ _ | Held _ _, never => (Bool.falseNotTrue never).impossible
 
 --| A `HardLine` before an argument laid deeper than the call: the start of a line at `inset`.

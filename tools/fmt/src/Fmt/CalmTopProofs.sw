@@ -25,14 +25,8 @@ theorem plainDefTopped ∀ (keyword: Comments) (name: Word) (colon: Comments) (r
         | { text, comments } =>
           let closer: Bool := isCloserText text
           match above with
-            | [] =>
-              match closer with
-                | True => byComputing
-                | False => byComputing
-            | [first, ..rest] =>
-              match closer with
-                | True => byComputing
-                | False => byComputing
+            | [] => cases closer then byComputing
+            | [first, ..rest] => cases closer then byComputing
 
 --| A declaration with the first token's blank-line flags cleared, as `calmTop` clears them.
 def Decl.topFlag: Decl → Decl
@@ -155,11 +149,7 @@ theorem topFlagWalk ∀ (attributes: List Attributes) (header: Header) (body: De
         result,
         decreasingClause,
         unfoldingClause
-      } =>
-      match body with
-        | Assigned colonEq value => byComputing
-        | Primitive => byComputing
-        | Arms arms => byComputing
+      } => cases body then byComputing
 
 --| `calmTopWithin`: `calmTop` stays within slice 1.
 theorem calmTopWithin ∀ (file: SourceFile) (within: file.within1 = True): file.calmTop.within1 = True := match file with
@@ -246,12 +236,7 @@ theorem calmTopWalk ∀ (file: SourceFile):
                 rewrite topFlagWalk attributes header.calm (Assigned (colonEq.kept False False) (value.calm False))
               | Primitive => rewrite topFlagWalk attributes header Primitive
               | Arms arms => rewrite topFlagWalk attributes header (Arms arms)
-        | [Namespace keyword name, ..rest] => byComputing
-        | [Import keyword path open imported close, ..rest] => byComputing
-        | [Data a b c d e f g, ..rest] => byComputing
-        | [Ability a b c d e, ..rest] => byComputing
-        | [Test a b c d, ..rest] => byComputing
-        | [RuleSetDecl a b c d, ..rest] => byComputing
+        | _ => cases decls then byComputing
 
 --| `calmTopMeans`: `calmTop` keeps `meaning` (`calmMeans`; `meaning` reads no comment).
 theorem calmTopMeans ∀ (file: SourceFile): file.calmTop.meaning = file.meaning :=
