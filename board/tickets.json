@@ -30566,12 +30566,12 @@
     {
       "id": 4480,
       "title": "[Opus] A _ argument fixed by a later argument's type gets an equal but different solution (SW-4475 cause): unification of the expected type unfolds Joins (Group x _) to Joins x and solves ?d := x before the later proof argument is checked. Options: elaborate _ arguments after the later arguments, or have the unifier keep the written argument when solving from a forced call. Repro and failed patch in docs/reviews/SW-4475/ (the patch broke std Args.helpListsOption). Also: W-REWRITE-REPEATEDLY-UNUSED could say the rule's part was closed by a hypothesis in scope",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nLane note (Opus, 21 Nov): cause is not elaboration order: with no expected type at all, checking groupedPass's type Pass (Doc.group x) pre post against Pass ?d pre post already solves ?d := x (same_arguments_solving_nothing refuses the argument solution; the unfoldings meet at Joins, which reads Group as its contents). Both unifier choices are guesses (fix3's argument-first broke Args, where the unfolding split of ?xs ++ ?ys is the right one), so no unifier rule. Fix: an application with a _ argument and a later explicit argument that fails against its expected type is elaborated once more, later arguments whose types have unknowns inferred and compared by call arguments first (by_arguments_first); only after failure, not nested; failed retry keeps the first error. Hashes unchanged (full hash_stability filter passes, only the new example's snapshot added). Example examples/accept/hole-solved-by-later-argument.sw (fails on main). JoinProofs Tuple/ListOf arms now _. Not done: the W-REWRITE-REPEATEDLY-UNUSED wording in the title. Commit 7e3f86b05 on lane/SW-4480.\n",
       "created": "2026-11-20",
       "updated": "2026-11-21",
       "commits": []
