@@ -3,8 +3,9 @@
 --| each step does so on a node and its blanked form (`Blanks`). One theorem a traversal function, `…Blanks`, stated
 --| on the form the function's input takes inside a blanked tree (`blankArms (walkArms blankPure arms)` for a match's
 --| arms). `Fmt.Walk`'s `…Ok` family covers steps that can't fail; the lowering's checks can, so `loweringDeaf`
---| (`Syntax.DeafProofs`) rests on this family. The arms were generated from the `…Ok` family's, one `alikeN` call
---| for each `seqN`; a change to the traversal needs the same change here.
+--| (`Syntax.DeafProofs`) rests on this family. Each arm follows the traversal's arm: one `alikeN` call for each
+--| `seqN`, or, where the arm rebuilds a node and hands it to a step, one `rebuildsN` call; a change to the traversal
+--| needs the same change here.
 namespace Fmt.TraverseFail
 import Std (Bool, Eq, Fail, List, Nat, Option, Result, Text)
 import Syntax (..)
@@ -35,98 +36,79 @@ type Blanks (on: Steps) = {
 -- blanked forms. Each child's run on the blanked form fails as the original's does or finishes with the original's
 -- result blanked (`hN`); then the arm does too, given that the rest of the arm does for every result (`step`).
 
+--| A node rebuilt around one child's run (`g` around the run on the node, `g2` around the run on its blanked
+--| form), then given to a step `k` that keeps blanking (`deaf`, one of [`Blanks`]' fields): when the child's run
+--| on its blanked form agrees with its run (`h1`, its induction hypothesis), and rebuilding around a blanked child
+--| is blanking the rebuilt node (`rebuilt`, by computing), the node's run on its blanked form agrees with its run.
+theorem rebuilds1 ∀ [t1 s1: () → {Fail} a1] [bl1: a1 → a1] [g g2: a1 → r] [k: r → {Fail} r] [blr: r → r]
+    (deaf: ∀ (z: r) => Fail.toResult (() => k (blr z)) = (Fail.toResult (() => k z)).map blr)
+    (h1: Fail.toResult s1 = (Fail.toResult t1).map bl1)
+    (rebuilt: ∀ (v1: a1) => g2 (bl1 v1) = blr (g v1)):
+    Fail.toResult (() => k (g2 (s1 ()))) = (Fail.toResult (() => k (g (t1 ())))).map blr :=
+  Fail.toResultAlike1Then h1 (v1 => rewrite rebuilt v1 then deaf (g v1))
+
+--| As [`rebuilds1`], for a node rebuilt around two children's runs.
+theorem rebuilds2 ∀ [t1 s1: () → {Fail} a1] [t2 s2: () → {Fail} a2] [bl1: a1 → a1] [bl2: a2 → a2] [g g2: a1 → a2 → r]
+    [k: r → {Fail} r] [blr: r → r]
+    (deaf: ∀ (z: r) => Fail.toResult (() => k (blr z)) = (Fail.toResult (() => k z)).map blr)
+    (h1: Fail.toResult s1 = (Fail.toResult t1).map bl1)
+    (h2: Fail.toResult s2 = (Fail.toResult t2).map bl2)
+    (rebuilt: ∀ (v1: a1) (v2: a2) => g2 (bl1 v1) (bl2 v2) = blr (g v1 v2)):
+    Fail.toResult (() => k (g2 (s1 ()) (s2 ()))) = (Fail.toResult (() => k (g (t1 ()) (t2 ())))).map blr :=
+  Fail.toResultAlike2Then h1 h2 (v1 v2 => rewrite rebuilt v1 v2 then deaf (g v1 v2))
+
+--| As [`rebuilds1`], for a node rebuilt around three children's runs.
+theorem rebuilds3 ∀ [t1 s1: () → {Fail} a1] [t2 s2: () → {Fail} a2] [t3 s3: () → {Fail} a3] [bl1: a1 → a1]
+    [bl2: a2 → a2] [bl3: a3 → a3] [g g2: a1 → a2 → a3 → r] [k: r → {Fail} r] [blr: r → r]
+    (deaf: ∀ (z: r) => Fail.toResult (() => k (blr z)) = (Fail.toResult (() => k z)).map blr)
+    (h1: Fail.toResult s1 = (Fail.toResult t1).map bl1)
+    (h2: Fail.toResult s2 = (Fail.toResult t2).map bl2)
+    (h3: Fail.toResult s3 = (Fail.toResult t3).map bl3)
+    (rebuilt: ∀ (v1: a1) (v2: a2) (v3: a3) => g2 (bl1 v1) (bl2 v2) (bl3 v3) = blr (g v1 v2 v3)):
+    Fail.toResult (() => k (g2 (s1 ()) (s2 ()) (s3 ())))
+      = (Fail.toResult (() => k (g (t1 ()) (t2 ()) (t3 ())))).map blr :=
+  Fail.toResultAlike3Then h1 h2 h3 (v1 v2 v3 => rewrite rebuilt v1 v2 v3 then deaf (g v1 v2 v3))
+
 --| Traversing a blanked tree is blanking the traversed tree, failures included. By induction alongside the
---| traversal: in each arm the children's runs on their blanked forms agree with theirs (the induction hypotheses),
---| so the arm's binds do (`alikeN`, `alikeNk`, `alikeNj`), and then the step does by `Blanks`.
+--| traversal: each arm rebuilds its node around its children's runs, which agree with theirs on the blanked forms
+--| (the induction hypotheses), so the node's run does by [`rebuilds1`] to [`rebuilds3`] and `Blanks`. The arms are
+--| grouped by the children they traverse.
 theorem exprBlanks ∀ (on: Steps)
     (deaf: Blanks on) (input: Expr):
     runExpr on (input.walk blankPure) = (runExpr on input).map (x => x.walk blankPure) :=
   match input with
     | Atom _ _ | Unit _ _ | Universe _ _ | Include _ _ => deaf.expr input
-    | Paren open inner close =>
-      Fail.toResultAlike1Then (exprBlanks on deaf inner) (v1 => deaf.expr (Paren open v1 close))
-    | Tuple open items trailingComma close =>
-      Fail.toResultAlike1Then (exprsBlanks on deaf items) (v1 => deaf.expr (Tuple open v1 trailingComma close))
-    | ListOf open items trailingComma close =>
-      Fail.toResultAlike1Then (exprsBlanks on deaf items) (v1 => deaf.expr (ListOf open v1 trailingComma close))
-    | Spread dots list => Fail.toResultAlike1Then (exprBlanks on deaf list) (v1 => deaf.expr (Spread dots v1))
-    | Record open base fields trailingComma close =>
-      Fail.toResultAlike2Then (beforeBlanks on deaf base) (exprsBlanks on deaf fields) (v1 v2 =>
-        deaf.expr (Record open v1 v2 trailingComma close))
-    | RecordField name equals value =>
-      Fail.toResultAlike1Then (exprBlanks on deaf value) (v1 => deaf.expr (RecordField name equals v1))
-    | CtorFields ctor record => Fail.toResultAlike2Then (exprBlanks on deaf ctor) (exprBlanks on deaf record) (v1 v2 =>
-      deaf.expr (CtorFields v1 v2))
-    | App head arguments =>
-      Fail.toResultAlike2Then (exprBlanks on deaf head) (exprsBlanks on deaf arguments) (v1 v2 => deaf.expr (App v1 v2))
-    | NamedArg open name colonEq value close =>
-      Fail.toResultAlike1Then (exprBlanks on deaf value) (v1 => deaf.expr (NamedArg open name colonEq v1 close))
-    | FieldAccess target dot field =>
-      Fail.toResultAlike1Then (optionalBlanks deaf target) (v1 => deaf.expr (FieldAccess v1 dot field))
-    | Section body => Fail.toResultAlike1Then (exprBlanks on deaf body) (v1 => deaf.expr (Section v1))
-    | OperatorSection open left operator right close =>
-      Fail.toResultAlike2Then (optionalBlanks deaf left) (optionalBlanks deaf right) (v1 v2 =>
-        deaf.expr (OperatorSection open v1 operator v2 close))
-    | Infix kind left operator right =>
-      Fail.toResultAlike2Then (exprBlanks on deaf left) (exprBlanks on deaf right) (v1 v2 =>
-        deaf.expr (Infix kind v1 operator v2))
-    | Chain first rest =>
-      Fail.toResultAlike2Then (exprBlanks on deaf first) (linksBlanks on deaf rest) (v1 v2 => deaf.expr (Chain v1 v2))
-    | Prefix operator operand =>
-      Fail.toResultAlike1Then (exprBlanks on deaf operand) (v1 => deaf.expr (Prefix operator v1))
-    | Binding kind keyword params arrow body =>
-      Fail.toResultAlike2Then (paramsBlanks on deaf params) (exprBlanks on deaf body) (v1 v2 =>
-        deaf.expr (Binding kind keyword v1 arrow v2))
-    | If keyword binder condition thenKeyword whenTrue elseKeyword whenFalse =>
-      Fail.toResultAlike3Then
-        (exprBlanks on deaf condition)
-        (exprBlanks on deaf whenTrue)
-        (exprBlanks on deaf whenFalse)
-        (v1 v2 v3 => deaf.expr (If keyword binder v1 thenKeyword v2 elseKeyword v3))
-    | Annotation open value colon annotation close =>
-      Fail.toResultAlike2Then (exprBlanks on deaf value) (exprBlanks on deaf annotation) (v1 v2 =>
-        deaf.expr (Annotation open v1 colon v2 close))
-    | Interpolated pieces => Fail.toResultAlike1Then (piecesBlanks on deaf pieces) (v1 => deaf.expr (Interpolated v1))
-    | Match keyword scrutinees withKeyword arms =>
-      Fail.toResultAlike2Then (scrutineesBlanks on deaf scrutinees) (armsBlanks on deaf arms) (v1 v2 =>
-        deaf.expr (Match keyword v1 withKeyword v2))
-    | ClauseLambda keyword word arms =>
-      Fail.toResultAlike1Then (armsBlanks on deaf arms) (v1 => deaf.expr (ClauseLambda keyword word v1))
-    | Facts kind keyword facts =>
-      Fail.toResultAlike1Then (exprBlanks on deaf facts) (v1 => deaf.expr (Facts kind keyword v1))
-    | FunctionType binder arrow result =>
-      Fail.toResultAlike2Then (groupBlanks deaf binder) (exprBlanks on deaf result) (v1 v2 =>
-        deaf.expr (FunctionType v1 arrow v2))
-    | Effect row result =>
-      Fail.toResultAlike2Then (rowBlanks on deaf row) (exprBlanks on deaf result) (v1 v2 => deaf.expr (Effect v1 v2))
-    | Block first rest result =>
-      Fail.toResultAlike3Then
-        (statementBlanks on deaf first)
-        (statementsBlanks on deaf rest)
-        (exprBlanks on deaf result)
-        (v1 v2 v3 => deaf.expr (Block v1 v2 v3))
-    | LetIn binding semicolon body =>
-      Fail.toResultAlike2Then (letBlanks on deaf binding) (exprBlanks on deaf body) (v1 v2 =>
-        deaf.expr (LetIn v1 semicolon v2))
-    | Handle keyword computation withKeyword clauses =>
-      Fail.toResultAlike2Then (exprBlanks on deaf computation) (clausesBlanks on deaf clauses) (v1 v2 =>
-        deaf.expr (Handle keyword v1 withKeyword v2))
-    | Reify keyword reifyWord computation withKeyword clauses =>
-      Fail.toResultAlike2Then (exprBlanks on deaf computation) (clausesBlanks on deaf clauses) (v1 v2 =>
-        deaf.expr (Reify keyword reifyWord v1 withKeyword v2))
-    | Induct keyword inductWord call withKeyword arms =>
-      Fail.toResultAlike2Then (exprBlanks on deaf call) (inductArmsBlanks on deaf arms) (v1 v2 =>
-        deaf.expr (Induct keyword inductWord v1 withKeyword v2))
-    | Calc keyword first steps =>
-      Fail.toResultAlike2Then (exprBlanks on deaf first) (calcStepsBlanks on deaf steps) (v1 v2 =>
-        deaf.expr (Calc keyword v1 v2))
-    | Rewrite keyword rules target body =>
-      Fail.toResultAlike3Then (rulesBlanks on deaf rules) (afterBlanks deaf target) (afterBlanks deaf body) (v1 v2 v3 =>
-        deaf.expr (Rewrite keyword v1 v2 v3))
-    | Cases keyword targets body =>
-      Fail.toResultAlike1Then (afterBlanks deaf body) (v1 => deaf.expr (Cases keyword targets v1))
-    | Walk keyword items body => Fail.toResultAlike2Then (exprBlanks on deaf items) (afterBlanks deaf body) (v1 v2 =>
-      deaf.expr (Walk keyword v1 v2))
+    | Paren _ a _ | Spread _ a | RecordField _ _ a | NamedArg _ _ _ a _ | Section a | Prefix _ a | Facts _ _ a =>
+      rebuilds1 deaf.expr (exprBlanks on deaf a) (v1 => byComputing)
+    | Tuple _ a _ _ | ListOf _ a _ _ => rebuilds1 deaf.expr (exprsBlanks on deaf a) (v1 => byComputing)
+    | FieldAccess a _ _ => rebuilds1 deaf.expr (optionalBlanks deaf a) (v1 => byComputing)
+    | Interpolated a => rebuilds1 deaf.expr (piecesBlanks on deaf a) (v1 => byComputing)
+    | ClauseLambda _ _ a => rebuilds1 deaf.expr (armsBlanks on deaf a) (v1 => byComputing)
+    | Cases _ _ a => rebuilds1 deaf.expr (afterBlanks deaf a) (v1 => byComputing)
+    | CtorFields a b | Infix _ a _ b | Annotation _ a _ b _ =>
+      rebuilds2 deaf.expr (exprBlanks on deaf a) (exprBlanks on deaf b) (v1 v2 => byComputing)
+    | App a b => rebuilds2 deaf.expr (exprBlanks on deaf a) (exprsBlanks on deaf b) (v1 v2 => byComputing)
+    | Record _ a b _ _ => rebuilds2 deaf.expr (beforeBlanks on deaf a) (exprsBlanks on deaf b) (v1 v2 => byComputing)
+    | OperatorSection _ a _ b _ =>
+      rebuilds2 deaf.expr (optionalBlanks deaf a) (optionalBlanks deaf b) (v1 v2 => byComputing)
+    | Chain a b => rebuilds2 deaf.expr (exprBlanks on deaf a) (linksBlanks on deaf b) (v1 v2 => byComputing)
+    | Binding _ _ a _ b => rebuilds2 deaf.expr (paramsBlanks on deaf a) (exprBlanks on deaf b) (v1 v2 => byComputing)
+    | Match _ a _ b => rebuilds2 deaf.expr (scrutineesBlanks on deaf a) (armsBlanks on deaf b) (v1 v2 => byComputing)
+    | FunctionType a _ b => rebuilds2 deaf.expr (groupBlanks deaf a) (exprBlanks on deaf b) (v1 v2 => byComputing)
+    | Effect a b => rebuilds2 deaf.expr (rowBlanks on deaf a) (exprBlanks on deaf b) (v1 v2 => byComputing)
+    | LetIn a _ b => rebuilds2 deaf.expr (letBlanks on deaf a) (exprBlanks on deaf b) (v1 v2 => byComputing)
+    | Handle _ a _ b | Reify _ _ a _ b =>
+      rebuilds2 deaf.expr (exprBlanks on deaf a) (clausesBlanks on deaf b) (v1 v2 => byComputing)
+    | Induct _ _ a _ b => rebuilds2 deaf.expr (exprBlanks on deaf a) (inductArmsBlanks on deaf b) (v1 v2 => byComputing)
+    | Calc _ a b => rebuilds2 deaf.expr (exprBlanks on deaf a) (calcStepsBlanks on deaf b) (v1 v2 => byComputing)
+    | Walk _ a b => rebuilds2 deaf.expr (exprBlanks on deaf a) (afterBlanks deaf b) (v1 v2 => byComputing)
+    | If _ _ a _ b _ c =>
+      rebuilds3 deaf.expr (exprBlanks on deaf a) (exprBlanks on deaf b) (exprBlanks on deaf c) (v1 v2 v3 => byComputing)
+    | Block a b c =>
+      rebuilds3 deaf.expr (statementBlanks on deaf a) (statementsBlanks on deaf b) (exprBlanks on deaf c) (v1 v2 v3 =>
+        byComputing)
+    | Rewrite _ a b c =>
+      rebuilds3 deaf.expr (rulesBlanks on deaf a) (afterBlanks deaf b) (afterBlanks deaf c) (v1 v2 v3 => byComputing)
 
 theorem statementsBlanks ∀ (on: Steps)
     (deaf: Blanks on) (input: List Statement):
@@ -314,30 +296,18 @@ theorem patternBlanks ∀ (on: Steps)
     (deaf: Blanks on) (input: Pattern):
     runPattern on (input.walk blankPure) = (runPattern on input).map (x => x.walk blankPure) :=
   match input with
-    | PatternWord kind word => deaf.pattern (PatternWord kind word)
-    | PatternCtor name arguments =>
-      Fail.toResultAlike1Then (patternsBlanks on deaf arguments) (v1 => deaf.pattern (PatternCtor name v1))
-    | PatternCtorFields name fields =>
-      Fail.toResultAlike1Then (fieldsPatternBlanks on deaf fields) (v1 => deaf.pattern (PatternCtorFields name v1))
-    | PatternRecord fields =>
-      Fail.toResultAlike1Then (fieldsPatternBlanks on deaf fields) (v1 => deaf.pattern (PatternRecord v1))
-    | PatternTuple open items trailingComma close => Fail.toResultAlike1Then (patternsBlanks on deaf items) (v1 =>
-      deaf.pattern (PatternTuple open v1 trailingComma close))
-    | PatternList open items trailingComma tail close =>
-      Fail.toResultAlike2Then (patternsBlanks on deaf items) (tailBlanks on deaf tail) (v1 v2 =>
-        deaf.pattern (PatternList open v1 trailingComma v2 close))
-    | PatternNamed open name colonEq value close => Fail.toResultAlike1Then (patternBlanks on deaf value) (v1 =>
-      deaf.pattern (PatternNamed open name colonEq v1 close))
-    | PatternOr first rest =>
-      Fail.toResultAlike2Then (patternBlanks on deaf first) (patternLinksBlanks on deaf rest) (v1 v2 =>
-        deaf.pattern (PatternOr v1 v2))
-    | PatternParen open inner close =>
-      Fail.toResultAlike1Then (patternBlanks on deaf inner) (v1 => deaf.pattern (PatternParen open v1 close))
-    | PatternNegative minus number => deaf.pattern (PatternNegative minus number)
-    | PatternAbsurd open close => deaf.pattern (PatternAbsurd open close)
-    | PatternAppend start operator rest =>
-      Fail.toResultAlike2Then (patternBlanks on deaf start) (patternBlanks on deaf rest) (v1 v2 =>
-        deaf.pattern (PatternAppend v1 operator v2))
+    | PatternWord _ _ | PatternNegative _ _ | PatternAbsurd _ _ => deaf.pattern input
+    | PatternCtor _ a | PatternTuple _ a _ _ => rebuilds1 deaf.pattern (patternsBlanks on deaf a) (v1 => byComputing)
+    | PatternCtorFields _ a | PatternRecord a =>
+      rebuilds1 deaf.pattern (fieldsPatternBlanks on deaf a) (v1 => byComputing)
+    | PatternNamed _ _ _ a _ | PatternParen _ a _ =>
+      rebuilds1 deaf.pattern (patternBlanks on deaf a) (v1 => byComputing)
+    | PatternList _ a _ b _ =>
+      rebuilds2 deaf.pattern (patternsBlanks on deaf a) (tailBlanks on deaf b) (v1 v2 => byComputing)
+    | PatternOr a b =>
+      rebuilds2 deaf.pattern (patternBlanks on deaf a) (patternLinksBlanks on deaf b) (v1 v2 => byComputing)
+    | PatternAppend a _ b =>
+      rebuilds2 deaf.pattern (patternBlanks on deaf a) (patternBlanks on deaf b) (v1 v2 => byComputing)
 
 theorem patternsBlanks ∀ (on: Steps)
     (deaf: Blanks on) (input: List Pattern):
@@ -378,14 +348,10 @@ theorem declBlanks ∀ (on: Steps)
     (deaf: Blanks on) (input: Decl):
     runDecl on (input.walk blankPure) = (runDecl on input).map (x => x.walk blankPure) :=
   match input with
-    | Namespace keyword name => deaf.decl (Namespace keyword name)
-    | Import keyword path open imported close => deaf.decl (Import keyword path open imported close)
-    | Definition attributes header body =>
-      Fail.toResultAlike3Then
-        (attributesBlanks on deaf attributes)
-        (headerBlanks on deaf header)
-        (defBodyBlanks on deaf body)
-        (v1 v2 v3 => deaf.decl (Definition v1 v2 v3))
+    | Namespace _ _ | Import _ _ _ _ _ => deaf.decl input
+    | Definition a b c =>
+      rebuilds3 deaf.decl (attributesBlanks on deaf a) (headerBlanks on deaf b) (defBodyBlanks on deaf c) (v1 v2 v3 =>
+        byComputing)
     | Data attributes isInterface keyword name params indices body =>
       match indices with
         | Some { colon, steps, last } =>
@@ -462,13 +428,10 @@ theorem declBlanks ∀ (on: Steps)
                 (Fail.toResultAlike1 [g2 := w1 => Sum Comments.none w1] (constructorsBlanks on deaf constructors) (w1 =>
                   byComputing))
                 (v1 v2 v3 v4 => deaf.decl (Data v1 isInterface keyword name v2 v3 v4))
-    | Ability keyword name params whereKeyword operations =>
-      Fail.toResultAlike2Then (groupsBlanks on deaf params) (operationsBlanks on deaf operations) (v1 v2 =>
-        deaf.decl (Ability keyword name v1 whereKeyword v2))
-    | Test keyword name colonEq body =>
-      Fail.toResultAlike1Then (exprBlanks on deaf body) (v1 => deaf.decl (Test keyword name colonEq v1))
-    | RuleSetDecl keyword name colonEq set =>
-      Fail.toResultAlike1Then (ruleSetBlanks on deaf set) (v1 => deaf.decl (RuleSetDecl keyword name colonEq v1))
+    | Ability _ _ a _ b =>
+      rebuilds2 deaf.decl (groupsBlanks on deaf a) (operationsBlanks on deaf b) (v1 v2 => byComputing)
+    | Test _ _ _ a => rebuilds1 deaf.decl (exprBlanks on deaf a) (v1 => byComputing)
+    | RuleSetDecl _ _ _ a => rebuilds1 deaf.decl (ruleSetBlanks on deaf a) (v1 => byComputing)
 
 theorem headerBlanks ∀ (on: Steps)
     (deaf: Blanks on) (input: Header):
