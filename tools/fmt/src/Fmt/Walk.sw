@@ -18,7 +18,8 @@ import Std (Bool, Eq, Fail, List, Nat, Option, Result, Text)
 import Std.Fail (
   toResultSeqRebuilds1 as seqRebuilds1,
   toResultSeqRebuilds2 as seqRebuilds2,
-  toResultSeqRebuilds3 as seqRebuilds3
+  toResultSeqRebuilds3 as seqRebuilds3,
+  toResultSeqRebuilds4 as seqRebuilds4
 )
 import Syntax (..)
 import Fmt (..)
@@ -885,6 +886,48 @@ theorem fieldPatternsOk ∀ (on: Steps) (p: Pure)
       Fail.toResultSeq2 (patternOk on p agree pattern) (fieldPatternsOk on p agree rest)
     | [{ name, value = None }, ..rest] => Fail.toResultSeq1 (fieldPatternsOk on p agree rest)
 
+--| The traversal of a data declaration's indices finishes, with the pure copy's result: its steps' and its last
+--| expression's computations finish (`indicesOk`, `exprOk`).
+theorem indicesPartOk ∀ (on: Steps) (p: Pure)
+    (agree: Agrees on p) (indices: Option Indices):
+    Fail.toResult (() =>
+      match indices with
+        | Some { colon, steps, last } => Some { colon, steps = traverseIndices on steps, last = last.traverse on }
+        | None => None)
+      = Ok
+        (match indices with
+          | Some { colon, steps, last } => Some { colon, steps = walkIndices p steps, last = last.walk p }
+          | None => None) :=
+  match indices with
+    | Some { colon, steps, last } =>
+      Fail.toResultSeq2
+        [g := (w1 w2 => Some { colon, steps = w1, last = w2 })]
+        (indicesOk on p agree steps)
+        (exprOk on p agree last)
+    | None => byComputing
+
+--| The traversal of a data declaration's body finishes, with the pure copy's result: the computations on what the
+--| body holds finish (`exprOk`, `fieldsOk`, `constructorsOk`).
+theorem bodyPartOk ∀ (on: Steps) (p: Pure)
+    (agree: Agrees on p) (body: DataBody):
+    Fail.toResult (() =>
+      match body with
+        | Abstract => Abstract
+        | Synonym equals annotation => Synonym equals (annotation.traverse on)
+        | RecordBody equals fields => RecordBody equals (fields.traverse on)
+        | Sum equals constructors => Sum equals (traverseConstructors on constructors))
+      = Ok
+        (match body with
+          | Abstract => Abstract
+          | Synonym equals annotation => Synonym equals (annotation.walk p)
+          | RecordBody equals fields => RecordBody equals (fields.walk p)
+          | Sum equals constructors => Sum equals (walkConstructors p constructors)) :=
+  match body with
+    | Abstract => byComputing
+    | Synonym equals annotation => Fail.toResultSeq1 [g := (w1 => Synonym equals w1)] (exprOk on p agree annotation)
+    | RecordBody equals fields => Fail.toResultSeq1 [g := (w1 => RecordBody equals w1)] (fieldsOk on p agree fields)
+    | Sum equals constructors => Fail.toResultSeq1 [g := (w1 => Sum equals w1)] (constructorsOk on p agree constructors)
+
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
 --| finish (the induction hypotheses), so the arm's binds compute
@@ -894,136 +937,12 @@ theorem declOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Decl): run
     | Namespace _ _ | Import _ _ _ _ _ => agree.decl input
     | Definition a b c =>
       seqRebuilds3 agree.decl (attributesOk on p agree a) (headerOk on p agree b) (defBodyOk on p agree c)
-    | Data attributes isInterface keyword name params indices body =>
-      match indices with
-        | Some { colon, steps, last } =>
-          match body with
-            | Abstract =>
-              rewrite Fail.toResultSeq3Then
-                    (attributesOk on p agree attributes)
-                    (groupsOk on p agree params)
-                    (Fail.toResultSeq2
-                      [g := (w1 w2 => Some { colon, steps = w1, last = w2 })]
-                      (indicesOk on p agree steps)
-                      (exprOk on p agree last)),
-                  agree.decl
-                    (Data
-                      (walkAttributes p attributes)
-                      isInterface
-                      keyword
-                      name
-                      (walkGroups p params)
-                      (Some { colon, steps = (walkIndices p steps), last = (last.walk p) })
-                      (Abstract))
-            | Synonym equals annotation =>
-              rewrite Fail.toResultSeq4Then
-                    (attributesOk on p agree attributes)
-                    (groupsOk on p agree params)
-                    (Fail.toResultSeq2
-                      [g := (w1 w2 => Some { colon, steps = w1, last = w2 })]
-                      (indicesOk on p agree steps)
-                      (exprOk on p agree last))
-                    (Fail.toResultSeq1 [g := (w1 => Synonym equals w1)] (exprOk on p agree annotation)),
-                  agree.decl
-                    (Data
-                      (walkAttributes p attributes)
-                      isInterface
-                      keyword
-                      name
-                      (walkGroups p params)
-                      (Some { colon, steps = (walkIndices p steps), last = (last.walk p) })
-                      (Synonym equals (annotation.walk p)))
-            | RecordBody equals fields =>
-              rewrite Fail.toResultSeq4Then
-                    (attributesOk on p agree attributes)
-                    (groupsOk on p agree params)
-                    (Fail.toResultSeq2
-                      [g := (w1 w2 => Some { colon, steps = w1, last = w2 })]
-                      (indicesOk on p agree steps)
-                      (exprOk on p agree last))
-                    (Fail.toResultSeq1 [g := (w1 => RecordBody equals w1)] (fieldsOk on p agree fields)),
-                  agree.decl
-                    (Data
-                      (walkAttributes p attributes)
-                      isInterface
-                      keyword
-                      name
-                      (walkGroups p params)
-                      (Some { colon, steps = (walkIndices p steps), last = (last.walk p) })
-                      (RecordBody equals (fields.walk p)))
-            | Sum equals constructors =>
-              rewrite Fail.toResultSeq4Then
-                    (attributesOk on p agree attributes)
-                    (groupsOk on p agree params)
-                    (Fail.toResultSeq2
-                      [g := (w1 w2 => Some { colon, steps = w1, last = w2 })]
-                      (indicesOk on p agree steps)
-                      (exprOk on p agree last))
-                    (Fail.toResultSeq1 [g := (w1 => Sum equals w1)] (constructorsOk on p agree constructors)),
-                  agree.decl
-                    (Data
-                      (walkAttributes p attributes)
-                      isInterface
-                      keyword
-                      name
-                      (walkGroups p params)
-                      (Some { colon, steps = (walkIndices p steps), last = (last.walk p) })
-                      (Sum equals (walkConstructors p constructors)))
-        | None =>
-          match body with
-            | Abstract =>
-              rewrite Fail.toResultSeq2Then (attributesOk on p agree attributes) (groupsOk on p agree params),
-                  agree.decl
-                    (Data
-                      (walkAttributes p attributes)
-                      isInterface
-                      keyword
-                      name
-                      (walkGroups p params)
-                      (None)
-                      (Abstract))
-            | Synonym equals annotation =>
-              rewrite Fail.toResultSeq3Then
-                    (attributesOk on p agree attributes)
-                    (groupsOk on p agree params)
-                    (Fail.toResultSeq1 [g := (w1 => Synonym equals w1)] (exprOk on p agree annotation)),
-                  agree.decl
-                    (Data
-                      (walkAttributes p attributes)
-                      isInterface
-                      keyword
-                      name
-                      (walkGroups p params)
-                      (None)
-                      (Synonym equals (annotation.walk p)))
-            | RecordBody equals fields =>
-              rewrite Fail.toResultSeq3Then
-                    (attributesOk on p agree attributes)
-                    (groupsOk on p agree params)
-                    (Fail.toResultSeq1 [g := (w1 => RecordBody equals w1)] (fieldsOk on p agree fields)),
-                  agree.decl
-                    (Data
-                      (walkAttributes p attributes)
-                      isInterface
-                      keyword
-                      name
-                      (walkGroups p params)
-                      (None)
-                      (RecordBody equals (fields.walk p)))
-            | Sum equals constructors =>
-              rewrite Fail.toResultSeq3Then
-                    (attributesOk on p agree attributes)
-                    (groupsOk on p agree params)
-                    (Fail.toResultSeq1 [g := (w1 => Sum equals w1)] (constructorsOk on p agree constructors)),
-                  agree.decl
-                    (Data
-                      (walkAttributes p attributes)
-                      isInterface
-                      keyword
-                      name
-                      (walkGroups p params)
-                      (None)
-                      (Sum equals (walkConstructors p constructors)))
+    | Data a _ _ _ b c d =>
+      seqRebuilds4 agree.decl
+        (attributesOk on p agree a)
+        (groupsOk on p agree b)
+        (indicesPartOk on p agree c)
+        (bodyPartOk on p agree d)
     | Ability _ _ a _ b => seqRebuilds2 agree.decl (groupsOk on p agree a) (operationsOk on p agree b)
     | Test _ _ _ a => seqRebuilds1 agree.decl (exprOk on p agree a)
     | RuleSetDecl _ _ _ a => seqRebuilds1 agree.decl (ruleSetOk on p agree a)
