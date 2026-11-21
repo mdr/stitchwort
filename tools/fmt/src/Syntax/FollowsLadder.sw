@@ -229,10 +229,7 @@ theorem followsLambdaHere ∀ (modes: Modes):
 theorem followsAtUpperBrace ∀ (modes: Modes):
     Parse.Follows SameCode Same (() => modes.at Upper && isSome LBrace (modes.peekAt 1)) (() =>
       modes.at Upper && isSome LBrace (modes.peekAt 1)) :=
-  followsThenEq (followsAt modes Upper) (here =>
-    match here with
-      | True => followsThenEq (followsPeekAt modes 1) (seen => Parse.followsDone byComputing)
-      | False => Parse.followsDone byComputing)
+  byWalking []
 
 -- Applications.
 
@@ -264,8 +261,7 @@ theorem followsArgument ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
     (braces: BraceFollows self selfTwin) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => argument self modes) (() => argument selfTwin modes) :=
-  followsOn (seen => argumentAt self modes seen) (seen => argumentAt selfTwin modes seen) (seen others same =>
-    followsArgumentAt knot braces modes seen others same)
+  byWalking [followsArgumentAt knot]
 
 theorem followsArgumentStep ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -273,9 +269,7 @@ theorem followsArgumentStep ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (modes: Modes) (starts: Bool):
     Parse.Follows SameCode (Option.Alike ExprsAlike) (() => argumentStep self modes starts) (() =>
       argumentStep selfTwin modes starts) :=
-  match starts with
-    | True => Parse.followsMap (x => Some x) (x => Some x) (followsArgument knot braces modes) (x y alike => alike)
-    | False => Parse.followsDone Trivial
+  byWalking [followsArgument knot braces modes]
 
 theorem followsArguments ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -319,8 +313,7 @@ theorem followsAppCalls ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (heads: ExprsAlike head headTwin):
     Parse.Follows SameCode ExprsAlike (() => appCalls self modes section head) (() =>
       appCalls selfTwin modes section headTwin) :=
-  followsThenEq (followsStartsAtom modes) (applies =>
-    followsAppEnd knot braces modes section head headTwin heads applies)
+  byWalking [followsStartsAtom, followsAppEnd knot]
 
 theorem followsAppHead ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: AtomFacts self selfTwin)
@@ -333,7 +326,7 @@ theorem followsAppAt ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: AtomFacts self selfTwin)
     (modes: Modes) (start: Nat):
     Parse.Follows SameCode ExprsAlike (() => appAt self modes start) (() => appAt selfTwin modes start) :=
-  followsThenEq (followsAt modes Dot) (here => followsAppHead facts modes (here && modes.sectionHead != Some start))
+  byWalking [followsAppHead]
 
 theorem followsApp ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: AtomFacts self selfTwin) (modes: Modes):
@@ -404,8 +397,7 @@ theorem followsUnaryOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
 theorem followsUnary ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: MatchFacts self selfTwin) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => unary self modes) (() => unary selfTwin modes) :=
-  followsPeeked modes (seen => unaryOn self modes seen) (seen => unaryOn selfTwin modes seen) (seen =>
-    followsUnaryOn facts modes seen)
+  byWalking [followsUnaryOn]
 
 -- Binary operators by precedence.
 
@@ -476,10 +468,8 @@ theorem followsRangeChained ∀ (low lowTwin: Expr)
     (highs: ExprsAlike high highTwin) (chained: Bool):
     Parse.Follows SameCode ExprsAlike (() => rangeChained low operator high chained) (() =>
       rangeChained lowTwin operatorTwin highTwin chained) :=
-  match chained with
-    | True => followsFatalAny "ranges don't chain" (() => Syntax.fatal "ranges don't chain")
-    | False =>
-      Parse.followsDone (alikeInfix InfixRange low lowTwin lows operator operatorTwin operators high highTwin highs)
+  byWalking [followsFatalAny] then (alikeInfix InfixRange low lowTwin lows operator operatorTwin operators high highTwin
+      highs)
 
 theorem followsRangeEnd ∀ (modes: Modes) (low lowTwin: Expr)
     (lows: ExprsAlike low lowTwin) (operator operatorTwin: Word)
@@ -487,46 +477,33 @@ theorem followsRangeEnd ∀ (modes: Modes) (low lowTwin: Expr)
     (highs: ExprsAlike high highTwin):
     Parse.Follows SameCode ExprsAlike (() => rangeEnd modes low operator high) (() =>
       rangeEnd modes lowTwin operatorTwin highTwin) :=
-  followsThenEq (followsAtEither modes DotDotLt DotDotEq) (chained =>
-    followsRangeChained low lowTwin lows operator operatorTwin operators high highTwin highs chained)
+  byWalking [followsAtEither, followsRangeChained]
 
 theorem followsRangeHigh ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: MatchFacts self selfTwin)
     (modes: Modes) (low lowTwin: Expr)
     (lows: ExprsAlike low lowTwin):
     Parse.Follows SameCode ExprsAlike (() => rangeHigh self modes low) (() => rangeHigh selfTwin modes lowTwin) :=
-  Parse.followsThen followsBump (operator operatorTwin operators =>
-    Parse.followsThen (followsAppendExpr facts modes) (high highTwin highs =>
-      followsRangeEnd modes low lowTwin lows operator operatorTwin operators high highTwin highs))
+  byWalking [followsAppendExpr, followsRangeEnd]
 
 theorem followsRangeOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: MatchFacts self selfTwin)
     (modes: Modes) (low lowTwin: Expr)
     (lows: ExprsAlike low lowTwin) (seen: Option Tok):
     Parse.Follows SameCode ExprsAlike (() => rangeOn self modes low seen) (() => rangeOn selfTwin modes lowTwin seen) :=
-  match seen with
-    | Some kind =>
-      match kind == DotDot with
-        | True => followsFatalAny _ (() =>
-          Syntax.fatal "a range is `a ..< b` (up to, not including, `b`) or `a ..= b` (through `b`)")
-        | False =>
-          match kind == DotDotLt || kind == DotDotEq with
-            | True => followsRangeHigh facts modes low lowTwin lows
-            | False => Parse.followsDone lows
-    | None => Parse.followsDone lows
+  byWalking [followsFatalAny, followsRangeHigh]
 
 theorem followsRangeFrom ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: MatchFacts self selfTwin)
     (modes: Modes) (low lowTwin: Expr)
     (lows: ExprsAlike low lowTwin):
     Parse.Follows SameCode ExprsAlike (() => rangeFrom self modes low) (() => rangeFrom selfTwin modes lowTwin) :=
-  followsPeeked modes (seen => rangeOn self modes low seen) (seen => rangeOn selfTwin modes lowTwin seen) (seen =>
-    followsRangeOn facts modes low lowTwin lows seen)
+  byWalking [followsRangeOn]
 
 theorem followsRangeExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: MatchFacts self selfTwin) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => rangeExpr self modes) (() => rangeExpr selfTwin modes) :=
-  Parse.followsThen (followsAppendExpr facts modes) (low lowTwin lows => followsRangeFrom facts modes low lowTwin lows)
+  byWalking [followsAppendExpr, followsRangeFrom]
 
 -- Pipes.
 
@@ -613,7 +590,7 @@ theorem followsPipedAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (ranges: ExprsAlike range rangeTwin):
     Parse.Follows SameCode ExprsAlike (() => pipedAfter self modes indent range) (() =>
       pipedAfter selfTwin modes indent rangeTwin) :=
-  followsThenEq (followsAtPipe modes) (pipe => followsPipedEnd facts modes indent range rangeTwin ranges pipe)
+  byWalking [followsAtPipe, followsPipedEnd]
 
 theorem followsPipedAt ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: LambdaFacts self selfTwin)
@@ -625,7 +602,7 @@ theorem followsPipedAt ∀ [self selfTwin: Goal → {Parse Item} Expr]
 theorem followsPipedRange ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: LambdaFacts self selfTwin) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => pipedRange self modes) (() => pipedRange selfTwin modes) :=
-  followsThenEq followsHeadIndent (indent => followsPipedAt facts modes indent)
+  byWalking [followsHeadIndent, followsPipedAt]
 
 -- Comparisons.
 
@@ -654,27 +631,7 @@ theorem followsChainLink ∀ [self selfTwin: Goal → {Parse Item} Expr]
       (Option.Alike (PairAlike WordsAlike ExprsAlike))
       (() => chainLink self modes descending kind)
       (() => chainLink selfTwin modes descending kind) :=
-  match kind == Equals || kind == EqEq with
-    | True => followsFatalAny _ (() => Syntax.fatal (chainRefused kind))
-    | False =>
-      match kind == NotEq with
-        | True => followsFatalAny _ (() => Syntax.fatal "`!=` can't be part of a chain of comparisons")
-        | False =>
-          match kind == KwIn || kind == NotIn with
-            | True => followsFatalAny _ (() => Syntax.fatal "`in` can't be part of a chain of comparisons")
-            | False =>
-              match !(kind == Lt || kind == Le || isDescending kind) with
-                | True => Parse.followsDone Trivial
-                | False =>
-                  match isDescending kind != descending with
-                    | True => followsFatalAny _ (() =>
-                      Syntax.fatal "a chain of comparisons goes one way: `<` and `<=` can't be mixed with `>` and `>=`")
-                    | False => Parse.followsThen followsBump (operator operatorTwin operators =>
-                      Parse.followsMap
-                        (operand => Some (operator, operand))
-                        (operand => Some (operatorTwin, operand))
-                        (followsPipedRange facts modes)
-                        (operand operandTwin operands => (operators, operands)))
+  byWalking [followsFatalAny, followsPipedRange]
 
 theorem followsChainOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: LambdaFacts self selfTwin)
@@ -683,9 +640,7 @@ theorem followsChainOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
       (Option.Alike (PairAlike WordsAlike ExprsAlike))
       (() => chainOn self modes descending seen)
       (() => chainOn selfTwin modes descending seen) :=
-  match seen with
-    | Some kind => followsChainLink facts modes descending kind
-    | None => Parse.followsDone Trivial
+  byWalking [followsChainLink]
 
 theorem followsChainLinks ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: LambdaFacts self selfTwin)
@@ -724,11 +679,7 @@ theorem followsComparisonChain ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (seconds: ExprsAlike second secondTwin):
     Parse.Follows SameCode ExprsAlike (() => comparisonChain self modes first kind operator second) (() =>
       comparisonChain selfTwin modes firstTwin kind operatorTwin secondTwin) :=
-  match kind == Equals || kind == EqEq || kind == NotEq with
-    | True => followsFatalAny _ (() => Syntax.fatal (chainRefused kind))
-    | False =>
-      followsChainAfter facts modes first firstTwin firsts operator operatorTwin operators second secondTwin seconds
-        (isDescending kind)
+  byWalking [followsFatalAny, followsChainAfter]
 
 theorem followsCmpChain ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: LambdaFacts self selfTwin)
@@ -739,18 +690,8 @@ theorem followsCmpChain ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (seconds: ExprsAlike second secondTwin) (seen: Option Tok):
     Parse.Follows SameCode ExprsAlike (() => cmpChain self modes lhs kind operator second seen) (() =>
       cmpChain selfTwin modes lhsTwin kind operatorTwin secondTwin seen) :=
-  match seen with
-    | Some next =>
-      match next.isComparison || next == KwIn || next == NotIn with
-        | True =>
-          followsComparisonChain facts modes lhs lhsTwin lhss kind operator operatorTwin operators second secondTwin
-              seconds
-        | False =>
-          Parse.followsDone
-            (alikeInfix InfixBinary lhs lhsTwin lhss operator operatorTwin operators second secondTwin seconds)
-    | None =>
-      Parse.followsDone
-        (alikeInfix InfixBinary lhs lhsTwin lhss operator operatorTwin operators second secondTwin seconds)
+  byWalking [followsComparisonChain] then (alikeInfix InfixBinary lhs lhsTwin lhss operator operatorTwin operators
+      second secondTwin seconds)
 
 theorem followsCmpSecond ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: LambdaFacts self selfTwin)
@@ -761,11 +702,7 @@ theorem followsCmpSecond ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (seconds: ExprsAlike second secondTwin):
     Parse.Follows SameCode ExprsAlike (() => cmpSecond self modes lhs kind operator second) (() =>
       cmpSecond selfTwin modes lhsTwin kind operatorTwin secondTwin) :=
-  followsPeeked modes
-    (seen => cmpChain self modes lhs kind operator second seen)
-    (seen => cmpChain selfTwin modes lhsTwin kind operatorTwin secondTwin seen)
-    (seen =>
-      followsCmpChain facts modes lhs lhsTwin lhss kind operator operatorTwin operators second secondTwin seconds seen)
+  byWalking [followsCmpChain]
 
 theorem followsCmpIf ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: IfFacts self selfTwin)
@@ -803,9 +740,7 @@ theorem followsCmpCompare ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (lhss: ExprsAlike lhs lhsTwin) (kind: Tok):
     Parse.Follows SameCode ExprsAlike (() => cmpCompare self modes lhs kind) (() =>
       cmpCompare selfTwin modes lhsTwin kind) :=
-  Parse.followsThen followsBump (operator operatorTwin operators =>
-    followsThenEq (followsAt modes KwIf) (conditional =>
-      followsCmpAfter facts modes lhs lhsTwin lhss kind operator operatorTwin operators conditional))
+  byWalking [followsCmpAfter]
 
 theorem followsCmpKind ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: IfFacts self selfTwin)
@@ -826,9 +761,7 @@ theorem followsCmpOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (lhss: ExprsAlike lhs lhsTwin) (seen: Option Tok):
     Parse.Follows SameCode ExprsAlike (() => cmpOn self modes first lhs seen) (() =>
       cmpOn selfTwin modes first lhsTwin seen) :=
-  match seen with
-    | Some kind => followsCmpKind facts modes first lhs lhsTwin lhss kind
-    | None => Parse.followsDone lhss
+  byWalking [followsCmpKind]
 
 theorem followsCmpPiped ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: IfFacts self selfTwin)
@@ -836,10 +769,7 @@ theorem followsCmpPiped ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (lhss: ExprsAlike lhs lhsTwin):
     Parse.Follows SameCode ExprsAlike (() => cmpPiped self modes first lhs) (() =>
       cmpPiped selfTwin modes first lhsTwin) :=
-  followsPeeked modes
-    (seen => cmpOn self modes first lhs seen)
-    (seen => cmpOn selfTwin modes first lhsTwin seen)
-    (seen => followsCmpOn facts modes first lhs lhsTwin lhss seen)
+  byWalking [followsCmpOn]
 
 theorem followsCmpFirst ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: IfFacts self selfTwin)
@@ -886,21 +816,14 @@ theorem followsLogicLink ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: QuantifierFacts self selfTwin) (modes: Modes):
     Parse.Follows SameCode (Option.Alike (PairAlike WordsAlike ExprsAlike)) (() => logicLink self modes) (() =>
       logicLink selfTwin modes) :=
-  Parse.followsThen followsBump (operator operatorTwin operators =>
-    followsThenEq (followsQuantifierAhead modes) (quantified =>
-      followsLogicOperand facts modes operator operatorTwin operators quantified))
+  byWalking [followsQuantifierAhead, followsLogicOperand]
 
 theorem followsLogicOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: QuantifierFacts self selfTwin)
     (modes: Modes) (seen: Option Tok):
     Parse.Follows SameCode (Option.Alike (PairAlike WordsAlike ExprsAlike)) (() => logicOn self modes seen) (() =>
       logicOn selfTwin modes seen) :=
-  match seen with
-    | Some kind =>
-      match kind == AndAnd || kind == OrOr with
-        | True => followsLogicLink facts modes
-        | False => Parse.followsDone Trivial
-    | None => Parse.followsDone Trivial
+  byWalking [followsLogicLink]
 
 theorem followsLogicLinks ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: QuantifierFacts self selfTwin) (modes: Modes):
@@ -933,9 +856,7 @@ theorem followsLogicOf ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (compareds: ExprsAlike compared comparedTwin) (ahead: Bool):
     Parse.Follows SameCode ExprsAlike (() => logicOf self modes compared ahead) (() =>
       logicOf selfTwin modes comparedTwin ahead) :=
-  match ahead with
-    | True => followsLogicChain facts modes compared comparedTwin compareds
-    | False => Parse.followsDone compareds
+  byWalking [followsLogicChain]
 
 theorem followsLogicAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: QuantifierFacts self selfTwin)
@@ -943,7 +864,7 @@ theorem followsLogicAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (compareds: ExprsAlike compared comparedTwin):
     Parse.Follows SameCode ExprsAlike (() => logicAfter self modes compared) (() =>
       logicAfter selfTwin modes comparedTwin) :=
-  followsThenEq (followsAndOrAhead modes) (ahead => followsLogicOf facts modes compared comparedTwin compareds ahead)
+  byWalking [followsAndOrAhead, followsLogicOf]
 
 theorem followsLogicLevel ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: QuantifierFacts self selfTwin) (modes: Modes):
@@ -959,10 +880,8 @@ theorem followsIffEnd ∀ (left leftTwin: Expr)
     (rights: ExprsAlike right rightTwin) (chained: Bool):
     Parse.Follows SameCode ExprsAlike (() => iffEnd left operator right chained) (() =>
       iffEnd leftTwin operatorTwin rightTwin chained) :=
-  match chained with
-    | True => followsFatalAny "`<->` doesn't chain" (() => Syntax.fatal "`<->` doesn't chain")
-    | False =>
-      Parse.followsDone (alikeInfix InfixIff left leftTwin lefts operator operatorTwin operators right rightTwin rights)
+  byWalking [followsFatalAny] then (alikeInfix InfixIff left leftTwin lefts operator operatorTwin operators right
+      rightTwin rights)
 
 theorem followsIffRight ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: QuantifierFacts self selfTwin)
@@ -981,18 +900,14 @@ theorem followsIffAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (operators: WordsAlike operator operatorTwin) (quantified: Bool):
     Parse.Follows SameCode ExprsAlike (() => iffAfter self modes left operator quantified) (() =>
       iffAfter selfTwin modes leftTwin operatorTwin quantified) :=
-  Parse.followsThen (followsIffRight facts modes quantified) (right rightTwin rights =>
-    followsThenEq (followsAt modes IffArrow) (chained =>
-      followsIffEnd left leftTwin lefts operator operatorTwin operators right rightTwin rights chained))
+  byWalking [followsIffRight, followsIffEnd]
 
 theorem followsIff ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: QuantifierFacts self selfTwin)
     (modes: Modes) (left leftTwin: Expr)
     (lefts: ExprsAlike left leftTwin):
     Parse.Follows SameCode ExprsAlike (() => iff self modes left) (() => iff selfTwin modes leftTwin) :=
-  Parse.followsThen followsBump (operator operatorTwin operators =>
-    followsThenEq (followsQuantifierAhead modes) (quantified =>
-      followsIffAfter facts modes left leftTwin lefts operator operatorTwin operators quantified))
+  byWalking [followsQuantifierAhead, followsIffAfter]
 
 theorem followsIffOf ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: QuantifierFacts self selfTwin)
@@ -1044,9 +959,7 @@ theorem followsSemiExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (modes: Modes) (value valueTwin: Expr)
     (values: ExprsAlike value valueTwin):
     Parse.Follows SameCode ExprsAlike (() => semiExpr self modes value) (() => semiExpr selfTwin modes valueTwin) :=
-  Parse.followsThen followsBump (semicolon semicolonTwin semicolons =>
-    followsThenEq (followsPeek modes) (seen =>
-      followsSemiAfter knot modes value valueTwin values semicolon semicolonTwin semicolons seen))
+  byWalking [followsSemiAfter knot]
 
 theorem followsOpEnd ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -1056,16 +969,7 @@ theorem followsOpEnd ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (sequence: Bool) (seen: Option Tok):
     Parse.Follows SameCode ExprsAlike (() => opEnd self modes value sequence seen) (() =>
       opEnd selfTwin modes valueTwin sequence seen) :=
-  match seen with
-    | Some kind =>
-      match kind == Arrow with
-        | True => Parse.followsThen followsBump (arrow arrowTwin arrows =>
-          followsArrowEnd knot results modes value valueTwin values arrow arrowTwin arrows)
-        | False =>
-          match kind == Semi && sequence with
-            | True => followsSemiExpr knot modes value valueTwin values
-            | False => Parse.followsDone values
-    | None => Parse.followsDone values
+  byWalking [followsArrowEnd knot, followsSemiExpr knot]
 
 theorem followsOpSequence ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -1074,10 +978,7 @@ theorem followsOpSequence ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (values: ExprsAlike value valueTwin) (sequence: Bool):
     Parse.Follows SameCode ExprsAlike (() => opSequence self modes value sequence) (() =>
       opSequence selfTwin modes valueTwin sequence) :=
-  followsPeeked modes
-    (seen => opEnd self modes value sequence seen)
-    (seen => opEnd selfTwin modes valueTwin sequence seen)
-    (seen => followsOpEnd knot results modes value valueTwin values sequence seen)
+  byWalking [followsOpEnd knot]
 
 theorem followsOpIffed ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -1109,8 +1010,7 @@ theorem followsOpCompared ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (compareds: ExprsAlike compared comparedTwin):
     Parse.Follows SameCode ExprsAlike (() => opCompared self modes section compared) (() =>
       opCompared selfTwin modes section comparedTwin) :=
-  Parse.followsThen (followsLogicAfter facts modes compared comparedTwin compareds) (logic logicTwin logics =>
-    followsOpLogic facts modes section logic logicTwin logics)
+  byWalking [followsLogicAfter, followsOpLogic]
 
 theorem followsOpSection ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: QuantifierFacts self selfTwin)
@@ -1125,7 +1025,7 @@ theorem followsOpStart ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: QuantifierFacts self selfTwin)
     (modes: Modes) (start: Nat):
     Parse.Follows SameCode ExprsAlike (() => opStart self modes start) (() => opStart selfTwin modes start) :=
-  followsThenEq (followsAt modes Dot) (section => followsOpSection facts modes start section)
+  byWalking [followsOpSection]
 
 theorem followsOperatorExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: QuantifierFacts self selfTwin) (modes: Modes):
