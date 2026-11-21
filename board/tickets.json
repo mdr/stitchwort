@@ -31400,7 +31400,7 @@
     {
       "id": 4544,
       "title": "[Opus] SW-4537 stage 2 combine: fix count_ports.py (-- is a comment only in .lean; Rocq bullets), rewrap pilot and batches to 100 columns, recount all 33 theorems, run estimate.py: per-stratum and whole-slice ratios to Lean and Rocq with 90% intervals, by lines and characters, with and without exprBlanks (support over the 300-line rule; orchestrator kept it), and the fairness notes; plain-words summary for Matt",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -31413,12 +31413,12 @@
     {
       "id": 4545,
       "title": "[Sonnet] differential::the_evaluators_agree_on_the_prelude_and_every_example overflows its stack (SIGABRT, deterministic) on examples/accept/fin-pattern-numbers.sw whenever the broad sample includes it (index divisible by 4: failed at 2a196474d and d038b5ca1, the only 2 of 53 cycles that sampled it; STITCHWORT_DIFFERENTIAL_ONLY=accept/fin-pattern-numbers.sw reproduces in 8 s; Overmind 21 Nov). Find which evaluator overflows (likely the recursive reference evaluator on its million-case test); fix by running the comparison on a thread with a stated larger stack or making the evaluator not recurse that deep, not by skipping the example unless the reference evaluator is by design recursive (then the skip marker with its reason). Test: that ONLY run passing",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "\nLane note: the overflow is in the recursive reference evaluator (reference::eval of 'test \"a million\"', a Fin of 1,000,000), before the machine runs; the machine side is fine. Added the existing differential skip marker (commit 0ed31a0a6). Only-run fails before, passes after; STITCHWORT_TIER=lane run passes.\n",
+      "body": "Model result: Sonnet, worked (skip marker per convention; depth guard filed as SW-4546), 15 min (est. 25)\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": [
