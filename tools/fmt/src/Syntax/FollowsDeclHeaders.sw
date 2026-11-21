@@ -243,7 +243,7 @@ theorem followsHeaderGroupNamed ∀ [self selfTwin: Goal → {Parse Item} Expr]
     Parse.Follows SameCode GroupsAlike
       (() => headerGroupNamed self inner kind refused implicit started open split)
       (() => headerGroupNamed selfTwin inner kind refused implicit startedTwin openTwin splitTwin) :=
-  byWalking [followsHeaderGroupColon knot, splits.left, splits.right]
+  byWalking [followsHeaderGroupColon knot]
 
 theorem followsHeaderGroupTyped ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)

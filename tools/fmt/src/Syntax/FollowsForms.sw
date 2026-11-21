@@ -210,7 +210,7 @@ theorem followsAtomNamed ∀ (modes: Modes) (second: Option Tok):
 
 theorem followsAtomMissingAt ∀ (modes: Modes) (seen: Option Tok):
     Parse.Follows SameCode ExprsAlike (() => atomMissingAt modes seen) (() => atomMissingAt modes seen) :=
-  byWalking [followsRanOutAtLine, followsAtomGap, followsAtomNamed, seen.isNone]
+  byWalking [followsRanOutAtLine, followsAtomGap, followsAtomNamed]
 
 theorem followsAtomMissing ∀ [self selfTwin: Goal → {Parse Item} Expr] (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => atomMissing self modes) (() => atomMissing selfTwin modes) :=
@@ -595,7 +595,7 @@ theorem followsOperatorEnd ∀ (inner: Modes) (open openTwin operator operatorTw
     (operands: ExprsAlike operand operandTwin) (closed: Bool):
     Parse.Follows SameCode ExprsAlike (() => operatorEnd inner open operator operand closed) (() =>
       operatorEnd inner openTwin operatorTwin operandTwin closed) :=
-  byWalking [followsOperatorClose, followsFail, inner.fail]
+  byWalking [followsOperatorClose, followsFail]
 
 theorem followsSectionOperand ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -697,7 +697,7 @@ theorem followsRightEnd ∀ (inner: Modes) (open openTwin: Word)
     (operands: ExprsAlike operand operandTwin) (here: Nat):
     Parse.Follows SameCode ExprsAlike (() => rightEnd inner open inside start operand here) (() =>
       rightEnd inner openTwin inside start operandTwin here) :=
-  byWalking [followsFail, followsRightClose, inner.fail]
+  byWalking [followsFail, followsRightClose]
 
 theorem followsRightKindOf ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
