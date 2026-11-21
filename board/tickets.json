@@ -30488,14 +30488,14 @@
     {
       "id": 4474,
       "title": "[Sonnet] cases follow-ups (SW-4472): a way to say what cases splits (cases on x / closer.md F4; parenParsedP is out of budget without it), and a hypothesis written as is: kind = Minus is never used to substitute (signSymbolicT still splits 60 kinds per arm); docs/syntax.md still calls data declarations 'data' where the keyword is type; a workflow note: a copied binary needs --std-dir, and how to profile a check (macOS sample on repeated copies)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "\n\nSW-4473 found 8 more theorems in ParseWalk/JoinProofs hitting E-CASES-BUDGET where the hand proof splits one or two things (followsCloser, freeReady, endedReadyCloser, piecePasses, endedReadyColon, mayFollowStops, fillSeq, signFirstNot).\n",
+      "body": "\n\nSW-4473 found 8 more theorems in ParseWalk/JoinProofs hitting E-CASES-BUDGET where the hand proof splits one or two things (followsCloser, freeReady, endedReadyCloser, piecePasses, endedReadyColon, mayFollowStops, fillSeq, signFirstNot).\n\n\nD3709 (Matt, 21 Nov 2026: yes): the syntax is cases x then t, and cases x, y then t for several; plain cases and cases then t unchanged. Model: Opus (core tactic, D2506).\n",
       "created": "2026-11-20",
-      "updated": "2026-11-20",
+      "updated": "2026-11-21",
       "commits": []
     },
     {
