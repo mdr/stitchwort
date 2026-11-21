@@ -1272,13 +1272,30 @@ theorem alikeRewrite ∀ (keyword keywordTwin: Comments) (rules twinRules: Rules
       rewrite ruleses, afterBlank target targetTwin targets, afterBlank body bodyTwin bodies
     _ = (Rewrite keywordTwin twinRules targetTwin bodyTwin).walk blankPure := byComputing
 
-theorem alikeCases ∀ (keyword keywordTwin thenKeyword thenKeywordTwin: Comments) (body bodyTwin: Expr)
-    (bodies: ExprsAlike body bodyTwin):
-    ExprsAlike (Cases keyword thenKeyword body) (Cases keywordTwin thenKeywordTwin bodyTwin) :=
-  calc (Cases keyword thenKeyword body).walk blankPure
-    _ = Cases Comments.none Comments.none (body.walk blankPure) := byComputing
-    _ = Cases Comments.none Comments.none (bodyTwin.walk blankPure) := rewrite bodies
-    _ = (Cases keywordTwin thenKeywordTwin bodyTwin).walk blankPure := byComputing
+theorem alikeCases ∀ (keyword keywordTwin: Comments) (targets targetsTwin: List Word)
+    (targetses: List.All2 WordsAlike targets targetsTwin) (body bodyTwin: Option (Comments, Expr))
+    (bodies: CommentedAlike body bodyTwin):
+    ExprsAlike (Cases keyword targets body) (Cases keywordTwin targetsTwin bodyTwin) :=
+  calc (Cases keyword targets body).walk blankPure
+    _ = Cases Comments.none (blankWords targets) (blankAfter (walkAfter blankPure body)) := byComputing
+    _ = Cases Comments.none (blankWords targetsTwin) (blankAfter (walkAfter blankPure bodyTwin)) :=
+      rewrite namesBlank targets targetsTwin targetses, afterBlank body bodyTwin bodies
+    _ = (Cases keywordTwin targetsTwin bodyTwin).walk blankPure := byComputing
+
+theorem alikeCasesBare ∀ (keyword keywordTwin: Word)
+    (keywords: WordsAlike keyword keywordTwin) (targets targetsTwin: List Word)
+    (targetses: List.All2 WordsAlike targets targetsTwin):
+    ExprsAlike (casesBare keyword targets) (casesBare keywordTwin targetsTwin) :=
+  match targets, targetsTwin with
+    | [], [] => alikeAtom KwCases keyword keywordTwin keywords
+    | [first, ..rest], [firstTwin, ..restTwin] =>
+      alikeCases keyword.comments keywordTwin.comments
+        [first, ..rest]
+        [firstTwin, ..restTwin]
+        targetses
+        None
+        None
+        Trivial
 
 -- `rewrite`: the look-aheads.
 
@@ -1525,11 +1542,59 @@ theorem followsRewriteExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
 theorem followsCasesThen ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
     (modes: Modes) (keyword keywordTwin: Word)
-    (keywords: WordsAlike keyword keywordTwin) (atThen: Bool):
-    Parse.Follows SameCode ExprsAlike (() => casesThen self modes keyword atThen) (() =>
-      casesThen selfTwin modes keywordTwin atThen) :=
-  byWalking [followsFixedFrom, alikeAtom KwCases keyword keywordTwin keywords] then alikeCases keyword.comments
-      keywordTwin.comments thenKeyword thenKeywordTwin _ _ selfValueFacts
+    (keywords: WordsAlike keyword keywordTwin) (targets targetsTwin: List Word)
+    (targetses: List.All2 WordsAlike targets targetsTwin) (atThen: Bool):
+    Parse.Follows SameCode ExprsAlike (() => casesThen self modes keyword targets atThen) (() =>
+      casesThen selfTwin modes keywordTwin targetsTwin atThen) :=
+  match atThen with
+    | True => Parse.followsThen followsFixedFrom (thenKeyword thenTwin thens =>
+      Parse.followsMap
+        (body => Cases keyword.comments targets (Some (thenKeyword, body)))
+        (body => Cases keywordTwin.comments targetsTwin (Some (thenTwin, body)))
+        (knot { modes, level = LevelThenBody })
+        (body bodyTwin bodies =>
+          alikeCases keyword.comments keywordTwin.comments targets targetsTwin targetses
+            (Some (thenKeyword, body))
+            (Some (thenTwin, bodyTwin))
+            (thens, bodies)))
+    | False => Parse.followsDone (alikeCasesBare keyword keywordTwin keywords targets targetsTwin targetses)
+
+theorem followsMoreTarget ∀ (modes: Modes):
+    Parse.Follows SameCode Same (() => moreTarget modes) (() => moreTarget modes) :=
+  followsLook (moreTargetOn modes) (moreTargetOnDeaf modes)
+
+theorem followsCasesTargets ∀ (fuel: Nat) (modes: Modes) (found foundTwin: List Word)
+    (founds: List.All2 WordsAlike found foundTwin):
+    Parse.Follows SameCode (List.All2 WordsAlike) (() => casesTargets fuel modes found) (() =>
+      casesTargets fuel modes foundTwin) :=
+  followsThenEq (followsMoreTarget modes) (more =>
+    match fuel, more with
+      | Succ rest, True => Parse.followsThen followsBump (comma commaTwin commas =>
+        Parse.followsThen followsBump (name nameTwin names =>
+          followsCasesTargets rest modes [name, ..found] [nameTwin, ..foundTwin] (Both names founds)))
+      | _, _ => Parse.followsDone (List.all2Reverse found foundTwin founds))
+
+theorem followsCasesNamed ∀ [self selfTwin: Goal → {Parse Item} Expr]
+    (knot: SelfFollows self selfTwin)
+    (modes: Modes) (keyword keywordTwin: Word)
+    (keywords: WordsAlike keyword keywordTwin) (named: Bool):
+    Parse.Follows SameCode ExprsAlike (() => casesNamed self modes keyword named) (() =>
+      casesNamed selfTwin modes keywordTwin named) :=
+  match named with
+    | True => Parse.followsThen Parse.followsMark (here hereTwin marks =>
+      rewrite <- marks.right.right then
+        Parse.followsThen followsBump (first firstTwin firsts =>
+          Parse.followsThen
+            (followsCasesTargets here.left modes [first] [firstTwin] (Both firsts Trivial))
+            (targets targetsTwin targetses =>
+              followsThenEq (followsAt modes KwThen) (atThen =>
+                followsCasesThen knot modes keyword keywordTwin keywords targets targetsTwin targetses atThen))))
+    | False => followsThenEq (followsAt modes KwThen) (atThen =>
+      followsCasesThen knot modes keyword keywordTwin keywords [] [] Trivial atThen)
+
+theorem followsNamedHere ∀ (modes: Modes):
+    Parse.Follows SameCode Same (() => namedHere modes) (() => namedHere modes) :=
+  followsLook (namedOn modes) (namedOnDeaf modes)
 
 theorem followsCasesIn ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -1537,7 +1602,10 @@ theorem followsCasesIn ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (keywords: WordsAlike keyword keywordTwin) (atIn: Bool):
     Parse.Follows SameCode ExprsAlike (() => casesIn self modes keyword atIn) (() =>
       casesIn selfTwin modes keywordTwin atIn) :=
-  byWalking [followsFatalAny, followsCasesThen]
+  match atIn with
+    | True => followsFatalAny (oldIn "cases") (() => Syntax.fatal (oldIn "cases"))
+    | False =>
+      followsThenEq (followsNamedHere modes) (named => followsCasesNamed knot modes keyword keywordTwin keywords named)
 
 theorem followsCasesExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin):

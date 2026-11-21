@@ -184,7 +184,7 @@ def Expr.words: Expr → List Word
   | Rewrite keyword rules target body =>
     [fixedWord "rewrite" keyword, ..rules.words] ++ afterWords "at" target ++ afterWords "then" body
   | Facts _ keyword facts => [keyword, ..facts.words]
-  | Cases keyword thenKeyword body => [fixedWord "cases" keyword, fixedWord "then" thenKeyword, ..body.words]
+  | Cases keyword targets body => [fixedWord "cases" keyword, ..targets] ++ afterWords "then" body
   | Walk keyword items body => [fixedWord "byWalking" keyword, ..items.words] ++ afterWords "then" body
   | Calc keyword first steps => [fixedWord "calc" keyword, ..first.words] ++ stepsWords steps
   | _ => []
@@ -393,16 +393,9 @@ def Expr.el (expr: Expr) (around: Around): Doc :=
       expr.framed around
         (Doc.concat [keyword.leaf inside around.at, Doc.text " ", facts.el (around.next keyword.trails 1)])
     | Calc keyword first steps => expr.framed around (calcDoc keyword first steps inside)
-    | Cases keyword thenKeyword body =>
+    | Cases keyword targets body =>
       let casesWord := fixedWord "cases" keyword
-      let thenWord := fixedWord "then" thenKeyword
-      expr.framed around
-        (Doc.concat [
-          casesWord.leaf inside around.at,
-          Doc.text " ",
-          thenWord.leaf (around.next casesWord.trails 1) (around.at + 1),
-          body.after (around.next thenWord.trails 2)
-        ])
+      expr.framed around (Doc.concat [casesWord.leaf inside around.at, ..casesRest around casesWord targets body])
     | Walk keyword items body =>
       let walkWord := fixedWord "byWalking" keyword
       expr.framed around
@@ -413,6 +406,15 @@ def Expr.el (expr: Expr) (around: Around): Doc :=
           ..walkThenDocs body (around.next items.trails (1 + items.size))
         ])
     | _ => Nothing
+
+--| What follows the word `last` of a `cases`, which stands at `around`: the names to split after it, a comma after
+--| each but the last, then the `then` and body if there (`join`).
+def casesRest (around: Around) (last: Word) (targets: List Word) (body: Option (Comments, Expr)): List Doc :=
+  let next := around.next last.trails 1
+  match targets with
+    | [] => walkThenDocs body next
+    | [word] => [Doc.text " ", word.leaf next next.at, ..casesRest next word [] body]
+    | [word, ..rest] => [Doc.text " ", word.leaf next next.at, Closing ",", ..casesRest next word rest body]
 
 --| A walk's `then` and body, if there, after its items (`join`); `around` is where the `then` stands.
 def walkThenDocs (body: Option (Comments, Expr)) (around: Around): List Doc := match body with

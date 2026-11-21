@@ -561,19 +561,66 @@ def ownLineOn (wanted: Tok) (column: Nat): List Item → Bool
   | [next, .._] => next.kind == wanted && next.leaf.token.lineStart && next.leaf.token.column >= column
   | [] => False
 
---| `cases`, or `cases then t` (`cases_expr`).
+--| `cases`, `cases then t`, `cases x, y` or `cases x, y then t` (`cases_expr`). The names to split come first, the
+--| first on the keyword's line (a name starting the next line is a new statement), each later one after a comma; a
+--| name followed by `=`, `:=`, `=>` or `:` starts the next field, binder or item instead, as in
+--| `{ left = a => cases a, right = b => cases b }`.
 def casesExpr (self: Goal → {Parse Item} Expr) (modes: Modes): {Parse Item} Expr :=
   let keyword := bump()
   casesIn self modes keyword (modes.at KwIn)
 
 def casesIn (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word) (atIn: Bool): {Parse Item} Expr :=
-  if atIn then fatal (oldIn "cases") else casesThen self modes keyword (modes.at KwThen)
+  if atIn then fatal (oldIn "cases") else casesNamed self modes keyword (namedHere modes)
 
-def casesThen (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word) (atThen: Bool): {Parse Item} Expr :=
+--| Whether a name to split follows `cases` on its line.
+def namedHere (modes: Modes): {Parse Item} Bool := namedOn modes left()
+
+def namedOn (modes: Modes): List Item → Bool
+  | [item, .._] => item.kind == Lower && !item.leaf.token.lineStart && !modes.stops item
+  | [] => False
+
+def casesNamed (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word) (named: Bool): {Parse Item} Expr :=
+  if named then
+    let here := Parse.mark()
+    let first := bump()
+    let targets := casesTargets here.left modes [first]
+    casesThen self modes keyword targets (modes.at KwThen)
+  else casesThen self modes keyword [] (modes.at KwThen)
+
+--| The names after the first, each after a comma, newest first in `found`; `fuel` is at least the items left.
+def casesTargets (fuel: Nat) (modes: Modes) (found: List Word): {Parse Item} List Word :=
+  casesTargetsIf fuel modes found (moreTarget modes)
+
+def casesTargetsIf (fuel: Nat) (modes: Modes) (found: List Word) (more: Bool): {Parse Item} List Word :=
+  match fuel, more with
+    | Succ rest, True =>
+      let _ := bump()
+      let name := bump()
+      casesTargets rest modes [name, ..found]
+    | _, _ => found.reverse
+
+--| Whether `, x` follows, `x` a name to split: one not followed by `=`, `:=`, `=>` or `:`.
+def moreTarget (modes: Modes): {Parse Item} Bool := moreTargetOn modes left()
+
+def moreTargetOn (modes: Modes) (items: List Item): Bool :=
+  isSome Comma (peekIn modes 0 items) && isSome Lower (peekIn modes 1 items) && !endsTargets (peekIn modes 2 items)
+
+def endsTargets: Option Tok → Bool
+  | Some Equals | Some ColonEq | Some FatArrow | Some Colon => True
+  | _ => False
+
+def casesThen (self: Goal → {Parse Item} Expr) (modes: Modes) (keyword: Word) (targets: List Word) (atThen: Bool):
+    {Parse Item} Expr :=
   if atThen then
     let thenKeyword := fixedFrom()
-    Cases keyword.comments thenKeyword (self { modes, level = LevelThenBody })
-  else Atom KwCases keyword
+    let body := self { modes, level = LevelThenBody }
+    Cases keyword.comments targets (Some (thenKeyword, body))
+  else casesBare keyword targets
+
+--| `cases` with no `then`: a word alone, or a node with its names.
+def casesBare (keyword: Word): List Word → Expr
+  | [] => Atom KwCases keyword
+  | [first, ..rest] => Cases keyword.comments [first, ..rest] None
 
 --| `byWalking [items]` or `byWalking [items] then t` (`walk_expr`), at the word: the items are a list's (`[]` too,
 --| with no `..` spread), and the body, as for `rewrite`, runs to the end of the expression. A `then` may start a line

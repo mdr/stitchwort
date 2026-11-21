@@ -86,8 +86,22 @@ test "then ending its line takes the lines below at the block's column" :=
 
 test "cases alone is a word; with then, a node" :=
   match bodyOf "theorem t: a = b := cases", bodyOf "theorem t: a = b := cases then rfl" with
-    | Some (Atom _ _), Some (Cases _ _ _) => True
+    | Some (Atom _ _), Some (Cases _ [] (Some _)) => True
     | _, _ => False
+
+--| A `cases`'s names, if the expression is a `Cases`.
+def casesNames: Option Expr → Option (List Text)
+  | Some (Cases _ targets _) => Some (targets.map (word => word.text))
+  | _ => None
+
+test "cases takes the names after it on its line, each later one after a comma, with or without then" :=
+  casesNames (bodyOf "theorem t: P := cases a, b then rfl") == Some ["a", "b"]
+    && casesNames (bodyOf "theorem t: P := cases a") == Some ["a"]
+    && casesNames (bodyOf "theorem t: P :=\n  cases\n  a") == None
+
+test "a name followed by => starts the next item, not a name for cases to split" :=
+  tree "def f: P := [cases a, b, c => d]"
+    == "Def\n  def\n  f\n  ResultType\n    :\n    P\n  Body\n    :=\n    List\n      [\n      Cases\n        cases\n        a\n        ,\n        b\n      ,\n      Lambda\n        c\n        =>\n        d\n      ]\n"
 
 test "a rule set may end with a comma" :=
   tree "rules simps := [a, <- b,]"

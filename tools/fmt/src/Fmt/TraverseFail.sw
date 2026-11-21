@@ -129,8 +129,8 @@ theorem exprBlanks ∀ (on: Steps)
         (afterBlanks on deaf target)
         (afterBlanks on deaf body)
         (v1 v2 v3 => deaf.expr (Rewrite keyword v1 v2 v3))
-    | Cases keyword thenKeyword body =>
-      Fail.toResultAlike1Then (exprBlanks on deaf body) (v1 => deaf.expr (Cases keyword thenKeyword v1))
+    | Cases keyword targets body =>
+      Fail.toResultAlike1Then (afterBlanks on deaf body) (v1 => deaf.expr (Cases keyword targets v1))
     | Walk keyword items body => Fail.toResultAlike2Then (exprBlanks on deaf items) (afterBlanks on deaf body) (v1 v2 =>
       deaf.expr (Walk keyword v1 v2))
 

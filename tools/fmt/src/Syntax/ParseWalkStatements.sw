@@ -75,20 +75,50 @@ theorem givesLetExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
 
 theorem givesCasesThen ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
-    (keyword: Word) (atThen: Bool):
-    Parse.Gives GoodItems (() => casesThen self modes keyword atThen) Out :=
-  byWalking [givesFixedFrom, givesSelfAny]
+    (keyword: Word) (targets: List Word) (atThen: Bool):
+    Parse.Gives GoodItems (() => casesThen self modes keyword targets atThen) Out :=
+  match atThen with
+    | True => Parse.givesThen givesFixedFrom (thenKeyword _ =>
+      Parse.givesThen (givesSelfAny self nested { modes, level = LevelThenBody }) (body _ =>
+        Parse.givesDone byComputing))
+    | False =>
+      match targets with
+        | [] | [_, .._] => Parse.givesDone byComputing
+
+theorem givesCasesTargets ∀ (fuel: Nat) (modes: Modes) (found: List Word):
+    Parse.Gives GoodItems (() => casesTargets fuel modes found) (names => True) :=
+  Parse.givesAfter0 (Parse.reads0Mark (here => moreTargetOn modes here.rest)) (more =>
+    match fuel, more with
+      | Succ rest, True => Parse.givesThen givesBump (comma _ =>
+        Parse.givesThen givesBump (name _ => givesCasesTargets rest modes [name, ..found]))
+      | _, _ => Parse.givesDone byComputing)
+
+theorem givesCasesNamed ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
+    (nested: Nested self)
+    (keyword: Word) (named: Bool):
+    Parse.Gives GoodItems (() => casesNamed self modes keyword named) Out :=
+  match named with
+    | True => Parse.givesThen Parse.givesMark (here _ =>
+      Parse.givesThen givesBump (first _ =>
+        Parse.givesThen (givesCasesTargets here.left modes [first]) (targets _ =>
+          Parse.givesAfter0 (reads0At modes KwThen) (atThen =>
+            givesCasesThen self modes nested keyword targets atThen))))
+    | False => Parse.givesAfter0 (reads0At modes KwThen) (atThen => givesCasesThen self modes nested keyword [] atThen)
 
 theorem givesCasesIn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (keyword: Word) (atIn: Bool):
     Parse.Gives GoodItems (() => casesIn self modes keyword atIn) Out :=
-  byWalking [givesCasesThen]
+  match atIn with
+    | True => Parse.readsFatal
+    | False => Parse.givesAfter0 (Parse.reads0Mark (here => namedOn modes here.rest)) (named =>
+      givesCasesNamed self modes nested keyword named)
 
 theorem givesCasesExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self):
     Parse.Gives GoodItems (() => casesExpr self modes) Out :=
-  byWalking [givesBump, givesCasesIn]
+  Parse.givesThen givesBump (keyword _ =>
+    Parse.givesAfter0 (reads0At modes KwIn) (atIn => givesCasesIn self modes nested keyword atIn))
 
 theorem givesMatchedPiped ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (indent: Nat) (matched: Expr)
     (matchedOut: Out matched) (piped: Bool)

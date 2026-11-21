@@ -110,7 +110,7 @@ def Expr.walk (expr: Expr) (on: Pure): Expr :=
       let rules' := walkRules on rules
       let target' := walkAfter on target
       Rewrite keyword rules' target' (walkAfter on body)
-    | Cases keyword thenKeyword body => Cases keyword thenKeyword (body.walk on)
+    | Cases keyword targets body => Cases keyword targets (walkAfter on body)
     | Walk keyword items body =>
       let items' := items.walk on
       Walk keyword items' (walkAfter on body)
@@ -683,8 +683,8 @@ theorem exprOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Expr): run
     | Rewrite keyword rules target body =>
       rewrite Fail.toResultSeq3Then (rulesOk on p agree rules) (afterOk on p agree target) (afterOk on p agree body),
           agree.expr (Rewrite keyword (walkRules p rules) (walkAfter p target) (walkAfter p body))
-    | Cases keyword thenKeyword body =>
-      rewrite Fail.toResultSeq1Then (exprOk on p agree body), agree.expr (Cases keyword thenKeyword (body.walk p))
+    | Cases keyword targets body =>
+      rewrite Fail.toResultSeq1Then (afterOk on p agree body), agree.expr (Cases keyword targets (walkAfter p body))
     | Walk keyword items body =>
       rewrite Fail.toResultSeq2Then (exprOk on p agree items) (afterOk on p agree body),
           agree.expr (Walk keyword (items.walk p) (walkAfter p body))
@@ -1438,8 +1438,8 @@ theorem exprTwice ∀ (s m: Pure) (keeps: Keeps s m) (input: Expr): (input.walk 
           rulesTwice s m keeps rules,
           afterTwice s m keeps target,
           afterTwice s m keeps body
-    | Cases keyword thenKeyword body =>
-      rewrite keeps.expr (Cases keyword thenKeyword (body.walk s)), exprTwice s m keeps body
+    | Cases keyword targets body =>
+      rewrite keeps.expr (Cases keyword targets (walkAfter s body)), afterTwice s m keeps body
     | Walk keyword items body =>
       rewrite keeps.expr (Walk keyword (items.walk s) (walkAfter s body)),
           exprTwice s m keeps items,
