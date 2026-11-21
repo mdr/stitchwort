@@ -769,9 +769,11 @@ what SW-4472's `cases` and `rewrite repeatedly` close today (SW-4473's pilot in
   ```
 
   The arms the closers finish (`byComputing`, a hypothesis) need nothing;
-  `t` is the one arm that does work, written with `_` for the fields the
-  split doesn't name (`followsCloser kinds _ text ended closes` in
-  `endedReadyCloser`, where `ended` is the hypothesis as the case has it).
+  `t` is the one arm that does work. It may name the split value, which in
+  each case stands for that case's constructor (`cases d then ok d k hk`),
+  and writes `_` for a field of the split, which has no name
+  (`followsCloser kinds _ text ended closes` in `endedReadyCloser`, where
+  `ended` is the hypothesis as the case has it).
   It costs about 1.1 to 1.5 times the hand proof. Not when the arms need
   different terms (`mayFollowStops`, `fillSeq`), when the split is of a
   computed value (`piecePasses`' `isCloserText text`), or when `t` is

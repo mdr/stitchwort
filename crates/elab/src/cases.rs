@@ -137,7 +137,9 @@
 //! mentions (not a field of a recursive type). Nothing else is split: no
 //! atom, last resort or fallback, and there is one try, not three.
 //!
-//! There, a hypothesis as written that equates a variable with a
+//! In `t`, each named value split on the way is a local definition of what
+//! the case says it is ([`named_aliases`]), as the goal has it. There, a
+//! hypothesis as written that equates a variable with a
 //! constructor form (`kind = Minus`) is used by [`substitute`] as a fact
 //! `cases` added would be.
 //!
@@ -652,8 +654,15 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
     if let Some(body) = &run.body {
         let snapshot = crate::undo::Snapshot::take(cx);
         let errors = cx.e.attempt.branch_errors.borrow().len();
-        match crate::check::check(cx, body, goal) {
-            Ok(term) => {
+        let mark = cx.mark();
+        let checked = named_aliases(cx, run)
+            .and_then(|aliases| Ok((crate::check::check(cx, body, goal)?, aliases)));
+        cx.reset(mark);
+        match checked {
+            Ok((mut term, aliases)) => {
+                for (name, ty, value) in aliases.into_iter().rev() {
+                    term = Term::let_(name, ty, value, term);
+                }
                 run.closed.borrow_mut().term += 1;
                 return Ok(term);
             }
@@ -922,6 +931,76 @@ fn named_split(cx: &mut Ctx, run: &Rc<Run>, planned: Planned, goal: &Value) -> R
             false,
         ),
         NamedSplit::Or(level) => split_disjunction(cx, run, level, goal, Some(planned.root)),
+    }
+}
+
+/// In a case of `cases x then t`, each named data value split on the way
+/// here, bound under its own name to what the case says it is (`d` to
+/// `False`, `edge` to `Plain (Some w)`), so that `t` naming it agrees with
+/// the goal, which has the constructor in its place. Each is a local
+/// definition, returned as the `let`s to wrap `t`'s term in.
+fn named_aliases(cx: &mut Ctx, run: &Run) -> Result<Vec<(Name, Term, Term)>> {
+    let mut aliases = Vec::new();
+    for target in &run.targets {
+        let Some(level) = cx.lookup(&target.text) else {
+            continue;
+        };
+        let Ok(NamedSplit::Data(..)) = classify(cx, level) else {
+            continue;
+        };
+        let value = case_value(cx, &Value::var(level), 32)?;
+        if matches!(&value, Value::Neutral(Head::Var(l, _), spine) if *l == level && spine.is_empty())
+        {
+            continue;
+        }
+        let ty = cx.types[level].clone();
+        let (ty_term, value_term) = (cx.quote_folded(&ty)?, cx.quote_folded(&value)?);
+        let name = Name::from(target.text.as_str());
+        cx.define(
+            Some(&target.text),
+            name.clone(),
+            ty,
+            ty_term.clone(),
+            value_term.clone(),
+        )?;
+        aliases.push((name, ty_term, value_term));
+    }
+    Ok(aliases)
+}
+
+/// `value` as this case's split equations say it is: a variable a split
+/// equation (the latest copy) gives a constructor form for is that form,
+/// with its fields given the same way, `depth` levels deep.
+fn case_value(cx: &Ctx, value: &Value, depth: usize) -> Result<Value> {
+    let g = cx.g();
+    let value = force(&g, value.clone())?;
+    if depth == 0 {
+        return Ok(value);
+    }
+    match &value {
+        Value::Neutral(Head::Var(level, _), spine) if spine.is_empty() => {
+            for l in (0..cx.level()).rev() {
+                if !is_equation(cx, l) || stale(cx, l) {
+                    continue;
+                }
+                let Value::Eq(_, lhs, rhs) = force(&g, cx.types[l].clone())? else {
+                    continue;
+                };
+                if matches!(force(&g, (*lhs).clone())?, Value::Neutral(Head::Var(x, _), s) if x == *level && s.is_empty())
+                {
+                    return case_value(cx, &rhs, depth - 1);
+                }
+            }
+            Ok(value)
+        }
+        Value::Ctor(d, c, args) => {
+            let args: Vec<Value> = args
+                .iter()
+                .map(|a| case_value(cx, a, depth - 1))
+                .collect::<Result<_>>()?;
+            Ok(Value::Ctor(*d, *c, args.into()))
+        }
+        _ => Ok(value),
     }
 }
 

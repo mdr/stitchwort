@@ -217,6 +217,17 @@ fn cases_takes_the_values_to_split_on_its_own_line() {
     };
     assert!(matches!(&**last, Expr::Var(..)), "{last:?}");
     assert!(matches!(&**head, Expr::App(_, c) if targets(c) == (vec![], false)));
+    // A name followed by `=`, `=>` or `:` starts the next field or item.
+    for text in [
+        "def f: P := { left = a => cases a, right = b => cases b }\n",
+        "def f: P := (a => cases a, b => cases b)\n",
+    ] {
+        assert!(
+            parse_module_text(text).is_ok(),
+            "{text}: {}",
+            parse_errors(text)
+        );
+    }
     let e = rhs("def f (a: Nat): a = a :=\n  cases\n");
     assert_eq!(targets(&e), (vec![], false));
 }
