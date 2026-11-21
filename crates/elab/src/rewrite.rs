@@ -1935,6 +1935,11 @@ struct Search<'a, 'e> {
     /// candidate until one matches; reading back a large left side for each
     /// was most of the time this search took.
     refreshed: RefCell<Option<Value>>,
+    /// For a left side that is a lambda: the lambdas met in the goal as an
+    /// equation's side or a call's argument, with the type that position
+    /// gives them ([`Search::note_positions`]). Held, not pointed to, so an
+    /// entry can't be taken for a later term at the same address.
+    positions: RefCell<Vec<(Rc<Term>, Value)>>,
 }
 
 impl<'a, 'e> Search<'a, 'e> {
@@ -1981,6 +1986,7 @@ impl<'a, 'e> Search<'a, 'e> {
             carry: None,
             carried: Cell::new(false),
             refreshed: RefCell::new(None),
+            positions: RefCell::new(Vec::new()),
         })
     }
 }
@@ -2020,6 +2026,12 @@ impl Search<'_, '_> {
             return None;
         }
         self.stats.borrow_mut().visited += 1;
+        if self.key == Key::Other("function")
+            && let Err(e) = self.note_positions(t, under)
+        {
+            *self.error.borrow_mut() = Some(e);
+            return Some(t.clone());
+        }
         if let Some(found) = self.carried(t, under) {
             return Some(found);
         }
@@ -2132,6 +2144,94 @@ impl Search<'_, '_> {
         ))
     }
 
+    /// Notes the type of each lambda that `t`, under `under` binders of the
+    /// goal, holds as an equation's side or as an argument of a call whose
+    /// function's type is known, for [`Search::decide`]: a lambda carries no
+    /// type for its variables, so its own type can't be inferred when it
+    /// ignores one (`c => False`). Only positions whose type mentions no
+    /// variable bound inside the goal are noted, as only such candidates
+    /// are compared.
+    fn note_positions(&self, t: &Term, under: usize) -> Result<()> {
+        let is_lam = |a: &Rc<Term>| matches!(a.strip_loc(), Term::Lam(..));
+        match t {
+            Term::Eq(Some(ty), l, r) if is_lam(l) || is_lam(r) => {
+                if mentions_bound(ty, under) {
+                    return Ok(());
+                }
+                let cx = self.cx.borrow();
+                let ty = cx.eval(&self.in_goal(ty, under)?)?;
+                let mut positions = self.positions.borrow_mut();
+                for side in [l, r].into_iter().filter(|a| is_lam(a)) {
+                    positions.push((side.clone(), ty.clone()));
+                }
+            }
+            Term::App(..) => {
+                let mut args = Vec::new();
+                let mut head = t;
+                while let Term::App(f, a, _) = head {
+                    args.push(a);
+                    head = f;
+                }
+                if !args.iter().any(|a| is_lam(a)) || mentions_bound(head, under) {
+                    return Ok(());
+                }
+                let head = self.in_goal(head, under)?;
+                let cx = self.cx.borrow();
+                let g = cx.g();
+                let mut ty = match kernel::without_glue(&g, || {
+                    kernel::infer(&mut self.kcx.borrow_mut(), &head)
+                }) {
+                    Ok((_, ty)) => ty,
+                    Err(e) if fatal(&e) => return Err(e),
+                    Err(_) => return Ok(()),
+                };
+                for a in args.into_iter().rev() {
+                    let Value::Pi(_, _, dom, cod) = force(&g, ty)? else {
+                        return Ok(());
+                    };
+                    if is_lam(a) {
+                        self.positions
+                            .borrow_mut()
+                            .push((a.clone(), (*dom).clone()));
+                    }
+                    if mentions_bound(a, under) {
+                        return Ok(());
+                    }
+                    ty = cod.apply(&g, cx.eval(&self.in_goal(a, under)?)?)?;
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    /// `t`, a subterm under `under` binders of the goal that mentions none
+    /// of them, in the goal's own context.
+    fn in_goal(&self, t: &Term, under: usize) -> Result<Term> {
+        if under == 0 {
+            return Ok(t.clone());
+        }
+        let cx = self.cx.borrow();
+        let level = cx.level();
+        replace_with(
+            &cx.g(),
+            t,
+            level + under,
+            &|l| Ok(Term::Var(level - 1 - l)),
+            &|_, _| None,
+        )
+    }
+
+    /// The type [`Search::note_positions`] noted for `t`'s position.
+    fn position_type(&self, t: &Term) -> Option<Value> {
+        let at = |p: &Term| std::ptr::eq(p, t);
+        self.positions
+            .borrow()
+            .iter()
+            .find(|(p, _)| at(p) || at(p.strip_loc()))
+            .map(|(_, ty)| ty.clone())
+    }
+
     /// Whether the left side still holds one of the rule's own unknowns
     /// that stands for data. A proof's unknown (a premise, an `auto`
     /// argument) is left to [`discharge`] or `auto`, as it always was: a
@@ -2193,6 +2293,7 @@ impl Search<'_, '_> {
             return Ok(Some(candidate));
         }
         self.stats.borrow_mut().conversions += 1;
+        let position = self.position_type(t);
         let snapshot = Snapshot::take(cx);
         let mut remaining = self.remaining.get();
         let outcome = g
@@ -2200,6 +2301,13 @@ impl Search<'_, '_> {
             .budget
             .limited(&mut remaining, || -> Result<bool> {
                 let value = eval(&g, &cx.env, &candidate)?;
+                // A lambda's type, where it was found, settles the carrier's
+                // unknowns that its own variables can't (one it ignores).
+                if let Some(ty) = &position
+                    && !cx.unify(ty, self.carrier)?
+                {
+                    return Ok(false);
+                }
                 if !has_carrier(cx, &mut self.kcx.borrow_mut(), &candidate, self.carrier)? {
                     return Ok(false);
                 }
@@ -2341,7 +2449,7 @@ pub(crate) fn kernel_context<'e>(cx: &Ctx<'e>) -> Result<kernel::Ctx<'e>> {
 /// function against a constructor under eta is simply unequal there
 /// (`unify::can_apply`), and a match at another type than the goal's is
 /// refused when the motive is checked (`E-REWRITE-MOTIVE`).
-fn has_carrier(cx: &Ctx, kcx: &mut kernel::Ctx, term: &Term, carrier: &Value) -> Result<bool> {
+fn has_carrier(cx: &mut Ctx, kcx: &mut kernel::Ctx, term: &Term, carrier: &Value) -> Result<bool> {
     match kernel::without_glue(&cx.g(), || kernel::infer(kcx, term)) {
         Ok((_, ty)) => return cx.unify(&ty, carrier),
         Err(e) if fatal(&e) => return Err(e),
@@ -2349,6 +2457,13 @@ fn has_carrier(cx: &Ctx, kcx: &mut kernel::Ctx, term: &Term, carrier: &Value) ->
     }
     let unsolved = |t: &Term| t.subterms().any(|(t, _)| matches!(t, Term::Meta(_)));
     let carrier_term = cx.quote_unfolded(carrier)?;
+    if unsolved(&carrier_term)
+        && !unsolved(term)
+        && matches!(term.strip_loc(), Term::Lam(..))
+        && let Some(fits) = lambda_carrier(cx, kcx, term, carrier)?
+    {
+        return Ok(fits);
+    }
     if unsolved(term) || unsolved(&carrier_term) {
         return Ok(true);
     }
@@ -2357,6 +2472,120 @@ fn has_carrier(cx: &Ctx, kcx: &mut kernel::Ctx, term: &Term, carrier: &Value) ->
         Ok(_) => Ok(true),
         Err(e) if fatal(&e) => Err(e),
         Err(_) => Ok(false),
+    }
+}
+
+/// Whether `term`, a lambda in `cx`'s context, has type `carrier`, whose
+/// unknowns (the rule's: `?a → ?a → ?b` for `x y => ?f x y`) are solved on
+/// the way. A lambda carries no type for its variables, so the kernel can't
+/// infer one; here each variable takes the carrier's argument type, and the
+/// body's type, inferred, must be the carrier's result. The argument types
+/// are solved where the body passes a variable to a function, and the
+/// result where the body's type is compared, so a candidate at another type
+/// than the carrier's is refused here. `None`, with nothing solved, if the
+/// body is beyond this simple inference (a constructor, a `match`) or the
+/// carrier isn't a function type yet: the comparison is then left to
+/// unification, as for any other term.
+fn lambda_carrier(
+    cx: &mut Ctx,
+    kcx: &mut kernel::Ctx,
+    term: &Term,
+    carrier: &Value,
+) -> Result<Option<bool>> {
+    let snapshot = Snapshot::take(cx);
+    let mark = cx.mark();
+    let goal = cx.level();
+    let fits = checks_against(cx, kcx, goal, term, carrier);
+    match fits {
+        Ok(Some(fits)) => {
+            cx.reset(mark);
+            if !fits {
+                snapshot.restore(cx);
+            }
+            Ok(Some(fits))
+        }
+        Ok(None) => {
+            snapshot.restore(cx);
+            Ok(None)
+        }
+        Err(e) => {
+            if !fatal(&e) {
+                snapshot.restore(cx);
+                return Ok(None);
+            }
+            Err(e)
+        }
+    }
+}
+
+/// [`lambda_carrier`]'s check of `term`, in `cx`'s context (the goal's
+/// `goal` variables, then the variables of the lambdas around it), against
+/// `ty`. Leaves those lambdas' variables bound in `cx`.
+fn checks_against(
+    cx: &mut Ctx,
+    kcx: &mut kernel::Ctx,
+    goal: usize,
+    term: &Term,
+    ty: &Value,
+) -> Result<Option<bool>> {
+    if let Term::Lam(name, _, body) = term.strip_loc() {
+        let g = cx.g();
+        let Value::Pi(_, _, dom, cod) = force(&g, ty.clone())? else {
+            return Ok(None);
+        };
+        let x = Value::var(cx.level());
+        cx.bind_hidden(name.clone(), (*dom).clone());
+        let cod = cod.apply(&g, x)?;
+        return checks_against(cx, kcx, goal, body, &cod);
+    }
+    let Some(found) = infers(cx, kcx, goal, term)? else {
+        return Ok(None);
+    };
+    Ok(Some(cx.unify(&found, ty)?))
+}
+
+/// [`lambda_carrier`]'s type of `term`, in the context of
+/// [`checks_against`]: a lambda's variable, a part that mentions none of
+/// them (by the kernel, in the goal's context), or an application of one of
+/// those to arguments, each checked against the function's argument type.
+fn infers(cx: &mut Ctx, kcx: &mut kernel::Ctx, goal: usize, term: &Term) -> Result<Option<Value>> {
+    let term = term.strip_loc();
+    let inner = cx.level() - goal;
+    if !mentions_bound(term, inner) {
+        let g = cx.g();
+        let outer = replace_with(
+            &g,
+            term,
+            goal + inner,
+            &|l| Ok(Term::Var(goal - 1 - l)),
+            &|_, _| None,
+        )?;
+        return match kernel::without_glue(&g, || kernel::infer(kcx, &outer)) {
+            Ok((_, ty)) => Ok(Some(ty)),
+            Err(e) if fatal(&e) => Err(e),
+            Err(_) => Ok(None),
+        };
+    }
+    match term {
+        Term::Var(ix) => Ok(Some(cx.types[cx.level() - 1 - ix].clone())),
+        Term::App(f, a, _) => {
+            let Some(fty) = infers(cx, kcx, goal, f)? else {
+                return Ok(None);
+            };
+            let g = cx.g();
+            let Value::Pi(_, _, dom, cod) = force(&g, fty)? else {
+                return Ok(None);
+            };
+            let mark = cx.mark();
+            let fits = checks_against(cx, kcx, goal, a, &dom)?;
+            cx.reset(mark);
+            if fits != Some(true) {
+                return Ok(None);
+            }
+            let a = cx.eval(a)?;
+            Ok(Some(cod.apply(&g, a)?))
+        }
+        _ => Ok(None),
     }
 }
 
@@ -3200,8 +3429,8 @@ mod tests {
         cx.bind_hidden("p".into(), Value::var(0));
         let p = Term::Var(0);
         let mut kcx = kernel_context(&cx).unwrap();
-        assert!(has_carrier(&cx, &mut kcx, &p, &Value::var(0)).unwrap());
-        assert!(!has_carrier(&cx, &mut kcx, &p, &Value::Sort(Sort::Type(0))).unwrap());
+        assert!(has_carrier(&mut cx, &mut kcx, &p, &Value::var(0)).unwrap());
+        assert!(!has_carrier(&mut cx, &mut kcx, &p, &Value::Sort(Sort::Type(0))).unwrap());
         // A type with an unsolved metavariable in it is solved by the check.
         let m = cx.metas().new_meta(span());
         let spine = vec![stitchwort_core::value::Elim::App(
@@ -3209,7 +3438,7 @@ mod tests {
             Icit::Explicit,
         )];
         let unknown = Value::Neutral(stitchwort_core::value::Head::Meta(m), spine.into());
-        assert!(has_carrier(&cx, &mut kcx, &p, &unknown).unwrap());
+        assert!(has_carrier(&mut cx, &mut kcx, &p, &unknown).unwrap());
         assert!(cx.g().meta_solution(m).is_some());
     }
 

@@ -30904,12 +30904,12 @@
     {
       "id": 4506,
       "title": "[Opus] rewrite with a lambda left side and an unknown in its carrier fails on the right candidate: rewrite etaTwo _ on a goal holding x y => p x y gives 'expected Nat → Nat → Bool, but this has type _a → _a → _b' (rewrite etaTwo p checks); lambdas carry no domain type so the carrier's unknowns are never filled; take the candidate's type from where it was found in the goal; repros in SW-4500's report (incomplete, not unsound)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\nLane (Opus, 21 Nov 17:45-18:10): a lambda candidate's type is now worked out before unification, so the carrier's unknowns are solved from it: each lambda variable takes the carrier's argument type and the body's type is inferred (variables passed to known functions solve the argument types); for a variable the body ignores, the type of the position the lambda sits in (an equation's side, or a call's argument when the function's type is known) is unified with the carrier first. A lambda at another type is refused there (now E-REWRITE-NOTHING instead of E-REWRITE-MOTIVE). Examples accept/rewrite-lambda-carrier.sw (4 of 5 theorems failed on main with E-REWRITE-MOTIVE) and reject/rewrite-lambda-other-type.sw. Not covered: a lambda the goal's unfolding computes away (`apply (x y => p x y)` with `apply` a def), which goes through the as-written search.\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
