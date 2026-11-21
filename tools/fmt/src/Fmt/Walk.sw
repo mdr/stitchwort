@@ -15,6 +15,11 @@
 --| `seqN` call or `rewrite` an arm.
 namespace Fmt.Walk
 import Std (Bool, Eq, Fail, List, Nat, Option, Result, Text)
+import Std.Fail (
+  toResultSeqRebuilds1 as seqRebuilds1,
+  toResultSeqRebuilds2 as seqRebuilds2,
+  toResultSeqRebuilds3 as seqRebuilds3
+)
 import Syntax (..)
 import Fmt (..)
 
@@ -590,104 +595,33 @@ def runBefore (on: Steps) (input: Option (Expr, k)): Result (Option (Expr, k)) T
 --| (`seqN`, `seqNk`, `seqNj`), and then the step agrees.
 theorem exprOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Expr): runExpr on input = Ok (input.walk p) :=
   match input with
-    | Atom kind word => agree.expr (Atom kind word)
-    | Paren open inner close =>
-      rewrite Fail.toResultSeq1Then (exprOk on p agree inner), agree.expr (Paren open (inner.walk p) close)
-    | Unit open close => agree.expr (Unit open close)
-    | Universe keyword level => agree.expr (Universe keyword level)
-    | Include keyword path => agree.expr (Include keyword path)
-    | Tuple open items trailingComma close =>
-      rewrite Fail.toResultSeq1Then (exprsOk on p agree items),
-          agree.expr (Tuple open (walkExprs p items) trailingComma close)
-    | ListOf open items trailingComma close =>
-      rewrite Fail.toResultSeq1Then (exprsOk on p agree items),
-          agree.expr (ListOf open (walkExprs p items) trailingComma close)
-    | Spread dots list => rewrite Fail.toResultSeq1Then (exprOk on p agree list), agree.expr (Spread dots (list.walk p))
-    | Record open base fields trailingComma close =>
-      rewrite Fail.toResultSeq2Then (beforeOk on p agree base) (exprsOk on p agree fields),
-          agree.expr (Record open (walkBefore p base) (walkExprs p fields) trailingComma close)
-    | RecordField name equals value =>
-      rewrite Fail.toResultSeq1Then (exprOk on p agree value), agree.expr (RecordField name equals (value.walk p))
-    | CtorFields ctor record =>
-      rewrite Fail.toResultSeq2Then (exprOk on p agree ctor) (exprOk on p agree record),
-          agree.expr (CtorFields (ctor.walk p) (record.walk p))
-    | App head arguments =>
-      rewrite Fail.toResultSeq2Then (exprOk on p agree head) (exprsOk on p agree arguments),
-          agree.expr (App (head.walk p) (walkExprs p arguments))
-    | NamedArg open name colonEq value close =>
-      rewrite Fail.toResultSeq1Then (exprOk on p agree value),
-          agree.expr (NamedArg open name colonEq (value.walk p) close)
-    | FieldAccess target dot field =>
-      rewrite Fail.toResultSeq1Then (optionalOk on p agree target),
-          agree.expr (FieldAccess (walkOptional p target) dot field)
-    | Section body => rewrite Fail.toResultSeq1Then (exprOk on p agree body), agree.expr (Section (body.walk p))
-    | OperatorSection open left operator right close =>
-      rewrite Fail.toResultSeq2Then (optionalOk on p agree left) (optionalOk on p agree right),
-          agree.expr (OperatorSection open (walkOptional p left) operator (walkOptional p right) close)
-    | Infix kind left operator right =>
-      rewrite Fail.toResultSeq2Then (exprOk on p agree left) (exprOk on p agree right),
-          agree.expr (Infix kind (left.walk p) operator (right.walk p))
-    | Chain first rest =>
-      rewrite Fail.toResultSeq2Then (exprOk on p agree first) (linksOk on p agree rest),
-          agree.expr (Chain (first.walk p) (walkLinks p rest))
-    | Prefix operator operand =>
-      rewrite Fail.toResultSeq1Then (exprOk on p agree operand), agree.expr (Prefix operator (operand.walk p))
-    | Binding kind keyword params arrow body =>
-      rewrite Fail.toResultSeq2Then (paramsOk on p agree params) (exprOk on p agree body),
-          agree.expr (Binding kind keyword (walkParams p params) arrow (body.walk p))
-    | If keyword binder condition thenKeyword whenTrue elseKeyword whenFalse =>
-      rewrite Fail.toResultSeq3Then
-            (exprOk on p agree condition)
-            (exprOk on p agree whenTrue)
-            (exprOk on p agree whenFalse),
-          agree.expr (If keyword binder (condition.walk p) thenKeyword (whenTrue.walk p) elseKeyword (whenFalse.walk p))
-    | Annotation open value colon annotation close =>
-      rewrite Fail.toResultSeq2Then (exprOk on p agree value) (exprOk on p agree annotation),
-          agree.expr (Annotation open (value.walk p) colon (annotation.walk p) close)
-    | Interpolated pieces =>
-      rewrite Fail.toResultSeq1Then (piecesOk on p agree pieces), agree.expr (Interpolated (walkPieces p pieces))
-    | Match keyword scrutinees withKeyword arms =>
-      rewrite Fail.toResultSeq2Then (scrutineesOk on p agree scrutinees) (armsOk on p agree arms),
-          agree.expr (Match keyword (walkScrutinees p scrutinees) withKeyword (walkArms p arms))
-    | ClauseLambda keyword word arms =>
-      rewrite Fail.toResultSeq1Then (armsOk on p agree arms), agree.expr (ClauseLambda keyword word (walkArms p arms))
-    | Facts kind keyword facts =>
-      rewrite Fail.toResultSeq1Then (exprOk on p agree facts), agree.expr (Facts kind keyword (facts.walk p))
-    | FunctionType binder arrow result =>
-      rewrite Fail.toResultSeq2Then (groupOk on p agree binder) (exprOk on p agree result),
-          agree.expr (FunctionType (binder.walk p) arrow (result.walk p))
-    | Effect row result =>
-      rewrite Fail.toResultSeq2Then (rowOk on p agree row) (exprOk on p agree result),
-          agree.expr (Effect (walkRow p row) (result.walk p))
-    | Block first rest result =>
-      rewrite Fail.toResultSeq3Then
-            (statementOk on p agree first)
-            (statementsOk on p agree rest)
-            (exprOk on p agree result),
-          agree.expr (Block (walkStatement p first) (walkStatements p rest) (result.walk p))
-    | LetIn binding semicolon body =>
-      rewrite Fail.toResultSeq2Then (letOk on p agree binding) (exprOk on p agree body),
-          agree.expr (LetIn (walkLet p binding) semicolon (body.walk p))
-    | Handle keyword computation withKeyword clauses =>
-      rewrite Fail.toResultSeq2Then (exprOk on p agree computation) (clausesOk on p agree clauses),
-          agree.expr (Handle keyword (computation.walk p) withKeyword (walkClauses p clauses))
-    | Reify keyword reifyWord computation withKeyword clauses =>
-      rewrite Fail.toResultSeq2Then (exprOk on p agree computation) (clausesOk on p agree clauses),
-          agree.expr (Reify keyword reifyWord (computation.walk p) withKeyword (walkClauses p clauses))
-    | Induct keyword inductWord call withKeyword arms =>
-      rewrite Fail.toResultSeq2Then (exprOk on p agree call) (inductArmsOk on p agree arms),
-          agree.expr (Induct keyword inductWord (call.walk p) withKeyword (walkInductArms p arms))
-    | Calc keyword first steps =>
-      rewrite Fail.toResultSeq2Then (exprOk on p agree first) (calcStepsOk on p agree steps),
-          agree.expr (Calc keyword (first.walk p) (walkSteps p steps))
-    | Rewrite keyword rules target body =>
-      rewrite Fail.toResultSeq3Then (rulesOk on p agree rules) (afterOk on p agree target) (afterOk on p agree body),
-          agree.expr (Rewrite keyword (walkRules p rules) (walkAfter p target) (walkAfter p body))
-    | Cases keyword targets body =>
-      rewrite Fail.toResultSeq1Then (afterOk on p agree body), agree.expr (Cases keyword targets (walkAfter p body))
-    | Walk keyword items body =>
-      rewrite Fail.toResultSeq2Then (exprOk on p agree items) (afterOk on p agree body),
-          agree.expr (Walk keyword (items.walk p) (walkAfter p body))
+    | Atom _ _ | Unit _ _ | Universe _ _ | Include _ _ => agree.expr input
+    | Paren _ a _ | Spread _ a | RecordField _ _ a | NamedArg _ _ _ a _ | Section a | Prefix _ a | Facts _ _ a =>
+      seqRebuilds1 agree.expr (exprOk on p agree a)
+    | Tuple _ a _ _ | ListOf _ a _ _ => seqRebuilds1 agree.expr (exprsOk on p agree a)
+    | FieldAccess a _ _ => seqRebuilds1 agree.expr (optionalOk on p agree a)
+    | Interpolated a => seqRebuilds1 agree.expr (piecesOk on p agree a)
+    | ClauseLambda _ _ a => seqRebuilds1 agree.expr (armsOk on p agree a)
+    | Cases _ _ a => seqRebuilds1 agree.expr (afterOk on p agree a)
+    | CtorFields a b | Infix _ a _ b | Annotation _ a _ b _ =>
+      seqRebuilds2 agree.expr (exprOk on p agree a) (exprOk on p agree b)
+    | App a b => seqRebuilds2 agree.expr (exprOk on p agree a) (exprsOk on p agree b)
+    | Record _ a b _ _ => seqRebuilds2 agree.expr (beforeOk on p agree a) (exprsOk on p agree b)
+    | OperatorSection _ a _ b _ => seqRebuilds2 agree.expr (optionalOk on p agree a) (optionalOk on p agree b)
+    | Chain a b => seqRebuilds2 agree.expr (exprOk on p agree a) (linksOk on p agree b)
+    | Binding _ _ a _ b => seqRebuilds2 agree.expr (paramsOk on p agree a) (exprOk on p agree b)
+    | Match _ a _ b => seqRebuilds2 agree.expr (scrutineesOk on p agree a) (armsOk on p agree b)
+    | FunctionType a _ b => seqRebuilds2 agree.expr (groupOk on p agree a) (exprOk on p agree b)
+    | Effect a b => seqRebuilds2 agree.expr (rowOk on p agree a) (exprOk on p agree b)
+    | LetIn a _ b => seqRebuilds2 agree.expr (letOk on p agree a) (exprOk on p agree b)
+    | Handle _ a _ b | Reify _ _ a _ b => seqRebuilds2 agree.expr (exprOk on p agree a) (clausesOk on p agree b)
+    | Induct _ _ a _ b => seqRebuilds2 agree.expr (exprOk on p agree a) (inductArmsOk on p agree b)
+    | Calc _ a b => seqRebuilds2 agree.expr (exprOk on p agree a) (calcStepsOk on p agree b)
+    | Walk _ a b => seqRebuilds2 agree.expr (exprOk on p agree a) (afterOk on p agree b)
+    | If _ _ a _ b _ c => seqRebuilds3 agree.expr (exprOk on p agree a) (exprOk on p agree b) (exprOk on p agree c)
+    | Block a b c =>
+      seqRebuilds3 agree.expr (statementOk on p agree a) (statementsOk on p agree b) (exprOk on p agree c)
+    | Rewrite _ a b c => seqRebuilds3 agree.expr (rulesOk on p agree a) (afterOk on p agree b) (afterOk on p agree c)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -897,35 +831,13 @@ theorem patternOk ∀ (on: Steps) (p: Pure)
     (agree: Agrees on p) (input: Pattern):
     runPattern on input = Ok (input.walk p) :=
   match input with
-    | PatternWord kind word => agree.pattern (PatternWord kind word)
-    | PatternCtor name arguments =>
-      rewrite Fail.toResultSeq1Then (patternsOk on p agree arguments),
-          agree.pattern (PatternCtor name (walkPatterns p arguments))
-    | PatternCtorFields name fields =>
-      rewrite Fail.toResultSeq1Then (fieldsPatternOk on p agree fields),
-          agree.pattern (PatternCtorFields name (walkFields p fields))
-    | PatternRecord fields =>
-      rewrite Fail.toResultSeq1Then (fieldsPatternOk on p agree fields),
-          agree.pattern (PatternRecord (walkFields p fields))
-    | PatternTuple open items trailingComma close =>
-      rewrite Fail.toResultSeq1Then (patternsOk on p agree items),
-          agree.pattern (PatternTuple open (walkPatterns p items) trailingComma close)
-    | PatternList open items trailingComma tail close =>
-      rewrite Fail.toResultSeq2Then (patternsOk on p agree items) (tailOk on p agree tail),
-          agree.pattern (PatternList open (walkPatterns p items) trailingComma (walkTail p tail) close)
-    | PatternNamed open name colonEq value close =>
-      rewrite Fail.toResultSeq1Then (patternOk on p agree value),
-          agree.pattern (PatternNamed open name colonEq (value.walk p) close)
-    | PatternOr first rest =>
-      rewrite Fail.toResultSeq2Then (patternOk on p agree first) (patternLinksOk on p agree rest),
-          agree.pattern (PatternOr (first.walk p) (walkPatternLinks p rest))
-    | PatternParen open inner close =>
-      rewrite Fail.toResultSeq1Then (patternOk on p agree inner), agree.pattern (PatternParen open (inner.walk p) close)
-    | PatternNegative minus number => agree.pattern (PatternNegative minus number)
-    | PatternAbsurd open close => agree.pattern (PatternAbsurd open close)
-    | PatternAppend start operator rest =>
-      rewrite Fail.toResultSeq2Then (patternOk on p agree start) (patternOk on p agree rest),
-          agree.pattern (PatternAppend (start.walk p) operator (rest.walk p))
+    | PatternWord _ _ | PatternNegative _ _ | PatternAbsurd _ _ => agree.pattern input
+    | PatternCtor _ a | PatternTuple _ a _ _ => seqRebuilds1 agree.pattern (patternsOk on p agree a)
+    | PatternCtorFields _ a | PatternRecord a => seqRebuilds1 agree.pattern (fieldsPatternOk on p agree a)
+    | PatternNamed _ _ _ a _ | PatternParen _ a _ => seqRebuilds1 agree.pattern (patternOk on p agree a)
+    | PatternList _ a _ b _ => seqRebuilds2 agree.pattern (patternsOk on p agree a) (tailOk on p agree b)
+    | PatternOr a b => seqRebuilds2 agree.pattern (patternOk on p agree a) (patternLinksOk on p agree b)
+    | PatternAppend a _ b => seqRebuilds2 agree.pattern (patternOk on p agree a) (patternOk on p agree b)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
@@ -979,14 +891,9 @@ theorem fieldPatternsOk ∀ (on: Steps) (p: Pure)
 --| (`seqN`, `seqNk`, `seqNj`), and then the step agrees.
 theorem declOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Decl): runDecl on input = Ok (input.walk p) :=
   match input with
-    | Namespace keyword name => agree.decl (Namespace keyword name)
-    | Import keyword path open imported close => agree.decl (Import keyword path open imported close)
-    | Definition attributes header body =>
-      rewrite Fail.toResultSeq3Then
-            (attributesOk on p agree attributes)
-            (headerOk on p agree header)
-            (defBodyOk on p agree body),
-          agree.decl (Definition (walkAttributes p attributes) (walkHeader p header) (walkDefBody p body))
+    | Namespace _ _ | Import _ _ _ _ _ => agree.decl input
+    | Definition a b c =>
+      seqRebuilds3 agree.decl (attributesOk on p agree a) (headerOk on p agree b) (defBodyOk on p agree c)
     | Data attributes isInterface keyword name params indices body =>
       match indices with
         | Some { colon, steps, last } =>
@@ -1117,19 +1024,10 @@ theorem declOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Decl): run
                       (walkGroups p params)
                       (None)
                       (Sum equals (walkConstructors p constructors)))
-    | Ability keyword name params whereKeyword operations =>
-      rewrite Fail.toResultSeq2Then (groupsOk on p agree params) (operationsOk on p agree operations),
-          agree.decl (Ability keyword name (walkGroups p params) whereKeyword (walkOperations p operations))
-    | Test keyword name colonEq body =>
-      rewrite Fail.toResultSeq1Then (exprOk on p agree body), agree.decl (Test keyword name colonEq (body.walk p))
-    | RuleSetDecl keyword name colonEq set =>
-      rewrite Fail.toResultSeq1Then (ruleSetOk on p agree set),
-          agree.decl (RuleSetDecl keyword name colonEq (walkRuleSet p set))
+    | Ability _ _ a _ b => seqRebuilds2 agree.decl (groupsOk on p agree a) (operationsOk on p agree b)
+    | Test _ _ _ a => seqRebuilds1 agree.decl (exprOk on p agree a)
+    | RuleSetDecl _ _ _ a => seqRebuilds1 agree.decl (ruleSetOk on p agree a)
 
---| The traversal finishes, with the pure copy's result. By induction
---| alongside the traversal: in each arm the children's computations
---| finish (the induction hypotheses), so the arm's binds compute
---| (`seqN`, `seqNk`, `seqNj`), and then the step agrees.
 theorem headerOk ∀ (on: Steps) (p: Pure)
     (agree: Agrees on p) (input: Header):
     runHeader on input = Ok (walkHeader p input) :=
