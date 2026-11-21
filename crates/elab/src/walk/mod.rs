@@ -72,6 +72,7 @@
 mod expand;
 mod leaf;
 mod registry;
+mod source;
 mod two;
 
 use std::rc::Rc;
@@ -180,6 +181,10 @@ struct Nest {
     /// the rest of the code needs of the values.
     post_at: usize,
     post: Term,
+    /// The goal of the outermost of the nested binds this is in, whose
+    /// arguments other than the code and the post are known when the
+    /// expansion is written ([`nest_implicits`]).
+    root: Value,
 }
 
 /// The code after a bound computation that isn't one call: each run's
@@ -1746,6 +1751,12 @@ fn nested_bind(
     else {
         return Ok(None);
     };
+    let written = if info.nest.is_some() {
+        let root = info.nest.as_ref().map_or(expected, |n| &n.root);
+        nest_implicits(cx, &shape, (first_at, post_binder), family, cs, &post, root)?
+    } else {
+        String::new()
+    };
     let inner = place(cx, info, Kind::Step(family.relation), &info.place);
     {
         let mut walks = cx.e.session.walks.borrow_mut();
@@ -1754,6 +1765,7 @@ fn nested_bind(
             codes: cs.to_vec(),
             post_at,
             post,
+            root: info.nest.as_ref().map_or(expected, |n| &n.root).clone(),
         }));
         n.cont = Some(Rc::new(Cont {
             ks: ks.to_vec(),
@@ -1780,12 +1792,60 @@ fn nested_bind(
         cx,
         node,
         vec![
-            Piece::Text(format!("{}\n{MORE}(", short_name(&then_name))),
+            Piece::Text(format!("{}{written}\n{MORE}(", short_name(&then_name))),
             Piece::Child(inner),
             Piece::Text(format!(")\n{MORE}({} {facts})", binding(&names))),
         ],
     );
     check_written(cx, info, &e, expected, "the step").map(Some)
+}
+
+/// The then-lemma's implicits a [`nested_bind`] inside another one fixes,
+/// as text for its expansion: its thunks, the bound computations, and the
+/// post of its first premise. Read again, nothing else fixes them: the
+/// code it is about is only the outer one's bound computation, which
+/// unification can't take apart (`?j (?p ())` against it), and its value
+/// there may be no variable (`Parse.mark().left`). Empty where one can't
+/// be written as source.
+fn nest_implicits(
+    cx: &Ctx,
+    shape: &Shape,
+    (first_at, post_binder): (usize, usize),
+    family: &Family,
+    codes: &[Value],
+    post: &Term,
+    root: &Value,
+) -> Result<String> {
+    let Some(first) = statement(&shape.binders[first_at].1) else {
+        return Ok(String::new());
+    };
+    let mut names = cx.shown_names(false);
+    let mut out = String::new();
+    for (run, &at) in family.thunks.iter().enumerate() {
+        let binder = match first.args[at].strip_loc() {
+            Term::Var(ix) => first_at.checked_sub(1 + ix),
+            _ => None,
+        };
+        let code = quote_code(cx, &codes[run])?;
+        let (Some(b), Some(text)) = (binder, source::thunk(cx, &mut names, &code)) else {
+            return Ok(String::new());
+        };
+        out.push_str(&format!("\n{MORE}[{} := {text}]", shape.binders[b].2));
+    }
+    let goal = cx.quote_folded(root)?;
+    let goal = cx.e.zonk_keeping(&goal, cx.level(), &|_| true)?;
+    let outer = source::Outer {
+        base: names.len(),
+        args: (goal.spine().1.into_iter()).map(|a| (*a).clone()).collect(),
+    };
+    let Some(text) = source::statement_source(cx, family, &mut names, post, &outer) else {
+        return Ok(String::new());
+    };
+    out.push_str(&format!(
+        "\n{MORE}[{} := {text}]",
+        shape.binders[post_binder].2
+    ));
+    Ok(out)
 }
 
 /// The post the first premise of a [`nested_bind`] has, and which of the

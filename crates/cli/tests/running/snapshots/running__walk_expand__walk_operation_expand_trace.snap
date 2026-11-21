@@ -1,0 +1,28 @@
+---
+source: crates/cli/tests/running/walk_expand.rs
+expression: trace
+---
+walk-operation.sw:23: walk
+  in `marked`: `Call (L (Parse.mark ())) (r => Done r)`: Parse.givesMark (registered `@[walk]`), then `Parse.givesThen`
+  in `marked`: `look ()`: givesLook (registered `@[walk]`), then `Parse.givesThen`
+walk-operation.sw:31: walk
+  in `nested`: `Call (L (Parse.mark ())) (y => Done (y.left + 1))` walked as the code it runs, then `Parse.givesThen`
+  in `nested`: `Call (L (Parse.mark ())) (y => Done y.left)` walked as the code it runs, then `Parse.givesThen`
+  in `nested`: `Call (L (Parse.mark ())) (r => Done r)`: Parse.givesMark (registered `@[walk]`), then `Parse.givesThen`
+  in `nested`: `look ()`: givesLook (registered `@[walk]`), then `Parse.givesThen`
+walk-operation.sw:39: walk
+  in `down`, `Succ more`: `look ()`: givesLook (registered `@[walk]`), then `Parse.givesThen`
+  in `down`, `Succ more`: `down more`: givesDown (the theorem itself)
+walk-operation.sw:44: walk
+  in `fromMark`: `Call (L (Parse.mark ())) (y => Done (y.left + 1))` walked as the code it runs, then `Parse.givesThen`
+  in `fromMark`: `Call (L (Parse.mark ())) (y => Done y.left)` walked as the code it runs, then `Parse.givesThen`
+  in `fromMark`: `Call (L (Parse.mark ())) (r => Done r)`: Parse.givesMark (registered `@[walk]`), then `Parse.givesThen`
+  in `fromMark`: `Std.Effect.bind (look ()) (x => down markValue.left)`: givesDown (named in the brackets)
+walk-operation.sw:50: walk
+  in `bound`: `Call (L (Parse.mark ())) (y => Std.Effect.bind (look ()) (x => down y.left))` walked as the code it runs, then `Parse.givesThen`
+  in `bound`: `Call (L (Parse.mark ())) (y => Done (Succ y.left))` walked as the code it runs, then `Parse.givesThen`
+  in `bound`: `Call (L (Parse.mark ())) (y => Done y.left)` walked as the code it runs, then `Parse.givesThen`
+  in `bound`: `Call (L (Parse.mark ())) (r => Done r)`: Parse.givesMark (registered `@[walk]`), then `Parse.givesThen`
+  in `bound`: `Std.Effect.bind (look ()) (x => down markValue.left)`: givesDown (named in the brackets)
+walk-operation.sw:63: walk
+  in `five`: `downFrom 5 3`: givesDownFrom (named in the brackets)
