@@ -1,0 +1,8 @@
+stratum,name,sw_stmt,sw_proof,sw_stmt_ch,sw_proof_ch,lean_stmt,lean_proof,lean_stmt_ch,lean_proof_ch,rocq_stmt,rocq_proof,rocq_stmt_ch,rocq_proof_ch
+tree,argumentMinusDeaf,1,3,100,78,2,4,101,120,2,4,90,95
+tree,walkAttributesAlike,3,8,160,311,3,3,159,95,3,1,154,60
+lexer,headerResult1,1,36,96,719,2,2,97,55,2,4,95,96
+lexer,plainOfShapes,3,9,161,383,3,6,161,287,3,11,158,484
+settle,endsQuietJoin,1,6,85,107,2,3,86,86,1,4,81,99
+settle,settledHomed,5,45,198,2024,3,25,198,1349,3,31,197,1432
+settle,homeStands,9,258,412,5746,9,95,413,4616,9,82,411,3902
