@@ -31294,7 +31294,7 @@
     {
       "id": 4536,
       "title": "[Opus] Profile the seven tools/fmt declarations that take 25 s or more to check (standsEachFile 84 s, readsBackHungListExample 78 s, readsBackHungSignExample 49 s, readsBackCommentExample 40 s, printedFinish1 32 s, atomHung 30 s, runsDefinitionParts 25 s; the top three are nearly a third of the 679 s check; Overmind baseline 21 Nov): find what each spends its steps on and cut it, steps as the measure",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -31322,12 +31322,12 @@
     {
       "id": 4538,
       "title": "[Opus] SW-4537 port batch A: the parser: walk, two-run and readback strata, 7 theorems, with the shared parser prelude, to Lean 4 and Rocq per docs/reviews/SW-4537-lean-rocq-sample.md, compiled; per-theorem counts, support lines, time, set-asides, mathlib notes",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nProgress (lane, 21 Nov 2026, 19:37-19:56): BatchA.lean and BatchA.v compile (Lean 4.35.0, Rocq 9.1.1 + Stdlib 9.0.0); batchA.csv and batchA.md in docs/reviews/SW-4537/. Commit d4410e36b on lane/SW-4538. 7 theorems, 250 Stitchwort lines: Lean 154 (46 + 108), Rocq 125 (35 + 90); characters 9,027 / 6,684 / 6,093. No set-asides, no reserves, no mathlib notes. unaryHung support 234 lines Lean, 186 Rocq (under the 300 rule). Took about 19 min (est. 25).\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
@@ -31335,12 +31335,12 @@
     {
       "id": 4539,
       "title": "[Opus] SW-4537 port batch B: the syntax side: tree, lexer and settle strata, 7 theorems (homeStands 267 lines), to Lean 4 and Rocq per docs/reviews/SW-4537-lean-rocq-sample.md, compiled; per-theorem counts, support lines, time, set-asides, mathlib notes",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "21 Nov 19:37-19:56 (Opus lane, branch lane/SW-4539, commit 5e848c689): all 7 ported to Lean 4 and Rocq, both compiling; no set-asides, no reserves. Lines 388 SW -> 162 Lean, 160 Rocq (0.42 / 0.41); characters 0.74 / 0.70. Write-up docs/reviews/SW-4537/batchB.md, counts batchB.csv. Findings: count_ports.py reads Rocq '--' bullets as comments (worked around with '++'); pilot wraps at ~120 columns against rule 12's 100.\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
