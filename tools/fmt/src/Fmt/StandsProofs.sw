@@ -312,8 +312,7 @@ theorem keptFront ∀ (told more: List Told) (stretches: List Stretch)
     | [entry, ..others], unmoved =>
       let othersUnmoved: others.all Unmoved = True := Bool.andRight unmoved
       match stretches, fits, entry, unmoved, reads with
-        | [], _, Gap, _, never => cases
-        | [], _, Said _ _ _, _, never => cases
+        | [], _, Gap | Said _ _ _, _, never => cases
         | [Kept event, ..later], (_, fitsLater), Gap, _, (blank, readsLater) =>
           match keptFront others more later othersUnmoved fitsLater readsLater with
             | (front, rest, printed, readsFront, readsMore, fitsRest) =>
@@ -444,8 +443,7 @@ theorem headUnmoved ∀ (notes: List Note) (blank: Bool) (text: Text) (flag: Boo
         | False, False => byComputing
     | [{ text = noteText, blankBefore = noteBlank }, ..others] =>
       match noteBlank with
-        | True => headUnmoved others blank text flag code
-        | False => headUnmoved others blank text flag code
+        | True | False => headUnmoved others blank text flag code
 
 --| A word's reading, split after its token.
 theorem shapeSplit ∀ (text: Text) (notes: List Note) (after: Option Text) (blank: Bool) (more: List Told):

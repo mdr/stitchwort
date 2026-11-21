@@ -367,8 +367,7 @@ theorem exprAppend ∀ (first rest: List Item): exprAll (first ++ rest) = (exprA
     | [item, ..more] =>
       rewrite exprAppend more rest then
         match exprKind item.kind with
-          | True => byComputing
-          | False => byComputing
+          | True | False => byComputing
 
 theorem exprLineKind ∀ (kind: Tok) (expr: exprKind kind = True): lineKind kind = True := cases
 
@@ -774,8 +773,7 @@ theorem lineAppend ∀ (first rest: List Item): lineAll (first ++ rest) = (lineA
     | [item, ..more] =>
       rewrite lineAppend more rest then
         match lineKind item.kind with
-          | True => byComputing
-          | False => byComputing
+          | True | False => byComputing
 
 theorem linePlainKind ∀ (kind: Tok) (line: lineKind kind = True): plainKind kind = True := cases
 
@@ -984,8 +982,7 @@ theorem noAutoCall ∀ (head: Expr) (arguments: List Expr) (item: Item) (read la
               rewrite isRead, isHead, isArgument then Bool.andAndFalse _ _ _ (rewrite isOpen)
             | ListOf _ [_, .._] _ _, (third, _, _, _, isArgument, _, isOpen, _), _ =>
               rewrite isRead, isHead, isArgument then Bool.andAndFalse _ _ _ (rewrite isOpen)
-            | App _ _, _, never => (Bool.falseNotTrue never).impossible
-            | Infix _ _ _ _, _, never => (Bool.falseNotTrue never).impossible
+            | App _ _ | Infix _ _ _ _, _, never => (Bool.falseNotTrue never).impossible
             | Prefix _ _, (third, _, isArgument, isSign, _), _ =>
               rewrite isRead, isHead, isArgument then Bool.andAndFalse _ _ _ (signNotUpper third.kind isSign)
             | _, never, _ => Void.impossible never
@@ -1385,8 +1382,7 @@ theorem prefixApart ∀ (op: Item) (after: List Item)
               | False => byComputing
               | True =>
                 match op.leaf.token.lineStart || !op.glued with
-                  | False => byComputing
-                  | True => byComputing
+                  | False | True => byComputing
 
 --| An operator, its operand spaced from it, ends an operand at every level tighter than its rung.
 --|

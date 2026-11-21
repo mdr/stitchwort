@@ -72,8 +72,7 @@ theorem argStartsHung ∀ (modes: Modes) (argument: Expr) (first: Item) (more la
               [sign, next, ..others ++ later]
               isSign
               (argumentPrefixHung sign next (others ++ later) isSign glue (startOpensAtom next.kind nextStarts))
-        | Infix _ _ _ _, _, fits, _ => (Bool.falseNotTrue fits).impossible
-        | App _ _, _, fits, _ => (Bool.falseNotTrue fits).impossible
+        | Infix _ _ _ _ | App _ _, _, fits, _ => (Bool.falseNotTrue fits).impossible
         | other, _, _, never => (Bool.falseNotTrue never).impossible
 
 --| What follows an argument, on any lines: the next argument, whose first item the state before it bounds, or what

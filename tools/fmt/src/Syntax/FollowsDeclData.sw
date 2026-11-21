@@ -163,9 +163,7 @@ theorem groupAutoSome ∀ (group twin: Group) (alike: GroupsAlike group twin): g
 theorem isNoneOfAlikeSome ∀ (found twin: Option Comments)
     (same: found.isSome = twin.isSome):
     found.isNone = twin.isNone :=
-  match found, twin with
-    | Some x, Some y => byComputing
-    | None, None => byComputing
+  cases found, twin then byComputing
 
 theorem groupNamesEmpty ∀ (group twin: Group)
     (alike: GroupsAlike group twin):

@@ -65,8 +65,7 @@ theorem binderTypeBraceEq ∀ (self: Goal → {Parse Item} Expr) (allowed: Modes
     | None | Some [] => byComputing
     | Some [next, ..more] =>
       match typeStarts next.kind with
-        | True => byComputing
-        | False => byComputing
+        | True | False => byComputing
 
 theorem followsAllowBrace ∀ (modes: Modes):
     Parse.Follows SameCode Same (() => allowBrace modes) (() => allowBrace modes) :=

@@ -253,7 +253,6 @@ theorem shapeLead ∀ (expr: Expr) (item: Bool)
         | InfixArrow => rewrite shapeLead left item (Bool.andLeft within), List.appendAssoc _ _ _
         | _ => cases
     | Prefix operator operand => rewrite shapeKLead operator item, List.appendAssoc _ _ _
-
 --| A node's frame tells its first token's own-line comments, then the node's document, which tells the rest.
 theorem framedShape ∀ (expr: Expr) (around: Around) [doc: Doc]
     (within: expr.within1 = True)
@@ -429,11 +428,7 @@ theorem isComma: Is (Closing ",") [Said "," True True] := spot =>
 theorem closeBool ∀ (closer trails noted before: Bool)
     (cond: (!(closer && trails) || False || noted || before) = True):
     (!(closer && trails) || (!False && (noted || before))) = True :=
-  match closer, trails, noted, before with
-    | False, _, _, _ => byComputing
-    | True, False, _, _ => byComputing
-    | True, True, True, _ => byComputing
-    | True, True, False, True => byComputing
+  cases closer, trails, noted, before then byComputing
 
 --| A closer that holds a comment is homed when the code before it ends with one, or it has own-line comments: the
 --| rules' `before` for it is what `homedBack` reads.
@@ -863,8 +858,7 @@ theorem lastArgumentShape ∀ (argument: Expr) (around: Around) (prior: List Wor
         homed
     | Paren open inner close =>
       match inner with
-        | Binding _ _ _ _ _ => cases
-        | Block _ _ _ => cases
+        | Binding _ _ _ _ _ | Block _ _ _ => cases
         | _ => (each around prior within sound nonCloser homed, (hugged same => cases))
     | Record _ _ _ _ _ => cases
     | _ => (each around prior within sound nonCloser homed, (hugged same => cases))
@@ -1530,8 +1524,7 @@ theorem unnotedToldAbove ∀ (word: Word) (item closer: Bool)
   match word with
     | { text, comments = { above = [], after, blankBefore } } =>
       match blankBefore with
-        | True => rewrite low
-        | False => rewrite low
+        | True | False => rewrite low
 
 --| An expression with no own-line comments above it tells the same where an enclosing element wrote them.
 theorem shapeUnnoted ∀ (expr: Expr)
@@ -1945,8 +1938,7 @@ theorem dropAppend ∀ (front back: List Told): dropCommas (front ++ back) = dro
     | [] => byComputing
     | [entry, ..rest] =>
       match isBareComma entry with
-        | True => rewrite dropAppend rest back
-        | False => rewrite dropAppend rest back
+        | True | False => rewrite dropAppend rest back
 
 --| What each word of a list tells, one after another.
 def wordsShape: List Word → List Told
@@ -2146,18 +2138,7 @@ theorem shapeStood ∀ (expr: Expr) (item: Bool)
           wordsShapeAppend (head.calm item).words (itemsWords (calmAll False arguments))
     | Infix kind left operator right =>
       match kind with
-        | InfixBinary =>
-          rewrite dropAppend (left.shape item False) (operator.shapeK False False ++ right.shape False False),
-              dropAppend (operator.shapeK False False) (right.shape False False),
-              shapeStood left item (Bool.andLeft within) (Bool.andLeft nonCloser) (Bool.andLeft spelled),
-              shapeKBare operator False (Bool.notTrue _ (Bool.andLeft (Bool.andRight spelled))),
-              shapeStood right False
-                (Bool.andLeft (Bool.andRight within))
-                (Bool.andRight (Bool.andRight nonCloser))
-                (Bool.andRight (Bool.andRight spelled)),
-              wordStood operator False False (Bool.notTrue _ (Bool.andLeft (Bool.andRight nonCloser))),
-              wordsShapeAppend (left.calm item).words [operator.kept False False, ..(right.calm False).words]
-        | InfixArrow =>
+        | InfixBinary | InfixArrow =>
           rewrite dropAppend (left.shape item False) (operator.shapeK False False ++ right.shape False False),
               dropAppend (operator.shapeK False False) (right.shape False False),
               shapeStood left item (Bool.andLeft within) (Bool.andLeft nonCloser) (Bool.andLeft spelled),

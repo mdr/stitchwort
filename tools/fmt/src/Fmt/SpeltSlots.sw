@@ -439,21 +439,21 @@ theorem infixOpens ∀ (kind: InfixKind) (tok: Tok) (is: infixTok kind tok = Tru
     | InfixArrow, is => rewrite DecEq.sound is
     | InfixBinary, is =>
       match tok, is with
-        | Star, _ => byComputing
-        | Slash, _ => byComputing
-        | Percent, _ => byComputing
-        | Plus, _ => byComputing
-        | Minus, _ => byComputing
-        | PlusPlus, _ => byComputing
-        | Equals, _ => byComputing
-        | EqEq, _ => byComputing
-        | NotEq, _ => byComputing
-        | Lt, _ => byComputing
-        | Le, _ => byComputing
-        | Gt, _ => byComputing
-        | Ge, _ => byComputing
-        | AndAnd, _ => byComputing
-        | OrOr, _ => byComputing
+        | Star |
+            Slash |
+            Percent |
+            Plus |
+            Minus |
+            PlusPlus |
+            Equals |
+            EqEq |
+            NotEq |
+            Lt |
+            Le |
+            Gt |
+            Ge |
+            AndAnd |
+            OrOr, _ => byComputing
         | other, never => (Bool.falseNotTrue never).impossible
     | other, never => (Bool.falseNotTrue never).impossible
 

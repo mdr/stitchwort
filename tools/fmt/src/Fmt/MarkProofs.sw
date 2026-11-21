@@ -125,8 +125,7 @@ theorem findFilterOther ∀ (marks: List OpenMark) (closed wanted: Nat)
           rewrite kept, found
         | False =>
           match keep: mark.key == closed with
-            | True => findFilterOther rest closed wanted other
-            | False => findFilterOther rest closed wanted other
+            | True | False => findFilterOther rest closed wanted other
 
 --| Closing a mark keyed at or above `low` closes none below it.
 theorem keptClose ∀ (low key: Nat) (origin carry: Carry)
@@ -169,9 +168,7 @@ theorem framed ∀ (low: Nat) (origin: Carry) [doc: Doc] (indent: Nat) (place: P
     | Blank, _, lays =>
       match place, kept, lays with
         | AtStart at carry, _, never => never
-        | Broken at carry, kept, lays => lays kept
-        | Mid at carry, kept, lays => lays kept
-        | Held at carry, kept, lays => lays kept
+        | Broken at carry | Mid at carry | Held at carry, kept, lays => lays kept
     | Chunk text width, _, lays => writeFramed low origin indent text place trace next kept lays
     | Closing text, _, lays =>
       match place, kept, lays with
@@ -181,30 +178,21 @@ theorem framed ∀ (low: Nat) (origin: Carry) [doc: Doc] (indent: Nat) (place: P
         | Mid at carry, kept, lays => writeFramed low origin indent text (Mid at carry) trace next kept lays
     | Line | SoftLine, _, lays =>
       match place, kept, lays with
-        | AtStart at carry, _, never => never
-        | Broken at carry, _, never => never
-        | Mid at carry, kept, Both same broken => ((same kept), (broken (keptBreak low indent origin carry kept)))
-        | Held at carry, kept, Both same broken => ((same kept), (broken (keptBreak low indent origin carry kept)))
+        | AtStart at carry | Broken at carry, _, never => never
+        | Mid at carry | Held at carry, kept, Both same broken =>
+          ((same kept), (broken (keptBreak low indent origin carry kept)))
     | HardLine, _, Both mid (Inl broken) => (mid, (Inl (broken (keptBreak low indent origin place.carry kept))))
     | HardLine, _, Both mid (Inr started) => (mid, (Inr (started (keptBreak low indent origin place.carry kept))))
     | LineStart, _, lays =>
       match place, kept, lays with
-        | AtStart at carry, kept, lays => lays kept
-        | Broken at carry, kept, lays => lays kept
-        | Mid at carry, kept, lays => lays (keptStartFloor low (Nat.max indent (at + 2)) origin carry kept)
-        | Held at carry, kept, lays => lays (keptStartFloor low (Nat.max indent (at + 2)) origin carry kept)
+        | AtStart at carry | Broken at carry, kept, lays => lays kept
+        | Mid at carry | Held at carry, kept, lays =>
+          lays (keptStartFloor low (Nat.max indent (at + 2)) origin carry kept)
     | LineStartHere, _, lays =>
       match place, kept, lays with
-        | AtStart at carry, kept, lays => lays kept
-        | Broken at carry, kept, lays => lays kept
-        | Mid at carry, kept, lays => lays (keptBreak low indent origin carry kept)
-        | Held at carry, kept, lays => lays (keptBreak low indent origin carry kept)
-    | Mark key, high, lays =>
-      match place, kept, lays with
-        | AtStart at carry, kept, lays => lays (keptMark low key at origin carry high kept)
-        | Broken at carry, kept, lays => lays (keptMark low key at origin carry high kept)
-        | Mid at carry, kept, lays => lays (keptMark low key at origin carry high kept)
-        | Held at carry, kept, lays => lays (keptMark low key at origin carry high kept)
+        | AtStart at carry | Broken at carry, kept, lays => lays kept
+        | Mid at carry | Held at carry, kept, lays => lays (keptBreak low indent origin carry kept)
+    | Mark key, high, lays => cases place then lays (keptMark low key place.indent origin place.carry high kept)
     | CloserLine key, high, lays => lays (keptCloserLine low key indent origin place high kept)
     | Nest more inner, inside, lays => framed low origin (indent + more) place trace next inside kept lays
     | Align inner, inside, lays =>
@@ -264,8 +252,7 @@ theorem framed ∀ (low: Nat) (origin: Carry) [doc: Doc] (indent: Nat) (place: P
     | Choice options, inside, lays => optionsFramed low origin options indent place trace next inside kept lays
     | LineSuffix comment, _, (isComment, word, lays) =>
       match place, kept, lays with
-        | AtStart at carry, _, never => (isComment, word, never)
-        | Broken at carry, _, never => (isComment, word, never)
+        | AtStart at carry | Broken at carry, _, never => (isComment, word, never)
         | Mid at carry, kept, lays => (isComment, word, (lays kept))
         | Held at carry, _, never => (isComment, word, never)
 
@@ -280,15 +267,13 @@ theorem writeFramed ∀ (low: Nat) (origin: Carry) (indent: Nat) (text: Text) (p
       match spaces: text.all (char => char == ' '), lays with
         | True, lays =>
           match place, kept, lays with
-            | AtStart at carry, _, never => never
-            | Broken at carry, _, never => never
+            | AtStart at carry | Broken at carry, _, never => never
             | Mid at carry, kept, lays => lays (keptFloorAfter low text origin carry kept)
             | Held at carry, kept, lays => lays kept
         | False, Both oneLine lays =>
           match place, kept, lays with
-            | AtStart at carry, kept, lays => (oneLine, (lays (keptFloorAfter low text origin carry kept)))
-            | Broken at carry, kept, lays => (oneLine, (lays (keptFloorAfter low text origin carry kept)))
-            | Mid at carry, kept, lays => (oneLine, (lays (keptFloorAfter low text origin carry kept)))
+            | AtStart at carry | Broken at carry | Mid at carry, kept, lays =>
+              (oneLine, (lays (keptFloorAfter low text origin carry kept)))
             | Held at carry, kept, lays => (
               oneLine,
               (lays
@@ -346,11 +331,8 @@ theorem sepsFramed ∀ (low: Nat) (origin: Carry) (items: List Doc) (indent: Nat
               (after later rest restKept => sepsFramed low origin more indent after later next others restKept rest)
               laid)
       match place, kept, lays with
-        | AtStart at carry, _, never => never
-        | Broken at carry, _, never => never
-        | Mid at carry, kept, Both same broken =>
-          ((inner _ _ same kept), (inner _ _ broken (keptBreak low indent origin carry kept)))
-        | Held at carry, kept, Both same broken =>
+        | AtStart at carry | Broken at carry, _, never => never
+        | Mid at carry | Held at carry, kept, Both same broken =>
           ((inner _ _ same kept), (inner _ _ broken (keptBreak low indent origin carry kept)))
 
 theorem fillFramed ∀ (low: Nat) (origin: Carry) (items: List Doc) (indent: Nat) (place: Place)

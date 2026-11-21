@@ -29,9 +29,7 @@ theorem walkMap ∀ (p: Pure) (expr: Expr) (within: expr.within1 = True): expr.w
     | App head arguments => rewrite walkMap p head (Bool.andLeft within), walksMap p arguments (Bool.andRight within)
     | Infix kind left operator right =>
       match kind with
-        | InfixBinary =>
-          rewrite walkMap p left (Bool.andLeft within), walkMap p right (Bool.andLeft (Bool.andRight within))
-        | InfixArrow =>
+        | InfixBinary | InfixArrow =>
           rewrite walkMap p left (Bool.andLeft within), walkMap p right (Bool.andLeft (Bool.andRight within))
         | _ => cases
     | Prefix operator operand => rewrite walkMap p operand (Bool.andLeft within)
@@ -207,9 +205,7 @@ theorem spineSame ∀ (expr: Expr) (within: expr.within1 = True): spineBinders e
   | App head arguments => rewrite spineSame head (Bool.andLeft within), spinesSame arguments (Bool.andRight within)
   | Infix kind left operator right =>
     match kind with
-      | InfixBinary =>
-        rewrite spineSame left (Bool.andLeft within), spineSame right (Bool.andLeft (Bool.andRight within))
-      | InfixArrow =>
+      | InfixBinary | InfixArrow =>
         rewrite spineSame left (Bool.andLeft within), spineSame right (Bool.andLeft (Bool.andRight within))
       | _ => cases
   | Prefix operator operand => rewrite spineSame operand (Bool.andLeft within)
@@ -579,8 +575,7 @@ theorem exprCalmWithin ∀ (expr: Expr) (item: Bool): (expr.calm item).within1 =
   | App head arguments => rewrite exprCalmWithin head item, calmAllWithin arguments False
   | Infix kind left operator right =>
     match kind with
-      | InfixBinary => rewrite exprCalmWithin left item, exprCalmWithin right False
-      | InfixArrow => rewrite exprCalmWithin left item, exprCalmWithin right False
+      | InfixBinary | InfixArrow => rewrite exprCalmWithin left item, exprCalmWithin right False
       | _ => cases
   | Prefix operator operand => rewrite exprCalmWithin operand False
   | _ => cases

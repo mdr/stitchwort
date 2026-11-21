@@ -82,11 +82,7 @@ theorem nameFacts ∀ (name: Word)
   let (comma, closer) := spellsQuiet kind name.text spells quiet
   let kinded := lexKindOfSpells kind name.text spells
   match isName with
-    | Inl same => (
-      rewrite kinded, same then (byComputing, byComputing, byComputing, byComputing, byComputing, byComputing),
-      (spellsNotComment kind name.text spells, spellsNotLayout kind name.text spells, closer, comma)
-    )
-    | Inr same => (
+    | Inl same | Inr same => (
       rewrite kinded, same then (byComputing, byComputing, byComputing, byComputing, byComputing, byComputing),
       (spellsNotComment kind name.text spells, spellsNotLayout kind name.text spells, closer, comma)
     )
@@ -172,11 +168,7 @@ def HugOnLine (kinds: Text → Tok) (value: Expr) (around: Around): Prop :=
 
 --| A value with no `match` or `calc` is its element.
 theorem plainBodyEl ∀ (value: Expr) (around: Around): plainBody value around = value.el around := match value with
-  | Binding kind keyword params arrow body =>
-    match kind with
-      | BindsLambda => byComputing
-      | BindsForall => byComputing
-      | BindsExists => byComputing
+  | Binding kind keyword params arrow body => cases kind then byComputing
   | _ => byComputing
 
 -- Call hugs.

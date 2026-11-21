@@ -119,8 +119,7 @@ theorem calmAtWithin ∀ (decl: Decl) (top: Bool) (within: decl.within1 = True):
                 (Bool.andLeft within))
               (withinCalm value False (Bool.andRight within))
           match top with
-            | True => both
-            | False => both
+            | True | False => both
         | _ => cases
 
 --| The first of a list.

@@ -399,9 +399,7 @@ theorem roundsFine ∀ (source: Text) (before rest read tail: List Char) (rounds
             | CommentLexeme =>
               let ends: endsLine (rest.drop first.length) = True := Bool.andRight (Bool.andRight kind)
               rewrite nextBreak (rest.drop first.length) later tail _ more nextIs rest1 (Bool.andRight both) ends
-            | Spaces => byComputing
-            | LineBreak => byComputing
-            | TokenLexeme other => byComputing
+            | _ => cases value then byComputing
           rewrite isRound then Bool.andIntro (rewrite text then lexeme) (Bool.andIntro afterComment laterFine)
 
 theorem allMarked ∀ (leaves: List Leaf)

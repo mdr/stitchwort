@@ -129,9 +129,7 @@ theorem forallWalk ∀ (header: Header): walkHeader meaningPure (withForall head
           match explicit: params.any Group.explicit with
             | True => byComputing
             | False => byComputing
-        | DefTheorem, Some _ => byComputing
-        | DefPlain, _ => byComputing
-        | DefInstance, _ => byComputing
+        | _, _ => cases kind, forallKeyword then byComputing
 
 def forallKeeps: Keeps forallPure meaningPure := {
   expr = (z => byComputing),

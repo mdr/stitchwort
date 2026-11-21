@@ -1115,11 +1115,7 @@ theorem allTrimmed ∀ (texts: List Text)
 -- The end of the file.
 
 theorem intoTrailing ∀ (carry: Carried) (trivia: Trivia): (carry.into trivia).trailing = trivia.trailing :=
-  match trivia with
-    | { leading, blankLines, trailing } =>
-      match leading with
-        | [] => byComputing
-        | [first, ..more] => byComputing
+  match trivia with | { leading, blankLines, trailing } => cases leading then byComputing
 
 --| Rule 2 leaves the end's trailing comment as it was: a carried comment goes in front of the own-line ones.
 theorem commasEndTrailing ∀ (done: List Leaf) (carried: Option Carried) (rest: List Leaf) (end: Trivia):

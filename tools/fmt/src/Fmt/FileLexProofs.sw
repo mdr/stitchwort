@@ -224,7 +224,6 @@ theorem layShifted ∀ (laid: Laid) (piece: Piece) (earlier: List Leaf) (above: 
                 | [{ token, trivia = { leading, blankLines, trailing } }], _ => byComputing
                 | [last, next, ..older], _ => byComputing
                 | [], never => cases
-
 theorem foldShifted ∀ (pieces: List Piece) (laid: Laid) (earlier: List Leaf) (above: List Comment) (blank: Nat)
     (filled: laid.leaves.isEmpty = False):
     pieces.foldLeft (shifted laid earlier above blank) Laid.lay
@@ -291,10 +290,7 @@ theorem gapFrom ∀ (empty blank: Bool) (laid: Laid) (leaves: List Leaf) (pendin
     | False, (sameLeaves, samePending, noBlank, notBlank) =>
       match laid with
         | { leaves = made, pending = waiting, blankRun, lineBlank, freshLine, column } =>
-          rewrite sameLeaves, samePending, noBlank, notBlank then
-            match blank with
-              | True => byComputing
-              | False => byComputing
+          rewrite sameLeaves, samePending, noBlank, notBlank then cases blank then byComputing
 
 --| What a run of own-line comments leaves waiting, newest first: `laidNotes` read from the other end.
 theorem notesLay ∀ (notes: List Note) (empty: Bool) (laid: Laid) (leaves: List Leaf) (pending: List Comment)
@@ -316,10 +312,8 @@ theorem notesLay ∀ (notes: List Note) (empty: Bool) (laid: Laid) (leaves: List
       let sameComment: { noteComment note | blankLines = if empty then 0 else (noteComment note).blankLines }
         = comment :=
         match empty, note.blankBefore with
-          | True, True => byComputing
-          | True, False => byComputing
-          | False, True => byComputing
-          | False, False => byComputing
+          | True, True | False => byComputing
+          | False, True | False => byComputing
       let first: (laidNotes empty [note, ..rest]).reverse ++ pending
         = (laidNotes False rest).reverse ++ [comment, ..pending] :=
         rewrite laidNotesFalse rest, <- sameComment then
@@ -483,9 +477,7 @@ theorem codePiece ∀ (kinds: Text → Tok) (text: Text) (final: Final text): pi
 --| A piece in front of pieces with code in them takes what is before the code.
 theorem addPieceCode ∀ (piece: Piece) (front: List Piece) (kind: Tok) (text: Text) (rest: List Piece):
     addPiece piece (front ++ [Code kind text, ..rest]) = addPiece piece front ++ [Code kind text, ..rest] :=
-  match piece, front with
-    | Gap _, [Gap _, .._] | [] | [Code _ _, .._] | [Break, .._] | [Remark _, .._] => byComputing
-    | Code _ _ | Break | Remark _, _ => byComputing
+  cases piece, front then byComputing
 
 --| The pieces of texts with a token among them: those before it, its code, those after it.
 theorem pieceFoldCode ∀ (kinds: Text → Tok) (front: List Text) (word: Text) (rest: List Text)

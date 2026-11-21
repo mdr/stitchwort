@@ -114,8 +114,7 @@ theorem leafStepPlain ∀ (state next: HangState) (leaf: Leaf)
                           let same := Option.someInjective step
                           rewrite <- same then
                             match opens: leaf.token.kind.isOpener with
-                              | True => byComputing
-                              | False => byComputing
+                              | True | False => byComputing
 
 --| After an expression's first leaf, the bound holds of the state it left.
 theorem boundsPast ∀ (modes: Modes) (state next: HangState) (item: Item)

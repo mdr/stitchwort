@@ -166,8 +166,7 @@ theorem argumentHung ∀ (modes: Modes)
             hung
             deepItems
             after
-        | Infix _ _ _ _, _, fits, _, _, _ => (Bool.falseNotTrue fits).impossible
-        | App _ _, _, fits, _, _, _ => (Bool.falseNotTrue fits).impossible
+        | Infix _ _ _ _ | App _ _, _, fits, _, _, _ => (Bool.falseNotTrue fits).impossible
         | other, _, _, _, _, never => (Bool.falseNotTrue never).impossible
   (
     (rewrite isRead, notDot),
@@ -646,8 +645,7 @@ theorem unaryHung ∀ (modes: Modes)
                         call
                       )
                 | other, _, never => (Bool.falseNotTrue never).impossible
-            | App _ _, _, never, _ => (Bool.falseNotTrue never).impossible
-            | Infix _ _ _ _, _, never, _ => (Bool.falseNotTrue never).impossible
+            | App _ _ | Infix _ _ _ _, _, never, _ => (Bool.falseNotTrue never).impossible
             | other, _, _, never => (Bool.falseNotTrue never).impossible
         | App _ [], never, _, _, _, _ => Void.impossible never
         | Infix _ _ _ _, _, _, _, _, _ => (Bool.falseNotTrue unary).impossible

@@ -87,10 +87,7 @@ theorem startLength ∀ (fresh: Bool) (column: Nat) (blocks: List (Option Nat)):
     (startBlocks fresh column blocks).length = blocks.length :=
   match blocks with
     | [] => byComputing
-    | [block, ..outer] =>
-      match fresh with
-        | True => byComputing
-        | False => byComputing
+    | [block, ..outer] => cases fresh then byComputing
 
 --| A step keeps `blocks.length` the bracket depth `depthPast` counts, and a comma or closer steps only where a bracket
 --| is open.
@@ -137,5 +134,4 @@ theorem stepInfo ∀ (state next: HangState) (leaf: Leaf)
                           let kept := startLength (state.start && leaf.token.lineStart) leaf.token.column state.blocks
                           rewrite <- same then
                             match opens: leaf.token.kind.isOpener with
-                              | True => rewrite kept then (byComputing, h => (Bool.falseNotTrue h).impossible)
-                              | False => rewrite kept then (byComputing, h => (Bool.falseNotTrue h).impossible)
+                              | True | False => rewrite kept then (byComputing, h => (Bool.falseNotTrue h).impossible)

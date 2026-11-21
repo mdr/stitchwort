@@ -177,8 +177,7 @@ theorem restShapesOfKinds1 ∀ (close: Tok)
   match rest with
     | [] =>
       match trailing with
-        | True => rewrite closer
-        | False => rewrite closer
+        | True | False => rewrite closer
     | [next, ..more] =>
       rewrite List.mapAppend next.kinds (restKinds close trailing more) Tok.shape,
           Expr.shapesOfKinds1 next (Bool.andLeft grammar),
@@ -372,8 +371,7 @@ theorem headerResult1 ∀ (header: Header) (grammar: header.grammar1 = True): he
             | Some _ => (Bool.falseNotTrue grammar).impossible
             | None =>
               match kind with
-                | DefTheorem => (Bool.falseNotTrue grammar).impossible
-                | DefInstance => (Bool.falseNotTrue grammar).impossible
+                | DefTheorem | DefInstance => (Bool.falseNotTrue grammar).impossible
                 | DefPlain =>
                   match forallKeyword with
                     | Some _ => (Bool.falseNotTrue grammar).impossible
@@ -432,8 +430,7 @@ theorem itemOfShape ∀ (kind: Tok): kind.shape.isItem = itemKind kind := match 
           | True => byComputing
           | False =>
             match closer: kind.isCloser with
-              | True => byComputing
-              | False => byComputing
+              | True | False => byComputing
 
 theorem followShape ∀ (kind: Tok) (follow: arrowFollow kind = True): kind.shape.follows = True :=
   match kind, follow with | Comma | RParen | RBracket | RBrace | Arrow, _ => byComputing

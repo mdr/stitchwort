@@ -82,8 +82,7 @@ theorem addPlain ∀ (asm: Assembly) (source: Text) (lexeme: Parse.Located Lexem
   match lexeme with
     | { value, offset, length } =>
       match value with
-        | Spaces => plain
-        | LineBreak => plain
+        | Spaces | LineBreak => plain
         | CommentLexeme =>
           match asm.freshLine with
             | True =>
