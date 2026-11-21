@@ -30917,15 +30917,17 @@
     {
       "id": 4507,
       "title": "[Sonnet] auto's hypothesis parts spend two MAX_PART_DEPTH levels per && (read, then split), so past the fourth part of a chain whose parts read as tests auto doesn't see the rest; give auto the and_side fallback cases got in SW-4485; and tidy auto::take_apart's 8 arguments (reads and cut into a small struct)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nLane notes: auto now falls back to AndSides (shared with cases); example auto-long-conjunction (byDecision and an [auto] argument; E-AUTO-STUCK before). Review items from SW-4485 done (cut only where something is left; sides collected once per Parts; budget doc). take_apart uses a Taking struct. Hashes: only the new example snapshot. Tests: cases + auto-long-conjunction examples, examples::soundness pass.\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
-      "commits": []
+      "commits": [
+        "d25f8dba0"
+      ]
     },
     {
       "id": 4508,
