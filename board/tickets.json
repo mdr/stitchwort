@@ -1,5 +1,5 @@
 {
-  "next": 4529,
+  "next": 4530,
   "tickets": [
     {
       "id": 47,
@@ -31021,12 +31021,12 @@
     {
       "id": 4515,
       "title": "[Sonnet] byFacts stage 1c, formatter pilot (docs/proposals/closer.md 'Stage 1', D3708): convert the ten theorems closer.md names (endedWeaker, signSymbolic, parenParsed, tupleParsed, itemsParsed, allTokensWithout, alikeParen, leftLinkOf, signQuietOf, givesExpect) and SW-4222's 21 where byFacts is shorter; measure closer.md's bars 1-6 and its stop rules; report proof lines before/after and check times",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, 33 min (est. 50).\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
@@ -31190,6 +31190,19 @@
     {
       "id": 4528,
       "title": "[Sonnet] The 26 read-back record theorems in tools/fmt ReadBackHung* (AtomReads, MulReads, ...; 1,691 lines) as a shortening target: _ for fixed arguments, byFacts, anonymous constructors for their tuples (SW-4522)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4529,
+      "title": "[DeepSeek] tools/fmt alike... theorems (alikePrefix, alikeAnnotation and siblings) close with rewrite repeatedly [their facts] in one line, as alikeParen now does (SW-4515); convert where shorter, statements unchanged, check each namespace edited",
       "status": "backlog",
       "agent": "",
       "where": "",
