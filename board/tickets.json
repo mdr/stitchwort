@@ -30644,12 +30644,12 @@
     {
       "id": 4486,
       "title": "[Sonnet] Toy formatter may not check at 599e0332e: check --only Toy.Fmt.Proofs.viewsCons Toy.Fmt.Proofs gave E-TYPE-MISMATCH near Toy.Syntax.operatorNext.eq3 (SW-4483, run once); reproduce with a plain check of the namespace, find the cause or confirm it is an --only effect",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nLane notes (Sonnet): the type mismatch is the D3699 change (08:27 20 Nov; a Bool guard gives c = False): operatorNext.eq3 now states notArm2 as isOperatorChar char = False, so the lambda no longer takes a `holds` binder. Fixed the proof (91c6bda2e on lane/SW-4486). Separate finding: Toy.Fmt.Proofs panics (\"applying a constructor\", crates/core/src/value.rs:1328) from SW-4419 (26a4cbd5c), in as_written is_needle via unfold_path.\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
