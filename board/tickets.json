@@ -1,5 +1,5 @@
 {
-  "next": 4534,
+  "next": 4537,
   "tickets": [
     {
       "id": 47,
@@ -31229,7 +31229,7 @@
     {
       "id": 4531,
       "title": "[Fable paper] Stock take of the slice 1 proof shortening (D3692) after 21 Nov's pilots: is the work on track for a clean, short proof that compares well with Lean and Rocq; what to stop, what to do next, and D3711 in that light; docs/reviews/SW-N-slice1-stock-take.md",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -31260,6 +31260,45 @@
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4534,
+      "title": "[Sonnet] Bundle hypotheses into named records for tools/fmt lemmas with eight or more binders (634 theorems; modes: Modes written 1,290 times), pilot on Fmt/DeclHangProofs.sw after SW-4530: lines of proof and statement before/after, steps against the D3696 bar; no top or acceptance theorem touched (SW-4531 step 1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4535,
+      "title": "[Sonnet] Reading pass for tools/fmt (SW-4531 step 3): a glossary of the predicates' words (Deaf, Calm, Hangs, ...) and a proof map; = True dropped where D3482's short form leaves hashes unchanged (5,308 spellings); proof ideas for the long proofs without one (D3657; about 578)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4536,
+      "title": "[Opus] Profile the seven tools/fmt declarations that take 25 s or more to check (standsEachFile 84 s, readsBackHungListExample 78 s, readsBackHungSignExample 49 s, readsBackCommentExample 40 s, printedFinish1 32 s, atomHung 30 s, runsDefinitionParts 25 s; the top three are nearly a third of the 679 s check; Overmind baseline 21 Nov): find what each spends its steps on and cut it, steps as the measure",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
       "body": "",
       "created": "2026-11-21",
       "updated": "2026-11-21",
