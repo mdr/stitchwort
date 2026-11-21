@@ -1,5 +1,5 @@
 {
-  "next": 4489,
+  "next": 4490,
   "tickets": [
     {
       "id": 47,
@@ -30566,14 +30566,14 @@
     {
       "id": 4480,
       "title": "[Opus] A _ argument fixed by a later argument's type gets an equal but different solution (SW-4475 cause): unification of the expected type unfolds Joins (Group x _) to Joins x and solves ?d := x before the later proof argument is checked. Options: elaborate _ arguments after the later arguments, or have the unifier keep the written argument when solving from a forced call. Repro and failed patch in docs/reviews/SW-4475/ (the patch broke std Args.helpListsOption). Also: W-REWRITE-REPEATEDLY-UNUSED could say the rule's part was closed by a hypothesis in scope",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
       "body": "",
       "created": "2026-11-20",
-      "updated": "2026-11-20",
+      "updated": "2026-11-21",
       "commits": []
     },
     {
@@ -30670,8 +30670,21 @@
     {
       "id": 4488,
       "title": "[Opus] byFacts stage 1a (D3708 revised, Matt, 21 Nov 2026: yes): the proof word byFacts [terms], per docs/proposals/closer.md stage 1 with SW-4483's six changes (two phases; ∃ facts and records of proofs taken apart; unknowns fixed by a fact, never guessed; its own equation rule; terms only, no rules sets, warn on unused; compute once, match by head, count attempts, fail fast); E-FACTS shows what is left after phase 1; byFacts then ?; check --expand-facts; docs, accept and reject examples; the self-hosted formatter refuses the word until a slice reaches it",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "\nProgress (Opus lane, 21 Nov 2026, 09:0x-10:45): built on lane/SW-4488 (bac6cb40e, 3cb9620d2, 4b80a0942, 08a0d29d1). byFacts [terms] then t in both parsers (reserved word), crates/elab/src/facts.rs (two phases, depth 3, 200 attempts), E-FACTS with parts left open and nearest facts, W-FACTS-UNUSED, check --expand-facts. All 13 SW-4483 probes close and expand to terms that check (facts_expand test). G1: probes 0.1-0.5 ms each. G4: rejects 0.1, 0.3 and 2.4 ms. No existing hash moved; no kernel change. Self-hosted fmt lexes Tok.KwByFacts and refuses it (no slice has it). Docs: syntax.md, proving-guide, guide ch. 10; editor and playground keywords. Moved to review.\n",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4489,
+      "title": "[Opus, paper] Review of SW-4488 (byFacts stage 1a): the kernel terms it builds, soundness of phase 1/2 and the equation rule, the no-guessing rule for unknowns, bounds and failure cost, the expanded text, the error, the self-hosted formatter refusing the word without narrowing; against closer.md stage 1 and SW-4483's six changes",
+      "status": "backlog",
+      "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
