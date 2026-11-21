@@ -500,8 +500,8 @@ theorem clauseComma ∀ (flag: Bool) (first second: Token)
           let (closer, isFlag) := after (DecEq.sound comma) passable
           rewrite closer, isFlag then cases
 
---| Tokens with shapes that pass after `prev` are `sourcePlainFrom`, the pair tests being the same but that a comma's
---| also holds of one that starts no line.
+--| Tokens with shapes that pass after `first.kind.shape`, with `flag` saying whether an item precedes, are
+--| `sourcePlainFrom`; the pair tests are the same but that a comma's also holds of one that starts no line.
 theorem plainOfShapes ∀ (flag: Bool) (first: Token) (rest: List Token)
     (runs: shapesFrom flag first.kind.shape (tokenShapes rest) = True):
     sourcePlainFrom flag [first, ..rest] = True :=

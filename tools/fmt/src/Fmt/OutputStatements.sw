@@ -1,14 +1,7 @@
---| What slice 1's proofs still have to say about the formatter's output, stated and not yet proved (SW-4025; the
---| reasons are in docs/reviews/SW-4025-output-statements.md). The output is the text the file loop prints for a
---| tidied tree; the second run of the formatter lexes it, settles it with rule N and parses it.
---|
---| - The file level: the text lexes to leaves written out here (`SourceFile.lexed`), one group a declaration, which
---|   pass the alphabet, have no last comma and are `plain1`.
---| - Rule N on those leaves: it is not idle (a comment after `a,` or `b)` is the comma's or the closer's to the
---|   lexer, and rule N takes it back to `a` or `b`: `outputNotIdle`). What holds is `printedSettle1`: the settled
---|   leaves' words are the tree's, with the blank-line flags the rules never read cleared.
---|
---| Each open goal is a proof ticket.
+--| Definitions stating what the formatter's output must satisfy — the text the file loop prints for a tidied tree,
+--| lexed, settled with rule N and parsed on a second run — and computed examples that check those statements on
+--| sample sources. The statements themselves are proved in `Fmt.TokenProofs`, `Fmt.SpacingProofs`,
+--| `Fmt.FileLexProofs`, `Fmt.OutputFileProofs` and `Fmt.SettleOutputProofs`.
 
 namespace Fmt.OutputStatements
 import Std (Bool, Doc, Eq, List, Nat, Option, Result, Text)
