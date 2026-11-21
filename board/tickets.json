@@ -31470,12 +31470,12 @@
     {
       "id": 4549,
       "title": "[DeepSeek] tools/fmt small read fixes from SW-4548: OutputStatements.sw's header says it holds unproved statements (none are; fix the header); plainOfShapes' doc names a parameter prev it doesn't have; the five-part flat test written five times in Syntax/ReadBackHungFrameLemmas.sw becomes one named def; lastWithin and lastLexical in Fmt/EdgeHangProofs.sw are one proof twice (one std List.all/last lemma)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Model result: DeepSeek, needed fixes (new def named isFlatKind was true of the non-flat kinds, doc inverted; renamed breaksFlat in review; item 4 left alone, judged inapplicable), 15 min (est. 20)\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
