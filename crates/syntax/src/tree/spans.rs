@@ -510,8 +510,15 @@ impl<'a> Walk<'a> {
                     self.expr(fact);
                 }
             }
-            Expr::Cases { body, span } => {
+            Expr::Cases {
+                targets,
+                body,
+                span,
+            } => {
                 self.tagged(what, *span, why);
+                for target in targets {
+                    self.span("Cases target", target.span);
+                }
                 if let Some(body) = body {
                     self.expr(body);
                 }

@@ -744,7 +744,11 @@ fn leaf_expr(leaf: Leaf<'_>) -> Lowering<Expr> {
             facts: Vec::new(),
             span,
         },
-        Tok::KwCases => Expr::Cases { body: None, span },
+        Tok::KwCases => Expr::Cases {
+            targets: Vec::new(),
+            body: None,
+            span,
+        },
         _ => return Err(Unsupported::Token),
     })
 }

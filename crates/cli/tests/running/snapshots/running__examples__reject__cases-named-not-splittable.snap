@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/running/examples.rs
+assertion_line: 869
+expression: output
+---
+[E-CASES] Error: `h` can't be split: its type `n = 3` isn't data, an `∨` or a `Bool`
+   ╭─[ reject/cases-named-not-splittable.sw:6:59 ]
+   │
+ 6 │ theorem atMostThree ∀ (n: Nat) (h: n = 3): n ≤ 3 := cases h then arithmetic
+   │                                                           ┬  
+   │                                                           ╰── named here
+   │ 
+   │ Note: `cases x then t` splits data into its constructors (a `Bool` into `True` and `False`) and an `∨` hypothesis into its two sides
+───╯

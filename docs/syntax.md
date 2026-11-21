@@ -2721,6 +2721,23 @@ theorem parseSmallSome ∀ (s: Text) (t: Text) (v: Nat) (h: parseSmallOption s t
 |---|---|
 | `cases` | splits until each case is closed by computation, a contradiction, a hypothesis, `arithmetic`, or deciding it |
 | `cases then t` | the same, trying the proof `t` in each case first (before splitting it further) |
+| `cases x, y then t` | splits only `x`, then `y` (and their fields, where `t` needs it), and closes each case as `cases then t` does |
+| `cases x, y` | the same, closing each case without `t` |
+
+**Saying what to split.** `cases x then t` splits exactly the values it names, in the order written, and nothing else: each name is a variable or hypothesis in scope, and
+
+- data is split into its constructors (a `Bool` into `True` and `False`, a record into its one constructor), and an `∨` hypothesis into its two sides, each a fact (`A ∨ B ∨ C` into three);
+- each case is closed as in `cases then t`: computation, a contradiction, a hypothesis, then `t`, with the case's equations in scope; a hypothesis as written that says a variable is a constructor (`hk: k = C1`) puts the constructor in place of the variable, since the variable isn't split to learn it;
+- where none of those closes a case, a field of a named value's split (`o` in `edge = Plain o`) is split further, the one the goal is stuck on first, then `arithmetic` and deciding the goal are tried, then any other such field the goal or a hypothesis mentions. A field of a recursive type (the tail of a list) isn't split.
+
+```
+theorem freeReady ∀ (kinds: Text → Tok) (trails: Bool) (first: Text) (edge: Edge)
+    (free: Free kinds trails edge):
+    Ready kinds trails first edge :=
+  cases edge then free first
+```
+
+It is the way past `E-CASES-BUDGET` when `cases` splits something the proof doesn't need: the budget is the same, and going over it names the split that did (`` it went over splitting `c` ``). A name not in scope, or one whose type can't be split (an equation, a proposition other than `∨`, an indexed family), is `E-CASES` at the name. The names are on `cases`' own line; as an argument, `f cases x` is still `f` applied to `cases` and `x`, so a split there is written in brackets, `f (cases x then t)`. Examples: `examples/accept/cases-named*.sw`, `examples/reject/cases-named*.sw`.
 
 `cases` and `cases then t` are a keyword and a term, like `arithmetic`: a definition's body, a `calc` step's proof, or an argument whose type is fixed (`f x cases`; as an argument, `cases then t` is written in brackets, `f x (cases then t)`, since its body runs to the end of the expression). Where nothing says what it proves (`let p := cases`) it is `E-CASES`. `cases` is a reserved word (the word `cases` stays free for `Text.split`). The proof it writes is the `match` you would have written, a case tree of `case` and `J`, and the kernel re-checks it; nothing new is trusted. Design and as built: [simp.md](proposals/simp.md) (stage 1).
 

@@ -132,6 +132,14 @@ def isSpace: Char → Bool
 theorem spaceIsSmall ∀ (c: Char) (space: isSpace c = True): c.toNat ≤ 32 := cases
 -- end cases-once
 
+-- begin cases-named
+def bonus (lit: Bool) (n: Nat): Nat := if lit then n + 2 else n + 1
+
+theorem bonusGrows ∀ (lit: Bool) (n: Nat): n < bonus lit n := cases lit then arithmetic
+
+theorem smallSum ∀ (n: Nat) (h: n = 1 ∨ n = 2 ∨ n = 4): n + n ≤ 8 := cases h then arithmetic
+-- end cases-named
+
 -- begin spec
 -- The specification: the plain recursive sum.
 def sumTo: Nat → Nat

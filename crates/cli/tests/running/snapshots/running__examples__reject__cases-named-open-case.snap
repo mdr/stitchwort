@@ -1,0 +1,25 @@
+---
+source: crates/cli/tests/running/examples.rs
+assertion_line: 869
+expression: output
+---
+[E-REFL] Error: `byComputing` can't prove this
+   ╭─[ reject/cases-named-open-case.sw:6:71 ]
+   │
+ 6 │ theorem eitherHolds ∀ (a b: Bool): (a || b) = True := cases a, b then byComputing
+   │                                                                       ─────┬─────  
+   │                                                                            ╰─────── `False` and `True` aren't equal
+   │ 
+   │ Note 1: `byComputing` proves `a = b` only when both sides compute to the same value
+   │ 
+   │ Note 2: in the case a = False, b = False, this is what the term after `then` gave
+   │ 
+   │ Note 3: 2 other cases were closed (2 by computation)
+   │ 
+   │ Note 4: this statement is false; a counterexample:
+   │           a = False
+   │           b = False
+   │         `(a || b) = True` is false:
+   │           left:  False
+   │           right: True
+───╯

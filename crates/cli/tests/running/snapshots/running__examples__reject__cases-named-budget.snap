@@ -1,0 +1,22 @@
+---
+source: crates/cli/tests/running/examples.rs
+assertion_line: 869
+expression: output
+---
+[E-CASES-BUDGET] Error: `cases` made more than 64 cases without closing them all
+    ╭─[ reject/cases-named-budget.sw:12:67 ]
+    │
+ 12 │ theorem sameReversed ∀ (a b c: Digit): same a b c = same c b a := cases a, b, c then byComputing
+    │                                                                   ───────────────┬──────────────  
+    │                                                                                  ╰──────────────── this `cases`
+    │ 
+    │ Note 1: it went over splitting `c`
+    │ 
+    │ Note 2: it split on 3: `a`, `b`, `c`
+    │ 
+    │ Note 3: the first case still open: a = D0, b = D6
+    │ 
+    │ Note 4: every variable it split has a finite type (`a : Digit`, `b : Digit`, `c : Digit`): to check every value by computing instead, state it as a `Bool` function `p` of one record or pair holding them and prove `p v = True` by `Finite.check p byComputing v` (`import Std (Finite)`)
+    │ 
+    │ Note 5: name fewer values to split, prove a fact that decides some of the cases at once and use it in `t`, or split by hand with `match`
+────╯

@@ -3,8 +3,9 @@
 //! say "this is a constructor", are stuck on.
 //!
 //! ```text
-//! split          -- split until each case is closed automatically
-//! split in t     -- and try `t` in each case
+//! cases             -- split until each case is closed automatically
+//! cases then t      -- and try `t` in each case
+//! cases x, y then t -- split only `x` and `y` (and their fields)
 //! ```
 //!
 //! At each case (a *node*), the closers are tried, cheapest first (§5.4):
@@ -126,6 +127,20 @@
 //! split, `tok` under it is split too. The first try's proofs are
 //! unchanged.
 //!
+//! `cases x, y then t` (SW-4474, D3709) takes the choice of splits from
+//! the search and gives it to the proof ([`named_target`], [`named_rest`]):
+//! in each case, after closers 1 to 4, the first named value not yet split
+//! is split (data into its constructors, an `∨` into its sides, and a side
+//! that is an `∨` in turn); once all are, `t` and the steps that don't split
+//! run as above, and where the case is still open a field of a named split
+//! is split, the one the goal is stuck on first, then the others the case
+//! mentions (not a field of a recursive type). Nothing else is split: no
+//! atom, last resort or fallback, and there is one try, not three.
+//!
+//! There, a hypothesis as written that equates a variable with a
+//! constructor form (`kind = Minus`) is used by [`substitute`] as a fact
+//! `cases` added would be.
+//!
 //! A case nothing closes, with nothing left to split, is `E-CASES`, showing
 //! the path of choices to it and the hypotheses in scope (only the latest
 //! copy of each, as generalising copies them). More than [`CASES`] cases, or
@@ -232,6 +247,23 @@ pub(crate) struct Run {
     split_ors: RefCell<Vec<Name>>,
     /// Whether an `∨` was split at all.
     split_or: Cell<bool>,
+    /// The values `cases x, y then t` names (SW-4474): only they, and the
+    /// fields and sides of their splits, are split ([`named_split`]).
+    /// Empty for `cases` choosing its own splits.
+    targets: Vec<ast::Name>,
+    /// The facts that splitting a named `∨` (or a side of one) added, each
+    /// with the index of the target it came from: a side that is an `∨` in
+    /// turn is split deeper.
+    named_facts: RefCell<Vec<(Name, usize)>>,
+    /// The named split being made, as the budget error shows it.
+    splitting: RefCell<Option<String>>,
+}
+
+impl Run {
+    /// The most cases this try may make.
+    fn limit(&self) -> usize {
+        if self.thrifty { THRIFTY_CASES } else { CASES }
+    }
 }
 
 #[derive(Default)]
@@ -292,7 +324,12 @@ pub(crate) fn check_cases(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result
 
 /// [`check_cases`]'s `cases` itself.
 fn cases_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
-    let Expr::Cases { body, span } = expr else {
+    let Expr::Cases {
+        targets,
+        body,
+        span,
+    } = expr
+    else {
         unreachable!("only called on `cases`")
     };
     // An alternative of a split this `cases` made: go on splitting.
@@ -300,6 +337,17 @@ fn cases_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         && run.span == *span
     {
         return node(cx, &run, expected);
+    }
+    // The splits are the proof's: one try, with nothing to choose
+    // differently a second time.
+    if !targets.is_empty() {
+        for target in targets {
+            named_kind(cx, target)?;
+        }
+        let unused = Cell::new(false);
+        return attempt(
+            cx, targets, body, *span, expected, false, false, &unused, &unused,
+        );
     }
     let out_of_cases = Cell::new(false);
     // The first try splits a hypothesis `A ∨ B` before what the goal is
@@ -310,6 +358,7 @@ fn cases_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     let split_or = Cell::new(false);
     let first = attempt(
         cx,
+        targets,
         body,
         *span,
         expected,
@@ -323,6 +372,7 @@ fn cases_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             out_of_cases.set(false);
             attempt(
                 cx,
+                targets,
                 body,
                 *span,
                 expected,
@@ -352,6 +402,7 @@ fn cases_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     let ran_out = out_of_cases.get();
     match attempt(
         cx,
+        targets,
         body,
         *span,
         expected,
@@ -377,6 +428,7 @@ fn cases_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
 #[allow(clippy::too_many_arguments)]
 fn attempt(
     cx: &mut Ctx,
+    targets: &[ast::Name],
     body: &Option<Box<Expr>>,
     span: Span,
     expected: &Value,
@@ -388,6 +440,7 @@ fn attempt(
     let snapshot = crate::undo::Snapshot::take(cx);
     let result = attempt_once(
         cx,
+        targets,
         body,
         span,
         expected,
@@ -405,6 +458,7 @@ fn attempt(
 #[allow(clippy::too_many_arguments)]
 fn attempt_once(
     cx: &mut Ctx,
+    targets: &[ast::Name],
     body: &Option<Box<Expr>>,
     span: Span,
     expected: &Value,
@@ -435,6 +489,9 @@ fn attempt_once(
         substituted: RefCell::new(Vec::new()),
         splittable: RefCell::new(HashMap::default()),
         split_or: Cell::new(false),
+        targets: targets.to_vec(),
+        named_facts: RefCell::new(Vec::new()),
+        splitting: RefCell::new(None),
     });
     let saved = cx.cases.replace(run.clone());
     let errors = cx.e.attempt.branch_errors.borrow().len();
@@ -505,6 +562,11 @@ fn budget_error(run: &Run) -> Diagnostic {
         format!("`cases` made more than {CASES} cases without closing them all")
     };
     let mut d = Diagnostic::error("E-CASES-BUDGET", message).with_label(run.span, "this `cases`");
+    if let Some(split) = &*run.splitting.borrow()
+        && !run.over_steps.get()
+    {
+        d = d.with_note(format!("it went over splitting {split}"));
+    }
     if let Some(split) = &*run.over_fallback.borrow() {
         d = d.with_note(format!(
             "`cases` tried splitting `{split}` as a fallback; this would exceed the \
@@ -543,6 +605,12 @@ fn budget_error(run: &Run) -> Diagnostic {
             vars.join(", ")
         ));
     }
+    if !run.targets.is_empty() {
+        return d.with_generic_note(
+            "name fewer values to split, prove a fact that decides some of the cases at once \
+             and use it in `t`, or split by hand with `match`",
+        );
+    }
     d.with_generic_note(
         "prove a fact that decides some of the cases at once and give it as `cases then t`, \
          or split by hand with `match`",
@@ -572,6 +640,13 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
     if let Some(term) = by_hypothesis_part(cx, goal)? {
         run.closed.borrow_mut().hypothesis += 1;
         return Ok(term);
+    }
+    // The values the proof names are split before `t` is tried: until
+    // they are, `t` faces the goal the proof says to split.
+    if !run.targets.is_empty()
+        && let Some(split) = named_target(cx, run)?
+    {
+        return named_split(cx, run, split, goal);
     }
     let mut failed_body = None;
     if let Some(body) = &run.body {
@@ -607,10 +682,13 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
     if let Some(term) = apply_guarded(cx, run, goal)? {
         return Ok(term);
     }
+    if !run.targets.is_empty() {
+        return named_rest(cx, run, goal, failed_body);
+    }
     if run.or_first
         && let Some(level) = or_hypothesis(cx, run, goal)?
     {
-        return split_disjunction(cx, run, level, goal);
+        return split_disjunction(cx, run, level, goal, None);
     }
     if run.body.is_some()
         && let Some(atom) = visible_condition(cx, run, goal)?
@@ -701,6 +779,302 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
         return split_on(cx, run, atom, goal, false);
     }
     let error = open_case(cx, run, goal, stuck, failed_body);
+    Err(match decided {
+        Decided::No if !visibly_false(cx, goal)? => {
+            error.with_note("the goal's decision procedure says it is false")
+        }
+        _ => error,
+    })
+}
+
+// `cases x, y then t` (SW-4474): the splits the proof names.
+
+/// What a named split takes apart: a variable of data type `d` at a level,
+/// into its constructors, or the `∨` hypothesis at a level into its sides.
+#[derive(Clone, Copy)]
+enum NamedSplit {
+    Data(usize, DataId),
+    Or(usize),
+}
+
+/// A named split to make: what, the index of the target it comes from, and
+/// how the budget error shows it.
+struct Planned {
+    split: NamedSplit,
+    root: usize,
+    shown: String,
+}
+
+/// What `target` names, checked before the first case: a variable or
+/// hypothesis in scope, of a type `cases` can split.
+fn named_kind(cx: &Ctx, target: &ast::Name) -> Result<NamedSplit> {
+    let Some(level) = cx.lookup(&target.text) else {
+        return Err(Diagnostic::error(
+            "E-CASES",
+            format!("`{}` isn't a variable or hypothesis in scope", target.text),
+        )
+        .with_label(target.span, "not in scope here")
+        .with_note(
+            "`cases x then t` splits a variable or hypothesis of the proof; to split a value \
+             computed from them, write `match e with`",
+        ));
+    };
+    classify(cx, level).map_err(|why| {
+        Diagnostic::error(
+            "E-CASES",
+            format!("`{}` can't be split: {why}", target.text),
+        )
+        .with_label(target.span, "named here")
+        .with_note(
+            "`cases x then t` splits data into its constructors (a `Bool` into `True` and \
+                 `False`) and an `∨` hypothesis into its two sides",
+        )
+    })
+}
+
+/// How the value at `level` splits, or why it can't.
+fn classify(cx: &Ctx, level: usize) -> std::result::Result<NamedSplit, String> {
+    let g = cx.g();
+    let ty =
+        force(&g, cx.types[level].clone()).map_err(|_| "its type can't be read".to_string())?;
+    let shown = cx.show(&ty);
+    let Value::Data(d, args) = &ty else {
+        return Err(format!("its type `{shown}` isn't data, an `∨` or a `Bool`"));
+    };
+    if g.env.registry().is_data(Builtin::Or, *d) && args.len() == 2 {
+        return Ok(NamedSplit::Or(level));
+    }
+    let data = g.data(*d);
+    if data.sort() == Sort::Prop {
+        return Err(format!(
+            "it is a proof of `{shown}`, a proposition other than an `∨`"
+        ));
+    }
+    if !data.indices().is_empty() {
+        return Err(format!(
+            "its type `{shown}` is an indexed family, which `cases` doesn't split; write the \
+             `match` by hand"
+        ));
+    }
+    if data.ctors().is_empty() {
+        return Err(format!("its type `{shown}` has no constructors"));
+    }
+    Ok(NamedSplit::Data(level, *d))
+}
+
+/// The first named value not split yet in this case, in the order written.
+fn named_target(cx: &Ctx, run: &Run) -> Result<Option<Planned>> {
+    let finder = Finder::new(cx, run);
+    for (root, target) in run.targets.iter().enumerate() {
+        // A value a substitution replaced is no longer in scope.
+        let Some(level) = cx.lookup(&target.text) else {
+            continue;
+        };
+        let Ok(split) = classify(cx, level) else {
+            continue;
+        };
+        let open = match split {
+            NamedSplit::Data(..) => !finder.is_known(&Value::var(level))?,
+            NamedSplit::Or(_) => !run.split_ors.borrow().contains(&cx.names[level]),
+        };
+        if open {
+            return Ok(Some(Planned {
+                split,
+                root,
+                shown: format!("`{}`", target.text),
+            }));
+        }
+    }
+    // A side of a named `∨` that is an `∨` in turn: `A ∨ B ∨ C` is split
+    // into its three cases before `t` is tried, as one split.
+    let facts = run.named_facts.borrow().clone();
+    for (name, root) in facts.into_iter().rev() {
+        let Some(level) = cx.lookup(&name) else {
+            continue;
+        };
+        if let Ok(NamedSplit::Or(level)) = classify(cx, level)
+            && !run.split_ors.borrow().contains(&cx.names[level])
+        {
+            return Ok(Some(Planned {
+                split: NamedSplit::Or(level),
+                root,
+                shown: format!("a side of `{}`", run.targets[root].text),
+            }));
+        }
+    }
+    Ok(None)
+}
+
+/// Makes the named split `planned`.
+fn named_split(cx: &mut Ctx, run: &Rc<Run>, planned: Planned, goal: &Value) -> Result<Term> {
+    *run.splitting.borrow_mut() = Some(planned.shown);
+    match planned.split {
+        NamedSplit::Data(level, d) => split_on(
+            cx,
+            run,
+            Atom {
+                value: Value::var(level),
+                d,
+                side: false,
+                numbers: None,
+            },
+            goal,
+            false,
+        ),
+        NamedSplit::Or(level) => split_disjunction(cx, run, level, goal, Some(planned.root)),
+    }
+}
+
+/// The variables a constructor form holds, its own fields' fields too.
+fn ctor_vars(g: &Ev, value: &Value, out: &mut Vec<usize>) -> Result<()> {
+    match force(g, value.clone())? {
+        Value::Neutral(Head::Var(level, _), spine) if spine.is_empty() => out.push(level),
+        Value::Ctor(_, _, args) => {
+            for arg in args.iter() {
+                ctor_vars(g, arg, out)?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+/// The fields of the named splits so far, transitively (a field of a
+/// field), each with the target it comes from, in the order split.
+fn named_fields(cx: &Ctx, run: &Run) -> Result<Vec<(usize, usize)>> {
+    let g = cx.g();
+    let mut found: Vec<(usize, usize)> = Vec::new();
+    for (root, target) in run.targets.iter().enumerate() {
+        if let Some(level) = cx.lookup(&target.text) {
+            found.push((level, root));
+        }
+    }
+    let equations: Vec<usize> = (0..cx.level()).filter(|&l| is_equation(cx, l)).collect();
+    let mut done = vec![false; equations.len()];
+    loop {
+        let mut grew = false;
+        for (i, &level) in equations.iter().enumerate() {
+            if done[i] {
+                continue;
+            }
+            let Value::Eq(_, l, r) = force(&g, cx.types[level].clone())? else {
+                done[i] = true;
+                continue;
+            };
+            let Value::Neutral(Head::Var(left, _), spine) = force(&g, (*l).clone())? else {
+                done[i] = true;
+                continue;
+            };
+            let Some(&(_, root)) = found.iter().find(|(f, _)| *f == left && spine.is_empty())
+            else {
+                continue;
+            };
+            done[i] = true;
+            grew = true;
+            let mut vars = Vec::new();
+            ctor_vars(&g, &r, &mut vars)?;
+            for var in vars {
+                if !found.iter().any(|(f, _)| *f == var) {
+                    found.push((var, root));
+                }
+            }
+        }
+        if !grew {
+            break;
+        }
+    }
+    Ok(found)
+}
+
+/// The deeper splits a case may still make once every named value is
+/// split: the fields of their splits not split yet, of a type `cases`
+/// splits (data that isn't recursive, a record too) and mentioned by the
+/// goal or a hypothesis, in the order split; each with how it is shown.
+fn named_candidates(cx: &Ctx, run: &Run, goal: &Value) -> Result<Vec<Planned>> {
+    let g = cx.g();
+    let n = cx.level();
+    let finder = Finder::new(cx, run);
+    let mut mentioned = crate::matching::free_levels(&cx.quote_folded(goal)?, n);
+    for level in visible(cx) {
+        if !is_equation(cx, level) {
+            mentioned.extend(crate::matching::free_levels(
+                &cx.quote_folded(&cx.types[level])?,
+                n,
+            ));
+        }
+    }
+    let mut out = Vec::new();
+    for (level, root) in named_fields(cx, run)? {
+        if !mentioned.contains(&level) || stale(cx, level) || is_equation(cx, level) {
+            continue;
+        }
+        let Value::Data(d, _) = force(&g, cx.types[level].clone())? else {
+            continue;
+        };
+        if finder.ctors(d).is_none() || finder.is_known(&Value::var(level))? {
+            continue;
+        }
+        let field = cx.show(&Value::var(level));
+        out.push(Planned {
+            split: NamedSplit::Data(level, d),
+            root,
+            shown: format!(
+                "`{field} : {}`, a field of `{}`",
+                cx.show(&cx.types[level]),
+                run.targets[root].text
+            ),
+        });
+    }
+    Ok(out)
+}
+
+/// A case of `cases x, y then t` with every named value split, that
+/// neither the closers nor `t` closed: a field of a named split is split
+/// further, the one the goal is stuck on first; otherwise
+/// `arithmetic`, deciding the goal, introducing its binders and applying an
+/// implication are tried, as `cases` tries them; then any field still
+/// mentioned. Nothing the proof didn't name is split.
+fn named_rest(
+    cx: &mut Ctx,
+    run: &Rc<Run>,
+    goal: &Value,
+    failed_body: Option<Diagnostic>,
+) -> Result<Term> {
+    let g = cx.g();
+    let mut candidates = named_candidates(cx, run, goal)?;
+    if !candidates.is_empty() {
+        let atom = Finder::new(cx, run).find(goal)?;
+        let stuck_on = atom.and_then(|atom| match force(&g, atom.value).ok()? {
+            Value::Neutral(Head::Var(level, _), spine) if spine.is_empty() => Some(level),
+            _ => None,
+        });
+        if let Some(at) = candidates
+            .iter()
+            .position(|c| matches!(c.split, NamedSplit::Data(l, _) if Some(l) == stuck_on))
+        {
+            return named_split(cx, run, candidates.swap_remove(at), goal);
+        }
+    }
+    if let Some(term) = crate::omega::prove_case(cx, goal, run.span)? {
+        run.closed.borrow_mut().omega += 1;
+        return Ok(term);
+    }
+    let decided = by_decision(cx, goal)?;
+    if let Decided::Yes(term) = decided {
+        run.closed.borrow_mut().decision += 1;
+        return Ok(term);
+    }
+    if let Some(term) = introduce(cx, run, goal)? {
+        return Ok(term);
+    }
+    if let Some(term) = apply_to_part(cx, run, goal)? {
+        run.closed.borrow_mut().hypothesis += 1;
+        return Ok(term);
+    }
+    if !candidates.is_empty() {
+        return named_split(cx, run, candidates.remove(0), goal);
+    }
+    let error = open_case(cx, run, goal, None, failed_body);
     Err(match decided {
         Decided::No if !visibly_false(cx, goal)? => {
             error.with_note("the goal's decision procedure says it is false")
@@ -1652,7 +2026,12 @@ fn substitute(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
     let g = cx.g();
     let n = cx.level();
     let injected = run.injected.borrow().clone();
-    if injected.is_empty() {
+    // In `cases x then t` (SW-4474), a hypothesis as written, `kind =
+    // Minus`, is used too: with a constructor on one side and a variable on
+    // the other, it says what the split isn't allowed to learn by splitting
+    // the variable. Plain `cases` doesn't, so its proofs keep their terms.
+    let written = !run.targets.is_empty();
+    if injected.is_empty() && !written {
         return Ok(None);
     }
     let substituted: Vec<Name> = run
@@ -1662,11 +2041,15 @@ fn substitute(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
         .map(|(n, _)| n.clone())
         .collect();
     let visible = visible(cx);
-    let facts: Vec<usize> = visible
-        .iter()
-        .copied()
-        .filter(|&l| injected.contains(&cx.names[l]) && !substituted.contains(&cx.names[l]))
-        .collect();
+    let mut facts: Vec<usize> = Vec::new();
+    for &l in &visible {
+        if substituted.contains(&cx.names[l]) {
+            continue;
+        }
+        if injected.contains(&cx.names[l]) || written && written_fact(cx, l)? {
+            facts.push(l);
+        }
+    }
     if facts.is_empty() {
         return Ok(None);
     }
@@ -1797,11 +2180,18 @@ fn substitute(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
     cx.reset(mark);
     let motive = motive?;
 
-    let shown = format!(
-        "`{}` is replaced by `{}`: an equation `cases` took apart says they are equal",
-        cx.show(&Value::var(x)),
-        cx.show(&t),
-    );
+    let shown = match cx.name_of_level(fact) {
+        Some(name) if !injected.contains(&cx.names[fact]) => format!(
+            "`{}` is replaced by `{}`: `{name}` says they are equal",
+            cx.show(&Value::var(x)),
+            cx.show(&t),
+        ),
+        _ => format!(
+            "`{}` is replaced by `{}`: an equation `cases` took apart says they are equal",
+            cx.show(&Value::var(x)),
+            cx.show(&t),
+        ),
+    };
     // The base, `d… => cases`, with the copies in scope.
     let base = (|| -> Result<Term> {
         let mut names = Vec::new();
@@ -1872,6 +2262,22 @@ fn substitute(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
         proof = Term::app(proof, at(d));
     }
     Ok(Some(proof))
+}
+
+/// Whether the hypothesis at `level`, one the proof has (not a fact `cases`
+/// added, nor a split's equation), is an equation between a variable and a
+/// constructor form: what [`substitute`] may use as written.
+fn written_fact(cx: &Ctx, level: usize) -> Result<bool> {
+    if is_equation(cx, level) {
+        return Ok(false);
+    }
+    let g = cx.g();
+    let Value::Eq(_, l, r) = force(&g, cx.types[level].clone())? else {
+        return Ok(false);
+    };
+    let (l, r) = (force(&g, (*l).clone())?, force(&g, (*r).clone())?);
+    let var = |v: &Value| matches!(v, Value::Neutral(Head::Var(..), spine) if spine.is_empty());
+    Ok(var(&l) && is_ctor_form(&r) || var(&r) && is_ctor_form(&l))
 }
 
 /// A hypothesis `h: P → Q` (`Q` not mentioning the proof of `P`, `P` an
@@ -3067,7 +3473,7 @@ fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value, fallback: boo
         None => data.ctors().len(),
     };
     run.cases.set(run.cases.get() + count - 1);
-    let too_many = run.cases.get() > if run.thrifty { THRIFTY_CASES } else { CASES };
+    let too_many = run.cases.get() > run.limit();
     if too_many || too_large_to_split(cx, goal)? {
         run.over.set(true);
         run.over_size.set(!too_many);
@@ -3111,6 +3517,7 @@ fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value, fallback: boo
         guard: None,
         patterns: vec![pattern],
         body: Some(Expr::Cases {
+            targets: run.targets.clone(),
             body: run.body.clone(),
             span: run.span,
         }),
@@ -3193,7 +3600,13 @@ fn or_hypothesis(cx: &Ctx, run: &Run, goal: &Value) -> Result<Option<usize>> {
 /// with `B`, each a fact named as [`take_apart`]'s are (so [`substitute`]
 /// may use an equation `x = t` among them), and each case is this `cases`
 /// again. The split is the `match h with | Inl a | Inr b` a proof writes.
-fn split_disjunction(cx: &mut Ctx, run: &Rc<Run>, level: usize, goal: &Value) -> Result<Term> {
+fn split_disjunction(
+    cx: &mut Ctx,
+    run: &Rc<Run>,
+    level: usize,
+    goal: &Value,
+    root: Option<usize>,
+) -> Result<Term> {
     let g = cx.g();
     let hypothesis = cx.names[level].clone();
     let shown = hypothesis_name(cx, level, &hypothesis);
@@ -3203,7 +3616,7 @@ fn split_disjunction(cx: &mut Ctx, run: &Rc<Run>, level: usize, goal: &Value) ->
     }
     run.split_or.set(true);
     run.cases.set(run.cases.get() + 1);
-    if run.cases.get() > if run.thrifty { THRIFTY_CASES } else { CASES } {
+    if run.cases.get() > run.limit() {
         run.over.set(true);
         let path = path(cx);
         *run.open_at.borrow_mut() = Some(if path.is_empty() {
@@ -3220,6 +3633,9 @@ fn split_disjunction(cx: &mut Ctx, run: &Rc<Run>, level: usize, goal: &Value) ->
     run.facts.set(run.facts.get() + 1);
     let name = Name::from(format!("{FACT}{}", run.facts.get()).as_str());
     run.injected.borrow_mut().push(name.clone());
+    if let Some(root) = root {
+        run.named_facts.borrow_mut().push((name.clone(), root));
+    }
     let alts: Vec<Alt> = (0..2)
         .map(|c| Alt {
             guard: None,
@@ -3233,6 +3649,7 @@ fn split_disjunction(cx: &mut Ctx, run: &Rc<Run>, level: usize, goal: &Value) ->
                 run.span,
             )],
             body: Some(Expr::Cases {
+                targets: run.targets.clone(),
                 body: run.body.clone(),
                 span: run.span,
             }),

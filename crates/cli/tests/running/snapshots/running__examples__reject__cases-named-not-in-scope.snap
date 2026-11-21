@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/running/examples.rs
+assertion_line: 869
+expression: output
+---
+[E-CASES] Error: `b` isn't a variable or hypothesis in scope
+   ╭─[ reject/cases-named-not-in-scope.sw:5:52 ]
+   │
+ 5 │ theorem notSelf ∀ (a: Bool): (a && a) = a := cases b then byComputing
+   │                                                    ┬  
+   │                                                    ╰── not in scope here
+   │ 
+   │ Note: `cases x then t` splits a variable or hypothesis of the proof; to split a value computed from them, write `match e with`
+───╯

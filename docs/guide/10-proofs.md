@@ -446,6 +446,17 @@ theorem spaceIsSmall ∀ (c: Char) (space: isSpace c = True): c.toNat ≤ 32 := 
 
 It never takes apart a part of what it took apart (`rest` after `xs = [x, ..rest]`): that would be induction, written as recursion (above), and the error says so. It stops at 64 cases. A `cases` that fails tries once more, splitting the hypotheses before the goal and trying `arithmetic` before each split, with up to 256 cases: that is how it proves `isOperatorChar c = False` from `isWordStart c = True`, ten comparisons against a hypothesis of four, or inverts a hypothesis about a function with many arms. A proof the first try finds is kept as it was.
 
+When you know what the proof splits, say so: `cases x then t` splits exactly `x` (and `cases x, y then t` splits `x`, then `y`), closes each case as `cases then t` does, and splits nothing else. Data is split into its constructors and a hypothesis `A ∨ B` into its two sides, with `n = 1` a fact in its case. Where the goal is still stuck on a field of a split (`o` once `edge` is `Plain o`), that field is split too. It is the way out when plain `cases` splits something the proof doesn't need and runs out of cases:
+
+<!-- snippet: proofs.sw#cases-named -->
+```stitchwort
+def bonus (lit: Bool) (n: Nat): Nat := if lit then n + 2 else n + 1
+
+theorem bonusGrows ∀ (lit: Bool) (n: Nat): n < bonus lit n := cases lit then arithmetic
+
+theorem smallSum ∀ (n: Nat) (h: n = 1 ∨ n = 2 ∨ n = 4): n + n ≤ 8 := cases h then arithmetic
+```
+
 ## Induction that follows a function
 
 Induction on a list or a number is induction on the type. A function with an `if` in it has more cases than its type does: one for each branch. Every recursive function comes with an **induction principle** shaped like its own equations, and `match induct (f args)` proves a statement about a call of `f` by it. The goal is worked out from the statement, so the proof has one alternative for each branch of `f`, named after its equation (`eq2IfTrue` is the true branch of the `if` in arm 2), and each gets the variables of the branch, the fact the branch was taken under, and an induction hypothesis for each recursive call:
