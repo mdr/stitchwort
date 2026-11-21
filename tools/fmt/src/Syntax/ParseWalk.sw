@@ -1045,6 +1045,32 @@ theorem givesListItem ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     Parse.Gives GoodItems (() => listItem self modes) (Parsed 1) :=
   byWalking [givesListItemAfter]
 
+--| The comma list of a list's items, as `listItemsFrom` reads it:
+--| [`givesCommaListFrom`] for those arguments, so that a walk meets a call
+--| with a lemma of its own rather than fitting the general one's functions
+--| to the call's.
+@[walk]
+theorem givesListItemCommas ∀ (self: Goal → {Parse Item} Expr) (inner: Modes)
+    (nested: Nested self)
+    (fuel: Nat) (current: Expr) (found: List Expr)
+    (currentParsed: Parsed 1 current)
+    (foundParsed: List.All (Parsed 1) found):
+    Parse.Gives GoodItems
+      (() => commaList fuel inner (count => inner.at RBracket) (() => listItem self inner) current found)
+      (pair => List.All (Parsed 1) pair.fst ∧ found.length + 1 <= pair.fst.length) :=
+  givesCommaListFrom inner
+    (count => inner.at RBracket)
+    (() => listItem self inner)
+    (Parsed 1)
+    (count => givesAt inner RBracket)
+    (givesListItem self inner nested)
+    fuel
+    1
+    current
+    found
+    currentParsed
+    foundParsed
+
 theorem givesListItemsEnd ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word) (pair: (List Expr, Bool))
     (openText: open.text = "[")
     (parsed: List.All (Parsed 1) pair.fst):
@@ -1059,21 +1085,7 @@ theorem givesListItemsFrom ∀ (self: Goal → {Parse Item} Expr) (inner: Modes)
     (openText: open.text = "[")
     (firstParsed: Parsed 1 first):
     Parse.Gives GoodItems (() => listItemsFrom self inner open first) (AtomFrom open) :=
-  Parse.givesThen Parse.givesMark (here _ =>
-    Parse.givesThen
-      (givesCommaListFrom inner
-        (count => inner.at RBracket)
-        (() => listItem self inner)
-        (Parsed 1)
-        (count => givesAt inner RBracket)
-        (givesListItem self inner nested)
-        (here.left + 1)
-        1
-        first
-        []
-        firstParsed
-        ())
-      (pair facts => givesListItemsEnd self inner open pair openText facts.left))
+  byWalking [givesListItemsEnd]
 
 theorem givesListItems ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (open: Word)
     (nested: Nested self)
