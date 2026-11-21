@@ -1,5 +1,5 @@
 {
-  "next": 4492,
+  "next": 4493,
   "tickets": [
     {
       "id": 47,
@@ -30488,12 +30488,12 @@
     {
       "id": 4474,
       "title": "[Sonnet] cases follow-ups (SW-4472): a way to say what cases splits (cases on x / closer.md F4; parenParsedP is out of budget without it), and a hypothesis written as is: kind = Minus is never used to substitute (signSymbolicT still splits 60 kinds per arm); docs/syntax.md still calls data declarations 'data' where the keyword is type; a workflow note: a copied binary needs --std-dir, and how to profile a check (macOS sample on repeated copies)",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "\n\nSW-4473 found 8 more theorems in ParseWalk/JoinProofs hitting E-CASES-BUDGET where the hand proof splits one or two things (followsCloser, freeReady, endedReadyCloser, piecePasses, endedReadyColon, mayFollowStops, fillSeq, signFirstNot).\n\n\nD3709 (Matt, 21 Nov 2026: yes): the syntax is cases x then t, and cases x, y then t for several; plain cases and cases then t unchanged. Model: Opus (core tactic, D2506).\n",
+      "body": "\n\nSW-4473 found 8 more theorems in ParseWalk/JoinProofs hitting E-CASES-BUDGET where the hand proof splits one or two things (followsCloser, freeReady, endedReadyCloser, piecePasses, endedReadyColon, mayFollowStops, fillSeq, signFirstNot).\n\n\nD3709 (Matt, 21 Nov 2026: yes): the syntax is cases x then t, and cases x, y then t for several; plain cases and cases then t unchanged. Model: Opus (core tactic, D2506).\n\n\nProgress (Opus lane, 21 Nov 10:26-11:12, est. 90 min): branch lane/SW-4474, commit 239b93f09.\n- Built: cases x then t / cases x, y then t, and cases x without then (closers only); both Rust parser paths (tree + lowering); E-CASES for a name not in scope or unsplittable; E-CASES-BUDGET names the split that went over; t's failure shows the case path as before. Nested ∨ sides split before t; data fields split deeper (stuck-on first), never recursive fields. Written var = ctor hypotheses substituted in named mode only.\n- Plain cases unchanged: no existing hash or reject snapshot moved. A version that also let plain cases substitute written facts moved 6 example files' and 4 std lemmas' hashes (standsOwesNothing 3 -> 8 matches): left out, a follow-up.\n- Self-hosted parser refuses the new form (parse error), so outside every slice; slice 6a is Matt's call.\n- JoinProofs: freeReady, endedReadyCloser, endedReadyColon converted (4 lines -> 1 each; 1.9->2.1, 1.9->2.8, 2.0->2.8 ms); followsCloser checks but 8x (dropped); the other 4 don't fit one t; parenParsedP has nothing to name.\n- docs/syntax.md 'data' wording not found (nothing to fix).\n- Moved to review.\n",
       "created": "2026-11-20",
       "updated": "2026-11-21",
       "commits": []
@@ -30644,8 +30644,8 @@
     {
       "id": 4486,
       "title": "[Sonnet] Toy formatter may not check at 599e0332e: check --only Toy.Fmt.Proofs.viewsCons Toy.Fmt.Proofs gave E-TYPE-MISMATCH near Toy.Syntax.operatorNext.eq3 (SW-4483, run once); reproduce with a plain check of the namespace, find the cause or confirm it is an --only effect",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
@@ -30709,6 +30709,19 @@
     {
       "id": 4491,
       "title": "[Opus, paper] Design note: postponed unification for a call compared with a call (SW-4480 finding): same_arguments_solving_nothing throws away a solution valid as written for one only the unfolding agrees with; with no expected type (let h := framedPass (Box flag) _ pre post (groupedPass ...)) the _ still becomes the group's contents; hold the comparison until another constraint chooses; include a performance-log entry for SW-4480's retry on failing calls; correct the SW-4475 notes (the cause is the later argument checked in place, not the expected type first)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4492,
+      "title": "[Opus, paper] Review of SW-4474 (cases x then t): kernel terms of the named split and its field splits, the x = C substitution in the new form, plain cases unchanged, errors, parser and lowering, docs; against D3709",
       "status": "backlog",
       "agent": "",
       "where": "",
