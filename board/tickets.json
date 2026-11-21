@@ -1,5 +1,5 @@
 {
-  "next": 4532,
+  "next": 4534,
   "tickets": [
     {
       "id": 47,
@@ -31229,11 +31229,37 @@
     {
       "id": 4531,
       "title": "[Fable paper] Stock take of the slice 1 proof shortening (D3692) after 21 Nov's pilots: is the work on track for a clean, short proof that compares well with Lean and Rocq; what to stop, what to do next, and D3711 in that light; docs/reviews/SW-N-slice1-stock-take.md",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "Fable paper lane, 21 Nov 2026. Done: docs/reviews/SW-4531-slice1-stock-take.md on lane/SW-4531 (ba5b1e85f), scripts in docs/reviews/SW-4531/. No code changed, nothing built.\n\nFindings: proof lines 60,041 to 50,060 (-16.6%) since 19 Nov, 8,128 of it in the first 14 h from sweeps; 95 today. Statements -2%, theorem count unchanged. Next: lemma interfaces (implicit values, fact records), the read-back (D3711 yes behind a three-theorem gate), a reading pass. Stop: byFacts pilots on the formatter, walk gap-chasing for line count, estimates without a pilot.\n",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4532,
+      "title": "[Opus] --expand-walk output for givesListItemsFrom doesn't check (E-TYPE-MISMATCH on Parse.givesDone's holds): the outermost nested bind's implicits aren't written, only inner ones (nest_implicits; SW-4512); also check whether a walk continuation lambda is elaborated twice (checked again once its expected type is known)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4533,
+      "title": "[Sonnet] An env-gated step-attribution option for --timings (steps charged per elaborator phase: walk search, unification, application, read-back), so profiling lanes don't each build a counter (SW-4512 built one in its patch); and check the target namespace without the cache while keeping std cached",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
       "body": "",
       "created": "2026-11-21",
       "updated": "2026-11-21",
