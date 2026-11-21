@@ -1,5 +1,5 @@
 {
-  "next": 4502,
+  "next": 4504,
   "tickets": [
     {
       "id": 47,
@@ -30735,7 +30735,7 @@
     {
       "id": 4493,
       "title": "[Opus] Slice 6a takes in cases x then t (D3710, Matt, 21 Nov 2026: yes): the self-hosted formatter reads and prints cases x, y then t (and cases x) as the Rust formatter does: Cases with targets in Expr, parser, printer, within6a and Tok.within6a, the walk and slice proofs extended to match, following SW-4427 (byWalking); nothing accepted today refused, MustAccept1 and top theorems untouched. After SW-4474 merges.",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -30844,6 +30844,32 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4502,
+      "title": "[Sonnet] dev/fmt-twin batch mode stops part-way through the goldens on text-blocks.before.sw ('expected the block ... at character 15860') and falls back to one process per file; find why and fix (SW-4493)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4503,
+      "title": "[Sonnet] stitchwort check --timings-json: machine-readable per-theorem and per-namespace timings, so lanes can check the D3696 walk bar (each file within 1.5x, no theorem over 3x) without parsing padded text (SW-4493)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
       "body": "",
       "created": "2026-11-21",
       "updated": "2026-11-21",
