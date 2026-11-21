@@ -1,5 +1,5 @@
 {
-  "next": 4549,
+  "next": 4550,
   "tickets": [
     {
       "id": 47,
@@ -31454,7 +31454,7 @@
     {
       "id": 4548,
       "title": "[Fable] Slice 1 readability against Lean and Rocq: on SW-4537's 30 ported theorems (all compiled), judge how each reads in the three systems to a newcomer who knows the problem but not the code (can you see what is proved and why; names, statement shape, proof idea visible, lemma interfaces, noise) with a stated rubric, scored blind where possible; then read tools/fmt's top theorems and three random proof files as such a reader would, and say what most stands between slice 1 and clean, ranked, each with evidence and the cheapest fix with today's features; nothing that narrows a slice or touches a top theorem",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -31466,6 +31466,19 @@
         "31cb50b95",
         "25c2dafde"
       ]
+    },
+    {
+      "id": 4549,
+      "title": "[DeepSeek] tools/fmt small read fixes from SW-4548: OutputStatements.sw's header says it holds unproved statements (none are; fix the header); plainOfShapes' doc names a parameter prev it doesn't have; the five-part flat test written five times in Syntax/ReadBackHungFrameLemmas.sw becomes one named def; lastWithin and lastLexical in Fmt/EdgeHangProofs.sw are one proof twice (one std List.all/last lemma)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
     }
   ]
 }
