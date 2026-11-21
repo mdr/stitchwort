@@ -30657,8 +30657,8 @@
     {
       "id": 4487,
       "title": "[Sonnet] Walk follow-ups (SW-4479): convert the formatter proofs that now walk within the bar (givesTupleRest, givesBlock, givesCalcBody, givesDataParamStep, givesConstructorParen group; givesClauseLambda 2.0x, givesPipeChain 2.3x, givesListItemsFromAny 3.8x stay by hand unless re-timed under the file bar); state givesListItemsEnd over a pair variable so givesListItemsFrom walks; --expand-walk text for a bind inside a bound computation leaves the inner givesThen's post to inference and doesn't elaborate (givesNested, givesFromMark, givesBound in walk-operation.sw): write the post explicitly, then add the example to walk_expand",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
