@@ -1,5 +1,5 @@
 {
-  "next": 4515,
+  "next": 4517,
   "tickets": [
     {
       "id": 47,
@@ -31008,6 +31008,32 @@
     {
       "id": 4514,
       "title": "[Sonnet] --expand-walk source read-back (crates/elab/src/walk/source.rs, SW-4495): handle if and match inside bound code, write a True post as True (not True = True) and x + 1 as x + 1 (not Succ x)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4515,
+      "title": "[Sonnet] byFacts stage 1c, formatter pilot (docs/proposals/closer.md 'Stage 1', D3708): convert the ten theorems closer.md names (endedWeaker, signSymbolic, parenParsed, tupleParsed, itemsParsed, allTokensWithout, alikeParen, leftLinkOf, signQuietOf, givesExpect) and SW-4222's 21 where byFacts is shorter; measure closer.md's bars 1-6 and its stop rules; report proof lines before/after and check times",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4516,
+      "title": "[Sonnet] byFacts pilot outside the formatter (SW-4483 review bars G1-G4, docs/reviews/SW-4483-byfacts-in-context.md §5): the §1.2 goals, rows 7, 10, 17, 18, 20, 25, 34, 37, and G3's files (one std Doc/ file, one AoC day heavy on Both, games/rogue Reach.sw); report each bar met or not",
       "status": "backlog",
       "agent": "",
       "where": "",
