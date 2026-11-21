@@ -1,5 +1,5 @@
 {
-  "next": 4483,
+  "next": 4484,
   "tickets": [
     {
       "id": 47,
@@ -30594,6 +30594,19 @@
       "title": "[Opus] Walk gaps from W4b (SW-4477): (1) two runs split on different but related values (29 proofs, e.g. params.isEmpty vs twins.isEmpty with a Same/All2 fact): rewrite the second run's split by the fact; (2) 'would follow more than 64 paths' (14 proofs): a lemma for the splitting part or a way to say what to split; per-proof list in docs/reviews/SW-4477-walk-w4b.md. Also: the proving guide's timing advice should give the warm-cache-plus-comment method (13 s per run instead of 115 s); a bracket lemma with a forall hypothesis must be given fully applied today (SW-4467)",
       "status": "backlog",
       "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4483,
+      "title": "[Fable, paper] byFacts in the space of proof tools (Matt, 21 Nov 2026, before D3708): review docs/proposals/closer.md's stage 1 against other systems' finishers (Rocq auto/eauto/intuition/firstorder, Lean solve_by_elim/exact?/aesop/grind/simp_all, Isabelle auto/blast, Agda/Idris proof search, SMT-backed languages) and Stitchwort's earlier research; judge whether it is a generally useful tool across std, AoC, the roguelike, apps and the formatter, not just slice 1; recommend for D3708",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
