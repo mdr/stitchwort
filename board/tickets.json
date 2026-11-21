@@ -31021,7 +31021,7 @@
     {
       "id": 4515,
       "title": "[Sonnet] byFacts stage 1c, formatter pilot (docs/proposals/closer.md 'Stage 1', D3708): convert the ten theorems closer.md names (endedWeaker, signSymbolic, parenParsed, tupleParsed, itemsParsed, allTokensWithout, alikeParen, leftLinkOf, signQuietOf, givesExpect) and SW-4222's 21 where byFacts is shorter; measure closer.md's bars 1-6 and its stop rules; report proof lines before/after and check times",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
