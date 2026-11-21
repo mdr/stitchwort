@@ -500,15 +500,7 @@ theorem clausesBlankCons ∀ (clause: HandlerClause) (rest: List HandlerClause):
 theorem clausesBlank ∀ (clauses twins: List HandlerClause)
     (alike: List.All2 ClauseAlike clauses twins):
     blankClauses (walkClauses blankPure clauses) = blankClauses (walkClauses blankPure twins) :=
-  List.all2Join
-    [f := list => blankClauses (walkClauses blankPure list)]
-    [key := clause => blankClauses (walkClauses blankPure [clause])]
-    (k rest => k ++ rest)
-    clausesBlankCons
-    (x y same => same)
-    clauses
-    twins
-    alike
+  blankedListAlike List.append clausesBlankCons (x y same => same) clauses twins alike
 
 theorem alikeHandle ∀ (keyword keywordTwin: Comments) (computation computationTwin: Expr)
     (computations: ExprsAlike computation computationTwin)
@@ -563,15 +555,7 @@ theorem inductArmsBlankCons ∀ (arm: InductArm) (rest: List InductArm):
 theorem inductArmsBlank ∀ (arms twins: List InductArm)
     (alike: List.All2 InductArmAlike arms twins):
     blankInductArms (walkInductArms blankPure arms) = blankInductArms (walkInductArms blankPure twins) :=
-  List.all2Join
-    [f := list => blankInductArms (walkInductArms blankPure list)]
-    [key := arm => blankInductArms (walkInductArms blankPure [arm])]
-    (k rest => k ++ rest)
-    inductArmsBlankCons
-    (x y same => same)
-    arms
-    twins
-    alike
+  blankedListAlike List.append inductArmsBlankCons (x y same => same) arms twins alike
 
 theorem alikeInduct ∀ (keyword keywordTwin induct inductTwin: Comments) (call callTwin: Expr)
     (calls: ExprsAlike call callTwin)
@@ -846,15 +830,7 @@ theorem stepsBlankCons ∀ (step: CalcStep) (rest: List CalcStep):
 theorem blankCalcStepsAlike ∀ (steps twins: List CalcStep)
     (alike: List.All2 StepAlike steps twins):
     blankCalcSteps (walkSteps blankPure steps) = blankCalcSteps (walkSteps blankPure twins) :=
-  List.all2Join
-    [f := list => blankCalcSteps (walkSteps blankPure list)]
-    [key := step => blankCalcSteps (walkSteps blankPure [step])]
-    (k rest => k ++ rest)
-    stepsBlankCons
-    (x y same => same)
-    steps
-    twins
-    alike
+  blankedListAlike List.append stepsBlankCons (x y same => same) steps twins alike
 
 theorem alikeCalc ∀ (keyword keywordTwin: Comments) (first firstTwin: Expr)
     (firsts: ExprsAlike first firstTwin) (steps twins: List CalcStep)
@@ -1061,15 +1037,7 @@ theorem ruleListBlankCons ∀ (rule: RewriteRule) (rest: List RewriteRule):
 theorem ruleListBlank ∀ (rules twins: List RewriteRule)
     (alike: List.All2 RuleAlike rules twins):
     blankRuleList (walkRuleList blankPure rules) = blankRuleList (walkRuleList blankPure twins) :=
-  List.all2Join
-    [f := list => blankRuleList (walkRuleList blankPure list)]
-    [key := rule => blankRuleList (walkRuleList blankPure [rule])]
-    (k rest => k ++ rest)
-    ruleListBlankCons
-    (x y same => same)
-    rules
-    twins
-    alike
+  blankedListAlike List.append ruleListBlankCons (x y same => same) rules twins alike
 
 theorem alikeRuleList ∀ (rules twins: List RewriteRule)
     (alike: List.All2 RuleAlike rules twins):

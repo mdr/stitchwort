@@ -236,15 +236,7 @@ def DefBodyAlike (body twin: DefBody): Prop := (walkDefBody blankPure body).blan
 theorem groupsBlankAlike ∀ (groups twins: List Group)
     (alike: List.All2 GroupsAlike groups twins):
     blankGroups (walkGroups blankPure groups) = blankGroups (walkGroups blankPure twins) :=
-  match groups, twins with
-    | [], [] => byComputing
-    | [x, ..xs], [y, ..ys] =>
-      let (head, tail) := alike
-      calc blankGroups (walkGroups blankPure [x, ..xs])
-        _ = [(x.walk blankPure).blank, ..blankGroups (walkGroups blankPure xs)] := byComputing
-        _ = [(y.walk blankPure).blank, ..blankGroups (walkGroups blankPure ys)] :=
-          rewrite head, groupsBlankAlike xs ys tail
-        _ = blankGroups (walkGroups blankPure [y, ..ys]) := byComputing
+  blankedListAlike prepend (x rest => byComputing) (x y same => same) groups twins alike
 
 theorem unfoldingBlankAlike ∀ (found twin: Option (Comments, List Word))
     (alike: Option.Alike (PairAlike Anything (List.All2 WordsAlike)) found twin):

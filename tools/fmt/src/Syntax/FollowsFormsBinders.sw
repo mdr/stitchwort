@@ -47,15 +47,7 @@ theorem paramsBlankCons ∀ (param: Param) (rest: List Param):
 theorem paramsBlank ∀ (params twins: List Param)
     (alike: List.All2 ParamsAlike params twins):
     blankParams (walkParams blankPure params) = blankParams (walkParams blankPure twins) :=
-  List.all2Join
-    [f := list => blankParams (walkParams blankPure list)]
-    [key := param => blankParams (walkParams blankPure [param])]
-    (k rest => k ++ rest)
-    paramsBlankCons
-    (param twin same => same)
-    params
-    twins
-    alike
+  blankedListAlike List.append paramsBlankCons (param twin same => same) params twins alike
 
 theorem alikeNameParam ∀ (word twin: Word)
     (words: WordsAlike word twin):

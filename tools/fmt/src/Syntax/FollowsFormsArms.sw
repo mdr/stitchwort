@@ -97,15 +97,7 @@ theorem armsBlankCons ∀ (arm: Arm) (rest: List Arm):
 theorem armsBlank ∀ (arms twins: List Arm)
     (alike: List.All2 ArmAlike arms twins):
     blankArms (walkArms blankPure arms) = blankArms (walkArms blankPure twins) :=
-  List.all2Join
-    [f := list => blankArms (walkArms blankPure list)]
-    [key := arm => blankArms (walkArms blankPure [arm])]
-    (k rest => k ++ rest)
-    armsBlankCons
-    (x y same => same)
-    arms
-    twins
-    alike
+  blankedListAlike List.append armsBlankCons (x y same => same) arms twins alike
 
 theorem followsGuardAt ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -377,15 +369,7 @@ theorem scrutineesBlankCons ∀ (scrutinee: Scrutinee) (rest: List Scrutinee):
 theorem scrutineesBlank ∀ (scrutinees twins: List Scrutinee)
     (alike: List.All2 ScrutineeAlike scrutinees twins):
     blankScrutinees (walkScrutinees blankPure scrutinees) = blankScrutinees (walkScrutinees blankPure twins) :=
-  List.all2Join
-    [f := list => blankScrutinees (walkScrutinees blankPure list)]
-    [key := scrutinee => blankScrutinees (walkScrutinees blankPure [scrutinee])]
-    (k rest => k ++ rest)
-    scrutineesBlankCons
-    (x y same => same)
-    scrutinees
-    twins
-    alike
+  blankedListAlike List.append scrutineesBlankCons (x y same => same) scrutinees twins alike
 
 theorem alikeMatch ∀ (keyword keywordTwin: Word)
     (keywords: WordsAlike keyword keywordTwin) (scrutinees twins: List Scrutinee)

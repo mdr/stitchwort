@@ -34,15 +34,7 @@ theorem fieldPatternsBlankCons ∀ (field: FieldPattern) (rest: List FieldPatter
 theorem fieldPatternsBlank ∀ (fields twins: List FieldPattern)
     (alike: List.All2 FieldPatternAlike fields twins):
     blankFieldPatterns (walkFieldPatterns blankPure fields) = blankFieldPatterns (walkFieldPatterns blankPure twins) :=
-  List.all2Join
-    [f := list => blankFieldPatterns (walkFieldPatterns blankPure list)]
-    [key := field => blankFieldPatterns (walkFieldPatterns blankPure [field])]
-    (k rest => k ++ rest)
-    fieldPatternsBlankCons
-    (x y same => same)
-    fields
-    twins
-    alike
+  blankedListAlike List.append fieldPatternsBlankCons (x y same => same) fields twins alike
 
 theorem alikeFieldPattern ∀ (name nameTwin: Word)
     (names: WordsAlike name nameTwin) (value twin: Option (Word, Pattern))
@@ -169,10 +161,9 @@ theorem alikePatternAppend ∀ (start twin: Pattern)
 theorem patternLinksBlank ∀ (links twins: List (Word, Pattern))
     (alike: List.All2 (PairAlike WordsAlike PatternsAlike) links twins):
     blankLinks (walkPatternLinks blankPure links) = blankLinks (walkPatternLinks blankPure twins) :=
-  List.all2Join
-    [f := list => blankLinks (walkPatternLinks blankPure list)]
+  blankedListAlike
     [key := link => (link.fst.blank, link.snd.walk blankPure)]
-    (k rest => [k, ..rest])
+    prepend
     (link rest => match link with | (bar, alternative) => byComputing)
     (x y same => rewrite same.left, same.right)
     links

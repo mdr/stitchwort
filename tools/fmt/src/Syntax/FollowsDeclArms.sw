@@ -427,15 +427,7 @@ theorem operationsCons ∀ (operation: Operation) (rest: List Operation):
 theorem operationsBlank ∀ (items twins: List Operation)
     (alike: List.All2 OperationAlike items twins):
     blankOperations (walkOperations blankPure items) = blankOperations (walkOperations blankPure twins) :=
-  List.all2Join
-    [f := list => blankOperations (walkOperations blankPure list)]
-    [key := operationKey]
-    (k rest => [k, ..rest])
-    operationsCons
-    (x y same => same)
-    items
-    twins
-    alike
+  blankedListAlike prepend operationsCons (x y same => same) items twins alike
 
 theorem alikeOperation ∀ (name nameTwin: Word)
     (names: WordsAlike name nameTwin)
@@ -470,15 +462,7 @@ theorem blankIndexStepsCons ∀ (step: (Index, Word)) (rest: List (Index, Word))
 theorem indexStepsBlank ∀ (steps twins: List (Index, Word))
     (alike: List.All2 IndexStepAlike steps twins):
     blankIndexSteps (walkIndices blankPure steps) = blankIndexSteps (walkIndices blankPure twins) :=
-  List.all2Join
-    [f := list => blankIndexSteps (walkIndices blankPure list)]
-    [key := stepKey]
-    (k rest => [k, ..rest])
-    blankIndexStepsCons
-    (x y same => same)
-    steps
-    twins
-    alike
+  blankedListAlike prepend blankIndexStepsCons (x y same => same) steps twins alike
 
 theorem alikeStepBinder ∀ (binder twin: Group)
     (binders: GroupsAlike binder twin) (arrow arrowTwin: Word)
@@ -527,15 +511,7 @@ theorem fieldsCons ∀ (field: Field) (rest: List Field):
 theorem fieldListBlank ∀ (fields twins: List Field)
     (alike: List.All2 FieldAlike fields twins):
     blankFieldList (walkFieldList blankPure fields) = blankFieldList (walkFieldList blankPure twins) :=
-  List.all2Join
-    [f := list => blankFieldList (walkFieldList blankPure list)]
-    [key := fieldKey]
-    (k rest => [k, ..rest])
-    fieldsCons
-    (x y same => same)
-    fields
-    twins
-    alike
+  blankedListAlike prepend fieldsCons (x y same => same) fields twins alike
 
 theorem alikeField ∀ (attributes twinAttributes: List Attributes)
     (attributeses: List.All2 AttributeGroupAlike attributes twinAttributes) (name nameTwin: Word)
@@ -581,15 +557,7 @@ theorem partsCons ∀ (part: ConstructorPart) (rest: List ConstructorPart):
 theorem partsBlank ∀ (parts twins: List ConstructorPart)
     (alike: List.All2 PartAlike parts twins):
     blankParts (walkParts blankPure parts) = blankParts (walkParts blankPure twins) :=
-  List.all2Join
-    [f := list => blankParts (walkParts blankPure list)]
-    [key := partKey]
-    (k rest => [k, ..rest])
-    partsCons
-    (x y same => same)
-    parts
-    twins
-    alike
+  blankedListAlike prepend partsCons (x y same => same) parts twins alike
 
 theorem alikePartGroup ∀ (group twin: Group)
     (groups: GroupsAlike group twin):
@@ -619,15 +587,7 @@ theorem constructorsCons ∀ (constructor: Constructor) (rest: List Constructor)
 theorem constructorsBlank ∀ (items twins: List Constructor)
     (alike: List.All2 ConstructorAlike items twins):
     blankConstructors (walkConstructors blankPure items) = blankConstructors (walkConstructors blankPure twins) :=
-  List.all2Join
-    [f := list => blankConstructors (walkConstructors blankPure list)]
-    [key := constructorKey]
-    (k rest => [k, ..rest])
-    constructorsCons
-    (x y same => same)
-    items
-    twins
-    alike
+  blankedListAlike prepend constructorsCons (x y same => same) items twins alike
 
 theorem alikeConstructor ∀ (bar barTwin: Comments) (attributes twinAttributes: List Attributes)
     (attributeses: List.All2 AttributeGroupAlike attributes twinAttributes) (name nameTwin: Word)
