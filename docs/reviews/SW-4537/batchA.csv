@@ -1,0 +1,8 @@
+stratum,name,sw_stmt,sw_proof,sw_stmt_ch,sw_proof_ch,lean_stmt,lean_proof,lean_stmt_ch,lean_proof_ch,rocq_stmt,rocq_proof,rocq_stmt_ch,rocq_proof_ch
+walk,readsBlockResult,3,13,184,623,3,19,178,465,2,10,173,433
+two-run,followsParenAtom,10,1,603,77,8,8,536,284,7,6,509,307
+two-run,followsListPatternStep,9,8,552,329,9,6,494,208,8,6,474,199
+readback,runsBlockOneLine,10,23,464,406,8,4,419,181,7,6,363,186
+readback,openWithin,4,1,153,79,4,2,154,61,4,1,148,62
+readback,unaryHung,11,145,330,4980,11,66,330,3189,5,57,337,2696
+readback,runsWalkHere,3,9,120,127,3,3,111,74,2,4,106,100
