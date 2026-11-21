@@ -592,8 +592,8 @@ def runBefore (on: Steps) (input: Option (Expr, k)): Result (Option (Expr, k)) T
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
---| finish (the induction hypotheses), so the arm's binds compute
---| (`seqN`, `seqNk`, `seqNj`), and then the step agrees.
+--| finish (the induction hypotheses), so the node rebuilt around their
+--| results is what the step is given (`seqRebuildsN`), and the step agrees.
 theorem exprOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Expr): runExpr on input = Ok (input.walk p) :=
   match input with
     | Atom _ _ | Unit _ _ | Universe _ _ | Include _ _ => agree.expr input
@@ -826,8 +826,8 @@ theorem groupOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Group): r
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
---| finish (the induction hypotheses), so the arm's binds compute
---| (`seqN`, `seqNk`, `seqNj`), and then the step agrees.
+--| finish (the induction hypotheses), so the node rebuilt around their
+--| results is what the step is given (`seqRebuildsN`), and the step agrees.
 theorem patternOk ∀ (on: Steps) (p: Pure)
     (agree: Agrees on p) (input: Pattern):
     runPattern on input = Ok (input.walk p) :=
@@ -930,8 +930,10 @@ theorem bodyPartOk ∀ (on: Steps) (p: Pure)
 
 --| The traversal finishes, with the pure copy's result. By induction
 --| alongside the traversal: in each arm the children's computations
---| finish (the induction hypotheses), so the arm's binds compute
---| (`seqN`, `seqNk`, `seqNj`), and then the step agrees.
+--| finish (the induction hypotheses), so the node rebuilt around their
+--| results is what the step is given (`seqRebuildsN`), and the step agrees.
+--| A data declaration's indices and body have a lemma each, since the
+--| traversal computes them inline.
 theorem declOk ∀ (on: Steps) (p: Pure) (agree: Agrees on p) (input: Decl): runDecl on input = Ok (input.walk p) :=
   match input with
     | Namespace _ _ | Import _ _ _ _ _ => agree.decl input
@@ -1153,8 +1155,9 @@ theorem beforeOk ∀ (on: Steps) (p: Pure)
     | None => byComputing
 
 --| Walking with `s` then `m` is walking with `m`. By induction: in each
---| arm, `Keeps` takes `s`'s step off the rebuilt node, then the
---| induction hypotheses take `s`'s walk off each child.
+--| arm, `Keeps` takes `s`'s step off the rebuilt node (`rewrite keeps.expr _`
+--| finds the node in the goal, so arms of different constructors share a
+--| case), then the induction hypotheses take `s`'s walk off each child.
 theorem exprTwice ∀ (s m: Pure) (keeps: Keeps s m) (input: Expr): (input.walk s).walk m = input.walk m :=
   match input with
     | Atom _ _ | Unit _ _ | Universe _ _ | Include _ _ => rewrite keeps.expr input

@@ -3,9 +3,10 @@
 --| each step does so on a node and its blanked form (`Blanks`). One theorem a traversal function, `…Blanks`, stated
 --| on the form the function's input takes inside a blanked tree (`blankArms (walkArms blankPure arms)` for a match's
 --| arms). `Fmt.Walk`'s `…Ok` family covers steps that can't fail; the lowering's checks can, so `loweringDeaf`
---| (`Syntax.DeafProofs`) rests on this family. Each arm follows the traversal's arm: one `Fail.toResultAlikeN` call for each
---| `seqN`, or, where the arm rebuilds a node and hands it to a step, one `Fail.toResultRebuildsN` call (imported as
---| `rebuildsN`); a change to the traversal needs the same change here.
+--| (`Syntax.DeafProofs`) rests on this family. Each arm follows the traversal's arm: one `Fail.toResultAlikeN` call for
+--| each `seqN`, or, where the arm rebuilds a node and hands it to a step, one `Fail.toResultRebuildsN` call (imported
+--| as `rebuildsN`); a change to the traversal needs the same change here. A data declaration's indices and body
+--| have a lemma each (`indicesPartBlanks`, `bodyPartBlanks`), since the traversal computes them inline.
 namespace Fmt.TraverseFail
 import Std (Bool, Eq, Fail, List, Nat, Option, Result, Text)
 import Std.Fail (
