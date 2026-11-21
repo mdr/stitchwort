@@ -116,8 +116,9 @@ pub(crate) fn retried<T>(
 
 /// Whether a candidate, under the given number of binders of the target, is
 /// an occurrence: the site's own comparison, which leaves the context as it
-/// found it.
-pub(crate) type Oracle<'o> = dyn Fn(&mut Ctx, &Term, usize) -> Result<bool> + 'o;
+/// found it. In the context's own lifetime, so that it can keep what it
+/// builds from the context between calls (a kernel context).
+pub(crate) type Oracle<'o, 'e> = dyn Fn(&mut Ctx<'e>, &Term, usize) -> Result<bool> + 'o;
 
 /// The calls one walk may unfold, whether or not they turn out to be on the
 /// path: each costs an unfolding, a read-back and a walk of it.
@@ -132,12 +133,12 @@ const OCCURRENCE: usize = usize::MAX - 1;
 /// none, so that the result would be `target` itself. `keys` are the heads
 /// worth asking `oracle` about, and `relevant` the levels of the variables
 /// that the terms looked for mention.
-pub(crate) fn opened(
-    cx: &mut Ctx,
+pub(crate) fn opened<'e>(
+    cx: &mut Ctx<'e>,
     target: &Term,
     keys: &[Key],
     relevant: &[usize],
-    oracle: &Oracle,
+    oracle: &Oracle<'_, 'e>,
 ) -> Result<Option<Term>> {
     let level = cx.level();
     let mut is_relevant = vec![false; level];
@@ -186,7 +187,7 @@ struct Walk<'c, 'e, 'k, 'o> {
     keys: &'k [Key],
     /// By level, below `level`.
     relevant: Vec<bool>,
-    oracle: &'o Oracle<'o>,
+    oracle: &'o Oracle<'o, 'e>,
     level: usize,
     /// The definitions whose calls are being opened, outermost first.
     opening: RefCell<Vec<DefId>>,

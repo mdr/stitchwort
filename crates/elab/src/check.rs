@@ -2095,6 +2095,7 @@ impl<'e> Ctx<'e> {
                     crate::matching::transport_target(
                         cx,
                         &lhs_value,
+                        &carrier,
                         source_value,
                         &todays,
                         todays_found,
