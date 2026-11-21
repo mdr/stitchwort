@@ -31073,12 +31073,12 @@
     {
       "id": 4519,
       "title": "[Opus paper] Where the slice 1 proof's lines are now, and what would shorten it most: rank tools/fmt proof files by proof lines, sample the biggest, classify the remaining bulk (walkable parser steps not yet walked, hand-built conjunctions/records for byFacts, case splits for cases x then t, repeated lemma families that one generic lemma could replace, names to drop), estimate lines saved per kind, and propose the next 5 lanes in order; docs/reviews/SW-N-slice1-shortening-map.md",
-      "status": "doing",
-      "agent": "",
-      "where": "",
+      "status": "review",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-4519 (paper)",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nProgress 21 Nov 18:25 (Opus): docs/reviews/SW-4519-slice1-shortening-map.md committed on lane/SW-4519 (e28c853aa), scripts in docs/reviews/SW-4519/. 50,167 proof lines over 5,422 theorems; 74% about pure functions (no walk reach); read-back (Runs/RunsFrom/records) 4,933 lines, 0 walks; unfixed explicit arguments up to 21% of lines; repeated arms 2,084 lines. Five lanes proposed (§5); estimate 9-13k lines saved, no statement changes.\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
