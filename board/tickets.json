@@ -1,5 +1,5 @@
 {
-  "next": 4496,
+  "next": 4498,
   "tickets": [
     {
       "id": 47,
@@ -30644,12 +30644,12 @@
     {
       "id": 4486,
       "title": "[Sonnet] Toy formatter may not check at 599e0332e: check --only Toy.Fmt.Proofs.viewsCons Toy.Fmt.Proofs gave E-TYPE-MISMATCH near Toy.Syntax.operatorNext.eq3 (SW-4483, run once); reproduce with a plain check of the namespace, find the cause or confirm it is an --only effect",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "\n\nLane notes (Sonnet): the type mismatch is the D3699 change (08:27 20 Nov; a Bool guard gives c = False): operatorNext.eq3 now states notArm2 as isOperatorChar char = False, so the lambda no longer takes a `holds` binder. Fixed the proof (91c6bda2e on lane/SW-4486). Separate finding: Toy.Fmt.Proofs panics (\"applying a constructor\", crates/core/src/value.rs:1328) from SW-4419 (26a4cbd5c), in as_written is_needle via unfold_path.\n",
+      "body": "\n\nLane notes (Sonnet): the type mismatch is the D3699 change (08:27 20 Nov; a Bool guard gives c = False): operatorNext.eq3 now states notArm2 as isOperatorChar char = False, so the lambda no longer takes a `holds` binder. Fixed the proof (91c6bda2e on lane/SW-4486). Separate finding: Toy.Fmt.Proofs panics (\"applying a constructor\", crates/core/src/value.rs:1328) from SW-4419 (26a4cbd5c), in as_written is_needle via unfold_path.\n\n\nModel result: Sonnet, worked (cause bisected to D3699/SW-4341; found a second bug, filed), 19 min (est. 30)\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
@@ -30761,6 +30761,32 @@
     {
       "id": 4495,
       "title": "[Opus] --expand-walk for a bind inside a bound computation: write the inner Parse.givesThen's holds explicitly ([holds := value => ...], the first implicit nested_bind computes in crates/elab/src/walk/mod.rs), so the expansions of givesNested, givesFromMark and givesBound in examples/accept/walk-operation.sw elaborate; then add walk-operation to walk_expand.rs. Also: a @[walk] instance of givesCommaListFrom for listItem (givesListItemsFrom/Any at 3.2x), and a lemma for the givesBinderGroup ... givesRefuseAttributes pair (givesDataParamStep 3.07x) (SW-4487)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4496,
+      "title": "[Opus] Kernel panic 'internal error: applying a constructor' (crates/core/src/value.rs:1328) from as_written::is_needle -> conv_now's eta step, when the partial unfold (SW-4419, 26a4cbd5c) offers a lambda of different arity (Lam(_, Ctor)) as a candidate for the needle; check --no-cache Toy.Fmt.Proofs in tools/toyfmt crashes. Make the kernel return an error that conv_now's callers treat as not equal (and/or skip mismatched candidates); narrow to the theorem and add a small example that panics before the fix. Found by SW-4486.",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4497,
+      "title": "[Sonnet] D3699 follow-up: grep tools/, aoc/ and games/ for proofs that bind the old four-name form of a Bool guard's False fact (x tail same holds => ...) and check toyfmt's other namespaces one at a time (SW-4486: Toy.Syntax.Proofs broke unnoticed for 27 h)",
       "status": "backlog",
       "agent": "",
       "where": "",
