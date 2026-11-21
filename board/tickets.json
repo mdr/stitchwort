@@ -30800,15 +30800,17 @@
     {
       "id": 4498,
       "title": "[Opus] Long .read chains check in exponential time: a hand-written h.read.right.read.right... takes 1.1 s for 8 conjuncts, 3.7 s for 10, over 2 min for 20 (SW-4488), so --expand-facts terms for long && chains are impractical; fix in the reading code; also profile byFacts phase 1 on a 20-conjunct test fact (18 ms); and the review's remaining notes: a project-namespace expansion test, refusing a non-proposition goal up front",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "review",
+      "agent": "Opus",
+      "where": "lane/SW-4498",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nProgress (Opus lane, 21 Nov 16:30-17:00): cause: dot::prefix_form cached a missing member (`.read` on a test fact) only per unknowns' state, so each `.read` inferred its receiver twice (2^n); plus E-UNKNOWN-FIELD's scope-wide near-miss search built for dropped errors (prefix form, effects' dot::target). Fixed both (94ccc4b0d). Main.longRead elab ms: n=10 3209 -> 5.9, n=12 13529 -> 11.8, n=20 >2 min -> 57; residual ~n^3 steps (prefix form's double visit, SW-129 design). byFacts refuses a non-proposition goal (E-FACTS, examples/reject/facts-data-goal.sw; `def pick (n: Nat): Nat := byFacts [n]` used to check). New: facts-long-read-chain.sw, project --expand-facts test, facts-long-test in the expand test. Phase 1 on 20 conjuncts: 9 ms, nothing to fix. Perf log entry added.\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
-      "commits": []
+      "commits": [
+        "94ccc4b0d"
+      ]
     },
     {
       "id": 4499,
