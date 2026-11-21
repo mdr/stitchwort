@@ -1,5 +1,5 @@
 {
-  "next": 4550,
+  "next": 4551,
   "tickets": [
     {
       "id": 47,
@@ -31475,6 +31475,19 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4550,
+      "title": "[Fable] Soundness review of the last two days' crates/core and check-cache changes: SW-4512 (normal_form_meets: a read-back that stops at the first unsolved unknown, used by has_unsolved's nine callers) and SW-4452 (carried check-cache entries on the trusted path: field sorts and erasure recomputed, run bodies compared on re-check), plus anything else since 20 Nov 12:00 under crates/core that changes what is accepted or trusted; can any change make an ill-typed term accepted, a stale cache entry trusted, or an elaboration answer differ from the kernel's",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-21",
       "updated": "2026-11-21",
