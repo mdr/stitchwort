@@ -1,5 +1,5 @@
 {
-  "next": 4482,
+  "next": 4483,
   "tickets": [
     {
       "id": 47,
@@ -30527,7 +30527,7 @@
     {
       "id": 4477,
       "title": "[Opus] Walk W4b (after SW-4469 cut two-run walk cost): re-time the two-run walks W4 dropped for speed (FollowsStatements 12, FollowsDeclData 9; the walked text is at commit 9e0180f18 and the W4 branch history) and keep those now within SW-4238's bar (file 1.5x, no theorem over 3x); then try the Follows* namespaces W4 didn't reach (FollowsForms*, FollowsLadder, FollowsDecl*, ParseCarries*, ParseKept, ParseWalkDecls); profile followsRewriteTargetIf (2.5x) if cheap",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -30579,6 +30579,19 @@
     {
       "id": 4481,
       "title": "[Opus] Walk: the main bind step rebuilds the rest of the code from its printed-back goal, where a call that steps at once is already its unfolding (after let v := look(), down (size v + 1) reaches the walk as Parse.next), so its lemma can't fit; walk the rest from its values, as SW-4479 did for nested binds. Also ReadsAt nesting (readsAtThen carries the mark fact), and tag the other Parse operation lemmas @[walk] (readsNext, readsNote, span, literal, reset). Docs: a line in the walk docs that goals and messages show a call that steps at once as its unfolding",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4482,
+      "title": "[Opus] Walk gaps from W4b (SW-4477): (1) two runs split on different but related values (29 proofs, e.g. params.isEmpty vs twins.isEmpty with a Same/All2 fact): rewrite the second run's split by the fact; (2) 'would follow more than 64 paths' (14 proofs): a lemma for the splitting part or a way to say what to split; per-proof list in docs/reviews/SW-4477-walk-w4b.md. Also: the proving guide's timing advice should give the warm-cache-plus-comment method (13 s per run instead of 115 s); a bracket lemma with a forall hypothesis must be given fully applied today (SW-4467)",
       "status": "backlog",
       "agent": "",
       "where": "",
