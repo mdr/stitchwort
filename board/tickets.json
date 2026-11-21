@@ -30735,7 +30735,7 @@
     {
       "id": 4493,
       "title": "[Opus] Slice 6a takes in cases x then t (D3710, Matt, 21 Nov 2026: yes): the self-hosted formatter reads and prints cases x, y then t (and cases x) as the Rust formatter does: Cases with targets in Expr, parser, printer, within6a and Tok.within6a, the walk and slice proofs extended to match, following SW-4427 (byWalking); nothing accepted today refused, MustAccept1 and top theorems untouched. After SW-4474 merges.",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -30774,7 +30774,7 @@
     {
       "id": 4496,
       "title": "[Opus] Kernel panic 'internal error: applying a constructor' (crates/core/src/value.rs:1328) from as_written::is_needle -> conv_now's eta step, when the partial unfold (SW-4419, 26a4cbd5c) offers a lambda of different arity (Lam(_, Ctor)) as a candidate for the needle; check --no-cache Toy.Fmt.Proofs in tools/toyfmt crashes. Make the kernel return an error that conv_now's callers treat as not equal (and/or skip mismatched candidates); narrow to the theorem and add a small example that panics before the fix. Found by SW-4486.",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -30787,7 +30787,7 @@
     {
       "id": 4497,
       "title": "[Sonnet] D3699 follow-up: grep tools/, aoc/ and games/ for proofs that bind the old four-name form of a Bool guard's False fact (x tail same holds => ...) and check toyfmt's other namespaces one at a time (SW-4486: Toy.Syntax.Proofs broke unnoticed for 27 h)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
