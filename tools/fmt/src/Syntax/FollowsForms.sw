@@ -141,8 +141,7 @@ theorem followsIncludeAfter ∀ (modes: Modes) (keyword keywordTwin: Word)
 
 theorem followsIncludeAtom ∀ (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => includeAtom modes) (() => includeAtom modes) :=
-  Parse.followsThen followsBump (keyword keywordTwin keywords =>
-    followsThenEq (followsAt modes Str) (path => followsIncludeAfter modes keyword keywordTwin keywords path))
+  byWalking [followsIncludeAfter]
 
 theorem followsCasesAfter ∀ (modes: Modes) (bare: Bool):
     Parse.Follows SameCode ExprsAlike (() => casesAfter modes bare) (() => casesAfter modes bare) :=
@@ -157,7 +156,7 @@ theorem followsCasesAfter ∀ (modes: Modes) (bare: Bool):
 
 theorem followsCasesAtom ∀ (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => casesAtom modes) (() => casesAtom modes) :=
-  followsThenEq (followsBareCases modes) (bare => followsCasesAfter modes bare)
+  byWalking [followsBareCases, followsCasesAfter]
 
 -- A universe: `Type` and a level.
 
@@ -191,11 +190,7 @@ theorem followsUniverseAfter ∀ (modes: Modes) (keyword keywordTwin: Word)
 
 theorem followsUniverseAtom ∀ (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => universeAtom modes) (() => universeAtom modes) :=
-  Parse.followsThen followsBump (keyword keywordTwin keywords =>
-    followsOn
-      (seen => universeAfter modes keyword seen)
-      (seen => universeAfter modes keywordTwin seen)
-      (seen others same => followsUniverseAfter modes keyword keywordTwin keywords seen others same))
+  byWalking [followsUniverseAfter]
 
 -- Where no atom starts.
 
@@ -211,20 +206,15 @@ theorem followsAtomGap ∀ [alike: Expr → Expr → Prop] (modes: Modes) (ran: 
 
 theorem followsAtomNamed ∀ (modes: Modes) (second: Option Tok):
     Parse.Follows SameCode ExprsAlike (() => atomNamed modes second) (() => atomNamed modes second) :=
-  match isSome FatArrow second with
-    | True => followsFailName modes "an expression" (() => modes.failName "an expression")
-    | False => followsFail modes "an expression" (() => modes.fail "an expression")
+  byWalking [followsFailName, followsFail]
 
 theorem followsAtomMissingAt ∀ (modes: Modes) (seen: Option Tok):
     Parse.Follows SameCode ExprsAlike (() => atomMissingAt modes seen) (() => atomMissingAt modes seen) :=
-  match modes.recover && seen.isNone with
-    | True => followsThenEq (followsRanOutAtLine modes) (ran => followsAtomGap modes ran)
-    | False => followsThenEq (followsPeekAt modes 1) (second => followsAtomNamed modes second)
+  byWalking [followsRanOutAtLine, followsAtomGap, followsAtomNamed]
 
 theorem followsAtomMissing ∀ [self selfTwin: Goal → {Parse Item} Expr] (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => atomMissing self modes) (() => atomMissing selfTwin modes) :=
-  followsPeeked modes (seen => atomMissingAt modes seen) (seen => atomMissingAt modes seen) (seen =>
-    followsAtomMissingAt modes seen)
+  byWalking [followsAtomMissingAt]
 
 theorem gluedSame ∀ (item other: Item) (same: SameCode item other): item.glued = other.glued :=
   deafItem Item.glued (found => byComputing) item other same
@@ -281,9 +271,7 @@ theorem followsSectionAfter ∀ (modes: Modes) (dot dotTwin: Word)
 
 theorem followsSectionStart ∀ (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => sectionStart modes) (() => sectionStart modes) :=
-  Parse.followsThen followsBump (dot dotTwin dots =>
-    followsOn (seen => sectionAfter modes dot seen) (seen => sectionAfter modes dotTwin seen) (seen others same =>
-      followsSectionAfter modes dot dotTwin dots seen others same))
+  byWalking [followsSectionAfter]
 
 -- Prefixes and numbers.
 
@@ -318,8 +306,7 @@ theorem followsNegativeAtomOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
 theorem followsNegativeAtom ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => negativeAtom self modes) (() => negativeAtom selfTwin modes) :=
-  followsOn (seen => negativeAtomOn self modes seen) (seen => negativeAtomOn selfTwin modes seen) (seen others same =>
-    followsNegativeAtomOn knot modes seen others same)
+  byWalking [followsNegativeAtomOn knot]
 
 theorem followsPrefixBangOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -333,8 +320,7 @@ theorem followsPrefixBangOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
 theorem followsPrefixBang ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => prefixBang self modes) (() => prefixBang selfTwin modes) :=
-  followsOn (seen => prefixBangOn self modes seen) (seen => prefixBangOn selfTwin modes seen) (seen others same =>
-    followsPrefixBangOn knot modes seen others same)
+  byWalking [followsPrefixBangOn knot]
 
 -- Facts: `arithmetic [..]`, `algebra [..]`.
 
@@ -358,18 +344,13 @@ theorem followsFactsAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (keywords: WordsAlike keyword keywordTwin) (bracket: Bool):
     Parse.Follows SameCode ExprsAlike (() => factsAfter self modes token kind keyword bracket) (() =>
       factsAfter selfTwin modes token kind keywordTwin bracket) :=
-  match bracket with
-    | True => Parse.followsThen (followsListExpr knot modes) (list listTwin lists =>
-      followsFactsEnd kind keyword keywordTwin keywords list listTwin lists)
-    | False => Parse.followsDone (alikeAtom token keyword keywordTwin keywords)
+  byWalking [followsListExpr knot modes, followsFactsEnd] then (alikeAtom token keyword keywordTwin keywords)
 
 theorem followsFacts ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
     (modes: Modes) (token: Tok) (kind: FactsKind):
     Parse.Follows SameCode ExprsAlike (() => facts self modes token kind) (() => facts selfTwin modes token kind) :=
-  Parse.followsThen followsBump (keyword keywordTwin keywords =>
-    followsThenEq (followsAt modes LBracket) (bracket =>
-      followsFactsAfter knot modes token kind keyword keywordTwin keywords bracket))
+  byWalking [followsFactsAfter knot]
 
 -- Calls and field accesses after an atom.
 
@@ -410,10 +391,7 @@ theorem followsSuffixCalled ∀ (target targetTwin: Expr)
     (targets: ExprsAlike target targetTwin) (callable paren: Bool):
     Parse.Follows SameCode ExprsAlike (() => suffixCalled target callable paren) (() =>
       suffixCalled targetTwin callable paren) :=
-  followsOn
-    (seen => suffixCalledOn target callable paren seen)
-    (seen => suffixCalledOn targetTwin callable paren seen)
-    (seen others same => followsSuffixCalledOn target targetTwin targets callable paren seen others same)
+  byWalking [followsSuffixCalledOn]
 
 theorem followsSuffixesOn ∀ (more: Nat) (modes: Modes) (called calledTwin: Expr)
     (calleds: ExprsAlike called calledTwin) (paren: Bool)
@@ -534,10 +512,7 @@ theorem followsNamedColon ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (closer: Tok) (closeText: Text):
     Parse.Follows SameCode ExprsAlike (() => namedColon self inner open name closer closeText) (() =>
       namedColon selfTwin inner openTwin nameTwin closer closeText) :=
-  Parse.followsThen followsBump (colonEq colonEqTwin colonEqs =>
-    Parse.followsThen (followsFull knot inner) (value valueTwin values =>
-      followsNamedClose inner open openTwin name nameTwin colonEq colonEqTwin opens names colonEqs value valueTwin
-          values closer closeText))
+  byWalking [followsNamedClose]
 
 theorem followsNamedHead ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -557,9 +532,7 @@ theorem followsNamedArgument ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (modes: Modes) (closer: Tok) (closeText: Text):
     Parse.Follows SameCode ExprsAlike (() => namedArgument self modes closer closeText) (() =>
       namedArgument selfTwin modes closer closeText) :=
-  Parse.followsThen followsBump (open openTwin opens =>
-    followsThenEq (followsAt modes.inBrackets KwDecreasing) (keyword =>
-      followsNamedHead knot modes.inBrackets open openTwin opens closer closeText keyword))
+  byWalking [followsNamedHead knot]
 
 -- Operator sections, `(+ x)`, `(x +)`.
 
@@ -622,14 +595,7 @@ theorem followsOperatorEnd ∀ (inner: Modes) (open openTwin operator operatorTw
     (operands: ExprsAlike operand operandTwin) (closed: Bool):
     Parse.Follows SameCode ExprsAlike (() => operatorEnd inner open operator operand closed) (() =>
       operatorEnd inner openTwin operatorTwin operandTwin closed) :=
-  match closed with
-    | True =>
-      followsOperatorClose open openTwin operator operatorTwin opens operators
-        (Some operand)
-        (Some operandTwin)
-        operands
-    | False =>
-      followsFail inner "`)` after the operand of a section" (() => inner.fail "`)` after the operand of a section")
+  byWalking [followsOperatorClose, followsFail]
 
 theorem followsSectionOperand ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -661,11 +627,7 @@ theorem followsOperatorHead ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (operators: WordsAlike operator operatorTwin) (closed: Bool):
     Parse.Follows SameCode ExprsAlike (() => operatorHead self inner open operatorKind operator closed) (() =>
       operatorHead selfTwin inner openTwin operatorKind operatorTwin closed) :=
-  match closed with
-    | True => followsOperatorClose open openTwin operator operatorTwin opens operators None None Trivial
-    | False => Parse.followsThen (followsSectionOperand knot inner operatorKind) (operand operandTwin operands =>
-      followsThenEq (followsAt inner RParen) (here =>
-        followsOperatorEnd inner open openTwin operator operatorTwin opens operators operand operandTwin operands here))
+  byWalking [followsOperatorClose, followsSectionOperand knot inner operatorKind, followsOperatorEnd]
 
 theorem followsOperatorKind ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -673,9 +635,7 @@ theorem followsOperatorKind ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (opens: WordsAlike open openTwin) (operatorKind: Tok):
     Parse.Follows SameCode ExprsAlike (() => operatorHead self inner open operatorKind bump() (inner.at RParen)) (() =>
       operatorHead selfTwin inner openTwin operatorKind bump() (inner.at RParen)) :=
-  Parse.followsThen followsBump (operator operatorTwin operators =>
-    followsThenEq (followsAt inner RParen) (closed =>
-      followsOperatorHead knot inner open openTwin opens operatorKind operator operatorTwin operators closed))
+  byWalking [followsOperatorHead knot]
 
 theorem followsOperatorFirst ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -693,11 +653,7 @@ theorem followsOperatorFirst ∀ [self selfTwin: Goal → {Parse Item} Expr]
 theorem followsOperatorSection ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => operatorSection self modes) (() => operatorSection selfTwin modes) :=
-  Parse.followsThen followsBump (open openTwin opens =>
-    followsOn
-      (seen => operatorFirst self modes.inBrackets open seen)
-      (seen => operatorFirst selfTwin modes.inBrackets openTwin seen)
-      (seen others same => followsOperatorFirst knot modes.inBrackets open openTwin opens seen others same))
+  byWalking [followsOperatorFirst knot]
 
 -- Right sections, `(x +)`.
 
@@ -741,11 +697,7 @@ theorem followsRightEnd ∀ (inner: Modes) (open openTwin: Word)
     (operands: ExprsAlike operand operandTwin) (here: Nat):
     Parse.Follows SameCode ExprsAlike (() => rightEnd inner open inside start operand here) (() =>
       rightEnd inner openTwin inside start operandTwin here) :=
-  match here != start + inside - 1 with
-    | True =>
-      followsFail inner "`)` after the operator of a section" (() => inner.fail "`)` after the operator of a section")
-    | False => Parse.followsThen followsBump (operator operatorTwin operators =>
-      followsRightClose inner open openTwin opens operand operandTwin operands operator operatorTwin operators)
+  byWalking [followsFail, followsRightClose]
 
 theorem followsRightKindOf ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -884,27 +836,18 @@ theorem followsRecordFieldAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
 theorem followsRecordField ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => recordField self modes) (() => recordField selfTwin modes) :=
-  Parse.followsThen (followsLower modes "a field name") (name nameTwin names =>
-    followsThenEq (followsAt modes Equals) (equalsNext =>
-      followsRecordFieldAfter knot modes name nameTwin names equalsNext))
+  byWalking [followsLower, followsRecordFieldAfter knot]
 
 theorem followsRecordPipe ∀ (inner: Modes) (record recordTwin: Expr)
     (records: ExprsAlike record recordTwin):
     Parse.Follows SameCode BasesAlike (() => recordPipe inner record) (() => recordPipe inner recordTwin) :=
-  Parse.followsMap
-    (bar => Some (record, bar))
-    (bar => Some (recordTwin, bar))
-    (followsExpect inner Pipe "`|` and the fields to update")
-    (bar barTwin bars => (records, bars))
+  byWalking []
 
 theorem followsRecordBase ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
     (inner: Modes) (literal: Bool):
     Parse.Follows SameCode BasesAlike (() => recordBase self inner literal) (() => recordBase selfTwin inner literal) :=
-  match literal with
-    | True => Parse.followsDone Trivial
-    | False => Parse.followsThen (followsFull knot inner) (record recordTwin records =>
-      followsRecordPipe inner record recordTwin records)
+  byWalking [followsRecordPipe]
 
 theorem followsRecordEnd ∀ (inner: Modes) (open openTwin: Word)
     (opens: WordsAlike open openTwin) (base baseTwin: Option (Expr, Word))
@@ -957,8 +900,7 @@ theorem followsRecordLiteral ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (lower: Bool) (second: Option Tok):
     Parse.Follows SameCode ExprsAlike (() => recordLiteral self inner open lower second) (() =>
       recordLiteral selfTwin inner openTwin lower second) :=
-  Parse.followsThen (followsRecordBase knot inner (lower && literalSecond second)) (base baseTwin bases =>
-    followsRecordFields knot inner open openTwin opens base baseTwin bases)
+  byWalking [followsRecordBase knot inner (lower && literalSecond second), followsRecordFields knot]
 
 theorem alikeEmptyRecord ∀ (open openTwin: Word)
     (opens: WordsAlike open openTwin) (close closeTwin: Word)
@@ -986,9 +928,7 @@ theorem followsRecordBody ∀ [self selfTwin: Goal → {Parse Item} Expr]
 theorem followsRecordExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => recordExpr self modes) (() => recordExpr selfTwin modes) :=
-  Parse.followsThen (followsExpect modes LBrace "`{`") (open openTwin opens =>
-    followsThenEq (followsAt modes.inBrackets RBrace) (empty =>
-      followsRecordBody knot modes.inBrackets open openTwin opens empty))
+  byWalking [followsRecordBody knot]
 
 theorem followsBraceArgument ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (atomBases: ∀ (modes: Modes) => Parse.Follows SameCode ExprsAlike (() => atomBase self modes) (() =>
@@ -1045,37 +985,18 @@ theorem followsInterpolationOpen ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):
     Parse.Follows SameCode (Option.Alike PieceAlike) (() => interpolationOpen self modes) (() =>
       interpolationOpen selfTwin modes) :=
-  Parse.followsThen (followsExpect modes InterpOpen "`\${`") (open openTwin opens =>
-    Parse.followsThen (followsFull knot modes) (value valueTwin values =>
-      Parse.followsThen (followsExpect modes InterpClose "`}`") (close closeTwin closes =>
-        Parse.followsDone (opens, values, closes))))
+  byWalking []
 
 theorem followsInterpolationOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
     (modes: Modes) (seen: Option Tok):
     Parse.Follows SameCode (Option.Alike PieceAlike) (() => interpolationOn self modes seen) (() =>
       interpolationOn selfTwin modes seen) :=
-  match isSome StrMid seen with
-    | True =>
-      Parse.followsMap
-        (spelled => Some (TextPiece spelled))
-        (spelled => Some (TextPiece spelled))
-        followsBump
-        (spelled spelledTwin spelleds => spelleds)
-    | False =>
-      match isSome InterpOpen seen with
-        | True => followsInterpolationOpen knot modes
-        | False =>
-          match isSome StrEnd seen with
-            | True => Parse.followsDone Trivial
-            | False =>
-              followsFail modes "`\${` or the end of the text" (() => modes.fail "`\${` or the end of the text")
+  byWalking [followsInterpolationOpen knot, followsFail]
 
 theorem followsInterpolationEnd ∀ (modes: Modes) (ended: Bool):
     Parse.Follows SameCode WordsAlike (() => interpolationEnd modes ended) (() => interpolationEnd modes ended) :=
-  match ended with
-    | True => followsBump
-    | False => followsFail modes "`\${` or the end of the text" (() => modes.fail "`\${` or the end of the text")
+  byWalking [followsFail]
 
 theorem followsInterpolationLast ∀ (modes: Modes) (pieces twins: List Piece)
     (alike: List.All2 PieceAlike pieces twins) (ended: Bool):
@@ -1117,10 +1038,7 @@ theorem followsInterpolated ∀ [self selfTwin: Goal → {Parse Item} Expr]
 
 theorem followsAtBrace ∀ (modes: Modes) (head upper: Bool):
     Parse.Follows SameCode Same (() => upper && head && modes.at LBrace) (() => upper && head && modes.at LBrace) :=
-  match upper, head with
-    | True, True => followsAt modes LBrace
-    | True, False => Parse.followsDone byComputing
-    | False, _ => Parse.followsDone byComputing
+  byWalking []
 
 theorem followsAtomRecord ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -1226,26 +1144,17 @@ theorem followsAtomOf ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
     (modes: Modes) (kind: Tok):
     Parse.Follows SameCode ExprsAlike (() => atomOf self modes kind) (() => atomOf selfTwin modes kind) :=
-  match kind == Minus with
-    | True => followsNegativeAtom knot modes
-    | False =>
-      match kind == Bang with
-        | True => followsPrefixBang knot modes
-        | False =>
-          match kind == LParen with
-            | True =>
-              followsParenAtom knot modes
-                (closer closeText => followsNamedArgument knot modes closer closeText)
-                (followsOperatorSection knot modes)
-                (inside => followsRightSection knot modes inside)
-            | False =>
-              match kind == LBracket with
-                | True =>
-                  followsBracketAtom knot modes (closer closeText => followsNamedArgument knot modes closer closeText)
-                | False =>
-                  match isWord kind with
-                    | True => followsWordAtom kind
-                    | False => followsAtomRest knot modes kind
+  byWalking [
+    followsNegativeAtom knot,
+    followsPrefixBang knot,
+    followsParenAtom knot,
+    followsNamedArgument knot,
+    followsOperatorSection knot modes,
+    followsRightSection knot,
+    followsBracketAtom knot,
+    followsWordAtom,
+    followsAtomRest knot
+  ]
 
 theorem followsAtomBaseOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -1258,13 +1167,10 @@ theorem followsAtomBaseOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
 theorem followsAtomBase ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => atomBase self modes) (() => atomBase selfTwin modes) :=
-  followsPeeked modes (seen => atomBaseOn self modes seen) (seen => atomBaseOn selfTwin modes seen) (seen =>
-    followsAtomBaseOn knot modes seen)
+  byWalking [followsAtomBaseOn knot]
 
 theorem followsAtom ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
     (modes: Modes) (head: Bool):
     Parse.Follows SameCode ExprsAlike (() => atom self modes head) (() => atom selfTwin modes head) :=
-  followsThenEq (followsPeek modes) (first =>
-    Parse.followsThen (followsAtomBase knot modes) (base baseTwin bases =>
-      followsAtomAfter knot modes head first base baseTwin bases))
+  byWalking [followsAtomBase knot modes, followsAtomAfter knot]

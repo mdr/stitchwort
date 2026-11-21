@@ -61,14 +61,7 @@ theorem followsBinderDefault ∀ [self selfTwin: Goal → {Parse Item} Expr]
       (Option.Alike (PairAlike Anything ExprsAlike))
       (() => binderDefault self inner atColonEq)
       (() => binderDefault selfTwin inner atColonEq) :=
-  match atColonEq with
-    | True => Parse.followsThen followsFixedFrom (colonEq colonEqTwin colonEqs =>
-      Parse.followsMap
-        (value => Some (colonEq, value))
-        (value => Some (colonEqTwin, value))
-        (followsFull knot inner)
-        (value valueTwin values => (colonEqs, values)))
-    | False => Parse.followsDone Trivial
+  byWalking [followsFixedFrom]
 
 theorem followsBinderGroup ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -402,7 +395,7 @@ theorem alikeDefinition ∀ (attributes twinAttributes: List Attributes)
 
 theorem followsDefKindOf ∀ (modes: Modes):
     Parse.Follows SameCode Same (() => defKindOf modes) (() => defKindOf modes) :=
-  followsThenEq (followsPeek modes) (seen => Parse.followsDone byComputing)
+  byWalking []
 
 theorem followsDefinitionName ∀ (modes: Modes):
     Parse.Follows SameCode WordsAlike (() => definitionName modes) (() => definitionName modes) :=
@@ -415,44 +408,27 @@ theorem followsForallEnd ∀ (modes: Modes) (word twin: Word)
     (words: WordsAlike word twin) (paren bracket: Bool):
     Parse.Follows SameCode (Option.Alike WordsAlike) (() => forallEnd modes word paren bracket) (() =>
       forallEnd modes twin paren bracket) :=
-  match paren || bracket with
-    | True => Parse.followsDone words
-    | False => followsFail modes "a parameter such as `(x: Nat)` after `∀`" (() =>
-      modes.fail "a parameter such as `(x: Nat)` after `∀`")
+  byWalking [followsFail]
 
 theorem followsForallBump ∀ (modes: Modes):
     Parse.Follows SameCode (Option.Alike WordsAlike) (() => forallBump modes) (() => forallBump modes) :=
-  Parse.followsThen followsBump (theWord twin words =>
-    followsThenEq (followsAt modes LParen) (paren =>
-      followsThenEq (followsAt modes LBracket) (bracket => followsForallEnd modes theWord twin words paren bracket)))
+  byWalking [followsForallEnd]
 
 theorem followsForallAt ∀ (modes: Modes) (kind: DefKind) (found: Bool):
     Parse.Follows SameCode (Option.Alike WordsAlike) (() => forallAt modes kind found) (() =>
       forallAt modes kind found) :=
-  match found with
-    | True =>
-      match kind != DefTheorem with
-        | True => followsFatalAny _ (() => Syntax.fatal "`∀` before the parameters is only for theorems")
-        | False => followsForallBump modes
-    | False => Parse.followsDone Trivial
+  byWalking [followsFatalAny, followsForallBump]
 
 theorem followsForallPart ∀ (modes: Modes) (kind: DefKind):
     Parse.Follows SameCode (Option.Alike WordsAlike) (() => forallPart modes kind) (() => forallPart modes kind) :=
-  followsThenEq (followsAt modes KwForall) (found => followsForallAt modes kind found)
+  byWalking [followsForallAt]
 
 theorem followsHeaderParamStep ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
     (modes: Modes) (atColon: Bool):
     Parse.Follows SameCode (Option.Alike GroupsAlike) (() => headerParamStep self modes atColon) (() =>
       headerParamStep selfTwin modes atColon) :=
-  match !atColon with
-    | True =>
-      Parse.followsMap
-        (group => Some group)
-        (group => Some group)
-        (followsHeaderGroup knot modes GroupParam None)
-        (x y alike => alike)
-    | False => Parse.followsDone Trivial
+  byWalking [followsHeaderGroup knot modes GroupParam None]
 
 theorem followsHeaderParams ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):
@@ -472,12 +448,7 @@ theorem followsDecreasingClauseOf ∀ [self selfTwin: Goal → {Parse Item} Expr
       (Option.Alike (PairAlike Anything ExprsAlike))
       (() => decreasingClauseOf self headerModes)
       (() => decreasingClauseOf selfTwin headerModes) :=
-  Parse.followsThen followsFixedFrom (keyword keywordTwin keywords =>
-    Parse.followsMap
-      (tail => Some (keyword, tail))
-      (tail => Some (keywordTwin, tail))
-      (knot { modes = headerModes, level = LevelFull })
-      (tail tailTwin tails => (keywords, tails)))
+  byWalking [followsFixedFrom]
 
 theorem followsDecreasingAt ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -486,12 +457,7 @@ theorem followsDecreasingAt ∀ [self selfTwin: Goal → {Parse Item} Expr]
       (Option.Alike (PairAlike Anything ExprsAlike))
       (() => decreasingAt self headerModes isInstance found)
       (() => decreasingAt selfTwin headerModes isInstance found) :=
-  match found with
-    | True =>
-      match isInstance with
-        | True => followsFatalAny _ _
-        | False => followsDecreasingClauseOf knot headerModes
-    | False => Parse.followsDone Trivial
+  byWalking [followsFatalAny, followsDecreasingClauseOf knot]
 
 theorem followsDecreasingPart ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -500,7 +466,7 @@ theorem followsDecreasingPart ∀ [self selfTwin: Goal → {Parse Item} Expr]
       (Option.Alike (PairAlike Anything ExprsAlike))
       (() => decreasingPart self modes headerModes isInstance)
       (() => decreasingPart selfTwin modes headerModes isInstance) :=
-  followsThenEq (followsAt modes KwDecreasing) (found => followsDecreasingAt knot headerModes isInstance found)
+  byWalking [followsDecreasingAt knot]
 
 theorem followsAfterDecreasingOf ∀ (modes: Modes) (clause clauseTwin: Option (Comments, Expr))
     (clauses: Option.Alike (PairAlike Anything ExprsAlike) clause clauseTwin):
@@ -518,9 +484,7 @@ def UnfoldingNamesFollow (modes: Modes) (fuel: Nat): Prop :=
 
 theorem followsUnfoldingName ∀ (modes: Modes) (upper: Bool):
     Parse.Follows SameCode WordsAlike (() => unfoldingName modes upper) (() => unfoldingName modes upper) :=
-  match upper with
-    | True => followsUpperQualified modes "the name of an opaque definition"
-    | False => followsLowerQualified modes "the name of an opaque definition"
+  byWalking [followsUpperQualified, followsLowerQualified]
 
 theorem followsUnfoldingNext ∀ (more: Nat) (modes: Modes)
     (again: UnfoldingNamesFollow modes more) (found twins: List Word)
@@ -528,10 +492,7 @@ theorem followsUnfoldingNext ∀ (more: Nat) (modes: Modes)
     (names: WordsAlike name nameTwin) (comma: Bool):
     Parse.Follows SameCode (List.All2 WordsAlike) (() => unfoldingNext more modes found name comma) (() =>
       unfoldingNext more modes twins nameTwin comma) :=
-  match comma with
-    | True => Parse.followsThen followsBump (skippedItems skippedTwin skips =>
-      again [name, ..found] [nameTwin, ..twins] (Both names founds))
-    | False => Parse.followsDone (List.all2Reverse [name, ..found] [nameTwin, ..twins] (Both names founds))
+  byWalking [] then (List.all2Reverse [name, ..found] [nameTwin, ..twins] (Both names founds))
 
 theorem followsUnfoldingNames ∀ (fuel: Nat) (modes: Modes) (found twins: List Word)
     (founds: List.All2 WordsAlike found twins):
@@ -585,7 +546,7 @@ theorem followsUnfoldingPart ∀ (modes afterDecreasing: Modes) (isInstance: Boo
       (Option.Alike (PairAlike Anything (List.All2 WordsAlike)))
       (() => unfoldingPart modes afterDecreasing isInstance)
       (() => unfoldingPart modes afterDecreasing isInstance) :=
-  followsThenEq (followsAt afterDecreasing KwUnfolding) (found => followsUnfoldingAt afterDecreasing isInstance found)
+  byWalking [followsUnfoldingAt]
 
 theorem followsAfterUnfoldingOf ∀ (afterDecreasing: Modes) (clause clauseTwin: Option (Comments, List Word))
     (clauses: Option.Alike (PairAlike Anything (List.All2 WordsAlike)) clause clauseTwin):
@@ -609,9 +570,7 @@ theorem followsClauseConflict ∀ (afterUnfolding: Modes) (clause clauseTwin: Op
 theorem followsBodyModesOf ∀ (afterUnfolding: Modes) (isInstance: Bool) (local: Option Nat):
     Parse.Follows SameCode Same (() => bodyModesOf afterUnfolding isInstance local) (() =>
       bodyModesOf afterUnfolding isInstance local) :=
-  match local with
-    | Some _ => Parse.followsDone byComputing
-    | None => followsThenEq (followsAtEither afterUnfolding ColonEq Pipe) (recovering => Parse.followsDone byComputing)
+  byWalking [followsAtEither]
 
 -- Definition bodies.
 
@@ -619,22 +578,18 @@ theorem followsAssignedEnd ∀ (colonEq colonEqTwin: Comments) (value valueTwin:
     (values: ExprsAlike value valueTwin) (arms: Bool):
     Parse.Follows SameCode DefBodyAlike (() => assignedEnd colonEq value arms) (() =>
       assignedEnd colonEqTwin valueTwin arms) :=
-  match arms with
-    | True => followsFatalAny _ _
-    | False => Parse.followsDone (alikeAssigned colonEq colonEqTwin value valueTwin values)
+  byWalking [followsFatalAny] then (alikeAssigned colonEq colonEqTwin value valueTwin values)
 
 theorem followsAssignedValue ∀ (modes: Modes) (colonEq colonEqTwin: Comments) (value valueTwin: Expr)
     (values: ExprsAlike value valueTwin):
     Parse.Follows SameCode DefBodyAlike (() => assignedValue modes colonEq value) (() =>
       assignedValue modes colonEqTwin valueTwin) :=
-  followsThenEq (followsAt modes Pipe) (arms => followsAssignedEnd colonEq colonEqTwin value valueTwin values arms)
+  byWalking [followsAssignedEnd]
 
 theorem followsAssignedBody ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):
     Parse.Follows SameCode DefBodyAlike (() => assignedBody self modes) (() => assignedBody selfTwin modes) :=
-  Parse.followsThen followsFixedFrom (colonEq colonEqTwin colonEqs =>
-    Parse.followsThen (knot { modes, level = LevelFull }) (value valueTwin values =>
-      followsAssignedValue modes colonEq colonEqTwin value valueTwin values))
+  byWalking [followsFixedFrom, followsAssignedValue]
 
 theorem refusalBody ∀ (isInstance: Bool) (body twin: DefBody)
     (bodies: DefBodyAlike body twin) (items: List Item):
@@ -660,7 +615,4 @@ theorem followsDefinitionChecked ∀ (isInstance: Bool) (body twin: DefBody)
     (bodies: DefBodyAlike body twin):
     Parse.Follows SameCode DefBodyAlike (() => definitionChecked isInstance body) (() =>
       definitionChecked isInstance twin) :=
-  followsOn
-    (items => definitionWhere isInstance body items)
-    (items => definitionWhere isInstance twin items)
-    (itemList others same => followsDefinitionWhere isInstance body twin bodies itemList others same)
+  byWalking [followsDefinitionWhere]

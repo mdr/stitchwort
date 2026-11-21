@@ -94,20 +94,18 @@ theorem givesDeclarationKind ∀ (seen: Seen) (modes: Modes) (attributes: List A
 theorem givesDeclarationFinish ∀ (modes: Modes) (decl: Decl)
     (ok: DeclOk decl):
     Parse.Gives GoodItems (() => declarationFinish modes decl) DeclOk :=
-  Parse.givesAfter0 reads0Left (items =>
-    match items.isEmpty with
-      | True => Parse.givesDone ok
-      | False => givesFail modes _)
+  byWalking [reads0Left, unfold declarationEnd]
 
 theorem givesDeclaration ∀ (seen: Seen) (nested: Nested expressionAt)
     (outside: Outside expressionAt) (frame: Frame expressionAt):
     Parse.Gives GoodItems (() => declaration seen) DeclOk :=
-  Parse.givesThen (frame.attributes Modes.start) (attributes _ =>
-    Parse.givesAfter0 (reads0Peek Modes.start) (next =>
-      match attributesRefused attributes next with
-        | Some message => Parse.readsFatal
-        | None => Parse.givesThen (givesDeclarationKind seen Modes.start attributes nested outside frame) (decl ok =>
-          givesDeclarationFinish Modes.start decl ok)))
+  byWalking [
+    frame.attributes,
+    unfold declarationAttributes,
+    unfold declarationRefusal,
+    givesDeclarationKind,
+    givesDeclarationFinish
+  ]
 
 -- A file.
 

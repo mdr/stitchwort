@@ -88,7 +88,7 @@ import Syntax.FollowsStatements (..)
 
 theorem followsExpectFixed ∀ (modes: Modes) (wanted: Tok) (what: Text):
     Parse.Follows SameCode Anything (() => modes.expectFixed wanted what) (() => modes.expectFixed wanted what) :=
-  Parse.followsThen (followsExpect modes wanted what) (found twin alike => Parse.followsDone Trivial)
+  byWalking []
 
 -- A step that reads the number of items left to make fuel.
 
@@ -201,26 +201,20 @@ theorem walkAttributesAlike ∀ (items twins: List Attributes)
 theorem followsLowerQualifiedOn ∀ (modes: Modes) (what: Text) (seen: Option Tok):
     Parse.Follows SameCode WordsAlike (() => modes.lowerQualifiedOn what seen) (() =>
       modes.lowerQualifiedOn what seen) :=
-  match isSome Lower seen with
-    | True => followsBump
-    | False => followsFailName modes what (() => modes.failName what)
+  byWalking [followsFailName]
 
 theorem followsLowerQualified ∀ (modes: Modes) (what: Text):
     Parse.Follows SameCode WordsAlike (() => modes.lowerQualified what) (() => modes.lowerQualified what) :=
-  followsPeeked modes (seen => modes.lowerQualifiedOn what seen) (seen => modes.lowerQualifiedOn what seen) (seen =>
-    followsLowerQualifiedOn modes what seen)
+  byWalking [followsLowerQualifiedOn]
 
 theorem followsUpperQualifiedOn ∀ (modes: Modes) (what: Text) (seen: Option Tok):
     Parse.Follows SameCode WordsAlike (() => modes.upperQualifiedOn what seen) (() =>
       modes.upperQualifiedOn what seen) :=
-  match isSome Upper seen with
-    | True => followsBump
-    | False => followsFail modes what (() => modes.fail what)
+  byWalking [followsFail]
 
 theorem followsUpperQualified ∀ (modes: Modes) (what: Text):
     Parse.Follows SameCode WordsAlike (() => modes.upperQualified what) (() => modes.upperQualified what) :=
-  followsPeeked modes (seen => modes.upperQualifiedOn what seen) (seen => modes.upperQualifiedOn what seen) (seen =>
-    followsUpperQualifiedOn modes what seen)
+  byWalking [followsUpperQualifiedOn]
 
 theorem followsUpper ∀ (modes: Modes) (what: Text):
     Parse.Follows SameCode WordsAlike (() => modes.upper what) (() => modes.upper what) :=
@@ -240,29 +234,16 @@ theorem followsRefuseAttributes ∀ (attributes twins: List Attributes)
 theorem followsAttributeArgumentOn ∀ (modes: Modes) (seen: Option Tok):
     Parse.Follows SameCode (Option.Alike WordsAlike) (() => attributeArgumentOn modes seen) (() =>
       attributeArgumentOn modes seen) :=
-  match isSome Str seen with
-    | True => Parse.followsMap (word => Some word) (word => Some word) followsBump (x y alike => alike)
-    | False =>
-      match isSome StrStart seen with
-        | True => followsFatalAny _ (() => Syntax.fatal "an attribute's argument is a plain string, without `\${…}`")
-        | False => Parse.followsDone Trivial
+  byWalking [followsFatalAny]
 
 theorem followsAttributeArgument ∀ (modes: Modes):
     Parse.Follows SameCode (Option.Alike WordsAlike) (() => attributeArgument modes) (() => attributeArgument modes) :=
-  followsPeeked modes (seen => attributeArgumentOn modes seen) (seen => attributeArgumentOn modes seen) (seen =>
-    followsAttributeArgumentOn modes seen)
+  byWalking [followsAttributeArgumentOn]
 
 theorem followsAttributePart ∀ (modes: Modes) (dot: Bool):
     Parse.Follows SameCode (Option.Alike (PairAlike Anything WordsAlike)) (() => attributePart modes dot) (() =>
       attributePart modes dot) :=
-  match dot with
-    | True => Parse.followsThen followsFixedFrom (written writtenTwin writtens =>
-      Parse.followsMap
-        (part => Some (written, part))
-        (part => Some (writtenTwin, part))
-        (followsLowerQualified modes "the rest of the attribute's name")
-        (part partTwin parts => (writtens, parts)))
-    | False => Parse.followsDone Trivial
+  byWalking [followsFixedFrom, followsLowerQualified]
 
 theorem followsAttributeParts ∀ (modes: Modes):
     Parse.Follows SameCode (List.All2 (PairAlike Anything WordsAlike)) (() => attributeParts modes) (() =>
@@ -281,9 +262,7 @@ theorem followsAttributeNext ∀ (more: Nat) (modes: Modes)
       (PairAlike (List.All2 AttributeAlike) Same)
       (() => attributeNext more modes done comma)
       (() => attributeNext more modes twins comma) :=
-  match comma with
-    | True => Parse.followsThen followsBump (found twin alike => again done twins dones)
-    | False => Parse.followsDone (List.all2Reverse done twins dones, byComputing)
+  byWalking [] then (List.all2Reverse done twins dones, byComputing)
 
 theorem followsAttributeItem ∀ (more: Nat) (modes: Modes)
     (again: AttributeItemsFollow modes more) (found twins: List Attribute)
@@ -358,14 +337,12 @@ theorem followsAttributeGroup ∀ (modes: Modes):
 theorem followsAttributeGroupAt ∀ (modes: Modes) (found: Bool):
     Parse.Follows SameCode (Option.Alike AttributeGroupAlike) (() => attributeGroupAt modes found) (() =>
       attributeGroupAt modes found) :=
-  match found with
-    | True => followsAttributeGroup modes
-    | False => Parse.followsDone Trivial
+  byWalking [followsAttributeGroup]
 
 theorem followsAttributeGroupStep ∀ (modes: Modes):
     Parse.Follows SameCode (Option.Alike AttributeGroupAlike) (() => attributeGroupStep modes) (() =>
       attributeGroupStep modes) :=
-  followsThenEq (followsAt modes At) (found => followsAttributeGroupAt modes found)
+  byWalking [followsAttributeGroupAt]
 
 theorem followsAttributeGroups ∀ (modes: Modes):
     Parse.Follows SameCode (List.All2 AttributeGroupAlike) (() => attributeGroups modes) (() =>
@@ -374,7 +351,7 @@ theorem followsAttributeGroups ∀ (modes: Modes):
 
 theorem followsAttributesOf ∀ (modes: Modes):
     Parse.Follows SameCode (List.All2 AttributeGroupAlike) (() => attributesOf modes) (() => attributesOf modes) :=
-  followsAttributeGroups modes
+  byWalking [followsAttributeGroups]
 
 -- Groups.
 

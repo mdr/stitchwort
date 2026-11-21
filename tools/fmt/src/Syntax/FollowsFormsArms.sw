@@ -130,41 +130,26 @@ theorem followsGuardAt ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (modes: Modes) (atIf: Bool):
     Parse.Follows SameCode (Option.Alike GuardAlike) (() => guardAt self modes atIf) (() =>
       guardAt selfTwin modes atIf) :=
-  match atIf with
-    | True => Parse.followsThen followsBump (keyword keywordTwin keywords =>
-      Parse.followsThen (followsNamedBinder modes) (binder binderTwin binders =>
-        Parse.followsMap
-          (condition => Some { keyword, binder, condition })
-          (condition => Some { keyword = keywordTwin, binder = binderTwin, condition })
-          (followsFull knot { modes | guard = True, lines = [] })
-          (condition conditionTwin conditions => (keywords, binders, conditions))))
-    | False => Parse.followsDone Trivial
+  byWalking [followsNamedBinder]
 
 theorem followsGuardOf ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):
     Parse.Follows SameCode (Option.Alike GuardAlike) (() => guardOf self modes) (() => guardOf selfTwin modes) :=
-  followsThenEq (followsAt modes KwIf) (atIf => followsGuardAt knot modes atIf)
+  byWalking [followsGuardAt knot]
 
 theorem followsArmBodyOf ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
     (modes: Modes) (absurd: Bool) (what: Text) (atArrow: Bool):
     Parse.Follows SameCode BodyAlike (() => armBodyOf self modes absurd what atArrow) (() =>
       armBodyOf selfTwin modes absurd what atArrow) :=
-  match absurd && !atArrow with
-    | True => Parse.followsDone Trivial
-    | False => Parse.followsThen (followsExpect modes FatArrow what) (arrow arrowTwin arrows =>
-      Parse.followsMap
-        (value => Some (arrow, value))
-        (value => Some (arrowTwin, value))
-        (followsFull knot modes)
-        (value valueTwin values => (arrows, values)))
+  byWalking []
 
 theorem followsArmBody ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
     (modes: Modes) (absurd: Bool) (what: Text):
     Parse.Follows SameCode BodyAlike (() => armBody self modes absurd what) (() =>
       armBody selfTwin modes absurd what) :=
-  followsThenEq (followsAt modes FatArrow) (atArrow => followsArmBodyOf knot modes absurd what atArrow)
+  byWalking [followsArmBodyOf knot]
 
 theorem followsArmPatterns ∀ (alts: AltPatternFollows) (modes: Modes):
     Parse.Follows SameCode (List.All2 PatternsAlike) (() => armPatterns modes) (() => armPatterns modes) :=
@@ -462,16 +447,9 @@ theorem followsWordAhead ∀ (modes: Modes) (word: Text):
 
 theorem followsSpecialAhead ∀ (modes: Modes) (word: Text):
     Parse.Follows SameCode Same (() => specialAhead modes word) (() => specialAhead modes word) :=
-  followsThenEq (followsWordAhead modes word) (found =>
-    followsThenEq (followsPeekAt modes 1) (second => Parse.followsDone byComputing))
+  byWalking [followsWordAhead]
 
-theorem followsFixedFrom: Parse.Follows SameCode Anything (() => fixedFrom()) (() => fixedFrom()) :=
-  Parse.followsMap
-    [alike := Anything]
-    (found => found.comments)
-    (found => found.comments)
-    followsBump
-    (found foundTwin founds => Trivial)
+theorem followsFixedFrom: Parse.Follows SameCode Anything (() => fixedFrom()) (() => fixedFrom()) := byWalking []
 
 theorem followsMatchTail ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -544,11 +522,7 @@ theorem followsMatchPipe ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (keywords: WordsAlike keyword keywordTwin) (piped: Bool):
     Parse.Follows SameCode ExprsAlike (() => matchPipe self modes keyword piped) (() =>
       matchPipe selfTwin modes keywordTwin piped) :=
-  match piped with
-    | True => followsClauseLambdaOf knot alts modes keyword keywordTwin keywords None None Trivial ClausePlain
-    | False => followsThenEq (followsWordAhead modes "some") (some =>
-      followsThenEq (followsPeekAt modes 1) (second =>
-        followsMatchSome knot alts modes keyword keywordTwin keywords some second))
+  byWalking [followsClauseLambdaOf knot, followsWordAhead, followsMatchSome knot]
 
 theorem followsMatchReify ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (alts: AltPatternFollows)
@@ -585,8 +559,7 @@ theorem followsMatchExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (keywords: WordsAlike keyword keywordTwin):
     Parse.Follows SameCode ExprsAlike (() => matchExpr self modes keyword) (() =>
       matchExpr selfTwin modes keywordTwin) :=
-  followsThenEq (followsSpecialAhead modes "induct") (induct =>
-    followsMatchSpecial knot alts inducts reifies modes keyword keywordTwin keywords induct)
+  byWalking [followsSpecialAhead, followsMatchSpecial knot]
 
 -- The facts about this file's functions that `Syntax/FollowsLadder.sw` assumes, proved from the lemmas above.
 
