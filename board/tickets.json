@@ -1,5 +1,5 @@
 {
-  "next": 4547,
+  "next": 4548,
   "tickets": [
     {
       "id": 47,
@@ -31433,6 +31433,19 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4547,
+      "title": "[Sonnet] Case-split pilot before any sweep (SW-4537 gap 1, est. 14% of slice 1): on the sample's case-split theorems (exprBlanks, headerResult1, wordsCalmKeep and the others gaps.py ranks as case splits) plus two randomly chosen whole Fmt/Syntax files, rewrite each case-split proof with features that exist today (cases x then t, cases a, b then t, | _ => cases x then t, or-patterns, auto/byFacts as the closer); measure proof lines before/after per theorem and per file, steps against the D3696 bar, and classify what stays long by the missing feature (closer needs hypotheses or lemmas like simp_all [..]; split of a nested match on a record; cases on an expression; big enums); predict a whole-slice sweep's yield from the measured share",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-21",
       "updated": "2026-11-21",
