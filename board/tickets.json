@@ -1,5 +1,5 @@
 {
-  "next": 4545,
+  "next": 4546,
   "tickets": [
     {
       "id": 47,
@@ -31203,8 +31203,8 @@
     {
       "id": 4529,
       "title": "[DeepSeek] tools/fmt alike... theorems (alikePrefix, alikeAnnotation and siblings) close with rewrite repeatedly [their facts] in one line, as alikeParen now does (SW-4515); convert where shorter, statements unchanged, check each namespace edited",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
@@ -31400,11 +31400,24 @@
     {
       "id": 4544,
       "title": "[Opus] SW-4537 stage 2 combine: fix count_ports.py (-- is a comment only in .lean; Rocq bullets), rewrap pilot and batches to 100 columns, recount all 33 theorems, run estimate.py: per-stratum and whole-slice ratios to Lean and Rocq with 90% intervals, by lines and characters, with and without exprBlanks (support over the 300-line rule; orchestrator kept it), and the fairness notes; plain-words summary for Matt",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4545,
+      "title": "[Sonnet] differential::the_evaluators_agree_on_the_prelude_and_every_example overflows its stack (SIGABRT, deterministic) on examples/accept/fin-pattern-numbers.sw whenever the broad sample includes it (index divisible by 4: failed at 2a196474d and d038b5ca1, the only 2 of 53 cycles that sampled it; STITCHWORT_DIFFERENTIAL_ONLY=accept/fin-pattern-numbers.sw reproduces in 8 s; Overmind 21 Nov). Find which evaluator overflows (likely the recursive reference evaluator on its million-case test); fix by running the comparison on a thread with a stated larger stack or making the evaluator not recurse that deep, not by skipping the example unless the reference evaluator is by design recursive (then the skip marker with its reason). Test: that ONLY run passing",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-21",
       "updated": "2026-11-21",
