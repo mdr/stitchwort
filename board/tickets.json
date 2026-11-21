@@ -1,5 +1,5 @@
 {
-  "next": 4558,
+  "next": 4559,
   "tickets": [
     {
       "id": 47,
@@ -31537,12 +31537,12 @@
     {
       "id": 4554,
       "title": "[Sonnet] cases over several record fields costs about 5x the steps of the hand nested match (headerResult1 5.4x, wordUnled 5.7x; it splits every field rather than stopping at the first contradiction), and a failing cases on an Expr takes minutes before its budget error (SW-4547): profile and fix, then retry headerResult1 (35 to 4 lines)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Model result: Sonnet, worked (diagnosed: the cost is the generated term, not the search; stopped as briefed before changing what cases produces; filed SW-4558), 30 min (est. 45)\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
@@ -31581,6 +31581,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4558,
+      "title": "[Opus] cases splits generate large terms: each split lifts a %match over the whole context with its %case equations, and the kernel re-checks them at every node (headerResult1 by cases: 2,497 nodes against 136 by hand, 78k steps against 14.5k; SW-4554): measure nodes per split, prune context an arm doesn't use, re-record hashes, run examples::soundness. Payoff measured so far is small (about 50 lines in SW-4547's class b), so schedule on speed merit; also cache Parts::of in by_hypothesis_part (about 19k of the 78k) and profile the minutes-long failing cases on an Expr",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-21",
       "updated": "2026-11-21",
