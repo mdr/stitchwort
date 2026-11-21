@@ -88,7 +88,7 @@ theorem plainStarts ∀ (char: Char) (rest: List Char)
       match among with
         | Inl same => plainApart char '\\' plain byComputing same.flipped
         | Inr never => never)
-    (((plainApart char '"' plain byComputing), (plainApart char '\n' plain byComputing)))
+    (Both (plainApart char '"' plain byComputing) (plainApart char '\n' plain byComputing))
 
 theorem plainFirst ∀ (char: Char) (others: List Piece) (steps: List (List Char, ()))
     (plain: isPlainChar char = True)
