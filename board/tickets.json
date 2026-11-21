@@ -31203,12 +31203,12 @@
     {
       "id": 4529,
       "title": "[DeepSeek] tools/fmt alike... theorems (alikePrefix, alikeAnnotation and siblings) close with rewrite repeatedly [their facts] in one line, as alikeParen now does (SW-4515); convert where shorter, statements unchanged, check each namespace edited",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Model result: DeepSeek, worked (699 lines, 95 theorems; first run lost to my brief path), 25 min (est. 30)\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
