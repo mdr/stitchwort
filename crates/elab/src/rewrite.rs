@@ -2336,7 +2336,11 @@ pub(crate) fn kernel_context<'e>(cx: &Ctx<'e>) -> Result<kernel::Ctx<'e>> {
 /// function is only checked against a type. Those are checked against the
 /// carrier, if it has no unsolved metavariable to solve. If it has, or the
 /// term has one the goal hasn't solved yet, nothing can be said and the
-/// comparison by conversion is left to decide.
+/// comparison is left to decide. That comparison is unification, not
+/// conversion (`conv_now`, which needs one type for both, SW-4496): a
+/// function against a constructor under eta is simply unequal there
+/// (`unify::can_apply`), and a match at another type than the goal's is
+/// refused when the motive is checked (`E-REWRITE-MOTIVE`).
 fn has_carrier(cx: &Ctx, kcx: &mut kernel::Ctx, term: &Term, carrier: &Value) -> Result<bool> {
     match kernel::without_glue(&cx.g(), || kernel::infer(kcx, term)) {
         Ok((_, ty)) => return cx.unify(&ty, carrier),
