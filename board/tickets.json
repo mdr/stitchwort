@@ -31524,12 +31524,12 @@
     {
       "id": 4553,
       "title": "[Opus] One-file pilot by hand of a traversal lemma for the ...Blanks families (SW-4547's class e, the long case splits: each arm rebuilds a different constructor around its own recursive calls; exprBlanks 86 lines against 10 in Lean and Rocq via simp with the equation lemmas): state once that traversing a node gives its children's traversals rebuilt, prove exprBlanks and two siblings from it, measure lines and steps against the D3696 bar, and say how far it generalises (SW-4523's families) before any sweep",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Estimate 40 min agent time; started 21:51, done ~22:01 (about 10 min).\nProgress (lane, Opus): rebuilds1/2/3 lemmas in Fmt/TraverseFail.sw (a node rebuilt around its children's runs, handed to a step that keeps blanking, agrees when the children do); exprBlanks, patternBlanks and declBlanks's six simple arms now use them, arms with the same children joined by or-patterns. Proof lines 86->33, 25->13, 92->85 (file 438->369; lemmas 3 proof + 21 statement lines). Steps 0.98x, 0.98x, 1.00x; file 1.07x (the lemmas). Statements unchanged. Commit 94e2c150d on lane/SW-4553. Write-up: docs/reviews/SW-4553-traversal-lemma-pilot.md (predicts about 130 net lines more from the Fmt.Walk ...Ok and ...Twice families).\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
