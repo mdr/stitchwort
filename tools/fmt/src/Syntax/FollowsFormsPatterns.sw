@@ -75,63 +75,29 @@ theorem alikeFieldsPattern ∀ (open openTwin: Word)
       rest = restTwin,
       close = closeTwin
     } :=
-  calc (walkFields blankPure { open, fields, trailingComma = trailing, rest, close }).blank
-    _ = {
-        open = open.blank,
-        fields = blankFieldPatterns (walkFieldPatterns blankPure fields),
-        trailingComma = trailing,
-        rest = rest.map Word.blank,
-        close = close.blank
-      } := byComputing
-    _ = {
-        open = openTwin.blank,
-        fields = blankFieldPatterns (walkFieldPatterns blankPure twins),
-        trailingComma = trailing,
-        rest = restTwin.map Word.blank,
-        close = closeTwin.blank
-      } := rewrite opens, fieldPatternsBlank fields twins alike, keywordBlank rest restTwin rests, closes
-    _ = (walkFields blankPure {
-        open = openTwin,
-        fields = twins,
-        trailingComma = trailing,
-        rest = restTwin,
-        close = closeTwin
-      }).blank := byComputing
+  rewrite repeatedly [opens, fieldPatternsBlank fields twins alike, keywordBlank rest restTwin rests, closes]
 
 theorem alikePatternWord ∀ (kind: Tok) (word twin: Word)
     (words: WordsAlike word twin):
     PatternsAlike (PatternWord kind word) (PatternWord kind twin) :=
-  calc (PatternWord kind word).walk blankPure
-    _ = PatternWord kind word.blank := byComputing
-    _ = PatternWord kind twin.blank := rewrite words
-    _ = (PatternWord kind twin).walk blankPure := byComputing
+  rewrite repeatedly [words]
 
 theorem alikePatternCtor ∀ (name nameTwin: Word)
     (names: WordsAlike name nameTwin) (arguments twins: List Pattern)
     (alike: List.All2 PatternsAlike arguments twins):
     PatternsAlike (PatternCtor name arguments) (PatternCtor nameTwin twins) :=
-  calc (PatternCtor name arguments).walk blankPure
-    _ = PatternCtor name.blank (walkPatterns blankPure arguments) := byComputing
-    _ = PatternCtor nameTwin.blank (walkPatterns blankPure twins) :=
-      rewrite names, walkPatternsAlike arguments twins alike
-    _ = (PatternCtor nameTwin twins).walk blankPure := byComputing
+  rewrite repeatedly [names, walkPatternsAlike arguments twins alike]
 
 theorem alikePatternCtorFields ∀ (name nameTwin: Word)
     (names: WordsAlike name nameTwin) (fields twins: FieldsPattern)
     (alike: FieldsPatternAlike fields twins):
     PatternsAlike (PatternCtorFields name fields) (PatternCtorFields nameTwin twins) :=
-  calc (PatternCtorFields name fields).walk blankPure
-    _ = PatternCtorFields name.blank (walkFields blankPure fields).blank := byComputing
-    _ = PatternCtorFields nameTwin.blank (walkFields blankPure twins).blank := rewrite names, alike
-    _ = (PatternCtorFields nameTwin twins).walk blankPure := byComputing
+  rewrite repeatedly [names, alike]
 
 theorem alikePatternRecord ∀ (fields twins: FieldsPattern)
     (alike: FieldsPatternAlike fields twins):
     PatternsAlike (PatternRecord fields) (PatternRecord twins) :=
-  calc (PatternRecord fields).walk blankPure
-    _ = PatternRecord (walkFields blankPure fields).blank := byComputing
-    _ = PatternRecord (walkFields blankPure twins).blank := rewrite alike
-    _ = (PatternRecord twins).walk blankPure := byComputing
+  rewrite repeatedly [alike]
 
 theorem alikePatternTuple ∀ (open openTwin: Word)
     (opens: WordsAlike open openTwin) (items twins: List Pattern)
@@ -139,11 +105,7 @@ theorem alikePatternTuple ∀ (open openTwin: Word)
     (trailing: Bool) (close closeTwin: Word)
     (closes: WordsAlike close closeTwin):
     PatternsAlike (PatternTuple open items trailing close) (PatternTuple openTwin twins trailing closeTwin) :=
-  calc (PatternTuple open items trailing close).walk blankPure
-    _ = PatternTuple open.blank (walkPatterns blankPure items) trailing close.blank := byComputing
-    _ = PatternTuple openTwin.blank (walkPatterns blankPure twins) trailing closeTwin.blank :=
-      rewrite opens, walkPatternsAlike items twins alike, closes
-    _ = (PatternTuple openTwin twins trailing closeTwin).walk blankPure := byComputing
+  rewrite repeatedly [opens, walkPatternsAlike items twins alike, closes]
 
 theorem tailsBlank ∀ (tail twin: Option (Word, Pattern))
     (alike: Option.Alike (PairAlike WordsAlike PatternsAlike) tail twin):
@@ -165,18 +127,7 @@ theorem alikePatternList ∀ (open openTwin: Word)
     PatternsAlike
       (PatternList open items trailing tail close)
       (PatternList openTwin twins trailing tailTwin closeTwin) :=
-  calc (PatternList open items trailing tail close).walk blankPure
-    _ = PatternList open.blank
-        (walkPatterns blankPure items)
-        trailing
-        (blankAfterWord (walkTail blankPure tail))
-        close.blank := byComputing
-    _ = PatternList openTwin.blank
-        (walkPatterns blankPure twins)
-        trailing
-        (blankAfterWord (walkTail blankPure tailTwin))
-        closeTwin.blank := rewrite opens, walkPatternsAlike items twins alike, tailsBlank tail tailTwin tails, closes
-    _ = (PatternList openTwin twins trailing tailTwin closeTwin).walk blankPure := byComputing
+  rewrite repeatedly [opens, walkPatternsAlike items twins alike, tailsBlank tail tailTwin tails, closes]
 
 theorem alikePatternNamed ∀ (open openTwin name nameTwin colonEq colonEqTwin: Word)
     (opens: WordsAlike open openTwin)
@@ -187,50 +138,33 @@ theorem alikePatternNamed ∀ (open openTwin name nameTwin colonEq colonEqTwin: 
     PatternsAlike
       (PatternNamed open name colonEq value close)
       (PatternNamed openTwin nameTwin colonEqTwin twin closeTwin) :=
-  calc (PatternNamed open name colonEq value close).walk blankPure
-    _ = PatternNamed open.blank name.blank colonEq.blank (value.walk blankPure) close.blank := byComputing
-    _ = PatternNamed openTwin.blank nameTwin.blank colonEqTwin.blank (twin.walk blankPure) closeTwin.blank :=
-      rewrite opens, names, colonEqs, values, closes
-    _ = (PatternNamed openTwin nameTwin colonEqTwin twin closeTwin).walk blankPure := byComputing
+  rewrite repeatedly [opens, names, colonEqs, values, closes]
 
 theorem alikePatternParen ∀ (open openTwin: Word)
     (opens: WordsAlike open openTwin) (inner twin: Pattern)
     (inners: PatternsAlike inner twin) (close closeTwin: Word)
     (closes: WordsAlike close closeTwin):
     PatternsAlike (PatternParen open inner close) (PatternParen openTwin twin closeTwin) :=
-  calc (PatternParen open inner close).walk blankPure
-    _ = PatternParen open.blank (inner.walk blankPure) close.blank := byComputing
-    _ = PatternParen openTwin.blank (twin.walk blankPure) closeTwin.blank := rewrite opens, inners, closes
-    _ = (PatternParen openTwin twin closeTwin).walk blankPure := byComputing
+  rewrite repeatedly [opens, inners, closes]
 
 theorem alikePatternNegative ∀ (minus minusTwin number numberTwin: Word)
     (minuses: WordsAlike minus minusTwin)
     (numbers: WordsAlike number numberTwin):
     PatternsAlike (PatternNegative minus number) (PatternNegative minusTwin numberTwin) :=
-  calc (PatternNegative minus number).walk blankPure
-    _ = PatternNegative minus.blank number.blank := byComputing
-    _ = PatternNegative minusTwin.blank numberTwin.blank := rewrite minuses, numbers
-    _ = (PatternNegative minusTwin numberTwin).walk blankPure := byComputing
+  rewrite repeatedly [minuses, numbers]
 
 theorem alikePatternAbsurd ∀ (open openTwin close closeTwin: Word)
     (opens: WordsAlike open openTwin)
     (closes: WordsAlike close closeTwin):
     PatternsAlike (PatternAbsurd open close) (PatternAbsurd openTwin closeTwin) :=
-  calc (PatternAbsurd open close).walk blankPure
-    _ = PatternAbsurd open.blank close.blank := byComputing
-    _ = PatternAbsurd openTwin.blank closeTwin.blank := rewrite opens, closes
-    _ = (PatternAbsurd openTwin closeTwin).walk blankPure := byComputing
+  rewrite repeatedly [opens, closes]
 
 theorem alikePatternAppend ∀ (start twin: Pattern)
     (starts: PatternsAlike start twin) (operator operatorTwin: Word)
     (operators: WordsAlike operator operatorTwin) (rest restTwin: Pattern)
     (rests: PatternsAlike rest restTwin):
     PatternsAlike (PatternAppend start operator rest) (PatternAppend twin operatorTwin restTwin) :=
-  calc (PatternAppend start operator rest).walk blankPure
-    _ = PatternAppend (start.walk blankPure) operator.blank (rest.walk blankPure) := byComputing
-    _ = PatternAppend (twin.walk blankPure) operatorTwin.blank (restTwin.walk blankPure) :=
-      rewrite starts, operators, rests
-    _ = (PatternAppend twin operatorTwin restTwin).walk blankPure := byComputing
+  rewrite repeatedly [starts, operators, rests]
 
 theorem patternLinksBlank ∀ (links twins: List (Word, Pattern))
     (alike: List.All2 (PairAlike WordsAlike PatternsAlike) links twins):

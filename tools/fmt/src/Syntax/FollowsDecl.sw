@@ -128,11 +128,7 @@ theorem alikeAttribute ∀ (name nameTwin: Word)
     (partses: List.All2 (PairAlike Anything WordsAlike) parts partsTwin) (argument argumentTwin: Option Word)
     (arguments: Option.Alike WordsAlike argument argumentTwin):
     AttributeAlike { name, parts, argument } { name = nameTwin, parts = partsTwin, argument = argumentTwin } :=
-  calc attributeBlank { name, parts, argument }
-    _ = { name = name.blank, parts = blankDottedParts parts, argument = argument.map Word.blank } := byComputing
-    _ = { name = nameTwin.blank, parts = blankDottedParts partsTwin, argument = argumentTwin.map Word.blank } :=
-      rewrite names, dottedAlike parts partsTwin partses, keywordBlank argument argumentTwin arguments
-    _ = attributeBlank { name = nameTwin, parts = partsTwin, argument = argumentTwin } := byComputing
+  rewrite repeatedly [names, dottedAlike parts partsTwin partses, keywordBlank argument argumentTwin arguments]
 
 theorem attributeItemsCons ∀ (item: Attribute) (rest: List Attribute):
     blankAttributeItems [item, ..rest] = [attributeBlank item, ..blankAttributeItems rest] :=
@@ -161,28 +157,7 @@ theorem alikeAttributes ∀ (at atTwin open openTwin: Comments) (items twins: Li
       trailingComma = trailingTwin,
       close = closeTwin
     } :=
-  calc blankAttributes { at, open, items, trailingComma = trailing, close }
-    _ = {
-        at = Comments.none,
-        open = Comments.none,
-        items = blankAttributeItems items,
-        trailingComma = trailing,
-        close = Comments.none
-      } := byComputing
-    _ = {
-        at = Comments.none,
-        open = Comments.none,
-        items = blankAttributeItems twins,
-        trailingComma = trailingTwin,
-        close = Comments.none
-      } := rewrite attributeItemsAlike items twins alike, trailings
-    _ = blankAttributes {
-        at = atTwin,
-        open = openTwin,
-        items = twins,
-        trailingComma = trailingTwin,
-        close = closeTwin
-      } := byComputing
+  rewrite repeatedly [attributeItemsAlike items twins alike, trailings]
 
 theorem walkAttributesAlike ∀ (items twins: List Attributes)
     (alike: List.All2 AttributeGroupAlike items twins):
@@ -396,52 +371,11 @@ theorem alikeGroup ∀ (kind: GroupKind) (implicit: Bool)
       close = closeTwin,
       bare = bareTwin
     } :=
-  calc ({ kind, implicit, open, attributes, auto, names, colon, annotation, default, close, bare }: Group).walk
-      blankPure
-    |> .blank
-    _ = {
-        kind,
-        implicit,
-        open = Comments.none,
-        attributes = walkAttributes blankPure attributes,
-        auto = blankComments auto,
-        names = blankWords names,
-        colon = blankComments colon,
-        annotation = walkOptional blankPure annotation,
-        default = blankAfter (walkAfter blankPure default),
-        close = Comments.none,
-        bare = True
-      } := byComputing
-    _ = {
-        kind,
-        implicit,
-        open = Comments.none,
-        attributes = walkAttributes blankPure twinAttributes,
-        auto = blankComments autoTwin,
-        names = blankWords twinNames,
-        colon = blankComments colonTwin,
-        annotation = walkOptional blankPure annotationTwin,
-        default = blankAfter (walkAfter blankPure defaultTwin),
-        close = Comments.none,
-        bare = True
-      } :=
-      rewrite walkAttributesAlike attributes twinAttributes attributeses,
-          commentsBlankAlike auto autoTwin autos,
-          namesBlank names twinNames nameses,
-          commentsBlankAlike colon colonTwin colons,
-          walkOptionalAlike annotation annotationTwin annotations,
-          afterAlike default defaultTwin defaults
-    _ = ({
-            kind,
-            implicit,
-            open = openTwin,
-            attributes = twinAttributes,
-            auto = autoTwin,
-            names = twinNames,
-            colon = colonTwin,
-            annotation = annotationTwin,
-            default = defaultTwin,
-            close = closeTwin,
-            bare = bareTwin
-          }: Group).walk blankPure
-        |> .blank := byComputing
+  rewrite repeatedly [
+    walkAttributesAlike attributes twinAttributes attributeses,
+    commentsBlankAlike auto autoTwin autos,
+    namesBlank names twinNames nameses,
+    commentsBlankAlike colon colonTwin colons,
+    walkOptionalAlike annotation annotationTwin annotations,
+    afterAlike default defaultTwin defaults
+  ]

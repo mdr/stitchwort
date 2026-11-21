@@ -336,19 +336,13 @@ theorem walkExprsAlike ∀ (items others: List Expr)
 theorem alikeAtom ∀ (kind: Tok) (word twin: Word)
     (words: WordsAlike word twin):
     ExprsAlike (Atom kind word) (Atom kind twin) :=
-  calc (Atom kind word).walk blankPure
-    _ = Atom kind word.blank := byComputing
-    _ = Atom kind twin.blank := rewrite words
-    _ = (Atom kind twin).walk blankPure := byComputing
+  rewrite repeatedly [words]
 
 theorem alikePrefix ∀ (operator operatorTwin: Word)
     (operators: WordsAlike operator operatorTwin) (operand operandTwin: Expr)
     (operands: ExprsAlike operand operandTwin):
     ExprsAlike (Prefix operator operand) (Prefix operatorTwin operandTwin) :=
-  calc (Prefix operator operand).walk blankPure
-    _ = Prefix operator.blank (operand.walk blankPure) := byComputing
-    _ = Prefix operatorTwin.blank (operandTwin.walk blankPure) := rewrite operators, operands
-    _ = (Prefix operatorTwin operandTwin).walk blankPure := byComputing
+  rewrite repeatedly [operators, operands]
 
 theorem alikeParen ∀ (open openTwin: Word)
     (opens: WordsAlike open openTwin) (inner innerTwin: Expr)
@@ -366,14 +360,7 @@ theorem alikeAnnotation ∀ (open openTwin: Word)
     ExprsAlike
       (Annotation open value colon annotation close)
       (Annotation openTwin valueTwin colonTwin annotationTwin closeTwin) :=
-  calc (Annotation open value colon annotation close).walk blankPure
-    _ = Annotation open.blank (value.walk blankPure) colon.blank (annotation.walk blankPure) close.blank := byComputing
-    _ = Annotation openTwin.blank
-        (valueTwin.walk blankPure)
-        colonTwin.blank
-        (annotationTwin.walk blankPure)
-        closeTwin.blank := rewrite opens, values, colons, annotations, closes
-    _ = (Annotation openTwin valueTwin colonTwin annotationTwin closeTwin).walk blankPure := byComputing
+  rewrite repeatedly [opens, values, colons, annotations, closes]
 
 theorem alikeTuple ∀ (open openTwin: Word)
     (opens: WordsAlike open openTwin) (items itemsTwin: List Expr)
@@ -381,11 +368,7 @@ theorem alikeTuple ∀ (open openTwin: Word)
     (trailings: trailing = trailingTwin) (close closeTwin: Word)
     (closes: WordsAlike close closeTwin):
     ExprsAlike (Tuple open items trailing close) (Tuple openTwin itemsTwin trailingTwin closeTwin) :=
-  calc (Tuple open items trailing close).walk blankPure
-    _ = Tuple open.blank (walkExprs blankPure items) trailing close.blank := byComputing
-    _ = Tuple openTwin.blank (walkExprs blankPure itemsTwin) trailingTwin closeTwin.blank :=
-      rewrite opens, walkExprsAlike items itemsTwin alike, trailings, closes
-    _ = (Tuple openTwin itemsTwin trailingTwin closeTwin).walk blankPure := byComputing
+  rewrite repeatedly [opens, walkExprsAlike items itemsTwin alike, trailings, closes]
 
 theorem alikeListOf ∀ (open openTwin: Word)
     (opens: WordsAlike open openTwin) (items itemsTwin: List Expr)
@@ -393,20 +376,13 @@ theorem alikeListOf ∀ (open openTwin: Word)
     (trailings: trailing = trailingTwin) (close closeTwin: Word)
     (closes: WordsAlike close closeTwin):
     ExprsAlike (ListOf open items trailing close) (ListOf openTwin itemsTwin trailingTwin closeTwin) :=
-  calc (ListOf open items trailing close).walk blankPure
-    _ = ListOf open.blank (walkExprs blankPure items) trailing close.blank := byComputing
-    _ = ListOf openTwin.blank (walkExprs blankPure itemsTwin) trailingTwin closeTwin.blank :=
-      rewrite opens, walkExprsAlike items itemsTwin alike, trailings, closes
-    _ = (ListOf openTwin itemsTwin trailingTwin closeTwin).walk blankPure := byComputing
+  rewrite repeatedly [opens, walkExprsAlike items itemsTwin alike, trailings, closes]
 
 theorem alikeSpread ∀ (dots dotsTwin: Word)
     (dotted: WordsAlike dots dotsTwin) (list listTwin: Expr)
     (lists: ExprsAlike list listTwin):
     ExprsAlike (Spread dots list) (Spread dotsTwin listTwin) :=
-  calc (Spread dots list).walk blankPure
-    _ = Spread dots.blank (list.walk blankPure) := byComputing
-    _ = Spread dotsTwin.blank (listTwin.walk blankPure) := rewrite dotted, lists
-    _ = (Spread dotsTwin listTwin).walk blankPure := byComputing
+  rewrite repeatedly [dotted, lists]
 
 -- Atoms.
 
@@ -615,10 +591,7 @@ theorem alikeUnit ∀ (open openTwin: Word)
     (opens: WordsAlike open openTwin) (close closeTwin: Word)
     (closes: WordsAlike close closeTwin):
     ExprsAlike (Expr.Unit open close) (Expr.Unit openTwin closeTwin) :=
-  calc (Expr.Unit open close).walk blankPure
-    _ = Expr.Unit open.blank close.blank := byComputing
-    _ = Expr.Unit openTwin.blank closeTwin.blank := rewrite opens, closes
-    _ = (Expr.Unit openTwin closeTwin).walk blankPure := byComputing
+  rewrite repeatedly [opens, closes]
 
 theorem followsParenOther ∀ [self selfTwin: Goal → {Parse Item} Expr] (modes: Modes)
     (namedArguments: ∀ (closer: Tok) (closeText: Text) => Parse.Follows SameCode ExprsAlike

@@ -169,18 +169,12 @@ theorem afterBlank ∀ (found twin: Option (Comments, Expr))
 theorem alikeExprStatement ∀ (value twin: Expr)
     (values: ExprsAlike value twin):
     StatementsAlike (ExprStatement value) (ExprStatement twin) :=
-  calc (walkStatement blankPure (ExprStatement value)).blank
-    _ = ExprStatement (value.walk blankPure) := byComputing
-    _ = ExprStatement (twin.walk blankPure) := rewrite values
-    _ = (walkStatement blankPure (ExprStatement twin)).blank := byComputing
+  rewrite repeatedly [values]
 
 theorem alikeLetStatement ∀ (binding twin: Let)
     (lets: LetsAlike binding twin):
     StatementsAlike (LetStatement binding) (LetStatement twin) :=
-  calc (walkStatement blankPure (LetStatement binding)).blank
-    _ = LetStatement (walkLet blankPure binding).blank := byComputing
-    _ = LetStatement (walkLet blankPure twin).blank := rewrite lets
-    _ = (walkStatement blankPure (LetStatement twin)).blank := byComputing
+  rewrite repeatedly [lets]
 
 theorem alikeLet ∀ (keyword keywordTwin: Comments) (pattern patternTwin: Pattern)
     (patterns: PatternsAlike pattern patternTwin) (annotation annotationTwin: Option (Comments, Expr))
@@ -194,38 +188,14 @@ theorem alikeLet ∀ (keyword keywordTwin: Comments) (pattern patternTwin: Patte
       colonEq = colonEqTwin,
       value = valueTwin
     } :=
-  calc (walkLet blankPure { keyword, pattern, annotation, colonEq, value }).blank
-    _ = {
-        keyword = Comments.none,
-        pattern = pattern.walk blankPure,
-        annotation = blankAfter (walkAfter blankPure annotation),
-        colonEq = Comments.none,
-        value = value.walk blankPure
-      } := byComputing
-    _ = {
-        keyword = Comments.none,
-        pattern = patternTwin.walk blankPure,
-        annotation = blankAfter (walkAfter blankPure annotationTwin),
-        colonEq = Comments.none,
-        value = valueTwin.walk blankPure
-      } := rewrite patterns, afterBlank annotation annotationTwin annotations, values
-    _ = (walkLet blankPure {
-        keyword = keywordTwin,
-        pattern = patternTwin,
-        annotation = annotationTwin,
-        colonEq = colonEqTwin,
-        value = valueTwin
-      }).blank := byComputing
+  rewrite repeatedly [patterns, afterBlank annotation annotationTwin annotations, values]
 
 theorem alikeLetIn ∀ (binding twin: Let)
     (lets: LetsAlike binding twin)
     (semicolon semicolonTwin: Comments) (body bodyTwin: Expr)
     (bodies: ExprsAlike body bodyTwin):
     ExprsAlike (LetIn binding semicolon body) (LetIn twin semicolonTwin bodyTwin) :=
-  calc (LetIn binding semicolon body).walk blankPure
-    _ = LetIn (walkLet blankPure binding).blank Comments.none (body.walk blankPure) := byComputing
-    _ = LetIn (walkLet blankPure twin).blank Comments.none (bodyTwin.walk blankPure) := rewrite lets, bodies
-    _ = (LetIn twin semicolonTwin bodyTwin).walk blankPure := byComputing
+  rewrite repeatedly [lets, bodies]
 
 -- The two sides of a header's `unfolding` clause and a body's primitiveness are read by `localDef`.
 
@@ -276,16 +246,7 @@ theorem alikeLocalDef ∀ (attributes twinAttributes: List Attributes)
     (header twinHeader: Header) (body twinBody: DefBody)
     (parts: PartsAlike (header, body) (twinHeader, twinBody)):
     StatementsAlike (LocalDef attributes header body) (LocalDef twinAttributes twinHeader twinBody) :=
-  calc (walkStatement blankPure (LocalDef attributes header body)).blank
-    _ = LocalDef
-        (walkAttributes blankPure attributes)
-        (walkHeader blankPure header)
-        (walkDefBody blankPure body).blank := byComputing
-    _ = LocalDef
-        (walkAttributes blankPure twinAttributes)
-        (walkHeader blankPure twinHeader)
-        (walkDefBody blankPure twinBody).blank := rewrite attributeses, parts.left, parts.right
-    _ = (walkStatement blankPure (LocalDef twinAttributes twinHeader twinBody)).blank := byComputing
+  rewrite repeatedly [attributeses, parts.left, parts.right]
 
 -- Where the next item is.
 
@@ -517,12 +478,7 @@ theorem alikeReturnClause ∀ (bar barTwin keyword keywordTwin: Comments) (name 
     ClauseAlike
       (ReturnClause bar keyword name arrow body)
       (ReturnClause barTwin keywordTwin nameTwin arrowTwin bodyTwin) :=
-  calc blankClauses (walkClauses blankPure [ReturnClause bar keyword name arrow body])
-    _ = [ReturnClause Comments.none Comments.none name.blank Comments.none (body.walk blankPure)] := byComputing
-    _ = [ReturnClause Comments.none Comments.none nameTwin.blank Comments.none (bodyTwin.walk blankPure)] :=
-      rewrite names, bodies
-    _ = blankClauses (walkClauses blankPure [ReturnClause barTwin keywordTwin nameTwin arrowTwin bodyTwin]) :=
-      byComputing
+  rewrite repeatedly [names, bodies]
 
 theorem alikeOperationClause ∀ (bar barTwin: Comments) (operation operationTwin: Word)
     (operations: WordsAlike operation operationTwin) (argument argumentTwin: Pattern)
@@ -534,27 +490,7 @@ theorem alikeOperationClause ∀ (bar barTwin: Comments) (operation operationTwi
     ClauseAlike
       (OperationClause bar operation argument comma continuation arrow body)
       (OperationClause barTwin operationTwin argumentTwin commaTwin continuationTwin arrowTwin bodyTwin) :=
-  calc blankClauses (walkClauses blankPure [OperationClause bar operation argument comma continuation arrow body])
-    _ = [
-        OperationClause Comments.none operation.blank
-          (argument.walk blankPure)
-          Comments.none
-          continuation.blank
-          Comments.none
-          (body.walk blankPure)
-      ] := byComputing
-    _ = [
-        OperationClause Comments.none operationTwin.blank
-          (argumentTwin.walk blankPure)
-          Comments.none
-          continuationTwin.blank
-          Comments.none
-          (bodyTwin.walk blankPure)
-      ] := rewrite operations, arguments, continuations, bodies
-    _ = blankClauses
-        (walkClauses blankPure [
-          OperationClause barTwin operationTwin argumentTwin commaTwin continuationTwin arrowTwin bodyTwin
-        ]) := byComputing
+  rewrite repeatedly [operations, arguments, continuations, bodies]
 
 theorem clausesBlankCons ∀ (clause: HandlerClause) (rest: List HandlerClause):
     blankClauses (walkClauses blankPure [clause, ..rest])
@@ -581,16 +517,7 @@ theorem alikeHandle ∀ (keyword keywordTwin: Comments) (computation computation
     ExprsAlike
       (Handle keyword computation withKeyword clauses)
       (Handle keywordTwin computationTwin withKeywordTwin twins) :=
-  calc (Handle keyword computation withKeyword clauses).walk blankPure
-    _ = Handle Comments.none
-        (computation.walk blankPure)
-        Comments.none
-        (blankClauses (walkClauses blankPure clauses)) := byComputing
-    _ = Handle Comments.none
-        (computationTwin.walk blankPure)
-        Comments.none
-        (blankClauses (walkClauses blankPure twins)) := rewrite computations, clausesBlank clauses twins alike
-    _ = (Handle keywordTwin computationTwin withKeywordTwin twins).walk blankPure := byComputing
+  rewrite repeatedly [computations, clausesBlank clauses twins alike]
 
 theorem alikeReify ∀ (keyword keywordTwin reify reifyTwin: Comments) (computation computationTwin: Expr)
     (computations: ExprsAlike computation computationTwin)
@@ -599,16 +526,7 @@ theorem alikeReify ∀ (keyword keywordTwin reify reifyTwin: Comments) (computat
     ExprsAlike
       (Reify keyword reify computation withKeyword clauses)
       (Reify keywordTwin reifyTwin computationTwin withKeywordTwin twins) :=
-  calc (Reify keyword reify computation withKeyword clauses).walk blankPure
-    _ = Reify Comments.none Comments.none
-        (computation.walk blankPure)
-        Comments.none
-        (blankClauses (walkClauses blankPure clauses)) := byComputing
-    _ = Reify Comments.none Comments.none
-        (computationTwin.walk blankPure)
-        Comments.none
-        (blankClauses (walkClauses blankPure twins)) := rewrite computations, clausesBlank clauses twins alike
-    _ = (Reify keywordTwin reifyTwin computationTwin withKeywordTwin twins).walk blankPure := byComputing
+  rewrite repeatedly [computations, clausesBlank clauses twins alike]
 
 theorem namesBlank ∀ (words twins: List Word)
     (alike: List.All2 WordsAlike words twins):
@@ -635,29 +553,7 @@ theorem alikeInductArm ∀ (bar barTwin: Comments) (case caseTwin: Word)
       arrow = arrowTwin,
       body = bodyTwin
     } :=
-  calc blankInductArms (walkInductArms blankPure [{ bar, case, names, arrow, body }])
-    _ = [
-        {
-          bar = Comments.none,
-          case = case.blank,
-          names = blankWords names,
-          arrow = Comments.none,
-          body = body.walk blankPure
-        }
-      ] := byComputing
-    _ = [
-        {
-          bar = Comments.none,
-          case = caseTwin.blank,
-          names = blankWords twins,
-          arrow = Comments.none,
-          body = bodyTwin.walk blankPure
-        }
-      ] := rewrite kinds, namesBlank names twins alike, bodies
-    _ = blankInductArms
-        (walkInductArms blankPure [
-          { bar = barTwin, case = caseTwin, names = twins, arrow = arrowTwin, body = bodyTwin }
-        ]) := byComputing
+  rewrite repeatedly [kinds, namesBlank names twins alike, bodies]
 
 theorem inductArmsBlankCons ∀ (arm: InductArm) (rest: List InductArm):
     blankInductArms (walkInductArms blankPure [arm, ..rest])
@@ -684,16 +580,7 @@ theorem alikeInduct ∀ (keyword keywordTwin induct inductTwin: Comments) (call 
     ExprsAlike
       (Induct keyword induct call withKeyword arms)
       (Induct keywordTwin inductTwin callTwin withKeywordTwin twins) :=
-  calc (Induct keyword induct call withKeyword arms).walk blankPure
-    _ = Induct Comments.none Comments.none
-        (call.walk blankPure)
-        Comments.none
-        (blankInductArms (walkInductArms blankPure arms)) := byComputing
-    _ = Induct Comments.none Comments.none
-        (callTwin.walk blankPure)
-        Comments.none
-        (blankInductArms (walkInductArms blankPure twins)) := rewrite calls, inductArmsBlank arms twins alike
-    _ = (Induct keywordTwin inductTwin callTwin withKeywordTwin twins).walk blankPure := byComputing
+  rewrite repeatedly [calls, inductArmsBlank arms twins alike]
 
 -- Handlers.
 
@@ -949,27 +836,7 @@ theorem alikeStep ∀ (underscore underscoreTwin: Comments) (relation relationTw
       operand = operandTwin,
       proof = proofTwin
     } :=
-  calc blankCalcSteps (walkSteps blankPure [{ underscore, relation, operand, proof }])
-    _ = [
-        {
-          underscore = Comments.none,
-          relation = relation.blank,
-          operand = operand.walk blankPure,
-          proof = blankAfter (walkAfter blankPure proof)
-        }
-      ] := byComputing
-    _ = [
-        {
-          underscore = Comments.none,
-          relation = relationTwin.blank,
-          operand = operandTwin.walk blankPure,
-          proof = blankAfter (walkAfter blankPure proofTwin)
-        }
-      ] := rewrite relations, operands, afterBlank proof proofTwin proofs
-    _ = blankCalcSteps
-        (walkSteps blankPure [
-          { underscore = underscoreTwin, relation = relationTwin, operand = operandTwin, proof = proofTwin }
-        ]) := byComputing
+  rewrite repeatedly [relations, operands, afterBlank proof proofTwin proofs]
 
 theorem stepsBlankCons ∀ (step: CalcStep) (rest: List CalcStep):
     blankCalcSteps (walkSteps blankPure [step, ..rest])
@@ -993,11 +860,7 @@ theorem alikeCalc ∀ (keyword keywordTwin: Comments) (first firstTwin: Expr)
     (firsts: ExprsAlike first firstTwin) (steps twins: List CalcStep)
     (alike: List.All2 StepAlike steps twins):
     ExprsAlike (Calc keyword first steps) (Calc keywordTwin firstTwin twins) :=
-  calc (Calc keyword first steps).walk blankPure
-    _ = Calc Comments.none (first.walk blankPure) (blankCalcSteps (walkSteps blankPure steps)) := byComputing
-    _ = Calc Comments.none (firstTwin.walk blankPure) (blankCalcSteps (walkSteps blankPure twins)) :=
-      rewrite firsts, blankCalcStepsAlike steps twins alike
-    _ = (Calc keywordTwin firstTwin twins).walk blankPure := byComputing
+  rewrite repeatedly [firsts, blankCalcStepsAlike steps twins alike]
 
 -- `calc`.
 
@@ -1188,11 +1051,7 @@ theorem alikeRule ∀ (reverse reverseTwin: Option (Comments, Comments))
     (reverses: ReverseAlike reverse reverseTwin) (rule ruleTwin: Expr)
     (rules: ExprsAlike rule ruleTwin):
     RuleAlike { reverse, rule } { reverse = reverseTwin, rule = ruleTwin } :=
-  calc blankRuleList (walkRuleList blankPure [{ reverse, rule }])
-    _ = [{ reverse = blankReverse reverse, rule = rule.walk blankPure }] := byComputing
-    _ = [{ reverse = blankReverse reverseTwin, rule = ruleTwin.walk blankPure }] :=
-      rewrite reverseBlank reverse reverseTwin reverses, rules
-    _ = blankRuleList (walkRuleList blankPure [{ reverse = reverseTwin, rule = ruleTwin }]) := byComputing
+  rewrite repeatedly [reverseBlank reverse reverseTwin reverses, rules]
 
 theorem ruleListBlankCons ∀ (rule: RewriteRule) (rest: List RewriteRule):
     blankRuleList (walkRuleList blankPure [rule, ..rest])
@@ -1215,18 +1074,12 @@ theorem ruleListBlank ∀ (rules twins: List RewriteRule)
 theorem alikeRuleList ∀ (rules twins: List RewriteRule)
     (alike: List.All2 RuleAlike rules twins):
     RulesAlike (RuleList rules) (RuleList twins) :=
-  calc (walkRules blankPure (RuleList rules)).blank
-    _ = RuleList (blankRuleList (walkRuleList blankPure rules)) := byComputing
-    _ = RuleList (blankRuleList (walkRuleList blankPure twins)) := rewrite ruleListBlank rules twins alike
-    _ = (walkRules blankPure (RuleList twins)).blank := byComputing
+  rewrite repeatedly [ruleListBlank rules twins alike]
 
 theorem alikeRepeatedly ∀ (word wordTwin: Comments) (set twin: RuleSet)
     (alike: RuleSetAlike set twin):
     RulesAlike (Repeatedly word set) (Repeatedly wordTwin twin) :=
-  calc (walkRules blankPure (Repeatedly word set)).blank
-    _ = Repeatedly Comments.none (walkRuleSet blankPure set) := byComputing
-    _ = Repeatedly Comments.none (walkRuleSet blankPure twin) := rewrite alike
-    _ = (walkRules blankPure (Repeatedly wordTwin twin)).blank := byComputing
+  rewrite repeatedly [alike]
 
 theorem alikeRuleSet ∀ (open openTwin: Comments) (rules twins: List RewriteRule)
     (alike: List.All2 RuleAlike rules twins)
@@ -1237,47 +1090,20 @@ theorem alikeRuleSet ∀ (open openTwin: Comments) (rules twins: List RewriteRul
       trailingComma,
       close = closeTwin
     } :=
-  calc walkRuleSet blankPure { open, rules, trailingComma, close }
-    _ = {
-        open = Comments.none,
-        rules = blankRuleList (walkRuleList blankPure rules),
-        trailingComma,
-        close = Comments.none
-      } := byComputing
-    _ = {
-        open = Comments.none,
-        rules = blankRuleList (walkRuleList blankPure twins),
-        trailingComma,
-        close = Comments.none
-      } := rewrite ruleListBlank rules twins alike
-    _ = walkRuleSet blankPure { open = openTwin, rules = twins, trailingComma, close = closeTwin } := byComputing
+  rewrite repeatedly [ruleListBlank rules twins alike]
 
 theorem alikeRewrite ∀ (keyword keywordTwin: Comments) (rules twinRules: Rules)
     (ruleses: RulesAlike rules twinRules) (target targetTwin: Option (Comments, Expr))
     (targets: CommentedAlike target targetTwin) (body bodyTwin: Option (Comments, Expr))
     (bodies: CommentedAlike body bodyTwin):
     ExprsAlike (Rewrite keyword rules target body) (Rewrite keywordTwin twinRules targetTwin bodyTwin) :=
-  calc (Rewrite keyword rules target body).walk blankPure
-    _ = Rewrite Comments.none
-        (walkRules blankPure rules).blank
-        (blankAfter (walkAfter blankPure target))
-        (blankAfter (walkAfter blankPure body)) := byComputing
-    _ = Rewrite Comments.none
-        (walkRules blankPure twinRules).blank
-        (blankAfter (walkAfter blankPure targetTwin))
-        (blankAfter (walkAfter blankPure bodyTwin)) :=
-      rewrite ruleses, afterBlank target targetTwin targets, afterBlank body bodyTwin bodies
-    _ = (Rewrite keywordTwin twinRules targetTwin bodyTwin).walk blankPure := byComputing
+  rewrite repeatedly [ruleses, afterBlank target targetTwin targets, afterBlank body bodyTwin bodies]
 
 theorem alikeCases ∀ (keyword keywordTwin: Comments) (targets targetsTwin: List Word)
     (targetses: List.All2 WordsAlike targets targetsTwin) (body bodyTwin: Option (Comments, Expr))
     (bodies: CommentedAlike body bodyTwin):
     ExprsAlike (Cases keyword targets body) (Cases keywordTwin targetsTwin bodyTwin) :=
-  calc (Cases keyword targets body).walk blankPure
-    _ = Cases Comments.none (blankWords targets) (blankAfter (walkAfter blankPure body)) := byComputing
-    _ = Cases Comments.none (blankWords targetsTwin) (blankAfter (walkAfter blankPure bodyTwin)) :=
-      rewrite namesBlank targets targetsTwin targetses, afterBlank body bodyTwin bodies
-    _ = (Cases keywordTwin targetsTwin bodyTwin).walk blankPure := byComputing
+  rewrite repeatedly [namesBlank targets targetsTwin targetses, afterBlank body bodyTwin bodies]
 
 theorem alikeCasesBare ∀ (keyword keywordTwin: Word)
     (keywords: WordsAlike keyword keywordTwin) (targets targetsTwin: List Word)
@@ -1617,11 +1443,7 @@ theorem alikeWalk ∀ (keyword keywordTwin: Comments) (items itemsTwin: Expr)
     (itemses: ExprsAlike items itemsTwin) (body bodyTwin: Option (Comments, Expr))
     (bodies: CommentedAlike body bodyTwin):
     ExprsAlike (Walk keyword items body) (Walk keywordTwin itemsTwin bodyTwin) :=
-  calc (Walk keyword items body).walk blankPure
-    _ = Walk Comments.none (items.walk blankPure) (blankAfter (walkAfter blankPure body)) := byComputing
-    _ = Walk Comments.none (itemsTwin.walk blankPure) (blankAfter (walkAfter blankPure bodyTwin)) :=
-      rewrite itemses, afterBlank body bodyTwin bodies
-    _ = (Walk keywordTwin itemsTwin bodyTwin).walk blankPure := byComputing
+  rewrite repeatedly [itemses, afterBlank body bodyTwin bodies]
 
 theorem followsWalkBody ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)

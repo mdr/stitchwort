@@ -60,26 +60,17 @@ theorem paramsBlank ∀ (params twins: List Param)
 theorem alikeNameParam ∀ (word twin: Word)
     (words: WordsAlike word twin):
     ParamsAlike (NameParam word) (NameParam twin) :=
-  calc blankParams (walkParams blankPure [NameParam word])
-    _ = [NameParam word.blank] := byComputing
-    _ = [NameParam twin.blank] := rewrite words
-    _ = blankParams (walkParams blankPure [NameParam twin]) := byComputing
+  rewrite repeatedly [words]
 
 theorem alikePatternParam ∀ (pattern twin: Pattern)
     (patterns: PatternsAlike pattern twin):
     ParamsAlike (PatternParam pattern) (PatternParam twin) :=
-  calc blankParams (walkParams blankPure [PatternParam pattern])
-    _ = [PatternParam (pattern.walk blankPure)] := byComputing
-    _ = [PatternParam (twin.walk blankPure)] := rewrite patterns
-    _ = blankParams (walkParams blankPure [PatternParam twin]) := byComputing
+  rewrite repeatedly [patterns]
 
 theorem alikeGrouped ∀ (group twin: Group)
     (groups: GroupsAlike group twin):
     ParamsAlike (Grouped group) (Grouped twin) :=
-  calc blankParams (walkParams blankPure [Grouped group])
-    _ = [Grouped (group.walk blankPure).blank] := byComputing
-    _ = [Grouped (twin.walk blankPure).blank] := rewrite groups
-    _ = blankParams (walkParams blankPure [Grouped twin]) := byComputing
+  rewrite repeatedly [groups]
 
 theorem alikeTypedPattern ∀ (open openTwin: Word)
     (opens: WordsAlike open openTwin) (pattern twin: Pattern)
@@ -90,18 +81,7 @@ theorem alikeTypedPattern ∀ (open openTwin: Word)
     ParamsAlike
       (TypedPattern open pattern colon annotation close)
       (TypedPattern openTwin twin colonTwin annotationTwin closeTwin) :=
-  calc blankParams (walkParams blankPure [TypedPattern open pattern colon annotation close])
-    _ = [TypedPattern open.blank (pattern.walk blankPure) colon.blank (annotation.walk blankPure) close.blank] :=
-      byComputing
-    _ = [
-        TypedPattern openTwin.blank
-          (twin.walk blankPure)
-          colonTwin.blank
-          (annotationTwin.walk blankPure)
-          closeTwin.blank
-      ] := rewrite opens, patterns, colons, annotations, closes
-    _ = blankParams (walkParams blankPure [TypedPattern openTwin twin colonTwin annotationTwin closeTwin]) :=
-      byComputing
+  rewrite repeatedly [opens, patterns, colons, annotations, closes]
 
 theorem keywordBlank ∀ (keyword keywordTwin: Option Word)
     (alike: Option.Alike WordsAlike keyword keywordTwin):
@@ -123,19 +103,7 @@ theorem alikeBinding ∀ (kind: BindingKind) (keyword keywordTwin: Option Word)
     (arrows: WordsAlike arrow arrowTwin) (body bodyTwin: Expr)
     (bodies: ExprsAlike body bodyTwin):
     ExprsAlike (Binding kind keyword params arrow body) (Binding kind keywordTwin twins arrowTwin bodyTwin) :=
-  calc (Binding kind keyword params arrow body).walk blankPure
-    _ = Binding kind
-        (keyword.map Word.blank)
-        (blankParams (walkParams blankPure params))
-        arrow.blank
-        (body.walk blankPure) := byComputing
-    _ = Binding kind
-        (keywordTwin.map Word.blank)
-        (blankParams (walkParams blankPure twins))
-        arrowTwin.blank
-        (bodyTwin.walk blankPure) :=
-      rewrite keywordBlank keyword keywordTwin keywords, paramsBlank params twins alike, arrows, bodies
-    _ = (Binding kind keywordTwin twins arrowTwin bodyTwin).walk blankPure := byComputing
+  rewrite repeatedly [keywordBlank keyword keywordTwin keywords, paramsBlank params twins alike, arrows, bodies]
 
 -- Lambdas and `∃`.
 
@@ -522,24 +490,7 @@ theorem alikeIf ∀ (keyword keywordTwin: Word)
     ExprsAlike
       (If keyword binder condition thenKeyword whenTrue elseKeyword whenFalse)
       (If keywordTwin binderTwin conditionTwin thenKeywordTwin whenTrueTwin elseKeywordTwin whenFalseTwin) :=
-  calc (If keyword binder condition thenKeyword whenTrue elseKeyword whenFalse).walk blankPure
-    _ = If keyword.blank
-        (blankPair binder)
-        (condition.walk blankPure)
-        thenKeyword.blank
-        (whenTrue.walk blankPure)
-        elseKeyword.blank
-        (whenFalse.walk blankPure) := byComputing
-    _ = If keywordTwin.blank
-        (blankPair binderTwin)
-        (conditionTwin.walk blankPure)
-        thenKeywordTwin.blank
-        (whenTrueTwin.walk blankPure)
-        elseKeywordTwin.blank
-        (whenFalseTwin.walk blankPure) :=
-      rewrite keywords, pairBlank binder binderTwin binders, conditions, thens, trues, elses, falses
-    _ = (If keywordTwin binderTwin conditionTwin thenKeywordTwin whenTrueTwin elseKeywordTwin whenFalseTwin).walk
-          blankPure := byComputing
+  rewrite repeatedly [keywords, pairBlank binder binderTwin binders, conditions, thens, trues, elses, falses]
 
 theorem followsIfExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)

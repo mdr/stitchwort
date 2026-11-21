@@ -100,28 +100,19 @@ theorem alikeInclude ∀ (keyword keywordTwin: Word)
     (keywords: WordsAlike keyword keywordTwin) (path pathTwin: Word)
     (paths: WordsAlike path pathTwin):
     ExprsAlike (Include keyword path) (Include keywordTwin pathTwin) :=
-  calc (Include keyword path).walk blankPure
-    _ = Include keyword.blank path.blank := byComputing
-    _ = Include keywordTwin.blank pathTwin.blank := rewrite keywords, paths
-    _ = (Include keywordTwin pathTwin).walk blankPure := byComputing
+  rewrite repeatedly [keywords, paths]
 
 theorem alikeUniverse ∀ (keyword keywordTwin: Word)
     (keywords: WordsAlike keyword keywordTwin) (level levelTwin: Word)
     (levels: WordsAlike level levelTwin):
     ExprsAlike (Universe keyword level) (Universe keywordTwin levelTwin) :=
-  calc (Universe keyword level).walk blankPure
-    _ = Universe keyword.blank level.blank := byComputing
-    _ = Universe keywordTwin.blank levelTwin.blank := rewrite keywords, levels
-    _ = (Universe keywordTwin levelTwin).walk blankPure := byComputing
+  rewrite repeatedly [keywords, levels]
 
 theorem alikeFacts ∀ (kind: FactsKind) (keyword keywordTwin: Word)
     (keywords: WordsAlike keyword keywordTwin) (list listTwin: Expr)
     (lists: ExprsAlike list listTwin):
     ExprsAlike (Facts kind keyword list) (Facts kind keywordTwin listTwin) :=
-  calc (Facts kind keyword list).walk blankPure
-    _ = Facts kind keyword.blank (list.walk blankPure) := byComputing
-    _ = Facts kind keywordTwin.blank (listTwin.walk blankPure) := rewrite keywords, lists
-    _ = (Facts kind keywordTwin listTwin).walk blankPure := byComputing
+  rewrite repeatedly [keywords, lists]
 
 -- Atoms that read a keyword.
 
@@ -223,20 +214,14 @@ theorem alikeFieldAccessNone ∀ (dot dotTwin: Word)
     (dots: WordsAlike dot dotTwin) (field fieldTwin: Word)
     (fields: WordsAlike field fieldTwin):
     ExprsAlike (FieldAccess None dot field) (FieldAccess None dotTwin fieldTwin) :=
-  calc (FieldAccess None dot field).walk blankPure
-    _ = FieldAccess None dot.blank field.blank := byComputing
-    _ = FieldAccess None dotTwin.blank fieldTwin.blank := rewrite dots, fields
-    _ = (FieldAccess None dotTwin fieldTwin).walk blankPure := byComputing
+  rewrite repeatedly [dots, fields]
 
 theorem alikeFieldAccessSome ∀ (target targetTwin: Expr)
     (targets: ExprsAlike target targetTwin) (dot dotTwin: Word)
     (dots: WordsAlike dot dotTwin) (field fieldTwin: Word)
     (fields: WordsAlike field fieldTwin):
     ExprsAlike (FieldAccess (Some target) dot field) (FieldAccess (Some targetTwin) dotTwin fieldTwin) :=
-  calc (FieldAccess (Some target) dot field).walk blankPure
-    _ = FieldAccess (Some (target.walk blankPure)) dot.blank field.blank := byComputing
-    _ = FieldAccess (Some (targetTwin.walk blankPure)) dotTwin.blank fieldTwin.blank := rewrite targets, dots, fields
-    _ = (FieldAccess (Some targetTwin) dotTwin fieldTwin).walk blankPure := byComputing
+  rewrite repeatedly [targets, dots, fields]
 
 -- A method section, `.name`.
 
@@ -482,11 +467,7 @@ theorem alikeNamedArg ∀ (open openTwin: Word)
     (values: ExprsAlike value valueTwin) (close closeTwin: Word)
     (closes: WordsAlike close closeTwin):
     ExprsAlike (NamedArg open name colonEq value close) (NamedArg openTwin nameTwin colonEqTwin valueTwin closeTwin) :=
-  calc (NamedArg open name colonEq value close).walk blankPure
-    _ = NamedArg open.blank name.blank colonEq.blank (value.walk blankPure) close.blank := byComputing
-    _ = NamedArg openTwin.blank nameTwin.blank colonEqTwin.blank (valueTwin.walk blankPure) closeTwin.blank :=
-      rewrite opens, names, colonEqs, values, closes
-    _ = (NamedArg openTwin nameTwin colonEqTwin valueTwin closeTwin).walk blankPure := byComputing
+  rewrite repeatedly [opens, names, colonEqs, values, closes]
 
 theorem followsNamedClose ∀ (inner: Modes) (open openTwin name nameTwin colonEq colonEqTwin: Word)
     (opens: WordsAlike open openTwin)
@@ -555,11 +536,7 @@ theorem alikeSectionLeft ∀ (open openTwin: Word)
     ExprsAlike
       (OperatorSection open None operator right close)
       (OperatorSection openTwin None operatorTwin rightTwin closeTwin) :=
-  calc (OperatorSection open None operator right close).walk blankPure
-    _ = OperatorSection open.blank None operator.blank (walkOptional blankPure right) close.blank := byComputing
-    _ = OperatorSection openTwin.blank None operatorTwin.blank (walkOptional blankPure rightTwin) closeTwin.blank :=
-      rewrite opens, operators, walkOptionalAlike right rightTwin rights, closes
-    _ = (OperatorSection openTwin None operatorTwin rightTwin closeTwin).walk blankPure := byComputing
+  rewrite repeatedly [opens, operators, walkOptionalAlike right rightTwin rights, closes]
 
 theorem alikeSectionRight ∀ (open openTwin: Word)
     (opens: WordsAlike open openTwin) (operand operandTwin: Expr)
@@ -569,11 +546,7 @@ theorem alikeSectionRight ∀ (open openTwin: Word)
     ExprsAlike
       (OperatorSection open (Some operand) operator None close)
       (OperatorSection openTwin (Some operandTwin) operatorTwin None closeTwin) :=
-  calc (OperatorSection open (Some operand) operator None close).walk blankPure
-    _ = OperatorSection open.blank (Some (operand.walk blankPure)) operator.blank None close.blank := byComputing
-    _ = OperatorSection openTwin.blank (Some (operandTwin.walk blankPure)) operatorTwin.blank None closeTwin.blank :=
-      rewrite opens, operands, operators, closes
-    _ = (OperatorSection openTwin (Some operandTwin) operatorTwin None closeTwin).walk blankPure := byComputing
+  rewrite repeatedly [opens, operands, operators, closes]
 
 theorem followsOperatorClose ∀ (open openTwin operator operatorTwin: Word)
     (opens: WordsAlike open openTwin)
@@ -787,35 +760,20 @@ theorem alikeRecord ∀ (open openTwin: Word)
     (trailing: Bool) (close closeTwin: Word)
     (closes: WordsAlike close closeTwin):
     ExprsAlike (Record open base fields trailing close) (Record openTwin baseTwin fieldsTwin trailing closeTwin) :=
-  calc (Record open base fields trailing close).walk blankPure
-    _ = Record open.blank (blankBase (walkBefore blankPure base)) (walkExprs blankPure fields) trailing close.blank :=
-      byComputing
-    _ = Record openTwin.blank
-        (blankBase (walkBefore blankPure baseTwin))
-        (walkExprs blankPure fieldsTwin)
-        trailing
-        closeTwin.blank :=
-      rewrite opens, basesBlank base baseTwin bases, walkExprsAlike fields fieldsTwin fieldses, closes
-    _ = (Record openTwin baseTwin fieldsTwin trailing closeTwin).walk blankPure := byComputing
+  rewrite repeatedly [opens, basesBlank base baseTwin bases, walkExprsAlike fields fieldsTwin fieldses, closes]
 
 theorem alikeRecordField ∀ (name nameTwin: Word)
     (names: WordsAlike name nameTwin) (equals equalsTwin: Word)
     (equalses: WordsAlike equals equalsTwin) (value valueTwin: Expr)
     (values: ExprsAlike value valueTwin):
     ExprsAlike (RecordField name equals value) (RecordField nameTwin equalsTwin valueTwin) :=
-  calc (RecordField name equals value).walk blankPure
-    _ = RecordField name.blank equals.blank (value.walk blankPure) := byComputing
-    _ = RecordField nameTwin.blank equalsTwin.blank (valueTwin.walk blankPure) := rewrite names, equalses, values
-    _ = (RecordField nameTwin equalsTwin valueTwin).walk blankPure := byComputing
+  rewrite repeatedly [names, equalses, values]
 
 theorem alikeCtorFields ∀ (ctor ctorTwin: Expr)
     (ctors: ExprsAlike ctor ctorTwin) (record recordTwin: Expr)
     (records: ExprsAlike record recordTwin):
     ExprsAlike (CtorFields ctor record) (CtorFields ctorTwin recordTwin) :=
-  calc (CtorFields ctor record).walk blankPure
-    _ = CtorFields (ctor.walk blankPure) (record.walk blankPure) := byComputing
-    _ = CtorFields (ctorTwin.walk blankPure) (recordTwin.walk blankPure) := rewrite ctors, records
-    _ = (CtorFields ctorTwin recordTwin).walk blankPure := byComputing
+  rewrite repeatedly [ctors, records]
 
 theorem followsRecordFieldAfter ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -976,10 +934,7 @@ theorem piecesBlank ∀ (pieces twins: List Piece)
 theorem alikeInterpolated ∀ (pieces twins: List Piece)
     (alike: List.All2 PieceAlike pieces twins):
     ExprsAlike (Interpolated pieces) (Interpolated twins) :=
-  calc (Interpolated pieces).walk blankPure
-    _ = Interpolated (blankPieces (walkPieces blankPure pieces)) := byComputing
-    _ = Interpolated (blankPieces (walkPieces blankPure twins)) := rewrite piecesBlank pieces twins alike
-    _ = (Interpolated twins).walk blankPure := byComputing
+  rewrite repeatedly [piecesBlank pieces twins alike]
 
 theorem followsInterpolationOpen ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):

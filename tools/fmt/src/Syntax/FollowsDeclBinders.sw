@@ -296,102 +296,35 @@ theorem alikeHeader ∀ (exportKeyword exportTwin opaqueKeyword opaqueTwin: Opti
         decreasingClause = decreasingTwin,
         unfoldingClause = unfoldingTwin
       } :=
-  calc walkHeader blankPure
-    {
-      exportKeyword,
-      opaqueKeyword,
-      kind,
-      keyword,
-      name,
-      forallKeyword,
-      params,
-      colon,
-      result,
-      decreasingClause,
-      unfoldingClause
-    }
-    _ = {
-        exportKeyword = blankComments exportKeyword,
-        opaqueKeyword = blankComments opaqueKeyword,
-        kind,
-        keyword = Comments.none,
-        name = name.blank,
-        forallKeyword = forallKeyword.map Word.blank,
-        params = blankGroups (walkGroups blankPure params),
-        colon = Comments.none,
-        result = result.walk blankPure,
-        decreasingClause = blankAfter (walkAfter blankPure decreasingClause),
-        unfoldingClause = blankUnfolding unfoldingClause
-      } := byComputing
-    _ = {
-        exportKeyword = blankComments exportTwin,
-        opaqueKeyword = blankComments opaqueTwin,
-        kind,
-        keyword = Comments.none,
-        name = nameTwin.blank,
-        forallKeyword = forallTwin.map Word.blank,
-        params = blankGroups (walkGroups blankPure paramsTwin),
-        colon = Comments.none,
-        result = resultTwin.walk blankPure,
-        decreasingClause = blankAfter (walkAfter blankPure decreasingTwin),
-        unfoldingClause = blankUnfolding unfoldingTwin
-      } :=
-      rewrite commentsBlankAlike exportKeyword exportTwin exports,
-          commentsBlankAlike opaqueKeyword opaqueTwin opaques,
-          names,
-          keywordBlank forallKeyword forallTwin foralls,
-          groupsBlankAlike params paramsTwin paramses,
-          results,
-          afterAlike decreasingClause decreasingTwin decreasings,
-          unfoldingBlankAlike unfoldingClause unfoldingTwin unfoldings
-    _ = walkHeader blankPure {
-        exportKeyword = exportTwin,
-        opaqueKeyword = opaqueTwin,
-        kind,
-        keyword = keywordTwin,
-        name = nameTwin,
-        forallKeyword = forallTwin,
-        params = paramsTwin,
-        colon = colonTwin,
-        result = resultTwin,
-        decreasingClause = decreasingTwin,
-        unfoldingClause = unfoldingTwin
-      } := byComputing
+  rewrite repeatedly [
+    commentsBlankAlike exportKeyword exportTwin exports,
+    commentsBlankAlike opaqueKeyword opaqueTwin opaques,
+    names,
+    keywordBlank forallKeyword forallTwin foralls,
+    groupsBlankAlike params paramsTwin paramses,
+    results,
+    afterAlike decreasingClause decreasingTwin decreasings,
+    unfoldingBlankAlike unfoldingClause unfoldingTwin unfoldings
+  ]
 
 theorem alikePrimitive: DefBodyAlike Primitive Primitive := byComputing
 
 theorem alikeAssigned ∀ (colonEq colonEqTwin: Comments) (value valueTwin: Expr)
     (values: ExprsAlike value valueTwin):
     DefBodyAlike (Assigned colonEq value) (Assigned colonEqTwin valueTwin) :=
-  calc (walkDefBody blankPure (Assigned colonEq value)).blank
-    _ = Assigned Comments.none (value.walk blankPure) := byComputing
-    _ = Assigned Comments.none (valueTwin.walk blankPure) := rewrite values
-    _ = (walkDefBody blankPure (Assigned colonEqTwin valueTwin)).blank := byComputing
+  rewrite repeatedly [values]
 
 theorem alikeArms ∀ (arms twins: List Arm)
     (alike: List.All2 ArmAlike arms twins):
     DefBodyAlike (Arms arms) (Arms twins) :=
-  calc (walkDefBody blankPure (Arms arms)).blank
-    _ = Arms (blankArms (walkArms blankPure arms)) := byComputing
-    _ = Arms (blankArms (walkArms blankPure twins)) := rewrite armsBlank arms twins alike
-    _ = (walkDefBody blankPure (Arms twins)).blank := byComputing
+  rewrite repeatedly [armsBlank arms twins alike]
 
 theorem alikeDefinition ∀ (attributes twinAttributes: List Attributes)
     (attributeses: List.All2 AttributeGroupAlike attributes twinAttributes) (header twin: Header)
     (headers: HeaderAlike header twin) (body bodyTwin: DefBody)
     (bodies: DefBodyAlike body bodyTwin):
     DeclsAlike (Definition attributes header body) (Definition twinAttributes twin bodyTwin) :=
-  calc (Definition attributes header body).walk blankPure
-    _ = Definition
-        (walkAttributes blankPure attributes)
-        (walkHeader blankPure header)
-        (walkDefBody blankPure body).blank := byComputing
-    _ = Definition
-        (walkAttributes blankPure twinAttributes)
-        (walkHeader blankPure twin)
-        (walkDefBody blankPure bodyTwin).blank :=
-      rewrite walkAttributesAlike attributes twinAttributes attributeses, headers, bodies
-    _ = (Definition twinAttributes twin bodyTwin).walk blankPure := byComputing
+  rewrite repeatedly [walkAttributesAlike attributes twinAttributes attributeses, headers, bodies]
 
 theorem followsDefKindOf ∀ (modes: Modes):
     Parse.Follows SameCode Same (() => defKindOf modes) (() => defKindOf modes) :=

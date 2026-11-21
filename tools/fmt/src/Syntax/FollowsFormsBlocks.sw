@@ -296,16 +296,7 @@ theorem alikeBlock ∀ (first twin: Statement)
     (rests: List.All2 StatementsAlike rest restTwin) (result resultTwin: Expr)
     (results: ExprsAlike result resultTwin):
     ExprsAlike (Block first rest result) (Block twin restTwin resultTwin) :=
-  calc (Block first rest result).walk blankPure
-    _ = Block
-        (walkStatement blankPure first).blank
-        (blankStatements (walkStatements blankPure rest))
-        (result.walk blankPure) := byComputing
-    _ = Block
-        (walkStatement blankPure twin).blank
-        (blankStatements (walkStatements blankPure restTwin))
-        (resultTwin.walk blankPure) := rewrite firsts, statementsBlank rest restTwin rests, results
-    _ = (Block twin restTwin resultTwin).walk blankPure := byComputing
+  rewrite repeatedly [firsts, statementsBlank rest restTwin rests, results]
 
 def StatementFollows (self selfTwin: Goal → {Parse Item} Expr): Prop :=
   ∀ (modes: Modes) => Parse.Follows SameCode StatementsAlike (() => statement self modes) (() =>

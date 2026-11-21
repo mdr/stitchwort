@@ -71,29 +71,18 @@ theorem alikeInfix ∀ (kind: InfixKind) (left leftTwin: Expr)
     (operators: WordsAlike operator operatorTwin) (right rightTwin: Expr)
     (rights: ExprsAlike right rightTwin):
     ExprsAlike (Infix kind left operator right) (Infix kind leftTwin operatorTwin rightTwin) :=
-  calc (Infix kind left operator right).walk blankPure
-    _ = Infix kind (left.walk blankPure) operator.blank (right.walk blankPure) := byComputing
-    _ = Infix kind (leftTwin.walk blankPure) operatorTwin.blank (rightTwin.walk blankPure) :=
-      rewrite lefts, operators, rights
-    _ = (Infix kind leftTwin operatorTwin rightTwin).walk blankPure := byComputing
+  rewrite repeatedly [lefts, operators, rights]
 
 theorem alikeSection ∀ (body bodyTwin: Expr)
     (bodies: ExprsAlike body bodyTwin):
     ExprsAlike (Section body) (Section bodyTwin) :=
-  calc (Section body).walk blankPure
-    _ = Section (body.walk blankPure) := byComputing
-    _ = Section (bodyTwin.walk blankPure) := rewrite bodies
-    _ = (Section bodyTwin).walk blankPure := byComputing
+  rewrite repeatedly [bodies]
 
 theorem alikeApp ∀ (head headTwin: Expr)
     (heads: ExprsAlike head headTwin) (arguments argumentsTwin: List Expr)
     (alike: List.All2 ExprsAlike arguments argumentsTwin):
     ExprsAlike (App head arguments) (App headTwin argumentsTwin) :=
-  calc (App head arguments).walk blankPure
-    _ = App (head.walk blankPure) (walkExprs blankPure arguments) := byComputing
-    _ = App (headTwin.walk blankPure) (walkExprs blankPure argumentsTwin) :=
-      rewrite heads, walkExprsAlike arguments argumentsTwin alike
-    _ = (App headTwin argumentsTwin).walk blankPure := byComputing
+  rewrite repeatedly [heads, walkExprsAlike arguments argumentsTwin alike]
 
 theorem linksAlike ∀ (links twins: List (Word, Expr))
     (alike: List.All2 (PairAlike WordsAlike ExprsAlike) links twins):
@@ -114,11 +103,7 @@ theorem alikeChain ∀ (first firstTwin: Expr)
     (firsts: ExprsAlike first firstTwin) (rest restTwin: List (Word, Expr))
     (alike: List.All2 (PairAlike WordsAlike ExprsAlike) rest restTwin):
     ExprsAlike (Chain first rest) (Chain firstTwin restTwin) :=
-  calc (Chain first rest).walk blankPure
-    _ = Chain (first.walk blankPure) (blankLinks (walkLinks blankPure rest)) := byComputing
-    _ = Chain (firstTwin.walk blankPure) (blankLinks (walkLinks blankPure restTwin)) :=
-      rewrite firsts, linksAlike rest restTwin alike
-    _ = (Chain firstTwin restTwin).walk blankPure := byComputing
+  rewrite repeatedly [firsts, linksAlike rest restTwin alike]
 
 -- The facts about other files' functions that the ladder calls directly, each as `Syntax/FollowsForms.sw` (or
 -- `Syntax/FollowsStatements.sw`) states it.
