@@ -78,8 +78,9 @@ use stitchwort_syntax::Diagnostic;
 
 use super::{Generalise, Scrut, Skip, free_levels, is_var, same};
 use crate::check::{Ctx, Result};
+use crate::kernel;
 use crate::lift::replace_with;
-use crate::rewrite::{Key, key, mentions_bound, search_budget};
+use crate::rewrite::{Key, kernel_context, key, mentions_bound, search_budget};
 use crate::undo::{Snapshot, fatal, recoverable, recovered};
 
 /// What the usual occurrence test made of the `match`, in its context.
@@ -325,8 +326,8 @@ fn readings() -> &'static [Reading] {
 }
 
 /// Checks 1, 2 and 4 against `today`, or (`None`, [`unconfirmed`]) only 4.
-fn search(
-    cx: &mut Ctx,
+fn search<'e>(
+    cx: &mut Ctx<'e>,
     exprs: &[Scrut],
     today: Option<&Today>,
     goal: &Value,
@@ -346,6 +347,7 @@ fn search(
         needles.push(Needle {
             written,
             value,
+            ty: s.ty.clone(),
             key,
         });
     }
@@ -367,7 +369,9 @@ fn search(
             .iter()
             .flat_map(|n| free_levels(&n.written, level))
             .collect();
-        let oracle = |cx: &mut Ctx, t: &Term, under: usize| is_needle(cx, &needles, t, under);
+        let kcx = RefCell::new(None);
+        let oracle =
+            |cx: &mut Ctx<'e>, t: &Term, under: usize| is_needle(cx, &kcx, &needles, t, under);
         let mut opened = false;
         if let Some(t) = crate::unfold_path::opened(cx, &goal_written, &keys, &relevant, &oracle)? {
             goal_written = t;
@@ -395,6 +399,7 @@ fn search(
         depth: base + e,
         hits: RefCell::new(Vec::new()),
         error: RefCell::new(None),
+        kcx: RefCell::new(None),
     };
     // Unfolded, or, without `today`, `Unfolded::TooLarge` where that is too
     // large to build.
@@ -541,7 +546,13 @@ fn search(
 /// Whether `t`, under `under` binders of a target in the `match`'s context,
 /// is one of the scrutinees, by [`Finder::occurrence`]'s test, for
 /// [`crate::unfold_path`].
-fn is_needle(cx: &mut Ctx, needles: &[Needle], t: &Term, under: usize) -> Result<bool> {
+fn is_needle<'e>(
+    cx: &mut Ctx<'e>,
+    kcx: &RefCell<Option<kernel::Ctx<'e>>>,
+    needles: &[Needle],
+    t: &Term,
+    under: usize,
+) -> Result<bool> {
     let Some(k) = key(t, under) else {
         return Ok(false);
     };
@@ -559,20 +570,79 @@ fn is_needle(cx: &mut Ctx, needles: &[Needle], t: &Term, under: usize) -> Result
         )?
     };
     for needle in needles.iter().filter(|n| n.key == k) {
-        if same(&candidate, &needle.written) {
+        if is_occurrence(cx, kcx, needle, &candidate)? {
             return Ok(true);
-        }
-        match cx
-            .eval(&candidate)
-            .and_then(|value| cx.conv_now(&value, &needle.value))
-        {
-            Ok(true) => return Ok(true),
-            Ok(false) => {}
-            Err(e) if fatal(&e) => return Err(e),
-            Err(_) => {}
         }
     }
     Ok(false)
+}
+
+/// Whether `candidate`, a term in `cx`'s context, is `needle`: the same
+/// term, or a term of the needle's type equal to it by computation
+/// ([`Ctx::conv_now`], up to eta), which solves nothing, postpones nothing
+/// and makes no unknown.
+///
+/// The type comes first: conversion compares values of one type only, and
+/// a candidate is picked by its head alone, so a lambda can be offered for
+/// a lambda of another type (`_ => False` for `x y => p x y`), where eta
+/// would apply a constructor to an argument. `kcx` is the kernel's context
+/// for `cx`, made the first time it is needed.
+fn is_occurrence<'e>(
+    cx: &Ctx<'e>,
+    kcx: &RefCell<Option<kernel::Ctx<'e>>>,
+    needle: &Needle,
+    candidate: &Term,
+) -> Result<bool> {
+    if same(candidate, &needle.written) {
+        return Ok(true);
+    }
+    let equal = (|| {
+        if !has_type(cx, kcx, candidate, &needle.ty)? {
+            return Ok(false);
+        }
+        let value = cx.eval(candidate)?;
+        cx.conv_now(&value, &needle.value)
+    })();
+    match equal {
+        Ok(equal) => Ok(equal),
+        Err(e) if fatal(&e) => Err(e),
+        Err(_) => Ok(false),
+    }
+}
+
+/// Whether `term`, in `cx`'s context, has type `ty`, as the kernel finds:
+/// its type inferred and compared with `ty`, or, for a term only checked
+/// against a type (a function, a constructor), checked against `ty`.
+/// `false` when that can't be told: an unknown in either, which the kernel
+/// can't see.
+fn has_type<'e>(
+    cx: &Ctx<'e>,
+    kcx: &RefCell<Option<kernel::Ctx<'e>>>,
+    term: &Term,
+    ty: &Value,
+) -> Result<bool> {
+    let g = cx.g();
+    let mut slot = kcx.borrow_mut();
+    let kcx = match &mut *slot {
+        Some(kcx) => kcx,
+        none => none.insert(kernel_context(cx)?),
+    };
+    match kernel::without_glue(&g, || kernel::infer(kcx, term)) {
+        Ok((_, found)) => return cx.conv_now(&found, ty),
+        Err(e) if fatal(&e) => return Err(e),
+        Err(_) => {}
+    }
+    let ty_term = cx.quote_folded(ty)?;
+    let unknown = |t: &Term| t.subterms().any(|(t, _)| matches!(t, Term::Meta(_)));
+    if unknown(term) || unknown(&ty_term) {
+        return Ok(false);
+    }
+    let ty = cx.eval(&ty_term)?;
+    match kernel::without_glue(&g, || kernel::check(kcx, term, &ty)) {
+        Ok(_) => Ok(true),
+        Err(e) if fatal(&e) => Err(e),
+        Err(_) => Ok(false),
+    }
 }
 
 /// A generalised target read back unfolded, in [`search`].
@@ -587,13 +657,14 @@ enum Unfolded {
 /// SW-1562, goal-as-written.md stage 3: for the transport along a named
 /// `match`'s equation `e = s` ([`Ctx::along_match_equation`]), `source` (a
 /// type in the current context, one side of a mismatch) with every
-/// occurrence of the scrutinee `e` (`lhs`, as the equation holds it)
-/// replaced by a new variable after the context, found as written: `source`
-/// and `e` read back folded, a candidate headed as `e` is written and equal
-/// to it by computation, solving nothing ([`Finder::occurrence`]). So a
-/// lemma's type that has `e` in another form than the scrutinee's normal
-/// form (`xs.map (y => f a y)` for `xs.map (f a)`), which the transport's
-/// syntactic test on normal forms misses, is still rewritten.
+/// occurrence of the scrutinee `e` (`lhs`, as the equation holds it, of type
+/// `carrier`) replaced by a new variable after the context, found as
+/// written: `source` and `e` read back folded, a candidate headed as `e` is
+/// written, of `e`'s type and equal to it by computation, solving nothing
+/// ([`Finder::occurrence`]). So a lemma's type that has `e` in another form
+/// than the scrutinee's normal form (`xs.map (y => f a y)` for `xs.map (f
+/// a)`), which the transport's syntactic test on normal forms misses, is
+/// still rewritten.
 ///
 /// `todays` is what the transport's own test makes of `source`: its normal
 /// form with each syntactic occurrence of `e`'s normal form replaced by the
@@ -616,6 +687,7 @@ enum Unfolded {
 pub(crate) fn transport_target(
     cx: &mut Ctx,
     lhs: &Value,
+    carrier: &Value,
     source: &Value,
     todays: &Term,
     todays_found: bool,
@@ -626,7 +698,7 @@ pub(crate) fn transport_target(
         let snapshot = Snapshot::take(cx);
         let mut remaining = search_budget(cx);
         let tried = g.machine.budget.limited(&mut remaining, || {
-            transport_search(cx, lhs, source, todays, todays_found, reading)
+            transport_search(cx, lhs, carrier, source, todays, todays_found, reading)
         });
         snapshot.restore(cx);
         let now = match tried {
@@ -647,9 +719,10 @@ pub(crate) fn transport_target(
     Ok(Err(outcome))
 }
 
-fn transport_search(
-    cx: &mut Ctx,
+fn transport_search<'e>(
+    cx: &mut Ctx<'e>,
     lhs: &Value,
+    carrier: &Value,
     source: &Value,
     todays: &Term,
     todays_found: bool,
@@ -664,12 +737,15 @@ fn transport_search(
     let needles = vec![Needle {
         written,
         value: lhs.clone(),
+        ty: carrier.clone(),
         key,
     }];
     let mut source_written = cx.quote_folded(source)?;
     if reading == Reading::OnPath {
         let relevant = free_levels(&needles[0].written, level);
-        let oracle = |cx: &mut Ctx, t: &Term, under: usize| is_needle(cx, &needles, t, under);
+        let kcx = RefCell::new(None);
+        let oracle =
+            |cx: &mut Ctx<'e>, t: &Term, under: usize| is_needle(cx, &kcx, &needles, t, under);
         let keys = [needles[0].key.clone()];
         match crate::unfold_path::opened(cx, &source_written, &keys, &relevant, &oracle)? {
             Some(t) => source_written = t,
@@ -683,6 +759,7 @@ fn transport_search(
         depth: level + 1,
         hits: RefCell::new(Vec::new()),
         error: RefCell::new(None),
+        kcx: RefCell::new(None),
     };
     let generalised = finder.generalise(&g, &source_written)?;
     if finder.hits.borrow().is_empty() {
@@ -713,6 +790,8 @@ struct Needle {
     /// Read back folded.
     written: Term,
     value: Value,
+    /// The type of `value`, in the same context.
+    ty: Value,
     key: Key,
 }
 
@@ -727,6 +806,8 @@ struct Finder<'c, 'e> {
     /// The scrutinees found, by index, in order.
     hits: RefCell<Vec<usize>>,
     error: RefCell<Option<stitchwort_syntax::Diagnostic>>,
+    /// The kernel's context for `cx`, once made ([`is_occurrence`]).
+    kcx: RefCell<Option<kernel::Ctx<'e>>>,
 }
 
 impl Finder<'_, '_> {
@@ -777,9 +858,7 @@ impl Finder<'_, '_> {
     }
 
     /// Whether `t`, under `under` binders of a target in the `match`'s
-    /// context, is scrutinee `i`: the same term, or one equal to it by
-    /// computation ([`Ctx::conv_now`], up to eta), which solves nothing,
-    /// postpones nothing and makes no unknown. One that would need an
+    /// context, is scrutinee `i` ([`is_occurrence`]). One that would need an
     /// unknown solved to match is not an occurrence: the usual test's
     /// syntactic comparison never solves anything, and a choice made by
     /// solving could differ from it.
@@ -798,18 +877,7 @@ impl Finder<'_, '_> {
                 &|_, _| None,
             )?
         };
-        let needle = &self.needles[i];
-        if same(&candidate, &needle.written) {
-            return Ok(true);
-        }
-        match cx
-            .eval(&candidate)
-            .and_then(|value| cx.conv_now(&value, &needle.value))
-        {
-            Ok(equal) => Ok(equal),
-            Err(e) if fatal(&e) => Err(e),
-            Err(_) => Ok(false),
-        }
+        is_occurrence(&cx, &self.kcx, &self.needles[i], &candidate)
     }
 
     /// `written` (a generalised target, in `depth` variables) read back
