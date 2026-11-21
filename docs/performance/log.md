@@ -44,6 +44,73 @@ in [../proposals/README.md](../proposals/README.md).
 
 ---
 
+## 21 Nov 2026
+
+### SW-4498: a chain of `.read`s checked in exponential time; now about cubic in steps, 57 ms for twenty conjuncts
+
+A test fact read by hand to the end of an `&&` chain,
+`h.read.right.read.right…` (the term `check --expand-facts` writes for a
+`byFacts` there, SW-4488), took 0.76 s for 8 conjuncts, 3.2 s for 10,
+13.5 s for 12 and over two minutes for 20. Profiled with macOS `sample`
+on 12 and then 40 conjuncts.
+
+- **Cause 1, the exponential.** A dot call checked or inferred goes first
+  through its prefix form (SW-129, `dot::prefix_form`), which infers the
+  receiver once to find the function, undoes that, and leaves the real
+  elaboration to infer it again. A found head is cached by the call
+  (`Caches::dot_heads`), so the second inference doesn't search again. A
+  missing one (`.read` on a test fact, which no namespace has) was only
+  marked failed for the unknowns' state it failed in (`dot_failed`), and
+  that state differs each time the outer call visits it, so every `.read`
+  inferred its receiver twice: 2^n. A missing member found with no
+  unknown in the way is now cached as `None` beside the found heads, as
+  stable as they are (the receiver's view met no unknown).
+- **Cause 2, most of what was left: errors built to be dropped.** With
+  the first fixed, three quarters of the samples were building
+  `E-UNKNOWN-FIELD`'s message (`unknown_member`: near misses and other
+  namespaces' functions, each a pass over the whole scope) for lookups
+  whose error is thrown away: the prefix form's, and the effect check's
+  (`effects::may_perform_at` → `dot::target`, which looks up each call of
+  the chain up to 8 deep, at every level). Those callers now use
+  `find_quietly`, whose missing member's error is bare.
+
+Results are unchanged: the same lookups happen, in the same order, and
+only a lookup's failure is remembered longer and described less where no
+one reads it. Elaboration steps fell (n = 4: 9,281 to 6,628; n = 10:
+1.71M to 89k); terms, kernel time and node counts are the same. The error
+a user sees comes from the real lookup, which still builds the full
+message (checked with a typo, `.rigth`: "did you mean `right`?").
+
+`Main.longRead` elaboration, ms (`check --timings`, release build;
+`h.read.right` repeated n − 1 times):
+
+| n conjuncts | before | after cause 1 | after both |
+|---|---|---|---|
+| 4 | 30.4 | 23.5 | under 1.5 |
+| 6 | 166.9 | | 1.5 |
+| 8 | 763.1 | 142.5 | 3.0 |
+| 10 | 3,209.5 | 255.3 | 5.9 |
+| 12 | 13,529.1 | 409.2 | 11.8 |
+| 20 | over 2 min | 1,456.3 | 56.9 |
+| 40 | | 7,009.9 | 728.4 |
+| 80 | | | 10,681.3 |
+
+`h.right.right…` (a field of a test fact read through its reading, no
+`.read` written) wasn't exponential but gains from cause 2: 20 conjuncts,
+275.7 to 63.3 ms.
+
+What's left grows about as n^3 in steps (n^2 in nodes: each step's
+`Iff.forward` carries the rest of the chain's type, `reading::step_proof`
+quoting it each time). The cubic is the prefix form's double visit again:
+each level's first visit infers its receiver speculatively and then for
+real, and the second, cached, costs the chain below it. Making that linear
+means not inferring the receiver twice (keeping the speculative
+elaboration, or finding the head without it), a change to SW-129's design
+left for a ticket. Regression example:
+`examples/accept/facts-long-read-chain.sw` (20 conjuncts, about 60 ms; by the growth above it
+would have taken over an hour before, estimated, so the examples sweep's
+timeout catches a return).
+
 ## 20 Nov 2026
 
 ### SW-4469: two-run walks skip four unfolded read-backs

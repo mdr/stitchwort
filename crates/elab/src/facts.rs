@@ -254,6 +254,18 @@ fn facts_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     let Expr::Facts(call) = expr else {
         unreachable!("only called on `byFacts`")
     };
+    // A search for data would return whichever value fits first.
+    if !crate::cases::is_proposition(cx, expected)? {
+        return Err(Diagnostic::error(
+            "E-FACTS",
+            format!(
+                "`byFacts` proves propositions, and `{}` isn't one",
+                cx.show(expected)
+            ),
+        )
+        .with_label(call.keyword, "this needs a value, not a proof")
+        .with_note("write the value; `byFacts` is for a proposition, such as `a ∧ b` or `x < y`"));
+    }
     let mut items = Vec::new();
     for item in &call.items {
         let (term, ty) = crate::check::infer(cx, item)?;

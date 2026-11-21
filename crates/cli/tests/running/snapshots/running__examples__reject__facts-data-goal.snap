@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-FACTS] Error: `byFacts` proves propositions, and `Nat` isn't one
+   ╭─[ reject/facts-data-goal.sw:5:27 ]
+   │
+ 5 │ def pick (n: Nat): Nat := byFacts [n]
+   │                           ───┬───  
+   │                              ╰───── this needs a value, not a proof
+   │ 
+   │ Note: write the value; `byFacts` is for a proposition, such as `a ∧ b` or `x < y`
+───╯
