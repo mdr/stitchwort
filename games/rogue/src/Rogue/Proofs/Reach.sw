@@ -100,12 +100,7 @@ type Inside (area: Area) (position: Position): Prop = {
 }
 
 theorem insideOf ∀ (area: Area) (position: Position) (contained: area.contains position = True): Inside area position :=
-  match top: Nat.leq area.corner.row position.row with
-    | True =>
-      match bottom: Nat.leq position.row (area.corner.row + area.down) with
-        | True =>
-          match left: Nat.leq area.corner.column position.column with
-            | True => { top, bottom, left, right = contained }
+  cases
 
 theorem walkCong ∀ (level: Level) (moves: List Direction) (origin origin2 target target2: Position)
     (sameOrigin: origin = origin2)

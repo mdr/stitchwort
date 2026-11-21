@@ -22,11 +22,12 @@
 //! 4. **a hypothesis** of exactly the goal's type, or a part of one: a
 //!    side of a conjunction, or what a test fact reads as
 //!    (docs/proposals/bool-as-proposition.md §9: `(a && b) = True` as `a ∧
-//!    b`), taken apart in turn;
+//!    b`), taken apart in turn; past the bounds of taking them apart, a
+//!    side of a `&&` reached through `&&`s only ([`and_side`], SW-4485);
 //! 5. **`t`**, for `cases then t`, elaborated in the case;
-//! 6. **a conjunction** whose parts each close by 1 or 4, or are such
-//!    conjunctions in turn: the pair of their proofs ([`by_parts`],
-//!    SW-4472);
+//! 6. **a conjunction or a record of proofs** whose parts each close by 1
+//!    or 4, or are such conjunctions or records in turn: the pair (or
+//!    record) of their proofs ([`by_parts`], SW-4472, SW-4485);
 //! 7. **`arithmetic`**, only where nothing is left to split (D1319).
 //!
 //! Between 5 and the splits, an equation 3 added with a variable side, `x =
@@ -96,9 +97,10 @@
 //! hypothesis of that type, `arithmetic` on `P → Void`, `t`) keeps that proof.
 //!
 //! A case still open then, not a `Π`, is closed if applying an implication
-//! once to a hypothesis, or a part of one, that is its premise lets a closer
-//! that doesn't split close it ([`apply_to_part`], SW-4472); otherwise
-//! nothing is added.
+//! once to a hypothesis, or a part of one, that is its premise (a plain
+//! proposition too, and each premise in turn while they hold) lets a closer
+//! that doesn't split close it ([`apply_to_part`], SW-4472, SW-4485);
+//! otherwise nothing is added.
 //!
 //! A case still open then, not a `Π`, has the *last resort* split, if any
 //! ([`Finder::last_resort_atom`], SW-3752): on the first chain that has one,
@@ -163,6 +165,7 @@ use stitchwort_core::{DataId, Icit, Name, Sort, Term, Value};
 use stitchwort_syntax::ast::{self, Alt, Expr, Pattern};
 use stitchwort_syntax::{Diagnostic, Span};
 
+use crate::Global;
 use crate::check::{Ctx, Result, builtin_ctor, builtin_data, builtin_def};
 
 /// The most cases one `cases` makes (§5.8): the largest tree the motivating
@@ -1523,9 +1526,108 @@ fn by_hypothesis(cx: &Ctx, goal: &Value) -> Result<Option<Term>> {
 /// conjunction, or what a test fact reads as, taken apart in turn
 /// (`auto::hypothesis_parts`; docs/proposals/bool-as-proposition.md §9).
 fn by_hypothesis_part(cx: &Ctx, goal: &Value) -> Result<Option<Term>> {
-    for (proof, ty) in crate::auto::hypothesis_parts(cx, &visible(cx))? {
-        if conv(&cx.g(), cx.level(), &ty, goal)? {
-            return Ok(Some(proof));
+    Parts::of(cx, &visible(cx))?.find(cx, goal)
+}
+
+/// The parts of the hypotheses in scope (`auto::hypothesis_parts`), and
+/// whether reading them stopped at its bound with test facts left unread.
+struct Parts {
+    parts: Vec<(Term, Value)>,
+    cut: bool,
+}
+
+impl Parts {
+    fn of(cx: &Ctx, levels: &[usize]) -> Result<Parts> {
+        let (parts, cut) = crate::auto::hypothesis_parts_cut(cx, levels)?;
+        Ok(Parts { parts, cut })
+    }
+
+    /// A part of type `goal`; or, where reading stopped at its bound, a
+    /// side of a hypothesis's `&&` that is the goal `t = True`
+    /// ([`and_side`]).
+    fn find(&self, cx: &Ctx, goal: &Value) -> Result<Option<Term>> {
+        for (proof, ty) in &self.parts {
+            if conv(&cx.g(), cx.level(), ty, goal)? {
+                return Ok(Some(proof.clone()));
+            }
+        }
+        if self.cut {
+            return and_side(cx, goal);
+        }
+        Ok(None)
+    }
+}
+
+/// The most `&&`s [`and_side`] takes apart, over all the hypotheses.
+const AND_SIDES: usize = 256;
+
+/// A goal `t = True` that is a side of a hypothesis `(a && b) = True`, or a
+/// side of a side, and so on: its proof by `Bool.andLeft` and
+/// `Bool.andRight`. Only the `&&`s are followed, unfolding a call only to
+/// see whether it is one, so a long conjunction of tests costs a step per
+/// `&&`: reading every test in it as `hypothesis_parts` does stops at its
+/// bound well before the end of `(a && b && c && d && e) = True` when
+/// each of `a` to `e` is a call with tests of its own, and the goal `e =
+/// True` would then go to splitting (a `cases` given as an argument took
+/// 9 s to fail so, SW-4485).
+fn and_side(cx: &Ctx, goal: &Value) -> Result<Option<Term>> {
+    let Some((target, true)) = crate::reading::test_fact(cx, goal)? else {
+        return Ok(None);
+    };
+    let (Some((Global::Def(left), _)), Some((Global::Def(right), _))) = (
+        cx.e.named("Std.Bool.andLeft"),
+        cx.e.named("Std.Bool.andRight"),
+    ) else {
+        return Ok(None);
+    };
+    let (left, right) = (*left, *right);
+    let g = cx.g();
+    let mut budget = AND_SIDES;
+    for level in visible(cx) {
+        let Some((test, true)) = crate::reading::test_fact(cx, &cx.types[level])? else {
+            continue;
+        };
+        // Each test with the way to it from the hypothesis: at each `&&`,
+        // its two sides and which of them was taken.
+        let mut stack = vec![(test, Vec::new())];
+        while let Some((test, way)) = stack.pop() {
+            let mut test = force(&g, test)?;
+            if is_folded(&g, &test)
+                && let Some(unfolded) = unfold_folded(&g, &test)?
+            {
+                test = force(&g, unfolded)?;
+            }
+            let Some((a, b)) = crate::facts::and_sides(cx, &test)? else {
+                continue;
+            };
+            if budget == 0 {
+                return Ok(None);
+            }
+            budget -= 1;
+            for (is_left, v) in [(true, &a), (false, &b)] {
+                let mut way = way.clone();
+                way.push((is_left, a.clone(), b.clone()));
+                if conv(&g, cx.level(), v, &target)? {
+                    let mut proof = Term::Var(cx.level() - 1 - level);
+                    for (is_left, a, b) in way {
+                        let f = if is_left { left } else { right };
+                        let head = Term::app_icit(
+                            Term::app_icit(Term::Def(f), cx.quote_or_written(&a)?, Icit::Implicit),
+                            cx.quote_or_written(&b)?,
+                            Icit::Implicit,
+                        );
+                        proof = Term::app(head, proof);
+                    }
+                    return Ok(Some(proof));
+                }
+            }
+            // The left side is searched first, as it is written first.
+            let mut right_way = way.clone();
+            right_way.push((false, a.clone(), b.clone()));
+            let mut left_way = way;
+            left_way.push((true, a.clone(), b.clone()));
+            stack.push((b, right_way));
+            stack.push((a, left_way));
         }
     }
     Ok(None)
@@ -1546,13 +1648,43 @@ pub(crate) fn conjuncts(cx: &Ctx, goal: &Value) -> Result<Option<(DataId, Value,
     Ok(None)
 }
 
-/// A conjunction each of whose parts closes by computing, by a hypothesis or
-/// a part of one, or is a conjunction closed so in turn: the pair of their
-/// proofs. No search: each part is tried by those closers only, so a goal
-/// that is already proved (`True = True ∧ (a == a) = True`) closes at once,
-/// and doesn't wait for a split or a decision procedure.
+/// The parts of `goal` if it is a conjunction `p ∧ q` (its two sides) or a
+/// record of proofs (its fields' statements, `facts::is_record_of_proofs`),
+/// with its type: what [`by_parts`] proves one by one.
+fn goal_parts(cx: &Ctx, goal: &Value) -> Result<Option<(DataId, Vec<Value>)>> {
+    if let Some((and, p, q)) = conjuncts(cx, goal)? {
+        return Ok(Some((and, vec![p, q])));
+    }
+    let g = cx.g();
+    let Value::Data(d, args) = force(&g, goal.clone())? else {
+        return Ok(None);
+    };
+    if !crate::facts::is_record_of_proofs(cx, d) {
+        return Ok(None);
+    }
+    let data = g.data(d);
+    let np = data.params().len();
+    let mut parts = Vec::new();
+    // No field's type mentions an earlier field, so `Refl` stands for each.
+    for (i, (_, field_ty)) in data.ctors()[0].fields.iter().enumerate() {
+        let env: Vec<Value> = args[..np]
+            .iter()
+            .cloned()
+            .chain(std::iter::repeat_n(Value::Refl, i))
+            .collect();
+        parts.push(eval(&g, &env, field_ty)?);
+    }
+    Ok(Some((d, parts)))
+}
+
+/// A conjunction, or a record of proofs, each of whose parts closes by
+/// computing, by a hypothesis or a part of one, or is such a conjunction or
+/// record in turn: the pair (or record) of their proofs. No search: each
+/// part is tried by those closers only, so a goal that is already proved
+/// (`True = True ∧ (a == a) = True`) closes at once, and doesn't wait for a
+/// split or a decision procedure.
 fn by_parts(cx: &Ctx, goal: &Value) -> Result<Option<Term>> {
-    if conjuncts(cx, goal)?.is_none() {
+    if goal_parts(cx, goal)?.is_none() {
         return Ok(None);
     }
     // The hypotheses' parts are taken apart once, for every part of the goal.
@@ -1564,16 +1696,16 @@ fn by_parts_at(
     cx: &Ctx,
     goal: &Value,
     depth: usize,
-    parts: &mut Option<Vec<(Term, Value)>>,
+    parts: &mut Option<Parts>,
 ) -> Result<Option<Term>> {
     if depth >= MAX_CONJUNCTS_DEPTH {
         return Ok(None);
     }
-    let Some((and, p, q)) = conjuncts(cx, goal)? else {
+    let Some((d, goals)) = goal_parts(cx, goal)? else {
         return Ok(None);
     };
-    let mut proofs = Vec::with_capacity(2);
-    for part in [p, q] {
+    let mut proofs = Vec::with_capacity(goals.len());
+    for part in goals {
         let mut proof = by_computation(cx, &part)?;
         if proof.is_none() {
             proof = by_hypothesis(cx, &part)?;
@@ -1581,14 +1713,9 @@ fn by_parts_at(
         if proof.is_none() {
             let parts = match parts {
                 Some(parts) => parts,
-                None => parts.insert(crate::auto::hypothesis_parts(cx, &visible(cx))?),
+                None => parts.insert(Parts::of(cx, &visible(cx))?),
             };
-            for (term, ty) in parts.iter() {
-                if conv(&cx.g(), cx.level(), ty, &part)? {
-                    proof = Some(term.clone());
-                    break;
-                }
-            }
+            proof = parts.find(cx, &part)?;
         }
         if proof.is_none() {
             proof = by_parts_at(cx, &part, depth + 1, parts)?;
@@ -1598,7 +1725,7 @@ fn by_parts_at(
             None => return Ok(None),
         }
     }
-    Ok(Some(Term::ctor(and, 0, proofs)))
+    Ok(Some(Term::ctor(d, 0, proofs)))
 }
 
 /// An equation `l = r` of data `d` whose sides compute to constructors.
@@ -2494,59 +2621,50 @@ fn apply_guarded(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Ter
 
 /// A hypothesis `h: P → Q` (`Q` not mentioning the proof of `P`) applied
 /// once to a proof of `P` in scope that [`apply_guarded`] doesn't use: a
-/// hypothesis whose `P` isn't an equation, or a part of a hypothesis (a
-/// side of a conjunction, or what a test fact reads as). Each such `Q` is
-/// added, and the case is closed by the closers that don't split or search
-/// (a contradiction, a hypothesis or a part of one, a conjunction of those),
-/// or `None`, with nothing added. One application per implication, never
-/// chained: `ended: trails = True ∧ Token w` and `implies: trails = True →
-/// trails' = True` prove `trails' = True ∧ Token w`.
+/// hypothesis whose `P` isn't an equation (a plain proposition `a: Prop`
+/// too), or a part of a hypothesis (a side of a conjunction, or what a test
+/// fact reads as). While `Q` is again such an implication whose premise is
+/// in scope, it is applied to that too: `f: a → b → c`, `x: a` and `y: b`
+/// add `c`. Each such last `Q` is added, and the case is closed by the
+/// closers that don't split or search (a contradiction, a hypothesis or a
+/// part of one, a conjunction or record of those), or `None`, with nothing
+/// added. One application per implication, never chained: `ended: trails =
+/// True ∧ Token w` and `implies: trails = True → trails' = True` prove
+/// `trails' = True ∧ Token w`, but a `Q` added isn't a premise for another.
 fn apply_to_part(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>> {
     let g = cx.g();
     let levels = visible(cx);
-    let mut parts: Option<Vec<(Term, Value)>> = None;
-    let mut facts: Vec<(Value, usize, Term)> = Vec::new();
+    let mut parts: Option<Parts> = None;
+    let mut facts: Vec<(Value, usize, Vec<Term>)> = Vec::new();
     for &level in &levels {
-        let Value::Pi(_, Icit::Explicit, dom, closure) = force(&g, cx.types[level].clone())? else {
-            continue;
-        };
-        if closure.body.mentions(0) {
-            continue;
-        }
-        let premise = (*dom).clone();
-        if !is_fact(cx, &premise) {
-            continue;
-        }
-        let mut given = None;
-        for &k in &levels {
-            if k != level && conv(&g, cx.level(), &cx.types[k], &premise)? {
-                given = Some(Term::Var(cx.level() - 1 - k));
+        let mut ty = cx.types[level].clone();
+        let mut givens = Vec::new();
+        // At most one premise per binder of the hypothesis as written.
+        while let Value::Pi(_, Icit::Explicit, dom, closure) = force(&g, ty.clone())? {
+            if closure.body.mentions(0) {
                 break;
             }
-        }
-        if given.is_none() {
-            let parts = match &mut parts {
-                Some(parts) => parts,
-                None => parts.insert(crate::auto::hypothesis_parts(cx, &levels)?),
-            };
-            for (proof, ty) in parts.iter() {
-                if conv(&g, cx.level(), ty, &premise)? {
-                    given = Some(proof.clone());
-                    break;
-                }
+            let premise = (*dom).clone();
+            if !premise_kind(cx, &premise)? {
+                break;
             }
+            let Some(given) = proof_in_scope(cx, level, &levels, &mut parts, &premise)? else {
+                break;
+            };
+            givens.push(given);
+            ty = closure.apply(&g, Value::Refl)?;
         }
-        let Some(given) = given else {
+        if givens.is_empty() {
             continue;
-        };
-        let fact = closure.apply(&g, Value::Refl)?;
+        }
+        let fact = ty;
         let known = levels
             .iter()
             .any(|&k| conv(&g, cx.level(), &cx.types[k], &fact).unwrap_or(false));
         if known {
             continue;
         }
-        facts.push((fact, level, given));
+        facts.push((fact, level, givens));
     }
     if facts.is_empty() {
         return Ok(None);
@@ -2554,13 +2672,13 @@ fn apply_to_part(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Ter
     let mark = cx.mark();
     let facts_before = run.facts.get();
     let mut lets = Vec::new();
-    for (fact, level, given) in facts {
-        // `given` was read back before any fact was defined: each fact
+    for (fact, level, givens) in facts {
+        // Each given was read back before any fact was defined: each fact
         // defined since is one more binder over it.
-        let proof = Term::app(
-            Term::Var(cx.level() - 1 - level),
-            given.shift(&g, lets.len(), 0)?,
-        );
+        let mut proof = Term::Var(cx.level() - 1 - level);
+        for given in givens {
+            proof = Term::app(proof, given.shift(&g, lets.len(), 0)?);
+        }
         let fact_term = cx.quote_or_written(&fact)?;
         run.facts.set(run.facts.get() + 1);
         let name = format!("{FACT}{}", run.facts.get());
@@ -2586,6 +2704,43 @@ fn apply_to_part(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Ter
         body = Term::let_(name, ty, value, body);
     }
     Ok(Some(body))
+}
+
+/// Whether [`apply_to_part`] looks for a proof of `premise`: a fact as
+/// [`is_fact`] sees it cheaply, or a plain proposition, a variable of type
+/// `Prop` or one applied to arguments (`a`, `p x` for `p: Nat → Prop`),
+/// as `byFacts` sees it (`facts::is_fact`). Not data: `f: Nat → Nat` is
+/// never applied.
+fn premise_kind(cx: &Ctx, premise: &Value) -> Result<bool> {
+    if is_fact(cx, premise) {
+        return Ok(true);
+    }
+    match force(&cx.g(), premise.clone())? {
+        Value::Neutral(Head::Var(..), _) => crate::facts::is_fact(cx, premise),
+        _ => Ok(false),
+    }
+}
+
+/// A proof of `premise` in scope for the hypothesis at `level`: another
+/// hypothesis of that type, or a part of one (`parts`, taken apart once).
+fn proof_in_scope(
+    cx: &Ctx,
+    level: usize,
+    levels: &[usize],
+    parts: &mut Option<Parts>,
+    premise: &Value,
+) -> Result<Option<Term>> {
+    let g = cx.g();
+    for &k in levels {
+        if k != level && conv(&g, cx.level(), &cx.types[k], premise)? {
+            return Ok(Some(Term::Var(cx.level() - 1 - k)));
+        }
+    }
+    let parts = match parts {
+        Some(parts) => parts,
+        None => parts.insert(Parts::of(cx, levels)?),
+    };
+    parts.find(cx, premise)
 }
 
 /// Whether field type `ty` (in the context of the parameters and the

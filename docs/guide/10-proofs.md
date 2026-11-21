@@ -387,6 +387,17 @@ Two values made by the same constructor are equal only when their fields are, so
 theorem someSame ∀ (f: Nat → Nat) (x y: Nat) (h: Some x = Some y): f x = f y := cases
 ```
 
+A goal that is a conjunction, or a record of proofs, is closed part by part, and a hypothesis `f: a → b` is applied to a hypothesis `a` (or a part of one) where that closes the case, each premise in turn for `a → b → c`. It applies each implication once, never one to what another gave; a chain of them is `byFacts` (below):
+
+<!-- snippet: proofs.sw#cases-parts -->
+```stitchwort
+type Between (low n high: Nat): Prop = { above: low ≤ n, below: n ≤ high }
+
+theorem betweenOf ∀ (low n high: Nat) (inside: (low <= n && n <= high) = True): Between low n high := cases
+
+theorem modusPonens ∀ (a b c: Prop) (f: a → b → c) (x: a) (y: b): c := cases
+```
+
 `cases then t` tries the proof `t` in each case first, for the cases that `cases` can't close alone. When a case can't be closed, the error names it by its splits and shows what that case knows:
 
 <!-- snippet: errors/cases.sw -->
@@ -456,6 +467,8 @@ theorem bonusGrows ∀ (lit: Bool) (n: Nat): n < bonus lit n := cases lit then a
 
 theorem smallSum ∀ (n: Nat) (h: n = 1 ∨ n = 2 ∨ n = 4): n + n ≤ 8 := cases h then arithmetic
 ```
+
+**When `cases` is slow to fail.** A closer that finds the goal costs milliseconds; a goal that nothing closes goes to splitting, and that is where the time goes. `cases` splits what the goal is stuck on, then the fallbacks, up to 64 cases and then a second try of 256, or until it has taken 20 million evaluation steps, about a few seconds. So a `cases` that can't succeed fails fast only when the goal is stuck on nothing it can split (`E-CASES` at once); a goal that waits on data, such as a call on a record whose fields are long texts, can take seconds to end in `E-CASES-BUDGET`. That matters most for `cases` given as an argument, `f x cases`, which is tried wherever the argument's type is known: a wrong one there costs its whole budget. Before reaching for it, make sure the fact is a hypothesis, a part of one, or follows by splitting a little; when `cases` runs long, name the splits (`cases x then t`), give the fact (`byFacts`, or the term), or split by hand with `match`. In one measured proof, a `cases` argument whose fact it couldn't find took 9.6 s to fail, where the hand term took 23 ms and the `cases`, once it found the fact, 0.5 s.
 
 ## From the facts: `byFacts`
 

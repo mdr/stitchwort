@@ -1819,7 +1819,7 @@ fn motive_from(
 }
 
 /// The two sides of a test `a && b`, as `reading` recognises it.
-fn and_sides(cx: &Ctx, test: &Value) -> Result<Option<(Value, Value)>> {
+pub(crate) fn and_sides(cx: &Ctx, test: &Value) -> Result<Option<(Value, Value)>> {
     let g = cx.g();
     let reg = g.env.registry();
     let (f, spine) = match test {
@@ -1852,7 +1852,7 @@ fn and_sides(cx: &Ctx, test: &Value) -> Result<Option<(Value, Value)>> {
 /// Whether data type `d` is a record of proofs: one constructor, not a
 /// builtin connective, every field a proof whose type no other field's
 /// mentions.
-fn is_record_of_proofs(cx: &Ctx, d: DataId) -> bool {
+pub(crate) fn is_record_of_proofs(cx: &Ctx, d: DataId) -> bool {
     let g = cx.g();
     let reg = g.env.registry();
     if reg.is_data(Builtin::And, d)
@@ -1873,7 +1873,7 @@ fn is_record_of_proofs(cx: &Ctx, d: DataId) -> bool {
 
 /// Whether a value of type `ty` is a fact: a proof, or a function giving
 /// one.
-fn is_fact(cx: &Ctx, ty: &Value) -> Result<bool> {
+pub(crate) fn is_fact(cx: &Ctx, ty: &Value) -> Result<bool> {
     let g = cx.g();
     Ok(match force(&g, ty.clone())? {
         Value::Eq(..) => true,

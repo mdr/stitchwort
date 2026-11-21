@@ -1,0 +1,7 @@
+---
+source: crates/driver/tests/library/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.modusPonens d10057701f6d1420954799ab767dfd018c894b5fe5a3e0179f0eae81c09aff1c
+Main.onPart d5c062e105d24edc8e354b286ad96430a7c9c25d6e91b92f0bd06591202a0166
+Main.twoPremises b984ea1ef3d4e5f8d36aba93d7a8095dd4b87d7c01a5bbe0f34b9cb8d80ab46e
