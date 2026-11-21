@@ -1,5 +1,5 @@
 {
-  "next": 4498,
+  "next": 4499,
   "tickets": [
     {
       "id": 47,
@@ -30670,7 +30670,7 @@
     {
       "id": 4488,
       "title": "[Opus] byFacts stage 1a (D3708 revised, Matt, 21 Nov 2026: yes): the proof word byFacts [terms], per docs/proposals/closer.md stage 1 with SW-4483's six changes (two phases; ∃ facts and records of proofs taken apart; unknowns fixed by a fact, never guessed; its own equation rule; terms only, no rules sets, warn on unused; compute once, match by head, count attempts, fail fast); E-FACTS shows what is left after phase 1; byFacts then ?; check --expand-facts; docs, accept and reject examples; the self-hosted formatter refuses the word until a slice reaches it",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -30787,6 +30787,19 @@
     {
       "id": 4497,
       "title": "[Sonnet] D3699 follow-up: grep tools/, aoc/ and games/ for proofs that bind the old four-name form of a Bool guard's False fact (x tail same holds => ...) and check toyfmt's other namespaces one at a time (SW-4486: Toy.Syntax.Proofs broke unnoticed for 27 h)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4498,
+      "title": "[Opus] Long .read chains check in exponential time: a hand-written h.read.right.read.right... takes 1.1 s for 8 conjuncts, 3.7 s for 10, over 2 min for 20 (SW-4488), so --expand-facts terms for long && chains are impractical; fix in the reading code; also profile byFacts phase 1 on a 20-conjunct test fact (18 ms); and the review's remaining notes: a project-namespace expansion test, refusing a non-proposition goal up front",
       "status": "backlog",
       "agent": "",
       "where": "",
