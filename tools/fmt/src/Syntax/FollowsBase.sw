@@ -355,10 +355,7 @@ theorem alikeParen ∀ (open openTwin: Word)
     (inners: ExprsAlike inner innerTwin) (close closeTwin: Word)
     (closes: WordsAlike close closeTwin):
     ExprsAlike (Paren open inner close) (Paren openTwin innerTwin closeTwin) :=
-  calc (Paren open inner close).walk blankPure
-    _ = Paren open.blank (inner.walk blankPure) close.blank := byComputing
-    _ = Paren openTwin.blank (innerTwin.walk blankPure) closeTwin.blank := rewrite opens, inners, closes
-    _ = (Paren openTwin innerTwin closeTwin).walk blankPure := byComputing
+  rewrite repeatedly [opens, inners, closes]
 
 theorem alikeAnnotation ∀ (open openTwin: Word)
     (opens: WordsAlike open openTwin) (value valueTwin: Expr)

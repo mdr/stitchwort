@@ -610,11 +610,7 @@ theorem signQuietOf ∀ (sign next: Item) (operand: Expr)
     signQuiet sign.leaf.word operand = True :=
   let both: (sign.leaf.trivia.trailing.isNone && next.leaf.trivia.leading.isEmpty) = True :=
     rewrite isSign, glued, opens at quiet then quiet
-  let calm: quietBefore sign.leaf.word next.leaf.word = True :=
-    quietBeforeOf sign.leaf next.leaf (Bool.andLeft both) (Bool.andRight both)
-  calc signQuiet sign.leaf.word operand
-    _ = quietBefore sign.leaf.word operand.lead := byComputing
-    _ = True := rewrite lead then calm
+  rewrite lead then byFacts [quietBeforeOf]
 
 theorem quietBeforeOf ∀ (sign next: Leaf)
     (untrailed: sign.trivia.trailing.isNone = True)
@@ -703,8 +699,7 @@ theorem readsNegativeNumber ∀ (start: Parse.Mark Item) (minus number: Item) (l
 
 theorem signLike ∀ (kind: Tok) (sign: kind = Minus ∨ kind = Bang): kind.signLike = True := cases
 
-theorem signSymbolic ∀ (kind: Tok) (sign: kind = Minus ∨ kind = Bang): kind.symbolic1 = True := match sign with
-  | Inl is | Inr is => rewrite is
+theorem signSymbolic ∀ (kind: Tok) (sign: kind = Minus ∨ kind = Bang): kind.symbolic1 = True := cases
 
 theorem argumentMinusPrefix ∀ (items: List Item) (found: argumentMinus items = True): argumentPrefix items = True :=
   cases
