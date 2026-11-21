@@ -1,5 +1,5 @@
 {
-  "next": 4509,
+  "next": 4512,
   "tickets": [
     {
       "id": 47,
@@ -30904,7 +30904,7 @@
     {
       "id": 4506,
       "title": "[Opus] rewrite with a lambda left side and an unknown in its carrier fails on the right candidate: rewrite etaTwo _ on a goal holding x y => p x y gives 'expected Nat → Nat → Bool, but this has type _a → _a → _b' (rewrite etaTwo p checks); lambdas carry no domain type so the carrier's unknowns are never filled; take the candidate's type from where it was found in the goal; repros in SW-4500's report (incomplete, not unsound)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -30917,7 +30917,7 @@
     {
       "id": 4507,
       "title": "[Sonnet] auto's hypothesis parts spend two MAX_PART_DEPTH levels per && (read, then split), so past the fourth part of a chain whose parts read as tests auto doesn't see the rest; give auto the and_side fallback cases got in SW-4485; and tidy auto::take_apart's 8 arguments (reads and cut into a small struct)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -30935,6 +30935,45 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4509,
+      "title": "[Opus paper] Review SW-4485 (cases gaps): the new kernel terms cases builds (records of proofs field by field, implication premises, and_side's Bool.andLeft/andRight chains), the cut flag in auto::hypothesis_parts_cut, and whether the bounds hold; findings filed, review in docs/reviews/SW-4485-cases-gaps-review.md",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4510,
+      "title": "[Sonnet] cases with several implication premises in scope adds only the final fact c from f: a → b → c and drops the partial b → c (SW-4509 finding 3, cases.rs apply_to_part ~l.2643): a case needing (b → c) ∧ d that closed before SW-4485 may not now; add the intermediate applications too, with an accept example; plus a reject example showing cases does not chain implications",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4511,
+      "title": "[DeepSeek] One shared helper for evaluating a record's proof fields: goal_parts in cases.rs is a third copy of the record-field evaluation in facts.rs (SW-4509 finding 5); mechanical, no behaviour change",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-21",
       "updated": "2026-11-21",
