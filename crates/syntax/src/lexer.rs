@@ -126,6 +126,8 @@ pub enum Tok {
     KwCalc,
     /// `byWalking [lemmas] then t`: a walk over a function's calls (docs/syntax.md, "byWalking").
     KwByWalking,
+    /// `byFacts [lemmas] then t`: a proof from the facts in scope and the terms listed (docs/syntax.md, "byFacts").
+    KwByFacts,
     /// `rewrite p then t`: replace `p`'s left side in the goal by its right.
     KwRewrite,
     /// `arithmetic` or `arithmetic [e1, e2]`: a linear arithmetic proof found by the
@@ -204,6 +206,7 @@ macro_rules! keyword_table {
 
 keyword_table! {
     "ability" => KwAbility,
+    "byFacts" => KwByFacts,
     "byWalking" => KwByWalking,
     "calc" => KwCalc,
     "cases" => KwCases,

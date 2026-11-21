@@ -1569,56 +1569,7 @@ fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
     let mark = cx.mark();
     let mut lets = Vec::new();
     for (level, i, a, field_ty, fact) in facts {
-        let Value::Eq(ty, l, _) = force(&g, cx.types[level].clone())? else {
-            unreachable!("an equation")
-        };
-        let Value::Data(d, _) = force(&g, (*ty).clone())? else {
-            unreachable!("data")
-        };
-        let data = g.data(d);
-        let Value::Ctor(_, c, _) = force(&g, (*l).clone())? else {
-            unreachable!("a constructor")
-        };
-        // `case y of C … fi … => fi | _ => a`, under each branch's fields.
-        let a_term = cx.quote_or_written(&a)?;
-        let mut branches = Vec::new();
-        for (k, ctor) in data.ctors().iter().enumerate() {
-            let fields = ctor.fields.len();
-            // The branch is under y, q and the fields.
-            let body = if k == c {
-                Term::Var(fields - 1 - i)
-            } else {
-                a_term.shift(&g, 2 + fields, 0)?
-            };
-            branches.push(Branch {
-                names: ctor.fields.iter().map(|(n, _)| n.clone()).collect(),
-                body: Some(Rc::new(body)),
-            });
-        }
-        let project = family(cx, &ty, &l, d, branches, &field_ty)?;
-        // `J (y q => a = project y) byComputing h : a = project r`, which computes to
-        // `a = b`.
-        let Term::Lam(_, _, inner) = &project else {
-            unreachable!("a lambda")
-        };
-        let Term::Lam(_, _, call) = &**inner else {
-            unreachable!("a lambda")
-        };
-        let motive_body = Term::Eq(
-            Some(Rc::new(cx.quote_or_written(&field_ty)?.shift(&g, 2, 0)?)),
-            Rc::new(a_term.shift(&g, 2, 0)?),
-            call.clone(),
-        );
-        let motive = Term::Lam(
-            "y".into(),
-            Icit::Explicit,
-            Rc::new(Term::Lam("q".into(), Icit::Explicit, Rc::new(motive_body))),
-        );
-        let proof = Term::J(
-            Rc::new(motive),
-            Rc::new(Term::Refl),
-            Rc::new(Term::Var(cx.level() - 1 - level)),
-        );
+        let proof = field_proof(cx, level, i, &a, &field_ty)?;
         let fact_term = cx.quote_or_written(&fact)?;
         run.facts.set(run.facts.get() + 1);
         let name = format!("{FACT}{}", run.facts.get());
@@ -1633,6 +1584,108 @@ fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
         body = Term::let_(name, ty, value, body);
     }
     Ok(Some(body))
+}
+
+/// The proof that field `i` of the constructor equation at `level` has
+/// equal sides, `a = b` (`a` the left side's field, of type `field_ty`):
+/// `J` along the equation with a projection ([`take_apart`]).
+fn field_proof(cx: &mut Ctx, level: usize, i: usize, a: &Value, field_ty: &Value) -> Result<Term> {
+    let g = cx.g();
+    let Value::Eq(ty, l, _) = force(&g, cx.types[level].clone())? else {
+        unreachable!("an equation")
+    };
+    let Value::Data(d, _) = force(&g, (*ty).clone())? else {
+        unreachable!("data")
+    };
+    let data = g.data(d);
+    let Value::Ctor(_, c, _) = force(&g, (*l).clone())? else {
+        unreachable!("a constructor")
+    };
+    // `case y of C … fi … => fi | _ => a`, under each branch's fields.
+    let a_term = cx.quote_or_written(a)?;
+    let mut branches = Vec::new();
+    for (k, ctor) in data.ctors().iter().enumerate() {
+        let fields = ctor.fields.len();
+        // The branch is under y, q and the fields.
+        let body = if k == c {
+            Term::Var(fields - 1 - i)
+        } else {
+            a_term.shift(&g, 2 + fields, 0)?
+        };
+        branches.push(Branch {
+            names: ctor.fields.iter().map(|(n, _)| n.clone()).collect(),
+            body: Some(Rc::new(body)),
+        });
+    }
+    let project = family(cx, &ty, &l, d, branches, field_ty)?;
+    // `J (y q => a = project y) byComputing h : a = project r`, which computes to
+    // `a = b`.
+    let Term::Lam(_, _, inner) = &project else {
+        unreachable!("a lambda")
+    };
+    let Term::Lam(_, _, call) = &**inner else {
+        unreachable!("a lambda")
+    };
+    let motive_body = Term::Eq(
+        Some(Rc::new(cx.quote_or_written(field_ty)?.shift(&g, 2, 0)?)),
+        Rc::new(a_term.shift(&g, 2, 0)?),
+        call.clone(),
+    );
+    let motive = Term::Lam(
+        "y".into(),
+        Icit::Explicit,
+        Rc::new(Term::Lam("q".into(), Icit::Explicit, Rc::new(motive_body))),
+    );
+    let proof = Term::J(
+        Rc::new(motive),
+        Rc::new(Term::Refl),
+        Rc::new(Term::Var(cx.level() - 1 - level)),
+    );
+    Ok(proof)
+}
+
+/// The equations a fact `C a… = C b…` at `level` gives for its fields
+/// whose sides differ, as [`take_apart`] finds them: the field's number,
+/// `aᵢ = bᵢ` and its proof. `None` if it isn't such an equation.
+pub(crate) fn field_equations(
+    cx: &mut Ctx,
+    level: usize,
+) -> Result<Option<Vec<(usize, Value, Term)>>> {
+    let g = cx.g();
+    let Some(eq) = ctor_equation(cx, level)? else {
+        return Ok(None);
+    };
+    if eq.left.0 != eq.right.0 {
+        return Ok(None);
+    }
+    let Value::Data(_, params) = force(&g, eq.ty.clone())? else {
+        return Ok(None);
+    };
+    let ctor = &g.data(eq.d).ctors()[eq.left.0];
+    let np = g.data(eq.d).params().len();
+    let mut out = Vec::new();
+    for (i, (a, b)) in eq.left.1.iter().zip(&eq.right.1).enumerate() {
+        if ctor.field_erased.get(i).copied().unwrap_or(false)
+            || mentions_fields(&ctor.fields[i].1, i)
+            || conv(&g, cx.level(), a, b)?
+        {
+            continue;
+        }
+        let env: Vec<Value> = params[..np]
+            .iter()
+            .chain(&eq.left.1[..i])
+            .cloned()
+            .collect();
+        let field_ty = eval(&g, &env, &ctor.fields[i].1)?;
+        let fact = Value::Eq(
+            Rc::new(field_ty.clone()).into(),
+            Rc::new(a.clone()).into(),
+            Rc::new(b.clone()).into(),
+        );
+        let proof = field_proof(cx, level, i, a, &field_ty)?;
+        out.push((i, fact, proof));
+    }
+    Ok(Some(out))
 }
 
 /// A fact [`take_apart`] added, `x = t` or `t = x` with `x` a variable that

@@ -2241,6 +2241,10 @@ impl Walk<'_> {
                     &mut stack,
                     w.items.iter().chain(&w.body).map(Work::Expr).collect(),
                 ),
+                Expr::Facts(f) => then(
+                    &mut stack,
+                    f.items.iter().chain(&f.body).map(Work::Expr).collect(),
+                ),
                 Expr::Calc { first, steps, .. } => {
                     let mut work = vec![Work::Expr(first)];
                     for step in steps {
