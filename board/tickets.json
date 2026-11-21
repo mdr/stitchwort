@@ -31164,7 +31164,7 @@
     {
       "id": 4526,
       "title": "[Sonnet] walk-runs stage 1 (docs/proposals/walk-runs.md, SW-4522): std Parse.RunsOn p input rest value; Parse.Runs p read rest v redefined as RunsOn p (read ++ rest) rest v with an equivalence lemma; migrate the proofs that open the definitions; re-record hashes (prelude, examples, projects)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
