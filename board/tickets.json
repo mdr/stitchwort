@@ -1,5 +1,5 @@
 {
-  "next": 4524,
+  "next": 4526,
   "tickets": [
     {
       "id": 47,
@@ -31034,12 +31034,12 @@
     {
       "id": 4516,
       "title": "[Sonnet] byFacts pilot outside the formatter (SW-4483 review bars G1-G4, docs/reviews/SW-4483-byfacts-in-context.md §5): the §1.2 goals, rows 7, 10, 17, 18, 20, 25, 34, 37, and G3's files (one std Doc/ file, one AoC day heavy on Both, games/rogue Reach.sw); report each bar met or not",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, 25 min (est. 45).\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
@@ -31130,6 +31130,32 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4524,
+      "title": "[Opus] byFacts never uses a fact or lemma whose conclusion is an ∧ or a record, even whole: mk: r n → p n ∧ q n fails to prove p n, q n or p n ∧ q n (∨ works); index such conclusions by their parts as well as whole; also it unfolds a goal's definition before matching a lemma about it (day 15 part1FromInput); blocks SW-4483 row 20, AoC 2021 day 12 completesCons, days 13/15 part1FromInput (SW-4516, probe_whole2.sw)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4525,
+      "title": "[Opus] A failing byFacts is slow with many facts in scope: 25.6 s with 16 facts (AoC 2021 day 12 followsCompletes), row 34 with a hypothesis removed 286-360 ms (G4 bar 5 ms): bound facts tried or terms built beyond the attempt limit, keeping every current success (SW-4516)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-21",
       "updated": "2026-11-21",
