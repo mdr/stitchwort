@@ -30956,12 +30956,12 @@
     {
       "id": 4510,
       "title": "[Sonnet] cases with several implication premises in scope adds only the final fact c from f: a → b → c and drops the partial b → c (SW-4509 finding 3, cases.rs apply_to_part ~l.2643): a case needing (b → c) ∧ d that closed before SW-4485 may not now; add the intermediate applications too, with an accept example; plus a reject example showing cases does not chain implications",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nProgress (lane, 21 Nov): the claimed regression does not reproduce. On today's main, (b → c) ∧ e, (y = 2 → c) ∧ e and e ∧ (y = 2 → c) with f: a → b → c, x: a and g z needed for e all close without the partial fact: Π parts of a goal are introduced, so b → c is never needed as a fact, and no closer or premise consumes a Π fact (premise_kind refuses Π premises). No code change (D3608: no failing test). Added examples/accept/cases-implication-partial.sw and examples/reject/cases-implication-chain.sw (E-CASES) with snapshots.\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
