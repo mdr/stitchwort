@@ -1,5 +1,5 @@
 {
-  "next": 4488,
+  "next": 4489,
   "tickets": [
     {
       "id": 47,
@@ -30659,6 +30659,19 @@
       "title": "[Sonnet] Walk follow-ups (SW-4479): convert the formatter proofs that now walk within the bar (givesTupleRest, givesBlock, givesCalcBody, givesDataParamStep, givesConstructorParen group; givesClauseLambda 2.0x, givesPipeChain 2.3x, givesListItemsFromAny 3.8x stay by hand unless re-timed under the file bar); state givesListItemsEnd over a pair variable so givesListItemsFrom walks; --expand-walk text for a bind inside a bound computation leaves the inner givesThen's post to inference and doesn't elaborate (givesNested, givesFromMark, givesBound in walk-operation.sw): write the post explicitly, then add the example to walk_expand",
       "status": "backlog",
       "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4488,
+      "title": "[Opus] byFacts stage 1a (D3708 revised, Matt, 21 Nov 2026: yes): the proof word byFacts [terms], per docs/proposals/closer.md stage 1 with SW-4483's six changes (two phases; ∃ facts and records of proofs taken apart; unknowns fixed by a fact, never guessed; its own equation rule; terms only, no rules sets, warn on unused; compute once, match by head, count attempts, fail fast); E-FACTS shows what is left after phase 1; byFacts then ?; check --expand-facts; docs, accept and reject examples; the self-hosted formatter refuses the word until a slice reaches it",
+      "status": "doing",
+      "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
