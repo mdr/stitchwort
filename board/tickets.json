@@ -30605,12 +30605,12 @@
     {
       "id": 4483,
       "title": "[Fable, paper] byFacts in the space of proof tools (Matt, 21 Nov 2026, before D3708): review docs/proposals/closer.md's stage 1 against other systems' finishers (Rocq auto/eauto/intuition/firstorder, Lean solve_by_elim/exact?/aesop/grind/simp_all, Isabelle auto/blast, Agda/Idris proof search, SMT-backed languages) and Stitchwort's earlier research; judge whether it is a generally useful tool across std, AoC, the roguelike, apps and the formatter, not just slice 1; recommend for D3708",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nLane note (Fable, paper, 21 Nov): docs/reviews/SW-4483-byfacts-in-context.md, commit e75fae790 on lane/SW-4483. Recommends for D3708: build byFacts with changes (two phases; open ∃ facts and records of proofs; unknowns fixed by a fact, never guessed; its own rule for equations in scope; terms in the list, no rules sets; SW-4474 alongside). Sample of 40 proofs outside slice 1 (641 lines, seed 4483): today's tools take 5.3% (27 of 34 lines run); byFacts a further 3.0% as specified, 4.1% with additions [estimated]; about 9% in formatter-style code, 1.4% (2.7%) in std, AoC, rogue and the app. Probes: cases fails on eight basic logical goals that Rocq auto / Lean solve_by_elim mostly close; cases as an argument ran 9.07 s to E-CASES-BUDGET on doc1Shape. About 17 min.\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
