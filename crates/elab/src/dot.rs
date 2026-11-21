@@ -841,8 +841,31 @@ fn find(cx: &Ctx, recv: &Expr, field: &AstName, ty: Ty) -> Result<(TyHead, DefId
     }
 }
 
+/// [`find`] for a caller that only asks whether there is such a member and
+/// drops the error: a missing member's error is left without the near
+/// misses and other namespaces it would list, which look through the whole
+/// scope (SW-4498: a chain of `.read`s spent most of its time on them).
+fn find_quietly(cx: &Ctx, recv: &Expr, field: &AstName, ty: Ty) -> Option<(TyHead, DefId)> {
+    match find_or_block_with(cx, recv, field, ty, true) {
+        Ok(Lookup::Found(h, f, _)) => Some((h, f)),
+        _ => None,
+    }
+}
+
 /// [`find`], or where the view met an unknown first, that unknown.
 fn find_or_block(cx: &Ctx, recv: &Expr, field: &AstName, ty: Ty) -> Result<Lookup> {
+    find_or_block_with(cx, recv, field, ty, false)
+}
+
+/// [`find_or_block`], with a missing member's error left bare if `quiet`
+/// ([`find_quietly`]).
+fn find_or_block_with(
+    cx: &Ctx,
+    recv: &Expr,
+    field: &AstName,
+    ty: Ty,
+    quiet: bool,
+) -> Result<Lookup> {
     // `f.unfold` for an opaque `f` that has none, read as a field of `f`
     // (docs/proposals/opaque-definitions.md §6.3).
     if let Expr::Var(owner) = recv {
@@ -860,7 +883,7 @@ fn find_or_block(cx: &Ctx, recv: &Expr, field: &AstName, ty: Ty) -> Result<Looku
             return Err(d);
         }
     }
-    let result = find_in_view(cx, recv, field, ty);
+    let result = find_in_view(cx, recv, field, ty, quiet);
     if matches!(result, Ok(Lookup::Blocked(..)) | Err(_))
         && let Some(failed) = failed_receiver(cx, recv)
     {
@@ -900,7 +923,7 @@ fn failed_receiver(cx: &Ctx, recv: &Expr) -> Option<Diagnostic> {
 
 /// [`find_or_block`], once `recv` isn't an opaque definition's missing
 /// `.unfold`.
-fn find_in_view(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<Lookup> {
+fn find_in_view(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty, quiet: bool) -> Result<Lookup> {
     let g = cx.g();
     let receiver_ty = ty.clone();
     let mut tried: Vec<TyHead> = Vec::new();
@@ -1058,6 +1081,7 @@ fn find_in_view(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<Lo
                         Some(next) => ty = next,
                         None => return Err(blocked(cx, recv, field, &tried)),
                     },
+                    _ if quiet => return Err(Diagnostic::error("E-UNKNOWN-FIELD", "")),
                     _ => return Err(unknown_member(cx, recv, field, &tried, receiver_ty)),
                 }
             }
@@ -1681,20 +1705,35 @@ pub(crate) fn prefix_form<'a>(
     let key = call_key(cx, recv, field);
     let cached = cx.e.caches.dot_heads.borrow().get(&key).copied();
     let (owner, f) = if let Some(found) = cached {
+        let Some(found) = found else {
+            return Ok(None);
+        };
         found
     } else {
         let snapshot = crate::undo::Snapshot::take(cx);
-        let found = (|| -> Result<(TyHead, DefId)> {
+        // `Ok(None)`: the receiver elaborated and its view met no unknown,
+        // but has no such member (`h.read` on a test fact, a field of what
+        // a fact reads as). That is kept like a found head, so a chain
+        // `h.read.right.read…` doesn't infer every receiver again at each
+        // level it is visited from: twice per level, exponential (SW-4498).
+        let found = (|| -> Result<Option<(TyHead, DefId)>> {
             let (rterm, rty) = infer_receiver(cx, recv, field)?;
             let (rterm, rty) = insert(cx, rterm, rty)?;
             let start = view_start(cx, &rterm, &rty)?;
-            let (owner, f, _) = find(cx, recv, field, start)?;
-            Ok((owner, f))
+            match find_or_block_with(cx, recv, field, start, true) {
+                Ok(Lookup::Found(owner, f, _)) => Ok(Some((owner, f))),
+                Ok(Lookup::Blocked(_, error)) => Err(error),
+                Err(e) if crate::undo::fatal(&e) => Err(e),
+                Err(_) => Ok(None),
+            }
         })();
         snapshot.restore(cx);
         match found {
             Ok(found) => {
                 cx.e.caches.dot_heads.borrow_mut().insert(key, found);
+                let Some(found) = found else {
+                    return Ok(None);
+                };
                 found
             }
             Err(e) if crate::undo::fatal(&e) => return Err(e),
@@ -1945,7 +1984,7 @@ pub(crate) fn target_place(
     let Some(ty) = receiver_type(cx, recv, 8)? else {
         return Ok(None);
     };
-    let Ok((owner, f, _)) = find(cx, recv, field, ty) else {
+    let Some((owner, f)) = find_quietly(cx, recv, field, ty) else {
         return Ok(None);
     };
     let place = receiver_place(cx, &params(&cx.g(), f), owner)?;
@@ -1957,7 +1996,7 @@ fn target_within(cx: &Ctx, recv: &Expr, field: &AstName, depth: usize) -> Result
         return Ok(None);
     }
     Ok(match receiver_type(cx, recv, depth)? {
-        Some(ty) => find(cx, recv, field, ty).ok().map(|(_, id, _)| id),
+        Some(ty) => find_quietly(cx, recv, field, ty).map(|(_, id)| id),
         None => None,
     })
 }

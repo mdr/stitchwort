@@ -31,8 +31,9 @@ pub(crate) struct Caches {
     /// What each receiver's dot call was found to call, by the receiver
     /// expression and the field written after it: so a chain `x.f.g.h` finds
     /// each head once instead of inferring the receiver again at every
-    /// level (`dot::prefix_form`).
-    pub(crate) dot_heads: RefCell<HashMap<dot::CallKey, (dot::TyHead, DefId)>>,
+    /// level (`dot::prefix_form`). `None` where the receiver's type has no
+    /// such member, with no unknown in the way.
+    pub(crate) dot_heads: RefCell<HashMap<dot::CallKey, Option<(dot::TyHead, DefId)>>>,
     /// Dot calls whose prefix form failed, with the metavariable state it
     /// failed in: not tried again until that changes (`dot::infer_call`).
     pub(crate) dot_failed: RefCell<HashSet<(dot::CallKey, usize, usize)>>,
