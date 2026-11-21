@@ -1,8 +1,8 @@
 --| Slice 6a's formatter on small cases: `rewrite` with its rules, `<-`,
---| `at`, `then` chains and `repeatedly`, `cases then`, facts, `calc` and
---| `↔`. The harness (`dev/fmt-twin s6a`) compares every declaration within
---| the slices with the Rust formatter's; these pin the main shapes, each
---| expected text being `stitchwort fmt`'s.
+--| `at`, `then` chains and `repeatedly`, `cases` with names and `then`,
+--| facts, `calc` and `↔`. The harness (`dev/fmt-twin s6a`) compares every
+--| declaration within the slices with the Rust formatter's; these pin the
+--| main shapes, each expected text being `stitchwort fmt`'s.
 
 namespace Fmt.Tests
 import Fmt (..)
@@ -27,6 +27,16 @@ test "`calc` steps one a line at 2, a blank line kept, and in an arm below the `
   formats
       "theorem a: x = z := calc x\n  _ = y := h1\n  _ = z := rewrite h2 then rfl\ntheorem b: x <= z := calc f x y\n\n    -- step\n    _ < z := aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\ntheorem c: P := match x with\n  | A => calc a\n    _ = b := h\n  | B => cases then rfl\n"
       "theorem a: x = z := calc x\n  _ = y := h1\n  _ = z := rewrite h2 then rfl\ntheorem b: x <= z := calc f x y\n\n  -- step\n  _ < z :=\n    aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\ntheorem c: P := match x with\n  | A =>\n    calc a\n      _ = b := h\n  | B => cases then rfl\n"
+
+test "`cases` with names to split, as the Rust formatter's golden `cases-named` has it" :=
+  formats
+      "theorem t ∀ (a b: Bool): (a || b) = (b || a) :=   cases   a ,b   then   byComputing\n\ntheorem u ∀ (a: Bool): (a || a) = a := cases   a\n\ntheorem v ∀ (a b: Bool): (a || b) = (b || a) :=\n  cases a,  b then\n    byComputing\n"
+      "theorem t ∀ (a b: Bool): (a || b) = (b || a) := cases a, b then byComputing\n\ntheorem u ∀ (a: Bool): (a || a) = a := cases a\n\ntheorem v ∀ (a b: Bool): (a || b) = (b || a) := cases a, b then byComputing\n"
+
+test "comments among a `cases`'s names, and a long one, print as Rust's" :=
+  formats
+      "theorem a: P := cases x -- c\n  , y then rfl\ntheorem b: P := cases x,\n  -- above y\n  y then rfl\ntheorem c: P := cases aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, cccccccccccccccc then ddddddddddddddddd eeeeeeeeeeeeeeeeeeeeeeeeeeeee\n"
+      "theorem a: P := cases x, -- c\n  y then rfl\ntheorem b: P :=\n  cases x,\n    -- above y\n    y then rfl\ntheorem c: P :=\n  cases aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, cccccccccccccccc then ddddddddddddddddd\n      eeeeeeeeeeeeeeeeeeeeeeeeeeeee\n"
 
 test "a long `↔` breaks before the operator" :=
   formats

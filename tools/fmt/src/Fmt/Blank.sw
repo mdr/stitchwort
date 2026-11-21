@@ -87,7 +87,7 @@ def blankExpr: Expr → Expr
   | Induct _ _ call _ arms => Induct Comments.none Comments.none call Comments.none (blankInductArms arms)
   | Calc _ first steps => Calc Comments.none first (blankCalcSteps steps)
   | Rewrite _ rules target body => Rewrite Comments.none rules.blank (blankAfter target) (blankAfter body)
-  | Cases _ _ body => Cases Comments.none Comments.none body
+  | Cases _ targets body => Cases Comments.none (blankWords targets) (blankAfter body)
   | Walk _ items body => Walk Comments.none items (blankAfter body)
   | other => other
 

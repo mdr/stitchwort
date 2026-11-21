@@ -155,8 +155,9 @@ type Expr =
   | Calc (keyword: Comments) (first: Expr) (steps: List CalcStep)
   --| `rewrite p, <- q at h then t`
   | Rewrite (keyword: Comments) (rules: Rules) (target: Option (Comments, Expr)) (body: Option (Comments, Expr))
-  --| `cases then t` (`cases` alone is an `Atom`).
-  | Cases (keyword: Comments) (thenKeyword: Comments) (body: Expr)
+  --| `cases then t`, `cases x, y` or `cases x, y then t`: the names to split, then the `then` body if there. `cases`
+  --| alone is an `Atom`, so a `Cases` has names, a body or both.
+  | Cases (keyword: Comments) (targets: List Word) (body: Option (Comments, Expr))
   --| `byWalking [items] then t`: the word, its items as a list (`ListOf`), and the `then` body if there.
   | Walk (keyword: Comments) (items: Expr) (body: Option (Comments, Expr))
 
@@ -378,8 +379,15 @@ def Expr.lines (expr: Expr) (depth: Nat): List Text :=
         | RuleList list => ruleLines d list
         | Repeatedly _ set => fixed d "repeatedly" ++ set.lines d
       node depth "Rewrite" (fixed d "rewrite" ++ ruled ++ afterLines d "at" target ++ afterLines d "then" body)
-    | Cases _ _ body => node depth "Cases" (fixed d "cases" ++ fixed d "then" ++ body.lines d)
+    | Cases _ targets body =>
+      node depth "Cases" (fixed d "cases" ++ commaWordLines d targets ++ afterLines d "then" body)
     | Walk _ items body => node depth "Walk" (fixed d "byWalking" ++ items.lines d ++ afterLines d "then" body)
+
+--| Words with a `,` line between each two.
+def commaWordLines (depth: Nat): List Word → List Text
+  | [] => []
+  | [word] => word.line depth
+  | [word, ..rest] => word.line depth ++ commaLine depth ++ commaWordLines depth rest
 
 --| A fixed token and the expression after it, if they are there.
 def afterLines (depth: Nat) (text: Text): Option (Comments, Expr) → List Text
