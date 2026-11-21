@@ -215,7 +215,7 @@ these four beside any Lean or Rocq development's top theorems.
 
 1. **Finding them.** The top theorems start at line 364 of 594, after 300 lines of helpers
    whose descriptions are in the project's shorthand: "P2 is the identity ...", "the stock
-   take's row 10", "the stock take's U6", "K1's `settledHomed`". The file has 33 imports, 13
+   take's row 10", "the stock take's U6". The file has 33 imports, 13
    of them `(..)`, so a name's home can't be read off the top of the file.
 2. **One step down.** `formatsOf`, `tidiedFacts`, `printedOf` are fine. Then `declHangs1`:
    five hypotheses `within`, `shaped`, `settled`, `lexical`, `unreturned`, each `= True`, giving
