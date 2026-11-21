@@ -3,11 +3,18 @@
 --| each step does so on a node and its blanked form (`Blanks`). One theorem a traversal function, `…Blanks`, stated
 --| on the form the function's input takes inside a blanked tree (`blankArms (walkArms blankPure arms)` for a match's
 --| arms). `Fmt.Walk`'s `…Ok` family covers steps that can't fail; the lowering's checks can, so `loweringDeaf`
---| (`Syntax.DeafProofs`) rests on this family. Each arm follows the traversal's arm: one `alikeN` call for each
---| `seqN`, or, where the arm rebuilds a node and hands it to a step, one `rebuildsN` call; a change to the traversal
---| needs the same change here.
+--| (`Syntax.DeafProofs`) rests on this family. Each arm follows the traversal's arm: one `Fail.toResultAlikeN` call for
+--| each `seqN`, or, where the arm rebuilds a node and hands it to a step, one `Fail.toResultRebuildsN` call (imported
+--| as `rebuildsN`); a change to the traversal needs the same change here. A data declaration's indices and body
+--| have a lemma each (`indicesPartBlanks`, `bodyPartBlanks`), since the traversal computes them inline.
 namespace Fmt.TraverseFail
 import Std (Bool, Eq, Fail, List, Nat, Option, Result, Text)
+import Std.Fail (
+  toResultRebuilds1 as rebuilds1,
+  toResultRebuilds2 as rebuilds2,
+  toResultRebuilds3 as rebuilds3,
+  toResultRebuilds4 as rebuilds4
+)
 import Syntax (..)
 import Fmt (..)
 import Fmt.Walk (..)
@@ -31,43 +38,6 @@ type Blanks (on: Steps) = {
   ruleSet: ∀ (z: RuleSet) => Fail.toResult (() => on.ruleSet (walkRuleSet blankPure z))
     = (Fail.toResult (() => on.ruleSet z)).map (x => walkRuleSet blankPure x)
 }
-
--- The shapes of `Fmt.Walk`'s `seqN`, `seqNk` and `seqNj`, for two runs: one on a node's children and one on their
--- blanked forms. Each child's run on the blanked form fails as the original's does or finishes with the original's
--- result blanked (`hN`); then the arm does too, given that the rest of the arm does for every result (`step`).
-
---| A node rebuilt around one child's run (`g` around the run on the node, `g2` around the run on its blanked
---| form), then given to a step `k` that keeps blanking (`deaf`, one of [`Blanks`]' fields): when the child's run
---| on its blanked form agrees with its run (`h1`, its induction hypothesis), and rebuilding around a blanked child
---| is blanking the rebuilt node (`rebuilt`, by computing), the node's run on its blanked form agrees with its run.
-theorem rebuilds1 ∀ [t1 s1: () → {Fail} a1] [bl1: a1 → a1] [g g2: a1 → r] [k: r → {Fail} r] [blr: r → r]
-    (deaf: ∀ (z: r) => Fail.toResult (() => k (blr z)) = (Fail.toResult (() => k z)).map blr)
-    (h1: Fail.toResult s1 = (Fail.toResult t1).map bl1)
-    (rebuilt: ∀ (v1: a1) => g2 (bl1 v1) = blr (g v1)):
-    Fail.toResult (() => k (g2 (s1 ()))) = (Fail.toResult (() => k (g (t1 ())))).map blr :=
-  Fail.toResultAlike1Then h1 (v1 => rewrite rebuilt v1 then deaf (g v1))
-
---| As [`rebuilds1`], for a node rebuilt around two children's runs.
-theorem rebuilds2 ∀ [t1 s1: () → {Fail} a1] [t2 s2: () → {Fail} a2] [bl1: a1 → a1] [bl2: a2 → a2] [g g2: a1 → a2 → r]
-    [k: r → {Fail} r] [blr: r → r]
-    (deaf: ∀ (z: r) => Fail.toResult (() => k (blr z)) = (Fail.toResult (() => k z)).map blr)
-    (h1: Fail.toResult s1 = (Fail.toResult t1).map bl1)
-    (h2: Fail.toResult s2 = (Fail.toResult t2).map bl2)
-    (rebuilt: ∀ (v1: a1) (v2: a2) => g2 (bl1 v1) (bl2 v2) = blr (g v1 v2)):
-    Fail.toResult (() => k (g2 (s1 ()) (s2 ()))) = (Fail.toResult (() => k (g (t1 ()) (t2 ())))).map blr :=
-  Fail.toResultAlike2Then h1 h2 (v1 v2 => rewrite rebuilt v1 v2 then deaf (g v1 v2))
-
---| As [`rebuilds1`], for a node rebuilt around three children's runs.
-theorem rebuilds3 ∀ [t1 s1: () → {Fail} a1] [t2 s2: () → {Fail} a2] [t3 s3: () → {Fail} a3] [bl1: a1 → a1]
-    [bl2: a2 → a2] [bl3: a3 → a3] [g g2: a1 → a2 → a3 → r] [k: r → {Fail} r] [blr: r → r]
-    (deaf: ∀ (z: r) => Fail.toResult (() => k (blr z)) = (Fail.toResult (() => k z)).map blr)
-    (h1: Fail.toResult s1 = (Fail.toResult t1).map bl1)
-    (h2: Fail.toResult s2 = (Fail.toResult t2).map bl2)
-    (h3: Fail.toResult s3 = (Fail.toResult t3).map bl3)
-    (rebuilt: ∀ (v1: a1) (v2: a2) (v3: a3) => g2 (bl1 v1) (bl2 v2) (bl3 v3) = blr (g v1 v2 v3)):
-    Fail.toResult (() => k (g2 (s1 ()) (s2 ()) (s3 ())))
-      = (Fail.toResult (() => k (g (t1 ()) (t2 ()) (t3 ())))).map blr :=
-  Fail.toResultAlike3Then h1 h2 h3 (v1 v2 v3 => rewrite rebuilt v1 v2 v3 then deaf (g v1 v2 v3))
 
 --| Traversing a blanked tree is blanking the traversed tree, failures included. By induction alongside the
 --| traversal: each arm rebuilds its node around its children's runs, which agree with theirs on the blanked forms
@@ -344,6 +314,54 @@ theorem fieldPatternsBlanks ∀ (on: Steps)
       Fail.toResultAlike2 (patternBlanks on deaf pattern) (fieldPatternsBlanks on deaf rest) (v1 v2 => byComputing)
     | [{ name, value = None }, ..rest] => Fail.toResultAlike1 (fieldPatternsBlanks on deaf rest) (v1 => byComputing)
 
+--| The traversal's work on a data declaration's indices, as `Decl.traverse` does it inline.
+def indicesPart (on: Steps) (indices: Option Indices): {Fail} Option Indices := match indices with
+  | Some { colon, steps, last } => Some { colon, steps = traverseIndices on steps, last = last.traverse on }
+  | None => None
+
+--| A data declaration's indices as walking with `blankPure` leaves them, and then `blankDecl` blanking them.
+def blankedIndices (indices: Option Indices): Option Indices :=
+  (match indices with
+        | Some { colon, steps, last } => Some { colon, steps = walkIndices blankPure steps, last = last.walk blankPure }
+        | None => None).map Indices.blank
+
+--| The traversal's work on a data declaration's body, as `Decl.traverse` does it inline.
+def bodyPart (on: Steps) (body: DataBody): {Fail} DataBody := match body with
+  | Abstract => Abstract
+  | Synonym equals annotation => Synonym equals (annotation.traverse on)
+  | RecordBody equals fields => RecordBody equals (fields.traverse on)
+  | Sum equals constructors => Sum equals (traverseConstructors on constructors)
+
+--| A data declaration's body as walking with `blankPure` leaves it, and then `blankDecl` blanking it.
+def blankedBody (body: DataBody): DataBody :=
+  (match body with
+    | Abstract => Abstract
+    | Synonym equals annotation => Synonym equals (annotation.walk blankPure)
+    | RecordBody equals fields => RecordBody equals (fields.walk blankPure)
+    | Sum equals constructors => Sum equals (walkConstructors blankPure constructors)).blank
+
+--| The traversal of a data declaration's body, blanked, fails as on the body or finishes with the result blanked:
+--| the run on what the body holds does (`exprBlanks`, `fieldsBlanks`, `constructorsBlanks`).
+theorem bodyPartBlanks ∀ (on: Steps)
+    (deaf: Blanks on) (body: DataBody):
+    Fail.toResult (() => bodyPart on (blankedBody body)) = (Fail.toResult (() => bodyPart on body)).map blankedBody :=
+  match body with
+    | Abstract => byComputing
+    | Synonym equals annotation => Fail.toResultAlike1 (exprBlanks on deaf annotation) (w1 => byComputing)
+    | RecordBody equals fields => Fail.toResultAlike1 (fieldsBlanks deaf fields) (w1 => byComputing)
+    | Sum equals constructors => Fail.toResultAlike1 (constructorsBlanks on deaf constructors) (w1 => byComputing)
+
+--| The traversal of a data declaration's indices, blanked, fails as on the indices or finishes with the result
+--| blanked: the steps' (`indicesBlanks`) and the last expression's (`exprBlanks`) runs do.
+theorem indicesPartBlanks ∀ (on: Steps)
+    (deaf: Blanks on) (indices: Option Indices):
+    Fail.toResult (() => indicesPart on (blankedIndices indices))
+      = (Fail.toResult (() => indicesPart on indices)).map blankedIndices :=
+  match indices with
+    | Some { colon, steps, last } =>
+      Fail.toResultAlike2 (indicesBlanks on deaf steps) (exprBlanks on deaf last) (w1 w2 => byComputing)
+    | None => byComputing
+
 theorem declBlanks ∀ (on: Steps)
     (deaf: Blanks on) (input: Decl):
     runDecl on (input.walk blankPure) = (runDecl on input).map (x => x.walk blankPure) :=
@@ -352,82 +370,13 @@ theorem declBlanks ∀ (on: Steps)
     | Definition a b c =>
       rebuilds3 deaf.decl (attributesBlanks on deaf a) (headerBlanks on deaf b) (defBodyBlanks on deaf c) (v1 v2 v3 =>
         byComputing)
-    | Data attributes isInterface keyword name params indices body =>
-      match indices with
-        | Some { colon, steps, last } =>
-          match body with
-            | Abstract =>
-              Fail.toResultAlike4Then
-                [g2 := v1 v2 v3 v4 => Data v1 isInterface Comments.none name.blank v2 v3 v4]
-                (attributesBlanks on deaf attributes)
-                (groupsBlanks on deaf params)
-                (Fail.toResultAlike2 (indicesBlanks on deaf steps) (exprBlanks on deaf last) (w1 w2 => byComputing))
-                (Fail.toResultAlikePure byComputing)
-                (v1 v2 v3 v4 => deaf.decl (Data v1 isInterface keyword name v2 v3 v4))
-            | Synonym equals annotation =>
-              Fail.toResultAlike4Then
-                [g2 := v1 v2 v3 v4 => Data v1 isInterface Comments.none name.blank v2 v3 v4]
-                (attributesBlanks on deaf attributes)
-                (groupsBlanks on deaf params)
-                (Fail.toResultAlike2 (indicesBlanks on deaf steps) (exprBlanks on deaf last) (w1 w2 => byComputing))
-                (Fail.toResultAlike1 [g2 := w1 => Synonym Comments.none w1] (exprBlanks on deaf annotation) (w1 =>
-                  byComputing))
-                (v1 v2 v3 v4 => deaf.decl (Data v1 isInterface keyword name v2 v3 v4))
-            | RecordBody equals fields =>
-              Fail.toResultAlike4Then
-                [g2 := v1 v2 v3 v4 => Data v1 isInterface Comments.none name.blank v2 v3 v4]
-                (attributesBlanks on deaf attributes)
-                (groupsBlanks on deaf params)
-                (Fail.toResultAlike2 (indicesBlanks on deaf steps) (exprBlanks on deaf last) (w1 w2 => byComputing))
-                (Fail.toResultAlike1 [g2 := w1 => RecordBody Comments.none w1] (fieldsBlanks deaf fields) (w1 =>
-                  byComputing))
-                (v1 v2 v3 v4 => deaf.decl (Data v1 isInterface keyword name v2 v3 v4))
-            | Sum equals constructors =>
-              Fail.toResultAlike4Then
-                [g2 := v1 v2 v3 v4 => Data v1 isInterface Comments.none name.blank v2 v3 v4]
-                (attributesBlanks on deaf attributes)
-                (groupsBlanks on deaf params)
-                (Fail.toResultAlike2 (indicesBlanks on deaf steps) (exprBlanks on deaf last) (w1 w2 => byComputing))
-                (Fail.toResultAlike1 [g2 := w1 => Sum Comments.none w1] (constructorsBlanks on deaf constructors) (w1 =>
-                  byComputing))
-                (v1 v2 v3 v4 => deaf.decl (Data v1 isInterface keyword name v2 v3 v4))
-        | None =>
-          match body with
-            | Abstract =>
-              Fail.toResultAlike4Then
-                [g2 := v1 v2 v3 v4 => Data v1 isInterface Comments.none name.blank v2 v3 v4]
-                (attributesBlanks on deaf attributes)
-                (groupsBlanks on deaf params)
-                (Fail.toResultAlikePure byComputing)
-                (Fail.toResultAlikePure byComputing)
-                (v1 v2 v3 v4 => deaf.decl (Data v1 isInterface keyword name v2 v3 v4))
-            | Synonym equals annotation =>
-              Fail.toResultAlike4Then
-                [g2 := v1 v2 v3 v4 => Data v1 isInterface Comments.none name.blank v2 v3 v4]
-                (attributesBlanks on deaf attributes)
-                (groupsBlanks on deaf params)
-                (Fail.toResultAlikePure byComputing)
-                (Fail.toResultAlike1 [g2 := w1 => Synonym Comments.none w1] (exprBlanks on deaf annotation) (w1 =>
-                  byComputing))
-                (v1 v2 v3 v4 => deaf.decl (Data v1 isInterface keyword name v2 v3 v4))
-            | RecordBody equals fields =>
-              Fail.toResultAlike4Then
-                [g2 := v1 v2 v3 v4 => Data v1 isInterface Comments.none name.blank v2 v3 v4]
-                (attributesBlanks on deaf attributes)
-                (groupsBlanks on deaf params)
-                (Fail.toResultAlikePure byComputing)
-                (Fail.toResultAlike1 [g2 := w1 => RecordBody Comments.none w1] (fieldsBlanks deaf fields) (w1 =>
-                  byComputing))
-                (v1 v2 v3 v4 => deaf.decl (Data v1 isInterface keyword name v2 v3 v4))
-            | Sum equals constructors =>
-              Fail.toResultAlike4Then
-                [g2 := v1 v2 v3 v4 => Data v1 isInterface Comments.none name.blank v2 v3 v4]
-                (attributesBlanks on deaf attributes)
-                (groupsBlanks on deaf params)
-                (Fail.toResultAlikePure byComputing)
-                (Fail.toResultAlike1 [g2 := w1 => Sum Comments.none w1] (constructorsBlanks on deaf constructors) (w1 =>
-                  byComputing))
-                (v1 v2 v3 v4 => deaf.decl (Data v1 isInterface keyword name v2 v3 v4))
+    | Data a _ _ _ b c d =>
+      rebuilds4 deaf.decl
+        (attributesBlanks on deaf a)
+        (groupsBlanks on deaf b)
+        (indicesPartBlanks on deaf c)
+        (bodyPartBlanks on deaf d)
+        (v1 v2 v3 v4 => byComputing)
     | Ability _ _ a _ b =>
       rebuilds2 deaf.decl (groupsBlanks on deaf a) (operationsBlanks on deaf b) (v1 v2 => byComputing)
     | Test _ _ _ a => rebuilds1 deaf.decl (exprBlanks on deaf a) (v1 => byComputing)

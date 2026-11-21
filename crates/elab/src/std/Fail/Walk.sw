@@ -299,3 +299,94 @@ theorem Fail.toResultAlikePure ∀ [x y: a] [bl: a → a]
     (same: y = bl x):
     Fail.toResult (() => y) = (Fail.toResult (() => x)).map bl :=
   rewrite same
+
+--| A node rebuilt around one child's run (`g` around the run of `t1`, `g2` around the run of `s1`, which
+--| fails as that one does or finishes with its result changed by `bl1`), then given to a step `k` that keeps the
+--| change `blr` of the rebuilt node (`deaf`: `k` fails alike or finishes with its result changed by `blq`): when
+--| rebuilding around changed children is changing the rebuilt node (`rebuilt`), the node's run through `k` fails
+--| alike or finishes with its result changed by `blq`. This is [`Fail.toResultAlike1Then`] with its step done by
+--| `deaf` and `rebuilt`; a traversal's arm for each constructor is one call, given its children's induction
+--| hypotheses as `h1`.
+theorem Fail.toResultRebuilds1 ∀ [t1 s1: () → {Fail} a1] [bl1: a1 → a1] [g g2: a1 → r] [k: r → {Fail} q]
+    [blr: r → r] [blq: q → q]
+    (deaf: ∀ (z: r) => Fail.toResult (() => k (blr z)) = (Fail.toResult (() => k z)).map blq)
+    (h1: Fail.toResult s1 = (Fail.toResult t1).map bl1)
+    (rebuilt: ∀ (v1: a1) => g2 (bl1 v1) = blr (g v1)):
+    Fail.toResult (() => k (g2 (s1 ()))) = (Fail.toResult (() => k (g (t1 ())))).map blq :=
+  Fail.toResultAlike1Then h1 (v1 => rewrite rebuilt v1 then deaf (g v1))
+
+--| As [`Fail.toResultRebuilds1`], for a node rebuilt around two children's runs.
+theorem Fail.toResultRebuilds2 ∀ [t1 s1: () → {Fail} a1] [t2 s2: () → {Fail} a2] [bl1: a1 → a1] [bl2: a2 → a2]
+    [g g2: a1 → a2 → r] [k: r → {Fail} q] [blr: r → r] [blq: q → q]
+    (deaf: ∀ (z: r) => Fail.toResult (() => k (blr z)) = (Fail.toResult (() => k z)).map blq)
+    (h1: Fail.toResult s1 = (Fail.toResult t1).map bl1)
+    (h2: Fail.toResult s2 = (Fail.toResult t2).map bl2)
+    (rebuilt: ∀ (v1: a1) (v2: a2) => g2 (bl1 v1) (bl2 v2) = blr (g v1 v2)):
+    Fail.toResult (() => k (g2 (s1 ()) (s2 ()))) = (Fail.toResult (() => k (g (t1 ()) (t2 ())))).map blq :=
+  Fail.toResultAlike2Then h1 h2 (v1 v2 => rewrite rebuilt v1 v2 then deaf (g v1 v2))
+
+--| As [`Fail.toResultRebuilds1`], for a node rebuilt around three children's runs.
+theorem Fail.toResultRebuilds3 ∀ [t1 s1: () → {Fail} a1] [t2 s2: () → {Fail} a2] [t3 s3: () → {Fail} a3] [bl1: a1 → a1]
+    [bl2: a2 → a2] [bl3: a3 → a3] [g g2: a1 → a2 → a3 → r] [k: r → {Fail} q] [blr: r → r] [blq: q → q]
+    (deaf: ∀ (z: r) => Fail.toResult (() => k (blr z)) = (Fail.toResult (() => k z)).map blq)
+    (h1: Fail.toResult s1 = (Fail.toResult t1).map bl1)
+    (h2: Fail.toResult s2 = (Fail.toResult t2).map bl2)
+    (h3: Fail.toResult s3 = (Fail.toResult t3).map bl3)
+    (rebuilt: ∀ (v1: a1) (v2: a2) (v3: a3) => g2 (bl1 v1) (bl2 v2) (bl3 v3) = blr (g v1 v2 v3)):
+    Fail.toResult (() => k (g2 (s1 ()) (s2 ()) (s3 ())))
+      = (Fail.toResult (() => k (g (t1 ()) (t2 ()) (t3 ())))).map blq :=
+  Fail.toResultAlike3Then h1 h2 h3 (v1 v2 v3 => rewrite rebuilt v1 v2 v3 then deaf (g v1 v2 v3))
+
+--| A node rebuilt around one child's run (`g` around the run of `t1`, which finishes with `v1`), then given to a
+--| step `k` that finishes with `f` of whatever it is given (`finishes`): the node's run through `k` finishes with `f`
+--| of the node rebuilt around `v1`. This is [`Fail.toResultSeq1Then`] with its step done by `finishes`; a traversal's
+--| arm for each constructor is one call, given its children's induction hypotheses as `h1`.
+theorem Fail.toResultSeqRebuilds1 ∀ [t1: () → {Fail} a1] [v1: a1] [g: a1 → r] [k: r → {Fail} q] [f: r → q]
+    (finishes: ∀ (z: r) => Fail.toResult (() => k z) = Ok (f z))
+    (h1: Fail.toResult t1 = Ok v1):
+    Fail.toResult (() => k (g (t1 ()))) = Ok (f (g v1)) :=
+  rewrite Fail.toResultSeq1Then [g := g] h1, finishes (g v1)
+
+--| As [`Fail.toResultSeqRebuilds1`], for a node rebuilt around two children's runs.
+theorem Fail.toResultSeqRebuilds2 ∀ [t1: () → {Fail} a1] [t2: () → {Fail} a2] [v1: a1] [v2: a2] [g: a1 → a2 → r]
+    [k: r → {Fail} q] [f: r → q]
+    (finishes: ∀ (z: r) => Fail.toResult (() => k z) = Ok (f z))
+    (h1: Fail.toResult t1 = Ok v1)
+    (h2: Fail.toResult t2 = Ok v2):
+    Fail.toResult (() => k (g (t1 ()) (t2 ()))) = Ok (f (g v1 v2)) :=
+  rewrite Fail.toResultSeq2Then [g := g] h1 h2, finishes (g v1 v2)
+
+--| As [`Fail.toResultSeqRebuilds1`], for a node rebuilt around three children's runs.
+theorem Fail.toResultSeqRebuilds3 ∀ [t1: () → {Fail} a1] [t2: () → {Fail} a2] [t3: () → {Fail} a3] [v1: a1] [v2: a2]
+    [v3: a3] [g: a1 → a2 → a3 → r] [k: r → {Fail} q] [f: r → q]
+    (finishes: ∀ (z: r) => Fail.toResult (() => k z) = Ok (f z))
+    (h1: Fail.toResult t1 = Ok v1)
+    (h2: Fail.toResult t2 = Ok v2)
+    (h3: Fail.toResult t3 = Ok v3):
+    Fail.toResult (() => k (g (t1 ()) (t2 ()) (t3 ()))) = Ok (f (g v1 v2 v3)) :=
+  rewrite Fail.toResultSeq3Then [g := g] h1 h2 h3, finishes (g v1 v2 v3)
+
+--| As [`Fail.toResultSeqRebuilds1`], for a node rebuilt around four children's runs.
+theorem Fail.toResultSeqRebuilds4 ∀ [t1: () → {Fail} a1] [t2: () → {Fail} a2] [t3: () → {Fail} a3] [t4: () → {Fail} a4]
+    [v1: a1] [v2: a2] [v3: a3] [v4: a4] [g: a1 → a2 → a3 → a4 → r] [k: r → {Fail} q] [f: r → q]
+    (finishes: ∀ (z: r) => Fail.toResult (() => k z) = Ok (f z))
+    (h1: Fail.toResult t1 = Ok v1)
+    (h2: Fail.toResult t2 = Ok v2)
+    (h3: Fail.toResult t3 = Ok v3)
+    (h4: Fail.toResult t4 = Ok v4):
+    Fail.toResult (() => k (g (t1 ()) (t2 ()) (t3 ()) (t4 ()))) = Ok (f (g v1 v2 v3 v4)) :=
+  rewrite Fail.toResultSeq4Then [g := g] h1 h2 h3 h4, finishes (g v1 v2 v3 v4)
+
+--| As [`Fail.toResultRebuilds1`], for a node rebuilt around four children's runs.
+theorem Fail.toResultRebuilds4 ∀ [t1 s1: () → {Fail} a1] [t2 s2: () → {Fail} a2] [t3 s3: () → {Fail} a3]
+    [t4 s4: () → {Fail} a4] [bl1: a1 → a1] [bl2: a2 → a2] [bl3: a3 → a3] [bl4: a4 → a4] [g g2: a1 → a2 → a3 → a4 → r]
+    [k: r → {Fail} q] [blr: r → r] [blq: q → q]
+    (deaf: ∀ (z: r) => Fail.toResult (() => k (blr z)) = (Fail.toResult (() => k z)).map blq)
+    (h1: Fail.toResult s1 = (Fail.toResult t1).map bl1)
+    (h2: Fail.toResult s2 = (Fail.toResult t2).map bl2)
+    (h3: Fail.toResult s3 = (Fail.toResult t3).map bl3)
+    (h4: Fail.toResult s4 = (Fail.toResult t4).map bl4)
+    (rebuilt: ∀ (v1: a1) (v2: a2) (v3: a3) (v4: a4) => g2 (bl1 v1) (bl2 v2) (bl3 v3) (bl4 v4) = blr (g v1 v2 v3 v4)):
+    Fail.toResult (() => k (g2 (s1 ()) (s2 ()) (s3 ()) (s4 ())))
+      = (Fail.toResult (() => k (g (t1 ()) (t2 ()) (t3 ()) (t4 ())))).map blq :=
+  Fail.toResultAlike4Then h1 h2 h3 h4 (v1 v2 v3 v4 => rewrite rebuilt v1 v2 v3 v4 then deaf (g v1 v2 v3 v4))
