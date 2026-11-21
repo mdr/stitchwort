@@ -109,8 +109,8 @@ Axiom restShapesOfKinds1 : forall close, shape close = ShapeCloser -> forall tra
   allGrammar1 items = true -> restShapes trailing items = map shape (restKinds close trailing items).
 
 (* sample: itemsShapesOfKinds1 *)
-Lemma itemsShapesOfKinds1 (close : Tok) (closer : shape close = ShapeCloser) (trailing : bool) (items : list Expr)
-  (grammar : allGrammar1 items = true) :
+Lemma itemsShapesOfKinds1 (close : Tok) (closer : shape close = ShapeCloser) (trailing : bool)
+  (items : list Expr) (grammar : allGrammar1 items = true) :
   itemsShapes trailing items = map shape (itemsKinds close trailing items).
 Proof.
   destruct items as [| first rest]; simpl in *; [now rewrite closer |].
@@ -141,7 +141,8 @@ Definition CloserFits (k indent : nat) (block : option nat) (outside : nat) (car
   leftOf (closerAt carry k indent) block = true /\ outside <= closerAt carry k indent.
 
 (* sample: closerFitsOf *)
-Lemma closerFitsOf (k indent : nat) (block : option nat) (outside m : nat) (carry : Carry) (mark : OpenMark)
+Lemma closerFitsOf (k indent : nat) (block : option nat) (outside m : nat) (carry : Carry)
+  (mark : OpenMark)
   (found : find (fun found => key found =? k) (marks carry) = Some mark)
   (line : marked mark = m)
   (atOpener : outside <= m)

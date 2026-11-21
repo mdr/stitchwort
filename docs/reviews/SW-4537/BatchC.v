@@ -360,8 +360,8 @@ Lemma exprBlanks (on : Steps) (deaf : Blanks on) (input : Expr) :
   runExpr on (walk blankPure input) = map (walk blankPure) (runExpr on input).
 Proof.
   unfold runExpr; induction input; simpl;
-    repeat (eapply alike1; [solve [eauto using exprsBlanks, beforeBlanks, optionalBlanks, linksBlanks,
-      paramsBlanks, piecesBlanks, scrutineesBlanks, armsBlanks, groupBlanks, rowBlanks,
+    repeat (eapply alike1; [solve [eauto using exprsBlanks, beforeBlanks, optionalBlanks,
+      linksBlanks, paramsBlanks, piecesBlanks, scrutineesBlanks, armsBlanks, groupBlanks, rowBlanks,
       statementBlanks, statementsBlanks, letBlanks, clausesBlanks, inductArmsBlanks,
       calcStepsBlanks, rulesBlanks, afterBlanks] | intro]);
     rewrite <- deaf; reflexivity.

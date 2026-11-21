@@ -48,8 +48,8 @@ theorem readsAtAtValue (start : Mark Item) (modes : Modes) (wanted : Tok) :
     ReadsAt start (modes.at wanted) (fun read found =>
       read = [] ∧ found = isSome wanted (peekIn modes 0 start.rest)) := by
   intro value after ran
-  simp [Modes.at, Modes.peek, left, StateT.run, bind, StateT.bind, get, getThe, MonadStateOf.get, StateT.get,
-    pure, StateT.pure, Except.pure, Except.bind] at ran
+  simp [Modes.at, Modes.peek, left, StateT.run, bind, StateT.bind, get, getThe, MonadStateOf.get,
+    StateT.get, pure, StateT.pure, Except.pure, Except.bind] at ran
   exact ⟨[], by simp [← ran.2], rfl, ran.1.symm⟩
 
 end Walk
@@ -107,8 +107,8 @@ axiom restShapesOfKinds1 (close : Tok) (closer : close.shape = .Closer) (trailin
     restShapes trailing items = (restKinds close trailing items).map Tok.shape
 
 -- sample: itemsShapesOfKinds1
-theorem itemsShapesOfKinds1 (close : Tok) (closer : close.shape = .Closer) (trailing : Bool) (items : List Expr)
-    (grammar : allGrammar1 items = true) :
+theorem itemsShapesOfKinds1 (close : Tok) (closer : close.shape = .Closer) (trailing : Bool)
+    (items : List Expr) (grammar : allGrammar1 items = true) :
     itemsShapes trailing items = (itemsKinds close trailing items).map Tok.shape := by
   cases items with
   | nil => simp [itemsShapes, itemsKinds, closer]
@@ -146,7 +146,8 @@ def CloserFits (key indent : Nat) (block : Option Nat) (outside : Nat) (carry : 
   leftOf (carry.closerAt key indent) block = true ∧ outside ≤ carry.closerAt key indent
 
 -- sample: closerFitsOf
-theorem closerFitsOf (key indent : Nat) (block : Option Nat) (outside marked : Nat) (carry : Carry) (mark : OpenMark)
+theorem closerFitsOf (key indent : Nat) (block : Option Nat) (outside marked : Nat) (carry : Carry)
+    (mark : OpenMark)
     (found : carry.marks.find? (fun found => found.key == key) = some mark)
     (line : mark.marked = marked)
     (atOpener : outside ≤ marked)

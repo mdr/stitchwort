@@ -257,7 +257,8 @@ theorem followsParenAtom {self selfTwin : Goal → P Item Expr}
     (knot : SelfFollows self selfTwin) (modes : Modes)
     (namedArguments : ∀ (closer : Tok) (closeText : String), Follows SameCode ExprsAlike
       (namedArgument self modes closer closeText) (namedArgument selfTwin modes closer closeText))
-    (operatorSections : Follows SameCode ExprsAlike (operatorSection self modes) (operatorSection selfTwin modes))
+    (operatorSections : Follows SameCode ExprsAlike (operatorSection self modes)
+      (operatorSection selfTwin modes))
     (rightSections : ∀ inside, Follows SameCode ExprsAlike (rightSection self modes inside)
       (rightSection selfTwin modes inside)) :
     Follows SameCode ExprsAlike (parenAtom self modes) (parenAtom selfTwin modes) := by
@@ -406,7 +407,8 @@ theorem runsBlockOneLine (self : Goal → P Item Expr) (modes : Modes) (column :
     (state : Mark Item) (read rest : List Item) (value : Expr)
     (line : ∀ (kind : LineKind) (middle : Mark Item), middle.offset = state.offset →
       RunsFrom middle
-        (statement self (lineModes (blockModes modes column many) column many (nextIndex (read ++ rest)) kind))
+        (statement self (lineModes (blockModes modes column many) column many
+          (nextIndex (read ++ rest)) kind))
         read rest (.ExprStatement value))
     (ends : continuesAt column rest = false) :
     RunsFrom state (block self modes column many) read rest value := by
@@ -784,16 +786,19 @@ theorem unaryHung (modes : Modes)
       obtain ⟨s1, s1Bound, hungMore⟩ :=
         pastFirst modes state sign (more ++ rest) (signLead _ isSign) facts.bound facts.hung
       obtain ⟨first, others, rfl, lead⟩ := speltStarts operand more operandSpelt
-      obtain ⟨openOperand, enteredOperand, _⟩ := leadHung modes s1 first (others ++ rest) quiet lead s1Bound hungMore
+      obtain ⟨openOperand, enteredOperand, _⟩ :=
+        leadHung modes s1 first (others ++ rest) quiet lead s1Bound hungMore
       have noBar := noBarLine modes sign _ (lineJoin _ rest lineMore facts.lineRest)
       have numeralAfter : negativeNumeral (sign :: (first :: others ++ rest))
           = negativeNumeral (sign :: first :: others) := rfl
       cases negative : negativeNumeral (sign :: first :: others)
-      · refine .inl ⟨sign, first :: others, operand, rfl, by rw [isWord], openSign, signOr _ isSign, noBar,
-          by rw [numeralAfter, negative, Bool.and_false], ?_⟩
+      · refine .inl ⟨sign, first :: others, operand, rfl, by rw [isWord], openSign, signOr _ isSign,
+          noBar, by rw [numeralAfter, negative, Bool.and_false], ?_⟩
         exact unaryHung modes quiet operand (first :: others) rest below s1
-          (belowLess below (below + 1) (by omega) inner) (by simp [Expr.nest] at deep; omega) operandSpelt free
-          ⟨lineMore, facts.lineRest, openHeadOf modes first others openOperand, enteredOperand, hungMore, deepMore⟩
+          (belowLess below (below + 1) (by omega) inner) (by simp [Expr.nest] at deep; omega)
+          operandSpelt free
+          ⟨lineMore, facts.lineRest, openHeadOf modes first others openOperand,
+            enteredOperand, hungMore, deepMore⟩
           ends operandUnary
       · cases operand with
         | Atom kind word =>
@@ -804,14 +809,16 @@ theorem unaryHung (modes : Modes)
             .inr ⟨by rw [isMinus]; rfl, negative⟩, .inl ⟨?_, ?_, ends.noArgument⟩⟩
           · simp [peekFirst modes sign _ openSign, isSome, isMinus]
           · exact ⟨sign, [first], rfl, openSign, ends.atom true sign.kind,
-              .inr (.inr (.inr (.inr (.inr (.inl ⟨first, rfl, by rw [isWord, isKind, isNumberWord], isMinus,
+              .inr (.inr (.inr (.inr (.inr (.inl ⟨first, rfl, by rw [isWord, isKind, isNumberWord],
+                isMinus,
                 negative⟩)))))⟩
         | _ => exact absurd (numeral negative) Bool.false_ne_true
   | App head arguments =>
     cases arguments with
     | nil => exact spelt.elim
     | cons argument arguments =>
-      have call := appHung modes quiet head argument arguments read rest depth state inner deep spelt free facts ends
+      have call := appHung modes quiet head argument arguments read rest depth state inner deep
+        spelt free facts ends
       obtain ⟨headRead, argRead, steps, rfl, fits, _, headSpelt, _, _⟩ := spelt
       cases head with
       | Prefix _ operand =>
@@ -823,7 +830,8 @@ theorem unaryHung (modes : Modes)
           obtain ⟨number, rfl, _⟩ := operandSpelt
           have isMinus := negativeMinus sign _ neg
           have lineTail := (Bool.and_eq_true_iff.mp facts.lineRead).2
-          exact .inr ⟨sign, number :: (argRead ++ loopReads [] steps), rfl, openHeadStops modes sign _ facts.openFirst,
+          exact .inr ⟨sign, number :: (argRead ++ loopReads [] steps), rfl,
+            openHeadStops modes sign _ facts.openFirst,
             by rw [isMinus]; rfl, noBarLine modes sign _ (lineJoin _ rest lineTail facts.lineRest),
             .inr ⟨by rw [isMinus]; rfl, neg⟩, call⟩
         | _ => exact absurd (numeral neg) Bool.false_ne_true
