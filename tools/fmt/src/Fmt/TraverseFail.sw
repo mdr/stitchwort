@@ -3,11 +3,12 @@
 --| each step does so on a node and its blanked form (`Blanks`). One theorem a traversal function, `…Blanks`, stated
 --| on the form the function's input takes inside a blanked tree (`blankArms (walkArms blankPure arms)` for a match's
 --| arms). `Fmt.Walk`'s `…Ok` family covers steps that can't fail; the lowering's checks can, so `loweringDeaf`
---| (`Syntax.DeafProofs`) rests on this family. Each arm follows the traversal's arm: one `alikeN` call for each
---| `seqN`, or, where the arm rebuilds a node and hands it to a step, one `rebuildsN` call; a change to the traversal
---| needs the same change here.
+--| (`Syntax.DeafProofs`) rests on this family. Each arm follows the traversal's arm: one `Fail.toResultAlikeN` call for each
+--| `seqN`, or, where the arm rebuilds a node and hands it to a step, one `Fail.toResultRebuildsN` call (imported as
+--| `rebuildsN`); a change to the traversal needs the same change here.
 namespace Fmt.TraverseFail
 import Std (Bool, Eq, Fail, List, Nat, Option, Result, Text)
+import Std.Fail (toResultRebuilds1 as rebuilds1, toResultRebuilds2 as rebuilds2, toResultRebuilds3 as rebuilds3)
 import Syntax (..)
 import Fmt (..)
 import Fmt.Walk (..)
@@ -31,43 +32,6 @@ type Blanks (on: Steps) = {
   ruleSet: ∀ (z: RuleSet) => Fail.toResult (() => on.ruleSet (walkRuleSet blankPure z))
     = (Fail.toResult (() => on.ruleSet z)).map (x => walkRuleSet blankPure x)
 }
-
--- The shapes of `Fmt.Walk`'s `seqN`, `seqNk` and `seqNj`, for two runs: one on a node's children and one on their
--- blanked forms. Each child's run on the blanked form fails as the original's does or finishes with the original's
--- result blanked (`hN`); then the arm does too, given that the rest of the arm does for every result (`step`).
-
---| A node rebuilt around one child's run (`g` around the run on the node, `g2` around the run on its blanked
---| form), then given to a step `k` that keeps blanking (`deaf`, one of [`Blanks`]' fields): when the child's run
---| on its blanked form agrees with its run (`h1`, its induction hypothesis), and rebuilding around a blanked child
---| is blanking the rebuilt node (`rebuilt`, by computing), the node's run on its blanked form agrees with its run.
-theorem rebuilds1 ∀ [t1 s1: () → {Fail} a1] [bl1: a1 → a1] [g g2: a1 → r] [k: r → {Fail} r] [blr: r → r]
-    (deaf: ∀ (z: r) => Fail.toResult (() => k (blr z)) = (Fail.toResult (() => k z)).map blr)
-    (h1: Fail.toResult s1 = (Fail.toResult t1).map bl1)
-    (rebuilt: ∀ (v1: a1) => g2 (bl1 v1) = blr (g v1)):
-    Fail.toResult (() => k (g2 (s1 ()))) = (Fail.toResult (() => k (g (t1 ())))).map blr :=
-  Fail.toResultAlike1Then h1 (v1 => rewrite rebuilt v1 then deaf (g v1))
-
---| As [`rebuilds1`], for a node rebuilt around two children's runs.
-theorem rebuilds2 ∀ [t1 s1: () → {Fail} a1] [t2 s2: () → {Fail} a2] [bl1: a1 → a1] [bl2: a2 → a2] [g g2: a1 → a2 → r]
-    [k: r → {Fail} r] [blr: r → r]
-    (deaf: ∀ (z: r) => Fail.toResult (() => k (blr z)) = (Fail.toResult (() => k z)).map blr)
-    (h1: Fail.toResult s1 = (Fail.toResult t1).map bl1)
-    (h2: Fail.toResult s2 = (Fail.toResult t2).map bl2)
-    (rebuilt: ∀ (v1: a1) (v2: a2) => g2 (bl1 v1) (bl2 v2) = blr (g v1 v2)):
-    Fail.toResult (() => k (g2 (s1 ()) (s2 ()))) = (Fail.toResult (() => k (g (t1 ()) (t2 ())))).map blr :=
-  Fail.toResultAlike2Then h1 h2 (v1 v2 => rewrite rebuilt v1 v2 then deaf (g v1 v2))
-
---| As [`rebuilds1`], for a node rebuilt around three children's runs.
-theorem rebuilds3 ∀ [t1 s1: () → {Fail} a1] [t2 s2: () → {Fail} a2] [t3 s3: () → {Fail} a3] [bl1: a1 → a1]
-    [bl2: a2 → a2] [bl3: a3 → a3] [g g2: a1 → a2 → a3 → r] [k: r → {Fail} r] [blr: r → r]
-    (deaf: ∀ (z: r) => Fail.toResult (() => k (blr z)) = (Fail.toResult (() => k z)).map blr)
-    (h1: Fail.toResult s1 = (Fail.toResult t1).map bl1)
-    (h2: Fail.toResult s2 = (Fail.toResult t2).map bl2)
-    (h3: Fail.toResult s3 = (Fail.toResult t3).map bl3)
-    (rebuilt: ∀ (v1: a1) (v2: a2) (v3: a3) => g2 (bl1 v1) (bl2 v2) (bl3 v3) = blr (g v1 v2 v3)):
-    Fail.toResult (() => k (g2 (s1 ()) (s2 ()) (s3 ())))
-      = (Fail.toResult (() => k (g (t1 ()) (t2 ()) (t3 ())))).map blr :=
-  Fail.toResultAlike3Then h1 h2 h3 (v1 v2 v3 => rewrite rebuilt v1 v2 v3 then deaf (g v1 v2 v3))
 
 --| Traversing a blanked tree is blanking the traversed tree, failures included. By induction alongside the
 --| traversal: each arm rebuilds its node around its children's runs, which agree with theirs on the blanked forms
