@@ -1,5 +1,5 @@
 {
-  "next": 4481,
+  "next": 4482,
   "tickets": [
     {
       "id": 47,
@@ -30558,9 +30558,9 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\nProgress (lane, 21 Nov 01:05, stopped at 1.5x of the 60 min estimate): WIP commit 22630d686 on lane/SW-4479. Operations performed directly are calls to the walk (Callee::Op; `Call o k` read as bind of `Call o (y => Done y)`; @[walk] accepts a lemma about an operation; std's givesMark/readsMark/readsAtMarkHere/followsMark tagged). Two further gaps found and fixed on the way: a nested bind's goal was read back folded, so a call that steps at once (blockLines (Succ m.left)) became its unfolding; and a lemma whose call has arguments that compute (downFrom 5 3, pre-existing on main) didn't fit, now unified by its arguments as a fallback. Scratch results (walk vs hand, ms): givesTupleRest 10.2/6.5, givesBlock 39.8/22.0, givesCalcBody 24.4/17.8, givesClauseLambda 18.3/9.1, givesDataParamStep 14.7/11.4, givesConstructorParen group 93.2/95.1; givesPipeChain stopped before the argument fallback (to recheck); givesListItemsFrom/Any not tried. Left: recheck the last three, accept example + hash snapshot, walk_expand, docs, named tests, ReadsAt.\n",
       "created": "2026-11-20",
-      "updated": "2026-11-20",
+      "updated": "2026-11-21",
       "commits": []
     },
     {
@@ -30574,6 +30574,19 @@
       "body": "",
       "created": "2026-11-20",
       "updated": "2026-11-20",
+      "commits": []
+    },
+    {
+      "id": 4481,
+      "title": "[Opus] Walk: the main bind step rebuilds the rest of the code from its printed-back goal, where a call that steps at once is already its unfolding (after let v := look(), down (size v + 1) reaches the walk as Parse.next), so its lemma can't fit; walk the rest from its values, as SW-4479 did for nested binds. Also ReadsAt nesting (readsAtThen carries the mark fact), and tag the other Parse operation lemmas @[walk] (readsNext, readsNote, span, literal, reset). Docs: a line in the walk docs that goals and messages show a call that steps at once as its unfolding",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
       "commits": []
     }
   ]
