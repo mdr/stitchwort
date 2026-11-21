@@ -133,19 +133,19 @@ theorem declHangsOf ∀ (decl: Decl)
           let colonSound: (fixedWord ":" colon).sound = True := Bool.andLeft (Bool.andRight rest)
           let assignSound: (fixedWord ":=" colonEq).sound = True :=
             Bool.andLeft (Bool.andRight (Bool.andRight (Bool.andRight rest)))
-          (
-            trailsOfSound (fixedWord "def" keyword) keywordSound,
+          {
+            keywordTrailed = trailsOfSound (fixedWord "def" keyword) keywordSound,
             plain,
-            token,
-            notesOfWord name nameSound,
-            trailsOfSound name nameSound,
-            notesOfWord (fixedWord ":" colon) colonSound,
-            trailsOfSound (fixedWord ":" colon) colonSound,
-            notesOfWord (fixedWord ":=" colonEq) assignSound,
-            trailsOfSound (fixedWord ":=" colonEq) assignSound,
+            nameToken = token,
+            nameComments = notesOfWord name nameSound,
+            nameTrailed = trailsOfSound name nameSound,
+            colonComments = notesOfWord (fixedWord ":" colon) colonSound,
+            colonTrailed = trailsOfSound (fixedWord ":" colon) colonSound,
+            assignComments = notesOfWord (fixedWord ":=" colonEq) assignSound,
+            assignTrailed = trailsOfSound (fixedWord ":=" colonEq) assignSound,
             typed,
             body
-          )
+          }
 
 --| `printedHangs` from the four tree facts `printLexes1Tree` takes and `DeclElements`: the text the rules print for a
 --| slice 1 declaration, at any width, lexes to leaves whose fold never breaks.
