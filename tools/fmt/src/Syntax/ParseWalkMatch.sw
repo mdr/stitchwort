@@ -121,11 +121,7 @@ theorem givesClauseLambda ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) 
     (word: Option Word) (kind: ClauseKind)
     (nested: Nested self):
     Parse.Gives GoodItems (() => clauseLambda self modes keyword word kind) Out :=
-  Parse.givesThen Parse.givesMark (here _ =>
-    Parse.givesThen (givesClauseArms (here.left + 1) self modes nested kind None None []) (arms _ =>
-      match arms.isEmpty with
-        | True => givesFail modes _
-        | False => Parse.givesDone byComputing))
+  byWalking [givesClauseArms, givesFail]
 
 -- Handlers and `match induct` and `match reify`.
 

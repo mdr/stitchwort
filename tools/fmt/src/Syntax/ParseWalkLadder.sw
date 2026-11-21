@@ -954,20 +954,7 @@ theorem givesBlock ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (column
     (outside: Outside self)
     (bases: AtomBases self):
     Parse.Gives GoodItems (() => block self modes column many) (Parsed 1) :=
-  Parse.givesThen Parse.givesMark (here _ =>
-    Parse.givesThen
-      (givesBlockLines
-        (here.left + 1)
-        self
-        (if many then { modes | limit = Some column, letValue = None } else { modes | limit = Some column })
-        column
-        many
-        []
-        nested
-        outside
-        bases
-        ())
-      (statements ok => givesBlockResult statements ok))
+  byWalking [givesBlockLines, givesBlockResult]
 
 theorem givesExprRuns ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (item: Item) (limit: Nat) (runs: Bool)
     (nested: Nested self)
