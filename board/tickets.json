@@ -1,5 +1,5 @@
 {
-  "next": 4537,
+  "next": 4538,
   "tickets": [
     {
       "id": 47,
@@ -31299,6 +31299,19 @@
       "where": "",
       "labels": [],
       "epic": "performance",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4537,
+      "title": "[Fable] Slice 1 against Lean 4 and Rocq, stratified sample: split slice 1's proof into its parts (parser walks, read-back runs, printer/Doc, settle, lexer, tree and alike facts, top theorems), draw a seeded random sample per part weighted by proof lines, port each theorem to Lean 4 and Rocq on faithful cut-down definitions (compiled), count as SW-4222/SW-4464, and estimate the whole-slice ratio with its uncertainty; stage 1 plans and pilots, ports fan out to Opus lanes",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-21",
       "updated": "2026-11-21",
