@@ -30774,15 +30774,17 @@
     {
       "id": 4496,
       "title": "[Opus] Kernel panic 'internal error: applying a constructor' (crates/core/src/value.rs:1328) from as_written::is_needle -> conv_now's eta step, when the partial unfold (SW-4419, 26a4cbd5c) offers a lambda of different arity (Lam(_, Ctor)) as a candidate for the needle; check --no-cache Toy.Fmt.Proofs in tools/toyfmt crashes. Make the kernel return an error that conv_now's callers treat as not equal (and/or skip mismatched candidates); narrow to the theorem and add a small example that panics before the fix. Found by SW-4486.",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nProgress (lane, 21 Nov 16:50): cause: as_written's occurrence test (is_needle and Finder::occurrence) picks candidates by head (Key) and compared them by conv_now, whose precondition is one type for both; in TextProofs.operatorToken, a match on the let-bound function stands met (c => False) inside an opened call, and eta applied a constructor. Fix in crates/elab only (210f30f17): needles carry their type, candidates compared only after the kernel finds that type (infer+compare, or check for lambdas/constructors; false with an unknown in the way). No kernel change. Example examples/accept/match-partial-unfold-typed.sw panicked before, checks now. Toy.Fmt.Proofs and Toy.Plus.Proofs: no panic; one remaining error in Toy.Fmt.Proofs.plainStarts (StringProofs.sw:91), the same with the new check switched off, so not from this change. Moved to review.\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
-      "commits": []
+      "commits": [
+        "210f30f17"
+      ]
     },
     {
       "id": 4497,
