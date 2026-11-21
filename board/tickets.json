@@ -30917,12 +30917,12 @@
     {
       "id": 4507,
       "title": "[Sonnet] auto's hypothesis parts spend two MAX_PART_DEPTH levels per && (read, then split), so past the fourth part of a chain whose parts read as tests auto doesn't see the rest; give auto the and_side fallback cases got in SW-4485; and tidy auto::take_apart's 8 arguments (reads and cut into a small struct)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, 22 min (est. 40).\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
