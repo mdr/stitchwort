@@ -30631,7 +30631,7 @@
     {
       "id": 4485,
       "title": "[Opus] cases gaps from SW-4483's probes: (1) a goal that is a record of proofs (games/rogue Reach.sw:102 insideOf) is not closed though the same facts as ∧ are; (2) a → b with a, for plain propositions (works for equations only); (3) cases as an argument can fail after 9 s with E-CASES-BUDGET (Fmt/ToldDeclProofs.sw:1939, hand term 21 ms): a part not found should not lead to splitting; guide should warn and list failure costs; probes in docs/reviews/SW-4483/cases-probes.txt",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
