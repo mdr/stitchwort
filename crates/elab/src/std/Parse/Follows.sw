@@ -98,6 +98,7 @@ theorem Parse.followsDone ∀ [same: t → u → Prop] [alike: a → b → Prop]
 
 --| `mark` follows `mark`: the two marks are alike. The two parsers read the
 --| same place of their inputs.
+@[walk]
 theorem Parse.followsMark ∀ [same: t → u → Prop]:
     Parse.Follows same (Parse.Mark.Alike same) (() => Parse.mark()) (() => Parse.mark()) :=
   state other value after marks ran =>
