@@ -1,5 +1,5 @@
 {
-  "next": 4487,
+  "next": 4488,
   "tickets": [
     {
       "id": 47,
@@ -30553,7 +30553,7 @@
     {
       "id": 4479,
       "title": "[Opus] Walk gaps (SW-4466): an operation called directly in bound code (an inlined Parse.mark()) blocks 9 formatter proofs (givesBlock, givesCalcBody, givesClauseLambda, givesConstructorParen, givesDataParamStep, givesListItemsFrom/Any, givesPipeChain, givesTupleRest); and ReadsAt nesting needs a bind-lemma shape carrying the mark fact",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
@@ -30644,6 +30644,19 @@
     {
       "id": 4486,
       "title": "[Sonnet] Toy formatter may not check at 599e0332e: check --only Toy.Fmt.Proofs.viewsCons Toy.Fmt.Proofs gave E-TYPE-MISMATCH near Toy.Syntax.operatorNext.eq3 (SW-4483, run once); reproduce with a plain check of the namespace, find the cause or confirm it is an --only effect",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4487,
+      "title": "[Sonnet] Walk follow-ups (SW-4479): convert the formatter proofs that now walk within the bar (givesTupleRest, givesBlock, givesCalcBody, givesDataParamStep, givesConstructorParen group; givesClauseLambda 2.0x, givesPipeChain 2.3x, givesListItemsFromAny 3.8x stay by hand unless re-timed under the file bar); state givesListItemsEnd over a pair variable so givesListItemsFrom walks; --expand-walk text for a bind inside a bound computation leaves the inner givesThen's post to inference and doesn't elaborate (givesNested, givesFromMark, givesBound in walk-operation.sw): write the post explicitly, then add the example to walk_expand",
       "status": "backlog",
       "agent": "",
       "where": "",
