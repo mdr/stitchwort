@@ -1238,110 +1238,33 @@ theorem beforeOk ∀ (on: Steps) (p: Pure)
 --| induction hypotheses take `s`'s walk off each child.
 theorem exprTwice ∀ (s m: Pure) (keeps: Keeps s m) (input: Expr): (input.walk s).walk m = input.walk m :=
   match input with
-    | Atom kind word => rewrite keeps.expr (Atom kind word)
-    | Paren open inner close => rewrite keeps.expr (Paren open (inner.walk s) close), exprTwice s m keeps inner
-    | Unit open close => rewrite keeps.expr (Unit open close)
-    | Universe keyword level => rewrite keeps.expr (Universe keyword level)
-    | Include keyword path => rewrite keeps.expr (Include keyword path)
-    | Tuple open items trailingComma close =>
-      rewrite keeps.expr (Tuple open (walkExprs s items) trailingComma close), exprsTwice s m keeps items
-    | ListOf open items trailingComma close =>
-      rewrite keeps.expr (ListOf open (walkExprs s items) trailingComma close), exprsTwice s m keeps items
-    | Spread dots list => rewrite keeps.expr (Spread dots (list.walk s)), exprTwice s m keeps list
-    | Record open base fields trailingComma close =>
-      rewrite keeps.expr (Record open (walkBefore s base) (walkExprs s fields) trailingComma close),
-          beforeTwice s m keeps base,
-          exprsTwice s m keeps fields
-    | RecordField name equals value =>
-      rewrite keeps.expr (RecordField name equals (value.walk s)), exprTwice s m keeps value
-    | CtorFields ctor record =>
-      rewrite keeps.expr (CtorFields (ctor.walk s) (record.walk s)),
-          exprTwice s m keeps ctor,
-          exprTwice s m keeps record
-    | App head arguments =>
-      rewrite keeps.expr (App (head.walk s) (walkExprs s arguments)),
-          exprTwice s m keeps head,
-          exprsTwice s m keeps arguments
-    | NamedArg open name colonEq value close =>
-      rewrite keeps.expr (NamedArg open name colonEq (value.walk s) close), exprTwice s m keeps value
-    | FieldAccess target dot field =>
-      rewrite keeps.expr (FieldAccess (walkOptional s target) dot field), optionalTwice s m keeps target
-    | Section body => rewrite keeps.expr (Section (body.walk s)), exprTwice s m keeps body
-    | OperatorSection open left operator right close =>
-      rewrite keeps.expr (OperatorSection open (walkOptional s left) operator (walkOptional s right) close),
-          optionalTwice s m keeps left,
-          optionalTwice s m keeps right
-    | Infix kind left operator right =>
-      rewrite keeps.expr (Infix kind (left.walk s) operator (right.walk s)),
-          exprTwice s m keeps left,
-          exprTwice s m keeps right
-    | Chain first rest =>
-      rewrite keeps.expr (Chain (first.walk s) (walkLinks s rest)), exprTwice s m keeps first, linksTwice s m keeps rest
-    | Prefix operator operand => rewrite keeps.expr (Prefix operator (operand.walk s)), exprTwice s m keeps operand
-    | Binding kind keyword params arrow body =>
-      rewrite keeps.expr (Binding kind keyword (walkParams s params) arrow (body.walk s)),
-          paramsTwice s m keeps params,
-          exprTwice s m keeps body
-    | If keyword binder condition thenKeyword whenTrue elseKeyword whenFalse =>
-      rewrite keeps.expr
-            (If keyword binder (condition.walk s) thenKeyword (whenTrue.walk s) elseKeyword (whenFalse.walk s)),
-          exprTwice s m keeps condition,
-          exprTwice s m keeps whenTrue,
-          exprTwice s m keeps whenFalse
-    | Annotation open value colon annotation close =>
-      rewrite keeps.expr (Annotation open (value.walk s) colon (annotation.walk s) close),
-          exprTwice s m keeps value,
-          exprTwice s m keeps annotation
-    | Interpolated pieces => rewrite keeps.expr (Interpolated (walkPieces s pieces)), piecesTwice s m keeps pieces
-    | Match keyword scrutinees withKeyword arms =>
-      rewrite keeps.expr (Match keyword (walkScrutinees s scrutinees) withKeyword (walkArms s arms)),
-          scrutineesTwice s m keeps scrutinees,
-          armsTwice s m keeps arms
-    | ClauseLambda keyword word arms =>
-      rewrite keeps.expr (ClauseLambda keyword word (walkArms s arms)), armsTwice s m keeps arms
-    | Facts kind keyword facts => rewrite keeps.expr (Facts kind keyword (facts.walk s)), exprTwice s m keeps facts
-    | FunctionType binder arrow result =>
-      rewrite keeps.expr (FunctionType (binder.walk s) arrow (result.walk s)),
-          groupTwice s m keeps binder,
-          exprTwice s m keeps result
-    | Effect row result =>
-      rewrite keeps.expr (Effect (walkRow s row) (result.walk s)), rowTwice s m keeps row, exprTwice s m keeps result
-    | Block first rest result =>
-      rewrite keeps.expr (Block (walkStatement s first) (walkStatements s rest) (result.walk s)),
-          statementTwice s m keeps first,
-          statementsTwice s m keeps rest,
-          exprTwice s m keeps result
-    | LetIn binding semicolon body =>
-      rewrite keeps.expr (LetIn (walkLet s binding) semicolon (body.walk s)),
-          letTwice s m keeps binding,
-          exprTwice s m keeps body
-    | Handle keyword computation withKeyword clauses =>
-      rewrite keeps.expr (Handle keyword (computation.walk s) withKeyword (walkClauses s clauses)),
-          exprTwice s m keeps computation,
-          clausesTwice s m keeps clauses
-    | Reify keyword reifyWord computation withKeyword clauses =>
-      rewrite keeps.expr (Reify keyword reifyWord (computation.walk s) withKeyword (walkClauses s clauses)),
-          exprTwice s m keeps computation,
-          clausesTwice s m keeps clauses
-    | Induct keyword inductWord call withKeyword arms =>
-      rewrite keeps.expr (Induct keyword inductWord (call.walk s) withKeyword (walkInductArms s arms)),
-          exprTwice s m keeps call,
-          inductArmsTwice s m keeps arms
-    | Calc keyword first steps =>
-      rewrite keeps.expr (Calc keyword (first.walk s) (walkSteps s steps)),
-          exprTwice s m keeps first,
-          calcStepsTwice s m keeps steps
-    | Rewrite keyword rules target body =>
-      rewrite keeps.expr (Rewrite keyword (walkRules s rules) (walkAfter s target) (walkAfter s body)),
-          rulesTwice s m keeps rules,
-          afterTwice s m keeps target,
-          afterTwice s m keeps body
-    | Cases keyword targets body =>
-      rewrite keeps.expr (Cases keyword targets (walkAfter s body)), afterTwice s m keeps body
-    | Walk keyword items body =>
-      rewrite keeps.expr (Walk keyword (items.walk s) (walkAfter s body)),
-          exprTwice s m keeps items,
-          afterTwice s m keeps body
+    | Atom _ _ | Unit _ _ | Universe _ _ | Include _ _ => rewrite keeps.expr input
+    | Paren _ a _ | Spread _ a | RecordField _ _ a | NamedArg _ _ _ a _ | Section a | Prefix _ a | Facts _ _ a =>
+      rewrite keeps.expr _, exprTwice s m keeps a
+    | Tuple _ a _ _ | ListOf _ a _ _ => rewrite keeps.expr _, exprsTwice s m keeps a
+    | FieldAccess a _ _ => rewrite keeps.expr _, optionalTwice s m keeps a
+    | Interpolated a => rewrite keeps.expr _, piecesTwice s m keeps a
+    | ClauseLambda _ _ a => rewrite keeps.expr _, armsTwice s m keeps a
+    | Cases _ _ a => rewrite keeps.expr _, afterTwice s m keeps a
+    | CtorFields a b | Infix _ a _ b | Annotation _ a _ b _ =>
+      rewrite keeps.expr _, exprTwice s m keeps a, exprTwice s m keeps b
+    | App a b => rewrite keeps.expr _, exprTwice s m keeps a, exprsTwice s m keeps b
+    | Record _ a b _ _ => rewrite keeps.expr _, beforeTwice s m keeps a, exprsTwice s m keeps b
+    | OperatorSection _ a _ b _ => rewrite keeps.expr _, optionalTwice s m keeps a, optionalTwice s m keeps b
+    | Chain a b => rewrite keeps.expr _, exprTwice s m keeps a, linksTwice s m keeps b
+    | Binding _ _ a _ b => rewrite keeps.expr _, paramsTwice s m keeps a, exprTwice s m keeps b
+    | Match _ a _ b => rewrite keeps.expr _, scrutineesTwice s m keeps a, armsTwice s m keeps b
+    | FunctionType a _ b => rewrite keeps.expr _, groupTwice s m keeps a, exprTwice s m keeps b
+    | Effect a b => rewrite keeps.expr _, rowTwice s m keeps a, exprTwice s m keeps b
+    | LetIn a _ b => rewrite keeps.expr _, letTwice s m keeps a, exprTwice s m keeps b
+    | Handle _ a _ b | Reify _ _ a _ b => rewrite keeps.expr _, exprTwice s m keeps a, clausesTwice s m keeps b
+    | Induct _ _ a _ b => rewrite keeps.expr _, exprTwice s m keeps a, inductArmsTwice s m keeps b
+    | Calc _ a b => rewrite keeps.expr _, exprTwice s m keeps a, calcStepsTwice s m keeps b
+    | Walk _ a b => rewrite keeps.expr _, exprTwice s m keeps a, afterTwice s m keeps b
+    | If _ _ a _ b _ c => rewrite keeps.expr _, exprTwice s m keeps a, exprTwice s m keeps b, exprTwice s m keeps c
+    | Block a b c =>
+      rewrite keeps.expr _, statementTwice s m keeps a, statementsTwice s m keeps b, exprTwice s m keeps c
+    | Rewrite _ a b c => rewrite keeps.expr _, rulesTwice s m keeps a, afterTwice s m keeps b, afterTwice s m keeps c
 
 --| Walking with `s` then `m` is walking with `m`. By induction: in each
 --| arm, `Keeps` takes `s`'s step off the rebuilt node, then the
@@ -1526,34 +1449,13 @@ theorem groupTwice ∀ (s m: Pure) (keeps: Keeps s m) (input: Group): (input.wal
 --| induction hypotheses take `s`'s walk off each child.
 theorem patternTwice ∀ (s m: Pure) (keeps: Keeps s m) (input: Pattern): (input.walk s).walk m = input.walk m :=
   match input with
-    | PatternWord kind word => rewrite keeps.pattern (PatternWord kind word)
-    | PatternCtor name arguments =>
-      rewrite keeps.pattern (PatternCtor name (walkPatterns s arguments)), patternsTwice s m keeps arguments
-    | PatternCtorFields name fields =>
-      rewrite keeps.pattern (PatternCtorFields name (walkFields s fields)), fieldsPatternTwice s m keeps fields
-    | PatternRecord fields =>
-      rewrite keeps.pattern (PatternRecord (walkFields s fields)), fieldsPatternTwice s m keeps fields
-    | PatternTuple open items trailingComma close =>
-      rewrite keeps.pattern (PatternTuple open (walkPatterns s items) trailingComma close),
-          patternsTwice s m keeps items
-    | PatternList open items trailingComma tail close =>
-      rewrite keeps.pattern (PatternList open (walkPatterns s items) trailingComma (walkTail s tail) close),
-          patternsTwice s m keeps items,
-          tailTwice s m keeps tail
-    | PatternNamed open name colonEq value close =>
-      rewrite keeps.pattern (PatternNamed open name colonEq (value.walk s) close), patternTwice s m keeps value
-    | PatternOr first rest =>
-      rewrite keeps.pattern (PatternOr (first.walk s) (walkPatternLinks s rest)),
-          patternTwice s m keeps first,
-          patternLinksTwice s m keeps rest
-    | PatternParen open inner close =>
-      rewrite keeps.pattern (PatternParen open (inner.walk s) close), patternTwice s m keeps inner
-    | PatternNegative minus number => rewrite keeps.pattern (PatternNegative minus number)
-    | PatternAbsurd open close => rewrite keeps.pattern (PatternAbsurd open close)
-    | PatternAppend start operator rest =>
-      rewrite keeps.pattern (PatternAppend (start.walk s) operator (rest.walk s)),
-          patternTwice s m keeps start,
-          patternTwice s m keeps rest
+    | PatternWord _ _ | PatternNegative _ _ | PatternAbsurd _ _ => rewrite keeps.pattern input
+    | PatternCtor _ a | PatternTuple _ a _ _ => rewrite keeps.pattern _, patternsTwice s m keeps a
+    | PatternCtorFields _ a | PatternRecord a => rewrite keeps.pattern _, fieldsPatternTwice s m keeps a
+    | PatternNamed _ _ _ a _ | PatternParen _ a _ => rewrite keeps.pattern _, patternTwice s m keeps a
+    | PatternList _ a _ b _ => rewrite keeps.pattern _, patternsTwice s m keeps a, tailTwice s m keeps b
+    | PatternOr a b => rewrite keeps.pattern _, patternTwice s m keeps a, patternLinksTwice s m keeps b
+    | PatternAppend a _ b => rewrite keeps.pattern _, patternTwice s m keeps a, patternTwice s m keeps b
 
 --| Walking with `s` then `m` is walking with `m`. By induction: in each
 --| arm, `Keeps` takes `s`'s step off the rebuilt node, then the
@@ -1603,7 +1505,7 @@ theorem declTwice ∀ (s m: Pure) (keeps: Keeps s m) (input: Decl): (input.walk 
     | Namespace keyword name => rewrite keeps.decl (Namespace keyword name)
     | Import keyword path open imported close => rewrite keeps.decl (Import keyword path open imported close)
     | Definition attributes header body =>
-      rewrite keeps.decl (Definition (walkAttributes s attributes) (walkHeader s header) (walkDefBody s body)),
+      rewrite keeps.decl _,
           attributesTwice s m keeps attributes,
           headerTwice s m keeps header,
           defBodyTwice s m keeps body
@@ -1612,59 +1514,27 @@ theorem declTwice ∀ (s m: Pure) (keeps: Keeps s m) (input: Decl): (input.walk 
         | Some { colon, steps, last } =>
           match body with
             | Abstract =>
-              rewrite keeps.decl
-                    (Data
-                      (walkAttributes s attributes)
-                      isInterface
-                      keyword
-                      name
-                      (walkGroups s params)
-                      (Some { colon, steps = (walkIndices s steps), last = (last.walk s) })
-                      (Abstract)),
+              rewrite keeps.decl _,
                   attributesTwice s m keeps attributes,
                   groupsTwice s m keeps params,
                   indicesTwice s m keeps steps,
                   exprTwice s m keeps last
             | Synonym equals annotation =>
-              rewrite keeps.decl
-                    (Data
-                      (walkAttributes s attributes)
-                      isInterface
-                      keyword
-                      name
-                      (walkGroups s params)
-                      (Some { colon, steps = (walkIndices s steps), last = (last.walk s) })
-                      (Synonym equals (annotation.walk s))),
+              rewrite keeps.decl _,
                   attributesTwice s m keeps attributes,
                   groupsTwice s m keeps params,
                   indicesTwice s m keeps steps,
                   exprTwice s m keeps last,
                   exprTwice s m keeps annotation
             | RecordBody equals fields =>
-              rewrite keeps.decl
-                    (Data
-                      (walkAttributes s attributes)
-                      isInterface
-                      keyword
-                      name
-                      (walkGroups s params)
-                      (Some { colon, steps = (walkIndices s steps), last = (last.walk s) })
-                      (RecordBody equals (fields.walk s))),
+              rewrite keeps.decl _,
                   attributesTwice s m keeps attributes,
                   groupsTwice s m keeps params,
                   indicesTwice s m keeps steps,
                   exprTwice s m keeps last,
                   fieldsTwice s m keeps fields
             | Sum equals constructors =>
-              rewrite keeps.decl
-                    (Data
-                      (walkAttributes s attributes)
-                      isInterface
-                      keyword
-                      name
-                      (walkGroups s params)
-                      (Some { colon, steps = (walkIndices s steps), last = (last.walk s) })
-                      (Sum equals (walkConstructors s constructors))),
+              rewrite keeps.decl _,
                   attributesTwice s m keeps attributes,
                   groupsTwice s m keeps params,
                   indicesTwice s m keeps steps,
@@ -1672,65 +1542,26 @@ theorem declTwice ∀ (s m: Pure) (keeps: Keeps s m) (input: Decl): (input.walk 
                   constructorsTwice s m keeps constructors
         | None =>
           match body with
-            | Abstract =>
-              rewrite keeps.decl
-                    (Data
-                      (walkAttributes s attributes)
-                      isInterface
-                      keyword
-                      name
-                      (walkGroups s params)
-                      (None)
-                      (Abstract)),
-                  attributesTwice s m keeps attributes,
-                  groupsTwice s m keeps params
+            | Abstract => rewrite keeps.decl _, attributesTwice s m keeps attributes, groupsTwice s m keeps params
             | Synonym equals annotation =>
-              rewrite keeps.decl
-                    (Data
-                      (walkAttributes s attributes)
-                      isInterface
-                      keyword
-                      name
-                      (walkGroups s params)
-                      (None)
-                      (Synonym equals (annotation.walk s))),
+              rewrite keeps.decl _,
                   attributesTwice s m keeps attributes,
                   groupsTwice s m keeps params,
                   exprTwice s m keeps annotation
             | RecordBody equals fields =>
-              rewrite keeps.decl
-                    (Data
-                      (walkAttributes s attributes)
-                      isInterface
-                      keyword
-                      name
-                      (walkGroups s params)
-                      (None)
-                      (RecordBody equals (fields.walk s))),
+              rewrite keeps.decl _,
                   attributesTwice s m keeps attributes,
                   groupsTwice s m keeps params,
                   fieldsTwice s m keeps fields
             | Sum equals constructors =>
-              rewrite keeps.decl
-                    (Data
-                      (walkAttributes s attributes)
-                      isInterface
-                      keyword
-                      name
-                      (walkGroups s params)
-                      (None)
-                      (Sum equals (walkConstructors s constructors))),
+              rewrite keeps.decl _,
                   attributesTwice s m keeps attributes,
                   groupsTwice s m keeps params,
                   constructorsTwice s m keeps constructors
     | Ability keyword name params whereKeyword operations =>
-      rewrite keeps.decl (Ability keyword name (walkGroups s params) whereKeyword (walkOperations s operations)),
-          groupsTwice s m keeps params,
-          operationsTwice s m keeps operations
-    | Test keyword name colonEq body =>
-      rewrite keeps.decl (Test keyword name colonEq (body.walk s)), exprTwice s m keeps body
-    | RuleSetDecl keyword name colonEq set =>
-      rewrite keeps.decl (RuleSetDecl keyword name colonEq (walkRuleSet s set)), ruleSetTwice s m keeps set
+      rewrite keeps.decl _, groupsTwice s m keeps params, operationsTwice s m keeps operations
+    | Test keyword name colonEq body => rewrite keeps.decl _, exprTwice s m keeps body
+    | RuleSetDecl keyword name colonEq set => rewrite keeps.decl _, ruleSetTwice s m keeps set
 
 --| Walking with `s` then `m` is walking with `m`. By induction: in each
 --| arm, `Keeps` takes `s`'s step off the rebuilt node, then the
