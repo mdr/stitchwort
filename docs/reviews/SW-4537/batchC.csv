@@ -1,0 +1,14 @@
+stratum,name,sw_stmt,sw_proof,sw_stmt_ch,sw_proof_ch,lean_stmt,lean_proof,lean_stmt_ch,lean_proof_ch,rocq_stmt,rocq_proof,rocq_stmt_ch,rocq_proof_ch
+printer,heldItemSeat,5,6,246,196,6,2,231,89,5,4,213,104
+printer,stepsIfBroken,4,1,215,94,5,2,215,97,5,1,213,51
+printer,parenInnerKept,4,3,177,48,4,1,178,74,4,4,170,107
+printer,exprBlanks,3,92,129,4688,2,8,124,505,2,8,118,359
+printer,refinesAppend,4,5,124,111,4,1,125,62,4,3,120,70
+printer,notedCloserHangs,13,19,495,670,12,12,494,486,11,13,438,561
+printer,anyHangsOf,4,2,151,35,4,1,150,18,4,1,112,24
+printer,blankItemHangs,16,97,487,2079,13,30,489,1291,11,17,409,834
+printer,placedSteps,4,3,241,129,5,3,243,82,5,1,239,87
+printer,statementsWalk,3,5,173,242,3,5,174,152,3,5,169,104
+top,wordsCalmKeep,4,61,135,2006,4,8,136,298,4,6,115,241
+top,firstThreeKeepMeaning,2,1,128,110,2,1,129,53,2,1,125,68
+top,witnessUnreturned,2,7,133,278,2,3,134,188,3,4,139,158
