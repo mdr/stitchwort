@@ -219,6 +219,7 @@ theorem Parse.givesNote ∀ [inv: Parse.Invariant t] (problem: Parse.Problem):
   Parse.readsWeaken (Parse.readsNote problem) (read noted none => byComputing)
 
 --| A mark gives nothing to speak of.
+@[walk]
 theorem Parse.givesMark [inv: Parse.Invariant t]: Parse.Gives inv (() => Parse.mark()) ((at: Parse.Mark t) => True) :=
   Parse.readsWeaken Parse.readsMark (read at none => byComputing)
 

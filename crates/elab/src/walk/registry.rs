@@ -112,10 +112,10 @@ impl Elaborator {
                 let Some(t) = thunk else {
                     return Err(wrong("its statement isn't about a thunk `() => f x…`"));
                 };
-                let Some(head) = thunk_head(&shape.args[t]) else {
+                let Some(head) = thunk_head(g, &shape.args[t]) else {
                     return Err(wrong(
-                        "its thunk isn't a call of a function, `() => f x…` (a lemma about `k (p())` \
-                         is a then-lemma)",
+                        "its thunk isn't a call of a function or an operation, `() => f x…` (a \
+                         lemma about `k (p())` is a then-lemma)",
                     ));
                 };
                 // A run a lemma leaves open (a variable, "any parser") fits
@@ -129,10 +129,10 @@ impl Elaborator {
                     let Some(s) = statement(g.def(other).ty()) else {
                         continue;
                     };
-                    if s.head != shape.head || !runs_overlap(&shape, &s) {
+                    if s.head != shape.head || !runs_overlap(g, &shape, &s) {
                         continue;
                     }
-                    let (mine, theirs) = runs_text(|f| g.def(f).name().to_string(), &shape, &s);
+                    let (mine, theirs) = runs_text(g, |f| callee_name(g, f), &shape, &s);
                     let message = if mine.contains(", ") {
                         format!(
                             "`{name}` and `{}` both fit the same pair of calls, {mine} and {theirs}",
@@ -141,7 +141,7 @@ impl Elaborator {
                     } else {
                         format!(
                             "`{}` already has a walk lemma in this family: `{}`",
-                            g.def(head).name(),
+                            callee_name(g, head),
                             g.def(other).name()
                         )
                     };
@@ -250,14 +250,50 @@ pub(super) fn statement(ty: &Term) -> Option<Shape> {
     })
 }
 
-/// The function a thunk `() => f x…` calls.
-pub(super) fn thunk_head(thunk: &Term) -> Option<DefId> {
+/// The function a thunk `() => f x…` calls, or the operation it performs
+/// (`() => Parse.mark()`, `Call o (y => Done y)`).
+pub(super) fn thunk_head(g: &stitchwort_core::ev::Ev<'_>, thunk: &Term) -> Option<Callee> {
     let Term::Lam(_, _, body) = thunk.strip_loc() else {
         return None;
     };
-    match body.spine().0.strip_loc() {
-        Term::Def(f) => Some(*f),
+    let reg = g.env.registry();
+    match bare(body).spine().0.strip_loc() {
+        Term::Def(f) => Some(Callee::Def(*f)),
+        Term::Ctor(d, c, fields)
+            if reg.ctor(Builtin::Call) == Some((*d, *c)) && fields.len() == 2 =>
+        {
+            let plus = reg.data(Builtin::Plus);
+            let mut o = bare(&fields[0]);
+            loop {
+                match o {
+                    Term::Ctor(d, _, inner) if Some(*d) == plus && inner.len() == 1 => {
+                        o = bare(&inner[0]);
+                    }
+                    Term::Ctor(d, c, _) => return Some(Callee::Op(*d, *c)),
+                    _ => return None,
+                }
+            }
+        }
         _ => None,
+    }
+}
+
+/// `t` without its places and annotations, as an operation's call is
+/// written (`(Call o (y => (Done y: …)): …)`).
+pub(super) fn bare(t: &Term) -> &Term {
+    let mut t = t;
+    while let Term::Loc(_, inner) | Term::Ann(inner, _) = t {
+        t = inner;
+    }
+    t
+}
+
+/// A function's or an operation's name, as the registry's messages write it.
+fn callee_name(g: &stitchwort_core::ev::Ev<'_>, callee: Callee) -> String {
+    match callee {
+        Callee::Def(f) => g.def(f).name().to_string(),
+        Callee::Op(d, c) => g.data(d).ctors()[c].name.replace('%', ""),
+        Callee::Local(_) => "a parameter".to_string(),
     }
 }
 
@@ -284,11 +320,11 @@ pub(super) fn thunk_params(g: &stitchwort_core::ev::Ev<'_>, rel: DefId) -> Vec<u
 /// Whether one pair of calls can fit both lemmas: at every argument that is
 /// a thunk in both, the functions agree; an argument that is a thunk in only
 /// one is a run the other leaves open.
-fn runs_overlap(a: &Shape, b: &Shape) -> bool {
+fn runs_overlap(g: &stitchwort_core::ev::Ev<'_>, a: &Shape, b: &Shape) -> bool {
     (0..a.args.len().min(b.args.len())).all(|i| {
         let (x, y) = (&a.args[i], &b.args[i]);
         match (x.strip_loc(), y.strip_loc()) {
-            (Term::Lam(..), Term::Lam(..)) => match (thunk_head(x), thunk_head(y)) {
+            (Term::Lam(..), Term::Lam(..)) => match (thunk_head(g, x), thunk_head(g, y)) {
                 (Some(f), Some(g)) => f == g,
                 _ => true,
             },
@@ -299,14 +335,19 @@ fn runs_overlap(a: &Shape, b: &Shape) -> bool {
 
 /// Two lemmas' runs as a message writes them, ``(`fail`, any)``, over the
 /// arguments that call a function in either (a post is not one).
-fn runs_text(name: impl Fn(DefId) -> String, a: &Shape, b: &Shape) -> (String, String) {
+fn runs_text(
+    g: &stitchwort_core::ev::Ev<'_>,
+    name: impl Fn(Callee) -> String,
+    a: &Shape,
+    b: &Shape,
+) -> (String, String) {
     let at: Vec<usize> = (0..a.args.len().min(b.args.len()))
-        .filter(|&i| thunk_head(&a.args[i]).is_some() || thunk_head(&b.args[i]).is_some())
+        .filter(|&i| thunk_head(g, &a.args[i]).is_some() || thunk_head(g, &b.args[i]).is_some())
         .collect();
     let show = |s: &Shape| {
         let parts: Vec<String> = at
             .iter()
-            .map(|&i| match thunk_head(&s.args[i]) {
+            .map(|&i| match thunk_head(g, &s.args[i]) {
                 Some(f) => format!("`{}`", name(f)),
                 None => "any".to_string(),
             })
@@ -606,12 +647,16 @@ fn unify_thunk(cx: &mut Ctx, thunk: &Value, call: &Value) -> Result<bool> {
     let thunk = force_solved(&cx.g(), thunk.clone())?;
     if matches!(thunk, Value::Neutral(Head::Meta(_), _)) {
         let g = cx.g();
-        let code = cx.quote_folded(call)?.shift(&g, 1, 0)?;
+        let code = quote_code(cx, call)?.shift(&g, 1, 0)?;
         let made = cx.eval(&Term::Lam("arg".into(), Icit::Explicit, Rc::new(code)))?;
         return cx.unify(&thunk, &made);
     }
     let body = thunk_body(cx, &thunk)?;
-    cx.unify(&body, call)
+    // A call whose arguments make it compute at once (`downFrom 5 3`, a
+    // fuel `Succ m.left`) unfolds where the lemma's call, stuck on its
+    // unknowns, doesn't: then the arguments say what the unknowns are.
+    Ok(crate::undo::unify(cx, &body, call)?
+        || crate::undo::unify_by_unknown_arguments(cx, &body, call)?)
 }
 
 /// The name of the variable `v` is, also eta-expanded (`x => holds x`).
@@ -825,14 +870,14 @@ pub(super) fn choose(
         });
     }
     // 4. The registered lemma.
-    if let Callee::Def(id) = callee {
+    if !matches!(callee, Callee::Local(_)) {
         let g = cx.g();
         let registered: Vec<DefId> = (cx.e.tables.walk_tags.iter())
             .filter(|(lemma, (tag, _))| tag == WALK && crate::auto::visible(cx.e, **lemma))
             .map(|(lemma, _)| *lemma)
             .filter(|lemma| {
                 statement(g.def(*lemma).ty())
-                    .is_some_and(|s| s.args.iter().any(|a| thunk_head(a) == Some(id)))
+                    .is_some_and(|s| s.args.iter().any(|a| thunk_head(&g, a) == Some(callee)))
             })
             .collect();
         let mut fits = first_rank(ranks, |families| {
@@ -870,12 +915,16 @@ pub(super) fn choose(
     let show = |callee| match callee {
         Callee::Def(id) => format!("`{}`", written_name(cx, id)),
         Callee::Local(l) => format!("`{}`", cx.name_of_level(l).unwrap_or("a parameter")),
+        Callee::Op(d, c) => format!("`{}`", op_name(cx, d, c)),
     };
     let what = show(callee);
     // A pair whose runs call different functions names both; one function
     // (the common case: a theorem about a function and itself) names it once.
     let pair_what = if calls.len() > 1 {
-        let names: Vec<String> = calls.iter().filter_map(head_of).map(show).collect();
+        let names: Vec<String> = (calls.iter())
+            .filter_map(|c| callee_of(cx, c).ok().flatten())
+            .map(show)
+            .collect();
         match names.as_slice() {
             [first, second] if first != second => format!("{first} and {second}"),
             _ => what.clone(),
@@ -887,6 +936,11 @@ pub(super) fn choose(
     match callee {
         Callee::Local(_) => notes.push(format!(
             "{what} is a parameter: give its lemma in the brackets, or as a hypothesis"
+        )),
+        Callee::Op(..) => notes.push(format!(
+            "give a lemma for {} in the brackets, or register one about `() => {}()` with `@[walk]`",
+            if calls.len() > 1 { "the pair" } else { "it" },
+            what.trim_matches('`')
         )),
         Callee::Def(_) => notes.push(format!(
             "give a lemma for {} in the brackets, register one with `@[walk]`, or write \

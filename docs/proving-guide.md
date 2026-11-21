@@ -418,9 +418,13 @@ Import what you use: std's theorems live in namespaces that need an import
   Register a function's lemma with `@[walk]` where every walk should use it,
   The walk reads the continuation off the code, so it needs no
   `[j := …]`-style lemma (`readsAtAfterLeft`): it binds with the family's
-  own bind lemma (`readsAtThen`). A call that performs an operation
-  directly (`Parse.mark().left`) can't be registered with `@[walk]`; name
-  its lemma in the brackets instead (`byWalking [Parse.readsAtLeft start]`).
+  own bind lemma (`readsAtThen`). An operation performed directly
+  (`Parse.mark()`, or `Parse.mark().left + 1` as a fuel) is a call like any
+  other: std's mark lemmas (`Parse.givesMark`, `readsMark`,
+  `readsAtMarkHere`, `followsMark`) are `@[walk]`, and a lemma about an
+  operation can be registered too. A call whose arguments make it compute
+  at once (`blockLines (Succ here.left) …`, `downFrom 5 3`) still takes
+  its function's lemma.
   Where two leaves need different proofs, run
   `stitchwort check --expand-walk` and edit the chain it writes (or add
   `--stdout` to print it, leaving the file alone); keep the

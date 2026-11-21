@@ -484,6 +484,7 @@ theorem Parse.thenNothing ∀ (next: a → List t → b → Prop) (read: List t)
     | Witness firstRead (Witness nextRead (Witness v (Both split (Both none holds)))) =>
       Witness v (rewrite split, none then holds)
 
+@[walk]
 theorem Parse.readsMark [inv: Parse.Invariant t]:
     Parse.ReadsIn inv (() => Parse.mark()) ((read: List t) m => read = []) :=
   Parse.readsInOfRuns (total state value after fine honest h =>
@@ -2317,6 +2318,7 @@ theorem Parse.readsFindAllStarting ∀ [inv: Parse.Invariant t] (starts: t → B
     reads
 
 --| `mark()` reads nothing and gives the mark where the parser is.
+@[walk]
 theorem Parse.readsAtMarkHere ∀ (start: Parse.Mark t):
     Parse.ReadsAt start (() => Parse.mark()) (read at => read = [] ∧ at = start) :=
   total state value after here honest h =>

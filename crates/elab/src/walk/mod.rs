@@ -645,7 +645,7 @@ fn refold(cx: &mut Ctx, family: &Family, args: &[Value], bodies: &[Value]) -> Re
     let mut term = Term::Def(family.relation);
     for (i, a) in args.iter().enumerate() {
         let arg = if let Some(run) = family.thunks.iter().position(|&t| t == i) {
-            let code = cx.quote_folded(&bodies[run])?.shift(&g, 1, 0)?;
+            let code = quote_code(cx, &bodies[run])?.shift(&g, 1, 0)?;
             Term::Lam("arg".into(), Icit::Explicit, Rc::new(code))
         } else {
             cx.quote_folded(a)?
@@ -700,6 +700,10 @@ enum Callee {
     Def(DefId),
     /// A variable in scope, by level.
     Local(usize),
+    /// An operation performed directly (`Parse.mark()`), by its constructor
+    /// in the ability's operation type: `Call o (y => Done y)` with `o`
+    /// that constructor, inside the row's injections.
+    Op(DataId, usize),
 }
 
 impl Callee {
@@ -711,8 +715,80 @@ impl Callee {
                 .name_of_level(*level)
                 .unwrap_or("a parameter")
                 .to_string(),
+            Callee::Op(d, c) => short_name(&op_name(cx, *d, *c)),
         }
     }
+}
+
+/// Code read back as written: every call as the call, one that steps at
+/// once too, so that the walk, reading it again, meets the calls the
+/// program makes (`blockLines (Succ m.left) …`, which would read back
+/// folded as its unfolding) and their lemmas fit.
+fn quote_code(cx: &Ctx, code: &Value) -> Result<Term> {
+    Ok(stitchwort_core::value::quote_as_written(
+        &cx.g(),
+        cx.level(),
+        code,
+    )?)
+}
+
+/// An operation's name as written: its constructor's, without the `%` the
+/// compiler marks an ability's operation constructors with (`%mark`), so
+/// a value named after it (`markValue`) is a name a program can write.
+fn op_name(cx: &Ctx, d: DataId, c: usize) -> String {
+    cx.g().data(d).ctors()[c].name.replace('%', "")
+}
+
+/// The operation `o` performs, inside the row's injections (`L`, `R` of
+/// `Effect.Plus`): its constructor.
+fn op_ctor(cx: &Ctx, o: &Value) -> Result<Option<(DataId, usize)>> {
+    let g = cx.g();
+    let plus = g.env.registry().data(Builtin::Plus);
+    let mut o = force(&g, o.clone())?;
+    loop {
+        match o {
+            Value::Ctor(d, _, fields) if Some(d) == plus && fields.len() == 1 => {
+                o = force(&g, fields[0].clone())?;
+            }
+            Value::Ctor(d, c, _) => return Ok(Some((d, c))),
+            _ => return Ok(None),
+        }
+    }
+}
+
+/// An operation performed, `Call o k`: its constructor, `o` and `k`.
+type OpCall = ((DataId, usize), Value, Value);
+
+/// `Call o k`, an operation performed with its rest `k`, if `body` is one.
+fn op_call(cx: &Ctx, body: &Value) -> Result<Option<OpCall>> {
+    let Value::Ctor(d, c, fields) = body else {
+        return Ok(None);
+    };
+    if cx.g().env.registry().ctor(Builtin::Call) != Some((*d, *c)) || fields.len() != 2 {
+        return Ok(None);
+    }
+    Ok(op_ctor(cx, &fields[0])?.map(|op| (op, fields[0].clone(), fields[1].clone())))
+}
+
+/// Whether `k` is `y => Done y`, as the elaborator writes the rest of an
+/// operation performed on its own.
+fn done_rest(cx: &Ctx, k: &Value) -> bool {
+    let Value::Lam(_, _, closure) = k else {
+        return false;
+    };
+    let done = cx.g().env.registry().ctor(Builtin::Done);
+    matches!(bare(&closure.body), Term::Ctor(d, c, fields)
+        if Some((*d, *c)) == done
+            && matches!(&fields[..], [f] if matches!(bare(f), Term::Var(0))))
+}
+
+/// What a call is of: [`head_of`], or the operation a `Call o (y => Done
+/// y)` performs.
+fn callee_of(cx: &Ctx, value: &Value) -> Result<Option<Callee>> {
+    if let Some(head) = head_of(value) {
+        return Ok(Some(head));
+    }
+    Ok(op_call(cx, value)?.map(|((d, c), _, _)| Callee::Op(d, c)))
 }
 
 fn head_of(value: &Value) -> Option<Callee> {
@@ -769,7 +845,25 @@ fn classify(cx: &Ctx, body: &Value, through: Option<DefId>) -> Result<Code> {
         if reg.ctor(Builtin::Done) == Some((*d, *c)) && !fields.is_empty() {
             return Ok(Code::Value);
         }
-        return Ok(Code::Other("an operation called directly"));
+        // An operation performed directly: a call of it where its rest
+        // only returns the reply, else `Effect.bind (Call o (y => Done
+        // y)) k`, which `Call o k` computes to.
+        if let Some(((od, oc), o, k)) = op_call(cx, &body)? {
+            if done_rest(cx, &k) {
+                return Ok(Code::Call(Callee::Op(od, oc), body));
+            }
+            let (done_d, done_c) = reg
+                .ctor(Builtin::Done)
+                .expect("the prelude declares `Done`");
+            let identity = cx.eval(&Term::Lam(
+                "y".into(),
+                Icit::Explicit,
+                Rc::new(Term::Ctor(done_d, done_c, vec![Rc::new(Term::Var(0))])),
+            ))?;
+            let performed = Value::Ctor(*d, *c, vec![o, identity].into());
+            return Ok(Code::Bind(performed, k));
+        }
+        return Ok(Code::Other("code the walk doesn't follow"));
     }
     let Some(head) = head_of(&body) else {
         return Ok(Code::Other("code the walk doesn't follow"));
@@ -982,9 +1076,14 @@ fn step(
         .trace
         .clear();
     let info = node_info(cx, node);
-    if let Some(nest) = info.nest.clone() {
-        fix_nested_goal(cx, &info, family, &args, &nest, expected)?;
-    }
+    let (args, rebuilt) = match info.nest.clone() {
+        Some(nest) => {
+            let (args, goal) = fix_nested_goal(cx, &info, family, args, &nest, expected)?;
+            (args, Some(goal))
+        }
+        None => (args, None),
+    };
+    let expected = rebuilt.as_ref().unwrap_or(expected);
     if family.thunks.len() == 2 {
         return two::step(cx, node, &info, family, args, top, expected);
     }
@@ -1294,6 +1393,11 @@ fn value_names(cx: &Ctx, callee: Callee, k: &Value, runs: usize) -> Vec<String> 
             .unwrap_or("value")
             .to_string(),
         Callee::Local(l) => cx.name_of_level(l).unwrap_or("value").to_string(),
+        Callee::Op(d, c) => short_name(&op_name(cx, d, c))
+            .rsplit('.')
+            .next()
+            .unwrap_or("value")
+            .to_string(),
     };
     // Not the callee's own name, which a binder would hide.
     let first = match k {
@@ -1363,7 +1467,7 @@ fn bind_step(
             }
         }
     }
-    let Some(callee) = head_of(&cs[0]) else {
+    let Some(callee) = callee_of(cx, &cs[0])? else {
         return Err(stuck(
             cx,
             info,
@@ -1372,7 +1476,13 @@ fn bind_step(
             &[format!("it is {}", cx.show(&cs[0]))],
         ));
     };
-    if let Some(other) = cs[1..].iter().find(|c| head_of(c).is_none()) {
+    let mut other = None;
+    for c in &cs[1..] {
+        if other.is_none() && callee_of(cx, c)?.is_none() {
+            other = Some(c);
+        }
+    }
+    if let Some(other) = other {
         return Err(stuck(
             cx,
             info,
@@ -1733,7 +1843,7 @@ fn nested_post(
             let Some(b) = binder_of(&first.args[at]) else {
                 return Ok(None);
             };
-            let code = cx.quote_folded(&codes[run])?.shift(&g, 1, 0)?;
+            let code = quote_code(cx, &codes[run])?.shift(&g, 1, 0)?;
             let thunk = cx.eval(&Term::Lam("arg".into(), Icit::Explicit, Rc::new(code)))?;
             if !crate::undo::unify(cx, &metas[b], &thunk)? {
                 return Ok(None);
@@ -1749,7 +1859,7 @@ fn nested_post(
             return Ok(None);
         }
         let post = force_solved(&g, metas[post_binder].clone())?;
-        let term = cx.quote_folded(&post)?;
+        let term = quote_code(cx, &post)?;
         let term = cx.e.zonk_keeping(&term, cx.level(), &|_| true)?;
         Ok(Some(term))
     })();
@@ -1764,14 +1874,16 @@ fn fix_nested_goal(
     cx: &mut Ctx,
     info: &NodeInfo,
     family: &Family,
-    args: &[Value],
+    mut args: Vec<Value>,
     nest: &Nest,
     expected: &Value,
-) -> Result<()> {
+) -> Result<(Vec<Value>, Value)> {
     let g = cx.g();
+    let mut thunks = Vec::new();
     for (run, &at) in family.thunks.iter().enumerate() {
-        let code = cx.quote_folded(&nest.codes[run])?.shift(&g, 1, 0)?;
+        let code = quote_code(cx, &nest.codes[run])?.shift(&g, 1, 0)?;
         let thunk = cx.eval(&Term::Lam("arg".into(), Icit::Explicit, Rc::new(code)))?;
+        thunks.push((at, thunk.clone()));
         if !crate::undo::unify(cx, &args[at], &thunk)? {
             return Err(stuck(
                 cx,
@@ -1792,7 +1904,24 @@ fn fix_nested_goal(
             &[format!("what it needs is {}", cx.show(&post))],
         ));
     }
-    Ok(())
+    // The goal again with the code as the bind runs it, its calls as the
+    // calls: the goal the elaborator has may read the code back folded,
+    // where a call that steps at once (`blockLines (Succ m.left) …`) is
+    // written as its unfolding, and no lemma about the call fits that.
+    let goal = refold(cx, family, &args, &nest.codes)?;
+    if !cx.conv_now(&goal, expected)? {
+        return Err(stuck(
+            cx,
+            info,
+            expected,
+            "the goal rebuilt for the code a bind runs isn't the goal the proof has here",
+            &[format!("the rebuilt goal is {}", cx.show(&goal))],
+        ));
+    }
+    for (at, thunk) in thunks {
+        args[at] = thunk;
+    }
+    Ok((args, goal))
 }
 
 /// The place for a premise of a value's or a call's lemma about its
