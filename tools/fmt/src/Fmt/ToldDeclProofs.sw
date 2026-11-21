@@ -243,51 +243,16 @@ theorem shapeLead ∀ (expr: Expr) (item: Bool)
       = (expr.lead.kept item (isCloserText expr.lead.text)).comments.toldAbove ++ expr.shape item True :=
   match expr with
     | Atom kind word => shapeKLead word item
-    | Paren open inner close =>
-      rewrite shapeKLead open item,
-          List.appendAssoc
-            (open.kept item (isCloserText open.text)).comments.toldAbove
-            (open.shapeK item True)
-            (inner.shape False False ++ close.shapeK False False)
-    | Tuple open items comma close =>
-      rewrite shapeKLead open item,
-          List.appendAssoc
-            (open.kept item (isCloserText open.text)).comments.toldAbove
-            (open.shapeK item True)
-            (itemsShape True items ++ close.shapeK False False)
-    | ListOf open items comma close =>
-      rewrite shapeKLead open item,
-          List.appendAssoc
-            (open.kept item (isCloserText open.text)).comments.toldAbove
-            (open.shapeK item True)
-            (itemsShape (!items.all Expr.plainItem) items ++ close.shapeK False False)
-    | App head arguments =>
-      rewrite shapeLead head item (Bool.andLeft within),
-          List.appendAssoc
-            (head.lead.kept item (isCloserText head.lead.text)).comments.toldAbove
-            (head.shape item True)
-            (argumentsShape arguments)
+    | Paren open inner close => rewrite shapeKLead open item, List.appendAssoc _ _ _
+    | Tuple open items comma close => rewrite shapeKLead open item, List.appendAssoc _ _ _
+    | ListOf open items comma close => rewrite shapeKLead open item, List.appendAssoc _ _ _
+    | App head arguments => rewrite shapeLead head item (Bool.andLeft within), List.appendAssoc _ _ _
     | Infix kind left operator right =>
       match kind with
-        | InfixBinary =>
-          rewrite shapeLead left item (Bool.andLeft within),
-              List.appendAssoc
-                (left.lead.kept item (isCloserText left.lead.text)).comments.toldAbove
-                (left.shape item True)
-                (operator.shapeK False False ++ right.shape False False)
-        | InfixArrow =>
-          rewrite shapeLead left item (Bool.andLeft within),
-              List.appendAssoc
-                (left.lead.kept item (isCloserText left.lead.text)).comments.toldAbove
-                (left.shape item True)
-                (operator.shapeK False False ++ right.shape False False)
+        | InfixBinary => rewrite shapeLead left item (Bool.andLeft within), List.appendAssoc _ _ _
+        | InfixArrow => rewrite shapeLead left item (Bool.andLeft within), List.appendAssoc _ _ _
         | _ => cases
-    | Prefix operator operand =>
-      rewrite shapeKLead operator item,
-          List.appendAssoc
-            (operator.kept item (isCloserText operator.text)).comments.toldAbove
-            (operator.shapeK item True)
-            (operand.shape False False)
+    | Prefix operator operand => rewrite shapeKLead operator item, List.appendAssoc _ _ _
 
 --| A node's frame tells its first token's own-line comments, then the node's document, which tells the rest.
 theorem framedShape ∀ (expr: Expr) (around: Around) [doc: Doc]
@@ -569,8 +534,7 @@ theorem brokenItemsShape ∀ (bare arm first before: Bool) (at: Nat) (items: Lis
         (isSeparator first)
         (isLast
           (kept
-            (firstAround bare arm before at)
-            prior
+            (firstAround bare arm before at) _
             (Bool.andLeft within)
             (Bool.andLeft sound)
             (Bool.andLeft nonCloser)
@@ -584,8 +548,7 @@ theorem brokenItemsShape ∀ (bare arm first before: Bool) (at: Nat) (items: Lis
           (item.shape (!bare) False)
           ([Said "," True True] ++ itemsShape True rest)
           (kept
-            (firstAround bare arm before at)
-            prior
+            (firstAround bare arm before at) _
             (Bool.andLeft within)
             (Bool.andLeft sound)
             (Bool.andLeft nonCloser)
@@ -634,8 +597,7 @@ theorem cellsShape ∀ (bare arm before: Bool) (at: Nat) (items: List Expr) (pri
       let (head, _) := itemsHomed item [] prior homed
       (
         kept
-          (firstAround bare arm before at)
-          prior
+          (firstAround bare arm before at) _
           (Bool.andLeft within)
           (Bool.andLeft sound)
           (Bool.andLeft nonCloser)
@@ -650,8 +612,7 @@ theorem cellsShape ∀ (bare arm before: Bool) (at: Nat) (items: List Expr) (pri
             (item.shape (!bare) False)
             [Said "," True True]
             (kept
-              (firstAround bare arm before at)
-              prior
+              (firstAround bare arm before at) _
               (Bool.andLeft within)
               (Bool.andLeft sound)
               (Bool.andLeft nonCloser)
@@ -762,8 +723,7 @@ theorem bracketContentShape ∀ (list: Bool) (open: Word) (items: List Expr) (cl
           spot
           closeSound
           (closeHomes close
-            ((itemsWords items).reverse ++ [open])
-            prior
+            ((itemsWords items).reverse ++ [open]) _
             (around.next (ListOf open items False close).trailsBeforeClose ((ListOf open items False close).size - 1))
             (codedSnoc (itemsWords items).reverse open opens)
             (trailsBeforeCloseIs open items close)
@@ -773,8 +733,7 @@ theorem bracketContentShape ∀ (list: Bool) (open: Word) (items: List Expr) (cl
         (list && items.all Expr.plainItem)
         around.inArm
         open.trails
-        (around.at + 1)
-        items
+        (around.at + 1) _
         ([open] ++ prior)
         within
         sound
@@ -787,8 +746,7 @@ theorem bracketContentShape ∀ (list: Bool) (open: Word) (items: List Expr) (cl
         around.inArm
         True
         open.trails
-        (around.at + 1)
-        items
+        (around.at + 1) _
         ([open] ++ prior)
         within
         sound
@@ -845,8 +803,7 @@ theorem huggedBracketShape ∀ (list: Bool) (open: Word) (items: List Expr) (clo
             ++ close.shapeK False False) :=
   let content :=
     bracketContentShape list open items close
-      { around | hoisted = True }
-      prior
+      { around | hoisted = True } _
       within
       sound
       nonCloser
@@ -947,8 +904,7 @@ theorem argumentDocsShape ∀ (arm: Bool) (previous: Expr) (at: Nat) (arguments:
         (
           byComputing,
           lastArgumentShape argument
-            { before = previous.trails, hoisted = False, item = False, at, inArm = arm }
-            prior
+            { before = previous.trails, hoisted = False, item = False, at, inArm = arm } _
             (Bool.andLeft within)
             (Bool.andLeft sound)
             (Bool.andLeft nonCloser)
@@ -975,8 +931,7 @@ theorem argumentDocsShape ∀ (arm: Bool) (previous: Expr) (at: Nat) (arguments:
         (argsShapeEq _ _ _ _ (argumentDocsConsTest arm previous argument next at more) (
           (
             kept
-              { before = previous.trails, hoisted = False, item = False, at, inArm = arm }
-              prior
+              { before = previous.trails, hoisted = False, item = False, at, inArm = arm } _
               (Bool.andLeft within)
               (Bool.andLeft sound)
               (Bool.andLeft nonCloser)
@@ -1235,8 +1190,7 @@ theorem appDocsShape ∀ (head: Expr) (arguments: List Expr) (around: Around) (p
   let whole := rewrite split at homed then homed
   let (front, last, (frontIs, lastIs), joined) :=
     argumentDocsShape around.inArm head
-      (around.at + head.size)
-      arguments
+      (around.at + head.size) _
       (head.words.reverse ++ prior)
       within
       sound
@@ -1427,8 +1381,7 @@ theorem elShape ∀ (expr: Expr) (around: Around) (prior: List Word)
         leafShape word around around.at spot sound (homesOpen word around (Bool.notTrue _ nonCloser))
     | Paren open inner close =>
       framedShape
-        (Paren open inner close)
-        around
+        (Paren open inner close) _
         within
         (leadSound (Paren open inner close) sound)
         (parenShape open inner close
@@ -1437,8 +1390,7 @@ theorem elShape ∀ (expr: Expr) (around: Around) (prior: List Word)
           (Bool.andRight (Bool.andRight sound))
           (Bool.notTrue _ (Bool.andLeft nonCloser))
           (closeHomes close
-            (inner.words.reverse ++ [open])
-            prior
+            (inner.words.reverse ++ [open]) _
             ({ around | hoisted = True }.next inner.trails (1 + inner.size))
             (codedSnoc inner.words.reverse open (Bool.notTrue _ (Bool.andLeft nonCloser)))
             (trailsBackCoded inner.words.reverse [open] (codedOf inner within (Bool.andRight nonCloser))).flipped
@@ -1453,16 +1405,14 @@ theorem elShape ∀ (expr: Expr) (around: Around) (prior: List Word)
             (bracketReverseHomed open inner.words close prior homed)))
     | Tuple open items comma close =>
       framedShape
-        (Tuple open items comma close)
-        around
+        (Tuple open items comma close) _
         [doc := commaBracket (list := False) open items close { around | hoisted = True }]
         within
         (leadSound (Tuple open items comma close) sound)
         (isGroup
           (bracketContent False open items close { around | hoisted = True }).forcesBreak
           (bracketContentShape False open items close
-            { around | hoisted = True }
-            prior
+            { around | hoisted = True } _
             within
             (Bool.andLeft (Bool.andRight sound))
             (Bool.andRight nonCloser)
@@ -1473,16 +1423,14 @@ theorem elShape ∀ (expr: Expr) (around: Around) (prior: List Word)
             homed))
     | ListOf open items comma close =>
       framedShape
-        (ListOf open items comma close)
-        around
+        (ListOf open items comma close) _
         [doc := commaBracket (list := True) open items close { around | hoisted = True }]
         within
         (leadSound (ListOf open items comma close) sound)
         (isGroup
           (bracketContent True open items close { around | hoisted = True }).forcesBreak
           (bracketContentShape True open items close
-            { around | hoisted = True }
-            prior
+            { around | hoisted = True } _
             within
             (Bool.andLeft (Bool.andRight sound))
             (Bool.andRight nonCloser)
@@ -1493,13 +1441,11 @@ theorem elShape ∀ (expr: Expr) (around: Around) (prior: List Word)
             homed))
     | App head arguments =>
       framedShape
-        (App head arguments)
-        around
+        (App head arguments) _
         within
         (leadSound (App head arguments) sound)
         (appDocsShape head arguments
-          { around | hoisted = True }
-          prior
+          { around | hoisted = True } _
           (Bool.andLeft within)
           (Bool.andLeft sound)
           (Bool.andLeft nonCloser)
@@ -1511,8 +1457,7 @@ theorem elShape ∀ (expr: Expr) (around: Around) (prior: List Word)
           homed).left
     | Prefix operator operand =>
       framedShape
-        (Prefix operator operand)
-        around
+        (Prefix operator operand) _
         within
         (leadSound (Prefix operator operand) sound)
         (prefixShape operator operand around
@@ -1530,8 +1475,7 @@ theorem elShape ∀ (expr: Expr) (around: Around) (prior: List Word)
       match kind with
         | InfixBinary =>
           framedShape
-            (Infix InfixBinary left operator right)
-            around
+            (Infix InfixBinary left operator right) _
             within
             (leadSound (Infix InfixBinary left operator right) sound)
             (chainOfShape
@@ -1542,8 +1486,7 @@ theorem elShape ∀ (expr: Expr) (around: Around) (prior: List Word)
                 left
                 operator
                 right
-                { around | hoisted = True }
-                prior
+                { around | hoisted = True } _
                 (Bool.andLeft within)
                 (Bool.andLeft (Bool.andRight within))
                 (Bool.andLeft sound)
@@ -1555,8 +1498,7 @@ theorem elShape ∀ (expr: Expr) (around: Around) (prior: List Word)
                 homed))
         | InfixArrow =>
           framedShape
-            (Infix InfixArrow left operator right)
-            around
+            (Infix InfixArrow left operator right) _
             within
             (leadSound (Infix InfixArrow left operator right) sound)
             (chainOfShape
@@ -1567,8 +1509,7 @@ theorem elShape ∀ (expr: Expr) (around: Around) (prior: List Word)
                 left
                 operator
                 right
-                { around | hoisted = True }
-                prior
+                { around | hoisted = True } _
                 (Bool.andLeft within)
                 (Bool.andLeft (Bool.andRight within))
                 (Bool.andLeft sound)

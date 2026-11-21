@@ -26,8 +26,8 @@ import Fmt.ElementsKeys (LedAt)
 
 --| An item's kept blank line with no comments above its token, from a seat that isn't a plain line start: to the
 --| start of the token's line, after the blank line, with the fold unchanged.
-theorem blankLeadingHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat) (before: Bool)
-    (state: HangState) (entry: Place)
+theorem blankLeadingHangs ∀ [kinds: Text → Tok] [word: Word] [around: Around] [key indent: Nat] [before: Bool]
+    [state: HangState] [entry: Place]
     (hoisted: around.hoisted = False)
     (item: around.item = True)
     (unnoted: word.comments.above = [])
@@ -53,8 +53,8 @@ theorem blankLeadingHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around
 
 --| A plain token with a kept blank line before it as an item and no comments above it, from a seat that isn't a plain
 --| line start: the blank line, then the token starting the line after it (`leadStart`), then its trailing comment.
-theorem blankLeafHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat)
-    (state: HangState) (entry: Place)
+theorem blankLeafHangs ∀ [kinds: Text → Tok] [word: Word] [around: Around] [key indent: Nat]
+    [state: HangState] [entry: Place]
     (plain: Fmt.HangProofs.Plain (kinds word.text))
     (token: word.text.startsWith "--" = False)
     (solid: isLayout word.text = False)
@@ -82,11 +82,12 @@ theorem blankLeafHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
         let lined := LineAt indent column (Hang.At state)
         let written: Place → Hang → Prop := place hang => Ended opened False place ∧ hang = Hang.At opened
         let post: Place → Hang → Prop := place hang => Ended opened word.trails place ∧ hang = Hang.At opened
-        let leading :=
-          allHangsPre
-            [weaker := pre]
-            (blankLeadingHangs kinds word around key indent around.before state entry hoisted item unnoted blank fresh)
-            (place hang (isEntry, folded, (seated, _, _, _)) => (isEntry, folded, seated))
+        let leading := allHangsPre [weaker := pre] (blankLeadingHangs hoisted item unnoted blank fresh) (place hang (
+          isEntry,
+          folded,
+          (seated, _, _, _)
+        ) =>
+          (isEntry, folded, seated))
         rewrite leafPiece word around key closer comma then
           hangsConcat
             (hangsAppend leading
@@ -104,8 +105,8 @@ theorem blankLeafHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
 
 --| `blankFramedAt` with the node's placement spelled out: displaced, laid from the start of the line after the blank
 --| line.
-theorem blankPlacedAt ∀ (kinds: Text → Tok) (first: Word) (around: Around) (doc: Doc) (indent: Nat)
-    (before trails: Bool) (state: HangState) (entry: Place)
+theorem blankPlacedAt ∀ [kinds: Text → Tok] [first: Word] [around: Around] [doc: Doc] [indent: Nat]
+    [before trails: Bool] [state: HangState] [entry: Place]
     (hoisted: around.hoisted = False)
     (item: around.item = True)
     (unnoted: first.comments.above = [])
@@ -136,11 +137,12 @@ theorem blankPlacedAt ∀ (kinds: Text → Tok) (first: Word) (around: Around) (
       | (_, _, (seated, _, _, room)) =>
         let leading :=
           hangsConcat
-            (allHangsPre
-              [weaker := pre]
-              (blankLeadingHangs kinds first around around.at indent before state entry hoisted item unnoted blank
-                  fresh)
-              (place hang (isEntry, folded, (seated, _, _, _)) => (isEntry, folded, seated)))
+            (allHangsPre [weaker := pre] (blankLeadingHangs hoisted item unnoted blank fresh) (place hang (
+              isEntry,
+              folded,
+              (seated, _, _, _)
+            ) =>
+              (isEntry, folded, seated)))
         let body :=
           linedDisplaced kinds doc indent column before trails state
             (leadDeep indent before state entry seated fresh)
@@ -151,8 +153,8 @@ theorem blankPlacedAt ∀ (kinds: Text → Tok) (first: Word) (around: Around) (
 --| A node framed by its first token, which has a kept blank line before it as an item and no comments above it, at
 --| one entry that isn't a plain line start: the blank line, then the node displaced from the start of the line after
 --| it. `framed` is the node with its first token's blank line written elsewhere (`hoisted`), displaced all the same.
-theorem blankFramedAt ∀ (kinds: Text → Tok) (first: Word) (around: Around) (doc: Doc) (indent: Nat) (trails: Bool)
-    (state: HangState) (entry: Place)
+theorem blankFramedAt ∀ [kinds: Text → Tok] [first: Word] [around: Around] [doc: Doc] [indent: Nat] [trails: Bool]
+    [state: HangState] [entry: Place]
     (hoisted: around.hoisted = False)
     (item: around.item = True)
     (unnoted: first.comments.above = [])
@@ -169,13 +171,12 @@ theorem blankFramedAt ∀ (kinds: Text → Tok) (first: Word) (around: Around) (
   let isUnnoted: first.noted = False := rewrite unnoted
   let unframed: framedBy first around doc = Doc.concat [Doc.concat (first.leading around around.at), Displaced doc] :=
     rewrite isUnnoted, item, blank
-  rewrite unframed then
-    blankPlacedAt kinds first around doc indent around.before trails state entry hoisted item unnoted blank fresh framed
+  rewrite unframed then blankPlacedAt hoisted item unnoted blank fresh framed
 
 --| A node whose first token has a kept blank line before it as an item and no comments above it, at one entry
 --| (`blankFramedAt` from its hoisted form).
-theorem blankNodeAt ∀ (expr: Expr) (word: Word) (node: Around → Doc) (around: Around) (indent: Nat) (trails: Bool)
-    (state: HangState) (entry: Place)
+theorem blankNodeAt ∀ [expr: Expr] [word: Word] (node: Around → Doc) [around: Around] [indent: Nat] [trails: Bool]
+    [state: HangState] [entry: Place]
     (elIs: ∀ (at: Around) => expr.el at = framedBy word at (node at))
     (same: node { around | hoisted = True } = node around)
     (hoisted: around.hoisted = False)
@@ -196,7 +197,7 @@ theorem blankNodeAt ∀ (expr: Expr) (word: Word) (node: Around → Doc) (around
   let unwrapped: framedBy word lifted (node lifted) = Doc.concat [Doc.concat [], Displaced (node around)] :=
     rewrite isUnnoted, same, item, blank
   rewrite elIs around then
-    blankFramedAt lexKind word around (node around) indent trails state entry hoisted item unnoted blank fresh (inset =>
+    blankFramedAt hoisted item unnoted blank fresh (inset =>
       let fact := hoistedHangs inset
       rewrite elIs lifted, unwrapped at fact then fact)
 
@@ -228,20 +229,12 @@ theorem blankItemHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: H
     | Atom kind word, within =>
       let (plain, (notComment, solid, wordCloser, comma)) := wordFacts kind word.text within
       rewrite atomTrailsIs kind word then
-        blankLeafHangs lexKind word around around.at indent state entry plain notComment solid wordCloser comma hoisted
-            item unnoted blank
-            (trailsOfSound word sound)
-            fresh
+        blankLeafHangs plain notComment solid wordCloser comma hoisted item unnoted blank
+          (trailsOfSound word sound)
+          fresh
     | Paren open inner close, _ =>
       blankNodeAt
-        (Paren open inner close)
-        open
         (at => parenDoc open inner close { at | hoisted = True })
-        around
-        indent
-        (Paren open inner close).trails
-        state
-        entry
         (at => byComputing)
         byComputing
         hoisted
@@ -252,14 +245,7 @@ theorem blankItemHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: H
         hoistedHangs
     | Tuple open items trailing close, _ =>
       blankNodeAt
-        (Tuple open items trailing close)
-        open
         (at => commaBracket (list := False) open items close { at | hoisted = True })
-        around
-        indent
-        (Tuple open items trailing close).trails
-        state
-        entry
         (at => byComputing)
         byComputing
         hoisted
@@ -270,14 +256,7 @@ theorem blankItemHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: H
         hoistedHangs
     | ListOf open items trailing close, _ =>
       blankNodeAt
-        (ListOf open items trailing close)
-        open
         (at => commaBracket (list := True) open items close { at | hoisted = True })
-        around
-        indent
-        (ListOf open items trailing close).trails
-        state
-        entry
         (at => byComputing)
         byComputing
         hoisted
@@ -288,15 +267,7 @@ theorem blankItemHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: H
         hoistedHangs
     | App head arguments, within =>
       let node: Around → Doc := at => (appDocs head arguments { at | hoisted = True }).doc
-      blankNodeAt
-        (App head arguments)
-        head.lead
-        node
-        around
-        indent
-        (App head arguments).trails
-        state
-        entry
+      blankNodeAt node
         (at =>
           let unfolded: (App head arguments).el at = framedBy (App head arguments).firstWord at (node at) := byComputing
           Eq.trans unfolded (Eq.cong (word => framedBy word at (node at)) (firstWordLead (App head arguments) within)))
@@ -310,7 +281,7 @@ theorem blankItemHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: H
     | Infix InfixBinary left operator right, within =>
       let expr := Infix InfixBinary left operator right
       let node: Around → Doc := at => chain expr.chainLevel left operator right { at | hoisted = True }
-      blankNodeAt expr left.lead node around indent expr.trails state entry
+      blankNodeAt node
         (at =>
           let unfolded: expr.el at = framedBy expr.firstWord at (node at) := byComputing
           Eq.trans unfolded (Eq.cong (word => framedBy word at (node at)) (firstWordLead expr within)))
@@ -324,7 +295,7 @@ theorem blankItemHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: H
     | Infix InfixArrow left operator right, within =>
       let expr := Infix InfixArrow left operator right
       let node: Around → Doc := at => chain expr.chainLevel left operator right { at | hoisted = True }
-      blankNodeAt expr left.lead node around indent expr.trails state entry
+      blankNodeAt node
         (at =>
           let unfolded: expr.el at = framedBy expr.firstWord at (node at) := byComputing
           Eq.trans unfolded (Eq.cong (word => framedBy word at (node at)) (firstWordLead expr within)))
@@ -337,19 +308,12 @@ theorem blankItemHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: H
         hoistedHangs
     | Prefix operator operand, _ =>
       blankNodeAt
-        (Prefix operator operand)
-        operator
         (at =>
           Doc.concat [
             operator.leaf { at | hoisted = True } at.at,
             prefixGap operator operand,
             operand.el (at.next operator.trails 1)
           ])
-        around
-        indent
-        (Prefix operator operand).trails
-        state
-        entry
         (at => byComputing)
         byComputing
         hoisted
