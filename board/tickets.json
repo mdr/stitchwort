@@ -1,5 +1,5 @@
 {
-  "next": 4500,
+  "next": 4501,
   "tickets": [
     {
       "id": 47,
@@ -30774,7 +30774,7 @@
     {
       "id": 4496,
       "title": "[Opus] Kernel panic 'internal error: applying a constructor' (crates/core/src/value.rs:1328) from as_written::is_needle -> conv_now's eta step, when the partial unfold (SW-4419, 26a4cbd5c) offers a lambda of different arity (Lam(_, Ctor)) as a candidate for the needle; check --no-cache Toy.Fmt.Proofs in tools/toyfmt crashes. Make the kernel return an error that conv_now's callers treat as not equal (and/or skip mismatched candidates); narrow to the theorem and add a small example that panics before the fix. Found by SW-4486.",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -30818,6 +30818,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4500,
+      "title": "[Opus] rewrite.rs has_carrier answers 'unknown, let conversion decide' when an unknown is present (around line 2203), leaving the mixed-type comparison SW-4496 closed for as_written open on the rewrite side: decide whether rewrite's candidate test should confirm the candidate's type first, as is_occurrence now does; a repro if one exists",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-21",
       "updated": "2026-11-21",
