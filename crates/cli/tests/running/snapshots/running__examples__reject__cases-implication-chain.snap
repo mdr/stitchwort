@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-CASES] Error: `cases` found nothing to split on, and nothing closes the goal
+   ╭─[ reject/cases-implication-chain.sw:4:66 ]
+   │
+ 4 │ theorem chain ∀ (a b c: Prop) (f: a → b) (g: b → c) (x: a): c := cases
+   │                                                                  ──┬──  
+   │                                                                    ╰──── this `cases`
+   │ 
+   │ Note 1: goal: c
+   │ 
+   │ Note 2: the goal isn't stuck on anything `cases` can take apart, and neither `byComputing`, a contradiction, a hypothesis, `arithmetic` nor deciding it (as `byDecision` does) proves it; give this case's proof as `cases then t`
+───╯
