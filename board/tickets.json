@@ -30735,15 +30735,17 @@
     {
       "id": 4493,
       "title": "[Opus] Slice 6a takes in cases x then t (D3710, Matt, 21 Nov 2026: yes): the self-hosted formatter reads and prints cases x, y then t (and cases x) as the Rust formatter does: Cases with targets in Expr, parser, printer, within6a and Tok.within6a, the walk and slice proofs extended to match, following SW-4427 (byWalking); nothing accepted today refused, MustAccept1 and top theorems untouched. After SW-4474 merges.",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "review",
+      "agent": "Opus",
+      "where": "lane/SW-4493",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nLane (Opus, 21 Nov 16:21): started, expected 75 min.\n\n\nLane (Opus, 21 Nov 16:52): done, 1 commit 6f42a3304 on lane/SW-4493. Cases keyword targets body (names + optional then body); parser as Rust's cases_expr (first name on the keyword's line, comma-separated, a name before = := => : ends the list); printer = Rust's join; within6a takes the forms. Follows twin + Gives proofs extended; no refusal, no top theorem or MustAccept1 change. Twin: tree/s6a/text all identical on cases-named golden + 21 probes (26 decls within, 26 matched, comments included); goldens group s6a 460/460 matched, tree 144/144. Tests: Syntax.Tests 21/21, Fmt.Tests Slice6a 9/9. Check times no-cache (44 namespaces, 72 s): every namespace within 0.88-1.17x; no theorem over 3x on recheck. Audit: 478 theorems, 0 failed, 2 old warnings (indexSameOf, depthSameOf).\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
-      "commits": []
+      "commits": [
+        "6f42a3304"
+      ]
     },
     {
       "id": 4494,
