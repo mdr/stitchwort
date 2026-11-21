@@ -31125,8 +31125,8 @@
     {
       "id": 4523,
       "title": "[DeepSeek] One generic lemma each for the tools/fmt ...Blank, ...Calm and ...Blanks lemma families (SW-4519 map: near-identical families, 428 lines in 71 theorems); statements of the top theorems unchanged",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
@@ -31268,7 +31268,7 @@
     {
       "id": 4534,
       "title": "[Sonnet] Bundle hypotheses into named records for tools/fmt lemmas with eight or more binders (634 theorems; modes: Modes written 1,290 times), pilot on Fmt/DeclHangProofs.sw after SW-4530: lines of proof and statement before/after, steps against the D3696 bar; no top or acceptance theorem touched (SW-4531 step 1)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -31537,7 +31537,7 @@
     {
       "id": 4554,
       "title": "[Sonnet] cases over several record fields costs about 5x the steps of the hand nested match (headerResult1 5.4x, wordUnled 5.7x; it splits every field rather than stopping at the first contradiction), and a failing cases on an Expr takes minutes before its budget error (SW-4547): profile and fix, then retry headerResult1 (35 to 4 lines)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
