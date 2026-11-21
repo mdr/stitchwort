@@ -1,5 +1,5 @@
 {
-  "next": 4561,
+  "next": 4562,
   "tickets": [
     {
       "id": 47,
@@ -31615,17 +31615,30 @@
     {
       "id": 4560,
       "title": "[Sonnet] Regression from SW-4536 (cf116368f, byComputing compares closed sides unglued first): stitchwort-cli tools audit::a_statement_naming_a_huge_computation_skips_its_search fails since 2fc18afb2 (last pass a0dfb3798; Overmind): the countdown 0 100000000 statement's generated lemmas are now searched (countdown.eq1/eq2 'none in 1500 cases') where the test expects the search not applicable. Find why same_unglued changes what the audit sees, fix keeping SW-4536's speed-up (readsBackCommentExample 96M to 3M steps), test is the failing one",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "\n\nLane note (Sonnet, 21 Nov): cause: same_unglued quoted both sides before comparing; quoting countdown 0 100000000 runs the call out of stack (sticky), so unification failed too and `big` got E-RESOURCE. Fix 50848b226 on lane/SW-4560: value::same_value shortcut before quoting. Test passes; examples pass; readsBackCommentExample 2,868,944 steps.\n",
+      "body": "Model result: Sonnet, worked (cause found: unglued read-back of a huge call exhausts the operation; identity check first), 11 min (est. 30)\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": [
         "50848b226"
       ]
+    },
+    {
+      "id": 4561,
+      "title": "[Opus] SW-4536's same_unglued can still turn a passing byComputing into E-RESOURCE: for two sides that are not identical but whose folded read-back runs a huge call, the quote exhausts the operation's budget (sticky), so the unification fallback that would have succeeded fails too (SW-4560). Make the unglued comparison unable to spend the operation's budget: a separate budget it can lose without affecting the fallback, or skip it for values whose read-back would run large calls; add a test with two different huge calls that unify",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
     }
   ]
 }
