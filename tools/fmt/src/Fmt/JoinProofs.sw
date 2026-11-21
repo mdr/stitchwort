@@ -1941,16 +1941,14 @@ theorem elPasses ∀ (kinds: Text → Tok) (expr: Expr)
     | Tuple open items comma close, (opener, closer, each) =>
       framedExprPasses kinds
         (Tuple open items comma close)
-        around
-        (commaBracket False open items close inside) _
+        around _ _
         within
         (opener, closer, each)
         (commaBracketPasses kinds False open items close inside opener closer (allElPasses kinds items within each))
     | ListOf open items comma close, (opener, closer, each) =>
       framedExprPasses kinds
         (ListOf open items comma close)
-        around
-        (commaBracket True open items close inside) _
+        around _ _
         within
         (opener, closer, each)
         (commaBracketPasses kinds True open items close inside opener closer (allElPasses kinds items within each))

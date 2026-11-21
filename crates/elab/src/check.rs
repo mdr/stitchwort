@@ -4662,6 +4662,10 @@ fn explicit_arg_failed<'a>(
 /// Parse.satisfy ?passes) …` with `Parse.Reads ?p ?first`, unfolds both
 /// calls before it fails, which cost most of a `readsThen` chain's steps
 /// (SW-3709); where it would fail, the result is the same.
+///
+/// Also in the application [`holes_by_arguments`] elaborates again, for an
+/// argument not written `_`: its type as written says what the `_`s before
+/// it are.
 #[inline(never)]
 fn by_arguments_first(
     cx: &mut Ctx,
@@ -4669,10 +4673,9 @@ fn by_arguments_first(
     value: &Expr,
     held: &Held<'_>,
 ) -> Result<Option<(Term, Value)>> {
-    if !held.hold_lambdas
-        || ready.snapshot.is_none()
-        || crate::interfaces::unsolved_in(cx, &ready.dom)?.is_none()
-    {
+    let waiting = held.hold_lambdas && ready.snapshot.is_some();
+    let after_holes = held.holes_by_arguments && ready.hole_of.is_none();
+    if !(waiting || after_holes) || crate::interfaces::unsolved_in(cx, &ready.dom)?.is_none() {
         return Ok(None);
     }
     by_arguments_in_place(cx, &ready.term, &ready.cod, value, &ready.dom)
@@ -4739,6 +4742,9 @@ struct Held<'a> {
     /// Whether lambdas are held for after `expecting` without a trial in
     /// place ([`infer_expecting`]).
     hold_lambdas: bool,
+    /// Whether this is the application [`holes_by_arguments`] elaborates
+    /// again.
+    holes_by_arguments: bool,
     queued_from: usize,
     metas_from: usize,
 }
@@ -4767,6 +4773,11 @@ impl<'a> Held<'a> {
             }
             _ => (None, None, false),
         };
+        let again = cx.e.decl.holes_by_arguments.get();
+        let holes_by_arguments = again != 0
+            && args
+                .iter()
+                .any(|a| matches!(a, Arg::Explicit(e) if std::ptr::from_ref(*e) as usize == again));
         Held {
             postponed: Vec::new(),
             // Proof searches, checked once the rest of the call has said
@@ -4776,6 +4787,7 @@ impl<'a> Held<'a> {
             expecting,
             expecting_named,
             hold_lambdas,
+            holes_by_arguments,
             queued_from,
             metas_from,
         }
@@ -8226,12 +8238,87 @@ fn fallback_named(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Value) ->
     {
         return fallback_pipe(cx, value, f, expected, named);
     }
-    if cx.e.decl.no_propagation.get() == 0
-        && let Some(found) = propagate(cx, expr, expected, named)?
-    {
-        return found;
+    let retry = holes_retry_key(expr);
+    let snapshot = retry.map(|_| crate::undo::Snapshot::take(cx));
+    let result = (|| {
+        if cx.e.decl.no_propagation.get() == 0
+            && let Some(found) = propagate(cx, expr, expected, named)?
+        {
+            return found;
+        }
+        fallback_inferred(cx, expr, expected, named)
+    })();
+    match (result, retry, snapshot) {
+        (Err(e), Some(key), Some(snapshot))
+            if !crate::undo::fatal(&e) && cx.e.decl.holes_by_arguments.get() == 0 =>
+        {
+            holes_by_arguments(cx, expr, (expected, named), key, snapshot, e)
+        }
+        (result, ..) => result,
     }
-    fallback_inferred(cx, expr, expected, named)
+}
+
+/// The key [`holes_by_arguments`] would elaborate `expr` again under (the
+/// address of its last written argument), if `expr` is an application with
+/// an argument written `_` and an explicit argument after it that isn't.
+fn holes_retry_key(expr: &Expr) -> Option<usize> {
+    if !matches!(expr, Expr::App(..)) {
+        return None;
+    }
+    let (_, args) = spine(expr);
+    let hole = args
+        .iter()
+        .position(|a| matches!(a, Arg::Explicit(Expr::Hole(_))))?;
+    if !args[hole + 1..]
+        .iter()
+        .any(|a| matches!(a, Arg::Explicit(e) if !matches!(e, Expr::Hole(_))))
+    {
+        return None;
+    }
+    match args.last() {
+        Some(Arg::Explicit(last) | Arg::NamedExplicit(_, last)) => {
+            Some(std::ptr::from_ref(*last) as usize)
+        }
+        _ => None,
+    }
+}
+
+/// After the application `expr`, with an argument written `_` and an
+/// explicit argument after it, failed against `expected` with `failed`,
+/// everything put back as at `snapshot`: elaborated again, with each later
+/// argument whose type mentions an unknown first inferred and compared
+/// with its parameter's type by the arguments of the two calls
+/// ([`by_arguments_first`]). The ordinary comparison may solve a `_` with
+/// another value that only the definition's unfolding equates with what
+/// the argument says: `Pass ?doc pre post` against `Pass (Doc.group x) pre
+/// post`, both unfolding to `Joins`, which reads a group as its contents,
+/// solves `?doc := x`, and a later comparison that sees the group then
+/// fails. Only after a failure, so what was accepted before is elaborated
+/// as it was; if this fails too, the error is the first one, and nothing is
+/// kept. Not inside another such retry, so that nested failing calls aren't
+/// tried twice at every level.
+#[inline(never)]
+fn holes_by_arguments(
+    cx: &mut Ctx,
+    expr: &Expr,
+    (expected, named): (&Value, &Value),
+    key: usize,
+    snapshot: crate::undo::Snapshot,
+    failed: Diagnostic,
+) -> Result<Term> {
+    snapshot.restore(cx);
+    let snapshot = crate::undo::Snapshot::take(cx);
+    cx.e.decl.holes_by_arguments.set(key);
+    let again = fallback_inferred(cx, expr, expected, named);
+    cx.e.decl.holes_by_arguments.set(0);
+    match again {
+        Ok(term) => Ok(term),
+        Err(e) if crate::undo::fatal(&e) => Err(e),
+        Err(_) => {
+            snapshot.restore(cx);
+            Err(failed)
+        }
+    }
 }
 
 /// `value |> f` checked as the call it is ([`fallback_named`]).
