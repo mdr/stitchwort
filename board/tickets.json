@@ -1,5 +1,5 @@
 {
-  "next": 4495,
+  "next": 4496,
   "tickets": [
     {
       "id": 47,
@@ -30657,12 +30657,12 @@
     {
       "id": 4487,
       "title": "[Sonnet] Walk follow-ups (SW-4479): convert the formatter proofs that now walk within the bar (givesTupleRest, givesBlock, givesCalcBody, givesDataParamStep, givesConstructorParen group; givesClauseLambda 2.0x, givesPipeChain 2.3x, givesListItemsFromAny 3.8x stay by hand unless re-timed under the file bar); state givesListItemsEnd over a pair variable so givesListItemsFrom walks; --expand-walk text for a bind inside a bound computation leaves the inner givesThen's post to inference and doesn't elaborate (givesNested, givesFromMark, givesBound in walk-operation.sw): write the post explicitly, then add the example to walk_expand",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "\n\nReview (lane, 21 Nov 11:30): commit c1afd5841 on lane/SW-4487. Walk now: givesTupleRest, givesBlock, givesCalcBody, givesConstructorParen and Parts, givesClauseLambda, givesPipeChain. Kept by hand (over 3x): givesDataParamStep 3.07x, givesListItemsFrom 3.2x, givesListItemsFromAny 3.2x. givesListItemsEnd now over a pair (hand givesListItemsFrom calls it without a match). Expansion fix (step 3) not done: needs the inner givesThen's holds written out (see report). Namespaces check --no-cache clean.\n",
+      "body": "\n\nReview (lane, 21 Nov 11:30): commit c1afd5841 on lane/SW-4487. Walk now: givesTupleRest, givesBlock, givesCalcBody, givesConstructorParen and Parts, givesClauseLambda, givesPipeChain. Kept by hand (over 3x): givesDataParamStep 3.07x, givesListItemsFrom 3.2x, givesListItemsFromAny 3.2x. givesListItemsEnd now over a pair (hand givesListItemsFrom calls it without a match). Expansion fix (step 3) not done: needs the inner givesThen's holds written out (see report). Namespaces check --no-cache clean.\n\n\nModel result: Sonnet, worked (7 kept, 3 over 3x left by hand; the expansion fix was not small, left to SW-4495), 55 min (est. 45)\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
@@ -30748,6 +30748,19 @@
     {
       "id": 4494,
       "title": "[Opus] Plain cases uses the x = C substitution too (SW-4474/SW-4492): a hypothesis that a variable is a constructor (kind = Minus) substitutes in plain cases, so signSymbolicT stops splitting 60 kinds per arm; it changes the proof terms of 6 example files and 4 std lemmas (hashes move: re-record with the full filter) and standsOwesNothing's generated matches (3 -> 8); needs whole-std and AoC timing by Overmind before merge",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4495,
+      "title": "[Opus] --expand-walk for a bind inside a bound computation: write the inner Parse.givesThen's holds explicitly ([holds := value => ...], the first implicit nested_bind computes in crates/elab/src/walk/mod.rs), so the expansions of givesNested, givesFromMark and givesBound in examples/accept/walk-operation.sw elaborate; then add walk-operation to walk_expand.rs. Also: a @[walk] instance of givesCommaListFrom for listItem (givesListItemsFrom/Any at 3.2x), and a lemma for the givesBinderGroup ... givesRefuseAttributes pair (givesDataParamStep 3.07x) (SW-4487)",
       "status": "backlog",
       "agent": "",
       "where": "",
