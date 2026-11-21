@@ -31125,12 +31125,12 @@
     {
       "id": 4523,
       "title": "[DeepSeek] One generic lemma each for the tools/fmt ...Blank, ...Calm and ...Blanks lemma families (SW-4519 map: near-identical families, 428 lines in 71 theorems); statements of the top theorems unchanged",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Model result: DeepSeek, worked (122 lines, under the map's 428-line family figure: most families differ in their per-item lemma), 30 min (est. 40)\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
