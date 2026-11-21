@@ -82,30 +82,12 @@ theorem alikeArm ∀ (bar barTwin: Word)
       guard = guardTwin,
       body = bodyTwin
     } :=
-  calc blankArms (walkArms blankPure [{ bar, patterns, guard, body }])
-    _ = [
-        {
-          bar = bar.blank,
-          patterns = walkPatterns blankPure patterns,
-          guard = (walkGuard blankPure guard).map Guard.blank,
-          body = blankAfterWord (walkAfter blankPure body)
-        }
-      ] := byComputing
-    _ = [
-        {
-          bar = barTwin.blank,
-          patterns = walkPatterns blankPure patternsTwin,
-          guard = (walkGuard blankPure guardTwin).map Guard.blank,
-          body = blankAfterWord (walkAfter blankPure bodyTwin)
-        }
-      ] :=
-      rewrite bars,
-          walkPatternsAlike patterns patternsTwin patternses,
-          guardsBlank guard guardTwin guards,
-          bodiesBlank body bodyTwin bodies
-    _ = blankArms
-        (walkArms blankPure [{ bar = barTwin, patterns = patternsTwin, guard = guardTwin, body = bodyTwin }]) :=
-      byComputing
+  rewrite repeatedly [
+    bars,
+    walkPatternsAlike patterns patternsTwin patternses,
+    guardsBlank guard guardTwin guards,
+    bodiesBlank body bodyTwin bodies
+  ]
 
 theorem armsBlankCons ∀ (arm: Arm) (rest: List Arm):
     blankArms (walkArms blankPure [arm, ..rest])
@@ -341,11 +323,7 @@ theorem alikeClauseLambda ∀ (keyword keywordTwin: Word)
     (words: Option.Alike WordsAlike word wordTwin) (arms armsTwin: List Arm)
     (alike: List.All2 ArmAlike arms armsTwin):
     ExprsAlike (ClauseLambda keyword word arms) (ClauseLambda keywordTwin wordTwin armsTwin) :=
-  calc (ClauseLambda keyword word arms).walk blankPure
-    _ = ClauseLambda keyword.blank (word.map Word.blank) (blankArms (walkArms blankPure arms)) := byComputing
-    _ = ClauseLambda keywordTwin.blank (wordTwin.map Word.blank) (blankArms (walkArms blankPure armsTwin)) :=
-      rewrite keywords, keywordBlank word wordTwin words, armsBlank arms armsTwin alike
-    _ = (ClauseLambda keywordTwin wordTwin armsTwin).walk blankPure := byComputing
+  rewrite repeatedly [keywords, keywordBlank word wordTwin words, armsBlank arms armsTwin alike]
 
 theorem followsClauseLambdaOf ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin)
@@ -389,11 +367,7 @@ theorem alikeScrutinee ∀ (name nameTwin: Option (Word, Word))
     (names: Option.Alike (PairAlike WordsAlike WordsAlike) name nameTwin) (value valueTwin: Expr)
     (values: ExprsAlike value valueTwin):
     ScrutineeAlike { name, value } { name = nameTwin, value = valueTwin } :=
-  calc blankScrutinees (walkScrutinees blankPure [{ name, value }])
-    _ = [{ name = blankPair name, value = value.walk blankPure }] := byComputing
-    _ = [{ name = blankPair nameTwin, value = valueTwin.walk blankPure }] :=
-      rewrite pairBlank name nameTwin names, values
-    _ = blankScrutinees (walkScrutinees blankPure [{ name = nameTwin, value = valueTwin }]) := byComputing
+  rewrite repeatedly [pairBlank name nameTwin names, values]
 
 theorem scrutineesBlankCons ∀ (scrutinee: Scrutinee) (rest: List Scrutinee):
     blankScrutinees (walkScrutinees blankPure [scrutinee, ..rest])
@@ -419,17 +393,7 @@ theorem alikeMatch ∀ (keyword keywordTwin: Word)
     (withs: WordsAlike withKeyword withKeywordTwin) (arms armsTwin: List Arm)
     (armses: List.All2 ArmAlike arms armsTwin):
     ExprsAlike (Match keyword scrutinees withKeyword arms) (Match keywordTwin twins withKeywordTwin armsTwin) :=
-  calc (Match keyword scrutinees withKeyword arms).walk blankPure
-    _ = Match keyword.blank
-        (blankScrutinees (walkScrutinees blankPure scrutinees))
-        withKeyword.blank
-        (blankArms (walkArms blankPure arms)) := byComputing
-    _ = Match keywordTwin.blank
-        (blankScrutinees (walkScrutinees blankPure twins))
-        withKeywordTwin.blank
-        (blankArms (walkArms blankPure armsTwin)) :=
-      rewrite keywords, scrutineesBlank scrutinees twins alike, withs, armsBlank arms armsTwin armses
-    _ = (Match keywordTwin twins withKeywordTwin armsTwin).walk blankPure := byComputing
+  rewrite repeatedly [keywords, scrutineesBlank scrutinees twins alike, withs, armsBlank arms armsTwin armses]
 
 theorem followsScrutinee ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):

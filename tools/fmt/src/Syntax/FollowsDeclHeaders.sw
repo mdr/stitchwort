@@ -398,41 +398,20 @@ theorem alikeRow ∀ (open openTwin: Comments) (abilities twins: List Expr)
       variable = variableTwin,
       close = closeTwin
     } :=
-  calc (walkRow blankPure { open, abilities, variable, close }).blank
-    _ = {
-        open = Comments.none,
-        abilities = walkExprs blankPure abilities,
-        variable = blankCommentsWord variable,
-        close = Comments.none
-      } := byComputing
-    _ = {
-        open = Comments.none,
-        abilities = walkExprs blankPure twins,
-        variable = blankCommentsWord variableTwin,
-        close = Comments.none
-      } := rewrite walkExprsAlike abilities twins alike, commentsWordBlank variable variableTwin variables
-    _ = (walkRow blankPure { open = openTwin, abilities = twins, variable = variableTwin, close = closeTwin }).blank :=
-      byComputing
+  rewrite repeatedly [walkExprsAlike abilities twins alike, commentsWordBlank variable variableTwin variables]
 
 theorem alikeEffect ∀ (row twin: Row)
     (rows: RowsAlike row twin) (result resultTwin: Expr)
     (results: ExprsAlike result resultTwin):
     ExprsAlike (Effect row result) (Effect twin resultTwin) :=
-  calc (Effect row result).walk blankPure
-    _ = Effect (walkRow blankPure row).blank (result.walk blankPure) := byComputing
-    _ = Effect (walkRow blankPure twin).blank (resultTwin.walk blankPure) := rewrite rows, results
-    _ = (Effect twin resultTwin).walk blankPure := byComputing
+  rewrite repeatedly [rows, results]
 
 theorem alikeFunctionType ∀ (binder twin: Group)
     (binders: GroupsAlike binder twin) (arrow arrowTwin: Word)
     (arrows: WordsAlike arrow arrowTwin) (result resultTwin: Expr)
     (results: ExprsAlike result resultTwin):
     ExprsAlike (FunctionType binder arrow result) (FunctionType twin arrowTwin resultTwin) :=
-  calc (FunctionType binder arrow result).walk blankPure
-    _ = FunctionType (binder.walk blankPure).blank arrow.blank (result.walk blankPure) := byComputing
-    _ = FunctionType (twin.walk blankPure).blank arrowTwin.blank (resultTwin.walk blankPure) :=
-      rewrite binders, arrows, results
-    _ = (FunctionType twin arrowTwin resultTwin).walk blankPure := byComputing
+  rewrite repeatedly [binders, arrows, results]
 
 theorem followsRowPart ∀ (modes: Modes) (pipe: Bool):
     Parse.Follows SameCode (Option.Alike (PairAlike Anything WordsAlike)) (() => rowPart modes pipe) (() =>

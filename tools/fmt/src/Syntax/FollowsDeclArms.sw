@@ -375,29 +375,19 @@ theorem alikeImportItem ∀ (name nameTwin: Word)
     (names: WordsAlike name nameTwin) (alias aliasTwin: Option (Comments, Word))
     (aliases: Option.Alike (PairAlike Anything WordsAlike) alias aliasTwin):
     ImportItemAlike { name, alias } { name = nameTwin, alias = aliasTwin } :=
-  calc importItemKey { name, alias }
-    _ = { name = name.blank, alias = blankCommentsWord alias } := byComputing
-    _ = { name = nameTwin.blank, alias = blankCommentsWord aliasTwin } :=
-      rewrite names, commentsWordBlank alias aliasTwin aliases
-    _ = importItemKey { name = nameTwin, alias = aliasTwin } := byComputing
+  rewrite repeatedly [names, commentsWordBlank alias aliasTwin aliases]
 
 theorem alikeImportAll ∀ (dots dotsTwin: Comments): ImportedAlike (ImportAll dots) (ImportAll dotsTwin) := byComputing
 
 theorem alikeImportItems ∀ (items twins: List ImportItem)
     (alike: List.All2 ImportItemAlike items twins):
     ImportedAlike (ImportItems items) (ImportItems twins) :=
-  calc (ImportItems items).blank
-    _ = ImportItems (blankImportItems items) := byComputing
-    _ = ImportItems (blankImportItems twins) := rewrite importItemsBlank items twins alike
-    _ = (ImportItems twins).blank := byComputing
+  rewrite repeatedly [importItemsBlank items twins alike]
 
 theorem alikeNamespace ∀ (keyword keywordTwin: Comments) (name nameTwin: Word)
     (names: WordsAlike name nameTwin):
     DeclsAlike (Namespace keyword name) (Namespace keywordTwin nameTwin) :=
-  calc (Namespace keyword name).walk blankPure
-    _ = Namespace Comments.none name.blank := byComputing
-    _ = Namespace Comments.none nameTwin.blank := rewrite names
-    _ = (Namespace keywordTwin nameTwin).walk blankPure := byComputing
+  rewrite repeatedly [names]
 
 theorem alikeImport ∀ (keyword keywordTwin: Comments) (path pathTwin: Word)
     (paths: WordsAlike path pathTwin)
@@ -406,30 +396,21 @@ theorem alikeImport ∀ (keyword keywordTwin: Comments) (path pathTwin: Word)
     DeclsAlike
       (Import keyword path open imported close)
       (Import keywordTwin pathTwin openTwin importedTwin closeTwin) :=
-  calc (Import keyword path open imported close).walk blankPure
-    _ = Import Comments.none path.blank Comments.none imported.blank Comments.none := byComputing
-    _ = Import Comments.none pathTwin.blank Comments.none importedTwin.blank Comments.none := rewrite paths, importeds
-    _ = (Import keywordTwin pathTwin openTwin importedTwin closeTwin).walk blankPure := byComputing
+  rewrite repeatedly [paths, importeds]
 
 theorem alikeTest ∀ (keyword keywordTwin: Comments) (name nameTwin: Word)
     (names: WordsAlike name nameTwin)
     (colonEq colonEqTwin: Comments) (body bodyTwin: Expr)
     (bodies: ExprsAlike body bodyTwin):
     DeclsAlike (Test keyword name colonEq body) (Test keywordTwin nameTwin colonEqTwin bodyTwin) :=
-  calc (Test keyword name colonEq body).walk blankPure
-    _ = Test Comments.none name.blank Comments.none (body.walk blankPure) := byComputing
-    _ = Test Comments.none nameTwin.blank Comments.none (bodyTwin.walk blankPure) := rewrite names, bodies
-    _ = (Test keywordTwin nameTwin colonEqTwin bodyTwin).walk blankPure := byComputing
+  rewrite repeatedly [names, bodies]
 
 theorem alikeRuleSetDecl ∀ (keyword keywordTwin: Comments) (name nameTwin: Word)
     (names: WordsAlike name nameTwin)
     (colonEq colonEqTwin: Comments) (set setTwin: RuleSet)
     (sets: RuleSetAlike set setTwin):
     DeclsAlike (RuleSetDecl keyword name colonEq set) (RuleSetDecl keywordTwin nameTwin colonEqTwin setTwin) :=
-  calc (RuleSetDecl keyword name colonEq set).walk blankPure
-    _ = RuleSetDecl Comments.none name.blank Comments.none (walkRuleSet blankPure set) := byComputing
-    _ = RuleSetDecl Comments.none nameTwin.blank Comments.none (walkRuleSet blankPure setTwin) := rewrite names, sets
-    _ = (RuleSetDecl keywordTwin nameTwin colonEqTwin setTwin).walk blankPure := byComputing
+  rewrite repeatedly [names, sets]
 
 -- Operations.
 
@@ -461,11 +442,7 @@ theorem alikeOperation ∀ (name nameTwin: Word)
     (colon colonTwin: Comments) (annotation annotationTwin: Expr)
     (annotations: ExprsAlike annotation annotationTwin):
     OperationAlike { name, colon, annotation } { name = nameTwin, colon = colonTwin, annotation = annotationTwin } :=
-  calc operationKey { name, colon, annotation }
-    _ = { name = name.blank, colon = Comments.none, annotation = annotation.walk blankPure } := byComputing
-    _ = { name = nameTwin.blank, colon = Comments.none, annotation = annotationTwin.walk blankPure } :=
-      rewrite names, annotations
-    _ = operationKey { name = nameTwin, colon = colonTwin, annotation = annotationTwin } := byComputing
+  rewrite repeatedly [names, annotations]
 
 theorem alikeAbility ∀ (keyword keywordTwin: Comments) (name nameTwin: Word)
     (names: WordsAlike name nameTwin) (params paramsTwin: List Group)
@@ -475,17 +452,7 @@ theorem alikeAbility ∀ (keyword keywordTwin: Comments) (name nameTwin: Word)
     DeclsAlike
       (Ability keyword name params whereKeyword operations)
       (Ability keywordTwin nameTwin paramsTwin whereTwin twins) :=
-  calc (Ability keyword name params whereKeyword operations).walk blankPure
-    _ = Ability Comments.none name.blank
-        (blankGroups (walkGroups blankPure params))
-        Comments.none
-        (blankOperations (walkOperations blankPure operations)) := byComputing
-    _ = Ability Comments.none nameTwin.blank
-        (blankGroups (walkGroups blankPure paramsTwin))
-        Comments.none
-        (blankOperations (walkOperations blankPure twins)) :=
-      rewrite names, groupsBlankAlike params paramsTwin paramses, operationsBlank operations twins alike
-    _ = (Ability keywordTwin nameTwin paramsTwin whereTwin twins).walk blankPure := byComputing
+  rewrite repeatedly [names, groupsBlankAlike params paramsTwin paramses, operationsBlank operations twins alike]
 
 -- Data declarations.
 
@@ -517,19 +484,13 @@ theorem alikeStepBinder ∀ (binder twin: Group)
     (binders: GroupsAlike binder twin) (arrow arrowTwin: Word)
     (arrows: WordsAlike arrow arrowTwin):
     IndexStepAlike (IndexBinder binder, arrow) (IndexBinder twin, arrowTwin) :=
-  calc stepKey (IndexBinder binder, arrow)
-    _ = (IndexBinder (binder.walk blankPure).blank, arrow.blank) := byComputing
-    _ = (IndexBinder (twin.walk blankPure).blank, arrowTwin.blank) := rewrite binders, arrows
-    _ = stepKey (IndexBinder twin, arrowTwin) := byComputing
+  rewrite repeatedly [binders, arrows]
 
 theorem alikeStepType ∀ (annotation twin: Expr)
     (annotations: ExprsAlike annotation twin) (arrow arrowTwin: Word)
     (arrows: WordsAlike arrow arrowTwin):
     IndexStepAlike (IndexType annotation, arrow) (IndexType twin, arrowTwin) :=
-  calc stepKey (IndexType annotation, arrow)
-    _ = (IndexType (annotation.walk blankPure), arrow.blank) := byComputing
-    _ = (IndexType (twin.walk blankPure), arrowTwin.blank) := rewrite annotations, arrows
-    _ = stepKey (IndexType twin, arrowTwin) := byComputing
+  rewrite repeatedly [annotations, arrows]
 
 def indicesKey (indices: Option Indices): Option Indices := match indices with
   | Some { colon, steps, last } =>
@@ -542,18 +503,7 @@ theorem alikeIndices ∀ (colon colonTwin: Comments) (steps twins: List (Index, 
     (alike: List.All2 IndexStepAlike steps twins) (last lastTwin: Expr)
     (lasts: ExprsAlike last lastTwin):
     IndicesAlike (Some { colon, steps, last }) (Some { colon = colonTwin, steps = twins, last = lastTwin }) :=
-  calc indicesKey (Some { colon, steps, last })
-    _ = Some {
-        colon = Comments.none,
-        steps = blankIndexSteps (walkIndices blankPure steps),
-        last = last.walk blankPure
-      } := byComputing
-    _ = Some {
-        colon = Comments.none,
-        steps = blankIndexSteps (walkIndices blankPure twins),
-        last = lastTwin.walk blankPure
-      } := rewrite indexStepsBlank steps twins alike, lasts
-    _ = indicesKey (Some { colon = colonTwin, steps = twins, last = lastTwin }) := byComputing
+  rewrite repeatedly [indexStepsBlank steps twins alike, lasts]
 
 -- Fields and constructors.
 
@@ -600,32 +550,12 @@ theorem alikeField ∀ (attributes twinAttributes: List Attributes)
       annotation = annotationTwin,
       default = defaultTwin
     } :=
-  calc fieldKey { attributes, name, colon, annotation, default }
-    _ = {
-        attributes = walkAttributes blankPure attributes,
-        name = name.blank,
-        colon = Comments.none,
-        annotation = annotation.walk blankPure,
-        default = blankAfter (walkAfter blankPure default)
-      } := byComputing
-    _ = {
-        attributes = walkAttributes blankPure twinAttributes,
-        name = nameTwin.blank,
-        colon = Comments.none,
-        annotation = annotationTwin.walk blankPure,
-        default = blankAfter (walkAfter blankPure defaultTwin)
-      } :=
-      rewrite walkAttributesAlike attributes twinAttributes attributeses,
-          names,
-          annotations,
-          afterAlike default defaultTwin defaults
-    _ = fieldKey {
-        attributes = twinAttributes,
-        name = nameTwin,
-        colon = colonTwin,
-        annotation = annotationTwin,
-        default = defaultTwin
-      } := byComputing
+  rewrite repeatedly [
+    walkAttributesAlike attributes twinAttributes attributeses,
+    names,
+    annotations,
+    afterAlike default defaultTwin defaults
+  ]
 
 theorem alikeFields ∀ (open openTwin: Comments) (fields twins: List Field)
     (alike: List.All2 FieldAlike fields twins) (trailing trailingTwin: Bool)
@@ -636,21 +566,7 @@ theorem alikeFields ∀ (open openTwin: Comments) (fields twins: List Field)
       trailingComma = trailingTwin,
       close = closeTwin
     } :=
-  calc ({ open, fields, trailingComma = trailing, close }: Fields).walk blankPure
-    _ = {
-        open = Comments.none,
-        fields = blankFieldList (walkFieldList blankPure fields),
-        trailingComma = trailing,
-        close = Comments.none
-      } := byComputing
-    _ = {
-        open = Comments.none,
-        fields = blankFieldList (walkFieldList blankPure twins),
-        trailingComma = trailingTwin,
-        close = Comments.none
-      } := rewrite fieldListBlank fields twins alike, trailings
-    _ = ({ open = openTwin, fields = twins, trailingComma = trailingTwin, close = closeTwin }: Fields).walk blankPure :=
-      byComputing
+  rewrite repeatedly [fieldListBlank fields twins alike, trailings]
 
 def partKey: ConstructorPart → ConstructorPart
   | PartGroup group => PartGroup (group.walk blankPure).blank
@@ -678,18 +594,12 @@ theorem partsBlank ∀ (parts twins: List ConstructorPart)
 theorem alikePartGroup ∀ (group twin: Group)
     (groups: GroupsAlike group twin):
     PartAlike (PartGroup group) (PartGroup twin) :=
-  calc partKey (PartGroup group)
-    _ = PartGroup (group.walk blankPure).blank := byComputing
-    _ = PartGroup (twin.walk blankPure).blank := rewrite groups
-    _ = partKey (PartGroup twin) := byComputing
+  rewrite repeatedly [groups]
 
 theorem alikePartFields ∀ (fields twin: Fields)
     (fieldses: FieldsAlike fields twin):
     PartAlike (PartFields fields) (PartFields twin) :=
-  calc partKey (PartFields fields)
-    _ = PartFields (fields.walk blankPure) := byComputing
-    _ = PartFields (twin.walk blankPure) := rewrite fieldses
-    _ = partKey (PartFields twin) := byComputing
+  rewrite repeatedly [fieldses]
 
 def constructorKey (constructor: Constructor): Constructor := {
   bar = Comments.none,
@@ -731,32 +641,12 @@ theorem alikeConstructor ∀ (bar barTwin: Comments) (attributes twinAttributes:
       fields = twins,
       result = resultTwin
     } :=
-  calc constructorKey { bar, attributes, name, fields, result }
-    _ = {
-        bar = Comments.none,
-        attributes = walkAttributes blankPure attributes,
-        name = name.blank,
-        fields = blankParts (walkParts blankPure fields),
-        result = blankAfter (walkAfter blankPure result)
-      } := byComputing
-    _ = {
-        bar = Comments.none,
-        attributes = walkAttributes blankPure twinAttributes,
-        name = nameTwin.blank,
-        fields = blankParts (walkParts blankPure twins),
-        result = blankAfter (walkAfter blankPure resultTwin)
-      } :=
-      rewrite walkAttributesAlike attributes twinAttributes attributeses,
-          names,
-          partsBlank fields twins alike,
-          afterAlike result resultTwin results
-    _ = constructorKey {
-        bar = barTwin,
-        attributes = twinAttributes,
-        name = nameTwin,
-        fields = twins,
-        result = resultTwin
-      } := byComputing
+  rewrite repeatedly [
+    walkAttributesAlike attributes twinAttributes attributeses,
+    names,
+    partsBlank fields twins alike,
+    afterAlike result resultTwin results
+  ]
 
 def dataBodyKey: DataBody → DataBody
   | Abstract => Abstract
@@ -784,27 +674,17 @@ theorem alikeAbstract: DataBodyAlike Abstract Abstract := byComputing
 theorem alikeSynonym ∀ (equals equalsTwin: Comments) (annotation twin: Expr)
     (annotations: ExprsAlike annotation twin):
     DataBodyAlike (Synonym equals annotation) (Synonym equalsTwin twin) :=
-  calc dataBodyKey (Synonym equals annotation)
-    _ = Synonym Comments.none (annotation.walk blankPure) := byComputing
-    _ = Synonym Comments.none (twin.walk blankPure) := rewrite annotations
-    _ = dataBodyKey (Synonym equalsTwin twin) := byComputing
+  rewrite repeatedly [annotations]
 
 theorem alikeRecordBody ∀ (equals equalsTwin: Comments) (fields twin: Fields)
     (fieldses: FieldsAlike fields twin):
     DataBodyAlike (RecordBody equals fields) (RecordBody equalsTwin twin) :=
-  calc dataBodyKey (RecordBody equals fields)
-    _ = RecordBody Comments.none (fields.walk blankPure) := byComputing
-    _ = RecordBody Comments.none (twin.walk blankPure) := rewrite fieldses
-    _ = dataBodyKey (RecordBody equalsTwin twin) := byComputing
+  rewrite repeatedly [fieldses]
 
 theorem alikeSum ∀ (equals equalsTwin: Comments) (constructors twins: List Constructor)
     (alike: List.All2 ConstructorAlike constructors twins):
     DataBodyAlike (Sum equals constructors) (Sum equalsTwin twins) :=
-  calc dataBodyKey (Sum equals constructors)
-    _ = Sum Comments.none (blankConstructors (walkConstructors blankPure constructors)) := byComputing
-    _ = Sum Comments.none (blankConstructors (walkConstructors blankPure twins)) :=
-      rewrite constructorsBlank constructors twins alike
-    _ = dataBodyKey (Sum equalsTwin twins) := byComputing
+  rewrite repeatedly [constructorsBlank constructors twins alike]
 
 theorem alikeData ∀ (attributes twinAttributes: List Attributes)
     (attributeses: List.All2 AttributeGroupAlike attributes twinAttributes)
