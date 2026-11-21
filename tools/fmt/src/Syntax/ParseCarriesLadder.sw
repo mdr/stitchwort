@@ -44,7 +44,7 @@ theorem readsDoneAfter ∀ (before: List Item) (value: Expr)
 theorem readsOutFrom ∀ (before: List Item) [p: () → {Parse Item} Expr]
     (gives: Parse.Gives GoodItems p Out):
     Parse.ReadsIn GoodItems p (read tree => Kept (before ++ read) tree) :=
-  readsOutAfter before gives
+  byWalking [readsOutAfter]
 
 --| A comparison's token, as the parser reads it, is the kind its text lexes as, and its text a binary operator of
 --| slice 1's.
@@ -136,9 +136,7 @@ theorem givesRangeHighOut ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) 
     (outside: OutsideBraced self)
     (bases: AtomBases self):
     Parse.Gives GoodItems (() => rangeHigh self modes low) Out :=
-  Parse.givesThen givesBump (operator _ =>
-    Parse.givesThen (givesAppendOf self modes nested outside bases) (high _ =>
-      givesRangeEndOut modes low operator high))
+  byWalking [givesAppendOf, givesRangeEndOut]
 
 theorem readsRangeOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (low: Expr) (before: List Item)
     (nested: Nested self)
@@ -476,8 +474,7 @@ theorem readsLogicLevel ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (carries: NestedKept self)
     (outside: Outside self):
     Parse.ReadsIn GoodItems (() => logicLevel self modes) Kept :=
-  Parse.readsThen (readsCmpExpr self modes nested carries outside) (r1 compared carried =>
-    readsLogicAfter self modes compared r1 nested carries outside carried)
+  byWalking [readsCmpExpr, readsLogicAfter]
 
 -- `expr_inline`: what follows a comparison.
 
@@ -598,9 +595,7 @@ theorem readsOpSection ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (st
     (carries: NestedKept self)
     (outside: Outside self):
     Parse.ReadsIn GoodItems (() => opSection self modes start section) Kept :=
-  Parse.readsThen
-    (readsCmpExpr self (if section then { modes | sectionHead = Some start } else modes) nested carries outside)
-    (r1 compared carried => readsOpCompared self modes section compared r1 nested carries outside carried)
+  byWalking [readsCmpExpr, readsOpCompared]
 
 theorem readsOperatorExpr ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
@@ -935,44 +930,24 @@ theorem givesLocalDefOut ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (
 theorem givesLocalAttributedOut ∀ (self: Goal → {Parse Item} Expr) (allowed: Modes) (attributes: List Attributes)
     (nested: Nested self) (atDef atTheorem: Bool):
     Parse.Gives GoodItems (() => localAttributed self allowed attributes atDef atTheorem) StatementOut :=
-  match atDef || atTheorem with
-    | True => givesLocalDefOut self allowed attributes nested
-    | False => Parse.readsFatal
+  byWalking [givesLocalDefOut]
 
 theorem givesAttributedLocalOut ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (attributes: List Attributes)
     (nested: Nested self) (items: List Item):
     Parse.Gives GoodItems (() => attributedLocal self modes attributes items) StatementOut :=
-  Parse.givesAfter0 (reads0At (allowedAt modes items) KwDef) (atDef =>
-    Parse.givesAfter0 (reads0At (allowedAt modes items) KwTheorem) (atTheorem =>
-      givesLocalAttributedOut self (allowedAt modes items) attributes nested atDef atTheorem))
+  byWalking [reads0At, givesLocalAttributedOut]
 
 theorem givesLetStatementEndOut ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
     (binding: Let) (atSemi: Bool):
     Parse.Gives GoodItems (() => letStatementEnd self modes binding atSemi) StatementOut :=
-  match atSemi with
-    | True => Parse.givesThen (givesLetBody self modes nested binding) (body out => Parse.givesDone out)
-    | False => Parse.givesDone byComputing
+  byWalking [givesLetBody]
 
 theorem givesStatementOtherOut ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (kind: Tok)
     (nested: Nested self):
     Parse.Gives GoodItems (() => statementOther self modes kind) StatementOut :=
-  match kind == KwLet with
-    | True => Parse.givesThen (givesLetStatement self modes nested) (binding _ =>
-      Parse.givesAfter0 [p := () => modes.at Semi] (reads0At modes Semi) (atSemi =>
-        givesLetStatementEndOut self modes nested binding atSemi))
-    | False =>
-      match kind == KwDef || kind == KwTheorem with
-        | True => givesLocalDefOut self modes [] nested
-        | False =>
-          match kind == At with
-            | True => Parse.givesThen (givesAttributesOf modes) (attributes _ =>
-              Parse.givesAfter0 [p := () => left()] reads0Left (items =>
-                givesAttributedLocalOut self modes attributes nested items))
-            | False =>
-              match kind == KwExport with
-                | True => Parse.readsFatal
-                | False => Parse.readsFatal
+  byWalking [givesLetStatement, reads0At, givesLetStatementEndOut, givesLocalDefOut, givesAttributesOf, reads0Left,
+    givesAttributedLocalOut]
 
 theorem readsStatementValue ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: Nested self)
@@ -1189,12 +1164,7 @@ theorem readsExprOn ∀ (self: Goal → {Parse Item} Expr) (modes: Modes) (items
     (carries: NestedKept self)
     (outside: Outside self):
     Parse.ReadsIn GoodItems (() => exprOn self modes items) KeptFull :=
-  match items with
-    | [item, ..rest] =>
-      match here: startsBlock modes item with
-        | True => readsExprBlock self modes item nested carries outside
-        | False => readsExprInline self modes nested carries outside
-    | [] => readsExprInline self modes nested carries outside
+  byWalking [readsExprBlock, readsExprInline]
 
 --| `expr` carries its items: a block of one line is that line's value.
 theorem readsExprOf ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
