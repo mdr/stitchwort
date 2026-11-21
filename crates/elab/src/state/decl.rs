@@ -69,6 +69,12 @@ pub(crate) struct Decl {
     /// holds its lambdas, so a failing chain isn't tried both ways at
     /// every level.
     pub(crate) no_holding: Cell<usize>,
+    /// While an application with an argument written `_` and an explicit
+    /// argument after it is elaborated again, after it failed against its
+    /// expected type (`check::holes_by_arguments`): the address of its last
+    /// written argument, or 0. That application's later arguments then
+    /// solve the `_`s their types mention from what they are as written.
+    pub(crate) holes_by_arguments: Cell<usize>,
     /// Above zero while a lambda is checked in place in an application
     /// elaborated again after a propagation by `_`s failed
     /// (`check::apply_args_postponing`): a lambda inside is not tried in
@@ -366,6 +372,7 @@ impl Decl {
             no_hole_propagation,
             no_argument_propagation,
             no_holding,
+            holes_by_arguments,
             in_place_trial,
             bare_rows_pure,
             late_literals,
@@ -424,6 +431,7 @@ impl Decl {
                 no_argument_propagation.get() == 0,
             ),
             ("no_holding", no_holding.get() == 0),
+            ("holes_by_arguments", holes_by_arguments.get() == 0),
             ("in_place_trial", in_place_trial.get() == 0),
             ("bare_rows_pure", !bare_rows_pure.get()),
             ("late_literals", late_literals.get() == 0),
