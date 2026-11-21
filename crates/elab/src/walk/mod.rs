@@ -732,9 +732,11 @@ fn quote_code(cx: &Ctx, code: &Value) -> Result<Term> {
     )?)
 }
 
-/// An operation's name as written: its constructor's.
+/// An operation's name as written: its constructor's, without the `%` the
+/// compiler marks an ability's operation constructors with (`%mark`), so
+/// a value named after it (`markValue`) is a name a program can write.
 fn op_name(cx: &Ctx, d: DataId, c: usize) -> String {
-    cx.g().data(d).ctors()[c].name.to_string()
+    cx.g().data(d).ctors()[c].name.replace('%', "")
 }
 
 /// The operation `o` performs, inside the row's injections (`L`, `R` of
@@ -754,9 +756,11 @@ fn op_ctor(cx: &Ctx, o: &Value) -> Result<Option<(DataId, usize)>> {
     }
 }
 
-/// `Call o k`, an operation performed with its rest `k`: the operation and
-/// `k`.
-fn op_call(cx: &Ctx, body: &Value) -> Result<Option<((DataId, usize), Value, Value)>> {
+/// An operation performed, `Call o k`: its constructor, `o` and `k`.
+type OpCall = ((DataId, usize), Value, Value);
+
+/// `Call o k`, an operation performed with its rest `k`, if `body` is one.
+fn op_call(cx: &Ctx, body: &Value) -> Result<Option<OpCall>> {
     let Value::Ctor(d, c, fields) = body else {
         return Ok(None);
     };

@@ -292,7 +292,7 @@ pub(super) fn bare(t: &Term) -> &Term {
 fn callee_name(g: &stitchwort_core::ev::Ev<'_>, callee: Callee) -> String {
     match callee {
         Callee::Def(f) => g.def(f).name().to_string(),
-        Callee::Op(d, c) => g.data(d).ctors()[c].name.to_string(),
+        Callee::Op(d, c) => g.data(d).ctors()[c].name.replace('%', ""),
         Callee::Local(_) => "a parameter".to_string(),
     }
 }
