@@ -111,6 +111,7 @@ fn glued_call_elements_get_a_space() {
         ("def a: Nat := f 2a", "def a: Nat := f 2 a"),
         ("def a: Nat := f [x][y]", "def a: Nat := f [x] [y]"),
         ("def a: Nat := byWalking[x]", "def a: Nat := byWalking [x]"),
+        ("def a: Nat := byFacts[x]", "def a: Nat := byFacts [x]"),
     ] {
         assert_eq!(parse_shape(glued), parse_shape(spaced), "{glued}");
         assert_eq!(format(glued).unwrap(), format!("{spaced}\n"));

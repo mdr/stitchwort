@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-FACTS] Error: `byFacts` needs to know what it proves
+   ╭─[ reject/facts-no-goal.sw:5:16 ]
+   │
+ 5 │   let proof := byFacts
+   │                ───┬───  
+   │                   ╰───── the expected type isn't known here
+   │ 
+   │ Note: give it a type: `(byFacts: P)`
+───╯

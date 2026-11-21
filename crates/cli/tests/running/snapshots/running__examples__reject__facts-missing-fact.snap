@@ -1,0 +1,18 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-FACTS] Error: `byFacts` left a part of the goal open
+   ╭─[ reject/facts-missing-fact.sw:5:61 ]
+   │
+ 5 │ theorem missing ∀ (a b c: Prop) (f: a → c) (y: b): c ∧ b := byFacts
+   │                                                             ───┬───  
+   │                                                                ╰───── not proved from the facts in scope
+   │ 
+   │ Note 1: left open: `c`
+   │         nearest, by the head of their conclusions:
+   │           f: a → c
+   │             its premise `a` wasn't proved
+   │ 
+   │ Note 2: `byFacts then ?` shows each part left open as a goal; `byFacts [lemma]` adds a lemma to apply
+───╯

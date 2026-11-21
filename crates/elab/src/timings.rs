@@ -83,6 +83,9 @@ struct DeclRow {
     nodes: usize,
     /// The largest read-back and the most frames pending at once.
     peaks: Peaks,
+    /// The applications its `byFacts` calls tried, and the most one call
+    /// tried, against `facts::ATTEMPTS`.
+    facts: (usize, usize),
 }
 
 /// A unit, or a declaration, being elaborated: what has been spent in it
@@ -103,6 +106,8 @@ struct Frame {
     /// back when it ends, so that a declaration's peaks don't include those
     /// of a library file loaded inside it.
     outer_peaks: Peaks,
+    /// For a declaration: its `byFacts` attempts, in all and in one call.
+    facts: (usize, usize),
 }
 
 impl Frame {
@@ -119,6 +124,7 @@ impl Frame {
             datas_before: g.env.datas().len(),
             decl_depth: DECLS.with(|d| d.borrow().len()),
             outer_peaks: Peaks::default(),
+            facts: (0, 0),
         }
     }
 }
@@ -233,6 +239,20 @@ pub(crate) fn decl_begin(g: &Ev) {
     DECLS.with(|d| d.borrow_mut().push(frame));
 }
 
+/// Counts one `byFacts` call's attempts against the declaration being
+/// checked.
+pub(crate) fn facts_attempts(attempts: usize) {
+    if !enabled() {
+        return;
+    }
+    DECLS.with(|d| {
+        if let Some(frame) = d.borrow_mut().last_mut() {
+            frame.facts.0 += attempts;
+            frame.facts.1 = frame.facts.1.max(attempts);
+        }
+    });
+}
+
 /// Ends the innermost declaration and records its row. Called after its
 /// operation has ended, so that its steps are counted.
 pub(crate) fn decl_end(g: &Ev, label: String) {
@@ -255,6 +275,7 @@ pub(crate) fn decl_end(g: &Ev, label: String) {
         steps: steps.saturating_sub(frame.child_steps),
         nodes: nodes.saturating_sub(frame.child_nodes),
         peaks,
+        facts: frame.facts,
     });
 }
 
@@ -423,6 +444,37 @@ fn report_decls() {
         );
     }
     report_readbacks(&mut rows);
+    report_facts(&mut rows);
+}
+
+/// Prints the declarations whose `byFacts` calls tried the most
+/// applications: the proofs nearest the attempt limit.
+fn report_facts(rows: &mut [DeclRow]) {
+    rows.sort_by(|a, b| {
+        (b.facts.1, b.facts.0)
+            .cmp(&(a.facts.1, a.facts.0))
+            .then_with(|| a.label.cmp(&b.label))
+    });
+    let used = rows.iter().take_while(|r| r.facts.0 > 0).count();
+    if used == 0 {
+        return;
+    }
+    let shown = decls_shown().min(used);
+    let width = rows[..shown]
+        .iter()
+        .map(|r| r.label.len())
+        .max()
+        .unwrap_or(0)
+        .max(16);
+    eprintln!();
+    eprintln!(
+        "{:<width$}  {:>12}  {:>12}",
+        "byFacts attempts", "most in one", "in all"
+    );
+    for r in &rows[..shown] {
+        eprintln!("{:<width$}  {:>12}  {:>12}", r.label, r.facts.1, r.facts.0);
+    }
+    eprintln!("the limit is {} attempts a call", crate::facts::ATTEMPTS);
 }
 
 /// Prints the declarations with the largest single read-back, largest first:

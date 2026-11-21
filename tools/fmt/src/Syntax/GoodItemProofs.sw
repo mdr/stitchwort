@@ -414,6 +414,7 @@ theorem wordKindFixed ∀ (afterDot: Bool) (word: Text): fixedKind1 (wordKind af
         "ability" |
         "algebra" |
         "arithmetic" |
+        "byFacts" |
         "byWalking" |
         "calc" |
         "cases" |
@@ -541,6 +542,7 @@ theorem wordKindNotNumeral ∀ (afterDot: Bool) (word: Text): (wordKind afterDot
         "ability" |
         "algebra" |
         "arithmetic" |
+        "byFacts" |
         "byWalking" |
         "calc" |
         "cases" |

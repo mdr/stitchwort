@@ -526,6 +526,16 @@ impl<'a> Walk<'a> {
                     self.expr(body);
                 }
             }
+            Expr::Facts(facts) => {
+                self.tagged(what, facts.span, why);
+                self.span("Facts keyword", facts.keyword);
+                for item in &facts.items {
+                    self.expr(item);
+                }
+                if let Some(body) = &facts.body {
+                    self.expr(body);
+                }
+            }
             Expr::Field(e, name) => {
                 // `xs |> .f` is `xs.f`, from `xs` to `f`, with the `|> .`
                 // between: the receiver doesn't end at the `.` before `f`.
@@ -838,6 +848,7 @@ fn expr_kind(expr: &Expr) -> &'static str {
         Expr::Omega { .. } => "Expr::Omega",
         Expr::Cases { .. } => "Expr::Cases",
         Expr::Walk(..) => "Expr::Walk",
+        Expr::Facts(..) => "Expr::Facts",
         Expr::Ring { .. } => "Expr::Ring",
         Expr::Field(..) => "Expr::Field",
     }

@@ -4324,6 +4324,16 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                     w.items.iter().chain(&w.body).map(Work::Expr).collect(),
                 );
             }
+            // `byFacts` closes parts by `arithmetic` and `cases`' closers,
+            // and opens `∃` facts with `Exists.elim` (crates/elab/src/facts.rs).
+            Expr::Facts(f) => {
+                out.extend(crate::omega::LIBRARY_NAMES.iter().map(Ref::Name));
+                out.push(Ref::Name(&REWRITE_MARKER));
+                then(
+                    &mut stack,
+                    f.items.iter().chain(&f.body).map(Work::Expr).collect(),
+                );
+            }
             // And `algebra` (crates/elab/src/ring.rs).
             Expr::Ring { facts, .. } => {
                 out.extend(crate::ring::LIBRARY_NAMES.iter().map(Ref::Name));

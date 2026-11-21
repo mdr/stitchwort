@@ -1,0 +1,16 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-FACTS] Error: `byFacts` left a part of the goal open
+   ╭─[ reject/facts-no-witness.sw:4:70 ]
+   │
+ 4 │ theorem noWitness ∀ (p q: Nat → Prop) (h: p 3): ∃ (n: Nat) => q n := byFacts
+   │                                                                      ───┬───  
+   │                                                                         ╰───── not proved from the facts in scope
+   │ 
+   │ Note 1: left open: `∃ (n: Nat) => q n`
+   │         no fact or listed term concludes something of its form
+   │ 
+   │ Note 2: `byFacts then ?` shows each part left open as a goal; `byFacts [lemma]` adds a lemma to apply
+───╯

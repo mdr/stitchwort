@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: warnings
+---
+[W-FACTS-UNUSED] Warning: `byFacts` didn't use this term
+   ╭─[ accept/facts-unused-item.sw:7:58 ]
+   │
+ 7 │ theorem leftPart ∀ (a b: Prop) (h: a ∧ b): a := byFacts [lessTrans]
+   │                                                          ────┬────  
+   │                                                              ╰────── unused
+   │ 
+   │ Note: remove it from the brackets: every part of the goal closed without it
+───╯

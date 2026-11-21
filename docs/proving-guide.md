@@ -829,6 +829,49 @@ time within noise of before (about 0.95x and 0.99x, mean of two runs).
 Theorems that tried `cases` and kept the hand term, with the reason, are
 listed above.
 
+### Finishing from the facts: `byFacts`
+
+`byFacts [lemmas]` (docs/syntax.md, "byFacts") closes a goal that follows from
+the facts in scope without a case split: parts of `∧` facts and test facts,
+implications and local `∀` facts applied (three deep), a lemma you name whose
+premises are facts, an `∃` taken apart, an equation with a variable side.
+
+| The goal | Use | Instead of |
+|---|---|---|
+| A part of a hypothesis, through `∧`, `(a && b) = True` or a record of proofs | `byFacts` | `Bool.andLeft (Bool.andRight h)`, `h.right.left` |
+| An implication or a local `∀` fact applied to what you hold | `byFacts` | `step 3 a b`, `k (g (f x))` |
+| A lemma whose premises are parts of facts | `byFacts [lemma]` | `lemma x y h.left h.right.read.left` |
+| A conjunction whose parts are such things | `byFacts` | a tuple of `Both`s |
+| An `∃` from an `∃` fact | `byFacts` | `match h with \| Witness n p => Witness n p.right` |
+
+**`byFacts` or `cases`.** Use `byFacts` when no split is needed: it never splits
+data or an `∨`, so it either finds the proof in well under a millisecond or
+fails within 200 attempts. That is a count, not a time: each attempt costs
+more with more facts in scope (2.4 ms on
+`examples/reject/facts-attempt-limit.sw`, about 5 ms with 120 facts and seven
+`g x → g x` loops); `check --timings` lists the attempts each declaration
+used. Its error shows the part left open with the nearest facts and the
+premise of each that nothing closed. `cases` splits
+first and can take seconds to fail. Where a split is needed and every case
+then follows from the facts, write `cases then byFacts`. `cases` does
+not apply an implication between plain propositions, chain implications, or
+apply a local `∀` fact; `byFacts` does all three (SW-4483's probes,
+`examples/accept/facts-probes.sw`).
+
+**Lemmas are named, never found.** The brackets take terms (`byFacts [lessTrans,
+List.memAppendLeft xs]`), and a term no part used is `W-FACTS-UNUSED`. A
+lemma's unknowns are fixed by its conclusion or by a fact one of its premises
+is (each fact that fits tried in turn, nearest first); one left unknown fails
+it. When a lemma's middle point is in no fact
+(transitivity through a value nobody named), give the argument: `lessTrans x y
+z`.
+
+**Keeping the term.** `check --expand-facts` writes each `byFacts` back as
+the term it found, in the form you would write (`imp h.left`, `step 1 (step 0
+base)`). Keep `byFacts` where the written term is noise that breaks when a
+predicate gains a part (the formatter's `Bool.andLeft (Bool.andRight …)`
+chains); expand it where the term is short and says what the proof is.
+
 ### One proof for several cases
 
 When arms of a proof read the same, write the text once: an or-pattern, or
