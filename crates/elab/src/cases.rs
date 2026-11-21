@@ -23,7 +23,7 @@
 //!    side of a conjunction, or what a test fact reads as
 //!    (docs/proposals/bool-as-proposition.md §9: `(a && b) = True` as `a ∧
 //!    b`), taken apart in turn; past the bounds of taking them apart, a
-//!    side of a `&&` reached through `&&`s only ([`and_side`], SW-4485);
+//!    side of a `&&` reached through `&&`s only ([`auto::AndSides`], SW-4485);
 //! 5. **`t`**, for `cases then t`, elaborated in the case;
 //! 6. **a conjunction or a record of proofs** whose parts each close by 1
 //!    or 4, or are such conjunctions or records in turn: the pair (or
@@ -165,7 +165,6 @@ use stitchwort_core::{DataId, Icit, Name, Sort, Term, Value};
 use stitchwort_syntax::ast::{self, Alt, Expr, Pattern};
 use stitchwort_syntax::{Diagnostic, Span};
 
-use crate::Global;
 use crate::check::{Ctx, Result, builtin_ctor, builtin_data, builtin_def};
 
 /// The most cases one `cases` makes (§5.8): the largest tree the motivating
@@ -1534,17 +1533,25 @@ fn by_hypothesis_part(cx: &Ctx, goal: &Value) -> Result<Option<Term>> {
 struct Parts {
     parts: Vec<(Term, Value)>,
     cut: bool,
+    levels: Vec<usize>,
+    /// The sides of the hypotheses' `&&`s, collected when first needed.
+    and_sides: std::cell::OnceCell<crate::auto::AndSides>,
 }
 
 impl Parts {
     fn of(cx: &Ctx, levels: &[usize]) -> Result<Parts> {
         let (parts, cut) = crate::auto::hypothesis_parts_cut(cx, levels)?;
-        Ok(Parts { parts, cut })
+        Ok(Parts {
+            parts,
+            cut,
+            levels: levels.to_vec(),
+            and_sides: std::cell::OnceCell::new(),
+        })
     }
 
     /// A part of type `goal`; or, where reading stopped at its bound, a
     /// side of a hypothesis's `&&` that is the goal `t = True`
-    /// ([`and_side`]).
+    /// ([`auto::AndSides`]).
     fn find(&self, cx: &Ctx, goal: &Value) -> Result<Option<Term>> {
         for (proof, ty) in &self.parts {
             if conv(&cx.g(), cx.level(), ty, goal)? {
@@ -1552,85 +1559,16 @@ impl Parts {
             }
         }
         if self.cut {
-            return and_side(cx, goal);
+            if self.and_sides.get().is_none() {
+                let sides = crate::auto::AndSides::collect(cx, &self.levels)?;
+                let _ = self.and_sides.set(sides);
+            }
+            if let Some(sides) = self.and_sides.get() {
+                return sides.find(cx, goal);
+            }
         }
         Ok(None)
     }
-}
-
-/// The most `&&`s [`and_side`] takes apart, over all the hypotheses.
-const AND_SIDES: usize = 256;
-
-/// A goal `t = True` that is a side of a hypothesis `(a && b) = True`, or a
-/// side of a side, and so on: its proof by `Bool.andLeft` and
-/// `Bool.andRight`. Only the `&&`s are followed, unfolding a call only to
-/// see whether it is one, so a long conjunction of tests costs a step per
-/// `&&`: reading every test in it as `hypothesis_parts` does stops at its
-/// bound well before the end of `(a && b && c && d && e) = True` when
-/// each of `a` to `e` is a call with tests of its own, and the goal `e =
-/// True` would then go to splitting (a `cases` given as an argument took
-/// 9 s to fail so, SW-4485).
-fn and_side(cx: &Ctx, goal: &Value) -> Result<Option<Term>> {
-    let Some((target, true)) = crate::reading::test_fact(cx, goal)? else {
-        return Ok(None);
-    };
-    let (Some((Global::Def(left), _)), Some((Global::Def(right), _))) = (
-        cx.e.named("Std.Bool.andLeft"),
-        cx.e.named("Std.Bool.andRight"),
-    ) else {
-        return Ok(None);
-    };
-    let (left, right) = (*left, *right);
-    let g = cx.g();
-    let mut budget = AND_SIDES;
-    for level in visible(cx) {
-        let Some((test, true)) = crate::reading::test_fact(cx, &cx.types[level])? else {
-            continue;
-        };
-        // Each test with the way to it from the hypothesis: at each `&&`,
-        // its two sides and which of them was taken.
-        let mut stack = vec![(test, Vec::new())];
-        while let Some((test, way)) = stack.pop() {
-            let mut test = force(&g, test)?;
-            if is_folded(&g, &test)
-                && let Some(unfolded) = unfold_folded(&g, &test)?
-            {
-                test = force(&g, unfolded)?;
-            }
-            let Some((a, b)) = crate::facts::and_sides(cx, &test)? else {
-                continue;
-            };
-            if budget == 0 {
-                return Ok(None);
-            }
-            budget -= 1;
-            for (is_left, v) in [(true, &a), (false, &b)] {
-                let mut way = way.clone();
-                way.push((is_left, a.clone(), b.clone()));
-                if conv(&g, cx.level(), v, &target)? {
-                    let mut proof = Term::Var(cx.level() - 1 - level);
-                    for (is_left, a, b) in way {
-                        let f = if is_left { left } else { right };
-                        let head = Term::app_icit(
-                            Term::app_icit(Term::Def(f), cx.quote_or_written(&a)?, Icit::Implicit),
-                            cx.quote_or_written(&b)?,
-                            Icit::Implicit,
-                        );
-                        proof = Term::app(head, proof);
-                    }
-                    return Ok(Some(proof));
-                }
-            }
-            // The left side is searched first, as it is written first.
-            let mut right_way = way.clone();
-            right_way.push((false, a.clone(), b.clone()));
-            let mut left_way = way;
-            left_way.push((true, a.clone(), b.clone()));
-            stack.push((b, right_way));
-            stack.push((a, left_way));
-        }
-    }
-    Ok(None)
 }
 
 /// The most levels of `∧` [`by_parts`] goes into: past it the goal is left
