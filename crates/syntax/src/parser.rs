@@ -3421,13 +3421,36 @@ impl<'t> Parser<'t> {
         self.expr()
     }
 
-    /// `cases` or `cases then t`, after the `cases` (docs/proposals/simp.md
-    /// §5.1). As for `rewrite`, the body runs to the end of the expression.
+    /// `cases`, `cases then t`, `cases x, y` or `cases x, y then t`, after
+    /// the `cases` (docs/proposals/simp.md §5.1; SW-4474). As for `rewrite`,
+    /// the body runs to the end of the expression. The values to split are
+    /// names, the first on the keyword's line: a name starting the next
+    /// line is a new statement or declaration, and `f cases x` (an
+    /// argument) is `cases` and `x`, as it always was. A name followed by
+    /// `=`, `:=`, `=>` or `:` starts the next field, binder or item, not a
+    /// value to split: `{ left = a => cases a, right = b => cases b }`.
     fn cases_expr(&mut self, start: u32) -> Result<()> {
         if self.peek() == Some(&Tok::KwIn) {
             return Err(old_in(self.tokens[self.pos].span, "cases").into());
         }
+        let named = matches!(self.peek(), Some(Tok::Lower(_))) && !self.tokens[self.pos].line_start;
+        if named {
+            self.bump();
+            while self.peek() == Some(&Tok::Comma)
+                && matches!(self.peek_at(1), Some(Tok::Lower(_)))
+                && !matches!(
+                    self.peek_at(2),
+                    Some(Tok::Equals | Tok::ColonEq | Tok::FatArrow | Tok::Colon)
+                )
+            {
+                self.bump();
+                self.bump();
+            }
+        }
         if self.peek() != Some(&Tok::KwThen) {
+            if named {
+                self.node(start, NodeKind::Cases);
+            }
             return Ok(());
         }
         self.bump();

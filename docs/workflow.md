@@ -402,6 +402,23 @@ and `key_hash_hits + key_hash_misses` near the crate's file count was keyed
 after its compile); compare each such compile's interval with the lane's edit
 times. A clean rebuild with `RUSTC_WRAPPER=` empty is the test of one run.
 
+### Timing a check, and before-and-after binaries
+
+- **A copied binary needs `--std-dir`.** A release binary finds the standard
+  library from where it was built; a copy kept to time "before" against
+  "after" (`cp target/release/stitchwort $SCRATCH/before`) can't, so give it
+  `--std-dir <its checkout>/crates/elab/src/std` (SW-4472).
+- **Per-declaration times:** `stitchwort check --no-cache --timings=all NS`
+  from the project's folder prints each namespace's and each declaration's
+  elaboration and kernel time; `--only THEOREM` checks one theorem and what it
+  needs. Run each side two or three times, one run at a time, since timings
+  move by 10 to 30% between runs on a loaded machine; a cached namespace
+  isn't timed, hence `--no-cache` (or a fresh copy of the project).
+- **Where the time goes inside a check:** on macOS, `sample <pid> 10 -file
+  out.txt` while the check runs. To give it a run long enough to sample,
+  check many copies of the slow theorem (renamed `t1`, `t2`, …) in one
+  scratch file.
+
 ## The test tiers
 
 Tests run in tiers with time budgets ([testing.md](testing.md#tiers)), so

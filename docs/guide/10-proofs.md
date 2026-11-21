@@ -446,6 +446,17 @@ theorem spaceIsSmall ∀ (c: Char) (space: isSpace c = True): c.toNat ≤ 32 := 
 
 It never takes apart a part of what it took apart (`rest` after `xs = [x, ..rest]`): that would be induction, written as recursion (above), and the error says so. It stops at 64 cases. A `cases` that fails tries once more, splitting the hypotheses before the goal and trying `arithmetic` before each split, with up to 256 cases: that is how it proves `isOperatorChar c = False` from `isWordStart c = True`, ten comparisons against a hypothesis of four, or inverts a hypothesis about a function with many arms. A proof the first try finds is kept as it was.
 
+When you know what the proof splits, say so: `cases x then t` splits exactly `x` (and `cases x, y then t` splits `x`, then `y`), closes each case as `cases then t` does, and splits nothing else. Data is split into its constructors and a hypothesis `A ∨ B` into its two sides, with `n = 1` a fact in its case. Where the goal is still stuck on a field of a split (`o` once `edge` is `Plain o`), that field is split too. In `t`, the named value stands for the case's constructor, so `t` may mention it. Only data and `∨` hypotheses can be named (not `A ∧ B` or an equation), and a field of a recursive type, such as a list's tail, is never split: that would be induction. It is the way out when plain `cases` splits something the proof doesn't need and runs out of cases:
+
+<!-- snippet: proofs.sw#cases-named -->
+```stitchwort
+def bonus (lit: Bool) (n: Nat): Nat := if lit then n + 2 else n + 1
+
+theorem bonusGrows ∀ (lit: Bool) (n: Nat): n < bonus lit n := cases lit then arithmetic
+
+theorem smallSum ∀ (n: Nat) (h: n = 1 ∨ n = 2 ∨ n = 4): n + n ≤ 8 := cases h then arithmetic
+```
+
 ## From the facts: `byFacts`
 
 Some goals need no splitting at all: they follow from what is in scope, by taking facts apart and applying them. `byFacts` does that. It introduces the goal's `→` and `∀`, takes every fact apart (an `∧` into its sides, `(a && b) = True` into its parts, a record of proofs into its fields, an `∃` into its witness and fact), splits the goal into its parts the same way, and closes each part by computing, by a fact, or by applying a fact or a lemma you list in brackets, whose premises it proves in turn, three deep:

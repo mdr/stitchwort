@@ -285,7 +285,10 @@ pub enum Expr {
     /// splitting on what the goal and the hypotheses are stuck on, each case
     /// closed by computation, a contradiction, `arithmetic`, or `t`
     /// (docs/proposals/simp.md §5). The proof is the `match`es it writes.
+    /// With `targets` (`cases x, y then t`), it splits those values and
+    /// nothing else (SW-4474).
     Cases {
+        targets: Vec<Name>,
         body: Option<Box<Expr>>,
         span: Span,
     },

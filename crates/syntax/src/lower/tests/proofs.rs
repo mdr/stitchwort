@@ -195,6 +195,44 @@ fn the_old_in_after_rewrite_and_cases_names_then() {
 }
 
 #[test]
+fn cases_takes_the_values_to_split_on_its_own_line() {
+    let targets = |e: &Expr| match e {
+        Expr::Cases { targets, body, .. } => (
+            targets.iter().map(|t| t.text.clone()).collect::<Vec<_>>(),
+            body.is_some(),
+        ),
+        other => panic!("expected cases, got {other:?}"),
+    };
+    let e = rhs("def f (a: Nat): a = a :=\n  cases x, y then t\n");
+    assert_eq!(targets(&e), (vec!["x".to_string(), "y".to_string()], true));
+    let e = rhs("def f (a: Nat): a = a := cases x\n");
+    assert_eq!(targets(&e), (vec!["x".to_string()], false));
+    let e = rhs("def f (a: Nat): a = a := (cases x then t)\n");
+    assert_eq!(targets(&e), (vec!["x".to_string()], true));
+    // As an argument, `cases` is still a whole term, and a name after it
+    // the next argument.
+    let e = rhs("def f (a: Nat): a = a := g cases none\n");
+    let Expr::App(head, last) = &e else {
+        panic!("expected a call, got {e:?}");
+    };
+    assert!(matches!(&**last, Expr::Var(..)), "{last:?}");
+    assert!(matches!(&**head, Expr::App(_, c) if targets(c) == (vec![], false)));
+    // A name followed by `=`, `=>` or `:` starts the next field or item.
+    for text in [
+        "def f: P := { left = a => cases a, right = b => cases b }\n",
+        "def f: P := (a => cases a, b => cases b)\n",
+    ] {
+        assert!(
+            parse_module_text(text).is_ok(),
+            "{text}: {}",
+            parse_errors(text)
+        );
+    }
+    let e = rhs("def f (a: Nat): a = a :=\n  cases\n");
+    assert_eq!(targets(&e), (vec![], false));
+}
+
+#[test]
 fn arithmetic_and_algebra_are_keywords_and_the_old_words_are_names() {
     assert!(parse_module_text("def arithmetic: Nat := 1\n").is_err());
     assert!(parse_module_text("def algebra: Nat := 1\n").is_err());

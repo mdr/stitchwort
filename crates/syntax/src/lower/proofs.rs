@@ -212,16 +212,45 @@ impl<'f> Lower<'f> {
         })
     }
 
-    /// `cases then t`, spanning the keyword to the end of `t`.
+    /// `cases x, y then t`, its values and `then t` each optional, spanning
+    /// the keyword to the end of `t`, or of the last value.
     #[inline(never)]
     pub(super) fn cases(&self, node: Node<'f>) -> Lowering<Expr> {
         let kind = NodeKind::Cases;
         let keyword = required(node.first_leaf_is(&Tok::KwCases), kind, "`cases`")?.span();
-        let body = required(node.after(&Tok::KwThen), kind, "its body")?;
-        let body = self.expr(body)?;
+        let mut targets = Vec::new();
+        let mut then = false;
+        for child in node.children() {
+            let Element::Leaf(leaf) = child else {
+                break;
+            };
+            match &leaf.token().tok {
+                Tok::Lower(text) => targets.push(Name {
+                    text: text.clone(),
+                    span: leaf.span(),
+                }),
+                Tok::KwThen => {
+                    then = true;
+                    break;
+                }
+                _ => {}
+            }
+        }
+        let body = if then {
+            let body = required(node.after(&Tok::KwThen), kind, "its body")?;
+            Some(Box::new(self.expr(body)?))
+        } else {
+            None
+        };
+        let end = match (&body, targets.last()) {
+            (Some(body), _) => body.span(),
+            (None, Some(target)) => target.span,
+            (None, None) => return Err(Unsupported::Missing(kind, "its body")),
+        };
         Ok(Expr::Cases {
-            span: keyword.to(body.span()),
-            body: Some(Box::new(body)),
+            span: keyword.to(end),
+            targets,
+            body,
         })
     }
 }

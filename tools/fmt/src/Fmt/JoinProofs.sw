@@ -158,10 +158,7 @@ theorem gappedReady ∀ (kinds: Text → Tok) (trails: Bool) (first: Text) (edge
 theorem freeReady ∀ (kinds: Text → Tok) (trails: Bool) (first: Text) (edge: Edge)
     (free: Free kinds trails edge):
     Ready kinds trails first edge :=
-  match edge, free with
-    | Plain None, _ => byComputing
-    | Plain (Some word), any => any first
-    | Waiting None | Waiting (Some _), waits => waits
+  cases edge then free first
 
 theorem freeEnded ∀ (kinds: Text → Tok) (trails: Bool) (edge: Edge) (free: Free kinds trails edge): Ended trails edge :=
   match edge, free with
@@ -183,10 +180,7 @@ theorem endedReadyCloser ∀ (kinds: Text → Tok) (trails: Bool) (text: Text)
     (closes: Closes text) (edge: Edge)
     (ended: Ended trails edge):
     Ready kinds trails text edge :=
-  match edge, ended with
-    | Plain None, _ => byComputing
-    | Plain (Some word), token => followsCloser kinds word text token closes
-    | Waiting None | Waiting (Some _), waits => waits
+  cases edge then followsCloser kinds _ text ended closes
 
 theorem endedWeaker ∀ (trails trails': Bool)
     (implies: trails = True → trails' = True) (edge: Edge)
@@ -2141,10 +2135,7 @@ theorem bodyAfterPasses ∀ (kinds: Text → Tok) (value: Expr) (assign: Word) (
 theorem endedReadyColon ∀ (kinds: Text → Tok) (trails: Bool) (edge: Edge)
     (ended: Ended trails edge):
     Ready kinds trails ":" edge :=
-  match edge, ended with
-    | Plain None, _ => byComputing
-    | Plain (Some word), token => followsStops kinds word ":" ':' token byComputing stopsColon
-    | Waiting None | Waiting (Some _), waits => waits
+  cases edge then followsStops kinds _ ":" ':' ended byComputing stopsColon
 
 --| A token that is no closer, then the line ends with it.
 theorem wordEnds ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key: Nat)

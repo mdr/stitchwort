@@ -710,6 +710,7 @@ what SW-4472's `cases` and `rewrite repeatedly` close today (SW-4473's pilot in
 |---|---|---|
 | A conjunction, or `(a && b) = True`, whose parts follow from facts you hold by rewriting | `rewrite repeatedly [h1, h2, …]` | `(Both a b, Both c d, …)`, `Bool.andIntro` |
 | Every case of a small finite type closes the same way, or by a hypothesis | `cases` | a `match` of arms that repeat, ending `(Bool.falseNotTrue h).impossible` |
+| The same, but `cases` splits something else and runs out of cases | `cases x then t` | a `match x, h with` whose arms are closers and one term |
 | A hypothesis `A ∨ B`, each side giving the same proof by `rewrite` | `match h with \| Inl is \| Inr is => rewrite is` | one lemma per side and an arm calling each |
 | An argument the goal or another argument fixes | `_` | spelling out a long type or term |
 
@@ -751,6 +752,35 @@ what SW-4472's `cases` and `rewrite repeatedly` close today (SW-4473's pilot in
   variable, so `sign: kind = Minus ∨ kind = Bang` costs two cases, not one
   per token kind. Also `wordWithinWithin`, `argLevel`, `atomicArgument`,
   `leftWeaker`, `quietBeforeOf` (two nested `match`es, 8 lines).
+- **`cases x then t` when you know what to split.** Plain `cases` chooses
+  its own splits and can wander: in `freeReady` it went over the budget.
+  Naming the value splits only it (and, where the goal is still stuck on
+  one, its fields), so the hand proof's three arms
+  become one line (SW-4474):
+
+  ```
+  match edge, free with
+    | Plain None, _ => byComputing
+    | Plain (Some word), any => any first
+    | Waiting None | Waiting (Some _), waits => waits
+  ```
+  ```
+  cases edge then free first
+  ```
+
+  The arms the closers finish (`byComputing`, a hypothesis) need nothing;
+  `t` is the one arm that does work. It may name the split value, which in
+  each case stands for that case's constructor (`cases d then ok d k hk`),
+  and writes `_` for a field of the split, which has no name
+  (`followsCloser kinds _ text ended closes` in `endedReadyCloser`, where
+  `ended` is the hypothesis as the case has it).
+  It costs about 1.1 to 1.5 times the hand proof. Not when the arms need
+  different terms (`mayFollowStops`, `fillSeq`), when the split is of a
+  computed value (`piecePasses`' `isCloserText text`), or when `t` is
+  costly and tried in many cases: `followsCloser` as `cases closes then
+  followsStops … (byComputing, …, byDecision)` checks, at 8 times the hand
+  proof's 1.9 ms, since each case decides its `Stops` again where the hand
+  proof cites `stopsParen`.
 - **An or-pattern when the arms are the same text.** `signSymbolic` was a
   lemma per side (`minusSymbolic`, `bangSymbolic`) and an arm calling each:
   `match sign with | Inl is | Inr is => rewrite is` replaces all three
