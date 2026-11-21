@@ -30826,12 +30826,12 @@
     {
       "id": 4500,
       "title": "[Opus] rewrite.rs has_carrier answers 'unknown, let conversion decide' when an unknown is present (around line 2203), leaving the mixed-type comparison SW-4496 closed for as_written open on the rewrite side: decide whether rewrite's candidate test should confirm the candidate's type first, as is_occurrence now does; a repro if one exists",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nProgress (lane, 21 Nov): no hole. rewrite's Finder::decide never calls conv_now on a candidate: after has_carrier it unifies (undo::unify), and unify's lambda eta checks can_apply (unify.rs ~1899, 2633), so a lambda against a constructor is unequal, no panic. Probes (scratch r1.sw, r2.sw): rewrite etaTwo _ with a lambda of another type ahead of the target, rewrite constOne _ against (c: Bool) => False: no panic, clean E-REWRITE-MOTIVE. With the carrier known (etaTwo p) the wrong-typed lambda is skipped by kernel::check and the rewrite checks. Change: has_carrier's doc corrected (unification, not conversion) with the reason. Finding: a lambda left side with an unknown carrier (etaTwo _) leaves the carrier's type unknowns unsolved, so even the right candidate fails the motive check (_a → _a → _b vs Nat → Nat → Bool): incompleteness, not unsoundness.\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
