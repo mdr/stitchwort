@@ -1,5 +1,5 @@
 {
-  "next": 4544,
+  "next": 4545,
   "tickets": [
     {
       "id": 47,
@@ -31348,7 +31348,7 @@
     {
       "id": 4540,
       "title": "[Opus] SW-4537 port batch C: the printer and top strata, 13 theorems (blankItemHangs, exprBlanks, wordsCalmKeep), to Lean 4 and Rocq per docs/reviews/SW-4537-lean-rocq-sample.md, compiled; per-theorem counts, support lines, time, set-asides, mathlib notes",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -31392,6 +31392,19 @@
       "where": "",
       "labels": [],
       "epic": "performance",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4544,
+      "title": "[Opus] SW-4537 stage 2 combine: fix count_ports.py (-- is a comment only in .lean; Rocq bullets), rewrap pilot and batches to 100 columns, recount all 33 theorems, run estimate.py: per-stratum and whole-slice ratios to Lean and Rocq with 90% intervals, by lines and characters, with and without exprBlanks (support over the 300-line rule; orchestrator kept it), and the fairness notes; plain-words summary for Matt",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-21",
       "updated": "2026-11-21",
