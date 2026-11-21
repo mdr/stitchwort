@@ -30631,12 +30631,12 @@
     {
       "id": 4485,
       "title": "[Opus] cases gaps from SW-4483's probes: (1) a goal that is a record of proofs (games/rogue Reach.sw:102 insideOf) is not closed though the same facts as ∧ are; (2) a → b with a, for plain propositions (works for equations only); (3) cases as an argument can fail after 9 s with E-CASES-BUDGET (Fmt/ToldDeclProofs.sw:1939, hand term 21 ms): a part not found should not lead to splitting; guide should warn and list failure costs; probes in docs/reviews/SW-4483/cases-probes.txt",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nProgress (lane, Opus, 21 Nov): branch lane/SW-4485, commit 9966d3540. (1) by_parts closes a record of proofs field by field (goal_parts, reusing facts::is_record_of_proofs); rogue insideOf is now `cases` (2.0 ms). (2) apply_to_part takes plain propositions as premises (facts::is_fact) and applies a multi-premise implication to each premise in turn; still never chained. (3) cause: auto::hypothesis_parts stops at MAX_PART_DEPTH (8) on a long && chain whose sides have readings of their own, so doc1Shape's 5th sound conjunct wasn't a part and cases split until 20M steps; now hypothesis_parts_cut reports the cut and and_side follows only the &&s (<= 256). doc1Shape with 11 `cases` args: E-CASES-BUDGET after 9589 ms -> checks in 460 ms (hand term 23 ms). Examples cases-record-of-proofs, cases-implication-plain, cases-long-conjunction fail on main, check here; guide warning added. Tests: test:example NAME=cases (7 pass), guide quotes + guide examples, soundness, rejected examples, hash_stability examples (NAME=cases) and prelude unchanged; 3 new hash snapshots.\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
