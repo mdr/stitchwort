@@ -45,7 +45,7 @@ def pieceFold (kinds: Text → Tok): List Text → List Piece
 def Follows (kinds: Text → Tok) (word next: Text): Prop :=
   word.startsWith "--" = False ∧ MayFollow (kinds word) word next.toList
 
---| A printed piece the lexer proofs can read: layout, a comment as rule N leaves it, or a token spelled as its kind
+--| A printed piece the lexer proofs can read: layout, a comment as comment placement leaves it, or a token spelled as its kind
 --| that isn't read as layout or a comment.
 def Printable (kinds: Text → Tok) (text: Text): Prop :=
   isLayout text = True
@@ -100,7 +100,7 @@ theorem pieceFoldChars ∀ (kinds: Text → Tok) (texts: List Text):
 
 -- Each piece is plain and spelled.
 
---| A comment as rule N leaves it is read as a comment: `--`, then no line break.
+--| A comment as comment placement leaves it is read as a comment: `--`, then no line break.
 --|
 --| Proof idea: `startsWith "--"` gives the two dashes by `sameChar`; no line break in the text is no line break in what follows them (`Text.allNotLineBreak`).
 theorem remarkSpelled ∀ (text: Text)

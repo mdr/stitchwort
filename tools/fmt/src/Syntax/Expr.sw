@@ -4,7 +4,7 @@
 --| What the tree keeps of a token is what printing must reproduce and
 --| nothing of the author's layout (tools/fmt-sketch/SKETCH.md §1): its
 --| text and its comments, a `Word`, with no column, no "starts its line"
---| and no count of blank lines. Commas aren't kept, since rule N leaves
+--| and no count of blank lines. Commas aren't kept, since comment placement leaves
 --| them no comments: a list keeps its items and whether a comma followed
 --| the last (`trailingComma`), and the dump writes the `,` lines back.
 --|
@@ -22,7 +22,7 @@ import Std (Bool, List, Nat, Option, Text)
 --| it.
 type Note = { text: Text, blankBefore: Bool }
 
---| The comments a token holds once rule N has run: the own-line comments
+--| The comments a token holds once comment placement has run: the own-line comments
 --| above it, in order, and the trailing comment after it on its line; and
 --| whether a blank line comes just before it (below its own-line comments,
 --| if any), which the printer keeps between declarations, after comments

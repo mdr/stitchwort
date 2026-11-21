@@ -262,7 +262,7 @@ def Tok.opensAtom: Tok → Bool
   | Lower | Upper | Num | Float | Str | StrStart | CharLit | LParen | LBracket | LBrace | Underscore | Question => True
   | _ => False
 
---| Whether a token starts a declaration, for rule N's search for an
+--| Whether a token starts a declaration, for comment placement's search for an
 --| expression `let`.
 def Tok.startsDeclaration: Tok → Bool
   | KwDef |

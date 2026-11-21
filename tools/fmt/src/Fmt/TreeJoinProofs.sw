@@ -808,7 +808,7 @@ theorem allJoinable ∀ (items: List Expr)
 
 -- The printed texts.
 
---| A comment as rule N leaves it is a piece the lexer proofs can read.
+--| A comment as comment placement leaves it is a piece the lexer proofs can read.
 theorem commentPrintable ∀ (kinds: Text → Tok) (text: Text) (comment: commentText text = True): Printable kinds text :=
   Inr (Inl (Bool.andLeft comment, Bool.notTrue _ (Bool.andLeft (Bool.andRight comment))))
 

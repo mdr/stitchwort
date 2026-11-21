@@ -1,6 +1,6 @@
---| Rule N on the leaves with marked last commas (`withMarkedLastCommas`: bare,
+--| Comment placement on the leaves with marked last commas (`withMarkedLastCommas`: bare,
 --| each closer after one starting its line if the comma did), with those
---| commas dropped, is rule N on the leaves without them (`markedSettles`,
+--| commas dropped, is comment placement on the leaves without them (`markedSettles`,
 --| SW-4006). `Syntax.SettleMarkProofs` carries it to the leaves the
 --| formatter parses (`bareSettles`).
 
@@ -11,7 +11,7 @@ import Fmt (..)
 import Syntax.SettleProofs (..)
 import Syntax.SharedFacts (commaNotCloser)
 
---| Rule 1's walk back from `current` under slice 1's alphabet: how many
+--| The back-walk back from `current` under slice 1's alphabet: how many
 --| leaves a trailing comment moves (`stepsBack` without its running count).
 def walk1 (current: Leaf) (behind: List Leaf): Nat := match behind with
   | [] => 0
@@ -51,10 +51,10 @@ theorem stepsBackShift ∀ (current: Leaf) (behind ahead: List Leaf) (steps: Nat
                     (Bool.andRight behindWithin) then
                 arithmetic
 
---| Whether rule 1 may move a trailing comment from the leaf, under slice 1's alphabet.
+--| Whether the back-walk may move a trailing comment from the leaf, under slice 1's alphabet.
 def movable1 (leaf: Leaf): Bool := (leaf.kind == Comma && !leaf.token.lineStart) || leaf.kind.isCloser
 
---| Rule 1 under slice 1's alphabet, newest first: no bars, so nothing bumps
+--| The back-walk under slice 1's alphabet, newest first: no bars, so nothing bumps
 --| and a walk needs no leaves ahead.
 def home1 (behind rest: List Leaf): List Leaf := match rest with
   | [] => behind
@@ -104,7 +104,7 @@ theorem homeFromHome1 ∀ (behind rest: List Leaf)
 -- closer, after an item (`hasItem`): in a list newest first, the closer, the
 -- comma, then the older leaves.
 
---| What `withMarkedLastCommas` adds and rule N leaves, `behind` (newest first)
+--| What `withMarkedLastCommas` adds and comment placement leaves, `behind` (newest first)
 --| after the leaf of kind `above`, without the last commas.
 def dr (above: Tok) (behind: List Leaf): List Leaf := match behind with
   | [] => []
@@ -203,7 +203,7 @@ theorem walkZero ∀ (current: Leaf) (behind behindA: List Leaf) (comment: Comme
   rewrite here, there, trailingAtZero behind comment, trailingAtZero behindA comment, same then
     (byComputing, byComputing, ok)
 
---| Rule 1's walk from `current`, with the last commas in `behind` or not,
+--| The back-walk from `current`, with the last commas in `behind` or not,
 --| stops in the same case, moves the comment to the same leaf, and leaves
 --| the last commas bare.
 --|
@@ -479,7 +479,7 @@ theorem barishAfterNop ∀ (leaf: Leaf) (behind after: List Leaf)
       match pair: lastPair leaf.token.kind x older with
         | False => okB
 
---| What rule 1 does to the leaves, newest first, without the last commas is
+--| What the back-walk does to the leaves, newest first, without the last commas is
 --| what it does with them, without them. The claim for the leaves to come.
 def Home1Drop (after: List Leaf): Prop :=
   ∀ (b: List Leaf) => gapOk b after = True
@@ -639,8 +639,8 @@ theorem stepPair ∀ (comma closer: Leaf) (behind after: List Leaf)
                             byComputing
                         rewrite teq, dF at claim then claim
 
---| Rule 1 under slice 1's alphabet on leaves with last commas, with the last
---| commas then dropped, is rule 1 on the leaves without them.
+--| The back-walk under slice 1's alphabet on leaves with last commas, with the last
+--| commas then dropped, is the back-walk on the leaves without them.
 --|
 --| Proof idea: by induction on the leaves to come; a leaf that starts no last
 --| comma is one step on both sides, with the comment's walk the same
@@ -744,7 +744,7 @@ theorem dropRelOfRev ∀ (leaves dropped: List Leaf)
     barishFOnto leaves.reverse [] byComputing (rewrite twice then ok)
   )
 
--- Rule 2
+-- Step 2
 
 --| `commasFrom` with the leaves done left newest first.
 def commasR (done: List Leaf) (carried: Option Carried) (rest: List Leaf) (end: Trivia): Lexed :=
@@ -960,7 +960,7 @@ theorem stepPair2 ∀ (comma closer: Leaf) (done after: List Leaf) (carried: Opt
                 match isComma: closer.token.kind == Comma with
                   | False => claim
 
--- Rule 3
+-- Step 3
 
 --| `arrowsFrom` with the leaves done and the current one left newest first.
 def arrowsR (done: List Leaf) (current: Leaf) (rest: List Leaf): List Leaf := match rest with
@@ -1012,7 +1012,7 @@ def ArrowsDrop (more: List Leaf): Prop :=
     → arrowsR (dr current.token.kind done) current (dropF [current, ..done] more) = dropRev (arrowsR done current more)
       ∧ barishTop (arrowsR done current more) = True
 
---| One step of rule 3 at a leaf and the next, which is no last comma, with
+--| One step of the arrow lift at a leaf and the next, which is no last comma, with
 --| the leaves they become.
 theorem arrowGo ∀ (cur nxt: Leaf) (curT nxtT: Trivia) (done more: List Leaf)
     (gap: gapOk [cur, ..done] [nxt, ..more] = True)
@@ -1120,8 +1120,8 @@ def withBareR (behind rest: List Leaf): List Leaf := match rest with
 
 --| The last commas made bare as `withBareLastCommas` makes them, but with the
 --| closer after each taking the comma's line start, as deleting the comma
---| from the text would leave it (`commaDeleted`). Rule N on these leaves, by
---| `startsWalk False`, is rule N on the bare ones by `startsWalk True`, but
+--| from the text would leave it (`commaDeleted`). Comment placement on these leaves, by
+--| `startsWalk False`, is comment placement on the bare ones by `startsWalk True`, but
 --| for those line starts (`Syntax.SettleMarkProofs`); it is the form the
 --| proofs below relate to the leaves without the commas.
 def withMarkedLastCommas (behind rest: List Leaf): List Leaf := match rest with
@@ -1400,7 +1400,7 @@ theorem rule3Drop ∀ (leaves dropped: List Leaf)
           arrowsFromR [] first rest then
         dropRelOfRev (arrowsR [] first rest) (arrowsR [] first (dropF [first] rest)) result.flipped barished
 
---| Rule 5's step on one leaf.
+--| Trim's step on one leaf.
 def trim (leaf: Leaf): Leaf := { leaf | trivia = leaf.trivia.trimmed }
 
 theorem dropFTrim ∀ (b b' rest: List Leaf)
@@ -1426,8 +1426,8 @@ theorem dropFTrim ∀ (b b' rest: List Leaf)
                   (tail => [trim leaf, ..tail])
                   (dropFTrim [leaf, ..b] [trim leaf, ..b'] [closer, ..after2] byComputing)
 
---| Rule N on leaves with last commas, with the last commas then dropped, is
---| rule N on the leaves dropped, for leaves rule 1 to 3 treat alike.
+--| Comment placement on leaves with last commas, with the last commas then dropped, is
+--| comment placement on the leaves dropped, for leaves the back-walk, comma carry and arrow lift treat alike.
 theorem passesDrop ∀ (leaves dropped: List Leaf) (end: Trivia)
     (rel: DropRel dropped leaves)
     (within: alphabet1 leaves = True)
@@ -1535,24 +1535,24 @@ theorem tokensMarkedFlat ∀ (leaves: List Leaf):
       rewrite List.mapReverseOnto (tokens leaves) [] flatToken
     _ = (tokens leaves).map flatToken := List.reverseReverse ((tokens leaves).map flatToken)
 
---| Rule N on the leaves with the last commas marked (`withMarkedLastCommas`).
+--| Comment placement on the leaves with the last commas marked (`withMarkedLastCommas`).
 def Lexed.settledMarked (lexed: Lexed): Lexed := { lexed | leaves = withMarkedLastCommas [] lexed.leaves }.settled
 
---| Rule N on the leaves with their last commas marked, then the last commas
---| dropped, is rule N on the leaves without them (S1 sketch §3.4).
+--| Comment placement on the leaves with their last commas marked, then the last commas
+--| dropped, is comment placement on the leaves without them (S1 sketch §3.4).
 --|
 --| The statement holds for leaves with the last commas, so under `sourcePlain1` (no `->` before a comma, closer
 --| or `->`; no comma that starts its line before a comma or closer, but a last
 --| comma; no comma or closer first) and slice 1's alphabet. Only the `->` clause is used.
 --| No layout is assumed.
 --|
---| Proof idea: the bare last commas change nothing rule 1 to 3 do to the
---| leaves around them: rule 1's walk passes one leaf more and never stops on
+--| Proof idea: the bare last commas change nothing the back-walk, comma carry and arrow lift do to the
+--| leaves around them: the back-walk passes one leaf more and never stops on
 --| the comma (if it starts its line so does its closer, which stops first), so
---| the comment lands on the same leaf; rule 2 carries nothing from a bare
---| comma; rule 3 skips it, since no `->` comes before it (`arrowFrom`). So each pass on
+--| the comment lands on the same leaf; the comma carry carries nothing from a bare
+--| comma; the arrow lift skips it, since no `->` comes before it (`arrowFrom`). So each pass on
 --| the leaves with commas, then dropped, is the pass on the leaves without
---| them (`rule1Drop`, `rule2Drop`, `rule3Drop`); rules 4 and 5 act leaf by leaf.
+--| them (`rule1Drop`, `rule2Drop`, `rule3Drop`); the let lift and trim act leaf by leaf.
 theorem markedSettles ∀ (lexed: Lexed)
     (within: alphabet1 lexed.leaves = True)
     (plain: sourcePlain1 (tokens lexed.leaves) = True):
@@ -1569,7 +1569,7 @@ theorem markedSettles ∀ (lexed: Lexed)
       (rewrite arrowFromFlat _ _ tokB then arrowF)
   (leavesEq, rewrite endEq)
 
--- Without a last comma, the leaves are rule N's own.
+-- Without a last comma, the leaves are comment placement's own.
 
 --| No leaf from `rest` on is a last comma, `behind` the leaves before.
 def noLast (behind rest: List Leaf): Bool := match rest with
@@ -1587,7 +1587,7 @@ theorem withBareRNone ∀ (behind rest: List Leaf)
       rewrite pair at none then cases
     | eq3 _ _ _ _ ih => ih (Bool.andRight none)
 
--- Rule 1's walk with bare last commas (`startsWalk True`) reads a line start
+-- The back-walk with bare last commas (`startsWalk True`) reads a line start
 -- other than the token's own only at a closer right after a last comma that
 -- starts its line. Where there is none, it is the plain walk.
 
@@ -1651,7 +1651,7 @@ theorem stepsPairFree ∀ (current: Leaf) (behind ahead: List Leaf) (steps: Nat)
             (steps + 1)
             (pairFreeTail current.token (tokens [previous, ..earlier]) free)
 
---| Rule 1 with bare last commas is the plain rule 1 where no closer follows a last comma that starts its line.
+--| The back-walk with bare last commas is plain back-walk where no closer follows a last comma that starts its line.
 theorem homePairFree ∀ (behind: List Leaf) (bumped: Option Comment) (rest: List Leaf)
     (free: pairFreeT (tokens (rest.reverseOnto behind)) = True):
     homeFrom True behind bumped rest = homeFrom False behind bumped rest :=
@@ -1742,7 +1742,7 @@ theorem pairFreeOfNoLast ∀ (behind rest: List Leaf)
       pairFreeOfNoLast [leaf, ..behind] after (Bool.andRight none) (gapAfterNop leaf behind after nop) headFree
 
 --| With no comma directly before a closer after an item, making the last
---| commas bare changes nothing, so the leaves rule N settles are `settled`'s:
+--| commas bare changes nothing, so the leaves comment placement settles are `settled`'s:
 --| on every text the formatter prints, `parse1` parses what `parse` does.
 theorem settledOnceNone ∀ (lexed: Lexed) (none: noLast [] lexed.leaves = True): lexed.settledOnce = lexed.settled :=
   let bare: withBareLastCommas [] lexed.leaves = lexed.leaves :=

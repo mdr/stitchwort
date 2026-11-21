@@ -21,7 +21,7 @@
 --| ```
 --|
 --| The definition is a test on the tokens and the tree the language's own lexer and parser read from the source:
---| nothing of the formatter (rule N, the tidy passes, the printer) is in it, and nothing about layout, line length or
+--| nothing of the formatter (comment placement, the tidy passes, the printer) is in it, and nothing about layout, line length or
 --| where the comments are. A source over any number of lines, with a comment wherever the lexer reads one, is in the grammar
 --| whenever the language reads it as a tree of these forms.
 --|
@@ -151,7 +151,7 @@ def SourceFile.grammar1 (file: SourceFile): Bool := file.decls.all Decl.grammar1
 --| Whether a source is in slice 1's grammar: the language's lexer reads it, every token is of the alphabet, the
 --| language's parser reads it, and the tree is slice 1's.
 --|
---| The parse is of the lexer's own leaves, before any step of the formatter, so membership doesn't depend on rule N:
+--| The parse is of the lexer's own leaves, before any step of the formatter, so membership doesn't depend on comment placement:
 --| a formatter step that broke the parse of a source would make `formatAccepts1` false, not shrink the grammar. No
 --| source is known whose tree is slice 1's with a token outside the alphabet; the alphabet is here because the
 --| design states one.

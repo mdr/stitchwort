@@ -1,5 +1,5 @@
 --| `settledOnce` keeps comments that end in neither a carriage return nor a space (SW-4089), said of the words the
---| parser reads: the lexer's comments are such (`Syntax.LexUnreturnedProofs`), rule N only moves them and trims
+--| parser reads: the lexer's comments are such (`Syntax.LexUnreturnedProofs`), comment placement only moves them and trims
 --| spaces, which these have none of.
 
 namespace Syntax.OnceUnreturnedProofs
@@ -25,7 +25,7 @@ import Syntax.SettleMarkProofs (..)
 import Syntax.SettleOnceProofs (..)
 import Syntax.LexUnreturnedProofs (plainEnd)
 
---| Rule 5's trim leaves a text with no space at its end as it is.
+--| Trim leaves a text with no space at its end as it is.
 theorem trimEndPlain ∀ (text: Text) (plain: plainEnd text = True): trimEnd text = text :=
   let unspaced: text.endsWith " " = False := Bool.notTrue _ (Bool.andRight plain)
   rewrite unspaced
@@ -62,8 +62,8 @@ theorem wordsPlainTexts ∀ (leaves: List Leaf)
 --| The words of the leaves the formatter parses, `settledOnce`, and its end, hold only comments that end in neither a
 --| carriage return nor a space, if the lexer's leaves do and are laid out and `plain` in the alphabet.
 --|
---| Proof idea: as `onceSettledProved`. `settledOnce`'s words are those of `settledBare` (`bareSettles`), rule N on the leaves without
---| their last commas; dropping those keeps the comments' texts (`textsWithout`), and rule N only moves comments and
+--| Proof idea: as `onceSettledProved`. `settledOnce`'s words are those of `settledBare` (`bareSettles`), comment placement on the leaves without
+--| their last commas; dropping those keeps the comments' texts (`textsWithout`), and comment placement only moves comments and
 --| trims spaces (`settledKeepsComments`, `trimEndPlain`).
 theorem onceTextsPlain ∀ (lexed: Lexed)
     (within: alphabet1 lexed.leaves = True)

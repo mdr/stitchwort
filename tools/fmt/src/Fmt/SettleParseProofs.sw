@@ -1,9 +1,9 @@
---| Rule N keeps the parse (SW-4129; item 7 of docs/reviews/SW-4120-grammar1.md). Slice 1's grammar parses the
---| lexer's own leaves (`parseFile lexed`); the driver parses them after rule N (`parseFile lexed.settledOnce`). So
---| the acceptance theorem needs: a source whose own parse is a slice 1 tree also parses after rule N, to the same
---| tree with its comments where rule N puts them (`settledParses1`).
+--| Comment placement keeps the parse (SW-4129; item 7 of docs/reviews/SW-4120-grammar1.md). Slice 1's grammar parses the
+--| lexer's own leaves (`parseFile lexed`); the driver parses them after comment placement (`parseFile lexed.settledOnce`). So
+--| the acceptance theorem needs: a source whose own parse is a slice 1 tree also parses after comment placement, to the same
+--| tree with its comments where comment placement puts them (`settledParses1`).
 --|
---| Why it holds: rule N moves comments between leaves and never a token (`settledOnceTokens`), and the parser reads a
+--| Why it holds: comment placement moves comments between leaves and never a token (`settledOnceTokens`), and the parser reads a
 --| leaf's comments only to copy them into the tree's words (`Leaf.word`, `Trivia.comments`, and a binder's `bare`,
 --| none of which any test of the parser reads). Its every decision is
 --| taken on the tokens: kinds, texts, columns and line starts (`items`, `groupsOf`, `fileRefusal`, the parser's
@@ -251,9 +251,9 @@ theorem parseKeepsTokens1 ∀ (lexed other: Lexed) (file: SourceFile)
             _ = file.withoutComments := rewrite isFile
           (twin, twinParses, alike, twinsGrammar)
 
--- Rule N.
+-- Comment placement.
 
---| `settledParses1` for leaves whose tokens rule N keeps.
+--| `settledParses1` for leaves whose tokens comment placement keeps.
 theorem settledParsesKept1 ∀ (lexed: Lexed) (file: SourceFile)
     (parses: parseFile lexed = Ok file)
     (grammar: file.grammar1 = True)
@@ -263,9 +263,9 @@ theorem settledParsesKept1 ∀ (lexed: Lexed) (file: SourceFile)
       ∧ settled.grammar1 = True :=
   parseKeepsTokens1 lexed lexed.settledOnce file (Eq.flipped kept) parses grammar
 
---| Rule N keeps the parse: leaves whose own parse is a slice 1 tree parse after rule N (as the driver parses them)
---| to a slice 1 tree that is the same but for comments. Rule N keeps every token (`settledOnceTokens`): a closer
---| after a last comma that starts its line is read as starting it inside rule N's walk, not marked in its token.
+--| Comment placement keeps the parse: leaves whose own parse is a slice 1 tree parse after comment placement (as the driver parses them)
+--| to a slice 1 tree that is the same but for comments. Comment placement keeps every token (`settledOnceTokens`): a closer
+--| after a last comma that starts its line is read as starting it inside comment placement's walk, not marked in its token.
 theorem settledParses1 ∀ (lexed: Lexed) (file: SourceFile)
     (parses: parseFile lexed = Ok file)
     (grammar: file.grammar1 = True):
@@ -274,8 +274,8 @@ theorem settledParses1 ∀ (lexed: Lexed) (file: SourceFile)
       ∧ settled.grammar1 = True :=
   settledParsesKept1 lexed file parses grammar (settledOnceTokens lexed)
 
---| Rule N keeps the parse of every source of slice 1's grammar: the source's own parse is a slice 1 tree, and the
---| leaves the driver parses (after rule N) parse to a slice 1 tree that is the same but for comments.
+--| Comment placement keeps the parse of every source of slice 1's grammar: the source's own parse is a slice 1 tree, and the
+--| leaves the driver parses (after comment placement) parse to a slice 1 tree that is the same but for comments.
 theorem settledParsesGrammar1 ∀ (source: Text) (lexed: Lexed) (file: SourceFile)
     (lexes: lex source = Ok lexed)
     (alphabet: lexed.leaves.all (leaf => leaf.token.kind.alphabet1) = True)
@@ -288,7 +288,7 @@ theorem settledParsesGrammar1 ∀ (source: Text) (lexed: Lexed) (file: SourceFil
 
 -- Closed examples (D3684).
 
---| What `settledParses1` says of one source, as a test: lexed, parsed to a slice 1 tree; and parsed after rule N to a
+--| What `settledParses1` says of one source, as a test: lexed, parsed to a slice 1 tree; and parsed after comment placement to a
 --| slice 1 tree with the same blanked declarations.
 def settlesOn (source: Text): Bool := match lex source with
   | Err _ => False
@@ -297,7 +297,7 @@ def settlesOn (source: Text): Bool := match lex source with
       | Ok file, Ok settled => file.grammar1 && settled.grammar1 && settled.withoutComments == file.withoutComments
       | _, _ => False
 
---| The driver's hypotheses on one source: the leaf tests, and `within1` of the tree after rule N.
+--| The driver's hypotheses on one source: the leaf tests, and `within1` of the tree after comment placement.
 def placedOn (source: Text): Bool := match lex source with
   | Err _ => False
   | Ok lexed =>
@@ -312,7 +312,7 @@ theorem placedOnExample: placedOn
       = True :=
   byComputing
 
---| Comments in every kind of place, which rule N moves: after a comma, on a closer, after `->`, above a token.
+--| Comments in every kind of place, which comment placement moves: after a comma, on a closer, after `->`, above a token.
 theorem settlesOnExample: settlesOn
         "-- top\ndef d: A -> -- arrow\n  B := g [ -- open\n    a, -- first\n    -- above\n    b, -- last\n  ] -- close\n\ndef e: C := (-1 + f x, y) -- end\n-- last\n"
       = True :=

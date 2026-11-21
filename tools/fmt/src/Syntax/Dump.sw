@@ -1,5 +1,5 @@
 --| The token dump, in the form of `stitchwort dev tokens`
---| (`stitchwort_fmt::tidy::token_dump`): one line a token after rule N, its
+--| (`stitchwort_fmt::tidy::token_dump`): one line a token after comment placement, its
 --| kind, its text quoted as Rust's `{:?}` quotes it, its column, whether it
 --| starts its line, the blank lines before it, its own-line comments
 --| (column, blank lines before, text) and its trailing comment; then a line

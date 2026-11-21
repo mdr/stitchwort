@@ -14,7 +14,7 @@
 namespace Syntax
 import Std (Nat, Text)
 
---| A token with its trivia, after rule N: a leaf of the tree.
+--| A token with its trivia, after comment placement: a leaf of the tree.
 type Leaf = { token: Token, trivia: Trivia }
 
 --| The indentation of a dump line at `depth`.

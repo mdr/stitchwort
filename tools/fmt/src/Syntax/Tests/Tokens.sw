@@ -1,4 +1,4 @@
---| The lexer and rule N on small cases, ported from `crates/fmt`'s
+--| The lexer and comment placement on small cases, ported from `crates/fmt`'s
 --| `tidy.rs` tests and `crates/syntax`'s lexer tests. The harness
 --| (`task fmt:twin STAGE=tokens`) compares whole files with the Rust side;
 --| these pin the cases that explain why each rule is there.
@@ -15,7 +15,7 @@ def refusal (source: Text): Text := match lex source with
   | Ok _ => ""
   | Err message => message
 
---| A comment placed by rule N: its text, whether it is on a line of its
+--| A comment placed by comment placement: its text, whether it is on a line of its
 --| own, and the text of the token it belongs to (empty at the end).
 type Placed = { text: Text, ownLine: Bool, token: Text }
 

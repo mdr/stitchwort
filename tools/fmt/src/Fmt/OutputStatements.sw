@@ -1,5 +1,5 @@
 --| Definitions stating what the formatter's output must satisfy — the text the file loop prints for a tidied tree,
---| lexed, settled with rule N and parsed on a second run — and computed examples that check those statements on
+--| lexed, settled by comment placement and parsed on a second run — and computed examples that check those statements on
 --| sample sources. The statements themselves are proved in `Fmt.TokenProofs`, `Fmt.SpacingProofs`,
 --| `Fmt.FileLexProofs`, `Fmt.OutputFileProofs` and `Fmt.SettleOutputProofs`.
 
@@ -157,7 +157,7 @@ def SourceFile.hung (file: SourceFile): Bool := file.decls.all (decl => hangs de
 -- `printedGroups1`, that the parser's groups of the output are the declarations' leaves, is proved in
 -- `Fmt.OutputFileProofs`.
 
--- Rule N on the output.
+-- Comment placement on the output.
 
 --| The comments of the first thing in the file, without the blank-line flag the file loop never reads: nothing is
 --| printed above it.
@@ -174,7 +174,7 @@ def SourceFile.calmTop (file: SourceFile): SourceFile := match file.calm.decls w
   | [] => { decls = [], end = file.calm.end.topped }
   | _ => file.calm
 
--- `printedSettle1`, that rule N on the output gives the tree's words back (each group of the settled leaves, commas
+-- `printedSettle1`, that comment placement on the output gives the tree's words back (each group of the settled leaves, commas
 -- left out, is its declaration's words, and the end's comments are the file's), is in `Fmt.SettleOutputProofs`
 -- (SW-4043), with `printedStands1`'s conclusion and no own-line comment ending in a carriage return as hypotheses.
 
@@ -269,7 +269,7 @@ theorem spacingMatters: (spacingOn "def d: A := f -x\n" "def d: A := f -x\n"
       = True :=
   byComputing
 
---| Whether rule N leaves the lexed output of a source as it is.
+--| Whether comment placement leaves the lexed output of a source as it is.
 def idleOn (source: Text): Bool := match tidiedOf source with
   | None => False
   | Some file =>
@@ -277,9 +277,9 @@ def idleOn (source: Text): Bool := match tidiedOf source with
       | Err _ => False
       | Ok lexed => sameLexed lexed.settled lexed
 
---| Rule N is not idle on the output: in `(a, b) -- c` the lexer gives the comment to `)`, and rule N takes it back
+--| Comment placement is not idle on the output: in `(a, b) -- c` the lexer gives the comment to `)`, and comment placement takes it back
 --| to `b`, where the tree has it. Likewise after a comma. So "the output's leaves are settled" is false, and
---| `printedSettle1` is about the leaves after rule N.
+--| `printedSettle1` is about the leaves after comment placement.
 theorem outputNotIdle: (idleOn "def d: A := (a, b -- c\n  )\n" || idleOn "def d: A := [\n  a, -- c\n  b\n]\n")
       = False :=
   byComputing
@@ -338,8 +338,8 @@ def wordsBack (file: SourceFile): Bool :=
   (groupsOf file.lexed.settled.leaves).map codeWords == file.calmTop.decls.map Decl.words
     && file.lexed.settled.end.comments == file.calmTop.end
 
---| `printedSettle1` needs `settled`: of a tree with every other hypothesis, whose `]` holds a comment rule N would
---| have moved, the output's `]` holds it on the lexer's reading too, and rule N then gives it to `b`.
+--| `printedSettle1` needs `settled`: of a tree with every other hypothesis, whose `]` holds a comment comment placement would
+--| have moved, the output's `]` holds it on the lexer's reading too, and comment placement then gives it to `b`.
 theorem settledNeeded: (unsettledFile.within1
       && unsettledFile.shaped
       && unsettledFile.lexical

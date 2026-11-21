@@ -251,7 +251,7 @@ theorem lexGood ∀ (source: Text) (lexed: Lexed)
   let fixed := lexFixed source lexed lexes alphabet
   goodOfTokens lexed.leaves (spelledOfFixedAll lexed.leaves fixed) fixed
 
---| Rule N, with the last commas made bare first, keeps every token: the leaves the formatter parses have the lexer's
+--| Comment placement, with the last commas made bare first, keeps every token: the leaves the formatter parses have the lexer's
 --| tokens.
 theorem settledOnceTokens ∀ (lexed: Lexed): tokens lexed.settledOnce.leaves = tokens lexed.leaves :=
   let bare: Lexed := { lexed | leaves = withBareLastCommas [] lexed.leaves }

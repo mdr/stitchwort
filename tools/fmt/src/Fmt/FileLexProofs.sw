@@ -919,7 +919,7 @@ theorem notesOk ∀ (empty: Bool) (notes: List Note)
             Bool.orTrue (gapPieces False note.blankBefore ++ [Remark note.text, ..notesPieces False rest]).isEmpty
       )
 
---| A declaration's own-line comments are comments as rule N leaves them.
+--| A declaration's own-line comments are comments as comment placement leaves them.
 theorem firstNotesSound ∀ (decl: Decl)
     (within: decl.within1 = True)
     (settled: decl.settled = True):

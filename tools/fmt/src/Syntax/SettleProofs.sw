@@ -1,4 +1,4 @@
---| Proofs about rule N (`Syntax/Settle.sw`, `Lexed.settled`) for slice 1 of the proved formatter
+--| Proofs about comment placement (`Syntax/Settle.sw`, `Lexed.settled`) for slice 1 of the proved formatter
 --| (docs/proposals/self-hosted-fmt-s1-sketch.md, ticket 15).
 
 namespace Syntax.SettleProofs
@@ -33,7 +33,7 @@ theorem consTokens ∀ (x leaf: Leaf) (settled behind later after: List Leaf)
     _ = (tokens behind).reverseOnto (tokens [leaf, ..after]) := rewrite same, sameBehind, sameLater
     _ = tokens (behind.reverseOnto [leaf, ..after]) := (tokensReverseOnto behind [leaf, ..after]).flipped
 
---| Rule 1 keeps the tokens.
+--| The back-walk keeps the tokens.
 theorem homeFromTokens ∀ (bareLast: Bool) (behind: List Leaf) (bumped: Option Comment) (rest: List Leaf):
     tokens (homeFrom bareLast behind bumped rest) = tokens (behind.reverseOnto rest) :=
   match rest with
@@ -86,7 +86,7 @@ theorem homeFromTokens ∀ (bareLast: Bool) (behind: List Leaf) (bumped: Option 
                         byComputing
                         (trailingAtTokens behind (Succ more) comment)
 
---| Rule 2 keeps the tokens.
+--| The comma carry keeps the tokens.
 theorem commasFromTokens ∀ (done: List Leaf) (carried: Option Carried) (rest: List Leaf) (end: Trivia):
     tokens (commasFrom done carried rest end).leaves = tokens (done.reverseOnto rest) :=
   match rest with
@@ -113,7 +113,7 @@ theorem commasFromTokens ∀ (done: List Leaf) (carried: Option Carried) (rest: 
                 | True => step { leaf | trivia = Trivia.empty } (Some carry) byComputing
                 | False => step received None byComputing
 
---| Rule 3 keeps the tokens.
+--| The arrow lift keeps the tokens.
 theorem arrowsFromTokens ∀ (done: List Leaf) (current: Leaf) (rest: List Leaf):
     tokens (arrowsFrom done current rest) = tokens (done.reverseOnto [current, ..rest]) :=
   match rest with
@@ -146,7 +146,7 @@ theorem arrowsTokens ∀ (leaves: List Leaf): tokens (arrows leaves) = tokens le
   | [] => byComputing
   | [first, ..rest] => arrowsFromTokens [] first rest
 
---| Rule 4 keeps the tokens.
+--| The let lift keeps the tokens.
 theorem letsFromTokens ∀ (behind rest: List Leaf): tokens (letsFrom behind rest) = tokens (behind.reverseOnto rest) :=
   match rest with
     | [] => byComputing
@@ -176,7 +176,7 @@ theorem trimmedTokens ∀ (leaves: List Leaf):
     | [] => byComputing
     | [leaf, ..rest] => Eq.cong (tail => [leaf.token, ..tail]) (trimmedTokens rest)
 
---| Rule N moves comments and nothing else: the tokens are the lexer's.
+--| Comment placement moves comments and nothing else: the tokens are the lexer's.
 theorem settledWithKeepsTokens ∀ (lexed: Lexed) (bareLast: Bool):
     tokens (lexed.settledWith bareLast).leaves = tokens lexed.leaves :=
   let homed := homeFrom bareLast [] None lexed.leaves
@@ -204,7 +204,7 @@ theorem carriesNoneBare ∀ (trivia: Trivia)
 theorem notCommaBare ∀ (leaf: Leaf) (other: (leaf.kind == Comma) = False): bareComma leaf = True :=
   Bool.orRight (rewrite other)
 
---| After rule 2 no comma holds a comment.
+--| After the comma carry no comma holds a comment.
 theorem commasFromBare ∀ (done: List Leaf) (carried: Option Carried) (rest: List Leaf) (end: Trivia)
     (doneBare: done.all bareComma = True):
     (commasFrom done carried rest end).leaves.all bareComma = True :=
@@ -233,7 +233,7 @@ theorem kindNotComma ∀ (leaf: Leaf) (kind: Tok)
     (leaf.kind == Comma) = False :=
   rewrite DecEq.sound is then other
 
---| Rule 3 gives a comma no comment.
+--| The arrow lift gives a comma no comment.
 theorem arrowsFromBare ∀ (done: List Leaf) (current: Leaf) (rest: List Leaf)
     (doneBare: done.all bareComma = True)
     (currentBare: bareComma current = True)
@@ -272,7 +272,7 @@ theorem arrowsBareCommas ∀ (leaves: List Leaf)
       match firstBare: bareComma first with
         | True => arrowsFromBare [] first rest byComputing firstBare bare
 
---| Rule 4 gives a comma no comment.
+--| The let lift gives a comma no comment.
 theorem letsFromBare ∀ (behind rest: List Leaf)
     (behindBare: behind.all bareComma = True)
     (restBare: rest.all bareComma = True):
@@ -298,7 +298,7 @@ theorem letsFromBare ∀ (behind rest: List Leaf)
                     restBare
                 | False => letsFromBare [leaf, ..behind] after behindBare restBare
 
---| Rule 5 gives a comma no comment.
+--| Trim gives a comma no comment.
 theorem trimmedBare ∀ (leaves: List Leaf)
     (bare: leaves.all bareComma = True):
     (leaves.map (leaf => { leaf | trivia = leaf.trivia.trimmed })).all bareComma = True :=
@@ -310,7 +310,7 @@ theorem trimmedBare ∀ (leaves: List Leaf)
           let trimmedLeaf: bareComma { leaf | trivia = leaf.trivia.trimmed } = True := cases
           rewrite trimmedLeaf then trimmedBare rest bare
 
---| After rule N no comma holds a comment, so the tree needs no place for
+--| After comment placement no comma holds a comment, so the tree needs no place for
 --| one.
 theorem settledCommasBare ∀ (lexed: Lexed): lexed.settled.leaves.all bareComma = True :=
   let homed := homeFrom False [] None lexed.leaves
@@ -322,7 +322,7 @@ theorem settledCommasBare ∀ (lexed: Lexed): lexed.settled.leaves.all bareComma
       byComputing
       (arrowsBareCommas commas.leaves (commasFromBare [] None homed lexed.end byComputing)))
 
--- Under slice 1's alphabet there is no `let` and no `|`, so rule N's
+-- Under slice 1's alphabet there is no `let` and no `|`, so comment placement's
 -- clauses for an expression `let`'s `:=` and a record update's bar do
 -- nothing.
 
@@ -368,7 +368,7 @@ theorem letBeforeNone ∀ (behind: List Leaf) (depth: Nat)
                             | True => byComputing
                             | False => letBeforeNone earlier depth noLet
 
---| Under slice 1's alphabet rule 4 does nothing.
+--| Under slice 1's alphabet the let lift does nothing.
 theorem letsQuiet1 ∀ (behind rest: List Leaf)
     (behindWithin: behind.all (leaf => leaf.kind.within1) = True)
     (restWithin: rest.all (leaf => leaf.kind.within1) = True):
@@ -387,7 +387,7 @@ theorem letsQuiet1 ∀ (behind rest: List Leaf)
 theorem notPipe1 ∀ (leaf: Leaf) (within: leaf.kind.within1 = True): leaf.kind ≠ Pipe :=
   DecEq.soundFalse leaf.kind Pipe (within1Not leaf.kind Pipe byComputing within)
 
---| Under slice 1's alphabet rule 1 walks past commas and closers only.
+--| Under slice 1's alphabet the back-walk walks past commas and closers only.
 theorem skippedQuiet1 ∀ (leaf: Leaf) (behind ahead: List Leaf)
     (within: leaf.kind.within1 = True):
     skipped leaf behind ahead = (leaf.kind == Comma || leaf.kind.isCloser) :=
@@ -395,7 +395,7 @@ theorem skippedQuiet1 ∀ (leaf: Leaf) (behind ahead: List Leaf)
     | True => rewrite skipped.eq.comma leaf behind ahead (DecEq.sound comma)
     | False => rewrite skipped.eq.alt3 leaf behind ahead (DecEq.soundFalse leaf.kind Comma comma) (notPipe1 leaf within)
 
---| Under slice 1's alphabet rule 1 moves comments from commas that don't
+--| Under slice 1's alphabet the back-walk moves comments from commas that don't
 --| start their lines and from closers only.
 theorem movableQuiet1 ∀ (leaf: Leaf) (behind ahead: List Leaf)
     (within: leaf.kind.within1 = True):
@@ -412,7 +412,7 @@ theorem barsQuiet1 ∀ (leaf: Leaf) (behind ahead: List Leaf)
     barBelow leaf behind ahead = False :=
   rewrite barBelow.eq.alt2 leaf behind ahead (previous tail head tail2 isBehind isAhead => notPipe1 leaf within)
 
--- Rule 5: a comment's text, trimmed, has no space at its end.
+-- Trim: a comment's text, trimmed, has no space at its end.
 
 def optionText: Option Comment → List Text
   | Some comment => [comment.text]
@@ -429,7 +429,7 @@ def leavesTexts (leaves: List Leaf) (end: Trivia): List Text := match leaves wit
 --| The comment texts of a lexed file, in order.
 def lexedTexts (lexed: Lexed): List Text := leavesTexts lexed.leaves lexed.end
 
--- Rule 3: no `->` keeps a comment after it.
+-- Arrow lift: no `->` keeps a comment after it.
 
 --| No `->` that a token follows has a trailing comment, and the token after
 --| it has no own-line comments unless it is another `->` (which takes them
@@ -473,12 +473,12 @@ theorem headBare ∀ (next head: Leaf)
     | Inl isArrow => Bool.orRight (rewrite kind then isArrow)
     | Inr isNext => rewrite isNext, empty
 
---| Rule 3's result is `arrowsBare`, and starts with its first leaf, which
+--| The arrow lift's result is `arrowsBare`, and starts with its first leaf, which
 --| changed only if it is an `->`.
 --|
 --| Proof idea: by induction on the leaves; the leaf after the current one
 --| starts the rest's result unchanged unless it is an `->`, so when the
---| current leaf is an `->` the comments rule 3 took from that leaf are the
+--| current leaf is an `->` the comments the arrow lift took from that leaf are the
 --| only ones it could have had.
 theorem arrowsFromBare1 ∀ (current: Leaf) (rest: List Leaf):
     ∃ (head: Leaf) (tail: List Leaf) => arrowsFrom [] current rest = [head, ..tail]
@@ -550,7 +550,7 @@ theorem trimmedArrowsBare ∀ (leaves: List Leaf)
         | Some _, [] => rewrite later, Bool.andTrue then Bool.andLeft bare
         | Some _, [_, .._] => rewrite later, Bool.andTrue then Bool.andLeft bare
 
---| After rule N no `->` holds a trailing comment, and the token after it
+--| After comment placement no `->` holds a trailing comment, and the token after it
 --| no own-line comments, unless that token is another `->`.
 theorem settledArrowsBare1 ∀ (lexed: Lexed)
     (within: alphabet1 lexed.leaves = True):
@@ -567,7 +567,7 @@ theorem settledArrowsBare1 ∀ (lexed: Lexed)
   let quiet: letsFrom [] arrowed = arrowed := letsQuiet1 [] arrowed byComputing (alphabet1Leaves arrowed arrowedWithin)
   trimmedArrowsBare (letsFrom [] arrowed) (rewrite quiet then arrowsArrowsBare commas.leaves)
 
--- Comments kept in order. Rules 2 to 5 keep them for any leaves; rule 1
+-- Comments kept in order. The comma carry, arrow lift, let lift and trim keep them for any leaves; the back-walk
 -- needs leaves as the lexer gives them.
 
 --| The leaves' comment texts, in order.
@@ -608,7 +608,7 @@ theorem consTexts ∀ (x leaf: Leaf) (settled behind after: List Leaf)
     _ = leafTexts (behind.reverseOnto []) ++ (triviaTexts leaf.trivia ++ leafTexts after) := rewrite same, sameBehind
     _ = leafTexts (behind.reverseOnto [leaf, ..after]) := (leafTextsReverseOnto behind [leaf, ..after]).flipped
 
---| Rule 4 keeps the comments in order.
+--| The let lift keeps the comments in order.
 theorem letsFromTexts ∀ (behind rest: List Leaf):
     leafTexts (letsFrom behind rest) = leafTexts (behind.reverseOnto rest) :=
   match rest with
@@ -648,7 +648,7 @@ theorem arrowMovesTexts ∀ (current next: Leaf) (rest: List Text):
     | None => rewrite repeatedly [List.mapAppend, List.appendAssoc, List.appendNil]
     | Some comment => rewrite repeatedly [List.mapAppend, List.appendAssoc]
 
---| Rule 3 keeps the comments in order.
+--| The arrow lift keeps the comments in order.
 theorem arrowsFromTexts ∀ (current: Leaf) (rest: List Leaf):
     leafTexts (arrowsFrom [] current rest) = leafTexts [current, ..rest] :=
   match rest with
@@ -698,7 +698,7 @@ theorem carriesTexts ∀ (trivia: Trivia) (carry: Carried)
       cases then rewrite List.mapAppend more [{ comment | blankLines = trivia.blankLines }] (comment => comment.text)
     | [first, ..more], None => rewrite List.appendNil then cases
 
---| Rule 2 keeps the comments in order: a comma's go to the token after it.
+--| The comma carry keeps the comments in order: a comma's go to the token after it.
 theorem commasFromTexts ∀ (done: List Leaf) (carried: Option Carried) (rest: List Leaf) (end: Trivia):
     leafTexts (commasFrom done carried rest end).leaves ++ triviaTexts (commasFrom done carried rest end).end
       = leafTexts (done.reverseOnto []) ++ (carriedTexts carried ++ (leafTexts rest ++ triviaTexts end)) :=
@@ -734,7 +734,7 @@ theorem trimmedTriviaTexts ∀ (trivia: Trivia): triviaTexts trivia.trimmed = (t
         List.mapMap trivia.leading trimEnd (comment => comment.text)
   match trivia.trailing with | None | Some _ => rewrite List.mapAppend, leading
 
---| Rule 5 trims each comment and keeps them in order.
+--| Trim trims each comment and keeps them in order.
 theorem trimmedTexts ∀ (leaves: List Leaf) (end: Trivia):
     leavesTexts (leaves.map (leaf => { leaf | trivia = leaf.trivia.trimmed })) end.trimmed
       = (leavesTexts leaves end).map trimEnd :=
@@ -742,8 +742,8 @@ theorem trimmedTexts ∀ (leaves: List Leaf) (end: Trivia):
     | [] => trimmedTriviaTexts end
     | [leaf, ..rest] => rewrite List.mapAppend, trimmedTriviaTexts leaf.trivia, trimmedTexts rest end
 
---| Rules 2 to 5 keep the comments in order, trimmed: rule N keeps them if
---| rule 1 does.
+--| The comma carry, arrow lift, let lift and trim keep the comments in order, trimmed: comment placement keeps them if
+--| the back-walk does.
 theorem settledTextsAfterHome ∀ (lexed: Lexed):
     lexedTexts lexed.settled = (leafTexts (homeFrom False [] None lexed.leaves) ++ triviaTexts lexed.end).map trimEnd :=
   let homed := homeFrom False [] None lexed.leaves
@@ -757,7 +757,7 @@ theorem settledTextsAfterHome ∀ (lexed: Lexed):
       rewrite letsFromTexts [] arrowed, arrowsTexts commas.leaves
     _ = (leafTexts homed ++ triviaTexts lexed.end).map trimEnd := rewrite commasFromTexts [] None homed lexed.end
 
--- Rule 1 keeps the comments in order, for leaves as the lexer gives them
+-- The back-walk keeps the comments in order, for leaves as the lexer gives them
 -- under slice 1's alphabet. A trailing comment moves back past commas and
 -- closers; the walk must pass no comment and land on a leaf with no
 -- trailing comment of its own.
@@ -772,10 +772,10 @@ def laidOut (pending: Bool) (leaves: List Leaf): Bool := match leaves with
       && (!pending || leaf.token.lineStart)
       && laidOut leaf.trivia.trailing.isSome rest
 
---| A comma or closer: under slice 1's alphabet, what rule 1 walks past.
+--| A comma or closer: under slice 1's alphabet, what the back-walk walks past.
 def passable (leaf: Leaf): Bool := leaf.kind == Comma || leaf.kind.isCloser
 
---| Rule 1's walk back from `current` (`stepsBack`'s steps) passes no
+--| The back-walk back from `current` (`stepsBack`'s steps) passes no
 --| comment: each leaf it passes has no own-line comments, and the leaf
 --| before it no trailing comment.
 def walkClean (current: Leaf) (behind ahead: List Leaf): Bool := match behind with
@@ -886,7 +886,7 @@ theorem movedEnds ∀ (x: Leaf) (behind ahead: List Leaf) (steps: Nat) (comment:
               (Bool.andRight behindWithin)
               (Bool.andRight (Bool.andRight (Bool.andRight quiet)))
 
---| Rule 1's walk is clean from any next leaf laid out as the lexer lays
+--| The back-walk is clean from any next leaf laid out as the lexer lays
 --| it out, given whether the leaf before had a trailing comment.
 def CleanFor (behind: List Leaf) (pending: Bool): Prop :=
   ∀ (next: Leaf) (ahead: List Leaf) => (next.trivia.leading.isEmpty || next.token.lineStart) = True
@@ -930,7 +930,7 @@ theorem cleanTrailed ∀ (leaf: Leaf) (behind: List Leaf)
       | False => byComputing
       | True => rewrite nextPending, ends [next, ..ahead], Bool.orTrue
 
---| Rule 1 keeps the comments in order, for leaves laid out as the lexer
+--| The back-walk keeps the comments in order, for leaves laid out as the lexer
 --| lays them out, under slice 1's alphabet.
 --|
 --| Proof idea: by induction on the leaves left, keeping `CleanFor`: the
@@ -999,7 +999,7 @@ theorem homeFromTexts ∀ (behind rest: List Leaf) (pending: Bool)
                       _ = leafTexts (behind.reverseOnto [leaf, ..after]) :=
                         (leafTextsReverseOnto behind [leaf, ..after]).flipped
 
---| Rule N keeps every comment, in order, less the spaces at its end, for
+--| Comment placement keeps every comment, in order, less the spaces at its end, for
 --| leaves laid out as the lexer lays them out, under slice 1's alphabet.
 theorem settledKeepsComments ∀ (lexed: Lexed)
     (within: alphabet1 lexed.leaves = True)
@@ -1016,8 +1016,8 @@ theorem settledKeepsComments ∀ (lexed: Lexed)
       settledTextsAfterHome lexed
     _ = (leavesTexts lexed.leaves lexed.end).map trimEnd := rewrite homed, leavesTextsSplit lexed.leaves lexed.end
 
--- Rule 1's result is homed: a closer keeps a trailing comment only where
--- rule 1 itself would stop it, so it starts its line and has own-line
+-- The back-walk's result is homed: a closer keeps a trailing comment only where
+-- the back-walk itself would stop it, so it starts its line and has own-line
 -- comments or follows code that ends with a comment.
 
 --| `endsWithComment` under slice 1's alphabet, where a bar never comes up.
@@ -1040,19 +1040,19 @@ theorem endsOnQuiet1 ∀ (line ahead: List Leaf)
           rewrite skippedQuiet1 leaf earlier ahead (Bool.andLeft within),
               endsOnQuiet1 earlier [leaf, ..ahead] (Bool.andRight within)
 
---| Where rule 1 stops a comment on `leaf`, `older` the leaves before it,
+--| Where the back-walk stops a comment on `leaf`, `older` the leaves before it,
 --| newest first.
 def stopsAt (leaf: Leaf) (older: List Leaf): Bool :=
   leaf.token.lineStart && (!leaf.trivia.leading.isEmpty || endsOn older)
 
 --| The leaf `steps` back from `current` is where a walk may end: not a
---| comma or closer, the first leaf, or one rule 1 stops on.
+--| comma or closer, the first leaf, or one the back-walk stops on.
 def landsAt (steps: Nat) (current: Leaf) (behind: List Leaf): Bool := match steps, behind with
   | Zero, _ => !passable current || behind.isEmpty || stopsAt current behind
   | Succ more, [previous, ..earlier] => landsAt more previous earlier
   | Succ _, [] => False
 
---| Rule 1's walk ends on a leaf it may end on.
+--| The back-walk ends on a leaf it may end on.
 theorem walkLands ∀ (current: Leaf) (behind ahead: List Leaf) (steps: Nat)
     (within: current.kind.within1 = True)
     (behindWithin: behind.all (leaf => leaf.kind.within1) = True):
@@ -1082,7 +1082,7 @@ theorem walkLands ∀ (current: Leaf) (behind ahead: List Leaf) (steps: Nat)
                   (Bool.andRight behindWithin)
               (Succ passed, rewrite passes, walked then arithmetic, lands)
 
---| A closer with a trailing comment is one rule 1 stops on, given the
+--| A closer with a trailing comment is one the back-walk stops on, given the
 --| leaves before it, newest first; a comma with one starts its line.
 def homedLeaf (leaf: Leaf) (older: List Leaf): Bool :=
   leaf.trivia.trailing.isNone
@@ -1118,7 +1118,7 @@ theorem landsHomed ∀ (leaf: Leaf) (older: List Leaf)
   Bool.orRight
     (Bool.andIntro (closerLands leaf (older.isEmpty || stopsAt leaf older) lands) (commaLands leaf older lands))
 
---| A comment rule 1 can't move is homed: on a comma that starts its line
+--| A comment the back-walk can't move is homed: on a comma that starts its line
 --| or a leaf that is neither comma nor closer.
 theorem fixedHomed ∀ (leaf: Leaf) (behind ahead: List Leaf)
     (within: leaf.kind.within1 = True)
@@ -1154,11 +1154,11 @@ theorem trailingAtHomed ∀ (behind: List Leaf) (steps: Nat) (comment: Comment) 
           (Bool.andRight (Bool.andRight (Bool.andRight quiet)))
           lands)
 
---| Rule 1's result is homed, for leaves laid out as the lexer lays them
+--| The back-walk's result is homed, for leaves laid out as the lexer lays them
 --| out, under slice 1's alphabet.
 --|
 --| Proof idea: by induction on the leaves left, keeping `homedBehind` of
---| the leaves settled: a comment rule 1 keeps or moves ends on a leaf its
+--| the leaves settled: a comment the back-walk keeps or moves ends on a leaf its
 --| walk may end on (`walkLands`), the leaves it passes have none
 --| (`walkSteps`), and the leaves before the one it lands on don't change.
 theorem homeFromHomed ∀ (behind rest: List Leaf) (pending: Bool)
@@ -1224,8 +1224,8 @@ theorem homeFromHomed ∀ (behind rest: List Leaf) (pending: Bool)
                       afterWithin
                       (trailingAtHomed behind (Succ more) comment leaf homed quietBehind landsHere)
 
--- From rule 1's result to rule N's: rules 2 to 5 take comments off commas
--- and `->`, and add own-line comments, so a closer rule 1 stops on still
+-- From the back-walk's result to comment placement's: the comma carry, arrow lift, let lift and trim take comments off commas
+-- and `->`, and add own-line comments, so a closer the back-walk stops on still
 -- stops, given that no comma that starts its line and no `->` comes just
 -- before a comma or closer.
 
@@ -1247,7 +1247,7 @@ def plainFrom: List Token → Bool
 
 --| `plain` for slice 1's alphabet: as `plainFrom`, and the first token is
 --| no comma or closer. Almost every file that parses is `plain`: K1's case
---| (a comma starting its line before a closer, whose comments rule N parks)
+--| (a comma starting its line before a closer, whose comments comment placement parks)
 --| parses and isn't, and the proofs under `plain1` leave it out.
 def plain1 (tokens: List Token): Bool := match tokens with
   | [] => True
@@ -1302,7 +1302,7 @@ theorem tailTokens ∀ (before after: Leaf) (befores afters: List Leaf)
     tokens befores = tokens afters :=
   Eq.cong (list => list.drop 1) same
 
---| A line that ends with a comment before a rule 2 to 5 pass still does
+--| A line that ends with a comment before any of the later steps (the comma carry to trim) still does
 --| after it, seen from a comma or closer.
 --|
 --| Proof idea: by induction on the line, newest first. The comment the
@@ -1459,7 +1459,7 @@ theorem receivedLeading ∀ (carried: Option Carried) (trivia: Trivia):
             { first | blankLines = Nat.max first.blankLines carry.blankLines }
             more
 
---| Rule 2 only takes comments off commas and adds own-line comments.
+--| The comma carry only takes comments off commas and adds own-line comments.
 theorem commasRelated ∀ (doneBefore done: List Leaf) (carried: Option Carried) (rest: List Leaf) (end: Trivia)
     (rel: related doneBefore done = True):
     related (doneBefore.reverseOnto rest) (commasFrom done carried rest end).leaves = True :=
@@ -1505,7 +1505,7 @@ theorem relatedCleared ∀ (leaf: Leaf)
     Bool.orLeft (rewrite notCloser)
   match leaf.trivia.trailing with | None | Some _ => Bool.andIntro (rewrite repeatedly [Bool.orTrue]) leadingPart
 
---| Rule 3 only takes comments off `->` and the own-line comments off the
+--| The arrow lift only takes comments off `->` and the own-line comments off the
 --| token after it, which is no closer in a `plain` file.
 theorem arrowsRelated ∀ (original current: Leaf) (rest: List Leaf)
     (rel: relatedLeaf original current = True)
@@ -1544,7 +1544,7 @@ theorem arrowsRelated ∀ (original current: Leaf) (rest: List Leaf)
             Bool.andIntro rel
               (arrowsRelated next next more (relatedSelf next) byComputing (Bool.andRight (Bool.andRight plain)))
 
---| Rule 5 changes no comment's place.
+--| Trim changes no comment's place.
 theorem trimRelated ∀ (leaves: List Leaf):
     related leaves (leaves.map (leaf => { leaf | trivia = leaf.trivia.trimmed })) = True :=
   match leaves with
@@ -1571,7 +1571,7 @@ theorem plainFromOf ∀ (original: List Token) (plain: plain1 original = True): 
 
 -- The source's test: `plain1` with a last comma allowed to start its line (SW-4131).
 
---| A token with its line start forgotten: what rule N's bare last commas keep (they only ever change a closer's line
+--| A token with its line start forgotten: what comment placement's bare last commas keep (they only ever change a closer's line
 --| start).
 def flatToken (token: Token): Token := { token | lineStart = False }
 
@@ -1596,7 +1596,7 @@ def sourcePlain1 (tokens: List Token): Bool := match tokens with
   | [] => True
   | [first, .._] => !passableKind first.kind && sourcePlainFrom False tokens
 
---| The clause about `->` alone, which is all rule 3's proofs need.
+--| The clause about `->` alone, which is all the arrow lift's proofs need.
 def arrowFrom: List Token → Bool
   | [first, second, ..rest] => (!(first.kind == Arrow) || !arrowFollow second.kind) && arrowFrom [second, ..rest]
   | _ => True
@@ -1682,16 +1682,16 @@ theorem arrowsRelatedAll ∀ (leaves: List Leaf)
     | [] => byComputing
     | [first, ..rest] => arrowsRelated first first rest (relatedSelf first) byComputing plain
 
---| Rule N's result is homed: every closer that keeps a trailing comment
+--| Comment placement's result is homed: every closer that keeps a trailing comment
 --| starts its line, and has own-line comments or follows code ending with
 --| a comment, looking back past commas and closers; every comma that keeps
 --| one starts its line. For `plain` leaves laid out as the lexer lays
 --| them out, under slice 1's alphabet (K1's `settledHomed`).
 --|
---| Proof idea: rule 1's result is homed (`homeFromHomed`), and rules 2,
---| 3 and 5 only take trailing comments off commas and `->`, which in a
+--| Proof idea: the back-walk's result is homed (`homeFromHomed`), and the comma carry,
+--| arrow lift and trim only take trailing comments off commas and `->`, which in a
 --| `plain` file no closer's line ends with, and keep closers' own-line
---| comments (`homedTransfer`); rule 4 does nothing.
+--| comments (`homedTransfer`); the let lift does nothing.
 theorem settledHomed ∀ (lexed: Lexed)
     (within: alphabet1 lexed.leaves = True)
     (laid: laidOut False lexed.leaves = True)
@@ -1743,9 +1743,9 @@ theorem settledHomed ∀ (lexed: Lexed)
       (backOkOf arrowed (tokens lexed.leaves) arrowedTokens plain)
       homedArrows
 
--- Rule N applied to its own result changes nothing.
+-- Comment placement applied to its own result changes nothing.
 
---| With every comma bare rule 2 moves nothing.
+--| With every comma bare the comma carry moves nothing.
 theorem commasIdle ∀ (done rest: List Leaf) (end: Trivia)
     (bare: rest.all bareComma = True):
     commasFrom done None rest end = { leaves = done.reverseOnto rest, end } :=
@@ -1764,7 +1764,7 @@ theorem commasIdle ∀ (done rest: List Leaf) (end: Trivia)
               match leaf.trivia.leading, leaf.trivia.trailing with
                 | [], None => cases
 
---| With no comment after an `->` and no `->` before another, rule 3 moves
+--| With no comment after an `->` and no `->` before another, the arrow lift moves
 --| nothing.
 theorem arrowsIdle ∀ (done: List Leaf) (current: Leaf) (rest: List Leaf)
     (bare: arrowsBare [current, ..rest] = True)
@@ -1793,11 +1793,11 @@ theorem arrowsIdleAll ∀ (leaves: List Leaf)
     | [] => byComputing
     | [first, ..rest] => arrowsIdle [] first rest bare plain
 
--- Rule N's result, written out again in any layout that starts a line at
+-- Comment placement's result, written out again in any layout that starts a line at
 -- each closer holding a comment, settles to itself (spike K1's
 -- `settledAnyLayout`). The layouts are K1's `laidFrom` with `keeping`.
 
---| Whether the leaf is one rule 1 may leave a trailing comment on only
+--| Whether the leaf is one the back-walk may leave a trailing comment on only
 --| under its limits: a closer or a record update's `|` (K1).
 def holder (leaf: Leaf) (behind ahead: List Leaf): Bool := leaf.kind != Comma && skipped leaf behind ahead
 
@@ -1809,7 +1809,7 @@ theorem trailingAtZero ∀ (behind: List Leaf) (comment: Comment): trailingAt be
 
 --| The `steps` newest leaves of `behind` are a comment's way back to
 --| where it was: commas and closers that don't start their lines, then a
---| leaf rule 1's walk ends on.
+--| leaf the back-walk ends on.
 def chainTo (steps: Nat) (behind: List Leaf): Bool := match steps, behind with
   | Succ Zero, [target, ..older] => !passable target || older.isEmpty || stopsAt target older
   | Succ (Succ more), [leaf, ..earlier] => passable leaf && !leaf.token.lineStart && chainTo (Succ more) earlier

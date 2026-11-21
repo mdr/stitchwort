@@ -39,7 +39,7 @@ def GroupSplit (group: List Leaf) (read: Decl) (keyword name colon colonEq: Item
 --| What the output says of one printed declaration `decl` and the group of leaves the second run parses for it: the
 --| tree facts of `decl` the driver gives, its printed leaves keeping the line rule (`hangs`, which the driver's
 --| `hung` gives every declaration), the group's tokens those printed tokens
---| (rule N moves only comments), and the group's words `read`'s, where `read` is `calm` of `decl`
+--| (comment placement moves only comments), and the group's words `read`'s, where `read` is `calm` of `decl`
 --| (`printedSettle1`).
 def PrintedGroup (decl read: Decl) (group: List Leaf): Prop :=
   decl.within1 = True
