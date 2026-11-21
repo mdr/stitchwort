@@ -1,5 +1,5 @@
 {
-  "next": 4556,
+  "next": 4558,
   "tickets": [
     {
       "id": 47,
@@ -31524,7 +31524,7 @@
     {
       "id": 4553,
       "title": "[Opus] One-file pilot by hand of a traversal lemma for the ...Blanks families (SW-4547's class e, the long case splits: each arm rebuilds a different constructor around its own recursive calls; exprBlanks 86 lines against 10 in Lean and Rocq via simp with the equation lemmas): state once that traversing a node gives its children's traversals rebuilt, prove exprBlanks and two siblings from it, measure lines and steps against the D3696 bar, and say how far it generalises (SW-4523's families) before any sweep",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -31555,6 +31555,32 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4556,
+      "title": "[Sonnet] Traversal lemma, next step (SW-4553): move rebuilds1-3 to std's Fail/Walk.sw as Fail.toResultRebuildsN; apply the same shape to Fmt.Walk's ...Ok family (a Seq twin) and ...Twice family (a pure twin), predicted about 130 lines net, measuring each before the next; then the Data arms of declBlanks/declOk/declTwice with one lemma for indices and one for body (about 190 lines at stake)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4557,
+      "title": "[Opus] Let a byComputing premise be left out at a call (a default or auto-parameter), so a lemma's 'rebuilt' fact closed by computing needs no (v1 => byComputing) tail at every use (SW-4553): design note first, with the call sites it would clean",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-21",
       "updated": "2026-11-21",
