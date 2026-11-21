@@ -1,5 +1,5 @@
 {
-  "next": 4548,
+  "next": 4549,
   "tickets": [
     {
       "id": 47,
@@ -31441,6 +31441,19 @@
     {
       "id": 4547,
       "title": "[Sonnet] Case-split pilot before any sweep (SW-4537 gap 1, est. 14% of slice 1): on the sample's case-split theorems (exprBlanks, headerResult1, wordsCalmKeep and the others gaps.py ranks as case splits) plus two randomly chosen whole Fmt/Syntax files, rewrite each case-split proof with features that exist today (cases x then t, cases a, b then t, | _ => cases x then t, or-patterns, auto/byFacts as the closer); measure proof lines before/after per theorem and per file, steps against the D3696 bar, and classify what stays long by the missing feature (closer needs hypotheses or lemmas like simp_all [..]; split of a nested match on a record; cases on an expression; big enums); predict a whole-slice sweep's yield from the measured share",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4548,
+      "title": "[Fable] Slice 1 readability against Lean and Rocq: on SW-4537's 30 ported theorems (all compiled), judge how each reads in the three systems to a newcomer who knows the problem but not the code (can you see what is proved and why; names, statement shape, proof idea visible, lemma interfaces, noise) with a stated rubric, scored blind where possible; then read tools/fmt's top theorems and three random proof files as such a reader would, and say what most stands between slice 1 and clean, ranked, each with evidence and the cheapest fix with today's features; nothing that narrows a slice or touches a top theorem",
       "status": "backlog",
       "agent": "",
       "where": "",
