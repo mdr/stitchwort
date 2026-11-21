@@ -235,9 +235,7 @@ theorem passesCons ∀ [kinds: Text → Tok] [doc: Doc] [docs: List Doc] [pre mi
     (first: Passes kinds doc pre middle)
     (rest: PassesAll kinds docs middle post):
     PassesAll kinds [doc, ..docs] pre post :=
-  edge next holds after =>
-    first edge (between => JoinsAll (Follows kinds) docs between next) holds (between reached =>
-      rest between next reached after)
+  byFacts
 
 --| Documents one after another, then more: the first lot, then the second from where the first leaves off.
 theorem joinsAllAppend ∀ (follows: Text → Text → Prop) (front back: List Doc) (edge: Edge) (next: Edge → Prop)

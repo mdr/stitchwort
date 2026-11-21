@@ -611,9 +611,7 @@ theorem givesExpect ∀ (modes: Modes) (wanted: Tok) (what: Text)
       match took: isSome wanted (Some item.kind) with
         | False => givesFail modes what start fine
         | True => Parse.readsAtWeaken (readsAtBump shape) (read word (single, same) =>
-          rewrite same then
-            (rewrite <- DecEq.sound took then
-              goodFirst (rewrite shape at fine) (rewrite DecEq.sound took then within))))
+          rewrite same, <- DecEq.sound took then byFacts [goodFirst (rewrite shape at fine)]))
 
 -- Facts the pure look-aheads give.
 
