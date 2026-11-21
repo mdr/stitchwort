@@ -31099,12 +31099,12 @@
     {
       "id": 4521,
       "title": "[Sonnet] Slice 1 shortening lane 2 (SW-4519 map): cases x then t over the 60 tools/fmt theorems with the most repeated match arms, plus the ...Deaf ladders (124 theorems, 694 lines, mostly arms ending byComputing); lines before/after, time bar; statements unchanged; stay out of SW-4515's 31 theorems and lane 1's two files",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nProgress (lane, 21 Nov): branch lane/SW-4521, commit 1af30c07c. Slice 1 proof lines 50,185 to 49,822 (-363) in 42 files / 95 theorems, statements unchanged. Idioms: cases x, y then byComputing; | _ => cases x then byComputing; merged or-pattern arms. Per-file timing only run on Syntax.DeafProofs (1330 to 1195 ms) and Fmt.MarkProofs (78 to 84 ms); the rest not timed (see report).\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
