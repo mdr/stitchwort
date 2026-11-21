@@ -31086,12 +31086,12 @@
     {
       "id": 4520,
       "title": "[Sonnet] Slice 1 shortening lane 1 (SW-4519 map): pilot writing _ (or making a lemma's parameter implicit) for arguments the goal or another argument already fixes (proving guide rule 9), in tools/fmt ReadBackRuns.sw and ElementsBlank.sw; lines before/after and D3696 time bar per file; statements unchanged",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\n\nLane notes (Sonnet, 21 Nov): pilot on ElementsBlank (205 to 169 proof lines) and ToldDeclProofs (1449 to 1390), commit 0c8b66590 on lane/SW-4520; both check; slowest ratio 1.6x (shapeLead). ReadBackRuns left alone per orchestrator.\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
