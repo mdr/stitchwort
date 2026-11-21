@@ -30787,12 +30787,12 @@
     {
       "id": 4497,
       "title": "[Sonnet] D3699 follow-up: grep tools/, aoc/ and games/ for proofs that bind the old four-name form of a Bool guard's False fact (x tail same holds => ...) and check toyfmt's other namespaces one at a time (SW-4486: Toy.Syntax.Proofs broke unnoticed for 27 h)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, 7 min (est. 30).\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
