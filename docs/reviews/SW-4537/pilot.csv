@@ -1,0 +1,4 @@
+stratum,name,sw_stmt,sw_proof,sw_stmt_ch,sw_proof_ch,lean_stmt,lean_proof,lean_stmt_ch,lean_proof_ch,rocq_stmt,rocq_proof,rocq_stmt_ch,rocq_proof_ch
+walk,readsAtAtValue,3,4,173,195,3,4,161,200,3,1,158,61
+lexer,itemsShapesOfKinds1,5,6,203,228,3,6,200,231,3,5,193,156
+printer,closerFitsOf,7,9,314,354,7,3,303,122,7,4,276,162
