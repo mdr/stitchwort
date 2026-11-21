@@ -30527,14 +30527,14 @@
     {
       "id": 4477,
       "title": "[Opus] Walk W4b (after SW-4469 cut two-run walk cost): re-time the two-run walks W4 dropped for speed (FollowsStatements 12, FollowsDeclData 9; the walked text is at commit 9e0180f18 and the W4 branch history) and keep those now within SW-4238's bar (file 1.5x, no theorem over 3x); then try the Follows* namespaces W4 didn't reach (FollowsForms*, FollowsLadder, FollowsDecl*, ParseCarries*, ParseKept, ParseWalkDecls); profile followsRewriteTargetIf (2.5x) if cheap",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "\nProgress (lane, 23:55): FollowsStatements 11 of W4's 12 dropped walks kept (followsLetPatternOf 3.45x stays); FollowsDeclData +13 (two 3x+ stay); ParseWalkPatterns +16; ParseWalkDecls +2; FollowsFormsArms +8. Timing: warm dependency cache, target forced by a throwaway comment (13 s a run vs 115 s with --no-cache), hand and walk runs interleaved, mean of two.\n",
+      "body": "\nProgress (lane, 23:55): FollowsStatements 11 of W4's 12 dropped walks kept (followsLetPatternOf 3.45x stays); FollowsDeclData +13 (two 3x+ stay); ParseWalkPatterns +16; ParseWalkDecls +2; FollowsFormsArms +8. Timing: warm dependency cache, target forced by a throwaway comment (13 s a run vs 115 s with --no-cache), hand and walk runs interleaved, mean of two.\n\nDone (lane, 01:35): 216 more formatter proofs as walks over 16 namespaces, all within D3696 (no kept theorem over 3x; every namespace within 1.15x of its all-hand time); proof lines 871 -> 241 (diff stat). Statements unchanged (script against main). ParseCarries, ParseCarriesDecl: none walk; ParseCarriesFile has no walk-shaped proofs. Gaps left: leaves needing a hand then-term (~140), operation called directly (29, SW-4479), two runs split on related but different values (29, new), >64 paths (14), Parse.loop/offset/ctorAhead/peekAt lemmas (~25, SW-4470), forall-left bracket items (SW-4467), unfold of match-on-argument helpers (SW-4468). Branch lane/SW-4477, 17 commits. Model result: opus, ~130 min (est. 90; about 40 min of it the machine stalled checks).\n",
       "created": "2026-11-20",
-      "updated": "2026-11-20",
+      "updated": "2026-11-21",
       "commits": []
     },
     {
