@@ -1,5 +1,5 @@
 {
-  "next": 4507,
+  "next": 4509,
   "tickets": [
     {
       "id": 47,
@@ -30631,7 +30631,7 @@
     {
       "id": 4485,
       "title": "[Opus] cases gaps from SW-4483's probes: (1) a goal that is a record of proofs (games/rogue Reach.sw:102 insideOf) is not closed though the same facts as ∧ are; (2) a → b with a, for plain propositions (works for equations only); (3) cases as an argument can fail after 9 s with E-CASES-BUDGET (Fmt/ToldDeclProofs.sw:1939, hand term 21 ms): a part not found should not lead to splitting; guide should warn and list failure costs; probes in docs/reviews/SW-4483/cases-probes.txt",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -30909,6 +30909,32 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4507,
+      "title": "[Sonnet] auto's hypothesis parts spend two MAX_PART_DEPTH levels per && (read, then split), so past the fourth part of a chain whose parts read as tests auto doesn't see the rest; give auto the and_side fallback cases got in SW-4485; and tidy auto::take_apart's 8 arguments (reads and cut into a small struct)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4508,
+      "title": "[Sonnet] Docs for lanes (SW-4485): name the guide tests (guide::the_guide_quotes_its_examples_and_the_compiler, guide::the_guide_examples_check_and_pass_their_tests in crates/cli/tests/tools/guide.rs) in docs/workflow.md; task test:hashes / snap:hashes don't cover prelude without ALL=1, add a NAME=prelude path; keep temporary debug code in a separate commit or patch (git stash is ruled out)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-21",
       "updated": "2026-11-21",
