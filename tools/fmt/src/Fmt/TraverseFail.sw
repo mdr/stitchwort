@@ -42,12 +42,9 @@ theorem exprBlanks ∀ (on: Steps)
     (deaf: Blanks on) (input: Expr):
     runExpr on (input.walk blankPure) = (runExpr on input).map (x => x.walk blankPure) :=
   match input with
-    | Atom kind word => deaf.expr (Atom kind word)
+    | Atom _ _ | Unit _ _ | Universe _ _ | Include _ _ => deaf.expr input
     | Paren open inner close =>
       Fail.toResultAlike1Then (exprBlanks on deaf inner) (v1 => deaf.expr (Paren open v1 close))
-    | Unit open close => deaf.expr (Unit open close)
-    | Universe keyword level => deaf.expr (Universe keyword level)
-    | Include keyword path => deaf.expr (Include keyword path)
     | Tuple open items trailingComma close =>
       Fail.toResultAlike1Then (exprsBlanks on deaf items) (v1 => deaf.expr (Tuple open v1 trailingComma close))
     | ListOf open items trailingComma close =>

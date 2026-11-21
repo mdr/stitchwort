@@ -142,13 +142,8 @@ theorem codeTextsOf ∀ (expr: Expr) (hoisted: Bool)
       rewrite List.filterAppend (head.spelt hoisted) (argumentsSpelt arguments) notComment,
           codeTextsOf head hoisted (Bool.andLeft within) headClean,
           argumentTextsOf arguments (Bool.andRight within) argumentsClean
-    | Infix InfixBinary left operator right, within =>
-      infixTextsOf InfixBinary left operator right hoisted
-        (Bool.andLeft within)
-        (Bool.andLeft (Bool.andRight within))
-        clean
-    | Infix InfixArrow left operator right, within =>
-      infixTextsOf InfixArrow left operator right hoisted
+    | Infix kind left operator right, within =>
+      cases kind then infixTextsOf kind left operator right hoisted
         (Bool.andLeft within)
         (Bool.andLeft (Bool.andRight within))
         clean
@@ -157,7 +152,7 @@ theorem codeTextsOf ∀ (expr: Expr) (hoisted: Bool)
       rewrite List.filterAppend (operator.spelledAt hoisted) (operand.spelt False) notComment,
           wordDropsComments operator hoisted operatorClean,
           codeTextsOf operand False (Bool.andLeft within) operandClean
-    | Infix _ _ _ _ | _, never => (Bool.falseNotTrue never).impossible
+    | _, never => (Bool.falseNotTrue never).impossible
 
 theorem infixTextsOf ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: Expr) (hoisted: Bool)
     (leftWithin: left.within1 = True)
