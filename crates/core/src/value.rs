@@ -5538,6 +5538,12 @@ fn same_when_solved(g: &Ev, a: &Value, b: &Value, charge: Option<&Ev>) -> Result
     identical_within(Same::Values(&a, &b), Some(g), charge)
 }
 
+/// Whether two values are exactly alike ([`same_closure`]'s notion), uncharged
+/// and without evaluating anything: alike values convert.
+pub fn same_value(a: &Value, b: &Value) -> bool {
+    !shortcuts_disabled() && identical(Same::Values(a, b))
+}
+
 /// Whether two terms are alike apart from names and source locations, as
 /// [`same_closure`] compares bodies. The elaborator uses it to find the
 /// same recursive call written twice (`crates/elab/src/decreasing.rs`).
