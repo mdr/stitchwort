@@ -141,6 +141,8 @@ struct Fact {
     text: Txt,
     /// The head of its conclusion, past its `∀`s and `→`s.
     key: Option<Key>,
+    /// Whether it takes arguments: something phase 2 applies.
+    function: bool,
 }
 
 /// A term the brackets list.
@@ -301,11 +303,22 @@ impl Search<'_> {
         if !is_fact(cx, &ty)? {
             return Ok(());
         }
+        // A part that is a fact already (a reading of `n < 9` is `n ≤ 8`,
+        // which reads as itself) adds nothing.
+        if depth > 0 {
+            for f in &self.facts {
+                if conv(&g, cx.level(), &cx.types[f.level], &ty)? {
+                    return Ok(());
+                }
+            }
+        }
         let key = conclusion_key(cx, &ty)?;
+        let function = matches!(force(&g, ty.clone())?, Value::Pi(..));
         self.facts.push(Fact {
             level,
             text: text.clone(),
             key,
+            function,
         });
         if depth >= MAX_PART_DEPTH {
             return Ok(());
@@ -343,7 +356,14 @@ impl Search<'_> {
                 let np = data.params().len();
                 let key = cx.e.data_key(d);
                 for (i, (name, field_ty)) in ctor.fields.iter().enumerate() {
-                    let part_ty = eval(&g, &args[..np], field_ty)?;
+                    // A field's type is under the earlier fields, which it
+                    // doesn't mention (`is_record_of_proofs`).
+                    let env: Vec<Value> = args[..np]
+                        .iter()
+                        .cloned()
+                        .chain(std::iter::repeat_n(Value::Refl, i))
+                        .collect();
+                    let mut part_ty = eval(&g, &env, field_ty)?;
                     let proof = if data.eta() {
                         Term::Proj(d, i, Rc::new(at(cx)))
                     } else {
@@ -352,7 +372,10 @@ impl Search<'_> {
                             continue;
                         };
                         match apply_global(cx, accessor, vec![(at(cx), ty.clone())], None)? {
-                            Some((term, _)) => term,
+                            Some((term, result)) => {
+                                part_ty = result;
+                                term
+                            }
                             None => continue,
                         }
                     };
@@ -405,6 +428,9 @@ impl Search<'_> {
         self.parts += 1;
         let name = format!("{PART}{}", self.parts);
         let ty_term = cx.quote_or_written(&ty)?;
+        // Evaluated again from its reading back, so that unknowns solved
+        // on the way (an accessor's implicit arguments) are gone from it.
+        let ty = cx.eval(&ty_term)?;
         wraps.push(Wrap::Let(
             name.as_str().into(),
             ty_term.clone(),
@@ -625,8 +651,13 @@ impl Search<'_> {
                 let mut proofs = Vec::new();
                 let mut texts = Vec::new();
                 let mut whole = true;
-                for (name, field_ty) in &ctor.fields {
-                    let part = eval(&g, &args[..np], field_ty)?;
+                for (i, (name, field_ty)) in ctor.fields.iter().enumerate() {
+                    let env: Vec<Value> = args[..np]
+                        .iter()
+                        .cloned()
+                        .chain(std::iter::repeat_n(Value::Refl, i))
+                        .collect();
+                    let part = eval(&g, &env, field_ty)?;
                     match self.split(cx, &part, depth, top)? {
                         Some((t, s)) => {
                             proofs.push(t);
@@ -811,14 +842,17 @@ impl Search<'_> {
     fn search(&mut self, cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Option<(Term, Txt)>> {
         if depth < MAX_DEPTH && !self.over {
             let goal_key = key(cx, &force(&cx.g(), goal.clone())?, cx.level())?;
-            let facts: Vec<Fact> = self.facts.iter().rev().cloned().collect();
-            for fact in facts {
-                if !fits(fact.key, goal_key) || !is_function(cx, &cx.types[fact.level])? {
+            // A premise's proof puts back the facts it adds, so the list is
+            // the same at each turn.
+            for k in (0..self.facts.len()).rev() {
+                let fact = &self.facts[k];
+                if !fact.function || !fits(fact.key, goal_key) {
                     continue;
                 }
                 let term = Term::Var(cx.level() - 1 - fact.level);
                 let ty = cx.types[fact.level].clone();
-                if let Some(found) = self.apply(cx, term, ty, fact.text.clone(), goal, depth)? {
+                let text = fact.text.clone();
+                if let Some(found) = self.apply(cx, term, ty, text, goal, depth)? {
                     return Ok(Some(found));
                 }
                 if self.over {
@@ -971,7 +1005,6 @@ impl Search<'_> {
         }
         let g = cx.g();
         let snapshot = Snapshot::take(cx);
-        let saved = self.facts.clone();
         let found = (|| -> Result<Option<(Term, Txt)>> {
             // The binders, each an unknown for now.
             let mut binders: Vec<(Icit, Value, Term)> = Vec::new();
@@ -1052,13 +1085,11 @@ impl Search<'_> {
             Ok(Some(found)) => Ok(Some(found)),
             Ok(None) => {
                 snapshot.restore(cx);
-                self.facts = saved;
                 Ok(None)
             }
             Err(e) if crate::undo::fatal(&e) => Err(e),
             Err(_) => {
                 snapshot.restore(cx);
-                self.facts = saved;
                 Ok(None)
             }
         }
@@ -1164,7 +1195,7 @@ impl Search<'_> {
         if self.substitutions >= MAX_SUBSTITUTIONS {
             return Ok(None);
         }
-        let goal_free = crate::matching::free_levels(&cx.quote_folded(goal)?, n);
+        let mut goal_free: Option<Vec<usize>> = None;
         for fact in self.facts.iter().rev() {
             let Value::Eq(a, l, r) = force(&g, cx.types[fact.level].clone())? else {
                 continue;
@@ -1205,7 +1236,13 @@ impl Search<'_> {
                     continue;
                 }
                 // Worth it only if the goal or another fact mentions `x`.
-                let mut mentioned = goal_free.contains(&x);
+                let free = match &mut goal_free {
+                    Some(free) => free,
+                    None => {
+                        goal_free.insert(crate::matching::free_levels(&cx.quote_folded(goal)?, n))
+                    }
+                };
+                let mut mentioned = free.contains(&x);
                 for f in &self.facts {
                     if mentioned {
                         break;
@@ -1554,16 +1591,12 @@ fn is_prop_family_application(cx: &Ctx, ty: &Value) -> Result<bool> {
     Ok(matches!(force(&g, fty)?, Value::Sort(Sort::Prop)))
 }
 
-/// Whether `ty` takes arguments: something phase 2 applies.
-fn is_function(cx: &Ctx, ty: &Value) -> Result<bool> {
-    Ok(matches!(force(&cx.g(), ty.clone())?, Value::Pi(..)))
-}
-
-/// Whether a goal is one `arithmetic` might prove.
+/// Whether a goal is one `arithmetic` might prove: an equation or test, a
+/// negation, or a definition's statement; never a variable's (`g x`).
 fn is_arithmetic(goal: &Value) -> bool {
     matches!(
         goal,
-        Value::Eq(..) | Value::Neutral(..) | Value::Call(..) | Value::Pi(..)
+        Value::Eq(..) | Value::Neutral(Head::Def(_), _) | Value::Call(..) | Value::Pi(..)
     )
 }
 
