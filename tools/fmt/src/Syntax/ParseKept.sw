@@ -762,8 +762,7 @@ theorem readsBracketedTail ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (outside: OutsideAtoms self)
     (isOpen: open.kind = LParen):
     Parse.ReadsIn GoodItems (() => bracketedTail self modes open.leaf.word) (read value => Kept [open, ..read] value) :=
-  Parse.readsThen (nested { modes = modes.inBrackets, level = LevelFull }) (inside first kept =>
-    readsBracketedFirst self modes.inBrackets open inside first nested outside isOpen kept)
+  byWalking [readsBracketedFirst]
 
 theorem readsKeptBracketed ∀ (self: Goal → {Parse Item} Expr) (modes: Modes)
     (nested: NestedKept self)
@@ -886,8 +885,7 @@ theorem readsListItems ∀ (self: Goal → {Parse Item} Expr) (inner: Modes) (op
     (nested: NestedKept self)
     (isOpen: open.kind = LBracket):
     Parse.ReadsIn GoodItems (() => listItems self inner open.leaf.word) (read value => Kept [open, ..read] value) :=
-  Parse.readsThen (readsListItem self inner nested) (inside first kept =>
-    readsListItemsFrom self inner open inside first nested isOpen kept)
+  byWalking [readsListItem, readsListItemsFrom]
 
 --| An empty list's items: none, and no comma.
 theorem itemsKeptNil: ItemsKept [] [] False := grammar => (byComputing, close => byComputing, byComputing, byComputing)
