@@ -70,7 +70,7 @@ theorem followsLetExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (lets: LetStatementFollows self selfTwin)
     (bodies: LetBodyFollows self selfTwin) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => letExpr self modes) (() => letExpr selfTwin modes) :=
-  Parse.followsThen (lets modes.sealed) (binding twin alike => bodies modes binding twin alike)
+  byWalking []
 
 theorem followsMatchedPiped ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: LambdaFacts self selfTwin)
@@ -164,9 +164,7 @@ theorem followsPiHere ∀ (modes: Modes): Parse.Follows SameCode Same (() => piH
 theorem followsIfKeyword ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (knot: SelfFollows self selfTwin) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => ifKeyword self modes) (() => ifKeyword selfTwin modes) :=
-  followsThenEq followsHeadIndent (indent =>
-    Parse.followsThen followsBump (keyword keywordTwin keywords =>
-      followsIfExpr knot modes indent keyword keywordTwin keywords))
+  byWalking [followsHeadIndent, followsIfExpr knot]
 
 theorem followsExprPi ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: PiFacts self selfTwin)
@@ -191,7 +189,7 @@ theorem followsExprImplicit ∀ [self selfTwin: Goal → {Parse Item} Expr]
 theorem followsExprPlain ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: PiFacts self selfTwin) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => exprPlain self modes) (() => exprPlain selfTwin modes) :=
-  followsThenEq (followsImplicitHere modes) (implicit => followsExprImplicit facts modes implicit)
+  byWalking [followsImplicitHere, followsExprImplicit]
 
 theorem followsExprBinder ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: PiFacts self selfTwin)
@@ -211,12 +209,7 @@ theorem followsExprResult ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: PiFacts self selfTwin)
     (modes: Modes) (refused: Bool):
     Parse.Follows SameCode ExprsAlike (() => exprResult self modes refused) (() => exprResult selfTwin modes refused) :=
-  match refused with
-    | True =>
-      followsFatalAny "a lambda doesn't take a result type" (() => Syntax.fatal "a lambda doesn't take a result type")
-    | False =>
-      followsPeeked modes (seen => exprBinder self modes seen) (seen => exprBinder selfTwin modes seen) (seen =>
-        followsExprBinder facts modes seen)
+  byWalking [followsFatalAny, followsExprBinder]
 
 theorem followsExprLambda ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: PiFacts self selfTwin)
@@ -240,7 +233,7 @@ theorem followsExprWalk ∀ [self selfTwin: Goal → {Parse Item} Expr]
 theorem followsExprOther ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: KeywordFacts self selfTwin) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => exprOther self modes) (() => exprOther selfTwin modes) :=
-  followsThenEq (followsWalkHere modes) (walk => followsExprWalk facts modes walk)
+  byWalking [followsWalkHere, followsExprWalk]
 
 theorem followsExprInlineOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: KeywordFacts self selfTwin)
@@ -259,8 +252,7 @@ theorem followsExprInlineOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
 theorem followsExprInline ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: KeywordFacts self selfTwin) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => exprInline self modes) (() => exprInline selfTwin modes) :=
-  followsPeeked modes (seen => exprInlineOn self modes seen) (seen => exprInlineOn selfTwin modes seen) (seen =>
-    followsExprInlineOn facts modes seen)
+  byWalking [followsExprInlineOn]
 
 -- Blocks.
 
@@ -462,19 +454,7 @@ theorem followsBlockDone ∀ [self selfTwin: Goal → {Parse Item} Expr] (more: 
       (List.All2 StatementsAlike)
       (() => blockDone more self modes column many found before line)
       (() => blockDone more selfTwin modes column many foundTwin before lineTwin) :=
-  followsOn
-    (seen => blockItems more self modes column many [line, ..found] before seen)
-    (seen => blockItems more selfTwin modes column many [lineTwin, ..foundTwin] before seen)
-    (seen others same =>
-      followsBlockItems more modes column many
-        [line, ..found]
-        [lineTwin, ..foundTwin]
-        (Both lines founds)
-        before
-        seen
-        others
-        same
-        rest)
+  byWalking [followsBlockItems]
 
 theorem followsBlockKind ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (statements: StatementFollows self selfTwin)
@@ -488,10 +468,7 @@ theorem followsBlockKind ∀ [self selfTwin: Goal → {Parse Item} Expr]
       (List.All2 StatementsAlike)
       (() => blockKind more self modes column many found before statementModes seen)
       (() => blockKind more selfTwin modes column many foundTwin before statementModes seen) :=
-  Parse.followsThen
-    (statements { statementModes | lines = [{ column, many, kind = lineKindOf seen }, ..modes.lines] })
-    (line lineTwin lines =>
-      followsBlockDone more modes column many found foundTwin founds before line lineTwin lines rest)
+  byWalking [followsBlockDone]
 
 theorem followsBlockLine ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (statements: StatementFollows self selfTwin)
@@ -614,8 +591,7 @@ theorem followsExprOn ∀ [self selfTwin: Goal → {Parse Item} Expr]
 theorem followsExpr ∀ [self selfTwin: Goal → {Parse Item} Expr]
     (facts: StatementFacts self selfTwin) (modes: Modes):
     Parse.Follows SameCode ExprsAlike (() => expr self modes) (() => expr selfTwin modes) :=
-  followsOn (seen => exprOn self modes seen) (seen => exprOn selfTwin modes seen) (seen others same =>
-    followsExprOn facts modes seen others same)
+  byWalking [followsExprOn]
 
 -- The rule that `expression` is built from.
 
