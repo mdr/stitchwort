@@ -7136,6 +7136,14 @@ fn explicit_lambda(
 /// too, so a `true` here is what it will accept. A `false` leaves the
 /// answer, and any message, to unification.
 fn same_unglued(cx: &mut Ctx, a: &Value, b: &Value) -> Result<bool> {
+    // Exactly alike (`countdown 0 100000000` against itself) convert without
+    // running anything. Reading one back would run the call, and a call too
+    // big for that runs the whole operation out of steps or stack, which
+    // is sticky: unification, which accepts the pair as it is, would then
+    // fail too.
+    if stitchwort_core::value::same_value(a, b) {
+        return Ok(true);
+    }
     let closed = |cx: &Ctx, v: &Value| -> Result<Option<Term>> {
         let term = cx.quote_folded(v)?;
         let term = cx.e.zonk_keeping(&term, cx.level(), &|_| true)?;
