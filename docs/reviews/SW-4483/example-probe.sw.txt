@@ -1,0 +1,20 @@
+import Std (Parse)
+
+theorem probe: Parse.run "9-1-2*3".toList (() =>
+      Parse.operators "an operator" Parse.operatorsExampleLevels Parse.operatorsExampleDigit)
+      = Ok 2 :=
+  Parse.runsRun
+    (() => Parse.operators "an operator" Parse.operatorsExampleLevels Parse.operatorsExampleDigit)
+    "9-1-2*3".toList
+    2
+    (Parse.runsOperators "an operator" Parse.operatorsExampleLevels Parse.operatorsExampleDigit
+        Parse.operatorsExampleTree []
+        cases
+        (Both
+          (Both
+            (Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '9' 9 _ byComputing)
+            (Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '1' 1 _ byComputing))
+          (Both
+            (Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '2' 2 _ byComputing)
+            (Parse.runsOne "a digit" Parse.operatorsExampleDigitOf '3' 3 _ byComputing)))
+        byComputing)

@@ -1,0 +1,26 @@
+-- a
+theorem t ∀ (n: Nat) (h: 3 ≤ n): (1 ≤ 2) ∧ ((2 == 2) = True) ∧ (2 < n + 5) := cases
+-- b
+theorem t ∀ (p q: Nat → Bool) (g: Nat → Prop) (step: ∀ (x: Nat) => p x = True → q x = True → g x) (a: p 3 = True) (b: q 3 = True): g 3 := cases
+-- b1
+theorem t ∀ (p: Nat → Bool) (g: Nat → Prop) (step: ∀ (x: Nat) => p x = True → g x) (a: p 3 = True): g 3 := cases
+-- b2
+theorem t ∀ (a b c: Prop) (f: a → b → c) (x: a) (y: b): c := cases
+-- e
+theorem t ∀ (a b c: Bool) (h: (a && b && c) = True): b = True := cases
+-- f
+theorem t ∀ (p q: Nat → Bool) (h: ∃ (n: Nat) => p n = True ∧ q n = True): ∃ (n: Nat) => q n = True := cases
+-- g
+theorem t ∀ (a b c d: Prop) (f: a → b) (g: b → c) (k: c → d) (x: a): d := cases
+-- h
+theorem t ∀ (f: Nat → Nat) (a b: Nat) (e: a = b) (h: f b = 0): f a = 0 := cases
+-- i
+theorem t ∀ (xs ys: List Nat) (f: List Nat → Nat) (e: xs = ys) (h: f ys = 0): f xs = 0 := cases
+-- j
+theorem t ∀ (a b c: Prop) (h: a ∧ b) (f: a → c): c ∧ b := cases
+-- k
+theorem t ∀ (a b: Prop) (f: a → b) (x: a): b := cases
+-- l
+theorem t ∀ (p q: Bool) (f: p = True → q = True) (x: p = True): q = True := cases
+-- m
+theorem t ∀ (p q r: Nat → Prop) (step: ∀ (x y: Nat) => p x → q y → r y) (hp: p 5) (hq: q 3): r 3 := cases
