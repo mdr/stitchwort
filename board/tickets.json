@@ -30982,7 +30982,7 @@
     {
       "id": 4512,
       "title": "[Opus] A nested bind in a walk costs 2.5-3x the hand proof even with a direct lemma (givesListItemsFrom 233k steps vs 73k; SW-4495): profile the nested-bind machinery (fix_nested_goal etc. in crates/elab/src/walk) and cut it; givesListItemsFrom/FromAny and givesDataParamStep sit near the 3x bar",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
