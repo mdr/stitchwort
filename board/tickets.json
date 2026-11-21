@@ -31307,15 +31307,17 @@
     {
       "id": 4537,
       "title": "[Fable] Slice 1 against Lean 4 and Rocq, stratified sample: split slice 1's proof into its parts (parser walks, read-back runs, printer/Doc, settle, lexer, tree and alike facts, top theorems), draw a seeded random sample per part weighted by proof lines, port each theorem to Lean 4 and Rocq on faithful cut-down definitions (compiled), count as SW-4222/SW-4464, and estimate the whole-slice ratio with its uncertainty; stage 1 plans and pilots, ports fan out to Opus lanes",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nStage 1 done (Fable lane, 21 Nov, branch lane/SW-4537, e028ff09a): docs/reviews/SW-4537-lean-rocq-sample.md with scripts and pilot in docs/reviews/SW-4537/. Eight strata measured (walk, two-run, readback, tree, lexer, settle, printer, top; 5,422 theorems, 71,786 statement+proof lines). Sample: 30 theorems, seed 4537, drawn by length inside each stratum, 3 reserves each. Pilot (3 theorems, compiled in Lean 4.35 and Rocq 9.1): 34 lines in Stitchwort, 26 in Lean, 23 in Rocq. Next: three Opus port lanes, batches A (parser, 7 theorems, 60 min), B (syntax side, 7, 70 min), C (printer and top, 13, 60 min); then stage 2 runs estimate.py.\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
-      "commits": []
+      "commits": [
+        "e028ff09a"
+      ]
     }
   ]
 }
