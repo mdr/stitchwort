@@ -31042,7 +31042,9 @@
       "body": "\n\nProgress (Sonnet lane, 21 Nov 2026): G1 met (all 11 goals within 0.1 ms of the hand term); G2 six of eight rows qualify (7, 10, 17, 18, 34, 37; row 20 fails, row 25 a tie); G3 met in aggregate: 4.2% of 2011 proof lines beyond today's tools (Words.sw 7.8%, Reach.sw 4.3%, AoC 2021 day 12 0.6%), check time 1.0-1.2x; G4 half: reject examples under 5 ms (max 4.0), row 34 with a part removed 290-360 ms. Main finding: a fact or lemma with an ∧/record conclusion is never used. Report: docs/reviews/SW-4516-byfacts-outside-pilot.md. Model result: Sonnet, worked, ~30 min (est. 45).\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
-      "commits": []
+      "commits": [
+        "13f7c2698"
+      ]
     },
     {
       "id": 4517,
