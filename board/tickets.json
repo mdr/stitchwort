@@ -1,5 +1,5 @@
 {
-  "next": 4512,
+  "next": 4515,
   "tickets": [
     {
       "id": 47,
@@ -30761,7 +30761,7 @@
     {
       "id": 4495,
       "title": "[Opus] --expand-walk for a bind inside a bound computation: write the inner Parse.givesThen's holds explicitly ([holds := value => ...], the first implicit nested_bind computes in crates/elab/src/walk/mod.rs), so the expansions of givesNested, givesFromMark and givesBound in examples/accept/walk-operation.sw elaborate; then add walk-operation to walk_expand.rs. Also: a @[walk] instance of givesCommaListFrom for listItem (givesListItemsFrom/Any at 3.2x), and a lemma for the givesBinderGroup ... givesRefuseAttributes pair (givesDataParamStep 3.07x) (SW-4487)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -30969,6 +30969,45 @@
     {
       "id": 4511,
       "title": "[DeepSeek] One shared helper for evaluating a record's proof fields: goal_parts in cases.rs is a third copy of the record-field evaluation in facts.rs (SW-4509 finding 5); mechanical, no behaviour change",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4512,
+      "title": "[Opus] A nested bind in a walk costs 2.5-3x the hand proof even with a direct lemma (givesListItemsFrom 233k steps vs 73k; SW-4495): profile the nested-bind machinery (fix_nested_goal etc. in crates/elab/src/walk) and cut it; givesListItemsFrom/FromAny and givesDataParamStep sit near the 3x bar",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4513,
+      "title": "[DeepSeek] Use givesExpressionBinderGroup (SW-4495) in place of givesBinderGroup expressionAt modes givesExpressionAt False in givesAbilityParamStep, givesDataIndexAt and givesDataParamBracket (tools/fmt Syntax.ParseWalkOthers); check that namespace only",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4514,
+      "title": "[Sonnet] --expand-walk source read-back (crates/elab/src/walk/source.rs, SW-4495): handle if and match inside bound code, write a True post as True (not True = True) and x + 1 as x + 1 (not Succ x)",
       "status": "backlog",
       "agent": "",
       "where": "",
