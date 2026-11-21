@@ -341,10 +341,10 @@ theorem firstCalm ∀ (expr: Expr) (item: Bool)
 
 -- What the rules ask of an expression, which `calm` keeps.
 
-theorem sizeCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): (expr.calm item).size = expr.size :=
+theorem sizeCalm ∀ [expr: Expr] (item: Bool) (within: expr.within1 = True): (expr.calm item).size = expr.size :=
   (allAlikeLength expr.words (expr.calm item).words (wordsCalm expr item within)).flipped
 
-theorem trailsCalm ∀ (expr: Expr) (item: Bool) (within: expr.within1 = True): (expr.calm item).trails = expr.trails :=
+theorem trailsCalm ∀ [expr: Expr] (item: Bool) (within: expr.within1 = True): (expr.calm item).trails = expr.trails :=
   (trailsBackAlike expr.words.reverse
     (expr.calm item).words.reverse
     (allAlikeReverse expr.words (expr.calm item).words (wordsCalm expr item within))).flipped
@@ -505,7 +505,7 @@ theorem parenInnerKept ∀ (inner: Expr) (around: Around)
 theorem concatCong ∀ (docs docs': List Doc) (same: docs = docs'): Doc.concat docs = Doc.concat docs' :=
   Eq.cong (list => Doc.concat list) same
 
-theorem list2 ∀ (a b a' b': Doc) (first: a = a') (second: b = b'): [a, b] = [a', b'] := rewrite first, second
+theorem list2 ∀ [a b a' b': Doc] (first: a = a') (second: b = b'): [a, b] = [a', b'] := rewrite first, second
 
 theorem list3 ∀ (a b c a' b' c': Doc) (first: a = a') (second: b = b') (third: c = c'): [a, b, c] = [a', b', c'] :=
   rewrite first, second, third
@@ -551,8 +551,8 @@ theorem parenKept ∀ (open: Word) (inner: Expr) (close: Word) (around: Around) 
             inner.trails
             (1 + (inner.calm False).size)
             (1 + inner.size)
-            (trailsCalm inner False (goodWithin inner inside))
-            (Eq.cong (size => 1 + size) (sizeCalm inner False (goodWithin inner inside))),
+            (trailsCalm False (goodWithin inner inside))
+            (Eq.cong (size => 1 + size) (sizeCalm False (goodWithin inner inside))),
           leafKept close
             (around.next inner.trails (1 + inner.size))
             around.at
@@ -698,11 +698,11 @@ theorem cellsKept ∀ (bare arm before: Bool) (at: Nat) (items: List Expr)
         (concatCong
           [(item.calm (!bare)).el (firstAround bare arm before at), Closing ","]
           [item.el (firstAround bare arm before at), Closing ","]
-          (list2 _ _ _ _ (first (firstAround bare arm before at)) byComputing))
+          (list2 (first (firstAround bare arm before at)) byComputing))
         (rewrite calmAllList rest,
-            sizeCalm item (!bare) (goodWithin item (allGoodHead item rest good)),
-            trailsCalm item (!bare) (goodWithin item (allGoodHead item rest good)) then
-          cellsKept False arm item.trails (at + item.size) (rest) others (allGoodTail item rest good))
+            sizeCalm (!bare) (goodWithin item (allGoodHead rest good)),
+            trailsCalm (!bare) (goodWithin item (allGoodHead rest good)) then
+          cellsKept False arm item.trails (at + item.size) (rest) others (allGoodTail rest good))
 
 --| A broken bracket's lines are the same for the calm items.
 --|
@@ -713,7 +713,7 @@ theorem brokenItemsKept ∀ (bare arm first before: Bool) (at: Nat) (items: List
     brokenItems bare arm first before at (calmList (!bare) items) = brokenItems bare arm first before at items :=
   match items, each with
     | [], _ => byComputing
-    | [item], (kept, _) => list2 _ _ _ _ byComputing (kept (firstAround bare arm before at))
+    | [item], (kept, _) => list2 byComputing (kept (firstAround bare arm before at))
     | [item, ..rest], (kept, others) =>
       List.consEqOfEq
         (if first then SoftLine else Line)
@@ -738,9 +738,9 @@ theorem brokenItemsKept ∀ (bare arm first before: Bool) (at: Nat) (items: List
             (brokenItems False arm False item.trails (at + item.size) rest)
             byComputing
             (rewrite calmAllList rest,
-                sizeCalm item (!bare) (goodWithin item (allGoodHead item rest good)),
-                trailsCalm item (!bare) (goodWithin item (allGoodHead item rest good)) then
-              brokenItemsKept False arm False item.trails (at + item.size) rest others (allGoodTail item rest good))))
+                sizeCalm (!bare) (goodWithin item (allGoodHead rest good)),
+                trailsCalm (!bare) (goodWithin item (allGoodHead rest good)) then
+              brokenItemsKept False arm False item.trails (at + item.size) rest others (allGoodTail rest good))))
 
 --| `bracketContent` with what it reads of the items worked out beforehand: whether there are none, whether all are
 --| plain values, whether a comment is held inside, the opener and closer, and the lines the items make filled or
@@ -942,7 +942,7 @@ theorem keptFrontKept ∀ (previous previous': Expr) (arguments: List Expr)
               (keptFrontKept argument
                 (argument.calm False)
                 rest
-                (trailsCalm argument False (Bool.andLeft within))
+                (trailsCalm False (Bool.andLeft within))
                 (Bool.andRight within))
           | False => byComputing
 
@@ -955,11 +955,7 @@ theorem commentBetweenKept ∀ (previous previous': Expr) (arguments: List Expr)
     | [next, ..rest] =>
       rewrite notedCalm next False (Bool.andLeft within),
           sameTrails,
-          commentBetweenKept next
-            (next.calm False)
-            rest
-            (trailsCalm next False (Bool.andLeft within))
-            (Bool.andRight within)
+          commentBetweenKept next (next.calm False) rest (trailsCalm False (Bool.andLeft within)) (Bool.andRight within)
 
 -- Elements, in one induction with chains.
 
@@ -976,10 +972,10 @@ theorem allGoodOf ∀ (items: List Expr)
         (Bool.andIntro (Bool.andLeft within) (Bool.andLeft closed))
         (allGoodOf rest (Bool.andRight within) (Bool.andRight closed))
 
-theorem allGoodHead ∀ (first: Expr) (rest: List Expr) (good: allGood [first, ..rest] = True): first.good = True :=
+theorem allGoodHead ∀ [first: Expr] (rest: List Expr) (good: allGood [first, ..rest] = True): first.good = True :=
   Bool.andLeft good
 
-theorem allGoodTail ∀ (first: Expr) (rest: List Expr) (good: allGood [first, ..rest] = True): allGood rest = True :=
+theorem allGoodTail ∀ [first: Expr] (rest: List Expr) (good: allGood [first, ..rest] = True): allGood rest = True :=
   Bool.andRight good
 
 theorem parenGood ∀ (open: Word) (inner: Expr) (close: Word)
@@ -1070,8 +1066,8 @@ theorem chainLinksKept ∀ (level: Option Nat) (first: Bool) (left: Expr) (opera
   let leafSame: (operator.kept False False).leaf calmedAround calmedAround.at
     = operator.leaf leftAround leftAround.at :=
     rewrite nextEq around calmed.trails left.trails calmed.size left.size
-          (trailsCalm left around.item (goodWithin left leftGood))
-          (sizeCalm left around.item (goodWithin left leftGood)),
+          (trailsCalm around.item (goodWithin left leftGood))
+          (sizeCalm around.item (goodWithin left leftGood)),
         leafKept operator leftAround leftAround.at False False byComputing byComputing
   let rightSame: calmedRight = rightAround :=
     rewrite nextEq around
@@ -1080,7 +1076,7 @@ theorem chainLinksKept ∀ (level: Option Nat) (first: Bool) (left: Expr) (opera
       (calmed.size + 1)
       (left.size + 1)
       byComputing
-      (Eq.cong (size => size + 1) (sizeCalm left around.item (goodWithin left leftGood)))
+      (Eq.cong (size => size + 1) (sizeCalm around.item (goodWithin left leftGood)))
   appendCong
     (linkDocs level first calmed around)
     [
@@ -1294,8 +1290,7 @@ theorem elCalm ∀ (expr: Expr) (around: Around)
 
 theorem allElKept ∀ (items: List Expr) (good: allGood items = True): AllElKept items := match items with
   | [] => byComputing
-  | [first, ..rest] =>
-    ((below => elCalm first below (allGoodHead first rest good)), (allElKept rest (allGoodTail first rest good)))
+  | [first, ..rest] => ((below => elCalm first below (allGoodHead rest good)), (allElKept rest (allGoodTail rest good)))
 
 --| A call's last argument and its hug are the same for the calm argument.
 --|
@@ -1339,19 +1334,19 @@ theorem argumentDocsKept ∀ (arm: Bool) (previous previous': Expr) (at: Nat) (a
           (last => ([], Some last))
           (lastArgumentKept argument
             { before = previous.trails, hoisted = False, item = False, at, inArm = arm }
-            (allGoodHead argument [] good))
+            (allGoodHead [] good))
     | [argument, ..rest] =>
       rewrite sameTrails,
-          sizeCalm argument False (goodWithin argument (allGoodHead argument rest good)),
+          sizeCalm False (goodWithin argument (allGoodHead rest good)),
           argumentDocsKept arm argument
             (argument.calm False)
             (at + argument.size)
             rest
-            (trailsCalm argument False (goodWithin argument (allGoodHead argument rest good)))
-            (allGoodTail argument rest good),
+            (trailsCalm False (goodWithin argument (allGoodHead rest good)))
+            (allGoodTail rest good),
           elCalm argument
             { before = previous.trails, hoisted = False, item = False, at, inArm = arm }
-            (allGoodHead argument rest good)
+            (allGoodHead rest good)
 
 theorem takeWithin ∀ (items: List Expr) (count: Nat)
     (within: allWithin1 items = True):
@@ -1369,9 +1364,9 @@ theorem appKept ∀ (head: Expr) (arguments: List Expr) (around: Around)
     (argumentsGood: allGood arguments = True):
     appDocs (head.calm around.item) (calmAll False arguments) around = appDocs head arguments around :=
   let within := allGoodWithin arguments argumentsGood
-  let sameTrails := trailsCalm head around.item (goodWithin head headGood)
+  let sameTrails := trailsCalm around.item (goodWithin head headGood)
   rewrite elCalm head around headGood,
-      sizeCalm head around.item (goodWithin head headGood),
+      sizeCalm around.item (goodWithin head headGood),
       argumentDocsKept around.inArm head
         (head.calm around.item)
         (around.at + head.size)
@@ -1632,7 +1627,7 @@ theorem plainDefKept ∀ (keyword: Comments) (name: Word) (colon: Comments) (res
     = spaced (headDocs start [fixedWord "def" keyword, name]) :=
     Eq.cong
       (docs => spaced docs)
-      (list2 _ _ _ _ byComputing
+      (list2 byComputing
         (leafKept name (start.next (fixedWord "def" keyword).trails 1) 1 False False byComputing byComputing))
   let leafEq :=
     leafKept colonWord (start.next (trailsBack [name, fixedWord "def" keyword]) 2) 2 False False byComputing byComputing
@@ -1640,7 +1635,7 @@ theorem plainDefKept ∀ (keyword: Comments) (name: Word) (colon: Comments) (res
     Eq.cong
       (typed => if colonWord.trails then [Nest 4 (Doc.concat [HardLine, typed])] else [Doc.text " ", Nest 4 typed])
       typeEq
-  let headerEq := concatCong _ _ (appendCong _ _ _ _ (list2 _ _ _ _ headEq leafEq) typedEq)
+  let headerEq := concatCong _ _ (appendCong _ _ _ _ (list2 headEq leafEq) typedEq)
   let aroundEq :=
     nextEq start
       (fixedWord ":=" (colonEq.kept False False)).trails
@@ -1648,7 +1643,7 @@ theorem plainDefKept ∀ (keyword: Comments) (name: Word) (colon: Comments) (res
       (4 + (result.calm False).size)
       (4 + result.size)
       byComputing
-      (Eq.cong (size => 4 + size) (sizeCalm result False within))
+      (Eq.cong (size => 4 + size) (sizeCalm False within))
   let bodyEq :=
     Eq.trans
       (Eq.cong
@@ -1676,9 +1671,9 @@ theorem plainDefKept ∀ (keyword: Comments) (name: Word) (colon: Comments) (res
           result.trails
           (3 + (result.calm False).size)
           (3 + result.size)
-          (trailsCalm result False within)
-          (Eq.cong (size => 3 + size) (sizeCalm result False within)))
-        (Eq.cong (size => 3 + size) (sizeCalm result False within)))
+          (trailsCalm False within)
+          (Eq.cong (size => 3 + size) (sizeCalm False within)))
+        (Eq.cong (size => 3 + size) (sizeCalm False within)))
       (leafKept assign
         (start.next result.trails (3 + result.size))
         (3 + result.size)

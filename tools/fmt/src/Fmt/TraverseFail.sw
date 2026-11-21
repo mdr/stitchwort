@@ -65,10 +65,10 @@ theorem exprBlanks ∀ (on: Steps)
     | NamedArg open name colonEq value close =>
       Fail.toResultAlike1Then (exprBlanks on deaf value) (v1 => deaf.expr (NamedArg open name colonEq v1 close))
     | FieldAccess target dot field =>
-      Fail.toResultAlike1Then (optionalBlanks on deaf target) (v1 => deaf.expr (FieldAccess v1 dot field))
+      Fail.toResultAlike1Then (optionalBlanks deaf target) (v1 => deaf.expr (FieldAccess v1 dot field))
     | Section body => Fail.toResultAlike1Then (exprBlanks on deaf body) (v1 => deaf.expr (Section v1))
     | OperatorSection open left operator right close =>
-      Fail.toResultAlike2Then (optionalBlanks on deaf left) (optionalBlanks on deaf right) (v1 v2 =>
+      Fail.toResultAlike2Then (optionalBlanks deaf left) (optionalBlanks deaf right) (v1 v2 =>
         deaf.expr (OperatorSection open v1 operator v2 close))
     | Infix kind left operator right =>
       Fail.toResultAlike2Then (exprBlanks on deaf left) (exprBlanks on deaf right) (v1 v2 =>
@@ -98,7 +98,7 @@ theorem exprBlanks ∀ (on: Steps)
     | Facts kind keyword facts =>
       Fail.toResultAlike1Then (exprBlanks on deaf facts) (v1 => deaf.expr (Facts kind keyword v1))
     | FunctionType binder arrow result =>
-      Fail.toResultAlike2Then (groupBlanks on deaf binder) (exprBlanks on deaf result) (v1 v2 =>
+      Fail.toResultAlike2Then (groupBlanks deaf binder) (exprBlanks on deaf result) (v1 v2 =>
         deaf.expr (FunctionType v1 arrow v2))
     | Effect row result =>
       Fail.toResultAlike2Then (rowBlanks on deaf row) (exprBlanks on deaf result) (v1 v2 => deaf.expr (Effect v1 v2))
@@ -124,14 +124,11 @@ theorem exprBlanks ∀ (on: Steps)
       Fail.toResultAlike2Then (exprBlanks on deaf first) (calcStepsBlanks on deaf steps) (v1 v2 =>
         deaf.expr (Calc keyword v1 v2))
     | Rewrite keyword rules target body =>
-      Fail.toResultAlike3Then
-        (rulesBlanks on deaf rules)
-        (afterBlanks on deaf target)
-        (afterBlanks on deaf body)
-        (v1 v2 v3 => deaf.expr (Rewrite keyword v1 v2 v3))
+      Fail.toResultAlike3Then (rulesBlanks on deaf rules) (afterBlanks deaf target) (afterBlanks deaf body) (v1 v2 v3 =>
+        deaf.expr (Rewrite keyword v1 v2 v3))
     | Cases keyword targets body =>
-      Fail.toResultAlike1Then (afterBlanks on deaf body) (v1 => deaf.expr (Cases keyword targets v1))
-    | Walk keyword items body => Fail.toResultAlike2Then (exprBlanks on deaf items) (afterBlanks on deaf body) (v1 v2 =>
+      Fail.toResultAlike1Then (afterBlanks deaf body) (v1 => deaf.expr (Cases keyword targets v1))
+    | Walk keyword items body => Fail.toResultAlike2Then (exprBlanks on deaf items) (afterBlanks deaf body) (v1 v2 =>
       deaf.expr (Walk keyword v1 v2))
 
 theorem statementsBlanks ∀ (on: Steps)
@@ -164,7 +161,7 @@ theorem letBlanks ∀ (on: Steps)
     | { keyword, pattern, annotation, colonEq, value } =>
       Fail.toResultAlike3
         (patternBlanks on deaf pattern)
-        (afterBlanks on deaf annotation)
+        (afterBlanks deaf annotation)
         (exprBlanks on deaf value)
         (v1 v2 v3 => byComputing)
 
@@ -201,7 +198,7 @@ theorem calcStepsBlanks ∀ (on: Steps)
     | [{ underscore, relation, operand, proof }, ..rest] =>
       Fail.toResultAlike3
         (exprBlanks on deaf operand)
-        (afterBlanks on deaf proof)
+        (afterBlanks deaf proof)
         (calcStepsBlanks on deaf rest)
         (v1 v2 v3 => byComputing)
 
@@ -297,7 +294,7 @@ theorem paramsBlanks ∀ (on: Steps)
     | [PatternParam pattern, ..rest] =>
       Fail.toResultAlike2 (patternBlanks on deaf pattern) (paramsBlanks on deaf rest) (v1 v2 => byComputing)
     | [Grouped group, ..rest] =>
-      Fail.toResultAlike2 (groupBlanks on deaf group) (paramsBlanks on deaf rest) (v1 v2 => byComputing)
+      Fail.toResultAlike2 (groupBlanks deaf group) (paramsBlanks on deaf rest) (v1 v2 => byComputing)
     | [TypedPattern open pattern colon annotation close, ..rest] =>
       Fail.toResultAlike3
         (patternBlanks on deaf pattern)
@@ -305,15 +302,15 @@ theorem paramsBlanks ∀ (on: Steps)
         (paramsBlanks on deaf rest)
         (v1 v2 v3 => byComputing)
 
-theorem groupBlanks ∀ (on: Steps)
+theorem groupBlanks ∀ [on: Steps]
     (deaf: Blanks on) (input: Group):
     runGroup on ((input.walk blankPure).blank) = (runGroup on input).map (x => (x.walk blankPure).blank) :=
   match input with
     | { kind, implicit, open, attributes, auto, names, colon, annotation, default, close, bare } =>
       Fail.toResultAlike3
         (attributesBlanks on deaf attributes)
-        (optionalBlanks on deaf annotation)
-        (afterBlanks on deaf default)
+        (optionalBlanks deaf annotation)
+        (afterBlanks deaf default)
         (v1 v2 v3 => byComputing)
 
 theorem patternBlanks ∀ (on: Steps)
@@ -419,7 +416,7 @@ theorem declBlanks ∀ (on: Steps)
                 (attributesBlanks on deaf attributes)
                 (groupsBlanks on deaf params)
                 (Fail.toResultAlike2 (indicesBlanks on deaf steps) (exprBlanks on deaf last) (w1 w2 => byComputing))
-                (Fail.toResultAlike1 [g2 := w1 => RecordBody Comments.none w1] (fieldsBlanks on deaf fields) (w1 =>
+                (Fail.toResultAlike1 [g2 := w1 => RecordBody Comments.none w1] (fieldsBlanks deaf fields) (w1 =>
                   byComputing))
                 (v1 v2 v3 v4 => deaf.decl (Data v1 isInterface keyword name v2 v3 v4))
             | Sum equals constructors =>
@@ -456,7 +453,7 @@ theorem declBlanks ∀ (on: Steps)
                 (attributesBlanks on deaf attributes)
                 (groupsBlanks on deaf params)
                 (Fail.toResultAlikePure byComputing)
-                (Fail.toResultAlike1 [g2 := w1 => RecordBody Comments.none w1] (fieldsBlanks on deaf fields) (w1 =>
+                (Fail.toResultAlike1 [g2 := w1 => RecordBody Comments.none w1] (fieldsBlanks deaf fields) (w1 =>
                   byComputing))
                 (v1 v2 v3 v4 => deaf.decl (Data v1 isInterface keyword name v2 v3 v4))
             | Sum equals constructors =>
@@ -510,7 +507,7 @@ theorem headerBlanks ∀ (on: Steps)
           }]
         (groupsBlanks on deaf params)
         (exprBlanks on deaf result)
-        (afterBlanks on deaf decreasingClause)
+        (afterBlanks deaf decreasingClause)
         (v1 v2 v3 =>
           deaf.header
             ({
@@ -542,8 +539,7 @@ theorem groupsBlanks ∀ (on: Steps)
       = (runGroups on input).map (x => blankGroups (walkGroups blankPure x)) :=
   match input with
     | [] => byComputing
-    | [first, ..rest] =>
-      Fail.toResultAlike2 (groupBlanks on deaf first) (groupsBlanks on deaf rest) (v1 v2 => byComputing)
+    | [first, ..rest] => Fail.toResultAlike2 (groupBlanks deaf first) (groupsBlanks on deaf rest) (v1 v2 => byComputing)
 
 theorem indicesBlanks ∀ (on: Steps)
     (deaf: Blanks on) (input: List (Index, Word)):
@@ -552,11 +548,11 @@ theorem indicesBlanks ∀ (on: Steps)
   match input with
     | [] => byComputing
     | [(IndexBinder binder, arrow), ..rest] =>
-      Fail.toResultAlike2 (groupBlanks on deaf binder) (indicesBlanks on deaf rest) (v1 v2 => byComputing)
+      Fail.toResultAlike2 (groupBlanks deaf binder) (indicesBlanks on deaf rest) (v1 v2 => byComputing)
     | [(IndexType annotation, arrow), ..rest] =>
       Fail.toResultAlike2 (exprBlanks on deaf annotation) (indicesBlanks on deaf rest) (v1 v2 => byComputing)
 
-theorem fieldsBlanks ∀ (on: Steps)
+theorem fieldsBlanks ∀ [on: Steps]
     (deaf: Blanks on) (input: Fields):
     runFields on (input.walk blankPure) = (runFields on input).map (x => x.walk blankPure) :=
   match input with
@@ -576,7 +572,7 @@ theorem fieldListBlanks ∀ (on: Steps)
       Fail.toResultAlike4
         (attributesBlanks on deaf attributes)
         (exprBlanks on deaf annotation)
-        (afterBlanks on deaf default)
+        (afterBlanks deaf default)
         (fieldListBlanks on deaf rest)
         (v1 v2 v3 v4 => byComputing)
 
@@ -590,7 +586,7 @@ theorem constructorsBlanks ∀ (on: Steps)
       Fail.toResultAlike4
         (attributesBlanks on deaf attributes)
         (partsBlanks on deaf fields)
-        (afterBlanks on deaf result)
+        (afterBlanks deaf result)
         (constructorsBlanks on deaf rest)
         (v1 v2 v3 v4 => byComputing)
 
@@ -601,9 +597,9 @@ theorem partsBlanks ∀ (on: Steps)
   match input with
     | [] => byComputing
     | [PartGroup group, ..rest] =>
-      Fail.toResultAlike2 (groupBlanks on deaf group) (partsBlanks on deaf rest) (v1 v2 => byComputing)
+      Fail.toResultAlike2 (groupBlanks deaf group) (partsBlanks on deaf rest) (v1 v2 => byComputing)
     | [PartFields fields, ..rest] =>
-      Fail.toResultAlike2 (fieldsBlanks on deaf fields) (partsBlanks on deaf rest) (v1 v2 => byComputing)
+      Fail.toResultAlike2 (fieldsBlanks deaf fields) (partsBlanks on deaf rest) (v1 v2 => byComputing)
 
 theorem operationsBlanks ∀ (on: Steps)
     (deaf: Blanks on) (input: List Operation):
@@ -623,14 +619,14 @@ theorem attributesBlanks ∀ (on: Steps)
     | [first, ..rest] =>
       Fail.toResultAlike2 (deaf.attributes first) (attributesBlanks on deaf rest) (v1 v2 => byComputing)
 
-theorem optionalBlanks ∀ (on: Steps)
+theorem optionalBlanks ∀ [on: Steps]
     (deaf: Blanks on) (input: Option Expr):
     runOptional on (walkOptional blankPure input) = (runOptional on input).map (x => walkOptional blankPure x) :=
   match input with
     | Some value => Fail.toResultAlike1 (exprBlanks on deaf value) (v1 => byComputing)
     | None => byComputing
 
-theorem afterBlanks ∀ (on: Steps)
+theorem afterBlanks ∀ [on: Steps]
     (deaf: Blanks on) (input: Option (Comments, Expr)):
     runAfter on (blankAfter (walkAfter blankPure input))
       = (runAfter on input).map (x => blankAfter (walkAfter blankPure x)) :=

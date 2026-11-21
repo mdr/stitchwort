@@ -92,10 +92,10 @@ theorem printedSpacingOfTouches ∀ (decl: Decl)
 -- The definition's document.
 
 --| A token that is no closer, free, then the printer stands after it.
-theorem wordEndsSteps ∀ (word: Word) (around: Around) (key: Nat)
+theorem wordEndsSteps ∀ [word: Word] (around: Around) (key: Nat)
     (joins: WordJoins word):
     Steps (word.leaf around key) (Fits True Free) [Free] (Ends True) :=
-  stepsTo _ _ _ _ (wordLeafSteps word around key Free joins (Inl byComputing)) (seam closed =>
+  stepsTo (wordLeafSteps word around key Free joins (Inl byComputing)) (seam closed =>
     endsWeaker word.trails True (_ => byComputing) seam (closedEnds word.trails seam closed))
 
 --| What follows a `:=`: the value below, or one of the layouts that keep its start on the line, each spacing the
@@ -118,17 +118,17 @@ theorem bodySteps ∀ (value: Expr) (assign: Word) (around: Around) (semi: Bool)
   let element: Steps (value.el around) (Fits True Free) spacing post :=
     elFree value around steps within shaped lexical joinable
   let afterGap: Steps (value.el around) (Gapped True) spacing post :=
-    stepsFrom _ _ _ element (seam gapped => gappedFits True Free seam byComputing gapped)
+    stepsFrom element (seam gapped => gappedFits byComputing gapped)
   let spacedStep: Steps (Doc.concat [Doc.text " ", value.el around]) (Ends True) spacing post :=
-    stepsConcat _ _ _ (stepsTwo (Doc.text " ") (Ends True) (Gapped True) post (stepsSpace True) afterGap)
+    stepsConcat _ (stepsTwo (Doc.text " ") (Ends True) (Gapped True) post (stepsSpace True) afterGap)
   let below: Steps (Nest 2 (Doc.concat [HardLine, value.el around])) (Ends True) spacing post :=
-    stepsNest 2 _ _
-      (stepsConcat _ _ _
+    stepsNest 2 _
+      (stepsConcat _
         (stepsTwo HardLine
           (Ends True)
           (Fits True Free)
           post
-          (stepsHard _ _ (seam ended => endsQuiet True seam ended) byComputing)
+          (stepsHard _ (seam ended => endsQuiet True seam ended) byComputing)
           element))
   let lowered: Steps (OneLineBelow (value.el around)) (Ends True) spacing post :=
     stepsOneLineBelow (Ends True) post (seam ended => endsQuiet True seam ended) byComputing element
@@ -140,7 +140,7 @@ theorem bodySteps ∀ (value: Expr) (assign: Word) (around: Around) (semi: Bool)
       spacing
       post
       (callHugSteps value inside within shaped lexical joinable)
-      (seam gapped => gappedFits True Free seam byComputing gapped)
+      (seam gapped => gappedFits byComputing gapped)
   rewrite matchedNone value inside within,
       valueElPlain value around semi within,
       lambdaHugNone value semi inside (value.el around) within then
@@ -148,8 +148,8 @@ theorem bodySteps ∀ (value: Expr) (assign: Word) (around: Around) (semi: Bool)
       | True => (below, below)
       | False => (
         below,
-        stepsChoice (Flatten (Doc.concat [Doc.text " ", value.el around])) _ (Ends True) post (
-          stepsFlatten _ _ spacedStep,
+        stepsChoice (Flatten (Doc.concat [Doc.text " ", value.el around])) _ (Ends True) (
+          stepsFlatten _ spacedStep,
           eachAppend
             (Ends True)
             spacing
@@ -185,14 +185,14 @@ theorem typedSteps ∀ (trails: Bool) (typeDoc: Doc) (spacing: List Spacing)
       (Ends True) :=
   match trails with
     | True =>
-      stepsLast _ _
-        (stepsNest 4 _ _
-          (stepsConcat _ _ _
+      stepsLast
+        (stepsNest 4 _
+          (stepsConcat _
             (stepsTwo HardLine
               (Ends True)
               (Fits True Free)
               (Ends True)
-              (stepsHard _ _ (seam ended => endsQuiet True seam ended) byComputing)
+              (stepsHard _ (seam ended => endsQuiet True seam ended) byComputing)
               typeSteps)))
     | False =>
       stepsTwo
@@ -201,7 +201,7 @@ theorem typedSteps ∀ (trails: Bool) (typeDoc: Doc) (spacing: List Spacing)
         (Gapped True)
         (Ends True)
         (stepsSpace True)
-        (stepsNest 4 _ _ (stepsFrom _ _ _ typeSteps (seam gapped => gappedFits True Free seam byComputing gapped)))
+        (stepsNest 4 _ (stepsFrom typeSteps (seam gapped => gappedFits byComputing gapped)))
 
 --| A plain definition: `def`, the name, `:`, the type, `:=` and the value, from where a free word may start, each
 --| token free but as the type's and value's `spacing` say.
@@ -238,7 +238,7 @@ theorem plainDefSteps ∀ (keyword: Comments) (name: Word) (colon: Comments) (re
   let typed := if colonWord.trails then [Nest 4 (Doc.concat [HardLine, typeDoc])] else [Doc.text " ", Nest 4 typeDoc]
   let headerDoc := Doc.concat ([headDoc, colonWord.leaf colonAround 2] ++ typed)
   let typeSteps: Steps typeDoc (Fits True Free) (result.spacing False) (Ends True) :=
-    stepsTo _ _ _ _
+    stepsTo
       (elFree result
         (start.next colonWord.trails 3)
         (elements result)
@@ -254,14 +254,14 @@ theorem plainDefSteps ∀ (keyword: Comments) (name: Word) (colon: Comments) (re
       (Fits True Free)
       (Ends True)
       (
-        wordEndsSteps keywordWord start 0 keywordJoins,
-        stepsFrom _ _ _ (wordEndsSteps name (start.next keywordWord.trails 1) 1 nameJoins) (seam gapped =>
-          gappedFits True Free seam byComputing gapped)
+        wordEndsSteps start 0 keywordJoins,
+        stepsFrom (wordEndsSteps (start.next keywordWord.trails 1) 1 nameJoins) (seam gapped =>
+          gappedFits byComputing gapped)
       )
   let colonSteps: Steps (colonWord.leaf colonAround 2) (Ends True) [Free] (Ends True) :=
-    stepsFrom _ _ _ (wordEndsSteps colonWord colonAround 2 colonJoins) (seam ended => endsFits True seam ended)
+    stepsFrom (wordEndsSteps colonAround 2 colonJoins) (seam ended => endsFits True seam ended)
   let headerSteps: Steps headerDoc (Fits True Free) [Free, Free, Free, ..result.spacing False] (Ends True) :=
-    stepsConcat _ _ _
+    stepsConcat _
       (stepsCons headDoc
         [colonWord.leaf colonAround 2, ..typed]
         (Fits True Free)
@@ -289,11 +289,10 @@ theorem plainDefSteps ∀ (keyword: Comments) (name: Word) (colon: Comments) (re
       || (value.layoutBody && (lastCode headWords).trails)
   let breaks := headerDoc.forcesBreak || inside
   let assignSteps: Steps assignLeaf (Gapped True) [Free] (Ends True) :=
-    stepsFrom _ _ _
-      (wordEndsSteps assign (start.next result.trails (3 + result.size)) (3 + result.size) assignJoins)
-      (seam gapped => gappedFits True Free seam byComputing gapped)
-  stepsSpacing _ _ _ byComputing
-    (stepsConcat _ _ _
+    stepsFrom (wordEndsSteps (start.next result.trails (3 + result.size)) (3 + result.size) assignJoins) (seam gapped =>
+      gappedFits byComputing gapped)
+  stepsSpacing byComputing
+    (stepsConcat _
       (stepsCons
         (IdGroup 0 headerDoc breaks)
         [Doc.text " ", assignLeaf, IfBroken 0 body.fst body.snd]

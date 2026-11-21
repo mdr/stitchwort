@@ -80,7 +80,7 @@ theorem joinedWithIs ∀ (separator first: Doc) (rest: List Doc):
 --|
 --| Proof idea: the first element leaves the fold as after its first word, which starts nothing and glues nothing,
 --| with nothing in force right of the indentation (`openedBound`); the rest keep it (`spacedRest`).
-theorem spacedHangs ∀ (kinds: Text → Tok) (first: Doc) (rest: List Doc) (indent column: Nat) (middle trails: Bool)
+theorem spacedHangs ∀ [kinds: Text → Tok] [first: Doc] (rest: List Doc) [indent column: Nat] [middle trails: Bool]
     (head: ElHangs kinds first indent column False middle wordStart)
     (parts: SpacedParts kinds indent middle trails rest):
     ElHangs kinds (spaced [first, ..rest]) indent column False trails wordStart :=
@@ -88,8 +88,7 @@ theorem spacedHangs ∀ (kinds: Text → Tok) (first: Doc) (rest: List Doc) (ind
     hangsBy (place trace next entered after =>
       let (_, _, (seated, below, clear, room)) := entered
       let opened := openedBy state (wordStart indent entry)
-      let bound: (inForce opened.blocks opened.top <= indent) = True :=
-        openedBound indent column state entry seated below clear room
+      let bound: (inForce opened.blocks opened.top <= indent) = True := openedBound seated below clear room
       let pre := Entered indent column False state entry (wordStart indent entry)
       rewrite joinedWithIs (Doc.text " ") first rest then
         (hangsConcat
@@ -117,7 +116,7 @@ theorem argHangs ∀ (kinds: Text → Tok) (doc: Doc) (inset indent: Nat) (state
     (el: ElHangs kinds doc inset inset before trails wordStart):
     HangLays kinds doc inset (ArgSeat state inset before) (AfterWords state indent trails) :=
   hangsBy (place trace next (folded, seat, _) after =>
-    let same := openedQuiet state (wordStart inset place) quiet unglued
+    let same := openedQuiet (wordStart inset place) quiet unglued
     (el state place) place _ trace next byComputing
       (byComputing, folded, seat)
       (hangsAfter (left later (ended, landed) =>
@@ -225,7 +224,7 @@ theorem argLineHangs ∀ (kinds: Text → Tok) (doc: Doc) (inset indent: Nat) (s
   hangsBy (place trace next ((folded, seat, _), start) after =>
     let first: startFor noted inset place = wordStart inset place := lineStartFor noted inset place start
     let seated: Seat inset inset False state place (startFor noted inset place) := rewrite first then seat
-    let same := openedQuiet state (startFor noted inset place) quiet unglued
+    let same := openedQuiet (startFor noted inset place) quiet unglued
     (el state place) place _ trace next byComputing
       (byComputing, folded, seated)
       (hangsAfter (left later (ended, landed) =>
@@ -317,8 +316,7 @@ theorem filledHangs ∀ (kinds: Text → Tok) (head: Doc) (args: List Doc) (more
       let inset := indent + more
       let (_, _, (seated, below, clear, room)) := entered
       let opened := openedBy state (wordStart indent entry)
-      let bound: (inForce opened.blocks opened.top <= indent) = True :=
-        openedBound indent column state entry seated below clear room
+      let bound: (inForce opened.blocks opened.top <= indent) = True := openedBound seated below clear room
       let (deep, same) := enteredDeeper indent inset column state entry place (hangOf kinds trace) arithmetic entered
       headHangs state entry place _ trace
         (left later => SepsLay args inset left later next)
@@ -365,7 +363,7 @@ theorem hangsOptions ∀ [kinds: Text → Tok] [first: Doc] [others: List Doc] [
         (hangsOptions two rest) place _ trace next byComputing holds (hangsAfter after)
       ))
 
-theorem elFlatten ∀ (kinds: Text → Tok) (doc: Doc) (indent column: Nat) (before trails: Bool)
+theorem elFlatten ∀ [kinds: Text → Tok] (doc: Doc) [indent column: Nat] [before trails: Bool]
     (el: ElHangs kinds doc indent column before trails wordStart):
     ElHangs kinds (Flatten doc) indent column before trails wordStart :=
   state entry => hangsFlatten (el state entry)
@@ -426,13 +424,9 @@ theorem brokenAppHangs ∀ (kinds: Text → Tok) (id k: Nat) (fillFront: Bool) (
     | True =>
       let at4: PartHangs kinds (Nest 4 (Doc.concat rest)) indent kept trails :=
         linedPart kinds (args.drop k) 4 indent kept trails byComputing restAt4
-      elThen kinds
+      elThen
         (IdGroup id (Nest 4 (Fill [headDoc, ..args.take k])) False)
         (IfBroken id (Nest 4 (Doc.concat rest)) (Nest 2 (Doc.concat rest)))
-        indent
-        column
-        kept
-        trails
         (state entry =>
           hangsIdGroup id False
             (filledHangs kinds headDoc
@@ -450,14 +444,10 @@ theorem brokenAppHangs ∀ (kinds: Text → Tok) (id k: Nat) (fillFront: Bool) (
         (state entry quiet unglued =>
           hangsIfBroken id indent (at4 state entry quiet unglued) (at2 state entry quiet unglued))
     | False =>
-      elThen kinds
+      elThen
         (spaced [headDoc, ..args.take k])
         (Nest 2 (Doc.concat rest))
-        indent
-        column
-        kept
-        trails
-        (spacedHangs kinds headDoc (args.take k) indent column middle kept (head indent) keptSpaced)
+        (spacedHangs (args.take k) (head indent) keptSpaced)
         at2
 
 --| A call (`appFrom`) as one element: whichever layout the printer takes, the fold after it as after its first
@@ -480,8 +470,7 @@ theorem appFromHangs ∀ (kinds: Text → Tok) (id k: Nat) (between betweenFront
   let args := front ++ [lastDoc]
   let (spacedAll, filledAll, (kept, keptSpaced, keptFilled, restAt2, restAt4), (fronted, frontSpaced, hugged)) := facts
   let all := spaced [headDoc, ..args]
-  let allHangs: ElHangs kinds all indent column False trails wordStart :=
-    spacedHangs kinds headDoc args indent column middle trails (head indent) spacedAll
+  let allHangs: ElHangs kinds all indent column False trails wordStart := spacedHangs args (head indent) spacedAll
   let pre: HangState → Place → Place → Hang → Prop := state entry =>
     Entered indent column False state entry (wordStart indent entry)
   let post: HangState → Place → Place → Hang → Prop := state entry place hang =>
@@ -511,26 +500,16 @@ theorem appFromHangs ∀ (kinds: Text → Tok) (id k: Nat) (between betweenFront
             column
             False
             trails
-            (elFlatten kinds all indent column False trails allHangs)
+            (elFlatten all allHangs)
             (state entry => (broken state entry, byComputing))
         | Some opened, hugged =>
           let hugDoc := Doc.concat [Flatten (spaced [headDoc, ..front]), Doc.text " ", opened]
           let hugHangs: ElHangs kinds hugDoc indent column False trails wordStart :=
-            elGapThen kinds
+            elGapThen
               (Flatten (spaced [headDoc, ..front]))
               (Doc.text " ")
               opened
-              indent
-              column
-              fronted
-              trails
-              (elFlatten kinds
-                (spaced [headDoc, ..front])
-                indent
-                column
-                False
-                fronted
-                (spacedHangs kinds headDoc front indent column middle fronted (head indent) frontSpaced))
+              (elFlatten (spaced [headDoc, ..front]) (spacedHangs front (head indent) frontSpaced))
               (Inr byComputing)
               (hugged opened byComputing)
           elChoice kinds
@@ -540,7 +519,7 @@ theorem appFromHangs ∀ (kinds: Text → Tok) (id k: Nat) (between betweenFront
             column
             False
             trails
-            (elFlatten kinds all indent column False trails allHangs)
+            (elFlatten all allHangs)
             (state entry => (hugHangs state entry, broken state entry, byComputing))
 
 -- Chains of elements.
@@ -625,7 +604,7 @@ theorem partHangsFor ∀ (kinds: Text → Tok) (doc: Doc) (indent: Nat) (before 
         (hangsPre (el state entry) (place hang (isEntry, folded, ended, clear) =>
           (isEntry, folded, endedLead indent before state entry unglued ended clear)))
         (place hang (ended, folded) =>
-          let same: opened = state := openedQuiet state (leadStart indent entry) quiet unglued
+          let same: opened = state := openedQuiet (leadStart indent entry) quiet unglued
           (rewrite same at ended then ended, rewrite same at folded then folded))
 
 --| A call's argument documents (`argumentDocs`) hang in turn, from where the function ended, each with no comments
@@ -856,9 +835,8 @@ theorem appElHangs ∀ (kinds: Text → Tok) (head argument: Expr) (rest: List E
       (lastArg argument rest).trails
       wordStart :=
   let inside := { around | hoisted = True }
-  framedHangs kinds
+  framedHangs
     (App head [argument, ..rest]).firstWord
-    around
     (appDocs head [argument, ..rest] inside).doc
     indent
     column

@@ -82,7 +82,7 @@ theorem printedPiecesOk ∀ (doc: Doc) (width: Nat) (kinds: Text → Tok)
   )
 
 --| `printedPiecesOk` of a slice 1 declaration, from the tree's facts, as `printLexes1Settled` takes them.
-theorem declPiecesOk ∀ (decl: Decl)
+theorem declPiecesOk ∀ [decl: Decl]
     (within: decl.within1 = True)
     (shaped: decl.shaped = True)
     (settled: decl.settled = True)
@@ -539,7 +539,7 @@ theorem printedFinish1 ∀ (decl: Decl)
   let operators := declOperators decl within
   let sound := declSoundOfSettled decl within settled (declReal decl within lexical operators)
   let joins := declJoins decl within shaped sound lexical operators
-  let pairs := (declPiecesOk decl within shaped settled lexical).right.right.left
+  let pairs := (declPiecesOk within shaped settled lexical).right.right.left
   match decl with
     | Definition [] header (Assigned colonEq value) =>
       match header, within, joins with
@@ -814,7 +814,7 @@ theorem declsShows ∀ (decls: List Decl) (output: Output) (pieces: List Piece)
       let (notedOk, notedEmpty) := notesShows first.above output pieces shows
       let gap := gapPieces (output.empty && first.above.isEmpty) first.blankBefore
       let (_, _, _, chars) :=
-        declPiecesOk decl (Bool.andLeft within) (Bool.andLeft shaped) (Bool.andLeft settled) (Bool.andLeft lexical)
+        declPiecesOk (Bool.andLeft within) (Bool.andLeft shaped) (Bool.andLeft settled) (Bool.andLeft lexical)
       let (itemOk, itemFull) :=
         itemShows noted (pieces ++ notes) first.blankBefore (decl.printed1.getOrElse "") decl.pieces notedOk chars
       let item := noted.item first.blankBefore (decl.printed1.getOrElse "")
@@ -970,7 +970,7 @@ theorem declsOk ∀ (empty: Bool) (decls: List Decl)
       let (laterPlain, laterSpelled, laterPairs, laterLed) :=
         declsOk False rest (Bool.andRight within) (Bool.andRight shaped) (Bool.andRight settled) (Bool.andRight lexical)
       let (declPlain, declSpelled, declPairs, _) :=
-        declPiecesOk decl (Bool.andLeft within) (Bool.andLeft shaped) (Bool.andLeft settled) (Bool.andLeft lexical)
+        declPiecesOk (Bool.andLeft within) (Bool.andLeft shaped) (Bool.andLeft settled) (Bool.andLeft lexical)
       let (notesPlain, notesSpelled, notesPairs, _) :=
         notesOk empty first.above (firstNotesSound decl (Bool.andLeft within) (Bool.andLeft settled))
       let (gapPlain, gapSpelled) := gapOk (empty && first.above.isEmpty) first.blankBefore

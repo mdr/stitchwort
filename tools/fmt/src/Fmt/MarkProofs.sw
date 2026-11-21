@@ -102,7 +102,7 @@ theorem otherKey ∀ (low key wanted: Nat)
   (Nat.equalReadsFalse key wanted).backward (same => arithmetic)
 
 --| A new mark keyed at or above `low` hides none below it.
-theorem keptMark ∀ (low key at: Nat) (origin carry: Carry)
+theorem keptMark ∀ [low key: Nat] (at: Nat) [origin carry: Carry]
     (high: (low <= key) = True)
     (kept: MarksKept low origin carry):
     MarksKept low origin (carry.mark key at) :=
@@ -192,7 +192,7 @@ theorem framed ∀ (low: Nat) (origin: Carry) [doc: Doc] (indent: Nat) (place: P
       match place, kept, lays with
         | AtStart at carry | Broken at carry, kept, lays => lays kept
         | Mid at carry | Held at carry, kept, lays => lays (keptBreak low indent origin carry kept)
-    | Mark key, high, lays => cases place then lays (keptMark low key place.indent origin place.carry high kept)
+    | Mark key, high, lays => cases place then lays (keptMark [carry := place.carry] place.indent high kept)
     | CloserLine key, high, lays => lays (keptCloserLine low key indent origin place high kept)
     | Nest more inner, inside, lays => framed low origin (indent + more) place trace next inside kept lays
     | Align inner, inside, lays =>

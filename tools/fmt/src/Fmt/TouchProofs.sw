@@ -50,7 +50,7 @@ theorem stepsComment ∀ (text: Text)
 
 theorem stepsBlankList ∀ (blank: Bool) (pre: Seam → Prop): StepsAll (if blank then [Blank] else []) pre [] pre :=
   match blank with
-    | True => stepsLast pre pre (stepsBlank pre)
+    | True => stepsLast (stepsBlank pre)
     | False => stepsNil pre pre (seam holds => holds)
 
 --| Own-line comments above a token, each ending its line.
@@ -80,7 +80,7 @@ theorem notesAboveSteps ∀ (notes: List Note)
             (seam => seam = Along True)
             (seam => seam = Begun)
             (seam => seam = Begun)
-            (stepsHard _ _ (seam along => rewrite along) byComputing)
+            (stepsHard _ (seam along => rewrite along) byComputing)
             (notesAboveSteps rest (Bool.andRight sound))))
 
 theorem laterCloserNotesSteps ∀ (notes: List Note)
@@ -94,7 +94,7 @@ theorem laterCloserNotesSteps ∀ (notes: List Note)
         (seam => seam = Along True)
         (seam => seam = Begun)
         (seam => seam = Along True)
-        (stepsHard _ _ (seam along => rewrite along) byComputing)
+        (stepsHard _ (seam along => rewrite along) byComputing)
         (stepsAppend
           (if note.blankBefore then [Blank] else [])
           (seam => seam = Begun)
@@ -172,8 +172,8 @@ theorem leadingFresh ∀ (word: Word) (around: Around) (key: Nat) (before: Bool)
               (Fits before first)
               (Fits before first)
               (Fits before first)
-              (stepsLineStart _ _ (seam fits => fitsQuiet before first seam fits) (fresh byComputing))
-              (stepsLast _ _ (stepsBlank _)))
+              (stepsLineStart (seam fits => fitsQuiet fits) (fresh byComputing))
+              (stepsLast (stepsBlank _)))
         | False, _ => stepsNil _ _ (seam holds => holds)
     | { text, comments = { above = [note, ..rest], after, blankBefore } }, False =>
       let notes: notesSound [note, ..rest] = True := Bool.andLeft (Bool.andRight sound)
@@ -192,16 +192,16 @@ theorem leadingFresh ∀ (word: Word) (around: Around) (key: Nat) (before: Bool)
               (Fits before first)
               (seam => seam = Along True)
               (Fits before first)
-              (stepsNest 2 _ _
-                (stepsConcat _ _ _
+              (stepsNest 2 _
+                (stepsConcat _
                   (stepsCons LineStartHere
                     (closerNotes [note, ..rest])
                     (Fits before first)
                     (seam => seam = Begun)
                     (seam => seam = Along True)
-                    (stepsLineStartHere _ _ (seam fits => fitsQuiet before first seam fits) byComputing)
+                    (stepsLineStartHere _ _ (seam fits => fitsQuiet fits) byComputing)
                     (closerNotesSteps note rest notes))))
-              (stepsLast _ _ (stepsCloserLine key _ _ (seam along => rewrite along) begun)))
+              (stepsLast (stepsCloserLine key (seam along => rewrite along) begun)))
         | False =>
           let begun := fresh byComputing
           stepsAppend
@@ -220,7 +220,7 @@ theorem leadingFresh ∀ (word: Word) (around: Around) (key: Nat) (before: Bool)
                 (Fits before first)
                 (seam => seam = Begun)
                 (seam => seam = Begun)
-                (stepsLineStart _ _ (seam fits => fitsQuiet before first seam fits) byComputing)
+                (stepsLineStart (seam fits => fitsQuiet fits) byComputing)
                 (notesAboveSteps [note, ..rest] notes)))
             (allTo _ _ _ _ (stepsBlankList blankBefore (seam => seam = Begun)) (seam begun' =>
               rewrite begun' then begun))
@@ -243,7 +243,7 @@ theorem trailingSteps ∀ (word: Word)
     | { text, comments = { above, after = None, blankBefore } } => stepsNil _ _ (seam along => rewrite along)
     | { text, comments = { above, after = Some comment, blankBefore } } =>
       let commented: commentText comment = True := Bool.andRight (Bool.andRight sound)
-      stepsLast _ _ (stepsSuffix comment (Bool.andLeft commented) (commentNotLayout comment commented))
+      stepsLast (stepsSuffix comment (Bool.andLeft commented) (commentNotLayout comment commented))
 
 theorem pieceText ∀ (text: Text)
     (closer: isCloserText text = False)
@@ -258,7 +258,7 @@ theorem wordLeafSteps ∀ (word: Word) (around: Around) (key: Nat) (first: Spaci
     (loose: Loose first ∨ (word.leading around key).isEmpty = True):
     Steps (word.leaf around key) (Fits True first) [first] (Closed word.trails) :=
   let (sound, token, comma, closer) := joins
-  stepsConcat _ _ _
+  stepsConcat _
     (rewrite ownEmpty word.text (!word.noted && around.before && word.trails) key closer,
         pieceText word.text closer comma then
       stepsAppend
@@ -283,7 +283,7 @@ theorem openingSteps ∀ (word: Word) (around: Around) (closer: Word) (first: Sp
     Steps (word.opening around closer) (Fits True first) [first] (Closed word.trails) :=
   let (sound, token, comma, notCloser) := joins
   let marked := closer.noted || closer.trails
-  stepsConcat _ _ _
+  stepsConcat _
     (rewrite pieceText word.text notCloser comma then
       stepsAppend
         (word.leading around around.at)
@@ -309,7 +309,7 @@ theorem openingSteps ∀ (word: Word) (around: Around) (closer: Word) (first: Sp
 theorem markSteps ∀ (marked: Bool) (key: Nat) (pre: Seam → Prop):
     StepsAll (if marked then [Mark key] else []) pre [] pre :=
   match marked with
-    | True => stepsLast pre pre (stepsMark key pre)
+    | True => stepsLast (stepsMark key pre)
     | False => stepsNil pre pre (seam holds => holds)
 
 -- Closers.
@@ -354,8 +354,8 @@ theorem closerLeadingSteps ∀ (word: Word) (around: Around) (key: Nat) (before:
               (Fits before Free)
               (Fits before Free)
               (Fits before Free)
-              (stepsLineStart _ _ (seam fits => fitsQuiet before Free seam fits) byComputing)
-              (stepsLast _ _ (stepsBlank _)))
+              (stepsLineStart (seam fits => fitsQuiet fits) byComputing)
+              (stepsLast (stepsBlank _)))
         | False => stepsNil _ _ (seam holds => holds)
     | { text, comments = { above = [note, ..rest], after, blankBefore } }, False =>
       let notes: notesSound [note, ..rest] = True := Bool.andLeft (Bool.andRight sound)
@@ -372,22 +372,22 @@ theorem closerLeadingSteps ∀ (word: Word) (around: Around) (key: Nat) (before:
             (Fits before Free)
             (seam => seam = Along True)
             (Fits False Free)
-            (stepsNest 2 _ _
-              (stepsConcat _ _ _
+            (stepsNest 2 _
+              (stepsConcat _
                 (stepsCons LineStartHere
                   (closerNotes [note, ..rest])
                   (Fits before Free)
                   (seam => seam = Begun)
                   (seam => seam = Along True)
-                  (stepsLineStartHere _ _ (seam fits => fitsQuiet before Free seam fits) byComputing)
+                  (stepsLineStartHere _ _ (seam fits => fitsQuiet fits) byComputing)
                   (closerNotesSteps note rest notes))))
-            (stepsLast _ _ (stepsCloserLine key _ _ (seam along => rewrite along) byComputing)))
+            (stepsLast (stepsCloserLine key (seam along => rewrite along) byComputing)))
 
 --| A closer line, where the closer takes a line of its own: after it no comment waits.
 theorem ownSteps ∀ (own: Bool) (key: Nat) (held: Bool):
     StepsAll (if own then [CloserLine key] else []) (Fits held Free) [] (Fits (if own then False else held) Free) :=
   match own with
-    | True => stepsLast _ _ (stepsCloserLine key _ _ (seam fits => fitsQuiet held Free seam fits) byComputing)
+    | True => stepsLast (stepsCloserLine key (seam fits => fitsQuiet fits) byComputing)
     | False => stepsNil _ _ (seam holds => holds)
 
 --| A closer and its trailing comment, from where a comment waits only if `held`; a trailing comment only where none
@@ -401,8 +401,7 @@ theorem closingTail ∀ (word: Word) (held ends: Bool)
     StepsAll ([Closing word.text] ++ word.trailing) (Fits held Free) [Free] (Closed ends) :=
   match word, code, clear, own with
     | { text, comments = { above, after = None, blankBefore } }, code, _, _ =>
-      stepsLast _ _
-        (stepsTo _ _ _ _ (stepsClosing held code) (seam closed => closedWeaker held ends weaker seam closed))
+      stepsLast (stepsTo (stepsClosing held code) (seam closed => closedWeaker held ends weaker seam closed))
     | { text, comments = { above, after = Some comment, blankBefore } }, code, clear, own =>
       let cleared: held = False := clear byComputing
       let commented: commentText comment = True := Bool.andRight (Bool.andRight sound)
@@ -412,12 +411,10 @@ theorem closingTail ∀ (word: Word) (held ends: Bool)
         (Fits held Free)
         (seam => seam = Along True)
         (Closed ends)
-        (stepsTo _ _ _ _ (stepsClosing held code) (seam closed =>
-          closedAlong seam (rewrite cleared at closed then closed)))
-        (stepsLast _ _
-          (stepsTo _ _ _ _
-            (stepsSuffix comment (Bool.andLeft commented) (commentNotLayout comment commented))
-            (seam closed => closedWeaker True ends (_ => own byComputing) seam closed)))
+        (stepsTo (stepsClosing held code) (seam closed => closedAlong seam (rewrite cleared at closed then closed)))
+        (stepsLast
+          (stepsTo (stepsSuffix comment (Bool.andLeft commented) (commentNotLayout comment commented)) (seam closed =>
+            closedWeaker True ends (_ => own byComputing) seam closed)))
 
 --| Where a closer with a trailing comment comes, nothing waits: a comment before it either gives it a line of its own
 --| or its own-line comments end at a line start.
@@ -459,7 +456,7 @@ theorem closerLeafSteps ∀ (word: Word) (around: Around) (key: Nat)
   let weaker: held = True → (word.trails || around.before) = True := holds =>
     ownWeaker word.noted around.before word.trails (rewrite closer at holds then holds)
   let own': word.trails = True → (word.trails || around.before) = True := trails => rewrite trails
-  stepsConcat _ _ _
+  stepsConcat _
     (rewrite pieceCloser word.text closer then
       stepsAppend
         (word.leading around key)
@@ -483,12 +480,12 @@ theorem placedSteps ∀ (displaced: Bool) (doc: Doc) (first: Spacing) (spacing: 
     (fresh: displaced = True → Loose first):
     Steps (if displaced then Displaced doc else doc) (Fits True first) spacing post :=
   match displaced, fresh with
-    | True, fresh => stepsDisplaced _ _ inner (fresh byComputing) (seam fits => fitsQuiet True first seam fits)
+    | True, fresh => stepsDisplaced _ _ inner (fresh byComputing) (seam fits => fitsQuiet fits)
     | False, _ => inner
 
 --| A node's document after its first token's own-line comments.
-theorem framedSteps ∀ (first: Word) (around: Around) (doc: Doc) (spacing: List Spacing)
-    (post: Seam → Prop) (start: Spacing)
+theorem framedSteps ∀ (first: Word) [around: Around] (doc: Doc) (spacing: List Spacing)
+    (post: Seam → Prop) [start: Spacing]
     (sound: first.sound = True)
     (loose: Loose start ∨ first.quietAt around around.at = True)
     (inner: Steps doc (Fits True start) spacing post):
@@ -500,13 +497,13 @@ theorem framedSteps ∀ (first: Word) (around: Around) (doc: Doc) (spacing: List
     match loose with
       | Inl free => free
       | Inr quiet => (Bool.falseNotTrue (rewrite shown at quiet then quiet)).impossible
-  stepsConcat _ _ _
+  stepsConcat _
     (stepsTwo
       (Doc.concat (first.leading around around.at))
       (Fits True start)
       (Fits True start)
       post
-      (stepsConcat _ _ _ (leadingSteps first around around.at True start sound leadLoose))
+      (stepsConcat _ (leadingSteps first around around.at True start sound leadLoose))
       (placedSteps (first.displaces around) doc start spacing post inner fresh))
 
 --| An expression of the slice spaces its first code word as `Free`.
@@ -579,7 +576,7 @@ theorem atomSteps ∀ (kind: Tok) (word: Word) (around: Around) (first: Spacing)
   let leadLoose: Loose first ∨ (word.leading around around.at).isEmpty = True := match loose with
     | Inl free => Inl free
     | Inr quiet => Inr (Bool.andRight quiet)
-  stepsTo _ _ _ _ (wordLeafSteps word around around.at first joins leadLoose) (seam closed =>
+  stepsTo (wordLeafSteps word around around.at first joins leadLoose) (seam closed =>
     endsWeaker word.trails (Atom kind word).trails (trails => rewrite trails) seam (closedEnds word.trails seam closed))
 
 -- Signs.
@@ -623,21 +620,21 @@ theorem gapFree ∀ (operator: Word) (operand: Expr) (trails: Bool):
     Steps (prefixGap operator operand) (Closed trails) [] (Fits True Free) :=
   match spaced: operator.text == "-" && (operand.firstWord.text == "-" || operand.numeralApplication) with
     | True =>
-      stepsFrom _ _ _
-        (stepsTo _ _ _ _ (stepsSpace trails) (seam gapped =>
-          fitsWeaker trails True (_ => byComputing) Free seam (gappedFits trails Free seam byComputing gapped)))
+      stepsFrom
+        (stepsTo (stepsSpace trails) (seam gapped =>
+          fitsWeaker trails (_ => byComputing) (gappedFits byComputing gapped)))
         (seam closed => closedEnds trails seam closed)
-    | False => stepsTo _ _ _ _ (stepsNothing (Closed trails)) (seam closed =>
-      fitsWeaker trails True (_ => byComputing) Free seam (endsFits trails seam (closedEnds trails seam closed)))
+    | False => stepsTo (stepsNothing (Closed trails)) (seam closed =>
+      fitsWeaker trails (_ => byComputing) (endsFits trails seam (closedEnds trails seam closed)))
 
 --| `-` and a numeral's call, a space between them.
 theorem gapApart ∀ (operator: Word) (operand: Expr) (trails: Bool)
     (spaced: (operator.text == "-" && (operand.firstWord.text == "-" || operand.numeralApplication)) = True):
     Steps (prefixGap operator operand) (Closed trails) [] (Fits True Apart) :=
   rewrite gapSpaced operator operand spaced then
-    stepsFrom _ _ _
-      (stepsTo _ _ _ _ (stepsSpace trails) (seam gapped =>
-        fitsWeaker trails True (_ => byComputing) Apart seam (gappedFits trails Apart seam byComputing gapped)))
+    stepsFrom
+      (stepsTo (stepsSpace trails) (seam gapped =>
+        fitsWeaker trails (_ => byComputing) (gappedFits byComputing gapped)))
       (seam closed => closedEnds trails seam closed)
 
 --| A sign with no trailing comment and nothing written after it: its operand stands glued to it.
@@ -645,7 +642,7 @@ theorem gapGlued ∀ (operator: Word) (operand: Expr)
     (tight: (operator.text == "-" && (operand.firstWord.text == "-" || operand.numeralApplication)) = False):
     Steps (prefixGap operator operand) (Closed False) [] (Fits True Glued) :=
   rewrite gapTight operator operand tight then
-    stepsTo _ _ _ _ (stepsNothing (Closed False)) (seam closed => rewrite closedAlong seam closed)
+    stepsTo (stepsNothing (Closed False)) (seam closed => rewrite closedAlong seam closed)
 
 theorem signQuietAfter ∀ (operator: Word) (operand: Expr)
     (quiet: signQuiet operator operand = True):
@@ -718,12 +715,11 @@ theorem prefixSteps ∀ (operator: Word) (operand: Expr) (around: Around) (first
     [first, ..rest]
     (Ends (Prefix operator operand).trails) :=
     rest middle gap inner =>
-      framedSteps operator around _
+      framedSteps operator _
         [first, ..rest] _
-        first
         sound
         loose
-        (stepsConcat _ _ _
+        (stepsConcat _
           (stepsCons
             (operator.leaf inside around.at)
             [prefixGap operator operand, operand.el place]
@@ -731,7 +727,7 @@ theorem prefixSteps ∀ (operator: Word) (operand: Expr) (around: Around) (first
             (Closed operator.trails)
             (Ends (Prefix operator operand).trails)
             leaf
-            (stepsTwo (prefixGap operator operand) _ middle _ gap (stepsTo _ _ _ _ inner ends))))
+            (stepsTwo (prefixGap operator operand) _ middle _ gap (stepsTo inner ends))))
   let free: Steps (operand.el place) (Fits True Free) (operand.spacing False) (Ends operand.trails) :=
     elFree operand place operandSteps operandWithin operandShaped operandLexical operandJoins
   let glued: signQuiet operator operand = True
@@ -757,14 +753,14 @@ theorem prefixSteps ∀ (operator: Word) (operand: Expr) (around: Around) (first
       (Ends (Prefix operator operand).trails) :=
     quiet tight =>
       whole _ _
-        (stepsFrom _ _ _ (gapGlued operator operand tight) (seam closed =>
+        (stepsFrom (gapGlued operator operand tight) (seam closed =>
           closedFalse operator.trails (signQuietAfter operator operand quiet) seam closed))
         (glued quiet)
   match app: operator.text == "-" && operand.numeralApplication with
     | True =>
       let spaced: (operator.text == "-" && (operand.firstWord.text == "-" || operand.numeralApplication)) = True :=
         Bool.andIntro (Bool.andLeft app) (Bool.orRight (Bool.andRight app))
-      stepsSpacing _ _ _ byComputing
+      stepsSpacing byComputing
         (whole _ _
           (gapApart operator operand operator.trails spaced)
           (operandSteps operandWithin operandShaped operandLexical operandJoins place Apart False
@@ -772,7 +768,7 @@ theorem prefixSteps ∀ (operator: Word) (operand: Expr) (around: Around) (first
             (Inl byComputing)))
     | False =>
       match quiet: signQuiet operator operand with
-        | False => stepsSpacing _ _ _ byComputing (whole _ _ (gapFree operator operand operator.trails) free)
+        | False => stepsSpacing byComputing (whole _ _ (gapFree operator operand operator.trails) free)
         | True =>
           match argument with
             | True =>
@@ -780,7 +776,7 @@ theorem prefixSteps ∀ (operator: Word) (operand: Expr) (around: Around) (first
               let tight: (operator.text == "-" && (operand.firstWord.text == "-" || operand.numeralApplication))
                 = False :=
                 Bool.andFalseRight _ _ (atomicTight operand atomic operandWithin operandLexical)
-              stepsSpacing _ _ _ byComputing (gluedWhole quiet tight)
+              stepsSpacing byComputing (gluedWhole quiet tight)
             | False =>
               match numeral: operator.text == "-" && operand.numeral1 with
                 | True =>
@@ -788,8 +784,8 @@ theorem prefixSteps ∀ (operator: Word) (operand: Expr) (around: Around) (first
                   let tight: (operator.text == "-" && (operand.firstWord.text == "-" || operand.numeralApplication))
                     = False :=
                     Bool.andFalseRight _ _ (atomicTight operand atomic operandWithin operandLexical)
-                  stepsSpacing _ _ _ byComputing (gluedWhole quiet tight)
-                | False => stepsSpacing _ _ _ byComputing (whole _ _ (gapFree operator operand operator.trails) free)
+                  stepsSpacing byComputing (gluedWhole quiet tight)
+                | False => stepsSpacing byComputing (whole _ _ (gapFree operator operand operator.trails) free)
 
 -- Brackets.
 
@@ -802,7 +798,7 @@ theorem parenInnerSteps ∀ (inner: Expr) (place: Around) (pre: Seam → Prop) (
     | _ => steps
 
 theorem closedFree ∀ (trails: Bool) (seam: Seam) (closed: Closed trails seam): Fits True Free seam :=
-  fitsWeaker trails True (_ => byComputing) Free seam (endsFits trails seam (closedEnds trails seam closed))
+  fitsWeaker trails (_ => byComputing) (endsFits trails seam (closedEnds trails seam closed))
 
 --| A closer ending a bracket around `middle`: the bracket ends with a comment where the closer, or the code before
 --| it, does.
@@ -835,12 +831,11 @@ theorem parenSteps ∀ (open: Word) (inner: Expr) (close: Word) (around: Around)
   let inside := { around | hoisted = True }
   let innerAround := inside.next open.trails 1
   let closeAround := inside.next inner.trails (1 + inner.size)
-  framedSteps open around _
+  framedSteps open _
     [first, ..inner.spacing False ++ [Free]] _
-    first
     opener.left.left
     loose
-    (stepsConcat _ _ _
+    (stepsConcat _
       (stepsCons
         (open.opening inside close)
         [parenInner inner innerAround, close.leaf closeAround inside.at]
@@ -853,12 +848,12 @@ theorem parenSteps ∀ (open: Word) (inner: Expr) (close: Word) (around: Around)
           (Closed open.trails)
           (Ends inner.trails)
           (Ends (Paren open inner close).trails)
-          (stepsFrom _ _ _
+          (stepsFrom
             (parenInnerSteps inner innerAround _ _ _ within
               (elFree inner innerAround innerSteps within shaped (Bool.andRight (Bool.andRight lexical)) innerJoins))
             (seam closed => closedFree open.trails seam closed))
-          (stepsFrom _ _ _
-            (stepsTo _ _ _ _ (closerLeafSteps close closeAround inside.at closer byComputing) (seam closed =>
+          (stepsFrom
+            (stepsTo (closerLeafSteps close closeAround inside.at closer byComputing) (seam closed =>
               closerEnds open close inner.words seam isCloser closed))
             (seam ended => endsFits inner.trails seam ended)))))
 
@@ -894,8 +889,8 @@ theorem eachFree ∀ (items: List Expr)
 
 --| A comma after an item: it stands on the item's line, before a comment the item ends with.
 theorem closingCommaSteps ∀ (trails: Bool): Steps (Closing ",") (Ends trails) [Free] (Ends trails) :=
-  stepsFrom _ _ _
-    (stepsTo _ _ _ _ (stepsClosing trails (byComputing, byComputing, byComputing)) (seam closed =>
+  stepsFrom
+    (stepsTo (stepsClosing trails (byComputing, byComputing, byComputing)) (seam closed =>
       closedEnds trails seam closed))
     (seam ended => endsFits trails seam ended)
 
@@ -905,10 +900,10 @@ theorem sepFree ∀ (first trails: Bool): Steps (if first then SoftLine else Lin
     | True =>
       stepsSoft _ _
         (seam ended => endsQuiet trails seam ended)
-        (seam ended => fitsWeaker trails True (_ => byComputing) Free seam (endsFits trails seam ended))
+        (seam ended => fitsWeaker trails (_ => byComputing) (endsFits trails seam ended))
         byComputing
-    | False => stepsTo _ _ _ _ (stepsLine trails) (seam gapped =>
-      fitsWeaker trails True (_ => byComputing) Free seam (gappedFits trails Free seam byComputing gapped))
+    | False =>
+      stepsTo (stepsLine trails) (seam gapped => fitsWeaker trails (_ => byComputing) (gappedFits byComputing gapped))
 
 theorem itemEnds ∀ (seen: List Word) (item: Expr) (seam: Seam)
     (ended: Ends item.trails seam):
@@ -933,7 +928,7 @@ theorem brokenSteps ∀ (seen: List Word) (items: List Expr) (bare arm first bef
         (if first then SoftLine else Line) _
         (Fits True Free) _
         (sepFree first (trailsBack seen.reverse))
-        (stepsTo _ _ _ _ (steps (firstAround bare arm before at)) (seam ended =>
+        (stepsTo (steps (firstAround bare arm before at)) (seam ended =>
           rewrite List.appendNil item.words then itemEnds seen item seam ended))
     | [item, second, ..more], (steps, rest) =>
       stepsCons
@@ -943,7 +938,7 @@ theorem brokenSteps ∀ (seen: List Word) (items: List Expr) (bare arm first bef
         (stepsCons
           (item.el (firstAround bare arm before at)) _ _
           (Ends (trailsBack (seen ++ item.words).reverse)) _
-          (stepsTo _ _ _ _ (steps (firstAround bare arm before at)) (seam ended => itemEnds seen item seam ended))
+          (stepsTo (steps (firstAround bare arm before at)) (seam ended => itemEnds seen item seam ended))
           (stepsCons
             (Closing ",") _ _
             (Ends (trailsBack (seen ++ item.words).reverse)) _
@@ -960,35 +955,34 @@ theorem cellsRestSteps ∀ (seen: List Word) (items: List Expr) (arm before: Boo
       (commaSpacing items)
       (Ends (trailsBack (seen ++ itemsWords items).reverse)) :=
   match items, each with
-    | [], _ => sepsNil _ _ (seam ended => rewrite List.appendNil seen then ended)
+    | [], _ => sepsNil (seam ended => rewrite List.appendNil seen then ended)
     | [item], (steps, _) =>
       rewrite <- List.appendNil (item.spacing False) then
         sepsCons
           (item.el (firstAround False arm before at))
-          [] _ _ _
+          [] _ _
           (item.spacing False)
           []
           (stepsTwo Line _
             (Fits True Free) _
             (sepFree False (trailsBack seen.reverse))
-            (stepsTo _ _ _ _ (steps (firstAround False arm before at)) (seam ended =>
+            (stepsTo (steps (firstAround False arm before at)) (seam ended =>
               rewrite List.appendNil item.words then itemEnds seen item seam ended)))
-          (sepsNil _ _ (seam ended => ended))
+          (sepsNil (seam ended => ended))
     | [item, second, ..more], (steps, rest) =>
       rewrite <- List.appendAssoc (item.spacing False) [Free] (commaSpacing [second, ..more]) then
         sepsCons
           (Doc.concat [item.el (firstAround False arm before at), Closing ","]) _ _
-          (Ends (trailsBack (seen ++ item.words).reverse)) _
+          (Ends (trailsBack (seen ++ item.words).reverse))
           (item.spacing False ++ [Free])
           (commaSpacing [second, ..more])
           (stepsTwo Line _
             (Fits True Free) _
             (sepFree False (trailsBack seen.reverse))
-            (stepsConcat _ _ _
+            (stepsConcat _
               (stepsTwo
                 (item.el (firstAround False arm before at)) _ _ _
-                (stepsTo _ _ _ _ (steps (firstAround False arm before at)) (seam ended =>
-                  itemEnds seen item seam ended))
+                (stepsTo (steps (firstAround False arm before at)) (seam ended => itemEnds seen item seam ended))
                 (closingCommaSteps (trailsBack (seen ++ item.words).reverse)))))
           (rewrite <- List.appendAssoc seen item.words (itemsWords [second, ..more]) then
             cellsRestSteps (seen ++ item.words) [second, ..more] arm item.trails (at + item.size) rest)
@@ -1002,32 +996,25 @@ theorem cellsSteps ∀ (open: Word) (item: Expr) (others: List Expr) (bare arm b
       (commaSpacing [item, ..others])
       (Ends (trailsBack ([open] ++ itemsWords [item, ..others]).reverse)) :=
   let start: ∀ (seam: Seam) => Ends (trailsBack [open].reverse) seam → Fits True Free seam := seam ended =>
-    fitsWeaker
-      (trailsBack [open].reverse)
-      True
-      (_ => byComputing)
-      Free
-      seam
-      (endsFits (trailsBack [open].reverse) seam ended)
+    fitsWeaker (trailsBack [open].reverse) (_ => byComputing) (endsFits (trailsBack [open].reverse) seam ended)
   match others, each with
     | [], (steps, _) =>
       rewrite <- List.appendNil (item.spacing False) then
-        stepsFill _ _ _
-          (stepsFrom _ _ _
-            (stepsTo _ _ _ _ (steps (firstAround bare arm before at)) (seam ended =>
+        stepsFill _
+          (stepsFrom
+            (stepsTo (steps (firstAround bare arm before at)) (seam ended =>
               rewrite List.appendNil item.words then itemEnds [open] item seam ended))
             start)
-          (sepsNil _ _ (seam ended => ended))
+          (sepsNil (seam ended => ended))
     | [second, ..more], (steps, rest) =>
       rewrite <- List.appendAssoc (item.spacing False) [Free] (commaSpacing [second, ..more]) then
-        stepsFill _
-          (Ends (trailsBack ([open] ++ item.words).reverse)) _
-          (stepsFrom _ _ _
-            (stepsConcat _ _ _
+        stepsFill
+          (Ends (trailsBack ([open] ++ item.words).reverse))
+          (stepsFrom
+            (stepsConcat _
               (stepsTwo
                 (item.el (firstAround bare arm before at)) _ _ _
-                (stepsTo _ _ _ _ (steps (firstAround bare arm before at)) (seam ended =>
-                  itemEnds [open] item seam ended))
+                (stepsTo (steps (firstAround bare arm before at)) (seam ended => itemEnds [open] item seam ended))
                 (closingCommaSteps (trailsBack ([open] ++ item.words).reverse))))
             start)
           (rewrite <- List.appendAssoc [open] item.words (itemsWords [second, ..more]) then
@@ -1062,11 +1049,11 @@ theorem bracketSteps ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wo
   let closeAround := around.next whole.trailsBeforeClose (whole.size - 1)
   let seen := trailsBack ([open] ++ itemsWords items).reverse
   let prefixSteps: Steps (open.opening around close) (Fits True first) [first] (Ends (trailsBack [open].reverse)) :=
-    stepsTo _ _ _ _ (openingSteps open around close first opener (Inr (rewrite unhoisted))) (seam closed =>
+    stepsTo (openingSteps open around close first opener (Inr (rewrite unhoisted))) (seam closed =>
       rewrite openTrails open notCloser then closedEnds open.trails seam closed)
   let closerSteps: Steps (close.leaf closeAround around.at) (Ends seen) [Free] (Ends whole.trails) :=
-    stepsFrom _ _ _
-      (stepsTo _ _ _ _ (closerLeafSteps close closeAround around.at closer byComputing) (seam closed =>
+    stepsFrom
+      (stepsTo (closerLeafSteps close closeAround around.at closer byComputing) (seam closed =>
         closerEndsSeen open close
           (itemsWords items)
           seam
@@ -1086,8 +1073,8 @@ theorem bracketSteps ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wo
       (stepsCons
         (Nest 2 (Doc.concat broken)) _ _
         (Ends seen) _
-        (stepsNest 2 _ _
-          (stepsConcat _ _ _ (brokenSteps [open] items bare around.inArm True open.trails (around.at + 1) each)))
+        (stepsNest 2 _
+          (stepsConcat _ (brokenSteps [open] items bare around.inArm True open.trails (around.at + 1) each)))
         (stepsTwo SoftLine _
           (Ends seen) _
           (stepsSoft _ _ (seam ended => endsQuiet seen seam ended) (seam ended => ended) byComputing)
@@ -1096,12 +1083,8 @@ theorem bracketSteps ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wo
     match items, each with
       | [], _ =>
         stepsConcat
-          [open.opening around close, close.leaf closeAround around.at] _ _
-          (stepsTwo
-            (open.opening around close) _
-            (Ends seen) _
-            (stepsTo _ _ _ _ prefixSteps (seam ended => ended))
-            closerSteps)
+          [open.opening around close, close.leaf closeAround around.at]
+          (stepsTwo (open.opening around close) _ (Ends seen) _ (stepsTo prefixSteps (seam ended => ended)) closerSteps)
       | [item, ..others], each =>
         match filled: list && !whole.holdsTrailingComment && [item, ..others].all Expr.plainItem with
           | True =>
@@ -1110,7 +1093,7 @@ theorem bracketSteps ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wo
                 open.opening around close,
                 Nest 2 (Fill (cells bare around.inArm open.trails (around.at + 1) [item, ..others])),
                 close.leaf closeAround around.at
-              ] _ _
+              ]
               (stepsCons
                 (open.opening around close)
                 [
@@ -1121,14 +1104,14 @@ theorem bracketSteps ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wo
                 (stepsTwo
                   (Nest 2 (Fill (cells bare around.inArm open.trails (around.at + 1) [item, ..others]))) _
                   (Ends seen) _
-                  (stepsNest 2 _ _ (cellsSteps open item others bare around.inArm open.trails (around.at + 1) each))
+                  (stepsNest 2 _ (cellsSteps open item others bare around.inArm open.trails (around.at + 1) each))
                   closerSteps))
           | False =>
             match holds: whole.holdsTrailingComment with
               | True =>
                 stepsConcat
                   ([open.opening around close, Nest 2 (Doc.concat broken), SoftLine, close.leaf closeAround around.at]
-                    ++ [BreakParent]) _ _
+                    ++ [BreakParent])
                   (allSpacing _ _ _
                     (List.appendNil _)
                     (stepsAppend
@@ -1139,15 +1122,10 @@ theorem bracketSteps ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wo
                         close.leaf closeAround around.at
                       ] _ _ _
                       brokenSteps'
-                      (stepsLast _ _ (stepsBreakParent _))))
+                      (stepsLast (stepsBreakParent _))))
               | False =>
                 stepsConcat
-                  [
-                    open.opening around close,
-                    Nest 2 (Doc.concat broken),
-                    SoftLine,
-                    close.leaf closeAround around.at
-                  ] _ _
+                  [open.opening around close, Nest 2 (Doc.concat broken), SoftLine, close.leaf closeAround around.at]
                   brokenSteps'
 
 --| A tuple or list, `(a, b)` or `[a, b]`, filled or broken: the opener spaced `first`, then each item and comma free.
@@ -1168,13 +1146,12 @@ theorem commaSteps ∀ (list: Bool) (open: Word) (items: List Expr) (comma: Bool
   match list with
     | True =>
       let (opener, closer, joins) := joinable
-      framedSteps open around
+      framedSteps open
         (commaBracket True open items close { around | hoisted = True }) _ _
-        first
         opener.left.left
         loose
         (stepsGroup
-          (bracketContent True open items close { around | hoisted = True }).forcesBreak _ _
+          (bracketContent True open items close { around | hoisted = True }).forcesBreak
           (bracketSteps True open items close
             { around | hoisted = True }
             first
@@ -1184,13 +1161,12 @@ theorem commaSteps ∀ (list: Bool) (open: Word) (items: List Expr) (comma: Bool
             (eachFree items each within shaped (Bool.andRight (Bool.andRight lexical)) joins)))
     | False =>
       let (opener, closer, joins) := joinable
-      framedSteps open around
+      framedSteps open
         (commaBracket False open items close { around | hoisted = True }) _ _
-        first
         opener.left.left
         loose
         (stepsGroup
-          (bracketContent False open items close { around | hoisted = True }).forcesBreak _ _
+          (bracketContent False open items close { around | hoisted = True }).forcesBreak
           (bracketSteps False open items close
             { around | hoisted = True }
             first
@@ -1247,12 +1223,12 @@ theorem argumentSteps ∀ (argument: Expr) (place: Around)
     (steps: ElSteps argument):
     Steps (argument.el place) (Gapped True) (argument.spacing True) (Ends argument.trails) :=
   let (start, loose, same) := argumentStarts argument isArgument
-  stepsFrom _ _ _
-    (stepsSpacing _ _ _ same (steps within shaped lexical joinable place start True (_ => isArgument) (Inl loose)))
-    (seam gapped => gappedFits True start seam loose gapped)
+  stepsFrom
+    (stepsSpacing same (steps within shaped lexical joinable place start True (_ => isArgument) (Inl loose)))
+    (seam gapped => gappedFits loose gapped)
 
 --| A bracket as a call's last argument, as it stands and opened, after a space or a line break.
-theorem huggedSteps ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around) (hard: Bool)
+theorem huggedSteps ∀ (list: Bool) [open: Word] [items: List Expr] [close: Word] (around: Around) (hard: Bool)
     (opener: WordJoins open)
     (closer: CloserJoins close)
     (each: EachFree items):
@@ -1261,15 +1237,14 @@ theorem huggedSteps ∀ (list: Bool) (open: Word) (items: List Expr) (close: Wor
       (Gapped True)
       ([Free, ..commaSpacing items] ++ [Free])
       (Ends (ListOf open items False close).trails) :=
-  stepsFrom _ _ _
-    (framedSteps open around
+  stepsFrom
+    (framedSteps open
       (Group (bracketContent list open items close { around | hoisted = True }) hard) _ _
-      Free
       opener.left
       (Inl byComputing)
-      (stepsGroup hard _ _
+      (stepsGroup hard
         (bracketSteps list open items close { around | hoisted = True } Free byComputing opener closer each)))
-    (seam gapped => gappedFits True Free seam byComputing gapped)
+    (seam gapped => gappedFits byComputing gapped)
 
 --| A call's last argument, as it stands and opened, after a space or a line break.
 theorem lastArgumentSteps ∀ (argument: Expr) (place: Around)
@@ -1288,15 +1263,15 @@ theorem lastArgumentSteps ∀ (argument: Expr) (place: Around)
         eachFree items (allElSteps items) within (Bool.andRight shaped) (Bool.andRight (Bool.andRight lexical)) joins
       let content := bracketContent False open items close { place | hoisted = True }
       (
-        huggedSteps False open items close place content.forcesBreak opener.left closer each,
-        huggedSteps False open items close place True opener.left closer each
+        huggedSteps False place content.forcesBreak opener.left closer each,
+        huggedSteps False place True opener.left closer each
       )
     | ListOf open items comma close, (opener, closer, joins) =>
       let each := eachFree items (allElSteps items) within shaped (Bool.andRight (Bool.andRight lexical)) joins
       let content := bracketContent True open items close { place | hoisted = True }
       (
-        huggedSteps True open items close place content.forcesBreak opener.left closer each,
-        huggedSteps True open items close place True opener.left closer each
+        huggedSteps True place content.forcesBreak opener.left closer each,
+        huggedSteps True place True opener.left closer each
       )
     | Atom _ _ |
         Prefix _ _ |
@@ -1353,11 +1328,11 @@ theorem argumentsSteps ∀ (arm: Bool) (previous: Expr) (at: Nat) (arguments: Li
       let ends: ∀ (seam: Seam) => Ends argument.trails seam
         → Ends (trailsBack (seen ++ itemsWords [argument]).reverse) seam :=
         seam ended => rewrite List.appendNil argument.words then itemEnds seen argument seam ended
-      ((first, stepsTo _ _ _ _ last ends), first, hugTo (lastArgument argument place).snd _ _ _ _ hug ends, byComputing)
+      ((first, stepsTo last ends), first, hugTo (lastArgument argument place).snd _ _ _ _ hug ends, byComputing)
     | [argument, next, ..more], (joins, rest), (steps, others) =>
       let place: Around := { before = previous.trails, hoisted = False, item = False, at, inArm = arm }
       let element: Steps (argument.el place) (Gapped True) (argument.spacing True) (Ends True) :=
-        stepsTo _ _ _ _
+        stepsTo
           (argumentSteps argument place
             (Bool.andLeft within)
             (Bool.andLeft shaped)
@@ -1432,7 +1407,7 @@ theorem appSteps ∀ (head: Expr) (arguments: List Expr) (around: Around) (first
       Inr (Bool.andIntro (Bool.andLeft headQuiet) byComputing)
   let headSpacing := spacedFirst first (head.spacing False)
   let headEl: Steps (head.el inside) (Fits True first) headSpacing (Ends True) :=
-    stepsTo _ _ _ _
+    stepsTo
       (headSteps headWithin headShaped
         (Bool.andLeft lexical)
         headJoins
@@ -1469,15 +1444,13 @@ theorem appSteps ∀ (head: Expr) (arguments: List Expr) (around: Around) (first
     rewrite callJoin headSpacing arguments filled, free
   framedSteps
     (App head arguments).firstWord
-    around
     (appDocs head arguments inside).doc
     (spacedFirst first ((App head arguments).spacing argument))
     (Ends (App head arguments).trails)
-    first
     sound
     loose
     (rewrite appDocsIsOneFirst head arguments inside then
-      stepsSpacing _ _ _ same
+      stepsSpacing same
         (appFromSteps
           (inside.at + 1)
           (1 + keptFront head arguments)
@@ -1505,7 +1478,7 @@ theorem headTailSteps ∀ (head: Doc) (tail: List Doc) (indent: Nat) (pre: Seam 
     (spacing: List Spacing) (post: Seam → Prop)
     (all: StepsAll [head, ..tail] pre spacing post):
     Steps (Doc.concat [head, Nest indent (Doc.concat tail)]) pre spacing post :=
-  stepsConcat [head, Nest indent (Doc.concat tail)] pre post (seam trace next holds after =>
+  stepsConcat [head, Nest indent (Doc.concat tail)] (seam trace next holds after =>
     touchesWeaker head seam trace _ _
       (between later touches => concatTouches tail between later next touches)
       (all seam trace next holds after))
@@ -1518,7 +1491,7 @@ theorem chainOfSteps ∀ (arms: Bool) (links: List Doc) (pre: Seam → Prop) (sp
     | [], _ => (filled byComputing).impossible
     | [head, ..tail], all =>
       let joined := Doc.concat [head, Nest (if arms then 0 else 2) (Doc.concat tail)]
-      stepsGroup joined.forcesBreak pre post (headTailSteps head tail (if arms then 0 else 2) pre spacing post all)
+      stepsGroup joined.forcesBreak (headTailSteps head tail (if arms then 0 else 2) pre spacing post all)
 
 --| A chain ends with a comment where its right operand does.
 theorem rightEnds ∀ (left: Expr) (operator: Word) (right: Expr) (seam: Seam)
@@ -1549,8 +1522,8 @@ theorem chainRightSteps ∀ (level: Option Nat) (right: Expr) (place: Around) (t
         (Ends trails)
         (Fits True Apart)
         post
-        (stepsTo _ _ _ _ (stepsSpace trails) (seam gapped =>
-          fitsWeaker trails True (_ => byComputing) Apart seam (gappedFits trails Apart seam byComputing gapped)))
+        (stepsTo (stepsSpace trails) (seam gapped =>
+          fitsWeaker trails (_ => byComputing) (gappedFits byComputing gapped)))
         (allTo _ _ _ _ rest ends)
 
 --| A chain's links: its first operand's, then each operator after a line break and its operand after a space.
@@ -1579,12 +1552,12 @@ theorem chainLinksSteps ∀ (level: Option Nat) (first: Bool) (left: Expr) (oper
     (linkSteps level first left around start leftWithin leftShaped leftLexical leftJoins loose)
     (stepsCons Line _ _
       (Fits True Free) _
-      (stepsTo _ _ _ _ (stepsLine left.trails) (seam gapped =>
-        fitsWeaker left.trails True (_ => byComputing) Free seam (gappedFits left.trails Free seam byComputing gapped)))
+      (stepsTo (stepsLine left.trails) (seam gapped =>
+        fitsWeaker left.trails (_ => byComputing) (gappedFits [trails := left.trails] byComputing gapped)))
       (stepsCons
         (operator.leaf operatorAround operatorAround.at) _ _
         (Ends operator.trails) _
-        (stepsTo _ _ _ _
+        (stepsTo
           (wordLeafSteps operator operatorAround operatorAround.at Free operatorJoins (Inl byComputing))
           (seam closed => closedEnds operator.trails seam closed))
         (chainRightSteps level right rightAround operator.trails _ rightWithin rightShaped rightLexical rightJoins
@@ -1597,8 +1570,8 @@ theorem infixFirstWord ∀ (kind: InfixKind) (left: Expr) (operator: Word) (righ
   rewrite firstWordLead (Infix kind left operator right) within, firstWordLead left leftWithin
 
 --| A chain's operand of the same level in its links, as a chain's links; another operand as its element.
-theorem chainedSteps ∀ (level: Option Nat) (first: Bool) (kind: InfixKind) (left: Expr) (operator: Word) (right: Expr)
-    (around: Around) (start: Spacing)
+theorem chainedSteps ∀ (level: Option Nat) (first: Bool) [kind: InfixKind] [left: Expr] [operator: Word] [right: Expr]
+    [around: Around] [start: Spacing]
     (within: (Infix kind left operator right).within1 = True)
     (shaped: (Infix kind left operator right).shaped = True)
     (lexical: (Infix kind left operator right).lexical = True)
@@ -1642,7 +1615,7 @@ theorem linkSteps ∀ (level: Option Nat) (first: Bool) (expr: Expr) (around: Ar
     (Fits True start)
     (spacedFirst start (expr.spacing False))
     (Ends expr.trails) :=
-    stepsLast _ _
+    stepsLast
       (elSteps expr within shaped lexical joinable around start False
         (never => (Bool.falseNotTrue never).impossible)
         loose)
@@ -1650,14 +1623,14 @@ theorem linkSteps ∀ (level: Option Nat) (first: Bool) (expr: Expr) (around: Ar
     | Infix InfixBinary left operator right =>
       match chained: (Infix InfixBinary left operator right).inChain level with
         | True =>
-          chainedSteps level first InfixBinary left operator right around start within shaped lexical joinable loose
+          chainedSteps level first within shaped lexical joinable loose
             (Bool.andLeft within)
             (Bool.andLeft (Bool.andRight within))
         | False => element
     | Infix InfixArrow left operator right =>
       match chained: (Infix InfixArrow left operator right).inChain level with
         | True =>
-          chainedSteps level first InfixArrow left operator right around start within shaped lexical joinable loose
+          chainedSteps level first within shaped lexical joinable loose
             (Bool.andLeft within)
             (Bool.andLeft (Bool.andRight within))
         | False => element
@@ -1695,16 +1668,13 @@ theorem chainElSteps ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right:
       | Inr quiet => Inr (Bool.andIntro (Bool.andLeft quiet) byComputing)
   framedSteps
     (Infix kind left operator right).firstWord
-    around
     (chain level left operator right inside) _ _
-    first
     sound
     loose
     (chainOfSteps
       (left.opensArms level)
       links _ _ _
-      (chainedSteps level True kind left operator right inside first within shaped lexical joinable insideLoose
-          leftWithin rightWithin)
+      (chainedSteps level True within shaped lexical joinable insideLoose leftWithin rightWithin)
       filled)
 
 --| An infix chain: its first operand spaced `first`, each operator free after a line break and each right operand
@@ -1780,7 +1750,7 @@ theorem callHugSteps ∀ (value: Expr) (inside: Around)
         Bool.andRight (Bool.andRight (Bool.andRight (Bool.andRight shaped)))
       let headSpacing := spacedFirst Free (head.spacing False)
       let headEl: Steps (head.el inside) (Fits True Free) headSpacing (Ends True) :=
-        stepsTo _ _ _ _
+        stepsTo
           (elSteps head headWithin headShaped
             (Bool.andLeft lexical)
             headJoins

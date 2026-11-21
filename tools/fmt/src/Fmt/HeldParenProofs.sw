@@ -58,7 +58,7 @@ theorem lineOpenerStep ∀ (kinds: Text → Tok) (text: Text) (indent column: Na
       (Ended (openingBy state start) False place ∧ hang = Hang.At (openingBy state start)) ∧ place.indent = line)
     solid
     (place trace ((folded, seated, room, same), onLine) =>
-      let ended := wordEnded indent column False text state place notComment seated room
+      let ended := wordEnded notComment seated room
       let stepped :=
         stepOpener kinds state text
           (wordStart indent place)
@@ -87,7 +87,7 @@ theorem lineTrailingHangs ∀ (kinds: Text → Tok) (word: Word) (indent: Nat) (
   match after: word.comments.after, trailed with
     | None, _ => hangsNil kinds indent pre pre (place hang held => held)
     | Some comment, (isComment, layout) =>
-      hangsLast indent
+      hangsLast
         (hangsSuffix kinds indent pre post isComment layout (place hang ((ended, folded), onLine) =>
           match place, ended, onLine with
             | Mid at carry, (floor, left), onLine =>
@@ -378,13 +378,11 @@ theorem heldOpening ∀ (kinds: Text → Tok) (open close: Word) (around: Around
         (place hang (((ended, folded), line), kept) =>
           ((rewrite trails at ended then ended, folded), _ => (kept, line))))
     (marks =>
-      hangsPost
-        (openingHangs kinds open close around indent column state entry token hoisted trailed)
-        (place hang (ended, folded) =>
-          (
-            (rewrite trails at ended then ended, folded),
-            never => (Bool.falseNotTrue (Eq.trans marks.flipped never)).impossible
-          )))
+      hangsPost (openingHangs close indent column state entry token hoisted trailed) (place hang (ended, folded) =>
+        (
+          (rewrite trails at ended then ended, folded),
+          never => (Bool.falseNotTrue (Eq.trans marks.flipped never)).impossible
+        )))
 
 --| The opener's mark is still open, on the opener's line, wherever its keys were kept: a closer's line of its own
 --| lands left of what no item started a line at.
@@ -424,7 +422,7 @@ theorem heldInner ∀ (kinds: Text → Tok) (doc: Doc) (indent key: Nat) (entry:
   hangsBy (place trace next ((ended, folded), cond) after =>
     let seat := endedSeat indent True state place byComputing ended bound
     let (seated, _, _, _) := seat
-    let deep := seatDeep indent True state place seated
+    let deep := seatDeep place seated
     let entered: Entered indent indent True state place (wordStart indent place) place (hangOf kinds trace) :=
       (byComputing, folded, seat)
     match marks: flag with
@@ -480,7 +478,7 @@ theorem heldInner ∀ (kinds: Text → Tok) (doc: Doc) (indent key: Nat) (entry:
             let column := Nat.max indent (at + 2)
             let seat := endedSeat indent True state (Held at carry) byComputing (waits, floor, left) bound
             let (seated, _, _, _) := seat
-            let deep := seatDeep indent True state (Held at carry) seated
+            let deep := seatDeep (Held at carry) seated
             let entered: Entered indent indent True state
               (Held at carry)
               (wordStart indent (Held at carry))
@@ -595,8 +593,8 @@ theorem parenHeldHangs ∀ (kinds: Text → Tok) (open: Word) (inner: Expr) (clo
       let closeAround := around.next inner.trails (1 + inner.size)
       let closerDoc := close.leaf closeAround around.at
       let prefix := open.opening around close
-      let bound: (inForce outer top <= indent) = True := openedBound indent column state entry seated below clear room
-      let atOpener := openerLine indent column state entry (seated, below, clear, room)
+      let bound: (inForce outer top <= indent) = True := openedBound seated below clear room
+      let atOpener := openerLine (seated, below, clear, room)
       let pre := Entered indent column False state entry start
       let gap := HeldGap outer top flag low origin entry.indent
       let done := HeldDone indent around.at outer top flag inner.trails

@@ -40,7 +40,7 @@ def TopDone (trails: Bool): Place → Hang → Prop := place hang =>
 --| After the `:` or the `:=`: the type or the body starts.
 def AfterTop (trails: Bool): Place → Hang → Prop := place hang => Ended topFrom trails place ∧ hang = Hang.At topFrom
 
-theorem topDoneUnbroken ∀ (trails: Bool) (place: Place) (hang: Hang) (done: TopDone trails place hang): hang ≠ Broke :=
+theorem topDoneUnbroken ∀ [trails: Bool] (place: Place) (hang: Hang) (done: TopDone trails place hang): hang ≠ Broke :=
   let (top, _, folded) := done
   rewrite folded then atUnbroken (topState top)
 
@@ -200,7 +200,7 @@ theorem keywordHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around)
                 (floorAfterToken word.text Carry.none notComment, byComputing),
                 rewrite tokenCode word.text (Some 0) notComment solid, keyword
               )))
-          (trailingHangs kinds word 0 HangState.initial trailed)))
+          (trailingHangs kinds 0 HangState.initial trailed)))
       (place hang (done, folded) => (done, folded, byComputing))
 
 --| The name after `def`, with or without own-line comments above it: a later part of the head that keeps the fold.
@@ -328,11 +328,10 @@ theorem notedStepHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (
     rewrite leafPiece word around key closer comma then
       (hangsConcat
             (hangsAppend
-              (leadingHangs kinds word around key indent before state place note rest hoisted noted closer comments
-                  fresh)
+              (leadingHangs kinds key indent before state rest hoisted noted closer comments fresh)
               (hangsCons word.trailing
                 (lineStepHangs kinds word.text indent column state final token solid (step column room) (bound column))
-                (trailingHangs kinds word indent final trailed)))) place _ trace next byComputing
+                (trailingHangs kinds indent final trailed)))) place _ trace next byComputing
           (byComputing, folded, seated)
           (hangsAfter after))
 
@@ -375,7 +374,7 @@ theorem colonHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key 
               )
               | AtStart at carry, never => (Bool.falseNotTrue never).impossible
               | Broken at carry, never => (Bool.falseNotTrue never).impossible))
-        (trailingHangs kinds word indent topFrom trailed))
+        (trailingHangs kinds indent topFrom trailed))
 
 --| The `:=` after the type: the body starts.
 theorem assignHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat) (before: Bool)
@@ -405,7 +404,7 @@ theorem assignHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key
                 byComputing
                 (_ => byComputing)
             )))
-        (trailingHangs kinds word indent topFrom trailed))
+        (trailingHangs kinds indent topFrom trailed))
 
 --| The `:` with own-line comments above it, after the name: they sit above it, and the type then starts.
 theorem colonNotedHangs ∀ (kinds: Text → Tok) (word: Word) (around: Around) (key indent: Nat) (before: Bool)
@@ -530,8 +529,7 @@ theorem headerHangs ∀ (kinds: Text → Tok) [headDoc colonDoc typeDoc: Doc] (n
         (hangsCons
           [colonDoc, Nest 4 (Doc.concat [HardLine, typeDoc])]
           head
-          (hangsTwo colon
-            (hangsNest 4 0 (belowTopHangs kinds typeDoc 4 True typeTrails True typeNoted byComputing typed))))
+          (hangsTwo colon (hangsNest (belowTopHangs kinds typeDoc 4 True typeTrails True typeNoted byComputing typed))))
     | False =>
       hangsConcat
         (hangsCons
@@ -542,7 +540,7 @@ theorem headerHangs ∀ (kinds: Text → Tok) [headDoc colonDoc typeDoc: Doc] (n
             colon
             (hangsTwo
               (spaceKeeps kinds 0 topFrom False)
-              (hangsNest 4 0 (midTopHangs kinds typeDoc 4 typeTrails typeNoted typed)))))
+              (hangsNest (midTopHangs kinds typeDoc 4 typeTrails typeNoted typed)))))
 
 -- The body (`bodyAfter`): the value below at 2, or one of the choice's forms.
 
@@ -550,21 +548,18 @@ theorem headerHangs ∀ (kinds: Text → Tok) [headDoc colonDoc typeDoc: Doc] (n
 def OnLine (kinds: Text → Tok) (doc: Doc): Prop := ∃ (trails: Bool) => ElHangs kinds doc 0 0 False trails wordStart
 
 --| The value after a space on the `:=`'s line.
-theorem spaceDocHangs ∀ (kinds: Text → Tok) (doc: Doc)
+theorem spaceDocHangs ∀ [kinds: Text → Tok] [doc: Doc]
     (on: OnLine kinds doc):
     HangLays kinds (Doc.concat [Doc.text " ", doc]) 0 (AfterTop False) Unbroken :=
   let (trails, el) := on
   hangsConcat
-    (hangsTwo
-      (spaceKeeps kinds 0 topFrom False)
-      (hangsPost (midTopHangs kinds doc 0 trails False el) (topDoneUnbroken trails)))
+    (hangsTwo (spaceKeeps kinds 0 topFrom False) (hangsPost (midTopHangs kinds doc 0 trails False el) topDoneUnbroken))
 
 --| The value below at 2 on a line of its own.
 theorem belowHangs ∀ (kinds: Text → Tok) (doc: Doc) (before trails noted: Bool)
     (el: ElHangs kinds doc 2 2 before trails (startFor noted)):
     HangLays kinds (Nest 2 (Doc.concat [HardLine, doc])) 0 (AfterTop before) Unbroken :=
-  hangsNest 2 0
-    (hangsPost (belowTopHangs kinds doc 2 before trails before noted byComputing el) (topDoneUnbroken trails))
+  hangsNest (hangsPost (belowTopHangs kinds doc 2 before trails before noted byComputing el) topDoneUnbroken)
 
 --| The value one line below at 2, laid flat.
 theorem oneLineHangs ∀ (kinds: Text → Tok) (doc: Doc) (trails: Bool)
@@ -573,7 +568,7 @@ theorem oneLineHangs ∀ (kinds: Text → Tok) (doc: Doc) (trails: Bool)
   let started: Place → Hang → Prop := place hang => StartsAt 2 place ∧ hang = Hang.At topFrom
   hangsOneLineBelow 0
     (AfterTop False)
-    (hangsPost (startTopHangs kinds doc 2 False trails False byComputing el) (topDoneUnbroken trails))
+    (hangsPost (startTopHangs kinds doc 2 False trails False byComputing el) topDoneUnbroken)
     (place hang (ended, folded) =>
       match place, ended with
         | Mid at carry, (floor, _) =>
@@ -594,12 +589,12 @@ theorem plainChoiceHangs ∀ (kinds: Text → Tok) (doc: Doc) (hug: Option Doc) 
         ++ (if hug.isSome then [OneLineBelow doc] else [])
         ++ optionList (hug.map (open => Doc.concat [Doc.text " ", open]))
         ++ [Nest 2 (Doc.concat [HardLine, doc])]) :=
-  let flat := hangsFlatten (spaceDocHangs kinds doc onLine)
+  let flat := hangsFlatten (spaceDocHangs onLine)
   let low := belowHangs kinds doc False trails False below
   match hug, hugs with
     | None, _ => (flat, low, byComputing)
     | Some open, hugs =>
-      (flat, oneLineHangs kinds doc trails below, spaceDocHangs kinds open (hugs open byComputing), low, byComputing)
+      (flat, oneLineHangs kinds doc trails below, spaceDocHangs (hugs open byComputing), low, byComputing)
 
 --| The choice's forms when the value opens a bracket: on the line, one line below, on the line opened, else below.
 theorem openChoiceHangs ∀ (kinds: Text → Tok) (doc: Doc) (trails: Bool)
@@ -612,9 +607,9 @@ theorem openChoiceHangs ∀ (kinds: Text → Tok) (doc: Doc) (trails: Bool)
       Nest 2 (Doc.concat [HardLine, doc])
     ] :=
   (
-    hangsFlatten (spaceDocHangs kinds doc onLine),
+    hangsFlatten (spaceDocHangs onLine),
     oneLineHangs kinds doc trails below,
-    spaceDocHangs kinds doc onLine,
+    spaceDocHangs onLine,
     belowHangs kinds doc False trails False below,
     byComputing
   )

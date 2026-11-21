@@ -74,7 +74,7 @@ def Quiet (kind: Tok): Prop := Comma ≠ kind ∧ RParen ≠ kind ∧ RBracket �
 
 theorem startNotDash ∀ (first: Char) (starts: isWordStart first = True): ('-' == first) = False := cases
 
-theorem headNotDash ∀ (text: Text) (first: Char) (others: List Char)
+theorem headNotDash ∀ [text: Text] [first: Char] (others: List Char)
     (split: text.toList = [first, ..others])
     (differs: ('-' == first) = False):
     text.startsWith "--" = False :=
@@ -105,14 +105,14 @@ theorem spellsNotComment ∀ (kind: Tok) (text: Text) (spells: Spells kind text)
         KwDef, same => rewrite same
     | Arrow | OrOr | AndAnd | NotEq | Le | Ge | Bang, Inl same | Inr same => rewrite same
     | Lower | Upper, Witness first (Witness others (Witness comps (Both split (Both starts rest)))) =>
-      headNotDash text first (others ++ qualChars comps) split (startNotDash first starts)
+      headNotDash (others ++ qualChars comps) split (startNotDash first starts)
     | Num, Witness first (Witness others (Both split (Both digit rest))) =>
-      headNotDash text first others split (Char.beqFalseOfDigitRight '-' first byComputing digit)
+      headNotDash others split (Char.beqFalseOfDigitRight '-' first byComputing digit)
     | Float, Witness first (Witness others (Witness tail (Both split (Both digit rest)))) =>
-      headNotDash text first (others ++ tail) split (Char.beqFalseOfDigitRight '-' first byComputing digit)
+      headNotDash (others ++ tail) split (Char.beqFalseOfDigitRight '-' first byComputing digit)
 
 --| A text that spells a token of another kind than `other` doesn't spell it.
-theorem notFixed ∀ (kind: Tok) (text other: Text)
+theorem notFixed ∀ [kind: Tok] [text: Text] (other: Text)
     (spells: Spells kind text)
     (differs: lexKind other ≠ kind):
     (text == other) = False :=
@@ -128,10 +128,10 @@ theorem spellsQuiet ∀ (kind: Tok) (text: Text)
     (quiet: Quiet kind):
     (text == ",") = False ∧ isCloserText text = False :=
   let (comma, paren, square, brace) := quiet
-  let notComma := notFixed kind text "," spells (same => comma (Eq.trans byComputing same))
-  let notParen := notFixed kind text ")" spells (same => paren (Eq.trans byComputing same))
-  let notSquare := notFixed kind text "]" spells (same => square (Eq.trans byComputing same))
-  let notBrace := notFixed kind text "}" spells (same => brace (Eq.trans byComputing same))
+  let notComma := notFixed "," spells (same => comma (Eq.trans byComputing same))
+  let notParen := notFixed ")" spells (same => paren (Eq.trans byComputing same))
+  let notSquare := notFixed "]" spells (same => square (Eq.trans byComputing same))
+  let notBrace := notFixed "}" spells (same => brace (Eq.trans byComputing same))
   (notComma, rewrite notParen, notSquare, notBrace)
 
 --| What `printLexes1` needs of a word that spells a token of a kind that is no comma or closer.
@@ -1148,7 +1148,7 @@ theorem startNotLayout ∀ (first: Char)
     (first == ' ') = False ∧ (first == '\n') = False :=
   cases
 
-theorem headNotLayout ∀ (text: Text) (first: Char) (others: List Char)
+theorem headNotLayout ∀ [text: Text] [first: Char] (others: List Char)
     (split: text.toList = [first, ..others])
     (space: (first == ' ') = False)
     (line: (first == '\n') = False):
@@ -1175,15 +1175,15 @@ theorem spellsNotLayout ∀ (kind: Tok) (text: Text) (spells: Spells kind text):
     | KwDef, same => rewrite same
     | Lower | Upper, Witness first (Witness others (Witness comps (Both split (Both starts _)))) =>
       let (space, line) := startNotLayout first starts
-      headNotLayout text first (others ++ qualChars comps) split space line
+      headNotLayout (others ++ qualChars comps) split space line
     | Num, Witness first (Witness others (Both split (Both digit rest))) =>
       let space := Char.beqFalseOfDigit first ' ' digit byComputing
       let line := Char.beqFalseOfDigit first '\n' digit byComputing
-      headNotLayout text first others split space line
+      headNotLayout others split space line
     | Float, Witness first (Witness others (Witness tail (Both split (Both digit rest)))) =>
       let space := Char.beqFalseOfDigit first ' ' digit byComputing
       let line := Char.beqFalseOfDigit first '\n' digit byComputing
-      headNotLayout text first (others ++ tail) split space line
+      headNotLayout (others ++ tail) split space line
 
 def Word.real (word: Word): Bool := !isLayout word.text
 

@@ -191,8 +191,8 @@ theorem operatorHangs ∀ (operator: Word) (around: Around) (notes: List Note)
         operator.trails
         leadStart :=
         inset state entry =>
-          notedLeafHangs lexKind operator around around.at inset state entry note rest plain notComment solid closer
-              comma hoisted above comments trailed
+          notedLeafHangs around.at inset state entry rest plain notComment solid closer comma hoisted above comments
+              trailed
       (True, hangs)
 
 --| A binary operator, not an item, as a chain's operator: a plain token, starting the line after its own-line
@@ -290,19 +290,18 @@ theorem notedArrowGlues ∀ (word: Word) (around: Around) (key: Nat) (note: Note
           let pre := Entered inset inset around.before state entry (leadStart inset entry)
           let lined := LineAt inset column (Hang.At state)
           let post: Place → Hang → Prop := place hang => Ended glued False place ∧ hang = Hang.At glued
-          let fresh := leadFresh inset state entry room
+          let fresh := leadFresh room
           let leading :=
             allHangsPre
               [weaker := pre]
-              (leadingHangs lexKind word around key inset around.before state entry note rest hoisted noted closer
-                  comments fresh)
+              (leadingHangs lexKind key inset around.before state rest hoisted noted closer comments fresh)
               (place hang (isEntry, folded, (seated, _, _, _)) => (isEntry, folded, seated))
           let written := lineArrowHangs lexKind word.text inset column state arrow token solid room
           rewrite leafPiece word around key closer comma then
             match trailing: word.comments.after, quiet with
               | None, _ =>
                 hangsConcat
-                  (hangsAppend leading (hangsLast inset written))
+                  (hangsAppend leading (hangsLast written))
                   place _
                   trace
                   next

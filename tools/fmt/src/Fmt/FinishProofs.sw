@@ -32,7 +32,7 @@ theorem trailingSilent ∀ (word: Word): AllSilent word.trailing := match after:
   | None => byComputing
 
 --| A token on its own finishes with its text: its own-line comments come before it, its trailing comment after.
-theorem leafFinishes ∀ (word: Word) (around: Around) (key: Nat)
+theorem leafFinishes ∀ [word: Word] (around: Around) (key: Nat)
     (final: Final word.text):
     Finishes Final (word.leaf around key) :=
   finishesConcat Final _
@@ -63,7 +63,7 @@ theorem framedFinishes ∀ (first: Word) (around: Around) (doc: Doc)
 theorem parenFinishes ∀ (open: Word) (inner: Expr) (close: Word) (around: Around)
     (closer: CloserJoins close):
     Finishes Final (parenDoc open inner close around) :=
-  finishesConcat Final _ (Inl (Inl (Inr ((leafFinishes close _ around.at (closerFinal close closer)), byComputing))))
+  finishesConcat Final _ (Inl (Inl (Inr ((leafFinishes _ around.at (closerFinal close closer)), byComputing))))
 
 --| Each of a bracket's layouts finishes with its closer.
 theorem bracketFromFinishes ∀ (list empty plain holds: Bool) (prefix closer: Doc) (filled broken: List Doc)
@@ -80,7 +80,7 @@ theorem bracketFromFinishes ∀ (list empty plain holds: Bool) (prefix closer: D
             | False => finishesConcat Final _ (Inl (Inl (Inl (Inr (ends, byComputing)))))
 
 --| A tuple's or list's contents finish with its closer.
-theorem bracketFinishes ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around)
+theorem bracketFinishes ∀ (list: Bool) (open: Word) (items: List Expr) [close: Word] (around: Around)
     (closer: CloserJoins close):
     Finishes Final (bracketContent list open items close around) :=
   rewrite bracketIs list open items close around then
@@ -93,16 +93,16 @@ theorem bracketFinishes ∀ (list: Bool) (open: Word) (items: List Expr) (close:
         around.at)
       (cells (list && items.all Expr.plainItem) around.inArm open.trails (around.at + 1) items)
       (brokenItems (list && items.all Expr.plainItem) around.inArm True open.trails (around.at + 1) items)
-      (leafFinishes close _ around.at (closerFinal close closer))
+      (leafFinishes _ around.at (closerFinal close closer))
 
 --| A bracket as a call's last argument, as it stands and opened, finishes with its closer.
-theorem huggedFinishes ∀ (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around) (hard: Bool)
+theorem huggedFinishes ∀ (list: Bool) (open: Word) (items: List Expr) [close: Word] (around: Around) (hard: Bool)
     (closer: CloserJoins close):
     Finishes Final
       (framedBy open around (Group (bracketContent list open items close { around | hoisted = True }) hard)) :=
   framedFinishes open around
     (Group (bracketContent list open items close { around | hoisted = True }) hard)
-    (bracketFinishes list open items close { around | hoisted = True } closer)
+    (bracketFinishes list open items { around | hoisted = True } closer)
 
 -- Calls.
 
@@ -208,14 +208,14 @@ theorem lastArgumentFinishes ∀ (kinds: Text → Tok) (argument: Expr) (around:
     | Tuple open items comma close, (opener, closer, each) =>
       let content := bracketContent False open items close { around | hoisted = True }
       (
-        huggedFinishes False open items close around content.forcesBreak closer,
-        huggedFinishes False open items close around True closer
+        huggedFinishes False open items around content.forcesBreak closer,
+        huggedFinishes False open items around True closer
       )
     | ListOf open items comma close, (opener, closer, each) =>
       let content := bracketContent True open items close { around | hoisted = True }
       (
-        huggedFinishes True open items close around content.forcesBreak closer,
-        huggedFinishes True open items close around True closer
+        huggedFinishes True open items around content.forcesBreak closer,
+        huggedFinishes True open items around True closer
       )
     | Atom kind word, joins => (elFinishes kinds (Atom kind word) within joins around, byComputing)
     | App head arguments, joins => (elFinishes kinds (App head arguments) within joins around, byComputing)
@@ -312,8 +312,8 @@ theorem chainRightFinishes ∀ (kinds: Text → Tok) (level: Option Nat) (right:
     | Atom _ _ | Paren _ _ _ | Tuple _ _ _ _ | ListOf _ _ _ _ | App _ _ | Infix _ _ _ _ | Prefix _ _ => spaced
 
 --| A chain's links finish with its last operand.
-theorem chainLinksFinish ∀ (kinds: Text → Tok) (level: Option Nat) (first: Bool) (left: Expr) (operator: Word)
-    (right: Expr) (around: Around)
+theorem chainLinksFinish ∀ [kinds: Text → Tok] (level: Option Nat) (first: Bool) (left: Expr) (operator: Word)
+    [right: Expr] (around: Around)
     (rightWithin: right.within1 = True)
     (rightJoins: Joinable kinds right):
     FinishesLast Final (chainLinks level first left operator right around) :=
@@ -339,17 +339,11 @@ theorem linkDocsFinish ∀ (kinds: Text → Tok) (level: Option Nat) (first: Boo
       match kind with
         | InfixBinary =>
           match inChain: (Infix InfixBinary left operator right).inChain level with
-            | True =>
-              chainLinksFinish kinds level first left operator right around
-                (Bool.andLeft (Bool.andRight within))
-                rightJoins
+            | True => chainLinksFinish level first left operator around (Bool.andLeft (Bool.andRight within)) rightJoins
             | False => element
         | InfixArrow =>
           match inChain: (Infix InfixArrow left operator right).inChain level with
-            | True =>
-              chainLinksFinish kinds level first left operator right around
-                (Bool.andLeft (Bool.andRight within))
-                rightJoins
+            | True => chainLinksFinish level first left operator around (Bool.andLeft (Bool.andRight within)) rightJoins
             | False => element
         | _ => cases
 
@@ -363,7 +357,7 @@ theorem chainFinishes ∀ (kinds: Text → Tok) (level: Option Nat) (left: Expr)
   chainOfFinishes
     (left.opensArms level)
     links
-    (chainLinksFinish kinds level True left operator right around rightWithin rightJoins)
+    (chainLinksFinish level True left operator around rightWithin rightJoins)
     (List.twoLeLengthAppend (linkDocs level True left around) Line (operator.leaf _ _) _)
 
 -- The induction.
@@ -379,7 +373,7 @@ theorem elFinishes ∀ (kinds: Text → Tok) (expr: Expr)
     Finishes Final (expr.el around) :=
   let inside := { around | hoisted = True }
   match expr, joinable with
-    | Atom kind word, joins => leafFinishes word around around.at (wordFinal word joins)
+    | Atom kind word, joins => leafFinishes around around.at (wordFinal word joins)
     | Paren open inner close, (opener, closer, innerJoins) =>
       framedFinishes
         (Paren open inner close).firstWord
@@ -391,13 +385,13 @@ theorem elFinishes ∀ (kinds: Text → Tok) (expr: Expr)
         (Tuple open items comma close).firstWord
         around
         (commaBracket False open items close inside)
-        (bracketFinishes False open items close inside closer)
+        (bracketFinishes False open items inside closer)
     | ListOf open items comma close, (opener, closer, each) =>
       framedFinishes
         (ListOf open items comma close).firstWord
         around
         (commaBracket True open items close inside)
-        (bracketFinishes True open items close inside closer)
+        (bracketFinishes True open items inside closer)
     | App head arguments, (headJoins, each, filled) =>
       framedFinishes
         (App head arguments).firstWord

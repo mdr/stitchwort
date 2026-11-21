@@ -21,11 +21,11 @@ def SepsSteps (docs: List Doc) (pre: Seam → Prop) (spacing: List Spacing) (pos
       → next after (trace ++ added))
     → SepsTouch docs seam trace next
 
-theorem sepsNil ∀ (pre post: Seam → Prop) (implies: ∀ (seam: Seam) => pre seam → post seam): SepsSteps [] pre [] post :=
+theorem sepsNil ∀ [pre post: Seam → Prop] (implies: ∀ (seam: Seam) => pre seam → post seam): SepsSteps [] pre [] post :=
   seam trace next holds after => stay post [] seam trace next byComputing after (implies seam holds)
 
 --| A cell after a separator, which touches as a `Line` does, then the cells after it.
-theorem sepsCons ∀ (doc: Doc) (docs: List Doc) (pre middle post: Seam → Prop) (front back: List Spacing)
+theorem sepsCons ∀ (doc: Doc) (docs: List Doc) (pre middle: Seam → Prop) [post: Seam → Prop] (front back: List Spacing)
     (first: StepsAll [Line, doc] pre front middle)
     (rest: SepsSteps docs middle back post):
     SepsSteps [doc, ..docs] pre (front ++ back) post :=
@@ -40,7 +40,8 @@ theorem sepsCons ∀ (doc: Doc) (docs: List Doc) (pre middle post: Seam → Prop
               admitsAppend front back (codeTouching added) (codeTouching more) admits admitsMore)))
 
 --| A fill: its first cell, then the others each after a separator.
-theorem stepsFill ∀ [doc: Doc] [docs: List Doc] (pre middle post: Seam → Prop) [front back: List Spacing]
+theorem stepsFill ∀ [doc: Doc] [docs: List Doc] [pre: Seam → Prop] (middle: Seam → Prop)
+    [post: Seam → Prop] [front back: List Spacing]
     (first: Steps doc pre front middle)
     (rest: SepsSteps docs middle back post):
     Steps (Fill [doc, ..docs]) pre (front ++ back) post :=
@@ -112,7 +113,7 @@ theorem joinedSteps ∀ (docs: List Doc) (spacings: List (List Spacing)) (pre po
 theorem spacedSteps ∀ (docs: List Doc) (spacings: List (List Spacing)) (pre post: Seam → Prop)
     (seq: SeqSteps pre post docs spacings):
     Steps (spaced docs) pre (joinSpacing spacings) post :=
-  stepsConcat _ pre post (joinedSteps docs spacings pre post seq)
+  stepsConcat _ (joinedSteps docs spacings pre post seq)
 
 theorem sepsSeq ∀ (doc: Doc) (more: List Doc) (spacing: List Spacing) (later: List (List Spacing)) (post: Seam → Prop)
     (seq: SeqFrom (Gapped True) post doc spacing more later):
@@ -122,17 +123,15 @@ theorem sepsSeq ∀ (doc: Doc) (more: List Doc) (spacing: List Spacing) (later: 
       sepsCons doc []
         (Ends True)
         post
-        post
         spacing
         []
         (stepsTwo Line (Ends True) (Gapped True) post (stepsLine True) steps)
-        (sepsNil post post (seam holds => holds))
+        (sepsNil (seam holds => holds))
     | [next, ..others], [nextSpacing, ..rest], (first, seqRest) =>
       sepsCons doc
         [next, ..others]
         (Ends True)
         (Ends True)
-        post
         spacing
         (joinSpacing [nextSpacing, ..rest])
         (stepsTwo Line (Ends True) (Gapped True) (Ends True) (stepsLine True) first)
@@ -145,9 +144,9 @@ theorem fillSteps ∀ (docs: List Doc) (spacings: List (List Spacing)) (pre post
     Steps (Fill docs) pre (joinSpacing spacings) post :=
   match docs, spacings, seq with
     | [], [], keeps => seam trace next holds after => stay post [] seam trace next byComputing after (keeps seam holds)
-    | [only], [spacing], steps => stepsFill pre post post steps (sepsNil post post (seam holds => holds))
+    | [only], [spacing], steps => stepsFill post steps (sepsNil (seam holds => holds))
     | [doc, next, ..more], [spacing, nextSpacing, ..later], (first, rest) =>
-      stepsFill pre (Ends True) post first (sepsSeq next more nextSpacing later post rest)
+      stepsFill (Ends True) first (sepsSeq next more nextSpacing later post rest)
     | _, _, never => cases then never.impossible
 
 --| Documents each on a line of their own.
@@ -164,13 +163,13 @@ theorem hardSteps ∀ (docs: List Doc) (spacings: List (List Spacing))
         pre
         (Gapped True)
         post
-        (stepsHard pre (Gapped True) quiet byComputing)
+        (stepsHard (Gapped True) quiet byComputing)
         (stepsCons only [] (Gapped True) post post steps (stepsNil post post (seam holds => holds)))
     | [doc, next, ..more], [spacing, nextSpacing, ..later], (first, rest) =>
       stepsCons HardLine _ pre
         (Gapped True)
         post
-        (stepsHard pre (Gapped True) quiet byComputing)
+        (stepsHard (Gapped True) quiet byComputing)
         (stepsCons doc _
           (Gapped True)
           (Ends True)
@@ -253,14 +252,13 @@ theorem appFromSteps ∀ (id keep: Nat) (between betweenFront: Bool) (headDoc la
     | True =>
       match between with
         | True => spacedSteps docs all pre post whole
-        | False => stepsNest 4 pre post (fillSteps docs all pre post whole)
+        | False => stepsNest 4 pre (fillSteps docs all pre post whole)
     | False =>
       let (keptSeq, droppedSeq, filled) := seqSplit docs all keep pre post positive short full whole
       let rest := Doc.concat (docs.drop keep |> .concatMap (doc => [HardLine, doc]))
       let restSteps: Steps rest (Ends True) (joinSpacing (all.drop keep)) post :=
-        stepsConcat _
-          (Ends True)
-          post
+        stepsConcat
+          [pre := (Ends True)] _
           (hardSteps
             (docs.drop keep)
             (all.drop keep)
@@ -276,32 +274,27 @@ theorem appFromSteps ∀ (id keep: Nat) (between betweenFront: Bool) (headDoc la
         | True =>
           stepsIdGroup id False pre
             (Ends True)
-            (stepsNest 4 pre (Ends True) (fillSteps (docs.take keep) (all.take keep) pre (Ends True) keptSeq))
+            (stepsNest [post := (Ends True)] 4 pre (fillSteps (docs.take keep) (all.take keep) pre (Ends True) keptSeq))
         | False => spacedSteps (docs.take keep) (all.take keep) pre (Ends True) keptSeq
       let restDocSteps: Steps restDoc (Ends True) (joinSpacing (all.drop keep)) post := match fillFront with
         | True =>
-          stepsIfBroken id
-            (Ends True)
-            post
-            (stepsNest 4 (Ends True) post restSteps)
-            (stepsNest 2 (Ends True) post restSteps)
-        | False => stepsNest 2 (Ends True) post restSteps
+          stepsIfBroken id (Ends True) post (stepsNest 4 (Ends True) restSteps) (stepsNest 2 (Ends True) restSteps)
+        | False => stepsNest 2 (Ends True) restSteps
       let broken: Steps (Doc.concat [frontDoc, restDoc]) pre (joinSpacing all) post :=
-        stepsSpacing pre _ post
+        stepsSpacing
           (joinTakeDrop all keep)
-          (stepsConcat _ pre post (stepsTwo frontDoc pre (Ends True) post frontSteps restDocSteps))
+          (stepsConcat _ (stepsTwo frontDoc pre (Ends True) post frontSteps restDocSteps))
       let flat: Steps (Flatten (spaced docs)) pre (joinSpacing all) post :=
-        stepsFlatten pre post (spacedSteps docs all pre post whole)
+        stepsFlatten post (spacedSteps docs all pre post whole)
       match hug, hugSteps with
         | None, _ =>
-          stepsChoice (Flatten (spaced docs)) [Doc.concat [frontDoc, restDoc]] pre post (flat, broken, byComputing)
+          stepsChoice (Flatten (spaced docs)) [Doc.concat [frontDoc, restDoc]] pre (flat, broken, byComputing)
         | Some open, opens =>
           let hugged := appHugSteps headDoc open front headSpacing lastSpacing spacings pre post frontSeq opens
           stepsChoice
             (Flatten (spaced docs))
             [Doc.concat [Flatten (spaced [headDoc, ..front]), Doc.text " ", open], Doc.concat [frontDoc, restDoc]]
             pre
-            post
             (flat, hugged, broken, byComputing)
 
 theorem hugTo ∀ (hug: Option Doc) (pre: Seam → Prop) (spacing: List Spacing) (post later: Seam → Prop)
@@ -309,14 +302,14 @@ theorem hugTo ∀ (hug: Option Doc) (pre: Seam → Prop) (spacing: List Spacing)
     HugSteps hug pre spacing later :=
   match hug, steps with
     | None, _ => byComputing
-    | Some open, opens => stepsTo open pre post later opens implies
+    | Some open, opens => stepsTo opens implies
 
 theorem hugFrom ∀ (hug: Option Doc) (pre weaker: Seam → Prop) (spacing: List Spacing) (post: Seam → Prop)
     (steps: HugSteps hug pre spacing post) (implies: ∀ (seam: Seam) => weaker seam → pre seam):
     HugSteps hug weaker spacing post :=
   match hug, steps with
     | None, _ => byComputing
-    | Some open, opens => stepsFrom pre weaker post opens implies
+    | Some open, opens => stepsFrom opens implies
 
 --| A call's hug: the function and the arguments before the last flattened, a space, and the last opened.
 theorem appHugSteps ∀ (headDoc open: Doc) (front: List Doc) (headSpacing lastSpacing: List Spacing)
@@ -328,17 +321,15 @@ theorem appHugSteps ∀ (headDoc open: Doc) (front: List Doc) (headSpacing lastS
       pre
       (joinSpacing ([headSpacing, ..spacings] ++ [lastSpacing]))
       post :=
-  stepsSpacing pre _ post
+  stepsSpacing
     (hugSpacing headSpacing lastSpacing spacings)
-    (stepsConcat _ pre post
+    (stepsConcat _
       (stepsCons
         (Flatten (spaced [headDoc, ..front])) _
         pre
         (Ends True)
         post
-        (stepsFlatten pre
-          (Ends True)
-          (spacedSteps [headDoc, ..front] [headSpacing, ..spacings] pre (Ends True) frontSeq))
+        (stepsFlatten (Ends True) (spacedSteps [headDoc, ..front] [headSpacing, ..spacings] pre (Ends True) frontSeq))
         (stepsTwo (Doc.text " ") (Ends True) (Gapped True) post (stepsSpace True) opens)))
 
 --| `appFrom`'s hug, for a `:=` line.
@@ -375,6 +366,8 @@ theorem spacedHugSteps ∀ (hug: Option Doc) (spacing: List Spacing) (post: Seam
   match hug, steps with
     | None, _ => byComputing
     | Some open, opens => (
-      stepsConcat _ (Ends True) post (stepsTwo (Doc.text " ") (Ends True) (Gapped True) post (stepsSpace True) opens),
+      stepsConcat
+        [pre := (Ends True)] _
+        (stepsTwo (Doc.text " ") (Ends True) (Gapped True) post (stepsSpace True) opens),
       byComputing
     )

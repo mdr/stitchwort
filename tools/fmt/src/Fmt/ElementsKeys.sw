@@ -153,7 +153,7 @@ theorem anyBrokenKeys ∀ (items: List Expr) (low: Nat) (bare arm first before: 
         | True | False => rewrite one, rest
 
 --| A bracket's parts, in any of `bracketContent`'s layouts.
-theorem anyContentKeys ∀ (low: Nat) (list: Bool) (open: Word) (items: List Expr) (close: Word) (around: Around)
+theorem anyContentKeys ∀ [low: Nat] (list: Bool) (open: Word) [items: List Expr] (close: Word) (around: Around)
     (floor: (low <= around.at) = True)
     (within: allWithin1 items = True):
     keysFrom low (bracketContent list open items close around) = True :=
@@ -197,7 +197,7 @@ theorem anyHugKeys ∀ (low: Nat) (list: Bool) (open: Word) (items: List Expr) (
     keysFrom low (huggedBracket list open items close around).fst = True
       ∧ (∀ (opened: Doc) => (huggedBracket list open items close around).snd = Some opened
         → keysFrom low opened = True) :=
-  let content := anyContentKeys low list open items close { around | hoisted = True } floor within
+  let content := anyContentKeys list open close { around | hoisted = True } floor within
   (
     framedKeysAt low open around
       (Group
@@ -329,12 +329,12 @@ theorem anyKeys ∀ (expr: Expr) (around: Around) (low: Nat)
       framedKeysAt low open around
         (commaBracket (list := False) open items close inside)
         floor
-        (anyContentKeys low False open items close inside floor within)
+        (anyContentKeys False open close inside floor within)
     | ListOf open items _ close, within =>
       framedKeysAt low open around
         (commaBracket (list := True) open items close inside)
         floor
-        (anyContentKeys low True open items close inside floor within)
+        (anyContentKeys True open close inside floor within)
     | App head arguments, within =>
       let argumentDocsOf := argumentDocs inside.inArm head (inside.at + head.size) arguments
       let (docs, last, hug) :=
@@ -412,13 +412,12 @@ theorem notedFramedAt ∀ (kinds: Text → Tok) (first: Word) (around: Around) (
           hangsConcat
             (allHangsPre
               [weaker := pre]
-              (leadingHangs kinds first around around.at indent around.before state entry note rest hoisted noted closer
-                  comments
-                  (leadFresh indent state entry room))
+              (leadingHangs kinds around.at indent around.before state rest hoisted noted closer comments
+                (leadFresh room))
               (place hang (isEntry, folded, (seated, _, _, _)) => (isEntry, folded, seated)))
         let displaced :=
           linedDisplaced kinds doc indent column around.before trails state
-            (leadDeep indent around.before state entry seated (leadFresh indent state entry room))
+            (leadDeep indent around.before state entry seated (leadFresh room))
             room
             framed
         let isNoted: first.noted = True := rewrite noted
@@ -493,9 +492,8 @@ theorem ledItemHangs ∀ (expr: Expr) (around: Around) (indent: Nat) (state: Han
     | Atom kind word, within =>
       let (plain, (notComment, solid, wordCloser, comma)) := wordFacts kind word.text within
       rewrite atomTrailsIs kind word then
-        notedLeafHangs lexKind word around around.at indent state entry note rest plain notComment solid wordCloser
-            comma hoisted noted comments
-            (trailsOfSound word sound)
+        notedLeafHangs around.at indent state entry rest plain notComment solid wordCloser comma hoisted noted comments
+          (trailsOfSound word sound)
     | Paren open inner close, _ =>
       notedNodeAt
         (Paren open inner close)

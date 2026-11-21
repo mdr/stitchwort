@@ -189,21 +189,11 @@ theorem appFromHug ∀ (kinds: Text → Tok) (id keep: Nat) (between betweenFron
         | None, _, never => cases
         | Some open, hugged, same =>
           rewrite <- Option.someInjective same then
-            elGapThen kinds
+            elGapThen
               (Flatten (spaced [headDoc, ..front]))
               (Doc.text " ")
               open
-              indent
-              column
-              fronted
-              trails
-              (elFlatten kinds
-                (spaced [headDoc, ..front])
-                indent
-                column
-                False
-                fronted
-                (spacedHangs kinds headDoc front indent column middle fronted head frontSpaced))
+              (elFlatten (spaced [headDoc, ..front]) (spacedHangs front head frontSpaced))
               (Inr byComputing)
               (hugged open byComputing)
 

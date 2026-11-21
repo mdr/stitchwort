@@ -39,7 +39,7 @@ import Syntax.ReadBackLine (infixTok, signKind)
 
 -- Clean words: a token's text is no comment.
 
-theorem wordClean ∀ (word: Word)
+theorem wordClean ∀ [word: Word]
     (plain: word.text.startsWith "--" = False)
     (commented: Fmt.SpellProofs.Word.commented word = True):
     word.clean = True :=
@@ -49,7 +49,7 @@ theorem fixedClean ∀ (text: Text) (comments: Comments)
     (plain: text.startsWith "--" = False)
     (commented: Fmt.SpellProofs.Word.commented (fixedWord text comments) = True):
     (fixedWord text comments).clean = True :=
-  wordClean (fixedWord text comments) plain commented
+  wordClean [word := (fixedWord text comments)] plain commented
 
 theorem operatorNotComment ∀ (text: Text) (listed: operatorText1 text = True): text.startsWith "--" = False :=
   let (kind, spells, _) := operatorSpellsOf text listed
@@ -76,7 +76,7 @@ theorem wordsClean ∀ (expr: Expr)
   match expr, within with
     | Atom kind word, within =>
       Bool.andIntro
-        (wordClean word
+        (wordClean
           (spellsNotComment kind word.text (spellsOfText1 kind word.text (Bool.andRight within)))
           (Bool.andLeft commented))
         byComputing
@@ -88,12 +88,10 @@ theorem wordsClean ∀ (expr: Expr)
         [close]
         Word.clean
         (Bool.andIntro
-          (wordClean open (textPlain open.text "(" (Bool.andLeft lexical) byComputing) openCommented)
+          (wordClean (textPlain open.text "(" (Bool.andLeft lexical) byComputing) openCommented)
           (wordsClean inner within (Bool.andRight (Bool.andRight lexical)) innerCommented))
         (Bool.andIntro
-          (wordClean close
-            (textPlain close.text ")" (Bool.andLeft (Bool.andRight lexical)) byComputing)
-            (Bool.andLeft back))
+          (wordClean (textPlain close.text ")" (Bool.andLeft (Bool.andRight lexical)) byComputing) (Bool.andLeft back))
           byComputing)
     | Tuple open items comma close, within =>
       let (front, back) := allSplitBool [open, ..itemsWords items] [close] Fmt.SpellProofs.Word.commented commented
@@ -104,12 +102,10 @@ theorem wordsClean ∀ (expr: Expr)
         [close]
         Word.clean
         (Bool.andIntro
-          (wordClean open (textPlain open.text "(" (Bool.andLeft lexical) byComputing) openCommented)
+          (wordClean (textPlain open.text "(" (Bool.andLeft lexical) byComputing) openCommented)
           (itemsClean items within (Bool.andRight (Bool.andRight lexical)) itemsCommented))
         (Bool.andIntro
-          (wordClean close
-            (textPlain close.text ")" (Bool.andLeft (Bool.andRight lexical)) byComputing)
-            (Bool.andLeft back))
+          (wordClean (textPlain close.text ")" (Bool.andLeft (Bool.andRight lexical)) byComputing) (Bool.andLeft back))
           byComputing)
     | ListOf open items comma close, within =>
       let (front, back) := allSplitBool [open, ..itemsWords items] [close] Fmt.SpellProofs.Word.commented commented
@@ -120,12 +116,10 @@ theorem wordsClean ∀ (expr: Expr)
         [close]
         Word.clean
         (Bool.andIntro
-          (wordClean open (textPlain open.text "[" (Bool.andLeft lexical) byComputing) openCommented)
+          (wordClean (textPlain open.text "[" (Bool.andLeft lexical) byComputing) openCommented)
           (itemsClean items within (Bool.andRight (Bool.andRight lexical)) itemsCommented))
         (Bool.andIntro
-          (wordClean close
-            (textPlain close.text "]" (Bool.andLeft (Bool.andRight lexical)) byComputing)
-            (Bool.andLeft back))
+          (wordClean (textPlain close.text "]" (Bool.andLeft (Bool.andRight lexical)) byComputing) (Bool.andLeft back))
           byComputing)
     | App head arguments, within =>
       let (headCommented, argumentsCommented) :=
@@ -151,7 +145,7 @@ theorem wordsClean ∀ (expr: Expr)
       let (operatorCommented, operandCommented) :=
         List.allConsElim operator operand.words Fmt.SpellProofs.Word.commented commented
       Bool.andIntro
-        (wordClean operator (prefixNotComment operator.text (Bool.andRight within)) operatorCommented)
+        (wordClean (prefixNotComment operator.text (Bool.andRight within)) operatorCommented)
         (wordsClean operand (Bool.andLeft within) (Bool.andRight lexical) operandCommented)
     | Infix _ _ _ _, never => (Bool.falseNotTrue never).impossible
 
@@ -171,9 +165,7 @@ theorem infixClean ∀ (kind: InfixKind) (left: Expr) (operator: Word) (right: E
     Word.clean
     (wordsClean left leftWithin (Bool.andLeft lexical) leftCommented)
     (Bool.andIntro
-      (wordClean operator
-        (operatorNotComment operator.text (infixListed kind left operator right within))
-        operatorCommented)
+      (wordClean (operatorNotComment operator.text (infixListed kind left operator right within)) operatorCommented)
       (wordsClean right rightWithin (Bool.andRight (Bool.andRight lexical)) rightCommented))
 
 theorem itemsClean ∀ (items: List Expr)
@@ -370,7 +362,7 @@ theorem infixNotComma ∀ (kind: InfixKind) (tok: Tok) (is: infixTok kind tok = 
 theorem signNotComma ∀ (tok: Tok) (sign: signKind tok = True): (tok == Comma) = False := match tok, sign with
   | Minus | Bang, _ => byComputing
 
-theorem bracketCode ∀ (word: Word) (expected: Text)
+theorem bracketCode ∀ [word: Word] (expected: Text)
     (is: (word.text == expected) = True)
     (code: (lexKind expected == Comma) = False):
     slotCode (Some word) = True :=
@@ -392,27 +384,27 @@ theorem slotsCode ∀ (expr: Expr)
         [Some close]
         slotCode
         (Bool.andIntro
-          (bracketCode open "(" (Bool.andLeft lexical) byComputing)
+          (bracketCode "(" (Bool.andLeft lexical) byComputing)
           (slotsCode inner within (Bool.andRight (Bool.andRight lexical))))
-        (Bool.andIntro (bracketCode close ")" (Bool.andLeft (Bool.andRight lexical)) byComputing) byComputing)
+        (Bool.andIntro (bracketCode ")" (Bool.andLeft (Bool.andRight lexical)) byComputing) byComputing)
     | Tuple open items _ close, within =>
       List.allAppendTrue
         [Some open, ..commaSlots items]
         [Some close]
         slotCode
         (Bool.andIntro
-          (bracketCode open "(" (Bool.andLeft lexical) byComputing)
+          (bracketCode "(" (Bool.andLeft lexical) byComputing)
           (commaSlotsCode items within (Bool.andRight (Bool.andRight lexical))))
-        (Bool.andIntro (bracketCode close ")" (Bool.andLeft (Bool.andRight lexical)) byComputing) byComputing)
+        (Bool.andIntro (bracketCode ")" (Bool.andLeft (Bool.andRight lexical)) byComputing) byComputing)
     | ListOf open items _ close, within =>
       List.allAppendTrue
         [Some open, ..commaSlots items]
         [Some close]
         slotCode
         (Bool.andIntro
-          (bracketCode open "[" (Bool.andLeft lexical) byComputing)
+          (bracketCode "[" (Bool.andLeft lexical) byComputing)
           (commaSlotsCode items within (Bool.andRight (Bool.andRight lexical))))
-        (Bool.andIntro (bracketCode close "]" (Bool.andLeft (Bool.andRight lexical)) byComputing) byComputing)
+        (Bool.andIntro (bracketCode "]" (Bool.andLeft (Bool.andRight lexical)) byComputing) byComputing)
     | App head arguments, within =>
       List.allAppendTrue head.slots
         (argumentSlots arguments)
@@ -677,7 +669,7 @@ theorem splitFilled ∀ (group: List Leaf) (keyword: Comments) (name: Word) (col
           ([Free] ++ value.spacing False)
           typeRead
           [colonEqItem, ..valueRead]
-          (lengthOf result False typeRead resultWithin typeFilled)
+          (lengthOf False resultWithin typeFilled)
           restSpaced
       let valueSpaced: spacingAdmits (value.spacing False) valueRead = True := Bool.andRight tailSpaced
       let chained: Chained ([keywordItem, nameItem, colonItem] ++ typeRead ++ [colonEqItem, ..valueRead]) = True :=
@@ -795,7 +787,7 @@ theorem declCodeTexts ∀ (keyword: Comments) (name: Word) (colon colonEq: Comme
   let (colonEqCommented, valueCommented) :=
     List.allConsElim (fixedWord ":=" colonEq) value.words Fmt.SpellProofs.Word.commented afterResult
   let nameClean: name.clean = True :=
-    wordClean name
+    wordClean
       (let (nameKind, nameSpelled, _, _) := nameKinded name nameWithin; spellsNotComment nameKind name.text nameSpelled)
       nameCommented
   rewrite List.filterAppend

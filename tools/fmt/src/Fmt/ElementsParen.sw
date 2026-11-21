@@ -319,10 +319,8 @@ theorem ledOpening ∀ (kinds: Text → Tok) (open close: Word) (around: Around)
         (lineOpeningHangs kinds open close around indent column state entry token hoisted trailed marks)
         (place hang (((ended, folded), line), kept) => ((ended, folded), _ => (kept, line))))
     (marks =>
-      hangsPost
-        (openingHangs kinds open close around indent column state entry token hoisted trailed)
-        (place hang (ended, folded) =>
-          ((ended, folded), never => (Bool.falseNotTrue (Eq.trans marks.flipped never)).impossible)))
+      hangsPost (openingHangs close indent column state entry token hoisted trailed) (place hang (ended, folded) =>
+        ((ended, folded), never => (Bool.falseNotTrue (Eq.trans marks.flipped never)).impossible)))
 
 --| What the brackets hold, its first token after own-line comments above it: on the line after them, at the comment
 --| break, which becomes the bracket's block.
@@ -508,8 +506,8 @@ theorem parenLedHangs ∀ (kinds: Text → Tok) (open: Word) (inner: Expr) (clos
       let closeAround := around.next inner.trails (1 + inner.size)
       let closerDoc := close.leaf closeAround around.at
       let prefix := open.opening around close
-      let bound: (inForce outer top <= indent) = True := openedBound indent column state entry seated below clear room
-      let atOpener := openerLine indent column state entry (seated, below, clear, room)
+      let bound: (inForce outer top <= indent) = True := openedBound seated below clear room
+      let atOpener := openerLine (seated, below, clear, room)
       let pre := Entered indent column False state entry start
       let gap := LedGap outer top open.trails flag low origin entry.indent
       let done := HeldDone indent around.at outer top flag inner.trails
@@ -560,18 +558,12 @@ theorem parenLedElHangs ∀ (kinds: Text → Tok) (open: Word) (inner: Expr) (cl
       (close.trails || inner.trails)
       wordStart :=
   let inside := { around | hoisted = True }
-  framedHangs kinds open around
-    (parenDoc open inner close inside)
-    indent
-    column
-    (close.trails || inner.trails)
-    bare
-    (inset seat =>
-      parenLedHangs kinds open inner close inside inset seat opener byComputing openTrailed closer closeComments
-          closeTrailed plain
-          (innerLed inset)
-          (lowers inset)
-          keys)
+  framedHangs open (parenDoc open inner close inside) indent column (close.trails || inner.trails) bare (inset seat =>
+    parenLedHangs kinds open inner close inside inset seat opener byComputing openTrailed closer closeComments
+        closeTrailed plain
+        (innerLed inset)
+        (lowers inset)
+        keys)
 
 --| An element that may start where a comment waits, when the code before it has one.
 theorem elBefore ∀ (kinds: Text → Tok) (doc: Doc) (indent column: Nat)
@@ -610,39 +602,32 @@ theorem parenPlainElHangs ∀ (kinds: Text → Tok) (open: Word) (inner: Expr) (
       (close.trails || inner.trails)
       wordStart :=
   let inside := { around | hoisted = True }
-  framedHangs kinds open around
-    (parenDoc open inner close inside)
-    indent
-    column
-    (close.trails || inner.trails)
-    bare
-    (inset seat =>
-      Bool.inspect open.trails
-        (_ =>
-          ElHangs kinds (parenDoc open inner close inside) inset seat False (close.trails || inner.trails) wordStart)
-        (trails =>
-          parenHeldHangs kinds open inner close inside inset seat opener byComputing openTrailed trails closer
-              closeComments closeTrailed plain
-              (elBefore kinds
-                (inner.el (around.next open.trails 1))
-                inset
-                inset
-                open.trails
-                inner.trails
-                wordStart
-                trails
-                (innerHangs inset))
-              (lowers trails inset)
-              keys)
-        (quiet =>
-          parenHangs kinds open inner close inside inset seat opener byComputing openTrailed quiet closer closeComments
-              closeTrailed plain
-              (elUnheld kinds
-                (inner.el (around.next open.trails 1))
-                inset
-                inset
-                open.trails
-                inner.trails
-                wordStart
-                (innerHangs inset))
-              keys))
+  framedHangs open (parenDoc open inner close inside) indent column (close.trails || inner.trails) bare (inset seat =>
+    Bool.inspect open.trails
+      (_ => ElHangs kinds (parenDoc open inner close inside) inset seat False (close.trails || inner.trails) wordStart)
+      (trails =>
+        parenHeldHangs kinds open inner close inside inset seat opener byComputing openTrailed trails closer
+            closeComments closeTrailed plain
+            (elBefore kinds
+              (inner.el (around.next open.trails 1))
+              inset
+              inset
+              open.trails
+              inner.trails
+              wordStart
+              trails
+              (innerHangs inset))
+            (lowers trails inset)
+            keys)
+      (quiet =>
+        parenHangs kinds open inner close inside inset seat opener byComputing openTrailed quiet closer closeComments
+            closeTrailed plain
+            (elUnheld kinds
+              (inner.el (around.next open.trails 1))
+              inset
+              inset
+              open.trails
+              inner.trails
+              wordStart
+              (innerHangs inset))
+            keys))
