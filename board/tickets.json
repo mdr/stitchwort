@@ -1,5 +1,5 @@
 {
-  "next": 4506,
+  "next": 4507,
   "tickets": [
     {
       "id": 47,
@@ -30826,7 +30826,7 @@
     {
       "id": 4500,
       "title": "[Opus] rewrite.rs has_carrier answers 'unknown, let conversion decide' when an unknown is present (around line 2203), leaving the mixed-type comparison SW-4496 closed for as_written open on the rewrite side: decide whether rewrite's candidate test should confirm the candidate's type first, as is_occurrence now does; a repro if one exists",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -30896,6 +30896,19 @@
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-21",
+      "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4506,
+      "title": "[Opus] rewrite with a lambda left side and an unknown in its carrier fails on the right candidate: rewrite etaTwo _ on a goal holding x y => p x y gives 'expected Nat → Nat → Bool, but this has type _a → _a → _b' (rewrite etaTwo p checks); lambdas carry no domain type so the carrier's unknowns are never filled; take the candidate's type from where it was found in the goal; repros in SW-4500's report (incomplete, not unsound)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-21",
       "updated": "2026-11-21",
