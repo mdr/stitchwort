@@ -31563,12 +31563,12 @@
     {
       "id": 4556,
       "title": "[Sonnet] Traversal lemma, next step (SW-4553): move rebuilds1-3 to std's Fail/Walk.sw as Fail.toResultRebuildsN; apply the same shape to Fmt.Walk's ...Ok family (a Seq twin) and ...Twice family (a pure twin), predicted about 130 lines net, measuring each before the next; then the Data arms of declBlanks/declOk/declTwice with one lemma for indices and one for body (about 190 lines at stake)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\n\nProgress (lane, 21 Nov): Fail.toResultRebuilds1-4 and toResultSeqRebuilds1-4 in std (crates/elab/src/std/Fail/Walk.sw). Ok family via seqRebuilds (exprOk 99 to 28 proof lines, patternOk 30 to 8, declOk 147 to 13 with indicesPartOk/bodyPartOk 12). Twice family via 'rewrite keeps.X _' (no lemma needed; 105/29/132 to 28/8/61, steps 1.27-1.38x). declBlanks 85 to 16 via rebuilds4 + indicesPartBlanks/bodyPartBlanks (9). Walk.sw proof lines 890 to 506, TraverseFail 369 to 306. Whole-file steps: TraverseFail 6.68M to 3.88M, Walk 6.68M to 3.17M. Branch lane/SW-4556, 6 commits. Not done: Twice Data arms as part lemmas (nested match in a statement is E-MATCH-MOTIVE; def helpers are not found by rewrite).\n",
+      "body": "Model result: Sonnet, worked (447 proof lines against a 130-line prediction, steps down; declTwice Data arms left), 23 min (est. 40)\n",
       "created": "2026-11-21",
       "updated": "2026-11-21",
       "commits": []
