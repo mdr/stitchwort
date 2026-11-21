@@ -252,7 +252,7 @@ theorem List.allAppend ∀ (p: a → Prop) (xs ys: List a)
 theorem List.allAppendLeft ∀ (p: a → Prop) (xs ys: List a) (h1: List.All p (List.append xs ys)): List.All p xs :=
   match xs, h1 with
     | [], h => Trivial
-    | [x, ..xs], Both h hxs => Both h (List.allAppendLeft p xs ys hxs)
+    | [x, ..xs], _ => byFacts [List.allAppendLeft]
 
 theorem List.allAppendRight ∀ (p: a → Prop) (xs ys: List a) (h1: List.All p (List.append xs ys)): List.All p ys :=
   match xs, h1 with

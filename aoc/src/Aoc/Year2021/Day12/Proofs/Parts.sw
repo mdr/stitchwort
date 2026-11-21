@@ -119,7 +119,7 @@ theorem pathsDistinct ∀ (passages: List Passage) (twice: Bool): List.Distinct 
 
 --| Part 1's rule is `Within False`...
 theorem withinOnce ∀ (path: Path): Within False path ↔ SmallOnce path := {
-  forward = within => within.left,
+  forward = within => cases,
   backward = once =>
     Both once
       (Both
@@ -142,14 +142,7 @@ theorem endsVisited ∀ (path: Path)
 --| ...and part 2's, on a path from `start` to `end`, is `Within True`.
 theorem withinTwice ∀ (path: Path) (ends: path.startToEnd = True): Within True path ↔ OneSmallTwice path :=
   let (Both startSeen endSeen) := endsVisited path ends
-  {
-    forward = within =>
-      let (Both each (Both once (Both startOnce endOnce))) := within
-      Both each (Both once (Both (arithmetic) (arithmetic))),
-    backward = rule =>
-      let (Both each (Both once (Both startOnce endOnce))) := rule
-      Both each (Both once (Both (arithmetic) (arithmetic)))
-  }
+  { forward = within => byFacts, backward = rule => cases }
 
 --| Part 1: the program's answer is the number of paths that visit no small
 --| cave twice, when no passage joins two big caves.
@@ -199,7 +192,7 @@ theorem part2Correct ∀ (passages: List Passage)
 theorem part1FromInput ∀ (input: Text) (passages: List Passage)
     (parsed: Fail.toResult (() => parsePassages input) = Ok passages):
     PathCount (Part1Path passages) (solvePart1 passages) :=
-  part1Correct passages (parseNoBigNeighbours input passages parsed)
+  byFacts [part1Correct, parseNoBigNeighbours]
 
 theorem part2FromInput ∀ (input: Text) (passages: List Passage)
     (parsed: Fail.toResult (() => parsePassages input) = Ok passages):

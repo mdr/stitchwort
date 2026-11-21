@@ -14,7 +14,7 @@ import Std (Bool, Eq, Fail, List, Option, Result, Void)
 theorem part1FromInput ∀ (input: Text) (fish: List Nat)
     (parsed: Fail.toResult (() => parseTimers input) = Ok fish):
     solvePart1 fish = fishCount 80 fish :=
-  part1Correct fish (parseTimersBounded input fish parsed)
+  byFacts [part1Correct, parseTimersBounded]
 
 --| Part 2 from the input text, after 256 days.
 theorem part2FromInput ∀ (input: Text) (fish: List Nat)

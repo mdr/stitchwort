@@ -359,7 +359,7 @@ theorem Doc.Proofs.stackUniformAppend ∀ (front back: List Cmd)
     StackUniform (front ++ back) :=
   match front, frontUniform with
     | [], _ => backUniform
-    | [cmd, ..rest], Both first others => (first, (stackUniformAppend rest back others backUniform))
+    | [cmd, ..rest], _ => byFacts [stackUniformAppend]
 
 --| Printing each of the docs writes the docs' words.
 theorem Doc.Proofs.printsWords ∀ (indent: Nat) (mode: Mode) (docs: List Doc):
@@ -374,7 +374,7 @@ theorem Doc.Proofs.printsUniform ∀ (indent: Nat) (mode: Mode) (docs: List Doc)
     StackUniform (docs.map (Print indent mode)) :=
   match docs, uniform with
     | [], _ => byComputing
-    | [doc, ..rest], Both first others => (first, (printsUniform indent mode rest others))
+    | [doc, ..rest], _ => byFacts [printsUniform]
 
 --| The separators before a fill's items write the items' words.
 theorem Doc.Proofs.fillSepsWords ∀ (indent: Nat) (items: List Doc):
@@ -389,7 +389,7 @@ theorem Doc.Proofs.fillSepsUniform ∀ (indent: Nat) (items: List Doc)
     StackUniform (items.map (FillSep indent)) :=
   match items, uniform with
     | [], _ => byComputing
-    | [item, ..rest], Both first others => (first, (fillSepsUniform indent rest others))
+    | [item, ..rest], _ => byFacts [fillSepsUniform]
 
 --| The lines a flat fill puts between its items are no words.
 theorem Doc.Proofs.joinLinesWords ∀ (items: List Doc): wordsAll (Doc.joinLines items) = wordsAll items :=
@@ -402,7 +402,7 @@ theorem Doc.Proofs.joinLinesUniform ∀ (items: List Doc) (uniform: AllUniform i
   match items, uniform with
     | [], _ => byComputing
     | [only], given => given
-    | [item, next, ..rest], Both first others => (first, byComputing, (joinLinesUniform [next, ..rest] others))
+    | [item, next, ..rest], _ => byFacts [joinLinesUniform]
 
 --| What a choice may print has the words all its options have.
 theorem Doc.Proofs.optionWords ∀ (chosen: Doc) (words: List Text) (option: Doc) (others: List Doc)
@@ -465,7 +465,7 @@ theorem Doc.Proofs.headOrUniform ∀ (options: List Doc)
     Uniform (options.headOr Doc.Nothing) :=
   match options, uniform with
     | [], _ => byComputing
-    | [option, ..others], Both first _ => first
+    | [option, ..others], _ => byFacts
 
 --| An option a choice takes has the words of the first option, if all options
 --| have the same words.
@@ -592,57 +592,32 @@ theorem Doc.Proofs.stepUniform ∀ (printer: Printer) (cmd: Cmd) (rest: List Cmd
     (restUniform: StackUniform rest):
     StackUniform result.snd :=
   match cmd, steps, uniform with
-    | FillSep _ _, Inl (Both _ flat) | Inr flat, uniform => rewrite flat then (uniform, restUniform)
+    | FillSep _ _, Inl (Both _ flat) | Inr flat, uniform => rewrite flat then byFacts
     | Print indent mode doc, steps, uniform =>
       match doc, steps, uniform with
         | Doc.Nothing | BreakParent | Chunk _ _ | Closing _, steps, _ => rewrite repeatedly [steps]
-        | Line, steps, _ =>
-          rewrite steps then
-            eitherUniform _ (printer.write indent " " 1, rest) (printer.newline indent, rest) restUniform restUniform
-        | SoftLine, steps, _ =>
-          rewrite steps then eitherUniform _ (printer, rest) (printer.newline indent, rest) restUniform restUniform
+        | Line, steps, _ => rewrite steps then byFacts [eitherUniform]
+        | SoftLine, steps, _ => rewrite steps then byFacts [eitherUniform]
         | HardLine | Mark _ | CloserLine _ | LineStart, steps, _ => rewrite repeatedly [steps]
-        | LineStartHere, steps, _ =>
-          rewrite steps then
-            eitherUniform _
-              ({ printer | owed = Some indent, lineIndent = indent }, rest)
-              (printer.newline indent, rest)
-              restUniform
-              restUniform
+        | LineStartHere, steps, _ => rewrite steps then byFacts [eitherUniform]
         | Blank, steps, _ => rewrite repeatedly [steps]
-        | Nest _ _ | Align _ | AlignInset _ | Displaced _, steps, uniform => rewrite steps then (uniform, restUniform)
-        | OneLineBelow inner, steps, uniform => rewrite steps then (byComputing, uniform, restUniform)
-        | Flatten inner, steps, uniform => rewrite steps then (uniform, restUniform)
+        | Nest _ _ | Align _ | AlignInset _ | Displaced _, steps, uniform => rewrite steps then byFacts
+        | OneLineBelow inner, steps, uniform => rewrite steps then byFacts
+        | Flatten inner, steps, uniform => rewrite steps then byFacts
         | LineSuffix comment, steps, _ => rewrite repeatedly [steps]
         | Group _ _ | NarrowGroup _ _ _ | IdGroup _ _ _, Inl (Both _ flat) | Inr (Both _ flat), uniform =>
-          rewrite flat then (uniform, restUniform)
+          rewrite flat then byFacts
         | IfBroken id broken flat, steps, Both brokenUniform (Both flatUniform _) =>
-          rewrite steps then ((pickUniform printer.modes id broken flat brokenUniform flatUniform), restUniform)
-        | Concat docs, steps, uniform =>
-          rewrite steps then
-            stackUniformAppend (docs.map (Print indent mode)) rest (printsUniform indent mode docs uniform) restUniform
+          rewrite steps then byFacts [pickUniform]
+        | Concat docs, steps, uniform => rewrite steps then byFacts [stackUniformAppend, printsUniform]
         | Fill [], steps, _ => rewrite repeatedly [steps]
         | Fill [first, ..others], Inl (Both _ flat), uniform =>
-          rewrite flat then
-            stackUniformAppend
-              ((Doc.joinLines [first, ..others]).map (Print indent Flat))
-              rest
-              (printsUniform indent Flat (Doc.joinLines [first, ..others]) (joinLinesUniform [first, ..others] uniform))
-              restUniform
+          rewrite flat then byFacts [stackUniformAppend, printsUniform, joinLinesUniform]
         | Fill [first, ..others], Inr (Both _ (Witness firstMode broken)), Both firstUniform othersUniform =>
-          rewrite broken then
-            (
-              firstUniform,
-              (stackUniformAppend
-                (others.map (FillSep indent))
-                rest
-                (fillSepsUniform indent others othersUniform)
-                restUniform)
-            )
-        | Choice options, Inl (Both _ flat), Both each _ =>
-          rewrite flat then ((headOrUniform options each), restUniform)
+          rewrite broken then byFacts [stackUniformAppend, fillSepsUniform]
+        | Choice options, Inl (Both _ flat), Both each _ => rewrite flat then byFacts [headOrUniform]
         | Choice options, Inr (Both _ (Witness chosen (Both isOption broken))), Both each _ =>
-          rewrite broken then ((optionUniform chosen options isOption each), restUniform)
+          rewrite broken then byFacts [optionUniform]
 
 --| An option a choice takes has at most the steps of all the options and one.
 theorem Doc.Proofs.optionSteps ∀ (chosen: Doc) (options: List Doc)
@@ -815,7 +790,7 @@ theorem Doc.Proofs.stackMarkedAppend ∀ (closer suffix: Text → Prop) (front b
     StackMarked closer suffix (front ++ back) :=
   match front, frontUniform with
     | [], _ => backUniform
-    | [cmd, ..rest], Both first others => (first, (stackMarkedAppend closer suffix rest back others backUniform))
+    | [cmd, ..rest], _ => byFacts [stackMarkedAppend]
 
 --| Printing marked docs is a marked work list.
 theorem Doc.Proofs.printsMarked ∀ (closer suffix: Text → Prop) (indent: Nat) (mode: Mode) (docs: List Doc)
@@ -823,7 +798,7 @@ theorem Doc.Proofs.printsMarked ∀ (closer suffix: Text → Prop) (indent: Nat)
     StackMarked closer suffix (docs.map (Print indent mode)) :=
   match docs, uniform with
     | [], _ => byComputing
-    | [doc, ..rest], Both first others => (first, (printsMarked closer suffix indent mode rest others))
+    | [doc, ..rest], _ => byFacts [printsMarked]
 
 --| The separators before marked items are a marked work list.
 theorem Doc.Proofs.fillSepsMarked ∀ (closer suffix: Text → Prop) (indent: Nat) (items: List Doc)
@@ -831,7 +806,7 @@ theorem Doc.Proofs.fillSepsMarked ∀ (closer suffix: Text → Prop) (indent: Na
     StackMarked closer suffix (items.map (FillSep indent)) :=
   match items, uniform with
     | [], _ => byComputing
-    | [item, ..rest], Both first others => (first, (fillSepsMarked closer suffix indent rest others))
+    | [item, ..rest], _ => byFacts [fillSepsMarked]
 
 --| Putting a `Line` between marked items leaves them marked.
 theorem Doc.Proofs.joinLinesMarked ∀ (closer suffix: Text → Prop) (items: List Doc)
@@ -840,8 +815,7 @@ theorem Doc.Proofs.joinLinesMarked ∀ (closer suffix: Text → Prop) (items: Li
   match items, uniform with
     | [], _ => byComputing
     | [only], given => given
-    | [item, next, ..rest], Both first others =>
-      (first, byComputing, (joinLinesMarked closer suffix [next, ..rest] others))
+    | [item, next, ..rest], _ => byFacts [joinLinesMarked]
 
 --| A doc that is one of the options of marked options is marked.
 theorem Doc.Proofs.optionMarked ∀ (closer suffix: Text → Prop) (chosen: Doc) (options: List Doc)
@@ -870,7 +844,7 @@ theorem Doc.Proofs.headOrMarked ∀ (closer suffix: Text → Prop) (options: Lis
     Marked closer suffix (options.headOr Doc.Nothing) :=
   match options, uniform with
     | [], _ => byComputing
-    | [option, ..others], Both first _ => first
+    | [option, ..others], _ => byFacts
 
 --| The branch an `IfBroken` takes is marked if both are.
 theorem Doc.Proofs.pickMarked ∀ (closer suffix: Text → Prop) (modes: List (Nat, Mode)) (id: Nat) (broken flat: Doc)
@@ -889,69 +863,31 @@ theorem Doc.Proofs.stepMarked ∀ (closer suffix: Text → Prop) (printer: Print
     (restUniform: StackMarked closer suffix rest):
     StackMarked closer suffix result.snd :=
   match cmd, steps, uniform with
-    | FillSep _ _, Inl (Both _ flat) | Inr flat, uniform => rewrite flat then (uniform, restUniform)
+    | FillSep _ _, Inl (Both _ flat) | Inr flat, uniform => rewrite flat then byFacts
     | Print indent mode doc, steps, uniform =>
       match doc, steps, uniform with
         | Doc.Nothing | BreakParent | Chunk _ _ | Closing _, steps, _ => rewrite repeatedly [steps]
-        | Line, steps, _ =>
-          rewrite steps then
-            eitherMarked closer suffix _
-              (printer.write indent " " 1, rest)
-              (printer.newline indent, rest)
-              restUniform
-              restUniform
-        | SoftLine, steps, _ =>
-          rewrite steps then
-            eitherMarked closer suffix _ (printer, rest) (printer.newline indent, rest) restUniform restUniform
+        | Line, steps, _ => rewrite steps then byFacts [eitherMarked]
+        | SoftLine, steps, _ => rewrite steps then byFacts [eitherMarked]
         | HardLine | Mark _ | CloserLine _ | LineStart, steps, _ => rewrite repeatedly [steps]
-        | LineStartHere, steps, _ =>
-          rewrite steps then
-            eitherMarked closer suffix _
-              ({ printer | owed = Some indent, lineIndent = indent }, rest)
-              (printer.newline indent, rest)
-              restUniform
-              restUniform
+        | LineStartHere, steps, _ => rewrite steps then byFacts [eitherMarked]
         | Blank, steps, _ => rewrite repeatedly [steps]
-        | Nest _ _ | Align _ | AlignInset _ | Displaced _, steps, uniform => rewrite steps then (uniform, restUniform)
-        | OneLineBelow inner, steps, uniform => rewrite steps then (byComputing, uniform, restUniform)
-        | Flatten inner, steps, uniform => rewrite steps then (uniform, restUniform)
+        | Nest _ _ | Align _ | AlignInset _ | Displaced _, steps, uniform => rewrite steps then byFacts
+        | OneLineBelow inner, steps, uniform => rewrite steps then byFacts
+        | Flatten inner, steps, uniform => rewrite steps then byFacts
         | LineSuffix comment, steps, _ => rewrite repeatedly [steps]
         | Group _ _ | NarrowGroup _ _ _ | IdGroup _ _ _, Inl (Both _ flat) | Inr (Both _ flat), uniform =>
-          rewrite flat then (uniform, restUniform)
-        | IfBroken id broken flat, steps, Both brokenMarked flatMarked =>
-          rewrite steps then
-            ((pickMarked closer suffix printer.modes id broken flat brokenMarked flatMarked), restUniform)
-        | Concat docs, steps, uniform =>
-          rewrite steps then
-            stackMarkedAppend closer suffix
-              (docs.map (Print indent mode))
-              rest
-              (printsMarked closer suffix indent mode docs uniform)
-              restUniform
+          rewrite flat then byFacts
+        | IfBroken id broken flat, steps, Both brokenMarked flatMarked => rewrite steps then byFacts [pickMarked]
+        | Concat docs, steps, uniform => rewrite steps then byFacts [stackMarkedAppend, printsMarked]
         | Fill [], steps, _ => rewrite repeatedly [steps]
         | Fill [first, ..others], Inl (Both _ flat), uniform =>
-          rewrite flat then
-            stackMarkedAppend closer suffix
-              ((Doc.joinLines [first, ..others]).map (Print indent Flat))
-              rest
-              (printsMarked closer suffix indent Flat
-                (Doc.joinLines [first, ..others])
-                (joinLinesMarked closer suffix [first, ..others] uniform))
-              restUniform
+          rewrite flat then byFacts [stackMarkedAppend, printsMarked, joinLinesMarked]
         | Fill [first, ..others], Inr (Both _ (Witness firstMode broken)), Both firstUniform othersUniform =>
-          rewrite broken then
-            (
-              firstUniform,
-              (stackMarkedAppend closer suffix
-                (others.map (FillSep indent))
-                rest
-                (fillSepsMarked closer suffix indent others othersUniform)
-                restUniform)
-            )
-        | Choice options, Inl (Both _ flat), each =>
-          rewrite flat then ((headOrMarked closer suffix options each), restUniform)
+          rewrite broken then byFacts [stackMarkedAppend, fillSepsMarked]
+        | Choice options, Inl (Both _ flat), each => rewrite flat then byFacts [headOrMarked]
         | Choice options, Inr (Both _ (Witness chosen (Both isOption broken))), each =>
-          rewrite broken then ((optionMarked closer suffix chosen options isOption each), restUniform)
+          rewrite broken then byFacts [optionMarked]
 
 -- The comments that wait are trailing comments of the document.
 

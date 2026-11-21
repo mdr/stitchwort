@@ -46,7 +46,7 @@ theorem parseOneRulePerPair ∀ (input: Text) (manual: Manual)
 theorem part1FromInput ∀ (input: Text) (manual: Manual)
     (parsed: Fail.toResult (() => parseManual input) = Ok manual):
     solvePart1 manual = answer 10 manual :=
-  part1Correct manual (parseOneRulePerPair input manual parsed)
+  byFacts [part1Correct, parseOneRulePerPair]
 
 theorem part2FromInput ∀ (input: Text) (manual: Manual)
     (parsed: Fail.toResult (() => parseManual input) = Ok manual):

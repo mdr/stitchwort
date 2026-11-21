@@ -440,8 +440,8 @@ theorem viewsCons ∀ (goal: List (Parse.Located Token) → Prop) (tokens: List 
       → goal [token, ..rest]):
     goal tokens :=
   match tokens, same with
-    | [token, ..rest], same => step token rest (List.consInjectiveHead same) (Eq.cong (.drop 1) same)
-    | [], same => Void.impossible (Bool.falseNotTrue (Eq.cong noViews same).flipped)
+    | [token, ..rest], same => byFacts
+    | [], same => byFacts
 
 theorem viewsOne ∀ (goal: List (Parse.Located Token) → Prop) (tokens: List (Parse.Located Token)) (view: TokenView)
     (same: tokens.map viewOf = [view]) (step: ∀ (token: Parse.Located Token) => viewOf token = view → goal [token]):

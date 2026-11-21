@@ -30,8 +30,7 @@ theorem walkAppend ∀ (level: Level) (second: List Direction) (target origin: P
     Walk level origin (first ++ second) target :=
   match first, same with
     | [], same => rewrite same then rest
-    | [direction, ..others], Both open walk =>
-      Both open (walkAppend level second target (origin.toward direction) others middle walk rest)
+    | [direction, ..others], _ => byFacts [walkAppend]
 
 theorem walkEast ∀ (level: Level) (row steps column: Nat)
     (floor: ∀ (j: Nat) => column < j → j ≤ column + steps → isWall level { row, column = j } = False):
@@ -40,9 +39,7 @@ theorem walkEast ∀ (level: Level) (row steps column: Nat)
     | Zero => rewrite Nat.addZero column
     | Succ steps =>
       let shift: column + Succ steps = (column + 1) + steps := arithmetic
-      Both
-        (floor (column + 1) arithmetic arithmetic)
-        (rewrite shift then walkEast level row steps (column + 1) (j after before => floor j arithmetic arithmetic))
+      rewrite shift then byFacts [walkEast]
 
 theorem walkWest ∀ (level: Level) (row steps column: Nat)
     (floor: ∀ (j: Nat) => column ≤ j → j < column + steps → isWall level { row, column = j } = False):
@@ -51,10 +48,7 @@ theorem walkWest ∀ (level: Level) (row steps column: Nat)
     | Zero => rewrite Nat.addZero column
     | Succ steps =>
       let back: column + Succ steps - 1 = column + steps := arithmetic
-      rewrite back then
-        Both
-          (floor (column + steps) arithmetic arithmetic)
-          (walkWest level row steps column (j after before => floor j arithmetic arithmetic))
+      rewrite back then byFacts [walkWest]
 
 theorem walkSouth ∀ (level: Level) (column steps row: Nat)
     (floor: ∀ (i: Nat) => row < i → i ≤ row + steps → isWall level { row = i, column } = False):
@@ -63,9 +57,7 @@ theorem walkSouth ∀ (level: Level) (column steps row: Nat)
     | Zero => rewrite Nat.addZero row
     | Succ steps =>
       let shift: row + Succ steps = (row + 1) + steps := arithmetic
-      Both
-        (floor (row + 1) arithmetic arithmetic)
-        (rewrite shift then walkSouth level column steps (row + 1) (i after before => floor i arithmetic arithmetic))
+      rewrite shift then byFacts [walkSouth]
 
 theorem walkNorth ∀ (level: Level) (column steps row: Nat)
     (floor: ∀ (i: Nat) => row ≤ i → i < row + steps → isWall level { row = i, column } = False):
@@ -74,10 +66,7 @@ theorem walkNorth ∀ (level: Level) (column steps row: Nat)
     | Zero => rewrite Nat.addZero row
     | Succ steps =>
       let back: row + Succ steps - 1 = row + steps := arithmetic
-      rewrite back then
-        Both
-          (floor (row + steps) arithmetic arithmetic)
-          (walkNorth level column steps row (i after before => floor i arithmetic arithmetic))
+      rewrite back then byFacts [walkNorth]
 
 --| Every cell of `area` is floor.
 def Open (level: Level) (area: Area): Prop :=
@@ -208,12 +197,7 @@ theorem walkWithin ∀ (level: Level) (area: Area)
     Walk level origin (across origin target ++ down origin target) target :=
   let inOrigin := insideOf area origin from
   let inTarget := insideOf area target to
-  walkAppend level
-    (down origin target)
-    target
-    origin
-    (across origin target)
-    { row = origin.row, column = target.column }
+  walkAppend level _ _ _ _ _
     (walkAcross level area open origin target inOrigin inTarget)
     (walkDown level area open origin target inOrigin.top inOrigin.bottom inTarget)
 
@@ -285,13 +269,9 @@ theorem reachTrans ∀ (level: Level) (origin middle target: Position)
     (first: Reachable level origin middle)
     (second: Reachable level middle target):
     Reachable level origin target :=
-  match first with
-    | Witness firstMoves firstWalk =>
-      match second with
-        | Witness secondMoves secondWalk =>
-          Witness
-            (firstMoves ++ secondMoves)
-            (walkAppend level secondMoves target origin firstMoves middle firstWalk secondWalk)
+  let Witness firstMoves firstWalk := first
+  let Witness secondMoves secondWalk := second
+  Witness (firstMoves ++ secondMoves) (walkAppend level _ _ _ _ _ firstWalk secondWalk)
 
 theorem reachWithin ∀ (level: Level) (area: Area)
     (open: Open level area) (origin target: Position)
@@ -354,10 +334,7 @@ theorem joinedTrans ∀ (level: Level) (origin middle target: Position)
     (first: Joined level origin middle)
     (second: Joined level middle target):
     Joined level origin target :=
-  {
-    there = reachTrans level origin middle target first.there second.there,
-    back = reachTrans level target middle origin second.back first.back
-  }
+  byFacts [reachTrans]
 
 --| The middle of room number `index`.
 def middleOf (rooms: List Area) (index: Nat): Position := roomOf rooms index |> .middle
@@ -376,30 +353,24 @@ theorem linkJoins ∀ (level: Level) (rooms: List Area) (extra: Nat)
 theorem hubTwo ∀ (level: Level) (rooms: List Area) (extra: Nat)
     (wired: level.corridors = corridorsOf rooms extra):
     Joined level (middleOf rooms 0) (middleOf rooms 2) :=
-  joinedTrans level
-    (middleOf rooms 0)
-    (middleOf rooms 1)
-    (middleOf rooms 2)
+  joinedTrans level _
+    (middleOf rooms 1) _
     (linkJoins level rooms extra wired 0 1 (Inl byComputing))
     (linkJoins level rooms extra wired 1 2 (Inr (Inl byComputing)))
 
 theorem hubFive ∀ (level: Level) (rooms: List Area) (extra: Nat)
     (wired: level.corridors = corridorsOf rooms extra):
     Joined level (middleOf rooms 0) (middleOf rooms 5) :=
-  joinedTrans level
-    (middleOf rooms 0)
-    (middleOf rooms 2)
-    (middleOf rooms 5)
+  joinedTrans level _
+    (middleOf rooms 2) _
     (hubTwo level rooms extra wired)
     (linkJoins level rooms extra wired 2 5 (Inr (Inr (Inl byComputing))))
 
 theorem hubFour ∀ (level: Level) (rooms: List Area) (extra: Nat)
     (wired: level.corridors = corridorsOf rooms extra):
     Joined level (middleOf rooms 0) (middleOf rooms 4) :=
-  joinedTrans level
-    (middleOf rooms 0)
-    (middleOf rooms 5)
-    (middleOf rooms 4)
+  joinedTrans level _
+    (middleOf rooms 5) _
     (hubFive level rooms extra wired)
     (linkJoins level rooms extra wired 5 4 (Inr (Inr (Inr (Inl byComputing)))))
 
@@ -412,10 +383,8 @@ theorem hubJoins ∀ (level: Level) (rooms: List Area) (extra: Nat)
     | Succ Zero => linkJoins level rooms extra wired 0 1 (Inl byComputing)
     | Succ (Succ Zero) => hubTwo level rooms extra wired
     | Succ (Succ (Succ Zero)) =>
-      joinedTrans level
-        (middleOf rooms 0)
-        (middleOf rooms 4)
-        (middleOf rooms 3)
+      joinedTrans level _
+        (middleOf rooms 4) _
         (hubFour level rooms extra wired)
         (linkJoins level rooms extra wired 4 3 (Inr (Inr (Inr (Inr (Inl byComputing))))))
     | Succ (Succ (Succ (Succ Zero))) => hubFour level rooms extra wired
@@ -432,9 +401,7 @@ theorem goalReachable ∀ (depth: Nat) (rooms: List Area) (entranceIndex exitInd
     unfolding layOut :=
   let level := layOut depth rooms entranceIndex exitIndex extra
   let wired: level.corridors = corridorsOf rooms extra := byComputing
-  reachTrans level
-    (middleOf rooms entranceIndex)
-    (middleOf rooms 0)
-    (middleOf rooms exitIndex)
+  reachTrans level _
+    (middleOf rooms 0) _
     (hubJoins level rooms extra wired entranceIndex entranceSmall).back
     (hubJoins level rooms extra wired exitIndex exitSmall).there
