@@ -31322,7 +31322,7 @@
     {
       "id": 4538,
       "title": "[Opus] SW-4537 port batch A: the parser: walk, two-run and readback strata, 7 theorems, with the shared parser prelude, to Lean 4 and Rocq per docs/reviews/SW-4537-lean-rocq-sample.md, compiled; per-theorem counts, support lines, time, set-asides, mathlib notes",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -31335,7 +31335,7 @@
     {
       "id": 4539,
       "title": "[Opus] SW-4537 port batch B: the syntax side: tree, lexer and settle strata, 7 theorems (homeStands 267 lines), to Lean 4 and Rocq per docs/reviews/SW-4537-lean-rocq-sample.md, compiled; per-theorem counts, support lines, time, set-asides, mathlib notes",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
