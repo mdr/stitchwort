@@ -4,10 +4,10 @@
 --| `callArgument` and `callHead` need of the items (their `signQuiet`, through `GoodItems` in `Syntax.ParseWalk`).
 --|
 --| The lexer's leaves are laid out (`laidOut`: a leaf with own-line comments, or after a trailing comment, starts its
---| line), which gives it at once. Rule N moves comments, and breaks `laidOut` (in `a, -- c` the comment goes back to
+--| line), which gives it at once. Comment placement moves comments, and breaks `laidOut` (in `a, -- c` the comment goes back to
 --| `a`, with the `,` still glued to it), but every comment it moves lands where no sign meets a glued atom: on a leaf
---| followed by a comma, closer or bar (rule 1, and the last commas' comments), on a comma's next leaf (rule 2), on
---| `->` or `:=` (rules 3 and 4), or nowhere new (rule 5).
+--| followed by a comma, closer or bar (the back-walk, and the last commas' comments), on a comma's next leaf (the comma carry), on
+--| `->` or `:=` (the arrow lift and let lift), or nowhere new (trim).
 
 namespace Syntax.GlueQuietProofs
 import Std (Bool, DecEq, Eq, List, Nat, Option, Result, Text, Void)
@@ -97,7 +97,7 @@ theorem laidQuiet ∀ (leaves: List Leaf) (pending: Bool)
     | [] => byComputing
     | [first, ..rest] => laidQuietAfter first rest (Bool.andRight (Bool.andRight laid))
 
--- Rule 5: trimming keeps which comments there are.
+-- Trim: trimming keeps which comments there are.
 
 def Leaf.trimmed (leaf: Leaf): Leaf := { leaf | trivia = leaf.trivia.trimmed }
 
@@ -130,7 +130,7 @@ theorem trimmedQuietAll ∀ (leaves: List Leaf)
     | [] => byComputing
     | [first, ..rest] => trimmedQuietAfter first rest quiet
 
--- Rules 2 to 4: comments taken off a leaf, or put on a leaf that opens no atom, or above the leaf after a comma.
+-- The comma carry, arrow lift and let lift: comments taken off a leaf, or put on a leaf that opens no atom, or above the leaf after a comma.
 
 --| `after` is `before` with no comment added where `glueQuiet` reads one: the same token, a trailing comment only
 --| if `before` had one, and own-line comments on an atom's first token only if `before` had some or `free` (the leaf
@@ -241,7 +241,7 @@ theorem loosePlain ∀ (free: Bool) (leaf after: Leaf)
 
 theorem kindIs ∀ (kind: Tok) (is: kind = ColonEq): kind.opensAtom = False := rewrite is
 
--- Rule 4.
+-- The let lift.
 
 theorem letsLoose ∀ (free: Bool) (behind rest: List Leaf):
     ∃ (out: List Leaf) => letsFrom behind rest = behind.reverseOnto out ∧ LooseAll free rest out :=
@@ -272,7 +272,7 @@ theorem letsLoose ∀ (free: Bool) (behind rest: List Leaf):
               let (out, same, loose) := letsLoose (leaf.kind == Comma) [leaf, ..behind] after
               ([leaf, ..out], same, (looseSelf free leaf, loose))
 
--- Rule 3.
+-- The arrow lift.
 
 theorem looseUnled ∀ (free: Bool) (leaf: Leaf): Loose free leaf (leaf.withLeading []) := (
   byComputing,
@@ -345,7 +345,7 @@ theorem letsQuiet ∀ (leaves: List Leaf) (quiet: gluesQuiet leaves = True): glu
   let (out, same, loose) := letsLoose False [] leaves
   rewrite same then looseQuietAll leaves out quiet loose
 
--- Rule 2.
+-- The comma carry.
 
 theorem looseReceived ∀ (leaf: Leaf) (carry: Carried): Loose True leaf { leaf | trivia = carry.into leaf.trivia } := (
   byComputing,
@@ -432,7 +432,7 @@ theorem commasQuiet ∀ (leaves: List Leaf) (end: Trivia)
   let (out, same, loose) := commasLoose False [] None leaves end byComputing
   rewrite same then looseQuietAll leaves out quiet loose
 
--- Rule 1: a comment moved back lands on a leaf followed by a comma or closer.
+-- Back-walk: a comment moved back lands on a leaf followed by a comma or closer.
 
 --| The pair at the seam of `behind` (newest first) and `rest`.
 def edgeQuiet (behind rest: List Leaf): Bool := match behind, rest with
@@ -471,7 +471,7 @@ theorem backUntrail ∀ (leaf: Leaf) (trailing: Option Comment) (older: List Lea
 theorem closerPlain ∀ (kind: Tok) (closer: kind.isCloser = True): kind.opensAtom = False := match kind, closer with
   | RParen | RBracket | RBrace, _ => byComputing
 
---| What rule 1 walks past opens no atom.
+--| What the back-walk walks past opens no atom.
 theorem skippedPlain ∀ (leaf: Leaf) (behind ahead: List Leaf)
     (skips: skipped leaf behind ahead = True):
     leaf.kind.opensAtom = False :=
@@ -507,7 +507,7 @@ def walkPlain (steps: Nat) (current: Leaf) (behind: List Leaf): Bool := match st
   | Succ (Succ more), [previous, ..earlier] => !current.kind.opensAtom && walkPlain (Succ more) previous earlier
   | _, _ => False
 
---| Rule 1's walk passes only leaves that open no atom.
+--| The back-walk passes only leaves that open no atom.
 theorem stepsPlain ∀ (bareLast: Bool) (current: Leaf) (behind ahead: List Leaf) (steps: Nat):
     ∃ (passed: Nat) => stepsBack bareLast current behind ahead steps = steps + passed
       ∧ (passed = 0 ∨ walkPlain passed current behind = True) :=
@@ -546,7 +546,7 @@ theorem trailingAtQuiet ∀ (steps: Nat) (current: Leaf) (behind: List Leaf) (co
         (trailingAtQuiet (Succ more) previous earlier comment (Bool.andRight plain) (Bool.andRight back))
     | Succ Zero, [] => byComputing
 
---| The seam of rule 1's leaves settled (newest first) and the leaves left: a sign at the head of `behind` is quiet
+--| The seam of the back-walk's leaves settled (newest first) and the leaves left: a sign at the head of `behind` is quiet
 --| with the next leaf, which carries no comment from a bar (`bumped`).
 def homeEdge (behind: List Leaf) (bumped: Option Comment) (rest: List Leaf): Bool := match behind, rest with
   | [newest, .._], [next, .._] => !newest.kind.signLike || (bumped.isNone && glueQuiet newest next)
@@ -592,7 +592,7 @@ theorem walkOfSteps ∀ (bareLast: Bool) (leaf: Leaf) (behind after: List Leaf) 
     | Inl zero => (Nat.succNotZero fewer (Eq.trans same.flipped zero)).impossible
     | Inr walk => rewrite <- same then walk
 
---| Rule 1 keeps glued signs quiet.
+--| The back-walk keeps glued signs quiet.
 --|
 --| Proof idea: by induction on the leaves left, keeping the settled ones (newest first) quiet and quiet with the next
 --| leaf. A leaf whose comment stays is pushed as it is; a bar whose comment goes below pushes it onto the next leaf,
@@ -803,9 +803,9 @@ theorem bareQuiet ∀ (leaves: List Leaf)
       byComputing
       (edgeNil (withBareR [] leaves))
 
--- Rule N, and the leaves the parser reads.
+-- Comment placement, and the leaves the parser reads.
 
---| Rule N keeps glued signs quiet.
+--| Comment placement keeps glued signs quiet.
 theorem settledWithQuiet ∀ (lexed: Lexed) (bareLast: Bool)
     (quiet: gluesQuiet lexed.leaves = True):
     gluesQuiet (lexed.settledWith bareLast).leaves = True :=
@@ -919,7 +919,7 @@ theorem settledItemsQuiet ∀ (source: Text) (lexed: Lexed)
     (groupsOf lexed.settledOnce.leaves)
     (rewrite groupsConcat lexed.settledOnce.leaves then onceQuiet source lexed lexes within)
 
---| The same of the leaves `lex` gave, before rule N: the parser's `QuietItems` of the lexer's own groups, as the lexer
+--| The same of the leaves `lex` gave, before comment placement: the parser's `QuietItems` of the lexer's own groups, as the lexer
 --| lays them out (`lexLaidProved`).
 theorem lexedItemsQuiet ∀ (source: Text) (lexed: Lexed)
     (lexes: lex source = Ok lexed)

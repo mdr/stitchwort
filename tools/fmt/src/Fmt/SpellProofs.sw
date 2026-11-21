@@ -18,7 +18,7 @@ import Syntax.SharedFacts (headerResultWithin)
 --| A closer the rules write: a closing bracket or a comma.
 def closesText (text: Text): Prop := isCloserText text = True ∨ text = ","
 
---| A trailing comment the rules write: one rule N left.
+--| A trailing comment the rules write: one comment placement left.
 def commentsText (text: Text): Prop := commentText text = True
 
 --| `doc` writes `texts`: its words are those texts, whichever option its choices take, and its closers and trailing
@@ -187,7 +187,7 @@ theorem spellsChoice ∀ [texts: List Text] (first: Doc) (options: List Doc)
 
 -- A token's own words.
 
---| A comment rule N left isn't layout (it starts `--`).
+--| A comment comment placement left isn't layout (it starts `--`).
 theorem commentNotLayout ∀ (text: Text) (comment: commentText text = True): isLayout text = False :=
   let starts := Bool.andLeft comment
   match text with
@@ -200,7 +200,7 @@ theorem commentNotLayout ∀ (text: Text) (comment: commentText text = True): is
 def Word.spelledAt (word: Word) (hoisted: Bool): List Text :=
   (if hoisted then [] else word.comments.above.map (note => note.text)) ++ [word.text] ++ word.comments.after.toList
 
---| The own-line comments are comments as rule N leaves them.
+--| The own-line comments are comments as comment placement leaves them.
 def notesSound: List Note → Bool
   | [] => True
   | [note, ..rest] => commentText note.text && notesSound rest
@@ -209,7 +209,7 @@ def afterSound: Option Text → Bool
   | Some comment => commentText comment
   | None => True
 
---| A token the rules can print: its text isn't layout, and its comments are as rule N leaves them.
+--| A token the rules can print: its text isn't layout, and its comments are as comment placement leaves them.
 def Word.sound (word: Word): Bool :=
   !isLayout word.text && notesSound word.comments.above && afterSound word.comments.after
 
@@ -490,7 +490,7 @@ theorem framedSpells ∀ (first: Word) (around: Around) (doc: Doc) (texts: List 
 
 -- Expressions the rules can print.
 
---| Every token's text isn't layout and its comments are as rule N leaves them.
+--| Every token's text isn't layout and its comments are as comment placement leaves them.
 def Expr.sound: Expr → Bool
   | Atom _ word => word.sound
   | Paren open inner close => open.sound && inner.sound && close.sound
@@ -1626,7 +1626,7 @@ theorem allAndBool ∀ (xs: List Word) (p q: Word → Bool)
         (Bool.andIntro (Bool.andLeft first) (Bool.andLeft second))
         (allAndBool rest p q (Bool.andRight first) (Bool.andRight second))
 
---| A token's own-line comments and trailing comment are as rule N leaves them, as `settled` says.
+--| A token's own-line comments and trailing comment are as comment placement leaves them, as `settled` says.
 def Word.commented (word: Word): Bool := word.comments.texts.all commentText
 
 theorem textsAll ∀ (above: List Note) (after: Option Text):
@@ -1764,7 +1764,7 @@ theorem declSoundOfSettled ∀ (decl: Decl)
               (soundOfAll header.result (headerResultWithin header (Bool.andLeft within)) resultOk)
               (Bool.andIntro assignOk (soundOfAll value (Bool.andRight within) valueOk)))))
 
---| `printedSpells`, from what the passes establish: rule N's `settled` and tokens that aren't layout.
+--| `printedSpells`, from what the passes establish: comment placement's `settled` and tokens that aren't layout.
 theorem printedSpellsSettled ∀ (decl: Decl) (doc: Doc) (width: Nat)
     (within: decl.within1 = True)
     (settled: decl.settled = True)

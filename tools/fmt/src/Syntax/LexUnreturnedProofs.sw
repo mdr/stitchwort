@@ -1,5 +1,5 @@
 --| What the lexer does to a comment's end (SW-4089): `withoutReturn` leaves a text ending in neither a carriage return
---| nor a space, so every comment of every lexed source is so, whatever the source (`lexUnreturned`). Rule N's
+--| nor a space, so every comment of every lexed source is so, whatever the source (`lexUnreturned`). Comment placement's
 --| `trimEnd` keeps such a text.
 
 namespace Syntax.LexUnreturnedProofs

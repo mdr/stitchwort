@@ -1,3 +1,5 @@
+--| Reading this proof for the first time: `tools/fmt/GLOSSARY.md` defines its words and `tools/fmt/PROOF-MAP.md` maps it.
+--|
 --| Slice 1's two top theorems (SW-4079; docs/reviews/SW-4078-slice1-stock-take.md, recommendation 1), about the
 --| driver `formatWithin1`:
 --|
@@ -157,7 +159,7 @@ theorem tidyComma1 ∀ (file: SourceFile) (within: file.within1 = True): file.ti
 --| return or a space, above or after any word of any declaration. `printedStands1` takes it. It is false of a tree
 --| outside the slice (`Decl.unreturned` is false of a namespace line), so it takes `Formats1`'s hypotheses.
 --|
---| Proof idea: the lexer strips both (`lexUnreturned`), rule N and the parser carry comments without changing their
+--| Proof idea: the lexer strips both (`lexUnreturned`), comment placement and the parser carry comments without changing their
 --| texts, and P2 keeps every word (`commaUnreturned`).
 theorem tidiedDeclsUnreturned1 ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
     (lexes: lex source = Ok lexed)
@@ -297,7 +299,7 @@ theorem declsAll ∀ (decls: List Decl) (p: Decl → Bool)
 
 --| The output's text lexes to `file.lexed`, and its settled-once leaves parse to `calmTop` of the printed tree.
 --|
---| Proof idea: `printedFileLexes1`; no last comma (`printedNoLast1`), so `settledOnce` is `settled`; rule N gives the
+--| Proof idea: `printedFileLexes1`; no last comma (`printedNoLast1`), so `settledOnce` is `settled`; comment placement gives the
 --| tree's words back (`printedSettle1`, whose `hung` and `stood` come from each declaration's element facts); then
 --| read-back in file form, with each declaration's group read back by `readsBackDecl1`.
 theorem outputParses1 ∀ (file: SourceFile)
@@ -469,12 +471,12 @@ theorem fileGrammarOfWithin1 ∀ (decls: List Decl)
 --| too; and formatting `out` gives `out` again.
 --|
 --| "The language's own" is `lex` then `parseFile` of the lexer's leaves, as `inGrammar1` reads a source: no step of
---| the formatter (rule N, the tidy passes) is in it. "The same program" is `meaning`, which reads no comment, as in
+--| the formatter (comment placement, the tidy passes) is in it. "The same program" is `meaning`, which reads no comment, as in
 --| `formatKeepsProgram1`; the trees themselves may differ, in comments, blank lines and a list's or tuple's last
 --| comma, which the formatter drops.
 --|
 --| Proof idea: `formatAccepts1` gives `out`, and `formatIdempotent1` the second run. `formatKeepsProgram1` gives
---| equal meanings for the trees the driver parses (after rule N). Rule N keeps every token (`settledOnceTokens`), so a
+--| equal meanings for the trees the driver parses (after comment placement). Comment placement keeps every token (`settledOnceTokens`), so a
 --| parse of either side's leaves is the other side's but for comments (`settledParses1` for the source,
 --| `parseKeepsTokens1` for `out`, whose driver tree is within the slice and so of the grammar), and `meaning` ignores
 --| comments (`meaningBlanksFirst`). The second run's leaf test gives `out`'s alphabet.

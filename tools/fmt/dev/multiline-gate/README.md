@@ -7,7 +7,7 @@ slice 1 declarations laid out over lines in ways the printer never would,
 and runs two checks on each:
 
 - **Check B, the statement without the printer.** Lex the file, apply
-  rule N as the driver does, split into groups. If every group keeps
+  comment placement as the driver does, split into groups. If every group keeps
   `Fmt.hangs`, the layout must parse to the same tree as its tokens
   written on one line (compared by `meaning`'s dump). A failure is a
   counterexample to `readsBackHung`.

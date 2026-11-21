@@ -2,6 +2,8 @@
 
 The plan is `docs/proposals/self-hosted-fmt.md`. Each stage ends with a section here: its harness count, its speed numbers and friction.
 
+New to the slice 1 proof? [`GLOSSARY.md`](GLOSSARY.md) defines its words (Calm, Hangs, Stands, Settled, comment placement, ...) and [`PROOF-MAP.md`](PROOF-MAP.md) shows how the top theorems rest on the layers, with a diagram and the files of each. `dev/check-glossary.sh` checks both against the sources.
+
 ## Naming and the slice gate (consolidation, SW-4214)
 
 From 19 November 2026 the properties and functions of the tree that the proofs state facts with have one name for every slice: `shaped`, `lexical`, `settled`, `unreturned`, `operators`, `autoPlaced`, `homed`, `quiet`, `stands`, `kinds`, `spacing`, `slots`, `shapes`, `leaves`, `mapIn` and their companions (`Fmt/Predicates.sw`, `Fmt/Kinds.sw`, and the files that define the rest). A later slice adds arms to them. Their last arm is `False`: a form is shaped only once some slice's proofs cover it. Renamed where the plain name was taken or read badly: `Expr.atomic1` is `Expr.primary`, `Expr.head1` is `Expr.callHead`, `Expr.argument1` is `Expr.callArgument`, `Shape1` is `PlainShape`. Theorem names keep their numbers where they are one slice's (`printedHangs1`).
@@ -26,7 +28,7 @@ Sonnet, 17 November 2026.
 | Piece | Where |
 |---|---|
 | The harness | `dev/fmt-twin` (Python), run as `task fmt:twin STAGE=... INPUTS=...`; documented in `docs/testing.md`, "The formatter twin harness" |
-| The Rust token dump | `stitchwort dev tokens FILE` (`crates/cli`, `stitchwort_fmt::tidy::token_dump`): one line a token after rule N |
+| The Rust token dump | `stitchwort dev tokens FILE` (`crates/cli`, `stitchwort_fmt::tidy::token_dump`): one line a token after comment placement |
 | The fuzzer's programs | `FUZZ_WRITE_DIR=DIR` on `crates/fmt/tests/it/fuzz.rs`'s test writes each case that parses to `DIR/case-N.sw` |
 | The stub | `tools/fmt/src/Fmt/Twin.sw`: `Fmt.Twin.main`, `fmt --stage STAGE FILE...` or `--batch LIST`, copies each file to standard output whatever the stage |
 
@@ -62,7 +64,7 @@ The executable answers many files in one process (`--batch LIST`), and `dev/fmt-
 - The Toy++ fuzz inputs (`tools/toyfmt/plus/inputs/*.sprig`) are Sprig programs, not Stitchwort: translating them is not trivial (different keywords, `takes`, typed groups), so they are a follow-up. The comment probes could be written as Stitchwort files under the fuzzer's `FUZZ_COMMENTS`, which the `fuzz` input already supports.
 - The disturber is a few conservative line-level changes (doubled spaces, indentation ×2 or ×3, trailing spaces and blank lines between declarations), one chosen per file from the seed. Where it breaks the parse, the Rust side's refusal is the answer to match. The proposal's token-level disturber (spans from the real lexer) is not done.
 
-## Stage 1 (SW-3808): the lexer and rule N
+## Stage 1 (SW-3808): the lexer and comment placement
 
 Opus, 17 November 2026.
 
@@ -72,7 +74,7 @@ Opus, 17 November 2026.
 |---|---|---|
 | `Syntax`, `Syntax/Token.sw` | `Tok` (one constructor per Rust `Tok` variant, `Tok.name` for the dump), `Comment`, `Trivia`, `Token`, `Lexed`; the keyword and Unicode-alias tables as text and character patterns | `lexer.rs`'s types |
 | `Syntax`, `Syntax/Lexer.sw` | `lexemes`: `Parse` over characters, every character in a lexeme; `assemble`: a fold that gives each token its column (in bytes), `lineStart` and trivia; `lex` | `lex_with_trivia` |
-| `Syntax`, `Syntax/Settle.sw` | rule N, `Lexed.settled`: five passes in the Rust order, the backward ones on a newest-first list of the leaves already settled | `tidy.rs`'s `place_comments` |
+| `Syntax`, `Syntax/Settle.sw` | comment placement, `Lexed.settled`: five passes in the Rust order, the backward ones on a newest-first list of the leaves already settled | `tidy.rs`'s `place_comments` |
 | `Syntax`, `Syntax/Tree.sw` | the tree's token layer: `Leaf` (a token with its trivia) and the dump's lines in `dev tree --print`'s form | `tree.rs`'s `dump` |
 | `Syntax`, `Syntax/Dump.sw` | `dev tokens`'s lines; Rust's `{:?}` quoting; how an error names a character | `token_dump`, `shown` |
 | `Syntax.Tests` | the `tidy.rs` tests ported, and lexer cases | |
@@ -92,7 +94,7 @@ Shapes chosen for the proofs (stage 8), none proved yet:
   literal's pieces and a qualified name's components.
 - A lexical error is `Parse.fatal` with the Rust message, so no choice can
   back up past it and the refusal is exactly the Rust one.
-- Rule N's passes are each structural on the leaves left (`homeFrom`,
+- Comment placement's passes are each structural on the leaves left (`homeFrom`,
   `commasFrom`, `arrowsFrom`, `letsFrom`) with an accumulator, as the toy's
   `homeStep` and `carryForward`. The searches Rust does by index (a record
   update's `|`, an expression `let`'s `:=`) walk the settled list back and
@@ -126,7 +128,7 @@ On 300 sampled repo files (1.07 MB), one process, `--batch`:
 | reading the files and `toList` | 0.03 s user | |
 | the lexemes (`Parse`) | 1.34 s | 1.3 s/MB |
 | the tokens with trivia (`assemble`) | 1.43 s | 1.35 s/MB |
-| rule N | 1.49 s | 1.4 s/MB |
+| comment placement | 1.49 s | 1.4 s/MB |
 | the dump (`--stage tokens`) | 2.1 s | 2.0 s/MB |
 
 Peak memory 60 MB. §5 plans 2.5 to 3.5 s/MB for the whole formatter, so
@@ -259,7 +261,7 @@ corpus takes each `:=` body, arm and pattern that fits on a line.
 ### Speed [measured, Speedwell, load 15 to 37, so high]
 
 7,709 expression bodies in one bracketed list, 333 KB, dump identical to
-Rust's: 2.1–2.5 s, of which lexing and rule N 1.0–1.15 s; so about
+Rust's: 2.1–2.5 s, of which lexing and comment placement 1.0–1.15 s; so about
 **3.5–4 s/MB for the parser and the dump**, 6.5–7.5 s/MB in all. The
 same in 78 files of 100 items: 2.0 s. Rust: 0.06 s. Linear from 1,000 to
 7,709 items after the fixes below. This is dense input (no comments, no
@@ -412,8 +414,8 @@ The 972 subset files, 1.50 MB, one process, `--batch`:
 
 | Stage | Time | Per MB | Peak memory |
 |---|---|---|---|
-| `tokens` (lex, rule N, the token dump) | 2.55 s | 1.7 s/MB | 31 MB |
-| `tree` (lex, rule N, parse, lowering checks, the tree dump) | 4.5 s | 3.0 s/MB | 48 MB |
+| `tokens` (lex, comment placement, the token dump) | 2.55 s | 1.7 s/MB | 31 MB |
+| `tree` (lex, comment placement, parse, lowering checks, the tree dump) | 4.5 s | 3.0 s/MB | 48 MB |
 
 The largest file in the subset (`std/Omega/Omega.sw`, 31 KB) takes
 0.11 s, 3.5 s/MB with the process's start, so nothing grows faster than
@@ -610,7 +612,7 @@ Sonnet, 17 November 2026.
 | The passes P1 to P4, each a `SourceFile → SourceFile` made of steps given to the traversal | `src/Fmt/Passes.sw` |
 | The traversal's steps as a record: `Steps` (`expr`, `pattern`, `header`, `decl`, `fields`, `attributes`, `ruleSet`), `Steps.keep` for the identity; the lowering's checks became `checkSteps` | `src/Syntax/Traverse.sw`, `Lowering.sw` |
 | `Group.bare`: no comment on a header group's tokens but above its opening bracket, set by the parser, which P4 reads so it needn't walk a type for comments | `Decl.sw`, `DeclParser.sw` |
-| The parked comma: `Lexed.settledBare` (the last commas out, then rule N), `Lexed.settledOnce` (the last commas bare, then rule N) and `Lexed.tidied` | `Settle.sw`, `Passes.sw` |
+| The parked comma: `Lexed.settledBare` (the last commas out, then comment placement), `Lexed.settledOnce` (the last commas bare, then comment placement) and `Lexed.tidied` | `Settle.sw`, `Passes.sw` |
 | `Fmt.Twin --stage passes` (and `tidied`, the last tree only, for timing) | `Fmt/Twin.sw` |
 | The Rust side: `stitchwort dev passes FILE` (`passes::dump_after_each`), and `dev/fmt-twin passes` | `crates/fmt/src/passes.rs`, `crates/cli`, `dev/fmt-twin` |
 | Tests | `src/Fmt/Tests/Passes.sw` (13), `the_dump_after_each_pass_shows_the_tree_that_pass_left` |
@@ -626,7 +628,7 @@ Each pass is `file.apply steps`: the declarations traversed one by one under `Fa
 
 ### The parked comma
 
-Rule N parks a comma's comments on the next token; the Rust P2 then deletes the comma from the text and rule N runs again, which gives a different answer when the comma starts its line and has a comment above (proof plan §10, K1). `Lexed.settledBare` is the sketch's `withoutLastCommas` on the real leaves: Rust's comments after P2. `Lexed.tidied` parses once, from `Lexed.settledOnce`: each last comma's comments moved as `withoutLastCommas` moves them, the comma left in bare (still starting its line if it did), then rule N, which treats such a comma as if it weren't there; P2 then drops the commas on the tree (SW-3964, below). The tree dump leaves comments out, so the `passes` harness can't see this family; `the parked comma` test compares `settledBare`'s token dump with rule N's on the text with the comma written as a space, for the K1 case, and two `Tests/Slice1.sw` cases pin the formatted text.
+Comment placement parks a comma's comments on the next token; the Rust P2 then deletes the comma from the text and comment placement runs again, which gives a different answer when the comma starts its line and has a comment above (proof plan §10, K1). `Lexed.settledBare` is the sketch's `withoutLastCommas` on the real leaves: Rust's comments after P2. `Lexed.tidied` parses once, from `Lexed.settledOnce`: each last comma's comments moved as `withoutLastCommas` moves them, the comma left in bare (still starting its line if it did), then comment placement, which treats such a comma as if it weren't there; P2 then drops the commas on the tree (SW-3964, below). The tree dump leaves comments out, so the `passes` harness can't see this family; `the parked comma` test compares `settledBare`'s token dump with comment placement's on the text with the comma written as a space, for the K1 case, and two `Tests/Slice1.sw` cases pin the formatted text.
 
 ### The gate [measured, Speedwell, load 5 to 9]
 
@@ -711,7 +713,7 @@ The review is `docs/reviews/SW-3878-meaning.md`. SW-3881 fixed M2 (a constructor
 - **Comments are left out** (the orchestrator's call under D3678; the review found nothing `check` or `run` reads but a `--|` doc's links). No step reads a comment: the `bare` conditions in `unwrapped`, `forgetLeft` and `Group.splits`, and `noComments` in `Group.pieces`, are gone, so `meaning` now forgets a pair or splits a group that holds a comment. Meanings are compared with every comment blanked. The value still holds each `Word`'s comments and `Group.bare` (the tree has no comment-free form, and blanking them is a map over about 90 token sites); the checks compare the dump, which prints neither. For stage 5's top theorem that means stating it on the dump or adding that map; until then "equal meanings" means "equal once comments are blanked", and a split group's pieces each keep its `open`.
 - **`∀` is absent on every header** (`plainForall` is gone): the parser allows it on theorems only and the lowering skips it.
 - **The doc's grounds** now say what is left out on purpose (positions, comments), cite the lowering's test on an application's head (its first token is `(` and it lowers to an application), and cite D3679 for the group split (SW-3880 makes the elaborator check a group's type once per name).
-- **`CommentsKept`** (in `Meaning.sw`; proved for slice 1 by `slice1KeepsComments`, `Fmt/CommentsKeptProof.sw`, SW-4203): between the source's leaves after `settledBare` (rule N with P2's commas out, so K1's moves are in it) and the output's after rule N, (1) `commentViews` equal: every comment's text, own-line or trailing, blank line above, in order, the file's end included; (2) `holders` equal: the comment-holding tokens in order with their text, count above, trailing or not, and (3) whether a blank line separates the comments above a token from it. Two blank lines are left out (D3695, Matt, 19 Nov 2026), as no doc reads them and the printer drops them: the one above the file's first comment (`unheaded`; `calmTop` tops it), and a closer's below its comments (`Holder.forDocs`; `calm` clears it). The proof reads both sides as the comments of the tree's words: the source's through `parseCarriesSourceProved` and `bareSettles`, the output's through `printedSettle1`, and `calmTop` keeps every comment and holder but those two flags (`calmTopKeeps`). `Fmt/Tests/CommentsKept.sw` (SW-4233) pins 22 sources.
+- **`CommentsKept`** (in `Meaning.sw`; proved for slice 1 by `slice1KeepsComments`, `Fmt/CommentsKeptProof.sw`, SW-4203): between the source's leaves after `settledBare` (comment placement with P2's commas out, so K1's moves are in it) and the output's after comment placement, (1) `commentViews` equal: every comment's text, own-line or trailing, blank line above, in order, the file's end included; (2) `holders` equal: the comment-holding tokens in order with their text, count above, trailing or not, and (3) whether a blank line separates the comments above a token from it. Two blank lines are left out (D3695, Matt, 19 Nov 2026), as no doc reads them and the printer drops them: the one above the file's first comment (`unheaded`; `calmTop` tops it), and a closer's below its comments (`Holder.forDocs`; `calm` clears it). The proof reads both sides as the comments of the tree's words: the source's through `parseCarriesSourceProved` and `bareSettles`, the output's through `printedSettle1`, and `calmTop` keeps every comment and holder but those two flags (`calmTopKeeps`). `Fmt/Tests/CommentsKept.sw` (SW-4233) pins 22 sources.
 - Statements: none in `MeaningProofs.sw` changed, and every proof checks unchanged (P3's `drops` still carries `dropLeft`'s own `bare` test; `forgetLeft` no longer asks for it). Tests: "a pair holding a comment" and "`∀` on an implicit-only theorem" now have the same meaning; a new test leaves comments out of a row pair, a group and a binder type.
 - Checked: `dev/fmt-twin passes --inputs goldens` 128 of 128 identical; `Fmt.Twin --stage meaning` `kept` on all 128 golden files [run].
 
@@ -999,7 +1001,7 @@ What keeps the rest of the sample out [measured with `dev tree --print`, my own 
 
 - **The F1 tree is unchanged.**
 - **Columns the read-back proofs need (K3b).** Every rule that puts a block somewhere starts it on a line of its own at +2 from the indentation in force (`Expr.after`, `parenDoc`, `huggedBlock`, `chainLinks`, `bodyAfter`'s below), or after a `Line` at +2 in a group the block forces broken (an `if` branch, a lambda's body), so a block's first line and its later lines (`HardLine`, no `Nest` of its own) start at the same column, which is right of the enclosing limit. Arms are at +2 from the indentation in force, not from the `match` keyword (a `match` hugging `:=` has its keyword at column 14 and its arms at 2); they read back because `|` can't begin an expression, as a continued line. A `match` inside an arm, or opening an operator chain, puts even a single arm on its own line (`inArm`): on the `with` line, the next outer arm would read as its own. `else` and `then` lines are at the `if`'s indentation in force, which inside brackets is the `if`'s column (`Align`); after `:=` or `=>` and as a block's line a broken `if` starts its line (`bodyAfter` gives it only flat or below), so the two agree; after an operator it doesn't, and its `else` lines, left of the `if`, read back as continued lines (`else` can't begin an expression). An expression `let`'s body is at the `let`'s column (`Align`), after a line ending in `;`.
-- **Rule N's bar.** The arms' `|` hold own-line comments as any token does (printed above the arm at the arms' column, a blank line above kept, `item`); no new comment placement.
+- **Comment placement's bar.** The arms' `|` hold own-line comments as any token does (printed above the arm at the arms' column, a blank line above kept, `item`); no new comment placement.
 - P1 to P4 change nothing new in slice 3: no theorem headers or rows inside blocks beyond slice 2's.
 - `bodyAfter` builds a `match` value once and takes its hug from the same parts; a call's hug is still built twice, as before.
 
@@ -1030,7 +1032,7 @@ The lexer was split into named parts for the proofs, with the same behaviour (`S
 
 ## Family A fixed, and the search kept (SW-3962, Opus, 18 November 2026)
 
-**The cause.** A closer that rule N leaves after code ending its line with a comment, and that has a comment of its own, takes a line of its own (S39, `leaf` and `Word.leaf`). That line was a `HardLine`, at the indentation in force. In a declaration's type the bracket's contents, pushed below `(` by the comment, are at that same indentation (4), so the closer started a line at its contents' column and the parser read it as their block's next line: sketch §3.1, family A. Elsewhere the contents sit 2 right of the indentation in force (a call's argument, a body), which is why only the type showed it.
+**The cause.** A closer that comment placement leaves after code ending its line with a comment, and that has a comment of its own, takes a line of its own (S39, `leaf` and `Word.leaf`). That line was a `HardLine`, at the indentation in force. In a declaration's type the bracket's contents, pushed below `(` by the comment, are at that same indentation (4), so the closer started a line at its contents' column and the parser read it as their block's next line: sketch §3.1, family A. Elsewhere the contents sit 2 right of the indentation in force (a call's argument, a body), which is why only the type showed it.
 
 **The fix, both formatters.** That line is a `CloserLine` keyed by the bracket's opener, as for a closer after own-line comments (S40, SW-3605): it goes back to the opener's line's indentation when a line inside is at or left of the indentation in force, and stays put otherwise. The opener gets its `Mark` whenever the closer may take a line of its own: own-line comments before it, a comment after it, or (Rust only, outside the slices) a glued `.field`. `def d: ( -- t7⏎    a -- t9⏎  ) -- t10⏎  := b` now prints `)` at 0 and `:=` at 2 in both. No golden file moved; the slice gates are unchanged (s1, s2, s3 100% on the goldens and the 300-file sample).
 
@@ -1115,7 +1117,7 @@ What keeps the rest out [measured: the twin's `s5a` answers against `dev tree --
 
 - **The F1 tree is unchanged.**
 - **No new columns beyond slice 3's.** A definition's arms are at 2, as a `match`'s arms are from the indentation in force (0); `|` can't begin an expression, so they read back. A broken import's items are at 2 with `)` at 0, a comma bracket's shape. A namespace line and a test's head never break.
-- **Rule N's bar.** Nothing new: an import item holds own-line comments as a list item does (`item`, a blank line above kept).
+- **Comment placement's bar.** Nothing new: an import item holds own-line comments as a list item does (`item`, a blank line above kept).
 - `defArmsDoc` repeats `defDoc`'s header lines rather than changing `defDoc` while slice 1's proofs are being written against it; a shared header function would let them go.
 
 ## Slice 4b, the program (SW-3992)
@@ -1159,7 +1161,7 @@ What keeps the rest out [measured, as SW-3990's count]: of 3,147 declarations ou
 
 - **The F1 tree is unchanged.**
 - **Columns.** A broken tuple or list pattern puts its items at 2 from the line it opens on and its closer at that line's indentation, a comma bracket's shape; in an arm's head that is inside the head's `Nest 2`, so items at 4 and the closer at 2 from the arm's `|`, as Rust has them. A filled tuple pattern continues at 2. A constructor whose arguments break puts each non-token argument on a line at 2 (4 when its leading tokens fill). An absurd arm is one line.
-- **Rule N.** A named argument or annotation is a bracket pair like `(e)`: its opener's `Mark` and its closer's own line come from `opening` and `leaf` as `parenDoc`'s do.
+- **Comment placement.** A named argument or annotation is a bracket pair like `(e)`: its opener's `Mark` and its closer's own line come from `opening` and `leaf` as `parenDoc`'s do.
 - P1 to P4 change nothing new: no binder, row or theorem header is added.
 
 ## Families B and D fixed (SW-3963, Sonnet, 18 November 2026)
@@ -1208,7 +1210,7 @@ What keeps the rest out [measured, as SW-3990's count]: of 2,627 declarations ou
 
 - **The F1 tree is unchanged.**
 - **Columns.** A broken record puts its fields at 2 from the line it opens on and `}` at that line's indentation, a comma bracket's shape with brace edges; an update's `{ r |` is that first line. A broken record pattern in an arm's head is inside the head's `Nest 2`: fields at 4 and `}` at 2 from the arm's `|`, as a list pattern's. Membership, a spread, a record field's `name =` and `C { … }` patterns never break between their tokens; a field's value may break as the value does elsewhere.
-- **Rule N.** A record's `{` and `}` are a bracket pair as a list's: the opener's `Mark` and the closer's own line come from `opening` and `leaf`.
+- **Comment placement.** A record's `{` and `}` are a bracket pair as a list's: the opener's `Mark` and the closer's own line come from `opening` and `leaf`.
 - **Spacing.** New gaps: a space inside a record's braces and around `=`, `|`, `∈` and `∉`; none after a spread's `..` (the list starts with a name or bracket). The copied gaps above are the open ones.
 - P1 to P4 change nothing new: membership was already a proposition for `premises` (`propositionIn`), and no binder or row is added.
 
@@ -1219,7 +1221,7 @@ Ticket 18a of the proof plan. Three files beside `Rules.sw`; `audit` of each: `F
 ### What is proved
 
 - **`calmPrints`** (`Fmt/CalmProofs.sw`, namespace `Fmt.CalmProofs`): `file.within1`, `file.lexical` give `file.calm.printed1 = file.printed1`. `lexical` is only used for its closers (`Expr.closed`: a bracket's last word is a closer, which `calm` clears as one; a closer word of other text would be read as a token and its flag lost). The proof is by `elCalm` (induction on the expression, each rule's lemma taking the hypothesis for its parts as `ElKept`), `defDocKept` for the declaration and `printDeclsCalm` for the file loop. Groups: words that `calm` keeps (`Word.alike`, `wordsCalm`, `firstCalm`, `sizeCalm`, `trailsCalm`, `holdsCalm`, 20), what `leading` reads (`leadingKept`, `leafKept`, `openingKept`, 6), chains (`chainKept`, `linkDocsKept`, 8), brackets and calls (`bracketKept`, `huggedKept`, `lastArgumentKept`, `argumentDocsKept`, `appKept`, 25), the body and the definition (`bodyAfterKept`, `defDocKept`, `plainDefKept`, 20), the file (`declPrintedCalm`, `calmPrints`, 17), parts of a good expression (27).
-- **`printedSpells`** (`Fmt/SpellProofs.sw`, namespace `Fmt.SpellProofs`): for `decl.within1` and `decl.sound` (every token's text isn't layout, its comments are as rule N leaves them), at any width, `wordsOf (printedPieces doc width)` filtered to drop closers and commas is the tree's spelling filtered the same, and filtered to drop comments likewise. Two statements, because `Std.Doc`'s `printedWords` lets a closer and a trailing comment change places on a line (a `Closing` is written before the comment waiting there). `Decl.spelt` is each token's own-line comments, text and trailing comment in the tree's order, a comma between a bracket's items; the keyword's own-line comments are the file's. `printedSpellsSettled` takes `settled` and `Decl.real` (no token's text is layout) instead of `sound`; `printedSpellsText` ties it to `Decl.printed1`. The pieces: `Spells doc texts` (the document's words, `Uniform`, `Marked`) with one combinator per `Doc` constructor (23), one lemma per rule function (`leafSpells`, `openingSpells`, `framedSpells`, `parenSpells`, `bracketFromSpells`, `cellsSpells`, `brokenItemsSpells`, `appFromSpells`, `argumentDocsSpells`, `chainLinksSpells`, `bodyAfterSpells`, `plainDefSpells`, `elSpells`), and the bridge from `settled` (11).
+- **`printedSpells`** (`Fmt/SpellProofs.sw`, namespace `Fmt.SpellProofs`): for `decl.within1` and `decl.sound` (every token's text isn't layout, its comments are as comment placement leaves them), at any width, `wordsOf (printedPieces doc width)` filtered to drop closers and commas is the tree's spelling filtered the same, and filtered to drop comments likewise. Two statements, because `Std.Doc`'s `printedWords` lets a closer and a trailing comment change places on a line (a `Closing` is written before the comment waiting there). `Decl.spelt` is each token's own-line comments, text and trailing comment in the tree's order, a comma between a bracket's items; the keyword's own-line comments are the file's. `printedSpellsSettled` takes `settled` and `Decl.real` (no token's text is layout) instead of `sound`; `printedSpellsText` ties it to `Decl.printed1`. The pieces: `Spells doc texts` (the document's words, `Uniform`, `Marked`) with one combinator per `Doc` constructor (23), one lemma per rule function (`leafSpells`, `openingSpells`, `framedSpells`, `parenSpells`, `bracketFromSpells`, `cellsSpells`, `brokenItemsSpells`, `appFromSpells`, `argumentDocsSpells`, `chainLinksSpells`, `bodyAfterSpells`, `plainDefSpells`, `elSpells`), and the bridge from `settled` (11).
 - Witnesses: `exampleDecl` (`def d: A := g [a, b]`) meets the hypotheses of both (`printedSpellsExample`, `calmPrintsExample`).
 - `Fmt.Tests` (`Tests/RuleProofs.sw`, 4 tests): the hypotheses and the proved equalities hold of the tidied tree of files with comments in every gap, parsed by the real parser.
 
@@ -1231,8 +1233,8 @@ Ticket 18a of the proof plan. Three files beside `Rules.sw`; `audit` of each: `F
 
 - **`MayFollow Bang` in `LexProofs.sw` is stricter than the lexer** and makes `printLexes1` unprovable for a prefix `!` before a name that starts with `i` (`!isSmall x`, `!inRange`): it asks the next character not to be `'i'`, where the lexer (`Lexer.sw`, `['!', 'i', 'n', next, ..]`) reads `!in` as `NotIn` only when a non-word character follows. It should say that: the rest doesn't start `in` followed by a non-word character.
 - **`Lexical1` doesn't give `Decl.real`** (a token's text isn't layout): it says each word `lexesAs` a kind, and a lexer soundness lemma (a token's text starts with a character that isn't a space) is the missing step. `printedSpells` takes `real`.
-- **The rules' joins are the rest of `printLexes1`.** `Fmt/PrintLexProofs.sw` (namespace `Fmt.PrintLexProofs`, 41 theorems) is the bridge from the engine to the lexer, for any document: `printedLexes` says that if `Joins (Follows kinds) doc (Plain None) (_ => True)` and every word of `doc` is `Printable kinds` (layout, a comment as rule N leaves it, or a token `Spells` as its kind), then `lex (Doc.print doc width)` is `Ok` of the leaves of the pieces' layout (`Laid`). `Follows kinds word next` is "not a comment, and the token the word is read as may be followed by `next`" (`MayFollow`); pieces of spaces after pieces of spaces are taken together (`pieceFold`), and the proofs are `followsOfPair` (a piece before the next one), `pairsFollowFold` and `piecesTextIsConcat`. `printedLexesExample` meets its hypotheses. What is left is, per rule, `Joins (Follows kinds) doc edge next` for the 25 or so functions of `Rules.sw` (the toy's `JoinProofs.sw` and `RuleJoinProofs.sw` are the pattern: triples `Passes doc pre post`; slice 1 adds `Choice`, `IfBroken`, `IdGroup`, `Displaced` and `CloserLine`), with the facts that carry the glue: a prefix operator glued to an operand that doesn't start `-` or `>` (`prefixGap`), a closer after a token, a closer joining a waiting comment's line (`CloseJoins`), `-x` and `f -x`; then `Printable` for the tree's words from `Lexical1` (a lexer lemma: a token's text is spelled as its kind and isn't layout or a comment), and the tree-side statement (`Spells` of the printed leaves against the tree's words, with commas) that ticket 17 reads.
-- **18b's other statements.** `printedHangs` needs `printLays` with the columns (ticket 17's `hangs`), `printedKeeping` and `printedSettle1` the rule N side. `Doc.Proofs.Uniform`/`Marked` are done for every function slice 1 meets, so each of those starts from `elSpells`'s traversal.
+- **The rules' joins are the rest of `printLexes1`.** `Fmt/PrintLexProofs.sw` (namespace `Fmt.PrintLexProofs`, 41 theorems) is the bridge from the engine to the lexer, for any document: `printedLexes` says that if `Joins (Follows kinds) doc (Plain None) (_ => True)` and every word of `doc` is `Printable kinds` (layout, a comment as comment placement leaves it, or a token `Spells` as its kind), then `lex (Doc.print doc width)` is `Ok` of the leaves of the pieces' layout (`Laid`). `Follows kinds word next` is "not a comment, and the token the word is read as may be followed by `next`" (`MayFollow`); pieces of spaces after pieces of spaces are taken together (`pieceFold`), and the proofs are `followsOfPair` (a piece before the next one), `pairsFollowFold` and `piecesTextIsConcat`. `printedLexesExample` meets its hypotheses. What is left is, per rule, `Joins (Follows kinds) doc edge next` for the 25 or so functions of `Rules.sw` (the toy's `JoinProofs.sw` and `RuleJoinProofs.sw` are the pattern: triples `Passes doc pre post`; slice 1 adds `Choice`, `IfBroken`, `IdGroup`, `Displaced` and `CloserLine`), with the facts that carry the glue: a prefix operator glued to an operand that doesn't start `-` or `>` (`prefixGap`), a closer after a token, a closer joining a waiting comment's line (`CloseJoins`), `-x` and `f -x`; then `Printable` for the tree's words from `Lexical1` (a lexer lemma: a token's text is spelled as its kind and isn't layout or a comment), and the tree-side statement (`Spells` of the printed leaves against the tree's words, with commas) that ticket 17 reads.
+- **18b's other statements.** `printedHangs` needs `printLays` with the columns (ticket 17's `hangs`), `printedKeeping` and `printedSettle1` the comment placement side. `Doc.Proofs.Uniform`/`Marked` are done for every function slice 1 meets, so each of those starts from `elSpells`'s traversal.
 ## Slice 6a, the program (SW-3999)
 
 Opus, 18 November 2026. The proof steps, on top of slices 1 to 5a, 4b and 4c: SW-3995's census put `RewriteRule` (799) and `Rewrite` (798) first among the kinds in a declaration kept out, and `Omega` (40) and `Iff` (25) among those alone in keeping one out.
@@ -1274,7 +1276,7 @@ What keeps the rest out [measured, as SW-3990's count]: of 1,930 declarations ou
 
 - **The F1 tree is unchanged.**
 - **Columns.** A broken `rewrite` puts its body at 2 from the `rewrite`'s line and later rules at 4; a broken `repeatedly` set puts its rules at 2 from that (6) and `]` at 4. `calc` steps are at 2 from the `calc`'s line, a step's broken proof at 2 from the step. A broken `↔` puts `↔` at 2. `cases then`, facts and `at h` never break between their tokens.
-- **Rule N.** A `repeatedly` set's `[` and `]` are a bracket pair as a list's. A `calc` step is an item (a blank line above it kept), framed by its `_`; a rule is framed by its first token, as the `RewriteRule` node is in Rust's tree.
+- **Comment placement.** A `repeatedly` set's `[` and `]` are a bracket pair as a list's. A `calc` step is an item (a blank line above it kept), framed by its `_`; a rule is framed by its first token, as the `RewriteRule` node is in Rust's tree.
 - **Edits to existing rules** are new arms only: `Expr.words`, `Expr.el`, `Expr.layoutBody`, `armDoc` and `bodyAfter`'s `lambda` match.
 
 ## Read-back, first part (SW-3969, Opus, 18 November 2026)
@@ -1358,7 +1360,7 @@ SW-4031's three trees that print as text parsing differently (`Infix - a (Infix 
 
 - **Rules, from the parser's code.** `rightNeeds`: an operator that nests to the left (`leftNeeds` is its own level: `+ -`, `* / %`) needs its right operand one rung up (16, 18), as `addExpr`/`mulExpr` read it; right-nesting ones (`++ && ||`, `->`) and comparisons are as before. A call's head is `Expr.callHead`: an atom, a bracket, or `-` (text `-`) on a numeral, since `unaryNext` hands `app` only a token that is no sign, or a `negativeNumeral`. An argument is `Expr.callArgument`: an atom or a bracket, or a sign on one, since `argumentPrefix` asks the next item to `opensAtom` (no sign does).
 - **How the walk shows it.** `Nested` is now a `ReadsIn` (`GoalRead`), so the argument goal can say what it read: `ArgRead read expr` is an atom (`AtomParsed`) or, if `read` starts with a sign (`SignFirst`), a sign on one. An argument's sign is followed by an item that opens an atom, so the argument read after it is no sign (`argReadPlain`). Heads are walked from the mark `unaryNext` sees (`readsAppAt` with `readsAtomHeadPlain`, `readsAtomHeadNegative`, `readsAtomHeadNone`); `self` at `LevelApp` (rows, patterns: outside the slice) now gives `True`. Every other level's statement is as before.
-- **Not in the tree facts yet: comments on a glued sign** (SW-4070's finding 2). `App f [Prefix (- -- c) x]` prints `f - -- c` with `x` on the next line and reads back as `f - x`; `App (Prefix (- -- c) 1) [n]` likewise reads back as `-(1 n)`. The parser never builds either: an argument's sign and a negative numeral need the next item `glued`, and a comment after the sign or above the operand puts it on a later line. Showing that needs an item invariant the walk lacks (`GoodItem` says only how a token is spelled): a glued item has no comment above it and its predecessor no trailing comment, from the lexer and rule N. Left as a follow-up.
+- **Not in the tree facts yet: comments on a glued sign** (SW-4070's finding 2). `App f [Prefix (- -- c) x]` prints `f - -- c` with `x` on the next line and reads back as `f - x`; `App (Prefix (- -- c) 1) [n]` likewise reads back as `-(1 n)`. The parser never builds either: an argument's sign and a negative numeral need the next item `glued`, and a comment after the sign or above the operand puts it on a later line. Showing that needs an item invariant the walk lacks (`GoodItem` says only how a token is spelled): a glued item has no comment above it and its predecessor no trailing comment, from the lexer and comment placement. Left as a follow-up.
 
 ### Step 1 done: `Std.Doc` touches (SW-4075, Opus, 18 November 2026)
 
@@ -1400,9 +1402,9 @@ A separate predicate, as `Joins` is, not a field of `Event`: `Event` is built in
 
 ## One parse (SW-3964, proof plan ticket 13c)
 
-`Lexed.tidied` parses once, from `Lexed.settledOnce` (`Settle.sw`): `withBareLastCommas` moves each last comma's comments as `withoutLastCommas` does (the move is `commaMoved`, shared by the two) and leaves the comma in with empty trivia, still starting its line if it did; then rule N. P2 drops the commas on the tree, so `Tidied.fourth` is `tidy` of the one parse. `parksComment` is gone. The search behind the choice is in the S1 sketch, §3.4's outcome: the sketch's way 2 with the comma off its line parses 54 in 3,000 generated files that Rust refuses; with the comma keeping its line start, refusals and trees are the old driver's on every file tried, and the text changes only where the old driver differed from Rust.
+`Lexed.tidied` parses once, from `Lexed.settledOnce` (`Settle.sw`): `withBareLastCommas` moves each last comma's comments as `withoutLastCommas` does (the move is `commaMoved`, shared by the two) and leaves the comma in with empty trivia, still starting its line if it did; then comment placement. P2 drops the commas on the tree, so `Tidied.fourth` is `tidy` of the one parse. `parksComment` is gone. The search behind the choice is in the S1 sketch, §3.4's outcome: the sketch's way 2 with the comma off its line parses 54 in 3,000 generated files that Rust refuses; with the comma keeping its line start, refusals and trees are the old driver's on every file tried, and the text changes only where the old driver differed from Rust.
 
-**Two families fixed** (tests in `Tests/Slice1.sw`): a closer's trailing comment that rule 1 left on a commentless comma starting the closer's line, which rule 2 then put above the closer (Rust keeps it on the closer; 24 of 2,481 generated files that parse); and K1's own case, where the closer, first on its line without its comma, sat at the item's column, the bare parse failed and the driver fell back to the plain parse unseen.
+**Two families fixed** (tests in `Tests/Slice1.sw`): a closer's trailing comment that the back-walk left on a commentless comma starting the closer's line, which the comma carry then put above the closer (Rust keeps it on the closer; 24 of 2,481 generated files that parse); and K1's own case, where the closer, first on its line without its comma, sat at the item's column, the bare parse failed and the driver fell back to the plain parse unseen.
 
 ### The gate [measured, Speedwell]
 
@@ -1411,7 +1413,7 @@ Fresh cache, copied binary, slim copy without the proofs, `--jobs 1`: `passes` 1
 ### For the proof lanes
 
 - `parse1` is `parseFile lexed.settledOnce`. On a text with no comma before a closer (every output) `settledOnce` is `settled`, since `withBareLastCommas` is the identity there.
-- **`bareSettles`, proved (SW-4006, `Syntax/SettleBareProofs.sw`; up to line starts, SW-4183, `Syntax/SettleMarkProofs.sw`):** under `alphabet1` and `plain1`, `dropF [] lexed.settledOnce.leaves`, line starts ignored (`Leaf.unstarted`), is `lexed.settledBare.leaves`, and the two `end`s agree (`dropF` drops each comma directly before a closer after an item; no layout assumed). The line starts differ only at a closer after a last comma that starts its line: `settledBare` deletes the comma from the text, so the closer starts the line there, while the formatter keeps the comma and reads the closer as starting it. It is what ties `CommentsKept`, stated on `settledBare`, to the leaves the tree comes from. Rules 1 to 3 each commute with dropping the bare last commas (`home1Drop` with `walkDrop`, `commasDrop`, `arrowsDrop`); rule 4 does nothing in the alphabet and rule 5 works leaf by leaf. A `->` straight before a last comma would break rule 3, which `plain1` excludes. `settledOnceNone`: with no last comma (`noLast`, every printed text), `settledOnce = settled`.
+- **`bareSettles`, proved (SW-4006, `Syntax/SettleBareProofs.sw`; up to line starts, SW-4183, `Syntax/SettleMarkProofs.sw`):** under `alphabet1` and `plain1`, `dropF [] lexed.settledOnce.leaves`, line starts ignored (`Leaf.unstarted`), is `lexed.settledBare.leaves`, and the two `end`s agree (`dropF` drops each comma directly before a closer after an item; no layout assumed). The line starts differ only at a closer after a last comma that starts its line: `settledBare` deletes the comma from the text, so the closer starts the line there, while the formatter keeps the comma and reads the closer as starting it. It is what ties `CommentsKept`, stated on `settledBare`, to the leaves the tree comes from. Rules 1 to 3 each commute with dropping the bare last commas (`home1Drop` with `walkDrop`, `commasDrop`, `arrowsDrop`); the let lift does nothing in the alphabet and trim works leaf by leaf. A `->` straight before a last comma would break the arrow lift, which `plain1` excludes. `settledOnceNone`: with no last comma (`noLast`, every printed text), `settledOnce = settled`.
 
 ## Slice 1 rules proofs, `printedHangs` (SW-4011, Opus, 18 November 2026)
 
@@ -1460,7 +1462,7 @@ Ticket 18e, in `Fmt/HangProofs.sw` (rules) and the new `Fmt/PrintHangProofs.sw` 
 - **A blank line before a closer that trails a comment, after a last item that does too** (both printers). `def x: T := [\n  aaa, -- c\n  bbb -- e\n] -- d` formats with an empty line before `] -- d` (idempotent, and the output keeps `hangs`). The closer's `CloserLine` (it is `lone`) comes straight after `bracketContent`'s `SoftLine` break, and a `CloserLine` at a line start prints a newline more. `Lays` makes `CloserLine` need a mid-line place, so it is `False` there, and `CloserSeat`'s `Broken` case asks `lone = False`. Fix wanted in the rules or the printer (a `CloserLine` at a line start only moves the line), in both formatters (D3677: a shared bug). Related: when only the closer trails, its comment moves to the last item.
 - **The marks invariant (owed).** `CloserFits` at a closer's seat needs (1) the least indentation `inForce` of the blocks outside the bracket to be at most `closerAt`, so the mark found by the bracket's key must be the opener's own, and (2) for parentheses, whose block may equal the indentation, `least ≤ block` and `marked < block`. Both need key reasoning: marks made inside an element have keys from `around.at` up. Options: a key floor and a "marks kept or lowered" post in `ElHangs`, or a generic `Std.Doc` lemma strengthening `Lays` by induction on `Doc` plus a per-rule walk of the keys. `framedBy` displaces `Held` entries, so an opener is never written at `Held`; comma brackets get (2) for free (block ≥ indentation + 2). Brackets then compose from `openingHangs`, the contents and `closerLeafHangs`.
 - **Applications need a hoisted head seat (design question).** `appDocs`' `Nest 4 (Fill …)` puts a broken argument at a line start at the application's indentation + 4, but `Seated` at a line start asks `at = indent`. That condition carries `leadColumn`/`LineAt` for noted tokens (after own-line comments the `HardLine` lands at the floored indentation, not at `at`), so it can't simply be dropped; a seat variant for the head's arguments (and chains' `Nest 2` operators) is needed.
-- **No counterexample** to a `hangs` clause: comments after `->` are moved by rule N and the output hangs.
+- **No counterexample** to a `hangs` clause: comments after `->` are moved by comment placement and the output hangs.
 
 ### Still owed
 
@@ -2010,7 +2012,7 @@ The sketch (`docs/proposals/self-hosted-fmt-s1-sketch.md` §2) predicted by laye
 | Layer | Files | Sketch | Actual (net new) | Times sketch's range | Times its middle |
 |---|---|---|---|---|---|
 | Lexer (14) | `Syntax/Lex*Proofs`, `OnceUnreturnedProofs`, `Fmt/UnreturnedProofs` | 90–130 | 348 | 2.7–3.9 | 3.2 |
-| Rule N (15) | `Syntax/Settle*Proofs`, `GoodItemProofs`, `GlueQuietProofs`, `Fmt/SettleParseProofs` | 150–230 | 550 | 2.4–3.7 | 2.9 |
+| Comment placement (15) | `Syntax/Settle*Proofs`, `GoodItemProofs`, `GlueQuietProofs`, `Fmt/SettleParseProofs` | 150–230 | 550 | 2.4–3.7 | 2.9 |
 | Parser (16) | `Syntax/Parse*`, `Follows*`, `DeafProofs`, `AutoPlaced`; `Fmt/TraverseFail`, `PlacedProofs`, `SourcePlainProofs`, `Kinds`, `Grammar1` | 230–320 | 2,115 | 6.6–9.2 | 7.7 |
 | Read-back (17) | `Syntax/ReadBack*`; `Fmt/ReadBackFile`, `SplitProofs`, `SpeltSlots`, `GroupSlots`, `PrefixHeadSplit`, `TopReadBack` | 110–160 | 667 | 4.2–6.1 | 4.9 |
 | Rules and spelling (18) | the rest of `Fmt/` (hangs, lays, elements, touch, told, spell, join, stands, trivia, print) | 300–450 | 1,843 | 4.1–6.1 | 4.9 |
@@ -2084,7 +2086,7 @@ Each theorem gets the first class it fits: (a) list helper: a name containing an
 | Slice bookkeeping | 561 | 9.0% |
 | Other (the substantive statements) | 1,837 | 29.5% |
 
-By layer, the share in no class but "other": Parser 4%, Rules and spelling 52%, Read-back 40%, Lexer 44%, Rule N 38%, Passes 37%, Glue 0%. Read as: the parser's count is almost all one lemma per parser function, which is why it is the layer furthest over (7.7 times). The dispatcher class is an upper bound: a short `cases` proof is often a real fact.
+By layer, the share in no class but "other": Parser 4%, Rules and spelling 52%, Read-back 40%, Lexer 44%, Comment placement 38%, Passes 37%, Glue 0%. Read as: the parser's count is almost all one lemma per parser function, which is why it is the layer furthest over (7.7 times). The dispatcher class is an upper bound: a short `cases` proof is often a real fact.
 
 ### 5. `check` time
 

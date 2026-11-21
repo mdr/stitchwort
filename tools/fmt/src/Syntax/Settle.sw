@@ -1,14 +1,14 @@
---| Rule N, where each comment belongs (docs/proposals/fmt-passes.md §2):
+--| Comment placement, where each comment belongs (docs/proposals/fmt-passes.md §2):
 --| `crates/fmt`'s `place_comments` (`tidy.rs`), as functions on the
 --| lexer's leaves, to run every time tokens are read. After it:
 --|
---| 1. no comma, closing bracket or record update's `|` has a trailing
+--| 1. (the back-walk) no comma, closing bracket or record update's `|` has a trailing
 --|    comment, except one kept because moving it would pass comments;
---| 2. no comma has any comment;
---| 3. no `->` has a trailing comment, nor own-line comments after it: they
+--| 2. (the comma carry) no comma has any comment;
+--| 3. (the arrow lift) no `->` has a trailing comment, nor own-line comments after it: they
 --|    come before the `->`;
---| 4. an expression `let`'s `:=` has no trailing comment: it comes before;
---| 5. no comment's text ends in a space.
+--| 4. (the let lift) an expression `let`'s `:=` has no trailing comment: it comes before;
+--| 5. (trim) no comment's text ends in a space.
 --|
 --| Each step is a pass over the leaves, in the Rust order. A pass that
 --| looks back keeps the leaves before the current one newest first, as the
@@ -25,7 +25,7 @@ def Leaf.withLeading (leaf: Leaf) (leading: List Comment): Leaf := { leaf | triv
 
 def Comment.unspaced (comment: Comment): Comment := { comment | blankLines = 0 }
 
--- Rule 1: a comment after closers, commas and a record update's `|` goes
+-- Back-walk: a comment after closers, commas and a record update's `|` goes
 -- back to the code before them.
 
 --| Whether `bar`, a `|` between `behind` (newest first) and `ahead`, is a record
@@ -93,7 +93,7 @@ def fieldOrClose (leaves: List Leaf) (depth: Nat): BraceScan := match leaves wit
         else if kind.isCloser && depth > 0 then fieldOrClose rest (depth - 1)
         else fieldOrClose rest depth
 
---| Whether rule 1 walks past a leaf: a comma, a closer, or a record
+--| Whether the back-walk walks past a leaf: a comma, a closer, or a record
 --| update's `|`.
 def skipped (leaf: Leaf) (behind ahead: List Leaf): Bool := match leaf.kind with
   | Comma => True
@@ -108,7 +108,7 @@ def movable (leaf: Leaf) (behind ahead: List Leaf): Bool := match leaf.kind with
   | kind => kind.isCloser
 
 --| Whether the line ending at the head of `line` (newest first) ends with a
---| comment: on that leaf, or on the leaf rule 1 has moved it back to, past
+--| comment: on that leaf, or on the leaf the back-walk has moved it back to, past
 --| the closers, commas and bars before it (SW-3606).
 def endsWithComment (line ahead: List Leaf): Bool := match line with
   | [] => False
@@ -117,7 +117,7 @@ def endsWithComment (line ahead: List Leaf): Bool := match line with
     else if earlier.isEmpty || !skipped leaf earlier ahead then False
     else endsWithComment earlier [leaf, ..ahead]
 
---| Whether rule 1's walk takes `current`, with `behind` (newest first) the
+--| Whether the back-walk takes `current`, with `behind` (newest first) the
 --| leaves before it, to start its line. With `bareLast`, the last commas
 --| are bare ones standing for commas the P2 pass deletes from the text
 --| (`settledOnce`), so a closer right after a last comma that starts its
@@ -158,7 +158,7 @@ def barBelow (leaf: Leaf) (behind ahead: List Leaf): Bool := match leaf.kind, be
   | Pipe, [previous, .._], [_, .._] => previous.trivia.trailing.isSome
   | _, _, _ => False
 
---| Rule 1 over `rest`, with `behind` the leaves already settled, newest
+--| The back-walk over `rest`, with `behind` the leaves already settled, newest
 --| first, and `bumped` a comment for the next leaf's own-line comments;
 --| `bareLast` as for `startsWalk`.
 def homeFrom (bareLast: Bool) (behind: List Leaf) (bumped: Option Comment) (rest: List Leaf): List Leaf :=
@@ -176,7 +176,7 @@ def homeFrom (bareLast: Bool) (behind: List Leaf) (bumped: Option Comment) (rest
             | steps => homeFrom bareLast [leaf.withTrailing None, ..trailingAt behind steps comment] None after
         | _ => homeFrom bareLast [leaf, ..behind] None after
 
--- Rule 2: a comma's comments go to the token after it.
+-- Comma carry: a comma's comments go to the token after it.
 
 --| Own-line comments carried from a comma to the next leaf, and the blank
 --| lines before them.
@@ -198,7 +198,7 @@ def commaCarries (trivia: Trivia): Option Carried := match trivia.leading, trivi
     Some { comments = leading ++ [{ comment | blankLines = trivia.blankLines }], blankLines = 0 }
   | leading, None => Some { comments = leading, blankLines = trivia.blankLines }
 
---| Rule 2 over `rest`, `done` newest first, then the end of the file's
+--| The comma carry over `rest`, `done` newest first, then the end of the file's
 --| trivia with anything still carried.
 def commasFrom (done: List Leaf) (carried: Option Carried) (rest: List Leaf) (end: Trivia): Lexed :=
   let receive := (trivia: Trivia) => carried.map (carry => carry.into trivia) |> .getOrElse trivia
@@ -211,7 +211,7 @@ def commasFrom (done: List Leaf) (carried: Option Carried) (rest: List Leaf) (en
           commasFrom [{ leaf | trivia = Trivia.empty }, ..done] (Some carry) after end
         | _ => commasFrom [leaf, ..done] None after end
 
--- Rule 3: comments after `->` go before it.
+-- Arrow lift: comments after `->` go before it.
 
 def arrowsFrom (done: List Leaf) (current: Leaf) (rest: List Leaf): List Leaf := match rest with
   | [] => [current, ..done].reverse
@@ -228,7 +228,7 @@ def arrows (leaves: List Leaf): List Leaf := match leaves with
   | [] => []
   | [first, ..rest] => arrowsFrom [] first rest
 
--- Rule 4: an expression `let`'s value must start on its `:=` line (SW-3750),
+-- Let lift: an expression `let`'s value must start on its `:=` line (SW-3750),
 -- so a comment ending that line goes before the `:=`.
 
 --| Whether a `let` at the outer depth comes before the `:=`, in `behind`
@@ -265,7 +265,7 @@ def letsFrom (behind rest: List Leaf): List Leaf := match rest with
         letsFrom [moved, ..behind] after
       | _ => letsFrom [leaf, ..behind] after
 
--- Rule 5: comment text loses its trailing spaces.
+-- Trim: comment text loses its trailing spaces.
 
 def Comment.trimmed (comment: Comment): Comment := { comment | text = trimEnd comment.text }
 
@@ -276,7 +276,7 @@ def trimEnd (text: Text): Text :=
 def Trivia.trimmed (trivia: Trivia): Trivia :=
   { trivia | leading = trivia.leading.map Comment.trimmed, trailing = trivia.trailing.map Comment.trimmed }
 
---| The leaves with each comment where rule N puts it, `bareLast` as for
+--| The leaves with each comment where comment placement puts it, `bareLast` as for
 --| `startsWalk`.
 def Lexed.settledWith (lexed: Lexed) (bareLast: Bool): Lexed :=
   let homed := homeFrom bareLast [] None lexed.leaves
@@ -284,13 +284,13 @@ def Lexed.settledWith (lexed: Lexed) (bareLast: Bool): Lexed :=
   let leaves := letsFrom [] (arrows commas.leaves)
   { leaves = leaves.map (leaf => { leaf | trivia = leaf.trivia.trimmed }), end = commas.end.trimmed }
 
---| The lexer's leaves with each comment where rule N puts it, as
+--| The lexer's leaves with each comment where comment placement puts it, as
 --| `crates/fmt`'s `place_comments` does.
 def Lexed.settled (lexed: Lexed): Lexed := lexed.settledWith False
 
--- The last commas, emptied before rule N (the parking comma: proof plan
+-- The last commas, emptied before comment placement (the parking comma: proof plan
 -- §10, spike K1). The Rust P2 deletes a comma before a closer from the
--- text, and rule N runs again on what is left; running rule N first and
+-- text, and comment placement runs again on what is left; running comment placement first and
 -- deleting the comma from the tree would leave a comment where the first
 -- run parked it, which differs when the comma starts its line. Moving the
 -- comma's comments first, and leaving it in bare, gives Rust's comments
@@ -351,7 +351,7 @@ def withoutLastCommas (behind rest: List Leaf): List Leaf := match rest with
 --| The leaves with each comma directly before a closer kept but bare: its
 --| comments moved as `withoutLastCommas` moves them, the comma left with
 --| no comment and no blank line, still starting its line if it did. Every
---| token stays the lexer's. Rule N then treats the comma as if it weren't
+--| token stays the lexer's. Comment placement then treats the comma as if it weren't
 --| there (a search found no case where it doesn't; its walk
 --| reads the comma's line start as the closer's, `startsWalk`), and the
 --| parser still reads it, so a file reads as the source does, commas and
@@ -363,10 +363,10 @@ def withBareLastCommas (behind rest: List Leaf): List Leaf := match rest with
     withBareLastCommas [moved, { comma | trivia = Trivia.empty }, ..earlier] after
   | [leaf, ..after] => withBareLastCommas [leaf, ..behind] after
 
---| Rule N after the last commas are taken out, as the Rust P2 leaves the
+--| Comment placement after the last commas are taken out, as the Rust P2 leaves the
 --| file's comments.
 def Lexed.settledBare (lexed: Lexed): Lexed := { lexed | leaves = withoutLastCommas [] lexed.leaves }.settled
 
---| The leaves the formatter parses: rule N after the last commas are made
+--| The leaves the formatter parses: comment placement after the last commas are made
 --| bare.
 def Lexed.settledOnce (lexed: Lexed): Lexed := { lexed | leaves = withBareLastCommas [] lexed.leaves }.settledWith True

@@ -1,5 +1,5 @@
---| Rule N as the formatter runs it (`settledOnce`: the last commas bare, and the walk reading a closer right after one
---| that starts its line as starting it, `startsWalk True`) against rule N on the same leaves with that line start
+--| Comment placement as the formatter runs it (`settledOnce`: the last commas bare, and the walk reading a closer right after one
+--| that starts its line as starting it, `startsWalk True`) against comment placement on the same leaves with that line start
 --| written into each such closer's token (`settledMarked`, which `Syntax.SettleBareProofs` relates to the leaves
 --| without the last commas): the two differ only in line starts (`onceMarked`). So `settledOnce`, its last commas
 --| dropped, holds `settledBare`'s comments (`bareSettles`).
@@ -12,9 +12,9 @@ import Syntax.SettleProofs (..)
 import Syntax.SettleBareProofs (..)
 import Syntax.SharedFacts (commaNotCloser)
 
--- Line starts as rule 1's walk with bare last commas reads them.
+-- Line starts as the back-walk with bare last commas reads them.
 
---| The leaf, starting its line as rule 1's walk with bare last commas takes it to, `behind` the leaves before it,
+--| The leaf, starting its line as the back-walk with bare last commas takes it to, `behind` the leaves before it,
 --| newest first.
 def Leaf.markedOn (leaf: Leaf) (behind: List Leaf): Leaf := leaf.startingLine (startsWalk True leaf behind)
 
@@ -145,9 +145,9 @@ theorem startsNoPair ∀ (leaf comma: Leaf) (older: List Leaf)
       | True, True, True => notPair
   Eq.trans unfolded (rewrite extraF then Bool.orFalse leaf.token.lineStart)
 
--- Rule 1, with bare last commas and with marked ones.
+-- The back-walk, with bare last commas and with marked ones.
 
---| Rule 1's walk on marked leaves by their tokens' line starts is its walk on the bare ones with bare last commas.
+--| The back-walk on marked leaves by their tokens' line starts is its walk on the bare ones with bare last commas.
 theorem walkMark ∀ (current: Leaf) (behind ahead ahead2: List Leaf) (steps: Nat)
     (within: current.kind.within1 = True)
     (behindWithin: behind.all (leaf => leaf.kind.within1) = True):
@@ -191,7 +191,7 @@ theorem movableMark ∀ (leaf: Leaf) (behind ahead ahead2: List Leaf)
       | True => Eq.trans (Bool.orTrue _) (Bool.orTrue _).flipped
       | False => rewrite startsNotCloser leaf behind closer
 
---| Rule 1 on marked leaves by their tokens' line starts gives the marked result of rule 1 on the bare ones with bare
+--| The back-walk on marked leaves by their tokens' line starts gives the marked result of the back-walk on the bare ones with bare
 --| last commas.
 --|
 --| Proof idea: by induction on the leaves to come, keeping the leaves done (newest first) marked: each step reads
@@ -350,7 +350,7 @@ theorem markedOfBare ∀ (leaves: List Leaf):
       _ = (markRev (withBareR [] leaves)).reverse := rewrite markedBareR [] leaves byComputing
       _ = markFwd [] (withBareR [] leaves).reverse := markRevReverse (withBareR [] leaves) []
 
--- Rules 2 to 5 read no line start.
+-- The comma carry, arrow lift, let lift and trim read no line start.
 
 theorem commasUnstarted ∀ (done: List Leaf) (carried: Option Carried) (rest: List Leaf) (end: Trivia):
     (commasFrom (done.map Leaf.unstarted) carried (rest.map Leaf.unstarted) end).leaves
@@ -468,11 +468,11 @@ theorem trimUnstarted ∀ (leaves: List Leaf):
     | [] => byComputing
     | [leaf, ..rest] => rewrite trimUnstarted rest
 
---| Rules 2 to 5, on leaves the same up to line starts.
+--| The comma carry, arrow lift, let lift and trim, on leaves the same up to line starts.
 def laterPasses (leaves: List Leaf) (end: Trivia): List Leaf :=
   (letsFrom [] (arrows (commasFrom [] None leaves end).leaves)).map (leaf => { leaf | trivia = leaf.trivia.trimmed })
 
---| Rules 2 to 5 on leaves the same up to line starts give leaves the same up to line starts, and the same end.
+--| The comma carry, arrow lift, let lift and trim on leaves the same up to line starts give leaves the same up to line starts, and the same end.
 theorem passesUnstarted ∀ (one two: List Leaf) (end: Trivia)
     (same: one.map Leaf.unstarted = two.map Leaf.unstarted):
     (laterPasses one end).map Leaf.unstarted = (laterPasses two end).map Leaf.unstarted
@@ -501,9 +501,9 @@ theorem passesUnstarted ∀ (one two: List Leaf) (end: Trivia)
     _ = (commasFrom [] None two end).end := twoEnd
   (leavesEq, endEq)
 
--- Rule N.
+-- Comment placement.
 
---| Rule N as the formatter runs it, with the last commas bare, gives the leaves of rule N on the leaves with the last
+--| Comment placement as the formatter runs it, with the last commas bare, gives the leaves of comment placement on the leaves with the last
 --| commas marked, up to line starts, and the same end.
 theorem onceMarked ∀ (lexed: Lexed)
     (within: alphabet1 lexed.leaves = True):
@@ -521,13 +521,13 @@ theorem onceMarked ∀ (lexed: Lexed)
   let (leavesEq, endEq) := passesUnstarted homedNew homedOld lexed.end homedSame
   (leavesEq, Eq.cong (trivia => trivia.trimmed) endEq)
 
---| Rule N on the leaves with their last commas made bare, then the last commas dropped, is rule N on the leaves
+--| Comment placement on the leaves with their last commas made bare, then the last commas dropped, is comment placement on the leaves
 --| without them (`settledBare`), up to line starts: the leaves the formatter parses, less the commas the P2 pass
 --| deletes, hold the comments `settledBare` holds, with the same end (S1 sketch §3.4).
 --|
 --| Under slice 1's alphabet and `sourcePlain1`, as `markedSettles`. The line starts differ only at a closer after a
 --| last comma that starts its line: deleting the comma from the text, as `settledBare` does, makes the closer start
---| it; the formatter keeps the comma and the token, and rule N reads the closer as starting the line instead.
+--| it; the formatter keeps the comma and the token, and comment placement reads the closer as starting the line instead.
 --|
 --| Proof idea: `settledOnce` is `settledMarked` up to line starts (`onceMarked`), and `markedSettles` relates that to
 --| `settledBare`; dropping the last commas reads only kinds, so it keeps leaves the same up to line starts.

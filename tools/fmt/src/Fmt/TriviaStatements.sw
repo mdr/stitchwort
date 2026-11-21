@@ -1,7 +1,7 @@
 --| Where the comments and blank lines of a printed declaration stand, stated and not yet proved (SW-4042; the reasons
 --| are in docs/reviews/SW-4042-trivia-statement.md). `printedSpells` gives the printed texts in order and `hangs`
 --| the columns of the tokens that start lines; neither says which token the lexer gives a comment to, which is what
---| rule N reads. `stands` says it, of the leaves the printed text lexes to against the tree's words, and
+--| comment placement reads. `stands` says it, of the leaves the printed text lexes to against the tree's words, and
 --| `printedSettle1` (Fmt.SettleOutputProofs) follows from it.
 
 namespace Fmt.TriviaStatements
@@ -140,6 +140,6 @@ theorem unsettledFalls: (unsettledParen.within1
   byComputing
 
 --| `stands` alone does not give `printedSettle1`: `unsettledFile` (`[a -- x⏎, b] -- c`) stands, as its list breaks
---| and the `]` starts a line, yet rule N takes the `]`'s comment back to `b` (`settledNeeded`). `printedSettle1`
---| reads `settled` a second time, for where rule 1 stops.
+--| and the `]` starts a line, yet comment placement takes the `]`'s comment back to `b` (`settledNeeded`). `printedSettle1`
+--| reads `settled` a second time, for where the back-walk stops.
 theorem unsettledStands: (unsettledFile.stood && !wordsBack unsettledFile) = True := byComputing

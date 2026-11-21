@@ -559,7 +559,7 @@ def assemble (source: Text) (lexemes: List (Parse.Located Lexeme)): Lexed :=
   }
 
 --| The source lexed, with every token's comments and blank lines as the
---| Rust lexer attaches them (before rule N), or the lexical error.
+--| Rust lexer attaches them (before comment placement), or the lexical error.
 def lex (source: Text): Result Lexed Text := match lexemes source with
   | Ok found => Ok (assemble source found)
   | Err message => Err message

@@ -3,7 +3,7 @@
 --| which `task fmt:twin` drives. Each stage prints its answer in the Rust
 --| side's form:
 --|
---| - `tokens`: the tokens with trivia after rule N, as `stitchwort dev
+--| - `tokens`: the tokens with trivia after comment placement, as `stitchwort dev
 --|   tokens` prints them, or for a file that doesn't lex, `error: MESSAGE`
 --|   on standard error and status 1.
 --| - `expr` (stage 2a): the file read as one expression, its tree as
@@ -52,7 +52,7 @@
 --| - `s6a` (slices 1 to 5a, 4b, 4c and 6a): the same with slice
 --|   6a's `rewrite`, `cases then`, facts and `↔`.
 --| - `hangs`: a line a declaration, `decl N hangs` or `decl N
---|   breaks`, its leaves after rule N against `hangs`, the line rule the
+--|   breaks`, its leaves after comment placement against `hangs`, the line rule the
 --|   read-back proofs assume (`dev/hangs.py` checks the same in Python).
 --| - the later stages are still the stage 0 stub: the file as it is.
 --|

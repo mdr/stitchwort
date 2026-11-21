@@ -270,7 +270,7 @@ def unheaded: List CommentView → List CommentView
 def Holder.forDocs (holder: Holder): Holder := { holder | blankBelow = holder.blankBelow && !isCloserText holder.token }
 
 --| What formatting keeps of a file's comments, between the source's leaves
---| and the output's, each after rule N; the source's with P2's commas
+--| and the output's, each after comment placement; the source's with P2's commas
 --| taken out first (`settledBare`), which moves a comment held by a
 --| deleted comma to the closer after it, or to the token before it if it
 --| trailed the comma (K1). Three things, the statement of

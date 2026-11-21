@@ -2,7 +2,7 @@
 --|
 --| Both sides are read through the tree's words. The source's leaves after `settledBare` carry the words the parser
 --| put in the tree (`bareSettles`, `parseCarriesSourceProved`), and P2 keeps every word (`declsWordsUncomma`). The
---| output's leaves after rule N carry the words of `calmTop` of that tree (`printedSettle1`). `calm` and `calmTop`
+--| output's leaves after comment placement carry the words of `calmTop` of that tree (`printedSettle1`). `calm` and `calmTop`
 --| change only blank-line flags: a closer's below its comments, and the file's first comment's above it, which are
 --| the two `CommentsKept` leaves out (D3695).
 
@@ -516,7 +516,7 @@ theorem sourceComments ∀ (source: Text) (lexed: Lexed) (parsed: SourceFile)
       _ = fileHolders parsed.tidy1 := byComputing
   (viewsHere, holdersHere)
 
---| The output's leaves after rule N hold the comments of the words of `calmTop` of the printed tree
+--| The output's leaves after comment placement hold the comments of the words of `calmTop` of the printed tree
 --| (`printedSettle1`).
 theorem outputComments ∀ (file: SourceFile)
     (facts: TreeFacts file)

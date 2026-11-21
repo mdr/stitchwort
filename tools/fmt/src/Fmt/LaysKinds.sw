@@ -42,7 +42,7 @@ def writeKinds (text: Text) (kinds: Kinds): Option Kinds :=
 
 --| `Lays`' conditions with any continuation, which read only the kind of place: the kinds `doc` may leave from
 --| `kinds`, or `None` if a condition may fail. A `HardLine` is taken to leave `Broken`, which every later condition
---| allows where it allows `AtStart`. A trailing comment is asked to be one rule N leaves (`commentText`), which is
+--| allows where it allows `AtStart`. A trailing comment is asked to be one comment placement leaves (`commentText`), which is
 --| a comment to `Lays` (`commentIs`).
 def laysKinds (doc: Doc) (kinds: Kinds): Option Kinds := match doc with
   | Doc.Nothing | BreakParent | Mark _ => Some kinds

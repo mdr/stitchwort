@@ -1492,7 +1492,7 @@ theorem printedAlphabet1 ∀ (file: SourceFile)
     (List.allMapBool file.lexed.leaves (token => token.kind.within1) (leaf => leaf.token))
     (groupsWithin True file.decls within shaped (Bool.andLeft settled) lexical)
 
---| `printedPlain1`: the output is `plain1`, which rule N's theorems ask and the driver tests: its first token is a
+--| `printedPlain1`: the output is `plain1`, which comment placement's theorems ask and the driver tests: its first token is a
 --| `def`, what follows a `->` is an operand's first token (no comma, closer or `->`), and no comma starts a line.
 --|
 --| Proof idea: the token order is `printedTokens1`'s; the scan's rule for what may follow `->` is `plainFrom`'s, a

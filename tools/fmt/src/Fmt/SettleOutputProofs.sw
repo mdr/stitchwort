@@ -1,7 +1,7 @@
 --| `printedSettle1` (SW-4043, ticket G of docs/reviews/SW-4025-output-statements.md, sketched in
---| docs/reviews/SW-4042-trivia-statement.md §5): rule N on the formatter's output gives the tree's words back, from
+--| docs/reviews/SW-4042-trivia-statement.md §5): comment placement on the formatter's output gives the tree's words back, from
 --| `stands` of each declaration's printed leaves (`printedStands1`, taken as the hypothesis `SourceFile.stood`).
---| Rule 1 walks each comment `stands` owes back to its word (`homeStands`); the other rules find nothing to do.
+--| The back-walk walks each comment `stands` owes back to its word (`homeStands`); the other rules find nothing to do.
 
 namespace Fmt.SettleOutputProofs
 import Std (Bool, DecEq, Eq, List, Nat, Option, Text, Void)
@@ -54,7 +54,7 @@ import Syntax.SettleSplitProofs (
 import Syntax.ParseWalk (wordWithinWithin)
 import Syntax.SharedFacts (arrowsBareSuffix)
 
--- What rule 1 has passed.
+-- What the back-walk has passed.
 
 --| The leaf's kind is a closer's exactly when its text is one: true of the leaves the formatter's output lexes to.
 def Leaf.agrees (leaf: Leaf): Bool := leaf.kind.isCloser == isCloserText leaf.token.text
@@ -66,7 +66,7 @@ def Leaf.fits (leaf: Leaf) (word: Word): Bool :=
 --| No comment on the leaf.
 def Leaf.bare (leaf: Leaf): Bool := leaf.trivia.trailing.isNone && leaf.trivia.leading.isEmpty
 
---| Leaves rule 1 has passed, newest first, against the words they hold, newest first, with no comment owed: each
+--| Leaves the back-walk has passed, newest first, against the words they hold, newest first, with no comment owed: each
 --| comma bare and after some word, each other leaf its word.
 def matched: List Leaf → List Word → Bool
   | [], done => done.isEmpty
@@ -77,7 +77,7 @@ def matched: List Leaf → List Word → Bool
         | [] => False
         | [word, ..older] => leaf.fits word && matched earlier older
 
---| A comment on `leaf` stays there under rule 1: what `chainTo` asks of a chain's last leaf.
+--| A comment on `leaf` stays there under the back-walk: what `chainTo` asks of a chain's last leaf.
 def lands (leaf: Leaf) (earlier: List Leaf): Bool := !passable leaf || earlier.isEmpty || stopsAt leaf earlier
 
 --| As `matched`, with the comment `text` owed: the newest leaves are bare commas and closers that start no line, each
@@ -134,7 +134,7 @@ theorem fitsWord ∀ (leaf: Leaf) (word: Word) (fits: leaf.fits word = True): le
       fitsParts { text, comments = { above, after, blankBefore } } fits
     rewrite textSame, aboveSame, blankSame, afterSame
 
---| Where rule 1 looks back for a comment ending the line before a closer, the leaves have one exactly when the words
+--| Where the back-walk looks back for a comment ending the line before a closer, the leaves have one exactly when the words
 --| do: `endsOn` of the leaves is `trailsBack` of their words.
 theorem endsOnMatched ∀ (behind: List Leaf) (done: List Word)
     (m: matched behind done = True):
@@ -220,7 +220,7 @@ theorem homedReverseOnto ∀ (xs ys: List Word) (homed: homedBack (xs.reverseOnt
     | [] => homed
     | [x, ..rest] => Bool.andRight (homedReverseOnto rest [x, ..ys] homed)
 
---| A word's leaf holding the word's comment is one rule 1 leaves it on, given `homedBack` of the words: a closer
+--| A word's leaf holding the word's comment is one the back-walk leaves it on, given `homedBack` of the words: a closer
 --| holding one starts its line, and has own-line comments or follows a line ending with a comment.
 theorem landing ∀ (leaf: Leaf) (word: Word) (behind: List Leaf) (done: List Word)
     (notComma: (leaf.kind == Comma) = False)
@@ -254,7 +254,7 @@ theorem landing ∀ (leaf: Leaf) (word: Word) (behind: List Leaf) (done: List Wo
                 | False => Bool.andIntro open (Bool.orRight (rewrite endsOnMatched behind done m then reasons))
               Bool.orRight stops
 
---| Rule 1's walk from a comma or closer holding the owed comment ends on the word that owes it, and leaves the leaves
+--| The back-walk from a comma or closer holding the owed comment ends on the word that owes it, and leaves the leaves
 --| matched.
 theorem owingPlaced ∀ (text: Text) (behind: List Leaf) (done: List Word) (comment: Comment)
     (owes: owing text behind done = True)
@@ -309,7 +309,7 @@ def notCommaFirst: List Leaf → Bool
 
 def kindWithin (leaf: Leaf): Bool := leaf.kind.within1
 
---| Rule 1 on leaves that stand against their words gives each leaf its word: the comments `stands` owes on past
+--| The back-walk on leaves that stand against their words gives each leaf its word: the comments `stands` owes on past
 --| closers and commas go back to the word that owes them, and every comma is left bare.
 --|
 --| Proof idea: by induction on the leaves left, keeping `held`: with nothing owed the leaves passed are matched,
@@ -1263,7 +1263,7 @@ theorem listReverseJoin ∀ (word: Word) (older after: List Word):
     [word, ..older].reverse ++ after = older.reverse ++ [word, ..after] :=
   rewrite List.reverseCons word older, List.appendAssoc older.reverse [word] after
 
---| Rule 1's result, built from the newest leaves back, keeps `->` bare: each leaf placed passes what it owes
+--| The back-walk's result, built from the newest leaves back, keeps `->` bare: each leaf placed passes what it owes
 --| `arrowsBare` from its word's, whose neighbour is the word placed before.
 theorem arrowsOnto ∀ (behind acc: List Leaf) (done after: List Word)
     (m: matched behind done = True)
@@ -1348,9 +1348,9 @@ theorem arrowsOnto ∀ (behind acc: List Leaf) (done after: List Word)
                 newLead
                 (pairPush leaf acc pair bare)
 
---| After rule 1 no `->` holds a comment and none comes before an own-line comment.
+--| After the back-walk no `->` holds a comment and none comes before an own-line comment.
 --|
---| Proof idea: rule 1's result is the leaves matched to the words (`m`), so `arrowsBare` of the leaves follows from
+--| Proof idea: the back-walk's result is the leaves matched to the words (`m`), so `arrowsBare` of the leaves follows from
 --| `arrowsBare` of the words (`arrowsOnto`): an `->` leaf is an `->` word (the lexer marks its kind by its text), whose
 --| neighbour is the next word, or a bare comma. The words keep `->` bare (the tree's are `settled`, `calm` keeps what
 --| it reads) and no declaration ends in `->` (`exprEndsQuiet`), so `->` is bare across declarations too.
@@ -1386,7 +1386,7 @@ theorem homedArrowsBare ∀ (file: SourceFile)
       byComputing
       byComputing
   rewrite <- List.reverseReverse homed then done
---| The parser's groups of rule 1's result are the declarations, each with its words.
+--| The parser's groups of the back-walk's result are the declarations, each with its words.
 theorem groupsBack ∀ (file: SourceFile)
     (within: file.within1 = True)
     (shaped: file.shaped = True)
@@ -1529,7 +1529,7 @@ theorem unreturnedSame ∀ (text: Text)
       rewrite trimReturnsSame chars (Bool.notTrue _ (Bool.andLeft plain)) (Bool.notTrue _ (Bool.andRight plain))
 
 --| Trimming leaves whose comments are words' comment texts changes nothing.
---| A comment whose text rule 5 leaves alone.
+--| A comment whose text trim leaves alone.
 def Comment.clean (comment: Comment): Bool := commentText comment.text
 
 --| Every comment on the leaf is `clean`.
@@ -1620,8 +1620,8 @@ theorem leadOf ∀ (leaves: List Leaf) (plain: plain1 (tokens leaves) = True): n
 --| `unreturned` as hypotheses. `unreturned` is needed: an own-line comment ending in a carriage return, which
 --| `settled` allows, is printed with it and read back without it (`returnLost`).
 --|
---| Proof idea: the leaves stand against the output tree's words (`standsFile`), so rule 1 gives each leaf its word
---| and leaves the commas bare (`homeStands`); rules 2 to 4 then find nothing to move (`commasIdle`, `arrowsIdleAll`,
+--| Proof idea: the leaves stand against the output tree's words (`standsFile`), so the back-walk gives each leaf its word
+--| and leaves the commas bare (`homeStands`); the comma carry, arrow lift and let lift then find nothing to move (`commasIdle`, `arrowsIdleAll`,
 --| `letsQuiet1`), the comments are trimmed already (`trimIdle`), and the parser's groups are the declarations
 --| (`groupsBack`).
 theorem printedSettle1 ∀ (file: SourceFile)

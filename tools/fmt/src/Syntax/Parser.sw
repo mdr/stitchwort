@@ -1786,7 +1786,7 @@ def tupleCloseAfter (modes: Modes) (annotated: Bool): {Parse Item} Word :=
 def tupleAnnotation: Text := "an annotation can't be written inside a tuple without brackets"
 
 --| `current` and the items after it, and whether a comma followed the
---| last: while a comma follows, it is read (and dropped: rule N left it no
+--| last: while a comma follows, it is read (and dropped: comment placement left it no
 --| comments), and unless `ends` (given the number of items so far) says
 --| the list ends there, another item.
 def commaList (fuel: Nat) (modes: Modes) (ends: Nat → {Parse Item} Bool) (next: () → {Parse Item} a)

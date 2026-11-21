@@ -20,7 +20,7 @@ import Fmt.PlacedProofs (parsedWithin1)
 --| refuses none of it.
 --|
 --| Proof idea: each of the driver's tests passes on the grammar. The alphabet is the grammar's
---| (`alphabetOfAlphabet1`); a parsed source of the grammar is `sourcePlain1` (`parsedSourcePlain1`); rule N keeps the
+--| (`alphabetOfAlphabet1`); a parsed source of the grammar is `sourcePlain1` (`parsedSourcePlain1`); comment placement keeps the
 --| parse, so the leaves the driver parses give a tree of the grammar (`settledParsesGrammar1`); and the parser's `Kept`
 --| walk puts a tree of the grammar in the driver's slice (`parsedWithin1`).
 theorem formatAccepts1 ∀ (source: Text)

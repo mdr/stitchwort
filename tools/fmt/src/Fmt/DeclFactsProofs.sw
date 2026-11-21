@@ -48,20 +48,20 @@ theorem dashed ∀ (chars: List Char)
               rewrite <- isFirst, <- isSecond then (others, byComputing, Bool.andRight (Bool.andRight whole))
     | [_], _ => cases
 
---| A comment as rule N leaves it is one the lexer reads as a comment, and no layout.
+--| A comment as comment placement leaves it is one the lexer reads as a comment, and no layout.
 theorem commentIs ∀ (text: Text) (comment: commentText text = True): IsComment text ∧ isLayout text = False :=
   let starts: Text.startsWithChars ['-', '-'] text.toList = True := Bool.andLeft comment
   let free: Text.containsChars ['\n'] text.toList = False := Bool.notTrue _ (Bool.andLeft (Bool.andRight comment))
   (dashed text.toList starts free, commentNotLayout text comment)
 
---| Own-line comments as rule N leaves them are ones the lexer reads as comments, and no layout.
+--| Own-line comments as comment placement leaves them are ones the lexer reads as comments, and no layout.
 theorem notesOfSound ∀ (notes: List Note) (sound: notesSound notes = True): NotesComment notes := match notes with
   | [] => byComputing
   | [note, ..rest] =>
     let (isComment, solid) := commentIs note.text (Bool.andLeft sound)
     (isComment, solid, notesOfSound rest (Bool.andRight sound))
 
---| A token whose trailing comment is as rule N leaves it trails one the lexer reads as a comment.
+--| A token whose trailing comment is as comment placement leaves it trails one the lexer reads as a comment.
 theorem trailsOfSound ∀ (word: Word) (sound: word.sound = True): TrailsComment word :=
   let after: afterSound word.comments.after = True := Bool.andRight (Bool.andRight sound)
   match word, after with

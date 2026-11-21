@@ -1,6 +1,6 @@
 --| The predicates slice 1's proofs speak of (docs/proposals/
 --| self-hosted-fmt-s1-sketch.md §1.2, §1.3, §1.5), written out as tests on
---| the real tree: what rule N leaves (`settled`), the blank-line flags the
+--| the real tree: what comment placement leaves (`settled`), the blank-line flags the
 --| rules read (`calm`), the shapes the parser gives (`shaped`), the
 --| tokens' spellings (`lexical`) and where printed lines start (`hangs`).
 --|
@@ -32,7 +32,7 @@ namespace Fmt
 import Std (Bool, List, Nat, Option, Result, Text)
 import Syntax (Comments, Decl, DefBody, Expr, Header, InfixKind, Leaf, Note, SourceFile, Tok, Word, lex)
 
--- Settled (K1, rule 3, rule 5).
+-- Settled (K1; the arrow lift and trim).
 
 --| A declaration's tokens in order, commas left out (the tree has none).
 def Decl.words: Decl → List Word
@@ -54,14 +54,14 @@ def homedBack: List Word → Bool
       && homedBack earlier
 
 --| `->`: no trailing comment on it and no own-line comment after it
---| (rule 3).
+--| (the arrow lift).
 def arrowsBare: List Word → Bool
   | [word, next, ..rest] =>
     (operatorTok word.text != Some Arrow || (!word.trails && !next.noted)) && arrowsBare [next, ..rest]
   | _ => True
 
---| A comment as rule N leaves it and the lexer reads it: `--`, no line
---| break, no space at its end (rule 5).
+--| A comment as comment placement leaves it and the lexer reads it: `--`, no line
+--| break, no space at its end (trim).
 def commentText (text: Text): Bool := text.startsWith "--" && !text.contains "\n" && !text.endsWith " "
 
 def Comments.texts (comments: Comments): List Text := comments.above.map (note => note.text) ++ comments.after.toList

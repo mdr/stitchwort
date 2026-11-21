@@ -865,7 +865,7 @@ theorem endsOnTrailsItem ∀ (leaf: Leaf) (earlier: List Leaf)
       let word: isCloserText leaf.token.text = True := rewrite closer at marker then marker
       rewrite item then Bool.orRight (Bool.andIntro word (rec (Bool.andRight rest)))
 
---| `trailsBack` of the words of leaves, newest first: a comment ends the line wherever rule 1 would put one, since
+--| `trailsBack` of the words of leaves, newest first: a comment ends the line wherever the back-walk would put one, since
 --| commas hold none (the leaves are settled), and the closers are the words that are closers.
 theorem endsOnTrails ∀ (older: List Leaf)
     (ends: endsOn older = True)
@@ -905,7 +905,7 @@ theorem wordsEmpty ∀ (leaves: List Leaf) (empty: leaves.isEmpty = True): (word
 theorem noneIsNot ∀ (option: Option Comment): option.isNone = !option.isSome := match option with
   | None | Some _ => byComputing
 
---| A closer that keeps a trailing comment stops rule 1's walk, in the leaves, so it has own-line comments or follows
+--| A closer that keeps a trailing comment stops the back-walk, in the leaves, so it has own-line comments or follows
 --| code that ends with a comment, which the words say too.
 theorem homedWordsLeaf ∀ (leaf: Leaf) (earlier: List Leaf)
     (there: homedLeaf leaf earlier = True)
@@ -948,7 +948,7 @@ theorem homedWordsLeaf ∀ (leaf: Leaf) (earlier: List Leaf)
       trails
   rewrite wordTrails leaf, wordNoted leaf then core
 
---| A closer's trailing comment is where rule 1 leaves it: homed as the leaves read it, so homed as the words read
+--| A closer's trailing comment is where the back-walk leaves it: homed as the leaves read it, so homed as the words read
 --| it (K1's `homed`, whose look back sees no commas).
 theorem homedWords ∀ (older: List Leaf)
     (homed: homedBehind older = True)
@@ -1117,7 +1117,7 @@ theorem allTrimmed ∀ (texts: List Text)
 theorem intoTrailing ∀ (carry: Carried) (trivia: Trivia): (carry.into trivia).trailing = trivia.trailing :=
   match trivia with | { leading, blankLines, trailing } => cases leading then byComputing
 
---| Rule 2 leaves the end's trailing comment as it was: a carried comment goes in front of the own-line ones.
+--| The comma carry leaves the end's trailing comment as it was: a carried comment goes in front of the own-line ones.
 theorem commasEndTrailing ∀ (done: List Leaf) (carried: Option Carried) (rest: List Leaf) (end: Trivia):
     (commasFrom done carried rest end).end.trailing = end.trailing :=
   match rest with
@@ -1201,7 +1201,7 @@ theorem endAfterNone ∀ (trivia: Trivia) (none: trivia.trailing.isNone = True):
 
 -- The leaves the formatter parses, read as words, are settled.
 
---| `settledWords`, `Lexed.wordsSettled1` of `Syntax.ParseSettledStatements` for the leaves rule N makes bare
+--| `settledWords`, `Lexed.wordsSettled1` of `Syntax.ParseSettledStatements` for the leaves comment placement makes bare
 --| (`settledOnce`).
 def settledWordsOf (words: List Word): Bool :=
   homedBack words.reverse && arrowsBare words && words.all (word => word.comments.texts.all commentText)
@@ -1223,15 +1223,15 @@ theorem settledFrom ∀ (once bare: Lexed)
     Bool.andIntro (Bool.andIntro homed (Bool.andIntro arrows texts)) (Bool.andIntro endTexts after)
 
 --| The leaves the formatter parses, `settledOnce`, are settled as words: closers homed, `->` bare, every comment as
---| rule N leaves it, and the end likewise. For leaves of slice 1's alphabet that are `sourcePlain1`, laid out as the lexer lays
+--| comment placement leaves it, and the end likewise. For leaves of slice 1's alphabet that are `sourcePlain1`, laid out as the lexer lays
 --| them out, each token's text agreeing with its kind (`isMarked`), with comments `--` to the end of a line.
 --|
 --| Proof idea: `settledOnce` is `settledBare` with last commas, all bare, left in, up to line starts (`bareSettles`),
---| and a comma is no word, nor a line start part of one, so the words are those of `settledBare`, rule N on `withoutLastCommas` of the leaves. That keeps the leaves
+--| and a comma is no word, nor a line start part of one, so the words are those of `settledBare`, comment placement on `withoutLastCommas` of the leaves. That keeps the leaves
 --| laid out, `plain`, in the alphabet and `marked`, and every comment's text (`laidWithout`, `plainWithout`,
 --| `allTokensWithout`, `textsWithout`: a last comma that doesn't start its line holds no own-line comment, so only its
 --| trailing comment moves, to the leaf before; one that does start its line moves its comments above the closer, which
---| then starts its line). So rule N's facts apply to it: `settledHomed`,
+--| then starts its line). So comment placement's facts apply to it: `settledHomed`,
 --| `settledArrowsBare1`, `settledCommasBare`, `settledKeepsComments`. They are said of leaves; the words' versions
 --| follow (`homedWords`: a closer's look back passes only bare commas, and `endsOnTrails` reads a comment ending the
 --| line off the words; `arrowsWords`: no comma follows a `->`; `trimmedComment`: a trimmed `--` comment is a

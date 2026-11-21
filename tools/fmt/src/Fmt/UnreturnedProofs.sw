@@ -1,6 +1,6 @@
 --| No comment of the tree the formatter prints ends in a carriage return or a space (SW-4089): the declarations' words,
 --| `Decl.unreturned`, and the comments the file loop prints above each declaration and at the end,
---| `SourceFile.unreturned`. The lexer takes both off (`Syntax.LexUnreturnedProofs`), rule N and the parser carry
+--| `SourceFile.unreturned`. The lexer takes both off (`Syntax.LexUnreturnedProofs`), comment placement and the parser carry
 --| comments without changing a text, and P2 keeps every word.
 
 namespace Fmt.UnreturnedProofs
