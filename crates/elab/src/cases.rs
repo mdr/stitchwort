@@ -1434,7 +1434,7 @@ fn ordering_distinct(cx: &Ctx, eq: &CtorEquation) -> Option<stitchwort_core::Def
 
 /// `goal` from a proof of `Void`: `Void.impossible` for a proposition,
 /// `Void.absurd` otherwise.
-fn absurd(cx: &mut Ctx, void_proof: Term, goal: &Value) -> Result<Term> {
+pub(crate) fn absurd(cx: &mut Ctx, void_proof: Term, goal: &Value) -> Result<Term> {
     let goal_term = cx.quote_folded(goal)?;
     let via = if is_proposition(cx, goal)? {
         builtin_def(cx, Builtin::VoidImpossible)?

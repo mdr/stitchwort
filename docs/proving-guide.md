@@ -846,8 +846,12 @@ premises are facts, an `∃` taken apart, an equation with a variable side.
 
 **`byFacts` or `cases`.** Use `byFacts` when no split is needed: it never splits
 data or an `∨`, so it either finds the proof in well under a millisecond or
-fails within its 200 attempts (2.4 ms on `examples/reject/facts-attempt-limit.sw`),
-and its error shows the part left open with the nearest facts. `cases` splits
+fails within 200 attempts. That is a count, not a time: each attempt costs
+more with more facts in scope (2.4 ms on
+`examples/reject/facts-attempt-limit.sw`, about 5 ms with 120 facts and seven
+`g x → g x` loops); `check --timings` lists the attempts each declaration
+used. Its error shows the part left open with the nearest facts and the
+premise of each that nothing closed. `cases` splits
 first and can take seconds to fail. Where a split is needed and every case
 then follows from the facts, write `cases then byFacts`. `cases` does
 not apply an implication between plain propositions, chain implications, or
@@ -857,7 +861,8 @@ apply a local `∀` fact; `byFacts` does all three (SW-4483's probes,
 **Lemmas are named, never found.** The brackets take terms (`byFacts [lessTrans,
 List.memAppendLeft xs]`), and a term no part used is `W-FACTS-UNUSED`. A
 lemma's unknowns are fixed by its conclusion or by a fact one of its premises
-is; one left unknown fails it. When a lemma's middle point is in no fact
+is (each fact that fits tried in turn, nearest first); one left unknown fails
+it. When a lemma's middle point is in no fact
 (transitivity through a value nobody named), give the argument: `lessTrans x y
 z`.
 

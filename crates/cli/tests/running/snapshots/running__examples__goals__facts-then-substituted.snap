@@ -1,0 +1,16 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `thenSubst`
+   ╭─[ goals/facts-then-substituted.sw:8:16 ]
+   │
+ 8 │   byFacts then ?
+   │                ┬  
+   │                ╰── f: Nat → Nat
+   │                    a: Nat
+   │                    b: Nat
+   │                    e: a = b
+   │                    k: f a = 1
+   │                    ⊢ f b = 2 ∨ f a = 1
+───╯

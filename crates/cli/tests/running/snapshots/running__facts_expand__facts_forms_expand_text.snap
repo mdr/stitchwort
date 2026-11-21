@@ -35,3 +35,23 @@ theorem stepTwice ∀ (p: Nat → Prop) (step: ∀ (x: Nat) => p x → p (x + 1)
 -- An equation between constructors gives its fields' equation, whose
 -- variable side is then replaced.
 theorem someEqual ∀ (f: Nat → Nat) (x y: Nat) (e: Some x = Some y) (h: f x = 0): f y = 0 := byFacts
+
+-- A field of a field: each part taken apart binds parts of its own first.
+theorem pairNested ∀ (f: Nat → Nat) (a b x y: Nat) (e: (Some a, x) = (Some b, y)) (h: f x = 0): f y = 0 := byFacts
+
+-- The nearest fact that fixes `x` is `h2: p 2`, but then `q 2` fails:
+-- the next, `h1`, is tried.
+theorem orderA ∀ (p q: Nat → Prop) (r: Prop) (step: ∀ (x: Nat) => p x → q x → r) (h1: p 1) (hq: q 1) (h2: p 2): r :=
+  step 1 h1 hq
+
+-- `k`, moved by the first substitution, doesn't stop the second.
+theorem movedBlocks ∀ (f: Nat → Nat → Nat → Nat) (x y a b: Nat)
+    (e1: a = b)
+    (k: f a b y = 1)
+    (e2: x = y)
+    (h: f x a 0 = 0):
+    f y b 0 = 0 :=
+  rewrite <- e2 then rewrite <- e1 then h
+
+-- Two facts that refute each other prove anything.
+theorem notOther ∀ (a: Prop) (h: a) (k: ¬a) (g: Nat → Prop): g 0 := (k h).impossible

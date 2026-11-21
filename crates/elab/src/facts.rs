@@ -9,19 +9,21 @@
 //! fact into what it reads as (`(a && b) = True` as `a = True ∧ b = True`),
 //! a record of proofs into its fields, an `∃` into a witness and its fact
 //! (`Exists.elim`), and an equation between the same constructor into its
-//! fields' equations. An equation with a variable side then replaces that
-//! variable in the goal and in the facts (the right side, when both are
-//! variables). The goal is split into its parts: `∧`, `(a && b) = True`
+//! fields' equations. The goal is split into its parts: `∧`, `(a && b) = True`
 //! and records of proofs. A part that computes, that a fact is (an
 //! equation either way round), or that two facts refute, is closed.
 //!
 //! **Phase 2, a bounded search, on each part left.** A fact or a listed
 //! term whose conclusion has the part's head is applied: its unknowns are
 //! fixed by unifying its conclusion with the part, then by matching a
-//! premise that still has one against a fact in scope (the nearest that
-//! fits, never a guess), and its other premises are proved the same way, to
-//! depth [`MAX_DEPTH`]. Then `arithmetic`. Every application tried counts
-//! towards [`ATTEMPTS`]; past it the search stops.
+//! premise that still has one against a fact in scope (each that fits in
+//! turn, nearest first; never a guess), and its other premises are proved
+//! the same way, to depth [`MAX_DEPTH`]. Then `arithmetic`. Then, if an
+//! equation has a variable side, the part is substituted and tried again.
+//! Every application, contradiction check and `arithmetic` call counts
+//! towards [`ATTEMPTS`]; past it the search stops. A part that failed isn't
+//! tried again under the same facts, and a premise that is a part being
+//! proved further out is cut.
 //!
 //! It never splits data or an `∨`, rewrites with a lemma, unfolds to
 //! search, or uses a lemma that isn't in scope or listed. The facts are
@@ -54,10 +56,14 @@ const MAX_DEPTH: usize = 3;
 /// passing proof should be far from it (SW-4483 §4.7).
 pub(crate) const ATTEMPTS: usize = 200;
 
-/// The most levels a fact is taken apart to.
-const MAX_PART_DEPTH: usize = 12;
+/// The most parts one `byFacts` takes its facts apart into. Taking a fact
+/// apart always ends (each part is a strict part of it); this bounds the
+/// cost of a large context, not its depth: a `&&` chain of any length is
+/// read to its end.
+const MAX_PARTS: usize = 1000;
 
-/// The most variables one `byFacts` substitutes.
+/// The most variables one branch of the search substitutes: a budget given
+/// back when the branch fails.
 const MAX_SUBSTITUTIONS: usize = 16;
 
 /// The prefix of the names of the parts `byFacts` binds: not one a program
@@ -204,14 +210,44 @@ struct Open {
 /// One `byFacts`, while it runs.
 struct Search<'a> {
     facts: Vec<Fact>,
+    /// Names the list `facts` is now: a list is never changed in place, so
+    /// two moments with the same version have the same facts at the same
+    /// levels. Keys the caches below.
+    version: u64,
+    versions: u64,
     items: Vec<Item>,
     attempts: usize,
     over: bool,
     substitutions: usize,
+    /// Whether the substitution budget, or the part limit, stopped
+    /// something: said in `E-FACTS`.
+    substitutions_over: bool,
+    parts_over: bool,
     body: Option<&'a Expr>,
     open: Vec<Open>,
     parts: usize,
     span: Span,
+    /// Fact lists in which no two facts refute each other.
+    consistent: stitchwort_core::collections::HashSet<u64>,
+    /// Parts that failed, by the facts and the goal as shown, with the
+    /// least depth they failed at: they fail again at that depth or deeper.
+    failed: stitchwort_core::collections::HashMap<(u64, usize, String), usize>,
+    /// The parts being proved, outermost first: a premise that is one of
+    /// them would need itself.
+    ancestors: Vec<Value>,
+    /// How many premises were cut as an ancestor: a failure that cut one
+    /// depends on where it was tried, so isn't remembered.
+    pruned: usize,
+    /// For the part being tried at the top: each candidate applied whose
+    /// premise nothing closed, and that premise.
+    premise_failed: Vec<(String, String)>,
+}
+
+/// The facts as they were, to put back after a branch.
+struct Saved {
+    facts: Vec<Fact>,
+    version: u64,
+    substitutions: usize,
 }
 
 fn facts_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
@@ -244,14 +280,23 @@ fn facts_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     }
     let mut search = Search {
         facts: Vec::new(),
+        version: 0,
+        versions: 0,
         items,
         attempts: 0,
         over: false,
         substitutions: 0,
+        substitutions_over: false,
+        parts_over: false,
         body: call.body.as_ref(),
         open: Vec::new(),
         parts: 0,
         span: call.span,
+        consistent: Default::default(),
+        failed: Default::default(),
+        ancestors: Vec::new(),
+        pruned: 0,
+        premise_failed: Vec::new(),
     };
     let mark = cx.mark();
     let found = (|| -> Result<Option<(Term, Txt)>> {
@@ -269,21 +314,18 @@ fn facts_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         search.node(cx, expected.clone(), wraps, 0, true, false)
     })();
     cx.reset(mark);
+    crate::timings::facts_attempts(search.attempts);
     let found = found?;
     match found {
         Some((term, text)) if search.open.is_empty() => {
             search.warn_unused(cx);
-            let unwritten = text
-                .0
-                .iter()
-                .any(|p| matches!(p, Piece::Text(t) if t.contains(UNWRITTEN)));
-            if !unwritten {
-                cx.e.session.facts.borrow_mut().push(WalkExpansion {
-                    span: call.span,
-                    pieces: text.0,
-                    trace: Vec::new(),
-                });
-            }
+            // Every check is recorded, one with no written form too: a call
+            // checked once per case must have found the same term in each.
+            cx.e.session.facts.borrow_mut().push(WalkExpansion {
+                span: call.span,
+                pieces: text.0,
+                trace: Vec::new(),
+            });
             Ok(term)
         }
         _ => Err(search.error(cx, call)),
@@ -291,6 +333,35 @@ fn facts_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
 }
 
 impl Search<'_> {
+    fn save(&self) -> Saved {
+        Saved {
+            facts: self.facts.clone(),
+            version: self.version,
+            substitutions: self.substitutions,
+        }
+    }
+
+    fn restore(&mut self, saved: Saved) {
+        self.facts = saved.facts;
+        self.version = saved.version;
+        self.substitutions = saved.substitutions;
+    }
+
+    /// Gives the fact list just changed a version of its own.
+    fn changed(&mut self) {
+        self.versions += 1;
+        self.version = self.versions;
+    }
+
+    /// Counts one attempt; false once past the limit.
+    fn count(&mut self) -> bool {
+        self.attempts += 1;
+        if self.attempts > ATTEMPTS {
+            self.over = true;
+        }
+        !self.over
+    }
+
     /// Adds the variable at `level`, of a type that may be a fact, and its
     /// parts, opening an `∃` around the rest of the proof of `goal`.
     fn add(
@@ -324,7 +395,9 @@ impl Search<'_> {
             key,
             function,
         });
-        if depth >= MAX_PART_DEPTH {
+        self.changed();
+        if self.parts >= MAX_PARTS {
+            self.parts_over = true;
             return Ok(());
         }
         let reg = g.env.registry();
@@ -510,11 +583,14 @@ impl Search<'_> {
         let Some(parts) = crate::cases::field_equations(cx, level)? else {
             return Ok(());
         };
-        let _ = &text;
-        for (k, (_, fact, proof)) in parts.into_iter().enumerate() {
-            let proof = proof.shift(&g, k, 0)?;
+        // Built where they were found; each earlier part, taken apart in
+        // turn, may have bound any number of parts since.
+        let found_at = cx.level();
+        let shown = Txt::s(format!("{UNWRITTEN}(a field of {})", plain(&text)));
+        for (_, fact, proof) in parts {
+            let proof = proof.shift(&g, cx.level() - found_at, 0)?;
             let part = self.define(cx, fact, proof, wraps)?;
-            self.add(cx, part, Txt::s(UNWRITTEN), goal, wraps, depth + 1)?;
+            self.add(cx, part, shown.clone(), goal, wraps, depth + 1)?;
         }
         Ok(())
     }
@@ -601,7 +677,7 @@ impl Search<'_> {
         let goal_now = force(&g, goal.clone())?;
         match &goal_now {
             Value::Pi(_, Icit::Explicit, ..) => {
-                let saved = self.facts.clone();
+                let saved = self.save();
                 let mark = cx.mark();
                 let found = (|| {
                     let mut wraps = Vec::new();
@@ -626,7 +702,7 @@ impl Search<'_> {
                     self.node(cx, body_goal, wraps, depth, top, false)
                 })();
                 cx.reset(mark);
-                self.facts = saved;
+                self.restore(saved);
                 found
             }
             Value::Data(d, args) if reg.is_data(Builtin::And, *d) && args.len() == 2 => {
@@ -753,27 +829,35 @@ impl Search<'_> {
         depth: usize,
         top: bool,
     ) -> Result<Option<(Term, Txt)>> {
-        if let Some(found) = self.direct(cx, goal)? {
-            return Ok(Some(found));
-        }
-        if let Some(found) = self.witness(cx, goal, depth)? {
-            return Ok(Some(found));
-        }
-        if let Some(found) = self.search(cx, goal, depth)? {
-            return Ok(Some(found));
-        }
-        // Equations in scope, last: a variable side replaced in the goal
-        // and the facts, and the part tried again.
-        if self.substitution(cx, goal)?.is_some() {
-            let mark = cx.mark();
-            let facts = self.facts.clone();
-            let found = self.node(cx, goal.clone(), Vec::new(), depth, top, true);
-            cx.reset(mark);
-            self.facts = facts;
-            return found;
-        }
-        if !top {
-            return Ok(None);
+        if top {
+            self.premise_failed.clear();
+            self.ancestors.push(goal.clone());
+            let found = self.try_part(cx, goal, depth);
+            self.ancestors.pop();
+            if let Some(found) = found? {
+                return Ok(Some(found));
+            }
+        } else {
+            let memo = (self.version, cx.level(), cx.show(goal));
+            if self.failed.get(&memo).is_some_and(|&at| at <= depth) {
+                return Ok(None);
+            }
+            for a in &self.ancestors {
+                if conv(&cx.g(), cx.level(), a, goal)? {
+                    self.pruned += 1;
+                    return Ok(None);
+                }
+            }
+            let pruned = self.pruned;
+            self.ancestors.push(goal.clone());
+            let found = self.try_part(cx, goal, depth);
+            self.ancestors.pop();
+            let found = found?;
+            if found.is_none() && self.pruned == pruned && !self.over {
+                let at = self.failed.entry(memo).or_insert(depth);
+                *at = (*at).min(depth);
+            }
+            return Ok(found);
         }
         if let Some(body) = self.body {
             let term = check(cx, body, goal)?;
@@ -784,6 +868,43 @@ impl Search<'_> {
             goal: cx.show(goal),
             near,
         });
+        Ok(None)
+    }
+
+    /// A part closed directly, by an `∃`'s witness, by phase 2, or, with an
+    /// equation in scope, substituted and tried again: kept only if that
+    /// closes it, so `then t` and `E-FACTS` see the part as written.
+    fn try_part(
+        &mut self,
+        cx: &mut Ctx,
+        goal: &Value,
+        depth: usize,
+    ) -> Result<Option<(Term, Txt)>> {
+        if let Some(found) = self.direct(cx, goal)? {
+            return Ok(Some(found));
+        }
+        if let Some(found) = self.witness(cx, goal, depth)? {
+            return Ok(Some(found));
+        }
+        if let Some(found) = self.search(cx, goal, depth)? {
+            return Ok(Some(found));
+        }
+        if self.substitution(cx, goal)?.is_some() {
+            if self.substitutions >= MAX_SUBSTITUTIONS {
+                self.substitutions_over = true;
+                return Ok(None);
+            }
+            let mark = cx.mark();
+            let saved = self.save();
+            // The same part again, under other facts: not a premise that
+            // needs itself.
+            let this = self.ancestors.pop();
+            let found = self.node(cx, goal.clone(), Vec::new(), depth, false, true);
+            self.ancestors.extend(this);
+            cx.reset(mark);
+            self.restore(saved);
+            return found;
+        }
         Ok(None)
     }
 
@@ -834,9 +955,51 @@ impl Search<'_> {
                 }
             }
         }
+        // Whether the facts refute each other doesn't depend on the part:
+        // looked for once per list of facts.
+        if self.consistent.contains(&self.version) {
+            return Ok(None);
+        }
+        if let Some((void, text)) = self.refuted(cx)? {
+            let term = crate::cases::absurd(cx, void, goal)?;
+            return Ok(Some((term, text.field("impossible"))));
+        }
         let levels: Vec<usize> = self.facts.iter().rev().map(|f| f.level).collect();
+        self.count();
         if let Some(term) = crate::cases::by_contradiction(cx, goal, &levels)? {
             return Ok(Some((term, Txt::s("cases"))));
+        }
+        self.consistent.insert(self.version);
+        Ok(None)
+    }
+
+    /// A proof of `Void` from the facts without a search: a fact of type
+    /// `Void`, or `k: ¬a` beside a fact that is `a`.
+    fn refuted(&self, cx: &Ctx) -> Result<Option<(Term, Txt)>> {
+        let g = cx.g();
+        let void = crate::check::builtin_data(cx, Builtin::Void)?;
+        let at = |l: usize| Term::Var(cx.level() - 1 - l);
+        for fact in self.facts.iter().rev() {
+            match force(&g, cx.types[fact.level].clone())? {
+                Value::Data(d, _) if d == void => {
+                    return Ok(Some((at(fact.level), fact.text.clone())));
+                }
+                Value::Pi(_, Icit::Explicit, dom, cod) => {
+                    let result = force(&g, cod.apply(&g, Value::var(cx.level()))?)?;
+                    if !matches!(result, Value::Data(d, _) if d == void) {
+                        continue;
+                    }
+                    for other in self.facts.iter().rev() {
+                        if conv(&g, cx.level(), &cx.types[other.level], &dom)? {
+                            return Ok(Some((
+                                Term::app(at(fact.level), at(other.level)),
+                                fact.text.clone().applied(vec![other.text.clone()]),
+                            )));
+                        }
+                    }
+                }
+                _ => {}
+            }
         }
         Ok(None)
     }
@@ -856,7 +1019,8 @@ impl Search<'_> {
                 let term = Term::Var(cx.level() - 1 - fact.level);
                 let ty = cx.types[fact.level].clone();
                 let text = fact.text.clone();
-                if let Some(found) = self.apply(cx, term, ty, text, goal, depth)? {
+                let name = plain(&text);
+                if let Some(found) = self.apply(cx, term, ty, text, &name, goal, depth)? {
                     return Ok(Some(found));
                 }
                 if self.over {
@@ -870,8 +1034,9 @@ impl Search<'_> {
                 let item = &self.items[i];
                 let term = item.term.shift(&cx.g(), cx.level() - item.at, 0)?;
                 let (ty, text) = (item.ty.clone(), item.text.clone());
+                let name = item.written.clone();
                 let used = self.items.iter().map(|i| i.used).collect::<Vec<_>>();
-                if let Some(found) = self.apply(cx, term, ty, text, goal, depth)? {
+                if let Some(found) = self.apply(cx, term, ty, text, &name, goal, depth)? {
                     self.items[i].used = true;
                     return Ok(Some(found));
                 }
@@ -881,6 +1046,7 @@ impl Search<'_> {
             }
         }
         if is_arithmetic(&force(&cx.g(), goal.clone())?)
+            && self.count()
             && let Some(term) =
                 crate::undo::attempt(cx, |cx| crate::omega::prove_premise(cx, goal, self.span))?
                     .flatten()
@@ -904,7 +1070,7 @@ impl Search<'_> {
             return Ok(None);
         }
         let snapshot = Snapshot::take(cx);
-        let saved = self.facts.clone();
+        let saved = self.save();
         let found = (|| -> Result<Option<(Term, Txt)>> {
             let m = cx.fresh_meta_of(&args[0]);
             let premise = stitchwort_core::value::apply(&g, args[1].clone(), cx.eval(&m)?)?;
@@ -915,50 +1081,62 @@ impl Search<'_> {
                 }
                 _ => vec![premise.clone()],
             };
-            let mut whole = None;
-            'sides: for (k, side) in sides.iter().enumerate() {
-                for fact in self.facts.iter().rev() {
-                    let ty = cx.types[fact.level].clone();
-                    if crate::undo::unify(cx, &ty, side)? {
-                        if k == 0 {
-                            whole =
-                                Some((Term::Var(cx.level() - 1 - fact.level), fact.text.clone()));
-                        }
-                        break 'sides;
+            let candidates: Vec<(usize, Txt)> = self
+                .facts
+                .iter()
+                .rev()
+                .map(|f| (f.level, f.text.clone()))
+                .collect();
+            // Each fact that fixes the witness, in turn, until one gives a
+            // proof of the rest.
+            let mut tried = false;
+            for (k, side) in sides.iter().enumerate() {
+                for (level, text) in &candidates {
+                    let before = Snapshot::take(cx);
+                    let ty = cx.types[*level].clone();
+                    if !crate::undo::unify(cx, &ty, side)? {
+                        continue;
                     }
+                    if !solved(cx, &m)? {
+                        before.restore(cx);
+                        continue;
+                    }
+                    if tried && !self.count() {
+                        before.restore(cx);
+                        return Ok(None);
+                    }
+                    tried = true;
+                    let proof = if k == 0 {
+                        Some((Term::Var(cx.level() - 1 - level), text.clone()))
+                    } else {
+                        let premise = cx.eval(&cx.quote_folded(&premise)?)?;
+                        let mark = cx.mark();
+                        let saved = self.save();
+                        let proof = self.node(cx, premise, Vec::new(), depth + 1, false, false);
+                        cx.reset(mark);
+                        self.restore(saved);
+                        proof?
+                    };
+                    let Some(proof) = proof else {
+                        before.restore(cx);
+                        continue;
+                    };
+                    let shown = value_text(cx, &m)?;
+                    let term = Term::ctor(d, 0, vec![m.clone(), proof.0]);
+                    return Ok(Some((
+                        term,
+                        Txt::s("Witness").applied(vec![shown, proof.1]),
+                    )));
                 }
             }
-            if !solved(cx, &m)? {
-                return Ok(None);
-            }
-            let proof = match whole {
-                Some(p) => p,
-                None => {
-                    let premise = cx.eval(&cx.quote_folded(&premise)?)?;
-                    let mark = cx.mark();
-                    let facts = self.facts.clone();
-                    let proof = self.node(cx, premise, Vec::new(), depth + 1, false, false);
-                    cx.reset(mark);
-                    self.facts = facts;
-                    match proof? {
-                        Some(p) => p,
-                        None => return Ok(None),
-                    }
-                }
-            };
-            let shown = value_text(cx, &m)?;
-            let term = Term::ctor(d, 0, vec![m, proof.0]);
-            Ok(Some((
-                term,
-                Txt::s("Witness").applied(vec![shown, proof.1]),
-            )))
+            Ok(None)
         })();
         match found {
             Ok(Some(found)) => Ok(Some(found)),
             Err(e) if crate::undo::fatal(&e) => Err(e),
             _ => {
                 snapshot.restore(cx);
-                self.facts = saved;
+                self.restore(saved);
                 Ok(None)
             }
         }
@@ -992,19 +1170,20 @@ impl Search<'_> {
 
     /// `term: ty`, applied to fit `goal`: each unknown fixed by the goal or
     /// by a fact one of its premises is, each other premise proved to
-    /// `depth + 1`. Undone if it doesn't fit.
+    /// `depth + 1`. Undone if it doesn't fit. `name` is how `E-FACTS` names
+    /// it.
+    #[allow(clippy::too_many_arguments)]
     fn apply(
         &mut self,
         cx: &mut Ctx,
         term: Term,
         ty: Value,
         text: Txt,
+        name: &str,
         goal: &Value,
         depth: usize,
     ) -> Result<Option<(Term, Txt)>> {
-        self.attempts += 1;
-        if self.attempts > ATTEMPTS {
-            self.over = true;
+        if !self.count() {
             return Ok(None);
         }
         let g = cx.g();
@@ -1026,50 +1205,13 @@ impl Search<'_> {
                 return Ok(None);
             }
             // Which are premises: propositions not fixed by the goal.
-            let mut proofs: Vec<Option<(Term, Txt)>> = vec![None; binders.len()];
             let mut premise = vec![false; binders.len()];
             for (i, (_, dom, m)) in binders.iter().enumerate() {
                 premise[i] = !solved(cx, m)? && is_fact(cx, dom)?;
             }
-            // A premise with an unknown in it: the nearest fact that fits.
-            for i in 0..binders.len() {
-                if !premise[i] || !has_unknown(cx, &binders[i].1)? {
-                    continue;
-                }
-                let dom = binders[i].1.clone();
-                for fact in self.facts.iter().rev() {
-                    let ty = cx.types[fact.level].clone();
-                    if crate::undo::unify(cx, &ty, &dom)? {
-                        proofs[i] =
-                            Some((Term::Var(cx.level() - 1 - fact.level), fact.text.clone()));
-                        break;
-                    }
-                }
-                if proofs[i].is_none() {
-                    return Ok(None);
-                }
-            }
-            // Nothing is guessed: a value still unknown fails the fit.
-            for (i, (_, _, m)) in binders.iter().enumerate() {
-                if !premise[i] && !solved(cx, m)? {
-                    return Ok(None);
-                }
-            }
-            for i in 0..binders.len() {
-                if !premise[i] || proofs[i].is_some() {
-                    continue;
-                }
-                let dom = binders[i].1.clone();
-                let dom = cx.eval(&cx.quote_folded(&dom)?)?;
-                let mark = cx.mark();
-                let facts = self.facts.clone();
-                let proof = self.node(cx, dom, Vec::new(), depth + 1, false, false);
-                cx.reset(mark);
-                self.facts = facts;
-                match proof? {
-                    Some(p) => proofs[i] = Some(p),
-                    None => return Ok(None),
-                }
+            let mut proofs: Vec<Option<(Term, Txt)>> = vec![None; binders.len()];
+            if !self.fit(cx, &binders, &premise, &mut proofs, 0, name, depth)? {
+                return Ok(None);
             }
             let mut out = term.clone();
             let mut args = Vec::new();
@@ -1099,6 +1241,135 @@ impl Search<'_> {
         }
     }
 
+    /// The premises from the `i`-th on: one that still has an unknown takes
+    /// each fact that fits it in turn, nearest first, each try an attempt;
+    /// once none has, every value must be fixed (nothing is guessed) and the
+    /// other premises are proved. Fills `proofs`; false if no choice works.
+    #[allow(clippy::too_many_arguments)]
+    fn fit(
+        &mut self,
+        cx: &mut Ctx,
+        binders: &[(Icit, Value, Term)],
+        premise: &[bool],
+        proofs: &mut Vec<Option<(Term, Txt)>>,
+        i: usize,
+        name: &str,
+        depth: usize,
+    ) -> Result<bool> {
+        let Some(i) = (i..binders.len()).find(|&k| premise[k] && proofs[k].is_none()) else {
+            return self.prove_premises(cx, binders, premise, proofs, name, depth);
+        };
+        let dom = binders[i].1.clone();
+        if !has_unknown(cx, &dom)? {
+            // Proved with the rest, once every unknown is fixed.
+            return self.fit_after(cx, binders, premise, proofs, i, name, depth);
+        }
+        let candidates: Vec<(usize, Txt)> = self
+            .facts
+            .iter()
+            .rev()
+            .map(|f| (f.level, f.text.clone()))
+            .collect();
+        let mut tried = false;
+        for (level, text) in candidates {
+            let snapshot = Snapshot::take(cx);
+            let ty = cx.types[level].clone();
+            if !crate::undo::unify(cx, &ty, &dom)? {
+                continue;
+            }
+            if tried && !self.count() {
+                snapshot.restore(cx);
+                return Ok(false);
+            }
+            tried = true;
+            proofs[i] = Some((Term::Var(cx.level() - 1 - level), text));
+            if self.fit(cx, binders, premise, proofs, i + 1, name, depth)? {
+                return Ok(true);
+            }
+            proofs[i] = None;
+            snapshot.restore(cx);
+        }
+        if !tried && depth == 0 {
+            self.note_premise(name, cx.show(&dom));
+        }
+        Ok(false)
+    }
+
+    /// `fit` past premise `i`, which has no unknown left: it is proved with
+    /// the others at the end.
+    #[allow(clippy::too_many_arguments)]
+    fn fit_after(
+        &mut self,
+        cx: &mut Ctx,
+        binders: &[(Icit, Value, Term)],
+        premise: &[bool],
+        proofs: &mut Vec<Option<(Term, Txt)>>,
+        i: usize,
+        name: &str,
+        depth: usize,
+    ) -> Result<bool> {
+        let Some(next) = (i + 1..binders.len()).find(|&k| {
+            premise[k] && proofs[k].is_none() && has_unknown(cx, &binders[k].1).unwrap_or(false)
+        }) else {
+            return self.prove_premises(cx, binders, premise, proofs, name, depth);
+        };
+        self.fit(cx, binders, premise, proofs, next, name, depth)
+    }
+
+    /// Every value fixed, then each premise not yet given a fact proved to
+    /// `depth + 1`.
+    fn prove_premises(
+        &mut self,
+        cx: &mut Ctx,
+        binders: &[(Icit, Value, Term)],
+        premise: &[bool],
+        proofs: &mut [Option<(Term, Txt)>],
+        name: &str,
+        depth: usize,
+    ) -> Result<bool> {
+        for (i, (_, _, m)) in binders.iter().enumerate() {
+            if !premise[i] && !solved(cx, m)? {
+                return Ok(false);
+            }
+        }
+        let mut done: Vec<usize> = Vec::new();
+        for i in 0..binders.len() {
+            if !premise[i] || proofs[i].is_some() {
+                continue;
+            }
+            let dom = binders[i].1.clone();
+            let dom = cx.eval(&cx.quote_folded(&dom)?)?;
+            let mark = cx.mark();
+            let saved = self.save();
+            let proof = self.node(cx, dom.clone(), Vec::new(), depth + 1, false, false);
+            cx.reset(mark);
+            self.restore(saved);
+            match proof? {
+                Some(p) => {
+                    proofs[i] = Some(p);
+                    done.push(i);
+                }
+                None => {
+                    if depth == 0 {
+                        self.note_premise(name, cx.show(&dom));
+                    }
+                    for k in done {
+                        proofs[k] = None;
+                    }
+                    return Ok(false);
+                }
+            }
+        }
+        Ok(true)
+    }
+
+    /// Records, for `E-FACTS`, that `name`'s premise `premise` wasn't proved.
+    fn note_premise(&mut self, name: &str, premise: String) {
+        if !self.premise_failed.iter().any(|(n, _)| n == name) {
+            self.premise_failed.push((name.to_string(), premise));
+        }
+    }
+
     /// Each equation among the facts with a variable side replaces that
     /// variable in the goal and the facts, until none is left. Gives the
     /// goal to prove under the substitutions, which `wraps` turn back.
@@ -1108,10 +1379,14 @@ impl Search<'_> {
         mut goal: Value,
         wraps: &mut Vec<Wrap>,
     ) -> Result<Value> {
-        while self.substitutions < MAX_SUBSTITUTIONS {
+        loop {
             let Some((fact, x, t, var_on_right, a)) = self.substitution(cx, &goal)? else {
                 break;
             };
+            if self.substitutions >= MAX_SUBSTITUTIONS {
+                self.substitutions_over = true;
+                break;
+            }
             self.substitutions += 1;
             let g = cx.g();
             let n = cx.level();
@@ -1160,6 +1435,7 @@ impl Search<'_> {
                 moved.push((f, ty_term));
             }
             self.facts = kept;
+            self.changed();
             for (f, ty_term) in moved {
                 let new_ty = replaced(cx, n, &ty_term, x, t.clone())?;
                 let x_value = Value::var(x);
@@ -1196,9 +1472,6 @@ impl Search<'_> {
     ) -> Result<Option<(Fact, usize, Value, bool, Value)>> {
         let g = cx.g();
         let n = cx.level();
-        if self.substitutions >= MAX_SUBSTITUTIONS {
-            return Ok(None);
-        }
         let mut goal_free: Option<Vec<usize>> = None;
         for fact in self.facts.iter().rev() {
             let Value::Eq(a, l, r) = force(&g, cx.types[fact.level].clone())? else {
@@ -1223,30 +1496,49 @@ impl Search<'_> {
                 if crate::matching::free_levels(&other_term, n).contains(&x) {
                     continue;
                 }
-                // A variable whose type depends on `x` would need its own
-                // copy; a fact does not, as it is moved.
-                let mut blocked = false;
-                for l in x + 1..n {
-                    if self.facts.iter().any(|f| f.level == l) || cx.lets[l].is_some() {
-                        continue;
-                    }
-                    let ty = cx.quote_folded(&cx.types[l])?;
-                    if crate::matching::free_levels(&ty, n).contains(&x) {
-                        blocked = true;
-                        break;
-                    }
-                }
-                if blocked {
-                    continue;
-                }
-                // Worth it only if the goal or another fact mentions `x`.
                 let free = match &mut goal_free {
                     Some(free) => free,
                     None => {
                         goal_free.insert(crate::matching::free_levels(&cx.quote_folded(goal)?, n))
                     }
                 };
-                let mut mentioned = free.contains(&x);
+                let goal_mentions = free.clone();
+                // A variable whose type depends on `x` would need its own
+                // copy. A fact does not: one in the list is moved, and one
+                // that isn't (moved already, or hidden) stays as it is, unless
+                // the goal or a fact that is moved mentions it, as a
+                // dependent proof (`pr m p`).
+                let mut dependents = Vec::new();
+                let mut blocked = false;
+                for l in x + 1..n {
+                    if cx.lets[l].is_some() {
+                        continue;
+                    }
+                    let ty = cx.quote_folded(&cx.types[l])?;
+                    if !crate::matching::free_levels(&ty, n).contains(&x) {
+                        continue;
+                    }
+                    if !is_fact(cx, &cx.types[l])? || goal_mentions.contains(&l) {
+                        blocked = true;
+                        break;
+                    }
+                    dependents.push(l);
+                }
+                if !blocked && !dependents.is_empty() {
+                    for f in &self.facts {
+                        let ty = cx.quote_folded(&cx.types[f.level])?;
+                        let free = crate::matching::free_levels(&ty, n);
+                        if free.contains(&x) && dependents.iter().any(|l| free.contains(l)) {
+                            blocked = true;
+                            break;
+                        }
+                    }
+                }
+                if blocked {
+                    continue;
+                }
+                // Worth it only if the goal or another fact mentions `x`.
+                let mut mentioned = goal_mentions.contains(&x);
                 for f in &self.facts {
                     if mentioned {
                         break;
@@ -1281,19 +1573,26 @@ impl Search<'_> {
                 break;
             }
             if fact.key.is_some() && fits(fact.key, goal_key) && fact.key != Some(Key::Any) {
-                out.push(format!(
-                    "{}: {}",
-                    plain(&fact.text),
-                    cx.show(&cx.types[fact.level])
-                ));
+                let name = plain(&fact.text);
+                let line = format!("{name}: {}", cx.show(&cx.types[fact.level]));
+                out.push(self.with_premise(line, &name));
             }
         }
         for item in &self.items {
             if fits(item.key, goal_key) {
-                out.push(format!("{} (listed): {}", item.written, cx.show(&item.ty)));
+                let line = format!("{} (listed): {}", item.written, cx.show(&item.ty));
+                out.push(self.with_premise(line, &item.written));
             }
         }
         Ok(out)
+    }
+
+    /// `line`, and the premise of `name` that nothing closed, if one didn't.
+    fn with_premise(&self, line: String, name: &str) -> String {
+        match self.premise_failed.iter().find(|(n, _)| n == name) {
+            Some((_, premise)) => format!("{line}\n    its premise `{premise}` wasn't proved"),
+            None => line,
+        }
     }
 
     fn warn_unused(&self, cx: &Ctx) {
@@ -1347,11 +1646,35 @@ impl Search<'_> {
                  prove a part on its own"
             ));
         }
+        if self.substitutions_over {
+            d = d.with_note(format!(
+                "a branch of the search stopped substituting after {MAX_SUBSTITUTIONS} equations: \
+                 `rewrite` with the equations it needs first"
+            ));
+        }
+        if self.parts_over {
+            d = d.with_note(format!(
+                "the facts were taken apart into {MAX_PARTS} parts and no more: give `byFacts` a \
+                 smaller context, or the part it needs by name"
+            ));
+        }
         d.with_note(
             "`byFacts then ?` shows each part left open as a goal; `byFacts [lemma]` adds a \
              lemma to apply",
         )
     }
+}
+
+/// The pieces as a comparable key.
+fn pieces_key(pieces: &[Piece]) -> Vec<(u8, String)> {
+    pieces
+        .iter()
+        .map(|p| match p {
+            Piece::Text(t) => (0, t.clone()),
+            Piece::Source(s) => (1, format!("{}:{}", s.start, s.end)),
+            Piece::Child(c) => (2, c.to_string()),
+        })
+        .collect()
 }
 
 /// `x y => body`.
@@ -1367,7 +1690,8 @@ fn plain(text: &Txt) -> String {
             Piece::Text(t) => t.as_str(),
             _ => "…",
         })
-        .collect()
+        .collect::<String>()
+        .replace(UNWRITTEN, "")
 }
 
 /// A name not in scope, from `base`.
@@ -1673,15 +1997,41 @@ fn fits(a: Option<Key>, b: Option<Key>) -> bool {
 impl crate::Elaborator {
     /// What each `byFacts` checked so far would be written as, for `check
     /// --expand-facts`: for one checked more than once, the last.
-    pub fn take_facts_expansions(&self) -> Vec<WalkExpansion> {
+    /// What `check --expand-facts` writes for each `byFacts` checked, and
+    /// the calls it leaves as they are, with why: one whose proof uses a
+    /// part no term a person writes gives, and one checked more than once
+    /// (under `cases then`) that found a different term in some check.
+    pub fn take_facts_expansions(&self) -> (Vec<WalkExpansion>, Vec<(Span, &'static str)>) {
         let all = self.session.facts.borrow();
-        let mut out: Vec<WalkExpansion> = Vec::new();
+        let mut calls: Vec<(WalkExpansion, Option<&'static str>)> = Vec::new();
         for e in all.iter() {
-            match out.iter_mut().find(|o| o.span == e.span) {
-                Some(o) => *o = e.clone(),
-                None => out.push(e.clone()),
+            let unwritten = e
+                .pieces
+                .iter()
+                .any(|p| matches!(p, Piece::Text(t) if t.contains(UNWRITTEN)));
+            let why = unwritten.then_some(
+                "its proof uses a field of a constructor equation, which has no written form",
+            );
+            match calls.iter_mut().find(|(o, _)| o.span == e.span) {
+                Some((first, kept)) => {
+                    if kept.is_none() && pieces_key(&first.pieces) != pieces_key(&e.pieces) {
+                        *kept = Some("it found a different term in the cases it is checked in");
+                    }
+                    if kept.is_none() {
+                        *kept = why;
+                    }
+                }
+                None => calls.push((e.clone(), why)),
             }
         }
-        out
+        let mut out = Vec::new();
+        let mut kept = Vec::new();
+        for (e, why) in calls {
+            match why {
+                Some(why) => kept.push((e.span, why)),
+                None => out.push(e),
+            }
+        }
+        (out, kept)
     }
 }

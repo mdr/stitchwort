@@ -3,20 +3,38 @@ source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-FACTS] Error: `byFacts` left a part of the goal open
-   ╭─[ reject/facts-attempt-limit.sw:6:91 ]
+   ╭─[ reject/facts-attempt-limit.sw:9:3 ]
    │
- 6 │ theorem looping ∀ (g: Nat → Prop) (s1 s2 s3 s4 s5 s6 s7: ∀ (x: Nat) => g x → g x): g 3 := byFacts
-   │                                                                                           ───┬───  
-   │                                                                                              ╰───── not proved from the facts in scope
+ 9 │   byFacts
+   │   ───┬───  
+   │      ╰───── not proved from the facts in scope
    │ 
-   │ Note 1: left open: `g 3`
+   │ Note 1: left open: `r`
    │         nearest, by the head of their conclusions:
-   │           s7: (x: Nat) → g x → g x
-   │           s6: (x: Nat) → g x → g x
-   │           s5: (x: Nat) → g x → g x
-   │           s4: (x: Nat) → g x → g x
+   │           step: (x: Nat) → (y: Nat) → (z: Nat) → one x → one y → one z → q x y z → r
+   │             its premise `q 7 7 7` wasn't proved
    │ 
    │ Note 2: the search stopped after 200 attempts: name the lemma's premises, or prove a part on its own
    │ 
    │ Note 3: `byFacts then ?` shows each part left open as a goal; `byFacts [lemma]` adds a lemma to apply
 ───╯
+[E-FACTS] Error: `byFacts` left a part of the goal open
+    ╭─[ reject/facts-attempt-limit.sw:13:91 ]
+    │
+ 13 │ theorem looping ∀ (g: Nat → Prop) (s1 s2 s3 s4 s5 s6 s7: ∀ (x: Nat) => g x → g x): g 3 := byFacts
+    │                                                                                           ───┬───  
+    │                                                                                              ╰───── not proved from the facts in scope
+    │ 
+    │ Note 1: left open: `g 3`
+    │         nearest, by the head of their conclusions:
+    │           s7: (x: Nat) → g x → g x
+    │             its premise `g 3` wasn't proved
+    │           s6: (x: Nat) → g x → g x
+    │             its premise `g 3` wasn't proved
+    │           s5: (x: Nat) → g x → g x
+    │             its premise `g 3` wasn't proved
+    │           s4: (x: Nat) → g x → g x
+    │             its premise `g 3` wasn't proved
+    │ 
+    │ Note 2: `byFacts then ?` shows each part left open as a goal; `byFacts [lemma]` adds a lemma to apply
+────╯

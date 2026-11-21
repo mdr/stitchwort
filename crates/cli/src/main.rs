@@ -2633,9 +2633,14 @@ fn write_walk_expansions(session: &Session, base: &Path, to_stdout: bool) -> boo
 /// which writes the pieces). With `to_stdout`, prints the expanded text on
 /// standard output instead, leaving the file unchanged.
 fn write_facts_expansions(session: &Session, base: &Path, to_stdout: bool) -> bool {
-    let expansions = session.elab.take_facts_expansions();
+    let (expansions, kept) = session.elab.take_facts_expansions();
     for (file, source) in session.sources.iter() {
-        if !expansions.iter().any(|e| e.span.file == file) {
+        for (span, why) in kept.iter().filter(|(s, _)| s.file == file) {
+            let line = source.text[..span.start as usize].matches('\n').count() + 1;
+            eprintln!("{}:{line}: not expanded: {why}", source.name);
+        }
+        let listed = to_stdout && kept.iter().any(|(s, _)| s.file == file);
+        if !listed && !expansions.iter().any(|e| e.span.file == file) {
             continue;
         }
         let (text, done) = stitchwort_elab::expand_walk_file(&source.text, file, &expansions);

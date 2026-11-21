@@ -19,11 +19,14 @@ fn output(mut command: Command, dir: &Path) -> Output {
 
 #[test]
 fn facts_expansions_check_again() {
-    // `facts-forms.sw`'s `someEqual` used a constructor equation's field,
-    // which has no written form, so one `byFacts` stays there.
+    // `facts-forms.sw`'s `someEqual` and `pairNested` use a constructor
+    // equation's field, which has no written form, so two calls stay there;
+    // `facts-cases-then.sw`'s is checked in two cases and finds a different
+    // term in each, so it stays too. Each is listed.
     for (file, name, kept) in [
         ("facts-probes.sw", "facts_probes_expand", 0),
-        ("facts-forms.sw", "facts_forms_expand", 1),
+        ("facts-forms.sw", "facts_forms_expand", 2),
+        ("facts-cases-then.sw", "facts_cases_then_expand", 1),
     ] {
         let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(name);
         let _ = std::fs::remove_dir_all(&dir);
@@ -41,6 +44,11 @@ fn facts_expansions_check_again() {
             .filter(|l| !l.trim_start().starts_with("--") && l.contains("byFacts"))
             .count();
         assert_eq!(left, kept, "unexpected byFacts left:\n{expanded}");
+        assert_eq!(
+            stderr.matches("not expanded").count(),
+            kept,
+            "each call left is listed:\n{stderr}"
+        );
         insta::assert_snapshot!(format!("{name}_text"), expanded);
 
         let check = output(common::cli_with("check", &["--no-cache", file]), &dir);
