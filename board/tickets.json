@@ -30956,7 +30956,7 @@
     {
       "id": 4510,
       "title": "[Sonnet] cases with several implication premises in scope adds only the final fact c from f: a → b → c and drops the partial b → c (SW-4509 finding 3, cases.rs apply_to_part ~l.2643): a case needing (b → c) ∧ d that closed before SW-4485 may not now; add the intermediate applications too, with an accept example; plus a reject example showing cases does not chain implications",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -31034,7 +31034,7 @@
     {
       "id": 4516,
       "title": "[Sonnet] byFacts pilot outside the formatter (SW-4483 review bars G1-G4, docs/reviews/SW-4483-byfacts-in-context.md §5): the §1.2 goals, rows 7, 10, 17, 18, 20, 25, 34, 37, and G3's files (one std Doc/ file, one AoC day heavy on Both, games/rogue Reach.sw); report each bar met or not",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
