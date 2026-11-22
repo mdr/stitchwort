@@ -1,5 +1,5 @@
 {
-  "next": 4598,
+  "next": 4599,
   "tickets": [
     {
       "id": 47,
@@ -32091,12 +32091,12 @@
     {
       "id": 4596,
       "title": "[Opus] Design note: queued-check placeholders don't take let variables while lifted helpers' unknowns do (lift::spine), so let values get pasted into terms and must be folded back (SW-4588, SW-4565, SW-4573 all patched that); a let lambda passed through a nested queued match is still pasted (Float.Theory.roundsToInfinity's beyond). Note first: what including lets in queued placeholders' spines would change, cost, and risk; no code",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Expected: 40 min (agent time). Started 07:19, note committed 07:27 (lane/SW-4596, 4d981d2ea).\nNote: docs/proposals/queued-placeholders-take-lets.md. Recommends placeholders take the lets in scope (lift::spine), with a Meta mark so solve skips let positions before forcing; makes SW-2439/4565/4573/4588 annotation+fold code dead. Finding: beyond is probably pasted because it's a typed let (bare lambda, zonk_let only adds the Ann form for an Ann value), not because of the nesting; zonk_call's empty lets can't matter (nothing to fold to inside the call). Step 0 of the lane confirms with one example.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -32109,6 +32109,19 @@
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4598,
+      "title": "[Sonnet] Step 0 of docs/proposals/queued-placeholders-take-lets.md (SW-4596): test its reading that a typed let lambda (let f: A -> B := x => ...) through a single queued match is pasted into the term rather than folded back (zonk_let folds the annotated form only when the let's value already was one), unlike SW-4588's untyped case; an example file and the kernel term (or hash comparison with the variable form) either way; no fix",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
