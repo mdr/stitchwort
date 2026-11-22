@@ -424,14 +424,22 @@ fn search<'e>(
     let goal_generalised = finder.generalise(&g, &goal_written)?;
     // A scrutinee counts as found only where its variable survives
     // unfolding: one found inside a call that drops it (`keep 3 (isBig n)`,
-    // with `keep a b := a`) replaces nothing the arms could see.
-    let (goal_unfolded, mut found) = match unfold(&finder, &goal_generalised)? {
-        Unfolded::Term(t) => {
-            let found = finder.survivors(&t);
-            (Some(t), found)
-        }
-        Unfolded::Misshapen => return Ok(Err(Outcome::Incomplete)),
-        Unfolded::TooLarge => (None, hits_since(&finder, 0)),
+    // with `keep a b := a`) replaces nothing the arms could see. A goal
+    // with no hit has no scrutinee's variable to survive, and its unfolding
+    // is wanted only for check 2, so it is built only if that is reached: a
+    // goal that unfolds large, with the scrutinee only in a hypothesis or
+    // nowhere, isn't read back unfolded a second time (SW-4600).
+    let goal_hit = !finder.hits.borrow().is_empty();
+    let (mut goal_unfolded, mut found) = match goal_hit {
+        false => (None, vec![false; e]),
+        true => match unfold(&finder, &goal_generalised)? {
+            Unfolded::Term(t) => {
+                let found = finder.survivors(&t);
+                (Some(t), found)
+            }
+            Unfolded::Misshapen => return Ok(Err(Outcome::Incomplete)),
+            Unfolded::TooLarge => (None, hits_since(&finder, 0)),
+        },
     };
     // The variables to copy: exactly those the usual test copies, plus,
     // never a `let` (a copy forgets its value, SW-1628 review), one whose
@@ -501,6 +509,13 @@ fn search<'e>(
             outcome: Outcome::Unconfirmed,
         }));
     };
+    if !goal_hit {
+        goal_unfolded = match unfold(&finder, &goal_generalised)? {
+            Unfolded::Term(t) => Some(t),
+            Unfolded::Misshapen => return Ok(Err(Outcome::Incomplete)),
+            Unfolded::TooLarge => None,
+        };
+    }
     let (Some(goal_unfolded), Some(unfolded_types)) = (
         goal_unfolded,
         unfolded_types.into_iter().collect::<Option<Vec<_>>>(),

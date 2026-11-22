@@ -46,6 +46,88 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 22 Nov 2026
 
+### SW-4600: a generalised `match` and a `rewrite` by a hypothesis stop reading the goal back unfolded where nothing uses it; Std.Float.Theory 565 MB to 409 MB, 110.9M to 90.0M steps
+
+- **Problem.** SW-4594 put float-playlist's 565 MB peak, and 5-9M steps in
+  each of about a dozen Std.Float.Theory lemmas, on read-backs of the goal
+  or a hypothesis in normal form, where `Float.Model.roundRatio` on a
+  variable unfolds to 0.4-1.2M nodes.
+- **Profile (measured).** Temporary step counters (`Budget::total_work`)
+  between the phases of `generalised_now` and `rewrite_once`, and a
+  backtrace printed at every read-back over 400k nodes (both removed), on
+  `check --std --no-cache Float/Theory.sw` with the file cut after the
+  lemma (`--std-dir`). Twelve such read-backs, in four places:
+  - `ofIntMonotone`'s `match lt: Int.less i j`: the usual occurrence test
+    reads the goal unfolded (722k steps, 448k nodes) and finds nothing, so
+    the arms get the goal as written (`unrefined_goal`). Then the search as
+    written unfolds the goal again, though it had no hit in it (725k), and
+    `check_motive` reads the motive (the goal as written) back unfolded and
+    has the kernel check that 448k-node type (7.65M of the 9.28M steps).
+  - `add/mul/divRelError`'s `match Float.Theory.zeroOrPos n`: `blocker`
+    reads every hypothesis's type unfolded to look for unknowns, then the
+    generalisation reads each again (`sb: (x + c).bits = roundRatio num 1
+    (-1074) z`, 884k nodes, twice).
+  - `roundGrid`'s `rewrite n0` and `rewrite r`, `zeroMulNonneg`'s `rewrite`:
+    the usual path reads the goal unfolded (1.22M nodes, 1.59M steps each)
+    before the search as written, which for a rule with no unknowns never
+    uses it. SW-4469's fast path skipped it, but only for a hypothesis
+    whose replaced side is a variable.
+  - `ofNatExact`'s `rewrite Float.Theory.ofBitsBits (…) (…)` (1.14M): the
+    same, by a lemma; left (below).
+- **Changes** (crates/elab only).
+  - `check_motive` reads a motive that is the goal as given (the usual
+    test generalised nothing, `Bound::as_given`) back folded, as the
+    helper's type holds it (`lift::draft_with`), instead of unfolded.
+  - The `match` search as written (`as_written::search`) unfolds the goal
+    only if its generalisation had a hit, or check 2 is reached.
+  - `blocker` hands what it read back unfolded (`Read`) to the
+    generalisation (`generalised_now`, `refined_guard`), which uses it in
+    place of reading it again.
+  - `rewrite`'s fast path (`hypothesis_as_written`, was
+    `variable_as_written`) takes any hypothesis that is an equation; a
+    recoverable "too large" error in it (`settles: settle x k 3000 = Some
+    y`) now falls back to the usual path, with the run's note of where it
+    ran out kept for its message.
+- **Why results stay the same.** The folded and unfolded motives are the
+  same type by computation, and only the check reads them (the helper's
+  type was already the folded one); a goal with no hit has no scrutinee
+  variable to survive unfolding, so `found` is the same; the read-backs
+  reused are the same reads of the same values with nothing changed in
+  between; and a rule with no unknowns makes the search as written ignore
+  the unfolded goal, so where it keeps its result the usual path gives
+  that result (SW-4469's argument), and otherwise everything is undone and
+  the usual path runs. Hashes unchanged (`task test:hashes ALL=1`, 12
+  passed); the examples on these paths pass (below).
+- **Measured** (release, `check --std --no-cache Float/Theory.sw --std-dir
+  crates/elab/src/std --timings=all`, peak RSS from `/usr/bin/time -l`):
+
+  | | before | after |
+  |---|---|---|
+  | Std.Float.Theory peak RSS | 565.7 MB | 409.4 MB |
+  | Std.Float.Theory steps (sum of the table) | 110.9M | 90.0M |
+  | Std.Float.Theory elaboration | 7.24 s | 5.65 s |
+  | `ofIntMonotone` steps | 9,283,098 | 909,534 |
+  | `roundGrid` steps (largest read-back) | 5,129,751 (1.22M) | 1,915,842 (0.81M) |
+  | `addRelError` / `mul` / `div` steps | 5.74M / 5.76M / 5.57M | 3.17M / 3.18M / 2.99M |
+  | `zeroMulNonneg` steps | 1,365,690 | 81,199 |
+  | `ofNatExact` steps | 2,760,537 | 2,760,537 |
+  | `examples/accept/float-playlist.sw` peak RSS (`check --no-cache`) | 565.1 MB | 409.0 MB |
+
+  Eight declarations got slower, by 50k steps in all (the fast path's
+  as-written attempt where it falls back).
+- **Left.** `ofIntMonotone`'s one remaining 448k read-back, and the
+  884k in `add/mul/divRelError`, are the usual occurrence test's own read
+  of the goal or hypothesis, which checks 1 and 2 of the generalisation as
+  written compare against; skipping it is a change to the design
+  (docs/proposals/goal-as-written.md), not a cache. `ofNatExact` is now
+  the peak (1.14M nodes, a `rewrite` by a lemma).
+- **Rejected (measured).** The fast path for any rule with no unknowns once
+  elaborated (lemmas too): `ofNatExact`'s search as written doesn't keep
+  its result, so the rule was elaborated twice and the search made twice,
+  2.76M to 2.85M steps there and `ofNatFinite` 1.42M to 1.49M; only
+  `roundGrid` gained (1.92M to 1.79M). Not kept.
+- **Ticket:** SW-4600; follows SW-4594.
+
 ### SW-4595: SW-4582's put-off redone, except inside a held argument's check after its expected type; AoC 2020 day 16's `runsNotes` 40.3M to 2.4M steps, tools/fmt checks again
 
 - **Problem.** SW-4582 (below) cut `runsNotes` from 40.3M to 2.4M steps

@@ -1065,15 +1065,19 @@ pub(super) struct Repeated<'a> {
     pub(super) computed: Option<&'a Term>,
 }
 
-/// [`rewrite_once`] for a hypothesis whose side to replace is a variable
-/// (`same: x = y`, `rewrite <- same`), in a goal with no unknowns, where the
-/// search as written keeps its result ([`as_written::first`]): what the
-/// usual path gives then, without first reading the goal back unfolded,
-/// which a closed rule's search as written never uses. In a goal about a
-/// large program (two runs' values made equal, in a two-run walk) that
-/// read-back is most of the rewrite's cost (SW-4469). `None` otherwise, with
-/// everything undone, so that the usual path runs from where this started.
-fn variable_as_written(
+/// [`rewrite_once`] for a hypothesis that is an equation (`same: x = y`,
+/// `rewrite <- same`), in a goal with no unknowns, where the search as
+/// written keeps its result ([`as_written::first`]): what the usual path
+/// gives then, without first reading the goal back unfolded, which the
+/// search as written uses only to find today's instance of a rule with
+/// unknowns of its own, and a hypothesis has none. In a goal about a large
+/// program (two runs' values made equal, in a two-run walk) that read-back
+/// is most of the rewrite's cost (SW-4469), and so it is in a goal about
+/// `Float.Model.roundRatio` on a variable (`Float.Theory.roundGrid`'s
+/// `rewrite n0` and `rewrite r`, 1.22 M nodes each, SW-4600). `None`
+/// otherwise, with everything undone, so that the usual path runs from where
+/// this started.
+fn hypothesis_as_written(
     cx: &mut Ctx,
     rule: &RewriteRule,
     place: Place,
@@ -1090,20 +1094,19 @@ fn variable_as_written(
     let Some(level) = cx.lookup(&name.text) else {
         return Ok(None);
     };
-    let g = cx.g();
-    let Value::Eq(_, left, right) = force(&g, cx.types[level].clone())? else {
+    let Value::Eq(..) = force(&cx.g(), cx.types[level].clone())? else {
         return Ok(None);
     };
-    let side = if rule.reverse { right } else { left };
-    if !matches!(
-        stitchwort_core::value::force_solved(&g, Value::clone(&side))?,
-        Value::Neutral(Head::Var(..), spine) if spine.is_empty()
-    ) || !pending_metas(&cx.quote_folded(goal)?).is_empty()
-    {
+    if !pending_metas(&cx.quote_folded(goal)?).is_empty() {
         return Ok(None);
     }
     let snapshot = Snapshot::take(cx);
     let budget = *remaining;
+    // A side too large to read back unfolded (`settles: settle x k 3000 =
+    // Some y`) falls back as well, with what the run had noted about where
+    // it ran out kept for the usual path's report.
+    let ran_out_in = cx.g().machine.budget.take_ran_out_in();
+    cx.g().machine.budget.set_ran_out_in(ran_out_in);
     let mut found = Stats::default();
     let outcome = (|| -> Result<Option<Step>> {
         let equation = elaborate_rule(cx, rule, place)?;
@@ -1124,8 +1127,14 @@ fn variable_as_written(
             stats.add(&found);
             Ok(Some(vec![step]))
         }
-        Err(e) if fatal(&e) => Err(e),
-        Ok(None) | Err(_) => {
+        Err(e) if fatal(&e) && !crate::undo::recoverable(cx, &e) => Err(e),
+        failed => {
+            if let Err(e) = &failed
+                && fatal(e)
+            {
+                crate::undo::recovered(cx);
+                cx.g().machine.budget.set_ran_out_in(ran_out_in);
+            }
             snapshot.restore(cx);
             *remaining = budget;
             Ok(None)
@@ -1156,7 +1165,7 @@ fn rewrite_once(
     repeated: Option<&Repeated>,
 ) -> Result<Vec<Step>> {
     if repeated.is_none()
-        && let Some(steps) = variable_as_written(cx, rule, place, goal, remaining, stats)?
+        && let Some(steps) = hypothesis_as_written(cx, rule, place, goal, remaining, stats)?
     {
         return Ok(steps);
     }
