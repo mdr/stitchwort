@@ -1,5 +1,5 @@
 {
-  "next": 4655,
+  "next": 4656,
   "tickets": [
     {
       "id": 47,
@@ -32978,6 +32978,19 @@
     {
       "id": 4654,
       "title": "[Sonnet] Elaborator read-back writes out shared values in full (towers of next seed seed: 131K nodes at 16 levels, 2M at 20); measure on real proofs and consider sharing-aware read-back (SW-4647 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4655,
+      "title": "[Sonnet] The elaborator's unifier call record keeps only pairs found different (unify.rs ~1338): measure whether it re-walks shared values as kernel conv did before SW-4647, and if so remember equal pairs too (SW-4647 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
