@@ -25,7 +25,7 @@ stitchwort-standalone.workspace = true
 stitchwort-fmt.workspace = true
 clap.workspace = true
 rustyline.workspace = true
-mimalloc.workspace = true
+stitchwort-alloc.workspace = true
 # The language server (`stitchwort lsp`, docs/proposals/language-server.md).
 stitchwort-lsp.workspace = true
 lsp-types.workspace = true

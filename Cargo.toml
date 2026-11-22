@@ -22,6 +22,7 @@ stitchwort-native = { path = "crates/native" }
 stitchwort-dev-features = { path = "crates/dev-features" }
 stitchwort-bench = { path = "crates/bench" }
 stitchwort-test-alloc = { path = "crates/test-alloc" }
+stitchwort-alloc = { path = "crates/alloc" }
 
 ariadne = "0.6.0"
 blake3 = "1.8.7"
@@ -35,7 +36,6 @@ lsp-types = "=0.95.1"
 # Mapping the stacks of native runs (crates/host/src/stack.rs); already in
 # the tree (`nix` depends on it).
 libc = "0.2.190"
-mimalloc = { version = "0.1.52", default-features = false }
 # Terminal settings and signals for `stitchwort run`'s keys mode
 # (docs/proposals/terminal-io.md §4.6). Both were already in the tree, through
 # rustyline and tempfile.
