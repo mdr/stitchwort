@@ -31656,7 +31656,7 @@
     {
       "id": 4563,
       "title": "[Opus] Design question (SW-4559 row 4): the list versions of tree functions in tools/fmt (allWithin1, calmAll, allShaped, itemsWords; 138 theorems, 1,983 proof lines) are hand-written recursion, so no list lemma applies; could they be written with List.all / List.map if the checker accepts that nested recursion? Note first: what the checker accepts, which definitions, what it would save, and whether it changes the formatter's programs (scope is Matt's)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
