@@ -31827,12 +31827,12 @@
     {
       "id": 4576,
       "title": "[Sonnet] The E-CASES message for examples/reject/unify-last-arguments-head-type.sw shows hypotheses and goal as bare _le ('hypothesis 1 (unnamed): _le'), dropping an applied unknown's arguments (_le x y = True): the goal printer should print an applied unknown with its arguments; snapshot test",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "\nLane note: printer skipped every leading variable argument of an unknown; now only as many as the unknown was made in (Meta.context). _le x y shown. 3 other reject snapshots changed (_j x, _j first). Commit 92535c30a on lane/SW-4576.\n",
+      "body": "Model result: Sonnet, worked (context count recorded per unknown; 4 of 25 snapshots changed, all right), 6 min (est. 30)\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": [
