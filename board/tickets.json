@@ -32789,15 +32789,26 @@
     {
       "id": 4642,
       "title": "[Opus] Projection lets in proofs (SW-4629) cost atomHung 3.9M of its 7.7M steps (SW-4638): find why the hidden projection variables are generalised over and read back by later matches and rewrites (STITCHWORT_STEP_PHASES, STITCHWORT_BIG_READBACK on one let) and fix that in the elaborator so both atomHung and bigSplit stay cheap; a size gate on when to use projections only as a fallback",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nStarted 22 Nov 16:47 on Opus (orchestrator's call). Expected: 45 min.\n",
+      "body": "\n\nStarted 22 Nov 16:47 on Opus (orchestrator's call). Expected: 45 min.\n\n\nModel result: Opus, needed fixes (two review rounds: conversion could not open the kept call, Opus finding 1; kernel affected, Fable F1-F5), 90 min (est. 45). Reviews: docs/reviews/SW-4642-review.md, docs/reviews/SW-4642-fable-review.md.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "3a8cb70777bc6c32d43ec132015f553edc15d06a",
+        "36fec3daba99973840d38831804accb287d8096a",
+        "239863d37323d028caf7ec425ac4b003a4d98c1f",
+        "357de9f0fc20272409206151e74e0ad5b4cde116",
+        "62201054214c90ff690b06b4d4866d2d91a11fdc",
+        "cfaf25077209cae27cd53fdbcdaedb971b78e71f",
+        "542cd13886455fc28e93b4f98d4669fd4f882a5a",
+        "e950e543f89a701e2bbc4d4886d0ff97d4c5ec13",
+        "b3cd1a3dbbd936baf004fd6910f5601a94521a72",
+        "294c63f7b3f279258fe9494210a46b817d750e92"
+      ]
     },
     {
       "id": 4643,
