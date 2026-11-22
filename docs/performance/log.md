@@ -95,6 +95,36 @@ in [../proposals/README.md](../proposals/README.md).
 - **Not measured:** `bench:aoc` and the instruction benchmarks (elaboration
   only).
 - **Ticket:** SW-4595 (redoes SW-4582 and SW-4591).
+### SW-4601: the +4.05 M steps on `rewrite-solution-too-large`'s `Main.big` are SW-4469's variable-hypothesis fast path, a deliberate try that fails here: attributed, nothing changed in code
+
+- **Status:** measured; no code changed.
+- **Method.** First-parent bisect of the 155 commits between `99b5d8b6f` and
+  `e87365f3f~1`, each built `--release` in a scratch worktree and run with its
+  own copy of the example (`check --no-cache --timings=all`, exit 3 each
+  time): `b5ffdd704`, `2c04385fc`, `9dc1e60c6`, `1595bbbdb` 12.17 M;
+  `5a3c4c4f2`, `ae70f673c` 16.20 M, so the step is `ae70f673c`, the merge of
+  SW-4469 (21 Nov, "two-run walks skip four unfolded read-backs"; its parent
+  `1595bbbdb` is 12.17 M).
+- **Which hunk.** Returning early from its `variable_as_written` (rewrite.rs,
+  on `ae70f673c`) gives 12.12 M again, so it is that hunk, not the other
+  three. The example's `rewrite same then h` has a variable as the rule's
+  side, so the fast path runs `as_written::first` before the usual path; here
+  it spends about 4.07 M steps and returns `First::Not` (a debug print showed
+  it once, not `Kept`, not `RanOut`), everything is undone, and the usual path
+  then fails its unfolded read-back (2 M nodes) and runs the search as
+  written again in `unconfirmed`.
+- **Verdict: deliberate, the price of the fast path's fall back.** SW-4469's
+  message says each skip "falls back to the old path"; a failed try costs
+  its steps. It is paid only by a rewrite that the as-written search can't
+  keep and that then fails E-RESOURCE, as this example and
+  `rewrite-value-too-large` do (message unchanged); the 10 M steps the
+  fallback of SW-4237 costs on the same example dwarf it. Not fixed: handing
+  the first try's result on to `unconfirmed` would mean carrying a second
+  search mode's outcome out of `variable_as_written`, which is not a small
+  change for a failing example, and the step count gains nothing a user sees
+  (about 0.3 s).
+- **Ticket:** SW-4601; closes SW-4594's "Not found".
+
 ### SW-4594: the two growths SW-4587 left unexplained (float-playlist's peak, the too-large rewrite examples): both attributed, nothing changed in code
 
 - **Status:** measured; no code changed. Both are costs of work done on
@@ -143,7 +173,8 @@ in [../proposals/README.md](../proposals/README.md).
   fails) the second try also overflows, costing 10 M steps (about 0.8 s)
   for an unchanged message. Left alone: it is the price of the fallback,
   paid only by a program that fails E-RESOURCE.
-- **Not found:** the +4.05 M steps between `99b5d8b6f` and `e87365f3f~1`.
+- **The +4.05 M steps between `99b5d8b6f` and `e87365f3f~1`:** found in
+  SW-4601 (above): SW-4469's `variable_as_written`, `ae70f673c`.
 - **Ticket:** SW-4594; follows SW-4587.
 
 ### SW-4592: an indexed family's split no longer compares every variable in the context unless a message shows the arm's goal; `fin-table-deep`'s `Main.code` 55.4M to 5.6M steps
@@ -268,7 +299,7 @@ in [../proposals/README.md](../proposals/README.md).
   | `reject/reads-nested-binds-unknown-field` | 102.0 M | 200.7 M (1.97x) | 76 to 99 | Parse's lemma library (`runFromLabelWholeFromOkTree` 14.6 M and others) |
   | `accept/float-playlist` | 34.0 M | 110.9 M (3.26x) | 75 to 428 | `Std.Float` growth (`ofIntMonotone` 9.3 M, `Theory.roundGrid` 5.1 M); the 428 MB is not explained |
   | `accept/fin-table-deep` (file unchanged) | 23.1 M | 77.8 M (3.37x) | 59 to 75 | **accident, below** |
-  | `reject/rewrite-solution-too-large`, `reject/rewrite-value-too-large` | 4.3 M, 4.4 M | 22.3 M, 22.2 M (5.1x) | 159 to 253, 236 to 248 | `Main.big` 16.2 M with a 2,000,001-node read-back, plus D3609's 3.8 M; the read-back change is not found (SW-4091, 19 Nov, is a candidate) |
+  | `reject/rewrite-solution-too-large`, `reject/rewrite-value-too-large` | 4.3 M, 4.4 M | 22.3 M, 22.2 M (5.1x) | 159 to 253, 236 to 248 | `Main.big` 16.2 M with a 2,000,001-node read-back, plus D3609's 3.8 M; SW-4237's second try (10 M) and SW-4469's failed fast path (4.07 M, SW-4601) |
   | `accept/as-written-unconfirmed` | 16.7 M | 26.9 M (1.61x) | 282 to 296 | the two `at the limit` declarations, 8.4 M and 4.2 M; not bisected |
   | `reject/or-pattern-binds`, `cases-fallback-budget`, `omega-waits`, `cases-budget-int` and the 12 `ring-*` | 0.9 to 3.4 M | 8.5 to 10.2 M | 19 to 40 | D3609 (`Std.Omega`, `Std.Ring`) |
 
