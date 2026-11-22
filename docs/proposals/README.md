@@ -54,6 +54,7 @@ status line now says the wrong thing; the details are in
 | [deep-input.md](deep-input.md) | One policy for recursion that grows with the input | proposed: D2750-D2754 (D2751 taken up by long-chains.md) | SW-1956, SW-1874, SW-1892, SW-1895, SW-1965-SW-1970 |
 | [long-chains.md](long-chains.md) | Long list literals, operator chains and blocks without recursion | proposed: D2840-D2844 | SW-1993, SW-2018-SW-2021 |
 | [opaque-definitions.md](opaque-definitions.md) | `opaque def`, and unfolding it on request | built, lanes 1-4: `crates/elab/src/opaque.rs`; status line says D1263, D1264, D1267 open | SW-525-SW-527 |
+| [sealed-theorems.md](sealed-theorems.md) | Theorems sealed by default: a proof's body never affects another declaration; what replaces today's unfolding; hashes, cache, parallel checking | research note, 22 Nov 2026: two questions for Matt (end state; later, a K-like rule for `J`) | SW-4656 |
 | [erase-proof-data.md](erase-proof-data.md) | Ghost fields: erase data only proofs use | proposed: D2900-D2905 | SW-2028, SW-2041-SW-2045 |
 | [well-founded-recursion.md](well-founded-recursion.md) | `decreasing n` instead of fuel | in progress: stages 1-3d built (`crates/elab/src/decreasing.rs`); rest of stage 3 open | SW-199, SW-253 |
 | [decreasing-with-hypothesis.md](decreasing-with-hypothesis.md) | A decrease proof that can use what a `match` or `if` just learned | proposed (design item for SW-199) | SW-2013, SW-2029-SW-2032 |
