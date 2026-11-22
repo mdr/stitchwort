@@ -32576,12 +32576,12 @@
     {
       "id": 4629,
       "title": "[Opus] Elaborate a destructuring let over a conjunction (or a record/tuple of proofs) as projections, not a match that generalises over everything in scope: SW-4619 found destructuring the six-part declJoins alone cost ~24M steps; terms may change, so measure and check hashes (SW-4619 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\nProgress (lane, Opus, 22 Nov): 36f2019e4 on lane/SW-4629. In a proof, a pattern let on a proof (∧, record/ctor of proofs) binds projections, opaque while the body is checked; on data it stays the match; a call whose declared result is data or ∃ goes straight to the match; any failure with projections re-checks the let as the match (lets inside kept as matches). Fixes an internal error on a record pattern let over a test fact outside a proof. Measured (tools/fmt at 058a52019^): atomHung 56.0M→41.3M, unaryHung 30.1M→24.8M, signArgHung 10.1M→8.9M, orFlat 14.5M→13.6M; example bigSplit 324K→3.4K. 12 hash snapshots + prelude re-recorded, one new. ~65 min (est. 45).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
