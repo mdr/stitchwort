@@ -32802,20 +32802,23 @@
     {
       "id": 4643,
       "title": "[Sonnet] check_cache write_atomically names its temp file by process id and nanoseconds; two threads of one process can collide: add a thread id or counter before any multi-threaded store (SW-4614 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nModel result: DeepSeek, worked, 15 min (est. 15).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "2fb11c4e2e5aa8a3c18596fb905877bd792f61d5",
+        "4e42b1f73fdd1e7d49d9b4e14e2cbc9b13982bf5"
+      ]
     },
     {
       "id": 4644,
       "title": "[DeepSeek] Parallel checking measurement 2 (docs/proposals/parallel-checking.md): a script that runs stitchwort check <namespace> processes over one cache directory in dependency order, 4 and 6 at a time, timing the whole and comparing hashes and diagnostics with a sequential run (SW-4614)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
