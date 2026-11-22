@@ -4689,11 +4689,8 @@ fn explicit_arg_failed<'a>(
     // nested calls that each fail in place cost 2^n (AoC 2020 day 16's
     // `runsNotes` elaborated its innermost of nine `Parse.runsBind`s 192
     // times, SW-4582). If the argument around can't be held after all, it
-    // is checked once more with nothing put off. A walk's leaf that waits for
-    // an unknown the expected type fixes (`E-WALK`) is still held: put off
-    // with the argument around, the walk stopped on `_weaker value valueTwin`
-    // (`examples/reject/walk-nested-loop.sw`).
-    if cx.e.decl.holes_retry.get() == HolesRetry::Deferred && e.code != "E-WALK" {
+    // is checked once more with nothing put off.
+    if cx.e.decl.holes_retry.get() == HolesRetry::Deferred {
         cx.e.decl.holes_retry_skipped.set(true);
         return Err(e);
     }
