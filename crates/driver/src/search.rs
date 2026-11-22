@@ -908,6 +908,7 @@ fn merge(g: &Ev, mut runs: Vec<Found>) -> Found {
         (stats.out_of_budget_items).extend(run.stats.out_of_budget_items.iter().copied());
         stats.upgraded += run.stats.upgraded;
         stats.internal_errors += run.stats.internal_errors;
+        (stats.internal_error_items).extend(run.stats.internal_error_items.iter().cloned());
         if strong && run.tier == SearchTier::Relaxed {
             continue;
         }

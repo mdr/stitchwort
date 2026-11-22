@@ -719,6 +719,9 @@ pub struct Stats {
     /// Comparisons that failed with an internal error (a panic), each
     /// counted as no match. Search must have none (SW-919, SW-924).
     pub internal_errors: usize,
+    /// The candidate and panic message of each internal error, in the
+    /// order compared, so a benchmark can name them.
+    pub internal_error_items: Vec<(Item, String)>,
 }
 
 /// Which pass found a search's results (D2063).
@@ -1233,7 +1236,13 @@ impl Elaborator {
             // guard needs the types), and an unknown solved with a term of
             // another type can make computing it panic. Each variable given
             // as an argument, to the lemma or to a call in its arguments,
-            // gets the type that parameter has.
+            // gets the type that parameter has. A call under the arguments'
+            // binders counts too (`Eq.flipped (Parse.runFromMark state (at =>
+            // Parse.recursiveWithFuel (at.left + 1) body argument))` in
+            // `Parse.recursiveWithFuelMore` is the only place `argument`
+            // is given): its bound variables stand for unknowns that are no
+            // holes, so a parameter type that depends on one is still
+            // closed (SW-4575).
             let holes: Vec<usize> = (env.iter())
                 .filter_map(|v| match v {
                     Value::Neutral(Head::Meta(m), _) => Some(*m),
@@ -1241,15 +1250,37 @@ impl Elaborator {
                 })
                 .collect();
             type_holes(g, &env, &holes, def.span(), def.ty_value().clone(), args)?;
+            // The bound variables' unknowns, shared by every call: only
+            // types are recorded, so nothing solves them. A call under
+            // binders is looked at only if it gives a hole still without a
+            // type: computing the types of every call in a long proof's
+            // arguments can use up the attempt's budget, which loses the
+            // pattern (ten of `Float.Theory`'s uses).
+            let untyped = |i: usize| {
+                matches!(&env[env.len() - 1 - i], Value::Neutral(Head::Meta(m), _)
+                    if g.store.meta_type(*m).is_none())
+            };
+            let gives_untyped = |binders: usize, sub_args: &[&Term]| {
+                sub_args.iter().any(|a| {
+                    matches!(a.spine().0, Term::Var(i) if *i >= binders && untyped(*i - binders))
+                })
+            };
+            let mut bound: Vec<Value> = Vec::new();
             for arg in args {
                 for (sub, binders) in arg.subterms() {
-                    if binders == 0
-                        && let (Term::Def(id), sub_args) = sub.spine()
+                    if let (Term::Def(id), sub_args) = sub.spine()
                         && !sub_args.is_empty()
+                        && (binders == 0 || gives_untyped(binders, &sub_args))
                     {
+                        while bound.len() < binders {
+                            let m = self.metas().new_meta(def.span());
+                            bound.push(eval(g, &[], &Term::Meta(m))?);
+                        }
+                        let inner: Vec<Value> =
+                            env.iter().chain(&bound[..binders]).cloned().collect();
                         type_holes(
                             g,
-                            &env,
+                            &inner,
                             &holes,
                             def.span(),
                             g.def(*id).ty_value().clone(),
@@ -1461,8 +1492,12 @@ impl Elaborator {
                     let attempt = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                         self.search_one(pattern, candidate, opts, filtered, &mut stats)
                     }));
-                    let hit = attempt.unwrap_or_else(|_| {
+                    let hit = attempt.unwrap_or_else(|payload| {
                         stats.internal_errors += 1;
+                        let message = (payload.downcast_ref::<String>().cloned())
+                            .or_else(|| payload.downcast_ref::<&str>().map(|m| m.to_string()))
+                            .unwrap_or_default();
+                        stats.internal_error_items.push((candidate.item, message));
                         None
                     });
                     let Some(mut hit) = hit else { continue };
