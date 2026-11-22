@@ -46,6 +46,52 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 22 Nov 2026
 
+### SW-4637: a generalised `match` reads its goal with calls kept folded where the scrutinee can't be hidden; `unaryHung` 21.2M to 3.6M steps
+
+- **Problem.** After SW-4635 the largest read-back left was the goal itself, read back unfolded
+  at every generalised `match` for the occurrence test: `unaryHung` 4 × 573K nodes, `atomHung`
+  6 × 273K. These goals mention the scrutinee's variables, so SW-4635's rule can't skip them.
+- **Profile (measured, `STITCHWORT_BIG_READBACK=20000`, `STITCHWORT_MATCH_METRICS=1`).** The
+  four 573K read-backs in `unaryHung` were `generalised_now`'s goal read-back, at the `match`es
+  and tuple `let`s on lines 550-589; the search as written found nothing at each, and the usual
+  test found no occurrence in the goal, so the motive was the goal as written and the 573K-node
+  term served only the test (and check 2 of the search as written, where it found a hit in a
+  hypothesis).
+- **Change (elaborator, `crates/elab/src/matching.rs` `mixed_goal`; a read-back hook in
+  `crates/core/src/value.rs`, `quote_unfolded_keeping`).** A goal of 4096 nodes or more is read
+  back unfolded except that a call is kept as written where, for every scrutinee, its value can't
+  mention one of the free variables of the scrutinee's normal form (`untouched`'s walk) and its
+  unfolding has more nodes than that normal form. An occurrence in the unfolded goal can then
+  neither lie inside a kept call's unfolding nor hold one as a part, so it is in this read-back
+  too. If no scrutinee occurs in it, the test's answer is the unfolded goal's, and what keeps the
+  goal's term reads it unfolded only when needed: the motive when it isn't the goal as written,
+  a copied variable a kept call may hide, a `W-MATCH-NOT-FOUND` that prints the unfolded goal or
+  checks it for unknowns, and check 2 of the search as written, whose goal pair is compared by
+  conversion where the goal has no hit as written. If a scrutinee does occur, the goal is read
+  back unfolded as before. Kernel terms unchanged (hash snapshots of the match examples checked).
+- **Result (measured, steps, release, `check NS --no-project-cache --only NAME --timings=all`
+  from `tools/fmt`, nice 19, load 2-4; before is main at `ee170941d`).**
+
+  | proof | before | after |
+  |---|---|---|
+  | `unaryHung` | 21,229,518 | 3,554,912 |
+  | `atomHung` | 19,765,718 | 7,729,579 |
+  | `signArgHung` | 6,555,301 | 1,528,392 |
+
+  `check Syntax.ReadBackHungApp --no-project-cache --timings=all` (its 17,402 declarations,
+  imports included): 206,746,897 to 172,000,828 steps (-16.8%); no declaration more than 352
+  steps slower. Elaboration (one run each, rough): `ReadBackHungApp` 2,170 to 534 ms,
+  `ReadBackHungAtoms` 1,971 to 1,138 ms. `examples/accept/match-goal-kept-folded.sw`:
+  `goalBeside` 197,900 to 1,322 steps.
+- **Not kept (measured).** Without the 4096-node floor, every `match` computed its scrutinees'
+  normal forms first: `commentAt` 22K to 122K steps and `boundsLeaves` 20K to 99K (each ran the
+  normal-form budget out), 281 declarations slower in all. Kept calls read back folded rather
+  than as written computed `grow 16 (Leaf t)` in full (a call that steps at once).
+- **Left.** The largest read-backs now: `unaryHung` and `signArgHung` 61.6K nodes, `atomHung`
+  9.1K. A goal the scrutinee does occur in is still read back whole (twice where a call was
+  kept).
+- **Ticket:** SW-4637.
+
 ### SW-4635: a `match` leaves unread the hypotheses its scrutinee can't occur in, and `rewrite` takes meta-free context values as they are; `atomHung` 53.9M to 19.8M steps
 
 - **Problem.** SW-4631 left `atomHung`, `unaryHung`, `signArgHung` and the chain proofs reading
