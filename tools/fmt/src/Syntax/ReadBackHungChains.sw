@@ -487,85 +487,72 @@ theorem cmpHung ∀ (modes: Modes)
             ends
             (arithmetic [level, high])
         | Inl is6 =>
-          let hungL: hangsFrom state (leavesOf (leftRead ++ ([op, ..rightRead] ++ rest))) = True :=
-            rewrite <- List.appendAssoc leftRead [op, ..rightRead] rest, <- isRead then facts.hung
-          let deepL: deepAll (leftRead ++ ([op, ..rightRead] ++ rest)) = True :=
-            rewrite <- List.appendAssoc leftRead [op, ..rightRead] rest, <- isRead then facts.deepItems
-          let (after1, parts) :=
-            hungParts modes quiet InfixBinary left right leftRead op rightRead rest state leftSpelt rightSpelt isOp
-              (rewrite <- isRead then facts.lineRead)
-              (rewrite <- isRead then facts.openFirst)
-              (rewrite <- isRead then facts.bound)
-              hungL
-              deepL
-          let at6: infixLevel InfixBinary operator.text = 6 := arithmetic [level, is6]
-          let (leftNeed, rightNeed) := cmpNeeds operator.text at6
-          let (isCmp, notIn) := cmpOf op.kind isOp is6
-          let leftEnds: EndsAt modes 12 [op, ..rightRead ++ rest] :=
-            opEnds modes 12 op
-              (rightRead ++ rest)
-              InfixBinary
-              parts.openOp
-              isOp
-              (rewrite speltApart right rightRead rest rightSpelt then apart)
-              (arithmetic [rungCmpOf op.kind isCmp])
-          let leftReads: AppendReads (TreeN depth) modes leftRead ([op, ..rightRead] ++ rest) left :=
-            appendHung modes quiet left leftRead
-              ([op, ..rightRead] ++ rest)
-              depth
-              state
-              inner
-              (arithmetic [deep])
-              leftSpelt
-              (Bool.andLeft free)
-              {
-                lineRead = parts.lineLeft,
-                lineRest = (lineJoin [op, ..rightRead] rest parts.lineOpRight facts.lineRest),
-                openFirst = parts.openLeft,
-                bound = parts.boundLeft,
-                hung = hungL,
-                deepItems = deepL
-              }
-              leftEnds
-              (aboveCmp left leftRead leftSpelt (arithmetic [leftFits, leftNeed]))
-          let rightReads: AppendReads (TreeN depth) modes rightRead rest right :=
-            appendHung modes quiet right rightRead rest depth after1 inner
-              (arithmetic [deep])
-              rightSpelt
-              (Bool.andRight free)
-              {
-                lineRead = (Bool.andRight parts.lineOpRight),
-                lineRest = facts.lineRest,
-                openFirst = parts.openRight,
-                bound = parts.boundRight,
-                hung = parts.hungRight,
-                deepItems = parts.deepRight
-              }
-              (endsAtUp modes 6 12 rest (arithmetic []) ends)
-              (aboveCmp right rightRead rightSpelt (arithmetic [rightFits, rightNeed]))
-          let (rightFirst, rightMore, isRight, rightStarts) := speltStarts right rightRead rightSpelt
-          let openRead: openHead modes rightRead = True := parts.openRight
-          let openRightFirst: modes.stops rightFirst = False :=
-            openHeadStops modes rightFirst rightMore (rewrite isRight at openRead then openRead)
-          let noIf: isSome KwIf (peekIn modes 0 (rightRead ++ rest)) = False :=
-            rewrite isRight, peekFirst modes rightFirst (rightMore ++ rest) openRightFirst then
-              leadNotIf rightFirst.kind rightStarts
-          Inr (
-            leftRead,
-            op,
-            rightRead,
-            left,
-            right,
-            isRead,
-            (rewrite isWord),
-            (leftEnds.noRange, leftEnds.noPipe, leftReads),
-            parts.openOp,
-            notIn,
-            isCmp,
-            noIf,
-            (ends.noRange, ends.noPipe, rightReads),
-            ends.noCmp (arithmetic [])
-          )
+          withWitness _
+            (infixStep modes quiet InfixBinary left right read leftRead op rightRead rest state leftSpelt rightSpelt
+                isOp isRead facts) _
+            (after1 step =>
+              let parts := step.parts
+              let at6: infixLevel InfixBinary operator.text = 6 := arithmetic [level, is6]
+              let needs := cmpNeeds operator.text at6
+              let kinds := cmpOf op.kind isOp is6
+              let leftEnds: EndsAt modes 12 [op, ..rightRead ++ rest] :=
+                opEnds modes 12 op
+                  (rightRead ++ rest)
+                  InfixBinary
+                  parts.openOp
+                  isOp
+                  (Eq.trans (speltApart right rightRead rest rightSpelt) apart)
+                  (arithmetic [rungCmpOf op.kind kinds.left])
+              let leftReads: AppendReads (TreeN depth) modes leftRead ([op, ..rightRead] ++ rest) left :=
+                appendHung modes quiet left leftRead
+                  ([op, ..rightRead] ++ rest)
+                  depth
+                  state
+                  inner
+                  (arithmetic [deep])
+                  leftSpelt
+                  (Bool.andLeft free)
+                  {
+                    lineRead = parts.lineLeft,
+                    lineRest = step.lineOpTail,
+                    openFirst = parts.openLeft,
+                    bound = parts.boundLeft,
+                    hung = step.hungLeft,
+                    deepItems = step.deepLeft
+                  }
+                  leftEnds
+                  (aboveCmp left leftRead leftSpelt (arithmetic [leftFits, needs.left]))
+              let rightReads: AppendReads (TreeN depth) modes rightRead rest right :=
+                appendHung modes quiet right rightRead rest depth after1 inner
+                  (arithmetic [deep])
+                  rightSpelt
+                  (Bool.andRight free)
+                  {
+                    lineRead = (Bool.andRight parts.lineOpRight),
+                    lineRest = facts.lineRest,
+                    openFirst = parts.openRight,
+                    bound = parts.boundRight,
+                    hung = parts.hungRight,
+                    deepItems = parts.deepRight
+                  }
+                  (endsAtUp modes 6 12 rest (arithmetic []) ends)
+                  (aboveCmp right rightRead rightSpelt (arithmetic [rightFits, needs.right]))
+              Inr (
+                leftRead,
+                op,
+                rightRead,
+                left,
+                right,
+                isRead,
+                (rewrite isWord),
+                (leftEnds.noRange, leftEnds.noPipe, leftReads),
+                parts.openOp,
+                kinds.right,
+                kinds.left,
+                cmpNoIf modes right rightRead rest rightSpelt parts.openRight,
+                (ends.noRange, ends.noPipe, rightReads),
+                ends.noCmp (arithmetic [])
+              ))
     | Infix InfixArrow _ _ _, _, fits => Void.impossible (arithmetic [fits])
     | Infix _ _ _ _, (_, _, _, _, never, _), _ => (Bool.falseNotTrue never).impossible
     | other, spelt, _ =>

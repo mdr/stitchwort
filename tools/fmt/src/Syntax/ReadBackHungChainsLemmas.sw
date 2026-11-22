@@ -199,3 +199,15 @@ theorem chainReads ∀ (facts: List Item → Prop)
     (rightRead later rest: List Item) (holds: facts (rightRead ++ (later ++ rest))):
     facts ((rightRead ++ later) ++ rest) :=
   rewrite List.appendAssoc rightRead later rest then holds
+
+--| A comparison's right operand starts no `if`: the operator's right operand is open, and a first item that starts an
+--| expression isn't `if`.
+theorem cmpNoIf ∀ (modes: Modes) (right: Expr) (rightRead rest: List Item)
+    (rightSpelt: Spelt right rightRead)
+    (openRight: openHead modes rightRead = True):
+    isSome KwIf (peekIn modes 0 (rightRead ++ rest)) = False :=
+  let (rightFirst, rightMore, isRight, rightStarts) := speltStarts right rightRead rightSpelt
+  let openRightFirst: modes.stops rightFirst = False :=
+    openHeadStops modes rightFirst rightMore (rewrite isRight at openRight then openRight)
+  rewrite isRight, peekFirst modes rightFirst (rightMore ++ rest) openRightFirst then
+    leadNotIf rightFirst.kind rightStarts
