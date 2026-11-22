@@ -4183,13 +4183,15 @@ fn unfolding_limits() -> stitchwort_core::Limits {
     }
 }
 
-/// Whether `term` is a metavariable, or one applied to arguments.
+/// Whether `term` is a metavariable, or one applied to arguments. Not the
+/// erased placeholder's read-back (`ELIDED`), which is no index into the
+/// store and has no solution to substitute.
 fn meta_headed(term: &Term) -> bool {
     let mut head = term.strip_loc();
     while let Term::App(f, _, _) = head {
         head = f.strip_loc();
     }
-    matches!(head, Term::Meta(_))
+    matches!(head, Term::Meta(m) if *m != stitchwort_core::value::ELIDED)
 }
 
 /// The call a lifted helper's frozen metavariable stands for, or the term a

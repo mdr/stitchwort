@@ -3396,6 +3396,7 @@ fn quote_as_until(
                         _ => None,
                     };
                     if let Some(m) = met.filter(|&m| stop(m)) {
+                        g.machine.budget.note_readback(size);
                         return Ok(Quoted::Met(m));
                     }
                 }
@@ -5976,6 +5977,19 @@ mod tests {
 
     fn stuck_call(def: usize) -> Value {
         Value::Neutral(Head::Def(DefId(def)), Spine::from(Vec::new()))
+    }
+
+    /// A read-back [`normal_form_meets`] stops early still counts towards
+    /// the largest read-back `--timings` reports.
+    #[test]
+    fn a_read_back_stopped_early_is_counted() {
+        let g = crate::globals::Kernel::default();
+        let g = g.ev();
+        let boxed = Value::Ctor(DataId(0), 0, Values::from(vec![erase::erased()]));
+        g.machine.budget.take_peaks();
+        let met = normal_form_meets(&g, 0, &boxed, 100, &|m| m == ELIDED).unwrap();
+        assert_eq!(met, Some(Some(ELIDED)));
+        assert!(g.machine.budget.take_peaks().readback > 0);
     }
 
     /// Freeing a stuck computation applied to a stuck computation, a million
