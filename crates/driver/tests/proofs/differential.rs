@@ -112,7 +112,15 @@ static SKIPPED_REPEATS: AtomicUsize = AtomicUsize::new(0);
 /// hypotheses, whose types the shared-nothing reference can't write out
 /// within the budget, by design), and the 37 that remained. So the limit is
 /// the old 60 plus what those examples add, rounded up.
-const MAX_SKIPPED: usize = 95;
+///
+/// SW-4546 added the reference evaluator's depth limit, so four examples
+/// that were left out of the sweep with a skip marker run again and skip
+/// only their too-deep comparisons, counted once each in `--no-capture`'s
+/// list: fin-pattern-numbers.sw 4, long-text-eqeq.sw 4,
+/// refine-keeps-big-call.sw 12 (decreasing.sw compares in full, 0): 20 more.
+/// Each count is from that example's own `STITCHWORT_DIFFERENTIAL_ONLY` run.
+/// So 90 + 20, and 5 of headroom.
+const MAX_SKIPPED: usize = 115;
 
 /// Where a skipped comparison is counted: `std` when it involves only std's
 /// definitions, otherwise the example (or `prelude`) being swept.

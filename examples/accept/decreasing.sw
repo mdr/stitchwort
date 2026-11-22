@@ -12,9 +12,6 @@
 --   halvings: 7
 --   sum of digits: 10
 --
--- differential: skip (the recursive reference evaluator computes every proof
--- strictly, and `Nat.divTenLess` at each step takes minutes; the
--- runtimes erase them. decreasing-folded.sw is compared instead)
 
 import Std (IO, List, Nat)
 
