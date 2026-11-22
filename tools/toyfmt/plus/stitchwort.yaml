@@ -1,3 +1,0 @@
-sources: [src, toy]
-check:
-  open-goals: warn

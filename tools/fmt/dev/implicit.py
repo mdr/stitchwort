@@ -38,9 +38,9 @@ such arguments anyway.  `--name-real` instead rewrites each one in place
 as `[binder := <argument>]`, keeping the argument's text; this is what a
 person does by hand today.  A multi-line argument keeps its layout.
 
-The default roots are tools/fmt/src, tools/toyfmt/src, crates/elab/src/std,
+The default roots are tools/fmt/src, crates/elab/src/std,
 aoc/src, games/rogue/src and examples.  Files are deduplicated by real path
-(the fmt-sketch and toyfmt trees contain symlinks).  With --dry-run a
+(some trees contain symlinks).  With --dry-run a
 unified diff is printed and nothing is written.
 
 Each file is read completely before any edit.  Writes go to a temporary
@@ -56,7 +56,6 @@ from collections import namedtuple
 
 DEFAULT_ROOTS = [
     "tools/fmt/src",
-    "tools/toyfmt/src",
     "crates/elab/src/std",
     "aoc/src",
     "games/rogue/src",

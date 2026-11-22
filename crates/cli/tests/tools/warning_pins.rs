@@ -149,16 +149,6 @@ fn files_within_pins(name: &str, folder: &str, skip: &[&str]) {
 }
 
 #[test]
-fn toyfmt_warnings_stay_within_their_pins() {
-    project_within_pins("toyfmt", "tools/toyfmt");
-}
-
-#[test]
-fn toyfmt_plus_warnings_stay_within_their_pins() {
-    project_within_pins("toyfmt-plus", "tools/toyfmt/plus");
-}
-
-#[test]
 fn rogue_warnings_stay_within_their_pins() {
     project_within_pins("rogue", "games/rogue");
 }

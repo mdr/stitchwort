@@ -1,8 +1,12 @@
 # The toy formatter's engine in Lean 4 (SW-3513)
 
+The toy formatter (`tools/toyfmt`) was deleted on 22 Nov 2026 (D3715); the
+Stitchwort sources this port was measured against are in git history
+before that date, and the `measure.py sw` command below no longer runs.
+
 The measured port that
 [toy-proof-complexity.md §5](../../docs/proposals/toy-proof-complexity.md)
-asks for: the toy's layout engine (`tools/toyfmt/src/Toy/Doc/Doc.sw`,
+asks for: the toy's layout engine (`Toy/Doc/Doc.sw`,
 `Print.sw`) and the live core of its proof ("`print` is a reading" and
 "every reading's words are the document's words") in core Lean 4.35.0,
 without Mathlib, twice: once without a simplifier and once with

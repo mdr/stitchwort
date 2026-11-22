@@ -1,5 +1,0 @@
-fn inArm(k) =
-  let j = k +
-    -- c
-    1
-  j * 2
