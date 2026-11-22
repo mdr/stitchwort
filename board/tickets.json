@@ -32276,7 +32276,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nStarted 22 Nov 11:29 on Opus (D3716, Matt: 'proceed'). Expected: 45 min. Matt approved cold checks of all of tools/fmt on Speedwell, one at a time, nothing heavy beside it.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
