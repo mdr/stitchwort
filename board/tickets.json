@@ -32351,12 +32351,12 @@
     {
       "id": 4613,
       "title": "[Opus] Measure spine copying and Value clones in value::run (allocation is 27-31% of every checking profile) and propose a cheaper spine; kernel evaluator, design note first, Fable review (SW-4608 win 5)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nProgress (22 Nov, Opus paper lane, 16:32-16:38): note docs/proposals/cheaper-values.md, commit 54078d193 on lane/SW-4613. Allocation-related self time 35-41% of the SW-4608 profiles. Correction: the Rc<[Value]> Chain copy is extend (closure environment copy), not spines; spines already grow in place (Spine::push 0.7%). Recommended first step (no change to what is computed): bounded-recursion free for Values/Spine (est. 2-5%) and plain mi_malloc for align <= 16 (est. 0.5-2%), plus counters for env length/uniqueness. Then leaf env built once (2-4%) and an env that grows in place (3-7%), both Fable review. No Matt decision needed.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
