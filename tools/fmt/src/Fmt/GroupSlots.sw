@@ -856,6 +856,16 @@ theorem lexKindOfNameLexes ∀ (name: Word)
     | Inl lower => Inl (lexKindOfLexes name.text Lower lower)
     | Inr upper => Inr (lexKindOfLexes name.text Upper upper)
 
+--| A group's items spell the texts its leaves' tokens do, which the declaration's printed leaves are, and so
+--| `expected`. A lemma over the leaves as a variable, so the rewrites don't read back the declaration's printed
+--| leaves (about a million nodes) to find them.
+theorem textsOfLeaves ∀ (group leaves: List Leaf) (spelt expected: List Text)
+    (same: tokens group = tokens leaves)
+    (left: tokenTexts leaves = spelt.filter notComment)
+    (spells: spelt.filter notComment = expected):
+    (items group).map Item.text = expected :=
+  rewrite itemTexts group, textsOfTokens group leaves same, left then spells
+
 theorem printedSplitParts ∀ (keyword: Comments) (name: Word) (colon colonEq: Comments) (result value: Expr)
     (read: Decl) (group: List Leaf)
     (printed: PrintedGroup (plainDecl keyword name colon colonEq result value) read group):
@@ -888,12 +898,12 @@ theorem printedSplitParts ∀ (keyword: Comments) (name: Word) (colon colonEq: C
   let commented: decl.words.all Fmt.SpellProofs.Word.commented = True := Bool.andRight (Bool.andRight settled)
   let texts: (items group).map Item.text
     = ["def", name.text, ":"] ++ (result.calm False).codeTexts ++ [":=", ..(value.calm False).codeTexts] :=
-    rewrite itemTexts group,
-        textsOfTokens group decl.leaves sameTokens,
-        printedTokens.left,
-        codeTextsCalm result False resultWithin,
-        codeTextsCalm value False valueWithin then
-      declCodeTexts keyword name colon colonEq result value within lexical commented
+    textsOfLeaves group decl.leaves decl.spelt
+      (["def", name.text, ":"] ++ (result.calm False).codeTexts ++ [":=", ..(value.calm False).codeTexts])
+      sameTokens
+      printedTokens.left
+      (rewrite codeTextsCalm result False resultWithin, codeTextsCalm value False valueWithin then
+        declCodeTexts keyword name colon colonEq result value within lexical commented)
   let readWords: read.words
     = [fixedWord "def" calmKeyword, name.kept False False, fixedWord ":" (colon.kept False False)]
       ++ (result.calm False).words
