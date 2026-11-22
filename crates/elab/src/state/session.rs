@@ -275,6 +275,142 @@ impl Session {
     }
 }
 
+/// What [`Session::fresh_mark`] keeps beyond a rewind [`Mark`]: the
+/// counters and logs a rewind leaves, for a host that checks many
+/// programs in one session as if each had a session of its own (the test
+/// sweeps, SW-4624).
+pub(crate) struct FreshMark {
+    standalone_inputs: usize,
+    instance_waits: usize,
+    cache_stats: cache::Stats,
+    assumed: Option<crate::assume::Floor>,
+    blocked: HashMap<stitchwort_core::DefId, Rc<[stitchwort_core::DefId]>>,
+    waiting_names: BTreeMap<String, Rc<[stitchwort_core::DefId]>>,
+    failed_sources: BTreeMap<String, (String, Option<stitchwort_syntax::Span>)>,
+    broken_tests: Vec<crate::BrokenTest>,
+    failed_decls: Vec<crate::FailedDecl>,
+    expansions: Option<usize>,
+    walks: (usize, usize),
+    facts: usize,
+}
+
+impl Session {
+    /// The rest of a fresh session's state, beside a rewind mark: every
+    /// field is named, so a new one doesn't compile until it says whether
+    /// a later program could see it.
+    pub(crate) fn fresh_mark(&self) -> FreshMark {
+        let Session {
+            // Put back by a rewind.
+            project_namespaces: _,
+            project_prefixes: _,
+            project_names: _,
+            project_syntax_errors: _,
+            include_files: _,
+            include_locations: _,
+            library: _,
+            core_link_names: _,
+            namespace_sources: _,
+            namespace_keys: _,
+            failed_namespaces: _,
+            replayed_names: _,
+            library_reach: _,
+            owners: _,
+            paths: _,
+            journal: _,
+            derive_waiting: _,
+            // Only a key of the dot-call memo, which a rewind empties; kept
+            // growing so a stale key can never match.
+            source_epoch: _,
+            // Worked out from the library and the options, the same for
+            // every program.
+            library_interface_digest: _,
+            // Counters only, which nothing decides from; `STITCHWORT_TIMINGS`
+            // adds up every session's when it is dropped.
+            stats: _,
+            standalone_inputs,
+            instance_waits,
+            cache_stats,
+            assumed,
+            blocked,
+            waiting_names,
+            failed_sources,
+            broken_tests,
+            failed_decls,
+            expansions,
+            walks,
+            facts,
+        } = self;
+        FreshMark {
+            standalone_inputs: *standalone_inputs,
+            instance_waits: instance_waits.get(),
+            cache_stats: *cache_stats,
+            assumed: assumed.saved(),
+            blocked: blocked.borrow().clone(),
+            waiting_names: waiting_names.borrow().clone(),
+            failed_sources: failed_sources.clone(),
+            broken_tests: broken_tests.clone(),
+            failed_decls: failed_decls.clone(),
+            expansions: expansions.borrow().as_ref().map(Vec::len),
+            walks: walks.borrow().len(),
+            facts: facts.borrow().len(),
+        }
+    }
+
+    /// Puts back what [`Session::fresh_mark`] kept, after a rewind to the
+    /// mark taken with it. The logs only grow between marks (a host clears
+    /// `broken_tests` and `failed_decls` whole), so the others are cut.
+    pub(crate) fn rewind_fresh(&mut self, mark: &FreshMark) {
+        let Session {
+            project_namespaces: _,
+            project_prefixes: _,
+            project_names: _,
+            project_syntax_errors: _,
+            include_files: _,
+            include_locations: _,
+            library: _,
+            core_link_names: _,
+            namespace_sources: _,
+            namespace_keys: _,
+            failed_namespaces: _,
+            replayed_names: _,
+            library_reach: _,
+            owners: _,
+            paths: _,
+            journal: _,
+            derive_waiting: _,
+            source_epoch: _,
+            library_interface_digest: _,
+            stats: _,
+            standalone_inputs,
+            instance_waits,
+            cache_stats,
+            assumed,
+            blocked,
+            waiting_names,
+            failed_sources,
+            broken_tests,
+            failed_decls,
+            expansions,
+            walks,
+            facts,
+        } = self;
+        *standalone_inputs = mark.standalone_inputs;
+        instance_waits.set(mark.instance_waits);
+        *cache_stats = mark.cache_stats;
+        assumed.restore(mark.assumed);
+        *blocked.get_mut() = mark.blocked.clone();
+        *waiting_names.get_mut() = mark.waiting_names.clone();
+        *failed_sources = mark.failed_sources.clone();
+        *broken_tests = mark.broken_tests.clone();
+        *failed_decls = mark.failed_decls.clone();
+        if let (Some(list), Some(len)) = (expansions.get_mut(), mark.expansions) {
+            list.truncate(len);
+        }
+        walks.get_mut().truncate(mark.walks);
+        facts.get_mut().truncate(mark.facts);
+    }
+}
+
 /// Where [`Session`]'s logged maps' logs are.
 pub(crate) struct Positions {
     include_locations: usize,

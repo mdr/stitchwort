@@ -29,6 +29,16 @@ pub struct Mark {
     elab: stitchwort_elab::Mark,
 }
 
+/// A point to start each of many programs from in one session, as if
+/// each had a new session: [`Session::mark_fresh`]. The test sweeps keep
+/// one session per worker thread, so the core is elaborated once a thread
+/// rather than once an example (docs/proposals/core-cache.md, option D).
+pub struct FreshMark {
+    sources: usize,
+    warnings: usize,
+    elab: stitchwort_elab::FreshMark,
+}
+
 /// A check stopped because the session's cancellation flag was set. What it
 /// had found is gone: it is never a diagnostic, and never cached.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -56,6 +66,41 @@ impl Session {
         self.sources.truncate(mark.sources);
         self.warnings.truncate(mark.warnings);
         self.elab.rewind(&mark.elab);
+    }
+
+    /// Where the session is now, to [`Session::rewind_fresh`] to before
+    /// each program. Only between loads. Its fields are named, so a new
+    /// one doesn't compile until it says how it is put back.
+    pub fn mark_fresh(&mut self) -> FreshMark {
+        let Session {
+            sources,
+            elab,
+            warnings,
+        } = self;
+        FreshMark {
+            sources: sources.len(),
+            warnings: warnings.len(),
+            elab: elab.mark_fresh(),
+        }
+    }
+
+    /// [`Session::rewind`] to `mark`, with the counters and logs a rewind
+    /// leaves put back too (`Elaborator::rewind_fresh`): the next program
+    /// reports what it would in a new session. Not after a panic, which
+    /// may leave a check half done: make a new session then.
+    pub fn rewind_fresh(&mut self, mark: &FreshMark) {
+        let Session {
+            sources,
+            elab,
+            warnings,
+        } = self;
+        assert!(
+            mark.sources <= sources.len(),
+            "a mark from after the point the session was rewound to"
+        );
+        sources.truncate(mark.sources);
+        warnings.truncate(mark.warnings);
+        elab.rewind_fresh(&mark.elab);
     }
 
     /// Lets go of `mark`, the newest mark still open: what was done since

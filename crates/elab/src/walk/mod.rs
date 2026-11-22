@@ -115,6 +115,22 @@ pub(crate) struct Walks {
     nesting: Vec<leaf::Nested>,
 }
 
+impl Walks {
+    /// How many calls and places are recorded, for [`Walks::truncate`].
+    pub(crate) fn len(&self) -> (usize, usize) {
+        (self.calls.len(), self.nodes.len())
+    }
+
+    /// Forgets what was recorded after [`Walks::len`] said `len`: both
+    /// lists only grow, and a place names its call by index, which stays
+    /// below the calls kept. Only between loads, when nothing is nested.
+    pub(crate) fn truncate(&mut self, (calls, nodes): (usize, usize)) {
+        debug_assert!(self.nesting.is_empty(), "walks truncated mid-walk");
+        self.calls.truncate(calls);
+        self.nodes.truncate(nodes);
+    }
+}
+
 struct CallInfo {
     keyword: Span,
     span: Span,

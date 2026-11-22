@@ -23,7 +23,8 @@ use std::path::{Path, PathBuf};
 use crate::common;
 
 use stitchwort_cli::driver::{
-    Cache, Outcome, Session, Tier, daily_tier_sample, daily_tier_sample_at, par_map_labelled, tier,
+    Cache, Outcome, Session, Tier, daily_tier_sample, daily_tier_sample_at, par_map_labelled,
+    par_map_sessions, tier,
 };
 use stitchwort_cli::project::{DiskFiles, Target};
 use stitchwort_cli::render::{render, with_repeated_generic_notes_cut};
@@ -242,12 +243,16 @@ fn untimed(mut session: Session) -> Session {
     session
 }
 
-/// Checks one example: its sources, and whether it loaded. A panic says
-/// which example led there when the sweep re-raises it ([`par_map_labelled`]).
-fn check(example: &Example) -> (SourceMap, Result<(), Vec<Diagnostic>>) {
-    let mut session = untimed(Session::for_stack(STACK));
-    let result = session.load(&example.name, &example.text).map(|_| ());
-    (session.sources, result)
+/// A session for checking examples in: [`untimed`], with `stack`.
+fn example_session(stack: usize) -> Session {
+    untimed(Session::for_stack(stack))
+}
+
+/// Checks one example in `session`, rewound as new ([`par_map_sessions`]):
+/// whether it loaded. A panic says which example led there when the sweep
+/// re-raises it.
+fn check(session: &mut Session, example: &Example) -> Result<(), Vec<Diagnostic>> {
+    session.load(&example.name, &example.text).map(|_| ())
 }
 
 /// The command line's text output for one run: a generic note is printed in
@@ -277,10 +282,11 @@ fn accepted_examples_check() {
         .into_iter()
         .chain(examples("extract"))
         .collect();
-    let results = par_map_labelled(
+    let results = par_map_sessions(
         STACK,
         &all,
         |example| example.name.clone(),
+        example_session,
         accepted_example,
     );
     let mut failures = Vec::new();
@@ -299,9 +305,8 @@ fn accepted_examples_check() {
 
 /// The failures (if any) of one accepted example, rendered, and its rendered
 /// warnings if it declares one.
-fn accepted_example(example: &Example) -> (Vec<String>, Option<String>) {
+fn accepted_example(session: &mut Session, example: &Example) -> (Vec<String>, Option<String>) {
     let mut failures = Vec::new();
-    let mut session = untimed(Session::for_stack(STACK));
     let expected_metrics = example.expected_metrics();
     if !expected_metrics.is_empty() {
         stitchwort_elab::metrics::start_collecting();
@@ -462,18 +467,18 @@ fn goal_examples_report_their_goals() {
     if !filtering() {
         assert!(!all.is_empty());
     }
-    par_map_labelled(
+    par_map_sessions(
         STACK,
         &all,
         |example| example.name.clone(),
-        |example| {
-            let mut session = untimed(Session::for_stack(STACK));
-            let loaded = session.load(&example.name, &example.text).map(|_| ());
+        example_session,
+        |session, example| {
+            let loaded = check(session, example);
             let output = assert_goals(
                 &example.name,
                 example.expected_error(),
                 example.expected_test_failure(),
-                &mut session,
+                session,
                 loaded,
             );
             insta::assert_snapshot!(snapshot_name(example), output);
@@ -508,31 +513,33 @@ fn goal_projects_report_their_goals() {
 
 #[test]
 fn rejected_examples_fail_for_the_expected_reason() {
-    par_map_labelled(
+    par_map_sessions(
         STACK,
         &examples("reject"),
         |example| example.name.clone(),
-        |example| assert_rejected_with(example, true),
+        example_session,
+        |session, example| assert_rejected_with(session, example, true),
     );
 }
 
 #[test]
 fn soundness_examples_fail_for_the_expected_reason() {
-    par_map_labelled(
+    par_map_sessions(
         STACK,
         &examples("soundness"),
         |example| example.name.clone(),
-        |example| {
+        example_session,
+        |session, example| {
             if example.text.starts_with(KNOWN_GAP) {
-                if let (sources, Err(diagnostics)) = check(example) {
+                if let Err(diagnostics) = check(session, example) {
                     panic!(
                         "{} is marked `{KNOWN_GAP}` but is now rejected. Remove the marker!\n\n{}",
                         example.name,
-                        rendered(&sources, &diagnostics)
+                        rendered(&session.sources, &diagnostics)
                     );
                 }
             } else {
-                assert_rejected(example);
+                assert_rejected(session, example);
             }
         },
     );
@@ -839,24 +846,24 @@ fn paste_listed_arms(example: &Example) -> Vec<usize> {
     panic!("{}: still not exhaustive after pasting", example.name);
 }
 
-fn assert_rejected(example: &Example) {
-    assert_rejected_with(example, false);
+fn assert_rejected(session: &mut Session, example: &Example) {
+    assert_rejected_with(session, example, false);
 }
 
 /// [`assert_rejected`]; with `names_checked`, the output may not show a
 /// compiler-made name ([`assert_no_compiler_names`]). The `reject/` folder
 /// is checked; `soundness/` is not yet.
-fn assert_rejected_with(example: &Example, names_checked: bool) {
+fn assert_rejected_with(session: &mut Session, example: &Example, names_checked: bool) {
     let Some(expected) = example.expected_error() else {
         panic!(
             "{} must declare the error it expects, e.g. `{EXPECT_ERROR} E-POSITIVITY`",
             example.name
         );
     };
-    match check(example) {
-        (_, Ok(())) => panic!("{} should be rejected but checks", example.name),
-        (sources, Err(diagnostics)) => {
-            let output = rendered(&sources, &diagnostics);
+    match check(session, example) {
+        Ok(()) => panic!("{} should be rejected but checks", example.name),
+        Err(diagnostics) => {
+            let output = rendered(&session.sources, &diagnostics);
             assert!(
                 diagnostics.iter().any(|d| d.code == expected),
                 "{} was rejected, but not with {expected}:\n\n{output}",
@@ -869,4 +876,83 @@ fn assert_rejected_with(example: &Example, names_checked: bool) {
             insta::assert_snapshot!(snapshot_name(example), output);
         }
     }
+}
+
+/// Examples of every kind, some with warnings, tests, open goals, failed
+/// declarations and the library files they load, for
+/// [`a_rewound_session_reports_what_a_new_one_does`].
+const REWIND_SAMPLE: &[&str] = &[
+    "accept/abilities.sw",
+    "accept/abbreviation-meets-call.sw",
+    "accept/arrow-forall-warning.sw",
+    "accept/as-written-unconfirmed.sw",
+    "accept/facts-long-test.sw",
+    "goals/arm-as-written-error.sw",
+    "goals/test-hole.sw",
+    "reject/attribute-on-test.sw",
+    "reject/decidable-not-instance.sw",
+    "reject/derive-field-instance-failed.sw",
+    "reject/derive-field-instance-deceq.sw",
+    "soundness/absurd-without-proof.sw",
+    "soundness/alternating-growth.sw",
+];
+
+/// Everything checking `example` in `session` reports: whether it loaded,
+/// its rendered errors or warnings and goals, and its tests' outcomes. Not
+/// its step count: what the memo tables keep about the core across a
+/// rewind only saves work, so a rewound session may take a few percent
+/// fewer steps.
+fn everything_reported(session: &mut Session, example: &Example) -> String {
+    let loaded = check(session, example);
+    let ok = loaded.is_ok();
+    let (_, diagnostics) = reported(session, loaded);
+    let mut out = format!(
+        "{} loaded {ok}\n{}",
+        example.name,
+        rendered(&session.sources, &diagnostics)
+    );
+    if ok {
+        let results = session.run_tests(&Cache::disabled());
+        for result in session.with_broken_tests(results, |_| true) {
+            out.push_str(&format!(
+                "test {} {:?} {:?}\n",
+                result.name, result.outcome, result.detail
+            ));
+        }
+    }
+    out
+}
+
+/// The sweeps check each example in a session rewound to just after it was
+/// made ([`par_map_sessions`]): that must report exactly what a new session
+/// does, whichever examples the session checked before (SW-4624). The
+/// sample, forwards and backwards through one session, against a new
+/// session each.
+#[test]
+fn a_rewound_session_reports_what_a_new_one_does() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples");
+    let sample: Vec<Example> = (REWIND_SAMPLE.iter())
+        .map(|name| Example {
+            name: name.to_string(),
+            text: std::fs::read_to_string(root.join(name)).expect("a sample example"),
+        })
+        .collect();
+    stitchwort_cli::driver::with_stack(STACK, || {
+        let fresh: Vec<String> = (sample.iter())
+            .map(|example| everything_reported(&mut example_session(STACK), example))
+            .collect();
+        let mut session = example_session(STACK);
+        let mark = session.mark_fresh();
+        let mut rewound = |example: &Example| {
+            session.rewind_fresh(&mark);
+            everything_reported(&mut session, example)
+        };
+        let forwards: Vec<String> = sample.iter().map(&mut rewound).collect();
+        let mut backwards: Vec<String> = sample.iter().rev().map(&mut rewound).collect();
+        backwards.reverse();
+        for ((new, forwards), backwards) in fresh.iter().zip(&forwards).zip(&backwards) {
+            assert_eq!(forwards, new, "checked first to last in one session");
+            assert_eq!(backwards, new, "checked last to first in one session");
+        }
+    });
 }

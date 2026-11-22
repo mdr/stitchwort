@@ -73,6 +73,7 @@ pub struct Mark {
     scope: scope::Mark,
     caches: crate::state::CachesMark,
     present: crate::state::PresentationMark,
+    library_warnings: usize,
 }
 
 impl Mark {
@@ -104,6 +105,7 @@ impl Elaborator {
             scope: self.scope.mark(),
             caches: self.caches.mark(),
             present: self.present.mark(),
+            library_warnings: self.library_warnings.len(),
         }
     }
 
@@ -125,8 +127,10 @@ impl Elaborator {
             caches,
             goals,
             present,
-            // The library's files stay loaded, and their warnings with them.
-            library_warnings: _,
+            // The library files loaded since are forgotten with the rest
+            // (`state::Session::rewind` puts back their load states), so
+            // their warnings go too.
+            library_warnings,
         } = self;
         let (journal, session_logs) = session.logged();
         journal.rewind(
@@ -149,6 +153,82 @@ impl Elaborator {
         caches.rewind(&mark.caches, defs);
         *goals.get_mut() = Default::default();
         present.rewind(&mark.present);
+        library_warnings.truncate(mark.library_warnings);
+    }
+}
+
+/// A point to start each of many programs from, as if each had a session
+/// of its own ([`Elaborator::mark_fresh`]): a rewind [`Mark`], and the
+/// counters and logs a rewind leaves (`state::Session::fresh_mark`). For
+/// the test sweeps, which would otherwise elaborate the core again for
+/// every example (docs/proposals/core-cache.md, option D).
+pub struct FreshMark {
+    mark: Mark,
+    session: crate::state::SessionFreshMark,
+    /// `Options::cache_key`: no program may change the settings that
+    /// change what checking gives, as a later one would inherit them.
+    options: String,
+}
+
+impl Elaborator {
+    /// Where the elaborator is now, to [`Elaborator::rewind_fresh`] to
+    /// before each program. Only between loads. Every field is named, so a
+    /// new one doesn't compile until it says what a fresh rewind does with
+    /// it beyond [`Elaborator::rewind`].
+    pub fn mark_fresh(&mut self) -> FreshMark {
+        let mark = self.mark();
+        let Elaborator {
+            // Put back by a rewind, except what only saves work: the memo
+            // tables of the declarations kept (`state::Caches`, the
+            // kernel's `EvalCaches`), which give the same results whether
+            // full or empty. A program may so take fewer steps than in a
+            // new session, never report anything different.
+            kernel: _,
+            caches: _,
+            tables: _,
+            scope: _,
+            attempt: _,
+            decl: _,
+            unit: _,
+            goals: _,
+            present: _,
+            options,
+            session,
+            // Cut by a rewind.
+            library_warnings: _,
+        } = self;
+        FreshMark {
+            mark,
+            session: session.fresh_mark(),
+            options: options.cache_key(),
+        }
+    }
+
+    /// [`Elaborator::rewind`] to `mark`, and the counters and logs a rewind
+    /// leaves put back too, so the next program reports what it would in a
+    /// new session. Panics if the settings changed since the mark.
+    pub fn rewind_fresh(&mut self, mark: &FreshMark) {
+        self.rewind(&mark.mark);
+        let Elaborator {
+            kernel: _,
+            caches: _,
+            tables: _,
+            scope: _,
+            attempt: _,
+            decl: _,
+            unit: _,
+            goals: _,
+            present: _,
+            options,
+            session,
+            library_warnings: _,
+        } = self;
+        session.rewind_fresh(&mark.session);
+        assert_eq!(
+            options.cache_key(),
+            mark.options,
+            "a program changed the session's options"
+        );
     }
 }
 
