@@ -82,6 +82,13 @@ pub struct Pattern {
     /// The definitions the pattern names: in the filtered pass, a candidate
     /// must name each.
     pub constants: BTreeSet<DefId>,
+    /// The definitions it names as written, a subset of `constants` or not:
+    /// with holes in it the pattern's value computes (`2 * ?j` is `?j + ?j`)
+    /// and can't be folded back, so `constants` may name definitions
+    /// (`Nat.add`) that a candidate stating the same thing, whose type was
+    /// folded without holes, doesn't. In the filtered pass, a candidate
+    /// naming either set passes. `None` where the pattern wasn't written.
+    pub written: Option<BTreeSet<DefId>>,
     /// The data types it names (D2054): likewise.
     pub data: BTreeSet<usize>,
     pub head: HeadKey,
@@ -904,9 +911,15 @@ fn relation_of(absorbed: usize, decisive: usize) -> Relation {
 }
 
 /// Whether the filter lets a candidate whose type names `index` through for
-/// `pattern`: it names every definition and data type the pattern names.
+/// `pattern`: it names every definition (as computed or as written, see
+/// [`Pattern::written`]) and data type the pattern names.
 pub fn passes(pattern: &Pattern, index: &Index) -> bool {
-    pattern.constants.is_subset(&index.ty) && pattern.data.is_subset(&index.data)
+    (pattern.constants.is_subset(&index.ty)
+        || pattern
+            .written
+            .as_ref()
+            .is_some_and(|w| w.is_subset(&index.ty)))
+        && pattern.data.is_subset(&index.data)
 }
 
 /// Whether a candidate whose type names `index` names a definition
@@ -1024,6 +1037,7 @@ impl Elaborator {
                 Pattern {
                     head: head_key(&zonked),
                     constants: constants(&zonked),
+                    written: Some(constants(&term)),
                     data: data_types(&zonked),
                     size: size(&zonked),
                     value,
@@ -1177,21 +1191,21 @@ impl Elaborator {
                 env.push(eval(g, &[], &Term::Meta(m))?);
                 t = cod.strip_loc();
             }
-            let (value, ty) = match (side, t) {
-                (Side::Conclusion, _) => (eval(g, &env, t)?, Some(Ty::Type)),
+            let (value, ty, written) = match (side, t) {
+                (Side::Conclusion, _) => (eval(g, &env, t)?, Some(Ty::Type), t),
                 (Side::Left, Term::Eq(ty, left, _)) => {
                     let ty = match ty {
                         Some(ty) => Some(Ty::of(g, eval(g, &env, ty)?)?),
                         None => type_of_target(g, &env, left)?,
                     };
-                    (eval(g, &env, left)?, ty)
+                    (eval(g, &env, left)?, ty, &**left)
                 }
                 (Side::Left, Term::Data(d, args)) if Some(*d) == iff && args.len() == 2 => {
-                    (eval(g, &env, &args[0])?, Some(Ty::Type))
+                    (eval(g, &env, &args[0])?, Some(Ty::Type), args[0].as_ref())
                 }
                 _ => return Ok(None),
             };
-            self.finish_pattern(value, ty)
+            self.finish_pattern(value, ty, Some(written))
         })();
         g.machine.glue.set(was);
         made.ok().flatten()
@@ -1255,15 +1269,26 @@ impl Elaborator {
             if matches!(ty, Value::Pi(..)) {
                 return Ok(None);
             }
-            self.finish_pattern(ty, Some(Ty::Type))
+            self.finish_pattern(ty, Some(Ty::Type), None)
         })();
         g.machine.glue.set(was);
         made.ok().flatten()
     }
 
     /// A pattern of `value`, whose unknowns are all holes, each a different
-    /// variable; `None` if it is one.
-    fn finish_pattern(&self, value: Value, ty: Option<Ty>) -> Res<Option<Pattern>> {
+    /// variable; `None` if it is one. `written` is the term it was
+    /// evaluated from, if there is one: the definitions the pattern names
+    /// are then only those it names as written too. With holes in it, the
+    /// value computes (`2 * ?j` is `?j + ?j`) and can't be folded back, so
+    /// it names definitions (`Nat.add`) that a candidate stating the same
+    /// thing, whose type was folded without holes, doesn't, and the filter
+    /// would drop it.
+    fn finish_pattern(
+        &self,
+        value: Value,
+        ty: Option<Ty>,
+        written: Option<&Term>,
+    ) -> Res<Option<Pattern>> {
         let g = &self.ev();
         if let Value::Neutral(Head::Meta(_), s) = force(g, value.clone())?
             && s.is_empty()
@@ -1275,6 +1300,7 @@ impl Elaborator {
         Ok(Some(Pattern {
             head: head_key(&quoted),
             constants: constants(&quoted),
+            written: written.map(constants),
             data: data_types(&quoted),
             size: size(&quoted),
             value,
