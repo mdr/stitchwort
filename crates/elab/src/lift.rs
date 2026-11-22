@@ -1231,6 +1231,20 @@ impl Elaborator {
                     }
                 }
             }
+            // A solution can hold the value as elaborated: an annotated
+            // lambda, whose read-backs `worth_folding` doesn't fold
+            // (`zonk_let` does the same). The annotation fixes its type as
+            // the `let`'s.
+            if let Some(def) = &draft.lets[l]
+                && matches!(def.value.strip_loc(), Term::Ann(..))
+                && let Ok(value) = self.zonk_keeping(&def.value, l, &|_| false)
+                && let value @ Term::Ann(..) = value.strip_loc().clone()
+                && !(around.iter()).any(|(slot, scope, n)| {
+                    *slot == l && *scope == l && stitchwort_core::value::same_term(n, &value)
+                })
+            {
+                around.push((l, l, Rc::new(value)));
+            }
         }
         *done = (*done).max(upto);
         around

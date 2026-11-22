@@ -71,6 +71,35 @@ fn mentions(source: &str, name: &str) -> Vec<String> {
     })
 }
 
+/// [`mentions`] of `name`'s body and of the helpers lifted out of it
+/// (`name.go`, `name.match1`), each helper's name written without `name`.
+fn mentions_with_helpers(source: &str, name: &str) -> Vec<(String, Vec<String>)> {
+    let name = name.to_string();
+    checked(source, move |loaded| {
+        let session = loaded.unwrap_or_else(|e| panic!("{e:#?}"));
+        let g = &session.elab.ev();
+        let mut out = Vec::new();
+        let mut todo = vec![session.elab.lookup_def(&name).expect("defined")];
+        let mut done = Vec::new();
+        while let Some(id) = todo.pop() {
+            done.push(id);
+            let mut seen = Vec::new();
+            for (t, _) in g.def(id).body().expect("a body").subterms() {
+                if let stitchwort_core::Term::Def(d) = t {
+                    let called = g.def(*d).name().to_string();
+                    if called.starts_with(&format!("{name}.")) && !done.contains(d) {
+                        todo.push(*d);
+                    }
+                    seen.push(called.replacen(&name, "_", 1));
+                }
+            }
+            out.push((g.def(id).name().replacen(&name, "_", 1), seen));
+        }
+        out.sort();
+        out
+    })
+}
+
 /// The text the first error's first label points at.
 fn pointed_at<'a>(source: &'a str, errors: &[Diagnostic]) -> &'a str {
     let span = errors[0].labels[0].span;
@@ -399,4 +428,40 @@ def proof: Unit := (let x := (((ys: List Nat) => (zs: List Nat) => (p: Cons 2 ys
     let errors = load(source).expect_err("rejected");
     assert_eq!(errors[0].code, "E-TYPE-MISMATCH", "{errors:#?}");
     assert_eq!(pointed_at(source, &errors), "Cons 2 ys = Cons 2 zs");
+}
+
+/// A `let` whose value is a lambda with its parameter's type found later
+/// elaborates to the same term as with the parameter annotated, in a
+/// `match` arm and in a local function too (SW-4573).
+#[test]
+fn a_lifted_let_lambda_folds_like_the_annotated_one() {
+    let shapes = [
+        (
+            "match arm",
+            "def {n} (b: Box) (m: Nat): Bool :=\n  match m with\n    | Zero => False\n    | Succ k =>\n      let check := {lam}\n      check b\n",
+        ),
+        (
+            "local function",
+            "def {n} (b: Box) (m: Nat): Bool :=\n  def go: Nat → Bool\n    | Zero => False\n    | Succ k =>\n      let check := {lam}\n      check b\n  go m\n",
+        ),
+        (
+            "let outside a local function",
+            "def {n} (b: Box) (m: Nat): Bool :=\n  let check := {lam}\n  def go: Nat → Bool\n    | Zero => False\n    | Succ k => check b\n  go m\n",
+        ),
+        (
+            "two lets outside a match",
+            "def {n} (b: Box) (m: Nat): Bool :=\n  let check := {lam}\n  let x := check b\n  match m with\n    | Zero => x\n    | Succ k => check b\n",
+        ),
+    ];
+    for (shape, template) in shapes {
+        let def = |name: &str, lam: &str| template.replace("{n}", name).replace("{lam}", lam);
+        let source = format!(
+            "import Std (Bool, List, Nat)\n\ntype Box = {{ items: List Nat }}\n\n{}\n{}",
+            def("later", "r => 3 ∈ r.items"),
+            def("annotated", "(r: Box) => 3 ∈ r.items"),
+        );
+        let later = mentions_with_helpers(&source, "later");
+        let annotated = mentions_with_helpers(&source, "annotated");
+        assert_eq!(later, annotated, "{shape}");
+    }
 }
