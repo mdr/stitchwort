@@ -1740,12 +1740,12 @@ impl Elaborator {
         }
         let printed = self.printed_matches(&d);
         // A helper is reworded only if its name is in the text (every
-        // lifted name contains `%match`) or the printer showed its call:
+        // lifted name contains `%`: `f.%match1`, `f.%plain`) or the printer showed its call:
         // most diagnostics have neither, so skip walking every helper
         // lifted so far in the run.
-        let names_one = d.message.contains("%match")
-            || d.labels.iter().any(|l| l.message.contains("%match"))
-            || d.notes.iter().any(|n| n.contains("%match"));
+        let names_one = d.message.contains("%")
+            || d.labels.iter().any(|l| l.message.contains("%"))
+            || d.notes.iter().any(|n| n.contains("%"));
         if !names_one && printed.is_empty() {
             return self.explain_tuple_match(d);
         }
