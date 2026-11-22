@@ -48,15 +48,19 @@ def strip_comments(text):
 
 
 def read_project(src):
+    """The project's namespaces and their texts: `src` is a source folder or
+    a list of them (a project may name several in `stitchwort.yaml`)."""
+    dirs = [src] if isinstance(src, (str, bytes, os.PathLike)) else list(src)
     files = {}  # namespace -> list of texts
-    for root, _, names in os.walk(src):
-        for n in sorted(names):
-            if not n.endswith(".sw"):
-                continue
-            text = open(os.path.join(root, n), encoding="utf-8").read()
-            m = NS_RE.search(text)
-            if m:
-                files.setdefault(m.group(1), []).append(strip_comments(text))
+    for src_dir in dirs:
+        for root, _, names in os.walk(src_dir):
+            for n in sorted(names):
+                if not n.endswith(".sw"):
+                    continue
+                text = open(os.path.join(root, n), encoding="utf-8").read()
+                m = NS_RE.search(text)
+                if m:
+                    files.setdefault(m.group(1), []).append(strip_comments(text))
     return files
 
 
@@ -103,6 +107,18 @@ def edges(files):
         found.discard(ns)
         uses[ns] = found
     return uses
+
+
+def graph(src):
+    """The graph a project's sources give: `(uses, order, users)`.
+
+    `uses[n]` is the set of project namespaces `n` uses, `order` is a
+    topological order (ties by name, as `canonical_order`) and
+    `users[t]` lists the namespaces that use `t`. `src` is a source folder
+    or a list of them."""
+    uses = edges(read_project(src))
+    order, users = topo(uses)
+    return uses, order, users
 
 
 def topo(uses):
@@ -176,9 +192,7 @@ def schedule(uses, users, w, workers):
 
 def main():
     src = sys.argv[1]
-    files = read_project(src)
-    uses = edges(files)
-    order, users = topo(uses)
+    uses, order, users = graph(src)
     depth, width = depth_width(uses, order)
     n_edges = sum(len(u) for u in uses.values())
     print("namespaces %d, edges %d, depth %d, widest level %d" % (len(uses), n_edges, depth, width))
