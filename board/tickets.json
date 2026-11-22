@@ -32419,12 +32419,12 @@
     {
       "id": 4618,
       "title": "[Opus] Remember read-backs within a declaration and reuse them across callers (case refinement, matching::blocker, rewrite kernel_context, lifted_type): standsEachFile did 68 read-backs of ~1.1M nodes from five callers; key by value, depth and mode, forget on a solved unknown; terms unchanged; measure that the types really repeat first (SW-4611 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "\n\nStarted 22 Nov on Opus (orchestrator's call, proof-checking speed). Expected: 45 min.\n",
+      "body": "\n\nStarted 22 Nov on Opus (orchestrator's call, proof-checking speed). Expected: 45 min.\n\n\nClosed 22 Nov, not merged (orchestrator's call): on main after SW-4619 the memo saves 0.58% of steps and no CPU over a cold tools/fmt check (measured), and it adds state to crates/core's evaluator. Its code is kept at tag record/SW-4618-readback-memo; the result is in docs/performance/log.md. Reuse at a deeper level (shifted indices) not pursued.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
