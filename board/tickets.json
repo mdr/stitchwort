@@ -1,5 +1,5 @@
 {
-  "next": 4592,
+  "next": 4595,
   "tickets": [
     {
       "id": 47,
@@ -31972,12 +31972,12 @@
     {
       "id": 4587,
       "title": "[Sonnet] Bench examples sweep (bench/baseline.toml, 22 Nov re-record, SW-4569): 1,993 files against 1,625 (1.23x) but 16.5G steps against 8.4G (1.96x) and peak heap 1.16 GB against 0.28 GB (4.1x). Measure per-example steps and peak with stitchwort-bench's examples case (or check --timings over the corpus), find which examples account for the growth (the 13 large-hypothesis-* are suspects) and whether any older example got slower; report a table, fix any accident, add a performance-log entry",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Model result: Sonnet, worked (per-file bench parts at both commits; one accident bisected), 55 min (est. 45)\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": [
@@ -32031,6 +32031,45 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4592,
+      "title": "[Sonnet] Accident from SW-3325 (6d960d350, 'display only'): arm_display::enter_family_split calls same() on every context variable at each indexed-family split, quoting both values folded; examples/accept/fin-table-deep.sw went 23.1M to 77.8M steps (Main.code 55.4M, 5.6M with solved emptied). Compute solved lazily, only when an error or hole prints an arm's goal; keep goal snapshots unchanged (run the goal and reject example kinds by name); performance-log entry",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4593,
+      "title": "[Opus] Every file that imports Std.Parse pays about 80-100M steps checking Parse's lemmas on import (SW-4587: 43 new examples cost 3.58G between them). Measure where the steps go for one such example (e.g. a reads-* or walk-* example), and propose (note first) how to avoid re-checking library lemmas per program: check cache for std in the bench and examples, or on-demand checking; performance-log entry",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4594,
+      "title": "[Sonnet] Explain two growths SW-4587 left: examples/accept/float-playlist.sw peak 75 to 428 MB (steps 34M to 111M, Std.Float growth explains steps, not the peak), and reject/rewrite-solution-too-large / rewrite-value-too-large's Main.big at 16.2M steps with a 2,000,001-node read-back (SW-4091 a candidate); find the commits, accident or deliberate, fix small accidents with a test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
