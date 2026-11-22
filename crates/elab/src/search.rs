@@ -1303,14 +1303,22 @@ impl Elaborator {
             // The statement as written: the lemma's conclusion and the
             // arguments given, which may hold the holes.
             let mut stated = def.ty().strip_loc();
+            let mut peeled = 0;
             for _ in args {
                 if let Term::Pi(_, _, _, cod) = stated {
                     stated = cod.strip_loc();
+                    peeled += 1;
                 }
             }
+            // Only the arguments the conclusion mentions are in the goal, as
+            // they would be in a query written for it: a proof given for a
+            // premise names lemmas no candidate's type does. Where the
+            // type isn't syntactically a function type that far, all count.
             let mut written = constants(stated);
-            for arg in args {
-                written.extend(constants(arg));
+            for (i, arg) in args.iter().enumerate() {
+                if peeled < args.len() || stated.mentions(args.len() - 1 - i) {
+                    written.extend(constants(arg));
+                }
             }
             self.finish_pattern(ty, Some(Ty::Type), Some(written))
         })();
