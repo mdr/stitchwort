@@ -32763,12 +32763,12 @@
     {
       "id": 4641,
       "title": "[Opus] Cheaper values step 1 (docs/proposals/cheaper-values.md): free environments, constructor fields and spines by bounded recursion (to 128 levels, then the iterative free) as Shared and DataArgs already do; route allocations aligned to 16 bytes or less through plain mi_malloc; add counters for environment length at extend and how often an environment is unshared; measure (steps identical, >= 2% user time or instructions); no change to what the evaluator computes",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nProgress (lane, 22 Nov 17:20): done in three commits plus a performance-log entry. Bounded free for Values and Spine (-7.85% instructions on a cold tools/fmt check), stitchwort-alloc with plain mi_malloc for align <= 16 (a further -4.2%), STITCHWORT_ENV_METRICS counters (cost in the noise). Final: 1,256.9G instructions against 1,430.4G (-12.1%), 128.6 s user against 140.0 (-8.2%), max RSS -1.4%. Steps: the unchanged base varies run to run in 15-20 Syntax.Follows* declarations (1,890,479,178 vs 1,890,481,815); the changed binaries differ only there (final 1,890,472,819). Env metrics: 43.2M extensions, 44.7% unshared, 71% of length <= 8, mean ~9.4. mimalloc v2: +2.45% instructions, peak footprint -34%; not adopted. Tests: 6 freeing_a_deep_* (also at NESTING_LIMIT 512), core reference tests (12), driver differential (4), env_metrics unit test; clippy, fmt, test-alloc-check clean.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
