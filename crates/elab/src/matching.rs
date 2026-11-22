@@ -897,19 +897,25 @@ pub(crate) fn refined_guard(
             alias: None,
             on_path: true,
         }];
-        let mut too_large = None;
-        if blocker(cx, &exprs, goal, base, None, &mut too_large)?.is_some() || too_large.is_some() {
+        let mut read = Read::default();
+        if blocker(cx, &exprs, goal, base, None, &mut read)?.is_some() || read.too_large.is_some() {
             return Ok(None);
         }
         let mut type_terms = Vec::with_capacity(base);
         for l in 0..base {
-            match read_type(cx, base, l)? {
+            match read.types[l]
+                .take()
+                .map_or_else(|| read_type(cx, base, l), |t| Ok((t, false)))?
+            {
                 (ty, false) => type_terms.push(ty),
                 // Read as written: the occurrence test can't be trusted.
                 (_, true) => return Ok(None),
             }
         }
-        let goal_term = quote_internal(&g, base, goal)?;
+        let goal_term = match read.goal.take() {
+            Some(goal_term) => goal_term,
+            None => quote_internal(&g, base, goal)?,
+        };
         let occurrences = [Some(&normal)];
         let mut copied: Vec<usize> = Vec::new();
         loop {
@@ -1210,9 +1216,9 @@ fn generalised(
     base: usize,
     skip: Option<Skip>,
 ) -> Result<Term> {
-    let mut too_large = None;
+    let mut read = Read::default();
     if skip.is_none()
-        && let Some(m) = blocker(cx, &exprs, goal, base, None, &mut too_large)
+        && let Some(m) = blocker(cx, &exprs, goal, base, None, &mut read)
             .map_err(|e| ran_out_at(e, span, "while generalising this `match`"))?
     {
         crate::queue::note_match_waited(cx.e);
@@ -1236,7 +1242,7 @@ fn generalised(
         return crate::queue::queue(cx, Rc::new(check), crate::queue::on(m), goal.clone(), error);
     }
     generalised_now(
-        cx, columns, exprs, alts, absurd, span, kind, goal, base, skip, too_large,
+        cx, columns, exprs, alts, absurd, span, kind, goal, base, skip, read,
     )
 }
 
@@ -1250,6 +1256,21 @@ fn generalised(
 /// (`W-MATCH-UNCONFIRMED`, [`generalised_now`]).
 fn read_type(cx: &Ctx, base: usize, l: usize) -> std::result::Result<(Term, bool), ResourceError> {
     crate::check::quote_or_written(&cx.g(), base, &cx.types[l])
+}
+
+/// What [`blocker`] read, for the generalisation after it: the variables'
+/// types and the goal it read back unfolded (`None` where it didn't, or
+/// had to read as written), so that they aren't read back again (SW-4600:
+/// a hypothesis `sb: (x + c).bits = Float.Model.roundRatio num 1 (-1074) z`
+/// unfolds to 884,024 nodes, read twice for each `match` in its scope), and
+/// what it found too large to read back.
+#[derive(Default)]
+struct Read {
+    types: Vec<Option<Term>>,
+    goal: Option<Term>,
+    /// The goal's error where it was too large to read back unfolded: the
+    /// generalisation would run out the same way.
+    too_large: Option<Diagnostic>,
 }
 
 /// The unknown a generalisation in context `base` would read unsolved, if
@@ -1275,7 +1296,7 @@ fn blocker(
     goal: &Value,
     base: usize,
     own: Option<usize>,
-    too_large: &mut Option<Diagnostic>,
+    out: &mut Read,
 ) -> Result<Option<usize>> {
     let g = cx.g();
     let unsolved = |m: usize| g.meta_solution(m).is_none() && !cx.metas().meta_frozen(m);
@@ -1293,12 +1314,14 @@ fn blocker(
     // definition's body is closed. (Not the folded one, which still computes
     // a call that steps at once: `grow 30 (Leaf x)` in a hypothesis, SW-4091.) One missed (in a helper not lifted yet) can only make
     // the motive check, or the kernel, reject the result. The error is
-    // passed on in `too_large`, so that the generalisation doesn't read the
-    // same value back again only to run out again.
+    // passed on in `out`, so that the generalisation doesn't read the
+    // same value back again only to run out again; so is what was read
+    // back unfolded, which it would read again.
     let found_too_large = std::cell::RefCell::new(None);
-    // Only the goal's is passed on: a variable's type too large is read as
-    // written by the generalisation too ([`read_type`]).
-    let read = |v: &Value, is_goal: bool| -> Result<Term> {
+    // Only the goal's error is passed on: a variable's type too large is
+    // read as written by the generalisation too ([`read_type`]). The term
+    // and whether it is the unfolded one.
+    let read = |v: &Value, is_goal: bool| -> Result<(Term, bool)> {
         match quote_internal(&g, base, v) {
             Err(e) => {
                 let e: Diagnostic = e.into();
@@ -1309,18 +1332,27 @@ fn blocker(
                         } else {
                             crate::undo::recovered(cx);
                         }
-                        Ok(stitchwort_core::value::quote_as_written(&g, base, v)?)
+                        Ok((
+                            stitchwort_core::value::quote_as_written(&g, base, v)?,
+                            false,
+                        ))
                     }
                     false => Err(e),
                 }
             }
-            Ok(t) => Ok(t),
+            Ok(t) => Ok((t, true)),
         }
     };
+    out.types = vec![None; base];
+    out.goal = None;
     let unknown = (|| {
         for l in 0..base {
-            if let Some(m) = first_meta(&read(&cx.types[l], false)?, &unsolved) {
+            let (ty, unfolded) = read(&cx.types[l], false)?;
+            if let Some(m) = first_meta(&ty, &unsolved) {
                 return Ok(Some(m));
+            }
+            if unfolded {
+                out.types[l] = Some(ty);
             }
         }
         if cx.e.attempt.queue.len() == 0 {
@@ -1328,9 +1360,14 @@ fn blocker(
         }
         let pending = crate::queue::pending(cx)?;
         let is_pending = |m: usize| pending.contains(&m) && Some(m) != own;
-        Ok(first_meta(&read(goal, true)?, &is_pending))
+        let (goal_term, unfolded) = read(goal, true)?;
+        let m = first_meta(&goal_term, &is_pending);
+        if unfolded {
+            out.goal = Some(goal_term);
+        }
+        Ok(m)
     })();
-    *too_large = found_too_large.into_inner();
+    out.too_large = found_too_large.into_inner();
     unknown
 }
 
@@ -1382,8 +1419,8 @@ impl crate::queue::Check for WaitingMatch {
             Value::Neutral(Head::Meta(m), _) => Some(m),
             _ => None,
         };
-        let mut too_large = None;
-        if let Some(m) = blocker(cx, &exprs, &goal, base, own, &mut too_large)? {
+        let mut read = Read::default();
+        if let Some(m) = blocker(cx, &exprs, &goal, base, own, &mut read)? {
             return Ok(crate::queue::Resumed::Waiting(crate::queue::on(m)));
         }
         let mark = cx.mark();
@@ -1398,7 +1435,7 @@ impl crate::queue::Check for WaitingMatch {
             &goal,
             base,
             None,
-            too_large,
+            read,
         );
         cx.reset(mark);
         Ok(crate::queue::Resumed::Done(result?))
@@ -1436,12 +1473,12 @@ fn generalised_now(
     goal: &Value,
     base: usize,
     skip: Option<Skip>,
-    // What [`blocker`] found too large to read back: the read-back below
-    // would run out the same way.
-    too_large: Option<Diagnostic>,
+    // What [`blocker`] read back, and found too large to read back: the
+    // read-back below would run out the same way.
+    mut read_before: Read,
 ) -> Result<Term> {
     let g = cx.g();
-    if let Some(e) = too_large {
+    if let Some(e) = read_before.too_large.take() {
         let e = ran_out_at(e, span, "while generalising this `match`");
         return unconfirmed_now(
             cx, columns, exprs, alts, absurd, span, kind, goal, base, skip, e, true,
@@ -1452,18 +1489,22 @@ fn generalised_now(
     let in_match = |e: stitchwort_core::budget::ResourceError| {
         ran_out_at(e.into(), span, "while generalising this `match`")
     };
-    let read = || -> Result<(Vec<(Term, bool)>, Term)> {
+    let mut read = || -> Result<(Vec<(Term, bool)>, Term)> {
         let type_terms: Vec<(Term, bool)> = (0..base)
             .map(|l| match skip.is_some_and(|skip| skip(cx, l)) {
                 // Never copied, so never read (`cannot_occur` passes over it).
                 true => Ok((Term::Refl, false)),
-                false => read_type(cx, base, l).map_err(in_match),
+                false => match read_before.types.get_mut(l).and_then(Option::take) {
+                    Some(ty) => Ok((ty, false)),
+                    None => read_type(cx, base, l).map_err(in_match),
+                },
             })
             .collect::<Result<_>>()?;
-        Ok((
-            type_terms,
-            quote_internal(&g, base, goal).map_err(in_match)?,
-        ))
+        let goal_term = match read_before.goal.take() {
+            Some(goal_term) => goal_term,
+            None => quote_internal(&g, base, goal).map_err(in_match)?,
+        };
+        Ok((type_terms, goal_term))
     };
     let (type_terms, goal_term) = match read() {
         Ok(read) => read,
@@ -1628,8 +1669,7 @@ fn generalised_now(
         None => {
             let usual = |cx: &mut Ctx, exprs: &[Scrut], transport| -> Result<_> {
                 let bound = bind_generalised(cx, exprs, &today, None, base, transport)?;
-                let later =
-                    skip.is_none() && check_motive(cx, base, &bound.extra, &bound.motive, span)?;
+                let later = skip.is_none() && check_motive(cx, base, &bound, span)?;
                 Ok((bound, later))
             };
             let retry = crate::undo::Snapshot::take(cx);
@@ -1708,7 +1748,7 @@ fn generalised_now(
     let rebind = |cx: &mut Ctx, exprs: &[Scrut]| -> Result<(Bound, bool)> {
         let w = written.as_ref().filter(|_| as_written);
         let bound = bind_generalised(cx, exprs, &today, w, base, None)?;
-        let later = w.is_none() && check_motive(cx, base, &bound.extra, &bound.motive, span)?;
+        let later = w.is_none() && check_motive(cx, base, &bound, span)?;
         Ok((bound, later))
     };
     if skip.is_some() {
@@ -2082,6 +2122,9 @@ struct Bound {
     copies: Vec<(usize, usize)>,
     depth: usize,
     motive: Value,
+    /// Whether the motive is the goal as given, read back folded
+    /// ([`unrefined_goal`]): nothing in it was generalised.
+    as_given: bool,
 }
 
 /// Binds the scrutinees' variables, then the copies, then the equations,
@@ -2187,6 +2230,7 @@ fn bind_generalised(
         .apply(&g, today.goal_term)?,
     };
     let motive = cx.eval(&goal_term)?;
+    let as_given = written.is_none() && today.goal_folded.is_some();
     let mut copies: Vec<(usize, usize)> = copies.into_iter().collect();
     copies.sort_unstable();
     Ok(Bound {
@@ -2195,6 +2239,7 @@ fn bind_generalised(
         copies,
         depth,
         motive,
+        as_given,
     })
 }
 
@@ -2488,14 +2533,25 @@ fn scrutinee_name(_: &Scrut) -> Name {
 /// alternatives may solve ([`blocker`]), or a `let` in scope holds an auto
 /// argument not proved yet. Nothing the occurrence test reads is unknown
 /// here: it waited for it (asserted).
+///
+/// A motive that is the goal itself ([`Bound::as_given`]) is read back
+/// folded, as the helper's type will hold it ([`lift::draft_with`]): its
+/// unfolded form is a type too (computing keeps types), and can be far
+/// larger to build and check. `Float.ofIntMonotone`'s `match lt: Int.less i
+/// j`, whose goal compares two `Float.ofInt`s, read back 448,201 nodes and
+/// checked them for 7.6 M steps (SW-4600).
 fn check_motive(
     cx: &Ctx,
     base: usize,
-    extra: &[Term],
-    motive: &Value,
+    bound: &Bound,
     span: stitchwort_syntax::Span,
 ) -> Result<bool> {
-    let draft = motive_draft(cx, base, extra, cx.quote_or_written(motive)?, span);
+    let motive = &bound.motive;
+    let goal = match bound.as_given {
+        true => cx.quote_folded(motive)?,
+        false => cx.quote_or_written(motive)?,
+    };
+    let draft = motive_draft(cx, base, &bound.extra, goal, span);
     match cx.e.lifted_type(&draft) {
         Ok(ty) => motive_holds(cx.e, &ty, span).map(|()| false),
         Err(d) if crate::undo::fatal(&d) => Err(d),
