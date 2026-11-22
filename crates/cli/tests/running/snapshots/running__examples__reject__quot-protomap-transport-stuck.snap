@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-REFL] Error: `byComputing` can't prove this
@@ -9,7 +9,7 @@ expression: output
     │                                   ─────┬─────  
     │                                        ╰─────── `transported` and `0` aren't equal
     │ 
-    │ Note 1: computing the left side gives `J (y p => Nat) 0 (J (y' p' => { raw = Quot.mk { tree = Bin 2 … 1 … …, ordered = Map.Tree.insertWithWithin … 2 … … … … … … …, sized = Map.Tree.insertWithSized … 2 … … … } } = { raw = y' }) byComputing (Quot.sound byComputing))`
+    │ Note 1: computing the left side gives `J (y p => Nat) 0 (Eq.cong (r => { raw = r }) (Quot.sound byComputing))`
     │ 
     │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
 ────╯
