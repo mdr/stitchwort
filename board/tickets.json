@@ -32504,12 +32504,12 @@
     {
       "id": 4624,
       "title": "[Opus] Core cache option D: test sweeps keep one session per thread, rewound to just after the core before each example (~0.1 s an example, estimated); reset the per-program state rewind keeps (failed_decls, broken_tests, expansions, walks, facts, stats, standalone_inputs...), and a test running the same examples in two orders against fresh sessions (docs/proposals/core-cache.md)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Progress 22 Nov 14:10 (lane, Opus): analysis done, no code yet; stopped at 1.5x (60 min) to report. Plan: Elaborator/driver Session::mark_fresh + rewind_fresh (rewind, then restore standalone_inputs, instance_waits, cache_stats, assumed, blocked, waiting_names, failed_sources; truncate broken_tests, failed_decls, expansions, walks, facts, library_warnings to the mark; assert options.cache_key unchanged; source_epoch, stats, library_interface_digest, kernel step totals left with reasons); a par_map helper keeping one session per worker that drops it after a panic; examples.rs accepted/goal/rejected/soundness on it; two-order differential test. New estimate 45 min.\n\nDone 22 Nov 14:31 (lane, Opus), commit 0c321929f. par_map_sessions keeps one session per worker, rewound with Session::rewind_fresh before each example; accepted, goal, rejected and soundness example sweeps use it (projects and the missing-arms sweep still fresh). rewind_fresh restores broken_tests, failed_decls, cache_stats, standalone_inputs, instance_waits, assumed, blocked, waiting_names, failed_sources, expansions/walks/facts; leaves source_epoch, stats, library_interface_digest (reasons in code); asserts options.cache_key unchanged; exhaustive field lists in the fresh marks. Plain rewind now cuts library_warnings (stale comment fixed). Differential test a_rewound_session_reports_what_a_new_one_does passes; with the session reset disabled it fails (rejected examples' broken tests appear as 6 failed tests of accept/abilities.sw). Residual: memo tables keep core facts across a rewind, so step counts can be ~1-2% lower than fresh (results identical; steps not compared). Measured, 15 accepted examples, 2 threads: test wall 2.66 s -> 1.07 s, process CPU ~5.5 s -> ~2.3 s (~0.24 s CPU per session saved). Estimated: ~500 s CPU per all-tier example sweep (2,077 examples), ~125 s at the quick tier's quarter sample. Verifier: run the example kinds in full and driver rewind's rewinding_changes_nothing_for_the_examples (plain rewind changed).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
