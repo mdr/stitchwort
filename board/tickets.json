@@ -1,5 +1,5 @@
 {
-  "next": 4637,
+  "next": 4640,
   "tickets": [
     {
       "id": 47,
@@ -32676,7 +32676,7 @@
     {
       "id": 4635,
       "title": "[Opus] A match should not read back hypotheses its scrutinee does not occur in (and FullHungBelow depth could be read back folded): the remaining cost of atomHung, unaryHung, signArgHung (25M steps each) and ~5M in each chain proof is a match re-reading a 61.6K-node hypothesis it does not mention; also rewrite quotes every hypothesis (kernel_context, ~10K nodes each) (SW-4629, SW-4631 findings)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -32684,11 +32684,53 @@
       "body": "\n\nStarted 22 Nov on Opus (orchestrator's call, proof-checking speed). Expected: 50 min.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "48264131948de59f9d6b3a4c54154b9ada7b89c9",
+        "1cbe2a1f1ddd77aa77d37440079901bc3555af3b"
+      ]
     },
     {
       "id": 4636,
       "title": "[Sonnet] A match on a proof h: P ∧ Q in a Prop-valued definition (def bothOk (h) : Prop := match h with | Both _ _ => 0 = 0) then byComputing against bothOk h fails after a match on h, on main too; the Bool version works: find whether refining a goal into a Prop-valued definition is missing (SW-4629 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4637,
+      "title": "[Opus] A generalised match reads the whole goal back (unaryHung 4 x 573K nodes, atomHung 6 x 273K): read it only as far as the occurrence test needs, or test with calls kept folded (SW-4635 finding)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4638,
+      "title": "[Sonnet] atomHung regressed: 25.5M steps after SW-4619 (measured then), 53.9M on main before SW-4635 (measured by SW-4635); find which merge since (SW-4629 projections opaque? SW-4631?) and why, with step counts per commit; then decide (SW-4635 finding)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4639,
+      "title": "[Sonnet] unaryHung still reads inner (61.6K nodes) at match negative: negativeNumeral [...] (ReadBackHungApp.sw:561): find why that scrutinee is not seen to contain a certain variable (SW-4635 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
