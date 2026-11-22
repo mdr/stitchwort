@@ -1,5 +1,5 @@
 {
-  "next": 4584,
+  "next": 4585,
   "tickets": [
     {
       "id": 47,
@@ -31814,7 +31814,7 @@
     {
       "id": 4575,
       "title": "[Opus] search_bench::proof_uses_find_their_lemma_among_the_first_ten still has 5 internal errors after SW-4564 (was 11; recall@10 54.9%): they come through the query search's use_pattern path, not search --at; add a per-query trace to search_bench's run (like SEARCH_AT_BENCH_TRACE), find the panicking queries, fix the cause with a test; rerun only that test (about 820 s, all tier)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -31923,6 +31923,19 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4584,
+      "title": "[Sonnet] search_bench: 753 proof uses get no pattern (many out of budget, mostly Float.Theory) and silently drop out of recall; report the count in the bench summary and pin it; and note whether use_pattern (only the bench uses it) should build queries the way stitchwort search does",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
