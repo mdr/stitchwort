@@ -32452,12 +32452,12 @@
     {
       "id": 4620,
       "title": "[Sonnet] Proving guide: a match on a non-variable while large specialised hypotheses are in scope re-reads every hypothesis type; prove such side facts as lemmas over the small value (SW-4611: 2,000x on standsEachFile)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "\n\nAlso (SW-4619): take facts out of tuples with projections, not let (a, b) := ..., in proofs about concrete values; put a rewrite that names decl.leaves or decl.pieces in a lemma over them as variables.\n",
+      "body": "\n\nAlso (SW-4619): take facts out of tuples with projections, not let (a, b) := ..., in proofs about concrete values; put a rewrite that names decl.leaves or decl.pieces in a lemma over them as variables.\n\n\n22 Nov: added \"Keeping proofs cheap to check\" to docs/proving-guide.md section 6 (commit on lane/SW-4620). Wording is general (does not depend on SW-4629). Example is a sketch, not checked.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
