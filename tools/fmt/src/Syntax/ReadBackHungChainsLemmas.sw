@@ -97,9 +97,49 @@ theorem hungParts ∀ (modes: Modes)
 theorem withWitness ∀ (p: a → Prop) (found: ∃ (x: a) => p x) (goal: Prop) (use: ∀ (x: a) => p x → goal): goal :=
   match found with | Witness x holds => use x holds
 
---| What one link of a chain adds to the line rule's facts, from the first operand `leftRead` taking `[op, ..rightRead]`
---| off the front of the links' reads: the infix's parts, the line rule over the shorter chain's reads and the facts
---| the first operand is left with.
+--| What the first operand `leftRead` of an infix tells about the reads that follow it: the infix's parts and the facts
+--| about the left operand with the operator and the right operand after it.
+type InfixStep (modes: Modes) (state after: HangState) (leftRead: List Item) (op: Item) (rightRead tail: List
+    Item): Prop = {
+  parts: HungParts modes state after leftRead op rightRead tail,
+  lineOpTail: lineAll ([op, ..rightRead] ++ tail) = True,
+  hungLeft: hangsFrom state (leavesOf (leftRead ++ ([op, ..rightRead] ++ tail))) = True,
+  deepLeft: deepAll (leftRead ++ ([op, ..rightRead] ++ tail)) = True
+}
+
+--| `hungParts` over an infix read as `leftRead ++ [op, ..rightRead]`, from the facts about the whole read. A lemma of
+--| its own so the rewrites in it don't read back the large hypotheses of the proofs that use it.
+theorem infixStep ∀ (modes: Modes)
+    (quiet: QuietModes modes)
+    (kind: InfixKind) (left right: Expr) (read leftRead: List Item) (op: Item)
+    (rightRead tail: List Item) (state: HangState)
+    (leftSpelt: Spelt left leftRead)
+    (rightSpelt: Spelt right rightRead)
+    (isOp: infixTok kind op.kind = True)
+    (isRead: read = leftRead ++ [op, ..rightRead])
+    (facts: HungAt modes state read tail):
+    ∃ (after: HangState) => InfixStep modes state after leftRead op rightRead tail :=
+  let hungL: hangsFrom state (leavesOf (leftRead ++ ([op, ..rightRead] ++ tail))) = True :=
+    rewrite <- List.appendAssoc leftRead [op, ..rightRead] tail, <- isRead then facts.hung
+  let deepL: deepAll (leftRead ++ ([op, ..rightRead] ++ tail)) = True :=
+    rewrite <- List.appendAssoc leftRead [op, ..rightRead] tail, <- isRead then facts.deepItems
+  withWitness _
+    (hungParts modes quiet kind left right leftRead op rightRead tail state leftSpelt rightSpelt isOp
+      (rewrite <- isRead then facts.lineRead)
+      (rewrite <- isRead then facts.openFirst)
+      (rewrite <- isRead then facts.bound)
+      hungL
+      deepL) _
+    (after parts =>
+      Witness after {
+        parts = parts,
+        lineOpTail = lineJoin [op, ..rightRead] tail parts.lineOpRight facts.lineRest,
+        hungLeft = hungL,
+        deepLeft = deepL
+      })
+
+--| What one link of a chain adds to the line rule's facts: the infix's parts over the other links, and the left
+--| operand's facts with the link moved to the links.
 type ChainStep (modes: Modes) (state after: HangState) (leftRead: List Item) (op: Item) (rightRead: List
     Item) (right: Expr) (links: List (Item, List Item, Expr)) (rest: List Item): Prop = {
   parts: HungParts modes state after leftRead op rightRead (Parse.loopReads [] (linkSteps links) ++ rest),
@@ -110,9 +150,7 @@ type ChainStep (modes: Modes) (state after: HangState) (leftRead: List Item) (op
   deepTail: deepAll (leftRead ++ (Parse.loopReads [] (linkSteps [(op, rightRead, right), ..links]) ++ rest)) = True
 }
 
---| `hungParts` over an infix whose operands read `leftRead` and `rightRead` ahead of a chain's other links: the facts the
---| recursion needs about the left operand and the shorter chain's reads, taken from the whole chain's facts. A lemma of
---| its own so the rewrites in it don't read back the large hypotheses of the chain proofs.
+--| `infixStep` for the first operand of a chain, with the other links read after it.
 theorem chainStep ∀ (modes: Modes)
     (quiet: QuietModes modes)
     (kind: InfixKind) (left right: Expr) (read leftRead: List Item) (op: Item) (rightRead: List Item)
@@ -123,25 +161,21 @@ theorem chainStep ∀ (modes: Modes)
     (isRead: read = leftRead ++ [op, ..rightRead])
     (facts: HungAt modes state read (Parse.loopReads [] (linkSteps links) ++ rest)):
     ∃ (after: HangState) => ChainStep modes state after leftRead op rightRead right links rest :=
-  let rightAfter := Parse.loopReads [] (linkSteps links) ++ rest
-  let hungL: hangsFrom state (leavesOf (leftRead ++ ([op, ..rightRead] ++ rightAfter))) = True :=
-    rewrite <- List.appendAssoc leftRead [op, ..rightRead] rightAfter, <- isRead then facts.hung
-  let deepL: deepAll (leftRead ++ ([op, ..rightRead] ++ rightAfter)) = True :=
-    rewrite <- List.appendAssoc leftRead [op, ..rightRead] rightAfter, <- isRead then facts.deepItems
   withWitness _
-    (hungParts modes quiet kind left right leftRead op rightRead rightAfter state leftSpelt rightSpelt isOp
-      (rewrite <- isRead then facts.lineRead)
-      (rewrite <- isRead then facts.openFirst)
-      (rewrite <- isRead then facts.bound)
-      hungL
-      deepL) _
-    (after parts =>
+    (infixStep modes quiet kind left right read leftRead op rightRead
+      (Parse.loopReads [] (linkSteps links) ++ rest)
+      state
+      leftSpelt
+      rightSpelt
+      isOp
+      isRead
+      facts) _
+    (after step =>
       Witness after {
-        parts = parts,
-        lineTail = rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then
-          lineJoin [op, ..rightRead] rightAfter parts.lineOpRight facts.lineRest,
-        hungTail = (rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then hungL),
-        deepTail = (rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then deepL)
+        parts = step.parts,
+        lineTail = rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then step.lineOpTail,
+        hungTail = (rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then step.hungLeft),
+        deepTail = (rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then step.deepLeft)
       })
 
 --| The chain's reads, and its value, after one link moves from the first operand to the links.

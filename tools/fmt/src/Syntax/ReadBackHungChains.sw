@@ -185,68 +185,60 @@ theorem addAccHung ∀ (modes: Modes)
             (arithmetic [level, is16])
         | Inl is14 =>
           let rightAfter := Parse.loopReads [] (linkSteps links) ++ rest
-          let hungL: hangsFrom state (leavesOf (leftRead ++ ([op, ..rightRead] ++ rightAfter))) = True :=
-            rewrite <- List.appendAssoc leftRead [op, ..rightRead] rightAfter, <- isRead then facts.hung
-          let deepL: deepAll (leftRead ++ ([op, ..rightRead] ++ rightAfter)) = True :=
-            rewrite <- List.appendAssoc leftRead [op, ..rightRead] rightAfter, <- isRead then facts.deepItems
-          let (after1, parts) :=
-            hungParts modes quiet InfixBinary left right leftRead op rightRead rightAfter state leftSpelt rightSpelt
-                isOp
-                (rewrite <- isRead then facts.lineRead)
-                (rewrite <- isRead then facts.openFirst)
-                (rewrite <- isRead then facts.bound)
-                hungL
-                deepL
-          let at14: infixLevel InfixBinary operator.text = 14 := arithmetic [level, is14]
-          let (leftNeed, rightNeed) := addNeeds operator.text at14
-          let isAdd := addOf op.kind isOp is14
-          let rightReads: MulReads (TreeN depth) modes rightRead rightAfter right :=
-            mulHung modes quiet right rightRead rightAfter depth after1 inner
-              (arithmetic [deep])
-              rightSpelt
-              (Bool.andRight free)
-              {
-                lineRead = (Bool.andRight parts.lineOpRight),
-                lineRest = facts.lineRest,
-                openFirst = parts.openRight,
-                bound = parts.boundRight,
-                hung = parts.hungRight,
-                deepItems = parts.deepRight
-              }
-              after
-              (arithmetic [rightFits, rightNeed])
-          let tail := [(op, rightRead, right), ..links]
-          let lineTail: lineAll (Parse.loopReads [] (linkSteps tail) ++ rest) = True :=
-            rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then
-              lineJoin [op, ..rightRead] rightAfter parts.lineOpRight facts.lineRest
-          let afterTail: EndsAt modes 16 (Parse.loopReads [] (linkSteps tail) ++ rest) :=
-            rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then
-              opEnds modes 16 op
-                (rightRead ++ rightAfter)
-                InfixBinary
-                parts.openOp
-                isOp
-                (rewrite speltApart right rightRead rightAfter rightSpelt then apart)
-                (arithmetic [rungAddOf op.kind isAdd])
-          let wholeTail: all = leftRead ++ Parse.loopReads [] (linkSteps tail) :=
-            rewrite whole, isRead then
-              List.appendAssoc leftRead [op, ..rightRead] (Parse.loopReads [] (linkSteps links))
-          let valueTail: value = leftNested left (Parse.stepValues (linkSteps tail)) := rewrite isValue, isWord
-          addAccHung modes quiet left leftRead tail rest depth all value state inner wholeTail valueTail
-            (arithmetic [deep])
-            leftSpelt
-            (Bool.andLeft free)
-            {
-              lineRead = parts.lineLeft,
-              lineRest = lineTail,
-              openFirst = parts.openLeft,
-              bound = parts.boundLeft,
-              hung = (rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then hungL),
-              deepItems = (rewrite List.appendAssoc rightRead (Parse.loopReads [] (linkSteps links)) rest then deepL)
-            }
-            afterTail
-            (parts.openOp, isAdd, rightReads, linked)
-            (arithmetic [leftFits, leftNeed])
+          withWitness _
+            (chainStep modes quiet InfixBinary left right read leftRead op rightRead links rest state leftSpelt
+                rightSpelt isOp isRead facts) _
+            (after1 step =>
+              let parts := step.parts
+              let at14: infixLevel InfixBinary operator.text = 14 := arithmetic [level, is14]
+              let needs := addNeeds operator.text at14
+              let isAdd := addOf op.kind isOp is14
+              let rightReads: MulReads (TreeN depth) modes rightRead rightAfter right :=
+                mulHung modes quiet right rightRead rightAfter depth after1 inner
+                  (arithmetic [deep])
+                  rightSpelt
+                  (Bool.andRight free)
+                  {
+                    lineRead = (Bool.andRight parts.lineOpRight),
+                    lineRest = facts.lineRest,
+                    openFirst = parts.openRight,
+                    bound = parts.boundRight,
+                    hung = parts.hungRight,
+                    deepItems = parts.deepRight
+                  }
+                  after
+                  (arithmetic [rightFits, needs.right])
+              let tail := [(op, rightRead, right), ..links]
+              let afterTail: EndsAt modes 16 (Parse.loopReads [] (linkSteps tail) ++ rest) :=
+                chainReads
+                  (items => EndsAt modes 16 [op, ..items])
+                  rightRead
+                  (Parse.loopReads [] (linkSteps links))
+                  rest
+                  (opEnds modes 16 op
+                    (rightRead ++ rightAfter)
+                    InfixBinary
+                    parts.openOp
+                    isOp
+                    (Eq.trans (speltApart right rightRead rightAfter rightSpelt) apart)
+                    (arithmetic [rungAddOf op.kind isAdd]))
+              let wholeTail := chainWhole all read leftRead op rightRead links right whole isRead
+              let valueTail := chainValue value left right operator op rightRead links isValue isWord
+              addAccHung modes quiet left leftRead tail rest depth all value state inner wholeTail valueTail
+                (arithmetic [deep])
+                leftSpelt
+                (Bool.andLeft free)
+                {
+                  lineRead = parts.lineLeft,
+                  lineRest = step.lineTail,
+                  openFirst = parts.openLeft,
+                  bound = parts.boundLeft,
+                  hung = step.hungTail,
+                  deepItems = step.deepTail
+                }
+                afterTail
+                (parts.openOp, isAdd, rightReads, linked)
+                (arithmetic [leftFits, needs.left]))
     | Infix InfixArrow _ _ _, _, fits => Void.impossible (arithmetic [fits])
     | Infix _ _ _ _, (_, _, _, _, never, _), _ => (Bool.falseNotTrue never).impossible
     | other, spelt, _ =>
