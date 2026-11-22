@@ -159,10 +159,14 @@ impl Session {
                                     }
                                 }
                                 if !found {
-                                    return Err(vec![Diagnostic::error(
+                                    let mut diagnostic = Diagnostic::error(
                                         "E-UNKNOWN-THEOREM",
                                         format!("there's no theorem `{full}` in the project"),
-                                    )]);
+                                    );
+                                    if let Some(hint) = only_takes_theorems_hint(full, &analysis) {
+                                        diagnostic = diagnostic.with_note(hint);
+                                    }
+                                    return Err(vec![diagnostic]);
                                 }
                             }
                         }
@@ -237,8 +241,17 @@ impl Session {
                     }
                 })
                 .collect();
-            let plan = plan_theorems(&syntax, only)
-                .map_err(|message| vec![Diagnostic::error("E-UNKNOWN-THEOREM", message)])?;
+            let plan = plan_theorems(&syntax, only).map_err(|message| {
+                let mut diagnostic = Diagnostic::error("E-UNKNOWN-THEOREM", message.clone());
+                if let Some(full) = only
+                    .iter()
+                    .find(|full| message.starts_with(&format!("there's no theorem `{full}`")))
+                    && let Some(hint) = only_takes_theorems_hint(full, &analysis)
+                {
+                    diagnostic = diagnostic.with_note(hint);
+                }
+                vec![diagnostic]
+            })?;
             self.elab.options.skip_theorems = plan.skip;
             counted = Some(TheoremCount {
                 checked: plan.checked,
@@ -789,6 +802,42 @@ pub fn run_unknown_namespace(project: &str, name: &str, analysis: &Analysis) -> 
         d = d.with_note(format!("did you mean `{namespace}.{rest}`?"));
     }
     d
+}
+
+/// A hint for `E-UNKNOWN-THEOREM`: `name` is a namespace, or a prefix of
+/// theorems, where `--only` takes theorem names.
+fn only_takes_theorems_hint(name: &str, analysis: &Analysis) -> Option<String> {
+    let prefix = format!("{name}.");
+    let mut example: Option<(String, String)> = None;
+    let mut namespace_exists = false;
+    for ns in &analysis.namespaces {
+        namespace_exists |= ns.name == name;
+        for decl in ns.modules.iter().flat_map(|m| &m.decls) {
+            let Decl::Signature {
+                name: theorem,
+                theorem: true,
+                ..
+            } = decl
+            else {
+                continue;
+            };
+            let full = format!("{}.{}", ns.name, theorem.text);
+            if (ns.name == name || full.starts_with(&prefix)) && example.is_none() {
+                example = Some((full, ns.name.clone()));
+            }
+        }
+    }
+    if !namespace_exists && example.is_none() {
+        return None;
+    }
+    let (theorem, target) = match example {
+        Some((theorem, target)) => (theorem, target),
+        None => (format!("{name}.<theorem>"), name.to_string()),
+    };
+    Some(format!(
+        "`--only` takes theorem names; the namespace goes as a target, as in \
+         `stitchwort check --only {theorem} {target}`"
+    ))
 }
 
 /// `E-NAMESPACE-UNKNOWN`: a command named a namespace the project doesn't

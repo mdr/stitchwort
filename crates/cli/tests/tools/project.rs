@@ -648,6 +648,31 @@ fn check_only_named_theorems() {
     }
 }
 
+/// Passing a namespace to `--only` is an error that says where the namespace
+/// goes: it is a target, and `--only` takes theorem names.
+#[test]
+fn check_only_a_namespace_says_the_namespace_goes_as_a_target() {
+    let dir = project(
+        "check_only_namespace_hint",
+        &[("stitchwort.yaml", ""), ("src/proofs.sw", ONLY_PROOFS)],
+    );
+    let output = stitchwort(&dir, &["check", "--only", "P.Proofs"]);
+    assert_eq!(output.status.code(), Some(1), "{}", err(&output));
+    assert!(
+        err(&output).contains("[E-UNKNOWN-THEOREM]"),
+        "{}",
+        err(&output)
+    );
+    assert!(
+        err(&output).contains(
+            "`--only` takes theorem names; the namespace goes as a target, as in \
+             `stitchwort check --only P.Proofs."
+        ) && err(&output).contains(" P.Proofs`"),
+        "{}",
+        err(&output)
+    );
+}
+
 /// A walk uses `@[walk]` lemmas that no declaration names, so `check
 /// --only` keeps them for any kept theorem that walks (and only then).
 #[test]
