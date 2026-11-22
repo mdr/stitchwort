@@ -32592,7 +32592,7 @@
     {
       "id": 4630,
       "title": "[Sonnet] STITCHWORT_BIG_READBACK: also print the source span of the innermost match, let or rewrite that asked for the read-back (SW-4619 found culprits by trial, one 45 s run per guess)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -32605,7 +32605,7 @@
     {
       "id": 4631,
       "title": "[Sonnet] Profile and reshape the destructuring lets over existentials in tools/fmt/src/Syntax/ReadBackHungChains.sw (lines ~171, 338, 494) and what is left of atomHung/unaryHung (6 read-backs of 0.27M nodes, 5 of 0.57M): continuation-style lemmas or smaller goals (SW-4619 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
