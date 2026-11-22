@@ -699,3 +699,7 @@ prelude's start-up (about 1.7 s a file, with or without).
   `STITCHWORT_STD_DIR=DIR STITCHWORT_SEAL_THEOREMS=1`, `stitchwort check --no-cache`
   (whole project), or the namespaces of a day as above. The roguelike is not run. Both projects' own failure lists
   come from the declarations' errors: `grep '^\[E'`, and "N errors: in `a`, `b`" lines.
+
+### Whole AoC and the roguelike (orchestrator, 22 Nov evening)
+
+With `STITCHWORT_SEAL_THEOREMS=1 STITCHWORT_SEAL_EXCEPT=Std.Eq.trans,Std.Eq.flipped`, `check --no-cache` on `main` after SW-4657: all of `aoc/` gives one error, `Aoc.Common.Proofs.PrefixSums.atOf` (the `E-REWRITE-NOTHING` above, SW-4659), with 5 declarations relying on it checked against its statement; `games/rogue` (3 namespaces) gives none. So across std, `tools/fmt`, all of AoC and the roguelike, sealing every theorem but `Eq.trans` and `Eq.flipped` breaks one proof, whose cause is still open.
