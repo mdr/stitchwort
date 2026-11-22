@@ -1,5 +1,5 @@
 {
-  "next": 4588,
+  "next": 4592,
   "tickets": [
     {
       "id": 47,
@@ -31959,12 +31959,12 @@
     {
       "id": 4586,
       "title": "[Opus] Postponement across a match (SW-4573): 'let check := r => 3 ∈ r.items' before a match, with 'check b' in an arm, fails E-UNSOLVED (can't work out an implicit argument) while the '(r: Box) =>' version is accepted; and 'match check b with' with the lambda's type found later fails E-AUTO-NONE (unconfirmed against the annotated version). Find whether the postponement stage should resume inside match arms (invariant 3) and fix or explain; examples as tests",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nProgress (lane, 22 Nov 06:05): gap, not by design. (1) Arm: a split on a variable rewrote a let-bound lambda's unknown parameter type `?r b o` to `?r b (Some x)` in the arm; SW-873's unpin_parameter_types only looked at whole-type parameter unknowns, now also at a function type's parameter types (315f49704). (2) Scrutinee/condition: logic::decided looked for the waiting placeholder only as written; now through the value on the error path (cb3ec30bf); `if check b` now accepted. `match check b with` (Prop body) still fails, annotated or not, with a kernel E-CANNOT-INFER: an unrelated let-lambda read-back bug (finding). Generalised `match n == 0 with | True => check b` still waits on the unknown for ever (blocker design, D question). Tests: postponement 15/15, test:example postpone,let-lambda 7/7, test:hashes ALL=1 12/12, no hash changed. Moved to review.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -31977,6 +31977,58 @@
       "where": "",
       "labels": [],
       "epic": "performance",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4588,
+      "title": "[Opus] A let-bound lambda reaches the kernel as a bare-lambda redex (SW-4586): 'let check := (r: List Nat) => 3 ∈ r; match check n with | True => 1 | False => 0' fails E-CANNOT-INFER in the kernel on Decidable.holds {(λr. List.Mem Nat 3 r) n}; with ∈ not <, with a Prop body not Bool; the call lifting builds is right, so the replacement is later (post-lift zonk or refold, SW-4565/SW-4573). Repro: scratchpad sw4586/r/t5.sw; fix with an example",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4589,
+      "title": "[Sonnet] Other split sites don't unpin lambda parameter types (SW-4586 extended SW-873's unpin_parameter_types to function types for match splits): matching.rs refined_guard / refined_in_place and families::check_case; try the let-lambda-before-match example's shape in each form, fix with tests where it fails",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4590,
+      "title": "[Opus] D3713 (pending Matt): a generalised match waits for ever on a lambda parameter's unknown type that only its own arm fixes ('let check := r => 3 ∈ r.items; match n == 0 with | True => check b', E-CANNOT-INFER at r.items); proposal: blocker in matching.rs skips parameter_metas (SW-873's rule for generalisation). Do once Matt answers",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4591,
+      "title": "[Sonnet] Two rejected examples' messages changed on main after tonight's merges (found by SW-4582's verifier): reject/walk-nested-loop.sw reports 'a goal is left that the closers don't prove' with goal '_weaker value valueTwin' instead of 'a premise's walk needs the same statement walked again' with the ∀ goal; reject/walk-nested-then-fails.sw shows _holds₂ for _holds. Find which merge (SW-4582's nested-trial change or SW-4576's unknown printing), decide if the new messages are right, and fix or re-record",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
