@@ -12,9 +12,11 @@
 //! programs, which digs deeper into one file than the whole corpus does.
 //! `FUZZ_CASE=<index>` runs only the case with that 0-based index, generating
 //! the cases before it so that its input is the same as in a full run, and
-//! prints that input on standard output. `FUZZ_DUMP=<path>` writes each case's
-//! input to that file (overwriting it) before the case is formatted, so a run
-//! killed for memory or time leaves the case it was on behind.
+//! prints that input on standard output. `FUZZ_DUMP=<path>` writes each
+//! candidate input to that file (overwriting it) just before it is parsed
+//! during generation or formatted, so a run killed for memory or time leaves
+//! the case it was on behind, and a panic in the parser leaves the input that
+//! panicked there for reproduction.
 //!
 //! `FUZZ_WRITE_DIR=<dir>` writes every case that parses to `<dir>/case-N.sw`
 //! (N the 0-based index, zero-padded), for `task fmt:twin`'s fuzzer inputs.
@@ -428,11 +430,18 @@ fn env_number(name: &str) -> Option<u64> {
     Some(parsed.unwrap_or_else(|_| panic!("{name}={value:?} is not a number")))
 }
 
-/// `FUZZ_DUMP`: a path to write each formatted case's input to, before it is
-/// formatted.
+/// `FUZZ_DUMP`: a path to write each candidate input to, before it is parsed
+/// or formatted.
 fn dump_path() -> Option<PathBuf> {
     let path = std::env::var_os("FUZZ_DUMP").filter(|path| !path.is_empty())?;
     Some(PathBuf::from(path))
+}
+
+/// Write `text` to the dump at `path`. A dump needed to reproduce a failure
+/// must not be missing, so failing to write one fails the run.
+fn write_dump(path: &Path, text: &str) {
+    std::fs::write(path, text)
+        .unwrap_or_else(|e| panic!("can't write FUZZ_DUMP={}: {e}", path.display()));
 }
 
 /// `FUZZ_COMMENTS`: the chance of a comment at each token boundary, a number
@@ -485,12 +494,50 @@ fn generate(rng: &mut Rng, corpus: &[String], comments: Option<f64>) -> String {
     text
 }
 
-/// Whether `text` lexes and parses, as the formatter's refusal check does
-/// (D1021). A case the formatter refuses is skipped unless this says it
-/// parsed: then the formatter refused a parseable file, counted apart.
+/// Whether `text` parses, as the formatter's refusal check does (D1021). A case
+/// the formatter refuses is skipped unless this says it parsed: then the
+/// formatter refused a parseable file, counted apart.
+///
+/// The input is written to the dump first, so if the parser panics, the dump
+/// holds the input that panicked rather than the previous case's.
 fn parses(text: &str) -> bool {
-    let file = SourceMap::new().add("input.sw", text);
-    parse_module(file, text).is_ok()
+    parses_with(text, dump_path().as_deref(), |text| {
+        let file = SourceMap::new().add("input.sw", text);
+        parse_module(file, text).is_ok()
+    })
+}
+
+/// `parses` with the dump and parser left to the caller, so the dump-before-
+/// parse behaviour can be tested without the real parser.
+fn parses_with(text: &str, dump: Option<&Path>, parse: impl FnOnce(&str) -> bool) -> bool {
+    if let Some(path) = dump {
+        write_dump(path, text);
+    }
+    parse(text)
+}
+
+#[test]
+fn a_parser_panic_leaves_the_input_in_the_dump() {
+    let dir = std::env::temp_dir().join(format!("stitchwort-fmt-fuzz-dump-{}", std::process::id()));
+    let path = dir.join("dump.sw");
+    std::fs::create_dir_all(&dir).expect("can't create the dump directory");
+    let input = "theorem e:(()):=byWalking";
+    let panicked = catch_unwind(|| {
+        parses_with(input, Some(&path), |text| {
+            assert_eq!(text, input);
+            panic!("the stand-in parser panicked");
+        })
+    });
+    assert!(
+        panicked.is_err(),
+        "the stand-in parser should have panicked"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&path).expect("can't read the dump"),
+        input,
+        "the dump should hold the input that panicked"
+    );
+    std::fs::remove_dir_all(&dir).expect("can't remove the dump directory");
 }
 
 /// How a refused case is counted.
