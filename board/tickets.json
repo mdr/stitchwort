@@ -1,5 +1,5 @@
 {
-  "next": 4643,
+  "next": 4647,
   "tickets": [
     {
       "id": 47,
@@ -32367,7 +32367,7 @@
     {
       "id": 4614,
       "title": "[Fable paper] Parallel checking research: survey how Lean 4, Rocq, Isabelle, Agda and others check in parallel (files, declarations, proof bodies), what makes it sound and deterministic, and how it could fit Stitchwort (namespace graph, proof bodies after statements, Rc values, check cache, hashes); a formal note with options and a first step (Matt, 22 Nov: research lane)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -32375,7 +32375,10 @@
       "body": "\n\nStarted 22 Nov 16:42 on Opus as a research paper lane (Matt: 'I think a research lane about parallel checking would be interesting ... survey the state of the art ... How might it fit Stitchwort?'). Expected: 75 min.\n\n\nRestarted 22 Nov 16:46 on Fable at Matt's request (\"could you do the parallel checking research in a fable paper lane, please?\"); the Opus run was stopped after a few minutes. Expected: 75 min.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "5525a2b75ebecbc653d7686f4d8bb3b4d7e3e8e8",
+        "348902f5d44316cc4b81d6da041ddd0291ddfb4f"
+      ]
     },
     {
       "id": 4615,
@@ -32785,6 +32788,58 @@
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "\n\nStarted 22 Nov 16:47 on Opus (orchestrator's call). Expected: 45 min.\n",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4643,
+      "title": "[Sonnet] check_cache write_atomically names its temp file by process id and nanoseconds; two threads of one process can collide: add a thread id or counter before any multi-threaded store (SW-4614 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4644,
+      "title": "[DeepSeek] Parallel checking measurement 2 (docs/proposals/parallel-checking.md): a script that runs stitchwort check <namespace> processes over one cache directory in dependency order, 4 and 6 at a time, timing the whole and comparing hashes and diagnostics with a sequential run (SW-4614)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4645,
+      "title": "[Sonnet] Parallel checking measurement 3: a counter of how often a theorem body is unfolded during checking (J, case, conversion), reported by --timings; run on tools/fmt and AoC (SW-4614)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4646,
+      "title": "[Sonnet] Measure a full replay: warm check with STITCHWORT_SKIP_UNNEEDED=0 on tools/fmt, time and memory, to cost loading another worker's namespaces (SW-4614 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
