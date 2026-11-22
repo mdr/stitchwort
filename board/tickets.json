@@ -32852,7 +32852,7 @@
     {
       "id": 4645,
       "title": "[Sonnet] Parallel checking measurement 3: a counter of how often a theorem body is unfolded during checking (J, case, conversion), reported by --timings; run on tools/fmt and AoC (SW-4614)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -32865,7 +32865,7 @@
     {
       "id": 4646,
       "title": "[Sonnet] Measure a full replay: warm check with STITCHWORT_SKIP_UNNEEDED=0 on tools/fmt, time and memory, to cost loading another worker's namespaces (SW-4614 finding)",
-      "status": "doing",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
