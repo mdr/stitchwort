@@ -325,13 +325,35 @@ fn refutable(
 /// tree (§4.3): if every scrutinee is an unnamed variable of the equation,
 /// none twice, the alternatives split them further. `None` otherwise.
 pub(crate) fn in_tree(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Option<Result<Term>> {
-    // A tuple or record `let` outside a proof binds projections instead
-    // (`patlet.rs`), via `check_match`.
-    match crate::patlet::applies(cx, expr, goal) {
-        Ok(false) => {}
-        Ok(true) => return None,
-        Err(e) => return Some(Err(e)),
-    }
+    // A tuple or record `let` binds projections instead (`patlet.rs`):
+    // outside a proof via `check_match`; in a proof here, on proofs that are
+    // variables, falling back to the tree.
+    let kept = cx.kept_matches;
+    let result = (|| {
+        match crate::patlet::applies(cx, expr, goal) {
+            Ok(false) => {}
+            Ok(true) => match crate::patlet::proposition(cx, goal) {
+                Ok(true) if parts(expr).0.iter().all(|s| variable(cx, s).is_some()) => {
+                    match crate::patlet::check_let(cx, expr, goal) {
+                        Ok(Some(term)) => return Some(Ok(term)),
+                        Ok(None) => {}
+                        Err(e) => return Some(Err(e)),
+                    }
+                }
+                Ok(_) => return None,
+                Err(e) => return Some(Err(e)),
+            },
+            Err(e) => return Some(Err(e)),
+        }
+        tree(cx, expr, goal)
+    })();
+    cx.kept_matches = kept;
+    result
+}
+
+/// [`in_tree`] for a `match` that isn't a pattern `let` made into
+/// projections.
+fn tree(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Option<Result<Term>> {
     let (scrutinees, alts, span, kind) = parts(expr);
     note_match_step(cx, alts, span, goal);
     let mut columns = Vec::new();
@@ -439,11 +461,20 @@ pub(crate) fn check_match(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Ter
 }
 
 fn check_match_once(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Term> {
+    let kept = cx.kept_matches;
     if crate::patlet::applies(cx, expr, goal)?
         && let Some(term) = crate::patlet::check_let(cx, expr, goal)?
     {
         return Ok(term);
     }
+    let result = check_match_as_match(cx, expr, goal);
+    cx.kept_matches = kept;
+    result
+}
+
+/// [`check_match_once`] for a `match` that isn't a pattern `let` made into
+/// projections.
+fn check_match_as_match(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Term> {
     if let Some(body) = unit_parameter(cx, expr, goal)? {
         return crate::check::check(cx, body, goal);
     }

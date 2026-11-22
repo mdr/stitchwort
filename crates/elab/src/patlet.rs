@@ -24,11 +24,21 @@
 //! means (docs/proposals/bool-as-proposition.md §6.1), into a hidden `let`
 //! the accessors project, as a `match` would.
 //!
-//! In a proof (the expected type is evidently a proposition), the `match`
-//! is kept: there, splitting `e` into a pair refines the goal, which is what
-//! a proof by `let (a, b) := p` wants (`examples/accept/let-patterns.sw`,
-//! `swapTwice`). Patterns with anything but variables, `_`, tuples, records
-//! and such constructors stay `match`es.
+//! In a proof (the expected type is evidently a proposition), a `let` on
+//! data stays a `match`: there, splitting `e` into a pair refines the goal,
+//! which is what a proof by `let (a, b) := p` wants
+//! (`examples/accept/let-patterns.sw`, `swapTwice`). A `let` on a proof
+//! (`let (below, above) := bounds x`, at `∧` or a record or constructor of
+//! proofs) binds projections there too: a `match` would generalise the goal
+//! and every hypothesis over the proof, reading each back, which in a goal
+//! about a large term cost millions of steps (SW-4619, SW-4629), and a goal
+//! rarely mentions a proof. Where one does and the body needs it refined,
+//! the body fails with projections and the `let` is checked again as the
+//! `match`, so a proof that checked as a `match` still does, with the same
+//! errors; the `let`s inside that `match` are kept as `match`es
+//! ([`Ctx::kept_matches`]), so a failure deep inside costs a check more per
+//! `let` around it, rather than doubling with each. Patterns with anything but variables, `_`, tuples,
+//! records and such constructors stay `match`es.
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::force;
@@ -149,8 +159,33 @@ pub(crate) fn applies(cx: &Ctx, expr: &Expr, goal: &Value) -> Result<bool> {
     let Some((patterns, _)) = parts(expr) else {
         return Ok(false);
     };
-    if !patterns.iter().all(|(p, _)| projectable(cx, p)) || proposition(cx, goal)? {
+    if !patterns.iter().all(|(p, _)| projectable(cx, p)) {
         return Ok(false);
+    }
+    // In a proof, only proofs are taken apart by projections, and only
+    // while the `let`s around aren't kept as `match`es. A scrutinee that
+    // isn't a variable is judged once its type is known, in `check_let`.
+    if proposition(cx, goal)? {
+        if cx.kept_matches {
+            return Ok(false);
+        }
+        for (pattern, value) in &patterns {
+            if let Expr::Var(x) = value
+                && cx.local(&x.text).ok().flatten().is_none()
+                && let Some(level) = cx.lookup(&x.text)
+                && !proposition(cx, &cx.types[level])?
+            {
+                return Ok(false);
+            }
+            // A lemma's result that is evidently data or opens an `∃` is
+            // the `match` without first elaborating the call to find out,
+            // which the `match` would then do again.
+            if let Some(result) = declared_result(cx, value)?
+                && (!proposition(cx, &result)? || opens_exists(cx, pattern, &result)?)
+            {
+                return Ok(false);
+            }
+        }
     }
     // A tuple on a proof of `∃` is `Witness`, which has no projections, so
     // it is the `match` that `Witness` written out would be, whose
@@ -164,6 +199,41 @@ pub(crate) fn applies(cx: &Ctx, expr: &Expr, goal: &Value) -> Result<bool> {
         }
     }
     Ok(true)
+}
+
+/// The type a call of a global definition, `f a b`, ends in after all of
+/// `f`'s parameters, its own variables stood for by a placeholder: what
+/// the call's type is when it gives every argument, for a guess at it
+/// before elaborating the call. `None` for anything else.
+fn declared_result(cx: &Ctx, e: &Expr) -> Result<Option<Value>> {
+    let mut head = e;
+    while let Expr::App(f, _) = head {
+        head = f;
+    }
+    let Expr::Var(x) = head else {
+        return Ok(None);
+    };
+    if cx.lookup(&x.text).is_some() || cx.local(&x.text).ok().flatten().is_some() {
+        return Ok(None);
+    }
+    let Resolved::Found {
+        global: Global::Def(def),
+        rest,
+        ..
+    } = cx.e.resolve(&x.text)
+    else {
+        return Ok(None);
+    };
+    if !rest.is_empty() {
+        return Ok(None);
+    }
+    let g = cx.g();
+    let mut ty = crate::kernel::def_ty(&g, def)?;
+    while let Value::Pi(_, _, _, cod) = force(&g, ty.clone())? {
+        // A variable no binder in scope has, as in `proposition`.
+        ty = cod.apply(&g, Value::var(usize::MAX - 2))?;
+    }
+    Ok(Some(ty))
 }
 
 /// Whether a tuple in `p`, matching a value of type `ty`, meets a proof of
@@ -210,13 +280,20 @@ pub(crate) fn proposition(cx: &Ctx, ty: &Value) -> Result<bool> {
 
 /// The pattern `let` `expr` (one [`applies`] to), checked against `goal`.
 /// `None`, with everything it did undone, where a tuple pattern meets a
-/// proof of `∃`, which has no projections: the caller makes it the `match`
-/// it otherwise means.
+/// proof of `∃`, which has no projections, and in a proof where the
+/// scrutinee isn't a proof or anything fails: the caller makes it the
+/// `match` it otherwise means. After a failure in a proof,
+/// [`Ctx::kept_matches`] is set, for the caller to reset once that `match`
+/// is checked.
 pub(crate) fn check_let(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Option<Term>> {
     let (patterns, body) = parts(expr).expect("checked by `applies`");
     let snapshot = crate::undo::Snapshot::take(cx);
     let mark = cx.mark();
-    let mut lets = Vec::new();
+    let in_proof = proposition(cx, goal)?;
+    let mut lets = Lets {
+        items: Vec::new(),
+        opaque: in_proof,
+    };
     let result = (|| {
         for (pattern, value) in patterns {
             let level = match variable(cx, value) {
@@ -227,6 +304,9 @@ pub(crate) fn check_let(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Optio
                     bind(cx, None, term, ty, &mut lets)?
                 }
             };
+            if in_proof && !proposition(cx, &cx.types[level])? {
+                return Ok(None);
+            }
             if !destructure(cx, pattern, level, &mut lets)? {
                 return Ok(None);
             }
@@ -234,14 +314,35 @@ pub(crate) fn check_let(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Optio
         check(cx, body, goal).map(Some)
     })();
     cx.reset(mark);
+    // In a proof, any failure (most often a body that needs the goal
+    // refined by the `match`, which projections don't do) is checked again
+    // as that `match`, as before, with the `let`s inside it kept as
+    // `match`es too, so its errors are the `match`'s.
+    let failed = matches!(&result, Err(e) if in_proof && !crate::undo::fatal(e));
+    let result = if failed { Ok(None) } else { result };
     let Some(mut term) = result? else {
         snapshot.restore(cx);
+        if failed {
+            cx.kept_matches = true;
+        }
         return Ok(None);
     };
-    for (x, ty, value) in lets.into_iter().rev() {
+    for (x, ty, value) in lets.items.into_iter().rev() {
         term = Term::let_(x, ty, value, term);
     }
     Ok(Some(term))
+}
+
+/// The `let`s a pattern `let` makes, outermost first, as (name, type,
+/// value) terms. In a proof they are `opaque`: the rest of the proof sees
+/// each as a variable of its type, as the `match`'s arm would, rather than
+/// as its projection. Checked with the values hidden, the body checks with
+/// them shown too, which is how the kernel reads the `let`s; and a later
+/// `match` or `rewrite` doesn't carry the projections along or read them
+/// back, which made proofs slower than the `match` (SW-4629).
+struct Lets {
+    items: Vec<(Name, Term, Term)>,
+    opaque: bool,
 }
 
 /// The variable `e` names, if it's one (a local definition isn't).
@@ -263,24 +364,27 @@ fn bind(
     name: Option<&str>,
     value: Term,
     ty: Value,
-    lets: &mut Vec<(Name, Term, Term)>,
+    lets: &mut Lets,
 ) -> Result<usize> {
     let shown: Name = name.unwrap_or("%p").into();
     let ty_term = cx.quote_folded(&ty)?;
-    lets.push((shown.clone(), ty_term.clone(), value.clone()));
-    cx.define(name, shown, ty, ty_term, value)?;
+    lets.items
+        .push((shown.clone(), ty_term.clone(), value.clone()));
+    if lets.opaque {
+        match name {
+            Some(name) => cx.bind(name, ty),
+            None => cx.bind_hidden(shown, ty),
+        }
+    } else {
+        cx.define(name, shown, ty, ty_term, value)?;
+    }
     Ok(cx.level() - 1)
 }
 
 /// Binds the names in tuple or record pattern `p` to projections of the
 /// variable at `level`. False where a tuple pattern meets a proof of `∃`,
 /// which can't be projected.
-fn destructure(
-    cx: &mut Ctx,
-    p: &Pattern,
-    level: usize,
-    lets: &mut Vec<(Name, Term, Term)>,
-) -> Result<bool> {
+fn destructure(cx: &mut Ctx, p: &Pattern, level: usize, lets: &mut Lets) -> Result<bool> {
     let g = cx.g();
     let ty = force(&g, cx.types[level].clone())?;
     let registry = g.env.registry();
@@ -356,6 +460,9 @@ fn destructure(
             }
             Ok(true)
         }
+        // A record pattern on a test fact (`h: inRange 1 x 9`) reads it
+        // through its reading, which the `match` does.
+        Pattern::Record { .. } if crate::reading::test_fact(cx, &ty)?.is_some() => Ok(false),
         Pattern::Record { fields, rest, span } => {
             let pattern = cx.e.record_pattern(fields, *rest, *span, Some(&ty))?;
             let Value::Data(_, params) = ty else {
@@ -430,7 +537,7 @@ fn read_fact(
     ty: &Value,
     data: DataId,
     span: Span,
-    lets: &mut Vec<(Name, Term, Term)>,
+    lets: &mut Lets,
 ) -> Result<Option<(usize, Value)>> {
     let ty = crate::reading::variable_as_written(cx, level, ty)?;
     let Some((test, polarity)) = crate::reading::test_fact(cx, &ty)? else {
@@ -488,13 +595,7 @@ fn project(cx: &Ctx, def: DefId, params: &[Value], level: usize) -> Result<(Term
 }
 
 /// A field's pattern `p`, for the projection `term` of type `ty`.
-fn component(
-    cx: &mut Ctx,
-    p: &Pattern,
-    term: Term,
-    ty: Value,
-    lets: &mut Vec<(Name, Term, Term)>,
-) -> Result<bool> {
+fn component(cx: &mut Ctx, p: &Pattern, term: Term, ty: Value, lets: &mut Lets) -> Result<bool> {
     match p {
         Pattern::Wildcard(_) => Ok(true),
         Pattern::Var(x) => bind(cx, Some(&x.text), term, ty, lets).map(|_| true),

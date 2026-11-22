@@ -96,7 +96,10 @@ docs/syntax.md, "Proof tuples"): `(7, big, square)` proves `∃ (n: Nat) =>
 n > 2 ∧ n * n = 49`, one part per binder and per conjunct, and is the same
 term as `Witness 7 (Both big square)`. Open a hypothesis or a lemma's result
 with a pattern `let`, `let (n, _, square) := lemma xs`, rather than a
-one-arm `match`: in a proof it is that `match`, and it refines the goal.
+one-arm `match`: on an `∃` it is that `match`, and it refines the goal; on
+a proof of `∧` or a record of proofs it is projections, which don't read
+the goal and hypotheses back (much quicker in a goal about a large term,
+SW-4629), and the `match` only where the rest needs the goal refined.
 Use the same tuple in `match` arms, lambda parameters, clause lambdas and
 arms; `_` skips a part, and a last part names the rest of the chain
 (`(x, a, rest)` gives `rest: B ∧ C`). For one part of a `∧`, write

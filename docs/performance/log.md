@@ -94,6 +94,50 @@ in [../proposals/README.md](../proposals/README.md).
   are unchanged but for `followsExprKeyword` 28,477,575 → 28,417,277.
   User CPU did not go down (the wall times are dominated by load).
   `STITCHWORT_READBACK_MEMO=check` over the same check: exit 0, no panic.
+### SW-4629: a pattern `let` on a proof, in a proof, binds projections instead of a `match`
+
+- **Status:** done (lane SW-4629), measured.
+- **Problem.** SW-4619 found that `let (a, b) := lemma …` over a `∧` in a
+  proof is a one-arm `match`, which generalises the goal and every
+  hypothesis over the scrutinee, reading each back (24M steps for one
+  six-part `declJoins`), and rewrote such `let`s by hand as `.left`/`.right`.
+- **Change (elaborator, `crates/elab/src/patlet.rs`).** In a proof, a tuple,
+  record or proof-constructor pattern on a *proof* (`∧`, a record or
+  one-constructor proposition of proofs) binds projections, as it already
+  did outside proofs; a pattern on data still makes the `match`, which
+  refines the goal (`swapTwice`). The projections are bound opaquely while
+  the body is checked (the body sees variables, as a `match` arm would; the
+  term is still `let a := And.left e`), since transparent projections made
+  later `match`es and `rewrite`s carry them along: with them, `orFlat` went
+  from 14.5M to 27.8M steps. A call whose declared result is data or opens
+  an `∃` goes straight to the `match`, so the call isn't elaborated twice.
+  If anything fails with projections (most often a goal that computes on
+  the proof, needing the refinement), the `let` is checked again as the
+  `match`, with the `let`s inside kept as `match`es, so nothing that checked
+  stops checking and errors are the `match`'s.
+- **Result (measured, steps, release build, `check NS --no-project-cache
+  --timings=all`).** On `tools/fmt` with `Syntax.ReadBackHungAtoms` and
+  `ReadBackHungApp` as before SW-4619's hand rewrite (`058a52019^`):
+
+  | proof | before | after | SW-4619 by hand |
+  |---|---|---|---|
+  | `atomHung` | 56.0M | 41.3M | 25.5M |
+  | `unaryHung` | 30.1M | 24.8M | 25.5M |
+  | `signArgHung` | 10.1M | 8.9M | 9.0M |
+  | `orFlat` | 14.5M | 13.6M | |
+  | `conjFlat` | 11.9M | 11.1M | |
+  | `flatStep` | 1.67M | 1.68M | |
+
+  Namespaces (elab ms, load ~10-20 so rough): `ReadBackHungAtoms` 4892 to
+  3707, `ReadBackHungApp` 4178 to 3135, `ReadBackLine` 3090 to 2761,
+  `ReadBackHungFrameLemmas` 589 to 577. `examples/accept/let-proof-projections.sw`
+  `bigSplit` (a 2000-element list in the goal and a hypothesis): 324K to
+  3.4K steps, largest read-back 4012 to 17 nodes.
+- **Not done.** `atomHung` is still above SW-4619's hand version: the rest
+  is its `∃` `let`s, which have no projections, and `match`es written out.
+  The hand-written projections already in `tools/fmt` stay; they are now
+  equivalent to the `let` form.
+
 ### SW-4615: std's slow Parse lemmas: lifting their leaves into step lemmas does not pay; no code changed
 
 - **Status:** dropped; measured, nothing merged.

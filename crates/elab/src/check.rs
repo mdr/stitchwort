@@ -153,6 +153,11 @@ pub struct Ctx<'e> {
     /// against the statement ([`Ctx::statement`]), so each arm's right-hand
     /// side is checked against the statement too.
     pub(crate) statement_arms: bool,
+    /// Whether a pattern `let` on a proof, in a proof, stays a `match`
+    /// rather than binding projections (`patlet.rs`): set while the `match`
+    /// it falls back to is checked, so the `let`s inside aren't each tried
+    /// both ways.
+    pub(crate) kept_matches: bool,
     /// The types of the variables a lambda binds for the statement's `∀` or
     /// `→`, as the statement writes them, by the variable's level and in
     /// the context of the variables before it. Display only.
@@ -280,6 +285,7 @@ impl Saved {
             guard_splits: Rc::from([]),
             statement: None,
             statement_arms: false,
+            kept_matches: false,
             statement_params: Vec::new(),
             span: self.span,
         }
@@ -418,6 +424,7 @@ impl<'e> Ctx<'e> {
             guard_splits: Rc::from([]),
             statement: None,
             statement_arms: false,
+            kept_matches: false,
             statement_params: Vec::new(),
             span,
         }
@@ -457,6 +464,7 @@ impl<'e> Ctx<'e> {
             guard_splits: Rc::from([]),
             statement: None,
             statement_arms: false,
+            kept_matches: false,
             statement_params: Vec::new(),
             span,
         }
