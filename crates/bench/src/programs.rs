@@ -16,8 +16,13 @@ use crate::{Benchmark, PartCounts, Prepared, STACK, Work, alloc};
 pub const ALL: &[Benchmark] = &[
     Benchmark {
         name: "examples",
-        about: "checks every example under examples/ and runs their tests, as the example suite does",
+        about: "checks every example under examples/ and runs their tests, the library replayed from a check cache filled beforehand (as the example suite does)",
         prepare: examples,
+    },
+    Benchmark {
+        name: "std",
+        about: "checks the whole standard library once, from source (what `examples` replays instead)",
+        prepare: std_library,
     },
     Benchmark {
         name: "extract-js",
@@ -704,6 +709,7 @@ fn examples() -> Result<Prepared, String> {
     // once per process (`LibraryIndex::standard`); without this, the first
     // run would count that work and later runs wouldn't. It isn't measured.
     drop(Session::new());
+    let caches = LibraryCaches::fill()?;
     let parts = accepted
         .iter()
         .chain(&rejected)
@@ -723,6 +729,7 @@ fn examples() -> Result<Prepared, String> {
         inputs: Some(inputs),
         parts,
         run: Box::new(move |parts| {
+            let caches = &caches;
             let jobs = JOBS.load(std::sync::atomic::Ordering::Relaxed).max(1);
             let weights: Vec<usize> = examples.iter().map(|e| e.text.len()).collect();
             let lists = spread(&weights, jobs);
@@ -736,7 +743,7 @@ fn examples() -> Result<Prepared, String> {
                                 let mut done = Vec::with_capacity(list.len());
                                 alloc::measure_this_thread(true);
                                 for &i in list {
-                                    let result = run_example(&examples[i]);
+                                    let result = run_example(&examples[i], caches);
                                     let failed = result.is_err();
                                     done.push((i, result));
                                     if failed {
@@ -769,9 +776,76 @@ fn examples() -> Result<Prepared, String> {
     })
 }
 
+/// The stack an accepted example's session is made for.
+const ACCEPTED_STACK: usize = 16 * 1024 * 1024;
+
+/// Check caches holding the standard library, for the `examples` benchmark:
+/// each example's session replays the library from one, as the example
+/// suite's do from the test std cache (SW-1765), so the benchmark counts the
+/// examples' own checking and the `std` benchmark counts the library's.
+/// There is one folder for each kind of session, because the stack a
+/// session is made for is part of a cache entry's key and a write evicts
+/// the entries of other keys. The folders are fresh for each run, so the
+/// counts don't depend on what an earlier run left; they are removed when
+/// this is dropped.
+struct LibraryCaches {
+    root: PathBuf,
+    accepted: PathBuf,
+    rejected: PathBuf,
+}
+
+impl LibraryCaches {
+    /// Checks the library from source into new folders. Not measured.
+    fn fill() -> Result<Self, String> {
+        let root =
+            std::env::temp_dir().join(format!("stitchwort-bench-std-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let caches = LibraryCaches {
+            accepted: root.join("accepted"),
+            rejected: root.join("rejected"),
+            root,
+        };
+        for (session, dir) in [
+            (Session::for_stack(ACCEPTED_STACK), &caches.accepted),
+            (Session::new(), &caches.rejected),
+        ] {
+            let mut session = untimed(session);
+            session.use_library_check_cache(dir);
+            session
+                .elab
+                .load_all_libraries()
+                .map_err(|ds| format!("the library doesn't check:\n{}", rendered(&session, &ds)))?;
+        }
+        Ok(caches)
+    }
+}
+
+impl Drop for LibraryCaches {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.root);
+    }
+}
+
+/// Checks the whole library once from source, in a session of its own with
+/// no cache: the work the `examples` benchmark leaves out by replaying it.
+/// It is all of `std/`, not the files the examples import, so that it
+/// doesn't change when an example does (the `examples` fingerprint covers
+/// those) and a change to any library file is seen.
+fn std_library() -> Result<Prepared, String> {
+    // The library's index is built once per process; not measured.
+    drop(Session::new());
+    Ok(Prepared::new(|| {
+        let mut session = untimed(Session::for_stack(STACK));
+        match session.elab.load_all_libraries() {
+            Ok(()) => Ok(work(&session)),
+            Err(ds) => Err(rendered(&session, &ds)),
+        }
+    }))
+}
+
 /// Checks (and for an accepted one, tests) one example in a session of its
 /// own, on the thread of the caller, counting what that took.
-fn run_example(example: &Example) -> Done {
+fn run_example(example: &Example, caches: &LibraryCaches) -> Done {
     let Example {
         name,
         text,
@@ -779,7 +853,8 @@ fn run_example(example: &Example) -> Done {
     } = example;
     let mark = alloc::part_start();
     let done = if *accepted {
-        let mut session = untimed(Session::for_stack(16 * 1024 * 1024));
+        let mut session = untimed(Session::for_stack(ACCEPTED_STACK));
+        session.use_library_check_cache(&caches.accepted);
         if let Err(ds) = session.load(name, text) {
             return Err(format!("{name}:\n{}", rendered(&session, &ds)));
         }
@@ -791,6 +866,7 @@ fn run_example(example: &Example) -> Done {
         work(&session)
     } else {
         let mut session = untimed(Session::new());
+        session.use_library_check_cache(&caches.rejected);
         if let Err(ds) = session.load(name, text) {
             std::hint::black_box(rendered(&session, &ds));
         }
