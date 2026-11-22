@@ -4,8 +4,8 @@
 --|
 --| The items are related to the tree by `Spelt` (each node's tokens in order, each item carrying the node's word, a
 --| comma between bracket items and none after the last); the look-aheads are discharged by `Syntax.ReadBackEnds`
---| from the item kinds (`lineAll`: words, brackets, commas and `:=`) and from what follows each node. In `Quiet` modes
---| only a line start stops a reading. No list that starts a full expression may start with `auto` on a type's name
+--| from the item kinds (`lineAll`: words, brackets, commas and `:=`) and from what follows each node. Under
+--| `QuietModes` only a line start stops a reading. No list that starts a full expression may start with `auto` on a type's name
 --| (`Syntax.AutoPlaced.Expr.autoPlaced`), which reads there as an implicit binder. `-` glued to a numeral reads as
 --| one atom, as `Spelt` says the parser sees it, and a sign may start a call's argument, glued to its atom and spaced
 --| from what precedes it (`argumentGlue`). Binary operators
@@ -26,7 +26,7 @@ import Syntax.AutoPlaced (..)
 
 --| Modes in which nothing but a line start stops a reading: no guard, `calc` or `rewrite` rule, as in a declaration's
 --| type and body, inside their brackets, and in a block's line.
-type Quiet (modes: Modes): Prop = {
+type QuietModes (modes: Modes): Prop = {
   noGuard: modes.guard = False,
   noCalc: modes.inCalc = False,
   noRule: modes.rewriteRule = None
@@ -53,7 +53,7 @@ theorem quietPeekSecond ∀ (modes: Modes) (first second: Item) (later: List Ite
     peekIn modes 1 [first, second, ..later] = Some second.kind :=
   rewrite open1, open2
 
-theorem quietBrackets ∀ (modes: Modes) (quiet: Quiet modes): Quiet modes.inBrackets :=
+theorem quietBrackets ∀ (modes: Modes) (quiet: QuietModes modes): QuietModes modes.inBrackets :=
   { noGuard = byComputing, noCalc = quiet.noCalc, noRule = quiet.noRule }
 
 --| The kinds of a one-line declaration's items from its type on, in this part: words, signs, brackets, commas and

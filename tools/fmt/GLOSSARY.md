@@ -159,13 +159,14 @@ comment. **Defined:** `homedBack` (Fmt/Predicates.sw:50), `Expr.homed` (Fmt/Elem
 above it. `Expr.trails` asks whether a comment ends the expression's line, reading from the back past closers
 (`trailsBack`). **Defined:** `Word.trails` (Fmt/Rules.sw:92), `Word.noted` (Fmt/Rules.sw:94), `trailsBack` (Fmt/Rules.sw:317).
 
-**Quiet.** Four unrelated words share this name. (a) A *word* is quiet when it has no comment and no blank line
+**Quiet.** Four words about quiet. (a) A *word* is quiet when it has no comment and no blank line
 above it: `Word.quiet` (Fmt/ExprHangProofs.sw:32); an *expression* is quiet when all its words are
 (`Expr.quiet`, Fmt/ExprHangProofs.sw:38), *edge-quiet* when only the first and last token may have comments
 (`Expr.edgeQuiet`, Fmt/OneLineStatements.sw:33). (b) A *token kind* is quiet when it is not a comma or closer:
-`Quiet` (Fmt/TreeJoinProofs.sw:73). (c) A printer *seam* is quiet when any comment waiting there really is a
-comment: `Quiet` (Fmt/TouchSteps.sw:37). (d) The parser's *modes* are quiet when no guard, `calc` or `rewrite` rule
-is in force, so only a line start ends a reading: `Quiet` (Syntax/ReadBackLine.sw:29).
+`QuietKind` (Fmt/TreeJoinProofs.sw:73). (c) A printer *seam* is quiet when any comment waiting there really is a
+comment: `QuietSeam` (Fmt/TouchSteps.sw:37). (d) The parser's *modes* are quiet when no guard, `calc` or
+`rewrite` rule is in force, so only a line start ends a reading: `QuietModes` (Syntax/ReadBackLine.sw:29). The
+three capitalized names say what each is quiet about; only the word and expression keep the bare `quiet`.
 
 **Stands.** The printed leaves have the tree's comments where the tree says: each word's own-line comments and
 blank-line flag, a trailing comment on the word's leaf or *owed* on to a closer or comma after it on the same
@@ -209,7 +210,7 @@ first), the type's or value's column, whether the next leaf starts an item, whet
 (`SourceFile.hung`, Fmt/OutputStatements.sw:154). "Read back over hung lines" is the parser reading such leaves
 (Syntax/ReadBackHung.sw). The many `…Hang…` names (`HangsFor`, `ItemHangs`, `DeclHangs`) are the printer's side:
 "this element, laid by the rules, ends up satisfying the line rule". **Defined:** `DeclHangs`
-(Fmt/DeclHangProofs.sw:825), `printedHangs1` (Fmt/DeclFactsProofs.sw:152).
+(Fmt/DeclHangProofs.sw:847), `printedHangs1` (Fmt/DeclFactsProofs.sw:152).
 
 **Element.** In the printer proofs, a node of the tree that is laid out as one unit: an atom, a bracket, a
 call's argument, an operator chain. `DeclElements` says every element of a declaration's type and value meets
@@ -253,7 +254,7 @@ a left-nesting chain one level up); a tuple has two items or more. **Defined:** 
 operator's text is in the operator table. **Defined:** `Expr.lexical` (Fmt/Predicates.sw:226).
 
 **Sound.** A word's text is not layout and its comments are as comment placement leaves them (so the printer can
-write it). **Defined:** `Word.sound` (Fmt/SpellProofs.sw:213).
+write it). **Defined:** `Word.sound` (Fmt/SpellProofs.sw:212).
 
 **Comma-free.** The tree has no last comma: P2 has run. **Defined:** `commaFree` (member of `TreeFacts`;
 `commaSame1`, Fmt/TopStatements.sw:108, says P2 changes nothing on such a tree).
@@ -270,11 +271,12 @@ texts; they may differ in blank-line flags. Used to say `calm` changes nothing t
 [The parser, run twice](#the-parser-run-twice).)
 
 **Kept.** Two unrelated words. In the printer, `Comments.kept`/`Word.kept` keep the blank-line flags the rules
-read (Fmt/Predicates.sw:81). In the parser walk, `Kept read expr` says a parser function gave a tree of the
-grammar with the words of the items it read, their kinds, `within1`, and that it is placed (`Kept`, Syntax/ParseKept.sw:61).
+read (Fmt/Predicates.sw:81). In the parser walk, `KeptTree read expr` says a parser function gave a tree of the
+grammar with the words of the items it read, their kinds, `within1`, and that it is placed (`KeptTree`,
+Syntax/ParseKept.sw:61).
 
 **Carried.** Two unrelated words. In comment placement, `Carried` is the own-line comments a comma carries to the
-next token plus its blank lines (Syntax/Settle.sw:183). In the parser walk, `Carried` is the spec `Kept` is
+next token plus its blank lines (Syntax/Settle.sw:183). In the parser walk, `Carried` is the spec `KeptTree` is
 built from: the tree has the words of the items read (Syntax/ParseCarries.sw:1).
 
 **Shapes, plain.** `sourcePlain1` is the driver's test on a source's tokens: no `->` before a comma, closer or
@@ -294,9 +296,9 @@ satisfying `pre`, the document may print and leave a position satisfying `post`.
 
 **Spells.** A document `Spells` a list of texts when every option of each choice has those words (`Uniform`), its
 closers and trailing comments are of the kinds the rules write (`Marked`), and its words are the texts.
-`Expr.spelt`/`Decl.spelt` are the texts the rules print for a tree. **Defined:** `Spells` (Fmt/SpellProofs.sw:26),
-`Expr.spelt` (Fmt/SpellProofs.sw:375); Std's `Uniform` and `Marked` in crates/elab/src/std/Doc/Words.sw (lines
-306 and 757). Proved of slice 1 by `printedSpells` (Fmt/SpellProofs.sw:1597).
+`Expr.spelt`/`Decl.spelt` are the texts the rules print for a tree. **Defined:** `Spells` (Fmt/SpellProofs.sw:27),
+`Expr.spelt` (Fmt/SpellProofs.sw:374); Std's `Uniform` and `Marked` in crates/elab/src/std/Doc/Words.sw (lines
+306 and 757). Proved of slice 1 by `printedSpells` (Fmt/SpellProofs.sw:1595).
 
 **Joins, Follows.** `Joins` says what the printer puts next to what: each printed piece may stand after the one
 before. `Follows kinds word next` is the caller's relation: `word` still lexes as itself before `next`. A
@@ -312,7 +314,7 @@ where the printer is: at a line start, after pieces on the line, or with a trail
 **Told.** What a document says of its words whatever layout prints it: whether each word starts its line, follows
 words on it, or may do either, and whether each blank leaves a blank line. `Spot` is where the printer may be
 when telling. **Defined:** `Doc.tell` (crates/elab/src/std/Doc/Told.sw:157); the rules' side in
-Fmt/ToldWordProofs.sw and Fmt/ToldDeclProofs.sw; `Refines` (Fmt/ToldDeclProofs.sw:29).
+Fmt/ToldWordProofs.sw and Fmt/ToldDeclProofs.sw; `Refines` (Fmt/ToldDeclProofs.sw:30).
 
 **Trace, events.** The printer's own account of where it puts each word: a word and the column its line starts at,
 if it starts one. `hangs` over the leaves equals a fold over the trace (`Tracks`, Fmt/PrintHangProofs.sw:176).
@@ -344,7 +346,7 @@ declaration group (`readsBackDecl1`, Fmt/TopReadBack.sw:54) from the over-many-l
 
 **Spelt.** An expression is *spelt* by a list of items when the items are the node's tokens in order, each
 carrying the node's word, a comma between two bracket items and none after the last. It links the tree to
-what the parser reads. **Defined:** `Spelt` (Syntax/ReadBackLine.sw:156), `SlotMatch` (Fmt/SpeltSlots.sw:41).
+what the parser reads. **Defined:** `Spelt` (Syntax/ReadBackLine.sw:154), `SlotMatch` (Fmt/SpeltSlots.sw:41).
 Not the same as `Spells` (a document's words).
 
 **Group.** One declaration's leaves, as the file-level parser splits them. **Defined:** `PrintedGroup`
@@ -375,18 +377,18 @@ is the relation on items (equal once stripped of trivia). In a two-run lemma the
 **Deaf.** A parser function is deaf to comments when it gives the same answer on items and on the same items
 with their comments stripped. `deafOfStripped` turns such a fact into one about two runs. The look-aheads and
 the lowering's checks are deaf, so they agree on both runs. **Defined:** `Leaf.stripped`
-(Syntax/DeafProofs.sw:11), `deafOfStripped` (Syntax/DeafProofs.sw:1046), `stopsDeaf`, `loweringDeaf` and the rest
+(Syntax/DeafProofs.sw:11), `deafOfStripped` (Syntax/DeafProofs.sw:1022), `stopsDeaf`, `loweringDeaf` and the rest
 of that file.
 
 **Blanks.** Blanking a tree's comments (`walk blankPure`) commutes with a traversal step: the step fails the same
-way or finishes with the result blanked. `meaning` is built on it. **Defined:** `Blanks` (Fmt/TraverseFail.sw:17),
+way or finishes with the result blanked. `meaning` is built on it. **Defined:** `Blanks` (Fmt/TraverseFail.sw:25),
 `blankPure` (Fmt/BlankProofs.sw:333); `meaningBlanksFirst` (Fmt/BlankProofs.sw:364).
 
 **Honest.** Std's `Parse.Honest total at`: a parser mark's offset and remaining input are consistent with the
 whole input. The lexer proofs need it to chain steps. **Defined:** `Parse.Honest` (crates/elab/src/std/Parse/Reads.sw:46).
 
 **Parser's walk (carried walk).** The proof that every parser function on slice 1's path gives a tree with the
-words of the items it read: `Kept` for each function from atoms up to a declaration. It lives in
+words of the items it read: `KeptTree` for each function from atoms up to a declaration. It lives in
 Syntax/ParseKept.sw (atoms to `append_expr`), Syntax/ParseCarriesLadder.sw (the levels above),
 Syntax/ParseCarriesDecl.sw (declarations), Syntax/ParseCarriesFile.sw (files) and Syntax/ParseWalk*.sw (shapes
 and the parsers outside slice 1, which are only shown to give trees *outside* the slice, `Out`).
@@ -397,7 +399,7 @@ and the parsers outside slice 1, which are only shown to give trees *outside* th
 may fail; the passes and `meaning` are traversals with different steps. `walk` is a pure copy of it, arm for arm,
 with steps that cannot fail (`Pure`). Two families of lemma, one theorem per function: `…Ok` (the traversal
 finishes with the walk's result when the steps agree, `Agrees`) and `…Twice` (walking with `s` then `m` is walking
-with `m`, `Keeps`). **Defined:** `Pure` (Fmt/Walk.sw:22), `Agrees` (Fmt/Walk.sw:458), `Keeps` (Fmt/Walk.sw:471).
+with `m`, `Keeps`). **Defined:** `Pure` (Fmt/Walk.sw:28), `Agrees` (Fmt/Walk.sw:464), `Keeps` (Fmt/Walk.sw:477).
 This is unrelated to *the parser's walk* above and the *back-walk* of comment placement; all three are walks
 over different things.
 

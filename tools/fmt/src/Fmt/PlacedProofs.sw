@@ -1,6 +1,6 @@
 --| `Syntax.AutoPlaced.Expr.autoPlaced` across the driver (SW-4128): comments don't change it (`autoPlacedDeaf`), nor
 --| do `calm` and the trailing-comma pass; and the parser's fact that it holds of the driver's tree (`parsedPlaced1`),
---| from the `Kept` walk of each declaration. The same walk gives `within1` of a driver's tree in the grammar
+--| from the `KeptTree` walk of each declaration. The same walk gives `within1` of a driver's tree in the grammar
 --| (`parsedWithin1`), for `Fmt.Accepts1`.
 
 namespace Fmt.PlacedProofs
@@ -217,7 +217,7 @@ theorem parseGroupsPlaced ∀ (seen: Seen) (groups: List (List Leaf)) (found dec
 --| a tuple's or a list's item, an arrow's right side) starts with an `auto` call, since there the parser reads
 --| `[auto Ord …` as an implicit binder (`exprPlain`'s `implicitOn`), which is no tree of slice 1.
 --|
---| Proof idea: the `Kept` walk (`Syntax.ParseKept`) carries placement: `Kept` has `autoPlaced False`, and at a full
+--| Proof idea: the `KeptTree` walk (`Syntax.ParseKept`) carries placement: `KeptTree` has `autoPlaced False`, and at a full
 --| goal `KeptFull` has `autoPlaced True`, from `exprPlain`'s `implicitOn = False` where the item at the start isn't
 --| stopped, and from the operator ladder failing where it is (`Syntax.ParseCarriesLadder.readsAtExprPlainStopped`).
 --| Each declaration of the file is one group's run (`parseGroupsPlaced`), whose items `settledOnce` keeps good and quiet

@@ -56,7 +56,7 @@ import Fmt.TreeJoinProofs (
   declReal,
   OperatorSpells,
   PrefixSpells,
-  Quiet,
+  QuietKind,
   infixWithin,
   lexKind,
   lexKindOfSpells,

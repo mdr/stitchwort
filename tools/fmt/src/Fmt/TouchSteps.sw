@@ -5,7 +5,7 @@
 --|
 --| Comments drop out of what is counted (`codeTouching`): an own-line comment is a word, and a trailing comment
 --| waits in the seam (`Awaiting`) and is listed when its line ends, so every seam here holds comments only
---| (`Quiet`).
+--| (`QuietSeam`).
 
 namespace Fmt.TouchSteps
 import Std (Bool, Doc, Eq, List, Nat, Option, Text, Void)
@@ -34,11 +34,11 @@ theorem admitsAppend ∀ (front back: List Spacing) (glues later: List Bool)
 -- Seams.
 
 --| A seam whose waiting comment, if any, is a comment.
-def Quiet: Seam → Prop
+def QuietSeam: Seam → Prop
   | Awaiting _ comment => isComment comment = True
   | _ => True
 
-theorem endingQuiet ∀ (seam: Seam) (quiet: Quiet seam): codeTouching seam.ending = [] := match seam, quiet with
+theorem endingQuiet ∀ (seam: Seam) (quiet: QuietSeam seam): codeTouching seam.ending = [] := match seam, quiet with
   | Begun | Along _, _ => byComputing
   | Awaiting word comment, quiet => rewrite quiet
 
@@ -61,12 +61,12 @@ def Gapped (trails: Bool) (seam: Seam): Prop := match seam with
   | Along word => word = False
   | Awaiting _ comment => trails = True ∧ isComment comment = True
 
-theorem fitsQuiet ∀ [before: Bool] [first: Spacing] [seam: Seam] (fits: Fits before first seam): Quiet seam :=
+theorem fitsQuiet ∀ [before: Bool] [first: Spacing] [seam: Seam] (fits: Fits before first seam): QuietSeam seam :=
   match seam, fits with
     | Begun | Along _, _ => byComputing
     | Awaiting word comment, (_, _, quiet) => quiet
 
-theorem endsQuiet ∀ (trails: Bool) (seam: Seam) (ends: Ends trails seam): Quiet seam := match seam, ends with
+theorem endsQuiet ∀ (trails: Bool) (seam: Seam) (ends: Ends trails seam): QuietSeam seam := match seam, ends with
   | Begun | Along _, _ => byComputing
   | Awaiting word comment, (_, quiet) => quiet
 
@@ -275,7 +275,7 @@ theorem stepsMark ∀ (key: Nat) (pre: Seam → Prop): Steps (Mark key) pre [] p
 
 --| A line break: the waiting comment, which is no code word, then a line start.
 theorem breakStep ∀ (post: Seam → Prop) (seam: Seam) [trace: List Touch] [next: Seam → List Touch → Prop]
-    (quiet: Quiet seam)
+    (quiet: QuietSeam seam)
     (fresh: post Begun)
     (after: ∀ (left: Seam) (added: List Touch) => post left
       → admitsGlue [] (codeTouching added) = True
@@ -284,25 +284,26 @@ theorem breakStep ∀ (post: Seam → Prop) (seam: Seam) [trace: List Touch] [ne
   after Begun seam.ending fresh (rewrite endingQuiet seam quiet)
 
 theorem stepsHard ∀ [pre: Seam → Prop] (post: Seam → Prop)
-    (quiet: ∀ (seam: Seam) => pre seam → Quiet seam) (fresh: post Begun):
+    (quiet: ∀ (seam: Seam) => pre seam → QuietSeam seam) (fresh: post Begun):
     Steps HardLine pre [] post :=
   seam trace next holds after => breakStep post seam (quiet seam holds) fresh after
 
-theorem stepsLineStart ∀ [pre post: Seam → Prop] (quiet: ∀ (seam: Seam) => pre seam → Quiet seam) (fresh: post Begun):
+theorem stepsLineStart ∀ [pre post: Seam → Prop]
+    (quiet: ∀ (seam: Seam) => pre seam → QuietSeam seam) (fresh: post Begun):
     Steps LineStart pre [] post :=
   seam trace next holds after => breakStep post seam (quiet seam holds) fresh after
 
 theorem stepsLineStartHere ∀ (pre post: Seam → Prop)
-    (quiet: ∀ (seam: Seam) => pre seam → Quiet seam) (fresh: post Begun):
+    (quiet: ∀ (seam: Seam) => pre seam → QuietSeam seam) (fresh: post Begun):
     Steps LineStartHere pre [] post :=
   seam trace next holds after => breakStep post seam (quiet seam holds) fresh after
 
 theorem stepsCloserLine ∀ (key: Nat) [pre post: Seam → Prop]
-    (quiet: ∀ (seam: Seam) => pre seam → Quiet seam) (fresh: post Begun):
+    (quiet: ∀ (seam: Seam) => pre seam → QuietSeam seam) (fresh: post Begun):
     Steps (CloserLine key) pre [] post :=
   seam trace next holds after => breakStep post seam (quiet seam holds) fresh after
 
-theorem stepsSoft ∀ (pre post: Seam → Prop) (quiet: ∀ (seam: Seam) => pre seam → Quiet seam)
+theorem stepsSoft ∀ (pre post: Seam → Prop) (quiet: ∀ (seam: Seam) => pre seam → QuietSeam seam)
     (keeps: ∀ (seam: Seam) => pre seam → post seam) (fresh: post Begun):
     Steps SoftLine pre [] post :=
   seam trace next holds after =>
@@ -365,7 +366,7 @@ theorem stepsChoice ∀ (first: Doc) (others: List Doc) (pre: Seam → Prop) [sp
 --| waits.
 theorem stepsDisplaced ∀ [inner: Doc] (pre: Seam → Prop) [spacing: List Spacing] (post: Seam → Prop)
     (steps: Steps inner pre spacing post)
-    (fresh: pre Begun) (quiet: ∀ (seam: Seam) => pre seam → Quiet seam):
+    (fresh: pre Begun) (quiet: ∀ (seam: Seam) => pre seam → QuietSeam seam):
     Steps (Displaced inner) pre spacing post :=
   seam trace next holds after =>
     match seam, holds with
@@ -380,7 +381,7 @@ theorem stepsDisplaced ∀ [inner: Doc] (pre: Seam → Prop) [spacing: List Spac
 
 --| A document one line below: the waiting comment, then the document from a line start.
 theorem stepsOneLineBelow ∀ [inner: Doc] (pre: Seam → Prop) [start: Seam → Prop] [spacing: List Spacing]
-    (post: Seam → Prop) (quiet: ∀ (seam: Seam) => pre seam → Quiet seam) (fresh: start Begun)
+    (post: Seam → Prop) (quiet: ∀ (seam: Seam) => pre seam → QuietSeam seam) (fresh: start Begun)
     (steps: Steps inner start spacing post):
     Steps (OneLineBelow inner) pre spacing post :=
   seam trace next holds after =>

@@ -159,7 +159,7 @@ not start a line, so no block opens there [source: SW-3969's notes].
 | O1 | `quietStops`: an item that starts no line never stops a reading. Used at 45 places, each from a piece of `inLineAll` | `hungStops`: an item the line rule steps over doesn't stop, under modes whose limit is no further right than the column in force. The one exception is O5 |
 | O2 | `fullLine`: a bracket's item starts no line, so `expr` reads it inline (`fullOfInline`) | either inline, or a one-line block at the item's column: `fullOfStarts`, as `fullAnyLine` does today for the value alone. The block's three conditions (`BlockAt`) come from `hangs`: right of the limit; what follows doesn't continue the block (`stepInBracket`, `stepAtTop`, proved); the line read under the block's modes, whose limit is the item's column |
 | O3 | `inLineSplit`, `lineSplit`: "starts no line" splits over `++` with no state | `hangsAppend` (proved) splits `hangs`, but the state must be carried: what it is after a sub-expression's leaves. That is the frame lemma `speltHangs`, new |
-| O4 | `Quiet modes` is all the lemmas ask of the modes | also `bounds modes state`: the modes' limit is at most the line rule's column in force. An inequality, so it survives both of O2's cases |
+| O4 | `QuietModes` is all the lemmas ask of the modes | also `bounds modes state`: the modes' limit is at most the line rule's column in force. An inequality, so it survives both of O2's cases |
 | O5 | `restOpen`: the item after the expression doesn't stop. True on one line | false of a `:=` that starts a line at or left of a type that began its own line. Measured: 678 of the passing cases have it. `restOpen` is used in one place, `endsAtom`, for a peek that is `None` when the item stops, so the hypothesis can go |
 | O6 | any items: no lemma reads `index` or `depth` | closers and commas need `depth > 0` to be exempt from `stopsByLine`: `hungDeep`, new, from `items group` and `hangs` |
 | O7 | the type on the `def`'s line (`fullLine` at `Modes.start`); the value on it or the next (`fullAnyLine`) | both by the one rule, `fullHung`; the header's own line starts (name, `:`, comments above them) are steps of `hangs` from `HangState.initial` |
@@ -381,7 +381,7 @@ the test and `calmTopOneLine`.
 ## 6. Stub statements
 
 For H0 to turn into code. Names are suggestions; the shapes are what
-matters. `Quiet`, `Spelt`, `lineAll`, `endsHere`, `FullReads`, `TreeN`
+matters. `QuietModes`, `Spelt`, `lineAll`, `endsHere`, `FullReads`, `TreeN`
 are as in `Syntax/ReadBackLine.sw` and `Syntax/ReadBackTree.sw`.
 
 ```
@@ -422,7 +422,7 @@ theorem hungDeep ∀ (group: List Leaf) (hung: hangs group = True): deepAll (ite
 --| An item the line rule steps over doesn't stop a reading whose limit the rule bounds. A `:=` outside brackets is
 --| the exception: the rule lets it start a line anywhere.
 theorem hungStops ∀ (modes: Modes) (state next: HangState) (item: Item)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (bound: bounds modes state = True)
     (stepped: state.step item.leaf = Some next)
     (deep: deepAll [item] = True)
@@ -469,7 +469,7 @@ theorem speltHangs ∀ (expr: Expr) (first: Item) (more: List Item) (state next:
 --| (`state.start`), or after `->` (`state.glue`), whose leaves and what follows keep the line rule. Inline where its
 --| first item starts no block; else a one-line block at that item's column.
 theorem fullHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (expr: Expr) (read rest: List Item) (depth: Nat) (state: HangState)
     (deep: expr.nest1 <= depth)
     (spelt: Spelt expr read)
@@ -488,7 +488,7 @@ theorem fullHung ∀ (modes: Modes)
 --| that item enters, and the line rule over the items and what follows. `open` stays: the first item is the caller's
 --| to place (a block's own first item is allowed by its modes, not by its column).
 theorem inlineHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (expr: Expr) (item: Item) (more rest: List Item) (depth: Nat) (state: HangState)
     (deep: expr.nest1 <= depth)
     (spelt: Spelt expr [item, ..more])

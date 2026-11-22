@@ -1998,7 +1998,7 @@ Lane A of docs/reviews/SW-4166-carried-walk-plan.md. Lane L's `textSpells1` take
 
 - **`Syntax.AutoPlaced`.** `Expr.autoPlaced full`: the flag says whether the expression starts a full expression (a declaration's type or value, a paren's inside, a tuple's or list's item, an arrow's right side), passes down the leftmost spine, and only there is the list's first item tested (`autoCall`, moved here). `autoFree1` is `autoPlaced` with the flag always on, so the new fact covers more trees. Read-back's lemmas take `autoPlaced False` below the operator level and `autoPlaced True` where `noAutoLine` needs the start (`fullHung`, `inlineHung`, `arrowHung`, `inlinePlainHung`); `autoPlacedInner` goes from one to the other.
 - **`readsBackHung`** takes the type's and value's placement instead of their `within1`, and `DeclsReadBack`, `readsBackFile1` and `outputParses1` pass it up. `tidiedPlaced1` gives it for the driver's tidied tree from `Fmt.PlacedProofs.parsedPlaced1`, which is **open**: the parser's fact. Computed on 1,686 grammar1 parses, none unplaced (and none `autoFree1` but unplaced).
-- **Parser side.** `Syntax.ParseKept`: `Goal.full`, `KeptAt`, and `keptPlacedUp` (placed inside, kept, and no implicit binder ahead give placed at the start). For the walk to give `KeptAt`, `Kept` itself has to carry `autoPlaced False`, since a node's inner full expressions are built inside the walk; that is the walk follow-up's.
+- **Parser side.** `Syntax.ParseKept`: `Goal.full`, `KeptAt`, and `keptPlacedUp` (placed inside, kept, and no implicit binder ahead give placed at the start). For the walk to give `KeptAt`, `KeptTree` itself has to carry `autoPlaced False`, since a node's inner full expressions are built inside the walk; that is the walk follow-up's.
 - `autoPlacedDeaf`, `autoPlacedCalm` and `commaKeepsPlaced` (P2) are in `Fmt.PlacedProofs`.
 
 ## Slice 1 checkpoint (19 Nov 2026)
@@ -2027,7 +2027,7 @@ Where the extra count is, against what the sketch did not plan (D3687 widened sl
 | Group the sketch did not size | Theorems |
 |---|---|
 | Two-run parser framework (`Follows*`, `DeafProofs`, `TraverseFail`): one lemma per parser function, SW-4132's plan | 1,058 |
-| The `Kept` walk (`ParseKept`, `ParseCarries*`) | 265 |
+| The `KeptTree` walk (`ParseKept`, `ParseCarries*`) | 265 |
 | Multi-line read-back (`ReadBackHung*`, SW-4121) | 137 |
 | Comments anywhere (`Fmt/Elements*`, SW-4130) | 114 |
 | Those four | 1,574 |

@@ -54,7 +54,7 @@ theorem leadPlain ∀ (kind: Tok)
 
 --| A comma or closer inside a bracket stops no reading in quiet modes: the parser's line test exempts it.
 theorem deepStops ∀ (modes: Modes) (item: Item)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (deep: deepAll [item] = True)
     (exempt: (item.kind == Comma || item.kind.isCloser) = True):
     modes.stops item = False :=
@@ -117,7 +117,7 @@ theorem boundsEntered ∀ (modes: Modes) (state next: HangState) (leaf: Leaf)
 
 --| An item that leads an expression doesn't stop a reading the state bounds, and leaves a state the bound holds of.
 theorem leadHung ∀ (modes: Modes) (state: HangState) (item: Item) (rest: List Item)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (lead: leadKind item.kind = True)
     (bound: bounds modes state = True)
     (hung: hangsFrom state (leavesOf [item, ..rest]) = True):
@@ -231,7 +231,7 @@ theorem freshContinues ∀ (state next: HangState) (leaf after: Leaf)
 --| The item after a bracket's first two doesn't stop a reading the state before the second
 --| bounds.
 theorem peekTwoHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (first second: Item) (more tail: List Item) (state: HangState)
     (open1: modes.stops first = False)
     (lead: leadKind second.kind = True)
@@ -260,7 +260,7 @@ theorem peekTwoHung ∀ (modes: Modes)
 --| The items a bracket's first item starts with don't stop a reading the state before
 --| it bounds.
 theorem speltOutsideHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (first: Item) (expr: Expr) (read after: List Item) (state: HangState)
     (spelt: Spelt expr read)
     (open1: modes.stops first = False)

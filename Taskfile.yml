@@ -265,6 +265,7 @@ tasks:
     cmds:
       - '{{.STEP}} features -- task test:features'
       - '{{.STEP}} fmt -- cargo fmt --check'
+      - '{{.STEP}} glossary -- tools/fmt/dev/check-glossary.sh'
       - '{{.STEP}} "wasm check" -- cargo check -p stitchwort-web --target wasm32-unknown-unknown --release'
       - '{{.STEP}} "nextest build" -- {{.GUARD}} --cap-gb {{.MEM_CAP_QUICK}} -- cargo nextest run --release --workspace --profile quick --no-run {{.CLI_ARGS}}'
       - '{{.STEP}} "nextest run" -- {{.GUARD}} --cap-gb {{.MEM_CAP_QUICK}} -- cargo nextest run --release --workspace --profile quick {{.CLI_ARGS}}'

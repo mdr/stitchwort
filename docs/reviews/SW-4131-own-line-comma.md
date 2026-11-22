@@ -111,8 +111,8 @@ trouble: the comma's comment is above the `)` before rule N starts, and
 
 - SW-4006 (`bareSettles`): "under `plain1` no last comma starts its
   line, so making them bare moves no token" [source:
-  `SettleBareProofs.sw:1344`]. Its three hard lemmas (`rule1Drop`,
-  `rule2Drop` and the walk under them) do not assume it. They carry an
+  `SettleBareProofs.sw:1344`]. Its three hard lemmas (`backWalkDrop`,
+  `commaCarryDrop` and the walk under them) do not assume it. They carry an
   invariant, `barish`, that already says "a bare last comma starts a
   line only if its closer does" [source: `SettleBareProofs.sw:124`].
 - SW-4022 (`onceSettledProved`): "a last comma that is laid out and

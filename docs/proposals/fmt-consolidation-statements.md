@@ -352,7 +352,7 @@ What it replaces: `outParsed`, `outArg`, `outAtom`, `outHead` become
 
 After it, the slice enters the two gated walks through a short, written
 list: `InSlice` and `GoodItem` (`within1`), `Out` and `DeclOut`
-(`grammar1`), `Kept` (`grammar1` and `within1`), `DeclOk`.
+(`grammar1`), `KeptTree` (`grammar1` and `within1`), `DeclOk`.
 
 The uniform statement for a function on the slice's path, which 45 lemmas already have [measured: the statements ending in
 `Parsed1 floor` or `ArgParsed`], is then:

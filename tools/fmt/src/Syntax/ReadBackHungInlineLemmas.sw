@@ -25,7 +25,7 @@ theorem andOrPlain ∀ (kind: Tok)
 --| An item that is no comma, closer, `:=` or `:` doesn't stop a reading the state bounds, and leaves a state the
 --| bound holds of.
 theorem plainHung ∀ (modes: Modes) (state: HangState) (item: Item) (rest: List Item)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (plain: (item.kind == Comma || item.kind.isCloser || item.kind == ColonEq || item.kind == Colon) = False)
     (bound: bounds modes state = True)
     (hung: hangsFrom state (leavesOf [item, ..rest]) = True):
@@ -53,7 +53,7 @@ theorem speltAfterHung ∀ (expr: Expr) (read rest: List Item) (state: HangState
 --| What follows a comparison in a logic chain on any lines ends it there: the next link's `&&` or `||`, or what ends
 --| the chain. `linksEnds` with the line rule's state before the links in place of "starts no line".
 theorem linksEndsHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (depth: Nat) (links: List (Item, List Item, Expr)) (rest: List Item) (state: HangState)
     (linksSpelt: LinksSpelt depth links)
     (bound: bounds modes state = True)
@@ -78,7 +78,7 @@ theorem linksEndsHung ∀ (modes: Modes)
 --| bounds, and leaves the state glued, with the same column in force, from which the rule goes on over the right side
 --| and what follows.
 theorem arrowHungParts ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (left: Expr) (leftRead: List Item) (arrow: Item) (rightRead rest: List Item) (state: HangState)
     (leftSpelt: Spelt left leftRead)
     (isOp: infixTok InfixArrow arrow.kind = True)

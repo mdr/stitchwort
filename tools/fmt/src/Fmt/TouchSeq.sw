@@ -151,7 +151,7 @@ theorem fillSteps ∀ (docs: List Doc) (spacings: List (List Spacing)) (pre post
 
 --| Documents each on a line of their own.
 theorem hardSteps ∀ (docs: List Doc) (spacings: List (List Spacing))
-    (pre post: Seam → Prop) (quiet: ∀ (seam: Seam) => pre seam → Quiet seam)
+    (pre post: Seam → Prop) (quiet: ∀ (seam: Seam) => pre seam → QuietSeam seam)
     (filled: docs ≠ [])
     (seq: SeqSteps (Gapped True) post docs spacings):
     StepsAll (docs.concatMap (doc => [HardLine, doc])) pre (joinSpacing spacings) post :=
