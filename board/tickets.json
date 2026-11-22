@@ -32065,12 +32065,12 @@
     {
       "id": 4594,
       "title": "[Sonnet] Explain two growths SW-4587 left: examples/accept/float-playlist.sw peak 75 to 428 MB (steps 34M to 111M, Std.Float growth explains steps, not the peak), and reject/rewrite-solution-too-large / rewrite-value-too-large's Main.big at 16.2M steps with a 2,000,001-node read-back (SW-4091 a candidate); find the commits, accident or deliberate, fix small accidents with a test",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "\n\nProgress (Sonnet, 22 Nov): both growths attributed, no code change. float-playlist peak: SW-638's 7872dea99 (Float.ofInt lemmas through roundRatio; Float.ofIntMonotone +240 MB) and the same kind of lemma after (roundGrid, ofNatExact, add/mul/divRelError). Too-large rewrites: SW-4237's 61f65796e fallback (2.07 M to 12.15 M steps), then +4.05 M in a window of 261 commits not pinned. Log entry in docs/performance/log.md (lane/SW-4594, 6cc61d8c3).\n",
+      "body": "Model result: Sonnet, worked (both attributed by bisect; findings SW-4600, SW-4601), 55 min (est. 40)\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
