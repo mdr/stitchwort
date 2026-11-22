@@ -377,11 +377,8 @@ theorem written (n: Nat): n = n := byComputing
             .into_iter()
             .map(|s| s.name)
             .collect();
-        assert!(names.iter().any(|n| n.ends_with("written")), "{names:?}");
-        assert!(
-            !names.iter().any(|n| n.ends_with("halvings.unfold")),
-            "{names:?}"
-        );
+        assert!(names.iter().any(|n| n == "written"), "{names:?}");
+        assert!(!names.iter().any(|n| n == "halvings.unfold"), "{names:?}");
     });
 }
 

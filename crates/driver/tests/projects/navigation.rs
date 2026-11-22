@@ -619,7 +619,10 @@ fn every_name_in_a_rewrite_list() {
     let index = index_of(&session);
     let all = lines(&session, &index, "one.sw");
     let mut checked = 0;
-    for name in ["Nat.addAssoc", "Nat.addComm"] {
+    for (name, qualified) in [
+        ("Nat.addAssoc", "Std.Nat.addAssoc"),
+        ("Nat.addComm", "Std.Nat.addComm"),
+    ] {
         for (at, _) in source.match_indices(name) {
             let found: Vec<_> = index
                 .refs
@@ -631,7 +634,7 @@ fn every_name_in_a_rewrite_list() {
                 .collect();
             assert!(
                 matches!(found.as_slice(), [r] if matches!(&r.target,
-                    NavTarget::Symbol(i) if index.symbols[*i].name.ends_with(name))),
+                    NavTarget::Symbol(i) if index.symbols[*i].name == qualified)),
                 "`{name}` at {at}: {} references in\n{all}",
                 found.len()
             );
@@ -668,7 +671,7 @@ fn the_function_in_match_induct() {
         .collect();
     assert!(
         matches!(found.as_slice(), [r] if matches!(&r.target,
-            NavTarget::Symbol(i) if index.symbols[*i].name.ends_with("countAbove"))),
+            NavTarget::Symbol(i) if index.symbols[*i].name == "Main.countAbove")),
         "`countAbove` at {at}: {} references in\n{all}",
         found.len()
     );

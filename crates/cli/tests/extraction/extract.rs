@@ -142,10 +142,7 @@ fn per_person_two_by_zero_fails_the_reference_precondition() {
         "{name} no longer pins `perPerson 2 0` as rejected"
     );
     let g = &session.elab.backend();
-    let id = (0..g.env.defs().len())
-        .map(DefId)
-        .find(|id| g.def(*id).name().ends_with("perPerson"))
-        .expect("discount.sw exports perPerson");
+    let id = (session.elab.lookup_def("perPerson")).expect("discount.sw exports perPerson");
     let sig = exportable(g, id).expect("perPerson exports");
     let nat = g.find_data("Nat").expect("the prelude has Nat");
     let zero = Value::Ctor(nat, 0, vec![].into());
@@ -167,10 +164,7 @@ fn a_precondition_behind_an_opaque_nickname_is_checked() {
     let examples = examples();
     let (name, _, session) = examples.get("opaque-nickname-precondition.sw");
     let g = &session.elab.backend();
-    let id = (0..g.env.defs().len())
-        .map(DefId)
-        .find(|id| g.def(*id).name().ends_with("share"))
-        .expect("the example exports share");
+    let id = (session.elab.lookup_def("share")).expect("the example exports share");
     let sig = exportable(g, id).unwrap_or_else(|e| panic!("{name}: {}", e.message));
     let positions: Vec<usize> = sig.checks.iter().map(|c| c.position).collect();
     assert_eq!(positions, [2], "{name}: one check, of `ok`");
