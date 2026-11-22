@@ -31814,12 +31814,12 @@
     {
       "id": 4575,
       "title": "[Opus] search_bench::proof_uses_find_their_lemma_among_the_first_ten still has 5 internal errors after SW-4564 (was 11; recall@10 54.9%): they come through the query search's use_pattern path, not search --at; add a per-query trace to search_bench's run (like SEARCH_AT_BENCH_TRACE), find the panicking queries, fix the cause with a test; rerun only that test (about 820 s, all tier)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "Lane (Opus, 22 Nov 03:16-): the 5 internal errors were one query, Eq.flipped's use in Parse.recursiveWithFuelMore, against Parse.runFromEndThere, runFromThenCongr, runFromThenCongrTree, runFromThenCongr1, runFromThenCongr1Tree (applying a constructor). Cause: use_pattern typed holes only from calls under no binder; argument/body are given only under the lambda of runFromMark's continuation, so argument stayed untyped and was solved with the candidate's (). Fix in use_pattern (not finish_pattern/type_index): calls under binders too, bound variables as fresh unknowns, only when the call gives a still-untyped hole (else 10 Float.Theory uses ran out of budget). Stats.internal_error_items + per-query naming in search_bench, SEARCH_BENCH_TRACE. Bench before: 10347 queries, recall@10 54.8%, 5 internal errors; after first commit: 10337 queries, 54.9%, 0. Commits e725bfda7, 4fe6bca54.\n",
+      "body": "Lane (Opus, 22 Nov 03:16-): the 5 internal errors were one query, Eq.flipped's use in Parse.recursiveWithFuelMore, against Parse.runFromEndThere, runFromThenCongr, runFromThenCongrTree, runFromThenCongr1, runFromThenCongr1Tree (applying a constructor). Cause: use_pattern typed holes only from calls under no binder; argument/body are given only under the lambda of runFromMark's continuation, so argument stayed untyped and was solved with the candidate's (). Fix in use_pattern (not finish_pattern/type_index): calls under binders too, bound variables as fresh unknowns, only when the call gives a still-untyped hole (else 10 Float.Theory uses ran out of budget). Stats.internal_error_items + per-query naming in search_bench, SEARCH_BENCH_TRACE. Bench before: 10347 queries, recall@10 54.8%, 5 internal errors; after first commit: 10337 queries, 54.9%, 0. Commits e725bfda7, 4fe6bca54.\n\nFinal bench (4fe6bca54): 10347 queries, recall@10 54.9%, 0 internal errors, test passes (818 s). Moved to review 04:23.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
