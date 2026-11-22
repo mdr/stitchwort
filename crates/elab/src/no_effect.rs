@@ -145,7 +145,7 @@ fn without_statements(expr: &Expr) -> bool {
             | Expr::Neg(a, _, _)
             | Expr::NamedArg(_, a, _, _)
             | Expr::Lam(_, a, _)
-            | Expr::Field(a, _) => pending.push(a),
+            | Expr::Field(a, _, _) => pending.push(a),
             Expr::List(items, _) => pending.extend(items.iter()),
             Expr::Spread(e, _) => pending.push(e),
             Expr::If {
@@ -259,7 +259,7 @@ pub(crate) fn argument_on_its_own_line(e: Diagnostic, first: &Expr, rest: &Expr)
 fn named(expr: &Expr) -> Option<String> {
     match expr {
         Expr::Var(name) => Some(name.text.clone()),
-        Expr::Field(recv, field) => named(recv).map(|r| format!("{r}.{}", field.text)),
+        Expr::Field(recv, field, _) => named(recv).map(|r| format!("{r}.{}", field.text)),
         Expr::Bracketed(e, _) => named(e),
         _ => None,
     }

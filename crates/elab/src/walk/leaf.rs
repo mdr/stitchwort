@@ -392,6 +392,7 @@ pub(super) fn conjunct_facts(cx: &Ctx) -> Result<Vec<(Expr, String)>> {
                                 text: field.into(),
                                 span,
                             },
+                            ast::NodeId::fresh(),
                         );
                         todo.push((part, format!("{text}.{field}"), ty.clone(), depth + 1));
                     }

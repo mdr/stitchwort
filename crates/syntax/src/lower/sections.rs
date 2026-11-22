@@ -8,7 +8,7 @@
 //! [`is_section_operator`]).
 
 use crate::Span;
-use crate::ast::{BinOp, Expr, Name, NeForm, SECTION};
+use crate::ast::{BinOp, Expr, Name, NeForm, NodeId, SECTION};
 use crate::lexer::Tok;
 use crate::tree::{Element, Leaf, Node, NodeKind};
 
@@ -122,7 +122,7 @@ fn leftmost_child(e: &Expr) -> Option<&Expr> {
         } else {
             rhs
         }),
-        Expr::Pipe(lhs, _) | Expr::Field(lhs, _) => Some(lhs),
+        Expr::Pipe(lhs, _) | Expr::Field(lhs, _, _) => Some(lhs),
         Expr::App(f, arg) => match &**f {
             Expr::Var(n) if n.text == "Std.Bool.not" => Some(arg),
             Expr::App(g, lhs) if matches!(&**g, Expr::Var(n) if n.text == "Std.Iff") => Some(lhs),
@@ -149,7 +149,7 @@ fn leftmost_child_mut(e: &mut Expr) -> Option<&mut Expr> {
         } else {
             rhs
         }),
-        Expr::Pipe(lhs, _) | Expr::Field(lhs, _) => Some(lhs),
+        Expr::Pipe(lhs, _) | Expr::Field(lhs, _, _) => Some(lhs),
         Expr::App(f, arg) => match which {
             1 => Some(arg),
             2 => match &mut **f {
@@ -167,7 +167,7 @@ fn leftmost_child_mut(e: &mut Expr) -> Option<&mut Expr> {
 pub(crate) fn leads_with_section(e: &Expr) -> bool {
     let mut cur = e;
     loop {
-        if matches!(cur, Expr::Field(r, _) if is_section_var(r)) {
+        if matches!(cur, Expr::Field(r, _, _) if is_section_var(r)) {
             return true;
         }
         match leftmost_child(cur) {
@@ -182,8 +182,8 @@ pub(crate) fn leads_with_section(e: &Expr) -> bool {
 pub(crate) fn fill_receiver(e: &mut Expr, value: Expr) {
     let mut cur = e;
     loop {
-        if matches!(cur, Expr::Field(r, _) if is_section_var(r)) {
-            let Expr::Field(r, _) = cur else {
+        if matches!(cur, Expr::Field(r, _, _) if is_section_var(r)) {
+            let Expr::Field(r, _, _) = cur else {
                 unreachable!()
             };
             **r = value;
@@ -303,7 +303,7 @@ impl<'f> Lower<'f> {
                     _ => None,
                 };
                 let field = required(field, node.kind(), "its field")?;
-                Ok(Expr::Field(Box::new(receiver), field))
+                Ok(Expr::Field(Box::new(receiver), field, NodeId::fresh()))
             }
             // `.f()`, which is one atom.
             NodeKind::App => {

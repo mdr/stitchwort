@@ -69,16 +69,30 @@ fn long_dot_chains_are_cheap() {
     assert!(inner.load("inner.sw", &source).is_err());
 }
 
-/// A postponed dot call is checked again from a copy of its syntax, and the
-/// dot-call caches are keyed by where syntax sits in memory: a copy put
+/// A postponed dot call is checked again from a copy of its syntax. When
+/// the dot-call caches were keyed by where syntax sat in memory, a copy put
 /// where an earlier, freed one had been found what that one left, so this
-/// file took 20 steps fewer on some runs (SW-1797, SW-1800). Loaded 102
-/// times on three threads at once, from varied heap layouts, it takes the
-/// same steps every time.
+/// file took 20 steps fewer on some runs (SW-1797, SW-1800); they are keyed
+/// by syntax ids now (SW-1803). Loaded 102 times on three threads at once,
+/// from varied heap layouts, it takes the same steps every time.
 #[test]
 #[ignore = "about 30 s: run by name, or in the all tier"]
 fn a_postponed_dot_call_takes_the_same_steps_every_time() {
     same_steps_every_time("reject/postponed-lambda-second-error.sw");
+}
+
+/// Another file whose steps varied with the heap's layout (SW-1797).
+#[test]
+#[ignore = "about 3 min: run by name, or in the all tier"]
+fn reads_weaken_takes_the_same_steps_every_time() {
+    same_steps_every_time("reject/reads-weaken-over-map-implicits.sw");
+}
+
+/// The third file SW-1797 found varying (SW-1803).
+#[test]
+#[ignore = "about 3 min: run by name, or in the all tier"]
+fn a_pure_fold_in_a_parse_function_takes_the_same_steps_every_time() {
+    same_steps_every_time("accept/pure-fold-in-parse-function.sw");
 }
 
 fn same_steps_every_time(file: &str) {

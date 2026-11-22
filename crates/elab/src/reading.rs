@@ -651,7 +651,7 @@ pub(crate) fn written_reading(decl: &Decl) -> Option<(WrittenHead, bool)> {
     }
     match unbracket(test) {
         Expr::Var(ast::Name { text, .. }) => Some((WrittenHead::Name(text.clone()), polarity)),
-        Expr::Field(receiver, ast::Name { text, .. }) => {
+        Expr::Field(receiver, ast::Name { text, .. }, _) => {
             let receiver_type = match unbracket(receiver) {
                 Expr::Var(x) => (params.iter().rev().find(|(n, _)| *n == x.text))
                     .and_then(|(_, ty)| crate::module::type_head(ty))

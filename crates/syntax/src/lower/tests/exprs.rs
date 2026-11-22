@@ -33,7 +33,7 @@ fn record_literals_updates_and_puns() {
 #[test]
 fn unit_call_is_one_atom() {
     let shape = |text: &str| match &expression(text).unwrap() {
-        Expr::Field(r, n) => format!("{:?}.{}", matches!(**r, Expr::App(..)), n.text),
+        Expr::Field(r, n, _) => format!("{:?}.{}", matches!(**r, Expr::App(..)), n.text),
         Expr::App(f, _) => format!("app({})", matches!(**f, Expr::Field(..))),
         _ => "other".into(),
     };
@@ -43,12 +43,12 @@ fn unit_call_is_one_atom() {
     // `f().g y` is `(f()).g y`: an application of a field of the call.
     let e = expression("f().g y").unwrap();
     let Expr::App(g, _) = &e else { panic!("{e:?}") };
-    assert!(matches!(&**g, Expr::Field(r, n) if n.text == "g" && matches!(**r, Expr::App(..))));
+    assert!(matches!(&**g, Expr::Field(r, n, _) if n.text == "g" && matches!(**r, Expr::App(..))));
     // Chains.
     let e = expression("f().x.y").unwrap();
-    assert!(matches!(&e, Expr::Field(r, _) if matches!(**r, Expr::Field(..))));
+    assert!(matches!(&e, Expr::Field(r, _, _) if matches!(**r, Expr::Field(..))));
     let e = expression("p.f().x").unwrap();
-    assert!(matches!(&e, Expr::Field(r, _) if matches!(**r, Expr::App(..))));
+    assert!(matches!(&e, Expr::Field(r, _, _) if matches!(**r, Expr::App(..))));
     // A space keeps ordinary application: `f ().x` is `f (().x)`.
     assert_eq!(shape("f ().x"), "app(false)");
     // Without a following `.name`, `f()` is still one atom: `g f()` is
@@ -92,11 +92,11 @@ fn constructor_field_expressions() {
     ));
     assert!(matches!(
         &rhs("def f : T := (C { a = 1 }).a\n"),
-        Expr::Field(e, _) if matches!(&**e, Expr::CtorFields { .. })
+        Expr::Field(e, _, _) if matches!(&**e, Expr::CtorFields { .. })
     ));
     assert!(matches!(
         &rhs("def f : T := C { a = 1 }.a\n"),
-        Expr::Field(e, _) if matches!(&**e, Expr::CtorFields { .. })
+        Expr::Field(e, _, _) if matches!(&**e, Expr::CtorFields { .. })
     ));
     parse("def f : T := [C { a = D { b } }, g (C { a })]\n");
     // A lower-case name keeps a record argument: `f { a = 1 }`.
@@ -248,4 +248,12 @@ fn an_interpolated_text_spans_its_quotes() {
             "{literal}"
         );
     }
+}
+
+/// A field access, with its id, is far from the largest expression, so the
+/// id costs no memory (docs/proposals/syntax-node-ids.md §7). A change here
+/// is a change to every expression's size.
+#[test]
+fn an_expression_is_112_bytes() {
+    assert_eq!(std::mem::size_of::<Expr>(), 112);
 }

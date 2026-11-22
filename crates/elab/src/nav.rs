@@ -2230,7 +2230,7 @@ impl Walk<'_> {
                         fields.iter().map(|(_, e)| Work::Expr(e)).collect(),
                     );
                 }
-                Expr::Field(e, _) => stack.push(Work::Expr(e)),
+                Expr::Field(e, _, _) => stack.push(Work::Expr(e)),
                 Expr::Omega { facts, .. } | Expr::Ring { facts, .. } => {
                     then(&mut stack, facts.iter().map(Work::Expr).collect())
                 }
@@ -2389,7 +2389,7 @@ fn head_spans(mut head: &Expr) -> Option<[Span; 2]> {
         match head {
             Expr::App(f, _) => head = f,
             Expr::Var(name) => return Some(name_spans(name)),
-            Expr::Field(_, name) => return Some([name.span, name.span]),
+            Expr::Field(_, name, _) => return Some([name.span, name.span]),
             _ => return None,
         }
     }

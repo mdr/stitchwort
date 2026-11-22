@@ -7,18 +7,17 @@
 //! None is encoded for the check cache or dumped. A rewind keeps each as
 //! far as its entries stay true: the tables by definition are cut to the
 //! definitions that remain, and the rest are emptied, the two dot-call
-//! tables included. Their keys are addresses within a source epoch, which
-//! a namespace checked again after the rewind may reuse, so a mark would
-//! have to copy them (2 MB a mark on the AoC project, 15,000 rows: most of
-//! what a language server's mark cost, elaborator-state.md §9 F11); the
-//! namespaces checked again fill them again, at no measured cost (SW-1179).
-//! They are also emptied before each declaration, whose syntax may take the
-//! addresses of the one before (SW-1800).
+//! tables included. Their keys are syntax nodes' identities, and a
+//! namespace checked again after the rewind may check the same nodes in a
+//! world that has changed, so a mark would have to copy them (2 MB a mark
+//! on the AoC project, 15,000 rows: most of what a language server's mark
+//! cost, elaborator-state.md §9 F11); the namespaces checked again fill
+//! them again, at no measured cost (SW-1179). They are also emptied before
+//! each declaration, which bounds their size.
 //! The content hashes are a cache too, but live in `core`, in the kernel's
 //! `EvalCaches`.
 
 use std::cell::RefCell;
-use std::rc::Rc;
 
 use stitchwort_core::DataId;
 use stitchwort_core::DefId;
@@ -37,13 +36,6 @@ pub(crate) struct Caches {
     /// Dot calls whose prefix form failed, with the metavariable state it
     /// failed in: not tried again until that changes (`dot::infer_call`).
     pub(crate) dot_failed: RefCell<HashSet<(dot::CallKey, usize, usize)>>,
-    /// The queue's checks that have been resumed since the dot-call tables
-    /// were last emptied, kept so that the syntax they own stays where it
-    /// is: the tables' keys are addresses of syntax, and a check's copy of
-    /// its syntax, freed, could be followed by another one at the same
-    /// address, which would find what the first one's calls left there
-    /// (SW-1800, [`Caches::forget_dot_calls`]).
-    pub(crate) dot_owners: RefCell<Vec<Rc<dyn crate::queue::Check>>>,
     /// Each definition's congruence lemmas for `rewrite`
     /// (`congruence::candidates`), with how many definitions there were
     /// when they were looked up: a later declaration may add one.
@@ -77,7 +69,6 @@ impl Caches {
         let Caches {
             dot_heads: _,
             dot_failed: _,
-            dot_owners: _,
             cong_candidates,
             result_heads,
             decision_order,
@@ -89,28 +80,15 @@ impl Caches {
         performs.get_mut().clear();
     }
 
-    /// Empties the dot-call tables, which are keyed by the addresses of the
-    /// syntax being checked, and lets go of the syntax kept for them. Done
-    /// before each declaration ([`crate::Elaborator::glued`]): a key is
-    /// only valid while the syntax at its address is the syntax it was made
-    /// for, which the declaration's own syntax (borrowed while it is
-    /// checked) and the queue's copies ([`Caches::keep_dot_owner`]) are
-    /// until then. Another declaration, the next derived one say, may be at
-    /// the same addresses with the same spans, and a fresh metavariable
-    /// state that matches the one an entry was made in.
+    /// Empties the dot-call tables. Done before each declaration
+    /// ([`crate::Elaborator::glued`]), to keep them small, and so that
+    /// syntax checked again later starts afresh. Their keys are syntax
+    /// nodes' identities, which a node made later never shares, so they
+    /// need no emptying for one declaration's entries to be kept from the
+    /// next one's calls (SW-1800).
     pub(crate) fn forget_dot_calls(&mut self) {
         self.dot_heads.get_mut().clear();
         self.dot_failed.get_mut().clear();
-        self.dot_owners.get_mut().clear();
-    }
-
-    /// Keeps `check`, about to be resumed, until the dot-call tables are
-    /// emptied, so that no other syntax takes the addresses of its own.
-    pub(crate) fn keep_dot_owner(&self, check: &Rc<dyn crate::queue::Check>) {
-        let mut owners = self.dot_owners.borrow_mut();
-        if !owners.last().is_some_and(|last| Rc::ptr_eq(last, check)) {
-            owners.push(check.clone());
-        }
     }
 
     pub(crate) fn mark(&self) -> Mark {
@@ -121,12 +99,11 @@ impl Caches {
     /// definitions in the world that remains: what may no longer be true
     /// goes.
     pub(crate) fn rewind(&mut self, _: &Mark, defs: usize) {
-        // Their keys' addresses may be reused by what is checked next.
+        // What is checked next may be the same syntax in a changed world.
         self.forget_dot_calls();
         let Caches {
             dot_heads: _,
             dot_failed: _,
-            dot_owners: _,
             cong_candidates,
             result_heads,
             decision_order,

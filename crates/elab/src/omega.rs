@@ -204,7 +204,7 @@ pub(crate) fn written(expr: &Expr) -> Option<String> {
         Some(match expr {
             Expr::Var(name) => name.text.clone(),
             Expr::Num(n, _) => n.to_string(),
-            Expr::Field(e, name) => format!("{}.{}", go(e, true)?, name.text),
+            Expr::Field(e, name, _) => format!("{}.{}", go(e, true)?, name.text),
             Expr::App(f, x) => wrap(format!("{} {}", go(f, false)?, go(x, true)?)),
             Expr::Bracketed(e, _) => format!("({})", go(e, false)?),
             Expr::Binary(op, a, b) => {

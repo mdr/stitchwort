@@ -601,7 +601,7 @@ pub(crate) fn syntax(expr: &Expr) -> String {
         },
         Expr::Binary(op, a, b) => format!("{} {} {}", atom(a), op.symbol(), atom(b)),
         Expr::Neg(e, ..) => format!("-{}", atom(e)),
-        Expr::Field(recv, name) => match &**recv {
+        Expr::Field(recv, name, _) => match &**recv {
             // A method section's lambda's parameter: `.f a`.
             Expr::Var(v) if v.text == SECTION => format!(".{}", name.text),
             recv => format!("{}.{}", atom(recv), name.text),
@@ -1460,7 +1460,6 @@ impl Elaborator {
             .queue
             .set(i, State::Running, &self.attempt.store);
         count(&self.session.stats.resumed);
-        self.caches.keep_dot_owner(&check);
         // What it queues while it runs is made inside its constructs too.
         let outer = (self.attempt.queue.frames.resuming).replace(item.all_frames());
         let mut cx = item.saved.ctx(self);

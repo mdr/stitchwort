@@ -152,7 +152,7 @@ fn shape(e: &Expr) -> String {
         Expr::Interpolated(x, _) => format!("${{{}}}", shape(x)),
         Expr::Neg(x, _, _) => format!("(- {})", shape(x)),
         Expr::App(f, a) => format!("({} {})", shape(f), shape(a)),
-        Expr::Field(x, n) => format!("{}.{}", shape(x), n.text),
+        Expr::Field(x, n, _) => format!("{}.{}", shape(x), n.text),
         Expr::Binary(op, a, b) => format!("({} {} {})", op_name(op), shape(a), shape(b)),
         other => panic!("unexpected {other:?}"),
     }
@@ -221,7 +221,7 @@ fn pshape(e: &Expr) -> String {
         Expr::Var(n) => n.text.clone(),
         Expr::Num(n, _) => n.to_string(),
         Expr::App(f, a) => format!("({} {})", pshape(f), pshape(a)),
-        Expr::Field(x, n) => format!("{}.{}", pshape(x), n.text),
+        Expr::Field(x, n, _) => format!("{}.{}", pshape(x), n.text),
         Expr::Binary(op, a, b) => format!("({} {} {})", op_name(op), pshape(a), pshape(b)),
         Expr::Pipe(a, b) => format!("(|> {} {})", pshape(a), pshape(b)),
         Expr::Arrow(a, b) => format!("(-> {} {})", pshape(a), pshape(b)),

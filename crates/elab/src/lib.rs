@@ -7867,7 +7867,7 @@ pub(crate) fn mentions_ability(expr: &ast::Expr, name: &str) -> bool {
                 pending.extend(fields.iter().map(|(_, e)| e));
             }
             Expr::CtorFields { fields, .. } => pending.extend(fields.iter().map(|(_, e)| e)),
-            Expr::Field(e, _) => pending.push(e),
+            Expr::Field(e, _, _) => pending.push(e),
             Expr::Match {
                 scrutinees, alts, ..
             } => {

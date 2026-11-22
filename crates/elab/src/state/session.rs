@@ -51,11 +51,6 @@ pub struct Session {
     /// (`set_core_link_names`, SW-1046). Set by the host around the core's
     /// load only, so empty at every mark.
     pub(crate) core_link_names: Option<Arc<library::LibraryIndex>>,
-    /// Counts the stretches of compiler-generated source, which is freed
-    /// once checked so its addresses can be reused: dot calls are only
-    /// remembered within one (`dot::CallKey`). Never reused, so a rewind
-    /// leaves it.
-    pub(crate) source_epoch: Cell<usize>,
     /// How many expressions have been elaborated standalone (the REPL's,
     /// `eval`'s): a `match` in one is lifted to a helper owned by
     /// `<input N>`, which keeps the helpers of different inputs apart.
@@ -188,7 +183,6 @@ impl Session {
             // Set around the core's load, so `None` here.
             core_link_names: _,
             // Counted, never reused or taken back.
-            source_epoch: _,
             standalone_inputs: _,
             instance_waits: _,
             cache_stats: _,
@@ -241,7 +235,6 @@ impl Session {
             namespace_keys: _,
             failed_namespaces: _,
             core_link_names: _,
-            source_epoch: _,
             standalone_inputs: _,
             instance_waits: _,
             cache_stats: _,
@@ -320,7 +313,6 @@ impl Session {
             derive_waiting: _,
             // Only a key of the dot-call memo, which a rewind empties; kept
             // growing so a stale key can never match.
-            source_epoch: _,
             // Worked out from the library and the options, the same for
             // every program.
             library_interface_digest: _,
@@ -378,7 +370,6 @@ impl Session {
             paths: _,
             journal: _,
             derive_waiting: _,
-            source_epoch: _,
             library_interface_digest: _,
             stats: _,
             standalone_inputs,

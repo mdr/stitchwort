@@ -543,7 +543,7 @@ impl<'a> Walk<'a> {
                     self.expr(body);
                 }
             }
-            Expr::Field(e, name) => {
+            Expr::Field(e, name, _) => {
                 // `xs |> .f` is `xs.f`, from `xs` to `f`, with the `|> .`
                 // between: the receiver doesn't end at the `.` before `f`.
                 // (Brackets around the receiver also put a gap there.)
