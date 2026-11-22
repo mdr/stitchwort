@@ -84,6 +84,13 @@ in [../proposals/README.md](../proposals/README.md).
   its stuck unfolding (`Int.divFloorNonneg`: an `Eq` lemma's call for its `J`). That moves the hashes of what
   depends on them, among them the native pins of `Float.neg`, `Float.abs` and `Float.sub`
   (`crates/core/src/pins.rs`, updated; the definitions themselves are unchanged).
+- **Follow-up from review (`docs/reviews/SW-4642-review.md`).** The kept call, once a `J` or an application
+  was put after it, was something conversion couldn't unfold, so a transport by `flipped n p` no longer
+  equalled one by its unfolding written out (`examples/accept/proof-call-against-unfolding.sw`, which `main`
+  accepts and the first version of this change refused). Conversion's unfold stage and the unifier now
+  unfold a folded call applied to all its arguments and followed by a `J` or an application, then apply
+  the rest (`unfold_folded_head`). Steps unchanged: `atomHung` 4,121,558, `bigSplit` 3,351, `threeSteps`
+  18,019.
 - **Ticket:** SW-4642.
 
 ### SW-4638: why `atomHung` doubled (25.5M to 53.9M) between SW-4619 and SW-4635: SW-4629's projection `let`s in proofs; a measurement, no code changed

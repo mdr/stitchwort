@@ -11,7 +11,7 @@ use stitchwort_core::value::{
     eval, expand_step, force, force_solved, is_call_field, is_eta_type, is_folded, matches_at_once,
     opens_by_tree, project, project_call, proof_field, proof_param, quote_as_written,
     quote_at_most, quote_folded, same_closure_solved, same_stuck_trees, sealed, underapplied,
-    unfold_folded, unfold_once,
+    unfold_folded, unfold_folded_head, unfold_once, unfolds_head,
 };
 use stitchwort_core::{BigUint, DefId, Ev, Icit, Term, Value};
 use stitchwort_core::{nat_add, native};
@@ -1804,6 +1804,20 @@ fn forced_rules(
         }
         let a2 = unfold_folded(g, &a)?;
         let b2 = unfold_folded(g, &b)?;
+        if a2.is_some() || b2.is_some() {
+            work.push(Task::Values(level, a2.unwrap_or(a), b2.unwrap_or(b)));
+            return Ok(Forced::Answer(true));
+        }
+    }
+    // A folded call eliminated further by a `J` or an application, against
+    // anything but the same call: compared unfolded, as in `conv`. A proof
+    // stuck past its own case tree is kept as the call, so the other side
+    // may hold its unfolding (SW-4642).
+    let same_head = matches!((&a, &b),
+        (Value::Neutral(Head::Def(i1), _), Value::Neutral(Head::Def(i2), _)) if i1 == i2);
+    if !is_meta(&a) && !is_meta(&b) && !same_head && (unfolds_head(g, &a) || unfolds_head(g, &b)) {
+        let a2 = unfold_folded_head(g, &a)?;
+        let b2 = unfold_folded_head(g, &b)?;
         if a2.is_some() || b2.is_some() {
             work.push(Task::Values(level, a2.unwrap_or(a), b2.unwrap_or(b)));
             return Ok(Forced::Answer(true));
