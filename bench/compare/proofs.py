@@ -8,7 +8,11 @@ section 3. For each day it times, with hyperfine:
            the Lean file has>`, from aoc/ (SW-2310: the same theorems Lean checks,
            and what they need; the Lean file's theorem names pick them)
   sw-load  `stitchwort check --no-cache` of a file that imports what the day imports
-           from Std and uses its heavy parts (the library Lean has prebuilt in Lib)
+           from Std and uses its heavy parts (the library Lean has prebuilt in Lib):
+           the library rechecked from source
+  sw-load-cached  the same file checked with the check cache on, the cache warmed
+           first (hyperfine's untimed warmup run): our counterpart of Lean's
+           precompiled .olean, so the fair "library load" column
   lean     `lean Proofs/<Day>.lean`, Lib already built (the day's file alone)
   lean-load `lean` on a file that only imports Lib
   lake     a cold `lake build <Day>` (.lake deleted first): Lib and the day
@@ -137,6 +141,8 @@ def main():
             row = {"lean-load": lean_load["median"]}
             print(f"{name}: stitchwort", flush=True)
             row["sw-load"] = hyperfine(f"sw-load-{name}", f"{sw} check --no-cache {load_file}", opts.runs, scratch)["median"]
+            # The warmup run fills the cache, so every timed run is a cached load.
+            row["sw-load-cached"] = hyperfine(f"sw-load-cached-{name}", f"{sw} check {load_file}", opts.runs, scratch)["median"]
             ported = ported_theorems(day)
             if not ported:
                 sys.exit(f"{name}: no theorem of the Lean file found in {day['namespaces']}")
@@ -152,14 +158,17 @@ def main():
                                     prepare="rm -rf .lake", cwd=LEAN)["median"]
             rows[name] = row
 
-    head = ["Day", "theorems", "sw check", "sw load", "sw net", "lean file", "lean load", "lean net", "sw net / lean net", "lake build (cold, with Lib)"]
+    head = ["Day", "theorems", "sw check", "sw load", "sw net", "lean file", "lean load", "lean net",
+            "sw net / lean net", "sw load (cached)", "sw net + cached load", "(that) / lean file", "lake build (cold, with Lib)"]
     lines = ["| " + " | ".join(head) + " |", "|---|" + "---:|" * (len(head) - 1)]
     for name, r in rows.items():
         sw_net = max(r["sw"] - r["sw-load"], 0.0)
         lean_net = max(r["lean"] - r["lean-load"], 0.0)
         ratio = f"{sw_net / lean_net:.2f}x" if lean_net > 0 else "-"
         lines.append("| " + " | ".join([name, str(r["theorems"]), fmt(r["sw"]), fmt(r["sw-load"]), fmt(sw_net), fmt(r["lean"]),
-                                        fmt(r["lean-load"]), fmt(lean_net), ratio, fmt(r["lake"])]) + " |")
+                                        fmt(r["lean-load"]), fmt(lean_net), ratio, fmt(r["sw-load-cached"]),
+                                        fmt(sw_net + r["sw-load-cached"]), f"{(sw_net + r['sw-load-cached']) / r['lean']:.1f}x",
+                                        fmt(r["lake"])]) + " |")
     md = "\n".join(lines)
     OUT.mkdir(parents=True, exist_ok=True)
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H%M%S") + "-" + platform.node().split(".")[0]
