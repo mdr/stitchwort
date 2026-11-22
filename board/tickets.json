@@ -1,5 +1,5 @@
 {
-  "next": 4656,
+  "next": 4657,
   "tickets": [
     {
       "id": 47,
@@ -32852,15 +32852,19 @@
     {
       "id": 4645,
       "title": "[Sonnet] Parallel checking measurement 3: a counter of how often a theorem body is unfolded during checking (J, case, conversion), reported by --timings; run on tools/fmt and AoC (SW-4614)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "\n\nStarted 22 Nov 20:22 on Sonnet (Matt: lift the pause for this and the sealed-theorems note, in series). Expected: 40 min.\n",
+      "body": "\n\nStarted 22 Nov 20:22 on Sonnet (Matt: lift the pause for this and the sealed-theorems note, in series). Expected: 40 min.\n\n\nModel result: Sonnet, worked, 25 min (est. 40).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "8d572cb31",
+        "b281de4e7",
+        "fc593278674b5ab36cd09920e0ac2ddf67f5e70f"
+      ]
     },
     {
       "id": 4646,
@@ -32997,6 +33001,19 @@
       "labels": [],
       "epic": "performance",
       "body": "\n\nClosed: duplicate of SW-4653 (filed twice by the orchestrator).\n",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4656,
+      "title": "[Fable paper] Sealed theorems: design note on making theorems opaque by default (a proof's body never affects another proof; hashes, rechecking, parallel checking), the opt-out, and what replaces today's unfolding (SW-4645 counts); Matt's direction, 22 Nov",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
