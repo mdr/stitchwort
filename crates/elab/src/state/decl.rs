@@ -21,8 +21,9 @@ use stitchwort_syntax::ast;
 
 use crate::{SidesCapture, decreasing, effects, equations, families, lift};
 
-/// When `check::holes_by_arguments` elaborates a failed application again
-/// ([`Decl::holes_retry`]).
+/// When `check::holes_by_arguments` elaborates a failed application again,
+/// and when an argument that fails in place is held for after its
+/// application's expected type ([`Decl::holes_retry`]).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum HolesRetry {
     /// As soon as it fails.
@@ -104,10 +105,16 @@ pub(crate) struct Decl {
     /// (`check::explicit_arg`, `check::lambda_arg`), where it would be tried
     /// again then with more known. Day 16 of 2020's `runsNotes` retried 816
     /// such calls, all failing again, at 326 million steps against the
-    /// proof's 42 million.
+    /// proof's 42 million. Nor, there, is an argument that fails in place
+    /// held and checked again after its own application's expected type
+    /// (`check::explicit_arg_failed`): the argument around fails instead,
+    /// and is checked again with more known. Held at every level, the nine
+    /// nested `Parse.runsBind`s of `runsNotes` cost 40 million steps, the
+    /// innermost elaborated 192 times; put off, 2.4 million (SW-4582).
     pub(crate) holes_retry: Cell<HolesRetry>,
-    /// Set when a retry was put off ([`HolesRetry::Deferred`]), until the
-    /// argument checked in place that put it off ends.
+    /// Set when a retry or a held argument's check was put off
+    /// ([`HolesRetry::Deferred`]), until the argument checked in place that
+    /// put it off ends.
     pub(crate) holes_retry_skipped: Cell<bool>,
     /// Above zero while a lambda is checked in place in an application
     /// elaborated again after a propagation by `_`s failed
