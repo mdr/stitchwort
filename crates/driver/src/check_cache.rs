@@ -16,7 +16,9 @@
 //!   carries it, so an entry copied from another cache directory is a miss.
 //! - **Writing** goes to a temporary file that is then renamed, so a reader
 //!   never sees half an entry, and two writers at once (the editor and a
-//!   command) just leave the last one.
+//!   command) just leave the last one. The temporary file's name holds the
+//!   process id, a counter for the process and the thread's id, so writers
+//!   in one process don't share one either.
 //! - **Eviction (D283).** Writing an entry deletes the unit's other entries
 //!   for this build; the first write of a run deletes entries of other
 //!   builds that are more than a day old (two builds may share a project
@@ -28,6 +30,7 @@
 
 use std::cell::Cell;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime};
 
 use stitchwort_elab::cache::{Key, Store};
@@ -226,13 +229,22 @@ impl Store for CheckCache {
     }
 }
 
+/// Numbers this process's temporary files, so that two threads writing in
+/// the same nanosecond don't pick the same one.
+static TEMP_FILE: AtomicU64 = AtomicU64::new(0);
+
 /// Writes `bytes` to `path` in `dir` by way of a temporary file there.
 fn write_atomically(dir: &Path, path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     std::fs::create_dir_all(dir)?;
     let nanos = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .map_or(0, |d| d.as_nanos());
-    let temp = dir.join(format!(".tmp-{}-{nanos}", std::process::id()));
+    let count = TEMP_FILE.fetch_add(1, Ordering::Relaxed);
+    let temp = dir.join(format!(
+        ".tmp-{}-{nanos}-{count}-{:?}",
+        std::process::id(),
+        std::thread::current().id()
+    ));
     let result = std::fs::write(&temp, bytes).and_then(|()| std::fs::rename(&temp, path));
     if result.is_err() {
         let _ = std::fs::remove_file(&temp);
@@ -813,6 +825,73 @@ mod tests {
             None
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn writes_from_many_threads_at_once_keep_their_own_temp_files() {
+        const THREADS: usize = 8;
+        const ENTRIES: usize = 32;
+        let nanos = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .map_or(0, |d| d.as_nanos());
+        let dir = std::env::temp_dir().join(format!(
+            "stitchwort-check-cache-threads-{}-{nanos}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        // Make the folder and its header first, so that what the threads
+        // race is writing entries, not making the header.
+        let _ = CheckCache::at(&dir);
+        let key = |thread: usize, entry: usize| {
+            let mut key = [0u8; 32];
+            key[0] = thread as u8;
+            key[1] = entry as u8;
+            key
+        };
+        let unit = |thread: usize, entry: usize| format!("ns.Thread{thread}.Entry{entry}+nav+ty");
+        let content = |thread: usize, entry: usize| format!("entry {thread} {entry}");
+        let start = std::sync::Barrier::new(THREADS);
+        let dir = &dir;
+        std::thread::scope(|scope| {
+            for thread in 0..THREADS {
+                let (start, key, unit, content) = (&start, &key, &unit, &content);
+                scope.spawn(move || {
+                    // Its own cache over the shared folder, as two threads of
+                    // one process would have (a cache isn't `Sync`).
+                    let cache = CheckCache::at(dir);
+                    start.wait();
+                    for entry in 0..ENTRIES {
+                        cache.write(
+                            &unit(thread, entry),
+                            &key(thread, entry),
+                            content(thread, entry).as_bytes(),
+                        );
+                    }
+                });
+            }
+        });
+        // Every write landed, each file with its own thread's contents.
+        let cache = CheckCache::at(dir);
+        for thread in 0..THREADS {
+            for entry in 0..ENTRIES {
+                assert_eq!(
+                    cache
+                        .read(&unit(thread, entry), &key(thread, entry))
+                        .as_deref(),
+                    Some(content(thread, entry).as_bytes()),
+                    "thread {thread}, entry {entry}"
+                );
+            }
+        }
+        // And none left a temporary file behind.
+        let temps: Vec<PathBuf> = std::fs::read_dir(dir.join("check"))
+            .unwrap()
+            .flatten()
+            .filter(|entry| entry.file_name().to_string_lossy().starts_with(".tmp-"))
+            .map(|entry| entry.path())
+            .collect();
+        assert!(temps.is_empty(), "temporary files left: {temps:?}");
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
