@@ -52,6 +52,9 @@ pub(super) struct HashArgs<'a> {
     pub json: bool,
     /// With `json`: list what each definition mentions.
     pub uses: bool,
+    /// With `std` and `json`: also list the library's warnings, with their
+    /// files and lines (the theorem-binders sweep drops the arms they name).
+    pub warnings: bool,
     pub project: Option<&'a Path>,
     pub cache: &'a CacheArgs,
 }
@@ -526,12 +529,26 @@ fn std_report(
 
 /// `stitchwort hash`: the content hashes of declarations.
 pub(super) fn hash(args: &HashArgs) -> ExitCode {
+    let mut warnings: Option<Vec<declhash::LocatedWarning>> = None;
     let all = if args.std {
-        match declhash::library_hashes(STACK) {
-            Ok(all) => all,
-            Err(report) => {
-                eprintln!("error: the library doesn't load:\n{report}");
-                return ExitCode::from(REFUSED);
+        if args.warnings {
+            match declhash::library_hashes_and_warnings(STACK) {
+                Ok((all, found)) => {
+                    warnings = Some(found);
+                    all
+                }
+                Err(report) => {
+                    eprintln!("error: the library doesn't load:\n{report}");
+                    return ExitCode::from(REFUSED);
+                }
+            }
+        } else {
+            match declhash::library_hashes(STACK) {
+                Ok(all) => all,
+                Err(report) => {
+                    eprintln!("error: the library doesn't load:\n{report}");
+                    return ExitCode::from(REFUSED);
+                }
             }
         }
     } else {
@@ -593,11 +610,25 @@ pub(super) fn hash(args: &HashArgs) -> ExitCode {
         .filter(|n| !all.iter().any(|d| d.name == **n))
         .collect();
     if args.json {
-        print_json(json!({
+        let mut out = json!({
             "version": 1,
             "declarations": shown.iter().map(|d| decl_json(d, args.uses)).collect::<Vec<_>>(),
             "missing": missing,
-        }));
+        });
+        if let Some(warnings) = &warnings {
+            out["warnings"] = json!(
+                warnings
+                    .iter()
+                    .map(|w| json!({
+                        "file": w.file,
+                        "line": w.line,
+                        "code": w.code,
+                        "message": w.message,
+                    }))
+                    .collect::<Vec<_>>()
+            );
+        }
+        print_json(out);
     } else {
         for d in &shown {
             println!(

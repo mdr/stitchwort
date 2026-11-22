@@ -173,6 +173,47 @@ pub fn library_hashes(stack: usize) -> Result<Vec<DeclHash>, String> {
     Ok(session_hashes(&session, (0, 0)))
 }
 
+/// A warning of the library, with the file and line it is in (the spans a
+/// loaded session gives mean nothing to another process, which is why a
+/// sweep over the library reads them here).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LocatedWarning {
+    /// The library path, as `std/Parse/Runs.sw`.
+    pub file: String,
+    /// The first line of its label, from 1.
+    pub line: u32,
+    pub code: String,
+    pub message: String,
+}
+
+/// [`library_hashes`], and the warnings the library gives, each with its
+/// file and line. The library is loaded from source (no check cache), so
+/// every file's warnings are there.
+pub fn library_hashes_and_warnings(
+    stack: usize,
+) -> Result<(Vec<DeclHash>, Vec<LocatedWarning>), String> {
+    let session = Session::try_eager_library_for_stack(stack)?;
+    let hashes = session_hashes(&session, (0, 0));
+    let warnings = session
+        .elab
+        .library_warnings()
+        .iter()
+        .chain(session.warnings.iter())
+        .filter_map(|d| {
+            let span = d.primary_span()?;
+            let source = session.sources.get(span.file);
+            let line = source.text[..span.start as usize].matches('\n').count() as u32 + 1;
+            Some(LocatedWarning {
+                file: source.name.clone(),
+                line,
+                code: d.code.to_string(),
+                message: d.message.clone(),
+            })
+        })
+        .collect();
+    Ok((hashes, warnings))
+}
+
 /// The declaration a generated one (`t.%match1`, a lifted `match`) is
 /// part of: itself if it isn't generated.
 pub fn owner(name: &str) -> &str {

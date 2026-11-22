@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
 use serde_json::Value;
+use stitchwort_cli::driver::Session;
 
 fn stitchwort(dir: &Path, args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_stitchwort"))
@@ -118,6 +119,114 @@ fn sweep_theorem_binders_writes_only_what_keeps_its_statement() {
     assert_eq!(output.status.code(), Some(0));
     let text = std::fs::read_to_string(dir.join("src/laws.sw")).unwrap();
     assert!(text.starts_with(AFTER), "{text}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The premises `h1` and `h2` move into the header, where they rule out the
+/// `Zero, Succ` and `Succ, Zero` arms: the sweep drops those arms rather
+/// than leaving `W-UNREACHABLE` behind (SW-4571).
+#[test]
+fn sweep_theorem_binders_drops_arms_its_header_premises_make_unreachable() {
+    const BEFORE: &str = "\
+namespace Laws
+
+import Std (Nat, Void, Bool, Eq)
+
+theorem leAntisym: ∀ (a b: Nat) => a ≤ b → b ≤ a → a = b
+  | Zero, Zero, h1, h2 => byComputing
+  | Zero, Succ b, h1, h2 => Void.impossible (Bool.falseNotTrue h2)
+  | Succ a, Zero, h1, h2 => Void.impossible (Bool.falseNotTrue h1)
+  | Succ a, Succ b, h1, h2 => Eq.cong Succ (leAntisym a b h1 h2)
+";
+    let dir = scratch("unreachable");
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("stitchwort.yaml"), "sources: [src]\n").unwrap();
+    std::fs::write(dir.join("src/laws.sw"), BEFORE).unwrap();
+
+    let args = ["sweep", "theorem-binders", "src", "--dry-run", "--json"];
+    let output = stitchwort(&dir, &args);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let result = json(&output);
+    let file = &result["files"][0];
+    assert_eq!(names(file, "converted"), ["leAntisym"]);
+    assert!(names(file, "refused").is_empty(), "{file}");
+    assert_eq!(result["status"], "clean");
+    let after = file["converted"][0]["after"].as_str().unwrap();
+    assert!(!after.contains("Zero, Succ b"), "{after}");
+    assert!(!after.contains("Succ a, Zero"), "{after}");
+
+    let output = stitchwort(&dir, &["sweep", "theorem-binders", "src"]);
+    assert_eq!(output.status.code(), Some(0));
+    let text = std::fs::read_to_string(dir.join("src/laws.sw")).unwrap();
+    assert!(
+        text.contains("theorem leAntisym ∀ (a b: Nat) (h1: a ≤ b)"),
+        "{text}"
+    );
+    assert!(!text.contains("Zero, Succ b"), "{text}");
+    assert!(!text.contains("Succ a, Zero"), "{text}");
+    let mut session = Session::new();
+    session
+        .load("laws.sw", &text)
+        .unwrap_or_else(|e| panic!("{e:#?}\n{text}"));
+    let codes: Vec<&str> = session.warnings.iter().map(|w| w.code).collect();
+    assert!(!codes.contains(&"W-UNREACHABLE"), "{codes:?}\n{text}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The unreachable arm's body is on the lines after its `|`, so dropping
+/// only that line would leave the body behind (SW-4571).
+#[test]
+fn sweep_theorem_binders_drops_a_multiline_unreachable_arm() {
+    const BEFORE: &str = "\
+namespace Laws
+
+import Std (Nat, Void, Bool, Eq)
+
+theorem leAntisym: ∀ (a b: Nat) => a ≤ b → b ≤ a → a = b
+  | Zero, Zero, h1, h2 => byComputing
+  | Zero, Succ b, h1, h2 =>
+    Void.impossible
+      (Bool.falseNotTrue h2)
+  | Succ a, Succ b, h1, h2 => Eq.cong Succ (leAntisym a b h1 h2)
+";
+    let dir = scratch("unreachable-multiline");
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("stitchwort.yaml"), "sources: [src]\n").unwrap();
+    std::fs::write(dir.join("src/laws.sw"), BEFORE).unwrap();
+
+    let args = ["sweep", "theorem-binders", "src", "--dry-run", "--json"];
+    let output = stitchwort(&dir, &args);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let result = json(&output);
+    let file = &result["files"][0];
+    assert_eq!(names(file, "converted"), ["leAntisym"]);
+    assert!(names(file, "refused").is_empty(), "{file}");
+    let after = file["converted"][0]["after"].as_str().unwrap();
+    assert!(!after.contains("Zero, Succ b"), "{after}");
+    assert!(!after.contains("Bool.falseNotTrue"), "{after}");
+
+    let output = stitchwort(&dir, &["sweep", "theorem-binders", "src"]);
+    assert_eq!(output.status.code(), Some(0));
+    let text = std::fs::read_to_string(dir.join("src/laws.sw")).unwrap();
+    assert!(!text.contains("Zero, Succ b"), "{text}");
+    assert!(!text.contains("Void.impossible"), "{text}");
+    assert!(!text.contains("Bool.falseNotTrue"), "{text}");
+    let mut session = Session::new();
+    session
+        .load("laws.sw", &text)
+        .unwrap_or_else(|e| panic!("{e:#?}\n{text}"));
+    let codes: Vec<&str> = session.warnings.iter().map(|w| w.code).collect();
+    assert!(!codes.contains(&"W-UNREACHABLE"), "{codes:?}\n{text}");
     let _ = std::fs::remove_dir_all(&dir);
 }
 
