@@ -109,6 +109,38 @@ fn trace_resource() -> bool {
     *TRACE.get_or_init(|| std::env::var("STITCHWORT_TRACE_RESOURCE").is_ok_and(|v| v == "1"))
 }
 
+/// The node count `STITCHWORT_BIG_READBACK` reports read-backs over, if it is
+/// set: read once, so that an unset variable costs one relaxed load.
+fn big_readback() -> Option<u64> {
+    static BIG: std::sync::OnceLock<Option<u64>> = std::sync::OnceLock::new();
+    *BIG.get_or_init(|| {
+        std::env::var("STITCHWORT_BIG_READBACK")
+            .ok()
+            .and_then(|v| v.trim().parse::<u64>().ok())
+    })
+}
+
+/// Whether [`Budget::note_readback`] reports, so the elaborator computes the
+/// current declaration's name only when something will use it.
+pub fn report_big_readbacks() -> bool {
+    big_readback().is_some()
+}
+
+thread_local! {
+    /// The declaration being elaborated, for `STITCHWORT_BIG_READBACK`'s
+    /// report: the elaborator knows it, the budget doesn't. Unset outside a
+    /// declaration (an expression typed in, say), and then the report leaves
+    /// the declaration out.
+    static CURRENT_DECLARATION: RefCell<Option<String>> = const { RefCell::new(None) };
+}
+
+/// Sets the declaration `STITCHWORT_BIG_READBACK` reports inside, returning
+/// the previous one for a nested declaration (a library file loaded inside
+/// one) to put back.
+pub fn set_current_declaration(name: Option<String>) -> Option<String> {
+    CURRENT_DECLARATION.with(|d| d.replace(name))
+}
+
 /// Names the resource that ran out and prints a backtrace when
 /// `STITCHWORT_TRACE_RESOURCE=1` (SW-4332). Every `E-RESOURCE` passes
 /// through [`Diagnostic::from`], so this shows the elaborator site that
@@ -1000,11 +1032,24 @@ impl Budget {
     }
 
     /// A read-back ([`crate::value::quote`], the unifier's `rename`) counted
-    /// `nodes` nodes, whether it finished or ran over a limit.
+    /// `nodes` nodes, whether it finished or ran over a limit. With
+    /// `STITCHWORT_BIG_READBACK` set to a count, one over it also prints the
+    /// count, the declaration being elaborated if known, and a backtrace to
+    /// standard error.
     #[inline]
     pub fn note_readback(&self, nodes: u64) {
         if nodes > self.peak_readback.get() {
             self.peak_readback.set(nodes);
+        }
+        if let Some(over) = big_readback()
+            && nodes > over
+        {
+            let declaration = CURRENT_DECLARATION.with(|d| d.borrow().clone());
+            let backtrace = std::backtrace::Backtrace::force_capture();
+            match declaration {
+                Some(name) => eprintln!("big readback: {nodes} nodes in {name}\n{backtrace}"),
+                None => eprintln!("big readback: {nodes} nodes\n{backtrace}"),
+            }
         }
     }
 
@@ -1020,7 +1065,10 @@ impl Budget {
     /// Puts back peaks taken with [`Budget::take_peaks`], keeping any larger
     /// ones seen since.
     pub fn restore_peaks(&self, peaks: Peaks) {
-        self.note_readback(peaks.readback);
+        // Not a read-back itself: only record it, without reporting it.
+        if peaks.readback > self.peak_readback.get() {
+            self.peak_readback.set(peaks.readback);
+        }
         if peaks.frames > self.peak_frames.get() {
             self.peak_frames.set(peaks.frames);
         }

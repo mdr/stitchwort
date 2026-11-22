@@ -552,7 +552,9 @@ own tickets as described in [board/README.md](../board/README.md).
 To see what the elaborator hands the kernel for one declaration, set
 `STITCHWORT_DUMP_KERNEL=<its full name>`: `check` prints that declaration's
 zonked type and value to standard error, once. Unset, it does nothing and
-costs nothing.
+costs nothing. Set `STITCHWORT_BIG_READBACK=<nodes>` to print every read-back
+over that many nodes to standard error, with the declaration being elaborated
+and a backtrace; unset, nothing changes.
 
 ### Writing a brief
 

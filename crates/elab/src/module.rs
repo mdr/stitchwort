@@ -534,14 +534,24 @@ impl Elaborator {
             goals::take_used_unfinished();
             take_failed_used();
             let timed = crate::timings::enabled();
+            // Computed before the check, so `STITCHWORT_BIG_READBACK` can
+            // report which declaration a read-back was in.
+            let current = stitchwort_core::budget::report_big_readbacks()
+                .then(|| self.component_label(&items, &component));
             if timed {
                 crate::timings::decl_begin(&self.ev());
             }
+            let previous = current
+                .as_ref()
+                .map(|name| stitchwort_core::budget::set_current_declaration(Some(name.clone())));
             self.glued(|e| e.check_component(&items, &component, &mut diagnostics));
+            if let Some(previous) = previous {
+                stitchwort_core::budget::set_current_declaration(previous);
+            }
             crate::progress::end(&self.kernel.machine.budget, progress);
             self.kernel.machine.budget.restore(saved);
             if timed {
-                let label = self.component_label(&items, &component);
+                let label = current.unwrap_or_else(|| self.component_label(&items, &component));
                 crate::timings::decl_end(&self.ev(), label);
             }
             let ran_out = diagnostics[before..]
