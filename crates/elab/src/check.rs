@@ -8344,6 +8344,16 @@ fn holes_retry_key(expr: &Expr) -> Option<usize> {
     }
 }
 
+/// The steps [`holes_by_arguments`]'s second elaboration may take. Every
+/// application of this shape that fails in a trial (a postponed or
+/// speculative elaboration) is elaborated again, and the second try nearly
+/// always fails too: all 816 in `Aoc.Year2020.Day16.Proofs` did, at 326
+/// million steps against the proof's 42 million without them. The ones that
+/// succeed took 2,500 to 8,600 steps (the repository's three, in
+/// `examples/accept/hole-solved-by-later-argument.sw` and
+/// `tools/fmt/src/Fmt/JoinProofs.sw`).
+const HOLES_RETRY_STEPS: u64 = 20_000;
+
 /// After the application `expr`, with an argument written `_` and an
 /// explicit argument after it, failed against `expected` with `failed`,
 /// everything put back as at `snapshot`: elaborated again, with each later
@@ -8370,10 +8380,20 @@ fn holes_by_arguments(
     snapshot.restore(cx);
     let snapshot = crate::undo::Snapshot::take(cx);
     cx.e.decl.holes_by_arguments.set(key);
-    let again = fallback_inferred(cx, expr, expected, named);
+    let budget = &cx.g().machine.budget;
+    let limits = stitchwort_core::Limits {
+        work: HOLES_RETRY_STEPS,
+        ..budget.limits()
+    };
+    let again = budget.aside(limits, || fallback_inferred(cx, expr, expected, named));
     cx.e.decl.holes_by_arguments.set(0);
     match again {
         Ok(term) => Ok(term),
+        // Out of its own steps, not the operation's: the retry didn't help.
+        Err(e) if crate::undo::fatal(&e) && budget.exhausted().is_none() => {
+            snapshot.restore(cx);
+            Err(failed)
+        }
         Err(e) if crate::undo::fatal(&e) => Err(e),
         Err(_) => {
             snapshot.restore(cx);
