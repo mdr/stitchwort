@@ -32614,15 +32614,22 @@
     {
       "id": 4631,
       "title": "[Sonnet] Profile and reshape the destructuring lets over existentials in tools/fmt/src/Syntax/ReadBackHungChains.sw (lines ~171, 338, 494) and what is left of atomHung/unaryHung (6 read-backs of 0.27M nodes, 5 of 0.57M): continuation-style lemmas or smaller goals (SW-4619 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\n\nStarted 22 Nov on Sonnet (orchestrator's call, proof-checking speed). Expected: 30 min.\n",
+      "body": "\n\nStarted 22 Nov on Sonnet (orchestrator's call, proof-checking speed). Expected: 30 min.\n\n\nModel result: Sonnet, worked, 40 min (est. 30). Reshapes kept only where named side lemmas read as well (readability rule, Matt 22 Nov).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "1c00d79e4754a06783eb03c8ee12258646195a05",
+        "b05a7f8159d8fccf523a4faaeea6d1f95a68cd5f",
+        "eef9dc4901a0e5ef7f12ca5fe319adfd4684cbf7",
+        "c428e9ebc7de4aadd5a7b5f8a0d2d10bce2abd2e",
+        "d8988aa9ae9ee43145ea9c5174f488d0e3a779ee",
+        "2b109465b24ac4cd6070d0014d9e0dcdad4efc44"
+      ]
     },
     {
       "id": 4632,
