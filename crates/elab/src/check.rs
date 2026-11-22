@@ -4638,9 +4638,11 @@ fn explicit_arg_checked<'a>(
 
 /// [`explicit_arg`] after the argument `value` failed in place with `e`, not
 /// for lack of resources: held for after the expected type if it may be, or
-/// the application's error. If it can't be held and `deferred` (a
-/// [`holes_by_arguments`] retry inside was put off for the check after the
-/// expected type), it is checked once more with the retries.
+/// the application's error; inside an argument checked again if it fails,
+/// that argument's error ([`HolesRetry::Deferred`]). If it can't be held
+/// and `deferred` (a [`holes_by_arguments`] retry or a held argument's check
+/// inside was put off for the check after the expected type), it is
+/// checked once more with nothing put off.
 #[inline(never)]
 fn explicit_arg_failed<'a>(
     cx: &mut Ctx,
@@ -4680,6 +4682,17 @@ fn explicit_arg_failed<'a>(
             }
         }
         return Err(unit_call_hint(cx, &term, value, &dom, next_is_unit, e));
+    }
+    // Inside an argument that is itself checked again after its expected
+    // type if it fails, the check of this one after its expected type is
+    // put off with it, as a retry is: held and checked again at every level,
+    // nested calls that each fail in place cost 2^n (AoC 2020 day 16's
+    // `runsNotes` elaborated its innermost of nine `Parse.runsBind`s 192
+    // times, SW-4582). If the argument around can't be held after all, it
+    // is checked once more with nothing put off.
+    if cx.e.decl.holes_retry.get() == HolesRetry::Deferred {
+        cx.e.decl.holes_retry_skipped.set(true);
+        return Err(e);
     }
     first_error.get_or_insert_with(|| Box::new(e));
     let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &dom, &cod)?;
