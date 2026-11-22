@@ -296,6 +296,7 @@ impl Elaborator {
             let pattern = Pattern {
                 head: head_key(&quoted),
                 constants: constants(&quoted),
+                written: None,
                 data: data_types(&quoted),
                 size: size(&quoted),
                 value: target,
@@ -391,6 +392,7 @@ impl Elaborator {
                 let pattern = Pattern {
                     value: Value::Eq(ty, b, a),
                     constants: goal.pattern.constants.clone(),
+                    written: goal.pattern.written.clone(),
                     data: goal.pattern.data.clone(),
                     head: goal.pattern.head,
                     metas: goal.pattern.metas,
@@ -727,6 +729,7 @@ impl Elaborator {
         Some(Pattern {
             head: head_key(call),
             constants: constants(call),
+            written: None,
             data: data_types(call),
             size: size(call),
             value,

@@ -198,6 +198,36 @@ fn every_conclusion_finds_its_theorem() {
     );
 }
 
+/// `Std.Float.Theory.doubleMul`'s conclusion has `Nat.mul 2 ?j` in it: a
+/// pattern with holes can't fold that back from `Nat.add`, so the pattern
+/// named `Nat.add` and the filter dropped the theorem's own type.
+#[test]
+fn a_conclusion_with_a_literal_factor_passes_the_filter() {
+    with_session(STACK, Session::for_stack, |session| {
+        load_library(session);
+        let g = &session.elab.ev();
+        let wanted = (0..g.env.defs().len())
+            .map(DefId)
+            .find(|id| &**g.def(*id).path() == "Std.Float.Theory.doubleMul")
+            .expect("the theorem");
+        let candidates = session
+            .elab
+            .search_candidates(&|item, _| item == Item::Def(wanted));
+        assert_eq!(candidates.len(), 1);
+        let iff = iff(g);
+        let pattern = session
+            .elab
+            .theorem_pattern(wanted, Side::Conclusion, iff)
+            .expect("a pattern");
+        assert!(
+            stitchwort_elab::search::passes(&pattern, &candidates[0].index),
+            "pattern {:?} against index {:?}",
+            pattern.constants,
+            candidates[0].index.ty
+        );
+    })
+}
+
 #[test]
 fn every_left_side_finds_its_theorem() {
     let score = self_retrieval(true);
