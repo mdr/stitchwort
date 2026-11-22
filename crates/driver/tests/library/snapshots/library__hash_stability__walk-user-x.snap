@@ -3,4 +3,4 @@ source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.same c4999c53b64f46ff555ffcf7139718b817933d80345a1cb65f81bfd519a95fa9
-Main.givesSameBound 92919349933aea9a15a1f597d9f00bc319ba9e0cf7388e2f290ae877965c0c65
+Main.givesSameBound f290b817d96def9d5733dcc35770ecd41d173a32679a6da9ef950c3f246a2891

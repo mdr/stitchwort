@@ -1,8 +1,7 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
-assertion_line: 354
 expression: "lines(session, d, f)"
 ---
-Main.smallSum 2fd0fcac518446829342ec4c89234fa66dcc5893dc8f3f3ddeb23afc9daa8e15
-Main.smallSum.%match1 a935427375f11ac92030ee71951a565fb5309a5ace8fe0095f66a836d662467b
-Main.smallSum.%match2 262361b0d12d366ac477fb22e7242f6f0dc0134b89421636f6d0278a185d71d5
+Main.smallSum d719fad6beaa4391011f80fbd321141e1f598a126aa97019fc412b860ffb74d9
+Main.smallSum.%match1 6ce83b8f402e526b2b0c5747902e1d751c16cba1f37ff4df5658870258f17013
+Main.smallSum.%match2 1b7f0592c3cb83f258aee280a05abd02a104dc2348beb613b98b5ae77383d49e
