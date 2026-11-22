@@ -32393,7 +32393,7 @@
     {
       "id": 4616,
       "title": "[Sonnet] bench:compare:proofs: measure 'sw load' as a cached check of the import file (our .olean equivalent), and align the .#compare shell's Lean (4.34.1) with nixpkgs (4.35.0) (SW-4608 findings)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -32673,7 +32673,7 @@
     {
       "id": 4635,
       "title": "[Opus] A match should not read back hypotheses its scrutinee does not occur in (and FullHungBelow depth could be read back folded): the remaining cost of atomHung, unaryHung, signArgHung (25M steps each) and ~5M in each chain proof is a match re-reading a 61.6K-node hypothesis it does not mention; also rewrite quotes every hypothesis (kernel_context, ~10K nodes each) (SW-4629, SW-4631 findings)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
