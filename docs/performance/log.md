@@ -46,6 +46,82 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 22 Nov 2026
 
+### SW-4587: where the `examples` bench's growth since 14 Nov comes from (1.96x steps, 4.1x peak): attribution, one accident found
+
+- **Status:** measured, nothing changed in code. The accident below is filed
+  as a finding.
+- **Method.** `stitchwort-bench examples --no-time --parts FILE` already
+  writes per-file steps, visits, allocations and peak bytes. Run on this
+  commit (reproduces the baseline: 16,468,521,077 steps, 1,161 MB) and on
+  `282325b14` in a scratch worktree (8,412,263,794 steps, 282 MB), then
+  joined by file name. The peak is the maximum over files, not a sum.
+- **Where the extra 8.06 G steps are.**
+  - **New files: 374 files, 5.54 G steps (34%).** 43 of them import
+    `Std.Parse` and cost 3.58 G between them (about 83 M each: the walk,
+    continuation and `reads-*` families, 75 to 135 M and 135 MB peak each).
+    Every file importing Parse checks Parse's lemma library, which has grown
+    (`runFromLabelWholeFromOkTree` alone is 14.6 M); the 25 Parse-importing
+    files of 14 Nov went from 0.95 G to 1.11 G. The other 331 new files
+    cost 1.96 G.
+  - **Files already there: 1,619 files, 8.40 G to 10.93 G (1.30x), 2.53 G
+    extra.** 659 of them were edited since (sweeps), 996 unchanged ones went
+    from 3.67 G to 4.58 G (1.25x, median file 1.07x), so it is not
+    content.
+    - 489 files carry 2.2 G: 332 files pay +3 to 5 M (median 3.83 M) and 157
+      pay +5 to 8 M. A file that uses `rewrite`, `arithmetic`, `algebra`,
+      `decreasing` or `cases` loads `Std.Omega`, whose eight types now
+      derive `==`, `<` and printing: `Std.Omega.Fact` 1.46 M, `Goal` 0.54 M,
+      `ITerm` 0.51 M, `NTerm` 0.38 M, `Cert` 0.38 M, `Step` 0.28 M, `Row`
+      0.09 M (about 3.7 M); the ring files add `Std.Ring.ZExpr` 0.47 M and
+      `NExpr` 0.30 M and so +8 M. That is D3609 (SW-3369, `2f4c14504`,
+      15 Nov: std types derive `==`, `<` and printing), which SW-3710 had
+      measured on `import Std`: deliberate. The trivial `reject/rewrite-*`
+      files go 2.2 M to 6.0 M (2.77x) for this reason alone. The +5 to 8 M
+      group is the same cause plus std growth on `List`/`Nat` imports.
+    - 956 files moved less than 1 M either way.
+  - **Peak.** The 1,161 MB is one new file, `reject/resource-steps-unfolding.sw`
+    (added 14 Nov, SW-2009; a `byComputing` three million calls deep that is
+    meant to hit E-RESOURCE): it alone is the maximum, 62 M steps. Without
+    it the maximum is `accept/fin-pattern-numbers.sw` (new, 668 MB), then
+    `float-playlist` (428 MB; an old file, 282 MB then, now importing the
+    larger `Std.Float`). 48 new files peak over 100 MB (13 `large-hypothesis-*`
+    and `walk`/`continuation`/`reads` files at 135 to 265 MB), against 9 old
+    ones; a file's floor is about 19 MB (the session's stack and library). Total
+    allocations 9.37 G to 19.19 G (2.05x), 32% of it from new files.
+- **Old files more than 1.5x slower in steps: 214 of 1,619** (1.13 G extra).
+  190 are the D3609 cost above (`+3.0 to 4.6 M` or the ring `+8 M`); the
+  rest, by extra steps:
+
+  | File | Steps 14 Nov | Steps now | Peak MB | Cause |
+  |---|---|---|---|---|
+  | `reject/reads-nested-binds-unknown-field` | 102.0 M | 200.7 M (1.97x) | 76 to 99 | Parse's lemma library (`runFromLabelWholeFromOkTree` 14.6 M and others) |
+  | `accept/float-playlist` | 34.0 M | 110.9 M (3.26x) | 75 to 428 | `Std.Float` growth (`ofIntMonotone` 9.3 M, `Theory.roundGrid` 5.1 M); the 428 MB is not explained |
+  | `accept/fin-table-deep` (file unchanged) | 23.1 M | 77.8 M (3.37x) | 59 to 75 | **accident, below** |
+  | `reject/rewrite-solution-too-large`, `reject/rewrite-value-too-large` | 4.3 M, 4.4 M | 22.3 M, 22.2 M (5.1x) | 159 to 253, 236 to 248 | `Main.big` 16.2 M with a 2,000,001-node read-back, plus D3609's 3.8 M; the read-back change is not found (SW-4091, 19 Nov, is a candidate) |
+  | `accept/as-written-unconfirmed` | 16.7 M | 26.9 M (1.61x) | 282 to 296 | the two `at the limit` declarations, 8.4 M and 4.2 M; not bisected |
+  | `reject/or-pattern-binds`, `cases-fallback-budget`, `omega-waits`, `cases-budget-int` and the 12 `ring-*` | 0.9 to 3.4 M | 8.5 to 10.2 M | 19 to 40 | D3609 (`Std.Omega`, `Std.Ring`) |
+
+- **The accident: SW-3325 (`6d960d350`, 15 Nov, "Display only: terms and
+  hashes are unchanged").** `fin-table-deep` (a 64-row `Fin` table, every
+  link a family split) went from 2.4 s to 6.5 s user; bisected by user time
+  over 11 builds between `282325b14` and now, first slow commit `6d960d350`.
+  Cause: `arm_display::enter_family_split` runs, at every indexed-family
+  split, `same(cx, &cx.env[l], &before[l])` for every variable in the
+  context, and `same` quotes both values folded; with entries that are
+  chains sharing tails, that is most of the file. Measured by emptying
+  `solved` in a scratch edit (not kept): `Main.code` 55.4 M steps to 5.6 M (the
+  rest of the file is std, about 20 M). The result
+  is only needed to print an arm's goal, so it should be computed when an
+  error or a hole displays one (keep `before` and the values after the
+  split, compare lazily), not on every split of a program that checks.
+  Left alone: it moves display code with snapshots under it, which wants
+  its own lane and the goal snapshots rerun. Filed as a finding.
+- **Conclusion.** The step growth is mostly deliberate: new examples 34%
+  (two thirds of those import Parse), D3609's derived instances in std about
+  27% of the extra on old files together with std growth, and one accident
+  (about 55 M here, more on any large `Fin` or family match). The 4.1x peak
+  is one file's size by design plus 48 new files with large state.
+
 ### SW-4569: bench baseline re-recorded after eight days of accepted costs
 
 - **Status:** merged (baseline re-recorded on main, 05:12 to 05:25, quiet
