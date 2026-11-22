@@ -14,6 +14,7 @@ import Syntax.ReadBackLine (..)
 import Syntax.AutoPlaced (..)
 import Syntax.ReadBackHung (..)
 import Syntax.ReadBackHungApp (..)
+import Syntax.ReadBackHungAtomsLemmas (withWitness)
 import Syntax.ReadBackHungChainsLemmas (..)
 
 --| `* / %` links after a first operand, nested to the left.

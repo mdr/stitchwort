@@ -46,6 +46,26 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 22 Nov 2026
 
+### SW-4631: the binary chains' link steps moved into lemmas; `mulAccHung`, `addAccHung`, `appendHung`, `cmpHung` 36-60% fewer steps
+
+- **Problem.** After SW-4619 the slowest formatter proofs still included the four chain proofs in
+  `Syntax.ReadBackHungChains` (12.6M to 19.9M steps each, 0.8-1.4 s).
+- **Profile (measured, `STITCHWORT_BIG_READBACK`, `STITCHWORT_STEP_PHASES=1`).** 75-90% of the steps were read-back.
+  `FullHungBelow depth` (`inner`) reads back as 61.6K nodes, and each `match` or destructuring `let` while it is in
+  scope costs about 5M steps; each `rewrite` also quotes the context (about 10K nodes per hypothesis).
+- **Change.** The existential `let (after1, parts) := hungParts ...` and the rewrites that only reshape list
+  facts became lemmas over small values: `infixStep` and `chainStep` (the infix's parts, the line rule and the
+  facts for the left operand), `chainWhole`, `chainValue`, `chainReads`, `cmpNoIf`; the proofs take the ∃ with
+  `withWitness` (a continuation, no `match`). No statement changed.
+- **Result (measured, steps).** `mulAccHung` 17.0M to 6.8M, `addAccHung` 15.6M to 7.2M, `appendHung` 12.6M to 8.0M,
+  `cmpHung` 19.9M to 9.1M. What is left is one 61.6K-node read-back (about 5M steps) at the top `match` in each.
+- **Not kept (measured).** `atomHung`'s three `match depth, deep with` replaced by a `depthCases` lemma taking a
+  motive over `inner`: 25.5M to 32.6M steps (worse, and harder to read); reverted. `atomHung` and `unaryHung`
+  are left as they were: their cost is `match depth, deep` and the outer `match expr, spelt` with `inner` in scope
+  (61.6K and 273K nodes per match). A checker fix (not reading back hypotheses that the scrutinee doesn't
+  occur in, and `inner`'s type folded) is the candidate.
+- **Ticket:** SW-4631.
+
 ### SW-4618: large read-backs kept for reuse within a declaration; `printedSplitParts` 46.6M to 23.9M steps, `printedFinish1` 120.8M to 98.1M
 
 - **Problem.** SW-4608 found reading values back is 37% of a cold

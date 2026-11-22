@@ -360,3 +360,8 @@ theorem commaNextExample: { blocks = [None], top = None, start = True, glue = Fa
     (exampleLeaf Comma ",")
     byComputing
     byComputing
+
+--| Uses an `∃` without a `match`: a destructuring `let` over a witness generalises like a `match` and re-reads every
+--| hypothesis in scope, while a call that takes the continuation doesn't.
+theorem withWitness ∀ (p: a → Prop) (found: ∃ (x: a) => p x) (goal: Prop) (use: ∀ (x: a) => p x → goal): goal :=
+  match found with | Witness x holds => use x holds

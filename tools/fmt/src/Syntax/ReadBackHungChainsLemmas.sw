@@ -14,7 +14,7 @@ import Syntax.ReadBackHung (..)
 import Syntax.ReadBackHungBounds (..)
 import Syntax.ReadBackHungFrame (..)
 import Syntax.ReadBackHungFrameLemmas (..)
-import Syntax.ReadBackHungAtomsLemmas (deepHead, deepRest, hungSplit, hungStep)
+import Syntax.ReadBackHungAtomsLemmas (deepHead, deepRest, hungSplit, hungStep, withWitness)
 
 --| What an infix's parts tell, on any lines: `after` is the line rule's state after the operator, from where the
 --| right operand is read.
@@ -91,11 +91,6 @@ theorem hungParts ∀ (modes: Modes)
       deepRight = deepRightItems
     }
   )
-
---| Uses an `∃` without a `match`: a destructuring `let` over a witness generalises like a `match` and re-reads every
---| hypothesis in scope, while a call that takes the continuation doesn't.
-theorem withWitness ∀ (p: a → Prop) (found: ∃ (x: a) => p x) (goal: Prop) (use: ∀ (x: a) => p x → goal): goal :=
-  match found with | Witness x holds => use x holds
 
 --| What the first operand `leftRead` of an infix tells about the reads that follow it: the infix's parts and the facts
 --| about the left operand with the operator and the right operand after it.
