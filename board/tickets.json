@@ -1,5 +1,5 @@
 {
-  "next": 4572,
+  "next": 4574,
   "tickets": [
     {
       "id": 47,
@@ -31630,7 +31630,7 @@
     {
       "id": 4561,
       "title": "[Opus] SW-4536's same_unglued can still turn a passing byComputing into E-RESOURCE: for two sides that are not identical but whose folded read-back runs a huge call, the quote exhausts the operation's budget (sticky), so the unification fallback that would have succeeded fails too (SW-4560). Make the unglued comparison unable to spend the operation's budget: a separate budget it can lose without affecting the fallback, or skip it for values whose read-back would run large calls; add a test with two different huge calls that unify",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -31682,7 +31682,7 @@
     {
       "id": 4565,
       "title": "[Opus] All tier 22 Nov (D3712): elaborator regressions: driver resources a_product_stuck_on_its_left_does_not_compute_its_right (now E-RESOURCE; suspect SW-4536's same_unglued reading back the right side, see SW-4561), elaboration postponement::a_decision_waits_for_a_field_in_its_proposition (List.Mem/Box.items unfolded twice), negative_arguments::a_negative_argument_has_the_hash_of_its_bracketed_form (hashes differ). Fix, rerun only these",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -31708,15 +31708,17 @@
     {
       "id": 4567,
       "title": "[Sonnet] All tier 22 Nov (D3712): cli and LSP test drift: tools open_goals::goal_lists_every_open_goal_with_what_relies_on_it, open_goals::warn_reports_open_goals_as_warnings_and_passes, scope::a_duplicate_is_reported_and_the_first_definition_kept, trial_edits::trial_edits_compares_an_edited_library_with_the_original; server goal_index::goal_examples_in_the_index, goal_index::lemmas_check_as_the_same_goal (snapshots); driver search_at_aoc search_at_on_real_2021_goals (Day13 Fold.sw text); lsp faults::the_checker_recovers_after_a_panic, faults::a_panic_blamed_on_no_project_is_not_repeated_by_the_successor (extra 'standard library files carried over' message). Decide per test: real bug or stale expectation; fix; rerun only these",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\n\nLane note (Sonnet, 22 Nov): 9 tests fixed on lane/SW-4567 (cfebc5c5c). 8 stale expectations (SW-4443, SW-3732, SW-4251, SW-4253, SW-4488 snapshots); 1 real bug: the LSP carried-over message fired for the tests shared cache (Source::carries_over, off for Memory). Each rerun passes.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "cfebc5c5c"
+      ]
     },
     {
       "id": 4568,
@@ -31765,6 +31767,32 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4572,
+      "title": "[DeepSeek] Driver tests that find definitions by path suffix (ends_with(&format!(\".{name}\"))) break as std grows (SW-4565: .floored matched Std.Doc.Places.floored): grep crates/driver/tests and crates/cli/tests for the pattern and switch each to session.elab.lookup_def or an exact name; run only the tests touched",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4573,
+      "title": "[Sonnet] lift.rs's let-value folding (~line 1229) lacks SW-4565's annotated-value form (zonk_let in unify.rs now also folds an annotated lambda back to its let); check whether it shows the same gap with a small example, fix with a test if so",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
