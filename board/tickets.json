@@ -31801,7 +31801,7 @@
     {
       "id": 4574,
       "title": "[DeepSeek] Docs and test follow-ups from SW-4567: docs/testing.md says the lsp test cache (Memory source) doesn't carry over and how to fake a build change (edit a comment in crates/elab/src/cache to change the fingerprint) to show a cache bug failing; docs/workflow.md 'Writing a brief': lanes adding examples/goals files re-record server goal_index snapshots; scope test a_duplicate_is_reported_once_and_the_first_definition_taken_as_failed gains an assertion that the first definition is failed (use is stuck)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
