@@ -2164,6 +2164,21 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                     push(g, stack, Frame::Unfolding(Box::new((id, spine, next))))?;
                     Control::Force(value)
                 }
+                // A proof stuck past its own case tree (on a `J` or a
+                // `case` of a lemma it uses) is passed on as the call, as
+                // one stuck in its own tree is: `next` is stuck on it either
+                // way, and the call is what was written, where its unfolding
+                // can be large (`hangOpenStep`'s, through its projection
+                // `let`s, SW-4642). Conversion unfolds it again
+                // ([`unfold_folded`]). Elaborator only, as for fields.
+                Value::Neutral(head, _)
+                    if !matches!(head, Head::Meta(_))
+                        && g.def(id).theorem
+                        && names_folded_fields(g) =>
+                {
+                    let call = Value::Neutral(Head::Def(id), spine);
+                    resume(g, next, call, stack)?
+                }
                 _ => {
                     push(g, stack, next)?;
                     Control::Return(value)
