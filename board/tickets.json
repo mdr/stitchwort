@@ -31669,7 +31669,7 @@
     {
       "id": 4564,
       "title": "[Opus] All tier 22 Nov (D3712): 'internal error: applying a constructor' (crates/core/src/value.rs:1328) panics in driver library search_at_bench::stage_two_closes_std_goals_with_their_lemma, search_at_bench::stage_two_on_any_std_statement, search_bench::proof_uses_find_their_lemma_among_the_first_ten and search_at_aoc search_at_on_aoc_goals; and cli extraction extract::random_inputs_agree_with_the_reference_evaluator / run_lines_agree_with_the_reference_evaluator ('not a fully evaluated value: Neutral(Def ...)'). Find the cause(s), fix, rerun only these",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
