@@ -32210,12 +32210,12 @@
     {
       "id": 4605,
       "title": "[DeepSeek] Debugging aid: STITCHWORT_BIG_READBACK=<nodes> prints a backtrace (and the declaration) for every elaborator read-back over that many nodes (in Budget::note_readback), so performance lanes find large read-backs without temporary code (asked for by SW-4600); document beside STITCHWORT_DUMP_KERNEL in docs/workflow.md",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "",
+      "body": "Model result: DeepSeek, worked, 22 min (est. 25)\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
