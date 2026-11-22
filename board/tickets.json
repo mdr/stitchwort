@@ -32991,12 +32991,12 @@
     {
       "id": 4655,
       "title": "[Sonnet] The elaborator's unifier call record keeps only pairs found different (unify.rs ~1338): measure whether it re-walks shared values as kernel conv did before SW-4647, and if so remember equal pairs too (SW-4647 finding)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nClosed: duplicate of SW-4653 (filed twice by the orchestrator).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
