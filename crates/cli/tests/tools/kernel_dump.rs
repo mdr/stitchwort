@@ -80,3 +80,109 @@ fn reports_readbacks_over_the_given_node_count() {
         "reported with the variable unset:\n{stderr}"
     );
 }
+
+/// The steps of each declaration in `check --timings`'s "steps by phase"
+/// table: the name, then the total and the five phase columns.
+fn phase_rows(stderr: &str) -> Vec<(String, Vec<u64>)> {
+    let mut lines = stderr
+        .lines()
+        .skip_while(|l| !l.starts_with("steps by phase"));
+    let header = lines.next().expect("the phase table's header");
+    for column in ["steps", "walk", "unify", "apply", "read-back", "other"] {
+        assert!(header.contains(column), "{column} in {header}");
+    }
+    lines
+        .take_while(|l| !l.is_empty())
+        .map(|l| {
+            // A label may hold spaces (a component's declarations), so the
+            // six counts are taken from the right.
+            let words: Vec<&str> = l.split_whitespace().collect();
+            let (name, counts) = words.split_at(words.len() - 6);
+            (
+                name.join(" "),
+                counts.iter().map(|w| w.parse().expect("a count")).collect(),
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn step_phases_add_up_to_each_declarations_steps() {
+    let dir = std::env::temp_dir().join(format!("stitchwort-step-phases-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("create temp dir");
+    let path = dir.join("phases.sw");
+    std::fs::write(
+        &path,
+        "import Std (List, Nat)\n\n\
+         def twice (xs: List Nat): List Nat := List.append xs xs\n",
+    )
+    .expect("write source");
+    let run = |phases: bool| {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
+        command
+            .args(["check", "--no-cache", "--timings=all"])
+            .arg(&path);
+        if phases {
+            command.env("STITCHWORT_STEP_PHASES", "1");
+        }
+        let out = command.output().expect("run stitchwort");
+        let stderr = String::from_utf8_lossy(&out.stderr).into_owned();
+        assert!(out.status.success(), "check failed:\n{stderr}");
+        stderr
+    };
+
+    let off = run(false);
+    assert!(!off.contains("steps by phase"), "{off}");
+
+    let on = run(true);
+    let rows = phase_rows(&on);
+    let twice = rows.iter().find(|(name, _)| name == "Main.twice");
+    assert!(twice.is_some(), "Main.twice in\n{on}");
+    for (name, columns) in &rows {
+        assert_eq!(columns.len(), 6, "{name}: {columns:?}");
+        assert_eq!(
+            columns[1..].iter().sum::<u64>(),
+            columns[0],
+            "{name}'s phases sum to its steps"
+        );
+    }
+    assert!(
+        rows.iter().any(|(_, c)| c[1..5].iter().any(|&n| n > 0)),
+        "some step is charged to a named phase:\n{on}"
+    );
+}
+
+#[test]
+fn no_project_cache_checks_the_project_afresh_without_touching_its_entry() {
+    let base =
+        std::env::temp_dir().join(format!("stitchwort-project-cache-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    let src = base.join("src");
+    std::fs::create_dir_all(&src).expect("create project");
+    std::fs::write(base.join("stitchwort.yaml"), "").expect("write config");
+    std::fs::write(
+        src.join("a.sw"),
+        "namespace A\n\ndef x: Nat := 1\n\ntest \"x\" := x == 1\n",
+    )
+    .expect("write source");
+    let check = |extra: &[&str]| {
+        let out = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+            .args(["check", "--timings=all"])
+            .args(extra)
+            .current_dir(&base)
+            .output()
+            .expect("run stitchwort");
+        let stderr = String::from_utf8_lossy(&out.stderr).into_owned();
+        assert!(out.status.success(), "check failed:\n{stderr}");
+        stderr
+    };
+    let cold = check(&[]);
+    assert!(!cold.contains("A (cached)"), "{cold}");
+    let warm = check(&[]);
+    assert!(warm.contains("A (cached)"), "{warm}");
+
+    let fresh = check(&["--no-project-cache"]);
+    assert!(!fresh.contains("A (cached)"), "A checked afresh:\n{fresh}");
+    // The project's entry is untouched: the next plain check still hits it.
+    assert!(check(&[]).contains("A (cached)"));
+}

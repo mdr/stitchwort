@@ -1083,6 +1083,12 @@ struct CacheArgs {
     /// run every test)
     #[arg(long)]
     no_cache: bool,
+    /// Check the project's own namespaces afresh, neither reading nor
+    /// writing their cache entries, while the standard library still comes
+    /// from the cache: for timing or profiling the target without paying
+    /// for the library
+    #[arg(long, conflicts_with = "no_cache")]
+    no_project_cache: bool,
     /// Where to keep the caches (default: `.stitchwort/cache` in the
     /// project folder, or in this folder for a file)
     #[arg(long)]
@@ -2734,7 +2740,11 @@ fn cache_dir(cache: &CacheArgs, base: &Path) -> Option<PathBuf> {
 /// unless `--no-cache`.
 fn use_cache(session: &mut Session, cache: &CacheArgs, base: &Path) {
     if let Some(dir) = cache_dir(cache, base) {
-        session.use_check_cache(&dir);
+        if cache.no_project_cache {
+            session.use_library_check_cache(&dir);
+        } else {
+            session.use_check_cache(&dir);
+        }
     }
 }
 

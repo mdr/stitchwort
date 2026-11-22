@@ -33,7 +33,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
-use stitchwort_core::budget::Peaks;
+use stitchwort_core::budget::{PHASES, Peaks, step_phases};
 use stitchwort_core::{Ev, Term};
 
 /// How many declarations `check --timings` asked the tables to list; 0 if
@@ -80,6 +80,9 @@ struct DeclRow {
     elab: Duration,
     kernel: Duration,
     steps: u64,
+    /// The steps charged to each [`Phase`], when `STITCHWORT_STEP_PHASES=1`;
+    /// `Phase::Other` is what the rest of `steps` was, so they sum to it.
+    phases: Option<[u64; PHASES]>,
     nodes: usize,
     /// The largest read-back and the most frames pending at once.
     peaks: Peaks,
@@ -98,6 +101,10 @@ struct Frame {
     child_decls: usize,
     child_steps: u64,
     steps_before: u64,
+    /// Steps per [`Phase`] (`STITCHWORT_STEP_PHASES`) when it began, and
+    /// those of the units loaded inside it.
+    phases_before: [u64; PHASES],
+    child_phases: [u64; PHASES],
     defs_before: usize,
     datas_before: usize,
     /// For a unit: how many declarations were being checked when it began.
@@ -120,6 +127,8 @@ impl Frame {
             child_decls: 0,
             child_steps: 0,
             steps_before: g.machine.budget.total_work(),
+            phases_before: g.machine.budget.phase_steps(),
+            child_phases: [0; PHASES],
             defs_before: g.env.defs().len(),
             datas_before: g.env.datas().len(),
             decl_depth: DECLS.with(|d| d.borrow().len()),
@@ -207,6 +216,14 @@ pub(crate) fn end(g: &Ev, label: String) {
             top.children += total;
             top.child_nodes += nodes;
             top.child_steps += steps;
+            let now = g.machine.budget.phase_steps();
+            for (child, (now, before)) in top
+                .child_phases
+                .iter_mut()
+                .zip(now.iter().zip(&frame.phases_before))
+            {
+                *child += now.saturating_sub(*before);
+            }
         }
     });
     ROWS.lock().unwrap().push(Row {
@@ -268,11 +285,31 @@ pub(crate) fn decl_end(g: &Ev, label: String) {
         .budget
         .total_work()
         .saturating_sub(frame.steps_before);
+    let steps = steps.saturating_sub(frame.child_steps);
+    let phases = step_phases().then(|| {
+        let now = g.machine.budget.phase_steps();
+        let mut phases: [u64; PHASES] = std::array::from_fn(|i| {
+            now[i]
+                .saturating_sub(frame.phases_before[i])
+                .saturating_sub(frame.child_phases[i])
+        });
+        // Charging is by phase boundaries, so what is left of `steps` after
+        // the named phases is `Other`; it also absorbs any rounding where an
+        // operation's steps were set aside.
+        let named: u64 = phases[1..].iter().sum();
+        phases[0] = steps.saturating_sub(named);
+        if named > steps {
+            phases[1..].fill(0);
+            phases[0] = steps;
+        }
+        phases
+    });
     DECL_ROWS.lock().unwrap().push(DeclRow {
         label,
         elab: total.saturating_sub(frame.kernel + frame.children),
         kernel: frame.kernel,
-        steps: steps.saturating_sub(frame.child_steps),
+        steps,
+        phases,
         nodes: nodes.saturating_sub(frame.child_nodes),
         peaks,
         facts: frame.facts,
@@ -443,8 +480,30 @@ fn report_decls() {
             rows.len() - shown
         );
     }
+    report_phases(&rows[..shown], width);
     report_readbacks(&mut rows);
     report_facts(&mut rows);
+}
+
+/// With `STITCHWORT_STEP_PHASES=1`, prints the steps each of `rows` took in
+/// each elaborator phase, in the order of the table above: the phases sum to
+/// `steps`.
+fn report_phases(rows: &[DeclRow], width: usize) {
+    if !step_phases() {
+        return;
+    }
+    eprintln!();
+    eprintln!(
+        "{:<width$}  {:>12}  {:>12}  {:>12}  {:>12}  {:>12}  {:>12}",
+        "steps by phase", "steps", "walk", "unify", "apply", "read-back", "other"
+    );
+    for r in rows {
+        let [other, walk, unify, apply, readback] = r.phases.unwrap_or([r.steps, 0, 0, 0, 0]);
+        eprintln!(
+            "{:<width$}  {:>12}  {:>12}  {:>12}  {:>12}  {:>12}  {:>12}",
+            r.label, r.steps, walk, unify, apply, readback, other
+        );
+    }
 }
 
 /// Prints the declarations whose `byFacts` calls tried the most

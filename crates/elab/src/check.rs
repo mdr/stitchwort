@@ -8,7 +8,7 @@ use crate::goals::StepForm;
 use crate::kernel;
 use crate::state::AppExpected;
 use crate::state::HolesRetry;
-use stitchwort_core::budget::ResourceError;
+use stitchwort_core::budget::{Phase, ResourceError, step_phases};
 use stitchwort_core::chars::{self as compact, Chars};
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
@@ -3932,6 +3932,7 @@ fn apply_args_with_at(
     supply: &mut Supply,
     named_head: bool,
 ) -> Result<(Term, Value)> {
+    let _phase = step_phases().then(|| cx.g().machine.budget.phase(Phase::Apply));
     // The rarer cases are functions of their own, so that this one's frame,
     // which every nested application's argument stands on, holds only what
     // the common path needs.
