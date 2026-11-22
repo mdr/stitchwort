@@ -32091,7 +32091,7 @@
     {
       "id": 4596,
       "title": "[Opus] Design note: queued-check placeholders don't take let variables while lifted helpers' unknowns do (lift::spine), so let values get pasted into terms and must be folded back (SW-4588, SW-4565, SW-4573 all patched that); a let lambda passed through a nested queued match is still pasted (Float.Theory.roundsToInfinity's beyond). Note first: what including lets in queued placeholders' spines would change, cost, and risk; no code",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
