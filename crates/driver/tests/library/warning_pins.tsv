@@ -3,11 +3,7 @@
 # Columns: project, file, code, count.
 #   std            warning_pins::the_library_warnings_stay_within_their_pins
 #                  (`stitchwort check --std Std --warnings` prints the counts); empty.
-#   toyfmt, toyfmt-plus, rogue, sf, guide-examples, web-guide, aoc-2020 ...
+#   rogue, sf, guide-examples, web-guide, aoc-2020 ...
 #                  the same names in the cli test tools::warning_pins; the files are
 #                  as `check` prints them, without the project folder;
 #                  none gives any now.
-# `Words.sw` was being edited by another lane when SW-3648 swept the rewrite warnings (apply the
-# quick fixes there, then delete these two lines).
-toyfmt	src/Toy/Doc/Words.sw	W-REWRITE-THEN-COMPUTING	19
-toyfmt	src/Toy/Doc/Words.sw	W-REWRITE-THEN-REWRITE	8

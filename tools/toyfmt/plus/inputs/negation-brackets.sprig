@@ -1,7 +1,0 @@
-fn y(x) = - -x
-
-fn z(x) = -(-x)
-
-fn a(x, y) = x - -y
-
-fn b(x, y) = x - (-y)

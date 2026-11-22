@@ -2,7 +2,7 @@
 --| `stitchwort dev tree --print`'s form.
 --|
 --| What the tree keeps of a token is what printing must reproduce and
---| nothing of the author's layout (tools/fmt-sketch/SKETCH.md §1): its
+--| nothing of the author's layout (the deleted fmt-sketch's SKETCH.md §1, D3715): its
 --| text and its comments, a `Word`, with no column, no "starts its line"
 --| and no count of blank lines. Commas aren't kept, since comment placement leaves
 --| them no comments: a list keeps its items and whether a comma followed

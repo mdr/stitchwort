@@ -77,7 +77,7 @@ It edits the lemma header, turning `(x: T)` into `[x: T]`; a grouped
 binder `(a b: T)` is split when only some of its names are named, and a
 binder that is already `[x: T]` is left alone (its argument is already
 gone, so it is not counted as a positional slot). It then walks the default
-roots `tools/fmt/src`, `tools/toyfmt/src`, `crates/elab/src/std`,
+roots `tools/fmt/src`, `crates/elab/src/std`,
 `aoc/src`, `games/rogue/src` and `examples` (or the directories after
 `--roots`, comma-separated or repeated), deduplicating files by real path
 because those trees contain symlinks.

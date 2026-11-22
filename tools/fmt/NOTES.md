@@ -48,7 +48,7 @@ The stub (copies its input) on `--stage text`:
 |---|---|---|
 | golden `before` files (unformatted) | 0 of 62 | 1.1 s |
 | golden `after` files (formatted) | 62 of 62 | 0.8 s |
-| 17 named repo files (Toy.Fmt, std List, `aoc/src/Aoc/Common`, the stub) | 17 of 17 | 0.4 s |
+| 17 named repo files (the toy formatter's `Toy.Fmt` (deleted 22 Nov 2026, D3715), std List, `aoc/src/Aoc/Common`, the stub) | 17 of 17 | 0.4 s |
 | fuzzer seed 5, 100 cases, comment rate 0.2 (79 parse) | 21 of 79 | 1.2 s |
 | disturbed `goldens-after`, seed 3 | 10 of 62 | 1.0 s |
 
@@ -61,7 +61,7 @@ The executable answers many files in one process (`--batch LIST`), and `dev/fmt-
 ### Not done, for later stages
 
 - Stage 4's pass-by-pass dump (a `dev` command after `passes::run`): `fmt-twin passes` stops with a message.
-- The Toy++ fuzz inputs (`tools/toyfmt/plus/inputs/*.sprig`) are Sprig programs, not Stitchwort: translating them is not trivial (different keywords, `takes`, typed groups), so they are a follow-up. The comment probes could be written as Stitchwort files under the fuzzer's `FUZZ_COMMENTS`, which the `fuzz` input already supports.
+- The Toy++ fuzz inputs were Sprig programs, not Stitchwort, and went with the toy formatter's deletion (22 Nov 2026, D3715; in git history before that date). The comment probes could be written as Stitchwort files under the fuzzer's `FUZZ_COMMENTS`, which the `fuzz` input already supports.
 - The disturber is a few conservative line-level changes (doubled spaces, indentation ×2 or ×3, trailing spaces and blank lines between declarations), one chosen per file from the seed. Where it breaks the parse, the Rust side's refusal is the answer to match. The proposal's token-level disturber (spans from the real lexer) is not done.
 
 ## Stage 1 (SW-3808): the lexer and comment placement
@@ -80,8 +80,8 @@ Opus, 17 November 2026.
 | `Syntax.Tests` | the `tidy.rs` tests ported, and lexer cases | |
 | `Fmt.Twin` | `--stage tokens` from the real lexer, single-file and batch; the later stages are still the stub | |
 
-`Syntax` is one namespace over several files, as the toy's `Toy.Syntax`
-is, so stage 2's parser and tree types join it without imports; `Fmt`
+`Syntax` is one namespace over several files, as the (since deleted, D3715) toy formatter's `Toy.Syntax`
+was, so stage 2's parser and tree types join it without imports; `Fmt`
 is for the formatter proper (passes, rules, the driver). Proofs go beside
 each file (`Syntax/LexProofs.sw` and so on), as in the toy.
 
@@ -1421,7 +1421,7 @@ Ticket 18d of the proof plan, in `Fmt/HangProofs.sw` (namespace `Fmt.HangProofs`
 
 ### The framework, and why
 
-- **Over the printer's trace, not a tree-shaped spec.** The toy formatter's `Events zone head expr` (EventProofs.sw) describes, per node, where each token may start, and a second proof takes that to the parser. Here `hangs` is already a step function, and `HangState.step` reads a leaf's column only when the leaf starts its line, which is exactly what `Doc.Proofs.Event` records (`start`). So the same fold runs over the trace (`hangOf`: `def` at column 0 first, then `HangState.step` on `eventLeaf`, comments and blank lines skipped), and the rules carry the fold's state in their triples. No second tree-shaped spec, and no port of the toy's 3,000 lines: what is ported is its `concatLays` and the shape of its word lemma (`writeOne`).
+- **Over the printer's trace, not a tree-shaped spec.** The toy formatter's (deleted 22 Nov 2026, D3715; in git history before then) `Events zone head expr` (EventProofs.sw) describes, per node, where each token may start, and a second proof takes that to the parser. Here `hangs` is already a step function, and `HangState.step` reads a leaf's column only when the leaf starts its line, which is exactly what `Doc.Proofs.Event` records (`start`). So the same fold runs over the trace (`hangOf`: `def` at column 0 first, then `HangState.step` on `eventLeaf`, comments and blank lines skipped), and the rules carry the fold's state in their triples. No second tree-shaped spec, and no port of the toy's 3,000 lines: what is ported is its `concatLays` and the shape of its word lemma (`writeOne`).
 - **Triples like `JoinProofs`' `Passes`.** `HangLays kinds doc indent pre post`: from every place and fold satisfying `pre`, every way `doc` lays out (`Doc.Proofs.Lays`, continuation style) leaves a place and fold satisfying `post`. One combinator per `Doc` constructor; rules are lemmas about the named rule functions with the tree facts as parameters.
 - **From `Std.Doc`:** `printLays` (a `Lays` from the start gives a laid trace that `Tucks` to the printed one) and nothing about columns beyond the `Place` itself; `tucksHang` shows the fold is the same over both orders (a tucked comment is skipped). `hangsPrinted` is the engine end: a triple for the declaration's document from `AtStart 0` to a fold that never broke gives `hangOf kinds (eventsOf (printedPieces doc width).reverse) ≠ Broke`.
 - **An element folds as one token.** `ElHangs kinds doc indent before start`: from a seat (`Seated`: mid-line, at the start of a line at the indentation, or after a waiting comment only if `before`; no comment floor), with the fold at a state that allows the first word where `start` puts it (`Seat`: nothing in force right of the indentation, `Room` for the first word), the element ends after words (`Ended`) with the fold exactly as after one plain token there (`openedBy`). The brackets inside are opened and closed again, and every later line of an element starts right of its indentation, so the only thing an element does to the fold is what its first token does. The column facts come from the `Place`s alone: every line break lands at `floored carry X` with `X` at least the construct's indentation (and no floor at an element's edges), and a `CloserLine` at `closerAt`, at most the indentation.

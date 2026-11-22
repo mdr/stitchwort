@@ -1421,44 +1421,22 @@ fn a_failed_layout_probe_fails_the_build() {
     assert_eq!(text(&started.stdout), "");
 }
 
-/// The toy formatter's project (docs/proposals/toy-formatter.md, stage C).
-const TOYFMT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tools/toyfmt");
+/// The self-hosted formatter's project (`tools/fmt`).
+const FMT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tools/fmt");
 
-/// A Sprig file the formatter leaves alone, and one it rewrites to it.
-const TIDY: &str = "fn add takes (a, b) = a + b\n";
-const UNTIDY: &str = "fn add(a,b) = a+b\n";
-const BROKEN: &str = "let x =";
-
-/// Every file under `dir` with its text, by path.
-fn folder_contents(dir: &Path) -> std::collections::BTreeMap<String, String> {
-    fn walk(base: &Path, dir: &Path, into: &mut std::collections::BTreeMap<String, String>) {
-        for entry in std::fs::read_dir(dir).expect("list the folder") {
-            let path = entry.expect("an entry").path();
-            if path.is_dir() {
-                walk(base, &path, into);
-            } else {
-                let name = path.strip_prefix(base).expect("under the base");
-                into.insert(
-                    name.to_string_lossy().into_owned(),
-                    std::fs::read_to_string(&path).expect("read a file"),
-                );
-            }
-        }
-    }
-    let mut into = std::collections::BTreeMap::new();
-    walk(dir, dir, &mut into);
-    into
-}
+/// A Stitchwort file the formatter leaves alone, and one it rewrites to it.
+const TIDY: &str = "def add (a b: Nat): Nat := a + b\n";
+const UNTIDY: &str = "def add (a: Nat) (b: Nat): Nat := a+b\n";
+const BROKEN: &str = "def x :=";
 
 /// Lays out the fixture folder `work/src`: a file to rewrite, a formatted
-/// one, one that doesn't parse, a nested folder and a file to skip.
-fn toyfmt_fixture(work: &Path) {
+/// one, one that doesn't parse, and one in a nested folder.
+fn fmt_fixture(work: &Path) {
     for (name, text) in [
-        ("src/a.sprig", UNTIDY),
-        ("src/b.sprig", TIDY),
-        ("src/bad.sprig", BROKEN),
-        ("src/deep/c.sprig", UNTIDY),
-        ("src/notes.txt", UNTIDY),
+        ("src/a.sw", UNTIDY),
+        ("src/b.sw", TIDY),
+        ("src/bad.sw", BROKEN),
+        ("src/deep/c.sw", UNTIDY),
     ] {
         let path = work.join(name);
         std::fs::create_dir_all(path.parent().expect("in a folder")).expect("make the folder");
@@ -1466,23 +1444,25 @@ fn toyfmt_fixture(work: &Path) {
     }
 }
 
-/// The toy formatter on a folder, as `stitchwort run` and as a built
-/// executable do it, with `stitchwort fmt`'s exit statuses: `--check` writes
-/// nothing and names the files, exiting 1 when it finds one to change and 2
-/// when a path couldn't be read or parsed (a problem outranks a change); a
-/// real run rewrites what changes, leaves a formatted file alone (its
-/// modification time too: it isn't written), reports the file that doesn't
-/// parse with its line and column, and exits 2; with that file gone, `--check`
-/// exits 0; a bad flag exits 2 with the usage line, and `--help` 0.
+/// The self-hosted formatter's command line (`Fmt.Twin.main`, `fmt --stage
+/// text FILE...`) as `stitchwort run` and as a built executable do it, on a
+/// folder of Stitchwort files: it prints each file formatted on standard
+/// output and writes nothing, exits 0 when every file was answered, and
+/// reports a file that doesn't parse (`[E-PARSE] Error: ...`) or can't be read
+/// on standard error and exits 2, still answering the files that do work; a
+/// `--batch` list answers for its paths in one run; a bad flag exits 2 with
+/// the usage line, and `--help` 0. (Under its old stand-in, the toy
+/// formatter, this also covered `--check`, in-place rewriting and walking
+/// folders, which the self-hosted formatter's command line doesn't do.)
 #[test]
-fn toyfmt_formats_a_folder_under_run_and_built() {
+fn fmt_answers_for_a_folder_of_files_under_run_and_built() {
     if !have_cc() {
         return;
     }
-    let work = work_dir("toyfmt");
+    let work = work_dir("fmt");
     let bin = work.join("bin");
     std::fs::create_dir_all(&bin).expect("make the folder");
-    let target = "Toy.Fmt.main";
+    let target = "Fmt.Twin.main";
     let mut builds: Vec<(&str, Vec<&str>)> = vec![("plain", vec![])];
     if cfg!(feature = "native") {
         builds.push(("native", vec!["--native"]));
@@ -1490,7 +1470,7 @@ fn toyfmt_formats_a_folder_under_run_and_built() {
     let mut runners: Vec<(String, Option<PathBuf>)> = vec![("run".into(), None)];
     for (name, flags) in &builds {
         let exe = bin.join(name);
-        let mut args = vec!["build", target, "--project", TOYFMT, "--cache-dir", CACHE];
+        let mut args = vec!["build", target, "--project", FMT, "--cache-dir", CACHE];
         args.extend(flags);
         args.extend(["-o", exe.to_str().expect("a path")]);
         let output = stitchwort(&work, &args, b"");
@@ -1503,9 +1483,9 @@ fn toyfmt_formats_a_folder_under_run_and_built() {
     }
     for (runner, exe) in runners {
         let folder = work.join(&runner);
-        toyfmt_fixture(&folder);
-        // `toyfmt ARGS` in `folder`: what it printed, and its exit code.
-        let toyfmt = |args: &[&str]| -> (String, String, Option<i32>) {
+        fmt_fixture(&folder);
+        // `fmt ARGS` in `folder`: what it printed, and its exit code.
+        let fmt = |args: &[&str]| -> (String, String, Option<i32>) {
             let output = match &exe {
                 Some(exe) => {
                     let mut command = Command::new(exe);
@@ -1513,15 +1493,7 @@ fn toyfmt_formats_a_folder_under_run_and_built() {
                     run_with_input(command, b"")
                 }
                 None => {
-                    let mut all = vec![
-                        "run",
-                        "--cache-dir",
-                        CACHE,
-                        "--project",
-                        TOYFMT,
-                        target,
-                        "--",
-                    ];
+                    let mut all = vec!["run", "--cache-dir", CACHE, "--project", FMT, target, "--"];
                     all.extend(args);
                     stitchwort(&folder, &all, b"")
                 }
@@ -1532,87 +1504,71 @@ fn toyfmt_formats_a_folder_under_run_and_built() {
                 output.status.code(),
             )
         };
-        let before = folder_contents(&folder);
-        let tidy_time = std::fs::metadata(folder.join("src/b.sprig"))
-            .and_then(|m| m.modified())
-            .expect("a modification time");
-        let changed = "src/a.sprig\nsrc/deep/c.sprig\n";
-        let problem = "src/bad.sprig:1:8: expected an expression, got the end of the input\n";
+        let before_a = std::fs::read_to_string(folder.join("src/a.sw")).expect("read a.sw");
+        let refusal = "[E-PARSE] Error: expected a parameter such as `(x: Nat)`, or `:` and the \
+                       definition's type, but found `:=`";
+        let parse_error = "[E-PARSE] Error: expected a parameter";
 
-        let (out, err, code) = toyfmt(&["--check", "src"]);
-        assert_eq!(
-            (out.as_str(), code),
-            (changed, Some(2)),
-            "{runner}: --check with a problem"
-        );
-        assert!(err.starts_with(problem), "{runner}: --check says {err}");
-        assert_eq!(
-            folder_contents(&folder),
-            before,
-            "{runner}: --check writes nothing"
-        );
-
-        let (out, _, code) = toyfmt(&["--check", "src/a.sprig", "src/deep"]);
-        assert_eq!(
-            (out.as_str(), code),
-            (changed, Some(1)),
-            "{runner}: --check would change"
-        );
-        let (out, _, code) = toyfmt(&["--check", "src/missing.sprig"]);
-        assert_eq!(
-            (out.as_str(), code),
-            ("", Some(2)),
-            "{runner}: --check, unreadable"
-        );
-        assert_eq!(
-            folder_contents(&folder),
-            before,
-            "{runner}: still nothing written"
-        );
-
-        let (out, err, code) = toyfmt(&["src"]);
-        assert_eq!((out.as_str(), code), (changed, Some(2)), "{runner}: format");
-        assert!(err.starts_with(problem), "{runner}: format says {err}");
-        let mut expected = before.clone();
-        expected.insert("src/a.sprig".into(), TIDY.into());
-        expected.insert("src/deep/c.sprig".into(), TIDY.into());
-        assert_eq!(folder_contents(&folder), expected, "{runner}: rewritten");
-        let kept_time = std::fs::metadata(folder.join("src/b.sprig"))
-            .and_then(|m| m.modified())
-            .expect("a modification time");
-        assert_eq!(
-            kept_time, tidy_time,
-            "{runner}: a formatted file isn't written"
-        );
-
-        std::fs::remove_file(folder.join("src/bad.sprig")).expect("remove the broken file");
-        let settled = folder_contents(&folder);
-        let (out, err, code) = toyfmt(&["--check", "src"]);
+        let (out, err, code) = fmt(&["--stage", "text", "src/a.sw", "src/b.sw", "src/deep/c.sw"]);
         assert_eq!(
             (out.as_str(), err.as_str(), code),
-            ("", "", Some(0)),
-            "{runner}: clean"
+            (&format!("{TIDY}{TIDY}{TIDY}")[..], "", Some(0)),
+            "{runner}: formatted, on standard output"
         );
-        let (out, _, code) = toyfmt(&["--width", "10", "src/b.sprig"]);
         assert_eq!(
-            (out.as_str(), code),
-            ("src/b.sprig\n", Some(0)),
-            "{runner}: width"
-        );
-        assert_ne!(
-            folder_contents(&folder),
-            settled,
-            "{runner}: a narrower width rewrote it"
+            std::fs::read_to_string(folder.join("src/a.sw")).expect("read a.sw"),
+            before_a,
+            "{runner}: nothing written"
         );
 
-        let (out, err, code) = toyfmt(&["--wide", "src"]);
-        assert_eq!((out.as_str(), code), ("", Some(2)), "{runner}: bad flag");
-        assert!(err.contains("usage: toyfmt"), "{runner}: usage, got {err}");
-        let (out, _, code) = toyfmt(&["--help"]);
-        assert_eq!(code, Some(0), "{runner}: --help");
-        assert!(
-            out.starts_with("usage: toyfmt"),
-            "{runner}: help, got {out}"
+        let (out, err, code) = fmt(&["src/a.sw"]);
+        assert_eq!(
+            (out.as_str(), err.as_str(), code),
+            (TIDY, "", Some(0)),
+            "{runner}: the text stage is the default"
         );
+
+        let (out, err, code) = fmt(&["src/bad.sw", "src/b.sw"]);
+        assert_eq!((out.as_str(), code), (TIDY, Some(2)), "{runner}: a refusal");
+        assert!(err.starts_with(parse_error), "{runner}: refusal says {err}");
+
+        let (out, err, code) = fmt(&["src/missing.sw", "src/a.sw"]);
+        assert_eq!(
+            (out.as_str(), code),
+            (TIDY, Some(2)),
+            "{runner}: unreadable"
+        );
+        assert!(
+            err.starts_with("src/missing.sw: "),
+            "{runner}: unreadable says {err}"
+        );
+
+        std::fs::write(
+            folder.join("list.txt"),
+            "src/a.sw\n\nsrc/bad.sw\nsrc/deep/c.sw\n",
+        )
+        .expect("write the list");
+        let (out, err, code) = fmt(&["--batch", "list.txt"]);
+        let block = |path: &str, status: u32, body: &str, message: &str| {
+            format!(
+                "\u{1e}{path}\n\u{1f}{status}\u{1f}{}\u{1f}{message}\n{body}",
+                body.chars().count()
+            )
+        };
+        let expected = block("src/a.sw", 0, TIDY, "")
+            + &block("src/bad.sw", 2, "", refusal)
+            + &block("src/deep/c.sw", 0, TIDY, "");
+        assert_eq!(
+            (out, err.as_str(), code),
+            (expected, "", Some(0)),
+            "{runner}: a batch answers for every path, a refusal inside its block"
+        );
+
+        let (out, err, code) = fmt(&["--wide", "src"]);
+        assert_eq!((out.as_str(), code), ("", Some(2)), "{runner}: bad flag");
+        assert!(err.contains("usage: fmt"), "{runner}: usage, got {err}");
+        let (out, _, code) = fmt(&["--help"]);
+        assert_eq!(code, Some(0), "{runner}: --help");
+        assert!(out.starts_with("usage: fmt"), "{runner}: help, got {out}");
     }
 }

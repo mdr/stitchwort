@@ -1,4 +1,4 @@
---| The tree's traversal (tools/fmt-sketch/SKETCH.md §1, the traversal
+--| The tree's traversal (the deleted fmt-sketch's SKETCH.md §1, D3715, the traversal
 --| item): one function per family that rebuilds a node from its traversed
 --| children, left to right, then applies a step to it. `Steps` holds the
 --| step for expressions, patterns, headers and declarations; a family

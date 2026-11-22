@@ -51,7 +51,7 @@ only if a measured bar (§6) is met on goals that the Stitchwort-side closers fa
 ## 2. Method
 
 **Corpus.** A script scanned AoC 2020 (`aoc/src/Aoc/Year2020`) and the toy formatter
-(`tools/toyfmt/src`) for closing steps: `arithmetic` (68 sampled), `rewrite` (52), an arm whose
+(`tools/toyfmt/src`, deleted 22 Nov 2026 (D3715) and in git history before then) for closing steps: `arithmetic` (68 sampled), `rewrite` (52), an arm whose
 body is a lemma application (20), `Void.impossible` (16) and `calc` (4), about 85 per project
 with a fixed seed. At each it asked `stitchwort goal --at FILE:LINE:COL --json` for the goal
 (hypotheses with types, target, and the source range of the term being proved). That is the
