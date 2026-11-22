@@ -1,5 +1,5 @@
 {
-  "next": 4603,
+  "next": 4604,
   "tickets": [
     {
       "id": 47,
@@ -31946,7 +31946,7 @@
     {
       "id": 4585,
       "title": "[Opus] Search: 6775 of 7012 recorded proof uses fail their own lemma's filtered first pass, because a use pattern's constants include its arguments' constants, which the lemma's type doesn't name (SW-4579). Decide whether use patterns should leave the arguments' constants out of the filter (and what that does to recall@10 and out-of-budget in search_bench::proof_uses_find_their_lemma_among_the_first_ten), and do it if it helps",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -32174,6 +32174,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4603,
+      "title": "[Opus] Search: when the filtered first pass finds fewer than k hits, add relaxed-pass hits (or merge the two passes), so a general lemma stated for a goal's shape isn't lost whenever some specific lemma passes the filter (SW-4585: D2063's filter design is the limit; conclusion-only filtering cut out-of-budget 39110 to 25843). Measure with search_bench's new filtered-pass counts (--profile all, 10-17 min a run); recall@10 and top-1 must not fall",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
