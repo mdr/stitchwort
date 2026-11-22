@@ -46,6 +46,23 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 22 Nov 2026
 
+### SW-4592: an indexed family's split no longer compares every variable in the context unless a message shows the arm's goal; `fin-table-deep`'s `Main.code` 55.4M to 5.6M steps
+
+- **Problem.** SW-3325 (`6d960d350`) made `accept/fin-table-deep` go from
+  23.1M to 77.8M steps (SW-4587's finding): `enter_family_split` compared
+  every variable of the context before and after each split with `same`,
+  which quotes both values folded, to record what the split solved.
+- **Change.** The split keeps the context's values before and after (cheap
+  clones) and the level; the list of solved variables is computed the first
+  time `replay` or `unsplit` needs it, that is when an error or hole shows an
+  arm's goal, and cached in the split.
+- **Why results stay the same.** The same comparison runs on the same
+  values, only later; terms and hashes were never touched. A comparison made
+  later quotes at the split's own level.
+- **Measured** (`check --no-cache --timings=all`, release): `Main.code`
+  55,399,703 to 5,626,999 steps, 4.65 s to 0.61 s elaboration.
+- **Ticket:** SW-4592; see SW-4587's entry below.
+
 ### SW-4582: inside an argument checked again if it fails, a nested argument that fails in place fails it, instead of being held for after its own expected type; AoC 2020 day 16's `runsNotes` 40.3M to 2.4M steps
 
 - **Problem.** SW-4580 left `runsNotes` at 40,273,232 steps, with its

@@ -63,10 +63,53 @@ pub(crate) struct Split {
     fields: Vec<Value>,
     /// What an indexed family's split also decided: variables made another
     /// value (an index `n` made `Succ n✝`), after the split's own `x`.
-    solved: Vec<(usize, Value)>,
+    /// Worked out when first needed, since comparing every variable is
+    /// costly and only an arm's goal shown in a message needs it.
+    solved: Solved,
     /// The fields' values, where the split solved some of them; otherwise
     /// they are the variables themselves.
     field_values: Option<Vec<Value>>,
+}
+
+/// What an indexed family's split decided, found by comparing the context's
+/// values before and after the split the first time it is asked for.
+struct Solved {
+    /// The context's values before and after the split, up to its `base`,
+    /// and the level they are compared at; none for a split that solved
+    /// nothing.
+    compare: Option<(Vec<Value>, Vec<Value>, usize)>,
+    x: usize,
+    found: std::cell::OnceCell<Vec<(usize, Value)>>,
+}
+
+impl Solved {
+    fn none() -> Self {
+        Solved {
+            compare: None,
+            x: 0,
+            found: std::cell::OnceCell::from(Vec::new()),
+        }
+    }
+
+    fn get(&self, cx: &Ctx) -> &[(usize, Value)] {
+        self.found.get_or_init(|| {
+            let Some((before, after, level)) = &self.compare else {
+                return Vec::new();
+            };
+            let g = cx.g();
+            let same = |a: &Value, b: &Value| match (
+                quote_folded(&g, *level, a),
+                quote_folded(&g, *level, b),
+            ) {
+                (Ok(a), Ok(b)) => crate::matching::same(&a, &b),
+                _ => false,
+            };
+            (0..before.len().min(after.len()))
+                .filter(|&l| l != self.x && !same(&after[l], &before[l]))
+                .map(|l| (l, after[l].clone()))
+                .collect()
+        })
+    }
 }
 
 /// A leaf's arm, while its right-hand side is checked.
@@ -296,7 +339,7 @@ pub(crate) fn enter_split<'e>(
     value: &Value,
     base: usize,
 ) -> SplitGuard<'e> {
-    push_split(cx, start, x, value, base, Vec::new(), None)
+    push_split(cx, start, x, value, base, Solved::none(), None)
 }
 
 /// [`enter_split`] for the split of `x` on an indexed family, after the
@@ -309,10 +352,12 @@ pub(crate) fn enter_family_split<'e>(
     before: &[Value],
 ) -> SplitGuard<'e> {
     let base = before.len();
-    let solved = (0..base.min(cx.env.len()))
-        .filter(|&l| l != x && !same(cx, &cx.env[l], &before[l]))
-        .map(|l| (l, cx.env[l].clone()))
-        .collect();
+    let n = base.min(cx.env.len());
+    let solved = Solved {
+        compare: Some((before[..n].to_vec(), cx.env[..n].to_vec(), cx.level())),
+        x,
+        found: std::cell::OnceCell::new(),
+    };
     let fields = cx.env.get(base..).map(<[Value]>::to_vec);
     push_split(cx, start, x, &cx.env[x], base, solved, fields)
 }
@@ -323,7 +368,7 @@ fn push_split<'e>(
     x: usize,
     value: &Value,
     base: usize,
-    solved: Vec<(usize, Value)>,
+    solved: Solved,
     field_values: Option<Vec<Value>>,
 ) -> SplitGuard<'e> {
     let (parent, root) = start;
@@ -417,7 +462,7 @@ fn replay(cx: &Ctx, path: &Split, skip: &[usize], start: State) -> Option<State>
             let mut scope = env.clone();
             scope.extend((0..node.fields.len()).map(|i| Value::var(node.base + i)));
             let split = std::iter::once((node.x, &node.value))
-                .chain(node.solved.iter().map(|(l, v)| (*l, v)));
+                .chain(node.solved.get(cx).iter().map(|(l, v)| (*l, v)));
             for (x, value) in split {
                 let goal_term = quote_folded(&g, scope.len(), &goal).ok()?;
                 let goal_value = eval(&g, &scope, &goal_term).ok()?;
@@ -648,14 +693,14 @@ fn fields_of_unsplit(arm: &Arm) -> Vec<usize> {
 
 /// The levels the arms' patterns left alone, and those an indexed family's
 /// split they didn't need decided with them.
-fn unsplit(arms: &[Rc<Arm>]) -> Vec<usize> {
+fn unsplit(cx: &Ctx, arms: &[Rc<Arm>]) -> Vec<usize> {
     let mut levels = Vec::new();
     for arm in arms {
         levels.extend(arm.unsplit.iter().copied());
         let mut node = Some(&arm.path);
         while let Some(n) = node {
             if arm.unsplit.contains(&n.x) {
-                levels.extend(n.solved.iter().map(|&(l, _)| l));
+                levels.extend(n.solved.get(cx).iter().map(|&(l, _)| l));
             }
             node = n.parent.as_ref();
         }
@@ -678,7 +723,7 @@ fn computed_back(
     let mut term = quote_internal(&g, level, leaf_goal).ok()?;
     // Nothing computed: the leaf's goal is the shown one with the case's
     // values put in, which the shown goal already says.
-    let unsplit = unsplit(arms);
+    let unsplit = unsplit(cx, arms);
     let values: Vec<(usize, Term)> = unsplit
         .iter()
         .filter_map(|&x| Some((x, quote_internal(&g, level, leaf_env.get(x)?).ok()?)))
