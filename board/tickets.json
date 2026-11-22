@@ -32292,7 +32292,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nStarted 22 Nov 12:28 on Sonnet (orchestrator's call, from SW-4608's ranked wins). Expected: 20 min.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -32305,7 +32305,7 @@
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "",
+      "body": "\n\nStarted 22 Nov 12:28 on DeepSeek (orchestrator's call, from SW-4608's ranked wins). Expected: 15 min.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -32318,7 +32318,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nStarted 22 Nov 12:28 on Opus (orchestrator's call, from SW-4608's ranked wins). Expected: 45 min.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
