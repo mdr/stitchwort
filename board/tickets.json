@@ -32223,7 +32223,7 @@
     {
       "id": 4606,
       "title": "[Opus] Next Std.Float.Theory peak after SW-4600 (409 MB): ofNatExact's rewrite by a lemma reads a 1.14M-node goal unfolded; a fast path for lemma rules measured worse because the as-written result isn't kept and the rule is elaborated twice; needs a cheap test before elaborating, or reuse of the first elaboration on fallback. Also from SW-4600: (a) SW-4469's hidden_copy_in assumes a variable can't hide inside a call, but a let-bound variable's value is substituted when the motive unfolds (inferred, untested: write the case); (b) the rewrite completeness check could skip the unfolded motive read when the motive no longer mentions any variable of the rule's left side (roundGrid 805k nodes), with care for proof-irrelevant positions",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
