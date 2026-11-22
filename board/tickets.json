@@ -32426,15 +32426,20 @@
     {
       "id": 4619,
       "title": "[Sonnet] Try SW-4611's reshape on printedFinish1 (Fmt.FileLexProofs, 7.3 s, 11 large read-backs, two from rewrite) and the rest of the family (standsDecl 6.1 s, standsRest 1.8 s, printedStart1 1.5 s)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nProgress (Sonnet lane): printedFinish1, printedStart1, standsDecl, standsRest, printedSplitParts reshaped into lemmas (312M to 1.9M steps in all); atomHung 56.0M to 25.5M, unaryHung 30.1M to 25.5M by projections for conjunction-valued destructuring lets. Statements unchanged; namespace checks of the five files pass. Remaining: atomHung/unaryHung read-backs from existential-eliminating lets (see docs/performance/log.md SW-4619). Model result: Sonnet, worked, 30 min (est. 30).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "058a52019",
+        "5980aee95",
+        "8bb7a252c",
+        "7470b6afe"
+      ]
     },
     {
       "id": 4620,
