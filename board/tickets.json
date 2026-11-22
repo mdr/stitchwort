@@ -32673,12 +32673,12 @@
     {
       "id": 4635,
       "title": "[Opus] A match should not read back hypotheses its scrutinee does not occur in (and FullHungBelow depth could be read back folded): the remaining cost of atomHung, unaryHung, signArgHung (25M steps each) and ~5M in each chain proof is a match re-reading a 61.6K-node hypothesis it does not mention; also rewrite quotes every hypothesis (kernel_context, ~10K nodes each) (SW-4629, SW-4631 findings)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Progress (lane, 22 Nov 15:50): done on lane/SW-4635, commit 482641319. Rule: a generalised match skips reading a hypothesis type when the type's value (calls not unfolded) can't mention a variable the scrutinee's normal form certainly mentions, nor any variable whose type is read (crates/elab/src/matching/untouched.rs); rewrite::kernel_context takes meta-free values as they are. Terms unchanged (hashes of ~200 match/rewrite examples unchanged). Measured steps: atomHung 53.9M->19.8M, unaryHung 24.9M->21.2M, signArgHung 9.0M->6.6M, cmpHung 9.1M->7.6M, appendHung 8.0M->6.5M, addAccHung 7.2M->6.5M, mulAccHung 6.8M->6.3M. Left: the goal is always read back unfolded at a generalised match (unaryHung 4x573K, atomHung 6x273K nodes). Perf log entry added.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
