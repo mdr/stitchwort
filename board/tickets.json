@@ -32073,12 +32073,12 @@
     {
       "id": 4593,
       "title": "[Opus] Every file that imports Std.Parse pays about 80-100M steps checking Parse's lemmas on import (SW-4587: 43 new examples cost 3.58G between them). Measure where the steps go for one such example (e.g. a reads-* or walk-* example), and propose (note first) how to avoid re-checking library lemmas per program: check cache for std in the bench and examples, or on-demand checking; performance-log entry",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nProgress (Opus lane, 22 Nov): measured and wrote docs/proposals/std-import-cost.md plus a performance-log entry; no code. Tests already replay std from the test std cache in every tier but all (SW-1761/1765): 3 Parse examples 14.6 s first run after a build, 0.94 s second. SW-4587's 3.58 G is the examples benchmark, which checks std per example on purpose (~78% of its 16.5 G, estimated). Theorem bodies are checked on import (file is the unit), 31-90% of library steps. Recommends: split the bench (std once, examples replayed), measure CLI --no-cache tests first, a note on caching the core; statements-only import (Matt's call) not recommended.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
