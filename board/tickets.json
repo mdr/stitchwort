@@ -32865,7 +32865,7 @@
     {
       "id": 4646,
       "title": "[Sonnet] Measure a full replay: warm check with STITCHWORT_SKIP_UNNEEDED=0 on tools/fmt, time and memory, to cost loading another worker's namespaces (SW-4614 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
