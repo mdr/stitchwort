@@ -1,5 +1,5 @@
 {
-  "next": 4582,
+  "next": 4584,
   "tickets": [
     {
       "id": 47,
@@ -31879,7 +31879,7 @@
     {
       "id": 4580,
       "title": "[Opus] SW-4480's second elaboration of an application with a _ argument (holes_by_arguments) is retried on every failure in a trial and nearly always fails again (816 of 816 in AoC 2020 day 16's runsNotes); SW-4568 capped it at 20,000 steps, which leaves runsNotes at 55M steps against 42M before SW-4480 and could refuse a retry that needs more. Design: retry only where it can help (e.g. only when the first error names an unsolved hole a later argument fixes), then drop or raise the cap; pin runsNotes' steps",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -31898,6 +31898,32 @@
       "labels": [],
       "epic": "performance",
       "body": "Model result: DeepSeek, worked (pin test shown failing at 1M and passing), 12 min (est. 25)\n",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4582,
+      "title": "[Opus] Performance: AoC 2020 day 16's runsNotes elaborates its innermost Parse.runsBind about 191 times through nested in-place argument trials (SW-4580), a factor that grows with nesting depth; profile and find whether nested trials can share or skip work; measure runsNotes' steps (40.3M now) before and after",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4583,
+      "title": "[DeepSeek] check --only given a namespace name says only 'no theorem' (E-UNKNOWN-THEOREM): add a hint that --only takes theorem names and namespaces go as targets; and docs/workflow.md: in a lane worktree, format .sw files with the worktree's target/release/stitchwort fmt (nix develop -c stitchwort is not on PATH there)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
