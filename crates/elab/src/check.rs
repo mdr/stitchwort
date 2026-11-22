@@ -7,6 +7,7 @@ use std::rc::Rc;
 use crate::goals::StepForm;
 use crate::kernel;
 use crate::state::AppExpected;
+use crate::state::HolesRetry;
 use stitchwort_core::budget::ResourceError;
 use stitchwort_core::chars::{self as compact, Chars};
 use stitchwort_core::partial::Primitive;
@@ -4372,7 +4373,10 @@ fn lambda_arg<'a>(
     let snapshot = crate::undo::Snapshot::take(cx);
     let trial = &cx.e.decl.in_place_trial;
     trial.set(trial.get() + usize::from(again));
-    let checked = check_arg(cx, &term, value, &dom);
+    // Held if it fails, so a retry inside waits for the check after it.
+    let (checked, _) = holes_retry_as(cx, HolesRetry::Deferred, |cx| {
+        check_arg(cx, &term, value, &dom)
+    });
     let trial = &cx.e.decl.in_place_trial;
     trial.set(trial.get() - usize::from(again));
     match checked {
@@ -4472,10 +4476,17 @@ fn explicit_arg<'a>(
     if let Some(applied) = by_arguments_first(cx, &ready, value, held)? {
         return Ok((applied, None));
     }
-    match check_arg(cx, &ready.term, value, &ready.dom) {
+    let (checked, deferred) = if ready.snapshot.is_some() {
+        holes_retry_as(cx, HolesRetry::Deferred, |cx| {
+            check_arg(cx, &ready.term, value, &ready.dom)
+        })
+    } else {
+        (check_arg(cx, &ready.term, value, &ready.dom), false)
+    };
+    match checked {
         Ok(checked) => explicit_arg_checked(cx, ready, value, checked),
         Err(e) if crate::undo::fatal(&e) => Err(e),
-        Err(e) => explicit_arg_failed(cx, ready, value, e, held, first_error)
+        Err(e) => explicit_arg_failed(cx, ready, value, (e, deferred), held, first_error)
             .map(|applied| (applied, None)),
     }
 }
@@ -4523,7 +4534,10 @@ fn explicit_arg_ready<'a>(
     } = at;
     (term, ty) = insert_with(cx, term, ty, supply)?;
     let hole_of = match (value, force(&cx.g(), ty.clone())?) {
-        (Expr::Hole(_), Value::Pi(x, ..)) => Some(x),
+        (Expr::Hole(_), Value::Pi(x, _, _, cod)) => {
+            note_fixed_later(cx, value, &cod.body, later);
+            Some(x)
+        }
         _ => None,
     };
     let (dom, cod) = match function_parts(cx, &ty) {
@@ -4624,13 +4638,15 @@ fn explicit_arg_checked<'a>(
 
 /// [`explicit_arg`] after the argument `value` failed in place with `e`, not
 /// for lack of resources: held for after the expected type if it may be, or
-/// the application's error.
+/// the application's error. If it can't be held and `deferred` (a
+/// [`holes_by_arguments`] retry inside was put off for the check after the
+/// expected type), it is checked once more with the retries.
 #[inline(never)]
 fn explicit_arg_failed<'a>(
     cx: &mut Ctx,
     ready: Box<Checking>,
     value: &'a Expr,
-    e: Diagnostic,
+    (e, deferred): (Diagnostic, bool),
     held: &mut Held<'a>,
     first_error: &mut FirstError,
 ) -> Result<(Term, Value)> {
@@ -4648,6 +4664,21 @@ fn explicit_arg_failed<'a>(
     };
     snapshot.restore(cx);
     if !crate::interfaces::has_unsolved(cx, &dom)? {
+        if deferred {
+            let snapshot = crate::undo::Snapshot::take(cx);
+            match holes_retry_as(cx, HolesRetry::Always, |cx| {
+                check_arg(cx, &term, value, &dom)
+            })
+            .0
+            {
+                Ok(checked) => {
+                    let ty = cod.apply_lazy(&cx.g(), || eval(&cx.g(), &cx.env, &checked))?;
+                    return Ok((Term::app(term, checked), ty));
+                }
+                Err(again) if crate::undo::fatal(&again) => return Err(again),
+                Err(_) => snapshot.restore(cx),
+            }
+        }
         return Err(unit_call_hint(cx, &term, value, &dom, next_is_unit, e));
     }
     first_error.get_or_insert_with(|| Box::new(e));
@@ -8301,6 +8332,7 @@ fn fallback_named(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Value) ->
     }
     let retry = holes_retry_key(expr);
     let snapshot = retry.map(|_| crate::undo::Snapshot::take(cx));
+    let watched = retry.map(|_| watch_holes(cx, expr));
     let result = (|| {
         if cx.e.decl.no_propagation.get() == 0
             && let Some(found) = propagate(cx, expr, expected, named)?
@@ -8309,10 +8341,17 @@ fn fallback_named(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Value) ->
         }
         fallback_inferred(cx, expr, expected, named)
     })();
+    let fixed_later = watched.is_some_and(|from| unwatch_holes(cx, from));
     match (result, retry, snapshot) {
         (Err(e), Some(key), Some(snapshot))
-            if !crate::undo::fatal(&e) && cx.e.decl.holes_by_arguments.get() == 0 =>
+            if fixed_later
+                && !crate::undo::fatal(&e)
+                && cx.e.decl.holes_by_arguments.get() == 0 =>
         {
+            if cx.e.decl.holes_retry.get() == HolesRetry::Deferred {
+                cx.e.decl.holes_retry_skipped.set(true);
+                return Err(e);
+            }
             holes_by_arguments(cx, expr, (expected, named), key, snapshot, e)
         }
         (result, ..) => result,
@@ -8344,15 +8383,103 @@ fn holes_retry_key(expr: &Expr) -> Option<usize> {
     }
 }
 
-/// The steps [`holes_by_arguments`]'s second elaboration may take. Every
-/// application of this shape that fails in a trial (a postponed or
-/// speculative elaboration) is elaborated again, and the second try nearly
-/// always fails too: all 816 in `Aoc.Year2020.Day16.Proofs` did, at 326
-/// million steps against the proof's 42 million without them. The ones that
-/// succeed took 2,500 to 8,600 steps (the repository's three, in
-/// `examples/accept/hole-solved-by-later-argument.sw` and
-/// `tools/fmt/src/Fmt/JoinProofs.sw`).
-const HOLES_RETRY_STEPS: u64 = 20_000;
+/// `f` run with [`holes_by_arguments`]'s retries as `mode` says (`Deferred`
+/// doesn't undo an `Always` around it), and whether a retry in it was put
+/// off. A retry put off inside an argument held for later is put off for
+/// the argument around it too, if that is also one.
+fn holes_retry_as<T>(cx: &mut Ctx, mode: HolesRetry, f: impl FnOnce(&mut Ctx) -> T) -> (T, bool) {
+    let decl = &cx.e.decl;
+    let mode = match (mode, decl.holes_retry.get()) {
+        (HolesRetry::Deferred, HolesRetry::Always) => HolesRetry::Always,
+        _ => mode,
+    };
+    let saved = decl.holes_retry.replace(mode);
+    let skipped_before = decl.holes_retry_skipped.replace(false);
+    let result = f(cx);
+    let decl = &cx.e.decl;
+    decl.holes_retry.set(saved);
+    let skipped = decl.holes_retry_skipped.get();
+    decl.holes_retry_skipped
+        .set(skipped_before || (skipped && saved == HolesRetry::Deferred));
+    (result, skipped)
+}
+
+/// Watches the arguments of `expr` written `_` while it is elaborated
+/// ([`note_fixed_later`]); the length of the watch list before, for
+/// [`unwatch_holes`].
+fn watch_holes(cx: &Ctx, expr: &Expr) -> usize {
+    let mut watched = cx.e.decl.holes_watched.borrow_mut();
+    let from = watched.len();
+    let (_, args) = spine(expr);
+    watched.extend(args.iter().filter_map(|a| match a {
+        Arg::Explicit(hole @ Expr::Hole(_)) => Some((std::ptr::from_ref(*hole) as usize, false)),
+        _ => None,
+    }));
+    from
+}
+
+/// Ends the watch [`watch_holes`] began at `from`: whether a later
+/// argument's parameter type mentioned one of the `_`s.
+fn unwatch_holes(cx: &Ctx, from: usize) -> bool {
+    let mut watched = cx.e.decl.holes_watched.borrow_mut();
+    let fixed = watched[from..].iter().any(|&(_, fixed)| fixed);
+    watched.truncate(from);
+    fixed
+}
+
+/// At the argument `value`, written `_`, of an application whose type after
+/// it is `rest` (the parameter is its variable 0) and whose arguments after
+/// it are `later`: if `value` is watched ([`watch_holes`]), notes whether a
+/// later argument might fix it ([`written_later_mentions_it`]).
+fn note_fixed_later(cx: &Ctx, value: &Expr, rest: &Term, later: &[Arg]) {
+    let at = std::ptr::from_ref(value) as usize;
+    let mut watched = cx.e.decl.holes_watched.borrow_mut();
+    if let Some(entry) = watched.iter_mut().rev().find(|(hole, _)| *hole == at)
+        && !entry.1
+    {
+        entry.1 = written_later_mentions_it(rest, later);
+    }
+}
+
+/// Whether an argument after a `_` that is written (not `_`, not a
+/// default) has a parameter type in `rest` (the type after the `_`'s
+/// parameter, its variable 0) that mentions the `_`'s parameter, or the
+/// parameter of an implicit or `_` argument whose type does. Only such an
+/// argument, compared with its parameter type by the arguments of the two
+/// calls ([`by_arguments_first`]), can say what the `_` is as written;
+/// without one, [`holes_by_arguments`] would elaborate the call the same way
+/// again. True where the types can't tell: a later argument given by name,
+/// or one the `∀`s written in `rest` don't reach.
+fn written_later_mentions_it(rest: &Term, later: &[Arg]) -> bool {
+    if later
+        .iter()
+        .any(|a| matches!(a, Arg::Named(..) | Arg::NamedExplicit(..)))
+    {
+        return true;
+    }
+    let mut explicit = later
+        .iter()
+        .filter(|a| matches!(a, Arg::Explicit(_) | Arg::Piped(_) | Arg::Default(_)));
+    // The parameters that depend on the `_`'s, by level: the `_`'s is 0, and
+    // the `n`th `∀` of `rest` binds level `n + 1`.
+    let mut depend = vec![0];
+    let mut ty = rest;
+    let mut under = 0;
+    while let Term::Pi(_, icit, dom, cod) = ty.strip_loc() {
+        let arg = (*icit == Icit::Explicit).then(|| explicit.next()).flatten();
+        if depend.iter().any(|&level| dom.mentions(under - level)) {
+            match arg {
+                None | Some(Arg::Explicit(Expr::Hole(_)) | Arg::Default(_)) => {
+                    depend.push(under + 1)
+                }
+                Some(_) => return true,
+            }
+        }
+        ty = cod;
+        under += 1;
+    }
+    explicit.next().is_some()
+}
 
 /// After the application `expr`, with an argument written `_` and an
 /// explicit argument after it, failed against `expected` with `failed`,
@@ -8367,7 +8494,10 @@ const HOLES_RETRY_STEPS: u64 = 20_000;
 /// fails. Only after a failure, so what was accepted before is elaborated
 /// as it was; if this fails too, the error is the first one, and nothing is
 /// kept. Not inside another such retry, so that nested failing calls aren't
-/// tried twice at every level.
+/// tried twice at every level. Only where a later argument's parameter type
+/// mentions a `_` ([`written_later_mentions_it`]), and not in an argument
+/// checked in place that is checked again if it fails ([`HolesRetry`]): a
+/// retry costs as much as the call, and almost every one fails again.
 #[inline(never)]
 fn holes_by_arguments(
     cx: &mut Ctx,
@@ -8380,20 +8510,10 @@ fn holes_by_arguments(
     snapshot.restore(cx);
     let snapshot = crate::undo::Snapshot::take(cx);
     cx.e.decl.holes_by_arguments.set(key);
-    let budget = &cx.g().machine.budget;
-    let limits = stitchwort_core::Limits {
-        work: HOLES_RETRY_STEPS,
-        ..budget.limits()
-    };
-    let again = budget.aside(limits, || fallback_inferred(cx, expr, expected, named));
+    let again = fallback_inferred(cx, expr, expected, named);
     cx.e.decl.holes_by_arguments.set(0);
     match again {
         Ok(term) => Ok(term),
-        // Out of its own steps, not the operation's: the retry didn't help.
-        Err(e) if crate::undo::fatal(&e) && budget.exhausted().is_none() => {
-            snapshot.restore(cx);
-            Err(failed)
-        }
         Err(e) if crate::undo::fatal(&e) => Err(e),
         Err(_) => {
             snapshot.restore(cx);
