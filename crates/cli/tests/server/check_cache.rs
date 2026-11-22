@@ -639,7 +639,14 @@ fn check_with_std(project: &Path, std_dir: &Path, cache: Option<&Path>) -> (Stri
         .lines()
         .filter_map(|l| {
             let (name, _) = l.strip_prefix("check cache: ")?.split_once(": a miss")?;
-            Some(name.to_string())
+            // A key no longer holds the library's names (the entry's stamp
+            // does, SW-4409), so an edit shows as a miss on the entry the
+            // key finds, named by its unit: `ns.X` for a namespace, `std.X`
+            // for a library file (not a namespace, so not counted).
+            match name.strip_prefix("ns.") {
+                Some(ns) => Some(ns.to_string()),
+                None => (!name.starts_with("std.")).then(|| name.to_string()),
+            }
         })
         .collect();
     missed.sort();
@@ -818,9 +825,9 @@ fn a_library_edit_re_checks_what_it_can_change_and_nothing_else() {
     // A name nothing uses is added, to a file nothing loads: a name can make
     // a short name ambiguous in a namespace that never writes it (`Wild`'s
     // `bold`), so every namespace is checked again. (`Fancy` and `Wild` have
-    // errors, so write no entries.)
+    // errors, so write no entries; the ones they left are stale and miss.)
     append("Terminal/Key.sw", "\ndef Key.bold: Nat := 1\n");
-    let after = check("a name added", &["Plain", "Sum"]);
+    let after = check("a name added", &["Dep", "Fancy", "Plain", "Sum", "Wild"]);
     assert!(after.contains("E-AMBIGUOUS"), "{after}");
     assert!(after.contains("E-REFL"), "{after}");
 
