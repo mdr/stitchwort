@@ -354,6 +354,14 @@ priority = 100
 filter = 'binary(proofs) & test(/^differential::/)'
 slow-timeout = { period = "60s", terminate-after = 30 }
 
+# The all tier's bench tests run the whole example sweep: `baseline` once
+# (1045 s on 22 Nov 2026, beside the rest of the tier) and `repeat` twice
+# (past the default 20-minute cap that day, with 1,991 example files). The
+# sweep grows with the examples, so the cap is an hour.
+[[profile.default.overrides]]
+filter = "package(stitchwort-bench) & (binary(baseline) | binary(repeat))"
+slow-timeout = { period = "120s", terminate-after = 30 }
+
 # The fuzzers run as single long tests sized by their task's counts
 # (`task fuzz:*`), so the ten-minute hang cap would stop a big run; they get
 # four hours, enough for any overnight seed while still ending a real hang.
