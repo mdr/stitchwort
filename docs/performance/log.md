@@ -46,6 +46,44 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 22 Nov 2026
 
+### SW-4611: `standsEachFile`'s three nested matches moved into lemmas; 35.9 s to 16 ms, 474.5M to 0.17M steps (14% of a cold tools/fmt check)
+
+- **Problem.** SW-4608 (win 3) measured six tools/fmt proofs each reading
+  back a 1.03-1.13M-node term, 54.5 s together; `standsEachFile` alone was
+  32-36 s, 395M of its 475M steps read-back.
+- **Profile (measured).** `STITCHWORT_BIG_READBACK=500000
+  STITCHWORT_STEP_PHASES=1 check Fmt.SettleOutputProofs --no-project-cache
+  --only Fmt.SettleOutputProofs.standsEachFile --timings`: 68 read-backs of
+  1.08-1.13M nodes in `standsEachFile`, from five callers (case-branch
+  refinement `substitute_in` 22, `matching::blocker` 18, `rewrite`'s
+  `kernel_context` 16, `lifted_type` under `check_motive` 12). All came from
+  the three `match above: keyword.above` (and the `byComputing` and
+  `rewrite` under them) proving `aboveTop`, `blankTop` and `afterTop`
+  inside the second declaration-level match: by then the file's hypotheses
+  (`stood`, `within`, …) are refined to the first declaration
+  `Definition [] header …`, and their types compute to about 1.1M nodes,
+  which every nested match, rewrite and refinement reads back again.
+- **Change (a proof reshape, option (c)).** The three facts are only about
+  `header.keyword`, so they became lemmas over a `Comments`
+  (`toppedAboveRead`, `toppedBlankRead`, `toppedAfter`), checked in a small
+  context; `standsEachFile` applies them. Its statement is unchanged; its
+  proof term (and hash) changes, as does the namespace's.
+- **Result (measured, same command, release build).** `standsEachFile`
+  35,921 ms, 474,548,405 steps, largest read-back 1,130,507 nodes →
+  16 ms, 168,362 steps, 82 nodes; the three lemmas 20 ms and 30K steps
+  together. Load 9-12 during both runs, so the times are rough; steps are
+  exact. The rest of the family is untouched: `printedFinish1` 7.3 s (11
+  big read-backs), `standsDecl` 6.1 s (13), `standsRest` 1.8 s (4),
+  `printedStart1` 1.5 s (2); in `standsDecl` they come from the match on
+  `(Definition [] header …).leaves` itself (`blocker`, `compile`,
+  `generalised_now`), which the proof needs, so no like reshape applies.
+- **Not done: the general fix.** Every read-back here is of the same
+  hypothesis types, mostly unchanged between calls (not measured); a memo of
+  read-backs (by value identity, depth and read-back mode, cleared when a
+  metavariable is solved) would share them across all five callers with
+  terms unchanged. Not built: it reaches every read-back path, which needs
+  its own design and an Opus lane.
+
 ### SW-4606: `rewrite`'s completeness check skips the unfolded motive when the motive has lost a variable the left side depends on; Std.Float.Theory 410 MB to 383 MB, 90.0M to 88.5M steps
 
 - **Problem.** SW-4600 left three things: (a) a suspected miss in SW-4469's
