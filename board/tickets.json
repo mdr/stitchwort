@@ -32784,7 +32784,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nStarted 22 Nov 16:47 on Opus (orchestrator's call). Expected: 45 min.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
