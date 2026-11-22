@@ -32393,15 +32393,18 @@
     {
       "id": 4616,
       "title": "[Sonnet] bench:compare:proofs: measure 'sw load' as a cached check of the import file (our .olean equivalent), and align the .#compare shell's Lean (4.34.1) with nixpkgs (4.35.0) (SW-4608 findings)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "\n\nStarted 22 Nov on Sonnet (orchestrator's call, proof-checking speed). Expected: 30 min.\n",
+      "body": "\n\nStarted 22 Nov on Sonnet (orchestrator's call, proof-checking speed). Expected: 30 min.\n\n\nModel result: Sonnet, worked, 30 min (est. 30). Timed at load 16-19 (other lanes): read ratios to one significant figure; a 5-run rerun on a quiet machine would settle day 15.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "cad2a29006a426541af1bb538c830dc9c471a06e",
+        "ec63f5d422051470a34a90dee5657bf47affbac1"
+      ]
     },
     {
       "id": 4617,
