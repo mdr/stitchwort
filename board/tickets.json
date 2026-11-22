@@ -31907,12 +31907,12 @@
     {
       "id": 4582,
       "title": "[Opus] Performance: AoC 2020 day 16's runsNotes elaborates its innermost Parse.runsBind about 191 times through nested in-place argument trials (SW-4580), a factor that grows with nesting depth; profile and find whether nested trials can share or skip work; measure runsNotes' steps (40.3M now) before and after",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nLane note (Opus, 22 Nov): profiled (temporary counter, removed): the nine nested runsBinds were elaborated 1,2,3,6,...,192 times; every trial but one fails at the innermost Parse.runsPure _ ending (innermost j unsolved until the expected types are compared outside in). Change in explicit_arg_failed: under HolesRetry::Deferred a failing argument fails the trial around it instead of being held (SW-4580's Always recheck covers the can't-hold case). runsNotes 40,273,232 -> 2,414,034 steps; step_counts ceiling 48M -> 2.9M. Rejected: holding nested args at once inside trials (broke std/Ring/Sound.sw, std/Fin/Fin.sw). Hashes ALL=1 pass; examples hole-solved-by-later-argument,postpone + 7 related pass; Day16.Proofs and Fmt.JoinProofs check. Not proved exact: the examples sweep should be the verifier's. Commit c793cbc53 on lane/SW-4582.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
