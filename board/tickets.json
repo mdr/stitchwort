@@ -32460,7 +32460,7 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\n\nStarted 22 Nov on Sonnet (orchestrator's call, from SW-4593's note). Expected: 25 min.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -32486,7 +32486,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nStarted 22 Nov on Opus paper (orchestrator's call, from SW-4593's note). Expected: 30 min.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
