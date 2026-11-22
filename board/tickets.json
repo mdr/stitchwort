@@ -4465,7 +4465,7 @@
     {
       "id": 1803,
       "title": "[Opus] Syntax ids stage 1 (syntax-node-ids.md): Expr::Field and the queue's DotCall get an id from a global counter; dot_heads/dot_failed key by it; drop dot_owners and the spans/epoch from the key; postponed-lambda-second-error, reads-weaken-over-map-implicits and pure-fold-in-parse-function repeat exactly, no hash moves; then bench examples repeat exactly again (tolerance back to 0, SW-1792)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -32881,15 +32881,18 @@
     {
       "id": 4648,
       "title": "[Opus] Step counts vary between runs of the same binary on tools/fmt (SW-4641: 15-20 declarations, mostly Syntax.Follows*, up to ~4,400 steps; totals 1,890,468,877 to 1,890,481,815): find the source (address-keyed memos such as CallMemo, ShapeCache, Unread? hash-map iteration order? allocation addresses) and make steps deterministic; matters for step limits, the steps-identical check in perf work, and parallel checking (SW-4614 invariants)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nStarted 22 Nov 17:19 on Opus (orchestrator's call). Expected: 45 min.\n",
+      "body": "\n\nStarted 22 Nov 17:19 on Opus (orchestrator's call). Expected: 45 min.\n\n\nClosed: cause found (dot_heads keyed by syntax addresses), fix is SW-1803, started now. Model result: Opus, worked (diagnosis), 95 min (est. 45); the design note syntax-node-ids.md already named the cause and was not in the brief.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "fdba43b3f",
+        "743c55bc57869f915a422f42a7d27b4aa79a7442"
+      ]
     },
     {
       "id": 4649,
