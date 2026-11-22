@@ -31762,7 +31762,7 @@
     {
       "id": 4571,
       "title": "[DeepSeek] stitchwort sweep theorem-binders leaves match arms unreachable (W-UNREACHABLE, pinned at 0) when it moves a statement's ∀ binders before the colon (SW-4566: Parse.recursiveWithFuelEnough, loopFromEnough); the sweep should drop the arms it makes unreachable, with a test",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -31879,12 +31879,12 @@
     {
       "id": 4580,
       "title": "[Opus] SW-4480's second elaboration of an application with a _ argument (holes_by_arguments) is retried on every failure in a trial and nearly always fails again (816 of 816 in AoC 2020 day 16's runsNotes); SW-4568 capped it at 20,000 steps, which leaves runsNotes at 55M steps against 42M before SW-4480 and could refuse a retry that needs more. Design: retry only where it can help (e.g. only when the first error names an unsolved hole a later argument fixes), then drop or raise the cap; pin runsNotes' steps",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\nLane note (Opus, 22 Nov): retry (holes_by_arguments) only when (1) the call's type from a watched `_` on has a parameter for a written later argument that mentions the `_` (or mentions an implicit/`_` parameter that does; true if a named argument or unreachable ∀ makes it unclear), noted in explicit_arg_ready when the `_` is reached; and (2) not inside an argument checked in place that is checked again if it fails (explicit_arg with snapshot, lambda_arg's trial): put off (HolesRetry::Deferred); if that argument then can't be held, it is checked once more with retries on (new example hole-solved-by-later-argument-in-argument.sw takes this path, fails without it). Cap HOLES_RETRY_STEPS removed. runsNotes 55,437,062 -> 40,273,232 steps (42M before SW-4480). Successful retries counted with a temporary eprintln over the example, Fmt.JoinProofs and runsNotes, before and after: 3 successes (framedPass, framedExprPasses x2) both times; failing retries 816+ -> 3 (all in JoinProofs, <2k steps each). Std readsFindAllFuel's 682k-step failing retry gone. Hashes ALL=1 pass, check_cache aoc test passes. Commit 209aba1cc on lane/SW-4580.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
