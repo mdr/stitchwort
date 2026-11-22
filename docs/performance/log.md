@@ -46,6 +46,30 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 22 Nov 2026
 
+### SW-4593: who pays for checking the standard library on import: measured, nothing changed in code
+
+- **Status:** measured; a note, [std-import-cost.md](../proposals/std-import-cost.md).
+  No code changed.
+- **Method.** `check --no-cache --timings=all` on Parse examples and on every 100th
+  example (20 files), declaration steps split into the file's own and the
+  library's, and the library's into std `theorem`s and the rest; the examples
+  harness run twice by `EXAMPLES=` after a build; `check --cache-dir` warm.
+- **Found.** The examples sweeps and `hash_stability` already replay std from the
+  test std cache in every tier but all (SW-1761, SW-1765): three Parse examples
+  took 14.6 s on the first run after a build and 0.94 s on the second. SW-4587's
+  3.58 G is the `examples` benchmark, which checks std per example on purpose;
+  in the sample 99.6% of declaration steps were core and library, about 78% of
+  the benchmark's 16.5 G (estimated). Theorem bodies are checked on import
+  (the file is the unit) and are 31-90% of the library's steps in six files.
+  Every session elaborates the core (956,007 steps, about 0.1 s), cache or not.
+  A warm `check` of `reads-named-parser` takes 0.48 s against 6.0 s cold.
+- **Proposed.** Split the benchmark (std counted once, examples replayed over
+  it: about 16.5 G to 3.5 G, estimated); measure the CLI tests that pass
+  `--no-cache` before changing them; the core in the cache wants its own note.
+  Checking statements only on import is rejected (trust; `--no-cache` is the full
+  check).
+- **Ticket:** SW-4593; follows SW-4587 and SW-4608.
+
 ### SW-4611: `standsEachFile`'s three nested matches moved into lemmas; 35.9 s to 16 ms, 474.5M to 0.17M steps (14% of a cold tools/fmt check)
 
 - **Problem.** SW-4608 (win 3) measured six tools/fmt proofs each reading
