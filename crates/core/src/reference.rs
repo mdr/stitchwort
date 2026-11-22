@@ -93,6 +93,55 @@ pub fn set_budget(steps: Option<u64>) {
     STEPS.with(|s| s.set(steps));
 }
 
+thread_local! {
+    /// Nested calls of [`eval`], [`quote`] and [`conv_in`] on this thread now.
+    static DEPTH: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    /// The nesting [`set_depth_limit`] allows, or `None` for no limit.
+    static DEPTH_LIMIT: std::cell::Cell<Option<usize>> = const { std::cell::Cell::new(None) };
+    /// The deepest nesting reached since [`take_max_depth`] last ran.
+    static MAX_DEPTH: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// Lets this thread's reference evaluator nest `depth` calls before it fails
+/// with [`crate::budget::ResourceError::Depth`]; `None` removes the limit
+/// (the default). It recurses on the Rust stack, so a term nested deeper than
+/// the stack holds (a `Fin` of a million, a long literal list) would abort the
+/// process: a test sets this to what its stack can take and reports the
+/// comparison as too deep instead.
+pub fn set_depth_limit(depth: Option<usize>) {
+    DEPTH_LIMIT.with(|l| l.set(depth));
+}
+
+/// The deepest nesting reached on this thread since the last call, for
+/// choosing a limit for [`set_depth_limit`].
+pub fn take_max_depth() -> usize {
+    MAX_DEPTH.with(|m| m.replace(0))
+}
+
+/// One level of nesting, released when dropped.
+struct Nest;
+
+impl Nest {
+    fn enter() -> Result<Nest> {
+        let depth = DEPTH.with(|d| d.get() + 1);
+        if DEPTH_LIMIT
+            .with(|l| l.get())
+            .is_some_and(|limit| depth > limit)
+        {
+            return Err(crate::budget::ResourceError::Depth);
+        }
+        DEPTH.with(|d| d.set(depth));
+        MAX_DEPTH.with(|m| m.set(m.get().max(depth)));
+        Ok(Nest)
+    }
+}
+
+impl Drop for Nest {
+    fn drop(&mut self) {
+        DEPTH.with(|d| d.set(d.get() - 1));
+    }
+}
+
 /// One step of the evaluator, counted against [`set_budget`]'s budget and,
 /// in plain mode, [`set_plain_budget`]'s.
 fn step() -> Result<()> {
@@ -185,6 +234,7 @@ pub fn compact_or_lazy(g: &Ev, value: &Value) -> Option<&'static str> {
 
 pub fn eval(g: &Ev, env: &[Value], term: &Term) -> Result<Value> {
     step()?;
+    let _nest = Nest::enter()?;
     let eval_all = |args: &[Rc<Term>]| -> Result<Vec<Value>> {
         args.iter().map(|a| eval(g, env, a)).collect()
     };
@@ -729,6 +779,7 @@ fn lift(
 /// Converts a value back into a term, with `level` variables in scope.
 pub fn quote(g: &Ev, level: usize, value: &Value) -> Result<Term> {
     step()?;
+    let _nest = Nest::enter()?;
     let q = |v: &Value| quote(g, level, v);
     Ok(match force(g, value.clone())? {
         Value::Sort(s) => Term::Sort(s),
@@ -842,6 +893,7 @@ fn no_glued_call(value: &Value) {
 /// its spine in shortcut mode.
 fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<bool> {
     step()?;
+    let _nest = Nest::enter()?;
     no_glued_call(a);
     no_glued_call(b);
     // Folded calls: the same one applied to equal arguments is equal;
