@@ -31643,7 +31643,7 @@
     {
       "id": 4562,
       "title": "[Sonnet] Roll out SW-4559's DocHolds over the printer rules with two or more fixed-reading properties (Spells, Shape, Finishes, Keys, Tell; about 1,450 lines, about 450 net predicted from the pilot), starting with appFrom (needs the texts as a record parameter; Spells 75, Shape 83, Finishes 29, Keys 60 lines); measure each rule before the next; then pilot a seam-indexed twin for Passes/Steps/Hangs (about 1,230 lines)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -31656,12 +31656,12 @@
     {
       "id": 4563,
       "title": "[Opus] Design question (SW-4559 row 4): the list versions of tree functions in tools/fmt (allWithin1, calmAll, allShaped, itemsWords; 138 theorems, 1,983 proof lines) are hand-written recursion, so no list lemma applies; could they be written with List.all / List.map if the checker accepts that nested recursion? Note first: what the checker accepts, which definitions, what it would save, and whether it changes the formatter's programs (scope is Matt's)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nProgress (lane, 22 Nov): note docs/proposals/fmt-list-functions-via-std.md, commit 430cd139b on lane/SW-4563. Checker refuses recursion through List.all/map/concatMap callbacks, in defs and theorems (probed); needs D3611 rule 2 (kernel, no rule 1). Estimated saving ~200 proof lines on the four twins (48 twin-only theorems, 266 lines), ~300 over all 75 twins; the 80 printer-function theorems (1,457 lines) stay. No top theorem restated, programs compute the same. Rec: no fmt change now; record fmt as a D3611 user.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -32117,12 +32117,12 @@
     {
       "id": 4598,
       "title": "[Sonnet] Step 0 of docs/proposals/queued-placeholders-take-lets.md (SW-4596): test its reading that a typed let lambda (let f: A -> B := x => ...) through a single queued match is pasted into the term rather than folded back (zonk_let folds the annotated form only when the let's value already was one), unlike SW-4588's untyped case; an example file and the kernel term (or hash comparison with the variable form) either way; no fix",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Lane note 22 Nov: reading confirmed for a typed let lambda through one queued match (pasted as Ann(Lam, Pi); untyped form folds to the variable). Deciding line: zonk_let, unify.rs:4540 (matches!(v_now.strip_loc(), Term::Ann(..)) is false for the typed let's bare lambda; normals empty, so go(b, level+1) at 4545 folds nothing). BUT a temporary two-line fix there makes (a) fold and leaves Float's beyond shape unchanged: the Inr arm's pasted Ann sits in a lifted helper that has no beyond let in scope at all. Examples let-typed-lambda-prop-match.sw, let-typed-lambda-nested-match.sw on lane/SW-4598 (82ca70de7).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
