@@ -31987,7 +31987,7 @@
     {
       "id": 4588,
       "title": "[Opus] A let-bound lambda reaches the kernel as a bare-lambda redex (SW-4586): 'let check := (r: List Nat) => 3 ∈ r; match check n with | True => 1 | False => 0' fails E-CANNOT-INFER in the kernel on Decidable.holds {(λr. List.Mem Nat 3 r) n}; with ∈ not <, with a Prop body not Bool; the call lifting builds is right, so the replacement is later (post-lift zonk or refold, SW-4565/SW-4573). Repro: scratchpad sw4586/r/t5.sw; fix with an example",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -32026,12 +32026,12 @@
     {
       "id": 4591,
       "title": "[Sonnet] Two rejected examples' messages changed on main after tonight's merges (found by SW-4582's verifier): reject/walk-nested-loop.sw reports 'a goal is left that the closers don't prove' with goal '_weaker value valueTwin' instead of 'a premise's walk needs the same statement walked again' with the ∀ goal; reject/walk-nested-then-fails.sw shows _holds₂ for _holds. Find which merge (SW-4582's nested-trial change or SW-4576's unknown printing), decide if the new messages are right, and fix or re-record",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\n\nProgress (Sonnet lane): both snapshot changes come from SW-4582 (c793cbc53), not SW-4576: the parent builds give the old messages. In explicit_arg_failed the new Deferred early return also put off a walk leaf's E-WALK (goal still has an unknown), so the walk stopped on _weaker value valueTwin. Fix: exempt E-WALK from the early return; both examples give their old messages, runsNotes stays under its ceiling, test:hashes ALL=1 passes. Commit ecccc7ebe on lane/SW-4591.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -32039,7 +32039,7 @@
     {
       "id": 4592,
       "title": "[Sonnet] Accident from SW-3325 (6d960d350, 'display only'): arm_display::enter_family_split calls same() on every context variable at each indexed-family split, quoting both values folded; examples/accept/fin-table-deep.sw went 23.1M to 77.8M steps (Main.code 55.4M, 5.6M with solved emptied). Compute solved lazily, only when an error or hole prints an arm's goal; keep goal snapshots unchanged (run the goal and reject example kinds by name); performance-log entry",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
