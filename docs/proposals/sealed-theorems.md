@@ -703,3 +703,71 @@ prelude's start-up (about 1.7 s a file, with or without).
 ### Whole AoC and the roguelike (orchestrator, 22 Nov evening)
 
 With `STITCHWORT_SEAL_THEOREMS=1 STITCHWORT_SEAL_EXCEPT=Std.Eq.trans,Std.Eq.flipped`, `check --no-cache` on `main` after SW-4657: all of `aoc/` gives one error, `Aoc.Common.Proofs.PrefixSums.atOf` (the `E-REWRITE-NOTHING` above, SW-4659), with 5 declarations relying on it checked against its statement; `games/rogue` (3 namespaces) gives none. So across std, `tools/fmt`, all of AoC and the roguelike, sealing every theorem but `Eq.trans` and `Eq.flipped` breaks one proof, whose cause is still open.
+
+### PrefixSums.atOf (SW-4659, 22 Nov 2026)
+
+**Result: a proof field the comparison could skip (class b), not a need for a proof's body.** The
+failure is `rewrite List.getOrMap table r [] Map.byPosition` at `PrefixSums.sw:69` (the calc step
+`… getOr r Map.empty … = … Map.byPosition (table.getOr r []) …`).
+
+**The smallest transparent set** (besides `Std.Eq.trans` and `Std.Eq.flipped`, which the prelude
+needs) is four theorems, none fewer: `Std.Map.Tree.buildSized`, `Std.Map.Tree.buildWithin`,
+`Std.Map.Tree.withinNoneHigh` and `Std.And.left`. Dropping any one fails; `Std.Map.Spec.ascendingOfCheck`,
+which the error's note also lists, is not needed. A 5-line repro (the same step over a variable `table`, from a
+file, run with the same two variables) fails the same way in a second and bisects in seconds.
+That is why no single `Std.*` sub-namespace fixed it: the four sit in `Std.Map.Tree` and `Std.And`.
+
+**Why.** `List.getOrMap xs i d f` says `getOr (map xs f) i (f d) = f (getOr xs i d)`. With `f :=
+Map.byPosition` and `d := []` its left side has `Map.byPosition []` as the default; the goal has
+`Map.empty`, because `PrefixSums.at` writes `getOr r Map.empty`. The two are one map but not one
+term. `Map.byPosition [] = Map.fromList [] = Map.ofRaw (Map.Raw.fromListFast [])`, and
+`fromListFast` is `fromListChecked [] (isAscending None []) byComputing`, whose `True` branch is
+`Map.Raw.fromSorted [] (ascendingOfCheck …)`. That is a record `{ tree = Tip, ordered = P1, sized =
+P2 }` where the proof fields are calls: `P1 = withinNoneHigh … (buildWithin … asc).left` and
+`P2 = buildSized 0 0 []`. `Map.Raw.empty` is `{ tree = Tip, ordered = Trivial, sized = Trivial }`.
+Only the proof fields differ. Unsealed, `P1` and `P2` unfold (`buildSized`'s `Zero` case is
+`Trivial`; `buildWithin`'s is `Both Trivial asc`, `And.left` takes the first part, `withinNoneHigh`
+returns `w`) and both reduce to `Trivial`, so the terms are identical. Sealed, they stay stuck calls.
+
+**What compares them.** `rewrite`'s search reads the rule's left side and the goal back as terms
+(`quote_unfolded`) and tests occurrences with `matching::same_shifted`, a purely syntactic equality
+that compares every constructor argument, proof fields included. (Conversion skips a constructor's
+proof field, so `Map.byPosition [] = Map.empty := byComputing` checks sealed, as a 1-line test
+shows. The search is not conversion.) So the only step that needs a body is "reduce `P1`, `P2` to
+`Trivial`, to make two read-back terms equal syntactically".
+
+**It is not only the search.** Writing `Map.byPosition []` for `Map.empty` in the preceding calc
+steps, to make the term match, moves the failure to the `byComputing` step before: there the
+default is the argument of a stuck `Option.getOrElse (Map.Tree.get r …)`, which conversion
+compares in the shortcut mode, and that mode compares proof fields (`docs/core.md`, "Proof
+irrelevance"). The same four theorems are named. So rule P would not fix this: it equates two
+sealed *calls*, and here one side is the constructor `Trivial`, which the note's "What it doesn't
+do" already says stays different.
+
+**Fix under sealing, class (c): a proof edit, just as readable.** Rewrite the goal's `Map.empty`
+into `Map.byPosition []` first, by the equation that conversion does prove:
+
+```
+let emptyIsByPosition: (Map.byPosition []: Map Nat Nat) = Map.empty := byComputing
+…
+_ = Map.getOr (Map.byPosition (List.getOr table r [])) c 0 :=
+  rewrite <- emptyIsByPosition, List.getOrMap table r [] Map.byPosition
+```
+
+Both sides of the second rule's search then read back from the same stuck calls, so they are
+equal syntactically. I checked it: with `STITCHWORT_SEAL_EXCEPT=Std.Eq.trans,Std.Eq.flipped`,
+`check --no-cache Aoc.Common.Proofs` passes, and unsealed it still passes. I did not commit the
+edit (the patch is in the lane's scratchpad, `atOf-fix.patch`), since the switch is only a
+measurement and Matt hasn't chosen sealing.
+
+**Classification and the stage-1 consequence.** Not shape 1, 2 or 3 of the note: no data is cast
+along a proof and no two proofs are the point of the statement. It is the "rewrite's search may
+compare proof fields" item, now confirmed. A general fix is an elaborator change, not a kernel
+rule: let `same_shifted` skip constructor arguments at proof positions (`Ctor::field_sorts`),
+as conversion's normal mode does, which needs the globals passed in and is sound for the same reason
+(the kernel re-checks the motive, and conversion skips those fields). It would not help the
+`byComputing` variant above, which is the shortcut mode's deliberate strictness, so the proof edit
+is still the answer there. Neither needs `transparent theorem`. Since the proof edit is two lines and
+the only occurrence in all of std, `tools/fmt`, AoC and the roguelike, I would not build the
+elaborator change for it alone; it is worth doing only if sealing by default is chosen and more of
+these appear.
