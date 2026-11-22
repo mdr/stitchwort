@@ -42,6 +42,7 @@
 //! different instance. Either leaves a goal that a later step may fail to
 //! prove, with that step's own error; neither can make a false goal check.
 
+use stitchwort_core::value::{Head, conv, eval, quote_at_most};
 use stitchwort_core::{Term, Value};
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::RewriteRule;
@@ -658,7 +659,32 @@ fn hidden_copy_in(
     {
         return Ok(false);
     }
-    let unfolded = cx.quote_unfolded(&cx.eval(motive)?)?;
+    let motive_value = cx.eval(motive)?;
+    let unmentioned = match motive {
+        Term::Lam(_, _, inner) => match &**inner {
+            Term::Lam(_, _, body) => unmentioned(cx, &lhs_term, body),
+            _ => Vec::new(),
+        },
+        _ => Vec::new(),
+    };
+    // A motive no larger unfolded than the left side is read back, as that
+    // costs about what [`left_needs_any`] would.
+    let small = match unmentioned.is_empty() {
+        true => None,
+        false => {
+            let cap = (lhs_term.subterms().count() as u64).max(1000);
+            quote_at_most(&g, cx.level(), &motive_value, cap)?
+        }
+    };
+    let unfolded = match small {
+        Some(unfolded) => unfolded,
+        None if !unmentioned.is_empty()
+            && left_needs_any(cx, equation, &lhs_term, &unmentioned)? =>
+        {
+            return Ok(false);
+        }
+        None => cx.quote_unfolded(&motive_value)?,
+    };
     let Some(key) = key(&lhs_term, 0) else {
         // Nothing to compare by: don't trust the as-written result.
         return Ok(true);
@@ -688,6 +714,77 @@ fn hidden_copy_in(
     drop(search);
     outcome?;
     Ok(matched > 0)
+}
+
+/// The variables of the context that the left side `lhs_term` (read back
+/// unfolded) mentions and `body`, the motive's body under its `x'` and `_`,
+/// doesn't, for [`left_needs_any`]; none where the left side has an unknown
+/// or a `match` not lifted yet, since the search then compares by more than
+/// conversion.
+fn unmentioned(cx: &Ctx, lhs_term: &Term, body: &Term) -> Vec<usize> {
+    if has_meta(lhs_term) || crate::lift::mentions_draft(cx, lhs_term) {
+        return Vec::new();
+    }
+    let mut free: Vec<usize> = lhs_term
+        .subterms()
+        .filter_map(|(t, binders)| match t {
+            Term::Var(ix) | Term::Case(ix, ..) | Term::NumCase(ix, ..) if *ix >= binders => {
+                Some(ix - binders)
+            }
+            _ => None,
+        })
+        .collect();
+    free.sort_unstable();
+    free.dedup();
+    free.retain(|ix| *ix < cx.level() && !body.mentions(ix + 2));
+    free
+}
+
+/// Whether the left side `lhs_term` depends on one of `unmentioned`, the
+/// variables the motive doesn't mention ([`unmentioned`]): then the motive
+/// has no copy hidden, and isn't read back unfolded (in
+/// `Float.Theory.roundGrid`, `rewrite n0` by `q * Nat.pow 2 e = 0` leaves a
+/// motive about `roundRatio (Int.signed s x')`, 806k nodes unfolded,
+/// SW-4606).
+///
+/// A copy is a part of the unfolded motive convertible with the left side,
+/// and computing mentions no variable the term didn't, so a copy doesn't
+/// mention `v` either. Mentioning `v` isn't enough for depending on it: a
+/// proof, an inert argument, a field of a type with record eta, or an
+/// argument a stuck call's case tree never reads can hold `v` and still be
+/// equal to one without it. So the test is conversion itself: the left side
+/// against itself with `v` renamed to a fresh variable. If those differ, a
+/// copy `c` can't exist: renaming `v` leaves `c` as it is, so `c` would be
+/// equal to both, and conversion is an equivalence (docs/core.md, G6) that
+/// renaming a variable preserves. The two sides have one type, as
+/// conversion needs, only if the left side's type doesn't mention `v`, so
+/// such a `v` isn't tried.
+fn left_needs_any(
+    cx: &Ctx,
+    equation: &Equation,
+    lhs_term: &Term,
+    unmentioned: &[usize],
+) -> Result<bool> {
+    let g = cx.g();
+    let level = cx.level();
+    let carrier = cx.quote_unfolded(&equation.carrier)?;
+    let lhs = cx.eval(lhs_term)?;
+    // A few tries: each costs a comparison of the left side with itself.
+    for &ix in unmentioned.iter().take(4) {
+        let slot = level - 1 - ix;
+        let plain = matches!(&cx.env[slot],
+            Value::Neutral(Head::Var(l, _), spine) if *l == slot && spine.is_empty());
+        if !plain || carrier.mentions(ix) {
+            continue;
+        }
+        let mut env = cx.env.clone();
+        env[slot] = Value::var(level);
+        let renamed = eval(&g, &env, lhs_term)?;
+        if !conv(&g, level + 1, &lhs, &renamed)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 /// The left side as today's search, over the unfolded goal, solves a rule's
