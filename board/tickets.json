@@ -32130,12 +32130,12 @@
     {
       "id": 4599,
       "title": "[Sonnet] tools/fmt: list versions over element types that don't recurse back (lineAll, plainAll, exprAll, notesSound, per SW-4563's note docs/proposals/fmt-list-functions-via-std.md) can be written as List.all / List.map today; rewrite them and their theorems through std's list lemmas where it saves lines, statements of top theorems unchanged; check the touched namespaces and dependents",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nProgress 22 Nov: lineAll, plainAll, exprAll, notesSound as List.all; lineAppend, exprAppend, textsAll via List.allAppendAnd/allMapBool, exprLine, linePlain via List.allImpliesBool. Proof lines 48037 to 48028, 4 defs -8 lines; git -15 lines net. Commit d38d43f5e on lane/SW-4599.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
