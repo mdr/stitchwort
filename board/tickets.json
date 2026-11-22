@@ -1,5 +1,5 @@
 {
-  "next": 4659,
+  "next": 4661,
   "tickets": [
     {
       "id": 47,
@@ -33025,19 +33025,49 @@
     {
       "id": 4657,
       "title": "[Sonnet] Sealed theorems stage 0 (docs/proposals/sealed-theorems.md): test-only switch STITCHWORT_SEAL_THEOREMS=1 that makes every theorem opaque (as a theorem with an unfolding list is), so a run over std, tools/fmt, AoC, the roguelike and the examples lists what stops checking and why; commits to nothing. Waits for Matt's D3718.",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nD3718 (Matt, 22 Nov): \"yes, let's do the no commitment measurement first and see what would stop checking if we were to seal everything.\" Started 21:06 on Sonnet. Expected: 35 min.\n\n\nLane notes (Sonnet, 22 Nov, 21:07-21:58): switch STITCHWORT_SEAL_THEOREMS=1 (+ STITCHWORT_SEAL_EXCEPT list) in crates/core/src/check.rs; results in docs/proposals/sealed-theorems.md \"Stage 0 results\". std and tools/fmt check sealed with 2 theorems transparent (Eq.trans, Eq.flipped, for two core proofs); 5 accept examples and 1 shared AoC declaration fail. Tests: seal_switch (2), hashes ALL unchanged. Commit 35a24cbc7.\n",
+      "body": "\n\nD3718 (Matt, 22 Nov): \"yes, let's do the no commitment measurement first and see what would stop checking if we were to seal everything.\" Started 21:06 on Sonnet. Expected: 35 min.\n\n\nLane notes (Sonnet, 22 Nov, 21:07-21:58): switch STITCHWORT_SEAL_THEOREMS=1 (+ STITCHWORT_SEAL_EXCEPT list) in crates/core/src/check.rs; results in docs/proposals/sealed-theorems.md \"Stage 0 results\". std and tools/fmt check sealed with 2 theorems transparent (Eq.trans, Eq.flipped, for two core proofs); 5 accept examples and 1 shared AoC declaration fail. Tests: seal_switch (2), hashes ALL unchanged. Commit 35a24cbc7.\n\n\nModel result: Sonnet, worked, 35 min (est. 35).\n",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": [
+        "35a24cbc7",
+        "34f557cea",
+        "e603488ecaed5c3ef1b172fce5227d408cf4a580"
+      ]
+    },
+    {
+      "id": 4658,
+      "title": "[Opus] Open casts never compute: castTo n 5 = 5 fails for a variable n (sealed-theorems.md finding); user-visible gap independent of sealing: diagnose and propose",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
     },
     {
-      "id": 4658,
-      "title": "[Opus] Open casts never compute: castTo n 5 = 5 fails for a variable n (sealed-theorems.md finding); user-visible gap independent of sealing: diagnose and propose",
+      "id": 4659,
+      "title": "[Sonnet] Sealing every theorem (STITCHWORT_SEAL_THEOREMS=1) breaks Aoc.Common.Proofs.PrefixSums.atOf: its rewrite looks for Map.byPosition [] and the goal has Map.empty; find which sealed theorem(s) cause it (bisect STITCHWORT_SEAL_EXCEPT on Aoc.Common.Proofs, ~15 s a run; all of Std.* transparent fixes it, no single Std sub-namespace does) and why (SW-4657 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4660,
+      "title": "[Sonnet] With every theorem sealed, .induct generation fails (E-NO-INDUCT, examples/accept/and-guard-proof-in-induct.sw:47 climbBounded): confirm it unfolds a decrease proof (stepDown?) and make it use the proof's statement only (SW-4657 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
