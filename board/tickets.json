@@ -32705,12 +32705,12 @@
     {
       "id": 4637,
       "title": "[Opus] A generalised match reads the whole goal back (unaryHung 4 x 573K nodes, atomHung 6 x 273K): read it only as far as the occurrence test needs, or test with calls kept folded (SW-4635 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Progress (Opus lane, 22 Nov, 15:52-16:35; est. 50 min): done on lane/SW-4637, commit 1cec087fb. Rule: a goal of 4096+ nodes is read back unfolded except that a call is kept as written where, for every scrutinee, it can't mention a free variable of the scrutinee's normal form and unfolds to more nodes than it; if no scrutinee occurs in that read-back none occurs in the unfolded goal (argument in matching.rs mixed_goal). The unfolded goal is read only where its term is kept or printed, or when a scrutinee occurs. Kernel terms unchanged. Measured steps: unaryHung 21.2M to 3.6M, atomHung 19.8M to 7.7M, signArgHung 6.6M to 1.5M; check Syntax.ReadBackHungApp 206.7M to 172.0M (-16.8%), worst declaration +352 steps. Tests: example kinds on 20 match examples (new examples/accept/match-goal-kept-folded.sw), matching:: unit tests, hash snapshots for 9 match examples (new snapshot for the new example; the rest unchanged). Perf log entry added.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
