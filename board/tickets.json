@@ -1,5 +1,5 @@
 {
-  "next": 4574,
+  "next": 4575,
   "tickets": [
     {
       "id": 47,
@@ -31708,12 +31708,12 @@
     {
       "id": 4567,
       "title": "[Sonnet] All tier 22 Nov (D3712): cli and LSP test drift: tools open_goals::goal_lists_every_open_goal_with_what_relies_on_it, open_goals::warn_reports_open_goals_as_warnings_and_passes, scope::a_duplicate_is_reported_and_the_first_definition_kept, trial_edits::trial_edits_compares_an_edited_library_with_the_original; server goal_index::goal_examples_in_the_index, goal_index::lemmas_check_as_the_same_goal (snapshots); driver search_at_aoc search_at_on_real_2021_goals (Day13 Fold.sw text); lsp faults::the_checker_recovers_after_a_panic, faults::a_panic_blamed_on_no_project_is_not_repeated_by_the_successor (extra 'standard library files carried over' message). Decide per test: real bug or stale expectation; fix; rerun only these",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "\n\nLane note (Sonnet, 22 Nov): 9 tests fixed on lane/SW-4567 (cfebc5c5c). 8 stale expectations (SW-4443, SW-3732, SW-4251, SW-4253, SW-4488 snapshots); 1 real bug: the LSP carried-over message fired for the tests shared cache (Source::carries_over, off for Memory). Each rerun passes.\n",
+      "body": "Model result: Sonnet, worked (1 real LSP bug, 8 stale expectations with the commits that moved them), 14 min (est. 45)\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": [
@@ -31793,6 +31793,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4574,
+      "title": "[DeepSeek] Docs and test follow-ups from SW-4567: docs/testing.md says the lsp test cache (Memory source) doesn't carry over and how to fake a build change (edit a comment in crates/elab/src/cache to change the fingerprint) to show a cache bug failing; docs/workflow.md 'Writing a brief': lanes adding examples/goals files re-record server goal_index snapshots; scope test a_duplicate_is_reported_once_and_the_first_definition_taken_as_failed gains an assertion that the first definition is failed (use is stuck)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
