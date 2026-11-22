@@ -1,5 +1,5 @@
 {
-  "next": 4629,
+  "next": 4632,
   "tickets": [
     {
       "id": 47,
@@ -32432,15 +32432,22 @@
     {
       "id": 4619,
       "title": "[Sonnet] Try SW-4611's reshape on printedFinish1 (Fmt.FileLexProofs, 7.3 s, 11 large read-backs, two from rewrite) and the rest of the family (standsDecl 6.1 s, standsRest 1.8 s, printedStart1 1.5 s)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\n\nStarted 22 Nov on Sonnet (orchestrator's call, proof-checking speed). Expected: 30 min.\n",
+      "body": "\n\nStarted 22 Nov on Sonnet (orchestrator's call, proof-checking speed). Expected: 30 min.\n\n\nModel result: Sonnet, worked, 27 min (est. 30).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "058a52019be6f5ad5098a26a43ac1ebfa2b46155",
+        "5980aee9587e8f70818a4125abf67dd962bb6b6a",
+        "8bb7a252c7e4411f7dd28ede2c104a36493d6fe3",
+        "7470b6afe37a41cef834a1b0f5f168f57d1800ab",
+        "b5c31c0b06d86883d3698b2d8637375109be83fc",
+        "027f6e5692f2e78d632864f80555d0ca931de7bf"
+      ]
     },
     {
       "id": 4620,
@@ -32450,7 +32457,7 @@
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "\n\nAlso (SW-4619): take facts out of tuples with projections, not let (a, b) := ..., in proofs about concrete values; put a rewrite that names decl.leaves or decl.pieces in a lemma over them as variables.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -32561,6 +32568,45 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4629,
+      "title": "[Opus] Elaborate a destructuring let over a conjunction (or a record/tuple of proofs) as projections, not a match that generalises over everything in scope: SW-4619 found destructuring the six-part declJoins alone cost ~24M steps; terms may change, so measure and check hashes (SW-4619 finding)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4630,
+      "title": "[Sonnet] STITCHWORT_BIG_READBACK: also print the source span of the innermost match, let or rewrite that asked for the read-back (SW-4619 found culprits by trial, one 45 s run per guess)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4631,
+      "title": "[Sonnet] Profile and reshape the destructuring lets over existentials in tools/fmt/src/Syntax/ReadBackHungChains.sw (lines ~171, 338, 494) and what is left of atomHung/unaryHung (6 read-backs of 0.27M nodes, 5 of 0.57M): continuation-style lemmas or smaller goals (SW-4619 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
