@@ -32768,7 +32768,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nStarted 22 Nov 16:40 on Opus (orchestrator's call: optimisation with results unchanged, D3447; kernel evaluator so Opus). Expected: 45 min.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
