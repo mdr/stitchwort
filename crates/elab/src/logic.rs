@@ -107,8 +107,12 @@ pub(crate) enum Condition {
     /// step 4.3): a placeholder in it isn't filled yet, or an operator's
     /// dictionary in it isn't known yet. As a `Bool` it is a waiting
     /// decision; where the decision itself is needed as a term, it
-    /// waits as a term ([`Condition::decided_now`]).
-    Waiting { prop: Term },
+    /// waits as a term ([`Condition::decided_now`]). `depth` is where the
+    /// placeholder was seen, and where the waiting decision looks again.
+    Waiting {
+        prop: Term,
+        depth: crate::check::Depth,
+    },
     /// `a && b` read as the `Bool` `as_bool`, where `prop`, the conjunction
     /// of its operands, is decided by `decision` too: each operand is a
     /// decided proposition or a `Bool` `c`, read as `c = True`, one at least
@@ -231,8 +235,8 @@ impl Condition {
         span: stitchwort_syntax::Span,
     ) -> Result<Condition> {
         match self {
-            Condition::Waiting { prop } => {
-                let decision = crate::check::decision_or_wait(cx, span, &prop)?;
+            Condition::Waiting { prop, depth } => {
+                let decision = crate::check::decision_or_wait(cx, span, &prop, depth)?;
                 Ok(Condition::Decided { prop, decision })
             }
             other => Ok(other),
@@ -320,8 +324,9 @@ fn chain_condition(
             prop: binding.inline(cx, &prop)?,
             decision: crate::bind::Decision::Plain(binding.wrap(decision.term(cx)?)),
         },
-        Condition::Waiting { prop } => Condition::Waiting {
+        Condition::Waiting { prop, depth } => Condition::Waiting {
             prop: binding.inline(cx, &prop)?,
+            depth,
         },
         Condition::Bool(c) => Condition::Bool(binding.wrap(c)),
         Condition::Conjunction {
@@ -348,14 +353,35 @@ fn decided(
         return Ok(None);
     };
     if crate::check::decision_blocker(cx, &prop, crate::check::Depth::Written)?.is_some() {
-        return Ok(Some(Condition::Waiting { prop }));
+        return Ok(Some(Condition::Waiting {
+            prop,
+            depth: crate::check::Depth::Written,
+        }));
     }
     // No decision procedure. If the `Bool` reading already found an operand
     // nothing decides (`x < 3 && g = h`), that's the more precise error.
     // Otherwise say so at the condition, keeping the search's explanations
     // (its notes after the first).
+    let snapshot = crate::undo::Snapshot::take(cx);
     let decision = match crate::bind::decide(cx, &prop) {
         Ok(decision) => decision,
+        // A placeholder only its value shows, inside a `let`'s lambda
+        // (`check b`, with `check := r => 3 ∈ r.items` and `r`'s type
+        // found later), as `decide_to_bool` sees it where a condition
+        // isn't read (D2035): the decision waits for it. Looked for only
+        // once nothing decided it as written, since the value may be costly
+        // to compute (`check::Depth::Written`).
+        Err(e)
+            if e.code == "E-AUTO-NONE"
+                && crate::check::decision_blocker(cx, &prop, crate::check::Depth::Value)?
+                    .is_some() =>
+        {
+            snapshot.restore(cx);
+            return Ok(Some(Condition::Waiting {
+                prop,
+                depth: crate::check::Depth::Value,
+            }));
+        }
         Err(e)
             if e.code == "E-AUTO-NONE"
                 && matches!(not_bool.code, "E-AUTO-NONE" | "E-INSTANCE-NONE") =>
@@ -387,15 +413,9 @@ fn condition_bool(cx: &mut Ctx, expr: &Expr, condition: Condition) -> Result<Ter
     let term = match condition {
         Condition::Bool(term) | Condition::Conjunction { as_bool: term, .. } => term,
         Condition::Decided { prop, decision } => decision.into_bool(cx, prop)?,
-        Condition::Waiting { prop } => {
+        Condition::Waiting { prop, depth } => {
             let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new().into());
-            crate::check::decide_or_wait(
-                cx,
-                expr.span(),
-                &prop,
-                &bool_ty,
-                crate::check::Depth::Written,
-            )?
+            crate::check::decide_or_wait(cx, expr.span(), &prop, &bool_ty, depth)?
         }
     };
     crate::probe::record_truth(cx, expr, &term);
@@ -518,9 +538,11 @@ pub(crate) fn short_circuit(
             // A decision that waits is made here, as a term, only if `b`
             // needs `a`'s proof (`elimDec`, below); as the `Bool` of `if a
             // then b else False` it waits (`check::decide_or_wait`).
-            let (prop, decision) = match condition {
-                Condition::Decided { prop, decision } => (prop, Some(decision)),
-                Condition::Waiting { prop } => (prop, None),
+            let (prop, decision, depth) = match condition {
+                Condition::Decided { prop, decision } => {
+                    (prop, Some(decision), crate::check::Depth::Written)
+                }
+                Condition::Waiting { prop, depth } => (prop, None, depth),
                 Condition::Bool(_) | Condition::Conjunction { .. } => {
                     unreachable!("matched above")
                 }
@@ -568,7 +590,7 @@ pub(crate) fn short_circuit(
                 let elim = builtin_def(cx, Builtin::ElimDec)?;
                 let decision = match decision {
                     Some(decision) => decision,
-                    None => crate::check::decision_or_wait(cx, lhs.span(), &prop)?,
+                    None => crate::check::decision_or_wait(cx, lhs.span(), &prop, depth)?,
                 };
                 if let Ok(truth) = decision.clone().into_bool(cx, prop.clone()) {
                     crate::probe::record_truth(cx, lhs, &truth);
@@ -590,13 +612,7 @@ pub(crate) fn short_circuit(
                     None => {
                         let bool_ty =
                             Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new().into());
-                        crate::check::decide_or_wait(
-                            cx,
-                            lhs.span(),
-                            &prop,
-                            &bool_ty,
-                            crate::check::Depth::Written,
-                        )?
+                        crate::check::decide_or_wait(cx, lhs.span(), &prop, &bool_ty, depth)?
                     }
                 };
                 crate::probe::record_truth(cx, lhs, &truth);
