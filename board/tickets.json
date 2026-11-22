@@ -31669,7 +31669,7 @@
     {
       "id": 4564,
       "title": "[Opus] All tier 22 Nov (D3712): 'internal error: applying a constructor' (crates/core/src/value.rs:1328) panics in driver library search_at_bench::stage_two_closes_std_goals_with_their_lemma, search_at_bench::stage_two_on_any_std_statement, search_bench::proof_uses_find_their_lemma_among_the_first_ten and search_at_aoc search_at_on_aoc_goals; and cli extraction extract::random_inputs_agree_with_the_reference_evaluator / run_lines_agree_with_the_reference_evaluator ('not a fully evaluated value: Neutral(Def ...)'). Find the cause(s), fix, rerun only these",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -31682,7 +31682,7 @@
     {
       "id": 4565,
       "title": "[Opus] All tier 22 Nov (D3712): elaborator regressions: driver resources a_product_stuck_on_its_left_does_not_compute_its_right (now E-RESOURCE; suspect SW-4536's same_unglued reading back the right side, see SW-4561), elaboration postponement::a_decision_waits_for_a_field_in_its_proposition (List.Mem/Box.items unfolded twice), negative_arguments::a_negative_argument_has_the_hash_of_its_bracketed_form (hashes differ). Fix, rerun only these",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -31695,7 +31695,7 @@
     {
       "id": 4566,
       "title": "[Sonnet] All tier 22 Nov (D3712): warning pins exceeded: std Doc/Places.sw W-REWRITE-THEN-COMPUTING 1, Float/Theory.sw W-THEOREM-FORALL 1, List/SortLemmas.sw W-REWRITE-THEN-REWRITE 1, Parse/Reads.sw W-REWRITE-THEN-COMPUTING 1, Parse/Runs.sw W-PROOF-CHAIN 4; aoc-2021 Day16/Proofs/Answers.sw W-PROOF-CHAIN 1; aoc-2024 Day12/Proofs/Sides.sw W-PROOF-CHAIN 2. Fix the proofs (or the warning if wrong); never raise a pin; rerun only the three warning_pins tests; also search_bench::every_conclusion_finds_its_theorem misses Std.Float.Theory.doubleMul",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
