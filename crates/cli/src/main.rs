@@ -920,6 +920,10 @@ enum Command {
         /// With --json, list the declarations each definition mentions
         #[arg(long, requires = "json")]
         uses: bool,
+        /// With --std --json, also list the library's warnings and where
+        /// they are
+        #[arg(long, requires_all = ["std", "json"])]
+        warnings: bool,
         /// The project folder, if not the folder you're in or the nearest
         /// one above it
         #[arg(long)]
@@ -1542,6 +1546,7 @@ fn run(cli: Cli) -> ExitCode {
             std,
             json,
             uses,
+            warnings,
             project,
             cache,
         } => trial_cmd::hash(&trial_cmd::HashArgs {
@@ -1549,6 +1554,7 @@ fn run(cli: Cli) -> ExitCode {
             std,
             json,
             uses,
+            warnings,
             project: project.as_deref(),
             cache: &cache,
         }),

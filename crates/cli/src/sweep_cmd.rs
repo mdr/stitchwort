@@ -75,6 +75,9 @@ struct FileSweep {
     original: String,
     /// Written names the trial refused.
     keep: BTreeSet<String>,
+    /// For each converted theorem, the arms (by their index in the full
+    /// conversion) the trial found unreachable, which are left out.
+    drops: BTreeMap<String, BTreeSet<usize>>,
     refused: Vec<Refusal>,
     /// The latest sweep and formatted text.
     converted: Vec<Converted>,
@@ -106,10 +109,65 @@ impl FileSweep {
         self.text = if self.converted.is_empty() {
             self.original.clone()
         } else {
-            stitchwort_fmt::format(&outcome.text).map_err(|e| format!("{}: {e}", self.path))?
+            let text = if self.drops.is_empty() {
+                outcome.text
+            } else {
+                drop_arms(&outcome.text, &self.drops)
+            };
+            stitchwort_fmt::format(&text).map_err(|e| format!("{}: {e}", self.path))?
         };
+        if !self.drops.is_empty() {
+            // What was written is not the full conversion: report its text.
+            let lines: Vec<&str> = self.text.lines().collect();
+            let ranges = theorem_lines(&self.text);
+            for c in &mut self.converted {
+                if let Some((from, to)) = ranges.get(&c.name) {
+                    c.after = lines[*from as usize - 1..=*to as usize - 1].join("\n");
+                    c.new_lines = (*from, *to);
+                }
+            }
+        }
         self.seconds += start.elapsed().as_secs_f64();
         Ok(())
+    }
+
+    /// Leaves out the arm of the converted theorem `name` (as written) at
+    /// `line` of the formatted text. `applied` is `drops` as the text was
+    /// generated; the arm's index is counted in the full conversion, so an
+    /// arm already left out doesn't shift it. False if no theorem's arm is
+    /// there.
+    fn drop_arm(
+        &mut self,
+        name: &str,
+        line: u32,
+        applied: &BTreeMap<String, BTreeSet<usize>>,
+    ) -> bool {
+        let Some(arms) = arm_lines(&self.text).remove(name) else {
+            return false;
+        };
+        let Some(current) = arms
+            .iter()
+            .position(|(from, to)| *from <= line && line <= *to)
+        else {
+            return false;
+        };
+        let before = applied.get(name);
+        let mut index = 0;
+        let mut original = 0;
+        loop {
+            if !before.is_some_and(|set| set.contains(&original)) {
+                if index == current {
+                    break;
+                }
+                index += 1;
+            }
+            original += 1;
+        }
+        self.drops
+            .entry(name.to_string())
+            .or_default()
+            .insert(original);
+        true
     }
 
     fn changed(&self) -> bool {
@@ -158,6 +216,79 @@ fn line_of(text: &str, offset: u32) -> u32 {
         .filter(|&&b| b == b'\n')
         .count() as u32
         + 1
+}
+
+/// Each theorem's arms, in order, by its name as written: the lines of the
+/// `|`s at the least indentation in the theorem (a `:= match`'s own arms;
+/// those of a `match` inside a body are deeper), each with the lines of its
+/// body up to the next arm. Trailing blank and comment lines are left for
+/// what follows.
+fn arm_lines(text: &str) -> BTreeMap<String, Vec<(u32, u32)>> {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut out = BTreeMap::new();
+    for (name, (from, to)) in theorem_lines(text) {
+        let mut bars: Vec<(u32, usize)> = Vec::new();
+        for line in from.max(1)..=to {
+            let Some(source) = lines.get(line as usize - 1) else {
+                continue;
+            };
+            let rest = source.trim_start_matches([' ', '\t']);
+            if rest.starts_with('|') && !rest.starts_with("||") && !rest.starts_with("|>") {
+                bars.push((line, source.len() - rest.len()));
+            }
+        }
+        let Some(indent) = bars.iter().map(|(_, column)| *column).min() else {
+            continue;
+        };
+        let bars: Vec<u32> = bars
+            .into_iter()
+            .filter(|(_, column)| *column == indent)
+            .map(|(line, _)| line)
+            .collect();
+        let mut arms = Vec::new();
+        for (index, start) in bars.iter().enumerate() {
+            let mut end = bars.get(index + 1).map_or(to, |next| next - 1);
+            while end > *start
+                && lines.get(end as usize - 1).is_none_or(|line| {
+                    let line = line.trim();
+                    line.is_empty() || line.starts_with("--")
+                })
+            {
+                end -= 1;
+            }
+            arms.push((*start, end));
+        }
+        out.insert(name, arms);
+    }
+    out
+}
+
+/// `text` without the arms `drops` names, by theorem and arm index. The
+/// lines they are on go, so what is left parses as it did.
+fn drop_arms(text: &str, drops: &BTreeMap<String, BTreeSet<usize>>) -> String {
+    let arms = arm_lines(text);
+    let mut remove = BTreeSet::new();
+    for (name, indices) in drops {
+        let Some(arms) = arms.get(name) else {
+            continue;
+        };
+        for index in indices {
+            if let Some((from, to)) = arms.get(*index) {
+                remove.extend(*from..=*to);
+            }
+        }
+    }
+    let out: Vec<&str> = text
+        .lines()
+        .enumerate()
+        .filter(|(index, _)| !remove.contains(&((index + 1) as u32)))
+        .map(|(_, line)| line)
+        .collect();
+    let mut joined = out.join("\n");
+    if text.ends_with('\n') {
+        joined.push('\n');
+    }
+    joined
 }
 
 /// Each theorem's first and last line (from 1), by its name as written.
@@ -593,21 +724,37 @@ fn project_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
         }
         let mut found = 0;
         leftover.clear();
+        // The drops each file's text was generated with, so an arm found
+        // unreachable this round maps to its place in the full conversion
+        // even when another arm of the same theorem is dropped too.
+        let applied: Vec<BTreeMap<String, BTreeSet<usize>>> =
+            sweeps.iter().map(|s| s.drops.clone()).collect();
         for d in &problems.diagnostics {
             let reason = format!("{}: {}", d.code, d.message);
-            let Some(s) = sweeps.iter_mut().find(|s| s.path == d.path) else {
+            let Some(index) = sweeps.iter().position(|s| s.path == d.path) else {
                 leftover.push(format!("{}: {reason}", d.path));
                 continue;
             };
-            let name = d
-                .declaration
-                .as_deref()
-                .and_then(|n| s.converted_named(n))
-                .or_else(|| s.converted_at(d.range[0] + 1))
-                .map(|c| c.name.clone());
+            let name = {
+                let s = &sweeps[index];
+                d.declaration
+                    .as_deref()
+                    .and_then(|n| s.converted_named(n))
+                    .or_else(|| s.converted_at(d.range[0] + 1))
+                    .map(|c| c.name.clone())
+            };
+            // An arm the moved premises make unreachable is left out, not a
+            // reason to keep the theorem as it was (SW-4571).
+            if d.code == "W-UNREACHABLE"
+                && let Some(name) = &name
+                && sweeps[index].drop_arm(name, d.range[0] + 1, &applied[index])
+            {
+                found += 1;
+                continue;
+            }
             match name {
                 Some(name) => {
-                    s.refuse(&name, reason);
+                    sweeps[index].refuse(&name, reason);
                     found += 1;
                 }
                 None => leftover.push(format!("{}: {reason}", d.path)),
@@ -792,6 +939,60 @@ pub(super) fn whole_file(path: &str, old: &str, new: &str) -> Edit {
     }
 }
 
+/// A library warning, with the file and line a child process found it at.
+#[derive(Clone, Debug)]
+struct Warning {
+    /// `std/Parse/Runs.sw`.
+    file: String,
+    line: u32,
+    code: String,
+    message: String,
+}
+
+/// The library's hashes and warnings, read by a child process from `dir`.
+fn library_hashes_with_warnings(dir: &Path) -> Result<(Vec<DeclHash>, Vec<Warning>), String> {
+    let exe = std::env::current_exe().map_err(|e| format!("can't find myself: {e}"))?;
+    let output = Command::new(exe)
+        .arg("--std-dir")
+        .arg(dir)
+        .args(["hash", "--std", "--json", "--uses", "--warnings"])
+        .output()
+        .map_err(|e| format!("can't run the hash: {e}"))?;
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+    let value: Value = serde_json::from_slice(&output.stdout)
+        .map_err(|_| "can't read the library's hashes".to_string())?;
+    let hashes = value
+        .get("declarations")
+        .and_then(Value::as_array)
+        .and_then(|declarations| {
+            declarations
+                .iter()
+                .map(super::trial_cmd::decl_from_json)
+                .collect()
+        })
+        .ok_or_else(|| "can't read the library's hashes".to_string())?;
+    let warnings =
+        value
+            .get("warnings")
+            .and_then(Value::as_array)
+            .map_or_else(Vec::new, |warnings| {
+                warnings
+                    .iter()
+                    .filter_map(|w| {
+                        Some(Warning {
+                            file: w.get("file")?.as_str()?.to_string(),
+                            line: w.get("line")?.as_u64()? as u32,
+                            code: w.get("code")?.as_str()?.to_string(),
+                            message: w.get("message")?.as_str()?.to_string(),
+                        })
+                    })
+                    .collect()
+            });
+    Ok((hashes, warnings))
+}
+
 /// The library's hashes, read by a child process from `dir`.
 pub(super) fn library_hashes(dir: &Path) -> Result<Vec<DeclHash>, String> {
     let exe = std::env::current_exe().map_err(|e| format!("can't find myself: {e}"))?;
@@ -874,10 +1075,18 @@ fn std_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
     if args.plan {
         return plan_only(args, &mut sweeps);
     }
-    let before = match library_hashes(&root) {
+    let (before, existing_warnings) = match library_hashes_with_warnings(&root) {
         Ok(before) => before,
         Err(e) => return refused(args.json, format!("the library doesn't load as it is: {e}")),
     };
+    // The warnings already there, so only those the conversion adds can
+    // drop an arm. Keyed by file, code and message (line numbers move).
+    let mut before_warnings: BTreeMap<(String, String, String), usize> = BTreeMap::new();
+    for w in &existing_warnings {
+        *before_warnings
+            .entry((w.file.clone(), w.code.clone(), w.message.clone()))
+            .or_default() += 1;
+    }
     let copy = std::env::temp_dir().join(format!("stitchwort-sweep-std-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&copy);
     if let Err(e) = copy_dir(&root, &copy) {
@@ -906,7 +1115,7 @@ fn std_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
         }
         let mut found = 0;
         leftover.clear();
-        match library_hashes(&copy) {
+        match library_hashes_with_warnings(&copy) {
             Err(report) => {
                 // The edited library doesn't load: the report names a file
                 // and line.
@@ -922,29 +1131,62 @@ fn std_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
                     leftover.push(report);
                 }
             }
-            Ok(after) => {
+            Ok((after, warnings)) => {
+                // An arm the moved premises make unreachable is left out,
+                // not left for the library's warning pin (SW-4571). Only
+                // warnings the conversion adds count (a library the sweep
+                // runs over should have none: the pins are at zero).
+                let mut seen = before_warnings.clone();
+                let applied: Vec<BTreeMap<String, BTreeSet<usize>>> =
+                    sweeps.iter().map(|s| s.drops.clone()).collect();
+                for w in &warnings {
+                    let key = (w.file.clone(), w.code.clone(), w.message.clone());
+                    if let Some(count) = seen.get_mut(&key)
+                        && *count > 0
+                    {
+                        *count -= 1;
+                        continue;
+                    }
+                    if w.code != "W-UNREACHABLE" {
+                        continue;
+                    }
+                    let path = w.file.strip_prefix("std/").unwrap_or(&w.file);
+                    let Some(index) = sweeps.iter().position(|s| s.path == path) else {
+                        continue;
+                    };
+                    let name = sweeps[index].converted_at(w.line).map(|c| c.name.clone());
+                    if let Some(name) = name
+                        && sweeps[index].drop_arm(&name, w.line, &applied[index])
+                    {
+                        found += 1;
+                    }
+                }
                 let diff = declhash::compare(&before, &after, &promise);
                 proofs_changed = diff.proofs_changed.clone();
                 proofs_only = diff.proofs_only.clone();
                 if diff.is_empty() {
-                    clean = true;
-                    break;
-                }
-                let moved: Vec<Moved> = diff
-                    .changed
-                    .iter()
-                    .map(|c| Moved {
-                        name: c.name.clone(),
-                        uses: c.uses.clone(),
-                        reproved: c.reproved.clone(),
-                    })
-                    .collect();
-                found += refuse_moved(&mut sweeps, &moved, &mut leftover);
-                for n in diff.added.iter().chain(&diff.removed) {
-                    leftover.push(format!("`{n}` added or removed"));
-                }
-                if found == 0 {
-                    found += refuse_changed_proofs(&mut sweeps, &diff.proofs_changed, &leftover);
+                    if found == 0 {
+                        clean = true;
+                        break;
+                    }
+                } else {
+                    let moved: Vec<Moved> = diff
+                        .changed
+                        .iter()
+                        .map(|c| Moved {
+                            name: c.name.clone(),
+                            uses: c.uses.clone(),
+                            reproved: c.reproved.clone(),
+                        })
+                        .collect();
+                    found += refuse_moved(&mut sweeps, &moved, &mut leftover);
+                    for n in diff.added.iter().chain(&diff.removed) {
+                        leftover.push(format!("`{n}` added or removed"));
+                    }
+                    if found == 0 {
+                        found +=
+                            refuse_changed_proofs(&mut sweeps, &diff.proofs_changed, &leftover);
+                    }
                 }
             }
         }
