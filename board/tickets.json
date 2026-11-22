@@ -31946,7 +31946,7 @@
     {
       "id": 4585,
       "title": "[Opus] Search: 6775 of 7012 recorded proof uses fail their own lemma's filtered first pass, because a use pattern's constants include its arguments' constants, which the lemma's type doesn't name (SW-4579). Decide whether use patterns should leave the arguments' constants out of the filter (and what that does to recall@10 and out-of-budget in search_bench::proof_uses_find_their_lemma_among_the_first_ten), and do it if it helps",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -32130,7 +32130,7 @@
     {
       "id": 4599,
       "title": "[Sonnet] tools/fmt: list versions over element types that don't recurse back (lineAll, plainAll, exprAll, notesSound, per SW-4563's note docs/proposals/fmt-list-functions-via-std.md) can be written as List.all / List.map today; rewrite them and their theorems through std's list lemmas where it saves lines, statements of top theorems unchanged; check the touched namespaces and dependents",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
