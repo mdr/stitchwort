@@ -33,4 +33,4 @@ pub use parser::{
     parse_expression_within, parse_module, parse_module_and_tree, parse_module_recovering,
     parse_module_within, parse_namespace_line, parse_tree, record_braces,
 };
-pub use source::{FileId, SourceFile, SourceMap, Span};
+pub use source::{FileId, SourceFile, SourceMap, Span, describe_span};

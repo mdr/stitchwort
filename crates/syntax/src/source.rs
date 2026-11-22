@@ -75,6 +75,44 @@ impl Span {
     }
 }
 
+/// Whether `STITCHWORT_BIG_READBACK` is set, read once: then each
+/// [`SourceMap::add`] also copies the file into a process-wide table, so that
+/// [`describe_span`] can say where a span is without the source map (the
+/// elaborator doesn't have it). Unset, `add` pays one cached read.
+fn describing() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| std::env::var_os("STITCHWORT_BIG_READBACK").is_some())
+}
+
+/// Name and text of each file added since `STITCHWORT_BIG_READBACK` was set,
+/// by [`FileId`] index. With several source maps in one process (the library's
+/// and the project's) the latest file added at an index wins; only the debugging report reads it.
+static DESCRIBED: std::sync::Mutex<Vec<(String, String)>> = std::sync::Mutex::new(Vec::new());
+
+/// `file:line:col` and the first line of the span's text (cut to 60
+/// characters), for `STITCHWORT_BIG_READBACK`'s report. `None` when the
+/// variable was unset or the file is unknown.
+pub fn describe_span(span: Span) -> Option<String> {
+    let registry = DESCRIBED.lock().unwrap_or_else(|e| e.into_inner());
+    let (name, text) = registry.get(span.file.index())?;
+    let start = (span.start as usize).min(text.len());
+    let before = text.get(..start)?;
+    let line = before.matches('\n').count() + 1;
+    let col = before.rsplit('\n').next().map_or(0, |l| l.chars().count()) + 1;
+    let rest = text.get(start..)?;
+    let end = (span.end as usize).saturating_sub(start).min(rest.len());
+    let shown: String = rest
+        .get(..end)
+        .unwrap_or(rest)
+        .lines()
+        .next()
+        .unwrap_or("")
+        .chars()
+        .take(60)
+        .collect();
+    Some(format!("{name}:{line}:{col}  {shown}"))
+}
+
 #[derive(Debug)]
 pub struct SourceFile {
     /// Display name used in diagnostics, e.g. a path relative to the project.
@@ -100,10 +138,16 @@ impl SourceMap {
 
     pub fn add(&mut self, name: impl Into<String>, text: impl Into<String>) -> FileId {
         let id = FileId(u32::try_from(self.files.len()).expect("too many source files"));
-        self.files.push(SourceFile {
-            name: name.into(),
-            text: text.into(),
-        });
+        let (name, text) = (name.into(), text.into());
+        if describing() {
+            let mut registry = DESCRIBED.lock().unwrap_or_else(|e| e.into_inner());
+            let index = self.files.len();
+            if registry.len() <= index {
+                registry.resize(index + 1, (String::new(), String::new()));
+            }
+            registry[index] = (name.clone(), text.clone());
+        }
+        self.files.push(SourceFile { name, text });
         id
     }
 

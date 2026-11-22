@@ -64,6 +64,14 @@ fn reports_readbacks_over_the_given_node_count() {
             .any(|line| line.starts_with("big readback: ") && line.contains("nodes in Main.t")),
         "no report for Main.t:\n{stderr}"
     );
+    // The report names the source line of the proof step (SW-4630): the
+    // `theorem` line, 9.
+    assert!(
+        stderr
+            .lines()
+            .any(|line| line.starts_with("  at:") && line.contains("readback.sw:9:")),
+        "no source position:\n{stderr}"
+    );
 
     let out = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
         .args(["check", "--no-cache"])
