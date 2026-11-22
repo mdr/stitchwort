@@ -400,7 +400,7 @@ enum Command {
         /// needs, in the namespaces named, or in its own namespace if none
         /// is. The other theorems of those namespaces are not checked, and
         /// the output says how many were. Everything that isn't a theorem
-        /// is checked as usual
+        /// is checked as usual. Doesn't apply with `--std`
         #[arg(
             long,
             value_name = "THEOREM",

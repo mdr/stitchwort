@@ -549,6 +549,11 @@ own tickets as described in [board/README.md](../board/README.md).
   track what is to do and why. Finished work is in git log;
   [history.md](history.md) keeps what the old `TODO.md` recorded as done.
 
+To see what the elaborator hands the kernel for one declaration, set
+`STITCHWORT_DUMP_KERNEL=<its full name>`: `check` prints that declaration's
+zonked type and value to standard error, once. Unset, it does nothing and
+costs nothing.
+
 ### Writing a brief
 
 Every brief states the worktree, the estimate and the targeted tests (CLAUDE.md,
