@@ -1738,6 +1738,17 @@ impl Elaborator {
                 *note = note.replace(&full, &short);
             }
         }
+        let printed = self.printed_matches(&d);
+        // A helper is reworded only if its name is in the text (every
+        // lifted name contains `%`: `f.%match1`, `f.%plain`) or the printer showed its call:
+        // most diagnostics have neither, so skip walking every helper
+        // lifted so far in the run.
+        let names_one = d.message.contains("%")
+            || d.labels.iter().any(|l| l.message.contains("%"))
+            || d.notes.iter().any(|n| n.contains("%"));
+        if !names_one && printed.is_empty() {
+            return self.explain_tuple_match(d);
+        }
         // Longest first, so `f.%match1` isn't found inside `f.%match10`.
         let mut lifted: Vec<(String, Span, DefId)> = self
             .tables
@@ -1746,7 +1757,6 @@ impl Elaborator {
             .map(|&(id, span)| (self.kernel.def(id).name().to_string(), span, id))
             .collect();
         lifted.sort_by_key(|(name, _, _)| std::cmp::Reverse(name.len()));
-        let printed = self.printed_matches(&d);
         let mut owners: Vec<String> = Vec::new();
         // How many different generated helpers the message mentions inline:
         // each prints as `(match …)`, so two of them look like one.
