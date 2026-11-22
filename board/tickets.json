@@ -32377,7 +32377,7 @@
     {
       "id": 4615,
       "title": "[Sonnet] Speed up std's Parse.runFrom...Tree lemmas, 0.7-1.5 s each in every cold std check (SW-4608 win 7)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
