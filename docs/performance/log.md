@@ -46,6 +46,84 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 22 Nov 2026
 
+### SW-4606: `rewrite`'s completeness check skips the unfolded motive when the motive has lost a variable the left side depends on; Std.Float.Theory 410 MB to 383 MB, 90.0M to 88.5M steps
+
+- **Problem.** SW-4600 left three things: (a) a suspected miss in SW-4469's
+  shortcut (a copy of a variable hidden behind a `let`), (b) `ofNatExact`'s
+  1.14M-node read-back, named the file's peak, and (c) the completeness
+  check's read-back of the unfolded motive in `roundGrid` (806k nodes).
+- **Profile (measured).** A backtrace at every read-back over 300k nodes
+  (temporary, removed) on `check --std --no-cache Float/Theory.sw`: six,
+  `ofIntMonotone` 448k and `add/mul/divRelError` 884k each (the usual
+  `match` occurrence test and `blocker`, SW-4600's "left"),
+  `ofNatExact` 1.14M (`rewrite_once`'s read-back of the goal), `roundGrid`
+  806k (`hidden_copy` under `hypothesis_as_written`). Peak RSS of the file
+  cut at a line (`--std-dir`): 258 MB before `ofNatExact`, 345 MB after
+  it, 350 MB at line 4000, 405 MB at line 5500 (after `roundGrid`), 410 MB
+  whole. So `ofNatExact` is the largest read-back but not the peak.
+- **(a) No miss, nothing to fix.** A `let` slot computes to its value,
+  never to a variable of its own (docs/proposals/let.md §6.1), a lambda
+  closes over the value, and a local definition is lifted with the
+  variable as an argument, so the goal read back always shows the copy and
+  the search as written replaces it. `examples/accept/rewrite-variable-behind-let.sw`
+  closes each case by computing, which a missed copy would fail.
+- **(b) Nothing kept.** `ofNatExact`'s `rewrite Float.Theory.ofBitsBits …`
+  finds nothing as written, even with calls opened on the path
+  (`unfold_path`): the left side `(Float.ofBits (ofIntBits n.toInt)).bits`
+  is a projection whose subject is the goal's `Float.ofNat n` opened twice,
+  and the walk opens calls under the projection but never tests the
+  projection again. The usual search then needs the unfolded goal (37
+  occurrences), so no cheap test or reuse of the rule's elaboration can
+  skip the read-back with the result unchanged. Making the walk find it
+  would change `ofNatExact`'s next goal (to the folded form): a change of
+  result, not tried.
+- **(c) The change** (crates/elab/src/rewrite/as_written.rs,
+  `hidden_copy_in`). Before reading the motive back unfolded, the check
+  lists the context variables the left side (read back unfolded) mentions
+  and the motive doesn't. If there are any and the motive's unfolding is
+  larger than the left side, it compares the left side with itself with
+  one such variable renamed to a fresh one (`conv`, at most four tries,
+  skipping one the left side's type mentions); if they differ, no copy can
+  be hidden and the check answers "none" without the read-back. `roundGrid`'s
+  `rewrite n0` (`q * Nat.pow 2 e = 0`) leaves a motive about
+  `roundRatio (Int.signed s x')`, which mentions neither `q` nor `e`.
+- **Why results stay the same.** A copy is a part of the unfolded motive
+  convertible with the left side; computing introduces no variable, so a
+  copy can't mention one the motive doesn't. Mentioning isn't depending
+  (a proof, an inert argument, a field of an eta record, an argument a stuck
+  call's case tree never reads), hence the test by conversion: a copy `c`
+  without `v` is unchanged by renaming `v`, so it would be equal to the left
+  side and to its renaming, and conversion is an equivalence (docs/core.md,
+  G6) preserved by renaming, so the two would be equal. Not tried with an
+  unknown or an unlifted `match` in the left side, where the search
+  compares by more than conversion. As with SW-4469, a check that would have
+  run out reading the motive now answers instead; no case in std or the
+  examples run. Hashes unchanged (`task test:hashes ALL=1`), kernel nodes of
+  Std.Float.Theory unchanged (257,651).
+- **Measured** (release, `check --std --no-cache Float/Theory.sw --std-dir
+  crates/elab/src/std`; peak RSS from `/usr/bin/time -l`, two runs each,
+  stable to 0.1 MB):
+
+  | | before | after |
+  |---|---|---|
+  | Std.Float.Theory peak RSS | 410.4 MB | 383.1 MB |
+  | the same with `--timings=all` | 408.4 MB | 373.5 MB |
+  | Std.Float.Theory steps (sum of the table) | 89,974,592 | 88,489,469 |
+  | instructions retired (whole run, `--timings=all`) | 81.0 G | 78.4 G |
+  | `roundGrid` steps (largest read-back) | 1,915,842 (805,911) | 748,105 (30,566) |
+  | `roundRatioScale` steps | 909,428 | 592,042 |
+
+  No other declaration of the file moved.
+- **Rejected (measured).** Running the renaming test whenever the motive's
+  unfolding was over 1,000 nodes, without first checking that some variable
+  is unmentioned: 7 declarations got slower by 79k steps in all, the capped
+  read-back wasted where the motive mentions every variable.
+- **Left.** The peak is now `add/mul/divRelError`'s 884k `blocker`
+  read-backs and `ofNatExact`'s 1.14M, both needing a design change
+  (goal-as-written.md; for `ofNatExact`, a walk that tests a projection
+  again after opening its subject).
+- **Ticket:** SW-4606; follows SW-4600.
+
 ### SW-4600: a generalised `match` and a `rewrite` by a hypothesis stop reading the goal back unfolded where nothing uses it; Std.Float.Theory 565 MB to 409 MB, 110.9M to 90.0M steps
 
 - **Problem.** SW-4594 put float-playlist's 565 MB peak, and 5-9M steps in
