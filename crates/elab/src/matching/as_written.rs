@@ -37,6 +37,9 @@
 //!    `match` waited for them, [`super::blocker`]), and a candidate that
 //!    would solve an unknown to match is not an occurrence, so where both
 //!    find something they find the same thing.
+//!    A goal with no hit, where the usual test found no occurrence either,
+//!    has the goal's normal form on both sides, so its pair is compared by
+//!    conversion instead, without reading it back unfolded (SW-4637).
 //! 3. The motive it makes is type-correct, checked now (the caller,
 //!    [`super::generalised_now`]): a folded `x / d` carries its hidden
 //!    proof `d ≠ 0`, which the unfolded goal doesn't have.
@@ -90,7 +93,14 @@ pub(super) struct Today<'a> {
     pub(super) copied: &'a [usize],
     /// The variables' types read back unfolded (`refl` for a skipped one).
     pub(super) type_terms: &'a [Term],
+    /// The goal read back unfolded, or, unless `goal_exact`, with calls
+    /// kept folded where no scrutinee can be hidden (`super::mixed_goal`):
+    /// the same for the occurrence test, but not for check 2.
     pub(super) goal_term: &'a Term,
+    pub(super) goal_exact: bool,
+    /// Set where check 2 is reached without the goal read back unfolded:
+    /// the caller reads it so and searches again.
+    pub(super) needs_goal: &'a std::cell::Cell<bool>,
     /// The goal read back folded, when the usual test refines nothing in it
     /// ([`super::unrefined_goal`]).
     pub(super) goal_folded: Option<&'a Term>,
@@ -221,6 +231,11 @@ pub(super) fn first(
             search(cx, exprs, Some(today), goal, base, skip, reading)
         });
         snapshot.restore(cx);
+        // Check 2 needs the goal read back unfolded: the caller reads it
+        // and calls again, so this attempt counts for nothing.
+        if today.needs_goal.get() {
+            return Ok(None);
+        }
         let now = match tried {
             Ok(Some(Ok(written))) => return Ok(Some(written)),
             Ok(Some(Err(outcome))) => outcome,
@@ -515,17 +530,27 @@ fn search<'e>(
             outcome: Outcome::Unconfirmed,
         }));
     };
-    if !goal_hit {
+    // A goal with no hit, where the usual test found no occurrence either
+    // (which a goal read with calls kept folded shows, `goal_exact` false):
+    // both sides of its pair are then the goal's normal form, this one
+    // computed from the goal read back folded. So its pair is checked by
+    // conversion, which needn't read either back unfolded.
+    let goal_converts = !goal_hit && !today.goal_exact && {
+        let cx = finder.cx.borrow();
+        stitchwort_core::value::conv(&g, base, &cx.eval(&goal_written)?, goal)?
+    };
+    if !today.goal_exact && !goal_converts {
+        today.needs_goal.set(true);
+        return Ok(Err(Outcome::Failed));
+    }
+    if !goal_hit && !goal_converts {
         goal_unfolded = match unfold(&finder, &goal_generalised)? {
             Unfolded::Term(t) => Some(t),
             Unfolded::Misshapen => return Ok(Err(Outcome::Incomplete)),
             Unfolded::TooLarge => None,
         };
     }
-    let (Some(goal_unfolded), Some(unfolded_types)) = (
-        goal_unfolded,
-        unfolded_types.into_iter().collect::<Option<Vec<_>>>(),
-    ) else {
+    let Some(unfolded_types) = unfolded_types.into_iter().collect::<Option<Vec<_>>>() else {
         unreachable!("only too large without the usual test")
     };
     let todays_found = !today.copied.is_empty()
@@ -538,7 +563,13 @@ fn search<'e>(
         copies: &Default::default(),
         transport: None,
     };
-    let mut pairs = vec![(goal_unfolded, todays.apply(&g, today.goal_term)?)];
+    let mut pairs = Vec::new();
+    if !goal_converts {
+        let Some(goal_unfolded) = goal_unfolded else {
+            unreachable!("only too large without the usual test")
+        };
+        pairs.push((goal_unfolded, todays.apply(&g, today.goal_term)?));
+    }
     for ((l, _), unfolded) in copied.iter().zip(unfolded_types) {
         pairs.push((unfolded, todays.apply(&g, &today.type_terms[*l])?));
     }

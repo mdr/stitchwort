@@ -168,6 +168,15 @@ fn mentioned(value: &Value) -> Option<HashSet<usize>> {
     scan.value(value).then_some(scan.found)
 }
 
+/// Every variable `value` can mention read back unfolded, as [`mentioned`]
+/// finds them, and whether it may hold an unknown (solved or not), or
+/// `None` past [`SCAN_NODES`] nodes: for the goal's read-back that keeps
+/// calls folded where a scrutinee can't be hidden (`super::mixed_goal`).
+pub(super) fn mentions(value: &Value) -> Option<(HashSet<usize>, bool)> {
+    let mut scan = Scan::new(SCAN_NODES);
+    scan.value(value).then_some((scan.found, scan.unknown))
+}
+
 /// Nodes [`holds_unknown`] visits before saying "perhaps".
 const UNKNOWN_SCAN_NODES: usize = 1 << 16;
 

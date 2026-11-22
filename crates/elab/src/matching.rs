@@ -23,7 +23,7 @@ use std::rc::Rc;
 use crate::check::{quote_internal, quote_unfolded};
 use crate::kernel;
 use stitchwort_core::budget::ResourceError;
-use stitchwort_core::collections::HashMap;
+use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::value::{Head, quote_at_most};
 use stitchwort_core::{DefId, Ev, Name, Term, Value, pretty};
 use stitchwort_syntax::Diagnostic;
@@ -980,6 +980,8 @@ pub(crate) fn refined_guard(
             copied: &copied,
             type_terms: &type_terms,
             goal_term: &goal_term,
+            goal_exact: true,
+            needs_goal: &std::cell::Cell::new(false),
             goal_folded: goal_folded.as_ref(),
             untouched: &read.untouched,
         };
@@ -1296,6 +1298,138 @@ fn read_type(cx: &Ctx, base: usize, l: usize) -> std::result::Result<(Term, bool
     crate::check::quote_or_written(&cx.g(), base, &cx.types[l])
 }
 
+/// The goal as the occurrence test reads it, cheaply where it can be
+/// (SW-4637): [`mixed_goal`]'s read-back, with the calls kept folded where
+/// no scrutinee can be hidden.
+struct MixedGoal {
+    term: Term,
+    /// Whether some call was kept folded: otherwise `term` is the goal read
+    /// back unfolded, exactly.
+    kept: bool,
+    /// The variables the kept calls may mention once unfolded.
+    hidden: HashSet<usize>,
+    /// Whether a kept call may hold an unknown.
+    hidden_unknown: bool,
+}
+
+/// Nodes of a goal read back unfolded below which [`mixed_goal`] keeps no
+/// call folded: reading it is cheap, and computing the scrutinees' normal
+/// forms first may not be.
+const MIXED_FROM_NODES: u64 = 4096;
+
+/// Steps [`mixed_goal`] may take computing a scrutinee's normal form, which
+/// the occurrence test may not need to compute at all (SW-1096).
+const MIXED_NORMAL_STEPS: u64 = 50_000;
+
+/// Nodes a scrutinee's normal form may have for [`mixed_goal`] to run.
+const MIXED_NORMAL_NODES: u64 = 1 << 14;
+
+/// The goal read back unfolded for the occurrence test, but with a call
+/// kept as written where none of `exprs` can occur in its unfolding nor
+/// have its unfolding as a part, when no scrutinee occurs in the result.
+/// A goal of under [`MIXED_FROM_NODES`] nodes is read back unfolded, with
+/// nothing kept. `None` where it can't tell (a scrutinee with no free
+/// variable, or too costly to compute) or where a scrutinee does occur:
+/// the caller then reads the goal back unfolded, as before.
+///
+/// The argument. Let `n` be a scrutinee's normal form and `r` one of its
+/// free variables. A call is kept folded only if, for every scrutinee, its
+/// value can't mention such an `r` (so its unfolding can't either:
+/// [`untouched`]'s argument), and its unfolding has more nodes than any
+/// `n`. An occurrence of `n` in the unfolded goal then can't lie inside a
+/// kept call's unfolding (it mentions `r`), nor hold one as a proper part
+/// (it is smaller than that part), so it lies outside every kept call,
+/// where this read-back is the unfolded one: it occurs here too. So if no
+/// scrutinee occurs here, none occurs in the goal read back unfolded, and
+/// the test's answer is the same. `hidden` collects the kept calls'
+/// variables, which the unfolded goal may mention where this doesn't.
+fn mixed_goal(cx: &Ctx, exprs: &[Scrut], goal: &Value, base: usize) -> Result<Option<MixedGoal>> {
+    let g = cx.g();
+    let recover = |e: Diagnostic| -> Result<Option<MixedGoal>> {
+        if crate::undo::recoverable(cx, &e) {
+            crate::undo::recovered(cx);
+            Ok(None)
+        } else {
+            Err(e)
+        }
+    };
+    match quote_at_most(&g, base, goal, MIXED_FROM_NODES) {
+        Ok(Some(term)) => {
+            return Ok(Some(MixedGoal {
+                term,
+                kept: false,
+                hidden: HashSet::default(),
+                hidden_unknown: false,
+            }));
+        }
+        Ok(None) => {}
+        Err(e) => return recover(e.into()),
+    }
+    let mut normals: Vec<(Term, Vec<usize>)> = Vec::with_capacity(exprs.len());
+    for s in exprs {
+        let normal = match &s.normal {
+            Some(normal) => normal.clone(),
+            None => {
+                let mut remaining = MIXED_NORMAL_STEPS;
+                let computed = g.machine.budget.limited(&mut remaining, || -> Result<_> {
+                    let value = cx.eval(&s.term)?;
+                    Ok(quote_at_most(&g, base, &value, MIXED_NORMAL_NODES)?)
+                });
+                match computed {
+                    Ok(Some(Some(normal))) => normal,
+                    Ok(_) => return Ok(None),
+                    Err(e) => return recover(e),
+                }
+            }
+        };
+        let mut certain = free_levels(&normal, base);
+        certain.sort_unstable();
+        certain.dedup();
+        if certain.is_empty() {
+            return Ok(None);
+        }
+        normals.push((normal, certain));
+    }
+    let cap = (normals.iter())
+        .map(|(n, _)| crate::search::size(n))
+        .max()
+        .unwrap_or(0) as u64;
+    let mut hidden = HashSet::default();
+    let mut hidden_unknown = false;
+    let mut kept = false;
+    let mut keep =
+        |level: usize, call: &Value| -> std::result::Result<Option<Term>, ResourceError> {
+            let Some((found, unknown)) = untouched::mentions(call) else {
+                return Ok(None);
+            };
+            if (normals.iter()).any(|(_, certain)| certain.iter().all(|r| found.contains(r))) {
+                return Ok(None);
+            }
+            if let Some(unfolded) = quote_at_most(&g, level, call, cap)? {
+                return Ok(Some(unfolded));
+            }
+            hidden.extend(found);
+            hidden_unknown |= unknown;
+            kept = true;
+            Ok(Some(stitchwort_core::value::quote_as_written(
+                &g, level, call,
+            )?))
+        };
+    let term = match stitchwort_core::value::quote_unfolded_keeping(&g, base, goal, &mut keep) {
+        Ok(term) => term,
+        Err(e) => return recover(e.into()),
+    };
+    if kept && normals.iter().any(|(n, _)| occurs(n, &term)) {
+        return Ok(None);
+    }
+    Ok(Some(MixedGoal {
+        term,
+        kept,
+        hidden,
+        hidden_unknown,
+    }))
+}
+
 /// What [`blocker`] read, for the generalisation after it: the variables'
 /// types and the goal it read back unfolded (`None` where it didn't, or
 /// had to read as written), so that they aren't read back again (SW-4600:
@@ -1550,7 +1684,10 @@ fn generalised_now(
     let in_match = |e: stitchwort_core::budget::ResourceError| {
         ran_out_at(e.into(), span, "while generalising this `match`")
     };
-    let mut read = || -> Result<(Vec<(Term, bool)>, Term)> {
+    // Each variable's type, with whether it was read as written, and the
+    // goal, with how it was read.
+    type Targets = (Vec<(Term, bool)>, Term, Option<MixedGoal>);
+    let mut read = || -> Result<Targets> {
         let type_terms: Vec<(Term, bool)> = (0..base)
             .map(
                 |l| match skip.is_some_and(|skip| skip(cx, l)) || read_before.untouched(l) {
@@ -1563,13 +1700,20 @@ fn generalised_now(
                 },
             )
             .collect::<Result<_>>()?;
-        let goal_term = match read_before.goal.take() {
-            Some(goal_term) => goal_term,
-            None => quote_internal(&g, base, goal).map_err(in_match)?,
+        // Read with calls kept folded where no scrutinee can be hidden in
+        // them, which is enough for the occurrence test; what keeps the
+        // goal's term reads it unfolded, as before (`unfolded_goal`).
+        let (goal_term, mixed) = match read_before.goal.take() {
+            Some(goal_term) => (goal_term, None),
+            None => match mixed_goal(cx, &exprs, goal, base)? {
+                Some(m) if m.kept => (m.term.clone(), Some(m)),
+                Some(m) => (m.term, None),
+                None => (quote_internal(&g, base, goal).map_err(in_match)?, None),
+            },
         };
-        Ok((type_terms, goal_term))
+        Ok((type_terms, goal_term, mixed))
     };
-    let (type_terms, goal_term) = match read() {
+    let (type_terms, mut goal_term, mut mixed) = match read() {
         Ok(read) => read,
         // Too large to read back unfolded, so the usual occurrence test
         // can't run and this `match` fails today: as written, unconfirmed.
@@ -1663,18 +1807,59 @@ fn generalised_now(
             .with_label(s.span, "this scrutinee"));
         }
     }
+    // The goal read back unfolded, in place of the one read with calls kept
+    // folded ([`mixed_goal`]); too large, as the `match` did when it read it
+    // so at first: as written, unconfirmed.
+    macro_rules! unfolded_goal {
+        () => {
+            match quote_internal(&g, base, goal).map_err(in_match) {
+                Ok(t) => {
+                    goal_term = t;
+                    mixed = None;
+                }
+                Err(e) if crate::undo::recoverable(cx, &e) => {
+                    return unconfirmed_now(
+                        cx, columns, exprs, alts, absurd, span, kind, goal, base, skip, e, true,
+                    );
+                }
+                Err(e) => return Err(e),
+            }
+        };
+    }
+    // The unfolded goal may mention a copy where a kept call hides it, and
+    // a kept call may mention one that its unfolding doesn't.
+    if let Some(m) = &mixed
+        && (m.hidden.iter())
+            .chain(&free_levels(&m.term, base))
+            .any(|l| copied.contains(l))
+    {
+        unfolded_goal!();
+    }
     let goal_folded = unrefined_goal(cx, &occurrences, &copied, goal, &goal_term, base)?;
-    let today = as_written::Today {
-        occurrences: &occurrences,
-        copied: &copied,
-        type_terms: &type_terms,
-        goal_term: &goal_term,
-        goal_folded: goal_folded.as_ref(),
-        untouched: &untouched,
+    // The motive is then made from the goal's unfolded term.
+    if mixed.is_some() && goal_folded.is_none() {
+        unfolded_goal!();
+    }
+    let needs_goal = std::cell::Cell::new(false);
+    let written = loop {
+        let today = as_written::Today {
+            occurrences: &occurrences,
+            copied: &copied,
+            type_terms: &type_terms,
+            goal_term: &goal_term,
+            goal_exact: mixed.is_none(),
+            needs_goal: &needs_goal,
+            goal_folded: goal_folded.as_ref(),
+            untouched: &untouched,
+        };
+        let written = as_written::first(cx, &exprs, &today, goal, base, skip, span)?;
+        if !needs_goal.replace(false) {
+            break written;
+        }
+        unfolded_goal!();
     };
-    let written = as_written::first(cx, &exprs, &today, goal, base, skip, span)?;
     let mut not_found = if skip.is_none() {
-        not_found(
+        let found = not_found(
             cx,
             &exprs,
             &normals,
@@ -1683,10 +1868,40 @@ fn generalised_now(
             &type_terms,
             goal,
             &goal_term,
+            mixed.as_ref(),
             goal_folded.as_ref(),
-        )?
+        )?;
+        match found {
+            Some(found) => found,
+            None => {
+                unfolded_goal!();
+                not_found(
+                    cx,
+                    &exprs,
+                    &normals,
+                    &unread,
+                    &copied,
+                    &type_terms,
+                    goal,
+                    &goal_term,
+                    None,
+                    goal_folded.as_ref(),
+                )?
+                .expect("read back unfolded")
+            }
+        }
     } else {
         Vec::new()
+    };
+    let today = as_written::Today {
+        occurrences: &occurrences,
+        copied: &copied,
+        type_terms: &type_terms,
+        goal_term: &goal_term,
+        goal_exact: mixed.is_none(),
+        needs_goal: &needs_goal,
+        goal_folded: goal_folded.as_ref(),
+        untouched: &untouched,
     };
     // The generalisation as written, if it found something that agrees
     // with the usual test, and if its motive checks now: check 3 of
@@ -1966,6 +2181,8 @@ fn unconfirmed_now(
         copied: &[],
         type_terms: &[],
         goal_term: &Term::Refl,
+        goal_exact: true,
+        needs_goal: &std::cell::Cell::new(false),
         goal_folded: None,
         untouched: &[],
     };
@@ -2501,6 +2718,11 @@ fn ran_out_at(d: Diagnostic, span: stitchwort_syntax::Span, label: &str) -> Diag
 /// goal holds an unknown, or for one left uncomputed with free variables
 /// (`unread`): its normal form might have been a variable, which this
 /// never warns about.
+///
+/// With `mixed`, `goal_normal` is the goal read with calls kept folded
+/// ([`mixed_goal`]), which answers whether an expression is found; `None`
+/// where a warning needs the goal read back unfolded, to say whether it
+/// holds an unknown or to print it.
 #[allow(clippy::too_many_arguments)]
 fn not_found(
     cx: &Ctx,
@@ -2511,18 +2733,26 @@ fn not_found(
     type_terms: &[Term],
     goal: &Value,
     goal_normal: &Term,
+    mixed: Option<&MixedGoal>,
     goal_folded: Option<&Term>,
-) -> Result<Vec<(usize, Diagnostic)>> {
+) -> Result<Option<Vec<(usize, Diagnostic)>>> {
     let g = cx.g();
     let mut out = Vec::new();
     // A goal holding an unknown may still be filled in with the expression,
-    // as a failed first try at a call's arguments shows.
+    // as a failed first try at a call's arguments shows. One in a kept call
+    // might not survive its unfolding.
     let unsettled = goal_normal
         .subterms()
         .any(|(t, _)| matches!(t, Term::Meta(_)));
-    if unsettled || !crate::patlet::proposition(cx, goal)? {
-        return Ok(out);
+    if mixed.is_some() && unsettled {
+        return Ok(None);
     }
+    if unsettled || !crate::patlet::proposition(cx, goal)? {
+        return Ok(Some(out));
+    }
+    // Every goal shown below is the one as written, so a mixed one is never
+    // printed: but for these notes, which show the unfolded goal.
+    let has_lambda = |t: &Term| t.subterms().any(|(t, _)| matches!(t, Term::Lam(..)));
     for (((i, s), normal), &unread) in exprs.iter().enumerate().zip(normals).zip(unread) {
         // One larger than every type and the goal occurs in none of them.
         let found = |t: &Term| normal.as_ref().is_some_and(|n| occurs(n, t));
@@ -2534,6 +2764,14 @@ fn not_found(
             || found(goal_normal)
         {
             continue;
+        }
+        if mixed.is_some_and(|m| m.hidden_unknown)
+            || mixed.is_some()
+                && (goal_folded.is_none_or(has_lambda)
+                    || normal.is_some()
+                        && goal_folded.is_some_and(|folded| occurs(&s.term, folded)))
+        {
+            return Ok(None);
         }
         let names = cx.shown_names(false);
         // Without the goal as written, the goal shown is the computed one, so
@@ -2547,7 +2785,6 @@ fn not_found(
         let goal_shown = pretty::term_for_message_in(&g, cx.e, &names, goal_shown_term);
         // `f x` and `y => f x y` are different terms to the search. Said
         // only of a lambda the goal shows.
-        let has_lambda = |t: &Term| t.subterms().any(|(t, _)| matches!(t, Term::Lam(..)));
         let eta = has_lambda(goal_shown_term)
             && has_lambda(goal_normal)
             && !normal.as_ref().is_some_and(has_lambda);
@@ -2584,7 +2821,7 @@ fn not_found(
         }
         out.push((i, warning));
     }
-    Ok(out)
+    Ok(Some(out))
 }
 
 fn scrutinee_name(_: &Scrut) -> Name {

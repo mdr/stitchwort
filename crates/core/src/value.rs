@@ -3146,6 +3146,31 @@ pub fn quote_as_written_shown(g: &Ev, level: usize, value: &Value) -> Result<Ter
     Ok(quote_as(g, level, value, Readback::AsWrittenShown, None, None)?.expect("no cap"))
 }
 
+/// A hook [`quote_unfolded_keeping`] asks at each glued call, with the
+/// number of variables in scope there: the call's read-back to use in
+/// place of its unfolding, or `None` to unfold it as [`quote`] does.
+pub type Keep<'a> = &'a mut dyn FnMut(usize, &Value) -> Result<Option<Term>>;
+
+/// [`quote`], but at each glued call ([`Value::Call`]) met, `keep` may give
+/// the term to put there instead of the call's unfolding (SW-4637: a
+/// `match`'s occurrence test keeps calls folded where its scrutinee can't be
+/// hidden). Equal to [`quote`] where `keep` always says `None`.
+pub fn quote_unfolded_keeping(g: &Ev, level: usize, value: &Value, keep: Keep<'_>) -> Result<Term> {
+    match quote_as_until(
+        g,
+        level,
+        value,
+        Readback::Unfolded,
+        None,
+        None,
+        None,
+        Some(keep),
+    )? {
+        Quoted::Term(term) => Ok(term.expect("no cap")),
+        Quoted::Met(_) => unreachable!("nothing stops a read-back without `stop`"),
+    }
+}
+
 /// Instrumentation (SW-1782): with `STITCHWORT_DEBUG_FORCE_UNGLUED` set,
 /// every folded read-back is preceded by an unfolded one with gluing off,
 /// which fills the cells of every call it reaches. Its result, steps and
@@ -3288,7 +3313,7 @@ fn quote_as(
     cap: Option<u64>,
     max_depth: Option<usize>,
 ) -> Result<Option<Term>> {
-    match quote_as_until(g, level, value, mode, cap, max_depth, None)? {
+    match quote_as_until(g, level, value, mode, cap, max_depth, None, None)? {
         Quoted::Term(term) => Ok(term),
         Quoted::Met(_) => unreachable!("nothing stops a read-back without `stop`"),
     }
@@ -3333,6 +3358,7 @@ pub fn normal_form_meets(
             Some(cap),
             None,
             Some(stop),
+            None,
         )? {
             Quoted::Met(m) => Some(Some(m)),
             Quoted::Term(Some(term)) => Some(scan(&term)),
@@ -3345,6 +3371,7 @@ pub fn normal_form_meets(
 /// as a value to read back: an unknown no solution replaced, or the erased
 /// placeholder. One it doesn't meet that way (a value that only forces to
 /// one) is in the finished term.
+#[allow(clippy::too_many_arguments)]
 fn quote_as_until(
     g: &Ev,
     level: usize,
@@ -3353,6 +3380,7 @@ fn quote_as_until(
     cap: Option<u64>,
     max_depth: Option<usize>,
     stop: Option<&dyn Fn(usize) -> bool>,
+    mut keep: Option<Keep<'_>>,
 ) -> Result<Quoted> {
     let _phase = g.machine.budget.phase(crate::budget::Phase::Readback);
     // A work list rather than recursion: `tasks` are values still to visit
@@ -3400,6 +3428,12 @@ fn quote_as_until(
                         g.machine.budget.note_readback(size);
                         return Ok(Quoted::Met(m));
                     }
+                }
+                if let (Some(keep), Value::Call(..)) = (keep.as_mut(), &value)
+                    && let Some(term) = keep(level, &value)?
+                {
+                    done.push(term);
+                    continue;
                 }
                 visit(g, level, value, depth, mode, &mut tasks, &mut done)?;
             }
