@@ -43,6 +43,10 @@ pub struct Meta {
     /// The name of the parameter it stands for, which a message prints it
     /// by (`_n`): set with [`Meta::origin`].
     pub param: Option<Rc<str>>,
+    /// How many leading arguments of its spine are the variables in scope
+    /// where it was made: set with [`Meta::origin`]. A message leaves those
+    /// out and shows any further argument.
+    pub context: Option<usize>,
     /// For an instance argument, its type (`Add Int`), which a message
     /// prints it by instead of its parameter's name.
     pub instance: Option<Value>,
@@ -144,14 +148,16 @@ impl MetaStore {
             ty: None,
             origin: None,
             param: None,
+            context: None,
             instance: None,
         });
         metas.len() - 1
     }
 
     /// Records what unknown `m` stands for (see [`Meta::origin`]).
-    pub fn set_meta_origin(&self, m: usize, param: Rc<str>, origin: Rc<str>) {
+    pub fn set_meta_origin(&self, m: usize, param: Rc<str>, origin: Rc<str>, context: usize) {
         let mut metas = self.metas.borrow_mut();
+        metas[m].context = Some(context);
         metas[m].origin = Some(origin);
         metas[m].param = Some(param);
     }
@@ -178,6 +184,11 @@ impl MetaStore {
             .filter(|o| o.solution.is_none() && o.param.as_deref() == Some(&*param))
             .count();
         Some(crate::check::unknown_label(&param, earlier))
+    }
+
+    /// See [`Meta::context`].
+    pub fn meta_context(&self, m: usize) -> Option<usize> {
+        self.metas.borrow().get(m)?.context
     }
 
     /// See [`Meta::origin`].

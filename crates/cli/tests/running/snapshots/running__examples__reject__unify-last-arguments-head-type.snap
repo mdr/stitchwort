@@ -9,11 +9,11 @@ expression: output
     │                                                                              ──┬──  
     │                                                                                ╰──── this `cases`
     │ 
-    │ Note 1: hypothesis 1 (unnamed): _le
+    │ Note 1: hypothesis 1 (unnamed): _le x y
     │ 
-    │ Note 2: hypothesis 2 (unnamed): _le
+    │ Note 2: hypothesis 2 (unnamed): _le y z
     │ 
-    │ Note 3: goal: _le
+    │ Note 3: goal: _le x z
     │ 
     │ Note 4: the goal isn't stuck on anything `cases` can take apart, and neither `byComputing`, a contradiction, a hypothesis, `arithmetic` nor deciding it (as `byDecision` does) proves it; give this case's proof as `cases then t`
 ────╯

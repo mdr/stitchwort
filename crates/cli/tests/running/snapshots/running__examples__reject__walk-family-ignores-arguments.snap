@@ -11,5 +11,5 @@ expression: output
     │ 
     │ Note 1: the family's relation Mine ignores its program and its post (its body mentions neither), so the walk can't read them; state the relation so it uses both
     │ 
-    │ Note 2: the goal there is Mine (arg => _j) _holds
+    │ Note 2: the goal there is Mine (arg => _j first) _holds
 ────╯

@@ -5932,8 +5932,12 @@ fn note_origin(
     {
         cx.metas().set_meta_instance(*m, dom.clone());
     }
-    cx.metas()
-        .set_meta_origin(*m, param.to_string().into(), origin.into());
+    cx.metas().set_meta_origin(
+        *m,
+        param.to_string().into(),
+        origin.into(),
+        meta.spine().1.len(),
+    );
 }
 
 pub(crate) fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
