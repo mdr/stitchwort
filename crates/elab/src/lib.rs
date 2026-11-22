@@ -448,6 +448,10 @@ impl stitchwort_core::Shown for Elaborator {
         )
     }
 
+    fn unknown_context(&self, m: usize) -> Option<usize> {
+        self.attempt.store.meta_context(m)
+    }
+
     fn has_print_labels(&self) -> bool {
         !self.attempt.store.print_labels.borrow().is_empty()
     }

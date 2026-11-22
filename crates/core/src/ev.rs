@@ -63,6 +63,13 @@ pub trait Shown {
         None
     }
 
+    /// How many leading arguments of unknown `m` are the variables in scope
+    /// where it was made, which a message leaves out (further arguments are
+    /// shown), if known.
+    fn unknown_context(&self, _m: usize) -> Option<usize> {
+        None
+    }
+
     /// Whether there are any labels ([`Shown::print_label`]): a fast path.
     fn has_print_labels(&self) -> bool {
         false

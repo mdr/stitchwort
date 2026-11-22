@@ -1541,6 +1541,7 @@ impl<'g> Printer<'g> {
             {
                 let skip = args
                     .iter()
+                    .take(self.g.shown.unknown_context(*m).unwrap_or(usize::MAX))
                     .take_while(|a| matches!(a.strip_loc(), Term::Var(_)))
                     .count();
                 self.applied(names, name, args.into_iter().skip(skip))
