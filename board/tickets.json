@@ -31428,14 +31428,14 @@
     {
       "id": 4546,
       "title": "[Sonnet] Differential sweep: give the recursive reference evaluator a depth guard (ResourceError::Depth exists, unused on that path) so an example too deep for it is skipped and counted under MAX_SKIPPED instead of aborting the whole test process; then fin-pattern-numbers.sw's manual skip marker can go and a new deep example can't hide behind the sample again (SW-4545)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
       "body": "",
       "created": "2026-11-21",
-      "updated": "2026-11-21",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -31576,14 +31576,14 @@
     {
       "id": 4557,
       "title": "[Opus] Let a byComputing premise be left out at a call (a default or auto-parameter), so a lemma's 'rebuilt' fact closed by computing needs no (v1 => byComputing) tail at every use (SW-4553): design note first, with the call sites it would clean",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
       "body": "",
       "created": "2026-11-21",
-      "updated": "2026-11-21",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -31946,12 +31946,12 @@
     {
       "id": 4585,
       "title": "[Opus] Search: 6775 of 7012 recorded proof uses fail their own lemma's filtered first pass, because a use pattern's constants include its arguments' constants, which the lemma's type doesn't name (SW-4579). Decide whether use patterns should leave the arguments' constants out of the filter (and what that does to recall@10 and out-of-budget in search_bench::proof_uses_find_their_lemma_among_the_first_ten), and do it if it helps",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "Lane (Opus, 22 Nov, from 08:00; est. 45 min), branch lane/SW-4585:\n- Baseline (all profile, 1007 s): 10347 queries, recall@10 55.4%, top-1 41.3%, 39110 out of budget; 3572 pass their own lemma's filter (so 6775 fail), 5520 answered by the filtered pass.\n- Trying: written = the lemma's conclusion only (args left out), and written = conclusion plus only the args it mentions.\n",
+      "body": "Lane (Opus, 22 Nov, from 08:00; est. 45 min), branch lane/SW-4585:\n- Baseline (all profile, 1007 s): 10347 queries, recall@10 55.4%, top-1 41.3%, 39110 out of budget; 3572 pass their own lemma's filter (so 6775 fail), 5520 answered by the filtered pass.\n- Trying: written = the lemma's conclusion only (args left out), and written = conclusion plus only the args it mentions.\n\n- Cause: use_pattern's Pattern::constants (the conclusion with the arguments put in) and its written set (the conclusion as stated plus every argument) both name the arguments' definitions; the filter wants a candidate naming all of one set, and the generic lemma a proof instantiates doesn't. The lemma is then found only when nothing else passes and the relaxed pass runs.\n- stitchwort search builds queries the same way (search_pattern: folded constants plus constants of the whole written term), so a goal-shaped query loses a generic lemma in the filtered pass just as the bench's uses do; leaving the arguments out would let the bench know the answer's constants, which no user query does.\n- Measured (all profile): conclusion only: recall@10 55.4 -> 54.6, not found 3236 -> 4211, top-1 41.3 -> 43.3, out of budget 39110 -> 25843: dropped. Conclusion plus only the arguments it mentions: recall@10 and top-1 unchanged, out of budget 39110 -> 38733, not found 3236 -> 3253: kept (commit 5ad583eeb), with the bench now printing own-filter passes and filtered-pass answers.\n- Tests: search_bench::a_use_pattern_passes_its_own_lemmas_filter, proof_use_of_flipped_run_..., proof_use_with_lambda_arguments_... pass; clippy clean. Each bench run 10-17 min.\nModel result: Opus, worked, 57 min (est. 45)\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
