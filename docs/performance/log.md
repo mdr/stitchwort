@@ -46,6 +46,59 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 22 Nov 2026
 
+### SW-4582: inside an argument checked again if it fails, a nested argument that fails in place fails it, instead of being held for after its own expected type; AoC 2020 day 16's `runsNotes` 40.3M to 2.4M steps
+
+- **Problem.** SW-4580 left `runsNotes` at 40,273,232 steps, with its
+  innermost of nine nested `Parse.runsBind` calls elaborated about 191
+  times.
+- **Profile (measured).** A temporary counter in `check` and `infer`
+  (removed) logged each elaboration of a `runsBind` call with its steps,
+  result, error and the chain of argument checks around it (in place, after
+  the expected type, recheck, retry). The nine calls of the chain were
+  elaborated 1, 2, 3, 6, 12, 24, 48, 96 and 192 times from the outside in:
+  each `runsNext` argument is checked in place, fails, is held and checked again after its
+  application's expected type, at every level, inside every trial above
+  it. Only the path "outermost in place, every other level after its
+  expected type" succeeded. Every other trial failed in the same way: at the
+  innermost `Parse.runsPure _ ending`, against a goal with an innermost
+  `runsBind`'s `j` (its `_`) not yet worked out, which only comparing each
+  level's type with its expected type, from the outside in, fixes. The
+  innermost call's 192 elaborations cost 31.2M of the 40.3M steps (about
+  158k each, mostly its `runsLinesOf` argument). Through the chain the
+  steps grow as 2^n in the nesting.
+- **Rejected first (measured).** Skipping the in-place check of a nested
+  argument inside a trial (holding it at once, as SW-2638 does for lambdas
+  in a retried application) broke the standard library:
+  `std/Ring/Sound.sw` and `std/Fin/Fin.sw` need an argument checked in
+  place inside another's trial. Not kept.
+- **The change** (`check::explicit_arg_failed`). Inside an argument checked
+  in place that is checked again after its expected type if it fails
+  (`HolesRetry::Deferred`, SW-4580's mode for the same arguments), a nested
+  argument that fails in place no longer gets held and checked again: the
+  trial around it fails, and that argument is checked again with more
+  known, as with a `holes_by_arguments` retry. If the argument around
+  can't be held after all, it is checked once more with nothing put off
+  (`HolesRetry::Always`, SW-4580's fallback), so a call that only succeeds
+  through the held check still does when nothing else would check it. The
+  in-place trials themselves are kept, so a nested argument that succeeds
+  in place inside another's trial (the std cases above) still does.
+- **Measured after.** The same calls are elaborated 2, 3, 4, 5, 6, 7, 8, 9
+  and 10 times; the outermost now fails in place too and passes after its
+  expected type, as every level does. The innermost's ten cost 0.63M steps.
+  `runsNotes`: 2,414,034 steps (16.7x fewer); the step_counts ceiling goes
+  from 48M to 2.9M. Hashes unchanged (`task
+  test:hashes ALL=1`, 12 passed); the standard library, AoC 2020 day 16's
+  proofs and tools/fmt's `Fmt.JoinProofs` check.
+- **Not exact.** An argument that succeeded in place only because a nested
+  argument passed its check after its own expected type, inside the trial,
+  is now checked after its expected type instead. That is the same argument
+  checked with more known, and none of the hashes or checks above changed,
+  but the change is not proved to keep every result. The examples sweep (the
+  verifier's) is what would show a changed message or a refusal.
+- **Not measured:** `bench:aoc` and the instruction benchmarks (a lane
+  doesn't run them; the change is in elaboration only, not in run code).
+- **Ticket:** SW-4582.
+
 ### SW-4569: bench baseline re-recorded after eight days of accepted costs
 
 - **Status:** merged (baseline re-recorded on main, 05:12 to 05:25, quiet
