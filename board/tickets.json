@@ -31643,12 +31643,12 @@
     {
       "id": 4562,
       "title": "[Sonnet] Roll out SW-4559's DocHolds over the printer rules with two or more fixed-reading properties (Spells, Shape, Finishes, Keys, Tell; about 1,450 lines, about 450 net predicted from the pilot), starting with appFrom (needs the texts as a record parameter; Spells 75, Shape 83, Finishes 29, Keys 60 lines); measure each rule before the next; then pilot a seam-indexed twin for Passes/Steps/Hangs (about 1,230 lines)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nLane notes (Sonnet, 22 Nov 2026), branch lane/SW-4562 d9f24068b: appFrom piloted. New Fmt/AppHolds.sw: record AppHolds (properties of one document and of a list, readings as record parameters) and appFromHolds; appFromSpells 75 -> 2 lines, appFromShape 83 -> 2, appFromKeys 60 -> 18 (theorem bodies), statements unchanged. Net code lines in the diff: +219 / -215, i.e. no saving (record 37, three instances 31 each, generic proof 30, Keys helpers 18); steps for the three theorems 1.37M -> 0.62M with the new defs counted. Finishes does not fit. Prediction (247 lines -> ~90) did not hold. Not continued to the other rules.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
