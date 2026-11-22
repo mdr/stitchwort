@@ -1,5 +1,5 @@
 {
-  "next": 4653,
+  "next": 4655,
   "tickets": [
     {
       "id": 47,
@@ -32878,15 +32878,21 @@
     {
       "id": 4647,
       "title": "[Opus] Syntax.ReadBackHungTop.readsBackHungListExample (12.4 s, 147M steps, almost all in the kernel) and readsBackHungSignExample (7.6 s, 95M steps) are 13% of a cold tools/fmt check and half the parallel critical path (docs/proposals/parallel-checking.md addendum): find why the kernel evaluation is so costly (what is computed, whether gluing/unfolding is redundant) and make it cheaper in the checker, or, if the example is needlessly large, say so (proof readability rule: do not distort the example)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "\n\nStarted 22 Nov 18:32 on Opus (orchestrator's call). Expected: 45 min.\n",
+      "body": "\n\nStarted 22 Nov 18:32 on Opus (orchestrator's call). Expected: 45 min.\n\n\nModel result: Opus, worked, 56 min (est. 45), one review round (Fable: add a test). Review: docs/reviews/SW-4647-fable-review.md.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "9cf7b0058c9e538fe46db8a5b836e9438f8459e6",
+        "6469a566af43560cc365a3e74ae3485ecb7ceaf7",
+        "83fc2835536dc7ffce67b5334eb6856205950f5a",
+        "9f57c14cfba9758f484b3adad332249fc5a9358a",
+        "2d61209bc6640f16b3f864e86ba8c1eafa274c5e"
+      ]
     },
     {
       "id": 4648,
@@ -32946,6 +32952,32 @@
     {
       "id": 4652,
       "title": "[Sonnet] Steps depend on what was checked earlier in the same process, repeatably: Syntax.FollowsDeclData.followsDeclarationOther is 762,624 steps checked alone, 762,372 or 760,964 in full tools/fmt runs (SW-4648): find which session state carries over (memo tables, unfolding cells, interned names) and whether results or limits can differ; bears on parallel checking invariants (docs/proposals/parallel-checking.md). After SW-1803.",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4653,
+      "title": "[Sonnet] The elaborator's unifier call record keeps only pairs found different (unify.rs ~1338): measure whether it re-walks shared values as kernel conv did before SW-4647, and if so remember equal pairs too (SW-4647 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4654,
+      "title": "[Sonnet] Elaborator read-back writes out shared values in full (towers of next seed seed: 131K nodes at 16 levels, 2M at 20); measure on real proofs and consider sharing-aware read-back (SW-4647 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
