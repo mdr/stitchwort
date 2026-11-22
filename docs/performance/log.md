@@ -46,6 +46,56 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 22 Nov 2026
 
+### SW-4595: SW-4582's put-off redone, except inside a held argument's check after its expected type; AoC 2020 day 16's `runsNotes` 40.3M to 2.4M steps, tools/fmt checks again
+
+- **Problem.** SW-4582 (below) cut `runsNotes` from 40.3M to 2.4M steps
+  by not holding a failing nested argument inside an argument checked in
+  place that is checked again if it fails (`HolesRetry::Deferred`), and
+  SW-4591 exempted a walk's `E-WALK`. Both were reverted: the whole
+  tools/fmt check failed at `Syntax.GoodItemProofs.readsAtFraction`
+  (E-TYPE-MISMATCH, `byComputing` against `_` at GoodItemProofs.sw:787,
+  50 dependents).
+- **Cause (measured).** A temporary log of each put-off (removed), and
+  keeping one argument's hold at a time by its source range, found the one
+  that matters: the `Inr (Both byComputing ...)` given to
+  `Parse.readsAtDone after2 True` in the lambda given to the inner
+  `readsAtThenMoved`, put off 16 times. The outer `readsAtThenMoved`'s `j`
+  can't be found by comparing its type with the theorem's
+  (`j (skip 1 ())` against `fractionFrom at` is not a pattern); only the
+  outer lambda's in-place trial succeeding fixes it, from the inside out
+  (inferred from the error's `_j ()` and the code: the inner call's `j`
+  from `readsAtDone`'s `() => True`, the outer's from the inner's
+  `() => j u`). In that trial the inner lambda fails in place
+  (`readsAtDone`'s spec waits for the inner call's), is held, and is checked
+  again after the inner call's expected type; there, `Inr` fails in place
+  (its type is `readsAtDone`'s unknown spec applied) and only holding it
+  for `readsAtDone`'s expected type lets it pass. SW-4582 put that hold off
+  too, since the check was still inside the outer lambda's trial, so the
+  trial failed, the outer `j` stayed unknown and the theorem failed.
+- **The change** (`check::explicit_arg_failed`, `Decl::holds_put_off`). The
+  put-off now follows its own flag, set where an argument's in-place trial
+  starts (`holes_retry_as` with `Deferred`) and cleared while a held
+  argument is checked after its own application's expected type
+  (`check::finish_application`), until a trial inside sets it again.
+  Holding is kept in exactly the checks that see more known, which is where
+  a hold can make a trial succeed; it is still put off in a first in-place
+  check, where in `runsNotes` every hold failed again.
+- **Exact?** No, but closer than SW-4582. A trial that succeeded only
+  through a nested argument held directly in it (not inside a check after
+  an expected type) now fails and is checked after its own expected type
+  instead. A small example of the readsAtFraction shape built on std's
+  `readsAtThen` checked with and without the change (the expected type
+  fixed `j` there), so no example was added; the regression test is
+  readsAtFraction in the tools/fmt check.
+- **Measured after.** `runsNotes`: 2,413,503 steps (2,414,034 with
+  SW-4582; 40,273,232 before); the step_counts ceiling stays 2,900,000,
+  1.2x. tools/fmt `check --no-cache`: 149 namespaces, no errors. The four
+  example sweeps pass with no snapshot change; `task test:hashes ALL=1`
+  passes; AoC 2020 day 16 and its proofs check.
+- **Not measured:** `bench:aoc` and the instruction benchmarks (elaboration
+  only).
+- **Ticket:** SW-4595 (redoes SW-4582 and SW-4591).
+
 ### SW-4592: an indexed family's split no longer compares every variable in the context unless a message shows the arm's goal; `fin-table-deep`'s `Main.code` 55.4M to 5.6M steps
 
 - **Problem.** SW-3325 (`6d960d350`) made `accept/fin-table-deep` go from
@@ -114,7 +164,9 @@ in [../proposals/README.md](../proposals/README.md).
   verifier's) is what would show a changed message or a refusal.
 - **Not measured:** `bench:aoc` and the instruction benchmarks (a lane
   doesn't run them; the change is in elaboration only, not in run code).
-- **Ticket:** SW-4582.
+- **Ticket:** SW-4582. Reverted the same day with SW-4591 (it broke
+  tools/fmt's `Syntax.GoodItemProofs.readsAtFraction`); redone as SW-4595
+  above.
 ### SW-4587: where the `examples` bench's growth since 14 Nov comes from (1.96x steps, 4.1x peak): attribution, one accident found
 
 - **Status:** measured, nothing changed in code. The accident below is filed

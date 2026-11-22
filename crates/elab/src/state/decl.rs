@@ -21,9 +21,8 @@ use stitchwort_syntax::ast;
 
 use crate::{SidesCapture, decreasing, effects, equations, families, lift};
 
-/// When `check::holes_by_arguments` elaborates a failed application again,
-/// and when an argument that fails in place is held for after its
-/// application's expected type ([`Decl::holes_retry`]).
+/// When `check::holes_by_arguments` elaborates a failed application again
+/// ([`Decl::holes_retry`]).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum HolesRetry {
     /// As soon as it fails.
@@ -105,17 +104,25 @@ pub(crate) struct Decl {
     /// (`check::explicit_arg`, `check::lambda_arg`), where it would be tried
     /// again then with more known. Day 16 of 2020's `runsNotes` retried 816
     /// such calls, all failing again, at 326 million steps against the
-    /// proof's 42 million. Nor, there, is an argument that fails in place
-    /// held and checked again after its own application's expected type
-    /// (`check::explicit_arg_failed`): the argument around fails instead,
-    /// and is checked again with more known. Held at every level, the nine
-    /// nested `Parse.runsBind`s of `runsNotes` cost 40 million steps, the
-    /// innermost elaborated 192 times; put off, 2.4 million (SW-4582).
+    /// proof's 42 million. Nor, there, is a failing argument held
+    /// ([`Decl::holds_put_off`]).
     pub(crate) holes_retry: Cell<HolesRetry>,
     /// Set when a retry or a held argument's check was put off
     /// ([`HolesRetry::Deferred`]), until the argument checked in place that
     /// put it off ends.
     pub(crate) holes_retry_skipped: Cell<bool>,
+    /// Whether an argument that fails in place is not held for after its
+    /// application's expected type but fails the argument around it, to be
+    /// checked again with more known (`check::explicit_arg_failed`): set
+    /// while an argument is checked in place that is checked again if it
+    /// fails ([`HolesRetry::Deferred`]), and cleared again inside it while a
+    /// held argument is checked after its own application's expected type
+    /// (`check::finish_application`), where holding is what lets an
+    /// argument that only that check fixes succeed. Held at every level,
+    /// the nine nested `Parse.runsBind`s of 2020 day 16's `runsNotes` cost
+    /// 40 million steps, the innermost elaborated 192 times; put off, 2.4
+    /// million (SW-4582, SW-4595).
+    pub(crate) holds_put_off: Cell<bool>,
     /// Above zero while a lambda is checked in place in an application
     /// elaborated again after a propagation by `_`s failed
     /// (`check::apply_args_postponing`): a lambda inside is not tried in
@@ -417,6 +424,7 @@ impl Decl {
             holes_watched,
             holes_retry,
             holes_retry_skipped,
+            holds_put_off,
             in_place_trial,
             bare_rows_pure,
             late_literals,
@@ -479,6 +487,7 @@ impl Decl {
             ("holes_watched", holes_watched.borrow().is_empty()),
             ("holes_retry", holes_retry.get() == HolesRetry::Now),
             ("holes_retry_skipped", !holes_retry_skipped.get()),
+            ("holds_put_off", !holds_put_off.get()),
             ("in_place_trial", in_place_trial.get() == 0),
             ("bare_rows_pure", !bare_rows_pure.get()),
             ("late_literals", late_literals.get() == 0),

@@ -1,8 +1,8 @@
 //! Proof step counts that can balloon without changing an answer, so that
 //! only the hours-long all tier would notice until much later.
 //!
-//! `Aoc.Year2020.Day16.Proofs.runsNotes` took 2,414,034 evaluation steps on
-//! 22 Nov 2026 (40,273,232 before SW-4582). Its ceiling is 2,900,000: a
+//! `Aoc.Year2020.Day16.Proofs.runsNotes` took 2,413,503 evaluation steps on
+//! 22 Nov 2026 (40,273,232 before SW-4595). Its ceiling is 2,900,000: a
 //! change that pushes it past that is a slowdown to find, not a ceiling to
 //! raise without a reason.
 
@@ -43,7 +43,7 @@ fn steps(dir: &Path, namespace: &str, theorem: &str) -> u64 {
         .unwrap_or_else(|| panic!("no step count in {row:?}"))
 }
 
-/// `Aoc.Year2020.Day16.Proofs.runsNotes` took 2,414,034 evaluation steps on
+/// `Aoc.Year2020.Day16.Proofs.runsNotes` took 2,413,503 evaluation steps on
 /// 22 Nov 2026. If this fails, find the change that made the proof take more
 /// steps; do not raise the ceiling without a reason.
 #[test]

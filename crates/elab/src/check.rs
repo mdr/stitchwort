@@ -4708,12 +4708,20 @@ fn explicit_arg_failed<'a>(
     // put off with it, as a retry is: held and checked again at every level,
     // nested calls that each fail in place cost 2^n (AoC 2020 day 16's
     // `runsNotes` elaborated its innermost of nine `Parse.runsBind`s 192
-    // times, SW-4582). If the argument around can't be held after all, it
-    // is checked once more with nothing put off. A walk's leaf that waits for
+    // times, SW-4582). Not inside a held argument's check after its own
+    // expected type within it (`holds_put_off`, cleared there): that check
+    // is the one that sees more known, and its success can be what fixes
+    // an unknown of the argument around, which the expected type further
+    // out can't (`Syntax.GoodItemProofs.readsAtFraction` in tools/fmt: the
+    // `Inr` given to `Parse.readsAtDone` in the lambda given to
+    // `readsAtThenMoved` waits for `readsAtDone`'s expected type, and only
+    // the lambda's success fixes the outer `readsAtThenMoved`'s `j`;
+    // SW-4595). If the argument around can't be held after all, it is
+    // checked once more with nothing put off. A walk's leaf that waits for
     // an unknown the expected type fixes (`E-WALK`) is still held: put off
     // with the argument around, the walk stopped on `_weaker value valueTwin`
     // (`examples/reject/walk-nested-loop.sw`).
-    if cx.e.decl.holes_retry.get() == HolesRetry::Deferred && e.code != "E-WALK" {
+    if cx.e.decl.holds_put_off.get() && e.code != "E-WALK" {
         cx.e.decl.holes_retry_skipped.set(true);
         return Err(e);
     }
@@ -4992,7 +5000,12 @@ fn finish_application(
         *first_error = None;
         for (value, dom, placeholder, id) in after_expected {
             let head = head_before_placeholder(&term, id).unwrap_or_else(|| term.clone());
-            let checked = check_arg(cx, &head, value, &dom)?;
+            // Held arguments inside are held again, not put off
+            // (`explicit_arg_failed`).
+            let put_off = cx.e.decl.holds_put_off.replace(false);
+            let checked = check_arg(cx, &head, value, &dom);
+            cx.e.decl.holds_put_off.set(put_off);
+            let checked = checked?;
             let evaluated = cx.eval(&checked)?;
             if !cx.unify(&evaluated, &placeholder)? {
                 return Err(cx.mismatch(&placeholder, &evaluated));
@@ -8434,10 +8447,12 @@ fn holes_retry_as<T>(cx: &mut Ctx, mode: HolesRetry, f: impl FnOnce(&mut Ctx) ->
         _ => mode,
     };
     let saved = decl.holes_retry.replace(mode);
+    let put_off = decl.holds_put_off.replace(mode == HolesRetry::Deferred);
     let skipped_before = decl.holes_retry_skipped.replace(false);
     let result = f(cx);
     let decl = &cx.e.decl;
     decl.holes_retry.set(saved);
+    decl.holds_put_off.set(put_off);
     let skipped = decl.holes_retry_skipped.get();
     decl.holes_retry_skipped
         .set(skipped_before || (skipped && saved == HolesRetry::Deferred));
