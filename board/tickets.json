@@ -32455,15 +32455,19 @@
     {
       "id": 4621,
       "title": "[Sonnet] Split the examples benchmark: a std benchmark that checks the library once, and examples reading std from a cache filled before timing (est. 16.5G to ~3.5G steps, 232 s to ~50 s); fix programs.rs saying it works as the example suite does; baseline re-recorded on a quiet machine afterwards (SW-4593 recommendation 1)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "\n\nStarted 22 Nov on Sonnet (orchestrator's call, from SW-4593's note). Expected: 25 min.\n",
+      "body": "\n\nStarted 22 Nov on Sonnet (orchestrator's call, from SW-4593's note). Expected: 25 min.\n\n\nModel result: Sonnet, worked, 5 min (est. 25). Merged 22 Nov. Orchestrator: std stays in the broad tier (+28 s) as a regression signal. Baseline ([std], [examples]) to be re-recorded on a quiet machine.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "6a8aa362b0789f78374ae7c366abce88d9fb8f3f",
+        "d0419dd5bf1c7e5b684b2da1ffd5748c55794329",
+        "e58ea0f3c8abe4964a93b234e07e1c364c40f169"
+      ]
     },
     {
       "id": 4622,
