@@ -31788,12 +31788,12 @@
     {
       "id": 4573,
       "title": "[Sonnet] lift.rs's let-value folding (~line 1229) lacks SW-4565's annotated-value form (zonk_let in unify.rs now also folds an annotated lambda back to its let); check whether it shows the same gap with a small example, fix with a test if so",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Gap shown: a let outside a local function (`let check := r => 3 ∈ r.items; def go ... | Succ k => check b`) lifted a helper that wrote the lambda applied to b, not `check b`. Fixed in lift.rs around() by also offering the zonked annotated value. Test: postponement::a_lifted_let_lambda_folds_like_the_annotated_one (failed before, passes after); hashes unchanged. Commit 0225edab5 on lane/SW-4573.\nModel result: Sonnet, worked, 16 min (est. 30)\n",
+      "body": "Model result: Sonnet, worked (gap shown with a local-function example, fixed like SW-4565; two postponement findings filed as SW-4586), 13 min (est. 30)\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
