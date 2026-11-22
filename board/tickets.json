@@ -31255,12 +31255,12 @@
     {
       "id": 4533,
       "title": "[Sonnet] An env-gated step-attribution option for --timings (steps charged per elaborator phase: walk search, unification, application, read-back), so profiling lanes don't each build a counter (SW-4512 built one in its patch); and check the target namespace without the cache while keeping std cached",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "\n\nProgress (Sonnet lane, 22 Nov): STITCHWORT_STEP_PHASES=1 adds a 'steps by phase' table to check --timings (walk, unify, apply, read-back, other; sums to steps; Budget::phase guard in crates/core/src/budget.rs). --no-project-cache checks project namespaces afresh, library cached. Branch lane/SW-4533, one commit. Tests: kernel_dump::step_phases_add_up_to_each_declarations_steps, ::no_project_cache_checks_the_project_afresh_without_touching_its_entry, check_cache::tests::a_library_only_cache_keeps_library_entries_and_no_namespace_entries; hash_stability ALL=1 passes.\n",
+      "body": "Model result: Sonnet, worked, 20 min (est. 40)\n",
       "created": "2026-11-21",
       "updated": "2026-11-22",
       "commits": []
