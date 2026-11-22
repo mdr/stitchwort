@@ -32271,12 +32271,12 @@
     {
       "id": 4608,
       "title": "[Opus] Proof-checking speed: profile where checking time goes (tools/fmt's full check and the slowest AoC days, split by phase and by declaration, with a sampling profile of the hot functions), compare cold checking time with Lean 4 and Rocq on the existing ports (SW-2294's three AoC days, SW-4537's slice 1 sample), and write a ranked list of candidate wins (D3716, Matt, 22 Nov)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nProgress (Opus lane, 22 Nov, 11:29-12:30, est. 45 min): docs/reviews/SW-4608-proof-checking-speed.md with raw data in docs/reviews/SW-4608/. Cold tools/fmt check 252 s on one core (3.3 GB); 0.5% of declarations take half; read-back 37% of the profile. Cheap wins: explain_lifted's search of every diagnostic for every lifted helper name is 14% of the tools/fmt check; --timings=all spends 125 s of 387 s printing (unbuffered padded stderr). Lean: 3-8x slower net of loading on SW-2294's three days; loading is the bigger gap (std rechecked vs .olean). No checker code changed.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []

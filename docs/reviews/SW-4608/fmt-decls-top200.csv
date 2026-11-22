@@ -1,0 +1,201 @@
+decl,elab_ms,kernel_ms,total_ms,steps,nodes,readback_nodes,frames
+Fmt.SettleOutputProofs.standsEachFile,32460.7,4.7,32465.4,474548402.0,2153.0,1130507.0,74.0
+Syntax.ReadBackHungTop.readsBackHungListExample,267.0,10782.9,11049.9,147395970.0,290.0,43.0,216.0
+Fmt.FileLexProofs.printedFinish1,10802.8,26.4,10829.2,120833015.0,2875.0,1130394.0,98.0
+Syntax.ReadBackHungTop.readsBackHungSignExample,226.5,7022.2,7248.7,94987398.0,257.0,43.0,217.0
+Fmt.SettleOutputProofs.standsDecl,5774.8,5.3,5780.2,92977619.0,4334.0,1130523.0,49.0
+Syntax.ReadBackHungAtoms.atomHung,4394.4,38.4,4432.8,56007354.0,27780.0,273658.0,83.0
+Syntax.FollowsDeclData.followsFieldsAt,4121.1,4.4,4125.4,49631165.0,2529.0,4206.0,35.0
+Syntax.FollowsFormsBlocks.followsExprKeyword,1673.9,800.4,2474.4,28477575.0,324995.0,53464.0,42.0
+Fmt.GroupSlots.printedSplitParts,2343.3,3.0,2346.3,46614179.0,2177.0,1026279.0,110.0
+Syntax.FollowsDeclData.followsConstructorStep,2227.0,3.8,2230.9,28809071.0,2253.0,4206.0,34.0
+Syntax.ReadBackHungApp.unaryHung,2155.8,67.1,2222.9,30113995.0,64591.0,573237.0,63.0
+Syntax.FollowsDeclHeaders.followsHeaderGroupColon,2088.5,15.3,2103.9,27654781.0,10491.0,5348.0,49.0
+Fmt.DeclHangProofs.doc1Hangs,1645.3,114.6,1759.9,25583018.0,146815.0,8222.0,79.0
+Fmt.SettleOutputProofs.standsRest,1716.7,1.6,1718.3,28325705.0,1287.0,1130507.0,51.0
+Syntax.FollowsDeclData.followsDataDeclOn,1550.8,4.1,1554.9,19060449.0,3163.0,3394.0,33.0
+Fmt.OutputStatements.holdsOnSigns,753.3,745.8,1499.1,37512180.0,8.0,3.0,3055.0
+Syntax.ReadBackHungInline.arrowHung,1237.2,235.1,1472.3,15860200.0,109720.0,92326.0,67.0
+Syntax.ReadBackHungChains.cmpHung,1306.6,122.7,1429.3,19929544.0,139133.0,61605.0,60.0
+"Syntax.Group, Syntax.Row, Syntax.Header, Syntax.DefBody, Syntax.Expr, Syntax.Statement, Syntax.Let, Syntax.HandlerClause, Syntax.InductArm, Syntax.CalcStep, Syntax.RewriteRule, Syntax.Rules, Syntax.RuleSet, Syntax.Piece, Syntax.Param, Syntax.Scrutinee, Syntax.Arm, Syntax.Guard",1099.0,234.4,1333.4,18750649.0,265918.0,10001.0,55.0
+Fmt.FileLexProofs.printedStart1,1326.6,3.8,1330.4,23158190.0,1039.0,1026248.0,96.0
+Syntax.ReadBackHungChains.mulAccHung,1174.7,79.6,1254.2,16996712.0,80001.0,61605.0,60.0
+Syntax.FollowsLadder.followsPipesFrom,1228.3,2.7,1231.0,16824545.0,1609.0,9104.0,30.0
+Syntax.ReadBackHungChains.addAccHung,1041.9,92.0,1133.9,15621645.0,90384.0,61605.0,60.0
+Std.Parse.runFromLabelWholeFromOkTree,989.6,130.5,1120.1,14405273.0,96325.0,2711.0,30.0
+Fmt.ToldWordProofs.parenTell,1068.5,1.2,1069.6,7106157.0,1500.0,43727.0,33.0
+"Fmt.SpeltSlots.speltSlots, Fmt.SpeltSlots.speltInfix, Fmt.SpeltSlots.speltApp, Fmt.SpeltSlots.speltArguments, Fmt.SpeltSlots.speltCommas",1004.0,37.2,1041.2,12107191.0,29903.0,12635.0,47.0
+Syntax.ReadBackLine.orFlat,888.1,98.7,986.8,14454773.0,96891.0,14631.0,60.0
+Syntax.FollowsStatements.followsCaseNames,958.6,15.8,974.5,11504203.0,4901.0,1578.0,25.0
+Fmt.OutputStatements.holdsOnExample,465.7,489.6,955.2,21926607.0,8.0,3.0,1681.0
+Syntax.FollowsLadder.followsUnarySome,806.1,108.3,914.4,12494563.0,37486.0,20698.0,28.0
+Syntax.FollowsStatements.followsCalcSteps,831.4,80.8,912.2,13988515.0,25899.0,14634.0,43.0
+Syntax.ReadBackHungChains.appendHung,786.2,84.8,870.9,12614456.0,88451.0,61605.0,60.0
+Std.Doc.Proofs.writeSeams,504.1,355.2,859.3,15221623.0,148586.0,27909.0,28.0
+Syntax.ReadBackProofs.runsBlockLinesOneLine,850.2,7.3,857.6,8885081.0,4531.0,920.0,43.0
+Std.Parse.runFromOptionalLabelWholeNone,679.1,159.8,838.8,10011654.0,113536.0,4993.0,35.0
+Fmt.OutputFileProofs.splitStay,686.8,145.3,832.2,1927872.0,24125.0,4999.0,27.0
+Syntax.ReadBackHungApp.signArgHung,774.0,9.5,783.5,10079760.0,10408.0,273536.0,58.0
+Syntax.ReadBackLine.conjFlat,693.1,89.9,783.0,11913429.0,93648.0,14634.0,60.0
+Std.Parse.runFromLabelWholeFromBack,636.7,144.2,780.9,9455233.0,107699.0,5911.0,36.0
+"Fmt.TouchProofs.lastArgumentSteps, Fmt.TouchProofs.argumentsSteps, Fmt.TouchProofs.appSteps, Fmt.TouchProofs.chainRightSteps, Fmt.TouchProofs.chainLinksSteps, Fmt.TouchProofs.chainedSteps, Fmt.TouchProofs.linkSteps, Fmt.TouchProofs.chainElSteps, Fmt.TouchProofs.infixSteps, Fmt.TouchProofs.elSteps, Fmt.TouchProofs.allElSteps",672.9,55.8,728.7,6954581.0,48900.0,21508.0,59.0
+"Fmt.ElementsKeys.anyCellsKeys, Fmt.ElementsKeys.anyBrokenKeys, Fmt.ElementsKeys.anyContentKeys, Fmt.ElementsKeys.anyHugKeys, Fmt.ElementsKeys.anyLastKeys, Fmt.ElementsKeys.anyArgumentKeys, Fmt.ElementsKeys.anyLinkKeys, Fmt.ElementsKeys.anyPairKeys, Fmt.ElementsKeys.anyKeys",644.9,29.1,674.1,3991224.0,15430.0,18357.0,45.0
+Fmt.OutputFileProofs.declRuns,630.8,28.1,658.9,4457551.0,6343.0,10001.0,86.0
+Fmt.TouchProofs.prefixSteps,584.1,58.8,642.9,7212437.0,42330.0,7080.0,45.0
+Std.Doc.Proofs.stepWords,607.8,6.0,613.8,8783932.0,6212.0,19429.0,28.0
+Syntax.ReadBackProofs.stepAtTop,531.0,82.4,613.4,7721242.0,79796.0,406.0,35.0
+Fmt.OutputStatements.holdsOnSignComments,300.4,299.2,599.6,14653626.0,8.0,3.0,1181.0
+"Fmt.SpellProofs.chainLinksSpells, Fmt.SpellProofs.linkDocsSpells, Fmt.SpellProofs.allElSpells, Fmt.SpellProofs.huggedSpells, Fmt.SpellProofs.lastArgumentSpells, Fmt.SpellProofs.argumentDocsSpells, Fmt.SpellProofs.appDocsSpells, Fmt.SpellProofs.elSpells",521.6,56.3,577.9,4899031.0,15484.0,55611.0,43.0
+Fmt.OutputStatements.holdsOnClosers,289.8,278.9,568.7,13235536.0,8.0,3.0,1001.0
+Syntax.ReadBackProofs.stepInBracket,464.7,93.1,557.8,6557175.0,93090.0,254.0,36.0
+Syntax.FollowsDeclData.followsBracedFields,540.9,2.4,543.2,6463237.0,1127.0,2448.0,31.0
+Fmt.BracketHangProofs.bracketContentHangs,471.2,38.2,509.5,4232336.0,18761.0,5451.0,67.0
+Syntax.FollowsLadder.followsCmpKind,311.7,182.8,494.4,6680111.0,69531.0,26896.0,35.0
+Syntax.FollowsForms.followsAtomOf,478.1,4.8,482.9,6984703.0,1876.0,8346.0,26.0
+Fmt.CalmProofs.chainRightKept,439.9,1.8,441.7,7292707.0,1933.0,43339.0,59.0
+Syntax.ReadBackHungApp.appHung,424.5,11.4,436.0,5169388.0,8111.0,61605.0,83.0
+Syntax.GoodItemProofs.lexemesFixed,404.2,23.5,427.7,4623690.0,18303.0,5831.0,35.0
+Fmt.OutputFileProofs.leafDepth,420.1,3.6,423.7,1523648.0,1436.0,10001.0,48.0
+Fmt.TopStatements.witnessGoals,212.3,209.6,421.9,10323670.0,7.0,2.0,340.0
+Fmt.GroupSlots.declCodeTexts,414.9,4.6,419.5,5507689.0,3980.0,4832.0,53.0
+Syntax.ReadBackHungFull.fullHungStep,414.8,4.1,418.9,5540802.0,4177.0,61605.0,40.0
+Fmt.PrintHangProofs.hangsOfLays,344.2,73.1,417.3,5743856.0,61976.0,35996.0,49.0
+Fmt.OutputFileProofs.leafScan,409.9,2.1,412.0,2139305.0,1838.0,10001.0,48.0
+Syntax.ReadBackHungDeep.stepInfo,406.2,5.3,411.5,3867063.0,5965.0,374.0,143.0
+Syntax.ParseCarriesDecl.readsAtDefinitionParts,376.0,32.3,408.3,4378709.0,26656.0,4520.0,115.0
+Syntax.ParseKept.readsCommaListFrom,388.4,4.1,392.5,4319680.0,2441.0,2752.0,41.0
+Syntax.FollowsLadder.followsUnaryNext,262.7,113.2,375.9,5101935.0,43200.0,17428.0,31.0
+"Fmt.Later.Expr.within6a, Fmt.Later.stepsWithin6a, Fmt.Later.rulesWithin6a, Fmt.Later.afterWithin6a, Fmt.Later.Expr.inline6a, Fmt.Later.allInline6a, Fmt.Later.baseWithin6a, Fmt.Later.fieldsWithin6a, Fmt.Later.Statement.within6a, Fmt.Later.statementsWithin6a, Fmt.Later.Let.within6a, Fmt.Later.scrutineesWithin6a, Fmt.Later.armsWithin6a, Fmt.Later.Arm.within6a, Fmt.Later.guardWithin6a, Fmt.Later.Pattern.within6a, Fmt.Later.patternsWithin6a, Fmt.Later.argumentsWithin6a, Fmt.Later.tailWithin6a, Fmt.Later.FieldsPattern.within6a, Fmt.Later.fieldPatternsWithin6a, Fmt.Later.paramsWithin6a, Fmt.Later.groupWithin6a, Fmt.Later.resultWithin6a, Fmt.Later.Header.within6a, Fmt.Later.Decl.within6a, Fmt.Later.SourceFile.within6a",42.9,314.5,357.4,2759047.0,177812.0,566.0,32.0
+Syntax.LexReadsProofs.lexemesRounds,334.0,22.3,356.3,4049662.0,18085.0,5831.0,35.0
+Fmt.SettleOutputProofs.homeStands,330.5,23.8,354.3,4026511.0,23307.0,1900.0,64.0
+"Fmt.OutputFileProofs.exprRuns, Fmt.OutputFileProofs.commaRuns, Fmt.OutputFileProofs.commaRunsAfter, Fmt.OutputFileProofs.argsRunsAfter",337.5,16.5,354.0,1825072.0,12930.0,10001.0,57.0
+"Fmt.JoinProofs.allElPasses, Fmt.JoinProofs.lastArgumentPasses, Fmt.JoinProofs.argumentsSeq, Fmt.JoinProofs.appPasses, Fmt.JoinProofs.chainRightPasses, Fmt.JoinProofs.chainLinksPasses, Fmt.JoinProofs.linkDocsPasses, Fmt.JoinProofs.chainPasses, Fmt.JoinProofs.elPasses",319.1,30.0,349.1,3483844.0,27185.0,18384.0,51.0
+Syntax.ReadBackHungBounds.leafStepPlain,342.7,4.0,346.7,3542458.0,4849.0,219.0,113.0
+Syntax.DeafProofs.recordScanDeaf,322.4,20.6,343.0,3600465.0,19781.0,349.0,20.0
+Syntax.DeafProofs.afterCloseBraceDeaf,318.8,22.1,340.9,3573622.0,20727.0,338.0,20.0
+Syntax.ReadBackRuns.runsCmpCompare,336.3,4.6,340.9,4330490.0,3980.0,13510.0,43.0
+Syntax.FollowsLadder.followsChainLink,255.6,76.6,332.1,4546311.0,26765.0,14140.0,43.0
+"Std.Doc.Proofs.joinsWeaker, Std.Doc.Proofs.allWeaker, Std.Doc.Proofs.fillWeaker, Std.Doc.Proofs.sepsWeaker, Std.Doc.Proofs.optionsWeaker",325.5,1.4,326.8,53235.0,919.0,23.0,7.0
+Fmt.DocDump.parseNode,91.8,230.3,322.1,3973597.0,23260.0,111.0,33.0
+Syntax.Tok,297.9,23.7,321.5,2114843.0,24494.0,50.0,86.0
+Std.Doc.Proofs.writeHolds,312.6,2.5,315.1,1241701.0,1361.0,19792.0,32.0
+Syntax.ParseWalkLadder.givesCmpPiped,312.6,1.5,314.1,4601530.0,740.0,13608.0,35.0
+Fmt.OutputFileProofs.runFilter,310.4,1.4,311.7,1678925.0,697.0,7226.0,51.0
+Syntax.ParseCarriesLadder.readsCmpPiped,298.5,1.4,299.9,4638624.0,854.0,13608.0,35.0
+Syntax.ReadBackRuns.runsDefinitionParts,289.1,6.7,295.8,3792231.0,6856.0,3799.0,45.0
+Fmt.TouchProofs.bracketSteps,264.6,22.9,287.5,2709798.0,14216.0,3672.0,32.0
+Fmt.ElementsKeys.ledItemHangs,237.3,42.2,279.5,1764729.0,3784.0,36676.0,43.0
+Syntax.FollowsForms.followsAtomRest,192.0,86.1,278.1,3462043.0,42219.0,5526.0,28.0
+Syntax.ParseWalkLadder.givesLogicOn,275.2,1.5,276.7,4074678.0,791.0,7098.0,37.0
+Syntax.SettleBareProofs.walkDrop,253.3,15.8,269.1,2472843.0,16613.0,777.0,35.0
+Syntax.ReadBackHungTop.readsBackHungTypeExample,84.2,181.6,265.8,3799318.0,212.0,43.0,167.0
+Syntax.SettleProofs.within1Not,118.8,145.6,264.4,7078591.0,285.0,106.0,28908.0
+Syntax.FollowsDeclArms.followsImportOpen,261.6,1.5,263.1,3334454.0,686.0,2004.0,31.0
+Fmt.StandsProofs.bitsHeard,242.4,18.7,261.1,2578398.0,15815.0,707.0,53.0
+Syntax.ParseCarriesDecl.readsDeclarationBody,165.2,95.7,260.9,3556799.0,28724.0,16285.0,31.0
+"Fmt.Later.Expr.within4c, Fmt.Later.Expr.inline4c, Fmt.Later.allInline4c, Fmt.Later.baseWithin4c, Fmt.Later.fieldsWithin4c, Fmt.Later.Statement.within4c, Fmt.Later.statementsWithin4c, Fmt.Later.Let.within4c, Fmt.Later.scrutineesWithin4c, Fmt.Later.armsWithin4c, Fmt.Later.Arm.within4c, Fmt.Later.guardWithin4c, Fmt.Later.Pattern.within4c, Fmt.Later.patternsWithin4c, Fmt.Later.argumentsWithin4c, Fmt.Later.tailWithin4c, Fmt.Later.FieldsPattern.within4c, Fmt.Later.fieldPatternsWithin4c, Fmt.Later.paramsWithin4c, Fmt.Later.groupWithin4c, Fmt.Later.resultWithin4c, Fmt.Later.Header.within4c, Fmt.Later.Decl.within4c, Fmt.Later.SourceFile.within4c",34.3,221.8,256.0,2253082.0,151140.0,410.0,25.0
+Syntax.SettleOnceProofs.onceSettledProved,249.2,4.1,253.3,3017847.0,5502.0,5834.0,34.0
+Syntax.Tok.keyword,24.1,227.0,251.1,3227457.0,5052.0,87.0,14.0
+"Fmt.Word.trails, Fmt.Word.trailing, Fmt.Word.leaf, Fmt.Word.opening, Fmt.Expr.trails, Fmt.trailsBack, Fmt.Expr.holdsTrailingComment, Fmt.Expr.el, Fmt.casesRest, Fmt.walkThenDocs, Fmt.Param.el, Fmt.paramDocs, Fmt.groupDoc, Fmt.nameDocs, Fmt.paramTrails, Fmt.lambdaBoth, Fmt.quantifier, Fmt.effectDoc, Fmt.rowItems, Fmt.parenDoc, Fmt.parenInner, Fmt.commaBracket, Fmt.bracketContent, Fmt.Expr.trailsBeforeClose, Fmt.cells, Fmt.brokenItems, Fmt.lastArgument, Fmt.huggedLambda, Fmt.huggedBlock, Fmt.huggedBracket, Fmt.keptFront, Fmt.commentBetween, Fmt.argumentDocs, Fmt.appDocs, Fmt.chain, Fmt.chainLinks, Fmt.chainRight, Fmt.linkDocs, Fmt.valueEl, Fmt.bodyAfter, Fmt.Expr.matchedParts, Fmt.bodyDoc, Fmt.Expr.callHug, Fmt.Expr.lambdaHug, Fmt.Expr.after, Fmt.blockDoc, Fmt.laterLines, Fmt.Statement.trails, Fmt.Statement.el, Fmt.letDoc, Fmt.letInDoc, Fmt.ifDoc, Fmt.ifClauses, Fmt.matchParts, Fmt.scrutineeDocs, Fmt.armLines, Fmt.Arm.el, Fmt.armDoc, Fmt.patternDocs, Fmt.guardDocs, Fmt.Pattern.el, Fmt.argumentPatterns, Fmt.wordsCommented, Fmt.patternApp, Fmt.keptPatterns, Fmt.patternBracket, Fmt.patternCells, Fmt.brokenPatterns, Fmt.namedArgDoc, Fmt.annotationDoc, Fmt.membershipDoc, Fmt.recordFieldDoc, Fmt.recordContent, Fmt.recordItems, Fmt.huggedRecord, Fmt.FieldPattern.el, Fmt.fieldsContent, Fmt.fieldItems, Fmt.fieldsJoined, Fmt.joinedFields, Fmt.ImportItem.el, Fmt.rewriteDoc, Fmt.targetDocs, Fmt.ruleDocs, Fmt.ruleSetDoc, Fmt.brokenRules, Fmt.RewriteRule.el, Fmt.calcDoc, Fmt.stepLines, Fmt.CalcStep.el",154.5,96.0,250.6,2278388.0,122514.0,5226.0,48.0
+Syntax.FollowsFormsBlocks.followsExprBinder,248.5,2.0,250.5,3459360.0,612.0,86238.0,37.0
+"Syntax.Pattern, Syntax.FieldsPattern, Syntax.FieldPattern",213.0,36.8,249.8,3579619.0,44964.0,10001.0,25.0
+Fmt.CommentsKeptProof.formatKeepsComments1,247.3,1.9,249.3,3032328.0,1811.0,10001.0,42.0
+Std.ExitStatus,242.3,1.1,243.4,5350388.0,753.0,67329.0,775.0
+Std.Parse.runFromLabelFromOkTree,199.4,42.8,242.1,3202362.0,16382.0,1059.0,31.0
+"Fmt.ToldDeclProofs.lastArgumentShape, Fmt.ToldDeclProofs.argumentDocsShape, Fmt.ToldDeclProofs.allElShape, Fmt.ToldDeclProofs.appDocsShape, Fmt.ToldDeclProofs.chainLinksShape, Fmt.ToldDeclProofs.linkDocsShape, Fmt.ToldDeclProofs.elShape",210.1,27.3,237.4,2366433.0,20633.0,6252.0,49.0
+Syntax.ReadBackHungApp.argumentHung,230.7,4.6,235.3,2899992.0,3850.0,61605.0,34.0
+Syntax.ParseWalkLadder.givesOpLogic,231.4,0.7,232.1,3645580.0,406.0,7115.0,37.0
+Syntax.ParseCarriesLadder.readsLogicOn,228.6,1.1,229.7,3717213.0,635.0,7098.0,37.0
+Fmt.HangProofs.openingHangs,223.2,6.0,229.2,2031592.0,5224.0,843.0,36.0
+Fmt.ToldWordProofs.openingTell,180.9,47.3,228.3,1282591.0,6499.0,3058.0,27.0
+Fmt.SettleParseProofs.groupsKeepOnExample,112.6,111.8,224.4,4821017.0,8.0,3.0,155.0
+Fmt.MeaningProofs.parenWalkForgotten,217.1,7.2,224.3,3348739.0,8664.0,2013.0,54.0
+Fmt.ElementsParen.innerLowers,211.1,13.0,224.1,1029524.0,9024.0,7260.0,43.0
+Fmt.OutputStatements.holdsOnTop,113.7,108.9,222.6,5044098.0,34.0,19.0,452.0
+"Fmt.CalmProofs.chainLinksKept, Fmt.CalmProofs.chainKept, Fmt.CalmProofs.linkDocsKept, Fmt.CalmProofs.elCalm, Fmt.CalmProofs.allElKept, Fmt.CalmProofs.lastArgumentKept, Fmt.CalmProofs.argumentDocsKept, Fmt.CalmProofs.appKept",209.7,12.0,221.7,2364382.0,13063.0,18842.0,57.0
+Syntax.FollowsDeclArms.followsDefinitionParts,193.1,27.6,220.8,2947333.0,24509.0,6401.0,52.0
+Fmt.SettleParseProofs.settlesOnExample,108.7,106.3,215.0,4750395.0,8.0,3.0,155.0
+"Syntax.ReadBackHungFrame.speltEnters, Syntax.ReadBackHungFrame.stepsWithin, Syntax.ReadBackHungFrame.argsEnters",200.0,13.0,213.0,1770127.0,11095.0,484.0,46.0
+Syntax.FollowsStatements.followsStatementOther,205.6,4.9,210.5,3329863.0,2585.0,21794.0,34.0
+Fmt.ElementsProofs.ledHangs,176.3,29.0,205.2,2817231.0,21510.0,36676.0,43.0
+Fmt.TopStatements.slice1Formats,200.3,4.5,204.8,2731405.0,3030.0,6268.0,53.0
+Std.Parse.readsOperatorsFromRead,192.3,11.0,203.3,2013033.0,4897.0,871.0,66.0
+Syntax.FollowsDeclArms.followsDefinitionArmStep,186.4,12.6,199.0,2760853.0,6438.0,12370.0,80.0
+Std.Parse.runsLocatedToEndFrom,187.7,10.8,198.5,1205596.0,6647.0,3466.0,66.0
+Syntax.Decl,173.1,23.3,196.4,3194500.0,25433.0,10001.0,27.0
+Syntax.ParseWalkLadder.givesExprBinder,193.9,1.2,195.1,2626081.0,614.0,43301.0,37.0
+Syntax.ReadBackHungInline.logicLinksHung,188.7,4.4,193.1,2196206.0,4144.0,24564.0,40.0
+"Fmt.StandsProofs.exprBits, Fmt.StandsProofs.itemsBitsFacts, Fmt.StandsProofs.argumentsBitsFacts",174.1,17.9,192.0,2206446.0,12993.0,2732.0,48.0
+Fmt.OutputStatements.outputNotIdle,96.2,94.4,190.6,4421041.0,21.0,11.0,714.0
+Syntax.ParseWalkStatements.givesChainLink,148.6,41.3,189.9,2288101.0,13795.0,7165.0,43.0
+Fmt.TriviaStatements.standsOnExample,94.7,93.6,188.3,4630011.0,8.0,3.0,158.0
+Syntax.ReadBackRuns.runsExprInline,185.9,1.8,187.6,2246408.0,1199.0,43130.0,37.0
+Syntax.ParseCarriesLadder.readsExprBinder,185.1,1.4,186.5,2673004.0,771.0,43349.0,37.0
+Syntax.FollowsForms.followsSuffixesOn,172.0,13.8,185.8,2087850.0,8489.0,1510.0,39.0
+Syntax.ReadBackTree.runsOperatorTree,179.4,6.0,185.4,2552202.0,2926.0,37669.0,140.0
+Fmt.OutputStatements.spacingMatters,93.9,91.1,185.0,3762055.0,83.0,49.0,66.0
+Fmt.TriviaStatements.standsOnClosers,90.9,90.4,181.3,4350938.0,21.0,11.0,95.0
+Fmt.StandsProofs.declBits,168.6,11.0,179.7,2430163.0,6675.0,4832.0,76.0
+"Fmt.TraverseFail.exprBlanks, Fmt.TraverseFail.statementsBlanks, Fmt.TraverseFail.statementBlanks, Fmt.TraverseFail.letBlanks, Fmt.TraverseFail.clausesBlanks, Fmt.TraverseFail.inductArmsBlanks, Fmt.TraverseFail.calcStepsBlanks, Fmt.TraverseFail.rulesBlanks, Fmt.TraverseFail.ruleSetBlanks, Fmt.TraverseFail.ruleListBlanks, Fmt.TraverseFail.rowBlanks, Fmt.TraverseFail.exprsBlanks, Fmt.TraverseFail.linksBlanks, Fmt.TraverseFail.piecesBlanks, Fmt.TraverseFail.scrutineesBlanks, Fmt.TraverseFail.armsBlanks, Fmt.TraverseFail.paramsBlanks, Fmt.TraverseFail.groupBlanks, Fmt.TraverseFail.headerBlanks, Fmt.TraverseFail.defBodyBlanks, Fmt.TraverseFail.groupsBlanks, Fmt.TraverseFail.optionalBlanks, Fmt.TraverseFail.afterBlanks, Fmt.TraverseFail.afterWordBlanks, Fmt.TraverseFail.guardBlanks, Fmt.TraverseFail.beforeBlanks",138.3,40.0,178.2,2534310.0,8807.0,483.0,27.0
+Fmt.JoinProofs.bracketContentPasses,159.4,18.4,177.8,1978221.0,12131.0,3020.0,34.0
+Std.Parse.runFromAttemptFromOkTree,137.8,40.0,177.8,2211626.0,10438.0,1339.0,30.0
+Syntax.FollowsDeclHeaders.followsExpectFixedTwo,173.3,3.7,177.0,2214006.0,1650.0,986.0,28.0
+Fmt.PrefixHeadSplit.prefixHeadPrinted,55.1,121.1,176.2,1012305.0,32.0,4.0,152.0
+Std.Parse.runFromLabelFromBack,140.0,33.2,173.2,2192862.0,11276.0,881.0,34.0
+Syntax.ParseWalkStatements.givesExprKeyword,169.4,1.8,171.3,2766039.0,1131.0,26818.0,37.0
+Syntax.FollowsLadder.followsSemiAfter,142.4,27.2,169.5,1902560.0,8821.0,229.0,18.0
+Fmt.SettleOutputProofs.splitTokens,127.2,42.4,169.5,2021930.0,49448.0,13080.0,23.0
+Syntax.ReadBackHungAtoms.listStepsHung,164.2,5.3,169.5,1769860.0,4009.0,61604.0,57.0
+Syntax.ParseWalkCalc.givesCalcSteps,127.3,40.9,168.2,1774958.0,13033.0,7375.0,37.0
+Std.Parse.runFromThenCongrTree,156.5,11.6,168.1,2099755.0,5976.0,1154.0,29.0
+"Syntax.ParseWalkOthers.givesConstructorBracket, Syntax.ParseWalkOthers.givesConstructorParen, Syntax.ParseWalkOthers.givesConstructorBraced, Syntax.ParseWalkOthers.givesConstructorParts",164.1,3.5,167.6,965960.0,2565.0,3881.0,34.0
+Std.Parse.runFromOptionalFromOk2Tree,128.7,38.6,167.3,2254939.0,10813.0,1368.0,34.0
+Fmt.CalmTopProofs.plainDefTopped,131.1,35.6,166.7,2697561.0,21399.0,7910.0,77.0
+Fmt.ElementsHomed.homedOfSettled,160.5,4.1,164.5,702494.0,3090.0,2489.0,47.0
+Syntax.SettleMarkProofs.commaMovedFstAny,163.2,1.2,164.5,161065.0,1436.0,169.0,28.0
+Fmt.ToldWordProofs.leafTell,158.1,6.2,164.3,634345.0,3379.0,4228.0,27.0
+Fmt.OutputFileProofs.splitStart,115.9,47.8,163.7,380125.0,10115.0,3640.0,28.0
+Syntax.ReadBackHungApp.headHung,158.8,4.1,162.9,1854952.0,3104.0,61605.0,39.0
+Fmt.SettleOutputProofs.arrowsOnto,156.7,6.0,162.7,1791144.0,7827.0,3971.0,38.0
+Syntax.FollowsLadder.followsCmpExpr,108.2,53.2,161.4,2514321.0,22727.0,13382.0,43.0
+Syntax.FollowsFormsBinders.followsForallParam,117.3,43.9,161.2,2165765.0,13722.0,1095.0,30.0
+Syntax.ReadBackHungAtoms.tupleStepsHung,155.9,4.8,160.7,1680465.0,3812.0,61604.0,57.0
+Fmt.FileLexProofs.declLaySeamed,156.8,2.8,159.6,320947.0,3006.0,1982.0,24.0
+Syntax.ReadBackRuns.runsUnaryPrefix,157.5,1.5,159.0,1870373.0,1219.0,10405.0,31.0
+Syntax.ReadBackHungAtomsLemmas.speltOutsideHung,144.0,14.8,158.8,1468013.0,11786.0,641.0,48.0
+Syntax.ReadBackHungFrameLemmas.flatStep,153.5,5.0,158.6,1674511.0,6308.0,1011.0,28.0
+Std.Doc.Proofs.putSound,157.3,0.6,157.9,33467.0,475.0,218.0,20.0
+Fmt.CalmTopProofs.calmTopPrints,154.8,2.0,156.7,2400356.0,1595.0,200001.0,53.0
+Syntax.ParseWalkOthers.givesDeclarationOther,152.4,4.3,156.7,1974671.0,1673.0,561.0,27.0
+Std.Parse.runFromOptionalFromOkTree,121.8,34.6,156.4,2157951.0,10097.0,1334.0,30.0
+"Syntax.ParseWalkMatch.givesClauseArmBody, Syntax.ParseWalkMatch.givesClauseArm, Syntax.ParseWalkMatch.givesClauseArmsAhead, Syntax.ParseWalkMatch.givesClauseArmsLined, Syntax.ParseWalkMatch.givesClauseArms",148.6,7.1,155.7,672558.0,3636.0,4708.0,61.0
+Std.Parse.runFromThenCongr1Tree,145.6,9.8,155.4,1963965.0,4796.0,1120.0,25.0
+Syntax.ReadBackHungFrameLemmas.hangOpenStep,149.2,5.3,154.5,1628972.0,6596.0,1013.0,27.0
+Std.Parse.runFromOptionalLabelNone,117.2,37.0,154.1,1927267.0,11205.0,1099.0,32.0
+"Fmt.FinishProofs.lastArgumentFinishes, Fmt.FinishProofs.argumentsFinish, Fmt.FinishProofs.appFinishes, Fmt.FinishProofs.chainRightFinishes, Fmt.FinishProofs.chainLinksFinish, Fmt.FinishProofs.linkDocsFinish, Fmt.FinishProofs.chainFinishes, Fmt.FinishProofs.elFinishes",130.1,23.7,153.8,1190205.0,17654.0,2724.0,51.0
+Syntax.FollowsStatements.followsThenBodyOn,120.8,32.3,153.1,1839876.0,15541.0,5124.0,31.0
+Syntax.ReadBackLine.aboveCmp,120.1,32.3,152.4,2412925.0,39658.0,7323.0,55.0
+Fmt.TopStatements.witnessFormats,73.9,75.1,149.0,3426822.0,10.0,3.0,94.0
+Std.Doc.Proofs.closerLineHolds,123.7,25.0,148.8,290496.0,965.0,3083.0,19.0
+Syntax.FollowsFormsArms.followsClauseLambdaOf,143.2,4.9,148.1,2036301.0,2249.0,4896.0,37.0
+Fmt.HeldParenProofs.lineOpeningHangs,143.0,5.0,148.0,1496533.0,5398.0,843.0,40.0
+Fmt.HangProofs.openerStep,142.8,2.8,145.6,693726.0,4933.0,2902.0,30.0
+Syntax.SettleBareProofs.stepPair,136.0,8.2,144.2,1179644.0,8752.0,1313.0,47.0
+Syntax.ParseSettledStatements.holdsOnSettledExample,70.3,71.5,141.8,3476477.0,8.0,3.0,133.0
+Fmt.SettleParseProofs.groupsKeepTokens1,136.0,4.9,140.9,1969202.0,3787.0,2530.0,38.0
+Syntax.ParseKept.readsArguments,139.2,0.7,139.9,1639178.0,433.0,1491.0,28.0
+Fmt.SettleParseProofs.placedOnExample,70.0,69.3,139.3,3082007.0,8.0,3.0,155.0
+Syntax.ReadBackHungInline.logicOperatorHung,135.5,3.3,138.8,1405248.0,2148.0,24011.0,40.0
+Syntax.ReadBackLine.readsBackCommentExample,68.6,69.9,138.5,2868944.0,101.0,24.0,72.0
+"Std.Doc.Proofs.laysTold, Std.Doc.Proofs.allLaysTold, Std.Doc.Proofs.fillLaysTold, Std.Doc.Proofs.sepsLayTold, Std.Doc.Proofs.optionsLayTold",131.3,5.9,137.1,209004.0,4348.0,140.0,15.0
+Syntax.ParseWalkCalc.givesStepSign,125.7,10.0,135.7,1977493.0,1894.0,625.0,27.0
+Fmt.SettleParseProofs.declLowers1Example,68.3,67.1,135.4,2901995.0,8.0,3.0,155.0
+Fmt.ElementsParen.parenLedElHangs,134.7,0.5,135.2,26158.0,336.0,63.0,35.0
+Fmt.BracketHangProofs.parenHangs,132.2,2.9,135.1,341175.0,2126.0,2968.0,57.0
+"Syntax.ParseWalkMatch.givesMatchArm, Syntax.ParseWalkMatch.givesMatchArmsAhead, Syntax.ParseWalkMatch.givesMatchArmsLined, Syntax.ParseWalkMatch.givesMatchArms",126.5,7.8,134.3,765663.0,3999.0,5665.0,63.0
+Syntax.ReadBackLine.orNeeds,120.6,13.7,134.3,1961064.0,10895.0,1415.0,37.0
+Fmt.ToldWordProofs.Word.ownsLine,133.5,0.0,133.6,311.0,50.0,1.0,2.0
+Syntax.FollowsFormsPatterns.followsBracketPatternOn,90.8,41.3,132.1,1861506.0,2666.0,147.0,18.0
+Fmt.EdgeDeclProofs.edgeNotedNodeHangs,130.2,0.7,131.0,61218.0,705.0,446.0,38.0
+Std.Doc.Proofs.writeTopped,83.8,45.1,128.9,2381499.0,22852.0,3973.0,25.0
+Fmt.BracketHangProofs.markedOpeningHangs,124.1,4.7,128.8,1431813.0,5145.0,843.0,39.0
