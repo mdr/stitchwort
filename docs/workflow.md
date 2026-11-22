@@ -555,8 +555,11 @@ To see what the elaborator hands the kernel for one declaration, set
 `STITCHWORT_DUMP_KERNEL=<its full name>`: `check` prints that declaration's
 zonked type and value to standard error, once. Unset, it does nothing and
 costs nothing. Set `STITCHWORT_BIG_READBACK=<nodes>` to print every read-back
-over that many nodes to standard error, with the declaration being elaborated
-and a backtrace; unset, nothing changes.
+over that many nodes to standard error, with the declaration being elaborated,
+the source position and text of the innermost expressions being elaborated
+(`at:` the innermost, then `inside:` up to four enclosing ones: look for the
+`match`, `let` or `rewrite` line) and a backtrace; unset, nothing changes
+beyond one cached read (SW-4630).
 Set `STITCHWORT_STEP_PHASES=1` and `check --timings` adds a "steps by phase"
 table: each declaration's steps split into walk (a walk being elaborated),
 unify, apply (an application being checked), read-back and other, summing to

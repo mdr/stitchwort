@@ -141,6 +141,62 @@ pub fn set_current_declaration(name: Option<String>) -> Option<String> {
     CURRENT_DECLARATION.with(|d| d.replace(name))
 }
 
+thread_local! {
+    /// The spans of the expressions being elaborated, outermost first, for
+    /// `STITCHWORT_BIG_READBACK`'s report of which source line asked. Only
+    /// kept when the variable is set.
+    static SPAN_STACK: RefCell<Vec<stitchwort_syntax::Span>> = const { RefCell::new(Vec::new()) };
+}
+
+/// The elaborator starts on the expression at `span`. A no-op, but for one
+/// cached read, unless `STITCHWORT_BIG_READBACK` is set. Pair with
+/// [`pop_span`].
+#[inline]
+pub fn push_span(span: stitchwort_syntax::Span) {
+    if big_readback().is_some() {
+        SPAN_STACK.with(|s| s.borrow_mut().push(span));
+    }
+}
+
+/// The elaborator is done with the expression last given to [`push_span`].
+#[inline]
+pub fn pop_span() {
+    if big_readback().is_some() {
+        SPAN_STACK.with(|s| {
+            s.borrow_mut().pop();
+        });
+    }
+}
+
+/// The innermost spans being elaborated (up to `n`, innermost first,
+/// skipping repeats of the same span), described as `file:line:col  text`.
+fn current_spans(n: usize) -> Vec<String> {
+    SPAN_STACK.with(|s| {
+        let stack = s.borrow();
+        let mut seen = Vec::new();
+        for span in stack.iter().rev() {
+            if seen.len() == n {
+                break;
+            }
+            if !seen.contains(span) {
+                seen.push(*span);
+            }
+        }
+        seen.into_iter()
+            .map(|span| {
+                stitchwort_syntax::describe_span(span).unwrap_or_else(|| {
+                    format!(
+                        "file {} bytes {}..{}",
+                        span.file.index(),
+                        span.start,
+                        span.end
+                    )
+                })
+            })
+            .collect()
+    })
+}
+
 /// The elaborator phases `STITCHWORT_STEP_PHASES=1` splits a declaration's
 /// steps into (`check --timings`); a step is charged to the innermost phase
 /// running when it is taken.
@@ -1159,8 +1215,9 @@ impl Budget {
     /// A read-back ([`crate::value::quote`], the unifier's `rename`) counted
     /// `nodes` nodes, whether it finished or ran over a limit. With
     /// `STITCHWORT_BIG_READBACK` set to a count, one over it also prints the
-    /// count, the declaration being elaborated if known, and a backtrace to
-    /// standard error.
+    /// count, the declaration being elaborated if known, the source
+    /// position and text of the innermost expressions being elaborated, and a
+    /// backtrace to standard error.
     #[inline]
     pub fn note_readback(&self, nodes: u64) {
         if nodes > self.peak_readback.get() {
@@ -1171,9 +1228,15 @@ impl Budget {
         {
             let declaration = CURRENT_DECLARATION.with(|d| d.borrow().clone());
             let backtrace = std::backtrace::Backtrace::force_capture();
+            let mut at = String::new();
+            for (i, line) in current_spans(5).iter().enumerate() {
+                at.push_str(if i == 0 { "  at:     " } else { "  inside: " });
+                at.push_str(line);
+                at.push('\n');
+            }
             match declaration {
-                Some(name) => eprintln!("big readback: {nodes} nodes in {name}\n{backtrace}"),
-                None => eprintln!("big readback: {nodes} nodes\n{backtrace}"),
+                Some(name) => eprintln!("big readback: {nodes} nodes in {name}\n{at}{backtrace}"),
+                None => eprintln!("big readback: {nodes} nodes\n{at}{backtrace}"),
             }
         }
     }

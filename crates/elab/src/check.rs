@@ -2483,7 +2483,9 @@ fn same_type_head(a: &Value, b: &Value) -> bool {
 
 fn with_span<T>(cx: &mut Ctx, span: Span, f: impl FnOnce(&mut Ctx) -> Result<T>) -> Result<T> {
     let saved = std::mem::replace(&mut cx.span, span);
+    stitchwort_core::budget::push_span(span);
     let result = f(cx);
+    stitchwort_core::budget::pop_span();
     cx.span = saved;
     result
 }
