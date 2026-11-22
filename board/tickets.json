@@ -32407,12 +32407,12 @@
     {
       "id": 4618,
       "title": "[Opus] Remember read-backs within a declaration and reuse them across callers (case refinement, matching::blocker, rewrite kernel_context, lifted_type): standsEachFile did 68 read-backs of ~1.1M nodes from five callers; key by value, depth and mode, forget on a solved unknown; terms unchanged; measure that the types really repeat first (SW-4611 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nProgress (lane, Opus, 22 Nov): measured first with a throwaway probe (every read-back over 100K nodes: value identity, level, mode, epoch, result hash). Exact repeats: printedSplitParts 2 of 4, printedFinish1 2 of 11, standsDecl 0 of 13; standsDecl's are the same values read back at deeper levels (4 values x 12 read-backs at levels 10-24), which an exact memo can't serve. Added value::ReadbackMemo (EvalCaches): 10K-4M-node read-backs keyed by value parts + level + mode, valid while Metas::version (store id, epoch, trail length), Env::version (bumped by every &mut method) and machine Modes are unchanged; 4M-node cap, cleared at clear_metas; STITCHWORT_READBACK_MEMO=off|check. Measured: printedSplitParts 46.6M -> 23.9M steps (2.5 -> 1.3 s), printedFinish1 120.8M -> 98.1M (6.6 -> 5.4 s), standsDecl unchanged. =check on printedSplitParts: no difference. Commit d3c2700b8. Follow-up idea: reuse at a deeper level by shifting free indices (standsDecl ~2.9 s). Clippy not run (time).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
