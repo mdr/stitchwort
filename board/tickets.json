@@ -1,5 +1,5 @@
 {
-  "next": 4652,
+  "next": 4653,
   "tickets": [
     {
       "id": 47,
@@ -4473,7 +4473,7 @@
         "bug"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1801. Waiting on Matt's D2577-D2580 (rec: yes to all). Expected: 90 min.\n\nMatt's decisions (docs/proposals/syntax-node-ids.md §7): D2577 a copy gets a new id [rec: yes]; D2578 ids only on dot-call syntax for now [rec: yes]; D2579 drop dot_owners and spans/epoch from the key in the same stage [rec: yes]; D2580 run it on Opus [rec: yes].\n\nFrom the syntax review (docs/reviews/code-review-syntax.md): Expr::Field can carry an id cheaply. A derived Clone would copy it, so the id needs its own type whose Clone takes a fresh number (D2577: copies get new ids); its Debug prints _ under the span-hiding flag so equivalence::shape still matches; use u64 (u32 can wrap in a long server session).\n\nFrom docs/reviews/code-review-elab-checking.md (F8): a cached dot-call head is reused stale across attempts; fold into this work. See also SW-1902.\n\nFrom docs/reviews/code-review-cli-lsp-web-fmt.md (lane F): the bench's step counts change with which thread runs an example; that's this work (SW-1797, SW-1800, SW-1801), not a new ticket.\n\nFrom docs/reviews/code-review-tests.md: un-ignore a_postponed_dot_call_takes_the_same_steps_every_time in daily once this makes it pass every time.\n\nD2577-D2580: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).\n\nAudit note (22 Nov): Audit 22 Nov: still open; dot_owners is still in crates/elab (grep). Waits on D2577-D2580 per its body.\n",
+      "body": "From SW-1801. Waiting on Matt's D2577-D2580 (rec: yes to all). Expected: 90 min.\n\nMatt's decisions (docs/proposals/syntax-node-ids.md §7): D2577 a copy gets a new id [rec: yes]; D2578 ids only on dot-call syntax for now [rec: yes]; D2579 drop dot_owners and spans/epoch from the key in the same stage [rec: yes]; D2580 run it on Opus [rec: yes].\n\nFrom the syntax review (docs/reviews/code-review-syntax.md): Expr::Field can carry an id cheaply. A derived Clone would copy it, so the id needs its own type whose Clone takes a fresh number (D2577: copies get new ids); its Debug prints _ under the span-hiding flag so equivalence::shape still matches; use u64 (u32 can wrap in a long server session).\n\nFrom docs/reviews/code-review-elab-checking.md (F8): a cached dot-call head is reused stale across attempts; fold into this work. See also SW-1902.\n\nFrom docs/reviews/code-review-cli-lsp-web-fmt.md (lane F): the bench's step counts change with which thread runs an example; that's this work (SW-1797, SW-1800, SW-1801), not a new ticket.\n\nFrom docs/reviews/code-review-tests.md: un-ignore a_postponed_dot_call_takes_the_same_steps_every_time in daily once this makes it pass every time.\n\nD2577-D2580: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).\n\nAudit note (22 Nov): Audit 22 Nov: still open; dot_owners is still in crates/elab (grep). Waits on D2577-D2580 per its body.\n\n\nStarted 22 Nov 18:53 on Opus (orchestrator's call; SW-4648 found this is the cause of run-to-run step variation). Expected: 50 min.\n",
       "created": "2026-11-07",
       "updated": "2026-11-22",
       "commits": []
@@ -32928,6 +32928,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4652,
+      "title": "[Sonnet] Steps depend on what was checked earlier in the same process, repeatably: Syntax.FollowsDeclData.followsDeclarationOther is 762,624 steps checked alone, 762,372 or 760,964 in full tools/fmt runs (SW-4648): find which session state carries over (memo tables, unfolding cells, interned names) and whether results or limits can differ; bears on parallel checking invariants (docs/proposals/parallel-checking.md). After SW-1803.",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
