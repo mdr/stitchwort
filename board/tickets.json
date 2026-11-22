@@ -31255,12 +31255,12 @@
     {
       "id": 4533,
       "title": "[Sonnet] An env-gated step-attribution option for --timings (steps charged per elaborator phase: walk search, unification, application, read-back), so profiling lanes don't each build a counter (SW-4512 built one in its patch); and check the target namespace without the cache while keeping std cached",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "",
+      "body": "\n\nProgress (Sonnet lane, 22 Nov): STITCHWORT_STEP_PHASES=1 adds a 'steps by phase' table to check --timings (walk, unify, apply, read-back, other; sums to steps; Budget::phase guard in crates/core/src/budget.rs). --no-project-cache checks project namespaces afresh, library cached. Branch lane/SW-4533, one commit. Tests: kernel_dump::step_phases_add_up_to_each_declarations_steps, ::no_project_cache_checks_the_project_afresh_without_touching_its_entry, check_cache::tests::a_library_only_cache_keeps_library_entries_and_no_namespace_entries; hash_stability ALL=1 passes.\n",
       "created": "2026-11-21",
       "updated": "2026-11-22",
       "commits": []
@@ -31511,12 +31511,12 @@
     {
       "id": 4552,
       "title": "[Sonnet] SW-4550 low findings: F1 docs/core.md says run bodies are type-checked but not compared, and omits that a carried entry's trusted replay recomputes field sorts (fix the two sentences, wrap that paragraph); F2 a carried entry's run body on the trusted path goes through set_run_body as the re-check does, not a shape check only; F3 has_unsolved and unsolved_in test m == ELIDED before indexing the unknown store (latent out-of-range on the erased placeholder), with a test; F4 the early stop records budget.note_readback",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Lane (Opus, 22 Nov 2026, lane/SW-4552, cb5b2cc63): F1-F4 fixed. F2: carried entries' run bodies through set_run_body on the trusted path (test a_carried_entry_on_the_trusted_path_is_refused_a_run_body_of_the_wrong_type, fails without). F3: ELIDED skipped in has_unsolved/unsolved_in and in unify meta_headed (zonk), so the placeholder counts as no unknown, since unsolved_in's callers index the m it returns (test the_erased_placeholder_is_not_looked_up_as_an_unknown, panicked before). F4: note_readback on the early stop (test a_read_back_stopped_early_is_counted, fails without). F1: docs/core.md sentences fixed, check cache paragraph split into five. Tests: the three new, cache::tests (9), check_cache carried project tests (8), examples::soundness, test:hashes ALL=1 (12, unchanged). ~30 min.\n",
       "created": "2026-11-21",
       "updated": "2026-11-22",
       "commits": []
