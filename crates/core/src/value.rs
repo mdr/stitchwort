@@ -3351,14 +3351,15 @@ fn memo_setting() -> MemoSetting {
 /// compared as printed for debugging.
 #[cold]
 fn check_memo_hit(g: &Ev, level: usize, value: &Value, mode: Readback, term: &Term, size: u64) {
-    match quote_as_until(g, level, value, mode, None, None, None) {
-        Ok(Quoted::Term(Some(fresh), fresh_size)) => assert!(
+    // Out of work or over a limit: nothing to compare.
+    if let Ok(Quoted::Term(Some(fresh), fresh_size)) =
+        quote_as_until(g, level, value, mode, None, None, None)
+    {
+        assert!(
             fresh_size == size && format!("{fresh:?}") == format!("{term:?}"),
             "internal error: a kept read-back of {size} nodes differs from a fresh one \
              of {fresh_size}"
-        ),
-        // Out of work or over a limit: nothing to compare.
-        Ok(_) | Err(_) => {}
+        );
     }
 }
 
@@ -3482,7 +3483,7 @@ impl ReadbackMemo {
     /// large enough to be worth it and the metavariable store can say when
     /// it changes.
     fn put(g: &Ev, level: usize, value: &Value, mode: Readback, term: &Term, size: u64) {
-        if size < Self::MIN_NODES || size > Self::MAX_NODES {
+        if !(Self::MIN_NODES..=Self::MAX_NODES).contains(&size) {
             return;
         }
         let (Some((kind, parts)), Some(metas)) = (Self::identity(value), g.metas.version()) else {
