@@ -1,5 +1,5 @@
 {
-  "next": 4570,
+  "next": 4572,
   "tickets": [
     {
       "id": 47,
@@ -31695,12 +31695,12 @@
     {
       "id": 4566,
       "title": "[Sonnet] All tier 22 Nov (D3712): warning pins exceeded: std Doc/Places.sw W-REWRITE-THEN-COMPUTING 1, Float/Theory.sw W-THEOREM-FORALL 1, List/SortLemmas.sw W-REWRITE-THEN-REWRITE 1, Parse/Reads.sw W-REWRITE-THEN-COMPUTING 1, Parse/Runs.sw W-PROOF-CHAIN 4; aoc-2021 Day16/Proofs/Answers.sw W-PROOF-CHAIN 1; aoc-2024 Day12/Proofs/Sides.sw W-PROOF-CHAIN 2. Fix the proofs (or the warning if wrong); never raise a pin; rerun only the three warning_pins tests; also search_bench::every_conclusion_finds_its_theorem misses Std.Float.Theory.doubleMul",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "\n\nProgress: lane/SW-4566 31283fec5. std: 15 warnings (sweep theorem-binders, 4 calc chains in Parse/Runs.sw, 2 in Text.sw, rewrite joins); aoc Day16 and Day12 calc. Prelude snapshot re-recorded. Pin tests pass. search_bench doubleMul NOT fixed: engine cause, see report (pattern from `2 * j` holes names Nat.add, candidate index does not).\n",
+      "body": "Model result: Sonnet, worked (warning pins; doubleMul search miss traced to the search engine, filed separately), 18 min (est. 40)\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -31739,6 +31739,32 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4570,
+      "title": "[Sonnet] search_bench::every_conclusion_finds_its_theorem fails on Std.Float.Theory.doubleMul (j * (h * 2) = 2 * j * h) (all tier 22 Nov, SW-4566): the query pattern, built with holes, unfolds Nat.mul 2 ?j and can't fold it back, so its constants are Nat.add and Nat.mul while the candidate's type index has only Nat.mul; the filtered first pass needs every pattern constant in the index. Make finish_pattern (crates/elab/src/search.rs ~1277) and type_index (~1371) agree; rerun only that test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4571,
+      "title": "[DeepSeek] stitchwort sweep theorem-binders leaves match arms unreachable (W-UNREACHABLE, pinned at 0) when it moves a statement's ∀ binders before the colon (SW-4566: Parse.recursiveWithFuelEnough, loopFromEnough); the sweep should drop the arms it makes unreachable, with a test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
