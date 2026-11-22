@@ -31819,7 +31819,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "",
+      "body": "Lane (Opus, 22 Nov 03:16-): the 5 internal errors were one query, Eq.flipped's use in Parse.recursiveWithFuelMore, against Parse.runFromEndThere, runFromThenCongr, runFromThenCongrTree, runFromThenCongr1, runFromThenCongr1Tree (applying a constructor). Cause: use_pattern typed holes only from calls under no binder; argument/body are given only under the lambda of runFromMark's continuation, so argument stayed untyped and was solved with the candidate's (). Fix in use_pattern (not finish_pattern/type_index): calls under binders too, bound variables as fresh unknowns, only when the call gives a still-untyped hole (else 10 Float.Theory uses ran out of budget). Stats.internal_error_items + per-query naming in search_bench, SEARCH_BENCH_TRACE. Bench before: 10347 queries, recall@10 54.8%, 5 internal errors; after first commit: 10337 queries, 54.9%, 0. Commits e725bfda7, 4fe6bca54.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -31892,7 +31892,7 @@
     {
       "id": 4581,
       "title": "[DeepSeek] Step-count pin for Aoc.Year2020.Day16.Proofs.runsNotes (about 42M steps before SW-4480, 55M now) so a slowdown like SW-4568's shows in the lane or quick tier, not only as an all-tier 'still checking' note; and a docs/testing.md line on files an all-tier run leaves in target/tmp (differential-skips.txt)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
