@@ -32852,12 +32852,12 @@
     {
       "id": 4645,
       "title": "[Sonnet] Parallel checking measurement 3: a counter of how often a theorem body is unfolded during checking (J, case, conversion), reported by --timings; run on tools/fmt and AoC (SW-4614)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nProgress (lane, 22 Nov): STITCHWORT_THEOREM_UNFOLDS=1 counter merged-ready on lane/SW-4645 (8d572cb31). tools/fmt: 63,049 unfoldings (55,847 elaborator, 7,202 kernel; J 50,468, case 6,702, call returned by a body 5,312, conversion 80, unify 487); Std.Eq.flipped alone 37%. std 12,394; Day02 2025 5,061 (Aoc part 823); Day12 2024 5,132 (1,096); Day20 2020 5,516 (2,381). Details in docs/performance/log.md.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
