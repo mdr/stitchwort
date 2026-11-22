@@ -32868,12 +32868,12 @@
     {
       "id": 4647,
       "title": "[Opus] Syntax.ReadBackHungTop.readsBackHungListExample (12.4 s, 147M steps, almost all in the kernel) and readsBackHungSignExample (7.6 s, 95M steps) are 13% of a cold tools/fmt check and half the parallel critical path (docs/proposals/parallel-checking.md addendum): find why the kernel evaluation is so costly (what is computed, whether gluing/unfolding is redundant) and make it cheaper in the checker, or, if the example is needlessly large, say so (proof readability rule: do not distort the example)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nProgress (lane, Opus, 22 Nov 19:15): cause found and fixed in the checker. Nearly all the kernel time was one byComputing, readsBackHung's isItems (items (lexedLeaves source) = [listAt 0, ...]), in one conv: 4.3M pairs of glued calls compared by their arguments, all equal, over 87M work items, because CallMemo remembered only pairs found different and the lexed items share parser states (DAGs walked as trees). Fix (commit 9f57c14cf, crates/core/src/value.rs): a pair found equal by its arguments is recorded and answered at once when met again in the same outermost conv/mode/level; part of the shortcuts set_shortcuts_disabled turns off. Kernel change in conversion only (terms and hashes unchanged): needs a Fable review before merge. Measured (check Syntax.ReadBackHungTop --no-project-cache --timings=all, release): list 147.4M to 7.3M steps, kernel 11,078 to 86 ms; sign 95.0M to 6.5M, kernel 7,196 to 80 ms; namespace kernel 18,453 to 213 ms. Tests: examples::soundness pass; conv_shortcut equivalence (EXAMPLES=case-tree-chains,call) pass; accepted_examples_check (EXAMPLES=kernel-same-call,conv-call,large-hypothesis-call) pass. docs/core.md and docs/performance/log.md updated. No small reproducer found (see the log entry).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
