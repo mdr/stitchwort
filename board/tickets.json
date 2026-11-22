@@ -31775,12 +31775,12 @@
     {
       "id": 4572,
       "title": "[DeepSeek] Driver tests that find definitions by path suffix (ends_with(&format!(\".{name}\"))) break as std grows (SW-4565: .floored matched Std.Doc.Places.floored): grep crates/driver/tests and crates/cli/tests for the pattern and switch each to session.elab.lookup_def or an exact name; run only the tests touched",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Model result: DeepSeek, worked (6 files; checked soundness_fuzz namespace rule against the corpus), 17 min (est. 25)\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
