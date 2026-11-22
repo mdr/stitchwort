@@ -1,0 +1,7 @@
+---
+source: crates/driver/tests/library/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.lePick 2e28c8858f1228b417bef06b99664d80f3d88fd720a9b033b8a1be1b06bc1031
+Main.lePick.%match2 d7b996aa6b7fd7cc79551db6c27ef6410f7ca4842b81016fc4aef7f929638080
+Main.lePick.%match1 d93dffdd06ac0e6b73f089f8631b3a20e10ae9d35ff1b0e0dbc47dbec593219d
