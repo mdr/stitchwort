@@ -1,5 +1,5 @@
 {
-  "next": 4596,
+  "next": 4598,
   "tickets": [
     {
       "id": 47,
@@ -31987,7 +31987,7 @@
     {
       "id": 4588,
       "title": "[Opus] A let-bound lambda reaches the kernel as a bare-lambda redex (SW-4586): 'let check := (r: List Nat) => 3 ∈ r; match check n with | True => 1 | False => 0' fails E-CANNOT-INFER in the kernel on Decidable.holds {(λr. List.Mem Nat 3 r) n}; with ∈ not <, with a Prop body not Bool; the call lifting builds is right, so the replacement is later (post-lift zonk or refold, SW-4565/SW-4573). Repro: scratchpad sw4586/r/t5.sw; fix with an example",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -32083,6 +32083,32 @@
       "where": "",
       "labels": [],
       "epic": "performance",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4596,
+      "title": "[Opus] Design note: queued-check placeholders don't take let variables while lifted helpers' unknowns do (lift::spine), so let values get pasted into terms and must be folded back (SW-4588, SW-4565, SW-4573 all patched that); a let lambda passed through a nested queued match is still pasted (Float.Theory.roundsToInfinity's beyond). Note first: what including lets in queued placeholders' spines would change, cost, and risk; no code",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4597,
+      "title": "[DeepSeek] A debugging aid for elaborator lanes: STITCHWORT_DUMP_KERNEL=<declaration name> prints the term given to the kernel for that declaration (stderr), so a kernel refusal's term can be seen without temporary eprintln! edits (asked for by SW-4586 and SW-4588); document it in docs/workflow.md; and --only's help says it doesn't apply to --std",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
