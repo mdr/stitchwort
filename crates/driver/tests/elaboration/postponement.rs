@@ -349,6 +349,65 @@ def has (b: Box): Bool :=
     assert_eq!(pointed_at(set, &errors), "r.items");
 }
 
+/// [`a_decision_waits_for_a_field_in_its_proposition`], with the use in an
+/// arm of a `match` on a variable after the `let` (SW-4586): the split
+/// leaves the parameter's unknown type alone (SW-873), so `check b` there
+/// fixes it, and the decision is the annotated one.
+#[test]
+fn a_decision_waits_for_a_field_used_in_a_match_arm() {
+    let source = "\
+import Std (Bool, List, Nat, Option)
+
+type Box = { items: List Nat }
+
+def later (b: Box) (o: Option Nat): Bool :=
+  let check := r => 3 ∈ r.items
+  match o with
+    | Some _ => check b
+    | None => False
+
+def annotated (b: Box) (o: Option Nat): Bool :=
+  let check := (r: Box) => 3 ∈ r.items
+  match o with
+    | Some _ => check b
+    | None => False
+";
+    let later = mentions_with_helpers(source, "later");
+    let annotated = mentions_with_helpers(source, "annotated");
+    assert!(
+        later
+            .iter()
+            .any(|(_, m)| m.iter().any(|d| d == "Decidable.holds")),
+        "{later:?}"
+    );
+    assert_eq!(later, annotated);
+}
+
+/// [`a_decision_waits_for_a_field_in_its_proposition`], as a condition
+/// (SW-4586): `if` reads `check b` as a proposition, and its decision
+/// waits for the `.items` that only the value of `check b` shows, as the
+/// `Bool` reading's does; the decision is the annotated one.
+#[test]
+fn a_condition_waits_for_a_field_in_a_let_lambda() {
+    let source = "\
+import Std (Bool, List, Nat)
+
+type Box = { items: List Nat }
+
+def later (b: Box): Nat :=
+  let check := r => 3 ∈ r.items
+  if check b then 1 else 0
+
+def annotated (b: Box): Nat :=
+  let check := (r: Box) => 3 ∈ r.items
+  if check b then 1 else 0
+";
+    let later = mentions(source, "later");
+    let annotated = mentions(source, "annotated");
+    assert!(later.iter().any(|d| d == "List.decMem"), "{later:?}");
+    assert_eq!(later, annotated);
+}
+
 /// Stage 6 and D2016's end state: a placeholder is frozen until its check
 /// fills it, and a comparison that meets it waits for it. A lambda whose
 /// parameter's type comes from a later argument, compared with a statement

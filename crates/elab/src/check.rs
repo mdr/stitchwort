@@ -3671,26 +3671,46 @@ fn note_parameter_metas(cx: &mut Ctx, ty: &Value) -> Result<()> {
 /// parameter (`x => …`, nothing written) can't depend on `level`, so the
 /// split's substitution leaves it as it is (SW-873). Otherwise, in
 /// `x => match k with | 0 => g x | …`, `x` would have type `?t k` and, in
-/// each arm, `?t 0`, which no type solves when `g x` asks for a `Nat`. A
-/// type written by the user, or one already worked out, is never touched:
-/// only an unknown in `parameter_metas`, as the parameter's whole type, is,
-/// so dependent matching on a written type works as before. The unknown
-/// standing for the pruned one is noted in its place, for a later split
-/// and for the message if nothing works it out.
+/// each arm, `?t 0`, which no type solves when `g x` asks for a `Nat`. The
+/// same holds for such an unknown as a parameter type of a variable's
+/// function type: `let check := r => …` before `match o with`, used as
+/// `check b` in an arm, where `check : ?r o → …` would be `?r (Some x) → …`
+/// there, which `b`'s type can't solve (SW-4586). A type written by the
+/// user, or one already worked out, is never touched: only an unknown in
+/// `parameter_metas`, as the parameter's whole type, is, so dependent
+/// matching on a written type works as before. The unknown standing for the
+/// pruned one is noted in its place, for a later split and for the message
+/// if nothing works it out.
 pub(crate) fn unpin_parameter_types(cx: &Ctx, level: usize) -> Result<()> {
+    if cx.e.attempt.parameter_metas.borrow().is_empty() {
+        return Ok(());
+    }
     let g = cx.g();
-    for ty in &cx.types {
+    let unpin = |ty: &Value| -> Result<()> {
         let Value::Neutral(Head::Meta(m), _) = force(&g, ty.clone())? else {
-            continue;
+            return Ok(());
         };
         let Some(name) = cx.e.attempt.parameter_metas.borrow().get(&m).cloned() else {
-            continue;
+            return Ok(());
         };
         crate::unify::prune_variable(&cx.u(), ty, level)?;
         if let Value::Neutral(Head::Meta(m2), _) = force(&g, ty.clone())?
             && m2 != m
         {
             cx.e.attempt.parameter_metas.borrow_mut().insert(m2, name);
+        }
+        Ok(())
+    };
+    for ty in &cx.types {
+        unpin(ty)?;
+        // The parameters of a function type, opened at fresh levels past the
+        // context's, as the lambda's own were.
+        let mut opened = cx.level();
+        let mut rest = force(&g, ty.clone())?;
+        while let Value::Pi(_, _, dom, cod) = rest {
+            unpin(&dom)?;
+            rest = force(&g, cod.apply(&g, Value::var(opened))?)?;
+            opened += 1;
         }
     }
     Ok(())
@@ -8918,15 +8938,19 @@ pub(crate) fn decision_or_wait(
     cx: &mut Ctx,
     span: Span,
     prop: &Term,
+    depth: Depth,
 ) -> Result<crate::bind::Decision> {
-    let Some(blocker) = decision_blocker(cx, prop, Depth::Written)? else {
+    let Some(blocker) = decision_blocker(cx, prop, depth)? else {
         return crate::bind::decide(cx, prop);
     };
     let decidable = builtin_data(cx, Builtin::Decidable)?;
     let ty = Value::Data(decidable, vec![cx.eval(prop)?].into());
     let error = Diagnostic::error("E-CANNOT-INFER", "can't decide this proposition yet")
         .with_label(span, "it holds a value whose type isn't known here");
-    let check = DecideTerm { term: prop.clone() };
+    let check = DecideTerm {
+        term: prop.clone(),
+        depth,
+    };
     let placeholder =
         crate::queue::queue(cx, Rc::new(check), crate::queue::on(blocker), ty, error)?;
     Ok(crate::bind::Decision::Plain(placeholder))
@@ -8936,6 +8960,7 @@ pub(crate) fn decision_or_wait(
 /// ([`decision_or_wait`]), as [`Decide`] waits for its `Bool`.
 struct DecideTerm {
     term: Term,
+    depth: Depth,
 }
 
 impl crate::queue::Check for DecideTerm {
@@ -8947,7 +8972,7 @@ impl crate::queue::Check for DecideTerm {
     }
 
     fn resume(&self, cx: &mut Ctx) -> Result<crate::queue::Resumed> {
-        if let Some(blocker) = decision_blocker(cx, &self.term, Depth::Written)? {
+        if let Some(blocker) = decision_blocker(cx, &self.term, self.depth)? {
             return Ok(crate::queue::Resumed::Waiting(crate::queue::on(blocker)));
         }
         let term = (cx.e.specialise_operators(&self.term, cx.level())?)
