@@ -32724,12 +32724,12 @@
     {
       "id": 4638,
       "title": "[Sonnet] atomHung regressed: 25.5M steps after SW-4619 (measured then), 53.9M on main before SW-4635 (measured by SW-4635); find which merge since (SW-4629 projections opaque? SW-4631?) and why, with step counts per commit; then decide (SW-4635 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "\n\nStarted 22 Nov on Sonnet (orchestrator's call, proof-checking speed). Expected: 30 min.\n",
+      "body": "\n\nStarted 22 Nov on Sonnet (orchestrator's call, proof-checking speed). Expected: 30 min.\n\nSonnet lane: doubling is SW-4629 (25.5M to 53.9M, bisected); projection lets cost about half of atomHung on main (7.7M vs 3.8M all-match) but bigSplit 3.4K vs 324K; proposal: size-gated projections. See docs/performance/log.md. Model result: Sonnet, worked (measurement), ~60 min (est. 30).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
