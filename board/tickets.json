@@ -31762,12 +31762,12 @@
     {
       "id": 4571,
       "title": "[DeepSeek] stitchwort sweep theorem-binders leaves match arms unreachable (W-UNREACHABLE, pinned at 0) when it moves a statement's ∀ binders before the colon (SW-4566: Parse.recursiveWithFuelEnough, loopFromEnough); the sweep should drop the arms it makes unreachable, with a test",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Model result: DeepSeek, needed fixes (arm removal took only the | line; fixed with a multi-line test on --continue), 40 min (est. 35)\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -31920,12 +31920,12 @@
     {
       "id": 4583,
       "title": "[DeepSeek] check --only given a namespace name says only 'no theorem' (E-UNKNOWN-THEOREM): add a hint that --only takes theorem names and namespaces go as targets; and docs/workflow.md: in a lane worktree, format .sw files with the worktree's target/release/stitchwort fmt (nix develop -c stitchwort is not on PATH there)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Model result: DeepSeek, worked, 10 min (est. 25)\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
