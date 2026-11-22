@@ -202,9 +202,7 @@ def Word.spelledAt (word: Word) (hoisted: Bool): List Text :=
   (if hoisted then [] else word.comments.above.map (note => note.text)) ++ [word.text] ++ word.comments.after.toList
 
 --| The own-line comments are comments as comment placement leaves them.
-def notesSound: List Note → Bool
-  | [] => True
-  | [note, ..rest] => commentText note.text && notesSound rest
+def notesSound (notes: List Note): Bool := notes.all (note => commentText note.text)
 
 def afterSound: Option Text → Bool
   | Some comment => commentText comment
@@ -1631,16 +1629,13 @@ def Word.commented (word: Word): Bool := word.comments.texts.all commentText
 
 theorem textsAll ∀ (above: List Note) (after: Option Text):
     ((above.map (note => note.text) ++ after.toList).all commentText) = (notesSound above && afterSound after) :=
-  match above, after with
-    | [], None => byComputing
-    | [], Some comment =>
-      match commentText comment with
-        | True => byComputing
-        | False => byComputing
-    | [note, ..rest], after =>
-      match commentText note.text with
-        | True => textsAll rest after
-        | False => byComputing
+  rewrite List.allAppendAnd (above.map (note => note.text)) after.toList commentText,
+      List.allMapBool above commentText (note => note.text) then
+    match after with
+      | None => byComputing
+      | Some comment =>
+        match commentText comment with
+          | True | False => byComputing
 
 theorem commentedSound ∀ (word: Word)
     (commented: word.commented = True)

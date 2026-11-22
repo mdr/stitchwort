@@ -142,9 +142,7 @@ def plainKind: Tok → Bool
       Arrow => True
   | _ => False
 
-def plainAll: List Item → Bool
-  | [] => True
-  | [item, ..rest] => plainKind item.kind && plainAll rest
+def plainAll (items: List Item): Bool := items.all (item => plainKind item.kind)
 
 --| What `skipGroup` leaves of plain items is plain.
 theorem skipPlain ∀ (open: List Tok) (items after: List Item)
