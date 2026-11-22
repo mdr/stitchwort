@@ -1,5 +1,5 @@
 {
-  "next": 4634,
+  "next": 4635,
   "tickets": [
     {
       "id": 47,
@@ -32592,15 +32592,18 @@
     {
       "id": 4630,
       "title": "[Sonnet] STITCHWORT_BIG_READBACK: also print the source span of the innermost match, let or rewrite that asked for the read-back (SW-4619 found culprits by trial, one 45 s run per guess)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "\n\nStarted 22 Nov on Sonnet (orchestrator's call, proof-checking speed). Expected: 25 min.\n",
+      "body": "\n\nStarted 22 Nov on Sonnet (orchestrator's call, proof-checking speed). Expected: 25 min.\n\n\nModel result: Sonnet, worked, 10 min (est. 25).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "32876b57bc86b3a139c21cbb96c57056ee90c007",
+        "c32159e056d3cdf79c767d6a69f3033f258754e7"
+      ]
     },
     {
       "id": 4631,
@@ -32636,6 +32639,19 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4634,
+      "title": "[Sonnet] STITCHWORT_BIG_READBACK follow-ups: the snippet of a parenthesised argument loses its closing paren (span end or cut off by one); with several source maps the file table can name the wrong file (key by map, not index); tag the enclosing construct (match, let, rewrite); spans set directly on cx.span (local.rs, families.rs) don't reach the stack (SW-4630 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
