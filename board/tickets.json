@@ -32597,7 +32597,7 @@
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "",
+      "body": "\n\nStarted 22 Nov on Sonnet (orchestrator's call, proof-checking speed). Expected: 25 min.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -32610,7 +32610,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nStarted 22 Nov on Sonnet (orchestrator's call, proof-checking speed). Expected: 30 min.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
