@@ -32829,15 +32829,18 @@
     {
       "id": 4644,
       "title": "[DeepSeek] Parallel checking measurement 2 (docs/proposals/parallel-checking.md): a script that runs stitchwort check <namespace> processes over one cache directory in dependency order, 4 and 6 at a time, timing the whole and comparing hashes and diagnostics with a sequential run (SW-4614)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "\n\nStarted 22 Nov 17:50 on DeepSeek (orchestrator's call). Expected: 40 min. The full tools/fmt measurement at P=4 and 6 runs afterwards as an orchestrator job, not in the lane (memory: ~1.4 GB a process).\n",
+      "body": "\n\nStarted 22 Nov 17:50 on DeepSeek (orchestrator's call). Expected: 40 min. The full tools/fmt measurement at P=4 and 6 runs afterwards as an orchestrator job, not in the lane (memory: ~1.4 GB a process).\n\n\nModel result: DeepSeek, worked, ~45 min (est. 40). First slice (tools/fmt, P=2, 10 namespaces): replay overhead ~1.1 s per process, peak ~0.5 GB per process, std fill 22 s. Full run at P=4/6 still to do as an orchestrator job.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "1eb36772b",
+        "5fc6e8884971b1bcc217eeb580726308d37bdc06"
+      ]
     },
     {
       "id": 4645,
