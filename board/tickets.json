@@ -32104,12 +32104,12 @@
     {
       "id": 4597,
       "title": "[DeepSeek] A debugging aid for elaborator lanes: STITCHWORT_DUMP_KERNEL=<declaration name> prints the term given to the kernel for that declaration (stderr), so a kernel refusal's term can be seen without temporary eprintln! edits (asked for by SW-4586 and SW-4588); document it in docs/workflow.md; and --only's help says it doesn't apply to --std",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "",
+      "body": "Model result: DeepSeek, worked, 18 min (est. 25)\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
