@@ -46,6 +46,45 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 22 Nov 2026
 
+### SW-4641: cheaper values, step 1: bounded free for environments and spines, plain `mi_malloc`; 12.1% fewer instructions on a cold tools/fmt check
+
+- **Problem.** SW-4613's profile (docs/proposals/cheaper-values.md) put allocation at 35-41% of
+  checking self time, much of it freeing: `Values` (closure environments, constructor fields)
+  and `Spine` moved every value onto the iterative free's work list however shallow, and
+  `mimalloc::MiMalloc` sent every allocation through `mi_malloc_aligned`, which in mimalloc v3
+  over-allocates in a larger size class when the page has no free block ready and the size is
+  not a power of two.
+- **Change.** (1) `Drop for Values` and `Drop for Spine` use `drop_nested`, as `Shared` and
+  `DataArgs` did: the default drop while fewer than 128 drops are nested, then the iterative
+  free. (2) A new crate, `stitchwort-alloc` (standalone's existing allocator, moved): plain
+  `mi_malloc`/`mi_zalloc`/`mi_realloc` when the alignment is 16 or less and at most the size,
+  the aligned calls otherwise; the CLI, test binaries, standalone executables and the counting
+  allocators use it. (3) `STITCHWORT_ENV_METRICS=1` (step 0), below.
+- **Measured (cold `check --no-cache --timings=all` of all of tools/fmt, `/usr/bin/time -l`,
+  nice 19, one run each, 5-minute load 5.9-7.4 at start).** Base (two runs):
+  1,430.1G / 1,430.8G instructions, 143.3 / 136.7 s user, 1.449 / 1.453 GB max RSS. Bounded
+  free alone: 1,318.2G instructions (-7.85%), 131.4 s user, 1.450 GB. Plus the allocator:
+  1,263.1G (-11.7%; -4.2% against the free alone), 129.6 s user, 1.429 GB (-1.4%), peak
+  footprint 1.394 GB (-2.7%). Plus the counters, off: 1,256.9G (-12.1%), 128.6 s user (-8.2%
+  against the base runs' mean), 1.428 GB. Counters on: 1,257.4G instructions, so their cost is
+  in the noise.
+- **Steps.** Total 1,890,479,178 and 1,890,481,815 in the two base runs: the base already varies
+  run to run, in 15-20 declarations (most in `Syntax.Follows*` and the `Syntax` definitions they
+  prove things of, a few hundred steps each, at most 4,400). Every run of the changed binaries
+  differs from the base only in declarations of that kind and size (final: 1,890,472,819, 20
+  declarations). Not identical declaration by declaration, then, but no difference beyond what
+  the unchanged binary shows against itself; the source of the variation is a separate ticket.
+- **mimalloc v2 (measurement only, not adopted).** With the plain calls: 1,287.7G instructions
+  (+2.45% against v3), 130.8 s user, 1.396 GB max RSS, but peak memory footprint 916 MB against
+  v3's 1.394 GB (-34%).
+- **Environment metrics (`STITCHWORT_ENV_METRICS=1`, same check).** 43.2M extensions; 44.7% of
+  an environment nothing else held. Lengths: 0 10.5%, 1 11.3%, 2 9.7%, 3 7.8%, 4 8.0%, up to 8
+  71.4%, up to 16 84.8%, up to 31 94.0%, 32-63 5.2%, 64-255 0.8%; mean about 9.4, so about 407M
+  values copied, 48% of them out of unshared environments. The unshared share is 30-68% at every
+  length but 0. `size_of::<Value>()` 56 bytes, `Elim` 64.
+- **Next.** Step 2 (leaf environment built once) and step 3 (extend in place, which these
+  figures say could cover about half of the copying) need Opus with a Fable review.
+
 ### SW-4637: a generalised `match` reads its goal with calls kept folded where the scrutinee can't be hidden; `unaryHung` 21.2M to 3.6M steps
 
 - **Problem.** After SW-4635 the largest read-back left was the goal itself, read back unfolded
