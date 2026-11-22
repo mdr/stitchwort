@@ -46,6 +46,47 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 22 Nov 2026
 
+### SW-4615: std's slow Parse lemmas: lifting their leaves into step lemmas does not pay; no code changed
+
+- **Status:** dropped; measured, nothing merged.
+- **Problem.** SW-4608 (win 7) found std's Parse lemmas dominate a cold
+  check: `Reads.sw` 2.5 s elaboration (4.4 s in SW-4608's run), the slowest
+  `runFromLabelWholeFromOkTree` 14.4M steps, then `runFromOptionalLabelWholeNone`
+  10.0M and `runFromLabelWholeFromBack` 9.5M.
+- **Profile (measured).** `STITCHWORT_BIG_READBACK=1500 STITCHWORT_STEP_PHASES=1
+  check --std Parse/Reads.sw --no-cache --timings`: 10.2 of
+  `runFromLabelWholeFromOkTree`'s 14.4M steps are read-back (unify 0.9M,
+  apply 0.8M); 165 of the file's 194 read-backs over 1,500 nodes are in it, from
+  `substitute_in` (case-branch refinement), `reread_in`, and `rewrite`'s
+  `kernel_context`. Cause: after `match reify q`, `h`'s type is `labelWholeFrom`
+  unfolded against the concrete step (the whole `handle` expanded, 2.7K nodes), and
+  each of the 14 leaves refines it, then `rewrite Effect.translateNoOp _ at h`
+  reads it back again. Unlike SW-4611 the terms are small (not 1M nodes); the
+  cost is about 1M steps per leaf.
+- **Tried (reverted).** Per-effect step lemmas over small values
+  (`labelWholeMarkStep`, `…SpanStep`, `…NextEndStep`, `…NextHitStep`,
+  `…NextMissStep`, `…LiteralHitStep`, `…LiteralMissStep`), each doing the
+  `translateNoOp` rewrite (and the `match c` on `Parse.further`'s comparison,
+  and the `s.at.rest` / `stripPrefixBy` equation) in its own small context, with
+  the tree lemma passing `if … then … else furthest` to its recursive call.
+  They check. Steps: `runFromLabelWholeFromOkTree` 14.4M → 12.8M with only the
+  mark and span leaves lifted (about 1.3M saved), but each step lemma costs
+  0.36M (mark) to 2.6M (next miss) itself, 10.5M together, so lifting every leaf
+  would land near 13.6M, 5% below the 14.4M. The step lemma's own cost is the
+  same read-back of the unfolded handler: `rewrite … at h` normalises `h` to find
+  `translate`. Doing the rewrites once before the `match c` (instead of inside
+  each branch) saved 6% of one lemma. `byComputing h` or plain `h` can't
+  replace the rewrite: `translate` over a stuck computation doesn't reduce.
+- **Not done: the real fix.** Keep `q` abstract: carry `q () = op ≫ r` as an
+  equation instead of refining `q` with `match reify q`, and prove per-effect
+  unfolding equations of `labelWholeFrom` once (statements over `q`, `what`,
+  `start`, `furthest` only); the tree lemmas then rewrite with small equations
+  and `h` never unfolds. It touches every `reify`-based lemma in
+  `Reads.sw`/`Runs.sw` (about 13 families), so it wants its own design; or an
+  elaborator change so `rewrite … at h` doesn't read back the whole of `h`
+  per rewrite (SW-4611's memo of read-backs would reach this too).
+- **Ticket:** SW-4615; follows SW-4608 and SW-4611.
+
 ### SW-4593: who pays for checking the standard library on import: measured, nothing changed in code
 
 - **Status:** measured; a note, [std-import-cost.md](../proposals/std-import-cost.md).
