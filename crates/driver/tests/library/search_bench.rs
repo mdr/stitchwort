@@ -251,6 +251,48 @@ fn a_conclusion_with_a_literal_factor_passes_the_filter() {
     })
 }
 
+/// `Std.Int.mulZero`'s use in `Std.Omega.dotDiv`: its type, with the use's
+/// arguments as holes, computes (a literal factor becomes a sum) and names
+/// definitions the lemma's own folded type doesn't, so the use's pattern
+/// must also offer the definitions as written, or the filter drops the
+/// lemma itself.
+#[test]
+fn a_use_pattern_passes_its_own_lemmas_filter() {
+    with_session(STACK, Session::for_stack, |session| {
+        load_library(session);
+        let candidates = theorems(session);
+        let ids: BTreeSet<DefId> = (candidates.iter())
+            .filter_map(|c| match c.item {
+                Item::Def(id) => Some(id),
+                Item::Ctor(..) | Item::Part(..) => None,
+            })
+            .collect();
+        let g = &session.elab.ev();
+        let (_, lemma, args, depth) = lemma_uses(g, &ids)
+            .into_iter()
+            .find(|(o, l, _, _)| {
+                g.def(*o).path().to_string() == "Std.Omega.dotDiv"
+                    && g.def(*l).path().to_string() == "Std.Int.mulZero"
+            })
+            .expect("dotDiv uses mulZero");
+        let args: Vec<&Term> = args.iter().collect();
+        let pattern = session
+            .elab
+            .use_pattern(lemma, &args, depth)
+            .expect("a pattern");
+        let own = candidates
+            .iter()
+            .find(|c| c.item == Item::Def(lemma))
+            .expect("the lemma");
+        assert!(
+            stitchwort_elab::search::passes(&pattern, &own.index),
+            "pattern {:?} against index {:?}",
+            pattern.constants,
+            own.index.ty
+        );
+    })
+}
+
 #[test]
 fn every_left_side_finds_its_theorem() {
     let score = self_retrieval(true);

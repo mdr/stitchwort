@@ -1208,7 +1208,7 @@ impl Elaborator {
                 }
                 _ => return Ok(None),
             };
-            self.finish_pattern(value, ty, Some(written))
+            self.finish_pattern(value, ty, Some(constants(written)))
         })();
         g.machine.glue.set(was);
         made.ok().flatten()
@@ -1300,7 +1300,19 @@ impl Elaborator {
             if matches!(ty, Value::Pi(..)) {
                 return Ok(None);
             }
-            self.finish_pattern(ty, Some(Ty::Type), None)
+            // The statement as written: the lemma's conclusion and the
+            // arguments given, which may hold the holes.
+            let mut stated = def.ty().strip_loc();
+            for _ in args {
+                if let Term::Pi(_, _, _, cod) = stated {
+                    stated = cod.strip_loc();
+                }
+            }
+            let mut written = constants(stated);
+            for arg in args {
+                written.extend(constants(arg));
+            }
+            self.finish_pattern(ty, Some(Ty::Type), Some(written))
         })();
         g.machine.glue.set(was);
         made.ok().flatten()
@@ -1318,7 +1330,7 @@ impl Elaborator {
         &self,
         value: Value,
         ty: Option<Ty>,
-        written: Option<&Term>,
+        written: Option<BTreeSet<DefId>>,
     ) -> Res<Option<Pattern>> {
         let g = &self.ev();
         if let Value::Neutral(Head::Meta(_), s) = force(g, value.clone())?
@@ -1331,7 +1343,7 @@ impl Elaborator {
         Ok(Some(Pattern {
             head: head_key(&quoted),
             constants: constants(&quoted),
-            written: written.map(constants),
+            written,
             data: data_types(&quoted),
             size: size(&quoted),
             value,

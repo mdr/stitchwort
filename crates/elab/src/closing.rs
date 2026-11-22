@@ -201,7 +201,7 @@ impl Elaborator {
             // matches (`Cons 1 ys` in `List.consInjectiveExample`, SW-1055).
             self.settle_queue()?;
             let v = cx.eval(&term)?;
-            self.open_from(&cx, Vec::new(), hyps, v, span)
+            self.open_from(&cx, Vec::new(), hyps, v, Some(&term), span)
         })();
         self.kernel.machine.budget.restore(saved);
         self.kernel.machine.glue.set(was);
@@ -242,7 +242,7 @@ impl Elaborator {
                 .map(|t| eval(g, &env, t))
                 .collect::<Res<Vec<Value>>>()?;
             let hyps = vars.len();
-            let mut goal = self.open_from(&cx, vars, hyps, v, span)?;
+            let mut goal = self.open_from(&cx, vars, hyps, v, Some(&snapshot.target), span)?;
             goal.owner_args = owner_args;
             Ok(goal)
         })();
@@ -260,11 +260,14 @@ impl Elaborator {
         mut vars: Vec<(Name, usize)>,
         hyps: usize,
         v: Value,
+        written: Option<&Term>,
         span: Span,
     ) -> Result<Goal, Diagnostic> {
         {
             let g = &self.ev();
             let mut v = v;
+            // The statement as written, opened binder for binder with `v`.
+            let mut written = written.map(Term::strip_loc);
             let mut intros = Vec::new();
             loop {
                 let Value::Pi(name, icit, dom, closure) = force(g, v.clone())? else {
@@ -273,6 +276,10 @@ impl Elaborator {
                 if vars.len() >= hyps && icit != Icit::Explicit {
                     break;
                 }
+                written = match written {
+                    Some(Term::Pi(_, _, _, cod)) => Some(cod.strip_loc()),
+                    _ => None,
+                };
                 let m = self.metas().new_meta(span);
                 self.metas().set_meta_type(m, (*dom).clone(), 0);
                 self.metas().freeze_meta(m);
@@ -296,7 +303,7 @@ impl Elaborator {
             let pattern = Pattern {
                 head: head_key(&quoted),
                 constants: constants(&quoted),
-                written: None,
+                written: written.map(constants),
                 data: data_types(&quoted),
                 size: size(&quoted),
                 value: target,
