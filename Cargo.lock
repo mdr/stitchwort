@@ -889,15 +889,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mimalloc"
-version = "0.1.52"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d4139bb28d14ad1facf21d5eb8825051b326e172d216b39f6d31df53cc97862"
-dependencies = [
- "libmimalloc-sys",
-]
-
-[[package]]
 name = "multiversion_no_op"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1214,12 +1205,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
 
 [[package]]
+name = "stitchwort-alloc"
+version = "0.1.0"
+dependencies = [
+ "libmimalloc-sys",
+]
+
+[[package]]
 name = "stitchwort-bench"
 version = "0.1.0"
 dependencies = [
  "blake3",
  "clap",
- "mimalloc",
+ "stitchwort-alloc",
  "stitchwort-core",
  "stitchwort-dev-features",
  "stitchwort-driver",
@@ -1235,13 +1233,13 @@ dependencies = [
  "insta",
  "lsp-server",
  "lsp-types",
- "mimalloc",
  "nix",
  "object",
  "rustix",
  "rustyline",
  "serde",
  "serde_json",
+ "stitchwort-alloc",
  "stitchwort-bench",
  "stitchwort-cli",
  "stitchwort-core",
@@ -1303,12 +1301,12 @@ dependencies = [
  "ariadne",
  "blake3",
  "insta",
- "mimalloc",
  "num-bigint",
  "num-traits",
  "serde",
  "serde-saphyr",
  "serde_json",
+ "stitchwort-alloc",
  "stitchwort-core",
  "stitchwort-dev-features",
  "stitchwort-elab",
@@ -1434,9 +1432,8 @@ name = "stitchwort-standalone"
 version = "0.1.0"
 dependencies = [
  "cc",
- "libmimalloc-sys",
- "mimalloc",
  "nix",
+ "stitchwort-alloc",
  "stitchwort-core",
  "stitchwort-dev-features",
  "stitchwort-driver",
@@ -1459,7 +1456,7 @@ dependencies = [
 name = "stitchwort-test-alloc"
 version = "0.1.0"
 dependencies = [
- "mimalloc",
+ "stitchwort-alloc",
 ]
 
 [[package]]

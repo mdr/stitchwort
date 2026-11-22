@@ -15,4 +15,4 @@
 //! mimalloc or the system's.
 
 #[global_allocator]
-static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
+static ALLOCATOR: stitchwort_alloc::Allocator = stitchwort_alloc::Allocator;

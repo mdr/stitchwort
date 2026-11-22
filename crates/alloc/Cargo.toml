@@ -1,0 +1,18 @@
+[package]
+name = "stitchwort-alloc"
+description = "mimalloc as a global allocator, calling its plain entry points for small alignments: the CLI's, the test binaries' and standalone executables'"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+# Nothing to test here: every test binary runs on this allocator, through
+# stitchwort-test-alloc.
+test = false
+doctest = false
+
+[dependencies]
+libmimalloc-sys = { version = "0.1.49", default-features = false }
+
+[lints]
+workspace = true

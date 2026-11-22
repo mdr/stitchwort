@@ -64,7 +64,7 @@ pub enum Value {
 /// A chain of these a million deep (`Eq (Eq (Eq …))`) would overflow the
 /// stack in the default drop (SW-2482), so freeing the last reference drops
 /// the value the default way only down to [`NESTING_LIMIT`] levels, then
-/// frees the rest iteratively, as [`Values`] does.
+/// frees the rest iteratively, as [`Values`] and [`Spine`] do.
 #[derive(Clone, Debug)]
 pub struct Shared(Rc<Value>);
 
@@ -200,8 +200,8 @@ impl Drop for DataArgs {
     }
 }
 
-/// How many [`Shared`] and [`DataArgs`] drops are running inside one another
-/// on this thread. A level takes between 256 and 512 bytes of stack (a limit
+/// How many [`Shared`], [`DataArgs`], [`Values`] and [`Spine`] drops are
+/// running inside one another on this thread. A level takes between 256 and 512 bytes of stack (a limit
 /// of 512 passes the tests on their 256 KB stack, 1024 overflows it), so 128
 /// uses at most about 64 KB: the tests have a factor of four to spare, and a
 /// drop started deep in the checker has room.
@@ -231,7 +231,7 @@ fn drop_nested<T>(owned: T, to_pending: impl FnOnce(T, &mut Vec<Value>)) {
 impl Value {
     /// Whether dropping this can't start a drop chain: it owns no value
     /// through a [`Shared`] or [`DataArgs`]. (Constructor fields, closure
-    /// environments, spines and unfoldings free iteratively themselves.)
+    /// environments, spines and unfoldings bound their own drops.)
     #[inline]
     fn is_atom(&self) -> bool {
         match self {
@@ -623,11 +623,14 @@ pub struct Closure {
 
 /// A shared sequence of values: constructor fields and closure environments.
 ///
-/// Freeing one frees its values without recursing, however deeply they nest
-/// (a list of a million elements is a million nested `Ctor`s): the values of
-/// a uniquely owned sequence are moved onto a work list and taken apart one
-/// at a time. Rust frees nested data recursively by default, which would
-/// overflow the stack.
+/// Freeing one is bounded like freeing a [`Shared`]: the default recursive
+/// drop down to [`NESTING_LIMIT`] levels, then, however deeply the values
+/// nest (a list of a million elements is a million nested `Ctor`s), the
+/// values of a uniquely owned sequence are moved onto a work list and taken
+/// apart one at a time. Rust frees nested data recursively by default, which
+/// would overflow the stack. (Always taking them apart made a check of
+/// tools/fmt retire about 8% more instructions: nearly every sequence freed
+/// is shallow, SW-4641.)
 #[derive(Clone, Debug)]
 pub struct Values(Rc<[Value]>);
 
@@ -689,18 +692,18 @@ impl Drop for Values {
             return; // the thread is ending
         };
         let values = std::mem::replace(&mut self.0, empty);
-        free_iteratively(|pending| take_apart(values, pending));
+        drop_nested(values, take_apart);
     }
 }
 
 /// A spine can hold values that hold spines, millions deep (a stuck
-/// computation applied to a stuck computation, and so on), so freeing one
-/// goes through the same iterative free as [`Values`] rather than recursing
-/// through `Elim`, `Value` and `Spine` in turn (SW-2468).
+/// computation applied to a stuck computation, and so on), so freeing one is
+/// bounded as for [`Values`] rather than recursing through `Elim`, `Value`
+/// and `Spine` in turn without limit (SW-2468).
 impl Drop for Spine {
     fn drop(&mut self) {
         if let Some(elims) = self.0.take_if(|elims| Rc::strong_count(elims) == 1) {
-            free_iteratively(|pending| take_elims(elims, pending));
+            drop_nested(elims, take_elims);
         }
     }
 }
@@ -1433,6 +1436,9 @@ fn enter(closure: &Closure, arg: Value) -> Control {
 
 /// `env` with `value` added as the innermost variable.
 fn extend(env: &Env, value: Value) -> Env {
+    if crate::env_metrics::on() {
+        crate::env_metrics::record(env.len(), !env.is_shared());
+    }
     // Built in place, in one allocation.
     let env: Rc<[Value]> = env.iter().cloned().chain(std::iter::once(value)).collect();
     Values(env)

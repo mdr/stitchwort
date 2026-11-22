@@ -1109,7 +1109,7 @@ const TREE_STACK: usize = STACK - STACK / 4;
 /// quarter of a `check`. mimalloc makes `check` of the AoC project retire
 /// about 28% fewer instructions (docs/proposals/proof-check-speed.md).
 #[global_allocator]
-static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
+static ALLOCATOR: stitchwort_alloc::Allocator = stitchwort_alloc::Allocator;
 
 /// Rust ignores `SIGPIPE`, so `println!` into a closed pipe
 /// (`stitchwort std-source … | head`) panics. That is the reader leaving, not

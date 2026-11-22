@@ -40,14 +40,15 @@ fn shrank(bytes: usize) {
 
 // Why `unsafe`: counting allocations means wrapping the global allocator,
 // and `GlobalAlloc` is an unsafe trait. Why it's sound: each method passes
-// its arguments unchanged to the same method of `MiMalloc`, which meets the
-// trait's contract, and returns what that returned; the counting touches
-// only thread-locals and never allocates.
+// its arguments unchanged to the same method of
+// `stitchwort_alloc::Allocator`, which meets the trait's contract, and
+// returns what that returned; the counting touches only thread-locals and
+// never allocates.
 #[allow(unsafe_code)]
 unsafe impl GlobalAlloc for Counting {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        // SAFETY: our caller meets `alloc`'s contract, which is `MiMalloc`'s.
-        let ptr = unsafe { mimalloc::MiMalloc.alloc(layout) };
+        // SAFETY: our caller meets `alloc`'s contract, which is `Allocator`'s.
+        let ptr = unsafe { stitchwort_alloc::Allocator.alloc(layout) };
         if !ptr.is_null() {
             grew(layout.size());
         }
@@ -56,7 +57,7 @@ unsafe impl GlobalAlloc for Counting {
 
     unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
         // SAFETY: as for `alloc`.
-        let ptr = unsafe { mimalloc::MiMalloc.alloc_zeroed(layout) };
+        let ptr = unsafe { stitchwort_alloc::Allocator.alloc_zeroed(layout) };
         if !ptr.is_null() {
             grew(layout.size());
         }
@@ -64,16 +65,16 @@ unsafe impl GlobalAlloc for Counting {
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        // SAFETY: `ptr` came from this allocator, so from `MiMalloc`, with
+        // SAFETY: `ptr` came from this allocator, so from `Allocator`, with
         // this layout.
-        unsafe { mimalloc::MiMalloc.dealloc(ptr, layout) };
+        unsafe { stitchwort_alloc::Allocator.dealloc(ptr, layout) };
         shrank(layout.size());
     }
 
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
         // SAFETY: as for `dealloc`, and our caller meets `realloc`'s
         // contract for `new_size`.
-        let new = unsafe { mimalloc::MiMalloc.realloc(ptr, layout, new_size) };
+        let new = unsafe { stitchwort_alloc::Allocator.realloc(ptr, layout, new_size) };
         if !new.is_null() {
             shrank(layout.size());
             grew(new_size);

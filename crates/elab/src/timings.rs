@@ -466,6 +466,9 @@ pub fn report() {
         .collect();
     let _ = writeln!(out, "postponement queue: {}", queue.join(", "));
     report_decls(&mut out);
+    if let Some(metrics) = stitchwort_core::env_metrics::report() {
+        out.push_str(&metrics);
+    }
     // Standard error is unbuffered: one write for the whole tables, then one
     // flush, rather than an `eprintln!` (and often several writes) a row.
     let stderr = std::io::stderr();

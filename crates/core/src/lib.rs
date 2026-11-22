@@ -20,6 +20,7 @@ pub mod check;
 pub mod collections;
 pub mod determined;
 pub mod env;
+pub mod env_metrics;
 pub mod erase;
 pub mod ev;
 pub mod float;

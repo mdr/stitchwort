@@ -46,76 +46,7 @@ static BUILD_MARKER: &str = stitchwort_rt::BUILD_MARKER;
 /// The executable's allocator, as `stitchwort`'s: the runtime allocates and
 /// frees cells by the million.
 #[global_allocator]
-static ALLOCATOR: Allocator = Allocator;
-
-/// mimalloc, calling its plain entry points where the alignment is one it
-/// always gives (`MI_MAX_ALIGN_SIZE`, 16): `mimalloc::MiMalloc` calls the
-/// `_aligned` variants every time, which cost more per call and show up in
-/// the cell-heavy profiles.
-struct Allocator;
-
-/// The alignment `mi_malloc`, `mi_zalloc` and `mi_realloc` give a block of
-/// at least that size (`MI_MAX_ALIGN_SIZE`). A smaller block may be aligned
-/// only to its size class, so the plain calls also need `align <= size`, as
-/// Rust's system allocator checks.
-const NATURAL_ALIGN: usize = 16;
-
-fn plain(align: usize, size: usize) -> bool {
-    align <= NATURAL_ALIGN && align <= size
-}
-
-// SAFETY (whole impl): each call forwards to the mimalloc entry point that
-// satisfies the layout's size and alignment (`NATURAL_ALIGN` and below: the
-// plain one, given the size is at least the alignment; otherwise the
-// `_aligned` one), and `mi_free` frees either.
-#[allow(unsafe_code)]
-unsafe impl std::alloc::GlobalAlloc for Allocator {
-    #[inline]
-    unsafe fn alloc(&self, layout: std::alloc::Layout) -> *mut u8 {
-        // SAFETY: the caller upholds `GlobalAlloc::alloc`'s contract.
-        unsafe {
-            if plain(layout.align(), layout.size()) {
-                libmimalloc_sys::mi_malloc(layout.size()) as *mut u8
-            } else {
-                libmimalloc_sys::mi_malloc_aligned(layout.size(), layout.align()) as *mut u8
-            }
-        }
-    }
-
-    #[inline]
-    unsafe fn alloc_zeroed(&self, layout: std::alloc::Layout) -> *mut u8 {
-        // SAFETY: as for `alloc`.
-        unsafe {
-            if plain(layout.align(), layout.size()) {
-                libmimalloc_sys::mi_zalloc(layout.size()) as *mut u8
-            } else {
-                libmimalloc_sys::mi_zalloc_aligned(layout.size(), layout.align()) as *mut u8
-            }
-        }
-    }
-
-    #[inline]
-    unsafe fn dealloc(&self, ptr: *mut u8, _layout: std::alloc::Layout) {
-        // SAFETY: `ptr` came from this allocator; `mi_free` takes either kind.
-        unsafe { libmimalloc_sys::mi_free(ptr as *mut std::ffi::c_void) }
-    }
-
-    #[inline]
-    unsafe fn realloc(&self, ptr: *mut u8, layout: std::alloc::Layout, new_size: usize) -> *mut u8 {
-        // SAFETY: as for `alloc`.
-        unsafe {
-            if plain(layout.align(), new_size) {
-                libmimalloc_sys::mi_realloc(ptr as *mut std::ffi::c_void, new_size) as *mut u8
-            } else {
-                libmimalloc_sys::mi_realloc_aligned(
-                    ptr as *mut std::ffi::c_void,
-                    new_size,
-                    layout.align(),
-                ) as *mut u8
-            }
-        }
-    }
-}
+static ALLOCATOR: stitchwort_alloc::Allocator = stitchwort_alloc::Allocator;
 
 /// The exit status of a run that ended with an unhandled `Fail`.
 pub const EXIT_FAIL: i32 = 1;
