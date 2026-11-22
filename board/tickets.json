@@ -32509,7 +32509,7 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\n\nStarted 22 Nov 13:12 on Opus (orchestrator's call, core cache option D). Expected: 40 min.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
