@@ -723,6 +723,37 @@ impl std::fmt::Debug for LibraryBundle {
     }
 }
 
+/// A check cache that keeps only library files' entries (unit names
+/// `std.…`), not those of project namespaces: `--no-project-cache`.
+pub struct LibraryOnly(pub CheckCache);
+
+impl Store for LibraryOnly {
+    fn compiler(&self) -> &str {
+        self.0.compiler()
+    }
+    fn kernel(&self) -> &str {
+        self.0.kernel()
+    }
+    fn salt(&self) -> [u8; 16] {
+        self.0.salt()
+    }
+    fn read(&self, unit: &str, key: &Key) -> Option<Vec<u8>> {
+        unit.starts_with("std.").then(|| self.0.read(unit, key))?
+    }
+    fn read_others(&self, unit: &str, key: &Key) -> Vec<Vec<u8>> {
+        if unit.starts_with("std.") {
+            self.0.read_others(unit, key)
+        } else {
+            Vec::new()
+        }
+    }
+    fn write(&self, unit: &str, key: &Key, entry: &[u8]) {
+        if unit.starts_with("std.") {
+            self.0.write(unit, key, entry);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -760,6 +791,28 @@ mod tests {
         other[at] ^= 1;
         assert!(LibraryBundle::decode(&other).is_none());
         assert!(LibraryBundle::decode(&bytes[..bytes.len() - 1]).is_none());
+    }
+
+    #[test]
+    fn a_library_only_cache_keeps_library_entries_and_no_namespace_entries() {
+        let dir =
+            std::env::temp_dir().join(format!("stitchwort-library-only-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let store = LibraryOnly(CheckCache::at(&dir));
+        store.write("std.List.Sort+nav+ty", &[1; 32], b"entry");
+        store.write("ns.Aoc.Common+nav+ty", &[2; 32], b"namespace");
+        assert_eq!(
+            store.read("std.List.Sort+nav+ty", &[1; 32]).as_deref(),
+            Some(&b"entry"[..])
+        );
+        assert_eq!(store.read("ns.Aoc.Common+nav+ty", &[2; 32]), None);
+        // Not even written, so a plain cache on the same folder finds none.
+        assert_eq!(
+            CheckCache::at(&dir).read("ns.Aoc.Common+nav+ty", &[2; 32]),
+            None
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

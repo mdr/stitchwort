@@ -141,6 +141,81 @@ pub fn set_current_declaration(name: Option<String>) -> Option<String> {
     CURRENT_DECLARATION.with(|d| d.replace(name))
 }
 
+/// The elaborator phases `STITCHWORT_STEP_PHASES=1` splits a declaration's
+/// steps into (`check --timings`); a step is charged to the innermost phase
+/// running when it is taken.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Phase {
+    /// Everything not in one of the others.
+    Other = 0,
+    /// A walk being elaborated: its search for steps.
+    Walk = 1,
+    /// Unification and the comparisons it runs.
+    Unify = 2,
+    /// An application being checked.
+    Apply = 3,
+    /// A value read back into a term.
+    Readback = 4,
+}
+
+/// The number of [`Phase`]s.
+pub const PHASES: usize = 5;
+
+/// Whether `STITCHWORT_STEP_PHASES=1`, read once so that an unset variable
+/// costs one relaxed load per phase entry.
+#[inline]
+pub fn step_phases() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| std::env::var("STITCHWORT_STEP_PHASES").is_ok_and(|v| v == "1"))
+}
+
+/// The steps charged so far, the current phase, and the budget's
+/// [`Budget::total_work`] when steps were last charged: the next charge is
+/// the difference. Steps are charged when a phase starts or ends, not one
+/// at a time, so the evaluator's fast path is untouched.
+struct PhaseState {
+    current: Cell<usize>,
+    mark: Cell<u64>,
+    charged: [Cell<u64>; PHASES],
+}
+
+thread_local! {
+    static PHASE_STATE: PhaseState = const {
+        PhaseState {
+            current: Cell::new(0),
+            mark: Cell::new(0),
+            charged: [const { Cell::new(0) }; PHASES],
+        }
+    };
+}
+
+/// Charges the steps since the last charge to the current phase.
+#[cold]
+fn flush_phase(budget: &Budget) {
+    let total = budget.total_work();
+    PHASE_STATE.with(|s| {
+        let c = &s.charged[s.current.get()];
+        c.set(c.get() + total.saturating_sub(s.mark.get()));
+        s.mark.set(total);
+    });
+}
+
+/// Makes the current phase the one it was before. See [`Budget::phase`].
+#[must_use]
+pub struct PhaseGuard<'b> {
+    budget: &'b Budget,
+    previous: Option<usize>,
+}
+
+impl Drop for PhaseGuard<'_> {
+    fn drop(&mut self) {
+        if let Some(previous) = self.previous {
+            flush_phase(self.budget);
+            PHASE_STATE.with(|s| s.current.set(previous));
+        }
+    }
+}
+
 /// Names the resource that ran out and prints a backtrace when
 /// `STITCHWORT_TRACE_RESOURCE=1` (SW-4332). Every `E-RESOURCE` passes
 /// through [`Diagnostic::from`], so this shows the elaborator site that
@@ -548,6 +623,41 @@ impl Budget {
         result
     }
 
+    /// Charges the steps taken inside the returned guard's lifetime to
+    /// `phase`, except those a phase nested in it takes. Does nothing unless
+    /// `STITCHWORT_STEP_PHASES=1`.
+    #[inline]
+    pub fn phase(&self, phase: Phase) -> PhaseGuard<'_> {
+        if !step_phases() {
+            return PhaseGuard {
+                budget: self,
+                previous: None,
+            };
+        }
+        self.enter_phase(phase)
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn enter_phase(&self, phase: Phase) -> PhaseGuard<'_> {
+        flush_phase(self);
+        let previous = PHASE_STATE.with(|s| s.current.replace(phase as usize));
+        PhaseGuard {
+            budget: self,
+            previous: Some(previous),
+        }
+    }
+
+    /// The steps charged to each [`Phase`] on this thread so far, indexed by
+    /// phase; all zero unless `STITCHWORT_STEP_PHASES=1`.
+    pub fn phase_steps(&self) -> [u64; PHASES] {
+        if !step_phases() {
+            return [0; PHASES];
+        }
+        flush_phase(self);
+        PHASE_STATE.with(|s| std::array::from_fn(|i| s.charged[i].get()))
+    }
+
     /// Like [`Budget::attempt`], for callers that can't hold a borrow of the
     /// budget: the attempt ends with [`Budget::restore`].
     pub fn start_attempt(&self, limits: Limits) -> Saved {
@@ -572,6 +682,12 @@ impl Budget {
         // past the thread's real stack.
         let outer = self.stack_floor.get();
         let floor = stack_position().saturating_sub(limits.stack).max(outer);
+        // The counted total drops while an operation runs inside another
+        // (the outer one's steps are set aside), so phase charging brackets
+        // that.
+        if step_phases() {
+            flush_phase(self);
+        }
         let saved = Saved {
             work: self.work.replace(0),
             limit: self.limit.replace(limits.work),
@@ -585,6 +701,9 @@ impl Budget {
         self.entered_user.set(usize::MAX);
         if self.cancel_requested() {
             self.exhausted.set(Some(ResourceError::Cancelled));
+        }
+        if step_phases() {
+            PHASE_STATE.with(|s| s.mark.set(self.total_work()));
         }
         self.arm();
         saved
@@ -616,6 +735,9 @@ impl Budget {
     }
 
     pub fn restore(&self, saved: Saved) {
+        if step_phases() {
+            flush_phase(self);
+        }
         self.finished_work
             .set(self.finished_work.get() + self.work.get());
         self.work.set(saved.work);
@@ -630,6 +752,9 @@ impl Budget {
             saved.exhausted
         };
         self.exhausted.set(exhausted);
+        if step_phases() {
+            PHASE_STATE.with(|s| s.mark.set(self.total_work()));
+        }
         self.arm();
     }
 

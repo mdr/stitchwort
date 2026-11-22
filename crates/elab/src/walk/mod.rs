@@ -292,6 +292,11 @@ fn walk_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     let Expr::Walk(walk) = expr else {
         unreachable!("only called on a walk")
     };
+    let _phase = cx
+        .g()
+        .machine
+        .budget
+        .phase(stitchwort_core::budget::Phase::Walk);
     match walk.resume {
         Some(id) => go_on(cx, id, expected),
         None => start(cx, walk, expected),

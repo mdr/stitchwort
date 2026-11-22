@@ -858,6 +858,16 @@ impl Session {
             .set_check_cache(std::rc::Rc::new(crate::check_cache::CheckCache::at(dir)));
     }
 
+    /// [`Session::use_check_cache`] for the library files only: project
+    /// namespaces are checked afresh, and their entries neither read nor
+    /// written (unit names `std.…` are the library's).
+    pub fn use_library_check_cache(&mut self, dir: &std::path::Path) {
+        self.elab
+            .set_check_cache(std::rc::Rc::new(crate::check_cache::LibraryOnly(
+                crate::check_cache::CheckCache::at(dir),
+            )));
+    }
+
     /// For tests: [`Session::use_check_cache`] as another build would,
     /// one whose fingerprint is `build` and whose kernel side's is `kernel`
     /// ([`crate::check_cache::CheckCache::as_build`]).

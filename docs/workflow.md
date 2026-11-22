@@ -413,7 +413,8 @@ times. A clean rebuild with `RUSTC_WRAPPER=` empty is the test of one run.
   elaboration and kernel time; `--only THEOREM` checks one theorem and what it
   needs. Run each side two or three times, one run at a time, since timings
   move by 10 to 30% between runs on a loaded machine; a cached namespace
-  isn't timed, hence `--no-cache` (or a fresh copy of the project).
+  isn't timed, hence `--no-cache` (or a fresh copy of the project), or
+  `--no-project-cache` to keep the library cached (SW-4533).
 - **Where the time goes inside a check:** on macOS, `sample <pid> 10 -file
   out.txt` while the check runs. To give it a run long enough to sample,
   check many copies of the slow theorem (renamed `t1`, `t2`, …) in one
@@ -555,6 +556,15 @@ zonked type and value to standard error, once. Unset, it does nothing and
 costs nothing. Set `STITCHWORT_BIG_READBACK=<nodes>` to print every read-back
 over that many nodes to standard error, with the declaration being elaborated
 and a backtrace; unset, nothing changes.
+Set `STITCHWORT_STEP_PHASES=1` and `check --timings` adds a "steps by phase"
+table: each declaration's steps split into walk (a walk being elaborated),
+unify, apply (an application being checked), read-back and other, summing to
+its `steps`; a step counts for the innermost phase running. Unset, it costs
+one check per phase entry and the steps are unchanged (SW-4533). To time or
+profile a project's namespaces without paying for the library, add
+`--no-project-cache`: the project's own namespaces are checked afresh (their
+cache entries neither read nor written) while the library comes from the
+cache; `--no-cache` still turns both off.
 
 ### Writing a brief
 

@@ -3354,6 +3354,7 @@ fn quote_as_until(
     max_depth: Option<usize>,
     stop: Option<&dyn Fn(usize) -> bool>,
 ) -> Result<Quoted> {
+    let _phase = g.machine.budget.phase(crate::budget::Phase::Readback);
     // A work list rather than recursion: `tasks` are values still to visit
     // and terms still to assemble, and `done` holds finished terms, which
     // each assembly takes its parts from.

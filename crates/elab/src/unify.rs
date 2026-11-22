@@ -4,7 +4,7 @@
 use std::rc::Rc;
 
 use crate::check::quote_internal;
-use stitchwort_core::budget::{ResourceError, Result};
+use stitchwort_core::budget::{Phase, ResourceError, Result};
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::value::{
     Closure, CompareAt, Elim, Head, Mode, Relation, ShapeKey, ShapeMemo, Spine, apply_icit, conv,
@@ -314,6 +314,7 @@ fn literal_seen_through(g: &Unifier<'_>, m: usize, other: &Value) -> Option<(Val
 /// `mode` is where the comparison starts; a [`Task::Mode`] switches it for
 /// the pairs above it on the list ([`push_in_shortcut`]).
 fn run(g: &Unifier<'_>, work: Vec<Task>, mode: Mode) -> Result<bool> {
+    let _phase = g.machine.budget.phase(Phase::Unify);
     if g.attempt.call_memo.borrow().is_none() {
         return run_outermost(g, work, mode);
     }
