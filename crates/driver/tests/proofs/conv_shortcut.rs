@@ -5,9 +5,13 @@
 //! (`same_stuck_trees`, SW-395; `reject/case-tree-chains-*.sw` exercise it,
 //! one with a metavariable solved and then taken back); and the kernel
 //! compares two glued calls of the same definition by their arguments
-//! before their unfoldings (`conv`, `CallMemo`; D483). All are turned off
-//! together. That may only skip work, never change a verdict. The
-//! shortcuts can only answer "equal", so the risk is a program wrongly
+//! before their unfoldings, answering a pair already found equal or
+//! different from a record (`conv`, `CallMemo`; D483, SW-4647; the equal
+//! pairs are exercised by `value.rs`'s
+//! `calls_found_equal_by_their_arguments_are_compared_once`). All are
+//! turned off together. That may only skip work, never change a verdict. The
+//! shortcuts answer "equal" (`CallMemo`'s remembered "different" is the
+//! answer comparing the pair again gives), so the risk is a program wrongly
 //! accepted: every rejected example (the soundness suite included) must get
 //! exactly the same diagnostics with the shortcut turned off. Accepted
 //! examples are left out to keep the gate fast (D74, 20 Oct 2026): the

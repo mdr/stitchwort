@@ -4029,13 +4029,22 @@ enum ConvTask {
 // of their unfolding cells (shared by every copy of a call), at the same
 // level: a pair whose arguments were found different isn't tried by its
 // arguments again, and a pair found different outright (an argument pair
-// compared on its own) is answered "different" at once. Both only ever
-// answer "different" or skip a shortcut, never "equal", and whether two
-// values are convertible depends only on them and the level (the kernel has
-// no metavariables). The record holds the values, so an address can't be
-// reused for another call while it lives; it's dropped when the outermost
-// `conv` ends. Lookups don't depend on the order of the map, so the
-// resource counters stay deterministic.
+// compared on its own) is answered "different" at once.
+//
+// A pair found equal by its arguments is answered "equal" at once too
+// (SW-4647). Values share their parts, but a comparison walks them as
+// trees: the lexer's items each hold parser states built by
+// `State.advance` from the one before, so comparing a source's items
+// against the same items computed again met the same pairs of calls
+// millions of times (`readsBackHungListExample`, 147M steps). Every
+// remembered answer is the one comparing the pair again would give, since
+// whether two values are convertible depends only on them, the level and
+// the mode (the kernel has no metavariables), so the record only saves
+// work: an "equal" is recorded once the arguments' comparisons have all
+// finished, never while the pair is still open. The record holds the
+// values, so an address can't be reused for another call while it lives;
+// it's dropped when the outermost `conv` ends. Lookups don't depend on the
+// order of the map, so the resource counters stay deterministic.
 
 /// What one outermost [`conv`] has found about pairs of glued calls of the
 /// same definition, by mode, level and the addresses of their unfolding
@@ -4044,7 +4053,7 @@ enum ConvTask {
 /// nothing for rule E to read ([`crate::nat_add::Unread`]).
 #[derive(Default)]
 struct CallMemo {
-    calls: HashMap<CallKey, (Differ, Value, Value)>,
+    calls: HashMap<CallKey, (Found, Value, Value)>,
     sums: crate::nat_add::Unread,
 }
 
@@ -4052,13 +4061,15 @@ struct CallMemo {
 /// cells' addresses.
 type CallKey = (Mode, usize, usize, usize);
 
-/// How a pair of calls in a [`CallMemo`] differs.
+/// What a [`CallMemo`] knows about a pair of calls.
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Differ {
-    /// In their arguments: compare them by their unfoldings.
-    Arguments,
-    /// Outright.
-    Values,
+enum Found {
+    /// Equal by their arguments.
+    Equal,
+    /// Their arguments differ: compare them by their unfoldings.
+    ArgumentsDiffer,
+    /// Different outright.
+    Different,
 }
 
 impl CallMemo {
@@ -4074,14 +4085,14 @@ impl CallMemo {
         }
     }
 
-    fn get(&self, mode: Mode, level: usize, a: &Value, b: &Value) -> Option<Differ> {
+    fn get(&self, mode: Mode, level: usize, a: &Value, b: &Value) -> Option<Found> {
         let key = Self::key(mode, level, a, b)?;
         self.calls.get(&key).map(|entry| entry.0)
     }
 
-    fn record(&mut self, mode: Mode, level: usize, a: &Value, b: &Value, differ: Differ) {
+    fn record(&mut self, mode: Mode, level: usize, a: &Value, b: &Value, found: Found) {
         if let Some(key) = Self::key(mode, level, a, b) {
-            self.calls.insert(key, (differ, a.clone(), b.clone()));
+            self.calls.insert(key, (found, a.clone(), b.clone()));
         }
     }
 }
@@ -4112,7 +4123,7 @@ fn same_spines(
             unreachable!()
         };
         if !conv_with(g, l, &x, &y, memo, Mode::Shortcut)? {
-            memo.record(Mode::Shortcut, l, &x, &y, Differ::Values);
+            memo.record(Mode::Shortcut, l, &x, &y, Found::Different);
             return Ok(false);
         }
     }
@@ -4196,8 +4207,9 @@ fn conv_step(
         && !shortcuts_disabled()
     {
         match memo.get(mode, level, a, b) {
-            Some(Differ::Values) => return Ok(Step::Answer(false)),
-            Some(Differ::Arguments) => {}
+            Some(Found::Equal) => return Ok(Step::Answer(true)),
+            Some(Found::Different) => return Ok(Step::Answer(false)),
+            Some(Found::ArgumentsDiffer) => {}
             None => return Ok(Step::Recurse(Recursion::Calls)),
         }
     }
@@ -4481,9 +4493,10 @@ fn recurse(
                 unreachable!("two calls, from conv_step")
             };
             if same_spines(g, level, *f, s1, s2, memo)? {
+                memo.record(mode, level, a, b, Found::Equal);
                 return Ok(Resume::Answer(true));
             }
-            memo.record(mode, level, a, b, Differ::Arguments);
+            memo.record(mode, level, a, b, Found::ArgumentsDiffer);
             Ok(Resume::From(Stage::Folded))
         }
         Recursion::Folded => {
@@ -6104,6 +6117,98 @@ mod tests {
         let after = g.machine.budget.total_work();
         assert_eq!(with, without, "the shortcut changed conv's answer");
         (with, middle - before, after - middle)
+    }
+
+    /// A kernel with `pair : Type → Type → Type := x y => x → y`, whose
+    /// unfolding mentions each argument once more, and its id.
+    fn kernel_with_pair() -> (crate::globals::Kernel, DefId) {
+        let mut g = crate::globals::Kernel::default();
+        let ty = Term::Sort(Sort::Type(0));
+        let arrow = |dom: Term, cod: Term| Term::Pi("_".into(), Icit::Explicit, rc(dom), rc(cod));
+        let pair_ty = arrow(ty.clone(), arrow(ty.clone(), ty));
+        let name: Name = "pair".into();
+        let span = stitchwort_syntax::Span::NOWHERE;
+        let id =
+            crate::check::declare_def(&mut g, &name, &name, &pair_ty, false, false, span).unwrap();
+        let body = Term::Lam(
+            "x".into(),
+            Icit::Explicit,
+            rc(Term::Lam(
+                "y".into(),
+                Icit::Explicit,
+                rc(arrow(Term::Var(1), Term::Var(1))),
+            )),
+        );
+        crate::check::define_def(&mut g, id, &body).unwrap();
+        (g, id)
+    }
+
+    /// `depth` glued calls `pair c c` around `leaf`, each level's two
+    /// arguments one call (one unfolding cell): `depth` cells, `2^depth`
+    /// paths. Each call built makes a fresh cell, so two towers built
+    /// separately share none.
+    fn pair_tower(id: DefId, depth: usize, leaf: Value) -> Value {
+        (0..depth).fold(leaf, |c, _| {
+            let arg = |v: Value| Elim::App(v, Icit::Explicit);
+            Value::Call(id, Spine::from(vec![arg(c.clone()), arg(c)]), Rc::default())
+        })
+    }
+
+    /// Two towers of calls built apart compare in a step or so per level
+    /// with the shortcut: a pair of calls found equal by its arguments is
+    /// answered from `CallMemo` when its second argument meets it again
+    /// (SW-4647). Without the shortcut each call is unfolded and the shared
+    /// level walked twice, so the steps double per level (without the
+    /// record, 511 then 131,071 steps with it on). A pair of towers
+    /// differing only at the bottom must still come out different.
+    ///
+    /// A wrong "equal" in the record (made as a pair opens, or kept when its
+    /// comparison fails) can't be shown this way, and isn't reachable: values
+    /// are acyclic (a call's arguments exist before its cell), so a pair
+    /// never meets itself inside its own arguments; and a pair that comes
+    /// out different either ends the outermost `conv` (compared in its
+    /// mode) or, compared as an argument, is recorded as different by
+    /// [`same_spines`] at once, over any earlier entry, before anything else
+    /// can read it. Recording "equal" for every pair whose arguments differ
+    /// still passes this test, for that reason.
+    #[test]
+    fn calls_found_equal_by_their_arguments_are_compared_once() {
+        let (g, id) = kernel_with_pair();
+        let ev = g.ev();
+        let leaf = || Value::Sort(Sort::Prop);
+        let steps = |depth: usize| {
+            let (equal, with, without) = conv_both(
+                &ev,
+                &pair_tower(id, depth, leaf()),
+                &pair_tower(id, depth, leaf()),
+            );
+            assert!(equal, "towers of {depth} levels");
+            (with, without)
+        };
+        let (with8, without8) = steps(8);
+        let (with16, without16) = steps(16);
+        // Linear with the record: twice the levels, at most about twice the
+        // steps. Without it, 256 times the paths.
+        assert!(
+            with16 <= 2 * with8 + 8,
+            "with the record: {with8} then {with16}"
+        );
+        assert!(
+            without16 >= 100 * without8,
+            "without it: {without8} then {without16}"
+        );
+        assert!(with16 * 100 < without16, "{with16} against {without16}");
+
+        let other = Value::Pi(
+            "_".into(),
+            Icit::Explicit,
+            Shared::new(leaf()),
+            closure(vec![], Term::Sort(Sort::Prop)),
+        );
+        let (equal, with, _) =
+            conv_both(&ev, &pair_tower(id, 12, leaf()), &pair_tower(id, 12, other));
+        assert!(!equal, "towers differing at the bottom");
+        assert!(with < 10_000, "{with} steps to tell them apart");
     }
 
     fn stuck_call(def: usize) -> Value {
