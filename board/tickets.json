@@ -31511,7 +31511,7 @@
     {
       "id": 4552,
       "title": "[Sonnet] SW-4550 low findings: F1 docs/core.md says run bodies are type-checked but not compared, and omits that a carried entry's trusted replay recomputes field sorts (fix the two sentences, wrap that paragraph); F2 a carried entry's run body on the trusted path goes through set_run_body as the re-check does, not a shape check only; F3 has_unsolved and unsolved_in test m == ELIDED before indexing the unknown store (latent out-of-range on the erased placeholder), with a test; F4 the early stop records budget.note_readback",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],

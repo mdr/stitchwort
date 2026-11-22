@@ -297,5 +297,5 @@ fn recomputing_field_sorts_refuses_a_wrong_recorded_sort() {
             .map_err(|d| d.code)
     };
     assert!(admit(false).is_ok());
-    assert_eq!(admit(true), Err("E-MALFORMED".into()));
+    assert_eq!(admit(true), Err("E-MALFORMED"));
 }
