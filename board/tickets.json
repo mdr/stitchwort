@@ -1,5 +1,5 @@
 {
-  "next": 4575,
+  "next": 4579,
   "tickets": [
     {
       "id": 47,
@@ -31736,12 +31736,12 @@
     {
       "id": 4569,
       "title": "[Sonnet] All tier 22 Nov (D3712): stitchwort-fmt it fuzz::the_formatter_never_panics_and_is_idempotent panics at crates/syntax/src/parser.rs:799 (bump past the end of tokens), seed 0x9e3779b97f4a7c15, 50000 cases; bench baseline counts_have_not_regressed (check-text-literal allocations +15%, check-number-* steps +12.5%, check-closed-* visits +11.6%, peak heap +15.6%) and bench repeat counts_repeat_within_a_process (timeout). Fix the panic with a test; for the bench, profile and fix or explain (D3444 performance log); rerun only these",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "\n\nProgress (Sonnet lane, branch lane/SW-4569, commits 452c43bea, 60e365424): (1) panic: byWalking with no '[' bumped in fact_list; now a syntax error, test parser::tests::a_by_walking_without_its_list_is_an_error; fuzz test passes (33 s). (2) bench: check-number-table +2,560 steps and check-text-literal +11 allocations come from SW-3930's glued kept types (526f98b64, deliberate, D3680); check-closed-* visits/peak heap and the rest of the text-literal allocations from std growth (e.g. SW-4218's 92 lemmas into std). Proposal: re-record the baseline with a performance-log entry. (3) repeat: runs the whole example sweep twice (1,991 files now); nextest cap raised to an hour for the bench binaries.\n",
+      "body": "Model result: Sonnet, worked (parser fix with test; bench costs bisected to SW-3930 and std growth, re-record proposed), 31 min (est. 50)\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -31806,6 +31806,58 @@
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4575,
+      "title": "[Opus] search_bench::proof_uses_find_their_lemma_among_the_first_ten still has 5 internal errors after SW-4564 (was 11; recall@10 54.9%): they come through the query search's use_pattern path, not search --at; add a per-query trace to search_bench's run (like SEARCH_AT_BENCH_TRACE), find the panicking queries, fix the cause with a test; rerun only that test (about 820 s, all tier)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4576,
+      "title": "[Sonnet] The E-CASES message for examples/reject/unify-last-arguments-head-type.sw shows hypotheses and goal as bare _le ('hypothesis 1 (unnamed): _le'), dropping an applied unknown's arguments (_le x y = True): the goal printer should print an applied unknown with its arguments; snapshot test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4577,
+      "title": "[DeepSeek] fmt fuzzer: FUZZ_DUMP is written after generate, so a panic while generating (in parses(), SW-4569) leaves the dump on the previous case; write the case before parsing or catch the panic and dump it; test with a forced panic",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4578,
+      "title": "[Sonnet] Process (SW-4564, SW-4569): the all tier didn't run 12 to 22 Nov, so a new extraction example (SW-3936) went 4 days without differential coverage and SW-3930's bench cost went unrecorded. Propose (docs/workflow.md, for Matt) a lane-tier run of each new example through the extraction and differential checks, and a bench --no-time check of a few check-number-* cases for kernel or checker lanes; note only, no code",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
