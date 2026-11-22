@@ -12,6 +12,7 @@ import Std.Doc (..)
 import Std.Doc.Proofs (..)
 import Syntax (Comments, Decl, DefBody, DefKind, Expr, Header, InfixKind, Note, SourceFile, Tok, Word)
 import Fmt (..)
+import Fmt.AppHolds (AppHolds, appFromHolds)
 import Fmt.CalmProofs (bracketFrom, bracketIs, lambdaHugNone, matchedNone, plainDef, plainDefIs, valueElPlain)
 import Syntax.SharedFacts (headerResultWithin)
 
@@ -929,9 +930,37 @@ theorem frontRestSpells ∀ (id keep: Nat) (fillFront: Bool) (docs: List Doc) (t
 def AppSpells (applied: Applied) (texts: List Text): Prop :=
   Spells applied.doc texts ∧ (∀ (open: Doc) => applied.hug = Some open → Spells open texts)
 
+--| The combinators a call's layouts use keep what a document spells; a list of documents spells the words of them all.
+def appSpellsHolds: AppHolds Text
+      (List Text)
+      (doc texts => Spells doc texts)
+      SpellsAll
+      (texts => texts)
+      (a b => a ++ b)
+      (a b => a ++ b) :=
+  {
+    nest = (indent doc texts spells => spellsNest indent spells),
+    flatten = (doc texts spells => spellsFlatten spells),
+    idGroup = (id hard doc texts spells => spellsIdGroup id hard spells),
+    ifBroken = (id broken plain texts left right => spellsIfBroken id left right),
+    choice = (first more texts all => spellsChoice first more (spellsEachOf all)),
+    fillOf = (docs texts spells => spellsFill spells),
+    spacedOf = (docs texts spells => spellsSpaced spells),
+    hugged = (docs open texts last front opened =>
+      spellsConcat
+        (spellsAllSame
+          (spellsCons (spellsFlatten (spellsSpaced front)) (spellsCons spellsSpace (spellsLast opened)))
+          byComputing)),
+    frontRest = (id keep fillFront docs texts spells => frontRestSpells id keep fillFront docs texts spells),
+    consed = (doc docs first rest head tail => spellsCons head tail),
+    snoced = (docs doc rest last front only => spellsAppend front (spellsLast only)),
+    consFlat = (first rest => byComputing),
+    snocFlat = (first rest last => List.appendAssoc first rest last)
+  }
+
 --| A call's document and its hug spell the function and its arguments.
 --|
---| Proof idea: Cases on whether every element stays on its line; else each option of the choice (flat, hugged if the last argument hugs, the front and the rest) spells the same words (`spellsChoice`).
+--| Proof idea: `appFromHolds`, with the combinators keeping what a document spells (`appSpellsHolds`).
 theorem appFromSpells ∀ (id keep: Nat) (between betweenFront: Bool) (headDoc lastDoc: Doc) (front: List Doc)
     (hug: Option Doc) (headTexts frontTexts lastTexts: List Text)
     (headSpells: Spells headDoc headTexts)
@@ -939,81 +968,8 @@ theorem appFromSpells ∀ (id keep: Nat) (between betweenFront: Bool) (headDoc l
     (lastSpells: Spells lastDoc lastTexts)
     (hugSpells: ∀ (open: Doc) => hug = Some open → Spells open lastTexts):
     AppSpells (appFrom id keep between betweenFront headDoc front lastDoc hug) (headTexts ++ frontTexts ++ lastTexts) :=
-  let docsSpells: SpellsAll ([headDoc, ..front] ++ [lastDoc]) (headTexts ++ frontTexts ++ lastTexts) :=
-    spellsCons headSpells (spellsAppend frontSpells (spellsLast lastSpells))
-  match keep == ([headDoc, ..front] ++ [lastDoc]).length with
-    | True => (
-      (match between with
-        | True => spellsSpaced docsSpells
-        | False => spellsNest 4 (spellsFill docsSpells)),
-      (open none => cases)
-    )
-    | False =>
-      let thirdSpells :=
-        frontRestSpells id keep
-          (keep > 2 && !betweenFront)
-          ([headDoc, ..front] ++ [lastDoc])
-          (headTexts ++ frontTexts ++ lastTexts)
-          docsSpells
-      let allSpells := spellsFlatten (spellsSpaced docsSpells)
-      match hug with
-        | None => (
-          spellsChoice
-            (Flatten (spaced ([headDoc, ..front] ++ [lastDoc])))
-            [
-              Doc.concat [
-                if keep > 2 && !betweenFront then
-                  IdGroup id (Nest 4 (Fill (([headDoc, ..front] ++ [lastDoc]).take keep))) False
-                else spaced (([headDoc, ..front] ++ [lastDoc]).take keep),
-                if keep > 2 && !betweenFront then
-                  IfBroken id
-                    (Nest 4
-                      (Doc.concat (([headDoc, ..front] ++ [lastDoc]).drop keep |> .concatMap (doc => [HardLine, doc]))))
-                    (Nest 2
-                      (Doc.concat (([headDoc, ..front] ++ [lastDoc]).drop keep |> .concatMap (doc => [HardLine, doc]))))
-                else
-                  Nest 2
-                    (Doc.concat (([headDoc, ..front] ++ [lastDoc]).drop keep |> .concatMap (doc => [HardLine, doc])))
-              ]
-            ]
-            (allSpells, (thirdSpells, byComputing)),
-          (open same => cases)
-        )
-        | Some opened =>
-          let huggedSpells: Spells
-            (Doc.concat [Flatten (spaced [headDoc, ..front]), Doc.text " ", opened])
-            (headTexts ++ frontTexts ++ lastTexts) :=
-            spellsConcat
-              (spellsAllSame
-                (spellsCons
-                  (spellsFlatten (spellsSpaced (spellsCons headSpells frontSpells)))
-                  (spellsCons spellsSpace (spellsLast (hugSpells opened byComputing))))
-                (List.appendAssoc headTexts frontTexts lastTexts))
-          (
-            spellsChoice
-              (Flatten (spaced ([headDoc, ..front] ++ [lastDoc])))
-              [
-                Doc.concat [Flatten (spaced [headDoc, ..front]), Doc.text " ", opened],
-                Doc.concat [
-                  if keep > 2 && !betweenFront then
-                    IdGroup id (Nest 4 (Fill (([headDoc, ..front] ++ [lastDoc]).take keep))) False
-                  else spaced (([headDoc, ..front] ++ [lastDoc]).take keep),
-                  if keep > 2 && !betweenFront then
-                    IfBroken id
-                      (Nest 4
-                        (Doc.concat
-                          (([headDoc, ..front] ++ [lastDoc]).drop keep |> .concatMap (doc => [HardLine, doc]))))
-                      (Nest 2
-                        (Doc.concat
-                          (([headDoc, ..front] ++ [lastDoc]).drop keep |> .concatMap (doc => [HardLine, doc]))))
-                  else
-                    Nest 2
-                      (Doc.concat (([headDoc, ..front] ++ [lastDoc]).drop keep |> .concatMap (doc => [HardLine, doc])))
-                ]
-              ]
-              (allSpells, (huggedSpells, (thirdSpells, byComputing))),
-            (open same => rewrite <- Option.someInjective same then huggedSpells)
-          )
+  appFromHolds appSpellsHolds id keep between betweenFront headDoc lastDoc front hug headTexts frontTexts lastTexts
+      headSpells frontSpells lastSpells hugSpells
 
 theorem spellsGroupWith ∀ [inner: Doc] (hard: Bool) [texts: List Text]
     (spells: Spells inner texts):

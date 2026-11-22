@@ -5,6 +5,7 @@ import Std.Doc (..)
 import Std.Doc.Proofs (..)
 import Syntax (Comments, Decl, DefBody, DefKind, Expr, Header, InfixKind, Note, SourceFile, Tok, Word)
 import Fmt (..)
+import Fmt.AppHolds (AppHolds, appFromHolds)
 import Fmt.JoinProofs (AllJoinable, CloserJoins, DeclJoins, Joinable, OpenerJoins, WordJoins, closerNotComma)
 import Fmt.TreeJoinProofs (lexKind)
 import Fmt.TriviaStatements (..)
@@ -1049,10 +1050,43 @@ theorem joinSnoc ∀ (shapes: List (List Told)) (shape: List Told):
 def AppShape (applied: Applied) (shape: List Told): Prop :=
   Is applied.doc shape ∧ (∀ (hugged: Doc) => applied.hug = Some hugged → Is hugged shape)
 
+--| The combinators a call's layouts use keep what a document tells; the documents of a list each tell a shape of
+--| their own, and the list tells them joined.
+def appShapeHolds: AppHolds Told
+      (List (List Told))
+      (doc shape => Is doc shape)
+      IsEach
+      joinShapes
+      (shape rest => [shape, ..rest])
+      (rest shape => rest ++ [shape]) :=
+  {
+    nest = (indent doc shape is => isNest indent is),
+    flatten = (doc shape is => isFlatten is),
+    idGroup = (id hard doc shape is => isIdGroup id hard is),
+    ifBroken = (id broken plain shape left right => isIfBroken id left right),
+    choice = (first more shape all => isChoice first more (allIsOf [first, ..more] all)),
+    fillOf = (docs shapes each => isFill shapes each),
+    spacedOf = (docs shapes each => isSpaced shapes each),
+    hugged = (docs open shapes last each opened =>
+      isConcat
+        (isAllSame _
+          (isCons
+            (joinShapes shapes)
+            ([] ++ last)
+            (isFlatten (isSpaced shapes each))
+            (isCons [] last isSpace (isLast opened)))
+          byComputing)),
+    frontRest = (id keep fillFront docs shapes each => frontRestShape id keep fillFront shapes each),
+    consed = (doc docs shape shapes head tail => (head, tail)),
+    snoced = (docs doc shapes shape each is => eachSnoc shapes shape each is),
+    consFlat = (shape rest => byComputing),
+    snocFlat = (shape rest last =>
+      rewrite joinSnoc [shape, ..rest] last then List.appendAssoc shape (joinShapes rest) last)
+  }
+
 --| A call's document and its hug tell the function and its arguments.
 --|
---| Proof idea: Cases on whether every element stays on its line; else each option of the choice (flat, hugged if the
---| last argument hugs, the front and the rest) tells the same shape (`isChoice`).
+--| Proof idea: `appFromHolds`, with the combinators keeping what a document tells (`appShapeHolds`).
 theorem appFromShape ∀ (id keep: Nat) (between betweenFront: Bool) [headDoc lastDoc: Doc] [front: List Doc]
     (hug: Option Doc) (headShape lastShape: List Told) (frontShapes: List (List Told))
     (headIs: Is headDoc headShape)
@@ -1062,89 +1096,8 @@ theorem appFromShape ∀ (id keep: Nat) (between betweenFront: Bool) [headDoc la
     AppShape
       (appFrom id keep between betweenFront headDoc front lastDoc hug)
       (headShape ++ joinShapes frontShapes ++ lastShape) :=
-  let each: IsEach ([headDoc, ..front] ++ [lastDoc]) ([headShape, ..frontShapes] ++ [lastShape]) :=
-    eachSnoc [docs := [headDoc, ..front]] [headShape, ..frontShapes] lastShape (headIs, frontEach) lastIs
-  let joined: joinShapes ([headShape, ..frontShapes] ++ [lastShape])
-    = headShape ++ joinShapes frontShapes ++ lastShape :=
-    rewrite joinSnoc [headShape, ..frontShapes] lastShape, List.appendAssoc headShape (joinShapes frontShapes) lastShape
-  rewrite <- joined then
-    match keep == ([headDoc, ..front] ++ [lastDoc]).length with
-      | True => (
-        (match between with
-          | True => isSpaced ([headShape, ..frontShapes] ++ [lastShape]) each
-          | False =>
-            isNest
-              [doc := Fill ([headDoc, ..front] ++ [lastDoc])]
-              4
-              (isFill ([headShape, ..frontShapes] ++ [lastShape]) each)),
-        (hugged none => cases)
-      )
-      | False =>
-        let third := frontRestShape id keep (keep > 2 && !betweenFront) ([headShape, ..frontShapes] ++ [lastShape]) each
-        let all := isFlatten (isSpaced ([headShape, ..frontShapes] ++ [lastShape]) each)
-        match hug with
-          | None => (
-            isChoice
-              (Flatten (spaced ([headDoc, ..front] ++ [lastDoc])))
-              [
-                Doc.concat [
-                  if keep > 2 && !betweenFront then
-                    IdGroup id (Nest 4 (Fill (([headDoc, ..front] ++ [lastDoc]).take keep))) False
-                  else spaced (([headDoc, ..front] ++ [lastDoc]).take keep),
-                  if keep > 2 && !betweenFront then
-                    IfBroken id
-                      (Nest 4
-                        (Doc.concat
-                          (([headDoc, ..front] ++ [lastDoc]).drop keep |> .concatMap (doc => [HardLine, doc]))))
-                      (Nest 2
-                        (Doc.concat
-                          (([headDoc, ..front] ++ [lastDoc]).drop keep |> .concatMap (doc => [HardLine, doc]))))
-                  else
-                    Nest 2
-                      (Doc.concat (([headDoc, ..front] ++ [lastDoc]).drop keep |> .concatMap (doc => [HardLine, doc])))
-                ]
-              ]
-              (all, (third, byComputing)),
-            (hugged same => cases)
-          )
-          | Some opened =>
-            let huggedIs: Is
-              (Doc.concat [Flatten (spaced [headDoc, ..front]), Doc.text " ", opened])
-              (joinShapes ([headShape, ..frontShapes] ++ [lastShape])) :=
-              isConcat
-                (isAllSame _
-                  (isCons
-                    (headShape ++ joinShapes frontShapes)
-                    ([] ++ lastShape)
-                    (isFlatten (isSpaced [headShape, ..frontShapes] (headIs, frontEach)))
-                    (isCons [] lastShape isSpace (isLast (hugIs opened byComputing))))
-                  (rewrite joinSnoc [headShape, ..frontShapes] lastShape))
-            (
-              isChoice
-                (Flatten (spaced ([headDoc, ..front] ++ [lastDoc])))
-                [
-                  Doc.concat [Flatten (spaced [headDoc, ..front]), Doc.text " ", opened],
-                  Doc.concat [
-                    if keep > 2 && !betweenFront then
-                      IdGroup id (Nest 4 (Fill (([headDoc, ..front] ++ [lastDoc]).take keep))) False
-                    else spaced (([headDoc, ..front] ++ [lastDoc]).take keep),
-                    if keep > 2 && !betweenFront then
-                      IfBroken id
-                        (Nest 4
-                          (Doc.concat
-                            (([headDoc, ..front] ++ [lastDoc]).drop keep |> .concatMap (doc => [HardLine, doc]))))
-                        (Nest 2
-                          (Doc.concat
-                            (([headDoc, ..front] ++ [lastDoc]).drop keep |> .concatMap (doc => [HardLine, doc]))))
-                    else
-                      Nest 2
-                        (Doc.concat
-                          (([headDoc, ..front] ++ [lastDoc]).drop keep |> .concatMap (doc => [HardLine, doc])))
-                  ]
-                ]
-                (all, (huggedIs, (third, byComputing))),
-              (hugged same => rewrite <- Option.someInjective same then huggedIs)
-            )
+  appFromHolds appShapeHolds id keep between betweenFront headDoc lastDoc front hug headShape frontShapes lastShape
+      headIs frontEach lastIs hugIs
 
 theorem pickShape ∀ (option: Option (Doc, Option Doc)) (shape: List Told)
     (last: LastOpt option shape):
