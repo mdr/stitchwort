@@ -33025,12 +33025,12 @@
     {
       "id": 4657,
       "title": "[Sonnet] Sealed theorems stage 0 (docs/proposals/sealed-theorems.md): test-only switch STITCHWORT_SEAL_THEOREMS=1 that makes every theorem opaque (as a theorem with an unfolding list is), so a run over std, tools/fmt, AoC, the roguelike and the examples lists what stops checking and why; commits to nothing. Waits for Matt's D3718.",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nD3718 (Matt, 22 Nov): \"yes, let's do the no commitment measurement first and see what would stop checking if we were to seal everything.\" Started 21:06 on Sonnet. Expected: 35 min.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
