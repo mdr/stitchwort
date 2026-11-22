@@ -81,6 +81,19 @@ in [../proposals/README.md](../proposals/README.md).
 - **Next.** Reusing a read-back at a deeper level (shift the kept term's
   free indices) would reach `standsDecl`'s 8 repeats (about 2.9 s); not
   done, see the ticket.
+- **On main after SW-4619 (measured, merged branch, cold `check
+  --no-cache` of all of tools/fmt, nice 19, load 5-22 from other lanes).**
+  SW-4619 reshaped the proofs above, so the large repeats are gone.
+  `--timings`: off 175.6 s wall, 167.8 s user; on 270.7 s wall, 175.5 s
+  user. `--timings=all` (load under 15 at start): off 182.1 s wall,
+  171.2 s user, 2,092,873,378 steps over 13,114 declarations; on 195.4 s
+  wall, 174.7 s user, 2,080,783,903 steps (-0.58%). 22 declarations took
+  fewer steps (12.1M together; most `Fmt.ToldWordProofs.parenTell` 7.11M
+  → 5.65M, `Fmt.ElementsKeys.anyCellsKeys` 3.99M → 2.91M), 8 took a few
+  more (2,819 together, at most 968; not explained). The top 10 by steps
+  are unchanged but for `followsExprKeyword` 28,477,575 → 28,417,277.
+  User CPU did not go down (the wall times are dominated by load).
+  `STITCHWORT_READBACK_MEMO=check` over the same check: exit 0, no panic.
 ### SW-4615: std's slow Parse lemmas: lifting their leaves into step lemmas does not pay; no code changed
 
 - **Status:** dropped; measured, nothing merged.
