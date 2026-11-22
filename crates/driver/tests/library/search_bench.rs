@@ -19,7 +19,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use stitchwort_core::{DataId, DefId, Term};
 use stitchwort_driver::driver::{Session, Tier, all_tier, tier, with_session};
-use stitchwort_elab::search::{Candidate, Item, Kind, Mode, Opts, Pattern, Side};
+use stitchwort_elab::search::{
+    Candidate, Item, Kind, Mode, Opts, Pattern, SearchTier, Side, passes,
+};
 
 const STACK: usize = 64 * 1024 * 1024;
 
@@ -51,6 +53,10 @@ struct Score {
     /// Each internal error: the query, the candidate and the panic message.
     internal: Vec<String>,
     out_of_budget: usize,
+    /// Queries whose own theorem the filter lets through, and queries the
+    /// filtered pass answered (it found something, so no relaxed pass ran).
+    own_passes: usize,
+    filtered: usize,
 }
 
 impl Score {
@@ -62,7 +68,7 @@ impl Score {
         let mrr =
             self.ranks.iter().map(|r| 1.0 / *r as f64).sum::<f64>() / self.queries.max(1) as f64;
         eprintln!(
-            "{what}: {} queries, {} not found; strict top-1 {:.1}%, MRR {mrr:.3}, recall@5 {:.1}%, recall@10 {:.1}%; {} out of budget, {} internal errors",
+            "{what}: {} queries, {} not found; strict top-1 {:.1}%, MRR {mrr:.3}, recall@5 {:.1}%, recall@10 {:.1}%; {} out of budget, {} internal errors; {} pass their own theorem's filter, {} answered by the filtered pass",
             self.queries,
             self.missed.len(),
             self.share(|r| r == 1),
@@ -70,6 +76,8 @@ impl Score {
             self.share(|r| r <= 10),
             self.out_of_budget,
             self.internal_errors,
+            self.own_passes,
+            self.filtered,
         );
         for name in self.missed.iter().take(20) {
             eprintln!("  not found: {name}");
@@ -154,6 +162,12 @@ fn run(
         if std::env::var_os("SEARCH_BENCH_TRACE").is_some() {
             eprintln!("query: {}", query());
         }
+        if (candidates.iter())
+            .find(|c| c.item == Item::Def(*wanted))
+            .is_some_and(|c| passes(&pattern, &c.index))
+        {
+            score.own_passes += 1;
+        }
         let keep = |c: &Candidate| Some(c.item) != owner.map(Item::Def);
         let found = session.elab.search(&[pattern], candidates, opts, &keep);
         score.internal_errors += found.stats.internal_errors;
@@ -163,6 +177,9 @@ fn run(
             score.internal.push(entry);
         }
         score.out_of_budget += found.stats.out_of_budget;
+        if found.tier == SearchTier::Filtered {
+            score.filtered += 1;
+        }
         match found.hits.iter().position(|h| h.item == Item::Def(*wanted)) {
             Some(i) => score.ranks.push(i + 1),
             None => score

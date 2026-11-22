@@ -1279,7 +1279,13 @@ struct Read {
 ///   type in scope, whatever made it (a lambda parameter's type, a `.field`
 ///   waiting for its receiver's type, a dictionary the obligations will
 ///   find): the occurrence test can't find a scrutinee in an unknown, nor
-///   an unknown scrutinee anywhere;
+///   an unknown scrutinee anywhere. In a variable's type, though, an
+///   unwritten lambda parameter's type (`parameter_metas`) isn't waited
+///   for: it can't depend on the scrutinee, as it can't on a split
+///   variable ([`crate::check::unpin_parameter_types`], SW-873), and often
+///   only an alternative's use fixes it, as `check b` does `r`'s in `let
+///   check := r => 3 ∈ r.items` before `match n == 0 with | True => check
+///   b | …`, so waiting for it would wait for ever (SW-4590);
 /// - one in the expected type that the queue still has to settle
 ///   ([`crate::queue::pending`]), except `own`, the type of the waiting
 ///   `match` asking, which it settles itself.
@@ -1343,12 +1349,14 @@ fn blocker(
             Ok(t) => Ok((t, true)),
         }
     };
+    let parameters = cx.e.attempt.parameter_metas.borrow();
+    let unsolved_in_scope = |m: usize| unsolved(m) && !parameters.contains_key(&m);
     out.types = vec![None; base];
     out.goal = None;
     let unknown = (|| {
         for l in 0..base {
             let (ty, unfolded) = read(&cx.types[l], false)?;
-            if let Some(m) = first_meta(&ty, &unsolved) {
+            if let Some(m) = first_meta(&ty, &unsolved_in_scope) {
                 return Ok(Some(m));
             }
             if unfolded {

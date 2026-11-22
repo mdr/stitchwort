@@ -1,5 +1,5 @@
 {
-  "next": 4602,
+  "next": 4604,
   "tickets": [
     {
       "id": 47,
@@ -31428,14 +31428,14 @@
     {
       "id": 4546,
       "title": "[Sonnet] Differential sweep: give the recursive reference evaluator a depth guard (ResourceError::Depth exists, unused on that path) so an example too deep for it is skipped and counted under MAX_SKIPPED instead of aborting the whole test process; then fin-pattern-numbers.sw's manual skip marker can go and a new deep example can't hide behind the sample again (SW-4545)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
       "body": "",
       "created": "2026-11-21",
-      "updated": "2026-11-21",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -31550,14 +31550,14 @@
     {
       "id": 4555,
       "title": "[DeepSeek] Run tools/fmt/dev/check-glossary.sh in the quick tier (it caught 4 drifted line references within minutes of merging); rename the clashing Quiet and Kept definitions (each has unrelated definitions in two or more files; SW-4535) and rule1Drop/rule2Drop/rule3Drop in Syntax/SettleBareProofs.sw to the comment-placement step names",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-21",
-      "updated": "2026-11-21",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -31576,14 +31576,14 @@
     {
       "id": 4557,
       "title": "[Opus] Let a byComputing premise be left out at a call (a default or auto-parameter), so a lemma's 'rebuilt' fact closed by computing needs no (v1 => byComputing) tail at every use (SW-4553): design note first, with the call sites it would clean",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
       "body": "",
       "created": "2026-11-21",
-      "updated": "2026-11-21",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -31946,12 +31946,12 @@
     {
       "id": 4585,
       "title": "[Opus] Search: 6775 of 7012 recorded proof uses fail their own lemma's filtered first pass, because a use pattern's constants include its arguments' constants, which the lemma's type doesn't name (SW-4579). Decide whether use patterns should leave the arguments' constants out of the filter (and what that does to recall@10 and out-of-budget in search_bench::proof_uses_find_their_lemma_among_the_first_ten), and do it if it helps",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "",
+      "body": "Lane (Opus, 22 Nov, from 08:00; est. 45 min), branch lane/SW-4585:\n- Baseline (all profile, 1007 s): 10347 queries, recall@10 55.4%, top-1 41.3%, 39110 out of budget; 3572 pass their own lemma's filter (so 6775 fail), 5520 answered by the filtered pass.\n- Trying: written = the lemma's conclusion only (args left out), and written = conclusion plus only the args it mentions.\n\n- Cause: use_pattern's Pattern::constants (the conclusion with the arguments put in) and its written set (the conclusion as stated plus every argument) both name the arguments' definitions; the filter wants a candidate naming all of one set, and the generic lemma a proof instantiates doesn't. The lemma is then found only when nothing else passes and the relaxed pass runs.\n- stitchwort search builds queries the same way (search_pattern: folded constants plus constants of the whole written term), so a goal-shaped query loses a generic lemma in the filtered pass just as the bench's uses do; leaving the arguments out would let the bench know the answer's constants, which no user query does.\n- Measured (all profile): conclusion only: recall@10 55.4 -> 54.6, not found 3236 -> 4211, top-1 41.3 -> 43.3, out of budget 39110 -> 25843: dropped. Conclusion plus only the arguments it mentions: recall@10 and top-1 unchanged, out of budget 39110 -> 38733, not found 3236 -> 3253: kept (commit 5ad583eeb), with the bench now printing own-filter passes and filtered-pass answers.\n- Tests: search_bench::a_use_pattern_passes_its_own_lemmas_filter, proof_use_of_flipped_run_..., proof_use_with_lambda_arguments_... pass; clippy clean. Each bench run 10-17 min.\nModel result: Opus, worked, 57 min (est. 45)\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -32013,12 +32013,12 @@
     {
       "id": 4590,
       "title": "[Opus] D3713 (pending Matt): a generalised match waits for ever on a lambda parameter's unknown type that only its own arm fixes ('let check := r => 3 ∈ r.items; match n == 0 with | True => check b', E-CANNOT-INFER at r.items); proposal: blocker in matching.rs skips parameter_metas (SW-873's rule for generalisation). Do once Matt answers",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "D3713: Matt, 22 Nov 2026 08:24, \"yes\": the generalised match's waiting step skips lambda parameter-type unknowns (SW-873's rule). Starts on Opus when a build slot frees.\n\n\nProgress (Opus lane, 22 Nov 08:29-08:45): `blocker` in crates/elab/src/matching.rs skips `parameter_metas` in the types of the variables in scope (scrutinees and their types still wait). Commit 8010b7c5e on lane/SW-4590. Test `postponement::a_generalised_match_leaves_a_let_lambdas_parameter_type_to_its_arms` (unannotated hash = annotated; fails E-CANNOT-INFER without the fix); example `examples/accept/let-lambda-before-generalised-match.sw` + hash snapshot (both defs fail on main). Postponement tests 17/17, test:example let-lambda,postpone,match 7/7, test:hashes ALL=1 12/12 with no hashes moved, tools/fmt check --no-cache 150 namespaces, 0 errors. Not covered: `let size := r => r.items.length` before `match n == 0` still waits (the lambda's result type, the waiting field's unknown, blocks too): finding for the orchestrator.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -32143,12 +32143,12 @@
     {
       "id": 4600,
       "title": "[Opus] Unfolded read-back of Float.Model.roundRatio on stuck arguments costs 100k-1.2M nodes, 240-560 MB and 5-9M steps per lemma in about 12 Std.Float.Theory lemmas (SW-4594: ofIntMonotone 448k nodes and +240 MB, roundGrid 1.22M, ofNatExact 1.14M, add/mul/divRelError ~0.88M). Find why match/rewrite positions read the goal back unfolded (a match x: e on an expression scrutinee does; on a Bool variable it doesn't: ofIntMonotone 9.28M to ~20k steps in a scratch rewrite) and fix at the source, results and messages unchanged; measure Float.Theory's peak and steps (check --std --no-cache with --std-dir) and examples/accept/float-playlist.sw; performance-log entry",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nProgress (lane, Opus, 22 Nov, commit 30d92c98e on lane/SW-4600): profiled with step counters and a backtrace on read-backs over 400k nodes. Four causes: check_motive read the as-given motive (the goal) unfolded and kernel-checked 448k nodes (7.65M steps of ofIntMonotone's 9.28M); the match as-written search unfolded a goal with no hit; blocker's unfolded type read-backs were read again by the generalisation (884k twice in add/mul/divRelError); rewrite's SW-4469 fast path was limited to hypotheses with a variable side, so roundGrid's rewrite n0 / rewrite r read the goal unfolded (1.22M) for nothing. All four fixed in crates/elab; hashes unchanged. Std.Float.Theory peak 565.7 to 409.4 MB, steps 110.9M to 90.0M; float-playlist peak 565.1 to 409.0 MB. Left: the usual occurrence test's own read (design), ofNatExact (rewrite by a lemma; extending the fast path to lemmas measured worse, not kept). Tests: test:example NAME=float,as-written,guard-refinement,match-lemma-hidden,rewrite-as-written (7 passed), test:hashes ALL=1 (12 passed), tools/fmt check --no-cache (150 namespaces, 0 errors). Perf-log entry added.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -32156,11 +32156,37 @@
     {
       "id": 4601,
       "title": "[Sonnet] Bisect the +4.05M steps on examples/reject/rewrite-solution-too-large.sw's Main.big between 99b5d8b6f (12.17M, 20 Nov 20:36) and e87365f3f~1 (16.20M, 21 Nov 19:50), not 50848b226 or e87365f3f (SW-4594); about 8 builds in scratch worktrees; say deliberate or accident, fix a small accident with a step measure",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
+      "body": "Model result: Sonnet, worked (7 builds; hunk confirmed by patch), 10 min (est. 35)\n",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4602,
+      "title": "[Opus] Pending a D question for Matt (after D3713): let size := r => r.items.length before match n == 0 with | True => size b still fails E-CANNOT-INFER at r.items: the generalised match waits on the field lookup's result unknown, which isn't a parameter_meta (SW-4590's finding 1). The same lambda before match o with on a variable is accepted (SW-4586), so the two kinds of match differ. Proposal to bring: let the blocker also skip unknowns created inside a let lambda whose parameter type is unknown. Do once Matt answers",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4603,
+      "title": "[Opus] Search: when the filtered first pass finds fewer than k hits, add relaxed-pass hits (or merge the two passes), so a general lemma stated for a goal's shape isn't lost whenever some specific lemma passes the filter (SW-4585: D2063's filter design is the limit; conclusion-only filtering cut out-of-budget 39110 to 25843). Measure with search_bench's new filtered-pass counts (--profile all, 10-17 min a run); recall@10 and top-1 must not fall",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
