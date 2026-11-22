@@ -32382,7 +32382,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "Progress (Sonnet lane): profiled std Parse; the top lemmas spend 70% of steps on read-backs of the unfolded labelWholeFrom handler; lifting leaves into step lemmas costs as much as it saves (14.4M -> ~13.6M est.). Dropped, no code change; see docs/performance/log.md SW-4615.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
