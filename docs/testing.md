@@ -321,7 +321,7 @@ No program is known to crash the compiler any more (its depth guards stop deep p
 
 ## Benchmarks
 
-`crates/bench` runs a fixed set of benchmarks (`--list` shows them): the example suite, evaluation (`lengths 400 3000`), text operations, running a `main` that prints 20,000 lines, generating JS, and checking programs that are known to be slow or near the resource limits (number patterns: one of 200, a 256-row table, one of 10^30, a 1,000-row table, dependent arguments, several columns; long list equations, long sums, deep nesting). Each checks its own result, so it can't get faster by doing something else.
+`crates/bench` runs a fixed set of benchmarks (`--list` shows them): the example suite (with the library replayed from a cache), checking the library once, evaluation (`lengths 400 3000`), text operations, running a `main` that prints 20,000 lines, generating JS, and checking programs that are known to be slow or near the resource limits (number patterns: one of 200, a 256-row table, one of 10^30, a 1,000-row table, dependent arguments, several columns; long list equations, long sums, deep nesting). Each checks its own result, so it can't get faster by doing something else.
 
 Each benchmark is measured in two ways:
 
@@ -332,14 +332,14 @@ Each benchmark is measured in two ways:
 ```sh
 cargo run --release -p stitchwort-bench                  # run, compare with the baseline; fails on a regression
 cargo run --release -p stitchwort-bench -- check-number  # only benchmarks whose names contain this
-cargo run --release -p stitchwort-bench -- --no-time     # counts only, one run each: about 80 s, most of it `examples`
+cargo run --release -p stitchwort-bench -- --no-time     # counts only, one run each: mostly `examples`, whose preparation checks the library twice (about a minute, untimed) before its sweep, and `std`, 28 s
 cargo run --release -p stitchwort-bench -- --parts FILE  # also write each example's counts to FILE, to compare two builds
 cargo run --release -p stitchwort-bench -- --update      # record this run as the baseline
 ```
 
 The baseline is `bench/baseline.toml`: one table per benchmark, so a change reads well in a diff. Update it deliberately: after an improvement (the comparison says so, and the baseline should keep it), or after a regression that's worth its cost, saying why in the commit. Record times on a quiet machine. The example suite and JS generation read `examples/`, so the baseline records a fingerprint of those files, and when they change the counts aren't compared (a note says so) until the baseline is updated.
 
-The test tiers run the counts part (`crates/bench/tests/baseline.rs`): one run of each benchmark, failing if a count grew past the threshold. Being deterministic, it can't fail by chance. The `examples` benchmark checks the whole example corpus (each example in a session of its own, from the library's source, so that the elaborator's work on the library is part of what it counts), over a minute and most of the test's time, so only the all tier compares its counts; the broad tier compares the rest, in about 30 s. It's skipped in debug builds (`cargo test`), where the benchmarks are slow and allocation counts may differ from the release build's.
+The test tiers run the counts part (`crates/bench/tests/baseline.rs`): one run of each benchmark, failing if a count grew past the threshold. Being deterministic, it can't fail by chance. The `examples` benchmark checks the whole example corpus (each example in a session of its own, reading the library from a check cache that its untimed preparation fills from source, as the example suite's sessions read the test std cache; the cache folders are fresh for each run, one for each stack size the sessions use, SW-4621), most of the test's time, so only the all tier compares its counts; the broad tier compares the rest, including `std`, which checks the whole library once from source (about 355 M steps, 28 s), in about a minute. Before SW-4621 `examples` checked the library afresh for each example, about 78% of its 16.5 G steps (docs/proposals/std-import-cost.md); the library's elaboration is now counted once, in `std`, and an example's own checking shows in `examples`. It's skipped in debug builds (`cargo test`), where the benchmarks are slow and allocation counts may differ from the release build's.
 
 ## Writing tests
 
