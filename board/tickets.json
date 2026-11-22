@@ -32372,7 +32372,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nStarted 22 Nov 16:42 on Opus as a research paper lane (Matt: 'I think a research lane about parallel checking would be interesting ... survey the state of the art ... How might it fit Stitchwort?'). Expected: 75 min.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
