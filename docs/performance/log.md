@@ -46,6 +46,27 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 22 Nov 2026
 
+### SW-4609: `explain_lifted` skips diagnostics that can't name a `match` helper; about 10% less CPU on a cold tools/fmt check
+
+- **Problem.** SW-4608's profile (docs/reviews/SW-4608-proof-checking-speed.md,
+  win 1) put `explain_lifted` at 14% of a cold tools/fmt check: for every
+  diagnostic, shown or not, it built and sorted the list of every `match`
+  helper lifted so far in the run (`tables.lifted`, which only grows) and
+  substring-searched the message, labels and notes for each name.
+- **Change.** Every name in `tables.lifted` is `owner.%matchN`, so a
+  diagnostic whose text has no `%match` and for which the printer showed no
+  helper's call (`printed_matches` empty) is returned straight away, before
+  the list is built. Other diagnostics take the old path, so messages are
+  unchanged.
+- **Result (measured, Speedwell under load 9-11, `check --no-cache`, user CPU
+  seconds, one run each).** `Fmt.ElementsProofs` (102 namespaces with its
+  dependencies): 158.7 s before, 141.1 s after (-11%); `Fmt.DeclHangProofs`:
+  30.2 s before, 27.6 s after (-9%). Wall times were 162 s and 168 s, and 32 s
+  and 34 s: too noisy under load to read, hence the CPU figures. Not
+  profiled again.
+- **Not done.** Diagnostics that do name a helper still walk every helper;
+  indexing by name would remove that if it shows up.
+
 ### SW-4606: `rewrite`'s completeness check skips the unfolded motive when the motive has lost a variable the left side depends on; Std.Float.Theory 410 MB to 383 MB, 90.0M to 88.5M steps
 
 - **Problem.** SW-4600 left three things: (a) a suspected miss in SW-4469's
