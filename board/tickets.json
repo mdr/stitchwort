@@ -32000,12 +32000,12 @@
     {
       "id": 4589,
       "title": "[Sonnet] Other split sites don't unpin lambda parameter types (SW-4586 extended SW-873's unpin_parameter_types to function types for match splits): matching.rs refined_guard / refined_in_place and families::check_case; try the let-lambda-before-match example's shape in each form, fix with tests where it fails",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nProgress (lane, 07:10): shapes tried: guard (general and in place), family case. Failed before: in-place guard (refined_in_place) and an indexed-family split (index variable k not unpinned, only the split variable). Fixed by unpin in refined_in_place and per free index variable in lib.rs before families::check_case; the general guard route passes already. Commit 7aa74138e on lane/SW-4589. Tests: postponement::guard_and_family_splits_leave_a_let_lambdas_parameter_type_alone, example let-lambda-before-guard-and-family (+ hash snapshot), hashes ALL, tools/fmt check 149 namespaces 0 errors.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
