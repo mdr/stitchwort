@@ -1,0 +1,42 @@
+thread Thread <52850995> samples 37913
+== self
+ 10.1%  stitchwort_core::value::run
+  4.4%  <stitchwort_core::value::Value as core::clone::Clone>::clone
+  3.7%  <alloc::rc::Rc<[stitchwort_core::value::Value]>>::from_iter_exact::<core::iter::adapters::chain::Chain<core::iter::adapters::cloned::Cloned<core::slic
+  3.2%  mi_malloc_aligned
+  3.1%  mi_free
+  3.1%  stitchwort_core::value::detach
+  3.1%  stitchwort_core::value::quote_as_until
+  2.9%  <core::str::pattern::StrSearcher>::new
+  2.8%  core::ptr::drop_glue::<stitchwort_core::value::Value>
+  2.8%  <stitchwort_core::term::Term>::for_each_child::<<stitchwort_core::term::Term>::subterms::{closure#0}::{closure#0}>
+  2.7%  stitchwort_core::value::resume
+  2.7%  stitchwort_core::value::quick
+  2.5%  stitchwort_core::value::visit
+  2.4%  _platform_memmove
+  2.3%  stitchwort_core::term::take_children
+  2.3%  stitchwort_core::value::free_iteratively::<<stitchwort_core::value::Values as core::ops::drop::Drop>::drop::{closure#0}>
+  1.9%  <alloc::vec::Vec<stitchwort_core::value::Value> as alloc::vec::spec_from_iter::SpecFromIter<stitchwort_core::value::Value, core::iter::adapters::Gener
+  1.2%  core::ptr::drop_glue::<stitchwort_core::term::Term>
+  1.1%  stitchwort_core::value::push
+  1.0%  <stitchwort_core::term::Term as core::ops::drop::Drop>::drop::{closure#0}
+  1.0%  stitchwort_core::value::take_elims
+  1.0%  <stitchwort_core::term::Term>::peel_lams_rc
+  0.8%  stitchwort_core::value::fields
+  0.8%  <alloc::vec::Vec<stitchwort_core::value::Value> as core::clone::Clone>::clone
+  0.8%  <stitchwort_core::value::Spine>::push
+  0.7%  <alloc::vec::into_iter::IntoIter<stitchwort_core::term::Term> as core::iter::traits::iterator::Iterator>::try_fold::<alloc::vec::in_place_drop::InPlac
+  0.7%  stitchwort_core::value::force_solved
+  0.6%  <alloc::raw_vec::RawVecInner>::finish_grow
+  0.6%  <stitchwort_core::term::Term>::app_icit
+  0.6%  <stitchwort_elab::lift::Replace>::go
+  0.6%  stitchwort_core::value::eval
+  0.6%  stitchwort_core::value::apply_step
+  0.6%  <stitchwort_core::term::Term as core::ops::drop::Drop>::drop
+  0.5%  stitchwort_core::value::unfold
+  0.5%  _platform_memcmp
+  0.5%  mi_theap_malloc_zero_aligned_at_overalloc
+  0.5%  core::ptr::drop_glue::<stitchwort_core::value::Values>
+  0.5%  stitchwort_elab::unify::zonk_changed
+  0.5%  mi_theap_malloc_zero_aligned_at_generic
+  0.5%  _mi_theap_realloc_zero

@@ -1,0 +1,81 @@
+== inclusive
+100.0%  stitchwort::run
+100.0%  stitchwort::check
+100.0%  stitchwort_host::stack::start::<stitchwort::main::{closure#0}, std::process::ExitCode>
+100.0%  _pthread_start
+ 99.9%  <stitchwort_driver::driver::Session>::load_project_for
+ 99.9%  stitchwort::load_project_counting
+ 99.7%  <stitchwort_driver::driver::Session>::load_analysis_for
+ 99.7%  <stitchwort_driver::driver::Session>::check_in_order
+ 99.7%  <stitchwort_driver::driver::Session>::check_project_namespace
+ 99.6%  <stitchwort_elab::Elaborator>::elaborate_namespace
+ 99.6%  <stitchwort_elab::Elaborator>::elaborate_namespace_untimed
+ 99.3%  <stitchwort_elab::Elaborator>::check_component
+ 83.1%  <stitchwort_elab::Elaborator>::group
+ 83.1%  <stitchwort_elab::Elaborator>::group_checked
+ 69.5%  <stitchwort_elab::Elaborator>::lifted_body
+ 69.5%  <stitchwort_elab::Elaborator>::with_local_retries::<(stitchwort_core::term::Term, alloc::vec::Vec<(stitchwort_core::term::DefId, stitchwort_core::term
+ 58.2%  stitchwort_elab::check_tree
+ 56.9%  stitchwort_elab::check::check
+ 56.9%  stitchwort_elab::check::check_inner
+ 56.9%  stitchwort_elab::check_leaf_in
+ 55.8%  stitchwort_elab::check::check_value
+ 54.1%  <stitchwort_elab::Elaborator>::body_term
+ 54.1%  <stitchwort_elab::Elaborator>::body_in
+ 54.0%  stitchwort_elab::families::warn_unreachable::<stitchwort_core::term::Term, <stitchwort_elab::Elaborator>::body_in_parts::{closure#9}>
+ 39.6%  stitchwort_elab::matching::generalised_now
+ 38.1%  stitchwort_elab::unfold_path::retried::<stitchwort_core::term::Term, stitchwort_elab::matching::check_match::{closure#0}, stitchwort_elab::matching::c
+ 38.1%  stitchwort_elab::matching::check_match_once
+ 37.7%  stitchwort_elab::matching::generalised
+ 37.1%  stitchwort_core::value::quote_as_until
+ 36.9%  stitchwort_core::value::run
+ 31.7%  stitchwort_core::value::visit
+ 31.0%  stitchwort_elab::matching::in_arms
+ 30.5%  stitchwort_elab::families::warn_unreachable_unless::<stitchwort_core::term::Term, stitchwort_elab::matching::in_arms::{closure#3}::{closure#0}>
+ 30.5%  stitchwort_elab::queue::framed::<stitchwort_core::term::Term, stitchwort_elab::matching::AltsFrame, stitchwort_elab::matching::in_arms::{closure#3}, s
+ 29.7%  stitchwort_elab::matching::with_hidden_equation::<stitchwort_elab::matching::generalised_now::{closure#15}>
+ 29.7%  stitchwort_elab::matching::generalised_now::{closure#15}
+ 24.4%  stitchwort_elab::effects::pure_let
+ 23.9%  stitchwort_elab::effects::pure_let::{closure#0}
+ 23.6%  stitchwort_elab::matching::in_tree
+ 23.4%  stitchwort_elab::queue::framed::<stitchwort_core::term::Term, stitchwort_elab::matching::AltsFrame, stitchwort_elab::matching::in_tree::{closure#0}::{
+ 23.4%  stitchwort_elab::families::warn_unreachable::<stitchwort_core::term::Term, stitchwort_elab::matching::in_tree::{closure#0}::{closure#0}::{closure#0}>
+ 19.7%  stitchwort_elab::check::fallback_named
+ 19.1%  stitchwort_elab::queue::tactic_or_wait
+ 18.4%  stitchwort_elab::check::apply_args_with_at
+ 18.4%  stitchwort_elab::check::apply_args_once
+ 18.4%  stitchwort_elab::check::apply_args_postponing
+ 18.4%  stitchwort_core::value::quote
+ 18.1%  stitchwort_elab::check::infer
+ 17.4%  stitchwort_core::value::force_now
+ 17.3%  stitchwort_elab::check::infer_call
+ 17.3%  stitchwort_elab::check::infer_app_with
+ 17.0%  stitchwort_elab::check::apply_named_head
+ 16.6%  stitchwort_elab::check::check_arg
+ 16.6%  stitchwort_elab::queue::framed::<stitchwort_core::term::Term, stitchwort_elab::check::ArgFrame, stitchwort_elab::check::check_arg::{closure#0}, stitch
+ 16.3%  stitchwort_elab::check::infer_expecting
+ 16.1%  stitchwort_elab::queue::framed::<stitchwort_core::term::Term, stitchwort_elab::matching::AltsFrame, stitchwort_elab::matching::lifted::{closure#6}, st
+ 16.1%  stitchwort_elab::families::warn_unreachable::<stitchwort_core::term::Term, stitchwort_elab::matching::lifted::{closure#6}::{closure#0}>
+ 15.9%  stitchwort_core::check::check
+ 15.7%  stitchwort_core::check::check_form
+ 15.3%  stitchwort_elab::kernel::define_group
+ 15.2%  stitchwort_core::machine::in_kernel_modes::<core::result::Result<(), stitchwort_syntax::diagnostic::Diagnostic>, stitchwort_core::check::define_group:
+ 15.2%  stitchwort_core::check::install_group::<stitchwort_core::check::admit_group>
+ 15.2%  stitchwort_elab::rewrite::check_rewrite
+ 15.1%  stitchwort_elab::rewrite::rewrite_goal_once
+ 15.1%  stitchwort_elab::unfold_path::retried::<stitchwort_core::term::Term, stitchwort_elab::rewrite::rewrite_goal::{closure#0}, stitchwort_elab::rewrite::re
+ 15.0%  stitchwort_elab::check::fallback_inferred
+ 14.7%  <stitchwort_elab::Elaborator>::lift
+ 14.4%  stitchwort_elab::matching::check_match_named
+ 14.2%  <stitchwort_elab::Elaborator>::explain_lifted
+ 13.5%  stitchwort_core::check::check_app
+ 12.8%  stitchwort_elab::check::propagate
+ 12.3%  stitchwort_elab::check::explicit_lambda
+ 12.2%  <&str as core::str::pattern::Pattern>::is_contained_in
+ 11.9%  stitchwort_core::check::check_other
+ 11.4%  <alloc::vec::into_iter::IntoIter<(usize, stitchwort_syntax::diagnostic::Diagnostic)> as core::iter::traits::iterator::Iterator>::fold::<(), core::iter
+ 11.1%  stitchwort_elab::check::finish_application
+ 11.1%  <core::str::pattern::StrSearcher>::new
+ 11.0%  stitchwort_elab::rewrite::rewrite_once
+ 10.2%  stitchwort_core::value::conv_with
+ 10.1%  stitchwort_elab::unify::run
