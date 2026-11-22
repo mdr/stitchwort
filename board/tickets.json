@@ -1,5 +1,5 @@
 {
-  "next": 4635,
+  "next": 4637,
   "tickets": [
     {
       "id": 47,
@@ -32582,7 +32582,7 @@
     {
       "id": 4629,
       "title": "[Opus] Elaborate a destructuring let over a conjunction (or a record/tuple of proofs) as projections, not a match that generalises over everything in scope: SW-4619 found destructuring the six-part declJoins alone cost ~24M steps; terms may change, so measure and check hashes (SW-4619 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -32590,7 +32590,10 @@
       "body": "\nProgress (lane, Opus, 22 Nov): 36f2019e4 on lane/SW-4629. In a proof, a pattern let on a proof (∧, record/ctor of proofs) binds projections, opaque while the body is checked; on data it stays the match; a call whose declared result is data or ∃ goes straight to the match; any failure with projections re-checks the let as the match (lets inside kept as matches). Fixes an internal error on a record pattern let over a test fact outside a proof. Measured (tools/fmt at 058a52019^): atomHung 56.0M→41.3M, unaryHung 30.1M→24.8M, signArgHung 10.1M→8.9M, orFlat 14.5M→13.6M; example bigSplit 324K→3.4K. 12 hash snapshots + prelude re-recorded, one new. ~65 min (est. 45).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "36f2019e4bc7b7641406979a1cb01ddfb74e9302",
+        "074c826087e0c2a9698b1f6e216d011e688cc60e"
+      ]
     },
     {
       "id": 4630,
@@ -32655,6 +32658,32 @@
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4635,
+      "title": "[Opus] A match should not read back hypotheses its scrutinee does not occur in (and FullHungBelow depth could be read back folded): the remaining cost of atomHung, unaryHung, signArgHung (25M steps each) and ~5M in each chain proof is a match re-reading a 61.6K-node hypothesis it does not mention; also rewrite quotes every hypothesis (kernel_context, ~10K nodes each) (SW-4629, SW-4631 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4636,
+      "title": "[Sonnet] A match on a proof h: P ∧ Q in a Prop-valued definition (def bothOk (h) : Prop := match h with | Both _ _ => 0 = 0) then byComputing against bothOk h fails after a match on h, on main too; the Bool version works: find whether refining a goal into a Prop-valued definition is missing (SW-4629 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
