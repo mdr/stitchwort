@@ -32795,7 +32795,7 @@
     {
       "id": 4643,
       "title": "[Sonnet] check_cache write_atomically names its temp file by process id and nanoseconds; two threads of one process can collide: add a thread id or counter before any multi-threaded store (SW-4614 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
