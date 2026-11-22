@@ -32078,7 +32078,7 @@
     {
       "id": 4595,
       "title": "[Opus] Redo SW-4582 (reverted 22 Nov): its nested-argument put-off (explicit_arg_failed under HolesRetry::Deferred, branch lane/SW-4582 at c793cbc53, plus SW-4591's E-WALK exception ecccc7ebe) cut AoC 2020 day 16's runsNotes 40.3M to 2.4M steps but broke tools/fmt's Syntax.GoodItemProofs.readsAtFraction (E-TYPE-MISMATCH at GoodItemProofs.sw:787, byComputing against expected type _; 50 dependents) and two walk messages. Redo it so that the whole tools/fmt check (check --no-cache from tools/fmt), all four example kinds and the walk examples stay exactly as before; then the 2^n saving",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
