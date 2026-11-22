@@ -1277,8 +1277,8 @@ impl Elaborator {
 
     /// A pattern of `value`, whose unknowns are all holes, each a different
     /// variable; `None` if it is one. `written` is the term it was
-    /// evaluated from, if there is one: the definitions the pattern names
-    /// are then only those it names as written too. With holes in it, the
+    /// evaluated from, if there is one: its definitions are kept as
+    /// [`Pattern::written`], which the filter accepts as well. With holes in it, the
     /// value computes (`2 * ?j` is `?j + ?j`) and can't be folded back, so
     /// it names definitions (`Nat.add`) that a candidate stating the same
     /// thing, whose type was folded without holes, doesn't, and the filter

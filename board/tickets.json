@@ -1,5 +1,5 @@
 {
-  "next": 4579,
+  "next": 4580,
   "tickets": [
     {
       "id": 47,
@@ -31749,12 +31749,12 @@
     {
       "id": 4570,
       "title": "[Sonnet] search_bench::every_conclusion_finds_its_theorem fails on Std.Float.Theory.doubleMul (j * (h * 2) = 2 * j * h) (all tier 22 Nov, SW-4566): the query pattern, built with holes, unfolds Nat.mul 2 ?j and can't fold it back, so its constants are Nat.add and Nat.mul while the candidate's type index has only Nat.mul; the filtered first pass needs every pattern constant in the index. Make finish_pattern (crates/elab/src/search.rs ~1277) and type_index (~1371) agree; rerun only that test",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "\n\nLane notes (22 Nov): diagnosis confirmed (pattern named Nat.add and Nat.mul, index only Nat.mul). Fix: Pattern::written (constants of the term the pattern came from); the filter passes a candidate naming either set. Test: search_bench::a_conclusion_with_a_literal_factor_passes_the_filter (failed before). Bench: 88.0%, MRR 0.921, r@5 97.0%, r@10 98.3%, 1552 out of budget, 0 not found. Commit 4da7d0cf6 on lane/SW-4570.\n",
+      "body": "Model result: Sonnet, worked (confirmed diagnosis; either-set filter, numbers kept or better), 11 min (est. 35)\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -31858,6 +31858,19 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4579,
+      "title": "[Sonnet] Search: use_pattern and closing.rs's goal patterns have no Pattern::written (SW-4570), so a goal with holes that computes (2 * ?j becomes ?j + ?j) can still filter out the lemma that states it; set written from the term as written there too, with a test; after SW-4575 merges (same file)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
