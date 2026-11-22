@@ -1,5 +1,5 @@
 {
-  "next": 4587,
+  "next": 4588,
   "tickets": [
     {
       "id": 47,
@@ -31964,6 +31964,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4587,
+      "title": "[Sonnet] Bench examples sweep (bench/baseline.toml, 22 Nov re-record, SW-4569): 1,993 files against 1,625 (1.23x) but 16.5G steps against 8.4G (1.96x) and peak heap 1.16 GB against 0.28 GB (4.1x). Measure per-example steps and peak with stitchwort-bench's examples case (or check --timings over the corpus), find which examples account for the growth (the 13 large-hypothesis-* are suspects) and whether any older example got slower; report a table, fix any accident, add a performance-log entry",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",

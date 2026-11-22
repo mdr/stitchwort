@@ -44,6 +44,33 @@ in [../proposals/README.md](../proposals/README.md).
 
 ---
 
+## 22 Nov 2026
+
+### SW-4569: bench baseline re-recorded after eight days of accepted costs
+
+- **Status:** merged (baseline re-recorded on main, 05:12 to 05:25, quiet
+  machine, load about 4).
+- **Problem.** `baseline::counts_have_not_regressed` failed in the all tier
+  (D3712): the baseline was from 14 Nov (`282325b14`) and nothing had re-run
+  it since, so every cost from 14 to 22 Nov showed at once.
+- **Cause (SW-4569's bisect).** `check-number-table` and `check-number-wide`
+  +12.5% steps (10 per number-pattern row) and part of `check-text-literal`'s
+  allocations (+15%) are SW-3930 (`526f98b64`, D3680: declared types kept
+  glued, a `Refl` body checked unglued), a deliberate design cost its merge
+  note reported only as 1.06x on byComputing. `check-closed-*` visits +11.6%
+  and peak heap +15.6% grow in steps with the standard library (92 lemmas
+  lifted into std by SW-4218, `b78caf004`, among others).
+- **Accepted.** Both are the price of changes made on purpose; no accident
+  was found, so nothing was changed in code.
+- **Measured.** The `examples` sweep is now 1,993 files against 1,625 (1.23x)
+  but 16.5 G steps against 8.4 G (1.96x) and 1.16 GB peak against 0.28 GB
+  (4.1x): more than the file count explains. Thirteen `large-hypothesis-*`
+  examples (19 and 20 Nov) are large by design and are a likely part; not
+  yet measured, so filed as SW-4587.
+- **Also.** SW-4580 cut AoC 2020 day 16's `runsNotes` from 55.4 M steps
+  (358 M uncapped, after SW-4480) to 40.3 M, below its 42 M before SW-4480;
+  pinned under 48 M by SW-4581's test.
+
 ## 21 Nov 2026
 
 ### SW-4536: `byComputing` on a goal with no unknowns compares unglued, as the kernel does; the parser-run examples' elaboration 15-130x fewer steps, a 26-namespace check 19% fewer
