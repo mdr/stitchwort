@@ -34,9 +34,11 @@ use crate::lift::{self, Draft};
 use crate::{Row, check_tree_here};
 
 mod as_written;
+mod untouched;
 pub(crate) use as_written::{
     Outcome as AsWritten, note_kept as note_kept_as_written, report_transport, transport_target,
 };
+pub(crate) use untouched::holds_unknown;
 
 fn parts(expr: &Expr) -> (&[Scrutinee], &[Alt], stitchwort_syntax::Span, MatchKind) {
     let Expr::Match {
@@ -934,6 +936,10 @@ pub(crate) fn refined_guard(
         }
         let mut type_terms = Vec::with_capacity(base);
         for l in 0..base {
+            if read.untouched(l) {
+                type_terms.push(Term::Refl);
+                continue;
+            }
             match read.types[l]
                 .take()
                 .map_or_else(|| read_type(cx, base, l), |t| Ok((t, false)))?
@@ -952,7 +958,7 @@ pub(crate) fn refined_guard(
         loop {
             let before = copied.len();
             for (l, ty) in type_terms.iter().enumerate() {
-                if copied.contains(&l) {
+                if copied.contains(&l) || read.untouched(l) {
                     continue;
                 }
                 let unrefined = is_var(&cx.env[l], l) || cx.lets[l].is_some();
@@ -975,6 +981,7 @@ pub(crate) fn refined_guard(
             type_terms: &type_terms,
             goal_term: &goal_term,
             goal_folded: goal_folded.as_ref(),
+            untouched: &read.untouched,
         };
         // The goal and the hypotheses are looked at as written first, as
         // `match` does ([`as_written`]), so that the arms show `0 < pick
@@ -1302,6 +1309,15 @@ struct Read {
     /// The goal's error where it was too large to read back unfolded: the
     /// generalisation would run out the same way.
     too_large: Option<Diagnostic>,
+    /// The variables whose types needn't be read at all ([`untouched`]):
+    /// never copied, and not read here either.
+    untouched: Vec<bool>,
+}
+
+impl Read {
+    fn untouched(&self, l: usize) -> bool {
+        self.untouched.get(l).copied().unwrap_or(false)
+    }
 }
 
 /// The unknown a generalisation in context `base` would read unsolved, if
@@ -1380,12 +1396,18 @@ fn blocker(
             Ok(t) => Ok((t, true)),
         }
     };
+    // A type left unread can't wait for an unknown either: a solution is
+    // closed, so it can't bring the scrutinee in ([`untouched`]).
+    out.untouched = untouched::levels(cx, exprs, base)?;
     let parameters = cx.e.attempt.parameter_metas.borrow();
     let unsolved_in_scope = |m: usize| unsolved(m) && !parameters.contains_key(&m);
     out.types = vec![None; base];
     out.goal = None;
     let unknown = (|| {
         for l in 0..base {
+            if out.untouched[l] {
+                continue;
+            }
             let (ty, unfolded) = read(&cx.types[l], false)?;
             if let Some(m) = first_meta(&ty, &unsolved_in_scope) {
                 return Ok(Some(m));
@@ -1530,14 +1552,16 @@ fn generalised_now(
     };
     let mut read = || -> Result<(Vec<(Term, bool)>, Term)> {
         let type_terms: Vec<(Term, bool)> = (0..base)
-            .map(|l| match skip.is_some_and(|skip| skip(cx, l)) {
-                // Never copied, so never read (`cannot_occur` passes over it).
-                true => Ok((Term::Refl, false)),
-                false => match read_before.types.get_mut(l).and_then(Option::take) {
-                    Some(ty) => Ok((ty, false)),
-                    None => read_type(cx, base, l).map_err(in_match),
+            .map(
+                |l| match skip.is_some_and(|skip| skip(cx, l)) || read_before.untouched(l) {
+                    // Never copied, so never read (`cannot_occur` passes over it).
+                    true => Ok((Term::Refl, false)),
+                    false => match read_before.types.get_mut(l).and_then(Option::take) {
+                        Some(ty) => Ok((ty, false)),
+                        None => read_type(cx, base, l).map_err(in_match),
+                    },
                 },
-            })
+            )
             .collect::<Result<_>>()?;
         let goal_term = match read_before.goal.take() {
             Some(goal_term) => goal_term,
@@ -1558,6 +1582,7 @@ fn generalised_now(
     };
     // Which variables' types were read as written, too large unfolded.
     let (type_terms, shown): (Vec<Term>, Vec<bool>) = type_terms.into_iter().unzip();
+    let untouched: Vec<bool> = (0..base).map(|l| read_before.untouched(l)).collect();
     let (normals, unread) = normals(cx, &exprs, &type_terms, &goal_term, base)?;
     // The first version's limitations (§4.4).
     for (i, a) in exprs.iter().enumerate() {
@@ -1604,7 +1629,7 @@ fn generalised_now(
     loop {
         let before = copied.len();
         for (l, ty) in type_terms.iter().enumerate() {
-            if copied.contains(&l) || skip.is_some_and(|skip| skip(cx, l)) {
+            if copied.contains(&l) || skip.is_some_and(|skip| skip(cx, l)) || untouched[l] {
                 continue;
             }
             let free = free_levels(ty, base);
@@ -1645,6 +1670,7 @@ fn generalised_now(
         type_terms: &type_terms,
         goal_term: &goal_term,
         goal_folded: goal_folded.as_ref(),
+        untouched: &untouched,
     };
     let written = as_written::first(cx, &exprs, &today, goal, base, skip, span)?;
     let mut not_found = if skip.is_none() {
@@ -1941,6 +1967,7 @@ fn unconfirmed_now(
         type_terms: &[],
         goal_term: &Term::Refl,
         goal_folded: None,
+        untouched: &[],
     };
     // The motive check has its own budget: a goal too large to read back
     // can be as slow to compare, and today this `match` fails at once.

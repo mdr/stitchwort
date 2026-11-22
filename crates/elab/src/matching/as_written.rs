@@ -94,6 +94,9 @@ pub(super) struct Today<'a> {
     /// The goal read back folded, when the usual test refines nothing in it
     /// ([`super::unrefined_goal`]).
     pub(super) goal_folded: Option<&'a Term>,
+    /// The variables whose types the usual test left unread, since they
+    /// can't hold a scrutinee ([`super::untouched`]): not read here either.
+    pub(super) untouched: &'a [bool],
 }
 
 /// The generalisation as written: terms in the `match`'s context followed by
@@ -356,11 +359,14 @@ fn search<'e>(
         Some(folded) => folded.clone(),
         None => cx.quote_folded(goal)?,
     };
+    let untouched = |l: usize| today.is_some_and(|t| t.untouched.get(l).copied().unwrap_or(false));
     let mut types_written = (0..base)
-        .map(|l| match skip.is_some_and(|skip| skip(cx, l)) {
-            true => Ok(None),
-            false => cx.quote_folded(&cx.types[l]).map(Some),
-        })
+        .map(
+            |l| match skip.is_some_and(|skip| skip(cx, l)) || untouched(l) {
+                true => Ok(None),
+                false => cx.quote_folded(&cx.types[l]).map(Some),
+            },
+        )
         .collect::<Result<Vec<_>>>()?;
     if reading == Reading::OnPath {
         let keys: Vec<Key> = needles.iter().map(|n| n.key.clone()).collect();

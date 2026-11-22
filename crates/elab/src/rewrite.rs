@@ -2428,8 +2428,14 @@ impl Search<'_, '_> {
 /// written out as what it computes to, for each `rewrite`, and AoC 2021 day
 /// 16's `readPacketsSound` (a `rewrite` deep in nested `match`es, in a large
 /// context) took 3 GB and 8 s to check; folded, 0.3 GB and 0.3 s (SW-1052).
+/// A value with no unknown in it is taken as it is: read back and evaluated
+/// again it would be the same value, and each `rewrite` read back every
+/// hypothesis (about 10K nodes each in `Syntax.ReadBackHungAtoms`, SW-4635).
 pub(crate) fn kernel_context<'e>(cx: &Ctx<'e>) -> Result<kernel::Ctx<'e>> {
-    let zonked = |v: &Value| cx.eval(&cx.quote_folded(v)?);
+    let zonked = |v: &Value| match crate::matching::holds_unknown(v) {
+        true => cx.eval(&cx.quote_folded(v)?),
+        false => Ok(v.clone()),
+    };
     let plain = |v: &Value| matches!(v, Value::Neutral(Head::Var(_, _), s) if s.is_empty());
     let env = cx
         .env
