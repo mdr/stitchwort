@@ -31987,12 +31987,12 @@
     {
       "id": 4588,
       "title": "[Opus] A let-bound lambda reaches the kernel as a bare-lambda redex (SW-4586): 'let check := (r: List Nat) => 3 ∈ r; match check n with | True => 1 | False => 0' fails E-CANNOT-INFER in the kernel on Decidable.holds {(λr. List.Mem Nat 3 r) n}; with ∈ not <, with a Prop body not Bool; the call lifting builds is right, so the replacement is later (post-lift zonk or refold, SW-4565/SW-4573). Repro: scratchpad sw4586/r/t5.sw; fix with an example",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\nProgress (lane, 22 Nov 07:04): cause: the match waits as a queued check; queue::placeholder_call replaced the let var `check` (not in the placeholder's spine) by its read-back value and annotated it only as a head, but here it was an argument (`?m n check`), so a bare lambda went in and zonk_call put it into the helper's call at `check n`; refold doesn't fold bare lambdas. Fix (ce6bde600): annotate a let's lambda wherever it occurs, using the let's elaborated (annotated) value, which zonk_let folds back; head-only annotation in lift.rs's Replace removed. No kernel change. Test examples/accept/let-lambda-prop-match.sw (E-CANNOT-INFER before). Hashes re-recorded: prelude (Float chain), float-playlist, trip-journal, 4 let-lambda examples. Tests: test:example postpone,let-lambda,let-folding 7/7, postponement:: 13/13, lift::tests::replace* 2/2, test:hashes ALL=1 12/12, clippy clean. Moved to review.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -32000,7 +32000,7 @@
     {
       "id": 4589,
       "title": "[Sonnet] Other split sites don't unpin lambda parameter types (SW-4586 extended SW-873's unpin_parameter_types to function types for match splits): matching.rs refined_guard / refined_in_place and families::check_case; try the let-lambda-before-match example's shape in each form, fix with tests where it fails",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -32078,7 +32078,7 @@
     {
       "id": 4595,
       "title": "[Opus] Redo SW-4582 (reverted 22 Nov): its nested-argument put-off (explicit_arg_failed under HolesRetry::Deferred, branch lane/SW-4582 at c793cbc53, plus SW-4591's E-WALK exception ecccc7ebe) cut AoC 2020 day 16's runsNotes 40.3M to 2.4M steps but broke tools/fmt's Syntax.GoodItemProofs.readsAtFraction (E-TYPE-MISMATCH at GoodItemProofs.sw:787, byComputing against expected type _; 50 dependents) and two walk messages. Redo it so that the whole tools/fmt check (check --no-cache from tools/fmt), all four example kinds and the walk examples stay exactly as before; then the 2^n saving",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
