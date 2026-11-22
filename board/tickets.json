@@ -1,5 +1,5 @@
 {
-  "next": 4600,
+  "next": 4602,
   "tickets": [
     {
       "id": 47,
@@ -32065,12 +32065,12 @@
     {
       "id": 4594,
       "title": "[Sonnet] Explain two growths SW-4587 left: examples/accept/float-playlist.sw peak 75 to 428 MB (steps 34M to 111M, Std.Float growth explains steps, not the peak), and reject/rewrite-solution-too-large / rewrite-value-too-large's Main.big at 16.2M steps with a 2,000,001-node read-back (SW-4091 a candidate); find the commits, accident or deliberate, fix small accidents with a test",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nProgress (Sonnet, 22 Nov): both growths attributed, no code change. float-playlist peak: SW-638's 7872dea99 (Float.ofInt lemmas through roundRatio; Float.ofIntMonotone +240 MB) and the same kind of lemma after (roundGrid, ofNatExact, add/mul/divRelError). Too-large rewrites: SW-4237's 61f65796e fallback (2.07 M to 12.15 M steps), then +4.05 M in a window of 261 commits not pinned. Log entry in docs/performance/log.md (lane/SW-4594, 6cc61d8c3).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -32136,6 +32136,32 @@
       "labels": [],
       "epic": "parser-proofs",
       "body": "Model result: Sonnet, worked (4 of 4 rewritten, -15 lines), 25 min (est. 30)\n",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4600,
+      "title": "[Opus] Unfolded read-back of Float.Model.roundRatio on stuck arguments costs 100k-1.2M nodes, 240-560 MB and 5-9M steps per lemma in about 12 Std.Float.Theory lemmas (SW-4594: ofIntMonotone 448k nodes and +240 MB, roundGrid 1.22M, ofNatExact 1.14M, add/mul/divRelError ~0.88M). Find why match/rewrite positions read the goal back unfolded (a match x: e on an expression scrutinee does; on a Bool variable it doesn't: ofIntMonotone 9.28M to ~20k steps in a scratch rewrite) and fix at the source, results and messages unchanged; measure Float.Theory's peak and steps (check --std --no-cache with --std-dir) and examples/accept/float-playlist.sw; performance-log entry",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4601,
+      "title": "[Sonnet] Bisect the +4.05M steps on examples/reject/rewrite-solution-too-large.sw's Main.big between 99b5d8b6f (12.17M, 20 Nov 20:36) and e87365f3f~1 (16.20M, 21 Nov 19:50), not 50848b226 or e87365f3f (SW-4594); about 8 builds in scratch worktrees; say deliberate or accident, fix a small accident with a step measure",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
