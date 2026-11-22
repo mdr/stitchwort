@@ -1,0 +1,58 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "f",
+          "type": "Nat → Nat"
+        },
+        {
+          "name": "a",
+          "type": "Nat"
+        },
+        {
+          "name": "b",
+          "type": "Nat"
+        },
+        {
+          "name": "e",
+          "type": "a = b"
+        },
+        {
+          "name": "k",
+          "type": "f a = 1"
+        }
+      ],
+      "lemma": "theorem thenSubstGoal1 (f: Nat → Nat) (a: Nat) (b: Nat) (e: a = b) (k: f a = 1): f b = 2 ∨ f a = 1 := ?",
+      "target": "f b = 2 ∨ f a = 1"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "f: Nat → Nat\na: Nat\nb: Nat\ne: a = b\nk: f a = 1\n⊢ f b = 2 ∨ f a = 1",
+        "range": [
+          7,
+          15,
+          7,
+          16
+        ]
+      }
+    ],
+    "message": "in `thenSubst`",
+    "notes": [],
+    "range": [
+      7,
+      15,
+      7,
+      16
+    ],
+    "severity": "goal"
+  }
+]

@@ -4536,7 +4536,7 @@ impl Checker {
             // The editor starts warm after an update to Stitchwort that left
             // the kernel side alone; what was carried over is logged (`step`)
             // (docs/proposals/check-cache-across-updates.md §6).
-            session.elab.set_carry_over(true);
+            session.elab.set_carry_over(self.source.carries_over());
         } else if let Some(bundle) = self.options.library.get() {
             // The same project loaded again (the page re-opened it) gets the
             // store the first load filled (SW-3072): its entries are keyed by

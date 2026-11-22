@@ -159,8 +159,8 @@ fn trial_edits_compares_an_edited_library_with_the_original() {
     copy_dir(&std, &copy);
     let file = copy.join("Bool/ToNat.sw");
     let text = std::fs::read_to_string(&file).unwrap();
-    let before = "theorem Bool.toNatOdd ∀ (b: Bool): (b.toNat % 2 == 1) = b := match b with\n  | False => byComputing";
-    let after = "theorem Bool.toNatOdd ∀ (b: Bool): (b.toNat % 2 == 1) = b := match b with\n  | False => Eq.flipped byComputing";
+    let before = "theorem Bool.toNatOdd ∀ (b: Bool): (b.toNat % 2 == 1) = b := match b with | False | True => byComputing";
+    let after = "theorem Bool.toNatOdd ∀ (b: Bool): (b.toNat % 2 == 1) = b := match b with | False | True => Eq.flipped byComputing";
     assert!(text.contains(before));
     std::fs::write(&file, text.replace(before, after)).unwrap();
 

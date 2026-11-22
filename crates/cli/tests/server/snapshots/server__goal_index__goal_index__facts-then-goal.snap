@@ -1,0 +1,58 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "fixes": [],
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "a",
+          "type": "Prop"
+        },
+        {
+          "name": "b",
+          "type": "Prop"
+        },
+        {
+          "name": "c",
+          "type": "Prop"
+        },
+        {
+          "name": "x",
+          "type": "a"
+        },
+        {
+          "name": "f",
+          "type": "a → b"
+        }
+      ],
+      "lemma": "theorem partlyGoal1 (a: Prop) (b: Prop) (c: Prop) (x: a) (f: a → b): c := ?",
+      "target": "c"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "a: Prop\nb: Prop\nc: Prop\nx: a\nf: a → b\n⊢ c",
+        "range": [
+          3,
+          72,
+          3,
+          73
+        ]
+      }
+    ],
+    "message": "in `partly`",
+    "notes": [],
+    "range": [
+      3,
+      72,
+      3,
+      73
+    ],
+    "severity": "goal"
+  }
+]
