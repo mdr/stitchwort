@@ -1583,6 +1583,14 @@ program can be an enormous term.
 
 ### Keeping proofs cheap to check
 
+Readability comes first (Matt, 22 Nov 2026: don't heavily distort proofs
+to make them cheap to check). Reshape a proof for speed only when it is
+measurably slow (a second or more in `--timings`) and the reshaped proof
+reads at least as well; a side fact named as a lemma usually reads
+better. Where the fix would make the proof harder to read, fix the checker
+instead: SW-4629 made the elaborator take a destructuring `let` over a
+proof as projections, so `let (a, b) := h` stays the way to write it.
+
 A `match` on anything but a variable, and a destructuring `let (a, b) :=
 h` (which is a `match`), generalise over every hypothesis in scope, so each
 one's type is read back again. That is harmless while hypotheses are small.
@@ -1595,9 +1603,9 @@ included.
 
 - **Prove a side fact as a lemma over the small value it is about.** The
   lemma is checked in a small context and the big proof applies it.
-- **Take a part of a `∧` or tuple by projection**, `h.left`, `h.1`, a
-  field, not `let (a, b) := h`. (A pattern `let` is the better reading for
-  small contexts, above; the cost is in big ones.)
+- **A `∧` or a record of proofs: write `let (a, b) := h`.** Since SW-4629
+  the elaborator takes it as projections, which don't re-read the context;
+  writing `h.left`, `h.1` by hand is no longer needed for speed.
 - **A `rewrite` that names a big computed term** (`decl.leaves`) goes in a
   lemma that takes that term as a variable.
 - **An `∃` has no projection into a `Prop`.** Its elimination is a `match`,
