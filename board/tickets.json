@@ -1,5 +1,5 @@
 {
-  "next": 4641,
+  "next": 4642,
   "tickets": [
     {
       "id": 47,
@@ -32351,7 +32351,7 @@
     {
       "id": 4613,
       "title": "[Opus] Measure spine copying and Value clones in value::run (allocation is 27-31% of every checking profile) and propose a cheaper spine; kernel evaluator, design note first, Fable review (SW-4608 win 5)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -32359,7 +32359,10 @@
       "body": "\n\nProgress (22 Nov, Opus paper lane, 16:32-16:38): note docs/proposals/cheaper-values.md, commit 54078d193 on lane/SW-4613. Allocation-related self time 35-41% of the SW-4608 profiles. Correction: the Rc<[Value]> Chain copy is extend (closure environment copy), not spines; spines already grow in place (Spine::push 0.7%). Recommended first step (no change to what is computed): bounded-recursion free for Values/Spine (est. 2-5%) and plain mi_malloc for align <= 16 (est. 0.5-2%), plus counters for env length/uniqueness. Then leaf env built once (2-4%) and an env that grows in place (3-7%), both Fable review. No Matt decision needed.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "54078d193d057fd1a774c00a87bfa5dfe17f847c",
+        "8ea93f57c4563d185c2f0ba1788750a8290561a6"
+      ]
     },
     {
       "id": 4614,
@@ -32752,6 +32755,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4641,
+      "title": "[Opus] Cheaper values step 1 (docs/proposals/cheaper-values.md): free environments, constructor fields and spines by bounded recursion (to 128 levels, then the iterative free) as Shared and DataArgs already do; route allocations aligned to 16 bytes or less through plain mi_malloc; add counters for environment length at extend and how often an environment is unshared; measure (steps identical, >= 2% user time or instructions); no change to what the evaluator computes",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
