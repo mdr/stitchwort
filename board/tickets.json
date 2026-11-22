@@ -32366,8 +32366,8 @@
     },
     {
       "id": 4614,
-      "title": "[Opus paper] Parallel checking: measure the namespace graph's critical path, then a design note for checking independent namespaces in parallel (a cold check uses one core of ten; Values are Rc, not Send); direction is Matt's (SW-4608 win 6)",
-      "status": "backlog",
+      "title": "[Opus paper] Parallel checking research: survey how Lean 4, Rocq, Isabelle, Agda and others check in parallel (files, declarations, proof bodies), what makes it sound and deterministic, and how it could fit Stitchwort (namespace graph, proof bodies after statements, Rc values, check cache, hashes); a formal note with options and a first step (Matt, 22 Nov: research lane)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
