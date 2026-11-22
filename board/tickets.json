@@ -32073,7 +32073,7 @@
     {
       "id": 4593,
       "title": "[Opus] Every file that imports Std.Parse pays about 80-100M steps checking Parse's lemmas on import (SW-4587: 43 new examples cost 3.58G between them). Measure where the steps go for one such example (e.g. a reads-* or walk-* example), and propose (note first) how to avoid re-checking library lemmas per program: check cache for std in the bench and examples, or on-demand checking; performance-log entry",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -32287,28 +32287,34 @@
     {
       "id": 4609,
       "title": "[Sonnet] Name lifted match helpers in diagnostics without searching for every one: explain_lifted substring-searches each diagnostic for every helper lifted so far and re-sorts the list per diagnostic, 14% of the cold tools/fmt check (SW-4608 win 1); messages unchanged",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "\n\nStarted 22 Nov 12:28 on Sonnet (orchestrator's call, from SW-4608's ranked wins). Expected: 20 min.\n",
+      "body": "\n\nStarted 22 Nov 12:28 on Sonnet (orchestrator's call, from SW-4608's ranked wins). Expected: 20 min.\n\n\nModel result: Sonnet, needed fixes (the early return looked for %match only; %plain helpers are lifted too, widened to % in review), 15 min (est. 20). About 10% less CPU on cold fmt checks (measured, two namespaces).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "98c8b31c4593d00926b9df42232e4eb32bd6be2e",
+        "ac726895754a3176537d9553d1c6f8b6f185f7b1",
+        "83cd67a657b2662aede3edb58af5be84bd956dfb"
+      ]
     },
     {
       "id": 4610,
       "title": "[DeepSeek] check --timings: buffer the tables and cap the name column; one mutual group's long name pads every row and unbuffered stderr writes it a character at a time, 125 s of a 387 s tools/fmt timing run is printing (SW-4608 win 2)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "\n\nStarted 22 Nov 12:28 on DeepSeek (orchestrator's call, from SW-4608's ranked wins). Expected: 15 min.\n",
+      "body": "\n\nStarted 22 Nov 12:28 on DeepSeek (orchestrator's call, from SW-4608's ranked wins). Expected: 15 min.\n\n\nModel result: DeepSeek, needed fixes (truncated names to 60 characters; changed to pad-only cap, names in full), 25 min (est. 15).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "3c4d9d26c1166e3a728315f5a8ecc1355e416e3c"
+      ]
     },
     {
       "id": 4611,
@@ -32420,7 +32426,7 @@
     {
       "id": 4619,
       "title": "[Sonnet] Try SW-4611's reshape on printedFinish1 (Fmt.FileLexProofs, 7.3 s, 11 large read-backs, two from rewrite) and the rest of the family (standsDecl 6.1 s, standsRest 1.8 s, printedStart1 1.5 s)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
