@@ -64,7 +64,13 @@ theorem groupsValue ∀ (acc: Nat) (groups: List Nat)
           (List.foldLeft (Nat.toBits 4 group) acc (acc bit => acc * 2 + Bool.toNat bit))
           (acc bit => acc * 2 + Bool.toNat bit) :=
         List.foldLeftAppend (Nat.toBits 4 group) acc (rest.flatMap (Nat.toBits 4)) (acc bit => acc * 2 + Bool.toNat bit)
-      Eq.trans ih (Eq.trans step.flipped appended.flipped)
+      calc [group, ..rest].foldLeft acc (value group => value * 16 + group)
+        _ = (rest.flatMap (Nat.toBits 4)).foldLeft (acc * 16 + group) (acc bit => acc * 2 + bit.toNat) := ih
+        _ = List.foldLeft
+            (rest.flatMap (Nat.toBits 4))
+            (List.foldLeft (Nat.toBits 4 group) acc (acc bit => acc * 2 + Bool.toNat bit))
+            (acc bit => acc * 2 + Bool.toNat bit) := step.flipped
+        _ = (([group, ..rest]).flatMap (Nat.toBits 4)).foldLeft acc (acc bit => acc * 2 + bit.toNat) := appended.flipped
 
 --| An operation computes the spec's value from the values it is given.
 theorem operationComputes ∀ (operation: Operation) (values: NonEmptyList Nat):

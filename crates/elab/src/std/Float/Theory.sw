@@ -6242,9 +6242,10 @@ theorem Float.Theory.succLeOf ∀ (a b: Nat) (h: a + 52 < b): 53 + a ≤ b := ar
 
 --| Below 2^2097 units, every binade's grid has room for its next point.
 theorem Float.Theory.roomFromSmall ∀ (d t: Nat)
-    (small: t < d * Nat.pow 2 2097):
-    ∀ (e: Nat) => d * Nat.pow 2 (e + 52) ≤ t → 53 + e ≤ 2097 :=
-  e low => Float.Theory.succLeOf e 2097 (Float.Theory.powRoom d t (e + 52) 2097 low small)
+    (small: t < d * Nat.pow 2 2097) (e: Nat)
+    (low: d * Nat.pow 2 (e + 52) ≤ t):
+    53 + e ≤ 2097 :=
+  Float.Theory.succLeOf e 2097 (Float.Theory.powRoom d t (e + 52) 2097 low small)
 
 theorem Float.Theory.posNonzeroNat ∀ (n: Nat) (h: 0 < n): n ≠ 0 := arithmetic [h]
 

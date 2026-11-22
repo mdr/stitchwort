@@ -659,14 +659,23 @@ theorem Char.beqFalseOfDigit ∀ (char other: Char)
     (notDigit: other.isAsciiDigit = False):
     (char == other) = False :=
   DecEq.falseOfNe (same =>
-    Bool.falseNotTrue (notDigit.flipped.trans ((Eq.cong Char.isAsciiDigit same).flipped.trans digit)))
+    Bool.falseNotTrue
+      (calc False
+        _ = other.isAsciiDigit := notDigit.flipped
+        _ = char.isAsciiDigit := (Eq.cong Char.isAsciiDigit same).flipped
+        _ = True := digit))
 
 --| [`Char.beqFalseOfDigit`] with the digit on the right.
 theorem Char.beqFalseOfDigitRight ∀ (other char: Char)
     (notDigit: other.isAsciiDigit = False)
     (digit: char.isAsciiDigit = True):
     (other == char) = False :=
-  DecEq.falseOfNe (same => Bool.falseNotTrue (notDigit.flipped.trans ((Eq.cong Char.isAsciiDigit same).trans digit)))
+  DecEq.falseOfNe (same =>
+    Bool.falseNotTrue
+      (calc False
+        _ = other.isAsciiDigit := notDigit.flipped
+        _ = char.isAsciiDigit := Eq.cong Char.isAsciiDigit same
+        _ = True := digit))
 
 theorem Text.startsWithAppend ∀ (p t: Text): Text.startsWith (Text.append p t) p = True :=
   Text.startsWithCharsAppend (Text.toList t) (Text.toList p)

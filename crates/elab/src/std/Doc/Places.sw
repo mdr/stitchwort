@@ -1086,7 +1086,7 @@ theorem Doc.Proofs.closerLineMoves ∀ (printer: Printer) (key indent: Nat)
         lineIndent = printer.carry.closerAt key indent,
         carry = (printer.carry.close key).breakTo (printer.carry.closerAt key indent)
       } :=
-  match at: printer.atLineStart, start with | True, _ => rewrite clear then byComputing
+  match at: printer.atLineStart, start with | True, _ => rewrite clear
 
 --| After words, the closer's line is right after a line break.
 theorem Doc.Proofs.closerLineMid ∀ (place: Place) (key indent: Nat)
