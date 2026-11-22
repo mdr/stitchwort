@@ -31602,14 +31602,14 @@
     {
       "id": 4559,
       "title": "[Opus] Survey tools/fmt for repeated proof shapes a single lemma could state once (as SW-4553/SW-4556's traversal lemmas did: 447+ lines, faster checks): find families of theorems proved by the same sequence of steps over different constructors, fields or functions; for each, the shared shape, the candidate lemma's statement, members and their proof lines, and a measured one- or two-theorem pilot for the top candidates; ranked by lines at stake with predictions from the pilots, readability noted",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\n\nLane (Opus, 21-22 Nov, 23:10-00:07, est. 50 min): commit b5e0d1db4 on lane/SW-4559. Review: docs/reviews/SW-4559-repeated-shape-survey.md.\n- Identical-proof families are used up (~530 lines in 3+ groups). Big family: printer rule x property matrix, 34 rules, 4,348 proof lines.\n- Pilot 1 (kept): DocHolds record + bodyAfterHolds; bodyAfterSpells/bodyAfterShape 81 -> 46 proof lines (+24 def lines); members' steps 0.02x/0.05x, lemma paid once. Rollout estimate ~450 lines net (fixed-index properties), ~300 more seam-indexed (untested).\n- Pilot 2 (kept): Deaf scans' bracket arms as one or-pattern arm; 131 -> 95 lines, steps 1.04-1.28x. A lemma over the defs' inline match can't unify (each match is its own term).\n- Not done: third pilot (appFrom needs an indexed record; machine at load 31). Full namespace checks of SpellProofs/ToldDeclProofs/DeafProofs not run (only --only on the changed theorems).\n",
       "created": "2026-11-21",
-      "updated": "2026-11-21",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
