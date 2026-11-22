@@ -31749,7 +31749,7 @@
     {
       "id": 4570,
       "title": "[Sonnet] search_bench::every_conclusion_finds_its_theorem fails on Std.Float.Theory.doubleMul (j * (h * 2) = 2 * j * h) (all tier 22 Nov, SW-4566): the query pattern, built with holes, unfolds Nat.mul 2 ?j and can't fold it back, so its constants are Nat.add and Nat.mul while the candidate's type index has only Nat.mul; the filtered first pass needs every pattern constant in the index. Make finish_pattern (crates/elab/src/search.rs ~1277) and type_index (~1371) agree; rerun only that test",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -31814,7 +31814,7 @@
     {
       "id": 4575,
       "title": "[Opus] search_bench::proof_uses_find_their_lemma_among_the_first_ten still has 5 internal errors after SW-4564 (was 11; recall@10 54.9%): they come through the query search's use_pattern path, not search --at; add a per-query trace to search_bench's run (like SEARCH_AT_BENCH_TRACE), find the panicking queries, fix the cause with a test; rerun only that test (about 820 s, all tier)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
