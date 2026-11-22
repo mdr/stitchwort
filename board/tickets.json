@@ -1,5 +1,5 @@
 {
-  "next": 4624,
+  "next": 4628,
   "tickets": [
     {
       "id": 47,
@@ -32485,12 +32485,67 @@
     {
       "id": 4623,
       "title": "[Opus paper] Design note: cache the elaborated core (every session elaborates it, ~0.1 s and 956K steps; the largest fixed cost of a small example once std is cached) (SW-4593 recommendation 3)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
       "body": "\n\nStarted 22 Nov on Opus paper (orchestrator's call, from SW-4593's note). Expected: 30 min.\n",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": [
+        "591db089b56e1027cee54c2396026cf82df9c296",
+        "55db99bcb5cf33aebc4b875361a5c4b048b03327"
+      ]
+    },
+    {
+      "id": 4624,
+      "title": "[Opus] Core cache option D: test sweeps keep one session per thread, rewound to just after the core before each example (~0.1 s an example, estimated); reset the per-program state rewind keeps (failed_decls, broken_tests, expansions, walks, facts, stats, standalone_inputs...), and a test running the same examples in two orders against fresh sessions (docs/proposals/core-cache.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4625,
+      "title": "[Opus] Core cache option A2: the core as a check-cache entry the kernel re-checks on every replay (the --recheck path), replayed in the elaborator's order (natives and reduction rules registered first); ~60 ms a cached session, estimated; kernel checks unchanged; after option D (docs/proposals/core-cache.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4626,
+      "title": "[Sonnet] Measure the playground's cost of elaborating the core on every check in WebAssembly (docs/proposals/core-cache.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4627,
+      "title": "[Sonnet] Audit the language server for per-program session state that survives a rewind (failed_decls, broken_tests, expansions, walks, facts, stats) reaching what a later check reports (SW-4623 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
