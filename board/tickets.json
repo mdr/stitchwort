@@ -1,5 +1,5 @@
 {
-  "next": 4640,
+  "next": 4641,
   "tickets": [
     {
       "id": 47,
@@ -32705,7 +32705,7 @@
     {
       "id": 4637,
       "title": "[Opus] A generalised match reads the whole goal back (unaryHung 4 x 573K nodes, atomHung 6 x 273K): read it only as far as the occurrence test needs, or test with calls kept folded (SW-4635 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -32713,7 +32713,10 @@
       "body": "\n\nStarted 22 Nov on Opus (orchestrator's call, proof-checking speed). Expected: 50 min.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "1cec087fbc31f148de36ea340f9b1b1c524abf70",
+        "c4a1ed27d91f3cc1aa315ee60240c29e2e51c744"
+      ]
     },
     {
       "id": 4638,
@@ -32731,6 +32734,19 @@
     {
       "id": 4639,
       "title": "[Sonnet] unaryHung still reads inner (61.6K nodes) at match negative: negativeNumeral [...] (ReadBackHungApp.sw:561): find why that scrutinee is not seen to contain a certain variable (SW-4635 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4640,
+      "title": "[Opus paper] When a match scrutinee does occur in a large goal, build the motive from the partly folded read-back instead of reading the goal back whole (and twice if a call was kept); changes kernel terms and what the arms see, so a design note first (SW-4637 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
