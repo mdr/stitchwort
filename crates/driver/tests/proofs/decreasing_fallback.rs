@@ -41,14 +41,8 @@ fn a_refused_plain_view_falls_back_to_the_step_with_a_warning() {
         panic!("doesn't check: {errors:#?}");
     }
     let names = names(&session);
-    assert!(
-        names.iter().any(|n| n.ends_with("countUp.%plain")),
-        "{names:?}"
-    );
-    assert!(
-        names.iter().any(|n| n.ends_with("countDown.unfold")),
-        "{names:?}"
-    );
+    assert!(names.iter().any(|n| n == "countUp.%plain"), "{names:?}");
+    assert!(names.iter().any(|n| n == "countDown.unfold"), "{names:?}");
     assert!(
         !(names.iter()).any(|n| n.contains("countDown.") && n.contains("%plain")),
         "the view and the twin are gone: {names:?}"
@@ -79,7 +73,11 @@ fn the_plain_view_is_made_without_the_switch() {
         session.warnings
     );
     let names = names(&session);
-    for view in ["countUp.%plain", "countDown.%plain", "%match1.%plain"] {
-        assert!(names.iter().any(|n| n.ends_with(view)), "{view}: {names:?}");
+    for view in [
+        "countUp.%plain",
+        "countDown.%plain",
+        "countDown.%step.%match1.%plain",
+    ] {
+        assert!(names.iter().any(|n| n == view), "{view}: {names:?}");
     }
 }

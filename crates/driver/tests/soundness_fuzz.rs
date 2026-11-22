@@ -779,17 +779,10 @@ fn configure(session: &mut Session) {
     budget.watch_cancel(true);
 }
 
-/// The theorem `name` of namespace `namespace` (or any, for a file), if
-/// it was declared.
-fn find_theorem(
-    g: &stitchwort_core::Ev,
-    namespace: Option<&str>,
-    name: &str,
-) -> Option<(DefId, String)> {
-    let found = stitchwort_driver::audit::theorems(g, &|path: &str| match namespace {
-        Some(ns) => path == format!("{ns}.{name}"),
-        None => !path.starts_with("Std.") && (path == name || path.ends_with(&format!(".{name}"))),
-    });
+/// The theorem `name` of namespace `namespace`, if it was declared.
+fn find_theorem(g: &stitchwort_core::Ev, namespace: &str, name: &str) -> Option<(DefId, String)> {
+    let path = format!("{namespace}.{name}");
+    let found = stitchwort_driver::audit::theorems(g, &|candidate: &str| candidate == path);
     found.last().cloned()
 }
 
@@ -847,13 +840,16 @@ fn check_site(corpus: &Corpus, site: &Site, decl: &str, cache: &Path, search: bo
                 &site.text[site.decl.end..]
             );
             load_error = session.load(name, &text).err().and_then(first_line);
-            None
+            // A file on its own is `Main` unless it declares a namespace.
+            text.lines()
+                .find_map(|line| line.strip_prefix("namespace "))
+                .map_or_else(|| "Main".to_string(), |n| n.trim().to_string())
         }
         Home::Std { .. } => {
             // The library loads as far as the theorem needs: using its name
             // loads its file.
             let _ = session.parse_expression("probe.sw", &format!("Std.{}", site.name));
-            Some("Std")
+            "Std".to_string()
         }
         Home::Project {
             project,
@@ -895,10 +891,10 @@ fn check_site(corpus: &Corpus, site: &Site, decl: &str, cache: &Path, search: bo
                 )
                 .err()
                 .and_then(first_line);
-            Some(namespace.as_str())
+            namespace.clone()
         }
     };
-    let Some((id, name)) = find_theorem(&session.elab.ev(), namespace, &site.name) else {
+    let Some((id, name)) = find_theorem(&session.elab.ev(), &namespace, &site.name) else {
         return Checked {
             load_error,
             ..rejected

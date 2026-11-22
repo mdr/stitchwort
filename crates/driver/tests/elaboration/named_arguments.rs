@@ -761,10 +761,11 @@ theorem named (items: List Item): ids items = List.map items (item => item.id) :
 "#;
     let hashes = load("named-late.sw", text).unwrap_or_else(|e| panic!("{e}"));
     let hash = |name: &str| {
+        let qualified = format!("Main.{name}");
         &hashes
             .iter()
-            .find(|(n, _)| n.ends_with(name))
-            .expect(name)
+            .find(|(n, _)| n == &qualified)
+            .unwrap_or_else(|| panic!("no `{qualified}`"))
             .1
     };
     assert_eq!(hash("positional"), hash("named"));
