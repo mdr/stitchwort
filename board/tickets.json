@@ -1,5 +1,5 @@
 {
-  "next": 4618,
+  "next": 4621,
   "tickets": [
     {
       "id": 47,
@@ -32313,7 +32313,7 @@
     {
       "id": 4611,
       "title": "[Opus] Profile the standsEachFile family's 1.1M-node read-back (six tools/fmt proofs, 54.5 s, 21% of the cold check's declaration time) and remove or share it (SW-4608 win 3)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -32321,7 +32321,10 @@
       "body": "\n\nStarted 22 Nov 12:28 on Opus (orchestrator's call, from SW-4608's ranked wins). Expected: 45 min.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "a2febaecf74a272da5a28c5e7124bfaaba291721",
+        "a1b22ec9cf4105f735935a2399bfac5672759ebc"
+      ]
     },
     {
       "id": 4612,
@@ -32396,6 +32399,45 @@
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4618,
+      "title": "[Opus] Remember read-backs within a declaration and reuse them across callers (case refinement, matching::blocker, rewrite kernel_context, lifted_type): standsEachFile did 68 read-backs of ~1.1M nodes from five callers; key by value, depth and mode, forget on a solved unknown; terms unchanged; measure that the types really repeat first (SW-4611 finding)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4619,
+      "title": "[Sonnet] Try SW-4611's reshape on printedFinish1 (Fmt.FileLexProofs, 7.3 s, 11 large read-backs, two from rewrite) and the rest of the family (standsDecl 6.1 s, standsRest 1.8 s, printedStart1 1.5 s)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4620,
+      "title": "[Sonnet] Proving guide: a match on a non-variable while large specialised hypotheses are in scope re-reads every hypothesis type; prove such side facts as lemmas over the small value (SW-4611: 2,000x on standsEachFile)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
