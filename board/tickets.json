@@ -31630,14 +31630,14 @@
     {
       "id": 4561,
       "title": "[Opus] SW-4536's same_unglued can still turn a passing byComputing into E-RESOURCE: for two sides that are not identical but whose folded read-back runs a huge call, the quote exhausts the operation's budget (sticky), so the unification fallback that would have succeeded fails too (SW-4560). Make the unglued comparison unable to spend the operation's budget: a separate budget it can lose without affecting the fallback, or skip it for values whose read-back would run large calls; add a test with two different huge calls that unify",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "22 Nov, lane SW-4565 (Opus): done on lane/SW-4565, commit 872402e61. same_unglued reads the sides back as written (no computing), leaves sides with a variable to unification (the kernel checks those glued), and compares in an attempt with the operation's limits, so running out is a no and the fallback keeps its budget. Test: resources::two_different_huge_calls_that_unify_are_not_computed (fails before, passes after). readsBackCommentExample stays at 2,868,944 steps.\n",
       "created": "2026-11-21",
-      "updated": "2026-11-21",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -31674,7 +31674,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\nProgress (lane, Opus, 22 Nov):\n- Panic cause: the unifier's \"match the last arguments\" rule (unify.rs first_order) paired `?le ?x ?z` (headLe/List.sortedHeadLe's `le x z`, with ?x ?z : ?a) against `List.all X p` and took both pairs, because ?a was unknown when its guard (`apart`) looked; ?le became List.all at the wrong type, and `cases` in the next argument split a list where a function goes and core applied a constructor. Reached from search --at's hole propagation (`List.sortedHeadLe _ cases _ _ _ ? ?` against `xs.reverse.all p = True`), but also writable by hand. Fix: first_order unifies the paired values' types first when both are known (learn_types), so ?a is solved and the bad pair refused by the existing guard. Test: examples/reject/unify-last-arguments-head-type.sw (panicked before, E-CASES after).\n- Extraction failures: separate cause. SW-3936's opaque-nickname-precondition.sw (export typed through an opaque nickname) is only sampled by the all tier; the test's reference path elaborated and evaluated with every opaque body hidden. The harness now makes opaque bodies visible, as while a program runs (as_running).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -31682,12 +31682,12 @@
     {
       "id": 4565,
       "title": "[Opus] All tier 22 Nov (D3712): elaborator regressions: driver resources a_product_stuck_on_its_left_does_not_compute_its_right (now E-RESOURCE; suspect SW-4536's same_unglued reading back the right side, see SW-4561), elaboration postponement::a_decision_waits_for_a_field_in_its_proposition (List.Mem/Box.items unfolded twice), negative_arguments::a_negative_argument_has_the_hash_of_its_bracketed_form (hashes differ). Fix, rerun only these",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "22 Nov, lane (Opus), 02:03-02:40. Three causes:\n1. resources a_product_stuck...: SW-4536 same_unglued (read-back folded 24M steps, then the unglued compare ran out). Fixed as SW-4561, commit 872402e61, plus a new test.\n2. postponement a_decision_waits_for_a_field...: SW-3887 (17 Nov) stopped folding lambda forms back to their let; the decision's proposition wrote the annotated lambda applied instead of check b. zonk_let now also folds an annotated let value as it is (its annotation fixes its type). Commit 73a68e9be; four example hash snapshots return to their pre-SW-3887 values, prelude/projects unchanged.\n3. negative_arguments: stale test lookup (path suffix .floored also matched Std.Doc.Places.floored, added 18 Nov by SW-3944); now lookup_def. Commit 876ee67df.\nTests run: the three named, the new one, audit::a_statement_naming_a_huge_computation_skips_its_search, task test:example NAME=refl,comput,opaque,decide-bool,plus-unknown,float-sum, task test:hashes ALL=1 (only the four snapshots, re-accepted).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -31708,7 +31708,7 @@
     {
       "id": 4567,
       "title": "[Sonnet] All tier 22 Nov (D3712): cli and LSP test drift: tools open_goals::goal_lists_every_open_goal_with_what_relies_on_it, open_goals::warn_reports_open_goals_as_warnings_and_passes, scope::a_duplicate_is_reported_and_the_first_definition_kept, trial_edits::trial_edits_compares_an_edited_library_with_the_original; server goal_index::goal_examples_in_the_index, goal_index::lemmas_check_as_the_same_goal (snapshots); driver search_at_aoc search_at_on_real_2021_goals (Day13 Fold.sw text); lsp faults::the_checker_recovers_after_a_panic, faults::a_panic_blamed_on_no_project_is_not_repeated_by_the_successor (extra 'standard library files carried over' message). Decide per test: real bug or stale expectation; fix; rerun only these",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
