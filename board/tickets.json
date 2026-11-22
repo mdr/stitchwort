@@ -1,5 +1,5 @@
 {
-  "next": 4651,
+  "next": 4652,
   "tickets": [
     {
       "id": 47,
@@ -32901,6 +32901,19 @@
       "where": "",
       "labels": [],
       "epic": "performance",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4651,
+      "title": "[Opus] Evaluation leaves an over-applied folded theorem call (T a h, arity below its argument count) unevaluated under case, J, projection and lift; the kernel and the plain evaluator disagree there (SW-4642 Fable review F6): make evaluation unfold it as conversion now does, update docs/core.md Known gaps",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
