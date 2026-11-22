@@ -31827,15 +31827,17 @@
     {
       "id": 4576,
       "title": "[Sonnet] The E-CASES message for examples/reject/unify-last-arguments-head-type.sw shows hypotheses and goal as bare _le ('hypothesis 1 (unnamed): _le'), dropping an applied unknown's arguments (_le x y = True): the goal printer should print an applied unknown with its arguments; snapshot test",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\nLane note: printer skipped every leading variable argument of an unknown; now only as many as the unknown was made in (Meta.context). _le x y shown. 3 other reject snapshots changed (_j x, _j first). Commit 92535c30a on lane/SW-4576.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "92535c30a"
+      ]
     },
     {
       "id": 4577,
@@ -31866,12 +31868,12 @@
     {
       "id": 4579,
       "title": "[Sonnet] Search: use_pattern and closing.rs's goal patterns have no Pattern::written (SW-4570), so a goal with holes that computes (2 * ?j becomes ?j + ?j) can still filter out the lemma that states it; set written from the term as written there too, with a test; after SW-4575 merges (same file)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "",
+      "body": "Lane note: use_pattern now sets written (the lemma conclusion plus the use arguments), open_from sets it for closing goals (statement peeled binder for binder). Closing search is unfiltered (D2066), so the goal part changes no numbers; test search_bench::a_use_pattern_passes_its_own_lemmas_filter (fails before, passes after; 237 of 7012 uses flip). stage_two share 63.2% before and after. Commit aec34e94d.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
