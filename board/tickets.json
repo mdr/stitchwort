@@ -1,5 +1,5 @@
 {
-  "next": 4648,
+  "next": 4651,
   "tickets": [
     {
       "id": 47,
@@ -32769,15 +32769,22 @@
     {
       "id": 4641,
       "title": "[Opus] Cheaper values step 1 (docs/proposals/cheaper-values.md): free environments, constructor fields and spines by bounded recursion (to 128 levels, then the iterative free) as Shared and DataArgs already do; route allocations aligned to 16 bytes or less through plain mi_malloc; add counters for environment length at extend and how often an environment is unshared; measure (steps identical, >= 2% user time or instructions); no change to what the evaluator computes",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "\n\nStarted 22 Nov 16:40 on Opus (orchestrator's call: optimisation with results unchanged, D3447; kernel evaluator so Opus). Expected: 45 min.\n",
+      "body": "\n\nStarted 22 Nov 16:40 on Opus (orchestrator's call: optimisation with results unchanged, D3447; kernel evaluator so Opus). Expected: 45 min.\n\n\nModel result: Opus, worked, 37 min (est. 45).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "ff1036b8c36f0f843aaf898b97aebe2bc0a22f03",
+        "43a234e0c7dfe05a1fb303806468ea0af3b1973a",
+        "7ea06f71c66dfccf669b843069e0210090d1279d",
+        "0aa646bee2b4d3da92cbdd87a81e3188637085a0",
+        "090cc5efd2496c43f76bae605c801c9e1cd7db8e",
+        "a0aad2e0bc4961558aa7164228cedeec1934ad7a"
+      ]
     },
     {
       "id": 4642,
@@ -32847,6 +32854,45 @@
     {
       "id": 4647,
       "title": "[Opus] Syntax.ReadBackHungTop.readsBackHungListExample (12.4 s, 147M steps, almost all in the kernel) and readsBackHungSignExample (7.6 s, 95M steps) are 13% of a cold tools/fmt check and half the parallel critical path (docs/proposals/parallel-checking.md addendum): find why the kernel evaluation is so costly (what is computed, whether gluing/unfolding is redundant) and make it cheaper in the checker, or, if the example is needlessly large, say so (proof readability rule: do not distort the example)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4648,
+      "title": "[Opus] Step counts vary between runs of the same binary on tools/fmt (SW-4641: 15-20 declarations, mostly Syntax.Follows*, up to ~4,400 steps; totals 1,890,468,877 to 1,890,481,815): find the source (address-keyed memos such as CallMemo, ShapeCache, Unread? hash-map iteration order? allocation addresses) and make steps deterministic; matters for step limits, the steps-identical check in perf work, and parallel checking (SW-4614 invariants)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4649,
+      "title": "[Sonnet] Unfolding::drop allocates a one-element Values just to free its kept value; free it without allocating (SW-4641 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4650,
+      "title": "[Opus] Cheaper values step 2-3 (docs/proposals/cheaper-values.md): leaf environments built once per unfolding, then extend in place when unshared (SW-4641 counters: 44.7% of 43.2M extends unshared, mean length 9.4, ~407M values copied); Fable review before merge",
       "status": "backlog",
       "agent": "",
       "where": "",
