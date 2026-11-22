@@ -575,6 +575,10 @@ lane missed it and a batch failed:
   SW-1440). To check them without updating, run `task test:hashes NAME=<the
   same stem>`. For a std change, "commit the regenerated prelude snapshot
   (additions only)" (SW-1494).
+- **Adds files under `examples/goals`:** re-record the server's goal_index
+  snapshots with `INSTA_UPDATE=always cargo nextest run --release -p
+  stitchwort-cli --test server -E 'test(/^goal_index::/)'`, reading each
+  changed line.
 - **Changes a std file:** "check it from `crates/elab/src/std` with
   `stitchwort check --std --std-dir . FILE`; `core/*.sw` files can't be
   named this way and are covered by the hash snapshot run

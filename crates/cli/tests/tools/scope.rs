@@ -127,11 +127,17 @@ fn a_failed_signature_doesnt_cascade() {
 /// doesn't compute through either `twice`.
 #[test]
 fn a_duplicate_is_reported_once_and_the_first_definition_taken_as_failed() {
-    let (session, result) =
+    let (mut session, result) =
         load("def use : Nat := twice\n\ndef twice : Nat := 2\n\ndef twice : Nat := 3\n");
     let errors = result.unwrap_err();
     assert_eq!(codes(&errors), ["E-DUPLICATE"]);
     let _ = def_named(&session, "use");
+    let expr = session.parse_expression("<test>", "use").unwrap();
+    let value = session.elab.eval_expr(&expr);
+    assert!(
+        value.is_err(),
+        "`use` evaluates through the failed definition: {value:?}"
+    );
 }
 
 #[test]
