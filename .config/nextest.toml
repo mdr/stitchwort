@@ -362,6 +362,14 @@ slow-timeout = { period = "60s", terminate-after = 30 }
 filter = "package(stitchwort-bench) & (binary(baseline) | binary(repeat))"
 slow-timeout = { period = "120s", terminate-after = 30 }
 
+# The corpus sweeps that make several passes over every example: past the
+# 20-minute cap in the all tier on 22 Nov 2026 from growth, not a hang
+# (about 2,060 example files against 1,520 on 6 Nov; SW-4568 measured the
+# broad sample at 205 s on 2 threads, about 1,640 s projected for all).
+[[profile.default.overrides]]
+filter = "(package(stitchwort-driver) & binary(projects) & test(/^(check_cache::the_cache_changes_nothing_for_the_examples|rewind::rewinding_changes_nothing_for_the_examples|rewind::emptying_the_caches_changes_nothing_for_the_examples)$/)) | (package(stitchwort-driver) & binary(library) & test(=fmt_hashes::formatting_changes_no_declaration_hash))"
+slow-timeout = { period = "120s", terminate-after = 30 }
+
 # The fuzzers run as single long tests sized by their task's counts
 # (`task fuzz:*`), so the ten-minute hang cap would stop a big run; they get
 # four hours, enough for any overnight seed while still ending a real hang.

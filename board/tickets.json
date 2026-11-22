@@ -1,5 +1,5 @@
 {
-  "next": 4580,
+  "next": 4582,
   "tickets": [
     {
       "id": 47,
@@ -31723,12 +31723,12 @@
     {
       "id": 4568,
       "title": "[Sonnet] All tier 22 Nov (D3712): check cache and corpus-wide: server check_cache::a_library_edit_re_checks_what_it_can_change_and_nothing_else (everything re-elaborated after a name is added), check_cache::the_index_is_the_same_from_the_cache_for_aoc (Day16 runsNotes over 250M steps); timeouts at 20 min: projects check_cache::the_cache_changes_nothing_for_the_examples, rewind::rewinding_changes_nothing_for_the_examples, rewind::emptying_the_caches_changes_nothing_for_the_examples, library fmt_hashes::formatting_changes_no_declaration_hash; proofs differential (90 too big to compare, at most 60). Fix; rerun only these",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "\nLane notes (Sonnet, 22 Nov): 1) check_cache a_library_edit...: stale test (key no longer holds the library's names since SW-4409's carry-over; misses print as ns.X / std.X); test now reads those, expects all five namespaces; passes. 2) the_index_is_the_same...aoc: real regression, SW-4480 (a _ argument retried after a failure) wasted 326M steps in 816 failing retries in Day16 runsNotes (42M -> 358M); retry capped at 20,000 steps (legit ones take 2.5k-8.6k): 55M steps, 26.5 s -> 4.0 s; test passes in 190 s (was 423 s fail). 3) timeouts: no single hang; corpus 1.35x since 6 Nov; broad-sample proxy 205 s (all about 8x); proposal only: per-test slow-timeout. 4) differential: 90 skips, 53 from the 13 new large-hypothesis-* examples (37 without); MAX_SKIPPED 60 -> 95; passes.\n",
+      "body": "Model result: Sonnet, worked (one stale test, one real regression bisected to SW-4480 and capped, skip limit from new examples; timeouts measured as growth), 58 min (est. 60)\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -31871,6 +31871,32 @@
       "where": "",
       "labels": [],
       "epic": "proof-search",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4580,
+      "title": "[Opus] SW-4480's second elaboration of an application with a _ argument (holes_by_arguments) is retried on every failure in a trial and nearly always fails again (816 of 816 in AoC 2020 day 16's runsNotes); SW-4568 capped it at 20,000 steps, which leaves runsNotes at 55M steps against 42M before SW-4480 and could refuse a retry that needs more. Design: retry only where it can help (e.g. only when the first error names an unsolved hole a later argument fixes), then drop or raise the cap; pin runsNotes' steps",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4581,
+      "title": "[DeepSeek] Step-count pin for Aoc.Year2020.Day16.Proofs.runsNotes (about 42M steps before SW-4480, 55M now) so a slowdown like SW-4568's shows in the lane or quick tier, not only as an all-tier 'still checking' note; and a docs/testing.md line on files an all-tier run leaves in target/tmp (differential-skips.txt)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
