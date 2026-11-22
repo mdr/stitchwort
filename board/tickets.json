@@ -15750,9 +15750,9 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-15",
-      "updated": "2026-11-15",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -15901,14 +15901,14 @@
     {
       "id": 3372,
       "title": "[Sonnet] Derived equality stage 4: toy formatter tests compare trees with == instead of dumps. After stage 3",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3609 (Matt, 15 Nov 2026): \"Yes, agree with this recommendation for now, let's see how it goes\" (keep derived ==, <, ${…} automatic for every data type, std included).\n\nPartly done: the golden parsing test compares trees with == (SW-3371); layout tests still compare dumps.",
+      "body": "D3609 (Matt, 15 Nov 2026): \"Yes, agree with this recommendation for now, let's see how it goes\" (keep derived ==, <, ${…} automatic for every data type, std included).\n\nPartly done: the golden parsing test compares trees with == (SW-3371); layout tests still compare dumps.\n\nClosed 22 Nov: no longer needed; the toy formatter was deleted (SW-4607, D3715); its code is in git history before that date.\n",
       "created": "2026-11-15",
-      "updated": "2026-11-15",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -16395,9 +16395,9 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-15",
-      "updated": "2026-11-15",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -16473,9 +16473,9 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Group 5 (Matt, 17 Nov 2026: 'OK'): 5b (3448, 3457) now on DeepSeek; 5a (3440 Opus, 3476/3454 Sonnet) during real-formatter stages 1-2, before stage 3; 3443 as an Opus design note during stages 1-2; 3415 before the CLI stage.",
+      "body": "Group 5 (Matt, 17 Nov 2026: 'OK'): 5b (3448, 3457) now on DeepSeek; 5a (3440 Opus, 3476/3454 Sonnet) during real-formatter stages 1-2, before stage 3; 3443 as an Opus design note during stages 1-2; 3415 before the CLI stage.\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-15",
-      "updated": "2026-11-17",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -16962,9 +16962,9 @@
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "",
+      "body": "\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-15",
-      "updated": "2026-11-15",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -17027,9 +17027,9 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Group 5 (Matt, 17 Nov 2026: 'OK'): 5b (3448, 3457) now on DeepSeek; 5a (3440 Opus, 3476/3454 Sonnet) during real-formatter stages 1-2, before stage 3; 3443 as an Opus design note during stages 1-2; 3415 before the CLI stage.",
+      "body": "Group 5 (Matt, 17 Nov 2026: 'OK'): 5b (3448, 3457) now on DeepSeek; 5a (3440 Opus, 3476/3454 Sonnet) during real-formatter stages 1-2, before stage 3; 3443 as an Opus design note during stages 1-2; 3415 before the CLI stage.\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-15",
-      "updated": "2026-11-17",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -17066,7 +17066,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Group 5 (Matt, 17 Nov 2026: 'OK'): 5b (3448, 3457) now on DeepSeek; 5a (3440 Opus, 3476/3454 Sonnet) during real-formatter stages 1-2, before stage 3; 3443 as an Opus design note during stages 1-2; 3415 before the CLI stage.\n\nAudit note (22 Nov): 22 Nov: part done by SW-4218 (1601e8f1c): List.allAppendAnd/allAppendTrue (Zip.sw:671) and Bool lemmas are in std. Still open: List.concat of a snoc (no concatSnoc in std), toyfmt PieceProofs.spacesAppend still local.\n",
+      "body": "Group 5 (Matt, 17 Nov 2026: 'OK'): 5b (3448, 3457) now on DeepSeek; 5a (3440 Opus, 3476/3454 Sonnet) during real-formatter stages 1-2, before stage 3; 3443 as an Opus design note during stages 1-2; 3415 before the CLI stage.\n\nAudit note (22 Nov): 22 Nov: part done by SW-4218 (1601e8f1c): List.allAppendAnd/allAppendTrue (Zip.sw:671) and Bool lemmas are in std. Still open: List.concat of a snoc (no concatSnoc in std), toyfmt PieceProofs.spacesAppend still local.\n\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-15",
       "updated": "2026-11-22",
       "commits": []
@@ -17185,9 +17185,9 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "D3672 (Matt, 17 Nov 2026): adopt 'in an arm, the scrutinee is the pattern, for everything' as an experiment we may back out of. Built as SW-3758, SW-3759, checkpoint SW-3760, then SW-3761, SW-3762.",
+      "body": "D3672 (Matt, 17 Nov 2026): adopt 'in an arm, the scrutinee is the pattern, for everything' as an experiment we may back out of. Built as SW-3758, SW-3759, checkpoint SW-3760, then SW-3761, SW-3762.\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-15",
-      "updated": "2026-11-17",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -17211,9 +17211,9 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "D3672 (Matt, 17 Nov 2026): adopt 'in an arm, the scrutinee is the pattern, for everything' as an experiment we may back out of. Built as SW-3758, SW-3759, checkpoint SW-3760, then SW-3761, SW-3762.",
+      "body": "D3672 (Matt, 17 Nov 2026): adopt 'in an arm, the scrutinee is the pattern, for everything' as an experiment we may back out of. Built as SW-3758, SW-3759, checkpoint SW-3760, then SW-3761, SW-3762.\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-15",
-      "updated": "2026-11-17",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -17323,7 +17323,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Group 5 (Matt, 17 Nov 2026: 'OK'): 5b (3448, 3457) now on DeepSeek; 5a (3440 Opus, 3476/3454 Sonnet) during real-formatter stages 1-2, before stage 3; 3443 as an Opus design note during stages 1-2; 3415 before the CLI stage.\n\nAudit note (22 Nov): 22 Nov: Parse.declinesOperators (Parse/Runs.sw:2402) and declinesRecursiveWith (:2449) exist since SW-3507 (86fa4193e); likely only the optional-after-pure-step lemma is left; check and close or trim.\n",
+      "body": "Group 5 (Matt, 17 Nov 2026: 'OK'): 5b (3448, 3457) now on DeepSeek; 5a (3440 Opus, 3476/3454 Sonnet) during real-formatter stages 1-2, before stage 3; 3443 as an Opus design note during stages 1-2; 3415 before the CLI stage.\n\nAudit note (22 Nov): 22 Nov: Parse.declinesOperators (Parse/Runs.sw:2402) and declinesRecursiveWith (:2449) exist since SW-3507 (86fa4193e); likely only the optional-after-pure-step lemma is left; check and close or trim.\n\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-15",
       "updated": "2026-11-22",
       "commits": []
@@ -17520,9 +17520,9 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-16",
-      "updated": "2026-11-16",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -17764,9 +17764,9 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-16",
-      "updated": "2026-11-16",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -17785,14 +17785,14 @@
     {
       "id": 3511,
       "title": "[Sonnet] toyfmt: decide the lexer's 'may follow' table with Finite.check over token kinds instead of one lemma per lexeme (SW-3500); after Parse proofs L2/L4",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\nClosed 22 Nov: no longer needed; the toy formatter was deleted (SW-4607, D3715); its code is in git history before that date.\n",
       "created": "2026-11-16",
-      "updated": "2026-11-16",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -17844,7 +17844,7 @@
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-16",
       "updated": "2026-11-22",
       "commits": []
@@ -18920,9 +18920,9 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-16",
-      "updated": "2026-11-16",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -19011,7 +19011,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "\n\nAudit note (22 Nov): Audit 22 Nov: SW-3718 (the last W-PROOF-CHAIN nests in AoC) and SW-3623 (a tool to convert nests) overlap this; if SW-3623 is built the batching here is mostly mechanical.\n",
+      "body": "\n\nAudit note (22 Nov): Audit 22 Nov: SW-3718 (the last W-PROOF-CHAIN nests in AoC) and SW-3623 (a tool to convert nests) overlap this; if SW-3623 is built the batching here is mostly mechanical.\n\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-16",
       "updated": "2026-11-22",
       "commits": []
@@ -19366,9 +19366,9 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "SW-3659 (16 Nov): roll out selectively, not as a sweep: convert only where it shortens the proof and the rules are cheap (hypotheses, fully applied lemmas); open arithmetic lemmas keep their arguments (orMod 3 -> 17 ms). Bits sample 2.9x on its proofs, ReadsChars 1.1x but longer. Patch dev/patches/SW-3659-std-samples.patch.",
+      "body": "SW-3659 (16 Nov): roll out selectively, not as a sweep: convert only where it shortens the proof and the rules are cheap (hypotheses, fully applied lemmas); open arithmetic lemmas keep their arguments (orMod 3 -> 17 ms). Bits sample 2.9x on its proofs, ReadsChars 1.1x but longer. Patch dev/patches/SW-3659-std-samples.patch.\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-16",
-      "updated": "2026-11-16",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -19472,7 +19472,7 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "D3672 (Matt, 17 Nov 2026): adopt 'in an arm, the scrutinee is the pattern, for everything' as an experiment we may back out of. Built as SW-3758, SW-3759, checkpoint SW-3760, then SW-3761, SW-3762.\n\nAudit note (22 Nov): 22 Nov: SW-3566 (tuple patterns switched to ∧/∃ once the column's type is known) and SW-3664 (tuple messages) merged since this was filed; retest the two-scrutinee case, and close if it passes. 3669 is the remaining variant.\n",
+      "body": "D3672 (Matt, 17 Nov 2026): adopt 'in an arm, the scrutinee is the pattern, for everything' as an experiment we may back out of. Built as SW-3758, SW-3759, checkpoint SW-3760, then SW-3761, SW-3762.\n\nAudit note (22 Nov): 22 Nov: SW-3566 (tuple patterns switched to ∧/∃ once the column's type is known) and SW-3664 (tuple messages) merged since this was filed; retest the two-scrutinee case, and close if it passes. 3669 is the remaining variant.\n\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-16",
       "updated": "2026-11-22",
       "commits": []
@@ -19636,7 +19636,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "D3672 (Matt, 17 Nov 2026): adopt 'in an arm, the scrutinee is the pattern, for everything' as an experiment we may back out of. Built as SW-3758, SW-3759, checkpoint SW-3760, then SW-3761, SW-3762.\n\nAudit note (22 Nov): Audit 22 Nov: D3672's 'in an arm the scrutinee is the pattern' experiment: SW-3758 (S1+S2) merged (0597eb1c4); SW-3759, 3760, 3761, 3762 are still open (epic proof-automation).\n",
+      "body": "D3672 (Matt, 17 Nov 2026): adopt 'in an arm, the scrutinee is the pattern, for everything' as an experiment we may back out of. Built as SW-3758, SW-3759, checkpoint SW-3760, then SW-3761, SW-3762.\n\nAudit note (22 Nov): Audit 22 Nov: D3672's 'in an arm the scrutinee is the pattern' experiment: SW-3758 (S1+S2) merged (0597eb1c4); SW-3759, 3760, 3761, 3762 are still open (epic proof-automation).\n\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-16",
       "updated": "2026-11-22",
       "commits": []
@@ -19649,9 +19649,9 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-16",
-      "updated": "2026-11-16",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -19670,14 +19670,14 @@
     {
       "id": 3653,
       "title": "[Sonnet] toyfmt follow-ups after SW-3649: (1) a Parse.readsInPeek variant handing the proof rest and start.rest = rest, then remove the ~50 '(rewrite e then fine)' in CarryWalk.sw; (2) replace Falling/fallingRising with std's locatedStepsRising via a lemma that assemble's tokens are a sub-selection of the lexemes' places",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nClosed 22 Nov: no longer needed; the toy formatter was deleted (SW-4607, D3715); its code is in git history before that date.\n",
       "created": "2026-11-16",
-      "updated": "2026-11-16",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -19865,14 +19865,14 @@
     {
       "id": 3668,
       "title": "[DeepSeek] Sweep the toy (tools/toyfmt): convert the remaining ~545 Witness/Both patterns to tuple patterns now that later columns and test facts work (SW-3566); every theorem hash must stay the same (hash_stability for toyfmt by name). Leave the variable-first shape (| x, (p, q) => … | [], _) as is",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\nClosed 22 Nov: no longer needed; the toy formatter was deleted (SW-4607, D3715); its code is in git history before that date.\n",
       "created": "2026-11-16",
-      "updated": "2026-11-16",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -19909,7 +19909,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "\n\nThe E-TERMINATION part is fixed by SW-3738 (Dump.sw's two lambdas are gone). Left open: std gets toyfmt's innerOptional beside the readsAt helpers.\n\n\nAudit note (22 Nov): 22 Nov: the E-TERMINATION part was fixed by SW-3738 (commit 833d0658c); only the std innerOptional part is left. Earlier title, kept for its detail: [Sonnet] From Toy++ T2a: E-TERMINATION refuses a bare function argument (parameters.flatMap Parameter.allComments, .map Named.dump) once a same-named method elsewhere is recursive, where a lambda works; and std gets toyfmt's innerOptional (what optional p reads) beside the readsAt helpers\n",
+      "body": "\n\nThe E-TERMINATION part is fixed by SW-3738 (Dump.sw's two lambdas are gone). Left open: std gets toyfmt's innerOptional beside the readsAt helpers.\n\n\nAudit note (22 Nov): 22 Nov: the E-TERMINATION part was fixed by SW-3738 (commit 833d0658c); only the std innerOptional part is left. Earlier title, kept for its detail: [Sonnet] From Toy++ T2a: E-TERMINATION refuses a bare function argument (parameters.flatMap Parameter.allComments, .map Named.dump) once a same-named method elsewhere is recursive, where a lambda works; and std gets toyfmt's innerOptional (what optional p reads) beside the readsAt helpers\n\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-16",
       "updated": "2026-11-22",
       "commits": []
@@ -20571,25 +20571,25 @@
     {
       "id": 3722,
       "title": "[DeepSeek] Toy++ T3 review wording (SW-3677 findings 1-3): printedTokens' doc (PlaceProofs.sw:321) points to printedEvents/Tucks for order; rename lexFits to lexTidy (CarryLex.sw:257); Comments.closing's doc (Ends.sw:72) says 'never fires on settled tokens' is unproved, plus a test over the goldens that it doesn't fire",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nClosed 22 Nov: no longer needed; the toy formatter was deleted (SW-4607, D3715); its code is in git history before that date.\n",
       "created": "2026-11-17",
-      "updated": "2026-11-17",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
       "id": 3723,
       "title": "[Sonnet] Toy++: prove settledIdempotent (plus/src/Proofs.sw; ~15 lemmas; unused so far) (SW-3677 finding 4)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\n\nAudit note (22 Nov): 22 Nov: toyfmt/NOTES.md:2996 still lists settledIdempotent as not done. Toy++ (T4+) is an epic-level direction question; with the real formatter proved, orchestrator may want to ask Matt whether Toy++ follow-ups (3722, 3723, 3748, 3751) are still wanted.\n",
+      "body": "\n\nAudit note (22 Nov): 22 Nov: toyfmt/NOTES.md:2996 still lists settledIdempotent as not done. Toy++ (T4+) is an epic-level direction question; with the real formatter proved, orchestrator may want to ask Matt whether Toy++ follow-ups (3722, 3723, 3748, 3751) are still wanted.\n\n\nClosed 22 Nov: no longer needed; the toy formatter was deleted (SW-4607, D3715); its code is in git history before that date.\n",
       "created": "2026-11-17",
       "updated": "2026-11-22",
       "commits": []
@@ -20799,7 +20799,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Group 3 (Matt, 17 Nov 2026: 'Okay, fine'): option C first: SW-3752's cases splits a stuck scrutinee and closes every arm by computing (insideFits becomes by cases slot). Kept open for option A (elaborator compares stuck matches arm by arm), decided later on a count of what C leaves. Not B (kernel).\n\nOption C (cases at the use site) works in SW-3752 (82c053f4b; examples/accept/cases-stuck-scrutinee.sw, commasFit); the toy's insideFits closes with an inline cases. Option A (conversion arm by arm) is still open.\n\n\nAudit note (22 Nov): Audit 22 Nov: option C (SW-3752's cases) merged (82c053f4b, 56abf4770); this stays open only for option A, decided later on a count of what C leaves.\n",
+      "body": "Group 3 (Matt, 17 Nov 2026: 'Okay, fine'): option C first: SW-3752's cases splits a stuck scrutinee and closes every arm by computing (insideFits becomes by cases slot). Kept open for option A (elaborator compares stuck matches arm by arm), decided later on a count of what C leaves. Not B (kernel).\n\nOption C (cases at the use site) works in SW-3752 (82c053f4b; examples/accept/cases-stuck-scrutinee.sw, commasFit); the toy's insideFits closes with an inline cases. Option A (conversion arm by arm) is still open.\n\n\nAudit note (22 Nov): Audit 22 Nov: option C (SW-3752's cases) merged (82c053f4b, 56abf4770); this stays open only for option A, decided later on a count of what C leaves.\n\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-17",
       "updated": "2026-11-22",
       "commits": []
@@ -20825,9 +20825,9 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "D3672 (Matt, 17 Nov 2026): adopt 'in an arm, the scrutinee is the pattern, for everything' as an experiment we may back out of. Built as SW-3758, SW-3759, checkpoint SW-3760, then SW-3761, SW-3762.",
+      "body": "D3672 (Matt, 17 Nov 2026): adopt 'in an arm, the scrutinee is the pattern, for everything' as an experiment we may back out of. Built as SW-3758, SW-3759, checkpoint SW-3760, then SW-3761, SW-3762.\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-17",
-      "updated": "2026-11-17",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -20919,12 +20919,12 @@
     {
       "id": 3748,
       "title": "[Sonnet] Toy++: a generic StepIsIdentity family in TraverseProofs.sw (identity step and the map-over-declarations form) for declaration-only passes (SW-3743; the cases half was done in SW-3752)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\n\nThe cases part is fixed in SW-3752 (82c053f4b): `| _, _ => cases` closes mergeOnto's computed arms (cases-recursive-once.sw; demo mergeOntoPlain went from six arms to one). Still open: the StepIsIdentity family.\n",
+      "body": "\n\nThe cases part is fixed in SW-3752 (82c053f4b): `| _, _ => cases` closes mergeOnto's computed arms (cases-recursive-once.sw; demo mergeOntoPlain went from six arms to one). Still open: the StepIsIdentity family.\n\n\nClosed 22 Nov: no longer needed; the toy formatter was deleted (SW-4607, D3715); its code is in git history before that date.\n",
       "created": "2026-11-17",
       "updated": "2026-11-22",
       "commits": []
@@ -20958,14 +20958,14 @@
     {
       "id": 3751,
       "title": "[DeepSeek] toyfmt disturber: weak seed mixing (state = seed * 7919 + 17), so the first roll barely varies over seeds 0-49 and one-candidate changes never fire; hash the seed or throw away a roll (Toy++ T7 finding, SW-3749)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nClosed 22 Nov: no longer needed; the toy formatter was deleted (SW-4607, D3715). Checked: no tools/fmt or fuzzer disturber uses the seed * 7919 + 17 mixing (grep 7919 finds only test-data generators).\n",
       "created": "2026-11-17",
-      "updated": "2026-11-17",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -21083,9 +21083,9 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Matt's stop signal: 'exploding complexity in the code ... how complex is this to implement and maintain'. Until this checkpoint passes, std, aoc and the toy don't rely on the new behaviour (no sweep), so backing out is a revert.\n\nS1+S2 numbers from SW-3758: elab +325/-14, two pieces each used once (with_hidden_equation in matching.rs, Ctx::refined_again in check.rs), hashes unchanged, steps flat, no internal errors; open cost: failing arms checked 3x (nested unnamed matches could compound).",
+      "body": "Matt's stop signal: 'exploding complexity in the code ... how complex is this to implement and maintain'. Until this checkpoint passes, std, aoc and the toy don't rely on the new behaviour (no sweep), so backing out is a revert.\n\nS1+S2 numbers from SW-3758: elab +325/-14, two pieces each used once (with_hidden_equation in matching.rs, Ctx::refined_again in check.rs), hashes unchanged, steps flat, no internal errors; open cost: failing arms checked 3x (nested unnamed matches could compound).\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-17",
-      "updated": "2026-11-17",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -21642,9 +21642,9 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-17",
-      "updated": "2026-11-17",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -21811,9 +21811,9 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Full-repo token comparison after SW-3808 merged: 1912 of 1914 identical; the differences are this escaping issue, e.g. tools/toyfmt/src/Toy/Fmt/Tests/Validation.sw line 81: Rust prints \\u{10ffff} escaped, the twin prints the character. Old layout 1696/1696, goldens 124/124.",
+      "body": "Full-repo token comparison after SW-3808 merged: 1912 of 1914 identical; the differences are this escaping issue, e.g. tools/toyfmt/src/Toy/Fmt/Tests/Validation.sw line 81: Rust prints \\u{10ffff} escaped, the twin prints the character. Old layout 1696/1696, goldens 124/124.\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-17",
-      "updated": "2026-11-17",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -24043,9 +24043,9 @@
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "Also (SW-3963): a full cases blew the 64-case budget on an if over a list; pull the Bool out as a parameter (pickItems).\n\nAlso (SW-3967): proving guide: a Bool test (a && b && c) = True reads as nested ∧ (use Both / let-tuples); an effect inside a constructor argument nests binds on the left so givesThen can't peel them (bind it in a let); a guard in a theorem's match doesn't refine; when to use givesThen vs ReadsAt (a peek coupled to a bump needs ReadsAt).\n\nAlso (SW-3970): state lemmas about named functions and pass facts as parameters; Doc.concat of stuck parts blocks rewrite (join with concatCong); a match can rewrite the goal before a later rewrite of the same Bool.\n\nAlso (SW-3968): split parser code so each function does one bind; lazy &&/|| over effects appears as if in the goal (write f (effect1) (effect2) with a pure f); higher-order inference needs [p := ...] hints; Parse.run needs let x := p(); x for lemmas to apply; check Syntax does not include sub-namespaces such as Syntax.ParseWalk.\n\nAlso (SW-3969): a match with an unreachable arm discharges an if whose Bool rewrite can't replace (E-REWRITE-MOTIVE); 'at' can't be a variable in a theorem (rewrite ... at), and the parse error points elsewhere (worth a diagnostics ticket).\n\nAlso (SW-4000): Some (x, effect) desugars to a nested bind, so givesDone needs [holds := ...] [x := ...] hints or a split parser (8 min).\n\nAlso (SW-3971): a match refining a hypothesis doesn't refine explicit arguments written in the arm (use a helper theorem over a variable); implicit list arguments through Doc.concat's inner match must be written out; run stitchwort fmt just before commit, not before scripted edits.\n\nAlso (SW-4004): bind associativity doesn't compute once stuck, so nest runsMap to follow the source's lets; runsBind/runsLook need the continuation written out after a peek or at (~10 times); lanes check their diff with git diff main...HEAD (three dots).\n\nAlso (SW-4006): which hole form prints goals (?name mostly gave unknown name; one hole at a time worked, 5 min); name Bool guards used in matches as a def, since a match doesn't replace a guard spelled with == or a projection (15 min).\n\nAlso (SW-4011): rewrite takes only proofs, not a definition's name (unfold by computing or a let with the computed type; 10 min).\n\nAlso (SW-4008): an effect inside a let value or tuple destructure is fine for the walk; only effects in if conditions, lazy &&/|| and match guards need splitting (10 min of needless splits); import Fmt (..) can collide with Syntax names (plainPattern).\n\nAlso (SW-4009): [a, ..effectful()] elaborates as nested binds, so let-bind the effect first; a match on Tok checks 81 cases (one hit 250M steps), prefer == guards; run fmt on touched files then git add before committing (the hook refuses).\n\nAlso (SW-4013): write witness theorems for lemmas with narrow hypotheses so the audit doesn't warn of vacuity.\n\nAlso (SW-4010): parenthesise rewrite inside tuples ((a, rewrite same, b) reads 'same, b' as rules; 5 min); test is a keyword, not an equation name; don't pipe git commit through tail, the hook's refusal is hidden.\n\nAlso (SW-4027): a nested match over ~20 cases elaborates exponentially (split it into runs); a check that hits timeout exits 0 with no output, which reads as a pass; a named match equation already rewrites hypotheses in scope.\n\nAlso (SW-4019): in statements write (x == y) = False, not (x != y) = True; a def over a type is : Type, not Prop; Parse.readsAtThen's continuation argument order needs a doc example.\n\nAlso (SW-4022): a match on a term that appears in hypotheses silently refines them, so later lemma calls naming it fail; split into helper lemmas with explicit hypotheses.\n\nAlso (SW-4020): import a clashing name explicitly (import Syntax.ParseCarries (Carried)); checks are cached by content (first check slow, later ~1 s).\n\nAlso (SW-4021): proving over a tuple-let over a stuck if (state a lemma about the stuck if/tuple, let _ fill the rest); && and ++ are right-associative.\n\nAlso (SW-4025): stitchwort run refuses while any theorem in the namespace fails and prints every open goal first; a note on probing (or a --quiet-goals flag, SW-3988).\n\nAlso (SW-4034): run check under timeout 240 when a mismatch may make it unfold for minutes.\n\nAlso (SW-4024): when two ReadsAt types differ at runPure/foldComp, run goal --at and give [p := ...] as the program writes it (15 min lost); Fmt's Unit shadows Std.Unit under import Fmt (..).\n\nAlso (SW-4039): where probe namespaces go, and that a clean check prints nothing that shows it ran; annotate numeric literals in unannotated let ... if (stays _ and rewrite misses).\n\nAlso (SW-4048): Lays/Puts ignore modes; a reading of blank lines through them needs the blank's break forced visibly (worth a line in Lays.sw's header).\n\nAlso (SW-4056): common spellings near the top: then is reserved (no .then method), rewrite h at name (not in), Eq .flipped (not .symm).\n\nAlso (SW-4049): x && True is stuck on x; after match on Bools byComputing finishes; Doc.concat needs concatTell; an index of the solid-text lemmas (solidSpaces, wordFilled).\n\nAlso (SW-4043): stitchwort goal takes a namespace (without one it runs the whole project); run needs main(): {IO} ().\n\nAlso (SW-4040): bind the hypothesis with let before a match that refines it, and use _ for arguments inside the arm (10 min).\n\nAlso (SW-4050): Prop defs with overlapping clauses stay stuck on a variable; put the catch-all last and earlier clauses constructor-complete; a how-to-patch-a-big-file note (Edit needs unique strings).\n\nAlso (SW-4062): there is no audit --std; audit std lemmas by full name (or --std-dir).\n\nAlso (SW-4061): develop lemmas in a scratch module importing only small modules (big imports re-check for minutes); after an && chain, confirm the edit landed; ascribe ((x != y): Bool) where a Bool is meant.\n\nAlso (SW-4066): std checks read from source with check --std-dir / STITCHWORT_STD_DIR (no rebuild needed except the hash test); audit a list of std names via xargs (zsh doesn't word-split $names); FileLexProofs.sw:296 W-REWRITE-THEN-COMPUTING one-line fixup.\n\nAlso (SW-4051): git grep -n -A N 'pattern' -- '*.sw' for .sw searches; stitchwort goal takes no namespace.\n\nAlso (SW-4057): briefs should give tools/fmt/src/ once, and say ../../target/release/stitchwort is the worktree's own binary (build if missing).\n\nAlso (SW-4031): the dev shell's sed is GNU (sed -i, not sed -i ''); size read-back lanes one step each.\n\nAlso (SW-4068): a dotted name (Note.unreturned) can't go in an import list; import the module.\n\nAlso (SW-4074): a comment on BlockAt saying its LineKind quantifier is inhabited (fullAnyLine) and read once (Parser.sw:678); briefs: walk records are type ...Of constructors (outsideOf, frameOf, ladderOf); std is crates/elab/src/std.\n\nAlso (SW-4070): eval needs a project file arg, join lets with ;, annotate Decl; compute expensive data once and write it out with one byComputing equation; brief pre-check for existing facts before scoping.\n\nAlso (SW-4078): board history command or timestamps on tickets; put the scope paragraph in a new ticket's body; say whether a worktree's check cache is warm.\n\nAlso (SW-4069): format every touched file before commit; keep a known-broken-namespaces note so lanes don't spend time checking the base.\n\nAlso (SW-4058): methods can't be imported by name (use (..)); HearProofs/StandsProofs checks take 1-2 min, run them in the background.\n\nAlso (SW-4075), proving guide: a record update's field doesn't compute through a match closing over the whole record (write helpers over the fields, as edgeOf); trueOrFalse plus an equation-taking helper avoids refinement mismatches.\n\nAlso (SW-4079): methods can't be imported by name (syntax.md import section); board show --body; NOTES: where driver-level tests live (import cycle Syntax.*Proofs <-> Fmt).\n\nAlso (SW-4071): proving guide: generalise with equations instead of big rewrites (E-RESOURCE); briefs: say when a named item isn't on the lane's branch yet.\n\nAlso (SW-4087): stitchwort search checks the whole project (grep crates/elab/src/std for names); proving guide: a tuple-let step, prove a plain-if copy equal first.\n\nAlso (SW-4076): give Doc.concat's list explicitly to *Concat lemmas; print start and stop time together at each date check.\n\nAlso (SW-4041): match a record on its plain pattern with a within hypothesis rather than destructuring all fields; don't rewrite over a computed printed1 of a literal tree (state the split, calc); a file-to-namespace map (MeaningProofs declares Fmt.Proofs).\n\nAlso (SW-4090): proving guide: pass a mutual member as a hypothesis (a def naming its type) and fill it with a lambda at the call site, to keep a big ∃ out of a mutual block; how check caching works for imported modules.\n\nAlso (SW-4086): check takes a namespace, not a file path; briefs: std sources are crates/elab/src/std (List lemmas mapMap, mapAppend).\n\nAlso (SW-4088): run formatWithin1 ad hoc with stitchwort eval tools/fmt/src/Fmt/Tests/Driver1.sw 'formatWithin1 \"...\"' from tools/fmt; scope open-goal tickets before estimating.\n\nAlso (SW-4089): briefs for goals: check whether the statement needs within1 (slice-1-only predicates end | _ => False); proving guide: && and ++ associativity; first check under StandsProofs/SettleOutputProofs takes ~2 min, run it in the background.\n\nAlso (SW-4099): proving guide E-REWRITE: rewrite with an equation whose left side the goal already computed past applies nothing silently; use a transport lemma.\n\nAlso (SW-4107): proving guide perf: pass explicit arguments to cancellation lemmas (appendCancel _ _ _ _ unified against a big equation ran 2e9 steps); rewrite at h fails once h has partly computed, use Eq.cong; briefs: say where a part's definitions may live (import cycles).\n\nAlso (SW-4077): stitchwort goal takes no namespace (use check NS for one namespace's goals); E-RESOURCE bisection tip.\n\nAlso (SW-4110): E-RESOURCE on destructuring printedTokens1 for a concrete Definition: keep decl abstract until after; E-MATCH-MOTIVE 'one scrutinee is part of another' example; and OneLineParts' doc for closersBareOneLine1 still says closersBareOfStands is open (fix after SW-4109).\n\nAlso (SW-4109): proving guide: && is right-associative (rewrite Bool.andFalse); Doc.Proofs.closesText (Prop) vs the Bool one under (..); a documented 'errors only' vs 'goals too' check one-liner.",
+      "body": "Also (SW-3963): a full cases blew the 64-case budget on an if over a list; pull the Bool out as a parameter (pickItems).\n\nAlso (SW-3967): proving guide: a Bool test (a && b && c) = True reads as nested ∧ (use Both / let-tuples); an effect inside a constructor argument nests binds on the left so givesThen can't peel them (bind it in a let); a guard in a theorem's match doesn't refine; when to use givesThen vs ReadsAt (a peek coupled to a bump needs ReadsAt).\n\nAlso (SW-3970): state lemmas about named functions and pass facts as parameters; Doc.concat of stuck parts blocks rewrite (join with concatCong); a match can rewrite the goal before a later rewrite of the same Bool.\n\nAlso (SW-3968): split parser code so each function does one bind; lazy &&/|| over effects appears as if in the goal (write f (effect1) (effect2) with a pure f); higher-order inference needs [p := ...] hints; Parse.run needs let x := p(); x for lemmas to apply; check Syntax does not include sub-namespaces such as Syntax.ParseWalk.\n\nAlso (SW-3969): a match with an unreachable arm discharges an if whose Bool rewrite can't replace (E-REWRITE-MOTIVE); 'at' can't be a variable in a theorem (rewrite ... at), and the parse error points elsewhere (worth a diagnostics ticket).\n\nAlso (SW-4000): Some (x, effect) desugars to a nested bind, so givesDone needs [holds := ...] [x := ...] hints or a split parser (8 min).\n\nAlso (SW-3971): a match refining a hypothesis doesn't refine explicit arguments written in the arm (use a helper theorem over a variable); implicit list arguments through Doc.concat's inner match must be written out; run stitchwort fmt just before commit, not before scripted edits.\n\nAlso (SW-4004): bind associativity doesn't compute once stuck, so nest runsMap to follow the source's lets; runsBind/runsLook need the continuation written out after a peek or at (~10 times); lanes check their diff with git diff main...HEAD (three dots).\n\nAlso (SW-4006): which hole form prints goals (?name mostly gave unknown name; one hole at a time worked, 5 min); name Bool guards used in matches as a def, since a match doesn't replace a guard spelled with == or a projection (15 min).\n\nAlso (SW-4011): rewrite takes only proofs, not a definition's name (unfold by computing or a let with the computed type; 10 min).\n\nAlso (SW-4008): an effect inside a let value or tuple destructure is fine for the walk; only effects in if conditions, lazy &&/|| and match guards need splitting (10 min of needless splits); import Fmt (..) can collide with Syntax names (plainPattern).\n\nAlso (SW-4009): [a, ..effectful()] elaborates as nested binds, so let-bind the effect first; a match on Tok checks 81 cases (one hit 250M steps), prefer == guards; run fmt on touched files then git add before committing (the hook refuses).\n\nAlso (SW-4013): write witness theorems for lemmas with narrow hypotheses so the audit doesn't warn of vacuity.\n\nAlso (SW-4010): parenthesise rewrite inside tuples ((a, rewrite same, b) reads 'same, b' as rules; 5 min); test is a keyword, not an equation name; don't pipe git commit through tail, the hook's refusal is hidden.\n\nAlso (SW-4027): a nested match over ~20 cases elaborates exponentially (split it into runs); a check that hits timeout exits 0 with no output, which reads as a pass; a named match equation already rewrites hypotheses in scope.\n\nAlso (SW-4019): in statements write (x == y) = False, not (x != y) = True; a def over a type is : Type, not Prop; Parse.readsAtThen's continuation argument order needs a doc example.\n\nAlso (SW-4022): a match on a term that appears in hypotheses silently refines them, so later lemma calls naming it fail; split into helper lemmas with explicit hypotheses.\n\nAlso (SW-4020): import a clashing name explicitly (import Syntax.ParseCarries (Carried)); checks are cached by content (first check slow, later ~1 s).\n\nAlso (SW-4021): proving over a tuple-let over a stuck if (state a lemma about the stuck if/tuple, let _ fill the rest); && and ++ are right-associative.\n\nAlso (SW-4025): stitchwort run refuses while any theorem in the namespace fails and prints every open goal first; a note on probing (or a --quiet-goals flag, SW-3988).\n\nAlso (SW-4034): run check under timeout 240 when a mismatch may make it unfold for minutes.\n\nAlso (SW-4024): when two ReadsAt types differ at runPure/foldComp, run goal --at and give [p := ...] as the program writes it (15 min lost); Fmt's Unit shadows Std.Unit under import Fmt (..).\n\nAlso (SW-4039): where probe namespaces go, and that a clean check prints nothing that shows it ran; annotate numeric literals in unannotated let ... if (stays _ and rewrite misses).\n\nAlso (SW-4048): Lays/Puts ignore modes; a reading of blank lines through them needs the blank's break forced visibly (worth a line in Lays.sw's header).\n\nAlso (SW-4056): common spellings near the top: then is reserved (no .then method), rewrite h at name (not in), Eq .flipped (not .symm).\n\nAlso (SW-4049): x && True is stuck on x; after match on Bools byComputing finishes; Doc.concat needs concatTell; an index of the solid-text lemmas (solidSpaces, wordFilled).\n\nAlso (SW-4043): stitchwort goal takes a namespace (without one it runs the whole project); run needs main(): {IO} ().\n\nAlso (SW-4040): bind the hypothesis with let before a match that refines it, and use _ for arguments inside the arm (10 min).\n\nAlso (SW-4050): Prop defs with overlapping clauses stay stuck on a variable; put the catch-all last and earlier clauses constructor-complete; a how-to-patch-a-big-file note (Edit needs unique strings).\n\nAlso (SW-4062): there is no audit --std; audit std lemmas by full name (or --std-dir).\n\nAlso (SW-4061): develop lemmas in a scratch module importing only small modules (big imports re-check for minutes); after an && chain, confirm the edit landed; ascribe ((x != y): Bool) where a Bool is meant.\n\nAlso (SW-4066): std checks read from source with check --std-dir / STITCHWORT_STD_DIR (no rebuild needed except the hash test); audit a list of std names via xargs (zsh doesn't word-split $names); FileLexProofs.sw:296 W-REWRITE-THEN-COMPUTING one-line fixup.\n\nAlso (SW-4051): git grep -n -A N 'pattern' -- '*.sw' for .sw searches; stitchwort goal takes no namespace.\n\nAlso (SW-4057): briefs should give tools/fmt/src/ once, and say ../../target/release/stitchwort is the worktree's own binary (build if missing).\n\nAlso (SW-4031): the dev shell's sed is GNU (sed -i, not sed -i ''); size read-back lanes one step each.\n\nAlso (SW-4068): a dotted name (Note.unreturned) can't go in an import list; import the module.\n\nAlso (SW-4074): a comment on BlockAt saying its LineKind quantifier is inhabited (fullAnyLine) and read once (Parser.sw:678); briefs: walk records are type ...Of constructors (outsideOf, frameOf, ladderOf); std is crates/elab/src/std.\n\nAlso (SW-4070): eval needs a project file arg, join lets with ;, annotate Decl; compute expensive data once and write it out with one byComputing equation; brief pre-check for existing facts before scoping.\n\nAlso (SW-4078): board history command or timestamps on tickets; put the scope paragraph in a new ticket's body; say whether a worktree's check cache is warm.\n\nAlso (SW-4069): format every touched file before commit; keep a known-broken-namespaces note so lanes don't spend time checking the base.\n\nAlso (SW-4058): methods can't be imported by name (use (..)); HearProofs/StandsProofs checks take 1-2 min, run them in the background.\n\nAlso (SW-4075), proving guide: a record update's field doesn't compute through a match closing over the whole record (write helpers over the fields, as edgeOf); trueOrFalse plus an equation-taking helper avoids refinement mismatches.\n\nAlso (SW-4079): methods can't be imported by name (syntax.md import section); board show --body; NOTES: where driver-level tests live (import cycle Syntax.*Proofs <-> Fmt).\n\nAlso (SW-4071): proving guide: generalise with equations instead of big rewrites (E-RESOURCE); briefs: say when a named item isn't on the lane's branch yet.\n\nAlso (SW-4087): stitchwort search checks the whole project (grep crates/elab/src/std for names); proving guide: a tuple-let step, prove a plain-if copy equal first.\n\nAlso (SW-4076): give Doc.concat's list explicitly to *Concat lemmas; print start and stop time together at each date check.\n\nAlso (SW-4041): match a record on its plain pattern with a within hypothesis rather than destructuring all fields; don't rewrite over a computed printed1 of a literal tree (state the split, calc); a file-to-namespace map (MeaningProofs declares Fmt.Proofs).\n\nAlso (SW-4090): proving guide: pass a mutual member as a hypothesis (a def naming its type) and fill it with a lambda at the call site, to keep a big ∃ out of a mutual block; how check caching works for imported modules.\n\nAlso (SW-4086): check takes a namespace, not a file path; briefs: std sources are crates/elab/src/std (List lemmas mapMap, mapAppend).\n\nAlso (SW-4088): run formatWithin1 ad hoc with stitchwort eval tools/fmt/src/Fmt/Tests/Driver1.sw 'formatWithin1 \"...\"' from tools/fmt; scope open-goal tickets before estimating.\n\nAlso (SW-4089): briefs for goals: check whether the statement needs within1 (slice-1-only predicates end | _ => False); proving guide: && and ++ associativity; first check under StandsProofs/SettleOutputProofs takes ~2 min, run it in the background.\n\nAlso (SW-4099): proving guide E-REWRITE: rewrite with an equation whose left side the goal already computed past applies nothing silently; use a transport lemma.\n\nAlso (SW-4107): proving guide perf: pass explicit arguments to cancellation lemmas (appendCancel _ _ _ _ unified against a big equation ran 2e9 steps); rewrite at h fails once h has partly computed, use Eq.cong; briefs: say where a part's definitions may live (import cycles).\n\nAlso (SW-4077): stitchwort goal takes no namespace (use check NS for one namespace's goals); E-RESOURCE bisection tip.\n\nAlso (SW-4110): E-RESOURCE on destructuring printedTokens1 for a concrete Definition: keep decl abstract until after; E-MATCH-MOTIVE 'one scrutinee is part of another' example; and OneLineParts' doc for closersBareOneLine1 still says closersBareOfStands is open (fix after SW-4109).\n\nAlso (SW-4109): proving guide: && is right-associative (rewrite Bool.andFalse); Doc.Proofs.closesText (Prop) vs the Bool one under (..); a documented 'errors only' vs 'goals too' check one-liner.\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-18",
-      "updated": "2026-11-19",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -30642,9 +30642,9 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nNote 22 Nov: the toy formatter (tools/toyfmt, Toy++) and tools/fmt-sketch were deleted (SW-4607, D3715). Toy files, repros and counts named here are in git history before 22 Nov (e.g. git show fe499e963^:tools/toyfmt/...); re-derive a repro from tools/fmt, std or an example before working this.\n",
       "created": "2026-11-21",
-      "updated": "2026-11-21",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -32255,15 +32255,18 @@
     {
       "id": 4607,
       "title": "[Sonnet] Delete the toy formatter (tools/toyfmt, with Toy++ in tools/toyfmt/plus) and tools/fmt-sketch now the real formatter's slice 1 is proved (D3715, Matt, 22 Nov: 'yes, delete it. It'll still be in Git history if we need it'); move the build test onto tools/fmt; close or refile the toy tickets",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "Started 22 Nov 11:14 on Sonnet (orchestrator's call: mechanical deletion and one test move). Expected: 20 min. Brief: delete tools/toyfmt (with Toy++) and tools/fmt-sketch, remove their pins and references, move build.rs's formatter test onto tools/fmt, propose close/refile for the 35 toy tickets.\n\n\nLane note (22 Nov 11:40): done on lane/SW-4607 (fe499e963): deleted; build test moved to Fmt.Twin.main (--stage text, --batch, exit codes; dropped --check/in-place/folder walk/width); passed.\n",
+      "body": "Started 22 Nov 11:14 on Sonnet (orchestrator's call: mechanical deletion and one test move). Expected: 20 min. Brief: delete tools/toyfmt (with Toy++) and tools/fmt-sketch, remove their pins and references, move build.rs's formatter test onto tools/fmt, propose close/refile for the 35 toy tickets.\n\n\nLane note (22 Nov 11:40): done on lane/SW-4607 (fe499e963): deleted; build test moved to Fmt.Twin.main (--stage text, --batch, exit codes; dropped --check/in-place/folder walk/width); passed.\n\n\nModel result: Sonnet, worked, 11 min (est. 20). Merged 22 Nov; 47,857 lines deleted. The build test now runs tools/fmt's command line (fmt --stage text, --batch); dropped --check, in-place rewriting and folder walking, which tools/fmt's CLI doesn't do.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "fe499e96360a0d92ba8d4f69c674407a59dd1e65",
+        "18e01f475b93840435b7ab6c680ce152e80c4fc9"
+      ]
     }
   ]
 }
