@@ -8,7 +8,7 @@
 use stitchwort_core::Ev;
 use stitchwort_core::check as k;
 use stitchwort_core::globals::HashKey;
-use stitchwort_core::{DataId, DefId, Kernel, Name, Sort, Term};
+use stitchwort_core::{DataId, DefId, Kernel, Name, Sort, Term, pretty};
 use stitchwort_syntax::{Diagnostic, Span};
 
 pub use k::*;
@@ -48,6 +48,46 @@ thread_local! {
         const { std::cell::RefCell::new(Vec::new()) };
 }
 
+thread_local! {
+    /// The names already dumped under `STITCHWORT_DUMP_KERNEL` on this
+    /// thread: a declaration checked twice (a retry, a live update) is
+    /// printed once.
+    static DUMPED: std::cell::RefCell<stitchwort_core::collections::HashSet<String>> =
+        std::cell::RefCell::new(stitchwort_core::collections::HashSet::default());
+}
+
+/// The declaration `STITCHWORT_DUMP_KERNEL` names, if it is set. Read once.
+fn dump_wanted() -> Option<&'static str> {
+    static WANTED: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+    WANTED
+        .get_or_init(|| std::env::var("STITCHWORT_DUMP_KERNEL").ok())
+        .as_deref()
+}
+
+/// With `STITCHWORT_DUMP_KERNEL` set to a declaration's full name, prints
+/// the type and value the kernel is given for it, after zonking and
+/// saturation: exactly the terms it checks.
+fn dump_kernel_declaration(g: &Kernel, members: &[(DefId, Term)]) {
+    let Some(wanted) = dump_wanted() else {
+        return;
+    };
+    for (id, body) in members {
+        let def = g.def(*id);
+        let name = def.path().to_string();
+        if name != wanted {
+            continue;
+        }
+        let fresh = DUMPED.with(|dumped| dumped.borrow_mut().insert(name.clone()));
+        if !fresh {
+            continue;
+        }
+        let ev = g.ev();
+        eprintln!("kernel dump: {name}");
+        eprintln!("  type: {}", pretty::term(&ev, &[], def.ty()));
+        eprintln!("  value: {}", pretty::term(&ev, &[], body));
+    }
+}
+
 /// Starts or stops recording the kernel's rejections on this thread: see
 /// `REJECTIONS`.
 pub fn record_rejections(on: bool) {
@@ -77,6 +117,7 @@ pub fn define_def(g: &mut Kernel, tables: &Tables, id: DefId, body: &Term) -> Re
 /// to all its parameters (`saturate.rs`).
 pub fn define_group(g: &mut Kernel, tables: &Tables, members: &[(DefId, Term)]) -> Result<()> {
     let (members, expanded) = crate::saturate::saturate(&g.ev(), members)?;
+    dump_kernel_declaration(g, &members);
     timed(g, |g| k::define_group(g, &members)).map_err(|d| {
         let own: Vec<HashKey> = members.iter().map(|(id, _)| HashKey::Def(*id)).collect();
         // A member's type was declared without its failed references being

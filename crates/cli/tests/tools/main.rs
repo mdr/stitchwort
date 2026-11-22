@@ -12,6 +12,7 @@ mod doc_equations;
 mod fmt;
 mod guide;
 mod indexed_families;
+mod kernel_dump;
 mod lambda_shadow;
 mod no_effect;
 mod opcode_census;
