@@ -32367,12 +32367,12 @@
     {
       "id": 4614,
       "title": "[Opus paper] Parallel checking research: survey how Lean 4, Rocq, Isabelle, Agda and others check in parallel (files, declarations, proof bodies), what makes it sound and deterministic, and how it could fit Stitchwort (namespace graph, proof bodies after statements, Rc values, check cache, hashes); a formal note with options and a first step (Matt, 22 Nov: research lane)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Fable paper lane, 22 Nov 2026 (started 16:46, done 17:03; expected 75 min). Note: docs/proposals/parallel-checking.md; script: docs/proposals/parallel-checking/ns_graph.py. Commit 5525a2b75 on lane/SW-4614. Nothing built or run.\n\nFindings: every surveyed prover splits statement from proof and treats a pending proof as an axiom or promise (Lean 4.19 Elab.async, Rocq Qed workers and .vos/.vok, Isabelle futures; Agda 2.9 -j is per module with isolated state). Stitchwort theorems are not opaque (J, case and comparison unfold them; hashes cover bodies), so that split does not hold by rule here. tools/fmt namespace graph (this morning's 252 s times, stale): critical path 81 s of 237 s, bound 2.9x, 2.2x on 4 workers; AoC is 5 deep and 106 wide. At least 60% of the time is theorem bodies.\n\nRecommendation: namespace-level parallelism on threads, a session per worker, results passed as check-cache entries; first measure (fresh timings into ns_graph.py; a process-per-namespace script over one cache; a counter of theorem unfolds). Decisions for Matt in section 6: direction, trust of replay under a parallel --no-cache, and later whether theorems become opaque.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
