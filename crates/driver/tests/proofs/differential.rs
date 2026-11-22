@@ -106,7 +106,13 @@ static SKIPPED_REPEATS: AtomicUsize = AtomicUsize::new(0);
 /// less than before: look at which (`--no-capture` lists them) before
 /// raising this. Slices (`STITCHWORT_DIFFERENTIAL_SKIP` or `_LIMIT`) and
 /// another step budget skip other amounts, so they are not checked.
-const MAX_SKIPPED: usize = 60;
+///
+/// The all tier on 22 Nov 2026 found 90: 53 from the thirteen
+/// `large-hypothesis-*.sw` examples (added 19 and 20 Nov to hold large
+/// hypotheses, whose types the shared-nothing reference can't write out
+/// within the budget, by design), and the 37 that remained. So the limit is
+/// the old 60 plus what those examples add, rounded up.
+const MAX_SKIPPED: usize = 95;
 
 /// Where a skipped comparison is counted: `std` when it involves only std's
 /// definitions, otherwise the example (or `prelude`) being swept.
