@@ -112,7 +112,15 @@ static SKIPPED_REPEATS: AtomicUsize = AtomicUsize::new(0);
 /// hypotheses, whose types the shared-nothing reference can't write out
 /// within the budget, by design), and the 37 that remained. So the limit is
 /// the old 60 plus what those examples add, rounded up.
-const MAX_SKIPPED: usize = 95;
+///
+/// SW-4546 added the reference evaluator's depth limit, so four examples
+/// that were left out of the sweep with a skip marker run again and skip
+/// only their too-deep comparisons, counted once each in `--no-capture`'s
+/// list: fin-pattern-numbers.sw 4, long-text-eqeq.sw 4,
+/// refine-keeps-big-call.sw 12 (decreasing.sw compares in full, 0): 20 more.
+/// Each count is from that example's own `STITCHWORT_DIFFERENTIAL_ONLY` run.
+/// So 90 + 20, and 5 of headroom.
+const MAX_SKIPPED: usize = 115;
 
 /// Where a skipped comparison is counted: `std` when it involves only std's
 /// definitions, otherwise the example (or `prelude`) being swept.
@@ -122,6 +130,31 @@ fn place<'a>(g: &stitchwort_core::Ev, example: &'a str, ids: &[DefId]) -> &'a st
     } else {
         example
     }
+}
+
+/// How deeply the reference evaluator may nest on the sweep's thread: what
+/// [`STACK`] holds with room to spare. The release limit is above the deepest
+/// comparison that must run (io.sw's 5,000 prints reach 30,029, in 80 to
+/// 96 MiB of the 128); the debug one is a guess at a quarter of it, as debug
+/// frames are several times bigger, and skips io.sw's test. Measured with
+/// `STITCHWORT_DIFFERENTIAL_DEPTH` (which overrides it) and
+/// `reference::take_max_depth`; a comparison past it is skipped like one past
+/// its step budget, instead of overflowing the stack and aborting the test
+/// process (SW-4546).
+const REFERENCE_DEPTH: usize = if cfg!(debug_assertions) {
+    10_000
+} else {
+    35_000
+};
+
+fn reference_depth() -> usize {
+    static DEPTH: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+    *DEPTH.get_or_init(|| {
+        std::env::var("STITCHWORT_DIFFERENTIAL_DEPTH")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(REFERENCE_DEPTH)
+    })
 }
 
 fn reference_steps() -> u64 {
@@ -155,7 +188,7 @@ fn left_out(name: &str) -> bool {
 }
 
 /// `f`, with the reference evaluator on this thread limited to
-/// [`REFERENCE_STEPS`]; `None` if it ran out, after saying what was too big
+/// [`REFERENCE_STEPS`] and [`REFERENCE_DEPTH`]; `None` if it ran out, after saying what was too big
 /// to compare. `comparison` is counted in [`SKIPPED`] under `place`.
 fn within_budget<T>(
     example: &str,
@@ -164,11 +197,19 @@ fn within_budget<T>(
     f: impl FnOnce() -> Result<T>,
 ) -> Option<T> {
     reference::set_budget(Some(reference_steps()));
+    reference::set_depth_limit(Some(reference_depth()));
     let out = f();
     reference::set_budget(None);
+    reference::set_depth_limit(None);
+    if std::env::var("STITCHWORT_DIFFERENTIAL_SHOW_DEPTH").is_ok() {
+        eprintln!(
+            "depth {}: {example}: {comparison}",
+            reference::take_max_depth()
+        );
+    }
     match out {
         Ok(out) => Some(out),
-        Err(ResourceError::Work) => {
+        Err(ResourceError::Work | ResourceError::Depth) => {
             eprintln!("too big to compare: {example}: {comparison}");
             SKIPPED
                 .lock()
@@ -585,6 +626,36 @@ fn deep_evaluation_runs_in_one_machine_and_the_reference_in_none() {
         let slow = reference::eval(g, &[], &term).unwrap();
         assert_eq!(machine_runs(), before, "the reference started the machine");
         assert_eq!(normal(g, 0, &fast), normal(g, 0, &slow));
+    });
+}
+
+/// A term nested deeper than the reference evaluator's depth limit fails with
+/// `Depth` instead of overflowing the stack, and the limit leaves nothing
+/// behind for the next evaluation (SW-4546).
+#[test]
+fn the_reference_evaluator_stops_at_its_depth_limit() {
+    with_stack(STACK, || {
+        let session = Session::for_stack(STACK);
+        let g = &session.elab.ev();
+        let nested = |n: usize| {
+            let mut term = Term::Nat(std::rc::Rc::new(7u32.into()));
+            for _ in 0..n {
+                term = Term::Ann(
+                    term.into(),
+                    Term::Sort(stitchwort_core::term::Sort::Type(0)).into(),
+                );
+            }
+            term
+        };
+        reference::set_depth_limit(Some(100));
+        let too_deep = reference::eval(g, &[], &nested(1_000));
+        assert!(
+            matches!(too_deep, Err(ResourceError::Depth)),
+            "{too_deep:?}"
+        );
+        assert!(reference::eval(g, &[], &nested(50)).is_ok());
+        reference::set_depth_limit(None);
+        assert!(reference::eval(g, &[], &nested(1_000)).is_ok());
     });
 }
 

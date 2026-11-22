@@ -3,7 +3,6 @@
 -- The kernel still matches a `Fin` one `FSucc` at a time, up to the
 -- largest number written (docs/proposals/fin-literals.md).
 import Std (Fin)
--- differential: skip (a `Fin` of 1,000,000 is deeper than the recursive reference evaluator can go)
 
 def size: (n: Nat) → Fin (Succ (Succ n)) → Text
   | _, 0 => "none"
