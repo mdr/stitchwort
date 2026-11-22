@@ -722,7 +722,7 @@ Alternatives nest, `| Inl (Inl same | Inr same) =>`, and with an or-pattern in e
 - `if n != 0 then a else b` makes the fact `n != 0` available in `a`, where an `auto` argument finds it: in `if n != 0 then Nat.modLt x n else …`, the lemma's `[auto ok: n ≠ 0]` is that fact ([chapter 2](02-values-and-definitions.md#dividing-by-zero)).
 - `if a && b then …` gives the branch `a ∧ b`, and `auto` uses each part of a conjunction in scope: `if i < xs.length && j < xs.length then xs.getLt i` checks. It uses a fact about a test, such as the `(a && b) = True` a `match` on `a && b` gives, the same way: as what the test reads as (below). (When `b` itself needs the fact from `a`, as in `i < xs.length && xs.getLt i == x`, the branch doesn't get the conjunction.)
 - `if h: P then a else b` also names the fact: `h: P` in `a`, and `h: ¬P` in `b`.
-- A parameter `[auto ok: P]` asks the caller for a proof of `P`, found automatically from the facts in scope, or by deciding `P` when its values are known.
+- A parameter `[auto ok: P]` asks the caller for a proof of `P`, found automatically from the facts in scope, or by deciding `P` when its values are known. An equation whose two sides are the same term, or compute to the same term, is proved even when its values are not known (`C (blank t) = C (blank t)`).
 
 <!-- snippet: proofs.sw#decide -->
 ```stitchwort

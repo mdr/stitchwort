@@ -354,6 +354,9 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
             if let Some(proof) = from_rules(cx, &goal, &parts)? {
                 return Ok(proof);
             }
+            if let Some(proof) = same_sides(cx, &goal)? {
+                return Ok(proof);
+            }
             let mut error = cx
                 .error(
                     "E-AUTO-STUCK",
@@ -370,6 +373,20 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
             Err(cx.with_opaque_notes(error, &[&goal]))
         }
     }
+}
+
+/// `byComputing` for an equation whose two sides are the same term, as
+/// written or by the conversion check `byComputing` runs (no definition is
+/// unfolded beyond what it does). Tried last, after the decision procedure
+/// and the rest are stuck, so no goal they prove changes its proof: the
+/// decision for `C (blank t) = C (blank t)` is stuck on the variable `t`
+/// although the sides need no computing.
+fn same_sides(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
+    let Value::Eq(_, a, b) = goal else {
+        return Ok(None);
+    };
+    let (a, b) = ((**a).clone(), (**b).clone());
+    attempt(cx, |cx| Ok(cx.unify(&a, &b)?.then_some(Term::Refl)))
 }
 
 /// For a goal shown with a generated helper's name, `(helper 1 of
