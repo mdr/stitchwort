@@ -1,5 +1,5 @@
 {
-  "next": 4661,
+  "next": 4662,
   "tickets": [
     {
       "id": 47,
@@ -33055,19 +33055,36 @@
     {
       "id": 4659,
       "title": "[Sonnet] Sealing every theorem (STITCHWORT_SEAL_THEOREMS=1) breaks Aoc.Common.Proofs.PrefixSums.atOf: its rewrite looks for Map.byPosition [] and the goal has Map.empty; find which sealed theorem(s) cause it (bisect STITCHWORT_SEAL_EXCEPT on Aoc.Common.Proofs, ~15 s a run; all of Std.* transparent fixes it, no single Std sub-namespace does) and why (SW-4657 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nMatt (22 Nov): \"have a look at prefix sums.atOf to understand.\" Started 21:46 on Sonnet. Expected: 30 min.\n\n\nFindings (21:52): see docs/proposals/sealed-theorems.md, \"PrefixSums.atOf\". Class (b)/(c): rewrite search compares proof fields; 4 theorems (Std.Map.Tree.buildSized, buildWithin, withinNoneHigh, Std.And.left) needed; two-line proof edit fixes it sealed and unsealed (patch not committed).\n",
+      "body": "\n\nMatt (22 Nov): \"have a look at prefix sums.atOf to understand.\" Started 21:46 on Sonnet. Expected: 30 min.\n\n\nFindings (21:52): see docs/proposals/sealed-theorems.md, \"PrefixSums.atOf\". Class (b)/(c): rewrite search compares proof fields; 4 theorems (Std.Map.Tree.buildSized, buildWithin, withinNoneHigh, Std.And.left) needed; two-line proof edit fixes it sealed and unsealed (patch not committed).\n\n\nModel result: Sonnet, worked, 5 min (est. 30). Proof edit not committed: patch kept at scratchpad sw4659/atOf-fix.patch for stage 1 if sealing is chosen.\n",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": [
+        "912e764fb",
+        "63f9fe099",
+        "c3312963e6d0f12a73778479059decb1d3c800ce"
+      ]
+    },
+    {
+      "id": 4660,
+      "title": "[Sonnet] With every theorem sealed, .induct generation fails (E-NO-INDUCT, examples/accept/and-guard-proof-in-induct.sw:47 climbBounded): confirm it unfolds a decrease proof (stepDown?) and make it use the proof's statement only (SW-4657 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
     },
     {
-      "id": 4660,
-      "title": "[Sonnet] With every theorem sealed, .induct generation fails (E-NO-INDUCT, examples/accept/and-guard-proof-in-induct.sw:47 climbBounded): confirm it unfolds a decrease proof (stepDown?) and make it use the proof's statement only (SW-4657 finding)",
+      "id": 4661,
+      "title": "[Sonnet] If theorems are sealed by default: rewrite's search (same_shifted, crates/elab/src/matching.rs) compares constructor arguments at proof positions syntactically; skip them as conversion does (SW-4659 finding; one occurrence so far, PrefixSums.atOf)",
       "status": "backlog",
       "agent": "",
       "where": "",
