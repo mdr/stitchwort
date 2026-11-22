@@ -81,9 +81,10 @@ when it's unclear.
    message, in the same clone. OpenCode 2.1.4 also has `--fork` on `run`,
    but no `--attach`; messages to a run in progress (`opencode serve` and
    `POST /session/:id/prompt_async`) aren't reliable yet, so don't use them.
-4. Commit in the clone with the trailer "Done by OpenCode with DeepSeek V4.1
-   Flash (OpenCode Go) from a spec by Claude; reviewed by Claude", check the
-   commit author, then fetch and merge into `main`.
+4. Commit in the clone with the ticket in the first line, `(SW-N)`, and the
+   trailer "Done by OpenCode with DeepSeek V4.1 Flash (OpenCode Go) from a
+   spec by Claude; reviewed by Claude", check the commit author, then fetch
+   and merge into `main` (the merge message names the ticket too).
 5. Regenerate snapshots and the benchmark baseline, stage them, and let the
    batch's check run (below). For playground changes also run `task test:browser`.
 6. Update the ticket: move it to done and record the commits (`board/board commit N HASH`, `board/board move N done`).

@@ -209,6 +209,7 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
     absolute path).
   - Never run a command in the background: wait for each to finish.
   - Run every test you add and show it passing.
+  - Commit with the ticket in the message's first line, `(SW-N)`.
   - Finish with a report: what you changed, each command you ran and its
     result, and what you were unsure of.
 
@@ -344,6 +345,14 @@ of work to fit it:
   file, a snapshot) that fails before the fix and passes after; show it
   failing without the fix. If a test already caught the bug, name that test
   in the report instead (D3608, Matt, 15 Nov 2026: "Yes, yes.").
+- Every commit message names the ticket it works on, `(SW-N)`, in its
+  first line, including fixups, follow-ups and work for a ticket other
+  than the lane's own (name each one it touches); merge commits name it
+  too. The board's done tickets are found from these (Matt, 22 Nov 2026:
+  "commit messages should reference the ticket that they're working on to
+  help us keep track of stuff"; a board audit found most work commits
+  cited only a parent ticket). The orchestrator records each lane's
+  commits on its ticket at merge (`board/board commit N HASH...`).
 - Before committing, run `stitchwort fmt` on the `.sw` files you touched,
   plus `cargo fmt` and clippy. A pre-commit hook (D3681) refuses a commit
   with an unformatted staged `.sw` or `.rs` file, naming it; format it and
