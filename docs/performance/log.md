@@ -110,6 +110,72 @@ in [../proposals/README.md](../proposals/README.md).
   Checking statements only on import is rejected (trust; `--no-cache` is the full
   check).
 - **Ticket:** SW-4593; follows SW-4587 and SW-4608.
+### SW-4619: SW-4611's reshape on the rest of the slow formatter family; five proofs from 312M steps to 1.9M, and `atomHung` and `unaryHung` 15-55% fewer
+
+- **Problem.** After SW-4611, SW-4608's list still had `printedFinish1`
+  (7.3 s), `standsDecl` (6.1 s), `standsRest` (1.8 s), `printedStart1`
+  (1.5 s) and `printedSplitParts` (2.3 s), each reading back one 1.0-1.13M-node
+  term over and over, and `atomHung` (4.4 s) and `unaryHung` (2.2 s) reading
+  back 0.27M and 0.57M.
+- **Profile (measured).** `STITCHWORT_BIG_READBACK=200000
+  STITCHWORT_STEP_PHASES=1 check NS --no-project-cache --only NS.NAME
+  --timings=all`, release build. The big term is always a fact about the
+  declaration with its printed leaves or pieces computed (`decl.leaves`,
+  `decl.pieces`, `Decl.stands`), which exists as soon as a hypothesis, a `let`
+  or a rewrite rule names a concrete `Definition [] header …`. Three shapes
+  of step read it back: (a) a `match` (named, or a destructuring `let (a, b)
+  := …`) while such a hypothesis or `let` is in scope, which generalises over
+  it; (b) a `rewrite` whose rule or goal names the declaration's leaves; (c)
+  a `match` on the declaration or its leaves that refines the hypotheses
+  `stood`, `starts`, ….
+- **Change (proof reshapes, no statement changed).**
+  - `printedFinish1` (`Fmt.FileLexProofs`): the document-level part is a
+    lemma over an abstract `Doc` (`docFinishes`, with `pairsFollow` and the
+    `Marked`/`Finishes` facts as hypotheses), and the facts about the
+    declaration are taken by projection (`joins.right.right…`,
+    `spelled.right.left`) instead of by destructuring `let`s. Destructuring
+    a six-part `declJoins` in a `let` was itself 24M steps: a `let (…) := e`
+    is a `match` and generalises like one; a projection doesn't.
+  - `printedStart1`: `docStarts` over an abstract document plus
+    `plainDefStarts` over the parts; no `match printedLeads … with` in a
+    goal that unfolds the declaration's pieces.
+  - `standsDecl` (`Fmt.SettleOutputProofs`): `standsDeclOver` takes the
+    leaves and the words after the `def` as variables (and `standsText`
+    its one text fact); `standsDecl` applies it.
+  - `standsRest`: `declStandsParts` (the `def`'s word and `stood`, proved
+    with only `within` in scope) and `standsLater` (one declaration), so the
+    recursion matches on a variable `decl`, not `Definition [] header …`.
+  - `printedSplitParts` (`Fmt.GroupSlots`): `textsOfLeaves` takes the leaves
+    as a variable, so the `rewrite` chain doesn't name `decl.leaves`.
+  - `atomHung`, `unaryHung`, `signArgHung`: the ∧-valued destructuring
+    `let`s (`lineSplit`, `speltHung`, `leadHung`, `startNotClose`) became
+    projections. The ∃-valued ones (`hungStep`, `speltStarts`) can't be.
+- **Result (measured, steps; load 9-12 so times are rough).**
+
+  | proof | before | after |
+  |---|---|---|
+  | `printedFinish1` | 6.7 s, 120.8M | 32 ms, 0.54M (+ `docFinishes` 0.12M) |
+  | `standsDecl` | 5.8 s, 93.0M | 3 ms, 0.04M (+ `standsDeclOver` 0.19M, `standsText` 0.025M) |
+  | `standsRest` | 1.7 s, 28.3M | 3 ms, 0.025M (+ `standsLater` 0.04M, `declStandsParts` 0.013M) |
+  | `printedStart1` | 1.3 s, 23.2M | 1 ms, 0.011M (+ `docStarts` 0.05M, `plainDefStarts` 0.1M) |
+  | `printedSplitParts` | 2.55 s, 46.6M | 62 ms, 0.75M (+ `textsOfLeaves` 8K) |
+  | `atomHung` | 4.4 s, 56.0M | 2.07 s, 25.5M |
+  | `unaryHung` | 2.2 s, 30.1M | 1.9 s, 25.5M |
+  | `signArgHung` | 0.78 s, 10.1M | 0.68 s, 9.0M |
+
+  The first five go from 312M steps in all to 1.9M (lemmas included). The namespace
+  check of each file touched passes (`--no-project-cache`).
+- **Not done.** `atomHung` still has 6 read-backs of 0.27M nodes, `unaryHung`
+  5 of 0.57M: each is the elimination of an ∃ (`hungStep`'s next state, the
+  items `speltStarts` returns) in a `let`, which generalises over the goal.
+  No projection form exists for an ∃; a fix would be a continuation-style
+  lemma or smaller goals (`AtomReads` unfolds to a large tuple per case).
+  `Syntax.ReadBackHungTop.readsBackHungListExample` (10.8 s) is kernel time,
+  not read-back, and was left alone.
+- **Rule of thumb for the proving guide (not added).** In a proof about a
+  concrete declaration, take facts out of tuples with projections, not
+  `let (a, b) := …`, and put anything that rewrites about its printed
+  leaves in a lemma over the leaves as a variable.
 
 ### SW-4611: `standsEachFile`'s three nested matches moved into lemmas; 35.9 s to 16 ms, 474.5M to 0.17M steps (14% of a cold tools/fmt check)
 

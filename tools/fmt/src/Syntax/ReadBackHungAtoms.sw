@@ -60,7 +60,9 @@ theorem atomHung ∀ (modes: Modes)
           let lineItems: lineAll [first, ..inside ++ [last]] = True := rewrite <- isRead then facts.lineRead
           let openItems: openHead modes [first, ..inside ++ [last]] = True := rewrite <- isRead then facts.openFirst
           let open1 := openHeadStops modes first (inside ++ [last]) openItems
-          let (lineInside, lineLast) := lineSplit inside [last] (Bool.andRight lineItems)
+          let splitLineInside := lineSplit inside [last] (Bool.andRight lineItems)
+          let lineInside := splitLineInside.left
+          let lineLast := splitLineInside.right
           let assoc: (inside ++ [last]) ++ rest = inside ++ [last, ..rest] := List.appendAssoc inside [last] rest
           let shape: read ++ rest = [first, ..inside ++ [last, ..rest]] := rewrite isRead, assoc
           let hungItems: hangsFrom state (leavesOf [first, ..inside ++ [last, ..rest]]) = True :=
@@ -142,9 +144,15 @@ theorem atomHung ∀ (modes: Modes)
           let lineItems: lineAll [first, ..read1 ++ elements] = True := rewrite <- isRead then facts.lineRead
           let openItems: openHead modes [first, ..read1 ++ elements] = True := rewrite <- isRead then facts.openFirst
           let open1 := openHeadStops modes first (read1 ++ elements) openItems
-          let (line1, lineElements) := lineSplit read1 elements (Bool.andRight lineItems)
-          let (line2, lineSteps) := lineSplit read2 (commaReads steps ++ [last]) (Bool.andRight lineElements)
-          let (lineCommas, lineLast) := lineSplit (commaReads steps) [last] lineSteps
+          let splitLine1 := lineSplit read1 elements (Bool.andRight lineItems)
+          let line1 := splitLine1.left
+          let lineElements := splitLine1.right
+          let splitLine2 := lineSplit read2 (commaReads steps ++ [last]) (Bool.andRight lineElements)
+          let line2 := splitLine2.left
+          let lineSteps := splitLine2.right
+          let splitLineCommas := lineSplit (commaReads steps) [last] lineSteps
+          let lineCommas := splitLineCommas.left
+          let lineLast := splitLineCommas.right
           let assoc: (read1 ++ elements) ++ rest = read1 ++ (elements ++ rest) := List.appendAssoc read1 elements rest
           let shape: read ++ rest = [first, ..read1 ++ (elements ++ rest)] := rewrite isRead, assoc
           let hungItems: hangsFrom state (leavesOf [first, ..read1 ++ (elements ++ rest)]) = True :=
@@ -169,7 +177,7 @@ theorem atomHung ∀ (modes: Modes)
           let enteredBound: bounds modes (state.entered first.leaf) = True := rewrite isRead at boundNow then boundNow
           let s1Bound: bounds modes s1 = True :=
             boundsCong modes s1 (state.entered first.leaf) (rewrite isS1) enteredBound
-          let (_, hungAfterOne) := speltHung innerModes one read1 (elements ++ rest) s1 oneSpelt s1Bound hung1
+          let hungAfterOne := (speltHung innerModes one read1 (elements ++ rest) s1 oneSpelt s1Bound hung1).right
           let t1 := s1.enters read1
           let (s2, steppedSeparator, hung2) :=
             hungStep t1 separator.leaf (leavesOf ((read2 ++ (commaReads steps ++ [last])) ++ rest)) hungAfterOne
@@ -180,8 +188,8 @@ theorem atomHung ∀ (modes: Modes)
           let s2Bound: bounds innerModes s2 = True := rewrite isS2 then nextBound
           let hungTwo: hangsFrom s2 (leavesOf (read2 ++ ((commaReads steps ++ [last]) ++ rest))) = True :=
             rewrite <- twoAssoc then hung2
-          let (_, hungAfterTwo) :=
-            speltHung innerModes two read2 ((commaReads steps ++ [last]) ++ rest) s2 twoSpelt s2Bound hungTwo
+          let hungAfterTwo :=
+            (speltHung innerModes two read2 ((commaReads steps ++ [last]) ++ rest) s2 twoSpelt s2Bound hungTwo).right
           let roundsBound: bounds innerModes (s2.enters read2).nextItem = True :=
             rewrite isS2, entersNext two read2 t1 twoSpelt then nextBound
           let hungRounds: hangsFrom (s2.enters read2) (leavesOf (commaReads steps ++ [last, ..rest])) = True :=
@@ -337,8 +345,12 @@ theorem atomHung ∀ (modes: Modes)
           let lineItems: lineAll [first, ..read1 ++ elements] = True := rewrite <- isRead then facts.lineRead
           let openItems: openHead modes [first, ..read1 ++ elements] = True := rewrite <- isRead then facts.openFirst
           let open1 := openHeadStops modes first (read1 ++ elements) openItems
-          let (line1, lineElements) := lineSplit read1 elements (Bool.andRight lineItems)
-          let (lineCommas, lineLast) := lineSplit (commaReads steps) [last] lineElements
+          let splitLine1 := lineSplit read1 elements (Bool.andRight lineItems)
+          let line1 := splitLine1.left
+          let lineElements := splitLine1.right
+          let splitLineCommas := lineSplit (commaReads steps) [last] lineElements
+          let lineCommas := splitLineCommas.left
+          let lineLast := splitLineCommas.right
           let assoc: (read1 ++ elements) ++ rest = read1 ++ (elements ++ rest) := List.appendAssoc read1 elements rest
           let shape: read ++ rest = [first, ..read1 ++ (elements ++ rest)] := rewrite isRead, assoc
           let hungItems: hangsFrom state (leavesOf [first, ..read1 ++ (elements ++ rest)]) = True :=
@@ -356,7 +368,7 @@ theorem atomHung ∀ (modes: Modes)
           let enteredBound: bounds modes (state.entered first.leaf) = True := rewrite isRead at boundNow then boundNow
           let s1Bound: bounds modes s1 = True :=
             boundsCong modes s1 (state.entered first.leaf) (rewrite isS1) enteredBound
-          let (_, hungAfterOne) := speltHung innerModes one read1 (elements ++ rest) s1 oneSpelt s1Bound hung1
+          let hungAfterOne := (speltHung innerModes one read1 (elements ++ rest) s1 oneSpelt s1Bound hung1).right
           let roundsBound: bounds innerModes (s1.enters read1).nextItem = True :=
             rewrite entersNextIn one read1 s1 None (state.entered first.leaf).blocks (rewrite isS1) oneSpelt then
               boundsCong innerModes s1.nextItem (state.entered first.leaf) (rewrite isS1) enteredBound
@@ -364,13 +376,14 @@ theorem atomHung ∀ (modes: Modes)
             rewrite <- stepsAssoc then hungAfterOne
           let goal: Goal := { modes = innerModes, level = LevelFull }
           let (second, more, isRead1, starts) := speltStarts one read1 oneSpelt
-          let (_, notBracket, notSpread) := startNotClose second.kind starts
+          let notBracket := (startNotClose second.kind starts).right.left
+          let notSpread := (startNotClose second.kind starts).right.right
           let hungSecond: hangsFrom s1 (leavesOf ([second, ..more] ++ (elements ++ rest))) = True :=
             rewrite <- isRead1 then hung1
           let deepSecond: deepAll ([second, ..more] ++ (elements ++ rest)) = True := rewrite <- isRead1 then deep1
-          let (open2, _, _) := leadHung modes s1 second (more ++ (elements ++ rest)) quiet starts s1Bound hungSecond
-          let (openInner2, _, _) :=
-            leadHung innerModes s1 second (more ++ (elements ++ rest)) innerQuiet starts s1Bound hungSecond
+          let open2 := (leadHung modes s1 second (more ++ (elements ++ rest)) quiet starts s1Bound hungSecond).left
+          let openInner2 :=
+            (leadHung innerModes s1 second (more ++ (elements ++ rest)) innerQuiet starts s1Bound hungSecond).left
           let oneTree: TreeN (Succ below) goal read1 (elements ++ rest) one :=
             inner below
               (arithmetic [])
@@ -489,7 +502,9 @@ theorem tupleStepsHung ∀ (modes: Modes)
       let tail := commaReads later ++ [last, ..rest]
       let lineAll1: lineAll [comma, ..read ++ commaReads later] = True :=
         Eq.trans (Eq.cong (taken => lineAll (commaReads taken)) isSteps).flipped lineSteps
-      let (lineRead, lineLater) := lineSplit read (commaReads later) (Bool.andRight lineAll1)
+      let splitLineRead := lineSplit read (commaReads later) (Bool.andRight lineAll1)
+      let lineRead := splitLineRead.left
+      let lineLater := splitLineRead.right
       let shape: commaReads steps ++ [last, ..rest] = [comma, ..read ++ tail] :=
         rewrite isSteps, List.appendAssoc read (commaReads later) [last, ..rest]
       let hungAll: hangsFrom state (leavesOf [comma, ..read ++ tail]) = True := rewrite <- shape then hung
@@ -501,9 +516,9 @@ theorem tupleStepsHung ∀ (modes: Modes)
       let (first, inside, isRead, starts) := speltStarts expr read exprSpelt
       let hungFirst: hangsFrom state.nextItem (leavesOf ([first, ..inside] ++ tail)) = True :=
         rewrite <- isRead then hungItem
-      let (openFirst, _, _) := leadHung modes state.nextItem first (inside ++ tail) quiet starts bound hungFirst
-      let (notClose, _, _) := startNotClose first.kind starts
-      let (_, hungAfter) := speltHung modes expr read tail state.nextItem exprSpelt bound hungItem
+      let openFirst := (leadHung modes state.nextItem first (inside ++ tail) quiet starts bound hungFirst).left
+      let notClose := (startNotClose first.kind starts).left
+      let hungAfter := (speltHung modes expr read tail state.nextItem exprSpelt bound hungItem).right
       let nextBound: bounds modes (state.nextItem.enters read).nextItem = True :=
         rewrite entersNext expr read state exprSpelt then bound
       rewrite isSteps then
@@ -577,7 +592,9 @@ theorem listStepsHung ∀ (modes: Modes)
       let tail := commaReads later ++ [last, ..rest]
       let lineAll1: lineAll [comma, ..read ++ commaReads later] = True :=
         Eq.trans (Eq.cong (taken => lineAll (commaReads taken)) isSteps).flipped lineSteps
-      let (lineRead, lineLater) := lineSplit read (commaReads later) (Bool.andRight lineAll1)
+      let splitLineRead := lineSplit read (commaReads later) (Bool.andRight lineAll1)
+      let lineRead := splitLineRead.left
+      let lineLater := splitLineRead.right
       let shape: commaReads steps ++ [last, ..rest] = [comma, ..read ++ tail] :=
         rewrite isSteps, List.appendAssoc read (commaReads later) [last, ..rest]
       let hungAll: hangsFrom state (leavesOf [comma, ..read ++ tail]) = True := rewrite <- shape then hung
@@ -589,11 +606,12 @@ theorem listStepsHung ∀ (modes: Modes)
       let (first, inside, isRead, starts) := speltStarts expr read exprSpelt
       let hungFirst: hangsFrom state.nextItem (leavesOf ([first, ..inside] ++ tail)) = True :=
         rewrite <- isRead then hungItem
-      let (openFirst, _, _) := leadHung modes state.nextItem first (inside ++ tail) quiet starts bound hungFirst
-      let (_, notBracket, notSpread) := startNotClose first.kind starts
+      let openFirst := (leadHung modes state.nextItem first (inside ++ tail) quiet starts bound hungFirst).left
+      let notBracket := (startNotClose first.kind starts).right.left
+      let notSpread := (startNotClose first.kind starts).right.right
       let firstPeek: peekIn modes 0 (read ++ tail) = Some first.kind :=
         rewrite isRead then peekFirst modes first (inside ++ tail) openFirst
-      let (_, hungAfter) := speltHung modes expr read tail state.nextItem exprSpelt bound hungItem
+      let hungAfter := (speltHung modes expr read tail state.nextItem exprSpelt bound hungItem).right
       let nextBound: bounds modes (state.nextItem.enters read).nextItem = True :=
         rewrite entersNext expr read state exprSpelt then bound
       rewrite isSteps then

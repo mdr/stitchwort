@@ -49,9 +49,9 @@ theorem signArgHung ∀ (modes: Modes)
     leadHung modes state sign (more ++ later) quiet (signLead sign.kind isSign) bound hungItems
   let (next, others, isMore, nextStarts) := speltPlainStarts operand more operandSpelt (atomicUnsigned operand atomic)
   let hungNext: hangsFrom s1 (leavesOf ([next, ..others] ++ later)) = True := rewrite <- isMore then hungMore
-  let (openNext, _, _) :=
-    leadHung modes s1 next (others ++ later) quiet (startLead next.kind nextStarts) s1Bound hungNext
-  let (operandBound, _) := speltHung modes operand more later s1 operandSpelt s1Bound hungMore
+  let openNext :=
+    (leadHung modes s1 next (others ++ later) quiet (startLead next.kind nextStarts) s1Bound hungNext).left
+  let operandBound := (speltHung modes operand more later s1 operandSpelt s1Bound hungMore).left
   let lineItems: lineAll [sign, ..more] = True := rewrite <- isRead then lineRead
   let lineMore: lineAll more = True := Bool.andRight lineItems
   let glueMore: argumentGlue [sign, ..more] = True :=
@@ -135,9 +135,9 @@ theorem argumentHung ∀ (modes: Modes)
   let notDot := leadNotDot first.kind lead
   let shape: read ++ later = [first, ..more ++ later] := rewrite isRead
   let hungItems: hangsFrom state (leavesOf [first, ..more ++ later]) = True := rewrite <- shape then hung
-  let (open, _, _) := leadHung modes state first (more ++ later) quiet lead bound hungItems
+  let open := (leadHung modes state first (more ++ later) quiet lead bound hungItems).left
   let openRead: openHead modes read = True := rewrite isRead then openHeadOf modes first more open
-  let (entered, _) := speltHung modes argument read later state spelt bound hung
+  let entered := (speltHung modes argument read later state spelt bound hung).left
   let innerBelow := belowLess below (Succ below) (arithmetic []) inner
   let atom: AtomReads (TreeN below) modes False read later argument := match signed: argument.signed with
     | False =>
@@ -197,7 +197,9 @@ theorem argsHung ∀ (modes: Modes)
     | [argument, ..more], (read, later, isSteps, fits, argSpelt, moreSpelt), free =>
       let lineHere: lineAll (read ++ Parse.loopReads [] later) = True :=
         Eq.trans (Eq.cong (taken => lineAll (Parse.loopReads [] taken)) isSteps).flipped lineSteps
-      let (lineRead, lineLater) := lineSplit read (Parse.loopReads [] later) lineHere
+      let splitLineRead := lineSplit read (Parse.loopReads [] later) lineHere
+      let lineRead := splitLineRead.left
+      let lineLater := splitLineRead.right
       let whole: Parse.loopReads [] steps ++ rest = read ++ (Parse.loopReads [] later ++ rest) :=
         rewrite isSteps then List.appendAssoc read (Parse.loopReads [] later) rest
       let hungHere: hangsFrom state (leavesOf (read ++ (Parse.loopReads [] later ++ rest))) = True :=
@@ -209,10 +211,12 @@ theorem argsHung ∀ (modes: Modes)
         rewrite isRead
       let hungFirst: hangsFrom state (leavesOf [first, ..inside ++ (Parse.loopReads [] later ++ rest)]) = True :=
         rewrite <- shape then hungHere
-      let (open, _, _) :=
-        leadHung modes state first (inside ++ (Parse.loopReads [] later ++ rest)) quiet lead bound hungFirst
-      let (nextBound, hungNext) :=
+      let open :=
+        (leadHung modes state first (inside ++ (Parse.loopReads [] later ++ rest)) quiet lead bound hungFirst).left
+      let splitNextBound :=
         speltHung modes argument read (Parse.loopReads [] later ++ rest) state argSpelt bound hungHere
+      let nextBound := splitNextBound.left
+      let hungNext := splitNextBound.right
       let lineAfter: lineAll (Parse.loopReads [] later ++ rest) = True := lineJoin _ rest lineLater lineRest
       rewrite isSteps then
         (
@@ -281,8 +285,12 @@ theorem appHung ∀ (modes: Modes)
     _ = headRead ++ tail := isRead
     _ = [first, ..inside ++ tail] := rewrite isHead
   let lines: lineAll (headRead ++ tail) = True := rewrite <- isRead then facts.lineRead
-  let (lineHead, lineTail) := lineSplit headRead tail lines
-  let (lineArg, lineSteps) := lineSplit argRead (Parse.loopReads [] steps) lineTail
+  let splitLineHead := lineSplit headRead tail lines
+  let lineHead := splitLineHead.left
+  let lineTail := splitLineHead.right
+  let splitLineArg := lineSplit argRead (Parse.loopReads [] steps) lineTail
+  let lineArg := splitLineArg.left
+  let lineSteps := splitLineArg.right
   let openRead: openHead modes [first, ..inside ++ tail] = True := rewrite <- joined then facts.openFirst
   let open1 := openHeadStops modes first (inside ++ tail) openRead
   let notDot := leadNotDot first.kind starts
@@ -304,26 +312,28 @@ theorem appHung ∀ (modes: Modes)
   let deepArg: deepAll (argRead ++ (Parse.loopReads [] steps ++ rest)) = True :=
     rewrite <- assocTail then deepRest headRead (tail ++ rest) deepAll1
   let deepSteps := deepRest argRead (Parse.loopReads [] steps ++ rest) deepArg
-  let (stepsBound, hungSteps) :=
+  let splitStepsBound :=
     speltHung modes argument argRead
       (Parse.loopReads [] steps ++ rest)
       (state.enters headRead)
       argSpelt
       headBound
       hungArg
+  let stepsBound := splitStepsBound.left
+  let hungSteps := splitStepsBound.right
   let (argFirst, argMore, isArg, argLead) := speltStarts argument argRead argSpelt
   let argShape: argRead ++ (Parse.loopReads [] steps ++ rest)
     = [argFirst, ..argMore ++ (Parse.loopReads [] steps ++ rest)] :=
     rewrite isArg
-  let (argOpen, _, _) :=
-    leadHung modes
+  let argOpen :=
+    (leadHung modes
       (state.enters headRead)
       argFirst
       (argMore ++ (Parse.loopReads [] steps ++ rest))
       quiet
       argLead
       headBound
-      (rewrite <- argShape then hungArg)
+      (rewrite <- argShape then hungArg)).left
   let lineAfterArg: lineAll (Parse.loopReads [] steps ++ rest) = True := lineJoin _ rest lineSteps facts.lineRest
   let lineAfterHead: lineAll (tail ++ rest) = True := lineJoin tail rest lineTail facts.lineRest
   let argAt: Spelt argument [argFirst, ..argMore] := rewrite <- isArg then argSpelt
@@ -541,7 +551,9 @@ theorem unaryHung ∀ (modes: Modes)
             pastFirst modes state sign (more ++ rest) (signLead sign.kind isSign) signBound hungItems
           let (first, others, isMore, lead) := speltStarts operand more operandSpelt
           let hungFirst: hangsFrom s1 (leavesOf ([first, ..others] ++ rest)) = True := rewrite <- isMore then hungMore
-          let (openOperand, enteredOperand, _) := leadHung modes s1 first (others ++ rest) quiet lead s1Bound hungFirst
+          let splitOpenOperand := leadHung modes s1 first (others ++ rest) quiet lead s1Bound hungFirst
+          let openOperand := splitOpenOperand.left
+          let enteredOperand := splitOpenOperand.right.left
           let openMore: openHead modes more = True := rewrite isMore then openHeadOf modes first others openOperand
           let boundMore: bounds modes (s1.enters more) = True := rewrite isMore then enteredOperand
           let noBar := noBarLine modes sign (more ++ rest) (lineJoin more rest lineMore facts.lineRest)
