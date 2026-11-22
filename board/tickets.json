@@ -32779,7 +32779,7 @@
     {
       "id": 4642,
       "title": "[Opus] Projection lets in proofs (SW-4629) cost atomHung 3.9M of its 7.7M steps (SW-4638): find why the hidden projection variables are generalised over and read back by later matches and rewrites (STITCHWORT_STEP_PHASES, STITCHWORT_BIG_READBACK on one let) and fix that in the elaborator so both atomHung and bigSplit stay cheap; a size gate on when to use projections only as a fallback",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
