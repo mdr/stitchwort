@@ -1,0 +1,170 @@
+graph: 150 namespaces, 1222 edge(s); checking 150
+standard library fill (`check --std Std`): 21.89 s, exit 0, peak 442.9 MB
+
+per namespace (times from the schedule's start):
+namespace                           start       end      wall       own  overhead  exit   peak MB
+Syntax                               0.00      4.85      4.85      4.08      0.77     0     503.5
+Fmt                                  4.85      7.09      2.24      1.20      1.04     0     522.8
+Syntax.AutoPlaced                    4.85      5.90      1.05      0.05      1.00     0     430.5
+Syntax.Tests                         4.86      5.93      1.07      0.08      0.99     0     428.4
+Fmt.AppHolds                         7.09      8.32      1.23      0.04      1.19     0     491.0
+Fmt.DocDump                          7.09      8.24      1.15      0.42      0.74     0     326.4
+Fmt.Grammar1                         7.09      8.47      1.37      0.33      1.05     0     431.9
+Fmt.Later                            7.10      9.13      2.04      0.87      1.16     0     561.1
+Fmt.OperatorList                     8.24      9.64      1.40      0.25      1.15     0     491.2
+Fmt.Walk                             8.32      9.77      1.44      0.24      1.20     0     503.1
+Fmt.Kinds                            8.47      9.77      1.30      0.11      1.18     0     502.4
+Fmt.Twin                             9.13     10.57      1.43      0.13      1.30     0     559.2
+Syntax.ReadBackProofs                9.64     12.69      3.05      1.77      1.28     0     561.8
+Fmt.MeaningProofs                    9.77     11.46      1.69      0.44      1.25     0     502.4
+Syntax.SettleProofs                  9.77     12.09      2.32      1.09      1.23     0     511.9
+Syntax.SharedFacts                  10.57     11.82      1.26      0.02      1.24     0     490.0
+Fmt.BlankProofs                     11.46     12.82      1.36      0.17      1.19     0     500.3
+Fmt.CalmProofs                      11.82     13.89      2.06      0.89      1.17     0     499.9
+Fmt.HangProofs                      12.09     13.86      1.77      0.61      1.16     0     508.8
+Fmt.MergeProofs                     12.69     13.86      1.17      0.00      1.16     0     501.4
+Fmt.TraverseFail                    12.82     14.21      1.39      0.22      1.18     0     501.6
+Fmt.AppHangProofs                   13.86     15.31      1.45      0.20      1.24     0     508.3
+Fmt.MarkProofs                      13.86     15.16      1.30      0.06      1.23     0     506.5
+Fmt.PassProofs                      13.89     15.31      1.42      0.19      1.23     0     505.1
+Fmt.SpellProofs                     14.21     16.04      1.82      0.59      1.23     0     520.2
+Fmt.BracketHangProofs               15.16     17.02      1.86      0.59      1.27     0     529.4
+Fmt.ChainHangProofs                 15.31     16.69      1.38      0.13      1.25     0     507.2
+Fmt.TrailsProofs                    15.31     16.57      1.26      0.02      1.24     0     506.0
+Fmt.ToldWordProofs                  16.04     17.93      1.89      0.62      1.27     0     527.0
+Fmt.ElementsHomed                   16.57     17.93      1.36      0.07      1.29     0     525.7
+Syntax.DeafProofs                   16.69     18.86      2.17      0.96      1.20     0     527.0
+Fmt.HeldParenProofs                 17.02     18.42      1.40      0.15      1.25     0     518.5
+Syntax.LexProofs                    17.93     19.86      1.93      0.67      1.26     0     552.9
+Syntax.LexReadsProofs               17.93     20.31      2.38      1.12      1.26     0     556.8
+Syntax.ReadBackRuns                 18.42     21.57      3.15      1.85      1.30     0     567.9
+Syntax.FollowsBase                  18.86     20.65      1.79      0.48      1.31     0     568.1
+Fmt.PrintLexProofs                  19.86     21.45      1.59      0.24      1.35     0     561.6
+Syntax.ParseProofs                  20.31     22.21      1.90      0.53      1.36     0     570.8
+Syntax.FollowsLadder                20.65     26.23      5.58      4.20      1.38     0     610.8
+Fmt.JoinProofs                      21.45     23.67      2.22      0.86      1.36     0     593.3
+Fmt.PrintHangProofs                 21.58     23.42      1.84      0.49      1.36     0     584.6
+Syntax.ParseWalk                    22.21     24.11      1.91      0.57      1.34     0     576.1
+Fmt.GlueProofs                      23.42     24.87      1.45      0.09      1.36     0     582.5
+Fmt.FinishProofs                    23.67     25.19      1.52      0.16      1.36     0     590.0
+Fmt.TreeJoinProofs                  24.12     25.99      1.87      0.48      1.39     0     597.2
+Syntax.ParseCarries                 24.87     26.34      1.47      0.10      1.37     0     571.3
+Syntax.ParseWalkLadder              25.19     28.15      2.95      1.58      1.38     0     596.9
+Fmt.DeclHangProofs                  25.99     29.20      3.21      1.70      1.51     0     668.0
+Fmt.WordsEdge                       26.23     27.70      1.48      0.05      1.42     0     590.3
+Syntax.FollowsForms                 26.34     29.25      2.91      1.50      1.41     0     602.0
+Syntax.ReadBackTree                 27.70     29.39      1.69      0.39      1.29     0     564.5
+Syntax.ParseWalkOutside             28.15     30.18      2.03      0.65      1.38     0     586.2
+Fmt.ExprHangProofs                  29.20     30.96      1.76      0.21      1.55     0     630.0
+Syntax.FollowsFormsBinders          29.25     31.13      1.88      0.49      1.39     0     601.1
+Syntax.ReadBackEnds                 29.39     30.90      1.51      0.20      1.32     0     561.2
+Syntax.ParseWalkPatterns            30.18     31.92      1.74      0.34      1.39     0     588.6
+Syntax.ReadBackLine                 30.90     34.83      3.92      2.56      1.36     0     655.0
+Fmt.DeclFactsProofs                 30.96     32.61      1.65      0.08      1.57     0     629.6
+Fmt.ElementsApp                     31.13     32.70      1.57      0.02      1.55     0     626.2
+Fmt.QuietKeyProofs                  31.92     33.47      1.55      0.02      1.54     0     625.9
+Fmt.LaysKinds                       32.61     34.27      1.66      0.09      1.57     0     633.4
+Syntax.FollowsFormsArms             32.70     34.71      2.01      0.58      1.43     0     604.7
+Syntax.ParseWalkBinders             33.47     35.55      2.08      0.67      1.40     0     592.1
+Syntax.SettleBareProofs             34.27     36.16      1.89      0.70      1.19     0     511.7
+Syntax.FollowsFormsPatterns         34.71     37.04      2.33      0.90      1.43     0     609.1
+Syntax.ReadBackHung                 34.83     36.27      1.44      0.03      1.41     0     598.2
+Syntax.ParseWalkCalc                35.55     37.39      1.84      0.44      1.39     0     593.6
+Fmt.OutputStatements                36.16     41.11      4.94      3.37      1.57     0     655.1
+Syntax.ParseWalkMatch               36.27     38.15      1.88      0.48      1.40     0     593.8
+Syntax.FollowsFormsBlocks           37.04     41.42      4.38      2.88      1.50     0     705.6
+Syntax.ReadBackHungBounds           37.39     39.32      1.94      0.48      1.46     0     630.7
+Syntax.ParseWalkFrame               38.15     39.94      1.79      0.34      1.45     0     593.2
+Syntax.ReadBackHungDeep             39.32     41.08      1.75      0.32      1.43     0     614.9
+Syntax.ParseCarriesFile             39.94     41.37      1.43      0.03      1.40     0     590.7
+Syntax.ParseWalkStatements          41.08     43.17      2.09      0.64      1.44     0     607.0
+Fmt.Driver1                         41.11     42.74      1.63      0.05      1.59     0     643.8
+Fmt.FileLexProofs                   41.37     43.35      1.97      0.36      1.61     0     660.4
+Fmt.LedProofs                       41.42     42.99      1.56      0.01      1.55     0     639.5
+Fmt.CalmTopProofs                   42.74     44.76      2.02      0.36      1.66     0     686.7
+Fmt.GroupFacts                      42.99     44.81      1.82      0.01      1.81     0     730.3
+Fmt.OneLineStatements               43.17     44.95      1.78      0.03      1.76     0     683.1
+Fmt.Tests                           43.35     45.22      1.88      0.14      1.74     0     712.2
+Fmt.TokenProofs                     44.76     46.43      1.67      0.05      1.63     0     640.0
+Fmt.PrefixHeadSplit                 44.81     46.65      1.84      0.04      1.79     0     731.2
+Fmt.EdgeKeyProofs                   44.95     46.70      1.75      0.01      1.74     0     682.9
+Fmt.Tests.Grammar1Contains          45.22     48.73      3.51      2.48      1.03     0     428.3
+Fmt.Tests.MustAccept1               46.43     48.02      1.58      0.01      1.57     0     641.4
+Fmt.TouchSteps                      46.65     48.33      1.68      0.04      1.63     0     664.5
+Fmt.EdgeHangProofs                  46.70     48.45      1.75      0.02      1.74     0     683.8
+Fmt.TriviaStatements                48.02     50.09      2.08      0.50      1.58     0     644.2
+Fmt.TouchSeq                        48.33     50.09      1.77      0.11      1.66     0     667.5
+Fmt.EdgeDeclProofs                  48.45     50.22      1.77      0.01      1.76     0     682.7
+Fmt.ElementsKeys                    48.73     50.81      2.08      0.35      1.73     0     688.6
+Fmt.ToldDeclProofs                  50.10     52.61      2.51      0.87      1.64     0     680.3
+Fmt.TouchProofs                     50.10     53.29      3.20      1.50      1.69     0     689.9
+Syntax.FollowsStatements            50.22     54.72      4.49      2.99      1.50     0     655.5
+Fmt.ElementsBlank                   50.81     52.66      1.85      0.10      1.75     0     686.1
+Fmt.ElementsParen                   52.61     54.64      2.03      0.27      1.76     0     695.2
+Fmt.ElementsItems                   52.66     54.47      1.81      0.02      1.79     0     689.2
+Fmt.SpacingProofs                   53.30     55.21      1.91      0.18      1.73     0     681.9
+Syntax.ParseWalkDecls               54.47     56.05      1.58      0.10      1.48     0     597.4
+Syntax.ReadBackHungFrameLemmas      54.64     56.77      2.13      0.64      1.49     0     628.2
+Syntax.FollowsDecl                  54.72     56.47      1.75      0.18      1.58     0     638.9
+Fmt.SplitProofs                     55.21     57.40      2.20      0.20      2.00     0     779.2
+Syntax.SettleMarkProofs             56.05     57.67      1.62      0.26      1.36     0     507.1
+Syntax.FollowsDeclHeaders           56.47     60.89      4.41      2.78      1.63     0     640.3
+Syntax.ReadBackHungFrame            56.77     58.51      1.74      0.19      1.56     0     629.3
+Fmt.SpeltSlots                      57.41     61.06      3.66      1.53      2.12     0     798.8
+Syntax.SettleOnceProofs             57.67     59.39      1.72      0.40      1.32     0     519.1
+Syntax.ReadBackHungAtomsLemmas      58.51     60.29      1.77      0.17      1.60     0     630.5
+Syntax.LexLaidProofs                59.39     61.11      1.72      0.17      1.55     0     572.3
+Fmt.OutputFileProofs                60.29     63.36      3.07      1.19      1.88     0     749.7
+Syntax.FollowsDeclBinders           60.89     62.84      1.95      0.39      1.56     0     642.9
+Fmt.ElementsChain                   61.06     63.24      2.17      0.15      2.02     0     815.5
+Fmt.GroupSlots                      61.11     63.60      2.49      0.50      1.99     0     809.8
+Syntax.FollowsDeclArms              62.84     65.42      2.58      1.06      1.52     0     659.4
+Syntax.LexUnreturnedProofs          63.24     64.65      1.42      0.04      1.38     0     572.5
+Fmt.ReadBackFile                    63.36     65.42      2.06      0.18      1.88     0     761.8
+Syntax.ReadBackHungAppLemmas        63.60     65.15      1.54      0.03      1.51     0     628.7
+Syntax.OnceUnreturnedProofs         64.65     66.08      1.42      0.03      1.39     0     572.6
+Syntax.ReadBackHungAtoms            65.15     67.26      2.12      0.60      1.52     0     635.2
+Syntax.FollowsDeclData              65.42     75.36      9.94      8.39      1.55     0     664.4
+Syntax.ReadBackHungChainsLemmas     65.42     67.09      1.67      0.15      1.52     0     630.4
+Syntax.ReadBackHungInlineLemmas     66.08     67.66      1.58      0.03      1.55     0     628.2
+Syntax.SettleSplitProofs            67.09     68.58      1.49      0.08      1.42     0     576.5
+Syntax.ReadBackHungApp              67.26     69.50      2.23      0.67      1.56     0     644.2
+Syntax.GlueQuietProofs              68.58     70.29      1.71      0.20      1.50     0     614.5
+Syntax.GoodItemProofs               68.59     71.23      2.64      0.97      1.67     0     682.6
+Syntax.ReadBackHungChains           69.50     72.66      3.17      1.62      1.55     0     689.8
+Syntax.ParseKept                    71.23     74.24      3.01      1.27      1.75     0     701.3
+Syntax.ReadBackHungInline           72.66     75.58      2.92      1.28      1.64     0     702.0
+Syntax.ParseCarriesLadder           74.24     77.93      3.69      1.70      1.98     0     739.8
+Syntax.FollowsParse                 75.36     77.09      1.73      0.05      1.69     0     653.1
+Syntax.ReadBackHungFull             75.58     77.34      1.76      0.07      1.69     0     669.5
+Syntax.ReadBackHungTop              77.35     79.99      2.64      0.78      1.86     0     682.1
+Syntax.ParseCarriesDecl             77.93     80.87      2.94      0.87      2.06     0     748.4
+Syntax.ParseSettledStatements       80.87     83.00      2.13      0.28      1.85     0     734.5
+Fmt.SettleOutputProofs              83.00     86.49      3.49      1.24      2.25     0     862.6
+Syntax.ParseWalkOthers              83.01     85.67      2.67      0.71      1.96     0     736.6
+Fmt.PlacedProofs                    85.68     87.97      2.29      0.07      2.22     0     806.2
+Fmt.SourcePlainProofs               85.68     88.04      2.36      0.32      2.04     0     742.2
+Fmt.HearProofs                      86.49     89.14      2.65      0.18      2.47     0     893.2
+Fmt.SettleParseProofs               86.50     89.85      3.35      0.76      2.59     0     939.4
+Fmt.TopReadBack                     87.97     90.63      2.66      0.10      2.57     0     938.7
+Fmt.StandsProofs                    89.14     92.29      3.15      0.74      2.41     0     902.3
+Fmt.Accepts1                        89.85     92.49      2.64      0.02      2.62     0     943.9
+Fmt.ElementsProofs                  92.29     95.74      3.45      0.60      2.85     0     962.4
+Fmt.UnreturnedProofs                92.30     94.96      2.67      0.06      2.61     0     892.1
+Fmt.TopStatements                   95.74    100.15      4.41      0.90      3.51     0    1122.2
+Fmt.CommentsKeptProof              100.15    103.39      3.23      0.27      2.97     0    1124.5
+
+workers: 4
+total wall time: 103.39 s
+sum of process times: 329.17 s
+sum of namespaces' own times (--timings): 95.82 s
+overhead (process time - own time, 150 of 150 measured): 233.35 s
+largest peak resident set size: 1124.5 MB
+
+sequential check: 111.16 s, exit 0
+
+diagnostics: the same 0 warning/error line(s), sorted
+
+cache: 258 file(s) from the parallel run, 258 from the sequential run
+cache: every file name matches and every file is byte for byte the same
+sequential / parallel wall time: 111.16 s / 103.39 s (1.08x)

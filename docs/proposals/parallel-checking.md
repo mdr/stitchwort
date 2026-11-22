@@ -854,3 +854,17 @@ Others:
 A cold `check --no-cache --timings=all` of `tools/fmt` on `main` after SW-4637 (146 s wall, release build, nice 19, load about 6), fed to `ns_graph.py` (unit table in `parallel-checking/fmt-units-22nov-pm.csv`): library and core 16.8 s, project 127.9 s, critical path 41.6 s over 20 namespaces, bound 3.07x on the project. With the library first on one core: 4 workers 2.22x, 6 workers 2.40x, 10 workers 2.47x (estimated from the unit times, not run).
 
 Half the critical path is one namespace, `Syntax.ReadBackHungTop` (20.4 s), and nearly all of that is two example theorems checked by computation in the kernel: `readsBackHungListExample` (12.4 s, 147M steps, 12.2 s kernel) and `readsBackHungSignExample` (7.6 s, 95M steps). Making those cheaper (SW-4647) shortens the critical path to about 21 s, raising the project bound to about 6x.
+
+## Addendum: first measured run, processes (22 Nov, evening; orchestrator, SW-4644's par_check.py)
+
+All 150 `tools/fmt` namespaces as separate `stitchwort check` processes over one cache, in dependency order, after one `check --std Std` fill (22 s, not counted below), on `main` after SW-4647 and SW-1803; release build, nice 10, load about 3 at the start. Logs in `parallel-checking/runs/`.
+
+| | wall | sum of process times | namespaces' own time | reloading overhead |
+|---|---|---|---|---|
+| sequential, one process | 111 s | | | |
+| 4 processes | 103 s (1.08x) | 329 s | 96 s | 233 s (1.6 s a process on average, up to 3.5 s) |
+| 6 processes | 101 s (1.10x) | 429 s | 130 s | 299 s |
+
+The parallel run's diagnostics and all 258 cache entries were byte for byte the same as the sequential run's (4 processes, `--compare`): the check cache's results don't depend on order or process, as section 2 assumed. But processes gain almost nothing: each one reloads every namespace it depends on from the cache, which costs more than most namespaces' own checking (median well under a second), and at 6 processes even the own time rises (contention for memory bandwidth and cores). Peak memory per process was up to 1.1 GB.
+
+So option (c), processes, is ruled out as the way to get the speedup, and option (a) only pays if workers don't each reload the world: threads in one process sharing what's already loaded (an immutable, shareable environment, Lean's approach), or a much cheaper load. The bound with that overhead removed is the 3x to 6x estimated above. This makes the `Rc` question (option d) and replay cost (SW-4645) the next things to understand.
