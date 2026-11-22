@@ -32452,7 +32452,7 @@
     {
       "id": 4620,
       "title": "[Sonnet] Proving guide: a match on a non-variable while large specialised hypotheses are in scope re-reads every hypothesis type; prove such side facts as lemmas over the small value (SW-4611: 2,000x on standsEachFile)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
