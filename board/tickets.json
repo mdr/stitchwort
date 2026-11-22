@@ -1,5 +1,5 @@
 {
-  "next": 4562,
+  "next": 4564,
   "tickets": [
     {
       "id": 47,
@@ -31602,7 +31602,7 @@
     {
       "id": 4559,
       "title": "[Opus] Survey tools/fmt for repeated proof shapes a single lemma could state once (as SW-4553/SW-4556's traversal lemmas did: 447+ lines, faster checks): find families of theorems proved by the same sequence of steps over different constructors, fields or functions; for each, the shared shape, the candidate lemma's statement, members and their proof lines, and a measured one- or two-theorem pilot for the top candidates; ranked by lines at stake with predictions from the pilots, readability noted",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -31638,6 +31638,32 @@
       "body": "",
       "created": "2026-11-21",
       "updated": "2026-11-21",
+      "commits": []
+    },
+    {
+      "id": 4562,
+      "title": "[Sonnet] Roll out SW-4559's DocHolds over the printer rules with two or more fixed-reading properties (Spells, Shape, Finishes, Keys, Tell; about 1,450 lines, about 450 net predicted from the pilot), starting with appFrom (needs the texts as a record parameter; Spells 75, Shape 83, Finishes 29, Keys 60 lines); measure each rule before the next; then pilot a seam-indexed twin for Passes/Steps/Hangs (about 1,230 lines)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4563,
+      "title": "[Opus] Design question (SW-4559 row 4): the list versions of tree functions in tools/fmt (allWithin1, calmAll, allShaped, itemsWords; 138 theorems, 1,983 proof lines) are hand-written recursion, so no list lemma applies; could they be written with List.all / List.map if the checker accepts that nested recursion? Note first: what the checker accepts, which definitions, what it would save, and whether it changes the formatter's programs (scope is Matt's)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
       "commits": []
     }
   ]
