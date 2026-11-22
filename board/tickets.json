@@ -4465,7 +4465,7 @@
     {
       "id": 1803,
       "title": "[Opus] Syntax ids stage 1 (syntax-node-ids.md): Expr::Field and the queue's DotCall get an id from a global counter; dot_heads/dot_failed key by it; drop dot_owners and the spans/epoch from the key; postponed-lambda-second-error, reads-weaken-over-map-implicits and pure-fold-in-parse-function repeat exactly, no hash moves; then bench examples repeat exactly again (tolerance back to 0, SW-1792)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -4473,10 +4473,17 @@
         "bug"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1801. Waiting on Matt's D2577-D2580 (rec: yes to all). Expected: 90 min.\n\nMatt's decisions (docs/proposals/syntax-node-ids.md §7): D2577 a copy gets a new id [rec: yes]; D2578 ids only on dot-call syntax for now [rec: yes]; D2579 drop dot_owners and spans/epoch from the key in the same stage [rec: yes]; D2580 run it on Opus [rec: yes].\n\nFrom the syntax review (docs/reviews/code-review-syntax.md): Expr::Field can carry an id cheaply. A derived Clone would copy it, so the id needs its own type whose Clone takes a fresh number (D2577: copies get new ids); its Debug prints _ under the span-hiding flag so equivalence::shape still matches; use u64 (u32 can wrap in a long server session).\n\nFrom docs/reviews/code-review-elab-checking.md (F8): a cached dot-call head is reused stale across attempts; fold into this work. See also SW-1902.\n\nFrom docs/reviews/code-review-cli-lsp-web-fmt.md (lane F): the bench's step counts change with which thread runs an example; that's this work (SW-1797, SW-1800, SW-1801), not a new ticket.\n\nFrom docs/reviews/code-review-tests.md: un-ignore a_postponed_dot_call_takes_the_same_steps_every_time in daily once this makes it pass every time.\n\nD2577-D2580: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).\n\nAudit note (22 Nov): Audit 22 Nov: still open; dot_owners is still in crates/elab (grep). Waits on D2577-D2580 per its body.\n\n\nStarted 22 Nov 18:53 on Opus (orchestrator's call; SW-4648 found this is the cause of run-to-run step variation). Expected: 50 min.\n",
+      "body": "From SW-1801. Waiting on Matt's D2577-D2580 (rec: yes to all). Expected: 90 min.\n\nMatt's decisions (docs/proposals/syntax-node-ids.md §7): D2577 a copy gets a new id [rec: yes]; D2578 ids only on dot-call syntax for now [rec: yes]; D2579 drop dot_owners and spans/epoch from the key in the same stage [rec: yes]; D2580 run it on Opus [rec: yes].\n\nFrom the syntax review (docs/reviews/code-review-syntax.md): Expr::Field can carry an id cheaply. A derived Clone would copy it, so the id needs its own type whose Clone takes a fresh number (D2577: copies get new ids); its Debug prints _ under the span-hiding flag so equivalence::shape still matches; use u64 (u32 can wrap in a long server session).\n\nFrom docs/reviews/code-review-elab-checking.md (F8): a cached dot-call head is reused stale across attempts; fold into this work. See also SW-1902.\n\nFrom docs/reviews/code-review-cli-lsp-web-fmt.md (lane F): the bench's step counts change with which thread runs an example; that's this work (SW-1797, SW-1800, SW-1801), not a new ticket.\n\nFrom docs/reviews/code-review-tests.md: un-ignore a_postponed_dot_call_takes_the_same_steps_every_time in daily once this makes it pass every time.\n\nD2577-D2580: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).\n\nAudit note (22 Nov): Audit 22 Nov: still open; dot_owners is still in crates/elab (grep). Waits on D2577-D2580 per its body.\n\n\nStarted 22 Nov 18:53 on Opus (orchestrator's call; SW-4648 found this is the cause of run-to-run step variation). Expected: 50 min.\n\n\nModel result: Opus, worked, 35 min (est. 50). Bench tolerance 0 (6704014f5) kept on the orchestrator's call; check it at the next run of the bench examples sweep (all tier or bench), and restore the tolerance if it flakes.\n",
       "created": "2026-11-07",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "bc67d06f42c04d0887286c5bd003891e925fc231",
+        "1bcde2d002fc156c74c6411cf13da2dbb778437a",
+        "7195b508748f41c5218d7759804f83171b31bc97",
+        "6704014f501d9cc7275b43f19122de83b81001a2",
+        "4a9df69cb89a10250d703147de29921ff3fc9b3c",
+        "1338b20c5ca991676e767e1c51e26acef6028535"
+      ]
     },
     {
       "id": 1804,
