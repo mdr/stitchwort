@@ -31892,12 +31892,12 @@
     {
       "id": 4581,
       "title": "[DeepSeek] Step-count pin for Aoc.Year2020.Day16.Proofs.runsNotes (about 42M steps before SW-4480, 55M now) so a slowdown like SW-4568's shows in the lane or quick tier, not only as an all-tier 'still checking' note; and a docs/testing.md line on files an all-tier run leaves in target/tmp (differential-skips.txt)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Model result: DeepSeek, worked (pin test shown failing at 1M and passing), 12 min (est. 25)\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
