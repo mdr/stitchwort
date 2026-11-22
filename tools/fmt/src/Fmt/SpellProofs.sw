@@ -1393,51 +1393,95 @@ theorem spacedHugSpells ∀ (hug: Option Doc) (texts: List Text)
         rewrite <- Option.someInjective same then
           spellsConcat (spellsCons spellsSpace (spellsLast (each opened byComputing))))
 
---| A body after `:=` spells the value in both its forms.
+--| What a property of documents, at one reading (`Spells doc texts` for fixed `texts`, say), needs of the
+--| printer's combinators for the facts about the rules that use them to be proved once, for any such property:
+--| each combinator keeps it.
+type DocHolds (r: Doc → Prop) = {
+  nest: ∀ (indent: Nat) (doc: Doc) => r doc → r (Nest indent doc),
+  flatten: ∀ (doc: Doc) => r doc → r (Flatten doc),
+  oneLineBelow: ∀ (doc: Doc) => r doc → r (OneLineBelow doc),
+  spaced: ∀ (doc: Doc) => r doc → r (Doc.concat [Doc.text " ", doc]),
+  hardBefore: ∀ (doc: Doc) => r doc → r (Doc.concat [HardLine, doc]),
+  choice: ∀ (first: Doc) (more: List Doc) => List.All r [first, ..more] → r (Choice [first, ..more])
+}
+
+--| A body after `:=` has a property the combinators keep, in both its forms, when the value's element has it and so
+--| does the hug, if the value has no own-line comments (the hug leaves them out).
 --|
---| Proof idea: The value's element (`elSpells`); below it is a nest, the choice's options (flat, one line below, the hug on the line, below) each spell the same.
+--| Proof idea: below the `:=` is a nest of the element; on the line is a choice whose options (flat, one line below,
+--| the hug on the line, below) each have it.
+theorem bodyAfterHolds ∀ [r: Doc → Prop]
+    (holds: DocHolds r)
+    (value: Expr) (assign: Word) (around: Around) (semi: Bool)
+    (within: value.within1 = True)
+    (doc: r (value.el around))
+    (hug: value.noted = False → ∀ (open: Doc) => value.callHug { around | hoisted = True } = Some open → r open):
+    r (bodyAfter value assign around semi).fst ∧ r (bodyAfter value assign around semi).snd :=
+  let below: r (Nest 2 (Doc.concat [HardLine, value.el around])) := holds.nest 2 _ (holds.hardBefore _ doc)
+  let inside: Around := { around | hoisted = True }
+  rewrite matchedNone value inside within,
+      valueElPlain value around semi within,
+      lambdaHugNone value semi inside (value.el around) within then
+    match plain: assign.trails || value.noted || value.isBlock with
+      | True => (below, below)
+      | False =>
+        let unnoted: value.noted = False :=
+          Bool.orFalseLeft value.noted value.isBlock
+            (Bool.orFalseRight assign.trails (value.noted || value.isBlock) plain)
+        let onLine: List.All r (optionList ((value.callHug inside).map (open => Doc.concat [Doc.text " ", open]))) :=
+          match hugged: value.callHug inside with
+            | None => Trivial
+            | Some opened => (holds.spaced _ (hug unnoted opened hugged), Trivial)
+        (
+          below,
+          holds.choice _ _ (
+            holds.flatten _ (holds.spaced _ doc),
+            List.allAppend r _ _
+              (match value.opensBracket || (value.callHug inside).isSome with
+                | True => (holds.oneLineBelow _ doc, Trivial)
+                | False => Trivial)
+              (List.allAppend r _ _
+                (match value.opensBracket with
+                  | True => (holds.spaced _ doc, Trivial)
+                  | False => onLine)
+                (below, Trivial))
+          )
+        )
+
+theorem spellsEachOf ∀ [texts: List Text] [docs: List Doc]
+    (all: List.All (doc => Spells doc texts) docs):
+    SpellsEach texts docs :=
+  match docs, all with
+    | [], _ => byComputing
+    | [doc, ..rest], (spells, others) => (spells, spellsEachOf others)
+
+--| The combinators keep what a document spells.
+def spellsHolds (texts: List Text): DocHolds (doc => Spells doc texts) := {
+  nest = (indent doc spells => spellsNest indent spells),
+  flatten = (doc spells => spellsFlatten spells),
+  oneLineBelow = (doc spells => spellsOneLineBelow spells),
+  spaced = (doc spells => spellsConcat (spellsCons spellsSpace (spellsLast spells))),
+  hardBefore = (doc spells => spellsConcat (spellsCons spellsHardLine (spellsLast spells))),
+  choice = (first more all => spellsChoice first more (spellsEachOf all))
+}
+
+--| A body after `:=` spells the value in both its forms: the value's element does (`elSpells`), and so does its hug.
 theorem bodyAfterSpells ∀ (value: Expr) (assign: Word) (around: Around) (semi: Bool)
     (within: value.within1 = True)
     (sound: value.sound = True)
     (low: around.hoisted = False):
     Spells (bodyAfter value assign around semi).fst (value.spelt False)
       ∧ Spells (bodyAfter value assign around semi).snd (value.spelt False) :=
-  let docSpells: Spells (value.el around) (value.spelt False) :=
-    spellsTexts _ (elSpells value around within sound) (rewrite low)
-  let belowSpells: Spells (Nest 2 (Doc.concat [HardLine, value.el around])) (value.spelt False) :=
-    spellsNest 2 (spellsConcat (spellsCons spellsHardLine (spellsLast docSpells)))
-  let inside: Around := { around | hoisted = True }
-  rewrite matchedNone value inside within,
-      valueElPlain value around semi within,
-      lambdaHugNone value semi inside (value.el around) within then
-    match plain: assign.trails || value.noted || value.isBlock with
-      | True => (belowSpells, belowSpells)
-      | False =>
-        let unnoted: value.noted = False :=
-          Bool.orFalseLeft value.noted value.isBlock
-            (Bool.orFalseRight assign.trails (value.noted || value.isBlock) plain)
-        let hugSpells: ∀ (open: Doc) => value.callHug inside = Some open → Spells open (value.spelt False) :=
-          (open same =>
-            spellsTexts _
-              (callHugSpells value inside within sound open same)
-              (speltUnnoted value within unnoted).flipped)
-        let flat: Spells (Flatten (Doc.concat [Doc.text " ", value.el around])) (value.spelt False) :=
-          spellsFlatten (spellsConcat (spellsCons spellsSpace (spellsLast docSpells)))
-        (
-          belowSpells,
-          spellsChoice _ _ (
-            flat,
-            spellsEachAppend
-              (match value.opensBracket || (value.callHug inside).isSome with
-                | True => ((spellsOneLineBelow docSpells), byComputing)
-                | False => byComputing)
-              (spellsEachAppend
-                (match value.opensBracket with
-                  | True => ((spellsConcat (spellsCons spellsSpace (spellsLast docSpells))), byComputing)
-                  | False => optionListSpells _ _ (spacedHugSpells _ _ hugSpells))
-                (belowSpells, byComputing))
-          )
-        )
+  bodyAfterHolds
+    (spellsHolds (value.spelt False))
+    value
+    assign
+    around
+    semi
+    within
+    (spellsTexts _ (elSpells value around within sound) (rewrite low))
+    (unnoted open same =>
+      spellsTexts _ (callHugSpells value _ within sound open same) (speltUnnoted value within unnoted).flipped)
 
 -- Declarations.
 
