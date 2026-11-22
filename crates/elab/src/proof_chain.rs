@@ -38,7 +38,7 @@ fn trans_operands(e: &Expr) -> Option<Vec<&Expr>> {
         .collect();
     match head {
         Expr::Var(name) if name.text == "Eq.trans" || name.text.ends_with(".trans") => {}
-        Expr::Field(receiver, name) if name.text == "trans" => operands.insert(0, receiver),
+        Expr::Field(receiver, name, _) if name.text == "trans" => operands.insert(0, receiver),
         _ => return None,
     }
     Some(operands)
@@ -126,7 +126,7 @@ pub(crate) fn sub_expressions<'a>(e: &'a Expr, out: &mut Vec<&'a Expr>) {
         | Expr::Interpolated(a, _)
         | Expr::Spread(a, _)
         | Expr::NamedArg(_, a, _, _)
-        | Expr::Field(a, _) => out.push(a),
+        | Expr::Field(a, _, _) => out.push(a),
         Expr::TypedLam(_, _, ty, body, _) => out.extend([&**ty, &**body]),
         Expr::Pi { dom, cod, .. } => out.extend([&**dom, &**cod]),
         Expr::Effect(row, body) => {

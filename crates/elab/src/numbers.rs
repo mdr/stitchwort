@@ -2003,7 +2003,7 @@ pub(crate) fn has_number(expr: &Expr) -> bool {
             | Expr::Bracketed(a, _)
             | Expr::Interpolated(a, _)
             | Expr::NamedArg(_, a, _, _)
-            | Expr::Field(a, _) => stack.push(a),
+            | Expr::Field(a, _, _) => stack.push(a),
             Expr::Lam(_, body, _) => stack.push(body),
             Expr::TypedLam(_, _, ty, body, _) => stack.extend([&**ty, &**body]),
             Expr::Pi { dom, cod, .. } => stack.extend([&**dom, &**cod]),

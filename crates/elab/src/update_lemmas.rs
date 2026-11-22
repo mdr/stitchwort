@@ -31,7 +31,7 @@
 
 use stitchwort_core::{DataId, Name, Sort};
 use stitchwort_syntax::Span;
-use stitchwort_syntax::ast::{self, BinOp, Bracket, Decl, Expr, Pattern};
+use stitchwort_syntax::ast::{self, BinOp, Bracket, Decl, Expr, NodeId, Pattern};
 
 use crate::{Elaborator, Result};
 
@@ -70,7 +70,6 @@ impl Elaborator {
             let (signature, equations) = self.update_lemma_source(d, &suffix, &lemma, span);
             let result = self.definition(&signature, &equations);
             self.clear_metas();
-            self.end_generated_source();
             let Decl::Signature { name, .. } = &signature else {
                 unreachable!()
             };
@@ -93,14 +92,6 @@ impl Elaborator {
             }
         }
         Ok(())
-    }
-
-    /// Starts a new stretch of generated source: dot calls found in the
-    /// source just checked are no longer matched.
-    fn end_generated_source(&self) {
-        self.session
-            .source_epoch
-            .set(self.session.source_epoch.get() + 1);
     }
 
     /// The lemmas `d` gets, in the shared fields' order.
@@ -219,10 +210,10 @@ impl Elaborator {
                 .collect(),
             span,
         };
-        let read = Expr::Field(Box::new(update), n(&lemma.read));
+        let read = Expr::Field(Box::new(update), n(&lemma.read), NodeId::fresh());
         let expected = match lemma.replaced.iter().position(|f| *f == lemma.read) {
             Some(k) => var(&values[k]),
-            None => Expr::Field(Box::new(var(&base)), n(&lemma.read)),
+            None => Expr::Field(Box::new(var(&base)), n(&lemma.read), NodeId::fresh()),
         };
         let pi = |x: &str, implicit: bool, dom: Expr, cod: Expr| Expr::Pi {
             name: n(x),

@@ -362,7 +362,7 @@ fn rewrite_at_takes_a_target_before_the_body() {
     let Expr::App(f, arg) = &rules[0].proof else {
         panic!("expected an application");
     };
-    assert!(matches!(&**arg, Expr::Field(_, n) if n.text == "at"));
+    assert!(matches!(&**arg, Expr::Field(_, n, _) if n.text == "at"));
     assert!(matches!(&**f, Expr::App(_, a) if matches!(&**a, Expr::Var(n) if n.text == "at")));
     assert!(matches!(target.as_deref(), Some(Expr::Var(n)) if n.text == "at"));
     assert!(matches!(body.as_deref(), Some(Expr::Var(n)) if n.text == "at"));

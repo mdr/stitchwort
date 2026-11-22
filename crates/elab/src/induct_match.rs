@@ -97,12 +97,12 @@ fn spine(cx: &mut Ctx, call: &Expr) -> Result<Option<(stitchwort_syntax::ast::Na
                 args.reverse();
                 return Ok(Some((name.clone(), args)));
             }
-            Expr::Field(recv, field) => {
+            Expr::Field(recv, field, id) => {
                 args.reverse();
                 let written: Vec<crate::check::Arg<'_>> =
                     args.iter().map(crate::check::Arg::Explicit).collect();
                 let Some(((Term::Def(f), _), full)) =
-                    crate::dot::prefix_form(cx, recv, field, &written)?
+                    crate::dot::prefix_form(cx, recv, field, id, &written)?
                 else {
                     return Ok(None);
                 };

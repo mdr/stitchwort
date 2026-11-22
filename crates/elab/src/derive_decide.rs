@@ -50,7 +50,7 @@ use std::rc::Rc;
 use crate::check::quote_internal;
 use stitchwort_core::value::{eval, force, unused};
 use stitchwort_core::{DataId, Icit, Name, Sort, Term, Value};
-use stitchwort_syntax::ast::{self, BinOp, Bracket, Decl, Expr, Pattern};
+use stitchwort_syntax::ast::{self, BinOp, Bracket, Decl, Expr, NodeId, Pattern};
 
 use crate::check::Ctx;
 use crate::{Elaborator, Global, Result, kernel};
@@ -419,7 +419,8 @@ impl Elaborator {
                 x
             };
             let build = apps(var(&ctor_name), (0..count).map(part).collect());
-            let field = |k: usize| Expr::Field(Box::new(var("%r")), n(&ctor.fields[k].0));
+            let field =
+                |k: usize| Expr::Field(Box::new(var("%r")), n(&ctor.fields[k].0), NodeId::fresh());
             let mut split = field(count - 1);
             for k in (0..count - 1).rev() {
                 split = apps(var("Std.And.Both"), vec![field(k), split]);

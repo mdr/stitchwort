@@ -17,7 +17,7 @@ use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Head, eval, force, force_solved};
 use stitchwort_core::{DataId, DefId, Ev, Icit, Term, Value};
-use stitchwort_syntax::ast::{Bracket, Expr, Name as AstName, SECTION};
+use stitchwort_syntax::ast::{Bracket, Expr, Name as AstName, NodeId, NodeKey, SECTION};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::check::{Arg, Ctx, Result, apply_args, implicit_arg, infer, insert};
@@ -325,11 +325,11 @@ fn namespace(cx: &Ctx, h: TyHead) -> String {
 fn shown(recv: &Expr) -> String {
     match recv {
         Expr::Var(n) if n.text == SECTION => "the section's argument".to_string(),
-        Expr::Field(e, f) if matches!(&**e, Expr::Var(n) if n.text == SECTION) => {
+        Expr::Field(e, f, _) if matches!(&**e, Expr::Var(n) if n.text == SECTION) => {
             format!("`.{}`", f.text)
         }
         Expr::Var(n) if written(n) => format!("`{}`", n.text),
-        Expr::Field(e, f) => match &**e {
+        Expr::Field(e, f, _) => match &**e {
             Expr::Var(n) if written(n) => format!("`{}.{}`", n.text, f.text),
             _ => "the value".to_string(),
         },
@@ -383,7 +383,7 @@ struct Blocked {
 fn dotted(e: &Expr) -> Option<(String, stitchwort_syntax::Span)> {
     match e {
         Expr::Var(n) => Some((n.text.to_string(), n.span)),
-        Expr::Field(inner, f) => {
+        Expr::Field(inner, f, _) => {
             let (written, span) = dotted(inner)?;
             Some((format!("{written}.{}", f.text), span))
         }
@@ -566,6 +566,9 @@ impl OwnedArg {
 struct DotCall {
     recv: Expr,
     field: AstName,
+    /// The call's identity: this copy of the syntax is another call than
+    /// the one it was copied from ([`call_key`]).
+    id: NodeId,
     args: Vec<OwnedArg>,
     route: Route,
     /// The receiver's term and type, if kept.
@@ -600,6 +603,7 @@ fn queue_call(
     let call = DotCall {
         recv: recv.clone(),
         field: field.clone(),
+        id: NodeId::fresh(),
         args,
         route,
         kept,
@@ -637,7 +641,11 @@ impl crate::queue::Check for DotCall {
     }
 
     fn display(&self, _cx: &Ctx) -> Option<String> {
-        let field = Expr::Field(Box::new(self.recv.clone()), self.field.clone());
+        let field = Expr::Field(
+            Box::new(self.recv.clone()),
+            self.field.clone(),
+            NodeId::fresh(),
+        );
         let mut text = crate::queue::syntax(&field);
         for arg in &self.args {
             text.push(' ');
@@ -657,7 +665,7 @@ impl crate::queue::Check for DotCall {
         let (recv, field) = (&self.recv, &self.field);
         let dotted = match &self.kept {
             None => match self.route {
-                Route::Call => call_or_block(cx, recv, field, &args)?,
+                Route::Call => call_or_block(cx, recv, field, &self.id, &args)?,
                 Route::Dot => dot_or_block(cx, recv, field, &args)?,
             },
             Some((rterm, rty)) => {
@@ -689,6 +697,7 @@ impl crate::queue::Check for DotCall {
                             let call = DotCall {
                                 recv: self.recv.clone(),
                                 field: self.field.clone(),
+                                id: NodeId::fresh(),
                                 args: self.args.clone(),
                                 route: self.route,
                                 kept: Some(kept),
@@ -777,7 +786,7 @@ fn helper_owner(cx: &Ctx, recv: &Expr) -> Option<String> {
                 _ => None,
             }
         }
-        Expr::Field(inner, field) => {
+        Expr::Field(inner, field, _) => {
             let key = format!("{}.{}", helper_owner(cx, inner)?, field.text);
             cx.e.tables.helper_keys.contains_key(&key).then_some(key)
         }
@@ -1113,7 +1122,7 @@ pub(crate) fn section_partial(
     // else (not a chain such as `.name.length`).
     let (head, written) = crate::check::spine(body);
     let recv = Expr::Var(names[0].clone());
-    let Expr::Field(r, name) = head else {
+    let Expr::Field(r, name, _) = head else {
         return Ok(None);
     };
     if !matches!(&**r, Expr::Var(v) if v.text == SECTION) || name.text != field.text {
@@ -1688,6 +1697,7 @@ pub(crate) fn prefix_form<'a>(
     cx: &mut Ctx,
     recv: &'a Expr,
     field: &AstName,
+    id: &NodeId,
     args: &[Arg<'a>],
 ) -> Result<Option<PrefixForm<'a>>> {
     if helper(cx, recv, field).is_some() {
@@ -1702,7 +1712,7 @@ pub(crate) fn prefix_form<'a>(
             Arg::Piped(_) | Arg::Default(_) => return Ok(None),
         }
     }
-    let key = call_key(cx, recv, field);
+    let key = call_key(id);
     let cached = cx.e.caches.dot_heads.borrow().get(&key).copied();
     let (owner, f) = if let Some(found) = cached {
         let Some(found) = found else {
@@ -2108,7 +2118,7 @@ fn call_result(cx: &Ctx, expr: &Expr, depth: usize) -> Result<Option<Ty>> {
     }
     let mut receiver = None;
     let id = match head {
-        Expr::Field(inner, f) if helper(cx, inner, f).is_none() => {
+        Expr::Field(inner, f, _) if helper(cx, inner, f).is_none() => {
             explicit += 1;
             receiver = Some(&**inner);
             match target_within(cx, inner, f, depth - 1)? {
@@ -2241,21 +2251,28 @@ pub(crate) fn infer_call(
     cx: &mut Ctx,
     recv: &Expr,
     field: &AstName,
+    id: &NodeId,
     args: &[Arg],
 ) -> Result<(Term, Value)> {
     probe_members(cx, recv, field);
-    match call_or_block(cx, recv, field, args)? {
+    match call_or_block(cx, recv, field, id, args)? {
         Dotted::Done(term, ty) => Ok((term, ty)),
         Dotted::Blocked(blocked) => queue_call(cx, recv, field, args, Route::Call, blocked),
     }
 }
 
 /// [`infer_call`], with a stop at an unknown left to the caller.
-fn call_or_block(cx: &mut Ctx, recv: &Expr, field: &AstName, args: &[Arg]) -> Result<Dotted> {
-    if has_failed(cx, call_key(cx, recv, field)) {
+fn call_or_block(
+    cx: &mut Ctx,
+    recv: &Expr,
+    field: &AstName,
+    id: &NodeId,
+    args: &[Arg],
+) -> Result<Dotted> {
+    if has_failed(cx, call_key(id)) {
         return dot_or_block(cx, recv, field, args);
     }
-    let Some((head, full)) = prefix_form(cx, recv, field, args)? else {
+    let Some((head, full)) = prefix_form(cx, recv, field, id, args)? else {
         return dot_or_block(cx, recv, field, args);
     };
     // A recursive call of a definition with `decreasing` (its stand-in, a
@@ -2264,7 +2281,7 @@ fn call_or_block(cx: &mut Ctx, recv: &Expr, field: &AstName, args: &[Arg]) -> Re
     let snapshot = crate::undo::Snapshot::take(cx);
     match crate::check::apply_args(cx, head, &full) {
         Err(e) if !crate::undo::fatal(&e) && !recursive => {
-            mark_failed(cx, call_key(cx, recv, field));
+            mark_failed(cx, call_key(id));
             // The call is wrong either way: say so as dot notation does
             // (it names the receiver's parameter).
             snapshot.restore(cx);
@@ -2274,23 +2291,15 @@ fn call_or_block(cx: &mut Ctx, recv: &Expr, field: &AstName, args: &[Arg]) -> Re
     }
 }
 
-/// Which dot call: the receiver expression (by address and span), the
-/// field's span, and the generated-source epoch the address belongs to
-/// (`Elaborator::source_epoch`). The address stands for one piece of
-/// syntax only while that stays allocated, which is why the tables are
-/// emptied before each declaration and keep the queue's copies alive
-/// (`Caches::forget_dot_calls`). Syntax the
-/// elaborator builds for itself and frees within a declaration isn't
-/// covered (SW-1800).
-pub(crate) type CallKey = (usize, Span, Span, usize);
+/// Which dot call: the identity of its `Expr::Field`, or of the queue's
+/// copy of it ([`DotCall`]). Every copy of syntax has a new identity, so an
+/// entry is only ever found again by the node it was made for, never by
+/// syntax made since that happens to look the same (SW-1800,
+/// docs/proposals/syntax-node-ids.md).
+pub(crate) type CallKey = NodeKey;
 
-fn call_key(cx: &Ctx, recv: &Expr, field: &AstName) -> CallKey {
-    (
-        std::ptr::from_ref(recv) as usize,
-        recv.span(),
-        field.span,
-        cx.e.session.source_epoch.get(),
-    )
+fn call_key(id: &NodeId) -> CallKey {
+    id.key()
 }
 
 /// The metavariable state, which a failure is only valid in.
@@ -2426,25 +2435,23 @@ fn receiver_members(cx: &mut Ctx, recv: &Expr) -> Result<Vec<crate::nav::ScopeNa
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Elaborator;
     use stitchwort_syntax::SourceMap;
 
-    /// A receiver at the same address and spans is a different call once
-    /// the generated source before it has ended.
+    /// A copy of a dot call is another call, though it looks the same, at
+    /// the same spans; the same node is the same call every time.
     #[test]
-    fn call_key_differs_across_generated_source() {
+    fn a_copys_call_key_differs_and_the_same_nodes_does_not() {
         let mut sources = SourceMap::new();
-        let file = sources.add("test", "x");
-        let recv = stitchwort_syntax::parse_expression(file, "x").expect("parses");
-        let field = AstName {
-            text: "f".into(),
-            span: recv.span(),
+        let file = sources.add("test", "x.f");
+        let call = stitchwort_syntax::parse_expression(file, "x.f").expect("parses");
+        let Expr::Field(_, _, id) = &call else {
+            panic!("a field: {call:?}");
         };
-        let e = Elaborator::new();
-        let cx = Ctx::from_parts(&e, vec![], vec![], vec![], recv.span());
-        let before = call_key(&cx, &recv, &field);
-        assert_eq!(before, call_key(&cx, &recv, &field));
-        e.session.source_epoch.set(e.session.source_epoch.get() + 1);
-        assert_ne!(before, call_key(&cx, &recv, &field));
+        assert_eq!(call_key(id), call_key(id));
+        let copy = call.clone();
+        let Expr::Field(_, _, copied) = &copy else {
+            unreachable!()
+        };
+        assert_ne!(call_key(id), call_key(copied));
     }
 }

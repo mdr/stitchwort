@@ -158,23 +158,6 @@ impl Counts {
     }
 }
 
-impl Counts {
-    /// Whether `other` differs by no more than one part in 100,000 in any
-    /// count. The parts of a benchmark spread over threads (`examples`) are
-    /// not exactly the same on every run: a few examples, in 1,498, take a
-    /// few dozen steps more or fewer, as if something in them depended on
-    /// where the heap puts things, which another thread's allocations
-    /// change. It is a millionth of the whole.
-    fn close_to(&self, other: &Counts) -> bool {
-        let near = |a: u64, b: u64| a.abs_diff(b) <= a.max(b) / 100_000;
-        near(self.steps, other.steps)
-            && near(self.visits, other.visits)
-            && near(self.allocations, other.allocations)
-            && near(self.peak_bytes, other.peak_bytes)
-            && near(self.machine_instructions, other.machine_instructions)
-    }
-}
-
 impl PartCounts {
     fn named(&self) -> [(&'static str, u64); 4] {
         [
@@ -266,12 +249,7 @@ pub fn run(benchmark: &Benchmark, runs: usize, timed: bool) -> Result<Outcome, S
     let mut variations = Vec::new();
     for run in 2..=runs.max(1) {
         let m = measure(benchmark)?;
-        let same = if first.parts.is_empty() {
-            m.counts == first.counts
-        } else {
-            m.counts.close_to(&first.counts)
-        };
-        if !same {
+        if m.counts != first.counts {
             variations.push(variation(&first, &m, run));
         }
         times.push(m.time);

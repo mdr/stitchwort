@@ -94,7 +94,7 @@ pub(crate) fn infer_pipe(cx: &mut Ctx, value: &Expr, f: &Expr) -> Result<(Term, 
     }
     let call = match head {
         // `x |> r.g a`: `r.g` as dot notation makes it, then `x`, then `a`.
-        Expr::Field(recv, field) => crate::dot::infer_dot(cx, recv, field, &[])?,
+        Expr::Field(recv, field, _) => crate::dot::infer_dot(cx, recv, field, &[])?,
         _ => infer_head(cx, head)?,
     };
     args.insert(0, Arg::Piped(&piped));

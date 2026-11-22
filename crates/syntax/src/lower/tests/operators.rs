@@ -11,10 +11,12 @@ fn field_access_binds_tighter_than_application() {
     let Expr::App(_, arg) = &**f else {
         panic!("expected `f (p.name)`");
     };
-    assert!(matches!(&**arg, Expr::Field(e, n) if n.text == "name" && matches!(**e, Expr::Var(_))));
+    assert!(
+        matches!(&**arg, Expr::Field(e, n, _) if n.text == "name" && matches!(**e, Expr::Var(_)))
+    );
     // Chains, and parenthesised expressions.
     let e = expression("t.lead.name").unwrap();
-    assert!(matches!(&e, Expr::Field(inner, _) if matches!(**inner, Expr::Field(..))));
+    assert!(matches!(&e, Expr::Field(inner, _, _) if matches!(**inner, Expr::Field(..))));
     assert!(matches!(expression("(f x).age").unwrap(), Expr::Field(..)));
     // No spaces around the dot, and a field name after it.
     for bad in ["p. name", "p.1", "p.Foo.Bar"] {
@@ -23,14 +25,16 @@ fn field_access_binds_tighter_than_application() {
     // A capitalised field names a function of the value's type, as in
     // `xs.Distinct` for `List.Distinct xs`.
     let e = expression("xs.Distinct").unwrap();
-    assert!(matches!(&e, Expr::Field(r, n) if n.text == "Distinct" && matches!(**r, Expr::Var(_))));
+    assert!(
+        matches!(&e, Expr::Field(r, n, _) if n.text == "Distinct" && matches!(**r, Expr::Var(_)))
+    );
     let e = expression("on.Subsequence bank").unwrap();
     let Expr::App(_, arg) = &e else {
         panic!("{e:?}")
     };
     assert!(matches!(&**arg, Expr::Var(n) if n.text == "bank"));
     let Expr::App(f, _) = &e else { panic!("{e:?}") };
-    assert!(matches!(&**f, Expr::Field(_, n) if n.text == "Subsequence"));
+    assert!(matches!(&**f, Expr::Field(_, n, _) if n.text == "Subsequence"));
 }
 
 #[test]

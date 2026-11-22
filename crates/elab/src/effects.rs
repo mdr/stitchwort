@@ -41,7 +41,9 @@ use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Elim, Head, Spine, apply, force};
 use stitchwort_core::{DataId, DefId, Icit, Name, Term, Value};
 use stitchwort_syntax::Diagnostic;
-use stitchwort_syntax::ast::{BinOp, Bracket, Clause, Expr, Mode, Name as AstName, Pattern};
+use stitchwort_syntax::ast::{
+    BinOp, Bracket, Clause, Expr, Mode, Name as AstName, NodeId, Pattern,
+};
 
 use crate::Global;
 use crate::check::{
@@ -2161,7 +2163,7 @@ fn call_param_types(
             HeadType::Ctor(d, c) => (ctor_slots(cx, d, c, None)?, None),
             HeadType::Op | HeadType::Other => return Ok(None),
         },
-        Expr::Field(recv, field) => match crate::dot::target_place(cx, recv, field)? {
+        Expr::Field(recv, field, _) => match crate::dot::target_place(cx, recv, field)? {
             Some((f, place)) => (pi_slots(cx, crate::kernel::def_ty(&cx.g(), f)?)?, place),
             None => return Ok(None),
         },
@@ -2465,7 +2467,7 @@ fn compound_performs(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result<
         Expr::CtorFields { fields, .. } => {
             parts(&fields.iter().map(|(_, e)| e).collect::<Vec<_>>())?
         }
-        Expr::Field(e, field) => {
+        Expr::Field(e, field, _) => {
             (may_perform(cx, e)? && !receiver_passed(cx, e, field)?)
                 || dot_performs(cx, e, field, 0)?
         }
@@ -2561,7 +2563,7 @@ fn call_performs(cx: &Ctx, expr: &Expr, extra: usize) -> Result<bool> {
             HeadType::Def(id) => def_performs_after(cx, id, explicit)?,
             HeadType::Ctor(..) | HeadType::Other => false,
         },
-        Expr::Field(recv, field) => {
+        Expr::Field(recv, field, _) => {
             (may_perform(cx, recv)? && !receiver_passed(cx, recv, field)?)
                 || dot_performs(cx, recv, field, explicit)?
         }
@@ -3479,7 +3481,7 @@ pub fn comp_call(
     }
     // `o.orAbort` with no arguments is a call that performs, not a field of
     // an effectful receiver: elaborated as calls are (SW-217).
-    if let Expr::Field(recv, field) = expr
+    if let Expr::Field(recv, field, _) = expr
         && dot_performs(cx, recv, field, 0)?
     {
         let (term, ty, _) = comp_app(cx, expr, row, expected)?;
@@ -3605,10 +3607,11 @@ fn comp_app(
         Expr::Var(_) => head.clone(),
         // Dot notation: the receiver runs first, then the arguments as
         // written, whatever their places in the call (§4.8.2).
-        Expr::Field(recv, field) if receiver_passed(cx, recv, field)? => head.clone(),
-        Expr::Field(recv, field) => Expr::Field(
+        Expr::Field(recv, field, _) if receiver_passed(cx, recv, field)? => head.clone(),
+        Expr::Field(recv, field, _) => Expr::Field(
             Box::new(run_first(cx, recv, row, &mut bound)?),
             field.clone(),
+            NodeId::fresh(),
         ),
         other => run_first(cx, other, row, &mut bound)?,
     };
@@ -3650,14 +3653,14 @@ fn comp_app(
     let (term, ty) = match &head {
         Expr::Var(_) => infer_head(cx, &head)?,
         // A call by dot notation is elaborated whole, receiver first.
-        Expr::Field(recv, field) => {
+        Expr::Field(recv, field, id) => {
             let call = {
                 let args = crate::check::args_of(&owned);
                 // Its value type compared with the one expected first, as
                 // for a call in prefix form (`xs.map (Cons { … })` at
                 // `List (List Hit)`), where the prefix form stands for it.
                 let propagated = match expected {
-                    Some(t) => match crate::dot::prefix_form(cx, recv, field, &args)? {
+                    Some(t) => match crate::dot::prefix_form(cx, recv, field, id, &args)? {
                         Some((prefix, full)) => {
                             crate::check::propagate_comp(cx, &prefix, &full, t)?
                         }
@@ -4426,20 +4429,20 @@ fn comp_compound(
                 argument: *argument,
             }
         }
-        Expr::Field(e, name) if receiver_passed(cx, e, name)? => expr.clone(),
-        Expr::Field(e, name) => {
+        Expr::Field(e, name, _) if receiver_passed(cx, e, name)? => expr.clone(),
+        Expr::Field(e, name, _) => {
             let receiver = run_first(cx, e, row, &mut bound)?;
             // With the receiver run, its type is known, so the call can turn
             // out to perform operations itself (`(IO.args().headOr "1")
             // .toNatOrFail` in `{IO, Fail}`); it was only seen to when the
             // receiver could be typed without running it.
             if !bound.is_empty() && dot_performs(cx, &receiver, name, 0)? {
-                let call = Expr::Field(Box::new(receiver), name.clone());
+                let call = Expr::Field(Box::new(receiver), name.clone(), NodeId::fresh());
                 let (term, ty, _) = comp_app(cx, &call, row, expected)?;
                 let result = wrap(cx, row, bound, term, &ty)?;
                 return Ok((result, ty));
             }
-            Expr::Field(Box::new(receiver), name.clone())
+            Expr::Field(Box::new(receiver), name.clone(), NodeId::fresh())
         }
         Expr::Binary(BinOp::Append, a, b) => {
             let a = run_first(cx, a, row, &mut bound)?;

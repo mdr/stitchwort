@@ -113,7 +113,7 @@ pub(crate) fn rule_equation(proof: &Expr) -> Option<String> {
     match proof {
         Expr::App(head, _) | Expr::Bracketed(head, _) => rule_equation(head),
         Expr::Var(n) if crate::equations::is_equation_name(&n.text) => Some(n.text.clone()),
-        Expr::Field(inner, field) => match &**inner {
+        Expr::Field(inner, field, _) => match &**inner {
             Expr::Var(owner)
                 if crate::equations::is_equation_name(&format!("f.{}", field.text)) =>
             {

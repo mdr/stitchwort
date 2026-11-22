@@ -36,7 +36,7 @@
 //! The names are the field's own (`valueEq`), `x`, `y` and the parameters'.
 
 use stitchwort_core::{DataId, Sort};
-use stitchwort_syntax::ast::{self, BinOp, Bracket, Decl, Expr, Pattern};
+use stitchwort_syntax::ast::{self, BinOp, Bracket, Decl, Expr, NodeId, Pattern};
 
 use crate::{Elaborator, Result, derive::fields_equal, interfaces};
 
@@ -152,8 +152,8 @@ impl Elaborator {
         let mut ty = eq(var(&x), var(&y));
         for &k in data_fields.iter().rev() {
             let field = n(&ctor.fields[k].0);
-            let left = Expr::Field(Box::new(var(&x)), field.clone());
-            let right = Expr::Field(Box::new(var(&y)), field);
+            let left = Expr::Field(Box::new(var(&x)), field.clone(), NodeId::fresh());
+            let right = Expr::Field(Box::new(var(&y)), field, NodeId::fresh());
             ty = pi(&hyp(k), false, eq(left, right), ty);
         }
         for who in [&y, &x] {

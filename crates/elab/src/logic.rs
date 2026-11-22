@@ -261,6 +261,9 @@ pub(crate) fn condition(cx: &mut Ctx, cond: &Expr, what: &str) -> Result<Conditi
     }
     let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new().into());
     let snapshot = crate::undo::Snapshot::take(cx);
+    // Keyed by address, which is safe because `cond` is borrowed for as
+    // long as the key is set: no other syntax can be at that address
+    // meanwhile (docs/proposals/syntax-node-ids.md §2).
     let outer =
         cx.e.decl
             .condition

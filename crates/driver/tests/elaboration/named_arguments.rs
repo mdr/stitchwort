@@ -230,7 +230,7 @@ impl Walk {
             Expr::NamedArg(_, value, ..)
             | Expr::Neg(value, _, _)
             | Expr::Interpolated(value, _)
-            | Expr::Field(value, _) => self.expr(value),
+            | Expr::Field(value, _, _) => self.expr(value),
             Expr::Pipe(a, b) => {
                 self.expr(a);
                 self.piped = Some(b.span());

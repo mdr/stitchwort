@@ -46,6 +46,28 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 22 Nov 2026
 
+### SW-1803: dot-call tables keyed by syntax ids, not addresses; step counts repeat on every run
+
+- **Problem.** Steps varied between cold runs of the same binary: on `tools/fmt`, two full checks
+  differed in 8 of 13,124 declarations (totals 1,890,472,432 and 1,890,469,724), and the bench's
+  `examples` step needed a 1-in-100,000 tolerance (SW-1792). SW-4648 traced it to `dot_heads`,
+  keyed by the receiver's address, its spans and `source_epoch`: a freed copy's address reused by a
+  later copy with the same spans found the first one's entry, depending on the heap (SW-1800).
+- **Change.** `Expr::Field` carries a `NodeId` from a global counter, new on every node and every
+  copy (D2577); the queue's `DotCall` takes a fresh one. `dot_heads` and `dot_failed` key by it.
+  `dot_owners`/`keep_dot_owner` and `source_epoch` are gone (D2579). The tables are still emptied
+  per declaration and on rewind.
+- **Why results stay the same.** A table entry is only ever an answer the node would get again; the
+  change only turns hits that came from address reuse into misses, and a miss computes the answer
+  (SW-1801). Hash snapshots (`task test:hashes ALL=1`) and the three examples' snapshots unchanged.
+- **Measured (release, cold `check --no-cache --timings=all` from `tools/fmt`, nice 19, load 4-7).**
+  Two runs: identical steps in all 13,124 declarations, total 1,885,266,376 both times (main has
+  moved since SW-4648's runs, so that total isn't comparable with theirs). User time 122.8 s and
+  127.1 s, against about 127 s before: no cost seen. `Expr` stays 112 bytes (a field access's
+  payload is 56). `long_dot_chains_are_cheap` 3.1 s.
+- **Not done.** The bench examples step wasn't run twice here (beyond a lane's budget); the
+  tolerance is removed in its own commit, to drop if the verifier's run differs.
+
 ### SW-4642: a proof stuck past its own case tree is kept as the lemma's call; `atomHung` 7.73M to 4.12M steps
 
 - **Problem.** SW-4638 measured SW-4629's projection `let`s costing `atomHung` 3.9M of its 7.7M steps,

@@ -47,7 +47,7 @@ use std::rc::Rc;
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::value::{Elim, Spine, force, unfold_once};
 use stitchwort_core::{DefId, Term, Value};
-use stitchwort_syntax::ast::{Expr, Name as AstName, RewriteRule};
+use stitchwort_syntax::ast::{Expr, Name as AstName, NodeId, RewriteRule};
 use stitchwort_syntax::{Diagnostic, Severity, Span};
 
 use super::{
@@ -514,7 +514,7 @@ fn rule_text(rule: &ExpandedRule, slice: &mut dyn FnMut(Span) -> String) -> Stri
 fn added_fields(proof: &Expr, expanded: &Expr) -> Vec<String> {
     fn depth(e: &Expr) -> usize {
         match e {
-            Expr::Field(base, _) => 1 + depth(base),
+            Expr::Field(base, _, _) => 1 + depth(base),
             _ => 0,
         }
     }
@@ -522,7 +522,7 @@ fn added_fields(proof: &Expr, expanded: &Expr) -> Vec<String> {
     let mut fields = Vec::new();
     let mut e = expanded;
     while extra > 0
-        && let Expr::Field(base, name) = e
+        && let Expr::Field(base, name, _) = e
     {
         fields.push(name.text.to_string());
         e = base;
@@ -1542,7 +1542,7 @@ fn rule_name(rule: &RewriteRule) -> String {
     fn path(e: &Expr) -> Option<String> {
         match e {
             Expr::Var(n) => Some(n.text.to_string()),
-            Expr::Field(base, n) => Some(format!("{}.{}", path(base)?, n.text)),
+            Expr::Field(base, n, _) => Some(format!("{}.{}", path(base)?, n.text)),
             Expr::App(f, _) => Some(format!("{} …", path(f)?.trim_end_matches(" …"))),
             _ => None,
         }
@@ -1585,6 +1585,7 @@ fn expand(cx: &mut Ctx, rule: &RewriteRule) -> Result<Vec<RewriteRule>> {
                 text: name.as_str().into(),
                 span: rule.proof.span(),
             },
+            NodeId::fresh(),
         )
     };
     let exists = |cx: &mut Ctx, e: &Expr| -> Result<Option<bool>> {
@@ -2032,6 +2033,7 @@ mod tests {
                     text: part.into(),
                     span,
                 },
+                NodeId::fresh(),
             );
         }
         RewriteRule {

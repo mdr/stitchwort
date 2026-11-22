@@ -20,6 +20,47 @@ use num_bigint::BigUint;
 
 use crate::Span;
 
+/// The identity of one piece of syntax, for the elaborator's tables that
+/// remember what a dot call was found to be (docs/proposals/syntax-node-ids.md).
+/// Every node made gets a new one, and so does every copy: a copy may be
+/// elaborated in another context, so it is another call. Comparing two ids
+/// says whether they are the same node; there's nothing else to read from
+/// one, and it prints as `_`, so that syntax compares by shape.
+#[derive(PartialEq, Eq, Hash)]
+pub struct NodeId(u64);
+
+/// A [`NodeId`] as a table's key: copied, it still names the same node
+/// (where a `NodeId`'s clone is a new identity).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct NodeKey(u64);
+
+impl NodeId {
+    /// A new id, unequal to every other made in this process.
+    pub fn fresh() -> NodeId {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        // A u64 doesn't wrap in a long editor session, as a u32 could.
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        NodeId(NEXT.fetch_add(1, Ordering::Relaxed))
+    }
+
+    /// The key that finds this node, and no other, in a table.
+    pub fn key(&self) -> NodeKey {
+        NodeKey(self.0)
+    }
+}
+
+impl Clone for NodeId {
+    fn clone(&self) -> NodeId {
+        NodeId::fresh()
+    }
+}
+
+impl std::fmt::Debug for NodeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("_")
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Name {
     pub text: String,
@@ -311,8 +352,9 @@ pub enum Expr {
         facts: Vec<Expr>,
         span: Span,
     },
-    /// Field access `e.name`.
-    Field(Box<Expr>, Name),
+    /// Field access `e.name`, or a dot call's head; the id is the call's
+    /// identity, which the elaborator remembers what it called by.
+    Field(Box<Expr>, Name, NodeId),
 }
 
 /// `byWalking [items] then t`.
@@ -493,7 +535,7 @@ impl Expr {
         loop {
             match e {
                 Expr::App(f, _) => e = f,
-                Expr::Field(r, name) => match &**r {
+                Expr::Field(r, name, _) => match &**r {
                     Expr::Var(v) if v.text == SECTION => return Some(name),
                     _ => e = r,
                 },
@@ -594,9 +636,9 @@ impl Expr {
             // Down a chain of fields in a loop: `e.span()` here would reach
             // this arm for `e` too, twice per level (the start and the end),
             // so `x.f.g.h …` would take time exponential in its length.
-            Expr::Field(e, name) => {
+            Expr::Field(e, name, _) => {
                 let mut inner: &Expr = e;
-                while let Expr::Field(i, _) = inner {
+                while let Expr::Field(i, _, _) = inner {
                     inner = i;
                 }
                 inner.span().to(name.span)
@@ -691,7 +733,7 @@ fn has_nested(expr: &Expr) -> bool {
         Expr::Spread(e, _) => nested(e),
         Expr::Record { base, fields, .. } => base.is_some() || !fields.is_empty(),
         Expr::CtorFields { fields, .. } => !fields.is_empty(),
-        Expr::Field(e, _) => nested(e),
+        Expr::Field(e, _, _) => nested(e),
         _ => false,
     }
 }
@@ -862,7 +904,7 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
                 pending.push(std::mem::replace(value, Expr::Prop(Span::NOWHERE)));
             }
         }
-        Expr::Field(e, _) => take(e),
+        Expr::Field(e, _, _) => take(e),
         _ => {}
     }
 }

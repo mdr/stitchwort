@@ -20,7 +20,7 @@
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Head, force};
 use stitchwort_core::{Term, Value};
-use stitchwort_syntax::ast::{BinOp, Expr, Name};
+use stitchwort_syntax::ast::{BinOp, Expr, Name, NodeId};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::check::{Result, check, infer};
@@ -180,6 +180,7 @@ fn contains(op: Span, elem: &Expr, container: &Expr) -> Expr {
             text: "contains".to_string(),
             span: op,
         },
+        NodeId::fresh(),
     );
     app(field, elem)
 }

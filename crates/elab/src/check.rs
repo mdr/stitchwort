@@ -14,7 +14,9 @@ use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Closure, Head, apply, eval, force, quote, quote_at_most, unused};
 use stitchwort_core::{DataId, Ev, Icit, MAX_LEVEL, Name, Sort, Term, Value, pretty};
-use stitchwort_syntax::ast::{BinOp, Bracket, Expr, Mode, Name as AstName, NegForm, SECTION};
+use stitchwort_syntax::ast::{
+    BinOp, Bracket, Expr, Mode, Name as AstName, NegForm, NodeId, SECTION,
+};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::unify::unify;
@@ -2824,7 +2826,7 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         Expr::CtorFields {
             ctor, fields, span, ..
         } => infer_ctor_fields(cx, ctor, fields, *span),
-        Expr::Field(e, field) => crate::dot::infer_call(cx, e, field, &[]),
+        Expr::Field(e, field, id) => crate::dot::infer_call(cx, e, field, id, &[]),
         Expr::List(items, _) => infer_list(cx, expr, items),
     }
 }
@@ -3254,8 +3256,8 @@ fn apply_named_head(
 /// to [`apply_named_head`] or [`apply_args`]: the rarer heads and names are
 /// out of line, so that this frame stays small (SW-3180).
 fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result<(Term, Value)> {
-    if let Expr::Field(recv, field) = head {
-        return crate::dot::infer_call(cx, recv, field, args);
+    if let Expr::Field(recv, field, id) = head {
+        return crate::dot::infer_call(cx, recv, field, id, args);
     }
     let Expr::Var(name) = head else {
         return infer_unnamed_head_app(cx, head, args);
@@ -5460,7 +5462,7 @@ pub(crate) fn negative_argument_note(arg: &Expr) -> Option<String> {
             Expr::Num(n, _) => Some(n.to_string()),
             Expr::Float(t, _) => Some(t.clone()),
             Expr::Var(n) => Some(n.text.clone()),
-            Expr::Field(e, n) => Some(format!("{}.{}", text(e)?, n.text)),
+            Expr::Field(e, n, _) => Some(format!("{}.{}", text(e)?, n.text)),
             _ => None,
         }
     }
@@ -8752,6 +8754,9 @@ fn infer_expecting(
     ) {
         return infer(cx, expr);
     }
+    // Keyed by address, which is safe because `expr` is borrowed for as
+    // long as the key is set: no other syntax can be at that address
+    // meanwhile (docs/proposals/syntax-node-ids.md §2).
     let outer = (cx.e.decl.app_expected).replace(Some(AppExpected {
         key,
         expected: expected.clone(),
@@ -9581,9 +9586,9 @@ fn propagation_plan<'a>(
     if args.is_empty() && !matches!(head, Expr::Field(..)) {
         return Ok(None);
     }
-    let (head, args) = if let Expr::Field(recv, field) = head {
+    let (head, args) = if let Expr::Field(recv, field, id) = head {
         // `recv.f a` is `T.f … recv …` (SW-129).
-        let Some((head, full)) = crate::dot::prefix_form(cx, recv, field, &args)? else {
+        let Some((head, full)) = crate::dot::prefix_form(cx, recv, field, id, &args)? else {
             return Ok(None);
         };
         (head, full)
@@ -10234,6 +10239,7 @@ fn as_fields(cx: &Ctx, name: &AstName) -> Option<Expr> {
                 text: field.to_string(),
                 span: name.span,
             },
+            NodeId::fresh(),
         );
     }
     Some(expr)

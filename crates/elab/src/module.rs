@@ -4287,7 +4287,7 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                     fields.iter().map(|(_, e)| Work::Expr(e)).collect(),
                 );
             }
-            Expr::Field(e, field) => {
+            Expr::Field(e, field, _) => {
                 // A local variable's written type, when `e` is just that.
                 let receiver = match &**e {
                     Expr::Var(n) => bound

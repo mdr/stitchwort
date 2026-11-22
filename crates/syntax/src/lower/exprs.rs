@@ -10,7 +10,7 @@
 
 use super::sections::{fill_receiver, leads_with_section, ne_form, section_dot};
 use crate::Span;
-use crate::ast::{BinOp, Bracket, CHAIN, Expr, Name, NegForm, SECTION};
+use crate::ast::{BinOp, Bracket, CHAIN, Expr, Name, NegForm, NodeId, SECTION};
 use crate::lexer::Tok;
 use crate::negation::{argument_minus, negative_numeral};
 use crate::tree::{Element, Leaf, Node, NodeKind};
@@ -418,7 +418,11 @@ impl<'f> Lower<'f> {
             _ => None,
         };
         let field = required(field, kind, "its field")?;
-        Ok(Expr::Field(Box::new(self.expr(receiver)?), field))
+        Ok(Expr::Field(
+            Box::new(self.expr(receiver)?),
+            field,
+            NodeId::fresh(),
+        ))
     }
 
     /// `-x`, `!b` (and `¬p`, the same token), a negative numeral `-1`. As
