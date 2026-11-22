@@ -32592,12 +32592,12 @@
     {
       "id": 4630,
       "title": "[Sonnet] STITCHWORT_BIG_READBACK: also print the source span of the innermost match, let or rewrite that asked for the read-back (SW-4619 found culprits by trial, one 45 s run per guess)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "",
+      "body": "\n\nLane (Sonnet): done in 32876b57b. Source spans pushed in check.rs with_span, resolved via a table SourceMap::add fills when the variable is set. Test: kernel_dump::reports_readbacks_over_the_given_node_count.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
