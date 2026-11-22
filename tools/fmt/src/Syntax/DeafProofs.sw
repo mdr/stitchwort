@@ -103,6 +103,18 @@ theorem skipGroupDeaf ∀ (open: List Tok) (items: List Item):
                         | [] => byComputing
                         | [o, ..os] => skipGroupDeaf [o, ..os] rest
 
+theorem skippedDeaf ∀ (open: List Tok) (rest: List Item) [later: List Item → Bool]
+    (deaf: ∀ (after: List Item) => later after = later (after.map Item.stripped)):
+    (match skipGroup open rest with
+      | Some after => later after
+      | None => False)
+      = (match skipGroup open (rest.map Item.stripped) with
+        | Some after => later after
+        | None => False) :=
+  rewrite skipGroupDeaf open rest then
+    match skipGroup open rest with
+      | Some after => deaf after
+      | None => byComputing
 theorem groupInsideDeaf ∀ (open: List Tok) (found items: List Item):
     groupInside open (found.map Item.stripped) (items.map Item.stripped)
       = (groupInside open found items).map (inside => inside.map Item.stripped) :=
@@ -149,21 +161,11 @@ theorem annotatedFromDeaf ∀ (fuel: Nat) (first: Bool) (items: List Item):
       match e: item.kind with
         | Colon => byComputing
         | Comma => byComputing
-        | LParen =>
-          rewrite e then
-            match f: skipGroup [LParen] rest with
-              | Some after => rewrite skipGroupDeaf [LParen] rest, f then annotatedFromDeaf more False after
-              | None => rewrite skipGroupDeaf [LParen] rest, f
-        | LBrace =>
-          rewrite e then
-            match f: skipGroup [LBrace] rest with
-              | Some after => rewrite skipGroupDeaf [LBrace] rest, f then annotatedFromDeaf more False after
-              | None => rewrite skipGroupDeaf [LBrace] rest, f
-        | LBracket =>
-          rewrite e then
-            match f: skipGroup [LBracket] rest with
-              | Some after => rewrite skipGroupDeaf [LBracket] rest, f then annotatedFromDeaf more False after
-              | None => rewrite skipGroupDeaf [LBracket] rest, f
+        | LParen | LBrace | LBracket =>
+          rewrite skipGroupDeaf [item.kind] rest then
+            match skipGroup [item.kind] rest with
+              | Some after => annotatedFromDeaf more False after
+              | None => byComputing
         | RParen => byComputing
         | RBrace => byComputing
         | RBracket => byComputing
@@ -440,30 +442,21 @@ theorem lambdaAheadFromDeaf ∀ (fuel: Nat) (modes: Modes) (count: Nat) (items: 
                     | True => byComputing
                     | False => later
               | Underscore => later
-              | LParen =>
-                rewrite e then
-                  match f: skipGroup [LParen] rest with
-                    | Some after =>
-                      rewrite skipGroupDeaf [LParen] rest, f then lambdaAheadFromDeaf more modes (count + 1) after
-                    | None => rewrite skipGroupDeaf [LParen] rest, f
-              | LBrace =>
-                rewrite e then
-                  match f: skipGroup [LBrace] rest with
-                    | Some after =>
-                      rewrite skipGroupDeaf [LBrace] rest, f then lambdaAheadFromDeaf more modes (count + 1) after
-                    | None => rewrite skipGroupDeaf [LBrace] rest, f
+              | LParen | LBrace =>
+                rewrite skipGroupDeaf [item.kind] rest then
+                  match skipGroup [item.kind] rest with
+                    | Some after => lambdaAheadFromDeaf more modes (count + 1) after
+                    | None => byComputing
               | LBracket =>
                 rewrite implicitGroupAtDeaf [item, ..rest], namelessAutoAtDeaf [item, ..rest] then
                   match implicitGroupAt [item.stripped, ..rest.map Item.stripped]
                     || namelessAutoAt [item.stripped, ..rest.map Item.stripped] with
                     | False => byComputing
                     | True =>
-                      rewrite e then
-                        match f: skipGroup [LBracket] rest with
-                          | Some after =>
-                            rewrite skipGroupDeaf [LBracket] rest, f then
-                              lambdaAheadFromDeaf more modes (count + 1) after
-                          | None => rewrite skipGroupDeaf [LBracket] rest, f
+                      rewrite e, skipGroupDeaf [LBracket] rest then
+                        match skipGroup [LBracket] rest with
+                          | Some after => lambdaAheadFromDeaf more modes (count + 1) after
+                          | None => byComputing
               | FatArrow => byComputing
               | _ => byComputing
 
@@ -483,21 +476,11 @@ theorem resultArrowAheadDeaf ∀ (modes: Modes) (fuel: Nat) (items: List Item):
           | True => byComputing
           | False =>
             match e: item.kind with
-              | LParen =>
-                rewrite e then
-                  match f: skipGroup [LParen] rest with
-                    | Some after => rewrite skipGroupDeaf [LParen] rest, f then resultArrowAheadDeaf modes more after
-                    | None => rewrite skipGroupDeaf [LParen] rest, f
-              | LBrace =>
-                rewrite e then
-                  match f: skipGroup [LBrace] rest with
-                    | Some after => rewrite skipGroupDeaf [LBrace] rest, f then resultArrowAheadDeaf modes more after
-                    | None => rewrite skipGroupDeaf [LBrace] rest, f
-              | LBracket =>
-                rewrite e then
-                  match f: skipGroup [LBracket] rest with
-                    | Some after => rewrite skipGroupDeaf [LBracket] rest, f then resultArrowAheadDeaf modes more after
-                    | None => rewrite skipGroupDeaf [LBracket] rest, f
+              | LParen | LBrace | LBracket =>
+                rewrite skipGroupDeaf [item.kind] rest then
+                  match skipGroup [item.kind] rest with
+                    | Some after => resultArrowAheadDeaf modes more after
+                    | None => byComputing
               | FatArrow => byComputing
               | ColonEq => byComputing
               | RParen => byComputing
@@ -525,18 +508,11 @@ theorem lambdaResultTypeDeaf ∀ (modes: Modes) (fuel: Nat) (bracketedLast: Bool
                     | True => rewrite arrow
                     | False => later
               | Underscore => later
-              | LParen =>
-                rewrite e then
-                  match f: skipGroup [LParen] rest with
-                    | Some after =>
-                      rewrite skipGroupDeaf [LParen] rest, f then lambdaResultTypeDeaf modes more True after
-                    | None => rewrite skipGroupDeaf [LParen] rest, f
-              | LBracket =>
-                rewrite e then
-                  match f: skipGroup [LBracket] rest with
-                    | Some after =>
-                      rewrite skipGroupDeaf [LBracket] rest, f then lambdaResultTypeDeaf modes more True after
-                    | None => rewrite skipGroupDeaf [LBracket] rest, f
+              | LParen | LBracket =>
+                rewrite skipGroupDeaf [item.kind] rest then
+                  match skipGroup [item.kind] rest with
+                    | Some after => lambdaResultTypeDeaf modes more True after
+                    | None => byComputing
               | _ => rewrite arrow
 
 -- Trees.

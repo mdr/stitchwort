@@ -1567,10 +1567,23 @@ theorem spacedHugShape ∀ (hug: Option Doc) (shape: List Told)
       (doc same =>
         rewrite <- Option.someInjective same then isConcat (isCons [] shape isSpace (isLast (each opened byComputing))))
 
---| A body after `:=` tells the value in both its forms.
---|
---| Proof idea: The value's element (`elShape`); below it is a nest, the choice's options (flat, one line below, the hug
---| on the line, below) each tell the same; the hug leaves out the value's own-line comments, which it has none of.
+theorem allIsOf ∀ [shape: List Told] (docs: List Doc) (all: List.All (doc => Is doc shape) docs): AllIs docs shape :=
+  match docs, all with
+    | [], _ => byComputing
+    | [doc, ..rest], (is, others) => (is, allIsOf rest others)
+
+--| The combinators keep what a document tells.
+def isHolds (shape: List Told): DocHolds (doc => Is doc shape) := {
+  nest = (indent doc is => isNest indent is),
+  flatten = (doc is => isFlatten is),
+  oneLineBelow = (doc is => isOneLineBelow is),
+  spaced = (doc is => isConcat (isCons [] shape isSpace (isLast is))),
+  hardBefore = (doc is => isConcat (isCons [] shape isHardLine (isLast is))),
+  choice = (first more all => isChoice first more (allIsOf [first, ..more] all))
+}
+
+--| A body after `:=` tells the value in both its forms: the value's element does (`elShape`), and so does its hug,
+--| which leaves out the value's own-line comments, which it has none of.
 theorem bodyAfterShape ∀ (value: Expr) (assign: Word) (around: Around) (semi: Bool) (prior: List Word)
     (within: value.within1 = True)
     (sound: value.sound = True)
@@ -1580,51 +1593,18 @@ theorem bodyAfterShape ∀ (value: Expr) (assign: Word) (around: Around) (semi: 
     (plain: around.item = False):
     Is (bodyAfter value assign around semi).fst (value.shape False False)
       ∧ Is (bodyAfter value assign around semi).snd (value.shape False False) :=
-  let docIs: Is (value.el around) (value.shape False False) :=
-    isSame _ (elShape value around prior within sound nonCloser homed) (rewrite low, plain)
-  let belowIs: Is (Nest 2 (Doc.concat [HardLine, value.el around])) (value.shape False False) :=
-    isNest 2 (isConcat (isCons [] (value.shape False False) isHardLine (isLast docIs)))
-  let inside: Around := { around | hoisted = True }
-  rewrite matchedNone value inside within,
-      valueElPlain value around semi within,
-      lambdaHugNone value semi inside (value.el around) within then
-    match same: assign.trails || value.noted || value.isBlock with
-      | True => (belowIs, belowIs)
-      | False =>
-        let unnoted: value.noted = False :=
-          Bool.orFalseLeft value.noted value.isBlock
-            (Bool.orFalseRight assign.trails (value.noted || value.isBlock) same)
-        let hugIs: ∀ (hugged: Doc) => value.callHug inside = Some hugged → Is hugged (value.shape False False) :=
-          (hugged is =>
-            isSame _
-              (callHugShape value inside prior within sound nonCloser homed hugged is)
-              (rewrite plain then (shapeUnnoted value within unnoted).flipped))
-        let flat: Is (Flatten (Doc.concat [Doc.text " ", value.el around])) (value.shape False False) :=
-          isFlatten (isConcat (isCons [] (value.shape False False) isSpace (isLast docIs)))
-        (
-          belowIs,
-          isChoice (Flatten (Doc.concat [Doc.text " ", value.el around])) _ (
-            flat,
-            allIsAppend
-              (if value.opensBracket || (value.callHug inside).isSome then [OneLineBelow (value.el around)] else [])
-              ((if value.opensBracket then [Doc.concat [Doc.text " ", value.el around]]
-                else optionList ((value.callHug inside).map (open => Doc.concat [Doc.text " ", open])))
-                ++ [Nest 2 (Doc.concat [HardLine, value.el around])])
-              (value.shape False False)
-              (match value.opensBracket || (value.callHug inside).isSome with
-                | True => (isOneLineBelow docIs, byComputing)
-                | False => byComputing)
-              (allIsAppend
-                (if value.opensBracket then [Doc.concat [Doc.text " ", value.el around]]
-                 else optionList ((value.callHug inside).map (open => Doc.concat [Doc.text " ", open])))
-                [Nest 2 (Doc.concat [HardLine, value.el around])]
-                (value.shape False False)
-                (match value.opensBracket with
-                  | True => (isConcat (isCons [] (value.shape False False) isSpace (isLast docIs)), byComputing)
-                  | False => allIsOption _ _ (spacedHugShape _ _ hugIs))
-                (belowIs, byComputing))
-          )
-        )
+  bodyAfterHolds
+    (isHolds (value.shape False False))
+    value
+    assign
+    around
+    semi
+    within
+    (isSame _ (elShape value around prior within sound nonCloser homed) (rewrite low, plain))
+    (unnoted hugged is =>
+      isSame _
+        (callHugShape value _ prior within sound nonCloser homed hugged is)
+        (rewrite plain then (shapeUnnoted value within unnoted).flipped))
 
 -- Declarations.
 
