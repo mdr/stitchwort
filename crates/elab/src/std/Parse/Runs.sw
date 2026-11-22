@@ -295,25 +295,28 @@ theorem Parse.runFromThenCongrTree ∀ (p: () → {Parse t} a)
     | Parse.next passes, q =>
       match tree with
         | AlwaysCall later =>
-          Eq.trans
-            (Parse.runFromNext s passes (y => k1 (j (q y))))
-            (Eq.trans
-              (Parse.runFromThenCongrTree
+          calc Parse.runFrom s (() => k1 (j (q (Parse.next passes))))
+            _ = Parse.runFrom (s.next passes).snd (() => k1 (j (q (s.next passes).fst))) :=
+              Parse.runFromNext s passes (y => k1 (j (q y)))
+            _ = Parse.runFrom (s.next passes).snd (() => k2 (j (q (s.next passes).fst))) :=
+              Parse.runFromThenCongrTree
                 (() => q (s.next passes).fst)
                 (later (s.next passes).fst)
                 (s.next passes).snd
                 j
                 k1
                 k2
-                (v after ran => agree v after (Eq.trans (Parse.runFromNext s passes (y => (q y, Parse.mark()))) ran)))
-              (Eq.flipped (Parse.runFromNext s passes (y => k2 (j (q y))))))
+                (v after ran => agree v after (Eq.trans (Parse.runFromNext s passes (y => (q y, Parse.mark()))) ran))
+            _ = Parse.runFrom s (() => k2 (j (q (Parse.next passes)))) :=
+              Eq.flipped (Parse.runFromNext s passes (y => k2 (j (q y))))
     | Parse.literal literal, q =>
       match tree with
         | AlwaysCall later =>
-          Eq.trans
-            (Parse.runFromLiteral s literal (y => k1 (j (q y))))
-            (Eq.trans
-              (Parse.runFromThenCongrTree
+          calc Parse.runFrom s (() => k1 (j (q (Parse.literal literal))))
+            _ = Parse.runFrom (s.literal literal).snd (() => k1 (j (q (s.literal literal).fst))) :=
+              Parse.runFromLiteral s literal (y => k1 (j (q y)))
+            _ = Parse.runFrom (s.literal literal).snd (() => k2 (j (q (s.literal literal).fst))) :=
+              Parse.runFromThenCongrTree
                 (() => q (s.literal literal).fst)
                 (later (s.literal literal).fst)
                 (s.literal literal).snd
@@ -321,8 +324,9 @@ theorem Parse.runFromThenCongrTree ∀ (p: () → {Parse t} a)
                 k1
                 k2
                 (v after ran =>
-                  agree v after (Eq.trans (Parse.runFromLiteral s literal (y => (q y, Parse.mark()))) ran)))
-              (Eq.flipped (Parse.runFromLiteral s literal (y => k2 (j (q y))))))
+                  agree v after (Eq.trans (Parse.runFromLiteral s literal (y => (q y, Parse.mark()))) ran))
+            _ = Parse.runFrom s (() => k2 (j (q (Parse.literal literal)))) :=
+              Eq.flipped (Parse.runFromLiteral s literal (y => k2 (j (q y))))
     | Parse.mark u, q =>
       match tree with
         | AlwaysCall later => Parse.runFromThenCongrTree (() => q s.at) (later s.at) s j k1 k2 agree
@@ -373,32 +377,36 @@ theorem Parse.runFromThenCongr1Tree ∀ (p: () → {Parse t} a)
     | Parse.next passes, q =>
       match tree with
         | AlwaysCall later =>
-          Eq.trans
-            (Parse.runFromNext s passes (y => k1 (q y)))
-            (Eq.trans
-              (Parse.runFromThenCongr1Tree
+          calc Parse.runFrom s (() => k1 (q (Parse.next passes)))
+            _ = Parse.runFrom (s.next passes).snd (() => k1 (q (s.next passes).fst)) :=
+              Parse.runFromNext s passes (y => k1 (q y))
+            _ = Parse.runFrom (s.next passes).snd (() => k2 (q (s.next passes).fst)) :=
+              Parse.runFromThenCongr1Tree
                 (() => q (s.next passes).fst)
                 (later (s.next passes).fst)
                 (s.next passes).snd
                 k1
                 k2
-                (v after ran => agree v after (Eq.trans (Parse.runFromNext s passes (y => (q y, Parse.mark()))) ran)))
-              (Eq.flipped (Parse.runFromNext s passes (y => k2 (q y)))))
+                (v after ran => agree v after (Eq.trans (Parse.runFromNext s passes (y => (q y, Parse.mark()))) ran))
+            _ = Parse.runFrom s (() => k2 (q (Parse.next passes))) :=
+              Eq.flipped (Parse.runFromNext s passes (y => k2 (q y)))
     | Parse.literal literal, q =>
       match tree with
         | AlwaysCall later =>
-          Eq.trans
-            (Parse.runFromLiteral s literal (y => k1 (q y)))
-            (Eq.trans
-              (Parse.runFromThenCongr1Tree
+          calc Parse.runFrom s (() => k1 (q (Parse.literal literal)))
+            _ = Parse.runFrom (s.literal literal).snd (() => k1 (q (s.literal literal).fst)) :=
+              Parse.runFromLiteral s literal (y => k1 (q y))
+            _ = Parse.runFrom (s.literal literal).snd (() => k2 (q (s.literal literal).fst)) :=
+              Parse.runFromThenCongr1Tree
                 (() => q (s.literal literal).fst)
                 (later (s.literal literal).fst)
                 (s.literal literal).snd
                 k1
                 k2
                 (v after ran =>
-                  agree v after (Eq.trans (Parse.runFromLiteral s literal (y => (q y, Parse.mark()))) ran)))
-              (Eq.flipped (Parse.runFromLiteral s literal (y => k2 (q y)))))
+                  agree v after (Eq.trans (Parse.runFromLiteral s literal (y => (q y, Parse.mark()))) ran))
+            _ = Parse.runFrom s (() => k2 (q (Parse.literal literal))) :=
+              Eq.flipped (Parse.runFromLiteral s literal (y => k2 (q y)))
     | Parse.mark u, q =>
       match tree with
         | AlwaysCall later => Parse.runFromThenCongr1Tree (() => q s.at) (later s.at) s k1 k2 agree
@@ -941,7 +949,7 @@ theorem Parse.runsOnDone ∀ [x: a] [input rest: List t] [value: a]
     (stays: input = rest)
     (gives: x = value):
     Parse.RunsOn (() => x) input rest value :=
-  rewrite stays then rewrite <- gives then Parse.runsPure x rest
+  rewrite stays, <- gives then Parse.runsPure x rest
 
 --| `p` run on `input` stops with `rest` left and gives `value`, whatever
 --| else is true of `rest` and `value`: stop at an equal `rest` with an equal
@@ -951,7 +959,7 @@ theorem Parse.runsOnWeaken ∀ [p: () → {Parse t} a] [input rest rest2: List t
     (stops: rest = rest2)
     (gives: v = w):
     Parse.RunsOn p input rest2 w :=
-  rewrite <- stops then rewrite <- gives then runs
+  rewrite <- stops, <- gives then runs
 
 --| `p`'s run gives whatever its value equals, stopping where it did.
 theorem Parse.runsOnSame ∀ [p: () → {Parse t} a] [input rest: List t] [v w: a]
@@ -1796,25 +1804,25 @@ def Parse.ReadsBeforeCalls (body: (b → {Parse t} a) → b → {Parse t} a): Pr
 -- level down, which `reads` lets agree, since the calls it makes are at
 -- states with fewer items left, where the fuel left is still more than that.
 theorem Parse.recursiveWithFuelEnough ∀ (body: (b → {Parse t} a) → b → {Parse t} a)
-    (reads: Parse.ReadsBeforeCalls body):
-    ∀ (fuel1 fuel2: Nat) (argument: b) (state: Parse.State t) => state.at.left = state.at.rest.length
-      → state.at.left < fuel1
-      → fuel1 ≤ fuel2
-      → Parse.runFrom state (() => Parse.recursiveWithFuel fuel2 body argument)
-        = Parse.runFrom state (() => Parse.recursiveWithFuel fuel1 body argument)
-  | Zero, fuel2, argument, state, honest, enough, atLeast => Void.impossible (arithmetic [enough])
-  | Succ more1, Zero, argument, state, honest, enough, atLeast => Void.impossible (arithmetic [atLeast])
-  | Succ more1, Succ more2, argument, state, honest, enough, atLeast =>
-    reads
-      (inner => Parse.recursiveWithFuel more2 body inner)
-      (inner => Parse.recursiveWithFuel more1 body inner)
-      argument
-      state
-      honest
-      (inner later laterHonest fewer =>
-        Parse.recursiveWithFuelEnough body reads more1 more2 inner later laterHonest
-          (arithmetic [enough, fewer])
-          (arithmetic [atLeast]))
+    (reads: Parse.ReadsBeforeCalls body)
+    (fuel1 fuel2: Nat) (argument: b) (state: Parse.State t)
+    (honest: state.at.left = state.at.rest.length)
+    (enough: state.at.left < fuel1)
+    (atLeast: fuel1 ≤ fuel2):
+    Parse.runFrom state (() => Parse.recursiveWithFuel fuel2 body argument)
+      = Parse.runFrom state (() => Parse.recursiveWithFuel fuel1 body argument) :=
+  match fuel1, fuel2 with
+    | Succ more1, Succ more2 =>
+      reads
+        (inner => Parse.recursiveWithFuel more2 body inner)
+        (inner => Parse.recursiveWithFuel more1 body inner)
+        argument
+        state
+        honest
+        (inner later laterHonest fewer =>
+          Parse.recursiveWithFuelEnough body reads more1 more2 inner later laterHonest
+            (arithmetic [enough, fewer])
+            (arithmetic [atLeast]))
 
 --| `recursiveWith` itself, whose fuel is the items left and one more, gives
 --| what any larger fuel gives, for a body that reads before each call.
@@ -1905,27 +1913,27 @@ theorem Parse.readsBeforeCallsThen ∀ (reader: b → {Parse t} c) (finish: (b �
 --| left. The `moves` of [`Parse.readsBeforeCallsThen`].
 theorem Parse.movesOfReads ∀ (reader: b → {Parse t} c) (spec: b → List t → c → Prop)
     (reads: ∀ (argument: b) => Parse.Reads (() => reader argument) (spec argument))
-    (nonEmpty: ∀ (argument: b) (read: List t) (value: c) => spec argument read value → read ≠ []):
-    ∀ (argument: b) (state: Parse.State t) (value: c) (after: Parse.State t) => state.at.left = state.at.rest.length
-      → Parse.runFrom state (() => (reader argument, Parse.mark())) = Ok (value, after.at)
-      → after.at.left = after.at.rest.length ∧ after.at.left < state.at.left :=
-  argument state value after honest ran =>
-    match reads argument state.at
-      { holds = Trivial }
-      (state.at.offset + state.at.left)
-      state
-      value
-      after.at
-      byComputing
-      (Parse.honestOf honest)
-      ran with
-      | Witness read (Both starts (Both afterHonest holds)) =>
-        let lengths: state.at.rest.length = read.length + after.at.rest.length :=
-          rewrite starts then List.lengthAppend read after.at.rest
-        match read with
-          | [] => (nonEmpty argument [] value holds byComputing).impossible
-          | [char, ..more] =>
-            Both afterHonest.left (arithmetic [lengths, honest, afterHonest.left, List.lengthAppend more after.at.rest])
+    (nonEmpty: ∀ (argument: b) (read: List t) (value: c) => spec argument read value → read ≠ [])
+    (argument: b) (state: Parse.State t) (value: c) (after: Parse.State t)
+    (honest: state.at.left = state.at.rest.length)
+    (ran: Parse.runFrom state (() => (reader argument, Parse.mark())) = Ok (value, after.at)):
+    after.at.left = after.at.rest.length ∧ after.at.left < state.at.left :=
+  match reads argument state.at
+    { holds = Trivial }
+    (state.at.offset + state.at.left)
+    state
+    value
+    after.at
+    byComputing
+    (Parse.honestOf honest)
+    ran with
+    | Witness read (Both starts (Both afterHonest holds)) =>
+      let lengths: state.at.rest.length = read.length + after.at.rest.length :=
+        rewrite starts then List.lengthAppend read after.at.rest
+      match read with
+        | [] => (nonEmpty argument [] value holds byComputing).impossible
+        | [char, ..more] =>
+          Both afterHonest.left (arithmetic [lengths, honest, afterHonest.left, List.lengthAppend more after.at.rest])
 
 --| More fuel gives `loopFrom` the same result: for a `step` that
 --| [`Parse.Reads`] something (which keeps the marks honest, so that a round
@@ -1937,48 +1945,48 @@ theorem Parse.movesOfReads ∀ (reader: b → {Parse t} c) (spec: b → List t �
 -- same decision, to stop or to go on from a mark with fewer items left,
 -- where the fuel left is still more than that.
 theorem Parse.loopFromEnough ∀ [spec: List t → Option a → Prop] (step: () → {Parse t} Option a)
-    (reads: Parse.Reads step spec):
-    ∀ (fuel1 fuel2: Nat) (found: List a) (state: Parse.State t) => state.at.left = state.at.rest.length
-      → state.at.left < fuel1
-      → fuel1 ≤ fuel2
-      → Parse.runFrom state (() => Parse.loopFrom fuel2 step found state.at)
-        = Parse.runFrom state (() => Parse.loopFrom fuel1 step found state.at)
-  | Zero, fuel2, found, state, honest, enough, atLeast => Void.impossible (arithmetic [enough])
-  | Succ more1, Zero, found, state, honest, enough, atLeast => Void.impossible (arithmetic [atLeast])
-  | Succ more1, Succ more2, found, state, honest, enough, atLeast =>
-    Parse.runFromThenCongr1 step state
-      (result => Parse.loopRound more2 step found state.at result)
-      (result => Parse.loopRound more1 step found state.at result)
-      (v after ran =>
-        match reads state.at
-          { holds = Trivial }
-          (state.at.offset + state.at.left)
-          state
-          v
-          after.at
-          byComputing
-          (Parse.honestOf honest)
-          ran with
-          | Witness read (Both starts (Both afterHonest holds)) =>
-            match v with
-              | None => byComputing
-              | Some x =>
-                let moved := Parse.honestMoved (Parse.honestOf honest) afterHonest starts
-                let lengths: state.at.rest.length = read.length + after.at.rest.length :=
-                  rewrite starts then List.lengthAppend read after.at.rest
-                match isMore: after.at.offset > state.at.offset with
-                  | True =>
-                    let fewer: after.at.left < state.at.left := match read with
-                      | [] => Void.impossible (arithmetic [isMore, moved])
-                      | [char, ..others] =>
-                        arithmetic [lengths, honest, afterHonest.left, List.lengthAppend others after.at.rest]
-                    Parse.loopFromEnough step reads more1 more2
-                      [x, ..found]
-                      after
-                      afterHonest.left
-                      (arithmetic [enough, fewer])
-                      (arithmetic [atLeast])
-                  | False => byComputing)
+    (reads: Parse.Reads step spec)
+    (fuel1 fuel2: Nat) (found: List a) (state: Parse.State t)
+    (honest: state.at.left = state.at.rest.length)
+    (enough: state.at.left < fuel1)
+    (atLeast: fuel1 ≤ fuel2):
+    Parse.runFrom state (() => Parse.loopFrom fuel2 step found state.at)
+      = Parse.runFrom state (() => Parse.loopFrom fuel1 step found state.at) :=
+  match fuel1, fuel2 with
+    | Succ more1, Succ more2 =>
+      Parse.runFromThenCongr1 step state
+        (result => Parse.loopRound more2 step found state.at result)
+        (result => Parse.loopRound more1 step found state.at result)
+        (v after ran =>
+          match reads state.at
+            { holds = Trivial }
+            (state.at.offset + state.at.left)
+            state
+            v
+            after.at
+            byComputing
+            (Parse.honestOf honest)
+            ran with
+            | Witness read (Both starts (Both afterHonest holds)) =>
+              match v with
+                | None => byComputing
+                | Some x =>
+                  let moved := Parse.honestMoved (Parse.honestOf honest) afterHonest starts
+                  let lengths: state.at.rest.length = read.length + after.at.rest.length :=
+                    rewrite starts then List.lengthAppend read after.at.rest
+                  match isMore: after.at.offset > state.at.offset with
+                    | True =>
+                      let fewer: after.at.left < state.at.left := match read with
+                        | [] => Void.impossible (arithmetic [isMore, moved])
+                        | [char, ..others] =>
+                          arithmetic [lengths, honest, afterHonest.left, List.lengthAppend others after.at.rest]
+                      Parse.loopFromEnough step reads more1 more2
+                        [x, ..found]
+                        after
+                        afterHonest.left
+                        (arithmetic [enough, fewer])
+                        (arithmetic [atLeast])
+                    | False => byComputing)
 
 --| `loop` itself, whose fuel is the items left and one more, gives what any
 --| larger fuel gives, for a `step` that [`Parse.Reads`] something.

@@ -299,7 +299,7 @@ theorem List.dropAppendLength ∀ (xs ys: List a) (k: Nat)
 theorem List.takeDropAppend ∀ (xs before middle after: List a)
     (made: xs = before ++ (middle ++ after)):
     (xs.drop before.length).take middle.length = middle :=
-  rewrite made then rewrite List.dropAppend before (middle ++ after) then List.takeAppend middle after
+  rewrite made, List.dropAppend before (middle ++ after) then List.takeAppend middle after
 
 theorem List.headTake ∀ (xs: List a) (d: a) (k: Nat) (h: 1 ≤ k): List.headOr (List.take xs k) d = List.headOr xs d :=
   match xs, k with | [] | [_, .._], Succ _ => byComputing

@@ -1167,7 +1167,7 @@ theorem Parse.readsLoopFrom ∀ [inv: Parse.Invariant t] (step: () → {Parse t}
                     | Witness read2 (Both starts2 (Both honestAfter (Both none same))) =>
                       Witness read1
                         (Both
-                          (rewrite starts1, starts2, none then byComputing)
+                          (rewrite starts1, starts2, none)
                           (Both honestAfter
                             (Witness [] (Both (rewrite same, List.appendNil (List.reverse found)) holds1))))
                 | Some x, holds1, rest =>

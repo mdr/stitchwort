@@ -290,7 +290,10 @@ theorem sumOverGrid ∀ (region: Region)
             (totalRange (Succ last) (column => f row column)))
     _ = total (Succ last) (row => total (Succ last) (column => f row column)) :=
       totalRange (Succ last) (row => total (Succ last) (column => f row column))
-  Eq.trans (Eq.flipped (List.sumByPerm kept region.plots same term)) (Eq.trans filtered bySquare)
+  calc region.plots.sumBy term
+    _ = kept.sumBy term := Eq.flipped (List.sumByPerm kept region.plots same term)
+    _ = (square last).sumBy term := filtered
+    _ = total (Succ last) (row => total (Succ last) (column => f row column)) := bySquare
 
 --| The program's count of a region's corners is the spec's count of its
 --| sides.
@@ -327,4 +330,8 @@ theorem sidesCorrect ∀ (garden: Garden) (start: Position) (plant: Char)
         (plot => match plot with | { row, column } => specSidesCell region row column))
       (sumOverGrid region distinct last within (row column => starts inside row column) (row column outside =>
         rewrite outside))
-  Eq.trans programSide (Eq.trans (cornersEqualSides inside last right bottom) specSide.flipped)
+  calc region.sides garden
+    _ = total (Succ last) (row => total (Succ last) (column => corners inside row column)) := programSide
+    _ = total (Succ last) (row => total (Succ last) (column => starts inside row column)) :=
+      cornersEqualSides inside last right bottom
+    _ = sides region := specSide.flipped
