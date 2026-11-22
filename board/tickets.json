@@ -1,5 +1,5 @@
 {
-  "next": 4628,
+  "next": 4629,
   "tickets": [
     {
       "id": 47,
@@ -32377,15 +32377,18 @@
     {
       "id": 4615,
       "title": "[Sonnet] Speed up std's Parse.runFrom...Tree lemmas, 0.7-1.5 s each in every cold std check (SW-4608 win 7)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Progress (Sonnet lane): profiled std Parse; the top lemmas spend 70% of steps on read-backs of the unfolded labelWholeFrom handler; lifting leaves into step lemmas costs as much as it saves (14.4M -> ~13.6M est.). Dropped, no code change; see docs/performance/log.md SW-4615.\n",
+      "body": "Progress (Sonnet lane): profiled std Parse; the top lemmas spend 70% of steps on read-backs of the unfolded labelWholeFrom handler; lifting leaves into step lemmas costs as much as it saves (14.4M -> ~13.6M est.). Dropped, no code change; see docs/performance/log.md SW-4615.\n\n\nStarted 22 Nov 13:05 on Sonnet (orchestrator's call). Expected: 30 min. Model result: Sonnet, worked (a negative result, logged; no std change), 6 min (est. 30). Restored this line: the lane replaced the body instead of appending.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "632dca197da7263b362b665bc965e168f27e1203",
+        "fab3755f4eca6f668bac305682166910771ced5d"
+      ]
     },
     {
       "id": 4616,
@@ -32501,7 +32504,7 @@
     {
       "id": 4624,
       "title": "[Opus] Core cache option D: test sweeps keep one session per thread, rewound to just after the core before each example (~0.1 s an example, estimated); reset the per-program state rewind keeps (failed_decls, broken_tests, expansions, walks, facts, stats, standalone_inputs...), and a test running the same examples in two orders against fresh sessions (docs/proposals/core-cache.md)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -32545,6 +32548,19 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4628,
+      "title": "[Opus] Redesign std Parse's reify-based lemmas so the handler never unfolds: keep q abstract with q () = op ≫ r as an equation instead of match reify q, and prove per-effect unfolding equations of labelWholeFrom once (about 13 lemma families in Reads.sw and Runs.sw; the slowest, runFromLabelWholeFromOkTree, is 14.4M steps, 10.2M of them read-back); design first; statements unchanged (SW-4615 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
