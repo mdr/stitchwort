@@ -123,7 +123,7 @@ fn big_readback() -> Option<u64> {
 /// Whether [`Budget::note_readback`] reports, so the elaborator computes the
 /// current declaration's name only when something will use it.
 pub fn report_big_readbacks() -> bool {
-    big_readback().is_some()
+    big_readback().is_some() || crate::unfold_counts::on()
 }
 
 thread_local! {
@@ -132,6 +132,11 @@ thread_local! {
     /// declaration (an expression typed in, say), and then the report leaves
     /// the declaration out.
     static CURRENT_DECLARATION: RefCell<Option<String>> = const { RefCell::new(None) };
+}
+
+/// Calls `f` with the declaration being elaborated, if one is set.
+pub fn with_current_declaration<T>(f: impl FnOnce(Option<&str>) -> T) -> T {
+    CURRENT_DECLARATION.with(|d| f(d.borrow().as_deref()))
 }
 
 /// Sets the declaration `STITCHWORT_BIG_READBACK` reports inside, returning

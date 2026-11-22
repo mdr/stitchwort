@@ -19,6 +19,7 @@ use crate::nat_add::Unread;
 use crate::native;
 use crate::registry::Builtin;
 use crate::term::{Branch, DataId, DefId, Icit, Name, QuotForm, Sort, Term};
+use crate::unfold_counts::{self, Site};
 
 #[derive(Clone, Debug)]
 pub enum Value {
@@ -990,6 +991,7 @@ pub fn unfold_once(g: &Ev, id: DefId, spine: Spine) -> Result<Value> {
             other => Ok(project(d, i, force(g, other)?)),
         };
     }
+    unfold_counts::record(g, id, Site::Once);
     let start = unfold_now(g, id, spine, false)?;
     run(g, start)
 }
@@ -1377,7 +1379,7 @@ fn apply_field(
     icit: Icit,
 ) -> Result<Control> {
     if computes_field(g, &f) {
-        return unfold_field_for(g, stack, f, FieldUse::App(arg, icit));
+        return unfold_field_for(g, stack, f, FieldUse::App(arg, icit), Site::FieldApply);
     }
     let Value::Neutral(Head::Def(id), mut spine) = f else {
         unreachable!("checked by the caller")
@@ -1933,9 +1935,13 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             Control::Force(value)
         }
         // A folded call is taken apart: it unfolds.
-        Frame::LiftForced { term, env, stuck } if folded_call(g, &value) => {
-            unfold_for(g, stack, value, Frame::LiftReady { term, env, stuck })?
-        }
+        Frame::LiftForced { term, env, stuck } if folded_call(g, &value) => unfold_for(
+            g,
+            stack,
+            value,
+            Frame::LiftReady { term, env, stuck },
+            Site::Lift,
+        )?,
         Frame::LiftForced { term, env, stuck } | Frame::LiftReady { term, env, stuck } => {
             let Term::Quot(_, args, _) = &*term else {
                 unreachable!("a `LiftForced` frame is for `Quot.lift`")
@@ -2017,11 +2023,11 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
         // A folded call is taken apart: it unfolds (in this machine, so a
         // proof made of many folded steps needs no Rust stack).
         Frame::JForced { term, env } if folded_call(g, &value) => {
-            unfold_for(g, stack, value, Frame::JReady { term, env })?
+            unfold_for(g, stack, value, Frame::JReady { term, env }, Site::J)?
         }
         // So is a stuck field of a call, as when it's applied ([`apply_field`]).
         Frame::JForced { term, env } if computes_field(g, &value) => {
-            unfold_field_for(g, stack, value, FieldUse::J { term, env })?
+            unfold_field_for(g, stack, value, FieldUse::J { term, env }, Site::J)?
         }
         Frame::JForced { term, env } | Frame::JReady { term, env } => {
             let Term::J(motive, base, _) = &*term else {
@@ -2065,7 +2071,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             } else {
                 Frame::ProjReady(d, i)
             };
-            unfold_for(g, stack, value, next)?
+            unfold_for(g, stack, value, next, Site::Project)?
         }
         Frame::FoldedField(field) => {
             let (d, i, named) = *field;
@@ -2094,6 +2100,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                     spine,
                     unfolded: true,
                 })),
+                Site::Project,
             )?
         }
         Frame::CallField(field) => {
@@ -2148,9 +2155,13 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             Control::Return(Value::Neutral(head, spine))
         }
         // A folded call is taken apart: it unfolds.
-        Frame::Scrutinee { tree, env, stuck } if folded_call(g, &value) => {
-            unfold_for(g, stack, value, Frame::ScrutineeReady { tree, env, stuck })?
-        }
+        Frame::Scrutinee { tree, env, stuck } if folded_call(g, &value) => unfold_for(
+            g,
+            stack,
+            value,
+            Frame::ScrutineeReady { tree, env, stuck },
+            Site::Case,
+        )?,
         Frame::Scrutinee { tree, env, stuck } | Frame::ScrutineeReady { tree, env, stuck } => {
             branch(g, tree, env, stuck, value)?
         }
@@ -2161,7 +2172,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                 Value::Neutral(Head::Def(i2), s2) if *i2 == id && s2.ptr_eq(&spine) => {
                     resume(g, next, value, stack)?
                 }
-                _ if folded_call(g, &value) => unfold_for(g, stack, value, next)?,
+                _ if folded_call(g, &value) => unfold_for(g, stack, value, next, Site::Chain)?,
                 // A glued call (a `decreasing` definition's fuelled helper)
                 // or a solved metavariable is forced, and what it computes
                 // to looked at again: it may
@@ -2306,7 +2317,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             // What it unfolds to may be a glued call (a `decreasing`
             // definition's fuelled helper), which a projection can't take
             // apart unforced.
-            let unfolded = match unfold_folded(g, &value)? {
+            let unfolded = match unfold_folded_at(g, &value, Site::Replay)? {
                 Some(unfolded) => Some(force(g, unfolded)?),
                 None => None,
             };
@@ -2889,10 +2900,17 @@ pub fn body_seen<'a>(g: &Ev<'a>, id: DefId) -> Option<&'a Rc<Term>> {
 /// Folded call `value` ([`is_folded`]) is taken apart by the frame `next`:
 /// its case tree runs in this machine, and `next` gets the result
 /// ([`Frame::Unfolding`]).
-fn unfold_for(g: &Ev, stack: &mut Vec<Frame>, value: Value, next: Frame) -> Result<Control> {
+fn unfold_for(
+    g: &Ev,
+    stack: &mut Vec<Frame>,
+    value: Value,
+    next: Frame,
+    site: Site,
+) -> Result<Control> {
     let Value::Neutral(Head::Def(id), spine) = value else {
         unreachable!("checked by is_folded")
     };
+    unfold_counts::record(g, id, site);
     let def = g.def(id);
     let body = def.body.as_ref().expect("checked by is_folded");
     let (args, call, _) = folded_parts(g, id, &spine);
@@ -2935,10 +2953,12 @@ fn unfold_field_for(
     stack: &mut Vec<Frame>,
     value: Value,
     then: FieldUse,
+    site: Site,
 ) -> Result<Control> {
     let Value::Neutral(Head::Def(id), spine) = value else {
         unreachable!("checked by is_folded")
     };
+    unfold_counts::record(g, id, site);
     let def = g.def(id);
     let body = def.body.as_ref().expect("checked by is_folded");
     let (args, call, _) = folded_parts(g, id, &spine);
@@ -3057,6 +3077,12 @@ pub(crate) fn has_lift_leaf(tree: &Term) -> bool {
 /// comparing it with something that isn't the same call, sees. `None` if
 /// `value` isn't one, or its case tree is stuck.
 pub fn unfold_folded(g: &Ev, value: &Value) -> Result<Option<Value>> {
+    unfold_folded_at(g, value, Site::Other)
+}
+
+/// [`unfold_folded`], counting its unfoldings at `site`
+/// (`STITCHWORT_THEOREM_UNFOLDS`).
+pub fn unfold_folded_at(g: &Ev, value: &Value, site: Site) -> Result<Option<Value>> {
     let mut current: Option<Value> = None;
     loop {
         let v = current.as_ref().unwrap_or(value);
@@ -3067,6 +3093,7 @@ pub fn unfold_folded(g: &Ev, value: &Value) -> Result<Option<Value>> {
             unreachable!()
         };
         let id = *id;
+        unfold_counts::record(g, id, site);
         let def = g.def(id);
         let body = def.body.as_ref().expect("checked by is_folded");
         let (args, call, fields) = folded_parts(g, id, spine);
@@ -3095,7 +3122,7 @@ pub fn unfold_folded(g: &Ev, value: &Value) -> Result<Option<Value>> {
         // A field of the call: the fields of its unfolding.
         for (d, i) in fields {
             let base = force(g, next)?;
-            let base = match unfold_folded(g, &base)? {
+            let base = match unfold_folded_at(g, &base, Site::Field)? {
                 Some(unfolded) => force(g, unfolded)?,
                 None => base,
             };
@@ -3119,6 +3146,11 @@ pub fn unfold_folded(g: &Ev, value: &Value) -> Result<Option<Value>> {
 /// its arguments is such a value there too, compared by delta and then the
 /// eliminations after it, as docs/core.md's equality rule asks.
 pub fn unfold_folded_head(g: &Ev, value: &Value) -> Result<Option<Value>> {
+    unfold_folded_head_at(g, value, Site::OverApplied)
+}
+
+/// [`unfold_folded_head`], counting at `site`.
+pub fn unfold_folded_head_at(g: &Ev, value: &Value, site: Site) -> Result<Option<Value>> {
     if !unfolds_head(g, value) {
         return Ok(None);
     }
@@ -3130,7 +3162,7 @@ pub fn unfold_folded_head(g: &Ev, value: &Value) -> Result<Option<Value>> {
     if !folded_call(g, &call) {
         return Ok(None);
     }
-    let Some(unfolded) = unfold_folded(g, &call)? else {
+    let Some(unfolded) = unfold_folded_at(g, &call, site)? else {
         return Ok(None);
     };
     let rest: Spine = spine[arity..].iter().cloned().collect();
@@ -4229,7 +4261,7 @@ fn conv_step(
         from = Stage::Unfold;
     }
     if from == Stage::Unfold {
-        let unfold = |v: &Value| match unfold_folded(g, v)? {
+        let unfold = |v: &Value| match unfold_folded_at(g, v, Site::Conversion)? {
             Some(u) => Ok(Some(u)),
             None => unfold_folded_head(g, v),
         };
@@ -4269,7 +4301,7 @@ fn conv_step(
             Ok(true)
         };
         let assign = |x: &Value, rest: &Value| {
-            let x = match unfold_folded(g, x)? {
+            let x = match unfold_folded_at(g, x, Site::Conversion)? {
                 Some(x) => Some(x),
                 None => match unfold_folded_head(g, x)? {
                     Some(x) => Some(x),
@@ -4877,7 +4909,7 @@ fn tree_scrutinee(g: &Ev, value: Value) -> Result<Value> {
     let mut value = force(g, value)?;
     while folded_call(g, &value) {
         g.machine.budget.step()?;
-        match unfold_folded(g, &value)? {
+        match unfold_folded_at(g, &value, Site::TreeCase)? {
             Some(next) => value = force(g, next)?,
             None => break,
         }

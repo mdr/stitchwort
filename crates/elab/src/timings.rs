@@ -469,6 +469,9 @@ pub fn report() {
     if let Some(metrics) = stitchwort_core::env_metrics::report() {
         out.push_str(&metrics);
     }
+    if let Some(unfolds) = stitchwort_core::unfold_counts::report() {
+        out.push_str(&unfolds);
+    }
     // Standard error is unbuffered: one write for the whole tables, then one
     // flush, rather than an `eprintln!` (and often several writes) a row.
     let stderr = std::io::stderr();
