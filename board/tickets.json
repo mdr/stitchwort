@@ -31723,7 +31723,7 @@
     {
       "id": 4568,
       "title": "[Sonnet] All tier 22 Nov (D3712): check cache and corpus-wide: server check_cache::a_library_edit_re_checks_what_it_can_change_and_nothing_else (everything re-elaborated after a name is added), check_cache::the_index_is_the_same_from_the_cache_for_aoc (Day16 runsNotes over 250M steps); timeouts at 20 min: projects check_cache::the_cache_changes_nothing_for_the_examples, rewind::rewinding_changes_nothing_for_the_examples, rewind::emptying_the_caches_changes_nothing_for_the_examples, library fmt_hashes::formatting_changes_no_declaration_hash; proofs differential (90 too big to compare, at most 60). Fix; rerun only these",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
