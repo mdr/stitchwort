@@ -2,7 +2,6 @@
 //! (docs/proposals/negative-arguments.md §4.2, "Hashes"): `f -2` and
 //! `f (-2)` have the same hash, and so do `-1.abs` and `(-1).abs`.
 
-use stitchwort_core::DefId;
 use stitchwort_core::hash::def_hash;
 use stitchwort_driver::driver::Session;
 
@@ -39,13 +38,10 @@ fn a_negative_argument_has_the_hash_of_its_bracketed_form() {
         .machine
         .budget
         .operation(stitchwort_core::Limits::default());
+    // By the program's own name: a suffix of a path would also find a
+    // library definition (`Std.Doc.Places.floored`).
     let hash = |name: &str| {
-        let id = (0..g.env.defs().len())
-            .map(DefId)
-            .find(|d| {
-                g.def(*d).path().ends_with(&format!(".{name}")) || &**g.def(*d).path() == name
-            })
-            .unwrap_or_else(|| panic!("no `{name}`"));
+        let id = (session.elab.lookup_def(name)).unwrap_or_else(|| panic!("no `{name}`"));
         def_hash(g, id).unwrap().unwrap().hex()
     };
     for (written, bracketed) in [
