@@ -31907,7 +31907,7 @@
     {
       "id": 4582,
       "title": "[Opus] Performance: AoC 2020 day 16's runsNotes elaborates its innermost Parse.runsBind about 191 times through nested in-place argument trials (SW-4580), a factor that grows with nesting depth; profile and find whether nested trials can share or skip work; measure runsNotes' steps (40.3M now) before and after",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
