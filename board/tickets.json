@@ -1,5 +1,5 @@
 {
-  "next": 4621,
+  "next": 4624,
   "tickets": [
     {
       "id": 47,
@@ -32073,7 +32073,7 @@
     {
       "id": 4593,
       "title": "[Opus] Every file that imports Std.Parse pays about 80-100M steps checking Parse's lemmas on import (SW-4587: 43 new examples cost 3.58G between them). Measure where the steps go for one such example (e.g. a reads-* or walk-* example), and propose (note first) how to avoid re-checking library lemmas per program: check cache for std in the bench and examples, or on-demand checking; performance-log entry",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -32081,7 +32081,10 @@
       "body": "\n\nStarted 22 Nov on Opus (orchestrator's call, proof-checking speed). Expected: 40 min.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "2bbea6f892acb6d93b768aec5a92df6682507513",
+        "af843b53add073718501ee48b24bf04c83cbee41"
+      ]
     },
     {
       "id": 4594,
@@ -32444,6 +32447,45 @@
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4621,
+      "title": "[Sonnet] Split the examples benchmark: a std benchmark that checks the library once, and examples reading std from a cache filled before timing (est. 16.5G to ~3.5G steps, 232 s to ~50 s); fix programs.rs saying it works as the example suite does; baseline re-recorded on a quiet machine afterwards (SW-4593 recommendation 1)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4622,
+      "title": "[Sonnet] Measure what share of the CLI tests' --no-cache runs (100 call sites in 30 files) is library checking, before changing any (SW-4593 recommendation 2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4623,
+      "title": "[Opus paper] Design note: cache the elaborated core (every session elaborates it, ~0.1 s and 956K steps; the largest fixed cost of a small example once std is cached) (SW-4593 recommendation 3)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
