@@ -53,6 +53,17 @@ pub(crate) struct Floor {
 #[derive(Default)]
 pub(crate) struct Assumed(Cell<Option<Floor>>);
 
+impl Assumed {
+    /// The floor kept now, for putting back with [`Assumed::restore`].
+    pub(crate) fn saved(&self) -> Option<Floor> {
+        self.0.get()
+    }
+
+    pub(crate) fn restore(&self, floor: Option<Floor>) {
+        self.0.set(floor);
+    }
+}
+
 /// The budget for stating a goal, or comparing it with an earlier one's
 /// (which may compute: the two statements are compared by conversion): a
 /// goal that would take more falls back, without running out the

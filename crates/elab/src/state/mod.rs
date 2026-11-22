@@ -53,6 +53,7 @@ pub use options::Options;
 pub(crate) use owners::UnitId;
 pub(crate) use presentation::Mark as PresentationMark;
 pub use presentation::Presentation;
+pub(crate) use session::FreshMark as SessionFreshMark;
 pub(crate) use session::Mark as SessionMark;
 pub use session::Session;
 pub(crate) use session::Stats;

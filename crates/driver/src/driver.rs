@@ -118,6 +118,39 @@ pub fn par_map_labelled<T: Sync, R: Send>(
     )
 }
 
+/// [`par_map_labelled`], each item checked in a session made by `make`
+/// for `stack` as if new, but made once per worker thread and rewound to
+/// just after it was made before each item ([`Session::rewind_fresh`]):
+/// the core is elaborated once a thread, not once an item. A session whose
+/// item panicked is dropped ([`par_map_with`]), and the next item gets a
+/// new one.
+#[doc(hidden)]
+pub fn par_map_sessions<T: Sync, R: Send>(
+    stack: usize,
+    items: &[T],
+    label: impl Fn(&T) -> String + Sync,
+    make: impl Fn(usize) -> Session + Sync,
+    f: impl Fn(&mut Session, &T) -> R + Sync,
+) -> Vec<R> {
+    par_map_with(
+        stack,
+        items,
+        || None,
+        |kept: &mut Option<(Session, crate::rewind::FreshMark)>, item| {
+            let (session, mark) = kept.get_or_insert_with(|| {
+                let mut session = make(stack);
+                let mark = session.mark_fresh();
+                (session, mark)
+            });
+            session.rewind_fresh(mark);
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(session, item)))
+                .unwrap_or_else(|payload| {
+                    panic!("{} panicked: {}", label(item), panic_message(&*payload))
+                })
+        },
+    )
+}
+
 /// The text of a panic's payload.
 fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
     payload
