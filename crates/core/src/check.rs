@@ -2660,7 +2660,42 @@ pub fn declare_def(
         if theorem && sort != Sort::Prop {
             return Err(not_a_prop(&mut cx, name, &ty, span)?);
         }
-        push_def(g, name, path, ty, theorem, export, span)
+        let id = push_def(g, name, path, ty, theorem, export, span)?;
+        if theorem && seal_theorems() && !sealing_exception(path) {
+            g.env.defs_mut()[id.0].opaque = true;
+        }
+        Ok(id)
+    })
+}
+
+/// Whether `STITCHWORT_SEAL_THEOREMS=1`: a measurement switch (SW-4657,
+/// docs/proposals/sealed-theorems.md, stage 0) that declares every theorem
+/// opaque, as one with an `unfolding` clause already is, so no later
+/// declaration sees a proof. Not part of the language; use `--no-cache`, as
+/// cached results don't know about it.
+///
+/// Pinned declarations' hashes move with it, so their pins aren't checked
+/// ([`crate::pins`]).
+pub fn seal_theorems() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| std::env::var("STITCHWORT_SEAL_THEOREMS").is_ok_and(|v| v == "1"))
+}
+
+/// A theorem named in `STITCHWORT_SEAL_EXCEPT` (full names, separated by
+/// commas; one ending in `*` is a prefix) that the switch leaves
+/// transparent: the measurement's way of finding the set of theorems that
+/// would have to be.
+fn sealing_exception(path: &Name) -> bool {
+    static LIST: std::sync::OnceLock<Vec<String>> = std::sync::OnceLock::new();
+    let list = LIST.get_or_init(|| {
+        std::env::var("STITCHWORT_SEAL_EXCEPT")
+            .map(|v| v.split(',').map(|n| n.trim().to_string()).collect())
+            .unwrap_or_default()
+    });
+    let path = path.to_string();
+    list.iter().any(|n| match n.strip_suffix('*') {
+        Some(prefix) => path.starts_with(prefix),
+        None => *n == path,
     })
 }
 

@@ -533,3 +533,169 @@ are as it returned them, and the Isabelle manual was read as extracted text.
   shortcut-mode rules, not run); that every elaborator table reads statements only; what the
   unfoldings cost in steps or time; how the editor re-checks within a namespace.
 - Normalisation with rule K restricted in any way; I know of no result either way.
+
+## Stage 0 results (SW-4657, 22 Nov 2026)
+
+D3718 (Matt, 22 Nov 2026) asked for the no-commitment measurement first: what stops checking
+if every theorem is sealed. All numbers here are **[measured]** with the release binary of
+branch `lane/SW-4657`, `--no-cache`, `nice -n 19`, on Speedwell at load about 3.
+
+### The switch
+
+`STITCHWORT_SEAL_THEOREMS=1` declares every `theorem` opaque at `declare_def` (the same flag
+`mark_opaque` sets for a theorem with an `unfolding` list, so the kernel's existing mechanism
+does everything else: the theorem is checked as before, folded, and no later declaration
+unfolds it). Off by default, no behaviour change when unset. Things that needed care:
+
+- **Pins.** The opaque flag is hashed, so every pinned native's hash moves; with the switch on
+  the pin check (`pins::check`) is skipped. Nothing else about natives changes.
+- **Generated helpers.** The switch covers what the elaborator declares as theorems through
+  `declare_def` (the user's theorems, `.eq1`-style equations, `.induct`). Helpers that are
+  definitions (lifted `%match` helpers, instances) are not theorems and stay as they were.
+  Theorems that already had an `unfolding` list were opaque; the switch changes nothing for them.
+- **A theorem in an `unfolding` list.** With the switch on, such a name is now an opaque
+  declaration, so the check "must be opaque" passes. Not exercised: nothing in std,
+  `tools/fmt` or AoC lists a theorem.
+- **`STITCHWORT_SEAL_EXCEPT=Std.A,Std.B,Std.C.*`**: full names (a trailing `*` makes a
+  prefix) left transparent. It is how the transparent set below was found; the library's core
+  needs it (next section), since a prelude that doesn't check stops everything.
+- **Caches.** Cached results don't know about the switch: always `--no-cache`. The library
+  must come from source, so std is read from a directory (`--std-dir`, or
+  `STITCHWORT_STD_DIR`).
+
+Test: `crates/cli/tests/tools/seal_switch.rs` runs the probe
+[`sealed-theorems/switch.sw`](sealed-theorems/switch.sw): it checks with the switch off;
+with it on, `castComputes` is `E-REFL` and the sealed lemma used inside a proof
+(`useTrans`) still checks.
+
+### The result in one paragraph
+
+**Everything checks sealed except two proofs in std's core, and one declaration in
+`aoc/`'s shared proofs, and five accept examples.** `tools/fmt` (150 namespaces, 5,578
+theorems) and all of the rest of std (108 files) check with every theorem sealed: no failures.
+The `STITCHWORT_THEOREM_UNFOLDS` count on a namespace of `tools/fmt` (`Fmt.BlankProofs`) goes
+from 6,651 unfoldings to 0 with the switch on. The transparent set that makes std and
+`tools/fmt` check is **two theorems, `Eq.trans` and `Eq.flipped`**, needed by two
+declarations in std's core. Well under the note's "a few dozen" bar, and no spread through
+`Eq.*`: option C (seal first, opt-outs where needed) is cheap on this evidence.
+
+### How each was run
+
+| What | Command (from the folder given) | Result |
+|---|---|---|
+| std | any folder: `STITCHWORT_SEAL_THEOREMS=1 stitchwort check --std --no-cache --std-dir DIR Std` (DIR a copy of `crates/elab/src/std`, see below), 108 files | 0 failures |
+| `tools/fmt` | `tools/fmt`: `STITCHWORT_STD_DIR=DIR STITCHWORT_SEAL_THEOREMS=1 stitchwort check --no-cache`, 150 namespaces | 0 failures |
+| accept examples | `for f in examples/accept/*.sw`: `stitchwort check --no-cache --color never $f`, same variables, 688 files, two at a time (about 12 min) | 5 files fail |
+| AoC days | `aoc`: `check --no-cache Aoc.YearY.DayD Aoc.YearY.DayD.Proofs …​.Spec …​.Tests`, same variables, for Year2020.Day16, Year2024.Day06, Year2025.Day05 | 1 failing declaration, shared (below) |
+
+**The library copy.** With every theorem sealed, std's own prelude does not check (the
+two proofs below), and a prelude that fails stops the process. For the all-sealed runs, DIR is
+a copy of `crates/elab/src/std` in which the two failing proofs in `core/Decidable.sw` (lines
+236 and 271, both `symThenSelf`) are replaced by `?` (an open goal, which is a warning).
+That is the only edit, and it is what "everything else checks" in the table means. Without
+the copy, `STITCHWORT_SEAL_EXCEPT=Std.Eq.trans,Std.Eq.flipped` gives the same result, with
+those two theorems transparent.
+
+### What fails, by group
+
+**Group 1 (shape 3: two proofs compared directly): 2 declarations in std core.**
+`Decidable.symThenSelf` and `Bool.symThenSelf` (`std/core/Decidable.sw:236`, `:271`) prove
+`byComputing = Eq.trans q.flipped q` by `J` over `q`: the statement compares the proof
+`byComputing` with the proof `Eq.trans (Eq.flipped byComputing) byComputing`, so it needs both
+bodies. Sealing broke them via **`Eq.trans`** and **`Eq.flipped`** (each is needed by both). The fix is
+rule P (proof irrelevance: two proofs of one proposition are equal, which is what the
+statements say), or the two lemmas transparent (which is what the exception list does). The
+statements are about proofs themselves (the note's program 7), so a rewrite of the proof
+can't avoid it. Nothing else in `Eq.*` needs to be transparent.
+
+**Group 2 (shape 1: data cast along a proof, then computed): 3 accept examples.**
+
+| Example | Declaration | Sealed theorem that broke it |
+|---|---|---|
+| `examples/accept/omega-basics.sw:111` | `transportComputes`: `transport 7 42 = 42`, `transport` casts `n` along `(arithmetic: x * 3 = x + x + x)` | `Std.Omega.proveEq` (the proof built by `arithmetic`) |
+| `examples/accept/proof-irrelevance.sw:81` | `exposeComputes`: `J … (Prop.irrel Loop … l)` | the example's own `Prop.irrel` (a theorem by `piViaBox`) |
+| `examples/accept/proof-call-against-unfolding.sw:14,20,29` and one more (4 declarations: `computed`, `unified`, `overApplied`, the fourth after it) | a transport by `flipped n p` compared with the `J` it unfolds to | the example's own `flipped` / `viaCase` |
+
+Fix: rule K (the `J` over an equality whose ends already agree computes), or the lemma
+transparent. The last two are examples whose purpose is to test unfolding of theorems (their
+file names say so), so they would be rewritten or moved to a `transparent` form in stage 1.
+
+**Group 3 (shape 2: a match on a proof producing data): 2 theorems in 1 accept example.**
+`examples/accept/char-pattern-proofs.sw:67-68`: `firstIsA 'a' byComputing = byComputing` and
+`nextOfA 'a' byComputing = byComputing`: statements comparing a theorem's result *as a
+proof* with `byComputing`, computed through the theorem's `match` on `c`. Sealing broke them
+via `firstIsA` and `nextOfA` (the example's own theorems). Fix: rule P (both sides are
+proofs), or delete the two statements: they check "the transport computes away on a literal",
+which is a statement about a proof's body.
+
+**Group 4 (new): the elaborator refuses to generate `f.induct`: 1 accept example.**
+`examples/accept/and-guard-proof-in-induct.sw:47`: `climbBounded` uses `match induct (climb k n)`
+and gets `E-NO-INDUCT`: "its case `eq1` has no equation `climb.eq1`: its branch uses the guard's
+proof of a condition ... and the branch computes on it". The decision whether `.eq1` can be
+stated runs the branch's computation on the guard's proof; the cause is probably that the
+decrease proof `stepDown` (the theorem in `[decreasing := …]`) is sealed **[a guess: I did not
+trace it]**. Fix: probably not P, S or K as written; the generator should look at the
+statement of the proof, not its body (a stage 1 change), or the example gets
+`transparent theorem stepDown`.
+
+**Group 5 (new, unresolved): `rewrite` finds no occurrence: 1 declaration in `aoc/`'s shared
+proofs.** `Aoc.Common.Proofs.PrefixSums.atOf` (`aoc/src/Aoc/Common/Proofs/PrefixSums.sw:69`)
+fails with `E-REWRITE-NOTHING`: `rewrite List.getOrMap table r [] Map.byPosition` looks for
+`(table.map Map.byPosition).getOr r (Map.byPosition [])` and the goal has `Map.empty` in that
+place. Both sides compute to the same `Map`, so something in the comparison
+by computing depends on a theorem's body, probably a proof field of the map's record
+(`ordered` or `sized`), compared in the rewrite search where, unlike in the kernel's
+shortcut, proof fields are not skipped (the note's section 3.2 predicts this for the
+unifier, about 487 / 100 / 55 sites). It fails the same way in the other two days that import
+this namespace (Year2020.Day16 and Year2025.Day05: one declaration, counted once); Year2024.Day06 checks clean.
+**I did not find the theorem.** Making `Std.*` transparent fixes it, but none of these does:
+`Std.List.*`, `Std.Map.*`, `Std.Nat.*`, `Std.Eq.*`, `Std.Quot.*`, `Std.Bool.*`, the instance
+`Nat.instOrd`'s proof fields, `Aoc.*`, A-N or O-Z by first letter, a-z. So it takes theorems
+from at least two of those sets together (or one in a namespace not tried). Next step:
+bisect the exception list on `Aoc.Common.Proofs` (about 15 s a run).
+
+### The list of theorems that would have to be transparent
+
+For std, `tools/fmt` and the three days (apart from group 5): **`Std.Eq.trans` and `Std.Eq.flipped`**
+(together accounting for the 2 failures, the two `symThenSelf` proofs, the same shape; both
+disappear with rule P). In the
+accept examples: `Std.Omega.proveEq` (1 failure), and six of the examples' own theorems (`Prop.irrel`,
+`flipped`, `viaCase`, `firstIsA`, `nextOfA`, `stepDown` for group 4), which are each
+the point of their example. In AoC: unresolved (group 5).
+
+### Counts
+
+| Where | Checked | Failing declarations | Cause |
+|---|---|---|---|
+| std | 108 files | 2 (both core, `symThenSelf`) | group 1 |
+| `tools/fmt` | 150 namespaces | 0 | |
+| accept examples | 688 files | 5 files, 9 declarations (4 + 2 + 1 + 1 + 1; `omega-basics` 1, `proof-irrelevance` 1, `proof-call-against-unfolding` 4, `char-pattern-proofs` 2, `and-guard-proof-in-induct` 1) | groups 2, 3, 4 |
+| AoC Year2020.Day16, Year2024.Day06, Year2025.Day05 (top, `.Proofs`, `.Spec`, `.Tests`) | 3 days | 1 (shared, `Aoc.Common.Proofs.PrefixSums.atOf`; 0 in Day06) | group 5 |
+
+(Raw outputs are in the lane's scratchpad; the failures are small and listed above.)
+
+### Timing
+
+One run each, `nice -n 19`, load average 2.9 and 2.6 at the start of the runs: whole
+`tools/fmt` `check --no-cache`: **103.9 s** without the switch, **102.9 s** with it. So
+sealing alone does not speed checking up here, although it removed the unfoldings (6,651 to 0 on
+`Fmt.BlankProofs`): the unfoldings were not where `tools/fmt`'s time goes. Any gain is in what
+sealing allows next (interface hashes and the check cache, stages 2 and 3). The accept-examples loop is dominated by the
+prelude's start-up (about 1.7 s a file, with or without).
+
+### What this says about the stages
+
+- **Option C works.** Two transparent theorems suffice for the library and `tools/fmt`,
+  and every other failure is in an example whose purpose is theorem unfolding, or one
+  unresolved declaration in `aoc/`. Stage 1 (`transparent`, sealed by default) can start
+  without rules P, S or K.
+- **Rule P is the one that pays**: it removes both std failures and the char examples
+  (groups 1 and 3). Rule K would remove group 2 (three examples). Rule S removed
+  nothing: no failure was a `match` on a sealed proof producing data in std, `tools/fmt`
+  or the three days. **[measured, on three days of AoC]**
+- **A new item for stage 1:** the generator of `.eq1`/`.induct` (group 4) reads a theorem's
+  body, and `rewrite`'s search (group 5) may compare proof fields.
+- **How to run AoC and the roguelike**: from `aoc/` (or `games/rogue/`), with
+  `STITCHWORT_STD_DIR=DIR STITCHWORT_SEAL_THEOREMS=1`, `stitchwort check --no-cache`
+  (whole project), or the namespaces of a day as above. The roguelike is not run. Both projects' own failure lists
+  come from the declarations' errors: `grep '^\[E'`, and "N errors: in `a`, `b`" lines.

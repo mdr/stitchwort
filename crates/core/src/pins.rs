@@ -302,6 +302,9 @@ pub fn check_data(g: &Ev, d: DataId, b: Builtin) -> Result<(), Diagnostic> {
 }
 
 fn check(span: Span, b: Builtin, now: impl FnOnce() -> Option<String>) -> Result<(), Diagnostic> {
+    if crate::check::seal_theorems() {
+        return Ok(());
+    }
     let Some(pin) = pin(b) else {
         return Err(Diagnostic::error(
             "E-BUILTIN",
