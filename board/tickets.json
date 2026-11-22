@@ -1,5 +1,5 @@
 {
-  "next": 4642,
+  "next": 4643,
   "tickets": [
     {
       "id": 47,
@@ -32366,13 +32366,13 @@
     },
     {
       "id": 4614,
-      "title": "[Opus paper] Parallel checking research: survey how Lean 4, Rocq, Isabelle, Agda and others check in parallel (files, declarations, proof bodies), what makes it sound and deterministic, and how it could fit Stitchwort (namespace graph, proof bodies after statements, Rc values, check cache, hashes); a formal note with options and a first step (Matt, 22 Nov: research lane)",
+      "title": "[Fable paper] Parallel checking research: survey how Lean 4, Rocq, Isabelle, Agda and others check in parallel (files, declarations, proof bodies), what makes it sound and deterministic, and how it could fit Stitchwort (namespace graph, proof bodies after statements, Rc values, check cache, hashes); a formal note with options and a first step (Matt, 22 Nov: research lane)",
       "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "\n\nStarted 22 Nov 16:42 on Opus as a research paper lane (Matt: 'I think a research lane about parallel checking would be interesting ... survey the state of the art ... How might it fit Stitchwort?'). Expected: 75 min.\n",
+      "body": "\n\nStarted 22 Nov 16:42 on Opus as a research paper lane (Matt: 'I think a research lane about parallel checking would be interesting ... survey the state of the art ... How might it fit Stitchwort?'). Expected: 75 min.\n\n\nRestarted 22 Nov 16:46 on Fable at Matt's request (\"could you do the parallel checking research in a fable paper lane, please?\"); the Opus run was stopped after a few minutes. Expected: 75 min.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -32724,15 +32724,18 @@
     {
       "id": 4638,
       "title": "[Sonnet] atomHung regressed: 25.5M steps after SW-4619 (measured then), 53.9M on main before SW-4635 (measured by SW-4635); find which merge since (SW-4629 projections opaque? SW-4631?) and why, with step counts per commit; then decide (SW-4635 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "\n\nStarted 22 Nov on Sonnet (orchestrator's call, proof-checking speed). Expected: 30 min.\n\nSonnet lane: doubling is SW-4629 (25.5M to 53.9M, bisected); projection lets cost about half of atomHung on main (7.7M vs 3.8M all-match) but bigSplit 3.4K vs 324K; proposal: size-gated projections. See docs/performance/log.md. Model result: Sonnet, worked (measurement), ~60 min (est. 30).\n",
+      "body": "\n\nStarted 22 Nov on Sonnet (orchestrator's call, proof-checking speed). Expected: 30 min.\n\nSonnet lane: doubling is SW-4629 (25.5M to 53.9M, bisected); projection lets cost about half of atomHung on main (7.7M vs 3.8M all-match) but bigSplit 3.4K vs 324K; proposal: size-gated projections. See docs/performance/log.md. Model result: Sonnet, worked (measurement), ~60 min (est. 30).\n\n\nModel result: Sonnet, worked, 70 min (est. 30): two stop-and-report rounds; slow 4-minute measurement cycle.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "df1145c500b482e0940da0033fb01792f835a67b",
+        "8a6809a2c5af3aa32af16942e0dbb07ac017d0cc"
+      ]
     },
     {
       "id": 4639,
@@ -32769,6 +32772,19 @@
       "labels": [],
       "epic": "performance",
       "body": "\n\nStarted 22 Nov 16:40 on Opus (orchestrator's call: optimisation with results unchanged, D3447; kernel evaluator so Opus). Expected: 45 min.\n",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4642,
+      "title": "[Opus] Projection lets in proofs (SW-4629) cost atomHung 3.9M of its 7.7M steps (SW-4638): find why the hidden projection variables are generalised over and read back by later matches and rewrites (STITCHWORT_STEP_PHASES, STITCHWORT_BIG_READBACK on one let) and fix that in the elaborator so both atomHung and bigSplit stay cheap; a size gate on when to use projections only as a fallback",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
