@@ -32078,7 +32078,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nStarted 22 Nov on Opus (orchestrator's call, proof-checking speed). Expected: 40 min.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -32418,7 +32418,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nStarted 22 Nov on Opus (orchestrator's call, proof-checking speed). Expected: 45 min.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -32431,7 +32431,7 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nStarted 22 Nov on Sonnet (orchestrator's call, proof-checking speed). Expected: 30 min.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
