@@ -32351,7 +32351,7 @@
     {
       "id": 4613,
       "title": "[Opus] Measure spine copying and Value clones in value::run (allocation is 27-31% of every checking profile) and propose a cheaper spine; kernel evaluator, design note first, Fable review (SW-4608 win 5)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
