@@ -4502,11 +4502,20 @@ fn zonk_let(
     let v_now = v2.clone().unwrap_or_else(|| v.clone());
     let env: Vec<Value> = (0..level).map(Value::var).collect();
     let normals = cheaply(g, || value_forms(g, level, &eval(g, &env, &v_now)?));
-    let normals: Vec<Term> = normals
+    let mut normals: Vec<Term> = normals
         .unwrap_or_default()
         .into_iter()
         .filter(|n| worth_folding(g, n))
         .collect();
+    // A solution can hold the value as elaborated: an annotated lambda
+    // (`let check := r => 3 ∈ r.items`, `r`'s type found later), whose
+    // read-backs, the bare lambda, `type_fixed` doesn't fold. The
+    // annotation fixes its type as the `let`'s, so it folds as it is.
+    if matches!(v_now.strip_loc(), Term::Ann(..))
+        && !(normals.iter()).any(|n| stitchwort_core::value::same_term(n, &v_now))
+    {
+        normals.push(v_now.strip_loc().clone());
+    }
     let b2 = if normals.is_empty() {
         go(b, level + 1)?
     } else {
