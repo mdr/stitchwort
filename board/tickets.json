@@ -32156,12 +32156,12 @@
     {
       "id": 4601,
       "title": "[Sonnet] Bisect the +4.05M steps on examples/reject/rewrite-solution-too-large.sw's Main.big between 99b5d8b6f (12.17M, 20 Nov 20:36) and e87365f3f~1 (16.20M, 21 Nov 19:50), not 50848b226 or e87365f3f (SW-4594); about 8 builds in scratch worktrees; say deliberate or accident, fix a small accident with a step measure",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "\n\nLane note: bisected to ae70f673c (SW-4469 merge); its variable_as_written fast path spends 4.07M steps, returns Not, falls back (deliberate, message unchanged). Only a performance-log entry, commit e3295f1c6 on lane/SW-4601.\n",
+      "body": "Model result: Sonnet, worked (7 builds; hunk confirmed by patch), 10 min (est. 35)\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
