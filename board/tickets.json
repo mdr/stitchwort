@@ -31840,12 +31840,12 @@
     {
       "id": 4577,
       "title": "[DeepSeek] fmt fuzzer: FUZZ_DUMP is written after generate, so a panic while generating (in parses(), SW-4569) leaves the dump on the previous case; write the case before parsing or catch the panic and dump it; test with a forced panic",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "",
+      "body": "Model result: DeepSeek, worked (dump inside parses(), stand-in panic test), 9 min (est. 25)\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
