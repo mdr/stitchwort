@@ -1,5 +1,5 @@
 {
-  "next": 4657,
+  "next": 4659,
   "tickets": [
     {
       "id": 47,
@@ -33008,12 +33008,42 @@
     {
       "id": 4656,
       "title": "[Fable paper] Sealed theorems: design note on making theorems opaque by default (a proof's body never affects another proof; hashes, rechecking, parallel checking), the opt-out, and what replaces today's unfolding (SW-4645 counts); Matt's direction, 22 Nov",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nStarted 22 Nov 20:47 on Fable (paper; Matt asked for it after SW-4645, in series). Expected: 75 min.\n",
+      "body": "\n\nStarted 22 Nov 20:47 on Fable (paper; Matt asked for it after SW-4645, in series). Expected: 75 min.\n\n\nModel result: Fable, worked, 11 min (est. 75).\n",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": [
+        "ce9e28c8c",
+        "a74706ca6",
+        "15dd87af03caa1e26aeb84ed2f6d53767589a51c"
+      ]
+    },
+    {
+      "id": 4657,
+      "title": "[Sonnet] Sealed theorems stage 0 (docs/proposals/sealed-theorems.md): test-only switch STITCHWORT_SEAL_THEOREMS=1 that makes every theorem opaque (as a theorem with an unfolding list is), so a run over std, tools/fmt, AoC, the roguelike and the examples lists what stops checking and why; commits to nothing. Waits for Matt's D3718.",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4658,
+      "title": "[Opus] Open casts never compute: castTo n 5 = 5 fails for a variable n (sealed-theorems.md finding); user-visible gap independent of sealing: diagnose and propose",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
