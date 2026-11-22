@@ -32255,12 +32255,12 @@
     {
       "id": 4607,
       "title": "[Sonnet] Delete the toy formatter (tools/toyfmt, with Toy++ in tools/toyfmt/plus) and tools/fmt-sketch now the real formatter's slice 1 is proved (D3715, Matt, 22 Nov: 'yes, delete it. It'll still be in Git history if we need it'); move the build test onto tools/fmt; close or refile the toy tickets",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "\n\nStarted 22 Nov 11:14 on Sonnet (orchestrator's call: mechanical deletion and one test move). Expected: 20 min. Brief: delete tools/toyfmt (with Toy++) and tools/fmt-sketch, remove their pins and references, move build.rs's formatter test onto tools/fmt, propose close/refile for the 35 toy tickets.\n",
+      "body": "Started 22 Nov 11:14 on Sonnet (orchestrator's call: mechanical deletion and one test move). Expected: 20 min. Brief: delete tools/toyfmt (with Toy++) and tools/fmt-sketch, remove their pins and references, move build.rs's formatter test onto tools/fmt, propose close/refile for the 35 toy tickets.\n\n\nLane note (22 Nov 11:40): done on lane/SW-4607 (fe499e963): deleted; build test moved to Fmt.Twin.main (--stage text, --batch, exit codes; dropped --check/in-place/folder walk/width); passed.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
