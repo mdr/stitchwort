@@ -1,5 +1,5 @@
 {
-  "next": 4632,
+  "next": 4634,
   "tickets": [
     {
       "id": 47,
@@ -32511,7 +32511,7 @@
     {
       "id": 4624,
       "title": "[Opus] Core cache option D: test sweeps keep one session per thread, rewound to just after the core before each example (~0.1 s an example, estimated); reset the per-program state rewind keeps (failed_decls, broken_tests, expansions, walks, facts, stats, standalone_inputs...), and a test running the same examples in two orders against fresh sessions (docs/proposals/core-cache.md)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -32519,7 +32519,10 @@
       "body": "\n\nStarted 22 Nov 13:12 on Opus (orchestrator's call, core cache option D). Expected: 40 min.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "0c321929f1e1f1118b3b68fa249146e92d3864c7",
+        "cd6c3c4237d16d1e7b14eef43a8bae61d59b4f06"
+      ]
     },
     {
       "id": 4625,
@@ -32607,6 +32610,32 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4632,
+      "title": "[Sonnet] Session::load of a single file never clears broken_tests/failed_decls, so a host loading several files into one session sees stale broken tests in run_tests (the sweeps avoid it via rewind_fresh; the language server uses retain_broken_tests): clear or scope them per load, with a test (SW-4624 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4633,
+      "title": "[Sonnet] Move the project sweeps (accepted_projects_check, goal_projects_report_their_goals) and the missing-arms sweep onto par_map_sessions, handling skip_theorems and project namespaces (SW-4624 follow-up)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
