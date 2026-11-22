@@ -31550,14 +31550,14 @@
     {
       "id": 4555,
       "title": "[DeepSeek] Run tools/fmt/dev/check-glossary.sh in the quick tier (it caught 4 drifted line references within minutes of merging); rename the clashing Quiet and Kept definitions (each has unrelated definitions in two or more files; SW-4535) and rule1Drop/rule2Drop/rule3Drop in Syntax/SettleBareProofs.sw to the comment-placement step names",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-21",
-      "updated": "2026-11-21",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -32143,12 +32143,12 @@
     {
       "id": 4600,
       "title": "[Opus] Unfolded read-back of Float.Model.roundRatio on stuck arguments costs 100k-1.2M nodes, 240-560 MB and 5-9M steps per lemma in about 12 Std.Float.Theory lemmas (SW-4594: ofIntMonotone 448k nodes and +240 MB, roundGrid 1.22M, ofNatExact 1.14M, add/mul/divRelError ~0.88M). Find why match/rewrite positions read the goal back unfolded (a match x: e on an expression scrutinee does; on a Bool variable it doesn't: ofIntMonotone 9.28M to ~20k steps in a scratch rewrite) and fix at the source, results and messages unchanged; measure Float.Theory's peak and steps (check --std --no-cache with --std-dir) and examples/accept/float-playlist.sw; performance-log entry",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nProgress (lane, Opus, 22 Nov, commit 30d92c98e on lane/SW-4600): profiled with step counters and a backtrace on read-backs over 400k nodes. Four causes: check_motive read the as-given motive (the goal) unfolded and kernel-checked 448k nodes (7.65M steps of ofIntMonotone's 9.28M); the match as-written search unfolded a goal with no hit; blocker's unfolded type read-backs were read again by the generalisation (884k twice in add/mul/divRelError); rewrite's SW-4469 fast path was limited to hypotheses with a variable side, so roundGrid's rewrite n0 / rewrite r read the goal unfolded (1.22M) for nothing. All four fixed in crates/elab; hashes unchanged. Std.Float.Theory peak 565.7 to 409.4 MB, steps 110.9M to 90.0M; float-playlist peak 565.1 to 409.0 MB. Left: the usual occurrence test's own read (design), ofNatExact (rewrite by a lemma; extending the fast path to lemmas measured worse, not kept). Tests: test:example NAME=float,as-written,guard-refinement,match-lemma-hidden,rewrite-as-written (7 passed), test:hashes ALL=1 (12 passed), tools/fmt check --no-cache (150 namespaces, 0 errors). Perf-log entry added.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
