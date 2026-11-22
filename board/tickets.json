@@ -32117,7 +32117,7 @@
     {
       "id": 4598,
       "title": "[Sonnet] Step 0 of docs/proposals/queued-placeholders-take-lets.md (SW-4596): test its reading that a typed let lambda (let f: A -> B := x => ...) through a single queued match is pasted into the term rather than folded back (zonk_let folds the annotated form only when the let's value already was one), unlike SW-4588's untyped case; an example file and the kernel term (or hash comparison with the variable form) either way; no fix",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
