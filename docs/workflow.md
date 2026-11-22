@@ -451,7 +451,9 @@ New files must be `git add`ed first, since the flake only sees tracked
 files. Long runs (the broad tier, browser tests, builds) go in the
 background.
 
-Before committing, run `stitchwort fmt` on the `.sw` files you touched. The
+Before committing, run `stitchwort fmt` on the `.sw` files you touched. In a
+lane worktree the command is the worktree's own `target/release/stitchwort fmt
+<file>`, since `nix develop -c stitchwort` is not on the `PATH` there. The
 test `crates/cli/tests/tools/fmt.rs` fails, naming the files, if any tracked
 `.sw` file is not formatted. It skips `examples/reject`, `examples/soundness`,
 `examples/projects/reject`, `crates/fmt/tests/it/golden` and
