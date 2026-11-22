@@ -1,5 +1,5 @@
 {
-  "next": 4599,
+  "next": 4600,
   "tickets": [
     {
       "id": 47,
@@ -32123,6 +32123,19 @@
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "Lane note 22 Nov: reading confirmed for a typed let lambda through one queued match (pasted as Ann(Lam, Pi); untyped form folds to the variable). Deciding line: zonk_let, unify.rs:4540 (matches!(v_now.strip_loc(), Term::Ann(..)) is false for the typed let's bare lambda; normals empty, so go(b, level+1) at 4545 folds nothing). BUT a temporary two-line fix there makes (a) fold and leaves Float's beyond shape unchanged: the Inr arm's pasted Ann sits in a lifted helper that has no beyond let in scope at all. Examples let-typed-lambda-prop-match.sw, let-typed-lambda-nested-match.sw on lane/SW-4598 (82ca70de7).\n",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4599,
+      "title": "[Sonnet] tools/fmt: list versions over element types that don't recurse back (lineAll, plainAll, exprAll, notesSound, per SW-4563's note docs/proposals/fmt-list-functions-via-std.md) can be written as List.all / List.map today; rewrite them and their theorems through std's list lemmas where it saves lines, statements of top theorems unchanged; check the touched namespaces and dependents",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
