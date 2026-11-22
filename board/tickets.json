@@ -32287,12 +32287,12 @@
     {
       "id": 4609,
       "title": "[Sonnet] Name lifted match helpers in diagnostics without searching for every one: explain_lifted substring-searches each diagnostic for every helper lifted so far and re-sorts the list per diagnostic, 14% of the cold tools/fmt check (SW-4608 win 1); messages unchanged",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nLane note (22 Nov): explain_lifted returns early when no text has %match and no printed helper; user CPU -11% (Fmt.ElementsProofs) and -9% (Fmt.DeclHangProofs), measured; log entry added. Commit 93cf8e625.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
