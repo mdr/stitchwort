@@ -327,7 +327,7 @@ impl Elaborator {
 /// variable, by level, replaced by `f(level)`: a term in the target context.
 /// A case split's variable must be replaced by a variable.
 fn replace(g: &Ev, term: &Term, depth: usize, f: &dyn Fn(usize) -> Result<Term>) -> Result<Term> {
-    go_replace(g, term, depth, 0, f, &|_, _| None, &|_| Ok(None))
+    go_replace(g, term, depth, 0, f, &|_, _| None)
 }
 
 /// [`replace`], where `hook(t, binders)` may replace a whole sub-term `t` first.
@@ -338,7 +338,7 @@ pub(crate) fn replace_with(
     f: &dyn Fn(usize) -> Result<Term>,
     hook: &dyn Fn(&Term, usize) -> Option<Term>,
 ) -> Result<Term> {
-    go_replace(g, term, depth, 0, f, hook, &|_| Ok(None))
+    go_replace(g, term, depth, 0, f, hook)
 }
 
 /// [`replace_with`] on `term` found under `under` binders of its own, for a
@@ -351,23 +351,7 @@ pub(crate) fn replace_with_under(
     f: &dyn Fn(usize) -> Result<Term>,
     hook: &dyn Fn(&Term, usize) -> Option<Term>,
 ) -> Result<Term> {
-    go_replace(g, term, depth, under, f, hook, &|_| Ok(None))
-}
-
-/// [`replace`], where a variable applied to arguments, at a level that
-/// `head` gives a type for (a term in the target context), is replaced
-/// annotated with that type: for a variable whose replacement is a value
-/// the kernel infers no type for, such as a lambda, which applied would
-/// otherwise be a redex it can't check. Elsewhere such a value is checked,
-/// and needs no annotation.
-pub(crate) fn replace_annotating_heads(
-    g: &Ev,
-    term: &Term,
-    depth: usize,
-    f: &dyn Fn(usize) -> Result<Term>,
-    head: &dyn Fn(usize) -> Result<Option<Term>>,
-) -> Result<Term> {
-    go_replace(g, term, depth, 0, f, &|_, _| None, head)
+    go_replace(g, term, depth, under, f, hook)
 }
 
 fn go_replace(
@@ -377,16 +361,8 @@ fn go_replace(
     under: usize,
     f: &dyn Fn(usize) -> Result<Term>,
     hook: &dyn Fn(&Term, usize) -> Option<Term>,
-    head: &dyn Fn(usize) -> Result<Option<Term>>,
 ) -> Result<Term> {
-    Replace {
-        g,
-        depth,
-        f,
-        hook,
-        head,
-    }
-    .go(term, under)
+    Replace { g, depth, f, hook }.go(term, under)
 }
 
 /// What [`go_replace`] does at each sub-term. It recurses once per level of
@@ -401,7 +377,6 @@ struct Replace<'a> {
     depth: usize,
     f: &'a dyn Fn(usize) -> Result<Term>,
     hook: &'a dyn Fn(&Term, usize) -> Option<Term>,
-    head: &'a dyn Fn(usize) -> Result<Option<Term>>,
 }
 
 impl Replace<'_> {
@@ -481,17 +456,7 @@ impl Replace<'_> {
                 node = h;
                 continue;
             }
-            // A variable applied to arguments, which `head` may annotate.
-            break match h.strip_loc() {
-                Term::Var(ix) if *ix >= under => match (self.head)(self.level(*ix, under))? {
-                    Some(ty) => Term::Ann(
-                        Rc::new(self.var(*ix, under)?),
-                        Rc::new(ty.shift(self.g, under, 0)?),
-                    ),
-                    None => self.go(h, under)?,
-                },
-                _ => self.go(h, under)?,
-            };
+            break self.go(h, under)?;
         };
         let mut term = head;
         for (a, i) in args.into_iter().rev() {
@@ -1967,8 +1932,7 @@ mod tests {
     }
 
     /// Along a spine, the hook is offered each application, outermost
-    /// first, and what it gives replaces that part whole; a variable applied
-    /// at the head is annotated with the type `head` gives.
+    /// first, and what it gives replaces that part whole.
     #[test]
     fn replace_offers_each_application_of_a_spine_to_the_hook() {
         let kernel = stitchwort_core::Kernel::default();
@@ -1987,17 +1951,5 @@ mod tests {
         // The applications, outermost first, down to the one the hook
         // replaces.
         assert_eq!(offered.borrow()[..3], [4, 3, 2]);
-
-        let annotated = replace_annotating_heads(g, &spine(0, 3), 1, &to_prop, &|_| {
-            Ok(Some(Term::Sort(Sort::Type(0))))
-        })
-        .unwrap();
-        let (head, args) = annotated.spine();
-        assert!(
-            matches!(head, Term::Ann(e, t) if matches!(**e, Term::Sort(Sort::Prop))
-                && matches!(**t, Term::Sort(Sort::Type(0)))),
-            "{head:?}"
-        );
-        assert_eq!(args.len(), 3);
     }
 }

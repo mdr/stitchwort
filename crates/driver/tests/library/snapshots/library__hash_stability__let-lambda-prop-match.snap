@@ -1,0 +1,10 @@
+---
+source: crates/driver/tests/library/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.hasThree 1881fe9b3f38fd267eee93281ee71ecb654130dd4f0e692f14f38d70ec85f00e
+Main.hasThree.%match1 b578e5cc3b67003a32fd25b16a07f15b299bcc20e543866d180a399bac2ce3f1
+Main.hasThree.eq.true 25cdbb87f24f059cc1e1859402c3b1c26ceb3c4dcb41638f1c7f7c9158b41ef9
+Main.hasThree.eq.false 4ec1512d4c887d36f829be4fb7a2c3e62b25b771d1acf9be00ae7cd3cbd0ad49
+Main.test "a list with a 3" 4546ee696cf0a49492024d5fdb8a199c1966e219bc249c97c2becbf59f637383
+Main.test "a list without one" 62d36225a3adb6db808a8d751e3c0697183c076551665355eae18a14267b2d6e

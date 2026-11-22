@@ -5,8 +5,8 @@ expression: "lines(session, d, f)"
 Main.roll b64f3067c458c3ff8187530de2e4f55b191a8a8c57eb859b4b8cc9c7ec3e214c
 Main.test "unit parameter".%match1 c86eeff910bbb579e208a9afa70b0ad00c39505260be48f25cfa4cd84f00a3c8
 Main.test "unit parameter" bef59752c8860917a1b9777d9fc42c8791d4e5ee24854830b45144b47c62dc25
-Main.test "fixed by the use" 48c33a5a6b7266a471148ff5973913889f47abfb91164df4f78cdc2fa9990b0d
+Main.test "fixed by the use" 92d416dc0d34b3b2dd194e644d887801f0ed0bf8072c4c61adf3be09d528078a
 Main.test "fixed by the body" 0c33a8b32c69b4ce48701487ed605f7f273e43bbaafc44e8b68bbe0005993481
-Main.test "several parameters" 91de5850a02483036a1c6865a4613351a8a1c345c5dade05945f8bed7e473c4a
-Main.test "used twice" 1f50322632d9f34eaa42b99e7edfd3d460fcf6df1cb8709df0fc2109230f7cd4
-Main.test "passed on" 1e861b50f900c133811dbf792ab36d6caca1912796f8de3d3a165a08b7d08a51
+Main.test "several parameters" 52df1efb06fc15eb4c15786734d84b438184965403864f25419aa63ee095c9ca
+Main.test "used twice" 7fa6f3abd7ded7864cc05c4dfb5c002747448cb9497381ca73ddba51a7a396a4
+Main.test "passed on" 1df331a66de625fa504845297602fc9678e95133c1b61e729cf5c64de7f4f451
