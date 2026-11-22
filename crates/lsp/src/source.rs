@@ -53,6 +53,14 @@ pub trait Source: Send + Sync {
     /// The check cache in folder `dir`, for a file on its own: only if it
     /// is there already.
     fn file_cache(&self, dir: &Path) -> Option<PathBuf>;
+
+    /// Whether a project's check cache may give entries another build of
+    /// Stitchwort wrote (carried over, with the editor's one-off message). On
+    /// for a cache that lives across updates, the one on disk; off for one
+    /// that exists to replay exactly what this build wrote.
+    fn carries_over(&self) -> bool {
+        true
+    }
 }
 
 /// Whether `relative` (a path within a project) is a `.sw` file in one of
@@ -278,6 +286,13 @@ impl Source for Memory {
 
     fn file_cache(&self, _: &Path) -> Option<PathBuf> {
         self.cache.clone()
+    }
+
+    /// A test's cache folder is shared by its processes and builds: once one
+    /// session carried something over, every entry written after is a
+    /// carried one, and every later project check reports it.
+    fn carries_over(&self) -> bool {
+        false
     }
 }
 

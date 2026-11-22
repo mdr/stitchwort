@@ -477,7 +477,7 @@ const D: &str = "src/Aoc/Year2021/";
 #[rustfmt::skip]
 const REAL: &[Real] = &[
     Real { label: "landsFoldDot after `match fold`: `cases`", kind: "context order", path: "Day13/Proofs/Fold.sw",
-        from: "| AlongX line => cases", until: None, to: "| AlongX line => ?", want: &["cases"], exclude: &[] },
+        from: "match fold with | AlongY _ | AlongX _ => cases", until: None, to: "match fold with | AlongY _ | AlongX _ => ?", want: &["cases"], exclude: &[] },
     Real { label: "widthCovers's `Cons dot rest, Inl same`", kind: "context order", path: "Day13/Proofs/Picture.sw",
         from: "| [dot, ..rest], Inl same =>\n      rewrite <- same then arithmetic [widthCons dot rest, Nat.leMaxLeft (dot.x + 1) (width rest)]", until: None,
         to: "| [dot, ..rest], Inl same =>\n      ?", want: &[], exclude: &[] },

@@ -2,7 +2,7 @@
 source: crates/cli/tests/server/goal_index.rs
 expression: "format!(\"{made} lemmas, {} goals without one\\n\\n{}\", summary.len() - made,\nsummary.join(\"\\n\"))"
 ---
-175 lemmas, 51 goals without one
+177 lemmas, 51 goals without one
 
 arm-as-written-computes goal 1: no lemma
 arm-as-written-computes goal 2: theorem stepsGoal2: f "" ≠ 0 ∨ "" = "" := ?
@@ -122,6 +122,8 @@ decreasing-callback-argument goal 2: no lemma
 distinct-names goal 1: theorem belowGoal1 (x: Nat) (xs: List Nat): Below x xs := ?
 distinct-names goal 2: no lemma
 distinct-names goal 3: theorem symmetricGoal1 (left1: Tree) (right1: Tree) (left2: Tree) (right2: Tree) (same: Pair left1 right1 = Pair left2 right2): Pair left2 right2 = Pair left1 right1 := ?
+facts-then-goal goal 1: theorem partlyGoal1 (a: Prop) (b: Prop) (c: Prop) (x: a) (f: a → b): c := ?
+facts-then-substituted goal 1: theorem thenSubstGoal1 (f: Nat → Nat) (a: Nat) (b: Nat) (e: a = b) (k: f a = 1): f b = 2 ∨ f a = 1 := ?
 false-in-statement goal 1: theorem noProofGoal1 (n: Nat) (n0: n = 0): False = True := ?
 forall-printed goal 1: theorem shownGoal1 (p: Nat → Prop) (all: ∀ (n: Nat) => p n) (comm: ∀ (a b: Nat) => a + b = b + a) (positive: ∀ (n: Nat) => 0 < n → Positive n) (hidden: ∀ [n: Nat] => n = n) (q: Nat → Type) (bad: (n: Nat) → q n) (f: (n: Nat) → Vec Nat n): ∀ (xs ys: List Nat) => (xs ++ ys).length = xs.length + ys.length := ?
 guard-facts goal 1: theorem charactersGoal1 (p: Char → Prop) (c: Char) (h: c == '('): p c := ?

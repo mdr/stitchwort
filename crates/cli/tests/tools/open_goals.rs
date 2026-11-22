@@ -48,7 +48,11 @@ fn warn_reports_open_goals_as_warnings_and_passes() {
     assert_eq!(out.status.code(), Some(0), "{stderr}");
     assert!(stderr.contains("[GOAL] Warning: in `exercise`"), "{stderr}");
     assert!(stderr.contains("[GOAL] Warning: in `two`"), "{stderr}");
-    assert!(stderr.contains("⊢ n = n"), "{stderr}");
+    // SW-4443: the goal as written, then what it computes to.
+    assert!(
+        stderr.contains("⊢ 0 + n = n") && stderr.contains("computes to n = n"),
+        "{stderr}"
+    );
     assert!(
         stderr.contains("2 goals open, allowed by `check: open-goals: warn`"),
         "{stderr}"
@@ -411,7 +415,7 @@ fn goal_lists_every_open_goal_with_what_relies_on_it() {
     assert!(stdout.starts_with("2 goals open\n"), "{stdout}");
     assert!(stdout.contains("`Book.exercise`  "), "{stdout}");
     assert!(
-        stdout.contains("  ⊢ n = n\n  relied on by: Book.uses\n"),
+        stdout.contains("  ⊢ 0 + n = n\n    computes to n = n\n  relied on by: Book.uses\n"),
         "{stdout}"
     );
     assert!(
