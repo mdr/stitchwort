@@ -413,3 +413,17 @@ fn a_row_on_the_line_after_its_arrow_is_a_row() {
         format!("(Def def f (Param ( t : {row} )) (ResultType : Unit) (Body := (Unit ( ))))")
     );
 }
+
+/// `byWalking` at the end of the file used to bump past the last token
+/// looking for its list of facts (the formatter fuzzer's seed 0x9e3779b97f4a7c15).
+#[test]
+fn a_by_walking_without_its_list_is_an_error() {
+    for text in ["theorem e:(()):=byWalking", "theorem e:(()):=byWalking x"] {
+        let file = SourceMap::new().add("input.sw", text);
+        let error = crate::parse_module(file, text).expect_err(text);
+        assert!(
+            error.iter().any(|d| d.message.contains("expected `[`")),
+            "{text:?}: {error:?}"
+        );
+    }
+}

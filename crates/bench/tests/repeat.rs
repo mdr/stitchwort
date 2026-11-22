@@ -13,8 +13,9 @@ fn counts_repeat_within_a_process() {
         eprintln!("skipped: run in a release build (`cargo test --release`)");
         return;
     }
-    // The all tier repeats the whole example sweep: about 190 s, serial by
-    // nature (allocations are counted per process). The other tiers repeat
+    // The all tier repeats the whole example sweep: twice the sweep's time
+    // (over 15 minutes each by 22 Nov 2026), serial by nature (allocations
+    // are counted per process). The other tiers repeat
     // a few small benchmarks, which catch one-time work the same way (the
     // first run builds whatever the later ones find done).
     let all = stitchwort_driver::driver::all_tier("repeating the whole example sweep");
