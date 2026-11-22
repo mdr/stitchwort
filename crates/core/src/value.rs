@@ -1444,10 +1444,14 @@ fn extend(env: &Env, value: Value) -> Env {
     Values(env)
 }
 
-fn run(g: &Ev, mut control: Control) -> Result<Value> {
+fn run(g: &Ev, control: Control) -> Result<Value> {
+    run_on(g, control, Vec::new())
+}
+
+/// [`run`], with `stack`'s frames waiting for the result.
+fn run_on(g: &Ev, mut control: Control, mut stack: Vec<Frame>) -> Result<Value> {
     #[cfg(any(test, feature = "reference"))]
     RUNS.with(|r| r.set(r.get() + 1));
-    let mut stack: Vec<Frame> = Vec::new();
     loop {
         g.machine.budget.step()?;
         control = match control {
@@ -2170,6 +2174,31 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                     push(g, stack, Frame::Unfolding(Box::new((id, spine, next))))?;
                     Control::Force(value)
                 }
+                // A proof stuck past its own case tree (on a `J` or a
+                // `case` on a variable) is passed on as the call, as one
+                // stuck in its own tree is: `next` is stuck on it either
+                // way, and the call is far smaller than an unfolding such as
+                // `hangOpenStep`'s, a `J` chain over projections with their
+                // propositions written out (SW-4642). Through a chain of
+                // calls it is the innermost theorem whose body got stuck
+                // past its tree, not necessarily the one written. As this
+                // reuses the frame's spine, a `FieldOf` frame takes it as
+                // stuck in its own tree too, giving `(lemma x).mp h`.
+                // Conversion and the unifier unfold such a call, bare, as a
+                // field, or with a `J` or application after it
+                // ([`unfold_folded`], [`unfold_folded_head`]), so it still
+                // meets a value built from the unfolding (a solution
+                // replayed by `Frame::ReplayElim`, or one written out).
+                // This arm is the elaborator's only, as for fields; the
+                // comparison rule is every mode's, the kernel's included.
+                Value::Neutral(head, _)
+                    if !matches!(head, Head::Meta(_))
+                        && g.def(id).theorem
+                        && names_folded_fields(g) =>
+                {
+                    let call = Value::Neutral(Head::Def(id), spine);
+                    resume(g, next, call, stack)?
+                }
                 _ => {
                     push(g, stack, next)?;
                     Control::Return(value)
@@ -2269,7 +2298,9 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
         },
         Frame::ReplayElim { spine, next } => {
             let elim = spine[next].clone();
-            // Only while elaborating (a metavariable's solution), so the
+            // A metavariable's solution while elaborating, or the rest of a
+            // spine after a folded call that conversion unfolded
+            // ([`unfold_folded_head`], the kernel too): either way the
             // machine this starts for a folded value is bounded by the
             // program.
             // What it unfolds to may be a glued call (a `decreasing`
@@ -3072,6 +3103,57 @@ pub fn unfold_folded(g: &Ev, value: &Value) -> Result<Option<Value>> {
         }
         current = Some(next);
     }
+}
+
+/// A folded call applied to all its arguments, then eliminated further by a
+/// `J` or an application (`J m b (T a)`, `(lemma x).mp h`): the call
+/// unfolded ([`unfold_folded`]) and the rest of the spine applied to what it
+/// computes to. `None` if `value` isn't one, or the call is stuck in its own
+/// case tree. A theorem's unfolding stuck past its own tree is kept as the
+/// call (`Frame::Unfolding`), so such a value can meet one built from the
+/// unfolding (by a metavariable's solution replayed, or written out), and
+/// conversion and the unifier compare the two by this. In every mode, the
+/// kernel's included: a definition's arity is its body's leading lambdas
+/// (docs/core.md), so a theorem whose case tree returns a lambda, or a
+/// definition with a `Quot.lift` leaf returning a function, applied to all
+/// its arguments is such a value there too, compared by delta and then the
+/// eliminations after it, as docs/core.md's equality rule asks.
+pub fn unfold_folded_head(g: &Ev, value: &Value) -> Result<Option<Value>> {
+    if !unfolds_head(g, value) {
+        return Ok(None);
+    }
+    let Value::Neutral(Head::Def(id), spine) = value else {
+        unreachable!("checked by unfolds_head")
+    };
+    let arity = g.def(*id).arity;
+    let call = Value::Neutral(Head::Def(*id), spine[..arity].iter().cloned().collect());
+    if !folded_call(g, &call) {
+        return Ok(None);
+    }
+    let Some(unfolded) = unfold_folded(g, &call)? else {
+        return Ok(None);
+    };
+    let rest: Spine = spine[arity..].iter().cloned().collect();
+    run_on(
+        g,
+        Control::Return(unfolded),
+        vec![Frame::Replay {
+            spine: rest,
+            next: 0,
+        }],
+    )
+    .map(Some)
+}
+
+/// Whether [`unfold_folded_head`] may unfold `value`: a folded call applied to
+/// all its arguments, then a `J` or an application.
+pub fn unfolds_head(g: &Ev, value: &Value) -> bool {
+    matches!(value, Value::Neutral(Head::Def(id), spine)
+        if spine.len() > g.def(*id).arity
+            && spine[g.def(*id).arity..].iter().any(|e| matches!(e, Elim::J { .. } | Elim::App(..)))
+            && spine[..g.def(*id).arity].iter().all(|e| matches!(e, Elim::App(..)))
+            && (folds(g, *id) || folds_on_lift(g, *id))
+            && body_seen(g, *id).is_some())
 }
 
 /// Whether, while erasing, definition `id` (with a body, or an open goal's
@@ -4125,7 +4207,8 @@ fn conv_step(
     // nested dictionaries, which is bounded by the program.) Before numbers
     // and text: a folded definition with `decreasing` can be a number
     // (`f n` against `1 + …`), and is compared as one once unfolded.
-    if from != Stage::Unfold && (is_folded(g, a) || is_folded(g, b)) {
+    let unfolds = |v: &Value| is_folded(g, v) || unfolds_head(g, v);
+    if from != Stage::Unfold && (unfolds(a) || unfolds(b)) {
         if let (Value::Neutral(Head::Def(i1), _), Value::Neutral(Head::Def(i2), _)) = (&*a, &*b)
             && i1 == i2
         {
@@ -4134,8 +4217,12 @@ fn conv_step(
         from = Stage::Unfold;
     }
     if from == Stage::Unfold {
-        let a2 = unfold_folded(g, a)?;
-        let b2 = unfold_folded(g, b)?;
+        let unfold = |v: &Value| match unfold_folded(g, v)? {
+            Some(u) => Ok(Some(u)),
+            None => unfold_folded_head(g, v),
+        };
+        let a2 = unfold(a)?;
+        let b2 = unfold(b)?;
         if a2.is_some() || b2.is_some() {
             work.push(ConvTask::Values(
                 level,
@@ -4172,7 +4259,10 @@ fn conv_step(
         let assign = |x: &Value, rest: &Value| {
             let x = match unfold_folded(g, x)? {
                 Some(x) => Some(x),
-                None => reread(x)?,
+                None => match unfold_folded_head(g, x)? {
+                    Some(x) => Some(x),
+                    None => reread(x)?,
+                },
             };
             Ok(match x {
                 Some(x) => {

@@ -46,6 +46,60 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 22 Nov 2026
 
+### SW-4642: a proof stuck past its own case tree is kept as the lemma's call; `atomHung` 7.73M to 4.12M steps
+
+- **Problem.** SW-4638 measured SW-4629's projection `let`s costing `atomHung` 3.9M of its 7.7M steps,
+  though `atomHung` itself has no projection `let` (a debug trace of `patlet::check_let`: none in it).
+- **Profile (measured, release, a throwaway per-span read-back log and `TMP`-gated switches, not kept).**
+  Projections against all `match`es: the same 16,453 read-backs at the same source spans, in the same order,
+  but larger, each by a multiple of 2,768 nodes (1.69M nodes against 0.57M). The large ones are the `let`
+  values `Lift::around` reads (`value_forms`, as written) at each `match`'s motive: `s1Bound`, `rounds`,
+  `hungAfterOne` and so on. Switching projections off one lemma file at a time put all of it on
+  `ReadBackHungFrameLemmas.sw`; there `hangOpenStep` (and its siblings) open with
+  `let (notComma, …) := openerParts leaf.token.kind opener` and then `match state with | { … }`.
+- **Mechanism.** `rewrite isS1` in `atomHung` makes a `J` on `isS1 := hangOpenStep …`, and a `J` unfolds a
+  folded theorem call to see whether it is `Refl` (`Frame::Unfolding`). As a `match`, `hangOpenStep`'s body was
+  stuck in its own case tree on `openerParts …`, so the `J` got the call back. With projections the body
+  computes on: the record `match` on `state` goes by projections and the `rewrite … at stepped` is a `J`
+  chain, stuck only on the projections `And.left {A} {B} (openerParts …)`, each with its two propositions
+  written out. That stuck unfolding, not the call, went into the value of every `let` built on `isS1`, and
+  was read back at every later `match` and `rewrite`.
+- **Change (`crates/core/src/value.rs`, `Frame::Unfolding`).** A theorem's unfolding that is stuck (a
+  neutral, not on an unknown) is handed on as the call, as one stuck in its own case tree already was. The
+  frame is stuck either way, and conversion unfolds the call again (`unfold_folded`). Elaborator only
+  (`names_folded_fields`), as for the fields of calls; the kernel's evaluation is unchanged.
+- **Result (measured, steps, release, `check NS --no-project-cache --only NAME --timings=all` from
+  `tools/fmt`, nice 19, load 6-7; before is the lane's base `b35e4de15`).**
+
+  | | before | after |
+  |---|---|---|
+  | `atomHung` | 7,729,579 | 4,121,558 |
+  | `unaryHung` | 3,554,912 | 3,554,153 |
+  | `signArgHung` | 1,528,392 | 1,527,317 |
+  | `let-proof-projections.sw` `bigSplit` | 3,351 | 3,351 |
+
+  `atomHung`'s largest read-back 9,108 to 4,097 nodes. New `examples/accept/proof-unfolding-kept-folded.sw`:
+  `threeSteps` 23,341 to 18,019 steps, largest read-back 87 to 26 nodes (before measured with `main`'s binary).
+- **Kernel terms change.** Proof terms read back from such values now hold the lemma's call where they held
+  its stuck unfolding (`Int.divFloorNonneg`: an `Eq` lemma's call for its `J`). That moves the hashes of what
+  depends on them, among them the native pins of `Float.neg`, `Float.abs` and `Float.sub`
+  (`crates/core/src/pins.rs`, updated; the definitions themselves are unchanged).
+- **Follow-up from review (`docs/reviews/SW-4642-review.md`).** The kept call, once a `J` or an application
+  was put after it, was something conversion couldn't unfold, so a transport by `flipped n p` no longer
+  equalled one by its unfolding written out (`examples/accept/proof-call-against-unfolding.sw`, which `main`
+  accepts and the first version of this change refused). Conversion's unfold stage and the unifier now
+  unfold a folded call applied to all its arguments and followed by a `J` or an application, then apply
+  the rest (`unfold_folded_head`). Steps unchanged: `atomHung` 4,121,558, `bigSplit` 3,351, `threeSteps`
+  18,019.
+- **Correction (Fable review, `docs/reviews/SW-4642-fable-review.md`).** "The kernel's evaluation is unchanged"
+  holds for the kept-call rule, but the conversion rule above is every mode's, and the kernel builds its shape
+  too: a theorem whose case tree returns a lambda has a smaller arity than its parameters, so applied to all of
+  them it is the call with arguments after it. The kernel now accepts `J m b (viaCase 0 h) ≡ J m b h`, which
+  `main` refused (`proof-call-against-unfolding.sw`, `overApplied`; the wrapping test's "J by an over-applied
+  theorem"). It's delta then the ordinary eliminations, as `docs/core.md`'s equality rule asks; the spec now
+  says so, with evaluation's half left as known gap G12.
+- **Ticket:** SW-4642.
+
 ### SW-4638: why `atomHung` doubled (25.5M to 53.9M) between SW-4619 and SW-4635: SW-4629's projection `let`s in proofs; a measurement, no code changed
 
 - **Problem.** `atomHung` took 25.5M steps after SW-4619's merge (`027f6e569`) and 53.9M on `main` before SW-4635.
