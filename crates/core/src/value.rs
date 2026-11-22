@@ -4029,13 +4029,22 @@ enum ConvTask {
 // of their unfolding cells (shared by every copy of a call), at the same
 // level: a pair whose arguments were found different isn't tried by its
 // arguments again, and a pair found different outright (an argument pair
-// compared on its own) is answered "different" at once. Both only ever
-// answer "different" or skip a shortcut, never "equal", and whether two
-// values are convertible depends only on them and the level (the kernel has
-// no metavariables). The record holds the values, so an address can't be
-// reused for another call while it lives; it's dropped when the outermost
-// `conv` ends. Lookups don't depend on the order of the map, so the
-// resource counters stay deterministic.
+// compared on its own) is answered "different" at once.
+//
+// A pair found equal by its arguments is answered "equal" at once too
+// (SW-4647). Values share their parts, but a comparison walks them as
+// trees: the lexer's items each hold parser states built by
+// `State.advance` from the one before, so comparing a source's items
+// against the same items computed again met the same pairs of calls
+// millions of times (`readsBackHungListExample`, 147M steps). Every
+// remembered answer is the one comparing the pair again would give, since
+// whether two values are convertible depends only on them, the level and
+// the mode (the kernel has no metavariables), so the record only saves
+// work: an "equal" is recorded once the arguments' comparisons have all
+// finished, never while the pair is still open. The record holds the
+// values, so an address can't be reused for another call while it lives;
+// it's dropped when the outermost `conv` ends. Lookups don't depend on the
+// order of the map, so the resource counters stay deterministic.
 
 /// What one outermost [`conv`] has found about pairs of glued calls of the
 /// same definition, by mode, level and the addresses of their unfolding
@@ -4044,7 +4053,7 @@ enum ConvTask {
 /// nothing for rule E to read ([`crate::nat_add::Unread`]).
 #[derive(Default)]
 struct CallMemo {
-    calls: HashMap<CallKey, (Differ, Value, Value)>,
+    calls: HashMap<CallKey, (Found, Value, Value)>,
     sums: crate::nat_add::Unread,
 }
 
@@ -4052,13 +4061,15 @@ struct CallMemo {
 /// cells' addresses.
 type CallKey = (Mode, usize, usize, usize);
 
-/// How a pair of calls in a [`CallMemo`] differs.
+/// What a [`CallMemo`] knows about a pair of calls.
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Differ {
-    /// In their arguments: compare them by their unfoldings.
-    Arguments,
-    /// Outright.
-    Values,
+enum Found {
+    /// Equal by their arguments.
+    Equal,
+    /// Their arguments differ: compare them by their unfoldings.
+    ArgumentsDiffer,
+    /// Different outright.
+    Different,
 }
 
 impl CallMemo {
@@ -4074,14 +4085,14 @@ impl CallMemo {
         }
     }
 
-    fn get(&self, mode: Mode, level: usize, a: &Value, b: &Value) -> Option<Differ> {
+    fn get(&self, mode: Mode, level: usize, a: &Value, b: &Value) -> Option<Found> {
         let key = Self::key(mode, level, a, b)?;
         self.calls.get(&key).map(|entry| entry.0)
     }
 
-    fn record(&mut self, mode: Mode, level: usize, a: &Value, b: &Value, differ: Differ) {
+    fn record(&mut self, mode: Mode, level: usize, a: &Value, b: &Value, found: Found) {
         if let Some(key) = Self::key(mode, level, a, b) {
-            self.calls.insert(key, (differ, a.clone(), b.clone()));
+            self.calls.insert(key, (found, a.clone(), b.clone()));
         }
     }
 }
@@ -4112,7 +4123,7 @@ fn same_spines(
             unreachable!()
         };
         if !conv_with(g, l, &x, &y, memo, Mode::Shortcut)? {
-            memo.record(Mode::Shortcut, l, &x, &y, Differ::Values);
+            memo.record(Mode::Shortcut, l, &x, &y, Found::Different);
             return Ok(false);
         }
     }
@@ -4196,8 +4207,9 @@ fn conv_step(
         && !shortcuts_disabled()
     {
         match memo.get(mode, level, a, b) {
-            Some(Differ::Values) => return Ok(Step::Answer(false)),
-            Some(Differ::Arguments) => {}
+            Some(Found::Equal) => return Ok(Step::Answer(true)),
+            Some(Found::Different) => return Ok(Step::Answer(false)),
+            Some(Found::ArgumentsDiffer) => {}
             None => return Ok(Step::Recurse(Recursion::Calls)),
         }
     }
@@ -4481,9 +4493,10 @@ fn recurse(
                 unreachable!("two calls, from conv_step")
             };
             if same_spines(g, level, *f, s1, s2, memo)? {
+                memo.record(mode, level, a, b, Found::Equal);
                 return Ok(Resume::Answer(true));
             }
-            memo.record(mode, level, a, b, Differ::Arguments);
+            memo.record(mode, level, a, b, Found::ArgumentsDiffer);
             Ok(Resume::From(Stage::Folded))
         }
         Recursion::Folded => {

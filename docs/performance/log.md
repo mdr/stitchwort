@@ -46,6 +46,52 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 22 Nov 2026
 
+### SW-4647: the kernel's conversion remembers pairs of calls found equal; `Syntax.ReadBackHungTop` 19.0 s to 0.8 s
+
+- **Problem.** In `tools/fmt`, `readsBackHungListExample` took 11.3 s (147M steps, 11.1 s of it kernel) and
+  `readsBackHungSignExample` 7.4 s (95M steps): half the parallel critical path of a cold check of `tools/fmt`
+  (`docs/proposals/parallel-checking.md`, 22 Nov addendum). Elaboration was 0.2 s each.
+- **Profile (measured, release, `sample` and throwaway counters, not kept).** Nearly all the kernel time is one
+  `byComputing`: `readsBackHung`'s hypothesis `isItems`, `items (lexedLeaves listSource) = [listAt 0, …]`, in one
+  `conv` (11.1 s for the list, 6.8 s for the sign). Unfoldings were not the cost (a few thousand case-tree runs,
+  as in the type example's 0.15 s comparison): `conv_with`, `same_spines` and value clones were. In the sign's
+  comparison the kernel compared 4.3M pairs of glued calls by their arguments (`signSource`, `State.start`,
+  `State.at`, `Text.toList`, `Mark.rest`, `List.span`, `State.advance`, `Pair.fst`/`snd`, `List.length`), all of them
+  equal, over 87M work items. Each lexed item holds parser states built from the one before, so the values are
+  shared DAGs; `CallMemo` remembered only pairs found different, so every equal pair met again was walked again,
+  as a tree.
+- **Change (`crates/core/src/value.rs`, `CallMemo`).** A pair of glued calls of one definition found equal by its
+  arguments is recorded, and met again in the same outermost `conv`, mode and level it is answered "equal" at
+  once. It is recorded only after its arguments' comparisons have all finished. Turned off with the other
+  shortcuts (`set_shortcuts_disabled`), so `conv_shortcut`'s equivalence test covers it.
+- **Why results stay the same.** A remembered answer is the one comparing the pair again would give: kernel
+  convertibility depends only on the two values, the level and the mode, and the record holds both values, so
+  an address can't be reused. Like the case-tree memo's equal pairs (SW-395), it only saves work. Kernel terms
+  and hashes are unchanged (the change is in comparison only); what the kernel accepts is unchanged, except
+  that a comparison that ran out of steps may now finish. `docs/core.md` (glued calls) says the memo keeps
+  equal pairs too.
+- **Result (measured, release, `check Syntax.ReadBackHungTop --no-project-cache --timings=all` from `tools/fmt`,
+  nice 15, the lane's base `4b06a7e38` against the change).**
+
+  | | before | after |
+  |---|---|---|
+  | `readsBackHungListExample` steps | 147,395,970 | 7,319,880 |
+  | elab / kernel ms | 211 / 11,078 | 215 / 86 |
+  | `readsBackHungSignExample` steps | 94,987,398 | 6,463,720 |
+  | elab / kernel ms | 201 / 7,196 | 190 / 80 |
+  | `readsBackHungTypeExample` steps | 3,799,318 | 2,115,689 |
+  | elab / kernel ms | 54 / 168 | 63 / 36 |
+  | `Syntax.ReadBackHungTop` unit, elab / kernel ms | 582 / 18,453 | 582 / 213 |
+
+  Of the 2,550 declarations checked in both runs, 347 took fewer steps (230.3M fewer, all but 0.1M in the three
+  examples) and 3 took more, by 86-264 steps (`declarationOther`, `paramNameOn`, `stepSign`). Not measured: the
+  benchmarks (no runtime code changed).
+- **Tried for a small reproducer, dropped.** Towers of glued calls (`join part part`, `node part part`, a
+  `chain` of `next seed seed`) didn't reproduce the kernel's walk: either a `byComputing` alone is checked
+  unglued, or the elaborator's read-back (2M nodes at 20 levels, the same before and after) dominates and the
+  kernel's comparison is already cheap. The `tools/fmt` check is the coverage.
+- **Ticket:** SW-4647.
+
 ### SW-4642: a proof stuck past its own case tree is kept as the lemma's call; `atomHung` 7.73M to 4.12M steps
 
 - **Problem.** SW-4638 measured SW-4629's projection `let`s costing `atomHung` 3.9M of its 7.7M steps,
