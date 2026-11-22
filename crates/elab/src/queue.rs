@@ -1281,13 +1281,16 @@ fn head_meta(g: &Ev, v: &Value) -> Result<Option<usize>> {
 /// it in place of the placeholder applied to any arguments, as it does for
 /// a lifted helper's call (`unify::zonk_call`). A `let`'s variable or one a
 /// case split replaced, which the placeholder isn't applied to, is replaced
-/// by its value. Where that value is a lambda applied to arguments, it is
-/// annotated with its type: zonking folds it back to the variable if it
+/// by its value. Where that value is a lambda, it is annotated with its
+/// type, wherever it occurs: zonking folds it back to the variable if it
 /// can (and drops the annotation), and otherwise the kernel, which infers
-/// no type for a lambda, still has one (SW-2439); the `bool` says whether
-/// there is such an annotation. `None` if a value isn't in the
-/// placeholder's variables either: zonking then reads the placeholder's
-/// solution back, as for any unknown.
+/// no type for a lambda, still has one. Applied, it would be a redex the
+/// kernel can't check (SW-2439); passed on, to a `match`'s helper's
+/// unknown, say (`?m n check`), zonking puts it in the helper's call, where
+/// it may be applied again (`check n` in a decision's proposition,
+/// SW-4588). The `bool` says whether there is such an annotation. `None` if
+/// a value isn't in the placeholder's variables either: zonking then reads
+/// the placeholder's solution back, as for any unknown.
 fn placeholder_call(
     cx: &Ctx,
     placeholder: &Term,
@@ -1311,23 +1314,42 @@ fn placeholder_call(
             )),
         }
     };
-    let value = |level: usize| cx.quote_folded(&cx.env[level]);
-    let variable = |level: usize| -> Result<Term> {
-        applied(level).or_else(|_| {
-            crate::lift::replace_with(&g, &value(level)?, depth, &applied, &|_, _| None)
-        })
-    };
     let annotated = Cell::new(false);
-    let head = |level: usize| -> Result<Option<Term>> {
-        if spine.contains(&level) || !lambda(&value(level)?) {
-            return Ok(None);
+    let variable = |level: usize| -> Result<Term> {
+        fn go(
+            cx: &Ctx,
+            level: usize,
+            depth: usize,
+            applied: &dyn Fn(usize) -> Result<Term>,
+            annotated: &Cell<bool>,
+        ) -> Result<Term> {
+            if let Ok(var) = applied(level) {
+                return Ok(var);
+            }
+            let g = cx.g();
+            let value = cx.quote_folded(&cx.env[level])?;
+            if !lambda(&value) {
+                return crate::lift::replace_with(&g, &value, depth, applied, &|_, _| None);
+            }
+            annotated.set(true);
+            let variable = |l: usize| go(cx, l, depth, applied, annotated);
+            // A `let`'s value as elaborated, so that zonking, which knows
+            // it in that form (`unify::zonk_let`), folds it back.
+            if let Some(Some(def)) = cx.lets.get(level) {
+                let value = match def.value.strip_loc() {
+                    Term::Ann(..) => def.value.clone(),
+                    _ => Term::Ann(Rc::new(def.value.clone()), Rc::new(def.ty.clone())),
+                };
+                return crate::lift::replace_with(&g, &value, level, &variable, &|_, _| None);
+            }
+            let value = crate::lift::replace_with(&g, &value, depth, applied, &|_, _| None)?;
+            let ty = cx.quote_folded(&cx.types[level])?;
+            let ty = crate::lift::replace_with(&g, &ty, depth, &variable, &|_, _| None)?;
+            Ok(Term::Ann(Rc::new(value), Rc::new(ty)))
         }
-        let ty = cx.quote_folded(&cx.types[level])?;
-        let ty = crate::lift::replace_with(&g, &ty, depth, &variable, &|_, _| None)?;
-        annotated.set(true);
-        Ok(Some(ty))
+        go(cx, level, depth, &applied, &annotated)
     };
-    match crate::lift::replace_annotating_heads(&g, term, depth, &variable, &head) {
+    match crate::lift::replace_with(&g, term, depth, &variable, &|_, _| None) {
         Ok(call) => Ok(Some((s, call, annotated.get()))),
         Err(e) if crate::undo::fatal(&e) => Err(e),
         Err(_) => Ok(None),
