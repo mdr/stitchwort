@@ -23,6 +23,7 @@ mod redundant_arms;
 mod scope;
 mod statement_style;
 mod std_dir;
+mod step_counts;
 mod sweep;
 mod test_failures;
 mod test_json;
