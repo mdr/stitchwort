@@ -1436,6 +1436,9 @@ fn enter(closure: &Closure, arg: Value) -> Control {
 
 /// `env` with `value` added as the innermost variable.
 fn extend(env: &Env, value: Value) -> Env {
+    if crate::env_metrics::on() {
+        crate::env_metrics::record(env.len(), !env.is_shared());
+    }
     // Built in place, in one allocation.
     let env: Rc<[Value]> = env.iter().cloned().chain(std::iter::once(value)).collect();
     Values(env)

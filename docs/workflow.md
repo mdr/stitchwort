@@ -564,7 +564,11 @@ Set `STITCHWORT_STEP_PHASES=1` and `check --timings` adds a "steps by phase"
 table: each declaration's steps split into walk (a walk being elaborated),
 unify, apply (an application being checked), read-back and other, summing to
 its `steps`; a step counts for the innermost phase running. Unset, it costs
-one check per phase entry and the steps are unchanged (SW-4533). To time or
+one check per phase entry and the steps are unchanged (SW-4533). Set
+`STITCHWORT_ENV_METRICS=1` and the timings report ends with a table of the
+closure environments the evaluator extended: how many of each length, and the
+share that nothing else held (so could have grown in place); unset, it costs
+one cached read per extension (SW-4641). To time or
 profile a project's namespaces without paying for the library, add
 `--no-project-cache`: the project's own namespaces are checked afresh (their
 cache entries neither read nor written) while the library comes from the
