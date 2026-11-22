@@ -1890,6 +1890,8 @@ impl Elaborator {
         self.flush_navigation();
         self.flush_goals();
         self.attempt.reset();
+        // Stale now anyway (the store's epoch moved): frees their memory.
+        self.kernel.caches.clear_readbacks();
     }
 
     /// Proves outstanding auto arguments, then substitutes metavariable

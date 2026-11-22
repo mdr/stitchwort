@@ -46,6 +46,42 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 22 Nov 2026
 
+### SW-4618: large read-backs kept for reuse within a declaration; `printedSplitParts` 46.6M to 23.9M steps, `printedFinish1` 120.8M to 98.1M
+
+- **Problem.** SW-4608 found reading values back is 37% of a cold
+  tools/fmt check's profile; SW-4611 saw the same large terms read back
+  many times in one proof.
+- **Measured first (throwaway probe, every read-back over 100K nodes:
+  value identity, level, mode, metavariable epoch, and a hash of the
+  result).** Exact repeats (same value, level, mode and solutions) are a
+  minority: `printedSplitParts` 2 of 4 (one 1.03M-node value read back
+  three times running), `printedFinish1` 2 of 11, `standsDecl` 0 of 13.
+  Most of the rest are the same value read back again **at a deeper
+  level** (`standsDecl`: 4 values read back 12 times at levels 10, 14,
+  16, 20, 24), which an exact memo can't serve: the term differs in its
+  free variables' indices. Each 1.0-1.1M-node read-back took 0.35-0.53 s,
+  whether first or repeated (the calls' unfoldings are already kept; the
+  cost is visiting the nodes and applying closures).
+- **Change.** `value::ReadbackMemo` in `EvalCaches`: a read-back of 10K
+  to 4M nodes (not for display, no depth limit) is kept, filed by the
+  value's shared parts (held, so addresses aren't reused), level and mode,
+  and reused only while the metavariable solutions
+  (`Metas::version`: store id, epoch, trail length), the environment
+  (`Env::version`, changed by every `&mut` method) and the machine's
+  modes (as for a kept unfolding) are unchanged. At most 4M nodes kept,
+  oldest let go first; emptied at `clear_metas`. `STITCHWORT_READBACK_MEMO=off`
+  turns it off, `=check` re-reads every hit and panics if the terms
+  differ. Terms and hashes unchanged.
+- **Result (measured, `check NS --no-project-cache --only D --timings`,
+  release, load 5-6, memo off then on).** `printedSplitParts` 2,536 →
+  1,262 ms, 46,614,335 → 23,869,555 steps; `printedFinish1` 6,574 →
+  5,442 ms, 120,833,027 → 98,093,991 steps; `standsDecl` 6,009 → 5,802 ms,
+  92,977,622 steps both (no exact repeats). `=check` on
+  `printedSplitParts`: no difference.
+- **Next.** Reusing a read-back at a deeper level (shift the kept term's
+  free indices) would reach `standsDecl`'s 8 repeats (about 2.9 s); not
+  done, see the ticket.
+
 ### SW-4611: `standsEachFile`'s three nested matches moved into lemmas; 35.9 s to 16 ms, 474.5M to 0.17M steps (14% of a cold tools/fmt check)
 
 - **Problem.** SW-4608 (win 3) measured six tools/fmt proofs each reading

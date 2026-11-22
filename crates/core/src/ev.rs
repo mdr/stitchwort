@@ -29,7 +29,21 @@ pub trait Metas {
     /// used a solution that's gone. 0 means "made with no metavariables",
     /// valid in any store, so a store's own epochs start at 1.
     fn epoch(&self) -> u64;
+
+    /// An identity for the solutions as they stand, if the store keeps one:
+    /// two reads that see the same identity see the same solutions, so a
+    /// read-back made under one can serve the other (SW-4618). `None`, the
+    /// default, keeps no read-back for reuse.
+    fn version(&self) -> Option<MetasVersion> {
+        None
+    }
 }
+
+/// What [`Metas::version`] gives: the store (unique for the process), its
+/// [`Metas::epoch`], and how many solutions it has made in that epoch.
+/// Within an epoch solutions are only added; taking one back starts a new
+/// epoch.
+pub type MetasVersion = (u64, u64, usize);
 
 /// No metavariables: what the kernel's admission evaluates with.
 pub struct NoMetas;
@@ -41,6 +55,10 @@ impl Metas for NoMetas {
 
     fn epoch(&self) -> u64 {
         0
+    }
+
+    fn version(&self) -> Option<MetasVersion> {
+        Some((0, 0, 0))
     }
 }
 

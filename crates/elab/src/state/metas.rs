@@ -97,7 +97,13 @@ pub struct MetaStore {
     /// computed again if the count has moved since: it may have used a
     /// solution that's gone.
     pub meta_epoch: Cell<u64>,
+    /// This store among all made in the process, for
+    /// [`stitchwort_core::Metas::version`].
+    id: u64,
 }
+
+/// The last [`MetaStore::id`] handed out.
+static STORES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 impl Default for MetaStore {
     fn default() -> Self {
@@ -109,6 +115,7 @@ impl Default for MetaStore {
             mirrors: Default::default(),
             print_labels: Default::default(),
             meta_epoch: Cell::new(1),
+            id: STORES.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1,
         }
     }
 }
@@ -120,6 +127,17 @@ impl stitchwort_core::Metas for MetaStore {
 
     fn epoch(&self) -> u64 {
         self.meta_epoch.get()
+    }
+
+    /// Every solution goes on the trail ([`MetaStore::solve_meta`]), and
+    /// whatever takes one back, or drops a metavariable whose number may be
+    /// reused, starts a new epoch.
+    fn version(&self) -> Option<stitchwort_core::ev::MetasVersion> {
+        Some((
+            self.id,
+            self.meta_epoch.get(),
+            self.meta_trail.borrow().len(),
+        ))
     }
 }
 
@@ -263,6 +281,7 @@ impl MetaStore {
             // (`Queue::restore`, which `Attempt::restore` calls next).
             mirrors: _,
             meta_epoch: _,
+            id: _,
         } = self;
         let mut metas = metas.borrow_mut();
         let mut trail = meta_trail.borrow_mut();
@@ -296,6 +315,7 @@ impl MetaStore {
             print_labels,
             // Bumped: no kept unfolding is trusted after.
             meta_epoch: _,
+            id: _,
         } = self;
         self.metas_taken_back();
         metas.borrow_mut().clear();

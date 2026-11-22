@@ -308,6 +308,20 @@ impl Modes {
     }
 }
 
+impl Modes {
+    /// Whether a read-back made in these modes is the one a read-back in
+    /// `now` would make: all equal (unlike [`Kept::fits`], no allowance for
+    /// gluing, since a folded read-back writes calls as calls).
+    fn same(&self, now: &Modes) -> bool {
+        self.glue == now.glue
+            && self.erasing == now.erasing
+            && self.program == now.program
+            && self.kernel == now.kernel
+            && (Rc::ptr_eq(&self.transparent, &now.transparent)
+                || *self.transparent == *now.transparent)
+    }
+}
+
 impl Kept {
     /// Whether a reader now may use this unfolding: from epoch 0 (made with
     /// no metavariables, by the kernel) or the current one (one from
@@ -3240,7 +3254,7 @@ fn is_atomic_value(value: &Value) -> bool {
 }
 
 /// How [`quote_as`] reads back glued calls.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 enum Readback {
     /// As their unfoldings ([`quote`]).
     Unfolded,
@@ -3288,16 +3302,225 @@ fn quote_as(
     cap: Option<u64>,
     max_depth: Option<usize>,
 ) -> Result<Option<Term>> {
+    let memo = max_depth.is_none() && !mode.for_display() && memo_setting() != MemoSetting::Off;
+    if memo && let Some((term, size)) = ReadbackMemo::get(g, level, value, mode) {
+        if memo_setting() == MemoSetting::Check {
+            check_memo_hit(g, level, value, mode, &term, size);
+        }
+        g.machine.budget.note_readback(size);
+        let cap = cap.filter(|&cap| cap < g.machine.budget.size_limit());
+        return Ok(if cap.is_some_and(|cap| size > cap) {
+            None
+        } else {
+            Some(term)
+        });
+    }
     match quote_as_until(g, level, value, mode, cap, max_depth, None)? {
-        Quoted::Term(term) => Ok(term),
+        Quoted::Term(Some(term), size) if memo => {
+            ReadbackMemo::put(g, level, value, mode, &term, size);
+            Ok(Some(term))
+        }
+        Quoted::Term(term, _) => Ok(term),
         Quoted::Met(_) => unreachable!("nothing stops a read-back without `stop`"),
+    }
+}
+
+/// `STITCHWORT_READBACK_MEMO`: `off` keeps no read-back for reuse
+/// ([`ReadbackMemo`]); `check` keeps them, and reads each one reused back
+/// again to check the two terms are the same, panicking if not.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum MemoSetting {
+    On,
+    Off,
+    Check,
+}
+
+fn memo_setting() -> MemoSetting {
+    static SETTING: std::sync::OnceLock<MemoSetting> = std::sync::OnceLock::new();
+    *SETTING.get_or_init(
+        || match std::env::var("STITCHWORT_READBACK_MEMO").as_deref() {
+            Ok("off") => MemoSetting::Off,
+            Ok("check") => MemoSetting::Check,
+            _ => MemoSetting::On,
+        },
+    )
+}
+
+/// For `STITCHWORT_READBACK_MEMO=check`: `term`, the kept read-back of
+/// `value`, is what reading it back again builds. Names count, so terms are
+/// compared as printed for debugging.
+#[cold]
+fn check_memo_hit(g: &Ev, level: usize, value: &Value, mode: Readback, term: &Term, size: u64) {
+    match quote_as_until(g, level, value, mode, None, None, None) {
+        Ok(Quoted::Term(Some(fresh), fresh_size)) => assert!(
+            fresh_size == size && format!("{fresh:?}") == format!("{term:?}"),
+            "internal error: a kept read-back of {size} nodes differs from a fresh one \
+             of {fresh_size}"
+        ),
+        // Out of work or over a limit: nothing to compare.
+        Ok(_) | Err(_) => {}
+    }
+}
+
+/// Large read-backs kept for reuse within a declaration (SW-4618). A proof
+/// whose hypotheses compute to a large term can read the same value back
+/// many times as one tactic after another looks at it: in
+/// `Fmt.GroupSlots.printedSplitParts`, the same 1.03M-node value three
+/// times running at about half a second each.
+///
+/// An entry is found by the value's identity (the shared parts it is made
+/// of, which it holds so their addresses aren't reused), the level and the
+/// mode, and is reused only if nothing a read-back reads has changed since
+/// it was made: the metavariable solutions ([`crate::ev::Metas::version`]),
+/// the environment ([`Env::version`](crate::env::Env::version)) and the
+/// machine's [`Modes`], as for a kept unfolding. So a hit is the term a
+/// fresh read-back would build. It takes none of the steps, so a read-back
+/// that would have run out of work now finishes; it can't be over the size
+/// limit, which is checked again.
+#[derive(Default)]
+pub struct ReadbackMemo {
+    entries: HashMap<ReadbackKey, ReadbackEntry>,
+    /// The keys, oldest first, for letting go of the oldest when the kept
+    /// terms grow past [`ReadbackMemo::MAX_NODES`].
+    order: std::collections::VecDeque<ReadbackKey>,
+    nodes: u64,
+}
+
+/// The value's variant and the addresses of its shared parts, the level,
+/// and the mode.
+type ReadbackKey = (u8, [usize; 2], usize, Readback);
+
+struct ReadbackEntry {
+    /// Holds the parts `ReadbackKey` names, and tells apart values with the
+    /// same parts but different names or other plain fields.
+    value: Value,
+    term: Term,
+    size: u64,
+    metas: crate::ev::MetasVersion,
+    env: u64,
+    modes: Modes,
+}
+
+impl ReadbackMemo {
+    /// Smaller read-backs are cheap to make again: keeping them would cost
+    /// more than it saves.
+    const MIN_NODES: u64 = 10_000;
+    /// The most nodes the kept terms hold together: room for a few of the
+    /// million-node terms that make keeping them worth it.
+    const MAX_NODES: u64 = 4_000_000;
+
+    /// The shared parts that identify `value`, if it has any: a value of
+    /// any other kind is never large to read back without one.
+    fn identity(value: &Value) -> Option<(u8, [usize; 2])> {
+        let addr = |rc: &Rc<Value>| Rc::as_ptr(rc) as usize;
+        let closure = |c: &Closure| {
+            [
+                Rc::as_ptr(&c.env.0).cast::<()>() as usize,
+                Rc::as_ptr(&c.body) as usize,
+            ]
+        };
+        Some(match value {
+            // The domain is in the comparison ([`ReadbackMemo::same`]).
+            Value::Pi(_, _, _, b) => (0, closure(b)),
+            Value::Lam(_, _, b) => (1, closure(b)),
+            Value::Ctor(_, _, fields) if !fields.is_empty() => {
+                (2, [Rc::as_ptr(&fields.0).cast::<()>() as usize, 0])
+            }
+            Value::Eq(_, a, b) => (3, [addr(a.rc()), addr(b.rc())]),
+            Value::Neutral(_, spine) if !spine.is_empty() => (4, [spine.addr(), 0]),
+            Value::Call(_, spine, _) => (5, [spine.addr(), 0]),
+            _ => return None,
+        })
+    }
+
+    /// Whether `a` and `b`, with the same [`ReadbackMemo::identity`], read
+    /// back alike: their plain fields are equal too, and the parts the
+    /// identity leaves out are the same.
+    fn same(a: &Value, b: &Value) -> bool {
+        let closures = |x: &Closure, y: &Closure| {
+            Rc::ptr_eq(&x.env.0, &y.env.0) && Rc::ptr_eq(&x.body, &y.body)
+        };
+        match (a, b) {
+            (Value::Pi(x, i, d, c), Value::Pi(y, j, e, k)) => {
+                x == y && i == j && Shared::ptr_eq(d, e) && closures(c, k)
+            }
+            (Value::Lam(x, i, c), Value::Lam(y, j, k)) => x == y && i == j && closures(c, k),
+            (Value::Ctor(d, c, f), Value::Ctor(e, k, h)) => {
+                d == e && c == k && Rc::ptr_eq(&f.0, &h.0)
+            }
+            (Value::Eq(t, a, b), Value::Eq(u, c, d)) => {
+                Shared::ptr_eq(t, u) && Shared::ptr_eq(a, c) && Shared::ptr_eq(b, d)
+            }
+            // `Head`'s equality leaves out what a variable is known not to
+            // be, which reading it back leaves out too.
+            (Value::Neutral(h, s), Value::Neutral(k, t)) => h == k && s.addr() == t.addr(),
+            // Two copies of a call can hold different unfolding cells; what
+            // either unfolds to is the same ([`Unfolding`]).
+            (Value::Call(f, s, _), Value::Call(h, t, _)) => f == h && s.addr() == t.addr(),
+            _ => false,
+        }
+    }
+
+    /// The kept read-back of `value` at `level` in `mode`, with its size, if
+    /// there is one and a fresh read-back now would build the same term.
+    fn get(g: &Ev, level: usize, value: &Value, mode: Readback) -> Option<(Term, u64)> {
+        let memo = g.caches.readbacks.borrow();
+        if memo.entries.is_empty() {
+            return None;
+        }
+        let (kind, parts) = Self::identity(value)?;
+        let entry = memo.entries.get(&(kind, parts, level, mode))?;
+        (Self::same(&entry.value, value)
+            && entry.size <= g.machine.budget.size_limit()
+            && g.metas.version() == Some(entry.metas)
+            && entry.env == g.env.version()
+            && entry.modes.same(&Modes::now(g)))
+        .then(|| (entry.term.clone(), entry.size))
+    }
+
+    /// Keeps `term`, the read-back of `value` at `level` in `mode`, if it is
+    /// large enough to be worth it and the metavariable store can say when
+    /// it changes.
+    fn put(g: &Ev, level: usize, value: &Value, mode: Readback, term: &Term, size: u64) {
+        if size < Self::MIN_NODES || size > Self::MAX_NODES {
+            return;
+        }
+        let (Some((kind, parts)), Some(metas)) = (Self::identity(value), g.metas.version()) else {
+            return;
+        };
+        let key = (kind, parts, level, mode);
+        let entry = ReadbackEntry {
+            value: value.clone(),
+            term: term.clone(),
+            size,
+            metas,
+            env: g.env.version(),
+            modes: Modes::now(g),
+        };
+        let mut memo = g.caches.readbacks.borrow_mut();
+        match memo.entries.insert(key, entry) {
+            Some(old) => memo.nodes -= old.size,
+            None => memo.order.push_back(key),
+        }
+        memo.nodes += size;
+        while memo.nodes > Self::MAX_NODES {
+            let oldest = memo
+                .order
+                .pop_front()
+                .expect("kept nodes are in some entry");
+            let gone = memo
+                .entries
+                .remove(&oldest)
+                .expect("every key in order is kept");
+            memo.nodes -= gone.size;
+        }
     }
 }
 
 /// What [`quote_as_until`] finds.
 enum Quoted {
-    /// The read-back, or `None` past its cap.
-    Term(Option<Term>),
+    /// The read-back, or `None` past its cap, and how many nodes it visited.
+    Term(Option<Term>, u64),
     /// An unknown `stop` accepted, met before the read-back was finished.
     Met(usize),
 }
@@ -3335,8 +3558,8 @@ pub fn normal_form_meets(
             Some(stop),
         )? {
             Quoted::Met(m) => Some(Some(m)),
-            Quoted::Term(Some(term)) => Some(scan(&term)),
-            Quoted::Term(None) => None,
+            Quoted::Term(Some(term), _) => Some(scan(&term)),
+            Quoted::Term(None, _) => None,
         },
     )
 }
@@ -3380,7 +3603,7 @@ fn quote_as_until(
                 size += 1;
                 if cap.is_some_and(|cap| size > cap) {
                     g.machine.budget.note_readback(size);
-                    return Ok(Quoted::Term(None));
+                    return Ok(Quoted::Term(None, size));
                 }
                 if size > limit {
                     g.machine.budget.note_readback(size);
@@ -3463,7 +3686,7 @@ fn quote_as_until(
         }
     }
     g.machine.budget.note_readback(size);
-    Ok(Quoted::Term(Some(done.pop().expect("one term"))))
+    Ok(Quoted::Term(Some(done.pop().expect("one term")), size))
 }
 
 /// Quotation still to do.
@@ -5959,6 +6182,77 @@ mod tests {
         (0..depth).fold(leaf, |x, _| {
             Value::Ctor(DataId(0), 0, Values::from(vec![x.clone(), x]))
         })
+    }
+
+    /// One metavariable, `?0`, whose solution the test sets, with the
+    /// version a store keeps ([`crate::ev::Metas::version`]).
+    struct Solvable {
+        solution: std::cell::RefCell<Option<Value>>,
+        solved: std::cell::Cell<usize>,
+    }
+
+    impl crate::ev::Metas for Solvable {
+        fn solution(&self, _m: usize) -> Option<Value> {
+            self.solution.borrow().clone()
+        }
+        fn epoch(&self) -> u64 {
+            1
+        }
+        fn version(&self) -> Option<crate::ev::MetasVersion> {
+            Some((u64::MAX, 1, self.solved.get()))
+        }
+    }
+
+    /// SW-4618: a large read-back made again is the kept one, the same term
+    /// a fresh read-back builds, and takes none of the steps.
+    #[test]
+    fn a_kept_read_back_is_the_fresh_one() {
+        let g = crate::globals::Kernel::default();
+        let g = g.ev();
+        let value = doubled(15, Value::Sort(Sort::Type(0)));
+        let first = g.machine.budget.total_work();
+        let fresh = quote(&g, 0, &value).unwrap();
+        let middle = g.machine.budget.total_work();
+        let kept = quote(&g, 0, &value).unwrap();
+        let last = g.machine.budget.total_work();
+        assert!(middle - first >= 1 << 15, "the fresh one visits every node");
+        assert!(last - middle < 100, "the kept one takes no steps");
+        assert_eq!(format!("{kept:?}"), format!("{fresh:?}"));
+        // Another level is another read-back.
+        let other = g.machine.budget.total_work();
+        quote(&g, 1, &value).unwrap();
+        assert!(g.machine.budget.total_work() - other >= 1 << 15);
+        // As is a small one, which isn't kept.
+        let small = doubled(3, Value::Sort(Sort::Type(0)));
+        quote(&g, 0, &small).unwrap();
+        let before = g.machine.budget.total_work();
+        quote(&g, 0, &small).unwrap();
+        assert!(g.machine.budget.total_work() - before >= 1 << 3);
+    }
+
+    /// SW-4618: solving an unknown the kept read-back mentions makes it
+    /// stale: reading the value back again writes the solution in.
+    #[test]
+    fn a_solution_makes_a_kept_read_back_stale() {
+        let g = crate::globals::Kernel::default();
+        let metas = Solvable {
+            solution: std::cell::RefCell::new(None),
+            solved: std::cell::Cell::new(0),
+        };
+        let ev = Ev {
+            metas: &metas,
+            ..g.ev()
+        };
+        let unknown = Value::Neutral(Head::Meta(0), Spine::new());
+        let value = doubled(15, unknown);
+        let before = quote(&ev, 0, &value).unwrap();
+        assert!(format!("{before:?}").contains("Meta(0)"));
+        *metas.solution.borrow_mut() = Some(Value::Sort(Sort::Type(3)));
+        metas.solved.set(1);
+        let after = quote(&ev, 0, &value).unwrap();
+        let text = format!("{after:?}");
+        assert!(!text.contains("Meta(0)"), "the solution is written in");
+        assert!(text.contains("Type(3)"));
     }
 
     /// `conv` with and without the shortcut, which must agree; and the steps

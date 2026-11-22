@@ -30,9 +30,18 @@ pub struct EvalCaches {
     /// declaration's terms never change, nor do those of what it mentions,
     /// which are final too.
     pub(crate) reliance: RefCell<HashMap<Decl, Option<DefId>>>,
+    /// Large read-backs kept for reuse ([`crate::value::ReadbackMemo`]).
+    pub(crate) readbacks: RefCell<crate::value::ReadbackMemo>,
 }
 
 impl EvalCaches {
+    /// Lets go of the read-backs kept for reuse. Each is checked before it
+    /// is reused, so this is never needed for correctness: it frees their
+    /// memory, at the end of a declaration say.
+    pub fn clear_readbacks(&self) {
+        *self.readbacks.borrow_mut() = Default::default();
+    }
+
     /// Forgets what was derived for the definitions from `defs` on and the
     /// data types from `datas` on, when they are removed again.
     pub fn forget_from(&self, defs: usize, datas: usize) {

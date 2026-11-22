@@ -20,9 +20,28 @@ pub struct Env {
     datas: Vec<Data>,
     builtins: Builtins,
     registry: Registry,
+    /// Changes whenever anything above may have: an identity for the
+    /// environment's contents, unique for the process ([`Env::version`]).
+    version: u64,
 }
 
+/// The last [`Env::version`] handed out.
+static VERSIONS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
 impl Env {
+    /// An identity for what the environment holds now: two environments, or
+    /// one at two times, with the same version hold the same declarations
+    /// and settings. A read-back kept for reuse records it (SW-4618).
+    pub fn version(&self) -> u64 {
+        self.version
+    }
+
+    /// Called by every method that takes `&mut self`, before it changes
+    /// anything.
+    fn touch(&mut self) {
+        self.version = VERSIONS.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+    }
+
     /// Every definition, by [`DefId`].
     pub fn defs(&self) -> &[Def] {
         &self.defs
@@ -54,23 +73,27 @@ impl Env {
     /// Switches the number natives off (for tests and tools that compare
     /// them with their definitions): a setting, not a declaration.
     pub fn set_disable_natives(&mut self, off: bool) {
+        self.touch();
         self.builtins.disable_natives = off;
     }
 
     /// Elaborates text literals as constructors, not compactly (a setting).
     pub fn set_disable_compact_text(&mut self, off: bool) {
+        self.touch();
         self.builtins.disable_compact_text = off;
     }
 
     /// Switches the float natives off while the number natives stay on (a
     /// setting).
     pub fn set_disable_float_natives(&mut self, off: bool) {
+        self.touch();
         self.builtins.disable_float_natives = off;
     }
 
     /// Lets the float natives fire outside a running program, for the float
     /// gate only (a setting; see [`Builtins::float_natives_outside_runs`]).
     pub fn set_float_natives_outside_runs(&mut self, on: bool) {
+        self.touch();
         self.builtins.float_natives_outside_runs = on;
     }
 
@@ -78,6 +101,7 @@ impl Env {
     /// it: for a test of what depends on the registry.
     #[cfg(feature = "test-bypass")]
     pub fn forget_builtin_for_tests(&mut self, b: crate::registry::Builtin) {
+        self.touch();
         self.registry.forget_for_test(b);
     }
 
@@ -90,6 +114,7 @@ impl Env {
         name: crate::term::Name,
         body: Option<std::rc::Rc<crate::term::Term>>,
     ) {
+        self.touch();
         let mut def = self.defs[from.0].clone();
         def.name = name;
         def.export = false;
@@ -102,12 +127,14 @@ impl Env {
     /// broken states through [`Def`]'s `*_unchecked_for_tests` setters.
     #[cfg(feature = "test-bypass")]
     pub fn def_mut_for_tests(&mut self, id: DefId) -> &mut Def {
+        self.touch();
         &mut self.defs[id.0]
     }
 
     /// As [`Env::def_mut_for_tests`], for a data type.
     #[cfg(feature = "test-bypass")]
     pub fn data_mut_for_tests(&mut self, id: DataId) -> &mut Data {
+        self.touch();
         &mut self.datas[id.0]
     }
 
@@ -115,28 +142,34 @@ impl Env {
     /// declarations it names, for unit tests of unification.
     #[cfg(feature = "test-bypass")]
     pub fn set_text_unchecked_for_tests(&mut self, text: crate::chars::CompactText) {
+        self.touch();
         self.builtins.text = Some(text);
     }
 
     pub(crate) fn defs_mut(&mut self) -> &mut Vec<Def> {
+        self.touch();
         &mut self.defs
     }
 
     pub(crate) fn datas_mut(&mut self) -> &mut Vec<Data> {
+        self.touch();
         &mut self.datas
     }
 
     pub(crate) fn builtins_mut(&mut self) -> &mut Builtins {
+        self.touch();
         &mut self.builtins
     }
 
     pub(crate) fn registry_mut(&mut self) -> &mut Registry {
+        self.touch();
         &mut self.registry
     }
 
     /// Removes the definitions from `defs` on and the data types from
     /// `datas` on, with the registry entries bound to them.
     pub(crate) fn truncate(&mut self, defs: usize, datas: usize) {
+        self.touch();
         self.defs.truncate(defs);
         self.datas.truncate(datas);
         self.registry.forget_from(defs, datas);
@@ -145,6 +178,7 @@ impl Env {
     /// What [`crate::Kernel::forget_since`] does to the environment: lengths and
     /// bindings only.
     pub(crate) fn rewind(&mut self, defs: usize, datas: usize, builtins: &BuiltinsMark) {
+        self.touch();
         self.truncate(defs, datas);
         self.builtins.rewind(builtins, defs);
     }
