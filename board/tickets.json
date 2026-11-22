@@ -32868,7 +32868,7 @@
     {
       "id": 4647,
       "title": "[Opus] Syntax.ReadBackHungTop.readsBackHungListExample (12.4 s, 147M steps, almost all in the kernel) and readsBackHungSignExample (7.6 s, 95M steps) are 13% of a cold tools/fmt check and half the parallel critical path (docs/proposals/parallel-checking.md addendum): find why the kernel evaluation is so costly (what is computed, whether gluing/unfolding is redundant) and make it cheaper in the checker, or, if the example is needlessly large, say so (proof readability rule: do not distort the example)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
