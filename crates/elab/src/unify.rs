@@ -6,12 +6,13 @@ use std::rc::Rc;
 use crate::check::quote_internal;
 use stitchwort_core::budget::{Phase, ResourceError, Result};
 use stitchwort_core::collections::{HashMap, HashSet};
+use stitchwort_core::unfold_counts::Site;
 use stitchwort_core::value::{
     Closure, CompareAt, Elim, Head, Mode, Relation, ShapeKey, ShapeMemo, Spine, apply_icit, conv,
     eval, expand_step, force, force_solved, is_call_field, is_eta_type, is_folded, matches_at_once,
     opens_by_tree, project, project_call, proof_field, proof_param, quote_as_written,
     quote_at_most, quote_folded, same_closure_solved, same_stuck_trees, sealed, underapplied,
-    unfold_folded, unfold_folded_head, unfold_once, unfolds_head,
+    unfold_folded, unfold_folded_at, unfold_folded_head_at, unfold_once, unfolds_head,
 };
 use stitchwort_core::{BigUint, DefId, Ev, Icit, Term, Value};
 use stitchwort_core::{nat_add, native};
@@ -1802,8 +1803,8 @@ fn forced_rules(
         {
             return Ok(Forced::Answer(true));
         }
-        let a2 = unfold_folded(g, &a)?;
-        let b2 = unfold_folded(g, &b)?;
+        let a2 = unfold_folded_at(g, &a, Site::Unify)?;
+        let b2 = unfold_folded_at(g, &b, Site::Unify)?;
         if a2.is_some() || b2.is_some() {
             work.push(Task::Values(level, a2.unwrap_or(a), b2.unwrap_or(b)));
             return Ok(Forced::Answer(true));
@@ -1822,8 +1823,8 @@ fn forced_rules(
         {
             return Ok(Forced::Answer(true));
         }
-        let a2 = unfold_folded_head(g, &a)?;
-        let b2 = unfold_folded_head(g, &b)?;
+        let a2 = unfold_folded_head_at(g, &a, Site::UnifyOverApplied)?;
+        let b2 = unfold_folded_head_at(g, &b, Site::UnifyOverApplied)?;
         if a2.is_some() || b2.is_some() {
             work.push(Task::Values(level, a2.unwrap_or(a), b2.unwrap_or(b)));
             return Ok(Forced::Answer(true));
@@ -1862,7 +1863,7 @@ fn forced_rules(
                 }
                 // A folded call against a different count of `Succ`s, as
                 // in `conv` (SW-2157).
-                if let Some(x) = unfold_folded(g, x)? {
+                if let Some(x) = unfold_folded_at(g, x, Site::Unify)? {
                     return nested(g, || run(g, vec![Task::Values(level, x, v.clone())], mode));
                 }
                 if let Some(x) = reread(x)? {

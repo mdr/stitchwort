@@ -568,7 +568,14 @@ one check per phase entry and the steps are unchanged (SW-4533). Set
 `STITCHWORT_ENV_METRICS=1` and the timings report ends with a table of the
 closure environments the evaluator extended: how many of each length, and the
 share that nothing else held (so could have grown in place); unset, it costs
-one cached read per extension (SW-4641). To time or
+one cached read per extension (SW-4641). Set
+`STITCHWORT_THEOREM_UNFOLDS=1` and the report ends with a table of how often a
+theorem's proof was unfolded from a call of it elsewhere (a theorem's own body
+being checked isn't counted): by site (a `case` on a proof, `J`, conversion,
+the unifier, and so on) and mode (elaborator or kernel), the theorems unfolded
+most, the declarations that unfolded most, the pairs, and the totals by the
+declaration's first name (`Std`, `Aoc`, ...). Unset, it costs one cached read
+per unfolding (SW-4645). To time or
 profile a project's namespaces without paying for the library, add
 `--no-project-cache`: the project's own namespaces are checked afresh (their
 cache entries neither read nor written) while the library comes from the

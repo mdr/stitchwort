@@ -46,6 +46,42 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 22 Nov 2026
 
+### SW-4645: how often a theorem's proof is unfolded while checking (counters only, `STITCHWORT_THEOREM_UNFOLDS=1`)
+
+- **Problem.** Matt is weighing sealed (opaque) theorems, so that changing B's proof can never
+  affect a proof A that uses B. Today a theorem is transparent: a `case` on a proof, `J` and a
+  comparison unfold a folded call of it (docs/core.md "Theorems stay folded too"; SW-4642 added
+  over-applied calls). Before a design note, how often, and where, does that happen?
+- **Change.** A counter (`crates/core/src/unfold_counts.rs`), off unless the variable is set (one
+  relaxed load per unfolding), counting each unfolding of a theorem's body from a call of it, by
+  site, mode (`machine.kernel`: kernel or elaborator), theorem and the declaration being checked,
+  and printing tables at the end of `--timings`. Counters only: terms, steps and hashes unchanged.
+- **Measured (release, `--no-cache`, `--timings=all`, nice 19, one run each; deterministic: two
+  runs of tools/fmt gave the same totals).** A day's check also loads the library (Std,
+  uncached), so "Aoc" is the part the declarations of the day and `Aoc.Common` did.
+
+  | run | unfoldings | elaborator | kernel | case | J | call returned by a body | conversion (incl. over-applied) | unify (incl. over-applied) |
+  |---|---|---|---|---|---|---|---|---|
+  | tools/fmt (all) | 63,049 | 55,847 | 7,202 | 6,702 | 50,468 | 5,312 | 80 | 487 |
+  | std (`check --std --warnings`, every folder but `core`) | 12,394 | 11,973 | 421 | 2,521 | 6,936 | 2,655 | 182 | 100 |
+  | Aoc.Year2025.Day02 (+ Proofs, Spec, Tests) | 5,061 | 4,852 | 209 | 1,019 | 3,035 | 990 | 7 | 10 |
+  | Aoc.Year2024.Day12 (same) | 5,132 | 4,938 | 194 | 1,044 | 3,163 | 917 | 4 | 4 |
+  | Aoc.Year2020.Day20 (same) | 5,516 | 5,316 | 200 | 1,282 | 3,476 | 579 | 156 | 23 |
+
+  By the declaration that unfolded: tools/fmt: Syntax 32,971, Fmt 25,694, Std 4,384. Days:
+  Day02 Aoc 823 and Std 4,238; Day12 Aoc 1,096 and Std 4,036; Day20 Aoc 2,381 and Std 3,135.
+  So most unfolding is `Std.Eq.flipped` (37% of tools/fmt's unfoldings, 23% of std's, all under `J`), `Std.And.left`
+  and `Std.And.right`, `Std.Eq.trans`, `Std.Eq.cong`, and a few list lemmas: lemmas in std
+  that are themselves one `J` or `case`. The kernel does about 13% of the elaborator's count; conversion's
+  own unfoldings (kernel and elaborator, over-applied ones included, which SW-4642 added) are
+  0.1% of tools/fmt's total and the unifier's 0.8%.
+- **Why the top cases unfold** (sites by theorem, from the same run): `Eq.flipped`, `Eq.cong`,
+  `Eq.trans` are `J p` proofs, and every `rewrite h`, `rewrite <- h` and `calc` step is a `J`
+  on a proof built from them: the J's scrutinee `Eq.flipped h` has to be unfolded to see its
+  `Refl`/the `J` inside (the case "a cast along an equality proof"). `And.left`/`And.right` and
+  `Decidable.andSound`, `Bool.andReads` are a `case` on a conjunction or a decision's proof (a
+  field of a folded call). The `call returned by a body` count is a proof whose body ends in a
+  call of another theorem (`Eq.trans`, `Eq.cong`, list lemmas chaining `reverseOntoAppend`).
 ### SW-1803: dot-call tables keyed by syntax ids, not addresses; step counts repeat on every run
 
 - **Problem.** Steps varied between cold runs of the same binary: on `tools/fmt`, two full checks
