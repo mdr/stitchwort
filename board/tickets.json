@@ -1,5 +1,5 @@
 {
-  "next": 4585,
+  "next": 4586,
   "tickets": [
     {
       "id": 47,
@@ -31868,12 +31868,12 @@
     {
       "id": 4579,
       "title": "[Sonnet] Search: use_pattern and closing.rs's goal patterns have no Pattern::written (SW-4570), so a goal with holes that computes (2 * ?j becomes ?j + ?j) can still filter out the lemma that states it; set written from the term as written there too, with a test; after SW-4575 merges (same file)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "Lane note: use_pattern now sets written (the lemma conclusion plus the use arguments), open_from sets it for closing goals (statement peeled binder for binder). Closing search is unfiltered (D2066), so the goal part changes no numbers; test search_bench::a_use_pattern_passes_its_own_lemmas_filter (fails before, passes after; 237 of 7012 uses flip). stage_two share 63.2% before and after. Commit aec34e94d.\n",
+      "body": "Model result: Sonnet, worked (use and goal patterns; closing is unfiltered so goal side has no effect today), 10 min (est. 35)\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -31933,6 +31933,19 @@
     {
       "id": 4584,
       "title": "[Sonnet] search_bench: 753 proof uses get no pattern (many out of budget, mostly Float.Theory) and silently drop out of recall; report the count in the bench summary and pin it; and note whether use_pattern (only the bench uses it) should build queries the way stitchwort search does",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4585,
+      "title": "[Opus] Search: 6775 of 7012 recorded proof uses fail their own lemma's filtered first pass, because a use pattern's constants include its arguments' constants, which the lemma's type doesn't name (SW-4579). Decide whether use patterns should leave the arguments' constants out of the filter (and what that does to recall@10 and out-of-budget in search_bench::proof_uses_find_their_lemma_among_the_first_ten), and do it if it helps",
       "status": "backlog",
       "agent": "",
       "where": "",
