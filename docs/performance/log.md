@@ -46,6 +46,54 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 22 Nov 2026
 
+### SW-4635: a `match` leaves unread the hypotheses its scrutinee can't occur in, and `rewrite` takes meta-free context values as they are; `atomHung` 53.9M to 19.8M steps
+
+- **Problem.** SW-4631 left `atomHung`, `unaryHung`, `signArgHung` and the chain proofs reading
+  back large terms at every `match` (each generalisation read every hypothesis type unfolded,
+  `inner: FullHungBelow depth` at 61.6K nodes) and at every `rewrite` (`kernel_context` read back
+  and re-evaluated every hypothesis type and `let` value, folded, to replace unknowns).
+- **Profile (measured, `STITCHWORT_BIG_READBACK=5000`, after the match change).** Of `atomHung`'s
+  read-backs over 5K nodes, `kernel_context` was 5.2M nodes over 788 calls (from `rewrite`'s
+  motive check, its carried replacement and its as-written search) and the goal at each
+  generalised `match` 1.64M (6 × 273K).
+- **Change 1 (elaborator, `crates/elab/src/matching/untouched.rs`).** Before reading types back,
+  the generalisation finds variables each scrutinee's normal form certainly mentions (the head of
+  a stuck application, or one in a non-inert argument of a definition that doesn't unfold,
+  forcing at most 20K steps) and walks each hypothesis type's value as it is (calls not unfolded,
+  closures through the variables their bodies use, at most 4096 nodes) for the variables it can
+  mention. A type that can't mention one of a scrutinee's certain variables, nor any variable
+  whose type is read, is never read (`refl` placeholder, as `cases`' skipped levels already
+  were): not by `blocker`, the usual test, the search as written, or a guard's refinement. Such
+  a variable would not have been copied, so motives and terms are unchanged.
+- **Change 2 (`rewrite::kernel_context`).** A type or value with no unknown in it (no meta head,
+  no meta in a closure body it uses; at most 64K nodes walked) is passed to the kernel's context
+  as it is instead of read back folded and evaluated again.
+- **Result (measured, steps, release, `check NS --no-project-cache --timings=all` from
+  `tools/fmt`, nice 19, load 3-10; before is main at `cad2a2900`).**
+
+  | proof | before | after |
+  |---|---|---|
+  | `atomHung` | 53,852,235 | 19,765,718 |
+  | `unaryHung` | 24,937,381 | 21,229,518 |
+  | `signArgHung` | 8,979,786 | 6,555,301 |
+  | `cmpHung` | 9,075,700 | 7,555,069 |
+  | `appendHung` | 8,027,786 | 6,508,938 |
+  | `addAccHung` | 7,155,381 | 6,488,031 |
+  | `mulAccHung` | 6,794,340 | 6,285,721 |
+
+  `atomHung` alone: change 1 took it to 49,978,162, change 2 the rest; elaboration 4,526 to
+  about 1,900 ms. `examples/accept/match-unrelated-hypothesis.sw`: `existsUnrelated` 591,488 to
+  1,430 steps, `dependentRefined` 394,746 to 1,305 (largest read-back 196,608 to 9 nodes).
+  Namespaces (elab ms, first build of this change, load 3-10, so rough): `ReadBackHungAtoms`
+  4,640 to 1,972, `ReadBackHungApp` 3,005 to 2,205, `ReadBackHungChains` 1,694 to 1,563; the
+  whole `check Syntax.ReadBackHungChains --no-project-cache` (its 17,506 declarations, library
+  and imports included) 22,196 to 17,688 ms elaboration.
+- **Left.** The goal is always read back unfolded at a generalised `match` (`unaryHung`: 4 ×
+  573K nodes; `atomHung` 6 × 273K), and these goals mention the scrutinee's variables, so the
+  rule above can't skip them. Reading the goal only as far as the occurrence test needs, or
+  testing on the folded goal, is the next candidate.
+- **Ticket:** SW-4635.
+
 ### SW-4631: the binary chains' link steps moved into lemmas; `mulAccHung`, `addAccHung`, `appendHung`, `cmpHung` 36-60% fewer steps
 
 - **Problem.** After SW-4619 the slowest formatter proofs still included the four chain proofs in
