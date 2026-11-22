@@ -598,6 +598,34 @@ def SourceFile.unreturned (file: SourceFile): Bool :=
 --| The words the output's tree has, all declarations' in a row.
 def SourceFile.words (file: SourceFile): List Word := (file.calmTop.decls.map Decl.words).concat
 
+--| The comments the file loop prints above the first declaration read back as those `topped` leaves on its keyword.
+theorem toppedAboveRead ∀ (keyword: Comments)
+    (plain: keyword.above.all Note.unreturned = True):
+    readNotes (laidNotes True keyword.above) = keyword.topped.above :=
+  match above: keyword.above with
+    | [] => byComputing
+    | [first, ..more] =>
+      match first with
+        | { text, blankBefore } =>
+          rewrite unreturnedSame text (Bool.andLeft plain), notesRead more (Bool.andRight plain)
+
+--| The first declaration's keyword has a blank line before it after `topped` just when the file loop prints one.
+theorem toppedBlankRead ∀ (keyword: Comments):
+    ((if keyword.blankBefore && !(True && keyword.above.isEmpty) then 1 else 0) > 0) = keyword.topped.blankBefore :=
+  match above: keyword.above with
+    | [] =>
+      match keyword.blankBefore with
+        | True => byComputing
+        | False => byComputing
+    | [first, ..more] =>
+      match keyword.blankBefore with
+        | True => byComputing
+        | False => byComputing
+
+theorem toppedAfter ∀ (keyword: Comments): keyword.topped.after = keyword.after := match above: keyword.above with
+  | [] => byComputing
+  | [first, ..more] => byComputing
+
 --| Each declaration's leaves in the file stand against its words in the output's tree (`stood`), the `def` holding the
 --| comments the file loop prints above it.
 theorem standsEachFile ∀ (file: SourceFile)
@@ -617,34 +645,13 @@ theorem standsEachFile ∀ (file: SourceFile)
         | [Definition [] header (Assigned colonEq value), ..rest] =>
           let plain := Bool.andLeft (Bool.andLeft unreturned)
           let keyword := header.keyword
-          let aboveTop: readNotes (laidNotes True keyword.above) = keyword.topped.above :=
-            match above: keyword.above with
-              | [] => byComputing
-              | [first, ..more] =>
-                match first with
-                  | { text, blankBefore } =>
-                    rewrite unreturnedSame text (Bool.andLeft plain), notesRead more (Bool.andRight plain)
-          let blankTop: ((if keyword.blankBefore && !(True && keyword.above.isEmpty) then 1 else 0) > 0)
-            = keyword.topped.blankBefore :=
-            match above: keyword.above with
-              | [] =>
-                match keyword.blankBefore with
-                  | True => byComputing
-                  | False => byComputing
-              | [first, ..more] =>
-                match keyword.blankBefore with
-                  | True => byComputing
-                  | False => byComputing
-          let afterTop: keyword.topped.after = keyword.after := match above: keyword.above with
-            | [] => byComputing
-            | [first, ..more] => byComputing
           Bool.andIntro
             (standsDecl header colonEq value True keyword.topped
               (Bool.andLeft stood)
               (Bool.andLeft starts)
-              aboveTop
-              blankTop
-              afterTop)
+              (toppedAboveRead keyword plain)
+              (toppedBlankRead keyword)
+              (toppedAfter keyword))
             (standsRest rest
               (Bool.andRight withinDecls)
               (Bool.andRight stood)
