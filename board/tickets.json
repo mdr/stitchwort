@@ -32455,12 +32455,12 @@
     {
       "id": 4621,
       "title": "[Sonnet] Split the examples benchmark: a std benchmark that checks the library once, and examples reading std from a cache filled before timing (est. 16.5G to ~3.5G steps, 232 s to ~50 s); fix programs.rs saying it works as the example suite does; baseline re-recorded on a quiet machine afterwards (SW-4593 recommendation 1)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\n\nLane notes (Sonnet): std benchmark added (whole library, from source: 355 M steps, 28 s); examples fills two fresh cache folders (accepted 16 MB stack, rejected default stack) in prepare. Subset run (9 examples) twice: identical counts. Baseline needs re-recording (new std entry; examples numbers change). Commits d0419dd5b, 6a8aa362b.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
