@@ -1,5 +1,5 @@
 {
-  "next": 4602,
+  "next": 4603,
   "tickets": [
     {
       "id": 47,
@@ -32013,7 +32013,7 @@
     {
       "id": 4590,
       "title": "[Opus] D3713 (pending Matt): a generalised match waits for ever on a lambda parameter's unknown type that only its own arm fixes ('let check := r => 3 ∈ r.items; match n == 0 with | True => check b', E-CANNOT-INFER at r.items); proposal: blocker in matching.rs skips parameter_metas (SW-873's rule for generalisation). Do once Matt answers",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -32162,6 +32162,19 @@
       "labels": [],
       "epic": "performance",
       "body": "Model result: Sonnet, worked (7 builds; hunk confirmed by patch), 10 min (est. 35)\n",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4602,
+      "title": "[Opus] Pending a D question for Matt (after D3713): let size := r => r.items.length before match n == 0 with | True => size b still fails E-CANNOT-INFER at r.items: the generalised match waits on the field lookup's result unknown, which isn't a parameter_meta (SW-4590's finding 1). The same lambda before match o with on a variable is accepted (SW-4586), so the two kinds of match differ. Proposal to bring: let the blocker also skip unknowns created inside a let lambda whose parameter type is unknown. Do once Matt answers",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
