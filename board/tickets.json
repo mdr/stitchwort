@@ -32313,12 +32313,12 @@
     {
       "id": 4611,
       "title": "[Opus] Profile the standsEachFile family's 1.1M-node read-back (six tools/fmt proofs, 54.5 s, 21% of the cold check's declaration time) and remove or share it (SW-4608 win 3)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nProgress (lane, 22 Nov 12:42): cause: the three nested `match above: keyword.above` in standsEachFile (aboveTop/blankTop/afterTop) ran inside the declaration match, where the file's refined hypotheses read back at ~1.1M nodes; 68 such read-backs from five callers (substitute_in 22, matching::blocker 18, rewrite kernel_context 16, lifted_type 12). Change (proof reshape, option c): the three facts became lemmas over Comments (toppedAboveRead, toppedBlankRead, toppedAfter); statement unchanged. Measured (same command): standsEachFile 35,921 ms / 474.5M steps / largest read-back 1,130,507 nodes -> 16 ms / 168K steps / 82 nodes. Rest of family untouched (printedFinish1 7.3 s, standsDecl 6.1 s, standsRest 1.8 s, printedStart1 1.5 s): their read-backs come from the match on the declaration's leaves itself. General fix (memo of read-backs across callers) not built; filed as a finding. Commit a2febaecf. Perf log entry added.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
