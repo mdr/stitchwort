@@ -88,9 +88,7 @@ def lineKind: Tok → Bool
       Comma => True
   | _ => False
 
-def lineAll: List Item → Bool
-  | [] => True
-  | [item, ..rest] => lineKind item.kind && lineAll rest
+def lineAll (items: List Item): Bool := items.all (item => lineKind item.kind)
 
 --| The kinds an expression of this part starts with.
 def startKind: Tok → Bool
@@ -357,24 +355,20 @@ def exprKind: Tok → Bool
       Comma => True
   | _ => False
 
-def exprAll: List Item → Bool
-  | [] => True
-  | [item, ..rest] => exprKind item.kind && exprAll rest
+def exprAll (items: List Item): Bool := items.all (item => exprKind item.kind)
 
 theorem exprAppend ∀ (first rest: List Item): exprAll (first ++ rest) = (exprAll first && exprAll rest) :=
-  match first with
-    | [] => byComputing
-    | [item, ..more] =>
-      rewrite exprAppend more rest then
-        match exprKind item.kind with
-          | True | False => byComputing
+  List.allAppendAnd first rest (item => exprKind item.kind)
 
 theorem exprLineKind ∀ (kind: Tok) (expr: exprKind kind = True): lineKind kind = True := cases
 
 --| An expression's items are of the kinds read on a line.
-theorem exprLine ∀ (items: List Item) (expr: exprAll items = True): lineAll items = True := match items with
-  | [] => byComputing
-  | [item, ..more] => rewrite exprLineKind item.kind (Bool.andLeft expr), exprLine more (Bool.andRight expr)
+theorem exprLine ∀ (items: List Item) (expr: exprAll items = True): lineAll items = True :=
+  List.allImpliesBool items
+    (item => exprKind item.kind)
+    (item => lineKind item.kind)
+    (item => exprLineKind item.kind)
+    expr
 
 --| An infix's operator is a kind of this part.
 theorem infixExpr ∀ (kind: InfixKind) (tok: Tok) (isOp: infixTok kind tok = True): exprKind tok = True :=
@@ -768,18 +762,16 @@ theorem startFacts ∀ (kind: Tok)
   cases
 
 theorem lineAppend ∀ (first rest: List Item): lineAll (first ++ rest) = (lineAll first && lineAll rest) :=
-  match first with
-    | [] => byComputing
-    | [item, ..more] =>
-      rewrite lineAppend more rest then
-        match lineKind item.kind with
-          | True | False => byComputing
+  List.allAppendAnd first rest (item => lineKind item.kind)
 
 theorem linePlainKind ∀ (kind: Tok) (line: lineKind kind = True): plainKind kind = True := cases
 
-theorem linePlain ∀ (items: List Item) (line: lineAll items = True): plainAll items = True := match items with
-  | [] => byComputing
-  | [item, ..rest] => rewrite linePlainKind item.kind (Bool.andLeft line), linePlain rest (Bool.andRight line)
+theorem linePlain ∀ (items: List Item) (line: lineAll items = True): plainAll items = True :=
+  List.allImpliesBool items
+    (item => lineKind item.kind)
+    (item => plainKind item.kind)
+    (item => linePlainKind item.kind)
+    line
 
 theorem noBarLine ∀ (modes: Modes) (item: Item) (later: List Item)
     (line: lineAll later = True):
