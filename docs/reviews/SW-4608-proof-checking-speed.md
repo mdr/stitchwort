@@ -312,3 +312,58 @@ would be the next step.
 - AoC Lean bench: 12:05-12:10, load 7-10.
 - Lean/Rocq slice 1 files: 11:37, load about 8.
 - Our `--only` runs: 12:16-12:23, load 3-6.
+
+## Rerun, 22 Nov afternoon (SW-4616)
+
+The same bench (`bench/compare/proofs.py`, 3 runs each, medians) on `lane/SW-4616` at
+`main` as of cad2a2900, which includes SW-4609, SW-4624 and SW-4629 and the other checking-speed
+changes since section 3. Two changes to the bench: "sw load" is now also measured as a **cached**
+check of the import file (the check cache warmed by hyperfine's untimed warmup run, so it is our
+counterpart of Lean's precompiled `.olean`), and the table gains three columns from it.
+"sw load" (the `--no-cache` one) and "sw check" (`--no-cache`) are measured as before; **the
+headline stays "sw net / lean net"**, so it compares with section 3, and the new
+"sw net + cached load / lean file" is the fair whole-run figure (our time for the day's theorems
+plus a warm library, against Lean's whole file with a prebuilt Lib). **[measured]**
+
+| day | theorems | sw check | sw load (no cache) | sw net | lean file | lean load | lean net | sw net / lean net | sw load (cached) | sw net + cached load | that / lean file | lake build, cold |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 2024 day 2 | 17 | 2.55 s | 2.25 s | 304 ms | 405 ms | 262 ms | 143 ms | **2.12x** | 432 ms | 736 ms | 1.8x | 895 ms |
+| 2020 day 18 | 23 | 10.32 s | 9.38 s | 943 ms | 450 ms | 262 ms | 189 ms | **5.00x** | 489 ms | 1.43 s | 3.2x | 995 ms |
+| 2021 day 15 | 41 | 6.77 s | 4.76 s | 2.01 s | 861 ms | 262 ms | 599 ms | **3.35x** | 487 ms | 2.50 s | 2.9x | 1.41 s |
+
+Old against new, "sw net / lean net":
+
+| day | section 3 | now | sw net, then | sw net, now |
+|---|---:|---:|---:|---:|
+| 2024 day 2 | 2.9x | 2.12x | 289 ms | 304 ms |
+| 2020 day 18 | 7.9x | 5.00x | 1.57 s | 943 ms |
+| 2021 day 15 | 3.2x | 3.35x | 1.53 s | 2.01 s |
+
+- **A cached library load is 0.43-0.49 s**, against 2.3-9.4 s uncached and Lean's 0.26 s. So
+  with the cache as our `.olean`, the load gap is about 1.7-1.9x, not 9-36x.
+- **Counting a warm library load, a day's whole check is 1.8-3.2x Lean's file time**, against
+  7-24x in section 3's "load counted" reading.
+- Net of loading the picture is mixed: day 18 improved (7.9x to 5.0x), day 2 changed little
+  (the ratio moved because Lean's own time did: 99 ms then, 143 ms now), day 15 is slightly worse.
+  **I would not read the day 15 change, or the day 2 one, as real**: `sw net` is a difference of two
+  medians of 3 runs each, so it carries both runs' noise, and day 15's "sw load" fell by 1.1 s
+  between the two measurements (5.85 s to 4.76 s) while its "sw check" fell only 0.6 s.
+- Lean's file times also moved between runs (day 2: 360 to 405 ms; day 15: 734 to 861 ms), a
+  guide to the noise from load.
+
+Caveats:
+
+- **Load was high and uneven.** The 5-minute load was 16-19 at the start of the timing (the
+  brief's bar is under 15; it fell to 15.2 while waiting and then rose to 19 as the bench began, from
+  other lanes) and 7.5-13 at the end. Section 3 ran at load 7-10. Both sides are slowed by
+  load but the Stitchwort side, which is longer, picks up more noise.
+- 3 runs per median (as SW-4608), so a figure's error is easily 10-20%. Treat the ratios as
+  to one significant figure.
+- The "sw check" figure is still `--no-cache`: a cached check of the day's own theorems would
+  measure the cache, not the checker, so it is not run. The fair whole-run reading is the
+  "sw net + cached load" column, which assumes the library part and the day's own part add.
+- **Lean version**: the `.#compare` shell's Lean is still 4.34.1. `flake.lock` pins nixpkgs at
+  `7fd4004d` (lastModified 1791734076), which has `lean4` 4.34.1; current nixpkgs has 4.35.0.
+  Matching it means updating the flake's nixpkgs input, which moves every other tool in the
+  dev shell, for a comparison that a minor Lean version barely changes. Not done; section 3's
+  run was on 4.34.1 as well (the README's "Lean 4.34.1"), and so is this one.
