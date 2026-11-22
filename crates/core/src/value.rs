@@ -2183,7 +2183,8 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                 // ([`unfold_folded`], [`unfold_folded_head`]), so it still
                 // meets a value built from the unfolding (a solution
                 // replayed by `Frame::ReplayElim`, or one written out).
-                // Elaborator only, as for fields.
+                // This arm is the elaborator's only, as for fields; the
+                // comparison rule is every mode's, the kernel's included.
                 Value::Neutral(head, _)
                     if !matches!(head, Head::Meta(_))
                         && g.def(id).theorem
@@ -2291,7 +2292,9 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
         },
         Frame::ReplayElim { spine, next } => {
             let elim = spine[next].clone();
-            // Only while elaborating (a metavariable's solution), so the
+            // A metavariable's solution while elaborating, or the rest of a
+            // spine after a folded call that conversion unfolded
+            // ([`unfold_folded_head`], the kernel too): either way the
             // machine this starts for a folded value is bounded by the
             // program.
             // What it unfolds to may be a glued call (a `decreasing`
@@ -3103,19 +3106,20 @@ pub fn unfold_folded(g: &Ev, value: &Value) -> Result<Option<Value>> {
 /// case tree. A theorem's unfolding stuck past its own tree is kept as the
 /// call (`Frame::Unfolding`), so such a value can meet one built from the
 /// unfolding (by a metavariable's solution replayed, or written out), and
-/// conversion and the unifier compare the two by this.
+/// conversion and the unifier compare the two by this. In every mode, the
+/// kernel's included: a definition's arity is its body's leading lambdas
+/// (docs/core.md), so a theorem whose case tree returns a lambda, or a
+/// definition with a `Quot.lift` leaf returning a function, applied to all
+/// its arguments is such a value there too, compared by delta and then the
+/// eliminations after it, as docs/core.md's equality rule asks.
 pub fn unfold_folded_head(g: &Ev, value: &Value) -> Result<Option<Value>> {
-    let Value::Neutral(Head::Def(id), spine) = value else {
-        return Ok(None);
-    };
-    let arity = g.def(*id).arity;
-    if spine.len() <= arity
-        || !spine[arity..]
-            .iter()
-            .any(|e| matches!(e, Elim::J { .. } | Elim::App(..)))
-    {
+    if !unfolds_head(g, value) {
         return Ok(None);
     }
+    let Value::Neutral(Head::Def(id), spine) = value else {
+        unreachable!("checked by unfolds_head")
+    };
+    let arity = g.def(*id).arity;
     let call = Value::Neutral(Head::Def(*id), spine[..arity].iter().cloned().collect());
     if !folded_call(g, &call) {
         return Ok(None);
@@ -4249,7 +4253,10 @@ fn conv_step(
         let assign = |x: &Value, rest: &Value| {
             let x = match unfold_folded(g, x)? {
                 Some(x) => Some(x),
-                None => reread(x)?,
+                None => match unfold_folded_head(g, x)? {
+                    Some(x) => Some(x),
+                    None => reread(x)?,
+                },
             };
             Ok(match x {
                 Some(x) => {

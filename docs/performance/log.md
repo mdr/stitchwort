@@ -91,6 +91,13 @@ in [../proposals/README.md](../proposals/README.md).
   unfold a folded call applied to all its arguments and followed by a `J` or an application, then apply
   the rest (`unfold_folded_head`). Steps unchanged: `atomHung` 4,121,558, `bigSplit` 3,351, `threeSteps`
   18,019.
+- **Correction (Fable review, `docs/reviews/SW-4642-fable-review.md`).** "The kernel's evaluation is unchanged"
+  holds for the kept-call rule, but the conversion rule above is every mode's, and the kernel builds its shape
+  too: a theorem whose case tree returns a lambda has a smaller arity than its parameters, so applied to all of
+  them it is the call with arguments after it. The kernel now accepts `J m b (viaCase 0 h) ≡ J m b h`, which
+  `main` refused (`proof-call-against-unfolding.sw`, `overApplied`; the wrapping test's "J by an over-applied
+  theorem"). It's delta then the ordinary eliminations, as `docs/core.md`'s equality rule asks; the spec now
+  says so, with evaluation's half left as known gap G12.
 - **Ticket:** SW-4642.
 
 ### SW-4638: why `atomHung` doubled (25.5M to 53.9M) between SW-4619 and SW-4635: SW-4629's projection `let`s in proofs; a measurement, no code changed

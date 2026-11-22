@@ -601,6 +601,37 @@ fn unfold_folded(g: &Ev, value: Value) -> Result<Value> {
     Ok(value)
 }
 
+/// A folded call applied to all its arguments and then eliminated further
+/// by a `J` or an application (`J m b (T a)`, `T a h` for a theorem whose
+/// case tree returns a lambda): the call unfolded, with the rest of the
+/// spine applied to what it computes to, as the machine's conversion
+/// compares it (`value::unfold_folded_head`). `None` if `value` isn't one,
+/// or the call doesn't unfold.
+fn unfold_folded_head(g: &Ev, value: &Value) -> Result<Option<Value>> {
+    let Value::Neutral(Head::Def(id), spine) = value else {
+        return Ok(None);
+    };
+    let arity = g.def(*id).arity;
+    if spine.len() <= arity
+        || !spine[arity..]
+            .iter()
+            .any(|e| matches!(e, Elim::J { .. } | Elim::App(..)))
+        || !spine[..arity].iter().all(|e| matches!(e, Elim::App(..)))
+        || !(folds(g, *id) || folds_on_lift(g, *id))
+        || seen(g, *id).is_none()
+    {
+        return Ok(None);
+    }
+    let call = Value::Neutral(Head::Def(*id), spine[..arity].iter().cloned().collect());
+    let unfolded = unfold_folded(g, call.clone())?;
+    if matches!((&call, &unfolded), (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2))
+        if i1 == i2 && s1.ptr_eq(s2))
+    {
+        return Ok(None);
+    }
+    apply_spine(g, unfolded, &spine[arity..]).map(Some)
+}
+
 /// A `case`'s scrutinee with its head computed: folded calls unfolded, and
 /// a stuck `m + n` read by R3 and R4 through a folded `n` (G2).
 fn scrutinee(g: &Ev, value: Value) -> Result<Value> {
@@ -918,6 +949,23 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
             return conv_in(g, level, &a2, &b2, mode);
         }
     }
+    // A folded call with a `J` or an application after its arguments, as
+    // in the machine's conversion: the same call's spines first, otherwise
+    // unfolded with the rest applied (SW-4642).
+    let head_a = unfold_folded_head(g, a)?;
+    let head_b = unfold_folded_head(g, b)?;
+    if head_a.is_some() || head_b.is_some() {
+        if let (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2)) = (a, b)
+            && i1 == i2
+            && s1.len() == s2.len()
+            && conv_spines(g, level, Some(*i1), s1, s2, Mode::Shortcut)?
+        {
+            return Ok(true);
+        }
+        let a2 = head_a.unwrap_or_else(|| a.clone());
+        let b2 = head_b.unwrap_or_else(|| b.clone());
+        return conv_in(g, level, &a2, &b2, mode);
+    }
     // A sum stuck on its first argument, with a folded call in its second,
     // as what R3 and R4 make of it (G2).
     if let Some(a2) = reread_sum(g, a)? {
@@ -939,6 +987,9 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
             |x, y| conv_in(g, level, x, y, mode),
             |x, rest| {
                 if let Some(x2) = reread_sum(g, x)? {
+                    return conv_in(g, level, &x2, rest, mode);
+                }
+                if let Some(x2) = unfold_folded_head(g, x)? {
                     return conv_in(g, level, &x2, rest, mode);
                 }
                 if !is_folded(g, x) {
