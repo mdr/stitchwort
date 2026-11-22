@@ -636,6 +636,24 @@ fn a_product_stuck_on_its_left_does_not_compute_its_right() {
     assert!(work < 1_000_000, "{work} steps");
 }
 
+/// Two different calls whose unfoldings are the same huge computation,
+/// `f x` against `g x`, unify without running it: `byComputing`'s unglued
+/// comparison, which would, is only for sides with no variable in them,
+/// and can't spend the steps unification needs (SW-4561).
+#[test]
+fn two_different_huge_calls_that_unify_are_not_computed() {
+    let mut session = Session::new();
+    let before = session.elab.kernel.machine.budget.total_work();
+    let source = "def count: (n: Nat) → Nat\n  | Zero => 0\n  | Succ n => Succ (count n)\n\n\
+                  def f (x: Nat): Nat := x * count 100000000\n\n\
+                  def g (x: Nat): Nat := x * count 100000000\n\n\
+                  theorem t (x: Nat): f x = g x := byComputing\n";
+    let result = codes(session.load("stuck.sw", source));
+    assert!(result.is_empty(), "{result:?}");
+    let work = session.elab.kernel.machine.budget.total_work() - before;
+    assert!(work < 1_000_000, "{work} steps");
+}
+
 /// Whatever a check ran out of, the error says which declaration it was
 /// checking, and points at it (SW-843).
 #[test]

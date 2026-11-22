@@ -850,6 +850,12 @@ impl Budget {
         self.stack_floor.get()
     }
 
+    /// The running operation's limits ([`Limits::default`] outside one): for
+    /// an attempt that may spend as much as the operation could.
+    pub fn limits(&self) -> Limits {
+        self.limits.get().unwrap_or_default()
+    }
+
     /// The largest term [`crate::value::quote`] may build.
     pub fn size_limit(&self) -> u64 {
         self.limits.get().map_or(u64::MAX, |l| l.size)

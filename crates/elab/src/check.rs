@@ -7127,41 +7127,57 @@ fn explicit_lambda(
     ))
 }
 
-/// Whether `a` and `b`, with no unknown left in either, compute to the same
-/// value as the kernel computes them: read back folded and evaluated
+/// Whether `a` and `b`, closed (no unknown or variable left in either),
+/// compute to the same value as the kernel computes them: evaluated
 /// unglued, each call running once. Glued, unification compares calls by
 /// their lazily kept unfoldings and can compute the same call many times
 /// over: a parser's run against the tree it gives cost 91M steps glued and
-/// 2.9M unglued (SW-4536). The kernel converts `Term::Refl`'s sides unglued
-/// too, so a `true` here is what it will accept. A `false` leaves the
-/// answer, and any message, to unification.
+/// 2.9M unglued (SW-4536). The kernel checks a closed `byComputing` the
+/// same way (`check_defs`, SW-3930), so a `true` here is what it will
+/// accept. A `false` leaves the answer, and any message, to unification.
+///
+/// It must never cost unification its answer (SW-4561). So the sides are
+/// read back as written, computing nothing; a side with a variable in it
+/// is left to unification, as the kernel checks one glued (`x * count
+/// 100000000` against `f x` would compute `count 100000000` unglued); and
+/// the comparison is an attempt with the operation's limits, so running
+/// out of steps, size or frames is a `false` that leaves the operation's
+/// budget as it was. Running out of stack is passed on, as for any attempt.
 fn same_unglued(cx: &mut Ctx, a: &Value, b: &Value) -> Result<bool> {
     // Exactly alike (`countdown 0 100000000` against itself) convert without
-    // running anything. Reading one back would run the call, and a call too
-    // big for that runs the whole operation out of steps or stack, which
-    // is sticky: unification, which accepts the pair as it is, would then
-    // fail too.
+    // running anything.
     if stitchwort_core::value::same_value(a, b) {
         return Ok(true);
     }
     let closed = |cx: &Ctx, v: &Value| -> Result<Option<Term>> {
-        let term = cx.quote_folded(v)?;
+        let term = stitchwort_core::value::quote_as_written(&cx.g(), cx.level(), v)?;
         let term = cx.e.zonk_keeping(&term, cx.level(), &|_| true)?;
-        let open = term.subterms().any(|(t, _)| matches!(t, Term::Meta(_)));
+        let open = term.subterms().any(|(t, binders)| match t {
+            Term::Meta(_) => true,
+            Term::Var(i) | Term::Case(i, ..) | Term::NumCase(i, ..) => *i >= binders,
+            _ => false,
+        });
         Ok((!open).then_some(term))
     };
     let (Some(ta), Some(tb)) = (closed(cx, a)?, closed(cx, b)?) else {
         return Ok(false);
     };
     let g = cx.g();
+    let budget = &g.machine.budget;
     let was = g.machine.glue.replace(false);
-    let same = (|| -> Result<bool> {
-        let a = cx.eval(&ta)?;
-        let b = cx.eval(&tb)?;
-        Ok(stitchwort_core::value::conv(&g, cx.level(), &a, &b)?)
-    })();
+    let same = budget.aside(budget.limits(), || {
+        let a = eval(&g, &cx.env, &ta)?;
+        let b = eval(&g, &cx.env, &tb)?;
+        stitchwort_core::value::conv(&g, cx.level(), &a, &b)
+    });
     g.machine.glue.set(was);
-    same
+    match same {
+        // Running out of stack (passed on), being cancelled or passing the
+        // deadline leaves the operation without an answer: it is exhausted,
+        // or the deadline's error is passed on as it would be found again.
+        Err(e) if e != ResourceError::Deadline && budget.exhausted().is_none() => Ok(false),
+        same => Ok(same?),
+    }
 }
 
 /// The builtin `byComputing` checked against the equation `a = b`.
