@@ -3467,6 +3467,9 @@ impl<'t> Parser<'t> {
     fn walk_expr(&mut self, start: u32) -> Result<()> {
         let column = self.tokens[self.pos].column;
         self.bump();
+        if self.peek() != Some(&Tok::LBracket) {
+            return Err(self.unexpected("`[`, the facts to walk with").into());
+        }
         self.fact_list()?;
         let own_line = self
             .tokens
