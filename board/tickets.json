@@ -1,5 +1,5 @@
 {
-  "next": 4595,
+  "next": 4596,
   "tickets": [
     {
       "id": 47,
@@ -32065,6 +32065,19 @@
     {
       "id": 4594,
       "title": "[Sonnet] Explain two growths SW-4587 left: examples/accept/float-playlist.sw peak 75 to 428 MB (steps 34M to 111M, Std.Float growth explains steps, not the peak), and reject/rewrite-solution-too-large / rewrite-value-too-large's Main.big at 16.2M steps with a 2,000,001-node read-back (SW-4091 a candidate); find the commits, accident or deliberate, fix small accidents with a test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4595,
+      "title": "[Opus] Redo SW-4582 (reverted 22 Nov): its nested-argument put-off (explicit_arg_failed under HolesRetry::Deferred, branch lane/SW-4582 at c793cbc53, plus SW-4591's E-WALK exception ecccc7ebe) cut AoC 2020 day 16's runsNotes 40.3M to 2.4M steps but broke tools/fmt's Syntax.GoodItemProofs.readsAtFraction (E-TYPE-MISMATCH at GoodItemProofs.sw:787, byComputing against expected type _; 50 dependents) and two walk messages. Redo it so that the whole tools/fmt check (check --no-cache from tools/fmt), all four example kinds and the walk examples stay exactly as before; then the 2^n saving",
       "status": "backlog",
       "agent": "",
       "where": "",
