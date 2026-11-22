@@ -7483,6 +7483,15 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             effects::unpin_goal(cx, goal, *x)?;
             check::unpin_parameter_types(cx, *x)?;
             if !data.indices().is_empty() {
+                // The branches also substitute the variables the type's
+                // indices are made of (`k` for `v: Vec a k`).
+                let level = cx.level();
+                for index in &params[data.params().len()..] {
+                    let index = cx.quote_folded(index)?;
+                    for free in matching::free_levels(&index, level) {
+                        check::unpin_parameter_types(cx, free)?;
+                    }
+                }
                 let term = families::check_case(cx, *x, *d, &params, branches, goal, *span)?;
                 return Ok(Term::Loc(*span, Rc::new(term)));
             }

@@ -1116,6 +1116,8 @@ fn refined_in_place(
 ) -> Result<Term> {
     let g = cx.g();
     let base = cx.level();
+    // The split substitutes the variable, as `match` on it does.
+    crate::check::unpin_parameter_types(cx, level)?;
     let bool_data = crate::check::builtin_data(cx, stitchwort_core::registry::Builtin::Bool)?;
     let goal_term = cx.quote_folded(goal)?;
     cx.e.decl.guard_refined.borrow_mut().push(span);

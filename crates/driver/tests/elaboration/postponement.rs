@@ -408,6 +408,47 @@ def annotated (b: Box): Nat :=
     assert_eq!(later, annotated);
 }
 
+/// [`a_decision_waits_for_a_field_used_in_a_match_arm`] for the other
+/// splits (SW-4589): a guard on a `Bool` variable, split where it is, and
+/// a case on an indexed family's variable, which also substitutes its index
+/// (`k` of `v: Vec Nat k`), leave the lambda parameter's unknown type
+/// alone: the guard's proof checks, and the family's is the annotated one.
+#[test]
+fn guard_and_family_splits_leave_a_let_lambdas_parameter_type_alone() {
+    let source = "\
+import Std (Bool, List, Nat)
+
+type Box = { items: List Nat }
+
+type Vec (a: Type): Nat → Type =
+  | VNil: Vec a 0
+  | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
+
+theorem guarded ∀ (flag: Bool) (b: Box): b.items.length = b.items.length :=
+  let size := r => r.items.length
+  match b with
+    | _ if flag => (byComputing : size b = size b)
+    | _ => (byComputing : size b = size b)
+
+theorem family ∀ (k: Nat) (v: Vec Nat k) (b: Box): b.items.length = b.items.length :=
+  let size := r => r.items.length
+  match v with
+    | VNil => (byComputing : size b = size b)
+    | VCons _ _ => (byComputing : size b = size b)
+
+theorem familyAnnotated ∀ (k: Nat) (v: Vec Nat k) (b: Box): b.items.length = b.items.length :=
+  let size := (r: Box) => r.items.length
+  match v with
+    | VNil => (byComputing : size b = size b)
+    | VCons _ _ => (byComputing : size b = size b)
+";
+    // The guard's term isn't compared: with the type annotated, the goal is
+    // generalised over the condition, and with it unknown, the split is in
+    // place, which both prove the arms.
+    let h = hashes(source, &["guarded", "family", "familyAnnotated"]);
+    assert_eq!(h[1], h[2]);
+}
+
 /// Stage 6 and D2016's end state: a placeholder is frozen until its check
 /// fills it, and a comparison that meets it waits for it. A lambda whose
 /// parameter's type comes from a later argument, compared with a statement
