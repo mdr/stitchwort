@@ -18,13 +18,18 @@
         "Stage 0a: trip-journal fails through Float arithmetic on symbolic record fields; 33 failing sites mapped (SW-1740)",
         "Stage 0b: all 288 read-back sites classified (SW-1747)",
         "Stage 1: output terms and decide read back folded; field types shown as declared (SW-1746, reviewed SW-1756)",
-        "Bounded readback stages 0b, 1, 1b and the plan for the rest (SW-1747, SW-1746, SW-1748, SW-1828)"
+        "Bounded readback stages 0b, 1, 1b and the plan for the rest (SW-1747, SW-1746, SW-1748, SW-1828)",
+        "Goals whose top level computed away show the statement as written, in theorems, arms and generalised matches (SW-4443, SW-4449)",
+        "The lemma offered for a goal states it as written (SW-4451); a let or an if before a match keeps the folded goal (SW-4462, SW-4465); Prop-call heads kept in match arms (SW-4453)",
+        "Huge types no longer run out in match, let and generalised matches: as-written fallbacks and read-back audits (SW-4331, SW-4333, SW-4336, SW-4339, SW-4342, SW-4351, SW-4361)",
+        "Guards and decided tests print as written (SW-4358, SW-4345, SW-4415); refined guard arms try the as-written goal first (SW-4403)"
       ],
       "now": [],
       "next": [
-        "Bounded readback, the remaining stages (docs/proposals/bounded-readback-remaining.md; D2610-D2614): first 0c metrics, 1c output sites and R rewrite f side by side (SW-1830, SW-1831, SW-1631)",
-        "Then the shared reader: limits answer exactly or fail (4a, SW-1832), and omega/ring atoms by conversion (O, SW-1837)",
-        "Then rewrite, match and cases under D2542 (6a, 6b; SW-1839, SW-1840), absorbing the stage 4 error cases (SW-1654, SW-1687, SW-1691, SW-1699)"
+        "Bounded readback: stage 0c metrics, 1c output sites and rewrite f (SW-1830, SW-1831, SW-1631)",
+        "The shared reader that opens only calls with an unknown (stage 4a, SW-1832; first SW-1698)",
+        "Rewrite, match and cases under D2542 (stages 6a, 6b: SW-1839, SW-1840)",
+        "Survey the remaining forms that pass the forced goal to their body (SW-4471)"
       ],
       "links": [
         "docs/proposals/goal-as-written.md",
@@ -47,13 +52,17 @@
         "Opus review: kernel sound; merge after the cache fix (SW-1764)",
         "Review fixes: the cache keeps the no-eta mark; more must-reject tests (SW-1768)",
         "Stages 1 and 1b: kernel projections, eta rules for records, glued calls ending in projections (SW-1642, SW-1667)",
-        "Plan for the remaining stages (docs/proposals/record-eta-remaining.md, SW-1849)"
+        "Plan for the remaining stages (docs/proposals/record-eta-remaining.md, SW-1849)",
+        "Whole-AoC slowdown after record eta fixed: rule 2's field calls keep the stuck value (SW-1829)",
+        "The six AoC proofs record eta broke fixed (SW-1913); unifier eta gaps closed (SW-1998)",
+        "Fresh-eyes review of record eta as merged: no unsound equation (SW-2068); docs/core.md has Proj and record eta (SW-2670)",
+        "Goal printers show records of Proj fields as updates (SW-2152); float sums of unknowns stay sums (SW-1667)"
       ],
-      "now": [
-        "Stages 1 and 1b merged; whole-AoC slowdown and Day20 failure being fixed (SW-1829; D2586 revert if no clear fix)"
-      ],
+      "now": [],
       "next": [
-        "Stage 2': tests, an example and the guide text record eta still lacks (SW-1643, D2630); the record sweep, 17 eta lemmas now rfl (SW-1645, D2631)",
+        "Stage 2': tests, a surface example and the guide text record eta still lacks (SW-1643)",
+        "The record sweep: delete the eta lemmas that are now rfl (SW-1645)",
+        "Update record-eta.md where it disagrees with the code, and try to reproduce the possible project panic (SW-2079, SW-2078)",
         "Stage 3: eta by shape (Pair, Text, Char...) measured with a stop point (SW-1851, D2632, D2633)"
       ],
       "links": [
@@ -81,19 +90,25 @@
         "Code action crash on an unapplied Succ or Cons fixed (SW-1799)",
         "Kept search session reviewed: answers sound (SW-1808)",
         "Refactoring design note (SW-2626, docs/proposals/refactoring.md)",
-        "Apart sets named once, so the kept session stops growing (SW-1819)"
+        "Apart sets named once, so the kept session stops growing (SW-1819)",
+        "Code folding for declarations and comment runs (SW-3216)",
+        "Outline covers a broken declaration whole; completion inside one keeps its locals (SW-3199, SW-3217)",
+        "Goal-at-cursor no longer panics silently after an undone attempt (SW-3322); catch-all arm facts in the goal index (SW-3374)",
+        "Lemma offered for a goal is stated as written where it pastes back (SW-4451, SW-4460)",
+        "Quick fixes come from the same code as check --index fixes (SW-3550)",
+        "Hover, definition, references and rename treat or-pattern binders as one name (SW-4250)",
+        "Playground bundles sf/ and book/ with a link per chapter (SW-2892, SW-2914)",
+        "Deep code walks loop instead of recursing, so deep terms cannot crash the playground (SW-3190)",
+        "LSP test source no longer carries over check-cache entries; nine all-tier failures fixed (SW-4567)",
+        "Rename: references, trial check and rename in both editors (SW-2627 to SW-2630, D3467); split code action (SW-3645)",
+        "Playground Cmd+. pick list of code actions (SW-2890, closes SW-2893)"
       ],
-      "now": [
-        "Rename (D3467): R2 trial check with an apply-anyway problem list (SW-2628, Opus); next R1 references (SW-2627), then R3 rename in both editors (SW-2629), R3b CLI rename (SW-2630), R4 oracle tests (SW-2631)",
-        "Code action edits the right text; VS Code Restart Server and *.sw watching (SW-1949, SW-1980)",
-        "Counterexample search log in the kept session (SW-1937, absorbs SW-1818)"
-      ],
+      "now": [],
       "next": [
-        "Kept search session: two leaks, panic recovery, hardening, a randomised test (SW-1818 to SW-1823; D2583, D2584)",
-        "Text-only searches and the playground keep std loaded too (SW-1807)",
-        "Quieter light-bulb suggestions on a bare ? (SW-1677)",
-        "Editor hint on a recursive function: runs as a loop, or a frame per call (SW-1223; Matt said yes in D2315, now that @[tailrec] has landed)",
-        "Case split for header parameters (SW-1499), then types for unused pattern binders (SW-1500)"
+        "SW-1223 (hint: runs as a loop or a frame per call; D2315 yes)",
+        "SW-2066 (wire cancellation into the editor searches)",
+        "SW-1499 and SW-1500 (case split for header parameters; types for unused binders)",
+        "SW-2644 and SW-2645 (rename for a lone file; rename progress)"
       ],
       "links": [
         "docs/proposals/editor-and-playground-roadmap.md",
@@ -112,13 +127,16 @@
         "Days 15-20 (SW-1519, SW-1535, SW-1547, SW-1557, SW-1571, SW-1580)",
         "Friction synthesis for days 10-20 (SW-1598)",
         "Parser completeness proved for days 3-20 (SW-1624, SW-1625, SW-1626)",
-        "Days 15 and 19 made fast with arrays and sets (SW-1657, SW-1659)"
+        "Days 15 and 19 made fast with arrays and sets (SW-1657, SW-1659)",
+        "Day 21 (Allergen Assessment) with spec, parser proof, exact and unique part 2 (449820d0e, babde82bc)",
+        "2020 and 2021 proofs on .read, Both and Inl/Inr (SW-3079)",
+        "Day 16's proof check back to 4 s from 26.5 s (SW-4568)"
       ],
       "now": [],
       "next": [
-        "Day 21 (Allergen Assessment), as an Opus lane, then a friction review with Matt",
-        "Day 8 completeness and uniqueness proofs (SW-1426)",
-        "Day 15 run time: hoist the per-turn length and cheapen Nat.iterate (SW-1602, SW-1672)"
+        "SW-1426: day 8 completeness and uniqueness proofs",
+        "SW-1602: day 15 hoists the per-turn length",
+        "SW-1672: day 15 Nat.iterate loop cost"
       ],
       "links": [
         "aoc/NOTES-2020.md",
@@ -135,14 +153,17 @@
         "Aoc.Common.Grid, Offset and a first round of shared helpers (SW-984, SW-992, SW-1335)",
         "Domain types sweep, eleven batches (SW-1283 to SW-1320)",
         "Aoc.Common plane library, stage 1 (SW-1484)",
-        "2024 and 2021 proofs moved onto function equations and f.induct (SW-1080)"
+        "2024 and 2021 proofs moved onto function equations and f.induct (SW-1080)",
+        "2021 day 15's Cave holds a Common Grid (SW-1313)",
+        "2024 day 13 on Aoc.Common's Coords (SW-1484)",
+        "Warnings cleared in 2021 day 16 and 2024 day 12 (SW-4566); about 1,000 explicit parse arguments dropped (SW-4287)"
       ],
       "now": [],
       "next": [
-        "Re-run the repros the triage left unconfirmed (SW-3429)",
-        "Elaborator gaps from old days: match on solvePart2 (SW-3421), pure map at the end of Fail code (SW-3422), lambda in a recursive call inside sumBy (SW-3424)",
-        "Std lemmas the days keep rewriting (SW-3430)",
-        "Parser guarantees: the 2021 days that prove only value properties (SW-1649), then 2024 and 2025 (SW-1020)"
+        "SW-2141: 2024 day 9 part 2 proof stages S4-S6",
+        "SW-2150: 2024 day 17 onto Loop.run",
+        "SW-2149: 2020 and 2021 day 11 onto the loop kit",
+        "SW-3428: 2024 day 24 repair backtracks across bits, then completeness"
       ],
       "links": [
         "aoc/NOTES-2021.md",
@@ -165,17 +186,19 @@
         "Parse.chainLeft with its reading lemma (SW-1567)",
         "Toy++ T0-T3: the toy formatter with takes, typed parameters and rule N (comment placement through settle), every theorem still proved (SW-3632, SW-3666, SW-3667, SW-3675, SW-3676)",
         "Self-hosted formatter slice 1, one-line stage only (D3685), NOT all of slice 1: formatKeepsProgram1 and formatIdempotent1 proved with no open goals for what the driver accepts, verified on main 19 Nov 2026 02:10. The driver also refuses slice 1 inputs through narrowings made in lanes and never put to Matt (plain1; qualified names, exponents, auto, upper-case def names, Prop, ()); see 19 Nov work log (overnight 18-19 Nov: SW-4077, SW-4081, SW-4085, SW-4086, SW-4089, SW-4093, SW-4096 to SW-4099, SW-4107 to SW-4110, SW-4116, SW-4117)",
-        "Slice 1 proved over its grammar (D3687): formatAccepts1, slice1Formats, slice1KeepsComments (SW-4120, SW-4176, SW-4183, SW-4191, SW-4194, SW-4203, 19 Nov 2026)"
+        "Slice 1 proved over its grammar (D3687): formatAccepts1, slice1Formats, slice1KeepsComments (SW-4120, SW-4176, SW-4183, SW-4191, SW-4194, SW-4203, 19 Nov 2026)",
+        "Slice 1 top statements proved over its grammar and the checkpoint reviews (SW-3973, SW-4003 via SW-4119, SW-4133, SW-4195)",
+        "Shortening: proofs 17% shorter 19-21 Nov (SW-4521 arms collapsed, SW-4529, SW-4530 implicit lemma parameters, SW-4553 and SW-4556 traversal lemma now in std, SW-4523, SW-4559 survey); SW-4562's per-rule pilot stopped",
+        "std Parse.Runs rests on RunsOn (SW-4526); walk over parsing operations (SW-4479, SW-4487); byFacts and cases-then built and piloted on the formatter (SW-4488, SW-4474, SW-4515)",
+        "Lean 4 and Rocq comparison of slice 1: Lean 0.82, Rocq 0.76 of our lines (SW-4537, SW-4544); readability scored, glossary and proof map added (SW-4548, SW-4535, SW-4555)",
+        "Slice 6a takes in cases x then t (SW-4493); the formatter proofs' hypotheses bundled into records and lemma parameters made implicit (SW-4285, SW-4287, SW-4290, SW-4534); 821 dead proof declarations deleted (SW-4193)"
       ],
-      "now": [
-        "Slice 1 proved over its grammar since 19 Nov (D3687). Now shortening it (D3692): 117,041 to 107,211 lines in tools/fmt/src, 53,689 to 49,898 in proof files, 523 walks, same 5,422 theorems (measured 21 Nov 18:00). Next: byFacts formatter pilot SW-4515, the *1 rename SW-4463"
-      ],
+      "now": [],
       "next": [
-        "Toy++ T4 (trailing commas and the passes, docs/proposals/toy-plus-plus.md §5) after SW-3677",
-        "settledIdempotent, if anything needs it",
-        "Parser soundness for the 2021 days that prove only value properties (SW-1649; days 9, 11 and 15 share a grid parser)",
-        "One std lemma for symbol-per-part repetitions to replace three days' copies (SW-1656), and the innermost-first chainLeft variant (SW-1585)",
-        "Per-line specs for section parses (SW-1417), then tighten withFinalLineBreaks (SW-1419)"
+        "SW-4463 (rename the tools/fmt names ending in 1 that aren't specific to slice 1)",
+        "SW-4528 (shorten the read-back record theorems; the walk over read-back proofs, D3711 with its gate)",
+        "SW-3989 (fmt counterexample search for slices 2 and 3)",
+        "SW-4201 (fresh slice 1 corpus count after D3687, as a verifier/Overmind sweep)"
       ],
       "links": [
         "docs/proposals/proofs-about-definitions.md",
@@ -197,15 +220,23 @@
         "omega failure notes name the atoms and facts (SW-1452, SW-1466, SW-1472)",
         "auto derives Nat.toInt d != 0 and range facts (SW-1443, SW-1359)",
         "cases over Int/Nat comparisons no longer hits the 64-case limit (SW-1550)",
-        "rewrite repeatedly: stage 2 (named rule sets, at h, --expand-repeatedly, the editor action) and speed work (SW-3642, SW-3654, SW-3655, SW-3659); W-REWRITE-THEN-COMPUTING / THEN-REWRITE and their sweep (SW-3648)"
+        "rewrite repeatedly: stage 2 (named rule sets, at h, --expand-repeatedly, the editor action) and speed work (SW-3642, SW-3654, SW-3655, SW-3659); W-REWRITE-THEN-COMPUTING / THEN-REWRITE and their sweep (SW-3648)",
+        "rewrite repeatedly stage 1 in the language, std's proof-chain warnings at zero, 'state, don't chain' with W-PROOF-CHAIN (SW-3602, SW-3611, SW-3589, SW-3697)",
+        "cases uses constructor equations, splits a list once, copes with character comparisons, has a 20M-step budget per try (SW-3344, SW-3752, SW-3846)",
+        "SMT hammer experiment found nothing beyond arithmetic and cases; premise selection left as an exploration (SW-3586, D3655, D3660)",
+        "Match refinement S1+S2 (SW-3758, D3672); a guard in a proof simplifies the goal like match g:, with a trace and a fallback (SW-4385, SW-4388, SW-4402, SW-4414, SW-4404, D3701)",
+        "Functional induction taught and fixed: match induct without naming f.induct, calls in inner matches, one case per guarded overlapping arm (SW-4260, SW-4262, SW-4261, D3697), formatter pilot (SW-4264)",
+        "byWalking (the walk step): about 450 formatter proofs converted, nested binds and operations walk, two-run walks 1.3-2.5x a hand proof (SW-4421, SW-4477, SW-4466, SW-4469, SW-4479, D3700)",
+        "byFacts, cases x then t and closer stage 0, with the formatter and outside pilots (SW-4488, D3708, SW-4474, D3709, SW-4472, SW-4515, SW-4516)",
+        "The unifier solves more from the arguments: x y => f x y as f, () => … parsers, a _ takes a later argument's value (SW-4305, SW-4316, SW-4323, SW-4434, SW-4480)",
+        "The && fallback: auto and cases close parts of long && facts; decided equations show as written (SW-4344, SW-4485, SW-4507, SW-4498, SW-4415)"
       ],
-      "now": [
-        "Tools for the slice 1 proof: the walk (byWalking, most parser proofs), byFacts stage 1 (SW-4488, D3708) and cases x then t (SW-4474, D3709) merged 21 Nov; pilots SW-4515 (formatter) and SW-4516 (std, AoC, rogue) measure them against the bars in closer.md and the SW-4483 review"
-      ],
+      "now": [],
       "next": [
-        "f.induct for lifted-match alternatives with a catch-all or a literal (SW-1073)",
-        "omega: commuted products as one atom, and the t <= |t| facts so size goals keep their split budget (SW-1515, SW-1690)",
-        "cases: split variables before stuck comparisons (SW-1264); auto: use the proof fields of records in scope (SW-1246, SW-1641)"
+        "SW-4524: byFacts uses facts and lemmas whose conclusion is an ∧ or a record",
+        "SW-4525: a failing byFacts with many facts in scope is slow",
+        "SW-4558: cases builds smaller proof terms (5x the steps of a hand match)",
+        "SW-4527: the walk closes dead branches"
       ],
       "links": [
         "docs/proposals/proof-automation.md",
@@ -229,13 +260,24 @@
         "Chained comparisons (SW-1341)",
         "NonEmptyList with bracket literals (SW-1343 to SW-1345)",
         "Ranges a ..< b and a ..= b, two-ended List.range (SW-1357, SW-1358)",
-        "Brace syntax: the declaration decides, and the sweep (SW-1632, SW-1633)"
+        "Brace syntax: the declaration decides, and the sweep (SW-1632, SW-1633)",
+        "The lossless syntax tree and the lowering, L0 to L7 (SW-3159, SW-3166 to SW-3169, SW-3160, SW-3214)",
+        "Formatter style sheet signed off (SW-3158) and the Rust formatter's passes L1 to L4: comments placed once, tree passes, one exact whole-file check (SW-3494 to SW-3497)",
+        "Syntax error recovery S0 and S1: a definition checks past a syntax error in its body (SW-1982, SW-1983, SW-3185, SW-3226)",
+        "Proof tuples: (x, a, b) builds and takes apart ∃/∧ proofs, read by type (SW-3514, SW-3566, SW-3664, D3631)",
+        "Proof vocabulary sweep: then, arithmetic, algebra, byComputing, impossible, flipped (SW-3564, D3648 to D3654)",
+        "Parameter groups as shorthand only (SW-3891, SW-3897, D3679); a lambda applied to arguments infers its parameter types (SW-3890)",
+        "Bool as proposition stages 3 to 7: stuck decisions read as propositions, auto and cases use test facts, std/AoC/rogue sweeps, the guide section (SW-3031, SW-3059, SW-3060, SW-3079, SW-3092, SW-3098, SW-3102)",
+        "Decidable record stage 3: every if on a decided proposition is Decidable.elim (SW-2761)",
+        "State, don't chain: W-PROOF-CHAIN and proof ideas on long proofs (SW-3589, SW-3697)",
+        "Parser tree-dump tests and parser.rs split (SW-3316, SW-3244)"
       ],
       "now": [],
       "next": [
-        "Brace syntax gaps and error notes (SW-1661, SW-1662, SW-1663)",
-        "Ranges step 4: Int ranges chosen by operand type (SW-1360), then the follow-ups: sections and the O(1) test (SW-1389, SW-1414)",
-        "Signature defaults: exported functions take an options object, then constructor field defaults (SW-622, SW-623, follow-ups SW-627)"
+        "SW-3590: checked 'show P from t' (SW-3589 has merged; recheck its value first, D3658)",
+        "SW-3525: reject tokens before the first declaration that start with ':=' (the parser drops them silently)",
+        "SW-1662 and SW-1661: brace syntax gaps (constructor field defaults by position, f Meeting { e | … } not refused)",
+        "SW-1360: Int ranges chosen by operand type (D2409), then the range follow-ups"
       ],
       "links": [
         "docs/syntax.md",
@@ -260,17 +302,24 @@
         "Decision-match proposal decided: warn and document, not a new matching mode (SW-1694, D2525-D2527)",
         "Dot-call caches keyed by address: the reproduced wrong-hit case fixed (SW-1797, SW-1800); full fix designed (syntax-node-ids.md, SW-1801)",
         "Record eta stages 1 and 1b merged (SW-1642)",
-        "Stale stuck calls audited: eight sites, none unsound (SW-1321)"
+        "Stale stuck calls audited: eight sites, none unsound (SW-1321)",
+        "Derived equality stages 2 and 3: Ord and DecEq linear in constructors, mutual and nested types (SW-3370, SW-3371)",
+        "Recursion through map stage 1a, termination through a one-field constructor (SW-3376, SW-3412)",
+        "Glued kept types (D3680) with the kernel readers, validators and sweeps that followed (SW-3916, SW-3917, SW-3930, SW-3936, SW-3947)",
+        "Right-nested decided chains no longer cubic (SW-3726); E-TERMINATION on a same-named method fixed (SW-3738)",
+        "Unifier: applied predicates matched by head (SW-4305); a lambda that eta-contracts counts as a known function (SW-4434); no kernel panic from as-written occurrence tests (SW-4496, SW-4500)",
+        "Postponement across a match and let-bound lambdas through the kernel (SW-4586, SW-4588, SW-4589)",
+        "Soundness review of the 20-21 Nov kernel and check-cache changes, and its low findings (SW-4550, SW-4552)",
+        "Glued kept types (D3680): closed statements no longer computed when declared (SW-3930; closes the SW-1534 and SW-1596 line)",
+        "Derived == through library types such as NonEmptyList (SW-3371, SW-1374)",
+        "22 Nov: the let-folding fix after SW-3887 (SW-4565, SW-4573); a match on an expression no longer waits for a let lambda's unknown (SW-4590, D3713); the retry of calls with _ arguments only where it can help (SW-4580)"
       ],
-      "now": [
-        "Record eta merged; whole-AoC check 69 s → over 6 min, being fixed (SW-1829; D2586 revert if no clear fix)"
-      ],
+      "now": [],
       "next": [
-        "Stale stuck calls, fixed at the root: a stuck call records the unknown that stopped it (docs/proposals/stuck-blockers.md; SW-1865, SW-1866, SW-1867; D2620-D2623), else per site (SW-1842-SW-1844)",
-        "Syntax ids for dot calls, so no cache depends on memory addresses (SW-1803, D2577-D2580)",
-        "Fix the check that hangs on a theorem whose statement names a large computation: the kernel evaluates a closed statement unfolded (SW-1534)",
-        "Postponement: close the two queue gaps and keep the expected type folded (SW-1003, SW-1008, SW-1009)",
-        "Well-founded recursion: the remaining stage 3 items (SW-199); kernel: refine context types lazily at case splits (SW-1066)"
+        "Stuck blockers, so a stuck call re-evaluates once its unknown is solved: SW-1865 (mechanical sweep) then SW-1866 (D2620-D2623)",
+        "Kernel same_closure's uncharged identical, then the call memo for equal pairs (SW-2312, SW-2308)",
+        "Syntax ids for dot calls, so no cache keys on memory addresses (SW-1803, with SW-1902)",
+        "Kernel as-written read-backs for huge types (SW-4337, needs Matt's go-ahead)"
       ],
       "links": [
         "docs/proposals/elaborator-state.md",
@@ -292,15 +341,20 @@
         "Rewrite messages: E-REWRITE-NOTHING and E-REWRITE-MOTIVE notes (SW-1451, SW-1572)",
         "Warnings when a match refines nothing (SW-1485, SW-1575)",
         "W-MATCH-DECISION-IF, and W-MATCH-NOT-FOUND for unnamed failing matches (SW-1719, SW-1721)",
-        "Helpful errors E7 (too many arguments, SW-3553) and E6 (did you mean for names, SW-3552); proof tuple messages (SW-3664)"
+        "Helpful errors E7 (too many arguments, SW-3553) and E6 (did you mean for names, SW-3552); proof tuple messages (SW-3664)",
+        "Helpful errors E2 (no ?N: unknowns print as _name), E4 (fixes as data in check --index and try: lines), E5 (foreign-habit notes), E13 (colour, --color, NO_COLOR) (SW-3548, SW-3550, SW-3551, SW-3635)",
+        "Each generic note prints once per run (SW-3549); an error after a syntax error is hidden and counted (SW-3475)",
+        "Notes: match e: can't reach a hidden occurrence (SW-3678), two-value match fix (SW-3684), a False goal suggests Void (SW-2901), a match inside a statement points at the helper fix (SW-3686), braces after a constructor pattern (SW-3674)",
+        "Type mismatches show the expected type as written, with its unfolding in a note (SW-2153); a spread in the middle of a list prints as written (SW-2151)",
+        "Duplicate (..) imports reported once; did-you-mean counts swapped letters as one typo (SW-3685, SW-3713)",
+        "Diagnostics render in ariadne's character mode, no panic after non-ASCII text (SW-4135); step-limit messages name the user's function (SW-4244); the no-induction-principle reason (SW-4266); hints on three proof-writing errors (SW-4274)"
       ],
-      "now": [
-        "Overnight 16 Nov: E5 foreign habits (SW-3551, DeepSeek)"
-      ],
+      "now": [],
       "next": [
-        "Missing-case follow-ups: number, Char, Int and Fin misses (SW-1034)",
-        "Message batches: rewrite finds nothing, off-by-one parser lemma, a parameter hiding a function (SW-1511, SW-1522, SW-1498)",
-        "Print list spreads as written (SW-1469); stop a match used only for its equation getting W-MATCH-NOT-FOUND (SW-1614)"
+        "SW-3555: stitchwort explain CODE, a page per code (D3646)",
+        "SW-3556: a message check over the reject snapshots (no ?N, no internal names, long lines)",
+        "SW-3557: effectful terms in E-REFL printed as the call (Opus)",
+        "SW-1034: missing-case follow-ups for number, Char, Int and Fin"
       ],
       "links": [
         "docs/proposals/errors.md",
@@ -317,13 +371,19 @@
         "List.toSet and toMap, groupBy, Graph.reachable (SW-1347, SW-1412, SW-1407)",
         "Divisibility, bit and List.minBy/zipWith lemma batches (SW-1273, SW-1494, SW-1495, SW-1508)",
         "List.All2 toolkit and filter-by-proposition counts (SW-1539, SW-1591)",
-        "Persistent array with get/set lemmas (SW-1473)"
+        "Persistent array with get/set lemmas (SW-1473)",
+        "Generic Bool, List, text and parser-walk lemmas moved out of the formatter proofs into std: 92 lemmas, 11 replaced by existing ones (SW-4218, 19 Nov)",
+        "Parse declines toolkit and runsRecursiveWithFact (SW-3507); Parse.Runs over RunsOn (SW-4526); traversal lemmas for tree rebuilds in std (SW-4556)",
+        "Readings for contains at False, Set/Map contains, Nat.leq, Int, List.inRange, divides, isDistinct (SW-3094 and related, 13 Nov)",
+        "Five std parsing lemmas take implicit arguments (SW-4287); std warnings above their pins cleared (SW-4566)",
+        "Std lanes for Parse follow-ups: List.All used in the formatter's list functions (SW-4599)"
       ],
       "now": [],
       "next": [
-        "Float laws: check Float.Model against TestFloat cases (SW-652), then stages 3 and 4 (SW-638, SW-639)",
-        "Nat.lcm, Coprime, Euclid's lemma and solveCongruences; Nat.choose (SW-1493, SW-1215)",
-        "Small signature fixes: Int.ofNatInjective implicit (SW-1425, SW-1560); Text.splitOn, startsWith and endsWith lemmas (SW-1271)"
+        "SW-1493 (Nat.lcm, Coprime, Euclid's lemma, solveCongruences)",
+        "SW-2147 then SW-2148 (std loop kit, then Nat.iterateUntilStableWithin on it)",
+        "SW-1215 (Nat.choose and the combinations count)",
+        "SW-1425 and SW-1271 (Int.ofNatInjective implicit; Text.splitOn/startsWith/endsWith lemmas)"
       ],
       "links": [
         "docs/proposals/std-library.md",
@@ -342,14 +402,17 @@
         "Commenting rule in two regimes (SW-1099)",
         "Guide and feature tour brought up to date (SW-1105, SW-1331)",
         "Tutorial part 1: a .sw file that teaches theorem proving, checked in tests (SW-1666, SW-1673)",
-        "Guide accuracy audit (SW-1850)"
+        "Guide accuracy audit (SW-1850)",
+        "Tutorial part 2: specs, counterexamples, generalising an induction (SW-2639); outline of the Proving with Stitchwort book (SW-2891, D3520; chapter 3 deferred, D3528)",
+        "core.md brought up to date for Proj, record eta and pinned natives (SW-2670); guide, tour and syntax.md fixes from the SW-1850 audit (SW-2532); guide quotes match their example files (SW-3292)",
+        "Decreasing guards without a name in the tour and proving guide (SW-2215); W-MATCH-NOT-FOUND, rewrite % before /, hoisting a field read (SW-3431, SW-2217)"
       ],
       "now": [],
       "next": [
-        "Guide accuracy: eight wrong passages and the missing record eta, @[tailrec], tests, holes and Float coverage (docs/reviews/SW-1850-guide-accuracy.md; SW-1854 to SW-1864; D2635, D2636)",
-        "Make the guide and syntax.md agree on record literals (SW-1616), and add the rewrite h at h idiom to the proving guide (SW-1546)",
-        "Tutorial part 2, and a feature-tour page for each new language feature",
-        "stitchwort doc lists generated T.ext and f.eq.* declarations properly (SW-1487, SW-1497); point the array copy note at the guide (SW-1671)"
+        "SW-1858, SW-1859: @[tailrec] and record eta in the guide and syntax.md, with tour pages",
+        "SW-3255: guide chapter 8 still says a handler can't go around partial code",
+        "SW-3984, SW-4101: proving guide chapters on Parse programs and keeping computed definitions out of unified equations",
+        "SW-2654: tutorial part 3"
       ],
       "links": [
         "docs/guide/",
@@ -371,13 +434,20 @@
         "Daily-tier fallout fixed after total division and function equations (SW-1306, SW-1700, SW-1701)",
         "Memory guard cases (SW-921, SW-1052)",
         "Daily tier 6 Nov evening: 36 failures fixed across three lanes (SW-1700, SW-1701, SW-1702)",
-        "Daily tier 6 Nov evening: all 41 failures fixed and verified on main (SW-1700-1702, SW-1706-1708, SW-1711)"
+        "Daily tier 6 Nov evening: all 41 failures fixed and verified on main (SW-1700-1702, SW-1706-1708, SW-1711)",
+        "A hung test is killed after 5-10 minutes in every tier (SW-1960); tiers renamed quick, broad and all (SW-3080, D3547)",
+        "Debug-build test failures: stack guards sized for debug frames (SW-3219), core crates optimised in debug builds (SW-3657)",
+        "The most memory-hungry test peaks at 0.64 GB, not 2.2 GB (SW-3979); the evaluator-comparison test skips 29 comparisons, not 50 (SW-4265), runs one example by name (SW-4374), and the broad tier's slowest test is a rotating sample (SW-3712)",
+        "The quick tier's example sample rotates daily (SW-4313, SW-4320); task test:hashes NAME=… (SW-4314); one example's snapshot in 33 s (SW-4447)",
+        "Accept examples can insist a fallback path is reached with a -- metrics: header (SW-4445); task stack:peak (SW-3227); deep-nesting tests (SW-3200, SW-3222, SW-3181, SW-3179)",
+        "Flaky terminal tests fixed (SW-3658, SW-4315); stale test expectations from the broad run updated (SW-3692, SW-3698, SW-3704)"
       ],
       "now": [],
       "next": [
-        "Slow tests: guide test (SW-1549), merge tier (SW-1386)",
-        "Daily-tier follow-ups: re-record the bench baseline and find the rises (SW-1342, SW-1622), report every stale extract snapshot (SW-1703), unsupported natives in the rt harness (SW-1710)",
-        "Bench baseline times re-recorded on a quiet machine; a smaller example set (SW-1806)"
+        "SW-4501: task test:example names a mistyped entry instead of failing every test silently (small)",
+        "SW-3806: run one std file's test blocks (a lane-sized way; two lanes lost time)",
+        "SW-3781, SW-1549: check one guide file or snippet instead of the whole six-minute guide suite",
+        "SW-2049, SW-2676: search and rewind tests that fail under load become deterministic"
       ],
       "links": [
         "docs/workflow.md",
@@ -396,13 +466,24 @@
         "Checked @[tailrec] (SW-1222)",
         "Effects ability fixes: pipes, performing comparisons in constructors (SW-1527, SW-1325)",
         "JS extraction of the examples matches native (SW-1582)",
-        "Natural-form Std.Parse handler is fused on the machine (SW-1087 step 1, commit 01462c09)"
+        "Natural-form Std.Parse handler is fused on the machine (SW-1087 step 1, commit 01462c09)",
+        "Built programs start again: build always makes a matching runtime library (SW-3149)",
+        "Native code charges Text.repeat and Array.replicate up front and counts big-number work like the machine (SW-3327, SW-3328, SW-3273)",
+        "| return _ => accepted in handlers; naming an ability row gives a plain error (SW-3265, SW-3264)",
+        "Native code on Linux no longer breaks when data is mapped far from code (SW-3139)",
+        "Fast text: get, slice, take, drop, uncons, length constant-time on all runners (SW-3337)",
+        "Files ability with an in-memory disk and Files.tracing (SW-3338, SW-3377)",
+        "main may return an ExitStatus, honoured by every runner (SW-3402, D3616)",
+        "Functions behind an opaque type nickname run on every backend; JS export checks and clear partial-function error (SW-3933, SW-3936, SW-3960)",
+        "Deep-term walks in JS output, runtime hoisting and lemma search loop instead of recursing (SW-3190)",
+        "Designs for file IO and fast text (SW-3234) and ability granularity (SW-3262, D3595, D3596)"
       ],
       "now": [],
       "next": [
-        "Effectful code that should check but doesn't: an unannotated thunk passed to an effectful parameter, and performing comparisons inside constructors (SW-1605, SW-1332)",
-        "Handler fast-path report, then differential tests against Koka (SW-1087, SW-1088)",
-        "Cheaper partial calls, tail self-calls as loops, and partial callbacks in List.map (SW-469, SW-470, SW-467); later the effect representation (SW-593) and IO compiled directly in native binaries (SW-562)"
+        "Effect-row settling fix: SW-1926 (settle a call's own empty row safely), then the SW-1581 experiment and SW-1927 robustness",
+        "Native by default (D3448, D3449): SW-2544 native on in the default binary, SW-2545 machine fallback, SW-2546 new defaults and --machine",
+        "Ability sets (D3595, D3596): SW-3267 names for sets of abilities, then SW-3268 Console/Files split",
+        "Cheaper partial calls and tail self-calls as loops (SW-469, SW-470), partial callbacks in List.map (SW-467)"
       ],
       "links": [
         "docs/proposals/effect-runtime.md",
@@ -423,11 +504,23 @@
         "Elaborator and kernel hot spots: eager number compare, quote in unify_index (SW-1153, SW-1154)",
         "Day 15 and 19 hot paths (SW-1657, SW-1659)",
         "Number-keyed map designed: no NatMap; speed up Map itself, measured first (SW-1603)",
-        "In-place reuse reviewed with fresh eyes: plan holds, report in --profile (SW-1163)"
+        "In-place reuse reviewed with fresh eyes: plan holds, report in --profile (SW-1163)",
+        "Std import cost after derived instances measured; D3669 keeps eager derivation and fixes the cost where it arises (SW-3710, SW-3725)",
+        "Derived == and < proofs reshaped: a 16-field record declares in 0.13 s instead of 1.3 s, std imports check 20-26% faster (SW-3726, SW-3719)",
+        "A test fails if importing List, Nat, Int, Text or Map gets over 10% dearer to check (SW-3221, SW-3223)",
+        "Benchmark regressions fixed: nested calls and the reads_chain proofs back to baseline (SW-3694, SW-3709)",
+        "byComputing checks a closed equation the way the kernel does first: slowest read-back example 96M to 3M steps (SW-4536)",
+        "AoC 2020 day 16's runsNotes proof 40M to 2.4M steps, with a step-count pin (SW-4581, SW-4595)",
+        "Example-sweep growth explained and the 15 Nov display accident fixed (SW-4587, SW-4592, SW-4594, SW-4601)",
+        "match and rewrite skip unfolded goal copies nothing uses: Std.Float.Theory 566 MB to 383 MB, 111M to 88M steps (SW-4600, SW-4606)",
+        "Long .read chains no longer check in exponential time (SW-4498); checks stopped from outside say so (SW-4032); --timings gets a steps-by-phase table (SW-4533)"
       ],
       "now": [],
       "next": [
-        "Paused 10 Nov 2026 (D3465, Matt): no new work until Matt restarts it; backlog tickets labelled parked. Closing write-up and final Overmind comparison: docs/reviews/SW-2295-comparative-speed.md"
+        "SW-1809 and SW-1815: the array copy note names its sites, and pushPop takes its state apart first (small, ready, closes SW-1678)",
+        "SW-4593: why every file importing Std.Parse pays 80-100M steps on import (note first)",
+        "SW-3764 and SW-3766: cheaper derived-instance and record-update proofs (follow-ups to D3669's cost work)",
+        "SW-4543: the slow readsAtDefinitionParts re-check that blocks timing most formatter files"
       ],
       "links": [
         "docs/proposals/arrays.md",
@@ -467,11 +560,24 @@
         "Allocator note: keep mimalloc, per-run cell cache next (SW-2360; D3413, D3414)",
         "Overnight 8-9 Nov: effect runtime R1-R3 and R7, many/pick in fewer operations, minOr, resumptions moved, capture-free closures once, record updates take unique records apart (core ten 11.66x -> 9.88x Lean by time)",
         "Wide set (spectral-norm, const-fold, rbmap, rbmap-ck, mapops) and bench:aoc sweep",
-        "Performance log docs/performance/log.md (D3444)"
+        "Performance log docs/performance/log.md (D3444)",
+        "Final Overmind comparison and closing record: core ten 1.82x CPython, 7.67x Lean; wide five 0.31x CPython, 2.60x Lean; all 15 5.35x Lean (commit 292a85385, SW-2646, 10 Nov)",
+        "Wide set ported: spectral-norm (SW-2454), const-fold, rbmap, rbmap-ck (SW-2455), mapops (SW-2503); benchmark breadth review (SW-2450); bench:aoc sweep over every AoC day (SW-2453)",
+        "Native by default and native tests (SW-2535, SW-2542, SW-2543); native recursion to 16M frames (SW-2471)",
+        "Effect runtime allocation R1-R3 and R7 (SW-2462, SW-2463, SW-2510); resumption moved not copied (SW-2499); capture-free lambdas built once (SW-2502); compiled handler dispatch, expressions -25.5%, scan -30.4% instructions (SW-2511)",
+        "Parser and std library cuts: pick's notes in one operation (SW-2495), literal lists built once (SW-2497), many reuses marks (SW-2487, SW-2491), Map.Tree.minOr/maxOr (SW-2485)",
+        "Map and reuse: record update takes a unique record apart (SW-2514), small functions inlined for their context so Map nodes are rebuilt in place (SW-2531, mapops 12.66 -> 9.67 G instructions)",
+        "Borrow inference B0 and B1: borrowed parameters, AoC geomean -2.3%, memory-game -19.3% (SW-2530, SW-2565, SW-2574)",
+        "Cell cache exact byte count (SW-2559); dropped and explained: free at exit (SW-2524), rbmap-ck +16% (SW-2523), fused Map balance (SW-814)",
+        "Bench baseline re-recorded (SW-2578, SW-4569); performance log written (SW-2526, docs/performance/log.md); closing write-up (SW-2646)",
+        "Float.sqrt in std (SW-3788; closes SW-2458)"
       ],
       "now": [],
       "next": [
-        "Paused 10 Nov 2026 (D3465, Matt): no new work until Matt restarts it; backlog tickets labelled parked. Closing write-up and final Overmind comparison: docs/reviews/SW-2295-comparative-speed.md"
+        "SW-2539: inline Map.Tree.balance into insertWith with a size cap (mapops a further 2-3%, and the SW-814 retest)",
+        "SW-2573: borrow inference B1 follow-ups from the Opus review (checks and missing tests)",
+        "SW-2469: compare.py writes its own history.toml entry",
+        "SW-2500 with SW-2465: a state clause's jump without a Jumped object (expressions -2.3 to -3.1%); SW-2464 (R4) still waits for Matt's D3437"
       ],
       "links": [
         "docs/proposals/comparative-speed.md"
@@ -483,12 +589,16 @@
       "goal": "Logic repeated across AoC days lives once in Aoc.Common, with its lemmas, so each day reads in the problem's terms.",
       "status": "active",
       "done": [
-        "Plane library: Coords, Heading, Box (SW-1484)"
+        "Plane library: Coords, Heading, Box (SW-1484)",
+        "Plane library with Coords and Headings; 2024 day 13 uses it (SW-1484, b3a53ce0b)",
+        "Shared Grid.around lemmas: aroundDistinct, aroundTouching, countAroundIsAround (Common/Proofs/GridAround.sw)"
       ],
       "now": [],
       "next": [
-        "Image orientations, compass directions and rays (SW-1587, SW-1475)",
-        "Ord for records used as keys (SW-1592, SW-1618)"
+        "SW-1618: check whether SW-1592's Ord for Position is stale, then close both",
+        "SW-1475: Grid.ray and a first-cell-that-passes lemma",
+        "SW-1587: image orientations (day 20)",
+        "SW-3088: one Parse.isSpace lemma family"
       ],
       "links": [
         "aoc/src/Aoc/Common"
@@ -501,12 +611,18 @@
       "status": "active",
       "done": [
         "Closing search keeps different lemmas that reach the same goal (SW-1693)",
-        "search --at on AoC goals back to about 80 s (SW-1708)"
+        "search --at on AoC goals back to about 80 s (SW-1708)",
+        "Search finds a std theorem by its own statement when it has holes; the filter ignores arguments a conclusion doesn't mention; benchmark errors gone; top-1 87.7% to 88.0% (SW-4570, SW-4575, SW-4579, SW-4585)",
+        "Search no longer crashes on a wrong-typed unifier solution (SW-4564)",
+        "Search asks the goal whether unknowns remain, not the printed text (SW-3577, SW-3592)",
+        "Void.exfalso first on a case ruled out by False = True (SW-2912, SW-2913)"
       ],
       "now": [],
       "next": [
-        "Counterexamples and code actions follow-ups (SW-1239, SW-1240)",
-        "Search ranking (SW-1267, SW-1491)"
+        "SW-4603: add relaxed-pass hits when the filtered pass finds fewer than k",
+        "SW-4584: report and pin the proof uses that get no pattern in search_bench",
+        "SW-2928: offer only theorems that precede the goal",
+        "SW-1240: the search deadline overshoots (--time 5s ran 10.8 s)"
       ],
       "links": [
         "docs/proposals/search.md"
@@ -520,11 +636,17 @@
       "done": [
         "stitchwort audit: axioms, unfinished and vacuity checks for proof lanes (SW-912, D2040)",
         "Audit generators reach interesting values in AoC records (SW-1304)",
-        "fuzz_elab found a kernel rejection from a mutated match (SW-1182)"
+        "fuzz_elab found a kernel rejection from a mutated match (SW-1182)",
+        "No vacuity warning for compiler-generated declarations (SW-2765); the audit's witness rule sees through nicknames (SW-3928)",
+        "Fuzz tasks honour counts from the environment, leave their last case in a file and replay one by number (SW-3286, SW-3290); the fuzz watchdog allows for a loaded machine (SW-3705)",
+        "Fuzzing found and fixed formatter bugs (SW-3680, SW-3683); overnight soundness, kernel, parser and elaborator fuzzing clean, with slow-to-judge mutants filed (SW-3483, SW-3644)"
       ],
       "now": [],
       "next": [
-        "Audit feature work (vacuity check, witnesses, --minimal, SW-1029 --base and minima) is on the backlog: Matt, 7 Nov 2026, \"not obviously high priority\". No lanes or D questions on it unless he reopens it. Fuzzing continues."
+        "SW-2769: counterexample search solves for variables fixed by f x = Some y (57 AoC and 5 rogue vacuity warnings)",
+        "SW-2768: a per-hypothesis discard histogram in the search log and warning text",
+        "SW-3483, SW-2950: mutants that take over 90 s to reject (an editor-hang risk)",
+        "SW-2673: a check-cache directory copied with a project is trusted (soundness, severity 2)"
       ],
       "links": []
     },
@@ -562,11 +684,18 @@
         "test:affected runs the non-Rust checks too: board, shell, dev tools, flake (SW-1794)",
         "lsp test binary 228 → 74 s warm (SW-1796); concurrency limit kept at 3 (SW-1795)",
         "mimalloc: 12% less CPU on the std check, measured idle; in the library binary (SW-1742)",
-        "Check cache's own sweeps left unsampled: daily already samples 1 in 8 (SW-1773, D2571)"
+        "Check cache's own sweeps left unsampled: daily already samples 1 in 8 (SW-1773, D2571)",
+        "Pre-commit hook refuses unformatted staged .sw and .rs files (D3681, SW-3952, SW-3953)",
+        "lane:merge prints every file a lane changes and guards against stale restores (SW-4307, SW-4309); task trace:resource gives file:line backtraces (SW-4350); task disk:sweep and worktree:rm SCRATCH= reclaim build data (SW-4005); fmt:implicit takes qualified names (SW-4322); board show --body-only (SW-4349)",
+        "The check cache survives Stitchwort updates: carried-over entries re-checked by the kernel, labelled in the editor (D3703, SW-4409, SW-4410, SW-4422, SW-4450, SW-4452)",
+        "check --timings can show steps by phase with STITCHWORT_STEP_PHASES=1 (SW-4533); driver tidy-ups (SW-1923)"
       ],
       "now": [],
       "next": [
-        "Paused 10 Nov 2026 (D3465, Matt): no new work until Matt restarts it; backlog tickets labelled parked. Closing write-up and final Overmind comparison: docs/reviews/SW-2295-comparative-speed.md"
+        "SW-4406: key the check cache on what each namespace uses, so a new std lemma no longer makes every project cold",
+        "SW-4411, SW-4424: carried-over cache stage 3 and its follow-ups",
+        "SW-2160, SW-2857: cold std measurements and a std cache shared between folders and worktrees",
+        "SW-4503: check --timings-json, so lanes can check the D3696 walk bar"
       ],
       "links": [
         "D2532",
@@ -580,14 +709,18 @@
       "status": "active",
       "done": [
         "Float.Model and add/sub laws (stages 1-2)",
-        "Design for functions JS leaves loose: own definitions, correctly rounded aim (SW-3783, D3675)"
+        "Design for functions JS leaves loose: own definitions, correctly rounded aim (SW-3783, D3675)",
+        "Stages 3 and 4: mul, ofInt, ofNat, div, rem, floor, ceil, trunc, round are definitions; the kernel trusts no float hardware operation (SW-638, SW-639, SW-3796, SW-3804)",
+        "Float.sqrt, exact and the same bits on every backend (SW-3788)",
+        "Laws: whole-unit exactness, Sterbenz, error model, divNear, absBelowOf, JS comparison link, Float.min/max, + and * monotone (SW-3805, SW-3830, SW-3843, SW-3844, SW-3873, SW-3886, SW-3898)",
+        "Elaborator bug that substituted a let's proof for a float literal's validity proof fixed (SW-3887); the proofs test back to 422 MB (SW-3829)"
       ],
-      "now": [
-        "Stage 3: mul, ofInt, ofNat as definitions (SW-638)"
-      ],
+      "now": [],
       "next": [
-        "Stage 4: div, rem, floor, ceil, trunc, round (SW-639)",
-        "Float.sqrt (SW-3788); exp speed measurement (SW-3787)"
+        "SW-3798: the general toInt/ofInt theorem",
+        "SW-3852: Float.mulComm for all floats",
+        "SW-3797: the native-off float elaboration test runs past 400 s",
+        "SW-3787: measure exp (D3675 decided: own definitions)"
       ],
       "links": [
         "docs/proposals/float-laws.md",
@@ -600,13 +733,17 @@
       "title": "Whereabouts",
       "goal": "Parts of Matt's Whereabouts game written and proved in Stitchwort, starting with hint bands, so real shipped code drives the float work.",
       "status": "active",
-      "done": [],
-      "now": [
-        "Hint bands port with theorems stated"
+      "done": [
+        "Hint bands ported with the same results as the TypeScript on 100,000 inputs (SW-3790)",
+        "Proved: the answer is always inside its hint band, for latitude and longitude; wrap, margins and rounding round trips (SW-3830, SW-3844, SW-3858, SW-3871, SW-3895)",
+        "Whereabouts check 162.7 s down to 10.7 s uncached (SW-3872)"
       ],
+      "now": [],
       "next": [
-        "Hint-band proofs once float stages 3-4 land",
-        "Seeded shuffle and standings; the game rules model"
+        "SW-3792: JS 32-bit operations in std (imul, ToInt32, >>>)",
+        "SW-3794: operator spellings for IEEE comparisons (a question for Matt first)",
+        "Seeded shuffle and standings, then the game rules model (no ticket yet)",
+        "SW-3924 (floats): 0.0 / d facts so divNear loses its sign hypothesis"
       ],
       "links": [
         "/Users/matt/repos/mdr/whereabouts/docs/stitchwort-candidates.md",
