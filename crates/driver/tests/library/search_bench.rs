@@ -48,6 +48,8 @@ struct Score {
     ranks: Vec<usize>,
     missed: Vec<String>,
     internal_errors: usize,
+    /// Each internal error: the query, the candidate and the panic message.
+    internal: Vec<String>,
     out_of_budget: usize,
 }
 
@@ -71,6 +73,9 @@ impl Score {
         );
         for name in self.missed.iter().take(20) {
             eprintln!("  not found: {name}");
+        }
+        for error in &self.internal {
+            eprintln!("  internal error: {error}");
         }
     }
 }
@@ -136,9 +141,27 @@ fn run(
             continue;
         };
         score.queries += 1;
+        let query = || {
+            let g = &session.elab.ev();
+            let wanted = g.def(*wanted).path().to_string();
+            match owner {
+                Some(o) => format!("{wanted} (used in {})", g.def(*o).path()),
+                None => wanted,
+            }
+        };
+        // Named before the search, so a panic outside the comparisons, or a
+        // hang, says which query.
+        if std::env::var_os("SEARCH_BENCH_TRACE").is_some() {
+            eprintln!("query: {}", query());
+        }
         let keep = |c: &Candidate| Some(c.item) != owner.map(Item::Def);
         let found = session.elab.search(&[pattern], candidates, opts, &keep);
         score.internal_errors += found.stats.internal_errors;
+        for (item, message) in &found.stats.internal_error_items {
+            let g = &session.elab.ev();
+            let entry = format!("{}: against {}: {message}", query(), item.path(g));
+            score.internal.push(entry);
+        }
         score.out_of_budget += found.stats.out_of_budget;
         match found.hits.iter().position(|h| h.item == Item::Def(*wanted)) {
             Some(i) => score.ranks.push(i + 1),
@@ -304,7 +327,7 @@ fn proof_uses_find_their_lemma_among_the_first_ten() {
     });
     score.report("proof uses");
     assert!(score.queries > 5000, "{} queries", score.queries);
-    assert_eq!(score.internal_errors, 0);
+    assert_eq!(score.internal_errors, 0, "{:#?}", score.internal);
     assert!(
         score.share(|r| r <= 10) >= 50.0,
         "recall@10 {:.1}%",
@@ -312,12 +335,14 @@ fn proof_uses_find_their_lemma_among_the_first_ten() {
     );
 }
 
-/// A proof use whose arguments mention the proof's variables inside a
-/// lambda (`Bool.inspect`'s motive, in `List.takeWhile.induct`) once made the
-/// evaluator apply a constructor while unifying with a candidate (SW-2590).
-#[test]
-fn proof_use_with_lambda_arguments_searches_without_internal_errors() {
-    let (internal, hits) = with_session(STACK, Session::for_stack, |session| {
+/// The internal errors of searching for `owner`'s use of `lemma` (as the
+/// proof-use benchmark does) among the theorems `among` keeps.
+fn use_internal_errors(
+    owner: &str,
+    lemma: &str,
+    among: &(dyn Fn(&str) -> bool + Sync),
+) -> Vec<String> {
+    with_session(STACK, Session::for_stack, |session| {
         load_library(session);
         let candidates = theorems(session);
         let g = &session.elab.ev();
@@ -330,11 +355,10 @@ fn proof_use_with_lambda_arguments_searches_without_internal_errors() {
         let uses = lemma_uses(g, &ids);
         let wanted = uses
             .iter()
-            .position(|(owner, lemma, _, _)| {
-                g.def(*owner).path().to_string() == "Std.List.takeWhile.induct"
-                    && g.def(*lemma).path().to_string() == "Std.Bool.inspect"
+            .position(|(o, l, _, _)| {
+                g.def(*o).path().to_string() == owner && g.def(*l).path().to_string() == lemma
             })
-            .expect("takeWhile.induct uses Bool.inspect");
+            .unwrap_or_else(|| panic!("{owner} uses {lemma}"));
         let (owner, lemma, args, depth) = &uses[wanted];
         let (owner, lemma) = (*owner, *lemma);
         let args: Vec<&Term> = args.iter().collect();
@@ -349,11 +373,35 @@ fn proof_use_with_lambda_arguments_searches_without_internal_errors() {
             filter: true,
             deadline: None,
         };
-        let keep = |c: &Candidate| Some(c.item) != Some(Item::Def(owner));
+        let g = &session.elab.ev();
+        let keep = |c: &Candidate| Some(c.item) != Some(Item::Def(owner)) && among(&c.item.path(g));
         let found = session.elab.search(&[pattern], &candidates, &opts, &keep);
-        (found.stats.internal_errors, found.hits.len())
-    });
-    assert_eq!(internal, 0, "{hits} hits");
+        (found.stats.internal_error_items.iter())
+            .map(|(item, message)| format!("{}: {message}", item.path(g)))
+            .collect()
+    })
+}
+
+/// A proof use whose arguments mention the proof's variables inside a
+/// lambda (`Bool.inspect`'s motive, in `List.takeWhile.induct`) once made the
+/// evaluator apply a constructor while unifying with a candidate (SW-2590).
+#[test]
+fn proof_use_with_lambda_arguments_searches_without_internal_errors() {
+    let errors = use_internal_errors("Std.List.takeWhile.induct", "Std.Bool.inspect", &|_| true);
+    assert!(errors.is_empty(), "{errors:#?}");
+}
+
+/// `Eq.flipped`'s use in `Parse.recursiveWithFuelMore`, against
+/// `Parse.runFromEndThere` and its neighbours, once made the evaluator apply
+/// a constructor (SW-4575).
+#[test]
+fn proof_use_of_flipped_run_searches_without_internal_errors() {
+    let errors = use_internal_errors(
+        "Std.Parse.recursiveWithFuelMore",
+        "Std.Eq.flipped",
+        &|path| path.starts_with("Std.Parse.runFrom"),
+    );
+    assert!(errors.is_empty(), "{errors:#?}");
 }
 
 /// Draft 1's hand queries and draft 3's others (§6.3), through the command's
