@@ -81,6 +81,136 @@ in [../proposals/README.md](../proposals/README.md).
 - **Next.** Reusing a read-back at a deeper level (shift the kept term's
   free indices) would reach `standsDecl`'s 8 repeats (about 2.9 s); not
   done, see the ticket.
+### SW-4615: std's slow Parse lemmas: lifting their leaves into step lemmas does not pay; no code changed
+
+- **Status:** dropped; measured, nothing merged.
+- **Problem.** SW-4608 (win 7) found std's Parse lemmas dominate a cold
+  check: `Reads.sw` 2.5 s elaboration (4.4 s in SW-4608's run), the slowest
+  `runFromLabelWholeFromOkTree` 14.4M steps, then `runFromOptionalLabelWholeNone`
+  10.0M and `runFromLabelWholeFromBack` 9.5M.
+- **Profile (measured).** `STITCHWORT_BIG_READBACK=1500 STITCHWORT_STEP_PHASES=1
+  check --std Parse/Reads.sw --no-cache --timings`: 10.2 of
+  `runFromLabelWholeFromOkTree`'s 14.4M steps are read-back (unify 0.9M,
+  apply 0.8M); 165 of the file's 194 read-backs over 1,500 nodes are in it, from
+  `substitute_in` (case-branch refinement), `reread_in`, and `rewrite`'s
+  `kernel_context`. Cause: after `match reify q`, `h`'s type is `labelWholeFrom`
+  unfolded against the concrete step (the whole `handle` expanded, 2.7K nodes), and
+  each of the 14 leaves refines it, then `rewrite Effect.translateNoOp _ at h`
+  reads it back again. Unlike SW-4611 the terms are small (not 1M nodes); the
+  cost is about 1M steps per leaf.
+- **Tried (reverted).** Per-effect step lemmas over small values
+  (`labelWholeMarkStep`, `…SpanStep`, `…NextEndStep`, `…NextHitStep`,
+  `…NextMissStep`, `…LiteralHitStep`, `…LiteralMissStep`), each doing the
+  `translateNoOp` rewrite (and the `match c` on `Parse.further`'s comparison,
+  and the `s.at.rest` / `stripPrefixBy` equation) in its own small context, with
+  the tree lemma passing `if … then … else furthest` to its recursive call.
+  They check. Steps: `runFromLabelWholeFromOkTree` 14.4M → 12.8M with only the
+  mark and span leaves lifted (about 1.3M saved), but each step lemma costs
+  0.36M (mark) to 2.6M (next miss) itself, 10.5M together, so lifting every leaf
+  would land near 13.6M, 5% below the 14.4M. The step lemma's own cost is the
+  same read-back of the unfolded handler: `rewrite … at h` normalises `h` to find
+  `translate`. Doing the rewrites once before the `match c` (instead of inside
+  each branch) saved 6% of one lemma. `byComputing h` or plain `h` can't
+  replace the rewrite: `translate` over a stuck computation doesn't reduce.
+- **Not done: the real fix.** Keep `q` abstract: carry `q () = op ≫ r` as an
+  equation instead of refining `q` with `match reify q`, and prove per-effect
+  unfolding equations of `labelWholeFrom` once (statements over `q`, `what`,
+  `start`, `furthest` only); the tree lemmas then rewrite with small equations
+  and `h` never unfolds. It touches every `reify`-based lemma in
+  `Reads.sw`/`Runs.sw` (about 13 families), so it wants its own design; or an
+  elaborator change so `rewrite … at h` doesn't read back the whole of `h`
+  per rewrite (SW-4611's memo of read-backs would reach this too).
+- **Ticket:** SW-4615; follows SW-4608 and SW-4611.
+
+### SW-4593: who pays for checking the standard library on import: measured, nothing changed in code
+
+- **Status:** measured; a note, [std-import-cost.md](../proposals/std-import-cost.md).
+  No code changed.
+- **Method.** `check --no-cache --timings=all` on Parse examples and on every 100th
+  example (20 files), declaration steps split into the file's own and the
+  library's, and the library's into std `theorem`s and the rest; the examples
+  harness run twice by `EXAMPLES=` after a build; `check --cache-dir` warm.
+- **Found.** The examples sweeps and `hash_stability` already replay std from the
+  test std cache in every tier but all (SW-1761, SW-1765): three Parse examples
+  took 14.6 s on the first run after a build and 0.94 s on the second. SW-4587's
+  3.58 G is the `examples` benchmark, which checks std per example on purpose;
+  in the sample 99.6% of declaration steps were core and library, about 78% of
+  the benchmark's 16.5 G (estimated). Theorem bodies are checked on import
+  (the file is the unit) and are 31-90% of the library's steps in six files.
+  Every session elaborates the core (956,007 steps, about 0.1 s), cache or not.
+  A warm `check` of `reads-named-parser` takes 0.48 s against 6.0 s cold.
+- **Proposed.** Split the benchmark (std counted once, examples replayed over
+  it: about 16.5 G to 3.5 G, estimated); measure the CLI tests that pass
+  `--no-cache` before changing them; the core in the cache wants its own note.
+  Checking statements only on import is rejected (trust; `--no-cache` is the full
+  check).
+- **Ticket:** SW-4593; follows SW-4587 and SW-4608.
+### SW-4619: SW-4611's reshape on the rest of the slow formatter family; five proofs from 312M steps to 1.9M, and `atomHung` and `unaryHung` 15-55% fewer
+
+- **Problem.** After SW-4611, SW-4608's list still had `printedFinish1`
+  (7.3 s), `standsDecl` (6.1 s), `standsRest` (1.8 s), `printedStart1`
+  (1.5 s) and `printedSplitParts` (2.3 s), each reading back one 1.0-1.13M-node
+  term over and over, and `atomHung` (4.4 s) and `unaryHung` (2.2 s) reading
+  back 0.27M and 0.57M.
+- **Profile (measured).** `STITCHWORT_BIG_READBACK=200000
+  STITCHWORT_STEP_PHASES=1 check NS --no-project-cache --only NS.NAME
+  --timings=all`, release build. The big term is always a fact about the
+  declaration with its printed leaves or pieces computed (`decl.leaves`,
+  `decl.pieces`, `Decl.stands`), which exists as soon as a hypothesis, a `let`
+  or a rewrite rule names a concrete `Definition [] header …`. Three shapes
+  of step read it back: (a) a `match` (named, or a destructuring `let (a, b)
+  := …`) while such a hypothesis or `let` is in scope, which generalises over
+  it; (b) a `rewrite` whose rule or goal names the declaration's leaves; (c)
+  a `match` on the declaration or its leaves that refines the hypotheses
+  `stood`, `starts`, ….
+- **Change (proof reshapes, no statement changed).**
+  - `printedFinish1` (`Fmt.FileLexProofs`): the document-level part is a
+    lemma over an abstract `Doc` (`docFinishes`, with `pairsFollow` and the
+    `Marked`/`Finishes` facts as hypotheses), and the facts about the
+    declaration are taken by projection (`joins.right.right…`,
+    `spelled.right.left`) instead of by destructuring `let`s. Destructuring
+    a six-part `declJoins` in a `let` was itself 24M steps: a `let (…) := e`
+    is a `match` and generalises like one; a projection doesn't.
+  - `printedStart1`: `docStarts` over an abstract document plus
+    `plainDefStarts` over the parts; no `match printedLeads … with` in a
+    goal that unfolds the declaration's pieces.
+  - `standsDecl` (`Fmt.SettleOutputProofs`): `standsDeclOver` takes the
+    leaves and the words after the `def` as variables (and `standsText`
+    its one text fact); `standsDecl` applies it.
+  - `standsRest`: `declStandsParts` (the `def`'s word and `stood`, proved
+    with only `within` in scope) and `standsLater` (one declaration), so the
+    recursion matches on a variable `decl`, not `Definition [] header …`.
+  - `printedSplitParts` (`Fmt.GroupSlots`): `textsOfLeaves` takes the leaves
+    as a variable, so the `rewrite` chain doesn't name `decl.leaves`.
+  - `atomHung`, `unaryHung`, `signArgHung`: the ∧-valued destructuring
+    `let`s (`lineSplit`, `speltHung`, `leadHung`, `startNotClose`) became
+    projections. The ∃-valued ones (`hungStep`, `speltStarts`) can't be.
+- **Result (measured, steps; load 9-12 so times are rough).**
+
+  | proof | before | after |
+  |---|---|---|
+  | `printedFinish1` | 6.7 s, 120.8M | 32 ms, 0.54M (+ `docFinishes` 0.12M) |
+  | `standsDecl` | 5.8 s, 93.0M | 3 ms, 0.04M (+ `standsDeclOver` 0.19M, `standsText` 0.025M) |
+  | `standsRest` | 1.7 s, 28.3M | 3 ms, 0.025M (+ `standsLater` 0.04M, `declStandsParts` 0.013M) |
+  | `printedStart1` | 1.3 s, 23.2M | 1 ms, 0.011M (+ `docStarts` 0.05M, `plainDefStarts` 0.1M) |
+  | `printedSplitParts` | 2.55 s, 46.6M | 62 ms, 0.75M (+ `textsOfLeaves` 8K) |
+  | `atomHung` | 4.4 s, 56.0M | 2.07 s, 25.5M |
+  | `unaryHung` | 2.2 s, 30.1M | 1.9 s, 25.5M |
+  | `signArgHung` | 0.78 s, 10.1M | 0.68 s, 9.0M |
+
+  The first five go from 312M steps in all to 1.9M (lemmas included). The namespace
+  check of each file touched passes (`--no-project-cache`).
+- **Not done.** `atomHung` still has 6 read-backs of 0.27M nodes, `unaryHung`
+  5 of 0.57M: each is the elimination of an ∃ (`hungStep`'s next state, the
+  items `speltStarts` returns) in a `let`, which generalises over the goal.
+  No projection form exists for an ∃; a fix would be a continuation-style
+  lemma or smaller goals (`AtomReads` unfolds to a large tuple per case).
+  `Syntax.ReadBackHungTop.readsBackHungListExample` (10.8 s) is kernel time,
+  not read-back, and was left alone.
+- **Rule of thumb for the proving guide (not added).** In a proof about a
+  concrete declaration, take facts out of tuples with projections, not
+  `let (a, b) := …`, and put anything that rewrites about its printed
+  leaves in a lemma over the leaves as a variable.
 
 ### SW-4611: `standsEachFile`'s three nested matches moved into lemmas; 35.9 s to 16 ms, 474.5M to 0.17M steps (14% of a cold tools/fmt check)
 
@@ -119,6 +249,26 @@ in [../proposals/README.md](../proposals/README.md).
   metavariable is solved) would share them across all five callers with
   terms unchanged. Not built: it reaches every read-back path, which needs
   its own design and an Opus lane.
+### SW-4609: `explain_lifted` skips diagnostics that can't name a `match` helper; about 10% less CPU on a cold tools/fmt check
+
+- **Problem.** SW-4608's profile (docs/reviews/SW-4608-proof-checking-speed.md,
+  win 1) put `explain_lifted` at 14% of a cold tools/fmt check: for every
+  diagnostic, shown or not, it built and sorted the list of every `match`
+  helper lifted so far in the run (`tables.lifted`, which only grows) and
+  substring-searched the message, labels and notes for each name.
+- **Change.** Every name in `tables.lifted` is `owner.%matchN`, so a
+  diagnostic whose text has no `%match` and for which the printer showed no
+  helper's call (`printed_matches` empty) is returned straight away, before
+  the list is built. Other diagnostics take the old path, so messages are
+  unchanged.
+- **Result (measured, Speedwell under load 9-11, `check --no-cache`, user CPU
+  seconds, one run each).** `Fmt.ElementsProofs` (102 namespaces with its
+  dependencies): 158.7 s before, 141.1 s after (-11%); `Fmt.DeclHangProofs`:
+  30.2 s before, 27.6 s after (-9%). Wall times were 162 s and 168 s, and 32 s
+  and 34 s: too noisy under load to read, hence the CPU figures. Not
+  profiled again.
+- **Not done.** Diagnostics that do name a helper still walk every helper;
+  indexing by name would remove that if it shows up.
 
 ### SW-4606: `rewrite`'s completeness check skips the unfolded motive when the motive has lost a variable the left side depends on; Std.Float.Theory 410 MB to 383 MB, 90.0M to 88.5M steps
 

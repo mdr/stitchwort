@@ -1,5 +1,5 @@
 {
-  "next": 4621,
+  "next": 4632,
   "tickets": [
     {
       "id": 47,
@@ -32073,15 +32073,18 @@
     {
       "id": 4593,
       "title": "[Opus] Every file that imports Std.Parse pays about 80-100M steps checking Parse's lemmas on import (SW-4587: 43 new examples cost 3.58G between them). Measure where the steps go for one such example (e.g. a reads-* or walk-* example), and propose (note first) how to avoid re-checking library lemmas per program: check cache for std in the bench and examples, or on-demand checking; performance-log entry",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nStarted 22 Nov on Opus (orchestrator's call, proof-checking speed). Expected: 40 min.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "2bbea6f892acb6d93b768aec5a92df6682507513",
+        "af843b53add073718501ee48b24bf04c83cbee41"
+      ]
     },
     {
       "id": 4594,
@@ -32287,28 +32290,34 @@
     {
       "id": 4609,
       "title": "[Sonnet] Name lifted match helpers in diagnostics without searching for every one: explain_lifted substring-searches each diagnostic for every helper lifted so far and re-sorts the list per diagnostic, 14% of the cold tools/fmt check (SW-4608 win 1); messages unchanged",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "\n\nStarted 22 Nov 12:28 on Sonnet (orchestrator's call, from SW-4608's ranked wins). Expected: 20 min.\n",
+      "body": "\n\nStarted 22 Nov 12:28 on Sonnet (orchestrator's call, from SW-4608's ranked wins). Expected: 20 min.\n\n\nModel result: Sonnet, needed fixes (the early return looked for %match only; %plain helpers are lifted too, widened to % in review), 15 min (est. 20). About 10% less CPU on cold fmt checks (measured, two namespaces).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "98c8b31c4593d00926b9df42232e4eb32bd6be2e",
+        "ac726895754a3176537d9553d1c6f8b6f185f7b1",
+        "83cd67a657b2662aede3edb58af5be84bd956dfb"
+      ]
     },
     {
       "id": 4610,
       "title": "[DeepSeek] check --timings: buffer the tables and cap the name column; one mutual group's long name pads every row and unbuffered stderr writes it a character at a time, 125 s of a 387 s tools/fmt timing run is printing (SW-4608 win 2)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "\n\nStarted 22 Nov 12:28 on DeepSeek (orchestrator's call, from SW-4608's ranked wins). Expected: 15 min.\n",
+      "body": "\n\nStarted 22 Nov 12:28 on DeepSeek (orchestrator's call, from SW-4608's ranked wins). Expected: 15 min.\n\n\nModel result: DeepSeek, needed fixes (truncated names to 60 characters; changed to pad-only cap, names in full), 25 min (est. 15).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "3c4d9d26c1166e3a728315f5a8ecc1355e416e3c"
+      ]
     },
     {
       "id": 4611,
@@ -32368,15 +32377,18 @@
     {
       "id": 4615,
       "title": "[Sonnet] Speed up std's Parse.runFrom...Tree lemmas, 0.7-1.5 s each in every cold std check (SW-4608 win 7)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "Progress (Sonnet lane): profiled std Parse; the top lemmas spend 70% of steps on read-backs of the unfolded labelWholeFrom handler; lifting leaves into step lemmas costs as much as it saves (14.4M -> ~13.6M est.). Dropped, no code change; see docs/performance/log.md SW-4615.\n\n\nStarted 22 Nov 13:05 on Sonnet (orchestrator's call). Expected: 30 min. Model result: Sonnet, worked (a negative result, logged; no std change), 6 min (est. 30). Restored this line: the lane replaced the body instead of appending.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "632dca197da7263b362b665bc965e168f27e1203",
+        "fab3755f4eca6f668bac305682166910771ced5d"
+      ]
     },
     {
       "id": 4616,
@@ -32412,7 +32424,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "\n\nProgress (lane, Opus, 22 Nov): measured first with a throwaway probe (every read-back over 100K nodes: value identity, level, mode, epoch, result hash). Exact repeats: printedSplitParts 2 of 4, printedFinish1 2 of 11, standsDecl 0 of 13; standsDecl's are the same values read back at deeper levels (4 values x 12 read-backs at levels 10-24), which an exact memo can't serve. Added value::ReadbackMemo (EvalCaches): 10K-4M-node read-backs keyed by value parts + level + mode, valid while Metas::version (store id, epoch, trail length), Env::version (bumped by every &mut method) and machine Modes are unchanged; 4M-node cap, cleared at clear_metas; STITCHWORT_READBACK_MEMO=off|check. Measured: printedSplitParts 46.6M -> 23.9M steps (2.5 -> 1.3 s), printedFinish1 120.8M -> 98.1M (6.6 -> 5.4 s), standsDecl unchanged. =check on printedSplitParts: no difference. Commit d3c2700b8. Follow-up idea: reuse at a deeper level by shifting free indices (standsDecl ~2.9 s). Clippy not run (time).\n",
+      "body": "\n\nStarted 22 Nov on Opus (orchestrator's call, proof-checking speed). Expected: 45 min.\n\nProgress (lane, Opus, 22 Nov): measured first with a throwaway probe (every read-back over 100K nodes: value identity, level, mode, epoch, result hash). Exact repeats: printedSplitParts 2 of 4, printedFinish1 2 of 11, standsDecl 0 of 13; standsDecl's are the same values read back at deeper levels (4 values x 12 read-backs at levels 10-24), which an exact memo can't serve. Added value::ReadbackMemo (EvalCaches): 10K-4M-node read-backs keyed by value parts + level + mode, valid while Metas::version (store id, epoch, trail length), Env::version (bumped by every &mut method) and machine Modes are unchanged; 4M-node cap, cleared at clear_metas; STITCHWORT_READBACK_MEMO=off|check. Measured: printedSplitParts 46.6M -> 23.9M steps (2.5 -> 1.3 s), printedFinish1 120.8M -> 98.1M (6.6 -> 5.4 s), standsDecl unchanged. =check on printedSplitParts: no difference. Commit d3c2700b8. Follow-up idea: reuse at a deeper level by shifting free indices (standsDecl ~2.9 s). Clippy not run (time).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -32420,15 +32432,22 @@
     {
       "id": 4619,
       "title": "[Sonnet] Try SW-4611's reshape on printedFinish1 (Fmt.FileLexProofs, 7.3 s, 11 large read-backs, two from rewrite) and the rest of the family (standsDecl 6.1 s, standsRest 1.8 s, printedStart1 1.5 s)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nStarted 22 Nov on Sonnet (orchestrator's call, proof-checking speed). Expected: 30 min.\n\n\nModel result: Sonnet, worked, 27 min (est. 30).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "058a52019be6f5ad5098a26a43ac1ebfa2b46155",
+        "5980aee9587e8f70818a4125abf67dd962bb6b6a",
+        "8bb7a252c7e4411f7dd28ede2c104a36493d6fe3",
+        "7470b6afe37a41cef834a1b0f5f168f57d1800ab",
+        "b5c31c0b06d86883d3698b2d8637375109be83fc",
+        "027f6e5692f2e78d632864f80555d0ca931de7bf"
+      ]
     },
     {
       "id": 4620,
@@ -32438,6 +32457,156 @@
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
+      "body": "\n\nAlso (SW-4619): take facts out of tuples with projections, not let (a, b) := ..., in proofs about concrete values; put a rewrite that names decl.leaves or decl.pieces in a lemma over them as variables.\n",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4621,
+      "title": "[Sonnet] Split the examples benchmark: a std benchmark that checks the library once, and examples reading std from a cache filled before timing (est. 16.5G to ~3.5G steps, 232 s to ~50 s); fix programs.rs saying it works as the example suite does; baseline re-recorded on a quiet machine afterwards (SW-4593 recommendation 1)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "\n\nStarted 22 Nov on Sonnet (orchestrator's call, from SW-4593's note). Expected: 25 min.\n\n\nModel result: Sonnet, worked, 5 min (est. 25). Merged 22 Nov. Orchestrator: std stays in the broad tier (+28 s) as a regression signal. Baseline ([std], [examples]) to be re-recorded on a quiet machine.\n",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": [
+        "6a8aa362b0789f78374ae7c366abce88d9fb8f3f",
+        "d0419dd5bf1c7e5b684b2da1ffd5748c55794329",
+        "e58ea0f3c8abe4964a93b234e07e1c364c40f169"
+      ]
+    },
+    {
+      "id": 4622,
+      "title": "[Sonnet] Measure what share of the CLI tests' --no-cache runs (100 call sites in 30 files) is library checking, before changing any (SW-4593 recommendation 2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4623,
+      "title": "[Opus paper] Design note: cache the elaborated core (every session elaborates it, ~0.1 s and 956K steps; the largest fixed cost of a small example once std is cached) (SW-4593 recommendation 3)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "\n\nStarted 22 Nov on Opus paper (orchestrator's call, from SW-4593's note). Expected: 30 min.\n",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": [
+        "591db089b56e1027cee54c2396026cf82df9c296",
+        "55db99bcb5cf33aebc4b875361a5c4b048b03327"
+      ]
+    },
+    {
+      "id": 4624,
+      "title": "[Opus] Core cache option D: test sweeps keep one session per thread, rewound to just after the core before each example (~0.1 s an example, estimated); reset the per-program state rewind keeps (failed_decls, broken_tests, expansions, walks, facts, stats, standalone_inputs...), and a test running the same examples in two orders against fresh sessions (docs/proposals/core-cache.md)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "\n\nStarted 22 Nov 13:12 on Opus (orchestrator's call, core cache option D). Expected: 40 min.\n",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4625,
+      "title": "[Opus] Core cache option A2: the core as a check-cache entry the kernel re-checks on every replay (the --recheck path), replayed in the elaborator's order (natives and reduction rules registered first); ~60 ms a cached session, estimated; kernel checks unchanged; after option D (docs/proposals/core-cache.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4626,
+      "title": "[Sonnet] Measure the playground's cost of elaborating the core on every check in WebAssembly (docs/proposals/core-cache.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4627,
+      "title": "[Sonnet] Audit the language server for per-program session state that survives a rewind (failed_decls, broken_tests, expansions, walks, facts, stats) reaching what a later check reports (SW-4623 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4628,
+      "title": "[Opus] Redesign std Parse's reify-based lemmas so the handler never unfolds: keep q abstract with q () = op ≫ r as an equation instead of match reify q, and prove per-effect unfolding equations of labelWholeFrom once (about 13 lemma families in Reads.sw and Runs.sw; the slowest, runFromLabelWholeFromOkTree, is 14.4M steps, 10.2M of them read-back); design first; statements unchanged (SW-4615 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4629,
+      "title": "[Opus] Elaborate a destructuring let over a conjunction (or a record/tuple of proofs) as projections, not a match that generalises over everything in scope: SW-4619 found destructuring the six-part declJoins alone cost ~24M steps; terms may change, so measure and check hashes (SW-4619 finding)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4630,
+      "title": "[Sonnet] STITCHWORT_BIG_READBACK: also print the source span of the innermost match, let or rewrite that asked for the read-back (SW-4619 found culprits by trial, one 45 s run per guess)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4631,
+      "title": "[Sonnet] Profile and reshape the destructuring lets over existentials in tools/fmt/src/Syntax/ReadBackHungChains.sw (lines ~171, 338, 494) and what is left of atomHung/unaryHung (6 read-backs of 0.27M nodes, 5 of 0.57M): continuation-style lemmas or smaller goals (SW-4619 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",

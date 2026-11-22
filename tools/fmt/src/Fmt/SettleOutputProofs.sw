@@ -686,6 +686,43 @@ theorem startsEach ∀ (decls: List Decl)
         (startsEach rest (Bool.andRight within) (Bool.andRight shaped) (Bool.andRight settled) (Bool.andRight lexical))
 
 --| The leaves of declarations after the first stand against their calm words.
+--| A slice 1 declaration's calm words are its `def` holding the first comments, then words, and `stood` takes the
+--| `def`'s own-line comments and blank line off. Proved with nothing else about the declaration in scope, so the
+--| match on it doesn't read back their unfolded types.
+theorem declStandsParts ∀ (decl: Decl)
+    (within: decl.within1 = True):
+    ∃ (words: List Word) => decl.calm.words = [fixedWord "def" decl.firstComments, ..words]
+      ∧ decl.stood = [fixedWord "def" { above = [], after = decl.firstComments.after, blankBefore = False }, ..words] :=
+  match decl with
+    | Definition [] header (Assigned colonEq value) =>
+      Witness ((Definition [] header (Assigned colonEq value)).calm.words.drop 1) (Both byComputing byComputing)
+
+--| A declaration that isn't the file's first stands against its calm words, as `standsRest` asks of each, from
+--| `standsDeclOver`; a lemma on the one declaration, so `standsRest`'s hypotheses about all the later ones aren't
+--| unfolded with it.
+theorem standsLater ∀ (decl: Decl)
+    (within: decl.within1 = True)
+    (stood: decl.stands = True)
+    (plain: decl.firstComments.above.all Note.unreturned = True)
+    (starts: notCommaFirst decl.leaves = True):
+    stands None decl.calm.words (decl.laid False) = True :=
+  match declStandsParts decl within with
+    | Witness words (Both calmIs stoodIs) =>
+      let keyword := decl.firstComments
+      let aboveRead: readNotes (laidNotes False keyword.above) = keyword.above :=
+        rewrite laidNotesFalse keyword.above then notesRead keyword.above plain
+      let blankRead: ((if keyword.blankBefore && !(False && keyword.above.isEmpty) then 1 else 0) > 0)
+        = keyword.blankBefore :=
+        match keyword.blankBefore with
+          | True | False => byComputing
+      rewrite calmIs then
+        standsDeclOver decl.leaves words False keyword keyword
+          (rewrite stoodIs at stood then stood)
+          starts
+          aboveRead
+          blankRead
+          byComputing
+
 theorem standsRest ∀ (decls: List Decl)
     (within: decls.all Decl.within1 = True)
     (stood: decls.all Decl.stands = True)
@@ -694,21 +731,9 @@ theorem standsRest ∀ (decls: List Decl)
     standsEach ((decls.map Decl.calm).map Decl.words) (groupsFrom False decls) = True :=
   match decls with
     | [] => byComputing
-    | [Definition [] header (Assigned colonEq value), ..rest] =>
-      let keyword := header.keyword
-      let aboveRead: readNotes (laidNotes False keyword.above) = keyword.above :=
-        rewrite laidNotesFalse keyword.above then notesRead keyword.above (Bool.andLeft plain)
-      let blankRead: ((if keyword.blankBefore && !(False && keyword.above.isEmpty) then 1 else 0) > 0)
-        = keyword.blankBefore :=
-        match keyword.blankBefore with
-          | True | False => byComputing
+    | [decl, ..rest] =>
       Bool.andIntro
-        (standsDecl header colonEq value False keyword
-          (Bool.andLeft stood)
-          (Bool.andLeft starts)
-          aboveRead
-          blankRead
-          byComputing)
+        (standsLater decl (Bool.andLeft within) (Bool.andLeft stood) (Bool.andLeft plain) (Bool.andLeft starts))
         (standsRest rest (Bool.andRight within) (Bool.andRight stood) (Bool.andRight plain) (Bool.andRight starts))
 
 theorem emptySame ∀ (more others: List Word) (alike: AllAlike more others): more.isEmpty = others.isEmpty :=
@@ -1777,6 +1802,50 @@ theorem notesRead ∀ (notes: List Note)
     | [] => byComputing
     | [note, ..rest] => rewrite noteRead note (Bool.andLeft plain), notesRead rest (Bool.andRight plain)
 
+--| A leaf that stands against a word has its text.
+theorem standsText ∀ (leaf: Leaf) (leaves: List Leaf) (word: Word) (words: List Word)
+    (notComma: (leaf.kind == Comma) = False)
+    (standing: stands None [word, ..words] [leaf, ..leaves] = True):
+    (leaf.token.text == word.text) = True :=
+  match comma: leaf.kind == Comma with | False => Bool.andLeft (Bool.andLeft standing)
+
+--| `standsDecl` over the declaration's leaves and the words after its `def`, which stand for those of the declaration so
+--| the proof checks without the declaration's own facts in scope (they read back at about a million nodes).
+theorem standsDeclOver ∀ (leaves: List Leaf) (words: List Word) (empty: Bool) (old keyword: Comments)
+    (stood: stands None [fixedWord "def" { above = [], after = old.after, blankBefore = False }, ..words] leaves = True)
+    (start: notCommaFirst leaves = True)
+    (aboveRead: readNotes (laidNotes empty old.above) = keyword.above)
+    (blankRead: ((if old.blankBefore && !(empty && old.above.isEmpty) then 1 else 0) > 0) = keyword.blankBefore)
+    (afterSame: keyword.after = old.after):
+    stands None
+      [fixedWord "def" keyword, ..words]
+      (headed (laidNotes empty old.above) (if old.blankBefore && !(empty && old.above.isEmpty) then 1 else 0) leaves)
+      = True :=
+  match leaves with
+    | [leaf, ..rest] =>
+      let comma: (leaf.kind == Comma) = False := match flag: leaf.kind == Comma with
+        | False => flag
+      let textOk: (leaf.token.text == "def") = True :=
+        standsText leaf rest (fixedWord "def" { above = [], after = old.after, blankBefore = False }) words comma stood
+      let blank := if old.blankBefore && !(empty && old.above.isEmpty) then 1 else 0
+      let newLeaf := { leaf | trivia = { leaf.trivia | leading = laidNotes empty old.above, blankLines = blank } }
+      let aboveOk: (newLeaf.word.comments.above == keyword.above) = True :=
+        rewrite aboveRead then DecEq.refl keyword.above
+      let blankOk: (newLeaf.word.comments.blankBefore == keyword.blankBefore) = True :=
+        rewrite blankRead then DecEq.refl keyword.blankBefore
+      let fresh: newLeaf.headedAs { text = "def", comments = keyword } = True :=
+        Bool.andIntro textOk (Bool.andIntro aboveOk blankOk)
+      standsHeaded leaf rest
+        (fixedWord "def" { above = [], after = old.after, blankBefore = False })
+        words
+        (laidNotes empty old.above)
+        blank
+        keyword
+        comma
+        stood
+        afterSame
+        fresh
+
 --| A declaration's leaves in the file stand against its calm words, the `def` holding `keyword`'s comments, when the
 --| file loop's notes and blank line read back as those.
 theorem standsDecl ∀ (header: Header) (colonEq: Comments) (value: Expr) (empty: Bool) (keyword: Comments)
@@ -1790,30 +1859,17 @@ theorem standsDecl ∀ (header: Header) (colonEq: Comments) (value: Expr) (empty
       [fixedWord "def" keyword, ..((Definition [] header (Assigned colonEq value)).calm.words.drop 1)]
       ((Definition [] header (Assigned colonEq value)).laid empty)
       = True :=
-  match leaves: (Definition [] header (Assigned colonEq value)).leaves with
-    | [leaf, ..rest] =>
-      match comma: leaf.kind == Comma with
-        | False =>
-          let textOk: (leaf.token.text == "def") = True := Bool.andLeft (Bool.andLeft stood)
-          let blank := if header.keyword.blankBefore && !(empty && header.keyword.above.isEmpty) then 1 else 0
-          let newLeaf :=
-            { leaf | trivia = { leaf.trivia | leading = laidNotes empty header.keyword.above, blankLines = blank } }
-          let aboveOk: (newLeaf.word.comments.above == keyword.above) = True :=
-            rewrite aboveRead then DecEq.refl keyword.above
-          let blankOk: (newLeaf.word.comments.blankBefore == keyword.blankBefore) = True :=
-            rewrite blankRead then DecEq.refl keyword.blankBefore
-          let fresh: newLeaf.headedAs { text = "def", comments = keyword } = True :=
-            Bool.andIntro textOk (Bool.andIntro aboveOk blankOk)
-          standsHeaded leaf rest
-            (fixedWord "def" { above = [], after = header.keyword.after, blankBefore = False })
-            ((Definition [] header (Assigned colonEq value)).calm.words.drop 1)
-            (laidNotes empty header.keyword.above)
-            (if header.keyword.blankBefore && !(empty && header.keyword.above.isEmpty) then 1 else 0)
-            keyword
-            comma
-            stood
-            afterSame
-            fresh
+  standsDeclOver
+    (Definition [] header (Assigned colonEq value)).leaves
+    ((Definition [] header (Assigned colonEq value)).calm.words.drop 1)
+    empty
+    header.keyword
+    keyword
+    stood
+    start
+    aboveRead
+    blankRead
+    afterSame
 
 -- The parser's groups.
 

@@ -29,6 +29,8 @@
 //! read of a cached flag.
 
 use std::cell::RefCell;
+use std::fmt::Write as _;
+use std::io::Write as _;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -375,15 +377,35 @@ fn queue_counts() -> Vec<(&'static str, usize)> {
     total
 }
 
-/// Prints the tables to stderr.
+/// The widest a name column pads to. One row names a whole mutual group,
+/// which can be thousands of characters long; padding every row to that
+/// width wrote tens of megabytes of spaces (SW-4610). A longer label is
+/// printed in full, pushing that one row's numbers right, so its name can
+/// still be read and grepped.
+const MAX_NAME: usize = 60;
+
+/// The width of a name column's padding: its longest label, up to
+/// [`MAX_NAME`], but at least `least` (the header's own width).
+fn name_width<'a>(labels: impl Iterator<Item = &'a str>, least: usize) -> usize {
+    labels
+        .map(|label| label.chars().count())
+        .max()
+        .unwrap_or(0)
+        .min(MAX_NAME)
+        .max(least)
+}
+
+/// Prints the tables to stderr, in one buffered write.
 pub fn report() {
     if !enabled() {
         return;
     }
     let wall = START.get().map(Instant::elapsed).unwrap_or_default();
     let rows = ROWS.lock().unwrap();
-    let width = rows.iter().map(|r| r.label.len()).max().unwrap_or(0).max(5);
-    eprintln!(
+    let width = name_width(rows.iter().map(|r| r.label.as_str()), 5);
+    let mut out = String::new();
+    let _ = writeln!(
+        out,
         "{:<width$}  {:>10}  {:>10}  {:>10}  {:>8}",
         "unit", "elab ms", "kernel ms", "nodes", "decls"
     );
@@ -391,7 +413,8 @@ pub fn report() {
     let (mut lib_elab, mut lib_kernel, mut lib_nodes, mut lib_decls) =
         (Duration::ZERO, Duration::ZERO, 0, 0);
     for r in rows.iter() {
-        eprintln!(
+        let _ = writeln!(
+            out,
             "{:<width$}  {:>10}  {:>10}  {:>10}  {:>8}",
             r.label,
             ms(r.elab),
@@ -410,8 +433,9 @@ pub fn report() {
             lib_decls += r.decls;
         }
     }
-    let line = |name: &str, e: Duration, k: Duration, n: usize, d: usize| {
-        eprintln!(
+    let line = |out: &mut String, name: &str, e: Duration, k: Duration, n: usize, d: usize| {
+        let _ = writeln!(
+            out,
             "{:<width$}  {:>10}  {:>10}  {:>10}  {:>8}",
             name,
             ms(e),
@@ -420,10 +444,18 @@ pub fn report() {
             d
         );
     };
-    eprintln!("{}", "-".repeat(width + 46));
-    line("library files", lib_elab, lib_kernel, lib_nodes, lib_decls);
-    line("total", elab, kernel, nodes, decls);
-    eprintln!(
+    let _ = writeln!(out, "{}", "-".repeat(width + 46));
+    line(
+        &mut out,
+        "library files",
+        lib_elab,
+        lib_kernel,
+        lib_nodes,
+        lib_decls,
+    );
+    line(&mut out, "total", elab, kernel, nodes, decls);
+    let _ = writeln!(
+        out,
         "wall {} ms; outside the units (parsing, core load, printing) {} ms",
         ms(wall),
         ms(wall.saturating_sub(elab + kernel))
@@ -432,16 +464,22 @@ pub fn report() {
         .into_iter()
         .map(|(name, n)| format!("{n} {name}"))
         .collect();
-    eprintln!("postponement queue: {}", queue.join(", "));
-    report_decls();
+    let _ = writeln!(out, "postponement queue: {}", queue.join(", "));
+    report_decls(&mut out);
+    // Standard error is unbuffered: one write for the whole tables, then one
+    // flush, rather than an `eprintln!` (and often several writes) a row.
+    let stderr = std::io::stderr();
+    let mut stderr = stderr.lock();
+    let _ = stderr.write_all(out.as_bytes());
+    let _ = stderr.flush();
 }
 
 /// Prints the declarations, slowest first.
-fn report_decls() {
+fn report_decls(out: &mut String) {
     let mut rows = DECL_ROWS.lock().unwrap();
     if rows.is_empty() {
-        eprintln!();
-        eprintln!("no declarations were checked");
+        let _ = writeln!(out);
+        let _ = writeln!(out, "no declarations were checked");
         return;
     }
     rows.sort_by(|a, b| {
@@ -450,19 +488,32 @@ fn report_decls() {
             .then_with(|| a.label.cmp(&b.label))
     });
     let shown = decls_shown().min(rows.len());
-    let width = rows[..shown]
-        .iter()
-        .map(|r| r.label.len())
-        .max()
-        .unwrap_or(0)
-        .max(11);
-    eprintln!();
-    eprintln!(
+    let _ = writeln!(out);
+    write_decls(out, &rows, shown);
+    if shown < rows.len() {
+        let _ = writeln!(
+            out,
+            "({} more; --timings=all lists every declaration)",
+            rows.len() - shown
+        );
+    }
+    let width = name_width(rows[..shown].iter().map(|r| r.label.as_str()), 11);
+    report_phases(out, &rows[..shown], width);
+    report_readbacks(out, &mut rows);
+    report_facts(out, &mut rows);
+}
+
+/// The declaration table's header and its first `shown` rows.
+fn write_decls(out: &mut String, rows: &[DeclRow], shown: usize) {
+    let width = name_width(rows[..shown].iter().map(|r| r.label.as_str()), 11);
+    let _ = writeln!(
+        out,
         "{:<width$}  {:>10}  {:>10}  {:>10}  {:>12}  {:>10}  {:>10}  {:>10}",
         "declaration", "elab ms", "kernel ms", "total ms", "steps", "nodes", "read-back", "frames"
     );
     for r in &rows[..shown] {
-        eprintln!(
+        let _ = writeln!(
+            out,
             "{:<width$}  {:>10}  {:>10}  {:>10}  {:>12}  {:>10}  {:>10}  {:>10}",
             r.label,
             ms(r.elab),
@@ -474,32 +525,25 @@ fn report_decls() {
             r.peaks.frames
         );
     }
-    if shown < rows.len() {
-        eprintln!(
-            "({} more; --timings=all lists every declaration)",
-            rows.len() - shown
-        );
-    }
-    report_phases(&rows[..shown], width);
-    report_readbacks(&mut rows);
-    report_facts(&mut rows);
 }
 
 /// With `STITCHWORT_STEP_PHASES=1`, prints the steps each of `rows` took in
 /// each elaborator phase, in the order of the table above: the phases sum to
 /// `steps`.
-fn report_phases(rows: &[DeclRow], width: usize) {
+fn report_phases(out: &mut String, rows: &[DeclRow], width: usize) {
     if !step_phases() {
         return;
     }
-    eprintln!();
-    eprintln!(
+    let _ = writeln!(out);
+    let _ = writeln!(
+        out,
         "{:<width$}  {:>12}  {:>12}  {:>12}  {:>12}  {:>12}  {:>12}",
         "steps by phase", "steps", "walk", "unify", "apply", "read-back", "other"
     );
     for r in rows {
         let [other, walk, unify, apply, readback] = r.phases.unwrap_or([r.steps, 0, 0, 0, 0]);
-        eprintln!(
+        let _ = writeln!(
+            out,
             "{:<width$}  {:>12}  {:>12}  {:>12}  {:>12}  {:>12}  {:>12}",
             r.label, r.steps, walk, unify, apply, readback, other
         );
@@ -508,7 +552,7 @@ fn report_phases(rows: &[DeclRow], width: usize) {
 
 /// Prints the declarations whose `byFacts` calls tried the most
 /// applications: the proofs nearest the attempt limit.
-fn report_facts(rows: &mut [DeclRow]) {
+fn report_facts(out: &mut String, rows: &mut [DeclRow]) {
     rows.sort_by(|a, b| {
         (b.facts.1, b.facts.0)
             .cmp(&(a.facts.1, a.facts.0))
@@ -519,54 +563,101 @@ fn report_facts(rows: &mut [DeclRow]) {
         return;
     }
     let shown = decls_shown().min(used);
-    let width = rows[..shown]
-        .iter()
-        .map(|r| r.label.len())
-        .max()
-        .unwrap_or(0)
-        .max(16);
-    eprintln!();
-    eprintln!(
+    let width = name_width(rows[..shown].iter().map(|r| r.label.as_str()), 16);
+    let _ = writeln!(out);
+    let _ = writeln!(
+        out,
         "{:<width$}  {:>12}  {:>12}",
         "byFacts attempts", "most in one", "in all"
     );
     for r in &rows[..shown] {
-        eprintln!("{:<width$}  {:>12}  {:>12}", r.label, r.facts.1, r.facts.0);
+        let _ = writeln!(
+            out,
+            "{:<width$}  {:>12}  {:>12}",
+            r.label, r.facts.1, r.facts.0
+        );
     }
-    eprintln!("the limit is {} attempts a call", crate::facts::ATTEMPTS);
+    let _ = writeln!(
+        out,
+        "the limit is {} attempts a call",
+        crate::facts::ATTEMPTS
+    );
 }
 
 /// Prints the declarations with the largest single read-back, largest first:
 /// what a lower `Limits::size` would break first (SW-2681).
-fn report_readbacks(rows: &mut [DeclRow]) {
+fn report_readbacks(out: &mut String, rows: &mut [DeclRow]) {
     rows.sort_by(|a, b| {
         (b.peaks.readback, b.peaks.frames)
             .cmp(&(a.peaks.readback, a.peaks.frames))
             .then_with(|| a.label.cmp(&b.label))
     });
     let shown = decls_shown().min(rows.len());
-    let width = rows[..shown]
-        .iter()
-        .map(|r| r.label.len())
-        .max()
-        .unwrap_or(0)
-        .max(11);
-    eprintln!();
-    eprintln!(
+    let width = name_width(rows[..shown].iter().map(|r| r.label.as_str()), 11);
+    let _ = writeln!(out);
+    let _ = writeln!(
+        out,
         "{:<width$}  {:>12}  {:>12}",
         "largest read-backs", "nodes", "max frames"
     );
     for r in &rows[..shown] {
-        eprintln!(
+        let _ = writeln!(
+            out,
             "{:<width$}  {:>12}  {:>12}",
             r.label, r.peaks.readback, r.peaks.frames
         );
     }
     let deepest = rows.iter().map(|r| r.peaks.frames).max().unwrap_or(0);
-    eprintln!(
+    let _ = writeln!(
+        out,
         "over {} declarations: largest read-back {} nodes, deepest {} frames",
         rows.len(),
         rows.first().map_or(0, |r| r.peaks.readback),
         deepest
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn decl_row(label: &str) -> DeclRow {
+        DeclRow {
+            label: label.to_owned(),
+            elab: Duration::ZERO,
+            kernel: Duration::ZERO,
+            steps: 0,
+            phases: None,
+            nodes: 0,
+            peaks: Peaks::default(),
+            facts: (0, 0),
+        }
+    }
+
+    /// A mutual group's name can be thousands of characters long; it is
+    /// printed in full, while every other row pads only to [`MAX_NAME`]
+    /// (SW-4610).
+    #[test]
+    fn a_very_long_name_does_not_widen_the_other_rows() {
+        let long_name = format!("Main.{}", "a".repeat(500));
+        let rows = [decl_row("Main.short"), decl_row(&long_name)];
+        let mut out = String::new();
+        write_decls(&mut out, &rows, rows.len());
+        let lines: Vec<&str> = out.lines().collect();
+        assert_eq!(lines.len(), 3, "{out}");
+        let (header, short, long) = (lines[0], lines[1], lines[2]);
+        // The long name is printed in full: nothing is lost to an ellipsis.
+        assert!(
+            long.starts_with(&format!("{long_name}  ")),
+            "long row: {long}"
+        );
+        // The short row is padded only to the cap, not to the long name's
+        // width, so it lines up with the header.
+        assert!(short.starts_with(&format!("{:<MAX_NAME$}  ", "Main.short")));
+        assert_eq!(short.chars().count(), header.chars().count(), "{out}");
+        // Only the long row's own numbers are pushed right.
+        assert!(long.chars().count() > header.chars().count(), "{out}");
+        let numbers = |line: &str| line.chars().skip(MAX_NAME + 2).collect::<String>();
+        assert!(long.ends_with(&numbers(short)), "long row: {long}");
+    }
 }
