@@ -31855,12 +31855,12 @@
     {
       "id": 4578,
       "title": "[Sonnet] Process (SW-4564, SW-4569): the all tier didn't run 12 to 22 Nov, so a new extraction example (SW-3936) went 4 days without differential coverage and SW-3930's bench cost went unrecorded. Propose (docs/workflow.md, for Matt) a lane-tier run of each new example through the extraction and differential checks, and a bench --no-time check of a few check-number-* cases for kernel or checker lanes; note only, no code",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nProgress (lane, Sonnet, 22 Nov): proposal written and committed on lane/SW-4578 (1c9104281): docs/proposals/lane-checks-for-new-examples.md. Recommends named differential runs in lanes (needs a STITCHWORT_EXTRACT_ONLY filter), bench --no-time checks left to Overmind. No code.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
