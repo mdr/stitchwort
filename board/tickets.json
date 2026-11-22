@@ -31255,14 +31255,14 @@
     {
       "id": 4533,
       "title": "[Sonnet] An env-gated step-attribution option for --timings (steps charged per elaborator phase: walk search, unification, application, read-back), so profiling lanes don't each build a counter (SW-4512 built one in its patch); and check the target namespace without the cache while keeping std cached",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
       "body": "",
       "created": "2026-11-21",
-      "updated": "2026-11-21",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -31511,14 +31511,14 @@
     {
       "id": 4552,
       "title": "[Sonnet] SW-4550 low findings: F1 docs/core.md says run bodies are type-checked but not compared, and omits that a carried entry's trusted replay recomputes field sorts (fix the two sentences, wrap that paragraph); F2 a carried entry's run body on the trusted path goes through set_run_body as the re-check does, not a shape check only; F3 has_unsolved and unsolved_in test m == ELIDED before indexing the unknown store (latent out-of-range on the erased placeholder), with a test; F4 the early stop records budget.note_readback",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-21",
-      "updated": "2026-11-21",
+      "updated": "2026-11-22",
       "commits": []
     },
     {
@@ -32223,12 +32223,12 @@
     {
       "id": 4606,
       "title": "[Opus] Next Std.Float.Theory peak after SW-4600 (409 MB): ofNatExact's rewrite by a lemma reads a 1.14M-node goal unfolded; a fast path for lemma rules measured worse because the as-written result isn't kept and the rule is elaborated twice; needs a cheap test before elaborating, or reuse of the first elaboration on fallback. Also from SW-4600: (a) SW-4469's hidden_copy_in assumes a variable can't hide inside a call, but a let-bound variable's value is substituted when the motive unfolds (inferred, untested: write the case); (b) the rewrite completeness check could skip the unfolded motive read when the motive no longer mentions any variable of the rule's left side (roundGrid 805k nodes), with care for proof-irrelevant positions",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Lane notes (SW-4606, Opus, 22 Nov, 09:44-10:26):\n- (a) No miss: a let slot computes to its value, never a variable (let.md 6.1); lambdas close over values; local defs are lifted with the variable as an argument. examples/accept/rewrite-variable-behind-let.sw (97aba5763) closes each case by computing.\n- (b) Nothing kept: ofNatExact finds nothing as written even with unfold_path (the left side is a projection whose subject is Float.ofNat n opened twice; the walk never retests the projection), so the usual search needs the 1.14M unfolded goal. Not the file's peak either: cut-file RSS 258 MB before it, 345 after, 405 after roundGrid.\n- (c) Kept (cc339b4dd): the completeness check skips the unfolded motive when it lost a variable the left side depends on (tested by conversion against a renaming). Float.Theory peak 410.4 -> 383.1 MB, steps 90.0M -> 88.5M, roundGrid 1.92M -> 0.75M; no other declaration moved; hashes unchanged.\n- Tests: test:example NAME=float,as-written,rewrite 7 passed; test:hashes ALL=1 12 passed; tools/fmt check --no-cache 150 namespaces, 0 errors.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
