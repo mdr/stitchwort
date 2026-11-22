@@ -31695,12 +31695,12 @@
     {
       "id": 4566,
       "title": "[Sonnet] All tier 22 Nov (D3712): warning pins exceeded: std Doc/Places.sw W-REWRITE-THEN-COMPUTING 1, Float/Theory.sw W-THEOREM-FORALL 1, List/SortLemmas.sw W-REWRITE-THEN-REWRITE 1, Parse/Reads.sw W-REWRITE-THEN-COMPUTING 1, Parse/Runs.sw W-PROOF-CHAIN 4; aoc-2021 Day16/Proofs/Answers.sw W-PROOF-CHAIN 1; aoc-2024 Day12/Proofs/Sides.sw W-PROOF-CHAIN 2. Fix the proofs (or the warning if wrong); never raise a pin; rerun only the three warning_pins tests; also search_bench::every_conclusion_finds_its_theorem misses Std.Float.Theory.doubleMul",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "\n\nProgress: lane/SW-4566 31283fec5. std: 15 warnings (sweep theorem-binders, 4 calc chains in Parse/Runs.sw, 2 in Text.sw, rewrite joins); aoc Day16 and Day12 calc. Prelude snapshot re-recorded. Pin tests pass. search_bench doubleMul NOT fixed: engine cause, see report (pattern from `2 * j` holes names Nat.add, candidate index does not).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
