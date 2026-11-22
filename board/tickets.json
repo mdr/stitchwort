@@ -31959,7 +31959,7 @@
     {
       "id": 4586,
       "title": "[Opus] Postponement across a match (SW-4573): 'let check := r => 3 ∈ r.items' before a match, with 'check b' in an arm, fails E-UNSOLVED (can't work out an implicit argument) while the '(r: Box) =>' version is accepted; and 'match check b with' with the lambda's type found later fails E-AUTO-NONE (unconfirmed against the annotated version). Find whether the postponement stage should resume inside match arms (invariant 3) and fix or explain; examples as tests",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
