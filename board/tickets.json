@@ -31428,12 +31428,12 @@
     {
       "id": 4546,
       "title": "[Sonnet] Differential sweep: give the recursive reference evaluator a depth guard (ResourceError::Depth exists, unused on that path) so an example too deep for it is skipped and counted under MAX_SKIPPED instead of aborting the whole test process; then fin-pattern-numbers.sw's manual skip marker can go and a new deep example can't hide behind the sample again (SW-4545)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Lane note: reference.rs gets a thread-local nesting depth (eval, quote, conv_in) with set_depth_limit (ResourceError::Depth); the sweep's within_budget sets 35,000 (release; io.sw's 5,000 prints reach 30,029) and counts Depth like Work. Marker removed from fin-pattern-numbers.sw: ONLY run passes, 4 distinct skips. Unit test the_reference_evaluator_stops_at_its_depth_limit. Debug limit (10,000) is a guess. Commit acccf441f on lane/SW-4546.\n",
       "created": "2026-11-21",
       "updated": "2026-11-22",
       "commits": []
@@ -31576,15 +31576,17 @@
     {
       "id": 4557,
       "title": "[Opus] Let a byComputing premise be left out at a call (a default or auto-parameter), so a lemma's 'rebuilt' fact closed by computing needs no (v1 => byComputing) tail at every use (SW-4553): design note first, with the call sites it would clean",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\n22 Nov 09:05 (Opus lane): note written, docs/proposals/premise-filled-by-computing.md (lane/SW-4557, c4141b419). Today auto rejects a ∀ premise (E-AUTO-NONE) and even a convertible equation C (blank t) = C (blank t) (E-AUTO-STUCK); a parameter default is checked once at the declaration (E-REFL). Five options; rec B: teach auto to look under ∀/→ and close convertible equations, lemmas write [auto rebuilt: …], no new syntax. Cleans 96 tails (~2,100 chars, 3-4 lines) at 9 lemmas, all in tools/fmt. Est. +1k-3k elaboration steps a call. D question for Matt at the end of the note.\n",
       "created": "2026-11-21",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "c4141b419"
+      ]
     },
     {
       "id": 4558,
