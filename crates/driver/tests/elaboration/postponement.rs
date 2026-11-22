@@ -449,6 +449,33 @@ theorem familyAnnotated ∀ (k: Nat) (v: Vec Nat k) (b: Box): b.items.length = b
     assert_eq!(h[1], h[2]);
 }
 
+/// [`a_decision_waits_for_a_field_used_in_a_match_arm`] for a `match` on
+/// an expression (SW-4590): the generalisation over `n == 0` doesn't wait
+/// for the lambda parameter's unknown type, which only the arm's `check b`
+/// fixes, so the `match` is the annotated one.
+#[test]
+fn a_generalised_match_leaves_a_let_lambdas_parameter_type_to_its_arms() {
+    let source = "\
+import Std (Bool, List, Nat)
+
+type Box = { items: List Nat }
+
+def later (b: Box) (n: Nat): Bool :=
+  let check := r => 3 ∈ r.items
+  match n == 0 with
+    | True => check b
+    | False => False
+
+def annotated (b: Box) (n: Nat): Bool :=
+  let check := (r: Box) => 3 ∈ r.items
+  match n == 0 with
+    | True => check b
+    | False => False
+";
+    let h = hashes(source, &["later", "annotated"]);
+    assert_eq!(h[0], h[1]);
+}
+
 /// Stage 6 and D2016's end state: a placeholder is frozen until its check
 /// fills it, and a comparison that meets it waits for it. A lambda whose
 /// parameter's type comes from a later argument, compared with a statement
