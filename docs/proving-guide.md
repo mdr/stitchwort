@@ -1578,6 +1578,67 @@ program can be an enormous term.
   split. A namespace the cache answers for has no rows, so add
   `--no-cache`.
 
+### Keeping proofs cheap to check
+
+A `match` on anything but a variable, and a destructuring `let (a, b) :=
+h` (which is a `match`), generalise over every hypothesis in scope, so each
+one's type is read back again. That is harmless while hypotheses are small.
+Once a hypothesis names a concrete declaration whose printed leaves compute
+(`Definition [] header …`, 1M nodes), every nested `match`, `rewrite` and
+refinement re-reads them: `standsEachFile` took 36 s and 475M steps, and
+five more `tools/fmt` proofs 312M steps together (SW-4611, SW-4619). After
+the reshapes below: 16 ms and 0.17M steps, and 1.9M for the five, lemmas
+included.
+
+- **Prove a side fact as a lemma over the small value it is about.** The
+  lemma is checked in a small context and the big proof applies it.
+- **Take a part of a `∧` or tuple by projection**, `h.left`, `h.1`, a
+  field, not `let (a, b) := h`. (A pattern `let` is the better reading for
+  small contexts, above; the cost is in big ones.)
+- **A `rewrite` that names a big computed term** (`decl.leaves`) goes in a
+  lemma that takes that term as a variable.
+- **An `∃` has no projection into a `Prop`.** Its elimination is a `match`,
+  so state the rest of the proof as a lemma that takes the witness and its
+  property as arguments, and apply the lemma to the `∃` (continuation
+  style). `atomHung` and `unaryHung` still pay for this.
+
+```
+-- slow: the nested match reads back `stood`, `within`, … for each arm
+theorem aboveTop (stood: Stood decl) (within: Within decl):
+    decl.header.keyword.above = Blank :=
+  let (known, _) := stood
+  match decl.header.keyword.above with
+    | … => …
+
+-- cheap: only `Comments` is in scope
+theorem toppedAboveRead (comments: Comments): … := …
+theorem aboveTop (stood: Stood decl) (within: Within decl):
+    decl.header.keyword.above = Blank :=
+  toppedAboveRead decl.header.keyword stood.left
+```
+
+Whether a particular step is costly is found by measuring, not by
+guessing:
+
+1. `STITCHWORT_STEP_PHASES=1 STITCHWORT_BIG_READBACK=200000 stitchwort check
+   NS --no-project-cache --only NS.NAME --timings=all` (release build).
+   `STITCHWORT_BIG_READBACK=<nodes>` prints each read-back over that size
+   with the source line and text of the expression being elaborated
+   (`at:`, then `inside:`): look for the `match`, `let` or `rewrite`.
+   `STEP_PHASES` splits a declaration's steps into read-back and the rest.
+2. `--only` still checks the declaration's whole dependency cone, which can
+   take minutes cold. `--timings` without `=all` lists only the 20 slowest,
+   so a proof that became cheap vanishes from it: use `=all` to compare.
+3. Compare steps, which are exact, not times, which move with load.
+
+Splitting a slow lemma's leaves into per-case step lemmas did not help
+std's `Parse` reify lemmas (SW-4615): each step lemma had to unfold the
+same large handler to rewrite in it, costing 10.5M steps in all against 1.6M
+saved, about 5% on `runFromLabelWholeFromOkTree`. Lifting pays only when
+the lemma's context is smaller than the original's, as above; where the cost
+is the unfolded hypothesis itself, keep that term abstract and rewrite with
+small equations about it.
+
 ## 7. The report
 
 A proof lane's report says, in this order:
