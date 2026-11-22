@@ -1,5 +1,5 @@
 {
-  "next": 4604,
+  "next": 4607,
   "tickets": [
     {
       "id": 47,
@@ -31576,7 +31576,7 @@
     {
       "id": 4557,
       "title": "[Opus] Let a byComputing premise be left out at a call (a default or auto-parameter), so a lemma's 'rebuilt' fact closed by computing needs no (v1 => byComputing) tail at every use (SW-4553): design note first, with the call sites it would clean",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -32189,6 +32189,45 @@
       "where": "",
       "labels": [],
       "epic": "proof-search",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4604,
+      "title": "[Sonnet] auto rejects C (blank t) = C (blank t) with E-AUTO-STUCK ('can't decide ... here') though both sides are the same term (SW-4557); an equation whose sides are syntactically or definitionally the same as written should close by reflexivity before the decision procedure; a test that fails before; check examples/reject/undecidable-auto.sw's expected error",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4605,
+      "title": "[DeepSeek] Debugging aid: STITCHWORT_BIG_READBACK=<nodes> prints a backtrace (and the declaration) for every elaborator read-back over that many nodes (in Budget::note_readback), so performance lanes find large read-backs without temporary code (asked for by SW-4600); document beside STITCHWORT_DUMP_KERNEL in docs/workflow.md",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4606,
+      "title": "[Opus] Next Std.Float.Theory peak after SW-4600 (409 MB): ofNatExact's rewrite by a lemma reads a 1.14M-node goal unfolded; a fast path for lemma rules measured worse because the as-written result isn't kept and the rule is elaborated twice; needs a cheap test before elaborating, or reuse of the first elaboration on fallback. Also from SW-4600: (a) SW-4469's hidden_copy_in assumes a variable can't hide inside a call, but a let-bound variable's value is substituted when the motive unfolds (inferred, untested: write the case); (b) the rewrite completeness check could skip the unfolded motive read when the motive no longer mentions any variable of the rule's left side (roundGrid 805k nodes), with care for proof-irrelevant positions",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
