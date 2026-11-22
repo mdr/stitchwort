@@ -32117,12 +32117,12 @@
     {
       "id": 4598,
       "title": "[Sonnet] Step 0 of docs/proposals/queued-placeholders-take-lets.md (SW-4596): test its reading that a typed let lambda (let f: A -> B := x => ...) through a single queued match is pasted into the term rather than folded back (zonk_let folds the annotated form only when the let's value already was one), unlike SW-4588's untyped case; an example file and the kernel term (or hash comparison with the variable form) either way; no fix",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Lane note 22 Nov: reading confirmed for a typed let lambda through one queued match (pasted as Ann(Lam, Pi); untyped form folds to the variable). Deciding line: zonk_let, unify.rs:4540 (matches!(v_now.strip_loc(), Term::Ann(..)) is false for the typed let's bare lambda; normals empty, so go(b, level+1) at 4545 folds nothing). BUT a temporary two-line fix there makes (a) fold and leaves Float's beyond shape unchanged: the Inr arm's pasted Ann sits in a lifted helper that has no beyond let in scope at all. Examples let-typed-lambda-prop-match.sw, let-typed-lambda-nested-match.sw on lane/SW-4598 (82ca70de7).\n",
+      "body": "Model result: Sonnet, worked (confirmed and refined the note: the two-line fallback does not fix beyond), 11 min (est. 20)\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
