@@ -95,6 +95,56 @@ in [../proposals/README.md](../proposals/README.md).
 - **Not measured:** `bench:aoc` and the instruction benchmarks (elaboration
   only).
 - **Ticket:** SW-4595 (redoes SW-4582 and SW-4591).
+### SW-4594: the two growths SW-4587 left unexplained (float-playlist's peak, the too-large rewrite examples): both attributed, nothing changed in code
+
+- **Status:** measured; no code changed. Both are costs of work done on
+  purpose; one has a cheap local fix, filed as a finding.
+- **Method.** `stitchwort check --no-cache FILE` read through a `getrusage`
+  probe (user time, peak RSS), and `--timings` for steps and read-back sizes;
+  commits bisected by building each in a scratch worktree. For std,
+  `check --std --no-cache Float/Theory.sw` with the file cut at declaration
+  boundaries (`--std-dir`) found which declaration moves the peak.
+- **float-playlist's peak (75 to 428 MB in the bench).** The file's own
+  declarations are cheap; the peak is Std.Float.Theory being checked when
+  the file uses a lemma from it (a cached library skips that). Bisect on
+  peak RSS (`check --no-cache`): 198 MB at `55afa7996`, 438 MB at
+  `7872dea99` (SW-638, 17 Nov, "Float.mul, ofInt and ofNat are definitions
+  through roundScaled", float laws stage 3), 565 MB now. Cutting the std
+  file there put the jump in one declaration, `Float.ofIntMonotone` (+240
+  MB, 9.3 M steps, a 448,201-node read-back); the later growth is the
+  same kind: `Float.Theory.roundGrid` (1.22 M nodes read back, 5.1 M steps),
+  `Float.ofNatExact` (1.14 M), `addRelError`, `mulRelError`, `divRelError`
+  (0.88 M each, 5.6 M steps each), `zeroMulNonneg` (0.45 M). Deliberate as
+  scope (the Float laws epic puts `Float.ofInt`, `*`, `/`, `round` through
+  `Float.Model.roundRatio`, whose unfolding on a variable is a large
+  normal form); the size of the unfolded read-back is the cost, and the
+  peak is the largest of about a dozen such lemmas, so fixing one lowers
+  the steps but not the peak.
+  - Measured on `ofIntMonotone` (scratch std, not kept): its
+    `match lt: Int.less i j with` abstracts the goal over a scrutinee
+    expression and reads the goal back unfolded. Moving the two branches to
+    helper lemmas and matching on a Bool variable
+    (`ofIntByLess ... (b: Bool) (lt: Int.less i j = b)`, called with
+    `byComputing`) takes `ofIntMonotone` from 9.28 M steps to about 20 k in
+    all, and the peak of the whole file stays 563 MB. The same lemma stated
+    without the `match` (a hypothesis `lt` in the theorem) is cheap, so it
+    is the expression-scrutinee guard path, not the statement.
+- **rewrite-solution-too-large / rewrite-value-too-large.** `Main.big`:
+  2.07 M steps at `fe48f6b51` (20 Nov), 12.15 M at `61f65796e` (SW-4237,
+  20 Nov 04:08, "elaborator read-backs of a hypothesis or goal too large
+  to write out fall back to the calls as written": the unifier's solution
+  of an unknown as a call that steps at once, "rename, second try"), then
+  16.20 M from some commit between `99b5d8b6f` (12.17 M, 20 Nov 20:36)
+  and `e87365f3f~1` (16.20 M, 21 Nov 19:50), where 261 commits are left
+  to bisect; `50848b226` and `e87365f3f` are not it. SW-4091 (19 Nov) is
+  not the cause: 0.94 s before it, 0.91 s after. SW-4237 is deliberate:
+  an unfolded read-back that overflows 2 M nodes now tries the calls as
+  written before giving up, and for this example (whose point is that it
+  fails) the second try also overflows, costing 10 M steps (about 0.8 s)
+  for an unchanged message. Left alone: it is the price of the fallback,
+  paid only by a program that fails E-RESOURCE.
+- **Not found:** the +4.05 M steps between `99b5d8b6f` and `e87365f3f~1`.
+- **Ticket:** SW-4594; follows SW-4587.
 
 ### SW-4592: an indexed family's split no longer compares every variable in the context unless a message shows the arm's goal; `fin-table-deep`'s `Main.code` 55.4M to 5.6M steps
 
