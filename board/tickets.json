@@ -31550,12 +31550,12 @@
     {
       "id": 4555,
       "title": "[DeepSeek] Run tools/fmt/dev/check-glossary.sh in the quick tier (it caught 4 drifted line references within minutes of merging); rename the clashing Quiet and Kept definitions (each has unrelated definitions in two or more files; SW-4535) and rule1Drop/rule2Drop/rule3Drop in Syntax/SettleBareProofs.sw to the comment-placement step names",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "Model result: DeepSeek, worked, 38 min (est. 30)\n",
       "created": "2026-11-21",
       "updated": "2026-11-22",
       "commits": []
