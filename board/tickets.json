@@ -32481,12 +32481,12 @@
     {
       "id": 4623,
       "title": "[Opus paper] Design note: cache the elaborated core (every session elaborates it, ~0.1 s and 956K steps; the largest fixed cost of a small example once std is cached) (SW-4593 recommendation 3)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nProgress (22 Nov, Opus paper lane): note docs/proposals/core-cache.md. Not cached for practical reasons, not trust: the cache is attached after the core loads, the encoder refuses units binding core built-ins/primitives, judged small in Oct (SW-185). Rec: (1) D, test sweeps keep one session per thread rewound after the core (~0.1 s/example, all tiers, kernel unchanged; needs a per-program counter reset + two-order differential test); (2) A2, the core as a cache entry re-checked by the kernel on replay (~60 ms/session est.); (3) A1 trusted core replay (~20 ms more) is Matt's, rec not now. No hash changes.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
