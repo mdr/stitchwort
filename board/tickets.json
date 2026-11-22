@@ -33008,12 +33008,12 @@
     {
       "id": 4656,
       "title": "[Fable paper] Sealed theorems: design note on making theorems opaque by default (a proof's body never affects another proof; hashes, rechecking, parallel checking), the opt-out, and what replaces today's unfolding (SW-4645 counts); Matt's direction, 22 Nov",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\nLane notes (22 Nov, Fable): note written, docs/proposals/sealed-theorems.md, commit ce9e28c8c on lane/SW-4656; probe programs in docs/proposals/sealed-theorems/ (run on main's release binary: proofs that rewrite with or take apart sealed lemmas still check; a data cast along a proof, a match on a proof into data and a direct comparison of two proofs stop). Recommends sealed by default (option B), staged, starting with a measuring switch (stage 0). Two questions for Matt: the end state; later, a K-like rule for J (reverses proof-irrelevance.md 5.2's 'no K-like rule'). Least certain: whether Lean's kernel now takes And.rec's branch on a stuck proof. No builds or tests.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
