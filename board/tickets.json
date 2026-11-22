@@ -32039,12 +32039,12 @@
     {
       "id": 4592,
       "title": "[Sonnet] Accident from SW-3325 (6d960d350, 'display only'): arm_display::enter_family_split calls same() on every context variable at each indexed-family split, quoting both values folded; examples/accept/fin-table-deep.sw went 23.1M to 77.8M steps (Main.code 55.4M, 5.6M with solved emptied). Compute solved lazily, only when an error or hole prints an arm's goal; keep goal snapshots unchanged (run the goal and reject example kinds by name); performance-log entry",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Lane note 22 Nov: solved is now computed lazily (Solved in arm_display.rs, commit 194b62d2f on lane/SW-4592); Main.code 55.4M to 5.6M steps. Tests passed: arm-as-written/fin-table/family/indexed example kinds, goal_index (server), hash_stability ALL. Model result: Sonnet, worked, 15 min (est. 35).\n",
+      "body": "Model result: Sonnet, worked (lazy solved list; 10x fewer steps), 9 min (est. 35)\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
