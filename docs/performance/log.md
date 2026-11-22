@@ -46,6 +46,34 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 22 Nov 2026
 
+### SW-4638: why `atomHung` doubled (25.5M to 53.9M) between SW-4619 and SW-4635: SW-4629's projection `let`s in proofs; a measurement, no code changed
+
+- **Problem.** `atomHung` took 25.5M steps after SW-4619's merge (`027f6e569`) and 53.9M on `main` before SW-4635.
+- **Bisected (measured, steps, release build, `check Syntax.ReadBackHungAtoms --no-project-cache --only ... --timings=all`).**
+  `tools/fmt` is unchanged between `027f6e569` and the SW-4629 merge `9e6630849`; `atomHung` goes 25,490,276 to
+  53,852,235 across exactly that elaborator change. No other commit in the range was measured.
+- **Cause.** SW-4629 binds a pattern `let` over a proof (`patlet.rs`, `check_let`) as opaque projections. In
+  `atomHung`'s 71 in-proof pattern `let`s none fell back to the `match` (a debug count), so the cost is the
+  projection path itself: the hidden `%p` and component variables stay in the context, and every later `match` and
+  `rewrite` in the proof generalises over and reads back through them. SW-4635 and SW-4637 removed most of that read-back.
+- **Experiment (not kept).** `applies` returning false for every in-proof `let` (all `match`es), on `main` at
+  `70811d384`:
+
+  | | projections (main) | all `match` |
+  |---|---|---|
+  | `atomHung` | 7,729,579 | 3,804,110 |
+  | `unaryHung` | 3,554,912 | 3,608,362 |
+  | `signArgHung` | 1,528,392 | 1,528,129 |
+  | `let-proof-projections.sw` `bigSplit` | 3,351 | 324,044 |
+
+  (on `main` before SW-4635, `atomHung` with all `match`es was 15.9M against 19.8M with projections.)
+- **Reading.** The projection `let` still costs `atomHung` about half its steps (3.9M of 7.7M) and nothing in
+  `unaryHung` or `signArgHung`; it is what makes `bigSplit` 97 times cheaper. So the rule is right for goals about a
+  large term and wrong for `atomHung`, whose goal is large in a way the `match` handles well.
+- **Proposal (not built).** Take projections in a proof only when the goal is large, say a quoted size above a
+  threshold, as `bigSplit` is, else the `match`; or find why the hidden variables cost the later `match`es
+  (`STITCHWORT_STEP_PHASES=1` on one `let` of `atomHung`).
+
 ### SW-4637: a generalised `match` reads its goal with calls kept folded where the scrutinee can't be hidden; `unaryHung` 21.2M to 3.6M steps
 
 - **Problem.** After SW-4635 the largest read-back left was the goal itself, read back unfolded
