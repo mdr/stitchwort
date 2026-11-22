@@ -13,6 +13,7 @@ import Std.Doc.Proofs (
   Finishes,
   Joins,
   Leads,
+  Marked,
   Plain,
   Uniform,
   leadsConcat,
@@ -398,6 +399,49 @@ theorem plainDefLeads ∀ (keyword: Comments) (name: Word) (colon: Comments) (re
     [Doc.text " ", assignLeaf, IfBroken 0 body.fst body.snd]
     headerLeads
 
+--| A document that leads with `def`, in the lexer proofs' reading: its pieces start with the code of that word. Over
+--| any such document (given as `doc`, equal to `plain`, the one `Leads` is known of), so that `plainDefStarts`
+--| doesn't check it with a declaration's document unfolded.
+theorem docStarts ∀ (doc plain: Doc)
+    (same: doc = plain)
+    (leads: Leads "def" plain):
+    ∃ (kind: Tok) => ∃ (text: Text) => ∃ (rest: List Piece) => pieceFold lexKind (printedPieces doc width)
+      = [Code kind text, ..rest] :=
+  match printedLeads "def" plain width leads byComputing byComputing with
+    | Witness more starts =>
+      let printed := Eq.trans (Eq.cong ((doc: Doc) => printedPieces doc width) same) starts
+      Witness
+        (lexKind "def")
+        (Witness "def"
+          (Witness (pieceFold lexKind more) (Eq.cong ((texts: List Text) => pieceFold lexKind texts) printed)))
+
+--| `printedStart1` for a declaration given by its parts, as a lemma so that its proof checks without the other facts
+--| about the declaration in scope.
+theorem plainDefStarts ∀ (header: Header) (colonEq: Comments) (value: Expr)
+    (within: (Definition [] header (Assigned colonEq value)).within1 = True):
+    ∃ (kind: Tok) => ∃ (text: Text) => ∃ (rest: List Piece) => (Definition [] header (Assigned colonEq value)).pieces
+      = [Code kind text, ..rest] :=
+  match header, within with
+    | {
+        exportKeyword = None,
+        opaqueKeyword = None,
+        kind = DefPlain,
+        keyword,
+        name,
+        forallKeyword = None,
+        params = [],
+        colon,
+        result,
+        decreasingClause = None,
+        unfoldingClause = None
+      }, _ =>
+      docStarts
+        (defDoc header colonEq value)
+        (plainDef keyword name colon result colonEq value)
+        (plainDefIs keyword name colon result colonEq value)
+        (plainDefLeads keyword name colon result colonEq value)
+    | _, never => cases
+
 --| `printedStart1`, the first half of `printedSeam1`: a slice 1 declaration's printed text starts with a token, its
 --| `def`, with no space, line break or comment before it: the document leads with the `def` chunk
 --| (`plainDefLeads`), which the printer writes first at every width (`printedLeads`).
@@ -407,38 +451,7 @@ theorem printedStart1 ∀ (decl: Decl)
     (settled: decl.settled = True)
     (lexical: decl.lexical = True):
     ∃ (kind: Tok) => ∃ (text: Text) => ∃ (rest: List Piece) => decl.pieces = [Code kind text, ..rest] :=
-  match decl with
-    | Definition [] header (Assigned colonEq value) =>
-      match header, within with
-        | {
-            exportKeyword = None,
-            opaqueKeyword = None,
-            kind = DefPlain,
-            keyword,
-            name,
-            forallKeyword = None,
-            params = [],
-            colon,
-            result,
-            decreasingClause = None,
-            unfoldingClause = None
-          }, _ =>
-          match printedLeads "def"
-            (plainDef keyword name colon result colonEq value)
-            width
-            (plainDefLeads keyword name colon result colonEq value)
-            byComputing
-            byComputing with
-            | (more, starts) =>
-              let printed :=
-                Eq.trans
-                  (Eq.cong ((doc: Doc) => printedPieces doc width) (plainDefIs keyword name colon result colonEq value))
-                  starts
-              Witness
-                (lexKind "def")
-                (Witness "def"
-                  (Witness (pieceFold lexKind more) (Eq.cong ((texts: List Text) => pieceFold lexKind texts) printed)))
-        | _, never => cases
+  match decl with | Definition [] header (Assigned colonEq value) => plainDefStarts header colonEq value within
 
 -- The end of a declaration's pieces.
 
@@ -521,6 +534,37 @@ theorem tailOfComments ∀ (kinds: Text → Tok) (front: List Piece) (code: Piec
         match later with
           | (_, (_, (follows, _))) => (List.consNotNil ' ' [] follows).impossible
 
+--| The pieces of a document that finishes with a token, in the lexer proofs' reading: before the last token, the
+--| token, and a tail that is at most one trailing comment. Over any such document, so that the proof of
+--| `printedFinish1` for a declaration doesn't check it with the declaration's document unfolded.
+theorem docFinishes ∀ (doc: Doc)
+    (finishes: Finishes Final doc)
+    (marked: Marked closesText commentsText doc)
+    (pairs: PairsFollow (pieceFold lexKind (printedPieces doc width))):
+    ∃ (front: List Piece) => ∃ (kind: Tok) => ∃ (text: Text) => ∃ (tail: List Piece) => pieceFold lexKind
+      (printedPieces doc width)
+      = front ++ [Code kind text, ..tail]
+      ∧ TailOk tail :=
+  match printedFinishes Final closesText commentsText doc width finishes finalSolid marked with
+    | Witness front (Witness word (Witness comments (Both final (Both quiet printed)))) =>
+      let pieces: pieceFold lexKind (printedPieces doc width)
+        = pieceFold lexKind front ++ [Code (lexKind word) word, ..pieceFold lexKind (spacedComments comments)] :=
+        rewrite printed then pieceFoldCode lexKind front word (spacedComments comments) (codePiece lexKind word final)
+      Witness
+        (pieceFold lexKind front)
+        (Witness
+          (lexKind word)
+          (Witness word
+            (Witness
+              (pieceFold lexKind (spacedComments comments))
+              (Both pieces
+                (tailOfComments lexKind
+                  (pieceFold lexKind front)
+                  (Code (lexKind word) word)
+                  comments
+                  quiet
+                  (rewrite pieces at pairs then pairs))))))
+
 --| `printedFinish1`, the second half of `printedSeam1`: a slice 1 declaration's printed text has a last token, and
 --| after it only a space and a trailing comment on its line.
 --|
@@ -536,13 +580,9 @@ theorem printedFinish1 ∀ (decl: Decl)
     ∃ (front: List Piece) => ∃ (kind: Tok) => ∃ (text: Text) => ∃ (tail: List Piece) => decl.pieces
       = front ++ [Code kind text, ..tail]
       ∧ TailOk tail :=
-  let operators := declOperators decl within
-  let sound := declSoundOfSettled decl within settled (declReal decl within lexical operators)
-  let joins := declJoins decl within shaped sound lexical operators
-  let pairs := (declPiecesOk within shaped settled lexical).right.right.left
   match decl with
     | Definition [] header (Assigned colonEq value) =>
-      match header, within, joins with
+      match header, within with
         | {
             exportKeyword = None,
             opaqueKeyword = None,
@@ -555,33 +595,25 @@ theorem printedFinish1 ∀ (decl: Decl)
             result,
             decreasingClause = None,
             unfoldingClause = None
-          }, _, (_, _, _, _, _, valueJoins) =>
+          }, _ =>
+          let decl := Definition [] header (Assigned colonEq value)
+          let operators := declOperators decl within
+          let sound := declSoundOfSettled decl within settled (declReal decl within lexical operators)
+          let joins := declJoins decl within shaped sound lexical operators
           let doc := defDoc header colonEq value
-          let (_, marked, _) := doc1Spells (Definition [] header (Assigned colonEq value)) doc within sound byComputing
-          let finishes: Finishes Final doc :=
-            defFinishes lexKind keyword name colon result colonEq value (Bool.andRight within) valueJoins
-          match printedFinishes Final closesText commentsText doc width finishes finalSolid marked with
-            | Witness front (Witness word (Witness comments (Both final (Both quiet printed)))) =>
-              let pieces: pieceFold lexKind (printedPieces doc width)
-                = pieceFold lexKind front
-                  ++ [Code (lexKind word) word, ..pieceFold lexKind (spacedComments comments)] :=
-                rewrite printed then
-                  pieceFoldCode lexKind front word (spacedComments comments) (codePiece lexKind word final)
-              Witness
-                (pieceFold lexKind front)
-                (Witness
-                  (lexKind word)
-                  (Witness word
-                    (Witness
-                      (pieceFold lexKind (spacedComments comments))
-                      (Both pieces
-                        (tailOfComments lexKind
-                          (pieceFold lexKind front)
-                          (Code (lexKind word) word)
-                          comments
-                          quiet
-                          (rewrite pieces at pairs then pairs))))))
-        | _, never, _ => cases
+          let spelled := doc1Spells decl doc within sound byComputing
+          docFinishes doc
+            (defFinishes lexKind keyword name colon result colonEq value
+              (Bool.andRight within)
+              joins.right.right.right.right.right)
+            spelled.right.left
+            (declPiecesOk
+              [decl := Definition [] header (Assigned colonEq value)]
+              within
+              shaped
+              settled
+              lexical).right.right.left
+        | _, never => cases
 
 --| `printedSeam1`: a slice 1 declaration's printed text starts with its `def` and ends with its last token or that
 --| token's trailing comment, with no line break after.
