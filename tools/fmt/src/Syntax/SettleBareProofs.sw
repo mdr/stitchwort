@@ -1349,7 +1349,7 @@ theorem dropFAll ∀ (p: Leaf → Bool) (behind rest: List Leaf)
             | False =>
               Bool.andIntro (Bool.andLeft all) (dropFAll p [leaf, ..behind] [closer, ..after2] (Bool.andRight all))
 
-theorem rule1Drop ∀ (leaves dropped: List Leaf)
+theorem backWalkDrop ∀ (leaves dropped: List Leaf)
     (rel: DropRel dropped leaves)
     (within: leaves.all (leaf => leaf.kind.within1) = True):
     DropRel (homeFrom False [] None dropped) (homeFrom False [] None leaves) :=
@@ -1361,7 +1361,7 @@ theorem rule1Drop ∀ (leaves dropped: List Leaf)
   rewrite homeFromHome1 [] leaves byComputing within, homeFromHome1 [] dropped byComputing withinDropped then
     dropRelOfRev (home1 [] leaves) (home1 [] dropped) result'.flipped barished
 
-theorem rule2Drop ∀ (leaves dropped: List Leaf) (end: Trivia)
+theorem commaCarryDrop ∀ (leaves dropped: List Leaf) (end: Trivia)
     (rel: DropRel dropped leaves):
     DropRel (commasFrom [] None dropped end).leaves (commasFrom [] None leaves end).leaves
       ∧ (commasFrom [] None dropped end).end = (commasFrom [] None leaves end).end :=
@@ -1377,7 +1377,7 @@ theorem rule2Drop ∀ (leaves dropped: List Leaf) (end: Trivia)
       endEq
     )
 
-theorem rule3Drop ∀ (leaves dropped: List Leaf)
+theorem arrowLiftDrop ∀ (leaves dropped: List Leaf)
     (rel: DropRel dropped leaves)
     (plain: arrowFrom (tokens leaves) = True):
     DropRel (arrows dropped) (arrows leaves) :=
@@ -1436,13 +1436,13 @@ theorem passesDrop ∀ (leaves dropped: List Leaf) (end: Trivia)
       = (letsFrom [] (arrows (commasFrom [] None (homeFrom False [] None dropped) end).leaves)).map trim
       ∧ (commasFrom [] None (homeFrom False [] None dropped) end).end
         = (commasFrom [] None (homeFrom False [] None leaves) end).end :=
-  let r1 := rule1Drop leaves dropped rel (alphabet1Leaves leaves within)
-  let (r2, endEq) := rule2Drop (homeFrom False [] None leaves) (homeFrom False [] None dropped) end r1
+  let r1 := backWalkDrop leaves dropped rel (alphabet1Leaves leaves within)
+  let (r2, endEq) := commaCarryDrop (homeFrom False [] None leaves) (homeFrom False [] None dropped) end r1
   let cB := (commasFrom [] None (homeFrom False [] None leaves) end).leaves
   let cA := (commasFrom [] None (homeFrom False [] None dropped) end).leaves
   let tokCommas: tokens cB = tokens leaves :=
     Eq.trans (commasFromTokens [] None (homeFrom False [] None leaves) end) (homeFromTokens False [] None leaves)
-  let r3 := rule3Drop cB cA r2 (rewrite tokCommas then plain)
+  let r3 := arrowLiftDrop cB cA r2 (rewrite tokCommas then plain)
   let (arrowsEq, arrowsBare) := r3
   let tokArrows: tokens (arrows cB) = tokens leaves := Eq.trans (arrowsTokens cB) tokCommas
   let withinArrows: alphabet1 (arrows cB) = True := rewrite tokArrows then within
@@ -1552,7 +1552,7 @@ def Lexed.settledMarked (lexed: Lexed): Lexed := { lexed | leaves = withMarkedLa
 --| the comment lands on the same leaf; the comma carry carries nothing from a bare
 --| comma; the arrow lift skips it, since no `->` comes before it (`arrowFrom`). So each pass on
 --| the leaves with commas, then dropped, is the pass on the leaves without
---| them (`rule1Drop`, `rule2Drop`, `rule3Drop`); the let lift and trim act leaf by leaf.
+--| them (`backWalkDrop`, `commaCarryDrop`, `arrowLiftDrop`); the let lift and trim act leaf by leaf.
 theorem markedSettles ∀ (lexed: Lexed)
     (within: alphabet1 lexed.leaves = True)
     (plain: sourcePlain1 (tokens lexed.leaves) = True):

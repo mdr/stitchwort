@@ -33,7 +33,7 @@ type HungParts (modes: Modes) (state after: HangState) (leftRead: List Item) (op
 
 --| What an infix's parts tell, from its items on any lines the line rule allows.
 theorem hungParts ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (kind: InfixKind) (left right: Expr) (leftRead: List Item) (op: Item) (rightRead tail: List Item) (state: HangState)
     (leftSpelt: Spelt left leftRead)
     (rightSpelt: Spelt right rightRead)

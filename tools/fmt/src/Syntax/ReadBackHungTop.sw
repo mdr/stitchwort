@@ -32,7 +32,7 @@ theorem fullHungUpTo ∀ (limit depth: Nat) (below: depth < limit): FullHungAt d
 --| (`state.start`), or after `->` (`state.glue`), whose leaves and what follows keep the line rule. Inline where its
 --| first item starts no block; else a one-line block at that item's column.
 theorem fullHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (expr: Expr) (read rest: List Item) (depth: Nat) (state: HangState)
     (deep: expr.nest <= depth)
     (spelt: Spelt expr read)
@@ -163,9 +163,9 @@ theorem readsBackHung ∀ (seen: Seen) (group: List Leaf) (keyword name colon co
       let decl := declaration seen
       decl)
       = Ok (Definition [] (plainHeader keyword name colon result) (Assigned colonEq.leaf.word.comments value)) :=
-  let startQuiet: Quiet Modes.start := { noGuard = byComputing, noCalc = byComputing, noRule = byComputing }
+  let startQuiet: QuietModes Modes.start := { noGuard = byComputing, noCalc = byComputing, noRule = byComputing }
   let body := { Modes.start | recover = True }
-  let bodyQuiet: Quiet body := { noGuard = byComputing, noCalc = byComputing, noRule = byComputing }
+  let bodyQuiet: QuietModes body := { noGuard = byComputing, noCalc = byComputing, noRule = byComputing }
   let after := [colonEq, ..valueRead]
   let lineAfter: lineAll after = True := rewrite isColonEq, valueLine
   let hungItems: hangs (leavesOf [keyword, name, colon, ..typeRead ++ after]) = True :=

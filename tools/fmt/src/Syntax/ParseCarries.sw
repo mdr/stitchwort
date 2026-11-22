@@ -1,6 +1,6 @@
 --| What `Syntax.ParseKept`'s walk of the parser and the file layers build on: the words of a list of items (commas left
 --| out), the spec `Carried` that the consumers of `parseCarries1` state their facts in (`carriedOfKept` gives it from
---| `Kept`), and the combinators the walk's lemmas are joined with.
+--| `KeptTree`), and the combinators the walk's lemmas are joined with.
 
 namespace Syntax.ParseCarries
 import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Parse, Result, Text)

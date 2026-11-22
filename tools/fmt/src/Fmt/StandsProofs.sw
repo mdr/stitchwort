@@ -56,7 +56,7 @@ import Fmt.TreeJoinProofs (
   declReal,
   OperatorSpells,
   PrefixSpells,
-  Quiet,
+  QuietKind,
   infixListed,
   nameKinded,
   infixWithin,
@@ -963,7 +963,7 @@ def KindOk (text: Text): Prop :=
     ∧ text.startsWith "--" = False
     ∧ (text == ",") = False
 
-theorem quietCloser ∀ (kind: Tok) (quiet: Quiet kind): kind.isCloser = False :=
+theorem quietCloser ∀ (kind: Tok) (quiet: QuietKind kind): kind.isCloser = False :=
   let (_, paren, square, brace) := quiet
   match closer: kind.isCloser with
     | False => byComputing
@@ -974,7 +974,7 @@ theorem quietCloser ∀ (kind: Tok) (quiet: Quiet kind): kind.isCloser = False :
         | RBrace, _ => (brace byComputing).impossible
         | _, never => cases
 
-theorem quietKindOk ∀ (kind: Tok) (text: Text) (spells: Spells kind text) (quiet: Quiet kind): KindOk text :=
+theorem quietKindOk ∀ (kind: Tok) (text: Text) (spells: Spells kind text) (quiet: QuietKind kind): KindOk text :=
   let (notComma, notCloser) := spellsQuiet kind text spells quiet
   let (comma, _, _, _) := quiet
   let same: lexKind text = kind := lexKindOfSpells kind text spells

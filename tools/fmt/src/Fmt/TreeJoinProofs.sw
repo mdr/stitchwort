@@ -70,7 +70,7 @@ theorem lexKindOfSpells ∀ (kind: Tok) (text: Text) (spells: Spells kind text):
 -- What a token's spelling says of the text.
 
 --| A kind that is no comma or closer.
-def Quiet (kind: Tok): Prop := Comma ≠ kind ∧ RParen ≠ kind ∧ RBracket ≠ kind ∧ RBrace ≠ kind
+def QuietKind (kind: Tok): Prop := Comma ≠ kind ∧ RParen ≠ kind ∧ RBracket ≠ kind ∧ RBrace ≠ kind
 
 theorem startNotDash ∀ (first: Char) (starts: isWordStart first = True): ('-' == first) = False := cases
 
@@ -125,7 +125,7 @@ theorem notFixed ∀ [kind: Tok] [text: Text] (other: Text)
 --| The text of a token that is no comma or closer is neither.
 theorem spellsQuiet ∀ (kind: Tok) (text: Text)
     (spells: Spells kind text)
-    (quiet: Quiet kind):
+    (quiet: QuietKind kind):
     (text == ",") = False ∧ isCloserText text = False :=
   let (comma, paren, square, brace) := quiet
   let notComma := notFixed "," spells (same => comma (Eq.trans byComputing same))
@@ -138,7 +138,7 @@ theorem spellsQuiet ∀ (kind: Tok) (text: Text)
 theorem spellsJoins ∀ (word: Word) (kind: Tok)
     (sound: word.sound = True)
     (spells: Spells kind word.text)
-    (quiet: Quiet kind):
+    (quiet: QuietKind kind):
     WordJoins word :=
   let (comma, closer) := spellsQuiet kind word.text spells quiet
   (sound, spellsNotComment kind word.text spells, comma, closer)
@@ -493,7 +493,7 @@ theorem spellsOfText1 ∀ (kind: Tok) (text: Text) (spells: textSpells1 kind tex
 -- The tree's spellings.
 
 --| An infix operator's text spells a token that is no comma or closer.
-def OperatorSpells (text: Text): Prop := ∃ (kind: Tok) => Spells kind text ∧ Quiet kind
+def OperatorSpells (text: Text): Prop := ∃ (kind: Tok) => Spells kind text ∧ QuietKind kind
 
 --| What the parser's leaves spell, which `lexical` doesn't say (the header): each name and numeral is a text its
 --| kind is spelled with, each infix operator a token's and each prefix operator `-`, `!` or `¬`.
@@ -607,22 +607,22 @@ theorem declOperators ∀ (decl: Decl) (within: decl.within1 = True): decl.opera
         (withinOperators result (Bool.andRight (Bool.andLeft within)), withinOperators value (Bool.andRight within))
       | _ => cases
 
-theorem wordQuiet ∀ (kind: Tok) (word: kind.wordWithin1 = True): Quiet kind := match kind, word with
+theorem wordQuiet ∀ (kind: Tok) (word: kind.wordWithin1 = True): QuietKind kind := match kind, word with
   | Lower | Upper | Num | Float, _ => byDecision
   | other, word => (Bool.falseNotTrue word).impossible
 
-theorem minusQuiet: Quiet Minus := byDecision
+theorem minusQuiet: QuietKind Minus := byDecision
 
-theorem bangQuiet: Quiet Bang := byDecision
+theorem bangQuiet: QuietKind Bang := byDecision
 
-theorem lowerQuiet: Quiet Lower := byDecision
+theorem lowerQuiet: QuietKind Lower := byDecision
 
-theorem upperQuiet: Quiet Upper := byDecision
+theorem upperQuiet: QuietKind Upper := byDecision
 
 --| A header's name that `within1` lets through spells a token of one of the two name kinds.
 theorem nameKinded ∀ (name: Word)
     (within: name.nameWithin1 = True):
-    ∃ (kind: Tok) => Spells kind name.text ∧ Quiet kind ∧ (kind = Lower ∨ kind = Upper) :=
+    ∃ (kind: Tok) => Spells kind name.text ∧ QuietKind kind ∧ (kind = Lower ∨ kind = Upper) :=
   match (Bool.orReads _ _).forward within with
     | Inl lower => (Lower, spellsOfText1 Lower name.text (Bool.andRight lower), lowerQuiet, Inl byComputing)
     | Inr upper => (Upper, spellsOfText1 Upper name.text (Bool.andRight upper), upperQuiet, Inr byComputing)
@@ -661,7 +661,7 @@ theorem notNil ∀ (arguments: List Expr) (filled: (¬arguments.isEmpty) = True)
 theorem bracketOpener ∀ (open: Word) (kind: Tok)
     (sound: open.sound = True)
     (spells: Spells kind open.text)
-    (quiet: Quiet kind)
+    (quiet: QuietKind kind)
     (free: ∀ (text: Text) (rest: List Char) => MayFollow kind text rest):
     OpenerJoins lexKind open :=
   (

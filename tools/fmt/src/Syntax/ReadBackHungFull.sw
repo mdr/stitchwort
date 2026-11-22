@@ -69,7 +69,8 @@ theorem fullHungStep ∀ (depth: Nat) (inner: FullHungBelow depth): FullHungAt d
             startNotOther item.kind lead,
             kind =>
               let lined := lineModes (blockModes modes column True) column True (Some item.index) kind
-              let lineQuiet: Quiet lined := { noGuard = quiet.noGuard, noCalc = quiet.noCalc, noRule = quiet.noRule }
+              let lineQuiet: QuietModes lined :=
+                { noGuard = quiet.noGuard, noCalc = quiet.noCalc, noRule = quiet.noRule }
               inlineHung lined lineQuiet expr item more rest depth state inner deep sameSpelt free lineItems lineRest
                 (rewrite quiet.noGuard, quiet.noCalc, quiet.noRule, DecEq.neSelf (Some item.index))
                 (boundsBlock modes state item (Some item.index) kind starts lineStart)

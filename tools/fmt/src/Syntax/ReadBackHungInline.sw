@@ -31,7 +31,7 @@ def CmpHungAt (modes: Modes) (depth: Nat): Prop :=
 
 --| A logic chain's links, each `&&` or `||` and its comparison: `state` is the line rule's before the first link.
 theorem logicLinksHung ∀ (modes: Modes)
-    (quiet: Quiet modes) (depth: Nat)
+    (quiet: QuietModes modes) (depth: Nat)
     (cmp: CmpHungAt modes depth)
     (links: List (Item, List Item, Expr)) (rest: List Item) (state: HangState)
     (linksSpelt: LinksSpelt depth links)
@@ -95,7 +95,7 @@ theorem logicLinksHung ∀ (modes: Modes)
 
 --| After a logic chain's links, regrouped.
 theorem logicAfterLinksHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (depth: Nat) (links: List (Item, List Item, Expr)) (rest: List Item) (first expr: Expr) (state: HangState)
     (linksSpelt: LinksSpelt depth links)
     (group: groupLogic (Succ links.length) first (Parse.stepValues (linkSteps links)) = expr)
@@ -125,7 +125,7 @@ theorem logicAfterLinksHung ∀ (modes: Modes)
 
 --| An operator expression whose lowest operator is `&&` or `||`.
 theorem logicOperatorHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (expr: Expr) (read read3 rest: List Item) (depth: Nat) (all: List Item) (value: Expr) (state: HangState)
     (cmp: CmpHungAt modes depth)
     (whole: all = read ++ read3)
@@ -204,7 +204,7 @@ theorem logicOperatorHung ∀ (modes: Modes)
 
 --| What `operator` reads: the expression up to an arrow or the end, then what ends it.
 theorem operatorHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (expr: Expr) (read read3 rest: List Item) (depth: Nat) (all: List Item) (value: Expr) (state: HangState)
     (inner: FullHungBelow depth)
     (whole: all = read ++ read3)
@@ -234,7 +234,7 @@ theorem operatorHung ∀ (modes: Modes)
 --| An arrow, its right side read in full one level down: the leaf after `->` starts no line (the line rule's
 --| `glue`).
 theorem arrowHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (left right: Expr) (operator: Word) (item: Item) (more rest: List Item) (depth: Nat) (state: HangState)
     (inner: FullHungBelow depth)
     (deep: (Infix InfixArrow left operator right).nest <= depth)
@@ -359,7 +359,7 @@ theorem arrowHung ∀ (modes: Modes)
 
 --| An inline expression with no arrow at its top.
 theorem inlinePlainHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (expr: Expr) (item: Item) (more rest: List Item) (depth: Nat) (state: HangState)
     (inner: FullHungBelow depth)
     (deep: expr.nest <= depth)
@@ -420,7 +420,7 @@ theorem inlinePlainHung ∀ (modes: Modes)
 --| follows. `open` stays: the first item is the caller's
 --| to place (a block's own first item is allowed by its modes, not by its column).
 theorem inlineHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (expr: Expr) (item: Item) (more rest: List Item) (depth: Nat) (state: HangState)
     (inner: FullHungBelow depth)
     (deep: expr.nest <= depth)

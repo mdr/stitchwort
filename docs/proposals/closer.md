@@ -103,7 +103,7 @@ SW-4464 counts). `signSymbolic` came up in both samples. All of
 
 **A caution about the pools.** The "dispatcher" files are not mostly
 dispatchers. Four of the ten drawn are long one-off proofs
-(`settledHomed` 50 lines, `arrowGo` 31, `rule2Drop` 15, `dropFItem` 14)
+(`settledHomed` 50 lines, `arrowGo` 31, `commaCarryDrop` 15, `dropFItem` 14)
 made of `let` steps that each apply a named lemma to spelled arguments.
 No closer shortens those. SW-4222's sample was chosen to show the kinds
 where Lean was shorter; a random draw is the fairer guide to the whole.

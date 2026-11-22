@@ -8,7 +8,7 @@ import Fmt.SpellProofs (..)
 import Fmt.TreeJoinProofs (
   OperatorSpells,
   PrefixSpells,
-  Quiet,
+  QuietKind,
   lexKind,
   lexKindOfSpells,
   operatorSpellsOf,
@@ -23,7 +23,7 @@ import Fmt.TreeJoinProofs (
 --| A text a token of a kind that is no comma or closer is spelled with is a token that is no closer.
 theorem kindPlain ∀ (kind: Tok) (text: Text)
     (spells: Syntax.LexProofs.Spells kind text)
-    (quiet: Quiet kind):
+    (quiet: QuietKind kind):
     notCloser text = True ∧ notComment text = True :=
   let kinded: lexKind text = kind := lexKindOfSpells kind text spells
   let (notComma, notParen, notBracket, notBrace) := quiet

@@ -29,7 +29,7 @@ import Syntax.ReadBackHungAtomsLemmas (..)
 --| (`deepStops`); the peeks at an item's first leaves see them unstopped as the line rule steps over them
 --| (`speltOutsideHung`, `peekTwoHung`).
 theorem atomHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (head: Bool) (expr: Expr) (read rest: List Item) (depth: Nat) (state: HangState)
     (inner: FullHungBelow depth)
     (deep: expr.nest <= depth)
@@ -186,7 +186,7 @@ theorem atomHung ∀ (modes: Modes)
             rewrite isS2, entersNext two read2 t1 twoSpelt then nextBound
           let hungRounds: hangsFrom (s2.enters read2) (leavesOf (commaReads steps ++ [last, ..rest])) = True :=
             rewrite <- stepsAssoc then hungAfterTwo
-          let separatorOpen: ∀ (lined: Modes) => Quiet lined → lined.stops separator = False := lined linedQuiet =>
+          let separatorOpen: ∀ (lined: Modes) => QuietModes lined → lined.stops separator = False := lined linedQuiet =>
             deepStops lined separator linedQuiet deepSeparator (rewrite isComma)
           let goal: Goal := { modes = innerModes, level = LevelFull }
           let oneTree: TreeN (Succ below) goal read1 (elements ++ rest) one :=
@@ -465,7 +465,7 @@ theorem atomHung ∀ (modes: Modes)
 --| Proof idea: by induction on the items: the comma steps to the start of the next item (`commaNext`), `fullHung`
 --| reads it, and after it the next item's start is the same (`entersNext`), so the bound carries.
 theorem tupleStepsHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (exprs: List Expr) (steps: List (Item, List Item, Expr)) (count: Nat) (last: Item) (rest: List Item)
     (depth: Nat) (state: HangState)
     (inner: FullHungBelow (Succ depth))
@@ -553,7 +553,7 @@ theorem tupleStepsHung ∀ (modes: Modes)
 --|
 --| Proof idea: as `tupleStepsHung`, with the item's first kind neither `]` nor `..`.
 theorem listStepsHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (exprs: List Expr) (steps: List (Item, List Item, Expr)) (count: Nat) (last: Item) (rest: List Item)
     (depth: Nat) (state: HangState)
     (inner: FullHungBelow (Succ depth))
@@ -644,7 +644,7 @@ theorem listStepsHung ∀ (modes: Modes)
 --| After a bracket's items, the next comma or the closer doesn't stop a reading: each is inside the bracket
 --| (`deepItems`), where the parser's line test exempts it.
 theorem openStepsHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (exprs: List Expr) (steps: List (Item, List Item, Expr)) (last: Item) (rest: List Item)
     (spelt: SpeltSteps exprs steps)
     (closer: last.kind.isCloser = True)

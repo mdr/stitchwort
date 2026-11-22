@@ -9,7 +9,7 @@ import Fmt (..)
 import Syntax.ReadBackProofs (..)
 import Syntax.ReadBackRuns (..)
 import Syntax.ReadBackEnds (wordItem)
-import Syntax.ReadBackLine (Quiet, leadKind)
+import Syntax.ReadBackLine (QuietModes, leadKind)
 import Syntax.ReadBackHung (..)
 
 --| A step that gives nothing is no step.
@@ -50,7 +50,7 @@ theorem depthExempt ∀ (item: Item)
 --| An item the line rule steps over doesn't stop a reading whose limit the rule bounds. A `:=` outside brackets is
 --| the exception: the rule lets it start a line anywhere.
 theorem hungStops ∀ (modes: Modes) (state next: HangState) (item: Item)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (bound: bounds modes state = True)
     (stepped: state.step item.leaf = Some next)
     (deep: deepAll [item] = True)

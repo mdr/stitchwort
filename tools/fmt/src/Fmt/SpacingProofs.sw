@@ -316,7 +316,7 @@ theorem plainDefSteps ∀ (keyword: Comments) (name: Word) (colon: Comments) (re
 
 --| A document that steps from a line start to a seam where no code waits lists its words as the spacing asks.
 theorem spacedOfSteps ∀ (decl: Decl) (doc: Doc) (post: Seam → Prop)
-    (steps: Steps doc (Fits True Free) decl.spacing post) (quiet: ∀ (seam: Seam) => post seam → Quiet seam):
+    (steps: Steps doc (Fits True Free) decl.spacing post) (quiet: ∀ (seam: Seam) => post seam → QuietSeam seam):
     SpacedTouches decl doc :=
   steps Begun []
     (seam trace => admitsGlue decl.spacing (codeTouching (trace ++ seam.ending)) = True)

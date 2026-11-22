@@ -25,7 +25,7 @@ import Syntax.ReadBackHungAppLemmas (..)
 --| Proof idea: the line facts by `leadHung`: the sign and the operand's first item stop no reading,
 --| the bound carrying past the sign, and `atomHung` reads the operand from the state the sign left.
 theorem signArgHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (operator: Word) (operand: Expr) (read later: List Item) (depth: Nat) (state: HangState)
     (inner: FullHungBelow depth)
     (deep: (Prefix operator operand).nest <= depth)
@@ -117,7 +117,7 @@ theorem signArgHung ∀ (modes: Modes)
 --| One argument of a call. The state is the line rule's before the argument, which the modes' limit is within, as
 --| for `signArgHung`.
 theorem argumentHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (argument: Expr) (read later: List Item) (below: Nat) (state: HangState)
     (inner: FullHungBelow (Succ below))
     (deep: argument.nest <= below)
@@ -179,7 +179,7 @@ theorem argumentHung ∀ (modes: Modes)
 --| Proof idea: each argument read by `argumentHung` from the state the arguments before it left, which
 --| `speltHung` gives with the bound.
 theorem argsHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (exprs: List Expr) (steps: List (List Item, Expr)) (rest: List Item) (below: Nat) (state: HangState)
     (inner: FullHungBelow (Succ below))
     (deep: nestAll exprs <= below)
@@ -265,7 +265,7 @@ theorem argsHung ∀ (modes: Modes)
 --| entered (`speltEnters`), which the bound holds of, and from there the first argument by `argumentHung` and the
 --| others by `argsHung`, from the state the first left (`speltHung`).
 theorem appHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (head argument: Expr) (more: List Expr) (read rest: List Item) (depth: Nat) (state: HangState)
     (inner: FullHungBelow depth)
     (deep: (App head [argument, ..more]).nest <= depth)
@@ -407,7 +407,7 @@ theorem appHung ∀ (modes: Modes)
 
 --| A call's head: an atom or a bracket by `atomHung`, or `-` on a numeral read as one atom.
 theorem headHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (head: Expr) (read later: List Item) (depth: Nat) (state: HangState)
     (inner: FullHungBelow depth)
     (deep: head.nest <= depth)
@@ -459,7 +459,7 @@ theorem headHung ∀ (modes: Modes)
 
 --| A call or an atom, unsigned: a call by `appHung`, an atom or bracket alone by `atomHung`.
 theorem appAnyHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (expr: Expr) (read rest: List Item) (depth: Nat) (state: HangState)
     (inner: FullHungBelow depth)
     (deep: expr.nest <= depth)
@@ -496,7 +496,7 @@ theorem appAnyHung ∀ (modes: Modes)
 --| first item stops no reading and its entered state is bounded (`leadHung`). A negative numeral is one atom, and
 --| anything else is `appAnyHung`.
 theorem unaryHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (expr: Expr) (read rest: List Item) (depth: Nat) (state: HangState)
     (inner: FullHungBelow depth)
     (deep: expr.nest <= depth)

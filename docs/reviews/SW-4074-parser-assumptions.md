@@ -113,7 +113,7 @@ are quantified freely.
 | `SelfRuns sub self bound` | `self` reads every shorter read `sub` holds of | - | yes | `treeStep`, inside `runsTree` | none |
 | `Tree goal read rest value` (`Layer`: `FullReads`, `UnaryReads`, `AtomReads` and the rungs under them) | `read` is what the parser at `goal` should read as `value` | the items | yes | `treeWord`, `fullLine`, `fullAnyLine` (`ReadBackLine.sw:1947`) | none |
 | `DeclarationTree` (6 fields) | the four frame kinds; the type and value are `Tree`s | the items | yes | built in `readsBackWords` and `readsBackLine` | none |
-| `Quiet modes` | no guard, `calc` or rewrite rule | - | yes | by computing, for `Modes.start` and the body's modes | none |
+| `QuietModes` | no guard, `calc` or rewrite rule | - | yes | by computing, for `Modes.start` and the body's modes | none |
 | `AtomEnds`, `UnaryEnds`, `OperandEnds`, `EndKind`, `InlinePlain`, `ParenPlain` | look-aheads after or before a node are all false | `head`, `kind` in `UnaryEnds.atom` | yes | `endsAtom`, `unaryEndsOf`, `endsOperandOf`, `endKind`, and the walks in `ReadBackLine` | none |
 | `BlockAt`'s `∀ (kind: LineKind)` | the line reads inline in the line modes of every kind | `kind`, which the parser gets by peeking (`lineKindOf seen`) | yes | `fullAnyLine` via `fullOfStarts` | low: finding 3 |
 | `blockLinesOneLine`, `blockOneLine`: `reads: ∀ at kind`, `ends` | the statement reads as `line` at every mark with the same rest, in every kind; nothing after continues the block | `kind`, `at` | yes | `runsBlockLine`'s callers | low: finding 3 |

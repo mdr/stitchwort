@@ -18,7 +18,7 @@ import Syntax.ReadBackHungChainsLemmas (..)
 
 --| `* / %` links after a first operand, nested to the left.
 theorem mulAccHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (expr: Expr) (read: List Item) (links: List (Item, List Item, Expr)) (rest: List Item) (depth: Nat) (all: List Item)
     (value: Expr) (state: HangState)
     (inner: FullHungBelow depth)
@@ -129,7 +129,7 @@ theorem mulAccHung ∀ (modes: Modes)
 
 --| The `* / %` level.
 theorem mulHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (expr: Expr) (read rest: List Item) (depth: Nat) (state: HangState)
     (inner: FullHungBelow depth)
     (deep: expr.nest <= depth)
@@ -152,7 +152,7 @@ theorem mulHung ∀ (modes: Modes)
 
 --| `+ -` links after a first operand of the `+` level, nested to the left.
 theorem addAccHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (expr: Expr) (read: List Item) (links: List (Item, List Item, Expr)) (rest: List Item) (depth: Nat) (all: List Item)
     (value: Expr) (state: HangState)
     (inner: FullHungBelow depth)
@@ -264,7 +264,7 @@ theorem addAccHung ∀ (modes: Modes)
 
 --| `+ -` links after a first operand above the `+` level.
 theorem addBaseHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (expr: Expr) (read: List Item) (links: List (Item, List Item, Expr)) (rest: List Item) (depth: Nat) (all: List Item)
     (value: Expr) (state: HangState)
     (inner: FullHungBelow depth)
@@ -300,7 +300,7 @@ theorem addBaseHung ∀ (modes: Modes)
 
 --| The `+ -` level.
 theorem addHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (expr: Expr) (read rest: List Item) (depth: Nat) (state: HangState)
     (inner: FullHungBelow depth)
     (deep: expr.nest <= depth)
@@ -323,7 +323,7 @@ theorem addHung ∀ (modes: Modes)
 
 --| The `++` level, nested to the right.
 theorem appendHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (expr: Expr) (read rest: List Item) (depth: Nat) (state: HangState)
     (inner: FullHungBelow depth)
     (deep: expr.nest <= depth)
@@ -432,7 +432,7 @@ theorem appendHung ∀ (modes: Modes)
 
 --| The `++` level, its first operand above it.
 theorem appendBaseHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (expr: Expr) (read rest: List Item) (depth: Nat) (state: HangState)
     (inner: FullHungBelow depth)
     (deep: expr.nest <= depth)
@@ -456,7 +456,7 @@ theorem appendBaseHung ∀ (modes: Modes)
 
 --| The comparison level, with no comparison at its top.
 theorem cmpAloneHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (expr: Expr) (read rest: List Item) (depth: Nat) (state: HangState)
     (inner: FullHungBelow depth)
     (deep: expr.nest <= depth)
@@ -479,7 +479,7 @@ theorem cmpAloneHung ∀ (modes: Modes)
 
 --| The comparison level: two `++` chains joined once.
 theorem cmpHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (expr: Expr) (read rest: List Item) (depth: Nat) (state: HangState)
     (inner: FullHungBelow depth)
     (deep: expr.nest <= depth)

@@ -73,7 +73,7 @@ type HungAt (modes: Modes) (state: HangState) (read rest: List Item) = {
 --| `fullHung` at `depth`, as a hypothesis: what `expr` reads, on any lines, of an expression nested at most `depth`
 --| deep. The statement is `Syntax.ReadBackHungTop.fullHung`'s.
 def FullHungAt (depth: Nat): Prop :=
-  ∀ (modes: Modes) (expr: Expr) (read rest: List Item) (state: HangState) => Quiet modes
+  ∀ (modes: Modes) (expr: Expr) (read rest: List Item) (state: HangState) => QuietModes modes
     → expr.nest <= depth
     → Spelt expr read
     → expr.autoPlaced True = True

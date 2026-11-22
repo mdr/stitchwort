@@ -78,7 +78,7 @@ theorem argStartsHung ∀ (modes: Modes) (argument: Expr) (first: Item) (more la
 --| What follows an argument, on any lines: the next argument, whose first item the state before it bounds, or what
 --| follows the call.
 theorem argEndsHung ∀ (modes: Modes)
-    (quiet: Quiet modes)
+    (quiet: QuietModes modes)
     (head: Bool) (kind: Tok) (exprs: List Expr) (steps: List (List Item, Expr)) (rest: List Item) (state: HangState)
     (spelt: SpeltArgs exprs steps)
     (line: lineAll (Parse.loopReads [] steps ++ rest) = True)
