@@ -33013,7 +33013,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nStarted 22 Nov 20:47 on Fable (paper; Matt asked for it after SW-4645, in series). Expected: 75 min.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
