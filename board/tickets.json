@@ -32823,7 +32823,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "\n\nStarted 22 Nov 17:50 on DeepSeek (orchestrator's call). Expected: 40 min. The full tools/fmt measurement at P=4 and 6 runs afterwards as an orchestrator job, not in the lane (memory: ~1.4 GB a process).\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
