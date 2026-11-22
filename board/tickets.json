@@ -31972,7 +31972,7 @@
     {
       "id": 4587,
       "title": "[Sonnet] Bench examples sweep (bench/baseline.toml, 22 Nov re-record, SW-4569): 1,993 files against 1,625 (1.23x) but 16.5G steps against 8.4G (1.96x) and peak heap 1.16 GB against 0.28 GB (4.1x). Measure per-example steps and peak with stitchwort-bench's examples case (or check --timings over the corpus), find which examples account for the growth (the 13 large-hypothesis-* are suspects) and whether any older example got slower; report a table, fix any accident, add a performance-log entry",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
@@ -31980,7 +31980,9 @@
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
-      "commits": []
+      "commits": [
+        "e8b0c04ec"
+      ]
     },
     {
       "id": 4588,
@@ -32024,7 +32026,7 @@
     {
       "id": 4591,
       "title": "[Sonnet] Two rejected examples' messages changed on main after tonight's merges (found by SW-4582's verifier): reject/walk-nested-loop.sw reports 'a goal is left that the closers don't prove' with goal '_weaker value valueTwin' instead of 'a premise's walk needs the same statement walked again' with the ∀ goal; reject/walk-nested-then-fails.sw shows _holds₂ for _holds. Find which merge (SW-4582's nested-trial change or SW-4576's unknown printing), decide if the new messages are right, and fix or re-record",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
