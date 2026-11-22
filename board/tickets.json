@@ -32605,12 +32605,12 @@
     {
       "id": 4631,
       "title": "[Sonnet] Profile and reshape the destructuring lets over existentials in tools/fmt/src/Syntax/ReadBackHungChains.sw (lines ~171, 338, 494) and what is left of atomHung/unaryHung (6 read-backs of 0.27M nodes, 5 of 0.57M): continuation-style lemmas or smaller goals (SW-4619 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
-      "body": "",
+      "body": "\n\nProgress (lane, 22 Nov): chain proofs reshaped (infixStep/chainStep/withWitness etc.): mulAccHung 17.0M->6.8M, addAccHung 15.6M->7.2M, appendHung 12.6M->8.0M, cmpHung 19.9M->9.1M steps. atomHung depthCases attempt worse (25.5M->32.6M), reverted; atomHung/unaryHung left: cost is match on depth/expr with inner in scope (checker-fix candidate). Perf log entry added. Commits d8988aa9a..1c00d79e4.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
