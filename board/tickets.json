@@ -31669,12 +31669,12 @@
     {
       "id": 4564,
       "title": "[Opus] All tier 22 Nov (D3712): 'internal error: applying a constructor' (crates/core/src/value.rs:1328) panics in driver library search_at_bench::stage_two_closes_std_goals_with_their_lemma, search_at_bench::stage_two_on_any_std_statement, search_bench::proof_uses_find_their_lemma_among_the_first_ten and search_at_aoc search_at_on_aoc_goals; and cli extraction extract::random_inputs_agree_with_the_reference_evaluator / run_lines_agree_with_the_reference_evaluator ('not a fully evaluated value: Neutral(Def ...)'). Find the cause(s), fix, rerun only these",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\nProgress (lane, Opus, 22 Nov):\n- Panic cause: the unifier's \"match the last arguments\" rule (unify.rs first_order) paired `?le ?x ?z` (headLe/List.sortedHeadLe's `le x z`, with ?x ?z : ?a) against `List.all X p` and took both pairs, because ?a was unknown when its guard (`apart`) looked; ?le became List.all at the wrong type, and `cases` in the next argument split a list where a function goes and core applied a constructor. Reached from search --at's hole propagation (`List.sortedHeadLe _ cases _ _ _ ? ?` against `xs.reverse.all p = True`), but also writable by hand. Fix: first_order unifies the paired values' types first when both are known (learn_types), so ?a is solved and the bad pair refused by the existing guard. Test: examples/reject/unify-last-arguments-head-type.sw (panicked before, E-CASES after).\n- Extraction failures: separate cause. SW-3936's opaque-nickname-precondition.sw (export typed through an opaque nickname) is only sampled by the all tier; the test's reference path elaborated and evaluated with every opaque body hidden. The harness now makes opaque bodies visible, as while a program runs (as_running).\n",
+      "body": "\nProgress (lane, Opus, 22 Nov):\n- Panic cause: the unifier's \"match the last arguments\" rule (unify.rs first_order) paired `?le ?x ?z` (headLe/List.sortedHeadLe's `le x z`, with ?x ?z : ?a) against `List.all X p` and took both pairs, because ?a was unknown when its guard (`apart`) looked; ?le became List.all at the wrong type, and `cases` in the next argument split a list where a function goes and core applied a constructor. Reached from search --at's hole propagation (`List.sortedHeadLe _ cases _ _ _ ? ?` against `xs.reverse.all p = True`), but also writable by hand. Fix: first_order unifies the paired values' types first when both are known (learn_types), so ?a is solved and the bad pair refused by the existing guard. Test: examples/reject/unify-last-arguments-head-type.sw (panicked before, E-CASES after).\n- Extraction failures: separate cause. SW-3936's opaque-nickname-precondition.sw (export typed through an opaque nickname) is only sampled by the all tier; the test's reference path elaborated and evaluated with every opaque body hidden. The harness now makes opaque bodies visible, as while a program runs (as_running).\n- Commit 96c6d803e on lane/SW-4564. All tier reruns after the fix: stage_two_closes_std_goals_with_their_lemma PASS (91 s), stage_two_on_any_std_statement PASS (946 s), search_at_on_aoc_goals PASS (977 s), extract::run_lines… PASS (93 s), extract::random_inputs… PASS (68 s); hash_stability (test:hashes ALL=1) 12/12 PASS. search_bench::proof_uses_find_their_lemma_among_the_first_ten still FAILS: 5 internal errors (11 before), recall@10 54.9% (54.2%). The last 5 come through the query search (use_pattern), not search --at; not found yet (stopped at 1.5x). Follow-up: find those queries (the test reports none by name; add a trace) and fix.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -31736,12 +31736,12 @@
     {
       "id": 4569,
       "title": "[Sonnet] All tier 22 Nov (D3712): stitchwort-fmt it fuzz::the_formatter_never_panics_and_is_idempotent panics at crates/syntax/src/parser.rs:799 (bump past the end of tokens), seed 0x9e3779b97f4a7c15, 50000 cases; bench baseline counts_have_not_regressed (check-text-literal allocations +15%, check-number-* steps +12.5%, check-closed-* visits +11.6%, peak heap +15.6%) and bench repeat counts_repeat_within_a_process (timeout). Fix the panic with a test; for the bench, profile and fix or explain (D3444 performance log); rerun only these",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\n\nProgress (Sonnet lane, branch lane/SW-4569, commits 452c43bea, 60e365424): (1) panic: byWalking with no '[' bumped in fact_list; now a syntax error, test parser::tests::a_by_walking_without_its_list_is_an_error; fuzz test passes (33 s). (2) bench: check-number-table +2,560 steps and check-text-literal +11 allocations come from SW-3930's glued kept types (526f98b64, deliberate, D3680); check-closed-* visits/peak heap and the rest of the text-literal allocations from std growth (e.g. SW-4218's 92 lemmas into std). Proposal: re-record the baseline with a performance-log entry. (3) repeat: runs the whole example sweep twice (1,991 files now); nextest cap raised to an hour for the bench binaries.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
