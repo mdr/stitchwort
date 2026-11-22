@@ -1,5 +1,5 @@
 {
-  "next": 4607,
+  "next": 4608,
   "tickets": [
     {
       "id": 47,
@@ -32248,6 +32248,19 @@
       "labels": [],
       "epic": "performance",
       "body": "Lane notes (SW-4606, Opus, 22 Nov, 09:44-10:26):\n- (a) No miss: a let slot computes to its value, never a variable (let.md 6.1); lambdas close over values; local defs are lifted with the variable as an argument. examples/accept/rewrite-variable-behind-let.sw (97aba5763) closes each case by computing.\n- (b) Nothing kept: ofNatExact finds nothing as written even with unfold_path (the left side is a projection whose subject is Float.ofNat n opened twice; the walk never retests the projection), so the usual search needs the 1.14M unfolded goal. Not the file's peak either: cut-file RSS 258 MB before it, 345 after, 405 after roundGrid.\n- (c) Kept (cc339b4dd): the completeness check skips the unfolded motive when it lost a variable the left side depends on (tested by conversion against a renaming). Float.Theory peak 410.4 -> 383.1 MB, steps 90.0M -> 88.5M, roundGrid 1.92M -> 0.75M; no other declaration moved; hashes unchanged.\n- Tests: test:example NAME=float,as-written,rewrite 7 passed; test:hashes ALL=1 12 passed; tools/fmt check --no-cache 150 namespaces, 0 errors.\n",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4607,
+      "title": "[Sonnet] Delete the toy formatter (tools/toyfmt, with Toy++ in tools/toyfmt/plus) and tools/fmt-sketch now the real formatter's slice 1 is proved (D3715, Matt, 22 Nov: 'yes, delete it. It'll still be in Git history if we need it'); move the build test onto tools/fmt; close or refile the toy tickets",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "\n\nStarted 22 Nov 11:14 on Sonnet (orchestrator's call: mechanical deletion and one test move). Expected: 20 min. Brief: delete tools/toyfmt (with Toy++) and tools/fmt-sketch, remove their pins and references, move build.rs's formatter test onto tools/fmt, propose close/refile for the 35 toy tickets.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
