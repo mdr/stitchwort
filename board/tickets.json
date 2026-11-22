@@ -31951,7 +31951,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "",
+      "body": "Lane (Opus, 22 Nov, from 08:00; est. 45 min), branch lane/SW-4585:\n- Baseline (all profile, 1007 s): 10347 queries, recall@10 55.4%, top-1 41.3%, 39110 out of budget; 3572 pass their own lemma's filter (so 6775 fail), 5520 answered by the filtered pass.\n- Trying: written = the lemma's conclusion only (args left out), and written = conclusion plus only the args it mentions.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
@@ -32013,12 +32013,12 @@
     {
       "id": 4590,
       "title": "[Opus] D3713 (pending Matt): a generalised match waits for ever on a lambda parameter's unknown type that only its own arm fixes ('let check := r => 3 ∈ r.items; match n == 0 with | True => check b', E-CANNOT-INFER at r.items); proposal: blocker in matching.rs skips parameter_metas (SW-873's rule for generalisation). Do once Matt answers",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "D3713: Matt, 22 Nov 2026 08:24, \"yes\": the generalised match's waiting step skips lambda parameter-type unknowns (SW-873's rule). Starts on Opus when a build slot frees.\n",
+      "body": "D3713: Matt, 22 Nov 2026 08:24, \"yes\": the generalised match's waiting step skips lambda parameter-type unknowns (SW-873's rule). Starts on Opus when a build slot frees.\n\n\nProgress (Opus lane, 22 Nov 08:29-08:45): `blocker` in crates/elab/src/matching.rs skips `parameter_metas` in the types of the variables in scope (scrutinees and their types still wait). Commit 8010b7c5e on lane/SW-4590. Test `postponement::a_generalised_match_leaves_a_let_lambdas_parameter_type_to_its_arms` (unannotated hash = annotated; fails E-CANNOT-INFER without the fix); example `examples/accept/let-lambda-before-generalised-match.sw` + hash snapshot (both defs fail on main). Postponement tests 17/17, test:example let-lambda,postpone,match 7/7, test:hashes ALL=1 12/12 with no hashes moved, tools/fmt check --no-cache 150 namespaces, 0 errors. Not covered: `let size := r => r.items.length` before `match n == 0` still waits (the lambda's result type, the waiting field's unknown, blocks too): finding for the orchestrator.\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
