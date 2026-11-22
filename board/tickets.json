@@ -32197,12 +32197,12 @@
     {
       "id": 4604,
       "title": "[Sonnet] auto rejects C (blank t) = C (blank t) with E-AUTO-STUCK ('can't decide ... here') though both sides are the same term (SW-4557); an equation whose sides are syntactically or definitionally the same as written should close by reflexivity before the decision procedure; a test that fails before; check examples/reject/undecidable-auto.sw's expected error",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Model result: Sonnet, worked, 20 min (est. 30)\n",
       "created": "2026-11-22",
       "updated": "2026-11-22",
       "commits": []
