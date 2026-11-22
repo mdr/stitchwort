@@ -848,3 +848,9 @@ Others:
   theorem's proof is unfolded during checking, and whether today's 138 s check has the same
   critical path as this morning's 252 s one. `ns_graph.py`'s edges are rebuilt from text and
   were not compared with the compiler's own.
+
+## Addendum: fresh timings (22 Nov, evening; measured by the orchestrator)
+
+A cold `check --no-cache --timings=all` of `tools/fmt` on `main` after SW-4637 (146 s wall, release build, nice 19, load about 6), fed to `ns_graph.py` (unit table in `parallel-checking/fmt-units-22nov-pm.csv`): library and core 16.8 s, project 127.9 s, critical path 41.6 s over 20 namespaces, bound 3.07x on the project. With the library first on one core: 4 workers 2.22x, 6 workers 2.40x, 10 workers 2.47x (estimated from the unit times, not run).
+
+Half the critical path is one namespace, `Syntax.ReadBackHungTop` (20.4 s), and nearly all of that is two example theorems checked by computation in the kernel: `readsBackHungListExample` (12.4 s, 147M steps, 12.2 s kernel) and `readsBackHungSignExample` (7.6 s, 95M steps). Making those cheaper (SW-4647) shortens the critical path to about 21 s, raising the project bound to about 6x.

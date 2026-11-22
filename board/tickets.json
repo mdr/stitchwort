@@ -1,5 +1,5 @@
 {
-  "next": 4647,
+  "next": 4648,
   "tickets": [
     {
       "id": 47,
@@ -32834,6 +32834,19 @@
     {
       "id": 4646,
       "title": "[Sonnet] Measure a full replay: warm check with STITCHWORT_SKIP_UNNEEDED=0 on tools/fmt, time and memory, to cost loading another worker's namespaces (SW-4614 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-22",
+      "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4647,
+      "title": "[Opus] Syntax.ReadBackHungTop.readsBackHungListExample (12.4 s, 147M steps, almost all in the kernel) and readsBackHungSignExample (7.6 s, 95M steps) are 13% of a cold tools/fmt check and half the parallel critical path (docs/proposals/parallel-checking.md addendum): find why the kernel evaluation is so costly (what is computed, whether gluing/unfolding is redundant) and make it cheaper in the checker, or, if the example is needlessly large, say so (proof readability rule: do not distort the example)",
       "status": "backlog",
       "agent": "",
       "where": "",
