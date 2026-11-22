@@ -21,6 +21,22 @@ use stitchwort_syntax::ast;
 
 use crate::{SidesCapture, decreasing, effects, equations, families, lift};
 
+/// When `check::holes_by_arguments` elaborates a failed application again
+/// ([`Decl::holes_retry`]).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum HolesRetry {
+    /// As soon as it fails.
+    #[default]
+    Now,
+    /// Not yet: inside an argument checked in place that is checked again
+    /// if it fails.
+    Deferred,
+    /// As soon as it fails, also in the arguments checked in place inside:
+    /// while an argument whose retries were put off is checked again
+    /// because it won't be checked later.
+    Always,
+}
+
 #[derive(Default)]
 pub(crate) struct Decl {
     /// Whether an error message has shown a term that uses a failed
@@ -75,6 +91,24 @@ pub(crate) struct Decl {
     /// written argument, or 0. That application's later arguments then
     /// solve the `_`s their types mention from what they are as written.
     pub(crate) holes_by_arguments: Cell<usize>,
+    /// The arguments written `_` of the applications `check::fallback_named`
+    /// is elaborating, which `check::holes_by_arguments` would elaborate
+    /// again after a failure: each one's address, and whether a later
+    /// argument as written has a parameter type that mentions it (found
+    /// when the `_` is reached). The retry can only change what such an
+    /// argument makes of a `_`.
+    pub(crate) holes_watched: RefCell<Vec<(usize, bool)>>,
+    /// Whether `check::holes_by_arguments` elaborates a failed application
+    /// again now: not while an argument is checked in place that is checked
+    /// again after its application's expected type if it fails
+    /// (`check::explicit_arg`, `check::lambda_arg`), where it would be tried
+    /// again then with more known. Day 16 of 2020's `runsNotes` retried 816
+    /// such calls, all failing again, at 326 million steps against the
+    /// proof's 42 million.
+    pub(crate) holes_retry: Cell<HolesRetry>,
+    /// Set when a retry was put off ([`HolesRetry::Deferred`]), until the
+    /// argument checked in place that put it off ends.
+    pub(crate) holes_retry_skipped: Cell<bool>,
     /// Above zero while a lambda is checked in place in an application
     /// elaborated again after a propagation by `_`s failed
     /// (`check::apply_args_postponing`): a lambda inside is not tried in
@@ -373,6 +407,9 @@ impl Decl {
             no_argument_propagation,
             no_holding,
             holes_by_arguments,
+            holes_watched,
+            holes_retry,
+            holes_retry_skipped,
             in_place_trial,
             bare_rows_pure,
             late_literals,
@@ -432,6 +469,9 @@ impl Decl {
             ),
             ("no_holding", no_holding.get() == 0),
             ("holes_by_arguments", holes_by_arguments.get() == 0),
+            ("holes_watched", holes_watched.borrow().is_empty()),
+            ("holes_retry", holes_retry.get() == HolesRetry::Now),
+            ("holes_retry_skipped", !holes_retry_skipped.get()),
             ("in_place_trial", in_place_trial.get() == 0),
             ("bare_rows_pure", !bare_rows_pure.get()),
             ("late_literals", late_literals.get() == 0),
