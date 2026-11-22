@@ -3195,7 +3195,8 @@ impl Elaborator {
     /// Submits the declarations, through the kernel's checking calls if
     /// `check` and its trusted admission otherwise
     /// ([`Self::admit_replayed`]). `carried` entries' field sorts and
-    /// erasure are worked out again even on the trusted path.
+    /// erasure are worked out again even on the trusted path, and their run
+    /// bodies type-checked.
     fn submit(
         &mut self,
         defs: &[DefEntry],
@@ -3443,8 +3444,12 @@ impl Elaborator {
                         for m in &group.members {
                             if let Some(run) = &defs[*m].run_body {
                                 let id = DefId(base_defs + m);
+                                // Type-checked for a carried entry too: no
+                                // hash covers a run body, so the decode
+                                // self-check can't catch one this decoder
+                                // misread.
                                 self.kernel_op(|g| {
-                                    if check {
+                                    if check || carried {
                                         kernel::recheck_run_body(g, id, run)
                                     } else {
                                         kernel::admit_trusted_run_body(g, id, run)
@@ -4240,6 +4245,70 @@ mod tests {
         assert!(why.contains("run body came out differently"), "{why}");
         assert_eq!(added, (0, 0), "the refused entry wasn't undone");
         assert_eq!(stats.refused_on_recheck, 1);
+    }
+
+    /// A carried entry's run body is type-checked on the trusted path: no
+    /// hash covers it, so one another build's encoder wrote and this
+    /// decoder misread would otherwise be installed and run. An exact entry
+    /// (this build wrote it) takes it as written.
+    #[test]
+    fn a_carried_entry_on_the_trusted_path_is_refused_a_run_body_of_the_wrong_type() {
+        use stitchwort_core::{Icit, Term};
+        // `fun P p => P`: the right shape, but `P` isn't a proof of `P`.
+        let wrong = Term::Lam(
+            "P".into(),
+            Icit::Explicit,
+            std::rc::Rc::new(Term::Lam(
+                "p".into(),
+                Icit::Explicit,
+                std::rc::Rc::new(Term::Var(1)),
+            )),
+        );
+        let admit = |run: &Term, exact| {
+            let mut e = Elaborator::new();
+            let base = e.kernel.env.defs().len();
+            let hit = super::Hit {
+                exact,
+                recheck: false,
+            };
+            let hash = {
+                let mut e = Elaborator::new();
+                let defs = [identity_def("f", 0, None)];
+                let exact = super::Hit {
+                    exact: true,
+                    recheck: false,
+                };
+                e.admit_replayed(
+                    &defs,
+                    &[],
+                    &[],
+                    &state::TablesDelta::default(),
+                    false,
+                    exact,
+                )
+                .expect("the trusted path admits it");
+                let g = &e.ev();
+                let _op = g.machine.budget.operation(e.options.limits);
+                super::def_hash(g, stitchwort_core::DefId(base)).unwrap()
+            };
+            let mut def = identity_def("f", 0, Some(run.clone()));
+            def.hash = hash;
+            let result =
+                e.admit_replayed(&[def], &[], &[], &state::TablesDelta::default(), false, hit);
+            let added = e.kernel.env.defs().len() - base;
+            (result, added, e.session.cache_stats)
+        };
+        let (ok, added, _) = admit(&let_run_body(true), false);
+        assert!(ok.is_ok() && added == 1, "{:?}", ok.err().map(|b| b.0));
+        let (exact, added, _) = admit(&wrong, true);
+        assert!(exact.is_ok() && added == 1, "an exact entry is taken as is");
+        let (carried, added, stats) = admit(&wrong, false);
+        let Err(super::Bad(why)) = carried else {
+            panic!("a carried entry's run body was installed unchecked");
+        };
+        assert!(why.starts_with("refused:"), "{why}");
+        assert_eq!(added, 0, "the refused entry wasn't undone");
+        assert_eq!((stats.refused, stats.refused_on_recheck), (1, 0));
     }
 
     /// An entry of two definitions, a data type and a last definition the

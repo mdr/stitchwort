@@ -29,7 +29,7 @@
 use std::rc::Rc;
 
 use crate::kernel;
-use stitchwort_core::value::{Head, conv, force, quote_at_most, unfold_folded};
+use stitchwort_core::value::{ELIDED, Head, conv, force, quote_at_most, unfold_folded};
 use stitchwort_core::{DataId, DefId, Icit, Name, Term, Value, pretty};
 use stitchwort_syntax::ast::{self, Decl};
 use stitchwort_syntax::{Diagnostic, Span};
@@ -1462,7 +1462,9 @@ pub(crate) fn refresh(cx: &Ctx, v: &Value) -> Result<Value> {
 /// ask whether there is one.
 pub(crate) fn has_unsolved(cx: &Ctx, v: &Value) -> Result<bool> {
     let g = cx.g();
-    let unsolved = |m: usize| g.meta_solution(m).is_none();
+    // The erased placeholder (`ELIDED`) is no unknown, and no index into
+    // the store.
+    let unsolved = |m: usize| m != ELIDED && g.meta_solution(m).is_none();
     match stitchwort_core::value::normal_form_meets(&g, cx.level(), v, SCAN_LIMIT, &unsolved)? {
         Some(met) => Ok(met.is_some()),
         None => {
@@ -1480,7 +1482,7 @@ pub(crate) fn unsolved_in(cx: &Ctx, v: &Value) -> Result<Option<usize>> {
     let term = scanned(cx, v)?;
     let term = cx.e.zonk_keeping(&term, cx.level(), &|_| true)?;
     Ok(term.subterms().find_map(|(t, _)| match t {
-        Term::Meta(m) if cx.g().meta_solution(*m).is_none() => Some(*m),
+        Term::Meta(m) if *m != ELIDED && cx.g().meta_solution(*m).is_none() => Some(*m),
         _ => None,
     }))
 }
@@ -2161,4 +2163,26 @@ pub(crate) fn written_relation_decider(e: &Elaborator, prop: &Term) -> Option<Te
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use stitchwort_syntax::SourceMap;
+
+    /// The erased placeholder isn't an unknown: asking whether a value that
+    /// is one holds an unsolved unknown must not look it up in the store
+    /// (where its read-back, `ELIDED`, is far out of range).
+    #[test]
+    fn the_erased_placeholder_is_not_looked_up_as_an_unknown() {
+        let e = Elaborator::new();
+        let mut sources = SourceMap::new();
+        let span = Span::point(sources.add("test", ""), 0);
+        let cx = Ctx::from_parts(&e, Vec::new(), Vec::new(), Vec::new(), span);
+        let erased = stitchwort_core::erase::erased();
+        let g = cx.g();
+        let _op = g.machine.budget.operation(e.options.limits);
+        assert_eq!(has_unsolved(&cx, &erased).map_err(|d| d.code), Ok(false));
+        assert_eq!(unsolved_in(&cx, &erased).map_err(|d| d.code), Ok(None));
+    }
 }
