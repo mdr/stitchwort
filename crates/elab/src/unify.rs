@@ -2682,6 +2682,14 @@ fn first_order(
     }
     let left = Value::Neutral(Head::Meta(m), rest1.to_vec().into());
     let right = Value::Neutral(*head, rest2.to_vec().into());
+    // The heads' types first: `?le ?x ?z = all ys p` makes `?le ?x`'s
+    // type, `?a → Bool` (with `?le: ?a → ?a → Bool`), the same as `all
+    // ys`'s, `(b → Bool) → Bool`, so `?a` is `b → Bool`, and pairing `?x`
+    // with `ys`, a `List b`, is refused below. Without it `?a` is unknown
+    // when each pair is looked at, and both are taken, solving `?le` with a
+    // function of another type (SW-4564).
+    learn_types(g, level, &left, &right)?;
+    learn_types(g, level, x, y)?;
     if apart(g, level, x, y)? || apart(g, level, &left, &right)? {
         return Ok(false);
     }
@@ -2714,6 +2722,24 @@ fn first_order(
         return Ok(false);
     }
     unify(g, level, &left, &right)
+}
+
+/// For [`first_order`], about to pair `a` with `b`: if both their types are
+/// known in full ([`type_of`]), they are unified, so that the unknowns in
+/// them (an unknown's recorded type `?a`) are solved before [`apart`]
+/// looks at the next pair. Equal values have equal types, so a solution
+/// found here is one the pairing needs anyway. If the types don't unify,
+/// whatever that solved is taken back and nothing is learned: [`apart`]
+/// still decides whether to refuse, as it did before.
+fn learn_types(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result<()> {
+    let (Some(Known::Type(ta)), Some(Known::Type(tb))) = (type_of(g, a)?, type_of(g, b)?) else {
+        return Ok(());
+    };
+    let mark = g.store.meta_trail.borrow().len();
+    if !unify(g, level, &ta, &tb)? {
+        undo_since(g, mark);
+    }
+    Ok(())
 }
 
 /// What a value's type is known to be, for [`apart`]: the type itself, or

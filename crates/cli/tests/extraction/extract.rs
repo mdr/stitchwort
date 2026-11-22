@@ -20,6 +20,7 @@ use stitchwort_cli::driver::{Session, par_map, par_map_with, tier_sample};
 use stitchwort_cli::render::render;
 use stitchwort_core::backend::View;
 use stitchwort_core::hash::data_hash;
+use stitchwort_core::machine::TransparencyGuard;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::QuotForm;
 use stitchwort_core::value::{apply, eval, force, quot_mk_rep, quot_value};
@@ -107,6 +108,7 @@ fn random_inputs_agree_with_the_reference_evaluator() {
                     .collect();
                 let call = format!("{}({})", sig.name, literals.join(", "));
                 let expected = if accepted {
+                    let _running = as_running(g);
                     let result = args
                         .into_iter()
                         .fold(eval(g, &[], &Term::Def(id)).unwrap(), |f, a| {
@@ -503,6 +505,7 @@ fn check_in_node_with(name: &str, g: &View<'_>, cases: &[Case], options: Options
 fn run_line(session: &mut Session, source: &str) -> (String, String) {
     let file = session.sources.add("<run>", source);
     let expr = parse_expression(file, source).expect("run line parses");
+    let _running = as_running(&session.elab.backend());
     let (term, _) = session
         .elab
         .infer_expr(&expr)
@@ -526,6 +529,17 @@ fn run_line(session: &mut Session, source: &str) -> (String, String) {
     let expected =
         boundary_literal(g, &sig.result, &eval(g, &[], &term).unwrap()).expect("result evaluates");
     (format!("{}({})", sig.name, js_args.join(", ")), expected)
+}
+
+/// Every opaque definition's body visible until the guard is dropped, as
+/// while a program runs: the reference evaluator gives what a call computes,
+/// and a call written on a `-- run:` line is checked as the JS caller makes
+/// it, so an export typed through an opaque nickname (`share: Split` in
+/// `opaque-nickname-precondition.sw`) takes its arguments.
+fn as_running(g: &View<'_>) -> TransparencyGuard {
+    g.machine
+        .transparent
+        .set((0..g.env.defs().len()).map(DefId).collect())
 }
 
 /// For `f a b`, a JS call `f(<a>, <b>)` that's expected to be refused. The

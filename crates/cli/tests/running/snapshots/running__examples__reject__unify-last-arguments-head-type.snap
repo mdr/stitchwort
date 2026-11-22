@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-CASES] Error: `cases` found nothing to split on, and nothing closes the goal
+    ╭─[ reject/unify-last-arguments-head-type.sw:24:78 ]
+    │
+ 24 │ theorem t ∀ (p: a → Bool) (xs: List a): every (flip xs) p = True := headLe _ cases _ _ ?
+    │                                                                              ──┬──  
+    │                                                                                ╰──── this `cases`
+    │ 
+    │ Note 1: hypothesis 1 (unnamed): _le
+    │ 
+    │ Note 2: hypothesis 2 (unnamed): _le
+    │ 
+    │ Note 3: goal: _le
+    │ 
+    │ Note 4: the goal isn't stuck on anything `cases` can take apart, and neither `byComputing`, a contradiction, a hypothesis, `arithmetic` nor deciding it (as `byDecision` does) proves it; give this case's proof as `cases then t`
+────╯
