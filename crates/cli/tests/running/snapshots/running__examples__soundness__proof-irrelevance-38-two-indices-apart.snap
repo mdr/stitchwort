@@ -9,7 +9,7 @@ expression: output
     │                                                                                    ─────┬─────  
     │                                                                                         ╰─────── `hcast a a x y h 3` and `3` aren't equal
     │ 
-    │ Note 1: the left side is stuck on `h`: it can't compute further until `h` is known; a `match` on `h` (or `cases h`) splits it
+    │ Note 1: the left side is stuck on the proof `h`: its `match` takes its branch only where the proof's index is `x`, and here it is `y`
     │ 
     │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
 ────╯

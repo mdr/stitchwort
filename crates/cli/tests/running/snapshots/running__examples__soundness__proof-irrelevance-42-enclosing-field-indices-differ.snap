@@ -20,7 +20,7 @@ expression: output
     │                                         ─────┬─────  
     │                                              ╰─────── `gb b` and `3` aren't equal
     │ 
-    │ Note 1: the left side is stuck on `b`: it can't compute further until `b` is known; a `match` on `b` (or `cases b`) splits it
+    │ Note 1: the left side is stuck on the proof `b.q`: its `match` takes its branch only where the proof's index is `0`, and here it is `b.n`
     │ 
     │ Note 2: (see the note above: "`byComputing` proves `a =…")
 ────╯

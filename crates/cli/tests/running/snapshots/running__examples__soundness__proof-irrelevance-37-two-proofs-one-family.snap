@@ -9,7 +9,7 @@ expression: output
     │                                                                                                  ─────┬─────  
     │                                                                                                       ╰─────── `second x y h1 h2 4` and `4` aren't equal
     │ 
-    │ Note 1: the left side is stuck on `h2`: it can't compute further until `h2` is known; a `match` on `h2` (or `cases h2`) splits it
+    │ Note 1: the left side is stuck on the proof `h2`: its `match` takes its branch only where the proof's index is `x`, and here it is `y`
     │ 
     │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
 ────╯

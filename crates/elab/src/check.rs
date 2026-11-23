@@ -1145,22 +1145,6 @@ impl<'e> Ctx<'e> {
         })
     }
 
-    /// Whether `a` and `b` differ only in proof positions (a constructor's
-    /// proof field, a data type's proof parameter, a definition's inert
-    /// argument), as shown (calls folded) or as computed. Error path only.
-    pub(crate) fn differ_only_in_proofs_in(&self, a: &NoteSide, b: &NoteSide) -> bool {
-        let g = self.g();
-        [
-            (self.shown_of(a), self.shown_of(b)),
-            (self.normal_of(a), self.normal_of(b)),
-        ]
-        .iter()
-        .any(|pair| match pair {
-            (Some(x), Some(y)) => pretty::differ_only_in_proofs(&g, x, y),
-            _ => false,
-        })
-    }
-
     /// Where what `a` and `b` compute to first differ, as a note. Error
     /// path only.
     pub fn first_difference_note(&self, a: &Value, b: &Value) -> Option<String> {
@@ -11071,30 +11055,6 @@ pub(crate) fn refl_after_instances(cx: &mut Ctx, a: &Value, b: &Value) -> Result
     crate::undo::unify(cx, &a, &b)
 }
 
-/// The function both sides apply, when they are applications of the same one:
-/// `Eq.cong` then proves the goal from an equation between the arguments.
-fn same_function(cx: &Ctx, a: &NoteSide, b: &NoteSide) -> Option<String> {
-    let g = cx.g();
-    let (ta, tb) = (cx.normal_of(a)?, cx.normal_of(b)?);
-    let (ha, xa) = ta.spine();
-    let (hb, xb) = tb.spine();
-    if xa.is_empty() || xb.is_empty() || !stitchwort_core::value::same_term(ha, hb) {
-        return None;
-    }
-    if !matches!(
-        (ha.strip_loc(), hb.strip_loc()),
-        (Term::Def(_), Term::Def(_)) | (Term::Var(_), Term::Var(_))
-    ) {
-        return None;
-    }
-    Some(pretty::term_for_message_in(
-        &g,
-        cx.e,
-        &cx.shown_names(false),
-        ha,
-    ))
-}
-
 /// SW-1538: inside a generalised `match`, `a = b` that the `match`'s
 /// equation states, where `byComputing` fails because the goal came to mention the
 /// scrutinee only after the `match` refined it (after a `rewrite`, say): the
@@ -11151,6 +11111,36 @@ pub(crate) fn is_stuck_side_note(note: &str) -> bool {
 /// the outermost layer, where the first-difference note doesn't look.
 fn stuck_side_note(cx: &Ctx, a: &Value, b: &Value) -> Option<String> {
     let g = cx.g();
+    // A call stuck on a proof whose index isn't the constructor's: its
+    // variable (a record that eta took apart) isn't what it waits for.
+    let proof_index = |v: &Value| {
+        let (proof, found, built) = stitchwort_core::value::stuck_on_proof_index(&g, v)?;
+        let show = |v: &Value| {
+            let term = cx.quote_for_note(v)?;
+            Some(pretty::term_for_message_in(
+                &g,
+                cx.e,
+                &cx.shown_names(false),
+                &term,
+            ))
+        };
+        Some((show(&proof)?, show(&found)?, show(&built)?))
+    };
+    let note = |side: &str, (proof, found, built): (String, String, String)| {
+        format!(
+            "the {side} side is stuck on the proof `{proof}`: its `match` takes its branch \
+             only where the proof's index is `{built}`, and here it is `{found}`"
+        )
+    };
+    match (proof_index(a), proof_index(b)) {
+        (Some(x), None) if stitchwort_core::value::stuck_on_variable(&g, b).is_none() => {
+            return Some(note("left", x));
+        }
+        (None, Some(y)) if stitchwort_core::value::stuck_on_variable(&g, a).is_none() => {
+            return Some(note("right", y));
+        }
+        _ => {}
+    }
     let (sa, sb) = (
         stitchwort_core::value::stuck_on_variable(&g, a),
         stitchwort_core::value::stuck_on_variable(&g, b),
@@ -11264,17 +11254,6 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     }
     if difference && let Some(note) = cx.first_difference_note(a, b) {
         error = error.with_note(note);
-    }
-    // The sides print the same because they differ only in proofs, which a
-    // comparison under an opaque, axiom or same-group call doesn't skip.
-    if !hidden && side_a == side_b && cx.differ_only_in_proofs_in(&sides[0], &sides[1]) {
-        let hint = same_function(cx, &sides[0], &sides[1])
-            .map(|f| format!("; prove it with `Eq.cong` (e.g. `Eq.cong {f} h`)"))
-            .unwrap_or_default();
-        error = error.with_note(format!(
-            "the two sides differ only in a proof inside them, which isn't skipped under an \
-             opaque, axiom or same-group call{hint}"
-        ));
     }
     // Both sides still print the same, as written or computed.
     if alike {
