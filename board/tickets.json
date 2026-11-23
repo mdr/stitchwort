@@ -33423,12 +33423,12 @@
     {
       "id": 4683,
       "title": "[Opus] Overmind rolling check on ff33c1727: 16 new quick-tier failures (reference.rs:1718 binder marked Unknown with sort Type in trusted and cache tests; let_term mark; kernel same_call_arguments_first E-RESOURCE; search tests unknown name List.length/Nat.min/List.unique). Triage, fix or attribute",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nProgress (lane, Opus, 23 Nov ~18:15): kernel same_call_arguments_first: CallMemo equal pairs (SW-4647, 9f57c14cf) make the renamed-definition control cheap; control now runs with shortcuts off (ba131ebe0). let_term: marks from SW-4671; fixed by SW-4674's expectation (left). trusted + 5 cache::tests: validate_marks on the trusted path (SW-4671, d504310cb) met hand-built Unknown marks; tests now give derived marks (c126431b3). Search 9 tests: SW-4663's Std.Prop.irrel put `Prop` in search's import line, which doesn't parse, so nothing was imported; Prop/Type filtered out (6670e9904); what_closes_a_goal snapshot 79->78 matches after the std change. No kernel change. Tests: the named ones, all pass except let_term (SW-4674).\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
       "commits": []
