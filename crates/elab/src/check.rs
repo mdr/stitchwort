@@ -2281,7 +2281,7 @@ impl<'e> Ctx<'e> {
             kcx.bind(
                 "y".into(),
                 along.carrier.clone(),
-                cx.mark_of_type(&along.carrier),
+                cx.mark_of_type(along.carrier),
             );
             let y = kcx.last_var();
             kcx.bind(

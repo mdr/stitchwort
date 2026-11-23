@@ -1,4 +1,4 @@
-//! The kernel's comparison with proof positions skipped, over every term of
+//! The kernel's comparison, two proofs equal by rule I, over every term of
 //! one type up to depth 2 built from a fixed signature
 //! (docs/proposals/proof-irrelevance.md §8, "Equivalence and gluing,
 //! enumerated"). For every pair it must give one answer with gluing on,
@@ -12,7 +12,7 @@
 //!
 //! The terms are of type `Nat`, in the context `p q: 0 = 0`, `t: Tok`,
 //! `n: Nat`, built from `n` and `0` by the operations of [`OPS`]: a
-//! definition with an inert proof parameter (`modP`), one taking a proof
+//! definition ignoring its proof parameter (`modP`), one taking a proof
 //! apart (`tokNat`), one using the proof inside a box (`unboxK`), one
 //! storing its proof in a field (`keepK`), two definitions with the same
 //! case tree (`pickA`, `pickB`), and `applyAt` with a partially applied
@@ -325,7 +325,7 @@ fn every_pair_is_compared_alike_and_the_relation_is_an_equivalence() {
         ],
     );
     let terms = terms(&sig, OPS, op);
-    let count = compared_alike(g, &sig, &terms);
+    let count = compared_alike_in(g, proof_context(), &sig, &terms);
     // The relation isn't trivial: some pairs differ only in proofs and are
     // equal, others differ.
     assert!(count > terms.len() && count < terms.len() * terms.len());
@@ -612,6 +612,23 @@ fn fields_of_calls_are_compared_alike() {
 /// are equal.
 fn compared_alike(g: &Ev, sig: &Sig, terms: &[(String, Term)]) -> usize {
     let env: Vec<Value> = (0..LEVEL).map(Value::var).collect();
+    compared_alike_in(g, env, sig, terms)
+}
+
+/// The context `p q: 0 = 0`, `t: Tok`, `n: Nat`, its proofs marked as their
+/// binders would mark them, so rule I compares them (docs/core.md, "Proof
+/// irrelevance").
+fn proof_context() -> Vec<Value> {
+    (0..LEVEL)
+        .map(|l| match l {
+            P | Q | T => Value::var_marked(l, ProofMark::Proof),
+            _ => Value::var(l),
+        })
+        .collect()
+}
+
+/// [`compared_alike`] in the context `env`.
+fn compared_alike_in(g: &Ev, env: Vec<Value>, sig: &Sig, terms: &[(String, Term)]) -> usize {
     let plain = matrix(g, &env, terms, PLAIN);
     let glued = matrix(g, &env, terms, GLUED);
     let name = |i: usize| &terms[i].0;

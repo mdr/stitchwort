@@ -1,7 +1,8 @@
-//! The kernel's comparison skips proofs (docs/proposals/proof-irrelevance.md
-//! §7.1, §7.2): constructors' proof fields, data types' proof parameters
-//! and definitions' inert arguments; the glued-call shortcut and the other
-//! shortcuts compare constructors' proof fields (§7.10). Each case is a pair
+//! The kernel's comparison with two proofs equal (rule I, docs/core.md
+//! "Proof irrelevance"), with rules K and S, and the pairs that must still
+//! differ: data inside data, a cast whose ends differ. The cases began as
+//! docs/proposals/proof-irrelevance.md §7's position masks; their comments
+//! say which rule now answers. Each case is a pair
 //! of definitions with the same parameters, `<case>L` and `<case>R`, whose
 //! bodies are compared applied to fresh variables, by `value::conv` with
 //! gluing on, with the shortcuts disabled and with gluing off, and by
@@ -307,7 +308,9 @@ fn session() -> Session {
 
 const CASES: &[(&str, bool)] = &[
     ("t1", false),
-    ("t4", false),
+    // Rule I: both sides are proofs (of `Exists`), so the data field inside
+    // isn't looked at.
+    ("t4", true),
     ("t4p", true),
     ("t8", false),
     ("t2", false),
@@ -319,21 +322,32 @@ const CASES: &[(&str, bool)] = &[
     ("t3", true),
     ("t9", false),
     ("box", true),
-    ("t19", false),
+    // Rule I: the results are proofs of `a` (before it, the shortcut
+    // compared the field).
+    ("t19", true),
+    // Rule K: the cast's ends are `a` and `a`, so it computes whatever `h`.
     ("t17", true),
     ("t17p", true),
+    // Rule S: `Tok` has one constructor, so `tokNat` takes its branch
+    // without looking at `t`.
     ("t18", true),
+    // Rule S, as test 18.
     ("t21", true),
     ("t21p", true),
     ("t27a", true),
     ("t27b", true),
-    ("t23", false),
+    // Rule I: the results are proofs.
+    ("t23", true),
     ("t23p", true),
-    ("t24", false),
-    ("t25", false),
+    // Rule I: `h` and `byComputing` are proofs, compared as `g`'s
+    // arguments however many `g` takes.
+    ("t24", true),
+    // Rule I: the results are proofs of `a`.
+    ("t25", true),
     ("t15", false),
     ("t15p", true),
-    ("t22", false),
+    // Rule I: `h1` and `h2` are proofs, whatever the group does with them.
+    ("t22", true),
     ("t22p", true),
     ("t22f", true),
     // The same pair of glued calls, `wrap (MkBox p)` and `wrap (MkBox q)`,
@@ -341,10 +355,10 @@ const CASES: &[(&str, bool)] = &[
     // in the normal mode (equal): `CallMemo` must keep the two apart.
     ("memo", true),
     ("chain24", true),
-    // The same pair of stuck calls, found equal by their trees in the
-    // normal mode, then met inside a shortcut, where they differ:
-    // `TreeMemo` must keep the two apart.
-    ("tree", false),
+    // The same pair of stuck calls, compared by their trees and again
+    // inside the hidden `ob`'s arguments: equal both times by rule I, where
+    // the shortcut mode once made them differ the second time.
+    ("tree", true),
 ];
 
 #[test]
@@ -364,14 +378,14 @@ fn every_case_gets_its_answer_four_ways() {
 }
 
 /// Test 25's other half: where `ou` is transparent, its calls unfold, to
-/// `p` and `q`.
+/// `p` and `q`, two proofs of `a`: equal by rule I either way.
 #[test]
-fn a_transparent_call_unfolds_to_different_proofs() {
+fn a_transparent_call_unfolds_to_proofs_still_equal() {
     let session = session();
     let g = &session.elab.ev();
     let ou = find(g, "ou");
     let _set = g.machine.transparent.set(Rc::from([ou]));
-    assert_eq!(answers(g, "t25"), [false; 4]);
+    assert_eq!(answers(g, "t25"), [true; 4]);
 }
 
 /// Test 29: two chains of glued calls differing only in the innermost proof

@@ -961,13 +961,19 @@ scratch file on 19 Nov 2026).
 - **A lemma's proof is sealed** (D3722). No declaration sees how a theorem
   was proved, only its statement: `byComputing`, `rewrite` and unification
   never compute through a lemma's proof, and `unfolding` can't name a
-  theorem (`E-UNFOLDING-THEOREM`). So
-  a step that needs a lemma's proof to reduce (a `J` along it, two terms
-  that differ only in a proof field built by different lemmas) needs a
-  different step: rewrite the term into the shape the other side has first
-  (`Aoc.Common.Proofs.PrefixSums.atOf` rewrites `Map.empty` into
-  `Map.byPosition []` by an equation `byComputing` proves), or use
-  `Prop.irrel` where two proofs must be equal.
+  theorem (`E-UNFOLDING-THEOREM`). It rarely matters: any two proofs of
+  one statement are equal (rule I, docs/core.md "Proof irrelevance"), so
+  two terms that differ only in which proof they hold are equal by
+  `byComputing`, and a cast into data computes when its ends agree (rule
+  K). What stays stuck is a `J` or match into data along a hypothesis
+  whose sides differ: rewrite with it instead.
+
+- **An unknown inside a proof isn't inferred.** Since proofs are never
+  looked at, an argument that appears only inside a proof can't be worked
+  out from it: in `pick ?n p = pick 3 q`, for a `pick` that returns a
+  proof, `?n` stays unknown (`E-CANNOT-INFER`). Write the argument out, as
+  `Std.Set.Spec`'s lemmas pass their function to `Map.getAlter`
+  (D3725).
 
 - **`&&` and `++` group to the right.** `a && b && c` is `a && (b && c)` and
   `xs ++ ys ++ zs` is `xs ++ (ys ++ zs)`: `byComputing` proves both as they

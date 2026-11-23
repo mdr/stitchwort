@@ -4913,12 +4913,17 @@ pub(crate) mod proof_fixture {
         Span::point(SourceMap::new().add("proofs", ""), 0)
     }
 
-    fn data(g: &mut Kernel, name: &str, params: Vec<(&str, Term)>, sort: Sort) -> DataId {
+    pub(crate) fn data(
+        g: &mut Kernel,
+        name: &str,
+        params: Vec<(&str, Term)>,
+        sort: Sort,
+    ) -> DataId {
         let params = params.into_iter().map(|(x, t)| (x.into(), t)).collect();
         check::declare_data(g, name.into(), name.into(), params, sort, span()).expect(name)
     }
 
-    fn ctor(name: &str, fields: Vec<(&str, Term)>) -> CtorDecl {
+    pub(crate) fn ctor(name: &str, fields: Vec<(&str, Term)>) -> CtorDecl {
         CtorDecl {
             name: name.into(),
             fields: fields
@@ -5990,9 +5995,43 @@ mod tests {
 
     /// A kernel with `List` and `Char` registered as data types 0 and 1. (No
     /// declarations: unification only compares constructors.)
+    /// `List` and `Char` as rule I needs to see them, their sorts and field
+    /// sorts: `Char`'s second field is a proof, as the library's is.
     fn text_globals() -> (Fresh, CompactText) {
         let mut fresh = Fresh::default();
-        let text = CompactText::new(stitchwort_core::DataId(0), stitchwort_core::DataId(1));
+        let g = &mut fresh.g;
+        let n = proof_fixture::data(g, "N", vec![], stitchwort_core::Sort::Type(0));
+        let q = proof_fixture::data(g, "Q", vec![], stitchwort_core::Sort::Prop);
+        let char_data = proof_fixture::data(g, "Char", vec![], stitchwort_core::Sort::Type(0));
+        let list = proof_fixture::data(g, "List", vec![], stitchwort_core::Sort::Type(0));
+        let (n_ty, q_ty) = (Term::data(n, vec![]), Term::data(q, vec![]));
+        stitchwort_core::check::define_ctors(g, n, vec![proof_fixture::ctor("Z", vec![])])
+            .expect("N");
+        stitchwort_core::check::define_ctors(g, q, vec![proof_fixture::ctor("MkQ", vec![])])
+            .expect("Q");
+        stitchwort_core::check::define_ctors(
+            g,
+            char_data,
+            vec![proof_fixture::ctor(
+                "MkChar",
+                vec![("code", n_ty), ("valid", q_ty)],
+            )],
+        )
+        .expect("Char");
+        let char_ty = Term::data(char_data, vec![]);
+        stitchwort_core::check::define_ctors(
+            g,
+            list,
+            vec![
+                proof_fixture::ctor("Nil", vec![]),
+                proof_fixture::ctor(
+                    "Cons",
+                    vec![("head", char_ty), ("tail", Term::data(list, vec![]))],
+                ),
+            ],
+        )
+        .expect("List");
+        let text = CompactText::new(list, char_data);
         fresh.g.env.set_text_unchecked_for_tests(text.clone());
         (fresh, text)
     }
@@ -6097,19 +6136,22 @@ mod tests {
         }
     }
 
-    /// A rigid proof variable stays distinct from `byComputing`, against the compact
-    /// list as against its expansion.
+    /// A character holding a proof variable is the character the compact
+    /// list holds, against the compact list as against its expansion: its
+    /// proof field is a proof, equal to `byComputing` by rule I (docs/core.md,
+    /// "Proof irrelevance"). The fixture once had no `Char` data, which hid
+    /// the field's sort and made the two differ.
     #[test]
-    fn a_rigid_proof_is_not_rfl() {
+    fn a_rigid_proof_field_is_equal_by_rule_i() {
         let (fresh, t) = text_globals();
         let g = &fresh.unifier();
         let t = &t;
         let code = stitchwort_core::native::nat_value(97u32.into());
         let nil = Value::Ctor(t.list, 0, Vec::new().into());
         let lhs = cons(t, mk_char(t, code, Value::var(0)), nil);
-        assert!(!unify(g, 1, &lhs, &compact("a")).unwrap());
-        assert!(!unify(g, 1, &lhs, &expanded(t, "a")).unwrap());
-        assert!(!unify(g, 1, &compact("a"), &lhs).unwrap());
+        assert!(unify(g, 1, &lhs, &compact("a")).unwrap());
+        assert!(unify(g, 1, &lhs, &expanded(t, "a")).unwrap());
+        assert!(unify(g, 1, &compact("a"), &lhs).unwrap());
     }
 
     #[test]

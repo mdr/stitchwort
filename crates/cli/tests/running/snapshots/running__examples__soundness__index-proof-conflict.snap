@@ -3,9 +3,9 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-NOT-EMPTY] Error: `SameP A B` has values, so this argument can't be `()`
-    ╭─[ soundness/index-proof-conflict.sw:16:5 ]
+    ╭─[ soundness/index-proof-conflict.sw:13:5 ]
     │
- 16 │   | ()
+ 13 │   | ()
     │     ─┬  
     │      ╰── `SameP A B` has values, so this argument can't be `()`
 ────╯

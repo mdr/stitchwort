@@ -757,10 +757,14 @@ pub(crate) fn prop_mark(cx: &mut Ctx, ty: &Value) -> Result<ProofMark> {
     }
     let ty = force(&cx.g, ty.clone())?;
     match &ty {
-        Value::Pi(x, _, dom, cod, mark) => {
+        Value::Pi(x, _, dom, cod, _) => {
+            // The binder's mark is derived, never read off the value: it may
+            // be an unchecked term's, and the codomain's sort can depend on
+            // a comparison rule I answers (the SW-4671 review's F2).
+            let mark = prop_mark(cx, dom)?;
             let level = cx.level();
-            let inner = cod.apply(&cx.g, Value::var_marked(level, *mark))?;
-            cx.bind(x.clone(), (**dom).clone(), *mark);
+            let inner = cod.apply(&cx.g, Value::var_marked(level, mark))?;
+            cx.bind(x.clone(), (**dom).clone(), mark);
             let result = prop_mark(cx, &inner);
             cx.unbind(1);
             result

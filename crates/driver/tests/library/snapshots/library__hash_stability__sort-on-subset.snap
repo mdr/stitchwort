@@ -5,5 +5,5 @@ expression: "lines(session, d, f)"
 Main.NotNaN 9527d925e528ae7ab07bffbcfc672127f48ccd1301eefb8dee2421a73c5e1260
 Main.sortedByIeeeLe 5ed9c86e554f6aa4ed4c1155e8d10daffe44577f3b5880ceb335be3bb98b53e2
 Main.pairwiseByIeeeLe b300ab1e38b197a957f9b546532ddb4e39b59468c5727bc956fbaf818c14d293
-Main.nanNotLe 5541148341cf077777b3df6377031dc84a2220ee9ad736747937dc0d565b8dc5
-Main.test "sorted by <=" a0bc937cf7fe0331198d286374d3a72ab3a0659d19177de41e8b1fd0557634e7
+Main.nanNotLe 9c0d305ff805db1f3171bf318f1c3262a4c554eea8dc19381de81da1aebcfc10
+Main.test "sorted by <=" 9ef85ba140f6aaaa89d07e83f6c550385c9a918802d1b3bf7c9ecf21262c64ad

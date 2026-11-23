@@ -2571,7 +2571,7 @@ theorem stepZero ∀ (highest: Nat) (n: Nat):
   - The first match fixes the rule's open arguments. With `f n = g n` and a goal `f 1 + f 2`, only `f 1` is rewritten; `f 2` is a different instance. The search order is what picks the instance, and a chosen occurrence isn't searched inside: in `f (f 1)` with `n := f 1`, the inner `f 1` stays.
   - An occurrence found by being the same term can be of the wrong type: two copies of `x => x`, one for `Bool` and one for `Nat`, are the same term to the search, and a rule about the `Nat` one meets the `Bool` one first (`E-REWRITE-MOTIVE`: the goal with it replaced is ill typed).
   - `E-REWRITE-BUDGET` is about cost, not truth.
-  - With proof irrelevance ([proof-irrelevance.md](proposals/proof-irrelevance.md), SW-93), a candidate that equals the left side only by ignoring a proof field can match and then fail the round trip, as `E-REWRITE-MOTIVE`.
+  - With proof irrelevance (any two proofs of a statement are equal, docs/core.md "Proof irrelevance"), a candidate that equals the left side only by its proofs being equal can match and then fail the round trip, as `E-REWRITE-MOTIVE`.
 
 Examples: `examples/accept/rewrite.sw`, `examples/reject/rewrite-*.sw`. Design: [calc-rewrite.md](proposals/calc-rewrite.md) section 6; as built, its "As built" note.
 
