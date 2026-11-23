@@ -33215,12 +33215,12 @@
     {
       "id": 4670,
       "title": "[Sonnet] Messages after sealing: the sealed note appears for a J stuck on a variable through And.left; read Prop.irrel binders from its type in equations.rs; E-UNKNOWN-NAME says dep has no equations when it has two (SW-4665 review findings 3, 4, 6)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "\n\nD3723 (Matt, 22 Nov 2026): \"yes - our aims for today are to work towards proof irrelevance. We can then think about parallel checking\". Started 23 Nov 11:36 on Sonnet. Expected: 30 min.\n",
+      "body": "\n\nD3723 (Matt, 22 Nov 2026): \"yes - our aims for today are to work towards proof irrelevance. We can then think about parallel checking\". Started 23 Nov 11:36 on Sonnet. Expected: 30 min.\n\n\nLane notes (Sonnet): done on lane/SW-4670, commit 296cda1d0. Sealed note now only when the theorem's arguments are all closed; equation list names guard equations; Prop.irrel binder icits read from its type (no behaviour change, no test possible).\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
       "commits": []
