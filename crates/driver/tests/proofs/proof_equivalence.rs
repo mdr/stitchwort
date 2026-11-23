@@ -765,6 +765,20 @@ def textB (s: List Char) (x: Nat): Nat :=
     | Cons c rest => (match x with
       | Zero => 0
       | Succ m => m)
+
+theorem zeroRefl: 0 = 0 := byComputing
+
+type Tok: Prop = | MkTok
+
+theorem tok: Tok := MkTok
+
+def viaTok (t: Tok) (x: Nat): Nat := match t with | MkTok => x
+
+type Same (a: Type) (x: a): a → Prop = | MkSame: Same a x x
+
+theorem same0: Same Nat 0 0 := MkSame
+
+def carry (a b: Nat) (h: Same Nat a b) (x: Nat): Nat := match h with | MkSame => x
 "#;
 
 fn wrap_sig(g: &Ev) -> Sig {
@@ -789,6 +803,11 @@ fn wrap_sig(g: &Ev) -> Sig {
             "textB",
             "Nat.add",
             "Nat.mul",
+            "zeroRefl",
+            "tok",
+            "viaTok",
+            "same0",
+            "carry",
         ],
     )
 }
@@ -835,6 +854,9 @@ const DEVICES: &[&str] = &[
     "k * x",
     "spelled",
     "over-applied lift",
+    "cast",
+    "one-shape match",
+    "indexed one-shape match",
 ];
 
 fn device(g: &Ev, sig: &Sig, name: &str, x: Term) -> Term {
@@ -857,6 +879,37 @@ fn device(g: &Ev, sig: &Sig, name: &str, x: Term) -> Term {
         // A call folded on a `Quot.lift` leaf that returns a function, so
         // `x` is an argument after the call's arity.
         "over-applied lift" => app(sig.def("liftFn"), vec![sig.def("q0"), x]),
+        // Rule K: a cast along a sealed theorem's proof of `0 = 0`, with its
+        // ends on the proof as the kernel puts them.
+        "cast" => {
+            let nat = Term::Data(sig.data("Nat"), vec![]);
+            let motive = Term::Lam(
+                "y".into(),
+                Icit::Explicit,
+                Term::Lam(
+                    "e".into(),
+                    Icit::Explicit,
+                    nat.clone().into(),
+                    ProofMark::Proof,
+                )
+                .into(),
+                ProofMark::NotProof,
+            );
+            let ends = Term::Eq(
+                Some(nat.into()),
+                nat_term(sig, 0).into(),
+                nat_term(sig, 0).into(),
+            );
+            let proof = Term::Ann(sig.def("zeroRefl").into(), ends.into());
+            Term::J(motive.into(), x.into(), proof.into(), ProofMark::NotProof)
+        }
+        // Rule S: a match into data on a sealed proof of a proposition with
+        // one constructor; and of an indexed one whose indices agree.
+        "one-shape match" => app(sig.def("viaTok"), vec![sig.def("tok"), x]),
+        "indexed one-shape match" => app(
+            sig.def("carry"),
+            vec![nat_term(sig, 0), nat_term(sig, 0), sig.def("same0"), x],
+        ),
         _ => unreachable!("{name}"),
     }
 }
