@@ -588,3 +588,5 @@ thesis (L4), Gilbert et al. (G), Agda #2170 and #8699 (A3), as listed in
 [sealed-theorems.md](sealed-theorems.md#7-sources).
 
 **Decided:** Q1 as D3721 (Matt, 22 Nov 2026): "D3721, yes." The end state is E2.
+
+**Decided:** Q2 as D3724 (Matt, 22 Nov 2026): "If Lean does it, that's fine." So (a). Checked against Lean 4's kernel source (src/kernel/inductive.cpp `init_K_target`, inductive.h `to_cnstr_when_K`, master on 22 Nov 2026): Lean computes such a match for a non-mutual inductive proposition with exactly one constructor and **no fields** beyond the parameters, by comparing the indices (`is_def_eq` of the scrutinee's type with the constructor's). An indexed one-constructor proposition **with** proof fields is outside what Lean does this way; if stage 3's counter finds any in our code, that case goes back to Matt before stage 4.
