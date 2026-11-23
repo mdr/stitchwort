@@ -1,5 +1,5 @@
 {
-  "next": 4665,
+  "next": 4666,
   "tickets": [
     {
       "id": 47,
@@ -33115,6 +33115,19 @@
     {
       "id": 4663,
       "title": "[Sonnet] Std: add Prop.irrel (the Box construction, a theorem since D1prime) and replace the Hedberg chain (Decidable/Bool symThenSelf, fromCanon, uniqueEq in std/core/Decidable.sw) with it; removes the only two theorems that need to stay transparent under sealing (SW-4662 finding)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "\n\nD3722 (Matt, 22 Nov 2026): \"Proceed\" (seal now with no escape hatch, two lanes in series: this, then stage 1). Started 23 Nov 10:15 on Sonnet. Expected: 20 min.\n",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4664,
+      "title": "[DeepSeek] Add the Abel-Coquand program (docs/proposals/full-proof-irrelevance/abel-coquand.sw) as an accept example: the October note calls it a must-keep test but no example file exists (SW-4662 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -33126,8 +33139,8 @@
       "commits": []
     },
     {
-      "id": 4664,
-      "title": "[DeepSeek] Add the Abel-Coquand program (docs/proposals/full-proof-irrelevance/abel-coquand.sw) as an accept example: the October note calls it a must-keep test but no example file exists (SW-4662 finding)",
+      "id": 4665,
+      "title": "[Opus] Sealed theorems stage 1 (D3722): seal every theorem by default with no transparent keyword; refuse a theorem in an unfolding list; PrefixSums.atOf edit; rewrite the unfolding-test examples; docs/core.md and guide; Fable review. After SW-4663.",
       "status": "backlog",
       "agent": "",
       "where": "",
