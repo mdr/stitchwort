@@ -12,7 +12,7 @@
 use std::rc::Rc;
 
 use stitchwort_core::value::{Value, conv, eval, set_shortcuts_disabled};
-use stitchwort_core::{DefId, Ev, reference};
+use stitchwort_core::{DefId, Ev, Term, reference};
 use stitchwort_driver::driver::Session;
 
 const PROGRAM: &str = r#"
@@ -256,7 +256,16 @@ fn applied(g: &Ev, name: &str, reference: bool) -> (usize, Value) {
     let def = g.def(id);
     let arity = def.arity();
     let body = def.body().expect("a body").peel_lams(arity);
-    let env: Vec<Value> = (0..arity).map(Value::var).collect();
+    // Each parameter marked as its binder is, as the checker binds it.
+    let mut marks = Vec::new();
+    let mut ty = def.ty().strip_loc();
+    while let Term::Pi(_, _, _, cod, mark) = ty {
+        marks.push(*mark);
+        ty = cod.strip_loc();
+    }
+    let env: Vec<Value> = (0..arity)
+        .map(|l| Value::var_marked(l, marks.get(l).copied().unwrap_or_default()))
+        .collect();
     let value = if reference {
         reference::eval(g, &env, body).unwrap()
     } else {
@@ -363,24 +372,6 @@ fn a_transparent_call_unfolds_to_different_proofs() {
     let ou = find(g, "ou");
     let _set = g.machine.transparent.set(Rc::from([ou]));
     assert_eq!(answers(g, "t25"), [false; 4]);
-}
-
-/// The marks the cases rely on.
-#[test]
-fn the_marks() {
-    let session = session();
-    let g = &session.elab.ev();
-    let marks = |name: &str| g.def(find(g, name)).inert_params().to_vec();
-    assert_eq!(marks("cast"), [false; 4]);
-    assert_eq!(marks("tokNat"), [false, false]);
-    assert_eq!(marks("keep"), [false, false]);
-    assert_eq!(marks("g"), [false]);
-    assert_eq!(marks("fnEq"), [false, true]);
-    assert_eq!(marks("grpA"), [false, false]);
-    assert_eq!(marks("grpB"), [false, false]);
-    assert_eq!(marks("quietA"), [false, true]);
-    assert_eq!(marks("quietB"), [false, true]);
-    assert_eq!(marks("myAbsurd"), [true]);
 }
 
 /// Test 29: two chains of glued calls differing only in the innermost proof

@@ -5327,8 +5327,8 @@ pub fn partial_mismatch(
             if i1 != i2 {
                 return Ok(None);
             }
-            let v = Value::var(cx.level());
             cx.bind_hidden(x, (*d1).clone());
+            let v = cx.last_var();
             found = c1.apply(&g, v.clone())?;
             expected = c2.apply(&g, v)?;
         }
@@ -5377,8 +5377,8 @@ pub fn coerce(cx: &mut Ctx, term: &Term, found: &Value, expected: &Value) -> Res
             if !cx.unify(&d1, &d2)? {
                 return Ok(None);
             }
-            let v = Value::var(cx.level());
             cx.bind_hidden(x.clone(), (*d1).clone());
+            let v = cx.last_var();
             names.push(x);
             found = c1.apply(&g, v.clone())?;
             expected = c2.apply(&g, v)?;

@@ -546,6 +546,27 @@ impl<'e> Ctx<'e> {
         self.locals.truncate(mark.locals);
     }
 
+    /// Whether a variable of type `ty`, here, is a proof
+    /// ([`stitchwort_core::value::mark_of_type`]), for its mark. Unknown
+    /// if working it out runs out of budget: the mark only lets
+    /// comparison skip the variable.
+    pub fn mark_of_type(&self, ty: &Value) -> stitchwort_core::ProofMark {
+        let g = self.g();
+        let types = |l: usize| self.types.get(l).cloned();
+        stitchwort_core::value::mark_of_type(&g, ty, &types, self.level() + 1_000_000)
+            .unwrap_or(stitchwort_core::ProofMark::Unknown)
+    }
+
+    /// The variable the next binding of type `ty` makes, with its mark.
+    pub fn fresh_var(&self, ty: &Value) -> Value {
+        Value::var_marked(self.level(), self.mark_of_type(ty))
+    }
+
+    /// The variable bound last, as the context holds it (with its mark).
+    pub fn last_var(&self) -> Value {
+        self.env.last().cloned().expect("a variable is bound")
+    }
+
     /// Binds a variable that can be referred to by `name`.
     pub fn bind(&mut self, name: &str, ty: Value) {
         self.scope.push((name.to_string(), self.level()));
@@ -555,7 +576,8 @@ impl<'e> Ctx<'e> {
     /// Binds a variable that can't be referred to by name.
     pub fn bind_hidden(&mut self, name: Name, ty: Value) {
         self.forget_text_fixed_from(self.level());
-        self.env.push(Value::var(self.level()));
+        let mark = self.mark_of_type(&ty);
+        self.env.push(Value::var_marked(self.level(), mark));
         self.types.push(ty);
         self.names.push(name);
         self.written.push(None);
@@ -2256,8 +2278,12 @@ impl<'e> Ctx<'e> {
             // longer checks (a proof about the scrutinee inside it):
             // then this isn't a rewrite, and the mismatch stands.
             let mut kcx = crate::rewrite::kernel_context(cx)?;
-            let y = Value::var(kcx.level());
-            kcx.bind("y".into(), along.carrier.clone(), ProofMark::Unknown);
+            kcx.bind(
+                "y".into(),
+                along.carrier.clone(),
+                cx.mark_of_type(&along.carrier),
+            );
+            let y = kcx.last_var();
             kcx.bind(
                 "p".into(),
                 Value::Eq(
@@ -5624,8 +5650,8 @@ fn result_after_parameters(
             return Ok(false);
         }
         while let Value::Pi(x, _, d, c, _) = ty {
-            let v = Value::var(cx.level());
             cx.bind_hidden(x, (*d).clone());
+            let v = cx.last_var();
             ty = force(&g, c.apply(&g, v)?)?;
         }
         result(cx, &ty)
@@ -6269,8 +6295,8 @@ fn typed_lambda(
         });
     }
     let mark = cx.mark();
-    let var = Value::var(cx.level());
     cx.bind(&name.text, dom.clone());
+    let var = cx.last_var();
     let body_ty = cod.apply(&g, var)?;
     if cx.e.records_steps(name.span) {
         let before = Value::Pi(
@@ -7057,8 +7083,8 @@ fn chain_parts(cx: &mut Ctx, goal: &Value, count: usize) -> Result<Option<Vec<St
                         _ => "x".into(),
                     };
                     parts.push(format!("a value for `{x}`"));
-                    let var = Value::var(cx.level());
                     cx.bind_hidden(x, params[0].clone());
+                    let var = cx.last_var();
                     apply(&g, params[1].clone(), var)?
                 }
                 Some(_) => {
@@ -7188,8 +7214,8 @@ fn implicit_lambda(
     cod: &Closure,
 ) -> Result<Term> {
     let mark = cx.mark();
-    let var = Value::var(cx.level());
     cx.bind_hidden(x.clone(), dom.clone());
+    let var = cx.last_var();
     let result = check(cx, expr, &cod.apply(&cx.g(), var)?);
     cx.reset(mark);
     Ok(Term::Lam(
@@ -7230,7 +7256,7 @@ fn explicit_lambda(
         );
     };
     let mark = cx.mark();
-    let var = Value::var(cx.level());
+    let var = cx.fresh_var(dom);
     // A lambda checked against the statement `∀ x, p x` has its body checked
     // against `p x` (`Ctx::statement`).
     let saved_statement = cx.statement.clone();
@@ -8443,8 +8469,8 @@ fn returns_computation(cx: &mut Ctx, ty: &Value) -> Result<bool> {
     let mut any = false;
     let result = (|| -> Result<bool> {
         while let Value::Pi(x, Icit::Explicit, dom, cod, _) = ty {
-            let v = Value::var(cx.level());
             cx.bind_hidden(x, (*dom).clone());
+            let v = cx.last_var();
             ty = force(&g, cod.apply(&g, v)?)?;
             any = true;
         }
@@ -10425,7 +10451,7 @@ fn ctor_app(
     for &i in &missing {
         match target.as_ref().map(|t| force(&g, t.clone())).transpose()? {
             Some(Value::Pi(_, Icit::Explicit, dom, cod, _)) => {
-                let var = Value::var(cx.level());
+                let var = cx.fresh_var(&dom);
                 let name: Name = ctor.fields[i].0.clone();
                 missing_level[i] = Some(cx.level());
                 cx.bind_hidden(name.clone(), (*dom).clone());

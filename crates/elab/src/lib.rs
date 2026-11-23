@@ -4516,8 +4516,8 @@ impl Elaborator {
                 // Implicit and auto parameters are in scope by name, wherever
                 // they are in the signature.
                 Value::Pi(x, icit, dom, cod, _) if icit.is_implicit() => {
-                    let var = Value::var(cx.level());
                     cx.bind(&x, (*dom).clone());
+                    let var = cx.last_var();
                     cx.set_kind(icit);
                     next_written(cx);
                     lams.push((x, icit));
@@ -4528,7 +4528,7 @@ impl Elaborator {
                         Pattern::Var(v) => name(v),
                         _ => x,
                     };
-                    let var = Value::var(cx.level());
+                    let var = cx.fresh_var(&dom);
                     columns.push(cx.level());
                     column_types.push(Some((*dom).clone()));
                     cx.bind_hidden(param.clone(), (*dom).clone());
@@ -6302,8 +6302,8 @@ fn unfolded_arguments_note(
         if icit == Icit::Explicit {
             added.push(format!("`{}: {}`", x, cx.show(&dom)));
         }
-        let var = Value::var(cx.level());
         cx.bind_hidden(x, (*dom).clone());
+        let var = cx.last_var();
         ty = cod.apply(g, var)?;
     }
     if added.is_empty() {

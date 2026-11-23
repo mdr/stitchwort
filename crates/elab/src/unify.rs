@@ -4897,7 +4897,7 @@ pub(crate) mod proof_fixture {
     /// - `pick (n: N) (b: Box Q): Q`, which unboxes at `Z`: `match n with
     ///   | Z => (match b with | MkBox x => x) | S m => MkQ m`
     /// - `pick2 (n: N) (b: Box Q): Q`, which unboxes at `S Z` instead
-    /// - `ignores (n: N) (k: N) (h: Q): N := n`, inert at `h`
+    /// - `ignores (n: N) (k: N) (h: Q): N := n`, which never reads `h`
     pub(crate) struct Proofs {
         pub(crate) n: DataId,
         pub(crate) q: DataId,
@@ -5276,112 +5276,44 @@ mod tests {
         assert!(solved_as_three(m) && solved_as_three(k));
     }
 
-    /// Test 28: a call stuck on an unknown unfolds once it's solved, so its
-    /// arguments are unified in shortcut mode, which compares proof fields:
-    /// `pick ?n (MkBox p)` and `pick ?n (MkBox q)` differ (at `?n := Z` they
-    /// are `p` and `q`), and nothing is solved.
+    /// Test 28, under rule I: `pick` returns a proof, so `pick ?n (MkBox p)`
+    /// and `pick ?n (MkBox q)` are equal unlooked at, and nothing inside is
+    /// solved, even where the arguments would say what `?n` is (the
+    /// inference E2 gives up, docs/proposals/full-proof-irrelevance.md §7).
+    /// The kernel agrees at every solution: there both are proofs too.
     #[test]
-    fn a_call_stuck_on_an_unknown_compares_proof_fields() {
+    fn calls_of_a_proof_are_equal_by_rule_i() {
         let (fresh, p) = proofs();
         let g = &fresh.unifier();
-        let pick = |n: Value, proof: Value| {
-            let f = eval(g, &[], &Term::Def(p.pick)).unwrap();
-            let f = apply_icit(g, f, n, Icit::Explicit).unwrap();
-            apply_icit(
-                g,
-                f,
-                Value::Ctor(p.boxed, 0, [proof].into()),
-                Icit::Explicit,
-            )
-            .unwrap()
-        };
-        let (n, n_value) = meta(g, &[]);
-        let (a, b) = (
-            pick(n_value.clone(), Value::var(0)),
-            pick(n_value.clone(), Value::var(1)),
-        );
-        assert!(!unify(g, 2, &a, &b).unwrap());
-        assert!(g.meta_solution(n).is_none());
-        // Paired: against `pick x (MkBox p)`, stuck on a variable, `?n x`
-        // is solved with `x`.
-        let (n, n_value) = meta(g, &[2]);
-        let a = pick(n_value, Value::var(0));
-        assert!(unify(g, 3, &a, &pick(Value::var(2), Value::var(0))).unwrap());
-        let solution = g.meta_solution(n).expect("solved");
-        let applied = apply_icit(g, solution, Value::var(2), Icit::Explicit).unwrap();
-        assert!(is_var(g, &applied, 2));
-    }
-
-    /// The unifier compares in shortcut mode wherever an unknown may yet be
-    /// solved with something that takes a proof field apart, so it never
-    /// accepts a pair the kernel rejects once the unknown is solved. Each
-    /// case is checked against the kernel's answer at that solution (U3,
-    /// U6).
-    #[test]
-    fn an_unknown_solved_later_never_hides_a_proof_field() {
-        let (fresh, p) = proofs();
-        let g = &fresh.unifier();
-        let boxed = |x: Value| Value::Ctor(p.boxed, 0, [x].into());
+        let proof = |l: usize| Value::var_marked(l, ProofMark::Proof);
         let call = |f: DefId, n: Value, x: Value| {
             let f = eval(g, &[], &Term::Def(f)).unwrap();
             let f = apply_icit(g, f, n, Icit::Explicit).unwrap();
-            apply_icit(g, f, boxed(x), Icit::Explicit).unwrap()
+            apply_icit(g, f, Value::Ctor(p.boxed, 0, [x].into()), Icit::Explicit).unwrap()
         };
         let z = || Value::Ctor(p.n, 0, Vec::new().into());
-        let s = |v: Value| Value::Ctor(p.n, 1, [v].into());
-        let kernel = |a: &Value, b: &Value| conv(g, 2, a, b).unwrap();
-        // At the solutions below, the kernel tells `p` and `q` apart.
-        let at_z = |f| (call(f, z(), Value::var(0)), call(f, z(), Value::var(1)));
-        let (a, b) = at_z(p.pick);
-        assert!(!kernel(&a, &b));
+        let (n, n_value) = meta(g, &[]);
         let (a, b) = (
-            call(p.pick2, s(z()), Value::var(0)),
-            call(p.pick2, s(z()), Value::var(1)),
+            call(p.pick, n_value.clone(), proof(0)),
+            call(p.pick, n_value, proof(1)),
         );
-        assert!(!kernel(&a, &b));
-
-        // A call stuck on an unknown inside a constructor: `pick2 (S ?n) _`.
-        let (_, n) = meta(g, &[]);
-        let a = call(p.pick2, s(n.clone()), Value::var(0));
-        let b = call(p.pick2, s(n), Value::var(1));
-        assert!(!unify(g, 2, &a, &b).unwrap());
-
-        // A call stuck on a frozen unknown.
-        let (m, n) = meta(g, &[]);
-        g.store.freeze_meta(m);
-        let a = call(p.pick, n.clone(), Value::var(0));
-        let b = call(p.pick, n, Value::var(1));
-        assert!(!unify(g, 2, &a, &b).unwrap());
-
-        // The same unknown applied twice: `?m := b => pick Z b` tells them
-        // apart.
-        let m = g.store.new_meta(span());
-        let applied = |x: Value| {
-            Value::Neutral(
-                Head::Meta(m),
-                vec![Elim::App(boxed(x), Icit::Explicit)].into(),
-            )
-        };
-        assert!(!unify(g, 2, &applied(Value::var(0)), &applied(Value::var(1))).unwrap());
-
-        // Last arguments paired: `?m (MkBox p)` against `pick ?n (MkBox q)`
-        // would solve `?m := pick ?n`, and then `?n := Z`.
-        let m = g.store.new_meta(span());
-        let (_, n) = meta(g, &[]);
-        let a = Value::Neutral(
-            Head::Meta(m),
-            vec![Elim::App(boxed(Value::var(0)), Icit::Explicit)].into(),
-        );
-        assert!(!unify(g, 2, &a, &call(p.pick, n, Value::var(1))).unwrap());
+        assert!(unify(g, 2, &a, &b).unwrap());
+        assert!(g.meta_solution(n).is_none());
+        let (n, n_value) = meta(g, &[2]);
+        let a = call(p.pick, n_value, proof(0));
+        assert!(unify(g, 3, &a, &call(p.pick, Value::var(2), proof(0))).unwrap());
+        assert!(g.meta_solution(n).is_none());
+        for f in [p.pick, p.pick2] {
+            let (a, b) = (call(f, z(), proof(0)), call(f, z(), proof(1)));
+            assert!(conv(g, 2, &a, &b).unwrap());
+        }
     }
 
-    /// Only leading applications are a definition's arguments: one after a
-    /// `J`, at an inert position's index, is compared (as in `conv`).
+    /// An argument after a `J` is compared, as every argument is.
     #[test]
     fn an_argument_after_a_j_is_unified() {
         let (fresh, p) = proofs();
         let g = &fresh.unifier();
-        assert_eq!(g.def(p.ignores).inert_params(), &[false, false, true]);
         let spine = |last: usize| {
             let elims = vec![
                 Elim::App(Value::var(0), Icit::Explicit),

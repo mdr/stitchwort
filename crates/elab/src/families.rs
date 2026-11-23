@@ -894,7 +894,7 @@ fn enter(
     let mut field_env = params.to_vec();
     for ((_, field_ty), name) in ctor.fields.iter().zip(names) {
         let ty = eval(&g, &field_env, field_ty)?;
-        field_env.push(Value::var(cx.level()));
+        field_env.push(cx.fresh_var(&ty));
         cx.bind_hidden(name.clone(), ty);
     }
     let level = cx.level();

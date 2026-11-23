@@ -87,6 +87,11 @@ impl<'g> Ctx<'g> {
 
     /// Binds a variable of type `ty`; `mark` says whether it's a proof,
     /// which the caller derived from `ty`'s sort ([`prop_mark`]).
+    /// The variable bound last, with its mark.
+    pub fn last_var(&self) -> Value {
+        self.env.last().cloned().expect("a variable is bound")
+    }
+
     pub fn bind(&mut self, name: Name, ty: Value, mark: ProofMark) {
         self.env.push(Value::var_marked(self.level(), mark));
         self.types.push(ty);
@@ -2581,7 +2586,15 @@ impl<'g, K: Fn(usize) -> Option<Apart>> Unchanged<'g, K> {
             for elim in spine.iter() {
                 match elim {
                     Elim::App(arg, _) => todo.push(arg),
-                    Elim::J { motive, base, .. } => todo.extend([&**motive, &**base]),
+                    // A cast's ends are read back with it, on its proof.
+                    Elim::J {
+                        motive, base, ends, ..
+                    } => {
+                        todo.extend([&**motive, &**base]);
+                        if let Some(ends) = ends {
+                            todo.extend([&ends.ty, &ends.x, &ends.y]);
+                        }
+                    }
                     Elim::Proj(..) => {}
                 }
             }

@@ -14,7 +14,8 @@ def constFalse (q: Q): Bool := Quot.lift (b => False) (x y related => byComputin
 -- `Quot.ind` proves propositions about every quotient (soundness/quot-ind-into-data.sw).
 theorem allSame ∀ (q: Q): q = Quot.mk False := Quot.ind [p := q => q = Quot.mk False] (x => Quot.sound Trivial) q
 
--- A stuck `Quot.ind` is equal to itself (soundness/quot-ind-computes.sw).
+-- A stuck `Quot.ind` is equal to itself (and, being a proof, to any other
+-- proof of the same proposition: accept/quot-ind-computes.sw).
 theorem indItself ∀ (q: Q): Quot.ind [p := q => Unit] (b => Trivial) q = Quot.ind [p := q => Unit] (b => Trivial) q :=
   byComputing
 

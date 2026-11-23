@@ -710,8 +710,8 @@ impl Search<'_> {
                             n => n,
                         };
                         let shown = fresh(cx, base);
-                        let var = Value::var(cx.level());
                         cx.bind(&shown, (*dom).clone());
+                        let var = cx.last_var();
                         bound.push((cx.level() - 1, shown.clone()));
                         wraps.push(Wrap::Lam(shown.as_str().into(), Icit::Explicit, shown));
                         body_goal = force(&g, cod.apply(&g, var)?)?;

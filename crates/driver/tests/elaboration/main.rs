@@ -16,7 +16,6 @@ mod empty_row_kernel;
 mod erasure;
 mod float;
 mod indexed_families;
-mod inert_params;
 mod int;
 mod int_patterns;
 mod interfaces;
