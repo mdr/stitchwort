@@ -22,7 +22,7 @@ use std::collections::BTreeSet;
 use crate::common::*;
 use stitchwort_core::check;
 use stitchwort_core::term::Term;
-use stitchwort_core::unify_index::{Outcome, Scope, unify};
+use stitchwort_core::unify_index::{Outcome, Reason, Scope, unify};
 use stitchwort_core::value::{Head, Value, conv, eval, quote};
 use stitchwort_core::{DataId, DefId, Name, ProofMark, Sort};
 
@@ -959,5 +959,33 @@ fn refined_types_are_quoted_at_the_branch_depth() {
     assert!(matches!(
         &scope.env[3],
         Value::Neutral(Head::Var(3, _, _), _)
+    ));
+}
+
+/// Two different proofs `p` and `q` of `P` that are rigid (so neither is
+/// solved) are equal by rule I when marked as proofs, and deleted. Only a
+/// variable whose mark is unknown (the elaborator's, when a type's sort is
+/// still to be solved) is told apart from the other, and then the equation
+/// is stuck with `Reason::Proof`: the one way that answer is reached, since
+/// the kernel marks every proof variable it checks.
+#[test]
+fn an_equation_between_unmarked_proofs_is_stuck() {
+    let sig = Sig::new();
+    let g = sig.p.g.ev();
+    let run = |mark: ProofMark| {
+        let mut scope = sig.scope();
+        for l in [4, 5] {
+            scope.env[l] = Value::var_marked(l, mark);
+        }
+        scope.rigid = vec![4, 5];
+        let vars = scope.env.clone();
+        let binders = vec![(Name::from("e"), sig.ty(&Ty::P, 10))];
+        let (lhs, rhs) = (vars[4].clone(), vars[5].clone());
+        unify(&g, &mut scope, &binders, vars, vec![lhs], vec![rhs]).unwrap()
+    };
+    assert!(matches!(run(ProofMark::Proof), Outcome::Solved(s) if s.is_empty()));
+    assert!(matches!(
+        run(ProofMark::Unknown),
+        Outcome::Stuck(_, Reason::Proof)
     ));
 }

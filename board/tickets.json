@@ -33400,7 +33400,7 @@
     {
       "id": 4681,
       "title": "[Sonnet] Unit tests for E-MALFORMED on a wrong Quot mark and on wrong motive binder marks (SW-4671 review F6, not done in SW-4674)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33591,7 +33591,7 @@
     {
       "id": 4694,
       "title": "[Sonnet] Kernel unit test with a hand-built shared case subtree for rule S's 'found exactly once' guard in slot_type (SW-4690 review F3)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33633,7 +33633,7 @@
     {
       "id": 4697,
       "title": "[Sonnet] unify_index's stuck answer for an equation between proofs (Reason::Proof) is now reached only with an unknown mark, so no kernel test reaches it: add an elaborator-side test or remove it; and trim indexed test_25's now near-duplicate paired case (SW-4696 findings)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
