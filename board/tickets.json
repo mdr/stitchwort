@@ -1,5 +1,5 @@
 {
-  "next": 4663,
+  "next": 4665,
   "tickets": [
     {
       "id": 47,
@@ -33098,12 +33098,42 @@
     {
       "id": 4662,
       "title": "[Fable, paper] Design note: full proof irrelevance with sealed theorems as the end state, against sealing plus today's partial (D1') rule (D3720)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nD3720 (Matt, 22 Nov 2026): \"D3720, yes, proceed with that paper lane.\" D3719 (sealing by default, stage 1) held until this note is back. Started 23 Nov 09:22 on Fable (paper). Expected: 40 min.\n\n\nProgress (lane, 23 Nov 09:35): note written, docs/proposals/full-proof-irrelevance.md, with four probe files in docs/proposals/full-proof-irrelevance/ (run on main's release binary). Recommends E2 (full irrelevance with the cast rule K and the one-shape match rule S, by Rocq-style marks on binders). Findings against the brief's beliefs: Abel-Coquand's term does not loop a checker that never computes proofs (all of its terms are proofs; Pujet-Tabareau POPL 2023 prove decidability that way for a related system); D1981's record-eta limit stays (Rocq has the same); SW-4661 stays as an instance of the general rule; a user's indexed one-shape proposition matched into data needs a decision. Three questions for Matt in section 10: end state (rec E2), indexed propositions (rec: compute them), seal now with no transparent-theorem keyword (rec yes). Nothing built; about 13 min.\n",
+      "body": "\n\nD3720 (Matt, 22 Nov 2026): \"D3720, yes, proceed with that paper lane.\" D3719 (sealing by default, stage 1) held until this note is back. Started 23 Nov 09:22 on Fable (paper). Expected: 40 min.\n\n\nProgress (lane, 23 Nov 09:35): note written, docs/proposals/full-proof-irrelevance.md, with four probe files in docs/proposals/full-proof-irrelevance/ (run on main's release binary). Recommends E2 (full irrelevance with the cast rule K and the one-shape match rule S, by Rocq-style marks on binders). Findings against the brief's beliefs: Abel-Coquand's term does not loop a checker that never computes proofs (all of its terms are proofs; Pujet-Tabareau POPL 2023 prove decidability that way for a related system); D1981's record-eta limit stays (Rocq has the same); SW-4661 stays as an instance of the general rule; a user's indexed one-shape proposition matched into data needs a decision. Three questions for Matt in section 10: end state (rec E2), indexed propositions (rec: compute them), seal now with no transparent-theorem keyword (rec yes). Nothing built; about 13 min.\n\n\nModel result: Fable, worked, 13 min (est. 40). Recommends E2; questions Q1-Q3 as D3721-D3723, brought to Matt one at a time.\n",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": [
+        "ad9d5e371",
+        "bbb79016c",
+        "aa5be8f2c3fe1fc4cc5d87ff5a0ffe29b61d16b5"
+      ]
+    },
+    {
+      "id": 4663,
+      "title": "[Sonnet] Std: add Prop.irrel (the Box construction, a theorem since D1prime) and replace the Hedberg chain (Decidable/Bool symThenSelf, fromCanon, uniqueEq in std/core/Decidable.sw) with it; removes the only two theorems that need to stay transparent under sealing (SW-4662 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4664,
+      "title": "[DeepSeek] Add the Abel-Coquand program (docs/proposals/full-proof-irrelevance/abel-coquand.sw) as an accept example: the October note calls it a must-keep test but no example file exists (SW-4662 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
       "created": "2026-11-23",
       "updated": "2026-11-23",
       "commits": []
