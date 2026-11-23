@@ -294,8 +294,12 @@ of work to fit it:
   Don't use `git stash`: every worktree shares one stash list, so a
   `stash pop` can take another lane's work (SW-1612). Commit, or keep a
   patch file in the scratchpad.
-- Move your own ticket as described in `board/README.md`, and report what
-  you did, what you didn't do, and which tests you ran.
+- Move your own ticket as described in `board/README.md`, and commit the
+  `board/tickets.json` change on your branch as its own commit; report what
+  you did, what you didn't do, and which tests you ran. Paper lanes
+  following `dev/briefs/` don't touch the board.
+- The shell's `sed` is GNU, not macOS's: `sed -i 's/a/b/' f`, never
+  `sed -i '' …` (it failed in four lanes on 22 Nov 2026).
 - Keep to your brief's time estimate: run `date` at the start and at each
   milestone. At 1.5× the estimate, stop and report (done, left, new
   estimate, stuck or not); at 3×, stop regardless.
