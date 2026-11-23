@@ -1063,6 +1063,8 @@ enum Step {
 enum Uniq {
     Bool(Term, Term),
     DecEq(DefId, Vec<(Term, Icit)>, Vec<Icit>),
+    /// Any other proposition `p`: `Prop.irrel p`, from std's core.
+    Irrel(DefId, Term),
 }
 
 /// A lifted `match`'s helper's call: the parameter it matches, and its
@@ -1183,6 +1185,8 @@ struct BranchLib {
     false_not_true: DefId,
     bool_unique: DefId,
     deceq_unique: Option<(DefId, Vec<Icit>)>,
+    /// `Prop.irrel`: any two proofs of a proposition are equal.
+    prop_irrel: Option<DefId>,
     deceq_decide: Option<DefId>,
     inspect: Option<DefId>,
     to_bool: DefId,
@@ -1665,6 +1669,14 @@ impl BranchLib {
                             }
                             out
                         }
+                        Uniq::Irrel(irrel, p) => apps(
+                            Term::Def(*irrel),
+                            [
+                                (p.shift(g, 1, 0)?, Icit::Explicit),
+                                (both[0].clone(), Icit::Explicit),
+                                (both[1].clone(), Icit::Explicit),
+                            ],
+                        ),
                     };
                     Term::J(Rc::new(motive), Rc::new(q.shift(g, 1, 0)?), Rc::new(proof))
                 }
@@ -1723,6 +1735,7 @@ impl BranchLib {
                     Some(Uniq::DecEq(unique, given, icits)) => {
                         Some(Uniq::DecEq(*unique, at_top(given, *depth)?, icits.clone()))
                     }
+                    Some(Uniq::Irrel(irrel, p)) => Some(Uniq::Irrel(*irrel, up(p, *depth, 0)?)),
                 };
                 let normal = match normal {
                     None => None,
@@ -4605,6 +4618,12 @@ impl Elaborator {
                 ));
             }
         }
+        // Any other proposition (a conjunction read from an `&&` guard, a
+        // condition a `decreasing` proof is made from): by `Prop.irrel`,
+        // its statement alone, so a theorem's sealed proof is never needed.
+        if let Some(irrel) = lib.prop_irrel {
+            return Ok(Uniq::Irrel(irrel, p.clone()));
+        }
         let proof = match proof {
             Some(name) => format!("the proof `{name}`"),
             None => "the guard's proof".to_string(),
@@ -4644,6 +4663,7 @@ impl Elaborator {
             false_not_true: r.def(Builtin::FalseNotTrue).ok_or_else(none)?,
             bool_unique: r.def(Builtin::BoolUniqueEq).ok_or_else(none)?,
             deceq_unique,
+            prop_irrel: self.lookup_def("Std.Prop.irrel"),
             deceq_decide: self.lookup_def("Std.DecEq.decide"),
             inspect: self.lookup_def("Std.Bool.inspect"),
             to_bool: r.def(Builtin::Holds).ok_or_else(none)?,

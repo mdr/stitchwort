@@ -62,11 +62,13 @@ theorem PrefixSums.atOf ∀ (rows: List (List Nat)) (r c: Nat)
           (j => List.getOr (List.padRight (List.getOr rows i []) width 0) j 0)
           (j => PrefixSums.cell rows i j)
           (j => List.getOrPadRight (List.getOr rows i []) 0 width j)
+  let emptyIsByPosition: (Map.byPosition []: Map Nat Nat) = Map.empty := byComputing
   calc PrefixSums.at (PrefixSums.of rows) r c
     _ = Map.getOr (Map.getOr (Map.byPosition (List.map table Map.byPosition)) r Map.empty) c 0 := byComputing
     _ = Map.getOr (List.getOr (List.map table Map.byPosition) r Map.empty) c 0 :=
       rewrite Map.getOrByPosition (List.map table Map.byPosition) r Map.empty
-    _ = Map.getOr (Map.byPosition (List.getOr table r [])) c 0 := rewrite List.getOrMap table r [] Map.byPosition
+    _ = Map.getOr (Map.byPosition (List.getOr table r [])) c 0 :=
+      rewrite <- emptyIsByPosition, List.getOrMap table r [] Map.byPosition
     _ = List.getOr (List.getOr table r []) c 0 := Map.getOrByPosition (List.getOr table r []) c 0
     _ = List.getOr top c 0 + List.sumBy (List.range 0 r) (i => List.getOr (List.getOr sums i []) c 0) :=
       PrefixSums.tableAt c top sums topLength sumsLength r

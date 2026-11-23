@@ -98,5 +98,5 @@ Main.test "(-2, -2) is column 8" ec6d78ed4aa14529d61d56f24bf0f6152392307b6b47370
 Main.test "(-2, -2) is row 3" 7ae896f529b0ed673bca5a0ce6b73f30a62e783231c8b2ab9c50e89c041d4aa8
 Main.test "(10, 5) is the corner cell" 993245c49f2bc76c2a5a06a9b1c6b3695430f037af52a587681a59afe87b7ad5
 Main.test "(-1, -1) is the far corner" 9288e32dfaf65b4dc9b7ecfe7f471db22d679978ae637408f593d282f4fa79cb
-Main.colNonneg d6ea22e0f8a6b35eaceb6ddea86652815243df6866f78fa440894144a96c6fc4
-Main.colSmall c9b206463bae247327d6c8c04b382f9e2425c8686e66e3afde4389ce0b6ff312
+Main.colNonneg ffa3383cb4cdef8054db48cf533939f87aef3c6bd50209a045be131eedcfc093
+Main.colSmall 5576250084a985c4e8f1592609c6cb69ddb6e0de61e2c64a5c8affcc8f3d99fe

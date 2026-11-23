@@ -1231,6 +1231,8 @@ test "checksum" := checksum [1, 2] == 33
 
 The program still runs the body, and the test uses it. What opacity changes is what other proofs can see: one that doesn't say `unfolding` can't depend on the body, and its check doesn't have to compute through it. `unfolding` is for a theorem or another `opaque def`, and not for a plain `def`, whose body is always visible.
 
+Every theorem is opaque in this way, always: a proof's body is **sealed**. Other declarations use what a theorem states, never how it was proved, so changing a proof can't break another one. A theorem can't be named in `unfolding` (`E-UNFOLDING-THEOREM`), and when a computation gets stuck on a theorem's proof (moving a value along an equation it proves, say), the error says the proof is sealed.
+
 ## Proofs about effectful code
 
 A handler applied to a computation of a known shape computes, so many facts about effectful code are `byComputing` ([chapter 8](08-abilities.md)). A law about *any* computation needs to split on what the computation does. `match reify t with` does that, with clauses written as a handler's: one for finishing with a value, and one per operation:

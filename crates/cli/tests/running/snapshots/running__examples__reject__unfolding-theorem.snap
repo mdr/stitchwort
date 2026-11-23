@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-UNFOLDING-THEOREM] Error: `addZero` is a theorem, so its proof can't be unfolded
+    ╭─[ reject/unfolding-theorem.sw:10:46 ]
+    │
+ 10 │ theorem castComputes: cast 3 5 = 5 unfolding addZero := byComputing
+    │                                              ───┬───  
+    │                                                 ╰───── a theorem's proof is sealed
+    │ 
+    │ Note: use what `addZero` states, and remove it from `unfolding`
+────╯

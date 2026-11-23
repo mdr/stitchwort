@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-PARSE] Error: a theorem can't be `opaque`
@@ -9,7 +9,7 @@ expression: output
    │        ───┬───  
    │           ╰───── a theorem can't be `opaque`
    │ 
-   │ Note 1: a theorem already stays folded where it's used
+   │ Note 1: a theorem is already sealed: other declarations use only its statement
    │ 
    │ Note 2: to use an opaque definition's body in its proof, write `unfolding f` after its type
 ───╯

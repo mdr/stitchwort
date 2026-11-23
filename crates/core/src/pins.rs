@@ -122,11 +122,11 @@ pub const PINS: &[Pin] = &[
     ),
     kernel(
         Builtin::FloatNeg,
-        "29e7c9cb4e6ec0ba00ca491d66a02d7d57e96964b249b7274a35af6548f6eef1",
+        "c4eec6b99f6f28c11083c850d71dfa3cbf9a7190c50de0a75358c40d1dca642f",
     ),
     kernel(
         Builtin::FloatAbs,
-        "f15448f7bdc0df70b6dd569a769ef173d407dfdf975b9672fb7c31a276e3741f",
+        "498e94e7f6d08c4ddd28bb5dee54446f1bf48b1aca5751ba4a54ca23f2af6e92",
     ),
     kernel(
         Builtin::FloatIsNaN,
@@ -158,7 +158,7 @@ pub const PINS: &[Pin] = &[
     ),
     kernel(
         Builtin::FloatSub,
-        "130a26a0c4c037a79e4b2a34951a6114c36023534bac844e6ac758ed589b6cff",
+        "b3f431032438bffb535c4dbba98a44f13c1cbc1aefe3b9d9af21bd583c216c0f",
     ),
     kernel(
         Builtin::FloatMul,
@@ -302,9 +302,6 @@ pub fn check_data(g: &Ev, d: DataId, b: Builtin) -> Result<(), Diagnostic> {
 }
 
 fn check(span: Span, b: Builtin, now: impl FnOnce() -> Option<String>) -> Result<(), Diagnostic> {
-    if crate::check::seal_theorems() {
-        return Ok(());
-    }
     let Some(pin) = pin(b) else {
         return Err(Diagnostic::error(
             "E-BUILTIN",

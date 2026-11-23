@@ -9,7 +9,9 @@ expression: output
     │                                   ─────┬─────  
     │                                        ╰─────── `transported` and `0` aren't equal
     │ 
-    │ Note 1: computing the left side gives `J (y p => Nat) 0 (Eq.cong (r => { raw = r }) (Quot.sound byComputing))`
+    │ Note 1: computing the left side gives `J (y p => Nat) 0 same`
     │ 
     │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 3: `same` is a theorem: its proof is sealed, so only its statement is used
 ────╯

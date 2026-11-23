@@ -2,7 +2,8 @@
 -- A computing `Prop.irrel` manufactures a constructor from a stuck proof,
 -- and that never counts as descent: `n` is part of `Loop.expose l`, not of
 -- `l`. Partner: `Loop.expose` and `exposeComputes` in
--- accept/proof-irrelevance.sw.
+-- accept/proof-irrelevance.sw. `boxEq` and `Prop.irrel` are `def`s so that
+-- they compute: a theorem is sealed (D3722).
 import Std (Void)
 
 type Box (a: Prop): Type =
@@ -17,9 +18,9 @@ type Loop: Prop =
 def Loop.inv: Loop → Loop
   | MkLoop n => n
 
-theorem boxEq (a: Prop) (p: a) (q: a): MkBox p = MkBox q := byComputing
+def boxEq (a: Prop) (p: a) (q: a): MkBox p = MkBox q := byComputing
 
-theorem Prop.irrel (a: Prop) (p: a) (q: a): p = q :=
+def Prop.irrel (a: Prop) (p: a) (q: a): p = q :=
   J (y e2 => p = Box.unbox y) byComputing (boxEq a p q)
 
 def Loop.expose (l: Loop): Loop :=

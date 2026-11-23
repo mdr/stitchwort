@@ -180,7 +180,7 @@ impl Parser<'_> {
         match self.peek() {
             Some(Tok::KwDef) => Ok(()),
             Some(Tok::KwTheorem) => Err(error(self.here(), "a theorem can't be `opaque`")
-                .with_note("a theorem already stays folded where it's used")
+                .with_note("a theorem is already sealed: other declarations use only its statement")
                 .with_note(
                     "to use an opaque definition's body in its proof, write `unfolding f` \
                      after its type",
