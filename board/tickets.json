@@ -1,5 +1,5 @@
 {
-  "next": 4698,
+  "next": 4700,
   "tickets": [
     {
       "id": 47,
@@ -33528,15 +33528,18 @@
     {
       "id": 4690,
       "title": "[Opus] Rule S on a proof field bound by an enclosing match: a case on such a field stays stuck unless the proof is a literal constructor, so conversion is not transitive there (g/Outer: g o = g (MkOuter (MkQ2 byComputing)) and that = 5 check, g o = 5 refused) and a closed instance of a checked universal statement fails (gk 5 po). Type the field (as infer_proj does) so the index test runs on it; find which layer refuses the closed instance. Continues D3727's direction. Fable review (SW-4686 review F1)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nProgress (Opus lane, 23 Nov): the closed instance gk 5 po was refused by the elaborator's byComputing (rfl_against_equation), the stuck step being the shared evaluator's (value.rs branch: the inner case on Proj(Outer, 0, po) couldn't read its type). Rule S now types a scrutinee that is a field an enclosing case bound: kernel walks the def's tree to the node (value.rs slot_type), reference carries the binders down eval_tree (reference.rs type_at). Accept example 42, soundness -42/-43, proof_masks t42/t42p; docs/core.md's corner removed; argument in docs/reviews/SW-4690-notes.md for the Fable review.\n",
+      "body": "\n\nProgress (Opus lane, 23 Nov): the closed instance gk 5 po was refused by the elaborator's byComputing (rfl_against_equation), the stuck step being the shared evaluator's (value.rs branch: the inner case on Proj(Outer, 0, po) couldn't read its type). Rule S now types a scrutinee that is a field an enclosing case bound: kernel walks the def's tree to the node (value.rs slot_type), reference carries the binders down eval_tree (reference.rs type_at). Accept example 42, soundness -42/-43, proof_masks t42/t42p; docs/core.md's corner removed; argument in docs/reviews/SW-4690-notes.md for the Fable review.\n\n\nFable review: sound, merge; F1 (brace records) and 20 four-way cases fixed. SW-4693 fixed on the same branch (8b37b0c73). Model result: Opus, worked, 28+37 min (est. 40+25); review Fable 8 min (est. 30).\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
-      "commits": []
+      "commits": [
+        "233b03b844d5614be678178b4b5a8e5cb3eaf48b 8b37b0c7338a34393ea6a31b3c2346aab8a306b7 04b2d3da75d75db36308c848a5e4f6ea07c10fcf e32be82df202b0810a92cd83f57fe592f5f47b10 6709754a144a569aa897ac36694ce94705f06e69",
+        "1cd0ff6eca52a0dcb9057cb5bd525e8d8c5d0d6a"
+      ]
     },
     {
       "id": 4691,
@@ -33567,7 +33570,7 @@
     {
       "id": 4693,
       "title": "[Opus] Reference evaluator panics on a glued Value::Call (reference.rs:1012, 'never glues') in differential::the_evaluators_agree_on_the_prelude_and_every_example, since SW-4686 or SW-4689 (stage 5 alone passed); fixed on lane/SW-4690",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33575,7 +33578,10 @@
       "body": "",
       "created": "2026-11-23",
       "updated": "2026-11-23",
-      "commits": []
+      "commits": [
+        "233b03b844d5614be678178b4b5a8e5cb3eaf48b 8b37b0c7338a34393ea6a31b3c2346aab8a306b7 04b2d3da75d75db36308c848a5e4f6ea07c10fcf e32be82df202b0810a92cd83f57fe592f5f47b10 6709754a144a569aa897ac36694ce94705f06e69",
+        "1cd0ff6eca52a0dcb9057cb5bd525e8d8c5d0d6a"
+      ]
     },
     {
       "id": 4694,
@@ -33622,6 +33628,32 @@
     {
       "id": 4697,
       "title": "[Sonnet] unify_index's stuck answer for an equation between proofs (Reason::Proof) is now reached only with an unknown mark, so no kernel test reaches it: add an elaborator-side test or remove it; and trim indexed test_25's now near-duplicate paired case (SW-4696 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4698,
+      "title": "[Sonnet] E-REFL note on soundness/proof-irrelevance-42-enclosing-field-indices-differ (unknown) says the left side is stuck on b, though eta took b apart and the match is stuck on the index (q: Q2 b.n against Q2 0): the note points at the wrong thing (SW-4690 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4699,
+      "title": "[Sonnet] differential::the_evaluators_agree_on_the_prelude_and_every_example: on a panic name the example and comparison (as within_budget labels its skips); a stage 5 panic cost two full 5-minute runs to locate (SW-4693 friction)",
       "status": "backlog",
       "agent": "",
       "where": "",
