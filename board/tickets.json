@@ -33470,15 +33470,18 @@
     {
       "id": 4686,
       "title": "[Opus] Rule S for indexed one-constructor propositions whose constructor has proof fields (D3727): when the indices agree, take the branch without opening the proof, fields as projections; restores f 0 pf = 5 (checked before stage 5) and transitivity in that corner. Kernel, reference evaluator, unifier; docs/core.md; move the stage 5 limit example to accept; Fable review (SW-4674 review F1)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Progress (lane, Opus, 23 Nov): rule S's indexed case now allows proof fields (value.rs one_shape, reference.rs rule_s; infer_proj types Proj of indexed proof-only propositions). Indices compared with fields read as the proof's projections. Example 39 -> accept (t4, n1 check); 34 folded into rules-k-and-s; soundness 40 (apart indices) and 41 (data/recursive fields, E-PROP-ELIM) added; proof_masks test 39. Soundness argument: docs/reviews/SW-4686-notes.md, for Fable review. Nothing newly refused. ~14 min of 35 est.\n",
+      "body": "Progress (lane, Opus, 23 Nov): rule S's indexed case now allows proof fields (value.rs one_shape, reference.rs rule_s; infer_proj types Proj of indexed proof-only propositions). Indices compared with fields read as the proof's projections. Example 39 -> accept (t4, n1 check); 34 folded into rules-k-and-s; soundness 40 (apart indices) and 41 (data/recursive fields, E-PROP-ELIM) added; proof_masks test 39. Soundness argument: docs/reviews/SW-4686-notes.md, for Fable review. Nothing newly refused. ~14 min of 35 est.\n\n\nFable review: sound, merge; F2 docs and F3 tests fixed on the branch; F1 filed as SW-4690. Model result: Opus, worked, 14+2 min (est. 35); review Fable 6 min (est. 30).\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
-      "commits": []
+      "commits": [
+        "000aeebe2ba9034d452847ee0ca9c689127fac31 d21a4880bedcbce45ca12c024f64872321576cd5 67c24f74ea2312c31333d135ff21c1b1dcb3ee5c aa9f604710be98833dc0d05d6d094491b73195ca",
+        "cc459369fac248ea4d657111c4574d092d71f40b"
+      ]
     },
     {
       "id": 4687,
