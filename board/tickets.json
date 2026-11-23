@@ -33413,7 +33413,7 @@
     {
       "id": 4682,
       "title": "[Sonnet] Docs: say in docs/workflow.md that examples::accepted_examples_check is one test running every accept example, so a lane widening a soundness regex runs the whole suite; and how to compare a std declaration's kernel term between main and a lane (STITCHWORT_DUMP_KERNEL prints nothing for library declarations) (SW-4674 friction)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33444,7 +33444,7 @@
     {
       "id": 4684,
       "title": "[Sonnet] Search: import_library_namespaces ignores add_imports diagnostics, so one std namespace that fails to import silently drops every library name (SW-4683 cause); assert or test that the line imports cleanly",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33664,7 +33664,7 @@
     {
       "id": 4699,
       "title": "[Sonnet] differential::the_evaluators_agree_on_the_prelude_and_every_example: on a panic name the example and comparison (as within_budget labels its skips); a stage 5 panic cost two full 5-minute runs to locate (SW-4693 friction)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33737,7 +33737,7 @@
     {
       "id": 4704,
       "title": "[Sonnet] check_cache::the_cache_changes_nothing_for_the_examples runs over every example (>120 s) and is caught by a check_cache:: filter: rename or tag so lanes can exclude it; and pins:show should list the runtime native bindings too (SW-4701 friction)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
