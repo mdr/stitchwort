@@ -1,5 +1,5 @@
 {
-  "next": 4693,
+  "next": 4694,
   "tickets": [
     {
       "id": 47,
@@ -33554,6 +33554,19 @@
     {
       "id": 4692,
       "title": "[Opus] Audit the elaborator's conversion-based display choices (stated_unless_same, as-written paths) for the written_motive mistake: a term mentioning the original of a copied proof variable now converts by rule I and prints a shadowed name (SW-4689 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4693,
+      "title": "[Opus] Reference evaluator panics on a glued Value::Call (reference.rs:1012, 'never glues') in differential::the_evaluators_agree_on_the_prelude_and_every_example, since SW-4686 or SW-4689 (stage 5 alone passed); fixed on lane/SW-4690",
       "status": "backlog",
       "agent": "",
       "where": "",
