@@ -44,6 +44,12 @@ counts and the choices beyond the text.
    replayed state, and on a mismatch adds `E-CACHE-DIGEST` (not undone: the tables are in).
    The existing recheck tests (`check_cache::a_kernel_side_change_*`,
    `..._refuses_on_recheck_*`) now also run this computation and found no mismatch.
+   What it catches: an altered header, a replay that doesn't rebuild a part the digest
+   covers, a digest function other than the writer's. Not a digest that leaves out
+   something a dependant reads: both sides leave it out (Fable review, finding 2); that
+   is the differential tests' and the rolling `--no-cache` check's job. After review: a
+   mismatch no longer runs `keep_rechecked`, and this build's entry is replaced by one
+   that doesn't open (finding 1).
 
 ## The trust argument as built
 
@@ -80,8 +86,9 @@ needs P1 to P4 of the design (section 2):
 - Namespaces of `tools/fmt` that are never cached (step 0's third count): the script keeps
   the `can't be cached` lines.
 - Entries with navigation in another project file: none found in tests; no `+nav` entries
-  in the `tools/fmt` cache to count. The rule-4 miss for a project file is tested at unit
-  level only.
+  in the `tools/fmt` cache to count. A warning does put one there: `W-MODULE-NAME`
+  labels the imported type's definition (found by the Fable review), now the driver-level
+  rule-4 test.
 - Carried-over entries (`--carry-over`): their digests were computed by another build. A
   build whose digest differs in meaning without a `FORMAT` bump would make the namespaces
   above trust the wrong thing; the design's rule is "a change to what the digest covers

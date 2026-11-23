@@ -1060,7 +1060,9 @@ impl Elaborator {
             );
             match replayed {
                 Ok((mut warnings, digest)) => {
-                    if !warnings.iter().any(|d| d.severity == Severity::Error) {
+                    // Only `E-CACHE-DIGEST` makes a replay report an error.
+                    let mismatch = warnings.iter().any(|d| d.severity == Severity::Error);
+                    if !mismatch {
                         (self.session.namespace_keys).insert(ns.to_string(), known(Some(digest)));
                     }
                     self.session.replayed_names.clear();
@@ -1071,7 +1073,17 @@ impl Elaborator {
                     }
                     if hit.recheck {
                         self.session.cache_stats.namespace_rechecked += 1;
-                        keep_rechecked(&*store, unit, key, &bytes, hit);
+                        if mismatch {
+                            // Not kept as confirmed, and this build's own
+                            // entry replaced by one that doesn't open, so
+                            // the next check elaborates the namespace and
+                            // writes it afresh. (An entry another build
+                            // wrote stays in its own file, used only with
+                            // `--carry-over`, which labels it.)
+                            store.write(unit, key, &[]);
+                        } else {
+                            keep_rechecked(&*store, unit, key, &bytes, hit);
+                        }
                     }
                     // Doc links aren't cached: they may point into other
                     // namespaces, which can change without this one's key

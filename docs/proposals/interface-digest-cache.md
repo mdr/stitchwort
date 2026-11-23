@@ -310,8 +310,13 @@ it wouldn't, and its terms admitted unchecked. The nets:
 - The differential tests' count of replays the kernel refused, as now.
 - **New, recommended:** `check --recheck` (it exists: every entry's terms go back through
   the kernel, `mod.rs:295-307`) also recomputes each replayed entry's digest and fails
-  loudly on a mismatch. And one differential test that, for a project, edits each proof in
-  turn and compares a cached check with `--no-cache` (below). A sampled re-check in normal
+  loudly on a mismatch. That catches an altered header, a replay that doesn't rebuild a
+  part the digest covers, and a digest function that differs from the one that wrote the
+  entry. It **cannot** catch a digest that leaves out something a dependant reads: the
+  recomputation leaves it out too (SW-4707's Fable review, finding 2). Only the
+  differential tests and the rolling `--no-cache` check catch that. Hence also one
+  differential test that, for a project, edits each proof in turn and compares a cached
+  check with `--no-cache` (below). A sampled re-check in normal
   runs isn't worth it: `--no-cache` in the rolling check covers the same ground.
 
 ## 3. What the user sees
@@ -497,7 +502,10 @@ navigation; script `files_table.py`, kept with the lane's notes):
 warms a fresh cache directory on `tools/fmt`, makes the line-32
 edit, checks again with `--timings` and puts the file back; it prints namespaces
 elaborated and from the cache, and wall time, for main's binary and the lane's. Run by the
-verifier, not the lane. **[not measured yet]**
+verifier, not the lane. **[measured by the orchestrator, 23 Nov 2026]**: after the edit,
+main's binary re-checked about 54 namespaces in 31.0 s; this one re-checked
+`Fmt.SpellProofs` alone, 5.3 s. Cold 115 s (main) and 117 s (this); warm about 2.9 s
+both.
 
 **Choices beyond the text** (none changes what an entry is trusted for):
 
@@ -514,14 +522,19 @@ verifier, not the lane. **[not measured yet]**
 - *Rule 4 for a project file* records the hash of every namespace's sources rather than
   that one file's text, which the elaborator doesn't have (the host gives hashes per
   namespace): such an entry misses when any project source changes, which is coarser than
-  needed, and no entry was found to need it. A library file's position records that file's
-  text hash. Tested at the unit level (`cache::tests::a_position_in_another_namespaces_file_…`)
-  since no construct was found that writes one.
+  needed. A library file's position records that file's text hash. `W-MODULE-NAME` is a
+  construct that needs it (its warning labels a type definition in the namespace it
+  comes from; found by the Fable review): tested end to end
+  (`a_warning_pointing_into_the_edited_file_checks_what_holds_it_again`) and at the unit
+  level (`cache::tests::a_position_in_another_namespaces_file_…`).
 - *A plan declines* when a dependency has no digest (`namespace_cache_key(.., planning)`):
   such a dependency is loaded anyway, so nothing that would have been left out is loaded.
 - *`check --recheck` and a mismatch*: the replay is complete by then (its tables are in),
   so it isn't undone; the namespace gets `E-CACHE-DIGEST`, is counted in
-  `Stats::digest_mismatches` and gets no digest, so the check fails.
+  `Stats::digest_mismatches` and gets no digest, so the check fails. The entry isn't kept
+  as re-checked, and this build's own is replaced by one that doesn't open, so the next
+  check elaborates the namespace again. A test pins two digests of a fixed project, failing
+  with "bump `FORMAT`" when the digest's meaning changes.
 - *Library files' entries* also carry a digest in their header (so stage B needn't change
   the format) and record dependencies by interface hash; their keys are unchanged.
 - *A digest is forgotten* when a namespace is checked without the cache path at all

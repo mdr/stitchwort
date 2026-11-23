@@ -236,10 +236,10 @@ fn a_proof_below_that_loads_a_new_library_file_checks_what_uses_it_again() {
 
 /// A namespace that uses a record of `A` with navigation recorded: an edit
 /// in `A` that only moves positions replays it, and what the replay gives
-/// (navigation's targets in `A` among it) is what checking gives. No
-/// construct found puts a raw position in another namespace's file into an
-/// entry (navigation keeps such targets by name); rule 4, for one that
-/// does, is `cache::tests::a_position_in_another_namespaces_file_*`.
+/// (navigation's targets in `A` among it) is what checking gives, since
+/// navigation keeps such targets by name. A warning that labels a position
+/// in `A` is rule 4's case:
+/// `a_warning_pointing_into_the_edited_file_checks_what_holds_it_again`.
 #[test]
 fn a_moved_record_below_replays_what_navigates_to_it() {
     let a = "namespace A\n\ntype Box = { width: Nat }\n";
@@ -420,6 +420,7 @@ fn recheck_refuses_an_entry_whose_digest_was_altered() {
     let path = entry_of(&cache, "ns.A");
     let mut bytes = std::fs::read(&path).unwrap();
     let at = digest_at(&bytes);
+    let true_digest = bytes[at..at + 32].to_vec();
     bytes[at] ^= 1;
     std::fs::write(&path, resealed(bytes)).unwrap();
     let altered = with_loaded(&dir, &cache, true, |s, ok| {
@@ -427,8 +428,82 @@ fn recheck_refuses_an_entry_whose_digest_was_altered() {
         s.elab.check_cache_stats()
     });
     assert_eq!(altered.digest_mismatches, 1, "{altered:?}");
+    // The altered entry isn't kept: a plain check elaborates `A` again, and
+    // writes it with its true digest, under which `B`'s entry is found.
+    let after = with_loaded(&dir, &cache, false, |s, ok| {
+        assert!(ok);
+        s.elab.check_cache_stats()
+    });
+    assert_eq!(
+        (
+            after.namespace_hits,
+            after.namespace_misses,
+            after.namespace_written
+        ),
+        (1, 1, 1),
+        "{after:?}"
+    );
+    let bytes = std::fs::read(entry_of(&cache, "ns.A")).unwrap();
+    let at = digest_at(&bytes);
+    assert_eq!(
+        bytes[at..at + 32],
+        true_digest,
+        "`A`'s altered entry was kept"
+    );
     let _ = std::fs::remove_dir_all(&dir);
     let _ = std::fs::remove_dir_all(&cache);
+}
+
+/// The digests of a fixed project that loads no library file, pinned: a
+/// change to what the digest covers (an exclusion, the sealing test) that
+/// leaves entries readable changes what a stored digest promises, and an
+/// entry another build wrote would then be trusted for the wrong thing
+/// with `--carry-over`. A failure here means the digest's meaning changed:
+/// bump `cache::FORMAT` and pin the new values. (A change to the core's
+/// `Nat` or `Eq` moves them too.)
+#[test]
+fn the_digest_of_a_fixed_project_is_pinned() {
+    let dir = temp_project("digest-pin", BASE);
+    let cache = temp_dir("digest-pin-cache");
+    with_loaded(&dir, &cache, false, |_, ok| assert!(ok));
+    let digest = |unit: &str| {
+        let bytes = std::fs::read(entry_of(&cache, unit)).unwrap();
+        let at = digest_at(&bytes);
+        let hex: String = bytes[at..at + 32]
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+        hex
+    };
+    let found = [digest("ns.A"), digest("ns.B")];
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
+    assert_eq!(
+        found,
+        [PINNED_A, PINNED_B],
+        "the interface digest's meaning changed: bump `FORMAT` (crates/elab/src/cache/mod.rs) \
+         and pin the new digests here"
+    );
+}
+
+const PINNED_A: &str = "2505cc506db95b3ed1bba963eeccc17671c3be5b408abd80423b4a9dd2126470";
+const PINNED_B: &str = "940bd22a69544eba55e203d2e3f1fe6f2c2d4aed813da82d2087f2c994dc6775";
+
+/// Rule 4 end to end: `W-MODULE-NAME` in `B` labels `A.a`'s position, so
+/// `B`'s entry holds a position in `A`'s file and records the project's
+/// sources. A comment above `a` leaves `A`'s digest as it was, but `B`
+/// misses, and its warning points where a check without the cache does.
+#[test]
+fn a_warning_pointing_into_the_edited_file_checks_what_holds_it_again() {
+    let a = "namespace A\n\ndef a: Type := Nat\n";
+    let b = "namespace B\n\nimport A (a)\n\ndef len: List a → Nat := xs => 0\n";
+    let moved = a.replace("def a", "-- a comment\ndef a");
+    let s = after_edit(
+        "digest-rule-4",
+        &[("src/A.sw", a), ("src/B.sw", b)],
+        &[("src/A.sw", &moved)],
+    );
+    assert_eq!((s.namespace_hits, s.namespace_misses), (0, 2), "{s:?}");
 }
 
 /// An entry found under a key it wasn't made for, whose dependency's
