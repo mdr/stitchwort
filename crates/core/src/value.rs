@@ -549,8 +549,9 @@ pub struct Ends {
 /// reaches it, so a fresh variable there never names a free variable of the
 /// values compared (docs/proposals/full-proof-irrelevance-audit.md, finding
 /// A: with `v5` free, comparing `z => z` with `z => v5` at level 5 would
-/// answer "equal").
-pub const RESERVED_LEVELS: usize = 1 << 40;
+/// answer "equal"). On a 32-bit target (the web build) it is 2^31, which
+/// leaves room for 128 nested tests of [`LEVELS_PER_TEST`] each.
+pub const RESERVED_LEVELS: usize = if usize::BITS >= 64 { 1 << 40 } else { 1 << 31 };
 
 /// How far each test in progress may go under binders before a nested one
 /// (a cast met while comparing the ends of another) starts its own levels.
