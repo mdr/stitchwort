@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/sealed-note-stuck-on-hypothesis.sw:10:73 ]
+    │
+ 10 │ theorem pickEq ∀ (a b n: Nat) (h: (a = b) ∧ (b = 0)): pick a b n = n := pick.eq.ifTrue a b n h
+    │                                                                         ───────────┬──────────  
+    │                                                                                    ╰──────────── expected `pick a b n = n`, but this has type `pick a b n = J (x e => Nat) n h.left`
+────╯
