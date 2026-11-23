@@ -92,8 +92,10 @@ What the literature adds is mostly **better oracles**, not more fuzzers.
 
 The second theme is **cache keys**. Lean's new module system keeps proofs private to their
 module, so "changes … that affect only … proofs … will not trigger rebuilds" downstream
-**[cited]**. Stitchwort hashes theorem bodies into every dependent's hash, so a proof edit in
-a library lemma re-checks and re-tests everything downstream. Two safe steps exist (§5.3): key
+**[cited]**. Stitchwort hashed theorem bodies into every dependent's hash, so a proof edit in
+a library lemma re-checked and re-tested everything downstream (since SW-4701, a reference to
+a theorem hashes as its statement alone, so it re-tests nothing; the check cache still re-checks
+by text, sealed-theorems.md stage 3). Two safe steps exist (§5.3): key
 the test-result cache on the erased program, which proofs can't affect, since tests run
 erased; and measure how often
 a dependent's check actually looks inside another namespace's proof, before deciding whether

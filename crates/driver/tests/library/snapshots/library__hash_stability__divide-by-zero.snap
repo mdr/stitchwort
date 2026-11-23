@@ -1,16 +1,15 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
-assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 Main.ratio 8e8fe4ee66cf811b51f5f446a9829bd83c723359edcc91d53a6abf32474d1780
-Main.test "Nat by 0" 3610d784433b9c8ded8f322e389bfd1e5f567b1d5b1058d8176b8b817fcd6b13
-Main.test "a variable divisor" ef9b12afa3df977b7e3fb9ecd95aab6d9bf9d070eee2c97d87fbfe6d67527dc7
-Main.test "Nat.divMod and Nat.ceilDiv by 0" 9d3cbf595ae5f233df27227611a51dc116e051039ae3a249765772e7915673ac
-Main.test "Int by 0" 7c9a147834e1c6156ea3ead530a430ce0442c3c1372c765883c3203e772daa7e
-Main.test "every Int convention by 0" 33287d0c5330575bba85ad9d9d3bb6bd9d98b345020a1ec0ad9dd5c3b3f06404
-Main.test "Int.modNat by 0" 2b7afa3399247c9ed1b29e8c565818f865e21527ee842a2110446f9df2f5e918
-Main.divByZero 13bba530e547df021156b5b6a1adcff15302617478dc150c35b816067fce9133
-Main.modByZero aae3fcd717e67f7275c77a879749a76770d8074481667271b78acf12d4811b0e
-Main.divisionLaw 35d06b0b5f07f0b8466c44a493602ad0dab7828f9c06843f0e4e95d9190c8320
-Main.intDivisionLaw c164ac50fafbee97721c34f86911bb40a399951fe370b4b5e4184fb1b14bf84e
+Main.test "Nat by 0" bb878f83e3eee8f6fd001a894059c88f9f5d63d759ab0b56348c4dc1f15ffb04
+Main.test "a variable divisor" 7e1a58ca30ceb0109c330f9fce2362829c4fdfa6ea3e4e8517bfb39bded78fa1
+Main.test "Nat.divMod and Nat.ceilDiv by 0" 34524b357f2698a3b277e09d4ac9eb3f072ded6696d0c7dab74675129e6afba6
+Main.test "Int by 0" f184f73ba54d8ca8d2920873e710cd8046b1807d521fa514716282ca1cfe821c
+Main.test "every Int convention by 0" b26c42fdbffc73774d220b90cc0da94405c0bbe7ffa78faca98eeaf248088cee
+Main.test "Int.modNat by 0" a537bbf9ed2feac712c271e496bd66dfd5135d096ec9eb770acf902fdc15beb0
+Main.divByZero 53a7b9f804cf22cf8990d7bdbe4526792dc21d060db846ebb9aabf86076c3b6c
+Main.modByZero d223e619c7410398cda4e139b0948dcffbc915483f1031f9b17ca3cb95646b27
+Main.divisionLaw f68d63274b43182bcb6e19f09e02ed13b8646d73aaf0de356c771c52cc9b052b
+Main.intDivisionLaw 02135fabd39017d49b9f3a66bf146480693d50feda8b98d189869d093365ec3d

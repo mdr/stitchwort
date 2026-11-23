@@ -1,16 +1,15 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
-assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 Main.example 4284ae2fabf6f18161a36fcfb59120f38a29aea66e92346a49c4418d4b763096
-Main.test "the example has ten lines" f5e419dd7f194f964fe66d897d2aaaa07f9895bae6330036ce0a834e89cf8306
-Main.test "its first line" 0a234ed0d6ac23b8d66f91999e8bd575e1788ce9b3e3e17f6aac1a86c2cba3a3
-Main.test "it is the same as one line" d2eae45b363b431b59bad89805218778a3b537a23c832acee4cc3b13fc2837fe
-Main.test "no trailing newline" cb0b74b7e70867d925f18e876d3964dd619bc354378ac5c1b819a7f56f78bba4
-Main.test "relative indentation and blank lines" 96b5297ac02e5790290e9d118ab5af025bea7070af3e4b1864c427e4cd1dbb18
-Main.test "the closing line sets the indentation" 8304875328bec5239d0102636f49bda1d2b5159a7615cea9d03a4a2d788d334d
-Main.test "quotes, escapes and interpolation" 787a2865e67cedd26b9a790328f6b2ff2fe0c6522a4fd43a6f8fcd8d35660d5b
+Main.test "the example has ten lines" 7a89e8f62eca87db5d9022055bb1e61e724f8bee1d826157ca0c83a6dc5676d8
+Main.test "its first line" 8f5db12f05737c69e3ef4e730992d907681df1fc38405b92aa86ce463d23b1ad
+Main.test "it is the same as one line" 05e00f263a3f2d8d78baa58156c36eb74a104ff83ccef154c4ac86bd39cb269f
+Main.test "no trailing newline" 774ac5a8f07432ae13f0ed3d2e147c53d0d508dc1a9aac87ec8435a4348789f3
+Main.test "relative indentation and blank lines" ef95a56058bf2404d98b5a8ac081f5fa5e43a223cee9cc21e9ef65583f4fb057
+Main.test "the closing line sets the indentation" b393d444ab3310ef3c4d88de7897ab8dcf927dbe43618d4518d448cb8894f6fe
+Main.test "quotes, escapes and interpolation" 3d083b7c358f57bf50f7489d4c1b354579ba09d2267b1ef8820b92a5b8e6ac2c
 Main.twice fbce0dca2f606ca687c4018f8b79f0c57a1d018b957acab98405052f9a6142c2
-Main.test "interpolation over lines" a42a6bbec360d620ce5090da49706ada864cd0fb150e1753fa4725cc27cc0e4b
+Main.test "interpolation over lines" 45a55b822504b521ce89011b793951bff911818b3fe850c53b605b6bc37d2884
 Main.main efb6cd53af041f82b0b8105d4419055f810479fe077242ca90b693873610c89b

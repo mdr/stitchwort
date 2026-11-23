@@ -2,9 +2,9 @@
 source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
-Main.hasThree 89d90b1fd0088fd089681cbf013ba0779e8e282ef7418235b5f30ba22bb5bf6a
+Main.hasThree 004bd36def043f76ea04dd4a571de7e34373e11217091f52a69c555f2ad2949d
 Main.hasThree.%match1 b578e5cc3b67003a32fd25b16a07f15b299bcc20e543866d180a399bac2ce3f1
-Main.hasThree.eq.true 656010ad0d37ea1829d7626c4f1f9986f43e39c5003e21442dfab2a8f33c7c84
-Main.hasThree.eq.false 782d5c967795e4e8526c93033deb26b6ecdfb9335188bb41afc85e1d65e1af28
-Main.test "a list with a 3" 8af4309687d75a96474aba2301276ad6d8a75a574afce1ed058edcf4b9eace1e
-Main.test "a list without one" e10d2454f2155fc45be1a3316970f21abf79be1ca43b415c94879107a050b7f2
+Main.hasThree.eq.true 41de9c787c0e6babf4df137006468ff6a369987ad26da75b2b02ba63fe6bce0c
+Main.hasThree.eq.false 1e2e44ae79f6285985c5f50c32ec4852b6d0f17e7f5423c7d7ddb75ad7067822
+Main.test "a list with a 3" b9178ccc8073519eca904f46573e850b1414da6e312ba54674c698cc2540660d
+Main.test "a list without one" ac38d2046ae62dd104a03631e4c4655af5ed23ec3c8d474d2dda4ac39a8c9580

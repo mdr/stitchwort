@@ -5,6 +5,16 @@
 //! everything a definition depends on, transitively. A recursive reference is
 //! hashed as a fixed marker, which keeps recursion from looping.
 //!
+//! A theorem has two hashes (docs/proposals/sealed-theorems.md §3.8). Its
+//! *full* hash ([`def_hash`]) covers its statement and its proof, and
+//! identifies the checked proof. Its *interface* hash ([`interface_hash`])
+//! covers its statement alone, and is what a reference to it is hashed as.
+//! A proof never computes and nothing compares two proofs (rules F and I,
+//! docs/core.md "Proof irrelevance"), so nothing that uses a theorem can
+//! depend on which proof it has, and editing a proof changes no other
+//! declaration's hash. What a proof relies on (open goals, axioms) is not in
+//! the interface: it is found by walking bodies (`assumption.rs`).
+//!
 //! A group of definitions that call each other (two or more, submitted to
 //! `define_group` together) is hashed as a unit, after Unison
 //! (docs/proposals/mutual-recursion.md §8.4): the members are put in a
@@ -107,7 +117,9 @@ impl Mode {
     }
 }
 
-/// `None` for a definition that isn't final (pending, or failed).
+/// `None` for a definition that isn't final (pending, or failed). For a
+/// theorem this is its full hash, proof included; a reference to it hashes
+/// as its [`interface_hash`].
 pub fn def_hash(g: &Ev, id: DefId) -> Result<Option<ContentHash>> {
     def_hash_in(g, id, Mode::Content)
 }
@@ -213,6 +225,36 @@ fn def_hash_in(g: &Ev, id: DefId, mode: Mode) -> Result<Option<ContentHash>> {
     h.declaration(id)?;
     let hash = h.finish();
     mode.cache(g).borrow_mut().insert(HashKey::Def(id), hash);
+    Ok(Some(hash))
+}
+
+/// Whether definition `id` is referred to by its [`interface_hash`]: a final
+/// theorem with a proof. An assumption (a `?` goal, or the stand-in for a
+/// theorem whose proof failed) is referred to by its own hash, whose tag
+/// says what it is, so a failed proof still changes every user's hash.
+fn has_interface(g: &Ev, id: DefId) -> bool {
+    let def = g.def(id);
+    def.theorem && def.state == State::Final && def.body.is_some() && def.assumption().is_none()
+}
+
+/// The interface hash of definition `id`: for a theorem, the tag `theorem`
+/// and its statement (with what that mentions by these hashes in turn), so
+/// two theorems with one statement have one interface hash, as they would
+/// for the checker (rule I). For any other definition, its [`def_hash`]
+/// (`None` for one that isn't final).
+pub fn interface_hash(g: &Ev, id: DefId) -> Result<Option<ContentHash>> {
+    if !has_interface(g, id) {
+        return def_hash(g, id);
+    }
+    if let Some(hash) = g.caches.interfaces.borrow().get(&id) {
+        return Ok(Some(*hash));
+    }
+    g.machine.budget.nesting(PASS)?;
+    let mut h = Hasher::new(g, Itself::Def(id), Mode::Content);
+    h.tag("theorem");
+    h.term(&g.def(id).ty)?;
+    let hash = h.finish();
+    g.caches.interfaces.borrow_mut().insert(id, hash);
     Ok(Some(hash))
 }
 
@@ -637,7 +679,10 @@ impl<'g> Hasher<'g> {
                 }
             }
             _ => {
-                let hash = def_hash_in(self.g, id, self.mode)?;
+                let hash = match self.mode {
+                    Mode::Content => interface_hash(self.g, id)?,
+                    Mode::Proofless => def_hash_in(self.g, id, self.mode)?,
+                };
                 self.unfinished |= hash.is_none();
                 // A stand-in for a declaration with an error is identified
                 // by its statement alone, so editing the broken body

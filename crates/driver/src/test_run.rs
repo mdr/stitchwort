@@ -323,6 +323,34 @@ impl Session {
         self.goal_places(&goals)
     }
 
+    /// What `test`'s result is cached under: its content `hash`, and, if it
+    /// relies on open goals, their hashes too. A test's hash covers the
+    /// theorems it uses by their statements alone (`hash::interface_hash`),
+    /// so it doesn't move when a proof the test uses gains or loses a `?`;
+    /// but such a test runs differently ([`Session::run_relying`]), so the
+    /// goals it relies on, found by walking bodies, are part of the key
+    /// (docs/proposals/sealed-theorems.md §3.8). For a test that relies on
+    /// none, the key is its hash.
+    fn result_key(
+        &self,
+        test: &stitchwort_elab::TestDecl,
+        hash: stitchwort_core::hash::ContentHash,
+    ) -> stitchwort_core::hash::ContentHash {
+        let goals = self.elab.goals_relied_on(test.def);
+        if goals.is_empty() {
+            return hash;
+        }
+        let g = &self.elab.ev();
+        let mut key = blake3::Hasher::new();
+        key.update(b"relying");
+        key.update(&hash.0);
+        for goal in goals {
+            let goal = def_hash(g, goal).ok().flatten().map_or([0; 32], |h| h.0);
+            key.update(&goal);
+        }
+        stitchwort_core::hash::ContentHash(*key.finalize().as_bytes())
+    }
+
     /// Runs every test of the program loaded so far, using cached results
     /// where possible. The core's and the library's tests aren't the
     /// program's (docs/proposals/std-library.md §4.7): see
@@ -418,7 +446,11 @@ impl Session {
                 let _op = g.machine.budget.operation(self.elab.options.limits);
                 match def_hash(g, test.def) {
                     Ok(Some(hash)) => cache
-                        .get(&Cache::unit(&test.namespace, &test.name), &hash, modes)
+                        .get(
+                            &Cache::unit(&test.namespace, &test.name),
+                            &self.result_key(test, hash),
+                            modes,
+                        )
                         .is_none(),
                     _ => false,
                 }
@@ -510,7 +542,8 @@ impl Session {
                     }
                 };
                 let unit = Cache::unit(&test.namespace, &test.name);
-                if let Some(outcome) = cache.get(&unit, &hash, &modes) {
+                let key = self.result_key(test, hash);
+                if let Some(outcome) = cache.get(&unit, &key, &modes) {
                     return TestResult {
                         name: test.name.clone(),
                         namespace: test.namespace.clone(),
@@ -540,8 +573,8 @@ impl Session {
                             };
                         }
                     };
-                    cache.verify_result(test, &hash, &modes, outcome);
-                    cache.put(&unit, &hash, &modes, outcome);
+                    cache.verify_result(test, &key, &modes, outcome);
+                    cache.put(&unit, &key, &modes, outcome);
                     return TestResult {
                         name: test.name.clone(),
                         namespace: test.namespace.clone(),
@@ -583,8 +616,8 @@ impl Session {
                 });
                 let outcome =
                     on_machine.unwrap_or_else(|| self.run_on_reference(test.def, partial));
-                cache.verify_result(test, &hash, &modes, outcome);
-                cache.put(&unit, &hash, &modes, outcome);
+                cache.verify_result(test, &key, &modes, outcome);
+                cache.put(&unit, &key, &modes, outcome);
                 TestResult {
                     name: test.name.clone(),
                     namespace: test.namespace.clone(),

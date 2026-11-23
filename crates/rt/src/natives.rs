@@ -100,7 +100,7 @@ const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
     (
         Builtin::DecEqText,
         TextNative::DecEqText,
-        "9d609bc0aa5e027fb766cd5b17a420d3dd12f4b2846fa61ed77d48fd41bc09a4",
+        "0f003359b3919698adaabdc22b653967aa6195cabb758663eb5bb653caad097f",
     ),
     (
         Builtin::TextCompare,
@@ -140,7 +140,7 @@ const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
     (
         Builtin::TextSplit,
         TextNative::TextSplit,
-        "8fe46e1198ee8243158f1f91dc0f215efe8ab472e590ae29be729a13f575218d",
+        "4b2f9275656d2d2bea0135e6813c18160b4b5b7b53defe9c7070c9b711758bcb",
     ),
     (
         Builtin::TextJoin,
@@ -175,7 +175,7 @@ const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
     (
         Builtin::TextGetLt,
         TextNative::TextGetLt,
-        "947b419f95b992f7ffd0533eed5003c4649ad9d6e7959a3e96faabae81a9052d",
+        "1b0786f4fb2875de22b831e9f7efdfeec19532df681abfb3adb634bb90b7e4e8",
     ),
     (
         Builtin::TextSlice,
@@ -489,7 +489,7 @@ const INT_NATIVES: &[(Builtin, IntNative, &str)] = &[
     (
         Builtin::DecEqInt,
         IntNative::DecEqInt,
-        "2d47ac360bceb3e58f4c321d30391677d4db21e55adb37abde559ea2c9fb61b7",
+        "929955cde3b3947459166f2d0c71d8c7a01ec8bb820e21ffc64e297babee3e2b",
     ),
     (
         Builtin::IntLeq,
@@ -678,7 +678,7 @@ const FIN_NATIVES: &[(Builtin, FinNative, &str)] = &[
     (
         Builtin::FinOfNatLt,
         FinNative::OfNatLt,
-        "eb62ae31e78cd162de92fcbe29736b46353a8ba13aedee582ce8d6fba638888a",
+        "af90caf3f6c80d2809bc5d84a2522cb3d3fd269930cc163da5ad9117490e84d6",
     ),
 ];
 
@@ -922,7 +922,7 @@ const ARRAY_NATIVES: &[(Builtin, ArrayNative, &str)] = &[
     (
         Builtin::ArrayGetLt,
         ArrayNative::GetLt,
-        "edc9d5e4c5a5b3fd6d411b565867354b854f2ab214f46b4d2bf0d2174d550aaf",
+        "9c1d4163b10e7c3e42e929607226362dd62e220b2cab7ff77fbf32eaaed71fef",
     ),
     (
         Builtin::ArraySet,

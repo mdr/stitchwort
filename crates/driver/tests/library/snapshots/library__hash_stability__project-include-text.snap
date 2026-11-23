@@ -1,12 +1,11 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
-assertion_line: 542
 expression: "lines(session, d, f)"
 ---
 Day.input 1c288c45f3bb3ebd648434d4f008a26cf4b95bb2a1d18d28ee60c44a3b33df03
 Day.beside 6f7ff92aa35d46489d77bdd4ef906fd77c5bd5797756495f2c87f026bc725d73
 Day.numbers ea35d19e8dee6041ec57b82f232c37aeeed0ee158608f7245a87d719a308f554
-Day.test "the whole text" 976f38e3d72b22d0fd4821f5dcc006a8b24e1bbac932885908a12e5917c894e9
-Day.test "its lines" 2df6d5a5ff845896f76912637ed9cdf286ada2fd5916aad9570bd18ba6f29910
-Day.test "a file beside this one" 85fb991b4814c92d5833b5f6c646c6eff7667febe13196ab425e04fe60963475
-Day.test "unicode survives" 3c7a7e828e09a65f497a8bdc2c47c16c99cce37e5fd485a9a270dae12386d2e8
+Day.test "the whole text" 2171c46104b04a535207308bef967d5e64ab3f834b795f0182e303c4319d9fcb
+Day.test "its lines" ee224ab7cf91cdb3dd8fe15a4e2add34e574c9c956e03fd9f545f64fc3ee347b
+Day.test "a file beside this one" 188ad8e56cf5e084567212f7adc6c87392a234ac926b22c5981ca51a926448e9
+Day.test "unicode survives" b7f8a4eb690a7374060bdee4a458c176485f0d1cfca9d93ad48c2ef21dfcb805
