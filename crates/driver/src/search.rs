@@ -768,7 +768,10 @@ impl Session {
     }
 
     /// Imports every namespace of the library (`import Std (List, Map,
-    /// …)`), so that a query can say `List.length` or `Map.insert`.
+    /// …)`), so that a query can say `List.length` or `Map.insert`. `Prop`
+    /// and `Type` (`Std.Prop.irrel`) are left out: they lex as sorts, so
+    /// they can't be imported, and one name that doesn't parse would refuse
+    /// the whole line.
     pub fn import_library_namespaces(&mut self) {
         let g = &self.elab.ev();
         let tops = (0..g.env.defs().len())
@@ -778,7 +781,10 @@ impl Session {
             .filter_map(|path| {
                 let rest = path.strip_prefix("Std.")?;
                 let top = rest.split('.').next()?;
-                (top.chars().next()?.is_uppercase() && !top.contains('%')).then(|| top.to_string())
+                (top.chars().next()?.is_uppercase()
+                    && !top.contains('%')
+                    && !matches!(top, "Prop" | "Type"))
+                .then(|| top.to_string())
             })
             .collect();
         namespaces.sort();
