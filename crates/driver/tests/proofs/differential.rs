@@ -672,7 +672,9 @@ fn the_reference_evaluator_stops_at_its_depth_limit() {
 
 /// Quotients (docs/proposals/map-equality.md §7.2): both evaluators apply
 /// the one rule, `Quot.lift f h (Quot.mk a)` to `f a`, through definitions,
-/// leave `J` on a proof built by `Quot.sound` or `Quot.ind` stuck, and keep a
+/// leave `J` on a proof built by `Quot.sound` stuck unless its ends agree
+/// (rule K, which also takes the base of `J` on a `Quot.ind` proof of
+/// `0 = 0`), and keep a
 /// definition that lifts a variable folded; and conversion agrees on all of
 /// it. Every definition is compared applied to variables
 /// (`compare_definitions`), so the folded and stuck forms are covered.
@@ -720,12 +722,13 @@ fn the_evaluators_agree_on_quotients() {
         };
         assert_eq!(closed("one"), "Nat(1)");
         assert_eq!(closed("oneDirectly"), "Nat(1)");
-        // `J` on `Quot.sound`, and on a proof by `Quot.ind`, is stuck: a
-        // closed `Nat` that isn't a number (§9.1, A3 and A6's kernel side).
-        for name in ["stuck", "stuckToo"] {
-            let shown = closed(name);
-            assert!(shown.starts_with("J("), "{name}: {shown}");
-        }
+        // `J` on `Quot.sound` between two different classes' representatives
+        // is stuck: a closed `Nat` that isn't a number (§9.1, A3 and A6's
+        // kernel side). On a proof by `Quot.ind` of `0 = 0` the ends agree,
+        // so rule K takes the base without looking at the proof (SW-4673).
+        let shown = closed("stuck");
+        assert!(shown.starts_with("J("), "stuck: {shown}");
+        assert_eq!(closed("stuckToo"), "Nat(0)");
         // A lift of a variable, folded by name; unfolded, the lift itself.
         let observe = def(g, "observe");
         let applied = |f: DefId| {

@@ -1,8 +1,9 @@
 import Std (Eq, Nat)
 
 -- The probe for sealed theorems (crates/cli/tests/tools/sealed_theorems.rs; it was the
--- probe for stage 0's switch, which is now the default): `castComputes` is E-REFL
--- (program 2 of docs/proposals/sealed-theorems.md, section 3.1) and `useTrans` checks.
+-- probe for stage 0's switch, which is now the default). `castComputes` (program 2 of
+-- docs/proposals/sealed-theorems.md, section 3.1) was E-REFL with theorems sealed; it
+-- checks again since rule K (SW-4673), which reads only the cast's ends. `useTrans` checks.
 theorem flippedT ∀ [a: Type] [x y: a] (p: x = y): y = x := J (y' p' => y' = x) byComputing p
 theorem addZeroT ∀ (n: Nat): n + 0 = n := match n with
   | Zero => byComputing
