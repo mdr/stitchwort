@@ -1,5 +1,5 @@
 {
-  "next": 4676,
+  "next": 4677,
   "tickets": [
     {
       "id": 47,
@@ -33294,7 +33294,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nIncludes SW-4661: rewrite search skipping proofs below a matched head (patch docs/proposals/full-proof-irrelevance/search-skips-proofs.patch); test docs/proposals/full-proof-irrelevance/stuck-call-proof-field.sw (sameCall must check); then revert the emptyIsByPosition workaround in Aoc.Common.Proofs.PrefixSums.atOf.\n",
+      "body": "\n\nIncludes SW-4661: rewrite search skipping proofs below a matched head (patch docs/proposals/full-proof-irrelevance/search-skips-proofs.patch); test docs/proposals/full-proof-irrelevance/stuck-call-proof-field.sw (sameCall must check); then revert the emptyIsByPosition workaround in Aoc.Common.Proofs.PrefixSums.atOf.\n\n\nFrom SW-4671 (marks): sweep helper paths that still bind unmarked variables with Value::var (e.g. is_type_former, not_a_proof); look at Std.Parse.runsNatDigits, which accounts for nearly all proof-pair comparison failures in Year2020 Day05; eval/force still carry no level for fresh variables (audit condition A, stage 4).\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
       "commits": []
@@ -33315,6 +33315,19 @@
         "37581d98e",
         "c64a1fd0a12b60f709a17d6eb37cc5df02a2e9cf"
       ]
+    },
+    {
+      "id": 4676,
+      "title": "[DeepSeek] Add #[track_caller] to the elaborator Ctx::unify wrapper (crates/elab/src/check.rs ~879) so STITCHWORT_PROOF_COUNTS names its real callers (SW-4671 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
     }
   ]
 }
