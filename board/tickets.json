@@ -1,5 +1,5 @@
 {
-  "next": 4691,
+  "next": 4693,
   "tickets": [
     {
       "id": 47,
@@ -33512,20 +33512,49 @@
     {
       "id": 4689,
       "title": "[Opus] Stage 5 verifier: opaque::opaque_calls_with_different_proofs (irr3 now Ok by rule I), reject/mismatch-hidden-proof-argument.sw now checks (rule I), goals/match-copied-hypothesis-goal snapshot gains W-UNREACHABLE and shows h✝ (check: right or regression)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\nLane notes (Opus, 23 Nov, ~25 min):\n- Goal display: a regression, fixed. `written_motive` (matching.rs) made the arms' statement with the scrutinee abstracted but the copied `h` left as the original; the goal display takes a statement that converts to the goal as the goal, and rule I made original and copy (two proofs) convert, so it printed `h✝ = h✝`. Now copies are mapped as in the motive. The W-UNREACHABLE was already in the old snapshot (not new). Snapshot unchanged.\n- opaque test: irr3 Ok by rule I, comment rewritten.\n- refl-hidden-proof-argument.sw also checked now (not in the verifier's list): both merged into accept/different-hidden-proofs.sw; new reject/{mismatch,refl}-hidden-implicit-argument.sw keep SW-28's bracket notes covered with a data implicit argument.\n- Bracket note reworded (it said a proof the definition computes with can differ): \"(an implicit or instance argument; proofs are never compared)\"; implicit-interface-not-searched snapshot updated by hand.\n",
+      "body": "\nLane notes (Opus, 23 Nov, ~25 min):\n- Goal display: a regression, fixed. `written_motive` (matching.rs) made the arms' statement with the scrutinee abstracted but the copied `h` left as the original; the goal display takes a statement that converts to the goal as the goal, and rule I made original and copy (two proofs) convert, so it printed `h✝ = h✝`. Now copies are mapped as in the motive. The W-UNREACHABLE was already in the old snapshot (not new). Snapshot unchanged.\n- opaque test: irr3 Ok by rule I, comment rewritten.\n- refl-hidden-proof-argument.sw also checked now (not in the verifier's list): both merged into accept/different-hidden-proofs.sw; new reject/{mismatch,refl}-hidden-implicit-argument.sw keep SW-28's bracket notes covered with a data implicit argument.\n- Bracket note reworded (it said a proof the definition computes with can differ): \"(an implicit or instance argument; proofs are never compared)\"; implicit-interface-not-searched snapshot updated by hand.\n\n\nDisplay regression in written_motive fixed; two examples moved to accept; bracket note wording updated (orchestrator call). Model result: Opus, worked, 18 min (est. 20).\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
-      "commits": []
+      "commits": [
+        "3fb4a54c33cac44bb88586ea44fecb941019cb08 2206c66358b44ee7fac63b6ccf59f4e2b893cdb3",
+        "e5d5a21988c1cb8bc28885227e052f0ca6752c57"
+      ]
     },
     {
       "id": 4690,
       "title": "[Opus] Rule S on a proof field bound by an enclosing match: a case on such a field stays stuck unless the proof is a literal constructor, so conversion is not transitive there (g/Outer: g o = g (MkOuter (MkQ2 byComputing)) and that = 5 check, g o = 5 refused) and a closed instance of a checked universal statement fails (gk 5 po). Type the field (as infer_proj does) so the index test runs on it; find which layer refuses the closed instance. Continues D3727's direction. Fable review (SW-4686 review F1)",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4691,
+      "title": "[Sonnet] Remove the E-REFL note behind differ_only_in_proofs_in (check.rs ~11270, 'differ only in a proof inside them, which isn't skipped under an opaque, axiom or same-group call'): unreachable under rule I (SW-4689 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4692,
+      "title": "[Opus] Audit the elaborator's conversion-based display choices (stated_unless_same, as-written paths) for the written_motive mistake: a term mentioning the original of a copied proof variable now converts by rule I and prints a shadowed name (SW-4689 finding)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
