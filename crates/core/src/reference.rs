@@ -1472,8 +1472,13 @@ pub fn is_proof(g: &Ev, value: &Value) -> ProofMark {
             Elim::App(..) => {}
             Elim::J { result, .. } => mark = *result,
             Elim::Proj(d, i) => {
-                mark = match g.data(*d).ctors().first().map(|c| c.field_sorts[*i]) {
-                    Some(sort) => ProofMark::from_bool(sort == Sort::Prop),
+                mark = match g
+                    .data(*d)
+                    .ctors()
+                    .first()
+                    .and_then(|c| c.field_sorts.get(*i))
+                {
+                    Some(sort) => ProofMark::from_bool(*sort == Sort::Prop),
                     None => ProofMark::Unknown,
                 }
             }

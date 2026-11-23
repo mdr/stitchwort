@@ -747,17 +747,7 @@ fn settle_mark(cx: &Ctx, given: ProofMark, derived: ProofMark, what: &str) -> Re
 /// codomain is (impredicativity), so that's read under the binder without
 /// working out the domain's sort.
 pub(crate) fn prop_mark(cx: &mut Ctx, ty: &Value) -> Result<ProofMark> {
-    // A call or a variable applied to arguments: the sort its type ends in,
-    // read off without computing the call or writing out the arguments,
-    // which can be enormous (`Wrap (grow 22 (Leaf x))`).
-    let applied = match ty {
-        Value::Call(id, spine, _) | Value::Neutral(Head::Def(id), spine) => {
-            sort_of_applied(&cx.g, cx.g.def(*id).ty_value.clone(), spine)?
-        }
-        Value::Neutral(Head::Var(level, ..), spine) => sort_of_applied_variable(cx, *level, spine)?,
-        _ => None,
-    };
-    if let Some(sort) = applied {
+    if let Some(sort) = sort_of_stuck(cx, ty)? {
         return Ok(ProofMark::of_sort(sort));
     }
     let ty = force(&cx.g, ty.clone())?;
@@ -984,6 +974,9 @@ fn check_let_value(
 /// arms for equations, data types and applied variables answer without
 /// looking at its arguments.
 pub(crate) fn sort_of(cx: &mut Ctx, ty: &Value) -> Result<Sort> {
+    if let Some(sort) = sort_of_stuck(cx, ty)? {
+        return Ok(sort);
+    }
     match &*force_ref(&cx.g, ty)? {
         Value::Sort(s) => return universe_above(cx, *s),
         // An equation is a proposition. Answered without quoting it: the
@@ -994,11 +987,9 @@ pub(crate) fn sort_of(cx: &mut Ctx, ty: &Value) -> Result<Sort> {
         // are, so they aren't quoted: an argument can be a list whose
         // normal form is enormous.
         Value::Data(d, _) => return Ok(cx.g.data(*d).sort),
-        // A variable applied to arguments, `q (settle x k 3000)`: its sort
-        // is the one its type ends in, read off the type without quoting
-        // the arguments, which can be as large as the data type's.
-        Value::Neutral(Head::Var(level, _, _), spine) => {
-            if let Some(sort) = sort_of_applied_variable(cx, *level, spine)? {
+        // Stuck once forced, `q (settle x k 3000)`: as above.
+        forced @ Value::Neutral(..) => {
+            if let Some(sort) = sort_of_stuck(cx, forced)? {
                 return Ok(sort);
             }
         }
@@ -1008,32 +999,109 @@ pub(crate) fn sort_of(cx: &mut Ctx, ty: &Value) -> Result<Sort> {
     Ok(check_type(cx, &term)?.1)
 }
 
-/// The sort `s` such that the variable at `level`, applied to `spine`, has
-/// type `Sort s`: its type with the arguments substituted in turn. `None`
-/// when that isn't a plain run of applications ending in a sort.
-fn sort_of_applied_variable(cx: &Ctx, level: usize, spine: &Spine) -> Result<Option<Sort>> {
-    let Some(var_ty) = cx.types.get(level) else {
-        return Ok(None);
+/// The sort of a stuck type `ty` (a call, as glued, or a neutral value),
+/// read off its head's type elimination by elimination, never computing the
+/// call or reading back an argument: an argument can be enormous written
+/// out (`f.fam (grow 22 (Leaf x))`). `None` for anything else, or when a
+/// step isn't of the shape a well-typed elimination has.
+fn sort_of_stuck(cx: &mut Ctx, ty: &Value) -> Result<Option<Sort>> {
+    let (head, spine) = match ty {
+        Value::Call(id, spine, _) => (Head::Def(*id), spine),
+        Value::Neutral(head, spine) => (*head, spine),
+        _ => return Ok(None),
     };
-    sort_of_applied(&cx.g, var_ty.clone(), spine)
+    // Glued, as in [`kept_type`]: going under the head's function type
+    // must not compute a call in it either.
+    let was = cx.g.machine.glue.replace(true);
+    let ty = type_of_stuck(cx, &head, spine);
+    cx.g.machine.glue.set(was);
+    Ok(match ty? {
+        Some(ty) => match force(&cx.g, ty)? {
+            Value::Sort(s) => Some(s),
+            _ => None,
+        },
+        None => None,
+    })
 }
 
-/// The sort `s` such that something of type `ty`, applied to `spine`, has
-/// type `Sort s`: `ty` with the arguments substituted in turn. `None` when
-/// that isn't a plain run of applications ending in a sort.
-fn sort_of_applied(g: &Ev, ty: Value, spine: &Spine) -> Result<Option<Sort>> {
-    let mut ty = force(g, ty)?;
-    for elim in spine.iter() {
-        let (Elim::App(arg, _), Value::Pi(_, _, _, cod, _)) = (elim, &ty) else {
-            return Ok(None);
+/// The type of `head` eliminated by `spine`: the head's type, then for an
+/// application the codomain at the argument, for a projection the field's
+/// type at the parameters and earlier fields, for a `J` the motive at the
+/// equation's right side and the proof. Arguments are substituted as
+/// values, never read back. `None` for an unknown's head, a quotient form
+/// that's a proof, or a step whose type isn't the shape it needs.
+fn type_of_stuck(cx: &mut Ctx, head: &Head, spine: &Spine) -> Result<Option<Value>> {
+    let g = cx.g;
+    let elims: Vec<&Elim> = spine.iter().collect();
+    let (mut ty, start) = match head {
+        Head::Var(level, ..) => match cx.types.get(*level) {
+            Some(ty) => (ty.clone(), 0),
+            None => return Ok(None),
+        },
+        Head::Def(id) => (g.def(*id).ty_value.clone(), 0),
+        Head::Meta(_) => return Ok(None),
+        Head::Quot(form, _) => {
+            let n = form.arity();
+            let mut args = Vec::with_capacity(n);
+            for elim in elims.iter().take(n) {
+                let Elim::App(arg, _) = elim else {
+                    return Ok(None);
+                };
+                args.push(arg.clone());
+            }
+            if args.len() < n {
+                return Ok(None);
+            }
+            let ty = match form {
+                // `Quot A R : Sort s` for `A : Sort s`.
+                QuotForm::Type => Value::Sort(sort_of(cx, &args[0])?),
+                QuotForm::Mk => quot_value(
+                    QuotForm::Type,
+                    vec![args[0].clone(), args[1].clone()],
+                    ProofMark::NotProof,
+                ),
+                // `Quot.lift [A] [R] B f h q : B`.
+                QuotForm::Lift => args[2].clone(),
+                QuotForm::Ind | QuotForm::Sound => return Ok(None),
+            };
+            (ty, n)
+        }
+    };
+    // The stuck value up to elimination `k`, for the steps whose type
+    // mentions it.
+    let prefix = |k: usize| {
+        let mut spine = Spine::new();
+        for elim in &elims[..k] {
+            spine.push((*elim).clone());
+        }
+        Value::Neutral(*head, spine)
+    };
+    for (k, elim) in elims.iter().enumerate().skip(start) {
+        let forced = force(&g, ty)?;
+        ty = match (elim, &forced) {
+            (Elim::App(arg, _), Value::Pi(_, _, _, cod, _)) => cod.apply(&g, arg.clone())?,
+            (Elim::Proj(d, i), Value::Data(d2, params)) if d == d2 => {
+                let Some(field) = g.data(*d).ctors.first().and_then(|c| c.fields.get(*i)) else {
+                    return Ok(None);
+                };
+                let mut env = params.clone();
+                for j in 0..*i {
+                    let Value::Neutral(head, mut spine) = prefix(k) else {
+                        unreachable!("a neutral value")
+                    };
+                    spine.push(Elim::Proj(*d, j));
+                    env.push(Value::Neutral(head, spine));
+                }
+                eval(&g, &env, &field.1)?
+            }
+            (Elim::J { motive, .. }, Value::Eq(_, _, b)) => {
+                let motive_at = apply(&g, (**motive).clone(), (**b).clone())?;
+                apply(&g, motive_at, prefix(k))?
+            }
+            _ => return Ok(None),
         };
-        let next = cod.apply(g, arg.clone())?;
-        ty = force(g, next)?;
     }
-    Ok(match ty {
-        Value::Sort(s) => Some(s),
-        _ => None,
-    })
+    Ok(Some(ty))
 }
 
 fn infer_j(

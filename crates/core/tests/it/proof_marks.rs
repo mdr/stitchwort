@@ -116,6 +116,41 @@ fn a_given_mark_that_differs_is_malformed() {
     };
     assert_eq!(infer_code(&p, &j(ProofMark::Proof)), "E-MALFORMED");
     assert_eq!(infer_code(&p, &j(ProofMark::Unknown)), "ok");
+    // The motive's binders: `y` ranges over `Nat`, data; `h` over `0 = y`,
+    // a proof.
+    let j_binders = |y_mark, h_mark| {
+        let motive = Term::Lam(
+            "y".into(),
+            Icit::Explicit,
+            rc(marked_lam(p.nat_ty(), h_mark)),
+            y_mark,
+        );
+        Term::J(
+            rc(motive),
+            rc(p.num(1)),
+            rc(Term::Ann(rc(Term::Refl), rc(zero_eq(&p)))),
+            ProofMark::Unknown,
+        )
+    };
+    let (data, proof) = (ProofMark::NotProof, ProofMark::Proof);
+    assert_eq!(infer_code(&p, &j_binders(proof, proof)), "E-MALFORMED");
+    assert_eq!(infer_code(&p, &j_binders(data, data)), "E-MALFORMED");
+    assert_eq!(infer_code(&p, &j_binders(data, proof)), "ok");
+    // A quotient type marked as a proof: `Quot Nat (x y => x = y)`.
+    let relation = lam(
+        "x",
+        lam("y", eq(Some(p.nat_ty()), Term::Var(1), Term::Var(0))),
+    );
+    let quot = |mark| {
+        Term::Quot(
+            stitchwort_core::QuotForm::Type,
+            vec![rc(p.nat_ty()), rc(relation.clone())],
+            false,
+            mark,
+        )
+    };
+    assert_eq!(infer_code(&p, &quot(ProofMark::Proof)), "E-MALFORMED");
+    assert_eq!(infer_code(&p, &quot(ProofMark::NotProof)), "ok");
 }
 
 #[test]
