@@ -1,5 +1,5 @@
 {
-  "next": 4706,
+  "next": 4708,
   "tickets": [
     {
       "id": 47,
@@ -33796,6 +33796,32 @@
     {
       "id": 4705,
       "title": "[Sonnet] rewind::rewinding_changes_nothing_for_the_examples and rewind::emptying_the_caches_changes_nothing_for_the_examples are probably examples-wide (long) but sit under rewind::, which lanes filter on: time them and move to examples_wide:: if so; and a way for task test:one to build one --test binary instead of every test target of the package (SW-4704 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4706,
+      "title": "[Fable, paper] Design: check-cache keys by interface digest (D3728; sealed-theorems.md stage 3): a namespace's entry keyed by what it can see of its dependencies (statements, computing definitions, side tables), so editing a proof rechecks only its namespace; trust argument, side-table inventory, editor, test and measure plan, build plan for Opus; docs/proposals/interface-digest-cache.md",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "\n\nD3728 (Matt, 23 Nov 2026: \"Yes, I think this sounds good. I think we should do a Fable Paper Lane design first, thinking through the problem and how we're going to build it, then execute the build with Opus.\"). Build is SW-4707. Started 21:36 on Fable; expected 50 min.\n",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4707,
+      "title": "[Opus] Build: check-cache keys by interface digest, per the design in docs/proposals/interface-digest-cache.md (SW-4706); Fable review after (D3728)",
       "status": "backlog",
       "agent": "",
       "where": "",
