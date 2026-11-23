@@ -1231,7 +1231,7 @@ test "checksum" := checksum [1, 2] == 33
 
 The program still runs the body, and the test uses it. What opacity changes is what other proofs can see: one that doesn't say `unfolding` can't depend on the body, and its check doesn't have to compute through it. `unfolding` is for a theorem or another `opaque def`, and not for a plain `def`, whose body is always visible.
 
-Every theorem is opaque in this way, always: a proof's body is **sealed**. Other declarations use what a theorem states, never how it was proved, so changing a proof can't break another one. A theorem can't be named in `unfolding` (`E-UNFOLDING-THEOREM`), and when a computation gets stuck on a theorem's proof (moving a value along an equation it proves, say), the error says the proof is sealed.
+Every theorem's proof is hidden in the same way, always, without being written `opaque`: a proof's body is **sealed**. Other declarations use what a theorem states, never how it was proved, so changing a proof can't break another one. A theorem can't be named in `unfolding` (`E-UNFOLDING-THEOREM`), and when a computation gets stuck on a theorem's proof (moving a value along an equation it proves, say), the error says the proof is sealed.
 
 ## Proofs about effectful code
 

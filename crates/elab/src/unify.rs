@@ -3459,9 +3459,10 @@ fn accessors_as_projections(g: &Ev, term: &Term) -> Result<Term> {
         let (Term::Def(d), args) = t.spine() else {
             return Ok(None);
         };
-        // An opaque definition never unfolds, and one with a native isn't
-        // taken apart by record eta: neither is convertible to the projection.
-        if g.def(*d).opaque() || stitchwort_core::value::eta_held(g, *d) {
+        // An opaque definition never unfolds, nor does a proof (rule F), and
+        // one with a native isn't taken apart by record eta: none is
+        // convertible to the projection.
+        if g.def(*d).opaque() || g.def(*d).proof() || stitchwort_core::value::eta_held(g, *d) {
             return Ok(None);
         }
         let Some(body) = g.def(*d).body() else {

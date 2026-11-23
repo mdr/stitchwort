@@ -1317,7 +1317,8 @@ theorem doubleTwo: double 2 = 4 := rewrite double.unfold then byComputing
     (`E-UNFOLDING-THEOREM`, below), and not one checked together with this
     one, which has no body yet (`E-UNFOLDING-GROUP`).
   - Not with `decreasing` yet (`E-DECREASING`).
-- **Theorems are sealed** (D3722): every `theorem` is opaque, and no
+- **Theorems are sealed** (D3722): every `theorem`'s proof is sealed (not
+  by `opaque`, but because a proof never computes while checking), and no
   declaration can unfold one, so nothing depends on how a lemma is proved,
   only on what it states; changing a proof can't break another one. A
   computation along a theorem's proof stays stuck: `J (y p => Nat) x

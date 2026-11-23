@@ -582,10 +582,11 @@ impl<'g> Hasher<'g> {
     /// declaration's hash (a group-mate is never listed), in the order of
     /// those hashes, once each. Nothing for a transparent definition, which
     /// has no list, so the hashes of those don't change. Nothing either for
-    /// a theorem with no list: every theorem is opaque (sealed, D3722), so
-    /// the `theorem` tag already says it.
+    /// a theorem with no list, whose proof rule F seals (it isn't opaque), so
+    /// the `theorem` tag already says it. A theorem with a list is recorded
+    /// as opaque with it.
     fn opacity(&mut self, def: &crate::globals::Def) -> Result<()> {
-        if !def.opaque || (def.theorem && def.unfolding.is_empty()) {
+        if !def.opaque && !(def.theorem && !def.unfolding.is_empty()) {
             return Ok(());
         }
         self.tag("opaque");

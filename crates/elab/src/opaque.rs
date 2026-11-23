@@ -9,8 +9,8 @@
 //!   (`E-UNFOLDING-TRANSPARENT`), a theorem, whose proof is sealed
 //!   (`E-UNFOLDING-THEOREM`), a name that isn't an opaque definition
 //!   (`E-NOT-OPAQUE`), a member of the same group (`E-UNFOLDING-GROUP`).
-//!   Every theorem is opaque already (the kernel declares it so), clause or
-//!   not. The names are also dependency edges (`module::decl_refs`), so a
+//!   A theorem's proof is sealed by rule F, not by the opaque flag: a
+//!   theorem is opaque only through a list, which the kernel allows it. The names are also dependency edges (`module::decl_refs`), so a
 //!   group-mate is found.
 //! - **The body.** It's elaborated under the same transparency set the
 //!   kernel will check it under ([`Elaborator::in_body_of`]), so the
@@ -79,7 +79,7 @@ impl Elaborator {
     }
 
     /// Marks the just-declared definition `id` opaque if it's written
-    /// `opaque def`. A theorem is opaque already.
+    /// `opaque def`. A theorem isn't marked: rule F seals it.
     pub(crate) fn mark_opaque_signature(&mut self, signature: &Decl, id: DefId) {
         if let Decl::Signature { opaque, .. } = signature
             && *opaque
@@ -563,7 +563,7 @@ impl Elaborator {
 }
 
 /// `E-UNFOLDING-THEOREM`: theorem `name` in an `unfolding` list. Every
-/// theorem is sealed (D3722), so nothing can depend on its proof.
+/// theorem is sealed (D3722, rule F), so nothing can depend on its proof.
 fn unfolding_theorem(name: &ast::Name) -> Diagnostic {
     Diagnostic::error(
         "E-UNFOLDING-THEOREM",
