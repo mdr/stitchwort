@@ -32,6 +32,27 @@ def tokNat (t: Tok) (k: Nat): Nat :=
   match t with
     | MkTok => k
 
+type Q39: Nat → Prop =
+  | MkQ39 (w: 0 = 0): Q39 0
+
+def q39Nat (x: Nat): Q39 x → Nat
+  | MkQ39 w => 5
+
+type AtThree (a: Nat): Nat → Prop =
+  | MkAtThree (h: a = 3) (k: 3 = a): AtThree a 0
+
+def three (a: Nat): AtThree a 0 → Nat
+  | MkAtThree h k => 5
+
+def threeAt (a: Nat) (x: Nat): AtThree a x → Nat
+  | MkAtThree h k => 5
+
+type ByProof: (0 = 0) → Prop =
+  | MkByProof (h: 0 = 0): ByProof h
+
+def byProof (h: 0 = 0): ByProof h → Nat
+  | MkByProof k => 5
+
 type TBox: Type 1 =
   | MkTBox (t: Type)
 
@@ -136,6 +157,23 @@ def t17pR (a: Type) (h: a = a) (x: a): a := x
 -- takes its branch by rule S whatever `t` is (SW-4673).
 def t18L (t: Tok): Nat := tokNat t 0
 def t18R (t: Tok): Nat := tokNat MkTok 0
+-- Test 39: `Q39` is indexed and its constructor has a proof field; at the
+-- constructor's index the match takes its branch by rule S whatever `s` is
+-- (SW-4686). The partner is at index 1, which `MkQ39` can't build: stuck.
+def t39L (s: Q39 0): Nat := q39Nat 0 s
+def t39R (s: Q39 0): Nat := 5
+def t39pL (s: Q39 1): Nat := q39Nat 1 s
+def t39pR (s: Q39 1): Nat := 5
+-- Test 40: fields that mention the parameter `a`; the partner is at an
+-- index `MkAtThree` can't build.
+def t40L (a: Nat) (s: AtThree a 0): Nat := three a s
+def t40R (a: Nat) (s: AtThree a 0): Nat := 5
+def t40pL (a: Nat) (s: AtThree a 1): Nat := threeAt a 1 s
+def t40pR (a: Nat) (s: AtThree a 1): Nat := 5
+-- Test 41: the constructor's index is its field, compared with the
+-- scrutinee's index `h` as two proofs, by rule I.
+def t41L (h: 0 = 0) (s: ByProof h): Nat := byProof h s
+def t41R (h: 0 = 0) (s: ByProof h): Nat := 5
 -- Test 21 and its partner: equal by rule S, as test 18.
 def t21L (t: Tok) (u: Tok): Nat := tokNat t 0
 def t21R (t: Tok) (u: Tok): Nat := tokNat u 0
@@ -331,6 +369,15 @@ const CASES: &[(&str, bool)] = &[
     // Rule S: `Tok` has one constructor, so `tokNat` takes its branch
     // without looking at `t`.
     ("t18", true),
+    // Rule S on an indexed proposition with a proof field, at agreeing
+    // indices; at apart ones the match stays stuck.
+    ("t39", true),
+    ("t39p", false),
+    // The same with fields that mention a parameter, and with an index
+    // that is the constructor's field.
+    ("t40", true),
+    ("t40p", false),
+    ("t41", true),
     // Rule S, as test 18.
     ("t21", true),
     ("t21p", true),

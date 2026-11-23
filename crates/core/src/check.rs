@@ -1230,9 +1230,10 @@ fn infer_j(
 /// itself applied to parameters `ps` (never another type with the same
 /// layout: the Lean projection bug, records.md §7.6), and `d` must have eta,
 /// which says it has one constructor, no indices and is in `Type`, so taking
-/// a field out never takes data out of a proof. The type is field `i`'s
-/// declared type with `ps` for the parameters and `t.j` for each earlier
-/// field `j`, which it may mention.
+/// a field out never takes data out of a proof, or be a proposition with
+/// one constructor and only proof fields (rule S's projections). The type
+/// is field `i`'s declared type with `ps` for the parameters and `t.j` for
+/// each earlier field `j`, which it may mention.
 fn infer_proj(cx: &mut Ctx, d: DataId, i: usize, t: &Term) -> Result<(Term, Value)> {
     let g = cx.g;
     let Some(data) = g.env.datas().get(d.0) else {
@@ -1240,11 +1241,12 @@ fn infer_proj(cx: &mut Ctx, d: DataId, i: usize, t: &Term) -> Result<(Term, Valu
     };
     // Rule S's stand-in for a field of a proof (docs/core.md, "The equality
     // rule") reads back as a projection: a proposition with one
-    // constructor, no indices and only proof fields has one too, which
-    // takes a proof out of a proof.
+    // constructor and only proof fields has one too, which takes a proof
+    // out of a proof. With indices too: a field's type mentions only the
+    // parameters and earlier fields, never the indices, so a `case` into
+    // `Prop` with a motive constant in the indices gives the same proof.
     let proof_record = data.sort == Sort::Prop
         && data.ctors.len() == 1
-        && data.indices.is_empty()
         && data.ctors[0].field_sorts.iter().all(|s| *s == Sort::Prop);
     if !data.eta && !proof_record {
         return Err(malformed(
@@ -1270,6 +1272,7 @@ fn infer_proj(cx: &mut Ctx, d: DataId, i: usize, t: &Term) -> Result<(Term, Valu
     };
     let t = Rc::new(t);
     let mut env = params;
+    env.truncate(data.params.len());
     for j in 0..i {
         env.push(cx.eval(&Term::Proj(d, j, t.clone()))?);
     }

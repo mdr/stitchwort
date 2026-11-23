@@ -2817,7 +2817,7 @@ fn branch(
         // branch whatever the proof, each field (a proof too) bound to that
         // field of the proof. `E-PROP-ELIM` allowed the match, so the
         // constructor has only proof fields and doesn't mention its type.
-        n @ Value::Neutral(..) if one_shape(g, *d, &stuck, &env, tree_var(&tree))? => {
+        n @ Value::Neutral(..) if one_shape(g, *d, &stuck, &env, tree_var(&tree), &n)? => {
             proof_counts::record(g, proof_counts::Kind::OneShapeFired, 1);
             let k = g.data(*d).ctors[0].fields.len();
             (0, (0..k).map(|i| project(*d, i, n.clone())).collect())
@@ -2859,14 +2859,24 @@ fn tree_var(tree: &Term) -> usize {
 /// constructor whose fields are all proofs, and the definition's result is
 /// data (a proof is never computed, and needs no branch taken).
 ///
-/// For a proposition with indices (D3724, as Lean's `to_cnstr_when_K`), the
-/// constructor must have no fields, and its result indices, for the
-/// scrutinee's parameters, must equal the scrutinee's indices: then the
-/// branch's refinement already holds. The scrutinee's type is read off the
+/// For a proposition with indices (D3724, as Lean's `to_cnstr_when_K`;
+/// D3727 for fields), the constructor's result indices, for the
+/// scrutinee's parameters and its fields read as the scrutinee's
+/// projections, must equal the scrutinee's indices: then the constructor
+/// applied to those projections is a proof of the scrutinee's own type, so
+/// rule I makes the scrutinee that constructor, and the branch's
+/// refinement already holds. The scrutinee's type is read off the
 /// definition's own type, so only a `case` on one of its parameters can
 /// fire; one on a field of an enclosing match stays stuck, as does one
-/// whose indices differ. An indexed proposition with fields stays stuck.
-fn one_shape(g: &Ev, d: DataId, stuck: &Stuck, env: &[Value], ix: usize) -> Result<bool> {
+/// whose indices differ.
+fn one_shape(
+    g: &Ev,
+    d: DataId,
+    stuck: &Stuck,
+    env: &[Value],
+    ix: usize,
+    scrutinee: &Value,
+) -> Result<bool> {
     let data = g.data(d);
     let Some((id, ..)) = stuck else {
         return Ok(false);
@@ -2885,7 +2895,7 @@ fn one_shape(g: &Ev, d: DataId, stuck: &Stuck, env: &[Value], ix: usize) -> Resu
         return Ok(true);
     }
     let level = env.len() - 1 - ix;
-    if !ctor.fields.is_empty() || level >= g.def(*id).arity {
+    if level >= g.def(*id).arity {
         return Ok(false);
     }
     let Some(domain) = parameter_type(g.def(*id).ty(), level) else {
@@ -2899,8 +2909,10 @@ fn one_shape(g: &Ev, d: DataId, stuck: &Stuck, env: &[Value], ix: usize) -> Resu
     if d2 != d || args.len() != params + ctor.result.len() {
         return Ok(false);
     }
+    let mut ctor_env = args[..params].to_vec();
+    ctor_env.extend((0..ctor.fields.len()).map(|i| project(d, i, scrutinee.clone())));
     for (k, index) in ctor.result.iter().enumerate() {
-        let from_ctor = eval(g, &args[..params], index)?;
+        let from_ctor = eval(g, &ctor_env, index)?;
         if !meet_in_evaluation(g, &from_ctor, &args[params + k])? {
             return Ok(false);
         }
