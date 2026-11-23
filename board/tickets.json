@@ -1,5 +1,5 @@
 {
-  "next": 4697,
+  "next": 4698,
   "tickets": [
     {
       "id": 47,
@@ -33606,12 +33606,28 @@
     {
       "id": 4696,
       "title": "[Opus] Rolling check on 7755e40a1 (stage 5): kernel/unifier tests now accept or answer differently: indexed test_22/23/25, quot r7_ind_doesnt_compute and r7_r8_the_rule_is_for_lift_alone, unify_index constructors_are_told_apart_only_in_type and production_agrees_with_the_reference_unifier case 7, call_fields j_on_a_stuck_field_computes_the_call_first, server search::what_closes_a_goal snapshot. Classify each intended (which rule) or regression; fix",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nProgress (lane, 23 Nov, 3daab4020): all nine failures intended by stage 5, none unsound. indexed 22/23: rule I makes A = B / Hide 1 = Hide 0, so the branch is possible: E-MALFORMED (possible branch marked impossible) is the right refusal. indexed 25: A = B deleted by rule I, then 0 = 1 conflict: accepted, true. quot R7 x2: Quot.ind's result is a proof, equal by rule I; tests now check evaluation leaves Quot.ind stuck. unify_index: reference unifier deletes equations at propositions, test scope marks proof variables as the kernel does; production was right on case 7. call_fields: J forces the field to reflAt 0, kept folded by rule F. search snapshot 78 -> 77: Bool.canonicalTrue (concludes ?b = True, as a ≤ c is) deleted in 932036d46. core.md index-unification text updated. Tests: core it (431 pass), driver call_fields (9), server what_closes_a_goal.\n",
+      "body": "\n\nProgress (lane, 23 Nov, 3daab4020): all nine failures intended by stage 5, none unsound. indexed 22/23: rule I makes A = B / Hide 1 = Hide 0, so the branch is possible: E-MALFORMED (possible branch marked impossible) is the right refusal. indexed 25: A = B deleted by rule I, then 0 = 1 conflict: accepted, true. quot R7 x2: Quot.ind's result is a proof, equal by rule I; tests now check evaluation leaves Quot.ind stuck. unify_index: reference unifier deletes equations at propositions, test scope marks proof variables as the kernel does; production was right on case 7. call_fields: J forces the field to reflAt 0, kept folded by rule F. search snapshot 78 -> 77: Bool.canonicalTrue (concludes ?b = True, as a ≤ c is) deleted in 932036d46. core.md index-unification text updated. Tests: core it (431 pass), driver call_fields (9), server what_closes_a_goal.\n\n\nAll nine intended (rules I and F), none unsound; tests updated, docs/core.md Unifying indices updated. Model result: Opus, worked, 15 min (est. 40).\n",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": [
+        "ba09f521a6cb2e6f447dd27f73e21a79b33f665c 3daab402077c67d35ab895e6d6f4cd87d2a7c38e",
+        "a8afc6446382e43905c0d9d84c4fd68a74156a2b"
+      ]
+    },
+    {
+      "id": 4697,
+      "title": "[Sonnet] unify_index's stuck answer for an equation between proofs (Reason::Proof) is now reached only with an unknown mark, so no kernel test reaches it: add an elaborator-side test or remove it; and trim indexed test_25's now near-duplicate paired case (SW-4696 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
       "created": "2026-11-23",
       "updated": "2026-11-23",
       "commits": []
