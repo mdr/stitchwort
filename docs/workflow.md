@@ -421,6 +421,34 @@ times. A clean rebuild with `RUSTC_WRAPPER=` empty is the test of one run.
   check many copies of the slow theorem (renamed `t1`, `t2`, …) in one
   scratch file.
 
+### Example sweeps, snapshots and std terms (SW-4682)
+
+- **One test per kind.** `examples::accepted_examples_check` (and the
+  rejected, goal and soundness ones) is a single test that runs every
+  example of its kind, with `EXAMPLES` (a comma-separated list of name
+  parts, which `task test:example NAME=...` sets) choosing which. Widening
+  that filter, or leaving it out, runs the whole suite; nextest's `test(...)`
+  can't pick one example. Name the examples you touched.
+- **Recording snapshots for named examples only.** `INSTA_UPDATE=always task
+  test:example NAME=a,b` records the snapshots of those examples and no
+  others. Set the variable in front of the command (`INSTA_UPDATE=always nice
+  -n 19 task ...`, or `export` it first): written after `nice`, it is taken
+  for the program to run.
+- **Hash snapshots exist only for `accept/` and `extract/` examples**
+  (`hash_stability::examples`); rejected, goal and soundness examples have
+  none, so adding one there needs no `snap:hashes`.
+- **Comparing a std declaration's kernel term between main and a lane.**
+  `STITCHWORT_DUMP_KERNEL` prints nothing for a declaration the check cache
+  answers for, which is every library declaration in an ordinary `check`. Use
+  `check --std`, which checks the named library file in full without the
+  cache, with the declaration's full name: `STITCHWORT_DUMP_KERNEL=Std.Nat.zeroAdd
+  stitchwort check --std --no-cache Nat/Arith.sw 2>&1 | grep -A2 'kernel
+  dump'`. Run it once with each side's binary and `--std-dir <that
+  checkout>/crates/elab/src/std` (a copied binary can't find its library: see
+  above), and `diff` the two outputs. The dump is the term the kernel is
+  given, so it also differs when the elaborator changed and the std file
+  didn't.
+
 ## The test tiers
 
 Tests run in tiers with time budgets ([testing.md](testing.md#tiers)), so

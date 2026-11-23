@@ -199,9 +199,20 @@ fn within_budget<T>(
 ) -> Option<T> {
     reference::set_budget(Some(reference_steps()));
     reference::set_depth_limit(Some(reference_depth()));
-    let out = f();
+    // A panic inside a comparison (a bug in either evaluator) would
+    // otherwise show only its own message, after a sweep of minutes.
+    let out = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
     reference::set_budget(None);
     reference::set_depth_limit(None);
+    let out = match out {
+        Ok(out) => out,
+        Err(payload) => {
+            let message = (payload.downcast_ref::<String>().map(String::as_str))
+                .or_else(|| payload.downcast_ref::<&str>().copied())
+                .unwrap_or("(not a string)");
+            panic!("{example}: {comparison}: panicked: {message}");
+        }
+    };
     if std::env::var("STITCHWORT_DIFFERENTIAL_SHOW_DEPTH").is_ok() {
         eprintln!(
             "depth {}: {example}: {comparison}",
@@ -515,6 +526,26 @@ fn agree_after_forcing(g: &stitchwort_core::Ev, f: DefId, value: &Value) -> Stri
 
 /// A case stuck on a metavariable takes a step once it's solved: the machine
 /// forces the scrutinee, replaying the metavariable's spine.
+#[test]
+fn a_panicking_comparison_names_its_example_and_comparison() {
+    let caught = std::panic::catch_unwind(|| {
+        within_budget::<()>(
+            "some-example.sw",
+            "some-example.sw",
+            "f applied to x",
+            || panic!("index out of bounds"),
+        )
+    });
+    let payload = caught.expect_err("the panic comes through");
+    let message = payload
+        .downcast_ref::<String>()
+        .expect("a formatted message");
+    assert_eq!(
+        message,
+        "some-example.sw: f applied to x: panicked: index out of bounds"
+    );
+}
+
 #[test]
 fn a_stuck_case_unblocks_when_its_metavariable_is_solved() {
     let session = Session::new();

@@ -61,7 +61,7 @@ INV = [
     test("web", "tests::escapes_json_strings", 0.1, profiles=["lane-web"]),
     test("driver::proofs", "proof_masks::every_case_gets_its_answer_four_ways", 0.8),
     test("driver::projects", "check_cache::a_refused_library_entry_takes_back_its_float_bindings", 0.3),
-    test("driver::projects", "check_cache::the_cache_changes_nothing_for_the_examples", 110),
+    test("driver::projects", "examples_wide::the_cache_changes_nothing_for_the_examples", 110),
 ]
 
 
@@ -88,7 +88,7 @@ class SilentBreakages(unittest.TestCase):
         res, _ = pick(["crates/core/src/registry.rs"])
         ids = ids_of(res)
         self.assertIn("check_cache::a_refused_library_entry_takes_back_its_float_bindings", ids)
-        self.assertNotIn("check_cache::the_cache_changes_nothing_for_the_examples", ids)
+        self.assertNotIn("examples_wide::the_cache_changes_nothing_for_the_examples", ids)
 
 
 class Globs(unittest.TestCase):

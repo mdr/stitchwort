@@ -597,7 +597,7 @@ tasks:
       - git status --short -- '*.snap'
 
   pins:show:
-    desc: 'Print the pin table (crates/core/src/pins.rs) with each declaration''s hash now; never writes it'
+    desc: 'Print the pin table (crates/core/src/pins.rs) with each declaration''s hash now, then the runtime native bindings (crates/rt/src/natives.rs) and whether each still matches; never writes either'
     cmds:
       - cargo run --release -q -p stitchwort-driver --example pins
 
