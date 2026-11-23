@@ -586,3 +586,5 @@ From the earlier notes, not re-read (**[earlier]**): Lean's kernel (L1, L2) and 
 thesis (L4), Gilbert et al. (G), Agda #2170 and #8699 (A3), as listed in
 [proof-irrelevance.md](proof-irrelevance.md#sources) and
 [sealed-theorems.md](sealed-theorems.md#7-sources).
+
+**Decided:** Q1 as D3721 (Matt, 22 Nov 2026): "D3721, yes." The end state is E2.
