@@ -322,7 +322,7 @@ step may depend on what a proof is. Rules K, S and F are exactly that proviso; D
 proof-irrelevant propositional equality" **[verified, AC abstract]**. Their term `Ω h`, under
 the false hypothesis `h` that all propositions are equal, reduces to itself through a cast
 that fires without looking at its proof. Stitchwort accepts the program today, because `J` is
-stuck on `h Top a` **[run, `abel-coquand.sw`]**. October concluded "no K-like rule";
+stuck on `h Top a` **[run, `examples/accept/abel-coquand.sw`]**. October concluded "no K-like rule";
 sealed-theorems.md expected rule K to turn it into `E-RESOURCE`.
 
 Under E2 neither happens, because **every term in the loop is a proof**: `delta: Top`,
@@ -456,7 +456,7 @@ is built.
 | 9. `secret (MkBox p) = secret (MkBox q)`, `secret` opaque | `E-REFL` (shortcut mode) | checks |
 | `carry x x h 4 = 4` ([`indexed-prop.sw`](full-proof-irrelevance/indexed-prop.sw)) | `E-REFL` | checks, if Q2 is (a) |
 | Hedberg's statements by `Prop.irrel` ([`checks-today.sw`](full-proof-irrelevance/checks-today.sw)), sealed or not | checks | checks; `Prop.irrel` itself is `byComputing` |
-| [`abel-coquand.sw`](full-proof-irrelevance/abel-coquand.sw) | checks | checks (5.3) |
+| [`abel-coquand.sw`](../../examples/accept/abel-coquand.sw) | checks | checks (5.3) |
 | `PrefixSums.atOf` with theorems sealed (SW-4659) | fails without a two-line edit | checks unedited |
 
 **Checks today, might not under E2:**

@@ -660,10 +660,10 @@ fn the_reference_evaluator_stops_at_its_depth_limit() {
 }
 
 /// Quotients (docs/proposals/map-equality.md §7.2): both evaluators apply
-/// the one rule, `Quot.lift f h (Quot.mk a)` to `f a`, through definitions
-/// and folded theorems, leave `Quot.ind`, `Quot.sound` and `J` on them
-/// stuck, and keep a definition that lifts a variable folded; and conversion
-/// agrees on all of it. Every definition is compared applied to variables
+/// the one rule, `Quot.lift f h (Quot.mk a)` to `f a`, through definitions,
+/// leave `J` on a proof built by `Quot.sound` or `Quot.ind` stuck, and keep a
+/// definition that lifts a variable folded; and conversion agrees on all of
+/// it. Every definition is compared applied to variables
 /// (`compare_definitions`), so the folded and stuck forms are covered.
 #[test]
 fn the_evaluators_agree_on_quotients() {
