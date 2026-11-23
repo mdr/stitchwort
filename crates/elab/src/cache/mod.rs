@@ -3921,13 +3921,13 @@ mod tests {
                 Icit::Explicit,
                 Rc::new(Term::Sort(Sort::Prop)),
                 Rc::new(Term::Var(0)),
-                ProofMark::Unknown,
+                ProofMark::NotProof,
             ),
             body: Term::Lam(
                 "P".into(),
                 Icit::Explicit,
                 Rc::new(Term::Var(0)),
-                ProofMark::Unknown,
+                ProofMark::NotProof,
             ),
             group: vec![0],
             run_body: None,
@@ -4111,7 +4111,10 @@ mod tests {
         assert_eq!((stats.refused, stats.refused_on_recheck), (1, 0));
     }
 
-    /// `(P: Prop) -> P -> P`, a theorem proved by `fun P p => p`.
+    /// `(P: Prop) -> P -> P`, a theorem proved by `fun P p => p`. Forged
+    /// entries carry the proof marks checking gives (`P` a type, `p` a
+    /// proof), as a real entry does: the trusted replay takes marks as
+    /// given, and under the reference feature checks them.
     fn identity_def(
         name: &str,
         group: usize,
@@ -4138,9 +4141,9 @@ mod tests {
                     Icit::Explicit,
                     Rc::new(Term::Var(0)),
                     Rc::new(Term::Var(1)),
-                    ProofMark::Unknown,
+                    ProofMark::Proof,
                 )),
-                ProofMark::Unknown,
+                ProofMark::NotProof,
             ),
             body: Term::Lam(
                 "P".into(),
@@ -4149,9 +4152,9 @@ mod tests {
                     "p".into(),
                     Icit::Explicit,
                     Rc::new(Term::Var(0)),
-                    ProofMark::Unknown,
+                    ProofMark::Proof,
                 )),
-                ProofMark::Unknown,
+                ProofMark::NotProof,
             ),
             group: vec![group],
             run_body,
@@ -4175,11 +4178,11 @@ mod tests {
                     Rc::new(Term::Var(0)),
                     Rc::new(Term::Var(0)),
                     erased,
-                    ProofMark::Unknown,
+                    ProofMark::Proof,
                 )),
-                ProofMark::Unknown,
+                ProofMark::Proof,
             )),
-            ProofMark::Unknown,
+            ProofMark::NotProof,
         )
     }
 
@@ -4280,9 +4283,9 @@ mod tests {
                 "p".into(),
                 Icit::Explicit,
                 std::rc::Rc::new(Term::Var(1)),
-                ProofMark::Unknown,
+                ProofMark::Proof,
             )),
-            ProofMark::Unknown,
+            ProofMark::NotProof,
         );
         let admit = |run: &Term, exact| {
             let mut e = Elaborator::new();
@@ -4345,13 +4348,13 @@ mod tests {
             Icit::Explicit,
             Rc::new(Term::Sort(Sort::Prop)),
             Rc::new(Term::Var(0)),
-            ProofMark::Unknown,
+            ProofMark::NotProof,
         );
         forged.body = Term::Lam(
             "P".into(),
             Icit::Explicit,
             Rc::new(Term::Var(0)),
-            ProofMark::Unknown,
+            ProofMark::NotProof,
         );
         let defs = [
             identity_def("a", 0, None),
@@ -4438,7 +4441,7 @@ mod tests {
                 Icit::Explicit,
                 Rc::new(Term::Sort(Sort::Prop)),
                 Rc::new(Term::Var(0)),
-                ProofMark::Unknown,
+                ProofMark::NotProof,
             );
             looping.body = Term::Lam(
                 "P".into(),
@@ -4448,7 +4451,7 @@ mod tests {
                     Rc::new(Term::Var(0)),
                     Icit::Explicit,
                 )),
-                ProofMark::Unknown,
+                ProofMark::NotProof,
             );
             looping
         };

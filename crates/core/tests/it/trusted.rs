@@ -7,7 +7,7 @@ use crate::common::*;
 use stitchwort_core::check::{self, DataDecl};
 use stitchwort_core::globals::{Ctor, Kernel, State};
 use stitchwort_core::hash::{data_hash, def_hash};
-use stitchwort_core::{DefId, Sort, Term};
+use stitchwort_core::{DefId, ProofMark, Sort, Term};
 
 fn code<T>(result: Result<T, stitchwort_syntax::Diagnostic>) -> &'static str {
     result.err().map_or("ok", |d| d.code)
@@ -167,7 +167,10 @@ fn a_trusted_copy_is_the_checked_environment() {
 
 /// The point of trusting: a body checking would refuse (it doesn't
 /// terminate) is installed as given. This is why a cache entry is part of
-/// the trusted base, and why `--no-cache` is the full check.
+/// the trusted base, and why `--no-cache` is the full check. The trusted
+/// terms carry the proof marks checking would have given them (`n` is a
+/// number), as a cache entry's do: trusted admission takes marks as given,
+/// and under the reference feature checks them (`reference::validate_marks`).
 #[test]
 fn trusted_admission_does_not_check() {
     let mut p = Prelude::new();
@@ -178,16 +181,23 @@ fn trusted_admission_does_not_check() {
         code(check::define_def(&mut p.g, checked, &looping(checked))),
         "ok"
     );
+    let not_proof = |t: Term| match &t {
+        Term::Pi(x, i, a, b, _) => {
+            Term::Pi(x.clone(), *i, a.clone(), b.clone(), ProofMark::NotProof)
+        }
+        Term::Lam(x, i, b, _) => Term::Lam(x.clone(), *i, b.clone(), ProofMark::NotProof),
+        _ => t,
+    };
     let trusted = check::admit_trusted_def(
         &mut p.g,
         &"loop2".into(),
         &"loop2".into(),
-        &ty,
+        &not_proof(ty),
         false,
         span(),
     )
     .unwrap();
-    check::admit_trusted_group(&mut p.g, &[(trusted, looping(trusted))]).unwrap();
+    check::admit_trusted_group(&mut p.g, &[(trusted, not_proof(looping(trusted)))]).unwrap();
     assert_eq!(p.g.def(trusted).state(), State::Final);
 }
 
