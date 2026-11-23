@@ -626,7 +626,7 @@ pub fn from_view(k: BigUint, base: Option<Value>) -> Value {
 /// Its definition recurses on `k`, so unfolding it all gives
 /// `x + (x + … + 0)` with `k` additions, each stuck on `x`: millions of
 /// steps for `100000 * x`, deep enough to overflow the stack when dropped.
-/// Folded, it's what dictionaries and theorems are (`value::is_folded`):
+/// Folded, it's what dictionaries are (`value::is_folded`):
 /// taking it apart or comparing it with anything but `mul k x'` unfolds one
 /// step, to `add x (mul (k - 1) x)`, which is stuck on `x` too, so it's
 /// never a number, a `Succ` or a constructor. What's equal doesn't change,

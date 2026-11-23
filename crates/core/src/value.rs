@@ -19,7 +19,6 @@ use crate::nat_add::Unread;
 use crate::native;
 use crate::registry::Builtin;
 use crate::term::{Branch, DataId, DefId, Icit, Name, QuotForm, Sort, Term};
-use crate::unfold_counts::{self, Site};
 
 #[derive(Clone, Debug)]
 pub enum Value {
@@ -991,7 +990,6 @@ pub fn unfold_once(g: &Ev, id: DefId, spine: Spine) -> Result<Value> {
             other => Ok(project(d, i, force(g, other)?)),
         };
     }
-    unfold_counts::record(g, id, Site::Once);
     let start = unfold_now(g, id, spine, false)?;
     run(g, start)
 }
@@ -1232,7 +1230,7 @@ enum Frame {
         env: Vec<Value>,
         stuck: Stuck,
     },
-    /// The unfolding of a folded call (a dictionary or a theorem, [`folds`])
+    /// The unfolding of a folded call ([`folded_call`])
     /// that the frame `next` takes apart: unfolded again if it's another
     /// folded call, directly or once a glued call it ends in is forced, and
     /// given to `next` as it is if it's this call, stuck. So `next` gets
@@ -1379,7 +1377,7 @@ fn apply_field(
     icit: Icit,
 ) -> Result<Control> {
     if computes_field(g, &f) {
-        return unfold_field_for(g, stack, f, FieldUse::App(arg, icit), Site::FieldApply);
+        return unfold_field_for(g, stack, f, FieldUse::App(arg, icit));
     }
     let Value::Neutral(Head::Def(id), mut spine) = f else {
         unreachable!("checked by the caller")
@@ -1935,13 +1933,9 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             Control::Force(value)
         }
         // A folded call is taken apart: it unfolds.
-        Frame::LiftForced { term, env, stuck } if folded_call(g, &value) => unfold_for(
-            g,
-            stack,
-            value,
-            Frame::LiftReady { term, env, stuck },
-            Site::Lift,
-        )?,
+        Frame::LiftForced { term, env, stuck } if folded_call(g, &value) => {
+            unfold_for(g, stack, value, Frame::LiftReady { term, env, stuck })?
+        }
         Frame::LiftForced { term, env, stuck } | Frame::LiftReady { term, env, stuck } => {
             let Term::Quot(_, args, _) = &*term else {
                 unreachable!("a `LiftForced` frame is for `Quot.lift`")
@@ -2023,11 +2017,11 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
         // A folded call is taken apart: it unfolds (in this machine, so a
         // proof made of many folded steps needs no Rust stack).
         Frame::JForced { term, env } if folded_call(g, &value) => {
-            unfold_for(g, stack, value, Frame::JReady { term, env }, Site::J)?
+            unfold_for(g, stack, value, Frame::JReady { term, env })?
         }
         // So is a stuck field of a call, as when it's applied ([`apply_field`]).
         Frame::JForced { term, env } if computes_field(g, &value) => {
-            unfold_field_for(g, stack, value, FieldUse::J { term, env }, Site::J)?
+            unfold_field_for(g, stack, value, FieldUse::J { term, env })?
         }
         Frame::JForced { term, env } | Frame::JReady { term, env } => {
             let Term::J(motive, base, _) = &*term else {
@@ -2071,7 +2065,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             } else {
                 Frame::ProjReady(d, i)
             };
-            unfold_for(g, stack, value, next, Site::Project)?
+            unfold_for(g, stack, value, next)?
         }
         Frame::FoldedField(field) => {
             let (d, i, named) = *field;
@@ -2100,7 +2094,6 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                     spine,
                     unfolded: true,
                 })),
-                Site::Project,
             )?
         }
         Frame::CallField(field) => {
@@ -2155,13 +2148,9 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             Control::Return(Value::Neutral(head, spine))
         }
         // A folded call is taken apart: it unfolds.
-        Frame::Scrutinee { tree, env, stuck } if folded_call(g, &value) => unfold_for(
-            g,
-            stack,
-            value,
-            Frame::ScrutineeReady { tree, env, stuck },
-            Site::Case,
-        )?,
+        Frame::Scrutinee { tree, env, stuck } if folded_call(g, &value) => {
+            unfold_for(g, stack, value, Frame::ScrutineeReady { tree, env, stuck })?
+        }
         Frame::Scrutinee { tree, env, stuck } | Frame::ScrutineeReady { tree, env, stuck } => {
             branch(g, tree, env, stuck, value)?
         }
@@ -2172,7 +2161,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                 Value::Neutral(Head::Def(i2), s2) if *i2 == id && s2.ptr_eq(&spine) => {
                     resume(g, next, value, stack)?
                 }
-                _ if folded_call(g, &value) => unfold_for(g, stack, value, next, Site::Chain)?,
+                _ if folded_call(g, &value) => unfold_for(g, stack, value, next)?,
                 // A glued call (a `decreasing` definition's fuelled helper)
                 // or a solved metavariable is forced, and what it computes
                 // to looked at again: it may
@@ -2184,31 +2173,6 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                 _ if needs_forcing(g, &value) => {
                     push(g, stack, Frame::Unfolding(Box::new((id, spine, next))))?;
                     Control::Force(value)
-                }
-                // A proof stuck past its own case tree (on a `J` or a
-                // `case` on a variable) is passed on as the call, as one
-                // stuck in its own tree is: `next` is stuck on it either
-                // way, and the call is far smaller than an unfolding such as
-                // `hangOpenStep`'s, a `J` chain over projections with their
-                // propositions written out (SW-4642). Through a chain of
-                // calls it is the innermost theorem whose body got stuck
-                // past its tree, not necessarily the one written. As this
-                // reuses the frame's spine, a `FieldOf` frame takes it as
-                // stuck in its own tree too, giving `(lemma x).mp h`.
-                // Conversion and the unifier unfold such a call, bare, as a
-                // field, or with a `J` or application after it
-                // ([`unfold_folded`], [`unfold_folded_head`]), so it still
-                // meets a value built from the unfolding (a solution
-                // replayed by `Frame::ReplayElim`, or one written out).
-                // This arm is the elaborator's only, as for fields; the
-                // comparison rule is every mode's, the kernel's included.
-                Value::Neutral(head, _)
-                    if !matches!(head, Head::Meta(_))
-                        && g.def(id).theorem
-                        && names_folded_fields(g) =>
-                {
-                    let call = Value::Neutral(Head::Def(id), spine);
-                    resume(g, next, call, stack)?
                 }
                 _ => {
                     push(g, stack, next)?;
@@ -2317,7 +2281,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             // What it unfolds to may be a glued call (a `decreasing`
             // definition's fuelled helper), which a projection can't take
             // apart unforced.
-            let unfolded = match unfold_folded_at(g, &value, Site::Replay)? {
+            let unfolded = match unfold_folded(g, &value)? {
                 Some(unfolded) => Some(force(g, unfolded)?),
                 None => None,
             };
@@ -2858,15 +2822,12 @@ fn native_arg(
 }
 
 /// Whether definition `id` stays folded when it has all its arguments, except
-/// while a program runs: a dictionary ([`crate::globals::Def::fold`]) or a
-/// theorem. A theorem's value is a proof, which only a `case` (on a
-/// proposition), `J` or a comparison looks inside, and each of those unfolds
-/// it first; so a proof that's only passed along is never computed (SW-281:
-/// the fuel's proofs in a definition with `decreasing`). What's equal
-/// doesn't change, only when it's computed.
+/// while a program runs: a dictionary ([`crate::globals::Def::fold`]). A
+/// `case`, `J`, projection or comparison that takes it apart unfolds it
+/// first, so what's equal doesn't change, only when it's computed. (A
+/// theorem needs no folding: outside a program it is sealed, [`hidden`].)
 fn folds(g: &Ev, id: DefId) -> bool {
-    let def = g.def(id);
-    (def.fold || def.theorem) && !g.machine.erasure.program_running()
+    g.def(id).fold && !g.machine.erasure.program_running()
 }
 
 /// Whether definition `id` is opaque and its body can't be used now
@@ -2900,17 +2861,10 @@ pub fn body_seen<'a>(g: &Ev<'a>, id: DefId) -> Option<&'a Rc<Term>> {
 /// Folded call `value` ([`is_folded`]) is taken apart by the frame `next`:
 /// its case tree runs in this machine, and `next` gets the result
 /// ([`Frame::Unfolding`]).
-fn unfold_for(
-    g: &Ev,
-    stack: &mut Vec<Frame>,
-    value: Value,
-    next: Frame,
-    site: Site,
-) -> Result<Control> {
+fn unfold_for(g: &Ev, stack: &mut Vec<Frame>, value: Value, next: Frame) -> Result<Control> {
     let Value::Neutral(Head::Def(id), spine) = value else {
         unreachable!("checked by is_folded")
     };
-    unfold_counts::record(g, id, site);
     let def = g.def(id);
     let body = def.body.as_ref().expect("checked by is_folded");
     let (args, call, _) = folded_parts(g, id, &spine);
@@ -2953,12 +2907,10 @@ fn unfold_field_for(
     stack: &mut Vec<Frame>,
     value: Value,
     then: FieldUse,
-    site: Site,
 ) -> Result<Control> {
     let Value::Neutral(Head::Def(id), spine) = value else {
         unreachable!("checked by is_folded")
     };
-    unfold_counts::record(g, id, site);
     let def = g.def(id);
     let body = def.body.as_ref().expect("checked by is_folded");
     let (args, call, _) = folded_parts(g, id, &spine);
@@ -3077,12 +3029,6 @@ pub(crate) fn has_lift_leaf(tree: &Term) -> bool {
 /// comparing it with something that isn't the same call, sees. `None` if
 /// `value` isn't one, or its case tree is stuck.
 pub fn unfold_folded(g: &Ev, value: &Value) -> Result<Option<Value>> {
-    unfold_folded_at(g, value, Site::Other)
-}
-
-/// [`unfold_folded`], counting its unfoldings at `site`
-/// (`STITCHWORT_THEOREM_UNFOLDS`).
-pub fn unfold_folded_at(g: &Ev, value: &Value, site: Site) -> Result<Option<Value>> {
     let mut current: Option<Value> = None;
     loop {
         let v = current.as_ref().unwrap_or(value);
@@ -3093,7 +3039,6 @@ pub fn unfold_folded_at(g: &Ev, value: &Value, site: Site) -> Result<Option<Valu
             unreachable!()
         };
         let id = *id;
-        unfold_counts::record(g, id, site);
         let def = g.def(id);
         let body = def.body.as_ref().expect("checked by is_folded");
         let (args, call, fields) = folded_parts(g, id, spine);
@@ -3122,7 +3067,7 @@ pub fn unfold_folded_at(g: &Ev, value: &Value, site: Site) -> Result<Option<Valu
         // A field of the call: the fields of its unfolding.
         for (d, i) in fields {
             let base = force(g, next)?;
-            let base = match unfold_folded_at(g, &base, Site::Field)? {
+            let base = match unfold_folded(g, &base)? {
                 Some(unfolded) => force(g, unfolded)?,
                 None => base,
             };
@@ -3133,24 +3078,18 @@ pub fn unfold_folded_at(g: &Ev, value: &Value, site: Site) -> Result<Option<Valu
 }
 
 /// A folded call applied to all its arguments, then eliminated further by a
-/// `J` or an application (`J m b (T a)`, `(lemma x).mp h`): the call
-/// unfolded ([`unfold_folded`]) and the rest of the spine applied to what it
-/// computes to. `None` if `value` isn't one, or the call is stuck in its own
-/// case tree. A theorem's unfolding stuck past its own tree is kept as the
-/// call (`Frame::Unfolding`), so such a value can meet one built from the
-/// unfolding (by a metavariable's solution replayed, or written out), and
-/// conversion and the unifier compare the two by this. In every mode, the
-/// kernel's included: a definition's arity is its body's leading lambdas
-/// (docs/core.md), so a theorem whose case tree returns a lambda, or a
-/// definition with a `Quot.lift` leaf returning a function, applied to all
-/// its arguments is such a value there too, compared by delta and then the
-/// eliminations after it, as docs/core.md's equality rule asks.
+/// `J` or an application (`bumpBy q 3`, with `bumpBy q` a `Quot.lift`
+/// returning a function): the call unfolded ([`unfold_folded`]) and the rest
+/// of the spine applied to what it computes to. `None` if `value` isn't one,
+/// or the call is stuck in its own case tree. Conversion and the unifier
+/// compare such a value with anything that isn't the same call this way, in
+/// every mode, the kernel's included: a definition's arity is its body's
+/// leading lambdas (docs/core.md), so a definition with a `Quot.lift` leaf
+/// returning a function, applied to all its arguments and more, is such a
+/// value there too, compared by delta and then the eliminations after it,
+/// as docs/core.md's equality rule asks
+/// (`examples/accept/lift-call-over-applied.sw`).
 pub fn unfold_folded_head(g: &Ev, value: &Value) -> Result<Option<Value>> {
-    unfold_folded_head_at(g, value, Site::OverApplied)
-}
-
-/// [`unfold_folded_head`], counting at `site`.
-pub fn unfold_folded_head_at(g: &Ev, value: &Value, site: Site) -> Result<Option<Value>> {
     if !unfolds_head(g, value) {
         return Ok(None);
     }
@@ -3162,7 +3101,7 @@ pub fn unfold_folded_head_at(g: &Ev, value: &Value, site: Site) -> Result<Option
     if !folded_call(g, &call) {
         return Ok(None);
     }
-    let Some(unfolded) = unfold_folded_at(g, &call, site)? else {
+    let Some(unfolded) = unfold_folded(g, &call)? else {
         return Ok(None);
     };
     let rest: Spine = spine[arity..].iter().cloned().collect();
@@ -4261,7 +4200,7 @@ fn conv_step(
         from = Stage::Unfold;
     }
     if from == Stage::Unfold {
-        let unfold = |v: &Value| match unfold_folded_at(g, v, Site::Conversion)? {
+        let unfold = |v: &Value| match unfold_folded(g, v)? {
             Some(u) => Ok(Some(u)),
             None => unfold_folded_head(g, v),
         };
@@ -4301,7 +4240,7 @@ fn conv_step(
             Ok(true)
         };
         let assign = |x: &Value, rest: &Value| {
-            let x = match unfold_folded_at(g, x, Site::Conversion)? {
+            let x = match unfold_folded(g, x)? {
                 Some(x) => Some(x),
                 None => match unfold_folded_head(g, x)? {
                     Some(x) => Some(x),
@@ -4767,8 +4706,8 @@ pub fn underapplied(g: &Ev, value: &Value) -> Option<Icit> {
 // sides take that branch, with the same fields.
 //
 // Only for definitions that aren't recursive (a recursive one compared this
-// way could unfold forever), aren't folded by name (dictionaries and
-// theorems, compared above) and have no `Quot.lift` leaf. A tree is compared
+// way could unfold forever), aren't folded by name (dictionaries, compared
+// above) and have no `Quot.lift` leaf. A tree is compared
 // node by node: a `case` whose scrutinee's head is a constructor (a folded
 // call unfolded, a number or a compact list split, as running it would)
 // takes its branch; one stuck on a neutral value is compared with the
@@ -4909,7 +4848,7 @@ fn tree_scrutinee(g: &Ev, value: Value) -> Result<Value> {
     let mut value = force(g, value)?;
     while folded_call(g, &value) {
         g.machine.budget.step()?;
-        match unfold_folded_at(g, &value, Site::TreeCase)? {
+        match unfold_folded(g, &value)? {
             Some(next) => value = force(g, next)?,
             None => break,
         }

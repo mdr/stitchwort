@@ -33163,12 +33163,12 @@
     {
       "id": 4666,
       "title": "[Sonnet] After sealing (SW-4665): remove the theorem-unfolding paths SW-4642 added in value.rs/reference.rs/unify.rs that can no longer fire, the STITCHWORT_THEOREM_UNFOLDS counters (always 0 now), and comments describing them as live (e.g. examples/accept/proof-unfolding-kept-folded.sw header)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nDone together with SW-4668 in one lane (same code).\n",
+      "body": "\n\nDone together with SW-4668 in one lane (same code).\n\n23 Nov 11:55, lane: done in f0af26180 (one commit for both). Removed folds' theorem half (value.rs, reference.rs), the elaborator-only Frame::Unfolding theorem arm, the STITCHWORT_THEOREM_UNFOLDS counters (unfold_counts.rs, Site, *_at variants, budget::with_current_declaration, docs/workflow.md). Kept unfold_folded_head/unfolds_head (Quot.lift leaf), new example examples/accept/lift-call-over-applied.sw (fails without the rule). docs/core.md paragraph, rule 6, G12 row rewritten. Tests: soundness set, touched examples, core value/opaque/reference unit tests, test:hashes ALL=1 (only the new example's snapshot added). ~20 min (est. 45).\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
       "commits": []
@@ -33189,12 +33189,12 @@
     {
       "id": 4668,
       "title": "[Opus] After sealing: remove dead theorem folding in folds, rewrite docs/core.md Theorems-stay-folded paragraph and rule 6 (hashes and native pins still move with a proof until stage 2), add a dictionary or Quot.lift example for the over-applied folded head (SW-4665 review findings 1, 2)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nD3723 (Matt, 22 Nov 2026): \"yes - our aims for today are to work towards proof irrelevance. We can then think about parallel checking\". Started 23 Nov 11:36 on Opus. Expected: 45 min.\n",
+      "body": "\n\nD3723 (Matt, 22 Nov 2026): \"yes - our aims for today are to work towards proof irrelevance. We can then think about parallel checking\". Started 23 Nov 11:36 on Opus. Expected: 45 min.\n\n23 Nov 11:55, lane: done in f0af26180 (one commit for both). Removed folds' theorem half (value.rs, reference.rs), the elaborator-only Frame::Unfolding theorem arm, the STITCHWORT_THEOREM_UNFOLDS counters (unfold_counts.rs, Site, *_at variants, budget::with_current_declaration, docs/workflow.md). Kept unfold_folded_head/unfolds_head (Quot.lift leaf), new example examples/accept/lift-call-over-applied.sw (fails without the rule). docs/core.md paragraph, rule 6, G12 row rewritten. Tests: soundness set, touched examples, core value/opaque/reference unit tests, test:hashes ALL=1 (only the new example's snapshot added). ~20 min (est. 45).\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
       "commits": []

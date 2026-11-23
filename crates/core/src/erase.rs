@@ -154,9 +154,9 @@ impl Erasure {
     }
 
     /// Whether a program or test is running now, erasing or not (erasure is
-    /// [`Erasure::set_disabled`] to compare the two): then dictionaries and
-    /// theorems don't stay folded and calls aren't glued, as they do while
-    /// checking. So a run without erasure computes its proofs.
+    /// [`Erasure::set_disabled`] to compare the two): then dictionaries
+    /// don't stay folded, theorems and opaque definitions aren't sealed, and
+    /// calls aren't glued, as they are while checking. So a run without erasure computes its proofs.
     pub fn program_running(&self) -> bool {
         self.program.get()
     }

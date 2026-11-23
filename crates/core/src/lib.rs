@@ -41,7 +41,6 @@ pub mod sct;
 pub mod step;
 pub mod term;
 pub mod termination;
-pub mod unfold_counts;
 pub mod unify_index;
 pub mod value;
 
