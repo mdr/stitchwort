@@ -248,7 +248,7 @@ fn from_scratch(globals: &Ev, root: DefId) -> BTreeSet<&'static str> {
         for term in terms {
             for (sub, _) in term.subterms() {
                 match sub {
-                    Term::Quot(QuotForm::Sound, _, _) => {
+                    Term::Quot(QuotForm::Sound, _, _, _) => {
                         found.insert("Quot.sound");
                     }
                     Term::Def(id) => pending.push(Node::Def(*id)),
@@ -290,7 +290,7 @@ fn scan(globals: &Ev, node: Node) -> (BTreeSet<&'static str>, Vec<Node>) {
     for term in terms {
         for (sub, _) in term.subterms() {
             match sub {
-                Term::Quot(QuotForm::Sound, _, _) => {
+                Term::Quot(QuotForm::Sound, _, _, _) => {
                     found.insert("Quot.sound");
                 }
                 Term::Def(id) => successors.push(Node::Def(*id)),

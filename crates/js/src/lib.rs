@@ -5,6 +5,7 @@
 //! (`Nat`, `Bool`, `Text`, `Char`, `List`, and data types built from them,
 //! such as `Option Text`), and their proof arguments are checked at runtime.
 
+use stitchwort_core::ProofMark;
 #[cfg(test)]
 use stitchwort_test_alloc as _;
 
@@ -370,7 +371,7 @@ fn boundary(
     // written as a synonym (`Row` for `Vec Bool 5`) is a call until forced.
     let ty = &force(g, ty.clone())?;
     match ty {
-        Value::Neutral(Head::Var(level, _), elims) if elims.is_empty() && *level < params => {
+        Value::Neutral(Head::Var(level, _, _), elims) if elims.is_empty() && *level < params => {
             Ok(Boundary::Param(*level))
         }
         Value::Data(d, args) => {
@@ -3128,7 +3129,7 @@ impl<'g> Gen<'g> {
             out.push_str(&self.tree(default, env, depth, self_call)?);
             return Ok(out);
         }
-        if let Term::Let(_, _, value, body, erased) = term.strip_loc() {
+        if let Term::Let(_, _, value, body, erased, _) = term.strip_loc() {
             let mut out = self.let_statement(value, *erased, env, &pad)?;
             out.push_str(&self.tree(body, env, depth, self_call)?);
             env.pop();
@@ -3297,7 +3298,7 @@ impl<'g> Gen<'g> {
         let arity = def.arity();
         let mut body = def.run_body()?.strip_loc().clone();
         for _ in 0..arity {
-            let Term::Lam(_, _, inner) = &body else {
+            let Term::Lam(_, _, inner, _) = &body else {
                 return None;
             };
             body = inner.strip_loc().clone();
@@ -3387,7 +3388,7 @@ impl<'g> Gen<'g> {
         }
         let mut lams = 0;
         let mut inner = &body;
-        while let Term::Lam(_, _, b) = inner.strip_loc() {
+        while let Term::Lam(_, _, b, _) = inner.strip_loc() {
             lams += 1;
             inner = b;
         }
@@ -3464,7 +3465,7 @@ impl<'g> Gen<'g> {
     ) -> Fallible<String> {
         self.g.machine.budget.nesting(PASS)?;
         let pad = "  ".repeat(depth);
-        if let Term::Let(_, _, value, body, erased) = term.strip_loc() {
+        if let Term::Let(_, _, value, body, erased, _) = term.strip_loc() {
             let mut out = self.let_statement(value, *erased, env, &pad)?;
             out.push_str(&self.tail(body, env, depth, call)?);
             env.pop();
@@ -4093,7 +4094,7 @@ impl<'g> Gen<'g> {
     ) -> Option<(Vec<stitchwort_core::Name>, Term)> {
         let mut params = Vec::new();
         let mut body = arg.strip_loc();
-        while let Term::Lam(name, _, inner) = body {
+        while let Term::Lam(name, _, inner, _) = body {
             params.push(name.clone());
             body = inner.strip_loc();
         }
@@ -4168,6 +4169,7 @@ impl<'g> Gen<'g> {
                 Rc::new(arg.shift(self.g, j, 0)?),
                 Rc::new(out),
                 unused,
+                ProofMark::Unknown,
             );
         }
         Ok(Some(out))
@@ -4190,7 +4192,7 @@ impl<'g> Gen<'g> {
         let mut names = Vec::new();
         let mut body = head;
         while names.len() < args.len()
-            && let Term::Lam(x, _, inner) = body
+            && let Term::Lam(x, _, inner, _) = body
         {
             names.push(x.clone());
             body = inner.strip_loc();
@@ -4211,6 +4213,7 @@ impl<'g> Gen<'g> {
                 Rc::new(args[j].shift(self.g, j, 0)?),
                 Rc::new(out),
                 unused,
+                ProofMark::Unknown,
             );
         }
         Ok(Some(out))
@@ -4269,11 +4272,11 @@ impl<'g> Gen<'g> {
         let mut term = term.clone();
         loop {
             let next = match term.strip_loc() {
-                Term::Let(_, _, _, body, true) => {
+                Term::Let(_, _, _, body, true, _) => {
                     env.push(true);
                     (**body).clone()
                 }
-                Term::Let(_, _, value, body, false) => match self.inline_let(value, body)? {
+                Term::Let(_, _, value, body, false, _) => match self.inline_let(value, body)? {
                     Some(inlined) => inlined,
                     None => {
                         let value = self.expr(value, env)?;
@@ -4343,12 +4346,12 @@ impl<'g> Gen<'g> {
                 }
                 out
             }
-            Term::Lam(_, _, body)
+            Term::Lam(_, _, body, _)
                 if self.run_delay && stitchwort_rt::erasure::is_done_continuation(self.g, body) =>
             {
                 run::DONE_K.into()
             }
-            Term::Lam(_, _, body) => {
+            Term::Lam(_, _, body, _) => {
                 let level = env.len();
                 env.push(false);
                 let body = self.function_body(body, env);
@@ -4357,7 +4360,7 @@ impl<'g> Gen<'g> {
             }
             // A skipped `let` (a proof, a type, or unused) emits nothing: its
             // variable is `undefined`, as an erased parameter's is.
-            Term::Let(_, _, _, body, true) => {
+            Term::Let(_, _, _, body, true, _) => {
                 env.push(true);
                 let body = self.expr(body, env);
                 env.pop();
@@ -4365,7 +4368,7 @@ impl<'g> Gen<'g> {
             }
             // In an expression, computed once, before the body. (In a case
             // tree's leaf, it's a `const`: `Gen::let_statement`.)
-            Term::Let(_, _, value, body, false) => {
+            Term::Let(_, _, value, body, false, _) => {
                 if let Some(inlined) = self.inline_let(value, body)? {
                     return self.expr(&inlined, env);
                 }
@@ -4460,7 +4463,7 @@ impl<'g> Gen<'g> {
                 }
             }
             // Proofs are erased, and transport along an equality does nothing.
-            Term::J(_, base, _) => self.expr(base, env)?,
+            Term::J(_, base, _, _) => self.expr(base, env)?,
             // A field, read as a `match` on the record reads it.
             Term::Proj(d, i, t) => {
                 if self.g.data(*d).ctors()[0].field_erased[*i] {
@@ -4491,8 +4494,8 @@ impl<'g> Gen<'g> {
             // carrier's elements are erased), a lift whose result isn't
             // erased is the application `f q` (§7.4.2), and the rest are
             // proofs or types.
-            Term::Quot(QuotForm::Mk, args, false) => self.expr(&args[2], env)?,
-            Term::Quot(QuotForm::Lift, args, false) => {
+            Term::Quot(QuotForm::Mk, args, false, _) => self.expr(&args[2], env)?,
+            Term::Quot(QuotForm::Lift, args, false, _) => {
                 let f_q = Term::App(args[3].clone(), args[5].clone(), Icit::Explicit);
                 self.expr(&f_q, env)?
             }
@@ -4624,7 +4627,7 @@ impl<'g> Gen<'g> {
             let from = self.g.def(*from);
             let mut inner = from.run_body()?.strip_loc();
             for _ in 0..from.arity() {
-                let Term::Lam(_, _, b) = inner else {
+                let Term::Lam(_, _, b, _) = inner else {
                     return None;
                 };
                 inner = b.strip_loc();
@@ -4659,7 +4662,7 @@ impl<'g> Gen<'g> {
             return None;
         };
         match (then.strip_loc(), otherwise.strip_loc()) {
-            (Term::Lam(_, _, then), Term::Lam(_, _, otherwise)) => {
+            (Term::Lam(_, _, then, _), Term::Lam(_, _, otherwise, _)) => {
                 Some((cond, then, otherwise, tag))
             }
             _ => None,
@@ -4695,7 +4698,7 @@ impl<'g> Gen<'g> {
         };
         let mut body = body.strip_loc();
         for _ in 0..self.g.def(id).arity() {
-            let Term::Lam(_, _, inner) = body else {
+            let Term::Lam(_, _, inner, _) = body else {
                 return false;
             };
             body = inner.strip_loc();
@@ -4709,7 +4712,7 @@ impl<'g> Gen<'g> {
             return false;
         };
         let mut ty = self.g.def(id).ty().strip_loc();
-        while let Term::Pi(_, _, _, codomain) = ty {
+        while let Term::Pi(_, _, _, codomain, _) = ty {
             ty = codomain.strip_loc();
         }
         matches!(ty, Term::Data(d, _) if *d == decidable)
@@ -4746,7 +4749,7 @@ impl<'g> Gen<'g> {
         let arity = self.g.def(id).arity();
         let mut out = body;
         for _ in 0..arity {
-            let Term::Lam(_, _, inner) = out.strip_loc() else {
+            let Term::Lam(_, _, inner, _) = out.strip_loc() else {
                 return Ok(None);
             };
             out = inner;
@@ -5675,7 +5678,7 @@ impl<'g> Gen<'g> {
 fn lam_names(body: Option<&Term>) -> Vec<stitchwort_core::Name> {
     let mut names = Vec::new();
     let mut term = body.map(Term::strip_loc);
-    while let Some(Term::Lam(x, _, inner)) = term {
+    while let Some(Term::Lam(x, _, inner, _)) = term {
         names.push(x.clone());
         term = Some(inner.strip_loc());
     }
@@ -5686,13 +5689,13 @@ fn lam_names(body: Option<&Term>) -> Vec<stitchwort_core::Name> {
 fn written_param_type(ty: &Term, i: usize) -> Option<&Term> {
     let mut ty = ty.strip_loc();
     for _ in 0..i {
-        let Term::Pi(_, _, _, cod) = ty else {
+        let Term::Pi(_, _, _, cod, _) = ty else {
             return None;
         };
         ty = cod.strip_loc();
     }
     match ty {
-        Term::Pi(_, _, dom, _) => Some(dom),
+        Term::Pi(_, _, dom, _, _) => Some(dom),
         _ => None,
     }
 }
@@ -6144,13 +6147,13 @@ fn single_use<'t>(codegen: &Gen, body: &'t Term) -> bool {
             | Term::Eq(..)
             | Term::Refl
             | Term::Quot(QuotForm::Type, ..) => {}
-            Term::J(_, base, _) => visit(base, 0, false),
-            Term::Let(_, _, value, body, _) => {
+            Term::J(_, base, _, _) => visit(base, 0, false),
+            Term::Let(_, _, value, body, _, _) => {
                 visit(value, 0, false);
                 visit(body, 1, false);
             }
             Term::Ann(inner, _) => visit(inner, 0, false),
-            Term::Lam(_, _, inner) => visit(inner, 1, true),
+            Term::Lam(_, _, inner, _) => visit(inner, 1, true),
             Term::App(..) => {
                 let (head, args) = term.spine();
                 let info = match head {

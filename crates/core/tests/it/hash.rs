@@ -1,6 +1,7 @@
 //! Content hashes distinguish everything that matters about a declaration.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use crate::common::*;
 use stitchwort_core::check;
@@ -63,6 +64,7 @@ fn hashes_distinguish_every_part_of_a_definition() {
                 Icit::Implicit,
                 Rc::new(p.nat_ty()),
                 Rc::new(p.nat_ty()),
+                ProofMark::Unknown,
             )
         },
         |_| ilam("n", v(0)),

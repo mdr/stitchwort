@@ -29,6 +29,7 @@
 
 use std::collections::BTreeSet;
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use crate::check::quote_folded;
 use crate::kernel;
@@ -229,7 +230,7 @@ pub(crate) fn spine(env: &[Value], lets: &[Option<Rc<LetDef>>]) -> Vec<usize> {
 }
 
 fn is_var(value: &Value, level: usize) -> bool {
-    matches!(value, Value::Neutral(Head::Var(l, _), s) if *l == level && s.is_empty())
+    matches!(value, Value::Neutral(Head::Var(l, _, _), s) if *l == level && s.is_empty())
 }
 
 /// A comparison that holds if the helpers not lifted yet that it meets turn
@@ -401,8 +402,16 @@ impl Replace<'_> {
             | Term::Meta(_) => term.clone(),
             Term::Data(d, args) => Term::Data(*d, self.all(args, under)?),
             Term::Ctor(d, c, args) => Term::Ctor(*d, *c, self.all(args, under)?),
-            Term::Pi(x, i, a, b) => Term::Pi(x.clone(), *i, go(a, under)?, go(b, under + 1)?),
-            Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b, under + 1)?),
+            Term::Pi(x, i, a, b, _) => Term::Pi(
+                x.clone(),
+                *i,
+                go(a, under)?,
+                go(b, under + 1)?,
+                ProofMark::Unknown,
+            ),
+            Term::Lam(x, i, b, _) => {
+                Term::Lam(x.clone(), *i, go(b, under + 1)?, ProofMark::Unknown)
+            }
             Term::Loc(span, t) => Term::Loc(*span, go(t, under)?),
             _ => return self.other(term, under),
         })
@@ -480,12 +489,13 @@ impl Replace<'_> {
         };
         Ok(match term {
             Term::Ann(e, t) => Term::Ann(go(e, under)?, go(t, under)?),
-            Term::Let(x, a, v, b, e) => Term::Let(
+            Term::Let(x, a, v, b, e, _) => Term::Let(
                 x.clone(),
                 go(a, under)?,
                 go(v, under)?,
                 go(b, under + 1)?,
                 *e,
+                ProofMark::Unknown,
             ),
             Term::Case(ix, d, branches) => Term::Case(
                 split(*ix)?,
@@ -521,9 +531,16 @@ impl Replace<'_> {
                 go(a, under)?,
                 go(b, under)?,
             ),
-            Term::J(m, b, p) => Term::J(go(m, under)?, go(b, under)?, go(p, under)?),
+            Term::J(m, b, p, _) => Term::J(
+                go(m, under)?,
+                go(b, under)?,
+                go(p, under)?,
+                ProofMark::Unknown,
+            ),
             Term::Proj(d, i, t) => Term::Proj(*d, *i, go(t, under)?),
-            Term::Quot(form, args, e) => Term::Quot(*form, self.all(args, under)?, *e),
+            Term::Quot(form, args, e, _) => {
+                Term::Quot(*form, self.all(args, under)?, *e, ProofMark::Unknown)
+            }
             Term::Var(_)
             | Term::Def(_)
             | Term::Nat(_)
@@ -589,7 +606,7 @@ fn erased_type(e: &Elaborator, draft: &Draft, ty: &Value) -> Result<bool> {
     let (mut at, mut result) = (draft.env.len(), ty.clone());
     loop {
         match force(g, result)? {
-            Value::Pi(_, _, _, codomain) => {
+            Value::Pi(_, _, _, codomain, _) => {
                 result = codomain.apply(g, Value::var(at))?;
                 at += 1;
             }
@@ -853,7 +870,12 @@ impl Elaborator {
                     .borrow_mut()
                     .insert(d.meta, (s, Rc::new(call.clone()), false));
                 for _ in 0..s {
-                    call = Term::Lam("x".into(), Icit::Explicit, Rc::new(call));
+                    call = Term::Lam(
+                        "x".into(),
+                        Icit::Explicit,
+                        Rc::new(call),
+                        ProofMark::Unknown,
+                    );
                 }
                 self.metas().solve_meta(d.meta, eval(g, &[], &call)?);
                 if let Some(item) = self.unit.module.item {
@@ -1264,7 +1286,9 @@ impl Elaborator {
         };
         Ok(match term {
             Term::Loc(span, t) => Term::Loc(*span, go(t, under, params)?),
-            Term::Lam(x, i, b) if params => Term::Lam(x.clone(), *i, go(b, under + 1, true)?),
+            Term::Lam(x, i, b, _) if params => {
+                Term::Lam(x.clone(), *i, go(b, under + 1, true)?, ProofMark::Unknown)
+            }
             Term::Case(ix, d, branches) => Term::Case(
                 *ix,
                 *d,
@@ -1555,7 +1579,12 @@ impl Elaborator {
             },
         )?;
         for &l in captures.iter().rev() {
-            lam = Term::Lam(draft.names[l].clone(), Icit::Explicit, Rc::new(lam));
+            lam = Term::Lam(
+                draft.names[l].clone(),
+                Icit::Explicit,
+                Rc::new(lam),
+                ProofMark::Unknown,
+            );
         }
         Ok(Some(lam))
     }
@@ -1671,8 +1700,14 @@ impl Elaborator {
             let dom = quote_folded(g, n, &draft.types[l])?;
             let dom = into(&self.unrefine(draft, &dom, n, keep)?, n, p)?;
             let x = draft.names[l].clone();
-            ty = Term::Pi(x.clone(), kind(l), Rc::new(dom), Rc::new(ty));
-            lam = Term::Lam(x, kind(l), Rc::new(lam));
+            ty = Term::Pi(
+                x.clone(),
+                kind(l),
+                Rc::new(dom),
+                Rc::new(ty),
+                ProofMark::Unknown,
+            );
+            lam = Term::Lam(x, kind(l), Rc::new(lam), ProofMark::Unknown);
         }
         // The call's arguments, as functions of the metavariable's spine.
         let base = draft.base;
@@ -1919,7 +1954,12 @@ mod tests {
         (0..n).fold(Term::Var(x), |t, _| {
             Term::app(
                 t,
-                Term::Lam("a".into(), Icit::Explicit, Rc::new(Term::Var(0))),
+                Term::Lam(
+                    "a".into(),
+                    Icit::Explicit,
+                    Rc::new(Term::Var(0)),
+                    ProofMark::Unknown,
+                ),
             )
         })
     }
@@ -1937,7 +1977,7 @@ mod tests {
         assert_eq!(args.len(), n);
         assert!(
             args.iter()
-                .all(|a| matches!(a, Term::Lam(_, _, b) if matches!(**b, Term::Var(0))))
+                .all(|a| matches!(a, Term::Lam(_, _, b, _) if matches!(**b, Term::Var(0))))
         );
     }
 

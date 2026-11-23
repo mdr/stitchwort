@@ -39,7 +39,7 @@ use std::rc::Rc;
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Elim, Head, Spine, apply, force};
-use stitchwort_core::{DataId, DefId, Icit, Name, Term, Value};
+use stitchwort_core::{DataId, DefId, Icit, Name, ProofMark, Term, Value};
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{
     BinOp, Bracket, Clause, Expr, Mode, Name as AstName, NodeId, Pattern,
@@ -1088,7 +1088,7 @@ pub(crate) fn escape(cx: &Ctx) -> Diagnostic {
 /// may be partial, when what it's given is (D1214, D1255).
 fn has_divergence_index(cx: &Ctx, id: DefId) -> bool {
     let mut ty = cx.g().def(id).ty();
-    while let Term::Pi(x, _, _, body) = ty.strip_loc() {
+    while let Term::Pi(x, _, _, body, _) = ty.strip_loc() {
         if x.starts_with("%div.") {
             return true;
         }
@@ -1484,7 +1484,12 @@ fn widen(cx: &Ctx, from: &Row, t: &Value, tail: Term, m: Term, term: Term) -> Re
     let quote_at = |depth: usize, v: &Value| crate::check::quote_folded(&cx.g(), level + depth, v);
     // `t => Plus A (Plus B … t)`.
     let pre_body = ops_ending(cx, &from.labels, Value::var(level))?;
-    let pre = Term::Lam("t".into(), Icit::Explicit, Rc::new(quote_at(1, &pre_body)?));
+    let pre = Term::Lam(
+        "t".into(),
+        Icit::Explicit,
+        Rc::new(quote_at(1, &pre_body)?),
+        ProofMark::Unknown,
+    );
     // `t r => PlusRes resA (PlusRes resB … r)`.
     let pre_res_body = res_ending(cx, &from.labels, Value::var(level), Value::var(level + 1))?;
     let pre_res = Term::Lam(
@@ -1494,7 +1499,9 @@ fn widen(cx: &Ctx, from: &Row, t: &Value, tail: Term, m: Term, term: Term) -> Re
             "r".into(),
             Icit::Explicit,
             Rc::new(quote_at(2, &pre_res_body)?),
+            ProofMark::Unknown,
         )),
+        ProofMark::Unknown,
     );
     call(
         cx,
@@ -1656,7 +1663,7 @@ pub fn settle_let_lambda(cx: &Ctx, value: &Expr, ty: Value) -> Result<Value> {
     let g = cx.g();
     let mut level = cx.level();
     let mut rest = force(&g, ty.clone())?;
-    while let Value::Pi(_, _, _, cod) = rest {
+    while let Value::Pi(_, _, _, cod, _) = rest {
         rest = force(&g, cod.apply(&g, Value::var(level))?)?;
         level += 1;
     }
@@ -2027,7 +2034,7 @@ fn pi_slots(cx: &Ctx, mut ty: Value) -> Result<Vec<ParamSlot>> {
             return Ok(out);
         }
         match force(&g, ty)? {
-            Value::Pi(name, icit, dom, cod) => {
+            Value::Pi(name, icit, dom, cod, _) => {
                 out.push(ParamSlot {
                     name: name.clone(),
                     explicit: !icit.is_implicit(),
@@ -2646,7 +2653,7 @@ fn unit_call_hint(
 fn takes_function(cx: &Ctx, ty: &Value) -> bool {
     let g = cx.g();
     match force(&g, ty.clone()) {
-        Ok(Value::Pi(_, _, dom, _)) => matches!(force(&g, (*dom).clone()), Ok(Value::Pi(..))),
+        Ok(Value::Pi(_, _, dom, _, _)) => matches!(force(&g, (*dom).clone()), Ok(Value::Pi(..))),
         _ => false,
     }
 }
@@ -2706,7 +2713,7 @@ fn performs_after(cx: &Ctx, mut ty: Value, mut explicit: usize) -> Result<bool> 
             return Ok(!(row.is_bare() && cx.e.decl.bare_rows_pure.get()));
         }
         match force(&g, ty)? {
-            Value::Pi(_, icit, _, cod) => {
+            Value::Pi(_, icit, _, cod, _) => {
                 if !icit.is_implicit() {
                     if explicit == 0 {
                         return Ok(false);
@@ -3182,7 +3189,7 @@ fn comp_value(cx: &Ctx, expr: &Expr, comp_only: bool) -> Result<bool> {
             return Ok(!comp_only || matches!(force(&g, ty)?, Value::Data(d, _) if Some(d) == comp));
         }
         match force(&g, ty)? {
-            Value::Pi(_, icit, _, cod) => {
+            Value::Pi(_, icit, _, cod, _) => {
                 if !icit.is_implicit() {
                     if explicit == 0 {
                         return Ok(false);
@@ -3323,7 +3330,12 @@ fn sequence(
     cx.bind(name, ty.clone());
     let result = body(cx);
     cx.reset(mark);
-    let lam = Term::Lam(name.into(), Icit::Explicit, Rc::new(result?));
+    let lam = Term::Lam(
+        name.into(),
+        Icit::Explicit,
+        Rc::new(result?),
+        ProofMark::Unknown,
+    );
     bind_term(cx, row, ty, t.clone(), term, lam)
 }
 
@@ -3810,7 +3822,7 @@ fn thunk_hint(cx: &Ctx, arg: &Expr, param: Option<&Value>, e: Diagnostic) -> Dia
         return e;
     };
     let g = cx.g();
-    let Ok(Value::Pi(_, Icit::Explicit, dom, cod)) = force(&g, param.clone()) else {
+    let Ok(Value::Pi(_, Icit::Explicit, dom, cod, _)) = force(&g, param.clone()) else {
         return e;
     };
     let Ok(dom) = force(&g, (*dom).clone()) else {
@@ -4343,7 +4355,12 @@ fn wrap(cx: &mut Ctx, row: &Row, bound: Vec<Bound>, mut result: Term, ty: &Value
             result = Term::let_(b.name.as_str().into(), ty_term, b.comp, result);
             continue;
         }
-        let lam = Term::Lam(b.name.as_str().into(), Icit::Explicit, Rc::new(result));
+        let lam = Term::Lam(
+            b.name.as_str().into(),
+            Icit::Explicit,
+            Rc::new(result),
+            ProofMark::Unknown,
+        );
         result = bind_term(cx, row, b.ty, ty.clone(), b.comp, lam)?;
     }
     Ok(result)
@@ -4653,7 +4670,12 @@ fn op_call(
         return Err(error);
     }
     cx.reset(mark);
-    let lam = Term::Lam("%op".into(), Icit::Explicit, Rc::new(inner));
+    let lam = Term::Lam(
+        "%op".into(),
+        Icit::Explicit,
+        Rc::new(inner),
+        ProofMark::Unknown,
+    );
     let bind = bind_term(cx, row, dom, result_ty.clone(), c, lam)?;
     Ok((bind, result_ty))
 }
@@ -4683,7 +4705,12 @@ fn make_call(
         Rc::new(Term::ctor(data(cx, Builtin::Comp)?, 0, vec![Term::Var(0)])),
         Rc::new(comp_inner),
     );
-    let rest = Term::Lam("r".into(), Icit::Explicit, Rc::new(done));
+    let rest = Term::Lam(
+        "r".into(),
+        Icit::Explicit,
+        Rc::new(done),
+        ProofMark::Unknown,
+    );
     let op_call = Term::Ann(
         Rc::new(Term::ctor(
             data(cx, Builtin::Comp)?,
@@ -4742,9 +4769,18 @@ pub fn op_value(cx: &mut Ctx, a: usize, i: usize) -> Result<(Term, Value)> {
         Icit::Explicit,
         Rc::new(cx.quote_folded(&dom)?),
         Rc::new(cod),
+        ProofMark::Unknown,
     );
     let ty = cx.eval(&ty)?;
-    Ok((Term::Lam("x".into(), Icit::Explicit, Rc::new(call)), ty))
+    Ok((
+        Term::Lam(
+            "x".into(),
+            Icit::Explicit,
+            Rc::new(call),
+            ProofMark::Unknown,
+        ),
+        ty,
+    ))
 }
 
 /// A `let` that performs nothing, in a pure context, checked against
@@ -4838,9 +4874,16 @@ pub fn run_pure(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(
 /// under any `let`s, with the `let`s around it.
 fn done_value(cx: &Ctx, c: &Term) -> Result<Option<Term>> {
     Ok(match c {
-        Term::Let(x, a, v, b, e) => {
-            done_value(cx, b)?.map(|b| Term::Let(x.clone(), a.clone(), v.clone(), Rc::new(b), *e))
-        }
+        Term::Let(x, a, v, b, e, _) => done_value(cx, b)?.map(|b| {
+            Term::Let(
+                x.clone(),
+                a.clone(),
+                v.clone(),
+                Rc::new(b),
+                *e,
+                ProofMark::Unknown,
+            )
+        }),
         Term::Loc(span, t) => done_value(cx, t)?.map(|t| Term::Loc(*span, Rc::new(t))),
         Term::Ann(inner, _) => match inner.strip_loc() {
             Term::Ctor(d, 0, fields) if *d == data(cx, Builtin::Comp)? && fields.len() == 1 => {
@@ -4998,6 +5041,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
         ret_var.text.as_str().into(),
         Icit::Explicit,
         Rc::new(ret_term?),
+        ProofMark::Unknown,
     );
 
     // op x => k -> …, for each operation in order.
@@ -5041,6 +5085,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
                 env: cx.env.as_slice().into(),
                 body: Rc::new(cx.quote_folded(&r)?.shift(&cx.g(), 1, 0)?),
             },
+            ProofMark::Unknown,
         );
         cx.bind(&k.text, k_ty);
         let body = comp_check(cx, body, out, t);
@@ -5052,7 +5097,9 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
                 k.text.as_str().into(),
                 Icit::Explicit,
                 Rc::new(body?),
+                ProofMark::Unknown,
             )),
+            ProofMark::Unknown,
         );
         elim_term = Term::app(elim_term, clause);
     }
@@ -5102,6 +5149,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             "y".into(),
             Icit::Explicit,
             Rc::new(Term::app(Term::Var(1), reply.clone())),
+            ProofMark::Unknown,
         );
         let call_term = if let Some(d) = &out.div {
             // `callD d out (sigInject m o) (y => k (…))`: the operation
@@ -5129,6 +5177,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
                 "y".into(),
                 Icit::Explicit,
                 Rc::new(Term::ctor(data(cx, Builtin::Comp)?, 0, vec![Term::Var(0)])),
+                ProofMark::Unknown,
             );
             let op = Term::ctor(data(cx, Builtin::Comp)?, 1, vec![inject, done]);
             let mut lifted = Term::Def(primitive(cx, Primitive::Lift)?);
@@ -5157,7 +5206,12 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
                 ),
                 Term::app(Term::Var(1), reply),
             );
-            let rest_fn = Term::Lam("y".into(), Icit::Explicit, Rc::new(lift_in));
+            let rest_fn = Term::Lam(
+                "y".into(),
+                Icit::Explicit,
+                Rc::new(lift_in),
+                ProofMark::Unknown,
+            );
             let tree = Term::ctor(data(cx, Builtin::Comp)?, 1, vec![inject, rest_fn]);
             Term::app(
                 Term::app(
@@ -5176,7 +5230,13 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
         Term::Lam(
             "o".into(),
             Icit::Explicit,
-            Rc::new(Term::Lam("k".into(), Icit::Explicit, Rc::new(call_term))),
+            Rc::new(Term::Lam(
+                "k".into(),
+                Icit::Explicit,
+                Rc::new(call_term),
+                ProofMark::Unknown,
+            )),
+            ProofMark::Unknown,
         )
     };
     let step = call(
@@ -5261,7 +5321,7 @@ pub fn partial_mismatch(
     let mark = cx.mark();
     let (mut found, mut expected) = (found.clone(), expected.clone());
     let result = (|| -> Result<Option<Diagnostic>> {
-        while let (Value::Pi(x, i1, d1, c1), Value::Pi(_, i2, _, c2)) =
+        while let (Value::Pi(x, i1, d1, c1, _), Value::Pi(_, i2, _, c2, _)) =
             (force(&g, found.clone())?, force(&g, expected.clone())?)
         {
             if i1 != i2 {
@@ -5309,8 +5369,10 @@ pub fn coerce(cx: &mut Ctx, term: &Term, found: &Value, expected: &Value) -> Res
     let mut expected = expected.clone();
     let mut names: Vec<Name> = Vec::new();
     let result = (|| -> Result<Option<Term>> {
-        while let (Value::Pi(x, Icit::Explicit, d1, c1), Value::Pi(_, Icit::Explicit, d2, c2)) =
-            (force(&g, found.clone())?, force(&g, expected.clone())?)
+        while let (
+            Value::Pi(x, Icit::Explicit, d1, c1, _),
+            Value::Pi(_, Icit::Explicit, d2, c2, _),
+        ) = (force(&g, found.clone())?, force(&g, expected.clone())?)
         {
             if !cx.unify(&d1, &d2)? {
                 return Ok(None);
@@ -5362,7 +5424,7 @@ pub fn coerce(cx: &mut Ctx, term: &Term, found: &Value, expected: &Value) -> Res
         return Ok(None);
     };
     for name in names.into_iter().rev() {
-        term = Term::Lam(name, Icit::Explicit, Rc::new(term));
+        term = Term::Lam(name, Icit::Explicit, Rc::new(term), ProofMark::Unknown);
     }
     Ok(Some(term))
 }

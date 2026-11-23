@@ -14,6 +14,7 @@
 //! arguments is known there, and the kernel's own error for it says so.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::{DefId, Ev, Icit, Name, Term};
 use stitchwort_syntax::{Diagnostic, Span};
@@ -97,7 +98,7 @@ pub fn explain(mut diagnostic: Diagnostic, expanded: &[Expanded]) -> Diagnostic 
 fn entry_params(body: &Term) -> Vec<(Name, Icit)> {
     let mut params = Vec::new();
     let mut term = body.strip_loc();
-    while let Term::Lam(x, icit, inner) = term {
+    while let Term::Lam(x, icit, inner, _) = term {
         params.push((x.clone(), *icit));
         term = inner.strip_loc();
     }
@@ -154,21 +155,28 @@ impl Saturator<'_> {
             Term::Ctor(d, c, args) => self
                 .all(args)?
                 .map(|args| Rc::new(Term::Ctor(*d, *c, args))),
-            Term::Quot(form, args, erased) => self
+            Term::Quot(form, args, erased, _) => self
                 .all(args)?
-                .map(|args| Rc::new(Term::Quot(*form, args, *erased))),
-            Term::Pi(x, icit, dom, cod) => self
-                .pair(dom, cod)?
-                .map(|(dom, cod)| Rc::new(Term::Pi(x.clone(), *icit, dom, cod))),
-            Term::Lam(x, icit, body) => self
+                .map(|args| Rc::new(Term::Quot(*form, args, *erased, ProofMark::Unknown))),
+            Term::Pi(x, icit, dom, cod, _) => self.pair(dom, cod)?.map(|(dom, cod)| {
+                Rc::new(Term::Pi(x.clone(), *icit, dom, cod, ProofMark::Unknown))
+            }),
+            Term::Lam(x, icit, body, _) => self
                 .expand(body)?
-                .map(|body| Rc::new(Term::Lam(x.clone(), *icit, body))),
+                .map(|body| Rc::new(Term::Lam(x.clone(), *icit, body, ProofMark::Unknown))),
             Term::Ann(e, t) => self.pair(e, t)?.map(|(e, t)| Rc::new(Term::Ann(e, t))),
-            Term::Let(x, ty, value, body, erased) => {
+            Term::Let(x, ty, value, body, erased, _) => {
                 let parts = [ty.clone(), value.clone(), body.clone()];
                 self.all(&parts)?.map(|parts| {
                     let [ty, value, body]: [Rc<Term>; 3] = parts.try_into().expect("three parts");
-                    Rc::new(Term::Let(x.clone(), ty, value, body, *erased))
+                    Rc::new(Term::Let(
+                        x.clone(),
+                        ty,
+                        value,
+                        body,
+                        *erased,
+                        ProofMark::Unknown,
+                    ))
                 })
             }
             Term::Case(ix, d, branches) => {
@@ -232,11 +240,11 @@ impl Saturator<'_> {
                 }
             }
             Term::Proj(d, i, t) => self.expand(t)?.map(|t| Rc::new(Term::Proj(*d, *i, t))),
-            Term::J(m, b, p) => {
+            Term::J(m, b, p, _) => {
                 let parts = [m.clone(), b.clone(), p.clone()];
                 self.all(&parts)?.map(|parts| {
                     let [m, b, p]: [Rc<Term>; 3] = parts.try_into().expect("three parts");
-                    Rc::new(Term::J(m, b, p))
+                    Rc::new(Term::J(m, b, p, ProofMark::Unknown))
                 })
             }
         })
@@ -286,7 +294,7 @@ impl Saturator<'_> {
             call = Term::app_icit(call, Term::Var(shift - 1 - k), *icit);
         }
         for (x, icit) in missing.iter().rev() {
-            call = Term::Lam(x.clone(), *icit, Rc::new(call));
+            call = Term::Lam(x.clone(), *icit, Rc::new(call), ProofMark::Unknown);
         }
         let explicit = |params: &[(Name, Icit)]| {
             params

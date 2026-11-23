@@ -32,6 +32,7 @@
 //! checks.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Elim, Head, Spine, apply, conv, force, force_solved, unfold_once};
@@ -184,7 +185,7 @@ pub(crate) fn as_written(
     let env: Vec<Value> = env
         .into_iter()
         .map(|v| match &v {
-            Value::Neutral(Head::Var(l, _), spine) if spine.is_empty() && *l < cx.level() => {
+            Value::Neutral(Head::Var(l, _, _), spine) if spine.is_empty() && *l < cx.level() => {
                 cx.env[*l].clone()
             }
             _ => v,
@@ -229,7 +230,7 @@ pub(crate) fn domain_as_written(cx: &Ctx, head: &Term, dom: &Value) -> Result<Va
     }
     let written =
         crate::dot::written_type_term(cx, head)?.and_then(|(ty, env)| match ty.strip_loc() {
-            Term::Pi(_, Icit::Explicit, d, _) => Some((d.clone(), env)),
+            Term::Pi(_, Icit::Explicit, d, _, _) => Some((d.clone(), env)),
             _ => None,
         });
     as_written(cx, dom, written)
@@ -328,7 +329,12 @@ fn written_head_args(g: &Ev, test: &Term) -> Option<(TestHead, Vec<(Term, usize)
     let Term::Def(f) = f else { return None };
     let reg = g.env.registry();
     if Some(*f) == reg.def(Builtin::IfThenElse)
-        && let [_, cond, Term::Lam(_, _, then), Term::Lam(_, _, otherwise)] = &args[..]
+        && let [
+            _,
+            cond,
+            Term::Lam(_, _, then, _),
+            Term::Lam(_, _, otherwise, _),
+        ] = &args[..]
     {
         let is = |t: &Term, b: Builtin| matches!(t, Term::Ctor(d, c, fs) if fs.is_empty() && Some((*d, *c)) == reg.ctor(b));
         let (then, otherwise) = (then.strip_loc(), otherwise.strip_loc());
@@ -389,7 +395,7 @@ impl Elaborator {
         };
         let mut params = 0;
         let mut ty = def.ty_value().clone();
-        while let Value::Pi(_, _, _, cod) = force(g, ty.clone())? {
+        while let Value::Pi(_, _, _, cod, _) = force(g, ty.clone())? {
             ty = cod.apply(g, Value::var(params))?;
             params += 1;
         }
@@ -397,7 +403,7 @@ impl Elaborator {
         // be unfolded (always, with gluing off), and its function lost.
         let mut names = Vec::new();
         let mut written = def.ty().strip_loc();
-        while let Term::Pi(n, _, _, cod) = written {
+        while let Term::Pi(n, _, _, cod, _) = written {
             names.push(n.clone());
             written = cod.strip_loc();
         }
@@ -981,7 +987,7 @@ fn decision_test(g: &Ev, test: &Value) -> Result<Option<(Value, Value)>> {
             let call: Spine = spine[..spine.len() - 1].iter().cloned().collect();
             let mut ty = g.def(*f).ty_value().clone();
             for e in call.iter() {
-                let (Elim::App(arg, _), Value::Pi(_, _, _, cod)) = (e, force(g, ty)?) else {
+                let (Elim::App(arg, _), Value::Pi(_, _, _, cod, _)) = (e, force(g, ty)?) else {
                     return Ok(None);
                 };
                 ty = cod.apply(g, arg.clone())?;
@@ -1115,7 +1121,7 @@ fn statement(
     folded(g, || {
         let mut ty = g.def(theorem).ty_value().clone();
         for &slot in info.slots.iter() {
-            let Value::Pi(_, icit, _, cod) = force(g, ty)? else {
+            let Value::Pi(_, icit, _, cod, _) = force(g, ty)? else {
                 unreachable!("checked when the reading was declared")
             };
             let arg = &args[slot];
@@ -1176,7 +1182,7 @@ fn applied(cx: &Ctx, f: DefId, args: Vec<Term>) -> Term {
     let mut term = Term::Def(f);
     let mut ty = cx.g().def(f).ty().clone();
     let mut args = args.into_iter();
-    while let Term::Pi(_, icit, _, cod) = ty.strip_loc() {
+    while let Term::Pi(_, icit, _, cod, _) = ty.strip_loc() {
         let Some(arg) = args.next() else { break };
         term = Term::app_icit(term, arg, *icit);
         ty = (**cod).clone();
@@ -1633,7 +1639,12 @@ fn refutes(cx: &Ctx, h: &Term, test: &Value) -> Result<(Term, Value)> {
         .fold(def(Builtin::EqTrans), |t, a| Term::app_icit(t, a, imp));
     let trans = Term::app(Term::app(trans, sym), Term::Var(0));
     let body = Term::app(def(Builtin::FalseNotTrue), trans);
-    let term = Term::Lam("isTrue".into(), Icit::Explicit, Rc::new(body));
+    let term = Term::Lam(
+        "isTrue".into(),
+        Icit::Explicit,
+        Rc::new(body),
+        ProofMark::Unknown,
+    );
     let eq_true = Term::Eq(
         Some(Rc::new(bool_ty)),
         Rc::new(e),
@@ -1676,7 +1687,7 @@ fn opened(g: &Ev, id: DefId) -> Result<Opened> {
             names: Vec::new(),
             ty: g.def(id).ty_value().clone(),
         };
-        while let Value::Pi(x, _, dom, cod) = force(g, opened.ty.clone())? {
+        while let Value::Pi(x, _, dom, cod, _) = force(g, opened.ty.clone())? {
             let var = Value::var(opened.env.len());
             opened.env.push(var.clone());
             opened.types.push((*dom).clone());
@@ -1724,7 +1735,7 @@ fn own_proposition(g: &Ev, prop: &Value) -> Result<bool> {
     let mut seen = Vec::new();
     for arg in args {
         match force(g, arg)? {
-            Value::Neutral(Head::Var(l, _), s) if s.is_empty() && !seen.contains(&l) => {
+            Value::Neutral(Head::Var(l, _, _), s) if s.is_empty() && !seen.contains(&l) => {
                 seen.push(l)
             }
             _ => return Ok(false),

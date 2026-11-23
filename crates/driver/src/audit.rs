@@ -630,7 +630,7 @@ pub fn concludes_empty(g: &Ev, id: DefId) -> bool {
         return false;
     };
     let mut level = 0;
-    while let Value::Pi(_, _, _, cod) = &ty {
+    while let Value::Pi(_, _, _, cod, _) = &ty {
         let Ok(next) = cod.apply(g, Value::var(level)).and_then(|v| force(g, v)) else {
             return false;
         };

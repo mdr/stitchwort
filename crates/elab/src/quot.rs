@@ -24,6 +24,7 @@
 //! checks every form (checks C1–C6).
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::collections::HashSet;
 use stitchwort_core::term::QuotForm;
@@ -204,7 +205,13 @@ fn elaborate_own(
     let g = cx.g();
     let shift = |t: &Term, by: usize| t.shift(&g, by, 0);
     let pi = |x: &str, dom: Term, cod: Term| {
-        Term::Pi(x.into(), Icit::Explicit, Rc::new(dom), Rc::new(cod))
+        Term::Pi(
+            x.into(),
+            Icit::Explicit,
+            Rc::new(dom),
+            Rc::new(cod),
+            ProofMark::Unknown,
+        )
     };
     let rc = Rc::new;
     // The carrier and the relation: given (as implicit or, for `Quot A R`,
@@ -245,6 +252,7 @@ fn elaborate_own(
         QuotForm::Type,
         vec![rc(carrier.clone()), rc(relation.clone())],
         false,
+        ProofMark::Unknown,
     );
     let quot_ty_value = cx.eval(&quot_ty)?;
     let hint = |cx: &mut Ctx, found: &Value| -> Result<()> {
@@ -262,6 +270,7 @@ fn elaborate_own(
                 .map(Rc::new)
                 .collect(),
             false,
+            ProofMark::Unknown,
         )
     };
     match form {
@@ -333,6 +342,7 @@ fn elaborate_own(
                     rc(Term::Var(0)),
                 ],
                 false,
+                ProofMark::Unknown,
             );
             let case_ty = pi("x", carrier.clone(), Term::app(shift(&motive, 1)?, mk));
             let case_ty = cx.eval(&case_ty)?;
@@ -355,6 +365,7 @@ fn elaborate_own(
                     QuotForm::Mk,
                     vec![rc(carrier.clone()), rc(relation.clone()), rc(v.clone())],
                     false,
+                    ProofMark::Unknown,
                 ))
             };
             let equation = Term::Eq(Some(rc(quot_ty.clone())), mk(&x), mk(&y));
@@ -370,7 +381,7 @@ fn elaborate_own(
 
 /// Whether `ty` is a quotient type, `Quot A R`.
 pub(crate) fn is_quotient_type(ty: &Value) -> bool {
-    matches!(ty, Value::Neutral(Head::Quot(QuotForm::Type), spine) if spine.len() == QuotForm::Type.arity())
+    matches!(ty, Value::Neutral(Head::Quot(QuotForm::Type, _), spine) if spine.len() == QuotForm::Type.arity())
 }
 
 /// What to do instead of matching on a quotient (R2).
@@ -426,7 +437,7 @@ pub(crate) fn recursive_through_quotient(
             // A member in a quotient's relation only (R13) isn't stored in
             // it: the kernel's message is the one for that.
             let (inner, depth) = ty.subterms().find(|(t, _)| match t.strip_loc() {
-                Term::Quot(QuotForm::Type, args, _) => args
+                Term::Quot(QuotForm::Type, args, _, _) => args
                     .first()
                     .is_some_and(|a| mentions_group(a, group).is_some()),
                 _ => quotient_like(g, t, group, &mut seen) && mentions_group(t, group).is_some(),
@@ -530,7 +541,7 @@ fn data_reaches(g: &Ev, d: DataId, seen: &mut Seen) -> bool {
 fn def_reaches(g: &Ev, f: DefId, seen: &mut Seen) -> bool {
     let def = g.def(f);
     let mut ty = def.ty().strip_loc();
-    while let Term::Pi(_, _, _, cod) = ty {
+    while let Term::Pi(_, _, _, cod, _) = ty {
         ty = cod.strip_loc();
     }
     if !matches!(ty, Term::Sort(_)) || !seen.defs.insert(f) {

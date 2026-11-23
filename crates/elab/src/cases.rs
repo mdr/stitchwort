@@ -154,6 +154,7 @@ use num_bigint::BigUint;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use stitchwort_core::Ev;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::registry::Builtin;
@@ -951,7 +952,7 @@ fn named_aliases(cx: &mut Ctx, run: &Run) -> Result<Vec<(Name, Term, Term)>> {
             continue;
         };
         let value = case_value(cx, &Value::var(level), 32)?;
-        if matches!(&value, Value::Neutral(Head::Var(l, _), spine) if *l == level && spine.is_empty())
+        if matches!(&value, Value::Neutral(Head::Var(l, _, _), spine) if *l == level && spine.is_empty())
         {
             continue;
         }
@@ -980,7 +981,7 @@ fn case_value(cx: &Ctx, value: &Value, depth: usize) -> Result<Value> {
         return Ok(value);
     }
     match &value {
-        Value::Neutral(Head::Var(level, _), spine) if spine.is_empty() => {
+        Value::Neutral(Head::Var(level, _, _), spine) if spine.is_empty() => {
             for l in (0..cx.level()).rev() {
                 if !is_equation(cx, l) || stale(cx, l) {
                     continue;
@@ -988,7 +989,7 @@ fn case_value(cx: &Ctx, value: &Value, depth: usize) -> Result<Value> {
                 let Value::Eq(_, lhs, rhs) = force(&g, cx.types[l].clone())? else {
                     continue;
                 };
-                if matches!(force(&g, (*lhs).clone())?, Value::Neutral(Head::Var(x, _), s) if x == *level && s.is_empty())
+                if matches!(force(&g, (*lhs).clone())?, Value::Neutral(Head::Var(x, _, _), s) if x == *level && s.is_empty())
                 {
                     return case_value(cx, &rhs, depth - 1);
                 }
@@ -1009,7 +1010,7 @@ fn case_value(cx: &Ctx, value: &Value, depth: usize) -> Result<Value> {
 /// The variables a constructor form holds, its own fields' fields too.
 fn ctor_vars(g: &Ev, value: &Value, out: &mut Vec<usize>) -> Result<()> {
     match force(g, value.clone())? {
-        Value::Neutral(Head::Var(level, _), spine) if spine.is_empty() => out.push(level),
+        Value::Neutral(Head::Var(level, _, _), spine) if spine.is_empty() => out.push(level),
         Value::Ctor(_, _, args) => {
             for arg in args.iter() {
                 ctor_vars(g, arg, out)?;
@@ -1042,7 +1043,7 @@ fn named_fields(cx: &Ctx, run: &Run) -> Result<Vec<(usize, usize)>> {
                 done[i] = true;
                 continue;
             };
-            let Value::Neutral(Head::Var(left, _), spine) = force(&g, (*l).clone())? else {
+            let Value::Neutral(Head::Var(left, _, _), spine) = force(&g, (*l).clone())? else {
                 done[i] = true;
                 continue;
             };
@@ -1126,7 +1127,7 @@ fn named_rest(
     if !candidates.is_empty() {
         let atom = Finder::new(cx, run).find(goal)?;
         let stuck_on = atom.and_then(|atom| match force(&g, atom.value).ok()? {
-            Value::Neutral(Head::Var(level, _), spine) if spine.is_empty() => Some(level),
+            Value::Neutral(Head::Var(level, _, _), spine) if spine.is_empty() => Some(level),
             _ => None,
         });
         if let Some(at) = candidates
@@ -1241,7 +1242,7 @@ fn introduce(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>> 
     }
     let mark = cx.mark();
     let mut binders: Vec<(Name, Icit)> = Vec::new();
-    while let Value::Pi(x, icit, dom, cod) = goal {
+    while let Value::Pi(x, icit, dom, cod, _) = goal {
         let var = Value::var(cx.level());
         let name = if &*x == "_" || x.is_empty() {
             let unnamed = cx.names.iter().filter(|n| n.starts_with(UNNAMED)).count();
@@ -1260,7 +1261,7 @@ fn introduce(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>> 
     cx.reset(mark);
     let mut body = body?;
     for (name, icit) in binders.into_iter().rev() {
-        body = Term::Lam(name, icit, Rc::new(body));
+        body = Term::Lam(name, icit, Rc::new(body), ProofMark::Unknown);
     }
     Ok(Some(body))
 }
@@ -1820,7 +1821,13 @@ fn bool_clash(cx: &mut Ctx, goal: &Value, levels: &[usize]) -> Result<Option<Ter
         Term::Lam(
             "y".into(),
             Icit::Explicit,
-            Rc::new(Term::Lam("q".into(), Icit::Explicit, Rc::new(body))),
+            Rc::new(Term::Lam(
+                "q".into(),
+                Icit::Explicit,
+                Rc::new(body),
+                ProofMark::Unknown,
+            )),
+            ProofMark::Unknown,
         )
     };
     let var = |level: usize| Term::Var(cx.level() - 1 - level);
@@ -1830,19 +1837,30 @@ fn bool_clash(cx: &mut Ctx, goal: &Value, levels: &[usize]) -> Result<Option<Ter
             return h;
         }
         let body = Term::Eq(bool_ty(), Rc::new(Term::Var(1)), Rc::new(c));
-        Term::J(Rc::new(motive(body)), Rc::new(Term::Refl), Rc::new(h))
+        Term::J(
+            Rc::new(motive(body)),
+            Rc::new(Term::Refl),
+            Rc::new(h),
+            ProofMark::Unknown,
+        )
     };
     let e_term = cx.quote_or_written(&e)?;
     let h_true = turned(var(t_level), ctor(tru), t_left);
     let h_false = turned(var(f_level), ctor(fls), f_left);
     let e_under = e_term.shift(&g, 2, 0)?;
     let back = Term::Eq(bool_ty(), Rc::new(Term::Var(1)), Rc::new(e_under));
-    let false_eq_e = Term::J(Rc::new(motive(back)), Rc::new(Term::Refl), Rc::new(h_false));
+    let false_eq_e = Term::J(
+        Rc::new(motive(back)),
+        Rc::new(Term::Refl),
+        Rc::new(h_false),
+        ProofMark::Unknown,
+    );
     let forward = Term::Eq(bool_ty(), Rc::new(ctor(fls)), Rc::new(Term::Var(1)));
     let false_eq_true = Term::J(
         Rc::new(motive(forward)),
         Rc::new(false_eq_e),
         Rc::new(h_true),
+        ProofMark::Unknown,
     );
     let void_proof = Term::app(
         Term::Def(builtin_def(cx, Builtin::FalseNotTrue)?),
@@ -1882,9 +1900,20 @@ fn contradiction(cx: &mut Ctx, eq: CtorEquation, goal: &Value) -> Result<Term> {
             let motive = Term::Lam(
                 "y".into(),
                 Icit::Explicit,
-                Rc::new(Term::Lam("q".into(), Icit::Explicit, Rc::new(motive_body))),
+                Rc::new(Term::Lam(
+                    "q".into(),
+                    Icit::Explicit,
+                    Rc::new(motive_body),
+                    ProofMark::Unknown,
+                )),
+                ProofMark::Unknown,
             );
-            Term::J(Rc::new(motive), Rc::new(Term::Refl), Rc::new(h))
+            Term::J(
+                Rc::new(motive),
+                Rc::new(Term::Refl),
+                Rc::new(h),
+                ProofMark::Unknown,
+            )
         } else {
             h
         };
@@ -1915,6 +1944,7 @@ fn contradiction(cx: &mut Ctx, eq: CtorEquation, goal: &Value) -> Result<Term> {
             Rc::new(motive),
             Rc::new(Term::ctor(trivial.0, trivial.1, Vec::new())),
             Rc::new(h),
+            ProofMark::Unknown,
         )
     };
     absurd(cx, void_proof, goal)
@@ -1994,7 +2024,13 @@ fn family(
     Ok(Term::Lam(
         "y".into(),
         Icit::Explicit,
-        Rc::new(Term::Lam("q".into(), Icit::Explicit, Rc::new(call))),
+        Rc::new(Term::Lam(
+            "q".into(),
+            Icit::Explicit,
+            Rc::new(call),
+            ProofMark::Unknown,
+        )),
+        ProofMark::Unknown,
     ))
 }
 
@@ -2138,10 +2174,10 @@ fn field_proof(cx: &mut Ctx, level: usize, i: usize, a: &Value, field_ty: &Value
     let project = family(cx, &ty, &l, d, branches, field_ty)?;
     // `J (y q => a = project y) byComputing h : a = project r`, which computes to
     // `a = b`.
-    let Term::Lam(_, _, inner) = &project else {
+    let Term::Lam(_, _, inner, _) = &project else {
         unreachable!("a lambda")
     };
-    let Term::Lam(_, _, call) = &**inner else {
+    let Term::Lam(_, _, call, _) = &**inner else {
         unreachable!("a lambda")
     };
     let motive_body = Term::Eq(
@@ -2152,12 +2188,19 @@ fn field_proof(cx: &mut Ctx, level: usize, i: usize, a: &Value, field_ty: &Value
     let motive = Term::Lam(
         "y".into(),
         Icit::Explicit,
-        Rc::new(Term::Lam("q".into(), Icit::Explicit, Rc::new(motive_body))),
+        Rc::new(Term::Lam(
+            "q".into(),
+            Icit::Explicit,
+            Rc::new(motive_body),
+            ProofMark::Unknown,
+        )),
+        ProofMark::Unknown,
     );
     let proof = Term::J(
         Rc::new(motive),
         Rc::new(Term::Refl),
         Rc::new(Term::Var(cx.level() - 1 - level)),
+        ProofMark::Unknown,
     );
     Ok(proof)
 }
@@ -2259,7 +2302,7 @@ fn substitute(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
         };
         let (l, r) = (force(&g, (*l).clone())?, force(&g, (*r).clone())?);
         for (var_on_right, side, other) in [(true, &r, &l), (false, &l, &r)] {
-            let Value::Neutral(Head::Var(x, _), spine) = side else {
+            let Value::Neutral(Head::Var(x, _, _), spine) = side else {
                 continue;
             };
             let x = *x;
@@ -2366,12 +2409,24 @@ fn substitute(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
         let goal = replaced(cx, &goal_term, z.clone(), n + 2)?;
         let mut body = cx.quote_folded(&goal)?;
         for (name, ty) in pis.into_iter().rev() {
-            body = Term::Pi(name, Icit::Explicit, Rc::new(ty), Rc::new(body));
+            body = Term::Pi(
+                name,
+                Icit::Explicit,
+                Rc::new(ty),
+                Rc::new(body),
+                ProofMark::Unknown,
+            );
         }
         Ok(Term::Lam(
             "z".into(),
             Icit::Explicit,
-            Rc::new(Term::Lam("q".into(), Icit::Explicit, Rc::new(body))),
+            Rc::new(Term::Lam(
+                "q".into(),
+                Icit::Explicit,
+                Rc::new(body),
+                ProofMark::Unknown,
+            )),
+            ProofMark::Unknown,
         ))
     })();
     cx.reset(mark);
@@ -2429,7 +2484,7 @@ fn substitute(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
             body = Term::let_(name, ty, value, body);
         }
         for name in names.into_iter().rev() {
-            body = Term::Lam(name, Icit::Explicit, Rc::new(body));
+            body = Term::Lam(name, Icit::Explicit, Rc::new(body), ProofMark::Unknown);
         }
         Ok(body)
     })();
@@ -2450,11 +2505,27 @@ fn substitute(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
         let turn = Term::Lam(
             "z".into(),
             Icit::Explicit,
-            Rc::new(Term::Lam("q".into(), Icit::Explicit, Rc::new(turn))),
+            Rc::new(Term::Lam(
+                "q".into(),
+                Icit::Explicit,
+                Rc::new(turn),
+                ProofMark::Unknown,
+            )),
+            ProofMark::Unknown,
         );
-        Term::J(Rc::new(turn), Rc::new(Term::Refl), Rc::new(at(fact)))
+        Term::J(
+            Rc::new(turn),
+            Rc::new(Term::Refl),
+            Rc::new(at(fact)),
+            ProofMark::Unknown,
+        )
     };
-    let mut proof = Term::J(Rc::new(motive), Rc::new(base), Rc::new(equation));
+    let mut proof = Term::J(
+        Rc::new(motive),
+        Rc::new(base),
+        Rc::new(equation),
+        ProofMark::Unknown,
+    );
     for &d in &deps {
         proof = Term::app(proof, at(d));
     }
@@ -2490,7 +2561,8 @@ fn apply_guarded(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Ter
     // proof (`None` for `byComputing`, else a hypothesis's level).
     let mut facts: Vec<(Value, usize, Option<usize>)> = Vec::new();
     for &level in &levels {
-        let Value::Pi(_, Icit::Explicit, dom, closure) = force(&g, cx.types[level].clone())? else {
+        let Value::Pi(_, Icit::Explicit, dom, closure, _) = force(&g, cx.types[level].clone())?
+        else {
             continue;
         };
         if closure.body.mentions(0) {
@@ -2578,7 +2650,7 @@ fn apply_to_part(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Ter
         let mut ty = cx.types[level].clone();
         let mut givens = Vec::new();
         // At most one premise per binder of the hypothesis as written.
-        while let Value::Pi(_, Icit::Explicit, dom, closure) = force(&g, ty.clone())? {
+        while let Value::Pi(_, Icit::Explicit, dom, closure, _) = force(&g, ty.clone())? {
             if closure.body.mentions(0) {
                 break;
             }
@@ -3018,7 +3090,7 @@ impl<'a, 'e> Finder<'a, 'e> {
                 }
                 self.walk_stuck_spine(spine)
             }
-            Value::Neutral(Head::Var(level, _), spine) => {
+            Value::Neutral(Head::Var(level, _, _), spine) => {
                 if self.in_goal && spine.is_empty() && !self.mentioned.contains(level) {
                     self.mentioned.push(*level);
                 }

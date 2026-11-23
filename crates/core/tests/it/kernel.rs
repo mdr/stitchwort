@@ -3,6 +3,7 @@
 //! rejection must be a diagnostic with the expected code, never a panic.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use crate::common::*;
 use stitchwort_core::check::infer_closed;
@@ -40,10 +41,10 @@ fn same(a: &Term, b: &Term) -> bool {
         (Term::Ctor(d1, c1, a1), Term::Ctor(d2, c2, a2)) => {
             d1 == d2 && c1 == c2 && all_same(a1, a2)
         }
-        (Term::Pi(_, i1, a1, b1), Term::Pi(_, i2, a2, b2)) => {
+        (Term::Pi(_, i1, a1, b1, _), Term::Pi(_, i2, a2, b2, _)) => {
             i1 == i2 && same(a1, a2) && same(b1, b2)
         }
-        (Term::Lam(_, i1, b1), Term::Lam(_, i2, b2)) => i1 == i2 && same(b1, b2),
+        (Term::Lam(_, i1, b1, _), Term::Lam(_, i2, b2, _)) => i1 == i2 && same(b1, b2),
         (Term::App(f1, a1, i1), Term::App(f2, a2, i2)) => i1 == i2 && same(f1, f2) && same(a1, a2),
         (Term::Eq(t1, x1, y1), Term::Eq(t2, x2, y2)) => {
             t1.is_some() == t2.is_some()
@@ -51,7 +52,9 @@ fn same(a: &Term, b: &Term) -> bool {
                 && same(x1, x2)
                 && same(y1, y2)
         }
-        (Term::J(m1, b1, p1), Term::J(m2, b2, p2)) => same(m1, m2) && same(b1, b2) && same(p1, p2),
+        (Term::J(m1, b1, p1, _), Term::J(m2, b2, p2, _)) => {
+            same(m1, m2) && same(b1, b2) && same(p1, p2)
+        }
         _ => false,
     }
 }
@@ -753,7 +756,12 @@ fn j_transports_along_an_equation() {
             "y",
             lam(
                 "p",
-                Term::J(Rc::new(motive), Rc::new(Term::Refl), Rc::new(v(0))),
+                Term::J(
+                    Rc::new(motive),
+                    Rc::new(Term::Refl),
+                    Rc::new(v(0)),
+                    ProofMark::Unknown,
+                ),
             ),
         ),
     );
@@ -764,7 +772,12 @@ fn j_transports_along_an_equation() {
 fn rejects_j_on_something_that_is_not_an_equation() {
     let p = Prelude::new();
     let motive = lam("y", lam("p", p.nat_ty()));
-    let term = Term::J(Rc::new(motive), Rc::new(p.num(0)), Rc::new(p.num(1)));
+    let term = Term::J(
+        Rc::new(motive),
+        Rc::new(p.num(0)),
+        Rc::new(p.num(1)),
+        ProofMark::Unknown,
+    );
     assert_eq!(infer_code(&p.g, &term), "E-TYPE-MISMATCH");
 }
 
@@ -940,7 +953,12 @@ fn conversion_compares_stuck_transports() {
         eval(
             &g.ev(),
             &[Value::var(0)],
-            &Term::J(Rc::new(motive), Rc::new(base), Rc::new(v(0))),
+            &Term::J(
+                Rc::new(motive),
+                Rc::new(base),
+                Rc::new(v(0)),
+                ProofMark::Unknown,
+            ),
         )
         .unwrap()
     };
@@ -1099,6 +1117,7 @@ fn rejects_a_case_anywhere_outside_a_case_tree() {
                 Rc::new(nat.clone()),
                 Rc::new(nat.clone()),
                 Rc::new(a_case()),
+                ProofMark::Unknown,
             ),
         ),
         pi(
@@ -1108,6 +1127,7 @@ fn rejects_a_case_anywhere_outside_a_case_tree() {
                 Rc::new(nat.clone()),
                 Rc::new(a_case()),
                 Rc::new(nat.clone()),
+                ProofMark::Unknown,
             ),
         ),
         pi(
@@ -1192,12 +1212,13 @@ fn auto_parameters_must_agree_like_other_implicitness() {
         Icit::Auto,
         Rc::new(p.nat_ty()),
         Rc::new(p.nat_ty()),
+        ProofMark::Unknown,
     );
     let f = define(
         &mut p.g,
         "f",
         ty.clone(),
-        Term::Lam("n".into(), Icit::Auto, Rc::new(v(0))),
+        Term::Lam("n".into(), Icit::Auto, Rc::new(v(0)), ProofMark::Unknown),
     )
     .expect("matching auto lambda checks");
     assert_eq!(
@@ -1298,9 +1319,13 @@ fn with_decidable() -> (
             Icit::Auto,
             Rc::new(eq(None, v(0), v(0))),
             Rc::new(p.nat_ty()),
+            ProofMark::Unknown,
         ),
     );
-    let body = lam("n", Term::Lam("ok".into(), Icit::Auto, Rc::new(v(1))));
+    let body = lam(
+        "n",
+        Term::Lam("ok".into(), Icit::Auto, Rc::new(v(1)), ProofMark::Unknown),
+    );
     let f = define(&mut p.g, "f", ty, body).unwrap();
     (p, decidable, f, tru)
 }

@@ -275,7 +275,7 @@ fn check_members(
                     tree_span = *loc;
                     tree = inner.as_ref();
                 }
-                Term::Lam(x, icit, inner) => {
+                Term::Lam(x, icit, inner, _) => {
                     params.push((x.clone(), *icit));
                     tree = inner.as_ref();
                 }
@@ -481,7 +481,7 @@ struct Matched {
 fn is_recursive_fn(g: &Ev, ty: &Term, d: DataId) -> bool {
     let mut ty = ty.strip_loc();
     let mut arrows = 0;
-    while let Term::Pi(_, _, _, cod) = ty {
+    while let Term::Pi(_, _, _, cod, _) = ty {
         arrows += 1;
         ty = cod.strip_loc();
     }
@@ -554,15 +554,15 @@ impl Walker<'_> {
                     self.walk(arg)?;
                 }
             }
-            Term::Lam(x, _, body) => self.under(&[Binder::plain(x)], None, None, body)?,
-            Term::Pi(x, _, dom, cod) => {
+            Term::Lam(x, _, body, _) => self.under(&[Binder::plain(x)], None, None, body)?,
+            Term::Pi(x, _, dom, cod, _) => {
                 self.walk(dom)?;
                 self.under(&[Binder::plain(x)], None, None, cod)?;
             }
             // A quotient form, `Quot.lift` included, gives no evidence of
             // descent (it isn't a match), like `J`: calls in its arguments
             // are checked as any call (docs/proposals/map-equality.md §7.5).
-            Term::Data(_, args) | Term::Ctor(_, _, args) | Term::Quot(_, args, _) => {
+            Term::Data(_, args) | Term::Ctor(_, _, args) | Term::Quot(_, args, _, _) => {
                 for arg in args {
                     self.walk(arg)?;
                 }
@@ -575,7 +575,7 @@ impl Walker<'_> {
             // `v` has, from the terms alone, and nothing more
             // (docs/proposals/let.md §6.1 rule 3). Calls are looked for in
             // the annotation, the value and the body.
-            Term::Let(x, ty, value, body, _) => {
+            Term::Let(x, ty, value, body, _, _) => {
                 self.walk(ty)?;
                 self.walk(value)?;
                 let (param, smaller_than) = match self.relate(value) {
@@ -650,7 +650,7 @@ impl Walker<'_> {
                 self.walk(a)?;
                 self.walk(b)?;
             }
-            Term::J(m, b, p) => {
+            Term::J(m, b, p, _) => {
                 self.walk(m)?;
                 self.walk(b)?;
                 self.walk(p)?;

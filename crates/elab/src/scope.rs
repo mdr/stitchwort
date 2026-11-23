@@ -1686,7 +1686,7 @@ impl Elaborator {
             Global::Data(_) | Global::Ability(_) => true,
             Global::Def(id) => {
                 let mut ty = self.kernel.def(id).ty().strip_loc();
-                while let stitchwort_core::Term::Pi(_, _, _, cod) = ty {
+                while let stitchwort_core::Term::Pi(_, _, _, cod, _) = ty {
                     ty = cod.strip_loc();
                 }
                 matches!(ty, stitchwort_core::Term::Sort(_))

@@ -2,6 +2,7 @@
 //! a family, which lemma a call uses, and that no family has two.
 
 use super::*;
+use stitchwort_core::ProofMark;
 
 /// The attributes, as written after `@[`.
 pub(crate) const WALK: &str = "walk";
@@ -235,7 +236,7 @@ impl Shape {
 pub(super) fn statement(ty: &Term) -> Option<Shape> {
     let mut binders = Vec::new();
     let mut t = ty.strip_loc();
-    while let Term::Pi(name, icit, dom, cod) = t {
+    while let Term::Pi(name, icit, dom, cod, _) = t {
         binders.push((*icit, (**dom).clone(), name.to_string()));
         t = cod.strip_loc();
     }
@@ -253,7 +254,7 @@ pub(super) fn statement(ty: &Term) -> Option<Shape> {
 /// The function a thunk `() => f x…` calls, or the operation it performs
 /// (`() => Parse.mark()`, `Call o (y => Done y)`).
 pub(super) fn thunk_head(g: &stitchwort_core::ev::Ev<'_>, thunk: &Term) -> Option<Callee> {
-    let Term::Lam(_, _, body) = thunk.strip_loc() else {
+    let Term::Lam(_, _, body, _) = thunk.strip_loc() else {
         return None;
     };
     let reg = g.env.registry();
@@ -304,8 +305,8 @@ pub(super) fn thunk_params(g: &stitchwort_core::ev::Ev<'_>, rel: DefId) -> Vec<u
     let mut out = Vec::new();
     let mut t = g.def(rel).ty().strip_loc();
     let mut i = 0;
-    while let Term::Pi(_, _, dom, cod) = t {
-        if let Term::Pi(_, Icit::Explicit, from, _) = dom.strip_loc()
+    while let Term::Pi(_, _, dom, cod, _) = t {
+        if let Term::Pi(_, Icit::Explicit, from, _, _) = dom.strip_loc()
             && let Term::Data(d, _) = from.strip_loc()
             && g.env.registry().is_data(Builtin::UnitType, *d)
         {
@@ -524,7 +525,7 @@ pub(super) fn fit_type(
                 ty = unfold_once(&g, *f, spine.clone())?;
                 continue;
             }
-            let Value::Pi(_, icit, dom, cod) = force(&g, shown)? else {
+            let Value::Pi(_, icit, dom, cod, _) = force(&g, shown)? else {
                 return Ok(None::<()>);
             };
             let m = cx.fresh_meta_of(&dom);
@@ -648,7 +649,12 @@ fn unify_thunk(cx: &mut Ctx, thunk: &Value, call: &Value) -> Result<bool> {
     if matches!(thunk, Value::Neutral(Head::Meta(_), _)) {
         let g = cx.g();
         let code = quote_code(cx, call)?.shift(&g, 1, 0)?;
-        let made = cx.eval(&Term::Lam("arg".into(), Icit::Explicit, Rc::new(code)))?;
+        let made = cx.eval(&Term::Lam(
+            "arg".into(),
+            Icit::Explicit,
+            Rc::new(code),
+            ProofMark::Unknown,
+        ))?;
         return cx.unify(&thunk, &made);
     }
     let body = thunk_body(cx, &thunk)?;
@@ -664,7 +670,7 @@ pub(super) fn variable_name(cx: &Ctx, v: &Value) -> Result<Option<String>> {
     let term = cx.quote_folded(v)?;
     let mut t = term.strip_loc();
     let mut under = 0;
-    while let Term::Lam(_, _, body) = t {
+    while let Term::Lam(_, _, body, _) = t {
         t = body.strip_loc();
         under += 1;
     }

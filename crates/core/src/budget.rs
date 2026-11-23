@@ -123,7 +123,7 @@ fn big_readback() -> Option<u64> {
 /// Whether [`Budget::note_readback`] reports, so the elaborator computes the
 /// current declaration's name only when something will use it.
 pub fn report_big_readbacks() -> bool {
-    big_readback().is_some()
+    big_readback().is_some() || crate::proof_counts::on()
 }
 
 thread_local! {
@@ -139,6 +139,11 @@ thread_local! {
 /// one) to put back.
 pub fn set_current_declaration(name: Option<String>) -> Option<String> {
     CURRENT_DECLARATION.with(|d| d.replace(name))
+}
+
+/// `f` of the declaration being checked on this thread, if any.
+pub fn with_current_declaration<T>(f: impl FnOnce(Option<&str>) -> T) -> T {
+    CURRENT_DECLARATION.with(|d| f(d.borrow().as_deref()))
 }
 
 thread_local! {

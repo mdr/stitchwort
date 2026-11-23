@@ -522,7 +522,7 @@ fn apply_fact_lemma(
     let mut term = Term::Def(lemma);
     let mut ty = g.def(lemma).ty_value().clone();
     for _ in 0..arguments {
-        let Value::Pi(_, icit, dom, cod) = force(&g, ty)? else {
+        let Value::Pi(_, icit, dom, cod, _) = force(&g, ty)? else {
             return Ok(None);
         };
         let meta = cx.fresh_meta_of(&dom);
@@ -530,7 +530,7 @@ fn apply_fact_lemma(
         term = Term::app_icit(term, meta, icit);
         ty = cod.apply(&g, value)?;
     }
-    let Value::Pi(_, icit, fact, cod) = force(&g, ty)? else {
+    let Value::Pi(_, icit, fact, cod, _) = force(&g, ty)? else {
         return Ok(None);
     };
     for (proof, ty) in facts {
@@ -864,7 +864,7 @@ fn apply_rule(
         {
             return Ok(Some(term));
         }
-        let Value::Pi(_, icit, dom, cod) = force(&g, ty.clone())? else {
+        let Value::Pi(_, icit, dom, cod, _) = force(&g, ty.clone())? else {
             return Ok(None);
         };
         if binders.len() == MAX_RULE_BINDERS {
@@ -970,7 +970,7 @@ fn size_from_member(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
                 let mut metas = Vec::new();
                 // Every parameter but the last, the membership, is unknown.
                 loop {
-                    let Value::Pi(_, icit, dom, cod) = force(&g, lemma_ty)? else {
+                    let Value::Pi(_, icit, dom, cod, _) = force(&g, lemma_ty)? else {
                         return Ok(None);
                     };
                     if !matches!(
@@ -1033,7 +1033,7 @@ fn membership_facts(cx: &mut Ctx, mems: &[DefId]) -> Result<Vec<(Term, Value)>> 
             let mut ty = g.def(*projection).ty_value().clone();
             let mut params = params.iter();
             loop {
-                let Value::Pi(_, icit, _, cod) = force(&g, ty.clone())? else {
+                let Value::Pi(_, icit, _, cod, _) = force(&g, ty.clone())? else {
                     break;
                 };
                 if icit == Icit::Explicit {
@@ -1584,7 +1584,7 @@ fn result_head(cx: &Ctx, id: DefId) -> Result<Option<DataId>> {
     // until forced.
     let mut ty = force(&g, g.def(id).ty_value().clone())?;
     let mut level = 0;
-    while let Value::Pi(_, _, _, cod) = &ty {
+    while let Value::Pi(_, _, _, cod, _) = &ty {
         ty = force(&g, cod.apply(&g, Value::var(level))?)?;
         level += 1;
     }
@@ -1619,13 +1619,13 @@ fn instantiate(
     // result: one that isn't needs no solution for its unknown.
     let mut mentioned = Vec::new();
     let mut written = g.def(id).ty().clone();
-    while let Term::Pi(_, _, _, cod) = written.strip_loc() {
+    while let Term::Pi(_, _, _, cod, _) = written.strip_loc() {
         mentioned.push(cod.mentions(0));
         written = (**cod).clone();
     }
     let mut args = Vec::new();
     let mut arg_terms = Vec::new();
-    while let Value::Pi(_, icit, dom, cod) = force(g, ty.clone())? {
+    while let Value::Pi(_, icit, dom, cod, _) = force(g, ty.clone())? {
         // Typed, so unification's first-order rule won't pair it with a
         // value of another type: `?p Greater h` against `?x < ?y` would
         // solve `?x: Int` with `Greater`, and the test is run at once

@@ -17,6 +17,7 @@
 
 use std::collections::BTreeMap;
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::erase::proof_positions;
 use stitchwort_core::pretty;
@@ -284,20 +285,26 @@ fn translate(
         Term::Nat(n) => Term::Nat(n.clone()),
         Term::Chars(chars) => Term::Chars(chars.clone()),
         Term::Sort(sort) => Term::Sort(*sort),
-        Term::Pi(name, icit, a, b) => {
+        Term::Pi(name, icit, a, b, _) => {
             path.push("the domain of the function type".to_string());
             let a = translate(g, a, names, ids, path)?;
             path.pop();
             path.push("under the binder, the body of the function type".to_string());
             let b = translate(g, b, names, ids, path)?;
             path.pop();
-            Term::Pi(name.clone(), *icit, Rc::new(a), Rc::new(b))
+            Term::Pi(
+                name.clone(),
+                *icit,
+                Rc::new(a),
+                Rc::new(b),
+                ProofMark::Unknown,
+            )
         }
-        Term::Lam(name, icit, body) => {
+        Term::Lam(name, icit, body, _) => {
             path.push("under the binder, the body".to_string());
             let body = translate(g, body, names, ids, path)?;
             path.pop();
-            Term::Lam(name.clone(), *icit, Rc::new(body))
+            Term::Lam(name.clone(), *icit, Rc::new(body), ProofMark::Unknown)
         }
         Term::App(..) => {
             let (head, args) = full_spine(term);
@@ -320,7 +327,7 @@ fn translate(
             path.pop();
             Term::Ann(Rc::new(a), Rc::new(b))
         }
-        Term::Let(name, a, v, b, erased) => {
+        Term::Let(name, a, v, b, erased, _) => {
             path.push("the type of the let".to_string());
             let a = translate(g, a, names, ids, path)?;
             path.pop();
@@ -330,7 +337,14 @@ fn translate(
             path.push("under the binder, the body of the let".to_string());
             let b = translate(g, b, names, ids, path)?;
             path.pop();
-            Term::Let(name.clone(), Rc::new(a), Rc::new(v), Rc::new(b), *erased)
+            Term::Let(
+                name.clone(),
+                Rc::new(a),
+                Rc::new(v),
+                Rc::new(b),
+                *erased,
+                ProofMark::Unknown,
+            )
         }
         Term::Case(ix, d, branches) => {
             let d = translate_data(names, ids, *d, path)?;
@@ -388,7 +402,7 @@ fn translate(
             Term::Eq(ty, Rc::new(a), Rc::new(b))
         }
         Term::Refl => Term::Refl,
-        Term::J(motive, base, proof) => {
+        Term::J(motive, base, proof, _) => {
             path.push("the motive of J".to_string());
             let motive = translate(g, motive, names, ids, path)?;
             path.pop();
@@ -398,7 +412,12 @@ fn translate(
             path.push("the proof of J".to_string());
             let proof = translate(g, proof, names, ids, path)?;
             path.pop();
-            Term::J(Rc::new(motive), Rc::new(base), Rc::new(proof))
+            Term::J(
+                Rc::new(motive),
+                Rc::new(base),
+                Rc::new(proof),
+                ProofMark::Unknown,
+            )
         }
         Term::Proj(d, i, t) => {
             let d = translate_data(names, ids, *d, path)?;
@@ -407,7 +426,7 @@ fn translate(
             path.pop();
             Term::Proj(d, *i, Rc::new(t))
         }
-        Term::Quot(form, args, erased) => {
+        Term::Quot(form, args, erased, _) => {
             let name = quot_name(*form);
             let mut out = Vec::with_capacity(args.len());
             for (k, arg) in args.iter().enumerate() {
@@ -415,7 +434,7 @@ fn translate(
                 out.push(Rc::new(translate(g, arg, names, ids, path)?));
                 path.pop();
             }
-            Term::Quot(*form, out, *erased)
+            Term::Quot(*form, out, *erased, ProofMark::Unknown)
         }
         Term::Meta(i) => Term::Meta(*i),
     })
@@ -548,7 +567,7 @@ fn walk<'t>(
             (i.as_slice() != j.as_slice()).then(|| Found::here(old, new, names, path))
         }
         (Term::Sort(i), Term::Sort(j)) => (i != j).then(|| Found::here(old, new, names, path)),
-        (Term::Pi(x, i, a, b), Term::Pi(_, j, c, d)) if i == j => {
+        (Term::Pi(x, i, a, b, _), Term::Pi(_, j, c, d, _)) if i == j => {
             let segment = "the domain of the function type".to_string();
             if let Some(found) = step(g, a, c, names, path, segment) {
                 return Some(found);
@@ -563,7 +582,7 @@ fn walk<'t>(
                 "under the binder, the body of the function type".to_string(),
             )
         }
-        (Term::Lam(x, i, b), Term::Lam(_, j, d)) if i == j => under(
+        (Term::Lam(x, i, b, _), Term::Lam(_, j, d, _)) if i == j => under(
             g,
             b,
             d,
@@ -605,7 +624,7 @@ fn walk<'t>(
             }
             step(g, b, d, names, path, "its type annotation".to_string())
         }
-        (Term::Let(x, a, v, b, _), Term::Let(_, c, w, d, _)) => {
+        (Term::Let(x, a, v, b, _, _), Term::Let(_, c, w, d, _, _)) => {
             if let Some(found) = step(g, a, c, names, path, "the type of the let".to_string()) {
                 return Some(found);
             }
@@ -679,7 +698,7 @@ fn walk<'t>(
             step(g, b, d, names, path, "the right side".to_string())
         }
         (Term::Refl, Term::Refl) => None,
-        (Term::J(m, b, _), Term::J(n, c, _)) => {
+        (Term::J(m, b, _, _), Term::J(n, c, _, _)) => {
             if let Some(found) = step(g, m, n, names, path, "the motive of J".to_string()) {
                 return Some(found);
             }
@@ -688,7 +707,7 @@ fn walk<'t>(
         (Term::Proj(d, i, x), Term::Proj(e, j, y)) if d == e && i == j => {
             step(g, x, y, names, path, "the projected value".to_string())
         }
-        (Term::Quot(f, xs, _), Term::Quot(h, ys, _)) if f == h && xs.len() == ys.len() => {
+        (Term::Quot(f, xs, _, _), Term::Quot(h, ys, _, _)) if f == h && xs.len() == ys.len() => {
             for (k, (x, y)) in xs.iter().zip(ys.iter()).enumerate() {
                 if *f == QuotForm::Lift && k == 4 {
                     continue;
@@ -739,7 +758,7 @@ fn full_spine(term: &Term) -> (&Term, Vec<(&Term, Icit)>) {
 fn is_proof(g: &Ev, term: &Term) -> bool {
     match spine_head(term).0 {
         Term::Def(id) => proof_positions(g, *id).is_some_and(|p| p.result),
-        Term::Quot(QuotForm::Ind | QuotForm::Sound, _, _) => true,
+        Term::Quot(QuotForm::Ind | QuotForm::Sound, _, _, _) => true,
         _ => false,
     }
 }

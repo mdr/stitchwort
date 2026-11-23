@@ -340,7 +340,7 @@ impl Walk {
 fn parameters(ty: &Term) -> Vec<(Icit, Option<String>)> {
     let mut out = Vec::new();
     let mut ty = ty.strip_loc();
-    while let Term::Pi(x, icit, _, cod) = ty {
+    while let Term::Pi(x, icit, _, cod, _) = ty {
         let name = x.to_string();
         let usable = !name.is_empty() && name != "_" && !name.starts_with('%');
         out.push((*icit, usable.then_some(name)));

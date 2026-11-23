@@ -36,6 +36,7 @@
 //! recorded beside it ([`Txt`]), in the form a person writes: `imp h.left`.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Head, conv, eval, force};
@@ -554,7 +555,7 @@ impl Search<'_> {
         else {
             return Ok(());
         };
-        let Value::Pi(_, Icit::Explicit, _, cod) = force(&g, rest)? else {
+        let Value::Pi(_, Icit::Explicit, _, cod, _) = force(&g, rest)? else {
             return Ok(());
         };
         let result = cod.apply(&g, Value::var(cx.level()))?;
@@ -636,7 +637,7 @@ impl Search<'_> {
             match wrap {
                 Wrap::Let(name, ty, value) => term = Term::let_(name, ty, value, term),
                 Wrap::Lam(name, icit, shown) => {
-                    term = Term::Lam(name, icit, Rc::new(term));
+                    term = Term::Lam(name, icit, Rc::new(term), ProofMark::Unknown);
                     params.insert(0, shown);
                 }
                 Wrap::Exists {
@@ -652,7 +653,9 @@ impl Search<'_> {
                             fact.as_str().into(),
                             Icit::Explicit,
                             Rc::new(term),
+                            ProofMark::Unknown,
                         )),
+                        ProofMark::Unknown,
                     );
                     term = Term::app(head, body);
                     text = Txt::s("match ")
@@ -665,7 +668,12 @@ impl Search<'_> {
                     equation,
                     text: e,
                 } => {
-                    term = Term::J(Rc::new(motive), Rc::new(term), Rc::new(equation));
+                    term = Term::J(
+                        Rc::new(motive),
+                        Rc::new(term),
+                        Rc::new(equation),
+                        ProofMark::Unknown,
+                    );
                     text = Txt::s("rewrite ").then(e).word(" then ").then(text);
                 }
             }
@@ -695,7 +703,7 @@ impl Search<'_> {
                     let mut wraps = Vec::new();
                     let mut bound = Vec::new();
                     let mut body_goal = goal_now.clone();
-                    while let Value::Pi(name, Icit::Explicit, dom, cod) = body_goal {
+                    while let Value::Pi(name, Icit::Explicit, dom, cod, _) = body_goal {
                         let base = match name.as_ref() {
                             "" | "_" => "h",
                             n if n.starts_with('%') => "h",
@@ -996,7 +1004,7 @@ impl Search<'_> {
                 Value::Data(d, _) if d == void => {
                     return Ok(Some((at(fact.level), fact.text.clone())));
                 }
-                Value::Pi(_, Icit::Explicit, dom, cod) => {
+                Value::Pi(_, Icit::Explicit, dom, cod, _) => {
                     let result = force(&g, cod.apply(&g, Value::var(cx.level()))?)?;
                     if !matches!(result, Value::Data(d, _) if d == void) {
                         continue;
@@ -1204,7 +1212,7 @@ impl Search<'_> {
             // The binders, each an unknown for now.
             let mut binders: Vec<(Icit, Value, Term)> = Vec::new();
             let mut ty = ty;
-            while let Value::Pi(_, icit, dom, cod) = force(&g, ty.clone())? {
+            while let Value::Pi(_, icit, dom, cod, _) = force(&g, ty.clone())? {
                 if binders.len() > 32 {
                     return Ok(None);
                 }
@@ -1456,6 +1464,7 @@ impl Search<'_> {
                     Rc::new(motive),
                     Rc::new(Term::Var(cx.level() - 1 - f.level)),
                     Rc::new(fwd.shift(&g, cx.level() - n, 0)?),
+                    ProofMark::Unknown,
                 );
                 let part = self.define(cx, new_ty, proof, wraps)?;
                 let text = Txt::s("rewrite ")
@@ -1494,7 +1503,7 @@ impl Search<'_> {
                 continue;
             }
             for (var_on_right, side, other) in [(true, &r, &l), (false, &l, &r)] {
-                let Value::Neutral(Head::Var(x, _), spine) = side else {
+                let Value::Neutral(Head::Var(x, _, _), spine) = side else {
                     continue;
                 };
                 let x = *x;
@@ -1742,7 +1751,7 @@ fn apply_global(
     let mut term = Term::Def(f);
     let mut args = explicit.into_iter();
     let mut next = args.next();
-    while let Value::Pi(_, icit, dom, cod) = force(&g, ty.clone())? {
+    while let Value::Pi(_, icit, dom, cod, _) = force(&g, ty.clone())? {
         if icit == Icit::Explicit {
             let Some((arg, arg_ty)) = next.take() else {
                 break;
@@ -1826,7 +1835,13 @@ fn motive_from(
     Ok(Term::Lam(
         "z".into(),
         Icit::Explicit,
-        Rc::new(Term::Lam("q".into(), Icit::Explicit, Rc::new(b))),
+        Rc::new(Term::Lam(
+            "q".into(),
+            Icit::Explicit,
+            Rc::new(b),
+            ProofMark::Unknown,
+        )),
+        ProofMark::Unknown,
     ))
 }
 
@@ -1890,9 +1905,9 @@ pub(crate) fn is_fact(cx: &Ctx, ty: &Value) -> Result<bool> {
     Ok(match force(&g, ty.clone())? {
         Value::Eq(..) => true,
         Value::Data(d, _) => g.data(d).sort() == Sort::Prop,
-        Value::Pi(_, _, _, cod) => is_fact(cx, &cod.apply(&g, Value::var(cx.level() + 64))?)?,
+        Value::Pi(_, _, _, cod, _) => is_fact(cx, &cod.apply(&g, Value::var(cx.level() + 64))?)?,
         Value::Sort(_) | Value::Ctor(..) | Value::Nat(_) | Value::Lam(..) => false,
-        Value::Neutral(Head::Var(l, _), spine) if spine.is_empty() => {
+        Value::Neutral(Head::Var(l, _, _), spine) if spine.is_empty() => {
             matches!(
                 force(
                     &g,
@@ -1913,7 +1928,7 @@ pub(crate) fn is_fact(cx: &Ctx, ty: &Value) -> Result<bool> {
 /// variable's type (`g: Nat → Prop`).
 fn is_prop_family_application(cx: &Ctx, ty: &Value) -> Result<bool> {
     let g = cx.g();
-    let Value::Neutral(Head::Var(l, _), spine) = force(&g, ty.clone())? else {
+    let Value::Neutral(Head::Var(l, _, _), spine) = force(&g, ty.clone())? else {
         return Ok(false);
     };
     let Some(mut fty) = cx.types.get(l).cloned() else {
@@ -1923,7 +1938,7 @@ fn is_prop_family_application(cx: &Ctx, ty: &Value) -> Result<bool> {
         let stitchwort_core::value::Elim::App(v, _) = e else {
             return Ok(false);
         };
-        let Value::Pi(_, _, _, cod) = force(&g, fty)? else {
+        let Value::Pi(_, _, _, cod, _) = force(&g, fty)? else {
             return Ok(false);
         };
         fty = cod.apply(&g, v.clone())?;
@@ -1958,7 +1973,7 @@ fn value_text(cx: &Ctx, m: &Term) -> Result<Txt> {
     let v = force(&cx.g(), cx.eval(m)?)?;
     let simple = match &v {
         Value::Nat(_) => true,
-        Value::Neutral(Head::Var(l, _), s) => {
+        Value::Neutral(Head::Var(l, _, _), s) => {
             s.is_empty() && cx.name_of_level(*l).is_some_and(|n| !n.starts_with('%'))
         }
         _ => false,
@@ -1972,7 +1987,7 @@ fn conclusion_key(cx: &Ctx, ty: &Value) -> Result<Option<Key>> {
     let g = cx.g();
     let mut ty = force(&g, ty.clone())?;
     let mut k = cx.level();
-    while let Value::Pi(_, _, _, cod) = ty {
+    while let Value::Pi(_, _, _, cod, _) = ty {
         ty = force(&g, cod.apply(&g, Value::var(k))?)?;
         k += 1;
         if k > cx.level() + 64 {
@@ -1989,8 +2004,8 @@ fn key(cx: &Ctx, ty: &Value, limit: usize) -> Result<Option<Key>> {
     Ok(Some(match ty {
         Value::Eq(..) => Key::Eq,
         Value::Data(d, _) => Key::Data(*d),
-        Value::Neutral(Head::Var(l, _), _) if *l >= limit => Key::Any,
-        Value::Neutral(Head::Var(l, _), _) => Key::Var(*l),
+        Value::Neutral(Head::Var(l, _, _), _) if *l >= limit => Key::Any,
+        Value::Neutral(Head::Var(l, _, _), _) => Key::Var(*l),
         Value::Neutral(Head::Meta(_), _) => Key::Any,
         Value::Neutral(Head::Def(f), _) | Value::Call(f, ..) => Key::Def(*f),
         _ => return Ok(None),

@@ -54,6 +54,7 @@
 
 use std::rc::Rc;
 use stitchwort_core::Ev;
+use stitchwort_core::ProofMark;
 
 use crate::check::quote_internal;
 use stitchwort_core::registry::Builtin;
@@ -243,11 +244,17 @@ fn explicit(args: Vec<Term>) -> Vec<(Term, Icit)> {
 }
 
 fn pi(x: &str, icit: Icit, dom: Term, cod: Term) -> Term {
-    Term::Pi(x.into(), icit, Rc::new(dom), Rc::new(cod))
+    Term::Pi(
+        x.into(),
+        icit,
+        Rc::new(dom),
+        Rc::new(cod),
+        ProofMark::Unknown,
+    )
 }
 
 fn lam(x: &str, icit: Icit, body: Term) -> Term {
-    Term::Lam(x.into(), icit, Rc::new(body))
+    Term::Lam(x.into(), icit, Rc::new(body), ProofMark::Unknown)
 }
 
 /// Whether `term`, in a context of `depth` variables, mentions a variable
@@ -1611,7 +1618,12 @@ impl Elaborator {
                         apps(Term::Def(lib.le_refl), explicit(vec![sy])),
                     ]),
                 );
-                Term::J(Rc::new(motive), Rc::new(base), Rc::new(var(depth, e)))
+                Term::J(
+                    Rc::new(motive),
+                    Rc::new(base),
+                    Rc::new(var(depth, e)),
+                    ProofMark::Unknown,
+                )
             };
             // Inr member: leAddOfLeRight (size q) (size y) (size_m ys) (lessLe … (rec q ys member))
             let inr = {

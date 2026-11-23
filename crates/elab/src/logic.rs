@@ -19,6 +19,7 @@
 //! reading's error is reported.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::force;
@@ -201,7 +202,12 @@ fn conjunction(cx: &Ctx, a: Conjunct, b: Conjunct) -> Result<Option<(Term, Term)
         b.prop,
         Icit::Implicit,
     );
-    let later = Term::Lam("_".into(), Icit::Explicit, Rc::new(b.decision));
+    let later = Term::Lam(
+        "_".into(),
+        Icit::Explicit,
+        Rc::new(b.decision),
+        ProofMark::Unknown,
+    );
     Ok(Some((prop, Term::app(Term::app(head, a.decision), later))))
 }
 
@@ -631,7 +637,14 @@ pub(crate) fn short_circuit(
     let fixed = constant(cx, if and { Builtin::False } else { Builtin::True });
     cx.reset(mark);
     let (then, otherwise) = if and { (b, fixed?) } else { (fixed?, b) };
-    let branch = |body| Term::Lam("_".into(), Icit::Explicit, Rc::new(body));
+    let branch = |body| {
+        Term::Lam(
+            "_".into(),
+            Icit::Explicit,
+            Rc::new(body),
+            ProofMark::Unknown,
+        )
+    };
     Ok(Term::app(
         Term::app(Term::app(head, a), branch(then)),
         branch(otherwise),

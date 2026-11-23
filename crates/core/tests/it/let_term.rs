@@ -6,6 +6,7 @@
 
 use std::rc::Rc;
 use std::time::{Duration, Instant};
+use stitchwort_core::ProofMark;
 
 use crate::common::*;
 use stitchwort_core::check::{self, infer_closed};
@@ -19,7 +20,14 @@ fn rc(t: Term) -> Rc<Term> {
 
 /// `let x : ty := value; body`.
 fn let_(x: &str, ty: Term, value: Term, body: Term) -> Term {
-    Term::Let(x.into(), rc(ty), rc(value), rc(body), false)
+    Term::Let(
+        x.into(),
+        rc(ty),
+        rc(value),
+        rc(body),
+        false,
+        ProofMark::Unknown,
+    )
 }
 
 fn ann(e: Term, ty: Term) -> Term {

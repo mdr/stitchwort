@@ -87,6 +87,7 @@
 
 use super::*;
 use stitchwort_core::Ev;
+use stitchwort_core::ProofMark;
 
 /// One recursive call in a case's right side: `f`'s arguments, and the
 /// decrease proof it was made with (`decreasing`). A call inside a lifted
@@ -346,12 +347,12 @@ fn calls(
         return Ok(());
     }
     match t {
-        Term::Lam(_, _, b) => calls(g, d, b, (depth + 1, under + 1), walking, out),
-        Term::Pi(_, _, a, b) => {
+        Term::Lam(_, _, b, _) => calls(g, d, b, (depth + 1, under + 1), walking, out),
+        Term::Pi(_, _, a, b, _) => {
             calls(g, d, a, (depth, under), walking, out)?;
             calls(g, d, b, (depth + 1, under + 1), walking, out)
         }
-        Term::Let(_, a, v, b, _) => {
+        Term::Let(_, a, v, b, _, _) => {
             calls(g, d, a, (depth, under), walking, out)?;
             calls(g, d, v, (depth, under), walking, out)?;
             calls(g, d, b, (depth + 1, under + 1), walking, out)
@@ -361,7 +362,7 @@ fn calls(
             calls(g, d, a, (depth, under), walking, out)?;
             calls(g, d, b, (depth, under), walking, out)
         }
-        Term::Ctor(_, _, xs) | Term::Data(_, xs) | Term::Quot(_, xs, _) => {
+        Term::Ctor(_, _, xs) | Term::Data(_, xs) | Term::Quot(_, xs, _, _) => {
             for x in xs {
                 calls(g, d, x, (depth, under), walking, out)?;
             }
@@ -374,7 +375,7 @@ fn calls(
             calls(g, d, a, (depth, under), walking, out)?;
             calls(g, d, b, (depth, under), walking, out)
         }
-        Term::J(m, b, p) => {
+        Term::J(m, b, p, _) => {
             calls(g, d, m, (depth, under), walking, out)?;
             calls(g, d, b, (depth, under), walking, out)?;
             calls(g, d, p, (depth, under), walking, out)
@@ -393,7 +394,7 @@ fn rec_lambda(d: &Def, t: &Term) -> bool {
     let mut t = t.strip_loc();
     for _ in 0..=d.binders.len() {
         match t {
-            Term::Lam(_, _, b) => t = b.strip_loc(),
+            Term::Lam(_, _, b, _) => t = b.strip_loc(),
             _ => return false,
         }
     }
@@ -472,7 +473,7 @@ fn helper_calls_under(
     let mut tree: &Term = &body;
     for _ in 0..n_h {
         match tree.strip_loc() {
-            Term::Lam(_, _, b) => tree = b,
+            Term::Lam(_, _, b, _) => tree = b,
             _ => return why("whose body isn't a function of its parameters"),
         }
     }
@@ -495,11 +496,11 @@ fn helper_calls_under(
         let mut ty = hb[r].ty.strip_loc();
         for _ in 0..n {
             match ty {
-                Term::Pi(_, _, _, b) => ty = b.strip_loc(),
+                Term::Pi(_, _, _, b, _) => ty = b.strip_loc(),
                 _ => return why("whose `%rec` isn't of the definition's type"),
             }
         }
-        let Term::Pi(_, _, cond, _) = ty else {
+        let Term::Pi(_, _, cond, _, _) = ty else {
             return why("whose `%rec` isn't of the definition's type");
         };
         rec = Some((r, (**cond).clone()));
@@ -744,7 +745,13 @@ impl HelperWalk<'_> {
             Term::Lam(
                 "y".into(),
                 Icit::Explicit,
-                Rc::new(Term::Lam("e".into(), Icit::Explicit, Rc::new(body))),
+                Rc::new(Term::Lam(
+                    "e".into(),
+                    Icit::Explicit,
+                    Rc::new(body),
+                    ProofMark::Unknown,
+                )),
+                ProofMark::Unknown,
             )
         };
         for split in self.splits.iter().rev() {
@@ -768,8 +775,14 @@ impl HelperWalk<'_> {
                 ))),
                 Rc::new(Term::Refl),
                 Rc::new(premise),
+                ProofMark::Unknown,
             );
-            proof = Term::J(Rc::new(lam2(motive)), Rc::new(proof), Rc::new(back));
+            proof = Term::J(
+                Rc::new(lam2(motive)),
+                Rc::new(proof),
+                Rc::new(back),
+                ProofMark::Unknown,
+            );
         }
         Ok(proof)
     }
@@ -1480,7 +1493,9 @@ impl Elaborator {
                 .map(|(_, v)| v)
                 .ok_or_else(|| Stop::Skip("a branch of a split has no case".into()))
         };
-        let lam = |x: &str, body: Term| Term::Lam(x.into(), Icit::Explicit, Rc::new(body));
+        let lam = |x: &str, body: Term| {
+            Term::Lam(x.into(), Icit::Explicit, Rc::new(body), ProofMark::Unknown)
+        };
         let lib = self.branch_lib()?;
         let up = |e: &Elaborator, t: &Term, from: usize| -> R<Term> {
             Ok(t.shift(&e.ev(), rd - from, 0)?)
@@ -1688,7 +1703,12 @@ impl Elaborator {
     /// `Bool.inspect b (_ => goal) t f`.
     fn induct_inspect(&self, sp: &Splitters, b: Term, goal: Term, t: Term, f: Term) -> R<Term> {
         let g = &self.ev();
-        let motive = Term::Lam("b".into(), Icit::Explicit, Rc::new(goal.shift(g, 1, 0)?));
+        let motive = Term::Lam(
+            "b".into(),
+            Icit::Explicit,
+            Rc::new(goal.shift(g, 1, 0)?),
+            ProofMark::Unknown,
+        );
         Ok(apps(
             Term::Def(sp.inspect),
             [b, motive, t, f].into_iter().map(|t| (t, Icit::Explicit)),
@@ -1758,7 +1778,7 @@ impl Elaborator {
                 call = Term::app_icit(call, p.clone(), Icit::Auto);
             }
             for (x, icit, _) in ih.under.iter().rev() {
-                call = Term::Lam(x.clone(), *icit, Rc::new(call));
+                call = Term::Lam(x.clone(), *icit, Rc::new(call), ProofMark::Unknown);
             }
             applied = Term::app(applied, call);
         }
@@ -1767,7 +1787,13 @@ impl Elaborator {
             Term::Lam(
                 "y".into(),
                 Icit::Explicit,
-                Rc::new(Term::Lam("e".into(), Icit::Explicit, Rc::new(body))),
+                Rc::new(Term::Lam(
+                    "e".into(),
+                    Icit::Explicit,
+                    Rc::new(body),
+                    ProofMark::Unknown,
+                )),
+                ProofMark::Unknown,
             )
         };
         let back = Term::J(
@@ -1778,6 +1804,7 @@ impl Elaborator {
             ))),
             Rc::new(Term::Refl),
             Rc::new(eqn),
+            ProofMark::Unknown,
         );
         // `J (y _ => motive lhs y) applied back`.
         let motive = self.induct_motive_at(
@@ -1791,6 +1818,7 @@ impl Elaborator {
             Rc::new(lam2(motive)),
             Rc::new(applied),
             Rc::new(back),
+            ProofMark::Unknown,
         ))
     }
 
@@ -2265,7 +2293,9 @@ impl Elaborator {
             }
             Ok(Term::app(t, y))
         };
-        let lam = |x: &str, body: Term| Term::Lam(x.into(), Icit::Explicit, Rc::new(body));
+        let lam = |x: &str, body: Term| {
+            Term::Lam(x.into(), Icit::Explicit, Rc::new(body), ProofMark::Unknown)
+        };
         let trivial = Term::Ctor(unit, trivial, Vec::new());
         // `disc v`: by computation for a variable, which is the value here;
         // for the scrutinee, from its equation turned round.
@@ -2280,6 +2310,7 @@ impl Elaborator {
                         Icit::Explicit,
                         Rc::new(applied(Term::Var(1), 2)?),
                         Rc::new(applied(e.shift(g, 3, 0)?, 3)?),
+                        ProofMark::Unknown,
                     ),
                 ),
             );
@@ -2288,6 +2319,7 @@ impl Elaborator {
                     Rc::new(m1),
                     Rc::new(lam("w", Term::Var(0))),
                     Rc::new(proof.shift(g, under, 0)?),
+                    ProofMark::Unknown,
                 ),
                 trivial,
             )
@@ -2295,7 +2327,12 @@ impl Elaborator {
             trivial
         };
         let m2 = lam("y", lam("e", applied(Term::Var(1), 2)?));
-        let void = Term::J(Rc::new(m2), Rc::new(got), Rc::new(Term::Var(0)));
+        let void = Term::J(
+            Rc::new(m2),
+            Rc::new(got),
+            Rc::new(Term::Var(0)),
+            ProofMark::Unknown,
+        );
         let names: Vec<(Name, Icit)> = (0..=nv)
             .map(|i| (format!("x{i}").into(), Icit::Explicit))
             .collect();
@@ -2713,9 +2750,16 @@ fn node_proof(
                     Rc::new(target.shift(g, 2, 0)?),
                     Rc::new(Term::ctor(node.data, node.ctor, shifted)),
                 )),
+                ProofMark::Unknown,
             )),
+            ProofMark::Unknown,
         );
-        proof = Term::J(Rc::new(motive), Rc::new(proof), Rc::new(p));
+        proof = Term::J(
+            Rc::new(motive),
+            Rc::new(proof),
+            Rc::new(p),
+            ProofMark::Unknown,
+        );
         args[k] = t;
     }
     Ok((Term::ctor(node.data, node.ctor, args), proof))
@@ -2729,7 +2773,7 @@ fn hyp_parts(g: &Ev, ty: &Term) -> Option<(usize, Term, Term)> {
     let mut t = ty.strip_loc();
     loop {
         match t {
-            Term::Pi(_, _, dom, cod) => {
+            Term::Pi(_, _, dom, cod, _) => {
                 binders.push((**dom).clone());
                 t = cod.strip_loc();
             }
@@ -2955,7 +2999,7 @@ impl Tree<'_> {
         let mut t = ty.strip_loc();
         loop {
             match t {
-                Term::Pi(_, _, dom, cod) => {
+                Term::Pi(_, _, dom, cod, _) => {
                     binders.push((**dom).clone());
                     t = cod.strip_loc();
                 }
@@ -3033,12 +3077,15 @@ impl Tree<'_> {
                 "e".into(),
                 Icit::Explicit,
                 Rc::new(Term::app(applied, Term::Var(1))),
+                ProofMark::Unknown,
             )),
+            ProofMark::Unknown,
         );
         let mut void = Term::J(
             Rc::new(motive),
             Rc::new(Term::Ctor(unit, trivial, Vec::new())),
             Rc::new(Term::Var(eqs - 1 - e + premise)),
+            ProofMark::Unknown,
         );
         if bool_tail {
             void = self.e.branch_lib()?.exfalso(tail, void);
@@ -3151,10 +3198,17 @@ impl Tree<'_> {
                         Rc::new(Term::Var(1)),
                         Rc::new(blib.bool_value(!x)),
                     )),
+                    ProofMark::Unknown,
                 )),
+                ProofMark::Unknown,
             );
             // `x = notX`, along `h': c = x` from the fact `c = notX`.
-            let swapped = Term::J(Rc::new(motive), Rc::new(fact.clone()), Rc::new(h.clone()));
+            let swapped = Term::J(
+                Rc::new(motive),
+                Rc::new(fact.clone()),
+                Rc::new(h.clone()),
+                ProofMark::Unknown,
+            );
             let apart = if x {
                 blib.true_not_false
             } else {
@@ -3185,7 +3239,12 @@ impl Tree<'_> {
         let (mut proof, stated) = match tail {
             Some(tail) => (void_here, tail),
             None => (
-                Term::Lam("h".into(), Icit::Explicit, Rc::new(void_here)),
+                Term::Lam(
+                    "h".into(),
+                    Icit::Explicit,
+                    Rc::new(void_here),
+                    ProofMark::Unknown,
+                ),
                 &binders[vars + eqs],
             ),
         };
@@ -3216,15 +3275,27 @@ impl Tree<'_> {
                     Icit::Explicit,
                     Rc::new(body),
                     Rc::new(Term::Data(void, Vec::new())),
+                    ProofMark::Unknown,
                 )
             };
             let motive = Term::Lam(
                 "y".into(),
                 Icit::Explicit,
-                Rc::new(Term::Lam("e".into(), Icit::Explicit, Rc::new(body))),
+                Rc::new(Term::Lam(
+                    "e".into(),
+                    Icit::Explicit,
+                    Rc::new(body),
+                    ProofMark::Unknown,
+                )),
+                ProofMark::Unknown,
             );
             let eq = Term::Var(top - 1 - (depth + vars + e));
-            proof = Term::J(Rc::new(motive), Rc::new(proof), Rc::new(eq));
+            proof = Term::J(
+                Rc::new(motive),
+                Rc::new(proof),
+                Rc::new(eq),
+                ProofMark::Unknown,
+            );
         }
         let names: Vec<(Name, Icit)> = (0..top - depth)
             .map(|i| (format!("x{i}").into(), Icit::Explicit))
@@ -3571,7 +3642,9 @@ impl Tree<'_> {
         let node = guard_if(&g, t)?;
         let depth = self.depth();
         let goal = self.goal_here(fvals)?;
-        let lam = |x: &str, body: Term| Term::Lam(x.into(), Icit::Explicit, Rc::new(body));
+        let lam = |x: &str, body: Term| {
+            Term::Lam(x.into(), Icit::Explicit, Rc::new(body), ProofMark::Unknown)
+        };
         let sp = self.sp;
         if !node.dec {
             let (d, c) = g

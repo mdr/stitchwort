@@ -852,7 +852,7 @@ pub fn bind_def(g: &mut Kernel, id: DefId) -> Option<Builtin> {
 pub fn shape_of(ty: &Term) -> String {
     let mut words: Vec<String> = Vec::new();
     let mut t = ty.strip_loc();
-    while let Term::Pi(name, icit, _, body) = t {
+    while let Term::Pi(name, icit, _, body, _) = t {
         let name = if name.is_empty() || name.starts_with('_') {
             "_"
         } else {

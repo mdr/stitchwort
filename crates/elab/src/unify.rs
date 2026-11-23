@@ -2,10 +2,12 @@
 //! back into terms). Follows András Kovács' elaboration-zoo.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use crate::check::quote_internal;
 use stitchwort_core::budget::{Phase, ResourceError, Result};
 use stitchwort_core::collections::{HashMap, HashSet};
+use stitchwort_core::proof_counts;
 use stitchwort_core::value::{
     Closure, CompareAt, Elim, Head, Mode, Relation, ShapeKey, ShapeMemo, Spine, apply_icit, conv,
     eval, expand_step, force, force_solved, is_call_field, is_eta_type, is_folded, matches_at_once,
@@ -54,8 +56,90 @@ impl<'a> std::ops::Deref for Unifier<'a> {
 /// that fails part-way keeps what was solved before it, a whole proof
 /// solved at a proof position included, so a caller that tries another way
 /// after a `false` runs the first inside `undo::transaction`.
+#[track_caller]
 pub(crate) fn unify(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result<bool> {
-    unify_in(g, level, a, b, Mode::Normal)
+    let same = unify_in(g, level, a, b, Mode::Normal)?;
+    if proof_counts::on() && both_proofs(g, a, b) {
+        proof_counts::record_caller(g, "unify", std::panic::Location::caller(), !same);
+    }
+    Ok(same)
+}
+
+/// Whether `v` is a proof (docs/core.md, "Proof marks"): the kernel's
+/// marks ([`stitchwort_core::value::is_proof`]), and for an unsolved
+/// unknown at the head, its type's sort, [`ProofMark::Unknown`] while that
+/// isn't known. Used only by the proof counters so far.
+pub(crate) fn is_proof(g: &Unifier<'_>, v: &Value) -> ProofMark {
+    match stitchwort_core::value::is_proof(g, v) {
+        ProofMark::Unknown => {}
+        known => return known,
+    }
+    match v {
+        Value::Neutral(Head::Meta(m), spine)
+            if g.meta_solution(*m).is_none()
+                && spine.iter().all(|e| matches!(e, Elim::App(..))) =>
+        {
+            meta_mark(g, *m)
+        }
+        _ => ProofMark::Unknown,
+    }
+}
+
+/// Whether unknown `m`, applied to anything, is a proof: whether its type
+/// ends in a proposition, read through its function types. Unknown while
+/// the type's sort isn't known (an unknown type, a type variable).
+fn meta_mark(g: &Unifier<'_>, m: usize) -> ProofMark {
+    let Some((ty, scope)) = g.store.metas.borrow()[m].ty.clone() else {
+        return ProofMark::Unknown;
+    };
+    let mut ty = ty;
+    // Levels past any in scope: the type is only looked at, never read back.
+    for depth in 0..32 {
+        let Ok(forced) = force(g, ty) else {
+            return ProofMark::Unknown;
+        };
+        ty = match forced {
+            Value::Eq(..) => return ProofMark::Proof,
+            Value::Data(d, _) => return ProofMark::of_sort(g.data(d).sort()),
+            Value::Sort(_) => return ProofMark::NotProof,
+            Value::Pi(_, _, _, cod, mark) => {
+                match cod.apply(g, Value::var_marked(scope + 1_000_000 + depth, mark)) {
+                    Ok(next) => next,
+                    Err(_) => return ProofMark::Unknown,
+                }
+            }
+            _ => return ProofMark::Unknown,
+        };
+    }
+    ProofMark::Unknown
+}
+
+/// Whether `a` and `b` are both marked proofs ([`is_proof`]).
+fn both_proofs(g: &Unifier<'_>, a: &Value, b: &Value) -> bool {
+    is_proof(g, a).is_proof() && is_proof(g, b).is_proof()
+}
+
+/// An unsolved unknown at the head: a side the proof-position rule may
+/// solve whole, which rule I keeps (docs/proposals/full-proof-irrelevance.md
+/// §4.3).
+fn flexible_head(g: &Unifier<'_>, v: &Value) -> bool {
+    matches!(v, Value::Neutral(Head::Meta(m), _) if g.meta_solution(*m).is_none())
+}
+
+/// The proof counters' pairs of proofs open in [`run_tasks`]: how long the
+/// work list was below the pair's own tasks, and the solution trail's
+/// length before it.
+fn close_proof_pairs(g: &Unifier<'_>, open: &mut Vec<(usize, usize)>, work_len: usize) {
+    while let Some(&(base, trail)) = open.last()
+        && work_len <= base
+    {
+        open.pop();
+        let solved = g.store.meta_trail.borrow().len().saturating_sub(trail);
+        if solved > 0 {
+            proof_counts::record(g, proof_counts::Kind::SolvedInsideProofs, 1);
+            proof_counts::record(g, proof_counts::Kind::SolvedUnknowns, solved as u64);
+        }
+    }
 }
 
 /// [`unify`] in `mode`: [`Mode::Shortcut`] where the kernel compares in its
@@ -334,7 +418,14 @@ fn run_outermost(g: &Unifier<'_>, work: Vec<Task>, mode: Mode) -> Result<bool> {
 #[inline]
 fn run_tasks(g: &Unifier<'_>, mut work: Vec<Task>, mode: Mode) -> Result<bool> {
     let mut mode = mode;
-    while let Some(task) = work.pop() {
+    // Only with the proof counters on: pairs of proofs whose tasks aren't
+    // done (`close_proof_pairs`).
+    let mut proof_pairs: Vec<(usize, usize)> = Vec::new();
+    loop {
+        if !proof_pairs.is_empty() {
+            close_proof_pairs(g, &mut proof_pairs, work.len());
+        }
+        let Some(task) = work.pop() else { break };
         // A pair of calls compared to the end without failing.
         if let Task::Open(..) = task {
             continue;
@@ -349,8 +440,16 @@ fn run_tasks(g: &Unifier<'_>, mut work: Vec<Task>, mode: Mode) -> Result<bool> {
                     record_different(g, &work);
                     return Ok(false);
                 }
-                unify_step(g, level, &a, &b, &mut work, mode)?
-                    || values_differ(g, level, a, b, &mut work, mode)?
+                let proofs = proof_counts::on() && both_proofs(g, &a, &b);
+                if proofs && !flexible_head(g, &a) && !flexible_head(g, &b) {
+                    proof_pairs.push((work.len(), g.store.meta_trail.borrow().len()));
+                }
+                let same = unify_step(g, level, &a, &b, &mut work, mode)?
+                    || values_differ(g, level, a, b, &mut work, mode)?;
+                if proofs && !same {
+                    proof_counts::record(g, proof_counts::Kind::UnifyDifferentProofs, 1);
+                }
+                same
             }
             Task::Mode(m) => {
                 mode = m;
@@ -578,7 +677,7 @@ pub(crate) fn unify_by_unknown_arguments(
         let Some((ty, _)) = ty.filter(|(_, scope)| *scope == spine.len()) else {
             return Ok(false);
         };
-        let Value::Pi(_, _, domain, _) = force(g, ty)? else {
+        let Value::Pi(_, _, domain, _, _) = force(g, ty)? else {
             return Ok(false);
         };
         let unit = g
@@ -654,7 +753,7 @@ pub(crate) fn unify_by_unknown_arguments(
 fn eta_function(g: &Ev, level: usize, value: &Value) -> Result<bool> {
     let mut body = force_solved(g, value.clone())?;
     let mut depth = 0;
-    while let Value::Lam(_, _, closure) = body {
+    while let Value::Lam(_, _, closure, _) = body {
         body = force_solved(g, closure.apply(g, Value::var(level + depth))?)?;
         depth += 1;
     }
@@ -670,7 +769,7 @@ fn eta_function(g: &Ev, level: usize, value: &Value) -> Result<bool> {
     let innermost = depth > 0
         && matches!(
             force_solved(g, last.clone())?,
-            Value::Neutral(Head::Var(v, _), s) if v == level + depth - 1 && s.is_empty()
+            Value::Neutral(Head::Var(v, _, _), s) if v == level + depth - 1 && s.is_empty()
         );
     if !innermost {
         return Ok(false);
@@ -709,7 +808,7 @@ fn eta_function(g: &Ev, level: usize, value: &Value) -> Result<bool> {
 /// `t` eta-contracted, if it is a lambda that only applies a function to
 /// its variables (`x y => f x y` is `f`), where `f` mentions none of them.
 pub(crate) fn eta_contract(g: &Ev, t: &Term) -> Result<Option<Term>> {
-    let Term::Lam(_, icit, body) = t.strip_loc() else {
+    let Term::Lam(_, icit, body, _) = t.strip_loc() else {
         return Ok(None);
     };
     let inner = eta_contract(g, body)?;
@@ -815,8 +914,8 @@ pub(crate) fn rigid_head(g: &Ev, v: &Value) -> Option<Rigid> {
         Value::Pi(..) => Rigid::Pi,
         Value::Sort(_) => Rigid::Sort,
         Value::Eq(..) => Rigid::Eq,
-        Value::Neutral(Head::Var(_, _), _) => Rigid::Var,
-        Value::Neutral(Head::Quot(QuotForm::Type), spine)
+        Value::Neutral(Head::Var(_, _, _), _) => Rigid::Var,
+        Value::Neutral(Head::Quot(QuotForm::Type, _), spine)
             if spine.len() == QuotForm::Type.arity() =>
         {
             Rigid::Quot
@@ -963,7 +1062,7 @@ fn row_rule(
             None if matches!(
                 other,
                 Value::Neutral(Head::Def(_), _)
-                    | Value::Neutral(Head::Quot(stitchwort_core::QuotForm::Lift), _)
+                    | Value::Neutral(Head::Quot(stitchwort_core::QuotForm::Lift, _), _)
             ) =>
             {
                 false
@@ -1107,7 +1206,7 @@ fn divergence_rule(
     if !settled {
         return Ok(match other {
             Value::Neutral(Head::Def(_), _)
-            | Value::Neutral(Head::Quot(stitchwort_core::QuotForm::Lift), _) => Some(blocked()),
+            | Value::Neutral(Head::Quot(stitchwort_core::QuotForm::Lift, _), _) => Some(blocked()),
             _ => None,
         });
     }
@@ -1243,7 +1342,7 @@ fn plus_rule_with(
             let Elim::App(_, icit) = elim else {
                 unreachable!("distinct variables are applications")
             };
-            solution = Term::Lam("x".into(), *icit, Rc::new(solution));
+            solution = Term::Lam("x".into(), *icit, Rc::new(solution), ProofMark::Unknown);
         }
         g.store.solve_meta(sum.m, eval(g, &[], &solution)?);
         Ok(())
@@ -1292,7 +1391,7 @@ fn distinct_variables(g: &Ev, spine: &[Elim]) -> Result<bool> {
             return Ok(false);
         };
         match force(g, v.clone())? {
-            Value::Neutral(Head::Var(l, _), s) if s.is_empty() && seen.insert(l) => {}
+            Value::Neutral(Head::Var(l, _, _), s) if s.is_empty() && seen.insert(l) => {}
             _ => return Ok(false),
         }
     }
@@ -1898,7 +1997,7 @@ fn unify_shapes(
     let fresh = Value::var(level);
     Ok(match (a, b) {
         (Value::Sort(s), Value::Sort(t)) => s == t,
-        (Value::Pi(_, i1, a1, b1), Value::Pi(_, i2, a2, b2)) => {
+        (Value::Pi(_, i1, a1, b1, _), Value::Pi(_, i2, a2, b2, _)) => {
             if i1 != i2 {
                 return Ok(false);
             }
@@ -1906,8 +2005,10 @@ fn unify_shapes(
             work.push(Task::Values(level, (**a1).clone(), (**a2).clone()));
             true
         }
-        (Value::Lam(_, _, b1), Value::Lam(_, _, b2)) if same_closure_solved(g, b1, b2)? => true,
-        (Value::Lam(_, _, b1), Value::Lam(_, _, b2)) => {
+        (Value::Lam(_, _, b1, _), Value::Lam(_, _, b2, _)) if same_closure_solved(g, b1, b2)? => {
+            true
+        }
+        (Value::Lam(_, _, b1, _), Value::Lam(_, _, b2, _)) => {
             work.push(Task::Values(
                 level + 1,
                 b1.apply(g, fresh.clone())?,
@@ -1915,7 +2016,7 @@ fn unify_shapes(
             ));
             true
         }
-        (Value::Lam(_, i, b), other) | (other, Value::Lam(_, i, b)) => {
+        (Value::Lam(_, i, b, _), other) | (other, Value::Lam(_, i, b, _)) => {
             if !can_apply(other) {
                 return Ok(false);
             }
@@ -2593,10 +2694,12 @@ fn spine_pairs(
                 Elim::J {
                     motive: m1,
                     base: b1,
+                    ..
                 },
                 Elim::J {
                     motive: m2,
                     base: b2,
+                    ..
                 },
             ) => {
                 arguments = false;
@@ -2791,7 +2894,7 @@ fn apart(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result<bool> {
 fn types_apart(g: &Unifier<'_>, level: usize, a: &Value, b: &Value, depth: usize) -> Result<bool> {
     let a = force(g, a.clone())?;
     let b = force(g, b.clone())?;
-    if let (Value::Pi(_, i1, d1, c1), Value::Pi(_, i2, d2, c2)) = (&a, &b) {
+    if let (Value::Pi(_, i1, d1, c1, _), Value::Pi(_, i2, d2, c2, _)) = (&a, &b) {
         if i1 != i2 {
             return Ok(true);
         }
@@ -2858,7 +2961,7 @@ fn type_of(g: &Unifier<'_>, v: &Value) -> Result<Option<Known>> {
     for (k, elim) in args.iter().enumerate() {
         match elim {
             Elim::App(arg, _) => {
-                let Value::Pi(_, _, _, cod) = force(g, ty)? else {
+                let Value::Pi(_, _, _, cod, _) = force(g, ty)? else {
                     return Ok(None);
                 };
                 ty = cod.apply(g, arg.clone())?;
@@ -3040,7 +3143,7 @@ fn same_field_calls(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Resu
 /// type with eta, giving one of the fields.
 fn projection_of(g: &Unifier<'_>, id: DefId) -> Option<(stitchwort_core::DataId, usize)> {
     let mut body = g.def(id).body()?.strip_loc();
-    while let Term::Lam(_, _, b) = body {
+    while let Term::Lam(_, _, b, _) = body {
         body = b.strip_loc();
     }
     match body {
@@ -3123,7 +3226,7 @@ fn solve(g: &Unifier<'_>, level: usize, m: usize, spine: &[Elim], rhs: &Value) -
     for elim in spine {
         match elim {
             Elim::App(arg, icit) => match force(g, arg.clone())? {
-                Value::Neutral(Head::Var(l, _), s) if s.is_empty() => {
+                Value::Neutral(Head::Var(l, _, _), s) if s.is_empty() => {
                     if renaming.insert(l, icits.len()).is_some() {
                         repeated.push(l);
                     }
@@ -3161,7 +3264,7 @@ fn solve(g: &Unifier<'_>, level: usize, m: usize, spine: &[Elim], rhs: &Value) -
         return Ok(false);
     };
     for icit in icits.into_iter().rev() {
-        solution = Term::Lam("x".into(), icit, Rc::new(solution));
+        solution = Term::Lam("x".into(), icit, Rc::new(solution), ProofMark::Unknown);
     }
     let value = eval(g, &[], &solution)?;
     g.store.solve_meta(m, value);
@@ -3213,7 +3316,7 @@ fn solve_abstracting(
             return Ok(false);
         };
         match force_solved(g, arg.clone())? {
-            Value::Neutral(Head::Var(l, _), s) if s.is_empty() => {
+            Value::Neutral(Head::Var(l, _, _), s) if s.is_empty() => {
                 if !seen.insert(l) {
                     return Ok(false);
                 }
@@ -3510,7 +3613,7 @@ fn rename_in(
         Value::Data(d, args) => Term::Data(d, all(&args)?),
         Value::Ctor(d, c, args) => Term::Ctor(d, c, all(&args)?),
         Value::Neutral(Head::Def(id), spine) => rename_spine(&go, Term::Def(id), &spine)?,
-        Value::Neutral(Head::Var(l, _), spine) => {
+        Value::Neutral(Head::Var(l, _, _), spine) => {
             let new = *renaming.get(&l).ok_or(Fail::No)?;
             rename_spine(&go, Term::Var(dom - 1 - new), &spine)?
         }
@@ -3579,8 +3682,14 @@ fn rename_other(
     Ok(match value {
         Value::Sort(s) => Term::Sort(s),
         Value::Refl => Term::Refl,
-        Value::Pi(x, i, a, b) => Term::Pi(x, i, Rc::new(go(&a)?), Rc::new(under(&b)?)),
-        Value::Lam(x, i, b) => Term::Lam(x, i, Rc::new(under(&b)?)),
+        Value::Pi(x, i, a, b, _) => Term::Pi(
+            x,
+            i,
+            Rc::new(go(&a)?),
+            Rc::new(under(&b)?),
+            ProofMark::Unknown,
+        ),
+        Value::Lam(x, i, b, _) => Term::Lam(x, i, Rc::new(under(&b)?), ProofMark::Unknown),
         Value::Nat(n) => Term::Nat(n),
         // Closed: nothing to rename, and no metavariable to occur.
         Value::Chars(c) => quote_internal(g, cod, &Value::Chars(c))?,
@@ -3590,7 +3699,7 @@ fn rename_other(
             rename_meta(g, size, m, renaming, dom, cod, (m2, &spine), in_call)?
         }
         Value::Neutral(Head::Meta(_), _) => return Err(Fail::No),
-        Value::Neutral(Head::Quot(form), spine) => {
+        Value::Neutral(Head::Quot(form, _), spine) => {
             rename_quot(g, size, m, renaming, dom, cod, (form, &spine), in_call)?
         }
         Value::Data(..) | Value::Ctor(..) | Value::Neutral(..) => {
@@ -3681,7 +3790,11 @@ fn rename_quot(
             }
         })
         .collect::<Renamed<_>>()?;
-    rename_spine(&go, Term::Quot(form, args, false), &spine[n..])
+    rename_spine(
+        &go,
+        Term::Quot(form, args, false, ProofMark::Unknown),
+        &spine[n..],
+    )
 }
 
 /// `head` applied to `spine`, each part renamed by `go` ([`rename`]).
@@ -3690,9 +3803,12 @@ fn rename_spine(go: &dyn Fn(&Value) -> Renamed<Term>, head: Term, spine: &[Elim]
     for elim in spine {
         term = match elim {
             Elim::App(v, i) => Term::app_icit(term, go(v)?, *i),
-            Elim::J { motive, base } => {
-                Term::J(Rc::new(go(motive)?), Rc::new(go(base)?), Rc::new(term))
-            }
+            Elim::J { motive, base, .. } => Term::J(
+                Rc::new(go(motive)?),
+                Rc::new(go(base)?),
+                Rc::new(term),
+                ProofMark::Unknown,
+            ),
             Elim::Proj(d, i) => Term::Proj(*d, *i, Rc::new(term)),
         };
     }
@@ -3723,7 +3839,7 @@ pub(crate) fn prune_variable(g: &Unifier<'_>, value: &Value, level: usize) -> Re
     let mut renaming = HashMap::default();
     for elim in &spine {
         if let Elim::App(v, _) = elim
-            && let Value::Neutral(Head::Var(l, _), s) = force(g, v.clone())?
+            && let Value::Neutral(Head::Var(l, _, _), s) = force(g, v.clone())?
             && s.is_empty()
             && l != level
         {
@@ -3752,7 +3868,7 @@ fn prune(
     for elim in spine {
         match elim {
             Elim::App(v, _) => match force(g, v.clone())? {
-                Value::Neutral(Head::Var(l, _), s) if s.is_empty() && !levels.contains(&l) => {
+                Value::Neutral(Head::Var(l, _, _), s) if s.is_empty() && !levels.contains(&l) => {
                     levels.push(l);
                 }
                 _ => return Ok(None),
@@ -3781,7 +3897,7 @@ fn prune(
         let Elim::App(_, icit) = elim else {
             unreachable!()
         };
-        body = Term::Lam("x".into(), *icit, Rc::new(body));
+        body = Term::Lam("x".into(), *icit, Rc::new(body), ProofMark::Unknown);
     }
     g.store.solve_meta(m2, eval(g, &[], &body)?);
     Ok(Some((m3, kept)))
@@ -3880,11 +3996,19 @@ pub(crate) fn fold_back(
         | Term::Meta(_) => None,
         Term::Data(d, args) => all(args, under)?.map(|args| Term::Data(*d, args)),
         Term::Ctor(d, c, args) => all(args, under)?.map(|args| Term::Ctor(*d, *c, args)),
-        Term::Pi(x, i, a, b) => match (go(a, under)?, go(b, under + 1)?) {
+        Term::Pi(x, i, a, b, _) => match (go(a, under)?, go(b, under + 1)?) {
             (None, None) => None,
-            (a2, b2) => Some(Term::Pi(x.clone(), *i, or(a2, a), or(b2, b))),
+            (a2, b2) => Some(Term::Pi(
+                x.clone(),
+                *i,
+                or(a2, a),
+                or(b2, b),
+                ProofMark::Unknown,
+            )),
         },
-        Term::Lam(x, i, b) => go(b, under + 1)?.map(|b| Term::Lam(x.clone(), *i, b)),
+        Term::Lam(x, i, b, _) => {
+            go(b, under + 1)?.map(|b| Term::Lam(x.clone(), *i, b, ProofMark::Unknown))
+        }
         Term::App(h, a, i) => match (go(h, under)?, go(a, under)?) {
             (None, None) => None,
             (h2, a2) => Some(Term::App(or(h2, h), or(a2, a), *i)),
@@ -3893,9 +4017,16 @@ pub(crate) fn fold_back(
             (None, None) => None,
             (e2, t2) => Some(Term::Ann(or(e2, e), or(t2, t))),
         },
-        Term::Let(x, a, v, b, e) => match (go(a, under)?, go(v, under)?, go(b, under + 1)?) {
+        Term::Let(x, a, v, b, e, _) => match (go(a, under)?, go(v, under)?, go(b, under + 1)?) {
             (None, None, None) => None,
-            (a2, v2, b2) => Some(Term::Let(x.clone(), or(a2, a), or(v2, v), or(b2, b), *e)),
+            (a2, v2, b2) => Some(Term::Let(
+                x.clone(),
+                or(a2, a),
+                or(v2, v),
+                or(b2, b),
+                *e,
+                ProofMark::Unknown,
+            )),
         },
         Term::Case(ix, d, branches) => {
             let mut new: Vec<Option<Rc<Term>>> = Vec::with_capacity(branches.len());
@@ -3958,12 +4089,14 @@ pub(crate) fn fold_back(
                 )),
             }
         }
-        Term::J(m, b, p) => match (go(m, under)?, go(b, under)?, go(p, under)?) {
+        Term::J(m, b, p, _) => match (go(m, under)?, go(b, under)?, go(p, under)?) {
             (None, None, None) => None,
-            (m2, b2, p2) => Some(Term::J(or(m2, m), or(b2, b), or(p2, p))),
+            (m2, b2, p2) => Some(Term::J(or(m2, m), or(b2, b), or(p2, p), ProofMark::Unknown)),
         },
         Term::Proj(d, i, t) => go(t, under)?.map(|t| Term::Proj(*d, *i, t)),
-        Term::Quot(form, args, e) => all(args, under)?.map(|args| Term::Quot(*form, args, *e)),
+        Term::Quot(form, args, e, _) => {
+            all(args, under)?.map(|args| Term::Quot(*form, args, *e, ProofMark::Unknown))
+        }
         Term::Loc(span, t) => go(t, under)?.map(|t| Term::Loc(*span, t)),
     })
 }
@@ -4020,9 +4153,9 @@ pub(crate) fn type_fixed(g: &Ev, term: &Term) -> bool {
         | Term::Sort(_)
         | Term::Data(..)
         | Term::Eq(..) => true,
-        Term::Pi(_, _, a, b) => type_fixed(g, a) && type_fixed(g, b),
+        Term::Pi(_, _, a, b, _) => type_fixed(g, a) && type_fixed(g, b),
         Term::Ann(..) => true,
-        Term::Let(_, _, _, body, _) => type_fixed(g, body),
+        Term::Let(_, _, _, body, _, _) => type_fixed(g, body),
         Term::Proj(_, _, record) => type_fixed(g, record),
         // A function's result type is its codomain at the arguments, which
         // the term writes, implicit ones included.
@@ -4077,7 +4210,7 @@ fn rigidly_mentions(ty: &Term, ix: usize) -> bool {
     match ty.strip_loc() {
         Term::Var(i) => *i == ix,
         Term::Data(_, args) => args.iter().any(|a| rigidly_mentions(a, ix)),
-        Term::Pi(_, _, a, b) => rigidly_mentions(a, ix) || rigidly_mentions(b, ix + 1),
+        Term::Pi(_, _, a, b, _) => rigidly_mentions(a, ix) || rigidly_mentions(b, ix + 1),
         _ => false,
     }
 }
@@ -4417,11 +4550,19 @@ fn zonk_changed(
         | Term::Meta(_) => None,
         Term::Data(d, args) => all(args)?.map(|args| Term::Data(*d, args)),
         Term::Ctor(d, c, args) => all(args)?.map(|args| Term::Ctor(*d, *c, args)),
-        Term::Pi(x, i, a, b) => match (go(a, level)?, go(b, level + 1)?) {
+        Term::Pi(x, i, a, b, _) => match (go(a, level)?, go(b, level + 1)?) {
             (None, None) => None,
-            (a2, b2) => Some(Term::Pi(x.clone(), *i, or(a2, a), or(b2, b))),
+            (a2, b2) => Some(Term::Pi(
+                x.clone(),
+                *i,
+                or(a2, a),
+                or(b2, b),
+                ProofMark::Unknown,
+            )),
         },
-        Term::Lam(x, i, b) => go(b, level + 1)?.map(|b| Term::Lam(x.clone(), *i, b)),
+        Term::Lam(x, i, b, _) => {
+            go(b, level + 1)?.map(|b| Term::Lam(x.clone(), *i, b, ProofMark::Unknown))
+        }
         Term::App(f, a, i) => {
             let app = match (go(f, level)?, go(a, level)?) {
                 (None, None) => None,
@@ -4453,12 +4594,14 @@ fn zonk_changed(
                 )),
             }
         }
-        Term::J(m, b, p) => match (go(m, level)?, go(b, level)?, go(p, level)?) {
+        Term::J(m, b, p, _) => match (go(m, level)?, go(b, level)?, go(p, level)?) {
             (None, None, None) => None,
-            (m2, b2, p2) => Some(Term::J(or(m2, m), or(b2, b), or(p2, p))),
+            (m2, b2, p2) => Some(Term::J(or(m2, m), or(b2, b), or(p2, p), ProofMark::Unknown)),
         },
         Term::Proj(d, i, t) => go(t, level)?.map(|t| Term::Proj(*d, *i, t)),
-        Term::Quot(form, args, e) => all(args)?.map(|args| Term::Quot(*form, args, *e)),
+        Term::Quot(form, args, e, _) => {
+            all(args)?.map(|args| Term::Quot(*form, args, *e, ProofMark::Unknown))
+        }
         Term::Loc(span, t) => go(t, level)?.map(|t| Term::Loc(*span, t)),
     })
 }
@@ -4538,7 +4681,7 @@ fn zonk_let(
     depth: usize,
     changing: Option<&Changing>,
 ) -> std::result::Result<Option<Term>, ZonkError> {
-    let Term::Let(x, a, v, b, e) = term else {
+    let Term::Let(x, a, v, b, e, _) = term else {
         unreachable!("a `let`");
     };
     let go = |t: &Rc<Term>, level| -> std::result::Result<Option<Rc<Term>>, ZonkError> {
@@ -4573,7 +4716,14 @@ fn zonk_let(
     };
     Ok(match (a2, v2, b2) {
         (None, None, None) => None,
-        (a2, v2, b2) => Some(Term::Let(x.clone(), or(a2, a), or(v2, v), or(b2, b), *e)),
+        (a2, v2, b2) => Some(Term::Let(
+            x.clone(),
+            or(a2, a),
+            or(v2, v),
+            or(b2, b),
+            *e,
+            ProofMark::Unknown,
+        )),
     })
 }
 
@@ -4684,7 +4834,7 @@ pub(crate) mod proof_fixture {
     use std::rc::Rc;
 
     use stitchwort_core::check::{self, CtorDecl};
-    use stitchwort_core::{DataId, DefId, Icit, Kernel, Sort, Term};
+    use stitchwort_core::{DataId, DefId, Icit, Kernel, ProofMark, Sort, Term};
     use stitchwort_syntax::{SourceMap, Span};
 
     /// - `N: Type = Z | S (n: N)`
@@ -4763,9 +4913,17 @@ pub(crate) mod proof_fixture {
         let t2 = data(g, "T2", vec![], Sort::Type(0));
         let fields = vec![("h", n_ty.clone()), ("n", n_ty.clone())];
         check::define_ctors(g, t2, vec![ctor("MkT2", fields)]).expect("T2");
-        let pi =
-            |x: &str, a: Term, b: Term| Term::Pi(x.into(), Icit::Explicit, Rc::new(a), Rc::new(b));
-        let lam = |x: &str, b: Term| Term::Lam(x.into(), Icit::Explicit, Rc::new(b));
+        let pi = |x: &str, a: Term, b: Term| {
+            Term::Pi(
+                x.into(),
+                Icit::Explicit,
+                Rc::new(a),
+                Rc::new(b),
+                ProofMark::Unknown,
+            )
+        };
+        let lam =
+            |x: &str, b: Term| Term::Lam(x.into(), Icit::Explicit, Rc::new(b), ProofMark::Unknown);
         let pick_ty = pi(
             "n",
             n_ty,
@@ -4867,6 +5025,7 @@ pub(crate) mod proof_fixture {
 mod tests {
     use super::*;
     use crate::Elaborator;
+    use stitchwort_core::ProofMark;
     use stitchwort_core::registry::Builtin;
     use stitchwort_core::value::Apart;
     use stitchwort_core::{Icit, Sort};
@@ -4919,7 +5078,7 @@ mod tests {
     }
 
     fn is_var(g: &Unifier<'_>, v: &Value, level: usize) -> bool {
-        matches!(force(g, v.clone()).unwrap(), Value::Neutral(Head::Var(l, _), s) if l == level && s.is_empty())
+        matches!(force(g, v.clone()).unwrap(), Value::Neutral(Head::Var(l, _, _), s) if l == level && s.is_empty())
     }
 
     /// Which lambdas `eta_contract` contracts, by de Bruijn index: `f` is
@@ -4932,7 +5091,9 @@ mod tests {
         let g = &fresh.unifier();
         let var = |ix: usize| Rc::new(Term::Var(ix));
         let app = |f: Rc<Term>, a: Rc<Term>, icit: Icit| Rc::new(Term::App(f, a, icit));
-        let lam = |icit: Icit, body: Rc<Term>| Rc::new(Term::Lam("x".into(), icit, body));
+        let lam = |icit: Icit, body: Rc<Term>| {
+            Rc::new(Term::Lam("x".into(), icit, body, ProofMark::Unknown))
+        };
         let (ex, im) = (Icit::Explicit, Icit::Implicit);
         let contracted = |t: Rc<Term>| eta_contract(g, &t).ok().unwrap();
         // `x y => f x y` is `f` (index 2 under two binders, 0 outside).
@@ -4990,10 +5151,15 @@ mod tests {
         assert!(matches!(folded(pair(0, 1), 2), Term::Var(1)));
         assert!(matches!(folded(pair(1, 2), 3), Term::Var(2)));
         // Under a binder of its own.
-        let under = Term::Lam("y".into(), Icit::Explicit, Rc::new(pair(1, 2)));
+        let under = Term::Lam(
+            "y".into(),
+            Icit::Explicit,
+            Rc::new(pair(1, 2)),
+            ProofMark::Unknown,
+        );
         assert!(matches!(
             folded(under, 2),
-            Term::Lam(_, _, ref body) if matches!(**body, Term::Var(2))
+            Term::Lam(_, _, ref body, _) if matches!(**body, Term::Var(2))
         ));
         // With only the `let` in scope, nothing is folded.
         assert!(matches!(folded(pair(0, 0), 1), Term::Eq(..)));
@@ -5170,6 +5336,7 @@ mod tests {
                 Elim::J {
                     motive: Box::new(Value::var(1)),
                     base: Box::new(Value::var(2)),
+                    result: ProofMark::Unknown,
                 },
                 Elim::App(Value::var(last), Icit::Explicit),
             ];
@@ -5201,7 +5368,15 @@ mod tests {
         let mut fresh = Fresh::default();
         let g = &mut fresh.g;
         let ty_term = Term::Sort(Sort::Type(0));
-        let arrow = |a: Term, b: Term| Term::Pi("_".into(), Icit::Explicit, Rc::new(a), Rc::new(b));
+        let arrow = |a: Term, b: Term| {
+            Term::Pi(
+                "_".into(),
+                Icit::Explicit,
+                Rc::new(a),
+                Rc::new(b),
+                ProofMark::Unknown,
+            )
+        };
         let fn_ty = arrow(ty_term.clone(), arrow(ty_term.clone(), ty_term));
         let id = stitchwort_core::check::declare_def(
             g,
@@ -5216,7 +5391,13 @@ mod tests {
         let body = Term::Lam(
             "a".into(),
             Icit::Explicit,
-            Rc::new(Term::Lam("b".into(), Icit::Explicit, Rc::new(Term::Var(1)))),
+            Rc::new(Term::Lam(
+                "b".into(),
+                Icit::Explicit,
+                Rc::new(Term::Var(1)),
+                ProofMark::Unknown,
+            )),
+            ProofMark::Unknown,
         );
         stitchwort_core::check::define_def(g, id, &body).expect("defined");
         g.machine.glue.set(true);
@@ -5625,11 +5806,11 @@ mod tests {
     }
 
     fn pi(i: Icit, a: Term, b: Term) -> Term {
-        Term::Pi("x".into(), i, Rc::new(a), Rc::new(b))
+        Term::Pi("x".into(), i, Rc::new(a), Rc::new(b), ProofMark::Unknown)
     }
 
     fn lam(b: Term) -> Term {
-        Term::Lam("x".into(), Icit::Explicit, Rc::new(b))
+        Term::Lam("x".into(), Icit::Explicit, Rc::new(b), ProofMark::Unknown)
     }
 
     fn sort(i: u32) -> Term {
@@ -5703,7 +5884,7 @@ mod tests {
         let x = Value::var(0);
         let applied = |args: Vec<usize>| {
             Value::Neutral(
-                Head::Var(0, Apart::NONE),
+                Head::Var(0, Apart::NONE, ProofMark::Unknown),
                 args.into_iter()
                     .map(|l| Elim::App(Value::var(l), Icit::Explicit))
                     .collect(),
@@ -5715,10 +5896,11 @@ mod tests {
         assert!(!unify(g, 3, &x, &Value::var(1)).unwrap());
         let stuck = |motive: Value| {
             Value::Neutral(
-                Head::Var(0, Apart::NONE),
+                Head::Var(0, Apart::NONE, ProofMark::Unknown),
                 vec![Elim::J {
                     motive: Box::new(motive),
                     base: Box::new(ty()),
+                    result: ProofMark::Unknown,
                 }]
                 .into(),
             )
@@ -5789,7 +5971,7 @@ mod tests {
         // x => ?m, inside a case branch with two fields.
         let term = lam(Term::Meta(m));
         assert!(
-            matches!(zonk(g, 0, &term), Ok(Term::Lam(_, _, ref body)) if matches!(**body, Term::Sort(_)))
+            matches!(zonk(g, 0, &term), Ok(Term::Lam(_, _, ref body, _)) if matches!(**body, Term::Sort(_)))
         );
         // ?id x0 = x0, used inside a case branch with two fields.
         let (id, id_applied) = meta(g, &[0]);
@@ -5988,6 +6170,7 @@ mod tests {
                     env: vec![Value::var(unused), Value::var(3)].into(),
                     body: body(),
                 },
+                ProofMark::Unknown,
             )
         };
         let before = g.machine.budget.total_work();
@@ -6026,7 +6209,7 @@ mod tests {
             );
             // `t`, the variable at level 0, applied to `?g`.
             let right = Value::Neutral(
-                Head::Var(0, Apart::NONE),
+                Head::Var(0, Apart::NONE, ProofMark::Unknown),
                 vec![Elim::App(unknown, Icit::Explicit)].into(),
             );
             let same = unify(g, 1, &left, &right).unwrap();
@@ -6044,6 +6227,7 @@ mod tests {
                 env: Vec::new().into(),
                 body: Rc::new(Term::Sort(Sort::Type(0))),
             },
+            ProofMark::Unknown,
         );
         assert_eq!(attempt(Some(function)), (false, false, false));
         assert_eq!(attempt(None), (true, true, true));
@@ -6070,7 +6254,7 @@ mod tests {
             .into(),
         );
         let right = Value::Neutral(
-            Head::Var(0, Apart::NONE),
+            Head::Var(0, Apart::NONE, ProofMark::Unknown),
             vec![Elim::App(unknown, Icit::Explicit)].into(),
         );
         assert!(!unify(g, 1, &left, &right).unwrap());

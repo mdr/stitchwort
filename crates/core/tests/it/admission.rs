@@ -4,6 +4,7 @@
 //! elaborator's order.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use crate::common::*;
 use stitchwort_core::check::{self, infer_closed};
@@ -343,9 +344,13 @@ fn a_validator_cannot_refer_to_a_pending_declaration() {
             Icit::Auto,
             Rc::new(eq(None, v(0), v(0))),
             Rc::new(p.nat_ty()),
+            ProofMark::Unknown,
         ),
     );
-    let body = lam("n", Term::Lam("ok".into(), Icit::Auto, Rc::new(v(1))));
+    let body = lam(
+        "n",
+        Term::Lam("ok".into(), Icit::Auto, Rc::new(v(1)), ProofMark::Unknown),
+    );
     let f = define(&mut p.g, "f", ty, body).unwrap();
     // dec : (n : Nat) -> Decidable (n = n), not yet defined.
     let dec_ty = pi(

@@ -192,7 +192,7 @@ pub(crate) fn branch_note(e: &crate::Elaborator, terms: &[&Term]) -> Option<Stri
     };
     let states_helper = |ty: &Term| {
         let mut t = ty.strip_loc();
-        while let Term::Pi(_, _, _, cod) = t {
+        while let Term::Pi(_, _, _, cod, _) = t {
             t = cod.strip_loc();
         }
         matches!(t, Term::Eq(_, lhs, _)

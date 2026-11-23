@@ -36,6 +36,7 @@
 //! `dead_lets` pass after `post`).
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::registry::Builtin;
@@ -118,16 +119,23 @@ fn children(
             *c,
             args.iter().map(|a| go(a, depth)).collect::<Result<_>>()?,
         ),
-        Term::Pi(x, i, a, b) => Term::Pi(x.clone(), *i, go(a, depth)?, go(b, depth + 1)?),
-        Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b, depth + 1)?),
+        Term::Pi(x, i, a, b, _) => Term::Pi(
+            x.clone(),
+            *i,
+            go(a, depth)?,
+            go(b, depth + 1)?,
+            ProofMark::Unknown,
+        ),
+        Term::Lam(x, i, b, _) => Term::Lam(x.clone(), *i, go(b, depth + 1)?, ProofMark::Unknown),
         Term::App(a, b, i) => Term::App(go(a, depth)?, go(b, depth)?, *i),
         Term::Ann(a, b) => Term::Ann(go(a, depth)?, go(b, depth)?),
-        Term::Let(x, a, v, b, e) => Term::Let(
+        Term::Let(x, a, v, b, e, _) => Term::Let(
             x.clone(),
             go(a, depth)?,
             go(v, depth)?,
             go(b, depth + 1)?,
             *e,
+            ProofMark::Unknown,
         ),
         Term::Case(ix, d, branches) => Term::Case(
             *ix,
@@ -163,12 +171,18 @@ fn children(
             go(a, depth)?,
             go(b, depth)?,
         ),
-        Term::J(m, b, p) => Term::J(go(m, depth)?, go(b, depth)?, go(p, depth)?),
+        Term::J(m, b, p, _) => Term::J(
+            go(m, depth)?,
+            go(b, depth)?,
+            go(p, depth)?,
+            ProofMark::Unknown,
+        ),
         Term::Proj(d, i, t) => Term::Proj(*d, *i, go(t, depth)?),
-        Term::Quot(form, args, e) => Term::Quot(
+        Term::Quot(form, args, e, _) => Term::Quot(
             *form,
             args.iter().map(|a| go(a, depth)).collect::<Result<_>>()?,
             *e,
+            ProofMark::Unknown,
         ),
         Term::Loc(span, t) => Term::Loc(*span, go(t, depth)?),
     })
@@ -191,7 +205,7 @@ fn twin_call(
     t: &Term,
 ) -> std::result::Result<Option<Term>, stitchwort_core::budget::ResourceError> {
     match t.strip_loc() {
-        Term::Let(name, _, v, body, _) if &**name == TWIN => Ok(Some(body.instantiate(g, v)?)),
+        Term::Let(name, _, v, body, _, _) if &**name == TWIN => Ok(Some(body.instantiate(g, v)?)),
         _ => Ok(None),
     }
 }
@@ -201,7 +215,7 @@ fn twin_call(
 /// plain form doesn't show them.
 fn dead_lets(g: &Ev, t: &Term) -> Result<Term> {
     Ok(t.rewrite_up(g, &mut |node| match node {
-        Term::Let(name, _, _, body, _) if !name.starts_with('%') && !body.mentions(0) => {
+        Term::Let(name, _, _, body, _, _) if !name.starts_with('%') && !body.mentions(0) => {
             Ok(Some(body.instantiate(g, &Term::Refl)?))
         }
         _ => Ok(None),
@@ -213,7 +227,7 @@ fn unadapt(t: &Term, k: usize) -> Option<Term> {
     let mut body = t.strip_loc();
     for _ in 0..k {
         body = match body {
-            Term::Lam(_, _, b) => b.strip_loc(),
+            Term::Lam(_, _, b, _) => b.strip_loc(),
             _ => return None,
         };
     }
@@ -356,10 +370,11 @@ impl Lemmas {
         }
         let branch = |this: &Lemmas, a: &Term, count: &mut usize| -> Result<Term> {
             match a.strip_loc() {
-                Term::Lam(x, i, body) => Ok(Term::Lam(
+                Term::Lam(x, i, body, _) => Ok(Term::Lam(
                     x.clone(),
                     *i,
                     Rc::new(this.mark(g, body, depth + 1, allowed, true, count)?),
+                    ProofMark::Unknown,
                 )),
                 other => this.mark(g, other, depth, false, false, count),
             }
@@ -428,12 +443,13 @@ impl Lemmas {
                 Rc::new(self.mark(g, e, depth, allowed, false, count)?),
                 Rc::new(self.mark(g, ty, depth, false, false, count)?),
             )),
-            Term::Let(x, ty, v, b, e) => Ok(Term::Let(
+            Term::Let(x, ty, v, b, e, _) => Ok(Term::Let(
                 x.clone(),
                 Rc::new(self.mark(g, ty, depth, false, false, count)?),
                 Rc::new(self.mark(g, v, depth, false, false, count)?),
                 Rc::new(self.mark(g, b, depth + 1, allowed && root, root, count)?),
                 *e,
+                ProofMark::Unknown,
             )),
             _ => children(t, depth, &mut |c, d| {
                 self.mark(g, c, d, false, false, count)
@@ -446,8 +462,8 @@ impl Lemmas {
     /// (`check::check_if_in`) and one of which mentions it. `f.%plain`
     /// shows them without those proofs.
     fn plain_ifs(&self, t: &Term) -> usize {
-        let plain = |b: &Term| matches!(b.strip_loc(), Term::Lam(x, _, _) if &**x == "_");
-        let uses = |b: &Term| matches!(b.strip_loc(), Term::Lam(_, _, body) if body.mentions(0));
+        let plain = |b: &Term| matches!(b.strip_loc(), Term::Lam(x, _, _, _) if &**x == "_");
+        let uses = |b: &Term| matches!(b.strip_loc(), Term::Lam(_, _, body, _) if body.mentions(0));
         (t.subterms())
             .filter(|(node, _)| {
                 let (head, args) = spine_owned(node);
@@ -482,7 +498,7 @@ impl Lemmas {
         let mut marks = 0;
         let mut placed = 0;
         for (node, _) in t.subterms() {
-            if let Term::Let(name, _, _, body, _) = node
+            if let Term::Let(name, _, _, body, _, _) = node
                 && &**name == TWIN
             {
                 marks += 1;
@@ -555,12 +571,15 @@ impl Lemmas {
                         Rc::new(pre2.clone()),
                         Rc::new(rhs),
                     )),
+                    ProofMark::Unknown,
                 )),
+                ProofMark::Unknown,
             );
             proof = Term::J(
                 Rc::new(motive),
                 Rc::new(proof),
                 Rc::new(holes[i].proof.clone()),
+                ProofMark::Unknown,
             );
         }
         Ok(Some(proof))
@@ -633,20 +652,39 @@ impl Lemmas {
                 .ok_or_else(|| internal_error("a twin's call without its `%rec`"))?;
             return Ok(Some(apps(Term::Def(twin.same), args)));
         }
-        if let (Term::Let(x, vty, v, b, e), Some(ty)) = (t, ty) {
+        if let (Term::Let(x, vty, v, b, e, _), Some(ty)) = (t, ty) {
             let inner = self.proof(g, b, &ty.shift(g, 1, 0)?, depth + 1)?;
-            return Ok(inner.map(|p| Term::Let(x.clone(), vty.clone(), v.clone(), Rc::new(p), *e)));
+            return Ok(inner.map(|p| {
+                Term::Let(
+                    x.clone(),
+                    vty.clone(),
+                    v.clone(),
+                    Rc::new(p),
+                    *e,
+                    ProofMark::Unknown,
+                )
+            }));
         }
         let (head, args) = spine_owned(t);
         let branch_proof = |a: &Term, ty: &Term| -> Result<Term> {
             match a.strip_loc() {
-                Term::Lam(x, _, body) => {
+                Term::Lam(x, _, body, _) => {
                     let p = self
                         .proof(g, body, &ty.shift(g, 1, 0)?, depth + 1)?
                         .unwrap_or(Term::Refl);
-                    Ok(Term::Lam(x.clone(), Icit::Explicit, Rc::new(p)))
+                    Ok(Term::Lam(
+                        x.clone(),
+                        Icit::Explicit,
+                        Rc::new(p),
+                        ProofMark::Unknown,
+                    ))
                 }
-                _ => Ok(Term::Lam("_".into(), Icit::Explicit, Rc::new(Term::Refl))),
+                _ => Ok(Term::Lam(
+                    "_".into(),
+                    Icit::Explicit,
+                    Rc::new(Term::Refl),
+                    ProofMark::Unknown,
+                )),
             }
         };
         if self.is(&head, self.elim) && args.len() == 5 {

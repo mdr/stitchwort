@@ -3,6 +3,7 @@
 #![allow(dead_code)]
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::check::{self, CtorDecl};
 use stitchwort_core::registry;
@@ -35,11 +36,23 @@ pub fn prop() -> Term {
 
 /// `(x : a) -> b`, where `b` is already written under the binder.
 pub fn pi(x: &str, a: Term, b: Term) -> Term {
-    Term::Pi(x.into(), Icit::Explicit, Rc::new(a), Rc::new(b))
+    Term::Pi(
+        x.into(),
+        Icit::Explicit,
+        Rc::new(a),
+        Rc::new(b),
+        ProofMark::Unknown,
+    )
 }
 
 pub fn ipi(x: &str, a: Term, b: Term) -> Term {
-    Term::Pi(x.into(), Icit::Implicit, Rc::new(a), Rc::new(b))
+    Term::Pi(
+        x.into(),
+        Icit::Implicit,
+        Rc::new(a),
+        Rc::new(b),
+        ProofMark::Unknown,
+    )
 }
 
 /// `a -> b`, where `b` is written outside the binder (it's shifted under it).
@@ -48,11 +61,11 @@ pub fn arrow(a: Term, b: Term) -> Term {
 }
 
 pub fn lam(x: &str, body: Term) -> Term {
-    Term::Lam(x.into(), Icit::Explicit, Rc::new(body))
+    Term::Lam(x.into(), Icit::Explicit, Rc::new(body), ProofMark::Unknown)
 }
 
 pub fn ilam(x: &str, body: Term) -> Term {
-    Term::Lam(x.into(), Icit::Implicit, Rc::new(body))
+    Term::Lam(x.into(), Icit::Implicit, Rc::new(body), ProofMark::Unknown)
 }
 
 pub fn app(f: Term, args: impl IntoIterator<Item = Term>) -> Term {

@@ -155,6 +155,7 @@
 
 use std::rc::Rc;
 use stitchwort_core::Ev;
+use stitchwort_core::ProofMark;
 
 use crate::check::quote_internal;
 use crate::kernel;
@@ -956,8 +957,14 @@ impl Elaborator {
             let mut body = quote_internal(&self.ev(), np, &member.ty())?;
             let mut ty = Term::Sort(data.sort());
             for (x, t) in data.params().iter().rev() {
-                ty = Term::Pi(x.clone(), Icit::Explicit, Rc::new(t.clone()), Rc::new(ty));
-                body = Term::Lam(x.clone(), Icit::Explicit, Rc::new(body));
+                ty = Term::Pi(
+                    x.clone(),
+                    Icit::Explicit,
+                    Rc::new(t.clone()),
+                    Rc::new(ty),
+                    ProofMark::Unknown,
+                );
+                body = Term::Lam(x.clone(), Icit::Explicit, Rc::new(body), ProofMark::Unknown);
             }
             let name: Name = format!("{}.{ty_member}", data.name()).into();
             let span = data.span();
@@ -1016,6 +1023,7 @@ impl Elaborator {
             Icit::Explicit,
             Rc::new(Term::data(d, params)),
             Rc::new(Term::data(nat, Vec::new())),
+            ProofMark::Unknown,
         );
         let branches: Vec<Branch> = data
             .ctors()
@@ -1030,6 +1038,7 @@ impl Elaborator {
             "r".into(),
             Icit::Explicit,
             Rc::new(Term::Case(0, d, branches.into())),
+            ProofMark::Unknown,
         );
         self.declare_member(owner, d, member, ty, body)
     }
@@ -1083,7 +1092,9 @@ impl Elaborator {
                 Icit::Explicit,
                 Rc::new(Term::data(d, params)),
                 Rc::new(quote_internal(g, np + 2, &field)?),
+                ProofMark::Unknown,
             )),
+            ProofMark::Unknown,
         );
         let branches: Vec<Branch> = data
             .ctors()
@@ -1109,7 +1120,9 @@ impl Elaborator {
                 "r".into(),
                 Icit::Explicit,
                 Rc::new(Term::Case(0, d, branches.into())),
+                ProofMark::Unknown,
             )),
+            ProofMark::Unknown,
         );
         let member = format!("{prefix}{}%{k}", ctor.name);
         self.declare_member(owner, d, &member, ty, body)
@@ -1177,6 +1190,7 @@ impl Elaborator {
             Icit::Explicit,
             Rc::new(tuple(np)?),
             Rc::new(Term::data(d, params(np + 1))),
+            ProofMark::Unknown,
         );
         let mut levels = Vec::with_capacity(n);
         let mut rest = np;
@@ -1204,7 +1218,12 @@ impl Elaborator {
                 }]),
             );
         }
-        let unpack_body = Term::Lam("p".into(), Icit::Explicit, Rc::new(body));
+        let unpack_body = Term::Lam(
+            "p".into(),
+            Icit::Explicit,
+            Rc::new(body),
+            ProofMark::Unknown,
+        );
         // pack: in the context `params, default, r`, a `C`'s fields paired
         // up, or `default`.
         let pack_ty = Term::Pi(
@@ -1216,7 +1235,9 @@ impl Elaborator {
                 Icit::Explicit,
                 Rc::new(Term::data(d, params(np + 1))),
                 Rc::new(tuple(np + 2)?),
+                ProofMark::Unknown,
             )),
+            ProofMark::Unknown,
         );
         let branches: Vec<Branch> = data
             .ctors()
@@ -1246,7 +1267,9 @@ impl Elaborator {
                 "r".into(),
                 Icit::Explicit,
                 Rc::new(Term::Case(0, d, branches.into())),
+                ProofMark::Unknown,
             )),
+            ProofMark::Unknown,
         );
         self.declare_member(owner, d, &unpack_name, unpack_ty, unpack_body)?;
         self.declare_member(owner, d, &pack_name, pack_ty, pack_body)
@@ -1331,7 +1354,9 @@ impl Elaborator {
                     Rc::new(Term::Nat(Rc::new(BigUint::from(c)))),
                 )),
                 Rc::new(quote_internal(g, np + 2, &field)?),
+                ProofMark::Unknown,
             )),
+            ProofMark::Unknown,
         );
         let mut branches = Vec::new();
         for (other, o) in data.ctors().iter().enumerate() {
@@ -1370,7 +1395,9 @@ impl Elaborator {
                 "h".into(),
                 Icit::Explicit,
                 Rc::new(Term::Case(1, d, branches.into())),
+                ProofMark::Unknown,
             )),
+            ProofMark::Unknown,
         );
         let member = format!("{prefix}{ctor_name}%{k}%at");
         self.declare_member(owner, d, &member, ty, body)
@@ -1417,8 +1444,11 @@ impl Elaborator {
                         Rc::new(Term::Var(0)),
                     )),
                     Rc::new(Term::data(d, params(np + 3))),
+                    ProofMark::Unknown,
                 )),
+                ProofMark::Unknown,
             )),
+            ProofMark::Unknown,
         );
         // In the context `params, s, t, h`.
         let mut arms = Vec::new();
@@ -1440,7 +1470,14 @@ impl Elaborator {
         }
         let body = ["s", "t", "h"].iter().rev().fold(
             Term::NumCase(1, arms.into(), Rc::new(Term::Var(2))),
-            |body, x| Term::Lam((*x).into(), Icit::Explicit, Rc::new(body)),
+            |body, x| {
+                Term::Lam(
+                    (*x).into(),
+                    Icit::Explicit,
+                    Rc::new(body),
+                    ProofMark::Unknown,
+                )
+            },
         );
         self.declare_member(owner, d, &format!("{prefix}view"), ty, body)
     }
@@ -1655,8 +1692,14 @@ impl Elaborator {
         let mut ty = Term::Sort(Sort::Prop);
         let mut body = ctor.fields[k].1.clone();
         for (x, t) in binders.iter().rev() {
-            ty = Term::Pi(x.clone(), Icit::Explicit, Rc::new(t.clone()), Rc::new(ty));
-            body = Term::Lam(x.clone(), Icit::Explicit, Rc::new(body));
+            ty = Term::Pi(
+                x.clone(),
+                Icit::Explicit,
+                Rc::new(t.clone()),
+                Rc::new(ty),
+                ProofMark::Unknown,
+            );
+            body = Term::Lam(x.clone(), Icit::Explicit, Rc::new(body), ProofMark::Unknown);
         }
         let member = format!("%{}%P%{k}", ctor.name);
         let name: Name = format!("{}.{member}", data.name()).into();
@@ -1711,8 +1754,14 @@ impl Elaborator {
         let mut ty = Term::Sort(Sort::Prop);
         let mut body = at(k)?;
         for (x, t) in binders.iter().rev() {
-            ty = Term::Pi(x.clone(), Icit::Explicit, Rc::new(t.clone()), Rc::new(ty));
-            body = Term::Lam(x.clone(), Icit::Explicit, Rc::new(body));
+            ty = Term::Pi(
+                x.clone(),
+                Icit::Explicit,
+                Rc::new(t.clone()),
+                Rc::new(ty),
+                ProofMark::Unknown,
+            );
+            body = Term::Lam(x.clone(), Icit::Explicit, Rc::new(body), ProofMark::Unknown);
         }
         let name: Name = format!("{}.{proof}", owner.name()).into();
         let span = owner.span();
@@ -1747,8 +1796,14 @@ impl Elaborator {
         let data = self.kernel.data(d);
         let (mut ty, mut body) = (ty, body);
         for (x, t) in data.params().iter().rev() {
-            ty = Term::Pi(x.clone(), Icit::Implicit, Rc::new(t.clone()), Rc::new(ty));
-            body = Term::Lam(x.clone(), Icit::Implicit, Rc::new(body));
+            ty = Term::Pi(
+                x.clone(),
+                Icit::Implicit,
+                Rc::new(t.clone()),
+                Rc::new(ty),
+                ProofMark::Unknown,
+            );
+            body = Term::Lam(x.clone(), Icit::Implicit, Rc::new(body), ProofMark::Unknown);
         }
         let owner_data = self.kernel.data(owner);
         let name: Name = format!("{}.{member}", owner_data.name()).into();

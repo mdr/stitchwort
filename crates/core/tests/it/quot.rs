@@ -13,6 +13,7 @@
 //! `same: Quot.mk False = Quot.mk True` proves `False = True`.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use crate::common::*;
 use stitchwort_core::check::{self, infer_closed};
@@ -222,7 +223,12 @@ fn r1_no_confusion_through_j_is_refused() {
     );
     let body = lam(
         "e",
-        Term::J(Rc::new(motive), Rc::new(f.trivial()), Rc::new(v(0))),
+        Term::J(
+            Rc::new(motive),
+            Rc::new(f.trivial()),
+            Rc::new(v(0)),
+            ProofMark::Unknown,
+        ),
     );
     refused(
         {
@@ -922,11 +928,13 @@ fn the_rules_accept_well_formed_forms() {
 fn the_checker_records_the_erasure_flags() {
     let f = Fix::new();
     let flag = |term: Term| match infer(&f.p.g, &term).expect("checks").0.strip_loc() {
-        Term::Quot(_, _, erased) => *erased,
+        Term::Quot(_, _, erased, _) => *erased,
         other => panic!("not a quotient form: {other:?}"),
     };
     let marked = |term: Term| match term {
-        Term::Quot(form, ref args, _) => Term::Quot(form, args.clone(), true),
+        Term::Quot(form, ref args, _, _) => {
+            Term::Quot(form, args.clone(), true, ProofMark::Unknown)
+        }
         other => other,
     };
     // A representative that's data, and one that's a type.
@@ -1020,7 +1028,12 @@ impl Lifted {
                 "y",
                 lam(
                     "e",
-                    Term::J(Rc::new(motive), Rc::new(Term::Refl), Rc::new(v(0))),
+                    Term::J(
+                        Rc::new(motive),
+                        Rc::new(Term::Refl),
+                        Rc::new(v(0)),
+                        ProofMark::Unknown,
+                    ),
                 ),
             ),
         );
@@ -1322,6 +1335,7 @@ fn a_lift_on_a_stuck_closed_quotient_is_neutral_and_still_its_body() {
         Rc::new(motive),
         Rc::new(f.mk(f.tt())),
         Rc::new(Term::Def(same)),
+        ProofMark::Unknown,
     );
     let stuck = try_define(f.g(), "stuckQ", q_ty, stuck_body).expect("stuckQ");
     // constLift: Nat := Quot.lift [Bool] [AllTrue] [Nat] (b => 0) (x y r => rfl) stuckQ

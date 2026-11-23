@@ -65,6 +65,7 @@
 
 use crate::ev::Ev;
 use crate::machine::in_kernel_modes;
+use crate::term::ProofMark;
 use std::rc::Rc;
 
 use num_bigint::BigUint;
@@ -387,8 +388,15 @@ pub fn register(g: &mut Kernel, add_succ: DefId) -> Result<(), Diagnostic> {
             return Ok(());
         }
         let nat_ty = || Term::Data(nat, Vec::new());
-        let pi =
-            |dom: Term, cod: Term| Term::Pi("n".into(), Icit::Explicit, Rc::new(dom), Rc::new(cod));
+        let pi = |dom: Term, cod: Term| {
+            Term::Pi(
+                "n".into(),
+                Icit::Explicit,
+                Rc::new(dom),
+                Rc::new(cod),
+                ProofMark::Unknown,
+            )
+        };
         let plus = |a: Term, b: Term| Term::app(Term::app(Term::Def(add), a), b);
         let succ = |t: Term| Term::ctor(nat, 1, vec![t]);
         let eq = |a: Term, b: Term| Term::Eq(Some(Rc::new(nat_ty())), Rc::new(a), Rc::new(b));

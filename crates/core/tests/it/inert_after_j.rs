@@ -6,6 +6,7 @@
 //! bound is pinned so that no comparison relies on it being absent.
 
 use crate::common::*;
+use stitchwort_core::ProofMark;
 use stitchwort_core::value::{Elim, Head, Value, conv};
 use stitchwort_core::{Icit, Sort, check, reference};
 
@@ -36,6 +37,7 @@ fn an_argument_after_a_j_is_compared() {
             Elim::J {
                 motive: Box::new(Value::var(1)),
                 base: Box::new(Value::var(2)),
+                result: ProofMark::Unknown,
             },
             Elim::App(Value::var(last), Icit::Explicit),
         ];

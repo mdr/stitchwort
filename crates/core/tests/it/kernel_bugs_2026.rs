@@ -6,6 +6,7 @@
 //! elaborator first, so these are the trust-boundary tests.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use crate::common::*;
 use stitchwort_core::check::{self, define_group};
@@ -46,6 +47,7 @@ fn j_on_a_proof_variable_does_not_reduce() {
             Rc::new(motive.clone()),
             Rc::new(five.clone()),
             Rc::new(proof),
+            ProofMark::Unknown,
         )
     };
     // (y: Nat) -> (h: 0 = y) -> J (z q => Nat) 5 h = 5

@@ -121,7 +121,7 @@ fn then_lines(
     performed: String,
     k: &Term,
 ) -> Option<Vec<String>> {
-    let Term::Lam(name, _, body) = bare(k) else {
+    let Term::Lam(name, _, body, _) = bare(k) else {
         return None;
     };
     let done = cx.g().env.registry().ctor(Builtin::Done);
@@ -193,7 +193,7 @@ pub(super) fn statement_source(
     outer: &Outer,
 ) -> Option<String> {
     let term = bare(term);
-    if let Term::Lam(name, _, body) = term {
+    if let Term::Lam(name, _, body, _) = term {
         let name = unclashing(names, if generated(name) { "value" } else { name });
         names.push(name.clone());
         let body = statement_source(cx, family, names, body, outer);
@@ -221,7 +221,7 @@ pub(super) fn statement_source(
                 None => "_".to_string(),
             }
         } else if family.thunks.contains(&i) {
-            let Term::Lam(_, _, code) = bare(a) else {
+            let Term::Lam(_, _, code, _) = bare(a) else {
                 return None;
             };
             // The thunk's own argument, `()`, is never used by the code.

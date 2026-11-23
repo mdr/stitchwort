@@ -477,7 +477,7 @@ pub(crate) fn declined_in<'t>(g: &Ev, terms: impl IntoIterator<Item = &'t Term>)
     while let Some(term) = pending.pop() {
         match term {
             Term::Def(id) if !g.def(*id).theorem() => note(*id, &mut found),
-            Term::J(_, _, proof) | Term::Proj(_, _, proof) => {
+            Term::J(_, _, proof, _) | Term::Proj(_, _, proof) => {
                 if let (Term::Def(id), args) = proof.spine()
                     && (!g.def(*id).theorem() || args.iter().all(|a| is_closed(a)))
                 {

@@ -13,6 +13,7 @@
 //!   compilation of number patterns as `Succ` chains.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::check::{declare_def, define_def};
 use stitchwort_core::globals::State;
@@ -67,11 +68,22 @@ fn num(n: u64) -> Term {
 }
 
 fn pi(dom: Term, cod: Term) -> Term {
-    Term::Pi("x".into(), Icit::Explicit, Rc::new(dom), Rc::new(cod))
+    Term::Pi(
+        "x".into(),
+        Icit::Explicit,
+        Rc::new(dom),
+        Rc::new(cod),
+        ProofMark::Unknown,
+    )
 }
 
 fn lam(body: Term) -> Term {
-    Term::Lam("x".into(), Icit::Explicit, Rc::new(body))
+    Term::Lam(
+        "x".into(),
+        Icit::Explicit,
+        Rc::new(body),
+        ProofMark::Unknown,
+    )
 }
 
 fn num_case(ix: usize, arms: Vec<(u64, Term)>, default: Term) -> Term {
@@ -453,7 +465,7 @@ fn evaluation_follows_the_table() {
         let apart = |numbers: &[u64]| {
             let numbers: Vec<BigUint> = numbers.iter().map(|&k| BigUint::from(k)).collect();
             Value::Neutral(
-                Head::Var(0, Apart::new(g, numbers.into())),
+                Head::Var(0, Apart::new(g, numbers.into()), ProofMark::Unknown),
                 stitchwort_core::value::Spine::new(),
             )
         };
@@ -480,7 +492,9 @@ fn evaluation_follows_the_table() {
 fn expand(g: &stitchwort_core::Ev, term: &Term) -> Term {
     match term {
         Term::Loc(_, t) => expand(g, t),
-        Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, Rc::new(expand(g, b))),
+        Term::Lam(x, i, b, _) => {
+            Term::Lam(x.clone(), *i, Rc::new(expand(g, b)), ProofMark::Unknown)
+        }
         Term::Case(ix, d, branches) => Term::Case(
             *ix,
             *d,

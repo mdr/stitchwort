@@ -171,7 +171,7 @@ pub fn beta_variable(
     while let Term::Loc(_, t) | Term::Ann(t, _) = head {
         head = t;
     }
-    let (Term::Lam(_, _, body), Some(first)) = (head, args.first()) else {
+    let (Term::Lam(_, _, body, _), Some(first)) = (head, args.first()) else {
         return Ok(None);
     };
     let Term::Var(to) = first.strip_loc() else {

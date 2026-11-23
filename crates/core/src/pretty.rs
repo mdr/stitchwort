@@ -5,6 +5,7 @@
 //! (docs/proposals/stack-safe-evaluation.md).
 
 use crate::ev::Ev;
+use crate::term::ProofMark;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
@@ -410,8 +411,10 @@ pub fn elide_agreeing(a: &Term, b: &Term) -> (Term, Term) {
     fn size(t: &Term) -> usize {
         match bare(t) {
             Term::App(f, _, icit) if *icit != Icit::Explicit => size(f),
-            Term::App(f, a, _) | Term::Pi(_, _, f, a) | Term::Eq(_, f, a) => size(f) + size(a) + 1,
-            Term::Lam(_, _, b) | Term::Proj(_, _, b) => size(b) + 1,
+            Term::App(f, a, _) | Term::Pi(_, _, f, a, _) | Term::Eq(_, f, a) => {
+                size(f) + size(a) + 1
+            }
+            Term::Lam(_, _, b, _) | Term::Proj(_, _, b) => size(b) + 1,
             Term::Data(_, xs) | Term::Ctor(_, _, xs) => {
                 xs.iter().map(|x| size(x)).sum::<usize>() + 1
             }
@@ -480,13 +483,19 @@ pub fn elide_agreeing(a: &Term, b: &Term) -> (Term, Term) {
                 }
                 (rebuild(&f, l), rebuild(&g, r))
             }
-            (Term::Pi(n, i, d, c), Term::Pi(m, j, e, k)) if i == j => {
+            (Term::Pi(n, i, d, c, _), Term::Pi(m, j, e, k, _)) if i == j => {
                 let ((d, e), (c, k)) = (pair(d, e), pair(c, k));
-                (Term::Pi(n.clone(), *i, d, c), Term::Pi(m.clone(), *j, e, k))
+                (
+                    Term::Pi(n.clone(), *i, d, c, ProofMark::Unknown),
+                    Term::Pi(m.clone(), *j, e, k, ProofMark::Unknown),
+                )
             }
-            (Term::Lam(n, i, s), Term::Lam(m, j, t)) if i == j => {
+            (Term::Lam(n, i, s, _), Term::Lam(m, j, t, _)) if i == j => {
                 let (s, t) = pair(s, t);
-                (Term::Lam(n.clone(), *i, s), Term::Lam(m.clone(), *j, t))
+                (
+                    Term::Lam(n.clone(), *i, s, ProofMark::Unknown),
+                    Term::Lam(m.clone(), *j, t, ProofMark::Unknown),
+                )
             }
             (Term::Eq(ty, l, r), Term::Eq(ty2, l2, r2)) => {
                 let ((l, l2), (r, r2)) = (pair(l, l2), pair(r, r2));
@@ -609,7 +618,7 @@ pub fn is_predicate_type(g: &Ev, level: usize, ty: &Value) -> bool {
     };
     loop {
         match t.strip_loc() {
-            Term::Pi(_, _, _, b) => t = (**b).clone(),
+            Term::Pi(_, _, _, b, _) => t = (**b).clone(),
             Term::Sort(Sort::Prop) => return true,
             _ => return false,
         }
@@ -1062,9 +1071,9 @@ impl<'g> Printer<'g> {
             Term::Data(d, args)
                 if args.len() == 2
                     && is_loaded(self.g, Builtin::Exists, *d)
-                    && matches!(args[1].strip_loc(), Term::Lam(_, Icit::Explicit, _)) =>
+                    && matches!(args[1].strip_loc(), Term::Lam(_, Icit::Explicit, _, _)) =>
             {
-                let Term::Lam(x, _, body) = args[1].strip_loc() else {
+                let Term::Lam(x, _, body, _) = args[1].strip_loc() else {
                     unreachable!("just matched")
                 };
                 let ty = self.print(names, &args[0], Prec::Arrow);
@@ -1316,7 +1325,7 @@ impl<'g> Printer<'g> {
     /// wasn't built from a list or a raw tree, so the record is shown.
     fn map_from_list(&self, names: &mut Vec<Name>, args: &[Rc<Term>]) -> Option<(String, Prec)> {
         let [raw] = args else { return None };
-        let Term::Quot(QuotForm::Mk, quot_args, _) = raw.strip_loc() else {
+        let Term::Quot(QuotForm::Mk, quot_args, _, _) = raw.strip_loc() else {
             return None;
         };
         let representative = quot_args.last()?.strip_loc();
@@ -1415,7 +1424,7 @@ impl<'g> Printer<'g> {
     fn go_pi(&self, names: &mut Vec<Name>, term: &Term) -> (String, Prec) {
         match term {
             // `p -> Void` is how `Not p` computes; print it the way it's written.
-            Term::Pi(_, Icit::Explicit, a, b)
+            Term::Pi(_, Icit::Explicit, a, b, _)
                 if !self.unfold_not.get()
                     && !b.mentions(0)
                     && matches!(b.strip_loc(), Term::Data(d, _) if is(self.g, Builtin::Void, *d)) =>
@@ -1425,12 +1434,12 @@ impl<'g> Printer<'g> {
             // A function type whose result is a proposition, binding a
             // variable the result uses (or an implicit one), as the
             // quantifier: `∀ (n: Nat) => n + 0 = n` (D3458).
-            Term::Pi(_, icit, _, b)
+            Term::Pi(_, icit, _, b, _)
                 if (icit.is_implicit() || b.mentions(0)) && self.is_proposition(names, b) =>
             {
                 self.forall(names, term)
             }
-            Term::Pi(x, icit, a, b) => {
+            Term::Pi(x, icit, a, b, _) => {
                 self.unfold_not.set(false);
                 let uses = b.mentions(0);
                 let dom = if icit.is_implicit() || uses {
@@ -1471,12 +1480,12 @@ impl<'g> Printer<'g> {
             // record them: `[a: _] x => x`. A section's hidden parameter,
             // where the lambda isn't shown as the section, gets a readable
             // name; a section inside the run ends it.
-            Term::Lam(x, icit, b) => {
+            Term::Lam(x, icit, b, _) => {
                 let x = binder(x, names, b);
                 let mut params = vec![lambda_param(&x, *icit)];
                 names.push(x);
                 let mut body = &**b;
-                while let Term::Lam(y, icit, inner) = body.strip_loc() {
+                while let Term::Lam(y, icit, inner, _) = body.strip_loc() {
                     if self.section(names, body).is_some() {
                         break;
                     }
@@ -1491,14 +1500,14 @@ impl<'g> Printer<'g> {
             }
             // A `let` an update binds its record or a new value with is
             // shown as the update written, with the value in place.
-            Term::Let(x, _, v, b, _)
+            Term::Let(x, _, v, b, _, _)
                 if is_update_let(x)
                     && let Ok(body) = b.instantiate(self.g, v) =>
             {
                 self.go(names, &body)
             }
             // The annotation isn't shown, as for `Ann`.
-            Term::Let(x, _, v, b, _) => {
+            Term::Let(x, _, v, b, _, _) => {
                 let value = self.print(names, v, Prec::Arrow);
                 let x = binder(x, names, b);
                 names.push(x.clone());
@@ -1841,7 +1850,7 @@ impl<'g> Printer<'g> {
                 let rhs = side(names, b);
                 (format!("{lhs} = {rhs}"), Prec::Eq)
             }
-            Term::J(m, b, p) => self.applied(names, "J".into(), [&**m, &**b, &**p].into_iter()),
+            Term::J(m, b, p, _) => self.applied(names, "J".into(), [&**m, &**b, &**p].into_iter()),
             // A projection, as field access is written: `p.row`.
             Term::Proj(d, i, t) => {
                 let t = self.print(names, t, Prec::Atom);
@@ -1857,7 +1866,7 @@ impl<'g> Printer<'g> {
             }
             // As written: `Quot.mk a`, the implicit arguments hidden unless
             // asked for (`Quot.mk [Bool] [AllTrue] a`).
-            Term::Quot(form, args, _) => {
+            Term::Quot(form, args, _, _) => {
                 let hidden = form.implicit().min(args.len());
                 if self.show_hidden.get() {
                     let mut text = form.name().to_string();
@@ -1893,7 +1902,7 @@ impl<'g> Printer<'g> {
         let mut groups: Vec<(Icit, String, Vec<Name>)> = Vec::new();
         let mut bound = 0;
         let mut body = term.strip_loc();
-        while let Term::Pi(x, icit, a, b) = body {
+        while let Term::Pi(x, icit, a, b, _) = body {
             if !(icit.is_implicit() || b.mentions(0)) {
                 break;
             }
@@ -1944,7 +1953,7 @@ impl<'g> Printer<'g> {
     fn is_proposition(&self, names: &[Name], ty: &Term) -> bool {
         let mut ty = ty.strip_loc();
         let mut depth = names.len() + 1;
-        while let Term::Pi(_, _, _, b) = ty {
+        while let Term::Pi(_, _, _, b, _) = ty {
             ty = b.strip_loc();
             depth += 1;
         }
@@ -1965,7 +1974,7 @@ impl<'g> Printer<'g> {
                     return false;
                 };
                 let mut result = self.g.def(*id).ty.strip_loc();
-                while let Term::Pi(_, _, _, b) = result {
+                while let Term::Pi(_, _, _, b, _) = result {
                     result = b.strip_loc();
                 }
                 matches!(result, Term::Sort(Sort::Prop))
@@ -2323,7 +2332,7 @@ impl<'g> Printer<'g> {
             return None;
         }
         let branch = |t: &Term| match t.strip_loc() {
-            Term::Lam(x, Icit::Explicit, body) if !body.mentions(0) => {
+            Term::Lam(x, Icit::Explicit, body, _) if !body.mentions(0) => {
                 Some((x.clone(), body.clone()))
             }
             _ => None,
@@ -2525,7 +2534,7 @@ impl<'g> Printer<'g> {
     /// == id`, `(k +)` for `%section => k + %section`, and `(&&)` for a bare
     /// operator's `%left %right => %left && %right`.
     fn section(&self, names: &mut Vec<Name>, term: &Term) -> Option<String> {
-        let Term::Lam(x, Icit::Explicit, body) = term.strip_loc() else {
+        let Term::Lam(x, Icit::Explicit, body, _) = term.strip_loc() else {
             return None;
         };
         let is_var = |t: &Term, ix: usize| matches!(t.strip_loc(), Term::Var(i) if *i == ix);
@@ -2545,7 +2554,7 @@ impl<'g> Printer<'g> {
                 text
             }
             LEFT => {
-                let Term::Lam(y, Icit::Explicit, body) = body.strip_loc() else {
+                let Term::Lam(y, Icit::Explicit, body, _) = body.strip_loc() else {
                     return None;
                 };
                 if &**y != RIGHT {
@@ -2615,7 +2624,7 @@ impl<'g> Printer<'g> {
     /// `p`, if `prop` is `Not p` or what it computes to, `p → Void`.
     fn negated<'t>(&self, prop: &'t Term) -> Option<&'t Term> {
         match prop.strip_loc() {
-            Term::Pi(_, Icit::Explicit, p, void)
+            Term::Pi(_, Icit::Explicit, p, void, _)
                 if !void.mentions(0)
                     && matches!(void.strip_loc(), Term::Data(d, _) if is(self.g, Builtin::Void, *d)) =>
             {
@@ -2661,7 +2670,7 @@ impl<'g> Printer<'g> {
         match (head, &args[..]) {
             (Term::Def(d), [x, xs]) if *d == id => Some((x, 0, xs)),
             (Term::Def(d), [pred, xs]) if &*self.g.def(*d).path == "Std.List.Any" => {
-                let Term::Lam(_, Icit::Explicit, body) = pred.strip_loc() else {
+                let Term::Lam(_, Icit::Explicit, body, _) = pred.strip_loc() else {
                     return None;
                 };
                 let Term::Eq(_, y, x) = body.strip_loc() else {
@@ -2768,7 +2777,7 @@ impl<'g> Printer<'g> {
         let mut ty = def.ty.strip_loc();
         let mut params = Vec::with_capacity(table.header);
         for default in table.params.iter().take(table.header) {
-            let Term::Pi(x, _, _, cod) = ty else {
+            let Term::Pi(x, _, _, cod, _) = ty else {
                 return None;
             };
             let call = default.as_ref().map(|d| DefaultCall {
@@ -2998,11 +3007,11 @@ impl<'g> Printer<'g> {
     fn projection_of(&self, id: DefId) -> Option<(DataId, String)> {
         let field = self.projection_field(id)?;
         let mut ty = self.g.def(id).ty.strip_loc();
-        while let Term::Pi(_, Icit::Implicit, _, b) = ty {
+        while let Term::Pi(_, Icit::Implicit, _, b, _) = ty {
             ty = b.strip_loc();
         }
         match ty {
-            Term::Pi(_, Icit::Explicit, dom, _) => match dom.strip_loc() {
+            Term::Pi(_, Icit::Explicit, dom, _, _) => match dom.strip_loc() {
                 Term::Data(d, _) if self.g.data(*d).record => Some((*d, field)),
                 _ => None,
             },
@@ -3041,12 +3050,12 @@ impl<'g> Printer<'g> {
         }
         // A projection takes the record as its only explicit argument.
         let mut ty = self.g.def(id).ty.strip_loc();
-        while let Term::Pi(_, Icit::Implicit, _, b) = ty {
+        while let Term::Pi(_, Icit::Implicit, _, b, _) = ty {
             ty = b.strip_loc();
         }
         let takes_record = matches!(
             ty,
-            Term::Pi(_, Icit::Explicit, dom, _)
+            Term::Pi(_, Icit::Explicit, dom, _, _)
                 if matches!(dom.strip_loc(), Term::Data(d, _) if *d == DataId(ix))
         );
         takes_record.then(|| field.to_string())
@@ -3066,7 +3075,8 @@ impl<'g> Printer<'g> {
             return None;
         }
         let (prop, then, otherwise) = (args[0].0, args[3].0, args[4].0);
-        let (Term::Lam(x, _, yes), Term::Lam(y, _, no)) = (then.strip_loc(), otherwise.strip_loc())
+        let (Term::Lam(x, _, yes, _), Term::Lam(y, _, no, _)) =
+            (then.strip_loc(), otherwise.strip_loc())
         else {
             return None;
         };
@@ -3102,7 +3112,7 @@ impl<'g> Printer<'g> {
     /// The body of `t`, if it's a lambda whose body doesn't use its parameter:
     /// one of the branches of `if c then a else b`.
     fn unused_branch(&self, names: &mut Vec<Name>, t: &Term) -> Option<String> {
-        let Term::Lam(x, _, body) = t.strip_loc() else {
+        let Term::Lam(x, _, body, _) = t.strip_loc() else {
             return None;
         };
         if body.mentions(0) {
@@ -3153,7 +3163,7 @@ impl<'g> Printer<'g> {
         let mut parameters = 0;
         let mut first = None;
         let mut ty = def.ty.strip_loc();
-        while let Term::Pi(_, icit, domain, codomain) = ty {
+        while let Term::Pi(_, icit, domain, codomain, _) = ty {
             if *icit == Icit::Explicit {
                 parameters += 1;
                 first.get_or_insert(domain.strip_loc());
@@ -3545,16 +3555,16 @@ fn mismatch_within(
             path.calls.pop();
             return found;
         }
-        (Term::Lam(x, i, body), Term::Lam(_, j, other)) if i == j => {
+        (Term::Lam(x, i, body, _), Term::Lam(_, j, other, _)) if i == j => {
             return under(path, std::slice::from_ref(x), body, other);
         }
-        (Term::Pi(x, i, s, t), Term::Pi(_, j, u, v)) if i == j => {
+        (Term::Pi(x, i, s, t, _), Term::Pi(_, j, u, v, _)) if i == j => {
             if let Some(found) = first_mismatch(g, s, u, explicit_only, skip_proofs, path)? {
                 return Ok(Some(found));
             }
             return under(path, std::slice::from_ref(x), t, v);
         }
-        (Term::Let(x, _, v, body, _), Term::Let(_, _, w, other, _)) => {
+        (Term::Let(x, _, v, body, _, _), Term::Let(_, _, w, other, _, _)) => {
             if let Some(found) = first_mismatch(g, v, w, explicit_only, skip_proofs, path)? {
                 return Ok(Some(found));
             }
@@ -3563,7 +3573,7 @@ fn mismatch_within(
         (Term::Eq(_, x, y), Term::Eq(_, u, v)) => {
             return pairs(path, &mut [(&**x, &**u), (&**y, &**v)].into_iter());
         }
-        (Term::J(m, x, p), Term::J(n, y, q)) => {
+        (Term::J(m, x, p, _), Term::J(n, y, q, _)) => {
             return pairs(
                 path,
                 &mut [(&**m, &**n), (&**x, &**y), (&**p, &**q)].into_iter(),
@@ -3572,7 +3582,7 @@ fn mismatch_within(
         (Term::Proj(d1, i1, x), Term::Proj(d2, i2, y)) if d1 == d2 && i1 == i2 => {
             return pairs(path, &mut [(&**x, &**y)].into_iter());
         }
-        (Term::Quot(f, xs, _), Term::Quot(h, ys, _)) if f == h && xs.len() == ys.len() => {
+        (Term::Quot(f, xs, _, _), Term::Quot(h, ys, _, _)) if f == h && xs.len() == ys.len() => {
             let skip = if explicit_only { f.implicit() } else { 0 };
             return pairs(
                 path,
@@ -3663,7 +3673,7 @@ fn full_spine(term: &Term) -> (&Term, Vec<(&Term, Icit)>) {
 /// The helper `Decidable.elim` (`elim`) computes to: the head of its body.
 fn elim_helper(g: &Ev, elim: DefId) -> Option<DefId> {
     let mut body = g.def(elim).body()?.strip_loc();
-    while let Term::Lam(_, _, b) = body {
+    while let Term::Lam(_, _, b, _) = body {
         body = b.strip_loc();
     }
     let mut head = body;

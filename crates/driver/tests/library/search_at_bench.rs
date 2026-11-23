@@ -28,7 +28,7 @@ fn applied_lemma(session: &Session, id: DefId) -> Option<DefId> {
     let def = g.def(id);
     let mut body: &Term = def.body()?.strip_loc();
     let mut ty = def.ty().strip_loc();
-    while let (Term::Lam(_, _, b), Term::Pi(_, _, _, cod)) = (body, ty) {
+    while let (Term::Lam(_, _, b, _), Term::Pi(_, _, _, cod, _)) = (body, ty) {
         body = b.strip_loc();
         ty = cod.strip_loc();
     }
@@ -58,7 +58,7 @@ fn applied_lemma(session: &Session, id: DefId) -> Option<DefId> {
 /// Whether type `ty`'s conclusion names a definition or a data type.
 fn names_something(ty: &Term) -> bool {
     let mut t = ty.strip_loc();
-    while let Term::Pi(_, _, _, cod) = t {
+    while let Term::Pi(_, _, _, cod, _) = t {
         t = cod.strip_loc();
     }
     t.subterms()
@@ -72,7 +72,7 @@ fn goal_of(session: &Session, id: DefId) -> Option<FoundGoal> {
     let mut names: Vec<Name> = Vec::new();
     let mut hypotheses = Vec::new();
     let mut t = g.def(id).ty().strip_loc();
-    while let Term::Pi(name, _, dom, cod) = t {
+    while let Term::Pi(name, _, dom, cod, _) = t {
         let ty = stitchwort_core::pretty::term_in(g, &session.elab, &names, dom);
         let mut fresh = name.to_string();
         if fresh == "_" || fresh.is_empty() || names.iter().any(|n| **n == *fresh) {

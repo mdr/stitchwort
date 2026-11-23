@@ -1961,7 +1961,7 @@ fn apply_def(cx: &mut Ctx, id: DefId, args: Vec<Term>) -> Result<Term> {
     let mut term = Term::Def(id);
     let mut ty = g.def(id).ty_value().clone();
     for arg in args {
-        let Value::Pi(_, Icit::Explicit, _, cod) = force(&g, ty)? else {
+        let Value::Pi(_, Icit::Explicit, _, cod, _) = force(&g, ty)? else {
             unreachable!("built-in operators take two explicit arguments");
         };
         ty = cod.apply_lazy(&g, || eval(&g, &cx.env, &arg))?;

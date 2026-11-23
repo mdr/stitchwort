@@ -31,6 +31,7 @@
 
 use std::collections::BTreeSet;
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::collections::HashSet;
 use stitchwort_core::globals::ParamDefaults;
@@ -317,8 +318,14 @@ impl Elaborator {
             let (x, dom, icit) = &context[l];
             let dom = into(dom, l, p)?;
             let icit = *icit;
-            ty = Term::Pi(x.clone(), icit, Rc::new(dom), Rc::new(ty));
-            lam = Term::Lam(x.clone(), icit, Rc::new(lam));
+            ty = Term::Pi(
+                x.clone(),
+                icit,
+                Rc::new(dom),
+                Rc::new(ty),
+                ProofMark::Unknown,
+            );
+            lam = Term::Lam(x.clone(), icit, Rc::new(lam), ProofMark::Unknown);
         }
         let helper = kernel::declare_def(
             &mut self.kernel,
@@ -434,7 +441,7 @@ impl Of {
 pub(crate) fn telescope(ty: &Term) -> Vec<(Name, Term, Icit)> {
     let mut out = Vec::new();
     let mut ty = ty;
-    while let Term::Pi(x, icit, dom, cod) = ty.strip_loc() {
+    while let Term::Pi(x, icit, dom, cod, _) = ty.strip_loc() {
         out.push((x.clone(), (**dom).clone(), *icit));
         ty = cod;
     }
@@ -996,7 +1003,7 @@ fn bind_needed(
     let mut ty = head.1.clone();
     let mut parts: Vec<(Name, Term)> = Vec::new();
     for (arg, _) in &params[..=last] {
-        let Value::Pi(x, _, dom, cod) = force(&g, ty)? else {
+        let Value::Pi(x, _, dom, cod, _) = force(&g, ty)? else {
             return Ok(term);
         };
         parts.push((x.clone(), cx.quote_or_written(&dom)?));
@@ -1429,8 +1436,14 @@ fn local_helper(
         } else {
             Icit::Implicit
         };
-        goal = Term::Pi(x.clone(), icit, Rc::new(ty), Rc::new(goal));
-        body = Term::Lam(x.clone(), icit, Rc::new(body));
+        goal = Term::Pi(
+            x.clone(),
+            icit,
+            Rc::new(ty),
+            Rc::new(goal),
+            ProofMark::Unknown,
+        );
+        body = Term::Lam(x.clone(), icit, Rc::new(body), ProofMark::Unknown);
         taken.push((c, icit));
     }
     taken.reverse();

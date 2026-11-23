@@ -18,6 +18,7 @@
 //! the second attempt meets them in the same contexts.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::globals::PrintLabel;
 use stitchwort_core::value::force;
@@ -356,6 +357,7 @@ fn local_type(
                 Icit::Implicit,
                 Rc::new(dom),
                 Rc::new(term),
+                ProofMark::Unknown,
             );
         }
         Ok(term)
@@ -401,7 +403,7 @@ pub(crate) fn admitted_call(
             .with_note("this is a bug in the compiler, not in your program"));
         }
         term = Term::app_icit(term, Term::Var(cx.level() - 1 - level), *icit);
-        let Value::Pi(_, _, _, cod) = force(&g, ty)? else {
+        let Value::Pi(_, _, _, cod, _) = force(&g, ty)? else {
             return Err(Diagnostic::error(
                 "E-INTERNAL",
                 "internal error: a lifted definition takes fewer captures than it was given",

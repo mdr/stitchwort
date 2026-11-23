@@ -75,7 +75,7 @@ fn alike(cx: &Ctx, a: &Value, b: &Value) -> Result<bool> {
         (Value::Pi(..), Value::Pi(..)) | (Value::Eq(..), Value::Eq(..)) => true,
         (Value::Data(d, _), Value::Data(e, _)) => d == e,
         (Value::Neutral(Head::Def(f), _), Value::Neutral(Head::Def(h), _)) => f == h,
-        (Value::Neutral(Head::Var(l, _), _), Value::Neutral(Head::Var(m, _), _)) => l == m,
+        (Value::Neutral(Head::Var(l, _, _), _), Value::Neutral(Head::Var(m, _, _), _)) => l == m,
         (Value::Call(f, ..), Value::Call(h, ..)) => f == h,
         _ => false,
     })

@@ -13,7 +13,7 @@ use num_bigint::BigUint;
 use stitchwort_core::chars::Chars;
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::term::{Branch, NumArm};
-use stitchwort_core::{DataId, DefId, Icit, MAX_LEVEL, Name, QuotForm, Sort, Term};
+use stitchwort_core::{DataId, DefId, Icit, MAX_LEVEL, Name, ProofMark, QuotForm, Sort, Term};
 use stitchwort_syntax::Span;
 
 /// Why an entry can't be read: it is corrupt, or doesn't fit this session.
@@ -353,18 +353,20 @@ impl TermWriter {
                 self.nodes.u8(SORT);
                 sort(&mut self.nodes, *s);
             }
-            Term::Pi(x, i, a, b) => {
+            Term::Pi(x, i, a, b, m) => {
                 self.nodes.u8(PI);
                 self.name(x);
                 self.nodes.u8(icit(*i));
+                self.nodes.u8(mark(*m));
                 let (a, b) = (self.id(a), self.id(b));
                 self.nodes.uint(a);
                 self.nodes.uint(b);
             }
-            Term::Lam(x, i, b) => {
+            Term::Lam(x, i, b, m) => {
                 self.nodes.u8(LAM);
                 self.name(x);
                 self.nodes.u8(icit(*i));
+                self.nodes.u8(mark(*m));
                 let b = self.id(b);
                 self.nodes.uint(b);
             }
@@ -381,10 +383,11 @@ impl TermWriter {
                 self.nodes.uint(a);
                 self.nodes.uint(b);
             }
-            Term::Let(x, ty, v, b, erased) => {
+            Term::Let(x, ty, v, b, erased, m) => {
                 self.nodes.u8(LET);
                 self.name(x);
                 self.nodes.bool(*erased);
+                self.nodes.u8(mark(*m));
                 let (ty, v, b) = (self.id(ty), self.id(v), self.id(b));
                 self.nodes.uint(ty);
                 self.nodes.uint(v);
@@ -442,19 +445,22 @@ impl TermWriter {
                 let t = self.id(t);
                 self.nodes.uint(t);
             }
-            Term::J(m, b, p) => {
+            Term::J(m, b, p, result) => {
                 self.nodes.u8(J);
+                self.nodes.u8(mark(*result));
                 let (m, b, p) = (self.id(m), self.id(b), self.id(p));
                 self.nodes.uint(m);
                 self.nodes.uint(b);
                 self.nodes.uint(p);
             }
             // The form, D921's erasure flag (kept, as `let`'s is, so a
-            // loaded term runs as the checked one did), and the arguments.
-            Term::Quot(form, args, erased) => {
+            // loaded term runs as the checked one did), the proof mark, and
+            // the arguments.
+            Term::Quot(form, args, erased, m) => {
                 self.nodes.u8(QUOT);
                 self.nodes.u8(quot_form_tag(*form));
                 self.nodes.bool(*erased);
+                self.nodes.u8(mark(*m));
                 self.nodes.usize(args.len());
                 for a in args {
                     let a = self.id(a);
@@ -476,12 +482,12 @@ impl TermWriter {
 /// Calls `f` on each direct sub-term of `t`.
 fn each_child<'t>(t: &'t Term, f: &mut dyn FnMut(&'t Term)) {
     match t {
-        Term::Pi(_, _, a, b) | Term::App(a, b, _) | Term::Ann(a, b) => {
+        Term::Pi(_, _, a, b, _) | Term::App(a, b, _) | Term::Ann(a, b) => {
             f(a);
             f(b);
         }
-        Term::Lam(_, _, b) | Term::Loc(_, b) | Term::Proj(_, _, b) => f(b),
-        Term::Let(_, a, v, b, _) => {
+        Term::Lam(_, _, b, _) | Term::Loc(_, b) | Term::Proj(_, _, b) => f(b),
+        Term::Let(_, a, v, b, _, _) => {
             f(a);
             f(v);
             f(b);
@@ -494,12 +500,12 @@ fn each_child<'t>(t: &'t Term, f: &mut dyn FnMut(&'t Term)) {
             f(a);
             f(b);
         }
-        Term::J(m, b, p) => {
+        Term::J(m, b, p, _) => {
             f(m);
             f(b);
             f(p);
         }
-        Term::Quot(_, args, _) => args.iter().for_each(|a| f(a)),
+        Term::Quot(_, args, _, _) => args.iter().for_each(|a| f(a)),
         Term::Case(_, _, branches) => {
             for branch in branches.iter() {
                 if let Some(b) = &branch.body {
@@ -650,12 +656,14 @@ impl Terms {
                 PI => {
                     let x = self.name(r)?;
                     let i = read_icit(r)?;
-                    Term::Pi(x, i, self.child(r)?, self.child(r)?)
+                    let m = read_mark(r)?;
+                    Term::Pi(x, i, self.child(r)?, self.child(r)?, m)
                 }
                 LAM => {
                     let x = self.name(r)?;
                     let i = read_icit(r)?;
-                    Term::Lam(x, i, self.child(r)?)
+                    let m = read_mark(r)?;
+                    Term::Lam(x, i, self.child(r)?, m)
                 }
                 APP => {
                     let i = read_icit(r)?;
@@ -665,7 +673,8 @@ impl Terms {
                 LET => {
                     let x = self.name(r)?;
                     let erased = r.bool()?;
-                    Term::Let(x, self.child(r)?, self.child(r)?, self.child(r)?, erased)
+                    let m = read_mark(r)?;
+                    Term::Let(x, self.child(r)?, self.child(r)?, self.child(r)?, erased, m)
                 }
                 CASE => {
                     let x = r.usize()?;
@@ -704,7 +713,10 @@ impl Terms {
                     Term::Eq(ty, self.child(r)?, self.child(r)?)
                 }
                 REFL => Term::Refl,
-                J => Term::J(self.child(r)?, self.child(r)?, self.child(r)?),
+                J => {
+                    let m = read_mark(r)?;
+                    Term::J(self.child(r)?, self.child(r)?, self.child(r)?, m)
+                }
                 PROJ => {
                     let d = refs.data(r)?;
                     let i = r.usize()?;
@@ -715,9 +727,10 @@ impl Terms {
                         return bad("an unknown quotient form");
                     };
                     let erased = r.bool()?;
+                    let m = read_mark(r)?;
                     let n = r.count(1)?;
                     let args = (0..n).map(|_| self.child(r)).collect::<Read<_>>()?;
-                    Term::Quot(form, args, erased)
+                    Term::Quot(form, args, erased, m)
                 }
                 LOC => {
                     let span = refs.span_after(r, &mut last_loc)?;
@@ -728,5 +741,25 @@ impl Terms {
             self.nodes.push(Rc::new(t));
         }
         Ok(())
+    }
+}
+
+/// A proof mark's byte. The kernel set it when it checked the term; a
+/// loaded term is trusted to carry it, as it carries `let`'s erasure flag
+/// (the check cache's trust boundary, `admit_trusted_*`).
+fn mark(m: ProofMark) -> u8 {
+    match m {
+        ProofMark::Unknown => 0,
+        ProofMark::NotProof => 1,
+        ProofMark::Proof => 2,
+    }
+}
+
+fn read_mark(r: &mut Reader) -> Read<ProofMark> {
+    match r.u8()? {
+        0 => Ok(ProofMark::Unknown),
+        1 => Ok(ProofMark::NotProof),
+        2 => Ok(ProofMark::Proof),
+        _ => bad("an unknown proof mark"),
     }
 }

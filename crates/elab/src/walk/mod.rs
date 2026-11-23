@@ -76,6 +76,7 @@ mod source;
 mod two;
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Elim, Head, Spine, apply, force, force_solved, unfold_once};
@@ -630,7 +631,7 @@ fn read_goal(
         let mut ty = force(&g, g.def(f.relation).ty_value().clone())?;
         let mut metas = Vec::new();
         let mut candidate = cx.eval(&Term::Def(f.relation))?;
-        while let Value::Pi(_, icit, _, cod) = &ty {
+        while let Value::Pi(_, icit, _, cod, _) = &ty {
             // Untyped: a typed unknown for the thunk's value type stops
             // `?p` being solved by a thunk whose type mentions it.
             let m = cx.fresh_meta();
@@ -672,7 +673,12 @@ fn refold(cx: &mut Ctx, family: &Family, args: &[Value], bodies: &[Value]) -> Re
     for (i, a) in args.iter().enumerate() {
         let arg = if let Some(run) = family.thunks.iter().position(|&t| t == i) {
             let code = quote_code(cx, &bodies[run])?.shift(&g, 1, 0)?;
-            Term::Lam("arg".into(), Icit::Explicit, Rc::new(code))
+            Term::Lam(
+                "arg".into(),
+                Icit::Explicit,
+                Rc::new(code),
+                ProofMark::Unknown,
+            )
         } else {
             cx.quote_folded(a)?
         };
@@ -686,7 +692,7 @@ fn refold(cx: &mut Ctx, family: &Family, args: &[Value], bodies: &[Value]) -> Re
 fn binder_icits(ty: &Term) -> Vec<Icit> {
     let mut out = Vec::new();
     let mut t = ty.strip_loc();
-    while let Term::Pi(_, icit, _, cod) = t {
+    while let Term::Pi(_, icit, _, cod, _) = t {
         out.push(*icit);
         t = cod.strip_loc();
     }
@@ -799,7 +805,7 @@ fn op_call(cx: &Ctx, body: &Value) -> Result<Option<OpCall>> {
 /// Whether `k` is `y => Done y`, as the elaborator writes the rest of an
 /// operation performed on its own.
 fn done_rest(cx: &Ctx, k: &Value) -> bool {
-    let Value::Lam(_, _, closure) = k else {
+    let Value::Lam(_, _, closure, _) = k else {
         return false;
     };
     let done = cx.g().env.registry().ctor(Builtin::Done);
@@ -820,7 +826,7 @@ fn callee_of(cx: &Ctx, value: &Value) -> Result<Option<Callee>> {
 fn head_of(value: &Value) -> Option<Callee> {
     match value {
         Value::Call(id, ..) | Value::Neutral(Head::Def(id), _) => Some(Callee::Def(*id)),
-        Value::Neutral(Head::Var(l, _), _) => Some(Callee::Local(*l)),
+        Value::Neutral(Head::Var(l, _, _), _) => Some(Callee::Local(*l)),
         _ => None,
     }
 }
@@ -885,6 +891,7 @@ fn classify(cx: &Ctx, body: &Value, through: Option<DefId>) -> Result<Code> {
                 "y".into(),
                 Icit::Explicit,
                 Rc::new(Term::Ctor(done_d, done_c, vec![Rc::new(Term::Var(0))])),
+                ProofMark::Unknown,
             ))?;
             let performed = Value::Ctor(*d, *c, vec![o, identity].into());
             return Ok(Code::Bind(performed, k));
@@ -977,7 +984,7 @@ fn case_tree(cx: &Ctx, id: DefId, spine: &Spine) -> Result<Option<Tree>> {
     }
     let mut t: &Term = body.strip_loc();
     let mut params = 0;
-    while let Term::Lam(_, _, inner) = t {
+    while let Term::Lam(_, _, inner, _) = t {
         t = inner.strip_loc();
         params += 1;
     }
@@ -1345,7 +1352,7 @@ fn generated(name: &str) -> bool {
 fn premise_binders(ty: &Term) -> Vec<String> {
     let mut out = Vec::new();
     let mut t = ty.strip_loc();
-    while let Term::Pi(name, _, _, cod) = t {
+    while let Term::Pi(name, _, _, cod, _) = t {
         out.push(name.to_string());
         t = cod.strip_loc();
     }
@@ -1385,14 +1392,14 @@ fn rest_names(cx: &Ctx, binders: &[String], values: &[(usize, String)]) -> Vec<S
 fn value_binders(rest: &Term) -> Vec<usize> {
     let mut t = rest.strip_loc();
     let mut k = 0;
-    while let Term::Pi(_, _, _, cod) = t {
+    while let Term::Pi(_, _, _, cod, _) = t {
         t = cod.strip_loc();
         k += 1;
     }
     let (_, args) = t.spine();
     let mut out = Vec::new();
     for a in args {
-        let Term::Lam(_, _, body) = a.strip_loc() else {
+        let Term::Lam(_, _, body, _) = a.strip_loc() else {
             continue;
         };
         let (head, args) = body.spine();
@@ -1714,12 +1721,12 @@ fn nested_bind(
     };
     let mut t = rest.strip_loc();
     for _ in 0..values_count {
-        let Term::Pi(_, _, _, cod) = t else {
+        let Term::Pi(_, _, _, cod, _) = t else {
             return Ok(None);
         };
         t = cod.strip_loc();
     }
-    let Term::Pi(_, _, hypothesis, _) = t else {
+    let Term::Pi(_, _, hypothesis, _, _) = t else {
         return Ok(None);
     };
     let (head, hyp_args) = hypothesis.spine();
@@ -1910,7 +1917,7 @@ fn nested_post(
         // As many binders as the lemma has as written: forced further, its
         // conclusion would unfold into the relation's own `∀`s.
         for _ in 0..shape.binders.len() {
-            let Value::Pi(_, _, dom, cod) = &ty else {
+            let Value::Pi(_, _, dom, cod, _) = &ty else {
                 return Ok(None);
             };
             let m = cx.fresh_meta();
@@ -1927,7 +1934,12 @@ fn nested_post(
                 return Ok(None);
             };
             let code = quote_code(cx, &codes[run])?.shift(&g, 1, 0)?;
-            let thunk = cx.eval(&Term::Lam("arg".into(), Icit::Explicit, Rc::new(code)))?;
+            let thunk = cx.eval(&Term::Lam(
+                "arg".into(),
+                Icit::Explicit,
+                Rc::new(code),
+                ProofMark::Unknown,
+            ))?;
             if !crate::undo::unify(cx, &metas[b], &thunk)? {
                 return Ok(None);
             }
@@ -1965,7 +1977,12 @@ fn fix_nested_goal(
     let mut thunks = Vec::new();
     for (run, &at) in family.thunks.iter().enumerate() {
         let code = quote_code(cx, &nest.codes[run])?.shift(&g, 1, 0)?;
-        let thunk = cx.eval(&Term::Lam("arg".into(), Icit::Explicit, Rc::new(code)))?;
+        let thunk = cx.eval(&Term::Lam(
+            "arg".into(),
+            Icit::Explicit,
+            Rc::new(code),
+            ProofMark::Unknown,
+        ))?;
         thunks.push((at, thunk.clone()));
         if !crate::undo::unify(cx, &args[at], &thunk)? {
             return Err(stuck(

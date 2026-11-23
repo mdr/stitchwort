@@ -396,7 +396,7 @@ impl Walk<'_> {
         let mut span = def.span();
         for _ in 0..arity {
             match t {
-                Term::Lam(x, _, inner) => {
+                Term::Lam(x, _, inner, _) => {
                     params.push(x.clone());
                     t = inner.strip_loc();
                 }
@@ -494,14 +494,14 @@ impl Walk<'_> {
                 }
             }
             Term::App(..) => self.walk_app(t, pos, depth),
-            Term::Lam(_, _, body) => {
+            Term::Lam(_, _, body, _) => {
                 let passed_to = match pos {
                     Pos::Not(Why::Argument { callee, .. }) => Some(callee.clone()),
                     _ => None,
                 };
                 self.walk(body, &Pos::Not(Why::Lambda { passed_to }), depth + 1);
             }
-            Term::Let(x, _, value, body, _) => {
+            Term::Let(x, _, value, body, _, _) => {
                 let returned = matches!(peel(body), Term::Var(0));
                 // A name the compiler made up means nothing to the reader.
                 let why = if x.starts_with('%') {
@@ -546,7 +546,7 @@ impl Walk<'_> {
                     self.walk(arg, &Pos::Not(why.clone()), depth);
                 }
             }
-            Term::Quot(_, args, _) => {
+            Term::Quot(_, args, _, _) => {
                 for arg in args {
                     let why = Why::Argument {
                         callee: "`Quot`".into(),
@@ -587,7 +587,7 @@ impl Walk<'_> {
             return;
         }
         let Term::Def(d) = head else {
-            if let Term::Lam(_, _, body) = head
+            if let Term::Lam(_, _, body, _) = head
                 && let [(arg, _)] = args[..]
             {
                 // `(x => body) arg`, which the elaborator makes where it
@@ -610,7 +610,7 @@ impl Walk<'_> {
         if (registry.def(Builtin::IfThenElse) == Some(d)
             || registry.def(Builtin::ElimDec) == Some(d))
             && let [c, a, b] = explicit[..]
-            && let (Term::Lam(_, _, a), Term::Lam(_, _, b)) = (peel(a), peel(b))
+            && let (Term::Lam(_, _, a, _), Term::Lam(_, _, b, _)) = (peel(a), peel(b))
         {
             self.walk(c, &Pos::Not(Why::Condition), depth);
             self.walk(a, pos, depth + 1);
@@ -622,7 +622,7 @@ impl Walk<'_> {
             path.as_str(),
             "Std.Effect.bind" | "Std.Effect.bindIn" | "Std.Effect.bindD" | "Std.Effect.bindDv"
         ) && let [.., computation, next] = explicit[..]
-            && let Term::Lam(_, _, rest) = peel(next)
+            && let Term::Lam(_, _, rest, _) = peel(next)
         {
             let returned = matches!(
                 peel(rest),

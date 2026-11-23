@@ -52,6 +52,7 @@
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use crate::kernel;
 use stitchwort_core::registry::Builtin;
@@ -249,7 +250,12 @@ fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Te
                 for step in steps {
                     ty = step.goal;
                     shown_ty = step.shown_goal;
-                    term = Term::J(Rc::new(step.motive), Rc::new(term), Rc::new(step.proof));
+                    term = Term::J(
+                        Rc::new(step.motive),
+                        Rc::new(term),
+                        Rc::new(step.proof),
+                        ProofMark::Unknown,
+                    );
                 }
                 if before.is_some() {
                     let note = rule_step(
@@ -538,7 +544,12 @@ fn close_rewrite(
     };
     let mut term = base;
     for step in steps.into_iter().rev() {
-        term = Term::J(Rc::new(step.motive), Rc::new(term), Rc::new(step.proof));
+        term = Term::J(
+            Rc::new(step.motive),
+            Rc::new(term),
+            Rc::new(step.proof),
+            ProofMark::Unknown,
+        );
     }
     Ok(term)
 }
@@ -823,7 +834,7 @@ fn elaborate_rule(cx: &mut Ctx, rule: &RewriteRule, place: Place) -> Result<Equa
         })
         .collect();
     let written_ty = ty.clone();
-    while let Value::Pi(name, Icit::Explicit, domain, rest) = force(&g, ty.clone())? {
+    while let Value::Pi(name, Icit::Explicit, domain, rest, _) = force(&g, ty.clone())? {
         let meta = cx.fresh_meta_of(&domain);
         let value = cx.eval(&meta)?;
         premises.push(Premise {
@@ -946,7 +957,7 @@ pub(crate) fn is_proof_type(cx: &Ctx, ty: &Value) -> Result<bool> {
             params.len() == spine.len()
                 && matches!(result.strip_loc(), Term::Sort(stitchwort_core::Sort::Prop))
         }
-        Value::Neutral(Head::Var(level, _), spine) => {
+        Value::Neutral(Head::Var(level, _, _), spine) => {
             // A variable's own type, applied to the spine's arguments.
             let Some(mut var_ty) = cx.types.get(level).cloned() else {
                 return Ok(false);
@@ -955,7 +966,7 @@ pub(crate) fn is_proof_type(cx: &Ctx, ty: &Value) -> Result<bool> {
                 let Elim::App(arg, _) = elim else {
                     return Ok(false);
                 };
-                let Value::Pi(_, _, _, cod) = force(&g, var_ty)? else {
+                let Value::Pi(_, _, _, cod, _) = force(&g, var_ty)? else {
                     return Ok(false);
                 };
                 var_ty = cod.apply(&g, arg.clone())?;
@@ -1786,7 +1797,13 @@ fn replace_occurrences_carrying(
     let motive = Term::Lam(
         "x'".into(),
         Icit::Explicit,
-        Rc::new(Term::Lam("_".into(), Icit::Explicit, Rc::new(body))),
+        Rc::new(Term::Lam(
+            "_".into(),
+            Icit::Explicit,
+            Rc::new(body),
+            ProofMark::Unknown,
+        )),
+        ProofMark::Unknown,
     );
     // The motive's proof binder is over `from = x`, where `J` starts.
     let (from, proof_value) = match place {
@@ -2142,7 +2159,7 @@ impl Search<'_, '_> {
             Err(e) if fatal(&e) => return Err(e),
             Err(_) => return Ok(false),
         };
-        let Value::Pi(_, _, _, cod) = force(&g, ty)? else {
+        let Value::Pi(_, _, _, cod, _) = force(&g, ty)? else {
             return Ok(false);
         };
         let p = cod.apply(&g, Value::var(level))?;
@@ -2195,7 +2212,7 @@ impl Search<'_, '_> {
                     Err(_) => return Ok(()),
                 };
                 for a in args.into_iter().rev() {
-                    let Value::Pi(_, _, dom, cod) = force(&g, ty)? else {
+                    let Value::Pi(_, _, dom, cod, _) = force(&g, ty)? else {
                         return Ok(());
                     };
                     if is_lam(a) {
@@ -2436,7 +2453,7 @@ pub(crate) fn kernel_context<'e>(cx: &Ctx<'e>) -> Result<kernel::Ctx<'e>> {
         true => cx.eval(&cx.quote_folded(v)?),
         false => Ok(v.clone()),
     };
-    let plain = |v: &Value| matches!(v, Value::Neutral(Head::Var(_, _), s) if s.is_empty());
+    let plain = |v: &Value| matches!(v, Value::Neutral(Head::Var(_, _, _), s) if s.is_empty());
     let env = cx
         .env
         .iter()
@@ -2543,9 +2560,9 @@ fn checks_against(
     term: &Term,
     ty: &Value,
 ) -> Result<Option<bool>> {
-    if let Term::Lam(name, _, body) = term.strip_loc() {
+    if let Term::Lam(name, _, body, _) = term.strip_loc() {
         let g = cx.g();
-        let Value::Pi(_, _, dom, cod) = force(&g, ty.clone())? else {
+        let Value::Pi(_, _, dom, cod, _) = force(&g, ty.clone())? else {
             return Ok(None);
         };
         let x = Value::var(cx.level());
@@ -2588,7 +2605,7 @@ fn infers(cx: &mut Ctx, kcx: &mut kernel::Ctx, goal: usize, term: &Term) -> Resu
                 return Ok(None);
             };
             let g = cx.g();
-            let Value::Pi(_, _, dom, cod) = force(&g, fty)? else {
+            let Value::Pi(_, _, dom, cod, _) = force(&g, fty)? else {
                 return Ok(None);
             };
             let mark = cx.mark();
@@ -2688,10 +2705,10 @@ fn check_motive(
     rhs: &Value,
     lhs: &Value,
 ) -> Result<()> {
-    let Term::Lam(_, _, inner) = motive else {
+    let Term::Lam(_, _, inner, _) = motive else {
         unreachable!("a motive is a function");
     };
-    let Term::Lam(_, _, body) = &**inner else {
+    let Term::Lam(_, _, body, _) = &**inner else {
         unreachable!("a motive takes two arguments");
     };
     // Unsolved metavariables can't be kernel-checked; the `J` is checked
@@ -2703,7 +2720,7 @@ fn check_motive(
     let (carrier, rhs) = (zonked(carrier)?, zonked(rhs)?);
     let mut kcx = kernel_context(cx)?;
     let x = Value::var(kcx.level());
-    kcx.bind("x'".into(), carrier.clone());
+    kcx.bind("x'".into(), carrier.clone(), ProofMark::Unknown);
     kcx.bind(
         "_".into(),
         Value::Eq(
@@ -2711,6 +2728,7 @@ fn check_motive(
             Rc::new(rhs).into(),
             Rc::new(x).into(),
         ),
+        ProofMark::Proof,
     );
     match kernel::without_glue(&cx.g(), || kernel::check_type(&mut kcx, body)) {
         Ok(_) => Ok(()),
@@ -3376,7 +3394,13 @@ mod tests {
             Term::Lam(
                 "x".into(),
                 Icit::Explicit,
-                Rc::new(Term::Lam("_".into(), Icit::Explicit, Rc::new(body))),
+                Rc::new(Term::Lam(
+                    "_".into(),
+                    Icit::Explicit,
+                    Rc::new(body),
+                    ProofMark::Unknown,
+                )),
+                ProofMark::Unknown,
             )
         };
         let eq = |a: Term, b: Term| Term::Eq(Some(Rc::new(ty(1))), Rc::new(a), Rc::new(b));
@@ -3478,7 +3502,7 @@ mod tests {
         assert!(mentions_bound(&app(f.clone(), Term::Var(0)), 1));
         assert!(!mentions_bound(&app(f.clone(), Term::Var(1)), 1));
         // A binder of its own shifts: `f (y => #1)` mentions the goal's `#0`.
-        let lam = |b: Term| Term::Lam("y".into(), Icit::Explicit, Rc::new(b));
+        let lam = |b: Term| Term::Lam("y".into(), Icit::Explicit, Rc::new(b), ProofMark::Unknown);
         assert!(mentions_bound(&app(f.clone(), lam(Term::Var(1))), 1));
         assert!(!mentions_bound(&app(f, lam(Term::Var(0))), 1));
         assert!(!mentions_bound(&Term::Var(0), 0));

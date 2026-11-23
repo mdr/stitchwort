@@ -201,7 +201,7 @@ fn type_former(
         (Global::Def(id), _) => {
             let mut params = Vec::new();
             let mut ty = e.kernel.def(*id).ty();
-            while let Term::Pi(x, icit, dom, cod) = ty.strip_loc() {
+            while let Term::Pi(x, icit, dom, cod, _) = ty.strip_loc() {
                 if *icit == Icit::Explicit {
                     params.push((Some(x.to_string()), Some(is_sort(dom))));
                 }

@@ -31,13 +31,14 @@
 //! The reference evaluator checks every mark independently
 //! (`reference::validate_inert`).
 
+use crate::term::ProofMark;
 use std::rc::Rc;
 
 use stitchwort_syntax::Diagnostic;
 
 use crate::check::{Ctx, sort_of};
 use crate::ev::Ev;
-use crate::term::{DefId, Sort, Term};
+use crate::term::{DefId, Term};
 use crate::value::{Value, force};
 
 type Result<T> = std::result::Result<T, Diagnostic>;
@@ -93,16 +94,17 @@ pub fn candidates(g: &Ev, id: DefId) -> Result<Vec<bool>> {
         let mut ty = force(g, crate::check::def_type(g, def)?)?;
         let mut out = Vec::with_capacity(def.arity);
         for k in 0..def.arity {
-            let Value::Pi(x, _, dom, cod) = &ty else {
+            let Value::Pi(x, _, dom, cod, _) = &ty else {
                 // The body has more parameters than the type shows without
                 // unfolding: a mark there could only be wrong, so none.
                 out.resize(def.arity, false);
                 break;
             };
-            out.push(sort_of(&mut cx, dom)? == Sort::Prop);
+            let mark = ProofMark::of_sort(sort_of(&mut cx, dom)?);
+            out.push(mark.is_proof());
             if k + 1 < def.arity {
-                let next = cod.apply(g, Value::var(cx.level()))?;
-                cx.bind(x.clone(), (**dom).clone());
+                let next = cod.apply(g, Value::var_marked(cx.level(), mark))?;
+                cx.bind(x.clone(), (**dom).clone(), mark);
                 ty = force(g, next)?;
             }
         }
@@ -213,13 +215,13 @@ fn offences(
                     }
                 }
             }
-            Term::Lam(_, _, b) => work.push((b, depth + 1, why)),
-            Term::Pi(_, _, a, b) => {
+            Term::Lam(_, _, b, _) => work.push((b, depth + 1, why)),
+            Term::Pi(_, _, a, b, _) => {
                 work.push((a, depth, Why::Type));
                 work.push((b, depth + 1, Why::Type));
             }
             Term::Ann(t, _) => work.push((t, depth, why)),
-            Term::Let(_, _, v, b, _) => {
+            Term::Let(_, _, v, b, _, _) => {
                 work.push((v, depth, Why::LetValue));
                 work.push((b, depth + 1, why));
             }
@@ -232,12 +234,12 @@ fn offences(
             }
             // A projection takes its value apart, as a `case` does.
             Term::Proj(_, _, t) => work.push((t, depth, Why::TakenApart)),
-            Term::J(m, b, p) => {
+            Term::J(m, b, p, _) => {
                 work.push((m, depth, Why::Type));
                 work.push((b, depth, why));
                 work.push((p, depth, Why::JProof));
             }
-            Term::Quot(_, args, _) => {
+            Term::Quot(_, args, _, _) => {
                 work.extend(args.iter().map(|a| (&**a, depth, Why::Quotient)))
             }
             Term::Case(ix, d, branches) => {

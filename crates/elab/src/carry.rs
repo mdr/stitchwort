@@ -22,6 +22,7 @@
 //! side, then everywhere.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::{DataId, Ev, Icit, Term};
@@ -114,18 +115,24 @@ impl Carry {
                 // `S` takes `e` through a `let`, and `complete`'s body takes
                 // its argument, a variable, by substitution.
                 let sound = match sound.strip_loc() {
-                    Term::Lam(h, Icit::Explicit, body) => {
+                    Term::Lam(h, Icit::Explicit, body, _) => {
                         Term::let_(h.clone(), self.is_true(s1), e, (**body).clone())
                     }
                     _ => Term::app(sound, e),
                 };
                 let complete = match complete.strip_loc() {
-                    Term::Lam(_, Icit::Explicit, body) => body.instantiate_var(g, 0)?,
+                    Term::Lam(_, Icit::Explicit, body, _) => body.instantiate_var(g, 0)?,
                     _ => Term::app(complete, Term::Var(0)),
                 };
                 let complete = self.backward(&c1, complete);
-                let lam =
-                    |x: &str, body| Rc::new(Term::Lam(x.into(), Icit::Explicit, Rc::new(body)));
+                let lam = |x: &str, body| {
+                    Rc::new(Term::Lam(
+                        x.into(),
+                        Icit::Explicit,
+                        Rc::new(body),
+                        ProofMark::Unknown,
+                    ))
+                };
                 Term::Ctor(
                     self.decidable,
                     0,
@@ -152,9 +159,20 @@ impl Carry {
             Icit::Explicit,
             Rc::new(is_true(Term::Var(1))),
             Rc::new(is_true(s.shift(g, 3, 0)?)),
+            ProofMark::Unknown,
         );
-        let id = Term::Lam("e".into(), Icit::Explicit, Rc::new(Term::Var(0)));
-        let along = Term::J(Rc::new(motive(body)), Rc::new(id), Rc::new(c.clone()));
+        let id = Term::Lam(
+            "e".into(),
+            Icit::Explicit,
+            Rc::new(Term::Var(0)),
+            ProofMark::Unknown,
+        );
+        let along = Term::J(
+            Rc::new(motive(body)),
+            Rc::new(id),
+            Rc::new(c.clone()),
+            ProofMark::Unknown,
+        );
         Ok(Term::app(along, e))
     }
 
@@ -174,7 +192,12 @@ impl Carry {
             Rc::new(Term::Var(1)),
             Rc::new(self.tru.clone()),
         );
-        Term::J(Rc::new(motive(body)), Rc::new(h), Rc::new(c.clone()))
+        Term::J(
+            Rc::new(motive(body)),
+            Rc::new(h),
+            Rc::new(c.clone()),
+            ProofMark::Unknown,
+        )
     }
 
     /// `s = t[X]` from `c: s0 = X`, where `s = t[s0]`: `J (y _ => s = t[y])
@@ -189,6 +212,7 @@ impl Carry {
             Rc::new(motive(body)),
             Rc::new(Term::Refl),
             Rc::new(c.clone()),
+            ProofMark::Unknown,
         ))
     }
 
@@ -200,7 +224,12 @@ impl Carry {
             Rc::new(lhs.shift(g, 2, 0)?),
             Rc::new(Term::Var(1)),
         );
-        Ok(Term::J(Rc::new(motive(body)), Rc::new(k), Rc::new(q)))
+        Ok(Term::J(
+            Rc::new(motive(body)),
+            Rc::new(k),
+            Rc::new(q),
+            ProofMark::Unknown,
+        ))
     }
 
     /// `lhs = rhs` from `p: rhs = lhs`: `J (y _ => y = rhs) byComputing p`.
@@ -214,13 +243,15 @@ impl Carry {
             Rc::new(motive(body)),
             Rc::new(Term::Refl),
             Rc::new(p),
+            ProofMark::Unknown,
         ))
     }
 }
 
 /// `y q => body`, a `J` motive.
 fn motive(body: Term) -> Term {
-    let lam = |b: Term, x: &str| Term::Lam(x.into(), Icit::Explicit, Rc::new(b));
+    let lam =
+        |b: Term, x: &str| Term::Lam(x.into(), Icit::Explicit, Rc::new(b), ProofMark::Unknown);
     lam(lam(body, "q"), "y")
 }
 
@@ -231,7 +262,7 @@ fn motive(body: Term) -> Term {
 pub(crate) fn elim_helper(g: &Ev) -> Option<stitchwort_core::DefId> {
     let elim = g.env.registry().def(Builtin::ElimDec)?;
     let mut body = g.def(elim).body()?.strip_loc();
-    while let Term::Lam(_, _, b) = body {
+    while let Term::Lam(_, _, b, _) = body {
         body = b.strip_loc();
     }
     match body.spine().0.strip_loc() {

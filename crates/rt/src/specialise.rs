@@ -37,6 +37,7 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::erase::def_telescope;
@@ -412,21 +413,27 @@ impl<'g> Specialiser<'g> {
             }
             Term::Loc(span, t) => Term::Loc(*span, go(t, fuel)?),
             Term::Ann(t, ty) => Term::Ann(go(t, fuel)?, ty.clone()),
-            Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b, fuel)?),
-            Term::Let(x, ty, v, b, erased) => {
-                Term::Let(x.clone(), ty.clone(), go(v, fuel)?, go(b, fuel)?, *erased)
-            }
+            Term::Lam(x, i, b, _) => Term::Lam(x.clone(), *i, go(b, fuel)?, ProofMark::Unknown),
+            Term::Let(x, ty, v, b, erased, _) => Term::Let(
+                x.clone(),
+                ty.clone(),
+                go(v, fuel)?,
+                go(b, fuel)?,
+                *erased,
+                ProofMark::Unknown,
+            ),
             Term::Ctor(d, c, args) => Term::Ctor(
                 *d,
                 *c,
                 args.iter().map(|a| go(a, fuel)).collect::<Step<_>>()?,
             ),
-            Term::Quot(form, args, erased) => Term::Quot(
+            Term::Quot(form, args, erased, _) => Term::Quot(
                 *form,
                 args.iter().map(|a| go(a, fuel)).collect::<Step<_>>()?,
                 *erased,
+                ProofMark::Unknown,
             ),
-            Term::J(m, b, p) => Term::J(m.clone(), go(b, fuel)?, p.clone()),
+            Term::J(m, b, p, _) => Term::J(m.clone(), go(b, fuel)?, p.clone(), ProofMark::Unknown),
             Term::Proj(d, i, t) => Term::Proj(*d, *i, go(t, fuel)?),
             Term::Case(ix, d, branches) => Term::Case(
                 *ix,
@@ -482,7 +489,7 @@ impl<'g> Specialiser<'g> {
                 let mut body = core;
                 let mut k = 0;
                 while k < args.len()
-                    && let Term::Lam(_, _, inner) = body
+                    && let Term::Lam(_, _, inner, _) = body
                 {
                     body = inner.strip_loc();
                     k += 1;
@@ -514,7 +521,12 @@ impl<'g> Specialiser<'g> {
                 // `(x1 … xn => branch) a1 … an`, reduced as any redex.
                 let mut lam = (*inline.branch).clone();
                 for _ in 0..inline.arity {
-                    lam = Term::Lam("x".into(), stitchwort_core::Icit::Explicit, Rc::new(lam));
+                    lam = Term::Lam(
+                        "x".into(),
+                        stitchwort_core::Icit::Explicit,
+                        Rc::new(lam),
+                        ProofMark::Unknown,
+                    );
                 }
                 self.reduce(lam, args, fuel)
             }
@@ -589,6 +601,7 @@ impl<'g> Specialiser<'g> {
                 Rc::new(args[*i].shift(g, t, 0)?),
                 Rc::new(out),
                 false,
+                ProofMark::Unknown,
             );
         }
         Ok(out)
@@ -624,24 +637,40 @@ impl<'g> Specialiser<'g> {
             | Term::Meta(_) => term.clone(),
             Term::Data(d, args) => Term::Data(*d, all(args)?),
             Term::Ctor(d, c, args) => Term::Ctor(*d, *c, all(args)?),
-            Term::Quot(form, args, erased) => Term::Quot(*form, all(args)?, *erased),
-            Term::Pi(x, i, a, b) => Term::Pi(x.clone(), *i, go(a, depth)?, go(b, depth + 1)?),
-            Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b, depth + 1)?),
+            Term::Quot(form, args, erased, _) => {
+                Term::Quot(*form, all(args)?, *erased, ProofMark::Unknown)
+            }
+            Term::Pi(x, i, a, b, _) => Term::Pi(
+                x.clone(),
+                *i,
+                go(a, depth)?,
+                go(b, depth + 1)?,
+                ProofMark::Unknown,
+            ),
+            Term::Lam(x, i, b, _) => {
+                Term::Lam(x.clone(), *i, go(b, depth + 1)?, ProofMark::Unknown)
+            }
             Term::App(f, a, i) => Term::App(go(f, depth)?, go(a, depth)?, *i),
             Term::Ann(e, t) => Term::Ann(go(e, depth)?, go(t, depth)?),
-            Term::Let(x, a, v, b, erased) => Term::Let(
+            Term::Let(x, a, v, b, erased, _) => Term::Let(
                 x.clone(),
                 go(a, depth)?,
                 go(v, depth)?,
                 go(b, depth + 1)?,
                 *erased,
+                ProofMark::Unknown,
             ),
             Term::Eq(ty, a, b) => Term::Eq(
                 ty.as_ref().map(|t| go(t, depth)).transpose()?,
                 go(a, depth)?,
                 go(b, depth)?,
             ),
-            Term::J(m, b, p) => Term::J(go(m, depth)?, go(b, depth)?, go(p, depth)?),
+            Term::J(m, b, p, _) => Term::J(
+                go(m, depth)?,
+                go(b, depth)?,
+                go(p, depth)?,
+                ProofMark::Unknown,
+            ),
             Term::Proj(d, i, t) => Term::Proj(*d, *i, go(t, depth)?),
             Term::Loc(span, t) => Term::Loc(*span, go(t, depth)?),
             Term::Case(ix, d, branches) => match scrutinee(*ix, depth)? {

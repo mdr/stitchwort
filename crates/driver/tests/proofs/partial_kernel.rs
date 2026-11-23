@@ -4,6 +4,7 @@
 //! case is paired with an accepted neighbour where there is one.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::check::{self, CtorDecl};
 use stitchwort_core::globals::State;
@@ -53,11 +54,17 @@ fn exp(t: Term) -> (Term, Icit) {
 }
 
 fn lam(x: &str, body: Term) -> Term {
-    Term::Lam(x.into(), Icit::Explicit, Rc::new(body))
+    Term::Lam(x.into(), Icit::Explicit, Rc::new(body), ProofMark::Unknown)
 }
 
 fn arrow(a: Term, b: Term) -> Term {
-    Term::Pi("_".into(), Icit::Explicit, Rc::new(a), Rc::new(b))
+    Term::Pi(
+        "_".into(),
+        Icit::Explicit,
+        Rc::new(a),
+        Rc::new(b),
+        ProofMark::Unknown,
+    )
 }
 
 fn code<T>(r: Result<T, stitchwort_syntax::Diagnostic>) -> &'static str {

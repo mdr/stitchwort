@@ -101,6 +101,7 @@
 use std::collections::BTreeSet;
 use std::rc::Rc;
 use std::sync::LazyLock;
+use stitchwort_core::ProofMark;
 
 use num_bigint::BigUint;
 use stitchwort_core::registry::Builtin;
@@ -560,7 +561,7 @@ impl Ranges {
                 // other predicate is not a membership.
                 let is_probe = matches!(
                     force(&cx.g(), (*l).clone())?,
-                    Value::Neutral(Head::Var(level, _), spine)
+                    Value::Neutral(Head::Var(level, _, _), spine)
                         if level == cx.level() && spine.is_empty()
                 );
                 if !is_probe || crate::check::quote_folded(&cx.g(), cx.level() + 1, &x)?.mentions(0)
@@ -964,7 +965,7 @@ fn negated(cx: &Ctx, lib: &Lib, value: &Value) -> Result<Option<Value>> {
     if let Some([p]) = call_args(&value, lib.not).as_deref() {
         return Ok(Some(p.clone()));
     }
-    if let Value::Pi(_, Icit::Explicit, dom, cod) = &value {
+    if let Value::Pi(_, Icit::Explicit, dom, cod, _) = &value {
         let result = cod.apply(&cx.g(), Value::var(cx.level()))?;
         if is_data(cx, &result, lib.void)? {
             return Ok(Some((**dom).clone()));
@@ -979,7 +980,7 @@ fn lemma(cx: &Ctx, which: DefId, args: &[(Term, Value)]) -> Result<(Term, Value)
     let mut term = Term::Def(which);
     let mut ty = g.def(which).ty_value().clone();
     for (arg, value) in args {
-        let Value::Pi(_, icit, _, cod) = force(&g, ty)? else {
+        let Value::Pi(_, icit, _, cod, _) = force(&g, ty)? else {
             return Err(internal(
                 cx.span,
                 "a bridge lemma has fewer parameters than expected".into(),
@@ -1023,7 +1024,7 @@ fn prove_goal(
             RangeKind::From => ranges.from_of,
         };
         let (_, ty) = lemma(cx, which, &args)?;
-        let Value::Pi(_, _, bounds, _) = force(&cx.g(), ty)? else {
+        let Value::Pi(_, _, bounds, _, _) = force(&cx.g(), ty)? else {
             unreachable!("a range lemma takes the bounds")
         };
         let proof = prove_goal(cx, lib, &bounds, extra, span)?;
@@ -1338,6 +1339,7 @@ fn by_cases(
         "b".into(),
         Icit::Explicit,
         Rc::new(cx.quote_folded(goal)?.shift(&cx.g(), 1, 0)?),
+        ProofMark::Unknown,
     );
     Ok(apps(
         Term::Def(lib.inspect),
@@ -3203,7 +3205,7 @@ fn meta_is_prop(cx: &Ctx, m: usize, spine: &[Elim]) -> Result<bool> {
         let Elim::App(arg, _) = elim else {
             return Ok(false);
         };
-        let Value::Pi(_, _, _, cod) = force(&g, ty)? else {
+        let Value::Pi(_, _, _, cod, _) = force(&g, ty)? else {
             return Ok(false);
         };
         ty = cod.apply(&g, arg.clone())?;
@@ -3252,7 +3254,7 @@ fn waiting_fact_bound(cx: &mut Ctx, lib: &Lib, ty: &Value) -> Result<Option<Vec<
     let mut params: Vec<Name> = Vec::new();
     loop {
         match force(&cx.g(), ty.clone())? {
-            Value::Pi(name, icit, dom, cod) => {
+            Value::Pi(name, icit, dom, cod, _) => {
                 if icit == Icit::Explicit {
                     params.push(name.clone());
                 }
@@ -3305,7 +3307,12 @@ fn assuming(
     cx.bind_hidden(name.into(), p.clone());
     let made = body(cx, &shifted);
     cx.reset(mark);
-    Ok(Term::Lam(name.into(), Icit::Explicit, Rc::new(made?)))
+    Ok(Term::Lam(
+        name.into(),
+        Icit::Explicit,
+        Rc::new(made?),
+        ProofMark::Unknown,
+    ))
 }
 
 /// `Int.natAbsDichotomy t` for each `t` in `sizes` (the arguments of the
@@ -4304,7 +4311,7 @@ fn lemma_result(cx: &Ctx, which: DefId, args: &[Term], rest: usize) -> Result<Va
     let g = cx.g();
     let mut ty = g.def(which).ty_value().clone();
     for arg in args {
-        let Value::Pi(_, _, _, cod) = force(&g, ty)? else {
+        let Value::Pi(_, _, _, cod, _) = force(&g, ty)? else {
             return Err(internal(
                 cx.span,
                 "`Std.Omega.prove` has fewer parameters than expected".into(),
@@ -4315,7 +4322,7 @@ fn lemma_result(cx: &Ctx, which: DefId, args: &[Term], rest: usize) -> Result<Va
     // The certificates and proofs: the result doesn't depend on them.
     let mut remaining = rest;
     while remaining > 0 {
-        let Value::Pi(_, _, _, cod) = force(&g, ty)? else {
+        let Value::Pi(_, _, _, cod, _) = force(&g, ty)? else {
             return Err(internal(
                 cx.span,
                 "`Std.Omega.prove` has fewer parameters than expected".into(),

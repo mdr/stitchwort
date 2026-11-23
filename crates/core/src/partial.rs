@@ -41,6 +41,7 @@
 
 use crate::ev::Ev;
 use crate::machine::in_kernel_modes;
+use crate::term::ProofMark;
 use std::rc::Rc;
 
 use stitchwort_syntax::Diagnostic;
@@ -127,6 +128,7 @@ impl Shape {
                 *icit,
                 Rc::new(a.term(depth)),
                 Rc::new(b.term(depth + 1)),
+                ProofMark::Unknown,
             ),
             Shape::App(f, a, icit) => Term::app_icit(f.term(depth), a.term(depth), *icit),
             Shape::Def(id) => Term::Def(*id),

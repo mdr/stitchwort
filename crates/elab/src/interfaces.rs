@@ -27,6 +27,7 @@
 //! applications, and checks them as usual.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use crate::kernel;
 use stitchwort_core::value::{ELIDED, Head, conv, force, quote_at_most, unfold_folded};
@@ -119,7 +120,7 @@ fn relation_pairs(fields: &[(Name, Term)], decidable: Option<DataId>) -> Vec<(us
     fn result(mut t: &Term) -> &Term {
         loop {
             match t.strip_loc() {
-                Term::Pi(_, _, _, cod) => t = cod,
+                Term::Pi(_, _, _, cod, _) => t = cod,
                 other => return other,
             }
         }
@@ -250,7 +251,7 @@ impl Elaborator {
         if !self.is_interface(j) {
             return Ok(());
         }
-        let on_param = matches!(args.as_slice(), [a] if matches!(force(g, a.clone())?, Value::Neutral(Head::Var(0, _), s) if s.is_empty()));
+        let on_param = matches!(args.as_slice(), [a] if matches!(force(g, a.clone())?, Value::Neutral(Head::Var(0, _, _), s) if s.is_empty()));
         if !on_param {
             return Err(error(
                 "E-INTERFACE-SHAPE",
@@ -303,10 +304,10 @@ impl Elaborator {
             // `Proj: [a: Type] -> (r: I a) -> T` becomes
             // `I.f: [a: Type] -> [auto i: I a] -> T`, defined as `Proj [a] i`.
             let proj_ty = self.kernel.def(proj).ty().clone();
-            let Term::Pi(a, _, a_ty, rest) = &proj_ty else {
+            let Term::Pi(a, _, a_ty, rest, _) = &proj_ty else {
                 unreachable!("a projection's type")
             };
-            let Term::Pi(_, _, r_ty, result) = &**rest else {
+            let Term::Pi(_, _, r_ty, result, _) = &**rest else {
                 unreachable!("a projection's type")
             };
             let (a, a_ty, r_ty, result) = (a.clone(), a_ty.clone(), r_ty.clone(), result.clone());
@@ -315,7 +316,14 @@ impl Elaborator {
                 a.clone(),
                 Icit::Implicit,
                 a_ty,
-                Rc::new(Term::Pi(dict_name.clone(), Icit::Auto, r_ty, result)),
+                Rc::new(Term::Pi(
+                    dict_name.clone(),
+                    Icit::Auto,
+                    r_ty,
+                    result,
+                    ProofMark::Unknown,
+                )),
+                ProofMark::Unknown,
             );
             let body = Term::Lam(
                 a,
@@ -327,7 +335,9 @@ impl Elaborator {
                         Term::app_icit(Term::Def(proj), Term::Var(1), Icit::Implicit),
                         Term::Var(0),
                     )),
+                    ProofMark::Unknown,
                 )),
+                ProofMark::Unknown,
             );
             let method: Name = format!("{name}.{field}").into();
             let id = kernel::declare_def(
@@ -397,7 +407,7 @@ impl Elaborator {
         // The parameters, as variables.
         let mut params: Vec<(Name, Icit, Value)> = Vec::new();
         let mut ty = def.ty_value().clone();
-        while let Value::Pi(x, icit, dom, cod) = force(g, ty.clone())? {
+        while let Value::Pi(x, icit, dom, cod, _) = force(g, ty.clone())? {
             let level = params.len();
             params.push((x, icit, (*dom).clone()));
             ty = cod.apply(g, Value::var(level))?;
@@ -406,7 +416,7 @@ impl Elaborator {
         let show = |v: &Value| pretty::value_for_message_in(g, self, &names, v);
         // The result as written, for the synonym note.
         let mut written = def.ty();
-        while let Term::Pi(_, _, _, cod) = written.strip_loc() {
+        while let Term::Pi(_, _, _, cod, _) = written.strip_loc() {
             written = cod;
         }
         let ty = force(g, ty)?;
@@ -480,7 +490,7 @@ impl Elaborator {
         let mut position: Vec<Option<usize>> = vec![None; params.len()];
         for (k, a) in args.iter().enumerate() {
             match force(g, a.clone())? {
-                Value::Neutral(Head::Var(l, _), s) if s.is_empty() && position[l].is_none() => {
+                Value::Neutral(Head::Var(l, _, _), s) if s.is_empty() && position[l].is_none() => {
                     position[l] = Some(k);
                 }
                 _ => return Err(head_error()),
@@ -494,7 +504,7 @@ impl Elaborator {
                     let on_head = match force(g, dom.clone())? {
                         Value::Data(j, a) if self.is_interface(j) && a.len() == 1 => matches!(
                             force(g, a[0].clone())?,
-                            Value::Neutral(Head::Var(m, _), s) if s.is_empty() && position[m].is_some()
+                            Value::Neutral(Head::Var(m, _, _), s) if s.is_empty() && position[m].is_some()
                         ),
                         _ => false,
                     };
@@ -634,7 +644,7 @@ impl Elaborator {
         let mut names = Vec::new();
         let mut icits = Vec::new();
         let mut ty = def.ty_value().clone();
-        while let Value::Pi(x, icit, dom, cod) = force(g, ty.clone())? {
+        while let Value::Pi(x, icit, dom, cod, _) = force(g, ty.clone())? {
             let level = env.len();
             env.push(Value::var(level));
             types.push((*dom).clone());
@@ -732,7 +742,7 @@ impl Elaborator {
         // compute, which evaluating would).
         let mut asking = 0;
         let mut rest = ty;
-        while let Term::Pi(_, icit, dom, cod) = rest.strip_loc() {
+        while let Term::Pi(_, icit, dom, cod, _) = rest.strip_loc() {
             if *icit == Icit::Auto
                 && let Term::Data(i, _) = dom.strip_loc().spine().0.strip_loc()
                 && self.is_interface(*i)
@@ -749,7 +759,7 @@ impl Elaborator {
         let mut value = stitchwort_core::value::eval(g, &[], ty)?;
         let mut level = 0;
         let mut names = Vec::new();
-        while let Value::Pi(x, icit, dom, cod) = force(g, value.clone())? {
+        while let Value::Pi(x, icit, dom, cod, _) = force(g, value.clone())? {
             if icit == Icit::Auto
                 && let Value::Data(i, args) = force(g, (*dom).clone())?
                 && self.is_interface(i)
@@ -817,7 +827,7 @@ impl Elaborator {
         let g = &self.ev();
         let mut result = ty.strip_loc();
         let mut level = 0;
-        while let Term::Pi(_, _, _, cod) = result {
+        while let Term::Pi(_, _, _, cod, _) = result {
             result = cod.strip_loc();
             level += 1;
         }
@@ -1061,7 +1071,7 @@ pub(crate) fn attempt(
     let mut term = Term::Def(def);
     let mut ty = g.def(def).ty_value().clone();
     for p in &params {
-        let Value::Pi(_, icit, dom, cod) = force(&g, ty.clone())? else {
+        let Value::Pi(_, icit, dom, cod, _) = force(&g, ty.clone())? else {
             unreachable!("an instance's parameters")
         };
         let (arg_term, value) = match p {
@@ -1263,7 +1273,7 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
             }
         }
         None => {
-            if let Value::Neutral(Head::Var(_, _), _) =
+            if let Value::Neutral(Head::Var(_, _, _), _) =
                 force(&g, arg.clone()).unwrap_or(arg.clone())
             {
                 d = d.with_note(format!(
@@ -1417,7 +1427,7 @@ fn rigidly_distinct(cx: &Ctx, a: &Value, b: &Value) -> Result<bool> {
             }
             (Value::Nat(m), Value::Nat(n)) if m != n => return Ok(true),
             (Value::Sort(s), Value::Sort(t)) if s != t => return Ok(true),
-            (Value::Neutral(Head::Var(x, _), s), Value::Neutral(Head::Var(y, _), t))
+            (Value::Neutral(Head::Var(x, _, _), s), Value::Neutral(Head::Var(y, _, _), t))
                 if s.is_empty() && t.is_empty() && x != y =>
             {
                 return Ok(true);

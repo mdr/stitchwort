@@ -13,6 +13,7 @@
 //! parameter is a variable, never an unknown (§4.2 rule 5).
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use crate::check::quote_or_written;
 use stitchwort_core::value::{Head, force};
@@ -92,7 +93,7 @@ pub(crate) fn signature(cx: &Ctx, ty: &Value) -> Result<Signature> {
             continue;
         }
         match force(&g, ty.clone())? {
-            Value::Pi(x, icit, dom, cod) => {
+            Value::Pi(x, icit, dom, cod, _) => {
                 params.push(Param {
                     name: x,
                     icit,
@@ -732,8 +733,14 @@ fn bind_missing(
             Icit::Explicit,
             Rc::new(dom),
             Rc::new(body_ty),
+            ProofMark::Unknown,
         );
-        let lam = Term::Lam((*name).clone(), Icit::Explicit, Rc::new(body));
+        let lam = Term::Lam(
+            (*name).clone(),
+            Icit::Explicit,
+            Rc::new(body),
+            ProofMark::Unknown,
+        );
         let pi_value = cx.eval(&pi)?;
         if !stages.ran() {
             return Ok((lam, pi_value, Some(pi)));
@@ -889,7 +896,7 @@ pub(crate) fn dependencies(cx: &Ctx, ty: &Value) -> Result<Vec<Vec<usize>>> {
             ty = value;
             continue;
         }
-        let Value::Pi(_, _, dom, cod) = force(&g, ty.clone())? else {
+        let Value::Pi(_, _, dom, cod, _) = force(&g, ty.clone())? else {
             return Ok(out);
         };
         let i = out.len();

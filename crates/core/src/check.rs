@@ -5,6 +5,7 @@
 
 use crate::ev::Ev;
 use crate::machine::in_kernel_modes;
+use crate::term::ProofMark;
 use num_bigint::BigUint;
 use std::rc::Rc;
 
@@ -84,8 +85,10 @@ impl<'g> Ctx<'g> {
         self.env.len()
     }
 
-    pub fn bind(&mut self, name: Name, ty: Value) {
-        self.env.push(Value::var(self.level()));
+    /// Binds a variable of type `ty`; `mark` says whether it's a proof,
+    /// which the caller derived from `ty`'s sort ([`prop_mark`]).
+    pub fn bind(&mut self, name: Name, ty: Value, mark: ProofMark) {
+        self.env.push(Value::var_marked(self.level(), mark));
         self.types.push(ty);
         self.names.push(name);
         self.pending.push(None);
@@ -102,15 +105,15 @@ impl<'g> Ctx<'g> {
     /// didn't (docs/proposals/let.md §A.2, "Cost at check time"). Until then
     /// the slot holds its own variable as a placeholder, which nothing reads:
     /// every evaluation in the checker goes through `Ctx::eval`.
-    fn define(&mut self, name: Name, ty: Value, value: Rc<Term>) {
-        self.env.push(Value::var(self.level()));
+    fn define(&mut self, name: Name, ty: Value, value: Rc<Term>, mark: ProofMark) {
+        self.env.push(Value::var_marked(self.level(), mark));
         self.types.push(ty);
         self.names.push(name);
         self.pending.push(Some(value));
         self.unforced += 1;
     }
 
-    fn unbind(&mut self, n: usize) {
+    pub(crate) fn unbind(&mut self, n: usize) {
         let keep = self.level() - n;
         self.env.truncate(keep);
         self.types.truncate(keep);
@@ -121,7 +124,7 @@ impl<'g> Ctx<'g> {
 
     /// Evaluates `term` in the context, first computing the value of each
     /// `let` it mentions whose value hasn't been needed yet.
-    fn eval(&mut self, term: &Term) -> Result<Value> {
+    pub(crate) fn eval(&mut self, term: &Term) -> Result<Value> {
         self.force_mentioned(term, self.level())?;
         Ok(eval(&self.g, &self.env, term)?)
     }
@@ -185,6 +188,7 @@ impl<'g> Ctx<'g> {
     }
 
     #[inline(never)]
+    #[track_caller]
     fn conv(&self, a: &Value, b: &Value) -> Result<bool> {
         Ok(conv(&self.g, self.level(), a, b)?)
     }
@@ -318,7 +322,7 @@ fn push_apps<'t>(cx: &Ctx, term: &'t Term, apps: &mut Apps<'t>) -> Result<&'t Te
 #[inline(never)]
 fn function_type(cx: &Ctx, ty: Value, icit: Icit) -> Result<(Shared, Closure)> {
     match force(&cx.g, ty)? {
-        Value::Pi(_, pi_icit, dom, cod) if pi_icit == icit => Ok((dom, cod)),
+        Value::Pi(_, pi_icit, dom, cod, _) if pi_icit == icit => Ok((dom, cod)),
         other => Err(not_a_function(cx, &other)),
     }
 }
@@ -429,15 +433,16 @@ fn infer_other(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
                 "a compact list of characters, but `List` and `Char` aren't registered for it",
             )),
         },
-        Term::Pi(x, icit, dom, cod) => {
+        Term::Pi(x, icit, dom, cod, given) => {
             let (dom, s1) = check_type(cx, dom)?;
+            let mark = settle_mark(cx, *given, ProofMark::of_sort(s1), "function type's binder")?;
             let dom_value = cx.eval(&dom)?;
-            cx.bind(x.clone(), dom_value);
+            cx.bind(x.clone(), dom_value, mark);
             let result = check_type(cx, cod);
             cx.unbind(1);
             let (cod, s2) = result?;
             Ok((
-                Term::Pi(x.clone(), *icit, Rc::new(dom), Rc::new(cod)),
+                Term::Pi(x.clone(), *icit, Rc::new(dom), Rc::new(cod), mark),
                 Value::Sort(Sort::pi(s1, s2)),
             ))
         }
@@ -449,13 +454,13 @@ fn infer_other(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
         }
         // The body's type is a value computed with `x` evaluating to `v`, so
         // it doesn't mention `x`: it's `B[v/x]` already, usable outside.
-        Term::Let(x, ty, value, body, _) => {
-            let (x, ty, value, erased) = check_let_value(cx, x, ty, value)?;
+        Term::Let(x, ty, value, body, _, given) => {
+            let (x, ty, value, erased, mark) = check_let_value(cx, x, ty, value, *given)?;
             let result = infer(cx, body);
             cx.unbind(1);
             let (body, body_ty) = result?;
             let skip = erased || !body.mentions(0);
-            Ok((Term::Let(x, ty, value, Rc::new(body), skip), body_ty))
+            Ok((Term::Let(x, ty, value, Rc::new(body), skip, mark), body_ty))
         }
         Term::Eq(Some(ty), a, b) => {
             let (ty, _) = check_type(cx, ty)?;
@@ -482,9 +487,9 @@ fn infer_other(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
                 Value::Sort(Sort::Prop),
             ))
         }
-        Term::J(motive, base, proof) => infer_j(cx, motive, base, proof),
+        Term::J(motive, base, proof, given) => infer_j(cx, motive, base, proof, *given),
         Term::Proj(d, i, t) => infer_proj(cx, *d, *i, t),
-        Term::Quot(form, args, _) => infer_quot(cx, *form, args),
+        Term::Quot(form, args, _, given) => infer_quot(cx, *form, args, *given),
         // A constructor of a data type without parameters has only one possible type.
         Term::Ctor(d, _, _)
             if g.env
@@ -667,21 +672,27 @@ fn check_form(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
             cx.span = saved;
             Ok(Term::Loc(*span, Rc::new(result?)))
         }
-        (Term::Lam(x, icit, body), Value::Pi(_, pi_icit, dom, cod)) if icit == pi_icit => {
-            let body_ty = body_type(cx, cod)?;
-            cx.bind(x.clone(), (**dom).clone());
+        (Term::Lam(x, icit, body, given), Value::Pi(_, pi_icit, dom, cod, _))
+            if icit == pi_icit =>
+        {
+            // From the domain's sort, not the function type's mark: the
+            // expected type may be one the elaborator passed in.
+            let derived = prop_mark(cx, dom)?;
+            let mark = settle_mark(cx, *given, derived, "lambda's binder")?;
+            let body_ty = body_type(cx, cod, mark)?;
+            cx.bind(x.clone(), (**dom).clone(), mark);
             let result = check(cx, body, &body_ty);
             cx.unbind(1);
-            Ok(Term::Lam(x.clone(), *icit, Rc::new(result?)))
+            Ok(Term::Lam(x.clone(), *icit, Rc::new(result?), mark))
         }
         (Term::Ctor(d, c, args), _) => check_ctor(cx, *d, *c, args, expected),
-        (Term::Let(x, ty, value, body, _), _) => {
-            let (x, ty, value, erased) = check_let_value(cx, x, ty, value)?;
+        (Term::Let(x, ty, value, body, _, given), _) => {
+            let (x, ty, value, erased, mark) = check_let_value(cx, x, ty, value, *given)?;
             let result = check(cx, body, expected);
             cx.unbind(1);
             let body = result?;
             let skip = erased || !body.mentions(0);
-            Ok(Term::Let(x, ty, value, Rc::new(body), skip))
+            Ok(Term::Let(x, ty, value, Rc::new(body), skip, mark))
         }
         (Term::Lam(..) | Term::Refl | Term::Case(..) | Term::NumCase(..), _) => {
             check_other(cx, term, expected)
@@ -700,8 +711,57 @@ fn check_form(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
 /// The type of a function's body, where the function's type has codomain
 /// `cod`: the codomain at the variable the function binds.
 #[inline(never)]
-fn body_type(cx: &Ctx, cod: &Closure) -> Result<Value> {
-    Ok(cod.apply(&cx.g, Value::var(cx.level()))?)
+fn body_type(cx: &Ctx, cod: &Closure, mark: ProofMark) -> Result<Value> {
+    Ok(cod.apply(&cx.g, Value::var_marked(cx.level(), mark))?)
+}
+
+/// The mark the kernel derives, checked against the one the term gave:
+/// `E-MALFORMED` if it gave one and it differs (docs/core.md, "Proof
+/// marks"). A wrong mark that called data a proof would, once proofs are
+/// compared as equal (docs/proposals/full-proof-irrelevance.md stage 5),
+/// make two different values equal, so a given mark is never trusted.
+fn settle_mark(cx: &Ctx, given: ProofMark, derived: ProofMark, what: &str) -> Result<ProofMark> {
+    debug_assert!(derived != ProofMark::Unknown, "a derived mark is decided");
+    if given == ProofMark::Unknown || given == derived {
+        return Ok(derived);
+    }
+    let says = |m: ProofMark| {
+        if m.is_proof() {
+            "a proof"
+        } else {
+            "not a proof"
+        }
+    };
+    Err(malformed(
+        cx,
+        format!(
+            "a {what} is marked {}, but its type's sort says {}",
+            says(given),
+            says(derived)
+        ),
+    ))
+}
+
+/// Whether values of type `ty` are proofs: whether `ty`, well typed in
+/// `cx`, is a proposition. A function type is one exactly when its
+/// codomain is (impredicativity), so that's read under the binder without
+/// working out the domain's sort.
+pub(crate) fn prop_mark(cx: &mut Ctx, ty: &Value) -> Result<ProofMark> {
+    if let Some(sort) = sort_of_stuck(cx, ty)? {
+        return Ok(ProofMark::of_sort(sort));
+    }
+    let ty = force(&cx.g, ty.clone())?;
+    match &ty {
+        Value::Pi(x, _, dom, cod, mark) => {
+            let level = cx.level();
+            let inner = cod.apply(&cx.g, Value::var_marked(level, *mark))?;
+            cx.bind(x.clone(), (**dom).clone(), *mark);
+            let result = prop_mark(cx, &inner);
+            cx.unbind(1);
+            result
+        }
+        _ => Ok(ProofMark::of_sort(sort_of(cx, &ty)?)),
+    }
 }
 
 /// [`check`] of constructor `c` of `d` applied to `args`.
@@ -883,6 +943,9 @@ pub fn check_type(cx: &mut Ctx, term: &Term) -> Result<(Term, Sort)> {
     }
 }
 
+/// The checked `let` before its body: name, type, value, erased, mark.
+type LetHead = (Name, Rc<Term>, Rc<Term>, bool, ProofMark);
+
 /// The premises of `Let(x, A, v, b)` before its body: `A` is a type (in
 /// any universe: a proof, data and a type are all defined the same way), and
 /// `v : A`. Leaves `x := v` defined in the context, for the body; the caller
@@ -895,20 +958,25 @@ fn check_let_value(
     x: &Name,
     ty: &Term,
     value: &Term,
-) -> Result<(Name, Rc<Term>, Rc<Term>, bool)> {
+    given: ProofMark,
+) -> Result<LetHead> {
     let (ty, sort) = check_type(cx, ty)?;
+    let mark = settle_mark(cx, given, ProofMark::of_sort(sort), "`let`")?;
     let ty_value = cx.eval(&ty)?;
     let erased = sort == Sort::Prop || is_type_former(&cx.g, cx.level(), &ty_value)?;
     let value = Rc::new(check(cx, value, &ty_value)?);
     // Computed only when checking the body needs it (`Ctx::define`).
-    cx.define(x.clone(), ty_value, value.clone());
-    Ok((x.clone(), Rc::new(ty), value, erased))
+    cx.define(x.clone(), ty_value, value.clone(), mark);
+    Ok((x.clone(), Rc::new(ty), value, erased, mark))
 }
 
 /// The universe that `ty` lives in. `ty` must be well typed in `cx`: the
 /// arms for equations, data types and applied variables answer without
 /// looking at its arguments.
 pub(crate) fn sort_of(cx: &mut Ctx, ty: &Value) -> Result<Sort> {
+    if let Some(sort) = sort_of_stuck(cx, ty)? {
+        return Ok(sort);
+    }
     match &*force_ref(&cx.g, ty)? {
         Value::Sort(s) => return universe_above(cx, *s),
         // An equation is a proposition. Answered without quoting it: the
@@ -919,11 +987,9 @@ pub(crate) fn sort_of(cx: &mut Ctx, ty: &Value) -> Result<Sort> {
         // are, so they aren't quoted: an argument can be a list whose
         // normal form is enormous.
         Value::Data(d, _) => return Ok(cx.g.data(*d).sort),
-        // A variable applied to arguments, `q (settle x k 3000)`: its sort
-        // is the one its type ends in, read off the type without quoting
-        // the arguments, which can be as large as the data type's.
-        Value::Neutral(Head::Var(level, _), spine) => {
-            if let Some(sort) = sort_of_applied_variable(cx, *level, spine)? {
+        // Stuck once forced, `q (settle x k 3000)`: as above.
+        forced @ Value::Neutral(..) => {
+            if let Some(sort) = sort_of_stuck(cx, forced)? {
                 return Ok(sort);
             }
         }
@@ -933,28 +999,118 @@ pub(crate) fn sort_of(cx: &mut Ctx, ty: &Value) -> Result<Sort> {
     Ok(check_type(cx, &term)?.1)
 }
 
-/// The sort `s` such that the variable at `level`, applied to `spine`, has
-/// type `Sort s`: its type with the arguments substituted in turn. `None`
-/// when that isn't a plain run of applications ending in a sort.
-fn sort_of_applied_variable(cx: &Ctx, level: usize, spine: &Spine) -> Result<Option<Sort>> {
-    let Some(var_ty) = cx.types.get(level) else {
-        return Ok(None);
+/// The sort of a stuck type `ty` (a call, as glued, or a neutral value),
+/// read off its head's type elimination by elimination, never computing the
+/// call or reading back an argument: an argument can be enormous written
+/// out (`f.fam (grow 22 (Leaf x))`). `None` for anything else, or when a
+/// step isn't of the shape a well-typed elimination has.
+fn sort_of_stuck(cx: &mut Ctx, ty: &Value) -> Result<Option<Sort>> {
+    let (head, spine) = match ty {
+        Value::Call(id, spine, _) => (Head::Def(*id), spine),
+        Value::Neutral(head, spine) => (*head, spine),
+        _ => return Ok(None),
     };
-    let mut ty = force(&cx.g, var_ty.clone())?;
-    for elim in spine.iter() {
-        let (Elim::App(arg, _), Value::Pi(_, _, _, cod)) = (elim, &ty) else {
-            return Ok(None);
-        };
-        let next = cod.apply(&cx.g, arg.clone())?;
-        ty = force(&cx.g, next)?;
-    }
-    Ok(match ty {
-        Value::Sort(s) => Some(s),
-        _ => None,
+    // Glued, as in [`kept_type`]: going under the head's function type
+    // must not compute a call in it either.
+    let was = cx.g.machine.glue.replace(true);
+    let ty = type_of_stuck(cx, &head, spine);
+    cx.g.machine.glue.set(was);
+    Ok(match ty? {
+        Some(ty) => match force(&cx.g, ty)? {
+            Value::Sort(s) => Some(s),
+            _ => None,
+        },
+        None => None,
     })
 }
 
-fn infer_j(cx: &mut Ctx, motive: &Term, base: &Term, proof: &Term) -> Result<(Term, Value)> {
+/// The type of `head` eliminated by `spine`: the head's type, then for an
+/// application the codomain at the argument, for a projection the field's
+/// type at the parameters and earlier fields, for a `J` the motive at the
+/// equation's right side and the proof. Arguments are substituted as
+/// values, never read back. `None` for an unknown's head, a quotient form
+/// that's a proof, or a step whose type isn't the shape it needs.
+fn type_of_stuck(cx: &mut Ctx, head: &Head, spine: &Spine) -> Result<Option<Value>> {
+    let g = cx.g;
+    let elims: Vec<&Elim> = spine.iter().collect();
+    let (mut ty, start) = match head {
+        Head::Var(level, ..) => match cx.types.get(*level) {
+            Some(ty) => (ty.clone(), 0),
+            None => return Ok(None),
+        },
+        Head::Def(id) => (g.def(*id).ty_value.clone(), 0),
+        Head::Meta(_) => return Ok(None),
+        Head::Quot(form, _) => {
+            let n = form.arity();
+            let mut args = Vec::with_capacity(n);
+            for elim in elims.iter().take(n) {
+                let Elim::App(arg, _) = elim else {
+                    return Ok(None);
+                };
+                args.push(arg.clone());
+            }
+            if args.len() < n {
+                return Ok(None);
+            }
+            let ty = match form {
+                // `Quot A R : Sort s` for `A : Sort s`.
+                QuotForm::Type => Value::Sort(sort_of(cx, &args[0])?),
+                QuotForm::Mk => quot_value(
+                    QuotForm::Type,
+                    vec![args[0].clone(), args[1].clone()],
+                    ProofMark::NotProof,
+                ),
+                // `Quot.lift [A] [R] B f h q : B`.
+                QuotForm::Lift => args[2].clone(),
+                QuotForm::Ind | QuotForm::Sound => return Ok(None),
+            };
+            (ty, n)
+        }
+    };
+    // The stuck value up to elimination `k`, for the steps whose type
+    // mentions it.
+    let prefix = |k: usize| {
+        let mut spine = Spine::new();
+        for elim in &elims[..k] {
+            spine.push((*elim).clone());
+        }
+        Value::Neutral(*head, spine)
+    };
+    for (k, elim) in elims.iter().enumerate().skip(start) {
+        let forced = force(&g, ty)?;
+        ty = match (elim, &forced) {
+            (Elim::App(arg, _), Value::Pi(_, _, _, cod, _)) => cod.apply(&g, arg.clone())?,
+            (Elim::Proj(d, i), Value::Data(d2, params)) if d == d2 => {
+                let Some(field) = g.data(*d).ctors.first().and_then(|c| c.fields.get(*i)) else {
+                    return Ok(None);
+                };
+                let mut env = params.clone();
+                for j in 0..*i {
+                    let Value::Neutral(head, mut spine) = prefix(k) else {
+                        unreachable!("a neutral value")
+                    };
+                    spine.push(Elim::Proj(*d, j));
+                    env.push(Value::Neutral(head, spine));
+                }
+                eval(&g, &env, &field.1)?
+            }
+            (Elim::J { motive, .. }, Value::Eq(_, _, b)) => {
+                let motive_at = apply(&g, (**motive).clone(), (**b).clone())?;
+                apply(&g, motive_at, prefix(k))?
+            }
+            _ => return Ok(None),
+        };
+    }
+    Ok(Some(ty))
+}
+
+fn infer_j(
+    cx: &mut Ctx,
+    motive: &Term,
+    base: &Term,
+    proof: &Term,
+    given: ProofMark,
+) -> Result<(Term, Value)> {
     let g = cx.g;
     let (proof, proof_ty) = infer(cx, proof)?;
     let proof_ty = force(&g, proof_ty)?;
@@ -965,25 +1121,40 @@ fn infer_j(cx: &mut Ctx, motive: &Term, base: &Term, proof: &Term) -> Result<(Te
             format!("its last argument has type `{}`", cx.show(&proof_ty)),
         ));
     };
-    let Term::Lam(y_name, Icit::Explicit, inner) = motive.strip_loc() else {
+    let Term::Lam(y_name, Icit::Explicit, inner, y_given) = motive.strip_loc() else {
         return Err(motive_error(cx));
     };
-    let Term::Lam(p_name, Icit::Explicit, body) = inner.strip_loc() else {
+    let Term::Lam(p_name, Icit::Explicit, body, p_given) = inner.strip_loc() else {
         return Err(motive_error(cx));
     };
+    let y_mark = prop_mark(cx, &ty)?;
+    let y_mark = settle_mark(cx, *y_given, y_mark, "`J` motive's binder")?;
+    let p_mark = settle_mark(cx, *p_given, ProofMark::Proof, "`J` motive's binder")?;
     let level = cx.level();
-    cx.bind(y_name.clone(), (*ty).clone());
+    cx.bind(y_name.clone(), (*ty).clone(), y_mark);
     cx.bind(
         p_name.clone(),
-        Value::Eq(ty.clone(), x.clone(), Shared::new(Value::var(level))),
+        Value::Eq(
+            ty.clone(),
+            x.clone(),
+            Shared::new(Value::var_marked(level, y_mark)),
+        ),
+        p_mark,
     );
     let result = check_type(cx, body);
     cx.unbind(2);
-    let (body, _) = result?;
+    let (body, body_sort) = result?;
+    let result_mark = settle_mark(cx, given, ProofMark::of_sort(body_sort), "`J`")?;
     let motive = Term::Lam(
         y_name.clone(),
         Icit::Explicit,
-        Rc::new(Term::Lam(p_name.clone(), Icit::Explicit, Rc::new(body))),
+        Rc::new(Term::Lam(
+            p_name.clone(),
+            Icit::Explicit,
+            Rc::new(body),
+            p_mark,
+        )),
+        y_mark,
     );
     let motive_value = cx.eval(&motive)?;
     let base_ty = apply(
@@ -995,7 +1166,7 @@ fn infer_j(cx: &mut Ctx, motive: &Term, base: &Term, proof: &Term) -> Result<(Te
     let proof_value = cx.eval(&proof)?;
     let result = apply(&g, apply(&g, motive_value, (*y).clone())?, proof_value)?;
     Ok((
-        Term::J(Rc::new(motive), Rc::new(base), Rc::new(proof)),
+        Term::J(Rc::new(motive), Rc::new(base), Rc::new(proof), result_mark),
         result,
     ))
 }
@@ -1062,7 +1233,12 @@ fn infer_proj(cx: &mut Ctx, d: DataId, i: usize, t: &Term) -> Result<(Term, Valu
 /// Also records D921's erasure flag, whatever the term said: for `mk`, that
 /// the representative is erased (`A` a type former: its elements are types);
 /// for `lift`, that the result is (`B` a proposition or a type former).
-fn infer_quot(cx: &mut Ctx, form: QuotForm, args: &[Rc<Term>]) -> Result<(Term, Value)> {
+fn infer_quot(
+    cx: &mut Ctx,
+    form: QuotForm,
+    args: &[Rc<Term>],
+    given: ProofMark,
+) -> Result<(Term, Value)> {
     let g = cx.g;
     if args.len() != form.arity() {
         return Err(malformed(
@@ -1077,9 +1253,12 @@ fn infer_quot(cx: &mut Ctx, form: QuotForm, args: &[Rc<Term>]) -> Result<(Term, 
     }
     let shift = |t: &Term, by: usize| t.shift(&g, by, 0);
     let rc = Rc::new;
-    let arrow = |x: &str, dom: Term, cod: Term| {
-        Term::Pi(x.into(), Icit::Explicit, Rc::new(dom), Rc::new(cod))
+    // Each binder's type below is in `Type` (the carrier, checked so, or
+    // the quotient of it), except `r`'s, a proof of the relation.
+    let arrow_marked = |x: &str, dom: Term, cod: Term, mark: ProofMark| {
+        Term::Pi(x.into(), Icit::Explicit, Rc::new(dom), Rc::new(cod), mark)
     };
+    let arrow = |x: &str, dom: Term, cod: Term| arrow_marked(x, dom, cod, ProofMark::NotProof);
     let app = |f: Term, a: Term| Term::app(f, a);
     // The shared premises.
     let (carrier, sort) = check_type(cx, &args[0])?;
@@ -1111,11 +1290,16 @@ fn infer_quot(cx: &mut Ctx, form: QuotForm, args: &[Rc<Term>]) -> Result<(Term, 
         QuotForm::Type,
         vec![rc(carrier.clone()), rc(relation.clone())],
         false,
+        ProofMark::NotProof,
     );
     let quot_ty_value = quot_value(
         QuotForm::Type,
         vec![carrier_value.clone(), relation_value.clone()],
+        ProofMark::NotProof,
     );
+    // The result's: a quotient and its elements aren't proofs;
+    // `Quot.ind` and `Quot.sound` are; `Quot.lift`'s is `B`'s.
+    let mut lift_mark = ProofMark::NotProof;
     let (out, ty, erased) = match form {
         QuotForm::Type => (vec![], Value::Sort(sort), false),
         QuotForm::Mk => {
@@ -1124,7 +1308,8 @@ fn infer_quot(cx: &mut Ctx, form: QuotForm, args: &[Rc<Term>]) -> Result<(Term, 
             (vec![a], quot_ty_value, erased)
         }
         QuotForm::Lift => {
-            let (result, _) = check_type(cx, &args[2])?;
+            let (result, result_sort) = check_type(cx, &args[2])?;
+            lift_mark = ProofMark::of_sort(result_sort);
             let result_value = cx.eval(&result)?;
             // f : A -> B
             let f_ty = arrow("x", carrier.clone(), shift(&result, 1)?);
@@ -1138,7 +1323,7 @@ fn infer_quot(cx: &mut Ctx, form: QuotForm, args: &[Rc<Term>]) -> Result<(Term, 
                 arrow(
                     "y",
                     shift(&carrier, 1)?,
-                    arrow(
+                    arrow_marked(
                         "r",
                         app(app(shift(&relation, 2)?, Term::Var(1)), Term::Var(0)),
                         Term::Eq(
@@ -1146,6 +1331,7 @@ fn infer_quot(cx: &mut Ctx, form: QuotForm, args: &[Rc<Term>]) -> Result<(Term, 
                             rc(app(f3.clone(), Term::Var(2))),
                             rc(app(f3, Term::Var(1))),
                         ),
+                        ProofMark::Proof,
                     ),
                 ),
             );
@@ -1169,6 +1355,7 @@ fn infer_quot(cx: &mut Ctx, form: QuotForm, args: &[Rc<Term>]) -> Result<(Term, 
                     rc(Term::Var(0)),
                 ],
                 false,
+                ProofMark::NotProof,
             );
             let case_ty = arrow("x", carrier.clone(), app(shift(&motive, 1)?, mk));
             let case_ty = cx.eval(&case_ty)?;
@@ -1188,6 +1375,7 @@ fn infer_quot(cx: &mut Ctx, form: QuotForm, args: &[Rc<Term>]) -> Result<(Term, 
                 Shared::new(quot_value(
                     QuotForm::Mk,
                     vec![carrier_value.clone(), relation_value.clone(), v],
+                    ProofMark::NotProof,
                 ))
             };
             let ty = Value::Eq(
@@ -1203,7 +1391,13 @@ fn infer_quot(cx: &mut Ctx, form: QuotForm, args: &[Rc<Term>]) -> Result<(Term, 
         .chain(out)
         .map(Rc::new)
         .collect();
-    Ok((Term::Quot(form, args, erased), ty))
+    let derived = match form {
+        QuotForm::Ind | QuotForm::Sound => ProofMark::Proof,
+        QuotForm::Lift => lift_mark,
+        QuotForm::Type | QuotForm::Mk => ProofMark::NotProof,
+    };
+    let mark = settle_mark(cx, given, derived, "quotient form")?;
+    Ok((Term::Quot(form, args, erased, mark), ty))
 }
 
 fn motive_error(cx: &Ctx) -> Diagnostic {
@@ -1321,6 +1515,9 @@ fn check_case(
                 .all(|c| c.field_sorts.iter().all(|s| *s == Sort::Prop));
         let subsingleton =
             data.group.len() == 1 && nested.is_none() && recursive.is_none() && only_proofs;
+        if subsingleton && !data.indices.is_empty() {
+            crate::proof_counts::record(&g, crate::proof_counts::Kind::IndexedPropIntoData, 1);
+        }
         // A case whose every branch is impossible is never reached, so it
         // may produce anything (docs/proposals/indexed-families.md §6.4).
         if !subsingleton && !every_branch_impossible(cx, x, d, &args, branches, &goal_term)? {
@@ -1483,10 +1680,10 @@ fn refine_branch(
     let base = cx.level();
     // 1. The fields, bound after everything in scope.
     let mut field_env = params.to_vec();
-    for ((_, field_ty), name) in ctor.fields.iter().zip(names) {
+    for (((_, field_ty), name), sort) in ctor.fields.iter().zip(names).zip(&ctor.field_sorts) {
         let ty = eval(&g, &field_env, field_ty)?;
-        field_env.push(Value::var(cx.level()));
-        cx.bind(name.clone(), ty);
+        field_env.push(Value::var_marked(cx.level(), ProofMark::of_sort(*sort)));
+        cx.bind(name.clone(), ty, ProofMark::of_sort(*sort));
     }
     // 2. The indices.
     if !data.indices.is_empty() {
@@ -1668,7 +1865,7 @@ fn check_num_case(
     // A number case on it with no other numbers then takes its default
     // (`value::branch`; docs/proposals/literal-match-facts.md).
     let default = match &cx.env[x] {
-        Value::Neutral(Head::Var(l, known), spine) if *l == x && spine.is_empty() => {
+        Value::Neutral(Head::Var(l, known, mark), spine) if *l == x && spine.is_empty() => {
             let mut numbers: Vec<BigUint> = arms.iter().map(|arm| (*arm.value).clone()).collect();
             numbers.extend(known.numbers(&g).iter().cloned());
             numbers.sort_unstable();
@@ -1676,7 +1873,7 @@ fn check_num_case(
             let apart = Apart::new(&g, numbers.into());
             refined(
                 cx,
-                Value::Neutral(Head::Var(x, apart), Spine::new()),
+                Value::Neutral(Head::Var(x, apart, *mark), Spine::new()),
                 default,
             )?
         }
@@ -1698,13 +1895,15 @@ pub fn substitute_in(
         .iter()
         .enumerate()
         .map(|(l, v)| match v {
-            Value::Neutral(Head::Var(at, _), spine) if *at == l && spine.is_empty() => v.clone(),
+            Value::Neutral(Head::Var(at, _, _), spine) if *at == l && spine.is_empty() => v.clone(),
             _ => Value::var(l),
         })
         .collect();
     // What `identity` gives back for each variable but `x`.
     let known = |l: usize| match env.get(l)? {
-        Value::Neutral(Head::Var(at, known), spine) if *at == l && spine.is_empty() => Some(*known),
+        Value::Neutral(Head::Var(at, known, _), spine) if *at == l && spine.is_empty() => {
+            Some(*known)
+        }
         _ => Some(Apart::NONE),
     };
     let unchanged = Unchanged::new(g, x, known);
@@ -1941,12 +2140,12 @@ impl<'g, 'r, K: Fn(usize) -> Option<Apart>> Rebuild<'g, 'r, K> {
                 changed: false,
                 clean: self.unchanged.is_some(),
             }),
-            Value::Neutral(Head::Var(l, known), spine)
+            Value::Neutral(Head::Var(l, known, _), spine)
                 if spine.is_empty() && *l < self.rho.len() =>
             {
                 let clean = self.clean_var(*l, *known);
                 let new = &self.rho[*l];
-                let same = matches!(new, Value::Neutral(Head::Var(l2, k2), s)
+                let same = matches!(new, Value::Neutral(Head::Var(l2, k2, _), s)
                     if l2 == l && k2 == known && s.is_empty());
                 done.push(Rebuilt {
                     new: if same { v.clone() } else { new.clone() },
@@ -1954,7 +2153,7 @@ impl<'g, 'r, K: Fn(usize) -> Option<Apart>> Rebuild<'g, 'r, K> {
                     clean,
                 });
             }
-            Value::Neutral(Head::Var(l, _), spine) if self.var_applied(*l, spine) => {
+            Value::Neutral(Head::Var(l, _, _), spine) if self.var_applied(*l, spine) => {
                 let memo = spine
                     .shared_key()
                     .and_then(|key| self.spines.get(&key).cloned());
@@ -1990,7 +2189,7 @@ impl<'g, 'r, K: Fn(usize) -> Option<Apart>> Rebuild<'g, 'r, K> {
     fn var_applied(&self, l: usize, spine: &Spine) -> bool {
         l < self.rho.len()
             && spine.iter().all(|e| matches!(e, Elim::App(..)))
-            && matches!(&self.rho[l], Value::Neutral(Head::Var(l2, _), s)
+            && matches!(&self.rho[l], Value::Neutral(Head::Var(l2, _, _), s)
                 if s.is_empty() && *l2 < self.rho.len())
     }
 
@@ -2068,16 +2267,16 @@ impl<'g, 'r, K: Fn(usize) -> Option<Apart>> Rebuild<'g, 'r, K> {
     /// Variable `v` applied to arguments, with its spine rebuilt as `spine`:
     /// `ρ`'s variable for it applied to them.
     fn applied(&self, v: &Value, spine: Rebuilt<Spine>) -> Rebuilt<Value> {
-        let Value::Neutral(Head::Var(l, known), _) = v else {
+        let Value::Neutral(Head::Var(l, known, _), _) = v else {
             unreachable!("a variable applied")
         };
-        let Value::Neutral(Head::Var(l2, k2), _) = &self.rho[*l] else {
+        let Value::Neutral(Head::Var(l2, k2, m2), _) = &self.rho[*l] else {
             unreachable!("checked by `var_applied`")
         };
         let changed = spine.changed || l2 != l || k2 != known;
         Rebuilt {
             new: if changed {
-                Value::Neutral(Head::Var(*l2, *k2), spine.new)
+                Value::Neutral(Head::Var(*l2, *k2, *m2), spine.new)
             } else {
                 v.clone()
             },
@@ -2317,12 +2516,12 @@ impl<'g, K: Fn(usize) -> Option<Apart>> Unchanged<'g, K> {
                 Value::Eq(ty, a, b) => todo.extend([&**ty, &**a, &**b]),
                 Value::Neutral(head, spine) => {
                     match *head {
-                        Head::Var(l, known) => {
+                        Head::Var(l, known, _) => {
                             if l == self.x || Some(known) != (self.known)(l) {
                                 return false;
                             }
                         }
-                        Head::Def(_) | Head::Meta(_) | Head::Quot(_) => return false,
+                        Head::Def(_) | Head::Meta(_) | Head::Quot(_, _) => return false,
                     }
                     self.push_spine(spine, &mut todo);
                 }
@@ -2345,7 +2544,7 @@ impl<'g, K: Fn(usize) -> Option<Apart>> Unchanged<'g, K> {
             for elim in spine.iter() {
                 match elim {
                     Elim::App(arg, _) => todo.push(arg),
-                    Elim::J { motive, base } => todo.extend([&**motive, &**base]),
+                    Elim::J { motive, base, .. } => todo.extend([&**motive, &**base]),
                     Elim::Proj(..) => {}
                 }
             }
@@ -2542,6 +2741,10 @@ fn install_group(
             g.machine
                 .budget
                 .uncounted(|| crate::reference::validate_inert(&g.ev(), &ids));
+            #[cfg(feature = "reference")]
+            g.machine
+                .budget
+                .uncounted(|| crate::reference::validate_marks(&g.ev(), &ids));
             Ok(())
         }
         Err(e) => fail(g, e),
@@ -2703,11 +2906,13 @@ fn push_def(
     span: Span,
 ) -> Result<DefId> {
     let ty_value = kept_type(&g.ev(), &ty)?;
+    let proof = def_mark(&g.ev(), &ty_value, span)?;
     g.env.defs_mut().push(Def {
         name: name.clone(),
         path: path.clone(),
         ty,
         ty_value,
+        proof,
         body: None,
         state: State::Pending,
         arity: 0,
@@ -2731,6 +2936,20 @@ fn push_def(
         span,
     });
     Ok(DefId(g.env.defs().len() - 1))
+}
+
+/// Whether a definition with the checked type `ty_value` is a proof: its
+/// type a proposition ([`Def::proof`]). Worked out on the checked and the
+/// trusted paths alike, from the type, as the kernel computes sorts.
+fn def_mark(g: &Ev, ty_value: &Value, span: Span) -> Result<bool> {
+    let mut cx = Ctx::new(g, span);
+    // Glued, as in [`kept_type`]: going under the parameters must not
+    // compute a call in the statement, which can be long
+    // (`pick True Zero = (List.replicate 160000 0).length`).
+    let was = g.machine.glue.replace(true);
+    let mark = prop_mark(&mut cx, ty_value);
+    g.machine.glue.set(was);
+    Ok(mark?.is_proof())
 }
 
 /// The value a definition keeps of its checked type `ty`
@@ -2869,9 +3088,11 @@ pub fn retype_def(g: &mut Kernel, id: DefId, ty: &Term) -> Result<()> {
             return Err(not_a_prop(&mut cx, &def.name, &ty, span)?);
         }
         let ty_value = kept_type(&g.ev(), &ty)?;
+        let proof = def_mark(&g.ev(), &ty_value, span)?;
         let def = &mut g.env.defs_mut()[id.0];
         def.ty = ty;
         def.ty_value = ty_value;
+        def.proof = proof;
         Ok(())
     })
 }
@@ -3319,9 +3540,9 @@ pub fn declare_indexed_data_group(
                     "`case` may only appear at the top of a definition",
                 ));
             }
-            let (ty, _) = check_type(&mut cx, &ty)?;
+            let (ty, sort) = check_type(&mut cx, &ty)?;
             let value = cx.eval(&ty)?;
-            cx.bind(x.clone(), value);
+            cx.bind(x.clone(), value, ProofMark::of_sort(sort));
             checked.push((x, ty));
         }
         let mut member_indices = Vec::new();
@@ -3361,7 +3582,8 @@ pub fn declare_indexed_data_group(
                         ));
                 }
                 let value = cx.eval(&ty)?;
-                cx.bind(x.clone(), value);
+                let mark = prop_mark(&mut cx, &value)?;
+                cx.bind(x.clone(), value, mark);
                 indices.push((x.clone(), ty));
             }
             cx.unbind(indices.len());
@@ -3436,7 +3658,7 @@ fn proof_params(g: &Ev, params: &[(Name, Term)], span: Span) -> Rc<[bool]> {
             return Rc::from([]);
         };
         out.push(sort == Sort::Prop);
-        cx.bind(x.clone(), value);
+        cx.bind(x.clone(), value, ProofMark::of_sort(sort));
     }
     out.into()
 }
@@ -3599,7 +3821,8 @@ fn admit_data_group(
     let mut failed = admissible(&cx, telescopes, None)?;
     for (x, ty) in &first.params {
         let value = cx.eval(ty)?;
-        cx.bind(x.clone(), value);
+        let mark = prop_mark(&mut cx, &value)?;
+        cx.bind(x.clone(), value, mark);
     }
     let mut out = Vec::new();
     for (d, ctors) in members {
@@ -3668,7 +3891,7 @@ fn admit_data_group(
                 holds.push(occurs(&ty, group).is_some());
                 let value = cx.eval(&ty)?;
                 field_erased.push(sort == Sort::Prop || is_type_former(g, cx.level(), &value)?);
-                cx.bind(x.clone(), value);
+                cx.bind(x.clone(), value, ProofMark::of_sort(sort));
                 fields.push((x, ty));
                 field_sorts.push(sort);
             }
@@ -3986,7 +4209,8 @@ fn recompute_field_sorts(g: &Ev, group: &[DataId], members: &[(DataId, Vec<Ctor>
     let mut cx = Ctx::new(g, first.span);
     for (x, ty) in &first.params {
         let value = cx.eval(ty)?;
-        cx.bind(x.clone(), value);
+        let mark = prop_mark(&mut cx, &value)?;
+        cx.bind(x.clone(), value, mark);
     }
     for (d, ctors) in members {
         let data = g.data(*d);
@@ -4005,7 +4229,7 @@ fn recompute_field_sorts(g: &Ev, group: &[DataId], members: &[(DataId, Vec<Ctor>
                         ),
                     ));
                 }
-                cx.bind(x.clone(), value);
+                cx.bind(x.clone(), value, ProofMark::of_sort(sort));
             }
             cx.unbind(ctor.fields.len());
         }
@@ -4338,7 +4562,7 @@ fn not_positive(
                     .find_map(|i| occurs(i, group))
                     .map(|d3| (d3, Occurrence::InIndex));
             }
-            Term::Pi(_, _, dom, cod) => match occurs(dom, group) {
+            Term::Pi(_, _, dom, cod, _) => match occurs(dom, group) {
                 Some(d2) => return Some((d2, Occurrence::Input)),
                 None => (ty, depth) = (cod, depth + 1),
             },
@@ -4389,7 +4613,7 @@ fn not_positive_nested(
 /// number of variables in scope there, given `depth` outside.
 fn strip_lambdas(term: &Term, depth: usize) -> (&Term, usize) {
     let (mut term, mut depth) = (term.strip_loc(), depth);
-    while let Term::Lam(_, _, body) = term {
+    while let Term::Lam(_, _, body, _) = term {
         (term, depth) = (body.strip_loc(), depth + 1);
     }
     (term, depth)
@@ -4465,7 +4689,7 @@ fn param_nestable(g: &Ev, group: &[DataId], j: usize) -> std::result::Result<(),
 /// of, `a → Prop`).
 fn is_arity(ty: &Term) -> bool {
     let mut ty = ty.strip_loc();
-    while let Term::Pi(_, _, _, cod) = ty {
+    while let Term::Pi(_, _, _, cod, _) = ty {
         ty = cod.strip_loc();
     }
     matches!(ty, Term::Sort(_))
@@ -4489,7 +4713,7 @@ fn stored_only(
 ) -> std::result::Result<(), ParamUse> {
     let (mut ty, mut depth) = (ty.strip_loc(), depth);
     while ty.mentions(depth - 1 - j) {
-        let Term::Pi(_, _, dom, cod) = ty else {
+        let Term::Pi(_, _, dom, cod, _) = ty else {
             break;
         };
         if dom.mentions(depth - 1 - j) {
@@ -4828,7 +5052,8 @@ pub fn add_validator(
         }
         let failed = admissible(&cx, [decision], None)?;
         for (x, ty, _) in &tel.params[..param] {
-            cx.bind(x.clone(), ty.clone());
+            let mark = prop_mark(&mut cx, ty)?;
+            cx.bind(x.clone(), ty.clone(), mark);
         }
         let expected = Value::Data(decidable, vec![prop.clone()].into());
         let decision = check(&mut cx, decision, &expected)?;
@@ -4894,7 +5119,8 @@ pub fn add_field_validator(
         let telescope = data.params.iter().chain(&c.fields[..field]);
         for (x, ty) in telescope {
             let value = cx.eval(ty)?;
-            cx.bind(x.clone(), value);
+            let mark = prop_mark(&mut cx, &value)?;
+            cx.bind(x.clone(), value, mark);
         }
         let prop = cx.eval(&c.fields[field].1)?;
         let expected = Value::Data(decidable, vec![prop].into());
@@ -4926,7 +5152,7 @@ fn shaped_like_decidable(g: &Ev, decidable: DataId) -> bool {
         |t: &Term| matches!(t.strip_loc(), Term::Ctor(b, 1, fs) if *b == bool && fs.is_empty());
     // `holds = True → p`, under `p` and `holds`.
     let is_sound = |t: &Term| match t.strip_loc() {
-        Term::Pi(_, Icit::Explicit, dom, cod) => {
+        Term::Pi(_, Icit::Explicit, dom, cod, _) => {
             matches!(cod.strip_loc(), Term::Var(2))
                 && matches!(dom.strip_loc(), Term::Eq(ty, lhs, rhs)
                     if ty.as_deref().is_none_or(is_bool)
@@ -4954,7 +5180,7 @@ pub fn is_type_former(g: &Ev, level: usize, ty: &Value) -> budget::Result<bool> 
     loop {
         match force(g, ty)? {
             Value::Sort(_) => return Ok(true),
-            Value::Pi(_, _, _, cod) => {
+            Value::Pi(_, _, _, cod, _) => {
                 ty = cod.apply(g, Value::var(level))?;
                 level += 1;
             }
@@ -4978,10 +5204,11 @@ pub fn telescope(g: &Ev, ty: &Value, span: Span) -> Result<Telescope> {
     let mut cx = Ctx::new(g, span);
     let mut params = Vec::new();
     let mut ty = force(g, ty.clone())?;
-    while let Value::Pi(x, _, dom, cod) = &ty {
+    while let Value::Pi(x, _, dom, cod, _) = &ty {
         let erased = is_erased(&mut cx, dom)?;
-        let next = cod.apply(g, Value::var(cx.level()))?;
-        cx.bind(x.clone(), (**dom).clone());
+        let mark = prop_mark(&mut cx, dom)?;
+        let next = cod.apply(g, Value::var_marked(cx.level(), mark))?;
+        cx.bind(x.clone(), (**dom).clone(), mark);
         params.push((x.clone(), (**dom).clone(), erased));
         ty = force(g, next)?;
     }
@@ -5000,10 +5227,11 @@ pub fn proof_telescope(g: &Ev, ty: &Value, span: Span) -> Result<(Vec<bool>, boo
     let mut cx = Ctx::new(g, span);
     let mut params = Vec::new();
     let mut ty = force(g, ty.clone())?;
-    while let Value::Pi(x, _, dom, cod) = &ty {
-        params.push(sort_of(&mut cx, dom)? == Sort::Prop);
-        let next = cod.apply(g, Value::var(cx.level()))?;
-        cx.bind(x.clone(), (**dom).clone());
+    while let Value::Pi(x, _, dom, cod, _) = &ty {
+        let mark = ProofMark::of_sort(sort_of(&mut cx, dom)?);
+        params.push(mark.is_proof());
+        let next = cod.apply(g, Value::var_marked(cx.level(), mark))?;
+        cx.bind(x.clone(), (**dom).clone(), mark);
         ty = force(g, next)?;
     }
     let result = sort_of(&mut cx, &ty)? == Sort::Prop;

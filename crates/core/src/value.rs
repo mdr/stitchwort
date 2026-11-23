@@ -17,14 +17,18 @@ use crate::chars::{self, Chars};
 use crate::erase::{self, erased};
 use crate::nat_add::Unread;
 use crate::native;
+use crate::proof_counts;
 use crate::registry::Builtin;
-use crate::term::{Branch, DataId, DefId, Icit, Name, QuotForm, Sort, Term};
+use crate::term::{Branch, DataId, DefId, Icit, Name, ProofMark, QuotForm, Sort, Term};
 
 #[derive(Clone, Debug)]
 pub enum Value {
     Sort(Sort),
-    Pi(Name, Icit, Shared, Closure),
-    Lam(Name, Icit, Closure),
+    /// The mark, the term's, says whether the bound variable is a proof.
+    /// (Not in the closure, which would make a value, and so the machine's
+    /// frames, a word larger.)
+    Pi(Name, Icit, Shared, Closure, ProofMark),
+    Lam(Name, Icit, Closure, ProofMark),
     Data(DataId, DataArgs),
     /// Fields are shared, so copying a value (a list, say) is cheap.
     Ctor(DataId, usize, Values),
@@ -388,8 +392,10 @@ pub enum Head {
     /// number case's default arm, the matched variable is none of the arms'
     /// numbers ([`Apart`]). That's a fact about the variable, not part of
     /// it: two `Var`s of the same level are the same variable, so they're
-    /// equal and hash alike whatever each knows.
-    Var(usize, Apart),
+    /// equal and hash alike whatever each knows. The mark, copied from the
+    /// binder, says whether the variable is a proof; it too is a fact about
+    /// the variable, which equality and hashing ignore.
+    Var(usize, Apart, ProofMark),
     Def(DefId),
     Meta(usize),
     /// A quotient form (docs/proposals/map-equality.md §7), its arguments
@@ -399,16 +405,18 @@ pub enum Head {
     /// `Quot.lift` here is stuck, its quotient argument not a `Quot.mk`.
     /// `Quot.mk` is never a constructor (`Value::Ctor`), so nothing that
     /// takes constructors apart (a `case`, index unification) sees inside it.
-    Quot(QuotForm),
+    /// The mark is the term's: whether the result is a proof. Equality and
+    /// hashing ignore it, since it's determined by the form and arguments.
+    Quot(QuotForm, ProofMark),
 }
 
 impl PartialEq for Head {
     fn eq(&self, other: &Head) -> bool {
         match (self, other) {
-            (Head::Var(a, _), Head::Var(b, _)) => a == b,
+            (Head::Var(a, ..), Head::Var(b, ..)) => a == b,
             (Head::Def(a), Head::Def(b)) => a == b,
             (Head::Meta(a), Head::Meta(b)) => a == b,
-            (Head::Quot(a), Head::Quot(b)) => a == b,
+            (Head::Quot(a, _), Head::Quot(b, _)) => a == b,
             _ => false,
         }
     }
@@ -420,10 +428,10 @@ impl std::hash::Hash for Head {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         std::mem::discriminant(self).hash(state);
         match self {
-            Head::Var(l, _) => l.hash(state),
+            Head::Var(l, ..) => l.hash(state),
             Head::Def(d) => d.hash(state),
             Head::Meta(m) => m.hash(state),
-            Head::Quot(q) => q.hash(state),
+            Head::Quot(q, _) => q.hash(state),
         }
     }
 }
@@ -476,7 +484,9 @@ impl Apart {
 /// The representative of a `Quot.mk` value, if `value` is one.
 pub fn quot_mk_rep(value: &Value) -> Option<&Value> {
     match value {
-        Value::Neutral(Head::Quot(QuotForm::Mk), spine) if spine.len() == QuotForm::Mk.arity() => {
+        Value::Neutral(Head::Quot(QuotForm::Mk, _), spine)
+            if spine.len() == QuotForm::Mk.arity() =>
+        {
             match &spine[2] {
                 Elim::App(a, _) => Some(a),
                 Elim::J { .. } | Elim::Proj(..) => None,
@@ -487,7 +497,7 @@ pub fn quot_mk_rep(value: &Value) -> Option<&Value> {
 }
 
 /// A quotient form applied to the values `args`.
-pub fn quot_value(form: QuotForm, args: Vec<Value>) -> Value {
+pub fn quot_value(form: QuotForm, args: Vec<Value>, mark: ProofMark) -> Value {
     let spine = args
         .into_iter()
         .enumerate()
@@ -500,7 +510,7 @@ pub fn quot_value(form: QuotForm, args: Vec<Value>) -> Value {
             Elim::App(v, icit)
         })
         .collect();
-    Value::Neutral(Head::Quot(form), spine)
+    Value::Neutral(Head::Quot(form, mark), spine)
 }
 
 #[derive(Clone, Debug)]
@@ -510,6 +520,8 @@ pub enum Elim {
     J {
         motive: Box<Value>,
         base: Box<Value>,
+        /// The term's: whether the result is a proof.
+        result: ProofMark,
     },
     /// Field `i` of a value of data type `DataId`, which has eta
     /// ([`Term::Proj`]): stuck because the value is unknown.
@@ -746,7 +758,7 @@ fn take_elims(elims: Rc<Elims>, pending: &mut Vec<Value>) {
     for elim in elims {
         match elim {
             Elim::App(v, _) => pending.push(v),
-            Elim::J { motive, base } => {
+            Elim::J { motive, base, .. } => {
                 pending.push(*motive);
                 pending.push(*base);
             }
@@ -777,13 +789,13 @@ fn detach(value: Value, empty: &Rc<[Value]>, pending: &mut Vec<Value>) {
         Value::Ctor(_, _, mut fields) => {
             take_apart(std::mem::replace(&mut fields.0, empty.clone()), pending);
         }
-        Value::Lam(_, _, mut closure) => {
+        Value::Lam(_, _, mut closure, _) => {
             take_apart(
                 std::mem::replace(&mut closure.env.0, empty.clone()),
                 pending,
             );
         }
-        Value::Pi(_, _, dom, mut closure) => {
+        Value::Pi(_, _, dom, mut closure, _) => {
             unwrap(dom);
             take_apart(
                 std::mem::replace(&mut closure.env.0, empty.clone()),
@@ -803,7 +815,10 @@ fn detach(value: Value, empty: &Rc<[Value]>, pending: &mut Vec<Value>) {
             {
                 pending.push(value);
             }
-            pending.push(Value::Neutral(Head::Var(0, Apart::NONE), spine));
+            pending.push(Value::Neutral(
+                Head::Var(0, Apart::NONE, ProofMark::Unknown),
+                spine,
+            ));
         }
         Value::Neutral(_, mut spine) => {
             if let Some(elims) = spine.0.take() {
@@ -835,12 +850,69 @@ impl Closure {
 /// A placeholder for a value that's never looked at: an environment entry the
 /// body doesn't mention.
 pub fn unused() -> Value {
-    Value::Neutral(Head::Var(usize::MAX, Apart::NONE), Spine::new())
+    Value::Neutral(
+        Head::Var(usize::MAX, Apart::NONE, ProofMark::Unknown),
+        Spine::new(),
+    )
 }
 
 impl Value {
+    /// The variable at `level`, not known to be a proof or not.
     pub fn var(level: usize) -> Value {
-        Value::Neutral(Head::Var(level, Apart::NONE), Spine::new())
+        Value::var_marked(level, ProofMark::Unknown)
+    }
+
+    /// The variable at `level`, with its binder's mark.
+    pub fn var_marked(level: usize, mark: ProofMark) -> Value {
+        Value::Neutral(Head::Var(level, Apart::NONE, mark), Spine::new())
+    }
+}
+
+/// Whether `v` is a proof (docs/core.md, "Proof marks";
+/// docs/proposals/full-proof-irrelevance.md §4.3), read off the marks in
+/// constant time, forcing nothing: a stuck computation by its last
+/// elimination that isn't an application (a field's sort, a `J`'s result
+/// mark), else by its head (a variable's binder, a definition's type, a
+/// quotient form's result); a constructor by its type's sort. By
+/// impredicativity, applying a proof gives a proof, so applications don't
+/// change the answer.
+///
+/// [`ProofMark::Unknown`] for a lambda (a comparison goes under it and
+/// asks about the bodies), an unknown (the elaborator's `is_proof` asks its
+/// type), and anything whose mark wasn't set: a value made from a term the
+/// kernel hasn't checked. Nothing that changes what's accepted uses it yet.
+pub fn is_proof(g: &Ev, v: &Value) -> ProofMark {
+    let spine_mark = |spine: &Spine| {
+        spine.iter().rev().find_map(|elim| match elim {
+            Elim::App(..) => None,
+            Elim::J { result, .. } => Some(*result),
+            Elim::Proj(d, i) => Some(field_mark(g, *d, *i)),
+        })
+    };
+    match v {
+        Value::Neutral(head, spine) => spine_mark(spine).unwrap_or(match head {
+            Head::Var(_, _, mark) => *mark,
+            Head::Def(id) => ProofMark::from_bool(g.def(*id).proof),
+            Head::Meta(_) => ProofMark::Unknown,
+            Head::Quot(_, mark) => *mark,
+        }),
+        Value::Call(id, spine, _) => {
+            spine_mark(spine).unwrap_or(ProofMark::from_bool(g.def(*id).proof))
+        }
+        Value::Ctor(d, ..) => ProofMark::of_sort(g.data(*d).sort),
+        Value::Refl => ProofMark::Proof,
+        Value::Nat(_) | Value::NatAdd(..) | Value::Chars(_) => ProofMark::NotProof,
+        Value::Sort(_) | Value::Pi(..) | Value::Data(..) | Value::Eq(..) => ProofMark::NotProof,
+        Value::Lam(..) | Value::Resumption(_) => ProofMark::Unknown,
+    }
+}
+
+/// Whether field `i` of the one constructor of `d` (a type with eta) is a
+/// proof.
+fn field_mark(g: &Ev, d: DataId, i: usize) -> ProofMark {
+    match g.data(d).ctors.first().and_then(|c| c.field_sorts.get(i)) {
+        Some(sort) => ProofMark::of_sort(*sort),
+        None => ProofMark::Unknown,
     }
 }
 
@@ -937,7 +1009,7 @@ pub fn force_solved(g: &Ev, value: Value) -> Result<Value> {
 fn apply_all(g: &Ev, mut f: Value, args: &[(Value, Icit)]) -> Result<Value> {
     let mut next = 0;
     while next < args.len() {
-        if let Value::Lam(_, _, closure) = &f {
+        if let Value::Lam(_, _, closure, _) = &f {
             let (body, env, taken) = enter_run(closure, args[next..].iter().map(|(a, _)| a));
             f = run(g, Control::Eval(body, env))?;
             next += taken;
@@ -968,7 +1040,7 @@ fn enter_run<'a>(
     loop {
         match &**body {
             Term::Loc(_, inner) => body = inner,
-            Term::Lam(_, _, inner) if args.peek().is_some() => {
+            Term::Lam(_, _, inner, _) if args.peek().is_some() => {
                 env.extend(args.next().cloned());
                 body = inner;
             }
@@ -1187,7 +1259,7 @@ enum Frame {
     },
     /// The base of a stuck `J`: its head, spine and motive. (Boxed: it's the
     /// largest frame, and rare.)
-    JBase(Box<(Head, Spine, Value)>),
+    JBase(Box<(Head, Spine, Value, ProofMark)>),
     /// The quotient argument of the `Quot.lift` `term` (forced next). With
     /// `stuck`, the lift is a leaf of that definition's case tree.
     LiftQuotient {
@@ -1314,7 +1386,7 @@ fn apply_step(f: Value, arg: Value, icit: Icit) -> Control {
         return Control::Return(f);
     }
     match f {
-        Value::Lam(_, _, closure) => enter(&closure, arg),
+        Value::Lam(_, _, closure, _) => enter(&closure, arg),
         // A stuck field of a call names a projection, not a call short of
         // arguments: `run` computes it first ([`apply_field`]).
         f @ Value::Neutral(Head::Def(_), _) if ends_in_field(&f) => apply_later(f, arg, icit),
@@ -1501,7 +1573,7 @@ fn run_on(g: &Ev, mut control: Control, mut stack: Vec<Frame>) -> Result<Value> 
                     // definition marked for it (`Def::lift_leaf`), so every
                     // call left folded here is one `is_folded` unfolds again
                     // for a comparison.
-                    Term::Quot(QuotForm::Lift, args, _)
+                    Term::Quot(QuotForm::Lift, args, _, _)
                         if args.len() == QuotForm::Lift.arity()
                             && matches!(&stuck, Some((id, _, true)) if folds_on_lift(g, *id)) =>
                     {
@@ -1596,13 +1668,14 @@ fn quick(g: &Ev, term: &Rc<Term>, env: &Env) -> Option<Value> {
         Term::Chars(c) => Some(chars_value(g, c)),
         Term::Sort(s) => Some(Value::Sort(*s)),
         Term::Refl => Some(Value::Refl),
-        Term::Lam(x, i, b) => Some(Value::Lam(
+        Term::Lam(x, i, b, pm) => Some(Value::Lam(
             x.clone(),
             *i,
             Closure {
                 env: env.clone(),
                 body: b.clone(),
             },
+            *pm,
         )),
         Term::Def(id) => {
             let def = g.def(*id);
@@ -1667,7 +1740,7 @@ fn eval_step(g: &Ev, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> Result
         Term::Nat(n) => Control::Return(Value::Nat(n.clone())),
         Term::Chars(c) => Control::Return(chars_value(g, c)),
         Term::Sort(s) => Control::Return(Value::Sort(*s)),
-        Term::Pi(_, _, a, _) => {
+        Term::Pi(_, _, a, _, _) => {
             let a = a.clone();
             push(
                 g,
@@ -1679,13 +1752,14 @@ fn eval_step(g: &Ev, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> Result
             )?;
             Control::Eval(a, env)
         }
-        Term::Lam(x, i, b) => Control::Return(Value::Lam(
+        Term::Lam(x, i, b, pm) => Control::Return(Value::Lam(
             x.clone(),
             *i,
             Closure {
                 env,
                 body: b.clone(),
             },
+            *pm,
         )),
         Term::App(f, a, i)
             if g.machine.erasure.active() && quick(g, a, &env).is_none() && erased_arg(g, f) =>
@@ -1716,10 +1790,10 @@ fn eval_step(g: &Ev, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> Result
         // which sees it in its environment (docs/proposals/let.md §A.2).
         // While running, a skipped `let` (a proof, a type, or unused; see
         // `Term::Let`) isn't computed: the placeholder takes its slot.
-        Term::Let(_, _, _, body, true) if g.machine.erasure.active() => {
+        Term::Let(_, _, _, body, true, _) if g.machine.erasure.active() => {
             Control::Eval(body.clone(), extend(&env, erased()))
         }
-        Term::Let(_, _, value, body, _) => match quick(g, value, &env) {
+        Term::Let(_, _, value, body, _, _) => match quick(g, value, &env) {
             Some(value) => Control::Eval(body.clone(), extend(&env, value)),
             None => {
                 let value = value.clone();
@@ -1758,19 +1832,20 @@ fn eval_step(g: &Ev, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> Result
         // flag) is too, so each is the placeholder, which `J` takes its
         // base on (rule 4). A `Quot.mk` whose representative is erased
         // (its carrier's elements are types) has the placeholder for it.
-        Term::Quot(QuotForm::Lift, _, true) | Term::Quot(QuotForm::Ind | QuotForm::Sound, ..)
+        Term::Quot(QuotForm::Lift, _, true, _)
+        | Term::Quot(QuotForm::Ind | QuotForm::Sound, ..)
             if g.machine.erasure.active() =>
         {
             Control::Return(erased())
         }
-        Term::Quot(QuotForm::Mk, args, true)
+        Term::Quot(QuotForm::Mk, args, true, _)
             if g.machine.erasure.active() && args.len() == QuotForm::Mk.arity() =>
         {
             quot_args(g, term.clone(), env, Vec::new(), Some(erased()), stack)?
         }
         // The one computation rule (docs/proposals/map-equality.md §7.2):
         // `Quot.lift f h (Quot.mk a)` is `f a`. The quotient first, then.
-        Term::Quot(QuotForm::Lift, args, _) if args.len() == QuotForm::Lift.arity() => {
+        Term::Quot(QuotForm::Lift, args, _, _) if args.len() == QuotForm::Lift.arity() => {
             let q = args[5].clone();
             push(
                 g,
@@ -1784,7 +1859,7 @@ fn eval_step(g: &Ev, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> Result
             Control::Eval(q, env)
         }
         Term::Quot(..) => quot_args(g, term.clone(), env, Vec::new(), None, stack)?,
-        Term::J(_, _, proof) => {
+        Term::J(_, _, proof, _) => {
             let proof = proof.clone();
             push(
                 g,
@@ -1862,7 +1937,7 @@ fn quot_args(
     last: Option<Value>,
     stack: &mut Vec<Frame>,
 ) -> Result<Control> {
-    let Term::Quot(form, args, _) = &*term else {
+    let Term::Quot(form, args, _, mark) = &*term else {
         unreachable!("arguments of a quotient form")
     };
     let n = args.len() - usize::from(last.is_some());
@@ -1886,7 +1961,7 @@ fn quot_args(
         }
     }
     done.extend(last);
-    Ok(Control::Return(quot_value(*form, done)))
+    Ok(Control::Return(quot_value(*form, done, *mark)))
 }
 
 /// Continues `frame` with the value it was waiting for.
@@ -1937,7 +2012,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             unfold_for(g, stack, value, Frame::LiftReady { term, env, stuck })?
         }
         Frame::LiftForced { term, env, stuck } | Frame::LiftReady { term, env, stuck } => {
-            let Term::Quot(_, args, _) = &*term else {
+            let Term::Quot(_, args, _, _) = &*term else {
                 unreachable!("a `LiftForced` frame is for `Quot.lift`")
             };
             match quot_mk_rep(&value) {
@@ -1953,13 +2028,13 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             }
         }
         Frame::LetBody { term, env } => {
-            let Term::Let(_, _, _, body, _) = &*term else {
+            let Term::Let(_, _, _, body, _, _) = &*term else {
                 unreachable!("a `LetBody` frame is for a `let`")
             };
             Control::Eval(body.clone(), extend(&env, value))
         }
         Frame::PiDomain { term, env } => {
-            let Term::Pi(x, i, _, b) = &*term else {
+            let Term::Pi(x, i, _, b, pm) = &*term else {
                 unreachable!("a `PiDomain` frame is for a function type")
             };
             Control::Return(Value::Pi(
@@ -1970,6 +2045,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                     env,
                     body: b.clone(),
                 },
+                *pm,
             ))
         }
         Frame::EqParts {
@@ -2024,9 +2100,12 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             unfold_field_for(g, stack, value, FieldUse::J { term, env })?
         }
         Frame::JForced { term, env } | Frame::JReady { term, env } => {
-            let Term::J(motive, base, _) = &*term else {
+            let Term::J(motive, base, _, result) = &*term else {
                 unreachable!("a `JForced` frame is for `J`")
             };
+            if *result == ProofMark::NotProof && matches!(value, Value::Neutral(..)) {
+                proof_counts::record(g, proof_counts::Kind::StuckCastIntoData, 1);
+            }
             match value {
                 Value::Refl => Control::Eval(base.clone(), env),
                 // Every closed proof of an equation is `refl` (`erase.rs`).
@@ -2133,17 +2212,22 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             head,
             spine,
         } => {
-            let Term::J(_, base, _) = &*term else {
+            let Term::J(_, base, _, result) = &*term else {
                 unreachable!("a `JMotive` frame is for `J`")
             };
-            push(g, stack, Frame::JBase(Box::new((head, spine, value))))?;
+            push(
+                g,
+                stack,
+                Frame::JBase(Box::new((head, spine, value, *result))),
+            )?;
             Control::Eval(base.clone(), env)
         }
         Frame::JBase(stuck) => {
-            let (head, mut spine, motive) = *stuck;
+            let (head, mut spine, motive, result) = *stuck;
             spine.push(Elim::J {
                 motive: Box::new(motive),
                 base: Box::new(value),
+                result,
             });
             Control::Return(Value::Neutral(head, spine))
         }
@@ -2224,7 +2308,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
         Frame::Replay { spine, next } => match spine.get(next) {
             None => Control::Force(value),
             Some(Elim::App(..)) if matches!(value, Value::Lam(..)) => {
-                let Value::Lam(_, _, closure) = &value else {
+                let Value::Lam(_, _, closure, _) = &value else {
                     unreachable!("matched above")
                 };
                 let args = spine[next..].iter().map_while(|e| match e {
@@ -2363,6 +2447,22 @@ fn needs_forcing(g: &Ev, value: &Value) -> bool {
     }
 }
 
+/// Counts a `case` on `value` stuck in a definition whose result is data,
+/// if `value` is a proof of a proposition `d` with one constructor (what
+/// rule S would compute; `proof_counts`).
+#[cold]
+fn count_stuck_one_shape(g: &Ev, d: DataId, stuck: &Stuck, value: &Value) {
+    let data = g.data(d);
+    let into_data = matches!(stuck, Some((id, ..)) if !g.def(*id).proof);
+    if data.sort == Sort::Prop
+        && data.ctors.len() == 1
+        && into_data
+        && !matches!(value, Value::Ctor(..))
+    {
+        proof_counts::record(g, proof_counts::Kind::StuckOneShapeIntoData, 1);
+    }
+}
+
 /// The branch of the case node `tree` for the (forced) scrutinee `value`.
 fn branch(
     g: &Ev,
@@ -2461,7 +2561,12 @@ fn branch(
         }
         other => match reread_sum(g, &other, &mut Unread::default())? {
             Some(value) => return branch(g, tree, env, stuck, value),
-            None => return stuck_tree(g, stuck),
+            None => {
+                if proof_counts::on() {
+                    count_stuck_one_shape(g, *d, &stuck, &other);
+                }
+                return stuck_tree(g, stuck);
+            }
         },
     };
     let Some(body) = branches[c].body.clone() else {
@@ -2628,7 +2733,7 @@ fn eta_fields(g: &Ev, d: DataId, k: usize, unforced: &Value, forced: Value) -> R
 /// own ([`Apart`]).
 pub fn apart_of(value: &Value) -> Apart {
     match value {
-        Value::Neutral(Head::Var(_, apart), spine) if spine.is_empty() => *apart,
+        Value::Neutral(Head::Var(_, apart, _), spine) if spine.is_empty() => *apart,
         _ => Apart::NONE,
     }
 }
@@ -3015,7 +3120,7 @@ pub(crate) fn has_lift_leaf(tree: &Term) -> bool {
                 pending.extend(arms.iter().map(|a| &*a.body));
                 pending.push(default);
             }
-            Term::Quot(QuotForm::Lift, args, _) if args.len() == QuotForm::Lift.arity() => {
+            Term::Quot(QuotForm::Lift, args, _, _) if args.len() == QuotForm::Lift.arity() => {
                 return true;
             }
             _ => {}
@@ -3480,7 +3585,9 @@ fn quote_as_until(
                         Value::Neutral(Head::Meta(m), _) if g.meta_solution(*m).is_none() => {
                             Some(*m)
                         }
-                        Value::Neutral(Head::Var(l, _), _) if *l == erase::ERASED => Some(ELIDED),
+                        Value::Neutral(Head::Var(l, _, _), _) if *l == erase::ERASED => {
+                            Some(ELIDED)
+                        }
                         _ => None,
                     };
                     if let Some(m) = met.filter(|&m| stop(m)) {
@@ -3496,13 +3603,13 @@ fn quote_as_until(
                 }
                 visit(g, level, value, depth, mode, &mut tasks, &mut done)?;
             }
-            QuoteTask::Pi(x, i) => {
+            QuoteTask::Pi(x, i, pm) => {
                 let (a, b) = pop2(&mut done);
-                done.push(Term::Pi(x, i, rc(a), rc(b)));
+                done.push(Term::Pi(x, i, rc(a), rc(b), pm));
             }
-            QuoteTask::Lam(x, i) => {
+            QuoteTask::Lam(x, i, pm) => {
                 let b = done.pop().expect("a body");
-                done.push(Term::Lam(x, i, rc(b)));
+                done.push(Term::Lam(x, i, rc(b), pm));
             }
             QuoteTask::Data(d, n) => {
                 let args = done.split_off(done.len() - n);
@@ -3533,9 +3640,9 @@ fn quote_as_until(
                     SpineHead::Term(term) => (term, &shape[..]),
                     SpineHead::Part => (parts.next().expect("a head"), &shape[..]),
                     // The form's own arguments, then what applies its result.
-                    SpineHead::Quot(form, k) => {
+                    SpineHead::Quot(form, k, pm) => {
                         let args = parts.by_ref().take(k).map(Rc::new).collect();
-                        (Term::Quot(form, args, false), &shape[k..])
+                        (Term::Quot(form, args, false, pm), &shape[k..])
                     }
                 };
                 for &elim in shape {
@@ -3543,10 +3650,10 @@ fn quote_as_until(
                         SpineShape::App(icit) => {
                             Term::app_icit(term, parts.next().expect("an argument"), icit)
                         }
-                        SpineShape::J => {
+                        SpineShape::J(pm) => {
                             let motive = parts.next().expect("a motive");
                             let base = parts.next().expect("a base");
-                            Term::J(rc(motive), rc(base), rc(term))
+                            Term::J(rc(motive), rc(base), rc(term), pm)
                         }
                         SpineShape::Proj(d, i) => Term::Proj(d, i, rc(term)),
                     };
@@ -3565,8 +3672,8 @@ enum QuoteTask {
     /// the root.
     Visit(usize, Value, usize),
     /// Assemble from the finished terms on top of the stack:
-    Pi(Name, Icit),
-    Lam(Name, Icit),
+    Pi(Name, Icit, ProofMark),
+    Lam(Name, Icit, ProofMark),
     Data(DataId, usize),
     Ctor(DataId, usize, usize),
     NatAdd(Rc<BigUint>),
@@ -3581,7 +3688,7 @@ enum SpineShape {
     /// An application: one part.
     App(Icit),
     /// A `J`: two parts, its motive and base.
-    J,
+    J(ProofMark),
     /// A projection: no part.
     Proj(DataId, usize),
 }
@@ -3590,7 +3697,7 @@ impl SpineShape {
     fn parts(self) -> usize {
         match self {
             SpineShape::App(_) => 1,
-            SpineShape::J => 2,
+            SpineShape::J(_) => 2,
             SpineShape::Proj(..) => 0,
         }
     }
@@ -3603,7 +3710,7 @@ pub(crate) enum SpineHead {
     Part,
     /// A quotient form, whose arguments are the first this many
     /// eliminations.
-    Quot(QuotForm, usize),
+    Quot(QuotForm, usize, ProofMark),
 }
 
 /// How many of `spine`'s first eliminations are arguments of quotient form
@@ -3717,20 +3824,20 @@ fn visit(
             None => unreachable!("a compact list without `List` and `Char`"),
         }),
         Value::Refl => done.push(Term::Refl),
-        Value::Pi(x, i, a, b) => {
-            tasks.push(QuoteTask::Pi(x, i));
+        Value::Pi(x, i, a, b, pm) => {
+            tasks.push(QuoteTask::Pi(x, i, pm));
             tasks.push(QuoteTask::Visit(
                 level + 1,
-                b.apply(g, Value::var(level))?,
+                b.apply(g, Value::var_marked(level, pm))?,
                 depth + 1,
             ));
             tasks.push(QuoteTask::Visit(level, (*a).clone(), depth + 1));
         }
-        Value::Lam(x, i, b) => {
-            tasks.push(QuoteTask::Lam(x, i));
+        Value::Lam(x, i, b, pm) => {
+            tasks.push(QuoteTask::Lam(x, i, pm));
             tasks.push(QuoteTask::Visit(
                 level + 1,
-                b.apply(g, Value::var(level))?,
+                b.apply(g, Value::var_marked(level, pm))?,
                 depth + 1,
             ));
         }
@@ -3771,12 +3878,12 @@ fn visit(
         // outside the context (whose index would wrap). Values computed with
         // erasure on hold it in their erased fields, and an error message's
         // counterexample puts it for a hypothesis's proof.
-        Value::Neutral(Head::Var(l, _), _) if l == erase::ERASED => {
+        Value::Neutral(Head::Var(l, _, _), _) if l == erase::ERASED => {
             done.push(Term::Meta(ELIDED));
         }
         Value::Neutral(head, spine) => {
             let head = match head {
-                Head::Var(l, _) => {
+                Head::Var(l, _, _) => {
                     debug_assert!(
                         l < level,
                         "internal error: variable at level {l} read back with {level} in scope: \
@@ -3786,7 +3893,7 @@ fn visit(
                 }
                 Head::Def(id) => SpineHead::Term(Term::Def(id)),
                 Head::Meta(m) => SpineHead::Term(Term::Meta(m)),
-                Head::Quot(form) => SpineHead::Quot(form, quot_args_in(form, &spine)),
+                Head::Quot(form, pm) => SpineHead::Quot(form, quot_args_in(form, &spine), pm),
             };
             let mut shape = Vec::with_capacity(spine.len());
             let mut parts = Vec::new();
@@ -3796,8 +3903,12 @@ fn visit(
                         shape.push(SpineShape::App(*i));
                         parts.push(v.clone());
                     }
-                    Elim::J { motive, base } => {
-                        shape.push(SpineShape::J);
+                    Elim::J {
+                        motive,
+                        base,
+                        result,
+                    } => {
+                        shape.push(SpineShape::J(*result));
                         parts.push((**motive).clone());
                         parts.push((**base).clone());
                     }
@@ -3880,8 +3991,18 @@ fn succ_unglued(g: &Ev, field: &Value) -> Result<Value> {
 /// (docs/proposals/proof-irrelevance.md §7.4). Inside, parts are taken left
 /// to right, so earlier parts (which later parts' types depend on) are
 /// compared, or are skipped proofs, first.
+#[track_caller]
 pub fn conv(g: &Ev, level: usize, a: &Value, b: &Value) -> Result<bool> {
-    conv_with(g, level, a, b, &mut CallMemo::default(), Mode::Normal)
+    let same = conv_with(g, level, a, b, &mut CallMemo::default(), Mode::Normal)?;
+    if proof_counts::on() && both_proofs(g, a, b) {
+        proof_counts::record_caller(g, "conv", std::panic::Location::caller(), !same);
+    }
+    Ok(same)
+}
+
+/// Whether `a` and `b` are both marked proofs ([`is_proof`]).
+pub fn both_proofs(g: &Ev, a: &Value, b: &Value) -> bool {
+    is_proof(g, a).is_proof() && is_proof(g, b).is_proof()
 }
 
 /// How proofs are compared (docs/proposals/proof-irrelevance.md §7.2,
@@ -3931,7 +4052,7 @@ fn conv_with(
                 // called again, from where it stopped, if the recursion
                 // doesn't settle it.
                 let mut from = Stage::Calls;
-                loop {
+                let same = loop {
                     let kind = match conv_step(g, level, a, b, from, &mut work, memo, mode)? {
                         Step::Answer(same) => break same,
                         Step::Recurse(kind) => kind,
@@ -3940,9 +4061,15 @@ fn conv_with(
                         Resume::Answer(same) => break same,
                         Resume::From(stage) => from = stage,
                     }
+                };
+                if !same && proof_counts::on() && both_proofs(g, a, b) {
+                    proof_counts::record(g, proof_counts::Kind::DifferentProofs, 1);
                 }
+                same
             }
-            ConvTask::Codomains(level, b1, b2) => codomains(g, level, b1, b2, &mut work)?,
+            ConvTask::Codomains(level, b1, b2, mark) => {
+                codomains(g, level, b1, b2, mark, &mut work)?
+            }
         };
         if !same {
             return Ok(false);
@@ -3960,12 +4087,13 @@ fn codomains(
     level: usize,
     b1: Closure,
     b2: Closure,
+    mark: ProofMark,
     work: &mut Vec<ConvTask>,
 ) -> Result<bool> {
     if same_closure(g, &b1, &b2)? {
         return Ok(true);
     }
-    let fresh = Value::var(level);
+    let fresh = Value::var_marked(level, mark);
     work.push(ConvTask::Values(
         level + 1,
         b1.apply(g, fresh.clone())?,
@@ -3977,7 +4105,8 @@ fn codomains(
 /// Comparison still to do.
 enum ConvTask {
     Values(usize, Value, Value),
-    Codomains(usize, Closure, Closure),
+    /// With the binder's mark, for the fresh variable.
+    Codomains(usize, Closure, Closure, ProofMark),
 }
 
 // Two glued calls of the same definition (D483, docs/proposals/
@@ -4284,7 +4413,6 @@ fn conv_step(
         }
         _ => {}
     }
-    let fresh = Value::var(level);
     // Parts are pushed last-first, so they're compared first-first.
     let push_all = |work: &mut Vec<ConvTask>, xs: &[Value], ys: &[Value]| {
         for (x, y) in xs.iter().zip(ys).rev() {
@@ -4293,18 +4421,24 @@ fn conv_step(
     };
     let same = match (&*a, &*b) {
         (Value::Sort(s), Value::Sort(t)) => s == t,
-        (Value::Pi(_, i1, a1, b1), Value::Pi(_, i2, a2, b2)) => {
+        (Value::Pi(_, i1, a1, b1, m1), Value::Pi(_, i2, a2, b2, m2)) => {
             if i1 != i2 {
                 return Ok(Step::Answer(false));
             }
-            work.push(ConvTask::Codomains(level, b1.clone(), b2.clone()));
+            work.push(ConvTask::Codomains(
+                level,
+                b1.clone(),
+                b2.clone(),
+                m1.or(*m2),
+            ));
             work.push(ConvTask::Values(level, (**a1).clone(), (**a2).clone()));
             true
         }
         // The same function, recognised without running it: comparing its
         // body applied to a fresh variable would find the same value twice.
-        (Value::Lam(_, _, b1), Value::Lam(_, _, b2)) if same_closure(g, b1, b2)? => true,
-        (Value::Lam(_, _, b1), Value::Lam(_, _, b2)) => {
+        (Value::Lam(_, _, b1, _), Value::Lam(_, _, b2, _)) if same_closure(g, b1, b2)? => true,
+        (Value::Lam(_, _, b1, m1), Value::Lam(_, _, b2, m2)) => {
+            let fresh = Value::var_marked(level, m1.or(*m2));
             work.push(ConvTask::Values(
                 level + 1,
                 b1.apply(g, fresh.clone())?,
@@ -4313,7 +4447,8 @@ fn conv_step(
             true
         }
         // Eta: `f` and `x => f x` are equal.
-        (Value::Lam(_, i, b), other) | (other, Value::Lam(_, i, b)) => {
+        (Value::Lam(_, i, b, mark), other) | (other, Value::Lam(_, i, b, mark)) => {
+            let fresh = Value::var_marked(level, *mark);
             work.push(ConvTask::Values(
                 level + 1,
                 b.apply(g, fresh.clone())?,
@@ -4608,10 +4743,12 @@ fn spine_pairs(
                 Elim::J {
                     motive: m1,
                     base: b1,
+                    ..
                 },
                 Elim::J {
                     motive: m2,
                     base: b2,
+                    ..
                 },
             ) => {
                 arguments = false;
@@ -4686,7 +4823,7 @@ pub fn underapplied(g: &Ev, value: &Value) -> Option<Icit> {
         return None;
     }
     match body.peel_lams(spine.len()) {
-        Term::Lam(_, icit, _) => Some(*icit),
+        Term::Lam(_, icit, _, _) => Some(*icit),
         _ => None,
     }
 }
@@ -4763,7 +4900,7 @@ pub fn stuck_on_variable(g: &Ev, value: &Value) -> Option<usize> {
     }
     let tree = Term::peel_lams_rc(body, def.arity);
     match walk_tree(g, tree, args, eta_held(g, *id)).ok()? {
-        TreeEnd::Stuck(_, _, Value::Neutral(Head::Var(level, _), _)) => Some(level),
+        TreeEnd::Stuck(_, _, Value::Neutral(Head::Var(level, _, _), _)) => Some(level),
         // An `if` or a `match` on a call (`if beats m m then …`) waits for
         // whatever that call waits for.
         TreeEnd::Stuck(_, _, scrutinee @ Value::Neutral(Head::Def(_), _)) => {
@@ -5389,11 +5526,11 @@ fn shape_hash(g: &Ev, cache: &mut ShapeCache, value: &Value) -> Result<u64> {
                         std::mem::discriminant(v).hash(&mut h);
                         match v {
                             Value::Sort(s) => s.hash(&mut h),
-                            Value::Pi(_, i, a, b) => {
+                            Value::Pi(_, i, a, b, _) => {
                                 i.hash(&mut h);
                                 parts.extend([Part::Boxed(a), Part::Closure(b)]);
                             }
-                            Value::Lam(_, i, b) => {
+                            Value::Lam(_, i, b, _) => {
                                 i.hash(&mut h);
                                 parts.push(Part::Closure(b));
                             }
@@ -5439,7 +5576,7 @@ fn shape_hash(g: &Ev, cache: &mut ShapeCache, value: &Value) -> Result<u64> {
                                     (0u8, i).hash(&mut h);
                                     parts.push(Part::Value(x));
                                 }
-                                Elim::J { motive, base } => {
+                                Elim::J { motive, base, .. } => {
                                     1u8.hash(&mut h);
                                     parts.extend([Part::Value(motive), Part::Value(base)]);
                                 }
@@ -5478,11 +5615,11 @@ fn shape_hash(g: &Ev, cache: &mut ShapeCache, value: &Value) -> Result<u64> {
                                 (d, c, xs.len()).hash(&mut h);
                                 parts.extend(xs.iter().map(Part::Term));
                             }
-                            Term::Pi(_, i, a, b) => {
+                            Term::Pi(_, i, a, b, _) => {
                                 i.hash(&mut h);
                                 parts.extend([Part::Term(a), Part::Term(b)]);
                             }
-                            Term::Lam(_, i, b) => {
+                            Term::Lam(_, i, b, _) => {
                                 i.hash(&mut h);
                                 parts.push(Part::Term(b));
                             }
@@ -5491,7 +5628,7 @@ fn shape_hash(g: &Ev, cache: &mut ShapeCache, value: &Value) -> Result<u64> {
                                 parts.extend([Part::Term(f), Part::Term(a)]);
                             }
                             Term::Ann(e, ty) => parts.extend([Part::Term(e), Part::Term(ty)]),
-                            Term::Let(_, ty, v, b, s) => {
+                            Term::Let(_, ty, v, b, s, _) => {
                                 s.hash(&mut h);
                                 parts.extend([Part::Term(ty), Part::Term(v), Part::Term(b)]);
                             }
@@ -5500,14 +5637,14 @@ fn shape_hash(g: &Ev, cache: &mut ShapeCache, value: &Value) -> Result<u64> {
                                 parts.extend(ty.iter().map(Part::Term));
                                 parts.extend([Part::Term(x), Part::Term(y)]);
                             }
-                            Term::J(m, b, p) => {
+                            Term::J(m, b, p, _) => {
                                 parts.extend([Part::Term(m), Part::Term(b), Part::Term(p)]);
                             }
                             Term::Proj(d, i, t) => {
                                 (d, i).hash(&mut h);
                                 parts.push(Part::Term(t));
                             }
-                            Term::Quot(f, xs, e) => {
+                            Term::Quot(f, xs, e, _) => {
                                 (f, e, xs.len()).hash(&mut h);
                                 parts.extend(xs.iter().map(Part::Term));
                             }
@@ -5812,12 +5949,12 @@ fn same_layer<'v>(a: &'v Value, b: &'v Value, work: &mut Vec<Same<'v>>) -> bool 
     };
     match (a, b) {
         (Value::Sort(s), Value::Sort(t)) => s == t,
-        (Value::Pi(_, i1, a1, b1), Value::Pi(_, i2, a2, b2)) => {
+        (Value::Pi(_, i1, a1, b1, _), Value::Pi(_, i2, a2, b2, _)) => {
             rc_values(work, a1, a2);
             work.push(Same::Closures(b1, b2));
             i1 == i2
         }
-        (Value::Lam(_, i1, b1), Value::Lam(_, i2, b2)) => {
+        (Value::Lam(_, i1, b1, _), Value::Lam(_, i2, b2, _)) => {
             work.push(Same::Closures(b1, b2));
             i1 == i2
         }
@@ -5860,10 +5997,12 @@ fn same_layer<'v>(a: &'v Value, b: &'v Value, work: &mut Vec<Same<'v>>) -> bool 
                         Elim::J {
                             motive: m1,
                             base: b1,
+                            ..
                         },
                         Elim::J {
                             motive: m2,
                             base: b2,
+                            ..
                         },
                     ) => {
                         work.push(Same::Values(m1, m2));
@@ -5945,12 +6084,12 @@ fn same_term_layer<'v>(a: &'v Term, b: &'v Term, work: &mut Vec<Same<'v>>) -> bo
             xs.iter().zip(ys).for_each(|(x, y)| both(x, y));
             true
         }
-        (Term::Pi(_, i1, a1, b1), Term::Pi(_, i2, a2, b2)) => {
+        (Term::Pi(_, i1, a1, b1, _), Term::Pi(_, i2, a2, b2, _)) => {
             both(a1, a2);
             both(b1, b2);
             i1 == i2
         }
-        (Term::Lam(_, i1, b1), Term::Lam(_, i2, b2)) => {
+        (Term::Lam(_, i1, b1, _), Term::Lam(_, i2, b2, _)) => {
             both(b1, b2);
             i1 == i2
         }
@@ -5964,7 +6103,7 @@ fn same_term_layer<'v>(a: &'v Term, b: &'v Term, work: &mut Vec<Same<'v>>) -> bo
             both(t1, t2);
             true
         }
-        (Term::Let(_, t1, v1, b1, s1), Term::Let(_, t2, v2, b2, s2)) => {
+        (Term::Let(_, t1, v1, b1, s1, _), Term::Let(_, t2, v2, b2, s2, _)) => {
             both(t1, t2);
             both(v1, v2);
             both(b1, b2);
@@ -5980,7 +6119,7 @@ fn same_term_layer<'v>(a: &'v Term, b: &'v Term, work: &mut Vec<Same<'v>>) -> bo
             both(y1, y2);
             true
         }
-        (Term::J(m1, b1, p1), Term::J(m2, b2, p2)) => {
+        (Term::J(m1, b1, p1, _), Term::J(m2, b2, p2, _)) => {
             both(m1, m2);
             both(b1, b2);
             both(p1, p2);
@@ -5993,7 +6132,7 @@ fn same_term_layer<'v>(a: &'v Term, b: &'v Term, work: &mut Vec<Same<'v>>) -> bo
             both(t1, t2);
             true
         }
-        (Term::Quot(f1, xs, e1), Term::Quot(f2, ys, e2)) => {
+        (Term::Quot(f1, xs, e1, _), Term::Quot(f2, ys, e2, _)) => {
             if f1 != f2 || e1 != e2 || xs.len() != ys.len() {
                 return false;
             }
@@ -6058,7 +6197,7 @@ mod tests {
     }
 
     fn lam(c: Closure) -> Value {
-        Value::Lam("x".into(), Icit::Explicit, c)
+        Value::Lam("x".into(), Icit::Explicit, c, ProofMark::Unknown)
     }
 
     /// [`same_closure`] with a kernel's default budget.
@@ -6095,7 +6234,15 @@ mod tests {
     fn kernel_with_pair() -> (crate::globals::Kernel, DefId) {
         let mut g = crate::globals::Kernel::default();
         let ty = Term::Sort(Sort::Type(0));
-        let arrow = |dom: Term, cod: Term| Term::Pi("_".into(), Icit::Explicit, rc(dom), rc(cod));
+        let arrow = |dom: Term, cod: Term| {
+            Term::Pi(
+                "_".into(),
+                Icit::Explicit,
+                rc(dom),
+                rc(cod),
+                ProofMark::Unknown,
+            )
+        };
         let pair_ty = arrow(ty.clone(), arrow(ty.clone(), ty));
         let name: Name = "pair".into();
         let span = stitchwort_syntax::Span::NOWHERE;
@@ -6108,7 +6255,9 @@ mod tests {
                 "y".into(),
                 Icit::Explicit,
                 rc(arrow(Term::Var(1), Term::Var(1))),
+                ProofMark::Unknown,
             )),
+            ProofMark::Unknown,
         );
         crate::check::define_def(&mut g, id, &body).unwrap();
         (g, id)
@@ -6175,6 +6324,7 @@ mod tests {
             Icit::Explicit,
             Shared::new(leaf()),
             closure(vec![], Term::Sort(Sort::Prop)),
+            ProofMark::Unknown,
         );
         let (equal, with, _) =
             conv_both(&ev, &pair_tower(id, 12, leaf()), &pair_tower(id, 12, other));
@@ -6254,7 +6404,13 @@ mod tests {
             };
             let mut value = Value::Sort(Sort::Type(0));
             for _ in 0..DEEP {
-                value = Value::Pi(Name::from("x"), Icit::Explicit, value.into(), closure());
+                value = Value::Pi(
+                    Name::from("x"),
+                    Icit::Explicit,
+                    value.into(),
+                    closure(),
+                    ProofMark::Unknown,
+                );
             }
             value
         });
@@ -6294,6 +6450,7 @@ mod tests {
                         env: Values::from([value]),
                         body: Rc::new(Term::Sort(Sort::Type(0))),
                     },
+                    ProofMark::Unknown,
                 );
             }
             value
@@ -6549,6 +6706,7 @@ mod tests {
                 Icit::Explicit,
                 Rc::new(Value::Sort(Sort::Type(0))).into(),
                 closure(env, call_last()),
+                ProofMark::Unknown,
             )
         };
         let g = crate::globals::Kernel::default();

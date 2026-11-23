@@ -69,7 +69,7 @@ test \"countNested\" := countNested 5 0 == 5
         }
         let body = d.body().expect("a plain form has a body");
         for (t, _) in body.subterms() {
-            if let Term::Let(x, _, _, b, _) = t {
+            if let Term::Let(x, _, _, b, _, _) = t {
                 assert!(
                     x.starts_with('%') || b.mentions(0),
                     "`{}` keeps a dead `let {x}`",

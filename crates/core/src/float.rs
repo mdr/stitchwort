@@ -46,6 +46,7 @@
 
 use crate::ev::Ev;
 use crate::machine::in_kernel_modes;
+use crate::term::ProofMark;
 use std::rc::Rc;
 
 use num_bigint::{BigInt, BigUint, Sign};
@@ -584,8 +585,15 @@ fn float_ty(g: &Ev) -> Option<Term> {
 /// The type primitive `op` must have, for the bound `Float` and the core's
 /// `Text`.
 fn primitive_type(g: &Ev, op: FloatOp) -> Option<Term> {
-    let arrow =
-        |dom: Term, cod: Term| Term::Pi("x".into(), Icit::Explicit, Rc::new(dom), Rc::new(cod));
+    let arrow = |dom: Term, cod: Term| {
+        Term::Pi(
+            "x".into(),
+            Icit::Explicit,
+            Rc::new(dom),
+            Rc::new(cod),
+            ProofMark::Unknown,
+        )
+    };
     let f = float_ty(g)?;
     let data = |d: DataId| Term::Data(d, Vec::new());
     Some(match op.signature() {

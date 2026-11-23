@@ -310,7 +310,7 @@ fn family_statement(cx: &Ctx, goal: &Value) -> Result<Option<(Vec<String>, Neste
             }
             return Ok(Some((names, (*id, heads))));
         }
-        let Value::Pi(name, Icit::Explicit, _, cod) = &v else {
+        let Value::Pi(name, Icit::Explicit, _, cod, _) = &v else {
             return Ok(None);
         };
         let base = if generated(name) {

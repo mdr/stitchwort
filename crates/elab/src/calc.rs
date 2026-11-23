@@ -16,6 +16,7 @@
 //! Elaboration only: the kernel re-checks the result.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Elim, Head, force};
@@ -426,7 +427,12 @@ fn combine(cx: &mut Ctx, start: &Term, ty_term: &Rc<Term>, acc: Link, step: Step
             let motive = motive(ordering_of(cx, r, Term::Var(1), c)?);
             (
                 r,
-                Term::J(Rc::new(motive), Rc::new(step.proof.clone()), Rc::new(sym)),
+                Term::J(
+                    Rc::new(motive),
+                    Rc::new(step.proof.clone()),
+                    Rc::new(sym),
+                    ProofMark::Unknown,
+                ),
             )
         }
         (r, Rel::Eq) => {
@@ -438,6 +444,7 @@ fn combine(cx: &mut Ctx, start: &Term, ty_term: &Rc<Term>, acc: Link, step: Step
                     Rc::new(motive),
                     Rc::new(acc.proof.clone()),
                     Rc::new(step.proof.clone()),
+                    ProofMark::Unknown,
                 ),
             )
         }
@@ -481,7 +488,13 @@ fn motive(body: Term) -> Term {
     Term::Lam(
         "w".into(),
         Icit::Explicit,
-        Rc::new(Term::Lam("q".into(), Icit::Explicit, Rc::new(body))),
+        Rc::new(Term::Lam(
+            "q".into(),
+            Icit::Explicit,
+            Rc::new(body),
+            ProofMark::Unknown,
+        )),
+        ProofMark::Unknown,
     )
 }
 

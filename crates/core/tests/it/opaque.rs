@@ -7,6 +7,7 @@
 //! syntax (`opaque def`, `unfolding`) comes in lane 2.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use crate::common::*;
 use stitchwort_core::check::{self, define_group};
@@ -522,7 +523,12 @@ fn opaque_calls_with_different_proofs() {
         "n",
         lam(
             "proof",
-            Term::J(Rc::new(motive), Rc::new(v(1)), Rc::new(v(0))),
+            Term::J(
+                Rc::new(motive),
+                Rc::new(v(1)),
+                Rc::new(v(0)),
+                ProofMark::Unknown,
+            ),
         ),
     );
     let opaque_k = submit(&mut p.g, "k", OPAQUE, ty, uses).unwrap();

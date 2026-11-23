@@ -36,6 +36,7 @@
 //! the arms of a `match` reuse each other's slots (`Lowerer::mark`).
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::budget::Result;
 use stitchwort_core::registry::Builtin;
@@ -168,7 +169,12 @@ impl Dispatch {
         };
         let mut closure = body;
         for name in ["s", "jump", "k", "o"].into_iter().skip(4 - new) {
-            closure = Term::Lam(name.into(), Icit::Explicit, Rc::new(closure));
+            closure = Term::Lam(
+                name.into(),
+                Icit::Explicit,
+                Rc::new(closure),
+                ProofMark::Unknown,
+            );
         }
         let bound = bound
             .iter()
@@ -205,10 +211,15 @@ fn inline_call(g: &Ev, id: DefId, args: &[Term], also: Option<DefId>) -> Result<
     }
     let mut lams = tree.as_ref().clone();
     for _ in 0..arity {
-        lams = Term::Lam("x".into(), Icit::Explicit, Rc::new(lams));
+        lams = Term::Lam(
+            "x".into(),
+            Icit::Explicit,
+            Rc::new(lams),
+            ProofMark::Unknown,
+        );
     }
     for arg in &args[..arity] {
-        let Term::Lam(_, _, inner) = &lams else {
+        let Term::Lam(_, _, inner, _) = &lams else {
             unreachable!("a lambda per parameter")
         };
         let next = inner.instantiate(g, arg)?;

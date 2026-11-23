@@ -34,6 +34,7 @@ pub mod native;
 pub mod partial;
 pub mod pins;
 pub mod pretty;
+pub mod proof_counts;
 #[cfg(any(test, feature = "reference"))]
 pub mod reference;
 pub mod registry;
@@ -49,5 +50,5 @@ pub use env::Env;
 pub use ev::{Ev, Metas, NoMetas, NoShown, Shown};
 pub use globals::Kernel;
 pub use num_bigint::BigUint;
-pub use term::{DataId, DefId, Icit, MAX_LEVEL, Name, QuotForm, Sort, Term};
+pub use term::{DataId, DefId, Icit, MAX_LEVEL, Name, ProofMark, QuotForm, Sort, Term};
 pub use value::Value;

@@ -487,7 +487,7 @@ fn constant(g: &Ev, s: &Shapes, d: Value) -> Result<Built> {
 /// The continuation of a `Call`.
 fn cont(s: &Shapes, rest: &Value) -> Cont {
     // `y => Done y`, as the elaborator writes a request or an operation.
-    if let Value::Lam(_, _, closure) = rest {
+    if let Value::Lam(_, _, closure, _) = rest {
         let mut body = closure.body.as_ref();
         while let Term::Loc(_, t) | Term::Ann(t, _) = body {
             body = t;

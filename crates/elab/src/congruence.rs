@@ -643,7 +643,7 @@ pub(crate) fn sketch(g: &Ev, f: DefId) -> String {
                     let mut args = String::new();
                     let mut t = b.ty.strip_loc();
                     let fresh = ["x", "y", "z", "w"];
-                    while let Term::Pi(y, _, dom, cod) = t {
+                    while let Term::Pi(y, _, dom, cod, _) = t {
                         let y: String = match y.as_ref() {
                             "_" | "" => fresh
                                 .get(inner.len() - names.len())

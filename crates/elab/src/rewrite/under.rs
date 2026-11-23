@@ -25,6 +25,7 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{eval, force};
@@ -309,7 +310,7 @@ fn by_lemma(
     let mut ty = eval(&g, &[], g.def(desc.lemma).ty())?;
     let mut lemma_args: Vec<(Term, Icit)> = Vec::new();
     for level in 0..desc.params {
-        let Value::Pi(_, icit, dom, rest) = force(&g, ty)? else {
+        let Value::Pi(_, icit, dom, rest, _) = force(&g, ty)? else {
             snapshot.restore(cx);
             return Ok(None);
         };
@@ -322,7 +323,7 @@ fn by_lemma(
     }
     let mut premises = Vec::new();
     for _ in &desc.callbacks {
-        let Value::Pi(_, icit, premise, rest) = force(&g, ty)? else {
+        let Value::Pi(_, icit, premise, rest, _) = force(&g, ty)? else {
             snapshot.restore(cx);
             return Ok(None);
         };
@@ -453,7 +454,7 @@ fn binder_names(function: &Term, callback: &congruence::Callback) -> Vec<(Name, 
             t = inner.strip_loc();
         }
         match t {
-            Term::Lam(name, _, body) if i < callback.vars => {
+            Term::Lam(name, _, body, _) if i < callback.vars => {
                 names.push((name.clone(), b.icit));
                 t = body.strip_loc();
             }
@@ -469,7 +470,7 @@ fn binder_names(function: &Term, callback: &congruence::Callback) -> Vec<(Name, 
 
 fn lams(names: &[(Name, Icit)], body: Term) -> Term {
     names.iter().rev().fold(body, |body, (x, icit)| {
-        Term::Lam(x.clone(), *icit, Rc::new(body))
+        Term::Lam(x.clone(), *icit, Rc::new(body), ProofMark::Unknown)
     })
 }
 
@@ -491,7 +492,7 @@ fn rewrite_premise(
     let mark = cx.mark();
     let mut ty = premise.clone();
     for (name, _) in names {
-        let Value::Pi(_, _, domain, rest) = force(&g, ty)? else {
+        let Value::Pi(_, _, domain, rest, _) = force(&g, ty)? else {
             cx.reset(mark);
             return Ok(None);
         };
@@ -615,6 +616,7 @@ fn rewrite_body(
                     Rc::new(step.motive),
                     Rc::new(proof.clone()),
                     Rc::new(step.proof),
+                    ProofMark::Unknown,
                 );
                 changed = true;
                 return Ok(true);
@@ -837,7 +839,7 @@ theorem fixed (mulSucc: (a: Nat) -> (b: Nat) -> a * Succ b = a + a * b) (k: Nat)
     fn a_function_is_wanted_if_it_may_hold_an_occurrence_using_its_variable() {
         let f = DefId(7);
         let app = |h: Term, a: Term| Term::app(h, a);
-        let lam = |b: Term| Term::Lam("i".into(), Icit::Explicit, Rc::new(b));
+        let lam = |b: Term| Term::Lam("i".into(), Icit::Explicit, Rc::new(b), ProofMark::Unknown);
         let keys = Keys {
             computed: Key::Def(f, 1),
             written: Some(Key::Def(f, 2)),
@@ -866,7 +868,12 @@ theorem fixed (mulSucc: (a: Nat) -> (b: Nat) -> a * Succ b = a + a * b) (k: Nat)
                 binders,
                 vars,
             };
-        let lam = Term::Lam("box".into(), Icit::Explicit, Rc::new(Term::Var(0)));
+        let lam = Term::Lam(
+            "box".into(),
+            Icit::Explicit,
+            Rc::new(Term::Var(0)),
+            ProofMark::Unknown,
+        );
         let names = binder_names(&lam, &callback(vec![binder("x")], 1));
         assert_eq!(&*names[0].0, "box");
         let names = binder_names(

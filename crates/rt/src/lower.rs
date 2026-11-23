@@ -8,6 +8,7 @@
 
 use std::cell::OnceCell;
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use num_bigint::BigInt;
 use stitchwort_core::collections::HashMap;
@@ -810,10 +811,10 @@ impl<'g> Lowerer<'g> {
                 self.application(head, &args)?
             }
             Term::Lam(..) => self.lambda(term)?,
-            Term::Let(_, _, value, body, erased) => self.let_(value, body, *erased)?,
+            Term::Let(_, _, value, body, erased, _) => self.let_(value, body, *erased)?,
             Term::Ctor(d, c, args) => self.ctor(term, *d, *c, args)?,
             // Proofs are erased, and transport along an equality does nothing.
-            Term::J(_, base, _) => self.expr(base)?,
+            Term::J(_, base, _, _) => self.expr(base)?,
             Term::Proj(d, i, t) => {
                 let fields = self.g.data(*d).ctors()[0].fields.len();
                 self.expr(&Term::proj_as_match(*d, *i, fields, t.clone()))?
@@ -831,8 +832,8 @@ impl<'g> Lowerer<'g> {
             // the usual path, so `f`'s own type decides which arguments it
             // takes (§7.4.2). Erased-result lifts, `Quot.ind` and
             // `Quot.sound` are proofs or types.
-            Term::Quot(QuotForm::Mk, args, false) => self.expr(&args[2])?,
-            Term::Quot(QuotForm::Lift, args, false) => {
+            Term::Quot(QuotForm::Mk, args, false, _) => self.expr(&args[2])?,
+            Term::Quot(QuotForm::Lift, args, false, _) => {
                 let f_q = Term::App(args[3].clone(), args[5].clone(), Icit::Explicit);
                 self.expr(&f_q)?
             }
@@ -889,7 +890,7 @@ impl<'g> Lowerer<'g> {
         for arg in args {
             // (An error ends lowering, so the scope needn't be restored.)
             let value = self.expr(arg)?;
-            let Term::Lam(_, _, inner) = body else {
+            let Term::Lam(_, _, inner, _) = body else {
                 rest.push(value);
                 continue;
             };
@@ -1040,7 +1041,12 @@ impl<'g> Lowerer<'g> {
                 spine = Term::App(Rc::new(spine), Rc::new(Term::Var(k)), Icit::Explicit);
             }
             for _ in 0..missing {
-                spine = Term::Lam("x".into(), Icit::Explicit, Rc::new(spine));
+                spine = Term::Lam(
+                    "x".into(),
+                    Icit::Explicit,
+                    Rc::new(spine),
+                    ProofMark::Unknown,
+                );
             }
             for (j, i) in bound.iter().enumerate().rev() {
                 let value = args[*i].shift(self.g, j, 0)?;
@@ -1050,6 +1056,7 @@ impl<'g> Lowerer<'g> {
                     Rc::new(value),
                     Rc::new(spine),
                     false,
+                    ProofMark::Unknown,
                 );
             }
             return self.expr(&spine);
@@ -1168,7 +1175,7 @@ impl<'g> Lowerer<'g> {
     }
 
     fn branch(&mut self, term: &Term) -> Result<Expr> {
-        if let Term::Lam(_, _, body) = strip(term) {
+        if let Term::Lam(_, _, body, _) = strip(term) {
             self.env.push(Bind::Erased);
             let out = self.expr(body);
             self.env.pop();
@@ -1205,14 +1212,14 @@ impl<'g> Lowerer<'g> {
 
     /// [`Self::lambda`], marked as a handler's dispatch if `dispatch`.
     fn closure(&mut self, term: &Term, dispatch: bool) -> Result<Expr> {
-        if let Term::Lam(_, _, body) = strip(term)
+        if let Term::Lam(_, _, body, _) = strip(term)
             && is_done_continuation(self.g, body)
         {
             return Ok(Expr::DoneK);
         }
         let mut params = 0;
         let mut body = strip(term);
-        while let Term::Lam(_, _, inner) = body {
+        while let Term::Lam(_, _, inner, _) = body {
             params += 1;
             body = strip(inner);
         }
