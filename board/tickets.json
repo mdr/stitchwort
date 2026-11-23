@@ -33085,14 +33085,14 @@
     {
       "id": 4661,
       "title": "[Sonnet] If theorems are sealed by default: rewrite's search (same_shifted, crates/elab/src/matching.rs) compares constructor arguments at proof positions syntactically; skip them as conversion does (SW-4659 finding; one occurrence so far, PrefixSums.atOf)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nStarted 23 Nov 11:56 on Opus (rewrite is a core tactic, D2506). Expected: 35 min. Under D3723 (aim: proof irrelevance); the audit SW-4672 condition E applies.\n",
       "created": "2026-11-22",
-      "updated": "2026-11-22",
+      "updated": "2026-11-23",
       "commits": []
     },
     {
