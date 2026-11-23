@@ -1,5 +1,5 @@
 {
-  "next": 4701,
+  "next": 4702,
   "tickets": [
     {
       "id": 47,
@@ -33691,6 +33691,19 @@
         "f61e8ad6d3933e189adef64e42f616220dba4534",
         "4948dfae3b1309a7dacf9f22c49fedd80255ecc3"
       ]
+    },
+    {
+      "id": 4701,
+      "title": "[Opus] Interface hashes (full proof irrelevance stage 2 = sealed-theorems.md stage 2): a theorem referred to by its interface hash (tag theorem + statement), full hash kept for the proof; reliance (axioms, open goals) stays on the walk; test-cache key covers reliance. Measure: editing a proof in std changes no dependant's hash (a test)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
     }
   ]
 }
