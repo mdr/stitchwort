@@ -18,8 +18,8 @@ Main.viaType 0ad6eefe40cc564cdff58d5c4037dc5d23d2ea9128fdfb52a8cbba8451e9116d
 Main.viaType.%match2 704dbe7bb7ab8182304c04e16fea2a6ec86abe4fdc55fe46f57faad620422e52
 Main.viaType.%match1 b4fe949494f4551d551b91f878c9a74035bdb104cfae7c59119800644d63b052
 Main.Box 50280d4b32e67bab0ebf30042a82e3430a0add4d771d8b72e7ad253b96edf403
-Main.test "the let's value, in the branch" 7ca1f58c893d8408f7e4d8589ad934208e2dcbf4ed6e03f9b67692a4ae3f8e43
-Main.test "the let's value, in the other branch" 84e54ddce7fc1c12ed450e20bcea881effa85cfcbcfb619ba3743baa67476658
-Main.test "the inner match's other arm" 29789953e1c4fa5e4f04185030c4afc4e216cb951baaf79e7d774499e138397e
-Main.test "a let of two arguments" 21899148b16c52d4d5902397c5e545484caca77d91e8d209d4e71695bcd02c68
-Main.test "the let's type" a496b470d27e9e83b12a44c32b99e5456bfd237196cad2afc17f2d6a839425a6
+Main.test "the let's value, in the branch" 82d8fd63a95f978fa60633c2c3bcd3a69d000fe1e51a5c8ba0d0baa47d76b0d7
+Main.test "the let's value, in the other branch" 6f91fd88a15dbc86f78161a6ffacabeae588126d1c77a3cede87a754513d4621
+Main.test "the inner match's other arm" 2157e0950aeec329b96607713a3214f62de381b938747e4f920afc885becc007
+Main.test "a let of two arguments" 2d7f22ca5b11bd9b663634e01bb085a393566f8339db1a63b34a634e95d4f6dc
+Main.test "the let's type" 37fd4f5ebc9220a80cfcaa825d96cb3afaff43af49859ff3fd0742059ba55414

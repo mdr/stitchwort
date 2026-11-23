@@ -17,6 +17,7 @@ mod eta_hold;
 mod function_equations;
 mod function_induct;
 mod generated_rows;
+mod interface_hashes;
 mod nat_add_rule;
 mod nested_oracle;
 mod partial;

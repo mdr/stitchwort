@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
-assertion_line: 354
 expression: "lines(session, d, f)"
 ---
 Main.double c414829fcf948e152547254fc0230633967d54f7573e5a51086a043fc952c88e
@@ -9,10 +8,10 @@ Main.successors b293dbfe2fe821d606dc578ca96f2f0f8f261364c19f941a26552c3caeeb1a35
 Main.tails 6468d519e706c5a8821d7517c0a94979c468b5335574562e1998048a34fa419c
 Main.mapPure ad17a4ee11cc7c668c0fb97d2f5671946f07cc5dd5486fab32b1e88af242c00f
 Main.mapEmptyRow ad17a4ee11cc7c668c0fb97d2f5671946f07cc5dd5486fab32b1e88af242c00f
-Main.doubledOrFail 92c78fa4e8d880194bf220c1f131013ab05809a0c5d60f006bbbcf2b7fadfb1e
-Main.test "map with a named function" 744dcf3f42085bacc8af15c0f1a563daf29ed1e3e1b0619a713b088ebf432ab9
-Main.test "map with a constructor" 0bf549cc347f0b2d29973f8cb582df405ab6d7d58333651ca17b3cd98d7d3edd
-Main.test "map with a partial application" 42e809f551d83a7f36c476e6e26be6c1a6610a49d57f39a84292fff2fef7910e
-Main.test "map with a pure parameter" a471e69a6b96fa3c517dcd002e27ab44ce2e4dc861f49abdecafcca4cda6e4b3
-Main.test "map with an empty-row parameter" 35f399c0a72c5404ab7e2c42b924efe465e7f5f7c9d71dc6dd7b4fe566a7bea9
-Main.test "map with a pure callback in a failing computation" 3510a63fb5abdc151220bd8d2c674b2df3cbd007122dd09454dcd773052db04e
+Main.doubledOrFail c253917ba2c90899301d1cb36d8aad2f70d8b736b1f8aadeb09f6f934470ece1
+Main.test "map with a named function" 63a04972e98ac02986b6755352b889c8f46514204adcae0f59080c504da9831a
+Main.test "map with a constructor" e324cb8b7d53e1310379798420c84ca00da9f3a4abd4ddb437da379ea8311e83
+Main.test "map with a partial application" ea13ddfe075bf5e4e2707a6703ea37d4cf9319907bedd7c8546623541c87e8b1
+Main.test "map with a pure parameter" ac4e899b4ff9fde0513039df679ea6412664ff8006cbd0c7bab0cc33cbf6506c
+Main.test "map with an empty-row parameter" ec385f560b8fec6d821f3630c3b22a89b83c35a2b826cfc93f9f987b0fed3bad
+Main.test "map with a pure callback in a failing computation" 6a6b8267569d15b5b224641959d954ac8c4d6dcb12c5b477161cb55191b9fdd4

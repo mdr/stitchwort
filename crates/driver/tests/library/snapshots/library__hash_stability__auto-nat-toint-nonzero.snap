@@ -4,7 +4,7 @@ expression: "lines(session, d, f)"
 ---
 Main.modByNat e146c87a699f4d01a09f3bdf1dfa56eebfd1e0275268e1a59dfa9bb7abdc8893
 Main.divByNat 5ce5efac1ed8178c8e5d293ff8d324e8e8b309de2082a4deef3268c095d23535
-Main.modByNatNonneg 703562700b2c373b2627a59da5e65591a1f518c6739007cd5af18dee4bab3714
-Main.test "remainder by a natural" 554743a8f50a6ea6a76f257b2346c299904a7b496b5bf72e6790a7c32227aaab
-Main.test "division by a natural" ae5cc6c0d23336a44e72905a3c57b0b9cdb4490d124220be1b99448e579b3d1a
-Main.test "a negative remainder" aafe9466484399ec41681b358e63c260e081a2712e713dbdea656690b20b47c5
+Main.modByNatNonneg 810ef2f8282bf2b461d6b05f76b9d1e60ecaa0f15b968123b63f6d4b556e8aac
+Main.test "remainder by a natural" bc8fc8650d6d34c6ea04568737b2a8f82c3207838fe87dc456f4536559de0c28
+Main.test "division by a natural" abc7aa6288fe03a684f2e15edae6f2cc26973b9606a3c97995e358787a10d43b
+Main.test "a negative remainder" f68e1f740fadb6e320bda70f9c481db8a12d040600901cf56c7d1e1a58f1caa2

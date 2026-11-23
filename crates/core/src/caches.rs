@@ -17,6 +17,8 @@ pub struct EvalCaches {
     /// Content hashes computed so far. Declarations never change once
     /// checked, so these never go stale.
     pub hashes: RefCell<HashMap<HashKey, ContentHash>>,
+    /// Theorems' interface hashes (`hash::interface_hash`), computed so far.
+    pub(crate) interfaces: RefCell<HashMap<DefId, ContentHash>>,
     /// What each definition erases, worked out on first use from its type,
     /// which never changes once it's final (`erase.rs`).
     pub(crate) erasure_defs: RefCell<Vec<Option<Rc<DefErasure>>>>,
@@ -44,6 +46,7 @@ impl EvalCaches {
             HashKey::Def(id) => id.0 < defs,
             HashKey::Data(d) => d.0 < datas,
         });
+        self.interfaces.borrow_mut().retain(|id, _| id.0 < defs);
         self.erasure_defs.borrow_mut().truncate(defs);
         self.proof_positions.borrow_mut().truncate(defs);
         let kept = |d: &Decl| match d {

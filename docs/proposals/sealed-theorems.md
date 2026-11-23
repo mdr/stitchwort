@@ -387,6 +387,17 @@ rule P they are also equal to the checker), and it is the same choice as hashing
 
 Hash snapshots: every hash downstream of a theorem changes once; no migration concern.
 
+**As built** (SW-4701): the interface hash is taken for a final theorem with a proof
+(`def.theorem`); a `def` whose type is a proposition is frozen by rule F too, but is still
+referred to by its full hash, as the brief and this section say. A `?` and a stand-in are
+referred to by their own hashes. `proofless_hash` is kept apart: it also blanks proof
+arguments, which rule I makes harmless now, but it exists for the refactoring tools'
+`ProofsOnly` promise, not identity. Pins stay on full hashes (a pin certifies the checked
+declaration, finished). The test cache's key adds the goals a test relies on; the check
+cache's dependency records keep full hashes (`def_hash`), so a proof edit still misses there
+until stage 3. A computing definition in a group with a theorem still covers the group,
+proofs included.
+
 ### 3.9 Check cache, editor, parallel checking, performance
 
 - **Check cache.** An entry's key covers "the unit's text and its dependencies' keys", so any
@@ -463,7 +474,7 @@ opt-outs would be many (I'd say more than a few dozen declarations, or any sprea
 |---|---|---|---|
 | 0 | A test-only switch (`STITCHWORT_SEAL_THEOREMS=1`): every theorem submitted opaque with an empty list. No language change | Overmind runs std, `tools/fmt`, AoC, roguelike, examples with it: the declarations that fail, classed as cast / match-into-data / comparison; the lemmas they would need transparent, with the closure through their proofs | Sonnet, small |
 | 1 | `transparent theorem`; theorems sealed by default; theorems refused in `unfolding` lists; messages ("`B` is a theorem, so its proof isn't used here"); guide, syntax, both formatters, `docs/core.md` | everything checks; `STITCHWORT_THEOREM_UNFOLDS` reports unfoldings only of transparent theorems; steps before and after on `tools/fmt` | Opus (kernel, syntax) |
-| 2 | Interface and full hashes; reliance kept on the walk; test-cache key | edit a proof in std: no dependant's hash changes (a test); hash snapshots re-recorded once | Opus |
+| 2 | Interface and full hashes; reliance kept on the walk; test-cache key | edit a proof in std: no dependant's hash changes (a test); hash snapshots re-recorded once | Opus. **Done** (SW-4701, 23 Nov 2026): `hash::interface_hash`, used for every reference in content hashes; `crates/driver/tests/proofs/interface_hashes.rs` edits a proof and finds the theorem's full hash moved and no user's (a definition, a theorem, a test), a changed statement or a proof with an error moving every user's, and a `?` reaching users through reliance and the test-cache key; 730 of 811 hash snapshots moved once, five pins (`Nat.equalSound`, `Float.neg`, `abs`, `sub`, `decEq`) moved with no library change |
 | 3 | Check-cache keys by interface digest | edit a proof in a low namespace of `tools/fmt`: number of namespaces re-checked, before and after | Opus, after a short note |
 | 4 | Rule P | opt-outs removed; test of record extended (transitivity) | Opus + Fable review |
 | 5 | Rule S | opt-outs removed; soundness examples | Opus + Fable review |

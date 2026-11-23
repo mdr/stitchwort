@@ -887,7 +887,8 @@ impl Kernel {
     /// What the derived caches still hold for declarations from `mark` on,
     /// which [`Kernel::forget_since`] removed: content hashes (read by pin
     /// checks and cache keys, so one left for a removed id would be read
-    /// again once the id is reused, and those without proofs) and erasure
+    /// again once the id is reused, those without proofs, and theorems'
+    /// interface hashes) and erasure
     /// (and proof positions), and reliance on open goals. `None` if nothing.
     pub fn derived_state_since(&self, mark: &KernelMark) -> Option<String> {
         let past = |k: &HashKey| match k {
@@ -899,6 +900,9 @@ impl Kernel {
             .count()
             + (self.caches.proofless.borrow().keys())
                 .filter(|k| past(k))
+                .count()
+            + (self.caches.interfaces.borrow().keys())
+                .filter(|id| id.0 >= mark.defs)
                 .count();
         let erasure = (self.caches.erasure_defs.borrow().len()).saturating_sub(mark.defs)
             + (self.caches.proof_positions.borrow().len()).saturating_sub(mark.defs);

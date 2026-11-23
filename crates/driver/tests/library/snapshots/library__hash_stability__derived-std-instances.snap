@@ -2,13 +2,13 @@
 source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
-Main.test "a record of the library compares" fca4178155a4c8d961d1834825c37fb4baec12e145837297da85f68455fc44c6
-Main.test "records differing in a field are unequal" 2566faaecef9012ca4464a9cfec5744679519be44c1c29c42154a898757e21bf
-Main.test "a record of the library orders by its fields in turn" dabd0f504b9fff148b6cc19c74a76c731f61cd5017dda7124cb188c8858aa5b7
-Main.test "its text lists the fields" aeb111507e5bd495d0a4f181cb051b701ce63cba1bc4b68ffa7a5654553ac77e
-Main.test "keys compare and keep their declaration order" 9666f700b949372f94e60f23e968d7538dbd62fbabaaf08f7883815de86b0e2a
-Main.test "the kinds of a path" c8e01e1e8d541221567536f83b31d96f3a6a2d22913c473254dc52214f702b4c
-Main.test "file errors compare by constructor, then by what they carry" 70b07c7787aa6832fdfc5c59212e96e855ebe03a4f6c3b702bc270ce4db78641
-Main.test "entries and file information compare" d8bf8da6c897789d308da04151ae1885ab898b444ab18e3f8f4ef8ae357eddd3
-Main.test "paths order by parts, then relative before absolute" 8d210a98581f2027a3847443a7c50b3a2becc72e044853594504b9173d8c6bbe
-Main.test "disks compare" 84a21a6dcee86cc744d7406e7049e53d26bab033cf94c6922eccf5be222f3ff3
+Main.test "a record of the library compares" 0f2a4ee1d9e8d359f1198011621a2ec57036d4d5fea49a64d90d80706dd7b2fc
+Main.test "records differing in a field are unequal" ca182f205b0b762bfd06f6956e81e164b4b9394c42e3dcefcd45eaa7be5f40b1
+Main.test "a record of the library orders by its fields in turn" e6ca121891069019a676ec8e63b33b4d8bfbce50770b95c7b9c1d14437feb236
+Main.test "its text lists the fields" 4b12c12dd079a9a040d4cb837d8b087468301b55575bf4d31cd179268f2b0993
+Main.test "keys compare and keep their declaration order" db965976463c5f21d48f50116647a719aacb6d7231a9ec8e2dece69a6b12b646
+Main.test "the kinds of a path" c1c7539dfe2a63ce88fbe4da3fd0ceda25824dec03427ffa3fcb79c130524564
+Main.test "file errors compare by constructor, then by what they carry" 71fb52548af8c1adc0522d1ceb478865dac431bdf89b5342f42bf37862c62095
+Main.test "entries and file information compare" 6f92554aefd11c4350f66de1147325fca3132cbf9abaaaa8f54ce4e0f789bd41
+Main.test "paths order by parts, then relative before absolute" 013defec071f5280d52a55c4122455b17dc606a054695976b76768523d847752
+Main.test "disks compare" 06fbea016c3b5b1ef1dbc693aeaf56e6c27e0e5b7e77d2346f16d957ce4baad3

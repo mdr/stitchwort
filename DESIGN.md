@@ -746,7 +746,7 @@ A definition's hash covers its **whole elaborated declaration**:
 
 - its **type** as well as its body. A proof's body alone doesn't identify which proposition it proves.
 - its universe, ability and erasure information, and the identities of any primitives it uses.
-- the hashes of everything it refers to, in its type or its body. Local variables are replaced by positions (de Bruijn indices), so renaming them changes nothing.
+- the hashes of everything it refers to, in its type or its body. Local variables are replaced by positions (de Bruijn indices), so renaming them changes nothing. A theorem it refers to is hashed by its statement alone (its *interface hash*): proofs never compute, and any two proofs of one statement are equal, so nothing that uses a theorem depends on which proof it has, and editing a proof changes only the theorem's own hash ([docs/core.md](docs/core.md#tests-and-content-hashes), docs/proposals/sealed-theorems.md §3.8).
 
 **Names of functions and values aren't part of the hash.** Renaming a function doesn't invalidate anything.
 
@@ -767,7 +767,7 @@ Stable identifiers written in the source can come later if needed.
 | Source → elaborated declaration | Hash of the declaration's source text, the **whole-declaration hashes** of its dependencies, and the set of registered decision procedures | Elaborated core declaration | Built per unit instead (next row) |
 | Check cache: a library file or project namespace → its elaborated, kernel-checked declarations | The compiler build, modes and limits, the unit's text, and the keys of the units it depends on | Declarations, admitted without checking again | Built ([check-cache.md](docs/proposals/check-cache.md)) |
 | Kernel check | Definition hash | Accepted / rejected | Covered by the check cache |
-| Test result | Test hash | Pass / fail | Built |
+| Test result | Test hash, and the open goals it relies on | Pass / fail | Built |
 | Generated JS | Definition hash + export names + representation options | JS and `.d.ts` | Not built |
 
 Every key also includes the compiler version. The test-result key also includes a fingerprint of the compiler's source and the evaluation modes (natives, compact text), so a result is never reused by another build, or with natives switched off ([docs/core.md](docs/core.md#tests-and-content-hashes)).
