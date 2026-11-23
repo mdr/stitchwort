@@ -299,7 +299,12 @@ of work to fit it:
   you did, what you didn't do, and which tests you ran. Paper lanes
   following `dev/briefs/` don't touch the board.
 - The shell's `sed` is GNU, not macOS's: `sed -i 's/a/b/' f`, never
-  `sed -i '' …` (it failed in four lanes on 22 Nov 2026).
+  `sed -i '' …` (it failed in four lanes on 22 Nov 2026). The shell is zsh:
+  an unquoted `$files` is one word, so loop with `xargs` or an array. To
+  squash your commits, reset onto `git merge-base HEAD main`, never onto
+  `main` itself, which stages reversals of everything merged since you
+  started. Copy the release binary to your scratch folder before a long
+  loop that uses it, if you may rebuild meanwhile.
 - Keep to your brief's time estimate: run `date` at the start and at each
   milestone. At 1.5× the estimate, stop and report (done, left, new
   estimate, stuck or not); at 3×, stop regardless.
