@@ -1,5 +1,5 @@
 {
-  "next": 4705,
+  "next": 4706,
   "tickets": [
     {
       "id": 47,
@@ -33419,7 +33419,7 @@
     {
       "id": 4682,
       "title": "[Sonnet] Docs: say in docs/workflow.md that examples::accepted_examples_check is one test running every accept example, so a lane widening a soundness regex runs the whole suite; and how to compare a std declaration's kernel term between main and a lane (STITCHWORT_DUMP_KERNEL prints nothing for library declarations) (SW-4674 friction)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33427,7 +33427,14 @@
       "body": "",
       "created": "2026-11-23",
       "updated": "2026-11-23",
-      "commits": []
+      "commits": [
+        "28215f85512d11ee2348314ac7a22ca19936d5af",
+        "e7fffe03b07560adb5e1d6de430e129e356c6334",
+        "7280bddd0288a5e191f28655f4238cba3f47b74c",
+        "4ed5f4c4a9f826f3451b3c88ea79b2e0175380b8",
+        "101f252d7efe0f8ef2679aa58fa732e32fe2db7b",
+        "ca7c5f296d4080065368f878665637bffff474e0"
+      ]
     },
     {
       "id": 4683,
@@ -33450,7 +33457,7 @@
     {
       "id": 4684,
       "title": "[Sonnet] Search: import_library_namespaces ignores add_imports diagnostics, so one std namespace that fails to import silently drops every library name (SW-4683 cause); assert or test that the line imports cleanly",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33458,7 +33465,14 @@
       "body": "",
       "created": "2026-11-23",
       "updated": "2026-11-23",
-      "commits": []
+      "commits": [
+        "28215f85512d11ee2348314ac7a22ca19936d5af",
+        "e7fffe03b07560adb5e1d6de430e129e356c6334",
+        "7280bddd0288a5e191f28655f4238cba3f47b74c",
+        "4ed5f4c4a9f826f3451b3c88ea79b2e0175380b8",
+        "101f252d7efe0f8ef2679aa58fa732e32fe2db7b",
+        "ca7c5f296d4080065368f878665637bffff474e0"
+      ]
     },
     {
       "id": 4685,
@@ -33682,7 +33696,7 @@
     {
       "id": 4699,
       "title": "[Sonnet] differential::the_evaluators_agree_on_the_prelude_and_every_example: on a panic name the example and comparison (as within_budget labels its skips); a stage 5 panic cost two full 5-minute runs to locate (SW-4693 friction)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33690,7 +33704,14 @@
       "body": "",
       "created": "2026-11-23",
       "updated": "2026-11-23",
-      "commits": []
+      "commits": [
+        "28215f85512d11ee2348314ac7a22ca19936d5af",
+        "e7fffe03b07560adb5e1d6de430e129e356c6334",
+        "7280bddd0288a5e191f28655f4238cba3f47b74c",
+        "4ed5f4c4a9f826f3451b3c88ea79b2e0175380b8",
+        "101f252d7efe0f8ef2679aa58fa732e32fe2db7b",
+        "ca7c5f296d4080065368f878665637bffff474e0"
+      ]
     },
     {
       "id": 4700,
@@ -33755,7 +33776,27 @@
     {
       "id": 4704,
       "title": "[Sonnet] check_cache::the_cache_changes_nothing_for_the_examples runs over every example (>120 s) and is caught by a check_cache:: filter: rename or tag so lanes can exclude it; and pins:show should list the runtime native bindings too (SW-4701 friction)",
-      "status": "review",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": [
+        "28215f85512d11ee2348314ac7a22ca19936d5af",
+        "e7fffe03b07560adb5e1d6de430e129e356c6334",
+        "7280bddd0288a5e191f28655f4238cba3f47b74c",
+        "4ed5f4c4a9f826f3451b3c88ea79b2e0175380b8",
+        "101f252d7efe0f8ef2679aa58fa732e32fe2db7b",
+        "ca7c5f296d4080065368f878665637bffff474e0"
+      ]
+    },
+    {
+      "id": 4705,
+      "title": "[Sonnet] rewind::rewinding_changes_nothing_for_the_examples and rewind::emptying_the_caches_changes_nothing_for_the_examples are probably examples-wide (long) but sit under rewind::, which lanes filter on: time them and move to examples_wide:: if so; and a way for task test:one to build one --test binary instead of every test target of the package (SW-4704 findings)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
