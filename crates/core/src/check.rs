@@ -21,7 +21,7 @@ use crate::termination;
 use crate::unify_index::{Constraint, Outcome, Reason, Scope, unify};
 use crate::value::{
     Apart, Closure, DataArgs, Elim, Head, Shared, Spine, Value, Values, apply, conv, eval, force,
-    force_ref, quot_value, quote, quote_folded, unused,
+    force_ref, quot_value, quote, quote_as_written, quote_folded, unused,
 };
 
 type Result<T> = std::result::Result<T, Diagnostic>;
@@ -1167,13 +1167,14 @@ fn infer_j(
     let result = apply(&g, apply(&g, motive_value, (*y).clone())?, proof_value)?;
     // A cast into data carries its ends on its proof, `(p : x = y)`, for
     // rule K (docs/core.md, "The equality rule"); one already annotated
-    // with its equation (checked again, or written so) keeps that.
+    // with its equation (checked again, or written so) keeps that. The ends
+    // are written with every call as a call: one written out may hold
+    // casts carrying ends of their own, each with the next call, so a
+    // recursive definition's would double in size at each level.
     let proof = if result_mark == ProofMark::NotProof && Term::j_ends(&proof).is_none() {
-        let eq = Term::Eq(
-            Some(Rc::new(cx.quote_kept(&ty)?)),
-            Rc::new(cx.quote_kept(&x)?),
-            Rc::new(cx.quote_kept(&y)?),
-        );
+        let written =
+            |v: &Value| Ok::<_, Diagnostic>(Rc::new(quote_as_written(&g, cx.level(), v)?));
+        let eq = Term::Eq(Some(written(&ty)?), written(&x)?, written(&y)?);
         Term::Ann(Rc::new(proof), Rc::new(eq))
     } else {
         proof

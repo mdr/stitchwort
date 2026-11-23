@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-REFL] Error: `byComputing` can't prove this
+    ╭─[ soundness/proof-irrelevance-38-two-indices-apart.sw:10:84 ]
+    │
+ 10 │ theorem mustRefuse ∀ (a: Type) (x y: a) (h: HEq a x a y): hcast a a x y h 3 = 3 := byComputing
+    │                                                                                    ─────┬─────  
+    │                                                                                         ╰─────── `hcast a a x y h 3` and `3` aren't equal
+    │ 
+    │ Note 1: the left side is stuck on `h`: it can't compute further until `h` is known; a `match` on `h` (or `cases h`) splits it
+    │ 
+    │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
+────╯

@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-REFL] Error: `byComputing` can't prove this
+    ╭─[ soundness/proof-irrelevance-36-refined-index-apart.sw:15:72 ]
+    │
+ 15 │ theorem mustRefuse ∀ (y: Nat) (h: Same Nat 0 y): carry2 0 y h 4 = 4 := byComputing
+    │                                                                        ─────┬─────  
+    │                                                                             ╰─────── `carry2 0 y h 4` and `4` aren't equal
+    │ 
+    │ Note 1: the left side is stuck on `h`: it can't compute further until `h` is known; a `match` on `h` (or `cases h`) splits it
+    │ 
+    │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
+────╯

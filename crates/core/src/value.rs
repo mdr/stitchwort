@@ -572,18 +572,47 @@ pub fn ends_meet(g: &Ev, ends: &Ends) -> Result<bool> {
 /// Whether `x` and `y`, of one type, are equal, compared where evaluation
 /// has no count of the variables in scope (rules K and S): read-only, with
 /// fresh variables from the reserved range ([`RESERVED_LEVELS`]).
+///
+/// Answers are remembered for the rest of the outermost test (the one not
+/// inside another), by the two values' shapes ([`ShapeMemo`]), so a test
+/// met again inside it is answered at once: when a cast's two ends each
+/// hold the same recursive call, comparing them evaluates that call twice,
+/// and each evaluation tests the call's own cast; without this the second
+/// test repeats the first, and the work doubles at each level. An answer
+/// depends only on the two values, the metavariable solutions and the
+/// machine's modes; none of these change inside a test (a comparison
+/// solves nothing), and each test's fresh variables are above every one
+/// either value can hold, so an answer found at one level holds at any.
 fn meet_in_evaluation(g: &Ev, x: &Value, y: &Value) -> Result<bool> {
-    struct Restore<'a>(&'a std::cell::Cell<usize>, usize);
+    struct Restore<'a>(&'a crate::machine::Machine, usize);
     impl Drop for Restore<'_> {
         fn drop(&mut self) {
-            self.0.set(self.1);
+            self.0.cast_levels.set(self.1);
+            if self.1 == 0 {
+                *self.0.cast_answers.borrow_mut() = None;
+            }
         }
     }
     let used = g.machine.cast_levels.get();
     let level = RESERVED_LEVELS + used;
-    let _restore = Restore(&g.machine.cast_levels, used);
+    let _restore = Restore(g.machine, used);
     g.machine.cast_levels.set(used + LEVELS_PER_TEST);
-    conv_with(g, level, x, y, &mut CallMemo::default(), Mode::Normal)
+    let filed = {
+        let mut answers = g.machine.cast_answers.borrow_mut();
+        let memo = answers.get_or_insert_with(ShapeMemo::default);
+        for answer in [true, false] {
+            let at = memo.file(g, answer, x, y)?;
+            if memo.contains(g, &at, x, y)? {
+                return Ok(answer);
+            }
+        }
+        memo.file(g, true, x, y)?
+    };
+    let same = conv_with(g, level, x, y, &mut CallMemo::default(), Mode::Normal)?;
+    if let Some(memo) = g.machine.cast_answers.borrow_mut().as_mut() {
+        memo.insert((same, filed.1, filed.2), x, y);
+    }
+    Ok(same)
 }
 
 /// The eliminations applied to a neutral value's head, in order: shared, so
@@ -1683,6 +1712,25 @@ fn run_on(g: &Ev, mut control: Control, mut stack: Vec<Frame>) -> Result<Value> 
     }
 }
 
+/// A cast's ends, evaluated with gluing on whatever the machine's mode, so
+/// a call in them stays a call until the test needs it: with gluing off,
+/// a cast whose ends mention a recursive call would evaluate that call in
+/// full, whose own cast's ends hold the next one, and so on to the bottom.
+/// A reader with gluing off forces the calls as it meets them, and sees
+/// what it would have computed (see `Kept::fits`).
+fn eval_ends(g: &Ev, env: &Env, ty: &Term, x: &Term, y: &Term) -> Result<Ends> {
+    let was = g.machine.glue.replace(true);
+    let ends = (|| {
+        Ok(Ends {
+            ty: eval(g, env, ty)?,
+            x: eval(g, env, x)?,
+            y: eval(g, env, y)?,
+        })
+    })();
+    g.machine.glue.set(was);
+    ends
+}
+
 fn push(g: &Ev, stack: &mut Vec<Frame>, frame: Frame) -> Result<()> {
     if let Err(e) = g.machine.budget.frames(stack.len() + 1) {
         if e == ResourceError::Depth {
@@ -2187,11 +2235,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                         // one into data; the elaborator's copies of it may
                         // not know the mark.
                         Some((ty, x, y)) if *result != ProofMark::Proof => {
-                            let ends = Ends {
-                                ty: eval(g, &env, ty)?,
-                                x: eval(g, &env, x)?,
-                                y: eval(g, &env, y)?,
-                            };
+                            let ends = eval_ends(g, &env, ty, x, y)?;
                             if ends_meet(g, &ends)? {
                                 return Ok(Control::Eval(base.clone(), env));
                             }

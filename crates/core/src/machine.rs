@@ -58,6 +58,9 @@ pub struct Machine {
     /// no context to count its variables from, so it makes its fresh
     /// variables from [`crate::value::RESERVED_LEVELS`] up, past this.
     pub cast_levels: Cell<usize>,
+    /// Rule K's and rule S's answers in the outermost test running
+    /// (`value::meet_in_evaluation`): `None` outside one.
+    pub cast_answers: std::cell::RefCell<Option<crate::value::ShapeMemo<bool>>>,
 }
 
 impl Machine {

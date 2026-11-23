@@ -78,7 +78,14 @@ The model is the one D1′ rests on: every proposition has at most one element (
   can repeat. Data-level termination stays what it is today: assumed, argued.
 - **The ends test can itself evaluate.** It calls `conv`, which may unfold calls in the ends
   and meet further casts; each is a smaller sub-problem of the current comparison, and the
-  shared budget bounds it (`E-RESOURCE`, never "different").
+  shared budget bounds it (`E-RESOURCE`, never "different"). In principle only: the Fable
+  review's F1 found ends that each hold the same recursive call doubling the work per level
+  (100 s and more at 41 levels). Fixed on this branch by remembering answers for the rest of
+  the outermost test (`Machine::cast_answers`) and evaluating the ends glued; 41 levels now
+  take 0.5 s and 161 levels 10 s (polynomial: each cast evaluated outside a test starts a
+  new outermost one). A lazy cast, tested only where its head is needed, was tried and set
+  aside: number matches and stuck-tree comparisons read heads without it, and the test of
+  record found them (`scratchpad` patch, not committed).
 - **Abel-Coquand** (`examples/accept/abel-coquand.sw`): still checks, unchanged, with no
   budget hit. Every `J` in it is `J (y e => y) …` with `y: Prop`, so its result is a proof,
   its mark `Proof`, it carries no ends, and rule K doesn't apply; it stays stuck on `h Top
