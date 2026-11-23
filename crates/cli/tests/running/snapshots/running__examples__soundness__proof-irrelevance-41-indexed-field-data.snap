@@ -1,0 +1,23 @@
+---
+source: crates/cli/tests/running/examples.rs
+assertion_line: 876
+expression: output
+---
+[E-PROP-ELIM] Error: can't match on a proof of `R` to produce data
+    ╭─[ soundness/proof-irrelevance-41-indexed-field-data.sw:11:3 ]
+    │
+ 11 │   | MkR n w => n
+    │   ───────┬──────  
+    │          ╰──────── the result type `Nat` isn't a proposition
+    │ 
+    │ Note: `R` is a proposition, so its proofs are erased at runtime. Matching on one can only produce data when the proposition has at most one constructor and every field is itself a proof.
+────╯
+[E-PROP-ELIM] Error: can't match on a proof of `Again` to produce data
+    ╭─[ soundness/proof-irrelevance-41-indexed-field-data.sw:16:3 ]
+    │
+ 16 │   | MkAgain w r => 5
+    │   ─────────┬────────  
+    │            ╰────────── the result type `Nat` isn't a proposition
+    │ 
+    │ Note: `Again` is a proposition, so its proofs are erased at runtime. Its field `r` holds a proof of `Again` itself, and matching on such a proof can only produce another proof: otherwise checking whether two of its uses are equal could go on forever.
+────╯

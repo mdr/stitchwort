@@ -809,9 +809,9 @@ fn eval_tree(
 /// Whether rule S takes the only branch of a `case` on a proof of `d` that
 /// is the variable at `level` in `env`, in the case tree of `def`: `d` is a
 /// proposition with one constructor whose fields are all proofs, `def`'s
-/// result is data, and, if `d` has indices, the constructor has no fields
-/// and the variable is one of `def`'s parameters whose type, as `def`'s
-/// type gives it, has the indices the constructor's result has.
+/// result is data, and, if `d` has indices, the variable is one of `def`'s
+/// parameters whose type, as `def`'s type gives it, has the indices the
+/// constructor's result has, its fields read as the variable's projections.
 fn rule_s(
     g: &Ev,
     def: Option<DefId>,
@@ -833,7 +833,7 @@ fn rule_s(
     if data.indices.is_empty() {
         return Ok(true);
     }
-    if !ctor.fields.is_empty() || level >= g.def(f).arity {
+    if level >= g.def(f).arity {
         return Ok(false);
     }
     // The parameter's type in `def`'s telescope, over the ones before it.
@@ -854,8 +854,12 @@ fn rule_s(
     if d2 != d || args.len() != n + ctor.result.len() {
         return Ok(false);
     }
+    let mut ctor_env = args[..n].to_vec();
+    for i in 0..ctor.fields.len() {
+        ctor_env.push(project(g, d, i, env[level].clone())?);
+    }
     for (k, index) in ctor.result.iter().enumerate() {
-        let wanted = eval(g, &args[..n], index)?;
+        let wanted = eval(g, &ctor_env, index)?;
         let depth = ENDS_DEPTH.with(|c| c.get());
         ENDS_DEPTH.with(|c| c.set(depth + 1));
         let same = conv(g, (1 << 40) + depth * (1 << 24), &wanted, &args[n + k]);

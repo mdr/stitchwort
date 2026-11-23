@@ -102,6 +102,12 @@ third). Recorded in
 `examples/soundness/proof-irrelevance-39-indexed-field-not-transitive.sw`;
 extending rule S to such propositions is the follow-up Matt chose.
 
+SW-4686 closes the exception: rule S now covers such propositions (the
+indices compared with each field read as the proof's projection), so
+`f 0 s` and `f 0 pf` are `5`; the example moved to
+`examples/accept/proof-irrelevance-39-indexed-field-transitive.sw`
+(docs/reviews/SW-4686-notes.md).
+
 ## Decidability and termination with rule F
 
 Rule I alone breaks subject reduction (a term accepted at a type can reduce

@@ -49,3 +49,29 @@ def carry (x y: Nat) (h: Same Nat x y) (n: Nat): Nat := match h with | MkSame =>
 theorem carryRefl ∀ (x: Nat): carry x x MkSame 4 = 4 := byComputing
 
 theorem carryAny ∀ (x: Nat) (h: Same Nat x x): carry x x h 4 = 4 := byComputing
+
+-- Rule S for an indexed proposition whose constructor has proof fields
+-- (D3727): the same index test, each field bound to the proof's field.
+type Le2: Nat → Prop = | MkLe2 (p: 0 = 0): Le2 0
+
+def withField (n: Nat) (h: Le2 n) (k: Nat): Nat := match h with | MkLe2 p => k
+
+theorem withFieldAny ∀ (h: Le2 0): withField 0 h 4 = 4 := byComputing
+
+-- The fields may mention the parameters, and the indices the fields: the
+-- constructor's index `h` is read as the proof's field, equal to the
+-- scrutinee's index by rule I.
+type AtThree (a: Nat): Nat → Prop =
+  | MkAtThree (h: a = 3) (k: 3 = a): AtThree a 0
+
+def three (a: Nat): AtThree a 0 → Nat
+  | MkAtThree h k => 5
+
+theorem threeAny ∀ (a: Nat) (s: AtThree a 0): three a s = 5 := byComputing
+
+type ByProof: (0 = 0) → Prop = | MkByProof (h: 0 = 0): ByProof h
+
+def byProof (h: 0 = 0): ByProof h → Nat
+  | MkByProof k => 5
+
+theorem byProofAny ∀ (h: 0 = 0) (s: ByProof h): byProof h s = 5 := byComputing
