@@ -33525,7 +33525,7 @@
     {
       "id": 4690,
       "title": "[Opus] Rule S on a proof field bound by an enclosing match: a case on such a field stays stuck unless the proof is a literal constructor, so conversion is not transitive there (g/Outer: g o = g (MkOuter (MkQ2 byComputing)) and that = 5 check, g o = 5 refused) and a closed instance of a checked universal statement fails (gk 5 po). Type the field (as infer_proj does) so the index test runs on it; find which layer refuses the closed instance. Continues D3727's direction. Fable review (SW-4686 review F1)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
