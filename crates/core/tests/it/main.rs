@@ -26,6 +26,7 @@ mod rebuild;
 mod record_eta;
 mod rule_k;
 mod sct;
+mod shared_case;
 mod structural;
 mod termination;
 mod trusted;
