@@ -91,6 +91,17 @@ test of record (`proof_equivalence`) checks reflexivity, symmetry,
 transitivity and stability under substitution over its enumerated terms,
 now with `p`, `q` and `t` marked as proofs.
 
+**The exception** (the Fable review's F1; D3727): a match into data on an
+indexed one-constructor proposition whose constructor has proof fields is
+outside rule S, so it computes only on a literal constructor, where unfolding
+does read the proof's shape. With `s: Q2 0`, `f 0 s ≡ f 0 (MkQ2 byComputing)`
+and `f 0 (MkQ2 byComputing) ≡ 5`, but `f 0 s ≢ 5`; and `f 0 pf = 5`, which
+checked on main through the proof definition `pf`'s unfolding, is refused now
+that rule F freezes `pf`. Nothing false is accepted (`Eq.trans` gives the
+third). Recorded in
+`examples/soundness/proof-irrelevance-39-indexed-field-not-transitive.sw`;
+extending rule S to such propositions is the follow-up Matt chose.
+
 ## Decidability and termination with rule F
 
 Rule I alone breaks subject reduction (a term accepted at a type can reduce

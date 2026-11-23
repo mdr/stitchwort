@@ -1,6 +1,6 @@
 -- expect-error: E-REFL
--- A definition's inert positions are its own leading arguments, never an
--- argument after a `J`. Partner: `afterJ` in accept/proof-irrelevance.sw.
+-- Data stays data: `3` and `4` differ, whatever proof the `J` before them
+-- holds. Partner: `afterJ` in accept/proof-irrelevance.sw.
 import Std (Nat, Void)
 
 def fnEq (n: Nat) (h: Void → Void): (Nat → Nat) = (Nat → Nat) :=
