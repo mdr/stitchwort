@@ -256,17 +256,19 @@ fn unfolding_a_transparent_definition_is_refused() {
     assert!(rfl_about(&mut p, "d", THEOREM, double, Some(two), four).is_ok());
 }
 
-// Sealed theorems (D3722): every theorem is opaque, and none can be unfolded.
+// Sealed theorems (D3722): every theorem's proof is sealed by rule F, not by
+// the opaque flag, and none can be unfolded.
 
 #[test]
-fn a_theorem_is_submitted_opaque() {
+fn a_theorem_is_frozen_by_its_type_not_marked_opaque() {
     let mut p = Prelude::new();
     let two = self::two(&mut p, PLAIN);
     let n2 = p.num(2);
     let t = rfl_about(&mut p, "twoIsTwo", THEOREM, two, None, n2).expect("theorem");
-    assert!(p.g.def(t).opaque());
-    // A plain `def` isn't.
-    assert!(!p.g.def(two).opaque());
+    assert!(!p.g.def(t).opaque());
+    assert!(p.g.def(t).proof());
+    // A plain `def` isn't a proof either.
+    assert!(!p.g.def(two).opaque() && !p.g.def(two).proof());
 }
 
 #[test]

@@ -33667,7 +33667,7 @@
     {
       "id": 4700,
       "title": "[Sonnet] Full proof irrelevance stage 6: remove the opaque flag from theorems (rule F does its job): a theorem is no longer submitted opaque with an empty list; hash.rs's theorem/opaque tag handling, E-UNFOLDING-THEOREM path and docs follow; no hash depends on a proof body (docs/proposals/full-proof-irrelevance.md section 9)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],

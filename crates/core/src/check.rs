@@ -2953,10 +2953,10 @@ fn not_a_prop(cx: &mut Ctx, name: &Name, ty: &Term, span: Span) -> Result<Diagno
 /// ([`kept_type`]) is evaluated with every opaque definition hidden (the
 /// caller's transparency set) and with gluing on.
 ///
-/// A theorem is opaque, always: sealed, so no other declaration sees its
-/// proof (docs/core.md, "Opaque definitions"; D3722), and none can unfold
-/// it ([`transparency`] refuses one in an `unfolding` list). [`assume`]
-/// clears the flag again, as an assumption has no body.
+/// A theorem is not marked opaque: its proof is sealed by rule F, since its
+/// type is a proposition ([`Def::proof`], [`crate::value::frozen`];
+/// docs/core.md, "Proof irrelevance"), and none can unfold it
+/// ([`transparency`] refuses one in an `unfolding` list).
 fn push_def(
     g: &mut Kernel,
     name: &Name,
@@ -2981,7 +2981,7 @@ fn push_def(
         theorem,
         instance: false,
         fold: false,
-        opaque: theorem,
+        opaque: false,
         unfolding: Rc::default(),
         transparent: Rc::default(),
         lift_leaf: false,
@@ -3103,9 +3103,6 @@ pub fn assume(
         }
         let id = push_def(g, name, path, ty, theorem, false, span)?;
         let def = &mut g.env.defs_mut()[id.0];
-        // No body to seal, so an assumption standing for a theorem isn't
-        // opaque (docs/core.md, "Assumptions").
-        def.opaque = false;
         def.assumption = Some(Rc::new(label));
         def.recursive = false;
         def.state = State::Final;
@@ -3315,7 +3312,7 @@ pub fn transparency_set(g: &Ev, id: DefId, ids: &[DefId]) -> Result<Rc<[DefId]>>
 fn transparency(g: &Ev, id: DefId, ids: &[DefId]) -> Result<Rc<[DefId]>> {
     let def = g.def(id);
     let cx = Ctx::new(g, def.span);
-    if !def.unfolding.is_empty() && !def.opaque {
+    if !def.unfolding.is_empty() && !def.opaque && !def.theorem {
         return Err(cx
             .error(
                 "E-UNFOLDING-TRANSPARENT",
@@ -3382,8 +3379,8 @@ fn transparency(g: &Ev, id: DefId, ids: &[DefId]) -> Result<Rc<[DefId]>> {
             let unfolded = g.def(other);
             pending.extend(unfolded.transparent.iter().copied());
             if let Some(group) = &unfolded.group {
-                // A theorem group-mate stays sealed: only a call of it can
-                // appear in the unfolded bodies, never its proof.
+                // A theorem group-mate stays sealed (rule F): only a call
+                // of it can appear in the unfolded bodies, never its proof.
                 pending.extend(
                     group
                         .iter()

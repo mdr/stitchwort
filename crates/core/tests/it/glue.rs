@@ -182,12 +182,12 @@ fn looking_inside_forces_a_call_everywhere() {
     );
 }
 
-/// SW-3941: the reference evaluator never glues, so a glued call must be
-/// refused loudly by `reference::conv`, as `reference::quote` does, rather
-/// than quietly comparing unequal to everything.
+/// SW-3941, SW-4693: the reference evaluator never glues, but a glued call
+/// (a machine-made cast's end) is compared as what it computes to: equal to
+/// its own forced value and unequal to a different one, never quietly
+/// unequal to everything.
 #[test]
-#[should_panic(expected = "never glues")]
-fn reference_conv_refuses_a_glued_call() {
+fn reference_conv_compares_a_glued_call_as_its_value() {
     let d = defs();
     let g = &d.p.g;
     let term = app(Term::Def(d.double), [d.p.num(3)]);
@@ -195,7 +195,13 @@ fn reference_conv_refuses_a_glued_call() {
     let call = eval(&g.ev(), &[], &term).unwrap();
     g.machine.glue.set(false);
     assert!(matches!(call, Value::Call(..)), "{call:?}");
-    let _ = stitchwort_core::reference::conv(&g.ev(), 0, &call, &call);
+    let six = eval(&g.ev(), &[], &d.p.num(6)).unwrap();
+    let five = eval(&g.ev(), &[], &d.p.num(5)).unwrap();
+    let ev = &g.ev();
+    assert!(stitchwort_core::reference::conv(ev, 0, &call, &call).unwrap());
+    assert!(stitchwort_core::reference::conv(ev, 0, &call, &six).unwrap());
+    assert!(stitchwort_core::reference::conv(ev, 0, &six, &call).unwrap());
+    assert!(!stitchwort_core::reference::conv(ev, 0, &call, &five).unwrap());
 }
 
 #[test]
