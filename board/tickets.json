@@ -1,5 +1,5 @@
 {
-  "next": 4694,
+  "next": 4696,
   "tickets": [
     {
       "id": 47,
@@ -33567,6 +33567,32 @@
     {
       "id": 4693,
       "title": "[Opus] Reference evaluator panics on a glued Value::Call (reference.rs:1012, 'never glues') in differential::the_evaluators_agree_on_the_prelude_and_every_example, since SW-4686 or SW-4689 (stage 5 alone passed); fixed on lane/SW-4690",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4694,
+      "title": "[Sonnet] Kernel unit test with a hand-built shared case subtree for rule S's 'found exactly once' guard in slot_type (SW-4690 review F3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4695,
+      "title": "[Opus] Backlog, only if a profile shows it: cache slot_type's path per definition (a node-to-path map); 300-arm definition recursing 300k times is 6.0 s vs 1.2 s with the proof as a parameter (SW-4690 review F2)",
       "status": "backlog",
       "agent": "",
       "where": "",
