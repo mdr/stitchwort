@@ -1,5 +1,5 @@
 {
-  "next": 4683,
+  "next": 4684,
   "tickets": [
     {
       "id": 47,
@@ -33411,6 +33411,19 @@
       "id": 4682,
       "title": "[Sonnet] Docs: say in docs/workflow.md that examples::accepted_examples_check is one test running every accept example, so a lane widening a soundness regex runs the whole suite; and how to compare a std declaration's kernel term between main and a lane (STITCHWORT_DUMP_KERNEL prints nothing for library declarations) (SW-4674 friction)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4683,
+      "title": "[Opus] Overmind rolling check on ff33c1727: 16 new quick-tier failures (reference.rs:1718 binder marked Unknown with sort Type in trusted and cache tests; let_term mark; kernel same_call_arguments_first E-RESOURCE; search tests unknown name List.length/Nat.min/List.unique). Triage, fix or attribute",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
