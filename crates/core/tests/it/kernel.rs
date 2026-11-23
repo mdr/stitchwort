@@ -7,7 +7,7 @@ use stitchwort_core::ProofMark;
 
 use crate::common::*;
 use stitchwort_core::check::infer_closed;
-use stitchwort_core::value::{conv, eval, quote};
+use stitchwort_core::value::{conv, eval, quote, set_shortcuts_disabled};
 use stitchwort_core::{Icit, Kernel, Limits, Sort, Term, Value};
 
 fn nat_value(term: &Term) -> Option<usize> {
@@ -1820,7 +1820,7 @@ fn same_call_arguments_first_accepts_equal_arguments_without_unfolding() {
         eq(None, mix_of(mix, v(0)), mix_of(mix, v(0))),
     );
     assert_eq!(
-        define_small(&mut p, "same", same, lam("s", Term::Refl)),
+        define_small(&mut p, "same", same.clone(), lam("s", Term::Refl)),
         Ok(())
     );
     // Arguments convertible but not alike: `konst s t` is `s`.
@@ -1846,16 +1846,34 @@ fn same_call_arguments_first_accepts_equal_arguments_without_unfolding() {
         ),
         Ok(())
     );
-    // The control: the same definition under another name has to be
-    // unfolded, which the budget doesn't allow.
+    // The control: with the shortcuts off, the two calls are unfolded and
+    // their results, trees of `+` that share their halves, are compared
+    // part by part, which the budget doesn't allow.
     let unfolded = pi(
         "s",
         p.nat_ty(),
         eq(None, mix_of(mix, v(0)), mix_of(other, v(0))),
     );
+    let shortcuts_off = |p: &mut Prelude, name: &str, ty: &Term| {
+        set_shortcuts_disabled(true);
+        let verdict = define_small(p, name, ty.clone(), lam("s", Term::Refl));
+        set_shortcuts_disabled(false);
+        verdict
+    };
+    assert_eq!(
+        shortcuts_off(&mut p, "sameUnshortened", &same),
+        Err("E-RESOURCE")
+    );
+    assert_eq!(
+        shortcuts_off(&mut p, "unfoldedUnshortened", &unfolded),
+        Err("E-RESOURCE")
+    );
+    // The same definition under another name is unfolded, but with the
+    // shortcuts on each pair of shared `+` calls is compared once and
+    // remembered equal (`CallMemo`, SW-4647), so it fits too.
     assert_eq!(
         define_small(&mut p, "unfolded", unfolded, lam("s", Term::Refl)),
-        Err("E-RESOURCE")
+        Ok(())
     );
 }
 
