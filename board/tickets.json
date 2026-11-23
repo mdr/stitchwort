@@ -33544,7 +33544,7 @@
     {
       "id": 4691,
       "title": "[Sonnet] Remove the E-REFL note behind differ_only_in_proofs_in (check.rs ~11270, 'differ only in a proof inside them, which isn't skipped under an opaque, axiom or same-group call'): unreachable under rule I (SW-4689 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33552,7 +33552,12 @@
       "body": "",
       "created": "2026-11-23",
       "updated": "2026-11-23",
-      "commits": []
+      "commits": [
+        "aaf04fdda54a63b3ef90468a158efdd3a3dc7504",
+        "0e3464e000773510e3c0ed74b7292ea917d1364c",
+        "9d54baa0c2aac13fdacb29474e5e7f891ffba04a",
+        "791e865a26c6ae758c3e9f860cdf3e66d8d11354"
+      ]
     },
     {
       "id": 4692,
@@ -33641,7 +33646,7 @@
     {
       "id": 4698,
       "title": "[Sonnet] E-REFL note on soundness/proof-irrelevance-42-enclosing-field-indices-differ (unknown) says the left side is stuck on b, though eta took b apart and the match is stuck on the index (q: Q2 b.n against Q2 0): the note points at the wrong thing (SW-4690 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33649,7 +33654,12 @@
       "body": "",
       "created": "2026-11-23",
       "updated": "2026-11-23",
-      "commits": []
+      "commits": [
+        "aaf04fdda54a63b3ef90468a158efdd3a3dc7504",
+        "0e3464e000773510e3c0ed74b7292ea917d1364c",
+        "9d54baa0c2aac13fdacb29474e5e7f891ffba04a",
+        "791e865a26c6ae758c3e9f860cdf3e66d8d11354"
+      ]
     },
     {
       "id": 4699,
@@ -33667,7 +33677,7 @@
     {
       "id": 4700,
       "title": "[Sonnet] Full proof irrelevance stage 6: remove the opaque flag from theorems (rule F does its job): a theorem is no longer submitted opaque with an empty list; hash.rs's theorem/opaque tag handling, E-UNFOLDING-THEOREM path and docs follow; no hash depends on a proof body (docs/proposals/full-proof-irrelevance.md section 9)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33675,7 +33685,12 @@
       "body": "",
       "created": "2026-11-23",
       "updated": "2026-11-23",
-      "commits": []
+      "commits": [
+        "35ebb945ee2d6c1edfba1ac10a5248839df18690",
+        "9ca6ac2b61a651d626a60e99f5d18cd49c311760",
+        "f61e8ad6d3933e189adef64e42f616220dba4534",
+        "4948dfae3b1309a7dacf9f22c49fedd80255ecc3"
+      ]
     }
   ]
 }
