@@ -1,5 +1,5 @@
 {
-  "next": 4662,
+  "next": 4663,
   "tickets": [
     {
       "id": 47,
@@ -33093,6 +33093,19 @@
       "body": "",
       "created": "2026-11-22",
       "updated": "2026-11-22",
+      "commits": []
+    },
+    {
+      "id": 4662,
+      "title": "[Fable, paper] Design note: full proof irrelevance with sealed theorems as the end state, against sealing plus today's partial (D1') rule (D3720)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "\n\nD3720 (Matt, 22 Nov 2026): \"D3720, yes, proceed with that paper lane.\" D3719 (sealing by default, stage 1) held until this note is back. Started 23 Nov 09:22 on Fable (paper). Expected: 40 min.\n",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
       "commits": []
     }
   ]
