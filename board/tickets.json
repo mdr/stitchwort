@@ -33282,12 +33282,12 @@
     {
       "id": 4673,
       "title": "[Opus] Full proof irrelevance stage 4: rules K and S as lazy forms (casts along a proof of a = a compute; one-constructor matches into data take their branch, indices checked as D3724), Fable review; design conditions A, B and G (fired casts, read-only K test) from docs/proposals/full-proof-irrelevance-audit.md. After SW-4671.",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nStarted 23 Nov 13:17 on Opus (D3721, D3723, D3724). Expected: 90 min. Fable review after.\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
       "commits": []
