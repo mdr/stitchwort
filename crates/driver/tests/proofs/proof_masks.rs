@@ -1,7 +1,8 @@
-//! The kernel's comparison skips proofs (docs/proposals/proof-irrelevance.md
-//! §7.1, §7.2): constructors' proof fields, data types' proof parameters
-//! and definitions' inert arguments; the glued-call shortcut and the other
-//! shortcuts compare constructors' proof fields (§7.10). Each case is a pair
+//! The kernel's comparison with two proofs equal (rule I, docs/core.md
+//! "Proof irrelevance"), with rules K and S, and the pairs that must still
+//! differ: data inside data, a cast whose ends differ. The cases began as
+//! docs/proposals/proof-irrelevance.md §7's position masks; their comments
+//! say which rule now answers. Each case is a pair
 //! of definitions with the same parameters, `<case>L` and `<case>R`, whose
 //! bodies are compared applied to fresh variables, by `value::conv` with
 //! gluing on, with the shortcuts disabled and with gluing off, and by
@@ -12,7 +13,7 @@
 use std::rc::Rc;
 
 use stitchwort_core::value::{Value, conv, eval, set_shortcuts_disabled};
-use stitchwort_core::{DefId, Ev, reference};
+use stitchwort_core::{DefId, Ev, Term, reference};
 use stitchwort_driver::driver::Session;
 
 const PROGRAM: &str = r#"
@@ -256,7 +257,16 @@ fn applied(g: &Ev, name: &str, reference: bool) -> (usize, Value) {
     let def = g.def(id);
     let arity = def.arity();
     let body = def.body().expect("a body").peel_lams(arity);
-    let env: Vec<Value> = (0..arity).map(Value::var).collect();
+    // Each parameter marked as its binder is, as the checker binds it.
+    let mut marks = Vec::new();
+    let mut ty = def.ty().strip_loc();
+    while let Term::Pi(_, _, _, cod, mark) = ty {
+        marks.push(*mark);
+        ty = cod.strip_loc();
+    }
+    let env: Vec<Value> = (0..arity)
+        .map(|l| Value::var_marked(l, marks.get(l).copied().unwrap_or_default()))
+        .collect();
     let value = if reference {
         reference::eval(g, &env, body).unwrap()
     } else {
@@ -298,7 +308,9 @@ fn session() -> Session {
 
 const CASES: &[(&str, bool)] = &[
     ("t1", false),
-    ("t4", false),
+    // Rule I: both sides are proofs (of `Exists`), so the data field inside
+    // isn't looked at.
+    ("t4", true),
     ("t4p", true),
     ("t8", false),
     ("t2", false),
@@ -310,21 +322,32 @@ const CASES: &[(&str, bool)] = &[
     ("t3", true),
     ("t9", false),
     ("box", true),
-    ("t19", false),
+    // Rule I: the results are proofs of `a` (before it, the shortcut
+    // compared the field).
+    ("t19", true),
+    // Rule K: the cast's ends are `a` and `a`, so it computes whatever `h`.
     ("t17", true),
     ("t17p", true),
+    // Rule S: `Tok` has one constructor, so `tokNat` takes its branch
+    // without looking at `t`.
     ("t18", true),
+    // Rule S, as test 18.
     ("t21", true),
     ("t21p", true),
     ("t27a", true),
     ("t27b", true),
-    ("t23", false),
+    // Rule I: the results are proofs.
+    ("t23", true),
     ("t23p", true),
-    ("t24", false),
-    ("t25", false),
+    // Rule I: `h` and `byComputing` are proofs, compared as `g`'s
+    // arguments however many `g` takes.
+    ("t24", true),
+    // Rule I: the results are proofs of `a`.
+    ("t25", true),
     ("t15", false),
     ("t15p", true),
-    ("t22", false),
+    // Rule I: `h1` and `h2` are proofs, whatever the group does with them.
+    ("t22", true),
     ("t22p", true),
     ("t22f", true),
     // The same pair of glued calls, `wrap (MkBox p)` and `wrap (MkBox q)`,
@@ -332,10 +355,10 @@ const CASES: &[(&str, bool)] = &[
     // in the normal mode (equal): `CallMemo` must keep the two apart.
     ("memo", true),
     ("chain24", true),
-    // The same pair of stuck calls, found equal by their trees in the
-    // normal mode, then met inside a shortcut, where they differ:
-    // `TreeMemo` must keep the two apart.
-    ("tree", false),
+    // The same pair of stuck calls, compared by their trees and again
+    // inside the hidden `ob`'s arguments: equal both times by rule I, where
+    // the shortcut mode once made them differ the second time.
+    ("tree", true),
 ];
 
 #[test]
@@ -355,32 +378,14 @@ fn every_case_gets_its_answer_four_ways() {
 }
 
 /// Test 25's other half: where `ou` is transparent, its calls unfold, to
-/// `p` and `q`.
+/// `p` and `q`, two proofs of `a`: equal by rule I either way.
 #[test]
-fn a_transparent_call_unfolds_to_different_proofs() {
+fn a_transparent_call_unfolds_to_proofs_still_equal() {
     let session = session();
     let g = &session.elab.ev();
     let ou = find(g, "ou");
     let _set = g.machine.transparent.set(Rc::from([ou]));
-    assert_eq!(answers(g, "t25"), [false; 4]);
-}
-
-/// The marks the cases rely on.
-#[test]
-fn the_marks() {
-    let session = session();
-    let g = &session.elab.ev();
-    let marks = |name: &str| g.def(find(g, name)).inert_params().to_vec();
-    assert_eq!(marks("cast"), [false; 4]);
-    assert_eq!(marks("tokNat"), [false, false]);
-    assert_eq!(marks("keep"), [false, false]);
-    assert_eq!(marks("g"), [false]);
-    assert_eq!(marks("fnEq"), [false, true]);
-    assert_eq!(marks("grpA"), [false, false]);
-    assert_eq!(marks("grpB"), [false, false]);
-    assert_eq!(marks("quietA"), [false, true]);
-    assert_eq!(marks("quietB"), [false, true]);
-    assert_eq!(marks("myAbsurd"), [true]);
+    assert_eq!(answers(g, "t25"), [true; 4]);
 }
 
 /// Test 29: two chains of glued calls differing only in the innermost proof
@@ -406,4 +411,48 @@ fn a_deep_chain_is_compared_in_linear_steps() {
         deep <= one + 23 * per_level * 2,
         "depth 1: {one} steps, 2: {two}, 24: {deep}"
     );
+}
+
+/// The kernel derives every mark and trusts none it is given (the SW-4671
+/// review's F5): each case's checked body, with its marks cleared, checks
+/// again to the same marks.
+#[test]
+fn cleared_marks_are_derived_again() {
+    let session = session();
+    let g = &session.elab.ev();
+    let span = g.def(find(g, "t1L")).span();
+    let mut compared = 0;
+    for (name, _) in CASES {
+        for side in ["L", "R"] {
+            let def = g.def(find(g, &format!("{name}{side}")));
+            let Some(body) = def.body() else { continue };
+            let annotated = |strip: bool| {
+                let (body, ty) = if strip {
+                    (
+                        body.without_marks(g).unwrap(),
+                        def.ty().without_marks(g).unwrap(),
+                    )
+                } else {
+                    ((**body).clone(), def.ty().clone())
+                };
+                stitchwort_core::check::infer_closed(
+                    g,
+                    &Term::Ann(Rc::new(body), Rc::new(ty)),
+                    span,
+                )
+            };
+            // A body with a case tree is checked only as a definition's.
+            let Ok((checked, _)) = annotated(false) else {
+                continue;
+            };
+            let (again, _) = annotated(true).expect("checks with its marks cleared");
+            assert_eq!(checked.marks(), again.marks(), "{name}{side}");
+            assert!(
+                !again.marks().contains(&stitchwort_core::ProofMark::Unknown),
+                "{name}{side}"
+            );
+            compared += 1;
+        }
+    }
+    assert!(compared >= 10, "only {compared} bodies compared");
 }

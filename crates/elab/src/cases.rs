@@ -1243,7 +1243,7 @@ fn introduce(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>> 
     let mark = cx.mark();
     let mut binders: Vec<(Name, Icit)> = Vec::new();
     while let Value::Pi(x, icit, dom, cod, _) = goal {
-        let var = Value::var(cx.level());
+        let var = cx.fresh_var(&dom);
         let name = if &*x == "_" || x.is_empty() {
             let unnamed = cx.names.iter().filter(|n| n.starts_with(UNNAMED)).count();
             Name::from(format!("{UNNAMED}{}", unnamed + 1).as_str())

@@ -1,9 +1,8 @@
 //! Calls of a definition with no body yet, a member of the group being
-//! checked, compared the way they will be once it's admitted
-//! (docs/proposals/proof-irrelevance.md §7.10). The call can unfold later,
-//! so its arguments are compared in shortcut mode, which compares
-//! constructor proof fields: while pending, the kernel must not find equal
-//! two calls that the admitted body tells apart.
+//! checked, compared the way they will be once it's admitted. `f` returns a
+//! proof, so two calls of it are equal by rule I (docs/core.md, "Proof
+//! irrelevance") whatever their arguments, pending or admitted: the answer
+//! can't change when the body arrives.
 
 use crate::common::*;
 use stitchwort_core::term::Term;
@@ -50,8 +49,8 @@ fn answers(g: &Kernel, boxed: stitchwort_core::DataId, f: stitchwort_core::DefId
 #[test]
 fn a_pending_call_is_compared_as_it_will_be_once_admitted() {
     let (mut g, boxed, f) = setup();
-    assert_eq!(answers(&g, boxed, f), [false, false], "pending");
+    assert_eq!(answers(&g, boxed, f), [true, true], "pending");
     let body = lam("a", lam("b", case(0, boxed, vec![(vec!["x"], v(0))])));
     check::define_def(&mut g, f, &body).expect("f");
-    assert_eq!(answers(&g, boxed, f), [false, false], "admitted");
+    assert_eq!(answers(&g, boxed, f), [true, true], "admitted");
 }

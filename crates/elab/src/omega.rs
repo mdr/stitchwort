@@ -3258,7 +3258,7 @@ fn waiting_fact_bound(cx: &mut Ctx, lib: &Lib, ty: &Value) -> Result<Option<Vec<
                 if icit == Icit::Explicit {
                     params.push(name.clone());
                 }
-                ty = cod.apply(&cx.g(), Value::var(cx.level()))?;
+                ty = cod.apply(&cx.g(), cx.fresh_var(&dom))?;
                 cx.bind_hidden(name, (*dom).clone());
             }
             result => {

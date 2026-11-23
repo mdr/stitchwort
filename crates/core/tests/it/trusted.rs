@@ -130,7 +130,7 @@ fn a_trusted_copy_is_the_checked_environment() {
         assert_eq!(
             x.admitted_metadata(),
             y.admitted_metadata(),
-            "{}: transparency set, lift_leaf, recursive, inert parameters",
+            "{}: transparency set, lift_leaf, recursive",
             x.name()
         );
     }

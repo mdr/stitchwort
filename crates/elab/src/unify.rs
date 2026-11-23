@@ -9,9 +9,9 @@ use stitchwort_core::budget::{Phase, ResourceError, Result};
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::proof_counts;
 use stitchwort_core::value::{
-    Closure, CompareAt, Elim, Head, Mode, Relation, ShapeKey, ShapeMemo, Spine, apply_icit,
-    cast_at, conv, eval, expand_step, fire_cast, force, force_solved, is_call_field, is_eta_type,
-    is_folded, matches_at_once, opens_by_tree, project, project_call, proof_field, proof_param,
+    Closure, CompareAt, Elim, Head, Relation, ShapeKey, ShapeMemo, Spine, apply_icit, cast_at,
+    conv, eval, expand_step, fire_cast, force, force_solved, is_call_field, is_eta_type, is_folded,
+    matches_at_once, opens_by_tree, project, project_call, proof_field, proof_param,
     quote_as_written, quote_at_most, quote_folded, same_closure_solved, same_stuck_trees, sealed,
     underapplied, unfold_folded, unfold_folded_head, unfold_once, unfolds_head,
 };
@@ -51,15 +51,21 @@ impl<'a> std::ops::Deref for Unifier<'a> {
 /// domain has been unified, so it sees the solutions.
 ///
 /// **Precondition: homogeneous values**, as for `value::conv`: `a` and `b`
-/// have the same type, since proof positions are skipped by position
-/// (docs/proposals/proof-irrelevance.md §7.4). And it isn't atomic: a pair
-/// that fails part-way keeps what was solved before it, a whole proof
-/// solved at a proof position included, so a caller that tries another way
-/// after a `false` runs the first inside `undo::transaction`.
+/// have the same type, since two proofs are equal unlooked at (rule I).
+/// Unlike the kernel's, a wrong "equal" here can't be unsound, since the
+/// kernel checks what the elaborator builds, but it can solve an unknown
+/// with a value of the wrong type: the callers of
+/// docs/proposals/full-proof-irrelevance-audit.md §5's third group, which
+/// may compare values of different types, live with that. **The level**
+/// is above every free variable of `a` and `b`, as fresh variables are
+/// made from it. And it isn't atomic: a pair that fails part-way keeps
+/// what was solved before it, a whole proof solved by rule I included, so
+/// a caller that tries another way after a `false` runs the first inside
+/// `undo::transaction`.
 #[track_caller]
 pub(crate) fn unify(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result<bool> {
-    let same = unify_in(g, level, a, b, Mode::Normal)?;
-    if proof_counts::on() && both_proofs(g, a, b) {
+    let same = unify_in(g, level, a, b)?;
+    if proof_counts::on() && both_proofs(g, a, b)? {
         proof_counts::record_caller(g, "unify", std::panic::Location::caller(), !same);
     }
     Ok(same)
@@ -68,11 +74,11 @@ pub(crate) fn unify(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Resu
 /// Whether `v` is a proof (docs/core.md, "Proof marks"): the kernel's
 /// marks ([`stitchwort_core::value::is_proof`]), and for an unsolved
 /// unknown at the head, its type's sort, [`ProofMark::Unknown`] while that
-/// isn't known. Used only by the proof counters so far.
-pub(crate) fn is_proof(g: &Unifier<'_>, v: &Value) -> ProofMark {
+/// isn't known.
+pub(crate) fn is_proof(g: &Unifier<'_>, v: &Value) -> Result<ProofMark> {
     match stitchwort_core::value::is_proof(g, v) {
         ProofMark::Unknown => {}
-        known => return known,
+        known => return Ok(known),
     }
     match v {
         Value::Neutral(Head::Meta(m), spine)
@@ -81,42 +87,83 @@ pub(crate) fn is_proof(g: &Unifier<'_>, v: &Value) -> ProofMark {
         {
             meta_mark(g, *m)
         }
-        _ => ProofMark::Unknown,
+        _ => Ok(ProofMark::Unknown),
     }
 }
 
 /// Whether unknown `m`, applied to anything, is a proof: whether its type
 /// ends in a proposition, read through its function types. Unknown while
 /// the type's sort isn't known (an unknown type, a type variable).
-fn meta_mark(g: &Unifier<'_>, m: usize) -> ProofMark {
-    let Some((ty, scope)) = g.store.metas.borrow()[m].ty.clone() else {
-        return ProofMark::Unknown;
-    };
-    let mut ty = ty;
-    // Levels past any in scope: the type is only looked at, never read back.
-    for depth in 0..32 {
-        let Ok(forced) = force(g, ty) else {
-            return ProofMark::Unknown;
+///
+/// Worked out once and kept on the unknown (the SW-4671 review's F3): a
+/// decided mark for as long as no solution is taken back (the store's
+/// `meta_epoch`; within an epoch solutions are only added, and they only
+/// decide more), an unknown one until anything more is solved. So taking
+/// a solution back can't leave a stale mark (the audit's condition G),
+/// and the answer never depends on the budget: running out is an error,
+/// passed on, not "unknown". The codomains are applied to variables far
+/// above any in scope; the type is only looked at, never read back or
+/// compared, and a cast's test inside it compares at the reserved levels
+/// above even those (`value::RESERVED_LEVELS`).
+fn meta_mark(g: &Unifier<'_>, m: usize) -> Result<ProofMark> {
+    let epoch = g.store.meta_epoch.get();
+    let solved = g.store.meta_trail.borrow().len();
+    let (ty, scope, kept) = {
+        let metas = g.store.metas.borrow();
+        let Some((ty, scope)) = metas[m].ty.clone() else {
+            return Ok(ProofMark::Unknown);
         };
-        ty = match forced {
-            Value::Eq(..) => return ProofMark::Proof,
-            Value::Data(d, _) => return ProofMark::of_sort(g.data(d).sort()),
-            Value::Sort(_) => return ProofMark::NotProof,
-            Value::Pi(_, _, _, cod, mark) => {
-                match cod.apply(g, Value::var_marked(scope + 1_000_000 + depth, mark)) {
-                    Ok(next) => next,
-                    Err(_) => return ProofMark::Unknown,
-                }
+        (ty, scope, metas[m].mark.get())
+    };
+    match kept {
+        Some((e, _, mark)) if e == epoch && mark != ProofMark::Unknown => return Ok(mark),
+        Some((e, t, mark)) if e == epoch && t == solved => return Ok(mark),
+        _ => {}
+    }
+    let mut ty = ty;
+    let mut mark = ProofMark::Unknown;
+    for depth in 0..32 {
+        ty = match force(g, ty)? {
+            Value::Eq(..) => {
+                mark = ProofMark::Proof;
+                break;
             }
-            _ => return ProofMark::Unknown,
+            Value::Data(d, _) => {
+                mark = ProofMark::of_sort(g.data(d).sort());
+                break;
+            }
+            Value::Sort(_) => {
+                mark = ProofMark::NotProof;
+                break;
+            }
+            Value::Pi(_, _, _, cod, binder) => {
+                cod.apply(g, Value::var_marked(scope + 1_000_000 + depth, binder))?
+            }
+            _ => break,
         };
     }
-    ProofMark::Unknown
+    g.store.metas.borrow()[m]
+        .mark
+        .set(Some((epoch, solved, mark)));
+    Ok(mark)
 }
 
 /// Whether `a` and `b` are both marked proofs ([`is_proof`]).
-fn both_proofs(g: &Unifier<'_>, a: &Value, b: &Value) -> bool {
-    is_proof(g, a).is_proof() && is_proof(g, b).is_proof()
+fn both_proofs(g: &Unifier<'_>, a: &Value, b: &Value) -> Result<bool> {
+    Ok(is_proof(g, a)?.is_proof() && is_proof(g, b)?.is_proof())
+}
+
+/// Rule I in the unifier (docs/core.md, "Proof irrelevance"): two values
+/// both marked proofs are equal, and nothing inside either is looked at or
+/// solved, except that a side that is itself a solvable unknown (applied,
+/// perhaps) is solved with the other, as at a proof position
+/// ([`proof_position`]). `None` when they aren't both proofs.
+fn by_rule_i(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result<Option<bool>> {
+    if !both_proofs(g, a, b)? {
+        return Ok(None);
+    }
+    proof_counts::record(g, proof_counts::Kind::RuleI, 1);
+    proof_position(g, level, a, b).map(Some)
 }
 
 /// An unsolved unknown at the head: a side the proof-position rule may
@@ -142,12 +189,11 @@ fn close_proof_pairs(g: &Unifier<'_>, open: &mut Vec<(usize, usize)>, work_len: 
     }
 }
 
-/// [`unify`] in `mode`: [`Mode::Shortcut`] where the kernel compares in its
-/// shortcut, because the values compared are arguments of calls that may
-/// still unfold (docs/proposals/proof-irrelevance.md §7.5, U1 to U5).
-fn unify_in(g: &Unifier<'_>, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<bool> {
+/// [`unify`] as a comparison of its own, inside another: no pair of it
+/// waits ([`nested`]).
+fn unify_in(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result<bool> {
     nested(g, || {
-        run(g, vec![Task::Values(level, a.clone(), b.clone())], mode)
+        run(g, vec![Task::Values(level, a.clone(), b.clone())])
     })
 }
 
@@ -199,11 +245,7 @@ pub(crate) fn unify_waiting(
     let waiting = Scoped::set(&g.attempt.waiting, Some(Vec::new()));
     let saved_pending = Scoped::set(&g.attempt.pending, pending.clone());
     let memo = Scoped::set(&g.attempt.call_memo, None);
-    let result = run(
-        g,
-        vec![Task::Values(level, a.clone(), b.clone())],
-        Mode::Normal,
-    );
+    let result = run(g, vec![Task::Values(level, a.clone(), b.clone())]);
     drop(memo);
     drop(saved_pending);
     let waiting = waiting.finish().unwrap_or_default();
@@ -232,24 +274,22 @@ pub(crate) fn unify_what_agrees(
     nested(g, || {
         let _memo = Scoped::set(&g.attempt.call_memo, Some(CallMemo::default()));
         let mut work = vec![Task::Values(level, a.clone(), b.clone())];
-        let mut mode = Mode::Normal;
         let mut clashes = Clashes::default();
         while let Some(task) = work.pop() {
             g.machine.budget.step()?;
             match task {
                 Task::Open(..) => {}
-                Task::Mode(m) => mode = m,
                 Task::Values(level, a, b) => {
                     let (x, y) = (a.clone(), b.clone());
-                    let same = unify_step(g, level, &a, &b, &mut work, mode)?
-                        || values_differ(g, level, a, b, &mut work, mode)?;
+                    let same = unify_step(g, level, &a, &b, &mut work)?
+                        || values_differ(g, level, a, b, &mut work)?;
                     if !same && !(flexible(g, &x)? || flexible(g, &y)?) {
                         clashes.any = true;
                         clashes.types |= is_type(g, &x)? || is_type(g, &y)?;
                     }
                 }
                 task => {
-                    other_task(g, task, &mut work, mode)?;
+                    other_task(g, task, &mut work)?;
                 }
             }
         }
@@ -397,27 +437,26 @@ fn literal_seen_through(g: &Unifier<'_>, m: usize, other: &Value) -> Option<(Val
 ///
 /// `mode` is where the comparison starts; a [`Task::Mode`] switches it for
 /// the pairs above it on the list ([`push_in_shortcut`]).
-fn run(g: &Unifier<'_>, work: Vec<Task>, mode: Mode) -> Result<bool> {
+fn run(g: &Unifier<'_>, work: Vec<Task>) -> Result<bool> {
     let _phase = g.machine.budget.phase(Phase::Unify);
     if g.attempt.call_memo.borrow().is_none() {
-        return run_outermost(g, work, mode);
+        return run_outermost(g, work);
     }
-    run_tasks(g, work, mode)
+    run_tasks(g, work)
 }
 
 /// [`run`] for the outermost comparison, which keeps the record of calls
 /// compared ([`CallMemo`]) while it runs. Out of line, so that the frame
 /// nested comparisons stand on doesn't hold the record's guard.
 #[inline(never)]
-fn run_outermost(g: &Unifier<'_>, work: Vec<Task>, mode: Mode) -> Result<bool> {
+fn run_outermost(g: &Unifier<'_>, work: Vec<Task>) -> Result<bool> {
     let _memo = Scoped::set(&g.attempt.call_memo, Some(CallMemo::default()));
-    run_tasks(g, work, mode)
+    run_tasks(g, work)
 }
 
 /// [`run`]'s work list, taken to the end or to the first pair that differs.
 #[inline]
-fn run_tasks(g: &Unifier<'_>, mut work: Vec<Task>, mode: Mode) -> Result<bool> {
-    let mut mode = mode;
+fn run_tasks(g: &Unifier<'_>, mut work: Vec<Task>) -> Result<bool> {
     // Only with the proof counters on: pairs of proofs whose tasks aren't
     // done (`close_proof_pairs`).
     let mut proof_pairs: Vec<(usize, usize)> = Vec::new();
@@ -436,26 +475,22 @@ fn run_tasks(g: &Unifier<'_>, mut work: Vec<Task>, mode: Mode) -> Result<bool> {
         // the rest are out of line, so that this frame stays small.
         let same = match task {
             Task::Values(level, a, b) => {
-                if !open_calls(g, level, (&a, &b), &mut work, mode)? {
+                if !open_calls(g, level, (&a, &b), &mut work)? {
                     record_different(g, &work);
                     return Ok(false);
                 }
-                let proofs = proof_counts::on() && both_proofs(g, &a, &b);
+                let proofs = proof_counts::on() && both_proofs(g, &a, &b)?;
                 if proofs && !flexible_head(g, &a) && !flexible_head(g, &b) {
                     proof_pairs.push((work.len(), g.store.meta_trail.borrow().len()));
                 }
-                let same = unify_step(g, level, &a, &b, &mut work, mode)?
-                    || values_differ(g, level, a, b, &mut work, mode)?;
+                let same = unify_step(g, level, &a, &b, &mut work)?
+                    || values_differ(g, level, a, b, &mut work)?;
                 if proofs && !same {
                     proof_counts::record(g, proof_counts::Kind::UnifyDifferentProofs, 1);
                 }
                 same
             }
-            Task::Mode(m) => {
-                mode = m;
-                true
-            }
-            task => other_task(g, task, &mut work, mode)?,
+            task => other_task(g, task, &mut work)?,
         };
         if !same {
             record_different(g, &work);
@@ -474,9 +509,8 @@ fn open_calls(
     level: usize,
     (a, b): (&Value, &Value),
     work: &mut Vec<Task>,
-    mode: Mode,
 ) -> Result<bool> {
-    if let Some(at) = call_key(g, mode, level, a, b)? {
+    if let Some(at) = call_key(g, level, a, b)? {
         if known_different(g, &at, a, b)? {
             return Ok(false);
         }
@@ -494,7 +528,6 @@ fn values_differ(
     a: Value,
     b: Value,
     work: &mut Vec<Task>,
-    mode: Mode,
 ) -> Result<bool> {
     Ok(if stale(g, &a)? || stale(g, &b)? {
         work.push(Task::Values(
@@ -505,7 +538,7 @@ fn values_differ(
         true
     } else if blocked(g, &a)? || blocked(g, &b)? {
         let trail = g.store.meta_trail.borrow().len();
-        work.insert(0, Task::Later(level, a, b, trail, mode));
+        work.insert(0, Task::Later(level, a, b, trail));
         true
     } else {
         note_unfilled(g, &a, &b)?;
@@ -513,33 +546,31 @@ fn values_differ(
     })
 }
 
-/// [`run`]'s tasks other than a pair of values or a change of mode.
+/// [`run`]'s tasks other than a pair of values.
 #[inline(never)]
-fn other_task(g: &Unifier<'_>, task: Task, work: &mut Vec<Task>, mode: Mode) -> Result<bool> {
+fn other_task(g: &Unifier<'_>, task: Task, work: &mut Vec<Task>) -> Result<bool> {
     Ok(match task {
-        Task::Open(..) | Task::Values(..) | Task::Mode(_) => unreachable!("taken by `run`"),
+        Task::Open(..) | Task::Values(..) => unreachable!("taken by `run`"),
         Task::Proof(level, a, b) => proof_position(g, level, &a, &b)?,
         // Put aside, and nothing solved since: they differ, unless the
         // comparison may wait on them.
-        Task::Later(level, a, b, trail, _) if g.store.meta_trail.borrow().len() <= trail => {
+        Task::Later(level, a, b, trail) if g.store.meta_trail.borrow().len() <= trail => {
             note_unfilled(g, &a, &b)?;
             sets_aside(g, level, &a, &b)?
         }
-        Task::Later(level, a, b, _, later) => {
-            work.push(Task::Mode(mode));
+        Task::Later(level, a, b, _) => {
             work.push(Task::Values(
                 level,
                 afresh(g, level, &a)?,
                 afresh(g, level, &b)?,
             ));
-            work.push(Task::Mode(later));
             true
         }
         // Identical functions unify without solving anything
         // (`same_closure_solved`: a solved unknown is its solution).
-        Task::Codomains(_, b1, b2) if same_closure_solved(g, &b1, &b2)? => true,
-        Task::Codomains(level, b1, b2) => {
-            let fresh = Value::var(level);
+        Task::Codomains(_, b1, b2, _) if same_closure_solved(g, &b1, &b2)? => true,
+        Task::Codomains(level, b1, b2, mark) => {
+            let fresh = Value::var_marked(level, mark);
             work.push(Task::Values(
                 level + 1,
                 b1.apply(g, fresh.clone())?,
@@ -1422,12 +1453,10 @@ enum Task {
     /// Two values at a proof position, which the kernel skips
     /// ([`proof_position`]).
     Proof(usize, Value, Value),
-    Codomains(usize, Closure, Closure),
-    /// A pair put aside ([`run`]), with the length of the trail then and
-    /// the mode it was compared in.
-    Later(usize, Value, Value, usize, Mode),
-    /// From here down the list, compare in this mode.
-    Mode(Mode),
+    /// With the binder's proof mark, for the fresh variable.
+    Codomains(usize, Closure, Closure, ProofMark),
+    /// A pair put aside ([`run`]), with the length of the trail then.
+    Later(usize, Value, Value, usize),
     /// Below the parts of a pair of calls of one definition still being
     /// compared: if the comparison fails while this is on the list, so did
     /// that pair ([`CallMemo`]).
@@ -1480,9 +1509,9 @@ pub(crate) struct CallMemo {
 }
 
 /// What a pair of calls in a [`CallMemo`] is filed under besides its
-/// shapes: mode, level, the definition called, and what had been solved
-/// and put aside when it was compared ([`Effects`]).
-type CallKey = (Mode, usize, DefId, Effects);
+/// shapes: level, the definition called, and what had been solved and put
+/// aside when it was compared ([`Effects`]).
+type CallKey = (usize, DefId, Effects);
 
 /// What a comparison has done so far, as far as a later one can tell: the
 /// `meta_epoch`, the length of the trail, and how many row constraints
@@ -1522,7 +1551,6 @@ fn reread_sum(g: &Unifier<'_>, value: &Value) -> Result<Option<Value>> {
 /// arguments, and no pair may wait.
 fn call_key(
     g: &Unifier<'_>,
-    mode: Mode,
     level: usize,
     a: &Value,
     b: &Value,
@@ -1538,7 +1566,7 @@ fn call_key(
         return Ok(None);
     };
     memo.calls
-        .file(&g.ev, (mode, level, *i1, effects(g)), a, b)
+        .file(&g.ev, (level, *i1, effects(g)), a, b)
         .map(Some)
 }
 
@@ -1561,7 +1589,7 @@ fn record_different(g: &Unifier<'_>, work: &[Task]) {
     };
     for task in work {
         if let Task::Open(at, a, b) = task
-            && at.0.3 == now
+            && at.0.2 == now
         {
             memo.calls.insert(*at, a, b);
         }
@@ -1622,13 +1650,6 @@ fn stale_within(g: &Unifier<'_>, v: &Value, depth: usize) -> Result<bool> {
         }
     }
     Ok(false)
-}
-
-/// Pushes `pairs` to be unified in shortcut mode, then `mode` again.
-fn push_in_shortcut(work: &mut Vec<Task>, mode: Mode, pairs: Vec<Task>) {
-    work.push(Task::Mode(mode));
-    work.extend(pairs.into_iter().rev());
-    work.push(Task::Mode(Mode::Shortcut));
 }
 
 /// Whether a spine may mention an unknown, solved or not, frozen or not:
@@ -1720,8 +1741,10 @@ fn unify_step(
     a: &Value,
     b: &Value,
     work: &mut Vec<Task>,
-    mode: Mode,
 ) -> Result<bool> {
+    if let Some(answer) = by_rule_i(g, level, a, b)? {
+        return Ok(answer);
+    }
     if let (Value::Call(i1, _, _), Value::Call(i2, _, _)) = (a, b)
         && i1 == i2
         && let Some(answer) = same_calls(g, level, a, b)?
@@ -1733,7 +1756,7 @@ fn unify_step(
     {
         return Ok(answer);
     }
-    unify_step_rest(g, level, a, b, work, mode)
+    unify_step_rest(g, level, a, b, work)
 }
 
 /// `a` and `b` with a solved unknown at either head replaced by its
@@ -1766,12 +1789,12 @@ fn solved_calls(g: &Unifier<'_>, a: &Value, b: &Value) -> Result<Option<(Value, 
 /// the answer, or `None` to go on to the other rules.
 #[inline(never)]
 fn same_calls(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result<Option<bool>> {
-    let (Value::Call(i1, s1, _), Value::Call(_, s2, _)) = (a, b) else {
+    let (Value::Call(_, s1, _), Value::Call(_, s2, _)) = (a, b) else {
         unreachable!("two calls of one definition");
     };
     // Two calls of the same definition (`Value::Call`): their arguments
     // first, as for dictionaries below; otherwise their unfoldings.
-    if same_arguments_solving_nothing(g, level, *i1, s1, s2)? {
+    if same_arguments_solving_nothing(g, level, s1, s2)? {
         return Ok(Some(true));
     }
     // Calls of one definition, one written with an unknown for each
@@ -1786,7 +1809,7 @@ fn same_calls(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result<Opt
         && (blocked(g, a)? || blocked(g, b)?)
     {
         let trail = g.store.meta_trail.borrow().len();
-        if same_arguments(g, level, *i1, s1, s2)? {
+        if same_arguments(g, level, s1, s2)? {
             note_lossy(g, trail);
             return Ok(Some(true));
         }
@@ -1823,15 +1846,14 @@ fn unify_step_rest(
     a: &Value,
     b: &Value,
     work: &mut Vec<Task>,
-    mode: Mode,
 ) -> Result<bool> {
     if let Some(answer) = unforced_rules(g, level, a, b, work)? {
         return Ok(answer);
     }
-    match forced_rules(g, level, (a, b), work, mode)? {
+    match forced_rules(g, level, (a, b), work)? {
         Forced::Answer(answer) => Ok(answer),
         Forced::Shapes(forced_a, forced_b) => {
-            unify_shapes(g, level, (a, b), (&forced_a, &forced_b), work, mode)
+            unify_shapes(g, level, (a, b), (&forced_a, &forced_b), work)
         }
     }
 }
@@ -1874,7 +1896,6 @@ fn forced_rules(
     level: usize,
     (a, b): (&Value, &Value),
     work: &mut Vec<Task>,
-    mode: Mode,
 ) -> Result<Forced> {
     let a = force(g, a.clone())?;
     let b = force(g, b.clone())?;
@@ -1897,7 +1918,7 @@ fn forced_rules(
     {
         if let (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2)) = (&a, &b)
             && i1 == i2
-            && same_arguments(g, level, *i1, s1, s2)?
+            && same_arguments(g, level, s1, s2)?
         {
             return Ok(Forced::Answer(true));
         }
@@ -1916,7 +1937,7 @@ fn forced_rules(
     if !is_meta(&a) && !is_meta(&b) && (unfolds_head(g, &a) || unfolds_head(g, &b)) {
         if let (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2)) = (&a, &b)
             && i1 == i2
-            && same_arguments(g, level, *i1, s1, s2)?
+            && same_arguments(g, level, s1, s2)?
         {
             return Ok(Forced::Answer(true));
         }
@@ -1972,14 +1993,14 @@ fn forced_rules(
                 // A folded call against a different count of `Succ`s, as
                 // in `conv` (SW-2157).
                 if let Some(x) = unfold_folded(g, x)? {
-                    return nested(g, || run(g, vec![Task::Values(level, x, v.clone())], mode));
+                    return nested(g, || run(g, vec![Task::Values(level, x, v.clone())]));
                 }
                 if let Some(x) = reread(x)? {
-                    return nested(g, || run(g, vec![Task::Values(level, x, v.clone())], mode));
+                    return nested(g, || run(g, vec![Task::Values(level, x, v.clone())]));
                 }
                 let mut work = Vec::new();
                 match plus_rule(g, level, x, v, &mut work)? {
-                    Some(true) => nested(g, || run(g, work, mode)),
+                    Some(true) => nested(g, || run(g, work)),
                     _ => Ok(false),
                 }
             },
@@ -2003,23 +2024,22 @@ fn unify_shapes(
     (unforced_a, unforced_b): (&Value, &Value),
     (a, b): (&Value, &Value),
     work: &mut Vec<Task>,
-    mode: Mode,
 ) -> Result<bool> {
-    let fresh = Value::var(level);
     Ok(match (a, b) {
         (Value::Sort(s), Value::Sort(t)) => s == t,
-        (Value::Pi(_, i1, a1, b1, _), Value::Pi(_, i2, a2, b2, _)) => {
+        (Value::Pi(_, i1, a1, b1, m1), Value::Pi(_, i2, a2, b2, m2)) => {
             if i1 != i2 {
                 return Ok(false);
             }
-            work.push(Task::Codomains(level, b1.clone(), b2.clone()));
+            work.push(Task::Codomains(level, b1.clone(), b2.clone(), m1.or(*m2)));
             work.push(Task::Values(level, (**a1).clone(), (**a2).clone()));
             true
         }
         (Value::Lam(_, _, b1, _), Value::Lam(_, _, b2, _)) if same_closure_solved(g, b1, b2)? => {
             true
         }
-        (Value::Lam(_, _, b1, _), Value::Lam(_, _, b2, _)) => {
+        (Value::Lam(_, _, b1, m1), Value::Lam(_, _, b2, m2)) => {
+            let fresh = Value::var_marked(level, m1.or(*m2));
             work.push(Task::Values(
                 level + 1,
                 b1.apply(g, fresh.clone())?,
@@ -2027,10 +2047,11 @@ fn unify_shapes(
             ));
             true
         }
-        (Value::Lam(_, i, b, _), other) | (other, Value::Lam(_, i, b, _)) => {
+        (Value::Lam(_, i, b, mark), other) | (other, Value::Lam(_, i, b, mark)) => {
             if !can_apply(other) {
                 return Ok(false);
             }
+            let fresh = Value::var_marked(level, *mark);
             work.push(Task::Values(
                 level + 1,
                 b.apply(g, fresh.clone())?,
@@ -2039,7 +2060,7 @@ fn unify_shapes(
             true
         }
         // Proof positions as in `conv`: a data type's proof parameters, and
-        // a constructor's proof fields except in shortcut mode.
+        // a constructor's proof fields.
         (Value::Data(d1, a1), Value::Data(d2, a2)) => {
             if d1 != d2 || a1.len() != a2.len() {
                 return Ok(false);
@@ -2058,7 +2079,7 @@ fn unify_shapes(
                 return Ok(false);
             }
             for (k, (x, y)) in a1.iter().zip(a2.iter()).enumerate().rev() {
-                work.push(if mode == Mode::Normal && proof_field(g, *d1, *c1, k) {
+                work.push(if proof_field(g, *d1, *c1, k) {
                     Task::Proof(level, x.clone(), y.clone())
                 } else {
                     Task::Values(level, x.clone(), y.clone())
@@ -2080,19 +2101,16 @@ fn unify_shapes(
         (Value::Neutral(Head::Meta(m1), s1), Value::Neutral(Head::Meta(m2), s2))
             if m1 == m2 && pending(g, *m1) =>
         {
-            match spine_pairs(g, level, None, s1, s2) {
-                Some(pairs) => nested(g, || {
-                    run(g, pairs.into_iter().rev().collect(), Mode::Shortcut)
-                })?,
+            match spine_pairs(level, s1, s2) {
+                Some(pairs) => nested(g, || run(g, pairs.into_iter().rev().collect()))?,
                 None => false,
             }
         }
-        // The same unknown applied twice: its arguments in shortcut mode,
-        // as its solution may take them apart (U6).
+        // The same unknown applied twice: its arguments, pairwise.
         (Value::Neutral(Head::Meta(m1), s1), Value::Neutral(Head::Meta(m2), s2)) if m1 == m2 => {
-            match spine_pairs(g, level, None, s1, s2) {
+            match spine_pairs(level, s1, s2) {
                 Some(pairs) => {
-                    push_in_shortcut(work, mode, pairs);
+                    work.extend(pairs.into_iter().rev());
                     true
                 }
                 None => false,
@@ -2140,7 +2158,7 @@ fn unify_shapes(
         }
         (Value::Neutral(Head::Meta(_), _), Value::Neutral(..))
         | (Value::Neutral(..), Value::Neutral(Head::Meta(_), _))
-            if same_field_records(g, level, a, b, mode)? =>
+            if same_field_records(g, level, a, b)? =>
         {
             true
         }
@@ -2209,7 +2227,7 @@ fn unify_shapes(
                 unreachable!("found by cast_at")
             };
             match (s1.len() - i == s2.len() - j)
-                .then(|| spine_pairs(g, level, None, &s1[i + 1..], &s2[j + 1..]))
+                .then(|| spine_pairs(level, &s1[i + 1..], &s2[j + 1..]))
                 .flatten()
             {
                 Some(rest) => {
@@ -2230,7 +2248,7 @@ fn unify_shapes(
             }
         }
         (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) if h1 == h2 => {
-            same_heads(g, level, (a, b), (h1, s1, s2), work, mode)?
+            same_heads(g, level, (a, b), (h1, s1, s2), work)?
         }
         // Two different definitions stuck on a `case`: by their case trees,
         // as in `conv` (`same_stuck_trees`). What that solves is kept only
@@ -2241,7 +2259,7 @@ fn unify_shapes(
         (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2))
             if i1 != i2 && opens_by_tree(g, a) && opens_by_tree(g, b) =>
         {
-            different_stuck_trees(g, level, (a, b), (s1, s2), mode)?
+            different_stuck_trees(g, level, (a, b), (s1, s2))?
         }
         // Record eta, rule 1, as in `conv` (docs/proposals/record-eta.md
         // §6.3, §8): a constructor of a type with eta against an unknown
@@ -2263,7 +2281,7 @@ fn unify_shapes(
             } else {
                 unforced_b
             };
-            push_fields(g, level, (*d, fs), (n, unforced), work, mode);
+            push_fields(g, level, (*d, fs), (n, unforced), work);
             true
         }
         _ => push_eta(&g.ev, level, a, b, work)?,
@@ -2290,14 +2308,13 @@ fn push_fields(
     (d, fs): (stitchwort_core::DataId, &[Value]),
     (n, unforced): (&Value, &Value),
     work: &mut Vec<Task>,
-    mode: Mode,
 ) {
     for (k, x) in fs.iter().enumerate().rev() {
         let projected = match unforced {
             call @ Value::Call(..) => project_call(d, k, call.clone()),
             _ => project(d, k, n.clone()),
         };
-        work.push(if mode == Mode::Normal && proof_field(g, d, 0, k) {
+        work.push(if proof_field(g, d, 0, k) {
             Task::Proof(level, x.clone(), projected)
         } else {
             Task::Values(level, x.clone(), projected)
@@ -2314,7 +2331,6 @@ fn same_heads(
     (a, b): (&Value, &Value),
     (h1, s1, s2): (&Head, &Spine, &Spine),
     work: &mut Vec<Task>,
-    mode: Mode,
 ) -> Result<bool> {
     let def = match h1 {
         Head::Def(f) => Some(*f),
@@ -2324,14 +2340,11 @@ fn same_heads(
         if let Some(f) = def
             && sealed(g, f)
         {
-            // A hidden opaque call, or a call of a member of the group
-            // being checked: it unfolds where it's transparent, or once
-            // the group is admitted, so its arguments are unified in
-            // shortcut mode, as the kernel compares them (U5).
-            match spine_pairs(g, level, def, s1, s2) {
-                Some(pairs) => nested(g, || {
-                    run(g, pairs.into_iter().rev().collect(), Mode::Shortcut)
-                })?,
+            // A hidden opaque call, a proof (rule F), or a call of a member
+            // of the group being checked: compared by its arguments, as
+            // the kernel compares them.
+            match spine_pairs(level, s1, s2) {
+                Some(pairs) => nested(g, || run(g, pairs.into_iter().rev().collect()))?,
                 None => false,
             }
         } else if underapplied(g, a).is_none() && underapplied(g, b).is_none() {
@@ -2340,15 +2353,12 @@ fn same_heads(
             // is solved: their spines are compared here, so that if they
             // differ, the calls are put aside whole ([`run`]). A call
             // whose spine mentions an unknown, frozen or not and however
-            // deep, may unfold once it's solved, so its arguments are
-            // unified in shortcut mode (U3); only one stuck on an unknown
-            // `blocked` sees is put aside.
-            match spine_pairs(g, level, def, s1, s2) {
+            // deep, may unfold once it's solved; only one stuck on an
+            // unknown `blocked` sees is put aside.
+            match spine_pairs(level, s1, s2) {
                 Some(pairs) if matches!(h1, Head::Def(_)) && (blocked(g, a)? || blocked(g, b)?) => {
                     let trail = g.store.meta_trail.borrow().len();
-                    let same = nested(g, || {
-                        run(g, pairs.into_iter().rev().collect(), Mode::Shortcut)
-                    })?;
+                    let same = nested(g, || run(g, pairs.into_iter().rev().collect()))?;
                     note_lossy(g, trail);
                     same
                 }
@@ -2356,7 +2366,7 @@ fn same_heads(
                     if matches!(h1, Head::Def(_))
                         && (may_mention_meta(s1) || may_mention_meta(s2)) =>
                 {
-                    push_in_shortcut(work, mode, pairs);
+                    work.extend(pairs.into_iter().rev());
                     true
                 }
                 // Two calls of one definition stuck on a `case`, with no
@@ -2369,7 +2379,7 @@ fn same_heads(
                 Some(pairs) if opens_by_tree(g, a) && opens_by_tree(g, b) => {
                     let trail = g.store.meta_trail.borrow().len();
                     let arguments = |_: CompareAt<'_>| -> Result<bool> {
-                        let spines = nested(g, || run(g, pairs.into_iter().rev().collect(), mode))?;
+                        let spines = nested(g, || run(g, pairs.into_iter().rev().collect()))?;
                         if !spines {
                             undo_since(g, trail);
                         }
@@ -2381,10 +2391,9 @@ fn same_heads(
                         a,
                         b,
                         Relation::Unify,
-                        mode,
                         !NO_ETA.with(|c| c.get()) && !may_mention_meta(s1) && !may_mention_meta(s2),
                         arguments,
-                        &mut |l, x, y| unify_in(g, l, x, y, mode),
+                        &mut |l, x, y| unify_in(g, l, x, y),
                     )?;
                     if !same {
                         undo_since(g, trail);
@@ -2400,14 +2409,12 @@ fn same_heads(
         } else {
             // A function: the spines, or else eta. The one place this
             // recurses, once per level of nested partially applied
-            // definitions. A partially applied definition unfolds once
-            // applied to more, so its arguments are unified in shortcut
-            // mode (U4).
-            let spines = match spine_pairs(g, level, def, s1, s2) {
+            // definitions.
+            let spines = match spine_pairs(level, s1, s2) {
                 Some(pairs) => {
                     let mut same = true;
                     for pair in pairs {
-                        if !unify_pair(g, pair, Mode::Shortcut)? {
+                        if !unify_pair(g, pair)? {
                             same = false;
                             break;
                         }
@@ -2429,7 +2436,6 @@ fn different_stuck_trees(
     level: usize,
     (a, b): (&Value, &Value),
     (s1, s2): (&Spine, &Spine),
-    mode: Mode,
 ) -> Result<bool> {
     let trail = g.store.meta_trail.borrow().len();
     let settled = !NO_ETA.with(|c| c.get()) && !may_mention_meta(s1) && !may_mention_meta(s2);
@@ -2439,10 +2445,9 @@ fn different_stuck_trees(
         a,
         b,
         Relation::Unify,
-        mode,
         settled,
         |_| Ok(false),
-        &mut |l, x, y| unify_in(g, l, x, y, mode),
+        &mut |l, x, y| unify_in(g, l, x, y),
     )?;
     if !same {
         undo_since(g, trail);
@@ -2464,13 +2469,7 @@ thread_local! {
 /// b`), whose arguments were unified. This keeps that answer. One field
 /// doesn't determine `?b`, so it's a first try only: undone if the records
 /// don't unify, and what it solves is noted as lossy.
-fn same_field_records(
-    g: &Unifier<'_>,
-    level: usize,
-    a: &Value,
-    b: &Value,
-    mode: Mode,
-) -> Result<bool> {
+fn same_field_records(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result<bool> {
     let (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) = (a, b) else {
         return Ok(false);
     };
@@ -2498,7 +2497,7 @@ fn same_field_records(
     };
     let trail = g.store.meta_trail.borrow().len();
     let task = Task::Values(level, record(a, h1, s1), record(b, h2, s2));
-    if nested(g, || run(g, vec![task], mode))? {
+    if nested(g, || run(g, vec![task]))? {
         note_lossy(g, trail);
         Ok(true)
     } else {
@@ -2525,7 +2524,7 @@ fn same_field_records(
 /// from arguments there can choose another solution than they would.
 fn one_step_apart(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result<bool> {
     match meeting(g, a, b, false)? {
-        Some((head, spine, args)) => same_arguments(g, level, head, &spine, &args),
+        Some((_, spine, args)) => same_arguments(g, level, &spine, &args),
         None => Ok(false),
     }
 }
@@ -2595,7 +2594,7 @@ pub(crate) fn unify_abbreviation(
     b: &Value,
 ) -> Result<Option<bool>> {
     match meeting(g, a, b, true)? {
-        Some((head, spine, args)) => Ok(Some(same_arguments(g, level, head, &spine, &args)?)),
+        Some((_, spine, args)) => Ok(Some(same_arguments(g, level, &spine, &args)?)),
         None => Ok(None),
     }
 }
@@ -2649,23 +2648,18 @@ fn unknown_argument(g: &Unifier<'_>, spine: &[Elim]) -> Result<bool> {
     Ok(false)
 }
 
-/// Whether the spines of two calls of definition `head` unify, element by
-/// element, in shortcut mode: the calls are glued or folded, and are
-/// compared by their unfoldings if this fails, as the kernel's shortcut
-/// (U1, U2). What that solves is kept only if they all do.
-fn same_arguments(
-    g: &Unifier<'_>,
-    level: usize,
-    head: DefId,
-    s1: &[Elim],
-    s2: &[Elim],
-) -> Result<bool> {
-    let Some(pairs) = spine_pairs(g, level, Some(head), s1, s2) else {
+/// Whether the spines of two calls of one definition unify, element by
+/// element: the calls are glued or folded, and are compared by their
+/// unfoldings if this fails, as the kernel does. Proof arguments are equal
+/// by rule I, and unfolding never reads a proof (rules K, S and F), so this
+/// agrees with unfolding. What that solves is kept only if they all do.
+fn same_arguments(g: &Unifier<'_>, level: usize, s1: &[Elim], s2: &[Elim]) -> Result<bool> {
+    let Some(pairs) = spine_pairs(level, s1, s2) else {
         return Ok(false);
     };
     let trail = g.store.meta_trail.borrow().len();
     for pair in pairs {
-        if !unify_pair(g, pair, Mode::Shortcut)? {
+        if !unify_pair(g, pair)? {
             undo_since(g, trail);
             return Ok(false);
         }
@@ -2684,7 +2678,6 @@ fn same_arguments(
 fn same_arguments_solving_nothing(
     g: &Unifier<'_>,
     level: usize,
-    head: DefId,
     s1: &[Elim],
     s2: &[Elim],
 ) -> Result<bool> {
@@ -2692,7 +2685,7 @@ fn same_arguments_solving_nothing(
     let open = g.attempt.argument_checks.get();
     let same = {
         let _open = ScopedCell::set(&g.attempt.argument_checks, open + 1);
-        same_arguments(g, level, head, s1, s2)?
+        same_arguments(g, level, s1, s2)?
     };
     if !same {
         return Ok(false);
@@ -2721,30 +2714,17 @@ pub(crate) fn undo_since(g: &Unifier<'_>, len: usize) {
 }
 
 /// The pairs of values in two spines, or `None` if they differ in length or
-/// their eliminations don't match. With `head`, the definition applied, the
-/// arguments at its inert positions are proof positions, as in `conv`, up
-/// to the first `J` (after which the arguments are the result's).
-fn spine_pairs(
-    g: &Ev,
-    level: usize,
-    head: Option<DefId>,
-    s1: &[Elim],
-    s2: &[Elim],
-) -> Option<Vec<Task>> {
+/// their eliminations don't match. Proof arguments are paired like any
+/// others, and rule I answers for them ([`unify_step`]).
+fn spine_pairs(level: usize, s1: &[Elim], s2: &[Elim]) -> Option<Vec<Task>> {
     if s1.len() != s2.len() {
         return None;
     }
-    let def = head.map(|f| g.def(f));
-    let mut arguments = true;
     let mut pairs = Vec::new();
-    for (k, pair) in s1.iter().zip(s2).enumerate() {
+    for pair in s1.iter().zip(s2) {
         match pair {
             (Elim::App(x, _), Elim::App(y, _)) => {
-                pairs.push(if arguments && def.is_some_and(|d| d.is_inert(k)) {
-                    Task::Proof(level, x.clone(), y.clone())
-                } else {
-                    Task::Values(level, x.clone(), y.clone())
-                });
+                pairs.push(Task::Values(level, x.clone(), y.clone()));
             }
             (
                 Elim::J {
@@ -2758,25 +2738,22 @@ fn spine_pairs(
                     ..
                 },
             ) => {
-                arguments = false;
                 pairs.push(Task::Values(level, (**m1).clone(), (**m2).clone()));
                 pairs.push(Task::Values(level, (**b1).clone(), (**b2).clone()));
             }
-            (Elim::Proj(d1, i1), Elim::Proj(d2, i2)) if d1 == d2 && i1 == i2 => {
-                arguments = false;
-            }
+            (Elim::Proj(d1, i1), Elim::Proj(d2, i2)) if d1 == d2 && i1 == i2 => {}
             _ => return None,
         }
     }
     Some(pairs)
 }
 
-/// One pair from [`spine_pairs`], unified on its own, in `mode`.
-fn unify_pair(g: &Unifier<'_>, pair: Task, mode: Mode) -> Result<bool> {
+/// One pair from [`spine_pairs`], unified on its own.
+fn unify_pair(g: &Unifier<'_>, pair: Task) -> Result<bool> {
     match pair {
-        Task::Values(l, x, y) => unify_in(g, l, &x, &y, mode),
+        Task::Values(l, x, y) => unify_in(g, l, &x, &y),
         Task::Proof(l, x, y) => proof_position(g, l, &x, &y),
-        Task::Codomains(..) | Task::Later(..) | Task::Mode(_) | Task::Open(..) => {
+        Task::Codomains(..) | Task::Later(..) | Task::Open(..) => {
             unreachable!("not from spine_pairs")
         }
     }
@@ -2816,13 +2793,14 @@ fn can_apply(v: &Value) -> bool {
 /// Eta for definitions: pushes both sides applied to a fresh variable, or
 /// returns `false` if neither is a partially applied definition.
 fn push_eta(g: &Ev, level: usize, a: &Value, b: &Value, work: &mut Vec<Task>) -> Result<bool> {
-    let Some(icit) = underapplied(g, a).or_else(|| underapplied(g, b)) else {
+    let next = |v| stitchwort_core::value::next_parameter(g, v);
+    let Some((icit, mark)) = next(a).or_else(|| next(b)) else {
         return Ok(false);
     };
     if !can_apply(a) || !can_apply(b) {
         return Ok(false);
     }
-    let fresh = Value::var(level);
+    let fresh = Value::var_marked(level, mark);
     work.push(Task::Values(
         level + 1,
         apply_icit(g, a.clone(), fresh.clone(), icit)?,
@@ -2868,22 +2846,21 @@ fn first_order(
     // when each pair is looked at, and both are taken, solving `?le` with a
     // function of another type (SW-4564).
     learn_types(g, level, &left, &right)?;
-    learn_types(g, level, x, y)?;
+    let types_agree = learn_types(g, level, x, y)?;
     if apart(g, level, x, y)? || apart(g, level, &left, &right)? {
         return Ok(false);
     }
+    // `x` and `y` needn't have one type here, so two proofs are equal by
+    // rule I only once their types are known to agree; otherwise only if
+    // they're the same proof. Else `?m h1 = f h2`, with `h1` and `h2`
+    // proving different statements, would solve `?m := f` with the wrong
+    // type (docs/proposals/full-proof-irrelevance-audit.md, finding D).
+    if !types_agree && both_proofs(g, x, y)? && !stitchwort_core::value::same_value(x, y) {
+        return Ok(false);
+    }
     let mark = g.store.meta_trail.borrow().len();
-    // `?m` may be solved with something that takes its last argument apart,
-    // and so may an applied unknown or definition, so the last arguments
-    // are unified in shortcut mode; only against a variable's they stay
-    // arguments for good (U6).
-    let mode = if matches!(head, Head::Var(..)) {
-        Mode::Normal
-    } else {
-        Mode::Shortcut
-    };
     let outer = NO_ETA.with(|c| c.replace(true));
-    let same = unify_in(g, level, x, y, mode);
+    let same = unify_in(g, level, x, y);
     NO_ETA.with(|c| c.set(outer));
     if !same? {
         return Ok(false);
@@ -2909,16 +2886,18 @@ fn first_order(
 /// looks at the next pair. Equal values have equal types, so a solution
 /// found here is one the pairing needs anyway. If the types don't unify,
 /// whatever that solved is taken back and nothing is learned: [`apart`]
-/// still decides whether to refuse, as it did before.
-fn learn_types(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result<()> {
+/// still decides whether to refuse, as it did before. `true` when the two
+/// types were known and unified.
+fn learn_types(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result<bool> {
     let (Some(Known::Type(ta)), Some(Known::Type(tb))) = (type_of(g, a)?, type_of(g, b)?) else {
-        return Ok(());
+        return Ok(false);
     };
     let mark = g.store.meta_trail.borrow().len();
     if !unify(g, level, &ta, &tb)? {
         undo_since(g, mark);
+        return Ok(false);
     }
-    Ok(())
+    Ok(true)
 }
 
 /// What a value's type is known to be, for [`apart`]: the type itself, or
@@ -3103,7 +3082,7 @@ fn same_field_types(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Resu
         .rev()
         .map(|(x, y)| Task::Values(level, x, y))
         .collect();
-    if nested(g, || run(g, tasks, Mode::Normal))? && g.store.meta_trail.borrow().len() > trail {
+    if nested(g, || run(g, tasks))? && g.store.meta_trail.borrow().len() > trail {
         note_lossy(g, trail);
         Ok(Some(Task::Values(level, record_a, record_b)))
     } else {
@@ -3185,7 +3164,7 @@ fn same_field_calls(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Resu
         return Ok(None);
     };
     let trail = g.store.meta_trail.borrow().len();
-    if nested(g, || run(g, tasks, Mode::Normal))? && g.store.meta_trail.borrow().len() > trail {
+    if nested(g, || run(g, tasks))? && g.store.meta_trail.borrow().len() > trail {
         note_lossy(g, trail);
         Ok(Some(Task::Values(level, r1, r2)))
     } else {
@@ -4918,7 +4897,7 @@ pub(crate) mod proof_fixture {
     /// - `pick (n: N) (b: Box Q): Q`, which unboxes at `Z`: `match n with
     ///   | Z => (match b with | MkBox x => x) | S m => MkQ m`
     /// - `pick2 (n: N) (b: Box Q): Q`, which unboxes at `S Z` instead
-    /// - `ignores (n: N) (k: N) (h: Q): N := n`, inert at `h`
+    /// - `ignores (n: N) (k: N) (h: Q): N := n`, which never reads `h`
     pub(crate) struct Proofs {
         pub(crate) n: DataId,
         pub(crate) q: DataId,
@@ -4934,12 +4913,17 @@ pub(crate) mod proof_fixture {
         Span::point(SourceMap::new().add("proofs", ""), 0)
     }
 
-    fn data(g: &mut Kernel, name: &str, params: Vec<(&str, Term)>, sort: Sort) -> DataId {
+    pub(crate) fn data(
+        g: &mut Kernel,
+        name: &str,
+        params: Vec<(&str, Term)>,
+        sort: Sort,
+    ) -> DataId {
         let params = params.into_iter().map(|(x, t)| (x.into(), t)).collect();
         check::declare_data(g, name.into(), name.into(), params, sort, span()).expect(name)
     }
 
-    fn ctor(name: &str, fields: Vec<(&str, Term)>) -> CtorDecl {
+    pub(crate) fn ctor(name: &str, fields: Vec<(&str, Term)>) -> CtorDecl {
         CtorDecl {
             name: name.into(),
             fields: fields
@@ -5297,112 +5281,44 @@ mod tests {
         assert!(solved_as_three(m) && solved_as_three(k));
     }
 
-    /// Test 28: a call stuck on an unknown unfolds once it's solved, so its
-    /// arguments are unified in shortcut mode, which compares proof fields:
-    /// `pick ?n (MkBox p)` and `pick ?n (MkBox q)` differ (at `?n := Z` they
-    /// are `p` and `q`), and nothing is solved.
+    /// Test 28, under rule I: `pick` returns a proof, so `pick ?n (MkBox p)`
+    /// and `pick ?n (MkBox q)` are equal unlooked at, and nothing inside is
+    /// solved, even where the arguments would say what `?n` is (the
+    /// inference E2 gives up, docs/proposals/full-proof-irrelevance.md §7).
+    /// The kernel agrees at every solution: there both are proofs too.
     #[test]
-    fn a_call_stuck_on_an_unknown_compares_proof_fields() {
+    fn calls_of_a_proof_are_equal_by_rule_i() {
         let (fresh, p) = proofs();
         let g = &fresh.unifier();
-        let pick = |n: Value, proof: Value| {
-            let f = eval(g, &[], &Term::Def(p.pick)).unwrap();
-            let f = apply_icit(g, f, n, Icit::Explicit).unwrap();
-            apply_icit(
-                g,
-                f,
-                Value::Ctor(p.boxed, 0, [proof].into()),
-                Icit::Explicit,
-            )
-            .unwrap()
-        };
-        let (n, n_value) = meta(g, &[]);
-        let (a, b) = (
-            pick(n_value.clone(), Value::var(0)),
-            pick(n_value.clone(), Value::var(1)),
-        );
-        assert!(!unify(g, 2, &a, &b).unwrap());
-        assert!(g.meta_solution(n).is_none());
-        // Paired: against `pick x (MkBox p)`, stuck on a variable, `?n x`
-        // is solved with `x`.
-        let (n, n_value) = meta(g, &[2]);
-        let a = pick(n_value, Value::var(0));
-        assert!(unify(g, 3, &a, &pick(Value::var(2), Value::var(0))).unwrap());
-        let solution = g.meta_solution(n).expect("solved");
-        let applied = apply_icit(g, solution, Value::var(2), Icit::Explicit).unwrap();
-        assert!(is_var(g, &applied, 2));
-    }
-
-    /// The unifier compares in shortcut mode wherever an unknown may yet be
-    /// solved with something that takes a proof field apart, so it never
-    /// accepts a pair the kernel rejects once the unknown is solved. Each
-    /// case is checked against the kernel's answer at that solution (U3,
-    /// U6).
-    #[test]
-    fn an_unknown_solved_later_never_hides_a_proof_field() {
-        let (fresh, p) = proofs();
-        let g = &fresh.unifier();
-        let boxed = |x: Value| Value::Ctor(p.boxed, 0, [x].into());
+        let proof = |l: usize| Value::var_marked(l, ProofMark::Proof);
         let call = |f: DefId, n: Value, x: Value| {
             let f = eval(g, &[], &Term::Def(f)).unwrap();
             let f = apply_icit(g, f, n, Icit::Explicit).unwrap();
-            apply_icit(g, f, boxed(x), Icit::Explicit).unwrap()
+            apply_icit(g, f, Value::Ctor(p.boxed, 0, [x].into()), Icit::Explicit).unwrap()
         };
         let z = || Value::Ctor(p.n, 0, Vec::new().into());
-        let s = |v: Value| Value::Ctor(p.n, 1, [v].into());
-        let kernel = |a: &Value, b: &Value| conv(g, 2, a, b).unwrap();
-        // At the solutions below, the kernel tells `p` and `q` apart.
-        let at_z = |f| (call(f, z(), Value::var(0)), call(f, z(), Value::var(1)));
-        let (a, b) = at_z(p.pick);
-        assert!(!kernel(&a, &b));
+        let (n, n_value) = meta(g, &[]);
         let (a, b) = (
-            call(p.pick2, s(z()), Value::var(0)),
-            call(p.pick2, s(z()), Value::var(1)),
+            call(p.pick, n_value.clone(), proof(0)),
+            call(p.pick, n_value, proof(1)),
         );
-        assert!(!kernel(&a, &b));
-
-        // A call stuck on an unknown inside a constructor: `pick2 (S ?n) _`.
-        let (_, n) = meta(g, &[]);
-        let a = call(p.pick2, s(n.clone()), Value::var(0));
-        let b = call(p.pick2, s(n), Value::var(1));
-        assert!(!unify(g, 2, &a, &b).unwrap());
-
-        // A call stuck on a frozen unknown.
-        let (m, n) = meta(g, &[]);
-        g.store.freeze_meta(m);
-        let a = call(p.pick, n.clone(), Value::var(0));
-        let b = call(p.pick, n, Value::var(1));
-        assert!(!unify(g, 2, &a, &b).unwrap());
-
-        // The same unknown applied twice: `?m := b => pick Z b` tells them
-        // apart.
-        let m = g.store.new_meta(span());
-        let applied = |x: Value| {
-            Value::Neutral(
-                Head::Meta(m),
-                vec![Elim::App(boxed(x), Icit::Explicit)].into(),
-            )
-        };
-        assert!(!unify(g, 2, &applied(Value::var(0)), &applied(Value::var(1))).unwrap());
-
-        // Last arguments paired: `?m (MkBox p)` against `pick ?n (MkBox q)`
-        // would solve `?m := pick ?n`, and then `?n := Z`.
-        let m = g.store.new_meta(span());
-        let (_, n) = meta(g, &[]);
-        let a = Value::Neutral(
-            Head::Meta(m),
-            vec![Elim::App(boxed(Value::var(0)), Icit::Explicit)].into(),
-        );
-        assert!(!unify(g, 2, &a, &call(p.pick, n, Value::var(1))).unwrap());
+        assert!(unify(g, 2, &a, &b).unwrap());
+        assert!(g.meta_solution(n).is_none());
+        let (n, n_value) = meta(g, &[2]);
+        let a = call(p.pick, n_value, proof(0));
+        assert!(unify(g, 3, &a, &call(p.pick, Value::var(2), proof(0))).unwrap());
+        assert!(g.meta_solution(n).is_none());
+        for f in [p.pick, p.pick2] {
+            let (a, b) = (call(f, z(), proof(0)), call(f, z(), proof(1)));
+            assert!(conv(g, 2, &a, &b).unwrap());
+        }
     }
 
-    /// Only leading applications are a definition's arguments: one after a
-    /// `J`, at an inert position's index, is compared (as in `conv`).
+    /// An argument after a `J` is compared, as every argument is.
     #[test]
     fn an_argument_after_a_j_is_unified() {
         let (fresh, p) = proofs();
         let g = &fresh.unifier();
-        assert_eq!(g.def(p.ignores).inert_params(), &[false, false, true]);
         let spine = |last: usize| {
             let elims = vec![
                 Elim::App(Value::var(0), Icit::Explicit),
@@ -6079,9 +5995,43 @@ mod tests {
 
     /// A kernel with `List` and `Char` registered as data types 0 and 1. (No
     /// declarations: unification only compares constructors.)
+    /// `List` and `Char` as rule I needs to see them, their sorts and field
+    /// sorts: `Char`'s second field is a proof, as the library's is.
     fn text_globals() -> (Fresh, CompactText) {
         let mut fresh = Fresh::default();
-        let text = CompactText::new(stitchwort_core::DataId(0), stitchwort_core::DataId(1));
+        let g = &mut fresh.g;
+        let n = proof_fixture::data(g, "N", vec![], stitchwort_core::Sort::Type(0));
+        let q = proof_fixture::data(g, "Q", vec![], stitchwort_core::Sort::Prop);
+        let char_data = proof_fixture::data(g, "Char", vec![], stitchwort_core::Sort::Type(0));
+        let list = proof_fixture::data(g, "List", vec![], stitchwort_core::Sort::Type(0));
+        let (n_ty, q_ty) = (Term::data(n, vec![]), Term::data(q, vec![]));
+        stitchwort_core::check::define_ctors(g, n, vec![proof_fixture::ctor("Z", vec![])])
+            .expect("N");
+        stitchwort_core::check::define_ctors(g, q, vec![proof_fixture::ctor("MkQ", vec![])])
+            .expect("Q");
+        stitchwort_core::check::define_ctors(
+            g,
+            char_data,
+            vec![proof_fixture::ctor(
+                "MkChar",
+                vec![("code", n_ty), ("valid", q_ty)],
+            )],
+        )
+        .expect("Char");
+        let char_ty = Term::data(char_data, vec![]);
+        stitchwort_core::check::define_ctors(
+            g,
+            list,
+            vec![
+                proof_fixture::ctor("Nil", vec![]),
+                proof_fixture::ctor(
+                    "Cons",
+                    vec![("head", char_ty), ("tail", Term::data(list, vec![]))],
+                ),
+            ],
+        )
+        .expect("List");
+        let text = CompactText::new(list, char_data);
         fresh.g.env.set_text_unchecked_for_tests(text.clone());
         (fresh, text)
     }
@@ -6186,19 +6136,22 @@ mod tests {
         }
     }
 
-    /// A rigid proof variable stays distinct from `byComputing`, against the compact
-    /// list as against its expansion.
+    /// A character holding a proof variable is the character the compact
+    /// list holds, against the compact list as against its expansion: its
+    /// proof field is a proof, equal to `byComputing` by rule I (docs/core.md,
+    /// "Proof irrelevance"). The fixture once had no `Char` data, which hid
+    /// the field's sort and made the two differ.
     #[test]
-    fn a_rigid_proof_is_not_rfl() {
+    fn a_rigid_proof_field_is_equal_by_rule_i() {
         let (fresh, t) = text_globals();
         let g = &fresh.unifier();
         let t = &t;
         let code = stitchwort_core::native::nat_value(97u32.into());
         let nil = Value::Ctor(t.list, 0, Vec::new().into());
         let lhs = cons(t, mk_char(t, code, Value::var(0)), nil);
-        assert!(!unify(g, 1, &lhs, &compact("a")).unwrap());
-        assert!(!unify(g, 1, &lhs, &expanded(t, "a")).unwrap());
-        assert!(!unify(g, 1, &compact("a"), &lhs).unwrap());
+        assert!(unify(g, 1, &lhs, &compact("a")).unwrap());
+        assert!(unify(g, 1, &lhs, &expanded(t, "a")).unwrap());
+        assert!(unify(g, 1, &compact("a"), &lhs).unwrap());
     }
 
     #[test]

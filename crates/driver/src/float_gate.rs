@@ -11,6 +11,7 @@
 //! run it too (`stitchwort_web::float_gate`): the gate is to pass on both
 //! kernels.
 
+use std::rc::Rc;
 use std::time::Duration;
 
 use stitchwort_core::budget::Instant;
@@ -316,12 +317,40 @@ fn def(g: &Ev, name: &str) -> Result<DefId, String> {
         .ok_or_else(|| format!("no `{name}`"))
 }
 
-/// The normal form of `value`, with `level` variables in scope, as text.
+/// The normal form of `value`, with `level` variables in scope, as text,
+/// with every constructor's proof fields written `byComputing`: which proof
+/// a record holds never changes what it computes or what it equals (rule I,
+/// docs/core.md "Proof irrelevance"), and a definition's witness stays a
+/// stuck proof (rule F) where a native's is `byComputing`.
 #[allow(clippy::disallowed_methods)] // a float-gate test's small values
 fn normal(g: &Ev, level: usize, value: &Value) -> Result<String, String> {
-    quote(g, level, value)
-        .map(|t| format!("{t:?}"))
-        .map_err(|e| format!("{e:?}"))
+    let term = quote(g, level, value).map_err(|e| format!("{e:?}"))?;
+    let erased = term
+        .rewrite_up(g, &mut |t| {
+            Ok(match t {
+                Term::Ctor(d, c, fields) => {
+                    let sorts = &g.data(*d).ctors()[*c].field_sorts;
+                    let proof = |i: usize| sorts.get(i) == Some(&stitchwort_core::Sort::Prop);
+                    (0..fields.len()).any(proof).then(|| {
+                        let fields = fields
+                            .iter()
+                            .enumerate()
+                            .map(|(i, f)| {
+                                if proof(i) {
+                                    Rc::new(Term::Refl)
+                                } else {
+                                    f.clone()
+                                }
+                            })
+                            .collect();
+                        Term::Ctor(*d, *c, fields)
+                    })
+                }
+                _ => None,
+            })
+        })
+        .map_err(|e| format!("{e:?}"))?;
+    Ok(format!("{erased:?}"))
 }
 
 fn run_mode(mode: Mode, limits: Limits, deadline: Option<Instant>) -> Run {

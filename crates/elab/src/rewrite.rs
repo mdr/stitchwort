@@ -1563,7 +1563,7 @@ fn shown_after(cx: &Ctx, before: &Value, equation: &Equation, after: &Value) -> 
         cx.level(),
         &|l| Ok(Term::Var(cx.level() - 1 - l)),
         &|t, under| {
-            crate::matching::same_shifted(&lhs, t, under, 0)
+            crate::matching::same_shifted_but_proofs(&g, &lhs, t, under, 0)
                 .then(|| rhs.shift(&g, under, 0).ok())
                 .flatten()
         },
@@ -2314,7 +2314,7 @@ impl Search<'_, '_> {
                 &|_, _| None,
             )?
         };
-        if same(&candidate, &self.lhs_term.borrow()) {
+        if crate::matching::same_shifted_but_proofs(&g, &candidate, &self.lhs_term.borrow(), 0, 0) {
             self.stats.borrow_mut().syntactic += 1;
             return Ok(Some(candidate));
         }
@@ -2565,8 +2565,8 @@ fn checks_against(
         let Value::Pi(_, _, dom, cod, _) = force(&g, ty.clone())? else {
             return Ok(None);
         };
-        let x = Value::var(cx.level());
         cx.bind_hidden(name.clone(), (*dom).clone());
+        let x = cx.last_var();
         let cod = cod.apply(&g, x)?;
         return checks_against(cx, kcx, goal, body, &cod);
     }
@@ -2719,8 +2719,8 @@ fn check_motive(
     let zonked = |v: &Value| cx.eval(&cx.quote_folded(v)?);
     let (carrier, rhs) = (zonked(carrier)?, zonked(rhs)?);
     let mut kcx = kernel_context(cx)?;
-    let x = Value::var(kcx.level());
-    kcx.bind("x'".into(), carrier.clone(), ProofMark::Unknown);
+    kcx.bind("x'".into(), carrier.clone(), cx.mark_of_type(&carrier));
+    let x = kcx.last_var();
     kcx.bind(
         "_".into(),
         Value::Eq(

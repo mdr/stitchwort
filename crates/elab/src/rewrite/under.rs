@@ -496,8 +496,8 @@ fn rewrite_premise(
             cx.reset(mark);
             return Ok(None);
         };
-        let x = Value::var(cx.level());
         cx.bind_hidden(name.clone(), (*domain).clone());
+        let x = cx.last_var();
         ty = rest.apply(&g, x)?;
     }
     let result = match force(&g, ty)? {

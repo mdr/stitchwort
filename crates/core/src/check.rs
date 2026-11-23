@@ -87,6 +87,11 @@ impl<'g> Ctx<'g> {
 
     /// Binds a variable of type `ty`; `mark` says whether it's a proof,
     /// which the caller derived from `ty`'s sort ([`prop_mark`]).
+    /// The variable bound last, with its mark.
+    pub fn last_var(&self) -> Value {
+        self.env.last().cloned().expect("a variable is bound")
+    }
+
     pub fn bind(&mut self, name: Name, ty: Value, mark: ProofMark) {
         self.env.push(Value::var_marked(self.level(), mark));
         self.types.push(ty);
@@ -752,10 +757,14 @@ pub(crate) fn prop_mark(cx: &mut Ctx, ty: &Value) -> Result<ProofMark> {
     }
     let ty = force(&cx.g, ty.clone())?;
     match &ty {
-        Value::Pi(x, _, dom, cod, mark) => {
+        Value::Pi(x, _, dom, cod, _) => {
+            // The binder's mark is derived, never read off the value: it may
+            // be an unchecked term's, and the codomain's sort can depend on
+            // a comparison rule I answers (the SW-4671 review's F2).
+            let mark = prop_mark(cx, dom)?;
             let level = cx.level();
-            let inner = cod.apply(&cx.g, Value::var_marked(level, *mark))?;
-            cx.bind(x.clone(), (**dom).clone(), *mark);
+            let inner = cod.apply(&cx.g, Value::var_marked(level, mark))?;
+            cx.bind(x.clone(), (**dom).clone(), mark);
             let result = prop_mark(cx, &inner);
             cx.unbind(1);
             result
@@ -871,7 +880,22 @@ fn check_other(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
                 cx.show(expected)
             ),
         )),
-        (Term::Refl, Value::Eq(_, a, b)) => {
+        (Term::Refl, Value::Eq(ty, a, b)) => {
+            // Rule I at the point of use, under the reference evaluator:
+            // two sides both marked proofs must be proofs, their type a
+            // proposition (the SW-4671 review's F5). This is where `p = q`
+            // checks for two proofs, so a wrong mark would show here first.
+            #[cfg(feature = "reference")]
+            if crate::value::both_proofs(&cx.g, a, b) {
+                let sort = sort_of(cx, ty)?;
+                assert_eq!(
+                    sort,
+                    Sort::Prop,
+                    "internal error: rule I would equate two values marked proofs whose type isn't a proposition"
+                );
+            }
+            #[cfg(not(feature = "reference"))]
+            let _ = ty;
             if cx.conv(a, b)? {
                 Ok(Term::Refl)
             } else {
@@ -1114,6 +1138,22 @@ fn infer_j(
     let g = cx.g;
     let (proof, proof_ty) = infer(cx, proof)?;
     let proof_ty = force(&g, proof_ty)?;
+    // Ends given on the proof (`(p : x = y)`, from a term checked before)
+    // were checked as an annotation by `infer`. Under the reference
+    // evaluator they are also derived again from the bare proof's own type,
+    // where it has one to infer (`byComputing` has none: it is checked
+    // against the annotation), and compared, so rule K never rests on ends
+    // the kernel didn't derive (the SW-4673 review).
+    #[cfg(feature = "reference")]
+    if let Term::Ann(bare, _) = proof.strip_loc()
+        && Term::j_ends(&proof).is_some()
+        && let Ok((_, derived)) = infer(cx, bare)
+    {
+        assert!(
+            crate::value::conv(&g, cx.level(), &derived, &proof_ty)?,
+            "internal error: a cast's ends aren't its proof's type"
+        );
+    }
     let Value::Eq(ty, x, y) = proof_ty else {
         return Err(cx.error(
             "E-TYPE-MISMATCH",
@@ -2566,7 +2606,15 @@ impl<'g, K: Fn(usize) -> Option<Apart>> Unchanged<'g, K> {
             for elim in spine.iter() {
                 match elim {
                     Elim::App(arg, _) => todo.push(arg),
-                    Elim::J { motive, base, .. } => todo.extend([&**motive, &**base]),
+                    // A cast's ends are read back with it, on its proof.
+                    Elim::J {
+                        motive, base, ends, ..
+                    } => {
+                        todo.extend([&**motive, &**base]);
+                        if let Some(ends) = ends {
+                            todo.extend([&ends.ty, &ends.x, &ends.y]);
+                        }
+                    }
                     Elim::Proj(..) => {}
                 }
             }
@@ -2751,18 +2799,6 @@ fn install_group(
                 def.body = Some(Rc::new(body));
                 def.state = State::Final;
             }
-            // The inert proof parameters, from the installed bodies, on the
-            // checked and the trusted path alike, so the check cache
-            // needn't store them and can't give a body marks it doesn't
-            // justify. While the group was checked its members had none.
-            let marks = crate::inert::group_marks(&g.ev(), &ids);
-            for (id, marks) in ids.iter().zip(marks) {
-                g.env.defs_mut()[id.0].inert_params = marks;
-            }
-            #[cfg(feature = "reference")]
-            g.machine
-                .budget
-                .uncounted(|| crate::reference::validate_inert(&g.ev(), &ids));
             #[cfg(feature = "reference")]
             g.machine
                 .budget
@@ -2947,7 +2983,6 @@ fn push_def(
         transparent: Rc::default(),
         lift_leaf: false,
         recursive: true,
-        inert_params: Rc::default(),
         export,
         validators: Vec::new(),
         run_body: None,

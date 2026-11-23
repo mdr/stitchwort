@@ -450,7 +450,15 @@ fn value_levels(g: &Ev, level: usize, value: &Value, out: &mut Vec<usize>) -> Re
         for elim in spine.iter() {
             match elim {
                 Elim::App(arg, _) => todo.push(arg),
-                Elim::J { motive, base, .. } => todo.extend([&**motive, &**base]),
+                // A cast's ends are read back with it, on its proof.
+                Elim::J {
+                    motive, base, ends, ..
+                } => {
+                    todo.extend([&**motive, &**base]);
+                    if let Some(ends) = ends {
+                        todo.extend([&ends.ty, &ends.x, &ends.y]);
+                    }
+                }
                 Elim::Proj(..) => {}
             }
         }

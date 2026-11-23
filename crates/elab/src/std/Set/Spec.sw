@@ -869,23 +869,23 @@ theorem Map.containsInEq ∀ [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (
 
 theorem Map.getInsertIn ∀ [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key: k) (item: v):
     (m.insertIn key item).get key = Some (((m.get key).getOrElse Set.empty).insert item) :=
-  Map.getAlter m key _
+  Map.getAlter m key (items => items.getOrElse Set.empty |> .insert item |> Some)
 
 theorem Map.getInsertInOther ∀ [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key: k)
     (item: v) (otherKey: k)
     (ne: otherKey ≠ key):
     (m.insertIn key item).get otherKey = m.get otherKey :=
-  Map.getAlterOther m key otherKey ne _
+  Map.getAlterOther m key otherKey ne (items => items.getOrElse Set.empty |> .insert item |> Some)
 
 theorem Map.getRemoveIn ∀ [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key: k) (item: v):
     (m.removeIn key item).get key = ((m.get key).map (.remove item) |> .filter (rest => !rest.isEmpty)) :=
-  Map.getAlter m key _
+  Map.getAlter m key (items => items.map (.remove item) |> .filter (rest => !rest.isEmpty))
 
 theorem Map.getRemoveInOther ∀ [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key: k)
     (item: v) (otherKey: k)
     (ne: otherKey ≠ key):
     (m.removeIn key item).get otherKey = m.get otherKey :=
-  Map.getAlterOther m key otherKey ne _
+  Map.getAlterOther m key otherKey ne (items => items.map (.remove item) |> .filter (rest => !rest.isEmpty))
 
 theorem Map.containsInEmpty ∀ [auto ord: Ord k] [auto itemOrd: Ord v] (key: k) (item: v):
     (Map.empty: Map k (Set v)).containsIn key item = False :=

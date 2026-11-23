@@ -122,11 +122,11 @@ pub const PINS: &[Pin] = &[
     ),
     kernel(
         Builtin::FloatNeg,
-        "c4eec6b99f6f28c11083c850d71dfa3cbf9a7190c50de0a75358c40d1dca642f",
+        "f85e6d6fbe46c836c0f84f962650f58997733520a6562f0b1063bf6089bfe454",
     ),
     kernel(
         Builtin::FloatAbs,
-        "498e94e7f6d08c4ddd28bb5dee54446f1bf48b1aca5751ba4a54ca23f2af6e92",
+        "e79ec64d461fc0949b4c663f28fbbb623008af7bec12bbdefd14f25f4296d0a5",
     ),
     kernel(
         Builtin::FloatIsNaN,
@@ -154,51 +154,51 @@ pub const PINS: &[Pin] = &[
     ),
     kernel(
         Builtin::FloatAdd,
-        "be6ff45c7df219b92a805d1ee897189237b557010e35e4aebdc981b44b18b120",
+        "283d0bd4c74364bb03a1c48cdbb569545e62cce80d6884702488e62c03470bd3",
     ),
     kernel(
         Builtin::FloatSub,
-        "b3f431032438bffb535c4dbba98a44f13c1cbc1aefe3b9d9af21bd583c216c0f",
+        "ed63cba51e66e5c31f154e05186b23e93ac119b1005e6f4f9dd7a854ad81a896",
     ),
     kernel(
         Builtin::FloatMul,
-        "a8fc966041a5f374f82b581bc6b163fca7cbdbe5d360f8125bad181f7ae3f949",
+        "1c14bb71c22ca038f46fd38055dcd63d69eaad1068992237db538578e7475849",
     ),
     kernel(
         Builtin::FloatOfInt,
-        "b0a726b2c61b717aafd5398acc79ce00db0565ecbc5d20af2506a20f30563bb9",
+        "71dd0caa52db12a81286738b5ecae596725079de9649e7521421bb9a7d40733a",
     ),
     kernel(
         Builtin::FloatOfNat,
-        "2f2cd691811be01cbce8bdfd8f1541f8255b3780876d30e6d32508040d8ad324",
+        "2c26ac2d06133e9bcc97153fb288c2af8466b4d7388c7b609526dc373a78327e",
     ),
     kernel(
         Builtin::FloatDiv,
-        "73c6706145d33d45abdcb51bb55b124aef7e638865698d5b319d3d82e98395d9",
+        "dfcf26fbadad31fdab8e7cfe4627a5f6caa40589c87f588d38b8bef4b3ab09c6",
     ),
     kernel(
         Builtin::FloatRem,
-        "04ee33bd88b5ecee10941d962c1373ec1266bea0e1bc13fb937d00c95ac4555f",
+        "387d3f084d23e01108222382d0a99297436730618eed1b8de8124933ae3ba15e",
     ),
     kernel(
         Builtin::FloatFloor,
-        "28f54ad30f8bf9dbc38310b0b40054e1e9b07606ddfaceec0b10baa77d1b3165",
+        "865a1f53b12faa343f3b6b3eda0a9a4aa1a3b225d7404b1febab02715928fbcf",
     ),
     kernel(
         Builtin::FloatCeil,
-        "a4e4b5add5074854c8c2161b4e79edf8bb02ac277eba8ec7212c554a5caa6d07",
+        "38b3f0d39e48d1ddd56e9f41b880bea18dd0f00a346140df4f752370ed7f3e0c",
     ),
     kernel(
         Builtin::FloatTrunc,
-        "f146bedcbe390b1aec08ffb303f1a099c8abfec5e97031b2e4b3352971938afa",
+        "2310fceb3acb6f9b5c3503b895b3beb69559e02220fdb8516cd9d1b137faa69c",
     ),
     kernel(
         Builtin::FloatRound,
-        "34c29653feaf1c6fcee6abeb6a11b8af0c60f0d02805e340e4b4ad338349d235",
+        "dc3f8e77ad612502190913dff50f4e1fa1a405387d5ba074349f195ef91ff6c0",
     ),
     kernel(
         Builtin::FloatSqrt,
-        "78c4193a02bbb0632e791ea558e7f354abd205faefac2ae5343ce4ab327de48e",
+        "184d3e4b2dd2fe29a89d92cc93513c7662e11b6eabba18d4b86b15e3d26fbfa5",
     ),
 ];
 

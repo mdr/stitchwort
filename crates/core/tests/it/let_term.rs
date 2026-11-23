@@ -222,11 +222,20 @@ fn a_dependent_function_type_after_a_let_is_closed_outside_it() {
     let expected = eval(&g.ev(), &[], &expected).unwrap();
     assert!(conv(&g.ev(), 0, &ty, &expected).unwrap());
     // Its value is a function, closed too, and applying it to a fresh
-    // variable (level 0, the next free one outside) gives a proof.
+    // variable (level 0, the next free one outside) gives a proof. Its
+    // binder's mark is the one the kernel derived: `m` is a number.
     let value = eval(&g.ev(), &[], &term).unwrap();
     assert_eq!(
         format!("{:?}", quote(&g.ev(), 0, &value).unwrap()),
-        format!("{:?}", lam("m", Term::Refl))
+        format!(
+            "{:?}",
+            Term::Lam(
+                "m".into(),
+                stitchwort_core::Icit::Explicit,
+                Rc::new(Term::Refl),
+                ProofMark::NotProof
+            )
+        )
     );
 }
 

@@ -14,7 +14,6 @@ mod glue;
 mod groups;
 mod hash;
 mod indexed;
-mod inert_after_j;
 mod kernel;
 mod kernel_bugs_2026;
 mod let_term;

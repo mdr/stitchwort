@@ -24,7 +24,7 @@ use crate::check::{quote_internal, quote_unfolded};
 use crate::kernel;
 use stitchwort_core::budget::ResourceError;
 use stitchwort_core::collections::{HashMap, HashSet};
-use stitchwort_core::value::{Head, quote_at_most};
+use stitchwort_core::value::{Head, proof_field, proof_param, quote_at_most};
 use stitchwort_core::{DefId, Ev, Name, Term, Value, pretty};
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{self, Alt, Expr, MatchKind, Pattern, Scrutinee};
@@ -3047,15 +3047,67 @@ pub(crate) fn same(a: &Term, b: &Term) -> bool {
 /// [`same`]`(&a.shift(by, 0), b)`, without making the shifted copy of `a`
 /// (`cutoff` counts the binders of `a` passed so far).
 pub(crate) fn same_shifted(a: &Term, b: &Term, by: usize, cutoff: usize) -> bool {
+    same_in(None, a, b, by, cutoff)
+}
+
+/// [`same_shifted`] up to proofs, as the kernel compares (rule I,
+/// docs/core.md "Proof irrelevance"): below a head that already matched,
+/// two arguments at a proof position are taken as the same without being
+/// looked at. The proof positions a term shows are a constructor's proof
+/// fields, a data type's proof parameters and a definition's parameters
+/// whose type is a proposition (the marks on its type's binders, which
+/// the kernel derived). Nothing is skipped at the root: a needle that is a
+/// proof would otherwise match every proof
+/// (docs/proposals/full-proof-irrelevance-audit.md, finding E). Nor is an
+/// argument that mentions an unknown, which unification may still have to
+/// solve.
+///
+/// For searches that match a pattern against a candidate, where the head
+/// fixes the types of the arguments compared.
+pub(crate) fn same_shifted_but_proofs(
+    g: &Ev,
+    a: &Term,
+    b: &Term,
+    by: usize,
+    cutoff: usize,
+) -> bool {
+    same_in(Some(g), a, b, by, cutoff)
+}
+
+/// Two arguments at a proof position, compared by [`same_in`].
+fn same_proofs(g: Option<&Ev>, x: &Term, y: &Term, by: usize, cutoff: usize) -> bool {
+    let unknown = |t: &Term| t.subterms().any(|(t, _)| matches!(t, Term::Meta(_)));
+    same_in(g, x, y, by, cutoff) || (g.is_some() && !unknown(x) && !unknown(y))
+}
+
+/// Whether parameter `k` of definition `def` is a proof: the mark on the
+/// `k`th binder of its type, as far as the type is written as function
+/// types.
+fn proof_parameter(def: &stitchwort_core::globals::Def, k: usize) -> bool {
+    let mut ty = def.ty().strip_loc();
+    for _ in 0..k {
+        match ty {
+            Term::Pi(_, _, _, cod, _) => ty = cod.strip_loc(),
+            _ => return false,
+        }
+    }
+    matches!(ty, Term::Pi(_, _, _, _, mark) if mark.is_proof())
+}
+
+fn same_in(g: Option<&Ev>, a: &Term, b: &Term, by: usize, cutoff: usize) -> bool {
     use Term::*;
-    let all = |xs: &[Rc<Term>], ys: &[Rc<Term>]| {
+    let all = |xs: &[Rc<Term>], ys: &[Rc<Term>], proof: &dyn Fn(usize) -> bool| {
         xs.len() == ys.len()
             && xs
                 .iter()
                 .zip(ys)
-                .all(|(x, y)| same_shifted(x, y, by, cutoff))
+                .enumerate()
+                .all(|(k, (x, y))| match proof(k) {
+                    true => same_proofs(g, x, y, by, cutoff),
+                    false => same_in(g, x, y, by, cutoff),
+                })
     };
-    let go = |x: &Term, y: &Term, cutoff| same_shifted(x, y, by, cutoff);
+    let go = |x: &Term, y: &Term, cutoff| same_in(g, x, y, by, cutoff);
     match (a.strip_loc(), b.strip_loc()) {
         (Var(x), Var(y)) => (if *x >= cutoff { x + by } else { *x }) == *y,
         (Def(x), Def(y)) => x == y,
@@ -3064,12 +3116,17 @@ pub(crate) fn same_shifted(a: &Term, b: &Term, by: usize, cutoff: usize) -> bool
         (Sort(x), Sort(y)) => x == y,
         (Refl, Refl) => true,
         (Meta(x), Meta(y)) => x == y,
-        (Data(d, xs), Data(e, ys)) => d == e && all(xs, ys),
-        (Ctor(d, c, xs), Ctor(e, k, ys)) => d == e && c == k && all(xs, ys),
+        (Data(d, xs), Data(e, ys)) => {
+            d == e && all(xs, ys, &|k| g.is_some_and(|g| proof_param(g, *d, k)))
+        }
+        (Ctor(d, c, xs), Ctor(e, k, ys)) => {
+            d == e && c == k && all(xs, ys, &|i| g.is_some_and(|g| proof_field(g, *d, *c, i)))
+        }
         (Pi(_, i, a1, b1, _), Pi(_, j, a2, b2, _)) => {
             i == j && go(a1, a2, cutoff) && go(b1, b2, cutoff + 1)
         }
         (Lam(_, i, b1, _), Lam(_, j, b2, _)) => i == j && go(b1, b2, cutoff + 1),
+        (App(..), App(..)) if g.is_some() => same_calls(g, a, b, by, cutoff),
         (App(f1, a1, i), App(f2, a2, j)) => i == j && go(f1, f2, cutoff) && go(a1, a2, cutoff),
         (Ann(e1, t1), Ann(e2, t2)) => go(e1, e2, cutoff) && go(t1, t2, cutoff),
         (Eq(t1, a1, b1), Eq(t2, a2, b2)) => {
@@ -3087,7 +3144,7 @@ pub(crate) fn same_shifted(a: &Term, b: &Term, by: usize, cutoff: usize) -> bool
         (Let(_, t1, v1, b1, _, _), Let(_, t2, v2, b2, _, _)) => {
             go(t1, t2, cutoff) && go(v1, v2, cutoff) && go(b1, b2, cutoff + 1)
         }
-        (Quot(f1, xs, _, _), Quot(f2, ys, _, _)) => f1 == f2 && all(xs, ys),
+        (Quot(f1, xs, _, _), Quot(f2, ys, _, _)) => f1 == f2 && all(xs, ys, &|_| false),
         // As in `same`.
         (
             Var(_) | Def(_) | Data(..) | Ctor(..) | Nat(_) | Chars(_) | Sort(_) | Pi(..) | Lam(..)
@@ -3096,6 +3153,37 @@ pub(crate) fn same_shifted(a: &Term, b: &Term, by: usize, cutoff: usize) -> bool
             _,
         ) => false,
     }
+}
+
+/// Two applications by [`same_in`], whole spines at once, so that an
+/// argument's position under a definition is known: its parameters whose
+/// type is a proposition are proof positions.
+fn same_calls(g: Option<&Ev>, a: &Term, b: &Term, by: usize, cutoff: usize) -> bool {
+    fn spine(t: &Term) -> (&Term, Vec<(&Term, stitchwort_core::Icit)>) {
+        let mut args = Vec::new();
+        let mut head = t.strip_loc();
+        while let Term::App(f, x, icit) = head {
+            args.push((&**x, *icit));
+            head = f.strip_loc();
+        }
+        args.reverse();
+        (head, args)
+    }
+    let (h1, xs) = spine(a);
+    let (h2, ys) = spine(b);
+    let def = match h1 {
+        Term::Def(f) => g.and_then(|g| g.env.defs().get(f.0)),
+        _ => None,
+    };
+    xs.len() == ys.len()
+        && same_in(g, h1, h2, by, cutoff)
+        && xs.iter().zip(&ys).enumerate().all(|(k, ((x, i), (y, j)))| {
+            i == j
+                && match def.is_some_and(|d| proof_parameter(d, k)) {
+                    true => same_proofs(g, x, y, by, cutoff),
+                    false => same_in(g, x, y, by, cutoff),
+                }
+        })
 }
 
 /// The positions of `copied` (levels, in increasing order) in an order where

@@ -3530,10 +3530,6 @@ fn mismatch_within(
             if !shape || first_mismatch(g, f, h, explicit_only, skip_proofs, path)?.is_some() {
                 return here(path);
             }
-            let head = match f.strip_loc() {
-                Term::Def(id) => Some(*id),
-                _ => None,
-            };
             path.calls.push(CallPair {
                 left: a.clone(),
                 right: b.clone(),
@@ -3546,10 +3542,7 @@ fn mismatch_within(
                     .iter()
                     .zip(&ys)
                     .enumerate()
-                    .filter(|(i, (x, _))| {
-                        !(explicit_only && x.1.is_implicit())
-                            && !(skip_proofs && head.is_some_and(|id| g.env.def(id).is_inert(*i)))
-                    })
+                    .filter(|(_, (x, _))| !(explicit_only && x.1.is_implicit()))
                     .map(|(_, (x, y))| (x.0, y.0)),
             );
             path.calls.pop();

@@ -4619,11 +4619,16 @@ impl Elaborator {
 
     /// Whether a branch `body` of an `if h: p` (under the binder `h`, in
     /// a context of `depth` variables) gives the same value for any two
-    /// proofs `h`, by conversion: it reaches `h` only in inert positions
-    /// (docs/proposals/proof-irrelevance.md), so the branch's equation
-    /// needs no `J` along the uniqueness of proofs (§3.5). `d` for a
-    /// `decreasing` definition, whose recursion marks are not part of the
-    /// branch.
+    /// proofs `h`, by conversion, so the branch's equation needs no `J`
+    /// along the uniqueness of proofs (§3.5). `d` for a `decreasing`
+    /// definition, whose recursion marks are not part of the branch.
+    ///
+    /// Under rule I (docs/core.md, "Proof irrelevance") this holds for
+    /// every branch the kernel accepts: nothing computed reads a proof, so
+    /// the two values differ only in proofs. The comparison is kept as a
+    /// check, with `h` marked a proof, rather than assumed: a branch whose
+    /// value it can't settle (an unknown mark left by the elaborator) still
+    /// gets the `J`.
     fn proof_is_inert_in(&self, body: &Term, d: Option<&Def>, depth: usize) -> R<bool> {
         let g = &self.ev();
         let body = match d {
@@ -4632,7 +4637,7 @@ impl Elaborator {
         };
         let with = |h: usize| -> R<Value> {
             let mut env: Vec<Value> = (0..depth).map(Value::var).collect();
-            env.push(Value::var(h));
+            env.push(Value::var_marked(h, stitchwort_core::ProofMark::Proof));
             Ok(eval(g, &env, &body)?)
         };
         Ok(stitchwort_core::value::conv(
