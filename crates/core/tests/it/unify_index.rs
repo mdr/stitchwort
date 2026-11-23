@@ -24,7 +24,7 @@ use stitchwort_core::check;
 use stitchwort_core::term::Term;
 use stitchwort_core::unify_index::{Outcome, Scope, unify};
 use stitchwort_core::value::{Head, Value, conv, eval, quote};
-use stitchwort_core::{DataId, DefId, Name, Sort};
+use stitchwort_core::{DataId, DefId, Name, ProofMark, Sort};
 
 // The toy signature
 
@@ -128,9 +128,8 @@ impl T {
         }
     }
 
-    /// Whether the two are equal apart from proof fields, which comparison
-    /// skips (docs/proposals/proof-irrelevance.md §7.12): deletion sees the
-    /// masks. `MkT`'s `h` is the signature's only proof field.
+    /// Whether the two are equal apart from proof fields, equal by rule I:
+    /// deletion sees them. `MkT`'s `h` is the signature's only proof field.
     fn same_but_proofs(&self, other: &T) -> bool {
         match (self, other) {
             (T::Mkt(_, n1), T::Mkt(_, n2)) => n1.same_but_proofs(n2),
@@ -162,6 +161,11 @@ impl T {
 }
 
 impl Ty {
+    /// Whether it's a proposition, whose values are all equal (rule I).
+    fn is_proposition(&self) -> bool {
+        matches!(self, Ty::P | Ty::Hidden)
+    }
+
     fn subst(&self, x: usize, by: &T) -> Ty {
         match self {
             Ty::Fin(n) => Ty::Fin(n.subst(x, by)),
@@ -234,7 +238,10 @@ fn reference(problem: &[(Ty, T, T)]) -> (Kind, Vec<T>) {
             return (Kind::Stuck, value);
         }
         let ty = ty_left;
-        if lhs.same_but_proofs(&rhs) {
+        // Deletion, with proofs equal by rule I (docs/core.md, "Proof
+        // irrelevance"): an equation between proofs is always deleted, so
+        // nothing is solved from one.
+        if ty.is_proposition() || lhs.same_but_proofs(&rhs) {
             continue;
         }
         let flexible = |t: &T| match t {
@@ -289,7 +296,7 @@ fn reference(problem: &[(Ty, T, T)]) -> (Kind, Vec<T>) {
             continue;
         }
         // Injectivity and conflict, only for data in `Type`.
-        if matches!(ty, Ty::P | Ty::Hidden | Ty::Type) {
+        if ty == Ty::Type {
             return (Kind::Stuck, value);
         }
         let (Some((cl, fl)), Some((cr, fr))) = (lhs.constructor(), rhs.constructor()) else {
@@ -447,15 +454,24 @@ impl Sig {
         }
     }
 
+    /// The context's variables, marked by their types as the kernel's are.
+    fn vars() -> Vec<Value> {
+        context()
+            .iter()
+            .enumerate()
+            .map(|(l, (_, ty))| Value::var_marked(l, ProofMark::from_bool(ty.is_proposition())))
+            .collect()
+    }
+
     /// The context as a scope for the production unifier.
     fn scope(&self) -> Scope {
         let g = &self.p.g;
-        let mut env = Vec::new();
+        let vars = Sig::vars();
         let mut types = Vec::new();
         for (l, (_, ty)) in context().iter().enumerate() {
-            types.push(eval(&g.ev(), &env, &self.ty(ty, l)).unwrap());
-            env.push(Value::var(l));
+            types.push(eval(&g.ev(), &vars[..l], &self.ty(ty, l)).unwrap());
         }
+        let env = vars;
         Scope {
             env,
             types,
@@ -471,7 +487,7 @@ impl Sig {
         let g = &self.p.g;
         let n = context().len();
         let mut scope = self.scope();
-        let vars: Vec<Value> = (0..n).map(Value::var).collect();
+        let vars = Sig::vars();
         // Binder `k`'s type is in the context of the variables and the
         // binders before it, which it doesn't mention.
         let binders: Vec<(Name, Term)> = problem
@@ -663,10 +679,11 @@ fn constructors_are_told_apart_only_in_type() {
     assert_eq!(outcome(&sig, &[(Ty::Nat, T::Z, s(T::V(0)))]), Conflict);
     assert_eq!(outcome(&sig, &[(Ty::Nat, s(T::Z), s(T::V(0)))]), Solved);
     let mk_t = |h, n| T::Mkt(b(h), b(n));
-    // Test 25's shape: a proof field before data.
+    // Test 25's shape: a proof field before data, `A = B` deleted by rule
+    // I, then `Z = S Z`.
     assert_eq!(
         outcome(&sig, &[(Ty::Tt, mk_t(T::A, T::Z), mk_t(T::B, s(T::Z)))]),
-        Stuck
+        Conflict
     );
     assert_eq!(
         outcome(&sig, &[(Ty::Tt, mk_t(T::V(4), T::Z), mk_t(T::A, s(T::Z)))]),
@@ -676,9 +693,9 @@ fn constructors_are_told_apart_only_in_type() {
         outcome(&sig, &[(Ty::Tt, mk_t(T::A, T::Z), mk_t(T::A, s(T::Z)))]),
         Conflict
     );
-    // Deletion sees the proof-field mask, so it applies before injectivity
-    // and nothing is solved from inside the proof (proof-irrelevance.md
-    // §7.12): `p` stays a variable.
+    // Deletion sees proofs as equal (rule I), so it applies before
+    // injectivity and nothing is solved from inside the proof: `p` stays a
+    // variable.
     assert_eq!(
         outcome(
             &sig,
@@ -690,14 +707,16 @@ fn constructors_are_told_apart_only_in_type() {
         reference(&[(Ty::Tt, mk_t(T::V(4), s(T::Z)), mk_t(T::A, s(T::Z)))]).1[4],
         T::V(4)
     );
-    // Proofs: deletion and solution only (tests 22, 23).
-    assert_eq!(outcome(&sig, &[(Ty::P, T::A, T::B)]), Stuck);
+    // Proofs: always deleted, by rule I, so never a conflict and nothing
+    // solved (tests 22, 23).
+    assert_eq!(outcome(&sig, &[(Ty::P, T::A, T::B)]), Solved);
     assert_eq!(outcome(&sig, &[(Ty::P, T::A, T::A)]), Solved);
     assert_eq!(outcome(&sig, &[(Ty::P, T::V(4), T::B)]), Solved);
+    assert_eq!(reference(&[(Ty::P, T::V(4), T::B)]).1[4], T::V(4));
     let hide = |n| T::Hide(b(n));
     assert_eq!(
         outcome(&sig, &[(Ty::Hidden, hide(T::Z), hide(s(T::Z)))]),
-        Stuck
+        Solved
     );
     assert_eq!(
         outcome(&sig, &[(Ty::Hidden, T::V(6), hide(s(T::Z)))]),
