@@ -74,6 +74,7 @@
 //! clash with the user's.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::value::{eval, force, unused};
 use stitchwort_core::{DataId, Icit, Name, Sort, Term, Value};
@@ -291,8 +292,14 @@ impl Elaborator {
         let mut ty = Term::Sort(ctor.field_sorts[k]);
         let mut body = ctor.fields[k].1.clone();
         for (x, t) in binders.iter().rev() {
-            ty = Term::Pi(x.clone(), Icit::Explicit, Rc::new(t.clone()), Rc::new(ty));
-            body = Term::Lam(x.clone(), Icit::Explicit, Rc::new(body));
+            ty = Term::Pi(
+                x.clone(),
+                Icit::Explicit,
+                Rc::new(t.clone()),
+                Rc::new(ty),
+                ProofMark::Unknown,
+            );
+            body = Term::Lam(x.clone(), Icit::Explicit, Rc::new(body), ProofMark::Unknown);
         }
         let name: Name = format!("{}.{member}", data.name()).into();
         let span = data.span();

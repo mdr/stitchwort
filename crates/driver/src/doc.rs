@@ -1410,7 +1410,7 @@ fn has_overlap_hypothesis(ty: &Term) -> bool {
     // mention, and the call is stuck on the condition it stands for.
     let mut n = 0;
     let mut t = ty.strip_loc();
-    while let Term::Pi(_, _, _, cod) = t {
+    while let Term::Pi(_, _, _, cod, _) = t {
         n += 1;
         t = cod.strip_loc();
     }
@@ -1420,7 +1420,7 @@ fn has_overlap_hypothesis(ty: &Term) -> bool {
         return true;
     }
     let mut t = ty.strip_loc();
-    while let Term::Pi(name, _, _, cod) = t {
+    while let Term::Pi(name, _, _, cod, _) = t {
         if let Some(rest) = name.strip_prefix("not")
             && ["Arm", "Alt", "Or", "Listed"]
                 .iter()
@@ -1444,7 +1444,7 @@ fn def_named(g: &Ev, path: &str) -> Option<DefId> {
 /// side is headed by definition `x`.
 fn rewrites(ty: &Term, x: DefId, iff: Option<DataId>) -> bool {
     let mut t = ty.strip_loc();
-    while let Term::Pi(_, _, _, cod) = t {
+    while let Term::Pi(_, _, _, cod, _) = t {
         t = cod.strip_loc();
     }
     let lhs = match t {
@@ -1460,7 +1460,7 @@ fn rewrites(ty: &Term, x: DefId, iff: Option<DataId>) -> bool {
 fn statement(g: &Ev, decider: &dyn NameScope, ty: &Term) -> String {
     let mut names = Vec::new();
     let mut t = ty.strip_loc();
-    while let Term::Pi(name, _, _, cod) = t
+    while let Term::Pi(name, _, _, cod, _) = t
         && cod.mentions(0)
     {
         names.push(name.clone());

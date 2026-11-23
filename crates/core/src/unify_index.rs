@@ -69,11 +69,11 @@ impl Scope {
     /// stands for itself, and isn't rigid.
     pub fn flexible(&self, value: &Value) -> Option<usize> {
         match value {
-            Value::Neutral(Head::Var(l, _), spine)
+            Value::Neutral(Head::Var(l, _, _), spine)
                 if spine.is_empty() && *l < self.level() && !self.rigid.contains(l) =>
             {
                 match &self.env[*l] {
-                    Value::Neutral(Head::Var(l2, _), s) if l2 == l && s.is_empty() => Some(*l),
+                    Value::Neutral(Head::Var(l2, _, _), s) if l2 == l && s.is_empty() => Some(*l),
                     _ => None,
                 }
             }
@@ -439,16 +439,18 @@ fn value_levels(g: &Ev, level: usize, value: &Value, out: &mut Vec<usize>) -> Re
                 out.extend(free_levels(&quote(g, level, v)?, level));
                 continue;
             }
-            Value::Neutral(Head::Var(l, _), spine) => {
+            Value::Neutral(Head::Var(l, _, _), spine) => {
                 out.push(*l);
                 spine
             }
-            Value::Neutral(Head::Def(_) | Head::Quot(_), spine) | Value::Call(_, spine, _) => spine,
+            Value::Neutral(Head::Def(_) | Head::Quot(_, _), spine) | Value::Call(_, spine, _) => {
+                spine
+            }
         };
         for elim in spine.iter() {
             match elim {
                 Elim::App(arg, _) => todo.push(arg),
-                Elim::J { motive, base } => todo.extend([&**motive, &**base]),
+                Elim::J { motive, base, .. } => todo.extend([&**motive, &**base]),
                 Elim::Proj(..) => {}
             }
         }

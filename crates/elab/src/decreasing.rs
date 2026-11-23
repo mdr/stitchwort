@@ -39,6 +39,7 @@ mod plain;
 
 use std::cell::Cell;
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::registry::Builtin;
@@ -120,7 +121,7 @@ pub(crate) fn split_pis(ty: &Term, count: Option<usize>) -> (Vec<Binder>, Term) 
     let mut binders = Vec::new();
     let mut ty = ty.strip_loc();
     while count.is_none_or(|c| binders.len() < c) {
-        let Term::Pi(name, icit, dom, cod) = ty else {
+        let Term::Pi(name, icit, dom, cod, _) = ty else {
             break;
         };
         binders.push(Binder {
@@ -135,13 +136,19 @@ pub(crate) fn split_pis(ty: &Term, count: Option<usize>) -> (Vec<Binder>, Term) 
 
 pub(crate) fn pis(binders: &[Binder], body: Term) -> Term {
     binders.iter().rev().fold(body, |body, b| {
-        Term::Pi(b.name.clone(), b.icit, Rc::new(b.ty.clone()), Rc::new(body))
+        Term::Pi(
+            b.name.clone(),
+            b.icit,
+            Rc::new(b.ty.clone()),
+            Rc::new(body),
+            ProofMark::Unknown,
+        )
     })
 }
 
 pub(crate) fn lams(binders: &[(Name, Icit)], body: Term) -> Term {
     binders.iter().rev().fold(body, |body, (x, icit)| {
-        Term::Lam(x.clone(), *icit, Rc::new(body))
+        Term::Lam(x.clone(), *icit, Rc::new(body), ProofMark::Unknown)
     })
 }
 
@@ -195,16 +202,23 @@ pub(crate) fn map_vars(
             *c,
             args.iter().map(|a| go(a, depth)).collect::<Result<_>>()?,
         ),
-        Term::Pi(x, i, a, b) => Term::Pi(x.clone(), *i, go(a, depth)?, go(b, depth + 1)?),
-        Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b, depth + 1)?),
+        Term::Pi(x, i, a, b, _) => Term::Pi(
+            x.clone(),
+            *i,
+            go(a, depth)?,
+            go(b, depth + 1)?,
+            ProofMark::Unknown,
+        ),
+        Term::Lam(x, i, b, _) => Term::Lam(x.clone(), *i, go(b, depth + 1)?, ProofMark::Unknown),
         Term::App(a, b, i) => Term::App(go(a, depth)?, go(b, depth)?, *i),
         Term::Ann(a, b) => Term::Ann(go(a, depth)?, go(b, depth)?),
-        Term::Let(x, a, v, b, e) => Term::Let(
+        Term::Let(x, a, v, b, e, _) => Term::Let(
             x.clone(),
             go(a, depth)?,
             go(v, depth)?,
             go(b, depth + 1)?,
             *e,
+            ProofMark::Unknown,
         ),
         Term::Case(ix, d, branches) => Term::Case(
             scrutinee(*ix)?,
@@ -240,12 +254,18 @@ pub(crate) fn map_vars(
             go(a, depth)?,
             go(b, depth)?,
         ),
-        Term::J(m, b, p) => Term::J(go(m, depth)?, go(b, depth)?, go(p, depth)?),
+        Term::J(m, b, p, _) => Term::J(
+            go(m, depth)?,
+            go(b, depth)?,
+            go(p, depth)?,
+            ProofMark::Unknown,
+        ),
         Term::Proj(d, i, t) => Term::Proj(*d, *i, go(t, depth)?),
-        Term::Quot(form, args, e) => Term::Quot(
+        Term::Quot(form, args, e, _) => Term::Quot(
             *form,
             args.iter().map(|a| go(a, depth)).collect::<Result<_>>()?,
             *e,
+            ProofMark::Unknown,
         ),
         Term::Loc(span, t) => Term::Loc(*span, go(t, depth)?),
     })
@@ -289,7 +309,7 @@ fn zeta(g: &Ev, t: &Term) -> Result<Term> {
     g.machine.budget.nesting(PASS)?;
     let go = |t: &Rc<Term>| -> Result<Rc<Term>> { Ok(Rc::new(zeta(g, t)?)) };
     Ok(match t {
-        Term::Let(_, _, v, b, _) => {
+        Term::Let(_, _, v, b, _, _) => {
             let v = zeta(g, v)?;
             let b = zeta(g, b)?;
             instantiate(g, &b, &v)?
@@ -303,16 +323,19 @@ fn zeta(g: &Ev, t: &Term) -> Result<Term> {
         | Term::Meta(_) => t.clone(),
         Term::Data(d, args) => Term::Data(*d, args.iter().map(go).collect::<Result<_>>()?),
         Term::Ctor(d, c, args) => Term::Ctor(*d, *c, args.iter().map(go).collect::<Result<_>>()?),
-        Term::Pi(x, i, a, b) => Term::Pi(x.clone(), *i, go(a)?, go(b)?),
-        Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b)?),
+        Term::Pi(x, i, a, b, _) => Term::Pi(x.clone(), *i, go(a)?, go(b)?, ProofMark::Unknown),
+        Term::Lam(x, i, b, _) => Term::Lam(x.clone(), *i, go(b)?, ProofMark::Unknown),
         Term::App(a, b, i) => Term::App(go(a)?, go(b)?, *i),
         Term::Ann(a, b) => Term::Ann(go(a)?, go(b)?),
         Term::Eq(ty, a, b) => Term::Eq(ty.as_ref().map(go).transpose()?, go(a)?, go(b)?),
-        Term::J(m, b, p) => Term::J(go(m)?, go(b)?, go(p)?),
+        Term::J(m, b, p, _) => Term::J(go(m)?, go(b)?, go(p)?, ProofMark::Unknown),
         Term::Proj(d, i, t) => Term::Proj(*d, *i, go(t)?),
-        Term::Quot(form, args, e) => {
-            Term::Quot(*form, args.iter().map(go).collect::<Result<_>>()?, *e)
-        }
+        Term::Quot(form, args, e, _) => Term::Quot(
+            *form,
+            args.iter().map(go).collect::<Result<_>>()?,
+            *e,
+            ProofMark::Unknown,
+        ),
         Term::Loc(span, inner) => Term::Loc(*span, go(inner)?),
         Term::Case(..) | Term::NumCase(..) => t.clone(),
     })
@@ -731,7 +754,12 @@ impl LexParts {
                 .chain((0..self.n).map(|l| (var(b, self.depth + l), self.icits[l])))
                 .chain(explicit([args[2].clone(), args[3].clone()])),
         );
-        Term::Lam(name.into(), Icit::Explicit, Rc::new(call))
+        Term::Lam(
+            name.into(),
+            Icit::Explicit,
+            Rc::new(call),
+            ProofMark::Unknown,
+        )
     }
 
     fn yes(&self) -> Term {
@@ -1869,7 +1897,12 @@ impl Elaborator {
                         Rc::new(Term::Var(1)),
                     ),
                 );
-                Term::J(Rc::new(motive), Rc::new(proof), Rc::new(same))
+                Term::J(
+                    Rc::new(motive),
+                    Rc::new(proof),
+                    Rc::new(same),
+                    ProofMark::Unknown,
+                )
             }
             None => proof,
         };
@@ -2139,12 +2172,15 @@ impl Elaborator {
                         Rc::new(orig2.clone()),
                         Rc::new(rhs),
                     )),
+                    ProofMark::Unknown,
                 )),
+                ProofMark::Unknown,
             );
             proof = Term::J(
                 Rc::new(motive),
                 Rc::new(proof),
                 Rc::new(sites[i].proof.clone()),
+                ProofMark::Unknown,
             );
         }
         Ok(Some(proof))
@@ -2612,7 +2648,7 @@ fn beta(g: &Ev, c: &Term, binders: &[(Name, Icit)]) -> Result<Term> {
             head = inner;
         }
         t = match head {
-            Term::Lam(_, _, body) => instantiate(g, body, &x)?,
+            Term::Lam(_, _, body, _) => instantiate(g, body, &x)?,
             _ => Term::app_icit(t.clone(), x, *icit),
         };
     }
@@ -3178,7 +3214,12 @@ impl Elaborator {
                     jargs[3].clone(),
                 ])),
             );
-            Term::Lam(name.into(), Icit::Explicit, Rc::new(call))
+            Term::Lam(
+                name.into(),
+                Icit::Explicit,
+                Rc::new(call),
+                ProofMark::Unknown,
+            )
         };
         let cong = apps(
             Term::Def(plan.p.elim_cong),
@@ -3284,7 +3325,12 @@ fn lex_unfold_parts(plan: &Plan, g: &Ev, go: DefId, irrel: DefId) -> Result<(Ter
                 Term::app(Term::Def(plan.p.le_refl), m2y.clone()),
             ])),
         );
-        Term::Lam(name.into(), Icit::Explicit, Rc::new(call))
+        Term::Lam(
+            name.into(),
+            Icit::Explicit,
+            Rc::new(call),
+            ProofMark::Unknown,
+        )
     };
     let f_y = apps(Term::Def(plan.f), plan.args(inner, &ys, 0..n));
     let proof = apps(

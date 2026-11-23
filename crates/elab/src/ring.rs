@@ -1252,17 +1252,17 @@ fn emit(
     };
     let mut ty = g.def(which).ty_value().clone();
     for arg in &args {
-        let Value::Pi(_, _, _, cod) = force(&g, ty)? else {
+        let Value::Pi(_, _, _, cod, _) = force(&g, ty)? else {
             return Err(shape());
         };
         ty = cod.apply(&g, cx.eval(arg)?)?;
     }
-    let Value::Pi(_, _, _, cod) = force(&g, ty)? else {
+    let Value::Pi(_, _, _, cod, _) = force(&g, ty)? else {
         return Err(shape());
     };
     ty = cod.apply(&g, Value::var(cx.level()))?;
     if !sides.is_empty() {
-        let Value::Pi(_, _, dom, cod) = force(&g, ty)? else {
+        let Value::Pi(_, _, dom, cod, _) = force(&g, ty)? else {
             return Err(shape());
         };
         let mut meaning = force(&g, (*dom).clone())?;

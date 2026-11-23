@@ -5,6 +5,7 @@
 //! with the structural checker it replaced on generated programs.
 
 use crate::structural;
+use stitchwort_core::ProofMark;
 
 use std::rc::Rc;
 
@@ -316,6 +317,7 @@ fn transport_is_no_evidence() {
             Rc::new(Term::Refl),
             Rc::new(eq(None, v(0), v(0))),
         )),
+        ProofMark::Unknown,
     );
     let r = define_rec(&mut p, "viaJ", ty.clone(), |f| {
         lam(

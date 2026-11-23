@@ -7,6 +7,7 @@
 //! (a metavariable since solved, or a narrower transparency set).
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::term::Term;
 use stitchwort_core::value::{Elim, Head, Value, eval, force, quote};
@@ -123,7 +124,7 @@ fn an_applied_stuck_field_computes_only_while_gluing() {
     let on = applied(g, field);
     g.machine.glue.set(false);
     assert!(
-        matches!(on, Value::Neutral(Head::Var(0, _), ref spine) if spine.is_empty()),
+        matches!(on, Value::Neutral(Head::Var(0, _, _), ref spine) if spine.is_empty()),
         "glued, `(fieldOf 0).at y` is `y`: {on:?}"
     );
 }
@@ -146,7 +147,7 @@ fn an_opaque_calls_field_computes_only_where_its_body_is_seen() {
     };
     g.machine.glue.set(false);
     assert!(
-        matches!(seen, Value::Neutral(Head::Var(0, _), ref spine) if spine.is_empty()),
+        matches!(seen, Value::Neutral(Head::Var(0, _, _), ref spine) if spine.is_empty()),
         "seen, it computes: {seen:?}"
     );
 }
@@ -157,10 +158,16 @@ fn transported(g: &Ev, proof: Value) -> Value {
     let motive = Term::Lam(
         "x".into(),
         Icit::Explicit,
-        Term::Lam("e".into(), Icit::Explicit, nat.into()).into(),
+        Term::Lam("e".into(), Icit::Explicit, nat.into(), ProofMark::Unknown).into(),
+        ProofMark::Unknown,
     );
     let base = Term::Ctor(data(g, "Nat"), 0, vec![]);
-    let term = Term::J(motive.into(), base.into(), Term::Var(0).into());
+    let term = Term::J(
+        motive.into(),
+        base.into(),
+        Term::Var(0).into(),
+        ProofMark::Unknown,
+    );
     g.machine.glue.set(true);
     let v = eval(g, &[proof], &term).and_then(|v| force(g, v));
     g.machine.glue.set(false);

@@ -61,6 +61,7 @@
 //! if no arm resumes in tail position.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::budget::Result;
 use stitchwort_core::registry::Builtin;
@@ -159,13 +160,13 @@ impl StateFusion {
             return Ok(None);
         };
         let done = if comp {
-            let Term::Lam(x, i, body) = args[4].strip_loc() else {
+            let Term::Lam(x, i, body, _) = args[4].strip_loc() else {
                 return Ok(None);
             };
             let Some(e) = self.done_field(body) else {
                 return Ok(None);
             };
-            Term::Lam(x.clone(), *i, Rc::new(e.clone()))
+            Term::Lam(x.clone(), *i, Rc::new(e.clone()), ProofMark::Unknown)
         } else {
             args[4].clone()
         };
@@ -278,10 +279,10 @@ impl StateFusion {
 
     /// Operation clause `x => k => body` as `x => k => jump => s => body′`.
     fn clause(&self, g: &Ev, clause: &Term, comp: bool, walk: &mut Walk) -> Result<Option<Term>> {
-        let Term::Lam(x, xi, inner) = strip(clause) else {
+        let Term::Lam(x, xi, inner, _) = strip(clause) else {
             return Ok(None);
         };
-        let Term::Lam(k, ki, body) = strip(inner) else {
+        let Term::Lam(k, ki, body, _) = strip(inner) else {
             return Ok(None);
         };
         // The state's function, under `x` and `k`.
@@ -301,7 +302,8 @@ impl StateFusion {
                     walk.jumps += 1;
                     let v = v.shift(g, 2, 0)?;
                     let body = Term::app(Term::app(Term::Var(1), v), Term::Var(0));
-                    let lam = |name, icit, body| Term::Lam(name, icit, Rc::new(body));
+                    let lam =
+                        |name, icit, body| Term::Lam(name, icit, Rc::new(body), ProofMark::Unknown);
                     return Ok(Some(lam(
                         x.clone(),
                         *xi,
@@ -323,11 +325,11 @@ impl StateFusion {
         // Its body under `x`, `k`, `jump` and `s`: `jump` is a new binder
         // between `k` and `s`.
         let (s, body) = match strip(f) {
-            Term::Lam(s, _, b) => (s.clone(), b.shift(g, 1, 1)?),
+            Term::Lam(s, _, b, _) => (s.clone(), b.shift(g, 1, 1)?),
             other => ("s".into(), Term::app(other.shift(g, 2, 0)?, Term::Var(0))),
         };
         let body = self.tail(g, &body, 0, walk)?;
-        let lam = |name, icit, body| Term::Lam(name, icit, Rc::new(body));
+        let lam = |name, icit, body| Term::Lam(name, icit, Rc::new(body), ProofMark::Unknown);
         Ok(Some(lam(
             x.clone(),
             *xi,
@@ -363,9 +365,9 @@ impl StateFusion {
         }
         // `let r := k v; r s′`, or the same as an applied lambda.
         let bound = match term {
-            Term::Let(_, _, value, body, false) => Some((&**value, &**body)),
+            Term::Let(_, _, value, body, false, _) => Some((&**value, &**body)),
             Term::App(f, value, _) => match strip(f) {
-                Term::Lam(_, _, body) => Some((&**value, &**body)),
+                Term::Lam(_, _, body, _) => Some((&**value, &**body)),
                 _ => None,
             },
             _ => None,
@@ -382,15 +384,20 @@ impl StateFusion {
             }
             let body = self.tail(g, body, depth + 1, walk)?;
             return Ok(match term {
-                Term::Let(x, ty, value, _, skip) => {
-                    Term::Let(x.clone(), ty.clone(), value.clone(), Rc::new(body), *skip)
-                }
+                Term::Let(x, ty, value, _, skip, _) => Term::Let(
+                    x.clone(),
+                    ty.clone(),
+                    value.clone(),
+                    Rc::new(body),
+                    *skip,
+                    ProofMark::Unknown,
+                ),
                 Term::App(f, value, icit) => {
-                    let Term::Lam(x, li, _) = strip(f) else {
+                    let Term::Lam(x, li, _, _) = strip(f) else {
                         unreachable!("matched above")
                     };
                     Term::App(
-                        Rc::new(Term::Lam(x.clone(), *li, Rc::new(body))),
+                        Rc::new(Term::Lam(x.clone(), *li, Rc::new(body), ProofMark::Unknown)),
                         value.clone(),
                         *icit,
                     )
@@ -398,7 +405,7 @@ impl StateFusion {
                 _ => unreachable!("matched above"),
             });
         }
-        if let Term::Let(x, ty, value, body, true) = term {
+        if let Term::Let(x, ty, value, body, true, _) = term {
             let body = self.tail(g, body, depth + 1, walk)?;
             return Ok(Term::Let(
                 x.clone(),
@@ -406,6 +413,7 @@ impl StateFusion {
                 value.clone(),
                 Rc::new(body),
                 true,
+                ProofMark::Unknown,
             ));
         }
         // `Bool.ifThenElse [a] c (_ => t) (_ => e)` and `Decidable.elim [p]
@@ -414,7 +422,7 @@ impl StateFusion {
         // to a test; `Decidable.elim`'s cases are `yes h` and `no r`).
         if let Some((Term::Def(id), args)) = spine_icit(term)
             && let Some(at) = self.branches(*id, args.len())
-            && let (Term::Lam(xt, it, t), Term::Lam(xe, ie, e)) =
+            && let (Term::Lam(xt, it, t, _), Term::Lam(xe, ie, e, _)) =
                 (strip(args[at].0), strip(args[at + 1].0))
         {
             let t = self.tail(g, t, depth + 1, walk)?;
@@ -422,9 +430,9 @@ impl StateFusion {
             let mut out = Term::Def(*id);
             for (i, (arg, icit)) in args.iter().enumerate() {
                 let arg = if i == at {
-                    Term::Lam(xt.clone(), *it, Rc::new(t.clone()))
+                    Term::Lam(xt.clone(), *it, Rc::new(t.clone()), ProofMark::Unknown)
                 } else if i == at + 1 {
-                    Term::Lam(xe.clone(), *ie, Rc::new(e.clone()))
+                    Term::Lam(xe.clone(), *ie, Rc::new(e.clone()), ProofMark::Unknown)
                 } else {
                     (*arg).clone()
                 };
@@ -537,7 +545,12 @@ pub(crate) fn is_lifted_match(g: &Ev, id: DefId) -> bool {
 pub(crate) fn inline(g: &Ev, tree: &Term, args: &[&Term]) -> Result<Term> {
     let mut lams = tree.clone();
     for _ in args {
-        lams = Term::Lam("x".into(), Icit::Explicit, Rc::new(lams));
+        lams = Term::Lam(
+            "x".into(),
+            Icit::Explicit,
+            Rc::new(lams),
+            ProofMark::Unknown,
+        );
     }
     bind(g, &lams, args, 0)
 }
@@ -548,7 +561,7 @@ fn bind(g: &Ev, lams: &Term, args: &[&Term], bound: usize) -> Result<Term> {
     let Some((first, rest)) = args.split_first() else {
         return Ok(lams.clone());
     };
-    let Term::Lam(x, icit, body) = lams else {
+    let Term::Lam(x, icit, body, _) = lams else {
         unreachable!("a lambda per argument")
     };
     let first = first.shift(g, bound, 0)?;
@@ -557,7 +570,12 @@ fn bind(g: &Ev, lams: &Term, args: &[&Term], bound: usize) -> Result<Term> {
     }
     let body = bind(g, body, rest, bound + 1)?;
     Ok(Term::App(
-        Rc::new(Term::Lam(x.clone(), *icit, Rc::new(body))),
+        Rc::new(Term::Lam(
+            x.clone(),
+            *icit,
+            Rc::new(body),
+            ProofMark::Unknown,
+        )),
         Rc::new(first),
         Icit::Explicit,
     ))

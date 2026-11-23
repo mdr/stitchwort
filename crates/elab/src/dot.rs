@@ -99,7 +99,7 @@ fn step_value(g: &Ev, value: Value) -> Result<Step> {
         Value::Eq(..) => Step::Head(TyHead::Eq, None),
         Value::Neutral(Head::Def(id), _) => Step::Head(TyHead::Def(id), None),
         Value::Neutral(Head::Meta(m), _) => Step::Unknown(m),
-        Value::Neutral(Head::Var(_, _), _) => Step::Nothing("a type variable"),
+        Value::Neutral(Head::Var(_, _, _), _) => Step::Nothing("a type variable"),
         Value::Pi(..) => Step::Nothing("a function"),
         Value::Sort(_) => Step::Nothing("a type"),
         _ => Step::Nothing("not a type"),
@@ -203,7 +203,7 @@ fn written_type(cx: &Ctx, term: &Term) -> Result<Option<Ty>> {
         _ => return Ok(None),
     };
     for arg in args {
-        let Term::Pi(_, _, _, cod) = ty.strip_loc() else {
+        let Term::Pi(_, _, _, cod, _) = ty.strip_loc() else {
             return Ok(None);
         };
         let cod = cod.clone();
@@ -1575,7 +1575,7 @@ struct Param {
 fn params(g: &Ev, f: DefId) -> Vec<Param> {
     let mut out = Vec::new();
     let mut ty = g.def(f).ty().clone();
-    while let Term::Pi(name, icit, dom, cod) = ty.strip_loc() {
+    while let Term::Pi(name, icit, dom, cod, _) = ty.strip_loc() {
         out.push(Param {
             icit: *icit,
             name: name.clone(),
@@ -1874,7 +1874,7 @@ fn call(
     let mut term = Term::Def(f);
     let mut ty = crate::kernel::def_ty(&g, f)?;
     loop {
-        let Value::Pi(_, icit, dom, cod) = force(&g, ty.clone())? else {
+        let Value::Pi(_, icit, dom, cod, _) = force(&g, ty.clone())? else {
             unreachable!("the receiver's parameter is in the signature");
         };
         if icit.is_implicit() {
@@ -2061,7 +2061,7 @@ fn receiver_type(cx: &Ctx, recv: &Expr, depth: usize) -> Result<Option<Ty>> {
         match cx.e.named(&name.text) {
             // A kept type is glued: forced, so a type written through a
             // nickname shows its parameters.
-            Some((Global::Def(id), _)) if !matches!(force(&g, g.def(*id).ty_value().clone())?, Value::Pi(_, i, _, _) if i.is_implicit()) => {
+            Some((Global::Def(id), _)) if !matches!(force(&g, g.def(*id).ty_value().clone())?, Value::Pi(_, i, _, _, _) if i.is_implicit()) => {
                 Ty::Term(Rc::new(g.def(*id).ty().clone()), Vec::new())
             }
             _ => return Ok(None),
@@ -2146,7 +2146,7 @@ fn call_result(cx: &Ctx, expr: &Expr, depth: usize) -> Result<Option<Ty>> {
         let mut env: Vec<Value> = Vec::new();
         let mut left = explicit;
         let mut level = cx.level();
-        while let Term::Pi(_, icit, _, cod) = term.strip_loc() {
+        while let Term::Pi(_, icit, _, cod, _) = term.strip_loc() {
             if !icit.is_implicit() {
                 if left == 0 {
                     break;
@@ -2174,7 +2174,7 @@ fn call_result(cx: &Ctx, expr: &Expr, depth: usize) -> Result<Option<Ty>> {
     let mut first = None;
     loop {
         match force(&g, ty)? {
-            Value::Pi(_, icit, dom, cod) => {
+            Value::Pi(_, icit, dom, cod, _) => {
                 if !icit.is_implicit() {
                     if explicit == 0 {
                         return Ok(None);
@@ -2215,7 +2215,7 @@ fn generic_result(
     depth: usize,
 ) -> Result<Value> {
     let g = cx.g();
-    let Value::Neutral(Head::Var(wanted, _), spine) = &result else {
+    let Value::Neutral(Head::Var(wanted, _, _), spine) = &result else {
         return Ok(result);
     };
     if !spine.is_empty() {
@@ -2225,7 +2225,7 @@ fn generic_result(
         return Ok(result);
     };
     let Some(index) = formals.iter().position(
-        |f| matches!(f, Value::Neutral(Head::Var(l, _), s) if l == wanted && s.is_empty()),
+        |f| matches!(f, Value::Neutral(Head::Var(l, _, _), s) if l == wanted && s.is_empty()),
     ) else {
         return Ok(result);
     };

@@ -17,6 +17,7 @@
 //! undone and the caller does what it did before.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{eval, force, unused};
@@ -101,12 +102,18 @@ pub(crate) fn bind_argument(
             return Ok(None);
         }
         cx.reset(mark);
-        let lam = Term::Lam(name.into(), Icit::Explicit, Rc::new(inner));
+        let lam = Term::Lam(
+            name.into(),
+            Icit::Explicit,
+            Rc::new(inner),
+            ProofMark::Unknown,
+        );
         let pi = Term::Pi(
             name.into(),
             Icit::Explicit,
             Rc::new(cx.quote_folded(dom)?),
             Rc::new(whole_term),
+            ProofMark::Unknown,
         );
         // The use's type, outside the binder: it doesn't mention it.
         let mut env = cx.env.clone();
@@ -152,8 +159,14 @@ impl Bound {
             .rev()
             .fold((body, ty), |(lam, pi), (x, dom)| {
                 (
-                    Term::Lam(x.clone(), Icit::Explicit, Rc::new(lam)),
-                    Term::Pi(x.clone(), Icit::Explicit, Rc::new(dom.clone()), Rc::new(pi)),
+                    Term::Lam(x.clone(), Icit::Explicit, Rc::new(lam), ProofMark::Unknown),
+                    Term::Pi(
+                        x.clone(),
+                        Icit::Explicit,
+                        Rc::new(dom.clone()),
+                        Rc::new(pi),
+                        ProofMark::Unknown,
+                    ),
                 )
             });
         self.operands
@@ -399,7 +412,7 @@ fn shape(
             let mut ty = crate::kernel::def_ty(&g, *id)?;
             let mut built = Shape::Kept(head.clone());
             for arg in args {
-                let Value::Pi(_, icit, dom, cod) = force(&g, ty)? else {
+                let Value::Pi(_, icit, dom, cod, _) = force(&g, ty)? else {
                     return Ok(Shape::Kept(term.clone()));
                 };
                 let level = cx.level();

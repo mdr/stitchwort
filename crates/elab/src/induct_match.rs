@@ -31,6 +31,7 @@
 
 use std::rc::Rc;
 use stitchwort_core::Ev;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::value::force;
@@ -73,7 +74,7 @@ fn telescope(cx: &Ctx, ty: &Value) -> Result<Vec<(Name, Icit)>> {
     let g = cx.g();
     let mut out = Vec::new();
     let mut cur = ty.clone();
-    while let Value::Pi(name, icit, _, cod) = force(&g, cur.clone())? {
+    while let Value::Pi(name, icit, _, cod, _) = force(&g, cur.clone())? {
         out.push((name, icit));
         cur = cod.apply(&g, Value::var(DUMMY))?;
     }
@@ -237,7 +238,7 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
     }
     let (with_prefix, ty) = crate::Elaborator::unnoted_in(cx, |cx| infer(cx, &applied))?;
     let (with_prefix, ty) = insert(cx, with_prefix, ty)?;
-    let Value::Pi(_, _, motive_ty, rest) = force(&g, ty)? else {
+    let Value::Pi(_, _, motive_ty, rest, _) = force(&g, ty)? else {
         return Err(motive_error(span, "`f.induct` has no motive"));
     };
     // The motive's parameters: the targets, then the result.
@@ -251,7 +252,7 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
     {
         let mut cur = rest_dummy.clone();
         for _ in 0..ncases {
-            let Value::Pi(name, _, dom, cod) = force(&g, cur)? else {
+            let Value::Pi(name, _, dom, cod, _) = force(&g, cur)? else {
                 unreachable!("counted")
             };
             let own = telescope(cx, &dom)?;
@@ -406,7 +407,7 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
         let mut cur = (*motive_ty).clone();
         let mut names: Vec<Name> = Vec::new();
         for _ in 0..params.len() {
-            let Value::Pi(name, _, dom, cod) = force(&g, cur)? else {
+            let Value::Pi(name, _, dom, cod, _) = force(&g, cur)? else {
                 unreachable!("counted")
             };
             cx.bind_hidden(name.clone(), (*dom).clone());
@@ -450,10 +451,16 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
             lift::replace_with(&g, t, base, &to, &|_, _| None).ok()
         });
         for (name, ty) in copy_types.into_iter().rev() {
-            body = Term::Pi(name, Icit::Explicit, Rc::new(ty), Rc::new(body));
+            body = Term::Pi(
+                name,
+                Icit::Explicit,
+                Rc::new(ty),
+                Rc::new(body),
+                ProofMark::Unknown,
+            );
         }
         for name in names.into_iter().rev() {
-            body = Term::Lam(name, Icit::Explicit, Rc::new(body));
+            body = Term::Lam(name, Icit::Explicit, Rc::new(body), ProofMark::Unknown);
         }
         Ok((body, cur, stated_body))
     })();
@@ -472,12 +479,12 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
     let mut cur_shape = rest_dummy.clone();
     for (i, alt) in chosen.iter().enumerate() {
         let alt = alt.expect("none missing");
-        let Value::Pi(_, _, dom, cod) = force(&g, cur)? else {
+        let Value::Pi(_, _, dom, cod, _) = force(&g, cur)? else {
             unreachable!("counted")
         };
         // The same case with an unknown motive: its conclusion keeps the
         // targets the case is for.
-        let Value::Pi(_, _, dom_shape, cod_shape) = force(&g, cur_shape)? else {
+        let Value::Pi(_, _, dom_shape, cod_shape, _) = force(&g, cur_shape)? else {
             unreachable!("counted")
         };
         cur_shape = cod_shape.apply(&g, Value::var(DUMMY))?;
@@ -504,7 +511,7 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
         term = Term::app(term, case);
     }
     for &l in &targets {
-        let Value::Pi(_, _, _, cod) = force(&g, cur)? else {
+        let Value::Pi(_, _, _, cod, _) = force(&g, cur)? else {
             unreachable!("counted")
         };
         cur = cod.apply(&g, Value::var(l))?;
@@ -512,7 +519,7 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
     }
     // Applied to the variables the motive took as premises.
     for &l in &copied {
-        let Value::Pi(_, _, _, cod) = force(&g, cur)? else {
+        let Value::Pi(_, _, _, cod, _) = force(&g, cur)? else {
             return Err(motive_error(
                 span,
                 "the motive's premises aren't as expected",
@@ -635,7 +642,7 @@ impl Shape {
     ) -> Option<crate::check::Statement> {
         let g = cx.g();
         let stated = self.stated.as_ref()?;
-        let Value::Neutral(stitchwort_core::value::Head::Var(DUMMY, _), spine) =
+        let Value::Neutral(stitchwort_core::value::Head::Var(DUMMY, _, _), spine) =
             force(&g, shape.clone()).ok()?
         else {
             return None;
@@ -718,7 +725,7 @@ fn alternative(
         let mut cur = ty.clone();
         let mut cur_shape = shape_ty.clone();
         for b in &alt.binders {
-            let Value::Pi(name, _, dom, cod) = force(&g, cur)? else {
+            let Value::Pi(name, _, dom, cod, _) = force(&g, cur)? else {
                 unreachable!("counted")
             };
             let shown: Name = if b.text == "_" {
@@ -733,13 +740,13 @@ fn alternative(
             }
             lams.push(shown);
             cur = cod.apply(&g, Value::var(cx.level() - 1))?;
-            if let Value::Pi(_, _, _, cod) = force(&g, cur_shape.clone())? {
+            if let Value::Pi(_, _, _, cod, _) = force(&g, cur_shape.clone())? {
                 cur_shape = cod.apply(&g, Value::var(cx.level() - 1))?;
             }
         }
         let mut premises = Vec::new();
         for &l in copied {
-            let Value::Pi(name, _, dom, cod) = force(&g, cur)? else {
+            let Value::Pi(name, _, dom, cod, _) = force(&g, cur)? else {
                 return Err(motive_error(
                     alt.span,
                     "the case's premises aren't as the motive made them",
@@ -759,7 +766,7 @@ fn alternative(
         cx.statement = saved;
         let mut body = checked?;
         for name in lams.into_iter().rev() {
-            body = Term::Lam(name, Icit::Explicit, Rc::new(body));
+            body = Term::Lam(name, Icit::Explicit, Rc::new(body), ProofMark::Unknown);
         }
         Ok(body)
     })();

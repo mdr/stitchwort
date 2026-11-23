@@ -8,6 +8,7 @@
 //! makes `?` into assumptions in stage 2.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use crate::common::*;
 use stitchwort_core::assumption::{Decl, relied_on, relied_on_skipping, relies_on};
@@ -376,7 +377,9 @@ fn nothing_gives_it_a_body_later() {
             Icit::Auto,
             Rc::new(eq(None, v(0), v(0))),
             Rc::new(nat.clone()),
+            ProofMark::Unknown,
         )),
+        ProofMark::Unknown,
     );
     let validated = assume_as(&mut p.g, "v.?1", validated, "Main.v", 1).unwrap();
     let refused = check::add_validator(&mut p.g, validated, 1, p.nat, &zero).unwrap_err();
@@ -543,9 +546,13 @@ fn reliance_through_a_validator() {
             Icit::Auto,
             Rc::new(eq(None, v(0), v(0))),
             Rc::new(p.nat_ty()),
+            ProofMark::Unknown,
         ),
     );
-    let body = lam("n", Term::Lam("ok".into(), Icit::Auto, Rc::new(v(1))));
+    let body = lam(
+        "n",
+        Term::Lam("ok".into(), Icit::Auto, Rc::new(v(1)), ProofMark::Unknown),
+    );
     let f = define(&mut p.g, "f", ty, body).unwrap();
     let dec_ty = pi(
         "n",

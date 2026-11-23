@@ -11,6 +11,7 @@ use std::collections::BTreeSet;
 use std::path::Path;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::budget::{ResourceError, Result};
 use stitchwort_core::reference;
@@ -58,7 +59,7 @@ fn param_icits(g: &stitchwort_core::Ev, id: DefId) -> Vec<Icit> {
         return icits;
     };
     for _ in 0..def.arity() {
-        let Term::Lam(_, icit, body) = term.strip_loc() else {
+        let Term::Lam(_, icit, body, _) = term.strip_loc() else {
             break;
         };
         icits.push(*icit);
@@ -552,6 +553,7 @@ fn a_stuck_case_unblocks_when_its_metavariable_is_solved() {
                 1,
                 vec![Term::ctor(nat, 1, vec![Term::Var(0)])],
             )),
+            ProofMark::Unknown,
         ),
     )
     .unwrap();
@@ -575,16 +577,25 @@ fn j_with_reflexive_and_stuck_proofs() {
             "p".into(),
             Icit::Explicit,
             std::rc::Rc::new(Term::data(nat, vec![])),
+            ProofMark::Unknown,
         )),
+        ProofMark::Unknown,
     );
-    let j = |proof: Term| Term::J(motive.clone().into(), zero.clone().into(), proof.into());
+    let j = |proof: Term| {
+        Term::J(
+            motive.clone().into(),
+            zero.clone().into(),
+            proof.into(),
+            ProofMark::Unknown,
+        )
+    };
     // Stuck on a variable.
     let env = [Value::var(0)];
     let fast = value::eval(g, &env, &j(Term::Var(0))).unwrap();
     let slow = reference::eval(g, &env, &j(Term::Var(0))).unwrap();
     assert_eq!(normal(g, 1, &fast), normal(g, 1, &slow));
     assert!(
-        matches!(fast, Value::Neutral(Head::Var(0, _), ref s) if matches!(s[..], [Elim::J { .. }]))
+        matches!(fast, Value::Neutral(Head::Var(0, _, _), ref s) if matches!(s[..], [Elim::J { .. }]))
     );
     // Stuck on an unsolved metavariable, then solved with `byComputing`.
     let m = session.elab.metas().new_meta(span());
@@ -768,9 +779,17 @@ fn the_evaluators_agree_on_let() {
                 std::rc::Rc::new(value),
                 std::rc::Rc::new(body),
                 false,
+                ProofMark::Unknown,
             )
         };
-        let lam = |x: &str, body: Term| Term::Lam(x.into(), Icit::Explicit, std::rc::Rc::new(body));
+        let lam = |x: &str, body: Term| {
+            Term::Lam(
+                x.into(),
+                Icit::Explicit,
+                std::rc::Rc::new(body),
+                ProofMark::Unknown,
+            )
+        };
         let v = Term::Var;
         let cases: Vec<(&str, usize, Term)> = vec![
             ("a quick value", 0, let_("x", num(3), add(v(0), v(0)))),

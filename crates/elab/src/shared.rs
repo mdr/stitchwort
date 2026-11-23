@@ -21,6 +21,7 @@
 //! field isn't shared is kept for the message when `a.f` is used (§5.3).
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use crate::kernel;
 use stitchwort_core::collections::HashMap;
@@ -250,6 +251,7 @@ impl Elaborator {
                 Icit::Explicit,
                 Rc::new(Term::data(d, args)),
                 Rc::new(result),
+                ProofMark::Unknown,
             );
             let branches: Vec<Branch> = data
                 .ctors()
@@ -264,10 +266,17 @@ impl Elaborator {
                 "r".into(),
                 Icit::Explicit,
                 Rc::new(Term::Case(0, d, branches.into())),
+                ProofMark::Unknown,
             );
             for (x, t) in data.params().iter().chain(data.indices()).rev() {
-                ty = Term::Pi(x.clone(), Icit::Implicit, Rc::new(t.clone()), Rc::new(ty));
-                body = Term::Lam(x.clone(), Icit::Implicit, Rc::new(body));
+                ty = Term::Pi(
+                    x.clone(),
+                    Icit::Implicit,
+                    Rc::new(t.clone()),
+                    Rc::new(ty),
+                    ProofMark::Unknown,
+                );
+                body = Term::Lam(x.clone(), Icit::Implicit, Rc::new(body), ProofMark::Unknown);
             }
             let name: Name = format!("{}.{hidden}{field}", data.name()).into();
             let span = data.span();

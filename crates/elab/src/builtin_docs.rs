@@ -13,6 +13,7 @@
 //! one, sound because of that check, and is only reached by navigation.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::term::QuotForm;
 use stitchwort_core::{Icit, Term};
@@ -45,7 +46,7 @@ fn form(name: &str, params: usize) -> Option<Term> {
     let var = |i: usize| Rc::new(Term::Var(params - 1 - i));
     if let Some(form) = QuotForm::ALL.into_iter().find(|f| f.name() == name) {
         let args = (0..params).map(var).collect();
-        return (params == form.arity()).then(|| Term::Quot(form, args, false));
+        return (params == form.arity()).then(|| Term::Quot(form, args, false, ProofMark::Unknown));
     }
     match (name, params) {
         ("byComputing", 2) => Some(Term::Refl),
@@ -61,9 +62,11 @@ fn form(name: &str, params: usize) -> Option<Term> {
                     "p".into(),
                     Icit::Explicit,
                     app(app(Rc::new(Term::Var(4)), 1), 0),
+                    ProofMark::Unknown,
                 )),
+                ProofMark::Unknown,
             );
-            Some(Term::J(Rc::new(motive), var(4), var(5)))
+            Some(Term::J(Rc::new(motive), var(4), var(5), ProofMark::Unknown))
         }
         _ => None,
     }
@@ -104,7 +107,7 @@ impl Elaborator {
             loop {
                 match rest {
                     Term::Loc(_, inner) => rest = inner,
-                    Term::Pi(x, icit, _, next) => {
+                    Term::Pi(x, icit, _, next, _) => {
                         binders.push((x.clone(), *icit));
                         rest = next;
                     }
@@ -122,7 +125,7 @@ impl Elaborator {
                 )
             })?;
             for (x, icit) in binders.into_iter().rev() {
-                body = Term::Lam(x, icit, Rc::new(body));
+                body = Term::Lam(x, icit, Rc::new(body), ProofMark::Unknown);
             }
             let id = kernel::declare_def(
                 &mut self.kernel,

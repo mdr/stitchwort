@@ -456,7 +456,7 @@ impl<'g> Hasher<'g> {
         }
         match spine_head(term).0 {
             Term::Def(id) => self.proof_result(*id),
-            Term::Quot(QuotForm::Ind | QuotForm::Sound, _, _) => true,
+            Term::Quot(QuotForm::Ind | QuotForm::Sound, _, _, _) => true,
             _ => false,
         }
     }
@@ -775,12 +775,12 @@ impl<'g> Hasher<'g> {
                     }
                 }
                 Term::Sort(s) => self.sort(*s),
-                Term::Pi(_, icit, a, b) => {
+                Term::Pi(_, icit, a, b, _) => {
                     self.tag("pi");
                     self.icit(*icit);
                     pending.extend([Item::Term(a), Item::Term(b)]);
                 }
-                Term::Lam(_, icit, b) => {
+                Term::Lam(_, icit, b, _) => {
                     self.tag("lam");
                     self.icit(*icit);
                     pending.push(Item::Term(b));
@@ -795,7 +795,7 @@ impl<'g> Hasher<'g> {
                     pending.extend([Item::Term(e), Item::Term(t)]);
                 }
                 // The name isn't hashed, as for other binders.
-                Term::Let(_, a, v, b, _) => {
+                Term::Let(_, a, v, b, _, _) => {
                     self.tag("let");
                     pending.extend([Item::Term(a), Item::Term(v), Item::Term(b)]);
                 }
@@ -841,7 +841,7 @@ impl<'g> Hasher<'g> {
                     pending.extend([Item::Term(a), Item::Term(b)]);
                 }
                 Term::Refl => self.tag("refl"),
-                Term::J(m, b, p) => {
+                Term::J(m, b, p, _) => {
                     self.tag("j");
                     pending.extend([Item::Term(m), Item::Term(b), part(p, proofless)]);
                 }
@@ -858,7 +858,7 @@ impl<'g> Hasher<'g> {
                 // `let`.
                 // Without proofs, `Quot.lift`'s fifth argument (its proof
                 // that the function respects the relation) is the marker.
-                Term::Quot(form, args, _) => {
+                Term::Quot(form, args, _, _) => {
                     self.tag(quot_tag(*form));
                     pending.push(Item::Usize(args.len()));
                     pending.extend(
@@ -903,6 +903,7 @@ mod tests {
     use std::rc::Rc;
 
     use super::*;
+    use crate::term::ProofMark;
 
     /// The hash of a closed term on its own.
     fn hash_term(term: &Term) -> ContentHash {
@@ -923,12 +924,22 @@ mod tests {
     /// never hash alike (`Quot.ind` and `Quot.sound` take as many).
     #[test]
     fn quotient_forms_with_the_same_arguments_hash_differently() {
-        let ind = hash_term(&Term::Quot(QuotForm::Ind, args(5), false));
-        let sound = hash_term(&Term::Quot(QuotForm::Sound, args(5), false));
+        let ind = hash_term(&Term::Quot(
+            QuotForm::Ind,
+            args(5),
+            false,
+            ProofMark::Unknown,
+        ));
+        let sound = hash_term(&Term::Quot(
+            QuotForm::Sound,
+            args(5),
+            false,
+            ProofMark::Unknown,
+        ));
         assert_ne!(ind, sound);
         let hashes: Vec<ContentHash> = QuotForm::ALL
             .into_iter()
-            .map(|f| hash_term(&Term::Quot(f, args(3), false)))
+            .map(|f| hash_term(&Term::Quot(f, args(3), false, ProofMark::Unknown)))
             .collect();
         for (i, a) in hashes.iter().enumerate() {
             for b in &hashes[i + 1..] {
@@ -938,7 +949,10 @@ mod tests {
         // Every argument counts.
         let mut other = args(5);
         other[4] = Rc::new(Term::Sort(Sort::Prop));
-        assert_ne!(ind, hash_term(&Term::Quot(QuotForm::Ind, other, false)));
+        assert_ne!(
+            ind,
+            hash_term(&Term::Quot(QuotForm::Ind, other, false, ProofMark::Unknown))
+        );
     }
 
     /// A4: D921's erasure flag isn't hashed.
@@ -947,8 +961,8 @@ mod tests {
         for form in [QuotForm::Mk, QuotForm::Lift] {
             let n = form.arity();
             assert_eq!(
-                hash_term(&Term::Quot(form, args(n), false)),
-                hash_term(&Term::Quot(form, args(n), true))
+                hash_term(&Term::Quot(form, args(n), false, ProofMark::Unknown)),
+                hash_term(&Term::Quot(form, args(n), true, ProofMark::Unknown))
             );
         }
     }

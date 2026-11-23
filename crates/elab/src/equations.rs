@@ -78,6 +78,7 @@
 //! and naming it is `E-NO-EQUATION` ([`no_equation`]).
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use num_bigint::BigUint;
 use stitchwort_core::collections::HashMap;
@@ -1358,7 +1359,7 @@ impl BranchLib {
         if *h != self.ite || args.len() != 4 {
             return Ok(None);
         }
-        let (Term::Lam(_, _, yes), Term::Lam(_, _, no)) =
+        let (Term::Lam(_, _, yes, _), Term::Lam(_, _, no, _)) =
             (args[2].0.strip_loc(), args[3].0.strip_loc())
         else {
             return Ok(None);
@@ -1458,7 +1459,9 @@ impl BranchLib {
                     Rc::new(Term::Var(1)),
                     Rc::new(target),
                 )),
+                ProofMark::Unknown,
             )),
+            ProofMark::Unknown,
         );
         // Under `e`: `e` is 0, the hypothesis 1. `J` along `b = notX` from
         // `b = X` gives `notX = X`.
@@ -1466,6 +1469,7 @@ impl BranchLib {
             Rc::new(motive),
             Rc::new(Term::Var(0)),
             Rc::new(Term::Var(1)),
+            ProofMark::Unknown,
         );
         let apart = if x {
             self.false_not_true
@@ -1476,6 +1480,7 @@ impl BranchLib {
             "e".into(),
             Icit::Explicit,
             Rc::new(Term::app(Term::Def(apart), swapped)),
+            ProofMark::Unknown,
         )
     }
 
@@ -1500,9 +1505,18 @@ impl BranchLib {
         z: &Term,
         q: Term,
     ) -> R<Term> {
-        let lam = |x: &str, body: Term| Term::Lam(x.into(), Icit::Explicit, Rc::new(body));
-        let pi =
-            |dom: Term, cod: Term| Term::Pi("_".into(), Icit::Explicit, Rc::new(dom), Rc::new(cod));
+        let lam = |x: &str, body: Term| {
+            Term::Lam(x.into(), Icit::Explicit, Rc::new(body), ProofMark::Unknown)
+        };
+        let pi = |dom: Term, cod: Term| {
+            Term::Pi(
+                "_".into(),
+                Icit::Explicit,
+                Rc::new(dom),
+                Rc::new(cod),
+                ProofMark::Unknown,
+            )
+        };
         let id = lam("x", Term::Var(0));
         let call = |cond: Term, by: usize| -> R<Term> {
             let mut out = head.clone();
@@ -1529,7 +1543,12 @@ impl BranchLib {
         );
         let motive = lam("y", lam("e", pi(dom, cod)));
         Ok(Term::app(
-            Term::J(Rc::new(motive), Rc::new(id), Rc::new(hyp)),
+            Term::J(
+                Rc::new(motive),
+                Rc::new(id),
+                Rc::new(hyp),
+                ProofMark::Unknown,
+            ),
             q,
         ))
     }
@@ -1538,9 +1557,18 @@ impl BranchLib {
     /// both at the depth of `b` and `hyp`: `X = notX` from `J (y _ => b =
     /// notX → y = notX) (x => x) h' hyp`.
     fn normal_void(&self, g: &Ev, b: Term, x: bool, hyp: Term) -> R<Term> {
-        let lam = |x: &str, body: Term| Term::Lam(x.into(), Icit::Explicit, Rc::new(body));
-        let pi =
-            |dom: Term, cod: Term| Term::Pi("_".into(), Icit::Explicit, Rc::new(dom), Rc::new(cod));
+        let lam = |x: &str, body: Term| {
+            Term::Lam(x.into(), Icit::Explicit, Rc::new(body), ProofMark::Unknown)
+        };
+        let pi = |dom: Term, cod: Term| {
+            Term::Pi(
+                "_".into(),
+                Icit::Explicit,
+                Rc::new(dom),
+                Rc::new(cod),
+                ProofMark::Unknown,
+            )
+        };
         let id = lam("x", Term::Var(0));
         let other = self.bool_value(!x);
         let dom = Term::Eq(
@@ -1555,7 +1583,12 @@ impl BranchLib {
         );
         let motive = lam("y", lam("e", pi(dom, cod)));
         let swapped = Term::app(
-            Term::J(Rc::new(motive), Rc::new(id), Rc::new(Term::Var(0))),
+            Term::J(
+                Rc::new(motive),
+                Rc::new(id),
+                Rc::new(Term::Var(0)),
+                ProofMark::Unknown,
+            ),
             hyp,
         );
         let apart = if x {
@@ -1607,7 +1640,9 @@ impl BranchLib {
         z: &Term,
         q: Term,
     ) -> R<Term> {
-        let lam = |x: &str, body: Term| Term::Lam(x.into(), Icit::Explicit, Rc::new(body));
+        let lam = |x: &str, body: Term| {
+            Term::Lam(x.into(), Icit::Explicit, Rc::new(body), ProofMark::Unknown)
+        };
         let a: Vec<Term> = args.iter().map(|(t, _)| t.clone()).collect();
         let (y, n) = (&a[3], &a[4]);
         let result = |by: usize| a[1].shift(g, by, 0).map(|t| Some(Rc::new(t)));
@@ -1615,7 +1650,7 @@ impl BranchLib {
         // `branch h = z`, the application reduced (the kernel
         // infers an equation's type from its left side).
         let goal_of = |branch: &Term| -> R<Term> {
-            let Term::Lam(_, _, body) = branch.strip_loc() else {
+            let Term::Lam(_, _, body, _) = branch.strip_loc() else {
                 return skip("an `if`'s branch isn't a function as elaborated");
             };
             Ok(Term::Eq(
@@ -1629,7 +1664,7 @@ impl BranchLib {
                 None => q.shift(g, 1, 0)?,
                 Some(uniq) => {
                     // `J (q e => A[q] = z) q' (unique hyp h')`.
-                    let Term::Lam(_, _, body) = y.strip_loc() else {
+                    let Term::Lam(_, _, body, _) = y.strip_loc() else {
                         return skip("an `if`'s branch isn't a function as elaborated");
                     };
                     let at = top + 3;
@@ -1678,7 +1713,12 @@ impl BranchLib {
                             out
                         }
                     };
-                    Term::J(Rc::new(motive), Rc::new(q.shift(g, 1, 0)?), Rc::new(proof))
+                    Term::J(
+                        Rc::new(motive),
+                        Rc::new(q.shift(g, 1, 0)?),
+                        Rc::new(proof),
+                        ProofMark::Unknown,
+                    )
                 }
             };
             let refuted = Term::app(Term::Var(0), hyp.shift(g, 1, 0)?);
@@ -1705,9 +1745,18 @@ impl BranchLib {
     /// below `step` is `z`, a proof that the tail at `step` is.
     fn step_proof(&self, g: &Ev, step: &Step, top: usize, z: &Term, q: Term) -> R<Term> {
         let up = |t: &Term, from: usize, by: usize| t.shift(g, top - from + by, 0);
-        let lam = |x: &str, body: Term| Term::Lam(x.into(), Icit::Explicit, Rc::new(body));
-        let pi =
-            |dom: Term, cod: Term| Term::Pi("_".into(), Icit::Explicit, Rc::new(dom), Rc::new(cod));
+        let lam = |x: &str, body: Term| {
+            Term::Lam(x.into(), Icit::Explicit, Rc::new(body), ProofMark::Unknown)
+        };
+        let pi = |dom: Term, cod: Term| {
+            Term::Pi(
+                "_".into(),
+                Icit::Explicit,
+                Rc::new(dom),
+                Rc::new(cod),
+                ProofMark::Unknown,
+            )
+        };
         let id = lam("x", Term::Var(0));
         let at_top = |args: &[(Term, Icit)], depth: usize| -> R<Vec<(Term, Icit)>> {
             args.iter()
@@ -1821,6 +1870,7 @@ impl BranchLib {
                                 Rc::new(motive),
                                 Rc::new(id),
                                 Rc::new(Term::Var(top - 1 - level)),
+                                ProofMark::Unknown,
                             ),
                             proof,
                         )
@@ -1836,7 +1886,12 @@ impl BranchLib {
                             Term::Eq(None, Rc::new(call(2, false)?), Rc::new(Term::Var(1))),
                         ),
                     );
-                    Term::J(Rc::new(motive), Rc::new(local), Rc::new(q))
+                    Term::J(
+                        Rc::new(motive),
+                        Rc::new(local),
+                        Rc::new(q),
+                        ProofMark::Unknown,
+                    )
                 }
             }
         })
@@ -1902,7 +1957,13 @@ fn tuple_projections(g: &Ev, tys: &[Term], y: Term) -> R<Vec<Term>> {
 /// `(x: A) → … → body` over `binders`.
 fn pi_over(binders: &[(Name, Icit, Term)], body: Term) -> Term {
     binders.iter().rev().fold(body, |acc, (x, icit, ty)| {
-        Term::Pi(x.clone(), *icit, Rc::new(ty.clone()), Rc::new(acc))
+        Term::Pi(
+            x.clone(),
+            *icit,
+            Rc::new(ty.clone()),
+            Rc::new(acc),
+            ProofMark::Unknown,
+        )
     })
 }
 
@@ -2909,7 +2970,7 @@ impl Elaborator {
         let cx = saved.ctx(self);
         let g = &self.ev();
         let depth = cx.level();
-        let Value::Neutral(Head::Var(0, _), spine) = force(g, goal)? else {
+        let Value::Neutral(Head::Var(0, _, _), spine) = force(g, goal)? else {
             return skip("its arm's goal wasn't the probe's");
         };
         let mut lhs = Vec::new();
@@ -2924,7 +2985,7 @@ impl Elaborator {
         }
         let own = |l: usize| {
             cx.lets[l].is_none()
-                && matches!(&cx.env[l], Value::Neutral(Head::Var(x, _), s) if *x == l && s.is_empty())
+                && matches!(&cx.env[l], Value::Neutral(Head::Var(x, _, _), s) if *x == l && s.is_empty())
         };
         // A character pattern's proof field (`'k'` is `MkChar 107 p`) is
         // `byComputing` on the left side, the literal's own, so the equation doesn't
@@ -3783,7 +3844,7 @@ impl Elaborator {
             origin.resize(depth, None);
             let (head, args) = spine_icit(&cur);
             let lambda_body = |t: &Term| match t.strip_loc() {
-                Term::Lam(_, _, b) => Ok((**b).clone()),
+                Term::Lam(_, _, b, _) => Ok((**b).clone()),
                 _ => skip("an `if`'s branch isn't a function as elaborated"),
             };
             match taken.split {
@@ -4888,6 +4949,7 @@ impl Elaborator {
                             Icit::Explicit,
                             Rc::new(guard_holds(self, is_prop, cond)?),
                             Rc::new(void),
+                            ProofMark::Unknown,
                         )
                     };
                 } else if vars.is_empty() && eq_terms.len() == 1 {
@@ -4895,10 +4957,22 @@ impl Elaborator {
                 }
                 let mut ty = void;
                 for eq in eq_terms.into_iter().rev() {
-                    ty = Term::Pi("_".into(), Icit::Explicit, Rc::new(eq), Rc::new(ty));
+                    ty = Term::Pi(
+                        "_".into(),
+                        Icit::Explicit,
+                        Rc::new(eq),
+                        Rc::new(ty),
+                        ProofMark::Unknown,
+                    );
                 }
                 for (x, t) in binders.into_iter().rev() {
-                    ty = Term::Pi(x, Icit::Explicit, Rc::new(t), Rc::new(ty));
+                    ty = Term::Pi(
+                        x,
+                        Icit::Explicit,
+                        Rc::new(t),
+                        Rc::new(ty),
+                        ProofMark::Unknown,
+                    );
                 }
                 Ok(ty)
             }
@@ -5184,7 +5258,7 @@ fn plain_ifs(g: &Ev, t: &Term) -> R<Term> {
         if is(head, and_then) && args.len() == 4 {
             let (pa, pb) = (&args[0].0, &args[1].0);
             let a = test(g, &args[2].0, pa, is, ids, bool_ty, fls.clone())?;
-            let Term::Lam(x, i, db) = args[3].0.strip_loc() else {
+            let Term::Lam(x, i, db, _) = args[3].0.strip_loc() else {
                 return None;
             };
             if db.mentions(0) {
@@ -5204,9 +5278,12 @@ fn plain_ifs(g: &Ev, t: &Term) -> R<Term> {
                 head,
                 [
                     (a, Icit::Explicit),
-                    (Term::Lam(x.clone(), *i, Rc::new(b)), Icit::Explicit),
                     (
-                        Term::Lam("_".into(), Icit::Explicit, Rc::new(fls)),
+                        Term::Lam(x.clone(), *i, Rc::new(b), ProofMark::Unknown),
+                        Icit::Explicit,
+                    ),
+                    (
+                        Term::Lam("_".into(), Icit::Explicit, Rc::new(fls), ProofMark::Unknown),
                         Icit::Explicit,
                     ),
                 ],
@@ -5222,7 +5299,7 @@ fn plain_ifs(g: &Ev, t: &Term) -> R<Term> {
             let mut names = Vec::new();
             for _ in 0..k {
                 match (body, cod) {
-                    (Term::Lam(x, i, b), Term::Pi(_, _, _, c)) => {
+                    (Term::Lam(x, i, b, _), Term::Pi(_, _, _, c, _)) => {
                         names.push((x.clone(), *i));
                         body = b.strip_loc();
                         cod = c.strip_loc();
@@ -5238,18 +5315,17 @@ fn plain_ifs(g: &Ev, t: &Term) -> R<Term> {
             let mut pis = Vec::new();
             let mut node = pi.strip_loc();
             for _ in 0..k {
-                if let Term::Pi(x, i, a, c) = node {
+                if let Term::Pi(x, i, a, c, _) = node {
                     pis.push((x.clone(), *i, a.clone()));
                     node = c.strip_loc();
                 }
             }
             for (x, i, a) in pis.into_iter().rev() {
-                pi_bool = Term::Pi(x, i, a, Rc::new(pi_bool));
+                pi_bool = Term::Pi(x, i, a, Rc::new(pi_bool), ProofMark::Unknown);
             }
-            let lam_bool = names
-                .into_iter()
-                .rev()
-                .fold(inner, |b, (x, i)| Term::Lam(x, i, Rc::new(b)));
+            let lam_bool = names.into_iter().rev().fold(inner, |b, (x, i)| {
+                Term::Lam(x, i, Rc::new(b), ProofMark::Unknown)
+            });
             return Some(apps(Term::Ann(Rc::new(lam_bool), Rc::new(pi_bool)), args));
         }
         let to_bool = to_bool?;
@@ -5266,7 +5342,7 @@ fn plain_ifs(g: &Ev, t: &Term) -> R<Term> {
             return Ok(None);
         }
         let plain = |b: &Term| {
-            matches!(b.strip_loc(), Term::Lam(x, _, body) if &**x == "_" && !body.mentions(0))
+            matches!(b.strip_loc(), Term::Lam(x, _, body, _) if &**x == "_" && !body.mentions(0))
         };
         if !plain(&args[3].0) || !plain(&args[4].0) {
             return Ok(None);
@@ -5395,7 +5471,7 @@ fn performs_abilities(
     let mut v = eval(g, &[], ty)?;
     let mut depth = 0;
     for s in special {
-        let Value::Pi(_, _, dom, cod) = force(g, v)? else {
+        let Value::Pi(_, _, dom, cod, _) = force(g, v)? else {
             return Ok(true);
         };
         if let Some(t) = s {
@@ -5460,11 +5536,18 @@ fn rebuild(t: &Term, f: Sub<'_>) -> stitchwort_core::budget::Result<Term> {
         Term::Loc(s, inner) => Term::Loc(*s, f(inner, 0)?),
         Term::Ctor(d, c, args) => Term::Ctor(*d, *c, all(args, f)?),
         Term::Data(d, args) => Term::Data(*d, all(args, f)?),
-        Term::Quot(q, args, e) => Term::Quot(*q, all(args, f)?, *e),
-        Term::Pi(x, i, a, b) => Term::Pi(x.clone(), *i, f(a, 0)?, f(b, 1)?),
-        Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, f(b, 1)?),
+        Term::Quot(q, args, e, _) => Term::Quot(*q, all(args, f)?, *e, ProofMark::Unknown),
+        Term::Pi(x, i, a, b, _) => Term::Pi(x.clone(), *i, f(a, 0)?, f(b, 1)?, ProofMark::Unknown),
+        Term::Lam(x, i, b, _) => Term::Lam(x.clone(), *i, f(b, 1)?, ProofMark::Unknown),
         Term::Ann(a, b) => Term::Ann(f(a, 0)?, f(b, 0)?),
-        Term::Let(x, a, v, b, e) => Term::Let(x.clone(), f(a, 0)?, f(v, 0)?, f(b, 1)?, *e),
+        Term::Let(x, a, v, b, e, _) => Term::Let(
+            x.clone(),
+            f(a, 0)?,
+            f(v, 0)?,
+            f(b, 1)?,
+            *e,
+            ProofMark::Unknown,
+        ),
         Term::Eq(ty, a, b) => {
             let ty = match ty {
                 Some(ty) => Some(f(ty, 0)?),
@@ -5472,7 +5555,7 @@ fn rebuild(t: &Term, f: Sub<'_>) -> stitchwort_core::budget::Result<Term> {
             };
             Term::Eq(ty, f(a, 0)?, f(b, 0)?)
         }
-        Term::J(m, b, p) => Term::J(f(m, 0)?, f(b, 0)?, f(p, 0)?),
+        Term::J(m, b, p, _) => Term::J(f(m, 0)?, f(b, 0)?, f(p, 0)?, ProofMark::Unknown),
         Term::Proj(d, i, t) => Term::Proj(*d, *i, f(t, 0)?),
         Term::Case(i, d, branches) => Term::Case(
             *i,
@@ -5517,7 +5600,7 @@ fn rebuild(t: &Term, f: Sub<'_>) -> stitchwort_core::budget::Result<Term> {
 /// `t` with every `let` substituted.
 fn zeta(g: &Ev, t: &Term) -> stitchwort_core::budget::Result<Term> {
     g.machine.budget.nesting("equations")?;
-    if let Term::Let(_, _, v, b, _) = t {
+    if let Term::Let(_, _, v, b, _, _) = t {
         let v = zeta(g, v)?;
         let b = zeta(g, b)?;
         return b.instantiate(g, &v);
@@ -5547,7 +5630,7 @@ fn zeta_size(
             let (size, var) = zeta_size(g, inner, lets)?;
             Ok((size.saturating_add(1), var))
         }
-        Term::Let(_, _, v, b, _) => {
+        Term::Let(_, _, v, b, _, _) => {
             // `instantiate` puts a variable in bare, else the value whole.
             let (size, var) = zeta_size(g, v, lets)?;
             lets.push(Some(if var { (1, true) } else { (size, false) }));
@@ -5696,13 +5779,24 @@ fn remap(
                 }
                 Term::Ctor(*d, *c, out)
             }
-            Term::Pi(x, i, a, b) => Term::Pi(x.clone(), *i, sub!(a, k), sub!(b, k + 1)),
-            Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, sub!(b, k + 1)),
+            Term::Pi(x, i, a, b, _) => Term::Pi(
+                x.clone(),
+                *i,
+                sub!(a, k),
+                sub!(b, k + 1),
+                ProofMark::Unknown,
+            ),
+            Term::Lam(x, i, b, _) => Term::Lam(x.clone(), *i, sub!(b, k + 1), ProofMark::Unknown),
             Term::App(f, a, i) => Term::App(sub!(f, k), sub!(a, k), *i),
             Term::Ann(e, ty) => Term::Ann(sub!(e, k), sub!(ty, k)),
-            Term::Let(x, a, v, b, e) => {
-                Term::Let(x.clone(), sub!(a, k), sub!(v, k), sub!(b, k + 1), *e)
-            }
+            Term::Let(x, a, v, b, e, _) => Term::Let(
+                x.clone(),
+                sub!(a, k),
+                sub!(v, k),
+                sub!(b, k + 1),
+                *e,
+                ProofMark::Unknown,
+            ),
             Term::Eq(ty, a, b) => {
                 let ty = match ty {
                     Some(ty) => Some(sub!(ty, k)),
@@ -5710,14 +5804,14 @@ fn remap(
                 };
                 Term::Eq(ty, sub!(a, k), sub!(b, k))
             }
-            Term::J(m, b, p) => Term::J(sub!(m, k), sub!(b, k), sub!(p, k)),
+            Term::J(m, b, p, _) => Term::J(sub!(m, k), sub!(b, k), sub!(p, k), ProofMark::Unknown),
             Term::Proj(d, i, t) => Term::Proj(*d, *i, sub!(t, k)),
-            Term::Quot(form, args, erased) => {
+            Term::Quot(form, args, erased, _) => {
                 let mut out = Vec::new();
                 for a in args {
                     out.push(sub!(a, k));
                 }
-                Term::Quot(*form, out, *erased)
+                Term::Quot(*form, out, *erased, ProofMark::Unknown)
             }
             Term::Loc(span, t) => Term::Loc(*span, sub!(t, k)),
             // A case on a free variable can't be moved to a context where
@@ -5788,8 +5882,8 @@ fn beta_ann(g: &Ev, t: Term) -> stitchwort_core::budget::Result<Term> {
             Term::App(f, go(a)?, *i)
         }
         Term::Loc(s, inner) => Term::Loc(*s, go(inner)?),
-        Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b)?),
-        Term::Pi(x, i, a, b) => Term::Pi(x.clone(), *i, go(a)?, go(b)?),
+        Term::Lam(x, i, b, _) => Term::Lam(x.clone(), *i, go(b)?, ProofMark::Unknown),
+        Term::Pi(x, i, a, b, _) => Term::Pi(x.clone(), *i, go(a)?, go(b)?, ProofMark::Unknown),
         Term::Eq(ty, a, b) => Term::Eq(ty.as_ref().map(go).transpose()?, go(a)?, go(b)?),
         _ => t,
     })
@@ -5809,7 +5903,7 @@ fn beta_rec(g: &Ev, t: Term) -> stitchwort_core::budget::Result<Term> {
         for a in args {
             let a = beta_rec(g, a)?;
             f = match f.strip_loc() {
-                Term::Lam(_, _, body) => body.instantiate(g, &a)?,
+                Term::Lam(_, _, body, _) => body.instantiate(g, &a)?,
                 _ => Term::app(f, a),
             };
         }
@@ -5826,13 +5920,15 @@ fn beta_rec(g: &Ev, t: Term) -> stitchwort_core::budget::Result<Term> {
         Term::Loc(s, inner) => Term::Loc(*s, go(inner)?),
         Term::Ctor(d, c, args) => Term::Ctor(*d, *c, all(args)?),
         Term::Data(d, args) => Term::Data(*d, all(args)?),
-        Term::Quot(f, args, e) => Term::Quot(*f, all(args)?, *e),
-        Term::Pi(x, i, a, b) => Term::Pi(x.clone(), *i, go(a)?, go(b)?),
-        Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b)?),
+        Term::Quot(f, args, e, _) => Term::Quot(*f, all(args)?, *e, ProofMark::Unknown),
+        Term::Pi(x, i, a, b, _) => Term::Pi(x.clone(), *i, go(a)?, go(b)?, ProofMark::Unknown),
+        Term::Lam(x, i, b, _) => Term::Lam(x.clone(), *i, go(b)?, ProofMark::Unknown),
         Term::Ann(a, b) => Term::Ann(go(a)?, go(b)?),
-        Term::Let(x, a, v, b, e) => Term::Let(x.clone(), go(a)?, go(v)?, go(b)?, *e),
+        Term::Let(x, a, v, b, e, _) => {
+            Term::Let(x.clone(), go(a)?, go(v)?, go(b)?, *e, ProofMark::Unknown)
+        }
         Term::Eq(ty, a, b) => Term::Eq(ty.as_ref().map(go).transpose()?, go(a)?, go(b)?),
-        Term::J(m, b, p) => Term::J(go(m)?, go(b)?, go(p)?),
+        Term::J(m, b, p, _) => Term::J(go(m)?, go(b)?, go(p)?, ProofMark::Unknown),
         Term::Proj(d, i, x) => Term::Proj(*d, *i, go(x)?),
         _ => t,
     })
@@ -5861,13 +5957,17 @@ fn unmark(g: &Ev, d: &Def, t: &Term) -> stitchwort_core::budget::Result<Term> {
             Term::Loc(s, inner) => Term::Loc(*s, sub(inner)?),
             Term::Ctor(d, c, args) => Term::Ctor(*d, *c, all(args)?),
             Term::Data(d, args) => Term::Data(*d, all(args)?),
-            Term::Quot(q, args, e) => Term::Quot(*q, all(args)?, *e),
-            Term::Pi(x, i, a, b) => Term::Pi(x.clone(), *i, sub(a)?, sub(b)?),
-            Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, sub(b)?),
+            Term::Quot(q, args, e, _) => Term::Quot(*q, all(args)?, *e, ProofMark::Unknown),
+            Term::Pi(x, i, a, b, _) => {
+                Term::Pi(x.clone(), *i, sub(a)?, sub(b)?, ProofMark::Unknown)
+            }
+            Term::Lam(x, i, b, _) => Term::Lam(x.clone(), *i, sub(b)?, ProofMark::Unknown),
             Term::Ann(a, b) => Term::Ann(sub(a)?, sub(b)?),
-            Term::Let(x, a, v, b, e) => Term::Let(x.clone(), sub(a)?, sub(v)?, sub(b)?, *e),
+            Term::Let(x, a, v, b, e, _) => {
+                Term::Let(x.clone(), sub(a)?, sub(v)?, sub(b)?, *e, ProofMark::Unknown)
+            }
             Term::Eq(ty, a, b) => Term::Eq(ty.as_ref().map(sub).transpose()?, sub(a)?, sub(b)?),
-            Term::J(m, b, p) => Term::J(sub(m)?, sub(b)?, sub(p)?),
+            Term::J(m, b, p, _) => Term::J(sub(m)?, sub(b)?, sub(p)?, ProofMark::Unknown),
             Term::Proj(d, i, x) => Term::Proj(*d, *i, sub(x)?),
             _ => t.clone(),
         })
@@ -5938,7 +6038,7 @@ fn without_lets_of(cx: &Ctx, t: &Term) -> Result<Term> {
 /// that the condition can use `rest` (`crate::check_guard`).
 fn without_leading_lets(g: &Ev, t: &Term) -> R<Term> {
     let mut t = t.clone();
-    while let Term::Let(_, _, v, b, _) = t.strip_loc() {
+    while let Term::Let(_, _, v, b, _, _) = t.strip_loc() {
         t = b.instantiate(g, v)?;
     }
     Ok(t)
@@ -5972,7 +6072,7 @@ fn guard_if(g: &Ev, t: &Term) -> R<GuardIf> {
         );
     };
     let body = |t: &Term| match t.strip_loc() {
-        Term::Lam(_, _, b) => Ok((**b).clone()),
+        Term::Lam(_, _, b, _) => Ok((**b).clone()),
         _ => skip("an arm's condition's branch isn't a function as elaborated"),
     };
     let n = args.len();
@@ -7197,9 +7297,16 @@ impl<'a> Walk<'a> {
                         Rc::new(lhs.shift(&g, 2, 0)?),
                         Rc::new(Term::Var(1)),
                     )),
+                    ProofMark::Unknown,
                 )),
+                ProofMark::Unknown,
             );
-            return Ok(Term::J(Rc::new(motive), Rc::new(own), Rc::new(then)));
+            return Ok(Term::J(
+                Rc::new(motive),
+                Rc::new(own),
+                Rc::new(then),
+                ProofMark::Unknown,
+            ));
         }
         if !self.d.earlier(self.k).contains(&row) {
             return skip("a later arm's leaf is reached from its left side");
@@ -7520,6 +7627,7 @@ impl<'a> Walk<'a> {
                                     "e".into(),
                                     Icit::Explicit,
                                     Rc::new(Term::app(Term::Var(0), hyp.shift(&g, 1, 0)?)),
+                                    ProofMark::Unknown,
                                 );
                                 view.lemma(&blib, 1, by)?
                             }
@@ -7550,7 +7658,7 @@ impl<'a> Walk<'a> {
                             Ok(Some(Rc::new(read.args[0].0.shift(&g, by, 0)?)))
                         };
                         let lam = |x: &str, body: Term| {
-                            Term::Lam(x.into(), Icit::Explicit, Rc::new(body))
+                            Term::Lam(x.into(), Icit::Explicit, Rc::new(body), ProofMark::Unknown)
                         };
                         let motive = lam(
                             "y",
@@ -7629,7 +7737,7 @@ impl<'a> Walk<'a> {
                     (None, None) => Term::app(hyp.shift(&g, 1, 0)?, Term::Var(0)),
                 };
                 let y = &read.args[3].0;
-                let Term::Lam(_, _, y_body) = y.strip_loc() else {
+                let Term::Lam(_, _, y_body, _) = y.strip_loc() else {
                     return skip("an `if`'s branch isn't a function as elaborated");
                 };
                 let goal_y = Term::Eq(
@@ -7641,8 +7749,9 @@ impl<'a> Walk<'a> {
                     "h".into(),
                     Icit::Explicit,
                     Rc::new(blib.exfalso(goal_y, void)),
+                    ProofMark::Unknown,
                 );
-                let en = Term::Lam("r".into(), Icit::Explicit, Rc::new(q));
+                let en = Term::Lam("r".into(), Icit::Explicit, Rc::new(q), ProofMark::Unknown);
                 blib.elim_eq(&read.args, z.clone(), ey, en)?
             }
         };
@@ -7678,9 +7787,16 @@ impl<'a> Walk<'a> {
                     Rc::new(lhs.shift(&g, 2, 0)?),
                     Rc::new(Term::Var(1)),
                 )),
+                ProofMark::Unknown,
             )),
+            ProofMark::Unknown,
         );
-        Ok(Term::J(Rc::new(motive), Rc::new(own), Rc::new(proof)))
+        Ok(Term::J(
+            Rc::new(motive),
+            Rc::new(own),
+            Rc::new(proof),
+            ProofMark::Unknown,
+        ))
     }
 
     /// The position in the equation's variables of the arm's level `l`.
@@ -7919,6 +8035,7 @@ impl Elaborator {
 #[cfg(test)]
 mod tests {
     use std::rc::Rc;
+    use stitchwort_core::ProofMark;
 
     use stitchwort_core::globals::Kernel;
     use stitchwort_core::{Icit, Term};
@@ -7931,7 +8048,14 @@ mod tests {
     }
 
     fn let_(v: Term, b: Term) -> Term {
-        Term::Let("t".into(), rc(Term::Refl), rc(v), rc(b), false)
+        Term::Let(
+            "t".into(),
+            rc(Term::Refl),
+            rc(v),
+            rc(b),
+            false,
+            ProofMark::Unknown,
+        )
     }
 
     /// `f a a`, `f` being variable `f`.
@@ -7967,7 +8091,12 @@ mod tests {
             let_(loc(Term::Var(1)), loc(twice(1, loc(Term::Var(0))))),
             let_(
                 twice(1, Term::Var(0)),
-                Term::Lam("y".into(), Icit::Explicit, rc(twice(2, loc(Term::Var(1))))),
+                Term::Lam(
+                    "y".into(),
+                    Icit::Explicit,
+                    rc(twice(2, loc(Term::Var(1)))),
+                    ProofMark::Unknown,
+                ),
             ),
         ];
         for t in &cases {

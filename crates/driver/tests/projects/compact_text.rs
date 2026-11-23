@@ -23,6 +23,7 @@
 //! binding to the prelude.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::chars::{self, Chars};
 use stitchwort_core::check::{declare_def, define_def, infer_closed};
@@ -706,12 +707,18 @@ fn a_proof_variable_in_a_character_is_skipped() {
             Rc::new(a_expanded(proof)),
         );
         Term::Ann(
-            Rc::new(Term::Lam("h".into(), Icit::Explicit, Rc::new(Term::Refl))),
+            Rc::new(Term::Lam(
+                "h".into(),
+                Icit::Explicit,
+                Rc::new(Term::Refl),
+                ProofMark::Unknown,
+            )),
             Rc::new(Term::Pi(
                 "h".into(),
                 Icit::Explicit,
                 Rc::new(h_ty),
                 Rc::new(eq),
+                ProofMark::Unknown,
             )),
         )
     };
@@ -837,6 +844,7 @@ fn a_compact_list_is_never_a_smaller_argument() {
         Icit::Explicit,
         Rc::new(list_char),
         Rc::new(Term::Data(nat, Vec::new())),
+        ProofMark::Unknown,
     );
     // Kernel declarations outside an operation have no limits.
     let define = |g: &mut Kernel, name: &str, recurse: Term| {
@@ -860,6 +868,7 @@ fn a_compact_list_is_never_a_smaller_argument() {
                 ]
                 .into(),
             )),
+            ProofMark::Unknown,
         );
         define_def(g, id, &body).map_err(|d| d.code)
     };

@@ -6,6 +6,7 @@
 
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use crate::common::*;
 use stitchwort_core::check::{self, infer_closed};
@@ -78,8 +79,19 @@ impl Gen<'_> {
                     .collect();
                 Term::Ctor(d, c, args)
             }
-            8 => Term::Pi("x".into(), self.rng.icit(), sub(self, 0), sub(self, 1)),
-            9 => Term::Lam("x".into(), self.rng.icit(), sub(self, 1)),
+            8 => Term::Pi(
+                "x".into(),
+                self.rng.icit(),
+                sub(self, 0),
+                sub(self, 1),
+                ProofMark::Unknown,
+            ),
+            9 => Term::Lam(
+                "x".into(),
+                self.rng.icit(),
+                sub(self, 1),
+                ProofMark::Unknown,
+            ),
             10 | 11 => Term::App(sub(self, 0), sub(self, 0), self.rng.icit()),
             12 => Term::Ann(sub(self, 0), sub(self, 0)),
             13 => {
@@ -90,8 +102,15 @@ impl Gen<'_> {
                 };
                 Term::Eq(ty, sub(self, 0), sub(self, 0))
             }
-            14 => Term::J(sub(self, 0), sub(self, 0), sub(self, 0)),
-            15 => Term::Let("x".into(), sub(self, 0), sub(self, 0), sub(self, 1), false),
+            14 => Term::J(sub(self, 0), sub(self, 0), sub(self, 0), ProofMark::Unknown),
+            15 => Term::Let(
+                "x".into(),
+                sub(self, 0),
+                sub(self, 0),
+                sub(self, 1),
+                false,
+                ProofMark::Unknown,
+            ),
             _ => {
                 let (ix, d) = (self.rng.below(scope + 1), self.data());
                 let branches: Vec<Branch> = (0..self.rng.below(3))

@@ -112,7 +112,7 @@ struct Matched {
 fn is_recursive_fn(ty: &Term, d: DataId) -> bool {
     let mut ty = ty.strip_loc();
     let mut arrows = 0;
-    while let Term::Pi(_, _, _, cod) = ty {
+    while let Term::Pi(_, _, _, cod, _) = ty {
         arrows += 1;
         ty = cod.strip_loc();
     }
@@ -159,12 +159,12 @@ impl Walker<'_> {
                     self.walk(arg)?;
                 }
             }
-            Term::Lam(_, _, body) => self.under(&[false], None, body)?,
-            Term::Pi(_, _, dom, cod) => {
+            Term::Lam(_, _, body, _) => self.under(&[false], None, body)?,
+            Term::Pi(_, _, dom, cod, _) => {
                 self.walk(dom)?;
                 self.under(&[false], None, cod)?;
             }
-            Term::Data(_, args) | Term::Ctor(_, _, args) | Term::Quot(_, args, _) => {
+            Term::Data(_, args) | Term::Ctor(_, _, args) | Term::Quot(_, args, _, _) => {
                 for arg in args {
                     self.walk(arg)?;
                 }
@@ -175,7 +175,7 @@ impl Walker<'_> {
             }
             // Added with `Let` (after `cc353ee`): its variable is unknown
             // here, which accepts no more than the original could.
-            Term::Let(_, a, v, body, _) => {
+            Term::Let(_, a, v, body, _, _) => {
                 self.walk(a)?;
                 self.walk(v)?;
                 self.under(&[false], None, body)?;
@@ -218,7 +218,7 @@ impl Walker<'_> {
                 self.walk(a)?;
                 self.walk(b)?;
             }
-            Term::J(m, b, p) => {
+            Term::J(m, b, p, _) => {
                 self.walk(m)?;
                 self.walk(b)?;
                 self.walk(p)?;

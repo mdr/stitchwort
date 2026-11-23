@@ -31,6 +31,7 @@
 //! logic inconsistent.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use crate::check::quote_internal;
 use crate::kernel;
@@ -90,15 +91,20 @@ fn apps(head: Term, args: impl IntoIterator<Item = (Term, Icit)>) -> Term {
 
 fn pis(params: &[Param], body: Term) -> Term {
     params.iter().rev().fold(body, |b, p| {
-        Term::Pi(p.name.clone(), p.icit, Rc::new(p.ty.clone()), Rc::new(b))
+        Term::Pi(
+            p.name.clone(),
+            p.icit,
+            Rc::new(p.ty.clone()),
+            Rc::new(b),
+            ProofMark::Unknown,
+        )
     })
 }
 
 fn lams(params: &[Param], body: Term) -> Term {
-    params
-        .iter()
-        .rev()
-        .fold(body, |b, p| Term::Lam(p.name.clone(), p.icit, Rc::new(b)))
+    params.iter().rev().fold(body, |b, p| {
+        Term::Lam(p.name.clone(), p.icit, Rc::new(b), ProofMark::Unknown)
+    })
 }
 
 impl Elaborator {
@@ -119,7 +125,7 @@ impl Elaborator {
         let mut level = 0;
         loop {
             match force(g, ty)? {
-                Value::Pi(_, _, _, cod) if level < n => {
+                Value::Pi(_, _, _, cod, _) if level < n => {
                     ty = cod.apply(g, Value::var(level))?;
                     level += 1;
                 }
@@ -148,7 +154,7 @@ impl Elaborator {
         let (mut ty, mut level, mut seen) = (g.def(id).ty_value().clone(), 0, 0);
         loop {
             match force(g, ty)? {
-                Value::Pi(_, icit, _, cod) if icit.is_implicit() || seen < explicit => {
+                Value::Pi(_, icit, _, cod, _) if icit.is_implicit() || seen < explicit => {
                     if !icit.is_implicit() {
                         seen += 1;
                     }
@@ -326,6 +332,7 @@ impl Elaborator {
                     Icit::Explicit,
                     Rc::new(req_at(f)),
                     Rc::new(Term::Sort(Sort::Type(0))),
+                    ProofMark::Unknown,
                 ),
             );
             let branches: Vec<stitchwort_core::term::Branch> = infos
@@ -345,6 +352,7 @@ impl Elaborator {
                     "r".into(),
                     Icit::Explicit,
                     Rc::new(Term::Case(0, req, branches.into())),
+                    ProofMark::Unknown,
                 ),
             );
             let id = kernel::declare_def(
@@ -417,6 +425,7 @@ impl Elaborator {
                 "y".into(),
                 Icit::Explicit,
                 Rc::new(Term::ctor(names.comp, 0, vec![Term::Var(0)])),
+                ProofMark::Unknown,
             );
             let body = lams(
                 &m.params,
@@ -562,7 +571,13 @@ impl Elaborator {
             let (ty, _, _) = described(depth, ops, res, result);
             let ty = pis(
                 &fixed_params,
-                Term::Pi("r".into(), Icit::Explicit, Rc::new(req_at(f)), Rc::new(ty)),
+                Term::Pi(
+                    "r".into(),
+                    Icit::Explicit,
+                    Rc::new(req_at(f)),
+                    Rc::new(ty),
+                    ProofMark::Unknown,
+                ),
             );
             let branches: Vec<stitchwort_core::term::Branch> = infos
                 .iter()
@@ -585,6 +600,7 @@ impl Elaborator {
                     "r".into(),
                     Icit::Explicit,
                     Rc::new(Term::Case(0, req, branches.into())),
+                    ProofMark::Unknown,
                 ),
             );
             let id = kernel::declare_def(
@@ -650,7 +666,7 @@ impl Elaborator {
         let mut params = Vec::new();
         let mut ty = g.def(id).ty_value().clone();
         for level in 0..n {
-            let Value::Pi(x, icit, dom, cod) = force(g, ty)? else {
+            let Value::Pi(x, icit, dom, cod, _) = force(g, ty)? else {
                 unreachable!("`entry_params` counted these")
             };
             params.push(Param {
@@ -691,7 +707,7 @@ impl Elaborator {
         loop {
             match force(g, ty)? {
                 Value::Sort(_) => return Ok(true),
-                Value::Pi(_, _, _, cod) => {
+                Value::Pi(_, _, _, cod, _) => {
                     ty = cod.apply(g, Value::var(level))?;
                     level += 1;
                 }

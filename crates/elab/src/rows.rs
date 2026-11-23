@@ -544,6 +544,7 @@ mod tests {
 
     use super::*;
     use crate::unify::unify;
+    use stitchwort_core::ProofMark;
 
     /// Runs `test` with the core loaded, on a thread with room for it.
     fn with_core(test: impl FnOnce(&Elaborator) + Send + 'static) {
@@ -635,7 +636,13 @@ mod tests {
             let function = eval(
                 g,
                 &[],
-                &Term::Pi("x".into(), Icit::Explicit, nat_term.clone(), nat_term),
+                &Term::Pi(
+                    "x".into(),
+                    Icit::Explicit,
+                    nat_term.clone(),
+                    nat_term,
+                    ProofMark::Unknown,
+                ),
             )
             .unwrap();
             for (level, other) in [
@@ -664,6 +671,7 @@ mod tests {
                     "o".into(),
                     Icit::Explicit,
                     Rc::new(Term::Sort(Sort::Type(0))),
+                    ProofMark::Unknown,
                 ),
             )
             .unwrap();
@@ -712,7 +720,10 @@ mod tests {
         use stitchwort_core::QuotForm;
         with_core(|e| {
             let g = &e.unifier();
-            let quotient = applied(Head::Quot(QuotForm::Type), vec![nat(g), Value::var(0)]);
+            let quotient = applied(
+                Head::Quot(QuotForm::Type, ProofMark::Unknown),
+                vec![nat(g), Value::var(0)],
+            );
             let (meta, left) = comp_in(g, quotient.clone());
             assert!(unify(g, 1, &left, &quotient).unwrap());
             assert!(solved_with(g, meta, Builtin::RowEmpty));
@@ -720,7 +731,7 @@ mod tests {
             let unknown = applied(Head::Meta(g.store.new_meta(span())), Vec::new());
             let mut args = vec![Value::var(0); QuotForm::Lift.arity() - 1];
             args.push(unknown);
-            let stuck = applied(Head::Quot(QuotForm::Lift), args);
+            let stuck = applied(Head::Quot(QuotForm::Lift, ProofMark::Unknown), args);
             assert_eq!(crate::unify::rigid_head(g, &stuck), None);
             let (meta, left) = comp_in(g, nat(g));
             let put_aside = unify_postponing(g, 1, &left, &stuck).unwrap();

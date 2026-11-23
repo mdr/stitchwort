@@ -2,6 +2,7 @@
 //! stage-1 acceptance invariants, each a test.
 
 use std::collections::{BTreeMap, BTreeSet};
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::hash::{ContentHash, def_hash};
 use stitchwort_core::{DefId, Term};
@@ -84,7 +85,9 @@ fn body_of(session: &Session, name: &str) -> Term {
 fn bare_term(term: &Term) -> Term {
     match term.strip_loc() {
         Term::Ann(inner, _) => bare_term(inner),
-        Term::Lam(x, icit, body) => Term::Lam(x.clone(), *icit, bare_term(body).into()),
+        Term::Lam(x, icit, body, _) => {
+            Term::Lam(x.clone(), *icit, bare_term(body).into(), ProofMark::Unknown)
+        }
         Term::App(f, a, icit) => Term::App(bare_term(f).into(), bare_term(a).into(), *icit),
         other => other.clone(),
     }
@@ -102,7 +105,7 @@ fn lambda_names(session: &Session, name: &str) -> Vec<String> {
     let mut names = Vec::new();
     loop {
         match term.strip_loc() {
-            Term::Lam(x, _, body) => {
+            Term::Lam(x, _, body, _) => {
                 names.push(x.to_string());
                 term = (**body).clone();
             }

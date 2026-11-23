@@ -7,6 +7,7 @@
 //! runs unless the test fails: it is only how the failure is explained.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::{Branch, NumArm};
@@ -396,12 +397,13 @@ fn instrument(
 ) -> Option<Term> {
     Some(match t {
         Term::Loc(_, t) => return instrument(g, shapes, marker, t),
-        Term::Let(x, ty, v, b, erased) => Term::Let(
+        Term::Let(x, ty, v, b, erased, _) => Term::Let(
             x.clone(),
             ty.clone(),
             v.clone(),
             Rc::new(instrument(g, shapes, marker, b)?),
             *erased,
+            ProofMark::Unknown,
         ),
         Term::App(f, a, icit) => {
             Term::App(Rc::new(instrument(g, shapes, marker, f)?), a.clone(), *icit)
@@ -429,16 +431,20 @@ fn tree(
     found: &mut bool,
 ) -> Term {
     match t.strip_loc() {
-        Term::Lam(x, icit, b) => {
-            Term::Lam(x.clone(), *icit, Rc::new(tree(g, shapes, marker, b, found)))
-        }
+        Term::Lam(x, icit, b, _) => Term::Lam(
+            x.clone(),
+            *icit,
+            Rc::new(tree(g, shapes, marker, b, found)),
+            ProofMark::Unknown,
+        ),
         // The helper binds what it captured of the test's `let`s.
-        Term::Let(x, ty, v, b, erased) => Term::Let(
+        Term::Let(x, ty, v, b, erased, _) => Term::Let(
             x.clone(),
             ty.clone(),
             v.clone(),
             Rc::new(tree(g, shapes, marker, b, found)),
             *erased,
+            ProofMark::Unknown,
         ),
         Term::Case(ix, d, branches) => Term::Case(
             *ix,

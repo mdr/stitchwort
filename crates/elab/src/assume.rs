@@ -30,6 +30,7 @@
 //! for their status and the check cache.
 
 use std::cell::Cell;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::assumption::{self, Decl};
 use stitchwort_core::globals::{Assumption, HashKey};
@@ -157,7 +158,7 @@ impl Elaborator {
             return false;
         };
         let mut body = body.as_ref();
-        while let Term::Lam(_, _, inner) = body {
+        while let Term::Lam(_, _, inner, _) = body {
             body = inner;
         }
         matches!(body, Term::Loc(span, _) if *span == self.assumption_span(id))
@@ -261,7 +262,12 @@ impl Elaborator {
                 solution = Term::app(solution, Term::Var(k - 1 - i));
             }
             for _ in 0..k {
-                solution = Term::Lam("x".into(), Icit::Explicit, std::rc::Rc::new(solution));
+                solution = Term::Lam(
+                    "x".into(),
+                    Icit::Explicit,
+                    std::rc::Rc::new(solution),
+                    ProofMark::Unknown,
+                );
             }
             let Ok(value) = eval(&self.ev(), &[], &solution) else {
                 continue;
@@ -389,6 +395,7 @@ impl Elaborator {
                 Icit::Explicit,
                 std::rc::Rc::new(under(&types[i], pos)?),
                 std::rc::Rc::new(ty),
+                ProofMark::Unknown,
             );
         }
         Some((ty, order))

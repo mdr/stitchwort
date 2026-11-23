@@ -19,6 +19,7 @@
 //! goes on to its other steps.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::{Branch, NumArm};
@@ -30,7 +31,7 @@ use crate::check::{Ctx, Result, builtin_ctor, builtin_data};
 /// A proof of `x ≠ lit` (or `lit ≠ x`) from what `x`'s marks say, or `None`.
 pub(crate) fn prove(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
     let g = cx.g();
-    let Value::Pi(_, Icit::Explicit, dom, closure) = force(&g, goal.clone())? else {
+    let Value::Pi(_, Icit::Explicit, dom, closure, _) = force(&g, goal.clone())? else {
         return Ok(None);
     };
     if closure.body.mentions(0) {
@@ -88,7 +89,13 @@ pub(crate) fn prove(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
     let motive = Term::Lam(
         "y".into(),
         Icit::Explicit,
-        Rc::new(Term::Lam("q".into(), Icit::Explicit, Rc::new(call?))),
+        Rc::new(Term::Lam(
+            "q".into(),
+            Icit::Explicit,
+            Rc::new(call?),
+            ProofMark::Unknown,
+        )),
+        ProofMark::Unknown,
     );
     let trivial = builtin_ctor(cx, Builtin::Trivial)?;
     let mut h = Term::Var(0);
@@ -104,19 +111,32 @@ pub(crate) fn prove(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
         let flip = Term::Lam(
             "y".into(),
             Icit::Explicit,
-            Rc::new(Term::Lam("q".into(), Icit::Explicit, Rc::new(body))),
+            Rc::new(Term::Lam(
+                "q".into(),
+                Icit::Explicit,
+                Rc::new(body),
+                ProofMark::Unknown,
+            )),
+            ProofMark::Unknown,
         );
-        h = Term::J(Rc::new(flip), Rc::new(Term::Refl), Rc::new(h));
+        h = Term::J(
+            Rc::new(flip),
+            Rc::new(Term::Refl),
+            Rc::new(h),
+            ProofMark::Unknown,
+        );
     }
     let transport = Term::J(
         Rc::new(motive),
         Rc::new(Term::ctor(trivial.0, trivial.1, Vec::new())),
         Rc::new(h),
+        ProofMark::Unknown,
     );
     Ok(Some(Term::Lam(
         "h".into(),
         Icit::Explicit,
         Rc::new(transport),
+        ProofMark::Unknown,
     )))
 }
 

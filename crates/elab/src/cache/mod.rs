@@ -88,7 +88,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 39;
+pub const FORMAT: u32 = 40;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -3866,6 +3866,7 @@ pub use dump::canonical_dump;
 
 #[cfg(test)]
 mod tests {
+    use stitchwort_core::ProofMark;
     use stitchwort_core::registry::Builtin;
 
     use super::state;
@@ -3920,8 +3921,14 @@ mod tests {
                 Icit::Explicit,
                 Rc::new(Term::Sort(Sort::Prop)),
                 Rc::new(Term::Var(0)),
+                ProofMark::Unknown,
             ),
-            body: Term::Lam("P".into(), Icit::Explicit, Rc::new(Term::Var(0))),
+            body: Term::Lam(
+                "P".into(),
+                Icit::Explicit,
+                Rc::new(Term::Var(0)),
+                ProofMark::Unknown,
+            ),
             group: vec![0],
             run_body: None,
             hash: None,
@@ -4131,12 +4138,20 @@ mod tests {
                     Icit::Explicit,
                     Rc::new(Term::Var(0)),
                     Rc::new(Term::Var(1)),
+                    ProofMark::Unknown,
                 )),
+                ProofMark::Unknown,
             ),
             body: Term::Lam(
                 "P".into(),
                 Icit::Explicit,
-                Rc::new(Term::Lam("p".into(), Icit::Explicit, Rc::new(Term::Var(0)))),
+                Rc::new(Term::Lam(
+                    "p".into(),
+                    Icit::Explicit,
+                    Rc::new(Term::Var(0)),
+                    ProofMark::Unknown,
+                )),
+                ProofMark::Unknown,
             ),
             group: vec![group],
             run_body,
@@ -4160,8 +4175,11 @@ mod tests {
                     Rc::new(Term::Var(0)),
                     Rc::new(Term::Var(0)),
                     erased,
+                    ProofMark::Unknown,
                 )),
+                ProofMark::Unknown,
             )),
+            ProofMark::Unknown,
         )
     }
 
@@ -4262,7 +4280,9 @@ mod tests {
                 "p".into(),
                 Icit::Explicit,
                 std::rc::Rc::new(Term::Var(1)),
+                ProofMark::Unknown,
             )),
+            ProofMark::Unknown,
         );
         let admit = |run: &Term, exact| {
             let mut e = Elaborator::new();
@@ -4325,8 +4345,14 @@ mod tests {
             Icit::Explicit,
             Rc::new(Term::Sort(Sort::Prop)),
             Rc::new(Term::Var(0)),
+            ProofMark::Unknown,
         );
-        forged.body = Term::Lam("P".into(), Icit::Explicit, Rc::new(Term::Var(0)));
+        forged.body = Term::Lam(
+            "P".into(),
+            Icit::Explicit,
+            Rc::new(Term::Var(0)),
+            ProofMark::Unknown,
+        );
         let defs = [
             identity_def("a", 0, None),
             identity_def("b", 1, None),
@@ -4376,6 +4402,7 @@ mod tests {
                         Icit::Explicit,
                         Rc::new(Term::Data(DataId(0), Vec::new())),
                         Rc::new(Term::Sort(Sort::Prop)),
+                        ProofMark::Unknown,
                     ),
                 )],
                 field_sorts: vec![Sort::Type(0)],
@@ -4411,6 +4438,7 @@ mod tests {
                 Icit::Explicit,
                 Rc::new(Term::Sort(Sort::Prop)),
                 Rc::new(Term::Var(0)),
+                ProofMark::Unknown,
             );
             looping.body = Term::Lam(
                 "P".into(),
@@ -4420,6 +4448,7 @@ mod tests {
                     Rc::new(Term::Var(0)),
                     Icit::Explicit,
                 )),
+                ProofMark::Unknown,
             );
             looping
         };

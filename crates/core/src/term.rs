@@ -156,6 +156,68 @@ impl Icit {
     }
 }
 
+/// Whether a type is a proposition, recorded where the checker will later
+/// need the answer without the type at hand (docs/core.md, "Proof marks";
+/// docs/proposals/full-proof-irrelevance.md §4): on a binder, the bound
+/// variable is a proof; on `J` or `Quot.lift`, its result is. By
+/// impredicativity (`(x: A) -> B` is a proposition exactly when `B` is) and
+/// unique sorts, `f a` is a proof exactly when `f` is, and the answer
+/// survives substitution, so a mark set once stays right.
+///
+/// The kernel derives every mark from a sort it computed itself, records it
+/// in the term it returns, and refuses (`E-MALFORMED`) a term whose mark was
+/// given and differs. A term the elaborator builds says [`ProofMark::Unknown`];
+/// a checked term never does. Marks are determined by the rest of the
+/// checked term, so hashing ignores them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
+pub enum ProofMark {
+    /// Not decided yet: the kernel decides it.
+    #[default]
+    Unknown,
+    /// The type is not a proposition: data, a type or a type former.
+    NotProof,
+    /// The type is a proposition.
+    Proof,
+}
+
+impl ProofMark {
+    pub fn of_sort(s: Sort) -> ProofMark {
+        ProofMark::from_bool(s == Sort::Prop)
+    }
+
+    pub fn from_bool(proof: bool) -> ProofMark {
+        if proof {
+            ProofMark::Proof
+        } else {
+            ProofMark::NotProof
+        }
+    }
+
+    /// Whether it's known to be a proof: `false` for [`ProofMark::Unknown`].
+    pub fn is_proof(self) -> bool {
+        self == ProofMark::Proof
+    }
+
+    /// `self`, or `other` if `self` is unknown: for two binders of one
+    /// type, of which one may come from a term the kernel hasn't checked.
+    pub fn or(self, other: ProofMark) -> ProofMark {
+        if self == ProofMark::Unknown {
+            other
+        } else {
+            self
+        }
+    }
+
+    /// `Some(answer)` when known.
+    pub fn known(self) -> Option<bool> {
+        match self {
+            ProofMark::Unknown => None,
+            ProofMark::NotProof => Some(false),
+            ProofMark::Proof => Some(true),
+        }
+    }
+}
+
 /// Variables are de Bruijn indices: `Var(0)` is the nearest enclosing binder.
 #[derive(Clone, Debug)]
 pub enum Term {
@@ -175,8 +237,11 @@ pub enum Term {
     /// those.
     Chars(Chars),
     Sort(Sort),
-    Pi(Name, Icit, Rc<Term>, Rc<Term>),
-    Lam(Name, Icit, Rc<Term>),
+    /// The mark says whether `x` is a proof: whether `A` is a proposition.
+    Pi(Name, Icit, Rc<Term>, Rc<Term>, ProofMark),
+    /// The mark says whether `x` is a proof: a lambda has no domain in the
+    /// core, and the comparison goes under two of them with no type at hand.
+    Lam(Name, Icit, Rc<Term>, ProofMark),
     App(Rc<Term>, Rc<Term>, Icit),
     Ann(Rc<Term>, Rc<Term>),
     /// `let x : A := v; b`: a transparent local definition
@@ -189,8 +254,9 @@ pub enum Term {
     /// use `x` (a pure value nothing uses needn't be computed). The kernel
     /// decides it when it checks the `let` and records it in the term it
     /// returns, whatever it was given; it's determined by the rest, so
-    /// hashing ignores it. Use [`Term::let_`] to build one.
-    Let(Name, Rc<Term>, Rc<Term>, Rc<Term>, bool),
+    /// hashing ignores it. The mark says whether `x` is a proof (`A` a
+    /// proposition). Use [`Term::let_`] to build one.
+    Let(Name, Rc<Term>, Rc<Term>, Rc<Term>, bool, ProofMark),
     /// Pattern match on a variable of data type `DataId`, with one branch per
     /// constructor, in declaration order. Only appears at the top of a
     /// definition's body (after its parameters), forming a case tree.
@@ -202,8 +268,9 @@ pub enum Term {
     /// `a = b`. The type of `a` and `b` is filled in by the checker.
     Eq(Option<Rc<Term>>, Rc<Term>, Rc<Term>),
     Refl,
-    /// `J motive base proof`: transport along an equality.
-    J(Rc<Term>, Rc<Term>, Rc<Term>),
+    /// `J motive base proof`: transport along an equality. The mark says
+    /// whether the result is a proof (the motive's body a proposition).
+    J(Rc<Term>, Rc<Term>, Rc<Term>, ProofMark),
     /// `t.i`: field `i` of `t`, a value of data type `DataId`, which must
     /// have eta ([`crate::globals::Data::eta`]; docs/proposals/record-eta.md
     /// §6.2). Like Lean's and Rocq's primitive projections it doesn't store
@@ -218,8 +285,10 @@ pub enum Term {
     /// whether the result is (`B` a proposition or a type former); `false`
     /// for the other forms. Like `let`'s, the kernel recomputes it when it
     /// checks the term, whatever it was given, and hashing ignores it. Use
-    /// [`Term::quot`] to build one.
-    Quot(QuotForm, Vec<Rc<Term>>, bool),
+    /// [`Term::quot`] to build one. The mark says whether the result is a
+    /// proof: for `Quot.lift`, `B` a proposition; `Quot.ind` and
+    /// `Quot.sound` always, the other forms never.
+    Quot(QuotForm, Vec<Rc<Term>>, bool, ProofMark),
     /// A source location, for error messages. Ignored by evaluation.
     Loc(Span, Rc<Term>),
     /// A metavariable: an unknown the elaborator solves by unification. Never
@@ -274,14 +343,14 @@ thread_local! {
 fn has_unique_child(term: &Term) -> bool {
     let unique = |t: &Rc<Term>| Rc::strong_count(t) == 1;
     match term {
-        Term::Pi(_, _, a, b) | Term::App(a, b, _) | Term::Ann(a, b) => unique(a) || unique(b),
-        Term::Lam(_, _, b) | Term::Loc(_, b) | Term::Proj(_, _, b) => unique(b),
-        Term::Let(_, a, v, b, _) => unique(a) || unique(v) || unique(b),
-        Term::Data(_, args) | Term::Ctor(_, _, args) | Term::Quot(_, args, _) => {
+        Term::Pi(_, _, a, b, _) | Term::App(a, b, _) | Term::Ann(a, b) => unique(a) || unique(b),
+        Term::Lam(_, _, b, _) | Term::Loc(_, b) | Term::Proj(_, _, b) => unique(b),
+        Term::Let(_, a, v, b, _, _) => unique(a) || unique(v) || unique(b),
+        Term::Data(_, args) | Term::Ctor(_, _, args) | Term::Quot(_, args, _, _) => {
             args.iter().any(unique)
         }
         Term::Eq(ty, a, b) => ty.as_ref().is_some_and(unique) || unique(a) || unique(b),
-        Term::J(m, b, p) => unique(m) || unique(b) || unique(p),
+        Term::J(m, b, p, _) => unique(m) || unique(b) || unique(p),
         Term::Case(_, _, branches) => {
             Rc::strong_count(branches) == 1
                 && branches.iter().any(|b| b.body.as_ref().is_some_and(unique))
@@ -303,17 +372,17 @@ fn has_unique_child(term: &Term) -> bool {
 fn take_children(term: &mut Term, leaf: &Rc<Term>, pending: &mut Vec<Rc<Term>>) {
     let mut take = |t: &mut Rc<Term>| pending.push(std::mem::replace(t, leaf.clone()));
     match term {
-        Term::Pi(_, _, a, b) | Term::App(a, b, _) | Term::Ann(a, b) => {
+        Term::Pi(_, _, a, b, _) | Term::App(a, b, _) | Term::Ann(a, b) => {
             take(a);
             take(b);
         }
-        Term::Lam(_, _, b) | Term::Loc(_, b) | Term::Proj(_, _, b) => take(b),
-        Term::Let(_, a, v, b, _) => {
+        Term::Lam(_, _, b, _) | Term::Loc(_, b) | Term::Proj(_, _, b) => take(b),
+        Term::Let(_, a, v, b, _, _) => {
             take(a);
             take(v);
             take(b);
         }
-        Term::Data(_, args) | Term::Ctor(_, _, args) | Term::Quot(_, args, _) => {
+        Term::Data(_, args) | Term::Ctor(_, _, args) | Term::Quot(_, args, _, _) => {
             pending.append(args)
         }
         Term::Eq(ty, a, b) => {
@@ -323,7 +392,7 @@ fn take_children(term: &mut Term, leaf: &Rc<Term>, pending: &mut Vec<Rc<Term>>) 
             take(a);
             take(b);
         }
-        Term::J(m, b, p) => {
+        Term::J(m, b, p, _) => {
             take(m);
             take(b);
             take(p);
@@ -394,13 +463,25 @@ impl Term {
     /// A quotient form applied to `args`, not marked erased: the kernel
     /// marks it when it checks it.
     pub fn quot(form: QuotForm, args: Vec<Term>) -> Term {
-        Term::Quot(form, args.into_iter().map(Rc::new).collect(), false)
+        Term::Quot(
+            form,
+            args.into_iter().map(Rc::new).collect(),
+            false,
+            ProofMark::Unknown,
+        )
     }
 
     /// `let x : ty := value; body`, not marked erased: the kernel marks it
     /// when it checks it.
     pub fn let_(x: Name, ty: Term, value: Term, body: Term) -> Term {
-        Term::Let(x, Rc::new(ty), Rc::new(value), Rc::new(body), false)
+        Term::Let(
+            x,
+            Rc::new(ty),
+            Rc::new(value),
+            Rc::new(body),
+            false,
+            ProofMark::Unknown,
+        )
     }
 
     /// Projection `t.i` of a type whose constructor has `fields` fields, as
@@ -417,7 +498,12 @@ impl Term {
             }]),
         );
         Term::App(
-            Rc::new(Term::Lam(Name::from("%r"), Icit::Explicit, Rc::new(case))),
+            Rc::new(Term::Lam(
+                Name::from("%r"),
+                Icit::Explicit,
+                Rc::new(case),
+                ProofMark::Unknown,
+            )),
             t,
             Icit::Explicit,
         )
@@ -448,7 +534,7 @@ impl Term {
         let mut term = self.strip_loc();
         for _ in 0..n {
             match term {
-                Term::Lam(_, _, body) => term = body.strip_loc(),
+                Term::Lam(_, _, body, _) => term = body.strip_loc(),
                 _ => panic!("internal error: expected {n} lambdas"),
             }
         }
@@ -469,7 +555,7 @@ impl Term {
         let mut term = Term::strip_loc_rc(term);
         for _ in 0..n {
             term = match &*term {
-                Term::Lam(_, _, body) => Term::strip_loc_rc(body),
+                Term::Lam(_, _, body, _) => Term::strip_loc_rc(body),
                 _ => panic!("internal error: expected {n} lambdas"),
             };
         }
@@ -485,7 +571,7 @@ impl Term {
     pub fn count_lams(&self) -> usize {
         let mut term = self.strip_loc();
         let mut n = 0;
-        while let Term::Lam(_, _, body) = term {
+        while let Term::Lam(_, _, body, _) = term {
             n += 1;
             term = body.strip_loc();
         }
@@ -571,16 +657,19 @@ impl Term {
                 *c,
                 args.iter().map(|a| go(a, cutoff)).collect::<Result<_>>()?,
             ),
-            Term::Pi(x, i, a, b) => Term::Pi(x.clone(), *i, go(a, cutoff)?, go(b, cutoff + 1)?),
-            Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b, cutoff + 1)?),
+            Term::Pi(x, i, a, b, pm) => {
+                Term::Pi(x.clone(), *i, go(a, cutoff)?, go(b, cutoff + 1)?, *pm)
+            }
+            Term::Lam(x, i, b, pm) => Term::Lam(x.clone(), *i, go(b, cutoff + 1)?, *pm),
             Term::App(f, a, i) => Term::App(go(f, cutoff)?, go(a, cutoff)?, *i),
             Term::Ann(e, t) => Term::Ann(go(e, cutoff)?, go(t, cutoff)?),
-            Term::Let(x, a, v, b, e) => Term::Let(
+            Term::Let(x, a, v, b, e, pm) => Term::Let(
                 x.clone(),
                 go(a, cutoff)?,
                 go(v, cutoff)?,
                 go(b, cutoff + 1)?,
                 *e,
+                *pm,
             ),
             Term::Case(ix, d, branches) => Term::Case(
                 f(*ix, cutoff),
@@ -616,12 +705,13 @@ impl Term {
                 go(a, cutoff)?,
                 go(b, cutoff)?,
             ),
-            Term::J(m, b, p) => Term::J(go(m, cutoff)?, go(b, cutoff)?, go(p, cutoff)?),
+            Term::J(m, b, p, pm) => Term::J(go(m, cutoff)?, go(b, cutoff)?, go(p, cutoff)?, *pm),
             Term::Proj(d, i, t) => Term::Proj(*d, *i, go(t, cutoff)?),
-            Term::Quot(form, args, erased) => Term::Quot(
+            Term::Quot(form, args, erased, pm) => Term::Quot(
                 *form,
                 args.iter().map(|a| go(a, cutoff)).collect::<Result<_>>()?,
                 *erased,
+                *pm,
             ),
             Term::Loc(span, t) => Term::Loc(*span, go(t, cutoff)?),
         })
@@ -654,11 +744,13 @@ impl Term {
                 *c,
                 args.iter().map(|a| go(a, f)).collect::<Result<_>>()?,
             ),
-            Term::Pi(x, i, a, b) => Term::Pi(x.clone(), *i, go(a, f)?, go(b, f)?),
-            Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b, f)?),
+            Term::Pi(x, i, a, b, pm) => Term::Pi(x.clone(), *i, go(a, f)?, go(b, f)?, *pm),
+            Term::Lam(x, i, b, pm) => Term::Lam(x.clone(), *i, go(b, f)?, *pm),
             Term::App(h, a, i) => Term::App(go(h, f)?, go(a, f)?, *i),
             Term::Ann(e, t) => Term::Ann(go(e, f)?, go(t, f)?),
-            Term::Let(x, a, v, b, e) => Term::Let(x.clone(), go(a, f)?, go(v, f)?, go(b, f)?, *e),
+            Term::Let(x, a, v, b, e, pm) => {
+                Term::Let(x.clone(), go(a, f)?, go(v, f)?, go(b, f)?, *e, *pm)
+            }
             Term::Case(ix, d, branches) => Term::Case(
                 *ix,
                 *d,
@@ -689,12 +781,13 @@ impl Term {
                 go(a, f)?,
                 go(b, f)?,
             ),
-            Term::J(m, b, p) => Term::J(go(m, f)?, go(b, f)?, go(p, f)?),
+            Term::J(m, b, p, pm) => Term::J(go(m, f)?, go(b, f)?, go(p, f)?, *pm),
             Term::Proj(d, i, t) => Term::Proj(*d, *i, go(t, f)?),
-            Term::Quot(form, args, erased) => Term::Quot(
+            Term::Quot(form, args, erased, pm) => Term::Quot(
                 *form,
                 args.iter().map(|a| go(a, f)).collect::<Result<_>>()?,
                 *erased,
+                *pm,
             ),
             Term::Loc(span, t) => Term::Loc(*span, go(t, f)?),
         };
@@ -736,17 +829,17 @@ impl Term {
             | Term::Sort(_)
             | Term::Refl
             | Term::Meta(_) => {}
-            Term::Data(_, args) | Term::Ctor(_, _, args) | Term::Quot(_, args, _) => {
+            Term::Data(_, args) | Term::Ctor(_, _, args) | Term::Quot(_, args, _, _) => {
                 for a in args {
                     f(a, 0);
                 }
             }
-            Term::Pi(_, _, a, b) => {
+            Term::Pi(_, _, a, b, _) => {
                 f(a, 0);
                 f(b, 1);
             }
-            Term::Lam(_, _, b) => f(b, 1),
-            Term::Let(_, a, v, b, _) => {
+            Term::Lam(_, _, b, _) => f(b, 1),
+            Term::Let(_, a, v, b, _, _) => {
                 f(a, 0);
                 f(v, 0);
                 f(b, 1);
@@ -775,7 +868,7 @@ impl Term {
                 f(a, 0);
                 f(b, 0);
             }
-            Term::J(m, b, p) => {
+            Term::J(m, b, p, _) => {
                 f(m, 0);
                 f(b, 0);
                 f(p, 0);
@@ -798,11 +891,17 @@ mod tests {
     }
 
     fn lam(body: Term) -> Term {
-        Term::Lam("x".into(), Icit::Explicit, rc(body))
+        Term::Lam("x".into(), Icit::Explicit, rc(body), ProofMark::Unknown)
     }
 
     fn pi(dom: Term, cod: Term) -> Term {
-        Term::Pi("x".into(), Icit::Explicit, rc(dom), rc(cod))
+        Term::Pi(
+            "x".into(),
+            Icit::Explicit,
+            rc(dom),
+            rc(cod),
+            ProofMark::Unknown,
+        )
     }
 
     fn data(args: Vec<Term>) -> Term {
@@ -845,6 +944,7 @@ mod tests {
                 "y".into(),
                 Icit::Explicit,
                 rc(Term::app(Term::app(v(0), v(1)), v(2))),
+                ProofMark::Unknown,
             ),
         );
         let expected = Term::app(
@@ -853,6 +953,7 @@ mod tests {
                 "y".into(),
                 Icit::Explicit,
                 rc(Term::app(Term::app(v(0), v(4)), v(1))),
+                ProofMark::Unknown,
             ),
         );
         assert_same(body.instantiate_var(&g.ev(), 3).unwrap(), expected);
@@ -892,8 +993,8 @@ mod tests {
             Term::Eq(Some(rc(v(1))), rc(v(2)), rc(v(3))),
         );
         assert_same(
-            Term::J(rc(v(0)), rc(v(1)), rc(v(2))).shifted(1, 1),
-            Term::J(rc(v(0)), rc(v(2)), rc(v(3))),
+            Term::J(rc(v(0)), rc(v(1)), rc(v(2)), ProofMark::Unknown).shifted(1, 1),
+            Term::J(rc(v(0)), rc(v(2)), rc(v(3)), ProofMark::Unknown),
         );
         // Every argument of a quotient form, the implicit ones included.
         assert_same(
@@ -901,8 +1002,19 @@ mod tests {
             Term::quot(QuotForm::Lift, vec![v(0), v(1), v(2), v(5), v(6), v(7)]),
         );
         assert_same(
-            Term::Quot(QuotForm::Mk, vec![rc(v(0)), rc(v(1)), rc(v(2))], true).shifted(1, 0),
-            Term::Quot(QuotForm::Mk, vec![rc(v(1)), rc(v(2)), rc(v(3))], true),
+            Term::Quot(
+                QuotForm::Mk,
+                vec![rc(v(0)), rc(v(1)), rc(v(2))],
+                true,
+                ProofMark::Unknown,
+            )
+            .shifted(1, 0),
+            Term::Quot(
+                QuotForm::Mk,
+                vec![rc(v(1)), rc(v(2)), rc(v(3))],
+                true,
+                ProofMark::Unknown,
+            ),
         );
         assert_same(
             Term::Ann(
@@ -940,8 +1052,8 @@ mod tests {
         assert!(!case(1, 2, v(1)).mentions(0), "a field, not the variable");
         assert!(Term::Eq(Some(rc(v(0))), rc(Term::Refl), rc(Term::Refl)).mentions(0));
         assert!(Term::Eq(None, rc(Term::Refl), rc(v(0))).mentions(0));
-        assert!(Term::J(rc(Term::Refl), rc(Term::Refl), rc(v(0))).mentions(0));
-        assert!(Term::J(rc(Term::Refl), rc(v(0)), rc(Term::Refl)).mentions(0));
+        assert!(Term::J(rc(Term::Refl), rc(Term::Refl), rc(v(0)), ProofMark::Unknown).mentions(0));
+        assert!(Term::J(rc(Term::Refl), rc(v(0)), rc(Term::Refl), ProofMark::Unknown).mentions(0));
         assert!(Term::Ann(rc(Term::Refl), rc(v(0))).mentions(0));
         // In every argument of every quotient form: an occurrence only in
         // the relation counts (R13).

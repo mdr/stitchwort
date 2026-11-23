@@ -57,7 +57,7 @@ impl SigMaps {
         let mut ty = ty.strip_loc();
         for _ in 0..n {
             match ty {
-                Term::Pi(_, _, _, body) => ty = body.strip_loc(),
+                Term::Pi(_, _, _, body, _) => ty = body.strip_loc(),
                 _ => return false,
             }
         }

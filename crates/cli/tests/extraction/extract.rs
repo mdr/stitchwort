@@ -15,6 +15,7 @@
 use std::fmt::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use stitchwort_core::ProofMark;
 
 use stitchwort_cli::driver::{Session, par_map, par_map_with, tier_sample};
 use stitchwort_cli::render::render;
@@ -742,6 +743,7 @@ fn random_value(g: &View<'_>, b: &Boundary, rng: &mut Rng, depth: usize) -> Valu
             let class = quot_value(
                 QuotForm::Mk,
                 vec![Value::Refl, Value::Refl, Value::Ctor(raw, 0, fields.into())],
+                ProofMark::NotProof,
             );
             Value::Ctor(*d, 0, vec![class].into())
         }
@@ -3670,20 +3672,29 @@ fn a_group_member_with_only_erased_parameters_is_a_thunk() {
         Icit::Implicit,
         Rc::new(Term::Sort(Sort::Type(0))),
         nat_ty(),
+        ProofMark::Unknown,
     );
     let k = declare_def(g, &"k".into(), &"Main.k".into(), &k_ty, false, false, span).unwrap();
     // f : Nat -> Nat;  f n = n + 1
-    let f_ty = Term::Pi("n".into(), Icit::Explicit, nat_ty(), nat_ty());
+    let f_ty = Term::Pi(
+        "n".into(),
+        Icit::Explicit,
+        nat_ty(),
+        nat_ty(),
+        ProofMark::Unknown,
+    );
     let f = declare_def(g, &"f".into(), &"Main.f".into(), &f_ty, false, false, span).unwrap();
     let k_body = Term::Lam(
         "a".into(),
         Icit::Implicit,
         Rc::new(app(Term::Def(f), num(3))),
+        ProofMark::Unknown,
     );
     let f_body = Term::Lam(
         "n".into(),
         Icit::Explicit,
         Rc::new(app(app(Term::Def(add), Term::Var(0)), num(1))),
+        ProofMark::Unknown,
     );
     define_group(g, &[(k, k_body), (f, f_body)]).unwrap();
     // export useK : Nat -> Nat;  useK n = n + k [Nat]
@@ -3706,6 +3717,7 @@ fn a_group_member_with_only_erased_parameters_is_a_thunk() {
         "n".into(),
         Icit::Explicit,
         Rc::new(app(app(Term::Def(add), Term::Var(0)), k_nat)),
+        ProofMark::Unknown,
     );
     define_def(g, use_k, &use_k_body).unwrap();
 
@@ -5238,7 +5250,13 @@ fn a_tailrec_definition_that_is_not_a_loop_is_an_internal_error() {
     );
     let span = g.def(add).span();
     let nat_ty = || Rc::new(Term::Data(nat, Vec::new()));
-    let ty = Term::Pi("n".into(), Icit::Explicit, nat_ty(), nat_ty());
+    let ty = Term::Pi(
+        "n".into(),
+        Icit::Explicit,
+        nat_ty(),
+        nat_ty(),
+        ProofMark::Unknown,
+    );
     let f = declare_def(g, &"f".into(), &"Main.f".into(), &ty, false, true, span).unwrap();
     mark_tailrec(g, f);
     let app = |f: Term, a: Term| Term::App(Rc::new(f), Rc::new(a), Icit::Explicit);
@@ -5247,6 +5265,7 @@ fn a_tailrec_definition_that_is_not_a_loop_is_an_internal_error() {
         "n".into(),
         Icit::Explicit,
         Rc::new(app(app(Term::Def(add), Term::Var(0)), one)),
+        ProofMark::Unknown,
     );
     define_def(g, f, &body).unwrap();
 

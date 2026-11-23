@@ -67,6 +67,7 @@
 //! driver around running a program or a test.
 
 use crate::ev::Ev;
+use crate::term::ProofMark;
 use std::cell::Cell;
 use std::rc::Rc;
 
@@ -81,12 +82,15 @@ pub(crate) const ERASED: usize = usize::MAX - 1;
 
 /// What stands for an erased value: a variable no binder has.
 pub fn erased() -> Value {
-    Value::Neutral(Head::Var(ERASED, Apart::NONE), Spine::new())
+    Value::Neutral(
+        Head::Var(ERASED, Apart::NONE, ProofMark::Unknown),
+        Spine::new(),
+    )
 }
 
 /// Whether `value` is the placeholder (possibly applied to arguments).
 pub fn is_erased(value: &Value) -> bool {
-    matches!(value, Value::Neutral(Head::Var(ERASED, _), _))
+    matches!(value, Value::Neutral(Head::Var(ERASED, _, _), _))
 }
 
 /// Which parts of a definition are erased.

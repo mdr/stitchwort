@@ -1,6 +1,7 @@
 //! The pretty-printer, used in error messages and the REPL.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use crate::common::*;
 use stitchwort_core::registry;
@@ -393,7 +394,7 @@ fn brackets_a_function_domain_of_a_nondependent_arrow() {
 #[test]
 fn prints_implicit_and_auto_lambda_parameters() {
     let p = Prelude::new();
-    let lam = |x: &str, icit, body| Term::Lam(x.into(), icit, Rc::new(body));
+    let lam = |x: &str, icit, body| Term::Lam(x.into(), icit, Rc::new(body), ProofMark::Unknown);
     let id = lam("a", Icit::Implicit, lam("x", Icit::Explicit, v(0)));
     assert_eq!(show(&p, &[], &id), "[a: _] x => x");
     let with_auto = lam(

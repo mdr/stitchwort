@@ -4,6 +4,7 @@
 //! inlined in its arms, and runs as the partial applications did.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::Term;
 use stitchwort_core::term::Icit;
@@ -283,7 +284,12 @@ fn a_clause_that_isnt_a_lambda_is_bound_outside() {
         let (elim_head, mut elim_args) = spine(&args[args.len() - 2]);
         let first = elim_args.len() - 8;
         elim_args[first] = Term::app(
-            Term::Lam("c".into(), Icit::Explicit, Rc::new(Term::Var(0))),
+            Term::Lam(
+                "c".into(),
+                Icit::Explicit,
+                Rc::new(Term::Var(0)),
+                ProofMark::Unknown,
+            ),
             elim_args[first].clone(),
         );
         let n = args.len();
@@ -294,10 +300,10 @@ fn a_clause_that_isnt_a_lambda_is_bound_outside() {
             .expect("rewrites")
             .expect("a dispatch");
         assert_eq!(rewritten.bound.len(), 1);
-        let Term::Lam(_, _, inner) = &rewritten.closure else {
+        let Term::Lam(_, _, inner, _) = &rewritten.closure else {
             panic!("a lambda of o: {:?}", rewritten.closure)
         };
-        let Term::Lam(_, _, body) = &**inner else {
+        let Term::Lam(_, _, body, _) = &**inner else {
             panic!("a lambda of k: {inner:?}")
         };
         // The bound clause, under `o` and `k`.

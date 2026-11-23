@@ -172,7 +172,7 @@ pub(crate) fn warn(cx: &Ctx, expr: &Expr, ty: &Value) -> Result<()> {
     }
     let span = expr.span();
     let note = match ty {
-        Value::Pi(_, Icit::Explicit, dom, _) => {
+        Value::Pi(_, Icit::Explicit, dom, _, _) => {
             let unit = builtin_data(cx, Builtin::UnitType).ok();
             let takes_unit = matches!(
                 force(&cx.g(), (**dom).clone())?,

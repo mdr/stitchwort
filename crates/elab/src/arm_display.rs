@@ -631,7 +631,7 @@ fn peeled(cx: &Ctx, leaf: &Value, shown: &Value, bound: usize, hole: &Value) -> 
         if same(cx, hole, &leaf) {
             return Some((leaf, shown, domains));
         }
-        let (Value::Pi(_, _, a, ac), Value::Pi(_, _, b, bc)) = (&leaf, &shown) else {
+        let (Value::Pi(_, _, a, ac, _), Value::Pi(_, _, b, bc, _)) = (&leaf, &shown) else {
             return None;
         };
         domains.push((l, (**a).clone(), (**b).clone()));
@@ -784,7 +784,7 @@ fn scrutinee_expressions(cx: &Ctx, view: &mut View) {
         .collect();
     for (vars, term, x, equation) in &noted {
         let own = matches!(view.env.get(*x),
-            Some(Value::Neutral(stitchwort_core::value::Head::Var(l, _), s)) if l == x && s.is_empty());
+            Some(Value::Neutral(stitchwort_core::value::Head::Var(l, _, _), s)) if l == x && s.is_empty());
         if !own || cx.name_of_level(*x).is_some() || *vars > view.env.len() {
             continue;
         }
@@ -856,7 +856,7 @@ pub(crate) fn case_note(cx: &Ctx) -> Option<(usize, Option<String>)> {
         let fields = fields_of_unsplit(arm);
         for &x in arm.unsplit.iter().filter(|x| !fields.contains(x)) {
             let value = env.get(x)?;
-            if matches!(value, Value::Neutral(stitchwort_core::value::Head::Var(l, _), s) if *l == x && s.is_empty())
+            if matches!(value, Value::Neutral(stitchwort_core::value::Head::Var(l, _, _), s) if *l == x && s.is_empty())
             {
                 continue;
             }

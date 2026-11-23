@@ -653,16 +653,16 @@ fn hidden_copy_in(
     // most of what the `rewrite` costs (SW-4469).
     if let Term::Var(ix) = lhs_term
         && key(&lhs_term, 0).is_some()
-        && let Term::Lam(_, _, inner) = motive
-        && let Term::Lam(_, _, body) = &**inner
+        && let Term::Lam(_, _, inner, _) = motive
+        && let Term::Lam(_, _, body, _) = &**inner
         && !body.mentions(ix + 2)
     {
         return Ok(false);
     }
     let motive_value = cx.eval(motive)?;
     let unmentioned = match motive {
-        Term::Lam(_, _, inner) => match &**inner {
-            Term::Lam(_, _, body) => unmentioned(cx, &lhs_term, body),
+        Term::Lam(_, _, inner, _) => match &**inner {
+            Term::Lam(_, _, body, _) => unmentioned(cx, &lhs_term, body),
             _ => Vec::new(),
         },
         _ => Vec::new(),
@@ -773,7 +773,7 @@ fn left_needs_any(
     for &ix in unmentioned.iter().take(4) {
         let slot = level - 1 - ix;
         let plain = matches!(&cx.env[slot],
-            Value::Neutral(Head::Var(l, _), spine) if *l == slot && spine.is_empty());
+            Value::Neutral(Head::Var(l, _, _), spine) if *l == slot && spine.is_empty());
         if !plain || carrier.mentions(ix) {
             continue;
         }

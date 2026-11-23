@@ -6,6 +6,7 @@
 //! (`stitchwort-core`), so a bug here can cause a confusing error but can't
 //! make the kernel accept something false.
 
+use stitchwort_core::ProofMark;
 #[cfg(test)]
 use stitchwort_test_alloc as _;
 
@@ -4117,7 +4118,13 @@ impl Elaborator {
             cx.e.decl.in_instance_signature.set(false);
             let (mut term, _) = checked?;
             for (x, dom) in binders.into_iter().rev() {
-                term = Term::Pi(x, Icit::Implicit, Rc::new(dom), Rc::new(term));
+                term = Term::Pi(
+                    x,
+                    Icit::Implicit,
+                    Rc::new(dom),
+                    Rc::new(term),
+                    ProofMark::Unknown,
+                );
             }
             Ok(term)
         })();
@@ -4255,7 +4262,13 @@ impl Elaborator {
         let body = Term::Lam(
             "a".into(),
             Icit::Implicit,
-            Rc::new(Term::Lam("xs".into(), Icit::Explicit, Rc::new(call))),
+            Rc::new(Term::Lam(
+                "xs".into(),
+                Icit::Explicit,
+                Rc::new(call),
+                ProofMark::Unknown,
+            )),
+            ProofMark::Unknown,
         );
         kernel::set_run_body(&mut self.kernel, id, &body)
     }
@@ -4481,7 +4494,7 @@ impl Elaborator {
         let mut written = written;
         let mut next_written = |cx: &mut Ctx| {
             let pi = written.take();
-            if let Some(Term::Pi(_, _, dom, cod)) = pi.as_deref().map(Term::strip_loc) {
+            if let Some(Term::Pi(_, _, dom, cod, _)) = pi.as_deref().map(Term::strip_loc) {
                 cx.set_written(crate::dot::Written::Here(dom.clone()));
                 written = Some(cod.clone());
             }
@@ -4502,7 +4515,7 @@ impl Elaborator {
                 }
                 // Implicit and auto parameters are in scope by name, wherever
                 // they are in the signature.
-                Value::Pi(x, icit, dom, cod) if icit.is_implicit() => {
+                Value::Pi(x, icit, dom, cod, _) if icit.is_implicit() => {
                     let var = Value::var(cx.level());
                     cx.bind(&x, (*dom).clone());
                     cx.set_kind(icit);
@@ -4510,7 +4523,7 @@ impl Elaborator {
                     lams.push((x, icit));
                     ty = cod.apply(g, var)?;
                 }
-                Value::Pi(x, Icit::Explicit, dom, cod) if columns.len() < arity => {
+                Value::Pi(x, Icit::Explicit, dom, cod, _) if columns.len() < arity => {
                     let param = match &first_patterns[columns.len()] {
                         Pattern::Var(v) => name(v),
                         _ => x,
@@ -4691,7 +4704,7 @@ impl Elaborator {
         self.decl.leaf_log.borrow_mut().leave_root(root);
         let mut term = term?;
         for (x, icit) in lams.into_iter().rev() {
-            term = Term::Lam(x, icit, Rc::new(term));
+            term = Term::Lam(x, icit, Rc::new(term), ProofMark::Unknown);
         }
         Ok(term)
     }
@@ -6285,7 +6298,7 @@ fn unfolded_arguments_note(
     let definition = g.def(*id).name().to_string();
     let mut added = Vec::new();
     let mut ty = ty;
-    while let Value::Pi(x, icit, dom, cod) = force(g, ty.clone())? {
+    while let Value::Pi(x, icit, dom, cod, _) = force(g, ty.clone())? {
         if icit == Icit::Explicit {
             added.push(format!("`{}: {}`", x, cx.show(&dom)));
         }
@@ -6347,7 +6360,7 @@ fn report_failed_branches(cx: &Ctx, failed: Vec<Diagnostic>) -> Result<()> {
 fn hide_unnamed_variables(cx: &mut Ctx) {
     for level in cx.tree_start.min(cx.level())..cx.level() {
         let own = matches!(&cx.env[level],
-            Value::Neutral(Head::Var(l, _), s) if *l == level && s.is_empty());
+            Value::Neutral(Head::Var(l, _, _), s) if *l == level && s.is_empty());
         let name = &cx.names[level];
         if own
             && cx.lets[level].is_none()
@@ -7679,13 +7692,15 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             // expected more.
             cx.e.decl.leaf_log.borrow_mut().path.push(arms.len() as u32);
             let default = match &cx.env[*x] {
-                Value::Neutral(Head::Var(l, known), spine) if l == x && spine.is_empty() => {
+                Value::Neutral(Head::Var(l, known, _), spine) if l == x && spine.is_empty() => {
                     let mut numbers: Vec<BigUint> = arms.iter().map(|(k, _)| k.clone()).collect();
                     numbers.extend(known.numbers(&g).iter().cloned());
                     numbers.sort_unstable();
                     numbers.dedup();
-                    let value =
-                        Value::Neutral(Head::Var(*x, Apart::new(&g, numbers.into())), Spine::new());
+                    let value = Value::Neutral(
+                        Head::Var(*x, Apart::new(&g, numbers.into()), ProofMark::Unknown),
+                        Spine::new(),
+                    );
                     let mut env = kernel::substitute_folded(&g, &cx.env, *x, &value, &cx.env)?;
                     env[*x] = value.clone();
                     let refined = kernel::substitute_folded(&g, &cx.env, *x, &value, &cx.types)?;

@@ -75,6 +75,7 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::{Ev, Icit, Term, Value};
 use stitchwort_syntax::Diagnostic;
@@ -942,11 +943,16 @@ impl Finder<'_, '_> {
         // as variables.
         let mut lambdas = written.clone();
         for _ in 0..e {
-            lambdas = Term::Lam("s".into(), Icit::Explicit, Rc::new(lambdas));
+            lambdas = Term::Lam(
+                "s".into(),
+                Icit::Explicit,
+                Rc::new(lambdas),
+                ProofMark::Unknown,
+            );
         }
         let mut body = cx.quote_unfolded(&cx.eval(&lambdas)?)?;
         for _ in 0..e {
-            let Term::Lam(_, _, inner) = &body else {
+            let Term::Lam(_, _, inner, _) = &body else {
                 return Ok(None);
             };
             body = inner.as_ref().clone();
@@ -1022,8 +1028,8 @@ impl Finder<'_, '_> {
             (App(f1, a1, i), App(f2, a2, j)) => {
                 i == j && self.agree(g, f1, f2, under)? && self.agree(g, a1, a2, under)?
             }
-            (Lam(_, i, b1), Lam(_, j, b2)) => i == j && self.agree(g, b1, b2, under + 1)?,
-            (Pi(_, i, a1, b1), Pi(_, j, a2, b2)) => {
+            (Lam(_, i, b1, _), Lam(_, j, b2, _)) => i == j && self.agree(g, b1, b2, under + 1)?,
+            (Pi(_, i, a1, b1, _), Pi(_, j, a2, b2, _)) => {
                 i == j && self.agree(g, a1, a2, under)? && self.agree(g, b1, b2, under + 1)?
             }
             (Data(d, xs), Data(e2, ys)) => d == e2 && all(xs, ys, under)?,
@@ -1039,17 +1045,17 @@ impl Finder<'_, '_> {
             (Ann(e1, t1), Ann(e2, t2)) => {
                 self.agree(g, e1, e2, under)? && self.agree(g, t1, t2, under)?
             }
-            (Let(_, t1, v1, b1, _), Let(_, t2, v2, b2, _)) => {
+            (Let(_, t1, v1, b1, _, _), Let(_, t2, v2, b2, _, _)) => {
                 self.agree(g, t1, t2, under)?
                     && self.agree(g, v1, v2, under)?
                     && self.agree(g, b1, b2, under + 1)?
             }
-            (J(m1, b1, p1), J(m2, b2, p2)) => {
+            (J(m1, b1, p1, _), J(m2, b2, p2, _)) => {
                 self.agree(g, m1, m2, under)?
                     && self.agree(g, b1, b2, under)?
                     && self.agree(g, p1, p2, under)?
             }
-            (Quot(f1, xs, _), Quot(f2, ys, _)) => f1 == f2 && all(xs, ys, under)?,
+            (Quot(f1, xs, _, _), Quot(f2, ys, _, _)) => f1 == f2 && all(xs, ys, under)?,
             (Proj(d1, i1, t1), Proj(d2, i2, t2)) => {
                 d1 == d2 && i1 == i2 && self.agree(g, t1, t2, under)?
             }

@@ -30,6 +30,11 @@ pub struct Def {
     pub(crate) path: Name,
     pub(crate) ty: Term,
     pub(crate) ty_value: Value,
+    /// Its type is a proposition, so a call of it, applied to any
+    /// arguments, is a proof (`value::is_proof`). Worked out from the
+    /// type's sort when the type is installed, on the checked and trusted
+    /// paths alike; determined by the type, so not hashed.
+    pub(crate) proof: bool,
     /// Set exactly when the definition is final. So it's `None` while its own
     /// body is being checked (recursive references don't unfold), and if
     /// checking it failed.
@@ -243,6 +248,11 @@ impl Def {
     /// until then.
     pub fn group(&self) -> &Option<Rc<[DefId]>> {
         &self.group
+    }
+
+    /// Whether its type is a proposition ([`Def::proof`]).
+    pub fn proof(&self) -> bool {
+        self.proof
     }
 
     /// Whether it is a theorem.

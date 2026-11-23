@@ -136,7 +136,7 @@ fn rigid(
         return Ok(());
     };
     match head {
-        Head::Var(l, _) if l < base => {
+        Head::Var(l, _, _) if l < base => {
             found.insert(l);
         }
         // A definition that doesn't unfold is read back as itself applied
@@ -223,19 +223,19 @@ impl Scan {
         self.nodes = nodes;
         match value {
             Value::Sort(_) | Value::Nat(_) | Value::Chars(_) | Value::Refl => true,
-            Value::Pi(_, _, domain, body) => self.value(domain) && self.closure(body),
-            Value::Lam(_, _, body) => self.closure(body),
+            Value::Pi(_, _, domain, body, _) => self.value(domain) && self.closure(body),
+            Value::Lam(_, _, body, _) => self.closure(body),
             Value::Data(_, args) => args.iter().all(|a| self.value(a)),
             Value::Ctor(_, _, fields) => fields.iter().all(|f| self.value(f)),
             Value::NatAdd(_, x) => self.value(x),
             Value::Eq(ty, a, b) => self.value(ty) && self.value(a) && self.value(b),
             Value::Neutral(head, spine) => {
                 match head {
-                    Head::Var(l, _) => {
+                    Head::Var(l, _, _) => {
                         self.found.insert(*l);
                     }
                     Head::Meta(_) => self.unknown = true,
-                    Head::Def(_) | Head::Quot(_) => {}
+                    Head::Def(_) | Head::Quot(_, _) => {}
                 }
                 self.spine(spine)
             }
@@ -248,7 +248,7 @@ impl Scan {
     fn spine(&mut self, spine: &stitchwort_core::value::Spine) -> bool {
         spine.into_iter().all(|elim| match elim {
             Elim::App(arg, _) => self.value(arg),
-            Elim::J { motive, base } => self.value(motive) && self.value(base),
+            Elim::J { motive, base, .. } => self.value(motive) && self.value(base),
             Elim::Proj(..) => true,
         })
     }

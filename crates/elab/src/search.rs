@@ -22,6 +22,7 @@
 
 use std::collections::BTreeSet;
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::value::{Elim, Head, Value, eval, force};
 use stitchwort_core::{DataId, DefId, Ev, Icit, Limits, Term};
@@ -186,7 +187,7 @@ pub(crate) fn type_of_target(
         _ => return Ok(None),
     };
     for arg in args {
-        let Value::Pi(_, _, _, closure) = force(g, ty)? else {
+        let Value::Pi(_, _, _, closure, _) = force(g, ty)? else {
             return Ok(None);
         };
         ty = closure.apply(g, eval(g, env, arg)?)?;
@@ -387,7 +388,7 @@ impl Part {
 pub fn conjuncts(g: &Ev, ty: &Term, and: DataId) -> Vec<(Part, Term)> {
     let mut binders: Vec<(&stitchwort_core::Name, Icit, &Term)> = Vec::new();
     let mut t = ty.strip_loc();
-    while let Term::Pi(name, icit, dom, cod) = t {
+    while let Term::Pi(name, icit, dom, cod, _) = t {
         binders.push((name, *icit, dom));
         t = cod.strip_loc();
     }
@@ -421,7 +422,13 @@ pub fn conjuncts(g: &Ev, ty: &Term, and: DataId) -> Vec<(Part, Term)> {
         .map(|(part, conjunct)| {
             let mut ty = conjunct;
             for (name, icit, dom) in binders.iter().rev() {
-                ty = Term::Pi((*name).clone(), *icit, Rc::new((*dom).clone()), Rc::new(ty));
+                ty = Term::Pi(
+                    (*name).clone(),
+                    *icit,
+                    Rc::new((*dom).clone()),
+                    Rc::new(ty),
+                    ProofMark::Unknown,
+                );
             }
             (part, ty)
         })
@@ -560,7 +567,13 @@ impl Item {
                     } else {
                         Icit::Explicit
                     };
-                    ty = Term::Pi(name.clone(), icit, Rc::new(field.clone()), Rc::new(ty));
+                    ty = Term::Pi(
+                        name.clone(),
+                        icit,
+                        Rc::new(field.clone()),
+                        Rc::new(ty),
+                        ProofMark::Unknown,
+                    );
                 }
                 for (i, (name, param)) in data.params().iter().enumerate().rev() {
                     let icit = if data.auto_params().get(i) == Some(&true) {
@@ -568,7 +581,13 @@ impl Item {
                     } else {
                         Icit::Implicit
                     };
-                    ty = Term::Pi(name.clone(), icit, Rc::new(param.clone()), Rc::new(ty));
+                    ty = Term::Pi(
+                        name.clone(),
+                        icit,
+                        Rc::new(param.clone()),
+                        Rc::new(ty),
+                        ProofMark::Unknown,
+                    );
                 }
                 ty
             }
@@ -580,7 +599,7 @@ impl Item {
 /// in `Prop`.
 fn concludes_in_prop(g: &Ev, ty: &Term) -> bool {
     let mut t = ty.strip_loc();
-    while let Term::Pi(_, _, _, cod) = t {
+    while let Term::Pi(_, _, _, cod, _) = t {
         t = cod.strip_loc();
     }
     match t {
@@ -803,7 +822,7 @@ pub(crate) fn size(term: &Term) -> usize {
 fn shape(ty: &Term) -> (usize, usize) {
     let mut premises = 0;
     let mut t = ty.strip_loc();
-    while let Term::Pi(_, icit, _, cod) = t {
+    while let Term::Pi(_, icit, _, cod, _) = t {
         if *icit == Icit::Explicit && !cod.mentions(0) {
             premises += 1;
         }
@@ -818,7 +837,7 @@ fn shape(ty: &Term) -> (usize, usize) {
 fn rep(g: &Ev, m: usize) -> Res<Now> {
     let mut v = force(g, eval(g, &[], &Term::Meta(m))?)?;
     let mut level = 0;
-    while let Value::Lam(_, _, body) = &v {
+    while let Value::Lam(_, _, body, _) = &v {
         let next = force(g, body.apply(g, Value::var(level))?)?;
         v = next;
         level += 1;
@@ -1158,7 +1177,7 @@ impl Elaborator {
                 {
                     let method = *known.methods.get(i)?;
                     let mut ty = g.def(info.def).ty().strip_loc();
-                    while let Term::Pi(_, _, _, cod) = ty {
+                    while let Term::Pi(_, _, _, cod, _) = ty {
                         ty = cod.strip_loc();
                     }
                     return Some((method, ty.clone()));
@@ -1188,7 +1207,7 @@ impl Elaborator {
             let def = g.def(id);
             let mut env: Vec<Value> = Vec::new();
             let mut t = def.ty().strip_loc();
-            while let Term::Pi(_, _, dom, cod) = t {
+            while let Term::Pi(_, _, dom, cod, _) = t {
                 let m = self.metas().new_meta(def.span());
                 self.metas().set_meta_type(m, eval(g, &env, dom)?, 0);
                 env.push(eval(g, &[], &Term::Meta(m))?);
@@ -1291,7 +1310,7 @@ impl Elaborator {
             }
             let mut ty = eval(g, &[], def.ty())?;
             for arg in args {
-                let Value::Pi(_, _, _, closure) = force(g, ty)? else {
+                let Value::Pi(_, _, _, closure, _) = force(g, ty)? else {
                     return Ok(None);
                 };
                 ty = closure.apply(g, eval(g, &env, arg)?)?;
@@ -1305,7 +1324,7 @@ impl Elaborator {
             let mut stated = def.ty().strip_loc();
             let mut peeled = 0;
             for _ in args {
-                if let Term::Pi(_, _, _, cod) = stated {
+                if let Term::Pi(_, _, _, cod, _) = stated {
                     stated = cod.strip_loc();
                     peeled += 1;
                 }
@@ -1601,7 +1620,7 @@ impl Elaborator {
                 Value::Pi(_, icit, ..) if icit != Icit::Explicit
             );
             let mut hidden: Vec<(Term, usize)> = Vec::new();
-            while let Term::Pi(_, icit, dom, cod) = t {
+            while let Term::Pi(_, icit, dom, cod, _) = t {
                 if opens_hidden && *icit != Icit::Explicit {
                     hidden.push((t.clone(), env.len()));
                 }
@@ -1832,7 +1851,7 @@ fn type_holes(
 ) -> Res<()> {
     let mut ty = ty;
     for arg in args {
-        let Value::Pi(_, _, dom, closure) = force(g, ty)? else {
+        let Value::Pi(_, _, dom, closure, _) = force(g, ty)? else {
             return Ok(());
         };
         let value = eval(g, env, arg)?;
@@ -1851,6 +1870,7 @@ fn type_holes(
                         Icit::Explicit,
                         Rc::new(Term::Meta(domain)),
                         Rc::new(function),
+                        ProofMark::Unknown,
                     );
                 }
                 g.store.set_meta_type(m, eval(g, &[], &function)?, 0);
@@ -1879,7 +1899,7 @@ fn explicit_data(term: &Term) -> BTreeSet<usize> {
                 work.extend(args.iter().map(|a| &**a));
             }
             Term::Loc(_, t) => work.push(t),
-            Term::Pi(_, _, a, b) => {
+            Term::Pi(_, _, a, b, _) => {
                 work.push(a);
                 work.push(b);
             }
@@ -1891,7 +1911,7 @@ fn explicit_data(term: &Term) -> BTreeSet<usize> {
                 work.push(a);
                 work.push(b);
             }
-            Term::Lam(_, _, b) => work.push(b),
+            Term::Lam(_, _, b, _) => work.push(b),
             Term::Ctor(_, _, args) => work.extend(args.iter().map(|a| &**a)),
             _ => {}
         }
@@ -1936,7 +1956,7 @@ fn reordered(
     // applied to them (`?m x y`), which unification can solve only when
     // they are variables.
     let mut level = 0;
-    while let Value::Pi(_, icit, dom, closure) = v {
+    while let Value::Pi(_, icit, dom, closure, _) = v {
         if icit == Icit::Explicit {
             ours.push((*dom).clone());
         }

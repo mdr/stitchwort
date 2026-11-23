@@ -243,9 +243,10 @@ impl Replay {
     /// from their numbers, as in `check.rs`.
     pub fn num_default(&mut self, g: &Ev, x: usize, arms: &[NumArm]) -> Result<()> {
         let _modes = KernelModes::enter(g, self.def);
-        let Value::Neutral(Head::Var(l, known), spine) = &self.env[x] else {
+        let Value::Neutral(Head::Var(l, known, mark), spine) = &self.env[x] else {
             return Ok(());
         };
+        let mark = *mark;
         if *l != x || !spine.is_empty() {
             return Ok(());
         }
@@ -254,7 +255,11 @@ impl Replay {
         numbers.sort_unstable();
         numbers.dedup();
         let apart = Apart::new(g, numbers.into());
-        self.substitute(g, x, Value::Neutral(Head::Var(x, apart), Spine::new()))
+        self.substitute(
+            g,
+            x,
+            Value::Neutral(Head::Var(x, apart, mark), Spine::new()),
+        )
     }
 
     /// Into the branch for constructor `c` of a case on the variable at `x`
@@ -356,7 +361,7 @@ fn rebuilds(
     let level = env.len();
     let determined = ctor_determined(g, d, c);
     let nat = g.env.builtins().nat;
-    let stands_for_itself = |l: usize| matches!(&env[l], Value::Neutral(Head::Var(at, _), spine) if *at == l && spine.is_empty());
+    let stands_for_itself = |l: usize| matches!(&env[l], Value::Neutral(Head::Var(at, _, _), spine) if *at == l && spine.is_empty());
     let mut out = Vec::with_capacity(determined.len());
     for (f, determined) in determined.into_iter().enumerate() {
         if !determined {
@@ -400,7 +405,7 @@ fn succs_around(value: &Value, level: usize, nat: Option<DataId>) -> Option<BigU
     let mut value = value;
     loop {
         match value {
-            Value::Neutral(Head::Var(l, _), spine) if spine.is_empty() => {
+            Value::Neutral(Head::Var(l, _, _), spine) if spine.is_empty() => {
                 return (*l == level).then_some(count);
             }
             Value::NatAdd(k, rest) => {

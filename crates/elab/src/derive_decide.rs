@@ -46,6 +46,7 @@
 //! written by hand.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use crate::check::quote_internal;
 use stitchwort_core::value::{eval, force, unused};
@@ -190,12 +191,18 @@ impl Elaborator {
         self.clear_metas();
         let pi = |binders: &[(Name, Term)], result: Term| {
             binders.iter().rev().fold(result, |ty, (x, t)| {
-                Term::Pi(x.clone(), Icit::Explicit, Rc::new(t.clone()), Rc::new(ty))
+                Term::Pi(
+                    x.clone(),
+                    Icit::Explicit,
+                    Rc::new(t.clone()),
+                    Rc::new(ty),
+                    ProofMark::Unknown,
+                )
             })
         };
         let lam = |binders: &[(Name, Term)], body: Term| {
             binders.iter().rev().fold(body, |body, (x, _)| {
-                Term::Lam(x.clone(), Icit::Explicit, Rc::new(body))
+                Term::Lam(x.clone(), Icit::Explicit, Rc::new(body), ProofMark::Unknown)
             })
         };
         let mut helpers: Vec<(String, Term, Term)> = Vec::new();

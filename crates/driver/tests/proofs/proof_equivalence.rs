@@ -27,6 +27,7 @@
 //! glued and unglued evaluation agree on what's equal).
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::chars::Chars;
 use stitchwort_core::registry::Builtin;
@@ -145,6 +146,7 @@ fn op(sig: &Sig, name: &str, x: Term) -> Term {
                 "y".into(),
                 Icit::Explicit,
                 app(sig.def("pickA"), vec![Term::Var(0)]).into(),
+                ProofMark::Unknown,
             );
             app(sig.def("applyAt"), vec![eta, x])
         }
@@ -1015,11 +1017,23 @@ fn contexts() -> Vec<Ctx> {
                 let motive = Term::Lam(
                     "y".into(),
                     Icit::Explicit,
-                    Term::Lam("e".into(), Icit::Explicit, Term::Var(2).into()).into(),
+                    Term::Lam(
+                        "e".into(),
+                        Icit::Explicit,
+                        Term::Var(2).into(),
+                        ProofMark::Unknown,
+                    )
+                    .into(),
+                    ProofMark::Unknown,
                 );
                 (
                     b.clone(),
-                    Term::J(motive.into(), h.into(), Term::Refl.into()),
+                    Term::J(
+                        motive.into(),
+                        h.into(),
+                        Term::Refl.into(),
+                        ProofMark::Unknown,
+                    ),
                 )
             },
         },

@@ -144,7 +144,7 @@ fn computation(cx: &mut Ctx, thunk: &Expr) -> Result<(Term, Value, Row)> {
             let (term, ty) = infer(cx, thunk)?;
             let ty = force(&cx.g(), ty)?;
             let unit = builtin_data(cx, Builtin::UnitType)?;
-            let Value::Pi(_, stitchwort_core::Icit::Explicit, dom, cod) = &ty else {
+            let Value::Pi(_, stitchwort_core::Icit::Explicit, dom, cod, _) = &ty else {
                 return Err(not_a_thunk(cx, span, &ty));
             };
             if !cx.unify(dom, &Value::Data(unit, Vec::new().into()))? {

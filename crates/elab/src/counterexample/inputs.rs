@@ -347,7 +347,7 @@ impl<'g> Inputs<'g> {
         let mut head = Term::Def(from_list);
         let mut ty = force(g, g.def(from_list).ty_value().clone()).ok()?;
         let mut explicit = 0;
-        while let Value::Pi(x, icit, _, cod) = ty.clone() {
+        while let Value::Pi(x, icit, _, cod, _) = ty.clone() {
             if icit == Icit::Explicit {
                 explicit += 1;
                 break;

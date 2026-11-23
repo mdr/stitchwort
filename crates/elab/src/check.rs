@@ -3,6 +3,7 @@
 //! them by unification. Its output is re-checked by the kernel.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use crate::goals::StepForm;
 use crate::kernel;
@@ -359,11 +360,11 @@ fn same_values(xs: &[Value], ys: &[Value]) -> bool {
 fn same_value(a: &Value, b: &Value) -> bool {
     match (a, b) {
         (Value::Sort(s), Value::Sort(t)) => s == t,
-        (Value::Neutral(Head::Var(l, x), s), Value::Neutral(Head::Var(m, y), t)) => {
+        (Value::Neutral(Head::Var(l, x, _), s), Value::Neutral(Head::Var(m, y, _), t)) => {
             l == m && x == y && s.is_empty() && t.is_empty()
         }
         (Value::Data(d, xs), Value::Data(e, ys)) => d == e && same_values(xs, ys),
-        (Value::Pi(x, i, a, f), Value::Pi(y, j, b, g)) => {
+        (Value::Pi(x, i, a, f, _), Value::Pi(y, j, b, g, _)) => {
             x == y
                 && i == j
                 && (stitchwort_core::value::Shared::ptr_eq(a, b) || same_value(a, b))
@@ -616,9 +617,19 @@ impl<'e> Ctx<'e> {
         let g = self.g();
         let mut solution = value.clone();
         for x in self.names.iter().rev() {
-            solution = Term::Lam(x.clone(), Icit::Explicit, Rc::new(solution));
+            solution = Term::Lam(
+                x.clone(),
+                Icit::Explicit,
+                Rc::new(solution),
+                ProofMark::Unknown,
+            );
         }
-        let solution = Term::Lam("_".into(), Icit::Explicit, Rc::new(solution));
+        let solution = Term::Lam(
+            "_".into(),
+            Icit::Explicit,
+            Rc::new(solution),
+            ProofMark::Unknown,
+        );
         let m = self.metas().new_meta(self.span);
         self.metas().solve_meta(m, eval(&g, &[], &solution)?);
         let spine = std::iter::once(Value::Sort(Sort::Prop))
@@ -1220,7 +1231,8 @@ impl<'e> Ctx<'e> {
     pub fn fresh_meta(&self) -> Term {
         let mut term = Term::Meta(self.metas().new_meta(self.span));
         for (level, value) in self.env.iter().enumerate() {
-            if matches!(value, Value::Neutral(Head::Var(l, _), s) if *l == level && s.is_empty()) {
+            if matches!(value, Value::Neutral(Head::Var(l, _, _), s) if *l == level && s.is_empty())
+            {
                 term = Term::app(term, Term::Var(self.level() - 1 - level));
             }
         }
@@ -1721,7 +1733,7 @@ impl<'e> Ctx<'e> {
             _ => {
                 let pairs: Vec<(&Value, &Value)> = match (&fe, &ff) {
                     (Value::Data(_, xs), Value::Data(_, ys)) => xs.iter().zip(ys).collect(),
-                    (Value::Pi(_, _, x, _), Value::Pi(_, _, y, _)) => vec![(&**x, &**y)],
+                    (Value::Pi(_, _, x, _, _), Value::Pi(_, _, y, _, _)) => vec![(&**x, &**y)],
                     _ => Vec::new(),
                 };
                 for (x, y) in pairs {
@@ -1993,7 +2005,12 @@ impl<'e> Ctx<'e> {
             let generalised = abstract_needle(&g, &goal_term, level, &needle, 1, &Term::Var(0))?;
             let rhs = quote_unfolded(&g, level, &rhs_value)?;
             let rewritten = self.eval(&Term::app(
-                Term::Lam("y".into(), Icit::Explicit, Rc::new(generalised.clone())),
+                Term::Lam(
+                    "y".into(),
+                    Icit::Explicit,
+                    Rc::new(generalised.clone()),
+                    ProofMark::Unknown,
+                ),
                 rhs.clone(),
             ))?;
             let rewrite = ScrutineeRewrite {
@@ -2176,7 +2193,12 @@ impl<'e> Ctx<'e> {
         crate::undo::transaction(self, |cx| {
             let with = |side: &Term| -> Term {
                 Term::app(
-                    Term::Lam("y".into(), Icit::Explicit, Rc::new(generalised.clone())),
+                    Term::Lam(
+                        "y".into(),
+                        Icit::Explicit,
+                        Rc::new(generalised.clone()),
+                        ProofMark::Unknown,
+                    ),
                     side.clone(),
                 )
             };
@@ -2205,9 +2227,20 @@ impl<'e> Ctx<'e> {
                 true => (at_y, along.term.clone()),
                 false => {
                     let at_lhs = codomain.shift(&g, 3, 0)?;
-                    let id = Term::Lam("x".into(), Icit::Explicit, Rc::new(Term::Var(0)));
+                    let id = Term::Lam(
+                        "x".into(),
+                        Icit::Explicit,
+                        Rc::new(Term::Var(0)),
+                        ProofMark::Unknown,
+                    );
                     (
-                        Term::Pi("x".into(), Icit::Explicit, Rc::new(at_y), Rc::new(at_lhs)),
+                        Term::Pi(
+                            "x".into(),
+                            Icit::Explicit,
+                            Rc::new(at_y),
+                            Rc::new(at_lhs),
+                            ProofMark::Unknown,
+                        ),
                         id,
                     )
                 }
@@ -2224,7 +2257,7 @@ impl<'e> Ctx<'e> {
             // then this isn't a rewrite, and the mismatch stands.
             let mut kcx = crate::rewrite::kernel_context(cx)?;
             let y = Value::var(kcx.level());
-            kcx.bind("y".into(), along.carrier.clone());
+            kcx.bind("y".into(), along.carrier.clone(), ProofMark::Unknown);
             kcx.bind(
                 "p".into(),
                 Value::Eq(
@@ -2232,15 +2265,27 @@ impl<'e> Ctx<'e> {
                     Rc::new(along.lhs_value.clone()).into(),
                     Rc::new(y).into(),
                 ),
+                ProofMark::Proof,
             );
             crate::kernel::without_glue(&g, || crate::kernel::check_type(&mut kcx, &body))?;
             let motive = Term::Lam(
                 "y".into(),
                 Icit::Explicit,
-                Rc::new(Term::Lam("p".into(), Icit::Explicit, Rc::new(body))),
+                Rc::new(Term::Lam(
+                    "p".into(),
+                    Icit::Explicit,
+                    Rc::new(body),
+                    ProofMark::Unknown,
+                )),
+                ProofMark::Unknown,
             );
             let proof = Term::Var(level - 1 - along.equation);
-            let j = Term::J(Rc::new(motive), Rc::new(base), Rc::new(proof));
+            let j = Term::J(
+                Rc::new(motive),
+                Rc::new(base),
+                Rc::new(proof),
+                ProofMark::Unknown,
+            );
             Ok(Some(match forward {
                 true => j,
                 false => Term::app(j, along.term.clone()),
@@ -3024,12 +3069,12 @@ fn infer_typed_lambda(
         settle_inferred_row(cx, &row, &row_value)?;
     }
     let x: Name = name.text.as_str().into();
-    let lam = Term::Lam(x.clone(), icit, Rc::new(body));
+    let lam = Term::Lam(x.clone(), icit, Rc::new(body), ProofMark::Unknown);
     let cod = Closure {
         env: cx.env.as_slice().into(),
         body: Rc::new(cod),
     };
-    let pi = Value::Pi(x, icit, Rc::new(dom).into(), cod);
+    let pi = Value::Pi(x, icit, Rc::new(dom).into(), cod, ProofMark::Unknown);
     // Annotated for the kernel, which doesn't infer a lambda's type.
     // For an implicit or auto lambda, this shape (an annotation
     // straight around the lambda) is what tells [`insert`] not to
@@ -3098,6 +3143,7 @@ fn infer_pi(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             icit,
             Rc::new(dom.shift(&cx.g(), k, 0)?),
             Rc::new(term),
+            ProofMark::Unknown,
         );
     }
     Ok((term, Value::Sort(Sort::pi(s1, s2))))
@@ -3130,7 +3176,13 @@ fn infer_arrow(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
     cx.reset(mark);
     let (b, s2) = result?;
     Ok((
-        Term::Pi("_".into(), Icit::Explicit, Rc::new(a), Rc::new(b)),
+        Term::Pi(
+            "_".into(),
+            Icit::Explicit,
+            Rc::new(a),
+            Rc::new(b),
+            ProofMark::Unknown,
+        ),
         Value::Sort(Sort::pi(s1, s2)),
     ))
 }
@@ -3513,6 +3565,7 @@ fn fresh_function_type_in(
             Icit::Explicit,
             Rc::new(dom),
             Rc::new(cod.term),
+            ProofMark::Unknown,
         ),
         result_performs: cod.result_performs,
     })
@@ -3614,6 +3667,7 @@ fn infer_section(cx: &mut Ctx, section: &Expr) -> Result<(Term, Value)> {
         Icit::Explicit,
         Rc::new(dom),
         Rc::new(cod.shift(&cx.g(), 1, 0)?),
+        ProofMark::Unknown,
     );
     let ty = cx.eval(&ty)?;
     let term = check(cx, section, &ty)?;
@@ -3665,7 +3719,7 @@ fn note_parameter_metas(cx: &mut Ctx, ty: &Value) -> Result<()> {
     let g = cx.g();
     let mut level = cx.level();
     let mut rest = force(&g, ty.clone())?;
-    while let Value::Pi(name, _, dom, cod) = rest {
+    while let Value::Pi(name, _, dom, cod, _) = rest {
         if let Value::Neutral(Head::Meta(m), _) = force(&g, (*dom).clone())? {
             cx.e.attempt
                 .parameter_metas
@@ -3719,7 +3773,7 @@ pub(crate) fn unpin_parameter_types(cx: &Ctx, level: usize) -> Result<()> {
         // context's, as the lambda's own were.
         let mut opened = cx.level();
         let mut rest = force(&g, ty.clone())?;
-        while let Value::Pi(_, _, dom, cod) = rest {
+        while let Value::Pi(_, _, dom, cod, _) = rest {
             unpin(&dom)?;
             rest = force(&g, cod.apply(&g, Value::var(opened))?)?;
             opened += 1;
@@ -4177,7 +4231,7 @@ fn settle_from_expected(
     let mut leading = true;
     let mut result = force(&g, ty.clone())?;
     let mut level = base;
-    while let Value::Pi(_, icit, dom, cod) = result {
+    while let Value::Pi(_, icit, dom, cod, _) = result {
         leading = leading && icit.is_implicit();
         if leading {
             let sort = force(&g, (*dom).clone())?;
@@ -4218,7 +4272,7 @@ fn settle_from_expected(
         else {
             continue;
         };
-        if let Value::Neutral(Head::Var(l, _), spine) = force(&g, a.clone())?
+        if let Value::Neutral(Head::Var(l, _, _), spine) = force(&g, a.clone())?
             && spine.is_empty()
             && (base..base + implicit).contains(&l)
             && let Some(sort) = &types[l - base]
@@ -4233,7 +4287,7 @@ fn settle_from_expected(
     }
     let mut noted = false;
     for value in given {
-        let Value::Pi(x, icit, dom, cod) = force(&g, ty.clone())? else {
+        let Value::Pi(x, icit, dom, cod, _) = force(&g, ty.clone())? else {
             unreachable!("the leading implicit parameters were counted above");
         };
         let settled = value.is_some();
@@ -4320,7 +4374,7 @@ fn parameter_type_is(
     let g = cx.g();
     let mut ty = crate::kernel::def_ty(&g, id)?;
     for (i, elim) in spine.iter().enumerate() {
-        let (Value::Pi(_, _, dom, cod), stitchwort_core::value::Elim::App(arg, _)) =
+        let (Value::Pi(_, _, dom, cod, _), stitchwort_core::value::Elim::App(arg, _)) =
             (force(&g, ty)?, elim)
         else {
             return Ok(false);
@@ -4375,7 +4429,7 @@ fn lambda_arg<'a>(
         // what it is: `applyP ((a, b) => b) h` (proof-tuples.md §4.2).
         let waits = (later.iter()).any(|a| matches!(a, Arg::Explicit(_) | Arg::Piped(_)))
             && only_lambdas_depend_on_it(&cod.body, later)
-            && matches!(force(&cx.g(), dom.clone())?, Value::Pi(_, _, ref param, _)
+            && matches!(force(&cx.g(), dom.clone())?, Value::Pi(_, _, ref param, _, _)
                 if crate::prop_unknown(cx, &force(&cx.g(), (**param).clone())?));
         let snapshot = waits.then(|| crate::undo::Snapshot::take(cx));
         let value = match (check_arg(cx, &term, value, &dom), snapshot) {
@@ -4440,7 +4494,7 @@ fn named_arg(
     supply: &mut Supply,
 ) -> Result<(Term, Value)> {
     (term, ty) = insert_until(cx, term, ty, name, supply)?;
-    let Value::Pi(_, icit, dom, cod) = force(&cx.g(), ty.clone())? else {
+    let Value::Pi(_, icit, dom, cod, _) = force(&cx.g(), ty.clone())? else {
         unreachable!("insert_until stops at the named implicit parameter");
     };
     let value = check(cx, value, &dom)?;
@@ -4567,7 +4621,7 @@ fn explicit_arg_ready<'a>(
     } = at;
     (term, ty) = insert_with(cx, term, ty, supply)?;
     let hole_of = match (value, force(&cx.g(), ty.clone())?) {
-        (Expr::Hole(_), Value::Pi(x, _, _, cod)) => {
+        (Expr::Hole(_), Value::Pi(x, _, _, cod, _)) => {
             note_fixed_later(cx, value, &cod.body, later);
             Some(x)
         }
@@ -5272,7 +5326,7 @@ fn parameter_statement(cx: &Ctx, head: &Term, at: Span) -> Option<Statement> {
         let (_, ty) = cx.statement_params.iter().find(|(l, _)| *l == level)?;
         Some((ty.clone(), cx.env[..level].to_vec()))
     })?;
-    let Term::Pi(_, Icit::Explicit, dom, _) = ty.strip_loc() else {
+    let Term::Pi(_, Icit::Explicit, dom, _, _) = ty.strip_loc() else {
         return None;
     };
     let g = cx.g();
@@ -5423,7 +5477,7 @@ fn explicit_parameter_count(cx: &Ctx, ty: &Value) -> Result<Option<usize>> {
     let mut function = false;
     loop {
         match force(&g, ty)? {
-            Value::Pi(_, icit, _, cod) => {
+            Value::Pi(_, icit, _, cod, _) => {
                 function = true;
                 if icit == Icit::Explicit {
                     wanted += 1;
@@ -5531,7 +5585,7 @@ fn local_signature(cx: &Ctx, head: &Term, e: Diagnostic) -> Diagnostic {
             let mut names: Vec<Name> = Vec::new();
             let mut shown = Vec::new();
             let mut ty = def.ty().strip_loc();
-            while let Term::Pi(x, icit, dom, cod) = ty {
+            while let Term::Pi(x, icit, dom, cod, _) = ty {
                 let dom = pretty::term_for_message_in(&g, cx.e, &names, dom);
                 shown.push(match (&**x, icit) {
                     ("" | "_", Icit::Explicit) => dom,
@@ -5569,7 +5623,7 @@ fn result_after_parameters(
         if !matches!(ty, Value::Pi(..)) {
             return Ok(false);
         }
-        while let Value::Pi(x, _, d, c) = ty {
+        while let Value::Pi(x, _, d, c, _) = ty {
             let v = Value::var(cx.level());
             cx.bind_hidden(x, (*d).clone());
             ty = force(&g, c.apply(&g, v)?)?;
@@ -5742,7 +5796,7 @@ fn only_lambdas_depend_on_it(rest: &Term, args: &[Arg]) -> bool {
         .filter(|a| matches!(a, Arg::Explicit(_) | Arg::Piped(_) | Arg::Default(_)));
     let mut ty = rest;
     let mut under = 0;
-    while let Term::Pi(_, icit, dom, cod) = ty.strip_loc() {
+    while let Term::Pi(_, icit, dom, cod, _) = ty.strip_loc() {
         let arg = (*icit == Icit::Explicit).then(|| explicit.next()).flatten();
         if dom.mentions(under) && !matches!(arg, Some(Arg::Explicit(Expr::Lam(..)))) {
             return false;
@@ -5757,7 +5811,7 @@ fn only_lambdas_depend_on_it(rest: &Term, args: &[Arg]) -> bool {
 /// parameter (made one, if it's unknown).
 pub(crate) fn function_parts(cx: &mut Ctx, ty: &Value) -> Result<(Value, Closure)> {
     match force(&cx.g(), ty.clone())? {
-        Value::Pi(_, Icit::Explicit, dom, cod) => Ok(((*dom).clone(), cod)),
+        Value::Pi(_, Icit::Explicit, dom, cod, _) => Ok(((*dom).clone(), cod)),
         Value::Neutral(Head::Meta(_), _) => {
             // Unknown type: it must be a function type.
             let dom = cx.fresh_meta();
@@ -5775,6 +5829,7 @@ pub(crate) fn function_parts(cx: &mut Ctx, ty: &Value) -> Result<(Value, Closure
                 Icit::Explicit,
                 Rc::new(dom.clone()).into(),
                 cod.clone(),
+                ProofMark::Unknown,
             );
             if !cx.unify(ty, &pi)? {
                 return Err(cx.mismatch(&pi, ty));
@@ -5919,7 +5974,7 @@ pub fn insert(cx: &mut Ctx, term: Term, ty: Value) -> Result<(Term, Value)> {
 fn binder_lambda(term: &Term) -> bool {
     matches!(
         term.strip_loc(),
-        Term::Ann(lam, _) if matches!(&**lam, Term::Lam(_, icit, _) if icit.is_implicit())
+        Term::Ann(lam, _) if matches!(&**lam, Term::Lam(_, icit, _, _) if icit.is_implicit())
     )
 }
 
@@ -5939,7 +5994,7 @@ fn insert_with(
     mut ty: Value,
     supply: &mut Supply,
 ) -> Result<(Term, Value)> {
-    while let Value::Pi(x, icit, dom, cod) = force(&cx.g(), ty.clone())?
+    while let Value::Pi(x, icit, dom, cod, _) = force(&cx.g(), ty.clone())?
         && icit.is_implicit()
     {
         let call = call_name(cx, &term);
@@ -6116,7 +6171,7 @@ fn ignorable_arguments(cx: &Ctx, goal: &Value) -> Option<std::rc::Rc<[bool]>> {
             .iter()
             .enumerate()
             .filter(
-                |(l, v)| matches!(v, Value::Neutral(Head::Var(x, _), s) if x == l && s.is_empty()),
+                |(l, v)| matches!(v, Value::Neutral(Head::Var(x, _, _), s) if x == l && s.is_empty()),
             )
             .map(|(l, _)| ignorable[l])
             .collect(),
@@ -6158,10 +6213,10 @@ fn insert_until(
 ) -> Result<(Term, Value)> {
     loop {
         match force(&cx.g(), ty.clone())? {
-            Value::Pi(x, icit, _, _) if icit.is_implicit() && *x == *name.text => {
+            Value::Pi(x, icit, _, _, _) if icit.is_implicit() && *x == *name.text => {
                 return Ok((term, ty));
             }
-            Value::Pi(x, icit, dom, cod) if icit.is_implicit() => {
+            Value::Pi(x, icit, dom, cod, _) if icit.is_implicit() => {
                 let call = call_name(cx, &term);
                 let meta = supplied_arg(cx, icit, &dom, supply, call);
                 note_origin(cx, &meta, &x, &term, Some((icit, &dom)));
@@ -6223,12 +6278,18 @@ fn typed_lambda(
             icit,
             Rc::new(dom.clone()).into(),
             cod.clone(),
+            ProofMark::Unknown,
         );
         note_binder_step(cx, StepForm::Lambda, name.span, None, &before, &body_ty);
     }
     let result = check(cx, body, &body_ty);
     cx.reset(mark);
-    Ok(Term::Lam(name.text.as_str().into(), icit, Rc::new(result?)))
+    Ok(Term::Lam(
+        name.text.as_str().into(),
+        icit,
+        Rc::new(result?),
+        ProofMark::Unknown,
+    ))
 }
 
 /// `[a: Type] => body` or `[auto h: P] => body` (`lambda`, with its mode),
@@ -6245,7 +6306,7 @@ fn check_binder_lambda(
     let (name, mode, ann, body) = lambda;
     let icit = mode_icit(mode);
     match expected {
-        Value::Pi(_, found, dom, cod) if *found == icit => {
+        Value::Pi(_, found, dom, cod, _) if *found == icit => {
             typed_lambda(cx, name, icit, ann, body, dom, cod)
         }
         // Not known yet: the lambda's own type settles it.
@@ -6806,7 +6867,7 @@ fn check_value_against(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Valu
             check_binder_lambda(cx, expr, (name, *mode, ann, body), &expected)
         }
         // Implicit parameters are introduced automatically.
-        (_, Value::Pi(x, icit, dom, cod)) if icit.is_implicit() => {
+        (_, Value::Pi(x, icit, dom, cod, _)) if icit.is_implicit() => {
             implicit_lambda(cx, expr, x, *icit, dom, cod)
         }
         // A literal takes its type from what's expected (a `Nat` or an
@@ -6845,13 +6906,13 @@ fn check_value_against(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Valu
             },
             _,
         ) => check_if(cx, binder.as_ref(), cond, then, otherwise, &expected, named),
-        (Expr::Lam(names, body, span), Value::Pi(_, Icit::Explicit, dom, cod)) => {
+        (Expr::Lam(names, body, span), Value::Pi(_, Icit::Explicit, dom, cod, _)) => {
             explicit_lambda(cx, expr, (names, body, *span), dom, cod, &expected)
                 .map_err(|error| fun_parameter_note(cx, names, error))
         }
         (
             Expr::TypedLam(name, Mode::Explicit, ann, body, _),
-            Value::Pi(_, Icit::Explicit, dom, cod),
+            Value::Pi(_, Icit::Explicit, dom, cod, _),
         ) => typed_lambda(cx, name, Icit::Explicit, ann, body, dom, cod),
         (Expr::Lam(names, _, span), _) => lambda_not_function(cx, expr, names, *span, &expected)
             .map_err(|error| fun_parameter_note(cx, names, error)),
@@ -6882,7 +6943,7 @@ fn check_value_against(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Valu
             let term = check_inner(cx, expr, &found.prop)?;
             found.backward(cx, term)
         }
-        (Expr::Var(_) | Expr::App(..), Value::Data(..) | Value::Pi(_, Icit::Explicit, _, _)) => {
+        (Expr::Var(_) | Expr::App(..), Value::Data(..) | Value::Pi(_, Icit::Explicit, _, _, _)) => {
             match ctor_head(cx, expr)? {
                 // A constructor where an effectful function is expected
                 // (`List.map Succ xs`) is a pure function, made to fit the
@@ -6992,7 +7053,7 @@ fn chain_parts(cx: &mut Ctx, goal: &Value, count: usize) -> Result<Option<Vec<St
             goal = match proof_chain(cx, d) {
                 Some(Builtin::Exists) => {
                     let x: Name = match force(&g, params[1].clone())? {
-                        Value::Lam(x, _, _) => x,
+                        Value::Lam(x, _, _, _) => x,
                         _ => "x".into(),
                     };
                     parts.push(format!("a value for `{x}`"));
@@ -7050,7 +7111,7 @@ fn proof_tuple(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     let forced = force(&g, goal.clone())?;
     if let Expr::Tuple(..) = unbracket(rest)
         && !matches!(forced, Value::Neutral(Head::Meta(_), _))
-        && !matches!(&forced, Value::Pi(_, icit, _, _) if icit.is_implicit())
+        && !matches!(&forced, Value::Pi(_, icit, _, _, _) if icit.is_implicit())
     {
         let takes = links.len() + 1;
         let error = cx.error(
@@ -7131,7 +7192,12 @@ fn implicit_lambda(
     cx.bind_hidden(x.clone(), dom.clone());
     let result = check(cx, expr, &cod.apply(&cx.g(), var)?);
     cx.reset(mark);
-    Ok(Term::Lam(x.clone(), icit, Rc::new(result?)))
+    Ok(Term::Lam(
+        x.clone(),
+        icit,
+        Rc::new(result?),
+        ProofMark::Unknown,
+    ))
 }
 
 /// The lambda `expr` (`names => body`, at `span`) checked against an
@@ -7171,7 +7237,7 @@ fn explicit_lambda(
     let under = (saved_statement.as_ref())
         .filter(|s| s.at == span && s.level == cx.level())
         .and_then(|s| match s.term.strip_loc() {
-            Term::Pi(_, Icit::Explicit, written, cod) => Some((
+            Term::Pi(_, Icit::Explicit, written, cod, _) => Some((
                 written.clone(),
                 Statement {
                     term: cod.clone(),
@@ -7221,6 +7287,7 @@ fn explicit_lambda(
         first.text.as_str().into(),
         Icit::Explicit,
         Rc::new(result?),
+        ProofMark::Unknown,
     ))
 }
 
@@ -8191,7 +8258,12 @@ fn proof_if(
         cx.bind(name, ty);
         let result = body.check(cx, named);
         cx.reset(mark);
-        Ok(Term::Lam(name.into(), Icit::Explicit, Rc::new(result?)))
+        Ok(Term::Lam(
+            name.into(),
+            Icit::Explicit,
+            Rc::new(result?),
+            ProofMark::Unknown,
+        ))
     };
     let then = branch(cx, prop_value, then)?;
     let otherwise = branch(cx, not_prop, otherwise)?;
@@ -8261,7 +8333,12 @@ fn check_if_in(
         cx.bind(name, ty);
         let result = body.check(cx, named);
         cx.reset(mark);
-        Ok(Term::Lam(name.into(), Icit::Explicit, Rc::new(result?)))
+        Ok(Term::Lam(
+            name.into(),
+            Icit::Explicit,
+            Rc::new(result?),
+            ProofMark::Unknown,
+        ))
     };
     match binder {
         None => {
@@ -8365,7 +8442,7 @@ fn returns_computation(cx: &mut Ctx, ty: &Value) -> Result<bool> {
     let mut ty = force(&g, ty.clone())?;
     let mut any = false;
     let result = (|| -> Result<bool> {
-        while let Value::Pi(x, Icit::Explicit, dom, cod) = ty {
+        while let Value::Pi(x, Icit::Explicit, dom, cod, _) = ty {
             let v = Value::var(cx.level());
             cx.bind_hidden(x, (*dom).clone());
             ty = force(&g, cod.apply(&g, v)?)?;
@@ -8533,7 +8610,7 @@ fn written_later_mentions_it(rest: &Term, later: &[Arg]) -> bool {
     let mut depend = vec![0];
     let mut ty = rest;
     let mut under = 0;
-    while let Term::Pi(_, icit, dom, cod) = ty.strip_loc() {
+    while let Term::Pi(_, icit, dom, cod, _) = ty.strip_loc() {
         let arg = (*icit == Icit::Explicit).then(|| explicit.next()).flatten();
         if depend.iter().any(|&level| dom.mentions(under - level)) {
             match arg {
@@ -9400,7 +9477,7 @@ fn has_implicit_function(cx: &Ctx, ty: &Value) -> Result<bool> {
     let g = cx.g();
     let mut ty = force(&g, ty.clone())?;
     let mut level = cx.level();
-    while let Value::Pi(_, icit, dom, cod) = ty {
+    while let Value::Pi(_, icit, dom, cod, _) = ty {
         if icit == Icit::Implicit && matches!(force(&g, (*dom).clone())?, Value::Pi(..)) {
             return Ok(true);
         }
@@ -9972,10 +10049,10 @@ fn takes_function_argument(g: &Ev<'_>, ty: &Value) -> Result<bool> {
     let mut ty = force(g, ty.clone())?;
     loop {
         match ty {
-            Value::Pi(_, Icit::Implicit | Icit::Auto, _, cod) => {
+            Value::Pi(_, Icit::Implicit | Icit::Auto, _, cod, _) => {
                 ty = force(g, cod.apply(g, Value::var(usize::MAX - 2))?)?;
             }
-            Value::Pi(_, Icit::Explicit, dom, _) => {
+            Value::Pi(_, Icit::Explicit, dom, _, _) => {
                 return Ok(matches!(force(g, (*dom).clone())?, Value::Pi(..)));
             }
             _ => return Ok(false),
@@ -9991,11 +10068,11 @@ fn takes_lambda_argument(g: &Ev<'_>, ty: &Value) -> Result<bool> {
     let mut ty = force(g, ty.clone())?;
     loop {
         match ty {
-            Value::Pi(_, Icit::Implicit | Icit::Auto, _, cod) => {
+            Value::Pi(_, Icit::Implicit | Icit::Auto, _, cod, _) => {
                 // A stand-in for the binder: only the shape of the rest matters.
                 ty = force(g, cod.apply(g, Value::var(usize::MAX - 2))?)?;
             }
-            Value::Pi(_, Icit::Explicit, dom, _) => {
+            Value::Pi(_, Icit::Explicit, dom, _, _) => {
                 return Ok(!matches!(force(g, (*dom).clone())?, Value::Data(d, _)
                     if &**g.data(d).path() == "Std.Builtin.UnitType"));
             }
@@ -10068,7 +10145,7 @@ fn written_result(
             Arg::NamedExplicit(..) => icit == Icit::Explicit,
             Arg::Explicit(_) | Arg::Piped(_) | Arg::Default(_) => icit == Icit::Explicit,
         };
-        let Some(Value::Pi(_, icit, dom, cod)) =
+        let Some(Value::Pi(_, icit, dom, cod, _)) =
             implicits(cx, &mut ty, &mut supply, written, stop)?
         else {
             return Ok(None);
@@ -10097,8 +10174,8 @@ fn written_result(
     let mut level = base + written;
     loop {
         match force(&g, rest)? {
-            Value::Pi(_, Icit::Auto, _, _) => return Ok(None),
-            Value::Pi(_, _, _, cod) => {
+            Value::Pi(_, Icit::Auto, _, _, _) => return Ok(None),
+            Value::Pi(_, _, _, cod, _) => {
                 rest = cod.apply(&g, Value::var(level))?;
                 level += 1;
             }
@@ -10143,9 +10220,9 @@ fn implicits(
     loop {
         let forced = force(&g, ty.clone())?;
         match &forced {
-            Value::Pi(x, icit, _, _) if stop(x, *icit) => return Ok(Some(forced)),
-            Value::Pi(_, Icit::Auto, _, _) if written > 0 => return Ok(None),
-            Value::Pi(_, icit @ (Icit::Implicit | Icit::Auto), dom, cod) => {
+            Value::Pi(x, icit, _, _, _) if stop(x, *icit) => return Ok(Some(forced)),
+            Value::Pi(_, Icit::Auto, _, _, _) if written > 0 => return Ok(None),
+            Value::Pi(_, icit @ (Icit::Implicit | Icit::Auto), dom, cod, _) => {
                 let meta = implicit_arg(cx, *icit, dom);
                 let value = cx.eval(&meta)?;
                 supply.push_back(meta);
@@ -10347,7 +10424,7 @@ fn ctor_app(
     let mut target = expected.cloned();
     for &i in &missing {
         match target.as_ref().map(|t| force(&g, t.clone())).transpose()? {
-            Some(Value::Pi(_, Icit::Explicit, dom, cod)) => {
+            Some(Value::Pi(_, Icit::Explicit, dom, cod, _)) => {
                 let var = Value::var(cx.level());
                 let name: Name = ctor.fields[i].0.clone();
                 missing_level[i] = Some(cx.level());
@@ -10467,7 +10544,7 @@ fn ctor_app(
         return Ok((term, result_ty));
     }
     for name in missing_types.into_iter().rev() {
-        term = Term::Lam(name, Icit::Explicit, Rc::new(term));
+        term = Term::Lam(name, Icit::Explicit, Rc::new(term), ProofMark::Unknown);
     }
     Ok((term, expected.expect("checked above").clone()))
 }
@@ -10679,7 +10756,7 @@ pub(crate) fn check_type_defaulting(
     // `type Set (k: Type) [auto ord: Ord k] = …`: `Set Nat` finds `ord`
     // (docs/proposals/interfaces.md §7.5).
     let (term, ty) = match force(&cx.g(), ty.clone())? {
-        Value::Pi(_, icit, _, _) if icit.is_implicit() => insert(cx, term, ty)?,
+        Value::Pi(_, icit, _, _, _) if icit.is_implicit() => insert(cx, term, ty)?,
         _ => (term, ty),
     };
     match force(&cx.g(), ty)? {
@@ -10887,7 +10964,9 @@ fn infer_j(cx: &mut Ctx, motive: &Expr, base: &Expr, proof: &Expr) -> Result<(Te
             p_name.text.as_str().into(),
             Icit::Explicit,
             Rc::new(body),
+            ProofMark::Unknown,
         )),
+        ProofMark::Unknown,
     );
     let motive_value = cx.eval(&motive)?;
     let base_ty = apply(
@@ -10899,7 +10978,12 @@ fn infer_j(cx: &mut Ctx, motive: &Expr, base: &Expr, proof: &Expr) -> Result<(Te
     let proof_value = cx.eval(&proof)?;
     let result = apply(&g, apply(&g, motive_value, (*y).clone())?, proof_value)?;
     Ok((
-        Term::J(Rc::new(motive), Rc::new(base), Rc::new(proof)),
+        Term::J(
+            Rc::new(motive),
+            Rc::new(base),
+            Rc::new(proof),
+            ProofMark::Unknown,
+        ),
         result,
     ))
 }

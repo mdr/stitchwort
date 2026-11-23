@@ -1360,7 +1360,7 @@ fn placeholder_call(
 fn lambda(term: &Term) -> bool {
     match term.strip_loc() {
         Term::Lam(..) => true,
-        Term::Let(_, _, _, body, _) => lambda(body),
+        Term::Let(_, _, _, body, _, _) => lambda(body),
         _ => false,
     }
 }
@@ -2899,7 +2899,7 @@ mod tests {
     /// domain is what it waits on.
     fn section(cx: &mut Ctx, source: &str) -> (Term, Value) {
         let (term, ty) = crate::check::infer(cx, &expression(source)).unwrap();
-        let Value::Pi(_, _, dom, _) = force(&cx.g(), ty).unwrap() else {
+        let Value::Pi(_, _, dom, _, _) = force(&cx.g(), ty).unwrap() else {
             unreachable!("a section's type is a function's")
         };
         (term, (*dom).clone())

@@ -91,7 +91,7 @@ fn statement(g: &stitchwort_core::Ev, ty: &Term) -> String {
     let mut names: Vec<Name> = Vec::new();
     let mut out = String::new();
     let mut t = ty.strip_loc();
-    while let Term::Pi(x, icit, dom, cod) = t {
+    while let Term::Pi(x, icit, dom, cod, _) = t {
         let shown = stitchwort_core::pretty::term(g, &names, dom);
         let (open, close) = if icit.is_implicit() {
             ("[", "]")

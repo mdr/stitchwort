@@ -347,7 +347,7 @@ impl Classifier {
             return None;
         }
         // `y => k (sigReply m′ o y)`: `k` Var(1), `o` Var(2), `y` Var(0).
-        let Term::Lam(_, _, rest) = strip(&fields[1]) else {
+        let Term::Lam(_, _, rest, _) = strip(&fields[1]) else {
             return None;
         };
         let Term::App(k, reply, _) = strip(rest) else {
@@ -442,7 +442,7 @@ impl Classifier {
         }
         let continues = match strip(args[arity - 1].0) {
             Term::Var(0) => true,
-            Term::Lam(_, _, b) => matches!(strip(b), Term::App(f, y, _)
+            Term::Lam(_, _, b, _) => matches!(strip(b), Term::App(f, y, _)
                 if matches!(strip(f), Term::Var(1)) && matches!(strip(y), Term::Var(0))),
             _ => false,
         };
@@ -454,7 +454,7 @@ impl Classifier {
         };
         if *d != self.comp
             || fields.len() != 2
-            || !matches!(strip(&fields[1]), Term::Lam(_, _, b) if is_done_continuation(g, b))
+            || !matches!(strip(&fields[1]), Term::Lam(_, _, b, _) if is_done_continuation(g, b))
         {
             return None;
         }
@@ -594,7 +594,7 @@ impl Classifier {
         let next = args[arity - 1].0;
         let continues = match strip(next) {
             Term::Var(0) => true,
-            Term::Lam(_, _, b) => matches!(strip(b), Term::App(f, y, _)
+            Term::Lam(_, _, b, _) => matches!(strip(b), Term::App(f, y, _)
                 if matches!(strip(f), Term::Var(1)) && matches!(strip(y), Term::Var(0))),
             _ => false,
         };
@@ -608,7 +608,7 @@ impl Classifier {
             match strip(args[arity - 2].0) {
                 Term::Ctor(d, 1, fields)
                     if *d == self.comp
-                        && matches!(strip(&fields[1]), Term::Lam(_, _, b) if is_done_continuation(g, b)) =>
+                        && matches!(strip(&fields[1]), Term::Lam(_, _, b, _) if is_done_continuation(g, b)) =>
                 {
                     &fields[0]
                 }
@@ -664,11 +664,11 @@ impl Classifier {
             Term::App(f, e, _) if matches!(strip(f), Term::Var(i) if *i == depth) => {
                 return Ok(fresh(e, 0));
             }
-            Term::Let(_, _, value, body, _) => {
+            Term::Let(_, _, value, body, _, _) => {
                 return Ok(fresh(value, 0) && self.tail(g, body, depth + 1, bodies, inlined)?);
             }
             Term::App(f, value, _) if matches!(strip(f), Term::Lam(..)) => {
-                let Term::Lam(_, _, body) = strip(f) else {
+                let Term::Lam(_, _, body, _) = strip(f) else {
                     unreachable!("matched above")
                 };
                 return Ok(fresh(value, 0) && self.tail(g, body, depth + 1, bodies, inlined)?);
@@ -708,7 +708,7 @@ impl Classifier {
             }
             return match strip(next) {
                 Term::Var(i) if *i == depth => Ok(true),
-                Term::Lam(_, _, body) => self.tail(g, body, depth + 1, bodies, inlined),
+                Term::Lam(_, _, body, _) => self.tail(g, body, depth + 1, bodies, inlined),
                 _ => Ok(false),
             };
         }
@@ -726,7 +726,7 @@ impl Classifier {
                 return Ok(false);
             }
             for branch in &args[at..] {
-                let Term::Lam(_, _, body) = strip(branch) else {
+                let Term::Lam(_, _, body, _) = strip(branch) else {
                     return Ok(false);
                 };
                 if !self.tail(g, body, depth + 1, bodies, inlined)? {
@@ -768,7 +768,7 @@ fn explicit(term: &Term, head: DefId) -> Option<Vec<&Term>> {
 fn peel(term: &Term, n: usize) -> Option<&Term> {
     let mut term = strip(term);
     for _ in 0..n {
-        let Term::Lam(_, _, body) = term else {
+        let Term::Lam(_, _, body, _) = term else {
             return None;
         };
         term = strip(body);
@@ -877,7 +877,7 @@ impl Scan<'_> {
             Term::App(..) => {
                 let (head, args) = spine_icit(term).expect("an application");
                 let args: Vec<&Term> = args.iter().map(|(a, _)| *a).collect();
-                if let Term::Lam(_, _, body) = head {
+                if let Term::Lam(_, _, body, _) = head {
                     // An applied lambda: a `let`.
                     self.walk(g, body, at, d, out)?;
                     for a in &args {
@@ -927,7 +927,7 @@ impl Scan<'_> {
                     let at_branch = args.len() - 2;
                     for (i, a) in args.iter().enumerate() {
                         if i >= at_branch
-                            && let Term::Lam(_, _, body) = strip(a)
+                            && let Term::Lam(_, _, body, _) = strip(a)
                         {
                             self.walk(g, body, at, d, out)?;
                         } else {
@@ -946,7 +946,7 @@ impl Scan<'_> {
                 }
                 Ok(())
             }
-            Term::Let(_, _, value, body, _) => {
+            Term::Let(_, _, value, body, _, _) => {
                 self.walk(g, value, Position::LetValue, d, out)?;
                 self.walk(g, body, at, d, out)
             }
@@ -964,7 +964,7 @@ impl Scan<'_> {
                 }
                 self.walk(g, default, at, d, out)
             }
-            Term::Lam(_, _, body) => self.walk(g, body, Position::Other, d, out),
+            Term::Lam(_, _, body, _) => self.walk(g, body, Position::Other, d, out),
             Term::Ctor(_, _, fields) => {
                 for f in fields {
                     self.walk(g, f, Position::Other, d, out)?;
@@ -995,7 +995,7 @@ impl Scan<'_> {
     ) -> Result<()> {
         let mut body = strip(term);
         let mut lams = 0;
-        while let Term::Lam(_, _, b) = body {
+        while let Term::Lam(_, _, b, _) = body {
             body = strip(b);
             lams += 1;
         }
@@ -1148,7 +1148,7 @@ fn sketch_into(g: &Ev, term: &Term, out: &mut String, depth: usize) {
             out.push(')');
         }
         Term::Nat(n) => out.push_str(&n.to_string()),
-        Term::Lam(x, _, b) => {
+        Term::Lam(x, _, b, _) => {
             out.push_str(&format!("(\\{x}. "));
             sketch_into(g, b, out, d);
             out.push(')');
@@ -1167,7 +1167,7 @@ fn sketch_into(g: &Ev, term: &Term, out: &mut String, depth: usize) {
             }
             out.push(')');
         }
-        Term::Let(x, _, v, b, _) => {
+        Term::Let(x, _, v, b, _, _) => {
             out.push_str(&format!("(let {x} := "));
             sketch_into(g, v, out, d);
             out.push_str("; ");

@@ -43,6 +43,7 @@
 //! otherwise it is `W-REWRITE-REPEATEDLY-UNSTATED`.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::value::{Elim, Spine, force, unfold_once};
@@ -1007,7 +1008,12 @@ pub(super) fn rewrite_repeatedly(
     if let Some((fact, _)) = fact {
         let mut term = fact;
         for step in steps {
-            term = Term::J(Rc::new(step.motive), Rc::new(term), Rc::new(step.proof));
+            term = Term::J(
+                Rc::new(step.motive),
+                Rc::new(term),
+                Rc::new(step.proof),
+                ProofMark::Unknown,
+            );
         }
         note_unused(cx, written, &rules, &trail);
         let closer = body
@@ -1040,7 +1046,12 @@ pub(super) fn rewrite_repeatedly(
     record_expansion(cx, expr, &rules, &trail, closer);
     let mut term = base;
     for step in steps.into_iter().rev() {
-        term = Term::J(Rc::new(step.motive), Rc::new(term), Rc::new(step.proof));
+        term = Term::J(
+            Rc::new(step.motive),
+            Rc::new(term),
+            Rc::new(step.proof),
+            ProofMark::Unknown,
+        );
     }
     Ok((term, expected.clone()))
 }
@@ -1756,7 +1767,7 @@ pub(super) fn unfold_equation(cx: &mut Ctx, rule: &RewriteRule) -> Result<Equati
     let mut call = Term::Def(d);
     let mut spine = Spine::new();
     for _ in 0..def.arity() {
-        let Value::Pi(_, icit, domain, rest) = force(&g, ty.clone())? else {
+        let Value::Pi(_, icit, domain, rest, _) = force(&g, ty.clone())? else {
             break;
         };
         let meta = cx.fresh_meta_of(&domain);

@@ -118,11 +118,11 @@ fn term(out: &mut String, t: &Term) {
             Term::Sort(s) => {
                 let _ = write!(out, "{s:?}");
             }
-            Term::Pi(x, i, a, b) => {
+            Term::Pi(x, i, a, b, _) => {
                 let _ = write!(out, "(Pi {x} {}", icit(*i));
                 children.extend([&**a, &**b]);
             }
-            Term::Lam(x, i, b) => {
+            Term::Lam(x, i, b, _) => {
                 let _ = write!(out, "(Lam {x} {}", icit(*i));
                 children.push(b);
             }
@@ -134,7 +134,7 @@ fn term(out: &mut String, t: &Term) {
                 out.push_str("(Ann");
                 children.extend([&**a, &**b]);
             }
-            Term::Let(x, ty, v, b, erased) => {
+            Term::Let(x, ty, v, b, erased, _) => {
                 let _ = write!(out, "(Let {x} {erased}");
                 children.extend([&**ty, &**v, &**b]);
             }
@@ -164,7 +164,7 @@ fn term(out: &mut String, t: &Term) {
                 children.extend([&**a, &**b]);
             }
             Term::Refl => out.push_str("refl"),
-            Term::J(m, b, p) => {
+            Term::J(m, b, p, _) => {
                 out.push_str("(J");
                 children.extend([&**m, &**b, &**p]);
             }
@@ -172,7 +172,7 @@ fn term(out: &mut String, t: &Term) {
                 let _ = write!(out, "(Proj D{}.{i}", d.0);
                 children.push(t);
             }
-            Term::Quot(form, args, erased) => {
+            Term::Quot(form, args, erased, _) => {
                 let _ = write!(out, "({} {erased}", form.name());
                 children.extend(args.iter().map(|a| &**a));
             }

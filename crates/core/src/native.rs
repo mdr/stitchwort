@@ -29,6 +29,7 @@
 use crate::collections::HashMap;
 use crate::ev::Ev;
 use crate::machine::in_kernel_modes;
+use crate::term::ProofMark;
 use std::rc::Rc;
 
 use num_bigint::BigUint;
@@ -452,8 +453,15 @@ fn register_shaped(g: &mut Kernel, id: DefId, native: Native) -> Result<()> {
         return Err(shape_error(span, native.name()));
     }
     let nat_ty = || Term::Data(nat, Vec::new());
-    let arrow =
-        |dom: Term, cod: Term| Term::Pi("x".into(), Icit::Explicit, Rc::new(dom), Rc::new(cod));
+    let arrow = |dom: Term, cod: Term| {
+        Term::Pi(
+            "x".into(),
+            Icit::Explicit,
+            Rc::new(dom),
+            Rc::new(cod),
+            ProofMark::Unknown,
+        )
+    };
     let result = match native {
         Native::Add | Native::Sub | Native::Mul | Native::DivFuel => Some(nat_ty()),
         Native::Leq | Native::EqNat => g.env.builtins().bool.map(|b| Term::Data(b, Vec::new())),

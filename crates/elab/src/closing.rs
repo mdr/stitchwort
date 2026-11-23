@@ -162,7 +162,7 @@ fn open_binders(g: &crate::unify::Unifier<'_>, ty: &Term, span: Span) -> Res<Ope
     let mut env: Vec<Value> = Vec::new();
     let mut binders = Vec::new();
     let mut t = ty.strip_loc();
-    while let Term::Pi(name, icit, dom, cod) = t {
+    while let Term::Pi(name, icit, dom, cod, _) = t {
         let m = g.store.new_meta(span);
         g.store.set_meta_type(m, eval(g, &env, dom)?, 0);
         binders.push((name.clone(), *icit, m));
@@ -270,14 +270,14 @@ impl Elaborator {
             let mut written = written.map(Term::strip_loc);
             let mut intros = Vec::new();
             loop {
-                let Value::Pi(name, icit, dom, closure) = force(g, v.clone())? else {
+                let Value::Pi(name, icit, dom, closure, _) = force(g, v.clone())? else {
                     break;
                 };
                 if vars.len() >= hyps && icit != Icit::Explicit {
                     break;
                 }
                 written = match written {
-                    Some(Term::Pi(_, _, _, cod)) => Some(cod.strip_loc()),
+                    Some(Term::Pi(_, _, _, cod, _)) => Some(cod.strip_loc()),
                     _ => None,
                 };
                 let m = self.metas().new_meta(span);
@@ -586,7 +586,7 @@ impl Elaborator {
             };
             let mut own = 0;
             let mut t = self.kernel.def(id).ty().strip_loc();
-            while let Term::Pi(_, icit, _, cod) = t {
+            while let Term::Pi(_, icit, _, cod, _) = t {
                 own += usize::from(*icit == Icit::Explicit);
                 t = cod.strip_loc();
             }
@@ -1117,7 +1117,7 @@ fn inner_defs(conclusion: &Term) -> usize {
 /// What a type `(x: A) → … → C` concludes: `C`.
 fn conclusion_of(ty: &Term) -> &Term {
     let mut t = ty.strip_loc();
-    while let Term::Pi(_, _, _, cod) = t {
+    while let Term::Pi(_, _, _, cod, _) = t {
         t = cod.strip_loc();
     }
     t
@@ -1131,7 +1131,7 @@ fn defs_named(term: &Term) -> usize {
     let mut count = 0;
     while let Some(term) = pending.pop() {
         match term {
-            Term::Loc(_, t) | Term::Lam(_, _, t) => pending.push(t),
+            Term::Loc(_, t) | Term::Lam(_, _, t, _) => pending.push(t),
             Term::Def(_) => count += 1,
             Term::App(f, a, icit) => {
                 pending.push(f);

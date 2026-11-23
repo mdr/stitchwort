@@ -229,7 +229,7 @@ fn declared_result(cx: &Ctx, e: &Expr) -> Result<Option<Value>> {
     }
     let g = cx.g();
     let mut ty = crate::kernel::def_ty(&g, def)?;
-    while let Value::Pi(_, _, _, cod) = force(&g, ty.clone())? {
+    while let Value::Pi(_, _, _, cod, _) = force(&g, ty.clone())? {
         // A variable no binder in scope has, as in `proposition`.
         ty = cod.apply(&g, Value::var(usize::MAX - 2))?;
     }
@@ -270,7 +270,7 @@ pub(crate) fn proposition(cx: &Ctx, ty: &Value) -> Result<bool> {
     Ok(match force(&g, ty.clone())? {
         Value::Eq(..) => true,
         Value::Data(d, _) => g.data(d).sort() == Sort::Prop,
-        Value::Pi(_, _, _, cod) => {
+        Value::Pi(_, _, _, cod, _) => {
             // A fresh variable no binder in scope has, for the test only.
             proposition(cx, &cod.apply(&g, Value::var(usize::MAX - 2))?)?
         }
@@ -585,7 +585,7 @@ fn project(cx: &Ctx, def: DefId, params: &[Value], level: usize) -> Result<(Term
         ))))
         .collect::<Result<Vec<_>>>()?;
     for (arg, value, icit) in args {
-        let Value::Pi(_, _, _, cod) = force(&g, ty)? else {
+        let Value::Pi(_, _, _, cod, _) = force(&g, ty)? else {
             unreachable!("a projection takes the parameters and the value")
         };
         ty = cod.apply(&g, value)?;

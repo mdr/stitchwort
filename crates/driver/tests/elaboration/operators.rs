@@ -39,7 +39,7 @@ fn raw(g: &stitchwort_core::Ev, t: &Term) -> String {
         Term::Var(i) => format!("#{i}"),
         Term::Def(id) => g.def(*id).path().to_string(),
         Term::Nat(k) => k.to_string(),
-        Term::Lam(_, icit, body) => format!("(fun {}{})", mark(*icit), raw(g, body)),
+        Term::Lam(_, icit, body, _) => format!("(fun {}{})", mark(*icit), raw(g, body)),
         Term::App(f, a, icit) => format!("({} {}{})", raw(g, f), mark(*icit), raw(g, a)),
         Term::Ctor(d, c, args) => {
             let name = &g.data(*d).ctors()[*c].name;
@@ -51,9 +51,9 @@ fn raw(g: &stitchwort_core::Ev, t: &Term) -> String {
             format!("({} {})", g.data(*d).path(), args.join(" "))
         }
         Term::Ann(t, ty) => format!("({} : {})", raw(g, t), raw(g, ty)),
-        Term::Pi(_, icit, a, b) => format!("({}{} -> {})", mark(*icit), raw(g, a), raw(g, b)),
+        Term::Pi(_, icit, a, b, _) => format!("({}{} -> {})", mark(*icit), raw(g, a), raw(g, b)),
         Term::Eq(_, a, b) => format!("({} = {})", raw(g, a), raw(g, b)),
-        Term::Let(_, _, v, b, _) => format!("(let {} in {})", raw(g, v), raw(g, b)),
+        Term::Let(_, _, v, b, _, _) => format!("(let {} in {})", raw(g, v), raw(g, b)),
         other => format!("{other:?}"),
     }
 }

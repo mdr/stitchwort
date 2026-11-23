@@ -842,7 +842,7 @@ fn fin_missing(cx: &Ctx, x: usize, d: DataId, c: usize) -> Result<Option<FinMiss
             value = force(&g, last.clone())?;
         }
         if count > below
-            && let Value::Neutral(Head::Var(l, _), spine) = &value
+            && let Value::Neutral(Head::Var(l, _, _), spine) = &value
             && *l == x
             && spine.is_empty()
         {

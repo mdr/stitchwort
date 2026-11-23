@@ -11,6 +11,7 @@
 //! performs operations, and comes back here if the call itself doesn't.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::value::Closure;
 use stitchwort_core::{Icit, Name, Term, Value};
@@ -123,6 +124,7 @@ fn lambda(cx: &mut Ctx, f: &Expr, piped: Piped) -> Result<(Term, Value)> {
         Icit::Explicit,
         Rc::new(piped.ty.clone()).into(),
         cod.clone(),
+        ProofMark::Unknown,
     );
     let lam = check(cx, f, &pi)?;
     let ty = cod.apply(&g, cx.eval(&piped.term)?)?;

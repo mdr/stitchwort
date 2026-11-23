@@ -33,6 +33,7 @@
 mod inputs;
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use crate::check::quote_internal;
 use stitchwort_core::registry::Builtin;
@@ -332,7 +333,7 @@ impl Elaborator {
         let hash = stitchwort_core::hash::type_hash(g, def).ok()??;
         let mut names = Vec::new();
         let mut written = g.def(def).ty().strip_loc();
-        while let Term::Pi(x, _, _, cod) = written {
+        while let Term::Pi(x, _, _, cod, _) = written {
             names.push(x.to_string());
             written = cod.strip_loc();
         }
@@ -474,7 +475,7 @@ impl Elaborator {
         // names and types, and its conclusion.
         let mut written_binders: Vec<(Name, Term)> = Vec::new();
         let mut written = g.def(def).ty().strip_loc();
-        while let Term::Pi(x, _, dom, cod) = written {
+        while let Term::Pi(x, _, dom, cod, _) = written {
             written_binders.push((x.clone(), (**dom).clone()));
             written = cod.strip_loc();
         }
@@ -488,7 +489,7 @@ impl Elaborator {
         };
         let mut ty = force(g, g.def(def).ty_value().clone()).map_err(|e| e.to_string())?;
         let mut position = 0;
-        while let Value::Pi(x, icit, dom, cod) = ty.clone() {
+        while let Value::Pi(x, icit, dom, cod, _) = ty.clone() {
             let dom = force(g, (*dom).clone()).map_err(|e| e.to_string())?;
             let is_erased = *erased.get(position).ok_or("the telescope changed")?;
             position += 1;
@@ -1069,7 +1070,12 @@ fn assemble(
     let constant = |n: usize, after: usize| -> Term {
         // `_ => _ … => n`: a refutation, then the inputs after it.
         (0..=after).fold(number(n), |body, _| {
-            Term::Lam("_".into(), Icit::Explicit, Rc::new(body))
+            Term::Lam(
+                "_".into(),
+                Icit::Explicit,
+                Rc::new(body),
+                ProofMark::Unknown,
+            )
         })
     };
     let decide = |prop: Term, result: Term, decision: Term, yes: Term, no: Term| {
@@ -1080,7 +1086,8 @@ fn assemble(
         );
         Term::app(Term::app(Term::app(head, decision), yes), no)
     };
-    let lam = |name: Name, body: Term| Term::Lam(name, Icit::Explicit, Rc::new(body));
+    let lam =
+        |name: Name, body: Term| Term::Lam(name, Icit::Explicit, Rc::new(body), ProofMark::Unknown);
     let nat_ty = Term::Data(nat, Vec::new());
     let mut body = decide(
         conclusion,
@@ -1110,6 +1117,7 @@ fn assemble(
                         Icit::Explicit,
                         Rc::new(dom.clone()),
                         Rc::new(cod),
+                        ProofMark::Unknown,
                     )
                 });
                 body = decide(

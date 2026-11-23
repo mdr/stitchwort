@@ -21,6 +21,7 @@ mod let_term;
 mod opaque;
 mod pending;
 mod pretty;
+mod proof_marks;
 mod quot;
 mod rebuild;
 mod record_eta;

@@ -78,7 +78,7 @@ pub(crate) fn unknown_type(cx: &Ctx, expr: &Expr) -> Term {
 }
 
 pub(crate) fn is_var(value: &Value, level: usize) -> bool {
-    matches!(value, Value::Neutral(Head::Var(l, _), s) if *l == level && s.is_empty())
+    matches!(value, Value::Neutral(Head::Var(l, _, _), s) if *l == level && s.is_empty())
 }
 
 /// The variable an unnamed scrutinee names, if it's one a case split hasn't
@@ -1133,7 +1133,7 @@ fn in_place_level(cx: &Ctx, scrutinee: &Term, base: usize) -> Result<Option<usiz
     let g = cx.g();
     Ok(
         match stitchwort_core::value::force(&g, cx.eval(scrutinee)?)? {
-            Value::Neutral(Head::Var(level, _), spine)
+            Value::Neutral(Head::Var(level, _, _), spine)
                 if spine.is_empty()
                     && level < base
                     && is_var(&cx.env[level], level)
@@ -2625,7 +2625,7 @@ fn cannot_occur<'a>(
             return false;
         };
         let mut ty = def.ty().strip_loc();
-        while let Term::Pi(_, _, _, b) = ty {
+        while let Term::Pi(_, _, _, b, _) = ty {
             ty = b.strip_loc();
         }
         match ty {
@@ -3066,10 +3066,10 @@ pub(crate) fn same_shifted(a: &Term, b: &Term, by: usize, cutoff: usize) -> bool
         (Meta(x), Meta(y)) => x == y,
         (Data(d, xs), Data(e, ys)) => d == e && all(xs, ys),
         (Ctor(d, c, xs), Ctor(e, k, ys)) => d == e && c == k && all(xs, ys),
-        (Pi(_, i, a1, b1), Pi(_, j, a2, b2)) => {
+        (Pi(_, i, a1, b1, _), Pi(_, j, a2, b2, _)) => {
             i == j && go(a1, a2, cutoff) && go(b1, b2, cutoff + 1)
         }
-        (Lam(_, i, b1), Lam(_, j, b2)) => i == j && go(b1, b2, cutoff + 1),
+        (Lam(_, i, b1, _), Lam(_, j, b2, _)) => i == j && go(b1, b2, cutoff + 1),
         (App(f1, a1, i), App(f2, a2, j)) => i == j && go(f1, f2, cutoff) && go(a1, a2, cutoff),
         (Ann(e1, t1), Ann(e2, t2)) => go(e1, e2, cutoff) && go(t1, t2, cutoff),
         (Eq(t1, a1, b1), Eq(t2, a2, b2)) => {
@@ -3080,14 +3080,14 @@ pub(crate) fn same_shifted(a: &Term, b: &Term, by: usize, cutoff: usize) -> bool
             };
             types && go(a1, a2, cutoff) && go(b1, b2, cutoff)
         }
-        (J(m1, b1, p1), J(m2, b2, p2)) => {
+        (J(m1, b1, p1, _), J(m2, b2, p2, _)) => {
             go(m1, m2, cutoff) && go(b1, b2, cutoff) && go(p1, p2, cutoff)
         }
         (Proj(d1, i1, t1), Proj(d2, i2, t2)) => d1 == d2 && i1 == i2 && go(t1, t2, cutoff),
-        (Let(_, t1, v1, b1, _), Let(_, t2, v2, b2, _)) => {
+        (Let(_, t1, v1, b1, _, _), Let(_, t2, v2, b2, _, _)) => {
             go(t1, t2, cutoff) && go(v1, v2, cutoff) && go(b1, b2, cutoff + 1)
         }
-        (Quot(f1, xs, _), Quot(f2, ys, _)) => f1 == f2 && all(xs, ys),
+        (Quot(f1, xs, _, _), Quot(f2, ys, _, _)) => f1 == f2 && all(xs, ys),
         // As in `same`.
         (
             Var(_) | Def(_) | Data(..) | Ctor(..) | Nat(_) | Chars(_) | Sort(_) | Pi(..) | Lam(..)
@@ -3344,6 +3344,7 @@ mod tests {
 
     use super::*;
     use crate::Elaborator;
+    use stitchwort_core::ProofMark;
 
     fn span() -> Span {
         let mut sources = SourceMap::new();
@@ -3409,9 +3410,15 @@ mod tests {
             "y".into(),
             Icit::Explicit,
             Rc::new(Term::app(Term::Var(2), Term::Var(1))),
+            ProofMark::Unknown,
         );
         assert!(occurs(&needle, &under));
-        let bound = Term::Lam("y".into(), Icit::Explicit, Rc::new(needle.clone()));
+        let bound = Term::Lam(
+            "y".into(),
+            Icit::Explicit,
+            Rc::new(needle.clone()),
+            ProofMark::Unknown,
+        );
         assert!(!occurs(&needle, &bound));
     }
 
@@ -3427,13 +3434,21 @@ mod tests {
                 QuotForm::Mk,
                 vec![rc(Term::Var(5)), rc(Term::Var(4)), rc(x)],
                 erased,
+                ProofMark::Unknown,
             )
         };
         assert!(same(&mk(Term::Var(0), false), &mk(Term::Var(0), true)));
         assert!(!same(&mk(Term::Var(0), false), &mk(Term::Var(1), false)));
         // `let x: #3 := v; b`, where `b` is under the `let`'s binder.
         let let_ = |v: Term, b: Term, flag: bool| {
-            Term::Let("x".into(), rc(Term::Var(3)), rc(v), rc(b), flag)
+            Term::Let(
+                "x".into(),
+                rc(Term::Var(3)),
+                rc(v),
+                rc(b),
+                flag,
+                ProofMark::Unknown,
+            )
         };
         let needle = let_(Term::Var(0), Term::Var(1), false);
         assert!(same(&needle, &let_(Term::Var(0), Term::Var(1), true)));
@@ -3449,7 +3464,9 @@ mod tests {
                 rc(Term::Var(1)),
                 rc(Term::Var(2)),
                 false,
+                ProofMark::Unknown,
             )),
+            ProofMark::Unknown,
         );
         assert!(occurs(&needle, &shifted));
         let own = let_(Term::Var(0), Term::Var(0), false);
@@ -3462,7 +3479,9 @@ mod tests {
                 rc(Term::Var(1)),
                 rc(Term::Var(0)),
                 false,
+                ProofMark::Unknown,
             )),
+            ProofMark::Unknown,
         );
         assert!(occurs(&own, &own_shifted));
     }

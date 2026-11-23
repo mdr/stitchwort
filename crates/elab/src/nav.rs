@@ -13,6 +13,7 @@
 //! winning.
 
 use std::cell::RefCell;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::registry::Builtin;
@@ -1444,7 +1445,7 @@ impl Elaborator {
         let mut names: Vec<Name> = Vec::new();
         let mut parts: Vec<String> = Vec::new();
         let mut ty = g.def(id).ty().clone();
-        while let Term::Pi(name, icit, dom, cod) = ty.strip_loc() {
+        while let Term::Pi(name, icit, dom, cod, _) = ty.strip_loc() {
             let shown = pretty::term(g, &names, dom);
             // A bare row's divergence index isn't written
             // (docs/proposals/partial-stage-3.md §2.2).
@@ -1485,7 +1486,7 @@ impl Elaborator {
         let mut names: Vec<Name> = Vec::new();
         let mut parts: Vec<String> = Vec::new();
         let mut ty = g.def(id).ty().clone();
-        while let Term::Pi(name, icit, dom, cod) = ty.strip_loc() {
+        while let Term::Pi(name, icit, dom, cod, _) = ty.strip_loc() {
             if name.starts_with("%div.") {
                 names.push(name.clone());
                 ty = (**cod).clone();
@@ -1523,7 +1524,7 @@ impl Elaborator {
         let default = table.params.get(i)?.as_ref()?;
         let mut body: Term = (**g.def(default.helper).body()?).clone();
         let mut names: Vec<Name> = Vec::new();
-        while let Term::Lam(x, _, inner) = body.strip_loc() {
+        while let Term::Lam(x, _, inner, _) = body.strip_loc() {
             names.push(x.clone());
             body = (**inner).clone();
         }
@@ -1540,7 +1541,7 @@ impl Elaborator {
         let mut parts: Vec<String> = Vec::new();
         let mut ty = def.ty().clone();
         while names.len() < table.header {
-            let Term::Pi(name, icit, dom, cod) = ty.strip_loc() else {
+            let Term::Pi(name, icit, dom, cod, _) = ty.strip_loc() else {
                 return None;
             };
             if !name.starts_with("%div.") {
@@ -1608,10 +1609,22 @@ impl Elaborator {
                 let data = g.data(d);
                 let mut ty = Term::Sort(data.sort());
                 for (name, t) in data.indices().iter().rev() {
-                    ty = Term::Pi(name.clone(), Icit::Explicit, t.clone().into(), ty.into());
+                    ty = Term::Pi(
+                        name.clone(),
+                        Icit::Explicit,
+                        t.clone().into(),
+                        ty.into(),
+                        ProofMark::Unknown,
+                    );
                 }
                 for (name, t) in data.params().iter().rev() {
-                    ty = Term::Pi(name.clone(), Icit::Explicit, t.clone().into(), ty.into());
+                    ty = Term::Pi(
+                        name.clone(),
+                        Icit::Explicit,
+                        t.clone().into(),
+                        ty.into(),
+                        ProofMark::Unknown,
+                    );
                 }
                 Some(pretty::term(g, &[], &ty))
             }
@@ -1628,10 +1641,22 @@ impl Elaborator {
                     } else {
                         Icit::Explicit
                     };
-                    ty = Term::Pi(name.clone(), icit, t.clone().into(), ty.into());
+                    ty = Term::Pi(
+                        name.clone(),
+                        icit,
+                        t.clone().into(),
+                        ty.into(),
+                        ProofMark::Unknown,
+                    );
                 }
                 for (name, t) in data.params().iter().rev() {
-                    ty = Term::Pi(name.clone(), Icit::Implicit, t.clone().into(), ty.into());
+                    ty = Term::Pi(
+                        name.clone(),
+                        Icit::Implicit,
+                        t.clone().into(),
+                        ty.into(),
+                        ProofMark::Unknown,
+                    );
                 }
                 Some(pretty::term(g, &[], &ty))
             }
@@ -2509,7 +2534,7 @@ fn not_unfolded(g: &Ev, names: &[Name], ty: &Term) -> Option<String> {
     let mut names = names.to_vec();
     let mut parts: Vec<String> = Vec::new();
     let mut ty = ty.clone();
-    while let Term::Pi(name, icit, dom, cod) = ty.strip_loc() {
+    while let Term::Pi(name, icit, dom, cod, _) = ty.strip_loc() {
         if !name.starts_with('%') {
             let shown = pretty::term(g, &names, dom);
             parts.push(match icit {
@@ -2537,6 +2562,7 @@ fn not_unfolded(g: &Ev, names: &[Name], ty: &Term) -> Option<String> {
         Icit::Explicit,
         (*prop).clone().into(),
         Term::data(void, Vec::new()).into(),
+        ProofMark::Unknown,
     );
     parts.push(pretty::term_not_unfolded(g, &names, &unfolded));
     Some(parts.join(" → "))

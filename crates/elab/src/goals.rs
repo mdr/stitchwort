@@ -18,6 +18,7 @@
 //! an error (`module.rs`); what uses it is unfinished too.
 
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::globals::HashKey;
 use stitchwort_core::globals::State;
@@ -464,7 +465,7 @@ fn stated(
     if !same {
         return None;
     }
-    let own = |l: usize| matches!(&env[l], Value::Neutral(Head::Var(m, _), spine) if *m == l && spine.is_empty());
+    let own = |l: usize| matches!(&env[l], Value::Neutral(Head::Var(m, _, _), spine) if *m == l && spine.is_empty());
     let variable = |l: usize| -> crate::Result<Term> {
         if own(l) {
             return Ok(Term::Var(level - 1 - l));
@@ -642,7 +643,7 @@ fn display_goal(cx: &Ctx) -> Option<Value> {
             return Some(done(under));
         }
         // A thunk of the computation: `() => y`.
-        let Term::Lam(_, icit, body) = t.strip_loc() else {
+        let Term::Lam(_, icit, body, _) = t.strip_loc() else {
             return None;
         };
         let applied_thunk = match (shown.thunk, body.strip_loc()) {
@@ -652,7 +653,14 @@ fn display_goal(cx: &Ctx) -> Option<Value> {
             _ => false,
         };
         (applied_thunk || crate::matching::same_shifted(&shown.computation, body, under + 1, 0))
-            .then(|| Term::Lam("()".into(), *icit, std::rc::Rc::new(done(under + 1))))
+            .then(|| {
+                Term::Lam(
+                    "()".into(),
+                    *icit,
+                    std::rc::Rc::new(done(under + 1)),
+                    ProofMark::Unknown,
+                )
+            })
     };
     let term = crate::lift::replace_with(
         &cx.g(),
@@ -680,7 +688,7 @@ pub(crate) fn is_prop_call(g: &Ev, value: &Value) -> bool {
         return false;
     };
     let mut ty = g.def(*id).ty().strip_loc();
-    while let Term::Pi(_, _, _, cod) = ty {
+    while let Term::Pi(_, _, _, cod, _) = ty {
         ty = cod.strip_loc();
     }
     matches!(ty, Term::Sort(stitchwort_core::Sort::Prop))
@@ -713,7 +721,7 @@ fn hole_of(cx: &Ctx, expected: &Value, named: Option<Value>, error: bool) -> Ter
     let mut applied = Vec::new();
     for (level, value) in cx.env.iter().enumerate() {
         let own =
-            matches!(value, Value::Neutral(Head::Var(l, _), s) if *l == level && s.is_empty());
+            matches!(value, Value::Neutral(Head::Var(l, _, _), s) if *l == level && s.is_empty());
         if own {
             term = Term::app(term, Term::Var(cx.level() - 1 - level));
             applied.push((
@@ -747,7 +755,7 @@ fn hole_of(cx: &Ctx, expected: &Value, named: Option<Value>, error: bool) -> Ter
         Some(d) => {
             let mut binders = 0;
             let mut t = g.def(d).ty().strip_loc();
-            while let Term::Pi(_, _, _, cod) = t {
+            while let Term::Pi(_, _, _, cod, _) = t {
                 binders += 1;
                 t = cod.strip_loc();
             }
@@ -867,7 +875,7 @@ fn scope_entries(
     let mut hidden = Vec::new();
     for (level, value) in env.iter().enumerate() {
         let own =
-            matches!(value, Value::Neutral(Head::Var(l, _), s) if *l == level && s.is_empty());
+            matches!(value, Value::Neutral(Head::Var(l, _, _), s) if *l == level && s.is_empty());
         let is_let = cx.lets[level].is_some();
         let name = &cx.names[level];
         // A variable a case split has replaced by a constructor is gone; a
@@ -1469,7 +1477,7 @@ impl Elaborator {
         patterns: Vec<String>,
     ) -> Vec<String> {
         let g = &self.ev();
-        let is_variable = |v: &Value| matches!(v, Value::Neutral(Head::Var(l, _), spine) if *l == level && spine.is_empty());
+        let is_variable = |v: &Value| matches!(v, Value::Neutral(Head::Var(l, _, _), spine) if *l == level && spine.is_empty());
         let fixed = context.iter().find_map(|h| {
             let Value::Eq(_, a, b) = force(g, h.ty.clone()).ok()? else {
                 return None;
@@ -2575,12 +2583,18 @@ pub(crate) fn close_over(binders: &[SnapBinder], body: Term, ty: Term) -> Term {
     for b in binders.iter().rev() {
         match b {
             SnapBinder::Lam(name, a) => {
-                body = Term::Lam(name.clone(), Icit::Explicit, std::rc::Rc::new(body));
+                body = Term::Lam(
+                    name.clone(),
+                    Icit::Explicit,
+                    std::rc::Rc::new(body),
+                    ProofMark::Unknown,
+                );
                 ty = Term::Pi(
                     name.clone(),
                     Icit::Explicit,
                     std::rc::Rc::new(a.clone()),
                     std::rc::Rc::new(ty),
+                    ProofMark::Unknown,
                 );
             }
             SnapBinder::Let(name, a, v) => {

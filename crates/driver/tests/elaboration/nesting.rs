@@ -9,6 +9,7 @@
 
 use std::process::Command;
 use std::rc::Rc;
+use stitchwort_core::ProofMark;
 
 use stitchwort_core::check as kernel;
 use stitchwort_core::hash::def_hash;
@@ -357,6 +358,7 @@ fn with_deep_definition(depth: usize) -> (Session, DefId) {
             "n".into(),
             stitchwort_core::Icit::Explicit,
             Rc::new(body),
+            ProofMark::Unknown,
         ))));
     (session, id)
 }
@@ -374,7 +376,7 @@ fn with_deep_type(depth: usize) -> (Session, DefId) {
             .position(|d| &**d.name() == "f")
             .unwrap(),
     );
-    let Term::Pi(_, _, nat, _) = g.env.defs()[id.0].ty().strip_loc() else {
+    let Term::Pi(_, _, nat, _, _) = g.env.defs()[id.0].ty().strip_loc() else {
         panic!("a function type")
     };
     let nat = nat.clone();
@@ -385,6 +387,7 @@ fn with_deep_type(depth: usize) -> (Session, DefId) {
         stitchwort_core::Icit::Explicit,
         nat,
         Rc::new(eq),
+        ProofMark::Unknown,
     );
     let value = {
         let ev = g.ev();
@@ -419,7 +422,7 @@ fn deep_terms_in_later_passes() {
             // `check` again: the kernel runs out rather than crashing.
             let _op = g.machine.budget.operation(Limits::default());
             let def = g.def(id);
-            let Term::Lam(_, _, inner) = &**body else {
+            let Term::Lam(_, _, inner, _) = &**body else {
                 panic!("a function")
             };
             let Term::App(f, _, _) = &**inner else {
@@ -433,6 +436,7 @@ fn deep_terms_in_later_passes() {
                 "n".into(),
                 stitchwort_core::Icit::Explicit,
                 Rc::new(located),
+                ProofMark::Unknown,
             );
             let mut cx = kernel::Ctx::new(g, def.span());
             let e = kernel::check(&mut cx, &located, def.ty_value()).unwrap_err();
@@ -507,7 +511,7 @@ fn deep_terms_in_later_passes() {
                 let f = (g.env.defs().iter())
                     .position(|d| &**d.name() == "f")
                     .unwrap();
-                let Term::Pi(_, _, nat, _) = g.env.defs()[id.0].ty().strip_loc() else {
+                let Term::Pi(_, _, nat, _, _) = g.env.defs()[id.0].ty().strip_loc() else {
                     panic!("a function type")
                 };
                 (DefId(f), nat.clone())
