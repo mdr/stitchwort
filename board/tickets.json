@@ -33145,12 +33145,12 @@
     {
       "id": 4665,
       "title": "[Opus] Sealed theorems stage 1 (D3722): seal every theorem by default with no transparent keyword; refuse a theorem in an unfolding list; PrefixSums.atOf edit; rewrite the unfolding-test examples; docs/core.md and guide; Fable review. After SW-4663.",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nD3722 (Matt, 22 Nov 2026): \"Proceed\". Started 23 Nov 10:27 on Opus. Expected: 60 min. Fable review after.\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
       "commits": []
