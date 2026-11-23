@@ -33212,15 +33212,19 @@
     {
       "id": 4669,
       "title": "[Opus] A body with an unfolding list does not unfold its own local def or lifted match, contrary to docs/core.md; its note suggests unfolding t1.helper, which does not parse (on main before sealing; repro u3.sw in SW-4665 review)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nStarted 23 Nov 12:07 on Opus (opaque definitions, kernel-adjacent). Expected: 40 min.\n\n\nProgress (lane, Opus, 23 Nov): cause confirmed: an early-admitted local def / lifted match was opaque with the owner's list but not in the transparency set the body was elaborated under (only added to the owner's list after the body), and a later lifted match's list lacked the earlier helpers, so the kernel refused it (t2). Fix in crates/elab/src/opaque.rs (+ Transparency::insert in core/machine.rs, elaborator-only; kernel rules unchanged): admitted helpers join the current set at once; each helper's list holds the helpers before it. Notes: a hidden local def suggests `unfolding owner`, or for a theorem's local def says only its proof unfolds it. Examples: accept/opaque-unfolding-own-helpers, reject/opaque-note-local-definition(-theorem). docs/core.md updated. Commit 83a1f50b2.\n",
+      "body": "\n\nStarted 23 Nov 12:07 on Opus (opaque definitions, kernel-adjacent). Expected: 40 min.\n\n\nProgress (lane, Opus, 23 Nov): cause confirmed: an early-admitted local def / lifted match was opaque with the owner's list but not in the transparency set the body was elaborated under (only added to the owner's list after the body), and a later lifted match's list lacked the earlier helpers, so the kernel refused it (t2). Fix in crates/elab/src/opaque.rs (+ Transparency::insert in core/machine.rs, elaborator-only; kernel rules unchanged): admitted helpers join the current set at once; each helper's list holds the helpers before it. Notes: a hidden local def suggests `unfolding owner`, or for a theorem's local def says only its proof unfolds it. Examples: accept/opaque-unfolding-own-helpers, reject/opaque-note-local-definition(-theorem). docs/core.md updated. Commit 83a1f50b2.\n\n\nModel result: Opus, worked, 22 min (est. 40).\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
-      "commits": []
+      "commits": [
+        "83a1f50b2",
+        "02b529cad",
+        "2626628e2f6dad56f2bcfba10f9d912e899716e9"
+      ]
     },
     {
       "id": 4670,
