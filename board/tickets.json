@@ -33825,12 +33825,12 @@
     {
       "id": 4707,
       "title": "[Opus] Build: check-cache keys by interface digest, per the design in docs/proposals/interface-digest-cache.md (SW-4706); Fable review after (D3728)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nProgress (SW-4707 lane, Opus, 23 Nov 21:49-22:30): stage A built as docs/proposals/interface-digest-cache.md §6, commit 36ee7bdc0. Step 0: 24 of 138 tools/fmt entries hold a position in another unit's file, all std:core (covered by the stamp); none in another project file; ~1,930 of 5,563 theorems own a lifted %match helper (stage C matters). Tests: check_cache::digest (18), cache::tests rule-4 unit test, existing check_cache:: (51), cache::tests (9), server caching:: (10) pass. Measure script and reviewer notes: docs/reviews/SW-4707-notes.md (verifier runs it: whole-project). Stages B-D not built.\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
       "commits": []
