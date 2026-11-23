@@ -33509,12 +33509,12 @@
     {
       "id": 4689,
       "title": "[Opus] Stage 5 verifier: opaque::opaque_calls_with_different_proofs (irr3 now Ok by rule I), reject/mismatch-hidden-proof-argument.sw now checks (rule I), goals/match-copied-hypothesis-goal snapshot gains W-UNREACHABLE and shows h✝ (check: right or regression)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\nLane notes (Opus, 23 Nov, ~25 min):\n- Goal display: a regression, fixed. `written_motive` (matching.rs) made the arms' statement with the scrutinee abstracted but the copied `h` left as the original; the goal display takes a statement that converts to the goal as the goal, and rule I made original and copy (two proofs) convert, so it printed `h✝ = h✝`. Now copies are mapped as in the motive. The W-UNREACHABLE was already in the old snapshot (not new). Snapshot unchanged.\n- opaque test: irr3 Ok by rule I, comment rewritten.\n- refl-hidden-proof-argument.sw also checked now (not in the verifier's list): both merged into accept/different-hidden-proofs.sw; new reject/{mismatch,refl}-hidden-implicit-argument.sw keep SW-28's bracket notes covered with a data implicit argument.\n- Bracket note reworded (it said a proof the definition computes with can differ): \"(an implicit or instance argument; proofs are never compared)\"; implicit-interface-not-searched snapshot updated by hand.\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
       "commits": []
