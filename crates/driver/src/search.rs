@@ -579,7 +579,9 @@ impl Session {
         // The core's equations, put off until now (`equations.rs`): search
         // lists them like any theorem.
         self.elab.generate_deferred_equations()?;
-        self.import_library_namespaces();
+        if let Some(d) = self.import_library_namespaces().into_iter().next() {
+            return Err(d);
+        }
         if let Scope::Project(namespaces) = scope
             && !namespaces.is_empty()
         {
@@ -771,8 +773,10 @@ impl Session {
     /// …)`), so that a query can say `List.length` or `Map.insert`. `Prop`
     /// and `Type` (`Std.Prop.irrel`) are left out: they lex as sorts, so
     /// they can't be imported, and one name that doesn't parse would refuse
-    /// the whole line.
-    pub fn import_library_namespaces(&mut self) {
+    /// the whole line. The errors of an import that fails: then none
+    /// of the library's names is in scope, so a search refuses (SW-4683:
+    /// `Std.Prop` once read as the sort and silently dropped them all).
+    pub fn import_library_namespaces(&mut self) -> Vec<Diagnostic> {
         let g = &self.elab.ev();
         let tops = (0..g.env.defs().len())
             .map(|i| g.def(stitchwort_core::DefId(i)).path().to_string())
@@ -790,10 +794,14 @@ impl Session {
         namespaces.sort();
         namespaces.dedup();
         if namespaces.is_empty() {
-            return;
+            return Vec::new();
         }
         let imports = format!("import Std ({})\n", namespaces.join(", "));
-        self.add_imports("<search imports>", &imports);
+        // A file that imports a namespace itself gets a warning that it is
+        // imported twice: harmless here.
+        let mut diagnostics = self.add_imports("<search imports>", &imports);
+        diagnostics.retain(|d| d.severity == stitchwort_syntax::Severity::Error);
+        diagnostics
     }
 
     /// Elaborates a pattern, a lowercase name that means nothing in scope

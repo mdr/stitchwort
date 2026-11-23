@@ -272,3 +272,15 @@ fn a_pattern_starting_with_an_auto_binder_finds_the_instance_lemma() {
     let (_, plain) = found("(?x == ?x) = True");
     assert_eq!(plain.as_deref(), Some("Std.DecEq.refl"));
 }
+
+#[test]
+fn the_library_namespace_import_line_imports_cleanly() {
+    with_session(STACK, Session::for_stack, |session| {
+        session.load("search.sw", SOURCE).expect("the file checks");
+        let diagnostics = session.import_library_namespaces();
+        assert!(
+            diagnostics.is_empty(),
+            "the library import line failed: {diagnostics:?}"
+        );
+    });
+}
