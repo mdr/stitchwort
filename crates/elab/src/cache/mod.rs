@@ -9,10 +9,12 @@
 //!   declares, records, interfaces, instances, abilities, the data types'
 //!   owners, why `==`/`show`/`compare` aren't derived, lifted helpers,
 //!   local definitions' keys, tests, warnings, and what code navigation
-//!   recorded. Declarations are referred to by full path and the content
+//!   recorded. Declarations are referred to by full path and the interface
 //!   hash they are expected to have, never by load-order ids, and spans as
 //!   (file, byte range). A navigation target in another unit's file is kept
-//!   by the name of its declaration (§4.3).
+//!   by the name of its declaration (§4.3); any other position in a project
+//!   file outside the unit's own is recorded with the project's sources,
+//!   and the entry misses when they change.
 //! - **Loading is replay** (§5.2): the declarations go to the kernel in the
 //!   order elaborating made them, through its trusted admission
 //!   (`check::admit_trusted_*`), which installs what it checked when the
@@ -27,7 +29,12 @@
 //!   of the library files it needs. For a project namespace: the hash of
 //!   its sources the host gives ([`Elaborator::set_namespace_sources`]: its
 //!   files' names and text, the project's namespaces and `stitchwort.yaml`)
-//!   and the keys of the namespaces it depends on (a Merkle chain). Which
+//!   and, for each namespace it depends on, its interface digest if this
+//!   session wrote or replayed its entry, or else its key, with what
+//!   `import` brings from it (docs/proposals/interface-digest-cache.md). The
+//!   digest is the hash of the entry without sealed theorems' proofs,
+//!   positions, warnings and navigation (`Elaborator::encode_pass`), so a
+//!   proof edit or a comment replays the namespaces above. Which
 //!   library files a namespace loads is only known once it is elaborated,
 //!   so its entry lists them with the key each had, and replay (and a plain
 //!   `check` deciding to leave the namespace out) first compares them
@@ -70,7 +77,7 @@ use stitchwort_core::Kernel;
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::globals::HashKey;
 use stitchwort_core::globals::{Ctor, State};
-use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
+use stitchwort_core::hash::{ContentHash, data_hash, def_hash, has_interface, interface_hash};
 use stitchwort_core::native::Native;
 use stitchwort_core::registry::{Builtin, Home, Kind};
 use stitchwort_core::{DataId, DefId, Ev, Name, Sort, Term};
@@ -88,7 +95,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 43;
+pub const FORMAT: u32 = 44;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -98,6 +105,19 @@ type Dep = (u8, String, ContentHash);
 
 /// A key: a BLAKE3 hash.
 pub type Key = [u8; 32];
+
+/// What the namespaces after a project namespace know of it: its key, and
+/// its interface digest if this session wrote its entry or replayed it from
+/// one (or, for a plain `check` planning what to leave out, found one that
+/// fits). A namespace's key covers each dependency's digest where it has
+/// one, and its key otherwise (docs/proposals/interface-digest-cache.md
+/// §1.2): so a namespace checked with an error or a goal, or not written,
+/// is covered by its text as before.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) struct NamespaceKey {
+    pub(crate) key: Key,
+    pub(crate) digest: Option<Key>,
+}
 
 /// Where entries are kept, by unit (a library file) and key.
 pub trait Store {
@@ -199,6 +219,10 @@ pub struct Stats {
     /// build wrote (`check --recheck`), it means the trusted replay would
     /// have admitted what this kernel refuses. Not counted in `refused`.
     pub refused_on_recheck: usize,
+    /// Namespace entries whose interface digest, computed again with `check
+    /// --recheck`, isn't the one they hold (docs/proposals/interface-digest-cache.md
+    /// §2.4): never expected. Each is also an `E-CACHE-DIGEST` error.
+    pub digest_mismatches: usize,
 }
 
 impl Stats {
@@ -273,6 +297,12 @@ impl Stats {
                 count(self.refused_on_recheck, "entry", "entries")
             );
         }
+        if self.digest_mismatches > 0 {
+            units = format!(
+                "{units}; {} whose interface digest doesn't match",
+                count(self.digest_mismatches, "entry", "entries")
+            );
+        }
         Some(units)
     }
 }
@@ -288,6 +318,9 @@ struct Stamp {
     /// Whether the build elaborated it without anything carried over in
     /// its session: only then can it be an exact hit.
     exact: bool,
+    /// The unit's interface digest ([`Elaborator::interface_digest`]): what
+    /// the keys of the namespaces that use it cover of it.
+    digest: Key,
 }
 
 /// How an entry that opens can be used.
@@ -328,6 +361,18 @@ pub(crate) struct Capture {
     /// how many library files had loaded, and how many segments the
     /// journal had.
     before: Option<Before>,
+    library_loaded: usize,
+    segments: usize,
+}
+
+/// A [`Capture`] once complete, or what a namespace's replay saw (for
+/// `check --recheck` to compute its digest again).
+struct CaptureView<'a> {
+    transaction: &'a Transaction,
+    unit: UnitId,
+    early: &'a [String],
+    needs: &'a Needs,
+    before: &'a Before,
     library_loaded: usize,
     segments: usize,
 }
@@ -710,8 +755,10 @@ impl Elaborator {
     /// and key, its files and library files exist, and the files it
     /// included are as they were.
     pub fn plan_namespace(&mut self, ns: &str, closure: &[String]) -> Option<Vec<Diagnostic>> {
-        let (unit, key) = self.namespace_cache_key(Some(ns), Some(closure))?;
-        self.session.namespace_keys.insert(ns.to_string(), key);
+        let (unit, key) = self.namespace_cache_key(Some(ns), Some(closure), true)?;
+        self.session
+            .namespace_keys
+            .insert(ns.to_string(), NamespaceKey { key, digest: None });
         if self.options.fail_replays_late
             || stitchwort_core::registry::check_complete_core(&self.ev()).is_err()
         {
@@ -728,7 +775,10 @@ impl Elaborator {
             return None;
         };
         let why = match self.plan_entry(&bytes, &key, store.salt()) {
-            Ok(warnings) => {
+            Ok((warnings, digest)) => {
+                // What it will hold, whether it is left out or replayed.
+                let digest = Some(digest);
+                (self.session.namespace_keys).insert(ns.to_string(), NamespaceKey { key, digest });
                 crate::timings::cached_namespace(ns);
                 return Some(warnings);
             }
@@ -738,8 +788,10 @@ impl Elaborator {
         None
     }
 
-    fn plan_entry(&self, bytes: &[u8], key: &Key, salt: [u8; 16]) -> Read<Vec<Diagnostic>> {
-        let (_, _, body) = open(bytes, key, salt)?;
+    /// The warnings and digest of a namespace's entry a plan may leave the
+    /// namespace out with.
+    fn plan_entry(&self, bytes: &[u8], key: &Key, salt: [u8; 16]) -> Read<(Vec<Diagnostic>, Key)> {
+        let (stamp, _, body) = open(bytes, key, salt)?;
         let file_ids: HashMap<String, FileId> = self
             .namespace_file_names()
             .into_iter()
@@ -748,9 +800,58 @@ impl Elaborator {
         let head = self.read_head(body, &file_ids)?;
         self.includes_unchanged(&head.pre)?;
         self.library_unchanged(&head.pre)?;
+        self.foreign_files_unchanged(&head)?;
         let mut warnings = head.pre.warnings;
         warnings.retain(|d| d.code != crate::doc_links::CODE);
-        Ok(warnings)
+        Ok((warnings, stamp.digest))
+    }
+
+    /// Forgets project namespace `ns`'s digest: it is being checked again,
+    /// and has none until its entry is written or replayed.
+    pub(crate) fn forget_namespace_digest(&mut self, ns: &str) {
+        if let Some(&known) = self.session.namespace_keys.get(ns)
+            && known.digest.is_some()
+        {
+            let known = NamespaceKey {
+                digest: None,
+                ..known
+            };
+            self.session.namespace_keys.insert(ns.to_string(), known);
+        }
+    }
+
+    /// What an entry that holds a position in file `id`, which isn't one of
+    /// its unit's own, records of it (rule 4 of
+    /// docs/proposals/interface-digest-cache.md, §1.4): a library file's
+    /// text hash, or for a project file the hash of every namespace's
+    /// sources, so the entry misses when any project file changes, as it
+    /// would have before digests. `None` for a file an entry can't name.
+    fn foreign_file_hash(&self, id: FileId) -> Option<Key> {
+        if self.session.include_locations.get(&id).is_none() {
+            let index = self.library_index()?;
+            let file = index.files.iter().find(|f| f.id == id)?;
+            return Some(*blake3::hash(file.text.as_bytes()).as_bytes());
+        }
+        let mut sources: Vec<(&String, &Key)> = self.session.namespace_sources.iter().collect();
+        sources.sort();
+        let mut h = blake3::Hasher::new();
+        for (ns, source) in sources {
+            h.update(&(ns.len() as u64).to_le_bytes());
+            h.update(ns.as_bytes());
+            h.update(source);
+        }
+        Some(*h.finalize().as_bytes())
+    }
+
+    /// Whether the files outside its unit's own that an entry holds
+    /// positions in are as they were (§1.4).
+    fn foreign_files_unchanged(&self, head: &Head) -> Read<()> {
+        for &(id, hash) in &head.foreign {
+            if self.foreign_file_hash(id) != Some(hash) {
+                return bad("a file it holds a position in changed");
+            }
+        }
+        Ok(())
     }
 
     /// Whether the library files a namespace's entry says it loaded have
@@ -858,11 +959,14 @@ impl Elaborator {
 
     /// The unit and key of project namespace `namespace`, about to be
     /// elaborated with the namespaces `closure` before it, if it may come
-    /// from the cache: every namespace it depends on has a key.
+    /// from the cache: every namespace it depends on has a key. When
+    /// `planning` (a plain `check` deciding what to leave out), every one
+    /// must also have a digest.
     pub(crate) fn namespace_cache_key(
         &self,
         namespace: Option<&str>,
         closure: Option<&[String]>,
+        planning: bool,
     ) -> Option<(String, Key)> {
         if !self.cache_usable() || self.unit.loading_prelude || !self.library_stack_is_empty() {
             return None;
@@ -887,7 +991,32 @@ impl Elaborator {
         part(source);
         for dependency in closure {
             part(dependency.as_bytes());
-            part(self.session.namespace_keys.get(dependency)?);
+            let known = self.session.namespace_keys.get(dependency)?;
+            match known.digest {
+                Some(digest) => {
+                    part(b"digest");
+                    part(&digest);
+                }
+                // A plan only leaves out a namespace whose dependencies
+                // will be as their entries say.
+                None if planning => return None,
+                None => {
+                    part(b"text");
+                    part(&known.key);
+                }
+            }
+            // What `import D (..)` brings, from a pre-pass over `D`'s
+            // syntax: no entry holds it, so no digest covers it.
+            match self.session.project_names.get(dependency) {
+                Some(names) => {
+                    part(b"names");
+                    part(&(names.len() as u64).to_le_bytes());
+                    for name in names {
+                        part(name.as_bytes());
+                    }
+                }
+                None => part(b"no names"),
+            }
         }
         let nav = self.nav_tag();
         Some((format!("ns.{ns}{nav}"), *h.finalize().as_bytes()))
@@ -904,7 +1033,11 @@ impl Elaborator {
         unit: &str,
         key: &Key,
     ) -> (Vec<Diagnostic>, bool) {
-        self.session.namespace_keys.insert(ns.to_string(), *key);
+        // No digest until its entry is replayed or written.
+        let known = |digest| NamespaceKey { key: *key, digest };
+        self.session
+            .namespace_keys
+            .insert(ns.to_string(), known(None));
         let store = self.options.check_cache.clone().expect("a cache is set");
         // Before the replay, so that if it fails part way, the namespace's
         // write-set holds what it did as well as what elaborating does.
@@ -915,8 +1048,23 @@ impl Elaborator {
             && stitchwort_core::registry::check_complete_core(&self.ev()).is_ok()
             && let Some((bytes, hit)) = self.cache_read(&*store, unit, key)
         {
-            match self.replay_namespace(ns, files, closure, &bytes, key, store.salt(), hit) {
-                Ok(mut warnings) => {
+            let replayed = self.replay_namespace(
+                ns,
+                files,
+                closure,
+                &bytes,
+                key,
+                store.salt(),
+                hit,
+                &transaction,
+            );
+            match replayed {
+                Ok((mut warnings, digest)) => {
+                    // Only `E-CACHE-DIGEST` makes a replay report an error.
+                    let mismatch = warnings.iter().any(|d| d.severity == Severity::Error);
+                    if !mismatch {
+                        (self.session.namespace_keys).insert(ns.to_string(), known(Some(digest)));
+                    }
                     self.session.replayed_names.clear();
                     self.session.cache_stats.namespace_hits += 1;
                     if !hit.exact {
@@ -925,7 +1073,17 @@ impl Elaborator {
                     }
                     if hit.recheck {
                         self.session.cache_stats.namespace_rechecked += 1;
-                        keep_rechecked(&*store, unit, key, &bytes, hit);
+                        if mismatch {
+                            // Not kept as confirmed, and this build's own
+                            // entry replaced by one that doesn't open, so
+                            // the next check elaborates the namespace and
+                            // writes it afresh. (An entry another build
+                            // wrote stays in its own file, used only with
+                            // `--carry-over`, which labels it.)
+                            store.write(unit, key, &[]);
+                        } else {
+                            keep_rechecked(&*store, unit, key, &bytes, hit);
+                        }
                     }
                     // Doc links aren't cached: they may point into other
                     // namespaces, which can change without this one's key
@@ -1001,7 +1159,9 @@ impl Elaborator {
                 .cloned()
                 .collect();
             match self.encode_namespace(ns, files, &capture, &cached, key, store.salt()) {
-                Ok(entry) => {
+                Ok((entry, digest)) => {
+                    debug(&format!("{ns}: written, digest {}", hex(&digest)));
+                    (self.session.namespace_keys).insert(ns.to_string(), known(Some(digest)));
                     store.write(unit, key, &entry);
                     self.session.cache_stats.namespace_written += 1;
                 }
@@ -1081,12 +1241,36 @@ impl Elaborator {
         warnings: &[Diagnostic],
         key: &Key,
         salt: [u8; 16],
-    ) -> Result<Vec<u8>, String> {
+    ) -> Result<(Vec<u8>, Key), String> {
         let (Some(before), Some(early), Some(needs)) =
             (&capture.before, &capture.early, &capture.needs)
         else {
             return Err("checking stopped early".to_string());
         };
+        let view = CaptureView {
+            transaction: &capture.transaction,
+            unit: capture.unit,
+            early,
+            needs,
+            before,
+            library_loaded: capture.library_loaded,
+            segments: capture.segments,
+        };
+        self.namespace_parts(ns, files, &view, |unit, before, writes, names, pre| {
+            self.encode(unit, before, writes, names, pre, warnings, key, salt)
+        })
+    }
+
+    /// What a namespace's entry is written from, once it has been
+    /// elaborated or replayed as `capture` saw, handed to `then`.
+    fn namespace_parts<R>(
+        &self,
+        ns: &str,
+        files: &[SourceUnit],
+        capture: &CaptureView<'_>,
+        then: impl FnOnce(&UnitOut, &Before, &WriteSet<'_>, &NamesOut, &PreOut) -> Result<R, String>,
+    ) -> Result<R, String> {
+        let (before, early, needs) = (capture.before, capture.early, capture.needs);
         if self.loaded_library_files().len() != capture.library_loaded {
             return Err("a library file loaded part way through".to_string());
         }
@@ -1095,7 +1279,7 @@ impl Elaborator {
         if (self.session.journal.units_from(capture.segments)).any(|u| u != capture.unit) {
             return Err("a nested unit ran part way through".to_string());
         }
-        let writes = self.write_set(&capture.transaction, |u| u == capture.unit);
+        let writes = self.write_set(capture.transaction, |u| u == capture.unit);
         // The names: each new one is added after those of its short name
         // that were added before it (the followers' order).
         let early_keys: HashSet<&str> = early.iter().map(String::as_str).collect();
@@ -1124,7 +1308,7 @@ impl Elaborator {
                 })
                 .collect()
         };
-        let mut early = early.clone();
+        let mut early = early.to_vec();
         early.sort_by_key(order);
         late.sort_by_key(order);
         // The members it marked: not those of the library files loaded
@@ -1173,7 +1357,7 @@ impl Elaborator {
         if unit.own_files.len() != files.len() {
             return Err("a file without an id".to_string());
         }
-        self.encode(&unit, before, &writes, &names, &pre, warnings, key, salt)
+        then(&unit, before, &writes, &names, &pre)
     }
 
     /// Loads project namespace `ns`, whose files are `files`, from its
@@ -1193,10 +1377,11 @@ impl Elaborator {
         key: &Key,
         salt: [u8; 16],
         hit: Hit,
-    ) -> Result<Vec<Diagnostic>, Miss> {
+        transaction: &Transaction,
+    ) -> Result<(Vec<Diagnostic>, Key), Miss> {
         let early = |Bad(why)| Miss::Early(why);
         let late = |Bad(why)| Miss::Late(why);
-        let (_, deps, body) = open(bytes, key, salt).map_err(early)?;
+        let (stamp, deps, body) = open(bytes, key, salt).map_err(early)?;
         let file_ids: HashMap<String, FileId> = self
             .namespace_file_names()
             .into_iter()
@@ -1204,6 +1389,7 @@ impl Elaborator {
             .collect();
         let mut head = self.read_head(body, &file_ids).map_err(early)?;
         self.includes_unchanged(&head.pre).map_err(early)?;
+        self.foreign_files_unchanged(&head).map_err(early)?;
         // A carried-over entry relies on the content hashes of what it
         // refers to alone (`decode`): a library commit that adds lemmas
         // elsewhere in a file it loads changes none of them (§4.2).
@@ -1253,8 +1439,14 @@ impl Elaborator {
         if self.options.fail_replays_late {
             return Err(Miss::Late("a test made it fail".to_string()));
         }
+        // What `--recheck` computes the digest again against, as
+        // `capture_after_needs` notes it when elaborating.
+        let before = hit.recheck.then(|| {
+            let loaded = self.loaded_library_files().len();
+            (self.snapshot(), loaded, self.session.journal.segments())
+        });
         let d = self.decode(&deps, head, &pre.early).map_err(late)?;
-        let warnings = std::mem::take(&mut pre.warnings);
+        let mut warnings = std::mem::take(&mut pre.warnings);
         let base_defs = self.kernel.env.defs().len();
         self.admit_replayed(&d.defs, &d.datas, &d.bound, &d.rest.tables, false, hit)
             .map_err(late)?;
@@ -1262,7 +1454,42 @@ impl Elaborator {
         self.tables
             .namespace_defs
             .insert(ns.to_string(), base_defs..self.kernel.env.defs().len());
-        Ok(warnings)
+        if let Some((before, library_loaded, segments)) = before {
+            let early: Vec<String> = pre.early.iter().map(|(k, _, _)| k.clone()).collect();
+            let view = CaptureView {
+                transaction,
+                unit: self.session.owners.current(),
+                early: &early,
+                needs: &pre.needs,
+                before: &before,
+                library_loaded,
+                segments,
+            };
+            let again =
+                self.namespace_parts(ns, files, &view, |unit, before, writes, names, pre| {
+                    self.interface_digest(unit, before, writes, names, pre)
+                });
+            if again.as_ref().ok() != Some(&stamp.digest) {
+                // Its terms passed the kernel, but the namespaces after it
+                // were keyed to a digest that doesn't describe it: a digest
+                // that misses something, so never expected. Not undone (its
+                // tables are replayed): an error, so the check fails.
+                let why = again.err().unwrap_or_else(|| "another digest".to_string());
+                debug(&format!("{ns}: the digest doesn't match the entry: {why}"));
+                self.session.cache_stats.digest_mismatches += 1;
+                self.session.failed_namespaces.insert(ns.to_string(), ());
+                warnings.push(Diagnostic::error(
+                    "E-CACHE-DIGEST",
+                    format!(
+                        "`{ns}`'s check-cache entry holds something other than its interface \
+                         digest says, so the namespaces that use it may have been loaded from \
+                         entries they don't fit; check again with `--no-cache`, and report this"
+                    ),
+                ));
+                return Ok((warnings, stamp.digest));
+            }
+        }
+        Ok((warnings, stamp.digest))
     }
 }
 
@@ -1289,6 +1516,8 @@ struct Out<'g> {
     file_ids: HashMap<FileId, usize>,
     /// Why this can't be cached, once something can't be written.
     problem: Option<String>,
+    /// Writing the interface digest's stream, which leaves out positions.
+    digest: bool,
 }
 
 impl Out<'_> {
@@ -1309,8 +1538,10 @@ impl Refs for Out<'_> {
             w.uint(((i as u64) << 1) | 1);
             return;
         }
+        // By interface hash: a theorem is what the entry was made with as
+        // long as its statement is (§1.2).
         let def = self.g.def(id);
-        let hash = match def_hash(self.g, id) {
+        let hash = match interface_hash(self.g, id) {
             Ok(Some(hash)) => hash,
             _ => {
                 self.fail(format!("`{}` has no content hash", def.path()));
@@ -1353,6 +1584,9 @@ impl Refs for Out<'_> {
     }
 
     fn span(&mut self, w: &mut Writer, span: Span) {
+        if self.digest {
+            return;
+        }
         let file = self.file_index(span);
         w.usize(file);
         w.uint(u64::from(span.start));
@@ -1360,6 +1594,9 @@ impl Refs for Out<'_> {
     }
 
     fn span_after(&mut self, w: &mut Writer, span: Span, prev: &mut u32) {
+        if self.digest {
+            return;
+        }
         let file = self.file_index(span);
         w.usize(file);
         w.uint(codec::zigzag(i64::from(span.start) - i64::from(*prev)));
@@ -1390,6 +1627,20 @@ impl Out<'_> {
         }
         file
     }
+}
+
+/// What one pass of [`Elaborator::encode_pass`] wrote: the string table,
+/// the file table (with each file's id), what replay reads first, the node
+/// table, the rest, and the dependencies.
+struct Parts {
+    strings: Vec<String>,
+    files: Vec<String>,
+    file_ids: HashMap<FileId, usize>,
+    pre: Vec<u8>,
+    node_count: usize,
+    nodes: Vec<u8>,
+    rest: Vec<u8>,
+    deps: Vec<Dep>,
 }
 
 /// An entry's parts while it is written: the terms and strings, and the
@@ -1692,8 +1943,14 @@ fn keep_rechecked(store: &dyn Store, unit: &str, key: &Key, bytes: &[u8], hit: H
         compiler: store.compiler().to_string(),
         interface: stamp.interface,
         exact: false,
+        digest: stamp.digest,
     };
     store.write(unit, key, &seal(key, store.salt(), &stamp, &deps, body));
+}
+
+/// A key or digest in hexadecimal, for a debug line.
+fn hex(key: &Key) -> String {
+    key.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 fn debug(what: &str) {
@@ -1771,6 +2028,7 @@ impl Elaborator {
             key,
             salt,
         )
+        .map(|(entry, _)| entry)
     }
 
     /// The entry for a unit that has just loaded without errors, or why it
@@ -1789,7 +2047,111 @@ impl Elaborator {
         warnings: &[Diagnostic],
         key: &Key,
         salt: [u8; 16],
-    ) -> Result<Vec<u8>, String> {
+    ) -> Result<(Vec<u8>, Key), String> {
+        let parts = self.encode_pass(unit, before, writes, names, pre, warnings, false)?;
+        let digest = self.interface_digest(unit, before, writes, names, pre)?;
+        // The files outside the unit's own it holds positions in, with what
+        // they were (rule 4, §1.4): a namespace's digest leaves positions
+        // out, so one that holds a position in another's file misses when
+        // that file changes. A library file's key covers the files it needs.
+        let mut foreign = Vec::new();
+        if !unit.library {
+            let mut ids: Vec<(usize, FileId)> =
+                parts.file_ids.iter().map(|(&id, &i)| (i, id)).collect();
+            ids.sort_by_key(|&(i, _)| i);
+            for (i, id) in ids {
+                if unit.own_files.contains(&id) {
+                    continue;
+                }
+                let Some(hash) = self.foreign_file_hash(id) else {
+                    return Err("a position in a file that can't be named".to_string());
+                };
+                foreign.push((i, hash));
+            }
+        }
+        // The body: strings, files, what replay reads first, terms, then
+        // the rest.
+        let mut body = Writer::default();
+        body.usize(parts.strings.len());
+        for s in &parts.strings {
+            body.str(s);
+        }
+        body.usize(parts.files.len());
+        for file in &parts.files {
+            body.str(file);
+        }
+        body.usize(foreign.len());
+        for (i, hash) in &foreign {
+            body.usize(*i);
+            body.raw(hash);
+        }
+        body.blob(&parts.pre);
+        body.usize(parts.node_count);
+        body.raw(&parts.nodes);
+        body.raw(&parts.rest);
+        let store = self.options.check_cache.as_ref().expect("a cache is set");
+        let stamp = Stamp {
+            kernel: store.kernel().to_string(),
+            compiler: store.compiler().to_string(),
+            interface: self.library_interface(),
+            exact: !self.carried_anything(),
+            digest,
+        };
+        Ok((seal(key, salt, &stamp, &parts.deps, &body.bytes), digest))
+    }
+
+    /// A unit's interface digest (docs/proposals/interface-digest-cache.md
+    /// §1.3): the hash of what [`Self::encode_pass`] writes of it in digest
+    /// mode, which is everything its entry holds except the proofs of its
+    /// sealed theorems, source positions, its warnings and its navigation.
+    fn interface_digest(
+        &self,
+        unit: &UnitOut,
+        before: &Before,
+        writes: &WriteSet<'_>,
+        names: &NamesOut,
+        pre: &PreOut,
+    ) -> Result<Key, String> {
+        let parts = self.encode_pass(unit, before, writes, names, pre, &[], true)?;
+        let mut h = blake3::Hasher::new();
+        let mut part = |bytes: &[u8]| {
+            h.update(&(bytes.len() as u64).to_le_bytes());
+            h.update(bytes);
+        };
+        part(b"stitchwort interface digest");
+        part(&FORMAT.to_le_bytes());
+        part(&(parts.deps.len() as u64).to_le_bytes());
+        for (kind, path, hash) in &parts.deps {
+            part(&[*kind]);
+            part(path.as_bytes());
+            part(&hash.0);
+        }
+        part(&(parts.strings.len() as u64).to_le_bytes());
+        for s in &parts.strings {
+            part(s.as_bytes());
+        }
+        part(&parts.pre);
+        part(&(parts.node_count as u64).to_le_bytes());
+        part(&parts.nodes);
+        part(&parts.rest);
+        Ok(*h.finalize().as_bytes())
+    }
+
+    /// Writes a unit's entry, or (with `digest`) the stream its interface
+    /// digest is the hash of: the same writes, so a part added to entries
+    /// is in the digest unless it is one of the named exclusions, each an
+    /// `if !digest` here or in [`Out`]'s positions.
+    #[allow(clippy::too_many_arguments)]
+    fn encode_pass(
+        &self,
+        unit: &UnitOut,
+        before: &Before,
+        writes: &WriteSet<'_>,
+        names: &NamesOut,
+        pre: &PreOut,
+        warnings: &[Diagnostic],
+        digest: bool,
+    ) -> Result<Parts, String> {
         let g = &self.ev();
         let _op = g.machine.budget.operation(self.options.limits);
         let (defs, datas) = (
@@ -1853,8 +2215,15 @@ impl Elaborator {
                 files: Vec::new(),
                 file_ids: HashMap::default(),
                 problem: None,
+                digest,
             },
-            terms: TermWriter::default(),
+            // By content: the digest mustn't depend on which terms happen
+            // to share memory.
+            terms: if digest {
+                TermWriter::by_content()
+            } else {
+                TermWriter::default()
+            },
             w: Writer::default(),
         };
 
@@ -1873,15 +2242,19 @@ impl Elaborator {
         for key in &pre.equations {
             e.str(key);
         }
-        e.w.usize(pre.library.len());
-        for (path, key) in &pre.library {
-            e.str(path);
-            e.w.raw(key);
-        }
-        e.w.usize(pre.includes.len());
-        for (path, hash) in &pre.includes {
-            e.str(path);
-            e.w.raw(hash);
+        // Not in the digest: each dependant compares the library files in
+        // its reach itself, and what an `include` read is in the terms.
+        if !digest {
+            e.w.usize(pre.library.len());
+            for (path, key) in &pre.library {
+                e.str(path);
+                e.w.raw(key);
+            }
+            e.w.usize(pre.includes.len());
+            for (path, hash) in &pre.includes {
+                e.str(path);
+                e.w.raw(hash);
+            }
         }
         e.w.usize(names.early.len());
         for (k, follower) in &names.early {
@@ -1894,7 +2267,8 @@ impl Elaborator {
         }
         // The warnings, in the order they are reported: here, so that a
         // plain `check` can report a namespace it doesn't load from its
-        // head alone (SW-1193).
+        // head alone (SW-1193). The unit's own messages: not in the digest
+        // (`warnings` is empty then).
         e.w.usize(warnings.len());
         for d in warnings {
             if d.severity != Severity::Warning {
@@ -1934,7 +2308,16 @@ impl Elaborator {
             }
             e.span(def.span());
             e.term(def.ty());
-            e.term(def.body().expect("checked above"));
+            // A sealed theorem's proof is never read by another unit
+            // (docs/core.md, opaque definitions, rule 6): not in the digest,
+            // exactly when references to it hash as its statement alone.
+            let sealed = digest && has_interface(g, id);
+            if digest {
+                e.w.bool(sealed);
+            }
+            if !sealed {
+                e.term(def.body().expect("checked above"));
+            }
             let group = def
                 .group()
                 .as_ref()
@@ -1951,7 +2334,11 @@ impl Elaborator {
             if let Some(run) = def.own_run_body() {
                 e.term(run);
             }
-            e.hash(def_hash(g, id));
+            e.hash(if digest {
+                interface_hash(g, id)
+            } else {
+                def_hash(g, id)
+            });
         }
         e.w.usize(datas.len());
         for d in datas.clone().map(DataId) {
@@ -2069,9 +2456,11 @@ impl Elaborator {
                 self.encode_extensions(e, unit)
             })?;
 
-        // What code navigation recorded in the unit's files.
+        // What code navigation recorded in the unit's files: positions in
+        // them, read from the unit's own entry; not in the digest.
         let own = |file: &FileId| unit.own_files.contains(file);
         match (&self.present.nav, before.nav) {
+            _ if digest => {}
             (Some(nav), Some((locals, binders, outline, params, named))) => {
                 let nav = nav.borrow();
                 if !nav.pending.is_empty() || nav.outline.len() != outline {
@@ -2224,29 +2613,17 @@ impl Elaborator {
         if let Some(problem) = e.out.problem {
             return Err(problem);
         }
-        // The body: strings, files, what replay reads first, terms, then
-        // the rest.
-        let mut body = Writer::default();
-        body.usize(e.terms.strings.len());
-        for s in &e.terms.strings {
-            body.str(s);
-        }
-        body.usize(e.out.files.len());
-        for file in &e.out.files {
-            body.str(file);
-        }
-        body.blob(&pre_bytes);
-        body.usize(e.terms.node_count());
-        body.raw(&e.terms.nodes.bytes);
-        body.raw(&e.w.bytes);
-        let store = self.options.check_cache.as_ref().expect("a cache is set");
-        let stamp = Stamp {
-            kernel: store.kernel().to_string(),
-            compiler: store.compiler().to_string(),
-            interface: self.library_interface(),
-            exact: !self.carried_anything(),
-        };
-        Ok(seal(key, salt, &stamp, &e.out.deps, &body.bytes))
+        let node_count = e.terms.node_count();
+        Ok(Parts {
+            strings: e.terms.strings,
+            files: e.out.files,
+            file_ids: e.out.file_ids,
+            pre: pre_bytes,
+            node_count,
+            nodes: e.terms.nodes.bytes,
+            rest: e.w.bytes,
+            deps: e.out.deps,
+        })
     }
 
     fn encode_extensions(&self, e: &mut Encoding, unit: &UnitOut) {
@@ -2277,6 +2654,7 @@ fn seal(key: &Key, salt: [u8; 16], stamp: &Stamp, deps: &[Dep], body: &[u8]) -> 
     w.str(&stamp.compiler);
     w.raw(&stamp.interface);
     w.u8(u8::from(stamp.exact));
+    w.raw(&stamp.digest);
     w.usize(deps.len());
     for (kind, path, hash) in deps {
         w.u8(*kind);
@@ -2322,6 +2700,7 @@ fn open<'a>(bytes: &'a [u8], key: &Key, salt: [u8; 16]) -> Read<(Stamp, Vec<Dep>
             1 => true,
             _ => return bad("a stamp that is neither exact nor carried over"),
         },
+        digest: r.array::<32>()?,
     };
     let n = r.count(34)?;
     let mut deps = Vec::with_capacity(n);
@@ -2678,6 +3057,9 @@ struct Head<'a> {
     r: Reader<'a>,
     strings: Vec<Name>,
     files: Vec<FileId>,
+    /// The files outside the unit's own it holds positions in, with what
+    /// each was ([`Elaborator::foreign_file_hash`]).
+    foreign: Vec<(FileId, Key)>,
     pre: Pre,
 }
 
@@ -2712,6 +3094,14 @@ impl Elaborator {
                 Some(&id) => files.push(id),
                 None => return bad(format!("no file `{name}`")),
             }
+        }
+        let n = r.count(33)?;
+        let mut foreign = Vec::with_capacity(n);
+        for _ in 0..n {
+            let Some(&id) = files.get(r.usize()?) else {
+                return bad("a file out of range");
+            };
+            foreign.push((id, r.array::<32>()?));
         }
         let pre_bytes = r.blob()?;
         let mut body = Body {
@@ -2777,6 +3167,7 @@ impl Elaborator {
             r,
             strings: body.terms.strings,
             files: body.refs.files,
+            foreign,
             pre,
         })
     }
@@ -2789,7 +3180,7 @@ impl Elaborator {
         let _op = g.machine.budget.operation(self.options.limits);
 
         // The dependencies: each path names one final declaration, with the
-        // hash it had when the entry was written.
+        // interface hash it had when the entry was written.
         self.session.paths.borrow_mut().sync(g.env);
         let paths = self.session.paths.borrow();
         let mut ext_defs = vec![DefId(usize::MAX); deps.len()];
@@ -2798,7 +3189,7 @@ impl Elaborator {
             let found = match kind {
                 0 => paths.unique_def(path).map(DefId).and_then(|id| {
                     ext_defs[i] = id;
-                    def_hash(g, id).ok().flatten()
+                    interface_hash(g, id).ok().flatten()
                 }),
                 1 => paths.unique_data(path).map(DataId).and_then(|id| {
                     ext_datas[i] = id;
@@ -3867,10 +4258,42 @@ pub use dump::canonical_dump;
 #[cfg(test)]
 mod tests {
     use stitchwort_core::ProofMark;
+    use stitchwort_core::collections::HashMap;
     use stitchwort_core::registry::Builtin;
 
     use super::state;
     use crate::Elaborator;
+
+    /// Rule 4 (docs/proposals/interface-digest-cache.md §1.4): a position an
+    /// entry holds in a project file outside its unit's own is recorded with
+    /// every namespace's sources, so the entry stops fitting when any of
+    /// them changes, though the digests leave positions out.
+    #[test]
+    fn a_position_in_another_namespaces_file_stops_fitting_when_a_source_changes() {
+        let mut e = Elaborator::new();
+        let mut sources = stitchwort_syntax::SourceMap::new();
+        let file = sources.add("src/A.sw", "namespace A\n");
+        e.set_include_location(file, "src/A.sw".to_string());
+        let set = |e: &mut Elaborator, a: u8| {
+            let sources = [("A".to_string(), [a; 32]), ("B".to_string(), [9; 32])];
+            e.set_namespace_sources(HashMap::from_iter(sources));
+        };
+        set(&mut e, 1);
+        let head = super::Head {
+            r: super::Reader::new(&[]),
+            strings: Vec::new(),
+            files: vec![file],
+            foreign: vec![(file, e.foreign_file_hash(file).expect("a project file"))],
+            pre: super::Pre::default(),
+        };
+        assert!(e.foreign_files_unchanged(&head).is_ok());
+        set(&mut e, 2);
+        assert!(e.foreign_files_unchanged(&head).is_err());
+        assert_eq!(
+            e.foreign_file_hash(stitchwort_syntax::FileId::SCRATCH),
+            None
+        );
+    }
 
     /// A namespace's entry that says it binds built-ins is refused before
     /// anything reaches the kernel (only a library file's declarations are

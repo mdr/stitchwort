@@ -232,7 +232,7 @@ fn def_hash_in(g: &Ev, id: DefId, mode: Mode) -> Result<Option<ContentHash>> {
 /// theorem with a proof. An assumption (a `?` goal, or the stand-in for a
 /// theorem whose proof failed) is referred to by its own hash, whose tag
 /// says what it is, so a failed proof still changes every user's hash.
-fn has_interface(g: &Ev, id: DefId) -> bool {
+pub fn has_interface(g: &Ev, id: DefId) -> bool {
     let def = g.def(id);
     def.theorem && def.state == State::Final && def.body.is_some() && def.assumption().is_none()
 }

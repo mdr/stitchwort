@@ -65,7 +65,7 @@ pub struct Session {
     /// namespace's key once worked out (the keys of its dependencies are
     /// part of it). The sources are set whole, and shared with the marks.
     pub(crate) namespace_sources: Arc<HashMap<String, cache::Key>>,
-    pub(crate) namespace_keys: Logged<String, cache::Key>,
+    pub(crate) namespace_keys: Logged<String, cache::NamespaceKey>,
     /// The project namespaces whose last check had an error. A namespace
     /// that uses one is checked but not stored: its key would be keyed to
     /// the broken source, and writing it would evict the healthy entry, so
@@ -413,7 +413,7 @@ pub(crate) struct Positions {
 /// journal is in the session too.
 pub(crate) struct SessionLogs<'a> {
     include_locations: &'a mut Logged<FileId, String>,
-    namespace_keys: &'a mut Logged<String, cache::Key>,
+    namespace_keys: &'a mut Logged<String, cache::NamespaceKey>,
     failed_namespaces: &'a mut Logged<String, ()>,
 }
 

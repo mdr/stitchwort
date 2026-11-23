@@ -41,7 +41,8 @@ The design in five rules:
 5. **Reliance is never cached**: which goals and axioms a result relies on stays a walk over
    the live proofs at report time, as SW-4701 left it.
 
-Stages: **A** project namespaces (the measure above); **B** standard library files; **C**
+Stages: **A** project namespaces (the measure above; **built**, SW-4707: see "As built
+(stage A)" at the end); **B** standard library files; **C**
 leave out helpers that only a proof can reach, so edits that add or remove a `match` inside a
 proof also cut off; **D** (Matt's decision, section 7) a namespace with an open goal inside a
 proof keeps its digest, so working on a `?` doesn't re-check what's above it.
@@ -309,8 +310,13 @@ it wouldn't, and its terms admitted unchecked. The nets:
 - The differential tests' count of replays the kernel refused, as now.
 - **New, recommended:** `check --recheck` (it exists: every entry's terms go back through
   the kernel, `mod.rs:295-307`) also recomputes each replayed entry's digest and fails
-  loudly on a mismatch. And one differential test that, for a project, edits each proof in
-  turn and compares a cached check with `--no-cache` (below). A sampled re-check in normal
+  loudly on a mismatch. That catches an altered header, a replay that doesn't rebuild a
+  part the digest covers, and a digest function that differs from the one that wrote the
+  entry. It **cannot** catch a digest that leaves out something a dependant reads: the
+  recomputation leaves it out too (SW-4707's Fable review, finding 2). Only the
+  differential tests and the rolling `--no-cache` check catch that. Hence also one
+  differential test that, for a project, edits each proof in turn and compares a cached
+  check with `--no-cache` (below). A sampled re-check in normal
   runs isn't worth it: `--no-cache` in the rolling check covers the same ground.
 
 ## 3. What the user sees
@@ -467,3 +473,76 @@ is implementation.
   checked" **[not verified whether any project has one below other namespaces; step 0]**.
 - **Stage B's load-then-compare** order needs the replay and elaborate paths to load the
   same library files (1.5) **[not verified]**.
+
+## As built (stage A)
+
+SW-4707 (Opus, 23 Nov 2026). Built as section 6 says, with these choices and findings.
+
+**Step 0, before** (read from `tools/fmt/.stitchwort/cache/check` in the main checkout,
+the 138 namespace entries of build `2e82891820f8…`, FORMAT 43, written 21 Nov without
+navigation; script `files_table.py`, kept with the lane's notes):
+
+- *Entries holding a position in another unit's file:* 24 of 138, and every one of them in
+  `std:core` only, whose text the stamp's library index already covers. **None holds a
+  position in another project file.** With navigation: there are no `+nav` entries in that
+  cache, so not measured; in the tests, navigation's targets in another namespace's file
+  (declarations, a record's fields) are kept by name and replay matches a fresh check
+  (`a_moved_record_below_replays_what_navigates_to_it`). So the first count is small and
+  rule 4 was built as written.
+- *Lifted helpers owned by theorems:* 4,996 `%match` helpers (and about 50 of other kinds)
+  whose owner's short name is one of the 5,563 theorems in `tools/fmt/src`; about 1,930
+  theorems own at least one, a third of them **[estimated: matched by short name, from the
+  entries' string tables]**. An edit inside such a proof that doesn't touch its `match`
+  keeps the helper and the digest; one that adds, removes or changes the `match` doesn't
+  (stage C).
+- *Namespaces never cached:* not counted: it needs a whole-project check with
+  `STITCHWORT_CACHE_DEBUG`, which the measure script below runs and keeps.
+
+**Measure** (step 7): `measure.sh BINARY CHECKOUT` (in docs/reviews/SW-4707-notes.md)
+warms a fresh cache directory on `tools/fmt`, makes the line-32
+edit, checks again with `--timings` and puts the file back; it prints namespaces
+elaborated and from the cache, and wall time, for main's binary and the lane's. Run by the
+verifier, not the lane. **[measured by the orchestrator, 23 Nov 2026]**: after the edit,
+main's binary re-checked about 54 namespaces in 31.0 s; this one re-checked
+`Fmt.SpellProofs` alone, 5.3 s. Cold 115 s (main) and 117 s (this); warm about 2.9 s
+both.
+
+**Choices beyond the text** (none changes what an entry is trusted for):
+
+- *One encoder, two passes*, rather than a second writer beside the first: `encode_pass`
+  runs once for the entry and once in digest mode, in which `Out`'s span writes do nothing
+  and each other exclusion is an `if !digest` (the library-file and `include` records, the
+  warnings, a sealed body, the navigation section). Same default-include property; it
+  costs a second encoding without navigation **[not measured]**.
+- *The digest pass's node table is by content* (`TermWriter::by_content`): equal terms are
+  one node whatever memory they share, so the digest can't depend on sharing, and
+  `--recheck` can compute it again from decoded terms. A body left out is marked by a
+  flag, so a sealed theorem and a stand-in can't write the same stream. Own declarations
+  write their `interface_hash`.
+- *Rule 4 for a project file* records the hash of every namespace's sources rather than
+  that one file's text, which the elaborator doesn't have (the host gives hashes per
+  namespace): such an entry misses when any project source changes, which is coarser than
+  needed. A library file's position records that file's text hash. `W-MODULE-NAME` is a
+  construct that needs it (its warning labels a type definition in the namespace it
+  comes from; found by the Fable review): tested end to end
+  (`a_warning_pointing_into_the_edited_file_checks_what_holds_it_again`) and at the unit
+  level (`cache::tests::a_position_in_another_namespaces_file_…`).
+- *A plan declines* when a dependency has no digest (`namespace_cache_key(.., planning)`):
+  such a dependency is loaded anyway, so nothing that would have been left out is loaded.
+- *`check --recheck` and a mismatch*: the replay is complete by then (its tables are in),
+  so it isn't undone; the namespace gets `E-CACHE-DIGEST`, is counted in
+  `Stats::digest_mismatches` and gets no digest, so the check fails. The entry isn't kept
+  as re-checked, and this build's own is replaced by one that doesn't open, so the next
+  check elaborates the namespace again. A test pins two digests of a fixed project, failing
+  with "bump `FORMAT`" when the digest's meaning changes.
+- *Library files' entries* also carry a digest in their header (so stage B needn't change
+  the format) and record dependencies by interface hash; their keys are unchanged.
+- *A digest is forgotten* when a namespace is checked without the cache path at all
+  (`module.rs`), so its dependants fall back to its key.
+
+**Found while building:** a proof that starts using a declaration that comes *later* in its
+namespace changes the order the namespace's declarations are made in, and so its digest
+(own declarations are referred to by position): measured on a two-namespace project, where
+moving the used declaration first kept the digest. Costs cut-off, not soundness; stage C's
+"by path, not position" would fix it.
+
