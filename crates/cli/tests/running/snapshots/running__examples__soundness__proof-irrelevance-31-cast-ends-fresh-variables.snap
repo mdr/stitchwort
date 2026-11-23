@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-REFL] Error: `byComputing` can't prove this
+    ╭─[ soundness/proof-irrelevance-31-cast-ends-fresh-variables.sw:12:3 ]
+    │
+ 12 │   byComputing
+    │   ─────┬─────  
+    │        ╰─────── `castFn (z => z) (z => v) h 7` and `7` aren't equal
+    │ 
+    │ Note 1: computing the left side gives `J (y e => Nat) 7 h`
+    │ 
+    │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
+────╯

@@ -1165,6 +1165,19 @@ fn infer_j(
     let base = check(cx, base, &base_ty)?;
     let proof_value = cx.eval(&proof)?;
     let result = apply(&g, apply(&g, motive_value, (*y).clone())?, proof_value)?;
+    // A cast into data carries its ends on its proof, `(p : x = y)`, for
+    // rule K (docs/core.md, "The equality rule"); one already annotated
+    // with its equation (checked again, or written so) keeps that.
+    let proof = if result_mark == ProofMark::NotProof && Term::j_ends(&proof).is_none() {
+        let eq = Term::Eq(
+            Some(Rc::new(cx.quote_kept(&ty)?)),
+            Rc::new(cx.quote_kept(&x)?),
+            Rc::new(cx.quote_kept(&y)?),
+        );
+        Term::Ann(Rc::new(proof), Rc::new(eq))
+    } else {
+        proof
+    };
     Ok((
         Term::J(Rc::new(motive), Rc::new(base), Rc::new(proof), result_mark),
         result,
@@ -1184,7 +1197,15 @@ fn infer_proj(cx: &mut Ctx, d: DataId, i: usize, t: &Term) -> Result<(Term, Valu
     let Some(data) = g.env.datas().get(d.0) else {
         return Err(malformed(cx, "reference to an unknown data type"));
     };
-    if !data.eta {
+    // Rule S's stand-in for a field of a proof (docs/core.md, "The equality
+    // rule") reads back as a projection: a proposition with one
+    // constructor, no indices and only proof fields has one too, which
+    // takes a proof out of a proof.
+    let proof_record = data.sort == Sort::Prop
+        && data.ctors.len() == 1
+        && data.indices.is_empty()
+        && data.ctors[0].field_sorts.iter().all(|s| *s == Sort::Prop);
+    if !data.eta && !proof_record {
         return Err(malformed(
             cx,
             format!("`{}` has no eta, so it has no projections", data.name),

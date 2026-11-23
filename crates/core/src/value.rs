@@ -522,10 +522,68 @@ pub enum Elim {
         base: Box<Value>,
         /// The term's: whether the result is a proof.
         result: ProofMark,
+        /// A cast into data whose term carries its ends ([`Term::j_ends`]):
+        /// them, which didn't meet when it was evaluated (rule K).
+        ends: Option<Box<Ends>>,
     },
     /// Field `i` of a value of data type `DataId`, which has eta
     /// ([`Term::Proj`]): stuck because the value is unknown.
     Proj(DataId, usize),
+}
+
+/// The two ends of a cast into data, `x` and `y` of its proof's `x = y`,
+/// and their type (docs/core.md, "The equality rule", rule K). A cast whose
+/// ends are equal is its base, whatever its proof; one whose ends differ is
+/// stuck, and two stuck casts are compared by these, the motive and the
+/// base, never by their proofs (docs/proposals/full-proof-irrelevance-audit.md,
+/// finding B).
+#[derive(Clone, Debug)]
+pub struct Ends {
+    pub ty: Value,
+    pub x: Value,
+    pub y: Value,
+}
+
+/// The first level of the range that comparisons started by evaluation
+/// make their fresh variables in (rule K's test, [`ends_meet`]). No context
+/// reaches it, so a fresh variable there never names a free variable of the
+/// values compared (docs/proposals/full-proof-irrelevance-audit.md, finding
+/// A: with `v5` free, comparing `z => z` with `z => v5` at level 5 would
+/// answer "equal").
+pub const RESERVED_LEVELS: usize = 1 << 40;
+
+/// How far each test in progress may go under binders before a nested one
+/// (a cast met while comparing the ends of another) starts its own levels.
+const LEVELS_PER_TEST: usize = 1 << 24;
+
+/// Whether the ends of a cast into data are equal, so the cast is its base
+/// (rule K). Read-only: a comparison ([`conv`]), never the unifier, so it
+/// solves nothing and leaves nothing to undo (the audit's condition G). An
+/// unsolved unknown in either end is compared as itself, so a cast waiting
+/// on one stays stuck until something inspects it again after it's solved.
+pub fn ends_meet(g: &Ev, ends: &Ends) -> Result<bool> {
+    let same = meet_in_evaluation(g, &ends.x, &ends.y)?;
+    if same {
+        proof_counts::record(g, proof_counts::Kind::CastFired, 1);
+    }
+    Ok(same)
+}
+
+/// Whether `x` and `y`, of one type, are equal, compared where evaluation
+/// has no count of the variables in scope (rules K and S): read-only, with
+/// fresh variables from the reserved range ([`RESERVED_LEVELS`]).
+fn meet_in_evaluation(g: &Ev, x: &Value, y: &Value) -> Result<bool> {
+    struct Restore<'a>(&'a std::cell::Cell<usize>, usize);
+    impl Drop for Restore<'_> {
+        fn drop(&mut self) {
+            self.0.set(self.1);
+        }
+    }
+    let used = g.machine.cast_levels.get();
+    let level = RESERVED_LEVELS + used;
+    let _restore = Restore(&g.machine.cast_levels, used);
+    g.machine.cast_levels.set(used + LEVELS_PER_TEST);
+    conv_with(g, level, x, y, &mut CallMemo::default(), Mode::Normal)
 }
 
 /// The eliminations applied to a neutral value's head, in order: shared, so
@@ -758,9 +816,15 @@ fn take_elims(elims: Rc<Elims>, pending: &mut Vec<Value>) {
     for elim in elims {
         match elim {
             Elim::App(v, _) => pending.push(v),
-            Elim::J { motive, base, .. } => {
+            Elim::J {
+                motive, base, ends, ..
+            } => {
                 pending.push(*motive);
                 pending.push(*base);
+                if let Some(ends) = ends {
+                    let Ends { ty, x, y } = *ends;
+                    pending.extend([ty, x, y]);
+                }
             }
             Elim::Proj(..) => {}
         }
@@ -1256,10 +1320,11 @@ enum Frame {
         env: Env,
         head: Head,
         spine: Spine,
+        ends: Option<Box<Ends>>,
     },
-    /// The base of a stuck `J`: its head, spine and motive. (Boxed: it's the
-    /// largest frame, and rare.)
-    JBase(Box<(Head, Spine, Value, ProofMark)>),
+    /// The base of a stuck `J`: its head, spine, motive and ends. (Boxed:
+    /// it's the largest frame, and rare.)
+    JBase(Box<StuckJ>),
     /// The quotient argument of the `Quot.lift` `term` (forced next). With
     /// `stuck`, the lift is a leaf of that definition's case tree.
     LiftQuotient {
@@ -1358,6 +1423,10 @@ struct FieldOf {
     call: Spine,
     then: FieldUse,
 }
+
+/// A stuck `J` waiting for its base: the head and spine of its proof, its
+/// motive, its result's mark and its ends.
+type StuckJ = (Head, Spine, Value, ProofMark, Option<Box<Ends>>);
 
 /// An elimination of a stuck field of a call that computes the field first.
 enum FieldUse {
@@ -2100,12 +2169,9 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             unfold_field_for(g, stack, value, FieldUse::J { term, env })?
         }
         Frame::JForced { term, env } | Frame::JReady { term, env } => {
-            let Term::J(motive, base, _, result) = &*term else {
+            let Term::J(motive, base, proof, result) = &*term else {
                 unreachable!("a `JForced` frame is for `J`")
             };
-            if *result == ProofMark::NotProof && matches!(value, Value::Neutral(..)) {
-                proof_counts::record(g, proof_counts::Kind::StuckCastIntoData, 1);
-            }
             match value {
                 Value::Refl => Control::Eval(base.clone(), env),
                 // Every closed proof of an equation is `refl` (`erase.rs`).
@@ -2114,6 +2180,28 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                     Control::Eval(base.clone(), env)
                 }
                 Value::Neutral(head, spine) => {
+                    // Rule K: a cast into data whose ends are equal is its
+                    // base, whatever its proof (which is never looked at).
+                    let ends = match Term::j_ends(proof) {
+                        // Only the kernel puts ends on a `J`, and only on
+                        // one into data; the elaborator's copies of it may
+                        // not know the mark.
+                        Some((ty, x, y)) if *result != ProofMark::Proof => {
+                            let ends = Ends {
+                                ty: eval(g, &env, ty)?,
+                                x: eval(g, &env, x)?,
+                                y: eval(g, &env, y)?,
+                            };
+                            if ends_meet(g, &ends)? {
+                                return Ok(Control::Eval(base.clone(), env));
+                            }
+                            Some(Box::new(ends))
+                        }
+                        _ => None,
+                    };
+                    if *result == ProofMark::NotProof {
+                        proof_counts::record(g, proof_counts::Kind::StuckCastIntoData, 1);
+                    }
                     let motive = motive.clone();
                     push(
                         g,
@@ -2123,6 +2211,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                             env: env.clone(),
                             head,
                             spine,
+                            ends,
                         },
                     )?;
                     Control::Eval(motive, env)
@@ -2211,6 +2300,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             env,
             head,
             spine,
+            ends,
         } => {
             let Term::J(_, base, _, result) = &*term else {
                 unreachable!("a `JMotive` frame is for `J`")
@@ -2218,16 +2308,17 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             push(
                 g,
                 stack,
-                Frame::JBase(Box::new((head, spine, value, *result))),
+                Frame::JBase(Box::new((head, spine, value, *result, ends))),
             )?;
             Control::Eval(base.clone(), env)
         }
         Frame::JBase(stuck) => {
-            let (head, mut spine, motive, result) = *stuck;
+            let (head, mut spine, motive, result, ends) = *stuck;
             spine.push(Elim::J {
                 motive: Box::new(motive),
                 base: Box::new(value),
                 result,
+                ends,
             });
             Control::Return(Value::Neutral(head, spine))
         }
@@ -2381,8 +2472,15 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                     project(*d, *i, value)
                 }
                 Elim::Proj(d, i) => project(*d, *i, unfolded.unwrap_or(value)),
-                Elim::J { base, .. } => match unfolded.unwrap_or(value) {
+                Elim::J { base, ends, .. } => match unfolded.unwrap_or(value) {
                     Value::Refl => (**base).clone(),
+                    // Rule K, again: an unknown in the ends may have been
+                    // solved since.
+                    Value::Neutral(..)
+                        if ends.as_deref().map(|e| ends_meet(g, e)).transpose()? == Some(true) =>
+                    {
+                        (**base).clone()
+                    }
                     Value::Neutral(head, mut s) => {
                         s.push(elim.clone());
                         Value::Neutral(head, s)
@@ -2559,6 +2657,16 @@ fn branch(
             let k = g.data(*d).ctors[0].fields.len();
             (0, eta_fields(g, *d, k, scrutinee, n)?)
         }
+        // Rule S (docs/core.md, "The equality rule"): a `case` producing
+        // data on a proof of a proposition with one constructor takes its
+        // branch whatever the proof, each field (a proof too) bound to that
+        // field of the proof. `E-PROP-ELIM` allowed the match, so the
+        // constructor has only proof fields and doesn't mention its type.
+        n @ Value::Neutral(..) if one_shape(g, *d, &stuck, &env, tree_var(&tree))? => {
+            proof_counts::record(g, proof_counts::Kind::OneShapeFired, 1);
+            let k = g.data(*d).ctors[0].fields.len();
+            (0, (0..k).map(|i| project(*d, i, n.clone())).collect())
+        }
         other => match reread_sum(g, &other, &mut Unread::default())? {
             Some(value) => return branch(g, tree, env, stuck, value),
             None => {
@@ -2580,6 +2688,86 @@ fn branch(
     };
     env.extend(fields);
     Ok(Control::Tree(body, env, stuck))
+}
+
+/// The variable a `case` node matches on.
+fn tree_var(tree: &Term) -> usize {
+    match tree {
+        Term::Case(ix, ..) => *ix,
+        _ => unreachable!("a case node"),
+    }
+}
+
+/// Whether a `case` on a proof of `d`, matching variable `ix` of `env` in
+/// the case tree of the definition `stuck` names, takes its only branch by
+/// rule S (docs/core.md, "The equality rule"): `d` is a proposition with one
+/// constructor whose fields are all proofs, and the definition's result is
+/// data (a proof is never computed, and needs no branch taken).
+///
+/// For a proposition with indices (D3724, as Lean's `to_cnstr_when_K`), the
+/// constructor must have no fields, and its result indices, for the
+/// scrutinee's parameters, must equal the scrutinee's indices: then the
+/// branch's refinement already holds. The scrutinee's type is read off the
+/// definition's own type, so only a `case` on one of its parameters can
+/// fire; one on a field of an enclosing match stays stuck, as does one
+/// whose indices differ. An indexed proposition with fields stays stuck.
+fn one_shape(g: &Ev, d: DataId, stuck: &Stuck, env: &[Value], ix: usize) -> Result<bool> {
+    let data = g.data(d);
+    let Some((id, ..)) = stuck else {
+        return Ok(false);
+    };
+    let ctor = match &data.ctors[..] {
+        [ctor] => ctor,
+        _ => return Ok(false),
+    };
+    if data.sort != Sort::Prop
+        || ctor.field_sorts.iter().any(|s| *s != Sort::Prop)
+        || g.def(*id).proof
+    {
+        return Ok(false);
+    }
+    if data.indices.is_empty() {
+        return Ok(true);
+    }
+    let level = env.len() - 1 - ix;
+    if !ctor.fields.is_empty() || level >= g.def(*id).arity {
+        return Ok(false);
+    }
+    let Some(domain) = parameter_type(g.def(*id).ty(), level) else {
+        return Ok(false);
+    };
+    let ty = force(g, eval(g, &env[..level], domain)?)?;
+    let params = data.params.len();
+    let Value::Data(d2, args) = ty else {
+        return Ok(false);
+    };
+    if d2 != d || args.len() != params + ctor.result.len() {
+        return Ok(false);
+    }
+    for (k, index) in ctor.result.iter().enumerate() {
+        let from_ctor = eval(g, &args[..params], index)?;
+        if !meet_in_evaluation(g, &from_ctor, &args[params + k])? {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+/// The type of parameter `level` in the function type `ty`, as written: a
+/// term over the parameters before it. `None` if `ty` isn't written as a
+/// function type that far.
+fn parameter_type(ty: &Term, level: usize) -> Option<&Term> {
+    let mut ty = ty.strip_loc();
+    for _ in 0..level {
+        let Term::Pi(_, _, _, cod, _) = ty else {
+            return None;
+        };
+        ty = cod.strip_loc();
+    }
+    match ty {
+        Term::Pi(_, _, domain, _, _) => Some(domain),
+        _ => None,
+    }
 }
 
 /// A stuck `m + n` with a call folded by name in `n`, as what R3 and R4
@@ -3650,10 +3838,20 @@ fn quote_as_until(
                         SpineShape::App(icit) => {
                             Term::app_icit(term, parts.next().expect("an argument"), icit)
                         }
-                        SpineShape::J(pm) => {
+                        SpineShape::J(pm, ends) => {
                             let motive = parts.next().expect("a motive");
                             let base = parts.next().expect("a base");
-                            Term::J(rc(motive), rc(base), rc(term), pm)
+                            // A cast's ends go back on its proof, as the
+                            // kernel puts them there.
+                            let proof = if ends {
+                                let ty = parts.next().expect("a type");
+                                let x = parts.next().expect("an end");
+                                let y = parts.next().expect("an end");
+                                Term::Ann(rc(term), rc(Term::Eq(Some(rc(ty)), rc(x), rc(y))))
+                            } else {
+                                term
+                            };
+                            Term::J(rc(motive), rc(base), rc(proof), pm)
                         }
                         SpineShape::Proj(d, i) => Term::Proj(d, i, rc(term)),
                     };
@@ -3687,8 +3885,9 @@ enum QuoteTask {
 enum SpineShape {
     /// An application: one part.
     App(Icit),
-    /// A `J`: two parts, its motive and base.
-    J(ProofMark),
+    /// A `J`: two parts, its motive and base, then, for a cast that carries
+    /// them, three more: its ends' type and its ends.
+    J(ProofMark, bool),
     /// A projection: no part.
     Proj(DataId, usize),
 }
@@ -3697,7 +3896,7 @@ impl SpineShape {
     fn parts(self) -> usize {
         match self {
             SpineShape::App(_) => 1,
-            SpineShape::J(_) => 2,
+            SpineShape::J(_, ends) => 2 + 3 * usize::from(ends),
             SpineShape::Proj(..) => 0,
         }
     }
@@ -3907,10 +4106,14 @@ fn visit(
                         motive,
                         base,
                         result,
+                        ends,
                     } => {
-                        shape.push(SpineShape::J(*result));
+                        shape.push(SpineShape::J(*result, ends.is_some()));
                         parts.push((**motive).clone());
                         parts.push((**base).clone());
+                        if let Some(ends) = ends {
+                            parts.extend([ends.ty.clone(), ends.x.clone(), ends.y.clone()]);
+                        }
                     }
                     Elim::Proj(d, i) => shape.push(SpineShape::Proj(*d, *i)),
                 }
@@ -4492,6 +4695,57 @@ fn conv_step(
             true
         }
         (Value::Refl, Value::Refl) => true,
+        // Two stuck casts: by their ends' type, their ends, the motive and
+        // the base, then what is applied to them; never by their proofs
+        // (docs/proposals/full-proof-irrelevance-audit.md, finding B). Each
+        // pair then has one type: the ends' types are compared first.
+        (Value::Neutral(_, s1), Value::Neutral(_, s2))
+            if cast_at(s1).is_some() && cast_at(s2).is_some() =>
+        {
+            let (i, j) = (cast_at(s1).unwrap(), cast_at(s2).unwrap());
+            let (
+                Elim::J {
+                    motive: m1,
+                    base: b1,
+                    ends: Some(e1),
+                    ..
+                },
+                Elim::J {
+                    motive: m2,
+                    base: b2,
+                    ends: Some(e2),
+                    ..
+                },
+            ) = (&s1[i], &s2[j])
+            else {
+                unreachable!("found by cast_at")
+            };
+            let Some(rest) = (s1.len() - i == s2.len() - j)
+                .then(|| spine_pairs(g, level, None, &s1[i + 1..], &s2[j + 1..]))
+                .flatten()
+            else {
+                return Ok(Step::Answer(false));
+            };
+            work.extend(rest.into_iter().rev());
+            push_all(
+                work,
+                &[
+                    e1.ty.clone(),
+                    e1.x.clone(),
+                    e1.y.clone(),
+                    (**m1).clone(),
+                    (**b1).clone(),
+                ],
+                &[
+                    e2.ty.clone(),
+                    e2.x.clone(),
+                    e2.y.clone(),
+                    (**m2).clone(),
+                    (**b2).clone(),
+                ],
+            );
+            true
+        }
         (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) if h1 == h2 && s1.len() == s2.len() => {
             let kind = if def_head(h1).is_some_and(|f| sealed(g, f)) {
                 // A hidden opaque call never unfolds here, but does where
@@ -4712,6 +4966,54 @@ fn stuck_different(
         |_| Ok(false),
         &mut |l, x, y| conv_with(g, l, x, y, memo, mode),
     )
+}
+
+/// A stuck cast in `value` whose ends are equal now (rule K), as its base
+/// with the rest of the spine applied; `None` if there is none, or its ends
+/// still differ. In the kernel, a cast that didn't fire when it was
+/// evaluated never does; in the elaborator, an unknown in its ends may have
+/// been solved since, so the unifier asks this before comparing a stuck
+/// cast by its parts. What it returns is computed from the solutions as
+/// they are now, and isn't kept in `value`: taking a solution back leaves
+/// nothing behind (the audit's condition G).
+pub fn fire_cast(g: &Ev, value: &Value) -> Result<Option<Value>> {
+    let Value::Neutral(_, spine) = value else {
+        return Ok(None);
+    };
+    let Some(i) = cast_at(spine) else {
+        return Ok(None);
+    };
+    let Elim::J {
+        base,
+        ends: Some(ends),
+        ..
+    } = &spine[i]
+    else {
+        unreachable!("found by cast_at")
+    };
+    if spine[i + 1..].iter().any(|e| matches!(e, Elim::J { .. })) || !ends_meet(g, ends)? {
+        return Ok(None);
+    }
+    let mut value = (**base).clone();
+    for elim in &spine[i + 1..] {
+        value = match elim {
+            Elim::App(arg, icit) => apply_icit(g, value, arg.clone(), *icit)?,
+            Elim::Proj(d, k) => match value {
+                call @ Value::Call(..) => project_call(*d, *k, call),
+                other => project(*d, *k, force(g, other)?),
+            },
+            Elim::J { .. } => unreachable!("checked above"),
+        };
+    }
+    Ok(Some(value))
+}
+
+/// The first elimination in `spine` that is a cast carrying its ends
+/// ([`Elim::J`]); what comes before it is its proof.
+pub fn cast_at(spine: &[Elim]) -> Option<usize> {
+    spine
+        .iter()
+        .position(|e| matches!(e, Elim::J { ends: Some(_), .. }))
 }
 
 /// The pairs of values in two spines of the same length, or `None` if their

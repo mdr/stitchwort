@@ -9,11 +9,11 @@ use stitchwort_core::budget::{Phase, ResourceError, Result};
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::proof_counts;
 use stitchwort_core::value::{
-    Closure, CompareAt, Elim, Head, Mode, Relation, ShapeKey, ShapeMemo, Spine, apply_icit, conv,
-    eval, expand_step, force, force_solved, is_call_field, is_eta_type, is_folded, matches_at_once,
-    opens_by_tree, project, project_call, proof_field, proof_param, quote_as_written,
-    quote_at_most, quote_folded, same_closure_solved, same_stuck_trees, sealed, underapplied,
-    unfold_folded, unfold_folded_head, unfold_once, unfolds_head,
+    Closure, CompareAt, Elim, Head, Mode, Relation, ShapeKey, ShapeMemo, Spine, apply_icit,
+    cast_at, conv, eval, expand_step, fire_cast, force, force_solved, is_call_field, is_eta_type,
+    is_folded, matches_at_once, opens_by_tree, project, project_call, proof_field, proof_param,
+    quote_as_written, quote_at_most, quote_folded, same_closure_solved, same_stuck_trees, sealed,
+    underapplied, unfold_folded, unfold_folded_head, unfold_once, unfolds_head,
 };
 use stitchwort_core::{BigUint, DefId, Ev, Icit, Term, Value};
 use stitchwort_core::{nat_add, native};
@@ -1927,6 +1927,17 @@ fn forced_rules(
             return Ok(Forced::Answer(true));
         }
     }
+    // A cast that was stuck on an unknown in its ends, which has been
+    // solved since so that they meet: its base (rule K). Asked before the
+    // two are compared as stuck casts, by their parts.
+    if let Some(a2) = fire_cast(g, &a)? {
+        work.push(Task::Values(level, a2, b));
+        return Ok(Forced::Answer(true));
+    }
+    if let Some(b2) = fire_cast(g, &b)? {
+        work.push(Task::Values(level, a, b2));
+        return Ok(Forced::Answer(true));
+    }
     // A sum stuck on its first argument, with a folded call in its second,
     // as what R3 and R4 make of it (G2), as in `conv`.
     let reread = |v: &Value| reread_sum(g, v);
@@ -2172,6 +2183,51 @@ fn unify_shapes(
         (_, Value::Chars(_)) => {
             work.push(Task::Values(level, a.clone(), expand_step(g, b.clone())));
             true
+        }
+        // Two stuck casts: by their ends' type, ends, motive and base, then
+        // what is applied to them; never by their proofs, as in `conv`
+        // (docs/proposals/full-proof-irrelevance-audit.md, finding B).
+        (Value::Neutral(_, s1), Value::Neutral(_, s2))
+            if cast_at(s1).is_some() && cast_at(s2).is_some() =>
+        {
+            let (i, j) = (cast_at(s1).unwrap(), cast_at(s2).unwrap());
+            let (
+                Elim::J {
+                    motive: m1,
+                    base: b1,
+                    ends: Some(e1),
+                    ..
+                },
+                Elim::J {
+                    motive: m2,
+                    base: b2,
+                    ends: Some(e2),
+                    ..
+                },
+            ) = (&s1[i], &s2[j])
+            else {
+                unreachable!("found by cast_at")
+            };
+            match (s1.len() - i == s2.len() - j)
+                .then(|| spine_pairs(g, level, None, &s1[i + 1..], &s2[j + 1..]))
+                .flatten()
+            {
+                Some(rest) => {
+                    work.extend(rest.into_iter().rev());
+                    let pairs = [
+                        (&**b1, &**b2),
+                        (&**m1, &**m2),
+                        (&e1.y, &e2.y),
+                        (&e1.x, &e2.x),
+                        (&e1.ty, &e2.ty),
+                    ];
+                    for (x, y) in pairs {
+                        work.push(Task::Values(level, x.clone(), y.clone()));
+                    }
+                    true
+                }
+                None => false,
+            }
         }
         (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) if h1 == h2 => {
             same_heads(g, level, (a, b), (h1, s1, s2), work, mode)?
@@ -3803,12 +3859,29 @@ fn rename_spine(go: &dyn Fn(&Value) -> Renamed<Term>, head: Term, spine: &[Elim]
     for elim in spine {
         term = match elim {
             Elim::App(v, i) => Term::app_icit(term, go(v)?, *i),
-            Elim::J { motive, base, .. } => Term::J(
-                Rc::new(go(motive)?),
-                Rc::new(go(base)?),
-                Rc::new(term),
-                ProofMark::Unknown,
-            ),
+            Elim::J {
+                motive, base, ends, ..
+            } => {
+                // A cast keeps its ends on its proof, as the kernel puts
+                // them there, so its solution still computes by rule K.
+                let proof = match ends {
+                    None => term,
+                    Some(e) => Term::Ann(
+                        Rc::new(term),
+                        Rc::new(Term::Eq(
+                            Some(Rc::new(go(&e.ty)?)),
+                            Rc::new(go(&e.x)?),
+                            Rc::new(go(&e.y)?),
+                        )),
+                    ),
+                };
+                Term::J(
+                    Rc::new(go(motive)?),
+                    Rc::new(go(base)?),
+                    Rc::new(proof),
+                    ProofMark::Unknown,
+                )
+            }
             Elim::Proj(d, i) => Term::Proj(*d, *i, Rc::new(term)),
         };
     }
@@ -5337,6 +5410,7 @@ mod tests {
                     motive: Box::new(Value::var(1)),
                     base: Box::new(Value::var(2)),
                     result: ProofMark::Unknown,
+                    ends: None,
                 },
                 Elim::App(Value::var(last), Icit::Explicit),
             ];
@@ -5901,6 +5975,7 @@ mod tests {
                     motive: Box::new(motive),
                     base: Box::new(ty()),
                     result: ProofMark::Unknown,
+                    ends: None,
                 }]
                 .into(),
             )

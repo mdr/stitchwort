@@ -25,6 +25,7 @@ mod proof_marks;
 mod quot;
 mod rebuild;
 mod record_eta;
+mod rule_k;
 mod sct;
 mod structural;
 mod termination;
