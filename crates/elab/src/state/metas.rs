@@ -50,6 +50,10 @@ pub struct Meta {
     /// For an instance argument, its type (`Add Int`), which a message
     /// prints it by instead of its parameter's name.
     pub instance: Option<Value>,
+    /// Its proof mark as last worked out from [`Meta::ty`], with the
+    /// `meta_epoch` and the solution trail's length then
+    /// (`unify::meta_mark`).
+    pub mark: std::cell::Cell<Option<(u64, usize, stitchwort_core::ProofMark)>>,
 }
 
 /// A [`MetaStore::lifted_calls`] entry: how many variables the call is a
@@ -150,6 +154,7 @@ impl MetaStore {
             param: None,
             context: None,
             instance: None,
+            mark: std::cell::Cell::new(None),
         });
         metas.len() - 1
     }
@@ -199,7 +204,9 @@ impl MetaStore {
     /// Records metavariable `m`'s type (see [`Meta::ty`]): `ty`, the type
     /// of `m` applied to its first `arity` arguments.
     pub fn set_meta_type(&self, m: usize, ty: Value, arity: usize) {
-        self.metas.borrow_mut()[m].ty = Some((ty, arity));
+        let mut metas = self.metas.borrow_mut();
+        metas[m].ty = Some((ty, arity));
+        metas[m].mark.set(None);
     }
 
     /// See [`Meta::ty`].

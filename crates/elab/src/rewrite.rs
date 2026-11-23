@@ -1563,7 +1563,7 @@ fn shown_after(cx: &Ctx, before: &Value, equation: &Equation, after: &Value) -> 
         cx.level(),
         &|l| Ok(Term::Var(cx.level() - 1 - l)),
         &|t, under| {
-            crate::matching::same_shifted(&lhs, t, under, 0)
+            crate::matching::same_shifted_but_proofs(&g, &lhs, t, under, 0)
                 .then(|| rhs.shift(&g, under, 0).ok())
                 .flatten()
         },
@@ -2314,7 +2314,7 @@ impl Search<'_, '_> {
                 &|_, _| None,
             )?
         };
-        if same(&candidate, &self.lhs_term.borrow()) {
+        if crate::matching::same_shifted_but_proofs(&g, &candidate, &self.lhs_term.borrow(), 0, 0) {
             self.stats.borrow_mut().syntactic += 1;
             return Ok(Some(candidate));
         }

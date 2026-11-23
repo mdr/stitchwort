@@ -871,7 +871,22 @@ fn check_other(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
                 cx.show(expected)
             ),
         )),
-        (Term::Refl, Value::Eq(_, a, b)) => {
+        (Term::Refl, Value::Eq(ty, a, b)) => {
+            // Rule I at the point of use, under the reference evaluator:
+            // two sides both marked proofs must be proofs, their type a
+            // proposition (the SW-4671 review's F5). This is where `p = q`
+            // checks for two proofs, so a wrong mark would show here first.
+            #[cfg(feature = "reference")]
+            if crate::value::both_proofs(&cx.g, a, b) {
+                let sort = sort_of(cx, ty)?;
+                assert_eq!(
+                    sort,
+                    Sort::Prop,
+                    "internal error: rule I would equate two values marked proofs whose type isn't a proposition"
+                );
+            }
+            #[cfg(not(feature = "reference"))]
+            let _ = ty;
             if cx.conv(a, b)? {
                 Ok(Term::Refl)
             } else {
@@ -2751,18 +2766,6 @@ fn install_group(
                 def.body = Some(Rc::new(body));
                 def.state = State::Final;
             }
-            // The inert proof parameters, from the installed bodies, on the
-            // checked and the trusted path alike, so the check cache
-            // needn't store them and can't give a body marks it doesn't
-            // justify. While the group was checked its members had none.
-            let marks = crate::inert::group_marks(&g.ev(), &ids);
-            for (id, marks) in ids.iter().zip(marks) {
-                g.env.defs_mut()[id.0].inert_params = marks;
-            }
-            #[cfg(feature = "reference")]
-            g.machine
-                .budget
-                .uncounted(|| crate::reference::validate_inert(&g.ev(), &ids));
             #[cfg(feature = "reference")]
             g.machine
                 .budget
@@ -2947,7 +2950,6 @@ fn push_def(
         transparent: Rc::default(),
         lift_leaf: false,
         recursive: true,
-        inert_params: Rc::default(),
         export,
         validators: Vec::new(),
         run_body: None,

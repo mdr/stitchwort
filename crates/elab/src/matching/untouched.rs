@@ -141,17 +141,17 @@ fn rigid(
         }
         // A definition that doesn't unfold is read back as itself applied
         // to its arguments.
-        Head::Def(id) if depth > 0 => {
-            let def = g.env.defs().get(id.0);
-            for (i, elim) in (&spine).into_iter().enumerate() {
+        Head::Def(_) if depth > 0 => {
+            for elim in &spine {
                 match elim {
-                    // Comparison skips an argument at an inert position (a
-                    // proof the body never computes with).
-                    Elim::App(arg, _) if def.is_some_and(|d| !d.is_inert(i)) => {
+                    // Comparison never looks inside a proof (rule I).
+                    Elim::App(arg, _) if !stitchwort_core::value::is_proof(&g, arg).is_proof() => {
                         rigid(cx, arg.clone(), base, depth - 1, found)?;
                     }
                     Elim::App(..) | Elim::Proj(..) => {}
-                    // Inert marks count up to the first `J` only.
+                    // A cast is compared by its ends, motive and base, not
+                    // what it is applied to; stopping here finds fewer
+                    // variables, which only makes the answer more cautious.
                     Elim::J { .. } => break,
                 }
             }
@@ -248,7 +248,16 @@ impl Scan {
     fn spine(&mut self, spine: &stitchwort_core::value::Spine) -> bool {
         spine.into_iter().all(|elim| match elim {
             Elim::App(arg, _) => self.value(arg),
-            Elim::J { motive, base, .. } => self.value(motive) && self.value(base),
+            // A cast's ends are read back with it, so they count.
+            Elim::J {
+                motive, base, ends, ..
+            } => {
+                self.value(motive)
+                    && self.value(base)
+                    && ends
+                        .as_ref()
+                        .is_none_or(|e| self.value(&e.ty) && self.value(&e.x) && self.value(&e.y))
+            }
             Elim::Proj(..) => true,
         })
     }

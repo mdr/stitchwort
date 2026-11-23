@@ -198,13 +198,18 @@ impl ProofMark {
         self == ProofMark::Proof
     }
 
-    /// `self`, or `other` if `self` is unknown: for two binders of one
-    /// type, of which one may come from a term the kernel hasn't checked.
+    /// The mark for one fresh variable bound by two binders of one type,
+    /// of which one may come from a term the kernel hasn't checked: the
+    /// known one if only one is known. Two known marks that disagree mean
+    /// the two binders' types differ, which breaks the comparison's
+    /// precondition; the answer is then [`ProofMark::NotProof`], so that
+    /// rule I can't fire on the variable and the mistake can only lose an
+    /// equality.
     pub fn or(self, other: ProofMark) -> ProofMark {
-        if self == ProofMark::Unknown {
-            other
-        } else {
-            self
+        match (self, other) {
+            (ProofMark::Unknown, m) | (m, ProofMark::Unknown) => m,
+            (a, b) if a == b => a,
+            _ => ProofMark::NotProof,
         }
     }
 

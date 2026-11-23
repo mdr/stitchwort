@@ -47,6 +47,9 @@ pub enum Kind {
     /// A `case` on a proof that isn't a constructor took its only branch
     /// (rule S).
     OneShapeFired,
+    /// Two values both marked proofs were found equal without being looked
+    /// at (rule I).
+    RuleI,
 }
 
 impl Kind {
@@ -61,6 +64,7 @@ impl Kind {
             Kind::IndexedPropIntoData => "indexed proposition matched into data (kernel check)",
             Kind::CastFired => "J into data took its base by rule K (ends equal)",
             Kind::OneShapeFired => "one-constructor match on a proof took its branch by rule S",
+            Kind::RuleI => "two proofs found equal by rule I",
         }
     }
 }

@@ -609,7 +609,7 @@ fn meet_in_evaluation(g: &Ev, x: &Value, y: &Value) -> Result<bool> {
         }
         memo.file(g, true, x, y)?
     };
-    let same = conv_with(g, level, x, y, &mut CallMemo::default(), Mode::Normal)?;
+    let same = conv_with(g, level, x, y, &mut CallMemo::default())?;
     if let Some(memo) = g.machine.cast_answers.borrow_mut().as_mut() {
         memo.insert((same, filed.1, filed.2), x, y);
     }
@@ -1328,6 +1328,10 @@ enum Frame {
     },
     /// The proof of `J` (`term`), which is forced next.
     JProof { term: Rc<Term>, env: Env },
+    /// The proof of a cast into data (`term`) whose ends, evaluated, were
+    /// found to differ: it is evaluated, not forced, as a stuck cast needs
+    /// its head and nothing reads more of it. (Boxed: it's rare.)
+    JCast(Box<(Rc<Term>, Env, Ends)>),
     /// The forced proof of `J`.
     JForced { term: Rc<Term>, env: Env },
     /// The forced proof of `J`, already unfolded if it was a folded call.
@@ -1977,6 +1981,24 @@ fn eval_step(g: &Ev, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> Result
             Control::Eval(q, env)
         }
         Term::Quot(..) => quot_args(g, term.clone(), env, Vec::new(), None, stack)?,
+        // Rule K before the proof is evaluated: a cast into data whose ends
+        // are equal is its base, and its proof is never computed (rule F).
+        Term::J(_, base, proof, result)
+            if *result != ProofMark::Proof && Term::j_ends(proof).is_some() =>
+        {
+            let (ty, x, y) = Term::j_ends(proof).expect("checked by the guard");
+            let ends = eval_ends(g, &env, ty, x, y)?;
+            if ends_meet(g, &ends)? {
+                return Ok(Control::Eval(base.clone(), env));
+            }
+            let proof = proof.clone();
+            push(
+                g,
+                stack,
+                Frame::JCast(Box::new((term.clone(), env.clone(), ends))),
+            )?;
+            Control::Eval(proof, env)
+        }
         Term::J(_, _, proof, _) => {
             let proof = proof.clone();
             push(
@@ -2207,6 +2229,43 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
         Frame::JProof { term, env } => {
             push(g, stack, Frame::JForced { term, env })?;
             Control::Force(value)
+        }
+        Frame::JCast(cast) => {
+            let (term, env, ends) = *cast;
+            let Term::J(motive, base, _, result) = &*term else {
+                unreachable!("a `JCast` frame is for `J`")
+            };
+            match value {
+                Value::Refl => Control::Eval(base.clone(), env),
+                v if erase::is_erased(&v) => {
+                    g.machine.erasure.note_transport();
+                    Control::Eval(base.clone(), env)
+                }
+                Value::Neutral(head, spine) => {
+                    if *result == ProofMark::NotProof {
+                        proof_counts::record(g, proof_counts::Kind::StuckCastIntoData, 1);
+                    }
+                    let motive = motive.clone();
+                    push(
+                        g,
+                        stack,
+                        Frame::JMotive {
+                            term: term.clone(),
+                            env: env.clone(),
+                            head,
+                            spine,
+                            ends: Some(Box::new(ends)),
+                        },
+                    )?;
+                    Control::Eval(motive, env)
+                }
+                // A glued call (only an elaborator's term whose mark isn't
+                // known can have one here): forced, as any proof of `J` is.
+                other => {
+                    push(g, stack, Frame::JForced { term, env })?;
+                    Control::Force(other)
+                }
+            }
         }
         // A folded call is taken apart: it unfolds (in this machine, so a
         // proof made of many folded steps needs no Rust stack).
@@ -3008,7 +3067,7 @@ fn glues(g: &Ev, id: DefId) -> bool {
 /// [`unfold`], gluing only if `glue`: a call being forced unfolds now.
 #[inline(always)]
 fn unfold_now(g: &Ev, id: DefId, spine: Spine, glue: bool) -> Result<Control> {
-    if g.def(id).opaque && hidden(g, id) {
+    if (g.def(id).opaque && hidden(g, id)) || frozen(g, id) {
         return Ok(Control::Return(Value::Neutral(Head::Def(id), spine)));
     }
     if spine.len() == g.def(id).arity && erases_result(g, id) {
@@ -3178,22 +3237,36 @@ pub fn hidden(g: &Ev, id: DefId) -> bool {
     g.def(id).opaque && !g.machine.erasure.program_running() && !g.machine.transparent.contains(id)
 }
 
+/// Whether definition `id`'s type is a proposition, so that a call of it is
+/// a proof and is never computed while checking (rule F, docs/core.md
+/// "Proof irrelevance"): rules I, K and S never read a proof, so nothing
+/// needs its unfolding, and freezing it keeps every computation the
+/// checker makes inside data (the Abel-Coquand loop is all proofs). A
+/// running program still unfolds it, though erasure has removed it first.
+#[inline(always)]
+pub fn frozen(g: &Ev, id: DefId) -> bool {
+    g.def(id).proof && !g.machine.erasure.program_running()
+}
+
 /// Whether a call of definition `id` can't unfold here but may elsewhere
-/// or later: it's [`hidden`], or it has no body (a member of the group
-/// being checked, an axiom, or an open goal's assumption, whose `?` may
-/// later be filled). Its arguments are compared in shortcut
-/// mode, so that the call's unfolding, wherever it happens, can only add
-/// equalities (docs/proposals/proof-irrelevance.md §7.10, K4).
+/// or later: it's [`hidden`] or [`frozen`], or it has no body (a member of
+/// the group being checked, an axiom, or an open goal's assumption, whose
+/// `?` may later be filled). Its arguments are compared as any call's are,
+/// which agrees with unfolding (see `same_spines`), so the call's
+/// unfolding, wherever it happens, can only add equalities.
 pub fn sealed(g: &Ev, id: DefId) -> bool {
     body_seen(g, id).is_none()
 }
 
-/// Definition `id`'s body, if it has one and it isn't [`hidden`]: what every
-/// path that unfolds a definition, or looks at its case tree, reads.
+/// Definition `id`'s body, if it has one and it isn't [`hidden`] or
+/// [`frozen`]: what every path that unfolds a definition, or looks at its
+/// case tree, reads.
 #[inline(always)]
 pub fn body_seen<'a>(g: &Ev<'a>, id: DefId) -> Option<&'a Rc<Term>> {
     let def = g.def(id);
-    def.body.as_ref().filter(|_| !def.opaque || !hidden(g, id))
+    def.body
+        .as_ref()
+        .filter(|_| (!def.opaque || !hidden(g, id)) && !frozen(g, id))
 }
 
 /// Folded call `value` ([`is_folded`]) is taken apart by the frame `next`:
@@ -4229,19 +4302,27 @@ fn succ_unglued(g: &Ev, field: &Value) -> Result<Value> {
 /// found stops it, as a recursive version would.
 ///
 /// **Precondition: homogeneous values.** `a` and `b` have the same type.
-/// Proofs are skipped by position (a constructor's proof field, a data
-/// type's proof parameter, a definition's inert argument), without knowing
-/// what they prove, which is the same proposition on both sides only
-/// because the values have one type; a constructor value doesn't even
-/// carry its type's parameters. Breaking this can be a soundness bug, not
-/// just a wrong `false`: a caller that has two values of possibly
-/// different types compares the types first
-/// (docs/proposals/proof-irrelevance.md §7.4). Inside, parts are taken left
-/// to right, so earlier parts (which later parts' types depend on) are
-/// compared, or are skipped proofs, first.
+/// Two proofs are equal without being looked at (rule I, docs/core.md
+/// "Proof irrelevance"), which is true only because they prove the same
+/// proposition, and the values don't say what that is: a caller handing
+/// over two proofs of different statements gets "equal". Breaking this is
+/// a soundness bug, not just a wrong `false`: a caller that has two values
+/// of possibly different types compares the types first
+/// (docs/proposals/full-proof-irrelevance-audit.md). Inside, parts are
+/// taken left to right, so earlier parts (which later parts' types depend
+/// on) are compared first, and each pair formed has one type.
+///
+/// **Precondition: the level.** `level` is above every free variable of
+/// `a` and `b`: fresh variables are made from it, so one too low can name
+/// a free variable and make two different functions equal.
+///
+/// The elaborator's calls that may hand over values of different types
+/// (`data_auto.rs`, `check.rs`'s environments for a `?`, `walk/two.rs`,
+/// `cases.rs`'s known values, the head-keyed searches) rely on the kernel
+/// checking whatever they conclude.
 #[track_caller]
 pub fn conv(g: &Ev, level: usize, a: &Value, b: &Value) -> Result<bool> {
-    let same = conv_with(g, level, a, b, &mut CallMemo::default(), Mode::Normal)?;
+    let same = conv_with(g, level, a, b, &mut CallMemo::default())?;
     if proof_counts::on() && both_proofs(g, a, b) {
         proof_counts::record_caller(g, "conv", std::panic::Location::caller(), !same);
     }
@@ -4253,28 +4334,53 @@ pub fn both_proofs(g: &Ev, a: &Value, b: &Value) -> bool {
     is_proof(g, a).is_proof() && is_proof(g, b).is_proof()
 }
 
-/// How proofs are compared (docs/proposals/proof-irrelevance.md §7.2,
-/// §7.10). Inert arguments of definitions and data types' proof parameters
-/// are skipped in both modes; constructors' proof fields only in the
-/// normal one.
-///
-/// The *shortcut* mode is for every place that answers "equal" for two
-/// calls of one definition from their arguments while the calls could
-/// still unfold (glued and folded calls, partially applied definitions,
-/// hidden opaque calls). There a skipped field could make two calls equal
-/// whose unfoldings aren't (`Box.unbox (MkBox p)` and `Box.unbox (MkBox
-/// q)` compute to `p` and `q`); with the fields compared, arguments equal in
-/// shortcut mode give unfoldings equal in shortcut mode, so the shortcut
-/// agrees with unfolding. Everything nested inside a shortcut stays in
-/// shortcut mode; when it says "different", the comparison goes on in its
-/// own mode.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Mode {
-    Normal,
-    Shortcut,
+/// Rule I (docs/core.md, "Proof irrelevance"): two proofs are equal, and
+/// nothing inside them is looked at. `Some(true)` when both are marked
+/// proofs; `Some(false)` when one is and the other is visibly not one (a
+/// value of a data type in `Type`, a number, a type), which breaks
+/// [`conv`]'s precondition: in the kernel's own checking that is an internal
+/// error under the `reference` feature (the audit's tripwire, condition C),
+/// and "different" otherwise. An unmarked side (an elaborator's unknown, a
+/// lambda) is neither: `None`, and the comparison goes on by shape, which
+/// can only miss an equality.
+pub fn by_rule_i(g: &Ev, a: &Value, b: &Value) -> Option<bool> {
+    let (ma, mb) = (is_proof(g, a), is_proof(g, b));
+    if ma.is_proof() && mb.is_proof() {
+        proof_counts::record(g, proof_counts::Kind::RuleI, 1);
+        return Some(true);
+    }
+    if (ma.is_proof() && visibly_data(g, b)) || (mb.is_proof() && visibly_data(g, a)) {
+        #[cfg(feature = "reference")]
+        if g.machine.kernel.get() {
+            panic!(
+                "internal error: the kernel compared a proof with a value that isn't one: {} against {}",
+                describe(a),
+                describe(b)
+            );
+        }
+        return Some(false);
+    }
+    None
 }
 
-/// [`conv`] in `mode`, inside an outermost one whose record of glued calls
+/// Whether `value` is visibly not a proof, whatever its marks: a type, a
+/// number, or a constructor of a data type in `Type`. A variable, a call or
+/// a stuck computation marked "not a proof" isn't counted: the mark may be
+/// one the elaborator left unknown, and the tripwire must not fire on that.
+fn visibly_data(g: &Ev, value: &Value) -> bool {
+    match value {
+        Value::Sort(_) | Value::Pi(..) | Value::Data(..) | Value::Eq(..) => true,
+        Value::Nat(_) | Value::NatAdd(..) | Value::Chars(_) => true,
+        Value::Ctor(d, ..) => g.data(*d).sort != Sort::Prop,
+        Value::Refl
+        | Value::Lam(..)
+        | Value::Neutral(..)
+        | Value::Call(..)
+        | Value::Resumption(_) => false,
+    }
+}
+
+/// [`conv`], inside an outermost one whose record of glued calls
 /// compared so far is `memo`.
 ///
 /// This is the frame that recurs once per level of nesting where `conv`
@@ -4282,14 +4388,7 @@ pub enum Mode {
 /// in hand: comparing a pair's outer layer ([`conv_step`]) and comparing
 /// codomains have frames of their own, which are gone before the recursion
 /// starts.
-fn conv_with(
-    g: &Ev,
-    level: usize,
-    a: &Value,
-    b: &Value,
-    memo: &mut CallMemo,
-    mode: Mode,
-) -> Result<bool> {
+fn conv_with(g: &Ev, level: usize, a: &Value, b: &Value, memo: &mut CallMemo) -> Result<bool> {
     let mut work = vec![ConvTask::Values(level, a.clone(), b.clone())];
     while let Some(mut task) = work.pop() {
         g.machine.budget.step()?;
@@ -4301,11 +4400,11 @@ fn conv_with(
                 // doesn't settle it.
                 let mut from = Stage::Calls;
                 let same = loop {
-                    let kind = match conv_step(g, level, a, b, from, &mut work, memo, mode)? {
+                    let kind = match conv_step(g, level, a, b, from, &mut work, memo)? {
                         Step::Answer(same) => break same,
                         Step::Recurse(kind) => kind,
                     };
-                    match recurse(g, level, a, b, kind, &mut work, memo, mode)? {
+                    match recurse(g, level, a, b, kind, &mut work, memo)? {
                         Resume::Answer(same) => break same,
                         Resume::From(stage) => from = stage,
                     }
@@ -4386,8 +4485,10 @@ enum ConvTask {
 // against the same items computed again met the same pairs of calls
 // millions of times (`readsBackHungListExample`, 147M steps). Every
 // remembered answer is the one comparing the pair again would give, since
-// whether two values are convertible depends only on them, the level and
-// the mode (the kernel has no metavariables), so the record only saves
+// whether two values are convertible depends only on them and the level
+// (the kernel has no metavariables; rule I reads only the marks, which are
+// part of the values: the cells are the same, so the values are), so the
+// record only saves
 // work: an "equal" is recorded once the arguments' comparisons have all
 // finished, never while the pair is still open. The record holds the
 // values, so an address can't be reused for another call while it lives;
@@ -4395,9 +4496,8 @@ enum ConvTask {
 // order of the map, so the resource counters stay deterministic.
 
 /// What one outermost [`conv`] has found about pairs of glued calls of the
-/// same definition, by mode, level and the addresses of their unfolding
-/// cells. The mode is part of the key: a pair different in shortcut mode
-/// can be equal in the normal one. Also the stuck sums found to have
+/// same definition, by level and the addresses of their unfolding cells.
+/// Also the stuck sums found to have
 /// nothing for rule E to read ([`crate::nat_add::Unread`]).
 #[derive(Default)]
 struct CallMemo {
@@ -4405,9 +4505,9 @@ struct CallMemo {
     sums: crate::nat_add::Unread,
 }
 
-/// A pair of calls in a [`CallMemo`]: mode, level and the two unfolding
+/// A pair of calls in a [`CallMemo`]: level and the two unfolding
 /// cells' addresses.
-type CallKey = (Mode, usize, usize, usize);
+type CallKey = (usize, usize, usize);
 
 /// What a [`CallMemo`] knows about a pair of calls.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -4421,33 +4521,32 @@ enum Found {
 }
 
 impl CallMemo {
-    fn key(mode: Mode, level: usize, a: &Value, b: &Value) -> Option<CallKey> {
+    fn key(level: usize, a: &Value, b: &Value) -> Option<CallKey> {
         match (a, b) {
-            (Value::Call(i1, _, u1), Value::Call(i2, _, u2)) if i1 == i2 => Some((
-                mode,
-                level,
-                Rc::as_ptr(u1) as usize,
-                Rc::as_ptr(u2) as usize,
-            )),
+            (Value::Call(i1, _, u1), Value::Call(i2, _, u2)) if i1 == i2 => {
+                Some((level, Rc::as_ptr(u1) as usize, Rc::as_ptr(u2) as usize))
+            }
             _ => None,
         }
     }
 
-    fn get(&self, mode: Mode, level: usize, a: &Value, b: &Value) -> Option<Found> {
-        let key = Self::key(mode, level, a, b)?;
+    fn get(&self, level: usize, a: &Value, b: &Value) -> Option<Found> {
+        let key = Self::key(level, a, b)?;
         self.calls.get(&key).map(|entry| entry.0)
     }
 
-    fn record(&mut self, mode: Mode, level: usize, a: &Value, b: &Value, found: Found) {
-        if let Some(key) = Self::key(mode, level, a, b) {
+    fn record(&mut self, level: usize, a: &Value, b: &Value, found: Found) {
+        if let Some(key) = Self::key(level, a, b) {
             self.calls.insert(key, (found, a.clone(), b.clone()));
         }
     }
 }
 
 /// Whether two spines of the same definition are equal argument by argument
-/// (and `J` by `J`), each pair compared by a [`conv`] of its own, in
-/// shortcut mode ([`Mode`]): this is what every shortcut uses. This is
+/// (and `J` by `J`), each pair compared by a [`conv`] of its own: this is
+/// what every comparison of calls by their arguments uses. Proofs among the
+/// arguments are equal by rule I, and unfolding never reads a proof (rules
+/// K, S and F), so arguments equal here give equal unfoldings. This is
 /// where `conv` recurses on the Rust stack: once per level of calls nested
 /// in arguments, ended by the stack guard (`budget.rs`, E-RESOURCE) if
 /// that's too deep. A pair of glued calls found different is recorded as
@@ -4455,7 +4554,6 @@ impl CallMemo {
 fn same_spines(
     g: &Ev,
     level: usize,
-    head: DefId,
     s1: &[Elim],
     s2: &[Elim],
     memo: &mut CallMemo,
@@ -4463,15 +4561,15 @@ fn same_spines(
     if s1.len() != s2.len() {
         return Ok(false);
     }
-    let Some(pairs) = spine_pairs(g, level, Some(head), s1, s2) else {
+    let Some(pairs) = spine_pairs(s1, s2, level) else {
         return Ok(false);
     };
     for pair in pairs {
         let ConvTask::Values(l, x, y) = pair else {
             unreachable!()
         };
-        if !conv_with(g, l, &x, &y, memo, Mode::Shortcut)? {
-            memo.record(Mode::Shortcut, l, &x, &y, Found::Different);
+        if !conv_with(g, l, &x, &y, memo)? {
+            memo.record(l, &x, &y, Found::Different);
             return Ok(false);
         }
     }
@@ -4545,8 +4643,12 @@ fn conv_step(
     mut from: Stage,
     work: &mut Vec<ConvTask>,
     memo: &mut CallMemo,
-    mode: Mode,
 ) -> Result<Step> {
+    if from == Stage::Calls
+        && let Some(answer) = by_rule_i(g, a, b)
+    {
+        return Ok(Step::Answer(answer));
+    }
     // Two glued calls of the same definition: their arguments first, then
     // (below) their unfoldings. See `CallMemo`.
     if from == Stage::Calls
@@ -4554,7 +4656,7 @@ fn conv_step(
         && i1 == i2
         && !shortcuts_disabled()
     {
-        match memo.get(mode, level, a, b) {
+        match memo.get(level, a, b) {
             Some(Found::Equal) => return Ok(Step::Answer(true)),
             Some(Found::Different) => return Ok(Step::Answer(false)),
             Some(Found::ArgumentsDiffer) => {}
@@ -4704,11 +4806,13 @@ fn conv_step(
             ));
             true
         }
-        // Proofs are skipped (docs/proposals/proof-irrelevance.md §7.1): a
-        // data type's parameters whose type is a proposition (not its
-        // indices), and, in the normal mode, a constructor's proof fields.
-        // Sound only because both sides have the same type (see `conv`), so
-        // the skipped parts prove the same proposition.
+        // Proofs are skipped by position too: a data type's parameters
+        // whose type is a proposition (not its indices), and a
+        // constructor's proof fields. Rule I would find them equal anyway
+        // in a term the kernel checked; this also covers the elaborator's
+        // values, whose marks may be unknown. Sound only because both sides
+        // have the same type (see `conv`), so the skipped parts prove the
+        // same proposition.
         (Value::Data(d1, a1), Value::Data(d2, a2)) => {
             if d1 != d2 || a1.len() != a2.len() {
                 return Ok(Step::Answer(false));
@@ -4725,7 +4829,7 @@ fn conv_step(
                 return Ok(Step::Answer(false));
             }
             for (k, (x, y)) in a1.iter().zip(a2.iter()).enumerate().rev() {
-                if mode == Mode::Shortcut || !proof_field(g, *d1, *c1, k) {
+                if !proof_field(g, *d1, *c1, k) {
                     work.push(ConvTask::Values(level, x.clone(), y.clone()));
                 }
             }
@@ -4766,7 +4870,7 @@ fn conv_step(
                 unreachable!("found by cast_at")
             };
             let Some(rest) = (s1.len() - i == s2.len() - j)
-                .then(|| spine_pairs(g, level, None, &s1[i + 1..], &s2[j + 1..]))
+                .then(|| spine_pairs(&s1[i + 1..], &s2[j + 1..], level))
                 .flatten()
             else {
                 return Ok(Step::Answer(false));
@@ -4795,8 +4899,9 @@ fn conv_step(
             let kind = if def_head(h1).is_some_and(|f| sealed(g, f)) {
                 // A hidden opaque call never unfolds here, but does where
                 // `f` is transparent, and a pending group member's does once
-                // the group is admitted: compared in shortcut mode, so that
-                // the body being seen only ever adds equalities.
+                // the group is admitted: compared by its arguments, which
+                // agrees with unfolding (see `same_spines`), so the body
+                // being seen only ever adds equalities.
                 Recursion::Sealed
             } else if opens_by_tree(g, a) && opens_by_tree(g, b) {
                 // Two calls of one definition stuck on a `case`: see
@@ -4804,15 +4909,13 @@ fn conv_step(
                 Recursion::StuckSame
             } else if underapplied(g, a).is_none() && underapplied(g, b).is_none() {
                 // Eta for definitions doesn't apply, so the spines must match.
-                return Ok(Step::Answer(
-                    match spine_pairs(g, level, def_head(h1), s1, s2) {
-                        Some(pairs) => {
-                            work.extend(pairs.into_iter().rev());
-                            true
-                        }
-                        None => false,
-                    },
-                ));
+                return Ok(Step::Answer(match spine_pairs(s1, s2, level) {
+                    Some(pairs) => {
+                        work.extend(pairs.into_iter().rev());
+                        true
+                    }
+                    None => false,
+                }));
             } else if def_head(h1).is_some() {
                 // A function: equal if the spines match, or else by eta.
                 Recursion::Underapplied
@@ -4850,8 +4953,7 @@ fn conv_step(
         // value of that type: both sides have one type (the precondition of
         // `conv`), the constructor's. Fields go left to right, so each pair
         // has one type once the earlier ones are equal (or skipped as
-        // proofs, which in normal mode are, exactly as for two
-        // constructors, and compared in shortcut mode). It ends: each pair
+        // proofs, exactly as for two constructors). It ends: each pair
         // is a strictly smaller part of the constructor against a
         // projection, and only finitely many projections of `n` can be
         // taken, the type not being recursive. Only after glued calls are
@@ -4861,7 +4963,7 @@ fn conv_step(
             if is_eta_type(g, *d) =>
         {
             for (k, x) in fs.iter().enumerate().rev() {
-                if mode == Mode::Shortcut || !proof_field(g, *d, 0, k) {
+                if !proof_field(g, *d, 0, k) {
                     work.push(ConvTask::Values(
                         level,
                         x.clone(),
@@ -4890,44 +4992,41 @@ fn recurse(
     kind: Recursion,
     work: &mut Vec<ConvTask>,
     memo: &mut CallMemo,
-    mode: Mode,
 ) -> Result<Resume> {
     match kind {
         Recursion::Calls => {
-            let (Value::Call(f, s1, _), Value::Call(_, s2, _)) = (a, b) else {
+            let (Value::Call(_, s1, _), Value::Call(_, s2, _)) = (a, b) else {
                 unreachable!("two calls, from conv_step")
             };
-            if same_spines(g, level, *f, s1, s2, memo)? {
-                memo.record(mode, level, a, b, Found::Equal);
+            if same_spines(g, level, s1, s2, memo)? {
+                memo.record(level, a, b, Found::Equal);
                 return Ok(Resume::Answer(true));
             }
-            memo.record(mode, level, a, b, Found::ArgumentsDiffer);
+            memo.record(level, a, b, Found::ArgumentsDiffer);
             Ok(Resume::From(Stage::Folded))
         }
         Recursion::Folded => {
-            let (f, s1, s2) = def_spines(a, b);
-            Ok(if same_spines(g, level, f, s1, s2, memo)? {
+            let (_, s1, s2) = def_spines(a, b);
+            Ok(if same_spines(g, level, s1, s2, memo)? {
                 Resume::Answer(true)
             } else {
                 Resume::From(Stage::Unfold)
             })
         }
         Recursion::Sealed => {
-            let (f, s1, s2) = def_spines(a, b);
-            Ok(Resume::Answer(same_spines(g, level, f, s1, s2, memo)?))
+            let (_, s1, s2) = def_spines(a, b);
+            Ok(Resume::Answer(same_spines(g, level, s1, s2, memo)?))
         }
         Recursion::Underapplied => {
             // This recurses once per level of nested partially applied
             // definitions, which is bounded by the program, not by the size
             // of the data.
-            let (f, s1, s2) = def_spines(a, b);
-            let same = same_spines(g, level, f, s1, s2, memo)?;
+            let (_, s1, s2) = def_spines(a, b);
+            let same = same_spines(g, level, s1, s2, memo)?;
             Ok(Resume::Answer(same || push_eta(g, level, a, b, work)?))
         }
-        Recursion::StuckSame => stuck_same(g, level, a, b, memo, mode).map(Resume::Answer),
-        Recursion::StuckDifferent => {
-            stuck_different(g, level, a, b, memo, mode).map(Resume::Answer)
-        }
+        Recursion::StuckSame => stuck_same(g, level, a, b, memo).map(Resume::Answer),
+        Recursion::StuckDifferent => stuck_different(g, level, a, b, memo).map(Resume::Answer),
     }
 }
 
@@ -4947,17 +5046,10 @@ fn def_spines<'v>(a: &'v Value, b: &'v Value) -> (DefId, &'v [Elim], &'v [Elim])
 /// are compared here, each by a `conv` of its own, which recurses as the
 /// tree comparison does.
 #[inline(never)]
-fn stuck_same(
-    g: &Ev,
-    level: usize,
-    a: &Value,
-    b: &Value,
-    memo: &mut CallMemo,
-    mode: Mode,
-) -> Result<bool> {
-    let (f, s1, s2) = def_spines(a, b);
+fn stuck_same(g: &Ev, level: usize, a: &Value, b: &Value, memo: &mut CallMemo) -> Result<bool> {
+    let (_, s1, s2) = def_spines(a, b);
     let arguments = |same: CompareAt<'_>| -> Result<bool> {
-        let Some(pairs) = spine_pairs(g, level, Some(f), s1, s2) else {
+        let Some(pairs) = spine_pairs(s1, s2, level) else {
             return Ok(false);
         };
         for pair in pairs {
@@ -4976,10 +5068,9 @@ fn stuck_same(
         a,
         b,
         Relation::Conv,
-        mode,
         true,
         arguments,
-        &mut |l, x, y| conv_with(g, l, x, y, memo, mode),
+        &mut |l, x, y| conv_with(g, l, x, y, memo),
     )
 }
 
@@ -4998,7 +5089,6 @@ fn stuck_different(
     a: &Value,
     b: &Value,
     memo: &mut CallMemo,
-    mode: Mode,
 ) -> Result<bool> {
     same_stuck_trees(
         g,
@@ -5006,10 +5096,9 @@ fn stuck_different(
         a,
         b,
         Relation::Conv,
-        mode,
         true,
         |_| Ok(false),
-        &mut |l, x, y| conv_with(g, l, x, y, memo, mode),
+        &mut |l, x, y| conv_with(g, l, x, y, memo),
     )
 }
 
@@ -5062,28 +5151,14 @@ pub fn cast_at(spine: &[Elim]) -> Option<usize> {
 }
 
 /// The pairs of values in two spines of the same length, or `None` if their
-/// eliminations don't match. For a definition's spine, the arguments at its
-/// inert positions are left out (docs/proposals/proof-irrelevance.md §7.2):
-/// only the leading applications are its arguments, so none after a `J`,
-/// which eliminates its result; and the marks stop at its arity, so none of
-/// the arguments its result is applied to.
+/// eliminations don't match. Proof arguments are paired like any others,
+/// and rule I answers for them.
 #[inline(never)]
-fn spine_pairs(
-    g: &Ev,
-    level: usize,
-    head: Option<DefId>,
-    s1: &[Elim],
-    s2: &[Elim],
-) -> Option<Vec<ConvTask>> {
-    let def = head.map(|f| g.def(f));
-    let mut arguments = true;
+fn spine_pairs(s1: &[Elim], s2: &[Elim], level: usize) -> Option<Vec<ConvTask>> {
     let mut pairs = Vec::new();
-    for (k, pair) in s1.iter().zip(s2).enumerate() {
+    for pair in s1.iter().zip(s2) {
         match pair {
             (Elim::App(x, _), Elim::App(y, _)) => {
-                if arguments && def.is_some_and(|d| d.is_inert(k)) {
-                    continue;
-                }
                 pairs.push(ConvTask::Values(level, x.clone(), y.clone()));
             }
             (
@@ -5098,13 +5173,10 @@ fn spine_pairs(
                     ..
                 },
             ) => {
-                arguments = false;
                 pairs.push(ConvTask::Values(level, (**m1).clone(), (**m2).clone()));
                 pairs.push(ConvTask::Values(level, (**b1).clone(), (**b2).clone()));
             }
-            (Elim::Proj(d1, i1), Elim::Proj(d2, i2)) if d1 == d2 && i1 == i2 => {
-                arguments = false;
-            }
+            (Elim::Proj(d1, i1), Elim::Proj(d2, i2)) if d1 == d2 && i1 == i2 => {}
             _ => return None,
         }
     }
@@ -5145,10 +5217,10 @@ fn def_head(head: &Head) -> Option<DefId> {
 /// `PlusRes …`. Pushes that comparison, or returns `false` if neither side is
 /// a partially applied definition.
 fn push_eta(g: &Ev, level: usize, a: &Value, b: &Value, work: &mut Vec<ConvTask>) -> Result<bool> {
-    let Some(icit) = underapplied(g, a).or_else(|| underapplied(g, b)) else {
+    let Some((icit, mark)) = next_parameter(g, a).or_else(|| next_parameter(g, b)) else {
         return Ok(false);
     };
-    let fresh = Value::var(level);
+    let fresh = Value::var_marked(level, mark);
     work.push(ConvTask::Values(
         level + 1,
         apply_icit(g, a.clone(), fresh.clone(), icit)?,
@@ -5161,6 +5233,12 @@ fn push_eta(g: &Ev, level: usize, a: &Value, b: &Value, work: &mut Vec<ConvTask>
 /// it's a function that doesn't unfold yet), the implicitness of its next
 /// parameter.
 pub fn underapplied(g: &Ev, value: &Value) -> Option<Icit> {
+    next_parameter(g, value).map(|(icit, _)| icit)
+}
+
+/// [`underapplied`], with the next parameter's proof mark, for the fresh
+/// variable eta applies both sides to.
+pub fn next_parameter(g: &Ev, value: &Value) -> Option<(Icit, ProofMark)> {
     let Value::Neutral(Head::Def(id), spine) = value else {
         return None;
     };
@@ -5170,7 +5248,7 @@ pub fn underapplied(g: &Ev, value: &Value) -> Option<Icit> {
         return None;
     }
     match body.peel_lams(spine.len()) {
-        Term::Lam(_, icit, _, _) => Some(*icit),
+        Term::Lam(_, icit, _, mark) => Some((*icit, *mark)),
         _ => None,
     }
 }
@@ -5358,12 +5436,11 @@ pub fn same_stuck_trees(
     a: &Value,
     b: &Value,
     relation: Relation,
-    mode: Mode,
     settled: bool,
     arguments: impl FnOnce(CompareAt<'_>) -> Result<bool>,
     same: CompareAt<'_>,
 ) -> Result<bool> {
-    let memo = TreeMemo::enter(g, level, a, b, relation, mode, settled)?;
+    let memo = TreeMemo::enter(g, level, a, b, relation, settled)?;
     if let Some(answer) = memo.known(g)? {
         return Ok(answer);
     }
@@ -5439,24 +5516,37 @@ fn same_trees_of(
                 }
                 // A `case` with no possible branch on either side never
                 // computes, and its scrutinee has an empty type, so the two
-                // are equal whatever the scrutinees are. Comparing them would
-                // make the relation depend on inert arguments, which only
-                // such a scrutinee can mention (`Void.absurd (p byComputing)` against
-                // `myAbsurd (q byComputing)`), and break transitivity
-                // (docs/proposals/proof-irrelevance.md §7.2).
+                // are equal whatever the scrutinees are (`Void.absurd (p
+                // byComputing)` against `myAbsurd (q byComputing)`).
                 let impossible = |b: &[Branch]| b.iter().all(|b| b.body.is_none());
                 if impossible(b1) && impossible(b2) {
                     continue;
                 }
-                if !same(level, &s1, &s2)? {
+                // The scrutinees of two different definitions needn't have
+                // one type: only their data type is known to be the same.
+                // For a proposition they are proofs, which rule I would call
+                // equal even where they prove different statements (an
+                // indexed proposition rule S couldn't fire on, its indices
+                // apart), so they aren't handed to the comparison at all:
+                // the two `case`s are equal when their branches are, since
+                // each call is its one branch whenever its scrutinee exists
+                // (docs/proposals/full-proof-irrelevance-audit.md, finding B).
+                if g.data(*d1).sort != Sort::Prop && !same(level, &s1, &s2)? {
                     return Ok(false);
                 }
                 for (c, (x, y)) in b1.iter().zip(b2.iter()).enumerate().rev() {
                     match (&x.body, &y.body) {
                         (None, None) => {}
                         (Some(x), Some(y)) => {
-                            let k = g.data(*d1).ctors[c].fields.len();
-                            let fresh = (level..level + k).map(Value::var);
+                            let ctor = &g.data(*d1).ctors[c];
+                            let k = ctor.fields.len();
+                            let fresh = (0..k).map(|i| {
+                                let mark = ctor
+                                    .field_sorts
+                                    .get(i)
+                                    .map_or(ProofMark::Unknown, |s| ProofMark::of_sort(*s));
+                                Value::var_marked(level + i, mark)
+                            });
                             let mut e1 = e1.clone();
                             let mut e2 = e2.clone();
                             e1.extend(fresh.clone());
@@ -5543,12 +5633,13 @@ pub enum Relation {
     Unify,
 }
 
-/// What [`TreeMemo`] files a pair under: relation, mode, level,
-/// metavariable epoch, the two definitions and the [`shape_hash`]es of the
-/// two calls. Pairs under one key are told apart by [`identical`]. The mode
-/// is part of it because a pair found equal in the normal mode needn't be
-/// equal in shortcut mode, and one tree comparison can contain both.
-type MemoKey = (Relation, Mode, usize, u64, DefId, DefId, u64, u64);
+/// What [`TreeMemo`] files a pair under: relation, level, metavariable
+/// epoch, the two definitions and the [`shape_hash`]es of the two calls.
+/// Pairs under one key are told apart by [`identical`], which compares
+/// proof marks too: rule I reads them, so two pairs alike but for a
+/// variable's mark (a level reused under binders of different types) are
+/// not the same pair.
+type MemoKey = (Relation, usize, u64, DefId, DefId, u64, u64);
 
 /// This thread's open tree comparisons: how many, how many of them are
 /// unification's, the pairs of calls found equal and different since the
@@ -5588,7 +5679,6 @@ impl TreeMemo {
         a: &Value,
         b: &Value,
         relation: Relation,
-        mode: Mode,
         settled: bool,
     ) -> Result<Box<TreeMemo>> {
         let def = |v: &Value| match v {
@@ -5608,7 +5698,7 @@ impl TreeMemo {
         // Boxed, so that the frame of `same_stuck_trees`, which holds it
         // while the arguments are compared, stays small.
         let mut memo = Box::new(TreeMemo {
-            key: (relation, mode, level, g.metas.epoch(), def(a), def(b), 0, 0),
+            key: (relation, level, g.metas.epoch(), def(a), def(b), 0, 0),
             a: a.clone(),
             b: b.clone(),
             settled,
@@ -5618,8 +5708,8 @@ impl TreeMemo {
                 let shapes = &mut m.borrow_mut().shapes;
                 Ok((shape_hash(g, shapes, a)?, shape_hash(g, shapes, b)?))
             })?;
-            memo.key.6 = ha;
-            memo.key.7 = hb;
+            memo.key.5 = ha;
+            memo.key.6 = hb;
         }
         Ok(memo)
     }
@@ -6283,6 +6373,27 @@ fn free_variables(term: &Term) -> Vec<usize> {
     free
 }
 
+/// Whether two proof marks can belong to one binder: equal, or one not
+/// known. [`identical`] compares marks because rule I reads them: within
+/// one comparison a level can be a proof under one pair of binders and data
+/// under another, and a memo keyed by `identical` must not answer for one
+/// with what it found for the other (the SW-4671 review's F4). An unknown
+/// mark (the elaborator's) agrees with either: rule I doesn't fire on it,
+/// so an answer found with it holds, or only misses an equality, with a
+/// known one.
+fn marks_agree(a: ProofMark, b: ProofMark) -> bool {
+    a == b || a == ProofMark::Unknown || b == ProofMark::Unknown
+}
+
+/// [`marks_agree`] for two heads already equal: a variable's mark. A
+/// quotient form's mark is a function of the form and its arguments.
+fn head_marks_agree(a: &Head, b: &Head) -> bool {
+    match (a, b) {
+        (Head::Var(_, _, m1), Head::Var(_, _, m2)) => marks_agree(*m1, *m2),
+        _ => true,
+    }
+}
+
 /// Compares the outermost layer of two values for [`identical`], pushing
 /// their parts.
 fn same_layer<'v>(a: &'v Value, b: &'v Value, work: &mut Vec<Same<'v>>) -> bool {
@@ -6296,14 +6407,14 @@ fn same_layer<'v>(a: &'v Value, b: &'v Value, work: &mut Vec<Same<'v>>) -> bool 
     };
     match (a, b) {
         (Value::Sort(s), Value::Sort(t)) => s == t,
-        (Value::Pi(_, i1, a1, b1, _), Value::Pi(_, i2, a2, b2, _)) => {
+        (Value::Pi(_, i1, a1, b1, m1), Value::Pi(_, i2, a2, b2, m2)) => {
             rc_values(work, a1, a2);
             work.push(Same::Closures(b1, b2));
-            i1 == i2
+            i1 == i2 && marks_agree(*m1, *m2)
         }
-        (Value::Lam(_, i1, b1, _), Value::Lam(_, i2, b2, _)) => {
+        (Value::Lam(_, i1, b1, m1), Value::Lam(_, i2, b2, m2)) => {
             work.push(Same::Closures(b1, b2));
-            i1 == i2
+            i1 == i2 && marks_agree(*m1, *m2)
         }
         (Value::Data(d1, a1), Value::Data(d2, a2)) => {
             all(work, a1, a2);
@@ -6329,10 +6440,13 @@ fn same_layer<'v>(a: &'v Value, b: &'v Value, work: &mut Vec<Same<'v>>) -> bool 
         }
         (Value::Refl, Value::Refl) => true,
         (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) => {
-            if h1 == h2 && s1.ptr_eq(s2) {
+            if h1 != h2 || !head_marks_agree(h1, h2) {
+                return false;
+            }
+            if s1.ptr_eq(s2) {
                 return true;
             }
-            if h1 != h2 || s1.len() != s2.len() {
+            if s1.len() != s2.len() {
                 return false;
             }
             for pair in s1.iter().zip(s2) {
@@ -6344,14 +6458,31 @@ fn same_layer<'v>(a: &'v Value, b: &'v Value, work: &mut Vec<Same<'v>>) -> bool 
                         Elim::J {
                             motive: m1,
                             base: b1,
-                            ..
+                            ends: e1,
+                            result: r1,
                         },
                         Elim::J {
                             motive: m2,
                             base: b2,
-                            ..
+                            ends: e2,
+                            result: r2,
                         },
                     ) => {
+                        // The ends too: a cast's proof is skipped by rule I,
+                        // so two casts alike in all but their ends needn't
+                        // be the same cast.
+                        match (e1, e2) {
+                            (Some(e1), Some(e2)) => {
+                                work.push(Same::Values(&e1.ty, &e2.ty));
+                                work.push(Same::Values(&e1.x, &e2.x));
+                                work.push(Same::Values(&e1.y, &e2.y));
+                            }
+                            (None, None) => {}
+                            _ => return false,
+                        }
+                        if !marks_agree(*r1, *r2) {
+                            return false;
+                        }
                         work.push(Same::Values(m1, m2));
                         work.push(Same::Values(b1, b2));
                     }
@@ -6431,14 +6562,14 @@ fn same_term_layer<'v>(a: &'v Term, b: &'v Term, work: &mut Vec<Same<'v>>) -> bo
             xs.iter().zip(ys).for_each(|(x, y)| both(x, y));
             true
         }
-        (Term::Pi(_, i1, a1, b1, _), Term::Pi(_, i2, a2, b2, _)) => {
+        (Term::Pi(_, i1, a1, b1, m1), Term::Pi(_, i2, a2, b2, m2)) => {
             both(a1, a2);
             both(b1, b2);
-            i1 == i2
+            i1 == i2 && marks_agree(*m1, *m2)
         }
-        (Term::Lam(_, i1, b1, _), Term::Lam(_, i2, b2, _)) => {
+        (Term::Lam(_, i1, b1, m1), Term::Lam(_, i2, b2, m2)) => {
             both(b1, b2);
-            i1 == i2
+            i1 == i2 && marks_agree(*m1, *m2)
         }
         (Term::App(f1, a1, i1), Term::App(f2, a2, i2)) => {
             both(f1, f2);
@@ -6450,11 +6581,11 @@ fn same_term_layer<'v>(a: &'v Term, b: &'v Term, work: &mut Vec<Same<'v>>) -> bo
             both(t1, t2);
             true
         }
-        (Term::Let(_, t1, v1, b1, s1, _), Term::Let(_, t2, v2, b2, s2, _)) => {
+        (Term::Let(_, t1, v1, b1, s1, m1), Term::Let(_, t2, v2, b2, s2, m2)) => {
             both(t1, t2);
             both(v1, v2);
             both(b1, b2);
-            s1 == s2
+            s1 == s2 && marks_agree(*m1, *m2)
         }
         (Term::Eq(t1, x1, y1), Term::Eq(t2, x2, y2)) => {
             match (t1, t2) {
@@ -6466,11 +6597,11 @@ fn same_term_layer<'v>(a: &'v Term, b: &'v Term, work: &mut Vec<Same<'v>>) -> bo
             both(y1, y2);
             true
         }
-        (Term::J(m1, b1, p1, _), Term::J(m2, b2, p2, _)) => {
+        (Term::J(m1, b1, p1, r1), Term::J(m2, b2, p2, r2)) => {
             both(m1, m2);
             both(b1, b2);
             both(p1, p2);
-            true
+            marks_agree(*r1, *r2)
         }
         (Term::Proj(d1, i1, t1), Term::Proj(d2, i2, t2)) => {
             if d1 != d2 || i1 != i2 {
@@ -6633,8 +6764,8 @@ mod tests {
     /// comparison fails) can't be shown this way, and isn't reachable: values
     /// are acyclic (a call's arguments exist before its cell), so a pair
     /// never meets itself inside its own arguments; and a pair that comes
-    /// out different either ends the outermost `conv` (compared in its
-    /// mode) or, compared as an argument, is recorded as different by
+    /// out different either ends the outermost `conv` or, compared as an
+    /// argument, is recorded as different by
     /// [`same_spines`] at once, over any earlier entry, before anything else
     /// can read it. Recording "equal" for every pair whose arguments differ
     /// still passes this test, for that reason.
@@ -6847,10 +6978,8 @@ mod tests {
         let ev = g.ev();
         let (a, b) = (stuck_call(0), stuck_call(1));
         {
-            let outer =
-                TreeMemo::enter(&ev, 0, &a, &b, Relation::Unify, Mode::Normal, true).unwrap();
-            let inner =
-                TreeMemo::enter(&ev, 0, &a, &b, Relation::Conv, Mode::Normal, true).unwrap();
+            let outer = TreeMemo::enter(&ev, 0, &a, &b, Relation::Unify, true).unwrap();
+            let inner = TreeMemo::enter(&ev, 0, &a, &b, Relation::Conv, true).unwrap();
             inner.record(false);
             assert_eq!(remembered_different(), 0, "conv under unification");
             outer.record(false);
@@ -6858,13 +6987,11 @@ mod tests {
         }
         assert_eq!(remembered_different(), 0, "emptied with the outermost");
         {
-            let alone =
-                TreeMemo::enter(&ev, 0, &a, &b, Relation::Conv, Mode::Normal, true).unwrap();
+            let alone = TreeMemo::enter(&ev, 0, &a, &b, Relation::Conv, true).unwrap();
             alone.record(false);
             assert_eq!(remembered_different(), 1, "conv on its own");
         }
-        let unsettled =
-            TreeMemo::enter(&ev, 0, &a, &b, Relation::Unify, Mode::Normal, false).unwrap();
+        let unsettled = TreeMemo::enter(&ev, 0, &a, &b, Relation::Unify, false).unwrap();
         unsettled.record(false);
         assert_eq!(remembered_different(), 0, "an unsettled pair");
     }

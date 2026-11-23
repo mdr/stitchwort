@@ -49,9 +49,7 @@ use std::rc::Rc;
 use crate::budget::Result;
 use crate::native;
 use crate::term::{Branch, DefId, Icit, QuotForm, Sort, Term};
-use crate::value::{
-    Closure, Elim, Ends, Head, Mode, Shared, Spine, Value, quot_mk_rep, quot_value,
-};
+use crate::value::{Closure, Elim, Ends, Head, Shared, Spine, Value, quot_mk_rep, quot_value};
 
 thread_local! {
     static PLAIN: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
@@ -305,26 +303,27 @@ pub fn eval(g: &Ev, env: &[Value], term: &Term) -> Result<Value> {
         ),
         Term::Refl => Value::Refl,
         Term::J(motive, base, proof, result) => {
-            match unfold_folded(g, force(g, eval(g, env, proof)?)?)? {
-                Value::Refl => eval(g, env, base)?,
-                Value::Neutral(head, mut spine) => {
-                    // Rule K: a cast into data is its base when its two
-                    // ends are equal; its proof is never looked at.
-                    let ends = match (result, Term::j_ends(proof)) {
-                        (ProofMark::NotProof | ProofMark::Unknown, Some((ty, x, y))) => {
-                            Some(Box::new(Ends {
-                                ty: eval(g, env, ty)?,
-                                x: eval(g, env, x)?,
-                                y: eval(g, env, y)?,
-                            }))
-                        }
-                        _ => None,
-                    };
-                    if let Some(ends) = &ends
-                        && ends_equal(g, ends)?
-                    {
-                        eval(g, env, base)?
-                    } else {
+            // Rule K: a cast into data is its base when its two ends are
+            // equal. They're tested before the proof is evaluated, which
+            // then never is (rule F).
+            let ends = match (result, Term::j_ends(proof)) {
+                (ProofMark::NotProof | ProofMark::Unknown, Some((ty, x, y))) => {
+                    Some(Box::new(Ends {
+                        ty: eval(g, env, ty)?,
+                        x: eval(g, env, x)?,
+                        y: eval(g, env, y)?,
+                    }))
+                }
+                _ => None,
+            };
+            if let Some(ends) = &ends
+                && ends_equal(g, ends)?
+            {
+                eval(g, env, base)?
+            } else {
+                match unfold_folded(g, force(g, eval(g, env, proof)?)?)? {
+                    Value::Refl => eval(g, env, base)?,
+                    Value::Neutral(head, mut spine) => {
                         spine.push(Elim::J {
                             motive: Box::new(eval(g, env, motive)?),
                             base: Box::new(eval(g, env, base)?),
@@ -333,8 +332,8 @@ pub fn eval(g: &Ev, env: &[Value], term: &Term) -> Result<Value> {
                         });
                         Value::Neutral(head, spine)
                     }
+                    _ => panic!("internal error: J applied to a non-proof"),
                 }
-                _ => panic!("internal error: J applied to a non-proof"),
             }
         }
         // The one computation rule: `Quot.lift f h (Quot.mk a)` is `f a`.
@@ -512,7 +511,10 @@ pub fn force(g: &Ev, value: Value) -> Result<Value> {
 }
 
 fn unfold(g: &Ev, id: DefId, spine: Vec<Elim>) -> Result<Value> {
-    if crate::value::hidden(g, id) {
+    // Rule F: a proof definition is never computed while checking, written
+    // apart from `value::frozen`.
+    let frozen = g.def(id).proof && !g.machine.erasure.program_running();
+    if crate::value::hidden(g, id) || frozen {
         return Ok(Value::Neutral(Head::Def(id), spine.into()));
     }
     if let Some(value) = crate::float::run(g, id, &spine, force)? {
@@ -569,12 +571,13 @@ fn unfold(g: &Ev, id: DefId, spine: Vec<Elim>) -> Result<Value> {
 }
 
 /// Definition `id`'s body, unless it's opaque and hidden now
-/// ([`crate::value::hidden`]).
+/// ([`crate::value::hidden`]) or a proof, frozen (rule F).
 fn seen<'a>(g: &Ev<'a>, id: DefId) -> Option<&'a Rc<Term>> {
+    let frozen = g.def(id).proof && !g.machine.erasure.program_running();
     g.def(id)
         .body
         .as_ref()
-        .filter(|_| !crate::value::hidden(g, id))
+        .filter(|_| !crate::value::hidden(g, id) && !frozen)
 }
 
 /// Whether a dictionary (`Def::fold`) stays folded when it has all its
@@ -1062,10 +1065,12 @@ fn cast_at(spine: &[Elim]) -> Option<usize> {
 }
 
 /// Definitional equality (the recursive version `value::conv` was derived
-/// from), with the same precondition: `a` and `b` have the same type, as
-/// proofs are skipped by position.
+/// from), with the same preconditions: `a` and `b` have the same type, as
+/// two proofs are equal without being looked at (rule I); and `level` is
+/// above every free variable of either, as fresh variables are made from
+/// it.
 pub fn conv(g: &Ev, level: usize, a: &Value, b: &Value) -> Result<bool> {
-    conv_in(g, level, a, b, Mode::Normal)
+    conv_in(g, level, a, b)
 }
 
 /// The reference evaluator never glues, so a call reaching its conversion
@@ -1078,22 +1083,37 @@ fn no_glued_call(value: &Value) {
     }
 }
 
-/// [`conv`] in `mode` (`value::Mode`: constructors' proof fields are
-/// compared in shortcut mode). The shortcuts here are the folded calls,
-/// partially applied definitions and hidden opaque calls, each compared by
-/// its spine in shortcut mode.
-fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<bool> {
+/// [`conv`]. The shortcuts here are the folded calls, partially applied
+/// definitions and hidden opaque calls, each compared by its spine; rules
+/// K, S and F keep unfolding from reading a proof, so equal spines give
+/// equal unfoldings.
+fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value) -> Result<bool> {
     step()?;
     let _nest = Nest::enter()?;
     no_glued_call(a);
     no_glued_call(b);
+    // Rule I: two proofs are equal, unlooked at. A proof against something
+    // that is visibly data (not merely unmarked) means the caller broke the
+    // precondition: in the kernel's own checking, an internal error.
+    let (ma, mb) = (is_proof(g, a), is_proof(g, b));
+    if ma == ProofMark::Proof && mb == ProofMark::Proof {
+        return Ok(true);
+    }
+    if (ma == ProofMark::Proof && plainly_data(g, b))
+        || (mb == ProofMark::Proof && plainly_data(g, a))
+    {
+        if g.machine.kernel.get() {
+            panic!("internal error: the reference conversion compared a proof with data");
+        }
+        return Ok(false);
+    }
     // Folded calls: the same one applied to equal arguments is equal;
     // otherwise they're compared unfolded.
     if is_folded(g, a) || is_folded(g, b) {
         if let (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2)) = (a, b)
             && i1 == i2
             && s1.len() == s2.len()
-            && conv_spines(g, level, Some(*i1), s1, s2, Mode::Shortcut)?
+            && conv_spines(g, level, s1, s2)?
         {
             return Ok(true);
         }
@@ -1106,7 +1126,7 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
             _ => true,
         };
         if (is_folded(g, a) && moved(a, &a2)) || (is_folded(g, b) && moved(b, &b2)) {
-            return conv_in(g, level, &a2, &b2, mode);
+            return conv_in(g, level, &a2, &b2);
         }
     }
     // A folded call with a `J` or an application after its arguments, as
@@ -1118,24 +1138,24 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
         if let (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2)) = (a, b)
             && i1 == i2
             && s1.len() == s2.len()
-            && conv_spines(g, level, Some(*i1), s1, s2, Mode::Shortcut)?
+            && conv_spines(g, level, s1, s2)?
         {
             return Ok(true);
         }
         let a2 = head_a.unwrap_or_else(|| a.clone());
         let b2 = head_b.unwrap_or_else(|| b.clone());
-        return conv_in(g, level, &a2, &b2, mode);
+        return conv_in(g, level, &a2, &b2);
     }
     // A sum stuck on its first argument, with a folded call in its second,
     // as what R3 and R4 make of it (G2).
     if let Some(a2) = reread_sum(g, a)? {
-        return conv_in(g, level, &a2, b, mode);
+        return conv_in(g, level, &a2, b);
     }
     if let Some(b2) = reread_sum(g, b)? {
-        return conv_in(g, level, a, &b2, mode);
+        return conv_in(g, level, a, &b2);
     }
     if matches!(a, Value::Chars(_)) || matches!(b, Value::Chars(_)) {
-        return conv_in(g, level, &force(g, a.clone())?, &force(g, b.clone())?, mode);
+        return conv_in(g, level, &force(g, a.clone())?, &force(g, b.clone())?);
     }
     // A base left against a different count of `Succ`s is unequal unless
     // it's a folded call, compared unfolded as above (SW-2157).
@@ -1144,13 +1164,13 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
             g,
             a,
             b,
-            |x, y| conv_in(g, level, x, y, mode),
+            |x, y| conv_in(g, level, x, y),
             |x, rest| {
                 if let Some(x2) = reread_sum(g, x)? {
-                    return conv_in(g, level, &x2, rest, mode);
+                    return conv_in(g, level, &x2, rest);
                 }
                 if let Some(x2) = unfold_folded_head(g, x)? {
-                    return conv_in(g, level, &x2, rest, mode);
+                    return conv_in(g, level, &x2, rest);
                 }
                 if !is_folded(g, x) {
                     return Ok(false);
@@ -1162,7 +1182,7 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
                     {
                         Ok(false)
                     }
-                    _ => conv_in(g, level, &x2, rest, mode),
+                    _ => conv_in(g, level, &x2, rest),
                 }
             },
             force,
@@ -1175,24 +1195,12 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
         (Value::Pi(_, i1, a1, b1, m1), Value::Pi(_, i2, a2, b2, m2)) => {
             let fresh = fresh(m1.or(*m2));
             i1 == i2
-                && conv_in(g, level, a1, a2, mode)?
-                && conv_in(
-                    g,
-                    level + 1,
-                    &apply(b1, fresh.clone())?,
-                    &apply(b2, fresh)?,
-                    mode,
-                )?
+                && conv_in(g, level, a1, a2)?
+                && conv_in(g, level + 1, &apply(b1, fresh.clone())?, &apply(b2, fresh)?)?
         }
         (Value::Lam(_, _, b1, m1), Value::Lam(_, _, b2, m2)) => {
             let fresh = fresh(m1.or(*m2));
-            conv_in(
-                g,
-                level + 1,
-                &apply(b1, fresh.clone())?,
-                &apply(b2, fresh)?,
-                mode,
-            )?
+            conv_in(g, level + 1, &apply(b1, fresh.clone())?, &apply(b2, fresh)?)?
         }
         (Value::Lam(_, i, b, mark), other) | (other, Value::Lam(_, i, b, mark)) => {
             let fresh = fresh(*mark);
@@ -1201,24 +1209,21 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
                 level + 1,
                 &apply(b, fresh.clone())?,
                 &apply_icit(g, other.clone(), fresh, *i)?,
-                mode,
             )?
         }
         // Proof parameters and proof fields aren't compared.
         (Value::Data(d1, a1), Value::Data(d2, a2)) => {
             let proof = |k| crate::value::proof_param(g, *d1, k);
-            d1 == d2 && all_conv_but(g, level, a1, a2, proof, mode)?
+            d1 == d2 && all_conv_but(g, level, a1, a2, proof)?
         }
         (Value::Ctor(d1, c1, a1), Value::Ctor(d2, c2, a2)) => {
             d1 == d2 && c1 == c2 && {
-                let proof = |k| mode == Mode::Normal && crate::value::proof_field(g, *d1, *c1, k);
-                all_conv_but(g, level, a1, a2, proof, mode)?
+                let proof = |k| crate::value::proof_field(g, *d1, *c1, k);
+                all_conv_but(g, level, a1, a2, proof)?
             }
         }
         (Value::Eq(t1, x1, y1), Value::Eq(t2, x2, y2)) => {
-            conv_in(g, level, t1, t2, mode)?
-                && conv_in(g, level, x1, x2, mode)?
-                && conv_in(g, level, y1, y2, mode)?
+            conv_in(g, level, t1, t2)? && conv_in(g, level, x1, x2)? && conv_in(g, level, y1, y2)?
         }
         (Value::Refl, Value::Refl) => true,
         // Two stuck casts: by their ends' type, their ends, motive and base,
@@ -1246,12 +1251,12 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
                 unreachable!("found by cast_at")
             };
             s1.len() - i == s2.len() - j
-                && conv_in(g, level, &e1.ty, &e2.ty, mode)?
-                && conv_in(g, level, &e1.x, &e2.x, mode)?
-                && conv_in(g, level, &e1.y, &e2.y, mode)?
-                && conv_in(g, level, m1, m2, mode)?
-                && conv_in(g, level, b1, b2, mode)?
-                && conv_spines(g, level, None, &s1[i + 1..], &s2[j + 1..], mode)?
+                && conv_in(g, level, &e1.ty, &e2.ty)?
+                && conv_in(g, level, &e1.x, &e2.x)?
+                && conv_in(g, level, &e1.y, &e2.y)?
+                && conv_in(g, level, m1, m2)?
+                && conv_in(g, level, b1, b2)?
+                && conv_spines(g, level, &s1[i + 1..], &s2[j + 1..])?
         }
         // Two calls stuck on a `case`: by their case trees. For two calls of
         // one definition, equal arguments are enough, but different ones
@@ -1269,21 +1274,19 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
             // quoted pair, printed: its own key, not the machine's
             // `identical`.
             let open = OpenTrees::enter();
-            let key = match call_pair_key(g, mode, level, a, b)? {
+            let key = match call_pair_key(g, level, a, b)? {
                 Some(key) => key,
                 // Too big to print: compared without a record.
                 None => {
-                    return Ok(
-                        (i1 == i2 && conv_spines(g, level, Some(*i1), s1, s2, mode)?)
-                            || same_trees(g, level, tree_of(g, a), tree_of(g, b), mode)?,
-                    );
+                    return Ok((i1 == i2 && conv_spines(g, level, s1, s2)?)
+                        || same_trees(g, level, tree_of(g, a), tree_of(g, b))?);
                 }
             };
             if let Some(same) = open.known(&key) {
                 same
             } else {
-                let same = (i1 == i2 && conv_spines(g, level, Some(*i1), s1, s2, mode)?)
-                    || same_trees(g, level, tree_of(g, a), tree_of(g, b), mode)?;
+                let same = (i1 == i2 && conv_spines(g, level, s1, s2)?)
+                    || same_trees(g, level, tree_of(g, a), tree_of(g, b))?;
                 open.record(key, same);
                 same
             }
@@ -1295,36 +1298,30 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
             if g.env.datas().get(d.0).is_some_and(|data| data.eta()) =>
         {
             for (k, x) in fs.iter().enumerate() {
-                let proof = mode == Mode::Normal && crate::value::proof_field(g, *d, 0, k);
-                if !proof && !conv_in(g, level, x, &project(g, *d, k, n.clone())?, mode)? {
+                let proof = crate::value::proof_field(g, *d, 0, k);
+                if !proof && !conv_in(g, level, x, &project(g, *d, k, n.clone())?)? {
                     return Ok(false);
                 }
             }
             true
         }
         (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) => {
-            let def = match h1 {
-                Head::Def(f) => Some(*f),
-                _ => None,
-            };
             // A partially applied definition, a hidden opaque call, or a
             // call of a member of the group being checked could still unfold
             // (applied to more, where it's transparent, or once the group is
-            // admitted): its spine is compared in shortcut mode. A stuck
-            // call's isn't.
-            let could_unfold =
-                def.is_some_and(|f| crate::value::sealed(g, f) || s1.len() < g.def(f).arity);
-            let spine_mode = if could_unfold { Mode::Shortcut } else { mode };
-            (h1 == h2 && s1.len() == s2.len() && conv_spines(g, level, def, s1, s2, spine_mode)?)
-                || eta(g, level, a, b, mode)?
+            // admitted): its spine is compared as any is, which agrees with
+            // unfolding since nothing unfolding does reads a proof.
+            (h1 == h2 && s1.len() == s2.len() && conv_spines(g, level, s1, s2)?)
+                || eta(g, level, a, b)?
         }
-        _ => eta(g, level, a, b, mode)?,
+        _ => eta(g, level, a, b)?,
     })
 }
 
-/// A pair of calls compared by their trees: the mode, the level and the
-/// two, quoted.
-type CallPair = (Mode, usize, String, String);
+/// A pair of calls compared by their trees: the level and the two, quoted
+/// (marks included, so a level reused under binders of different types
+/// isn't the same pair).
+type CallPair = (usize, String, String);
 
 /// Steps the printed key of a pair of calls may take to build ([`CallPair`]).
 /// A stuck call can have a normal form exponentially larger than the call
@@ -1338,19 +1335,13 @@ const KEY_STEPS: u64 = 20_000;
 /// printing the pair takes more than [`KEY_STEPS`]. The steps it takes count
 /// against the thread's budget, if it has one; the budget running out is
 /// still an error.
-fn call_pair_key(
-    g: &Ev,
-    mode: Mode,
-    level: usize,
-    a: &Value,
-    b: &Value,
-) -> Result<Option<CallPair>> {
+fn call_pair_key(g: &Ev, level: usize, a: &Value, b: &Value) -> Result<Option<CallPair>> {
     let outer = STEPS.with(|s| s.get());
     let allowed = outer.map_or(KEY_STEPS, |left| left.min(KEY_STEPS));
     STEPS.with(|s| s.set(Some(allowed)));
     let key = quote(g, level, a)
         .and_then(|a| quote(g, level, b).map(|b| (a, b)))
-        .map(|(a, b)| (mode, level, format!("{a:?}"), format!("{b:?}")));
+        .map(|(a, b)| (level, format!("{a:?}"), format!("{b:?}")));
     let left = STEPS.with(|s| s.get()).unwrap_or(0);
     STEPS.with(|s| s.set(outer.map(|o| o - (allowed - left))));
     match key {
@@ -1428,7 +1419,7 @@ fn tree_of(g: &Ev, value: &Value) -> Tree {
 /// Two case trees in their environments: both stuck on equal scrutinees with
 /// equal branches (fields as fresh variables), or both leaves with equal
 /// values. A constructor scrutinee takes its branch first.
-fn same_trees(g: &Ev, level: usize, mut a: Tree, mut b: Tree, mode: Mode) -> Result<bool> {
+fn same_trees(g: &Ev, level: usize, mut a: Tree, mut b: Tree) -> Result<bool> {
     // Steps a tree along constructor scrutinees, and by rule 2 unless its
     // definition is held, as `eval_tree` does; `None` if it reaches anything
     // but a stuck `Case` or a leaf.
@@ -1486,7 +1477,7 @@ fn same_trees(g: &Ev, level: usize, mut a: Tree, mut b: Tree, mode: Mode) -> Res
     };
     let (e1, e2) = (a.env, b.env);
     match (s1, s2) {
-        (None, None) => conv_in(g, level, &eval(g, &e1, &t1)?, &eval(g, &e2, &t2)?, mode),
+        (None, None) => conv_in(g, level, &eval(g, &e1, &t1)?, &eval(g, &e2, &t2)?),
         (Some(s1), Some(s2)) => {
             let (Term::Case(_, d1, b1), Term::Case(_, d2, b2)) = (t1.strip_loc(), t2.strip_loc())
             else {
@@ -1499,15 +1490,27 @@ fn same_trees(g: &Ev, level: usize, mut a: Tree, mut b: Tree, mode: Mode) -> Res
             if b1.iter().chain(b2.iter()).all(|b| b.body.is_none()) {
                 return Ok(true);
             }
-            if !conv_in(g, level, &s1, &s2, mode)? {
+            // Proofs of a proposition needn't prove the same statement
+            // here (two definitions' scrutinees): not compared, as each
+            // call is its branch whenever its scrutinee exists.
+            if g.data(*d1).sort != crate::term::Sort::Prop && !conv_in(g, level, &s1, &s2)? {
                 return Ok(false);
             }
             for (c, (x, y)) in b1.iter().zip(b2.iter()).enumerate() {
                 match (&x.body, &y.body) {
                     (None, None) => {}
                     (Some(x), Some(y)) => {
-                        let k = g.data(*d1).ctors[c].fields.len();
-                        let fresh: Vec<Value> = (level..level + k).map(Value::var).collect();
+                        let ctor = &g.data(*d1).ctors[c];
+                        let fresh: Vec<Value> = (0..ctor.fields.len())
+                            .map(|i| {
+                                let mark = ctor
+                                    .field_sorts
+                                    .get(i)
+                                    .map_or(ProofMark::Unknown, |s| ProofMark::of_sort(*s));
+                                Value::var_marked(level + i, mark)
+                            })
+                            .collect();
+                        let k = fresh.len();
                         let mut f1 = e1.clone();
                         let mut f2 = e2.clone();
                         f1.extend(fresh.iter().cloned());
@@ -1522,7 +1525,7 @@ fn same_trees(g: &Ev, level: usize, mut a: Tree, mut b: Tree, mode: Mode) -> Res
                             env: f2,
                             held: b.held,
                         };
-                        if !same_trees(g, level + k, x, y, mode)? {
+                        if !same_trees(g, level + k, x, y)? {
                             return Ok(false);
                         }
                     }
@@ -1542,40 +1545,23 @@ fn all_conv_but(
     xs: &[Value],
     ys: &[Value],
     skip: impl Fn(usize) -> bool,
-    mode: Mode,
 ) -> Result<bool> {
     if xs.len() != ys.len() {
         return Ok(false);
     }
     for (k, (x, y)) in xs.iter().zip(ys).enumerate() {
-        if !skip(k) && !conv_in(g, level, x, y, mode)? {
+        if !skip(k) && !conv_in(g, level, x, y)? {
             return Ok(false);
         }
     }
     Ok(true)
 }
 
-/// Two spines, compared pair by pair; for a definition `def`, its inert
-/// arguments (the leading applications at its marked positions) aren't.
-fn conv_spines(
-    g: &Ev,
-    level: usize,
-    def: Option<DefId>,
-    s1: &[Elim],
-    s2: &[Elim],
-    mode: Mode,
-) -> Result<bool> {
-    // How many leading entries are applications: the definition's
-    // arguments.
-    let leading = s1.iter().take_while(|e| matches!(e, Elim::App(..))).count();
-    for (k, pair) in s1.iter().zip(s2).enumerate() {
+/// Two spines, compared pair by pair; proof arguments by rule I.
+fn conv_spines(g: &Ev, level: usize, s1: &[Elim], s2: &[Elim]) -> Result<bool> {
+    for pair in s1.iter().zip(s2) {
         let same = match pair {
-            (Elim::App(..), Elim::App(..))
-                if k < leading && def.is_some_and(|f| g.def(f).is_inert(k)) =>
-            {
-                true
-            }
-            (Elim::App(x, _), Elim::App(y, _)) => conv_in(g, level, x, y, mode)?,
+            (Elim::App(x, _), Elim::App(y, _)) => conv_in(g, level, x, y)?,
             (Elim::Proj(d1, i1), Elim::Proj(d2, i2)) => d1 == d2 && i1 == i2,
             (
                 Elim::J {
@@ -1588,7 +1574,7 @@ fn conv_spines(
                     base: b2,
                     ..
                 },
-            ) => conv_in(g, level, m1, m2, mode)? && conv_in(g, level, b1, b2, mode)?,
+            ) => conv_in(g, level, m1, m2)? && conv_in(g, level, b1, b2)?,
             _ => false,
         };
         if !same {
@@ -1600,19 +1586,43 @@ fn conv_spines(
 
 /// Eta for partially applied definitions: both sides applied to a fresh
 /// variable.
-fn eta(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<bool> {
-    let underapplied = |v| crate::value::underapplied(g, v);
-    let Some(icit) = underapplied(a).or_else(|| underapplied(b)) else {
+fn eta(g: &Ev, level: usize, a: &Value, b: &Value) -> Result<bool> {
+    let next = |v: &Value| -> Option<(Icit, ProofMark)> {
+        let Value::Neutral(Head::Def(id), spine) = v else {
+            return None;
+        };
+        let def = g.def(*id);
+        let body = def.body.as_ref()?;
+        if spine.len() >= def.arity {
+            return None;
+        }
+        match body.peel_lams(spine.len()) {
+            Term::Lam(_, icit, _, mark) => Some((*icit, *mark)),
+            _ => None,
+        }
+    };
+    let Some((icit, mark)) = next(a).or_else(|| next(b)) else {
         return Ok(false);
     };
-    let fresh = Value::var(level);
+    let fresh = Value::var_marked(level, mark);
     conv_in(
         g,
         level + 1,
         &apply_icit(g, a.clone(), fresh.clone(), icit)?,
         &apply_icit(g, b.clone(), fresh, icit)?,
-        mode,
     )
+}
+
+/// Whether `value` is plainly not a proof: a type, a number, or a
+/// constructor of a data type in `Type`. Unmarked variables and stuck
+/// computations aren't counted (the audit's condition C).
+fn plainly_data(g: &Ev, value: &Value) -> bool {
+    match value {
+        Value::Sort(_) | Value::Pi(..) | Value::Data(..) | Value::Eq(..) => true,
+        Value::Nat(_) | Value::NatAdd(..) | Value::Chars(_) => true,
+        Value::Ctor(d, ..) => g.data(*d).sort != crate::term::Sort::Prop,
+        _ => false,
+    }
 }
 
 /// Whether `value` is a proof, by the marks: written apart from
@@ -1765,196 +1775,4 @@ fn validate_local_marks(term: &Term, name: &str) {
             "internal error: in `{name}`, a checked {what} has no proof mark"
         );
     }
-}
-
-/// Checks that every inert mark of the definitions `ids` is justified by
-/// its body, given every definition's final marks, and panics if one isn't
-/// (docs/proposals/proof-irrelevance.md §7.3). Written apart from the
-/// analysis (`crate::inert`), as one pass: each occurrence of a marked
-/// parameter must be *shielded* (inside an argument at an inert position of
-/// a call of a definition, or inside a `let`'s or an annotation's type),
-/// and a `case` on one must have no possible branch. It checks only that
-/// the marks are sound, not that they're the most there could be.
-pub fn validate_inert(g: &Ev, ids: &[DefId]) {
-    for id in ids {
-        let def = g.def(*id);
-        let Some(body) = &def.body else {
-            assert!(
-                def.inert_params().is_empty(),
-                "`{}` has inert marks but no body",
-                def.name()
-            );
-            continue;
-        };
-        let marks = def.inert_params();
-        if !marks.iter().any(|m| *m) {
-            continue;
-        }
-        assert!(
-            marks.len() == def.arity,
-            "`{}`: marks beyond its arity",
-            def.name()
-        );
-        if let Some(i) = not_a_proof(g, *id) {
-            panic!(
-                "internal error: parameter {i} of `{}` is marked inert, but its type isn't a proposition",
-                def.name()
-            );
-        }
-        if let Some((i, what)) = unshielded(g, body, def.arity, marks) {
-            panic!(
-                "internal error: parameter {i} of `{}` is marked inert, but {what}",
-                def.name()
-            );
-        }
-    }
-}
-
-/// The first marked parameter of `id` whose type isn't in `Prop`. `None`
-/// if there's none, or if finding out runs out of resources: the validator
-/// gives no answer then, as the kernel would.
-///
-/// The type is evaluated by the kernel, glued, and only up to the last
-/// mark, not by this module's evaluator: that one has no stack guard and
-/// computes every closed value in a type (an equation about
-/// `List.replicate 20000 'a'`), where a parameter's sort needs none of it.
-fn not_a_proof(g: &Ev, id: DefId) -> Option<usize> {
-    let def = g.def(id);
-    let marks = def.inert_params();
-    let last = marks.iter().rposition(|m| *m)?;
-    let _set = g.machine.transparent.set(def.transparent.clone());
-    let was = g.machine.glue.replace(true);
-    // `None` inside: it ran out.
-    let found = (|| -> Option<Option<usize>> {
-        let mut cx = crate::check::Ctx::new(g, def.span);
-        let mut ty = crate::value::eval(g, &[], &def.ty).ok()?;
-        for (k, marked) in marks.iter().enumerate().take(last + 1) {
-            let Value::Pi(x, _, dom, cod, _) = crate::value::force(g, ty.clone()).ok()? else {
-                // More parameters than the type shows: a mark from here on
-                // has no type to justify it.
-                return Some(marks[k..].iter().position(|m| *m).map(|i| k + i));
-            };
-            if *marked && crate::check::sort_of(&mut cx, &dom).ok()? != Sort::Prop {
-                return Some(Some(k));
-            }
-            if k < last {
-                let next = cod.apply(g, Value::var(cx.level())).ok()?;
-                cx.bind(x.clone(), (*dom).clone(), ProofMark::Unknown);
-                ty = next;
-            }
-        }
-        Some(None)
-    })();
-    g.machine.glue.set(was);
-    found.flatten()
-}
-
-/// The first marked parameter (by position) of `body`, a definition's body
-/// with its `arity` lambdas, used where it isn't shielded, and how.
-fn unshielded(g: &Ev, body: &Term, arity: usize, marks: &[bool]) -> Option<(usize, &'static str)> {
-    // (term, binders above it counting the parameters, shielded)
-    let mut todo: Vec<(&Term, usize, bool)> = vec![(body, 0, false)];
-    let marked_param = |ix: usize, binders: usize| -> Option<usize> {
-        // Parameter `p` is bound at binder `p`; at `binders` deep it is
-        // `Var(binders - 1 - p)`.
-        let p = binders.checked_sub(ix + 1)?;
-        (p < arity && marks[p]).then_some(p)
-    };
-    while let Some((t, binders, shielded)) = todo.pop() {
-        match t {
-            Term::Var(ix) => {
-                if !shielded && let Some(p) = marked_param(*ix, binders) {
-                    return Some((p, "it is used outside an inert argument"));
-                }
-            }
-            Term::Case(ix, d, branches) => {
-                if branches.iter().any(|b| b.body.is_some())
-                    && let Some(p) = marked_param(*ix, binders)
-                {
-                    return Some((p, "it is matched with a possible branch"));
-                }
-                for (c, b) in branches.iter().enumerate() {
-                    if let Some(body) = &b.body {
-                        let k = g.data(*d).ctors[c].fields.len();
-                        todo.push((body, binders + k, shielded));
-                    }
-                }
-            }
-            Term::NumCase(ix, arms, default) => {
-                if let Some(p) = marked_param(*ix, binders) {
-                    return Some((p, "it is matched as a number"));
-                }
-                todo.extend(arms.iter().map(|a| (&*a.body, binders, shielded)));
-                todo.push((default, binders, shielded));
-            }
-            Term::App(..) => {
-                let mut spine = Vec::new();
-                let mut f = t;
-                loop {
-                    match f {
-                        Term::App(h, a, _) => {
-                            spine.push(&**a);
-                            f = h;
-                        }
-                        Term::Loc(_, inner) => f = inner,
-                        _ => break,
-                    }
-                }
-                spine.reverse();
-                let callee = match f {
-                    Term::Def(callee) => Some(g.def(*callee)),
-                    _ => None,
-                };
-                todo.push((f, binders, shielded));
-                for (k, a) in spine.into_iter().enumerate() {
-                    let inert_arg = callee.is_some_and(|d| d.is_inert(k));
-                    todo.push((a, binders, shielded || inert_arg));
-                }
-            }
-            Term::Lam(_, _, b, _) => todo.push((b, binders + 1, shielded)),
-            Term::Pi(_, _, a, b, _) => {
-                todo.push((a, binders, shielded));
-                todo.push((b, binders + 1, shielded));
-            }
-            Term::Ann(e, ty) => {
-                todo.push((e, binders, shielded));
-                todo.push((ty, binders, true));
-            }
-            Term::Let(_, ty, v, b, _, _) => {
-                todo.push((ty, binders, true));
-                todo.push((v, binders, shielded));
-                todo.push((b, binders + 1, shielded));
-            }
-            Term::Loc(_, e) => todo.push((e, binders, shielded)),
-            Term::Data(_, xs) | Term::Ctor(_, _, xs) | Term::Quot(_, xs, _, _) => {
-                todo.extend(xs.iter().map(|x| (&**x, binders, shielded)));
-            }
-            Term::Eq(ty, a, b) => {
-                todo.extend(ty.iter().map(|x| (&**x, binders, shielded)));
-                todo.push((a, binders, shielded));
-                todo.push((b, binders, shielded));
-            }
-            Term::J(m, b, p, _) => {
-                todo.push((m, binders, shielded));
-                todo.push((b, binders, shielded));
-                todo.push((p, binders, shielded));
-            }
-            // A projection of a marked parameter takes it apart.
-            Term::Proj(_, _, t) => {
-                if let Term::Var(ix) = t.strip_loc()
-                    && let Some(p) = marked_param(*ix, binders)
-                {
-                    return Some((p, "it is taken apart by a projection"));
-                }
-                todo.push((t, binders, shielded));
-            }
-            Term::Def(_)
-            | Term::Nat(_)
-            | Term::Chars(_)
-            | Term::Sort(_)
-            | Term::Refl
-            | Term::Meta(_) => {}
-        }
-    }
-    None
 }

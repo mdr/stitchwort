@@ -265,11 +265,10 @@ pub(super) fn declarations(g: &Ev, out: &mut String) {
         }
         // What admission works out besides the body, so that a trusted
         // replay (stage 3) is compared with a full check on it too.
-        let (transparent, lift_leaf, recursive, inert) = def.admitted_metadata();
+        let (transparent, lift_leaf, recursive) = def.admitted_metadata();
         let _ = write!(
             out,
-            "\n  transparent {:?} lift_leaf {lift_leaf} recursive {recursive} inert {inert:?} \
-             param_default {}",
+            "\n  transparent {:?} lift_leaf {lift_leaf} recursive {recursive} param_default {}",
             transparent.iter().map(|d| d.0).collect::<Vec<_>>(),
             def.param_default(),
         );
