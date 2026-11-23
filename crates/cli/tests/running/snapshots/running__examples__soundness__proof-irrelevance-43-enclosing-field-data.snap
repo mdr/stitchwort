@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-PROP-ELIM] Error: can't match on a proof of `R` to produce data
+    ╭─[ soundness/proof-irrelevance-43-enclosing-field-data.sw:14:5 ]
+    │
+ 14 │ ╭─▶     match r with
+ 15 │ ├─▶       | MkR n w => n
+    │ │                          
+    │ ╰────────────────────────── the result type `Nat` isn't a proposition
+    │     
+    │     Note: `R` is a proposition, so its proofs are erased at runtime. Matching on one can only produce data when the proposition has at most one constructor and every field is itself a proof.
+────╯

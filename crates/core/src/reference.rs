@@ -289,8 +289,10 @@ pub fn eval(g: &Ev, env: &[Value], term: &Term) -> Result<Value> {
             env.push(eval(g, &env, value)?);
             eval(g, &env, body)?
         }
-        Term::Case(..) | Term::NumCase(..) => eval_tree(g, env.to_vec(), term, false, false, None)?
-            .expect("internal error: a case outside a definition's case tree got stuck"),
+        Term::Case(..) | Term::NumCase(..) => {
+            eval_tree(g, env.to_vec(), term, false, false, None, Vec::new())?
+                .expect("internal error: a case outside a definition's case tree got stuck")
+        }
         Term::Eq(ty, a, b) => Value::Eq(
             Shared::new(eval(
                 g,
@@ -555,6 +557,7 @@ fn unfold(g: &Ev, id: DefId, spine: Vec<Elim>) -> Result<Value> {
                 folds_on_lift(g, id),
                 crate::value::eta_held(g, id),
                 Some(id),
+                Vec::new(),
             )?
         {
             return Ok(value);
@@ -628,6 +631,7 @@ fn unfold_folded(g: &Ev, value: Value) -> Result<Value> {
                 false,
                 crate::value::eta_held(g, *id),
                 Some(*id),
+                Vec::new(),
             )?
         {
             return unfold_folded(g, force(g, next)?);
@@ -723,6 +727,21 @@ fn number_view(g: &Ev, value: &Value) -> Result<(num_bigint::BigUint, Option<Val
     }
 }
 
+/// Where a variable of a case tree's environment past its definition's
+/// parameters was bound: field `field` of constructor `ctor` of `d`, by the
+/// `case` on the variable at level `scrutinee`, whose fields start at level
+/// `first`.
+#[derive(Clone, Copy)]
+struct Bound {
+    d: crate::term::DataId,
+    scrutinee: usize,
+    ctor: usize,
+    field: usize,
+    first: usize,
+}
+
+/// The case tree `term` run in `env`, which holds `def`'s parameters (if
+/// `def` is given) and then the fields `bound` describes, one each.
 fn eval_tree(
     g: &Ev,
     mut env: Vec<Value>,
@@ -730,6 +749,7 @@ fn eval_tree(
     fold_lifts: bool,
     eta_held: bool,
     def: Option<DefId>,
+    mut bound: Vec<Bound>,
 ) -> Result<Option<Value>> {
     match term.strip_loc() {
         Term::Case(ix, d, branches) => {
@@ -755,7 +775,7 @@ fn eval_tree(
                 // Rule S: into data, a proof of a proposition with one
                 // constructor and only proof fields is that constructor, its
                 // fields that proof's fields.
-                n @ Value::Neutral(..) if rule_s(g, def, *d, &env, env.len() - 1 - ix)? => {
+                n @ Value::Neutral(..) if rule_s(g, def, &bound, *d, &env, env.len() - 1 - ix)? => {
                     let k = g.data(*d).ctors[0].fields.len();
                     let fields = (0..k)
                         .map(|i| project(g, *d, i, n.clone()))
@@ -768,8 +788,16 @@ fn eval_tree(
             let Some(body) = body else {
                 return Ok(None);
             };
+            let (scrutinee, first) = (env.len() - 1 - ix, env.len());
+            bound.extend((0..fields.len()).map(|field| Bound {
+                d: *d,
+                scrutinee,
+                ctor: c,
+                field,
+                first,
+            }));
             env.extend(fields);
-            eval_tree(g, env, body, fold_lifts, eta_held, def)
+            eval_tree(g, env, body, fold_lifts, eta_held, def, bound)
         }
         Term::NumCase(ix, arms, default) => {
             let (k, base) = number_view(g, &env[env.len() - 1 - ix])?;
@@ -792,7 +820,7 @@ fn eval_tree(
             } else {
                 return Ok(None);
             };
-            eval_tree(g, env, body, fold_lifts, eta_held, def)
+            eval_tree(g, env, body, fold_lifts, eta_held, def, bound)
         }
         // A `Quot.lift` leaf counts as a case on its quotient: stuck, the
         // definition stays folded (`fold_lifts`: only one marked for it,
@@ -807,14 +835,16 @@ fn eval_tree(
 }
 
 /// Whether rule S takes the only branch of a `case` on a proof of `d` that
-/// is the variable at `level` in `env`, in the case tree of `def`: `d` is a
+/// is the variable at `level` in `env`, in the case tree of `def`, where
+/// `bound` says what binds each variable past `def`'s parameters: `d` is a
 /// proposition with one constructor whose fields are all proofs, `def`'s
-/// result is data, and, if `d` has indices, the variable is one of `def`'s
-/// parameters whose type, as `def`'s type gives it, has the indices the
-/// constructor's result has, its fields read as the variable's projections.
+/// result is data, and, if `d` has indices, the variable's type
+/// ([`type_at`]) has the indices the constructor's result has, its fields
+/// read as the variable's projections.
 fn rule_s(
     g: &Ev,
     def: Option<DefId>,
+    bound: &[Bound],
     d: crate::term::DataId,
     env: &[Value],
     level: usize,
@@ -833,21 +863,7 @@ fn rule_s(
     if data.indices.is_empty() {
         return Ok(true);
     }
-    if level >= g.def(f).arity {
-        return Ok(false);
-    }
-    // The parameter's type in `def`'s telescope, over the ones before it.
-    let mut ty = g.def(f).ty();
-    for _ in 0..level {
-        match ty.strip_loc() {
-            Term::Pi(_, _, _, rest, _) => ty = rest,
-            _ => return Ok(false),
-        }
-    }
-    let Term::Pi(_, _, domain, _, _) = ty.strip_loc() else {
-        return Ok(false);
-    };
-    let Value::Data(d2, args) = force(g, eval(g, &env[..level], domain)?)? else {
+    let Some(Value::Data(d2, args)) = type_at(g, f, bound, env, level)? else {
         return Ok(false);
     };
     let n = data.params.len();
@@ -869,6 +885,48 @@ fn rule_s(
         }
     }
     Ok(true)
+}
+
+/// The type of the variable at `level` in `env`, in the case tree of `f`,
+/// forced: a parameter's as `f`'s type gives it, over the parameters before
+/// it; a field's as its constructor declares it, over the parameters of
+/// the enclosing scrutinee's type and the fields before it. `None` if `f`'s
+/// type isn't written as a function type that far.
+fn type_at(
+    g: &Ev,
+    f: DefId,
+    bound: &[Bound],
+    env: &[Value],
+    level: usize,
+) -> Result<Option<Value>> {
+    let arity = g.def(f).arity;
+    if level >= arity {
+        let b = bound[level - arity];
+        let Some(Value::Data(d, args)) = type_at(g, f, bound, env, b.scrutinee)? else {
+            return Ok(None);
+        };
+        let data = g.data(b.d);
+        let n = data.params.len();
+        if d != b.d || args.len() < n {
+            return Ok(None);
+        }
+        let mut ctor_env = args[..n].to_vec();
+        ctor_env.extend(env[b.first..b.first + b.field].iter().cloned());
+        let ty = &data.ctors[b.ctor].fields[b.field].1;
+        return Ok(Some(force(g, eval(g, &ctor_env, ty)?)?));
+    }
+    // The parameter's type in `f`'s telescope, over the ones before it.
+    let mut ty = g.def(f).ty();
+    for _ in 0..level {
+        match ty.strip_loc() {
+            Term::Pi(_, _, _, rest, _) => ty = rest,
+            _ => return Ok(None),
+        }
+    }
+    let Term::Pi(_, _, domain, _, _) = ty.strip_loc() else {
+        return Ok(None);
+    };
+    Ok(Some(force(g, eval(g, &env[..level], domain)?)?))
 }
 
 /// A `Quot.lift` leaf of a case tree: `f a` on `Quot.mk a`, else stuck.

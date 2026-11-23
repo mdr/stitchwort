@@ -1,0 +1,26 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-REFL] Error: `byComputing` can't prove this
+    ╭─[ soundness/proof-irrelevance-42-enclosing-field-indices-differ.sw:19:46 ]
+    │
+ 19 │ theorem apart ∀ (o: Around 1): ga 1 o = 7 := byComputing
+    │                                              ─────┬─────  
+    │                                                   ╰─────── `ga 1 o` and `7` aren't equal
+    │ 
+    │ Note 1: the left side is stuck on `o`: it can't compute further until `o` is known; a `match` on `o` (or `cases o`) splits it
+    │ 
+    │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
+────╯
+[E-REFL] Error: `byComputing` can't prove this
+    ╭─[ soundness/proof-irrelevance-42-enclosing-field-indices-differ.sw:28:41 ]
+    │
+ 28 │ theorem unknown ∀ (b: Box): gb b = 3 := byComputing
+    │                                         ─────┬─────  
+    │                                              ╰─────── `gb b` and `3` aren't equal
+    │ 
+    │ Note 1: the left side is stuck on `b`: it can't compute further until `b` is known; a `match` on `b` (or `cases b`) splits it
+    │ 
+    │ Note 2: (see the note above: "`byComputing` proves `a =…")
+────╯

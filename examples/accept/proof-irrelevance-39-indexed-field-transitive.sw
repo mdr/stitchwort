@@ -3,11 +3,8 @@
 -- F1). Rule S takes the match's branch on any proof whose indices equal the
 -- constructor's, its field read as the proof's field: so `f 0 s` is `5` for
 -- a variable `s` (`t4`) and for a proof definition `pf`, which rule F
--- freezes (`n1`), as `t1` and `t3` together already said. This holds for a
--- match on one of the definition's parameters; a match on a field bound by
--- an enclosing match (`MkOuter q => match q with …`) is the corner still
--- left, where `g o = 5` is refused though both halves check
--- (docs/reviews/SW-4686-fable-review.md, F1; a follow-up).
+-- freezes (`n1`), as `t1` and `t3` together already said. Example 42 does
+-- the same for a match on a field bound by an enclosing match.
 import Std (Eq, Nat)
 
 type Q2: Nat → Prop = | MkQ2 (w: 0 = 0): Q2 0

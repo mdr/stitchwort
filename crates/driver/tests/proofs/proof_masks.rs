@@ -53,6 +53,15 @@ type ByProof: (0 = 0) → Prop =
 def byProof (h: 0 = 0): ByProof h → Nat
   | MkByProof k => 5
 
+-- A proof field bound by an enclosing match, its type `Q39 k` over the
+-- enclosing type's parameter.
+type Around39 (k: Nat): Prop =
+  | MkAround39 (q: Q39 k)
+
+def around39 (k: Nat): Around39 k → Nat
+  | MkAround39 q => match q with
+    | MkQ39 w => 5
+
 type TBox: Type 1 =
   | MkTBox (t: Type)
 
@@ -174,6 +183,11 @@ def t40pR (a: Nat) (s: AtThree a 1): Nat := 5
 -- scrutinee's index `h` as two proofs, by rule I.
 def t41L (h: 0 = 0) (s: ByProof h): Nat := byProof h s
 def t41R (h: 0 = 0) (s: ByProof h): Nat := 5
+-- Test 42: as test 39, on a field an enclosing match bound (SW-4690).
+def t42L (o: Around39 0): Nat := around39 0 o
+def t42R (o: Around39 0): Nat := 5
+def t42pL (o: Around39 1): Nat := around39 1 o
+def t42pR (o: Around39 1): Nat := 5
 -- Test 21 and its partner: equal by rule S, as test 18.
 def t21L (t: Tok) (u: Tok): Nat := tokNat t 0
 def t21R (t: Tok) (u: Tok): Nat := tokNat u 0
@@ -378,6 +392,9 @@ const CASES: &[(&str, bool)] = &[
     ("t40", true),
     ("t40p", false),
     ("t41", true),
+    // The same on a field an enclosing match bound.
+    ("t42", true),
+    ("t42p", false),
     // Rule S, as test 18.
     ("t21", true),
     ("t21p", true),
