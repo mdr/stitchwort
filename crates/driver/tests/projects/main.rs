@@ -7,6 +7,7 @@
 mod check_cache;
 mod compact_text;
 mod doc_links;
+mod examples_wide;
 mod include;
 mod multi_file;
 mod namespaces;

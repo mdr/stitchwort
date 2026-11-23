@@ -27,7 +27,7 @@ use stitchwort_syntax::Diagnostic;
 /// [`par_map`]), never the test's own thread, whose 2 MiB the session's
 /// limits would overrun before stopping it (AoC 2024 day 22's
 /// `Nat.iterate 2000` in a test overflowed it).
-const STACK: usize = 16 * 1024 * 1024;
+pub(crate) const STACK: usize = 16 * 1024 * 1024;
 
 /// A new, empty directory for one cache.
 fn temp_dir(name: &str) -> PathBuf {
@@ -46,7 +46,7 @@ fn temp_dir(name: &str) -> PathBuf {
     dir
 }
 
-enum Source {
+pub(crate) enum Source {
     File(String, String),
     Project(String, PathBuf),
     /// Every library file, loaded up front.
@@ -168,7 +168,7 @@ fn first_difference(a: &str, b: &str) -> String {
 /// and checks the warm run loaded every library file from the cache and
 /// gave the same dump as the fresh one. So did the cold one, which wrote
 /// the entries.
-fn assert_cache_changes_nothing(source: &Source, nav: bool) {
+pub(crate) fn assert_cache_changes_nothing(source: &Source, nav: bool) {
     let n = source.name();
     let dir = temp_dir("diff");
     let fresh = run(source, nav, None);
@@ -284,7 +284,7 @@ fn example_projects(dir: &str) -> Vec<Source> {
 
 /// Every example: files and projects, accepted and rejected. Outside the
 /// all tier, a fixed sample ([`tier_sample`]: every eighth in broad).
-fn examples() -> Vec<Source> {
+pub(crate) fn examples() -> Vec<Source> {
     let mut sources = Vec::new();
     for dir in ["accept", "extract", "reject", "soundness"] {
         sources.extend(example_files(dir));
@@ -293,16 +293,6 @@ fn examples() -> Vec<Source> {
     sources.extend(example_projects("reject"));
     assert!(!sources.is_empty());
     tier_sample(sources, 8)
-}
-
-/// With navigation recorded, which covers more of what an entry holds; the
-/// whole library without it is checked above.
-#[test]
-fn the_cache_changes_nothing_for_the_examples() {
-    let sources = examples();
-    par_map(STACK, &sources, |source| {
-        assert_cache_changes_nothing(source, true);
-    });
 }
 
 /// Gluing changes the terms elaboration checks (SW-1156: `Std.Nat.divModEq`'s
