@@ -1286,6 +1286,19 @@ fn two(f: &mut Fams, name: &str, sort: Sort) -> DataId {
     d
 }
 
+/// Defines `name: ty := body`, which must be refused with `E-MALFORMED`
+/// for a possible branch marked impossible: its label.
+fn possible(g: &mut Kernel, name: &str, ty: Term, body: Term) -> String {
+    let id = check::declare_def(g, &name.into(), &name.into(), &ty, false, false, span()).unwrap();
+    let e = check::define_def(g, id, &body).unwrap_err();
+    assert_eq!(e.code, "E-MALFORMED", "{}", e.message);
+    e.labels[0].message.clone()
+}
+
+/// Two proofs are never a conflict: with `P: Prop`, `A` and `B` are equal
+/// by rule I (docs/core.md, "Proof irrelevance"), so `SameP A B` is
+/// `SameP A A`, which `R` proves, and the empty match claiming `noAB` is
+/// refused because `R`'s branch is possible.
 #[test]
 fn test_22_no_conflict_between_proofs() {
     // type P: Prop = | A | B
@@ -1309,13 +1322,24 @@ fn test_22_no_conflict_between_proofs() {
             Term::data(f.false_p, vec![]),
         );
         let body = lam("s", icase(0, same, vec![(vec![], None)]));
-        define(f.g(), "noAB", ty, body).err()
+        if sort == Sort::Prop {
+            Err(possible(f.g(), "noAB", ty, body))
+        } else {
+            define(f.g(), "noAB", ty, body)
+                .map(|_| ())
+                .map_err(String::from)
+        }
     };
-    assert_eq!(no_ab(Sort::Prop), Some("E-INDEX-STUCK"));
+    let message = no_ab(Sort::Prop).unwrap_err();
+    assert!(message.contains("`R` can be here"), "{message}");
     // Paired: `P: Type`, where `B = A` is a conflict.
-    assert_eq!(no_ab(Sort::Type(0)), None);
+    assert_eq!(no_ab(Sort::Type(0)), Ok(()));
 }
 
+/// No injectivity for proofs: with `Hidden: Prop`, `Hide 1` and `Hide 0`
+/// are equal by rule I, so `HF (Hide 1)` is `HF (Hide 0)`, which `MkHF`
+/// proves, and the empty match is refused because `MkHF`'s branch is
+/// possible; `1 = 0` is never reached.
 #[test]
 fn test_23_no_injectivity_for_proofs() {
     // type Hidden: Prop = | Hide (n: Nat), a family indexed by it, and an
@@ -1341,13 +1365,23 @@ fn test_23_no_injectivity_for_proofs() {
             Term::data(f.false_p, vec![]),
         );
         let body = lam("x", icase(0, hf, vec![(vec![], None)]));
-        define(f.g(), "empty", ty, body).err()
+        if sort == Sort::Prop {
+            Err(possible(f.g(), "empty", ty, body))
+        } else {
+            define(f.g(), "empty", ty, body)
+                .map(|_| ())
+                .map_err(String::from)
+        }
     };
-    assert_eq!(empty(Sort::Prop), Some("E-INDEX-STUCK"));
+    let message = empty(Sort::Prop).unwrap_err();
+    assert!(message.contains("`MkHF` can be here"), "{message}");
     // Paired: `Hidden: Type`, by injectivity, then `1 = 0`.
-    assert_eq!(empty(Sort::Type(0)), None);
+    assert_eq!(empty(Sort::Type(0)), Ok(()));
 }
 
+/// A proof field before data: `MkT A 0 = MkT B 1` deletes `A = B` by rule
+/// I and finds the conflict in `0 = 1`, so the empty match is accepted
+/// (`TF (MkT A 0)` is empty: `P` has one element in the model).
 #[test]
 fn test_25_a_proof_field_before_data() {
     // type T: Type = | MkT (h: P) (n: Nat), with `P: Prop = A | B`.
@@ -1370,18 +1404,15 @@ fn test_25_a_proof_field_before_data() {
     );
     let ctors = vec![ictor("MkTF", vec![], vec![mk_t(b, f.p.num(1))])];
     check::define_ctors(f.g(), tf, ctors).unwrap();
-    // An empty match needing `MkT A 0 = MkT B 1`: stuck at `A = B`, never
-    // impossible from the later `0 = 1`.
+    // An empty match needing `MkT A 0 = MkT B 1`.
     let ty = pi(
         "x",
         Term::data(tf, vec![mk_t(a.clone(), f.p.num(0))]),
         false_p.clone(),
     );
     let body = lam("x", icase(0, tf, vec![(vec![], None)]));
-    let message = stuck(f.g(), ty, body);
-    assert!(message.contains("needs `A = B`"), "{message}");
-    assert!(message.contains("proofs"), "{message}");
-    // Paired: `MkT h 0 = MkT A 1` with `h` a variable: `h := A`, then
+    assert_eq!(define(f.g(), "byRuleI", ty, body).err(), None);
+    // Paired: `MkT h 0 = MkT A 1` with `h` a variable: `h = A` by rule I, then
     // `0 = 1`, impossible.
     let tg = family(
         f.g(),

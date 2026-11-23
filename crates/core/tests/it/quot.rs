@@ -17,7 +17,7 @@ use stitchwort_core::ProofMark;
 
 use crate::common::*;
 use stitchwort_core::check::{self, infer_closed};
-use stitchwort_core::value::{conv, eval, quote};
+use stitchwort_core::value::{Head, conv, eval, quote};
 use stitchwort_core::{DataId, DefId, Kernel, QuotForm, Sort, Term, Value};
 use stitchwort_syntax::Diagnostic;
 
@@ -588,8 +588,11 @@ fn c5_lift_into_a_non_type_is_refused() {
 
 // R7, R8: no computation or conversion beyond the one rule.
 
-/// R7: `Quot.ind` has no computation rule (§7.3): with one, it would prove
-/// that any two proofs of a proposition are equal.
+/// R7: `Quot.ind` has no computation rule (§7.3). Conversion can't see
+/// that: its result is a proof, equal to any other proof of its type by
+/// rule I (docs/core.md, "Proof irrelevance"), so `byComputing` proves it
+/// equal to `h False`. The evaluator shows it: the value stays a stuck
+/// `Quot.ind`.
 #[test]
 fn r7_ind_doesnt_compute() {
     let mut f = Fix::new();
@@ -607,11 +610,18 @@ fn r7_ind_doesnt_compute() {
             f.mk(f.ff()),
         ],
     );
+    assert_ind_is_stuck(&f.p.g, &ind);
     let statement = eq(Some(f.unit_ty()), ind, app(Term::Def(h), [f.ff()]));
-    refused(
-        try_define(f.g(), "computes", statement, Term::Refl),
-        "E-REFL",
-        "`byComputing` can't prove this",
+    assert!(try_define(f.g(), "byRuleI", statement, Term::Refl).is_ok());
+}
+
+/// Checks `ind` and evaluates it: a stuck `Quot.ind`, not `h`'s body.
+fn assert_ind_is_stuck(g: &Kernel, ind: &Term) {
+    let (checked, _) = infer(g, ind).expect("checks");
+    let value = eval(&g.ev(), &[], &checked).expect("evaluates");
+    assert!(
+        matches!(value, Value::Neutral(Head::Quot(Ind, _), _)),
+        "{value:?}"
     );
 }
 
@@ -1202,12 +1212,10 @@ fn r7_r8_the_rule_is_for_lift_alone() {
             f.mk_eq(f.tt()),
         ],
     );
+    assert_ind_is_stuck(&f.p.g, &ind);
+    // By rule I, not by computing.
     let statement = eq(Some(f.unit_ty()), ind, f.trivial());
-    refused(
-        try_define(f.g(), "indComputes", statement, Term::Refl),
-        "E-REFL",
-        "aren't equal",
-    );
+    assert!(try_define(f.g(), "byRuleI", statement, Term::Refl).is_ok());
     // Related representatives stay apart under conversion.
     let statement = eq(Some(f.q_ty()), f.mk(f.ff()), f.mk(f.tt()));
     refused(

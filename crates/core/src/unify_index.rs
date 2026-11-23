@@ -15,7 +15,10 @@
 //!
 //! The rules, on the constraint just formed, in this order:
 //!
-//! - **Deletion**: `lhs ≡ rhs`. Solved. (This is axiom K, D138.)
+//! - **Deletion**: `lhs ≡ rhs`. Solved. (This is axiom K, D138.) By rule
+//!   I (docs/core.md, "Proof irrelevance") this deletes every equation
+//!   between proofs whose marks are known, as the kernel's are, so a
+//!   proof is never a conflict and nothing is solved from one.
 //! - **Solution**: one side is a flexible variable `y` (a context entry
 //!   that still stands for itself, and isn't the matched variable). If both
 //!   are, the one bound later is solved as the earlier one; if its occurs
@@ -35,8 +38,8 @@
 //! - **Anything else is stuck**: a type former on a side (types are never
 //!   taken apart, D139), an application that doesn't compute, an equation
 //!   between proofs (its type is a proposition, §6.3.2) that deletion and
-//!   solution don't settle, a failed occurs check, a binder whose two types
-//!   differ.
+//!   solution don't settle (only where a mark is unknown), a failed occurs
+//!   check, a binder whose two types differ.
 //!
 //! Only a conflict makes a branch impossible.
 

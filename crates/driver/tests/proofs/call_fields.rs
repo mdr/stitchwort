@@ -178,12 +178,19 @@ fn transported(g: &Ev, proof: Value) -> Value {
 fn j_on_a_stuck_field_computes_the_call_first() {
     let session = loaded();
     let g = &session.elab.ev();
-    // `(proved 0).same` is `reflAt 0`, a call: `J` forces it to `byComputing`.
+    // `(proved 0).same` is `reflAt 0`: `J` forces the field to that call,
+    // which stays a call, since a definition marked a proof never unfolds
+    // while checking (rule F, docs/core.md, "Proof irrelevance"). The cast
+    // has no ends for rule K, so it's stuck on `reflAt 0`.
     let field = stuck_field(def(g, "proved"), zero(g), data(g, "Proved"), 1);
     let v = transported(g, field);
+    let refl_at = def(g, "reflAt");
     assert!(
-        matches!(v, Value::Ctor(_, 0, _) | Value::Nat(_)),
-        "`J` on `byComputing` is its base: {v:?}"
+        matches!(&v, Value::Neutral(Head::Def(id), spine) if *id == refl_at
+            && matches!(spine.iter().next(), Some(Elim::App(..)))
+            && matches!(spine.iter().last(), Some(Elim::J { .. }))
+            && spine.len() == 2),
+        "`J` on `reflAt 0`: {v:?}"
     );
     // Stuck in its own case tree, the field is eliminated as it is.
     let field = stuck_field(def(g, "proved"), Value::var(1), data(g, "Proved"), 1);
