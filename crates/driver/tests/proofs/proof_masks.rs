@@ -125,15 +125,17 @@ def boxR (a: Prop) (p: a) (q: a): Box a := MkBox q
 -- Test 19: the shortcut compares the field, so this is different glued too.
 def t19L (a: Prop) (p: a) (q: a): a := Box.unbox (MkBox p)
 def t19R (a: Prop) (p: a) (q: a): a := Box.unbox (MkBox q)
--- Test 17: `cast` computes with `h`, so it isn't skipped.
+-- Test 17: a cast whose ends agree (`a` and `a`) computes by rule K whatever its proof,
+-- so the two sides are equal (SW-4673).
 def t17L (a: Type) (h: a = a) (x: a): a := cast a a byComputing x
 def t17R (a: Type) (h: a = a) (x: a): a := cast a a h x
 def t17pL (a: Type) (h: a = a) (x: a): a := cast a a byComputing x
 def t17pR (a: Type) (h: a = a) (x: a): a := x
--- Test 18: `tokNat` takes `t` apart.
+-- Test 18: `tokNat` takes `t` apart; `Tok` has one shape and no fields, so the match
+-- takes its branch by rule S whatever `t` is (SW-4673).
 def t18L (t: Tok): Nat := tokNat t 0
 def t18R (t: Tok): Nat := tokNat MkTok 0
--- Test 21 and its partner.
+-- Test 21 and its partner: equal by rule S, as test 18.
 def t21L (t: Tok) (u: Tok): Nat := tokNat t 0
 def t21R (t: Tok) (u: Tok): Nat := tokNat u 0
 def t21pL (p: 0 ≠ 0) (q: 0 ≠ 0): Nat := Void.absurd (p byComputing)
@@ -309,10 +311,10 @@ const CASES: &[(&str, bool)] = &[
     ("t9", false),
     ("box", true),
     ("t19", false),
-    ("t17", false),
+    ("t17", true),
     ("t17p", true),
-    ("t18", false),
-    ("t21", false),
+    ("t18", true),
+    ("t21", true),
     ("t21p", true),
     ("t27a", true),
     ("t27b", true),
