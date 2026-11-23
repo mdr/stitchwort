@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-REFL] Error: `byComputing` can't prove this
+   ╭─[ reject/refl-hidden-implicit-argument.sw:9:75 ]
+   │
+ 9 │ theorem differentHidden ∀ (t: [k: Nat] → Nat): t [k := 1] = t [k := 2] := byComputing
+   │                                                                           ─────┬─────  
+   │                                                                                ╰─────── `t [1]` and `t [2]` aren't equal
+   │ 
+   │ Note 1: the two sides differ only in arguments the compiler fills in, shown here in `[brackets]` (an implicit or instance argument; proofs are never compared)
+   │ 
+   │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
+───╯

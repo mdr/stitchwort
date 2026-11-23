@@ -11,5 +11,5 @@ expression: output
     │ 
     │ Note 1: `Add Int` is `sumCong`'s implicit `add`, not worked out. Its type is an interface, but a plain implicit parameter is never searched for an instance: declare it `[auto add: …]` to have the instance found, or give it with `[add := …]`
     │ 
-    │ Note 2: the two types differ only in arguments the compiler fills in, shown here in `[brackets]` (an implicit argument, or a proof the definition computes with; proofs it never computes with are interchangeable)
+    │ Note 2: the two types differ only in arguments the compiler fills in, shown here in `[brackets]` (an implicit or instance argument; proofs are never compared)
 ────╯
