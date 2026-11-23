@@ -1,5 +1,5 @@
 {
-  "next": 4679,
+  "next": 4680,
   "tickets": [
     {
       "id": 47,
@@ -33358,6 +33358,19 @@
     {
       "id": 4678,
       "title": "[Opus] Rule K follow-ups: a truly lazy cast (test ends only where its head is read: NumCase/native::view, opens_by_tree, same_stuck_trees, natives; starting patch from SW-4673), and remembered ends answers kept across outermost tests keyed by mode and epoch (161-level deepc is 10 s, polynomial). Also: release CLI runs reference::validate_marks under budget.uncounted, so a blow-up there has no step budget (SW-4673 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4679,
+      "title": "[Opus] Rule K's fresh levels on 32-bit: RESERVED_LEVELS + used is unchecked, so more than 128 nested ends tests on the web build would wrap into real levels (finding A). Check the addition and answer 'not equal' (stuck) on overflow, with a test (SW-4673 follow-up)",
       "status": "backlog",
       "agent": "",
       "where": "",
