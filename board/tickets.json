@@ -33246,12 +33246,12 @@
     {
       "id": 4671,
       "title": "[Opus] Full proof irrelevance stage 3 (D3721): one-bit proof marks on binders (Lam, Pi, let, context, case/J/Quot.lift results, definitions), computed and validated by the kernel and reference evaluator, plus counters under a switch; no change to what is accepted (docs/proposals/full-proof-irrelevance.md sections 4 and 9)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nD3723 (Matt, 22 Nov 2026): \"yes - our aims for today are to work towards proof irrelevance. We can then think about parallel checking\". Started 23 Nov 11:36 on Opus. Expected: 75 min.\n",
+      "body": "\n\nD3723 (Matt, 22 Nov 2026): \"yes - our aims for today are to work towards proof irrelevance. We can then think about parallel checking\". Started 23 Nov 11:36 on Opus. Expected: 75 min.\n\n23 Nov 13:05 (lane): done, to review. Branch lane/SW-4671 (2 commits, rebased on main). ProofMark (Unknown/NotProof/Proof) on Term/Value Pi and Lam, Let, J, Quot, Head::Var/Quot, Elim::J; Def::proof. Kernel derives each from a sort it computed (settle_mark, prop_mark, def_mark) and refuses a differing given mark (E-MALFORMED); reference::validate_marks re-derives definitions' type binders and Def::proof. value::is_proof, reference::is_proof, unify::is_proof (unknowns by their type). STITCHWORT_PROOF_COUNTS=1 counters with --timings (docs/workflow.md). Cache FORMAT 39 -> 40; no hash moved (test:hashes ALL=1, pins pass). Soundness set, 3 new unit tests, 3 cache round-trip tests pass. All 690 accept examples still check. Review notes: docs/reviews/SW-4671-notes.md. Counters, accept examples summed: kernel 730 innermost proof pairs different but 0 at top level; 116 unifier proof pairs solved unknowns (std Map lemmas); J into data stuck 49 kernel/15 elab; one-shape stuck 1; indexed-prop into data 0. Top-level proof-pair callers: check.rs refl (audit's 815), elab check.rs:7335, elab check.rs:879 (unify wrapper); unify_index.rs:191 not hit.\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
       "commits": []
