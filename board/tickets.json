@@ -1,5 +1,5 @@
 {
-  "next": 4667,
+  "next": 4668,
   "tickets": [
     {
       "id": 47,
@@ -33163,6 +33163,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4667,
+      "title": "[DeepSeek] Tooling: a task that re-checks only the examples whose message snapshots mention given names (for message changes, without running the examples suite), and a documented way to see which std hashes moved (hash_stability::prelude with INSTA_UPDATE=always, diff) (SW-4665 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-23",
       "updated": "2026-11-23",
