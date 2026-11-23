@@ -33132,12 +33132,12 @@
     {
       "id": 4664,
       "title": "[DeepSeek] Add the Abel-Coquand program (docs/proposals/full-proof-irrelevance/abel-coquand.sw) as an accept example: the October note calls it a must-keep test but no example file exists (SW-4662 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nDone in the SW-4675 lane.\n",
+      "body": "\nDone in the SW-4675 lane.\n\nDone in the SW-4675 lane: examples/accept/abel-coquand.sw (moved from the proposal folder, arrows written with ∀ to avoid W-ARROW-FORALL), hash snapshot recorded, proposal links updated.\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
       "commits": []
@@ -33295,12 +33295,12 @@
     {
       "id": 4675,
       "title": "[Sonnet] Stale test comments after sealing: crates/driver/tests/elaboration/int.rs 9-12, proofs/differential.rs 664, proofs/proof_equivalence.rs 863 and 1158 (the wrapping test J by an over-applied theorem and its G12 known_gap: does it still test anything?); also whether anything real still reaches G12 (only Quot.lift leaves, maybe dictionaries) (SW-4668 findings)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nStarted 23 Nov 12:07 on Sonnet, with SW-4664 in the same lane. Expected: 30 min.\n",
+      "body": "\nStarted 23 Nov 12:07 on Sonnet, with SW-4664 in the same lane. Expected: 30 min.\n\nDone in the lane (12:08-12:45): stale comments rewritten in int.rs, differential.rs; the G12 device (J by an over-applied theorem), its viaCase theorem and the G12 known_gap removed from proof_equivalence.rs (the device was stuck in every mode, and the_known_gaps_hold_in_the_plain_evaluator was failing on main); core.md G12 row says none known.\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
       "commits": []

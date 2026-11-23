@@ -705,11 +705,6 @@ def liftId (q: Quot Nat NatEq) (x: Nat): Nat := Quot.lift (b => x) (a b h => byC
 
 def q0: Quot Nat NatEq := Quot.mk 0
 
-theorem viaCase ∀ (n: Nat): n = n → n = n :=
-  match n with
-    | Zero => h => h
-    | Succ _ => h => h
-
 def keepFn (b: Nat): Nat → Nat := x => x
 
 def liftFn (q: Quot Nat NatEq): Nat → Nat := Quot.lift keepFn (a b h => byComputing) q
@@ -780,7 +775,6 @@ fn wrap_sig(g: &Ev) -> Sig {
             "idDict",
             "liftId",
             "q0",
-            "viaCase",
             "liftFn",
             "boxId",
             "numMatch",
@@ -838,7 +832,6 @@ const DEVICES: &[&str] = &[
     "field of a call",
     "k * x",
     "spelled",
-    "J by an over-applied theorem",
     "over-applied lift",
 ];
 
@@ -859,23 +852,8 @@ fn device(g: &Ev, sig: &Sig, name: &str, x: Term) -> Term {
         ),
         "k * x" => app(sig.def("Nat.mul"), vec![Term::Nat(Rc::new(1u32.into())), x]),
         "spelled" => respell(g, sig, &x),
-        // `viaCase 0 Refl`: a theorem whose case tree returns a lambda, so
-        // its arity is 1 and the call has an argument after it (SW-4642).
-        "J by an over-applied theorem" => Term::J(
-            Term::Lam(
-                "y".into(),
-                Icit::Explicit,
-                Term::Lam(
-                    "e".into(),
-                    Icit::Explicit,
-                    Term::Data(sig.data("Nat"), vec![]).into(),
-                )
-                .into(),
-            )
-            .into(),
-            x.into(),
-            app(sig.def("viaCase"), vec![nat_term(sig, 0), Term::Refl]).into(),
-        ),
+        // A call folded on a `Quot.lift` leaf that returns a function, so
+        // `x` is an argument after the call's arity.
         "over-applied lift" => app(sig.def("liftFn"), vec![sig.def("q0"), x]),
         _ => unreachable!("{name}"),
     }
@@ -1154,27 +1132,6 @@ fn wrapped_pairs(g: &Ev, sig: &Sig) -> Vec<Wrapped> {
 fn known_gap(p: &Wrapped) -> Option<(&'static str, &'static str)> {
     let closed = ["1", "2", "3"].contains(&p.base.as_str());
     let over = p.place == "over";
-    // A `J` by a theorem applied past its arity (`viaCase 0 Refl`):
-    // conversion unfolds the call with the rest applied (SW-4642), but
-    // evaluation leaves it where a `+`, a `case` or the tree walk reads its
-    // head, so the `J` stays stuck there.
-    let read_by_elimination = matches!(
-        p.context,
-        "hole + n"
-            | "hole + n, against Succ^k n"
-            | "n + hole"
-            | "n + hole, against Succ^k n"
-            | "n + (n + hole)"
-            | "n + (n + hole), against Succ^k (n + n)"
-            | "number match"
-            | "alike helpers, hole scrutinised"
-            | "alike helpers, hole in the second place"
-            | "text match"
-            | "alike helpers over text"
-    );
-    if p.device == "J by an over-applied theorem" && read_by_elimination {
-        return Some(("G12", "to be filed"));
-    }
     match p.context {
         // (With `n` a number, the pairs over `n` are these too.)
         // A number `match` on `Succ` of a folded call.

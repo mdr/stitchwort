@@ -6,10 +6,10 @@
 //! `Succ n`, decisions wrapped in `Eq.cong`. Each test here evaluates with
 //! every native on and with every native off, in both evaluators (the
 //! machine and `reference.rs`), and compares the whole normal forms, proofs
-//! and stuck terms included, not decoded answers. A theorem stays folded
-//! while checking (SW-281), so where natives on give `refl` natives off may
-//! give a theorem's call: those two must then be definitionally equal, which
-//! unfolds the call.
+//! and stuck terms included, not decoded answers. A theorem is sealed, so
+//! where natives on give `refl` natives off may give a theorem's call, which
+//! is neutral: conversion must then equate the two as proofs of the same
+//! statement, without unfolding the call.
 
 use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
