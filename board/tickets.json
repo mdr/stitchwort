@@ -1,5 +1,5 @@
 {
-  "next": 4671,
+  "next": 4673,
   "tickets": [
     {
       "id": 47,
@@ -33163,12 +33163,12 @@
     {
       "id": 4666,
       "title": "[Sonnet] After sealing (SW-4665): remove the theorem-unfolding paths SW-4642 added in value.rs/reference.rs/unify.rs that can no longer fire, the STITCHWORT_THEOREM_UNFOLDS counters (always 0 now), and comments describing them as live (e.g. examples/accept/proof-unfolding-kept-folded.sw header)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nDone together with SW-4668 in one lane (same code).\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
       "commits": []
@@ -33189,12 +33189,12 @@
     {
       "id": 4668,
       "title": "[Opus] After sealing: remove dead theorem folding in folds, rewrite docs/core.md Theorems-stay-folded paragraph and rule 6 (hashes and native pins still move with a proof until stage 2), add a dictionary or Quot.lift example for the over-applied folded head (SW-4665 review findings 1, 2)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nD3723 (Matt, 22 Nov 2026): \"yes - our aims for today are to work towards proof irrelevance. We can then think about parallel checking\". Started 23 Nov 11:36 on Opus. Expected: 45 min.\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
       "commits": []
@@ -33215,12 +33215,38 @@
     {
       "id": 4670,
       "title": "[Sonnet] Messages after sealing: the sealed note appears for a J stuck on a variable through And.left; read Prop.irrel binders from its type in equations.rs; E-UNKNOWN-NAME says dep has no equations when it has two (SW-4665 review findings 3, 4, 6)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\n\nD3723 (Matt, 22 Nov 2026): \"yes - our aims for today are to work towards proof irrelevance. We can then think about parallel checking\". Started 23 Nov 11:36 on Sonnet. Expected: 30 min.\n",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4671,
+      "title": "[Opus] Full proof irrelevance stage 3 (D3721): one-bit proof marks on binders (Lam, Pi, let, context, case/J/Quot.lift results, definitions), computed and validated by the kernel and reference evaluator, plus counters under a switch; no change to what is accepted (docs/proposals/full-proof-irrelevance.md sections 4 and 9)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "\n\nD3723 (Matt, 22 Nov 2026): \"yes - our aims for today are to work towards proof irrelevance. We can then think about parallel checking\". Started 23 Nov 11:36 on Opus. Expected: 75 min.\n",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4672,
+      "title": "[Fable, paper] Full proof irrelevance: redo the October same-type audit (proof-irrelevance.md 7.4) for E2: every caller of conv and unify passes two values of one type, plus where rule I would need both sides marked; prerequisite for stages 4-5",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "\n\nD3723 (Matt, 22 Nov 2026): \"yes - our aims for today are to work towards proof irrelevance. We can then think about parallel checking\". Started 23 Nov 11:36 on Fable (paper). Expected: 40 min.\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
       "commits": []
