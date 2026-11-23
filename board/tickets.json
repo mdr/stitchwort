@@ -1,5 +1,5 @@
 {
-  "next": 4696,
+  "next": 4697,
   "tickets": [
     {
       "id": 47,
@@ -33594,6 +33594,19 @@
       "id": 4695,
       "title": "[Opus] Backlog, only if a profile shows it: cache slot_type's path per definition (a node-to-path map); 300-arm definition recursing 300k times is 6.0 s vs 1.2 s with the proof as a parameter (SW-4690 review F2)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4696,
+      "title": "[Opus] Rolling check on 7755e40a1 (stage 5): kernel/unifier tests now accept or answer differently: indexed test_22/23/25, quot r7_ind_doesnt_compute and r7_r8_the_rule_is_for_lift_alone, unify_index constructors_are_told_apart_only_in_type and production_agrees_with_the_reference_unifier case 7, call_fields j_on_a_stuck_field_computes_the_call_first, server search::what_closes_a_goal snapshot. Classify each intended (which rule) or regression; fix",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
