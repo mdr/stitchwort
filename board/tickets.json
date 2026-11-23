@@ -1,5 +1,5 @@
 {
-  "next": 4689,
+  "next": 4690,
   "tickets": [
     {
       "id": 47,
@@ -33497,6 +33497,19 @@
       "id": 4688,
       "title": "[Sonnet] identical: strict mark equality instead of marks_agree letting Unknown match either (SW-4674 review F4; removes an argument for a few memo hits)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4689,
+      "title": "[Opus] Stage 5 verifier: opaque::opaque_calls_with_different_proofs (irr3 now Ok by rule I), reject/mismatch-hidden-proof-argument.sw now checks (rule I), goals/match-copied-hypothesis-goal snapshot gains W-UNREACHABLE and shows h✝ (check: right or regression)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
