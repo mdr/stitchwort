@@ -33115,12 +33115,12 @@
     {
       "id": 4663,
       "title": "[Sonnet] Std: add Prop.irrel (the Box construction, a theorem since D1prime) and replace the Hedberg chain (Decidable/Bool symThenSelf, fromCanon, uniqueEq in std/core/Decidable.sw) with it; removes the only two theorems that need to stay transparent under sealing (SW-4662 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nD3722 (Matt, 22 Nov 2026): \"Proceed\" (seal now with no escape hatch, two lanes in series: this, then stage 1). Started 23 Nov 10:15 on Sonnet. Expected: 20 min.\n",
+      "body": "\n\nD3722 (Matt, 22 Nov 2026): \"Proceed\" (seal now with no escape hatch, two lanes in series: this, then stage 1). Started 23 Nov 10:15 on Sonnet. Expected: 20 min.\n\nLane (Sonnet), 23 Nov 10:35: Prop.Box and Prop.irrel added to std core Decidable.sw; uniqueEq (Decidable, Bool, DecEq) proved by it; canon/canonConst/fromCanon/symThenSelf deleted. Float.decEq pin repinned (hash moved via Bool.uniqueEq; computation unchanged). Sealed std check passes with no EXCEPT. Commit efa32ca88. In review.\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
       "commits": []
