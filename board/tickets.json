@@ -33400,7 +33400,7 @@
     {
       "id": 4681,
       "title": "[Sonnet] Unit tests for E-MALFORMED on a wrong Quot mark and on wrong motive binder marks (SW-4671 review F6, not done in SW-4674)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33408,7 +33408,13 @@
       "body": "",
       "created": "2026-11-23",
       "updated": "2026-11-23",
-      "commits": []
+      "commits": [
+        "3efaa9d8f23d5dead446d64ea60fcdc0ad86131e",
+        "e69aac3fc860d61e184ac824196cf52aa583dd1f",
+        "0d01b8d2b105ca997270d608d8321434710ca598",
+        "f85fdca2e4ea5265ed4560f883772ea0704fe096",
+        "ef7543b12cd765ad49bdb6f68e0f48247fb2ce05"
+      ]
     },
     {
       "id": 4682,
@@ -33591,7 +33597,7 @@
     {
       "id": 4694,
       "title": "[Sonnet] Kernel unit test with a hand-built shared case subtree for rule S's 'found exactly once' guard in slot_type (SW-4690 review F3)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33599,7 +33605,13 @@
       "body": "",
       "created": "2026-11-23",
       "updated": "2026-11-23",
-      "commits": []
+      "commits": [
+        "3efaa9d8f23d5dead446d64ea60fcdc0ad86131e",
+        "e69aac3fc860d61e184ac824196cf52aa583dd1f",
+        "0d01b8d2b105ca997270d608d8321434710ca598",
+        "f85fdca2e4ea5265ed4560f883772ea0704fe096",
+        "ef7543b12cd765ad49bdb6f68e0f48247fb2ce05"
+      ]
     },
     {
       "id": 4695,
@@ -33633,7 +33645,7 @@
     {
       "id": 4697,
       "title": "[Sonnet] unify_index's stuck answer for an equation between proofs (Reason::Proof) is now reached only with an unknown mark, so no kernel test reaches it: add an elaborator-side test or remove it; and trim indexed test_25's now near-duplicate paired case (SW-4696 findings)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33641,7 +33653,13 @@
       "body": "",
       "created": "2026-11-23",
       "updated": "2026-11-23",
-      "commits": []
+      "commits": [
+        "3efaa9d8f23d5dead446d64ea60fcdc0ad86131e",
+        "e69aac3fc860d61e184ac824196cf52aa583dd1f",
+        "0d01b8d2b105ca997270d608d8321434710ca598",
+        "f85fdca2e4ea5265ed4560f883772ea0704fe096",
+        "ef7543b12cd765ad49bdb6f68e0f48247fb2ce05"
+      ]
     },
     {
       "id": 4698,
