@@ -1,0 +1,320 @@
+diff --git a/crates/core/src/value.rs b/crates/core/src/value.rs
+index f365e1691..87c225b1f 100644
+--- a/crates/core/src/value.rs
++++ b/crates/core/src/value.rs
+@@ -572,18 +572,46 @@ pub fn ends_meet(g: &Ev, ends: &Ends) -> Result<bool> {
+ /// Whether `x` and `y`, of one type, are equal, compared where evaluation
+ /// has no count of the variables in scope (rules K and S): read-only, with
+ /// fresh variables from the reserved range ([`RESERVED_LEVELS`]).
++///
++/// Answers are remembered for the rest of the outermost test (the one not
++/// inside another), by the two values' shapes ([`ShapeMemo`]), so a test
++/// met again inside it is answered at once: two ends that each mention the
++/// same recursive call test that call's own casts once, not once per end,
++/// which would double at each level. An answer depends only on the two
++/// values, the metavariable solutions and the machine's modes; none of
++/// these change inside a test (comparison solves nothing), and the fresh
++/// variables each test makes are above every one either value can hold,
++/// so an answer found at one level holds at any.
+ fn meet_in_evaluation(g: &Ev, x: &Value, y: &Value) -> Result<bool> {
+-    struct Restore<'a>(&'a std::cell::Cell<usize>, usize);
++    struct Restore<'a>(&'a crate::machine::Machine, usize);
+     impl Drop for Restore<'_> {
+         fn drop(&mut self) {
+-            self.0.set(self.1);
++            self.0.cast_levels.set(self.1);
++            if self.1 == 0 {
++                *self.0.cast_answers.borrow_mut() = None;
++            }
+         }
+     }
+     let used = g.machine.cast_levels.get();
+     let level = RESERVED_LEVELS + used;
+-    let _restore = Restore(&g.machine.cast_levels, used);
++    let _restore = Restore(g.machine, used);
+     g.machine.cast_levels.set(used + LEVELS_PER_TEST);
+-    conv_with(g, level, x, y, &mut CallMemo::default(), Mode::Normal)
++    let filed = {
++        let mut answers = g.machine.cast_answers.borrow_mut();
++        let memo = answers.get_or_insert_with(ShapeMemo::default);
++        for answer in [true, false] {
++            let at = memo.file(g, answer, x, y)?;
++            if memo.contains(g, &at, x, y)? {
++                return Ok(answer);
++            }
++        }
++        memo.file(g, true, x, y)?
++    };
++    let same = conv_with(g, level, x, y, &mut CallMemo::default(), Mode::Normal)?;
++    if let Some(memo) = g.machine.cast_answers.borrow_mut().as_mut() {
++        memo.insert((same, filed.1, filed.2), x, y);
++    }
++    Ok(same)
+ }
+ 
+ /// The eliminations applied to a neutral value's head, in order: shared, so
+@@ -1683,6 +1711,41 @@ fn run_on(g: &Ev, mut control: Control, mut stack: Vec<Frame>) -> Result<Value>
+     }
+ }
+ 
++/// A cast's ends, evaluated with gluing on whatever the machine's mode, so
++/// a call in them stays a call until a test or a comparison needs it: with
++/// gluing off, a cast whose ends mention a recursive call would evaluate
++/// that call, whose own cast's ends hold the next one, and so on to the
++/// bottom, at every cast evaluated. A reader with gluing off forces the
++/// calls as it meets them, and sees what it would have computed (see
++/// `Kept::fits`).
++fn eval_ends(g: &Ev, env: &Env, ty: &Term, x: &Term, y: &Term) -> Result<Ends> {
++    let was = g.machine.glue.replace(true);
++    let ends = (|| {
++        Ok(Ends {
++            ty: eval(g, env, ty)?,
++            x: eval(g, env, x)?,
++            y: eval(g, env, y)?,
++        })
++    })();
++    g.machine.glue.set(was);
++    ends
++}
++
++/// Whether `frame` takes its value apart, so a stuck cast given to it is
++/// tested (see [`resume`]).
++fn needs_head(frame: &Frame) -> bool {
++    matches!(
++        frame,
++        Frame::NativeArg { .. }
++            | Frame::JForced { .. }
++            | Frame::JReady { .. }
++            | Frame::ProjForced(..)
++            | Frame::ProjReady(..)
++            | Frame::Scrutinee { .. }
++            | Frame::ScrutineeReady { .. }
++    )
++}
++
+ fn push(g: &Ev, stack: &mut Vec<Frame>, frame: Frame) -> Result<()> {
+     if let Err(e) = g.machine.budget.frames(stack.len() + 1) {
+         if e == ResourceError::Depth {
+@@ -2035,6 +2098,17 @@ fn quot_args(
+ 
+ /// Continues `frame` with the value it was waiting for.
+ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<Control> {
++    // A stuck cast is a lazy form: its ends are tested (rule K) only where
++    // its head is needed, here by a match, a projection, a cast or a native
++    // operation waiting on it.
++    if let Value::Neutral(_, spine) = &value
++        && cast_at(spine).is_some()
++        && needs_head(&frame)
++        && let Some(fired) = fire_cast(g, &value)?
++    {
++        push(g, stack, frame)?;
++        return Ok(Control::Force(fired));
++    }
+     Ok(match frame {
+         Frame::AppArg(arg, env, icit) => {
+             push(g, stack, Frame::AppFun(value, icit))?;
+@@ -2182,20 +2256,17 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
+                 Value::Neutral(head, spine) => {
+                     // Rule K: a cast into data whose ends are equal is its
+                     // base, whatever its proof (which is never looked at).
++                    // A lazy form: the ends are kept, and tested only where
++                    // the cast's head is needed ([`fire_cast`]), since a
++                    // test here would run for every cast evaluated, and
++                    // one whose ends mention a recursive call would test
++                    // the next level's twice, and so on down.
+                     let ends = match Term::j_ends(proof) {
+                         // Only the kernel puts ends on a `J`, and only on
+                         // one into data; the elaborator's copies of it may
+                         // not know the mark.
+                         Some((ty, x, y)) if *result != ProofMark::Proof => {
+-                            let ends = Ends {
+-                                ty: eval(g, &env, ty)?,
+-                                x: eval(g, &env, x)?,
+-                                y: eval(g, &env, y)?,
+-                            };
+-                            if ends_meet(g, &ends)? {
+-                                return Ok(Control::Eval(base.clone(), env));
+-                            }
+-                            Some(Box::new(ends))
++                            Some(Box::new(eval_ends(g, &env, ty, x, y)?))
+                         }
+                         _ => None,
+                     };
+@@ -2472,15 +2543,9 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
+                     project(*d, *i, value)
+                 }
+                 Elim::Proj(d, i) => project(*d, *i, unfolded.unwrap_or(value)),
+-                Elim::J { base, ends, .. } => match unfolded.unwrap_or(value) {
++                // Stuck again, its ends untested: see `Frame::JForced`.
++                Elim::J { base, .. } => match unfolded.unwrap_or(value) {
+                     Value::Refl => (**base).clone(),
+-                    // Rule K, again: an unknown in the ends may have been
+-                    // solved since.
+-                    Value::Neutral(..)
+-                        if ends.as_deref().map(|e| ends_meet(g, e)).transpose()? == Some(true) =>
+-                    {
+-                        (**base).clone()
+-                    }
+                     Value::Neutral(head, mut s) => {
+                         s.push(elim.clone());
+                         Value::Neutral(head, s)
+@@ -4245,7 +4310,16 @@ fn conv_with(
+     memo: &mut CallMemo,
+     mode: Mode,
+ ) -> Result<bool> {
+-    let mut work = vec![ConvTask::Values(level, a.clone(), b.clone())];
++    conv_tasks(
++        g,
++        vec![ConvTask::Values(level, a.clone(), b.clone())],
++        memo,
++        mode,
++    )
++}
++
++/// Whether every pair in `work` is equal: [`conv_with`] on several pairs.
++fn conv_tasks(g: &Ev, mut work: Vec<ConvTask>, memo: &mut CallMemo, mode: Mode) -> Result<bool> {
+     while let Some(mut task) = work.pop() {
+         g.machine.budget.step()?;
+         let same = match task {
+@@ -4547,6 +4621,20 @@ fn conv_step(
+             return Ok(Step::Answer(true));
+         }
+     }
++    // A stuck cast against anything but another (compared below) or a call
++    // (unfolded first): tested, since its head is needed (rule K).
++    let cast = |v: &Value| matches!(v, Value::Neutral(_, s) if cast_at(s).is_some());
++    if cast(a) != cast(b) && !matches!(&*a, Value::Call(..)) && !matches!(&*b, Value::Call(..)) {
++        let fired = if cast(a) {
++            fire_cast(g, a)?.map(|a2| (a2, take(b)))
++        } else {
++            fire_cast(g, b)?.map(|b2| (take(a), b2))
++        };
++        if let Some((a2, b2)) = fired {
++            work.push(ConvTask::Values(level, a2, b2));
++            return Ok(Step::Answer(true));
++        }
++    }
+     // A sum stuck on its first argument, with a folded call in its second:
+     // compared as what R3 and R4 make of it once that is unfolded (G2).
+     let mut reread = |v: &Value| reread_sum(g, v, &mut memo.sums);
+@@ -4572,11 +4660,15 @@ fn conv_step(
+             Ok(true)
+         };
+         let assign = |x: &Value, rest: &Value| {
++            // A stuck cast whose ends meet is its base (rule K).
+             let x = match unfold_folded(g, x)? {
+                 Some(x) => Some(x),
+                 None => match unfold_folded_head(g, x)? {
+                     Some(x) => Some(x),
+-                    None => reread(x)?,
++                    None => match fire_cast(g, x)? {
++                        Some(x) => Some(x),
++                        None => reread(x)?,
++                    },
+                 },
+             };
+             Ok(match x {
+@@ -4720,30 +4812,49 @@ fn conv_step(
+             else {
+                 unreachable!("found by cast_at")
+             };
+-            let Some(rest) = (s1.len() - i == s2.len() - j)
++            // Compared on their own first: where the parts differ, either
++            // cast may still be its base (rule K), so both are then tested.
++            let mut parts = Vec::new();
++            let by_parts = match (s1.len() - i == s2.len() - j)
+                 .then(|| spine_pairs(g, level, None, &s1[i + 1..], &s2[j + 1..]))
+                 .flatten()
+-            else {
+-                return Ok(Step::Answer(false));
++            {
++                Some(rest) => {
++                    parts.extend(rest.into_iter().rev());
++                    push_all(
++                        &mut parts,
++                        &[
++                            e1.ty.clone(),
++                            e1.x.clone(),
++                            e1.y.clone(),
++                            (**m1).clone(),
++                            (**b1).clone(),
++                        ],
++                        &[
++                            e2.ty.clone(),
++                            e2.x.clone(),
++                            e2.y.clone(),
++                            (**m2).clone(),
++                            (**b2).clone(),
++                        ],
++                    );
++                    conv_tasks(g, parts, memo, mode)?
++                }
++                None => false,
+             };
+-            work.extend(rest.into_iter().rev());
+-            push_all(
+-                work,
+-                &[
+-                    e1.ty.clone(),
+-                    e1.x.clone(),
+-                    e1.y.clone(),
+-                    (**m1).clone(),
+-                    (**b1).clone(),
+-                ],
+-                &[
+-                    e2.ty.clone(),
+-                    e2.x.clone(),
+-                    e2.y.clone(),
+-                    (**m2).clone(),
+-                    (**b2).clone(),
+-                ],
+-            );
++            if by_parts {
++                return Ok(Step::Answer(true));
++            }
++            let a2 = fire_cast(g, a)?;
++            let b2 = fire_cast(g, b)?;
++            if a2.is_none() && b2.is_none() {
++                return Ok(Step::Answer(false));
++            }
++            work.push(ConvTask::Values(
++                level,
++                a2.unwrap_or_else(|| take(a)),
++                b2.unwrap_or_else(|| take(b)),
++            ));
+             true
+         }
+         (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) if h1 == h2 && s1.len() == s2.len() => {
+diff --git a/crates/elab/src/unify.rs b/crates/elab/src/unify.rs
+index 5d2ad1829..901229710 100644
+--- a/crates/elab/src/unify.rs
++++ b/crates/elab/src/unify.rs
+@@ -1927,9 +1927,14 @@ fn forced_rules(
+             return Ok(Forced::Answer(true));
+         }
+     }
+-    // A cast that was stuck on an unknown in its ends, which has been
+-    // solved since so that they meet: its base (rule K). Asked before the
+-    // two are compared as stuck casts, by their parts.
++    // A cast whose ends meet: its base (rule K), perhaps since an unknown in
++    // them was solved. Tested only where needed: two stuck casts are first
++    // compared, read-only, as `conv` compares them (by their parts, then as
++    // their bases), so two casts written alike aren't each tested.
++    let is_cast = |v: &Value| matches!(v, Value::Neutral(_, s) if cast_at(s).is_some());
++    if is_cast(&a) && is_cast(&b) && conv(g, level, &a, &b)? {
++        return Ok(Forced::Answer(true));
++    }
+     if let Some(a2) = fire_cast(g, &a)? {
+         work.push(Task::Values(level, a2, b));
+         return Ok(Forced::Answer(true));
+@@ -1977,6 +1982,10 @@ fn forced_rules(
+                 if let Some(x) = reread(x)? {
+                     return nested(g, || run(g, vec![Task::Values(level, x, v.clone())], mode));
+                 }
++                // A stuck cast whose ends meet: its base (rule K).
++                if let Some(x) = fire_cast(g, x)? {
++                    return nested(g, || run(g, vec![Task::Values(level, x, v.clone())], mode));
++                }
+                 let mut work = Vec::new();
+                 match plus_rule(g, level, x, v, &mut work)? {
+                     Some(true) => nested(g, || run(g, work, mode)),
