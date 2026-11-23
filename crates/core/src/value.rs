@@ -5523,6 +5523,76 @@ pub fn stuck_on_variable(g: &Ev, value: &Value) -> Option<usize> {
     }
 }
 
+/// Why call `value` is stuck on a proof, for a note: `value` forced is a
+/// definition applied to all its arguments whose case tree stops at a
+/// `case` on a proof of a one-constructor proposition that rule S would
+/// open (`one_shape`) but for its indices. Returns the proof, the index
+/// its type gives and the index the constructor builds, for the first that
+/// doesn't agree (`q: Q2 b.n` against `Q2 0`, where `b` is a record that
+/// eta took apart, so the variable `b` alone isn't what the call waits for).
+/// `None` for anything else. Error path only; it runs in the machine's budget.
+pub fn stuck_on_proof_index(g: &Ev, value: &Value) -> Option<(Value, Value, Value)> {
+    let value = force(g, value.clone()).ok()?;
+    let Value::Neutral(Head::Def(id), spine) = &value else {
+        return None;
+    };
+    let def = g.def(*id);
+    let body = body_seen(g, *id)?;
+    if spine.len() != def.arity
+        || def.arity == 0
+        || folds(g, *id)
+        || def.lift_leaf
+        || def.proof
+        || g.env.builtins().native(*id).is_some()
+        || g.env.builtins().float_bound(*id)
+    {
+        return None;
+    }
+    let mut args = Vec::with_capacity(spine.len());
+    for elim in spine.iter() {
+        match elim {
+            Elim::App(v, _) => args.push(v.clone()),
+            Elim::J { .. } | Elim::Proj(..) => return None,
+        }
+    }
+    let tree = Term::peel_lams_rc(body, def.arity);
+    let TreeEnd::Stuck(node, env, proof @ Value::Neutral(..)) =
+        walk_tree(g, tree, args, eta_held(g, *id)).ok()?
+    else {
+        return None;
+    };
+    let Term::Case(ix, d, _) = &*node else {
+        return None;
+    };
+    let data = g.data(*d);
+    let [ctor] = &data.ctors[..] else {
+        return None;
+    };
+    if data.sort != Sort::Prop
+        || data.indices.is_empty()
+        || ctor.field_sorts.iter().any(|s| *s != Sort::Prop)
+    {
+        return None;
+    }
+    let level = env.len() - 1 - ix;
+    let Value::Data(d2, args) = slot_type(g, *id, &node, &env, level).ok()?? else {
+        return None;
+    };
+    let params = data.params.len();
+    if d2 != *d || args.len() != params + ctor.result.len() {
+        return None;
+    }
+    let mut ctor_env = args[..params].to_vec();
+    ctor_env.extend((0..ctor.fields.len()).map(|i| project(*d, i, proof.clone())));
+    for (k, index) in ctor.result.iter().enumerate() {
+        let from_ctor = eval(g, &ctor_env, index).ok()?;
+        if !meet_in_evaluation(g, &from_ctor, &args[params + k]).ok()? {
+            return Some((proof, args[params + k].clone(), from_ctor));
+        }
+    }
+    None
+}
+
 /// Where a case tree, walked with its environment, ends up.
 enum TreeEnd {
     /// A `case` stuck on the (forced) neutral scrutinee.

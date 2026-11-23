@@ -1,6 +1,5 @@
 ---
 source: crates/cli/tests/running/examples.rs
-assertion_line: 876
 expression: output
 ---
 [E-REFL] Error: `byComputing` can't prove this
@@ -10,7 +9,7 @@ expression: output
     │                                         ─────┬─────  
     │                                              ╰─────── `f 1 s` and `5` aren't equal
     │ 
-    │ Note 1: the left side is stuck on `s`: it can't compute further until `s` is known; a `match` on `s` (or `cases s`) splits it
+    │ Note 1: the left side is stuck on the proof `s`: its `match` takes its branch only where the proof's index is `0`, and here it is `1`
     │ 
     │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
 ────╯

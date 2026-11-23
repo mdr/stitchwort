@@ -33544,7 +33544,7 @@
     {
       "id": 4691,
       "title": "[Sonnet] Remove the E-REFL note behind differ_only_in_proofs_in (check.rs ~11270, 'differ only in a proof inside them, which isn't skipped under an opaque, axiom or same-group call'): unreachable under rule I (SW-4689 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33641,7 +33641,7 @@
     {
       "id": 4698,
       "title": "[Sonnet] E-REFL note on soundness/proof-irrelevance-42-enclosing-field-indices-differ (unknown) says the left side is stuck on b, though eta took b apart and the match is stuck on the index (q: Q2 b.n against Q2 0): the note points at the wrong thing (SW-4690 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
