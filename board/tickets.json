@@ -33470,7 +33470,7 @@
     {
       "id": 4686,
       "title": "[Opus] Rule S for indexed one-constructor propositions whose constructor has proof fields (D3727): when the indices agree, take the branch without opening the proof, fields as projections; restores f 0 pf = 5 (checked before stage 5) and transitivity in that corner. Kernel, reference evaluator, unifier; docs/core.md; move the stage 5 limit example to accept; Fable review (SW-4674 review F1)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
