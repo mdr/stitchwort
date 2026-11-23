@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `pick.eq1`
+   ╭─[ reject/unknown-guard-equation.sw:9:59 ]
+   │
+ 9 │ theorem pickPositive ∀ (n: Nat) (h: 0 < n): pick n = n := pick.eq1 n h
+   │                                                           ────┬───  
+   │                                                               ╰───── no such equation
+   │ 
+   │ Note 1: `pick` has the equations `pick.eq.ifFalse` and `pick.eq.ifTrue`
+   │ 
+   │ Note 2: `stitchwort doc pick` lists the equations of `pick` and which weren't generated
+───╯

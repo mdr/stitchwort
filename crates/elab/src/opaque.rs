@@ -443,7 +443,9 @@ fn has_case(term: &Term) -> bool {
 /// proof a `J` transports along, a projection's subject, or an argument of
 /// a lifted `match` (`f.%match1`). Elsewhere a call of one is just a proof
 /// passed on, which hiding its body doesn't change, and theorem calls are
-/// everywhere in types.
+/// everywhere in types. And only when the theorem's arguments are all
+/// closed: with a variable among them (`h.left`, `h` a hypothesis) the
+/// computation would wait on the variable even if the proof were unsealed.
 pub(crate) fn declined_in<'t>(g: &Ev, terms: impl IntoIterator<Item = &'t Term>) -> Vec<DefId> {
     if !g.env.defs().iter().any(|d| d.opaque()) {
         return Vec::new();
@@ -466,7 +468,9 @@ pub(crate) fn declined_in<'t>(g: &Ev, terms: impl IntoIterator<Item = &'t Term>)
         match term {
             Term::Def(id) if !g.def(*id).theorem() => note(*id, &mut found),
             Term::J(_, _, proof) | Term::Proj(_, _, proof) => {
-                if let Term::Def(id) = proof.spine().0 {
+                if let (Term::Def(id), args) = proof.spine()
+                    && (!g.def(*id).theorem() || args.iter().all(|a| is_closed(a)))
+                {
                     note(*id, &mut found);
                 }
             }
@@ -476,8 +480,9 @@ pub(crate) fn declined_in<'t>(g: &Ev, terms: impl IntoIterator<Item = &'t Term>)
                     && g.def(*h).name().contains("%match")
                 {
                     for arg in args {
-                        if let Term::Def(id) = arg.spine().0
+                        if let (Term::Def(id), args) = arg.spine()
                             && g.def(*id).theorem()
+                            && args.iter().all(|a| is_closed(a))
                         {
                             note(*id, &mut found);
                         }
@@ -491,6 +496,14 @@ pub(crate) fn declined_in<'t>(g: &Ev, terms: impl IntoIterator<Item = &'t Term>)
         pending[first..].reverse();
     }
     found
+}
+
+/// Whether `term` mentions no variable bound outside it.
+fn is_closed(term: &Term) -> bool {
+    term.subterms().all(|(t, binders)| match t {
+        Term::Var(i) | Term::Case(i, ..) | Term::NumCase(i, ..) => *i < binders,
+        _ => true,
+    })
 }
 
 /// Of the opaque definitions declined in `terms` ([`declined_in`]), those

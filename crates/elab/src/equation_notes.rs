@@ -62,33 +62,55 @@ pub(crate) fn unknown_equation(cx: &Ctx, name: &ast::Name) -> Option<Diagnostic>
                 )),
         );
     }
-    // The arm numbers there are: `f.eq1`, `f.eq2`, … (an `or` or a branch
-    // below an arm has its arm's number).
+    // The equations are `f.eq1`, `f.eq2`, … (an `or` or a branch below an
+    // arm has its arm's number), or `f.eq.ifTrue.…` for a definition whose
+    // body is a guard.
     let prefix = format!("{}.eq", def.path());
-    let mut arms: Vec<usize> = (0..e.kernel.env.defs().len())
+    let written = def.name();
+    let mut rests: Vec<String> = (0..e.kernel.env.defs().len())
         .map(stitchwort_core::DefId)
         .filter_map(|id| {
             let d = e.kernel.def(id);
             let rest = d.path().strip_prefix(&prefix)?;
-            let number = rest.split('.').next()?;
-            if d.theorem() {
-                number.parse().ok()
-            } else {
-                None
-            }
+            let numbered = rest.chars().next().is_some_and(|c| c.is_ascii_digit());
+            (d.theorem() && (numbered || rest.starts_with('.'))).then(|| rest.to_string())
         })
         .collect();
-    arms.sort_unstable();
-    arms.dedup();
-    let written = def.name();
+    rests.sort_unstable();
+    rests.dedup();
+    let arms: Vec<usize> = {
+        let mut arms: Vec<usize> = rests
+            .iter()
+            .filter_map(|r| r.split('.').next()?.parse().ok())
+            .collect();
+        arms.sort_unstable();
+        arms.dedup();
+        arms
+    };
+    let numbered = !arms.is_empty() && rests.iter().all(|r| !r.starts_with('.'));
     let have = match (arms.first(), arms.last()) {
-        (Some(first), Some(last)) if first == last => {
+        _ if rests.is_empty() => {
+            format!("`{written}` has no equations (it has no arms, or none could be stated)")
+        }
+        (Some(first), Some(last)) if numbered && first == last => {
             format!("`{written}` has the equation `{written}.eq{first}`")
         }
-        (Some(first), Some(last)) => {
+        (Some(first), Some(last)) if numbered => {
             format!("`{written}` has equations `{written}.eq{first}` to `{written}.eq{last}`")
         }
-        _ => format!("`{written}` has no equations (it has no arms, or none could be stated)"),
+        _ => {
+            let names: Vec<String> = rests.iter().map(|r| format!("`{written}.eq{r}`")).collect();
+            if names.len() == 1 {
+                format!("`{written}` has the equation {}", names[0])
+            } else {
+                format!("`{written}` has the equations {}", join_names(&names))
+            }
+        }
+    };
+    let numbering = if numbered {
+        ": they are numbered by arm, so adding or removing an arm renumbers the ones after it"
+    } else {
+        ""
     };
     Some(
         Diagnostic::error(
@@ -96,10 +118,7 @@ pub(crate) fn unknown_equation(cx: &Ctx, name: &ast::Name) -> Option<Diagnostic>
             format!("unknown name `{written}.{suffix}`"),
         )
         .with_label(name.span, "no such equation")
-        .with_note(format!(
-            "{have}: they are numbered by arm, so adding or removing an arm renumbers the \
-                 ones after it"
-        ))
+        .with_note(format!("{have}{numbering}"))
         .with_note(format!(
             "`stitchwort doc {written}` lists the equations of `{written}` and which \
                  weren't generated"
@@ -205,4 +224,11 @@ pub(crate) fn branch_note(e: &crate::Elaborator, terms: &[&Term]) -> Option<Stri
          {listed}, each under the hypothesis its branch is taken under; `stitchwort doc \
          {owner}` lists them"
     ))
+}
+
+fn join_names(names: &[String]) -> String {
+    match names {
+        [init @ .., last] if !init.is_empty() => format!("{} and {last}", init.join(", ")),
+        _ => names.join(", "),
+    }
 }
