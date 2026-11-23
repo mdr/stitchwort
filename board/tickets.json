@@ -1,5 +1,5 @@
 {
-  "next": 4690,
+  "next": 4691,
   "tickets": [
     {
       "id": 47,
@@ -33510,6 +33510,19 @@
       "id": 4689,
       "title": "[Opus] Stage 5 verifier: opaque::opaque_calls_with_different_proofs (irr3 now Ok by rule I), reject/mismatch-hidden-proof-argument.sw now checks (rule I), goals/match-copied-hypothesis-goal snapshot gains W-UNREACHABLE and shows h✝ (check: right or regression)",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4690,
+      "title": "[Opus] Rule S on a proof field bound by an enclosing match: a case on such a field stays stuck unless the proof is a literal constructor, so conversion is not transitive there (g/Outer: g o = g (MkOuter (MkQ2 byComputing)) and that = 5 check, g o = 5 refused) and a closed instance of a checked universal statement fails (gk 5 po). Type the field (as infer_proj does) so the index test runs on it; find which layer refuses the closed instance. Continues D3727's direction. Fable review (SW-4686 review F1)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
