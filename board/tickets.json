@@ -33241,12 +33241,12 @@
     {
       "id": 4672,
       "title": "[Fable, paper] Full proof irrelevance: redo the October same-type audit (proof-irrelevance.md 7.4) for E2: every caller of conv and unify passes two values of one type, plus where rule I would need both sides marked; prerequisite for stages 4-5",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nD3723 (Matt, 22 Nov 2026): \"yes - our aims for today are to work towards proof irrelevance. We can then think about parallel checking\". Started 23 Nov 11:36 on Fable (paper). Expected: 40 min.\n",
+      "body": "\n\nD3723 (Matt, 22 Nov 2026): \"yes - our aims for today are to work towards proof irrelevance. We can then think about parallel checking\". Started 23 Nov 11:36 on Fable (paper). Expected: 40 min.\n\n\nProgress (lane, 23 Nov 11:50): audit written, docs/proposals/full-proof-irrelevance-audit.md, commit 0bca77c64 on lane/SW-4672. Verdict: stages 4-5 can go ahead; no kernel site hands the comparison two values of different types (11 sites read). Conditions: A (stage 4, high if missed) rule K/S compare inside evaluation, which has no level for fresh variables; B (stage 4) two stuck casts or stuck proof matches compared by ends, motive, base, never by their proofs; C (stage 5) the proof-against-data tripwire armed for the kernel only; D (stage 5) first_order applies rule I only when the two types are known to agree; E (stage 5, SW-4661) searches and syntactic matchers apply no rule I at a candidate's root; G undo holds, with metavariable marks derived or trailed and rule K's test read-only. Elaborator sites were listed (about 95 conv, 230 unify), about 35 read; no probe run (rule I isn't built). Suggested follow-up: a counter in stage 3 of top-level conv/unify calls with both sides marked proofs, by caller. About 14 min (est. 40).\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
       "commits": []
