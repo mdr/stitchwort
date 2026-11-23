@@ -33825,15 +33825,18 @@
     {
       "id": 4707,
       "title": "[Opus] Build: check-cache keys by interface digest, per the design in docs/proposals/interface-digest-cache.md (SW-4706); Fable review after (D3728)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nProgress (SW-4707 lane, Opus, 23 Nov 21:49-22:30): stage A built as docs/proposals/interface-digest-cache.md §6, commit 36ee7bdc0. Step 0: 24 of 138 tools/fmt entries hold a position in another unit's file, all std:core (covered by the stamp); none in another project file; ~1,930 of 5,563 theorems own a lifted %match helper (stage C matters). Tests: check_cache::digest (18), cache::tests rule-4 unit test, existing check_cache:: (51), cache::tests (9), server caching:: (10) pass. Measure script and reviewer notes: docs/reviews/SW-4707-notes.md (verifier runs it: whole-project). Stages B-D not built.\n",
+      "body": "\n\nProgress (SW-4707 lane, Opus, 23 Nov 21:49-22:30): stage A built as docs/proposals/interface-digest-cache.md §6, commit 36ee7bdc0. Step 0: 24 of 138 tools/fmt entries hold a position in another unit's file, all std:core (covered by the stamp); none in another project file; ~1,930 of 5,563 theorems own a lifted %match helper (stage C matters). Tests: check_cache::digest (18), cache::tests rule-4 unit test, existing check_cache:: (51), cache::tests (9), server caching:: (10) pass. Measure script and reviewer notes: docs/reviews/SW-4707-notes.md (verifier runs it: whole-project). Stages B-D not built.\n\n\nMeasured (orchestrator, measure.sh, scratch checkout): SpellProofs line-32 proof edit, warm cache: main 31.0 s ~54 namespaces rechecked; lane 5.3 s, 1 namespace. Cold 115 vs 117 s. Fable review: merge; F1-F4 fixed (cae1d9d5d). Model result: Opus, worked, 36+7 min (est. 90); review Fable 11 min (est. 40).\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
-      "commits": []
+      "commits": [
+        "cae1d9d5d0b969fab22564a16d45fb6e96f937e0 3bbfb0a6e4c7133da2c50da2ea6ece5aca4acaaf 5fa047df2b73bb9cea2754843c78e97319057a68 36ee7bdc0b0fa7cc8d9ac3e50c7b99b7fb2346f8",
+        "73f3055d9f72e97471868110e32d843d44869b4e"
+      ]
     },
     {
       "id": 4708,
