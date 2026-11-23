@@ -1,5 +1,5 @@
 {
-  "next": 4710,
+  "next": 4713,
   "tickets": [
     {
       "id": 47,
@@ -33851,6 +33851,45 @@
     {
       "id": 4709,
       "title": "[Sonnet] docs/core.md hashes paragraph: 'the check-cache keys, which cover text' becomes false with interface-digest stage A; and equation_notes.rs:203-218 reads theorem proofs across the session for an error note: say so in a comment or key it (SW-4706 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4710,
+      "title": "[Sonnet] Interface-digest cache: refer to a namespace's own declarations by path in the digest, so a proof that starts using a later declaration keeps the cut-off (SW-4707 finding; fits stage C)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4711,
+      "title": "[Sonnet] Interface-digest cache rule 4 per file: host gives per-file text hashes instead of hashing every namespace's sources (SW-4707 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4712,
+      "title": "[Sonnet] STITCHWORT_CACHE_DEBUG: print a line for a namespace replayed or left out, not only written and missed (SW-4707 review friction); and a stitchwort cache dump-entry or documented entry layout (SW-4707 friction)",
       "status": "backlog",
       "agent": "",
       "where": "",
