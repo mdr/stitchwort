@@ -33695,12 +33695,12 @@
     {
       "id": 4701,
       "title": "[Opus] Interface hashes (full proof irrelevance stage 2 = sealed-theorems.md stage 2): a theorem referred to by its interface hash (tag theorem + statement), full hash kept for the proof; reliance (axioms, open goals) stays on the walk; test-cache key covers reliance. Measure: editing a proof in std changes no dependant's hash (a test)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nProgress (Opus lane, 23 Nov, ~35 min): built in 86498eb85. hash::interface_hash (tag theorem + statement) used for every content-hash reference to a final theorem with a proof; def_hash stays the full hash. Goals/stand-ins referred to by their own tagged hashes. Test-cache key adds the goals a test relies on (result_key); check-cache dependency records keep full hashes; FORMAT 43. Pins stay on full hashes; 5 kernel pins and 6 runtime bindings moved with no std change. 730/811 hash snapshots re-recorded. Measure: crates/driver/tests/proofs/interface_hashes.rs (4 tests). Open for Matt: proof-typed defs (not theorem) still referred to by full hash.\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
       "commits": []
