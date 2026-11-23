@@ -106,8 +106,11 @@ adds cases where the old code returned `false`.
 - `examples/accept/proof-irrelevance-42-enclosing-field.sw`: the `g`/`Outer`
   triple and `a4`, the `gk`/`po` pair (`b1`, `b1c`), a field typed over the
   enclosing type's parameter (`c1`), a field two matches deep (`c2`), and a
-  field of a record taken apart by iota whose index is an earlier data field
-  (`c3`). On `main` `a3`, `a4`, `b1c`, `c1`, `c2` and `c3` are refused; all
+  field of a record literal taken apart by iota whose index is an earlier
+  data field (`c3`), and a field of an unknown record taken apart by record
+  eta whose index is the record type's parameter (`c4`; the records were
+  `|` types, without eta, until the Fable review's F1). On `main` `a3`,
+  `a4`, `b1c`, `c1`, `c2`, `c3` and `c4` are refused; all
   check here, also with `STITCHWORT_DEBUG_FORCE_UNGLUED=1`.
 - `examples/soundness/proof-irrelevance-42-…` and `-43-…`: refused, as on
   `main`.

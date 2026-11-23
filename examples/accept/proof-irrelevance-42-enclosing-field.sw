@@ -58,13 +58,24 @@ def gt: Twice → Nat
 
 theorem c2 ∀ (t: Twice): gt t = 9 := byComputing
 
--- An enclosing record, taken apart by record eta, whose proof field's
--- index is an earlier data field.
-type Box = | MkBox (n: Nat) (q: Q2 n)
+-- An enclosing record whose proof field's index is an earlier data field,
+-- taken apart by iota on a literal (`c3`), and one whose proof field's index
+-- is the record type's parameter, taken apart by record eta on an unknown
+-- record (`c4`).
+type Box = { n: Nat, q: Q2 n }
 
 def gb: Box → Nat
-  | MkBox n q =>
+  | { n, q } =>
     match q with
       | MkQ2 w => n + 1
 
-theorem c3 ∀ (q: Q2 0): gb (MkBox 0 q) = 1 := byComputing
+theorem c3 ∀ (q: Q2 0): gb { n = 0, q } = 1 := byComputing
+
+type BoxK (k: Nat) = { m: Nat, q: Q2 k }
+
+def gbk (k: Nat): BoxK k → Nat
+  | { m, q } =>
+    match q with
+      | MkQ2 w => m
+
+theorem c4 ∀ (b: BoxK 0): gbk 0 b = b.m := byComputing

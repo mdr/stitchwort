@@ -62,6 +62,53 @@ def around39 (k: Nat): Around39 k → Nat
   | MkAround39 q => match q with
     | MkQ39 w => 5
 
+
+type Mid39 (k: Nat): Prop =
+  | MkMid39 (q: Q39 k)
+type Top39 (k: Nat): Prop =
+  | MkTop39 (m: Mid39 k)
+def top39 (k: Nat): Top39 k → Nat
+  | MkTop39 m => match m with
+    | MkMid39 q => match q with
+      | MkQ39 w => 9
+type T39 (k: Nat): Type =
+  | A39 (q: Q39 0)
+  | B39 (q: Q39 k)
+def ft39 (k: Nat): T39 k → Nat
+  | A39 q => match q with
+    | MkQ39 w => 5
+  | B39 q => match q with
+    | MkQ39 w => 6
+type P239 (a: Nat) (b: Nat): Prop =
+  | MkP239 (x: Q39 a) (y: Q39 b)
+def fy39 (a: Nat) (b: Nat): P239 a b → Nat
+  | MkP239 x y => match y with
+    | MkQ39 w => 5
+type BoxK (k: Nat) = { n: Nat, m: Nat, q: Q39 k }
+def gbk (k: Nat): BoxK k → Nat
+  | { n, m, q } => match q with
+    | MkQ39 w => 4
+type BoxM = { n: Nat, m: Nat, q: Q39 m }
+def gbm: BoxM → Nat
+  | { n, m, q } => match q with
+    | MkQ39 w => 4
+def h39: Nat → (k: Nat) → Around39 k → Nat
+  | 0, k, o => 1
+  | Succ m, k, MkAround39 q => match q with
+    | MkQ39 w => 2
+type Q339: Nat → Prop =
+  | MkQ339 (w: 0 = 0): Q339 3
+type W39: Nat → Prop =
+  | MkW39 (q: Q339 3): W39 0
+def fw39 (n: Nat): W39 n → Nat
+  | MkW39 q => match q with
+    | MkQ339 w => 5
+type W239 (k: Nat): Nat → Prop =
+  | MkW239 (q: Q39 k): W239 k k
+def fw239 (k: Nat) (i: Nat): W239 k i → Nat
+  | MkW239 q => match q with
+    | MkQ39 w => 5
+
 type TBox: Type 1 =
   | MkTBox (t: Type)
 
@@ -188,6 +235,46 @@ def t42L (o: Around39 0): Nat := around39 0 o
 def t42R (o: Around39 0): Nat := 5
 def t42pL (o: Around39 1): Nat := around39 1 o
 def t42pR (o: Around39 1): Nat := 5
+def x1L (t: Top39 0): Nat := top39 0 t
+def x1R (t: Top39 0): Nat := 9
+def x1pL (t: Top39 1): Nat := top39 1 t
+def x1pR (t: Top39 1): Nat := 9
+def x2L (q: Q39 0): Nat := ft39 0 (B39 q)
+def x2R (q: Q39 0): Nat := 6
+def x2pL (q: Q39 1): Nat := ft39 1 (B39 q)
+def x2pR (q: Q39 1): Nat := 6
+def x2aL (k: Nat) (q: Q39 0): Nat := ft39 k (A39 q)
+def x2aR (k: Nat) (q: Q39 0): Nat := 5
+def x3L (p: P239 1 0): Nat := fy39 1 0 p
+def x3R (p: P239 1 0): Nat := 5
+def x3pL (p: P239 0 1): Nat := fy39 0 1 p
+def x3pR (p: P239 0 1): Nat := 5
+def x4L (b: BoxK 0): Nat := gbk 0 b
+def x4R (b: BoxK 0): Nat := 4
+def x4pL (b: BoxK 1): Nat := gbk 1 b
+def x4pR (b: BoxK 1): Nat := 4
+def x4mL (q: Q39 0): Nat := gbm { n = 1, m = 0, q = q }
+def x4mR (q: Q39 0): Nat := 4
+def x4mpL (q: Q39 1): Nat := gbm { n = 0, m = 1, q = q }
+def x4mpR (q: Q39 1): Nat := 4
+def x4mvL (b: BoxM): Nat := gbm b
+def x4mvR (b: BoxM): Nat := 4
+def x5L (o: Around39 0): Nat := h39 3 0 o
+def x5R (o: Around39 0): Nat := 2
+def x5pL (o: Around39 1): Nat := h39 3 1 o
+def x5pR (o: Around39 1): Nat := 2
+def x5nL (n: Nat) (o: Around39 0): Nat := h39 (Succ n) 0 o
+def x5nR (n: Nat) (o: Around39 0): Nat := 2
+def x6L (x: W39 0): Nat := fw39 0 x
+def x6R (x: W39 0): Nat := 5
+def x6pL (x: W39 1): Nat := fw39 1 x
+def x6pR (x: W39 1): Nat := 5
+def x7L (x: W239 0 0): Nat := fw239 0 0 x
+def x7R (x: W239 0 0): Nat := 5
+def x7aL (x: W239 1 1): Nat := fw239 1 1 x
+def x7aR (x: W239 1 1): Nat := 5
+def x7bL (x: W239 0 1): Nat := fw239 0 1 x
+def x7bR (x: W239 0 1): Nat := 5
 -- Test 21 and its partner: equal by rule S, as test 18.
 def t21L (t: Tok) (u: Tok): Nat := tokNat t 0
 def t21R (t: Tok) (u: Tok): Nat := tokNat u 0
@@ -395,6 +482,26 @@ const CASES: &[(&str, bool)] = &[
     // The same on a field an enclosing match bound.
     ("t42", true),
     ("t42p", false),
+    ("x1", true),
+    ("x1p", false),
+    ("x2", true),
+    ("x2p", false),
+    ("x2a", true),
+    ("x3", true),
+    ("x3p", false),
+    ("x4", true),
+    ("x4p", false),
+    ("x4m", true),
+    ("x4mp", false),
+    ("x4mv", false),
+    ("x5", true),
+    ("x5p", false),
+    ("x5n", true),
+    ("x6", true),
+    ("x6p", false),
+    ("x7", true),
+    ("x7a", false),
+    ("x7b", false),
     // Rule S, as test 18.
     ("t21", true),
     ("t21p", true),

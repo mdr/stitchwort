@@ -3,8 +3,8 @@
 -- type off its declaration, over the enclosing scrutinee's parameters and
 -- earlier fields, and takes the branch only when its indices are the
 -- constructor's. `q: Q2 1`, which `MkQ2` can't build, stays stuck (the
--- branch would run under the false refinement `1 = 0`), as does `q: Q2 n`
--- for an unknown earlier data field `n`.
+-- branch would run under the false refinement `1 = 0`), as does `q: Q2 b.n`
+-- in an unknown record `b`, which record eta takes apart.
 import Std (Eq, Nat)
 
 type Q2: Nat → Prop = | MkQ2 (w: 0 = 0): Q2 0
@@ -18,10 +18,10 @@ def ga (k: Nat): Around k → Nat
 
 theorem apart ∀ (o: Around 1): ga 1 o = 7 := byComputing
 
-type Box = | MkBox (n: Nat) (q: Q2 n)
+type Box = { n: Nat, q: Q2 n }
 
 def gb: Box → Nat
-  | MkBox n q =>
+  | { n, q } =>
     match q with
       | MkQ2 w => 3
 
