@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-REFL] Error: `byComputing` can't prove this
+    ╭─[ soundness/proof-irrelevance-33-indexed-apart.sw:12:73 ]
+    │
+ 12 │ theorem carryApart ∀ (x y: Nat) (h: Same Nat x y): carry x y h 4 = 4 := byComputing
+    │                                                                         ─────┬─────  
+    │                                                                              ╰─────── `carry x y h 4` and `4` aren't equal
+    │ 
+    │ Note 1: the left side is stuck on `h`: it can't compute further until `h` is known; a `match` on `h` (or `cases h`) splits it
+    │ 
+    │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
+────╯

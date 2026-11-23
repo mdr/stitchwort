@@ -59,7 +59,8 @@ def castViaBox (a: Prop) (p q: a) (f: a → Type) (x: f p) (e: MkBox p = MkBox q
 
 def castOk (a: Prop) (p q: a) (f: a → Type) (x: f p): f q := castViaBox a p q f x byComputing
 
--- `J` computes on `byComputing` only.
+-- `J` computes on `byComputing`; into data, also on any proof whose equation's
+-- two sides are equal (rule K, accept/proof-irrelevance-05-rule-k.sw).
 def jAt (n: Nat) (h: n = n) (d: Nat): Nat := J (y e => Nat) d h
 
 theorem jOnRfl ∀ (n d: Nat): jAt n byComputing d = d := byComputing

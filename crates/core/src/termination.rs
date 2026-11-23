@@ -653,7 +653,13 @@ impl Walker<'_> {
             Term::J(m, b, p, _) => {
                 self.walk(m)?;
                 self.walk(b)?;
-                self.walk(p)?;
+                // A cast's ends, which the kernel adds from its proof's
+                // type, are only compared, never run: calls in them are no
+                // more calls than ones in that type, which isn't walked.
+                match (Term::j_ends(p), p.strip_loc()) {
+                    (Some(_), Term::Ann(proof, _)) => self.walk(proof)?,
+                    _ => self.walk(p)?,
+                }
             }
             // A projection gives no evidence of descent here (`relate`
             // doesn't look through it): conservative, never unsound.

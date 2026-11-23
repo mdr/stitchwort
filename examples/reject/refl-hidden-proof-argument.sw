@@ -1,12 +1,11 @@
 -- expect-error: E-REFL
--- Both sides print as `transported n m` but use different proofs of
--- `n = m`, which `transported` computes with (`J`); `byComputing` can't make them
--- equal, and the message shows the proofs in brackets (SW-28). Proofs a
--- definition never computes with are skipped (accept/proof-irrelevance.sw).
+-- Both sides print as `t` but use different proofs of `n = m`, and `t` is a
+-- function variable, which might compute with its proof; `byComputing` can't
+-- make them equal, and the message shows the proofs in brackets (SW-28).
+-- Proofs a definition never computes with are skipped
+-- (accept/proof-irrelevance.sw), as are proofs it only casts along (rule K).
 
 import Std (Nat)
 
-def transported (n: Nat) (m: Nat): [auto ok: n = m] → Nat := J (y e => Nat) n ok
-
-theorem differentProofs (n: Nat) (m: Nat) (h1: n = m) (h2: n = m):
-    transported n m [ok := h1] = transported n m [ok := h2] := byComputing
+theorem differentProofs ∀ (n m: Nat) (t: [auto ok: n = m] → Nat) (h1 h2: n = m): t [ok := h1] = t [ok := h2] :=
+  byComputing

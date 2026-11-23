@@ -41,6 +41,12 @@ pub enum Kind {
     /// A `case` the kernel checked on a proof of an indexed proposition
     /// (other than `=`, which is `J`) producing data (§4.4, Q2).
     IndexedPropIntoData,
+    /// A cast into data on a proof that isn't `byComputing` took its base
+    /// because its ends were equal (rule K).
+    CastFired,
+    /// A `case` on a proof that isn't a constructor took its only branch
+    /// (rule S).
+    OneShapeFired,
 }
 
 impl Kind {
@@ -53,6 +59,8 @@ impl Kind {
             Kind::StuckCastIntoData => "J into data stuck on a proof that isn't byComputing",
             Kind::StuckOneShapeIntoData => "one-constructor match into data stuck on a proof",
             Kind::IndexedPropIntoData => "indexed proposition matched into data (kernel check)",
+            Kind::CastFired => "J into data took its base by rule K (ends equal)",
+            Kind::OneShapeFired => "one-constructor match on a proof took its branch by rule S",
         }
     }
 }

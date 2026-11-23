@@ -33282,12 +33282,12 @@
     {
       "id": 4673,
       "title": "[Opus] Full proof irrelevance stage 4: rules K and S as lazy forms (casts along a proof of a = a compute; one-constructor matches into data take their branch, indices checked as D3724), Fable review; design conditions A, B and G (fired casts, read-only K test) from docs/proposals/full-proof-irrelevance-audit.md. After SW-4671.",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nStarted 23 Nov 13:17 on Opus (D3721, D3723, D3724). Expected: 90 min. Fable review after.\n",
+      "body": "\n\nStarted 23 Nov 13:17 on Opus (D3721, D3723, D3724). Expected: 90 min. Fable review after.\n\n\n23 Nov 14:00 (lane): done, to review. Branch lane/SW-4673. Rule K: kernel puts a cast's ends on its proof as an annotation (J P d (p : x = y)); evaluator, reference and unifier take the base when the ends are equal (read-only conv at reserved levels 2^40+, condition A); stuck casts compared by ends, motive, base (B); the unifier re-tests waiting casts via fire_cast, nothing kept (G). Rule S: one-constructor propositions with proof fields take their branch (fields as projections; the kernel now types Proj of such proof records); indexed ones with no fields when the constructor's result indices equal the scrutinee's, read off the definition's type (parameters only); indexed with fields stay stuck. Examples: 9 moved to accept (transportComputes, sealed-theorem-cast, quot-transport-ind-rule-k, soundness -05 -17 -18 -21 -27), new accept rules-k-and-s, new soundness -31 to -34, the hidden-proof-argument rejects use a function variable. Abel-Coquand still checks (its casts are into Prop: no K). Hashes: 13 snapshots moved, 8 new, pins unchanged. Tests: soundness set, proof_equivalence (20), rule_k, proof_marks, opaque, pins, test:hashes ALL=1, Aoc.Common.Proofs. Notes: docs/reviews/SW-4673-notes.md.\n\nReview fixes, 23 Nov (Opus, 14:19-15:02): F1 fixed by remembering ends-test answers within the outermost test (Machine::cast_answers) and evaluating ends glued; infer_j writes ends as written. deepc40 >60 s -> 0.5 s; tower 40 = 0 >60 s -> 0.3 s; 161 levels 10 s (polynomial). Lazy cast tried and set aside (number matches / stuck-tree comparisons read heads untested; proof_equivalence caught it; patch in lane scratch). F3: docs corrected (K fires on unknown marks in the elaborator). Three core.md corrections done. Probes added: accept/rules-k-and-s-nesting.sw, accept/cast-ends-tested-once.sw, soundness -35..-38. Tests: soundness set, core rule_k etc. (31), proof_equivalence (20), test:hashes ALL=1, all 35 probes. Commit 206ab9175.\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
       "commits": []

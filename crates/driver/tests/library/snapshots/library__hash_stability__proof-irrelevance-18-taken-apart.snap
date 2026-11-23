@@ -1,0 +1,8 @@
+---
+source: crates/driver/tests/library/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+data Main.Tok cf85dba623d345953a016560f735478dd147d87ce142479f6df99799cb0e4928
+Main.tokNat 8d55973b94dc9d7c17c92a09d496930c5a1a39ede51b114bd42bbd240d846080
+Main.tokNat.eq1 81bb140fd6d1b02d4306b9253f7ba2c2d138f988dae6ead5ab6eb3c2a75542ed
+Main.t18 ee4c84109de223c120808e5703e1685cee1f8176b6043765081a0079bbf2ddf8

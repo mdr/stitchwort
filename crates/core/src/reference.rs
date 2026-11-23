@@ -49,7 +49,9 @@ use std::rc::Rc;
 use crate::budget::Result;
 use crate::native;
 use crate::term::{Branch, DefId, Icit, QuotForm, Sort, Term};
-use crate::value::{Closure, Elim, Head, Mode, Shared, Spine, Value, quot_mk_rep, quot_value};
+use crate::value::{
+    Closure, Elim, Ends, Head, Mode, Shared, Spine, Value, quot_mk_rep, quot_value,
+};
 
 thread_local! {
     static PLAIN: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
@@ -289,7 +291,7 @@ pub fn eval(g: &Ev, env: &[Value], term: &Term) -> Result<Value> {
             env.push(eval(g, &env, value)?);
             eval(g, &env, body)?
         }
-        Term::Case(..) | Term::NumCase(..) => eval_tree(g, env.to_vec(), term, false, false)?
+        Term::Case(..) | Term::NumCase(..) => eval_tree(g, env.to_vec(), term, false, false, None)?
             .expect("internal error: a case outside a definition's case tree got stuck"),
         Term::Eq(ty, a, b) => Value::Eq(
             Shared::new(eval(
@@ -306,12 +308,31 @@ pub fn eval(g: &Ev, env: &[Value], term: &Term) -> Result<Value> {
             match unfold_folded(g, force(g, eval(g, env, proof)?)?)? {
                 Value::Refl => eval(g, env, base)?,
                 Value::Neutral(head, mut spine) => {
-                    spine.push(Elim::J {
-                        motive: Box::new(eval(g, env, motive)?),
-                        base: Box::new(eval(g, env, base)?),
-                        result: *result,
-                    });
-                    Value::Neutral(head, spine)
+                    // Rule K: a cast into data is its base when its two
+                    // ends are equal; its proof is never looked at.
+                    let ends = match (result, Term::j_ends(proof)) {
+                        (ProofMark::NotProof | ProofMark::Unknown, Some((ty, x, y))) => {
+                            Some(Box::new(Ends {
+                                ty: eval(g, env, ty)?,
+                                x: eval(g, env, x)?,
+                                y: eval(g, env, y)?,
+                            }))
+                        }
+                        _ => None,
+                    };
+                    if let Some(ends) = &ends
+                        && ends_equal(g, ends)?
+                    {
+                        eval(g, env, base)?
+                    } else {
+                        spine.push(Elim::J {
+                            motive: Box::new(eval(g, env, motive)?),
+                            base: Box::new(eval(g, env, base)?),
+                            result: *result,
+                            ends,
+                        });
+                        Value::Neutral(head, spine)
+                    }
                 }
                 _ => panic!("internal error: J applied to a non-proof"),
             }
@@ -367,8 +388,11 @@ fn apply_spine(g: &Ev, mut value: Value, spine: &[Elim]) -> Result<Value> {
     for elim in spine {
         value = match elim {
             Elim::App(arg, icit) => apply_icit(g, value, arg.clone(), *icit)?,
-            Elim::J { base, .. } => match unfold_folded(g, force(g, value)?)? {
+            Elim::J { base, ends, .. } => match unfold_folded(g, force(g, value)?)? {
                 Value::Refl => (**base).clone(),
+                Value::Neutral(..) if matches!(ends, Some(e) if ends_equal(g, e)?) => {
+                    (**base).clone()
+                }
                 Value::Neutral(head, mut spine) => {
                     spine.push(elim.clone());
                     Value::Neutral(head, spine)
@@ -528,6 +552,7 @@ fn unfold(g: &Ev, id: DefId, spine: Vec<Elim>) -> Result<Value> {
                 body.peel_lams(def.arity),
                 folds_on_lift(g, id),
                 crate::value::eta_held(g, id),
+                Some(id),
             )?
         {
             return Ok(value);
@@ -599,6 +624,7 @@ fn unfold_folded(g: &Ev, value: Value) -> Result<Value> {
                 body.peel_lams(g.def(*id).arity),
                 false,
                 crate::value::eta_held(g, *id),
+                Some(*id),
             )?
         {
             return unfold_folded(g, force(g, next)?);
@@ -700,6 +726,7 @@ fn eval_tree(
     term: &Term,
     fold_lifts: bool,
     eta_held: bool,
+    def: Option<DefId>,
 ) -> Result<Option<Value>> {
     match term.strip_loc() {
         Term::Case(ix, d, branches) => {
@@ -722,6 +749,16 @@ fn eval_tree(
                         None => return Ok(None),
                     }
                 }
+                // Rule S: into data, a proof of a proposition with one
+                // constructor and only proof fields is that constructor, its
+                // fields that proof's fields.
+                n @ Value::Neutral(..) if rule_s(g, def, *d, &env, env.len() - 1 - ix)? => {
+                    let k = g.data(*d).ctors[0].fields.len();
+                    let fields = (0..k)
+                        .map(|i| project(g, *d, i, n.clone()))
+                        .collect::<Result<Vec<_>>>()?;
+                    (0, fields)
+                }
                 _ => return Ok(None),
             };
             let Branch { body, .. } = &branches[c];
@@ -729,7 +766,7 @@ fn eval_tree(
                 return Ok(None);
             };
             env.extend(fields);
-            eval_tree(g, env, body, fold_lifts, eta_held)
+            eval_tree(g, env, body, fold_lifts, eta_held, def)
         }
         Term::NumCase(ix, arms, default) => {
             let (k, base) = number_view(g, &env[env.len() - 1 - ix])?;
@@ -752,7 +789,7 @@ fn eval_tree(
             } else {
                 return Ok(None);
             };
-            eval_tree(g, env, body, fold_lifts, eta_held)
+            eval_tree(g, env, body, fold_lifts, eta_held, def)
         }
         // A `Quot.lift` leaf counts as a case on its quotient: stuck, the
         // definition stays folded (`fold_lifts`: only one marked for it,
@@ -764,6 +801,67 @@ fn eval_tree(
         }
         other => eval(g, &env, other).map(Some),
     }
+}
+
+/// Whether rule S takes the only branch of a `case` on a proof of `d` that
+/// is the variable at `level` in `env`, in the case tree of `def`: `d` is a
+/// proposition with one constructor whose fields are all proofs, `def`'s
+/// result is data, and, if `d` has indices, the constructor has no fields
+/// and the variable is one of `def`'s parameters whose type, as `def`'s
+/// type gives it, has the indices the constructor's result has.
+fn rule_s(
+    g: &Ev,
+    def: Option<DefId>,
+    d: crate::term::DataId,
+    env: &[Value],
+    level: usize,
+) -> Result<bool> {
+    let Some(f) = def else {
+        return Ok(false);
+    };
+    let data = g.data(d);
+    if data.sort != Sort::Prop || data.ctors.len() != 1 || g.def(f).proof {
+        return Ok(false);
+    }
+    let ctor = &data.ctors[0];
+    if !ctor.field_sorts.iter().all(|s| *s == Sort::Prop) {
+        return Ok(false);
+    }
+    if data.indices.is_empty() {
+        return Ok(true);
+    }
+    if !ctor.fields.is_empty() || level >= g.def(f).arity {
+        return Ok(false);
+    }
+    // The parameter's type in `def`'s telescope, over the ones before it.
+    let mut ty = g.def(f).ty();
+    for _ in 0..level {
+        match ty.strip_loc() {
+            Term::Pi(_, _, _, rest, _) => ty = rest,
+            _ => return Ok(false),
+        }
+    }
+    let Term::Pi(_, _, domain, _, _) = ty.strip_loc() else {
+        return Ok(false);
+    };
+    let Value::Data(d2, args) = force(g, eval(g, &env[..level], domain)?)? else {
+        return Ok(false);
+    };
+    let n = data.params.len();
+    if d2 != d || args.len() != n + ctor.result.len() {
+        return Ok(false);
+    }
+    for (k, index) in ctor.result.iter().enumerate() {
+        let wanted = eval(g, &args[..n], index)?;
+        let depth = ENDS_DEPTH.with(|c| c.get());
+        ENDS_DEPTH.with(|c| c.set(depth + 1));
+        let same = conv(g, (1 << 40) + depth * (1 << 24), &wanted, &args[n + k]);
+        ENDS_DEPTH.with(|c| c.set(depth));
+        if !same? {
+            return Ok(false);
+        }
+    }
+    Ok(true)
 }
 
 /// A `Quot.lift` leaf of a case tree: `f a` on `Quot.mk a`, else stuck.
@@ -879,12 +977,26 @@ pub fn quote(g: &Ev, level: usize, value: &Value) -> Result<Term> {
                         motive,
                         base,
                         result,
-                    } => Term::J(
-                        Rc::new(q(motive)?),
-                        Rc::new(q(base)?),
-                        Rc::new(term),
-                        *result,
-                    ),
+                        ends,
+                    } => {
+                        let proof = match ends {
+                            None => term,
+                            Some(e) => Term::Ann(
+                                Rc::new(term),
+                                Rc::new(Term::Eq(
+                                    Some(Rc::new(q(&e.ty)?)),
+                                    Rc::new(q(&e.x)?),
+                                    Rc::new(q(&e.y)?),
+                                )),
+                            ),
+                        };
+                        Term::J(
+                            Rc::new(q(motive)?),
+                            Rc::new(q(base)?),
+                            Rc::new(proof),
+                            *result,
+                        )
+                    }
                     Elim::Proj(d, i) => Term::Proj(*d, *i, Rc::new(term)),
                 };
             }
@@ -921,6 +1033,32 @@ fn quote_quot<'s>(
         })
         .collect::<Result<_>>()?;
     Ok((Term::Quot(form, args, false, mark), &spine[n..]))
+}
+
+thread_local! {
+    /// Levels taken by the tests of casts' ends in progress ([`ends_equal`]).
+    static ENDS_DEPTH: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// Whether a cast's ends are equal (rule K). Evaluation has no count of the
+/// variables in scope, so the comparison's fresh variables start far above
+/// any context (`1 << 40`), each test in progress (one nested in another's
+/// comparison) taking its own `1 << 24` of them, so none can be a free
+/// variable of the ends.
+fn ends_equal(g: &Ev, ends: &Ends) -> Result<bool> {
+    let depth = ENDS_DEPTH.with(|d| d.get());
+    ENDS_DEPTH.with(|d| d.set(depth + 1));
+    let same = conv(g, (1 << 40) + depth * (1 << 24), &ends.x, &ends.y);
+    ENDS_DEPTH.with(|d| d.set(depth));
+    same
+}
+
+/// The first elimination in `spine` that is a cast carrying its ends: what
+/// comes before it is its proof.
+fn cast_at(spine: &[Elim]) -> Option<usize> {
+    spine
+        .iter()
+        .position(|e| matches!(e, Elim::J { ends: Some(_), .. }))
 }
 
 /// Definitional equality (the recursive version `value::conv` was derived
@@ -1083,6 +1221,38 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
                 && conv_in(g, level, y1, y2, mode)?
         }
         (Value::Refl, Value::Refl) => true,
+        // Two stuck casts: by their ends' type, their ends, motive and base,
+        // then what is applied to them; never by their proofs (the audit's
+        // finding B), which prove the same equation once the ends agree.
+        (Value::Neutral(_, s1), Value::Neutral(_, s2))
+            if cast_at(s1).is_some() && cast_at(s2).is_some() =>
+        {
+            let (i, j) = (cast_at(s1).unwrap(), cast_at(s2).unwrap());
+            let (
+                Elim::J {
+                    motive: m1,
+                    base: b1,
+                    ends: Some(e1),
+                    ..
+                },
+                Elim::J {
+                    motive: m2,
+                    base: b2,
+                    ends: Some(e2),
+                    ..
+                },
+            ) = (&s1[i], &s2[j])
+            else {
+                unreachable!("found by cast_at")
+            };
+            s1.len() - i == s2.len() - j
+                && conv_in(g, level, &e1.ty, &e2.ty, mode)?
+                && conv_in(g, level, &e1.x, &e2.x, mode)?
+                && conv_in(g, level, &e1.y, &e2.y, mode)?
+                && conv_in(g, level, m1, m2, mode)?
+                && conv_in(g, level, b1, b2, mode)?
+                && conv_spines(g, level, None, &s1[i + 1..], &s2[j + 1..], mode)?
+        }
         // Two calls stuck on a `case`: by their case trees. For two calls of
         // one definition, equal arguments are enough, but different ones
         // aren't a difference (G6, docs/core.md).

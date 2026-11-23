@@ -270,6 +270,10 @@ pub enum Term {
     Refl,
     /// `J motive base proof`: transport along an equality. The mark says
     /// whether the result is a proof (the motive's body a proposition).
+    /// When it's data (a cast), the kernel annotates the proof with its
+    /// equation, `(p : x = y)`, whose sides are the cast's two ends
+    /// ([`Term::j_ends`]): rule K compares them (docs/core.md, "The
+    /// equality rule").
     J(Rc<Term>, Rc<Term>, Rc<Term>, ProofMark),
     /// `t.i`: field `i` of `t`, a value of data type `DataId`, which must
     /// have eta ([`crate::globals::Data::eta`]; docs/proposals/record-eta.md
@@ -539,6 +543,19 @@ impl Term {
             }
         }
         term
+    }
+
+    /// The ends a cast carries: for the proof `(p : x = y)` of a `J`, the
+    /// type of `x` and `y`, and them; `None` for a proof that isn't
+    /// annotated with an equation whose type is filled in.
+    pub fn j_ends(proof: &Term) -> Option<(&Rc<Term>, &Rc<Term>, &Rc<Term>)> {
+        let Term::Ann(_, eq) = proof.strip_loc() else {
+            return None;
+        };
+        match eq.strip_loc() {
+            Term::Eq(Some(ty), x, y) => Some((ty, x, y)),
+            _ => None,
+        }
     }
 
     /// `strip_loc`, keeping the `Rc`.

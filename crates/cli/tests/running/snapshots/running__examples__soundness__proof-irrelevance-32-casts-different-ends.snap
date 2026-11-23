@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-REFL] Error: `byComputing` can't prove this
+    ╭─[ soundness/proof-irrelevance-32-casts-different-ends.sw:10:100 ]
+    │
+ 10 │ theorem differentEnds ∀ (x y z: Nat) (h1: x = y) (h2: x = z): castAt x y h1 3 = castAt x z h2 3 := byComputing
+    │                                                                                                    ─────┬─────  
+    │                                                                                                         ╰─────── `castAt x y h1 3` and `castAt x z h2 3` aren't equal
+    │ 
+    │ Note 1: computing both sides gives `J (w e => Nat) 3 h1` and `J (w e => Nat) 3 h2`
+    │ 
+    │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
+────╯

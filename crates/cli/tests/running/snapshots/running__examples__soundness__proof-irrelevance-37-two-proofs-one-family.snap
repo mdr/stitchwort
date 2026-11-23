@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-REFL] Error: `byComputing` can't prove this
+    ╭─[ soundness/proof-irrelevance-37-two-proofs-one-family.sw:10:98 ]
+    │
+ 10 │ theorem mustRefuse ∀ (x y: Nat) (h1: Same Nat x x) (h2: Same Nat x y): second x y h1 h2 4 = 4 := byComputing
+    │                                                                                                  ─────┬─────  
+    │                                                                                                       ╰─────── `second x y h1 h2 4` and `4` aren't equal
+    │ 
+    │ Note 1: the left side is stuck on `h2`: it can't compute further until `h2` is known; a `match` on `h2` (or `cases h2`) splits it
+    │ 
+    │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
+────╯

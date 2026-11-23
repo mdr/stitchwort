@@ -1,13 +1,13 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-REFL] Error: `byComputing` can't prove this
-    ╭─[ reject/refl-hidden-proof-argument.sw:12:64 ]
+    ╭─[ reject/refl-hidden-proof-argument.sw:11:3 ]
     │
- 12 │     transported n m [ok := h1] = transported n m [ok := h2] := byComputing
-    │                                                                ─────┬─────  
-    │                                                                     ╰─────── `transported n m [h1]` and `transported n m [h2]` aren't equal
+ 11 │   byComputing
+    │   ─────┬─────  
+    │        ╰─────── `t [h1]` and `t [h2]` aren't equal
     │ 
     │ Note 1: the two sides differ only in arguments the compiler fills in, shown here in `[brackets]` (an implicit argument, or a proof the definition computes with; proofs it never computes with are interchangeable)
     │ 

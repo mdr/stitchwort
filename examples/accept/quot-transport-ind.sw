@@ -1,8 +1,8 @@
 -- Transport along a proof made by `Quot.ind`, with no `Quot.sound` anywhere
 -- (docs/proposals/map-equality.md §7.4.4, test A6). `Quot.ind` doesn't
--- compute, so in the kernel `n` is stuck
--- (reject/quot-transport-ind-stuck.sw). When running, `Quot.ind` is the
--- erased placeholder and `J` takes its base, so every runner
+-- compute, but the cast's ends are equal, so in the kernel `n` is `0` by
+-- rule K (accept/quot-transport-ind-rule-k.sw). When running, `Quot.ind` is
+-- the erased placeholder and `J` takes its base, so every runner
 -- (`run --reference`, `test`, `run`, `run --js`) gives `0`, through a
 -- definition and inline.
 --

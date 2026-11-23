@@ -38,6 +38,7 @@ fn an_argument_after_a_j_is_compared() {
                 motive: Box::new(Value::var(1)),
                 base: Box::new(Value::var(2)),
                 result: ProofMark::Unknown,
+                ends: None,
             },
             Elim::App(Value::var(last), Icit::Explicit),
         ];

@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-REFL] Error: `byComputing` can't prove this
@@ -9,7 +9,7 @@ expression: output
     │   ─────┬─────  
     │        ╰─────── `applyAt (J (y e => y) (x => x) (fnEq n u)) 3` and `applyAt (J (y e => y) (x => x) (fnEq n u)) 4` aren't equal
     │ 
-    │ Note 1: computing both sides gives `J (y e => y) (x => x) (fnEq n u) 3` and `J (y e => y) (x => x) (fnEq n u) 4`
+    │ Note 1: computing both sides gives `3` and `4`
     │ 
     │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
     │ 
