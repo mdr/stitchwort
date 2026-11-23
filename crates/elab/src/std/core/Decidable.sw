@@ -216,76 +216,29 @@ instance Nat.decLessEq (m: Nat) (n: Nat): Decidable (m ≤ n) :=
 instance Nat.decLessThan (m: Nat) (n: Nat): Decidable (m < n) :=
   { holds = Nat.leq (Succ m) n, sound = h => h, complete = h => h }
 
---| Hedberg's argument, for any type whose equality has a decision: `canon`
---| turns any proof of `x = y` into the one the decision gives, ignoring which
---| proof it was given.
-def Decidable.canon [x y: a] (dec: Decidable (x = y)) (h: x = y): x = y := match e: dec.holds with
-  | True => dec.sound e
-  | False => (Decidable.refute dec e h).impossible
+--| A proposition's proof, held as data: the wrapper [`Prop.irrel`] uses to
+--| compare two proofs of one proposition. Constructing it ignores which proof
+--| it is given, so two boxes of proofs of the same proposition are equal.
+type Prop.Box (a: Prop): Type = | Mk (proof: a)
 
---| Every proof of `x = y` has the same canonical form.
-theorem Decidable.canonConst ∀ [x y: a]
-    (dec: Decidable (x = y))
-    (p q: x = y):
-    Decidable.canon dec p = Decidable.canon dec q :=
-  match dec with
-    | { holds = True, sound = s, complete = c } => byComputing
-    | { holds = False, sound = s, complete = c } => Void.impossible (Bool.falseNotTrue (c p))
+--| The proof held in a box.
+def Prop.Box.unbox [a: Prop]: Prop.Box a → a
+  | Prop.Box.Mk h => h
 
-theorem Decidable.symThenSelf ∀ [x y: a] (q: x = y): byComputing = Eq.trans q.flipped q :=
-  J (y' q' => byComputing = Eq.trans q'.flipped q') byComputing q
+--| Any two proofs of the same proposition are equal (proof irrelevance): it
+--| does not matter which proof of a fact you were given. The kernel treats
+--| the proof inside [`Prop.Box.Mk`] as interchangeable, so the boxes are equal
+--| by computation, and unboxing gives back the proofs.
+theorem Prop.irrel ∀ (a: Prop) (p q: a): p = q :=
+  J (y e => p = Prop.Box.unbox y) byComputing ((byComputing: Prop.Box.Mk p = Prop.Box.Mk q))
 
---| Every proof can be recovered from its canonical one.
-theorem Decidable.fromCanon ∀ (decide: (x: a) → (y: a) → Decidable (x = y)) (x y: a)
-    (p: x = y):
-    p = Eq.trans (Eq.flipped (Decidable.canon (decide x x) byComputing)) (Decidable.canon (decide x y) p) :=
-  J
-    (y' p' => p' = Eq.trans (Eq.flipped (Decidable.canon (decide x x) byComputing)) (Decidable.canon (decide x y') p'))
-    (Decidable.symThenSelf (Decidable.canon (decide x x) byComputing))
-    p
-
---| Proofs of an equation in a type with decidable equality are unique.
+--| Proofs of an equation in a type with decidable equality are unique. This
+--| follows from [`Prop.irrel`] with no use of the decision.
 theorem Decidable.uniqueEq ∀ (decide: (x: a) → (y: a) → Decidable (x = y)) (x y: a) (p q: x = y): p = q :=
-  J
-    (z e => p = z)
-    (J
-      (r e => p = Eq.trans (Eq.flipped (Decidable.canon (decide x x) byComputing)) r)
-      (Decidable.fromCanon decide x y p)
-      (Decidable.canonConst (decide x y) p q))
-    (J (z e => z = q) byComputing (Decidable.fromCanon decide x y q))
+  Prop.irrel (x = y) p q
 
---| Proofs that two booleans are equal are unique. This is Hedberg's argument,
---| which works for any type with decidable equality: [`Bool.canon`] turns any proof
---| of `x = y` into one chosen by [`Bool.decEq`], so it ignores which proof it was
---| given, and every proof can be recovered from its canonical one.
-def Bool.canon [x y: Bool] (dec: Decidable (x = y)) (h: x = y): x = y := match e: dec.holds with
-  | True => dec.sound e
-  | False => (Decidable.refute dec e h).impossible
-
-theorem Bool.canonConst ∀ [x y: Bool] (d: Decidable (x = y)) (p q: x = y): Bool.canon d p = Bool.canon d q :=
-  match d with
-    | { holds = True, sound = s, complete = c } => byComputing
-    | { holds = False, sound = s, complete = c } => Void.impossible (Bool.falseNotTrue (c p))
-
-theorem Bool.symThenSelf ∀ [x y: Bool] (q: x = y): byComputing = Eq.trans q.flipped q :=
-  J (y' q' => byComputing = Eq.trans q'.flipped q') byComputing q
-
-theorem Bool.fromCanon ∀ (x y: Bool)
-    (p: x = y):
-    p = Eq.trans (Eq.flipped (Bool.canon (Bool.decEq x x) byComputing)) (Bool.canon (Bool.decEq x y) p) :=
-  J
-    (y' p' => p' = Eq.trans (Eq.flipped (Bool.canon (Bool.decEq x x) byComputing)) (Bool.canon (Bool.decEq x y') p'))
-    (Bool.symThenSelf (Bool.canon (Bool.decEq x x) byComputing))
-    p
-
-theorem Bool.uniqueEq ∀ (x y: Bool) (p q: x = y): p = q :=
-  J
-    (z e => p = z)
-    (J
-      (r e => p = Eq.trans (Eq.flipped (Bool.canon (Bool.decEq x x) byComputing)) r)
-      (Bool.fromCanon x y p)
-      (Bool.canonConst (Bool.decEq x y) p q))
-    (J (z e => z = q) byComputing (Bool.fromCanon x y q))
+--| Proofs that two booleans are equal are unique.
+theorem Bool.uniqueEq ∀ (x y: Bool) (p q: x = y): p = q := Prop.irrel (x = y) p q
 
 --| `Void` is decided: it is false. Membership in a list written out computes
 --| to `y = x || … || Void`, decided one disjunct at a time, and this is the
