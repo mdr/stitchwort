@@ -2817,7 +2817,7 @@ fn branch(
         // branch whatever the proof, each field (a proof too) bound to that
         // field of the proof. `E-PROP-ELIM` allowed the match, so the
         // constructor has only proof fields and doesn't mention its type.
-        n @ Value::Neutral(..) if one_shape(g, *d, &stuck, &env, tree_var(&tree), &n)? => {
+        n @ Value::Neutral(..) if one_shape(g, *d, &stuck, &env, &tree, &n)? => {
             proof_counts::record(g, proof_counts::Kind::OneShapeFired, 1);
             let k = g.data(*d).ctors[0].fields.len();
             (0, (0..k).map(|i| project(*d, i, n.clone())).collect())
@@ -2845,19 +2845,12 @@ fn branch(
     Ok(Control::Tree(body, env, stuck))
 }
 
-/// The variable a `case` node matches on.
-fn tree_var(tree: &Term) -> usize {
-    match tree {
-        Term::Case(ix, ..) => *ix,
-        _ => unreachable!("a case node"),
-    }
-}
-
-/// Whether a `case` on a proof of `d`, matching variable `ix` of `env` in
-/// the case tree of the definition `stuck` names, takes its only branch by
-/// rule S (docs/core.md, "The equality rule"): `d` is a proposition with one
-/// constructor whose fields are all proofs, and the definition's result is
-/// data (a proof is never computed, and needs no branch taken).
+/// Whether a `case` on a proof of `d`, the case node `tree` with its
+/// environment `env`, in the case tree of the definition `stuck` names,
+/// takes its only branch by rule S (docs/core.md, "The equality rule"): `d`
+/// is a proposition with one constructor whose fields are all proofs, and
+/// the definition's result is data (a proof is never computed, and needs no
+/// branch taken).
 ///
 /// For a proposition with indices (D3724, as Lean's `to_cnstr_when_K`;
 /// D3727 for fields), the constructor's result indices, for the
@@ -2866,15 +2859,14 @@ fn tree_var(tree: &Term) -> usize {
 /// applied to those projections is a proof of the scrutinee's own type, so
 /// rule I makes the scrutinee that constructor, and the branch's
 /// refinement already holds. The scrutinee's type is read off the
-/// definition's own type, so only a `case` on one of its parameters can
-/// fire; one on a field of an enclosing match stays stuck, as does one
-/// whose indices differ.
+/// definition's type for a parameter, and for a field an enclosing `case`
+/// bound, off that field's declared type ([`slot_type`]).
 fn one_shape(
     g: &Ev,
     d: DataId,
     stuck: &Stuck,
     env: &[Value],
-    ix: usize,
+    tree: &Term,
     scrutinee: &Value,
 ) -> Result<bool> {
     let data = g.data(d);
@@ -2894,14 +2886,13 @@ fn one_shape(
     if data.indices.is_empty() {
         return Ok(true);
     }
+    let Term::Case(ix, ..) = tree else {
+        unreachable!("a case node")
+    };
     let level = env.len() - 1 - ix;
-    if level >= g.def(*id).arity {
-        return Ok(false);
-    }
-    let Some(domain) = parameter_type(g.def(*id).ty(), level) else {
+    let Some(ty) = slot_type(g, *id, tree, env, level)? else {
         return Ok(false);
     };
-    let ty = force(g, eval(g, &env[..level], domain)?)?;
     let params = data.params.len();
     let Value::Data(d2, args) = ty else {
         return Ok(false);
@@ -2918,6 +2909,140 @@ fn one_shape(
         }
     }
     Ok(true)
+}
+
+/// Where a variable of a case tree's environment past its definition's
+/// parameters was bound: field `field` of constructor `ctor` of `d`, by the
+/// `case` on the variable at level `scrutinee`, whose fields start at level
+/// `first`.
+#[derive(Clone, Copy)]
+struct BoundField {
+    d: DataId,
+    scrutinee: usize,
+    ctor: usize,
+    field: usize,
+    first: usize,
+}
+
+/// The type of the variable at `level` of `env`, the environment of the
+/// case node `tree` in definition `id`'s case tree, forced: a parameter's
+/// as the definition's type gives it, over the parameters before it; a
+/// field's as its constructor declares it, over the type of the enclosing
+/// scrutinee's parameters and the fields before it (as `check::infer_proj`
+/// types a projection). That holds whichever way the enclosing `case` took
+/// its branch: iota, rule S, record eta or a number's split each bind the
+/// constructor's fields of a value of the scrutinee's type. `None` if it
+/// can't be read: a type not written as a function type that far, or a
+/// node found other than exactly once in the tree (so that the path to it,
+/// and with it what each variable is, is the one evaluation took).
+fn slot_type(g: &Ev, id: DefId, tree: &Term, env: &[Value], level: usize) -> Result<Option<Value>> {
+    let def = g.def(id);
+    if level < def.arity {
+        return field_type(g, id, &[], env, level);
+    }
+    let Some(body) = &def.body else {
+        return Ok(None);
+    };
+    let root = Term::peel_lams_rc(body, def.arity);
+    let mut found = None;
+    let mut times = 0;
+    bound_fields(
+        &root,
+        tree,
+        def.arity,
+        &mut Vec::new(),
+        &mut found,
+        &mut times,
+    );
+    match found {
+        Some(fields) if times == 1 && fields.len() + def.arity == env.len() => {
+            field_type(g, id, &fields, env, level)
+        }
+        _ => Ok(None),
+    }
+}
+
+/// [`slot_type`] for `level`, given what binds each variable past the
+/// parameters.
+fn field_type(
+    g: &Ev,
+    id: DefId,
+    fields: &[BoundField],
+    env: &[Value],
+    level: usize,
+) -> Result<Option<Value>> {
+    let def = g.def(id);
+    if level < def.arity {
+        let Some(domain) = parameter_type(def.ty(), level) else {
+            return Ok(None);
+        };
+        return Ok(Some(force(g, eval(g, &env[..level], domain)?)?));
+    }
+    let f = fields[level - def.arity];
+    let Some(Value::Data(d, args)) = field_type(g, id, fields, env, f.scrutinee)? else {
+        return Ok(None);
+    };
+    let data = g.data(f.d);
+    let params = data.params.len();
+    if d != f.d || args.len() < params {
+        return Ok(None);
+    }
+    let Some((_, field_ty)) = data.ctors.get(f.ctor).and_then(|c| c.fields.get(f.field)) else {
+        return Ok(None);
+    };
+    let mut ctor_env = args[..params].to_vec();
+    ctor_env.extend(env[f.first..f.first + f.field].iter().cloned());
+    Ok(Some(force(g, eval(g, &ctor_env, field_ty)?)?))
+}
+
+/// Finds the case node `target` in the case tree `node`, whose environment
+/// so far is `arity` parameters and then `path`: `found` gets what binds
+/// each variable past the parameters at `target`, and `times` counts the
+/// nodes found.
+fn bound_fields(
+    node: &Term,
+    target: &Term,
+    arity: usize,
+    path: &mut Vec<BoundField>,
+    found: &mut Option<Vec<BoundField>>,
+    times: &mut usize,
+) {
+    let node = node.strip_loc();
+    if std::ptr::eq(node, target) {
+        *times += 1;
+        *found = Some(path.clone());
+        return;
+    }
+    match node {
+        Term::Case(ix, d, branches) => {
+            let len = arity + path.len();
+            let Some(scrutinee) = len.checked_sub(1 + ix) else {
+                return;
+            };
+            for (c, branch) in branches.iter().enumerate() {
+                let Some(body) = &branch.body else {
+                    continue;
+                };
+                let k = branch.names.len();
+                path.extend((0..k).map(|field| BoundField {
+                    d: *d,
+                    scrutinee,
+                    ctor: c,
+                    field,
+                    first: len,
+                }));
+                bound_fields(body, target, arity, path, found, times);
+                path.truncate(len - arity);
+            }
+        }
+        Term::NumCase(_, arms, default) => {
+            for arm in arms.iter() {
+                bound_fields(&arm.body, target, arity, path, found, times);
+            }
+            bound_fields(default, target, arity, path, found, times);
+        }
+        _ => {}
+    }
 }
 
 /// The type of parameter `level` in the function type `ty`, as written: a

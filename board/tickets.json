@@ -33528,12 +33528,12 @@
     {
       "id": 4690,
       "title": "[Opus] Rule S on a proof field bound by an enclosing match: a case on such a field stays stuck unless the proof is a literal constructor, so conversion is not transitive there (g/Outer: g o = g (MkOuter (MkQ2 byComputing)) and that = 5 check, g o = 5 refused) and a closed instance of a checked universal statement fails (gk 5 po). Type the field (as infer_proj does) so the index test runs on it; find which layer refuses the closed instance. Continues D3727's direction. Fable review (SW-4686 review F1)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nProgress (Opus lane, 23 Nov): the closed instance gk 5 po was refused by the elaborator's byComputing (rfl_against_equation), the stuck step being the shared evaluator's (value.rs branch: the inner case on Proj(Outer, 0, po) couldn't read its type). Rule S now types a scrutinee that is a field an enclosing case bound: kernel walks the def's tree to the node (value.rs slot_type), reference carries the binders down eval_tree (reference.rs type_at). Accept example 42, soundness -42/-43, proof_masks t42/t42p; docs/core.md's corner removed; argument in docs/reviews/SW-4690-notes.md for the Fable review.\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
       "commits": []
