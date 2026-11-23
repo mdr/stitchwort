@@ -1,5 +1,5 @@
 {
-  "next": 4686,
+  "next": 4689,
   "tickets": [
     {
       "id": 47,
@@ -33307,7 +33307,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nIncludes SW-4661: rewrite search skipping proofs below a matched head (patch docs/proposals/full-proof-irrelevance/search-skips-proofs.patch); test docs/proposals/full-proof-irrelevance/stuck-call-proof-field.sw (sameCall must check); then revert the emptyIsByPosition workaround in Aoc.Common.Proofs.PrefixSums.atOf.\n\n\nFrom SW-4671 (marks): sweep helper paths that still bind unmarked variables with Value::var (e.g. is_type_former, not_a_proof); look at Std.Parse.runsNatDigits, which accounts for nearly all proof-pair comparison failures in Year2020 Day05; eval/force still carry no level for fresh variables (audit condition A, stage 4).\n\n\nFrom the SW-4671 Fable review (docs/reviews/SW-4671-fable-review.md, on main after merge): F2 (no mark the kernel did not derive labels a kernel variable; disagreeing marks mean not a proof), F3 (an unknown's mark computed once, errors passed on, undone with the trail), F4 (soundness argument or key for memo tables under rule I), F5 (point-of-use check where rule I fires: infer the type, assert Prop; strip-marks-and-recheck test under the reference feature); cache re-check path: clear marks to Unknown first so a stale mark is a quiet miss, not E-MALFORMED.\n\n\nFrom the SW-4673 Fable review (docs/reviews/SW-4673-fable-review.md): F2 (identical and shape_hash must compare a cast's ends once proofs are skipped; check::Unchanged, unify_index::value_levels and elab matching/untouched.rs must walk them or say why not); rule F for a cast's proof (still evaluated to its head before the ends are tested); one_shape trusts E-PROP-ELIM for not recursive/alone in group: re-check if rule I opens another path; a reference validator pass re-deriving a cast's ends from its proof's type; shortcut mode with K in normal mode: callers not traced.\n\n\nStarted 23 Nov 15:03 on Opus (D3721, D3723). Expected: 120 min. Fable review after.\n\n\nD3725 (Matt, 23 Nov 2026: \"yes, proceed\"): accept that the elaborator no longer solves unknowns from inside proofs; write the function out in Map.getInsertIn/getInsertInOther/getRemoveIn/getRemoveInOther (Set/Spec.sw), which relied on the alterRespects proof inside Map.alter to fill _. Guessing from a computing function's arguments (Lean-style first-order approximation, unverified) set aside for now. Lane stopped at 52 min on this; resumed, new estimate 90 min.\n\n\nFable review (docs/reviews/SW-4674-fable-review.md, b134116cc): sound; F1 narrowing: match into data on an indexed one-constructor proposition with proof fields (Q2 0 with MkQ2 (w: 0 = 0)) checked on main by unfolding the proof, refused under rule F, and makes conversion non-transitive. Held for Matt (D3727, D3688). F2 docs, F3 elaborator marks vs undone solutions, F4 strict marks in identical: to file.\n",
+      "body": "\n\nIncludes SW-4661: rewrite search skipping proofs below a matched head (patch docs/proposals/full-proof-irrelevance/search-skips-proofs.patch); test docs/proposals/full-proof-irrelevance/stuck-call-proof-field.sw (sameCall must check); then revert the emptyIsByPosition workaround in Aoc.Common.Proofs.PrefixSums.atOf.\n\n\nFrom SW-4671 (marks): sweep helper paths that still bind unmarked variables with Value::var (e.g. is_type_former, not_a_proof); look at Std.Parse.runsNatDigits, which accounts for nearly all proof-pair comparison failures in Year2020 Day05; eval/force still carry no level for fresh variables (audit condition A, stage 4).\n\n\nFrom the SW-4671 Fable review (docs/reviews/SW-4671-fable-review.md, on main after merge): F2 (no mark the kernel did not derive labels a kernel variable; disagreeing marks mean not a proof), F3 (an unknown's mark computed once, errors passed on, undone with the trail), F4 (soundness argument or key for memo tables under rule I), F5 (point-of-use check where rule I fires: infer the type, assert Prop; strip-marks-and-recheck test under the reference feature); cache re-check path: clear marks to Unknown first so a stale mark is a quiet miss, not E-MALFORMED.\n\n\nFrom the SW-4673 Fable review (docs/reviews/SW-4673-fable-review.md): F2 (identical and shape_hash must compare a cast's ends once proofs are skipped; check::Unchanged, unify_index::value_levels and elab matching/untouched.rs must walk them or say why not); rule F for a cast's proof (still evaluated to its head before the ends are tested); one_shape trusts E-PROP-ELIM for not recursive/alone in group: re-check if rule I opens another path; a reference validator pass re-deriving a cast's ends from its proof's type; shortcut mode with K in normal mode: callers not traced.\n\n\nStarted 23 Nov 15:03 on Opus (D3721, D3723). Expected: 120 min. Fable review after.\n\n\nD3725 (Matt, 23 Nov 2026: \"yes, proceed\"): accept that the elaborator no longer solves unknowns from inside proofs; write the function out in Map.getInsertIn/getInsertInOther/getRemoveIn/getRemoveInOther (Set/Spec.sw), which relied on the alterRespects proof inside Map.alter to fill _. Guessing from a computing function's arguments (Lean-style first-order approximation, unverified) set aside for now. Lane stopped at 52 min on this; resumed, new estimate 90 min.\n\n\nFable review (docs/reviews/SW-4674-fable-review.md, b134116cc): sound; F1 narrowing: match into data on an indexed one-constructor proposition with proof fields (Q2 0 with MkQ2 (w: 0 = 0)) checked on main by unfolding the proof, refused under rule F, and makes conversion non-transitive. Held for Matt (D3727, D3688). F2 docs, F3 elaborator marks vs undone solutions, F4 strict marks in identical: to file.\n\n\nD3727 (Matt, 23 Nov 2026: \"What does Fable think is the right thing to do?\" then \"proceed\" on Fable's order): merge stage 5 with the F1 exception documented, then extend rule S to indexed one-constructor propositions with proof fields as a follow-up straight after.\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
       "commits": []
@@ -33454,6 +33454,45 @@
     {
       "id": 4685,
       "title": "[Matt] Naming: Std.Prop.irrel and Std.Prop.Box cannot be imported by namespace (import Std (Prop) does not parse, Prop is the sort); outside std they must be written Std.Prop.irrel. Fine, or move/rename? (SW-4683 finding; ask when relevant)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4686,
+      "title": "[Opus] Rule S for indexed one-constructor propositions whose constructor has proof fields (D3727): when the indices agree, take the branch without opening the proof, fields as projections; restores f 0 pf = 5 (checked before stage 5) and transitivity in that corner. Kernel, reference evaluator, unifier; docs/core.md; move the stage 5 limit example to accept; Fable review (SW-4674 review F1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4687,
+      "title": "[Opus] Elaborator variable marks against undone trial solutions: Ctx::mark_of_type keeps a mark computed through a solution that may be undone (meta_mark has an epoch guard, bound variables do not); find a repro or show none (SW-4674 review F3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4688,
+      "title": "[Sonnet] identical: strict mark equality instead of marks_agree letting Unknown match either (SW-4674 review F4; removes an argument for a few memo hits)",
       "status": "backlog",
       "agent": "",
       "where": "",
