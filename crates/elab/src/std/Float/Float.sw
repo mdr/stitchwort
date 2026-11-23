@@ -38,18 +38,10 @@ def Float.isValid (n: Nat): Bool :=
 --| A 64-bit IEEE 754 double, as the record of its bits (`Float.isValid`): `1.5`, `-0.0` and the NaN are `Float`s.
 type Float = { bits: Nat, valid: Float.isValid bits = True }
 
---| The witness `Float.make` puts in a record.
---| On a known `b` it is `Eq.refl True` whatever `p` is, so every way of
---| building a `Float` with known bits (a literal, a primitive's result, a
---| definition, a native) gives the same record.
--- (docs/proposals/float.md §3.4, D731)
-def Bool.canonicalTrue: ∀ (b: Bool) => (eq: b = True) → b = True
-  | True, _ => byComputing
-  | False, p => p
-
---| The one way the definitions here build a `Float`.
-def Float.make (n: Nat) (p: Float.isValid n = True): Float :=
-  { bits = n, valid = Bool.canonicalTrue (Float.isValid n) p }
+--| The one way the definitions here build a `Float`. Which proof `p` is
+--| never matters: two `Float`s with the same bits are equal by computation,
+--| as their witnesses are proofs (docs/core.md, "Proof irrelevance").
+def Float.make (n: Nat) (p: Float.isValid n = True): Float := { bits = n, valid = p }
 
 --| The NaN, "not a number": there is one, with bits `0x7FF8000000000000`.
 def Float.nan: Float := Float.make 9221120237041090560 byComputing

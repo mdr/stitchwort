@@ -739,6 +739,47 @@ impl Term {
         })
     }
 
+    /// This term with every proof mark set back to [`ProofMark::Unknown`],
+    /// as the elaborator writes it: what the check cache gives the kernel to
+    /// check again, so that a mark stored by an older kernel is derived
+    /// afresh rather than compared with what this one derives.
+    pub fn without_marks(&self, g: &Ev) -> Result<Term> {
+        const U: ProofMark = ProofMark::Unknown;
+        self.rewrite_up(g, &mut |t| {
+            Ok(match t {
+                Term::Pi(x, i, a, b, pm) if *pm != U => {
+                    Some(Term::Pi(x.clone(), *i, a.clone(), b.clone(), U))
+                }
+                Term::Lam(x, i, b, pm) if *pm != U => Some(Term::Lam(x.clone(), *i, b.clone(), U)),
+                Term::Let(x, a, v, b, e, pm) if *pm != U => {
+                    Some(Term::Let(x.clone(), a.clone(), v.clone(), b.clone(), *e, U))
+                }
+                Term::J(m, b, p, pm) if *pm != U => {
+                    Some(Term::J(m.clone(), b.clone(), p.clone(), U))
+                }
+                Term::Quot(form, args, e, pm) if *pm != U => {
+                    Some(Term::Quot(*form, args.clone(), *e, U))
+                }
+                _ => None,
+            })
+        })
+    }
+
+    /// The proof marks in this term, in the order [`Term::subterms`] meets
+    /// them.
+    pub fn marks(&self) -> Vec<ProofMark> {
+        self.subterms()
+            .filter_map(|(t, _)| match t {
+                Term::Pi(.., pm)
+                | Term::Lam(.., pm)
+                | Term::Let(.., pm)
+                | Term::J(.., pm)
+                | Term::Quot(.., pm) => Some(*pm),
+                _ => None,
+            })
+            .collect()
+    }
+
     /// This term with `f` applied to each sub-term after its own sub-terms
     /// have been rewritten; `f` returns `None` to keep the sub-term.
     pub fn rewrite_up(

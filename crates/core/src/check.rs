@@ -1134,6 +1134,22 @@ fn infer_j(
     let g = cx.g;
     let (proof, proof_ty) = infer(cx, proof)?;
     let proof_ty = force(&g, proof_ty)?;
+    // Ends given on the proof (`(p : x = y)`, from a term checked before)
+    // were checked as an annotation by `infer`. Under the reference
+    // evaluator they are also derived again from the bare proof's own type,
+    // where it has one to infer (`byComputing` has none: it is checked
+    // against the annotation), and compared, so rule K never rests on ends
+    // the kernel didn't derive (the SW-4673 review).
+    #[cfg(feature = "reference")]
+    if let Term::Ann(bare, _) = proof.strip_loc()
+        && Term::j_ends(&proof).is_some()
+        && let Ok((_, derived)) = infer(cx, bare)
+    {
+        assert!(
+            crate::value::conv(&g, cx.level(), &derived, &proof_ty)?,
+            "internal error: a cast's ends aren't its proof's type"
+        );
+    }
     let Value::Eq(ty, x, y) = proof_ty else {
         return Err(cx.error(
             "E-TYPE-MISMATCH",

@@ -277,6 +277,10 @@ pub fn admit_trusted_data_group(
 // already saturated (`define_group` above), so they go to the kernel as
 // they are.
 
+// Marks are cleared first: the kernel derives them again, so a mark an
+// older kernel stored and this one derives differently is a quiet miss of
+// nothing, not `E-MALFORMED` on a term that checks.
+
 pub fn recheck_def(
     g: &mut Kernel,
     name: &Name,
@@ -286,16 +290,30 @@ pub fn recheck_def(
     span: Span,
 ) -> Result<DefId> {
     timed(g, |g| {
-        k::declare_def(g, name, path, ty, theorem, false, span)
+        let ty = unmarked(g, ty)?;
+        k::declare_def(g, name, path, &ty, theorem, false, span)
     })
 }
 
 pub fn recheck_group(g: &mut Kernel, members: &[(DefId, Term)]) -> Result<()> {
-    timed(g, |g| k::define_group(g, members))
+    timed(g, |g| {
+        let members = members
+            .iter()
+            .map(|(id, body)| Ok((*id, unmarked(g, body)?)))
+            .collect::<Result<Vec<_>>>()?;
+        k::define_group(g, &members)
+    })
 }
 
 pub fn recheck_run_body(g: &mut Kernel, id: DefId, body: &Term) -> Result<()> {
-    timed(g, |g| k::set_run_body(g, id, body))
+    timed(g, |g| {
+        let body = unmarked(g, body)?;
+        k::set_run_body(g, id, &body)
+    })
+}
+
+fn unmarked(g: &Kernel, term: &Term) -> Result<Term> {
+    Ok(term.without_marks(&g.ev())?)
 }
 
 /// The kernel's substitution for the elaborator's case splits, in a context

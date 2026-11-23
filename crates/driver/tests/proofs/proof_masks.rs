@@ -398,3 +398,47 @@ fn a_deep_chain_is_compared_in_linear_steps() {
         "depth 1: {one} steps, 2: {two}, 24: {deep}"
     );
 }
+
+/// The kernel derives every mark and trusts none it is given (the SW-4671
+/// review's F5): each case's checked body, with its marks cleared, checks
+/// again to the same marks.
+#[test]
+fn cleared_marks_are_derived_again() {
+    let session = session();
+    let g = &session.elab.ev();
+    let span = g.def(find(g, "t1L")).span();
+    let mut compared = 0;
+    for (name, _) in CASES {
+        for side in ["L", "R"] {
+            let def = g.def(find(g, &format!("{name}{side}")));
+            let Some(body) = def.body() else { continue };
+            let annotated = |strip: bool| {
+                let (body, ty) = if strip {
+                    (
+                        body.without_marks(g).unwrap(),
+                        def.ty().without_marks(g).unwrap(),
+                    )
+                } else {
+                    ((**body).clone(), def.ty().clone())
+                };
+                stitchwort_core::check::infer_closed(
+                    g,
+                    &Term::Ann(Rc::new(body), Rc::new(ty)),
+                    span,
+                )
+            };
+            // A body with a case tree is checked only as a definition's.
+            let Ok((checked, _)) = annotated(false) else {
+                continue;
+            };
+            let (again, _) = annotated(true).expect("checks with its marks cleared");
+            assert_eq!(checked.marks(), again.marks(), "{name}{side}");
+            assert!(
+                !again.marks().contains(&stitchwort_core::ProofMark::Unknown),
+                "{name}{side}"
+            );
+            compared += 1;
+        }
+    }
+    assert!(compared >= 10, "only {compared} bodies compared");
+}
