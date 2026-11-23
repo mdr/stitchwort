@@ -1,5 +1,5 @@
 {
-  "next": 4680,
+  "next": 4683,
   "tickets": [
     {
       "id": 47,
@@ -33371,6 +33371,45 @@
     {
       "id": 4679,
       "title": "[Opus] Rule K's fresh levels on 32-bit: RESERVED_LEVELS + used is unchecked, so more than 128 nested ends tests on the web build would wrap into real levels (finding A). Check the addition and answer 'not equal' (stuck) on overflow, with a test (SW-4673 follow-up)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4680,
+      "title": "[Sonnet] Mark the remaining elaborator variables: about 15 sites bind unmarked variables with Value::var(cx.level()) (omega, ring, facts, auto, effects); unmarked costs completeness under rule I (SW-4674 finding; list in docs/reviews/SW-4674-notes.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4681,
+      "title": "[Sonnet] Unit tests for E-MALFORMED on a wrong Quot mark and on wrong motive binder marks (SW-4671 review F6, not done in SW-4674)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4682,
+      "title": "[Sonnet] Docs: say in docs/workflow.md that examples::accepted_examples_check is one test running every accept example, so a lane widening a soundness regex runs the whole suite; and how to compare a std declaration's kernel term between main and a lane (STITCHWORT_DUMP_KERNEL prints nothing for library declarations) (SW-4674 friction)",
       "status": "backlog",
       "agent": "",
       "where": "",
