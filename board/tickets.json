@@ -33085,12 +33085,12 @@
     {
       "id": 4661,
       "title": "[Sonnet] If theorems are sealed by default: rewrite's search (same_shifted, crates/elab/src/matching.rs) compares constructor arguments at proof positions syntactically; skip them as conversion does (SW-4659 finding; one occurrence so far, PrefixSums.atOf)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nStarted 23 Nov 11:56 on Opus (rewrite is a core tactic, D2506). Expected: 35 min. Under D3723 (aim: proof irrelevance); the audit SW-4672 condition E applies.\n",
+      "body": "\n\nStarted 23 Nov 11:56 on Opus (rewrite is a core tactic, D2506). Expected: 35 min. Under D3723 (aim: proof irrelevance); the audit SW-4672 condition E applies.\n\n\nOrchestrator call (22 Nov): folded into SW-4674 (stage 5, rule I): conversion compares proof fields of stuck calls in the shortcut mode, so a search-only fix gains nothing. Lane stopped at 10 min (est. 35) with the diagnosis; the search patch is kept at docs/proposals/full-proof-irrelevance/search-skips-proofs.patch. Model result: Opus, worked (diagnosis), 10 min (est. 35).\n",
       "created": "2026-11-22",
       "updated": "2026-11-23",
       "commits": []
@@ -33287,7 +33287,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nIncludes SW-4661: rewrite search skipping proofs below a matched head (patch docs/proposals/full-proof-irrelevance/search-skips-proofs.patch); test docs/proposals/full-proof-irrelevance/stuck-call-proof-field.sw (sameCall must check); then revert the emptyIsByPosition workaround in Aoc.Common.Proofs.PrefixSums.atOf.\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
       "commits": []

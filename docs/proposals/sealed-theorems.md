@@ -771,3 +771,5 @@ is still the answer there. Neither needs `transparent theorem`. Since the proof 
 the only occurrence in all of std, `tools/fmt`, AoC and the roguelike, I would not build the
 elaborator change for it alone; it is worth doing only if sealing by default is chosen and more of
 these appear.
+
+**Correction (SW-4661, 22 Nov 2026):** it is not only the search. With `rewrite`'s search made to skip proofs, the step still fails in the kernel's comparison: both sides are stuck calls compared argument by argument in the shortcut mode, which compares proof fields (D2352). The fix is rule I (full-proof-irrelevance.md, stage 5); repro `full-proof-irrelevance/stuck-call-proof-field.sw`.
