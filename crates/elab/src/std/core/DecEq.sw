@@ -42,9 +42,8 @@ instance Result.instDecEq [auto decEqA: DecEq a] [auto decEqE: DecEq e]: DecEq (
   { decide = Result.decEq (x y => DecEq.decide x y) (x y => DecEq.decide x y) }
 
 --| Proofs of an equation in a type with decidable equality are unique
---| ([`Decidable.uniqueEq`], Hedberg's argument).
-theorem DecEq.uniqueEq ∀ [auto decEq: DecEq a] [x y: a] (p q: x = y): p = q :=
-  Decidable.uniqueEq (DecEq.decide [decEq := decEq]) x y p q
+--| ([`Decidable.uniqueEq`], a case of [`Prop.irrel`]).
+theorem DecEq.uniqueEq ∀ [auto decEq: DecEq a] [x y: a] (p q: x = y): p = q := Prop.irrel (x = y) p q
 
 --| A derived `==` on values of different constructors tests their tags
 --| first: when `Nat.equal i j && f` holds, the tags `i` and `j` are equal.
