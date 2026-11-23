@@ -1374,3 +1374,61 @@ fn a_lift_on_a_stuck_closed_quotient_is_neutral_and_still_its_body() {
         "aren't equal",
     );
 }
+
+/// The kernel derives a quotient form's proof mark itself (`Quot.ind` and
+/// `Quot.sound` are proofs; the type, `mk` and `lift` into data are not)
+/// and refuses a given mark that differs: E-MALFORMED, never trusted
+/// (SW-4671 review F6). `proof_marks.rs` covers the type form.
+#[test]
+fn a_wrong_mark_on_any_quotient_form_is_malformed() {
+    use ProofMark::{NotProof, Proof, Unknown};
+    let f = Fix::new();
+    let marked = |term: Term, mark: ProofMark| match &term {
+        Term::Quot(form, args, erased, _) => Term::Quot(*form, args.clone(), *erased, mark),
+        other => panic!("not a quotient form: {other:?}"),
+    };
+    let mk = f.mk(f.ff());
+    let sound = q(
+        Sound,
+        vec![f.bool_ty(), f.all_true(), f.ff(), f.tt(), f.trivial()],
+    );
+    let lift = q(
+        Lift,
+        vec![
+            f.bool_ty(),
+            f.all_true(),
+            f.bool_ty(),
+            lam("b", f.ff()),
+            lam("x", lam("y", lam("r", Term::Refl))),
+            mk.clone(),
+        ],
+    );
+    let motive = lam("q", eq(Some(f.q_ty()), v(0), f.mk(f.ff())));
+    let case = lam(
+        "x",
+        q(
+            Sound,
+            vec![f.bool_ty(), f.all_true(), v(0), f.ff(), f.trivial()],
+        ),
+    );
+    let ind = q(
+        Ind,
+        vec![f.bool_ty(), f.all_true(), motive, case, mk.clone()],
+    );
+    for (name, term, right, wrong) in [
+        ("mk", mk, NotProof, Proof),
+        ("lift into data", lift, NotProof, Proof),
+        ("sound", sound, Proof, NotProof),
+        ("ind", ind, Proof, NotProof),
+    ] {
+        for mark in [right, Unknown] {
+            infer(&f.p.g, &marked(term.clone(), mark))
+                .unwrap_or_else(|d| panic!("{name} marked {mark:?} refused: {d:?}"));
+        }
+        refused(
+            infer(&f.p.g, &marked(term, wrong)),
+            "E-MALFORMED",
+            "quotient form",
+        );
+    }
+}
