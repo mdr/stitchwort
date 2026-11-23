@@ -1,5 +1,5 @@
 {
-  "next": 4668,
+  "next": 4671,
   "tickets": [
     {
       "id": 47,
@@ -33145,15 +33145,20 @@
     {
       "id": 4665,
       "title": "[Opus] Sealed theorems stage 1 (D3722): seal every theorem by default with no transparent keyword; refuse a theorem in an unfolding list; PrefixSums.atOf edit; rewrite the unfolding-test examples; docs/core.md and guide; Fable review. After SW-4663.",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nD3722 (Matt, 22 Nov 2026): \"Proceed\". Started 23 Nov 10:27 on Opus. Expected: 60 min. Fable review after.\n\nProgress (lane, 23 Nov): every theorem is opaque from declaration (kernel push_def; assume clears it); E-UNFOLDING-THEOREM in kernel transparency() and elaborator resolve_unfolding; theorem group-mates left out of transparency closure; seal switch + exception list removed; theorem with no list hashes as before (flag implied); cache FORMAT 38->39. Messages: a stuck J/projection/%match on a theorem's proof notes \"`T` is a theorem: its proof is sealed\", no `unfolding T` suggestion. Equation generator: a then-branch computing on its proof gets its equation along Prop.irrel (fixes and-guard-proof-in-induct; equation-uses-relevant-proof moved reject->accept). PrefixSums.atOf patched. Pins moved: Float.neg, Float.abs, Float.sub (proof terms only). Kernel reasoning: docs/reviews/SW-4665-notes.md.\nDone 11:13 (45 min). Commit 13d20b913. Tests: soundness set, sealed_theorems, core opaque::, pins set, snap:hashes + test:hashes ALL=1, named examples, Aoc.Common.Proofs check --no-cache.\n",
+      "body": "\n\nD3722 (Matt, 22 Nov 2026): \"Proceed\". Started 23 Nov 10:27 on Opus. Expected: 60 min. Fable review after.\n\nProgress (lane, 23 Nov): every theorem is opaque from declaration (kernel push_def; assume clears it); E-UNFOLDING-THEOREM in kernel transparency() and elaborator resolve_unfolding; theorem group-mates left out of transparency closure; seal switch + exception list removed; theorem with no list hashes as before (flag implied); cache FORMAT 38->39. Messages: a stuck J/projection/%match on a theorem's proof notes \"`T` is a theorem: its proof is sealed\", no `unfolding T` suggestion. Equation generator: a then-branch computing on its proof gets its equation along Prop.irrel (fixes and-guard-proof-in-induct; equation-uses-relevant-proof moved reject->accept). PrefixSums.atOf patched. Pins moved: Float.neg, Float.abs, Float.sub (proof terms only). Kernel reasoning: docs/reviews/SW-4665-notes.md.\nDone 11:13 (45 min). Commit 13d20b913. Tests: soundness set, sealed_theorems, core opaque::, pins set, snap:hashes + test:hashes ALL=1, named examples, Aoc.Common.Proofs check --no-cache.\n\n\nFable review: merge, six low findings (docs/reviews/SW-4665-fable-review.md). Model result: Opus, worked, 45 min (est. 60); review Fable 9 min (est. 40).\n",
       "created": "2026-11-23",
       "updated": "2026-11-23",
-      "commits": []
+      "commits": [
+        "13d20b913",
+        "9f593d934",
+        "8a2adab35",
+        "ab436fac979422192b05464ef35a2944c3354e9c"
+      ]
     },
     {
       "id": 4666,
@@ -33176,6 +33181,45 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4668,
+      "title": "[Opus] After sealing: remove dead theorem folding in folds, rewrite docs/core.md Theorems-stay-folded paragraph and rule 6 (hashes and native pins still move with a proof until stage 2), add a dictionary or Quot.lift example for the over-applied folded head (SW-4665 review findings 1, 2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4669,
+      "title": "[Opus] A body with an unfolding list does not unfold its own local def or lifted match, contrary to docs/core.md; its note suggests unfolding t1.helper, which does not parse (on main before sealing; repro u3.sw in SW-4665 review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4670,
+      "title": "[Sonnet] Messages after sealing: the sealed note appears for a J stuck on a variable through And.left; read Prop.irrel binders from its type in equations.rs; E-UNKNOWN-NAME says dep has no equations when it has two (SW-4665 review findings 3, 4, 6)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-23",
       "updated": "2026-11-23",
