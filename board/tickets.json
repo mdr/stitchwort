@@ -33302,7 +33302,7 @@
     {
       "id": 4674,
       "title": "[Opus] Full proof irrelevance stage 5: rule I everywhere and rule F, deleting the shortcut mode and inert analysis together; conditions C, D, E, F and G (marks) from docs/proposals/full-proof-irrelevance-audit.md; level-precondition doc comments on conv/unify. After stage 4.",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
