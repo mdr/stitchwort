@@ -1,5 +1,5 @@
 {
-  "next": 4666,
+  "next": 4667,
   "tickets": [
     {
       "id": 47,
@@ -33151,6 +33151,19 @@
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "\n\nD3722 (Matt, 22 Nov 2026): \"Proceed\". Started 23 Nov 10:27 on Opus. Expected: 60 min. Fable review after.\n",
+      "created": "2026-11-23",
+      "updated": "2026-11-23",
+      "commits": []
+    },
+    {
+      "id": 4666,
+      "title": "[Sonnet] After sealing (SW-4665): remove the theorem-unfolding paths SW-4642 added in value.rs/reference.rs/unify.rs that can no longer fire, the STITCHWORT_THEOREM_UNFOLDS counters (always 0 now), and comments describing them as live (e.g. examples/accept/proof-unfolding-kept-folded.sw header)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
       "created": "2026-11-23",
       "updated": "2026-11-23",
       "commits": []
