@@ -609,6 +609,36 @@ fn j_with_reflexive_and_stuck_proofs() {
     assert_eq!(normal(g, 0, &forced), "Nat(0)");
 }
 
+/// A stuck cast the machine made carries its ends glued (`value::eval_ends`
+/// glues whatever the mode), so a constant in them is a call; the reference
+/// reads it back by computing the call itself, not by panicking
+/// (SW-4693, which `examples/accept/quot-protomap.sw`'s `transported` hit in
+/// the sweep).
+#[test]
+fn a_stuck_cast_with_glued_ends_reads_back_in_the_reference() {
+    let mut session = Session::new();
+    session
+        .load(
+            "glued-ends",
+            "import Std (Eq, Nat)\n\
+             def one: Nat := 1\n\
+             def two: Nat := 2\n\
+             def stuck (h: one = two): Nat := J (y p => Nat) 0 h\n",
+        )
+        .expect("checks");
+    let g = &session.elab.ev();
+    let f = def(g, "stuck");
+    let fast = value::eval(g, &[], &Term::Def(f)).unwrap();
+    let fast = value::apply_icit(g, fast, Value::var(0), Icit::Explicit).unwrap();
+    let slow = reference::eval(g, &[], &Term::Def(f)).unwrap();
+    let slow = reference::apply_icit(g, slow, Value::var(0), Icit::Explicit).unwrap();
+    assert!(
+        matches!(&fast, Value::Neutral(_, s) if matches!(s.last(), Some(Elim::J { ends: Some(e), .. }) if matches!(e.x, Value::Call(..)))),
+        "the machine's cast keeps a glued end"
+    );
+    assert_eq!(normal(g, 1, &fast), normal(g, 1, &slow));
+}
+
 /// A deep evaluation runs in one machine, not one per level; and the
 /// reference never starts the machine.
 #[test]

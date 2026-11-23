@@ -34,7 +34,9 @@
 //!   their definitions), nor are the float natives, which only run
 //!   programs. `Float.toText`, the one float primitive, computes in neither
 //!   evaluator.
-//! - It never glues, as always, and a compact list is expanded on sight.
+//! - It never glues, as always (a call in a value the machine made, such as
+//!   a cast's ends, is computed afresh, [`force`]), and a compact list is
+//!   expanded on sight.
 //!
 //! What it still keeps is `+`'s rules R3 and R4 (they define what is equal,
 //! not how it's computed) and the number view that a number `match` reads
@@ -493,12 +495,21 @@ pub fn expand_term(g: &Ev, term: &Term) -> Term {
     }
 }
 
-/// Replaces a solved metavariable at the head of `value` by its solution, and
+/// Replaces a solved metavariable at the head of `value` by its solution,
 /// expands a compact list (which only a metavariable's solution, made by the
-/// machine, can hold).
+/// machine, can hold), and computes a glued call afresh. Only a value the
+/// machine made holds a call: a cast's ends are evaluated glued whatever the
+/// machine's mode (`value::eval_ends`), so a stuck cast it hands over, to be
+/// read back or compared here, may carry one (SW-4693). Its definition
+/// applied to its spine, evaluated here, is what it stands for; its
+/// unfolding is never read, so nothing the machine computed is trusted.
 pub fn force(g: &Ev, value: Value) -> Result<Value> {
     if let Value::Chars(chars) = &value {
         return Ok(expand(g, chars.as_slice()));
+    }
+    if let Value::Call(id, spine, _) = &value {
+        let call = apply_spine(g, eval(g, &[], &Term::Def(*id))?, spine)?;
+        return force(g, call);
     }
     match &value {
         Value::Neutral(Head::Meta(m), spine) => match g.meta_solution(*m) {
@@ -1135,16 +1146,6 @@ pub fn conv(g: &Ev, level: usize, a: &Value, b: &Value) -> Result<bool> {
     conv_in(g, level, a, b)
 }
 
-/// The reference evaluator never glues, so a call reaching its conversion
-/// code is a bug: say so, as `quote` does, instead of quietly comparing it
-/// unequal to everything (SW-3941).
-#[inline]
-fn no_glued_call(value: &Value) {
-    if matches!(value, Value::Call(..)) {
-        unreachable!("the reference evaluator never glues");
-    }
-}
-
 /// [`conv`]. The shortcuts here are the folded calls, partially applied
 /// definitions and hidden opaque calls, each compared by its spine; rules
 /// K, S and F keep unfolding from reading a proof, so equal spines give
@@ -1152,8 +1153,12 @@ fn no_glued_call(value: &Value) {
 fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value) -> Result<bool> {
     step()?;
     let _nest = Nest::enter()?;
-    no_glued_call(a);
-    no_glued_call(b);
+    // A call comes only from a value the machine made (a cast's ends,
+    // [`force`]): compared as what the reference computes it to, never
+    // quietly unequal to everything (SW-3941, SW-4693).
+    if matches!(a, Value::Call(..)) || matches!(b, Value::Call(..)) {
+        return conv_in(g, level, &force(g, a.clone())?, &force(g, b.clone())?);
+    }
     // Rule I: two proofs are equal, unlooked at. A proof against something
     // that is visibly data (not merely unmarked) means the caller broke the
     // precondition: in the kernel's own checking, an internal error.
@@ -1494,7 +1499,6 @@ fn same_trees(g: &Ev, level: usize, mut a: Tree, mut b: Tree) -> Result<bool> {
                     // Rule E: the scrutinee's head, a folded call unfolded
                     // and a number split, as `eval_tree` takes it (G1, G3).
                     let s = unfold_folded(g, force(g, e[e.len() - 1 - ix].clone())?)?;
-                    no_glued_call(&s);
                     let split = match &s {
                         Value::Ctor(d2, c, fields) if d2 == d => Some((*c, fields.to_vec())),
                         Value::Nat(_) | Value::NatAdd(..) if Some(*d) == g.env.builtins().nat => {
