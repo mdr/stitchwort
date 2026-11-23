@@ -158,9 +158,8 @@ use stitchwort_core::Ev;
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Branch;
-use stitchwort_core::unfold_counts::Site;
 use stitchwort_core::value::{
-    Elim, Head, body_seen, conv, eval, force, is_folded, quote_at_most, unfold_folded_at,
+    Elim, Head, body_seen, conv, eval, force, is_folded, quote_at_most, unfold_folded,
 };
 use stitchwort_core::{DataId, Icit, Name, Sort, Term, Value};
 use stitchwort_syntax::ast::{self, Alt, Expr, Pattern};
@@ -2937,7 +2936,7 @@ impl<'a, 'e> Finder<'a, 'e> {
             end = Some((raw.clone(), d));
             let next = force(&g, raw)?;
             current = if is_folded(&g, &next) {
-                match unfold_folded_at(&g, &next, Site::CaseSplit)? {
+                match unfold_folded(&g, &next)? {
                     Some(u) => u,
                     // A field of a stuck call (`(Bool.decEq a b).holds`)
                     // waits for what the call waits for.
@@ -3006,7 +3005,7 @@ impl<'a, 'e> Finder<'a, 'e> {
         match &forced {
             Value::Neutral(Head::Def(_), spine) => {
                 if is_folded(&g, &forced) {
-                    match unfold_folded_at(&g, &forced, Site::CaseSplit)? {
+                    match unfold_folded(&g, &forced)? {
                         Some(unfolded) => return self.walk(&unfolded),
                         // A field of a stuck call (`(f x).i`) is stuck where
                         // the call is.
@@ -3207,7 +3206,7 @@ impl<'a, 'e> Finder<'a, 'e> {
             }
             let next = force(&g, raw)?;
             current = if is_folded(&g, &next) {
-                match unfold_folded_at(&g, &next, Site::CaseSplit)? {
+                match unfold_folded(&g, &next)? {
                     Some(u) => u,
                     // A field of a stuck call (`(Bool.decEq a b).holds`)
                     // waits for what the call waits for.
@@ -3584,7 +3583,7 @@ fn blocker(cx: &Ctx, value: &Value, numbers_known: bool) -> Result<Option<Blocke
                 let raw = env[env.len() - 1 - ix].clone();
                 let mut scrutinee = force(&g, raw.clone())?;
                 if is_folded(&g, &scrutinee)
-                    && let Some(u) = unfold_folded_at(&g, &scrutinee, Site::CaseSplit)?
+                    && let Some(u) = unfold_folded(&g, &scrutinee)?
                 {
                     scrutinee = u;
                 }

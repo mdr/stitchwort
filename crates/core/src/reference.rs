@@ -24,7 +24,7 @@
 //!
 //! - [`folds`], [`folds_on_lift`] and [`folds_mul`] are false, and they are
 //!   the only places this module asks whether a call stays folded
-//!   (dictionaries, theorems, `decreasing` definitions, calls folded on a
+//!   (dictionaries, `decreasing` definitions, calls folded on a
 //!   `Quot.lift`, `k * x`); so `is_folded` and `unfold_folded` find nothing.
 //!   Fields of calls follow: `(f x).i` projects the computed value.
 //! - A number is built from `Zero` and `Succ` only: [`Term::Nat`], a
@@ -546,11 +546,11 @@ fn seen<'a>(g: &Ev<'a>, id: DefId) -> Option<&'a Rc<Term>> {
         .filter(|_| !crate::value::hidden(g, id))
 }
 
-/// Whether a dictionary (`Def::fold`) or a theorem stays folded when it has
-/// all its arguments, except while a program runs.
+/// Whether a dictionary (`Def::fold`) stays folded when it has all its
+/// arguments, except while a program runs. (A theorem is sealed outside a
+/// program, [`crate::value::hidden`].)
 fn folds(g: &Ev, id: DefId) -> bool {
-    let def = g.def(id);
-    !plain() && (def.fold || def.theorem) && !g.machine.erasure.program_running()
+    !plain() && g.def(id).fold && !g.machine.erasure.program_running()
 }
 
 /// Whether a definition with all its arguments stays folded when its case
@@ -570,7 +570,7 @@ fn is_folded(g: &Ev, value: &Value) -> bool {
             && seen(g, *id).is_some())
 }
 
-/// A dictionary or theorem left folded (or a definition folded on a
+/// A dictionary left folded (or a definition folded on a
 /// `Quot.lift`), unfolded (repeatedly) for a `case` or `J` to take it apart,
 /// or a comparison; anything else as it is.
 fn unfold_folded(g: &Ev, value: Value) -> Result<Value> {
@@ -602,8 +602,8 @@ fn unfold_folded(g: &Ev, value: Value) -> Result<Value> {
 }
 
 /// A folded call applied to all its arguments and then eliminated further
-/// by a `J` or an application (`J m b (T a)`, `T a h` for a theorem whose
-/// case tree returns a lambda): the call unfolded, with the rest of the
+/// by a `J` or an application (`bumpBy q 3`, for a `Quot.lift` returning a
+/// function): the call unfolded, with the rest of the
 /// spine applied to what it computes to, as the machine's conversion
 /// compares it (`value::unfold_folded_head`). `None` if `value` isn't one,
 /// or the call doesn't unfold.
@@ -951,7 +951,7 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
     }
     // A folded call with a `J` or an application after its arguments, as
     // in the machine's conversion: the same call's spines first, otherwise
-    // unfolded with the rest applied (SW-4642).
+    // unfolded with the rest applied.
     let head_a = unfold_folded_head(g, a)?;
     let head_b = unfold_folded_head(g, b)?;
     if head_a.is_some() || head_b.is_some() {

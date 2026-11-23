@@ -6,13 +6,12 @@ use std::rc::Rc;
 use crate::check::quote_internal;
 use stitchwort_core::budget::{Phase, ResourceError, Result};
 use stitchwort_core::collections::{HashMap, HashSet};
-use stitchwort_core::unfold_counts::Site;
 use stitchwort_core::value::{
     Closure, CompareAt, Elim, Head, Mode, Relation, ShapeKey, ShapeMemo, Spine, apply_icit, conv,
     eval, expand_step, force, force_solved, is_call_field, is_eta_type, is_folded, matches_at_once,
     opens_by_tree, project, project_call, proof_field, proof_param, quote_as_written,
     quote_at_most, quote_folded, same_closure_solved, same_stuck_trees, sealed, underapplied,
-    unfold_folded, unfold_folded_at, unfold_folded_head_at, unfold_once, unfolds_head,
+    unfold_folded, unfold_folded_head, unfold_once, unfolds_head,
 };
 use stitchwort_core::{BigUint, DefId, Ev, Icit, Term, Value};
 use stitchwort_core::{nat_add, native};
@@ -1803,8 +1802,8 @@ fn forced_rules(
         {
             return Ok(Forced::Answer(true));
         }
-        let a2 = unfold_folded_at(g, &a, Site::Unify)?;
-        let b2 = unfold_folded_at(g, &b, Site::Unify)?;
+        let a2 = unfold_folded(g, &a)?;
+        let b2 = unfold_folded(g, &b)?;
         if a2.is_some() || b2.is_some() {
             work.push(Task::Values(level, a2.unwrap_or(a), b2.unwrap_or(b)));
             return Ok(Forced::Answer(true));
@@ -1813,9 +1812,8 @@ fn forced_rules(
     // A folded call eliminated further by a `J` or an application, as the
     // folded rule above and as in `conv`: the same call's whole spines
     // first (what that solves is kept only if all of it unifies), otherwise
-    // unfolded with the rest applied. A proof stuck past its own case tree
-    // is kept as the call, so the other side may hold its unfolding
-    // (SW-4642).
+    // unfolded with the rest applied (a `Quot.lift` returning a function,
+    // `bumpBy q 3`, against the lift written out).
     if !is_meta(&a) && !is_meta(&b) && (unfolds_head(g, &a) || unfolds_head(g, &b)) {
         if let (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2)) = (&a, &b)
             && i1 == i2
@@ -1823,8 +1821,8 @@ fn forced_rules(
         {
             return Ok(Forced::Answer(true));
         }
-        let a2 = unfold_folded_head_at(g, &a, Site::UnifyOverApplied)?;
-        let b2 = unfold_folded_head_at(g, &b, Site::UnifyOverApplied)?;
+        let a2 = unfold_folded_head(g, &a)?;
+        let b2 = unfold_folded_head(g, &b)?;
         if a2.is_some() || b2.is_some() {
             work.push(Task::Values(level, a2.unwrap_or(a), b2.unwrap_or(b)));
             return Ok(Forced::Answer(true));
@@ -1863,7 +1861,7 @@ fn forced_rules(
                 }
                 // A folded call against a different count of `Succ`s, as
                 // in `conv` (SW-2157).
-                if let Some(x) = unfold_folded_at(g, x, Site::Unify)? {
+                if let Some(x) = unfold_folded(g, x)? {
                     return nested(g, || run(g, vec![Task::Values(level, x, v.clone())], mode));
                 }
                 if let Some(x) = reread(x)? {

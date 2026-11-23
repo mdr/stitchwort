@@ -1,11 +1,7 @@
--- A `rewrite` with a lemma's proof unfolds it to see whether it is
--- `Refl`. When that unfolding gets stuck past the lemma's own case tree
--- (here on the `J` of its `rewrite … at`, reached through the projection
--- `let`s, which compute where a `match` would be stuck), the stuck proof is
--- kept as the lemma's call, as one stuck in its own case tree is, rather
--- than as the unfolding (SW-4642). So the `let`s below that rewrite with
--- `stepIs` carry `stepIs s n1 k pos s1`, not its body, and every later
--- `match` and `rewrite` reads back the call. What checks is unchanged.
+-- A theorem's proof is sealed (D3722), so the `let`s below that rewrite
+-- with `stepIs` carry the call `stepIs s n1 k pos s1`, never its proof
+-- (a `J` from its `rewrite … at`), and every later `match` and `rewrite`
+-- reads back the call.
 import Std (Option)
 
 type State = { a: Nat, b: Nat, c: Bool }

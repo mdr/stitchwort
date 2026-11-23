@@ -1,10 +1,9 @@
--- A proof stuck past its own case tree is kept as the lemma's call
--- (SW-4642): `flipped n p` stays that, though it unfolds to a `J` stuck on
--- `p`. A transport by it still equals one by that unfolding written out,
--- both when computed (`byComputing`) and when unified (a hypothesis
--- against the goal): the call is unfolded, and the `J` after it applied,
--- to compare them. The lemmas are `def`s, which unfold: a theorem is
--- sealed (D3722), so a transport by one never computes.
+-- A transport by a `def` that unfolds to a `J` stuck on `p` equals one by
+-- that unfolding written out, both when computed (`byComputing`) and when
+-- unified (a hypothesis against the goal). The lemmas are `def`s, which
+-- unfold: a theorem is sealed (D3722), so a transport by one never
+-- computes. (A folded call with a `J` or argument after it is
+-- `lift-call-over-applied.sw`.)
 type Tag (n: Nat) = | MkTag (k: Nat)
 
 def flipped (n: Nat) (p: n = 3): 3 = n := J (m _ => m = n) byComputing p
@@ -21,8 +20,8 @@ theorem unified ∀ (n: Nat)
   h
 
 -- A lemma whose case tree returns a lambda has arity 1, so `viaCase 0 h`
--- is the call with an argument after it. The kernel compares it unfolded,
--- with `h` then applied, as it compares a bare call (SW-4642).
+-- is the call with an argument after it, which unfolds as `0` is a
+-- constructor.
 def viaCase (n: Nat): n = n → n = n := match n with
   | Zero => h => h
   | Succ _ => h => h
