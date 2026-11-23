@@ -508,11 +508,12 @@ fn opaque_calls_compare_by_their_arguments() {
 
 #[test]
 fn opaque_calls_with_different_proofs() {
-    // h (n: Nat) (proof: n = n): Nat := n, which ignores its proof, so the
-    // proof is an inert parameter, and comparison skips it whether `h` is
-    // opaque or not: its marks come from its body, hidden or not
-    // (docs/proposals/proof-irrelevance.md §7.3). `k`, which takes `J` on its
-    // proof, computes with it, so `k 0 p` and `k 0 q` stay different.
+    // h (n: Nat) (proof: n = n): Nat := n, opaque or not, and `k`, which
+    // takes `J` on its proof: in every call the arguments `p` and `q` are
+    // proofs, which rule I takes as equal without looking at them
+    // (docs/core.md, "Proof irrelevance"), so `h 0 p` and `h 0 q` are the
+    // same call, and so are `k 0 p` and `k 0 q`. Neither what the body does
+    // with its proof nor whether it is hidden matters.
     let mut p = Prelude::new();
     let ty = pi("n", p.nat_ty(), arrow(nat_eq(&p, v(0), v(0)), p.nat_ty()));
     let body = lam("n", lam("proof", v(1)));
@@ -553,10 +554,7 @@ fn opaque_calls_with_different_proofs() {
         (statement(opaque_h), statement(plain_h), statement(opaque_k));
     assert!(submit(&mut p.g, "irr", THEOREM, opaque_h, proof.clone()).is_ok());
     assert!(submit(&mut p.g, "irr2", THEOREM, plain_h, proof.clone()).is_ok());
-    assert_eq!(
-        submit(&mut p.g, "irr3", THEOREM, opaque_k, proof),
-        Err("E-REFL")
-    );
+    assert!(submit(&mut p.g, "irr3", THEOREM, opaque_k, proof).is_ok());
 }
 
 #[test]

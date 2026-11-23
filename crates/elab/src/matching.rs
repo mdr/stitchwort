@@ -2255,6 +2255,7 @@ fn in_arms(
         equations,
         depth,
         motive,
+        copies,
         ..
     } = bound;
     let levels: Vec<usize> = columns
@@ -2290,7 +2291,7 @@ fn in_arms(
     let saved_statement = cx.statement.clone();
     if cx.statement_arms
         && let Some(outer) = &saved_statement
-        && let Some(term) = written_motive(cx, outer, exprs, base)
+        && let Some(term) = written_motive(cx, outer, exprs, base, &copies)
     {
         cx.statement = Some(Rc::new(crate::check::Statement {
             term: Rc::new(term),
@@ -3394,13 +3395,18 @@ impl Generalise<'_> {
 
 /// Statement `outer` as a generalised `match`'s motive, in the context the
 /// arms start from: each scrutinee (in the context of the first `base`
-/// variables) written in it replaced by the variable standing for it. Display
-/// only (`Ctx::statement`).
+/// variables) written in it replaced by the variable standing for it, and
+/// each copied variable by its copy (`copies`, level to level), as in the
+/// motive itself. Display only (`Ctx::statement`), but the goal display
+/// takes a statement that converts to the arm's goal as that goal, and a
+/// proof left as the original would convert by rule I while printing as a
+/// shadowed name.
 fn written_motive(
     cx: &Ctx,
     outer: &crate::check::Statement,
     exprs: &[Scrut],
     base: usize,
+    copies: &[(usize, usize)],
 ) -> Option<Term> {
     let g = cx.g();
     let level = cx.level();
@@ -3421,7 +3427,14 @@ fn written_motive(
             .position(|s| same_shifted(&s.term, t, under, 0))?;
         Some(Term::Var(level - 1 - (base + i) + under))
     };
-    lift::replace_with(&g, &at_base, base, &|l| Ok(Term::Var(level - 1 - l)), &hook).ok()
+    let moved = |l: usize| {
+        let l = copies
+            .iter()
+            .find(|&&(c, _)| c == l)
+            .map_or(l, |&(_, to)| to);
+        Ok(Term::Var(level - 1 - l))
+    };
+    lift::replace_with(&g, &at_base, base, &moved, &hook).ok()
 }
 
 #[cfg(test)]

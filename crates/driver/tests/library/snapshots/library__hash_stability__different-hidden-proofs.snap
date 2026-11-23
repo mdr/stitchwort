@@ -1,0 +1,6 @@
+---
+source: crates/driver/tests/library/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.differentProofs 1177704eceb16d1f7d3f5312bb5875762936ec804dbe7396e81bc531c1b39593
+Main.differentProofsComputed 91b51a2929912fee82bf7d87aa59c2e125356117aef9ac712bed48b6be7984e9

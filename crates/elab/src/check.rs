@@ -1431,8 +1431,7 @@ impl<'e> Ctx<'e> {
         let d = if hidden {
             d.with_note(
                 "the two types differ only in arguments the compiler fills in, shown here in \
-                 `[brackets]` (an implicit argument, or a proof the definition computes with; proofs \
-                 it never computes with are interchangeable)",
+                 `[brackets]` (an implicit or instance argument; proofs are never compared)",
             )
         } else {
             // The printed sides may hide where they differ: the same text,
@@ -11258,8 +11257,7 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     if hidden {
         error = error.with_note(
             "the two sides differ only in arguments the compiler fills in, shown here in \
-             `[brackets]` (an implicit argument, or a proof the definition computes with; proofs \
-             it never computes with are interchangeable)",
+             `[brackets]` (an implicit or instance argument; proofs are never compared)",
         );
     } else if let Some(computed) = computed {
         error = error.with_note(computed);
