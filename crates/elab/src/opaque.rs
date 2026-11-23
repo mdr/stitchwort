@@ -17,8 +17,9 @@
 //!   elaborator and the kernel agree on what unfolds (§6.4). Glued calls
 //!   remember their unfoldings by metavariable epoch, so the epoch moves
 //!   whenever the set does. The helpers lifted from such a body (a `match`,
-//!   a local definition) are opaque with the same clause, and the body
-//!   unfolds those admitted before it (`lift.rs`).
+//!   a local definition) are opaque with the same clause and the helpers
+//!   before them, and the body unfolds each from when it is admitted
+//!   (`lift.rs`).
 //! - **`f.unfold`.** Every opaque `f` without a clause gets the theorem
 //!   `f.unfold (x…): f x… = f.%body x…`, proved by `byComputing` with `unfolding f`,
 //!   where `f.%body` is a folded transparent copy of the body
@@ -192,23 +193,32 @@ impl Elaborator {
 
     /// A helper lifted from the body being elaborated, just declared: opaque
     /// with its owner's clause, if the owner has one (§6.4: it may use what
-    /// the owner's body may, so it must be opaque). `admitted` if it's
-    /// admitted on its own, before the owner, which then unfolds it.
+    /// the owner's body may, so it must be opaque), and the helpers admitted
+    /// before it, which are part of the same body: a `match` proving
+    /// something about an earlier `let`'s `match` unfolds that one, as the
+    /// owner does ([`Self::opaque_helper_admitted`]).
     pub(crate) fn opaque_helper(&mut self, id: DefId) {
         let Some(unfolding) = self.decl.owner_unfolding.borrow().clone() else {
             return;
         };
+        let mut list = unfolding.to_vec();
+        list.extend(self.decl.owner_helpers.borrow().iter().copied());
         kernel::mark_opaque(&mut self.kernel, id);
-        kernel::set_unfolding(&mut self.kernel, id, &unfolding);
+        kernel::set_unfolding(&mut self.kernel, id, &list);
     }
 
     /// Helper `id` (made opaque by [`Self::opaque_helper`]) was admitted
-    /// on its own: its owner unfolds it.
-    /// A local theorem's helper stays sealed, as any theorem.
+    /// on its own: its owner unfolds it, from now on in the body being
+    /// elaborated too (a retry after a local definition was admitted early
+    /// must see its body, as the kernel will). Its own set is the owner's
+    /// list and the helpers before it, closed: already in the set. A local
+    /// theorem's helper stays sealed, as any theorem.
     pub(crate) fn opaque_helper_admitted(&mut self, id: DefId) {
         let def = self.kernel.def(id);
         if self.decl.owner_unfolding.borrow().is_some() && def.opaque() && !def.theorem() {
             self.decl.owner_helpers.borrow_mut().push(id);
+            self.kernel.machine.transparent.insert(id);
+            self.attempt.store.metas_taken_back();
         }
     }
 
@@ -605,36 +615,86 @@ pub(crate) fn opaque_notes(e: &Elaborator, ids: &[DefId]) -> Vec<String> {
     } else {
         format!("{list} are opaque, so their bodies aren't used here")
     };
-    let unfolding = join_and(
-        &ids.iter()
-            .map(|id| format!("`unfolding {}`", g.def(*id).name()))
-            .collect::<Vec<_>>(),
-        "and",
-    );
-    let equations: Vec<String> = ids
-        .iter()
-        .filter_map(|id| {
-            let name = format!("{}.unfold", g.def(*id).name());
-            g.env
-                .defs()
+    notes.push(first);
+    // A local definition (`f.go`) can't be named in a clause; unfolding its
+    // owner unfolds it, unless the owner is a theorem, whose proof is
+    // sealed.
+    let mut unfolded: Vec<DefId> = Vec::new();
+    let mut sealed = Vec::new();
+    for &id in &ids {
+        let shown = match local_owner(g, &e.tables, id) {
+            None => id,
+            // Its owner's clause didn't take it in: the owner failed.
+            Some(None) => continue,
+            Some(Some(owner)) if g.def(owner).theorem() => {
+                let owner = g.def(owner).name();
+                sealed.push(format!(
+                    "`{}` is a local definition of the theorem `{owner}`, so only `{owner}`'s \
+                     proof unfolds it; to use its body elsewhere, make it a top-level \
+                     definition",
+                    g.def(id).name(),
+                ));
+                continue;
+            }
+            Some(Some(owner)) => owner,
+        };
+        if !unfolded.contains(&shown) {
+            unfolded.push(shown);
+        }
+    }
+    if !unfolded.is_empty() {
+        let unfolding = join_and(
+            &unfolded
                 .iter()
-                .any(|d| d.theorem() && d.name().as_ref() == name.as_str())
-                .then(|| format!("`{name}`"))
-        })
-        .collect();
-    // A transparent `def` can't have the clause (`E-UNFOLDING-TRANSPARENT`).
-    let add = if e.current_may_unfold() {
-        format!("add {unfolding} after this declaration's signature")
-    } else {
-        format!("make this an `opaque def` and add {unfolding} after its signature")
-    };
-    let second = if equations.is_empty() {
-        add
-    } else {
-        format!("{add}, or rewrite with {}", join_and(&equations, "or"))
-    };
-    notes.extend([first, second]);
+                .map(|id| format!("`unfolding {}`", g.def(*id).name()))
+                .collect::<Vec<_>>(),
+            "and",
+        );
+        let equations: Vec<String> = unfolded
+            .iter()
+            .filter_map(|id| {
+                let name = format!("{}.unfold", g.def(*id).name());
+                g.env
+                    .defs()
+                    .iter()
+                    .any(|d| d.theorem() && d.name().as_ref() == name.as_str())
+                    .then(|| format!("`{name}`"))
+            })
+            .collect();
+        // A transparent `def` can't have the clause (`E-UNFOLDING-TRANSPARENT`).
+        let add = if e.current_may_unfold() {
+            format!("add {unfolding} after this declaration's signature")
+        } else {
+            format!("make this an `opaque def` and add {unfolding} after its signature")
+        };
+        notes.push(if equations.is_empty() {
+            add
+        } else {
+            format!("{add}, or rewrite with {}", join_and(&equations, "or"))
+        });
+    }
+    notes.extend(sealed);
     notes
+}
+
+/// The declaration whose body local definition `id` (`f.go`, lifted and
+/// made opaque by its owner's `unfolding` clause) was written in: the one
+/// that isn't itself a local definition and whose clause took `id` in
+/// (`Elaborator::in_body_of`), if any. `None` if `id` isn't a local
+/// definition.
+fn local_owner(g: &Ev, tables: &crate::state::Tables, id: DefId) -> Option<Option<DefId>> {
+    let is_local = |id: DefId| {
+        let name = g.def(id).name();
+        tables.helper_keys.contains_key(name.as_ref())
+            || tables.helper_keys.contains_key(&format!("Std.{name}"))
+    };
+    if !is_local(id) {
+        return None;
+    }
+    Some((0..g.env.defs().len()).map(DefId).find(|&owner| {
+        let def = g.def(owner);
+        def.unfolding().contains(&id) && !def.name().contains('%') && !is_local(owner)
+    }))
 }
 
 fn join_and(items: &[String], word: &str) -> String {

@@ -144,6 +144,18 @@ impl Transparency {
         }
     }
 
+    /// Adds `id` to the set now, until the guard that set it is dropped:
+    /// for a helper lifted from the body being elaborated and admitted
+    /// while that body still is, which the body may unfold.
+    pub fn insert(&self, id: DefId) {
+        let mut set = self.0.borrow_mut();
+        if let Err(at) = set.binary_search(&id) {
+            let mut ids = set.to_vec();
+            ids.insert(at, id);
+            *set = ids.into();
+        }
+    }
+
     /// Whether the set is empty now: every opaque definition is hidden.
     pub fn is_empty(&self) -> bool {
         self.0.borrow().is_empty()
