@@ -172,6 +172,10 @@ A namespace's key is a hash, computed before elaborating it, of:
 6. the keys of the namespaces it imports, and of the library files they and it
    load, in canonical order.
 
+(Item 6 changed with SW-4707: a namespace's key now covers each dependency's
+*interface digest* where it has one, not its key. See "As built: keys by
+interface digest" below.)
+
 Item 6 makes this a chain of hashes, like a Merkle tree or Lake's trace
 files. An edit anywhere changes the key of that namespace and of everything
 that depends on it, and of nothing else. Any change to the source text, even a
@@ -1014,6 +1018,24 @@ namespace whose entry fits unless something it checks again needs it
   example projects and a small project through a series of edits print the
   same with and without leaving namespaces out, and a corrupt, cut-short or
   deleted entry is a miss at planning time.
+
+## As built: keys by interface digest (SW-4707)
+
+Stage A of [interface-digest-cache.md](interface-digest-cache.md), D3728,
+answering D280 for proofs and positions. A project namespace's key covers,
+for each namespace in its closure, that namespace's interface digest if this
+session wrote its entry or replayed it from one, and its key otherwise (it
+had an error or a goal, or wasn't written), plus what `import D (..)` brings
+from it (`project_names`). The digest is the hash of what the encoder writes
+of the entry with sealed theorems' proofs, source positions, the entry's
+warnings, its navigation and its library-file and `include` records left
+out; it is kept in the entry's sealed header. Dependency records are by
+interface hash. So a proof edit or a comment re-checks its own namespace and
+replays the ones above it. An entry that holds a position in another
+project file records the hash of every namespace's sources and misses when
+any changes. `check --recheck` computes each replayed namespace's digest
+again (`E-CACHE-DIGEST` on a mismatch). `FORMAT` 44. Library files' keys
+still cover text (stage B).
 
 ## Decisions
 

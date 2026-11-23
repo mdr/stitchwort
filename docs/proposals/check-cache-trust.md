@@ -94,7 +94,7 @@ place that breaks it: `library_interface` (`cache/mod.rs:520-548`) hashes
 | The core's text | **the index's**, not the loaded one (M1) | read |
 | The library's names: path, key, kind, flags | `library_interface` | read |
 | A library file's path and text, and the keys of the files it needs | `library_keys` | read |
-| A namespace's sources, as the host hashes them, and its dependencies' keys | `namespace_cache_key` | read |
+| A namespace's sources, as the host hashes them, and its dependencies' keys (since SW-4707: each dependency's interface digest where it has one, its key otherwise, and its `project_names`; interface-digest-cache.md §2 is the argument) | `namespace_cache_key` | read |
 | The library files and includes a namespace used | listed in the entry and compared when it loads (`library_unchanged`, `includes_unchanged`, `mod.rs:461-493`) | read |
 | Build profile and cargo features | **not covered** (L1, D2680; see §6) | read |
 | Kernel switches other than natives and compact text: `disable_float_natives`, `float_natives_outside_runs`, erasure's | not covered. Float natives fire only in runs or the float gate (`native.rs:183-199`), and `in_kernel_modes` resets erasure for admission (`machine.rs:57-76`) | inferred: they don't change what checking gives |

@@ -22,6 +22,8 @@ use stitchwort_elab::JournalStats;
 use stitchwort_elab::cache::{Stats, canonical_dump};
 use stitchwort_syntax::Diagnostic;
 
+mod digest;
+
 /// The stack every session here runs on, and is told it has
 /// ([`Session::for_stack`]): a thread of this size ([`with_stack`] or
 /// [`par_map`]), never the test's own thread, whose 2 MiB the session's
@@ -755,8 +757,13 @@ fn an_edit_re_elaborates_the_namespace_and_what_uses_it() {
     assert_eq!((cold.namespace_hits, cold.namespace_written), (0, 3));
     let warm = fresh_and_cached(&dir, &cache);
     assert_eq!((warm.namespace_hits, warm.namespace_misses), (3, 0));
-    // A comment in `A`: `A` and `B`, which uses it, are elaborated again.
+    // A comment in `A` moves its positions only: `A` is elaborated again,
+    // and `B`, which uses it, replayed (its key covers `A`'s digest).
     write_file(&dir, "src/A.sw", &format!("-- a comment\n{}", ABC[0].1));
+    let edited = fresh_and_cached(&dir, &cache);
+    assert_eq!((edited.namespace_hits, edited.namespace_misses), (2, 1));
+    // A new body for `one`: `A` and `B` are elaborated again.
+    write_file(&dir, "src/A.sw", &ABC[0].1.replace(":= 1\n", ":= 0 + 1\n"));
     let edited = fresh_and_cached(&dir, &cache);
     assert_eq!((edited.namespace_hits, edited.namespace_misses), (1, 2));
     // A comment in `B`: only `B`.
@@ -1828,7 +1835,9 @@ fn a_replayed_namespaces_instances_and_extensions_are_usable() {
         let cold = run(&source, false, Some(&cache));
         assert_eq!(cold.stats.namespace_written, 3);
         let text = std::fs::read_to_string(dir.join(edit)).unwrap();
-        write_file(&dir, edit, &format!("-- edited\n{text}"));
+        // A new name, so its digest changes and what uses it is checked
+        // again too (a comment would move positions only).
+        write_file(&dir, edit, &format!("{text}\ndef edited: Nat := 1\n"));
         let fresh = run(&source, false, None);
         let warm = run(&source, false, Some(&cache));
         let _ = std::fs::remove_dir_all(&cache);

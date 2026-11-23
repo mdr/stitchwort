@@ -61,6 +61,7 @@ diagnostics and, with `+nav`, navigation. The elaborator encodes and replays
 it (`crates/elab/src/cache`); `crates/driver/src/check_cache.rs` only stores
 it. Since D1660 a replayed entry is trusted: the kernel doesn't re-check it.
 The unit's key already covers its text, its includes, its dependencies' keys
+(for a namespace since SW-4707, their interface digests: interface-digest-cache.md)
 and the modes and limits (check-cache.md §4.2), so the only question is which
 *Rust* decides the output for a fixed input.
 

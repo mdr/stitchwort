@@ -243,6 +243,9 @@ pub struct TermWriter {
     /// Where the last `Loc` node's span started: they are written as steps
     /// from it.
     last_loc: u32,
+    /// For an interface digest ([`TermWriter::by_content`]): each node's
+    /// bytes, with its number, so equal terms are one node.
+    content: Option<HashMap<Vec<u8>, u32>>,
 }
 
 /// A term that can't be written: one with a metavariable, which never
@@ -251,6 +254,17 @@ pub struct TermWriter {
 pub struct Unwritable;
 
 impl TermWriter {
+    /// A writer whose node table depends only on the terms written, not on
+    /// which of them share memory: equal terms are one node, and children
+    /// are referred to by node number. Not readable by [`Terms`]; for
+    /// hashing.
+    pub fn by_content() -> TermWriter {
+        TermWriter {
+            content: Some(HashMap::default()),
+            ..TermWriter::default()
+        }
+    }
+
     /// The index of `s` in the string table.
     pub fn string(&mut self, s: &str) -> u32 {
         if let Some(&i) = self.string_ids.get(s) {
@@ -286,7 +300,17 @@ impl TermWriter {
                 }
                 continue;
             }
+            let start = self.nodes.bytes.len();
             self.node(refs, t)?;
+            if let Some(content) = &mut self.content {
+                let bytes = self.nodes.bytes[start..].to_vec();
+                if let Some(&id) = content.get(&bytes) {
+                    self.nodes.bytes.truncate(start);
+                    self.ids.insert(std::ptr::from_ref(t), id);
+                    continue;
+                }
+                content.insert(bytes, self.count);
+            }
             self.ids.insert(std::ptr::from_ref(t), self.count);
             self.count += 1;
         }
@@ -297,7 +321,11 @@ impl TermWriter {
     /// children are written just before it, so these are small numbers
     /// (and repeat, which compresses well), where node numbers only grow.
     fn id(&self, t: &Rc<Term>) -> u64 {
-        u64::from(self.count - 1 - self.ids[&std::ptr::from_ref(t.as_ref())])
+        let id = self.ids[&std::ptr::from_ref(t.as_ref())];
+        if self.content.is_some() {
+            return u64::from(id);
+        }
+        u64::from(self.count - 1 - id)
     }
 
     fn name(&mut self, n: &Name) {

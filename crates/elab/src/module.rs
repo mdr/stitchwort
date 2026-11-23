@@ -354,7 +354,13 @@ impl Elaborator {
         self.session.owners.begin(self.ids());
         self.unit_changed();
         // A project namespace may come from the check cache (`cache`).
-        let cached = self.namespace_cache_key(namespace, closure);
+        let cached = self.namespace_cache_key(namespace, closure, false);
+        if cached.is_none()
+            && let Some(ns) = namespace
+        {
+            // Checked without the cache: what it now holds has no digest.
+            self.forget_namespace_digest(ns);
+        }
         let run = |e: &mut Self| match (&cached, namespace, closure) {
             (Some((unit, key)), Some(ns), Some(closure)) => {
                 e.elaborate_namespace_cached(ns, files, closure, unit, key)
