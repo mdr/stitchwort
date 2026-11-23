@@ -63,9 +63,19 @@ theorem pairOfChars ∀ (p: Pair Char Char): (p = ('a', 'b')) ∨ (p = p) := mat
 -- Running code with char arms is unchanged.
 test "next" := next 'a' == 'b' ∧ next 'z' == 'z'
 test "bits" := bitChar (bitValue '1') == '1' ∧ isBit '0' ∧ not (isBit '2')
--- The transport computes away on a literal.
-theorem firstIsAComputes: firstIsA 'a' byComputing = byComputing := byComputing
-theorem nextOfAComputes: nextOfA 'a' byComputing = byComputing := byComputing
+-- The transport computes away on a literal. The lemmas are `def`s here: a
+-- theorem is sealed (D3722), so `firstIsA 'a' byComputing` stays a call.
+def firstIsADef (c: Char) (h: c = 'a'): c = 'a' := match c with
+  | 'a' => byComputing
+  | _ => h
+
+def nextOfADef (c: Char) (h: c = 'a'): next c = 'b' := match c with
+  | 'a' => byComputing
+  | 'b' => J (y e => next y = 'b') byComputing h.flipped
+  | _ => J (y e => next y = 'b') byComputing h.flipped
+
+theorem firstIsAComputes: firstIsADef 'a' byComputing = byComputing := byComputing
+theorem nextOfAComputes: nextOfADef 'a' byComputing = byComputing := byComputing
 
 -- A `match` nested inside a char arm, on another char or on the same one,
 -- gets the same treatment: in its arms the matched characters are the

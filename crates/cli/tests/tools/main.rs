@@ -22,7 +22,7 @@ mod project;
 mod receiver_first;
 mod redundant_arms;
 mod scope;
-mod seal_switch;
+mod sealed_theorems;
 mod statement_style;
 mod std_dir;
 mod step_counts;

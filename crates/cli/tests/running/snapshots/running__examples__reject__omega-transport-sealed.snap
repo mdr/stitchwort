@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-REFL] Error: `byComputing` can't prove this
+    ╭─[ reject/omega-transport-sealed.sw:12:51 ]
+    │
+ 12 │ theorem transportComputes: transport 7 42 = 42 := byComputing
+    │                                                   ─────┬─────  
+    │                                                        ╰─────── `transport 7 42` and `42` aren't equal
+    │ 
+    │ Note 1: computing the left side gives `J (y p => Nat) 42 (Std.Omega.proveEq (MkEnv [7] []) [] (MulRight (NV 0) 3) (NAdd (MulLeft 2 (NV 0)) (NV 0)) (Then NegGoal (Close 0)) (Then NegGoal (Close 0)) byComputing byComputing Trivial)`
+    │ 
+    │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 3: `Omega.proveEq` is a theorem: its proof is sealed, so only its statement is used
+────╯

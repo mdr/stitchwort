@@ -1298,7 +1298,7 @@ theorem doubleTwo: double 2 = 4 := rewrite double.unfold then byComputing
 
 - **`opaque def`**, with or without parameters, arms, effects or
   `decreasing`; `export opaque def` for an export. `opaque theorem` is
-  refused (a theorem already stays folded where it's used), and so is
+  refused (every theorem is already sealed, below), and so is
   `opaque instance` (an instance is used by taking it apart), each
   `E-PARSE`. Top level only: a local definition can't be `opaque`.
 - **`unfolding f, g`** after the result type (and after `decreasing e`):
@@ -1307,16 +1307,25 @@ theorem doubleTwo: double 2 = 4 := rewrite double.unfold then byComputing
   transitive: unfolding `f` also unfolds what `f` unfolds, and, for
   definitions that call each other, `f`'s opaque group-mates. `:=` may start
   a line of its own after it, as after `decreasing`.
-  - Allowed on `opaque def` and on `theorem`; a theorem with `unfolding`
-    stays folded even under `case` and `J`. On a plain `def` it's
+  - Allowed on `opaque def` and on `theorem`. On a plain `def` it's
     `E-UNFOLDING-TRANSPARENT` (a definition that always unfolds would carry
     the body to places where it's hidden: make it `opaque`, or rewrite with
     `f.unfold`); on an instance, `E-PARSE`; on a local definition, `E-PARSE`
     (a `match` or local definition in a body with `unfolding` unfolds what
     the body does).
-  - Each name must be an opaque definition (`E-NOT-OPAQUE`), not one checked
-    together with this one, which has no body yet (`E-UNFOLDING-GROUP`).
+  - Each name must be an opaque definition (`E-NOT-OPAQUE`), not a theorem
+    (`E-UNFOLDING-THEOREM`, below), and not one checked together with this
+    one, which has no body yet (`E-UNFOLDING-GROUP`).
   - Not with `decreasing` yet (`E-DECREASING`).
+- **Theorems are sealed** (D3722): every `theorem` is opaque, and no
+  declaration can unfold one, so nothing depends on how a lemma is proved,
+  only on what it states; changing a proof can't break another one. A
+  computation along a theorem's proof stays stuck: `J (y p => Nat) x
+  (flipped h)` doesn't compute to `x`, even where `h` is `byComputing`.
+  Naming a theorem in `unfolding` is `E-UNFOLDING-THEOREM`, and an error
+  on a computation stuck on a theorem's proof (a `J` along it, a projection
+  of it, a `match` on it) says the proof is sealed. A local `theorem` inside
+  a body is sealed too. Running a program ignores all of this.
 - **`f.unfold`**: every opaque `f` without an `unfolding` clause gets the
   theorem `f.unfold (x…): f x… = f.%body x…`, where `f.%body` is a copy of
   the body that computes when something looks inside it (a comparison, a
@@ -1407,11 +1416,13 @@ take by `rewrite`, `match` or `cases`, and `countFresh.eq2.ifFalse (b) (rest)
   (isSome: explode (depth + 1) left = Some inLeft): explode depth (Pair left
   right) = Some (…)`.
 - **Not generated** for a branch (`E-NO-EQUATION`, with the reason): one
-  that computes on the proof of an `if`'s `else`, or of its `then` when the
-  condition isn't an equation in a type with `DecEq` or a comparison (two
-  proofs of it aren't known to be equal). A branch that only passes the
-  proof where nothing computes on it (as `Fin.ofNatLt n i h` does with `h`) is
-  fine; a
+  that computes on the proof of an `if`'s `else`. A `then` branch that
+  computes on its proof gets its equation through the uniqueness of proofs:
+  `Bool.uniqueEq` for an equation of `Bool`s or a comparison, `DecEq`'s for a
+  decided equation, and `Prop.irrel` for any other condition
+  (`examples/accept/equation-uses-relevant-proof.sw`). A branch that only
+  passes the proof where nothing computes on it (as `Fin.ofNatLt n i h` does
+  with `h`) needs none of these; a
   `match` on several expressions, an alternative with an or-pattern, and a
   `match` whose helper copies variables whose types mention what it
   matches.

@@ -6,10 +6,12 @@
 //! - **The clause.** Its names are resolved once the declaration's group
 //!   can be named, and refused with the clause's own spans where the kernel
 //!   would refuse them: a definition that isn't opaque
-//!   (`E-UNFOLDING-TRANSPARENT`), a name that isn't an opaque definition
+//!   (`E-UNFOLDING-TRANSPARENT`), a theorem, whose proof is sealed
+//!   (`E-UNFOLDING-THEOREM`), a name that isn't an opaque definition
 //!   (`E-NOT-OPAQUE`), a member of the same group (`E-UNFOLDING-GROUP`).
-//!   A theorem with a clause is made opaque (§6.4, rule 3). The names are
-//!   also dependency edges (`module::decl_refs`), so a group-mate is found.
+//!   Every theorem is opaque already (the kernel declares it so), clause or
+//!   not. The names are also dependency edges (`module::decl_refs`), so a
+//!   group-mate is found.
 //! - **The body.** It's elaborated under the same transparency set the
 //!   kernel will check it under ([`Elaborator::in_body_of`]), so the
 //!   elaborator and the kernel agree on what unfolds (§6.4). Glued calls
@@ -76,15 +78,10 @@ impl Elaborator {
     }
 
     /// Marks the just-declared definition `id` opaque if it's written
-    /// `opaque def`, or is a theorem with an `unfolding` clause (§6.4, rule 3).
+    /// `opaque def`. A theorem is opaque already.
     pub(crate) fn mark_opaque_signature(&mut self, signature: &Decl, id: DefId) {
-        if let Decl::Signature {
-            opaque,
-            theorem,
-            unfolding,
-            ..
-        } = signature
-            && (*opaque || (*theorem && !unfolding.is_empty()))
+        if let Decl::Signature { opaque, .. } = signature
+            && *opaque
         {
             kernel::mark_opaque(&mut self.kernel, id);
         }
@@ -126,6 +123,9 @@ impl Elaborator {
                     .with_note(format!("remove `{}` from `unfolding`", name.text)));
                 }
             };
+            if self.kernel.def(other).theorem() {
+                return Err(unfolding_theorem(name));
+            }
             if ids.contains(&other) {
                 return Err(Diagnostic::error(
                     "E-UNFOLDING-GROUP",
@@ -204,8 +204,10 @@ impl Elaborator {
 
     /// Helper `id` (made opaque by [`Self::opaque_helper`]) was admitted
     /// on its own: its owner unfolds it.
+    /// A local theorem's helper stays sealed, as any theorem.
     pub(crate) fn opaque_helper_admitted(&mut self, id: DefId) {
-        if self.decl.owner_unfolding.borrow().is_some() && self.kernel.def(id).opaque() {
+        let def = self.kernel.def(id);
+        if self.decl.owner_unfolding.borrow().is_some() && def.opaque() && !def.theorem() {
             self.decl.owner_helpers.borrow_mut().push(id);
         }
     }
@@ -436,24 +438,53 @@ fn has_case(term: &Term) -> bool {
 /// order of first appearance. Only called on the error path
 /// (docs/proposals/opaque-definitions.md §6.10); a generated helper
 /// (`f.%body`, `f.unfold`, a lifted helper) is never named.
+///
+/// A theorem is named only where a computation waits on its proof: the
+/// proof a `J` transports along, a projection's subject, or an argument of
+/// a lifted `match` (`f.%match1`). Elsewhere a call of one is just a proof
+/// passed on, which hiding its body doesn't change, and theorem calls are
+/// everywhere in types.
 pub(crate) fn declined_in<'t>(g: &Ev, terms: impl IntoIterator<Item = &'t Term>) -> Vec<DefId> {
     if !g.env.defs().iter().any(|d| d.opaque()) {
         return Vec::new();
     }
     let mut found = Vec::new();
+    let note = |id: DefId, found: &mut Vec<DefId>| {
+        let def = g.def(id);
+        if def.opaque()
+            && def.body().is_some()
+            && !def.name().contains('%')
+            && stitchwort_core::value::hidden(g, id)
+            && !found.contains(&id)
+        {
+            found.push(id);
+        }
+    };
     let mut pending: Vec<&Term> = terms.into_iter().collect();
     pending.reverse();
     while let Some(term) = pending.pop() {
-        if let Term::Def(id) = term {
-            let def = g.def(*id);
-            if def.opaque()
-                && def.body().is_some()
-                && !def.name().contains('%')
-                && stitchwort_core::value::hidden(g, *id)
-                && !found.contains(id)
-            {
-                found.push(*id);
+        match term {
+            Term::Def(id) if !g.def(*id).theorem() => note(*id, &mut found),
+            Term::J(_, _, proof) | Term::Proj(_, _, proof) => {
+                if let Term::Def(id) = proof.spine().0 {
+                    note(*id, &mut found);
+                }
             }
+            Term::App(..) => {
+                let (head, args) = term.spine();
+                if let Term::Def(h) = head
+                    && g.def(*h).name().contains("%match")
+                {
+                    for arg in args {
+                        if let Term::Def(id) = arg.spine().0
+                            && g.def(*id).theorem()
+                        {
+                            note(*id, &mut found);
+                        }
+                    }
+                }
+            }
+            _ => {}
         }
         let first = pending.len();
         term.for_each_child(|t, _| pending.push(t));
@@ -508,14 +539,49 @@ impl Elaborator {
     }
 }
 
-/// The two notes of §6.10 for the opaque definitions `ids` that were
-/// declined: which are opaque, and the fixes (`unfolding f`, or `rewrite
-/// f.unfold` where `f` has that equation).
+/// `E-UNFOLDING-THEOREM`: theorem `name` in an `unfolding` list. Every
+/// theorem is sealed (D3722), so nothing can depend on its proof.
+fn unfolding_theorem(name: &ast::Name) -> Diagnostic {
+    Diagnostic::error(
+        "E-UNFOLDING-THEOREM",
+        format!(
+            "`{}` is a theorem, so its proof can't be unfolded",
+            name.text
+        ),
+    )
+    .with_label(name.span, "a theorem's proof is sealed")
+    .with_note(format!(
+        "use what `{}` states, and remove it from `unfolding`",
+        name.text
+    ))
+}
+
+/// The notes of §6.10 for the opaque definitions `ids` that were declined:
+/// which are opaque, and the fixes (`unfolding f`, or `rewrite f.unfold`
+/// where `f` has that equation). A theorem among them gets its own note
+/// instead: its proof is sealed, so there's no fix that uses it.
 pub(crate) fn opaque_notes(e: &Elaborator, ids: &[DefId]) -> Vec<String> {
-    if ids.is_empty() {
-        return Vec::new();
-    }
     let g = &e.ev();
+    let (theorems, ids): (Vec<DefId>, Vec<DefId>) =
+        ids.iter().partition(|id| g.def(**id).theorem());
+    let mut notes = Vec::new();
+    if !theorems.is_empty() {
+        let quoted: Vec<String> = theorems
+            .iter()
+            .map(|id| format!("`{}`", g.def(*id).name()))
+            .collect();
+        let list = join_and(&quoted, "and");
+        notes.push(if theorems.len() == 1 {
+            format!("{list} is a theorem: its proof is sealed, so only its statement is used")
+        } else {
+            format!(
+                "{list} are theorems: their proofs are sealed, so only their statements are used"
+            )
+        });
+    }
+    if ids.is_empty() {
+        return notes;
+    }
     let quoted: Vec<String> = ids
         .iter()
         .map(|id| format!("`{}`", g.def(*id).name()))
@@ -554,7 +620,8 @@ pub(crate) fn opaque_notes(e: &Elaborator, ids: &[DefId]) -> Vec<String> {
     } else {
         format!("{add}, or rewrite with {}", join_and(&equations, "or"))
     };
-    vec![first, second]
+    notes.extend([first, second]);
+    notes
 }
 
 fn join_and(items: &[String], word: &str) -> String {

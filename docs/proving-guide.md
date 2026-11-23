@@ -958,6 +958,17 @@ for in a proof.
 Each of these cost a lane time more than once (SW-4198; all checked on a
 scratch file on 19 Nov 2026).
 
+- **A lemma's proof is sealed** (D3722). No declaration sees how a theorem
+  was proved, only its statement: `byComputing`, `rewrite` and unification
+  never compute through a lemma's proof, and `unfolding` can't name a
+  theorem (`E-UNFOLDING-THEOREM`). So
+  a step that needs a lemma's proof to reduce (a `J` along it, two terms
+  that differ only in a proof field built by different lemmas) needs a
+  different step: rewrite the term into the shape the other side has first
+  (`Aoc.Common.Proofs.PrefixSums.atOf` rewrites `Map.empty` into
+  `Map.byPosition []` by an equation `byComputing` proves), or use
+  `Prop.irrel` where two proofs must be equal.
+
 - **`&&` and `++` group to the right.** `a && b && c` is `a && (b && c)` and
   `xs ++ ys ++ zs` is `xs ++ (ys ++ zs)`: `byComputing` proves both as they
   stand. `Bool.andAssoc` and `List.appendAssoc` have the *left*-nested form

@@ -1,8 +1,10 @@
 -- `f.induct` is made when an `&&` guard's proof reaches the case only at
 -- a position conversion skips: the case states the guard as its `Bool`
 -- and holds the proof as read from it, where the definition's tree has
--- the proof itself (SW-4360). A proof field, a condition over a
--- constructor holding the proof, and a `decreasing` proof each convert.
+-- the proof itself (SW-4360). A proof field and a condition over a
+-- constructor holding the proof each convert. A `decreasing` proof made by
+-- the sealed theorem `stepDown` doesn't, and its case is proved along
+-- `Prop.irrel` instead.
 import Std (Bool, Eq, List, Nat)
 
 type Gap = | MkGap (lo: Nat) (hi: Nat) (ok: lo < hi ∧ 0 < lo)

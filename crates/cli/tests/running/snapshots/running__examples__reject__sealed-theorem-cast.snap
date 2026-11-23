@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-REFL] Error: `byComputing` can't prove this
+    ╭─[ reject/sealed-theorem-cast.sw:11:39 ]
+    │
+ 11 │ theorem castComputes: cast 3 5 = 5 := byComputing
+    │                                       ─────┬─────  
+    │                                            ╰─────── `cast 3 5` and `5` aren't equal
+    │ 
+    │ Note 1: computing the left side gives `J (y p => Nat) 5 (addZero 3)`
+    │ 
+    │ Note 2: `byComputing` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 3: `addZero` is a theorem: its proof is sealed, so only its statement is used
+────╯

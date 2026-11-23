@@ -217,7 +217,8 @@ fn unfolding_on_a_transparent_definition_is_refused() {
         submit(&mut p.g, "four", transparent, ty.clone(), body.clone()),
         Err("E-UNFOLDING-TRANSPARENT")
     );
-    // A theorem must be opaque to unfold too.
+    // A theorem is opaque however it is submitted (sealed, D3722), so it
+    // may unfold without being marked.
     let n4 = p.num(4);
     let theorem = How {
         opaque: false,
@@ -225,10 +226,7 @@ fn unfolding_on_a_transparent_definition_is_refused() {
         unfolding: &[double],
     };
     let two = p.num(2);
-    assert_eq!(
-        rfl_about(&mut p, "t", theorem, double, Some(two), n4),
-        Err("E-UNFOLDING-TRANSPARENT")
-    );
+    assert!(rfl_about(&mut p, "t", theorem, double, Some(two), n4).is_ok());
     // Paired: the same, opaque.
     let opaque = How {
         opaque: true,
@@ -255,6 +253,45 @@ fn unfolding_a_transparent_definition_is_refused() {
     );
     // Paired: no clause needed.
     assert!(rfl_about(&mut p, "d", THEOREM, double, Some(two), four).is_ok());
+}
+
+// Sealed theorems (D3722): every theorem is opaque, and none can be unfolded.
+
+#[test]
+fn a_theorem_is_submitted_opaque() {
+    let mut p = Prelude::new();
+    let two = self::two(&mut p, PLAIN);
+    let n2 = p.num(2);
+    let t = rfl_about(&mut p, "twoIsTwo", THEOREM, two, None, n2).expect("theorem");
+    assert!(p.g.def(t).opaque());
+    // A plain `def` isn't.
+    assert!(!p.g.def(two).opaque());
+}
+
+#[test]
+fn a_theorem_in_an_unfolding_list_is_refused() {
+    let mut p = Prelude::new();
+    let two = self::two(&mut p, PLAIN);
+    let (n2, n4) = (p.num(2), p.num(4));
+    let t = rfl_about(&mut p, "twoIsTwo", THEOREM, two, None, n2.clone()).expect("theorem");
+    assert_eq!(
+        rfl_about(&mut p, "u", unfolding(&[t]), two, None, n2.clone()),
+        Err("E-UNFOLDING-THEOREM")
+    );
+    // From an opaque `def` too.
+    let (ty, body) = (p.nat_ty(), n4);
+    let opaque = How {
+        opaque: true,
+        theorem: false,
+        unfolding: &[t],
+    };
+    assert_eq!(
+        submit(&mut p.g, "four", opaque, ty.clone(), body.clone()),
+        Err("E-UNFOLDING-THEOREM")
+    );
+    // Paired: the same without the theorem.
+    assert!(submit(&mut p.g, "four", OPAQUE, ty, body).is_ok());
+    assert!(rfl_about(&mut p, "u", THEOREM, two, None, n2).is_ok());
 }
 
 #[test]

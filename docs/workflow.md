@@ -581,16 +581,6 @@ profile a project's namespaces without paying for the library, add
 cache entries neither read nor written) while the library comes from the
 cache; `--no-cache` still turns both off.
 
-`STITCHWORT_SEAL_THEOREMS=1` is a measurement switch, not a language feature
-(SW-4657, `docs/proposals/sealed-theorems.md`, "Stage 0 results"): every
-`theorem` is declared opaque, as one with an `unfolding` clause already is, so
-no later declaration sees its proof, and the checks list what stops checking.
-Always with `--no-cache` (cached results don't know about it). The pins of
-natives are not checked (their hashes move). The standard library's own
-`Decidable.symThenSelf` and `Bool.symThenSelf` need `Std.Eq.trans` and
-`Std.Eq.flipped` unsealed, or the prelude doesn't check; `STITCHWORT_SEAL_EXCEPT=Std.Eq.trans,Std.Eq.flipped`
-(full names, commas) leaves the named theorems transparent. Unset, nothing changes.
-
 ### Writing a brief
 
 Every brief states the worktree, the estimate and the targeted tests (CLAUDE.md,

@@ -105,11 +105,6 @@ theorem viaRewrite ∀ (x: Nat) (f: Nat → Nat) (h: f (x + x + x) = 7): f (x * 
 
 theorem castBy ∀ (x: Nat) (h: x * 3 = 21): x + x + x = 21 := rewrite <- (arithmetic: x * 3 = x + x + x) then h
 
--- A transport along an `arithmetic` equation computes: the proof reduces to `byComputing`.
-def transport (x n: Nat): Nat := J (y p => Nat) n (arithmetic: x * 3 = x + x + x)
-
-theorem transportComputes: transport 7 42 = 42 := byComputing
-
 -- Cost: `k * x` unfolds `k` times when its type is checked, so `arithmetic` takes
 -- `k` up to 1000 (omega-mul-left-limit.sw); `x * k` stays as written, at any size.
 theorem big0 ∀ (x: Nat) (h: 10 * x ≤ 20): x ≤ 2 := arithmetic

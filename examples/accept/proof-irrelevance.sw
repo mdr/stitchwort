@@ -68,13 +68,17 @@ def cast (a b: Type) (h: a = b) (x: a): b := J (y e => y) x h
 
 theorem castRflComputes ∀ (a: Type) (x: a): cast a a byComputing x = x := byComputing
 
--- A loop's proof exposed as a constructor: accepted, and computes.
+-- A loop's proof exposed as a constructor: accepted, and computes. Here
+-- `Prop.irrel` is a `def`, which unfolds; a theorem is sealed (D3722), so
+-- `piViaBox` stays a call, and a `J` along it doesn't compute.
 type Loop: Prop = | MkLoop (next: Loop)
 
 def Loop.inv: Loop → Loop
   | MkLoop n => n
 
-theorem Prop.irrel ∀ (a: Prop) (p q: a): p = q := piViaBox a p q
+def Prop.irrel (a: Prop) (p q: a): p = q :=
+  let e: MkBox p = MkBox q := byComputing
+  J (y e2 => p = Box.unbox y) byComputing e
 
 def Loop.expose (l: Loop): Loop := J (y e => Loop) (MkLoop (Loop.inv l)) (Prop.irrel Loop (MkLoop (Loop.inv l)) l)
 

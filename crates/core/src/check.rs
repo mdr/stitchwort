@@ -2660,42 +2660,7 @@ pub fn declare_def(
         if theorem && sort != Sort::Prop {
             return Err(not_a_prop(&mut cx, name, &ty, span)?);
         }
-        let id = push_def(g, name, path, ty, theorem, export, span)?;
-        if theorem && seal_theorems() && !sealing_exception(path) {
-            g.env.defs_mut()[id.0].opaque = true;
-        }
-        Ok(id)
-    })
-}
-
-/// Whether `STITCHWORT_SEAL_THEOREMS=1`: a measurement switch (SW-4657,
-/// docs/proposals/sealed-theorems.md, stage 0) that declares every theorem
-/// opaque, as one with an `unfolding` clause already is, so no later
-/// declaration sees a proof. Not part of the language; use `--no-cache`, as
-/// cached results don't know about it.
-///
-/// Pinned declarations' hashes move with it, so their pins aren't checked
-/// ([`crate::pins`]).
-pub fn seal_theorems() -> bool {
-    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *ON.get_or_init(|| std::env::var("STITCHWORT_SEAL_THEOREMS").is_ok_and(|v| v == "1"))
-}
-
-/// A theorem named in `STITCHWORT_SEAL_EXCEPT` (full names, separated by
-/// commas; one ending in `*` is a prefix) that the switch leaves
-/// transparent: the measurement's way of finding the set of theorems that
-/// would have to be.
-fn sealing_exception(path: &Name) -> bool {
-    static LIST: std::sync::OnceLock<Vec<String>> = std::sync::OnceLock::new();
-    let list = LIST.get_or_init(|| {
-        std::env::var("STITCHWORT_SEAL_EXCEPT")
-            .map(|v| v.split(',').map(|n| n.trim().to_string()).collect())
-            .unwrap_or_default()
-    });
-    let path = path.to_string();
-    list.iter().any(|n| match n.strip_suffix('*') {
-        Some(prefix) => path.starts_with(prefix),
-        None => *n == path,
+        push_def(g, name, path, ty, theorem, export, span)
     })
 }
 
@@ -2723,6 +2688,11 @@ fn not_a_prop(cx: &mut Ctx, name: &Name, ty: &Term, span: Span) -> Result<Diagno
 /// [`declare_def`], [`assume`] and [`admit_trusted_def`]. Its type's value
 /// ([`kept_type`]) is evaluated with every opaque definition hidden (the
 /// caller's transparency set) and with gluing on.
+///
+/// A theorem is opaque, always: sealed, so no other declaration sees its
+/// proof (docs/core.md, "Opaque definitions"; D3722), and none can unfold
+/// it ([`transparency`] refuses one in an `unfolding` list). [`assume`]
+/// clears the flag again, as an assumption has no body.
 fn push_def(
     g: &mut Kernel,
     name: &Name,
@@ -2745,7 +2715,7 @@ fn push_def(
         theorem,
         instance: false,
         fold: false,
-        opaque: false,
+        opaque: theorem,
         unfolding: Rc::default(),
         transparent: Rc::default(),
         lift_leaf: false,
@@ -2854,6 +2824,9 @@ pub fn assume(
         }
         let id = push_def(g, name, path, ty, theorem, false, span)?;
         let def = &mut g.env.defs_mut()[id.0];
+        // No body to seal, so an assumption standing for a theorem isn't
+        // opaque (docs/core.md, "Assumptions").
+        def.opaque = false;
         def.assumption = Some(Rc::new(label));
         def.recursive = false;
         def.state = State::Final;
@@ -3050,10 +3023,12 @@ pub fn transparency_set(g: &Ev, id: DefId, ids: &[DefId]) -> Result<Rc<[DefId]>>
 /// - a definition that unfolds any must itself be opaque, so it never
 ///   unfolds where what it unfolds is hidden (`E-UNFOLDING-TRANSPARENT`);
 /// - each must be final (a member of its own group has no body yet,
-///   `E-UNFOLDING-GROUP`) and opaque (`E-NOT-OPAQUE`).
+///   `E-UNFOLDING-GROUP`), not a theorem, whose proof is sealed
+///   (`E-UNFOLDING-THEOREM`), and opaque (`E-NOT-OPAQUE`).
 ///
 /// The set is the least one that holds the list and, with each opaque
-/// definition in it, that one's own set and its opaque group-mates (D1267).
+/// definition in it, that one's own set and its opaque group-mates that
+/// aren't theorems (D1267). So no theorem is ever in a set.
 /// Each definition's set is closed already, so this only follows them; it
 /// ends, as it only grows within the final definitions. Sorted.
 fn transparency(g: &Ev, id: DefId, ids: &[DefId]) -> Result<Rc<[DefId]>> {
@@ -3097,6 +3072,18 @@ fn transparency(g: &Ev, id: DefId, ids: &[DefId]) -> Result<Rc<[DefId]>> {
                 ));
             }
         }
+        if unfolded.theorem {
+            return Err(cx
+                .error(
+                    "E-UNFOLDING-THEOREM",
+                    format!("`{}` is a theorem, so its proof can't be unfolded", unfolded.name),
+                    format!("`{}` is unfolded here", unfolded.name),
+                )
+                .with_note(format!(
+                    "a theorem's proof is sealed: use its statement, and remove `{}` from `unfolding`",
+                    unfolded.name
+                )));
+        }
         if !unfolded.opaque {
             return Err(cx
                 .error(
@@ -3114,7 +3101,14 @@ fn transparency(g: &Ev, id: DefId, ids: &[DefId]) -> Result<Rc<[DefId]>> {
             let unfolded = g.def(other);
             pending.extend(unfolded.transparent.iter().copied());
             if let Some(group) = &unfolded.group {
-                pending.extend(group.iter().copied().filter(|m| g.def(*m).opaque));
+                // A theorem group-mate stays sealed: only a call of it can
+                // appear in the unfolded bodies, never its proof.
+                pending.extend(
+                    group
+                        .iter()
+                        .copied()
+                        .filter(|m| g.def(*m).opaque && !g.def(*m).theorem),
+                );
             }
         }
     }

@@ -355,7 +355,7 @@ impl Elaborator {
         };
         let ids: Vec<DefId> = crate::opaque::declined_in(g, [&statement])
             .into_iter()
-            .filter(|id| !g.def(def).unfolding().contains(id))
+            .filter(|id| !g.def(def).unfolding().contains(id) && !g.def(*id).theorem())
             .collect();
         if ids.is_empty() {
             return note;
