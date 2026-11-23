@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-REFL] Error: `byComputing` can't prove this
+    ╭─[ reject/opaque-note-local-definition.sw:12:43 ]
+    │
+ 12 │ theorem addTwoOne: addTwo.helper 1 = 3 := byComputing
+    │                                           ─────┬─────  
+    │                                                ╰─────── `addTwo.helper 1` and `3` aren't equal
+    │ 
+    │ Note 1: `byComputing` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 2: `addTwo.helper` is opaque, so its body isn't used here
+    │ 
+    │ Note 3: add `unfolding addTwo` after this declaration's signature
+────╯
