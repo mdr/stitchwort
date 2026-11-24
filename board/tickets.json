@@ -34166,7 +34166,7 @@
     {
       "id": 4729,
       "title": "[Sonnet] Parallel stage 2 step 0: measure the proofs' share of a cache entry (debug count in the encoder) and run docs/proposals/parallel-checking/measure_load.sh for the orchestrator; decides whether stage 2 step 2 is worth building (SW-4727 plan)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34174,7 +34174,11 @@
       "body": "",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "c5d67f043ae3bd57a64cca16b1aeba19019a95f6",
+        "e5f6c7b0d771cf051a1ba8ee0d384245cd617d2d",
+        "ea364ca5c6f5835199049d3c00bcb2977a57ba0c"
+      ]
     },
     {
       "id": 4730,
