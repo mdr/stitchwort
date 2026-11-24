@@ -389,6 +389,8 @@ impl Elaborator {
             });
         let label = if hit {
             format!("{label} (cached)")
+        } else if namespace.is_some_and(|ns| self.interface_pass_of(ns)) {
+            format!("{label} (interface)")
         } else {
             label
         };

@@ -56,6 +56,16 @@ impl Elaborator {
     }
 }
 
+/// Whether `signature`, a top-level declaration of a project namespace, is
+/// a theorem whose proof an interface pass may leave out, by rule 2 of
+/// [`Elaborator::defers_proofs`] (rule 3, its component, needs the
+/// elaborator). For `check --jobs`, deciding from the parse whether a
+/// namespace's interface pass would leave anything out: if none of its
+/// declarations may be deferred, the pass would be its whole check.
+pub fn may_defer(signature: &Decl) -> bool {
+    plain_theorem(signature)
+}
+
 /// Rule 2 of [`Elaborator::defers_proofs`].
 fn plain_theorem(signature: &Decl) -> bool {
     let Decl::Signature {

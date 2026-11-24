@@ -191,6 +191,20 @@ of either. A session keeps what it loads, as now.
    before that namespace, which is stage 1's rewind, and checks it. Going top-down, what a
    rewind drops is mostly what is already done.
 
+**As built (SW-4767, step 3).** In `crates/driver/src/parallel.rs`. A namespace gets `I(N)`
+only if something in the fill uses it and one of its declarations may be deferred by rule 2
+(`cache::may_defer`, from the parse); otherwise what uses it waits for `P(N)`'s whole entry,
+as in stage 1. Rule 1 as above. Rule 2 has one refinement: a proof job whose namespace has
+no interface entry (so its dependants wait for it) comes first, by stage 1's rule (longest
+chain, most held, canonical order), and only then the lowest unheld one in canonical order;
+with `STITCHWORT_STATEMENTS_FIRST=0` every job is of the first kind, so the fill is exactly
+stage 1's. Rule 3 as above, through a mark the worker keeps before each namespace it holds
+(only with interface jobs on). `P(N)` and `I(N)` may run at once on two workers; if `P(N)`
+ends first, `I(N)` is dropped. A proof job's own namespace is never served from its interface
+entry (the worker's store stops serving interface entries while it checks it). An interface
+pass with an error or a goal leaves `N` and what is above it; one that made no entry without
+an error (it couldn't be encoded) only makes what uses `N` wait for `P(N)`.
+
 Rule 3's rewinds and the loads after them are the main unknown cost. `Fill` gets counters
 for them, and `--timings` shows loading per worker already. A whole `tools/fmt` load
 without proofs is 2.1 s and 0.94 GB **[measured, `stage2-step2.txt`]**; that is the most

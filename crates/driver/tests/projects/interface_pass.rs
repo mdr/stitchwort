@@ -17,7 +17,7 @@ use crate::check_cache::STACK;
 
 /// `Par.Facts` has one of each kind the deferral rule decides on; `Par.Uses`
 /// and `Par.Top` use its theorems, in statements and in proofs.
-fn project() -> MemoryFiles {
+pub(crate) fn project() -> MemoryFiles {
     let file = |ns: &str, body: &str| (format!("src/Par/{ns}.sw"), body.to_string());
     let files = [
         (
@@ -305,5 +305,41 @@ fn an_admitted_interface_entry_keeps_the_mark_and_has_no_full_hash() {
             "another panic: {message}"
         );
         std::mem::forget(loaded);
+    });
+}
+
+/// A session that reports and holds a theorem whose proof hasn't been
+/// checked stops with the internal error, whatever it loaded: here a check
+/// whose first namespace was made an interface pass, as only `check
+/// --jobs`'s workers do (`project::assert_holds_no_unproved_theorem`, in
+/// `check_prepared`).
+#[test]
+fn a_session_that_reports_never_holds_an_unproved_theorem() {
+    with_stack(STACK, || {
+        let files = project();
+        let mut session = Session::for_stack(STACK);
+        session
+            .elab
+            .set_check_cache(Rc::new(MemoryStore::default()));
+        session.elab.set_load_without_proofs(true);
+        session.elab.set_interface_pass(Some("Par.Facts"));
+        let reported = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _ = session.load_project_for(
+                &files,
+                "par",
+                &Target::Everything,
+                stitchwort_driver::project::Load::Diagnostics,
+            );
+        }));
+        let message = reported.expect_err("a reporting session held an unproved theorem");
+        let message = (message.downcast_ref::<String>().cloned())
+            .or_else(|| message.downcast_ref::<&str>().map(|s| s.to_string()))
+            .unwrap_or_default();
+        assert!(
+            message
+                .contains("a session that reports holds a theorem whose proof hasn't been checked"),
+            "another panic: {message}"
+        );
+        std::mem::forget(session);
     });
 }

@@ -74,12 +74,35 @@ fn check_target(
     load: Load,
     target: &Target,
 ) -> Checked {
-    check_as("par", files, kept, jobs, seed, load, target, false)
+    check_as("par", files, kept, jobs, seed, load, target, false, false)
+}
+
+/// [`check`], with interface jobs (stage 3) when `statements_first`.
+fn check_with(
+    files: &(dyn Files + Sync),
+    kept: &Kept,
+    jobs: usize,
+    seed: Option<u64>,
+    load: Load,
+    statements_first: bool,
+) -> Checked {
+    let target = Target::Everything;
+    check_as(
+        "par",
+        files,
+        kept,
+        jobs,
+        seed,
+        load,
+        &target,
+        false,
+        statements_first,
+    )
 }
 
 /// [`check_target`], with the sessions recording what code navigation needs
 /// when `navigable`, and the index of what was loaded in the result, as
-/// `check --index` writes it.
+/// `check --index` writes it; with interface jobs when `statements_first`.
 #[allow(clippy::too_many_arguments)]
 fn check_as(
     project: &str,
@@ -90,6 +113,7 @@ fn check_as(
     load: Load,
     target: &Target,
     navigable: bool,
+    statements_first: bool,
 ) -> Checked {
     let make: &(dyn Fn(usize) -> Session + Sync) = if navigable {
         &Session::navigable_for_stack
@@ -110,6 +134,7 @@ fn check_as(
                 make_session: make,
                 make_store: &make_store,
                 seed,
+                statements_first,
             },
         );
         // As `check` does: everything loaded if the fill left a namespace.
@@ -329,6 +354,23 @@ fn four_jobs_report_and_write_what_one_job_does() {
         );
         assert_same(&sequential, &in_memory, &format!("{what}, in memory"));
         assert_eq!(memory.len(), entries(&one).len(), "{what}: in memory");
+        // With interface jobs (stage 3), the same bytes.
+        let first = salted_like(&one, "four-statements-first");
+        let stage3 = check_with(
+            &**files,
+            &Kept::Dir(first.clone()),
+            4,
+            None,
+            Load::Everything,
+            true,
+        );
+        assert_same(&sequential, &stage3, &format!("{what}, statements first"));
+        assert_eq!(stage3.fill.mismatches, 0, "{what}: {:?}", stage3.fill);
+        assert!(
+            entries(&one) == entries(&first),
+            "{what}: the entries differ with interface jobs"
+        );
+        let _ = std::fs::remove_dir_all(&first);
         // A plain check over the cache the fill made reports the same.
         let plain = check(
             &**files,
@@ -460,6 +502,7 @@ fn a_warm_cache_or_only_runs_no_fill() {
                 make_session: &Session::for_stack,
                 make_store: &make_store,
                 seed: None,
+                statements_first: true,
             },
         )
     });
@@ -920,6 +963,7 @@ fn random_schedules_over_instances_theorems_and_library_files_match_one_job() {
         Load::Everything,
         &Target::Everything,
         true,
+        false,
     );
     assert!(
         sequential.report.starts_with("accepted true"),
@@ -939,6 +983,7 @@ fn random_schedules_over_instances_theorems_and_library_files_match_one_job() {
             Load::Diagnostics,
             &base,
             true,
+            false,
         );
         let parallel = check_as(
             "rich",
@@ -949,6 +994,7 @@ fn random_schedules_over_instances_theorems_and_library_files_match_one_job() {
             Load::Everything,
             &Target::Everything,
             true,
+            false,
         );
         assert_same(&sequential, &parallel, &format!("seed {seed}"));
         assert!(
@@ -974,23 +1020,36 @@ fn random_schedules_over_instances_theorems_and_library_files_match_one_job() {
 /// so that case tries seeds until it fires.
 #[test]
 fn a_worker_that_panics_stops_the_fill_and_the_check_still_matches_one_job() {
-    use stitchwort_driver::parallel::panic_hook;
-    // A project name no other test uses, which the hook is keyed on.
-    const NAME: &str = "panicking";
     let files = rich_project();
-    let run = |dir: &Path, jobs: usize, seed: Option<u64>| {
-        let target = Target::Everything;
-        check_as(
-            NAME,
-            &files,
-            &Kept::Dir(dir.to_path_buf()),
-            jobs,
-            seed,
-            Load::Diagnostics,
-            &target,
-            false,
-        )
-    };
+    for statements_first in [false, true] {
+        let run = |dir: &Path, jobs: usize, seed: Option<u64>| {
+            let target = Target::Everything;
+            check_as(
+                PANICKING,
+                &files,
+                &Kept::Dir(dir.to_path_buf()),
+                jobs,
+                seed,
+                Load::Diagnostics,
+                &target,
+                false,
+                statements_first,
+            )
+        };
+        a_panic_matches_one_job(&run, statements_first);
+    }
+}
+
+/// A project name no other test uses, which the panic hook is keyed on.
+const PANICKING: &str = "panicking";
+
+/// The panic test's body, for one setting of interface jobs.
+fn a_panic_matches_one_job(
+    run: &dyn Fn(&Path, usize, Option<u64>) -> Checked,
+    statements_first: bool,
+) {
+    use stitchwort_driver::parallel::panic_hook;
+    const NAME: &str = PANICKING;
     let one = temp_dir("panic-one");
     let sequential = run(&one, 1, None);
     let expected = entries(&one);
@@ -1016,7 +1075,10 @@ fn a_worker_that_panics_stops_the_fill_and_the_check_still_matches_one_job() {
         panic_hook::arm(NAME, 1);
         let parallel = run(&dir, 3, Some(seed));
         let fired = panic_hook::take_fired();
-        assert_eq!(sequential.report, parallel.report, "seed {seed}");
+        assert_eq!(
+            sequential.report, parallel.report,
+            "seed {seed}, statements first {statements_first}"
+        );
         let found = entries(&dir);
         assert!(
             found == expected,
@@ -1029,6 +1091,193 @@ fn a_worker_that_panics_stops_the_fill_and_the_check_still_matches_one_job() {
             break;
         }
     }
-    assert!(worker_one_panicked, "worker 1 never took a job in 40 runs");
+    assert!(
+        worker_one_panicked,
+        "worker 1 never took a job in 40 runs (statements first {statements_first})"
+    );
     let _ = std::fs::remove_dir_all(&one);
+}
+
+/// Stage 3 (docs/proposals/parallel-checking-stage-3.md): `Par.Facts`, with
+/// recursive, mutual, `decreasing` and lone theorems and one whose proof
+/// defines helpers, under `Par.Uses`, both under `Par.Top`
+/// (`interface_pass::project`), with `extra` added to `Par.Facts`.
+fn stage3_project(extra: &str, config: &str) -> MemoryFiles {
+    let mut files = crate::interface_pass::project();
+    files
+        .files
+        .insert("stitchwort.yaml".to_string(), config.to_string());
+    files
+        .files
+        .get_mut("src/Par/Facts.sw")
+        .expect("Par.Facts")
+        .push_str(extra);
+    files
+}
+
+/// Whether every entry `one` holds is in `found`, the same bytes. Entries
+/// a worker wrote above a namespace whose proofs failed, keyed by the
+/// interface it was checked against, may be there besides (W′).
+fn includes(found: &[(String, Vec<u8>)], one: &[(String, Vec<u8>)]) -> bool {
+    one.iter().all(|entry| found.contains(entry))
+}
+
+/// With interface jobs, under 20 random schedules and the default one:
+/// the report, the session and every entry (on disk, compared byte for
+/// byte in a directory given the one-job cache's salt) are what one job
+/// gives; no digest mismatch; namespaces are checked against interfaces
+/// whose proofs are still to be checked; and the check after the fill
+/// holds no unproved theorem and loads no interface entry.
+#[test]
+fn statements_first_random_schedules_write_what_one_job_does() {
+    let files = stage3_project("", CONFIG);
+    let one = temp_dir("stage3-one");
+    let sequential = check(&files, &Kept::Dir(one.clone()), 1, None, Load::Everything);
+    assert!(
+        sequential.report.starts_with("accepted true"),
+        "{}",
+        sequential.report
+    );
+    let expected = entries(&one);
+    let (mut made, mut early) = (0, 0);
+    for seed in std::iter::once(None).chain((0..20).map(Some)) {
+        let dir = salted_like(&one, "stage3-seed");
+        let parallel = check_with(
+            &files,
+            &Kept::Dir(dir.clone()),
+            3,
+            seed,
+            Load::Everything,
+            true,
+        );
+        let what = format!("seed {seed:?}");
+        assert_same(&sequential, &parallel, &what);
+        let fill = &parallel.fill;
+        assert_eq!(fill.mismatches, 0, "{what}: {fill:?}");
+        assert_eq!(fill.left, 0, "{what}: {fill:?}");
+        assert_eq!(
+            (parallel.stats.interface_hits, parallel.stats.unproved),
+            (0, 0),
+            "{what}: the check after the fill"
+        );
+        let found = entries(&dir);
+        assert!(
+            found == expected,
+            "{what}: the entries differ:{}",
+            entry_diff(&expected, &found)
+        );
+        made += fill.stats.interface_made;
+        early += fill.against_promises;
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+    assert!(made > 0, "no interface entry was made");
+    assert!(early > 0, "no proof job ran against an unproved theorem");
+    let _ = std::fs::remove_dir_all(&one);
+}
+
+/// A failure low in the graph with interface jobs: a proof with an error,
+/// an open goal (both deferred, so `Par.Facts`'s interface pass passes and
+/// the namespaces above are checked against it), and an error in a
+/// statement (the interface pass fails). Reported as with one job; no
+/// entry for `Par.Facts`; the check after the fill checks what is above it
+/// itself (no namespace replayed), writing what one job writes.
+#[test]
+fn statements_first_a_failure_low_down_is_reported_as_with_one_job() {
+    let cases = [
+        (
+            "a proof with an error",
+            "\ntheorem broken: bump 2 = 3 := byComputing\n",
+            CONFIG,
+        ),
+        (
+            "an open goal",
+            "\ntheorem unfinished: bump 2 = 2 := ?\n",
+            "sources: [src]\ncheck:\n  open-goals: warn\n",
+        ),
+        (
+            "an error in a statement",
+            "\ntheorem misstated ∀ (n: Nat): n = true := byComputing\n",
+            CONFIG,
+        ),
+    ];
+    for (what, extra, config) in cases {
+        let files = stage3_project(extra, config);
+        let one = temp_dir("stage3-fail-one");
+        let sequential = check(&files, &Kept::Dir(one.clone()), 1, None, Load::Diagnostics);
+        assert!(
+            sequential.report.contains("Par/Facts.sw"),
+            "{what}: the fixture didn't fail in Par.Facts: {}",
+            sequential.report
+        );
+        for seed in [None, Some(1), Some(2), Some(3)] {
+            let four = salted_like(&one, "stage3-fail-four");
+            let parallel = check_with(
+                &files,
+                &Kept::Dir(four.clone()),
+                4,
+                seed,
+                Load::Diagnostics,
+                true,
+            );
+            let what = format!("{what}, seed {seed:?}");
+            assert_eq!(sequential.report, parallel.report, "{what}");
+            let fill = &parallel.fill;
+            assert!(fill.ran && fill.left == 3, "{what}: {fill:?}");
+            assert_eq!(fill.mismatches, 0, "{what}: {fill:?}");
+            assert!(
+                !has_entry(&four, "Par.Facts"),
+                "{what}: an entry for Par.Facts"
+            );
+            assert_eq!(
+                parallel.stats.namespace_hits, 0,
+                "{what}: the check after the fill replayed a namespace above Par.Facts"
+            );
+            assert!(
+                includes(&entries(&four), &entries(&one)),
+                "{what}: the check after the fill wrote something else"
+            );
+            let _ = std::fs::remove_dir_all(&four);
+        }
+        let _ = std::fs::remove_dir_all(&one);
+    }
+}
+
+/// A digest mismatch (forced: `parallel::mismatch_hook`) is counted, and
+/// what is above the namespace is left to the check after the fill, which
+/// reports and writes what one job does: it costs a check, not a result.
+#[test]
+fn statements_first_a_digest_mismatch_costs_a_recheck_and_is_counted() {
+    use stitchwort_driver::parallel::mismatch_hook;
+    // A project name no other test uses, which the hook is keyed on.
+    const NAME: &str = "mismatching";
+    let files = stage3_project("", CONFIG);
+    let run = |dir: &Path, jobs: usize| {
+        let target = Target::Everything;
+        let kept = Kept::Dir(dir.to_path_buf());
+        check_as(
+            NAME,
+            &files,
+            &kept,
+            jobs,
+            None,
+            Load::Diagnostics,
+            &target,
+            false,
+            true,
+        )
+    };
+    let one = temp_dir("mismatch-one");
+    let sequential = run(&one, 1);
+    let dir = salted_like(&one, "mismatch-three");
+    mismatch_hook::arm(NAME, "Par.Facts");
+    let parallel = run(&dir, 3);
+    mismatch_hook::disarm();
+    assert_eq!(sequential.report, parallel.report);
+    let fill = &parallel.fill;
+    assert_eq!(fill.mismatches, 1, "{fill:?}");
+    assert_eq!(fill.left, 2, "Par.Uses and Par.Top: {fill:?}");
+    assert_eq!(fill.load_after(Load::Diagnostics), Load::Everything);
+    assert!(entries(&one) == entries(&dir), "the entries differ");
+    let _ = std::fs::remove_dir_all(&one);
+    let _ = std::fs::remove_dir_all(&dir);
 }

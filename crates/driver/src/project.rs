@@ -348,6 +348,9 @@ impl Session {
         if load == Load::Everything {
             assert_holds_no_stated_theorem(self);
         }
+        // Whatever it loaded: what it found is reported, and a summary
+        // printed from it.
+        assert_holds_no_unproved_theorem(self);
         if diagnostics.iter().any(|d| d.severity == Severity::Error) {
             return Err(diagnostics);
         }
@@ -638,6 +641,7 @@ impl Session {
         let mark = self.mark();
         let namespace = analysis.namespace(ns).expect("a namespace");
         let (diagnostics, _) = self.check_project_namespace(analysis, namespace);
+        assert_holds_no_unproved_theorem(self);
         Ok(GoalLoad {
             diagnostics,
             before,
@@ -704,6 +708,7 @@ impl Session {
             ];
         }
         let (diagnostics, _) = self.check_project_namespace(analysis, namespace);
+        assert_holds_no_unproved_theorem(self);
         diagnostics
     }
 
@@ -1213,6 +1218,22 @@ pub fn assert_holds_no_stated_theorem(session: &Session) {
     assert!(
         !session.elab.holds_stated_theorems(),
         "internal error: a session loaded to use everything holds a theorem without its proof"
+    );
+}
+
+/// Stops with an internal error if `session` holds a theorem whose proof
+/// hasn't been checked (`Elaborator::holds_unproved_theorems`): one left
+/// stated by an interface pass, or loaded from an interface entry. Only
+/// `check --jobs`'s workers may (docs/proposals/parallel-checking-stage-3.md
+/// §5, D3735), and they report nothing; every session whose diagnostics are
+/// reported, or that prints a verdict, a summary, test results or axioms,
+/// or keeps anything but an entry (the test results' cache, the language
+/// server's namespaces), asserts it holds none, whatever it loaded. A panic
+/// rather than a diagnostic, as [`assert_holds_no_stated_theorem`].
+pub fn assert_holds_no_unproved_theorem(session: &Session) {
+    assert!(
+        !session.elab.holds_unproved_theorems(),
+        "internal error: a session that reports holds a theorem whose proof hasn't been checked"
     );
 }
 
