@@ -393,7 +393,7 @@ editor's start-up fill and `test` remain follow-ups.
 
 The orchestrator numbers these.
 
-**A. Using a theorem before its own proof has been checked, within one run.**
+**A. Using a theorem before its own proof has been checked, within one run.** **Decided: D3735 yes (Matt, 24 Nov 2026: "Yes, that sounds perfectly reasonable.")**
 *The problem:* to check every file's proofs side by side, a file has to be checked against
 theorems from the files below while their proofs are still running. Until now, a theorem
 without its proof in memory was always one whose proof had already been checked and saved

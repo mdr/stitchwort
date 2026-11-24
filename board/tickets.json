@@ -1,5 +1,5 @@
 {
-  "next": 4760,
+  "next": 4761,
   "tickets": [
     {
       "id": 47,
@@ -34575,7 +34575,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nD3735 (Matt, 24 Nov 2026): yes, a --jobs worker may use a theorem whose proof is still being checked in the same run; messages and \"checked\" only from the last pass after every proof passed. \"Yes, that sounds perfectly reasonable.\"\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
       "commits": [
@@ -34664,6 +34664,19 @@
         "c64fcddea952c8f9a290a2faa69d7045be254ef4",
         "b10cf0ec021d3f485b8c7c108aac3d9f553ad499"
       ]
+    },
+    {
+      "id": 4760,
+      "title": "[Opus] Editor: fill a cold cache with --jobs workers at language-server start-up (parallel-checking.md 9.2 follow-up; gets stage 3 for free), with the server's cancel flag given to the workers; measure time to first diagnostics on tools/fmt",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
     }
   ]
 }
