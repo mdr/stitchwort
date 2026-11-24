@@ -2096,3 +2096,114 @@ checked yet) comes back to you then.
 - That a library file's entry splits as a namespace's does (same encoder; not read for
   differences).
 - `measure_load.sh` beyond `bash -n`.
+
+## 11. Stage 3 pilot (SW-4730, 24 Nov 2026)
+
+Opus lane. The pilot 10.5 asks for: an interface pass by hand, and how many namespaces
+give the same interface digest without their proofs as with them.
+
+### 11.1 Method
+
+`STITCHWORT_INTERFACE_PILOT=1` on `check` (or a comma-separated list of namespaces) runs,
+for each project namespace it selects, two passes from the same point
+(`crates/elab/src/cache/pilot.rs`, the hook in `Session::check_project_namespace`):
+
+- an **interface pass**: the namespace is elaborated as usual except that each lone
+  theorem (a component of one, not recursive, not `decreasing`) has its statement
+  elaborated and declared, and its proof not elaborated: the theorem is admitted with a
+  stand-in body (`Prop`) through `admit_trusted_group`. Its digest is computed as the
+  cache computes it (`digest_stream`, the stream `interface_digest` hashes); then the
+  session is rewound to before the namespace (and the failed-declarations log, which a
+  rewind doesn't cover, is trimmed);
+- the **full check**: the ordinary check, elaborated rather than replayed (so it has a
+  stream to describe), which writes its entry as usual.
+
+It prints one line per namespace, `interface-pilot: NS: match (…)` or `… differs
+[causes: …]` with a line for each difference: own declarations by path with their
+interface hash, names, data types, each elaborator table's rows added (by the
+declaration they belong to), and the interface pass's errors. Off, it changes nothing
+but one `Option` test per group; on, the reported diagnostics are the full check's (a
+CLI test, `interface_pilot_says_what_a_proof_leaves_in_the_interface`, compares the
+summary with a run without it).
+
+**Why not the stated theorem or `--only`.** `check --only` (`skip_theorems`) leaves a
+theorem out altogether, statement too, so the interface differs by construction.
+`admit_trusted_stated` (SW-4734) is the form stage 3 will use (`leave_stated`, 10.5),
+but it pushes a new definition rather than settling the one `signature` declared, and
+the encoder refuses a definition with no body or group, so the digest couldn't be
+computed without changing the encoder. The stand-in gives the same digest a stated
+theorem would: for a sealed theorem the digest writes its name, path, flags, `unfolding`
+references, type and the `sealed` mark, and references to it hash its statement
+(`has_interface` holds for both). Nothing reads the stand-in: the digest skips sealed
+bodies, other declarations see theorems through `computing_body`, and the pass is
+rewound. It is still `admit_trusted_group` outside the cache's trust boundary, under a
+debug switch: fine for measurement, not for stage 3.
+
+`docs/proposals/parallel-checking/measure_interface_pilot.sh BINARY PROJECT OUT` runs it
+over a whole project with a fresh cache and prints matches out of total, the differing
+namespaces grouped by their set of causes, how many namespaces each cause touches, and
+how many proofs were left out and how many elaborated anyway. About twice a cold check.
+
+### 11.2 Results
+
+**[measured]** A lane may not check a whole project, so `tools/fmt` was run on single
+targets, each with its whole closure piloted: `Fmt.Kinds` (4 namespaces), `Fmt.SpellProofs`
+(6), `Fmt.SpacingProofs` (27) and `Fmt.ElementsProofs` (102, which contains the others).
+That is 102 of `tools/fmt`'s 150 namespaces, `Syntax` and `Fmt` included:
+
+| | namespaces |
+|---|---|
+| match | 100 |
+| differ: an `equation_skips` row (`t induct`) only the full check makes | 2 (`Syntax.ParseWalk`, `Syntax.FollowsBase`) |
+
+Over those 102, the interface pass left out 3,301 proofs and elaborated 908 written
+theorems' proofs anyway (recursive, mutual or `decreasing`): 22% of the written
+theorems. The `Fmt.ElementsProofs` run took 77 s with both passes. The whole of
+`tools/fmt` and `aoc` are the orchestrator's (the script).
+
+A test project (the CLI test's, and a few more by hand) shows each cause that could be
+written:
+
+| Case | Result |
+|---|---|
+| a theorem proved by `byComputing`; one that uses another namespace's theorem | match |
+| a `match` in a proof (the helper is proof-private since stage C) | match |
+| a proof that names a library equation (`List.filter.eq2`) | match: the equations were already made when the library file loaded |
+| a local `def` or `theorem` in a proof (`t.go`), not used elsewhere | differs: `proof-local-def` and `names` |
+| the same, named from another declaration (`holder.go 1 = 2`, an `opaque def` using it) | differs: the interface pass fails on those declarations (`E-UNKNOWN-FIELD`) and has no digest |
+
+### 11.3 The causes, and what they mean for the design
+
+1. **A rows-only by-product: `equation_skips` for a theorem whose proof turns out
+   recursive.** `givesCommaListFrom` and `followsCommaListFrom` are proved by
+   `byWalking`, whose elaborated proof calls the theorem itself. The source shows no
+   recursion, so the theorem is checked alone, and `induct::no_equations` then records
+   "no `t.induct`" because the body calls itself. The row is in the digest, keyed by
+   the theorem. *Proof-private, and better removed:* a theorem never has equations or an
+   `induct` (`generate_equations` says "a theorem's arms have no equations"), so the
+   row only shapes the note on a `t.induct` someone writes. Don't record it for a
+   theorem, or record it from the statement alone. A small fix (Sonnet); with it, the
+   102 measured here would all match **[estimated: it is the only difference found]**.
+2. **A local `def` or `theorem` in a proof.** It is a declaration of the namespace,
+   with a name in scope (`t.go`), so it is in the interface, and the interface pass
+   can't know it without elaborating the proof. Not seen in the 102 `tools/fmt`
+   namespaces. Two ways out: (a) a **syntactic rule**: a theorem whose proof block
+   contains a local `def` or `theorem` is not deferred (its proof is elaborated in the
+   interface pass), which costs only those proofs and is decidable from the parse; or
+   (b) make such declarations unnameable outside the proof, which would let them be
+   proof-private like `%match` helpers, but changes what users can write (Matt's call,
+   and it would break the "name it, refer to it as `owner.name`" advice, which is for
+   definitions' local `def`s, not theorems'). Recommend (a).
+3. **Equations made on demand, `unfolding` naming a helper, other tables.** Not seen.
+   Equations made on demand would show as a full check with no digest (`namespace_parts`
+   refuses a nested unit), which the cache already can't hold; an `unfolding` list can
+   only name a proof's by-product through case 2. Every other table only one pass
+   filled would be listed by the pilot: none was, in these runs.
+4. **Theorems the interface pass elaborates anyway** (22% here). Recursion is known from
+   the source graph, and a recursive theorem's statement doesn't depend on its proof
+   either, so stage 3 could defer those too, leaving termination to the full check. The
+   pilot didn't try it (the group path is separate); worth a second run before stage 3's
+   gain is estimated, since those proofs otherwise stay on the interface chain.
+
+So for stage 3 the interface can be made from statements alone with one small fix (1)
+and one syntactic rule (2a), on what was measured. The whole-project runs may find more.

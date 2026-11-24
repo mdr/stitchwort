@@ -34206,12 +34206,12 @@
     {
       "id": 4730,
       "title": "[Sonnet] Stage 3 pilot: on tools/fmt, count namespaces whose interface digest matches when proofs are left out by hand (SW-4727 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nWhole-project run (orchestrator, 24 Nov, lane binary): tools/fmt 148 of 150 namespaces match (both differences equation_skips, SW-4751), 4527 proofs left out, 1051 elaborated anyway; aoc 291 of 291 match, 2364 left out, 505 elaborated anyway. Pilot code stays on lane/SW-4730 (orchestrator's call: a trusted admission under a debug switch, outside the cache's trust boundary; findings doc merged).\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
       "commits": []
