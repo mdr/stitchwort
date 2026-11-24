@@ -1,5 +1,5 @@
 {
-  "next": 4716,
+  "next": 4717,
   "tickets": [
     {
       "id": 47,
@@ -33906,7 +33906,7 @@
     {
       "id": 4713,
       "title": "[Fable, paper] Design: interface-digest cache stage C (proof-private helpers; docs/proposals/interface-digest-cache.md 1.6), with SW-4710 (own declarations by path) folded in: exact definition, trust argument, tests, build plan for Opus (D3729)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33914,17 +33914,20 @@
       "body": "",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "5276610c397a20615dde13b5cdbacee39805a33f",
+        "4ce482c736f7ccbe0090697ed33c8a7374acb51f"
+      ]
     },
     {
       "id": 4714,
       "title": "[Opus] Build: interface-digest cache stage C per the design (SW-4713); Fable review after (D3729)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nOrchestrator's call (24 Nov 2026): the design's order question takes option (a): plain theorems by path, everything else in checking order; (b) all by path only if debug counts show the extra case is common (needs the reading.rs order fix first). Sound either way per the design; (a) is the smaller exposure. Started 08:58 on Opus; expected 45 min.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
       "commits": []
@@ -33944,6 +33947,19 @@
         "590e1ba6ff9feecbd49da14b807b633bffac3886",
         "ee95e76b14899c677a95ba5b08120f79205fa74f"
       ]
+    },
+    {
+      "id": 4716,
+      "title": "[Sonnet] reading.rs:1882 and :1919 emit a dependant's warnings in id order of instances/readings below: sort by path as auto.rs does (SW-4713 finding; prerequisite for digest option b)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
     }
   ]
 }
