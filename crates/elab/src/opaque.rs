@@ -617,25 +617,15 @@ pub(crate) fn opaque_notes(e: &Elaborator, ids: &[DefId]) -> Vec<String> {
     };
     notes.push(first);
     // A local definition (`f.go`) can't be named in a clause; unfolding its
-    // owner unfolds it, unless the owner is a theorem, whose proof is
-    // sealed.
+    // owner unfolds it. A theorem's local definitions never get here: their
+    // names are private to its proof (`E-PROOF-PRIVATE`), and inside it the
+    // proof has them in its transparency set.
     let mut unfolded: Vec<DefId> = Vec::new();
-    let mut sealed = Vec::new();
     for &id in &ids {
         let shown = match local_owner(g, &e.tables, id) {
             None => id,
             // Its owner's clause didn't take it in: the owner failed.
             Some(None) => continue,
-            Some(Some(owner)) if g.def(owner).theorem() => {
-                let owner = g.def(owner).name();
-                sealed.push(format!(
-                    "`{}` is a local definition of the theorem `{owner}`, so only `{owner}`'s \
-                     proof unfolds it; to use its body elsewhere, make it a top-level \
-                     definition",
-                    g.def(id).name(),
-                ));
-                continue;
-            }
             Some(Some(owner)) => owner,
         };
         if !unfolded.contains(&shown) {
@@ -673,7 +663,6 @@ pub(crate) fn opaque_notes(e: &Elaborator, ids: &[DefId]) -> Vec<String> {
             format!("{add}, or rewrite with {}", join_and(&equations, "or"))
         });
     }
-    notes.extend(sealed);
     notes
 }
 

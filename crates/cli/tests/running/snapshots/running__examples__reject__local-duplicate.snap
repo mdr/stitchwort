@@ -13,5 +13,5 @@ expression: output
    │       ─┬  
    │        ╰── defined again here
    │ 
-   │ Note: local definitions are named `dup.go` from outside, so their names must be different within the whole definition
+   │ Note: a `def`'s local definitions are named `dup.go` from outside, and a theorem's are private to its proof; either way, their names must be different within the whole definition
 ───╯

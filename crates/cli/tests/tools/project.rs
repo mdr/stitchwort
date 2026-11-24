@@ -648,6 +648,42 @@ fn check_only_named_theorems() {
     }
 }
 
+/// A local definition of a theorem's proof is private to it (D3736), so
+/// `check --only` on one is `E-PROOF-PRIVATE`, as naming it anywhere else
+/// is, not "there's no theorem".
+#[test]
+fn check_only_a_proofs_local_definition_is_proof_private() {
+    let dir = project(
+        "check_only_proof_private",
+        &[
+            ("stitchwort.yaml", ""),
+            (
+                "src/t.sw",
+                "namespace P\n\n\
+                 theorem t ∀ (n: Nat): n = n :=\n  \
+                 def go (m: Nat): Nat := m\n  \
+                 let same: go n = n := byComputing\n  \
+                 same\n",
+            ),
+        ],
+    );
+    let output = stitchwort(&dir, &["check", "--only", "P.t.go"]);
+    assert_eq!(output.status.code(), Some(1), "{}", err(&output));
+    assert!(
+        err(&output).contains(
+            "[E-PROOF-PRIVATE] Error: `P.t.go` is defined inside the proof of `P.t` and \
+             can be used only there"
+        ),
+        "{}",
+        err(&output)
+    );
+    assert!(
+        !err(&output).contains("E-UNKNOWN-THEOREM"),
+        "{}",
+        err(&output)
+    );
+}
+
 /// Passing a namespace to `--only` is an error that says where the namespace
 /// goes: it is a target, and `--only` takes theorem names.
 #[test]

@@ -126,8 +126,9 @@ fn define(cx: &mut Ctx, defs: &[LocalDef]) -> Result<()> {
             .with_label(name.span, "defined again here")
             .with_label(*first, "first defined here")
             .with_note(format!(
-                "local definitions are named `{}` from outside, so their names must be \
-                 different within the whole definition",
+                "a `def`'s local definitions are named `{}` from outside, and a theorem's are \
+                 private to its proof; either way, their names must be different within the \
+                 whole definition",
                 crate::scope::display(&key)
             )));
         }

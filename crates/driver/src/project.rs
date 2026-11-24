@@ -263,12 +263,12 @@ impl Session {
                     }
                 })
                 .collect();
-            let plan = plan_theorems(&syntax, only).map_err(|message| {
-                let mut diagnostic = Diagnostic::error("E-UNKNOWN-THEOREM", message.clone());
-                if let Some(full) = only
-                    .iter()
-                    .find(|full| message.starts_with(&format!("there's no theorem `{full}`")))
-                    && let Some(hint) = only_takes_theorems_hint(full, analysis)
+            let plan = plan_theorems(&syntax, only).map_err(|mut diagnostic| {
+                if let Some(full) = only.iter().find(|full| {
+                    diagnostic
+                        .message
+                        .starts_with(&format!("there's no theorem `{full}`"))
+                }) && let Some(hint) = only_takes_theorems_hint(full, analysis)
                 {
                     diagnostic = diagnostic.with_note(hint);
                 }

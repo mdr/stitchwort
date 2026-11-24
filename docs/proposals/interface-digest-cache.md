@@ -182,7 +182,7 @@ stage A's header already has the digest field for both kinds of unit.
 
 A `match` or local definition inside a proof is lifted to its own declaration
 (docs/core.md, opaque definitions, rule 6: "a `match` or local definition lifted from a
-body ... for a theorem's, only the theorem's proof unfolds it"). Under rule 1 those are in the
+body ... and the body unfolds them all"). Under rule 1 those are in the
 digest, so an edit that adds, removes or changes a `match` inside a proof changes the digest
 and nothing is cut off. Safe, but it is a common kind of edit. How common in `tools/fmt` is
 **[not verified]**: SW-4707 counts lifted helpers owned by theorems.
