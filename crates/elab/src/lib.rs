@@ -3615,16 +3615,23 @@ impl Elaborator {
         if !refused.is_empty() {
             return refused;
         }
+        // In an interface pass, theorems whose proofs are left to the proof
+        // job, decided from the source before anything is elaborated
+        // (`cache/deferral.rs`). A `decreasing` theorem is then declared as
+        // any other: its measure is part of its proof.
+        let deferred = self.defers_proofs(members);
         // Recursion on a measure (`decreasing.rs`).
-        if members.iter().any(|(_, s, _)| {
-            matches!(
-                s,
-                Decl::Signature {
-                    decreasing: Some(_),
-                    ..
-                }
-            )
-        }) {
+        if !deferred
+            && members.iter().any(|(_, s, _)| {
+                matches!(
+                    s,
+                    Decl::Signature {
+                        decreasing: Some(_),
+                        ..
+                    }
+                )
+            })
+        {
             return self.decreasing_group(members);
         }
         let mut out = Vec::new();
@@ -3772,7 +3779,9 @@ impl Elaborator {
         let mut helpers = Vec::new();
         self.decl.local_helpers.clear();
         self.decl.preadmitted.borrow_mut().clear();
-        for (&(item, signature, equations), id) in members.iter().zip(&ids) {
+        // A deferred proof isn't elaborated: its theorem is left stated
+        // below, where the full check defines it.
+        for (&(item, signature, equations), id) in members.iter().zip(&ids).filter(|_| !deferred) {
             let Decl::Signature { name: def_name, .. } = signature else {
                 unreachable!()
             };
@@ -3851,7 +3860,7 @@ impl Elaborator {
                     .map(|w| (item, w)),
             );
         }
-        if bodies.len() < members.len() {
+        if !deferred && bodies.len() < members.len() {
             return out;
         }
         self.unit.module.item = Some(members[0].0);
@@ -3860,7 +3869,17 @@ impl Elaborator {
         // what a dot call means: the kernel gets the groups the checked
         // bodies really make. One declaration stays one group with its
         // helpers.
-        let defined = if members.len() > 1 {
+        let defined = if deferred {
+            // Each member is final once stated, so a mutual group is
+            // settled one member at a time. The deferral rule left out
+            // everything `leave_stated` refuses but a statement that
+            // relies on a failed declaration, which fails the pass.
+            ids.iter().try_for_each(|&id| {
+                kernel::leave_stated(&mut self.kernel, id)?;
+                self.session.cache_stats.deferred += 1;
+                Ok(())
+            })
+        } else if members.len() > 1 {
             kernel::define_reference_groups(&mut self.kernel, &self.tables, &bodies)
         } else {
             kernel::define_group(&mut self.kernel, &self.tables, &bodies)

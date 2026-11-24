@@ -69,6 +69,9 @@ pub struct Options {
     /// Whether the check cache loads exact entries without their proofs
     /// (`set_load_without_proofs`; `check --jobs`'s workers).
     pub(crate) without_proofs: bool,
+    /// The project namespace checked as an interface pass, if any
+    /// (`set_interface_pass`; `check --jobs`'s workers, stage 3).
+    pub(crate) interface_pass: Option<String>,
     /// For tests: every namespace replay fails part way
     /// (`fail_namespace_replays_late`).
     pub(crate) fail_replays_late: bool,
@@ -161,6 +164,8 @@ impl Options {
             carry_over: _,
             recheck: _,
             without_proofs: _,
+            // An interface pass writes no entry and reads none.
+            interface_pass: _,
             fail_replays_late: _,
             refuse_replays_after: _,
             cancel_while_encoding: _,

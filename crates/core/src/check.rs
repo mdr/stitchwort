@@ -4238,6 +4238,42 @@ pub fn admit_trusted_stated(
     ty: &Term,
     span: Span,
 ) -> Result<DefId> {
+    admit_stated_marked(g, name, path, ty, span, false)
+}
+
+/// Adds a **stated theorem whose proof hasn't been checked** ([`Def::stated`],
+/// [`Def::unproved`]; docs/core.md "Stated theorems"), as
+/// [`admit_trusted_stated`] does, and marks it as [`leave_stated`] does.
+/// For `check --jobs`'s workers (docs/proposals/parallel-checking-stage-3.md
+/// §3, D3735): `ty` must be the statement [`leave_stated`] settled in the
+/// session that wrote the interface entry it comes from, whose proof is
+/// still to be checked by a proof job elsewhere in the run. Its one caller
+/// is the replay of such an entry (`Elaborator::admit_stated` in
+/// `crates/elab/src/cache/mod.rs`); nothing else may call it. The trust
+/// boundary (above), with the same checks as [`admit_trusted_stated`]; the
+/// mark keeps the promise visible in the session that loads it
+/// ([`crate::globals::Kernel::holds_unproved_theorems`]), so nothing it does
+/// may be reported or saved as checked, and its full hash is an internal
+/// error to ask for.
+pub fn admit_trusted_unproved(
+    g: &mut Kernel,
+    name: &Name,
+    path: &Name,
+    ty: &Term,
+    span: Span,
+) -> Result<DefId> {
+    admit_stated_marked(g, name, path, ty, span, true)
+}
+
+/// [`admit_trusted_stated`], or with `unproved` [`admit_trusted_unproved`].
+fn admit_stated_marked(
+    g: &mut Kernel,
+    name: &Name,
+    path: &Name,
+    ty: &Term,
+    span: Span,
+    unproved: bool,
+) -> Result<DefId> {
     in_kernel_modes(g, |g| {
         let _set = g.machine.transparent.set(Rc::default());
         let ev = g.ev();
@@ -4261,6 +4297,7 @@ pub fn admit_trusted_stated(
         let id = push_marked_def(g, name, path, ty.clone(), ty_value, true, true, false, span);
         let def = &mut g.env.defs_mut()[id.0];
         def.stated = true;
+        def.unproved = unproved;
         def.recursive = false;
         def.state = State::Final;
         Ok(id)

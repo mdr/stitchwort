@@ -142,6 +142,10 @@ pub struct Session {
     /// What each `byFacts` checked would be written as (`facts.rs`), for
     /// `check --expand-facts`.
     pub(crate) facts: RefCell<Vec<crate::walk::WalkExpansion>>,
+    /// The interface entry the last interface pass made
+    /// ([`crate::Elaborator::take_interface_entry`]), for the host to take
+    /// at once.
+    pub(crate) interface_entry: Option<cache::InterfaceEntry>,
 }
 
 /// What a rewind mark keeps of a [`Session`]: the bookkeeping a later load
@@ -199,6 +203,7 @@ impl Session {
             expansions: _,
             walks: _,
             facts: _,
+            interface_entry: _,
             derive_waiting,
         } = self;
         Mark {
@@ -251,6 +256,7 @@ impl Session {
             expansions: _,
             walks: _,
             facts: _,
+            interface_entry: _,
             derive_waiting,
         } = self;
         *project_namespaces = mark.project_namespaces.clone();
@@ -331,6 +337,8 @@ impl Session {
             expansions,
             walks,
             facts,
+            // Taken by the host right after its pass.
+            interface_entry: _,
         } = self;
         FreshMark {
             standalone_inputs: *standalone_inputs,
@@ -384,6 +392,8 @@ impl Session {
             expansions,
             walks,
             facts,
+            // Taken by the host right after its pass.
+            interface_entry: _,
         } = self;
         *standalone_inputs = mark.standalone_inputs;
         instance_waits.set(mark.instance_waits);

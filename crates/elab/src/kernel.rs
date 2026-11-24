@@ -256,6 +256,23 @@ pub fn admit_trusted_stated(
     timed(g, |g| k::admit_trusted_stated(g, name, path, ty, span))
 }
 
+/// Its one caller is the replay of an interface entry
+/// (`cache::Elaborator::admit_stated`).
+pub fn admit_trusted_unproved(
+    g: &mut Kernel,
+    name: &Name,
+    path: &Name,
+    ty: &Term,
+    span: Span,
+) -> Result<DefId> {
+    timed(g, |g| k::admit_trusted_unproved(g, name, path, ty, span))
+}
+
+/// Its one caller is the interface pass (`Elaborator::group_checked`).
+pub fn leave_stated(g: &mut Kernel, id: DefId) -> Result<()> {
+    timed(g, |g| k::leave_stated(g, id))
+}
+
 pub fn admit_trusted_group(g: &mut Kernel, members: &[(DefId, Term)]) -> Result<()> {
     timed(g, |g| k::admit_trusted_group(g, members))
 }

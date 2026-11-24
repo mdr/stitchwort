@@ -9,6 +9,7 @@ mod compact_text;
 mod doc_links;
 mod examples_wide;
 mod include;
+mod interface_pass;
 mod multi_file;
 mod namespaces;
 mod navigation;
