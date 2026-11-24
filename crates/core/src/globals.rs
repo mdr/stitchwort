@@ -307,6 +307,28 @@ impl Def {
         self.body.as_ref()
     }
 
+    /// Whether other declarations are kept from seeing its body: a final
+    /// theorem with a proof, which is referred to by its interface hash
+    /// (rule 6, docs/core.md "Opaque definitions"; [`crate::hash::has_interface`]).
+    pub fn proof_hidden(&self) -> bool {
+        self.theorem
+            && self.state == State::Final
+            && self.body.is_some()
+            && self.assumption.is_none()
+    }
+
+    /// The body, unless [`Def::proof_hidden`]: what the elaborator reads of a
+    /// definition that is not the one being elaborated, so that no
+    /// declaration sees another theorem's proof. Reads of the declaration's
+    /// own body, and of reports that are never cached, use [`Def::body`].
+    pub fn computing_body(&self) -> Option<&Rc<Term>> {
+        if self.proof_hidden() {
+            None
+        } else {
+            self.body()
+        }
+    }
+
     /// What a runtime runs for it: [`Def::run_body`] if set, else its body.
     pub fn run_body(&self) -> Option<&Rc<Term>> {
         self.run_body.as_ref().or(self.body.as_ref())

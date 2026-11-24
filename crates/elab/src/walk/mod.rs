@@ -705,7 +705,7 @@ fn binder_icits(ty: &Term) -> Vec<Icit> {
 /// follow one that forgets them.
 fn ignores_arguments(cx: &Ctx, family: &Family) -> bool {
     let g = cx.g();
-    let Some(body) = g.def(family.relation).body() else {
+    let Some(body) = g.def(family.relation).computing_body() else {
         return false;
     };
     let params = g.def(family.relation).arity();
@@ -972,7 +972,7 @@ enum Tree {
 fn case_tree(cx: &Ctx, id: DefId, spine: &Spine) -> Result<Option<Tree>> {
     let g = cx.g();
     let def = g.def(id);
-    let Some(body) = def.body() else {
+    let Some(body) = def.computing_body() else {
         return Ok(None);
     };
     let mut env: Vec<Value> = Vec::new();

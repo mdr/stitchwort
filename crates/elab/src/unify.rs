@@ -3186,7 +3186,7 @@ fn same_field_calls(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Resu
 /// generated projection: one `case` on its last parameter, a value of a
 /// type with eta, giving one of the fields.
 fn projection_of(g: &Unifier<'_>, id: DefId) -> Option<(stitchwort_core::DataId, usize)> {
-    let mut body = g.def(id).body()?.strip_loc();
+    let mut body = g.def(id).computing_body()?.strip_loc();
     while let Term::Lam(_, _, b, _) = body {
         body = b.strip_loc();
     }
@@ -3474,7 +3474,7 @@ fn accessors_as_projections(g: &Ev, term: &Term) -> Result<Term> {
         if g.def(*d).opaque() || g.def(*d).proof() || stitchwort_core::value::eta_held(g, *d) {
             return Ok(None);
         }
-        let Some(body) = g.def(*d).body() else {
+        let Some(body) = g.def(*d).computing_body() else {
             return Ok(None);
         };
         if body.count_lams() != args.len() || args.is_empty() {

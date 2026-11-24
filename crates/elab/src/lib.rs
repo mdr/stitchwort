@@ -29,6 +29,8 @@ pub mod closing;
 mod congruence;
 pub use congruence::std_congruence_failures;
 mod arrow_forall;
+#[cfg(test)]
+mod body_reads_tests;
 pub mod counterexample;
 mod data_auto;
 mod decreasing;
