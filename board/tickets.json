@@ -34248,7 +34248,7 @@
     {
       "id": 4734,
       "title": "[Opus] Parallel stage 2 step 1: the stated theorem in the kernel (parallel-checking.md 10.6 step 1): Def::stated, admit_trusted_stated, has_interface covers stated, Def::defined(), fail-closed axioms walk, erasure of proof calls without body/arity, docs/core.md; all of examples::soundness; Fable review (D3732)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34256,7 +34256,13 @@
       "body": "\n\nProgress (Opus lane, 24 Nov): built step 1 as parallel-checking.md 10.6 says, plus F1/F2 from the SW-4728 Fable review. Kernel tests in crates/core/tests/it/stated.rs; axioms fail-closed unit test. Notes for the Fable reviewer: docs/reviews/SW-4734-notes.md. Tests: stated:: 6/6, core it 442/442, examples::soundness pass; proofs subset, erasure/natives, hashes ALL=1 listed in the report.\n\nDone (14:26): proofs subset 34/34, erasure+natives 25/25, test:hashes ALL=1 12/12 with no snapshot moved. Ready for the Fable review.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "0b6bd0e6813e8e043969f1494a1c95edd30c84b0",
+        "bb0a469648ef18fac2eda897ad21b7dcca6e7a1e",
+        "9ddd71286f05d09adc10ce26bbae9623c9916416",
+        "6036ccf8d854b42694543a6775a1bfdc533a49da",
+        "3543c89d9d64fc3c11283b999488ecb5ea3fb451"
+      ]
     },
     {
       "id": 4735,
