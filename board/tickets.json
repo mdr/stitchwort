@@ -1,5 +1,5 @@
 {
-  "next": 4741,
+  "next": 4742,
   "tickets": [
     {
       "id": 47,
@@ -34333,7 +34333,7 @@
     {
       "id": 4739,
       "title": "[Sonnet] Stage 2 step 2 follow-ups (SW-4735 Fable review): F1 docs sentence on STITCHWORT_LOAD_PROOFS=0 in docs/core.md and check-cache.md (measuring only; removed in step 3); F2 admit_stated refuses a parameter-default mark (or soften core.md); F3 fixture gains an unfolding theorem, instance theorem, mutual theorem group, and the proof-less dump hides less; F4 comment in check_prepared: --timings is Load::Diagnostics, harmless because timings sizes only its own definitions (SW-4735)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34341,12 +34341,29 @@
       "body": "Lane notes: F1-F4 done on lane/SW-4739. No instance theorem could be written in source (instance type is an interface applied to a type). Model result: Sonnet, worked, 11 min (est. 25).",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "ffc3930f172001bfaac9e90bf6d294cfc5dc794f",
+        "2799acd0822a3aa89bb5eb13882c70ea6f45683a",
+        "f25469203765228dde71d55cf9ff4b91fed66fbd"
+      ]
     },
     {
       "id": 4740,
       "title": "[Opus] Stage 2: move proof-only match helpers and their table rows into part B (the position map, parallel-checking.md 10.6 fallback). Measured after SW-4735: whole formatter load 2.5 s/1.25 GB -> 2.15 s/0.94 GB; --jobs 4 peak 4.8 -> 3.5-4.0 GB, time 52 -> 49 s (chain-bound). Worth it only if stage 3 needs smaller loads; revisit with stage 3's pilot (SW-4730)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4741,
+      "title": "[Opus] Stage 2: bumpId (theorem recursive through its match helper) loads stated, but SW-4735's notes and Fable's review say such a theorem shares a group with its helper and loads whole. Which is true, and is the replay right either way? (SW-4739 finding)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
