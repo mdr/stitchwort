@@ -33932,7 +33932,7 @@
     {
       "id": 4715,
       "title": "[Fable, paper] Parallel checking after proof irrelevance: update docs/proposals/parallel-checking.md now theorems are sealed and the cache is keyed by interface digest: options, gains (namespace- and proof-level), soundness, build plan for Matt (D3729)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33940,7 +33940,10 @@
       "body": "",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "590e1ba6ff9feecbd49da14b807b633bffac3886",
+        "ee95e76b14899c677a95ba5b08120f79205fa74f"
+      ]
     }
   ]
 }
