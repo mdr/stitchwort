@@ -1,5 +1,5 @@
 {
-  "next": 4761,
+  "next": 4762,
   "tickets": [
     {
       "id": 47,
@@ -34669,6 +34669,19 @@
       "id": 4760,
       "title": "[Opus] Editor: fill a cold cache with --jobs workers at language-server start-up (parallel-checking.md 9.2 follow-up; gets stage 3 for free), with the server's cancel flag given to the workers; measure time to first diagnostics on tools/fmt",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4761,
+      "title": "[Sonnet] decreasing_wrapper marks a decreasing theorem folded (kernel::mark_folded), which only the proof's elaboration does, so the fold flag in the interface digest depends on the proof (stage 3 pilot round 2, stream:rest byte 5); a theorem needs no folding: don't mark theorems (SW-4757 finding)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
