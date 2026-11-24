@@ -2669,7 +2669,7 @@ fn number_argument_note(cx: &Ctx, exprs: &[Scrut]) -> Option<String> {
         match arg.strip_loc() {
             Term::Def(id) => {
                 let def = g.def(*id);
-                let value = literal(def.body()?)?;
+                let value = literal(def.computing_body()?)?;
                 let name = format!("`{}`", crate::scope::display(def.name()));
                 Some((format!("{name} ({value})"), name))
             }

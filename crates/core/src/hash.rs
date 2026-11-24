@@ -246,8 +246,7 @@ fn def_hash_in(g: &Ev, id: DefId, mode: Mode) -> Result<Option<ContentHash>> {
 /// theorem whose proof failed) is referred to by its own hash, whose tag
 /// says what it is, so a failed proof still changes every user's hash.
 pub fn has_interface(g: &Ev, id: DefId) -> bool {
-    let def = g.def(id);
-    def.theorem && def.state == State::Final && def.defined() && def.assumption().is_none()
+    g.def(id).proof_hidden()
 }
 
 /// The interface hash of definition `id`: for a theorem, the tag `theorem`

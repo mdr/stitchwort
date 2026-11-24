@@ -1522,7 +1522,7 @@ impl Elaborator {
         let g = &self.ev();
         let table = self.tables.param_defaults.get(&id)?;
         let default = table.params.get(i)?.as_ref()?;
-        let mut body: Term = (**g.def(default.helper).body()?).clone();
+        let mut body: Term = (**g.def(default.helper).computing_body()?).clone();
         let mut names: Vec<Name> = Vec::new();
         while let Term::Lam(x, _, inner, _) = body.strip_loc() {
             names.push(x.clone());
