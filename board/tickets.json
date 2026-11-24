@@ -1,5 +1,5 @@
 {
-  "next": 4734,
+  "next": 4737,
   "tickets": [
     {
       "id": 47,
@@ -34231,6 +34231,45 @@
     {
       "id": 4733,
       "title": "[Sonnet] examples/accept: pin that an opaque f equals its eta wrapper outside its unfolding set (from SW-4728 review probe; copy at scratchpad/eta-p1.sw) (SW-4728 review F5)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4734,
+      "title": "[Opus] Parallel stage 2 step 1: the stated theorem in the kernel (parallel-checking.md 10.6 step 1): Def::stated, admit_trusted_stated, has_interface covers stated, Def::defined(), fail-closed axioms walk, erasure of proof calls without body/arity, docs/core.md; all of examples::soundness; Fable review (D3732)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4735,
+      "title": "[Opus] Parallel stage 2 step 2: cache entry in two parts (FORMAT bump), decode without proofs, fill workers load stated theorems (parallel-checking.md 10.6 step 2) (D3732)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4736,
+      "title": "[Sonnet] Parallel stage 2 step 3: plain check loads without proofs; restart on error loads with; docs and performance log (parallel-checking.md 10.6 step 3) (D3732)",
       "status": "backlog",
       "agent": "",
       "where": "",
