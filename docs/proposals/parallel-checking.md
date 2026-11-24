@@ -1361,3 +1361,9 @@ The orchestrator numbers these.
   `parse_timings.py`) is taken from `docs/workflow.md` and the parser's header, not tried.
 - Whether Matt answered the first note's trust question (section 6, question 2); it is asked
   again as decision 2.
+
+### Measured 24 Nov 2026 (orchestrator, measure_shares.sh, main at stage A; machine shared with lanes, so times are indicative, shares firmer)
+
+- tools/fmt: theorems 77.6% of declaration time (84.7 of 109.1 s), the rest 22.4%; largest theorem 3.8 s; namespace-level bound 2.5x on the project part (2.1x with the library block first, which is about 16 s); one full load from the cache 4.8 s, 1.2 GB.
+- aoc: theorems 67.1%, the rest 32.9%; namespace-level 5.9x on 8 workers for the project part (2.7x with the library block first); one full load 4.8 s, 0.7 GB.
+- So "the rest" is under the 40% line in section 8: stage 3 stays worth planning. The library block becomes the next limit. Raw output: [measured-2026-11-24/shares.txt](parallel-checking/measured-2026-11-24/shares.txt).

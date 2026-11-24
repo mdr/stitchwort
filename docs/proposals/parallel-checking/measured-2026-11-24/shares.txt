@@ -1,0 +1,82 @@
+=== tools/fmt
+       2.7 s  Syntax.FollowsDeclHeaders
+       0.4 s  Syntax.FollowsDeclBinders
+       1.1 s  Syntax.FollowsDeclArms
+       8.7 s  Syntax.FollowsDeclData
+       0.0 s  Syntax.FollowsParse
+       0.8 s  Fmt.SettleParseProofs
+       0.0 s  Fmt.Accepts1
+       0.9 s  Fmt.TopStatements
+       0.3 s  Fmt.CommentsKeptProof
+largest namespaces: Syntax.FollowsDeclData 8.7 s, Syntax 4.3 s, Syntax.FollowsLadder 4.2 s, Fmt.OutputStatements 3.3 s, Syntax.FollowsFormsBlocks 3.2 s, Syntax.FollowsStatements 3.1 s, Syntax.FollowsDeclHeaders 2.7 s, Fmt.Tests.Grammar1Contains 2.6 s
+P= 1: project 93.9 s (1.00x); with the library block first 110.0 s (1.00x)
+P= 2: project 52.4 s (1.79x); with the library block first 68.4 s (1.61x)
+P= 4: project 40.1 s (2.34x); with the library block first 56.2 s (1.96x)
+P= 6: project 37.3 s (2.51x); with the library block first 53.4 s (2.06x)
+P= 8: project 37.3 s (2.52x); with the library block first 53.4 s (2.06x)
+P=10: project 37.1 s (2.53x); with the library block first 53.2 s (2.07x)
+== 2. theorems and the rest
+declarations 13118, 109.1 s
+theorems (proofs and their helpers): 5299, 84.7 s, 77.6%
+the rest (lower bound on a statements-first pass): 7819, 24.5 s, 22.4%
+largest single theorem: 3.8 s  Syntax.FollowsDeclData.followsFieldsAt
+namespaces by time (theorems s, rest s, name; '' = library, core or unmatched):
+       0.0     15.9  
+       8.6      0.0  Syntax.FollowsDeclData
+       4.2      0.0  Syntax.FollowsLadder
+       0.0      4.2  Syntax
+       3.3      0.1  Fmt.OutputStatements
+       3.1      0.0  Syntax.FollowsFormsBlocks
+       3.1      0.0  Syntax.FollowsStatements
+       2.7      0.0  Syntax.FollowsDeclHeaders
+       2.6      0.0  Fmt.Tests.Grammar1Contains
+       2.4      0.1  Syntax.ReadBackLine
+       1.8      0.1  Syntax.ReadBackRuns
+       1.8      0.0  Syntax.ReadBackProofs
+       1.6      0.0  Syntax.FollowsForms
+       1.5      0.0  Fmt.DeclHangProofs
+       1.5      0.0  Syntax.ParseWalkLadder
+== 3. one full load from the cache
+        4.75 real         4.54 user         0.18 sys
+          1230487552  maximum resident set size
+=== aoc
+== 1. namespace graph
+namespaces 291, edges 473, depth 5, widest level 106
+library and core block: 15.1 s
+project work: 45.9 s; critical path 5.7 s over 4 namespaces; bound 8.10x
+critical path:
+       0.2 s  Aoc.Common
+       0.0 s  Aoc.Year2024.Day13
+       0.0 s  Aoc.Year2024.Day13.Spec
+       5.4 s  Aoc.Year2024.Day13.Proofs
+largest namespaces: Aoc.Year2024.Day13.Proofs 5.4 s, Aoc.Year2024.Day11.Proofs 4.6 s, Aoc.Year2024.Day04.Proofs 2.9 s, Aoc.Year2024.Day23.Proofs 2.1 s, Aoc.Year2024.Day22.Proofs 1.5 s, Aoc.Year2021.Day08.Proofs 1.5 s, Aoc.Year2024.Day12.Proofs 1.3 s, Aoc.Year2025.Day09.Proofs 1.0 s
+P= 1: project 45.9 s (1.00x); with the library block first 61.0 s (1.00x)
+P= 2: project 23.1 s (1.99x); with the library block first 38.2 s (1.60x)
+P= 4: project 12.0 s (3.81x); with the library block first 27.2 s (2.25x)
+P= 6: project 8.8 s (5.24x); with the library block first 23.9 s (2.56x)
+P= 8: project 7.8 s (5.91x); with the library block first 22.9 s (2.67x)
+P=10: project 7.3 s (6.27x); with the library block first 22.4 s (2.72x)
+== 2. theorems and the rest
+declarations 12045, 60.4 s
+theorems (proofs and their helpers): 2928, 40.5 s, 67.1%
+the rest (lower bound on a statements-first pass): 9117, 19.9 s, 32.9%
+largest single theorem: 5.0 s  Aoc.Year2024.Day13.Proofs.withinCosts
+namespaces by time (theorems s, rest s, name; '' = library, core or unmatched):
+       0.0     15.0  
+       5.4      0.0  Aoc.Year2024.Day13.Proofs
+       4.6      0.0  Aoc.Year2024.Day11.Proofs
+       2.9      0.0  Aoc.Year2024.Day04.Proofs
+       2.1      0.0  Aoc.Year2024.Day23.Proofs
+       1.5      0.0  Aoc.Year2024.Day22.Proofs
+       1.5      0.0  Aoc.Year2021.Day08.Proofs
+       1.3      0.0  Aoc.Year2024.Day12.Proofs
+       1.0      0.0  Aoc.Year2025.Day09.Proofs
+       0.9      0.0  Aoc.Year2020.Day20.Proofs
+       0.9      0.0  Aoc.Year2024.Day16.Proofs
+       0.9      0.0  Aoc.Year2025.Day08.Proofs
+       0.8      0.0  Aoc.Year2024.Day15.Proofs
+       0.8      0.0  Aoc.Year2025.Day04.Proofs
+       0.7      0.0  Aoc.Year2025.Day02.Proofs
+== 3. one full load from the cache
+        4.81 real         3.83 user         0.30 sys
+           705609728  maximum resident set size
