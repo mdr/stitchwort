@@ -1,0 +1,65 @@
+# SW-4735 build (stage 2 step 2), 24 Nov 2026
+## measure_load.sh tools/fmt, then measure_jobs.sh tools/fmt 4 (overlapped a test run) and aoc 4 8
+6.30, 4.95, 6.66
+== one whole load, STITCHWORT_LOAD_PROOFS=1 (0 means nothing before stage 2)
+        2.64 real         2.36 user         0.20 sys           1245249536  maximum resident set size 
+        2.53 real         2.33 user         0.18 sys           1245429760  maximum resident set size 
+        2.65 real         2.42 user         0.20 sys           1245265920  maximum resident set size 
+== one whole load, STITCHWORT_LOAD_PROOFS=0 (0 means nothing before stage 2)
+        2.14 real         1.98 user         0.15 sys            939278336  maximum resident set size 
+        2.14 real         1.99 user         0.15 sys            939016192  maximum resident set size 
+        2.27 real         2.08 user         0.17 sys            939048960  maximum resident set size 
+cold     jobs 1   wall  112.23 s  peak  1.43 GB  exit 0
+cold     jobs 4   wall   48.70 s  peak  3.47 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (222 files)
+== libwarm
+libwarm  jobs 1   wall  101.08 s  peak  1.38 GB  exit 0
+libwarm  jobs 4   wall   69.46 s  peak  3.07 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (258 files)
+== nocache
+nocache  jobs 1   wall  126.38 s  peak  1.40 GB  exit 0
+nocache  jobs 4   wall   50.46 s  peak  4.08 GB  exit 0
+         output same as jobs 1: yes
+cold and nocache report the same (1 job)
+cold     jobs 1   wall   51.89 s  peak  1.25 GB  exit 0
+cold     jobs 4   wall   23.34 s  peak  2.10 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (366 files)
+cold     jobs 8   wall   19.48 s  peak  2.92 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (366 files)
+== libwarm
+libwarm  jobs 1   wall   38.67 s  peak  1.22 GB  exit 0
+libwarm  jobs 4   wall   11.86 s  peak  2.10 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (399 files)
+libwarm  jobs 8   wall    9.19 s  peak  2.84 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (399 files)
+== nocache
+nocache  jobs 1   wall   45.74 s  peak  1.29 GB  exit 0
+nocache  jobs 4   wall   22.42 s  peak  2.14 GB  exit 0
+         output same as jobs 1: yes
+nocache  jobs 8   wall   17.91 s  peak  2.95 GB  exit 0
+         output same as jobs 1: yes
+cold and nocache report the same (1 job)
+
+[exited with code 0]
+## measure_jobs.sh tools/fmt 4, rerun on a quiet machine
+6.69, 9.78, 9.25
+cold     jobs 1   wall  110.91 s  peak  1.43 GB  exit 0
+cold     jobs 4   wall   48.55 s  peak  3.95 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (222 files)
+libwarm  jobs 1   wall   96.57 s  peak  1.38 GB  exit 0
+libwarm  jobs 4   wall   40.46 s  peak  4.02 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (258 files)
+nocache  jobs 1   wall  107.43 s  peak  1.40 GB  exit 0
+nocache  jobs 4   wall   48.90 s  peak  4.13 GB  exit 0
+         output same as jobs 1: yes
+cold and nocache report the same (1 job)
+
+[exited with code 0]

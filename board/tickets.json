@@ -1,5 +1,5 @@
 {
-  "next": 4740,
+  "next": 4741,
   "tickets": [
     {
       "id": 47,
@@ -34333,6 +34333,19 @@
     {
       "id": 4739,
       "title": "[Sonnet] Stage 2 step 2 follow-ups (SW-4735 Fable review): F1 docs sentence on STITCHWORT_LOAD_PROOFS=0 in docs/core.md and check-cache.md (measuring only; removed in step 3); F2 admit_stated refuses a parameter-default mark (or soften core.md); F3 fixture gains an unfolding theorem, instance theorem, mutual theorem group, and the proof-less dump hides less; F4 comment in check_prepared: --timings is Load::Diagnostics, harmless because timings sizes only its own definitions (SW-4735)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4740,
+      "title": "[Opus] Stage 2: move proof-only match helpers and their table rows into part B (the position map, parallel-checking.md 10.6 fallback). Measured after SW-4735: whole formatter load 2.5 s/1.25 GB -> 2.15 s/0.94 GB; --jobs 4 peak 4.8 -> 3.5-4.0 GB, time 52 -> 49 s (chain-bound). Worth it only if stage 3 needs smaller loads; revisit with stage 3's pilot (SW-4730)",
       "status": "backlog",
       "agent": "",
       "where": "",
