@@ -1,5 +1,5 @@
 {
-  "next": 4722,
+  "next": 4723,
   "tickets": [
     {
       "id": 47,
@@ -34048,6 +34048,19 @@
       "id": 4721,
       "title": "[Opus, paper] Step counts independent of session history (docs/core.md:272): e.g. charge a kept type's forcing to its owner, so E-RESOURCE can't differ between cold, warm and parallel checks (SW-4718 finding)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4722,
+      "title": "[Opus] check_cache::a_library_edit_re_checks_what_it_can_change_and_nothing_else fails on main 4af (after SW-4712, SW-4714): 'a name added' no longer re-elaborates Dep: stale replay or correct cut-off? fix before push",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
