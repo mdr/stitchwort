@@ -835,6 +835,52 @@ fn an_edited_reading_re_checks_what_reads_through_it() {
     let _ = std::fs::remove_dir_all(&cache);
 }
 
+/// A check cancelled while it encodes an entry, as when another thread sets
+/// the flag (a `check --jobs` fill halted by a worker's panic, or the
+/// editor's next edit), writes nothing: the hashes the encoder computes
+/// after that stop, and the entry would be written without them, its
+/// interface digest differing from an uninterrupted check's (SW-4744).
+#[test]
+fn a_check_cancelled_while_an_entry_is_encoded_writes_nothing() {
+    // `Option.map` is in a library file, not the core.
+    let files = [(
+        "src/A.sw",
+        "namespace A\n\ndef two: Option Nat := (some 1).map (n => n + 1)\n",
+    )];
+    let dir = temp_project("cancel-encoding", &files);
+    let cache = temp_dir("cancel-encoding-cache");
+    let source = Source::Project("p".to_string(), dir.clone());
+    let cancelled = || {
+        with_stack(STACK, || {
+            let mut session = Session::for_stack(STACK);
+            session.elab.cancel_while_encoding_entries();
+            session.use_check_cache(&cache);
+            finish_run(session, &source).stats
+        })
+    };
+    let namespace_entries = || {
+        (entries(&cache).into_iter())
+            .filter(|p| p.to_string_lossy().contains("-ns."))
+            .collect::<Vec<_>>()
+    };
+    // Cold: the first library file the check finds fit to write.
+    let cold = cancelled();
+    assert!(cold.misses > 0, "{cold:?}");
+    assert_eq!((cold.written, cold.namespace_written), (0, 0), "{cold:?}");
+    // The library's entries from an uninterrupted check, the namespaces'
+    // taken away: the first namespace.
+    run(&source, false, Some(&cache));
+    for entry in namespace_entries() {
+        std::fs::remove_file(entry).unwrap();
+    }
+    let warm = cancelled();
+    assert!(warm.hits > 0, "{warm:?}");
+    assert_eq!(warm.namespace_written, 0, "{warm:?}");
+    assert!(namespace_entries().is_empty());
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
 #[test]
 fn a_namespace_with_errors_is_not_written() {
     let dir = temp_project("errors", ABC);

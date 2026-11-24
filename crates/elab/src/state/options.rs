@@ -76,6 +76,9 @@ pub struct Options {
     /// the declaration of this full path is admitted and bound
     /// (`refuse_replays_after`).
     pub(crate) refuse_replays_after: Option<String>,
+    /// For tests: the check is cancelled part way through encoding each
+    /// entry (`cancel_while_encoding_entries`).
+    pub(crate) cancel_while_encoding: bool,
     /// For tests: generating the plain form of `f.unfold` for the
     /// `decreasing` definition with this name fails, as a compiler bug in
     /// it would (`decreasing.rs`, `plain_view_or_not`).
@@ -160,6 +163,7 @@ impl Options {
             without_proofs: _,
             fail_replays_late: _,
             refuse_replays_after: _,
+            cancel_while_encoding: _,
             // Names a test's own definition.
             refuse_plain_view: _,
             // Drives the rewind test.
