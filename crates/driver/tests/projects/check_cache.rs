@@ -845,7 +845,7 @@ fn a_check_cancelled_while_an_entry_is_encoded_writes_nothing() {
     // `Option.map` is in a library file, not the core.
     let files = [(
         "src/A.sw",
-        "namespace A\n\ndef two: Option Nat := (some 1).map (n => n + 1)\n",
+        "namespace A\n\ndef two: Option Nat := (Some 1).map (n => n + 1)\n",
     )];
     let dir = temp_project("cancel-encoding", &files);
     let cache = temp_dir("cancel-encoding-cache");
@@ -869,7 +869,8 @@ fn a_check_cancelled_while_an_entry_is_encoded_writes_nothing() {
     assert_eq!((cold.written, cold.namespace_written), (0, 0), "{cold:?}");
     // The library's entries from an uninterrupted check, the namespaces'
     // taken away: the first namespace.
-    run(&source, false, Some(&cache));
+    let whole = run(&source, false, Some(&cache)).stats;
+    assert_eq!(whole.namespace_written, 1, "{whole:?}");
     for entry in namespace_entries() {
         std::fs::remove_file(entry).unwrap();
     }
@@ -877,6 +878,41 @@ fn a_check_cancelled_while_an_entry_is_encoded_writes_nothing() {
     assert!(warm.hits > 0, "{warm:?}");
     assert_eq!(warm.namespace_written, 0, "{warm:?}");
     assert!(namespace_entries().is_empty());
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
+/// `--recheck` computes a replayed namespace's digest again; a check
+/// cancelled while it does so has no digest to compare, so it neither
+/// reports a mismatch nor blanks the entry, which the next check replays
+/// (SW-4750).
+#[test]
+fn a_recheck_cancelled_while_its_digest_is_computed_keeps_the_entry() {
+    // A theorem: its interface hash isn't among those a replay notes, so
+    // computing the digest again hashes it, and stops.
+    let files = [(
+        "src/A.sw",
+        "namespace A\n\ndef one: Nat := 1\n\ntheorem oneIs: one = 1 := byComputing\n",
+    )];
+    let dir = temp_project("cancel-recheck", &files);
+    let cache = temp_dir("cancel-recheck-cache");
+    let source = Source::Project("p".to_string(), dir.clone());
+    let first = run(&source, true, Some(&cache)).stats;
+    assert_eq!(first.namespace_written, 1, "{first:?}");
+    let cancelled = with_stack(STACK, || {
+        let mut session = Session::navigable_for_stack(STACK);
+        session.elab.cancel_while_encoding_entries();
+        session.use_check_cache(&cache);
+        session.elab.set_recheck(true);
+        finish_run(session, &source).stats
+    });
+    assert_eq!(cancelled.digest_mismatches, 0, "{cancelled:?}");
+    let again = run(&source, true, Some(&cache)).stats;
+    assert_eq!(
+        (again.namespace_hits, again.namespace_misses),
+        (1, 0),
+        "{again:?}"
+    );
     let _ = std::fs::remove_dir_all(&dir);
     let _ = std::fs::remove_dir_all(&cache);
 }
