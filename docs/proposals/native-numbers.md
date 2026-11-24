@@ -79,3 +79,5 @@ The tests (`crates/driver/tests/natives.rs`) compare whole results by conversion
 | `eqNatRefl` | `rfl` | yes: the definition counts down to `rfl` |
 | `eqNatSound` (equal numbers only) | `rfl` | yes: the definition gives `cong Succ` of `rfl`, which is `rfl`, ignoring the proof |
 | the `k + x` shortcuts (`add`, `sub`, `leq`, `eqNat`, `eqNatRefl`) | some steps of the definition at once | yes: each is a number of the definition's own steps |
+
+**Since SW-4703 (24 Nov 2026):** `eqNatRefl` and `eqNatSound` (now `Nat.equalRefl` and `Nat.equalSound`) have no natives. They are theorems, which never compute while checking (rule F, [docs/core.md](../core.md#proof-irrelevance)) and are erased in a run; a cast along `Nat.equalSound m m h` into data computes by rule K. The two rows above, and `eqNatRefl` in the shortcuts row, describe the design before that.

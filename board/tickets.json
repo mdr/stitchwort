@@ -33763,7 +33763,7 @@
     {
       "id": 4703,
       "title": "[Sonnet] Check whether the Nat.equalRefl/Nat.equalSound natives are still needed now rule F never unfolds those theorems; remove them and their pins if not (SW-4701 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33771,7 +33771,12 @@
       "body": "\n\nProgress (24 Nov, Opus lane, commit 8066a6aa4): natives removed (case a). Evidence: both are theorems, so value::unfold_now and reference::unfold return the frozen call (rule F) before reaching the native while checking; in runs erases_result returns the erased value first; rt and JS already mapped them to the erased value. The only remaining reach was test runs with erasure disabled, where the definitions give the same result, only slower. Pins removed (prelude hashes unchanged, hash_stability::prelude passes). Builtin registry entries stay (omega and derive name Nat.equalSound). New test natives::decided_equations_on_big_numbers_need_no_native. Docs: core.md natives/trust/hash paragraphs, Nat's std doc. Not run (verifier): erasure::erasure_doesnt_change_what_examples_print_or_test (examples-wide).\n",
       "created": "2026-11-23",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "7cb6ae271400348e0dd92a1d72b13924f0a0b793",
+        "3ff5db9e0bdff1ed631b425ac72c162247e5ffd3",
+        "8066a6aa4469fd7e99ee419538e475093531e6e7",
+        "7acc6a3c1e17855262be170ced0014c0b2bb9737"
+      ]
     },
     {
       "id": 4704,
