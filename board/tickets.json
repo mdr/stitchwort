@@ -1,5 +1,5 @@
 {
-  "next": 4765,
+  "next": 4766,
   "tickets": [
     {
       "id": 47,
@@ -34730,6 +34730,19 @@
       "id": 4764,
       "title": "[Opus] Stage 3 step 4 review list addition (SW-4763 review F3): audit the elaborator's rewinds for a definition declared before a theorem left stated and defined after it against the theorem, then kept by a rewind past the theorem",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4765,
+      "title": "[Opus] Stage 3 step 2: the interface pass in the elaborator: deferral rule from the source, leave_stated in place of the proof, part A for a namespace with its own stated theorems, the in-memory interface entry and its admission (parallel-checking-stage-3.md section 9 step 2)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
