@@ -492,7 +492,6 @@ pub fn eval(s: &Shapes, op: PrimOp, args: &[&Value]) -> Value {
             Native::Leq => boolean(s, nat_cmp(args[0], args[1]) != Ordering::Greater),
             Native::EqNat => boolean(s, num_eq(args[0], args[1])),
             Native::DivFuel => div_fuel(args[0], args[1], args[2]),
-            Native::EqNatRefl | Native::EqNatSound => Value::Erased,
         },
         PrimOp::NegSucc => neg_succ(args[0]),
         PrimOp::IntEqual => boolean(s, num_eq(args[0], args[1])),

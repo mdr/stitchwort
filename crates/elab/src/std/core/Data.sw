@@ -8,10 +8,9 @@
 
 --| A natural number: 0, 1, 2 and so on, as `Zero` and `Succ` of the number
 --| before. Numbers are stored compactly, but mean exactly this. [`Nat.add`], [`Nat.sub`],
---| [`Nat.mul`], [`Nat.leq`], [`Nat.equal`], [`Nat.divFuel`], [`Nat.decEq`],
---| [`Nat.equalRefl`] and [`Nat.equalSound`] also have native implementations, used
---| when all their arguments are numbers. Each computes exactly what the
---| definition here computes, proofs included; they're tested against these
+--| [`Nat.mul`], [`Nat.leq`], [`Nat.equal`] and [`Nat.divFuel`] also have native
+--| implementations, used when all their arguments are numbers. Each computes
+--| exactly what the definition here computes; they're tested against these
 --| definitions.
 type Nat: Type = | Zero | Succ (n: Nat)
 

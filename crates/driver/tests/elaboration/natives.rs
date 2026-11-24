@@ -43,31 +43,15 @@ fn compare(g: &mut Kernel, op: Native, args: &[Value]) {
         "`{}` isn't native",
         op.name()
     );
-    let args = with_proof(op, args);
-    let fast = call(&g.ev(), id, &args);
+    let fast = call(&g.ev(), id, args);
     g.env.set_disable_natives(true);
-    let slow = call(&g.ev(), id, &args);
+    let slow = call(&g.ev(), id, args);
     g.env.set_disable_natives(false);
     same_result(&g.ev(), &format!("{}{args:?}", op.name()), &fast, &slow);
 }
 
-/// `op`'s arguments: the numbers `nums`, and for `eqNatSound` its proof,
-/// `byComputing` when the numbers are equal and otherwise a variable (level 0), as
-/// there's no closed proof then.
-fn with_proof(op: Native, nums: &[Value]) -> Vec<Value> {
-    let mut args = nums.to_vec();
-    if op == Native::EqNatSound {
-        let equal = match nums {
-            [Value::Nat(m), Value::Nat(n)] => m == n,
-            _ => panic!("`Nat.equalSound` takes two numbers"),
-        };
-        args.push(if equal { Value::Refl } else { Value::var(0) });
-    }
-    args
-}
-
 /// Checks that a native's whole result is definitionally the definition's,
-/// proofs included, not just the same answer. One variable is in scope.
+/// not just the same answer. One variable is in scope.
 fn same_result(g: &stitchwort_core::Ev, what: &str, fast: &Value, slow: &Value) {
     let shown = |v: &Value| match quote(g, 1, v) {
         Ok(term) => format!("{term:?}"),
@@ -86,8 +70,7 @@ fn natives_agree_with_their_definitions_on_small_numbers() {
     let mut session = Session::new();
     let g = &mut session.elab.kernel;
     for op in Native::ALL {
-        match op.numbers() {
-            1 => (0..=40).for_each(|n| compare(g, op, &[nat(n)])),
+        match op.arity() {
             2 => {
                 for m in 0..=24 {
                     for n in 0..=24 {
@@ -139,7 +122,7 @@ fn random_numbers() {
     for _ in 0..300 {
         for op in Native::ALL {
             let bound = if op == Native::Mul { 30 } else { 100 };
-            let args: Vec<Value> = (0..op.numbers()).map(|_| nat(next(bound))).collect();
+            let args: Vec<Value> = (0..op.arity()).map(|_| nat(next(bound))).collect();
             compare(g, op, &args);
         }
     }
@@ -395,19 +378,6 @@ fn shortcuts_with_unknowns_agree_with_the_definitions() {
                 }
             }
         }
-        // `eqNatRefl (k + x)` is `eqNatRefl x`.
-        let id = def(&g.ev(), Native::EqNatRefl.name());
-        for k in 0..12 {
-            let n = plus_var(k, Some(0));
-            let fast = call(&g.ev(), id, std::slice::from_ref(&n));
-            g.env.set_disable_natives(true);
-            let slow = call(&g.ev(), id, std::slice::from_ref(&n));
-            g.env.set_disable_natives(false);
-            assert!(
-                conv(&g.ev(), 1, &fast, &slow).unwrap(),
-                "Nat.equalRefl({n:?}): native {fast:?}, definition {slow:?}"
-            );
-        }
     });
 }
 
@@ -574,37 +544,25 @@ fn accepts(source: &str) {
     }
 }
 
-/// Copies of the prelude's definitions that return proofs, which never run
-/// natively (only the calls inside them to other natives do).
-const COPIES: &str = "\
-import Std (Bool, Nat, Void)
-
-theorem myEqNatRefl : (n : Nat) -> Nat.equal n n = True
-  | Zero   => byComputing
-  | Succ n => myEqNatRefl n
-
-theorem myEqNatSound : (m : Nat) -> (n : Nat) -> Nat.equal m n = True -> m = n
-  | Zero,   Zero,   h => byComputing
-  | Zero,   Succ n, h => Void.impossible (Bool.falseNotTrue h)
-  | Succ m, Zero,   h => Void.impossible (Bool.falseNotTrue h)
-  | Succ m, Succ n, h => Std.Eq.cong Succ (myEqNatSound m n h)
-";
-
 const BIG: &str = "1180591620717411303424"; // 2^70
 
-/// `byComputing` proves a native's result equal to its definition's, for the natives
-/// that return proofs.
+/// `Nat.equalRefl` and `Nat.equalSound` have no natives: a cast into data
+/// along a decided equation on numbers far too big to count down computes
+/// while checking by rule K, which never looks at the proof, and the proofs
+/// themselves are frozen (rule F) and equal by rule I.
 #[test]
-fn rfl_proves_proof_natives_equal_to_their_definitions() {
-    let mut source = COPIES.to_string();
-    for n in ["0", "1", "7"] {
-        source += &format!(
-            "\n\
-             theorem sameRefl{n} : myEqNatRefl {n} = Nat.equalRefl {n} := byComputing\n\n\
-             theorem sameSound{n} : myEqNatSound {n} {n} byComputing = Nat.equalSound {n} {n} byComputing := byComputing\n"
-        );
-    }
-    accepts(&source);
+fn decided_equations_on_big_numbers_need_no_native() {
+    accepts(&format!(
+        "\
+import Std (Bool, Nat)
+
+def five (h: Nat.equal {BIG} {BIG} = True): Nat := J (y p => Nat) 5 (Nat.equalSound {BIG} {BIG} h)
+
+theorem fiveIsFive ∀ (h: Nat.equal {BIG} {BIG} = True): five h = 5 := byComputing
+
+theorem fiveFromRefl: five (Nat.equalRefl {BIG}) = 5 := byComputing
+"
+    ));
 }
 
 /// A copy of `op`'s definition, unfolding once to the same body, in which
@@ -650,8 +608,7 @@ fn natives_agree_with_one_step_of_their_definitions_on_big_numbers() {
         let id = def(&g.ev(), op.name());
         let once = unfolded_once(g, op);
         let mut inputs: Vec<Vec<Value>> = Vec::new();
-        match op.numbers() {
-            1 => inputs.extend(numbers.iter().map(|n| vec![n.clone()])),
+        match op.arity() {
             2 => {
                 for m in &numbers {
                     for n in &numbers {
@@ -669,14 +626,8 @@ fn natives_agree_with_one_step_of_their_definitions_on_big_numbers() {
             n => panic!("no inputs for {n} numbers"),
         }
         for nums in inputs {
-            // `eqNatSound` on different numbers isn't native: the definition
-            // counts down both ways.
-            if op == Native::EqNatSound && !conv(&g.ev(), 0, &nums[0], &nums[1]).unwrap() {
-                continue;
-            }
-            let args = with_proof(op, &nums);
-            let fast = call(&g.ev(), id, &args);
-            let slow = call(&g.ev(), once, &args);
+            let fast = call(&g.ev(), id, &nums);
+            let slow = call(&g.ev(), once, &nums);
             same_result(&g.ev(), &format!("{}{nums:?}", op.name()), &fast, &slow);
         }
     }

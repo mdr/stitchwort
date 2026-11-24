@@ -11,10 +11,12 @@
 //! induction still work. The native implementations are part of the trusted
 //! base (DESIGN.md §13): a bug in one could make the kernel accept `2 + 2 = 5`.
 //! Each must compute exactly what its definition computes, as the whole
-//! result: for a native returning a proof, the same proof term up to
-//! conversion, not just another proof of the same thing (otherwise turning
-//! natives on would change which `byComputing` proofs check). The tests compare whole
-//! results with the definitions on many inputs.
+//! result. The tests compare whole results with the definitions on many
+//! inputs.
+//!
+//! No theorem has a native: a proof never computes while checking (rule F,
+//! docs/core.md "Proof irrelevance"), and a run erases it, so a native for
+//! one would only ever fire in a run with erasure switched off.
 //!
 //! Built-ins are registered while the prelude is loaded, for the declarations
 //! the registry ([`crate::registry`]) binds, and the registration functions
@@ -58,25 +60,16 @@ pub enum Native {
     EqNat,
     /// `divFuel fuel n d`: how many times `d` fits into `n`, at most `fuel`.
     DivFuel,
-    /// `eqNatRefl n : eqNat n n = True`, which is `byComputing` for any number. Without
-    /// this, a proof of `eqNat n n = True` would count down `n`.
-    EqNatRefl,
-    /// `eqNatSound m n h : m = n`, which is `byComputing` when `m` and `n` are the same
-    /// number, whatever `h` is. Without this, transporting along a decided
-    /// equation (`Nat.decEq m n`'s `sound`) would count down its arguments.
-    EqNatSound,
 }
 
 impl Native {
-    pub const ALL: [Native; 8] = [
+    pub const ALL: [Native; 6] = [
         Native::Add,
         Native::Sub,
         Native::Mul,
         Native::Leq,
         Native::EqNat,
         Native::DivFuel,
-        Native::EqNatRefl,
-        Native::EqNatSound,
     ];
 
     /// The prelude definition this implements.
@@ -88,8 +81,6 @@ impl Native {
             Native::Leq => Builtin::Leq,
             Native::EqNat => Builtin::EqNat,
             Native::DivFuel => Builtin::DivFuel,
-            Native::EqNatRefl => Builtin::EqNatRefl,
-            Native::EqNatSound => Builtin::EqNatSound,
         }
     }
 
@@ -100,18 +91,8 @@ impl Native {
 
     pub fn arity(self) -> usize {
         match self {
-            Native::DivFuel | Native::EqNatSound => 3,
-            Native::EqNatRefl => 1,
+            Native::DivFuel => 3,
             _ => 2,
-        }
-    }
-
-    /// How many of the arguments are numbers: all of them except
-    /// `eqNatSound`'s proof, which it never looks at.
-    pub fn numbers(self) -> usize {
-        match self {
-            Native::EqNatSound => 2,
-            _ => self.arity(),
         }
     }
 }
@@ -465,50 +446,11 @@ fn register_shaped(g: &mut Kernel, id: DefId, native: Native) -> Result<()> {
     let result = match native {
         Native::Add | Native::Sub | Native::Mul | Native::DivFuel => Some(nat_ty()),
         Native::Leq | Native::EqNat => g.env.builtins().bool.map(|b| Term::Data(b, Vec::new())),
-        // (m : Nat) -> (n : Nat) -> eqNat m n = True -> m = n
-        Native::EqNatSound => g
-            .env
-            .builtins()
-            .bool
-            .zip(native_def(&g.ev(), Native::EqNat))
-            .map(|(bool, eq_nat)| {
-                arrow(
-                    Term::Eq(
-                        Some(Rc::new(Term::Data(bool, Vec::new()))),
-                        Rc::new(Term::app(
-                            Term::app(Term::Def(eq_nat), Term::Var(1)),
-                            Term::Var(0),
-                        )),
-                        Rc::new(Term::Ctor(bool, 1, Vec::new())),
-                    ),
-                    Term::Eq(
-                        Some(Rc::new(nat_ty())),
-                        Rc::new(Term::Var(2)),
-                        Rc::new(Term::Var(1)),
-                    ),
-                )
-            }),
-        // (n : Nat) -> eqNat n n = True
-        Native::EqNatRefl => g
-            .env
-            .builtins()
-            .bool
-            .zip(native_def(&g.ev(), Native::EqNat))
-            .map(|(bool, eq_nat)| {
-                Term::Eq(
-                    Some(Rc::new(Term::Data(bool, Vec::new()))),
-                    Rc::new(Term::app(
-                        Term::app(Term::Def(eq_nat), Term::Var(0)),
-                        Term::Var(0),
-                    )),
-                    Rc::new(Term::Ctor(bool, 1, Vec::new())),
-                )
-            }),
     };
     let Some(mut expected) = result else {
         return Err(shape_error(span, native.name()));
     };
-    for _ in 0..native.numbers() {
+    for _ in 0..native.arity() {
         expected = arrow(nat_ty(), expected);
     }
     if def.arity != native.arity()
@@ -998,13 +940,6 @@ fn run_partial(
                 ],
             )))
         }
-        // `eqNatRefl (Succ n) = eqNatRefl n`.
-        (Native::EqNatRefl, [n]) => {
-            let (k, base) = view(n)?;
-            Ok(base
-                .filter(|_| !k.is_zero())
-                .map(|base| Outcome::Again(vec![explicit(base)])))
-        }
         _ => Ok(None),
     }
 }
@@ -1080,13 +1015,13 @@ pub fn run(
     // every step, which is quadratic in `k` (SW-2572). The forced heads
     // aren't kept, so this frame stays small (see `run_partial`): forcing
     // again finds a call's kept unfolding.
-    for v in values.iter().take(native.numbers()) {
+    for v in values.iter().take(native.arity()) {
         if !number_head(g, &force(g, (*v).clone())?) {
             return run_partial(g, id, native, &values, force);
         }
     }
     let mut args = Vec::new();
-    for v in values.iter().take(native.numbers()) {
+    for v in values.iter().take(native.arity()) {
         match as_nat_with(g, v, force)? {
             Some(n) => args.push(n),
             None => return run_partial(g, id, native, &values, force),
@@ -1132,10 +1067,6 @@ fn run_numbers(g: &Ev, native: Native, args: &[BigUint]) -> Option<Value> {
         } else {
             fuel.min(&(n / d)).clone()
         }),
-        (Native::EqNatRefl, [_]) => Some(Value::Refl),
-        // When the numbers differ, the definition unfolds instead (to a proof
-        // from `h`, which can only be a hypothesis).
-        (Native::EqNatSound, [m, n]) => (m == n).then_some(Value::Refl),
         _ => None,
     }
 }

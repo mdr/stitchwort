@@ -508,8 +508,7 @@ impl PrimOp {
     pub fn arity(self) -> u32 {
         use native::Native;
         match self {
-            PrimOp::Nat(Native::DivFuel | Native::EqNatSound) => 3,
-            PrimOp::Nat(Native::EqNatRefl) => 1,
+            PrimOp::Nat(Native::DivFuel) => 3,
             PrimOp::Nat(_) => 2,
             PrimOp::Int(op) => match op {
                 IntNative::NatToInt

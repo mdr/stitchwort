@@ -106,14 +106,6 @@ pub const PINS: &[Pin] = &[
         Builtin::DivFuel,
         "7a01293db3c229872123c2296ce4a5fe9f833bd2cffdfa51e61859dc8adb6cee",
     ),
-    kernel(
-        Builtin::EqNatRefl,
-        "85552196461679359e4cc327d555f606a0bf4685fde0f8380a6aac54bd1283a5",
-    ),
-    kernel(
-        Builtin::EqNatSound,
-        "81b206ae8b265725d0ba7ef5f8a5f85e7288121a59bf832e4447631361acace4",
-    ),
     // `Float`, whose `isValid` the float natives' results rely on, and the
     // float natives' definitions (`float.rs`).
     kernel(
