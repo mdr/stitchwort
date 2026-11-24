@@ -373,6 +373,50 @@ fn check_recheck_says_what_it_checked_again() {
     let _ = std::fs::remove_dir_all(&cache);
 }
 
+/// `check --jobs 4` (docs/proposals/parallel-checking.md §9) prints what
+/// one job prints, cold and with `--no-cache`, and runs one job, saying why
+/// under `--timings`, with `--recheck`.
+#[test]
+fn check_jobs_prints_what_one_job_does_and_one_job_for_recheck() {
+    let project =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../driver/tests/projects/parallel/par_project");
+    let project = project.to_str().unwrap();
+    let run = |cache: Option<&Path>, extra: &[&str]| {
+        let mut args = vec!["check", "--project", project];
+        match cache {
+            Some(cache) => args.extend(["--cache-dir", cache.to_str().unwrap()]),
+            None => args.push("--no-cache"),
+        }
+        args.extend(extra);
+        stitchwort(&args, &[])
+    };
+    let one = temp_dir("jobs-one");
+    let four = temp_dir("jobs-four");
+    let sequential = run(Some(&one), &[]);
+    assert!(sequential.status.success(), "{}", shown(&sequential));
+    let parallel = run(Some(&four), &["--jobs", "4"]);
+    assert_eq!(shown(&sequential), shown(&parallel));
+    assert_eq!(namespace_entry_keys(&one), namespace_entry_keys(&four));
+    let uncached = run(None, &[]);
+    let uncached_parallel = run(None, &["-j", "4"]);
+    assert_eq!(shown(&uncached), shown(&uncached_parallel));
+    let cold = temp_dir("jobs-recheck");
+    let recheck = run(Some(&cold), &["--recheck", "--jobs", "4", "--timings"]);
+    let err = String::from_utf8_lossy(&recheck.stderr).into_owned();
+    assert!(recheck.status.success(), "{}", shown(&recheck));
+    assert!(err.contains("one job: --recheck"), "{err}");
+    let timed = temp_dir("jobs-timed");
+    let filled = run(Some(&timed), &["--jobs", "4", "--timings"]);
+    let err = String::from_utf8_lossy(&filled.stderr).into_owned();
+    assert!(
+        err.contains("with 4 jobs") && err.contains("filled"),
+        "{err}"
+    );
+    for dir in [one, four, cold, timed] {
+        let _ = std::fs::remove_dir_all(dir);
+    }
+}
+
 /// Under `STITCHWORT_CACHE_DEBUG`, a namespace replayed from its entry has
 /// a line, as one written, missed or (with the default skipping) left out
 /// has (SW-4712).

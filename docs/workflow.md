@@ -614,6 +614,8 @@ profile a project's namespaces without paying for the library, add
 `--no-project-cache`: the project's own namespaces are checked afresh (their
 cache entries neither read nor written) while the library comes from the
 cache; `--no-cache` still turns both off.
+Lanes never pass `check --jobs` (or set `STITCHWORT_JOBS`): the load rules
+above count a check as one core (SW-4719).
 
 ### Writing a brief
 

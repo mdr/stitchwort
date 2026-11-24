@@ -82,12 +82,12 @@ impl CheckCache {
     fn for_build(cache_dir: &Path, grace: Duration, build: &str, kernel: &str) -> CheckCache {
         let dir = cache_dir.join("check");
         let salt = salt(&dir);
-        let version = env!("CARGO_PKG_VERSION");
+        let (compiler, kernel_name) = stamp_names(build, kernel);
         CheckCache {
             dir,
             build: build.to_string(),
-            compiler: format!("stitchwort-{version}-{build}"),
-            kernel: format!("stitchwort-{version}-kernel-{kernel}"),
+            compiler,
+            kernel: kernel_name,
             listing: std::cell::RefCell::new(None),
             salt,
             written: Cell::new(false),
@@ -225,6 +225,256 @@ impl Store for CheckCache {
         let path = self.file(unit, key);
         if write_atomically(&self.dir, &path, entry).is_ok() {
             self.evict(unit, &path);
+        }
+    }
+}
+
+/// What [`Store::compiler`] and [`Store::kernel`] say for the build whose
+/// fingerprint is `build` and whose kernel side's is `kernel`.
+fn stamp_names(build: &str, kernel: &str) -> (String, String) {
+    let version = env!("CARGO_PKG_VERSION");
+    (
+        format!("stitchwort-{version}-{build}"),
+        format!("stitchwort-{version}-kernel-{kernel}"),
+    )
+}
+
+/// The check cache of one parallel `check --no-cache` (`check --jobs N`,
+/// [`crate::parallel`]): a map in memory that lives for the run, shared by
+/// its workers and the check after them, so that what one worker checked
+/// another replays instead of checking it again. Nothing on disk is read or
+/// written. It has this build's stamp and a salt made for the run, so an
+/// entry in it is one this process wrote; each is written only once the
+/// kernel has accepted every declaration in it, as a cache directory's.
+///
+/// Clones share the map: each thread wraps its own in an `Rc<dyn Store>`.
+/// Each entry of a [`MemoryStore`], by unit and key.
+type MemoryEntries = std::collections::BTreeMap<(String, Key), std::sync::Arc<[u8]>>;
+
+#[derive(Clone)]
+pub struct MemoryStore(std::sync::Arc<MemoryShared>);
+
+struct MemoryShared {
+    entries: std::sync::Mutex<MemoryEntries>,
+    compiler: String,
+    kernel: String,
+    salt: [u8; 16],
+}
+
+impl Default for MemoryStore {
+    fn default() -> Self {
+        let (compiler, kernel) = stamp_names(FINGERPRINT, KERNEL_FINGERPRINT);
+        MemoryStore(std::sync::Arc::new(MemoryShared {
+            entries: Default::default(),
+            compiler,
+            kernel,
+            salt: random_salt(),
+        }))
+    }
+}
+
+impl MemoryStore {
+    /// How many entries it holds.
+    pub fn len(&self) -> usize {
+        self.entries().len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    fn entries(&self) -> std::sync::MutexGuard<'_, MemoryEntries> {
+        self.0.entries.lock().unwrap_or_else(|e| e.into_inner())
+    }
+}
+
+impl Store for MemoryStore {
+    fn compiler(&self) -> &str {
+        &self.0.compiler
+    }
+
+    fn kernel(&self) -> &str {
+        &self.0.kernel
+    }
+
+    fn salt(&self) -> [u8; 16] {
+        self.0.salt
+    }
+
+    fn read(&self, unit: &str, key: &Key) -> Option<Vec<u8>> {
+        self.entries()
+            .get(&(unit.to_string(), *key))
+            .map(|entry| entry.to_vec())
+    }
+
+    fn write(&self, unit: &str, key: &Key, entry: &[u8]) {
+        self.entries()
+            .insert((unit.to_string(), *key), std::sync::Arc::from(entry));
+    }
+}
+
+/// The library files the workers of a parallel check are elaborating, so
+/// that two of them needing the same uncached file don't both elaborate it
+/// ([`ClaimStore`]). Shared by the workers, in memory.
+pub struct Claims {
+    /// Each library file's unit and key, with the worker elaborating it.
+    held: std::sync::Mutex<std::collections::BTreeMap<(String, Key), usize>>,
+    changed: std::sync::Condvar,
+    /// How long a worker waits for another's file before elaborating it
+    /// itself.
+    patience: Duration,
+    /// How many waits ran out.
+    gave_up: AtomicU64,
+}
+
+impl Claims {
+    /// Claims whose waits last at most `patience`.
+    pub fn new(patience: Duration) -> Claims {
+        Claims {
+            held: Default::default(),
+            changed: std::sync::Condvar::new(),
+            patience,
+            gave_up: AtomicU64::new(0),
+        }
+    }
+
+    /// How many waits ran out, so a worker elaborated a file another was
+    /// elaborating.
+    pub fn gave_up(&self) -> u64 {
+        self.gave_up.load(Ordering::Relaxed)
+    }
+
+    fn held(&self) -> std::sync::MutexGuard<'_, std::collections::BTreeMap<(String, Key), usize>> {
+        self.held.lock().unwrap_or_else(|e| e.into_inner())
+    }
+}
+
+/// A worker's check cache in a parallel check: its own store, with the
+/// library files' entries claimed in a table the workers share ([`Claims`]).
+/// While the worker has a job ([`ClaimStore::begin_job`]), a read of a
+/// library file that finds no entry claims the file, and the worker
+/// elaborates and writes it as it would anyway; a read of a file another
+/// worker has claimed waits until that one writes it or ends its job, then
+/// reads again. Namespaces' entries, and everything outside a job, go
+/// straight to the store.
+///
+/// - **No deadlock.** A worker waits only for a library file needed by the
+///   one it is elaborating (or, elaborating none, by its namespace), and
+///   holds unwritten claims only on the files it is in the middle of, each
+///   needing the next; the library's files have no cycle, so the waits
+///   can't make one. A file whose elaboration fails is never written, and
+///   its claim lasts until the job ends; a wait that runs out of patience
+///   elaborates the file itself, which changes no result.
+/// - **Exactness.** A claim decides only who elaborates first. Whoever
+///   does writes the same bytes the other would have, by the cache's own
+///   invariant (replay equals elaboration); a worker that finds the entry
+///   replays it, as a sequential check does in the next namespace.
+pub struct ClaimStore {
+    inner: std::rc::Rc<dyn Store>,
+    claims: std::sync::Arc<Claims>,
+    worker: usize,
+    active: Cell<bool>,
+}
+
+impl ClaimStore {
+    pub fn new(
+        inner: std::rc::Rc<dyn Store>,
+        claims: std::sync::Arc<Claims>,
+        worker: usize,
+    ) -> ClaimStore {
+        ClaimStore {
+            inner,
+            claims,
+            worker,
+            active: Cell::new(false),
+        }
+    }
+
+    /// From now until [`ClaimStore::end_job`], library files are claimed.
+    pub fn begin_job(&self) {
+        self.active.set(true);
+    }
+
+    /// Lets go of every claim this worker still holds (files whose
+    /// elaboration failed), waking those waiting for them.
+    pub fn end_job(&self) {
+        self.active.set(false);
+        let mut held = self.claims.held();
+        held.retain(|_, worker| *worker != self.worker);
+        drop(held);
+        self.claims.changed.notify_all();
+    }
+
+    fn claimed(&self, unit: &str) -> bool {
+        self.active.get() && unit.starts_with("std.")
+    }
+}
+
+impl Store for ClaimStore {
+    fn compiler(&self) -> &str {
+        self.inner.compiler()
+    }
+
+    fn kernel(&self) -> &str {
+        self.inner.kernel()
+    }
+
+    fn salt(&self) -> [u8; 16] {
+        self.inner.salt()
+    }
+
+    fn read_others(&self, unit: &str, key: &Key) -> Vec<Vec<u8>> {
+        self.inner.read_others(unit, key)
+    }
+
+    fn read(&self, unit: &str, key: &Key) -> Option<Vec<u8>> {
+        if !self.claimed(unit) {
+            return self.inner.read(unit, key);
+        }
+        if let Some(entry) = self.inner.read(unit, key) {
+            return Some(entry);
+        }
+        let id = (unit.to_string(), *key);
+        let deadline = std::time::Instant::now() + self.claims.patience;
+        let mut held = self.claims.held();
+        loop {
+            match held.get(&id) {
+                Some(&worker) if worker != self.worker => {
+                    let now = std::time::Instant::now();
+                    if now >= deadline {
+                        self.claims.gave_up.fetch_add(1, Ordering::Relaxed);
+                        return None;
+                    }
+                    held = (self.claims.changed)
+                        .wait_timeout(held, deadline - now)
+                        .unwrap_or_else(|e| e.into_inner())
+                        .0;
+                }
+                Some(_) => return None,
+                None => {
+                    // Read again under the lock: the owner writes before it
+                    // lets go, so an entry that isn't here now isn't being
+                    // made by anyone.
+                    if let Some(entry) = self.inner.read(unit, key) {
+                        return Some(entry);
+                    }
+                    held.insert(id, self.worker);
+                    return None;
+                }
+            }
+        }
+    }
+
+    fn write(&self, unit: &str, key: &Key, entry: &[u8]) {
+        self.inner.write(unit, key, entry);
+        if self.claimed(unit) {
+            let id = (unit.to_string(), *key);
+            let mut held = self.claims.held();
+            if held.get(&id) == Some(&self.worker) {
+                held.remove(&id);
+            }
+            drop(held);
+            self.claims.changed.notify_all();
         }
     }
 }

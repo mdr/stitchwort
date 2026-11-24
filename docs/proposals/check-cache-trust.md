@@ -13,6 +13,21 @@ built (stage 3)". I read the code at `b42f164bf` and ran nothing. A claim
 with a file:line is one I read. **[inferred]** marks reasoning I didn't
 confirm by reading every caller.
 
+**Added for `check --jobs` (SW-4719, 24 Nov 2026).** A parallel check
+(`check --jobs N`, parallel-checking.md §9) fills the cache with workers
+and then runs the ordinary check over it, so with the cache on it trusts
+nothing a second `check` in the same folder doesn't. With `--no-cache` and
+more than one job (D3731), the workers pass their results to each other and
+to the final check as entries in a store in memory that lives for the run:
+no entry from disk is used, and each entry in memory was written only after
+this build's kernel had accepted every declaration in it; but the final
+check replays those entries trusted, as it would a folder's. So
+`--no-cache --jobs N` is "everything checked by this run's kernel", not
+"every declaration checked in the session that reports". The full check in
+the strict sense below is `--no-cache` with one job, which stays the
+reference (Overmind's rolling check). The switch is `PARALLEL_NO_CACHE` in
+`crates/cli/src/main.rs`.
+
 ## 1. In short
 
 **What you get.** A check that comes back from the cache is something this

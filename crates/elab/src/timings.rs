@@ -141,12 +141,33 @@ impl Frame {
 }
 
 thread_local! {
+    /// While a parallel check's worker loads what its next namespace uses:
+    /// the worker's number, and its units' rows are added up into one.
+    static LOADING: std::cell::Cell<Option<usize>> = const { std::cell::Cell::new(None) };
     static STACK: RefCell<Vec<Frame>> = const { RefCell::new(Vec::new()) };
     static DECLS: RefCell<Vec<Frame>> = const { RefCell::new(Vec::new()) };
 }
 static ROWS: Mutex<Vec<Row>> = Mutex::new(Vec::new());
 static DECL_ROWS: Mutex<Vec<DeclRow>> = Mutex::new(Vec::new());
 static START: OnceLock<Instant> = OnceLock::new();
+/// The workers of a parallel check (`check --jobs N`), and a line saying
+/// what they did, or why it ran one job.
+static JOBS: Mutex<(usize, Option<String>)> = Mutex::new((1, None));
+
+/// For `check --jobs N`: the run used `jobs` workers, and `note` is a line
+/// for the end of the tables (what the workers did, or why one job ran).
+pub fn jobs(jobs: usize, note: Option<String>) {
+    *JOBS.lock().unwrap() = (jobs, note);
+}
+
+/// For a parallel check's worker: from now until `loading(None)`, the units
+/// this thread loads are what worker `worker` needed for its next
+/// namespace, a row of their own (`worker 3: loading`), not one each.
+pub fn loading(worker: Option<usize>) {
+    if enabled() {
+        LOADING.with(|l| l.set(worker));
+    }
+}
 
 /// Marks the start of the run, for the time outside the units.
 pub fn start() {
@@ -228,13 +249,29 @@ pub(crate) fn end(g: &Ev, label: String) {
             }
         }
     });
-    ROWS.lock().unwrap().push(Row {
+    let row = Row {
         label,
         elab: total.saturating_sub(frame.kernel + frame.children),
         kernel: frame.kernel,
         nodes: nodes - frame.child_nodes,
         decls: decls - frame.child_decls,
-    });
+    };
+    let mut rows = ROWS.lock().unwrap();
+    match LOADING.with(|l| l.get()) {
+        Some(worker) => {
+            let label = format!("worker {worker}: loading");
+            match rows.iter_mut().find(|r| r.label == label) {
+                Some(sum) => {
+                    sum.elab += row.elab;
+                    sum.kernel += row.kernel;
+                    sum.nodes += row.nodes;
+                    sum.decls += row.decls;
+                }
+                None => rows.push(Row { label, ..row }),
+            }
+        }
+        None => rows.push(row),
+    }
 }
 
 /// Records namespace `ns`, which the check cache answered for without
@@ -401,7 +438,23 @@ pub fn report() {
         return;
     }
     let wall = START.get().map(Instant::elapsed).unwrap_or_default();
-    let rows = ROWS.lock().unwrap();
+    let mut rows = ROWS.lock().unwrap();
+    // A parallel check plans before its workers and again after them, and
+    // a namespace a worker checked is then reported from its entry: its
+    // `(cached)` row with no time says nothing its real row doesn't.
+    let real: std::collections::BTreeSet<String> = rows
+        .iter()
+        .filter(|r| !r.label.ends_with(" (cached)"))
+        .map(|r| r.label.clone())
+        .collect();
+    let mut seen = std::collections::BTreeSet::new();
+    rows.retain(|r| {
+        let Some(ns) = r.label.strip_suffix(" (cached)") else {
+            return true;
+        };
+        let untimed = r.elab.is_zero() && r.kernel.is_zero();
+        !(untimed && (real.contains(ns) || !seen.insert(r.label.clone())))
+    });
     let width = name_width(rows.iter().map(|r| r.label.as_str()), 5);
     let mut out = String::new();
     let _ = writeln!(
@@ -454,12 +507,26 @@ pub fn report() {
         lib_decls,
     );
     line(&mut out, "total", elab, kernel, nodes, decls);
-    let _ = writeln!(
-        out,
-        "wall {} ms; outside the units (parsing, core load, printing) {} ms",
-        ms(wall),
-        ms(wall.saturating_sub(elab + kernel))
-    );
+    let (jobs, note) = JOBS.lock().unwrap().clone();
+    if jobs > 1 {
+        // Units run side by side, so their sum isn't a part of the wall.
+        let _ = writeln!(
+            out,
+            "wall {} ms with {jobs} jobs; the units' time added up {} ms",
+            ms(wall),
+            ms(elab + kernel)
+        );
+    } else {
+        let _ = writeln!(
+            out,
+            "wall {} ms; outside the units (parsing, core load, printing) {} ms",
+            ms(wall),
+            ms(wall.saturating_sub(elab + kernel))
+        );
+    }
+    if let Some(note) = note {
+        let _ = writeln!(out, "{note}");
+    }
     let queue: Vec<String> = queue_counts()
         .into_iter()
         .map(|(name, n)| format!("{n} {name}"))
