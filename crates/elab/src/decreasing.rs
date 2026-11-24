@@ -15,7 +15,9 @@
 //!    `%rec` = `y c' p => f.%go k y c' (Nat.leTrans … p h)`.
 //! 3. `f (x: A) (c: C): B := f.%go (Succ (m x)) x c (Nat.leRefl (m x))`,
 //!    marked to stay folded until something takes it apart, so a goal
-//!    shows `f x c`, not the fuel.
+//!    shows `f x c`, not the fuel (a theorem isn't: it is sealed outside a
+//!    program, and the mark would make its interface digest depend on
+//!    whether its proof was checked).
 //! 4. `f.%step.%respects`: `f.%step` gives equal results for two `%rec`s
 //!    that agree everywhere (and the same for each `match` lifted from it
 //!    that uses `%rec`), by the same case tree, each leaf by rewriting one
@@ -1222,7 +1224,9 @@ impl Elaborator {
                 starts.chain(plan.args(n, &|l| l, 0..n)).chain(refls),
             ),
         );
-        kernel::mark_folded(&mut self.kernel, plan.f);
+        if !plan.theorem {
+            kernel::mark_folded(&mut self.kernel, plan.f);
+        }
         self.generated_admit(plan, &[(plan.f, body)])
     }
 
