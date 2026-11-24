@@ -425,7 +425,7 @@ design, docs and error message, and nothing measured needs it. *What it should d
 keeps stage 3 correct; (a) does it now at no cost.
 **[rec: (a); raise (b) as its own proposal only if such proofs become common]**
 
-**C. Saving a file's result while proofs below it are still unchecked.**
+**C. Saving a file's result while proofs below it are still unchecked.** **Decided: D3737 (a), save at once (Matt, 24 Nov 2026: "D3737 agreed with (a)").**
 *The problem:* a worker finishes file `M` while a proof in file `N` below is still running.
 Should `M`'s result go into the cache now, or wait? *The options:* (a) save it at once, as
 today's code does. It is filed under a label made from `N`'s statements, and a later check
