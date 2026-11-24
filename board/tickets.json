@@ -34307,12 +34307,12 @@
     {
       "id": 4736,
       "title": "[Sonnet] Parallel stage 2 step 3: plain check loads without proofs; restart on error loads with; docs and performance log (parallel-checking.md 10.6 step 3) (D3732)",
-      "status": "doing",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nOrchestrator's call (24 Nov, not merged; branch lane/SW-4736 kept, review fixes at bf167fd30): measured on the Fmt.PassProofs closure, warm: loading without proofs saves about 0.1 s and 80 MB on a clean check, but a check with an open goal or error restarts with proofs and costs 0.26 s more (1.50 -> 1.79 s, 17%), and that is the proving loop. Plain check keeps loading whole; check --jobs workers keep loading without proofs (SW-4735). Revisit only if goals stop needing the restart (reliance through a stated leaf is sound by invariant W; a Fable check could narrow the restart to errors), e.g. with stage 3.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
       "commits": []
