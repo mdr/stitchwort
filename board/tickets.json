@@ -34235,7 +34235,7 @@
     {
       "id": 4733,
       "title": "[Sonnet] examples/accept: pin that an opaque f equals its eta wrapper outside its unfolding set (from SW-4728 review probe; copy at scratchpad/eta-p1.sw) (SW-4728 review F5)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34285,7 +34285,7 @@
     {
       "id": 4736,
       "title": "[Sonnet] Parallel stage 2 step 3: plain check loads without proofs; restart on error loads with; docs and performance log (parallel-checking.md 10.6 step 3) (D3732)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
