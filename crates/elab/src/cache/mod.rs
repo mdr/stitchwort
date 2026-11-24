@@ -4567,7 +4567,14 @@ impl Elaborator {
                 continue;
             }
             if next_def < defs.len() && defs[next_def].body.is_none() {
-                self.admit_stated(&defs[next_def], DefId(base_defs + next_def), hit, library)?;
+                let id = DefId(base_defs + next_def);
+                self.admit_stated(
+                    &defs[next_def],
+                    id,
+                    param_defaults.contains(&id),
+                    hit,
+                    library,
+                )?;
                 def_final[next_def] = true;
                 next_def += 1;
                 continue;
@@ -4629,6 +4636,7 @@ impl Elaborator {
         &mut self,
         def: &DefEntry,
         expected: DefId,
+        param_default: bool,
         hit: Hit,
         library: bool,
     ) -> Read<()> {
@@ -4640,6 +4648,7 @@ impl Elaborator {
             || def.fold
             || def.opaque
             || def.tailrec
+            || param_default
             || !def.unfolding.is_empty()
             || def.run_body.is_some()
         {
@@ -5330,6 +5339,33 @@ mod tests {
             e.kernel.env.datas().len() - before.1,
         );
         (result, added, e.session.cache_stats)
+    }
+
+    /// A theorem read without its proof is refused when its entry marks it a
+    /// parameter default's helper, as the writer never leaves one stated
+    /// (`stated_on_load`): the statement alone would drop the mark.
+    #[test]
+    fn a_stated_theorem_that_is_a_parameter_default_is_refused() {
+        let hit = super::Hit {
+            exact: true,
+            recheck: false,
+        };
+        let admit = |param_default: bool| {
+            let mut e = Elaborator::new();
+            let mut def = identity_def("f", 0, None);
+            def.body = None;
+            def.group = Vec::new();
+            def.hash = Some(stitchwort_core::hash::ContentHash([7; 32]));
+            let result = e.admit_stated(&def, stitchwort_core::DefId(0), param_default, hit, false);
+            (result, e.kernel.env.defs().len())
+        };
+        let (result, defs) = admit(false);
+        result.expect("a plain stated theorem is admitted");
+        assert_eq!(defs, 1);
+        let (result, defs) = admit(true);
+        let super::Bad(why) = result.expect_err("a parameter default's mark is refused");
+        assert!(why.contains("more than its statement"), "{why}");
+        assert_eq!(defs, 0);
     }
 
     /// A run body the kernel gives back differently from the one recorded

@@ -218,9 +218,12 @@ pub fn canonical_dump(e: &Elaborator) -> String {
 }
 
 /// [`canonical_dump`] without what a session loaded without proofs lacks
-/// of a theorem (parallel-checking.md §10.4): every theorem's body, group,
-/// `unfolding` list, transparency set and admission flags, and whether it
-/// is stated, are printed `-`. A session loaded without proofs must give
+/// of a theorem (parallel-checking.md §10.4): the body, group, `unfolding`
+/// list, transparency set and admission flags, and whether it is stated, are
+/// printed `-` for a theorem that is stated, or that a load without proofs
+/// would state (`stated_on_load`: the same set in both sessions). Every
+/// other theorem prints in full, so a whole-loaded one that lost its
+/// `unfolding` list, say, shows. A session loaded without proofs must give
 /// the same text as one loaded whole.
 pub fn canonical_dump_without_proofs(e: &Elaborator) -> String {
     dump(e, false)
@@ -249,10 +252,18 @@ fn dump(e: &Elaborator, proofs: bool) -> String {
 /// The kernel's definitions and data types, as the canonical dump prints
 /// them; without `proofs`, a theorem's proof and what comes of it as `-`.
 pub(super) fn declarations(g: &Ev, out: &mut String, proofs: bool) {
+    let statable = if proofs {
+        Default::default()
+    } else {
+        super::stated_on_load(g, 0)
+    };
     for (i, def) in g.env.defs().iter().enumerate() {
-        // What a stated theorem doesn't have: hidden for every theorem, so
-        // the text doesn't say which were loaded how.
-        let hide = !proofs && def.theorem();
+        // What a stated theorem doesn't have: hidden for each theorem a
+        // load without proofs states (or would), so the text doesn't say
+        // which were loaded how.
+        let hide = !proofs
+            && def.theorem()
+            && (def.stated() || statable.contains(&stitchwort_core::DefId(i)));
         let shown = |text: String| if hide { "-".to_string() } else { text };
         let _ = write!(
             out,
