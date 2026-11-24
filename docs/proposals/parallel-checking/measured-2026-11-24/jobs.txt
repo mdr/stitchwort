@@ -1,0 +1,50 @@
+=== tools/fmt
+== library fill (not timed against anything)
+== cold
+cold     jobs 1   wall  113.37 s  peak  1.42 GB  exit 0
+cold     jobs 4   wall   51.63 s  peak  4.82 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (222 files)
+cold     jobs 8   wall   54.28 s  peak  5.82 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (222 files)
+== libwarm
+libwarm  jobs 1   wall  101.99 s  peak  1.38 GB  exit 0
+libwarm  jobs 4   wall   42.69 s  peak  3.98 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (258 files)
+libwarm  jobs 8   wall   46.21 s  peak  5.08 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (258 files)
+== nocache
+nocache  jobs 1   wall  142.15 s  peak  1.10 GB  exit 0
+nocache  jobs 4   wall   62.80 s  peak  4.87 GB  exit 0
+         output same as jobs 1: yes
+nocache  jobs 8   wall   53.11 s  peak  6.88 GB  exit 0
+         output same as jobs 1: yes
+cold and nocache report the same (1 job)
+=== aoc
+== library fill (not timed against anything)
+== cold
+cold     jobs 1   wall   51.17 s  peak  1.25 GB  exit 0
+cold     jobs 4   wall   23.56 s  peak  2.25 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: NO, see /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/jobs-aoc/cold-4.cachediff
+cold     jobs 8   wall   18.63 s  peak  3.33 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: NO, see /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/jobs-aoc/cold-8.cachediff
+== libwarm
+libwarm  jobs 1   wall   38.10 s  peak  1.23 GB  exit 0
+libwarm  jobs 4   wall   12.07 s  peak  2.25 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: NO, see /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/jobs-aoc/libwarm-4.cachediff
+libwarm  jobs 8   wall    8.25 s  peak  3.21 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: NO, see /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/jobs-aoc/libwarm-8.cachediff
+== nocache
+nocache  jobs 1   wall   45.03 s  peak  1.29 GB  exit 0
+nocache  jobs 4   wall   21.41 s  peak  2.30 GB  exit 0
+         output same as jobs 1: yes
+nocache  jobs 8   wall   16.61 s  peak  3.31 GB  exit 0
+         output same as jobs 1: yes
+cold and nocache report the same (1 job)
