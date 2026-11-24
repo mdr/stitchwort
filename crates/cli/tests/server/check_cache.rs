@@ -463,6 +463,59 @@ fn cache_debug_says_which_namespaces_were_replayed_and_which_left_out() {
     let _ = std::fs::remove_dir_all(&cache);
 }
 
+/// The "written" line of a debug run says how much of the entry is proofs
+/// (SW-4729): a namespace with a long sealed theorem has a proofs share well
+/// above a namespace of definitions, and the parts add up to at most the
+/// entry.
+#[test]
+fn cache_debug_reports_the_proofs_share_of_an_entry() {
+    let project = temp_dir("share-project");
+    let proof = "(n: Nat): n + 0 = n + 0 := byComputing";
+    let theorems: String = (0..20)
+        .map(|i| format!("theorem same{i} {proof}\n\n"))
+        .collect();
+    for (path, text) in [
+        ("stitchwort.yaml", "sources: [src]\n".to_string()),
+        (
+            "src/Defs.sw",
+            "namespace Defs\n\ndef one: Nat := 1\n".to_string(),
+        ),
+        ("src/Proofs.sw", format!("namespace Proofs\n\n{theorems}")),
+    ] {
+        let full = project.join(path);
+        std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+        std::fs::write(full, text).unwrap();
+    }
+    let cache = temp_dir("share-cache");
+    let cold = plain_check(&project, &cache, false, true);
+    assert!(cold.status.success(), "{}", shown(&cold));
+    let err = String::from_utf8_lossy(&cold.stderr).into_owned();
+    // "entry N bytes, M nodes: proofs P bytes (X%), ..."
+    let share = |ns: &str| -> (usize, usize) {
+        let line = err
+            .lines()
+            .find(|l| l.starts_with(&format!("check cache: {ns}: written")))
+            .unwrap_or_else(|| panic!("no written line for {ns}: {err}"));
+        let number = |after: &str| -> usize {
+            let rest = line.split(after).nth(1).unwrap_or_else(|| panic!("{line}"));
+            let digits: String = rest.chars().take_while(char::is_ascii_digit).collect();
+            digits.parse().unwrap_or_else(|_| panic!("{line}"))
+        };
+        (number("entry "), number("proofs "))
+    };
+    let (defs_entry, defs_proofs) = share("Defs");
+    let (proofs_entry, proofs_proofs) = share("Proofs");
+    assert!(defs_entry > 0 && proofs_entry > defs_entry, "{err}");
+    assert!(
+        proofs_proofs <= proofs_entry && defs_proofs <= defs_entry,
+        "{err}"
+    );
+    assert!(proofs_proofs * 5 > proofs_entry, "proofs under 20%: {err}");
+    assert!(defs_proofs * 5 < defs_entry, "proofs over 20%: {err}");
+    let _ = std::fs::remove_dir_all(&project);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
 /// The namespaces a debug run of [`plain_check`] says it didn't load.
 fn skipped(output: &Output) -> Vec<String> {
     let mut names: Vec<String> = String::from_utf8_lossy(&output.stderr)
