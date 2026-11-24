@@ -34523,7 +34523,7 @@
     {
       "id": 4750,
       "title": "[Opus] Audit: budget Err read as Ok(None) (interface_hash(..).ok().flatten() and the digest's other passes), and 'if not cancelled, write' checks before long computations (keep_rechecked and other cache write paths): can a cancellation write a wrong entry? (SW-4744 findings)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
