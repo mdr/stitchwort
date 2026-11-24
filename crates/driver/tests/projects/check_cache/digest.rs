@@ -494,6 +494,32 @@ fn an_edited_decreasing_theorem_below_replays_what_uses_it() {
     }
 }
 
+/// A `decreasing` theorem is sealed outside a program, so it isn't marked
+/// folded: the mark is part of the interface digest, and a check that skips
+/// the proof would otherwise write a different digest from one that runs it.
+/// A `decreasing` definition keeps its mark.
+#[test]
+fn a_decreasing_theorem_is_not_marked_folded() {
+    let a = format!(
+        "{A}\ntheorem down ∀ (n: Nat): n = n\n    decreasing n\n:=\n  \
+         match n with\n    | 0 => byComputing\n    | Succ k => match down k with | _ => byComputing\n\n\
+         def count (n: Nat): Nat\n    decreasing n\n:=\n  \
+         match n with\n    | 0 => 0\n    | Succ k => count k\n"
+    );
+    let dir = temp_project("digest-decreasing-fold", &[("src/A.sw", &a)]);
+    let cache = temp_dir("digest-decreasing-fold-cache");
+    let (theorem, def) = with_loaded(&dir, &cache, false, |s, ok| {
+        assert!(ok, "the project checks");
+        let g = s.elab.ev();
+        let fold = |name: &str| g.def(s.elab.lookup_def(name).expect(name)).fold();
+        (fold("A.down"), fold("A.count"))
+    });
+    assert!(!theorem, "the theorem is marked folded");
+    assert!(def, "the definition is not marked folded");
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
 /// A helper added before a data type's declaration: the type's count of
 /// definitions before it counts only those the digest keeps in order.
 #[test]
