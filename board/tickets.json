@@ -1,5 +1,5 @@
 {
-  "next": 4758,
+  "next": 4759,
   "tickets": [
     {
       "id": 47,
@@ -34540,7 +34540,7 @@
     {
       "id": 4751,
       "title": "[Sonnet] equations: don't record a 'no t.induct' equation_skips row for a theorem (a theorem never has equations or induct); the row put proof-made data in the interface digest (stage 3 pilot cause 1, SW-4730)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34548,7 +34548,11 @@
       "body": "Lane note: no induct row is now recorded for a theorem or instance (induct::no_equations); the t.induct message is unchanged (E-NO-EQUATION from the theorem flag). Test: function_induct::a_recursive_theorem_has_no_induct_and_no_skip_row.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "934b0f4a1ac2eff6fe97f816ec79632d0a67bdc0",
+        "0ecc90b15be667a2936508dba5acc86f3b5b2466",
+        "3acc866cf25d190bed46fd4d87a6d5f68430b19a"
+      ]
     },
     {
       "id": 4752,
@@ -34622,6 +34626,19 @@
       "id": 4757,
       "title": "[Sonnet] Stage 3 step 0: measure the interface chain on the pilot branch (per-namespace interface-pass time and kept-theorem time on tools/fmt); gate: over about 25 s, stop and bring figures to Matt (parallel-checking-stage-3.md section 9) (SW-4753)",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4758,
+      "title": "[Opus] A recursive theorem proved by byWalking seems not to be sealed: editing a proof between match and byWalking changes the namespace's digest and part B (5 vs 6 stated theorems), so dependants don't replay; should it be proof_hidden? Relevant to stage 3's recursive theorems (SW-4751 finding)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
