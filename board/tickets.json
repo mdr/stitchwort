@@ -34475,7 +34475,7 @@
     {
       "id": 4747,
       "title": "[Sonnet] Binder-sweep warnings reuse the main parse instead of parsing the target namespace again (about 3% of a check after an edit) (SW-4745 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34483,7 +34483,11 @@
       "body": "",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "3a6f8dc4df4e03a02351061acc4f5c53368cb3c6",
+        "d926ea157eb939ee13256a45fcf350e33b312f00",
+        "9062fb1988227e460055436e10d65ffe3f427055"
+      ]
     },
     {
       "id": 4748,
