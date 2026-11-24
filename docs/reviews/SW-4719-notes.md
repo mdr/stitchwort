@@ -102,12 +102,16 @@ the full check; `check --jobs N --no-cache` passes the workers' entries
 through a store in memory (D3731, `crates/driver/src/check_cache.rs`,
 `MemoryStore`)". Not edited here: that file is SW-4714's.
 
-## Tests run (all passed)
+## Tests run
 
 - `package(stitchwort-driver) & binary(projects) & (test(/check_cache::(digest::|cache_)/) | test(/^parallel::/))`:
-  26 tests, 41 s.
+  26 passed, 41 s.
 - `package(stitchwort-cli) & binary(server) & test(/caching::|check_cache::/)`:
-  see the lane report (one pre-existing failure there is unrelated; below).
+  24 of 25 passed (the new `check_jobs_prints_what_one_job_does_and_one_job_for_recheck`
+  among them), 77 s. `check_cache::a_library_edit_re_checks_what_it_can_change_and_nothing_else`
+  fails at "a name added" (expects `Dep` re-elaborated); its steps, replayed by hand with
+  main's release binary and with this branch's, give the same debug lines, so it fails on
+  main too and is not this change.
 
 ## What I could not verify
 
