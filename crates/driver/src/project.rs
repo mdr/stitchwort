@@ -299,10 +299,13 @@ impl Session {
     ) -> Result<Loaded, Vec<Diagnostic>> {
         let Prepared { order, counted } = prepared;
         // A command that uses what it loads may read proofs (`axioms`, a
-        // test's reliance, `--timings`' sizes, the trial's hashes), and with
-        // a stated theorem those would answer from its statement alone, in
-        // silence: such a session loads every proof, and holds no stated
-        // theorem (C1 of docs/reviews/SW-4734-fable-review.md).
+        // test's reliance, the trial's hashes), and with a stated theorem
+        // those would answer from its statement alone, in silence: such a
+        // session loads every proof, and holds no stated theorem (C1 of
+        // docs/reviews/SW-4734-fable-review.md). `--timings` is a plain
+        // check (`Load::Diagnostics`), not covered, and harmless: it only
+        // sizes definitions the session elaborated itself, which it holds
+        // whole.
         if load == Load::Everything {
             self.elab.set_load_without_proofs(false);
         }

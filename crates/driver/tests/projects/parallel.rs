@@ -515,9 +515,12 @@ fn an_entry_is_the_same_whatever_the_session_loaded_before() {
 
 /// Stage 2 (parallel-checking.md §10.4): theorems over four namespaces,
 /// `Par.Uses` and `Par.Side` both over `Par.Facts`, so that a worker that
-/// didn't check `Par.Facts` loads it from its entry without the proofs. `bumpFn`, `bumpTwo` and the `@[reading]` theorem
-/// load as stated theorems; `bumpId`, recursive through its `match`
-/// helper, loads whole (its group holds a definition).
+/// didn't check `Par.Facts` loads it from its entry without the proofs.
+/// `bumpId` (recursive), `bumpFn`, `bumpTwo`, the `@[reading]` theorem and
+/// the mutual pair `evenBump` and `oddBump` load as stated theorems;
+/// `secretSucc`, with an `unfolding` list, loads whole. (No instance
+/// theorem: an instance's type is an interface applied to a type, and no
+/// source shape found makes that a proposition.)
 fn theorems_project() -> MemoryFiles {
     let file = |ns: &str, body: &str| (format!("src/Par/{ns}.sw"), body.to_string());
     let files = [
@@ -540,7 +543,17 @@ fn theorems_project() -> MemoryFiles {
                { low = h.left, high = h.right }\n\n\
              @[reading]\n\
              theorem inRangeReads ∀ (lo x hi: Nat): inRange lo x hi ↔ InRange lo x hi :=\n  \
-               { forward = fwd lo x hi, backward = r => Both r.low r.high }\n",
+               { forward = fwd lo x hi, backward = r => Both r.low r.high }\n\n\
+             opaque def secret (n: Nat): Nat := Succ n\n\n\
+             theorem secretSucc ∀ (n: Nat): secret n = Succ n\n  \
+               unfolding secret\n\
+             := byComputing\n\n\
+             theorem evenBump ∀ (n: Nat): bump n = n := match n with\n  \
+               | Zero => byComputing\n  \
+               | Succ k => Eq.cong Succ (oddBump k)\n\n\
+             theorem oddBump ∀ (n: Nat): bump n = n := match n with\n  \
+               | Zero => byComputing\n  \
+               | Succ k => Eq.cong Succ (evenBump k)\n",
         ),
         file(
             "Uses",
@@ -666,6 +679,30 @@ fn a_load_without_proofs_holds_all_but_the_proofs_and_never_reaches_a_command_th
             "a load without proofs holds something else"
         );
         assert!(canonical_dump(&whole.elab) != canonical_dump(&without.elab));
+        // The theorem with an `unfolding` list loads whole and prints whole
+        // in both sessions; the recursive theorem and the mutual pair are
+        // stated.
+        let dump = canonical_dump(&without.elab);
+        for (name, stated) in [
+            ("secretSucc", false),
+            ("bumpId", true),
+            ("evenBump", true),
+            ("oddBump", true),
+        ] {
+            let line = dump
+                .lines()
+                .find(|l| l.starts_with("def ") && l.contains(&format!(" Par.Facts.{name} ")))
+                .unwrap_or_else(|| panic!("no {name} in the dump"));
+            assert!(
+                line.contains(&format!("stated {stated} ")),
+                "{name} loaded the wrong way: {line}"
+            );
+        }
+        assert!(
+            dump.lines()
+                .any(|l| l.contains(" Par.Facts.secretSucc ") && !l.contains("unfolding []")),
+            "secretSucc lost its unfolding list"
+        );
         let reporting = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             assert_holds_no_stated_theorem(&without);
         }));

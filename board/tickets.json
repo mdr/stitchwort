@@ -34333,12 +34333,12 @@
     {
       "id": 4739,
       "title": "[Sonnet] Stage 2 step 2 follow-ups (SW-4735 Fable review): F1 docs sentence on STITCHWORT_LOAD_PROOFS=0 in docs/core.md and check-cache.md (measuring only; removed in step 3); F2 admit_stated refuses a parameter-default mark (or soften core.md); F3 fixture gains an unfolding theorem, instance theorem, mutual theorem group, and the proof-less dump hides less; F4 comment in check_prepared: --timings is Load::Diagnostics, harmless because timings sizes only its own definitions (SW-4735)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Lane notes: F1-F4 done on lane/SW-4739. No instance theorem could be written in source (instance type is an interface applied to a type). Model result: Sonnet, worked, 11 min (est. 25).",
       "created": "2026-11-24",
       "updated": "2026-11-24",
       "commits": []

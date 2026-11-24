@@ -1089,6 +1089,9 @@ length then bytes; `hash` and `key` are 32 raw bytes.
    (`check::admit_trusted_stated`) with the hash the entry records. The
    checksum covers both parts. Strings and files only part B uses are still
    in the head's tables.
+
+   `STITCHWORT_LOAD_PROOFS=0` makes a plain `check` load without proofs
+   too, for measuring only (`measure_load.sh`); step 3 (SW-4736) replaces it.
 5. **Checksum**: the BLAKE3 hash of everything before it (32).
 
 The interface digest in the header is the hash of the same body written a
