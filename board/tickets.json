@@ -34363,7 +34363,7 @@
     {
       "id": 4741,
       "title": "[Opus] Stage 2: bumpId (theorem recursive through its match helper) loads stated, but SW-4735's notes and Fable's review say such a theorem shares a group with its helper and loads whole. Which is true, and is the replay right either way? (SW-4739 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34371,7 +34371,11 @@
       "body": "\n\n24 Nov (Opus lane): answer: `bumpId` has no helper. A `match` that is a theorem's whole body on a parameter becomes its own case tree, so `bumpId` is a group of one (self-recursive) and is stated soundly: its body and `recursive` flag have no reader outside the cache, users hash it by statement, and a singleton group's hash covers only itself. A lifted `match` (fixture `bumpBack`, under `Eq.flipped`) joins the group, and the non-theorem helper keeps the group whole, as `stated_on_load` says. Test pins both groups and verdicts; dated corrections in SW-4735 notes and review. Commit 9363a708e.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "076b099b36e3ffaeccbfb27db07cd52946ef9f81",
+        "9363a708e23a001d0ae33d6686e9d3cd5766d4e2",
+        "7c11bdb2f81a6f2308ec6e432157f2403fbbcff4"
+      ]
     }
   ]
 }
