@@ -1,0 +1,11 @@
+== pilot over /Users/agent/repos/mdr/stitchwort/aoc
+   took 54 s; checked 291 namespaces of aoc
+   match: 291 of 291 namespaces
+   theorems: 2869 proofs left out, 0 elaborated anyway (recursive, mutual or decreasing)
+   left out, decreasing: 15 proofs, in 9 namespaces, 9 of them match
+   left out, lone: 2364 proofs, in 95 namespaces, 95 of them match
+   left out, mutual: 15 proofs, in 3 namespaces, 3 of them match
+   left out, recursive: 475 proofs, in 62 namespaces, 62 of them match
+   differing, by set of causes:
+
+[exited with code 0]
