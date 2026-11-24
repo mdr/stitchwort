@@ -12,6 +12,7 @@ use std::rc::Rc;
 
 use stitchwort_driver::check_cache::{CheckCache, MemoryStore};
 use stitchwort_driver::driver::{Session, with_stack};
+use stitchwort_driver::nav::index_json;
 use stitchwort_driver::parallel::{Fill, Jobs, fill};
 use stitchwort_driver::project::{
     DiskFiles, Files, Load, MemoryFiles, Target, analyse, assert_holds_no_stated_theorem,
@@ -48,6 +49,8 @@ struct Checked {
     fill: Fill,
     /// The check after the fill's cache counts.
     stats: Stats,
+    /// The navigation index (`check --index`), for a navigable check.
+    index: Option<String>,
 }
 
 /// Checks the project in `files` with `jobs` workers, keeping entries in
@@ -71,25 +74,47 @@ fn check_target(
     load: Load,
     target: &Target,
 ) -> Checked {
+    check_as("par", files, kept, jobs, seed, load, target, false)
+}
+
+/// [`check_target`], with the sessions recording what code navigation needs
+/// when `navigable`, and the index of what was loaded in the result, as
+/// `check --index` writes it.
+#[allow(clippy::too_many_arguments)]
+fn check_as(
+    project: &str,
+    files: &(dyn Files + Sync),
+    kept: &Kept,
+    jobs: usize,
+    seed: Option<u64>,
+    load: Load,
+    target: &Target,
+    navigable: bool,
+) -> Checked {
+    let make: &(dyn Fn(usize) -> Session + Sync) = if navigable {
+        &Session::navigable_for_stack
+    } else {
+        &Session::for_stack
+    };
     with_stack(STACK, || {
-        let mut session = Session::for_stack(STACK);
+        let mut session = make(STACK);
         session.elab.set_check_cache(kept.store());
         let make_store = || kept.store();
         let fill = fill(
             files,
-            "par",
+            project,
             target,
             &Jobs {
                 count: jobs,
                 stack: STACK,
-                make_session: &Session::for_stack,
+                make_session: make,
                 make_store: &make_store,
                 seed,
             },
         );
         // As `check` does: everything loaded if the fill left a namespace.
         let load = fill.load_after(load);
-        let result = session.load_project_for(files, "par", target, load);
+        let result = session.load_project_for(files, project, target, load);
         let diagnostics = match &result {
             Ok(_) => session.warnings.clone(),
             Err(ds) => ds.clone(),
@@ -103,6 +128,7 @@ fn check_target(
             dump: canonical_dump(&session.elab),
             fill,
             stats: session.elab.check_cache_stats(),
+            index: navigable.then(|| index_json(&session, result.is_err(), None, "", &diagnostics)),
         };
         std::mem::forget(session);
         checked
@@ -785,4 +811,185 @@ fn a_load_without_proofs_holds_all_but_the_proofs_and_never_reaches_a_command_th
         assert_eq!(session.elab.check_cache_stats().stated, 0);
         std::mem::forget(session);
     });
+}
+
+/// Instances in sibling namespaces (`Rich.Left`, `Rich.Right`, each its own
+/// type over `Rich.Base`'s interface), a theorem whose `match` is lifted
+/// into a `%match` helper (`bumpBack`, under `Eq.flipped`), different
+/// uncached library files per branch (`Ord/Ord.sw` under `Left`,
+/// `List/Toolkit.sw` under `Right`), and `Rich.Top` over both.
+fn rich_project() -> MemoryFiles {
+    let file = |ns: &str, body: &str| (format!("src/Rich/{ns}.sw"), body.to_string());
+    let files = [
+        ("stitchwort.yaml".to_string(), CONFIG.to_string()),
+        file(
+            "Base",
+            "namespace Rich.Base\n\
+             import Std (Nat, Eq)\n\n\
+             interface Weigh (a: Type) = { weight: a → Nat }\n\n\
+             def bump (n: Nat): Nat := match n with\n  \
+               | Zero => Zero\n  \
+               | Succ k => Succ (bump k)\n\n\
+             theorem bumpBack ∀ (n: Nat): n = bump n := Eq.flipped (match n with\n  \
+               | Zero => byComputing\n  \
+               | Succ k => Eq.cong Succ (bumpBack k).flipped)\n",
+        ),
+        file(
+            "Left",
+            "namespace Rich.Left\n\
+             import Std (Nat, Eq)\n\
+             import Rich.Base (..)\n\n\
+             type Box = | MkBox (size: Nat)\n\n\
+             instance Box.instWeigh: Weigh Box := { weight = match | MkBox n => bump n }\n\n\
+             def biggest: Nat := Std.Ord.max 1 2\n\n\
+             theorem leftBack ∀ (n: Nat): n = bump n := bumpBack n\n",
+        ),
+        file(
+            "Right",
+            "namespace Rich.Right\n\
+             import Std (Nat, List)\n\
+             import Rich.Base (..)\n\n\
+             type Crate = | MkCrate (width: Nat) (depth: Nat)\n\n\
+             instance Crate.instWeigh: Weigh Crate := { weight = match | MkCrate a b => a + b }\n\n\
+             def bumped: List Nat := [1, 2].map (n => bump n)\n",
+        ),
+        file(
+            "Top",
+            "namespace Rich.Top\n\
+             import Std (Nat)\n\
+             import Rich.Base (..)\n\
+             import Rich.Left (..)\n\
+             import Rich.Right (..)\n\n\
+             def total: Nat := Weigh.weight (MkBox 1) + Weigh.weight (MkCrate 2 3)\n",
+        ),
+    ];
+    MemoryFiles {
+        files: files.into_iter().collect(),
+        reversed: false,
+    }
+}
+
+/// Over `rich_project`, whatever the schedule, `Rich.Base`'s entry already
+/// there (so a worker loads it without proofs rather than checking it, on a
+/// project this small where one worker may take every job): the report, the
+/// session, the entries and the `--index` are what one job gives.
+#[test]
+fn random_schedules_over_instances_theorems_and_library_files_match_one_job() {
+    let files = rich_project();
+    let one = temp_dir("rich-one");
+    let sequential = check_as(
+        "rich",
+        &files,
+        &Kept::Dir(one.clone()),
+        1,
+        None,
+        Load::Everything,
+        &Target::Everything,
+        true,
+    );
+    assert!(
+        sequential.report.starts_with("accepted true"),
+        "{}",
+        sequential.report
+    );
+    let expected = entries(&one);
+    for seed in 0..8 {
+        let dir = salted_like(&one, "rich-seed");
+        let base = Target::Namespaces(vec!["Rich.Base".to_string()]);
+        check_as(
+            "rich",
+            &files,
+            &Kept::Dir(dir.clone()),
+            1,
+            None,
+            Load::Diagnostics,
+            &base,
+            true,
+        );
+        let parallel = check_as(
+            "rich",
+            &files,
+            &Kept::Dir(dir.clone()),
+            3,
+            Some(seed),
+            Load::Everything,
+            &Target::Everything,
+            true,
+        );
+        assert_same(&sequential, &parallel, &format!("seed {seed}"));
+        assert!(
+            sequential.index == parallel.index,
+            "seed {seed}: the --index differs"
+        );
+        assert!(entries(&dir) == expected, "seed {seed}: the entries differ");
+        assert!(
+            parallel.fill.stats.stated > 0,
+            "seed {seed}: no worker loaded a theorem without its proof: {:?}",
+            parallel.fill
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+    let _ = std::fs::remove_dir_all(&one);
+}
+
+/// A worker that panics (SW-4726; `parallel::panic_hook`): worker 0's panic
+/// is raised again by the fill, after the other workers have stopped; any
+/// other worker's stops the fill and is left for the check after it, which
+/// reports and writes what one job does. The hook fires on a worker's next
+/// job, which a worker other than 0 may never get on a project this small,
+/// so that case tries seeds until it fires.
+#[test]
+fn a_worker_that_panics_stops_the_fill_and_the_check_still_matches_one_job() {
+    use stitchwort_driver::parallel::panic_hook;
+    // A project name no other test uses, which the hook is keyed on.
+    const NAME: &str = "panicking";
+    let files = rich_project();
+    let run = |dir: &Path, jobs: usize, seed: Option<u64>| {
+        let target = Target::Everything;
+        check_as(
+            NAME,
+            &files,
+            &Kept::Dir(dir.to_path_buf()),
+            jobs,
+            seed,
+            Load::Diagnostics,
+            &target,
+            false,
+        )
+    };
+    let one = temp_dir("panic-one");
+    let sequential = run(&one, 1, None);
+    let expected = entries(&one);
+
+    // Worker 0 takes the first job of a fill, whatever the schedule.
+    panic_hook::arm(NAME, 0);
+    let dir = salted_like(&one, "panic-zero");
+    let raised = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run(&dir, 3, None)));
+    let fired = panic_hook::take_fired();
+    let payload = raised.err().expect("worker 0's panic was swallowed");
+    let message = payload
+        .downcast_ref::<String>()
+        .cloned()
+        .unwrap_or_default();
+    assert!(fired, "the hook never fired");
+    assert!(message.contains("panic hook: worker 0"), "{message}");
+    let _ = std::fs::remove_dir_all(&dir);
+
+    // Another worker's: the fill ends, the check after it goes on.
+    let mut worker_one_panicked = false;
+    for seed in 0..40 {
+        let dir = salted_like(&one, "panic-one-worker");
+        panic_hook::arm(NAME, 1);
+        let parallel = run(&dir, 3, Some(seed));
+        let fired = panic_hook::take_fired();
+        assert_eq!(sequential.report, parallel.report, "seed {seed}");
+        assert!(entries(&dir) == expected, "seed {seed}: the entries differ");
+        let _ = std::fs::remove_dir_all(&dir);
+        if fired {
+            worker_one_panicked = true;
+            break;
+        }
+    }
+    assert!(worker_one_panicked, "worker 1 never took a job in 40 runs");
+    let _ = std::fs::remove_dir_all(&one);
 }
