@@ -298,6 +298,14 @@ impl Session {
         load: Load,
     ) -> Result<Loaded, Vec<Diagnostic>> {
         let Prepared { order, counted } = prepared;
+        // A command that uses what it loads may read proofs (`axioms`, a
+        // test's reliance, `--timings`' sizes, the trial's hashes), and with
+        // a stated theorem those would answer from its statement alone, in
+        // silence: such a session loads every proof, and holds no stated
+        // theorem (C1 of docs/reviews/SW-4734-fable-review.md).
+        if load == Load::Everything {
+            self.elab.set_load_without_proofs(false);
+        }
         // (A namespace read from the cache is not elaborated, so its theorems
         // couldn't be counted: `check --only` loads everything.)
         let skipped = if load == Load::Diagnostics
@@ -334,6 +342,9 @@ impl Session {
         };
         self.elab.leave_namespace();
         self.elab.options.skip_theorems.clear();
+        if load == Load::Everything {
+            assert_holds_no_stated_theorem(self);
+        }
         if diagnostics.iter().any(|d| d.severity == Severity::Error) {
             return Err(diagnostics);
         }
@@ -1187,6 +1198,17 @@ pub(crate) fn dependencies(analysis: &Analysis, name: &str) -> Vec<String> {
         .filter(|n| n != name)
         .collect();
     canonical_order(analysis, &deps).expect("a part of an acyclic closure is acyclic")
+}
+
+/// Stops with an internal error if `session` holds a stated theorem: one
+/// loaded with [`Load::Everything`] must not (see `check_prepared`). A
+/// panic rather than a diagnostic: it can only be a bug in this crate or
+/// the cache, and every reader it guards would otherwise go on quietly.
+pub fn assert_holds_no_stated_theorem(session: &Session) {
+    assert!(
+        !session.elab.holds_stated_theorems(),
+        "internal error: a session loaded to use everything holds a theorem without its proof"
+    );
 }
 
 /// Whether a plain `check` may leave out the namespaces it doesn't need

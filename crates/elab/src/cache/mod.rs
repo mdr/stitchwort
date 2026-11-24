@@ -95,7 +95,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 45;
+pub const FORMAT: u32 = 46;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -223,6 +223,9 @@ pub struct Stats {
     /// --recheck`, isn't the one they hold (docs/proposals/interface-digest-cache.md
     /// §2.4): never expected. Each is also an `E-CACHE-DIGEST` error.
     pub digest_mismatches: usize,
+    /// Theorems loaded without their proofs, as stated theorems
+    /// ([`Elaborator::set_load_without_proofs`]).
+    pub stated: usize,
 }
 
 impl Stats {
@@ -438,6 +441,29 @@ impl Elaborator {
     /// whatever this says.
     pub fn set_recheck(&mut self, on: bool) {
         self.options.recheck = on;
+    }
+
+    /// Whether entries are loaded without their proofs (off by default):
+    /// the theorems whose proofs are in an entry's part B are admitted as
+    /// stated theorems (docs/proposals/parallel-checking.md §10.4). Only
+    /// for a session whose results don't depend on proofs: `check --jobs`'s
+    /// workers. Entries this build didn't write exactly, and every entry
+    /// with `check --recheck`, are still loaded whole: a stated theorem is
+    /// made only from an entry whose proofs this build's kernel checked.
+    pub fn set_load_without_proofs(&mut self, on: bool) {
+        self.options.without_proofs = on;
+    }
+
+    /// Whether the kernel holds a stated theorem: a session loaded without
+    /// proofs may (C1 of docs/reviews/SW-4734-fable-review.md: one loaded
+    /// for a command that reads proofs must not).
+    pub fn holds_stated_theorems(&self) -> bool {
+        self.kernel.env.defs().iter().any(|d| d.stated())
+    }
+
+    /// Whether an entry used as `hit` is loaded with its proofs.
+    fn loads_proofs(&self, hit: Hit) -> bool {
+        !(self.options.without_proofs && hit.exact && !hit.recheck)
     }
 
     /// Whether this session has loaded anything carried over: entries it
@@ -1461,7 +1487,7 @@ impl Elaborator {
             let loaded = self.loaded_library_files().len();
             (self.snapshot(), loaded, self.session.journal.segments())
         });
-        let d = self.decode(&deps, head, &pre.early).map_err(late)?;
+        let d = (self.decode(&deps, head, &pre.early, self.loads_proofs(hit))).map_err(late)?;
         let mut warnings = std::mem::take(&mut pre.warnings);
         let base_defs = self.kernel.env.defs().len();
         self.admit_replayed(&d.defs, &d.datas, &d.bound, &d.rest.tables, false, hit)
@@ -1632,6 +1658,9 @@ pub(crate) struct DigestShape {
     entry_bytes: usize,
     entry_nodes: usize,
     sizes: Sizes,
+    /// The theorems part B holds the proofs of, and its bytes.
+    stated: usize,
+    stated_bytes: usize,
 }
 
 impl DigestShape {
@@ -1660,7 +1689,7 @@ impl std::fmt::Display for DigestShape {
             f,
             "; entry {} bytes, {} nodes: proofs {} bytes ({:.1}%), \
              positions {} ({:.1}%), navigation {} ({:.1}%), warnings {} ({:.1}%), \
-             interface {} bytes, {} nodes",
+             interface {} bytes, {} nodes; part B {} bytes ({:.1}%) for {} theorems",
             self.entry_bytes,
             self.entry_nodes,
             self.proof_bytes(),
@@ -1673,6 +1702,9 @@ impl std::fmt::Display for DigestShape {
             pct(self.sizes.warnings),
             self.digest_bytes,
             self.digest_nodes,
+            self.stated_bytes,
+            pct(self.stated_bytes),
+            self.stated,
         )
     }
 }
@@ -1832,10 +1864,24 @@ struct Parts {
     node_count: usize,
     nodes: Vec<u8>,
     rest: Vec<u8>,
+    /// An entry's part B (`ProofPart`); `None` in a digest pass.
+    proofs: Option<ProofPart>,
     deps: Vec<Dep>,
     /// The digest's recording pass's findings.
     recording: Option<Recording>,
     sizes: Sizes,
+}
+
+/// The second part of an entry (docs/proposals/check-cache.md, "An entry's
+/// layout"): the proofs of the theorems a load without proofs makes stated
+/// theorems ([`stated_on_load`]), with their groups, and the term nodes
+/// only those proofs reach, numbered after the first part's.
+struct ProofPart {
+    /// How many theorems it holds the proofs of.
+    theorems: usize,
+    node_count: usize,
+    nodes: Vec<u8>,
+    rest: Vec<u8>,
 }
 
 /// What an entry's bytes are spent on that the interface digest leaves out
@@ -1853,7 +1899,8 @@ impl Parts {
     /// dependency records).
     fn stream_bytes(&self) -> usize {
         let strings: usize = self.strings.iter().map(|s| s.len() + 1).sum();
-        strings + self.pre.len() + self.nodes.len() + self.rest.len()
+        let proofs = (self.proofs.as_ref()).map_or(0, |p| p.nodes.len() + p.rest.len());
+        strings + self.pre.len() + self.nodes.len() + self.rest.len() + proofs
     }
 }
 
@@ -2284,6 +2331,37 @@ fn digest_plan(g: &Ev, base: usize, prep: &DigestPrep, rec: Option<Recording>) -
 }
 
 /// A key or digest in hexadecimal, for a debug line.
+/// The unit's own theorems that a load without proofs makes stated theorems
+/// (docs/proposals/parallel-checking.md §10.2, §10.4): their proofs go in
+/// the entry's part B. A sealed theorem (`has_interface`) that carries
+/// nothing a stated theorem can't (`check::admit_trusted_stated` gives it
+/// only a name, a path, a type and a span; the marks act on pending
+/// definitions only), and whose group's other members are all such
+/// theorems too: a group's hash covers every member's whole declaration,
+/// so a computing member, or a `match` helper, keeps the group whole.
+fn stated_on_load(g: &Ev, base: usize) -> HashSet<DefId> {
+    let plain = |id: DefId| {
+        let def = g.def(id);
+        has_interface(g, id)
+            && !def.instance()
+            && !def.fold()
+            && !def.opaque()
+            && !def.tailrec()
+            && !def.param_default()
+            && def.unfolding().is_empty()
+            && def.own_run_body().is_none()
+            && def.validators().is_empty()
+    };
+    (base..g.env.defs().len())
+        .map(DefId)
+        .filter(|&id| {
+            plain(id)
+                && (g.def(id).group().as_ref())
+                    .is_some_and(|group| group.iter().all(|&m| m.0 >= base && plain(m)))
+        })
+        .collect()
+}
+
 fn hex(key: &Key) -> String {
     key.iter().map(|b| format!("{b:02x}")).collect()
 }
@@ -2427,6 +2505,15 @@ impl Elaborator {
         body.usize(parts.node_count);
         body.raw(&parts.nodes);
         body.raw(&parts.rest);
+        // Part B, whole, so a load without proofs can step over it.
+        let proofs = parts.proofs.as_ref().expect("an entry has part B");
+        let mut b = Writer::default();
+        b.usize(proofs.node_count);
+        b.raw(&proofs.nodes);
+        b.raw(&proofs.rest);
+        body.blob(&b.bytes);
+        shape.stated = proofs.theorems;
+        shape.stated_bytes = b.bytes.len();
         let store = self.options.check_cache.as_ref().expect("a cache is set");
         let stamp = Stamp {
             kernel: store.kernel().to_string(),
@@ -2724,6 +2811,12 @@ impl Elaborator {
             Some(plan) => plan.order.clone(),
             None => defs.clone().map(DefId).collect(),
         };
+        // The theorems whose proofs go in part B, after everything else.
+        let left_out = if digest {
+            HashSet::default()
+        } else {
+            stated_on_load(g, before.defs)
+        };
         e.w.usize(order.len());
         for id in order {
             let def = g.def(id);
@@ -2754,8 +2847,10 @@ impl Elaborator {
             let sealed = digest && has_interface(g, id);
             if digest {
                 e.w.bool(sealed);
+            } else {
+                e.w.bool(left_out.contains(&id));
             }
-            if !sealed {
+            if !sealed && !left_out.contains(&id) {
                 e.term(def.body().expect("checked above"));
             }
             let group = def
@@ -2766,9 +2861,11 @@ impl Elaborator {
                 return Err(format!("`{}`'s group is older", def.path()));
             }
             if !digest {
-                e.w.usize(group.len());
-                for m in group.iter() {
-                    e.w.usize(m.0 - before.defs);
+                if !left_out.contains(&id) {
+                    e.w.usize(group.len());
+                    for m in group.iter() {
+                        e.w.usize(m.0 - before.defs);
+                    }
                 }
             } else if !sealed {
                 // By path, sorted (C.2 rule 2). A sealed theorem's group
@@ -3077,15 +3174,40 @@ impl Elaborator {
             (None, None) => e.w.bool(false),
             _ => return Err("navigation was turned on while loading".to_string()),
         }
-        if let Some(problem) = e.out.problem {
-            return Err(problem);
-        }
         let sizes = Sizes {
             positions,
             nav: e.w.bytes.len() - nav_at,
             warnings: warnings_bytes,
         };
         let node_count = e.terms.node_count();
+        // Part B: the proofs left out above, in checking order, and the
+        // nodes only they reach, which come after part A's because they
+        // are written last.
+        let proofs = (!digest).then(|| {
+            let (node_bytes, rest) = (e.terms.nodes.bytes.len(), std::mem::take(&mut e.w.bytes));
+            e.terms.start_part();
+            for id in defs.clone().map(DefId).filter(|id| left_out.contains(id)) {
+                let def = g.def(id);
+                e.term(def.body().expect("checked above"));
+                let group = def
+                    .group()
+                    .as_ref()
+                    .expect("a final definition has a group");
+                e.w.usize(group.len());
+                for m in group.iter() {
+                    e.w.usize(m.0 - before.defs);
+                }
+            }
+            ProofPart {
+                theorems: left_out.len(),
+                node_count: e.terms.node_count() - node_count,
+                nodes: e.terms.nodes.bytes.split_off(node_bytes),
+                rest: std::mem::replace(&mut e.w.bytes, rest),
+            }
+        });
+        if let Some(problem) = e.out.problem {
+            return Err(problem);
+        }
         Ok(Parts {
             strings: e.terms.strings,
             files: e.out.files,
@@ -3094,6 +3216,7 @@ impl Elaborator {
             node_count,
             nodes: e.terms.nodes.bytes,
             rest: e.w.bytes,
+            proofs,
             deps: e.out.deps,
             recording: e.out.stage.and_then(|s| s.recording),
             sizes,
@@ -3276,7 +3399,9 @@ struct DefEntry {
     unfolding: Vec<DefId>,
     span: Span,
     ty: Term,
-    body: Term,
+    /// `None` for a theorem whose proof is in part B, read without it: a
+    /// stated theorem, in no group.
+    body: Option<Term>,
     group: Vec<usize>,
     run_body: Option<Term>,
     /// Its content hash when the entry was written.
@@ -3647,8 +3772,16 @@ impl Elaborator {
     }
 
     /// Reads the rest of an entry, in this session: its dependencies must
-    /// be here, with the hashes it was made with. Changes nothing.
-    fn decode(&self, deps: &[Dep], head: Head, early: &[(String, Span, bool)]) -> Read<Decoded> {
+    /// be here, with the hashes it was made with. Without `proofs`, part B
+    /// is stepped over, and the theorems whose proofs it holds are read
+    /// without them. Changes nothing.
+    fn decode(
+        &self,
+        deps: &[Dep],
+        head: Head,
+        early: &[(String, Span, bool)],
+        proofs: bool,
+    ) -> Read<Decoded> {
         let index = self.library_index().expect("a library is installed");
         let g = &self.ev();
         let _op = g.machine.budget.operation(self.options.limits);
@@ -3729,15 +3862,21 @@ impl Elaborator {
                 },
                 span: body.span()?,
                 ty: body.term()?,
-                body: body.term()?,
-                group: body.offsets(n)?,
-                run_body: if body.r.bool()? {
-                    Some(body.term()?)
-                } else {
-                    None
-                },
-                hash: body.hash()?,
+                body: None,
+                group: Vec::new(),
+                run_body: None,
+                hash: None,
             });
+            let def = defs.last_mut().expect("just pushed");
+            // Left out to part B, or here with its group.
+            if !body.r.bool()? {
+                def.body = Some(body.term()?);
+                def.group = body.offsets(n)?;
+            }
+            if body.r.bool()? {
+                def.run_body = Some(body.term()?);
+            }
+            def.hash = body.hash()?;
         }
         let n_defs = defs.len();
         let n = body.count()?;
@@ -3808,6 +3947,26 @@ impl Elaborator {
         bound.sort();
         body.refs.n_defs = n_defs;
         body.refs.n_datas = n_datas;
+        let rest = read_tables(&mut body, index.files.len(), early.len())?;
+        // Part B: the proofs of the theorems read without one above, in
+        // their order, each with its group; their nodes come after part A's.
+        let part_b = body.r.blob()?;
+        if !body.r.done() {
+            return bad("bytes after the tables");
+        }
+        if proofs {
+            let mut r = Reader::new(part_b);
+            let count = r.count(1)?;
+            body.terms.read_nodes(&mut r, &body.refs, count)?;
+            body.r = r;
+            for def in defs.iter_mut().filter(|d| d.body.is_none()) {
+                def.body = Some(body.term()?);
+                def.group = body.offsets(n_defs)?;
+            }
+            if !body.r.done() {
+                return bad("bytes after the proofs");
+            }
+        }
         // Every reference the terms make to the entry's own declarations is
         // to one it has.
         let (base_defs, base_datas) = (body.refs.base_defs, body.refs.base_datas);
@@ -3823,11 +3982,6 @@ impl Elaborator {
             if !ok {
                 return bad("a term refers to a declaration the entry doesn't have");
             }
-        }
-
-        let rest = read_tables(&mut body, index.files.len(), early.len())?;
-        if !body.r.done() {
-            return bad("bytes after the tables");
         }
         if rest.nav.is_some() != self.present.nav.is_some() {
             return bad("navigation recorded or not");
@@ -3885,7 +4039,7 @@ impl Elaborator {
         if !head.pre.is_empty() {
             return bad("a library file's entry with a namespace's parts");
         }
-        let d = self.decode(&deps, head, &[])?;
+        let d = self.decode(&deps, head, &[], self.loads_proofs(hit))?;
         if !d.rest.tables.tests.is_empty() {
             return bad("a library file's entry with tests");
         }
@@ -4088,6 +4242,10 @@ impl Elaborator {
         let mut groups: Vec<Group> = Vec::new();
         let mut seen = HashSet::default();
         for (i, def) in defs.iter().enumerate() {
+            // A stated theorem is in no group: it is final once declared.
+            if def.body.is_none() {
+                continue;
+            }
             if !def.group.contains(&i) {
                 return bad("a definition outside its own group");
             }
@@ -4107,8 +4265,11 @@ impl Elaborator {
                         needs_defs.insert(id.0 - base_defs);
                     }
                 }
+                let Some(body) = &defs[m].body else {
+                    return bad("a stated theorem in a group");
+                };
                 codec::references(
-                    &defs[m].body,
+                    body,
                     &mut |id| {
                         if id.0 >= base_defs {
                             needs_defs.insert(id.0 - base_defs);
@@ -4289,7 +4450,10 @@ impl Elaborator {
                         let members: Vec<(DefId, Term)> = group
                             .members
                             .iter()
-                            .map(|&m| (DefId(base_defs + m), defs[m].body.clone()))
+                            .map(|&m| {
+                                let body = defs[m].body.clone().expect("checked above");
+                                (DefId(base_defs + m), body)
+                            })
                             .collect();
                         self.kernel_op(|g| {
                             if check {
@@ -4402,6 +4566,12 @@ impl Elaborator {
                 next_data_group += 1;
                 continue;
             }
+            if next_def < defs.len() && defs[next_def].body.is_none() {
+                self.admit_stated(&defs[next_def], DefId(base_defs + next_def), hit, library)?;
+                def_final[next_def] = true;
+                next_def += 1;
+                continue;
+            }
             if next_def < defs.len() {
                 let def = &defs[next_def];
                 module_of(&def.name, &def.path)?;
@@ -4447,13 +4617,63 @@ impl Elaborator {
         Ok(())
     }
 
+    /// Declares a theorem read without its proof as a stated theorem
+    /// (`check::admit_trusted_stated`), with the full hash the entry
+    /// records for it in the same step: a stated theorem has no body to
+    /// work one out from (C2 of docs/reviews/SW-4734-fable-review.md).
+    /// This is the one caller of `admit_trusted_stated` outside tests, and
+    /// the entry is one this build wrote exactly, after its kernel checked
+    /// the proof ([`Elaborator::loads_proofs`]); it carries none of what a
+    /// stated theorem can't (`stated_on_load`), or it is refused.
+    fn admit_stated(
+        &mut self,
+        def: &DefEntry,
+        expected: DefId,
+        hit: Hit,
+        library: bool,
+    ) -> Read<()> {
+        if !hit.exact || hit.recheck {
+            return bad("a theorem without its proof in an entry to check again");
+        }
+        if !def.theorem
+            || def.instance
+            || def.fold
+            || def.opaque
+            || def.tailrec
+            || !def.unfolding.is_empty()
+            || def.run_body.is_some()
+        {
+            return bad("a theorem without its proof that carries more than its statement");
+        }
+        let Some(hash) = def.hash else {
+            return bad("a theorem without its proof or a hash");
+        };
+        module_of(&def.name, &def.path)?;
+        let refused = |d: stitchwort_syntax::Diagnostic| {
+            let label = d.labels.first().map_or("", |l| l.message.as_str());
+            Bad(format!("refused: {} ({label})", d.message))
+        };
+        let id = self
+            .kernel_op(|g| kernel::admit_trusted_stated(g, &def.name, &def.path, &def.ty, def.span))
+            .map_err(refused)?;
+        if id != expected || *self.kernel.def(id).path() != def.path {
+            return bad("a definition came out differently");
+        }
+        (self.kernel.caches.hashes.borrow_mut()).insert(HashKey::Def(id), hash);
+        self.session.cache_stats.stated += 1;
+        if library {
+            self.bind_builtin_def(id).map_err(refused)?;
+        }
+        Ok(())
+    }
+
     /// What [`Self::admit_replayed`] compares before and after an undo: the
     /// kernel's bindings, and with `declarations` its definitions and data
     /// types as the canonical dump prints them.
     fn undo_witness(&self, declarations: bool) -> String {
         let mut out = self.kernel.bindings_dump();
         if declarations {
-            dump::declarations(&self.ev(), &mut out);
+            dump::declarations(&self.ev(), &mut out, true);
         }
         out
     }
@@ -4727,7 +4947,7 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Rest> {
 }
 
 #[doc(hidden)]
-pub use dump::canonical_dump;
+pub use dump::{canonical_dump, canonical_dump_without_proofs};
 
 #[cfg(test)]
 mod tests {
@@ -4820,12 +5040,12 @@ mod tests {
                 Rc::new(Term::Var(0)),
                 ProofMark::NotProof,
             ),
-            body: Term::Lam(
+            body: Some(Term::Lam(
                 "P".into(),
                 Icit::Explicit,
                 Rc::new(Term::Var(0)),
                 ProofMark::NotProof,
-            ),
+            )),
             group: vec![0],
             run_body: None,
             hash: None,
@@ -5042,7 +5262,7 @@ mod tests {
                 )),
                 ProofMark::NotProof,
             ),
-            body: Term::Lam(
+            body: Some(Term::Lam(
                 "P".into(),
                 Icit::Explicit,
                 Rc::new(Term::Lam(
@@ -5052,7 +5272,7 @@ mod tests {
                     ProofMark::Proof,
                 )),
                 ProofMark::NotProof,
-            ),
+            )),
             group: vec![group],
             run_body,
             hash: None,
@@ -5247,12 +5467,12 @@ mod tests {
             Rc::new(Term::Var(0)),
             ProofMark::NotProof,
         );
-        forged.body = Term::Lam(
+        forged.body = Some(Term::Lam(
             "P".into(),
             Icit::Explicit,
             Rc::new(Term::Var(0)),
             ProofMark::NotProof,
-        );
+        ));
         let defs = [
             identity_def("a", 0, None),
             identity_def("b", 1, None),
@@ -5340,7 +5560,7 @@ mod tests {
                 Rc::new(Term::Var(0)),
                 ProofMark::NotProof,
             );
-            looping.body = Term::Lam(
+            looping.body = Some(Term::Lam(
                 "P".into(),
                 Icit::Explicit,
                 Rc::new(Term::App(
@@ -5349,7 +5569,7 @@ mod tests {
                     Icit::Explicit,
                 )),
                 ProofMark::NotProof,
-            );
+            ));
             looping
         };
         let (trusted, added, _) = admit_defs(&[looping()], &[], false, None);

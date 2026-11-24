@@ -13,7 +13,10 @@
 //! 2. likewise a constructor's erased fields (`Ctor::field_erased`);
 //! 3. a definition whose result is erased (a theorem, a proof-producing
 //!    function, a type-level function) isn't run once it has all its
-//!    arguments: its value is the placeholder;
+//!    arguments, and a proof definition (`Def::proof`: its type is a
+//!    proposition, so a call of it is a proof however many arguments it
+//!    has) isn't run at any number of arguments: its value is the
+//!    placeholder;
 //! 4. `J` on the placeholder takes its base: equality proofs are erased
 //!    while running, and `J` uses the erased representation of its base.
 //!    That is sound because any proof of `x = y` means `x` and `y` are the

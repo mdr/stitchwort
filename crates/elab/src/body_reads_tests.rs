@@ -43,19 +43,16 @@ fn bare_body_reads_are_pinned() {
         ("equations.rs", 2),
         ("equations/induct.rs", 3),
         ("carry.rs", 1),
-        // Guarded by `theorem()`/`opaque()`, or presence tests (SW-4734's `defined()`).
-        ("opaque.rs", 3),
-        ("rewrite/repeatedly.rs", 3),
-        ("reading.rs", 1),
-        ("interfaces.rs", 2),
-        ("module.rs", 1),
-        ("auto.rs", 1),
+        // Guarded by `theorem()` or `opaque()` (the presence tests are
+        // SW-4734's `defined()`).
+        ("opaque.rs", 2),
+        ("rewrite/repeatedly.rs", 2),
         // Reports and the cache, which see every proof by design.
         ("equation_notes.rs", 1),
         ("assume.rs", 1),
         ("timings.rs", 1),
         ("cache/dump.rs", 1),
-        ("cache/mod.rs", 2),
+        ("cache/mod.rs", 3),
     ]
     .into_iter()
     .map(|(f, n)| (f.to_string(), n))

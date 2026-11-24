@@ -244,6 +244,18 @@ pub fn admit_trusted_def(
     })
 }
 
+/// Its one caller is the replay of an entry read without proofs
+/// (`cache::Elaborator::admit_stated`).
+pub fn admit_trusted_stated(
+    g: &mut Kernel,
+    name: &Name,
+    path: &Name,
+    ty: &Term,
+    span: Span,
+) -> Result<DefId> {
+    timed(g, |g| k::admit_trusted_stated(g, name, path, ty, span))
+}
+
 pub fn admit_trusted_group(g: &mut Kernel, members: &[(DefId, Term)]) -> Result<()> {
     timed(g, |g| k::admit_trusted_group(g, members))
 }
