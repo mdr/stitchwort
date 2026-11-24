@@ -33796,7 +33796,7 @@
     {
       "id": 4705,
       "title": "[Sonnet] rewind::rewinding_changes_nothing_for_the_examples and rewind::emptying_the_caches_changes_nothing_for_the_examples are probably examples-wide (long) but sit under rewind::, which lanes filter on: time them and move to examples_wide:: if so; and a way for task test:one to build one --test binary instead of every test target of the package (SW-4704 findings)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33804,7 +33804,10 @@
       "body": "\n\nLane: moved the two rewind examples sweeps to examples_wide:: (182 s and 97 s); test:one BIN= builds one test binary (29 s vs 52 s).\n",
       "created": "2026-11-23",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "c0f6595dee83f37bf9f655b4b12848b84cbc31ff\nbeabad3c07f87c83b0a7c4333f7af054a0cb03c6\n9bdfd3de4e76231c0c9cf862989b50fe1351bad8\n7ab800df05b5cf269f75fa56e656222c75074930",
+        "a7fd55a66572adff2d8e1eef5295783cd2775788"
+      ]
     },
     {
       "id": 4706,
@@ -33854,7 +33857,7 @@
     {
       "id": 4709,
       "title": "[Sonnet] docs/core.md hashes paragraph: 'the check-cache keys, which cover text' becomes false with interface-digest stage A; and equation_notes.rs:203-218 reads theorem proofs across the session for an error note: say so in a comment or key it (SW-4706 findings)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33862,7 +33865,10 @@
       "body": "\n\nLane: core.md already correct; comment added in equation_notes.rs.\n",
       "created": "2026-11-23",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "c0f6595dee83f37bf9f655b4b12848b84cbc31ff\nbeabad3c07f87c83b0a7c4333f7af054a0cb03c6\n9bdfd3de4e76231c0c9cf862989b50fe1351bad8\n7ab800df05b5cf269f75fa56e656222c75074930",
+        "a7fd55a66572adff2d8e1eef5295783cd2775788"
+      ]
     },
     {
       "id": 4710,
@@ -33893,7 +33899,7 @@
     {
       "id": 4712,
       "title": "[Sonnet] STITCHWORT_CACHE_DEBUG: print a line for a namespace replayed or left out, not only written and missed (SW-4707 review friction); and a stitchwort cache dump-entry or documented entry layout (SW-4707 friction)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33901,7 +33907,10 @@
       "body": "\n\nLane: 'replayed from its entry' debug line + test; entry layout section in docs/proposals/check-cache.md (the left-out line already existed).\n",
       "created": "2026-11-23",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "c0f6595dee83f37bf9f655b4b12848b84cbc31ff\nbeabad3c07f87c83b0a7c4333f7af054a0cb03c6\n9bdfd3de4e76231c0c9cf862989b50fe1351bad8\n7ab800df05b5cf269f75fa56e656222c75074930",
+        "a7fd55a66572adff2d8e1eef5295783cd2775788"
+      ]
     },
     {
       "id": 4713,
