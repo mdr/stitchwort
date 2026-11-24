@@ -34300,12 +34300,12 @@
     {
       "id": 4738,
       "title": "[Sonnet] Digest differential test: also compare the dependant's entry bytes outside salt and checksum, not only the check's result (SW-4732 finding 3)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nProgress: assert_entries_match_fresh in check_cache/digest.rs compares each fresh entry with the edited cache's (outside salt and checksum); used by every after_edit case; new p1 case. 34 digest tests pass; no differences found.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
       "commits": []
