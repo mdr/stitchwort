@@ -34030,12 +34030,12 @@
     {
       "id": 4720,
       "title": "[Opus] erasure::erased_quotient_forms_arent_run and erasure::transport_along_opaque_quotient_proofs_takes_its_base_when_erasing fail on main after the SW-4703 merge (7acc6a3c1): find whether SW-4703 caused it; fix or revert",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Progress (lane, 24 Nov): both tests fail on d0cdc7e88 too (before SW-4703), so SW-4703 didn't cause it; rule K (SW-4673) did: J into data with equal ends never looks at its proof. Tests updated: quot-transport-ind passes both ways (rule K), quot-transport-sound still only with erasure; the proof-valued lift is passed to a lambda instead of J, so only the lift's flag skips slow 2000. erasure::/natives::/indexed_families:: 29 passed.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
       "commits": []

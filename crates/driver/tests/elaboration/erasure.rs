@@ -369,24 +369,35 @@ test "the data let's value" := withProof 2000 == 2001
 /// A6 of docs/proposals/map-equality.md, §9.1 and §7.4.4): with erasure,
 /// both proofs are the placeholder and `J` takes its base, so the tests pass
 /// and `main` prints `0` twice, as in every other runner. Without it the
-/// proofs are neutral, as in the kernel, and `J` on them is stuck, so the
-/// two can't agree: that's the computation contract, not a bug, and the
-/// comparison checks that it's erasure that makes the difference.
+/// proofs are neutral, as in the kernel. The `Quot.ind` casts are of `0 = 0`,
+/// so they compute by rule K, which never looks at the proof, and pass both
+/// ways. The `Quot.sound` casts go between two different representatives,
+/// where no rule applies and `J` is stuck, so the two can't agree: that's the
+/// computation contract, not a bug, and the comparison checks that it's
+/// erasure that makes the difference there.
 #[test]
 fn transport_along_opaque_quotient_proofs_takes_its_base_when_erasing() {
     with_stack(STACK, || {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/accept");
-        for name in ["quot-transport-sound.sw", "quot-transport-ind.sw"] {
+        for (name, passes_without) in [
+            ("quot-transport-sound.sw", false),
+            ("quot-transport-ind.sw", true),
+        ] {
             let text = std::fs::read_to_string(root.join(name)).expect("readable");
             let mut session = Session::for_stack(STACK);
             session.load(name, &text).expect("checks");
             let ((with, _), (without, _)) = both(&mut session, outcomes);
             assert_eq!(with.len(), 2, "{name}");
+            assert_eq!(without.len(), 2, "{name}");
             for (test, o) in &with {
                 assert_eq!(*o, "passed", "{name}: {test}");
             }
             for (test, o) in &without {
-                assert_ne!(*o, "passed", "{name}: {test} passed without erasure");
+                assert_eq!(
+                    *o == "passed",
+                    passes_without,
+                    "{name}: {test} without erasure: {o}"
+                );
             }
         }
     });
@@ -428,11 +439,12 @@ def AllTrue (x: Bool) (y: Bool): Prop := Unit
 def Q: Type := Quot Bool AllTrue
 def QTy: Type 1 := Quot (Type 0) (a b => a = b)
 "#;
-    // The result is a proof, which `J` evaluates (a `let` of it would be
-    // skipped by the `let`'s own flag): the lift is erased whole.
+    // The result is a proof, passed to a lambda, whose argument is evaluated
+    // (a `let` of it would be skipped by the `let`'s own flag, a `J` into data
+    // by rule K, which never looks at the proof): the lift is erased whole.
     let proof_lift = r#"
 def proofLift (k: Nat): Nat :=
-  J (y p => Nat) (k + 1) (Quot.lift [b := k = k] (b => ((u => byComputing): Nat -> k = k) (slow k))
+  ((p => k + 1): k = k -> Nat) (Quot.lift [b := k = k] (b => ((u => byComputing): Nat -> k = k) (slow k))
     (x y related => byComputing) (Quot.mk False: Q))
 
 test "a proof-valued lift" := proofLift 2000 == 2001

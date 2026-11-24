@@ -19,8 +19,9 @@
 //!    That is sound because any proof of `x = y` means `x` and `y` are the
 //!    same value in the model (the erasure-preservation contract,
 //!    docs/proposals/map-equality.md §7.4.4, D863). The kernel's evaluator
-//!    doesn't erase, and there transport may stay stuck on an opaque proof,
-//!    including one made by `Quot.ind` or `Quot.sound`;
+//!    doesn't erase: there a cast into data whose ends agree computes by
+//!    rule K whatever its proof, and any other `J` stays stuck on an opaque
+//!    proof, such as `Quot.sound` between two different representatives;
 //! 5. a `case` on the placeholder, for a type in `Prop`, takes the first
 //!    branch with placeholder fields (its only possible one: if it's
 //!    impossible, every branch is, and the run fails as unreachable;
