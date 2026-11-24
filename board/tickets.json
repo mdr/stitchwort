@@ -34107,7 +34107,7 @@
     {
       "id": 4724,
       "title": "[Sonnet] check --jobs: richer seeded-schedule fixture: instances in sibling namespaces, a lifted match, a theorem, different library files per branch, one --index run (SW-4719 review)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34115,7 +34115,10 @@
       "body": "\n\nProgress (Sonnet lane): rich_project fixture (instances in sibling namespaces, lifted match, Ord and List/Toolkit library files per branch, --index compared, Rich.Base pre-filled) over 8 seeds: report, dump, index, entries equal one job. Test: parallel::random_schedules_over_instances_theorems_and_library_files_match_one_job.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "eef3750a3",
+        "231c84b97b41ec692e1df3ba5cbaff26c82cd79b"
+      ]
     },
     {
       "id": 4725,
@@ -34136,7 +34139,7 @@
     {
       "id": 4726,
       "title": "[Sonnet] check --jobs: a test-only hook to exercise a worker panic path (SW-4719 review F4)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34144,7 +34147,10 @@
       "body": "\n\nProgress (Sonnet lane): parallel::panic_hook (always compiled, keyed on project name, no env var). Test parallel::a_worker_that_panics_stops_the_fill_and_the_check_still_matches_one_job; fails with resume_unwind removed.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "f5db3b7eb",
+        "231c84b97b41ec692e1df3ba5cbaff26c82cd79b"
+      ]
     },
     {
       "id": 4727,
