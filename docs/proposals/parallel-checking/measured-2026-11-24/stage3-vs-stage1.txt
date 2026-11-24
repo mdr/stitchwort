@@ -1,0 +1,77 @@
+# Stage 3 (SW-4767 branch b1db2f670) vs stage 1 (STITCHWORT_STATEMENTS_FIRST=0), same binary, 24 Nov 2026, Speedwell
+## tools/fmt stage 1
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (222 files)
+cold     jobs 8   wall   47.74 s  peak  6.23 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (222 files)
+== libwarm
+libwarm  jobs 1   wall   93.24 s  peak  1.38 GB  exit 0
+libwarm  jobs 4   wall   37.84 s  peak  3.94 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (258 files)
+libwarm  jobs 8   wall   38.93 s  peak  6.08 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (258 files)
+== nocache
+nocache  jobs 1   wall  100.11 s  peak  1.40 GB  exit 0
+nocache  jobs 4   wall   46.72 s  peak  4.16 GB  exit 0
+         output same as jobs 1: yes
+nocache  jobs 8   wall   48.45 s  peak  6.25 GB  exit 0
+         output same as jobs 1: yes
+cold and nocache report the same (1 job)
+
+[exited with code 0]
+## tools/fmt stage 3, then aoc stage 3, then aoc stage 1
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (222 files)
+cold     jobs 8   wall   33.23 s  peak  4.78 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (222 files)
+== libwarm
+libwarm  jobs 1   wall   96.45 s  peak  1.38 GB  exit 0
+libwarm  jobs 4   wall   35.20 s  peak  2.53 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (258 files)
+libwarm  jobs 8   wall   23.13 s  peak  4.80 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (258 files)
+== nocache
+nocache  jobs 1   wall  102.34 s  peak  1.40 GB  exit 0
+nocache  jobs 4   wall   42.21 s  peak  2.64 GB  exit 0
+         output same as jobs 1: yes
+nocache  jobs 8   wall   35.71 s  peak  4.76 GB  exit 0
+         output same as jobs 1: yes
+cold and nocache report the same (1 job)
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (366 files)
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (366 files)
+== libwarm
+libwarm  jobs 1   wall   37.08 s  peak  1.23 GB  exit 0
+libwarm  jobs 4   wall   12.31 s  peak  2.00 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (399 files)
+libwarm  jobs 8   wall    8.09 s  peak  2.83 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (399 files)
+         output same as jobs 1: yes
+         output same as jobs 1: yes
+cold and nocache report the same (1 job)
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (366 files)
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (366 files)
+== libwarm
+libwarm  jobs 1   wall   36.29 s  peak  1.23 GB  exit 0
+libwarm  jobs 4   wall   11.60 s  peak  2.06 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (399 files)
+libwarm  jobs 8   wall    9.31 s  peak  2.84 GB  exit 0
+         output same as jobs 1: yes
+         cache same as jobs 1: yes (399 files)
+         output same as jobs 1: yes
+         output same as jobs 1: yes
+cold and nocache report the same (1 job)
+
+[exited with code 0]
