@@ -579,6 +579,50 @@ theorem Count.induct: Nat := 0
         .unwrap();
 }
 
+/// A theorem that calls itself (here, as a walk's proof does) has no `induct`, and no skip row says so:
+/// `E-NO-EQUATION` for it names the theorem flag.
+#[test]
+fn a_recursive_theorem_has_no_induct_and_no_skip_row() {
+    let source = "namespace T\n\n\
+        import Std (Parse, Nat, Option)\n\n\
+        def Mine (p: () → {Parse Nat} a) (post: a → Prop): Prop := (p, post) = (p, post)\n\n\
+        @[walk.done]\n\
+        theorem mineDone ∀ [x: a] [holds: a → Prop]: Mine (() => x) holds := byComputing\n\n\
+        @[walk.weaken]\n\
+        theorem mineWeaken ∀ [p: () → {Parse Nat} a] [holds weaker: a → Prop] \
+        (m: Mine p holds): Mine p weaker := byComputing\n\n\
+        @[walk.bind]\n\
+        theorem mineThen ∀ [p: () → {Parse Nat} a] [j: a → {Parse Nat} Nat] \
+        [first: a → Prop] [holds: Nat → Prop] (firstMine: Mine p first)\n    \
+        (rest: ∀ (v: a) => first v → Mine (() => j v) holds):\n    \
+        Mine (() => j (p())) holds := byComputing\n\n\
+        def look(): {Parse Nat} Option Nat := Parse.next (n => True)\n\n\
+        @[walk]\n\
+        theorem mineLook: Mine (() => look()) ((v: Option Nat) => True) := byComputing\n\n\
+        def loop (fuel: Nat): {Parse Nat} Nat :=\n  match fuel with\n    | 0 => 0\n    \
+        | Succ k =>\n      let first := look()\n      loop k\n\n\
+        theorem mineLoop (fuel: Nat): Mine (() => loop fuel) (n => True) :=\n  \
+        byWalking [mineLoop]\n\n\
+        theorem uses (fuel: Nat): Mine (() => loop fuel) (n => True) :=\n  \
+        mineLoop.induct (fuel r => r = r) fuel\n";
+    std::thread::Builder::new()
+        .stack_size(STACK)
+        .spawn(move || {
+            let mut session = Session::for_stack(STACK);
+            let errors = session.load("t.sw", source).expect_err("it fails");
+            let message = format!("{errors:#?}");
+            assert!(message.contains("a theorem has no `induct`"), "{message}");
+            let g = &session.elab.ev();
+            let rows: Vec<_> = (session.elab.equation_skips().iter())
+                .filter(|(id, _, _)| &**g.def(*id).name() == "T.mineLoop")
+                .collect();
+            assert!(rows.is_empty(), "{rows:?}");
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
 /// Every `f.induct` of the library, made (as `search` makes them): how
 /// many, and why the others weren't. None is refused by the kernel. Slow
 /// (every library file is loaded): `--run-ignored`.

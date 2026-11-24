@@ -34540,12 +34540,12 @@
     {
       "id": 4751,
       "title": "[Sonnet] equations: don't record a 'no t.induct' equation_skips row for a theorem (a theorem never has equations or induct); the row put proof-made data in the interface digest (stage 3 pilot cause 1, SW-4730)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Lane note: no induct row is now recorded for a theorem or instance (induct::no_equations); the t.induct message is unchanged (E-NO-EQUATION from the theorem flag). Test: function_induct::a_recursive_theorem_has_no_induct_and_no_skip_row.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
       "commits": []

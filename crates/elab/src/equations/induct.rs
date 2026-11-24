@@ -243,8 +243,14 @@ pub(super) fn calls_itself(g: &Ev, f: DefId) -> bool {
 }
 
 /// Records why `f.induct` isn't made when `f`'s equations aren't (`why`),
-/// if `f` calls itself.
+/// if `f` calls itself. A theorem or instance gets no row: `no_equation`
+/// answers a use of its `induct` from the definition's flag, and a row would
+/// make its proof (which may call the theorem) part of its namespace's
+/// interface.
 pub(super) fn no_equations(e: &mut Elaborator, f: DefId, kind: Kind, why: &str) {
+    if e.kernel.def(f).theorem() || e.kernel.def(f).instance() {
+        return;
+    }
     let g = &e.ev();
     let calls = match kind {
         Kind::Decreasing { .. } => true,
