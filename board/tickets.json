@@ -34017,7 +34017,7 @@
     {
       "id": 4719,
       "title": "[Opus] Build: parallel checking stage 1 per the design (SW-4718); Fable review after; needs D3731 (what a parallel --no-cache means) before merge (D3730)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34025,7 +34025,15 @@
       "body": "\n\nD3731 (Matt, 24 Nov 2026: \"D3731 (a) memory cache\"): a parallel --no-cache passes results between its workers as cache entries held in memory for that run only; the byte-for-byte test and the ground-truth from-scratch check stay on one worker. PARALLEL_NO_CACHE stays true.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "487e3ad397b978bbb44d3259b632b772d5d1b670",
+        "fffab6b64780b13f378a6df4659f9c409b961612",
+        "435cf0696fc3085cb7fe7b4e3d81b2f8ddc955eb",
+        "f23958a30245acb688bd230a92e9e41e655c9cf8",
+        "478a66098e0368bd2bc22a852bebfcdd0925194b",
+        "5a5ce5a78c53e2d0f2c286fbd5a9c21b2971971a",
+        "f6647e1a6dc781fa422a2e291ad5e3e768cef1a8"
+      ]
     },
     {
       "id": 4720,
