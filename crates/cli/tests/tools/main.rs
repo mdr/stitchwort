@@ -33,5 +33,6 @@ mod timings;
 mod trial_edits;
 mod uses;
 mod warning_pins;
+mod work_limit;
 
 use stitchwort_test_alloc as _;
