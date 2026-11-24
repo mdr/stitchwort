@@ -34681,7 +34681,7 @@
     {
       "id": 4761,
       "title": "[Sonnet] decreasing_wrapper marks a decreasing theorem folded (kernel::mark_folded), which only the proof's elaboration does, so the fold flag in the interface digest depends on the proof (stage 3 pilot round 2, stream:rest byte 5); a theorem needs no folding: don't mark theorems (SW-4757 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34689,7 +34689,11 @@
       "body": "\n\nLane note: fixed in decreasing_wrapper (mark only when not a theorem); test a_decreasing_theorem_is_not_marked_folded fails before, passes after; no hash snapshot moved.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "7c6e483467dfbb8bd1aa70f1e5787bdcb36e5d30",
+        "901cd215ed4e7106a00389169f2f563c8bdbeacd",
+        "ac5be256b9888781fc26cd86a8bf7b5d10de0d54"
+      ]
     }
   ]
 }
