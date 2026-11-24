@@ -6,6 +6,13 @@ Stitchwort?"). Nothing was built, run or checked for it: the code was read at `1
 web sources on 22 November 2026, and the timings are this morning's from SW-4608. It informs a
 decision about direction, which is Matt's; the questions are in [section 6](#6-decisions-for-matt).
 
+**Updated 24 November 2026 (SW-4715, D3729)** for full proof irrelevance (D3722), interface
+hashes (SW-4701) and digest-keyed cache entries (SW-4707): see
+[section 8](#8-after-proof-irrelevance-sw-4715-24-november-2026), which replaces the
+recommendation, the options' gains and the decisions below. The survey (section 1) and the
+invariants (sections 2.3, 2.4) stand. What section 8 supersedes is marked **[superseded]**
+where it sits.
+
 Marks: **[verified]** read today in the primary source cited; **[secondary]** read in a source
 that isn't the system's own (a forum, a later paper); **[not verified]** I believe it but did
 not find or read a source today; **[measured]** a number from an earlier lane's run;
@@ -38,7 +45,8 @@ checked later, elsewhere.*
   cache, takes 2.1 to 4.1 s **[measured]**; section 3.1 says what that does and doesn't show). So "check namespace A in one session and hand the result to another"
   needs no new mechanism. The test sweeps already run one session per thread
   (`par_map_sessions`, `crates/driver/src/driver.rs:128`).
-- *Not helpful:* a Stitchwort theorem is **not** opaque. Its proof is part of its content
+- **[superseded, section 8.1: theorems are sealed now, and a user's hash covers a theorem's
+  statement only]** *Not helpful:* a Stitchwort theorem is **not** opaque. Its proof is part of its content
   hash, which every user's hash covers, and a later declaration can compute with it (`J`, a
   `case`, a comparison unfold it; `docs/core.md`, "Theorems stay folded too"). So the trick
   everyone else uses, "later declarations need only the statement", is false here as the
@@ -61,7 +69,8 @@ check was 252 s, before today's speedups, so the shape is indicative only):
   **[estimated, an upper bound]**. Isabelle's and Rocq's real figures (3x on 4 cores, 5-6x on
   8, 4x on 12) say to expect roughly half of an ideal bound.
 
-**Recommendation.** Namespace-level parallelism on threads, one session per worker, results
+**Recommendation [superseded by section 8.4: option A is now stage 1 of a longer plan].**
+Namespace-level parallelism on threads, one session per worker, results
 handed over as check-cache entries (option A below). It reuses what exists, keeps the kernel
 and values untouched (`Rc` stays), and its soundness argument is the check cache's. Leave
 proof-level parallelism and shared (`Arc`) values as later, separate decisions: both touch the
@@ -75,7 +84,7 @@ at once, over one cache directory, and compares the cache's recorded hashes and 
 diagnostics with a sequential run. That measures the real speedup, the replay overhead and
 the memory, and tests determinism, before anything is designed in.
 
-**For Matt:** whether to pursue this now; whether a parallel `--no-cache` check may trust
+**For Matt [superseded by section 8.5]:** whether to pursue this now; whether a parallel `--no-cache` check may trust
 results passed between sessions through the cache's encoding (it is what a warm check trusts
 today); and, later, whether theorems should become opaque to the checker, which is what would
 make proof-level parallelism simple.
@@ -347,6 +356,9 @@ For a later declaration `e` and an earlier `d`, checking `e` can depend on:
    declarations, not how warm the evaluator's caches are.
 
 ### 2.2 Theorems in Stitchwort are not opaque
+
+**[superseded, 24 Nov 2026]** This section describes the language before D3722. Lemma B below
+now holds by rule, with no condition: section 8.1.
 
 In Lean, Rocq (`Qed`) and Isabelle, item 2 is empty for theorems by a rule of the system. In
 Stitchwort it is not:
@@ -661,6 +673,9 @@ does signatures before bodies within a group), installs each theorem as a *promi
 assumption form: statement, no body), carries on, and elaborates the bodies as tasks; at the
 end of the namespace it joins them, turning each promise into the theorem or its stand-in.
 
+**[superseded, 24 Nov 2026]** B2 below is what was decided and built (D3722: theorems are
+sealed, with no `unfolding` opt-out). Section 8.3 gives B as it stands now.
+
 **Soundness.** By the proof-level theorem, *if* Lemma B's condition holds. In Stitchwort it
 does not hold by rule (section 2.2). So B needs one of:
 
@@ -751,6 +766,9 @@ and memory costs hurt, or if B1 is wanted.
 
 ## 5. Recommendation
 
+**[superseded by section 8.4]** Kept for the record: its measurements were run (the two
+addenda below, and SW-4645's count), and its item 3 was decided as D3722.
+
 1. **Measure first (no compiler change, two background jobs for the verifier or Overmind):**
    - Rerun `check --no-cache --timings=all` of `tools/fmt` on today's `main`, parse the unit
      table as SW-4608 did, and run `ns_graph.py` on it: today's critical path and bound. Also
@@ -780,6 +798,9 @@ proof. Speeding up or splitting the namespaces on the critical path raises the b
 later parallel design, and `ns_graph.py` says which they are.
 
 ## 6. Decisions for Matt
+
+**[superseded by section 8.5]** Question 1's measurements were run; question 3 was decided
+(D3722, sealed theorems); question 2 is asked again there.
 
 1. **Direction:** pursue parallel checking now, starting with the two measurements?
    [rec: yes to the measurements; decide on building A when they are in.]
@@ -868,3 +889,475 @@ All 150 `tools/fmt` namespaces as separate `stitchwort check` processes over one
 The parallel run's diagnostics and all 258 cache entries were byte for byte the same as the sequential run's (4 processes, `--compare`): the check cache's results don't depend on order or process, as section 2 assumed. But processes gain almost nothing: each one reloads every namespace it depends on from the cache, which costs more than most namespaces' own checking (median well under a second), and at 6 processes even the own time rises (contention for memory bandwidth and cores). Peak memory per process was up to 1.1 GB.
 
 So option (c), processes, is ruled out as the way to get the speedup, and option (a) only pays if workers don't each reload the world: threads in one process sharing what's already loaded (an immutable, shareable environment, Lean's approach), or a much cheaper load. The bound with that overhead removed is the 3x to 6x estimated above. This makes the `Rc` question (option d) and replay cost (SW-4645) the next things to understand.
+
+## 8. After proof irrelevance (SW-4715, 24 November 2026)
+
+Fable paper lane, asked for by D3729. The code was read at `fda6878dd`; nothing was built, and
+no check was run. Marks as at the top of the note; **[verified]** here means read today at the
+file and line given. The gains are **[static]** (from `fmt-units-22nov-pm.csv`, taken before
+SW-4647 shortened the slowest namespace, so stale in the same way as before) or
+**[estimated]**; `parallel-checking/measure_shares.sh` gives today's figures and is written
+for the orchestrator to run (**not run by this lane**: it is a whole-project check).
+
+### Summary
+
+**The problem.** A cold check of `tools/fmt` is one thread for about two minutes. The first
+note found the one trick every other prover uses, "what comes later needs only a theorem's
+statement", was false here, and the first measured run showed separate processes gain nothing
+(1.08x), because each one loads everything below it again.
+
+**What changed.** The trick is true now. A theorem's proof is never unfolded while anything is
+checked, a reference to a theorem hashes as its statement, and a namespace's cache key covers
+the *interface* of what it depends on, not the proofs. So a namespace can be checked against
+its dependencies' statements, and whether their proofs have been checked yet can't change the
+result.
+
+**The plan, in three stages**, each on threads with one session per worker, values left as
+`Rc`:
+
+1. **Namespaces in parallel** (option A, as before): `check --jobs N`. Workers keep their
+   sessions, so each loads a namespace at most once, not once per namespace as the processes
+   did. Estimate for `tools/fmt` cold: **2.2x to 2.5x** with the library cold, up to 3x with
+   it cached **[static]**; whole AoC close to the number of workers **[estimated]**.
+2. **Load only interfaces.** A worker that needs a dependency loads its statements and
+   definitions and leaves its proofs out: less to load and less memory per worker
+   **[estimated; the share of an entry that is proofs is not measured]**.
+3. **Statements first.** Each namespace publishes its interface (everything but its proofs)
+   as soon as that is checked; the namespaces above start from it, and every namespace's
+   proofs are then checked side by side. The chain that limits stage 1 then carries only
+   statements and definitions. Estimate for `tools/fmt` cold on 8 workers: **2.6x to 3.6x**
+   with the library cold, **3.3x to 5.5x** on the project part **[estimated from static
+   figures; the spread is the unknown share of time that isn't proofs]**.
+
+Proofs *inside* one namespace on several workers, and shared (`Arc`) values, stay out: the
+first buys little once stage 3 is in (it only lowers the floor set by the largest namespace),
+and the second is still a rewrite of the evaluator's memory.
+
+**For Matt:** the end state (stage 3, with `Rc` kept); the trust change stage 1 makes to
+`--no-cache`; and the trust change stage 3 makes (a theorem is used before its own proof has
+been checked, and the run is only "checked" when every proof has passed). Section 8.5.
+
+### 8.1 What proof irrelevance and digests changed
+
+**Gone:**
+
+| Obstacle in the first note | Now | Evidence |
+|---|---|---|
+| A later declaration can unfold a theorem's proof (`J`, `case`, comparison); Lemma B held only "if the check never unfolds it" | A call of anything whose type is a proposition never unfolds while checking (rule F), and no `unfolding` list may name a theorem, so there is no opt-out. Lemma B holds for every theorem, with no condition | **[verified]** `value::frozen`, `crates/core/src/value.rs:3435`; every unfolding goes through `body_seen`, `:3453`, which returns nothing for a frozen definition; `docs/core.md:174` (rule 6) and `:284` (rule F). Before sealing, SW-4645 counted 63,049 such unfoldings in a `tools/fmt` check **[measured, merge `fc5932786`]**; the counters went with the code they counted (`f0af26180`) |
+| Comparing two proofs looks inside them | Two values marked as proofs are equal and nothing inside either is read (rule I), before anything else in conversion | **[verified]** `value::by_rule_i`, `value.rs:4534`; `docs/core.md` "Proof irrelevance" |
+| A user's hash covers the theorem's proof, so a hash asked for while elaborating would have to wait for the proof | A reference to a final theorem with a proof hashes as the tag `theorem` and its statement | **[verified]** `hash::has_interface` and `interface_hash`, `crates/core/src/hash.rs:235-256`; `docs/core.md:571` |
+| Facts read off a proof's body and kept on the theorem (inert proof parameters) | Proof parameters are read off the type's marks; "no list of positions, no inert analysis" | **[verified in the spec]** `docs/core.md`, "Proof irrelevance"; kernel code not re-read |
+| A namespace's cache key covers everything below it, proofs included | The key covers each dependency's *interface digest*: its entry less sealed proofs, positions and its own messages. An edited proof re-checks 1 namespace, not 54 (31.0 s to 5.3 s) | **[measured by the orchestrator, 23 Nov]** `interface-digest-cache.md`, "As built (stage A)" |
+| Whether results depend on which process or order checked a namespace | 258 entries byte for byte the same between a sequential check and four processes | **[measured]** the 22 Nov addendum above |
+
+**Still there:**
+
+- **Values are `Rc`; nothing in a session can cross a thread.** 1,774 uses of `Rc`, 375 of
+  `Cell`/`RefCell`, 33 of `Arc` in `crates/core/src` and `crates/elab/src` today (1,640, 290
+  and 33 on 22 Nov) **[verified, grep]**. The cache store is handed to a session as
+  `Rc<dyn Store>` (`crates/elab/src/cache/mod.rs:412`; the trait, `:123`). So every design
+  below keeps one session per thread, and what crosses threads is bytes: entries.
+- **A dependency has to be loaded into each session that uses it.** This is what sank the
+  process run: 233 of 329 CPU-seconds were loading **[measured, addendum]**. It is a cost of
+  starting each namespace from an empty session, not of sessions as such: a worker that keeps
+  its session loads each namespace at most once (section 8.3, A).
+- **The kernel has no form for "a theorem whose proof is elsewhere".** Trusted replay admits
+  a statement (`check::admit_trusted_def`, `crates/core/src/check.rs:4085`) and then installs
+  the bodies (`admit_trusted_group`, `:4114`); between the two the theorem is pending, and
+  nothing may refer to a pending declaration. The nearest existing form is the assumption
+  (`check::assume`, `:3054`), which is final at once and never unfolds, but it hashes by its
+  own tag and label, so a user's hash would differ from the one it has once the proof is
+  there (`has_interface` asks for `body.is_some()` and no assumption, `hash.rs:237`). Stages
+  2 and 3 need this form: a small kernel addition, and a trust decision (8.5).
+- **The elaborator asks "does it have a body?" in seven places** (`reading.rs:1886`,
+  `auto.rs:1547`, `module.rs:3219`, `interfaces.rs:1029` and `:1300`, `opaque.rs:467`,
+  `rewrite/repeatedly.rs:1745`) **[verified, grep; I read the first three]**. `auto_eligible`
+  (`module.rs:3218`) reads a missing body as "not finished checking", so a theorem admitted
+  without its proof would silently stop being a candidate. The new form must answer these as
+  a finished theorem does.
+- **Session state that isn't in an entry.** `Session` (`crates/elab/src/state/session.rs:26-144`)
+  is as the digest note lists it: the project's namespace list and `project_names` (from
+  syntax, set whole), `library_reach` (rebuilt from entries' needs), and `derive_waiting`
+  (not cached, an accepted stale note). Its `Cell`s and `RefCell`s (`instance_waits`,
+  `blocked`, `paths`) are per-session working state. Nothing here is new since the digest
+  note's section 2.2 **[verified by reading the struct]**.
+- **A namespace's library files are found from its syntax before any declaration is
+  checked** (`dependencies`, then `set_library_reach`, `crates/elab/src/module.rs:461-462`),
+  so which proof is elaborated first can't change which instances are in reach
+  **[verified for the reach; not verified that no library file is ever loaded later, during
+  a body]**.
+- **What a proof leaves behind.** A `match` or local definition in a proof becomes a helper
+  declaration with rows in `lifted`, `match_columns` and `helper_keys`
+  (`state/tables.rs:51`, `:80`, `:131`); 4,996 such helpers in `tools/fmt`, a third of its
+  theorems owning one **[measured/estimated, digest note "As built"]**. Until the cache's
+  stage C (SW-4713) defines them as proof-private, they are part of a namespace's interface
+  digest, so the interface isn't known until the proofs are done. **Stage 3 depends on stage
+  C.**
+- **Error messages can depend on everything loaded**, not only on what a namespace uses
+  (`E-UNKNOWN-FIELD` "names the namespace that would add a missing function";
+  `crates/driver/src/project.rs:312-318`, which is why a plain `check` that left namespaces
+  out starts again, loading all, when one has an error or a goal) **[verified]**. So
+  invariant I1 holds for clean namespaces only. A parallel check does what that code does:
+  on any error or open goal it reports from a sequential check (8.3).
+- **Step counts depend on history.** "The steps a declaration's check takes can depend on
+  which earlier check already forced a call in a kept type, so on whether those were checked
+  or replayed from the cache. Results don't" (`docs/core.md:272`) **[verified in the spec]**.
+  That settles invariant I6, the one the first note could not: step counts are *not* a
+  function of the declaration alone, so a declaration within a few steps of its limit could
+  pass under one schedule and run out under another. This is already so between a cold and a
+  warm check. It can't make a wrong result accepted; it can make a run fail with
+  `E-RESOURCE` that another would pass. `--timings` step totals will differ between
+  schedules for the same reason.
+- **Reliance (open goals, axioms) is a walk over proofs** in the live session
+  (`assumption::relied_on`). A session that left proofs out can't do it. In the plan below
+  only complete sessions report reliance: a parallel check falls back to a sequential one
+  when there is a goal, and `axioms` and `audit` load everything, as now.
+- **Only theorems are sealed for hashing.** A `def` whose type is a proposition is frozen by
+  rule F too, but `has_interface` asks for `def.theorem` (`hash.rs:237`), so such a
+  definition's body is still part of its users' hashes and of the digest **[verified]**.
+  It costs cut-off, not correctness.
+- **The editor** rewinds to the first changed namespace and checks one namespace per step
+  (`crates/driver/src/live.rs:1-18`); within a namespace everything after an edit is checked
+  again. Unchanged; 8.3 says where each option touches it.
+- **The playground** is one thread of wasm. Unchanged, and not a target.
+
+### 8.2 The formal picture now
+
+Lemma B without its condition:
+
+> **Lemma B′ (sealing).** Let `d` be a theorem with statement `T`, and let `Σ, d` and
+> `Σ, d°` be the environment with `d` proved and with `d°`: the same name, path and
+> statement, marked a proof, final, with no body, and hashed as `d`'s interface hash. Then
+> elaborating and checking any later declaration `e` gives the same terms, hashes and
+> verdict after either, provided the elaborator's own readers treat `d°` as a finished
+> theorem (the seven body tests of 8.1).
+
+Why: evaluation never unfolds `d` (rule F reads `Def::proof`, which is set from the type);
+conversion never looks inside a call of `d` (rule I reads marks); rules K and S compute from
+a cast's ends or a proposition's shape and never from the proof (`docs/core.md`, "Rules K and
+S"); `e`'s hash reads `d`'s interface hash. What still reads `d`'s body is outside checking:
+running a program (erased first), the reliance walk, `axioms`, `audit`, `--timings` sizes,
+and one error note (`equation_notes.rs:207`, digest note 2.1). **[argued from the verified
+facts above; the kernel was audited for "nothing reads a sealed proof" by SW-4700's review,
+not by this lane]**
+
+A stand-in (the assumption that replaces a theorem whose proof failed) differs from `d°`
+only in its hash and its label. So if `d`'s proof later fails, what was checked against `d°`
+was checked correctly *as terms*, but its hashes and its "finished" status are wrong, and it
+has to be reported as relying on a failed declaration. The plan below does not try to patch
+that up: a failed proof sends the run to the sequential check.
+
+The theorems of section 2.4 become:
+
+> **Namespace-level (stage 1).** As before: given I1 to I5 and I7 for clean namespaces, any
+> schedule that checks each namespace in a session holding its closure gives the entries and
+> messages of the sequential check.
+
+> **Statements first (stage 3).** Let `iface(N)` be the entry of `N` less its sealed proofs
+> and what only they reach (the cache's stage C definition). Suppose every namespace `N` is
+> checked in full in some session that holds `iface(D)` for each `D` in its closure, that
+> the check has no error and no open goal, and that the interface each of those sessions
+> computes for `N` has the digest of the `iface(N)` the others were given. Then every
+> declaration is the one a sequential check makes, and every proof has been accepted by the
+> kernel against true statements.
+
+Proof sketch: by induction up the namespace order. `N`'s session differs from the sequential
+one only in holding `d°` for `d` (Lemma B′) and in lacking proof-private helpers, which
+nothing outside their proof can reach (stage C's definition, the digest note's P1). So `N`'s
+check produces the sequential entry. The digest test closes the loop: the interface the
+others relied on *is* the one `N`'s full check produced. No cycle is possible: a proof in `N`
+can only use statements from `N`'s own sequential prefix (its own session checks `N` in the
+usual order) and from namespaces below it.
+
+That last point is what a within-namespace design has to arrange by hand. If the proofs of
+one namespace were checked in a session holding *all* of that namespace's statements, a
+tactic could pick up a later theorem (`auto` limits itself to declarations "declared above",
+`module.rs:3218-3224`, by position; a scan such as `reading.rs:1882-1889` goes over
+every definition in the environment), and two proofs could each use the other. Lean and
+Isabelle avoid this by giving each proof the environment as it stood at its statement. With
+`Rc` sessions that means a worker walking the namespace forward, replaying statements and
+elaborating only its share of the proofs.
+
+### 8.3 The options again
+
+Figures use the 22 Nov evening table: library and core 16.8 s, project 127.9 s, critical
+path 41.6 s, largest namespace 20.4 s (`Syntax.ReadBackHungTop`, since cut by SW-4647; the
+next is 8.5 s) **[measured then; static below]**.
+
+#### A. Namespaces in parallel, sessions kept (stage 1)
+
+*What it is.* The first note's option A, with the measured lesson applied: workers are
+threads that each keep one session for the whole run. A worker given namespace `N` loads
+whatever of `N`'s closure its session lacks (from the entries other workers published),
+checks `N`, and publishes `N`'s entry. With the cache on, entries go through the store as
+now; with `--no-cache`, through an in-memory map for the run. Keys need each dependency's
+digest, which is in the entry's header and is known when the dependency finishes, which is
+when `N` becomes ready anyway (digest note, section 5). The sweeps already run sessions on
+threads this way (`par_map_sessions`, `crates/driver/src/driver.rs:128`).
+
+*Errors and goals.* If any namespace reports an error or an open goal, the parallel run
+stops handing out work and the driver runs the ordinary sequential check, which replays the
+clean entries just written and re-checks the rest. So every message a user sees in a failing
+run comes from the sequential code, and I1's weakness for errors (8.1) doesn't arise. Cost:
+a failing run is no faster than now, except for what the cache kept. `tools/fmt` sets
+`open-goals: warn`, so while it has a `?` it gets no gain; stage D of the digest cache is
+what would change that.
+
+*Why the result equals a sequential check.* The namespace-level theorem. I3 (replay equals
+elaboration) is the cache's contract. I2 (order within the closure) is leaned on more than
+by the process run: a kept session receives namespaces in the order its work arrived, not in
+canonical order. Evidence that this is safe: a plain `check` already replays entries into
+sessions that skipped other namespaces (the digest note's P4), and the editor loads the
+edited namespace last (`project.rs:559`). The standing test is the one the process run used:
+every entry and every message byte for byte against the sequential check.
+
+*Gain.* `tools/fmt` cold **[static]**: 4 workers 2.22x, 6 workers 2.40x, 10 workers 2.47x
+with the library checked first on one core; 2.64x, 2.93x, 3.07x on the project part (library
+cached). Less the loading: each worker loads each namespace at most once, so at most one
+whole-project replay per worker (2 to 4 s and 0.7 to 1.3 GB each **[measured for one
+replay]**), in parallel, against the 233 s the processes paid **[estimated; stage 1's first
+measurement]**. Since SW-4647 the critical path is shorter (the addendum estimated about 21 s
+and a bound near 6x **[estimated then; not re-measured]**), so today's figure is probably
+better than these. Whole AoC: 291 namespaces, depth 5, 106 on one level, so close to the
+worker count once the library is loaded **[estimated; never weighed]**. That is the check
+Overmind runs on every push.
+
+*Cost and risk.* Driver work: a scheduler, a store usable from several threads, merged
+reports, `--timings` and progress per worker, cancellation. No kernel or evaluator change.
+Memory: up to workers × (0.7 to 1.3 GB plus the working peak), so 8 workers may hold 6 to
+10 GB **[estimated]**; the worker count needs a memory cap as well as a core cap, and lanes
+sharing the machine count against it. Risk: I2 false somewhere; found by the byte-compare
+test, and each such case is also a latent cache bug today.
+
+*Trust.* As the first note said: `--no-cache` would mean "every declaration was checked once
+by this build's kernel, and moved between sessions in the cache's encoding", not "one kernel
+saw everything in one environment". Decision 2 in 8.5.
+
+#### N1. Load only interfaces (stage 2)
+
+*What it is.* When a worker loads a dependency, it admits each sealed theorem by its
+statement and skips the proof, using the new kernel form `d°` of Lemma B′. The entry's layout
+marks which bodies are sealed (the digest pass already knows: it is the same predicate,
+`has_interface`); after the cache's stage C the proof-private helpers are skipped too.
+
+*Why the result is the same.* Lemma B′, for a dependency whose proofs *have* been checked (by
+the worker that published the entry). Nothing unproved is used: this stage changes what a
+session holds, not what has been checked.
+
+*Gain.* Lower loading time and memory per worker, by the share of an entry that is sealed
+proofs and their helpers **[not measured; probably most of it, since at least 60% of the
+checking time is proofs]**. It also helps every warm check and the editor's start-up, which
+replay the same entries. No change to the bounds of A.
+
+*Cost and risk.* The kernel form (small: an admission with no body that is final and hashes
+as the interface), the seven body tests, and a rule for who may load this way: any session
+that will report reliance, run a program, or answer `axioms` or `audit` must load proofs.
+The risk is a reader of proofs that was missed, which would report "no axioms" or "finished"
+from a session without the proofs. This needs its own short design note and a Fable review,
+since it is the trusted base.
+
+#### N2. Statements first, proofs side by side (stage 3)
+
+*What it is.* Rocq's `.vos` then `.vok`, and Cargo's pipelined builds, at namespace level.
+Two kinds of work per namespace:
+
+- an **interface pass**: check `N` leaving out each sealed theorem's proof (admit `d°`
+  instead), against the interfaces below; publish `iface(N)` with its digest;
+- a **full check**: check `N` as today, proofs included, against the interfaces below;
+  publish the entry; compare its interface digest with the interface pass's.
+
+The interface passes follow the namespace graph (through stage 1's scheduler); a full check
+needs only the interface passes of its closure, so the 150 full checks are independent of
+each other. The run is "checked" when every full check has passed and every digest matched.
+A proof failure, an open goal or a digest mismatch sends the run to the sequential check, as
+in A.
+
+*Why the result is the same.* The statements-first theorem of 8.2. The digest comparison is
+the join: it is what Isabelle's "all promises fulfilled" and Rocq's "then build the `.vo`"
+are, done per namespace with a check that already exists (`--recheck` recomputes digests).
+
+*Gain.* Wall time is about `L + I + max((P + I_cpu)/W, biggest namespace)`: the library
+`L`, the interface passes along their chain `I`, then all the work spread over `W` workers.
+The unknown is how much of the time is not proofs. The first note's figure is "at least 60%
+is proofs"; `interface_share.py` on the old top-200 table gives 93% proofs for those 200
+declarations **[static; the other 12,900 declarations are not in any table]**. Taking 7% to
+40% as the range for the rest, with `P` = 127.9 s, 8 workers and the interface chain at the
+same share of the 41.6 s critical path: `I` is 3 to 17 s, and the work spread over the
+workers is 17 to 22 s, against a floor of 20.4 s from the largest namespace as it was then.
+So the project part is 23 to 39 s, **3.3x to 5.5x**, and the whole cold check 40 to 56 s of
+144.7 s, **2.6x to 3.6x** **[estimated]**. The library block is then a third of the run; it is normally cached, and
+checking it in parallel is the same problem again one level down (its files have static
+edges from the index, digest note 1.5). On AoC: nothing beyond A; its graph is already flat.
+
+What the figures don't show: stage 1's bound falls as a project's chain grows (`tools/fmt`
+is 25 levels deep and each proof slice adds to the chain), while stage 3's does not, because
+proofs are off the chain wherever they sit. And on a re-check after a statement low down has
+changed, everything above it is checked side by side.
+
+*Cost and risk.* Statements and definitions are elaborated twice (once in each pass), as
+Rocq's are; that is the `I_cpu` above. It needs stage 1's scheduler, N1's kernel form (now
+used for theorems whose proofs have *not* yet been checked), and the cache's stage C, so
+that proof helpers aren't part of the interface. Risk: an interface pass that differs from
+the full check's interface. The digest comparison catches every such case as a mismatch,
+loudly, at the cost of a sequential re-run; it can't be a silently wrong result unless the
+digest itself leaves out something a dependant reads, which is the digest cache's own risk
+(its section 2.4), not a new one.
+
+*Trust.* For the length of a run, sessions hold theorems nobody has proved yet. Nothing is
+reported as checked until the join. Decision 3 in 8.5.
+
+#### B. Proofs of one namespace on several workers
+
+*What it is.* After N2, the floor is the largest namespace's full check. B splits that: each
+worker walks the namespace forward, replays the interface pass's declarations, and
+elaborates only its share of the proofs, so each proof sees exactly the declarations before
+it (8.2's last paragraph).
+
+*Gain.* It lowers the floor from the largest namespace (20.4 s then, 8.5 s for the next) to
+the largest single proof. With 8 workers the proofs phase is about 16 s anyway, so on
+`tools/fmt` today this buys little **[estimated]**. The same machinery is what would let the
+editor re-check only the proof being edited instead of the rest of its namespace (digest
+note, section 4).
+
+*Cost and risk.* Per-declaration records in entries, forward-only replay in workers, an
+audit that everything a proof leaves behind is private, and messages merged in source order.
+Larger than N2 and with more ways to differ from the sequential check.
+
+*Recommendation.* Not now. Splitting an oversized proof namespace gets the same effect with
+no compiler work; revisit B for the editor.
+
+#### C. Worker processes
+
+Ruled out by measurement (1.08x at 4 processes, 1.10x at 6; addendum). Unchanged.
+
+#### D. Shared (`Arc`) values
+
+Unchanged: a rewrite of the evaluator's memory model, now 1,774 `Rc` sites, with an unknown
+slowdown of every single-threaded check. Proof irrelevance removed the one thing D was
+needed *for* in the first note (B1, blocking on a proof someone unfolds: nothing unfolds a
+proof now). What D would still buy is no loading and no duplicate memory per worker; N1 goes
+after the same cost far more cheaply. Not recommended.
+
+#### Comparison
+
+| | A (stage 1) | N1 (stage 2) | N2 (stage 3) | B | D |
+|---|---|---|---|---|---|
+| What runs side by side | namespaces, along the graph | as A | interfaces along the graph; all proofs | proofs within a namespace too | anything |
+| `tools/fmt` cold, library cold | 2.2x to 2.5x **[static]** | as A, less loading | 2.6x to 3.6x **[estimated]** | little more on 8 workers | not sized |
+| Project part (library cached) | 2.6x to 3.1x **[static]** | as A | 3.3x to 5.5x **[estimated]** | cores-limited | |
+| Whole AoC | near workers **[estimated]** | as A | as A | as A | |
+| Result equals sequential because | cache contract, I2 | Lemma B′ | Lemma B′, digest join | B′, prefix rule | thread-safe evaluator |
+| Kernel or evaluator change | none | one admission form | same form | same form | memory model |
+| New trust | entries between sessions under `--no-cache` | sessions without proofs must not report reliance | theorems used before their proofs are checked; verdict at the join | as N2 | |
+| Needs first | nothing | a short design and review | stage 1, N1, cache stage C | N2 | |
+| Size | medium | small to medium | medium | large | very large |
+
+### 8.4 Recommended end state and build plan
+
+**End state:** stage 3. One process, a session per worker thread, `Rc` values; workers load
+interfaces; each namespace's interface is published before its proofs are checked; a run is
+checked when every proof has passed and every interface digest matched; any error, goal or
+mismatch is reported by the sequential check. B and D stay out unless the editor (B) or
+measured loading costs (D) call for them.
+
+**Measure first** (the orchestrator; one script, about 5 minutes of machine time for
+`tools/fmt` going by the 111 to 146 s cold checks above):
+
+    docs/proposals/parallel-checking/measure_shares.sh target/release/stitchwort tools/fmt OUT crates/elab/src/std
+
+and the same for `aoc` (never weighed; expect several minutes). How to read it:
+
+- *Part 1, "bound":* what stage 1 can give on the project part. If it is under about 2x for
+  `tools/fmt`, stage 1 is worth building for AoC and Overmind alone, and stage 3 matters
+  more.
+- *Part 2, "the rest":* the share that is not proofs, a lower bound on the interface pass.
+  Under about 20%: stage 3's upper figures apply. Over about 40%: stage 3 adds little over
+  stage 1 and should wait.
+- *Part 3:* seconds and memory for one worker to hold the whole project; times the worker
+  count, it is stage 1's loading cost and memory at worst.
+
+The script was syntax-checked only; `interface_share.py` was run on the old top-200 table
+(169 of the 200 are theorems under today's names, 93% of their time; the first note's hand
+count was 188 and 97%, and the difference is declarations renamed since).
+
+**Stages** (estimates in agent time, set from SW-4701's 32 minutes and SW-4707's brief of 90
+for comparable Opus work; **[estimated]**):
+
+| Stage | What | Measure when done | Who, estimate |
+|---|---|---|---|
+| 1a | `check --jobs N`, cache on: scheduler over the namespace graph, kept sessions on threads, a store usable across threads, messages in canonical order, fall back to the sequential check on any error or goal. Default stays 1 | `tools/fmt` and whole AoC, cold library cached, 4 and 8 jobs: wall time, peak memory, and every entry and message byte for byte against `--jobs 1`. Prediction: 2.6x to 3.1x on `tools/fmt`'s project part **[static]** | Opus, 90 min; Fable review of the driver's trust wording, 30 min |
+| 1b | `--no-cache` through an in-memory map; `--timings`, progress and cancellation merged; the byte-compare as a standing test on a small project | the same, with `--no-cache` | Opus or Sonnet, 60 min |
+| 2 | Design note for the "theorem whose proof is elsewhere" form and interface-only loading (who may load without proofs), reviewed; then the build | loading time and memory per worker before and after | Fable paper 40 min; Opus 90 min; Fable review |
+| 3 | Interface pass and digest join, after the cache's stage C (SW-4713) is built | as 1a; prediction 3.3x to 5.5x on the project part **[estimated]** | Fable paper 40 min; Opus 120 min; Fable review |
+
+Stage 1 changes no kernel code and can start once Matt has answered decisions 1 and 2.
+Stages 2 and 3 each start with a note of their own, because they change what the trusted
+base holds; this note is not that design.
+
+**Orchestrator's calls, not Matt's** (noted so they aren't lost): `--jobs` defaults to 1
+until the byte-compare has been clean for a while on std, AoC and `tools/fmt`; the default
+worker count is capped by memory as well as cores; a failing run falls back to the
+sequential check.
+
+### 8.5 Decisions for Matt
+
+The orchestrator numbers these.
+
+1. **The end state: statements first, on threads, without shared values.**
+   *The problem:* a cold check uses one core of ten, and checking namespaces side by side is
+   limited by the longest chain of namespaces, which in `tools/fmt` is long and gets longer
+   with every slice of proofs.
+   *The change:* build towards stage 3: each namespace's statements and definitions are
+   checked first and published, and all the proofs are then checked side by side against
+   them. Values stay as they are (`Rc`); no rewrite of the evaluator.
+   *What it should do:* a cold `tools/fmt` check about 3 to 5 times faster on the project
+   part, and whole AoC close to the number of workers **[estimated]**; stage 1 alone gives
+   about 2.5 to 3 times **[static]**.
+   **[rec: yes to the end state; build stage 1 now and decide stage 3 when stage 1 and the
+   script's "the rest" figure are in]**
+
+2. **Trust, stage 1: what `--no-cache` means.**
+   *The problem:* today `check --no-cache` means one kernel saw every declaration in one
+   environment. Workers can't share an environment, so each takes the others' results in the
+   cache's encoding, unchecked, as every warm check does.
+   *The change:* a parallel `--no-cache` means "each declaration was checked once by this
+   build's kernel; results moved between workers as cache entries". `--jobs 1` keeps today's
+   meaning.
+   *What it should do:* nothing visible unless the cache's encoding has a bug, in which case
+   a parallel check could accept what a sequential one refuses. The guard is a standing test
+   that compares every entry and message with the sequential check, and Overmind's rolling
+   check staying on `--jobs 1`.
+   **[rec: yes, with both guards]**
+
+3. **Trust, stage 3: using a theorem before its proof has been checked.**
+   *The problem:* to check proofs side by side, a namespace has to be checked against
+   theorems below it whose proofs are still running, or haven't started.
+   *The change:* the kernel gets one new kind of entry, "this statement, proof to follow",
+   which behaves exactly as a proved theorem does to everything that uses it (nothing can
+   look inside a proof any more, so nothing can tell the difference). The run reports
+   "checked" only after every proof has passed and each namespace's interface has been
+   confirmed against the one the others used; if any proof fails, the whole run is reported
+   by the ordinary sequential check.
+   *What it should do:* make stage 3 possible. The risk is a report of "checked" that didn't
+   wait for a proof. Every other prover that checks proofs in parallel has this same form
+   (Isabelle's promises, Lean's tasks, Rocq's `.vos`), and Rocq's version is the one known
+   to have needed a full re-check to be trusted (section 1.2).
+   **[rec: yes in principle, as the end state needs it; the exact form gets its own design
+   note and Fable review before any build (stage 2), and that note comes back to you]**
+
+### 8.6 What I could not verify
+
+- Any gain: nothing was run. Today's namespace times, the share of time that isn't proofs,
+  whole-AoC times and the cost of one full load are all for `measure_shares.sh`.
+- That a kept session gives the same entries when its dependencies arrive in a non-canonical
+  order (I2). Supported by P4 and the editor; tested only by stage 1's byte-compare.
+- That nothing but the seven body tests distinguishes a theorem with no body from a proved
+  one in the elaborator, and the kernel half of Lemma B′ in `crates/core` (taken from the
+  spec and SW-4700's review).
+- That no library file is loaded during a body's elaboration, after the up-front loads.
+- How much of an entry's bytes and load time is sealed proofs (N1's gain).
+- Whether `measure_shares.sh` runs as written: its check command (`check --no-cache
+  --timings=all` from the project folder, with `STITCHWORT_STEP_PHASES=1` for
+  `parse_timings.py`) is taken from `docs/workflow.md` and the parser's header, not tried.
+- Whether Matt answered the first note's trust question (section 6, question 2); it is asked
+  again as decision 2.
