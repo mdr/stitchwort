@@ -66,6 +66,7 @@
 //! [`Store`] a host gives the elaborator (the CLI's is a directory).
 
 mod codec;
+mod deferral;
 mod dump;
 mod rows;
 
@@ -152,6 +153,41 @@ pub trait Store {
     /// cached, or was cancelled). A store that tells concurrent readers
     /// that one is making an entry lets them go. Nothing by default.
     fn abandon(&self, _unit: &str, _key: &Key) {}
+    /// The interface entry made in this run for project namespace `unit`
+    /// at `key` ([`InterfaceEntry`]), if this store holds one: only the
+    /// store `check --jobs` gives its workers does, in memory, for the run
+    /// (docs/proposals/parallel-checking-stage-3.md §3, D3735). Read only
+    /// by a session that loads without proofs, after its own entry for
+    /// `key` is missing. None by default, which every store on disk keeps:
+    /// an interface entry is never written to one.
+    fn read_interface(&self, _unit: &str, _key: &Key) -> Option<Vec<u8>> {
+        None
+    }
+}
+
+/// What an interface pass of a project namespace gives
+/// ([`Elaborator::set_interface_pass`],
+/// docs/proposals/parallel-checking-stage-3.md §3): an entry in the format
+/// of a whole entry, under the namespace's own key, holding its
+/// definitions and the statements of its theorems, with the theorems whose
+/// proofs were left out ([`Self::deferred`]) as stated theorems whose
+/// proofs haven't been checked, each with no full hash, and an empty part
+/// B. A session that loads it ([`Store::read_interface`]) holds those as
+/// unproved theorems too, so it may report nothing and write nothing to
+/// disk that depends on it. It is for the run's memory only: nothing
+/// writes it to a store.
+#[derive(Clone, Debug)]
+pub struct InterfaceEntry {
+    /// The namespace's unit and key, as its whole entry has them.
+    pub unit: String,
+    pub key: Key,
+    /// Its interface digest, which a whole entry from its proof job must
+    /// have too, or the entries checked against this one are never found
+    /// (the key chain, §5).
+    pub digest: Key,
+    pub bytes: Vec<u8>,
+    /// How many theorems' proofs were left out.
+    pub deferred: usize,
 }
 
 /// What the cache did in a session.
@@ -231,6 +267,18 @@ pub struct Stats {
     /// Theorems loaded without their proofs, as stated theorems
     /// ([`Elaborator::set_load_without_proofs`]).
     pub stated: usize,
+    /// Interface passes run ([`Elaborator::set_interface_pass`]), and of
+    /// those, how many made an interface entry (the rest had an error, a
+    /// goal, a dependency with an error, or couldn't be encoded).
+    pub interface_passes: usize,
+    pub interface_made: usize,
+    /// Theorems whose proofs an interface pass left out.
+    pub deferred: usize,
+    /// Namespaces loaded from an interface entry, and the theorems they
+    /// held whose proofs hadn't been checked. Not counted in
+    /// `namespace_hits`.
+    pub interface_hits: usize,
+    pub unproved: usize,
 }
 
 impl Stats {
@@ -344,6 +392,9 @@ struct Hit {
     /// (check-cache-across-updates.md §4.4, stage 2), and for every entry
     /// with `check --recheck`.
     recheck: bool,
+    /// An interface entry ([`InterfaceEntry`]): its theorems without
+    /// proofs are admitted as unproved, and it has no part B.
+    interface: bool,
 }
 
 /// Why a namespace's entry wasn't used: found before anything changed, or
@@ -468,7 +519,72 @@ impl Elaborator {
 
     /// Whether an entry used as `hit` is loaded with its proofs.
     fn loads_proofs(&self, hit: Hit) -> bool {
-        !(self.options.without_proofs && hit.exact && !hit.recheck)
+        !hit.interface && !(self.options.without_proofs && hit.exact && !hit.recheck)
+    }
+
+    /// Makes the check of project namespace `ns` from now on an
+    /// **interface pass** (docs/proposals/parallel-checking-stage-3.md §3,
+    /// D3735), or with `None` stops: `ns` is elaborated, never read from
+    /// the cache, with the proofs of the theorems that may be deferred left
+    /// out ([`Elaborator::defers_proofs`]), each settled as a stated theorem
+    /// whose proof hasn't been checked (`check::leave_stated`). If it has
+    /// no error and no goal, and nothing it uses has an error, it makes an
+    /// [`InterfaceEntry`] for the host to take
+    /// ([`Self::take_interface_entry`]) and gives `ns` that entry's digest
+    /// for the namespaces checked after it; it writes nothing to the store.
+    /// Only for `check --jobs`'s workers, whose sessions load without
+    /// proofs and report nothing: the session then holds unproved
+    /// theorems ([`Self::holds_unproved_theorems`]).
+    pub fn set_interface_pass(&mut self, ns: Option<&str>) {
+        self.options.interface_pass = ns.map(str::to_string);
+    }
+
+    /// The interface entry the last interface pass made, taken.
+    pub fn take_interface_entry(&mut self) -> Option<InterfaceEntry> {
+        self.session.interface_entry.take()
+    }
+
+    /// Whether the kernel holds a theorem whose proof hasn't been checked:
+    /// one an interface pass left stated, or one loaded from an interface
+    /// entry (`Kernel::holds_unproved_theorems`). Such a session may report
+    /// nothing, and write no entry to disk for a namespace that holds one
+    /// of its own (docs/core.md "Stated theorems").
+    pub fn holds_unproved_theorems(&self) -> bool {
+        self.kernel.holds_unproved_theorems()
+    }
+
+    /// Whether `ns` is being checked as an interface pass.
+    pub(crate) fn interface_pass_of(&self, ns: &str) -> bool {
+        self.options.interface_pass.as_deref() == Some(ns)
+    }
+
+    /// An interface entry for `unit` and `key` from `store`, for a session
+    /// that loads without proofs and doesn't check entries again, if it was
+    /// written by this build in a session that carried nothing over.
+    fn interface_read(&self, store: &dyn Store, unit: &str, key: &Key) -> Option<(Vec<u8>, Hit)> {
+        if !self.options.without_proofs || self.options.recheck {
+            return None;
+        }
+        let bytes = store.read_interface(unit, key)?;
+        match open(&bytes, key, store.salt()).and_then(|(stamp, ..)| self.usable(&stamp, store)) {
+            Ok(hit) if hit.exact && !hit.recheck => Some((
+                bytes,
+                Hit {
+                    interface: true,
+                    ..hit
+                },
+            )),
+            Ok(_) => {
+                debug(&format!("{unit}: an interface entry that isn't exact"));
+                None
+            }
+            Err(Bad(why)) => {
+                debug(&format!(
+                    "{unit}: an interface entry that doesn't fit: {why}"
+                ));
+                None
+            }
+        }
     }
 
     /// Whether this session has loaded anything carried over: entries it
@@ -488,6 +604,7 @@ impl Elaborator {
             return Ok(Hit {
                 exact: true,
                 recheck,
+                interface: false,
             });
         }
         if !self.options.carry_over {
@@ -497,6 +614,7 @@ impl Elaborator {
         Ok(Hit {
             exact: false,
             recheck: recheck || stamp.kernel != store.kernel(),
+            interface: false,
         })
     }
 
@@ -1103,6 +1221,9 @@ impl Elaborator {
         unit: &str,
         key: &Key,
     ) -> (Vec<Diagnostic>, bool) {
+        if self.interface_pass_of(ns) {
+            return (self.interface_pass(ns, files, closure, unit, key), false);
+        }
         // No digest until its entry is replayed or written.
         let known = |digest| NamespaceKey { key: *key, digest };
         self.session
@@ -1116,7 +1237,8 @@ impl Elaborator {
         // replayed: only checking notes the context.
         if !self.probes_one_of(files)
             && stitchwort_core::registry::check_complete_core(&self.ev()).is_ok()
-            && let Some((bytes, hit)) = self.cache_read(&*store, unit, key)
+            && let Some((bytes, hit)) = (self.cache_read(&*store, unit, key))
+                .or_else(|| self.interface_read(&*store, unit, key))
         {
             let replayed = self.replay_namespace(
                 ns,
@@ -1136,11 +1258,15 @@ impl Elaborator {
                         (self.session.namespace_keys).insert(ns.to_string(), known(Some(digest)));
                     }
                     self.session.replayed_names.clear();
-                    self.session.cache_stats.namespace_hits += 1;
-                    if hit.exact {
+                    if hit.interface {
+                        debug(&format!("{ns}: loaded from its interface entry"));
+                        self.session.cache_stats.interface_hits += 1;
+                    } else if hit.exact {
                         debug(&format!("{ns}: replayed from its entry"));
+                        self.session.cache_stats.namespace_hits += 1;
                     } else {
                         debug(&format!("{ns}: carried over"));
+                        self.session.cache_stats.namespace_hits += 1;
                         self.session.cache_stats.namespace_carried += 1;
                     }
                     if hit.recheck {
@@ -1253,6 +1379,91 @@ impl Elaborator {
         }
         self.commit(capture.transaction);
         (diagnostics, false)
+    }
+
+    /// Checks project namespace `ns` as an interface pass
+    /// ([`Self::set_interface_pass`]): its diagnostics. Its interface entry,
+    /// if it makes one, is the host's to take.
+    fn interface_pass(
+        &mut self,
+        ns: &str,
+        files: &[SourceUnit],
+        closure: &[String],
+        unit: &str,
+        key: &Key,
+    ) -> Vec<Diagnostic> {
+        let known = |digest| NamespaceKey { key: *key, digest };
+        self.session
+            .namespace_keys
+            .insert(ns.to_string(), known(None));
+        self.session.interface_entry = None;
+        self.session.cache_stats.interface_passes += 1;
+        let store = self.options.check_cache.clone().expect("a cache is set");
+        let transaction = self.with_journal(|journal, logs| journal.begin(logs));
+        debug(&format!("{ns}: an interface pass"));
+        self.unit.include_trace.borrow_mut().clear();
+        self.unit.namespace_capture = Some(Capture {
+            transaction,
+            unit: self.session.owners.current(),
+            early: None,
+            needs: None,
+            before: None,
+            library_loaded: 0,
+            segments: 0,
+        });
+        let unfinished = self.tables.unfinished_count();
+        let diagnostics = self.elaborate_namespace_untimed(Some(ns), files, Some(closure));
+        let capture = self
+            .unit
+            .namespace_capture
+            .take()
+            .expect("the namespace's capture is there until it ends");
+        if diagnostics.iter().any(|d| d.severity == Severity::Error) {
+            self.session.failed_namespaces.insert(ns.to_string(), ());
+        }
+        // As for the full check (`elaborate_namespace_cached`): nothing
+        // unfinished, and nothing it uses failed.
+        let ok = !diagnostics
+            .iter()
+            .any(|d| matches!(d.severity, Severity::Error | Severity::Goal))
+            && self.tables.unfinished_count() == unfinished
+            && !self.kernel.machine.budget.cancelled();
+        let broken_dependency = closure.iter().any(|dependency| {
+            self.session
+                .failed_namespaces
+                .contains_key(dependency.as_str())
+        });
+        if ok && !broken_dependency {
+            // Its own warnings aren't kept: workers report nothing.
+            match self.encode_namespace(ns, files, &capture, &[], key, store.salt()) {
+                _ if self.kernel.machine.budget.cancelled() => {
+                    debug(&format!("{ns}: cancelled while encoding its interface"));
+                }
+                Ok((bytes, digest, shape)) => {
+                    let g = &self.ev();
+                    let own = capture.before.as_ref().map_or(0, |b| b.defs);
+                    let deferred = (g.env.defs()[own..].iter())
+                        .filter(|d| d.unproved())
+                        .count();
+                    debug(&format!(
+                        "{ns}: interface entry made, digest {}, {deferred} proofs left out, {shape}",
+                        hex(&digest)
+                    ));
+                    (self.session.namespace_keys).insert(ns.to_string(), known(Some(digest)));
+                    self.session.cache_stats.interface_made += 1;
+                    self.session.interface_entry = Some(InterfaceEntry {
+                        unit: unit.to_string(),
+                        key: *key,
+                        digest,
+                        bytes,
+                        deferred,
+                    });
+                }
+                Err(why) => debug(&format!("{ns}: no interface entry: {why}")),
+            }
+        }
+        self.commit(capture.transaction);
+        diagnostics
     }
 
     /// While a namespace that may be cached is elaborated: the names it has
@@ -1443,6 +1654,7 @@ impl Elaborator {
             file_names: self.namespace_file_names(),
             own_files: files.iter().filter_map(|f| f.file).collect(),
             library: false,
+            interface: self.interface_pass_of(ns),
         };
         if unit.own_files.len() != files.len() {
             return Err("a file without an id".to_string());
@@ -2236,6 +2448,10 @@ struct UnitOut {
     /// syntax found) rather than a project namespace (whose syntax is
     /// walked again when it is replayed).
     library: bool,
+    /// An interface pass's namespace ([`InterfaceEntry`]): its own unproved
+    /// theorems are written without proofs or full hashes. Any other
+    /// unit holding one can't be encoded.
+    interface: bool,
 }
 
 /// The names a unit declared: those that existed and changed; those new
@@ -2493,6 +2709,7 @@ impl Elaborator {
             file_names: self.std_file_names(),
             own_files: HashSet::from_iter([index.files[f].id]),
             library: true,
+            interface: false,
         };
         let before = &capture.before;
         self.encode(
@@ -2729,9 +2946,18 @@ impl Elaborator {
         );
         for id in defs.clone().map(DefId) {
             let def = g.def(id);
+            // Never a whole entry for a namespace with a theorem of its own
+            // whose proof hasn't been checked: only an interface entry,
+            // which no store keeps.
+            if def.unproved() && !unit.interface {
+                return Err(format!(
+                    "`{}` is a theorem whose proof hasn't been checked",
+                    def.path()
+                ));
+            }
             // The body itself is written, so a stated theorem, whose proof
             // isn't here, is refused too: not `Def::defined`.
-            if def.state() != State::Final || def.body().is_none() {
+            if def.state() != State::Final || (def.body().is_none() && !def.unproved()) {
                 return Err(format!("`{}` isn't admitted with a body", def.path()));
             }
             if def.export() || !def.validators().is_empty() {
@@ -2886,9 +3112,16 @@ impl Elaborator {
             Some(plan) => plan.order.clone(),
             None => defs.clone().map(DefId).collect(),
         };
-        // The theorems whose proofs go in part B, after everything else.
+        // The theorems whose proofs go in part B, after everything else;
+        // in an interface entry, those whose proofs weren't checked, and
+        // part B is empty (a proof checked in an interface pass stays in
+        // part A, so that no load makes it a stated theorem as proved).
         let left_out = if digest {
             HashSet::default()
+        } else if unit.interface {
+            (defs.clone().map(DefId))
+                .filter(|&id| g.def(id).unproved())
+                .collect()
         } else {
             stated_on_load(g, before.defs)
         };
@@ -2928,10 +3161,12 @@ impl Elaborator {
             if !sealed && !left_out.contains(&id) {
                 e.term(def.body().expect("checked above"));
             }
-            let group = def
-                .group()
-                .as_ref()
-                .expect("a final definition has a group");
+            // An unproved theorem has none, and is both sealed and left out.
+            let group: &[DefId] = match def.group() {
+                Some(group) => group,
+                None if def.unproved() => &[],
+                None => unreachable!("a final definition has a group"),
+            };
             if group.iter().any(|m| m.0 < before.defs) {
                 return Err(format!("`{}`'s group is older", def.path()));
             }
@@ -2965,11 +3200,15 @@ impl Elaborator {
             if let Some(run) = def.own_run_body() {
                 e.term(run);
             }
-            e.hash(if digest {
-                interface_hash(g, id)
+            if digest {
+                e.hash(interface_hash(g, id));
+            } else if def.unproved() {
+                // No full hash: its proof isn't known (asking for one is
+                // an internal error). Its admission records none.
+                e.w.bool(false);
             } else {
-                def_hash(g, id)
-            });
+                e.hash(def_hash(g, id));
+            }
             e.enter(Context::Root);
         }
         e.w.usize(datas.len());
@@ -3261,7 +3500,8 @@ impl Elaborator {
         let proofs = (!digest).then(|| {
             let (node_bytes, rest) = (e.terms.nodes.bytes.len(), std::mem::take(&mut e.w.bytes));
             e.terms.start_part();
-            for id in defs.clone().map(DefId).filter(|id| left_out.contains(id)) {
+            let proved = |id: &DefId| left_out.contains(id) && !g.def(*id).unproved();
+            for id in defs.clone().map(DefId).filter(proved) {
                 let def = g.def(id);
                 e.term(def.body().expect("checked above"));
                 let group = def
@@ -3274,7 +3514,7 @@ impl Elaborator {
                 }
             }
             ProofPart {
-                theorems: left_out.len(),
+                theorems: (defs.clone().map(DefId)).filter(proved).count(),
                 node_count: e.terms.node_count() - node_count,
                 nodes: e.terms.nodes.bytes.split_off(node_bytes),
                 rest: std::mem::replace(&mut e.w.bytes, rest),
@@ -4707,6 +4947,13 @@ impl Elaborator {
     /// the entry is one this build wrote exactly, after its kernel checked
     /// the proof ([`Elaborator::loads_proofs`]); it carries none of what a
     /// stated theorem can't (`stated_on_load`), or it is refused.
+    ///
+    /// From an interface entry ([`InterfaceEntry`]) it is a theorem whose
+    /// proof hasn't been checked: admitted marked as one
+    /// (`check::admit_trusted_unproved`), so the session holds an unproved
+    /// theorem as the one that made the entry does, and with no full hash,
+    /// which the entry mustn't record and nothing seeds, so asking for one
+    /// stays an internal error (F6 of docs/reviews/SW-4763-review.md).
     fn admit_stated(
         &mut self,
         def: &DefEntry,
@@ -4729,14 +4976,30 @@ impl Elaborator {
         {
             return bad("a theorem without its proof that carries more than its statement");
         }
-        let Some(hash) = def.hash else {
-            return bad("a theorem without its proof or a hash");
-        };
-        module_of(&def.name, &def.path)?;
         let refused = |d: stitchwort_syntax::Diagnostic| {
             let label = d.labels.first().map_or("", |l| l.message.as_str());
             Bad(format!("refused: {} ({label})", d.message))
         };
+        if hit.interface {
+            if def.hash.is_some() || library {
+                return bad("an unproved theorem with a full hash, or in a library file");
+            }
+            module_of(&def.name, &def.path)?;
+            let id = self
+                .kernel_op(|g| {
+                    kernel::admit_trusted_unproved(g, &def.name, &def.path, &def.ty, def.span)
+                })
+                .map_err(refused)?;
+            if id != expected || *self.kernel.def(id).path() != def.path {
+                return bad("a definition came out differently");
+            }
+            self.session.cache_stats.unproved += 1;
+            return Ok(());
+        }
+        let Some(hash) = def.hash else {
+            return bad("a theorem without its proof or a hash");
+        };
+        module_of(&def.name, &def.path)?;
         let id = self
             .kernel_op(|g| kernel::admit_trusted_stated(g, &def.name, &def.path, &def.ty, def.span))
             .map_err(refused)?;
@@ -5089,6 +5352,7 @@ mod tests {
             super::Hit {
                 exact: true,
                 recheck: false,
+                interface: false,
             },
         );
         assert!(result.is_err(), "the entry was admitted");
@@ -5146,6 +5410,7 @@ mod tests {
                 super::Hit {
                     exact: true,
                     recheck,
+                    interface: false,
                 },
             );
             let added = e.kernel.env.defs().len() - defs;
@@ -5208,7 +5473,11 @@ mod tests {
         recheck: bool,
         carried: bool,
     ) -> (Result<(), super::Bad>, usize, super::Stats) {
-        let hit = |exact, recheck| super::Hit { exact, recheck };
+        let hit = |exact, recheck| super::Hit {
+            exact,
+            recheck,
+            interface: false,
+        };
         let tables = state::TablesDelta::default();
         // The hash it would record, so that only the derived fields can
         // tell the paths apart.
@@ -5407,6 +5676,7 @@ mod tests {
             super::Hit {
                 exact: true,
                 recheck,
+                interface: false,
             },
         );
         let added = (
@@ -5424,6 +5694,7 @@ mod tests {
         let hit = super::Hit {
             exact: true,
             recheck: false,
+            interface: false,
         };
         let admit = |param_default: bool| {
             let mut e = Elaborator::new();
@@ -5457,6 +5728,7 @@ mod tests {
             let exact = super::Hit {
                 exact: true,
                 recheck: false,
+                interface: false,
             };
             let defs = [identity_def("f", 0, Some(let_run_body(true)))];
             e.admit_replayed(
@@ -5521,6 +5793,7 @@ mod tests {
             let hit = super::Hit {
                 exact,
                 recheck: false,
+                interface: false,
             };
             let hash = {
                 let mut e = Elaborator::new();
@@ -5528,6 +5801,7 @@ mod tests {
                 let exact = super::Hit {
                     exact: true,
                     recheck: false,
+                    interface: false,
                 };
                 e.admit_replayed(
                     &defs,
