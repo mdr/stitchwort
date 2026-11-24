@@ -34746,12 +34746,12 @@
     {
       "id": 4765,
       "title": "[Opus] Stage 3 step 2: the interface pass in the elaborator: deferral rule from the source, leave_stated in place of the proof, part A for a namespace with its own stated theorems, the in-memory interface entry and its admission (parallel-checking-stage-3.md section 9 step 2)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nProgress (Opus lane, 24 Nov 20:15-20:45): interface pass built in the elaborator (Elaborator::set_interface_pass, take_interface_entry, namespace_digest, holds_unproved_theorems; Store::read_interface; Stats interface_*/deferred/unproved). Deferral rule from the source in crates/elab/src/cache/deferral.rs: plain theorems in all-theorem components, recursive/mutual/decreasing and proof-local defs included (after SW-4762). New kernel fn check::admit_trusted_unproved keeps the mark across sessions; no full hash recorded or seeded. Tests: interface_pass:: (2), stated:: (15), check_cache::|parallel:: (103), examples::soundness: all pass. To review.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
       "commits": []
