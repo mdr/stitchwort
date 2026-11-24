@@ -1367,3 +1367,326 @@ The orchestrator numbers these.
 - tools/fmt: theorems 77.6% of declaration time (84.7 of 109.1 s), the rest 22.4%; largest theorem 3.8 s; namespace-level bound 2.5x on the project part (2.1x with the library block first, which is about 16 s); one full load from the cache 4.8 s, 1.2 GB.
 - aoc: theorems 67.1%, the rest 32.9%; namespace-level 5.9x on 8 workers for the project part (2.7x with the library block first); one full load 4.8 s, 0.7 GB.
 - So "the rest" is under the 40% line in section 8: stage 3 stays worth planning. The library block becomes the next limit. Raw output: [measured-2026-11-24/shares.txt](parallel-checking/measured-2026-11-24/shares.txt).
+
+## 9. Stage 1 design (SW-4718)
+
+Fable paper lane, after D3730 ("yes, proceed": the end state is stage 3, build stage 1 now).
+The code was read at `d0cdc7e88`; nothing was built and no check was run. Marks: **[verified]**
+read today at the file and line given; **[measured]** by an earlier run, cited;
+**[estimated]**; **[not verified]**. It is designed for "yes" to D3731 (a parallel
+`--no-cache` moves results between workers as cache entries); 9.6 says what a "no" changes,
+which is little. The cache's stage C (SW-4714) is being built in `crates/elab/src/cache/mod.rs`;
+this design calls that file's existing entry points and changes none of them.
+
+### 9.1 The design in one paragraph
+
+`check --jobs N` is **a parallel fill of the check cache, followed by today's check,
+unchanged**. Workers are threads, each with its own session; a worker given a namespace
+replays what it lacks of the namespace's dependencies from the cache, checks the namespace,
+and its entry is written by the code that writes it today. When no more namespaces can be
+filled, the main thread runs the ordinary sequential project check over the same store. That
+last pass finds an entry for every namespace that was clean, so it reports them from their
+entries (a plain `check` doesn't even load them), and it checks for itself whatever the
+workers could not write: anything with an error, an open goal or a syntax error, and
+everything that uses one. With `--no-cache` the store is a map in memory that lives for the
+run, and the disk cache is neither read nor written.
+
+So everything the user sees (messages, their order, the summary line, the exit code) is
+produced by the code that produces it today, and "parallel equals sequential" is the claim
+the cache already makes and tests: a check over entries equals a check that elaborated. The
+first note's merged-reports design (workers send their diagnostics, the main thread merges
+them) is dropped: it would re-implement `check_in_order`'s filtering
+(`crates/driver/src/project.rs:319-389`: syntax errors first, what a broken namespace hides,
+statement style from the files' text) and carry positions between sessions whose file ids
+differ. The price of the last pass is one warm check: 2.1 s for `tools/fmt` when nothing
+needs loading **[measured, SW-4410, older build]**, at most one full load, 4.8 s and 1.2 GB
+**[measured 24 Nov]**, when something does. It can be removed later if it shows in the
+measure; stage 3 needs a join at the same place anyway.
+
+### 9.2 What the user sees
+
+| | With `--jobs N`, N > 1 |
+|---|---|
+| The flag | `check --jobs N` (`-j N`), or `--jobs auto`; `STITCHWORT_JOBS` for scripts. A project check of everything, of namespaces or of subtrees. |
+| Default | 1 now. Later `auto`, once the byte-compare (9.5) has been clean on std, AoC and `tools/fmt` under Overmind for a while: the orchestrator's call. `auto` is min(cores, 8, memory / 2 GB), from the measure. |
+| Messages, summary, exit code | The last pass's, so exactly a sequential check's: canonical order (`project.rs:343`), `checked N namespaces of P` (`crates/cli/src/main.rs:2421`), exit 1 on an error or goal, 3 on `E-RESOURCE` (`main.rs:1740-1750`). |
+| "Still checking" notes | Printed live by whichever worker is checking the slow declaration; the same notes as a sequential cold check prints, since each is set off by the declaration's own step count (`crates/elab/src/progress.rs:1-13`), but in the order they happen. The last pass prints none for what it replays. The sink is one global function already (`progress.rs:29`). |
+| Ctrl-C, `kill` | As now: the signal thread prints `check stopped early ... while checking X` and exits 3 (`main.rs:1789-1798`); X is one of the declarations being checked, which `progress.rs:33-35` already says. Entries are written by rename (`check_cache.rs`, `write_atomically`), so a killed run leaves a valid, partly filled cache, and the next run carries on from it. |
+| `--timings` | Works: the row tables are process-wide (`ROWS`, `DECL_ROWS`, `crates/elab/src/timings.rs:147-148`), only the open frames are per thread (`:143-146`). Three small changes (9.5, step 4): a worker's replays of dependencies are summed into one row per worker, `worker 3: loading`; a `(cached)` row is dropped when the same namespace has a real row; the last line gives the jobs, the wall time and the sum of unit times, since "outside the units" (`:447-452`) is meaningless across threads. Rows come in the order work finished. Step counts can differ from a sequential run's (9.4). |
+| `--no-cache` | Allowed with `--jobs` (D3731): the in-memory store. Nothing on disk is read or written. |
+| `--recheck`, `--carry-over`, `--only`, `--expand*`, `--no-project-cache`, a file target | One job, whatever `--jobs` says (with `--timings`, the summary line says why). `--recheck` re-checks every entry it loads, which each worker would repeat; carried-over entries make everything written after them inexact (`cache/mod.rs:445`); `--only` namespaces have no key (`cache/mod.rs:977-980`); the others don't use namespace entries. Not an error, so that the default can become `auto` without breaking these. |
+| `--index`, `--counterexamples` | Work: the last pass loads everything (`Load::Everything`, `main.rs:2383-2387`), from the entries just written. |
+| `test`, `run`, `build`, `axioms`, `audit`, `doc` | Not in stage 1. The fill is one driver function (9.3) that any of them can call before its own load; `test` is the one worth doing next (a follow-up ticket). |
+| The editor (`stitchwort lsp`, `crates/driver/src/live.rs`) | Unchanged. `LiveProject` checks one namespace per step and "nothing here reads files or starts threads" (`live.rs:17-18`); the place for the fill is the server's start-up on a project with a cold cache, with the server's cancellation flag given to the workers. A follow-up ticket, after stage 1 is measured. |
+| Cancellation inside a run | One shared stop flag. Workers look at it between namespaces, and it is installed in each worker's budget (`Budget::set_cancel_flag`, `crates/core/src/budget.rs:10-12`) so a stop also ends a namespace part-way; a cancelled namespace is never written (`cache/mod.rs:1144`). Stage 1 sets it only when a worker panics; the editor would set it on a keystroke. |
+
+### 9.3 The scheduler
+
+**Set-up, on the main thread.** Read the project's files once, as now, into
+`Vec<(String, String)>` (plain text, shared with the workers by reference). Analyse them,
+resolve the target, compute the canonical order (`load_analysis_for`, `project.rs:106-230`).
+Open the store before any worker starts, so the directory's salt exists (`check_cache.rs:271`
+makes the header on first use; two workers making it at once could disagree). Then decide
+whether to fill at all: not if a rule of 9.2 says one job, and not if fewer than two
+namespaces lack a usable entry (`plan_namespace`, `cache/mod.rs:757`, says which without
+loading anything). A warm check is therefore exactly today's.
+
+**Workers.** `N` threads on the check's 64 MiB stack (`main.rs:1100`, through
+`driver::with_session`, `driver.rs:71`, so the session's limits match its thread). Each makes
+a session with the main session's options, opens its own handle on the store, analyses the
+shared texts itself (`project::analyse`, `project.rs:892`) and does the same preparation
+(namespace sources, `project.rs:261-264`). Workers share no values. Each has its own analysis
+because a session's file ids are its own, and nothing an entry holds depends on them: entries
+name files by name and positions as (file, byte range) (`cache/mod.rs:12-14`). The parse is
+repeated per worker; what it costs is in `--timings`' "outside the units" figure **[not
+measured here]**.
+
+- *The directory store* needs no sharing: `CheckCache` is a folder of files written by rename,
+  with a per-handle listing cache in a `RefCell` (`check_cache.rs:103-123`), so each worker
+  opens its own (`CheckCache::at`, `:64`). `Rc<dyn Store>` stays as it is
+  (`cache/mod.rs:412`).
+- *The in-memory store* (`--no-cache`): one `Arc<Mutex<HashMap<(unit, key), Arc<[u8]>>>>`
+  with this build's compiler and kernel fingerprints and a salt made for the run; each
+  thread wraps the `Arc` in its own `Rc<dyn Store>`. For `tools/fmt` it holds about 260
+  entries; the disk cache there is 325 MB for 1,138 files of several builds **[measured,
+  `du` today]**, so one build's is perhaps 80 to 150 MB **[estimated]**.
+
+**A job.** A worker given namespace `N` calls, for each namespace of `N`'s closure its
+session lacks, in canonical order, and then for `N` itself, the function the sequential
+check calls: `Session::check_project_namespace` (`project.rs:439`). For a dependency that
+finds the entry another worker wrote and replays it (`elaborate_namespace_cached`,
+`cache/mod.rs:1028-1093`); for `N` it misses, elaborates, and writes the entry if `N` is
+clean (`:1140-1175`). The worker tells the scheduler whether an entry now exists (the
+session's `namespace_written` or `namespace_hits` went up, `cache/mod.rs:165-167`). If not,
+it rewinds its session to before `N` (`mark` and `rewind`, as `project.rs:281-292` does), so
+no later job runs in a session holding a failed namespace. A worker keeps its session for
+the whole run: it loads any namespace at most once. That is the difference from the process
+run, which paid 233 of 329 CPU-seconds reloading **[measured, 22 Nov addendum]**.
+
+**Ready, and left.** A namespace is *ready* when every namespace it uses directly has an
+entry written in this run or found by the plan. It is *left* (to the last pass) if it has a
+syntax error, or a worker checked it and wrote nothing (an error, a goal, something the
+encoder can't store), or it uses a namespace that is left. Nothing else stops: after a
+failure the rest of the graph is still filled side by side, and the last pass checks only
+the failed namespaces and what is above them. (Section 8.3 had the whole run stop at the
+first failure; this is cheaper for a failing run and simpler. `tools/fmt` with a `?` in it
+keeps the gain for everything not above the `?`.)
+
+**Picking.** An idle worker takes, among the ready namespaces, the one with the longest
+chain of namespaces above it (the critical path matters most; counted in namespaces, since
+times aren't known beforehand), then the one whose closure it has most of already (less to
+load, and less held twice), then the first in canonical order. With `STITCHWORT_JOBS_SEED`
+set, a seeded random ready namespace instead: for the stress test (9.5). Nothing that is
+reported depends on the pick.
+
+**Library files.** They load on demand inside a namespace's check, each with its own entry
+(`cache/mod.rs:617-627`), and which ones a namespace needs is only known as it is elaborated
+(`cache/mod.rs:38-42`). With a cold library, several workers would elaborate the same file at
+once: correct (each writes the same bytes by rename), and no slower in wall time than "the
+library first on one core", but wasted CPU and memory on a shared machine. So the store
+handle each worker gets is wrapped in a claim table, shared and in memory: a read of a
+`std.` unit that finds no entry claims it and returns nothing (the worker elaborates and
+writes it, as now); a read of a unit another worker has claimed waits until that worker
+writes it or finishes its job, then reads again. No deadlock: a worker waits only for a file
+below one it holds or, holding none, for any file, and the library's file graph has no cycle
+(`cache/mod.rs:563-564`, "the index is checked"). This also checks different library files
+side by side, which "library first on one core" (the 2.1x figure) did not assume. It is all
+in the driver; the elaborator sees a store.
+
+**What a worker loads, and memory.** Only closures of the namespaces it is given. In the
+worst case every worker ends up holding the whole project: for `tools/fmt` 4.8 s of loading
+and 1.2 GB each **[measured: one full load]**, plus its working peak, plus the main
+session's last pass (up to another 1.2 GB if it has to load). So 8 jobs on `tools/fmt` may
+reach 12 to 16 GB, 4 jobs 6 to 8 GB **[estimated; the measure gives the real figure]**; AoC
+is flat, so a worker holds the shared namespaces and its own days, well under its 0.7 GB
+full load. Stage 1 has no cap inside a run beyond the job count: `auto` allows 2 GB a job,
+and lanes never pass `--jobs` (the load rules in `CLAUDE.md` assume one core per check). If
+the measure shows 8 jobs over budget, the follow-up is a worker that starts its session
+afresh (`rewind_fresh`, `crates/driver/src/rewind.rs`) when its next job shares little with
+what it holds; stage 2 (load only interfaces) is the real answer. Worker sessions are
+forgotten, not dropped, at the end, as the CLI's is (`main.rs:2718-2720`).
+
+**The end.** When nothing is ready or running, the workers stop and the main session runs
+`load_analysis_for` as today, with the same store.
+
+### 9.4 Why the result is the sequential one
+
+Compare `check --jobs N` with `check --jobs 1` on the same sources and the same starting
+cache.
+
+1. **Messages, order, summary, exit code.** Produced by the last pass, which is the
+   sequential check run over a cache that now holds more entries. So the claim reduces to
+   one the cache already makes: a check over entries reports what a check that elaborated
+   reports. The parts, **[verified]**: an entry holds the namespace's own warnings
+   (`cache/mod.rs:1159-1163`); doc-link warnings are never cached and are made again
+   (`:1090-1095`, and a namespace with doc links is always loaded, `project.rs:418`);
+   statement-style warnings are made again from the text for a namespace that is left out
+   (`project.rs:344-353`) or loaded (`:476-477`); only clean namespaces have entries
+   (`cache/mod.rs:1140-1144`), so every error and goal is reported by a namespace the last
+   pass elaborates itself; and if one of those follows a namespace that was left out, the
+   pass starts again with everything loaded (`project.rs:357-361`, `:289-296`), because an
+   error's text can name any loaded namespace. That rule is what makes invariant I1's
+   weakness for errors (section 8.1) harmless, and it is today's code.
+2. **Entries and hashes.** Each entry is written by `elaborate_namespace_cached` in a
+   session that holds the namespace's closure by replay. Its key is the same in every
+   session: text, modes, and each dependency's digest (`namespace_cache_key`,
+   `cache/mod.rs:965-1022`), and a session has the digest of whatever it replayed or wrote
+   (`:1066`, `:1166`). Its bytes are the same as a sequential check's by the invariants of
+   section 2.4: I3 (replay equals elaboration; the differential test,
+   `crates/driver/tests/projects/check_cache.rs:5-11`), I4 (names are local), and I2 (the
+   order the closure arrived in doesn't matter). I2 is the one this design leans on more
+   than anything before it: 258 entries were byte for byte equal between a sequential check
+   and four processes **[measured, 22 Nov]**, but each of those processes loaded its closure
+   in canonical order. A kept session loads in the order its jobs came. The standing test
+   and the random schedules (9.5) are the evidence for it; nothing I read contradicts it,
+   and entries name declarations "by full path and the interface hash ..., never by
+   load-order ids" (`cache/mod.rs:12-13`).
+3. **A worker that is wrong costs time, not correctness, with the cache on.** If a worker
+   computes a different key from the main session's (a file changed on disk mid-run is
+   impossible, since texts are shared; a bug is not), the last pass misses and elaborates
+   the namespace itself. If a worker panics, the stop flag ends the fill and the last pass
+   meets the same panic on the main thread, reported as now. If an entry fails to replay,
+   that is counted (`refused`, `late_misses`, `cache/mod.rs:180-189`) and the namespace is
+   elaborated. What the design cannot catch is an entry that replays cleanly and is wrong:
+   that is the cache's trust, unchanged with the cache on, and D3731's subject with
+   `--no-cache`.
+4. **`E-RESOURCE`: stated, not solved.** "The steps a declaration's check takes can depend
+   on which earlier check already forced a call in a kept type, so on whether those were
+   checked or replayed from the cache. Results don't" (`docs/core.md:272`). A worker checks
+   each namespace against replayed dependencies; a sequential cold check checks it against
+   elaborated ones. So a declaration within that margin of its step limit could pass in one
+   and stop with `E-RESOURCE` in the other. Three cases. A worker stops where a sequential
+   check would pass: the namespace is left, and the last pass checks it, again against
+   replayed dependencies, so it probably stops too: `--jobs N` reports `E-RESOURCE` where
+   `--jobs 1 --no-cache` passes. The reverse: `--jobs N` passes where a cold sequential
+   check stops. Neither accepts anything false; both exist today between a cold check and
+   the check after an edit, which also runs against replayed dependencies. So the exact
+   statement is: **`--jobs N` gives each namespace the verdict of a check after an edit to
+   it, not of a cold check**, and the two differ only for a declaration within a kept
+   type's forcing cost of its limit of 10 billion steps. The byte-compare shows whether any
+   declaration in the repo is there **[not verified: none known]**. Making step counts
+   independent of history (charging a kept type's forcing to nobody, or always to its
+   owner) would remove the case for cold against warm as well; it is kernel work and a
+   separate ticket, not stage 1.
+5. **Not the same, by design:** `--timings` (times, row order, step counts), the order of
+   "still checking" notes against other output, and `STITCHWORT_CACHE_DEBUG` lines.
+
+### 9.5 Build plan (SW-4719, Opus)
+
+No kernel change, no change to terms, hashes, keys or the entry format. `crates/core` and
+`crates/elab/src/cache/` are not edited (SW-4714 is working there).
+
+| Step | What | Files |
+|---|---|---|
+| 1 | Split `load_analysis_for` into "prepare" (target, order, namespace sources; `project.rs:106-261`) and "check" (`:262-310`), behaviour unchanged, so a worker can prepare without checking | `crates/driver/src/project.rs` |
+| 2 | `parallel.rs`: the scheduler (a `Mutex` and `Condvar` over per-namespace state, as `par_map_with_at_most` does for a list, `driver.rs:180-200`), workers, the job loop, the stop flag, the seeded pick; `Session::fill_in_parallel(files, project, target, jobs, make_session, make_store)` returning counts (filled, left, namespaces a worker had to elaborate twice) | new `crates/driver/src/parallel.rs`; `driver.rs` for the session constructor a worker uses |
+| 3 | The in-memory store and the library claim table, as `Store` wrappers | `crates/driver/src/check_cache.rs` |
+| 4 | `--jobs`, `-j`, `STITCHWORT_JOBS`, the one-job rules of 9.2; `--timings`: loading rows, the `(cached)` duplicate, the summary line | `crates/cli/src/main.rs`, `crates/elab/src/timings.rs` |
+| 5 | Tests (below) | new `crates/driver/tests/projects/parallel.rs` |
+| 6 | Docs: the flag in the guide's command page and `docs/testing.md` if it names check's flags; the trust wording where `--no-cache` is called "the full check" (`cache/mod.rs:22-24` is a doc comment in SW-4714's file: leave a note for the orchestrator to apply after it merges; `docs/proposals/check-cache-trust.md`); a performance-log entry with the measure (D3444) | docs |
+
+**Tests** (each a named test, seconds; the lane runs only these):
+
+- *Byte-compare, standing.* On two or three small multi-namespace projects (ones under
+  `examples/projects/accept/`, which `crates/driver/tests/projects/check_cache.rs:273`
+  already uses, and `docs/proposals/parallel-checking/tests/par_project` copied into the
+  test's own fixtures, not into `examples/`, which the examples suite sweeps), one with a
+  diamond and a chain: check with 1 job into cache A; with 4 jobs into cache B, given A's
+  `check/header` first so the salts agree; with 4 jobs into memory. Assert: rendered
+  diagnostics equal; A and B hold the same file names and bytes; the last pass's session
+  dumps the same as the sequential one (`cache::canonical_dump`, as `check_cache.rs:22`
+  uses it); `refused`, `late_misses` and "elaborated twice" are 0; the fill really ran
+  (filled > 0).
+- *Random schedules.* The same compare under `STITCHWORT_JOBS_SEED` = 0..20, jobs 3, on the
+  smallest fixture: cheap, and it is the test of I2.
+- *Failures.* A fixture with an error in a middle namespace, one with a goal
+  (`open-goals: warn`), one with a syntax error: diagnostics and exit as with 1 job; the
+  namespaces not above the failure have entries; nothing above it does.
+- *The one-job rules:* `--recheck --jobs 4` runs no fill.
+- *Claims:* two workers needing one uncached library file elaborate it once (count
+  `misses` for `std.` units across workers).
+
+Whole-project compares are not a lane's: `tools/fmt`, AoC and std go in the measure below,
+and afterwards in Overmind's rolling check as a second run with `--jobs 4` whose output and
+cache are compared with the `--jobs 1` run it already does (which stays the reference:
+D3731's second guard).
+
+**The measure** (the orchestrator or Overmind; about 12 minutes of machine time for
+`tools/fmt`, more for `aoc` **[estimated from 110 to 146 s cold checks]**):
+
+    docs/proposals/parallel-checking/measure_jobs.sh target/release/stitchwort tools/fmt OUT
+
+It runs the cold check with 1, 4 and 8 jobs three ways (cache and library cold; library
+filled first with `check --std Std`; `--no-cache`), prints wall time and peak memory for
+each, and compares every run's output and cache folder with the 1-job run's. Written
+against the flag as designed and syntax-checked only: it can't run until SW-4719 exists.
+Predictions to hold it to: `tools/fmt`, library filled, 4 jobs about 2.2x and 8 jobs about
+2.4x of the project part (bound 2.5x **[measured 24 Nov]**), less 2 to 5 s for the last
+pass; cold library, about 2.1x or a little better with claims; AoC, library filled, 8 jobs
+4x to 5.9x **[bound measured; the rest estimated]**.
+
+**Estimate.** About 700 to 900 lines of Rust and 300 of tests, in the driver and CLI, with
+one judgement-heavy part (the scheduler's states). Past Opus lanes of this kind: SW-4707
+took 43 minutes against 90, SW-4701 32. **Expected: 75 minutes**, stop and report at 110.
+A natural half-way commit is steps 1, 2 and the first test with the directory store
+(about 45 minutes); steps 3 to 6 follow on the same branch. Then a Fable review of the
+driver's trust wording and of the scheduler's "written" test (that a namespace is never
+called filled without an entry), 20 minutes.
+
+**Risks, in order.**
+
+1. I2 fails somewhere (an id-ordered walk that reaches an entry's bytes). Found by the
+   random-schedule test or the whole-project compare; each case is also a cache bug today
+   (the editor already loads out of order, `project.rs:559`). With the cache on it costs a
+   differing entry, not a wrong message, since messages come from the last pass.
+2. The gain is below the static figure because loading, duplicated memory traffic and the
+   last pass eat it (the process run's own time rose 35% at 6 processes **[measured]**).
+   The measure decides; stage 2 is the remedy.
+3. Memory at 8 jobs on `tools/fmt`.
+4. A deadlock in the claim table despite the argument above. The test covers the simple
+   case; a bounded wait that falls back to elaborating is a cheap belt, and changes no
+   result.
+
+### 9.6 If D3731 is "no"
+
+Then `--jobs N` with `--no-cache` runs one job, and the in-memory store (half of step 3 and
+one test) isn't built; everything else stands. With the cache on, a parallel check trusts
+nothing a second `check` in the same folder doesn't trust today: it is the same sequence,
+entries written and then read, inside one process. The cost of "no" is that the one check
+people run cold on purpose, `--no-cache`, stays at one core; Overmind's uncached whole-AoC
+check is the main one.
+
+Under "yes", what `--no-cache --jobs N` promises, exactly: no entry from disk is used; each
+entry in the run's memory was written by a worker only after this build's kernel had
+accepted every declaration in it (`cache/mod.rs:1140-1167`); the last pass reports a
+namespace as checked only from such an entry or from its own check. A declaration may be
+checked more than once (a library file two workers both needed before claims, a namespace
+the last pass elaborates again), never zero times.
+
+### 9.7 Decisions for Matt
+
+None beyond D3731. The rest are the orchestrator's, with my recommendations: default 1 now,
+`auto` later (min of cores, 8 and memory / 2 GB); the one-job rules of 9.2 as quiet
+fall-backs, not errors; Overmind's rolling check keeps `--jobs 1` as the reference and adds
+a compared `--jobs 4` run; lanes never pass `--jobs`; `test` and the editor's start-up as
+follow-up tickets after the measure.
+
+One thing to tell Matt, not ask: the `E-RESOURCE` statement of 9.4 item 4. It is today's
+behaviour of a check after an edit, now also the behaviour of a parallel cold check, and
+removing it is kernel work that would get its own note.
+
+### 9.8 What I could not verify
+
+- Any timing: nothing was run. The last pass's cost on today's build (2.1 s is SW-4410's),
+  the parse a worker repeats, and peak memory are the measure's.
+- I2 for kept sessions (9.4 item 2).
+- That syntax trees can't be shared between threads; I assumed not and gave each worker its
+  own analysis, which is also what keeps file ids apart. (`crates/syntax` has `Rc` only in
+  `source.rs` and `stack.rs` by grep, so sharing may be possible later.)
+- That every clean namespace of `tools/fmt` and AoC gets an entry today (none
+  "uncacheable"): a namespace the encoder can't store is left to the last pass with
+  everything above it, which is correct but loses the gain there. The fill's counts show
+  it.
+- That signals stay blocked in threads started after the signal thread is set up
+  (`main.rs:1776-1802`); standard for thread signal masks, not read through.
+- `measure_jobs.sh` beyond `bash -n`.
