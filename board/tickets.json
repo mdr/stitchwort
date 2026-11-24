@@ -1,5 +1,5 @@
 {
-  "next": 4721,
+  "next": 4722,
   "tickets": [
     {
       "id": 47,
@@ -33995,7 +33995,7 @@
     {
       "id": 4718,
       "title": "[Fable, paper] Design: parallel checking stage 1 (check --jobs N: namespaces in parallel on threads, one session per worker, results handed over as check-cache entries; docs/proposals/parallel-checking.md section 8): scheduler, determinism, messages, fallback, memory cap, the byte-compare test, build plan for Opus (D3730)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34003,12 +34003,15 @@
       "body": "",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "ffbe85991357435d5ecc0b7cc025ddbde5fccf8e",
+        "43ddb8ac2b531d072792ddb736e0fb5c2e8acd38"
+      ]
     },
     {
       "id": 4719,
       "title": "[Opus] Build: parallel checking stage 1 per the design (SW-4718); Fable review after; needs D3731 (what a parallel --no-cache means) before merge (D3730)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34022,6 +34025,19 @@
       "id": 4720,
       "title": "[Opus] erasure::erased_quotient_forms_arent_run and erasure::transport_along_opaque_quotient_proofs_takes_its_base_when_erasing fail on main after the SW-4703 merge (7acc6a3c1): find whether SW-4703 caused it; fix or revert",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4721,
+      "title": "[Opus, paper] Step counts independent of session history (docs/core.md:272): e.g. charge a kept type's forcing to its owner, so E-RESOURCE can't differ between cold, warm and parallel checks (SW-4718 finding)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
