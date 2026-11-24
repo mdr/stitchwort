@@ -11,7 +11,7 @@ use stitchwort_core::{Limits, ResourceError, Term, Value};
 use stitchwort_elab::project::{FileModeContext, SourceUnit};
 use stitchwort_elab::shown::{SHOWN_SIDE, SHOWN_SIDE_NODES, cut_to, first_difference, text_lines};
 use stitchwort_elab::{Elaborator, LibraryIndex, prelude};
-use stitchwort_syntax::ast::Expr;
+use stitchwort_syntax::ast::{Expr, Module};
 use stitchwort_syntax::{
     Diagnostic, FileId, Severity, SourceMap, parse_expression_within, parse_module_recovering,
     parse_module_within,
@@ -796,7 +796,7 @@ impl Session {
         };
         session.elab.set_core_link_names(Some(index.clone()));
         let mut diagnostics = session.elab.elaborate_module(module);
-        session.statement_style(&mut diagnostics, &[file]);
+        session.statement_style(&mut diagnostics, &[(file, module)]);
         session.elab.set_core_link_names(None);
         // The core's own proofs aren't a program's to be told to restyle
         // (SW-3589: nested `trans` is the core's style until it is touched).
@@ -964,7 +964,7 @@ impl Session {
             };
         self.elab.set_file_mode(None);
         if parse_errors.is_empty() {
-            self.statement_style(&mut diagnostics, &[file]);
+            self.statement_style(&mut diagnostics, &[(file, &module)]);
             self.finish_load(first_new_def, diagnostics)?;
             Ok(file)
         } else {
@@ -1029,7 +1029,8 @@ impl Session {
         let mut diagnostics = self
             .elab
             .elaborate_namespace(Some(&namespace), &units, None);
-        self.statement_style(&mut diagnostics, &ids);
+        let styled: Vec<(FileId, &Module)> = ids.iter().copied().zip(&modules).collect();
+        self.statement_style(&mut diagnostics, &styled);
         self.finish_load(first_new_def, diagnostics)
     }
 
@@ -1045,7 +1046,7 @@ impl Session {
         all.extend(self.warnings.iter().cloned());
         for (id, file) in self.sources.iter() {
             if styled(&file.name) {
-                all.extend(crate::binder_sweep::warnings(id, &file.text));
+                all.extend(crate::binder_sweep::warnings_of_text(id, &file.text));
             }
         }
         all
@@ -1055,14 +1056,19 @@ impl Session {
     /// files' text: drops the elaborator's `W-ARROW-FORALL` candidates that
     /// weren't written with `->`, and adds `W-THEOREM-FORALL` for each file
     /// of `files`.
-    pub(crate) fn statement_style(&self, diagnostics: &mut Vec<Diagnostic>, files: &[FileId]) {
+    pub(crate) fn statement_style(
+        &self,
+        diagnostics: &mut Vec<Diagnostic>,
+        files: &[(FileId, &Module)],
+    ) {
         stitchwort_elab::keep_written_arrows(diagnostics, |id| {
             Some(self.sources.get(id).text.as_str())
         });
-        for &id in files {
+        for &(id, module) in files {
             diagnostics.extend(crate::binder_sweep::warnings(
                 id,
                 &self.sources.get(id).text,
+                module,
             ));
         }
     }
@@ -1190,7 +1196,7 @@ impl Session {
         let first_new_def = self.elab.kernel.env.defs().len();
         self.elab.set_file_mode(None);
         let mut diagnostics = self.elab.elaborate_module(&module);
-        self.statement_style(&mut diagnostics, &[file]);
+        self.statement_style(&mut diagnostics, &[(file, &module)]);
         match self.finish_load(first_new_def, diagnostics) {
             Ok(()) => {
                 self.elab.release(mark);

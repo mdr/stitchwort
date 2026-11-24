@@ -25,7 +25,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use stitchwort_syntax::ast::{Decl, Expr, Pattern};
+use stitchwort_syntax::ast::{Decl, Expr, Module, Pattern};
 use stitchwort_syntax::{
     DEFAULT_STACK, Diagnostic, FileId, SourceMap, Span, Tok, Token, decl_ranges, lex_with_trivia,
     parse_module_within,
@@ -158,12 +158,28 @@ pub struct Outcome {
 /// as they are and not reported: those the trial refused. Fails only if the
 /// file itself doesn't lex or parse.
 pub fn sweep(text: &str, keep: &BTreeSet<String>) -> Result<Outcome, String> {
+    let file = SourceMap::new().add("sweep.sw", text);
+    let module = parse_module_within(file, text, DEFAULT_STACK).map_err(|errors| {
+        errors
+            .first()
+            .map_or_else(|| "doesn't parse".to_string(), |d| d.message.clone())
+    })?;
+    sweep_module(text, &module, keep)
+}
+
+/// [`sweep`] for a file whose parse `module` the caller already has: only
+/// the rewrites are parsed again.
+pub fn sweep_module(
+    text: &str,
+    module: &Module,
+    keep: &BTreeSet<String>,
+) -> Result<Outcome, String> {
     let mut keep = keep.clone();
     let mut no_parse = Vec::new();
     // A rewrite that doesn't parse is found in the whole file, then kept
     // out, until the file parses.
     loop {
-        let mut outcome = sweep_once(text, &keep)?;
+        let mut outcome = sweep_once(text, module, &keep)?;
         let file = SourceMap::new().add("sweep.sw", outcome.text.as_str());
         match parse_module_within(file, &outcome.text, DEFAULT_STACK) {
             Ok(_) => {
@@ -204,13 +220,27 @@ pub const WARNING: &str = "W-THEOREM-FORALL";
 /// whose statement starts with `∀` and that [`sweep`] would convert: the
 /// ones it skips are left as they are by design (a `∀` after a premise) or
 /// have no safe rewrite, and a warning with no fix would only be noise. The
-/// label is on the `∀`. A file that doesn't parse has none.
-pub fn warnings(file: FileId, text: &str) -> Vec<Diagnostic> {
-    // Most files have no `∀` at all: skip the second parse.
+/// label is on the `∀`. `module` is the file's parse, which the check has
+/// already made, so the file isn't parsed again; a file that doesn't parse
+/// has none.
+pub fn warnings(file: FileId, text: &str, module: &Module) -> Vec<Diagnostic> {
+    // Most files have no `∀` at all: skip the sweep.
     if !text.contains('∀') && !text.contains("forall") {
         return Vec::new();
     }
-    let Ok(outcome) = sweep(text, &BTreeSet::new()) else {
+    warnings_from(file, sweep_module(text, module, &BTreeSet::new()))
+}
+
+/// [`warnings`] for a file that wasn't parsed before: it is parsed here.
+pub fn warnings_of_text(file: FileId, text: &str) -> Vec<Diagnostic> {
+    if !text.contains('∀') && !text.contains("forall") {
+        return Vec::new();
+    }
+    warnings_from(file, sweep(text, &BTreeSet::new()))
+}
+
+fn warnings_from(file: FileId, outcome: Result<Outcome, String>) -> Vec<Diagnostic> {
+    let Ok(outcome) = outcome else {
         return Vec::new();
     };
     outcome
@@ -247,14 +277,9 @@ fn line_of(text: &str, offset: u32) -> u32 {
         + 1
 }
 
-fn sweep_once(text: &str, keep: &BTreeSet<String>) -> Result<Outcome, String> {
+fn sweep_once(text: &str, module: &Module, keep: &BTreeSet<String>) -> Result<Outcome, String> {
     let file = SourceMap::new().add("sweep.sw", text);
     let lexed = lex_with_trivia(file, text).map_err(|d| d.message)?;
-    let module = parse_module_within(file, text, DEFAULT_STACK).map_err(|errors| {
-        errors
-            .first()
-            .map_or_else(|| "doesn't parse".to_string(), |d| d.message.clone())
-    })?;
     let tokens = &lexed.tokens;
     let comments = all_comments(&lexed);
     let source = Source {
@@ -1279,7 +1304,7 @@ mod tests {
             outcome.skipped.is_empty(),
             "skipped: {:?}\n{}",
             outcome.skipped,
-            sweep_once(text, &BTreeSet::new()).unwrap().text
+            outcome.text
         );
         assert_eq!(outcome.converted.len(), 1);
         outcome.text

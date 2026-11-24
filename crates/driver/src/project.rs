@@ -398,7 +398,8 @@ impl Session {
                 // that is loaded (SW-3637).
                 let ns = analysis.namespace(name).expect("a namespace");
                 let mut warnings = warnings.clone();
-                self.statement_style(&mut warnings, &ns.files);
+                let styled: Vec<_> = ns.files.iter().copied().zip(&ns.modules).collect();
+                self.statement_style(&mut warnings, &styled);
                 diagnostics.extend(warnings);
                 continue;
             }
@@ -524,7 +525,8 @@ impl Session {
         // After the cache, which holds the elaborator's own diagnostics:
         // this one reads each file's text.
         if ns.parse_errors.is_empty() {
-            self.statement_style(&mut found, &ns.files);
+            let styled: Vec<_> = ns.files.iter().copied().zip(&ns.modules).collect();
+            self.statement_style(&mut found, &styled);
         } else {
             // No statement style for files that don't parse, but the
             // recovered modules can still suggest `W-ARROW-FORALL` at a
