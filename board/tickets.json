@@ -1,5 +1,5 @@
 {
-  "next": 4739,
+  "next": 4740,
   "tickets": [
     {
       "id": 47,
@@ -34267,7 +34267,7 @@
     {
       "id": 4735,
       "title": "[Opus] Parallel stage 2 step 2: cache entry in two parts (FORMAT bump), decode without proofs, fill workers load stated theorems (parallel-checking.md 10.6 step 2) (D3732)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34275,7 +34275,12 @@
       "body": "\n\nProgress (Opus lane, 24 Nov 15:03-15:45): built step 2 as 10.6, bodies only (helpers stay in part A; no position map). FORMAT 46. Workers load exact entries without proofs; Load::Everything forces proofs and asserts none stated (C1); canonical_dump_without_proofs (C2); N1, core.md wording. Measured Fmt.PassProofs closure warm: 1.05 s / 518 MB whole vs 0.94 s / 436 MB without proofs; part B 33.5% of entry bytes. Notes for Fable review: docs/reviews/SW-4735-notes.md. Commit 2f0544c0e.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "2dbe49766f8dc090f57dfd146aea020a5da1fbb0",
+        "8ed5eb8f9290634654d2b2fed26ea3101e446fbb",
+        "2f0544c0e2d8dc47b558230e3578e2812b1d22a4",
+        "2ec35c628b1c2cf752cd3a179ec3f05cce460caf"
+      ]
     },
     {
       "id": 4736,
@@ -34324,6 +34329,19 @@
         "6d742cb762ed8a9ef3c53f9fcdf8925c35513818",
         "6b36b817f4ce62116d8f737602e59681027d94fd"
       ]
+    },
+    {
+      "id": 4739,
+      "title": "[Sonnet] Stage 2 step 2 follow-ups (SW-4735 Fable review): F1 docs sentence on STITCHWORT_LOAD_PROOFS=0 in docs/core.md and check-cache.md (measuring only; removed in step 3); F2 admit_stated refuses a parameter-default mark (or soften core.md); F3 fixture gains an unfolding theorem, instance theorem, mutual theorem group, and the proof-less dump hides less; F4 comment in check_prepared: --timings is Load::Diagnostics, harmless because timings sizes only its own definitions (SW-4735)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
     }
   ]
 }
