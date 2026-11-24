@@ -1525,6 +1525,9 @@ struct Out<'g> {
     problem: Option<String>,
     /// Writing the interface digest's stream, which leaves out positions.
     digest: bool,
+    /// Bytes written for source positions so far (for the debug line's
+    /// split of an entry, [`Sizes`]).
+    span_bytes: usize,
     /// In digest mode: how own declarations are named, and the recording
     /// or the plan of stage C (docs/proposals/interface-digest-cache.md
     /// C.1, C.2).
@@ -1611,6 +1614,26 @@ enum DigestPass {
 pub(crate) struct DigestShape {
     private: usize,
     plain: usize,
+    /// The digest pass's streams, in bytes and nodes.
+    digest_bytes: usize,
+    digest_nodes: usize,
+    /// The entry's streams, in bytes and nodes, and what of them the digest
+    /// leaves out besides proofs.
+    entry_bytes: usize,
+    entry_nodes: usize,
+    sizes: Sizes,
+}
+
+impl DigestShape {
+    /// The bytes of the entry's streams spent on the proofs of sealed
+    /// theorems and their private helpers: what is left once the digest's
+    /// streams and the positions, navigation and warnings are taken away.
+    /// The digest's terms are written by content, the entry's by address,
+    /// so this is a close estimate, not exact.
+    pub(crate) fn proof_bytes(&self) -> usize {
+        let other = self.digest_bytes + self.sizes.positions + self.sizes.nav + self.sizes.warnings;
+        self.entry_bytes.saturating_sub(other)
+    }
 }
 
 impl std::fmt::Display for DigestShape {
@@ -1619,6 +1642,27 @@ impl std::fmt::Display for DigestShape {
             f,
             "{} proof-private helpers left out, {} plain theorems",
             self.private, self.plain
+        )?;
+        // Only the debug line prints this, so the shares are for a reader
+        // measuring how much of an entry a load without proofs would skip.
+        let pct = |part: usize| 100.0 * part as f64 / self.entry_bytes.max(1) as f64;
+        write!(
+            f,
+            "; entry {} bytes, {} nodes: proofs {} bytes ({:.1}%), \
+             positions {} ({:.1}%), navigation {} ({:.1}%), warnings {} ({:.1}%), \
+             interface {} bytes, {} nodes",
+            self.entry_bytes,
+            self.entry_nodes,
+            self.proof_bytes(),
+            pct(self.proof_bytes()),
+            self.sizes.positions,
+            pct(self.sizes.positions),
+            self.sizes.nav,
+            pct(self.sizes.nav),
+            self.sizes.warnings,
+            pct(self.sizes.warnings),
+            self.digest_bytes,
+            self.digest_nodes,
         )
     }
 }
@@ -1721,21 +1765,25 @@ impl Refs for Out<'_> {
         if self.digest {
             return;
         }
+        let at = w.bytes.len();
         let file = self.file_index(span);
         w.usize(file);
         w.uint(u64::from(span.start));
         w.uint(u64::from(span.end.saturating_sub(span.start)));
+        self.span_bytes += w.bytes.len() - at;
     }
 
     fn span_after(&mut self, w: &mut Writer, span: Span, prev: &mut u32) {
         if self.digest {
             return;
         }
+        let at = w.bytes.len();
         let file = self.file_index(span);
         w.usize(file);
         w.uint(codec::zigzag(i64::from(span.start) - i64::from(*prev)));
         w.uint(u64::from(span.end.saturating_sub(span.start)));
         *prev = span.start;
+        self.span_bytes += w.bytes.len() - at;
     }
 }
 
@@ -1777,6 +1825,26 @@ struct Parts {
     deps: Vec<Dep>,
     /// The digest's recording pass's findings.
     recording: Option<Recording>,
+    sizes: Sizes,
+}
+
+/// What an entry's bytes are spent on that the interface digest leaves out
+/// besides proofs, for the debug line (SW-4729): positions outside the
+/// navigation, the navigation, and the warnings.
+#[derive(Clone, Copy, Default)]
+struct Sizes {
+    positions: usize,
+    nav: usize,
+    warnings: usize,
+}
+
+impl Parts {
+    /// The bytes of the entry's streams (not the file table or the
+    /// dependency records).
+    fn stream_bytes(&self) -> usize {
+        let strings: usize = self.strings.iter().map(|s| s.len() + 1).sum();
+        strings + self.pre.len() + self.nodes.len() + self.rest.len()
+    }
 }
 
 /// An entry's parts while it is written: the terms and strings, and the
@@ -2306,7 +2374,10 @@ impl Elaborator {
         salt: [u8; 16],
     ) -> Result<(Vec<u8>, Key, DigestShape), String> {
         let parts = self.encode_pass(unit, before, writes, names, pre, warnings, None)?;
-        let (digest, shape) = self.interface_digest(unit, before, writes, names, pre)?;
+        let (digest, mut shape) = self.interface_digest(unit, before, writes, names, pre)?;
+        shape.entry_bytes = parts.stream_bytes();
+        shape.entry_nodes = parts.node_count;
+        shape.sizes = parts.sizes;
         // The files outside the unit's own it holds positions in, with what
         // they were (rule 4, §1.4): a namespace's digest leaves positions
         // out, so one that holds a position in another's file misses when
@@ -2393,9 +2464,15 @@ impl Elaborator {
         let shape = DigestShape {
             private: plan.private.len(),
             plain: plan.plain,
+            ..DigestShape::default()
         };
         let pass = Some(DigestPass::Final(prep, plan));
         let parts = self.encode_pass(unit, before, writes, names, pre, &[], pass)?;
+        let shape = DigestShape {
+            digest_bytes: parts.stream_bytes(),
+            digest_nodes: parts.node_count,
+            ..shape
+        };
         let mut h = blake3::Hasher::new();
         let mut part = |bytes: &[u8]| {
             h.update(&(bytes.len() as u64).to_le_bytes());
@@ -2536,6 +2613,7 @@ impl Elaborator {
                 file_ids: HashMap::default(),
                 problem: None,
                 digest,
+                span_bytes: 0,
                 stage: pass.map(|pass| match pass {
                     DigestPass::Record(prep) => Stage {
                         prep,
@@ -2605,6 +2683,7 @@ impl Elaborator {
         // plain `check` can report a namespace it doesn't load from its
         // head alone (SW-1193). The unit's own messages: not in the digest
         // (`warnings` is empty then).
+        let warnings_at = e.w.bytes.len();
         e.w.usize(warnings.len());
         for d in warnings {
             if d.severity != Severity::Warning {
@@ -2622,6 +2701,7 @@ impl Elaborator {
                 e.str(note);
             }
         }
+        let warnings_bytes = e.w.bytes.len() - warnings_at;
         let pre_bytes = std::mem::take(&mut e.w.bytes);
 
         // The kernel's declarations. In the digest's final pass, without
@@ -2833,6 +2913,7 @@ impl Elaborator {
         // What code navigation recorded in the unit's files: positions in
         // them, read from the unit's own entry; not in the digest.
         let own = |file: &FileId| unit.own_files.contains(file);
+        let (nav_at, positions) = (e.w.bytes.len(), e.out.span_bytes);
         match (&self.present.nav, before.nav) {
             _ if digest => {}
             (Some(nav), Some((locals, binders, outline, params, named))) => {
@@ -2987,6 +3068,11 @@ impl Elaborator {
         if let Some(problem) = e.out.problem {
             return Err(problem);
         }
+        let sizes = Sizes {
+            positions,
+            nav: e.w.bytes.len() - nav_at,
+            warnings: warnings_bytes,
+        };
         let node_count = e.terms.node_count();
         Ok(Parts {
             strings: e.terms.strings,
@@ -2998,6 +3084,7 @@ impl Elaborator {
             rest: e.w.bytes,
             deps: e.out.deps,
             recording: e.out.stage.and_then(|s| s.recording),
+            sizes,
         })
     }
 
