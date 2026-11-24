@@ -80,10 +80,10 @@ report that isn't cached).
 |---|---|---|
 | `rewrite/repeatedly.rs:1745` | body present | `def.theorem()` first |
 | `rewrite/repeatedly.rs:1580-1582`, `1620`, `1769` | case tree, node count, arity of a rule that names a definition | reached only through `definition_named` (`1745`), which returns nothing for a theorem; `unfold` is set only at `1586` |
-| `opaque.rs:249`, `256` | body and arity for `f.unfold` | `def.theorem()` at `242` |
+| `opaque.rs:249`, `256` | body and arity for `f.unfold` | `def.theorem()` at `243` |
 | `opaque.rs:467`, `529` | body of an opaque definition declined in a goal | `def.opaque()`; a theorem is never marked opaque (rule 6) |
 | `unify.rs:3477-3480` | whether an accessor's body is a projection | `g.def(*d).proof()` at `3474` |
-| `equations.rs:2319`, `2370`, `2383` | arity and body of the definition whose equations are made | theorems return at `2297-2309` before either |
+| `equations.rs:2319`, `2370`, `2383` | arity and body of the definition whose equations are made | theorems return at `2287-2312` before either |
 | `equation_notes.rs:35` (into `equations/induct.rs:235`, `207`) | whether `f` calls itself | `def.theorem()` at `29` |
 
 ### 2.3 Safe by an indirect argument
@@ -226,7 +226,7 @@ they test `body_seen`, which is harmless at 0 since `body_seen` then fails.
 
 **Unaffected.** `unify.rs:958` and the evaluator's `Term::Def` case
 (`value.rs:1853-1895`) already treat a theorem as a head that never unfolds;
-`rewrite/repeatedly.rs:1745` and `opaque.rs:242` test `theorem()` first.
+`rewrite/repeatedly.rs:1745` and `opaque.rs:243` test `theorem()` first.
 
 ## 5. Recommended fixes and tickets
 
