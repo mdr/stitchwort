@@ -34107,7 +34107,7 @@
     {
       "id": 4724,
       "title": "[Sonnet] check --jobs: richer seeded-schedule fixture: instances in sibling namespaces, a lifted match, a theorem, different library files per branch, one --index run (SW-4719 review)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34136,7 +34136,7 @@
     {
       "id": 4726,
       "title": "[Sonnet] check --jobs: a test-only hook to exercise a worker panic path (SW-4719 review F4)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34396,7 +34396,7 @@
     {
       "id": 4742,
       "title": "[Sonnet] STITCHWORT_WORK_LIMIT (env, test/debug only) to lower the 10-billion step limit, so E-RESOURCE cases can be reproduced quickly (SW-4721 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
