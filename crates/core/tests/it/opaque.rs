@@ -13,8 +13,8 @@ use crate::common::*;
 use stitchwort_core::check::{self, define_group};
 use stitchwort_core::hash::{ContentHash, def_hash};
 use stitchwort_core::term::Term;
-use stitchwort_core::value::{Head, Value, conv, eval, quote};
-use stitchwort_core::{DefId, Kernel, Limits, Sort};
+use stitchwort_core::value::{Head, Value, conv, eval, quote, underapplied};
+use stitchwort_core::{DefId, Icit, Kernel, Limits, Sort};
 
 /// How a declaration is submitted: opaque or not, and what it unfolds.
 #[derive(Clone, Copy, Default)]
@@ -269,6 +269,42 @@ fn a_theorem_is_frozen_by_its_type_not_marked_opaque() {
     assert!(p.g.def(t).proof());
     // A plain `def` isn't a proof either.
     assert!(!p.g.def(two).opaque() && !p.g.def(two).proof());
+}
+
+/// Eta for a partially applied definition reads its parameters off its
+/// body's leading lambdas; a theorem's proof and a hidden opaque body are
+/// sealed (rule 6), so neither offers any, whatever its proof's shape
+/// (SW-4728). A plain definition does, as does an opaque one where it's
+/// transparent, and any of them while a program runs.
+#[test]
+fn eta_doesnt_read_a_sealed_body() {
+    let mut p = Prelude::new();
+    let zero = p.num(0);
+    let zero_add = nat_eq(&p, p.plus(zero, v(0)), v(0));
+    let statement = pi("n", p.nat_ty(), zero_add);
+    let theorem = submit(
+        &mut p.g,
+        "zeroAdd",
+        THEOREM,
+        statement,
+        lam("n", Term::Refl),
+    )
+    .expect("theorem");
+    let plain = double(&mut p, "plain", PLAIN);
+    let opaque = double(&mut p, "opaque", OPAQUE);
+    let alone = |id| Value::Neutral(Head::Def(id), Default::default());
+    let _op = p.g.machine.budget.operation(Limits::default());
+    let next = |p: &Prelude, id| underapplied(&p.g.ev(), &alone(id));
+    assert_eq!(next(&p, theorem), None);
+    assert_eq!(next(&p, opaque), None);
+    assert_eq!(next(&p, plain), Some(Icit::Explicit));
+    let set: Rc<[DefId]> = Rc::from([opaque]);
+    let in_set = p.g.machine.transparent.set(set);
+    assert_eq!(next(&p, opaque), Some(Icit::Explicit));
+    drop(in_set);
+    let _running = p.g.machine.erasure.running();
+    assert_eq!(next(&p, theorem), Some(Icit::Explicit));
+    assert_eq!(next(&p, opaque), Some(Icit::Explicit));
 }
 
 #[test]

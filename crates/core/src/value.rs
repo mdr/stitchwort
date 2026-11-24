@@ -5426,12 +5426,22 @@ pub fn underapplied(g: &Ev, value: &Value) -> Option<Icit> {
 
 /// [`underapplied`], with the next parameter's proof mark, for the fresh
 /// variable eta applies both sides to.
+///
+/// The parameters are read off the body's leading lambdas, so a definition
+/// whose body can't be seen ([`body_seen`]: a theorem, by rule F, or a
+/// hidden opaque definition) offers none: which of its statement's
+/// parameters its proof binds with a lambda is the proof's business, and
+/// no other declaration may see it (docs/core.md, opaque definitions, rule
+/// 6). Eta is still tried from the other side, and nothing is lost: a call
+/// that can't unfold is equal only to a call of the same definition with
+/// equal arguments, or, being a proof, to any proof by rule I, and
+/// applying both sides to a fresh variable leaves that unchanged.
 pub fn next_parameter(g: &Ev, value: &Value) -> Option<(Icit, ProofMark)> {
     let Value::Neutral(Head::Def(id), spine) = value else {
         return None;
     };
     let def = g.def(*id);
-    let body = def.body.as_ref()?;
+    let body = body_seen(g, *id)?;
     if spine.len() >= def.arity {
         return None;
     }
