@@ -601,6 +601,33 @@ pub struct TheoremPlan {
     pub checked: usize,
 }
 
+/// `E-PROOF-PRIVATE` if a proper prefix of `full` names a top-level theorem:
+/// everything under a theorem's name is what its proof defines (D3736). A
+/// local theorem's prefix (`f.lemma`) would need a walk of the syntax.
+fn proof_private_prefix(namespaces: &[PlanNamespace], full: &str) -> Option<Diagnostic> {
+    full.rmatch_indices('.').find_map(|(i, _)| {
+        let prefix = &full[..i];
+        let theorem = namespaces.iter().any(|ns| {
+            ns.modules.iter().flat_map(|m| &m.decls).any(|decl| {
+                matches!(decl, Decl::Signature { name, theorem: true, .. }
+                    if format!("{}.{}", ns.name, name.text) == prefix)
+            })
+        });
+        theorem.then(|| {
+            Diagnostic::error(
+                "E-PROOF-PRIVATE",
+                format!(
+                    "`{full}` is defined inside the proof of `{prefix}` and can be used only there"
+                ),
+            )
+            .with_note(
+                "a theorem's proof is sealed, so what it defines is private to it; to use it \
+                 elsewhere, make it a top-level `theorem` or `def`",
+            )
+        })
+    })
+}
+
 /// The name of a theorem's declaration, as written.
 fn theorem_name(decl: &Decl) -> Option<&str> {
     match decl {
@@ -691,9 +718,12 @@ fn quoted_list(items: &[String]) -> String {
 /// ([`WALK_MARKER`]). This keeps every tagged lemma of the earlier
 /// namespaces, which is a superset of the ones the walk can see.
 ///
-/// `Err` has a message for a name in `only` that is no theorem of a
-/// namespace pruned.
-pub fn plan_theorems(namespaces: &[PlanNamespace], only: &[String]) -> Result<TheoremPlan, String> {
+/// `Err` says why a name in `only` isn't a theorem of a namespace pruned.
+pub fn plan_theorems(
+    namespaces: &[PlanNamespace],
+    only: &[String],
+) -> Result<TheoremPlan, Diagnostic> {
+    let unknown = |message: String| Diagnostic::error("E-UNKNOWN-THEOREM", message);
     // Every name in `only` must be a theorem of a pruned namespace.
     for full in only {
         let mut found: Option<(&str, bool, bool)> = None;
@@ -720,22 +750,25 @@ pub fn plan_theorems(namespaces: &[PlanNamespace], only: &[String]) -> Result<Th
         }
         match found {
             None => {
+                if let Some(private) = proof_private_prefix(namespaces, full) {
+                    return Err(private);
+                }
                 let mut message =
                     format!("there's no theorem `{full}` in the namespaces being checked");
                 let suggestions = theorems_ending_with(namespaces, full);
                 if !suggestions.is_empty() {
                     message.push_str(&format!("; did you mean {}?", quoted_list(&suggestions)));
                 }
-                return Err(message);
+                return Err(unknown(message));
             }
             Some((_, _, false)) => {
-                return Err(format!("`{full}` is not a theorem"));
+                return Err(unknown(format!("`{full}` is not a theorem")));
             }
             Some((ns, false, true)) => {
-                return Err(format!(
+                return Err(unknown(format!(
                     "theorem `{full}` is in namespace {ns}, which is only checked as what \
                      others use; name {ns} too"
-                ));
+                )));
             }
             Some((_, true, true)) => {}
         }
