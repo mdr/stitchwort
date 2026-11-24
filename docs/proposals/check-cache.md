@@ -1037,6 +1037,14 @@ any changes. `check --recheck` computes each replayed namespace's digest
 again (`E-CACHE-DIGEST` on a mismatch). `FORMAT` 44. Library files' keys
 still cover text (stage B).
 
+Stage C (SW-4714, `FORMAT` 45): the digest also leaves out the lifted `match`
+helpers that only sealed proofs reach (and their `lifted`, `match_columns` and
+`update_shown` rows), names the namespace's own declarations by path, and lists
+its plain theorems (sealed, not instances, keying no table row) by path after
+everything else. So adding or changing a `match` inside a proof, or a proof
+starting to use a later theorem, also replays the namespaces above. See "As
+built (stage C)" in interface-digest-cache.md.
+
 ## Decisions
 
 | ID | Question | Recommendation |

@@ -44,7 +44,7 @@ The design in five rules:
 Stages: **A** project namespaces (the measure above; **built**, SW-4707: see "As built
 (stage A)" at the end); **B** standard library files; **C**
 leave out helpers that only a proof can reach, so edits that add or remove a `match` inside a
-proof also cut off; **D** (Matt's decision, section 7) a namespace with an open goal inside a
+proof also cut off (**built**, SW-4714: see "As built (stage C)" at the end); **D** (Matt's decision, section 7) a namespace with an open goal inside a
 proof keeps its digest, so working on a `?` doesn't re-check what's above it.
 
 ## 1. The end state
@@ -880,3 +880,77 @@ user-visible but the cache's debug lines.
   check]**.
 - **Stage D** (a `?` in a proof keeps the digest) would make an assumption a third kind
   of thing left out; it should reuse this marking, not add a second one.
+
+## As built (stage C)
+
+SW-4714 (Opus, 24 Nov 2026), from "Stage C design (SW-4713)" with C.6's option (a)
+(the orchestrator's call): plain theorems by path, everything else in checking order.
+`FORMAT` 44 → 45; the pinned digests re-pinned. No change to what an entry holds or how
+it is replayed. The reviewer's checklist is docs/reviews/SW-4714-notes.md.
+
+**What the code says about the design's unread points:**
+
+- *`crates/core`'s readers of a definition's group* (C.3, C.7): `check.rs:2783` sets it;
+  `check.rs:2798` derives `recursive` from it, which only unfolding reads, and a
+  theorem never unfolds (rule F); `check.rs:3381` (a transparency set) adds the opaque,
+  non-theorem group-mates of a definition another unit names in `unfolding`, and that
+  definition is kept, so its group list is in the digest and makes those members roots;
+  `hash.rs:212` (group hashes) is in the digest through the computing member's hash. Outside
+  the core, `js/src/lib.rs:2677,3051` and `rt/src/specialise.rs:366` are back ends: run
+  time, in no entry. Termination reads data groups only. **[verified by reading each site]**
+- *A recursive theorem's helper joins its group* (C.7): `lift.rs` joins a helper to its
+  owner's group when its body mentions a definition still pending (`join && pending`), as
+  a call of the owner is. **[verified in the code; the test
+  `a_match_added_to_a_recursive_theorem_below_replays_what_uses_it` replays `B`, which
+  needs the group rule]**
+- *A theorem's `unfolding` list naming its own helpers* (C.1's table): it does.
+  `Elaborator::in_body_of` (`opaque.rs`) appends the helpers admitted on their own to the
+  owner's stored list when the owner has an `unfolding` clause. The list is written for
+  every definition, so those helpers are roots and kept: such a theorem keeps today's
+  behaviour, as the design says. **[verified in the code; not counted in `tools/fmt`]**
+
+**How it is built.**
+
+- *Two digest passes after the entry's.* `interface_digest` takes a `DigestPrep` (the
+  candidates: own rows of `lifted`, not a theorem, not an instance, `%` in the name; each
+  own declaration's ordinal among those of its path), runs a *recording* pass, makes the
+  `DigestPlan` (`digest_plan`: mark from the roots, then the plain theorems), and runs the
+  *final* pass. The recording pass is skipped when the unit has no candidate and no sealed
+  theorem (nothing to find); otherwise it is one more encoding without sealed bodies or
+  navigation **[not measured; the measure's `cold` line shows it]**.
+- *Contexts* (`Context` in `cache/mod.rs`): `Root`, `Key` (a row's key in a table keyed by
+  declaration) and `Own(c)` (candidate `c`'s record, or its row of `lifted`,
+  `match_columns`, `update_shown`: `encode_owned_since` in `state/table.rs`). `Out::def`
+  records each own reference with the context. The term writer skips nodes it has written,
+  so in the recording pass it starts afresh whenever the context crosses into or out of a
+  candidate's; otherwise a reference first written inside a candidate would go unrecorded
+  from a root.
+- *The final pass* writes own declarations as `(0, path, ordinal)` (outside ones as
+  before), group lists sorted by path (none for a sealed theorem), definitions in the
+  plan's order (ordered ones in checking order, then plain theorems by path), a data type's
+  `defs_before` as the ordered count, and leaves out private helpers' records and owned
+  rows. A reference to a private helper there fails the encoding ("can't be cached").
+- *Keyed tables' order.* Rows keyed by definition are still written in id order: no plain
+  theorem keys a row (that is what makes it plain) and private rows are left out, so id
+  order is the digest's order without a sort.
+- *Plain* is: sealed (`has_interface`), not an instance, written as no row's key. A theorem
+  named only in a row's value (a `rules` set's rule) can be plain; the row names it by path.
+- *Debug*: `STITCHWORT_CACHE_DEBUG`'s "written" line adds "N proof-private helpers left
+  out, M plain theorems".
+- *`--recheck`* calls the same `interface_digest` on the replayed state; the replayed
+  `lifted` rows give the same candidates. The tests re-check after each stage C edit: no
+  mismatch.
+
+**Tests** (`crates/driver/tests/projects/check_cache/digest.rs`, each compared with a check
+without the cache): a `match` added to a proof, removed, its arms changed, a second added
+before the first, one in a recursive theorem, one before a data type: `B` replayed, the
+helper in the entry, `--recheck` clean; a `match` in a statement, a computing body, a
+`def` of proposition type or a local `def` in a proof, and a local `def` added: `B`
+elaborated; a proof starts using a later theorem: replayed (SW-4710; `BASE` no longer
+needs `oneProof` first); a later computing definition, and an `@[reading]` theorem using a
+later theorem: equal to `--no-cache`; private helpers in two namespaces: `B` and `C`
+replayed; the differential test with each proof wrapped in a lifted `match`.
+
+**Measure** (C.5 step 7): `measure-c.sh`, in docs/reviews/SW-4714-notes.md, for the
+verifier or Overmind. **[not run by the lane]**
+

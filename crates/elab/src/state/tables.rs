@@ -48,6 +48,10 @@ pub(crate) struct Tables {
     pub(crate) abilities: GrowVec<AbilityInfo>,
     /// Every lifted helper so far, with its `match`, for naming the `match`
     /// in diagnostics instead of the helper (`Elaborator::explain_lifted`).
+    /// A helper only sealed proofs reach is left out of its namespace's
+    /// interface digest (docs/proposals/interface-digest-cache.md C.1), so
+    /// nothing that scans this table or the definitions may let one change
+    /// a result another namespace's cache entry keeps.
     pub(crate) lifted: GrowVec<(DefId, Span)>,
     /// The equations the source implies that weren't generated, by key,
     /// with the reason: naming one is `E-NO-EQUATION` (D2176).
@@ -212,6 +216,11 @@ impl Mark {
     /// How many tests there were.
     pub(crate) fn tests(&self) -> usize {
         self.tests
+    }
+
+    /// How many lifted helpers there were.
+    pub(crate) fn lifted(&self) -> usize {
+        self.lifted
     }
 }
 
@@ -427,7 +436,7 @@ impl Tables {
         records.encode_since(&m.records, e)?;
         field_defaults.encode_since(&m.field_defaults, e)?;
         param_defaults.encode_since(&m.param_defaults, e)?;
-        update_shown.encode_since(&m.update_shown, e)?;
+        update_shown.encode_owned_since(&m.update_shown, e)?;
         js_repr.encode_since(&m.js_repr, e)?;
         interfaces.encode_since(&m.interfaces, e)?;
         new.sort_by_key(|(k, _)| (k.0.0, k.1.0));
@@ -444,8 +453,11 @@ impl Tables {
         no_decide.encode_since(&m.no_decide, e)?;
         generated_alls.encode_since(&m.generated_alls, e)?;
         abilities.encode_since(&m.abilities, e)?;
-        lifted.encode_since(&m.lifted, e)?;
-        match_columns.encode_since(&m.match_columns, e)?;
+        // A lifted helper's rows here are its own (`lifted`,
+        // `match_columns`, `update_shown`): the interface digest leaves them
+        // out with a helper only sealed proofs reach (cache::DigestPlan).
+        lifted.encode_owned_since(m.lifted, e, |&(id, _)| id)?;
+        match_columns.encode_owned_since(&m.match_columns, e)?;
         readings.encode_since(&m.readings, e)?;
         helpers.sort();
         e.count(helpers.len());
