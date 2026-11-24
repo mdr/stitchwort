@@ -9,6 +9,8 @@ use crate::common::*;
 use stitchwort_core::check;
 use stitchwort_core::globals::{Assumption, Kernel, State};
 use stitchwort_core::hash::{def_hash, has_interface, interface_hash, proofless_hash};
+use stitchwort_core::native::{self, Native};
+use stitchwort_core::pins;
 use stitchwort_core::value::{Head, Value, eval};
 use stitchwort_core::{DefId, Limits, Term};
 use stitchwort_syntax::Diagnostic;
@@ -294,7 +296,54 @@ fn nothing_gives_a_theorem_left_stated_a_body() {
         "E-MALFORMED"
     );
     assert_eq!(code(check::leave_stated(&mut p.g, refl)), "E-MALFORMED");
+    assert_eq!(
+        code(check::add_validator(&mut p.g, refl, 0, p.nat, &Term::Refl)),
+        "E-MALFORMED"
+    );
     assert!(p.g.def(refl).body().is_none());
+}
+
+/// A native can't be registered for it, and a pin never takes it for the
+/// pinned declaration: refusals, not the full hash's internal error.
+#[test]
+fn natives_and_pins_refuse_a_theorem_left_stated() {
+    for how in [Refl::Left, Refl::Stated] {
+        let (mut p, refl) = with_refl(how);
+        let b = Native::Add.builtin();
+        assert_eq!(
+            code(native::register_native(&mut p.g, refl, Native::Add)),
+            "E-BUILTIN",
+            "{how:?}"
+        );
+        assert!(!pins::holds(&p.g.ev(), refl, b), "{how:?}");
+        assert!(pins::stale_def(&mut p.g, refl, b), "{how:?}");
+        assert_eq!(
+            code(pins::check_bound_def(&mut p.g, refl, b)),
+            "E-BUILTIN",
+            "{how:?}"
+        );
+    }
+}
+
+/// Its hash without proofs is its statement's even when working out which
+/// positions are proofs runs out of resources, which for a proved theorem
+/// falls back to hashing the body a stated one hasn't got.
+#[test]
+fn a_stated_theorems_proofless_hash_needs_no_budget() {
+    let (proved, id) = with_refl(Refl::Lambdas);
+    let expected = proofless_hash(&proved.g.ev(), id).unwrap();
+    for how in [Refl::Stated, Refl::Left] {
+        let (p, refl) = with_refl(how);
+        let _op = p.g.machine.budget.operation(Limits {
+            work: 1,
+            ..Limits::default()
+        });
+        assert_eq!(
+            proofless_hash(&p.g.ev(), refl).unwrap(),
+            expected,
+            "{how:?}"
+        );
+    }
 }
 
 /// Its full hash isn't known, so asking for it is an internal error, never

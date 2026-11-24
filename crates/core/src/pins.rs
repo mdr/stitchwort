@@ -212,8 +212,13 @@ fn hex(
     f().ok().flatten().map(|h| h.hex())
 }
 
-/// The content hash definition `id` has now.
+/// The content hash definition `id` has now. `None` for a theorem whose
+/// proof hasn't been checked ([`crate::globals::Def::unproved`]), which has
+/// no full hash: never the pinned declaration.
 pub fn def_hex(g: &Ev, id: DefId) -> Option<String> {
+    if g.def(id).unproved() {
+        return None;
+    }
     hex(g, || def_hash(g, id))
 }
 

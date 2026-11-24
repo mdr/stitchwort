@@ -427,6 +427,7 @@ pub fn register(g: &mut Kernel, add_succ: DefId) -> Result<(), Diagnostic> {
             let fits = def.state == State::Final
                 && def.theorem
                 && def.assumption.is_none()
+                && !def.unproved
                 && conv(&g.ev(), 0, &eval(&g.ev(), &[], &expected)?, &def.ty_value)?;
             if !fits {
                 return Err(Diagnostic::error(

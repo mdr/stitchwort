@@ -339,7 +339,8 @@ impl Def {
     }
 
     /// Whether it is finished: final with a body, or a stated theorem,
-    /// whose proof was checked where it was made. What "has it a body?"
+    /// whose proof was checked where it was made or, for one left stated
+    /// ([`Def::unproved`]), is being checked elsewhere in the run. What "has it a body?"
     /// asks when it means "is it done?" rather than "show me the body":
     /// an assumption and a definition being checked aren't.
     pub fn defined(&self) -> bool {
