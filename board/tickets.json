@@ -33988,15 +33988,18 @@
     {
       "id": 4717,
       "title": "[Sonnet] task test:one: pick the --test binary itself when the filter names exactly one binary(X), so BIN= isn't needed (SW-4705 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nModel result: DeepSeek, worked, about 12 min (est. 15). Review note: a filter like package(p) & (binary(b) | test(/x/)) would be narrowed to b; rare, accepted.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "ebfd9dd5b17195295f70e4d34b20d1ea6aa26a8e",
+        "7bb859328de3e29af1fed785b429e8ead05f5787"
+      ]
     },
     {
       "id": 4718,
