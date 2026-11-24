@@ -2209,3 +2209,98 @@ written:
 
 So for stage 3 the interface can be made from statements alone with one small fix (1)
 and one syntactic rule (2a), on what was measured. The whole-project runs may find more.
+
+### 11.4 Round 2: recursive, mutual and `decreasing` theorems too (SW-4752, 24 Nov 2026)
+
+Opus lane, on cause 4. `STITCHWORT_INTERFACE_PILOT_ALL=1`, beside
+`STITCHWORT_INTERFACE_PILOT`, makes the interface pass leave out the proofs of every group
+whose members are all theorems: a recursive theorem, a mutual group of theorems, and a
+`decreasing` theorem (routed through the ordinary group path, so its measure isn't
+elaborated and no `f.%step` or `f.%go` is made), each admitted with stand-in bodies as in
+11.1. A group mixing definitions and theorems still has its proofs elaborated (counted as
+`with-defs`): its definitions' bodies are interface. Each line now also gives
+`deferred-by:` and `kept-by:` counts by kind of group (`lone`, `recursive`, `mutual`,
+`decreasing`), and a "no `t.induct`" `equation_skips` row for a theorem (cause 1, which
+SW-4751 removes) is reported as its own cause, `theorem-induct-skip`, so what is left once
+that fix lands shows. The CLI test `interface_pilot_all_leaves_out_recursive_theorems`
+covers one of each kind.
+
+**[measured]** The same four `tools/fmt` targets as 11.2 (`Fmt.ElementsProofs` and its
+closure, 102 namespaces, 80 s with both passes), and four AoC days with `decreasing`
+theorems, each with its closure (`Aoc.Year2024.Day09.Proofs`, `Aoc.Year2024.Day24.Proofs`,
+`Aoc.Year2021.Day16.Proofs`, `Aoc.Year2020.Day03.Proofs`; 12 namespaces in all, `Aoc.Common`
+and `Aoc.Common.Proofs` included). "With SW-4751" is the same build with a scratch patch
+that skips the row for a theorem in `induct::no_equations`, standing in for that fix:
+
+| Kind of group | proofs left out | namespaces with one | of them match | with SW-4751 |
+|---|---|---|---|---|
+| `tools/fmt`, lone | 3,301 | 97 | 88 | 97 |
+| `tools/fmt`, recursive | 587 | 72 | 63 | 72 |
+| `tools/fmt`, mutual | 321 | 28 | 25 | 28 |
+| `tools/fmt`, kept anyway | 0 (908 in round 1) | | | |
+| AoC days, recursive | 43 | 4 | 0 | 0 |
+| AoC days, mutual | 11 | 1 | 0 | 0 |
+| AoC days, `decreasing` | 8 | 4 | 0 | 0 |
+
+`tools/fmt` has no `decreasing` theorem. Over the 102 `tools/fmt` namespaces 93 match and
+the other 9 differ only by `theorem-induct-skip` (`Syntax.FollowsBase`, `Syntax.ParseWalk`,
+`Syntax.ParseWalkCalc`, `Syntax.ParseWalkFrame`, `Syntax.ParseWalkStatements`,
+`Syntax.ParseKept`, `Fmt.AppHangProofs`, `Fmt.JoinProofs`, `Fmt.StandsProofs`); with the
+SW-4751 stand-in all 102 match. Round 1's two were the `byWalking` theorems; the other
+seven are recursive theorems whose rows round 1 didn't see because it elaborated their
+proofs. Of the 12 AoC namespaces, the 8 without a `decreasing` theorem match; each of the
+4 `…Proofs` namespaces differs only by its `decreasing` theorems' `%step` and `%go`
+(proof-helper:%step, proof-helper:%go), with or without SW-4751: no table, name or other
+declaration differs, and the namespaces' recursive and mutual theorems (43 and 11) are
+not among the differences.
+
+**What each kind's interface needs from its proof:**
+
+1. **A recursive theorem: nothing.** Its statement is its signature's; the kernel's
+   termination check (structural recursion in `define_group`) is the full check's, and a
+   proof that fails it fails like any other proof (10.5's failed-proof case). The only
+   by-product is cause 1's row, which SW-4751 removes. Theorems never get equations or an
+   `induct`, so nothing else is made from the proof's recursion.
+2. **A mutual group of theorems: nothing, the group's shape included.** The members are
+   declared from their signatures before any body; the full check's
+   `define_reference_groups` splits the group by the references the proofs really make,
+   but the digest writes plain sealed theorems sorted by path, not by group, so the split
+   doesn't show. All 28 + 1 namespaces with one agree.
+3. **A `decreasing` theorem: its `f.%step` and `f.%go`.** The full check's
+   `decreasing_definition` declares them as sealed theorems in the namespace, so the
+   digest writes them like any other declaration. Their statements come from the
+   signature and the measure alone (`f.%step (x: A) (%rec: …[auto decreasing: m y < m x]
+   → B) … : B`, `f.%go (k: Nat) (x: A) … (h: m x < k): B`, `decreasing.rs`'s header), not
+   from the proof, so the interface pass could make them; but no source can name them
+   (no written name has `%`), and the elaborator code that builds their names
+   (`{f}.%step` in `equations.rs`, `induct.rs`, `tailrec.rs`, `decreasing_measure`) is
+   for definitions' equations, `induct` and running, which a theorem doesn't have. So they
+   are proof-private by the argument C.1 makes for `%match` helpers. *Recommend:* the
+   digest leaves out a sealed `decreasing` theorem's `%step` and `%go` (and what is lifted
+   under them) as proof-private, after a check of every by-name lookup of `%step`/`%go`
+   that they can't be reached from another declaration; then the measure isn't in the
+   interface either, and the interface pass needn't elaborate it. The other way, declaring
+   them in the interface pass from the statement and measure, keeps the measure on the
+   interface chain for no reader. A small change (Sonnet, `digest_prep`'s candidates),
+   **[estimated]** to make the 4 AoC namespaces match.
+
+So, on what was measured, a theorem's interface needs nothing from its proof of any
+kind, once SW-4751 lands and a `decreasing` theorem's helpers are proof-private: the
+interface pass need elaborate no theorem's proof (with 11.3's rule 2a still applying to a
+proof with a local `def` or `theorem`). For `tools/fmt` that moves the 908 proofs (22% of
+its written theorems in these 102 namespaces) off the interface chain.
+
+**Whole projects (the orchestrator's):**
+
+```
+cargo build --release -p stitchwort-cli    # on lane/SW-4752
+cp target/release/stitchwort /tmp/sw-pilot2
+STITCHWORT_INTERFACE_PILOT_ALL=1 docs/proposals/parallel-checking/measure_interface_pilot.sh \
+    /tmp/sw-pilot2 tools/fmt /tmp/pilot2-fmt
+STITCHWORT_INTERFACE_PILOT_ALL=1 docs/proposals/parallel-checking/measure_interface_pilot.sh \
+    /tmp/sw-pilot2 aoc /tmp/pilot2-aoc
+```
+
+About twice a cold check each, as before. The script's new lines give, per kind of group, the proofs left out, the
+namespaces with one, and how many of those match; `theorem-induct-skip` and
+`proof-helper:%step`/`%go` in the cause list are the two known causes above.

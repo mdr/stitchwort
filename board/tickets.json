@@ -1,5 +1,5 @@
 {
-  "next": 4759,
+  "next": 4760,
   "tickets": [
     {
       "id": 47,
@@ -34557,7 +34557,7 @@
     {
       "id": 4752,
       "title": "[Opus] Stage 3 pilot, second run: leave out recursive, mutual and decreasing theorems' proofs too (22% of fmt's theorems were elaborated anyway); does the interface still match? (SW-4730 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34639,6 +34639,19 @@
       "id": 4758,
       "title": "[Opus] A recursive theorem proved by byWalking seems not to be sealed: editing a proof between match and byWalking changes the namespace's digest and part B (5 vs 6 stated theorems), so dependants don't replay; should it be proof_hidden? Relevant to stage 3's recursive theorems (SW-4751 finding)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4759,
+      "title": "[Sonnet] Digest: leave a sealed decreasing theorem's %step and %go (and anything lifted under them) out of the interface digest as proof-private, in digest_prep's candidates; first check every by-name lookup of %step/%go (equations.rs, induct.rs, tailrec.rs, decreasing_measure) (stage 3 pilot round 2, SW-4752)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
