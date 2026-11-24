@@ -518,7 +518,8 @@ fn an_entry_is_the_same_whatever_the_session_loaded_before() {
 /// didn't check `Par.Facts` loads it from its entry without the proofs.
 /// `bumpId` (recursive), `bumpFn`, `bumpTwo`, the `@[reading]` theorem and
 /// the mutual pair `evenBump` and `oddBump` load as stated theorems;
-/// `secretSucc`, with an `unfolding` list, loads whole. (No instance
+/// `secretSucc`, with an `unfolding` list, loads whole, and so does
+/// `bumpBack`, recursive through a lifted `match` helper. (No instance
 /// theorem: an instance's type is an interface applied to a type, and no
 /// source shape found makes that a proposition.)
 fn theorems_project() -> MemoryFiles {
@@ -553,7 +554,10 @@ fn theorems_project() -> MemoryFiles {
                | Succ k => Eq.cong Succ (oddBump k)\n\n\
              theorem oddBump ∀ (n: Nat): bump n = n := match n with\n  \
                | Zero => byComputing\n  \
-               | Succ k => Eq.cong Succ (evenBump k)\n",
+               | Succ k => Eq.cong Succ (evenBump k)\n\n\
+             theorem bumpBack ∀ (n: Nat): n = bump n := Eq.flipped (match n with\n  \
+               | Zero => byComputing\n  \
+               | Succ k => Eq.cong Succ (bumpBack k).flipped)\n",
         ),
         file(
             "Uses",
@@ -681,13 +685,39 @@ fn a_load_without_proofs_holds_all_but_the_proofs_and_never_reaches_a_command_th
         assert!(canonical_dump(&whole.elab) != canonical_dump(&without.elab));
         // The theorem with an `unfolding` list loads whole and prints whole
         // in both sessions; the recursive theorem and the mutual pair are
-        // stated.
+        // stated. `bumpId`'s `match` is its whole body, on a parameter, so
+        // it becomes the theorem's own case tree, not a helper: a group of
+        // one that refers to itself, which a stated theorem can stand for
+        // (its body and `recursive` flag have no reader outside the
+        // cache). `bumpBack`'s `match`, under `Eq.flipped`, is lifted and
+        // calls the theorem, so joins its group; the helper is no theorem,
+        // and the group's hash covers its body, so the group loads whole.
+        let whole_dump = canonical_dump(&whole.elab);
+        let group_of = |name: &str| {
+            let line = (whole_dump.lines())
+                .find(|l| l.starts_with("def ") && l.contains(&format!(" Par.Facts.{name} ")))
+                .unwrap_or_else(|| panic!("no {name} in the dump"));
+            let id = line.split(' ').nth(1).unwrap();
+            let group = line
+                .split(" group ")
+                .nth(1)
+                .unwrap()
+                .split(" theorem ")
+                .next();
+            (id.to_string(), group.unwrap().to_string())
+        };
+        let (id, group) = group_of("bumpId");
+        assert_eq!(group, format!("Some([{id}])"), "bumpId has a helper");
+        let (id, group) = group_of("bumpBack");
+        let helper = group_of("bumpBack.%match1").0;
+        assert_eq!(group, format!("Some([{id}, {helper}])"));
         let dump = canonical_dump(&without.elab);
         for (name, stated) in [
             ("secretSucc", false),
             ("bumpId", true),
             ("evenBump", true),
             ("oddBump", true),
+            ("bumpBack", false),
         ] {
             let line = dump
                 .lines()

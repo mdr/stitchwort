@@ -118,6 +118,12 @@ warm cache: equal; the full dumps differ (so the test isn't empty).
   refer to each other); the group rule in `stated_on_load` covers it, and
   `bumpId` (recursive through its `match` helper) is a group with a
   non-theorem member that loads whole.
+- *Correction (24 Nov 2026, SW-4741):* `bumpId` has no helper. A `match`
+  that is a definition's whole body, on a parameter, becomes its own case
+  tree, so `bumpId` is a group of one and loads stated (sound: nothing
+  outside the cache reads its body or `recursive` flag). Only a lifted
+  `match` (one under a call, as in the fixture's `bumpBack`) joins the
+  theorem's group and makes it load whole; the test now pins both.
 
 ## Tests
 
