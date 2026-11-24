@@ -34764,15 +34764,18 @@
     {
       "id": 4766,
       "title": "[DeepSeek] SW-4762 follow-ups: remove the now-unreachable sealed branch of opaque_notes (crates/elab/src/opaque.rs) or show a case reaching it; --only t.go for a proof-private name says E-PROOF-PRIVATE, not 'no theorem'; local.rs E-DUPLICATE note says t.go is nameable from outside: true only for def owners",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nModel result: DeepSeek, needed fixes (first --only fix walked theorem proofs in ~380 lines; redone as a prefix rule in ~46), 25 min (est. 20)\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "12bb1db4c1ef1d80507313a195f6ba5c031d2c21",
+        "eaad4689d345b2b0a72c9fceae13c42ba4663f3a"
+      ]
     },
     {
       "id": 4767,
