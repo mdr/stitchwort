@@ -34267,7 +34267,7 @@
     {
       "id": 4735,
       "title": "[Opus] Parallel stage 2 step 2: cache entry in two parts (FORMAT bump), decode without proofs, fill workers load stated theorems (parallel-checking.md 10.6 step 2) (D3732)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
