@@ -1111,6 +1111,10 @@ impl Elaborator {
                 }
             }
         }
+        // Also when no entry has its key, which says nothing above: a key
+        // seen for the first time (a dependency with an error has no digest,
+        // so it is keyed by its source instead) is still a fresh check.
+        debug(&format!("{ns}: elaborated"));
         self.session.cache_stats.namespace_misses += 1;
         self.unit.include_trace.borrow_mut().clear();
         self.unit.namespace_capture = Some(Capture {

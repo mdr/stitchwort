@@ -665,9 +665,14 @@ fn copy_dir(from: &Path, to: &Path) {
 
 /// A plain `check` of `project` reading the library from `std_dir`, with a
 /// cache in `cache` or without (`--no-cache`): what it printed, the debug
-/// lines aside, and the namespaces it elaborated because their entries
-/// didn't fit.
-fn check_with_std(project: &Path, std_dir: &Path, cache: Option<&Path>) -> (String, Vec<String>) {
+/// lines aside; the namespaces it elaborated because their entries
+/// didn't fit; and every namespace it elaborated, whether or not an entry
+/// had its key.
+fn check_with_std(
+    project: &Path,
+    std_dir: &Path,
+    cache: Option<&Path>,
+) -> (String, Vec<String>, Vec<String>) {
     let mut args = vec!["check", "--project", project.to_str().unwrap()];
     match cache {
         Some(dir) => args.extend(["--cache-dir", dir.to_str().unwrap()]),
@@ -697,6 +702,15 @@ fn check_with_std(project: &Path, std_dir: &Path, cache: Option<&Path>) -> (Stri
         .collect();
     missed.sort();
     missed.dedup();
+    let elaborated: Vec<String> = stderr
+        .lines()
+        .filter_map(|l| {
+            let ns = l
+                .strip_prefix("check cache: ")?
+                .strip_suffix(": elaborated")?;
+            Some(ns.to_string())
+        })
+        .collect();
     let printed = format!(
         "status {:?}\nstdout:\n{}\nstderr:\n{}",
         output.status.code(),
@@ -707,7 +721,7 @@ fn check_with_std(project: &Path, std_dir: &Path, cache: Option<&Path>) -> (Stri
             .map(|l| format!("{l}\n"))
             .collect::<String>()
     );
-    (printed, missed)
+    (printed, missed, elaborated)
 }
 
 /// A project with `files`, a copy of the library to edit, and an empty cache.
@@ -728,20 +742,24 @@ fn std_edit_fixture(name: &str, files: &[(&str, &str)]) -> (PathBuf, PathBuf, Pa
 
 /// A `check` of `project` from `cache` prints what a fresh one does, and
 /// elaborates `expect` again. A namespace is elaborated again if its entry
-/// didn't fit (a miss), or its key changed so that there was none to try.
-/// (One with errors writes no entry, so only its output shows it.)
+/// didn't fit (a miss), or its key changed so that there was none to try
+/// (seen from the entry it writes, or, if it writes none, from its debug
+/// line).
 fn check_step(
     (project, std_dir, cache): (&Path, &Path, &Path),
     what: &str,
     expect: &[&str],
 ) -> String {
-    let (fresh, _) = check_with_std(project, std_dir, None);
+    let (fresh, ..) = check_with_std(project, std_dir, None);
     let before = if cache.join("check").exists() {
         namespace_entry_keys(cache)
     } else {
         Default::default()
     };
-    let (cached, mut missed) = check_with_std(project, std_dir, Some(cache));
+    let (cached, mut missed, elaborated) = check_with_std(project, std_dir, Some(cache));
+    // One whose key is new finds no entry, so neither misses nor (if it
+    // writes none, as beside a dependency with an error) changes its key.
+    missed.extend(elaborated.into_iter().filter(|ns| before.contains_key(ns)));
     for (unit, key) in namespace_entry_keys(cache) {
         if before.get(&unit).is_some_and(|old| *old != key) {
             missed.push(unit);
@@ -871,7 +889,10 @@ fn a_library_edit_re_checks_what_it_can_change_and_nothing_else() {
     // A name nothing uses is added, to a file nothing loads: a name can make
     // a short name ambiguous in a namespace that never writes it (`Wild`'s
     // `bold`), so every namespace is checked again. (`Fancy` and `Wild` have
-    // errors, so write no entries; the ones they left are stale and miss.)
+    // errors, so write no entries; the ones they left are stale and miss.
+    // `Wild`'s error leaves it no digest, so `Dep`'s key is new: no entry
+    // is found to miss, and none is written beside the error, but it is
+    // elaborated.)
     append("Terminal/Key.sw", "\ndef Key.bold: Nat := 1\n");
     let after = check("a name added", &["Dep", "Fancy", "Plain", "Sum", "Wild"]);
     assert!(after.contains("E-AMBIGUOUS"), "{after}");
