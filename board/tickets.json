@@ -34022,7 +34022,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nD3731 (Matt, 24 Nov 2026: \"D3731 (a) memory cache\"): a parallel --no-cache passes results between its workers as cache entries held in memory for that run only; the byte-for-byte test and the ground-truth from-scratch check stay on one worker. PARALLEL_NO_CACHE stays true.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
       "commits": []
