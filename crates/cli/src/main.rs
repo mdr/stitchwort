@@ -1233,7 +1233,7 @@ fn main() -> ExitCode {
     }
     let ran = stitchwort_host::try_with_stack(stack, move || {
         stitchwort_elab::timings::start();
-        stitchwort_elab::progress::report_to(|note| eprintln!("note: {note}"));
+        stitchwort_elab::progress::report_to(print_progress_note);
         let code = run(cli);
         stitchwort_elab::timings::report();
         stitchwort_syntax::stack::probe::report_deepest();
@@ -2755,6 +2755,19 @@ fn write_facts_expansions(session: &Session, base: &Path, to_stdout: bool) -> bo
     true
 }
 
+/// Prints a "still checking" note, once: with `check --jobs`, a slow
+/// declaration may be checked by an interface job and a proof job, or by a
+/// worker and the check after the fill, and its notes, which count
+/// evaluation steps, are then the same text.
+fn print_progress_note(note: &str) {
+    static PRINTED: std::sync::Mutex<std::collections::BTreeSet<String>> =
+        std::sync::Mutex::new(std::collections::BTreeSet::new());
+    let first = (PRINTED.lock().unwrap_or_else(|e| e.into_inner())).insert(note.to_string());
+    if first {
+        eprintln!("note: {note}");
+    }
+}
+
 /// After `check --carry-over`: how many units came from entries carried over
 /// from another build, which this build's elaborator didn't check
 /// (docs/proposals/check-cache-across-updates.md §8: the label is the whole
@@ -2815,13 +2828,19 @@ fn fill_in_parallel(
             make_session: &make_session,
             make_store: &make_store,
             seed,
+            // Stage 3 (parallel-checking-stage-3.md), off for comparison.
+            statements_first: std::env::var_os("STITCHWORT_STATEMENTS_FIRST")
+                .is_none_or(|v| v != "0"),
         },
     );
     let note = if fill.ran {
         format!(
             "{} workers: {} namespaces had entries, {} filled, {} left to the check after; \
              {} dependencies elaborated again, {} entries refused, {} late misses, \
-             {} waits for a library file given up",
+             {} waits for a library file given up; \
+             {} interface passes, {} interface entries ({} proofs left out, loaded {} times), \
+             {} proof jobs against unproved theorems, {} digest mismatches, \
+             {} rewinds dropping {} namespaces",
             fill.workers,
             fill.found,
             fill.filled,
@@ -2829,7 +2848,15 @@ fn fill_in_parallel(
             fill.twice,
             fill.stats.refused,
             fill.stats.late_misses,
-            fill.claims_gave_up
+            fill.claims_gave_up,
+            fill.stats.interface_passes,
+            fill.stats.interface_made,
+            fill.stats.deferred,
+            fill.stats.interface_hits,
+            fill.against_promises,
+            fill.mismatches,
+            fill.rewinds,
+            fill.rewound
         )
     } else {
         "one job: fewer than two namespaces to check".to_string()

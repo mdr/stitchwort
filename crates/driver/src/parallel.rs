@@ -1,6 +1,7 @@
-//! `check --jobs N` (docs/proposals/parallel-checking.md §9): a parallel
-//! fill of the check cache, after which the ordinary sequential check runs
-//! over the same store and reports.
+//! `check --jobs N` (docs/proposals/parallel-checking.md §9, and
+//! parallel-checking-stage-3.md): a parallel fill of the check cache, after
+//! which the ordinary sequential check runs over the same store and
+//! reports.
 //!
 //! Workers are threads, each with its own session. A worker given a
 //! namespace replays what its session lacks of the namespace's
@@ -13,38 +14,75 @@
 //! summary and the exit code come from the sequential check: the fill only
 //! decides which entries exist when it starts (§9.4).
 //!
+//! - **Two jobs per namespace** (stage 3, D3735). The *proof job* is the
+//!   namespace's whole check, which writes its entry. The *interface job*
+//!   is an interface pass (`Elaborator::set_interface_pass`): the
+//!   namespace's definitions and the statements of its theorems, with the
+//!   proofs it may defer left out, giving an interface entry that the
+//!   namespaces above it are checked against while its proofs are still
+//!   being checked. Interface entries live in this run's memory only
+//!   ([`WorkerStore`]), are read only by workers, and are never written to
+//!   a store; the check after the fill can't see them. A namespace gets an
+//!   interface job only if something in the fill uses it and it has a
+//!   theorem whose proof may be deferred (`cache::may_defer`); without
+//!   (`STITCHWORT_STATEMENTS_FIRST=0`, [`Jobs::statements_first`]) the
+//!   fill is stage 1's.
+//! - **The key chain is the join** (stage 3 §5). An entry written by a
+//!   proof job checked against an interface entry is keyed by the digest
+//!   that interface claimed, so the check after the fill finds it only
+//!   once the namespace below has its own whole entry with that digest.
+//!   A whole entry is written as soon as its own namespace's check passes
+//!   (D3737), which is what an entry already means (invariant W′).
 //! - **What a worker holds.** Its session keeps every namespace it loaded,
 //!   for the whole run, so it loads each at most once. A namespace it
 //!   checked without writing an entry is rewound away, so no later job runs
-//!   beside a failed namespace.
-//! - **Ready, and left.** A namespace is ready when every namespace it uses
-//!   has an entry (found before the fill, or written in it). It is left to
-//!   the check after the fill if it has a syntax error, or a worker checked
-//!   it and wrote nothing, or it uses one that is left. The rest of the
-//!   graph is still filled.
-//! - **Which first.** The ready namespace with the longest chain of
-//!   namespaces above it, then the one the worker holds most of the
-//!   closure of, then the first in canonical order; or, given a seed, a
-//!   random one, for the test that the order doesn't change an entry.
+//!   beside a failed namespace. With interface jobs, a mark is kept before
+//!   each namespace it holds, so that it can rewind to before a namespace
+//!   it holds the interface of and check it whole.
+//! - **Ready, and left.** A job is ready when every namespace its namespace
+//!   uses has an interface: a whole entry (found before the fill, or
+//!   written in it), or an interface entry. A namespace is left to the
+//!   check after the fill if it has a syntax error, or its proof job wrote
+//!   nothing, or its interface pass failed, or it uses one that is left;
+//!   no new job is started above it, and the rest of the graph is still
+//!   filled. Jobs above it already running finish, and their entries are
+//!   harmless by the key chain.
+//! - **Which first.** An interface job (they unlock work), by stage 1's
+//!   rule: the longest chain of namespaces above, then the one the worker
+//!   holds most of the closure of, then the first in canonical order.
+//!   Then a proof job the worker's session doesn't hold: first one whose
+//!   dependants wait for it (it has no interface), by the same rule, then
+//!   the lowest in canonical order. Then a proof job of a namespace the
+//!   session holds the interface of, the one nearest the top of the
+//!   session, after rewinding to before it. Given a seed, a random ready
+//!   job, for the test that the order doesn't change an entry.
+//! - **Digests must agree.** A proof job's interface digest must be its
+//!   interface pass's; a namespace where they differ is counted
+//!   ([`Fill::mismatches`]), and what is above it left to the check after
+//!   the fill. Never expected: it would be a bug in the deferral rule or
+//!   the digest, and costs time, not correctness.
 //! - **Library files** are claimed ([`ClaimStore`]) so two workers don't
 //!   elaborate the same one.
 //! - **A panic** in a worker stops the fill (a shared flag, also each
 //!   worker's cancellation flag); the check after it meets the same
 //!   problem on the caller's thread and reports it as without `--jobs`.
 
+use std::cell::Cell;
+use std::collections::BTreeMap;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
-use stitchwort_elab::cache::{Stats, Store};
-use stitchwort_syntax::SourceMap;
+use stitchwort_elab::cache::{Key, Stats, Store, may_defer};
+use stitchwort_syntax::{Severity, SourceMap};
 
 use crate::check_cache::{ClaimStore, Claims};
 use crate::driver::Session;
 use crate::project::{
     Analysis, CONFIG, Files, Load, Target, analyse, dependencies, project_sources,
 };
+use crate::rewind::Mark;
 
 /// How a parallel fill runs.
 pub struct Jobs<'a> {
@@ -57,9 +95,12 @@ pub struct Jobs<'a> {
     pub make_session: &'a (dyn Fn(usize) -> Session + Sync),
     /// A worker's handle on the store the check after the fill uses.
     pub make_store: &'a (dyn Fn() -> Rc<dyn Store> + Sync),
-    /// Pick ready namespaces at random, from this seed
-    /// (`STITCHWORT_JOBS_SEED`), rather than by the rule above.
+    /// Pick ready jobs at random, from this seed (`STITCHWORT_JOBS_SEED`),
+    /// rather than by the rule above.
     pub seed: Option<u64>,
+    /// Whether namespaces get interface jobs (stage 3); off with
+    /// `STITCHWORT_STATEMENTS_FIRST=0`, for comparison.
+    pub statements_first: bool,
 }
 
 /// A hook for the tests of the panic path (SW-4726): the next job of the
@@ -100,6 +141,34 @@ pub mod panic_hook {
     }
 }
 
+/// A hook for the test of the mismatch rule: in a fill of the project of
+/// the given name, the given namespace's two digests are taken to differ,
+/// as they would if the deferral rule or the digest had a bug. Compiled
+/// and keyed as [`panic_hook`] is.
+pub mod mismatch_hook {
+    use std::sync::Mutex;
+
+    /// (project, namespace).
+    static HOOK: Mutex<Option<(String, String)>> = Mutex::new(None);
+
+    /// Makes `namespace`'s digests differ in fills of `project`, until
+    /// [`disarm`].
+    pub fn arm(project: &str, namespace: &str) {
+        *HOOK.lock().unwrap_or_else(|e| e.into_inner()) =
+            Some((project.to_string(), namespace.to_string()));
+    }
+
+    pub fn disarm() {
+        *HOOK.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    }
+
+    pub(super) fn armed(project: &str, namespace: &str) -> bool {
+        let hook = HOOK.lock().unwrap_or_else(|e| e.into_inner());
+        hook.as_ref()
+            .is_some_and(|(p, n)| p == project && n == namespace)
+    }
+}
+
 /// What a fill did.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Fill {
@@ -113,13 +182,26 @@ pub struct Fill {
     /// Namespaces given an entry by the fill: checked or replayed by the
     /// worker given them.
     pub filled: usize,
-    /// Namespaces left to the check after the fill.
+    /// Namespaces left to the check after the fill: with no entry, or with
+    /// one it can't find, since something below has none.
     pub left: usize,
     /// Dependencies a worker had to elaborate, finding no entry it could
-    /// replay: never expected, since a namespace is given out only once
-    /// what it uses has an entry.
+    /// replay: never expected, since a job is given out only once what its
+    /// namespace uses has an entry or an interface entry.
     pub twice: usize,
-    /// The workers' cache counts, added up.
+    /// Namespaces whose proof job's interface digest wasn't their interface
+    /// pass's: never expected (each costs checking what is above it again).
+    pub mismatches: usize,
+    /// Proof jobs of a namespace the worker held the interface of, which it
+    /// rewound to before; and the namespaces those rewinds dropped.
+    pub rewinds: usize,
+    pub rewound: usize,
+    /// Proof jobs checked in a session holding a theorem whose proof hadn't
+    /// been checked (from an interface): the ones stage 3 started early.
+    pub against_promises: usize,
+    /// The workers' cache counts, added up: `interface_passes`,
+    /// `interface_made`, `deferred` and `interface_hits` say what the
+    /// interface jobs did.
     pub stats: Stats,
     /// Waits for another worker's library file that ran out of patience.
     pub claims_gave_up: u64,
@@ -146,6 +228,7 @@ impl Fill {
 /// before elaborating it itself (a belt: the claims can't deadlock).
 const CLAIM_PATIENCE: Duration = Duration::from_secs(60);
 
+/// A namespace's proof job: stage 1's job.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Status {
     Waiting,
@@ -153,6 +236,37 @@ enum Status {
     /// It has an entry.
     Done,
     Left,
+}
+
+/// A namespace's interface job.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Interface {
+    /// None to run: nothing in the fill waits for it, it has nothing to
+    /// defer, its proof job finished first, or it was left.
+    Unwanted,
+    Waiting,
+    Running,
+    /// Its interface entry is in the run's memory.
+    Made,
+    /// It made no entry, and had no error: what uses it waits for its
+    /// proof job.
+    Missing,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Job {
+    Interface(usize),
+    Proof(usize),
+}
+
+/// What a job ended with.
+enum Outcome {
+    /// Whether it wrote (or found) the namespace's entry, and the interface
+    /// digest the session then has for it.
+    Proof { written: bool, digest: Option<Key> },
+    /// The interface entry's digest, if it made one; whether the pass had
+    /// an error or a goal.
+    Interface { digest: Option<Key>, broken: bool },
 }
 
 /// The namespaces of a fill, by their position in canonical order.
@@ -205,60 +319,169 @@ impl Graph {
             height,
         }
     }
+
+    /// Whether `j` uses `i`, directly or not.
+    fn above(&self, j: usize, i: usize) -> bool {
+        self.closure[j].binary_search(&i).is_ok()
+    }
 }
 
 /// The scheduler's state, behind one lock.
 struct Board {
     status: Vec<Status>,
-    /// What each worker's session holds.
-    held: Vec<Vec<bool>>,
+    interface: Vec<Interface>,
+    /// The digest each namespace's interface entry claimed, and the one its
+    /// proof job's entry has.
+    claimed: Vec<Option<Key>>,
+    proved: Vec<Option<Key>>,
+    /// Namespaces whose digests differed.
+    mismatched: Vec<bool>,
+    /// What each worker's session holds, in the order it loaded them.
+    held: Vec<Vec<usize>>,
     running: usize,
     stopped: bool,
     rng: Option<u64>,
 }
 
 impl Board {
-    fn ready(&self, graph: &Graph, i: usize) -> bool {
-        self.status[i] == Status::Waiting
-            && graph.uses[i]
-                .iter()
-                .all(|&u| self.status[u] == Status::Done)
+    /// Whether what uses `i` may be checked against it: it has an entry or
+    /// an interface entry.
+    fn available(&self, i: usize) -> bool {
+        self.status[i] == Status::Done || self.interface[i] == Interface::Made
     }
 
-    fn pick(&mut self, graph: &Graph, worker: usize) -> Option<usize> {
-        let ready: Vec<usize> = (0..graph.names.len())
-            .filter(|&i| self.ready(graph, i))
+    fn uses_available(&self, graph: &Graph, i: usize) -> bool {
+        graph.uses[i].iter().all(|&u| self.available(u))
+    }
+
+    fn draw(&mut self, n: usize) -> Option<usize> {
+        let state = self.rng.as_mut()?;
+        // xorshift64*: a reproducible schedule per seed.
+        *state ^= *state >> 12;
+        *state ^= *state << 25;
+        *state ^= *state >> 27;
+        let draw = state.wrapping_mul(0x2545_f491_4f6c_dd1d);
+        Some((draw % n as u64) as usize)
+    }
+
+    fn pick(&mut self, graph: &Graph, worker: usize) -> Option<Job> {
+        let n = graph.names.len();
+        let held = &self.held[worker];
+        let mut mask = vec![false; n];
+        for &h in held {
+            mask[h] = true;
+        }
+        let holds = |i: usize| mask[i];
+        let interfaces: Vec<usize> = (0..n)
+            .filter(|&i| {
+                self.interface[i] == Interface::Waiting
+                    && self.status[i] == Status::Waiting
+                    && !holds(i)
+                    && self.uses_available(graph, i)
+            })
             .collect();
-        if ready.is_empty() {
+        let proofs: Vec<usize> = (0..n)
+            .filter(|&i| self.status[i] == Status::Waiting && self.uses_available(graph, i))
+            .collect();
+        if interfaces.is_empty() && proofs.is_empty() {
             return None;
         }
-        if let Some(state) = &mut self.rng {
-            // xorshift64*: a reproducible schedule per seed.
-            *state ^= *state >> 12;
-            *state ^= *state << 25;
-            *state ^= *state >> 27;
-            let draw = state.wrapping_mul(0x2545_f491_4f6c_dd1d);
-            return Some(ready[(draw % ready.len() as u64) as usize]);
+        if self.rng.is_some() {
+            let jobs: Vec<Job> = (interfaces.iter().map(|&i| Job::Interface(i)))
+                .chain(proofs.iter().map(|&i| Job::Proof(i)))
+                .collect();
+            let at = self.draw(jobs.len()).expect("a seed");
+            return Some(jobs[at]);
         }
-        let held = &self.held[worker];
-        ready.into_iter().max_by_key(|&i| {
-            let have = graph.closure[i].iter().filter(|&&d| held[d]).count();
-            (graph.height[i], have, std::cmp::Reverse(i))
-        })
+        let have = |i: usize| graph.closure[i].iter().filter(|&&d| holds(d)).count();
+        // Rule 1: an interface job, by stage 1's rule.
+        if let Some(i) = (interfaces.iter().copied())
+            .max_by_key(|&i| (graph.height[i], have(i), std::cmp::Reverse(i)))
+        {
+            return Some(Job::Interface(i));
+        }
+        // Rule 2: a proof job the session doesn't hold. One whose dependants
+        // wait for its entry (it has no interface) by stage 1's rule, as
+        // stage 1 picks every job; then the lowest in canonical order, so
+        // that a worker that only proves never holds what it is given.
+        let unblocks = |i: usize| self.interface[i] != Interface::Made;
+        if let Some(i) = (proofs.iter().copied().filter(|&i| !holds(i))).max_by_key(|&i| {
+            let first = unblocks(i);
+            (
+                first,
+                if first { graph.height[i] } else { 0 },
+                if first { have(i) } else { 0 },
+                std::cmp::Reverse(i),
+            )
+        }) {
+            return Some(Job::Proof(i));
+        }
+        // Rule 3: the held one nearest the top of the session, which the
+        // worker rewinds to before.
+        (proofs.iter().copied())
+            .max_by_key(|&i| held.iter().position(|&h| h == i))
+            .map(Job::Proof)
     }
 
     /// `i` and everything above it that hasn't been given out are left.
     fn leave(&mut self, graph: &Graph, i: usize) {
-        self.status[i] = Status::Left;
+        if self.status[i] != Status::Done {
+            self.status[i] = Status::Left;
+        }
+        if self.interface[i] == Interface::Waiting {
+            self.interface[i] = Interface::Unwanted;
+        }
+        self.leave_above(graph, i);
+    }
+
+    /// Nothing above `i` that hasn't been given out is: those jobs are left
+    /// to the check after the fill. What is running finishes.
+    fn leave_above(&mut self, graph: &Graph, i: usize) {
         for j in i + 1..graph.names.len() {
-            if self.status[j] == Status::Waiting
-                && graph.closure[j]
-                    .iter()
-                    .any(|&d| self.status[d] == Status::Left)
-            {
+            if !graph.above(j, i) {
+                continue;
+            }
+            if self.status[j] == Status::Waiting {
                 self.status[j] = Status::Left;
             }
+            if self.interface[j] == Interface::Waiting {
+                self.interface[j] = Interface::Unwanted;
+            }
         }
+    }
+
+    /// The two digests of `i`, once both are known: unequal is a mismatch,
+    /// and what is above `i` was checked against an interface its whole
+    /// entry doesn't have.
+    fn compare(&mut self, graph: &Graph, project: &str, i: usize) {
+        let (Some(claimed), Some(proved)) = (self.claimed[i], self.proved[i]) else {
+            return;
+        };
+        if claimed == proved && !mismatch_hook::armed(project, &graph.names[i]) {
+            return;
+        }
+        if std::env::var_os("STITCHWORT_CACHE_DEBUG").is_some() {
+            eprintln!(
+                "check cache: {}: its interface pass's digest isn't its proof job's",
+                graph.names[i]
+            );
+        }
+        self.mismatched[i] = true;
+        self.leave_above(graph, i);
+    }
+
+    /// Namespaces the check after the fill has no usable entry for: left,
+    /// or with an entry keyed by something below that is left or whose
+    /// digests differed.
+    fn left(&self, graph: &Graph) -> usize {
+        let unsound = |d: usize| self.status[d] == Status::Left || self.mismatched[d];
+        (0..graph.names.len())
+            .filter(|&j| {
+                self.status[j] == Status::Left
+                    || (self.status[j] == Status::Done
+                        && graph.closure[j].iter().any(|&d| unsound(d)))
+            })
+            .count()
     }
 }
 
@@ -267,6 +490,9 @@ impl Board {
 struct Tally {
     filled: usize,
     twice: usize,
+    rewinds: usize,
+    rewound: usize,
+    against_promises: usize,
     stats: Stats,
     /// The panic the worker caught, which stopped the fill.
     panic: Option<Box<dyn std::any::Any + Send>>,
@@ -295,8 +521,9 @@ pub fn fill(files: &(dyn Files + Sync), project: &str, target: &Target, jobs: &J
         texts: &texts,
     };
     let claims = Arc::new(Claims::new(CLAIM_PATIENCE));
+    let interfaces = Arc::new(Interfaces::default());
     // Worker 0 is the caller's thread, whose session also plans the fill.
-    let Some(mut first) = Worker::new(0, &read, jobs, &claims) else {
+    let Some(mut first) = Worker::new(0, &read, jobs, &claims, &interfaces) else {
         return Fill::default();
     };
     let Ok(prepared) = first
@@ -320,9 +547,37 @@ pub fn fill(files: &(dyn Files + Sync), project: &str, target: &Target, jobs: &J
             status[i] = Status::Done;
         }
     }
+    // An interface job for a namespace something waits on, and whose
+    // interface pass would leave a proof out: otherwise it would be its
+    // whole check, and its entry serves.
+    let interface = (0..order.len())
+        .map(|i| {
+            let wanted = jobs.statements_first
+                && status[i] == Status::Waiting
+                && (0..order.len())
+                    .any(|j| status[j] == Status::Waiting && graph.uses[j].contains(&i))
+                && (first
+                    .analysis
+                    .namespace(&order[i])
+                    .expect("a namespace")
+                    .modules
+                    .iter())
+                .flat_map(|m| &m.decls)
+                .any(may_defer);
+            if wanted {
+                Interface::Waiting
+            } else {
+                Interface::Unwanted
+            }
+        })
+        .collect();
     let mut board = Board {
         status,
-        held: vec![vec![false; order.len()]; jobs.count],
+        interface,
+        claimed: vec![None; order.len()],
+        proved: vec![None; order.len()],
+        mismatched: vec![false; order.len()],
+        held: vec![Vec::new(); jobs.count],
         running: 0,
         stopped: false,
         rng: jobs
@@ -348,6 +603,7 @@ pub fn fill(files: &(dyn Files + Sync), project: &str, target: &Target, jobs: &J
     let changed = Condvar::new();
     let stop = Arc::new(AtomicBool::new(false));
     let shared = Shared {
+        project,
         graph: &graph,
         board: &board,
         changed: &changed,
@@ -356,13 +612,14 @@ pub fn fill(files: &(dyn Files + Sync), project: &str, target: &Target, jobs: &J
     let mut tallies: Vec<Tally> = std::thread::scope(|scope| {
         let handles: Vec<_> = (1..workers)
             .map(|w| {
-                let (shared, claims, read) = (&shared, &claims, &read);
+                let (shared, claims, read, interfaces) = (&shared, &claims, &read, &interfaces);
                 std::thread::Builder::new()
                     .stack_size(jobs.stack)
                     .spawn_scoped(scope, move || {
                         // Worker 0 read the same texts, so this can't fail
                         // where it didn't; if it does, the others carry on.
-                        let Some(mut worker) = Worker::new(w, read, jobs, claims) else {
+                        let Some(mut worker) = Worker::new(w, read, jobs, claims, interfaces)
+                        else {
                             return Tally::default();
                         };
                         let analysis = &worker.analysis;
@@ -395,13 +652,17 @@ pub fn fill(files: &(dyn Files + Sync), project: &str, target: &Target, jobs: &J
         ran: true,
         workers,
         found,
-        left: board.status.iter().filter(|s| **s == Status::Left).count(),
+        left: board.left(&graph),
+        mismatches: board.mismatched.iter().filter(|m| **m).count(),
         claims_gave_up: claims.gave_up(),
         ..Fill::default()
     };
     for tally in tallies {
         fill.filled += tally.filled;
         fill.twice += tally.twice;
+        fill.rewinds += tally.rewinds;
+        fill.rewound += tally.rewound;
+        fill.against_promises += tally.against_promises;
         add_stats(&mut fill.stats, &tally.stats);
     }
     fill
@@ -419,6 +680,7 @@ struct Read<'a> {
 
 /// What the workers share.
 struct Shared<'a> {
+    project: &'a str,
     graph: &'a Graph,
     board: &'a Mutex<Board>,
     changed: &'a Condvar,
@@ -440,16 +702,19 @@ impl Shared<'_> {
 
     /// The next job for `worker`, waiting while others run; `None` when
     /// nothing more can be filled.
-    fn next(&self, worker: usize) -> Option<usize> {
+    fn next(&self, worker: usize) -> Option<Job> {
         let mut board = self.board();
         loop {
             if board.stopped {
                 return None;
             }
-            if let Some(i) = board.pick(self.graph, worker) {
-                board.status[i] = Status::Running;
+            if let Some(job) = board.pick(self.graph, worker) {
+                match job {
+                    Job::Interface(i) => board.interface[i] = Interface::Running,
+                    Job::Proof(i) => board.status[i] = Status::Running,
+                }
                 board.running += 1;
-                return Some(i);
+                return Some(job);
             }
             if board.running == 0 {
                 drop(board);
@@ -460,20 +725,109 @@ impl Shared<'_> {
         }
     }
 
-    fn finish(&self, worker: usize, i: usize, written: bool, loaded: &[usize]) {
+    /// `job` ended with `outcome`; the worker's session now holds `held`,
+    /// in the order it loaded them.
+    fn finish(&self, worker: usize, job: Job, outcome: Outcome, held: Vec<usize>) {
         let mut board = self.board();
         board.running -= 1;
-        for &d in loaded {
-            board.held[worker][d] = true;
-        }
-        if written {
-            board.status[i] = Status::Done;
-            board.held[worker][i] = true;
-        } else {
-            board.leave(self.graph, i);
+        board.held[worker] = held;
+        match (job, outcome) {
+            (Job::Proof(i), Outcome::Proof { written, digest }) => {
+                if written {
+                    board.status[i] = Status::Done;
+                    board.proved[i] = digest;
+                    if board.interface[i] == Interface::Waiting {
+                        board.interface[i] = Interface::Unwanted;
+                    }
+                    board.compare(self.graph, self.project, i);
+                } else {
+                    board.leave(self.graph, i);
+                }
+            }
+            (Job::Interface(i), Outcome::Interface { digest, broken }) => {
+                if let Some(digest) = digest {
+                    board.interface[i] = Interface::Made;
+                    board.claimed[i] = Some(digest);
+                    board.compare(self.graph, self.project, i);
+                } else if broken {
+                    // An error in a definition or a statement: the proof
+                    // job would fail too.
+                    board.interface[i] = Interface::Missing;
+                    board.leave(self.graph, i);
+                } else {
+                    board.interface[i] = Interface::Missing;
+                }
+            }
+            _ => unreachable!("an outcome of the other kind of job"),
         }
         drop(board);
         self.changed.notify_all();
+    }
+}
+
+/// The interface entries of one fill, by unit and key: in memory, for the
+/// run, read only through the workers' [`WorkerStore`]s (stage 3 §3,
+/// decision C: never written to disk).
+#[derive(Default)]
+struct Interfaces(Mutex<InterfaceEntries>);
+
+/// Each interface entry's bytes, by unit and key.
+type InterfaceEntries = BTreeMap<(String, Key), Arc<[u8]>>;
+
+impl Interfaces {
+    fn entries(&self) -> std::sync::MutexGuard<'_, InterfaceEntries> {
+        self.0.lock().unwrap_or_else(|e| e.into_inner())
+    }
+}
+
+/// A worker's store: its [`ClaimStore`], and the fill's interface entries,
+/// which this is the only store to serve ([`Store::read_interface`]). Only
+/// [`fill`] makes one, so only a worker's session can load an interface
+/// entry; the check after the fill uses the store without it.
+struct WorkerStore {
+    claims: Rc<ClaimStore>,
+    interfaces: Arc<Interfaces>,
+    /// Off while a proof job checks its own namespace, which must be
+    /// checked whole, never loaded from its interface entry.
+    serve: Cell<bool>,
+}
+
+impl Store for WorkerStore {
+    fn compiler(&self) -> &str {
+        self.claims.compiler()
+    }
+
+    fn kernel(&self) -> &str {
+        self.claims.kernel()
+    }
+
+    fn salt(&self) -> [u8; 16] {
+        self.claims.salt()
+    }
+
+    fn read(&self, unit: &str, key: &Key) -> Option<Vec<u8>> {
+        self.claims.read(unit, key)
+    }
+
+    fn read_others(&self, unit: &str, key: &Key) -> Vec<Vec<u8>> {
+        self.claims.read_others(unit, key)
+    }
+
+    fn write(&self, unit: &str, key: &Key, entry: &[u8]) {
+        self.claims.write(unit, key, entry)
+    }
+
+    fn abandon(&self, unit: &str, key: &Key) {
+        self.claims.abandon(unit, key)
+    }
+
+    fn read_interface(&self, unit: &str, key: &Key) -> Option<Vec<u8>> {
+        if !self.serve.get() {
+            return None;
+        }
+        (self.interfaces.entries())
+            .get(&(unit.to_string(), *key))
+            .map(|bytes| bytes.to_vec())
     }
 }
 
@@ -482,17 +836,38 @@ struct Worker {
     project: String,
     session: Session,
     analysis: Analysis,
-    store: Rc<ClaimStore>,
+    claims: Rc<ClaimStore>,
+    store: Rc<WorkerStore>,
     /// What the session holds, by position in canonical order.
     loaded: Vec<bool>,
+    /// Of those, the ones it holds as an interface (its own interface pass,
+    /// or an interface entry), whose theorems' proofs may not be checked.
+    promised: Vec<bool>,
+    /// What the session holds, in the order loaded, each with the mark
+    /// taken before it was loaded (with interface jobs), to rewind to.
+    stack: Vec<(usize, Option<Mark>)>,
+    /// Whether marks are kept: only with interface jobs, the only way a
+    /// worker comes to hold a namespace it must then check whole.
+    keep_marks: bool,
 }
 
 impl Worker {
     /// A worker's session, with the project's files analysed in it as the
     /// check after the fill will analyse them.
-    fn new(id: usize, read: &Read, jobs: &Jobs, claims: &Arc<Claims>) -> Option<Worker> {
+    fn new(
+        id: usize,
+        read: &Read,
+        jobs: &Jobs,
+        claims: &Arc<Claims>,
+        interfaces: &Arc<Interfaces>,
+    ) -> Option<Worker> {
         let mut session = (jobs.make_session)(jobs.stack);
-        let store = Rc::new(ClaimStore::new((jobs.make_store)(), claims.clone(), id));
+        let claim_store = Rc::new(ClaimStore::new((jobs.make_store)(), claims.clone(), id));
+        let store = Rc::new(WorkerStore {
+            claims: claim_store.clone(),
+            interfaces: interfaces.clone(),
+            serve: Cell::new(true),
+        });
         session.elab.set_check_cache(store.clone());
         // Nothing a worker writes depends on a proof below it (§10.3), and
         // what is reported comes from the check after the fill, which loads
@@ -515,35 +890,57 @@ impl Worker {
             project: read.project.to_string(),
             session,
             analysis,
+            claims: claim_store,
             store,
             loaded: Vec::new(),
+            promised: Vec::new(),
+            stack: Vec::new(),
+            keep_marks: jobs.statements_first,
         })
     }
 
     fn run(mut self, shared: &Shared) -> Tally {
         let mut tally = Tally::default();
         self.loaded = vec![false; shared.graph.names.len()];
+        self.promised = vec![false; shared.graph.names.len()];
         self.session.share_cancel_flag(shared.stop.clone());
         let budget = &self.session.elab.kernel.machine.budget;
         budget.watch_cancel(true);
-        while let Some(i) = shared.next(self.id) {
-            let job = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                self.job(shared.graph, i, &mut tally)
+        while let Some(job) = shared.next(self.id) {
+            let ran = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                self.claims.begin_job();
+                panic_hook::maybe_panic(&self.project, self.id);
+                let outcome = match job {
+                    Job::Interface(i) => self.interface(shared.graph, i, &mut tally),
+                    Job::Proof(i) => self.prove(shared.graph, i, &mut tally),
+                };
+                self.claims.end_job();
+                outcome
             }));
-            match job {
-                Ok((written, loaded)) => {
-                    if written {
+            match ran {
+                Ok(outcome) => {
+                    if let Outcome::Proof { written: true, .. } = outcome {
                         tally.filled += 1;
                     }
-                    shared.finish(self.id, i, written, &loaded);
+                    shared.finish(self.id, job, outcome, self.held());
                 }
                 Err(panic) => {
                     // On a worker thread, the check after the fill meets
                     // the same panic and reports it; worker 0's is raised
                     // again once the others stop (`fill`).
                     tally.panic = Some(panic);
-                    self.store.end_job();
-                    shared.finish(self.id, i, false, &[]);
+                    self.claims.end_job();
+                    let failed = match job {
+                        Job::Interface(_) => Outcome::Interface {
+                            digest: None,
+                            broken: true,
+                        },
+                        Job::Proof(_) => Outcome::Proof {
+                            written: false,
+                            digest: None,
+                        },
+                    };
+                    shared.finish(self.id, job, failed, Vec::new());
                     shared.halt();
                     break;
                 }
@@ -557,12 +954,13 @@ impl Worker {
         tally
     }
 
-    /// Loads what namespace `i` uses that the session lacks, then checks
-    /// `i`; whether `i` now has an entry, and what was loaded for it.
-    fn job(&mut self, graph: &Graph, i: usize, tally: &mut Tally) -> (bool, Vec<usize>) {
-        self.store.begin_job();
-        panic_hook::maybe_panic(&self.project, self.id);
-        let mut loaded = Vec::new();
+    fn held(&self) -> Vec<usize> {
+        self.stack.iter().map(|(d, _)| *d).collect()
+    }
+
+    /// Loads what namespace `i` uses that the session lacks: each from its
+    /// entry, or, lacking one, its interface entry.
+    fn load_closure(&mut self, graph: &Graph, i: usize, tally: &mut Tally) {
         stitchwort_elab::timings::loading(Some(self.id));
         for &d in &graph.closure[i] {
             if self.loaded[d] {
@@ -572,34 +970,114 @@ impl Worker {
                 .analysis
                 .namespace(&graph.names[d])
                 .expect("a namespace");
-            let before = self.session.elab.check_cache_stats().namespace_misses;
+            let mark = self.keep_marks.then(|| self.session.mark());
+            let before = self.session.elab.check_cache_stats();
             let _ = self.session.check_project_namespace(&self.analysis, ns);
-            if self.session.elab.check_cache_stats().namespace_misses > before {
+            let after = self.session.elab.check_cache_stats();
+            if after.namespace_misses > before.namespace_misses {
                 tally.twice += 1;
             }
+            self.promised[d] = after.interface_hits > before.interface_hits;
             self.loaded[d] = true;
-            loaded.push(d);
+            self.stack.push((d, mark));
         }
         stitchwort_elab::timings::loading(None);
-        let ns = self
-            .analysis
-            .namespace(&graph.names[i])
-            .expect("a namespace");
+    }
+
+    /// Rewinds the session to before namespace `i`, which it holds: `i` and
+    /// everything loaded after it are gone.
+    fn unload_from(&mut self, i: usize, tally: &mut Tally) {
+        let at = (self.stack.iter())
+            .position(|(d, _)| *d == i)
+            .expect("the namespace is held");
+        let dropped = self.stack.split_off(at);
+        tally.rewinds += 1;
+        tally.rewound += dropped.len();
+        for (d, _) in &dropped {
+            self.loaded[*d] = false;
+            self.promised[*d] = false;
+        }
+        // Rewinding to the oldest lets go of those after it.
+        let (_, mark) = dropped.into_iter().next().expect("one at least");
+        let mark = mark.expect("a held interface has a mark (interface jobs keep them)");
+        self.session.rewind(&mark);
+        self.session.release(mark);
+    }
+
+    /// Checks namespace `i` as an interface pass, its closure loaded first;
+    /// keeps it if that makes an interface entry, which it publishes.
+    fn interface(&mut self, graph: &Graph, i: usize, tally: &mut Tally) -> Outcome {
+        assert!(!self.loaded[i], "an interface job for a namespace held");
+        self.load_closure(graph, i, tally);
+        let name = &graph.names[i];
+        let ns = self.analysis.namespace(name).expect("a namespace");
+        let mark = self.session.mark();
+        self.session.elab.set_interface_pass(Some(name));
+        let (found, _) = self.session.check_project_namespace(&self.analysis, ns);
+        self.session.elab.set_interface_pass(None);
+        match self.session.elab.take_interface_entry() {
+            Some(entry) => {
+                (self.store.interfaces.entries())
+                    .insert((entry.unit, entry.key), Arc::from(entry.bytes));
+                self.loaded[i] = true;
+                self.promised[i] = true;
+                self.stack.push((i, Some(mark)));
+                Outcome::Interface {
+                    digest: Some(entry.digest),
+                    broken: false,
+                }
+            }
+            None => {
+                self.session.rewind(&mark);
+                self.session.release(mark);
+                let broken =
+                    (found.iter()).any(|d| matches!(d.severity, Severity::Error | Severity::Goal));
+                Outcome::Interface {
+                    digest: None,
+                    broken,
+                }
+            }
+        }
+    }
+
+    /// Checks namespace `i` whole, its closure loaded first (rewinding to
+    /// before `i` if the session holds its interface); whether `i` now has
+    /// an entry, and the digest the session has for it.
+    fn prove(&mut self, graph: &Graph, i: usize, tally: &mut Tally) -> Outcome {
+        if self.loaded[i] {
+            self.unload_from(i, tally);
+        }
+        self.load_closure(graph, i, tally);
+        if graph.closure[i].iter().any(|&d| self.promised[d]) {
+            tally.against_promises += 1;
+        }
+        let name = &graph.names[i];
+        let ns = self.analysis.namespace(name).expect("a namespace");
         let mark = self.session.mark();
         let before = self.session.elab.check_cache_stats();
+        self.store.serve.set(false);
         let _ = self.session.check_project_namespace(&self.analysis, ns);
+        self.store.serve.set(true);
         let after = self.session.elab.check_cache_stats();
         let written = after.namespace_written > before.namespace_written
             || after.namespace_hits > before.namespace_hits;
+        let digest = written
+            .then(|| self.session.elab.namespace_digest(name))
+            .flatten();
         if written {
-            self.session.release(mark);
             self.loaded[i] = true;
+            self.promised[i] = false;
+            if self.keep_marks {
+                self.stack.push((i, Some(mark)));
+            } else {
+                self.session.release(mark);
+                self.stack.push((i, None));
+            }
         } else {
             self.session.rewind(&mark);
             self.session.release(mark);
         }
-        self.store.end_job();
-        (written, loaded)
+        Outcome::Proof { written, digest }
     }
 }
 
@@ -617,4 +1095,9 @@ fn add_stats(sum: &mut Stats, s: &Stats) {
     sum.refused += s.refused;
     sum.digest_mismatches += s.digest_mismatches;
     sum.stated += s.stated;
+    sum.interface_passes += s.interface_passes;
+    sum.interface_made += s.interface_made;
+    sum.deferred += s.deferred;
+    sum.interface_hits += s.interface_hits;
+    sum.unproved += s.unproved;
 }

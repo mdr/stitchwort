@@ -794,6 +794,7 @@ impl LiveProject {
             phases::add("parse", began.elapsed());
             let began = Instant::now();
             let found = s.check_project_namespace(analysis, &ns);
+            crate::project::assert_holds_no_unproved_theorem(s);
             phases::add("check", began.elapsed());
             let mut names: Vec<(String, Vec<ScopeName>)> = Vec::new();
             if focus {

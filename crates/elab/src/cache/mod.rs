@@ -5340,6 +5340,7 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Rest> {
     Ok(t)
 }
 
+pub use deferral::may_defer;
 #[doc(hidden)]
 pub use dump::{canonical_dump, canonical_dump_without_proofs};
 
