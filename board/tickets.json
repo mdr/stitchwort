@@ -1,5 +1,5 @@
 {
-  "next": 4720,
+  "next": 4721,
   "tickets": [
     {
       "id": 47,
@@ -34009,6 +34009,19 @@
       "id": 4719,
       "title": "[Opus] Build: parallel checking stage 1 per the design (SW-4718); Fable review after; needs D3731 (what a parallel --no-cache means) before merge (D3730)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4720,
+      "title": "[Opus] erasure::erased_quotient_forms_arent_run and erasure::transport_along_opaque_quotient_proofs_takes_its_base_when_erasing fail on main after the SW-4703 merge (7acc6a3c1): find whether SW-4703 caused it; fix or revert",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
