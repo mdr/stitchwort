@@ -411,7 +411,7 @@ up an unproved theorem; a Fable review of exactly that comes before it is switch
 the one-job check stays the reference it is compared against.
 **[rec: yes]**
 
-**B. A `def` or `theorem` written inside a proof.**
+**B. A `def` or `theorem` written inside a proof.** **Decided: D3736 (b), private to the proof (Matt, 24 Nov 2026: "Agree. Make it private to that proof."); local definitions in ordinary `def`s stay nameable.**
 *The problem:* a definition written inside a theorem's proof can be named from other files
 (`t.go`), so it is part of the file's public face, and the only way to know it is there is
 to work through the proof. Neither the formatter nor AoC has one **[measured: the pilot

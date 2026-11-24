@@ -1,5 +1,5 @@
 {
-  "next": 4762,
+  "next": 4763,
   "tickets": [
     {
       "id": 47,
@@ -34694,6 +34694,19 @@
         "901cd215ed4e7106a00389169f2f563c8bdbeacd",
         "ac5be256b9888781fc26cd86a8bf7b5d10de0d54"
       ]
+    },
+    {
+      "id": 4762,
+      "title": "[Opus] D3736: a def or theorem written inside a theorem's (or instance's? decide by the rule: anything whose body is sealed) proof is private to that proof: naming it from outside is an error saying so; local defs in ordinary defs stay nameable (sumTo.go); interface digest treats them as proof-private like %match helpers; guide + syntax.md",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
     }
   ]
 }
