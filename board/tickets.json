@@ -34777,12 +34777,12 @@
     {
       "id": 4767,
       "title": "[Opus] Stage 3 step 3: the driver: interface jobs and proof jobs on stage 1's workers, the in-memory interface store, pick rules, failure and mismatch rules, the unproved-theorem assertions (review F2), counters, --timings rows; on with --jobs > 1 (parallel-checking-stage-3.md section 9 step 3; D3735, D3737)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nProgress (Opus lane, 24 Nov 21:08): built in b1db2f670. parallel.rs: interface and proof jobs on stage 1's board, in-memory interface store served only by the workers' store, pick rules 1-3 (rule 2 refined: proof jobs whose dependants wait for them first, by stage 1's rule), failure and mismatch rules, counters; reporting assertion in check_prepared, goal search, LSP step; core.md per D3737. Tests: new stage 3 tests and the brief's driver selection (109 passed), soundness set passed. Quick timing, Fmt.ElementsProofs closure (102 namespaces), library warm, --jobs 4, one run each at load 7.7: stage 3 27.7 s vs stage 1 24.4 s, caches byte-identical; 96 interface passes, 56 rewinds dropping 356 namespaces, summed unit time 79 s vs 62 s. Step 5's measure decides.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
       "commits": []
