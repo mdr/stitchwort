@@ -34711,12 +34711,12 @@
     {
       "id": 4763,
       "title": "[Opus] Stage 3 step 1: kernel check::leave_stated (a stated theorem from a statement whose proof is checked elsewhere in the run), its refusals and tests; docs/core.md Stated theorems; no caller outside tests (parallel-checking-stage-3.md section 9; D3735)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Progress (Opus lane, 24 Nov 19:47-20:00): check::leave_stated in crates/core/src/check.rs, with Def::unproved, Def::trusted_type (set by admit_trusted_def) and Kernel::holds_unproved_theorems; def_hash of an unproved theorem is an internal error. Refusals: not a theorem, not pending (defined, failed, assumption, stated), statement from the cache (admit_trusted_def), not a proposition by the kernel mark, export, instance/fold/opaque/tailrec/param-default/unfolding marks (all E-MALFORMED); statement about a failed declaration (E-FAILED-DEPENDENCY); nothing changes on a refusal. Tests: 5 new in crates/core/tests/it/stated.rs, plus Refl::Left in the users-hash test. docs/core.md Stated theorems updated. Ran: core stated:: (11 pass), trusted/pending/hash/assumptions (34 pass), cli running examples::soundness (pass). Commit 8440d28dd.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
       "commits": []

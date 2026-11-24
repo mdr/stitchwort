@@ -131,14 +131,28 @@ pub struct Def {
     pub(crate) assumption: Option<Rc<Assumption>>,
     /// A **stated theorem** (docs/core.md, "Stated theorems"): a final
     /// theorem whose proof isn't in this session. It has its type and proof
-    /// mark, and no body, group or assumption label, arity 0. Only
-    /// [`crate::check::admit_trusted_stated`] sets it, for a theorem this
+    /// mark, and no body, group or assumption label, arity 0. Two functions
+    /// set it: [`crate::check::admit_trusted_stated`], for a theorem this
     /// build's kernel proved in the session that wrote the cache entry it
-    /// comes from. To everything that checks against it, it is the proved
-    /// theorem: rule F seals a proof anyway, rule I compares any two, and
-    /// it's referred to by its interface hash. Readers of proofs (`axioms`,
-    /// `audit`) refuse one. Not hashed: a hash never depends on it.
+    /// comes from, and [`crate::check::leave_stated`], for one whose proof
+    /// hasn't been checked ([`Def::unproved`]). To everything that checks
+    /// against it, it is the proved theorem: rule F seals a proof anyway,
+    /// rule I compares any two, and it's referred to by its interface hash.
+    /// Readers of proofs (`axioms`, `audit`) refuse one. Not hashed: a hash
+    /// never depends on it.
     pub(crate) stated: bool,
+    /// A stated theorem whose proof hasn't been checked: made by
+    /// [`crate::check::leave_stated`] from a theorem [`crate::check::declare_def`]
+    /// declared in this session, for the interface pass of `check --jobs`
+    /// (docs/proposals/parallel-checking-stage-3.md §3). Nothing a session
+    /// holding one does may be reported or saved as checked
+    /// ([`Kernel::holds_unproved_theorems`]). It has no full hash: asking
+    /// for one is an internal error. Not hashed.
+    pub(crate) unproved: bool,
+    /// Made by [`crate::check::admit_trusted_def`]: its type is the cache's,
+    /// not checked in this session, so [`crate::check::leave_stated`]
+    /// refuses it. Not hashed.
+    pub(crate) trusted_type: bool,
     /// Where it was declared; for an assumption, where its `?` or error is.
     pub(crate) span: Span,
 }
@@ -318,8 +332,15 @@ impl Def {
         self.stated
     }
 
+    /// Whether it is a stated theorem whose proof hasn't been checked
+    /// ([`Def::unproved`]), made by [`crate::check::leave_stated`].
+    pub fn unproved(&self) -> bool {
+        self.unproved
+    }
+
     /// Whether it is finished: final with a body, or a stated theorem,
-    /// whose proof was checked where it was made. What "has it a body?"
+    /// whose proof was checked where it was made or, for one left stated
+    /// ([`Def::unproved`]), is being checked elsewhere in the run. What "has it a body?"
     /// asks when it means "is it done?" rather than "show me the body":
     /// an assumption and a definition being checked aren't.
     pub fn defined(&self) -> bool {
@@ -847,6 +868,17 @@ impl Kernel {
 
     pub fn def(&self, id: DefId) -> &Def {
         self.env.def(id)
+    }
+
+    /// Whether the kernel holds a theorem whose proof hasn't been checked
+    /// ([`Def::unproved`], [`crate::check::leave_stated`]). Such a session
+    /// has accepted its later declarations against a promise: nothing it
+    /// does may be reported, or saved, as checked (docs/core.md "Stated
+    /// theorems"). The mark is the theorem itself, so a rewind to before it
+    /// ([`Kernel::forget_since`]) takes the mark away with everything that
+    /// was checked against it.
+    pub fn holds_unproved_theorems(&self) -> bool {
+        self.env.defs().iter().any(|d| d.unproved)
     }
 
     pub fn data(&self, id: DataId) -> &Data {

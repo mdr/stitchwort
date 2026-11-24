@@ -202,13 +202,27 @@ fn def_hash_in(g: &Ev, id: DefId, mode: Mode) -> Result<Option<ContentHash>> {
         mode.cache(g).borrow_mut().insert(HashKey::Def(id), hash);
         return Ok(Some(hash));
     }
+    // A theorem left stated before its proof was checked has no full hash:
+    // nobody knows its proof. A reader that asks has mistaken it for a
+    // proved one, and "no hash" would read as "not final" (SW-4744).
+    assert!(
+        !(def.unproved && mode == Mode::Content),
+        "internal error: the full hash of `{}`, a theorem whose proof hasn't been checked",
+        def.path
+    );
     // A stated theorem's proof isn't here. Its full hash is the one
     // recorded when it was proved, which whoever made it puts in the cache
     // (the check cache's replay); without proofs it's its statement, as a
-    // proved theorem's is, and it is in no group.
+    // proved theorem's is, and it is in no group. Written here from its
+    // proof mark, which both makers checked: `Hasher::declaration` asks
+    // `proof_positions`, which says "not a proof" when it runs out of
+    // resources, and would then hash a body there isn't.
     if def.stated && mode == Mode::Proofless {
+        debug_assert!(def.proof);
         let mut h = Hasher::new(g, Itself::Def(id), mode);
-        h.declaration(id)?;
+        h.tag("proof-def");
+        h.bool(def.theorem);
+        h.term(&def.ty)?;
         let hash = h.finish();
         mode.cache(g).borrow_mut().insert(HashKey::Def(id), hash);
         return Ok(Some(hash));
@@ -241,7 +255,8 @@ fn def_hash_in(g: &Ev, id: DefId, mode: Mode) -> Result<Option<ContentHash>> {
 
 /// Whether definition `id` is referred to by its [`interface_hash`]: a final
 /// theorem with a proof, or a stated theorem, whose proof was checked where
-/// it was made (docs/core.md, "Stated theorems"); so a user's hash is the
+/// it was made or, for one left stated, is checked elsewhere in the run
+/// (docs/core.md, "Stated theorems"); so a user's hash is the
 /// same whichever of the two a session holds. An assumption (a `?` goal, or the stand-in for a
 /// theorem whose proof failed) is referred to by its own hash, whose tag
 /// says what it is, so a failed proof still changes every user's hash.

@@ -144,10 +144,12 @@ pub fn relies_on(g: &Ev, root: Decl, skip: &dyn Fn(Decl) -> bool) -> Option<DefI
 ///
 /// A stated theorem ([`crate::globals::Def::stated`]) has only its type
 /// here, so its proof's mentions aren't walked: it is a leaf that relies
-/// on nothing. That is true only because it is made from a cache entry,
-/// and an entry is written only by a session in which nothing it holds
-/// relied on an assumption (invariant W, docs/core.md "Stated theorems").
-/// `axioms` has no such invariant for `Quot.sound`, so its walk refuses a
+/// on nothing. For one from a cache entry that is true because an entry
+/// is written only by a session in which nothing it holds relied on an
+/// assumption (invariant W, docs/core.md "Stated theorems"). For one left
+/// stated ([`crate::globals::Def::unproved`]) it is a promise its proof
+/// job keeps or breaks, which is why a session holding one reports
+/// nothing. `axioms` has no such invariant for `Quot.sound`, so its walk refuses a
 /// stated theorem instead.
 pub fn mentions(g: &Ev, node: Decl, each: &mut dyn FnMut(Decl)) {
     let builtins = g.env.builtins();

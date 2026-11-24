@@ -408,6 +408,12 @@ pub fn register_bool(g: &mut Kernel, d: DataId) -> Result<()> {
 /// has at most one.
 pub fn register_native(g: &mut Kernel, id: DefId, native: Native) -> Result<()> {
     in_kernel_modes(g, |g| {
+        // Before the pin, which hashes it: a stated theorem left stated
+        // has no full hash to compare.
+        let def = g.def(id);
+        if def.stated() {
+            return Err(shape_error(def.span, native.name()));
+        }
         crate::pins::check_def(&g.ev(), id, native.builtin())?;
         register_shaped(g, id, native)
     })
