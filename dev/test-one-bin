@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+"""Print the one test binary `task test:one` can build for a nextest filter.
+
+Usage: dev/test-one-bin [--] [the nextest arguments after `--`]
+
+When the arguments contain exactly one filterset with exactly one plain
+`package(NAME)` and exactly one plain `binary(NAME)`, prints NAME; otherwise
+prints nothing. `task test:one` then passes `--test NAME`, so it builds only
+that binary instead of every test binary of the package (SW-4717). An explicit
+BIN in the task wins; this is only asked when BIN is empty. A library unit test
+filter (`package(x) & test(...)`, no `binary(...)`) prints nothing, as before.
+
+A plain name has no nextest matcher prefix (`=`, `~`, `#` or `/`) and no glob
+characters, since `--test` takes a cargo target name.
+"""
+
+import re
+import sys
+
+# A nextest name that names one target rather than a matcher or a pattern.
+PLAIN = re.compile(r"^[A-Za-z0-9_.-]+$")
+IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def tokenize(src):
+    """Return the predicates `(name, argument)` in a nextest filterset.
+
+    Only top-level predicates are returned: a `binary(projects)` inside a
+    `test(/binary(projects)/)` regex is part of that test's argument, not a
+    predicate of its own.
+    """
+    out = []
+    i = 0
+    while i < len(src):
+        c = src[i]
+        if c.isspace() or c in "()&|+-!":
+            i += 1
+            continue
+        m = IDENT.match(src, i)
+        if not m:
+            # Not a filterset we understand: no predicate, and the ambiguity
+            # makes the caller keep today's behaviour.
+            i += 1
+            continue
+        name = m.group(0)
+        i = m.end()
+        while i < len(src) and src[i].isspace():
+            i += 1
+        if i >= len(src) or src[i] != "(":
+            out.append((name, ""))
+            continue
+        i += 1
+        j = i
+        while j < len(src) and src[j].isspace():
+            j += 1
+        if j < len(src) and src[j] == "/":
+            # A regex may contain parentheses; it ends at the first unescaped
+            # slash, then the argument ends at the next `)`.
+            k = j + 1
+            while k < len(src) and not (src[k] == "/" and src[k - 1] != "\\"):
+                k += 1
+            k += 1
+            while k < len(src) and src[k] != ")":
+                k += 1
+        else:
+            k = i
+            depth = 1
+            while k < len(src):
+                if src[k] == "(":
+                    depth += 1
+                elif src[k] == ")":
+                    depth -= 1
+                    if depth == 0:
+                        break
+                k += 1
+        out.append((name, src[i:k]))
+        i = k + 1 if k < len(src) else k
+    return out
+
+
+def filtersets(args):
+    """The values of `-E`/`--filterset` in nextest arguments."""
+    filters = []
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a in ("-E", "--filterset"):
+            if i + 1 < len(args):
+                filters.append(args[i + 1])
+                i += 1
+        elif a.startswith("--filterset="):
+            filters.append(a[len("--filterset=") :])
+        elif a.startswith("-E") and len(a) > 2:
+            filters.append(a[2:])
+        i += 1
+    return filters
+
+
+def pick(args):
+    """The binary to build, or None to keep the package's whole selection."""
+    filters = filtersets(args)
+    # Several filtersets are a union, so one of them naming one binary does
+    # not mean the others cannot reach another package's tests.
+    if len(filters) != 1:
+        return None
+    predicates = tokenize(filters[0])
+    binaries = [arg.strip() for name, arg in predicates if name == "binary"]
+    packages = [arg.strip() for name, arg in predicates if name == "package"]
+    if len(binaries) != 1 or len(packages) != 1:
+        return None
+    binary, package = binaries[0], packages[0]
+    if not PLAIN.match(binary) or not PLAIN.match(package):
+        return None
+    return binary
+
+
+def main():
+    args = sys.argv[1:]
+    if args[:1] == ["--"]:
+        args = args[1:]
+    binary = pick(args)
+    if binary:
+        print(binary)
+
+
+if __name__ == "__main__":
+    main()
