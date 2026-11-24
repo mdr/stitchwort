@@ -1,0 +1,30 @@
+== pilot over /Users/agent/repos/mdr/stitchwort/tools/fmt
+   took 127 s; checked 150 namespaces of fmt
+   match: 136 of 150 namespaces
+   theorems: 5578 proofs left out, 0 elaborated anyway (recursive, mutual or decreasing)
+   left out, lone: 4527 proofs, in 139 namespaces, 125 of them match
+   left out, mutual: 377 proofs, in 38 namespaces, 35 of them match
+   left out, recursive: 674 proofs, in 102 namespaces, 88 of them match
+   differing, by set of causes:
+      14  theorem-induct-skip: Fmt.AppHangProofs Fmt.JoinProofs Fmt.StandsProofs Syntax.FollowsBase Syntax.FollowsDeclArms Syntax.FollowsFormsArms Syntax.FollowsFormsPatterns Syntax.FollowsLadder Synt
+   by single cause (namespaces):
+        14 theorem-induct-skip
+   details: /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/pilot2-fmt/pilot.txt
+== pilot over /Users/agent/repos/mdr/stitchwort/aoc
+   took 59 s; checked 291 namespaces of aoc
+   match: 281 of 291 namespaces
+   theorems: 2869 proofs left out, 0 elaborated anyway (recursive, mutual or decreasing)
+   left out, decreasing: 15 proofs, in 9 namespaces, 0 of them match
+   left out, lone: 2364 proofs, in 95 namespaces, 85 of them match
+   left out, mutual: 15 proofs, in 3 namespaces, 1 of them match
+   left out, recursive: 475 proofs, in 62 namespaces, 54 of them match
+   differing, by set of causes:
+       9  proof-helper:%go, proof-helper:%step: Aoc.Year2020.Day03.Proofs Aoc.Year2020.Day08.Proofs Aoc.Year2020.Day09.Proofs Aoc.Year2021.Day16.Proofs Aoc.Year2024.Day09.Proofs Aoc.Year2024.Day12.Pro
+       1  theorem-induct-skip: Aoc.Year2020.Day19.Proofs
+   by single cause (namespaces):
+         9 proof-helper:%step
+         9 proof-helper:%go
+         1 theorem-induct-skip
+   details: /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/pilot2-aoc/pilot.txt
+
+[exited with code 0]
