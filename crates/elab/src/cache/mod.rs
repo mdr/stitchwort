@@ -1305,7 +1305,17 @@ impl Elaborator {
             }
         }
         changed.sort();
-        let order = |k: &String| (self.scope.follower_position(k).unwrap_or(0), k.clone());
+        // A follower is ranked among the unit's own new names of its short
+        // name, not among all of them: the others are whatever the session
+        // happened to load before (another namespace's constructor of the
+        // same name), and the entry must not depend on that (SW-4731).
+        let own: HashSet<String> = (early.iter().chain(&late)).cloned().collect();
+        let order = |k: &String| {
+            let rank = self.scope.followers_before(k).map_or(0, |before| {
+                before.iter().filter(|b| own.contains(*b)).count()
+            });
+            (rank, k.clone())
+        };
         let with_follower = |keys: Vec<String>| -> Vec<(String, bool)> {
             keys.into_iter()
                 .map(|k| {

@@ -723,7 +723,10 @@ What the namespace adds is found by comparing before and after, as for a
 library file, with one more snapshot: the names present when the
 namespace starts, the names after its first pass, and everything else
 once its library files have loaded. The new names are written in the
-order of their short names' `followers`.
+order of their short names' `followers`, each ranked among the namespace's
+own new names of that short name only: the others are whatever the session
+loaded first (another namespace's constructor `Floor`), and an entry mustn't
+depend on that (SW-4731, found by `check --jobs`).
 
 ### Differences from the plan
 

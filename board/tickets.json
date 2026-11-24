@@ -34196,12 +34196,12 @@
     {
       "id": 4731,
       "title": "[Opus] check --jobs: on whole AoC, 7 namespaces' cache entries differ from --jobs 1 (Aoc.Year2021.Day02, Year2024.Day16/20/21/24, Year2025.Day04/06; output identical): entry content depends on schedule/load order; find the order-dependent part and fix (SW-4719 measure)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\nProgress (opus lane, 24 Nov): cause found and fixed in 4f056c4d6. A namespace's new names were sorted by their position among every follower of their short name in the session (`Scope::follower_position`), so another namespace's constructor of the same short name loaded earlier (Day16's `Floor` before Day04's `Cell.Floor`) moved them in the entry; the digest covers the names, so it changed too. Also happens with one job: `check Aoc.Year2025.Day04` alone vs after Day16. Elaboration was not order-dependent: after the fix the entries are byte-identical. Fix: rank among the namespace's own new names of that short name. Test: `parallel::an_entry_is_the_same_whatever_the_session_loaded_before` (fails before, passes after). A seven-day AoC subset (the affected days) had Day20, Day21, Day04 differing at --jobs 4 before; none after, nor with a seed.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
       "commits": []

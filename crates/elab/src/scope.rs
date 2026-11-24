@@ -634,6 +634,13 @@ impl Scope {
             .and_then(|keys| keys.iter().position(|k| k == key))
     }
 
+    /// The followers of `key`'s short name added before it, if it is one.
+    pub(crate) fn followers_before(&self, key: &str) -> Option<&[String]> {
+        let keys = self.followers.get(short(key))?;
+        let at = keys.iter().position(|k| k == key)?;
+        Some(&keys[..at])
+    }
+
     /// Records that `key` belongs to its type's own declaration (a record
     /// field, an interface method), like a constructor.
     pub(crate) fn mark_member(&mut self, key: &str) {
