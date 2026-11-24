@@ -34011,12 +34011,12 @@
     {
       "id": 4719,
       "title": "[Opus] Build: parallel checking stage 1 per the design (SW-4718); Fable review after; needs D3731 (what a parallel --no-cache means) before merge (D3730)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nProgress (lane, 24 Nov 10:28): built as docs/proposals/parallel-checking.md §9 says: check --jobs N / -j / STITCHWORT_JOBS (default 1), crates/driver/src/parallel.rs (scheduler, workers, seeded pick), MemoryStore and ClaimStore in check_cache.rs, the load_analysis_for split, --timings changes. D3731 switch: PARALLEL_NO_CACHE in crates/cli/src/main.rs. Tests: 5 new in projects parallel:: and 1 in server check_cache:: pass; existing check_cache digest/cache_ tests pass; server check_cache::a_library_edit_re_checks_what_it_can_change_and_nothing_else fails identically with main's binary (pre-existing, Dep no longer counted as re-elaborated after a name is added). Reviewer's checklist: docs/reviews/SW-4719-notes.md. Not run: the measure (tools/fmt, aoc).\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
       "commits": []
