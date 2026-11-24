@@ -1,5 +1,5 @@
 {
-  "next": 4745,
+  "next": 4746,
   "tickets": [
     {
       "id": 47,
@@ -34063,7 +34063,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nD3733 (24 Nov 2026), Matt: no. \"I don't think I care so much about these accurate step counts. I care more about making best use of cached work and reusing where possible.\" History-dependent step counts are accepted; the proposal stays as a record. Follow-up: SW-4745 (could the elaborator reuse cached work across declarations).\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
       "commits": [
@@ -34431,6 +34431,19 @@
     {
       "id": 4744,
       "title": "[Sonnet] parallel::a_worker_that_panics_stops_the_fill_and_the_check_still_matches_one_job fails on main for seed 3 (entries differ): flaky test or a real difference after a worker panic (SW-4726 follow-up)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4745,
+      "title": "[Opus, paper] Could the elaborator reuse work across declarations (and across sessions via the cache) instead of discarding its kept unfoldings and caches per declaration? What it remembers today, what it throws away and why (clear_metas epoch, metavariables), what could be kept safely, and the measured gain (D3733 follow-up)",
       "status": "doing",
       "agent": "",
       "where": "",
