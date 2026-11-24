@@ -2099,6 +2099,8 @@ checked yet) comes back to you then.
 
 ## 11. Stage 3 pilot (SW-4730, 24 Nov 2026)
 
+The stage 3 design built on this pilot is [parallel-checking-stage-3.md](parallel-checking-stage-3.md) (SW-4753).
+
 Opus lane. The pilot 10.5 asks for: an interface pass by hand, and how many namespaces
 give the same interface digest without their proofs as with them.
 

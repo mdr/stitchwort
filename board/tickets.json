@@ -1,5 +1,5 @@
 {
-  "next": 4757,
+  "next": 4758,
   "tickets": [
     {
       "id": 47,
@@ -34566,7 +34566,7 @@
     {
       "id": 4753,
       "title": "[Fable, paper] Parallel checking stage 3 design note (D3730 end state): statements first, proofs side by side; from the pilot (148/150 fmt, 291/291 aoc match; parallel-checking.md section 11); the trust change and the proof-local def rule for Matt",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34574,7 +34574,10 @@
       "body": "",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "6aece6ffd3dc9822be2f3f16db1b12326f446127",
+        "6ce84b3b258f91f79914ec6c8c680b1b276560ed"
+      ]
     },
     {
       "id": 4754,
@@ -34605,6 +34608,19 @@
     {
       "id": 4756,
       "title": "[Sonnet] run_selected: is_partial(..).unwrap_or(false) can run a partial test as total when the check ran out; make it an out-of-resources result (SW-4750 finding 3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4757,
+      "title": "[Sonnet] Stage 3 step 0: measure the interface chain on the pilot branch (per-namespace interface-pass time and kept-theorem time on tools/fmt); gate: over about 25 s, stop and bring figures to Matt (parallel-checking-stage-3.md section 9) (SW-4753)",
       "status": "backlog",
       "agent": "",
       "where": "",
