@@ -373,6 +373,52 @@ fn check_recheck_says_what_it_checked_again() {
     let _ = std::fs::remove_dir_all(&cache);
 }
 
+/// Under `STITCHWORT_CACHE_DEBUG`, a namespace replayed from its entry has
+/// a line, as one written, missed or (with the default skipping) left out
+/// has (SW-4712).
+#[test]
+fn cache_debug_says_which_namespaces_were_replayed_and_which_left_out() {
+    let project = temp_dir("debug-project");
+    for (path, text) in [
+        ("stitchwort.yaml", "sources: [src]\n"),
+        ("src/A.sw", "namespace A\n\ndef one: Nat := 1\n"),
+        (
+            "src/B.sw",
+            "namespace B\nimport A (one)\n\ndef two: Nat := one + one\n",
+        ),
+    ] {
+        let full = project.join(path);
+        std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+        std::fs::write(full, text).unwrap();
+    }
+    let cache = temp_dir("debug-cache");
+    let lines = |output: &Output| -> Vec<String> {
+        String::from_utf8_lossy(&output.stderr)
+            .lines()
+            .filter_map(|l| l.strip_prefix("check cache: ").map(str::to_string))
+            .collect()
+    };
+    let cold = plain_check(&project, &cache, false, true);
+    assert!(cold.status.success(), "{}", shown(&cold));
+    assert!(
+        lines(&cold).iter().any(|l| l.starts_with("A: written")),
+        "{:?}",
+        lines(&cold)
+    );
+    let loaded = plain_check(&project, &cache, false, true);
+    let lines_loaded = lines(&loaded);
+    for ns in ["A", "B"] {
+        assert!(
+            lines_loaded.contains(&format!("{ns}: replayed from its entry")),
+            "{lines_loaded:?}"
+        );
+    }
+    let left_out = plain_check(&project, &cache, true, true);
+    assert!(!skipped(&left_out).is_empty(), "{:?}", lines(&left_out));
+    let _ = std::fs::remove_dir_all(&project);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
 /// The namespaces a debug run of [`plain_check`] says it didn't load.
 fn skipped(output: &Output) -> Vec<String> {
     let mut names: Vec<String> = String::from_utf8_lossy(&output.stderr)

@@ -1067,7 +1067,9 @@ impl Elaborator {
                     }
                     self.session.replayed_names.clear();
                     self.session.cache_stats.namespace_hits += 1;
-                    if !hit.exact {
+                    if hit.exact {
+                        debug(&format!("{ns}: replayed from its entry"));
+                    } else {
                         debug(&format!("{ns}: carried over"));
                         self.session.cache_stats.namespace_carried += 1;
                     }

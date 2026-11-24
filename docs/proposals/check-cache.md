@@ -1037,6 +1037,46 @@ any changes. `check --recheck` computes each replayed namespace's digest
 again (`E-CACHE-DIGEST` on a mismatch). `FORMAT` 44. Library files' keys
 still cover text (stage B).
 
+## An entry's layout (FORMAT 44; SW-4712)
+
+Written by `seal` and `Elaborator::encode_pass` in
+`crates/elab/src/cache/mod.rs`; read back by `open` and replay. Integers
+are LEB128 (`usize`); a string is a length then UTF-8 bytes; a blob is a
+length then bytes; `hash` and `key` are 32 raw bytes.
+
+1. **Header** (`seal`): the magic `SWCHECK\0`, the format as 4 little-endian
+   bytes, the key (32), the machine salt (16), the kernel and compiler build
+   strings, the library interface hash (32), the `exact` byte (0 or 1), the
+   interface digest (32), then the dependency list: a count, and for each a
+   kind byte, a path string and a hash (32).
+2. **Body** (a blob, so a length first), in order: the string table (count,
+   strings); the file table (count, file names); the foreign files (count,
+   and for each a file-table index and a hash: positions the entry holds in a
+   file that isn't the unit's own); then `pre`, a blob that replay reads
+   before the rest: the library files needed, the dot fields and equation
+   keys declared, the library files with the key each had and the `include`s
+   with a hash (both left out of the digest), the early names (key, span,
+   follower flag) and the warnings (code, message, labels, notes); then the
+   node count and the term-node table, which the terms below refer to by
+   how far back a node is; then the rest.
+3. **The rest**: the kernel's definitions (names, path, flags, `unfolding`
+   references, span, type, body (absent from the digest for a sealed theorem),
+   group, run body, hash) then data types (parameters, indices, sort,
+   constructors with their fields, sorts and erasure flags, record and
+   no-eta flags, group, offsets, span, hash); the built-ins bound; the names
+   (changed, late, the early ones' targets, members); the elaborator's tables
+   (one section per kind in `state::table`, with the namespace's extensions
+   in the middle); and last the navigation records (a flag, then the
+   references, expression types, call defaults, local types, local and
+   binder uses, parameters, named arguments and field spans, each a count and
+   rows with spans written as a step from the previous one's start).
+4. **Checksum**: the BLAKE3 hash of everything before it (32).
+
+The interface digest in the header is the hash of the same body written a
+second time with `digest` set: terms by content; sealed proofs, every
+span, the warnings, `pre`'s library and `include` lists and the navigation
+are left out.
+
 ## Decisions
 
 | ID | Question | Recommendation |
