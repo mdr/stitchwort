@@ -633,7 +633,7 @@ lane missed it and a batch failed:
   memory'" (Matt, 15 Nov 2026: "you shouldn't do details from memory").
 - **Touches the kernel, termination or anything generating kernel terms**
   (the lane, its review, and the orchestrator's verifier): "run the whole
-  soundness set, `binary(running) & test(/examples::soundness/)` (seconds),
+  soundness set, `package(stitchwort-cli) & binary(running) & test(/examples::soundness/)` (seconds),
   against the branch's binary; a review starts there before attacking"
   (15 Nov 2026: SW-3376's wrapper rule was merged, after a Fable review,
   accepting `soundness/proof-irrelevance-07`, and was reverted).
