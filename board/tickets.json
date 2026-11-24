@@ -34460,7 +34460,7 @@
     {
       "id": 4746,
       "title": "[Sonnet] Measure: count elaborator unfoldings dropped only because the metavariable epoch moved, with the steps spent recomputing them; time an edit check with a binary built without dev features (SW-4745 recommendation 1)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34468,7 +34468,9 @@
       "body": "",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "facbaa52883fef480fad9a0f0391b021f0d04551"
+      ]
     },
     {
       "id": 4747,
