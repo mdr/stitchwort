@@ -56,6 +56,18 @@ fn check(
     seed: Option<u64>,
     load: Load,
 ) -> Checked {
+    check_target(files, kept, jobs, seed, load, &Target::Everything)
+}
+
+/// [`check`] of `target` rather than the whole project.
+fn check_target(
+    files: &(dyn Files + Sync),
+    kept: &Kept,
+    jobs: usize,
+    seed: Option<u64>,
+    load: Load,
+    target: &Target,
+) -> Checked {
     with_stack(STACK, || {
         let mut session = Session::for_stack(STACK);
         session.elab.set_check_cache(kept.store());
@@ -63,7 +75,7 @@ fn check(
         let fill = fill(
             files,
             "par",
-            &Target::Everything,
+            target,
             &Jobs {
                 count: jobs,
                 stack: STACK,
@@ -74,7 +86,7 @@ fn check(
         );
         // As `check` does: everything loaded if the fill left a namespace.
         let load = fill.load_after(load);
-        let result = session.load_project_for(files, "par", &Target::Everything, load);
+        let result = session.load_project_for(files, "par", target, load);
         let diagnostics = match &result {
             Ok(_) => session.warnings.clone(),
             Err(ds) => ds.clone(),
@@ -442,4 +454,58 @@ fn library_files_are_elaborated_once_between_workers() {
     assert_eq!(parallel.fill.claims_gave_up, 0);
     let _ = std::fs::remove_dir_all(&one);
     let _ = std::fs::remove_dir_all(&three);
+}
+
+/// A namespace's entry doesn't depend on what else its session loaded
+/// first: `Par.B`'s constructor `Floor` shares its short name with
+/// `Par.A`'s, and B checked after A in one session (as one job checks
+/// them, or a worker that took A first) writes the bytes B checked on its
+/// own does (SW-4731: the names were ordered by their place among every
+/// `Floor` in the session).
+#[test]
+fn an_entry_is_the_same_whatever_the_session_loaded_before() {
+    let file = |ns: &str, body: &str| {
+        (
+            format!("src/Par/{ns}.sw"),
+            format!("namespace Par.{ns}\nimport Std (Nat)\n\n{body}\n"),
+        )
+    };
+    let files = MemoryFiles {
+        files: [
+            ("stitchwort.yaml".to_string(), CONFIG.to_string()),
+            file("A", "type Tile = | Wall | Floor"),
+            file(
+                "B",
+                "type Cell = | Roll | Floor\n\ntype Room = | Floor | Door",
+            ),
+        ]
+        .into_iter()
+        .collect(),
+        reversed: false,
+    };
+    let both = temp_dir("order-both");
+    check(&files, &Kept::Dir(both.clone()), 1, None, Load::Diagnostics);
+    let alone = salted_like(&both, "order-alone");
+    let only_b = Target::Namespaces(vec!["Par.B".to_string()]);
+    check_target(
+        &files,
+        &Kept::Dir(alone.clone()),
+        1,
+        None,
+        Load::Diagnostics,
+        &only_b,
+    );
+    let b = |dir: &Path| {
+        entries(dir)
+            .into_iter()
+            .find(|(name, _)| name.contains("-ns.Par.B-"))
+    };
+    let (from_both, from_alone) = (b(&both), b(&alone));
+    assert!(from_both.is_some(), "no entry for Par.B");
+    assert!(
+        from_both == from_alone,
+        "Par.B's entry depends on Par.A being loaded first"
+    );
+    let _ = std::fs::remove_dir_all(&both);
+    let _ = std::fs::remove_dir_all(&alone);
 }
