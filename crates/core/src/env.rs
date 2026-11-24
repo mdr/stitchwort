@@ -23,7 +23,11 @@ pub struct Env {
 }
 
 impl Env {
-    /// Every definition, by [`DefId`].
+    /// Every definition, by [`DefId`]. A lifted `match`'s helper that only
+    /// sealed proofs reach is left out of its namespace's interface digest
+    /// (docs/proposals/interface-digest-cache.md C.1), as is where a plain
+    /// theorem sits in this order: a scan here must not let either change a
+    /// result another namespace's check-cache entry keeps.
     pub fn defs(&self) -> &[Def] {
         &self.defs
     }

@@ -11,7 +11,7 @@ use std::rc::Rc;
 
 use num_bigint::BigUint;
 use stitchwort_core::chars::Chars;
-use stitchwort_core::collections::HashMap;
+use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::{DataId, DefId, Icit, MAX_LEVEL, Name, ProofMark, QuotForm, Sort, Term};
 use stitchwort_syntax::Span;
@@ -504,6 +504,22 @@ impl TermWriter {
             Term::Meta(_) => return Err(Unwritable),
         }
         Ok(())
+    }
+}
+
+/// Calls `f` on each definition `root` refers to, once for each `Def`
+/// node not in `seen` (which collects the nodes visited, by address): the
+/// references [`TermWriter::term`] would write, without writing them.
+pub fn defs_in(root: &Term, seen: &mut HashSet<*const Term>, f: &mut dyn FnMut(DefId)) {
+    let mut stack = vec![root];
+    while let Some(t) = stack.pop() {
+        if !seen.insert(std::ptr::from_ref(t)) {
+            continue;
+        }
+        if let Term::Def(id) = t {
+            f(*id);
+        }
+        each_child(t, &mut |c| stack.push(c));
     }
 }
 

@@ -1037,7 +1037,7 @@ any changes. `check --recheck` computes each replayed namespace's digest
 again (`E-CACHE-DIGEST` on a mismatch). `FORMAT` 44. Library files' keys
 still cover text (stage B).
 
-## An entry's layout (FORMAT 44; SW-4712)
+## An entry's layout (FORMAT 45; SW-4712, SW-4714)
 
 Written by `seal` and `Elaborator::encode_pass` in
 `crates/elab/src/cache/mod.rs`; read back by `open` and replay. Integers
@@ -1076,6 +1076,14 @@ The interface digest in the header is the hash of the same body written a
 second time with `digest` set: terms by content; sealed proofs, every
 span, the warnings, `pre`'s library and `include` lists and the navigation
 are left out.
+
+Stage C (SW-4714, `FORMAT` 45): the digest also leaves out the lifted `match`
+helpers that only sealed proofs reach (and their `lifted`, `match_columns` and
+`update_shown` rows), names the namespace's own declarations by path, and lists
+its plain theorems (sealed, not instances, keying no table row) by path after
+everything else. So adding or changing a `match` inside a proof, or a proof
+starting to use a later theorem, also replays the namespaces above. See "As
+built (stage C)" in interface-digest-cache.md.
 
 ## Decisions
 

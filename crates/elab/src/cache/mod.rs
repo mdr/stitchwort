@@ -95,7 +95,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 44;
+pub const FORMAT: u32 = 45;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -1161,8 +1161,8 @@ impl Elaborator {
                 .cloned()
                 .collect();
             match self.encode_namespace(ns, files, &capture, &cached, key, store.salt()) {
-                Ok((entry, digest)) => {
-                    debug(&format!("{ns}: written, digest {}", hex(&digest)));
+                Ok((entry, digest, shape)) => {
+                    debug(&format!("{ns}: written, digest {}, {shape}", hex(&digest)));
                     (self.session.namespace_keys).insert(ns.to_string(), known(Some(digest)));
                     store.write(unit, key, &entry);
                     self.session.cache_stats.namespace_written += 1;
@@ -1243,7 +1243,7 @@ impl Elaborator {
         warnings: &[Diagnostic],
         key: &Key,
         salt: [u8; 16],
-    ) -> Result<(Vec<u8>, Key), String> {
+    ) -> Result<(Vec<u8>, Key, DigestShape), String> {
         let (Some(before), Some(early), Some(needs)) =
             (&capture.before, &capture.early, &capture.needs)
         else {
@@ -1470,6 +1470,7 @@ impl Elaborator {
             let again =
                 self.namespace_parts(ns, files, &view, |unit, before, writes, names, pre| {
                     self.interface_digest(unit, before, writes, names, pre)
+                        .map(|(digest, _)| digest)
                 });
             if again.as_ref().ok() != Some(&stamp.digest) {
                 // Its terms passed the kernel, but the namespaces after it
@@ -1520,6 +1521,10 @@ struct Out<'g> {
     problem: Option<String>,
     /// Writing the interface digest's stream, which leaves out positions.
     digest: bool,
+    /// In digest mode: how own declarations are named, and the recording
+    /// or the plan of stage C (docs/proposals/interface-digest-cache.md
+    /// C.1, C.2).
+    stage: Option<Stage>,
 }
 
 impl Out<'_> {
@@ -1530,10 +1535,125 @@ impl Out<'_> {
     }
 }
 
+/// Where a reference to one of the unit's own definitions is written, in
+/// the digest's recording pass (interface-digest-cache.md C.1).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Context {
+    /// Anywhere but the two below: a root.
+    Root,
+    /// The key of a table row keyed by declaration: a root, and a theorem
+    /// written here isn't plain (C.2 rule 4).
+    Key,
+    /// A candidate's own record, or its row of a table it owns (`lifted`,
+    /// `match_columns`, `update_shown`): an edge from it.
+    Own(DefId),
+}
+
+/// What the recording pass found: the own definitions written from a
+/// root, those written as a row's key, and the edges out of candidates.
+#[derive(Default)]
+struct Recording {
+    roots: HashSet<DefId>,
+    keys: HashSet<DefId>,
+    edges: HashMap<DefId, Vec<DefId>>,
+}
+
+/// What both digest passes know of the unit's own declarations before
+/// they start.
+struct DigestPrep {
+    /// The helpers that may be left out: lifted `match`es' (C.1).
+    candidates: HashSet<DefId>,
+    /// Each own definition's and data type's ordinal among the own ones of
+    /// its path, in checking order: with the path, its name in the digest.
+    def_ordinals: Vec<usize>,
+    data_ordinals: Vec<usize>,
+}
+
+/// What the final digest pass writes (C.1, C.2).
+struct DigestPlan {
+    /// Proof-private helpers: candidates no root reaches.
+    private: HashSet<DefId>,
+    /// The definitions the digest writes, in its order: the ordered ones in
+    /// checking order, then the plain theorems by path.
+    order: Vec<DefId>,
+    /// For each own index `k`, how many ordered definitions come before it
+    /// (what a data type's `defs_before` becomes).
+    ordered_before: Vec<usize>,
+    plain: usize,
+}
+
+/// A digest pass's state in [`Out`].
+struct Stage {
+    prep: Rc<DigestPrep>,
+    context: Context,
+    /// The recording pass's findings; `None` in the final pass.
+    recording: Option<Recording>,
+    /// The term nodes the recording pass has visited since the context
+    /// last crossed a candidate's (`Encoding::enter`).
+    seen: HashSet<*const Term>,
+    /// The final pass's plan; `None` in the recording pass.
+    plan: Option<Rc<DigestPlan>>,
+}
+
+/// Which digest pass [`Elaborator::encode_pass`] runs, if any.
+enum DigestPass {
+    Record(Rc<DigestPrep>),
+    Final(Rc<DigestPrep>, Rc<DigestPlan>),
+}
+
+/// How many helpers a digest left out and how many theorems it listed by
+/// path, for the cache's debug line.
+#[derive(Clone, Copy, Default)]
+pub(crate) struct DigestShape {
+    private: usize,
+    plain: usize,
+}
+
+impl std::fmt::Display for DigestShape {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} proof-private helpers left out, {} plain theorems",
+            self.private, self.plain
+        )
+    }
+}
+
 impl Refs for Out<'_> {
     fn def(&mut self, w: &mut Writer, id: DefId) {
         if id.0 >= self.base_defs {
-            w.uint(((id.0 - self.base_defs) as u64) << 1);
+            let k = id.0 - self.base_defs;
+            let Some(stage) = &mut self.stage else {
+                w.uint((k as u64) << 1);
+                return;
+            };
+            // In the digest, by path (C.2 rule 1): where it sits among the
+            // unit's declarations is no part of what it is.
+            if let Some(rec) = &mut stage.recording {
+                match stage.context {
+                    Context::Root => {
+                        rec.roots.insert(id);
+                    }
+                    Context::Key => {
+                        rec.roots.insert(id);
+                        rec.keys.insert(id);
+                    }
+                    Context::Own(c) => rec.edges.entry(c).or_default().push(id),
+                }
+            }
+            let private = (stage.plan.as_ref()).is_some_and(|p| p.private.contains(&id));
+            let ordinal = stage.prep.def_ordinals[k];
+            let path = self.g.def(id).path();
+            if private {
+                // The marking said nothing kept reaches it: a bug there,
+                // never something to write.
+                self.fail(format!(
+                    "the digest reaches `{path}`, left out as proof-private"
+                ));
+            }
+            w.uint(0);
+            w.str(path);
+            w.usize(ordinal);
             return;
         }
         if let Some(&i) = self.ext_defs.get(&id) {
@@ -1561,7 +1681,15 @@ impl Refs for Out<'_> {
 
     fn data(&mut self, w: &mut Writer, id: DataId) {
         if id.0 >= self.base_datas {
-            w.uint(((id.0 - self.base_datas) as u64) << 1);
+            let k = id.0 - self.base_datas;
+            match &self.stage {
+                Some(stage) => {
+                    w.uint(0);
+                    w.str(self.g.data(id).path());
+                    w.usize(stage.prep.data_ordinals[k]);
+                }
+                None => w.uint((k as u64) << 1),
+            }
             return;
         }
         if let Some(&i) = self.ext_datas.get(&id) {
@@ -1643,6 +1771,8 @@ struct Parts {
     nodes: Vec<u8>,
     rest: Vec<u8>,
     deps: Vec<Dep>,
+    /// The digest's recording pass's findings.
+    recording: Option<Recording>,
 }
 
 /// An entry's parts while it is written: the terms and strings, and the
@@ -1676,6 +1806,21 @@ impl Encoding<'_> {
     }
 
     pub(crate) fn term(&mut self, t: &Term) {
+        if let Some(stage) = &mut self.out.stage
+            && stage.recording.is_some()
+        {
+            // The recording pass needs only which own definitions a term
+            // mentions, and only to find what reaches a candidate: with no
+            // candidate, nothing (a row's key is never inside a term).
+            if !stage.prep.candidates.is_empty() {
+                let mut seen = std::mem::take(&mut stage.seen);
+                let (out, mut sink) = (&mut self.out, Writer::default());
+                codec::defs_in(t, &mut seen, &mut |id| out.def(&mut sink, id));
+                (self.out.stage.as_mut().expect("recording")).seen = seen;
+            }
+            self.w.uint(0);
+            return;
+        }
         match self.terms.term(&mut self.out, t) {
             Ok(id) => self.w.uint(u64::from(id)),
             Err(_) => self.out.fail("a term with a metavariable".to_string()),
@@ -1725,6 +1870,58 @@ impl Encoding<'_> {
 
     pub(crate) fn data(&mut self, id: DataId) {
         self.out.data(&mut self.w, id);
+    }
+
+    /// Whether `id` is a candidate the digest may leave out (C.1).
+    fn candidate(&self, id: DefId) -> bool {
+        (self.out.stage.as_ref()).is_some_and(|s| s.prep.candidates.contains(&id))
+    }
+
+    /// Sets where the references written next are (recording pass only).
+    /// The recording walk skips a term node it has visited, so a reference
+    /// first seen in one candidate's context would go unrecorded in the
+    /// next: crossing into or out of a candidate's context forgets them.
+    fn enter(&mut self, context: Context) {
+        let Some(stage) = &mut self.out.stage else {
+            return;
+        };
+        if stage.recording.is_none() || stage.context == context {
+            return;
+        }
+        let own = |c: Context| matches!(c, Context::Own(_));
+        if own(stage.context) || own(context) {
+            stage.seen.clear();
+        }
+        stage.context = context;
+    }
+
+    /// Whether the row owned by `owner` of a table a candidate owns is
+    /// written: not in the final digest pass, for a proof-private helper.
+    pub(crate) fn keeps_owned_row(&self, owner: DefId) -> bool {
+        !(self.out.stage.as_ref())
+            .and_then(|s| s.plan.as_ref())
+            .is_some_and(|p| p.private.contains(&owner))
+    }
+
+    /// Starts a table row keyed by `key` (a definition, if it is one);
+    /// `owned` says the table's row for a candidate is the candidate's own.
+    pub(crate) fn row_key(&mut self, key: Option<DefId>, owned: bool) {
+        match key {
+            Some(id) if owned && self.candidate(id) => self.enter(Context::Own(id)),
+            _ => self.enter(Context::Key),
+        }
+    }
+
+    /// The row's value, after its key.
+    pub(crate) fn row_value(&mut self) {
+        if (self.out.stage.as_ref()).is_some_and(|s| s.context == Context::Key) {
+            self.enter(Context::Root);
+        }
+    }
+
+    /// The row is written.
+    pub(crate) fn row_end(&mut self) {
+        self.enter(Context::Root);
     }
 
     pub(crate) fn span(&mut self, span: Span) {
@@ -1950,6 +2147,60 @@ fn keep_rechecked(store: &dyn Store, unit: &str, key: &Key, bytes: &[u8], hit: H
     store.write(unit, key, &seal(key, store.salt(), &stamp, &deps, body));
 }
 
+/// What the digest's final pass writes, from the recording pass
+/// (interface-digest-cache.md C.1, C.2). Proof-private: the candidates no
+/// root reaches through candidates' own records and rows. Plain: a sealed
+/// theorem that isn't an instance and keys no table row, whose place in
+/// checking order no other unit can see (P6).
+fn digest_plan(g: &Ev, base: usize, prep: &DigestPrep, rec: Option<Recording>) -> DigestPlan {
+    let rec = rec.unwrap_or_default();
+    let mut reached: HashSet<DefId> = HashSet::default();
+    let mut stack: Vec<DefId> = (rec.roots.iter())
+        .copied()
+        .filter(|id| prep.candidates.contains(id))
+        .collect();
+    while let Some(c) = stack.pop() {
+        if !reached.insert(c) {
+            continue;
+        }
+        for &t in rec.edges.get(&c).into_iter().flatten() {
+            if prep.candidates.contains(&t) && !reached.contains(&t) {
+                stack.push(t);
+            }
+        }
+    }
+    let private: HashSet<DefId> = (prep.candidates.iter())
+        .copied()
+        .filter(|id| !reached.contains(id))
+        .collect();
+    let n = prep.def_ordinals.len();
+    let (mut order, mut plain) = (Vec::new(), Vec::new());
+    let mut ordered_before = Vec::with_capacity(n + 1);
+    for k in 0..n {
+        ordered_before.push(order.len());
+        let id = DefId(base + k);
+        if private.contains(&id) {
+            continue;
+        }
+        let def = g.def(id);
+        if has_interface(g, id) && !def.instance() && !rec.keys.contains(&id) {
+            plain.push((def.path(), prep.def_ordinals[k], id));
+        } else {
+            order.push(id);
+        }
+    }
+    ordered_before.push(order.len());
+    plain.sort();
+    let plain_count = plain.len();
+    order.extend(plain.into_iter().map(|(_, _, id)| id));
+    DigestPlan {
+        private,
+        order,
+        ordered_before,
+        plain: plain_count,
+    }
+}
+
 /// A key or digest in hexadecimal, for a debug line.
 fn hex(key: &Key) -> String {
     key.iter().map(|b| format!("{b:02x}")).collect()
@@ -2030,7 +2281,7 @@ impl Elaborator {
             key,
             salt,
         )
-        .map(|(entry, _)| entry)
+        .map(|(entry, _, _)| entry)
     }
 
     /// The entry for a unit that has just loaded without errors, or why it
@@ -2049,9 +2300,9 @@ impl Elaborator {
         warnings: &[Diagnostic],
         key: &Key,
         salt: [u8; 16],
-    ) -> Result<(Vec<u8>, Key), String> {
-        let parts = self.encode_pass(unit, before, writes, names, pre, warnings, false)?;
-        let digest = self.interface_digest(unit, before, writes, names, pre)?;
+    ) -> Result<(Vec<u8>, Key, DigestShape), String> {
+        let parts = self.encode_pass(unit, before, writes, names, pre, warnings, None)?;
+        let (digest, shape) = self.interface_digest(unit, before, writes, names, pre)?;
         // The files outside the unit's own it holds positions in, with what
         // they were (rule 4, §1.4): a namespace's digest leaves positions
         // out, so one that holds a position in another's file misses when
@@ -2099,13 +2350,19 @@ impl Elaborator {
             exact: !self.carried_anything(),
             digest,
         };
-        Ok((seal(key, salt, &stamp, &parts.deps, &body.bytes), digest))
+        Ok((
+            seal(key, salt, &stamp, &parts.deps, &body.bytes),
+            digest,
+            shape,
+        ))
     }
 
     /// A unit's interface digest (docs/proposals/interface-digest-cache.md
-    /// §1.3): the hash of what [`Self::encode_pass`] writes of it in digest
-    /// mode, which is everything its entry holds except the proofs of its
-    /// sealed theorems, source positions, its warnings and its navigation.
+    /// §1.3, C.1, C.2): the hash of what [`Self::encode_pass`] writes of it
+    /// in digest mode, which is everything its entry holds except the
+    /// proofs of its sealed theorems, source positions, its warnings and
+    /// its navigation, and the helpers only those proofs reach; with its own
+    /// declarations named by path and its plain theorems listed by path.
     fn interface_digest(
         &self,
         unit: &UnitOut,
@@ -2113,8 +2370,28 @@ impl Elaborator {
         writes: &WriteSet<'_>,
         names: &NamesOut,
         pre: &PreOut,
-    ) -> Result<Key, String> {
-        let parts = self.encode_pass(unit, before, writes, names, pre, &[], true)?;
+    ) -> Result<(Key, DigestShape), String> {
+        let g = &self.ev();
+        let prep = Rc::new(self.digest_prep(before));
+        // The recording pass finds what reaches each candidate and which
+        // theorems key a row; with neither a candidate nor a sealed theorem
+        // there is nothing to find.
+        let own = before.defs..g.env.defs().len();
+        let recording =
+            if prep.candidates.is_empty() && !own.clone().any(|i| has_interface(g, DefId(i))) {
+                None
+            } else {
+                let pass = Some(DigestPass::Record(prep.clone()));
+                let parts = self.encode_pass(unit, before, writes, names, pre, &[], pass)?;
+                parts.recording
+            };
+        let plan = Rc::new(digest_plan(g, before.defs, &prep, recording));
+        let shape = DigestShape {
+            private: plan.private.len(),
+            plain: plan.plain,
+        };
+        let pass = Some(DigestPass::Final(prep, plan));
+        let parts = self.encode_pass(unit, before, writes, names, pre, &[], pass)?;
         let mut h = blake3::Hasher::new();
         let mut part = |bytes: &[u8]| {
             h.update(&(bytes.len() as u64).to_le_bytes());
@@ -2136,7 +2413,43 @@ impl Elaborator {
         part(&(parts.node_count as u64).to_le_bytes());
         part(&parts.nodes);
         part(&parts.rest);
-        Ok(*h.finalize().as_bytes())
+        Ok((*h.finalize().as_bytes(), shape))
+    }
+
+    /// The candidates and own declarations' ordinals for a unit's digest
+    /// passes. A candidate is a lifted `match`'s helper (a row of `lifted`
+    /// since `before`, named `….%matchN`) that isn't a theorem or an
+    /// instance: no name in scope names one and no code builds one's name to
+    /// look it up (C.1). Other rows of `lifted` (`decreasing`'s `….%plain`
+    /// twins) never are: that argument was made for `%match` names only.
+    fn digest_prep(&self, before: &Before) -> DigestPrep {
+        let g = &self.ev();
+        let candidates = (self.tables.lifted.since(before.tables.lifted()).iter())
+            .map(|&(id, _)| id)
+            .filter(|&id| {
+                let def = g.def(id);
+                let last = def.path().rsplit('.').next().unwrap_or_default();
+                id.0 >= before.defs
+                    && !def.theorem()
+                    && !def.instance()
+                    && last.starts_with("%match")
+            })
+            .collect();
+        fn ordinals<'a>(paths: impl Iterator<Item = &'a str>) -> Vec<usize> {
+            let mut seen: HashMap<&str, usize> = HashMap::default();
+            paths
+                .map(|path| {
+                    let n = seen.entry(path).or_default();
+                    *n += 1;
+                    *n - 1
+                })
+                .collect()
+        }
+        DigestPrep {
+            candidates,
+            def_ordinals: ordinals(g.env.defs()[before.defs..].iter().map(|d| &**d.path())),
+            data_ordinals: ordinals(g.env.datas()[before.datas..].iter().map(|d| &**d.path())),
+        }
     }
 
     /// Writes a unit's entry, or (with `digest`) the stream its interface
@@ -2152,8 +2465,9 @@ impl Elaborator {
         names: &NamesOut,
         pre: &PreOut,
         warnings: &[Diagnostic],
-        digest: bool,
+        pass: Option<DigestPass>,
     ) -> Result<Parts, String> {
+        let digest = pass.is_some();
         let g = &self.ev();
         let _op = g.machine.budget.operation(self.options.limits);
         let (defs, datas) = (
@@ -2218,6 +2532,22 @@ impl Elaborator {
                 file_ids: HashMap::default(),
                 problem: None,
                 digest,
+                stage: pass.map(|pass| match pass {
+                    DigestPass::Record(prep) => Stage {
+                        prep,
+                        context: Context::Root,
+                        recording: Some(Recording::default()),
+                        seen: HashSet::default(),
+                        plan: None,
+                    },
+                    DigestPass::Final(prep, plan) => Stage {
+                        prep,
+                        context: Context::Root,
+                        recording: None,
+                        seen: HashSet::default(),
+                        plan: Some(plan),
+                    },
+                }),
             },
             // By content: the digest mustn't depend on which terms happen
             // to share memory.
@@ -2290,10 +2620,22 @@ impl Elaborator {
         }
         let pre_bytes = std::mem::take(&mut e.w.bytes);
 
-        // The kernel's declarations.
-        e.w.usize(defs.len());
-        for id in defs.clone().map(DefId) {
+        // The kernel's declarations. In the digest's final pass, without
+        // the proof-private helpers, and the plain theorems last, by path
+        // (interface-digest-cache.md C.2 rule 4).
+        let plan = (e.out.stage.as_ref()).and_then(|s| s.plan.clone());
+        let order: Vec<DefId> = match &plan {
+            Some(plan) => plan.order.clone(),
+            None => defs.clone().map(DefId).collect(),
+        };
+        e.w.usize(order.len());
+        for id in order {
             let def = g.def(id);
+            e.enter(if e.candidate(id) {
+                Context::Own(id)
+            } else {
+                Context::Root
+            });
             e.str(def.name());
             e.str(def.path());
             e.w.bool(def.theorem());
@@ -2324,12 +2666,31 @@ impl Elaborator {
                 .group()
                 .as_ref()
                 .expect("a final definition has a group");
-            e.w.usize(group.len());
-            for m in group.iter() {
-                if m.0 < before.defs {
-                    return Err(format!("`{}`'s group is older", def.path()));
+            if group.iter().any(|m| m.0 < before.defs) {
+                return Err(format!("`{}`'s group is older", def.path()));
+            }
+            if !digest {
+                e.w.usize(group.len());
+                for m in group.iter() {
+                    e.w.usize(m.0 - before.defs);
                 }
-                e.w.usize(m.0 - before.defs);
+            } else if !sealed {
+                // By path, sorted (C.2 rule 2). A sealed theorem's group
+                // only says what its proof was checked with; each member
+                // the digest keeps lists it.
+                let ordinal = |m: &DefId| {
+                    let prep = &e.out.stage.as_ref().expect("digest mode").prep;
+                    prep.def_ordinals[m.0 - before.defs]
+                };
+                let mut members: Vec<(&str, usize, DefId)> = group
+                    .iter()
+                    .map(|m| (&**g.def(*m).path(), ordinal(m), *m))
+                    .collect();
+                members.sort();
+                e.w.usize(members.len());
+                for (_, _, m) in members {
+                    e.def(m);
+                }
             }
             // What the runtimes run instead, for a definition with `decreasing`.
             e.w.bool(def.own_run_body().is_some());
@@ -2341,6 +2702,7 @@ impl Elaborator {
             } else {
                 def_hash(g, id)
             });
+            e.enter(Context::Root);
         }
         e.w.usize(datas.len());
         for d in datas.clone().map(DataId) {
@@ -2404,7 +2766,13 @@ impl Elaborator {
             if data.defs_before() < before.defs || data.datas_before() < before.datas {
                 return Err(format!("`{}` is declared before the file", data.path()));
             }
-            e.w.usize(data.defs_before() - before.defs);
+            // In the digest, counting only the definitions it keeps in
+            // checking order (C.2 rule 3).
+            let defs_before = data.defs_before() - before.defs;
+            e.w.usize(match &plan {
+                Some(plan) => plan.ordered_before[defs_before],
+                None => defs_before,
+            });
             e.w.usize(data.datas_before() - before.datas);
             e.span(data.span());
             e.hash(data_hash(g, d));
@@ -2625,6 +2993,7 @@ impl Elaborator {
             nodes: e.terms.nodes.bytes,
             rest: e.w.bytes,
             deps: e.out.deps,
+            recording: e.out.stage.and_then(|s| s.recording),
         })
     }
 

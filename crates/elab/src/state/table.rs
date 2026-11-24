@@ -103,6 +103,30 @@ impl<T> GrowVec<T> {
     }
 }
 
+impl<T: Codec> GrowVec<T> {
+    /// [`Table::encode_since`] for a table whose row `owner(row)` is a
+    /// lifted helper's own: the interface digest leaves out the rows of the
+    /// helpers it leaves out (docs/proposals/interface-digest-cache.md
+    /// C.1).
+    pub(crate) fn encode_owned_since(
+        &self,
+        m: usize,
+        e: &mut Encoding<'_>,
+        owner: impl Fn(&T) -> DefId,
+    ) -> Result<(), String> {
+        let rows: Vec<&T> = (self.since(m).iter())
+            .filter(|row| e.keeps_owned_row(owner(row)))
+            .collect();
+        e.count(rows.len());
+        for row in rows {
+            e.row_key(Some(owner(row)), true);
+            row.encode(e);
+            e.row_end();
+        }
+        Ok(())
+    }
+}
+
 impl<T: Dump> GrowVec<T> {
     /// [`Table::dump`] with the lines sorted, for a table whose order no
     /// reader depends on: a cached run may push its rows in another order.
@@ -162,6 +186,8 @@ pub(crate) trait Id: Copy + Eq + Hash + Codec + Dump {
     fn count(ids: Ids) -> usize;
     /// The unit that made it.
     fn owner(self, owners: &Owners) -> UnitId;
+    /// It, if it is a definition's.
+    fn def(self) -> Option<DefId>;
 }
 
 impl Id for DataId {
@@ -174,6 +200,9 @@ impl Id for DataId {
     fn owner(self, owners: &Owners) -> UnitId {
         owners.of_data(self.0)
     }
+    fn def(self) -> Option<DefId> {
+        None
+    }
 }
 
 impl Id for DefId {
@@ -185,6 +214,9 @@ impl Id for DefId {
     }
     fn owner(self, owners: &Owners) -> UnitId {
         owners.of_def(self.0)
+    }
+    fn def(self) -> Option<DefId> {
+        Some(self)
     }
 }
 
@@ -232,6 +264,18 @@ impl<I: Id, V> OwnedBy<I, V> {
     }
 }
 
+impl<I: Id, V: Codec> OwnedBy<I, V> {
+    /// [`Table::encode_since`] for a table whose row for a lifted helper is
+    /// the helper's own ([`GrowVec::encode_owned_since`]).
+    pub(crate) fn encode_owned_since(
+        &self,
+        m: &OwnedMark,
+        e: &mut Encoding<'_>,
+    ) -> Result<(), String> {
+        encode_rows(&self.rows, m, e, true)
+    }
+}
+
 impl<I: Id, V: Codec + Dump> Table for OwnedBy<I, V> {
     type Mark = OwnedMark;
     type Rows = Vec<(I, V)>;
@@ -245,7 +289,7 @@ impl<I: Id, V: Codec + Dump> Table for OwnedBy<I, V> {
     }
 
     fn encode_since(&self, m: &OwnedMark, e: &mut Encoding<'_>) -> Result<(), String> {
-        encode_rows(&self.rows, m, e)
+        encode_rows(&self.rows, m, e, false)
     }
 
     fn decode(b: &mut Body<'_>) -> Read<Vec<(I, V)>> {
@@ -280,10 +324,15 @@ fn sorted_rows<I: Id, V>(rows: &HashMap<I, V>) -> Vec<(&I, &V)> {
     rows
 }
 
+/// The rows of the unit's own declarations, by id: a row keyed by a plain
+/// theorem never comes here in the interface digest, so id order is the
+/// digest's order (interface-digest-cache.md C.2 rule 4). With `owned`, a
+/// lifted helper's row is its own, left out with it.
 fn encode_rows<I: Id, V: Codec>(
     rows: &HashMap<I, V>,
     m: &OwnedMark,
     e: &mut Encoding<'_>,
+    owned: bool,
 ) -> Result<(), String> {
     let (old, new): (Vec<_>, Vec<_>) = sorted_rows(rows)
         .into_iter()
@@ -300,10 +349,16 @@ fn encode_rows<I: Id, V: Codec>(
     if old.len() != m.rows {
         return Err("a row for an older declaration changed".to_string());
     }
+    let new: Vec<_> = (new.into_iter())
+        .filter(|(id, _)| !owned || id.def().is_none_or(|d| e.keeps_owned_row(d)))
+        .collect();
     e.count(new.len());
     for (id, row) in new {
+        e.row_key(id.def(), owned);
         id.encode(e);
+        e.row_value();
         row.encode(e);
+        e.row_end();
     }
     Ok(())
 }

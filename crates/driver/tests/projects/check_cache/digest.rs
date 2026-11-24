@@ -1,8 +1,10 @@
 //! Keys by interface digest (docs/proposals/interface-digest-cache.md,
-//! stage A): a namespace's key covers each dependency's digest, which
-//! leaves out the proofs of its sealed theorems and source positions. So an
-//! edit below that changes only those replays the namespaces above it, and
-//! any other edit checks them again. Each run here is compared with a check
+//! stages A and C): a namespace's key covers each dependency's digest,
+//! which leaves out the proofs of its sealed theorems, source positions,
+//! the lifted `match`es only those proofs reach, and where its plain
+//! theorems sit in checking order. So an edit below that changes only
+//! those replays the namespaces above it, and any other edit checks them
+//! again. Each run here is compared with a check
 //! without the cache ([`fresh_and_cached`]), so a hit that shouldn't be one
 //! shows up as a different result too.
 
@@ -30,16 +32,27 @@ const BASE: &[(&str, &str)] = &[
     ),
 ];
 
-/// (`oneProof` comes first: a proof that starts using a declaration after
-/// it reorders the namespace's declarations, which changes its digest.)
 const A: &str = "namespace A\n\ndef one: Nat := 1\n\n\
-                 def oneProof: one = 1 := byComputing\n\n\
-                 theorem oneIsOne: one = 1 := byComputing\n";
+                 theorem oneIsOne: one = 1 := byComputing\n\n\
+                 def oneProof: one = 1 := byComputing\n";
 
 /// Checks the project `files` cold and warm, then with `edits` made: the
 /// cache's statistics for that last check, which agreed with one without
 /// the cache.
 fn after_edit(name: &str, files: &[(&str, &str)], edits: &[(&str, &str)]) -> Stats {
+    after_edit_holding(name, files, edits, &[])
+}
+
+/// [`after_edit`], asserting that the entries hold each of `helpers` after
+/// the edit (a `match` on a variable compiles in place, with no helper to
+/// leave out) and that `check --recheck` then computes every digest as
+/// written.
+fn after_edit_holding(
+    name: &str,
+    files: &[(&str, &str)],
+    edits: &[(&str, &str)],
+    helpers: &[&str],
+) -> Stats {
     let dir = temp_project(name, files);
     let cache = temp_dir(&format!("{name}-cache"));
     let cold = fresh_and_cached(&dir, &cache);
@@ -53,6 +66,25 @@ fn after_edit(name: &str, files: &[(&str, &str)], edits: &[(&str, &str)]) -> Sta
         write_file(&dir, path, text);
     }
     let edited = fresh_and_cached(&dir, &cache);
+    if !helpers.is_empty() {
+        let held: Vec<Vec<u8>> = (entries(&cache).iter())
+            .map(|p| std::fs::read(p).unwrap())
+            .collect();
+        for helper in helpers {
+            let found =
+                (held.iter()).any(|b| b.windows(helper.len()).any(|w| w == helper.as_bytes()));
+            assert!(found, "no entry holds `{helper}`");
+        }
+        let rechecked = with_loaded(&dir, &cache, true, |s, ok| {
+            assert!(ok, "the re-check passes");
+            s.elab.check_cache_stats()
+        });
+        assert_eq!(
+            (rechecked.namespace_rechecked, rechecked.digest_mismatches),
+            (files.len(), 0),
+            "{rechecked:?}"
+        );
+    }
     let _ = std::fs::remove_dir_all(&dir);
     let _ = std::fs::remove_dir_all(&cache);
     edited
@@ -254,7 +286,294 @@ fn a_moved_record_below_replays_what_navigates_to_it() {
     assert_eq!((s.namespace_hits, s.namespace_misses), (1, 1), "{s:?}");
 }
 
-/// Loads the project at `dir` with the cache in `cache` and hands the
+// ---- Stage C: helpers only a proof reaches, and plain theorems' order ----
+
+/// `A` below with `proof` as `oneIsOne`'s proof, checked and then edited to
+/// `edited`, with the helpers the edited entry must hold: whether `B` was
+/// replayed.
+fn b_replayed_after_proof(name: &str, proof: &str, edited: &str, helpers: &[&str]) -> bool {
+    let a = |p: &str| {
+        A.replace(
+            "theorem oneIsOne: one = 1 := byComputing",
+            &format!("theorem oneIsOne: one = 1 := {p}"),
+        )
+    };
+    let s = after_edit_holding(
+        name,
+        &[("src/A.sw", &a(proof)), BASE[1]],
+        &[("src/A.sw", &a(edited))],
+        helpers,
+    );
+    assert_eq!(s.namespace_hits + s.namespace_misses, 2, "{s:?}");
+    assert_eq!((s.refused, s.late_misses), (0, 0), "{s:?}");
+    s.namespace_hits == 1
+}
+
+#[test]
+fn a_match_added_to_a_proof_below_replays_what_uses_it() {
+    assert!(b_replayed_after_proof(
+        "digest-match-added",
+        "byComputing",
+        "match one + 0 with | _ => byComputing",
+        &["A.oneIsOne.%match1"],
+    ));
+}
+
+#[test]
+fn a_match_removed_from_a_proof_below_replays_what_uses_it() {
+    assert!(b_replayed_after_proof(
+        "digest-match-removed",
+        "match one + 0 with | _ => byComputing",
+        "byComputing",
+        &[],
+    ));
+}
+
+#[test]
+fn a_match_whose_arms_change_in_a_proof_below_replays_what_uses_it() {
+    assert!(b_replayed_after_proof(
+        "digest-match-arms",
+        "match one + 0 with | _ => byComputing",
+        "match one + 0 with | 0 => byComputing | _ => byComputing",
+        &["A.oneIsOne.%match1"],
+    ));
+}
+
+/// A `match` added before another renumbers it: `%match1` is now the new
+/// one. Both are private, so the names don't matter.
+#[test]
+fn a_match_added_before_another_in_a_proof_below_replays_what_uses_it() {
+    let a = |first: &str| {
+        format!(
+            "{A}\ntheorem both: one = 1 ∧ one = 1 := \
+             ({first}, match one + 0 with | _ => byComputing)\n"
+        )
+    };
+    let s = after_edit_holding(
+        "digest-match-renumbered",
+        &[("src/A.sw", &a("byComputing")), BASE[1]],
+        &[("src/A.sw", &a("match one + 1 with | _ => byComputing"))],
+        &["A.both.%match1", "A.both.%match2"],
+    );
+    assert_eq!((s.namespace_hits, s.namespace_misses), (1, 1), "{s:?}");
+}
+
+/// A recursive theorem's lifted `match` that calls it joins its group; the
+/// theorem's group isn't in the digest, so the helper is still private.
+#[test]
+fn a_match_added_to_a_recursive_theorem_below_replays_what_uses_it() {
+    let a = |step: &str| {
+        format!(
+            "{A}\ntheorem rec (n: Nat): n + 0 = n :=\n  match n with\n    \
+             | 0 => byComputing\n    | Succ k => {step}\n"
+        )
+    };
+    let s = after_edit_holding(
+        "digest-match-recursive",
+        &[("src/A.sw", &a("byComputing")), BASE[1]],
+        &[(
+            "src/A.sw",
+            &a("match k + 0 with | _ => (match rec k with | _ => byComputing)"),
+        )],
+        &["A.rec.%match1", "A.rec.%match2"],
+    );
+    assert_eq!((s.namespace_hits, s.namespace_misses), (1, 1), "{s:?}");
+}
+
+/// A helper added before a data type's declaration: the type's count of
+/// definitions before it counts only those the digest keeps in order.
+#[test]
+fn a_match_added_to_a_proof_before_a_data_type_replays_what_uses_it() {
+    let a = |proof: &str| {
+        format!(
+            "namespace A\n\ndef one: Nat := 1\n\n\
+             theorem oneIsOne: one = 1 := {proof}\n\n\
+             type Coin = | Heads | Tails\n\ndef coin: Coin := Heads\n"
+        )
+    };
+    let b = (
+        "src/B.sw",
+        "namespace B\n\nimport A (Coin, coin)\n\ndef same: Coin := coin\n",
+    );
+    let s = after_edit_holding(
+        "digest-match-data",
+        &[("src/A.sw", &a("byComputing")), b],
+        &[("src/A.sw", &a("match one + 0 with | _ => byComputing"))],
+        &["A.oneIsOne.%match1"],
+    );
+    assert_eq!((s.namespace_hits, s.namespace_misses), (1, 1), "{s:?}");
+}
+
+/// A `match` the digest keeps: in a statement, a computing body, a `def`
+/// of proposition type or a local definition in a proof, which another
+/// namespace can name; and a local definition added to a proof. Each
+/// checks `B` again.
+#[test]
+fn a_match_outside_a_sealed_proof_below_checks_what_uses_it_again() {
+    let cases = [
+        (
+            "theorem oneIsOne: one = 1 := byComputing",
+            "theorem oneIsOne: (match one + 0 with | 0 => one = 1 | _ => one = 1) := byComputing",
+            "A.oneIsOne.%match1",
+        ),
+        (
+            "def one: Nat := 1",
+            "def one: Nat := match 0 + 0 with | _ => 1",
+            "A.one.%match1",
+        ),
+        (
+            "def oneProof: one = 1 := byComputing",
+            "def oneProof: one = 1 := match one + 0 with | _ => byComputing",
+            "A.oneProof.%match1",
+        ),
+        (
+            "theorem oneIsOne: one = 1 := byComputing",
+            "theorem oneIsOne: one = 1 :=\n  def go (m: Nat): Nat := match m + 0 with | _ => m\n  byComputing",
+            "A.oneIsOne.go.%match1",
+        ),
+        (
+            "theorem oneIsOne: one = 1 := byComputing",
+            "theorem oneIsOne: one = 1 :=\n  def go (m: Nat): Nat := m\n  byComputing",
+            "A.oneIsOne.go",
+        ),
+    ];
+    for (i, (from, to, helper)) in cases.into_iter().enumerate() {
+        assert!(A.contains(from), "{from}");
+        let s = after_edit_holding(
+            &format!("digest-match-kept-{i}"),
+            BASE,
+            &[("src/A.sw", &A.replace(from, to))],
+            &[helper],
+        );
+        assert_eq!(
+            (s.namespace_hits, s.namespace_misses),
+            (0, 2),
+            "`{to}`: {s:?}"
+        );
+    }
+}
+
+/// A theorem with an `unfolding` list stores the helpers of its proof's
+/// `match`es in that list (`Elaborator::in_body_of`), and the list is in
+/// the digest: such a helper is kept, so `B` is checked again (today's
+/// behaviour, interface-digest-cache.md C.1's table).
+#[test]
+fn a_match_added_to_a_proof_with_an_unfolding_list_checks_what_uses_it_again() {
+    let a = |proof: &str| {
+        format!(
+            "namespace A\n\nopaque def f (n: Nat): Nat := n + 1\n\n\
+             theorem fOne: f 0 = 1 unfolding f := {proof}\n"
+        )
+    };
+    let b = (
+        "src/B.sw",
+        "namespace B\n\nimport A (f, fOne)\n\ntheorem still: f 0 = 1 := fOne\n",
+    );
+    let s = after_edit_holding(
+        "digest-match-unfolding",
+        &[("src/A.sw", &a("byComputing")), b],
+        &[("src/A.sw", &a("match f 0 + 0 with | _ => byComputing"))],
+        &["A.fOne.%match1"],
+    );
+    assert_eq!((s.namespace_hits, s.namespace_misses), (0, 2), "{s:?}");
+}
+
+/// A proof that starts using a theorem declared after it changes the order
+/// the namespace is checked in; plain theorems are in the digest by path,
+/// so `B` is replayed (SW-4710).
+#[test]
+fn a_proof_below_that_starts_using_a_later_theorem_replays_what_uses_it() {
+    let a = format!("{A}\ntheorem later: one = 1 := byComputing\n");
+    let edited = a.replace(
+        "theorem oneIsOne: one = 1 := byComputing",
+        "theorem oneIsOne: one = 1 := later",
+    );
+    let s = after_edit(
+        "digest-later-theorem",
+        &[("src/A.sw", &a), BASE[1]],
+        &[("src/A.sw", &edited)],
+    );
+    assert_eq!((s.namespace_hits, s.namespace_misses), (1, 1), "{s:?}");
+}
+
+/// A proof that starts using a computing definition declared after it
+/// moves that definition past another in checking order: the digest
+/// changes (only plain theorems are listed by path), and what the cache
+/// gives is what a check without it gives.
+#[test]
+fn a_proof_below_that_starts_using_a_later_definition_gives_what_a_fresh_check_gives() {
+    let a = format!(
+        "{A}\ndef first: Nat := 2\n\ndef second: Nat := 3\n\n\
+         theorem secondIs: second = 3 := byComputing\n"
+    );
+    let edited = a.replace(
+        "theorem oneIsOne: one = 1 := byComputing",
+        "theorem oneIsOne: one = 1 := match second with | _ => byComputing",
+    );
+    let s = after_edit(
+        "digest-later-definition",
+        &[("src/A.sw", &a), BASE[1]],
+        &[("src/A.sw", &edited)],
+    );
+    assert_eq!((s.refused, s.late_misses), (0, 0), "{s:?}");
+}
+
+/// An `@[reading]` theorem keys a row, so it stays in checking order; its
+/// proof starting to use a later theorem gives what a fresh check gives.
+#[test]
+fn a_reading_whose_proof_starts_using_a_later_theorem_gives_what_a_fresh_check_gives() {
+    let a = "namespace A\n\ntype Small (n: Nat): Prop = { below: n < 10 }\n\n\
+             def small (n: Nat): Bool := n < 10\n\n\
+             @[reading]\ntheorem smallReads (n: Nat): small n ↔ Small n := \
+             { forward = h => { below = h }, backward = s => s.below }\n\n\
+             theorem later (n: Nat): small n ↔ Small n := \
+             { forward = h => { below = h }, backward = s => s.below }\n";
+    let edited = a.replace(
+        "@[reading]\ntheorem smallReads (n: Nat): small n ↔ Small n := \
+         { forward = h => { below = h }, backward = s => s.below }",
+        "@[reading]\ntheorem smallReads (n: Nat): small n ↔ Small n := later n",
+    );
+    assert_ne!(a, edited);
+    let b = (
+        "src/B.sw",
+        "namespace B\n\nimport A (small)\n\n\
+         theorem below (n: Nat) (h: small n): n < 10 :=\n  match h with\n    | { below } => below\n",
+    );
+    let s = after_edit(
+        "digest-later-reading",
+        &[("src/A.sw", a), b],
+        &[("src/A.sw", &edited)],
+    );
+    assert_eq!((s.refused, s.late_misses), (0, 0), "{s:?}");
+}
+
+/// `B` has a private helper of its own; `A`'s proof gains one. `B` and `C`
+/// above it are replayed.
+#[test]
+fn private_helpers_in_two_namespaces_replay_what_is_above_both() {
+    let a = |proof: &str| {
+        A.replace(
+            "theorem oneIsOne: one = 1 := byComputing",
+            &format!("theorem oneIsOne: one = 1 := {proof}"),
+        )
+    };
+    let b = "namespace B\n\nimport A (one, oneIsOne)\n\n\
+             theorem stillOne: one = 1 := match one + 0 with | _ => oneIsOne\n\n\
+             def two: Nat := one + one\n";
+    let c = "namespace C\n\nimport B (two)\n\ntheorem twoIsTwo: two = 2 := byComputing\n";
+    let s = after_edit_holding(
+        "digest-match-two",
+        &[
+            ("src/A.sw", &a("byComputing")),
+            ("src/B.sw", b),
+            ("src/C.sw", c),
+        ],
+        &[("src/A.sw", &a("match one + 0 with | _ => byComputing"))],
+        &["A.oneIsOne.%match1", "B.stillOne.%match1"],
+    );
+    assert_eq!((s.namespace_hits, s.namespace_misses), (2, 1), "{s:?}");
+}
+
 /// session, with whether the load succeeded, to `then`.
 fn with_loaded<R: Send>(
     dir: &Path,
@@ -486,8 +805,8 @@ fn the_digest_of_a_fixed_project_is_pinned() {
     );
 }
 
-const PINNED_A: &str = "2505cc506db95b3ed1bba963eeccc17671c3be5b408abd80423b4a9dd2126470";
-const PINNED_B: &str = "940bd22a69544eba55e203d2e3f1fe6f2c2d4aed813da82d2087f2c994dc6775";
+const PINNED_A: &str = "52d7913288eac10b119af88c6b441b67706c8056aec1406806f5c1936c97f098";
+const PINNED_B: &str = "183c543a11d694e6f0bbc3ccb48d1a3f2835069b836453414af356c2dcb21216";
 
 /// Rule 4 end to end: `W-MODULE-NAME` in `B` labels `A.a`'s position, so
 /// `B`'s entry holds a position in `A`'s file and records the project's
@@ -572,6 +891,20 @@ fn every_proof_edit_below_gives_what_a_check_without_the_cache_gives() {
         (
             "match b with\n    | True => Inl byComputing\n    | False => Inr byComputing",
             "match b with\n    | False => Inr byComputing\n    | True => Inl byComputing",
+        ),
+        // The same proofs with a lifted `match` around each (stage C).
+        (
+            "theorem oneIsOne: one = 1 := byComputing",
+            "theorem oneIsOne: one = 1 := (match 0 + 0 with | _ => byComputing)",
+        ),
+        (
+            "Nat.addComm n 0",
+            "(match 0 + 0 with | _ => Nat.addComm n 0)",
+        ),
+        (
+            "match b with\n    | True => Inl byComputing\n    | False => Inr byComputing",
+            "(match 0 + 0 with | _ => match b with\n    \
+             | True => Inl byComputing\n    | False => Inr byComputing)",
         ),
     ];
     let files = [("src/A.sw", a), ("src/B.sw", b), ("src/C.sw", c)];
