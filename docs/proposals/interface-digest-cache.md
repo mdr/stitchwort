@@ -195,6 +195,9 @@ pass over the entry before the digest is taken, and the digest must then refer t
 entry's own declarations by path, not by position. It gets its own review (it is the one
 place where the digest stops being "the entry minus three things").
 
+The design is "Stage C design (SW-4713)" at the end of this note; it narrows the candidates
+to lifted `match` helpers and replaces this paragraph where they differ.
+
 ## 2. Trust
 
 A replayed entry goes into the trusted base unchecked (check-cache-trust.md, D1660). Today's
@@ -546,3 +549,334 @@ namespace changes the order the namespace's declarations are made in, and so its
 moving the used declaration first kept the digest. Costs cut-off, not soundness; stage C's
 "by path, not position" would fix it.
 
+
+## Stage C design (SW-4713)
+
+Paper lane on Fable, 24 Nov 2026, for D3729; the build is SW-4714 (Opus). It replaces
+section 1.6's sketch and folds in SW-4710. Code was read at `fda6878dd`; the experiments
+are two-namespace projects checked with main's release binary. Marks: **[measured]** (a
+probe I ran), **[verified]** (code, file:line), **[estimated]**, **[not verified]**.
+
+**The problem.** Stage A keeps the cut-off for a proof edit only while the namespace's
+other declarations stay exactly as they were, in the same order. Two common proof edits
+break that. Adding or removing a `match` on something computed adds or removes a hidden
+helper declaration **[measured: `theorem t … := match after + 0 with …` puts
+`A.t.%match1` in `A`'s entry, `A`'s digest changes and `B` is elaborated]**; and a proof
+that starts using a later declaration changes the order the namespace is checked in
+**[measured: `other := z n` with `z` declared later changes `A`'s digest]**. About 1,930 of
+`tools/fmt`'s 5,563 theorems own such a helper **[estimated, SW-4707 step 0]**.
+
+**The change.** The digest stops mentioning (1) the helpers of `match`es that only sealed
+proofs reach, and (2) where a declaration sits among the others: it names the namespace's
+own declarations by path, and lists plain theorems in path order rather than checking
+order.
+
+**What it should do.** Editing a proof in any way that keeps every statement, including
+adding and removing `match`es and using a later theorem, re-checks that namespace alone
+**[estimated; the measure in C.5 shows it on `tools/fmt`]**.
+
+### C.1 What is left out, exactly
+
+**Candidates.** An own definition of the unit is a *candidate* when all of these hold:
+
+- it has a row in the unit's `lifted` table: it is the helper of a lifted `match` (or of a
+  record update's `match`), named `owner.%matchN` **[verified: every draft that isn't a
+  local definition is pushed there, `lift.rs:885-898`; names from `lift.rs:678-699`]**;
+- it is not marked `instance`, is not a theorem, and has no scope name.
+
+Nothing else can be left out: not a local definition or local theorem (`t.go` is bound in
+scope once its owner is final and can be named from another namespace, `lib.rs:3277-3296`),
+not `f.%body`, `f.%step`, `f.unfold`, derived instances or their `%` helpers, equations,
+defaults' helpers. Those are found by *constructed names* (`{path}.%step` at
+`tailrec.rs:199-202` and `equations.rs:2211-2220`; `has_member(d, "%compare")` in the
+derives), so reachability through terms doesn't describe who reads them. For `%match`
+there is no constructed-name lookup: every code mention of the name tests a definition
+already in hand from a term, or cuts the owner's name out of a message **[verified: grep
+of `%match` in `crates/elab/src`, `crates/driver/src`, `crates/core/src`, 11 code sites:
+`opaque.rs:490`, `tailrec.rs:270`, `equation_notes.rs:172,216`, `lift.rs:696,1807,1829`,
+`auto.rs:1324`, `equations.rs:4376`, `termination.rs:369`, `pretty.rs:2884`]**. SW-4707
+counted 4,996 `%match` helpers against about 50 hidden helpers of other kinds owned by
+theorems, so this is the whole gain.
+
+**Proof-private.** A candidate is *proof-private* unless it is reachable from a root:
+
+- *Roots*: every reference to an own definition that the digest stream writes anywhere
+  other than (a) inside a candidate's own record (its type, body, `unfolding` list, run
+  body, group) and (b) inside a table row *owned by* a candidate. So roots include every
+  type, every kept body, every name, every row of every table, the extensions, and anything
+  added to entries later.
+- *Not roots, because the digest doesn't write them*: a sealed theorem's body (stage A),
+  and, new here, a sealed theorem's group list (C.2).
+- *Edges*: the references in a candidate's own record and owned rows.
+- *Owned rows*: the candidate's row in `lifted`, `match_columns` and `update_shown`
+  (the three written for the helper by `lift.rs:855-915`). A row in any other table that
+  mentions a candidate, as key or value, is a root.
+
+Proof-private = the candidates not reached from the roots through edges (mark from the
+roots; cycles among candidates with no root reaching them are private, as mutually
+recursive helpers of one proof should be).
+
+How the cases the brief asks about fall out:
+
+| Case | Result | Why |
+|---|---|---|
+| a `match` in a theorem's proof | private | reached only from the sealed body |
+| a `match` in a `match` in a proof | both private | the outer helper's body is an edge, with no root above it |
+| a recursive theorem whose `match` is lifted (the helper joins the theorem's group) | private | the theorem's group list isn't written (C.2) **[measured that such a theorem checks and makes `A.rec.%match1`, `%match2`; not verified that they join the group]** |
+| a `match` in a theorem's *statement* | kept | the type is a root. These are numbered before the proof's (`signature_matches`, `lift.rs:785`), so a proof edit doesn't rename them |
+| a `match` in a computing `def`'s body, or in a `def` of proposition type | kept | a kept body is a root |
+| a `match` inside a local `def` in a proof (`t.go.%match1`) | kept | `t.go` is named and its body kept. Inside a local *theorem*: private |
+| a local `def` or `theorem` added to a proof | kept, digest changes | it gets a name another namespace can write (`A.t.go`); not a candidate |
+| a helper in a group with a computing definition | kept | that definition's group list is a root |
+| a helper named by an instance, an equation, a `rules` set, a reading, a default | kept | a row of another table is a root |
+| a theorem with an `unfolding` list | its helpers private unless the theorem's stored list names them | the list is written for every definition, so if it names a helper that helper is a root **[not verified which; `opaque.rs:200-222` puts the earlier helpers in each *helper's* list]**. Costs cut-off only |
+| the same helper shared by a proof and a computing `def` | can't arise by construction (a helper is named under one owner); if it did, the `def`'s body is a root | |
+
+**How it is computed.** By the encoder, not by a separate walk over terms, so that rule 1
+(default-include) still holds: a part added to entries later is a root unless someone
+marks it as a candidate's own. `Out` gets a *context* (root, or a candidate) set by the
+definition loop while it writes a candidate's record and by the three owned tables while
+they write a candidate's row; `Out::def` in digest mode records `(context, target)` for
+each own definition written. One *recording* digest pass collects the pairs; the marking
+is a few lines; the *final* digest pass skips private candidates' records and owned rows.
+If the final pass meets a reference to a private candidate, that is a bug in the marking:
+it fails the encoding ("can't be cached"), never writes something. The entry itself is
+unchanged: private helpers are in it and are replayed as now.
+
+### C.2 The digest stream becomes position-free (SW-4710)
+
+Leaving a record out shifts everything after it, so stage C needs this in any case; the
+same change gives SW-4710. In digest mode only (the entry keeps its encoding):
+
+1. **Own declarations by path.** `Out::def` and `Out::data` write an own declaration as
+   its path (with its ordinal among own declarations of that path, in checking order, in
+   the rare case two share one), not `id - base`. Outside declarations stay path and
+   `interface_hash`.
+2. **Group lists by path**, sorted. Today they are raw positions (`mod.rs:2325-2331`), so
+   they never go through `Out::def`. **A sealed theorem (`has_interface`) writes no group
+   list.** Its group says which declarations its *proof* is checked together with; each
+   other member that is in the digest writes its own list, which names the theorem.
+3. **A data type's `defs_before`** (`mod.rs:2402-2406`) counts every definition before it,
+   private helpers and theorems included. The digest writes instead the number of
+   *ordered* definitions (below) before it. `datas_before` is unchanged.
+4. **Order.** The definitions section is written as: first the *ordered* part, in
+   checking order; then the *plain theorems*, sorted by path. A plain theorem is a sealed
+   theorem (`has_interface`) that is not marked `instance` and is the key of no table row
+   (no `@[reading]`, `@[walk]`, `rules`, default, …: found in the recording pass, like the
+   roots). Everything else that is kept is ordered: computing definitions, kept helpers,
+   theorems with rows, data types. Tables keyed by a declaration (`OwnedBy`, sorted by id
+   today, `table.rs:277-281`) sort by the same order. Tables that are sequences (`tests`,
+   `abilities`, `lifted`, `equation_skips`, `equations_done`) keep their order, minus
+   private rows. Names are already sorted by key (`mod.rs:1300-1313`).
+
+What this buys: a proof that starts using a later *theorem* keeps the digest (the probe
+above). A proof that starts using a later *computing definition* keeps it only if that
+doesn't move the definition past another ordered declaration; otherwise the digest changes
+and the namespaces above are re-checked, as today. Sorting everything by path would cover
+that too; it is decision 1 below, and I recommend against it for now.
+
+### C.3 Trust
+
+Two different things can go wrong with a cache hit, and stage C touches only the second.
+
+**(a) The replayed terms are still valid kernel terms: unchanged, and not resting on the
+digest.** Every outside declaration a replayed entry's terms mention is in its dependency
+records by path and `interface_hash`, compared on replay (`Out::def`, `mod.rs:1532-1556`;
+the refusal "isn't what the entry was made with"). For a helper, which is not a theorem,
+`interface_hash` is its full hash, body included (`hash.rs:235-258`). So if the marking
+were wrong and a dependant's stored term did mention a helper the digest left out, a
+changed or vanished helper is refused at replay and the namespace is elaborated: a late
+miss, not a wrong admission. What the kernel guarantees underneath is rule 6 and rule F
+(docs/core.md): no declaration's check unfolds or reads a theorem's proof, and a reference
+to a theorem hashes as its statement, so nothing a dependant checked can depend on what
+only a sealed proof mentions. **Limit:** a plain `check` that leaves a namespace out
+unloaded (`plan_entry`, `mod.rs:793-807`) compares no dependency records; there the key is
+the only guard, as in stage A.
+
+**(b) The stored entry is what elaborating the source now would give.** This is the
+claim of section 2, and stage C needs two more properties for it:
+
+- **P5 (private helpers are invisible).** Elaborating `N` never reads a proof-private
+  helper `h` of `D`: not its existence, name, type, flags or rows.
+- **P6 (plain theorems' order is invisible).** `N`'s result doesn't depend on where a
+  plain theorem of `D` sits in `D`'s checking order.
+
+*P5, by the ways `N` could come to hold `h`:*
+
+1. *Through a term.* `N` reads `D`'s types, kept bodies and table rows, all roots, and
+   never a sealed body (P2). A private `h` is in none of them by definition.
+2. *By name.* A `%match` helper has no scope entry (only local definitions are bound,
+   `lib.rs:3277-3296`); source can't write one (`%` is its own token, `lexer.rs:976`)
+   **[measured: `A.closed.%match1` in `B` is `E-PARSE`, "expected a field name after
+   `.`"]**; and no code builds a `%match` name to look up (C.1).
+3. *By re-lifting the same name in `N`* (the brief's question). A helper's path is
+   `unit.path(name)` (`kernel.rs:195`) under its owner's key, so `N`'s helpers are named
+   under `N`'s own declarations and can't collide with `A.t.%match1`. Within `D`, a proof
+   edit renumbers that proof's helpers (`%match1` may now be a different `match`); all of
+   them are private, and one that isn't (reached from a root) is in the digest under its
+   name, so renumbering it changes the digest.
+4. *By a table.* Its three owned tables are read by id (`match_columns`, `update_shown`),
+   or walked only to explain a message that already names a `%match` helper (`lifted`:
+   `lift.rs:1778-1830`, `decreasing/plain.rs:847`). `helper_keys` holds local
+   definitions' keys, not these.
+5. *By a scan of all definitions.* This is the new exposure: stage A never removed a
+   whole declaration from the digest, so a scan was always covered. The scans in
+   `crates/elab/src` outside the cache and tests, each read **[verified by reading the
+   site; not a proof that the list is complete: it is a grep for `env.defs()`,
+   `namespace_defs` and `tables.lifted`]**:
+
+   | Site | Selects by | Can it select or be changed by a private helper? |
+   |---|---|---|
+   | `auto.rs:1344-1360`, `1464-1500`, `1533-1550` (decision procedures, hints) | the `instance` mark; order by path | no: a candidate isn't an instance |
+   | `reading.rs:1882-1890` | the `instance` mark | no |
+   | `opaque.rs:460`, `check.rs:1029` | "is any definition opaque?", a fast path before a walk over the terms of a diagnostic | a private helper under an `unfolding` list is opaque, so the gate can open; what follows reads only definitions in the diagnostic's terms and skips `%` names. Same result |
+   | `opaque.rs:685-700` | an owner whose `unfolding` list holds a given local definition; skips `%` owners | no |
+   | `tailrec.rs:199-202`, `equations.rs:2211-2220` | an exact `{path}.%step` | no |
+   | `congruence.rs:693` | names ending `Cong` | no |
+   | `interfaces.rs:1296`, `equation_notes.rs:70,202` | notes on an error | an error is never cached |
+   | `assume.rs:86-172,419` | assumption labels | a helper isn't an assumption; goals aren't cached |
+   | `module.rs:963-1113`, `decreasing.rs:1119,1409`, `lib.rs:1463`, `library.rs:988,1595` | the unit's own range, or a count taken as a mark | own unit only |
+   | `library.rs:1024` (`library_decision_procedures`) | every definition's result type | `#[doc(hidden)]`, for a test of D58; not reached while elaborating **[not verified beyond its doc]** |
+   | `timings.rs`, `search.rs:1393` (driver's `search`), `driver/*` (`audit`, `axioms`, `doc`, `run`, `declhash`, `live/trial.rs`) | everything | report-time walks over the live session, in no entry (section 2.3) |
+
+   `namespace_defs` ranges grow and shrink with helpers; their only readers are the
+   `auto.rs` sites above (membership tests and the instance scans).
+
+*P6.* A plain theorem has no instance mark and no table row, so of the scans above only
+an exact-name lookup can find it, and none of the lists they build has it in. The two
+places I found where a dependant's result follows id order are both over tables or marks
+that plain theorems are excluded from: `reading.rs:1882` (instances, in id order, giving
+the order of `N`'s warnings) and `reading.rs:1919` (the readings table) **[verified]**.
+That is why C.2 keeps anything with a row or a mark in the ordered part. P4 (absolute
+ids) is relied on as before.
+
+*The sealed theorem's group* (C.2 rule 2) is the one new exclusion besides private
+helpers. Readers of a definition's group outside the cache: `tailrec.rs:208`, for the
+`@[tailrec]` definition being checked, in the elaborator **[verified, grep of
+`.group()`]**; in `crates/core`, the hashes (a computing member's `def_hash` covers its
+whole group, proofs included, `hash.rs:212-225`, and that hash is in the digest),
+termination, erasure and the backends **[not verified: for the Fable review]**. A
+theorem can't be recursed on from outside (`E-NO-INDUCT`, SW-4707's review).
+
+*What the kernel guarantees and what the elaborator must.* The kernel: rule F and rule 6
+(no check reads a proof), dependency records by interface hash (a), and that a trusted
+replay re-admits exactly the entry's declarations. The elaborator: P1 to P6. P5's items 2
+to 5 and P6 are facts about elaborator code that a later change can break without any
+test in the changed area failing: a new scan that picks definitions by type, or a new
+lookup that builds `%match` names. Two things keep that honest: the differential tests
+of C.5 (each compares with `--no-cache`), and one sentence at `Tables::lifted` and at
+`Def`'s environment accessor saying that a scan must not let a `%match` helper change a
+result another namespace caches.
+
+*What a mistake costs.* A helper wrongly left out that a dependant's *terms* use: a
+late miss (a). One that a dependant's *elaboration* consulted without keeping: a stale
+entry whose terms are still valid, so a message, a warning or a choice `auto` made may
+differ from a fresh check until `--no-cache`; and under a plain `check`'s plan, a
+namespace reported as checking that a fresh check might not. A helper wrongly kept:
+lost cut-off only. `--recheck` can't see either (both sides compute the same marking);
+the nets are the differential tests and the rolling `--no-cache` check.
+
+### C.4 The editor and parallel checking
+
+Unchanged. The editor gets the wider cut-off through the same keys, under the same two
+limits as section 4 (only while the edited namespace checks cleanly; nothing within a
+namespace). For parallel checking, the marking is the first concrete form of "the part of
+a namespace that is its interface" (section 5), but nothing reads entries by it yet.
+
+### C.5 Build plan (SW-4714, Opus)
+
+Files: `crates/elab/src/cache/mod.rs` (nearly all), `crates/elab/src/state/table.rs` and
+`tables.rs` (owned rows' context; keyed tables' order in digest mode),
+`crates/driver/tests/projects/check_cache/digest.rs`, this note ("As built (stage C)"),
+`docs/core.md` rule 6's sentence on the digest, `docs/proposals/check-cache.md`. No kernel
+change; no change to what an entry holds or how it is replayed.
+
+1. **By path** (C.2 rules 1 to 3): `Out::def`/`data` in digest mode; group lists through
+   them, none for a sealed theorem; `defs_before` as the ordered count. `FORMAT` 44 → 45
+   (the digest's meaning changes; finding 3 of SW-4707's review), and the pinned digests
+   in `the_digest_of_a_fixed_project_is_pinned` are re-pinned.
+2. **The recording pass and the marking** (C.1): `Out`'s context; the candidate test;
+   mark from the roots. Skip the recording pass when the unit has no candidate and no
+   plain theorem out of order (an optimisation; say what it costs, see the measure).
+3. **The final pass**: skip private records and owned rows; write the ordered part, then
+   plain theorems by path; keyed tables in that order. A reference to a private helper
+   here fails the encoding.
+4. **`--recheck`** needs nothing new if it calls the same `interface_digest` on the
+   replayed state; check that the replayed `lifted` rows give the same candidates.
+5. **`STITCHWORT_CACHE_DEBUG`**: the "written" line also says how many helpers were left
+   out and how many theorems were plain, for the measure.
+6. **Tests**, in `check_cache/digest.rs`, each through `after_edit` (cold, warm, edit,
+   compared with `--no-cache`); the scrutinee must be something computed, or the `match`
+   isn't lifted (SW-4707's review, finding 5): assert the helper is in the entry.
+   - a `match` added to a proof below; removed; its arms changed: `B` replayed;
+   - a second `match` added before the first in one proof (renumbering): replayed;
+   - a recursive theorem's lifted `match` added: replayed;
+   - a `match` added to a theorem's *statement*; to a computing `def`'s body; to a `def`
+     of proposition type; to a local `def` inside a proof: `B` elaborated;
+   - a local `def` added to a proof (a new name): elaborated;
+   - a helper added to a proof *before* a data type's declaration: replayed
+     (`defs_before`);
+   - a proof starts using a later theorem: replayed (SW-4710; today's
+     `BASE` comment about `oneProof` coming first goes);
+   - a proof starts using a later computing definition that moves past another: only that
+     the result equals `--no-cache`;
+   - a `@[reading]` theorem's proof starts using a later theorem: equals `--no-cache`
+     (it is ordered, not plain);
+   - `B` has a `match` in a proof of its own while `A`'s proof gains one: `B` replayed,
+     and `C` above both too;
+   - `--recheck` after each of the first three: no digest mismatch;
+   - extend `every_proof_edit_below_gives_what_a_check_without_the_cache_gives` with, for
+     each theorem, a variant that wraps the proof in `(match 0 + 0 with | _ => …)`.
+7. **Measure**, run by the verifier or Overmind (a whole-project check): `measure.sh`
+   from docs/reviews/SW-4707-notes.md with one more run. After `edited`, restore the
+   file, then replace line 32's proof by one with a lifted `match`:
+
+       sed -i '32s/:= (byComputing, byComputing, byComputing)$/:= (match 0 + 0 with | _ => (byComputing, byComputing, byComputing))/' "$file"
+       run matched
+       strings -a "$cache"/check/*ns.Fmt.SpellProofs-* | grep -c 'spellsNil.%match1'
+
+   **[measured on a probe: this one-line form checks and makes `A.triple.%match1`; not run
+   on `tools/fmt`]**. Expected: main's binary `matched: elaborated` about 54 (as
+   SW-4707's "before"), the lane's `elaborated 1`, and the last line at least 1 (the
+   helper was really made). Also record `cold` for both binaries: the extra digest pass
+   shows there (stage A's second pass: 115 s to 117 s cold **[measured, SW-4707]**; one
+   more pass should cost about the same again **[estimated]**).
+
+**Estimate.** SW-4707 (stage A: the encoder's second pass, the key, rule 4, 18 tests) took
+Opus 43 min against 90 estimated, and its Fable review 11 min **[verified, the board]**.
+Stage C is one file's worth of encoder work and about 14 tests: **expected 45 min**, review
+15 min.
+
+### C.6 Decisions for Matt
+
+1. **How far should the digest ignore checking order?** *The problem:* a proof that starts
+   using a later declaration reorders its namespace, and today everything above is
+   re-checked. *Options:* (a) plain theorems listed by path, everything else in checking
+   order (C.2, this design): covers a proof that starts using a later theorem; rests on
+   P6, which I could check site by site. (b) everything sorted by path: also covers a
+   proof that starts using a later definition, but then no cached result above may depend
+   on the order of *any* two declarations below, and I found two places where warnings
+   come out in that order (`reading.rs:1882`, `1919`); each would be sorted by path first,
+   and the next one added would be a silent stale warning order. *What it should do:*
+   (a) keeps the cut-off for the reorder I could measure; how often (b)'s extra case
+   happens is **[not verified]**. **[rec: (a) now; (b) as its own ticket if the debug
+   counts show the extra case is common]**
+
+Nothing else here is Matt's: no proved tool accepts less, no theorem changes, nothing
+user-visible but the cache's debug lines.
+
+### C.7 Risks
+
+- **P5 item 5 is an audit of today's code**, and the list of scans came from a grep. The
+  Fable review of SW-4714 should redo it against the built diff, with `crates/core`'s
+  readers of a definition's group.
+- **A recursive theorem's helper joining its group** was assumed from the lifting code
+  (`lift.rs:926-935`), not observed. If helpers are admitted apart, rule 2 of C.2 is
+  harmless and unneeded.
+- **A theorem's stored `unfolding` list** may name its own helpers (C.1's table); then
+  theorems with a list keep today's behaviour. Count them in the measure's debug line
+  before doing anything about it.
+- **The extra pass** is paid on every namespace written **[estimated 1 to 2% of a cold
+  check]**.
+- **Stage D** (a `?` in a proof keeps the digest) would make an assumption a third kind
+  of thing left out; it should reuse this marking, not add a second one.
