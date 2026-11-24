@@ -464,12 +464,23 @@ impl Tables {
         lifted.encode_owned_since(m.lifted, e, |&(id, _)| id)?;
         match_columns.encode_owned_since(&m.match_columns, e)?;
         readings.encode_since(&m.readings, e)?;
+        helpers.retain(|k| e.keeps_key(k));
         helpers.sort();
         e.count(helpers.len());
         for k in helpers {
             k.encode(e);
         }
-        equation_skips.encode_since(&m.equation_skips, e)?;
+        // A skipped equation's row is its definition's own: one private to a
+        // proof (D3736), which nothing outside can name, takes it along.
+        let skips: Vec<&(DefId, String, String)> = (equation_skips.since(m.equation_skips).iter())
+            .filter(|(id, ..)| e.keeps_owned_row(*id))
+            .collect();
+        e.count(skips.len());
+        for row in skips {
+            e.candidate_row(row.0);
+            row.encode(e);
+            e.row_end();
+        }
         equations_done.encode_since(&m.equations_done, e)?;
         total_rows.encode_since(&m.total_rows, e)?;
         rule_sets.encode_since(&m.rule_sets, e)?;
@@ -725,6 +736,13 @@ impl Tables {
 pub(crate) struct Writes<'a> {
     instances: Vec<(&'a (DataId, DataId), Option<&'a InstanceInfo>)>,
     helper_keys: Vec<(&'a String, Option<&'a ()>)>,
+}
+
+impl Writes<'_> {
+    /// The helper keys the unit added.
+    pub(crate) fn new_helper_keys(&self) -> impl Iterator<Item = &String> {
+        (self.helper_keys.iter()).filter_map(|&(k, old)| old.is_none().then_some(k))
+    }
 }
 
 /// Parts of a table's log, `(start, end)` (`None`: to its end), as

@@ -1,5 +1,5 @@
 {
-  "next": 4766,
+  "next": 4767,
   "tickets": [
     {
       "id": 47,
@@ -34698,15 +34698,19 @@
     {
       "id": 4762,
       "title": "[Opus] D3736: a def or theorem written inside a theorem's (or instance's? decide by the rule: anything whose body is sealed) proof is private to that proof: naming it from outside is an error saying so; local defs in ordinary defs stay nameable (sumTo.go); interface digest treats them as proof-private like %match helpers; guide + syntax.md",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nProgress (Opus lane, 24 Nov): done in fe622f0a1. Repo search: no use outside its theorem's proof except examples/reject/opaque-note-local-definition-theorem.sw (already a reject example; removed). Owners: theorems only (Def::proof_hidden needs the theorem flag; a Prop-typed def or instance computes, so stays nameable); compiler-made equation theorems (f.eq2) are not owners. E-PROOF-PRIVATE in resolve/unknown, dot paths (f.go) and stitchwort axioms; digest leaves them, their names and helper keys out; equation_skips rows owned. Tests: check_cache::digest (39/39, 3 new), examples local/proof-local/opaque-note/function-equations, decreasing_twins local, hash_stability for the new accept example.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "62c2414e7b01adec854a8b800c0265e965752cd5",
+        "fe622f0a1fd0e8d29fbcfd16148aa2f62580d88b",
+        "69d317940c4b67923b64d7ab5819645b707748fb"
+      ]
     },
     {
       "id": 4763,
@@ -34743,6 +34747,19 @@
       "id": 4765,
       "title": "[Opus] Stage 3 step 2: the interface pass in the elaborator: deferral rule from the source, leave_stated in place of the proof, part A for a namespace with its own stated theorems, the in-memory interface entry and its admission (parallel-checking-stage-3.md section 9 step 2)",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4766,
+      "title": "[DeepSeek] SW-4762 follow-ups: remove the now-unreachable sealed branch of opaque_notes (crates/elab/src/opaque.rs) or show a case reaching it; --only t.go for a proof-private name says E-PROOF-PRIVATE, not 'no theorem'; local.rs E-DUPLICATE note says t.go is nameable from outside: true only for def owners",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],

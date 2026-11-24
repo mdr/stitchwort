@@ -1002,8 +1002,83 @@ impl Elaborator {
             {
                 Resolved::Missing
             }
+            Resolved::Found { key, .. } if self.proof_private_elsewhere(key).is_some() => {
+                Resolved::Missing
+            }
             found => found,
         }
+    }
+
+    /// The theorem whose proof defined the local definition `key`, if any
+    /// (D3736): what a proof defines (`t.go`, `t.go.inner`, the equations
+    /// `t.go.eq1`, and in `def f` the helpers of a local theorem's proof,
+    /// `f.lemma.go`) is private to that proof, since the proof is sealed
+    /// and nothing outside it sees it. The outermost theorem of the chain
+    /// of local definitions `key` is under. A local definition of a `def`
+    /// or an `instance` isn't, whatever its type: their bodies compute, so
+    /// what they use is part of what they are (`sumTo.go`).
+    pub(crate) fn proof_private_owner<'k>(&self, key: &'k str) -> Option<&'k str> {
+        if !self.tables.helper_keys.contains_key(key) {
+            return None;
+        }
+        let mut owner = None;
+        let mut end = key.len();
+        while let Some(dot) = key[..end].rfind('.') {
+            let prefix = &key[..dot];
+            // Not an equation the compiler made (`f.eq2`, over its branches'
+            // `f.eq2.ifTrue`): what a theorem has a proof of is written
+            // `theorem`, and no local definition has such a name.
+            let last = short(prefix);
+            if let Some((Global::Def(id), _)) = self.scope.get(prefix)
+                && self.kernel.def(id).theorem()
+                && !crate::equations::reserved_local(last)
+                && !last.contains('%')
+            {
+                owner = Some(prefix);
+            }
+            if !self.tables.helper_keys.contains_key(prefix) {
+                break;
+            }
+            end = dot;
+        }
+        owner
+    }
+
+    /// The theorem whose proof defined the declaration with key `key`, for
+    /// a command that names declarations from outside (`axioms`): such a
+    /// name is private to that proof (D3736).
+    pub fn proof_private_to(&self, key: &str) -> Option<String> {
+        self.proof_private_owner(key)
+            .map(|o| display(o).to_string())
+    }
+
+    /// [`Self::proof_private_owner`] of `key`, unless the declaration being
+    /// elaborated is inside that theorem.
+    pub(crate) fn proof_private_elsewhere<'k>(&self, key: &'k str) -> Option<&'k str> {
+        let owner = self.proof_private_owner(key)?;
+        let current = self.decl.owner.borrow().join(".");
+        let inside = current
+            .strip_prefix(owner)
+            .is_some_and(|rest| rest.is_empty() || rest.starts_with('.'));
+        (!inside).then_some(owner)
+    }
+
+    /// `E-PROOF-PRIVATE` at `span`, where the local definition `key` of the
+    /// proof of `owner` is named outside that proof.
+    pub(crate) fn proof_private_error(&self, span: Span, key: &str, owner: &str) -> Diagnostic {
+        Diagnostic::error(
+            "E-PROOF-PRIVATE",
+            format!(
+                "`{}` is defined inside the proof of `{}` and can be used only there",
+                display(key),
+                display(owner)
+            ),
+        )
+        .with_label(span, "outside that proof")
+        .with_note(
+            "a theorem's proof is sealed, so what it defines is private to it; to use it \
+             elsewhere, make it a top-level `theorem` or `def`",
+        )
     }
 
     /// Whether `global` may be named only in the library: the constructors
@@ -2198,6 +2273,11 @@ impl Elaborator {
                 "a program passes computations as thunks `() -> {Fail} a` and observes them \
                  with a handler such as `Fail.toResult` or `Fail.orElse`",
             );
+        }
+        if let Resolved::Found { key, .. } = self.resolve_any(&name.text)
+            && let Some(owner) = self.proof_private_elsewhere(key)
+        {
+            return self.proof_private_error(name.span, key, owner);
         }
         if let Some(context) = &self.unit.file_mode
             && name.text.contains('.')

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-PROOF-PRIVATE] Error: `sumToZero.go` is defined inside the proof of `sumToZero` and can be used only there
+    ╭─[ reject/proof-local-def-named-outside.sw:12:16 ]
+    │
+ 12 │ theorem goOne: sumToZero.go 1 = 1 := byComputing
+    │                ──────┬─────  
+    │                      ╰─────── outside that proof
+    │ 
+    │ Note: a theorem's proof is sealed, so what it defines is private to it; to use it elsewhere, make it a top-level `theorem` or `def`
+────╯
