@@ -66,6 +66,7 @@ fn after_edit_holding(
         write_file(&dir, path, text);
     }
     let edited = fresh_and_cached(&dir, &cache);
+    assert_entries_match_fresh(name, &dir, &cache);
     if !helpers.is_empty() {
         let held: Vec<Vec<u8>> = (entries(&cache).iter())
             .map(|p| std::fs::read(p).unwrap())
@@ -88,6 +89,42 @@ fn after_edit_holding(
     let _ = std::fs::remove_dir_all(&dir);
     let _ = std::fs::remove_dir_all(&cache);
     edited
+}
+
+/// Elaborates the project at `dir` from nothing into a new cache (given the
+/// machine salt of `cache`, so the bytes are comparable) and asserts that
+/// every entry it wrote is, byte for byte, the entry of the same name in
+/// `cache`, outside the salt and the checksum: what `cache` replayed holds
+/// what a fresh elaboration against the edited dependencies produces
+/// (docs/proposals/check-cache.md, "An entry's layout").
+fn assert_entries_match_fresh(name: &str, dir: &Path, cache: &Path) {
+    // Magic (8), format (4) and key (32) come first; then the salt (16);
+    // the checksum is the last 32 bytes.
+    const SALT: std::ops::Range<usize> = 44..60;
+    const CHECKSUM: usize = 32;
+    let fresh = temp_dir(&format!("{name}-fresh-cache"));
+    std::fs::create_dir_all(fresh.join("check")).unwrap();
+    std::fs::copy(cache.join("check/header"), fresh.join("check/header")).unwrap();
+    let source = Source::Project("p".to_string(), dir.to_path_buf());
+    run(&source, true, Some(&fresh));
+    // A project that fails to check writes nothing, and has nothing to compare.
+    for path in entries(&fresh) {
+        let file = path.file_name().unwrap().to_str().unwrap().to_string();
+        let kept = std::fs::read(cache.join("check").join(&file))
+            .unwrap_or_else(|_| panic!("the edited cache has no entry {file}"));
+        let new = std::fs::read(&path).unwrap();
+        assert_eq!(kept.len(), new.len(), "entry {file} differs in length");
+        let differing: Vec<usize> = (0..kept.len() - CHECKSUM)
+            .filter(|i| !SALT.contains(i) && kept[*i] != new[*i])
+            .collect();
+        assert!(
+            differing.is_empty(),
+            "entry {file} differs outside the salt and checksum, first at byte {:?} of {}",
+            differing.first(),
+            kept.len()
+        );
+    }
+    let _ = std::fs::remove_dir_all(&fresh);
 }
 
 /// `A` edited to `text`, in [`BASE`]: whether `B` was replayed.
@@ -176,6 +213,42 @@ fn an_added_reading_below_checks_what_uses_it_again() {
         &[("src/A.sw", &edited)],
     );
     assert_eq!((s.namespace_hits, s.namespace_misses), (0, 2), "{s:?}");
+}
+
+/// The audit's p1 shape (docs/reviews/SW-4732-body-read-audit.md): a proof
+/// edited from a `match` to a call, arity 1 to 0, used by application, by
+/// partial application and by `rewrite`.
+#[test]
+fn a_proof_changed_from_a_match_to_a_call_replays_what_uses_it_unchanged() {
+    let head = "namespace A\n\nimport Std (Eq, Nat)\n\n\
+                def bump (n: Nat): Nat := match n with\n  | Zero => Zero\n  | Succ k => Succ (bump k)\n\n";
+    let before = format!(
+        "{head}theorem bumpId ∀ (n: Nat): bump n = n := match n with\n  | Zero => byComputing\n  \
+         | Succ n => Eq.cong Succ (bumpId n)\n\n\
+         theorem bumpAux ∀ (n: Nat): bump n = n := bumpId n\n\n\
+         theorem bumpFn: ∀ (n: Nat) => bump n = n := n => bumpId n\n"
+    );
+    let after = format!(
+        "{head}theorem bumpAux ∀ (n: Nat): bump n = n := match n with\n  | Zero => byComputing\n  \
+         | Succ n => Eq.cong Succ (bumpAux n)\n\n\
+         theorem bumpId ∀ (n: Nat): bump n = n := bumpAux n\n\n\
+         theorem bumpFn: ∀ (n: Nat) => bump n = n := bumpAux\n"
+    );
+    let b = (
+        "src/B.sw",
+        "namespace B\n\nimport A (bump, bumpId, bumpFn)\n\n\
+         theorem applied (n: Nat): bump n = n := bumpId n\n\n\
+         def partial: ∀ (n: Nat) => bump n = n := bumpId\n\n\
+         theorem rewritten (n: Nat): bump (bump n) = n :=\n  rewrite bumpId n then bumpId n\n\n\
+         theorem viaFn (n: Nat): bump n = n := bumpFn n\n",
+    );
+    let s = after_edit(
+        "digest-p1",
+        &[("src/A.sw", &before), b],
+        &[("src/A.sw", &after)],
+    );
+    // `B` was replayed, so it was written and compared above.
+    assert_eq!((s.namespace_hits, s.namespace_misses), (1, 1), "{s:?}");
 }
 
 /// The smallest walk family (`examples/accept/walk-minimal-family.sw`).
