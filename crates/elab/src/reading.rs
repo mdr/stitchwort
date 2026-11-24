@@ -1879,7 +1879,7 @@ impl Elaborator {
             let Some(head) = prop_head(&prop) else {
                 return Ok(Vec::new());
             };
-            let instances: Vec<DefId> = (0..g.env.defs().len())
+            let mut instances: Vec<DefId> = (0..g.env.defs().len())
                 .map(DefId)
                 .filter(|&id| {
                     g.def(id).instance()
@@ -1888,6 +1888,7 @@ impl Elaborator {
                         && crate::auto::visible(self, id)
                 })
                 .collect();
+            instances.sort_by(|a, b| g.def(*a).path().cmp(g.def(*b).path()));
             let mut out = Vec::new();
             for instance in instances {
                 if decided(g, instance)?.as_ref().and_then(prop_head) == Some(head)
@@ -1916,10 +1917,11 @@ impl Elaborator {
             let Some(head) = decided(g, instance)?.as_ref().and_then(prop_head) else {
                 return Ok(Vec::new());
             };
-            let readings: Vec<DefId> = (self.tables.readings.iter())
+            let mut readings: Vec<DefId> = (self.tables.readings.iter())
                 .filter(|(id, r)| r.polarity && crate::auto::visible(self, **id))
                 .map(|(id, _)| *id)
                 .collect();
+            readings.sort_by(|a, b| g.def(*a).path().cmp(g.def(*b).path()));
             let mut out = Vec::new();
             for reading in readings {
                 let Some((_, _, prop)) = reading_sides(g, reading)? else {
