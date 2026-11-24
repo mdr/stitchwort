@@ -34153,12 +34153,12 @@
     {
       "id": 4728,
       "title": "[Opus] Kernel: value::next_parameter (value.rs:5429) reads a theorem's proof for eta (conversion and unify.rs:2796) without the frozen test, a hole in rule 6; probe whether it can change a verdict or a term (and so a digest), then make it return nothing for a frozen definition; Fable review (SW-4727 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nProgress (Opus lane, 24 Nov): probed, no visible effect (no verdict, term or digest changed; an instrumented build never reached the read on the probe shapes: lambda-headed vs point-free proof against lambdas, in records, via implicit arguments, against variables). Fixed: value::next_parameter and reference eta read through body_seen/seen, so theorems and hidden opaque defs offer no eta parameters. Pinned by opaque::eta_doesnt_read_a_sealed_body (fails before). docs/core.md updated; review notes docs/reviews/SW-4728-notes.md (Fable). Tests: examples::soundness, core it (436), driver proofs subset (34), elaboration erasure (10), all passed.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
       "commits": []
