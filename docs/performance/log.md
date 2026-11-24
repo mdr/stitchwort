@@ -44,6 +44,29 @@ in [../proposals/README.md](../proposals/README.md).
 
 ---
 
+## 24 Nov 2026
+
+### SW-4719: `check --jobs N`, a parallel fill of the check cache (stage 1 of parallel checking)
+
+- **Problem.** A cold check uses one core; `tools/fmt` and AoC have namespaces that don't
+  import each other and could be checked side by side (docs/proposals/parallel-checking.md §8,
+  bound 2.5x for `tools/fmt` with the library filled, measured 24 Nov).
+- **Change.** `check --jobs N` (§9): N worker threads, each with its own session, fill the
+  check cache namespace by namespace as what each uses gets an entry; then today's sequential
+  check runs over the same store and reports. Library files are claimed so two workers don't
+  elaborate the same one. With `--no-cache` the store is in memory for the run (D3731).
+  Default 1 job; results, messages, terms and hashes unchanged.
+- **Measured (release, one run each, Speedwell at load about 12, so noisy).**
+  `examples/projects/accept/trip-journal` (4 namespaces, mostly a chain; most of the time is
+  the library, `Std.Float.Theory`): cold cache 13.1 s with 1 job, 9.0 s with 4 (library files
+  checked side by side inside the workers); `--no-cache` 7.3 s with 1 job, 8.0 s with 4, peak
+  memory 382 MB to 464 MB (nothing to run side by side, and three more sessions plus entries
+  encoded into memory). Output byte for byte the same in each pair.
+- **Not measured here.** `tools/fmt` and AoC: the design's measure,
+  `docs/proposals/parallel-checking/measure_jobs.sh target/release/stitchwort tools/fmt OUT`,
+  is the orchestrator's or Overmind's (about 12 minutes for `tools/fmt`). Predictions in §9.5:
+  `tools/fmt` with the library filled, 4 jobs about 2.2x and 8 about 2.4x.
+
 ## 22 Nov 2026
 
 ### SW-4645: how often a theorem's proof is unfolded while checking (counters only, `STITCHWORT_THEOREM_UNFOLDS=1`)
