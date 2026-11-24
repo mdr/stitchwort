@@ -1,5 +1,5 @@
 {
-  "next": 4744,
+  "next": 4745,
   "tickets": [
     {
       "id": 47,
@@ -34416,6 +34416,19 @@
       "id": 4743,
       "title": "[Opus] Step counts: of_def and proof_positions remember an answer that ran out, so a definition that keeps running out isn't recomputed at full cost on every ask (SW-4721 finding)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4744,
+      "title": "[Sonnet] parallel::a_worker_that_panics_stops_the_fill_and_the_check_still_matches_one_job fails on main for seed 3 (entries differ): flaky test or a real difference after a worker panic (SW-4726 follow-up)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
