@@ -33988,7 +33988,7 @@
     {
       "id": 4717,
       "title": "[Sonnet] task test:one: pick the --test binary itself when the filter names exactly one binary(X), so BIN= isn't needed (SW-4705 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34055,7 +34055,7 @@
     {
       "id": 4721,
       "title": "[Opus, paper] Step counts independent of session history (docs/core.md:272): e.g. charge a kept type's forcing to its owner, so E-RESOURCE can't differ between cold, warm and parallel checks (SW-4718 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34085,7 +34085,7 @@
     {
       "id": 4723,
       "title": "[Sonnet] check --jobs: release a library claim when a file is elaborated but not written, and print claims_gave_up in the --timings line (SW-4719 review)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34111,7 +34111,7 @@
     {
       "id": 4725,
       "title": "[Sonnet] check --jobs: install the in-memory store only when the fill ran (a one-namespace --no-cache --jobs N encodes entries for nothing) (SW-4719 review)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
