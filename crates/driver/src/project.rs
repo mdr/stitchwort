@@ -57,6 +57,13 @@ pub struct Loaded {
     pub theorems: Option<TheoremCount>,
 }
 
+/// What [`Session::prepare_analysis`] found a target needs.
+pub struct Prepared {
+    /// The namespaces to check, in canonical order.
+    pub order: Vec<String>,
+    counted: Option<TheoremCount>,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TheoremCount {
     pub checked: usize,
@@ -110,9 +117,24 @@ impl Session {
         target: &Target,
         load: Load,
     ) -> Result<Loaded, Vec<Diagnostic>> {
+        let prepared = self.prepare_analysis(project, &analysis, target)?;
+        self.check_prepared(project, &analysis, prepared, load)
+    }
+
+    /// The first half of [`Session::load_analysis_for`], which checks
+    /// nothing: resolves `target` to the namespaces it needs, in canonical
+    /// order, and gives the check cache each namespace's sources. A
+    /// parallel check's workers ([`crate::parallel`]) do this much and then
+    /// check namespaces one by one.
+    pub fn prepare_analysis(
+        &mut self,
+        project: &str,
+        analysis: &Analysis,
+        target: &Target,
+    ) -> Result<Prepared, Vec<Diagnostic>> {
         self.elab.clear_broken_tests();
         if !analysis.diagnostics.is_empty() {
-            return Err(analysis.diagnostics);
+            return Err(analysis.diagnostics.clone());
         }
         let known: BTreeSet<String> = analysis.namespaces.iter().map(|n| n.name.clone()).collect();
         // For `Target::Theorems`: the namespaces whose unneeded theorems are
@@ -163,7 +185,7 @@ impl Session {
                                         "E-UNKNOWN-THEOREM",
                                         format!("there's no theorem `{full}` in the project"),
                                     );
-                                    if let Some(hint) = only_takes_theorems_hint(full, &analysis) {
+                                    if let Some(hint) = only_takes_theorems_hint(full, analysis) {
                                         diagnostic = diagnostic.with_note(hint);
                                     }
                                     return Err(vec![diagnostic]);
@@ -183,7 +205,7 @@ impl Session {
                 if !unknown.is_empty() {
                     return Err(unknown);
                 }
-                let needed = closure(&analysis, &names).into_iter().collect();
+                let needed = closure(analysis, &names).into_iter().collect();
                 pruned = names;
                 needed
             }
@@ -197,7 +219,7 @@ impl Session {
                 if !unknown.is_empty() {
                     return Err(unknown);
                 }
-                closure(&analysis, names).into_iter().collect()
+                closure(analysis, names).into_iter().collect()
             }
             Target::Subtrees(names) => {
                 let under = |n: &str, root: &str| {
@@ -216,15 +238,15 @@ impl Session {
                     .filter(|n| names.iter().any(|r| under(n, r)))
                     .cloned()
                     .collect();
-                closure(&analysis, &roots).into_iter().collect()
+                closure(analysis, &roots).into_iter().collect()
             }
         };
-        let order = match canonical_order(&analysis, &needed) {
+        let order = match canonical_order(analysis, &needed) {
             Ok(order) => order,
             Err(cycles) => {
                 return Err(cycles
                     .iter()
-                    .map(|c| cycle_diagnostic(&analysis, c))
+                    .map(|c| cycle_diagnostic(analysis, c))
                     .collect());
             }
         };
@@ -246,7 +268,7 @@ impl Session {
                 if let Some(full) = only
                     .iter()
                     .find(|full| message.starts_with(&format!("there's no theorem `{full}`")))
-                    && let Some(hint) = only_takes_theorems_hint(full, &analysis)
+                    && let Some(hint) = only_takes_theorems_hint(full, analysis)
                 {
                     diagnostic = diagnostic.with_note(hint);
                 }
@@ -259,9 +281,23 @@ impl Session {
             });
         }
         if self.elab.uses_check_cache() {
-            let sources = self.namespace_sources(project, &analysis);
+            let sources = self.namespace_sources(project, analysis);
             self.elab.set_namespace_sources(sources);
         }
+        Ok(Prepared { order, counted })
+    }
+
+    /// The second half of [`Session::load_analysis_for`]: checks the
+    /// namespaces `prepared` (from [`Session::prepare_analysis`] with the
+    /// same `analysis`) lists, in its order.
+    pub fn check_prepared(
+        &mut self,
+        project: &str,
+        analysis: &Analysis,
+        prepared: Prepared,
+        load: Load,
+    ) -> Result<Loaded, Vec<Diagnostic>> {
+        let Prepared { order, counted } = prepared;
         // (A namespace read from the cache is not elaborated, so its theorems
         // couldn't be counted: `check --only` loads everything.)
         let skipped = if load == Load::Diagnostics
@@ -270,16 +306,16 @@ impl Session {
             && self.elab.uses_check_cache()
             && !self.elab.options.recheck_namespaces
         {
-            self.plan_skips(&analysis, &order)
+            self.plan_skips(analysis, &order)
         } else {
             BTreeMap::new()
         };
         let diagnostics = if skipped.is_empty() {
-            self.check_in_order(&analysis, &order, &skipped)
+            self.check_in_order(analysis, &order, &skipped)
                 .expect("nothing is left out")
         } else {
             let mark = self.mark();
-            match self.check_in_order(&analysis, &order, &skipped) {
+            match self.check_in_order(analysis, &order, &skipped) {
                 Some(found) => {
                     self.release(mark);
                     for name in order.iter().filter(|n| skipped.contains_key(*n)) {
@@ -291,7 +327,7 @@ impl Session {
                     self.rewind(&mark);
                     self.release(mark);
                     self.elab.note_skipping_undone();
-                    self.check_in_order(&analysis, &order, &BTreeMap::new())
+                    self.check_in_order(analysis, &order, &BTreeMap::new())
                         .expect("nothing is left out")
                 }
             }
@@ -1145,7 +1181,7 @@ fn clashes(namespaces: &[Namespace]) -> Vec<Diagnostic> {
 }
 
 /// The namespaces `name` uses, directly or not, in canonical order.
-fn dependencies(analysis: &Analysis, name: &str) -> Vec<String> {
+pub(crate) fn dependencies(analysis: &Analysis, name: &str) -> Vec<String> {
     let deps: BTreeSet<String> = closure(analysis, &[name.to_string()])
         .into_iter()
         .filter(|n| n != name)
@@ -1731,7 +1767,7 @@ impl Files for MemoryFiles {
     }
 }
 
-const CONFIG: &str = "stitchwort.yaml";
+pub(crate) const CONFIG: &str = "stitchwort.yaml";
 
 /// The project folder that holds `start`: `start` or the nearest folder
 /// above it that contains a file `stitchwort.yaml`.

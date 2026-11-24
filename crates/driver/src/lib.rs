@@ -21,6 +21,7 @@ pub mod live;
 pub mod marks;
 pub mod nav;
 pub mod palette;
+pub mod parallel;
 pub mod project;
 pub mod reliance;
 pub mod rename;

@@ -12,6 +12,7 @@ mod include;
 mod multi_file;
 mod namespaces;
 mod navigation;
+mod parallel;
 mod project;
 mod project_analysis;
 mod references;

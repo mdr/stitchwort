@@ -21,6 +21,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Mutex, OnceLock};
+use std::thread::ThreadId;
 
 use stitchwort_core::budget::{Budget, PROGRESS_FIRST, Progress, with_commas};
 use stitchwort_core::globals::Def;
@@ -28,27 +29,33 @@ use stitchwort_core::term::Name;
 
 static SINK: OnceLock<fn(&str)> = OnceLock::new();
 
-/// The declaration being checked (a component's full names), for a host
-/// that has to say where a check was when it stopped: a signal handler
-/// (`stitchwort check`, SW-4032). One global shared by checking threads, so
-/// when several check at once it is one of them. `None` between
-/// declarations.
-static CURRENT: Mutex<Option<String>> = Mutex::new(None);
+/// The declaration each thread is checking (a component's full names), for
+/// a host that has to say where a check was when it stopped: a signal
+/// handler (`stitchwort check`, SW-4032). By thread, so that when several
+/// threads check at once (`check --jobs N`) one finishing a declaration
+/// doesn't erase another's. A thread has no entry between declarations.
+static CURRENT: Mutex<Vec<(ThreadId, String)>> = Mutex::new(Vec::new());
 
-/// The declaration being checked, as [`begin`] set it: one of the
-/// declarations being checked when several threads check at once. `None` if
-/// none is (or the check has just finished one, or hasn't started one).
+/// A declaration being checked, as [`begin`] set it: when several threads
+/// check at once, the one begun longest ago. `None` if none is
+/// (or the checks have just finished one, or haven't started one).
 pub fn current() -> Option<String> {
+    current_map().first().map(|(_, label)| label.clone())
+}
+
+fn current_map() -> std::sync::MutexGuard<'static, Vec<(ThreadId, String)>> {
     CURRENT
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
-        .clone()
 }
 
 fn set_current(label: Option<String>) {
-    *CURRENT
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner()) = label;
+    let thread = std::thread::current().id();
+    let mut current = current_map();
+    current.retain(|(t, _)| *t != thread);
+    if let Some(label) = label {
+        current.push((thread, label));
+    }
 }
 
 /// Sends "still checking" notes to `sink`, for the whole program. The first

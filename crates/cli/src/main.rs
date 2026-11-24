@@ -472,6 +472,15 @@ enum Command {
             value_parser = parse_timings
         )]
         timings: Option<usize>,
+        /// Check a project with N workers side by side: they fill the check
+        /// cache, then the check runs as with one job over what they wrote,
+        /// so its messages and result are the same. With --no-cache their
+        /// entries are kept in memory for the run. One job, whatever this
+        /// says, with --recheck, --carry-over, --only, --no-project-cache,
+        /// the --expand options or a file. Also STITCHWORT_JOBS; 1 if
+        /// neither is given
+        #[arg(short = 'j', long, value_name = "N", value_parser = parse_jobs)]
+        jobs: Option<usize>,
     },
     /// Print an embedded standard library file (`List/Toolkit.sw`;
     /// `core/Int.sw` is a file of the core), as the index's `std` markers name them
@@ -1141,6 +1150,29 @@ fn parse_timings(value: &str) -> Result<usize, String> {
     }
 }
 
+/// `--jobs`' value: a positive number of workers.
+fn parse_jobs(value: &str) -> Result<usize, String> {
+    match value.parse::<usize>() {
+        Ok(n) if n > 0 => Ok(n),
+        _ => Err(format!("expected a positive number, not `{value}`")),
+    }
+}
+
+/// Whether `check --jobs N --no-cache` runs N workers, passing their results
+/// to each other as entries in memory (D3731), or one job. The one switch
+/// for it.
+const PARALLEL_NO_CACHE: bool = true;
+
+/// How many workers `check` uses: `--jobs`, else `STITCHWORT_JOBS`, else 1.
+fn jobs_asked(jobs: Option<usize>) -> usize {
+    jobs.or_else(|| {
+        std::env::var("STITCHWORT_JOBS")
+            .ok()
+            .and_then(|v| parse_jobs(v.trim()).ok())
+    })
+    .unwrap_or(1)
+}
+
 fn main() -> ExitCode {
     exit_quietly_on_broken_pipe();
     let cli = Cli::parse();
@@ -1242,6 +1274,7 @@ fn run(cli: Cli) -> ExitCode {
             carry_over,
             recheck,
             timings: _,
+            jobs,
         } => check(
             &targets,
             project.as_deref(),
@@ -1251,6 +1284,7 @@ fn run(cli: Cli) -> ExitCode {
             &counterexamples,
             &cache,
             (carry_over || carry_over_from_environment(), recheck),
+            jobs_asked(jobs),
         ),
         Command::StdSource { path } => match stitchwort_cli::nav::std_source(&path, STACK) {
             Some(text) => {
@@ -2281,6 +2315,7 @@ fn check(
     counterexamples: &CounterexampleArgs,
     cache: &CacheArgs,
     (carry_over, recheck): (bool, bool),
+    jobs: usize,
 ) -> ExitCode {
     if to_stdout && !expand_walk && !expand_facts {
         eprintln!("error: --stdout is only for --expand-walk and --expand-facts");
@@ -2377,6 +2412,36 @@ fn check(
         session.elab.set_carry_over(carry_over);
         session.elab.set_recheck(recheck);
     }
+    let mut filled = None;
+    if jobs > 1 {
+        // Quietly one job, so a default of more can't break these.
+        let one = [
+            (recheck, "--recheck re-checks every entry it loads"),
+            (
+                carry_over,
+                "entries carried over make those after them inexact",
+            ),
+            (!only.is_empty(), "--only checks part of a namespace"),
+            (
+                cache.no_project_cache,
+                "--no-project-cache writes no namespace entries",
+            ),
+            (
+                expand || expand_walk || expand_facts,
+                "the --expand options check without the cache",
+            ),
+            (cache.no_cache && !PARALLEL_NO_CACHE, "--no-cache"),
+        ];
+        match one.iter().find(|(why, _)| *why) {
+            Some((_, why)) => stitchwort_elab::timings::jobs(1, Some(format!("one job: {why}"))),
+            None => {
+                let navigation = index.is_some();
+                let fill =
+                    fill_in_parallel(&mut session, &project, &target, jobs, navigation, cache);
+                filled = Some(fill);
+            }
+        }
+    }
     let mut reported = Vec::new();
     // Only the diagnostics are wanted, unless the loaded namespaces are
     // indexed or searched.
@@ -2385,6 +2450,7 @@ fn check(
     } else {
         Load::Everything
     };
+    let load = filled.map_or(load, |fill| fill.load_after(load));
     let checked = load_project_counting(
         &mut session,
         &project,
@@ -2702,6 +2768,71 @@ fn report_carried_over(session: &Session, recheck: bool) {
         None if recheck => eprintln!("checked again by this kernel: nothing"),
         None => {}
     }
+}
+
+/// `check --jobs N` (docs/proposals/parallel-checking.md §9): fills the
+/// check cache `session` uses with `jobs` workers, before `session` checks
+/// `target` as usual. With `--no-cache`, `session` is given the run's store
+/// in memory, which the workers fill.
+fn fill_in_parallel(
+    session: &mut Session,
+    project: &Project,
+    target: &Target,
+    jobs: usize,
+    navigation: bool,
+    cache: &CacheArgs,
+) -> stitchwort_driver::parallel::Fill {
+    use stitchwort_driver::check_cache::{CheckCache, MemoryStore};
+    use stitchwort_elab::cache::Store;
+    let memory = cache.no_cache.then(MemoryStore::default);
+    if let Some(memory) = &memory {
+        session
+            .elab
+            .set_check_cache(std::rc::Rc::new(memory.clone()));
+    }
+    let dir = cache_dir(cache, &project.dir);
+    let make_store = || -> std::rc::Rc<dyn Store> {
+        match (&memory, &dir) {
+            (Some(memory), _) => std::rc::Rc::new(memory.clone()),
+            (None, Some(dir)) => std::rc::Rc::new(CheckCache::at(dir)),
+            (None, None) => unreachable!("a cache directory unless --no-cache"),
+        }
+    };
+    let seed = std::env::var("STITCHWORT_JOBS_SEED")
+        .ok()
+        .and_then(|v| v.trim().parse::<u64>().ok());
+    let make_session = move |_: usize| new_session(navigation);
+    let fill = stitchwort_driver::parallel::fill(
+        &project.files,
+        &project.name,
+        target,
+        &stitchwort_driver::parallel::Jobs {
+            count: jobs,
+            stack: STACK,
+            make_session: &make_session,
+            make_store: &make_store,
+            seed,
+        },
+    );
+    let note = if fill.ran {
+        format!(
+            "{} workers: {} namespaces had entries, {} filled, {} left to the check after; \
+             {} dependencies elaborated again, {} entries refused, {} late misses, \
+             {} waits for a library file given up",
+            fill.workers,
+            fill.found,
+            fill.filled,
+            fill.left,
+            fill.twice,
+            fill.stats.refused,
+            fill.stats.late_misses,
+            fill.claims_gave_up
+        )
+    } else {
+        "one job: fewer than two namespaces to check".to_string()
+    };
+    stitchwort_elab::timings::jobs(fill.workers.max(1), Some(note));
+    fill
 }
 
 /// Whether `STITCHWORT_CARRY_OVER=1` turns carrying over on: only when
