@@ -1,5 +1,5 @@
 {
-  "next": 4753,
+  "next": 4754,
   "tickets": [
     {
       "id": 47,
@@ -34549,7 +34549,20 @@
     {
       "id": 4752,
       "title": "[Opus] Stage 3 pilot, second run: leave out recursive, mutual and decreasing theorems' proofs too (22% of fmt's theorems were elaborated anyway); does the interface still match? (SW-4730 finding)",
-      "status": "backlog",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4753,
+      "title": "[Fable, paper] Parallel checking stage 3 design note (D3730 end state): statements first, proofs side by side; from the pilot (148/150 fmt, 291/291 aoc match; parallel-checking.md section 11); the trust change and the proof-local def rule for Matt",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
