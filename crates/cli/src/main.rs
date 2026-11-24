@@ -2780,8 +2780,8 @@ fn report_carried_over(session: &Session, recheck: bool) {
 
 /// `check --jobs N` (docs/proposals/parallel-checking.md §9): fills the
 /// check cache `session` uses with `jobs` workers, before `session` checks
-/// `target` as usual. With `--no-cache`, `session` is given the run's store
-/// in memory, which the workers fill.
+/// `target` as usual. With `--no-cache`, if the workers ran, `session` is
+/// given the run's store in memory, which they filled.
 fn fill_in_parallel(
     session: &mut Session,
     project: &Project,
@@ -2793,11 +2793,6 @@ fn fill_in_parallel(
     use stitchwort_driver::check_cache::{CheckCache, MemoryStore};
     use stitchwort_elab::cache::Store;
     let memory = cache.no_cache.then(MemoryStore::default);
-    if let Some(memory) = &memory {
-        session
-            .elab
-            .set_check_cache(std::rc::Rc::new(memory.clone()));
-    }
     let dir = cache_dir(cache, &project.dir);
     let make_store = || -> std::rc::Rc<dyn Store> {
         match (&memory, &dir) {
@@ -2840,6 +2835,13 @@ fn fill_in_parallel(
         "one job: fewer than two namespaces to check".to_string()
     };
     stitchwort_elab::timings::jobs(fill.workers.max(1), Some(note));
+    // Only after a fill is there anything in it for the check to find;
+    // otherwise it would encode entries for nothing.
+    if let (true, Some(memory)) = (fill.ran, &memory) {
+        session
+            .elab
+            .set_check_cache(std::rc::Rc::new(memory.clone()));
+    }
     fill
 }
 

@@ -417,6 +417,39 @@ fn check_jobs_prints_what_one_job_does_and_one_job_for_recheck() {
     }
 }
 
+/// `check --no-cache --jobs 4` of a project with one namespace, so no fill
+/// runs, does what one job does and encodes no entries for a store nothing
+/// reads (SW-4725).
+#[test]
+fn no_cache_jobs_of_one_namespace_encodes_nothing() {
+    let project = temp_dir("no-cache-one");
+    for (path, text) in [
+        ("stitchwort.yaml", "sources: [src]\n"),
+        ("src/A.sw", "namespace A\n\ndef one: Nat := 1\n"),
+    ] {
+        let full = project.join(path);
+        std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+        std::fs::write(full, text).unwrap();
+    }
+    let run = |extra: &[&str]| {
+        let mut args = vec![
+            "check",
+            "--project",
+            project.to_str().unwrap(),
+            "--no-cache",
+        ];
+        args.extend(extra);
+        stitchwort(&args, &[("STITCHWORT_CACHE_DEBUG", "1")])
+    };
+    let sequential = run(&[]);
+    let parallel = run(&["--jobs", "4"]);
+    assert!(parallel.status.success(), "{}", shown(&parallel));
+    assert_eq!(shown(&sequential), shown(&parallel));
+    let err = String::from_utf8_lossy(&parallel.stderr).into_owned();
+    assert!(!err.contains("check cache:"), "{err}");
+    let _ = std::fs::remove_dir_all(&project);
+}
+
 /// Under `STITCHWORT_CACHE_DEBUG`, a namespace replayed from its entry has
 /// a line, as one written, missed or (with the default skipping) left out
 /// has (SW-4712).
