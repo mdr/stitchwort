@@ -1,5 +1,5 @@
 {
-  "next": 4742,
+  "next": 4744,
   "tickets": [
     {
       "id": 47,
@@ -34058,7 +34058,7 @@
     {
       "id": 4721,
       "title": "[Opus, paper] Step counts independent of session history (docs/core.md:272): e.g. charge a kept type's forcing to its owner, so E-RESOURCE can't differ between cold, warm and parallel checks (SW-4718 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34066,7 +34066,10 @@
       "body": "",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "c1eba19f0a841dc7d153b30626d60031ecc5bc4e",
+        "6f63abddb64ac596030d4c1cb115b1196ce2388e"
+      ]
     },
     {
       "id": 4722,
@@ -34389,6 +34392,32 @@
         "9363a708e23a001d0ae33d6686e9d3cd5766d4e2",
         "7c11bdb2f81a6f2308ec6e432157f2403fbbcff4"
       ]
+    },
+    {
+      "id": 4742,
+      "title": "[Sonnet] STITCHWORT_WORK_LIMIT (env, test/debug only) to lower the 10-billion step limit, so E-RESOURCE cases can be reproduced quickly (SW-4721 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4743,
+      "title": "[Opus] Step counts: of_def and proof_positions remember an answer that ran out, so a definition that keeps running out isn't recomputed at full cost on every ask (SW-4721 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
     }
   ]
 }
