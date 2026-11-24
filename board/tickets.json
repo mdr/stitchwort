@@ -1,5 +1,5 @@
 {
-  "next": 4727,
+  "next": 4728,
   "tickets": [
     {
       "id": 47,
@@ -34125,6 +34125,19 @@
       "id": 4726,
       "title": "[Sonnet] check --jobs: a test-only hook to exercise a worker panic path (SW-4719 review F4)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4727,
+      "title": "[Fable, paper] Design: parallel checking stage 2: the kernel's 'statement, proof to follow' form and interface-only loading (parallel-checking.md 8.4), with stage 3 in outline; trust argument, decision for Matt (D3730 said it comes back to him), build plan (D3730)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
