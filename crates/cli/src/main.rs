@@ -3740,6 +3740,13 @@ fn axioms(target: &str, names: &[String], project: Option<&Path>, cache: &CacheA
     session.elab.leave_namespace();
     let mut ids = Vec::new();
     for key in &keys {
+        if let Some(owner) = session.elab.proof_private_to(key) {
+            eprintln!(
+                "error: `{key}` is defined inside the proof of `{owner}` and can be used only \
+                 there (E-PROOF-PRIVATE)"
+            );
+            return ExitCode::FAILURE;
+        }
         let Some(id) = session.elab.lookup_def(key) else {
             eprintln!("error: there's no definition `{key}`");
             return ExitCode::FAILURE;

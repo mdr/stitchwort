@@ -393,7 +393,11 @@ fn dotted(e: &Expr) -> Option<(String, stitchwort_syntax::Span)> {
 
 /// [`infer_dot`], with a stop at an unknown left to the caller.
 fn dot_or_block(cx: &mut Ctx, recv: &Expr, field: &AstName, args: &[Arg]) -> Result<Dotted> {
-    if let Some(id) = helper(cx, recv, field) {
+    if let Some((key, id)) = helper_keyed(cx, recv, field) {
+        if let Some(owner) = cx.e.proof_private_elsewhere(&key) {
+            let span = dotted(recv).map_or(field.span, |(_, span)| span.to(field.span));
+            return Err(cx.e.proof_private_error(span, &key, owner));
+        }
         cx.e.note_dot(field, id);
         let head = (Term::Def(id), crate::kernel::def_ty(&cx.g(), id)?);
         let (term, ty) = crate::check::apply_args(cx, head, args)?;
@@ -758,12 +762,17 @@ fn infer_receiver(cx: &mut Ctx, recv: &Expr, field: &AstName) -> Result<(Term, V
 /// (docs/proposals/syntax-conveniences.md §3.6). This comes before dot
 /// notation, which never finds a local definition.
 pub(crate) fn helper(cx: &Ctx, recv: &Expr, field: &AstName) -> Option<DefId> {
+    helper_keyed(cx, recv, field).map(|(_, id)| id)
+}
+
+/// [`helper`], with the local definition's key.
+fn helper_keyed(cx: &Ctx, recv: &Expr, field: &AstName) -> Option<(String, DefId)> {
     let key = format!("{}.{}", helper_owner(cx, recv)?, field.text);
     if !cx.e.tables.helper_keys.contains_key(&key) {
         return None;
     }
     match cx.e.scope.get(&key) {
-        Some((Global::Def(id), _)) => Some(id),
+        Some((Global::Def(id), _)) => Some((key, id)),
         _ => None,
     }
 }

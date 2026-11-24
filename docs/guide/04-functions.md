@@ -241,6 +241,8 @@ test "local definition" := sumOfSquares 3 == 14
 test "named from outside" := sumOfSquares.go 2 0 == 5
 ```
 
+A theorem's proof can have local definitions too, and lemmas about them, but they belong to the proof: a proof is sealed, so nothing outside it can depend on how it was done, and naming `t.go` outside the proof of `t` is an error (`E-PROOF-PRIVATE`). If a helper is useful elsewhere, make it a top-level `def` or `theorem`.
+
 There is no `where` clause; write local definitions before the line that uses them.
 
 ## Taking a value apart in a lambda

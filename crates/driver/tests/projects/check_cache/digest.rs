@@ -412,6 +412,38 @@ fn a_match_whose_arms_change_in_a_proof_below_replays_what_uses_it() {
     ));
 }
 
+/// A local definition in a theorem's proof is private to the proof
+/// (D3736), so the digest leaves it out as it does a lifted `match`.
+#[test]
+fn a_local_definition_added_to_a_proof_below_replays_what_uses_it() {
+    assert!(b_replayed_after_proof(
+        "digest-proof-local-added",
+        "byComputing",
+        "\n  def helper (m: Nat): Nat := m + 0\n  let same: helper one = 1 := byComputing\n  same",
+        &["A.oneIsOne.helper"],
+    ));
+}
+
+#[test]
+fn a_local_definition_with_a_match_added_to_a_proof_below_replays_what_uses_it() {
+    assert!(b_replayed_after_proof(
+        "digest-proof-local-match",
+        "byComputing",
+        "\n  def go (m: Nat): Nat := match m + 0 with | _ => m\n  byComputing",
+        &["A.oneIsOne.go.%match1"],
+    ));
+}
+
+#[test]
+fn a_local_definition_changed_in_a_proof_below_replays_what_uses_it() {
+    assert!(b_replayed_after_proof(
+        "digest-proof-local-changed",
+        "\n  def helper (m: Nat): Nat := m + 0\n  let same: helper one = 1 := byComputing\n  same",
+        "\n  def helper (m: Nat): Nat := 0 + m\n  let same: helper one = 1 := byComputing\n  same",
+        &["A.oneIsOne.helper"],
+    ));
+}
+
 /// A `match` added before another renumbers it: `%match1` is now the new
 /// one. Both are private, so the names don't matter.
 #[test]
@@ -544,10 +576,8 @@ fn a_match_added_to_a_proof_before_a_data_type_replays_what_uses_it() {
     assert_eq!((s.namespace_hits, s.namespace_misses), (1, 1), "{s:?}");
 }
 
-/// A `match` the digest keeps: in a statement, a computing body, a `def`
-/// of proposition type or a local definition in a proof, which another
-/// namespace can name; and a local definition added to a proof. Each
-/// checks `B` again.
+/// A `match` the digest keeps: in a statement, a computing body or a `def`
+/// of proposition type. Each checks `B` again.
 #[test]
 fn a_match_outside_a_sealed_proof_below_checks_what_uses_it_again() {
     let cases = [
@@ -565,16 +595,6 @@ fn a_match_outside_a_sealed_proof_below_checks_what_uses_it_again() {
             "def oneProof: one = 1 := byComputing",
             "def oneProof: one = 1 := match one + 0 with | _ => byComputing",
             "A.oneProof.%match1",
-        ),
-        (
-            "theorem oneIsOne: one = 1 := byComputing",
-            "theorem oneIsOne: one = 1 :=\n  def go (m: Nat): Nat := match m + 0 with | _ => m\n  byComputing",
-            "A.oneIsOne.go.%match1",
-        ),
-        (
-            "theorem oneIsOne: one = 1 := byComputing",
-            "theorem oneIsOne: one = 1 :=\n  def go (m: Nat): Nat := m\n  byComputing",
-            "A.oneIsOne.go",
         ),
     ];
     for (i, (from, to, helper)) in cases.into_iter().enumerate() {

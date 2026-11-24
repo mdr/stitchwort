@@ -1661,8 +1661,13 @@ struct Recording {
 /// What both digest passes know of the unit's own declarations before
 /// they start.
 struct DigestPrep {
-    /// The helpers that may be left out: lifted `match`es' (C.1).
+    /// The helpers that may be left out: lifted `match`es' (C.1), and what
+    /// a theorem's proof defines, which nothing outside it can name (D3736).
     candidates: HashSet<DefId>,
+    /// The unit's new names and helper keys that are private to a proof
+    /// (D3736): the digest writes neither, since no other unit can name
+    /// them, so they reach nothing.
+    private_keys: HashSet<String>,
     /// Each own definition's and data type's ordinal among the own ones of
     /// its path, in checking order: with the path, its name in the digest.
     def_ordinals: Vec<usize>,
@@ -2096,12 +2101,27 @@ impl Encoding<'_> {
             .is_some_and(|p| p.private.contains(&owner))
     }
 
+    /// Whether the name or helper key `key` is written: not in the digest,
+    /// for one private to a proof ([`DigestPrep::private_keys`]).
+    pub(crate) fn keeps_key(&self, key: &str) -> bool {
+        !(self.out.stage.as_ref()).is_some_and(|s| s.prep.private_keys.contains(key))
+    }
+
     /// Starts a table row keyed by `key` (a definition, if it is one);
     /// `owned` says the table's row for a candidate is the candidate's own.
     pub(crate) fn row_key(&mut self, key: Option<DefId>, owned: bool) {
         match key {
             Some(id) if owned && self.candidate(id) => self.enter(Context::Own(id)),
             _ => self.enter(Context::Key),
+        }
+    }
+
+    /// Starts a row of a table keyed by definition `owner` that isn't a
+    /// key the digest orders by: a candidate's own, else written as any
+    /// other reference.
+    pub(crate) fn candidate_row(&mut self, owner: DefId) {
+        if self.candidate(owner) {
+            self.enter(Context::Own(owner));
         }
     }
 
@@ -2609,7 +2629,7 @@ impl Elaborator {
         pre: &PreOut,
     ) -> Result<(Key, DigestShape), String> {
         let g = &self.ev();
-        let prep = Rc::new(self.digest_prep(before));
+        let prep = Rc::new(self.digest_prep(before, writes));
         // The recording pass finds what reaches each candidate and which
         // theorems key a row; with neither a candidate nor a sealed theorem
         // there is nothing to find.
@@ -2670,8 +2690,17 @@ impl Elaborator {
     /// source can write and no code builds for a theorem (the by-name
     /// lookups of `%step` are in equations, `@[tailrec]` and doc output,
     /// all for definitions, which have computing bodies).
-    fn digest_prep(&self, before: &Before) -> DigestPrep {
+    ///
+    /// A third kind: what a theorem's proof defines (`t.go`, its equations),
+    /// private to that proof (D3736): no other declaration can name it, so
+    /// its names and helper keys are left out of the digest too
+    /// ([`DigestPrep::private_keys`]).
+    fn digest_prep(&self, before: &Before, writes: &WriteSet<'_>) -> DigestPrep {
         let g = &self.ev();
+        let private_keys = (writes.tables.new_helper_keys())
+            .filter(|k| self.proof_private_owner(k).is_some())
+            .cloned()
+            .collect();
         let lifted = (self.tables.lifted.since(before.tables.lifted()).iter()).map(|&(id, _)| id);
         let steps = (before.defs..g.env.defs().len()).map(DefId);
         let candidates = lifted
@@ -2681,11 +2710,12 @@ impl Elaborator {
                 let last = def.path().rsplit('.').next().unwrap_or_default();
                 id.0 >= before.defs
                     && !def.instance()
-                    && if def.theorem() {
-                        matches!(last, "%step" | "%go")
-                    } else {
-                        last.starts_with("%match")
-                    }
+                    && (self.proof_private_owner(def.path()).is_some()
+                        || if def.theorem() {
+                            matches!(last, "%step" | "%go")
+                        } else {
+                            last.starts_with("%match")
+                        })
             })
             .collect();
         fn ordinals<'a>(paths: impl Iterator<Item = &'a str>) -> Vec<usize> {
@@ -2700,6 +2730,7 @@ impl Elaborator {
         }
         DigestPrep {
             candidates,
+            private_keys,
             def_ordinals: ordinals(g.env.defs()[before.defs..].iter().map(|d| &**d.path())),
             data_ordinals: ordinals(g.env.datas()[before.datas..].iter().map(|d| &**d.path())),
         }
@@ -2844,8 +2875,11 @@ impl Elaborator {
                 e.w.raw(hash);
             }
         }
-        e.w.usize(names.early.len());
-        for (k, follower) in &names.early {
+        let early: Vec<&(String, bool)> = (names.early.iter())
+            .filter(|(k, _)| e.keeps_key(k))
+            .collect();
+        e.w.usize(early.len());
+        for (k, follower) in early.iter().copied() {
             let Some((_, span)) = self.scope.stored(k) else {
                 return Err(format!("`{k}` was declared and is gone"));
             };
@@ -3063,22 +3097,26 @@ impl Elaborator {
                 .copied()
                 .ok_or_else(|| format!("`{k}` was declared and is gone"))
         };
-        e.w.usize(names.changed.len());
-        for k in &names.changed {
+        let changed: Vec<&String> = (names.changed.iter()).filter(|k| e.keeps_key(k)).collect();
+        e.w.usize(changed.len());
+        for k in changed {
             let (global, span) = entry(k)?;
             e.str(k);
             e.global(self, global);
             e.span(span);
         }
-        e.w.usize(names.late.len());
-        for (k, follower) in &names.late {
+        let late: Vec<&(String, bool)> = (names.late.iter())
+            .filter(|(k, _)| e.keeps_key(k))
+            .collect();
+        e.w.usize(late.len());
+        for (k, follower) in late {
             let (global, span) = entry(k)?;
             e.str(k);
             e.global(self, global);
             e.span(span);
             e.w.bool(*follower);
         }
-        for (k, _) in &names.early {
+        for (k, _) in early {
             let (global, _) = entry(k)?;
             e.global(self, global);
         }
