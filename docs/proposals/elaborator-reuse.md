@@ -266,3 +266,74 @@ One Sonnet lane, about 30 minutes [estimated], with nothing user-visible:
 - The orchestrator's: the §6 measuring lane first; A after it, if the
   number says so; B as a backlog ticket; D as an Opus design note; E's
   first step (reuse the main parse for the binder sweep) as a small lane.
+
+## 8. Measured, 24 Nov 2026 (SW-4746)
+
+Marks as above. The counter and the non-dev timings §6 asked for, from
+the lane's scratch copies of `tools/fmt` and `aoc`, `STITCHWORT_STD_DIR`
+set to the lane's std, warm cache, load 12-20 on the 10 cores while the
+timings ran (so the times are good to about 0.1 s, not better).
+
+**The counter** (`STITCHWORT_STEP_PHASES=1`, last line of `check --timings`:
+`unfoldings recomputed only for the epoch`; `crates/core/src/reuse_stats.rs`).
+It counts a kept unfolding that was there, fitted in every mode, and
+failed `Kept::fits` on the epoch alone, in an elaborator `Ev`; and the
+steps from that miss to the unfolding being kept again (nested
+recomputations are counted once, in the innermost). *Clean* means that in
+between the evaluator asked for no metavariable solution
+(`Ev::meta_solution`) and met no definition without a body (`case_tree`):
+what option A would keep. A definition without a body also covers an
+axiom or a goal's assumption, which never changes, so "clean" is a slight
+undercount of what A could keep. The steps come from the budget's total
+work, which leaves out those of an operation a recomputation interrupted:
+close, not exact. The totals include the core, which the elaborator checks
+every run (138 misses, 2,553 steps, of 922,179); the figures below take
+it off.
+
+| Target (edit after a warm cache) | Namespace's steps | Recomputed for the epoch | Clean (option A's saving) |
+|---|---|---|---|
+| `Fmt.HangProofs` | 7,767,644 | 2,551 unfoldings, 84,994 steps (1.09%) | 2,371, 78,552 steps (**1.01%**) |
+| `Aoc.Year2024.Day12.Proofs` | 14,925,817 | 712, 75,428 steps (0.51%) | 667, 73,541 steps (**0.49%**) |
+| `std/Omega/Omega.sw` (checked cold with `check --std --no-cache`, with what it loads) | 4,607,295 | 1,796, 111,559 steps (2.42%) | 1,750, 111,467 steps (**2.42%**) |
+| Cold `Fmt.HangProofs`, with std, `Syntax`, `Fmt` | 136,937,385 | 33,383, 1,986,720 steps (1.45%) | 29,782, 1,869,339 steps (1.37%) |
+| Cold `Aoc.Year2024.Day12.Proofs`, with its dependencies | 87,825,148 | 12,390, 651,153 steps (0.74%) | 11,802, 625,135 steps (0.71%) |
+
+Almost everything recomputed is clean (93-100% of the steps), so tracking
+metavariable reads and bodyless definitions would keep nearly all of it.
+But the whole saving is **0.5% to 2.4% of the steps**, under §6's bar of 5%,
+and the search-heavy `Omega` is the largest. Steps are not time: the
+elaborator and kernel times of the two namespaces are 0.6 s and 0.1-0.17 s
+of a 1.7-2.1 s check. A step share of 1% is about 6 ms of elaboration.
+**Option A does not pay for its risk (it changes the kernel's reuse rule)
+at these shares; recommend not doing it**, and leaving the epoch rule as is.
+Searches that undo more would show more; `Omega` is the most of the three
+and still 2.4%.
+
+**Without the dev features.** `cargo build --release -p stitchwort-cli`
+(no `--features stitchwort-cli/dev`) into a separate target dir, against
+the `task build` binary of the same commit. Wall seconds of `check`
+after a one-line edit to the target (all else replayed), three runs each,
+and of a check with nothing changed (three runs, no spread):
+
+| Check | With dev features (`task build`) | Shipped build | Difference |
+|---|---|---|---|
+| `Fmt.HangProofs` after an edit | 2.09, 2.12 (2.79 on the first, a cold disk cache) | 1.83, 1.87, 1.87 | 0.25 s (12%) |
+| `Fmt.HangProofs`, nothing changed | 0.69-0.71 | 0.71-0.74 | none |
+| `Day12.Proofs` after an edit | 1.72-1.73, then 1.94-2.11 on a rerun | 1.57-1.72, then 1.73-1.87 | 0.1-0.25 s (about 8%) |
+| `Day12.Proofs`, nothing changed | 0.58 | 0.63-0.67 | none |
+
+The per-namespace `--timings` rows agree: the core's kernel time is 24 ms
+against 20 ms, `Fmt.HangProofs`' own kernel time 101 against 89-93 ms
+(the `reference` check on replayed groups isn't in these rows). So the dev
+features cost a warm edit check about 0.1-0.25 s on these two, a smaller
+effect than §1's 14% of samples (230 of 1,797) suggested, and nothing
+when nothing is rechecked. The shipped binary's edit check of
+`Fmt.HangProofs` is **1.85 s**, not 2.2 s. The timings §4 took from
+`task build`'s binary overstate warm checks by about 10%; D and E's shares
+of a shipped check are correspondingly a little larger than §4 gives
+(replay about 24% instead of 26%, parsing about 15%, estimated by taking
+the 0.25 s off the replay).
+
+The ratios between the namespaces above and §4's are the same as before,
+so §4's conclusion stands: most of a warm edit check is loading and
+parsing.
