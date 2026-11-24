@@ -175,6 +175,40 @@ fn entries(dir: &Path) -> Vec<(String, Vec<u8>)> {
     found
 }
 
+/// What differs between two lists of entries, for a failure message.
+fn entry_diff(expected: &[(String, Vec<u8>)], found: &[(String, Vec<u8>)]) -> String {
+    let mut out = String::new();
+    for (name, bytes) in expected {
+        match found.iter().find(|(n, _)| n == name) {
+            None => out.push_str(&format!("\n  missing {name}")),
+            Some((_, b)) if b != bytes => out.push_str(&format!(
+                "\n  differs {name} ({} bytes, expected {}){}",
+                b.len(),
+                bytes.len(),
+                {
+                    let at = b.iter().zip(bytes).position(|(x, y)| x != y).unwrap_or(0);
+                    let around = |v: &[u8]| {
+                        String::from_utf8_lossy(&v[at.saturating_sub(200)..(at + 200).min(v.len())])
+                            .to_string()
+                    };
+                    format!(
+                        "\n    first difference at byte {at}:\n    found:    {:?}\n    expected: {:?}",
+                        around(b),
+                        around(bytes)
+                    )
+                }
+            )),
+            _ => {}
+        }
+    }
+    for (name, _) in found {
+        if !expected.iter().any(|(n, _)| n == name) {
+            out.push_str(&format!("\n  extra {name}"));
+        }
+    }
+    out
+}
+
 /// Whether `dir` holds an entry for project namespace `ns`.
 fn has_entry(dir: &Path, ns: &str) -> bool {
     let unit = format!("-ns.{ns}");
@@ -983,7 +1017,12 @@ fn a_worker_that_panics_stops_the_fill_and_the_check_still_matches_one_job() {
         let parallel = run(&dir, 3, Some(seed));
         let fired = panic_hook::take_fired();
         assert_eq!(sequential.report, parallel.report, "seed {seed}");
-        assert!(entries(&dir) == expected, "seed {seed}: the entries differ");
+        let found = entries(&dir);
+        assert!(
+            found == expected,
+            "seed {seed}: the entries differ:{}",
+            entry_diff(&expected, &found)
+        );
         let _ = std::fs::remove_dir_all(&dir);
         if fired {
             worker_one_panicked = true;

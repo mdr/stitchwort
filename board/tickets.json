@@ -34431,12 +34431,12 @@
     {
       "id": 4744,
       "title": "[Sonnet] parallel::a_worker_that_panics_stops_the_fill_and_the_check_still_matches_one_job fails on main for seed 3 (entries differ): flaky test or a real difference after a worker panic (SW-4726 follow-up)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nProgress (Opus, 24 Nov): cause found and fixed in ffed94901. The differing bytes were the header's interface digest and the checksum (not two hashes before the deps): a cancellation (the fill's halt after worker 1's panic) seen part way through encoding a library entry made the digest's fresh interface_hash calls fail, and Encoding::hash wrote a failed hash as 'no hash'. Body identical, digest different (std.Option.Option: seven theorems' hashes missing). Fix: a hash that stops fails the entry; a cancellation seen while encoding abandons the write (library files and namespaces). New test check_cache::a_check_cancelled_while_an_entry_is_encoded_writes_nothing (test hook cancel_while_encoding_entries) fails without the fix (written: 1). Also reachable from the editor: the desktop LSP writes the project's disk check cache and cancels on each edit. Panic test 30/30 sequential after the fix.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
       "commits": []

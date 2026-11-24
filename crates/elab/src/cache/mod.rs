@@ -560,6 +560,31 @@ impl Elaborator {
         self.options.refuse_replays_after = Some(path.to_string());
     }
 
+    /// For tests: from now on, the cancellation flag is set (and watched)
+    /// part way through encoding each entry, after its body and before its
+    /// interface digest, as when another thread sets it at that moment
+    /// (SW-4744). The encoder sees it wherever it next polls the budget.
+    #[doc(hidden)]
+    pub fn cancel_while_encoding_entries(&mut self) {
+        self.options.cancel_while_encoding = true;
+    }
+
+    /// [`Self::cancel_while_encoding_entries`]'s cancellation, if set.
+    fn cancel_while_encoding(&self) {
+        if !self.options.cancel_while_encoding {
+            return;
+        }
+        let budget = &self.kernel.machine.budget;
+        if budget.cancel_flag().is_none() {
+            budget.set_cancel_flag(Default::default());
+        }
+        budget.watch_cancel(true);
+        budget
+            .cancel_flag()
+            .expect("a flag was installed")
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+
     /// Whether library files may be loaded from, and written to, the cache
     /// now. Not for the library test target, whose tests are part of the
     /// result. (A session whose core isn't the index's finds its entries'
@@ -750,6 +775,12 @@ impl Elaborator {
         if ok && !self.kernel.machine.budget.cancelled() {
             let entry = self.encode_library_file(f, &capture, &log, key, store.salt());
             match entry {
+                // Seen while encoding (another thread set the flag):
+                // whatever the encoder computed after it stopped.
+                _ if self.kernel.machine.budget.cancelled() => {
+                    debug(&format!("std file {f}: cancelled while encoding"));
+                    store.abandon(unit, key);
+                }
                 Ok(entry) => {
                     store.write(unit, key, &entry);
                     self.session.cache_stats.written += 1;
@@ -1199,6 +1230,10 @@ impl Elaborator {
                 .cloned()
                 .collect();
             match self.encode_namespace(ns, files, &capture, &cached, key, store.salt()) {
+                // As for a library file (`cache_after`).
+                _ if self.kernel.machine.budget.cancelled() => {
+                    debug(&format!("{ns}: cancelled while encoding"));
+                }
                 Ok((entry, digest, shape)) => {
                     debug(&format!("{ns}: written, digest {}, {shape}", hex(&digest)));
                     (self.session.namespace_keys).insert(ns.to_string(), known(Some(digest)));
@@ -1933,7 +1968,14 @@ impl Encoding<'_> {
                 self.w.bool(true);
                 self.w.raw(&h.0);
             }
-            _ => self.w.bool(false),
+            Ok(None) => self.w.bool(false),
+            // Stopped (cancelled, mostly): written as no hash, the entry
+            // would say the declaration isn't final, and its digest would
+            // differ from the one an uninterrupted check writes (SW-4744).
+            Err(_) => {
+                self.w.bool(false);
+                self.out.fail("hashing a declaration stopped".to_string());
+            }
         }
     }
 
@@ -2470,6 +2512,7 @@ impl Elaborator {
         salt: [u8; 16],
     ) -> Result<(Vec<u8>, Key, DigestShape), String> {
         let parts = self.encode_pass(unit, before, writes, names, pre, warnings, None)?;
+        self.cancel_while_encoding();
         let (digest, mut shape) = self.interface_digest(unit, before, writes, names, pre)?;
         shape.entry_bytes = parts.stream_bytes();
         shape.entry_nodes = parts.node_count;
