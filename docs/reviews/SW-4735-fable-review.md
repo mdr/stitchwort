@@ -89,6 +89,11 @@ can see of a definition:
 | Hashes | users refer to a sealed theorem by `interface_hash`; a group's hash covers every member, hence the whole-group rule; the full hash is recorded in part A |
 | Tables (readings, names, navigation) | part A; they refer to a theorem by id |
 
+*Correction (24 Nov 2026, SW-4741):* the `match` helpers row holds only for a
+lifted `match`; one that is a theorem's whole body, on a parameter, is the
+theorem's own case tree, so a recursive theorem like `bumpId` is a group of
+one and loads stated, soundly.
+
 What a stated theorem lacks that a proved one has (group, transparency set,
 `lift_leaf`, `recursive`) has no reader outside the cache's own writer, the
 dump and `tailrec.rs` (which reads the group of a definition being
