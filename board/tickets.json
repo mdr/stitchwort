@@ -1,5 +1,5 @@
 {
-  "next": 4723,
+  "next": 4727,
   "tickets": [
     {
       "id": 47,
@@ -34073,6 +34073,58 @@
         "f87a7618d544452831e9858420d6c3e407f37ac6",
         "e58e193671bcfbcd04662115d3da72f515b69c6a"
       ]
+    },
+    {
+      "id": 4723,
+      "title": "[Sonnet] check --jobs: release a library claim when a file is elaborated but not written, and print claims_gave_up in the --timings line (SW-4719 review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4724,
+      "title": "[Sonnet] check --jobs: richer seeded-schedule fixture: instances in sibling namespaces, a lifted match, a theorem, different library files per branch, one --index run (SW-4719 review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4725,
+      "title": "[Sonnet] check --jobs: install the in-memory store only when the fill ran (a one-namespace --no-cache --jobs N encodes entries for nothing) (SW-4719 review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4726,
+      "title": "[Sonnet] check --jobs: a test-only hook to exercise a worker panic path (SW-4719 review F4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
     }
   ]
 }
