@@ -453,6 +453,47 @@ fn a_match_added_to_a_recursive_theorem_below_replays_what_uses_it() {
     assert_eq!((s.namespace_hits, s.namespace_misses), (1, 1), "{s:?}");
 }
 
+/// A `decreasing` theorem makes `down.%step` and `down.%go` from its
+/// signature, measure and proof; they are proof-private, so neither an edit
+/// of the proof nor of the measure moves the digest. The entry still holds
+/// them (replay declares them again).
+#[test]
+fn an_edited_decreasing_theorem_below_replays_what_uses_it() {
+    let a = |measure: &str, step: &str| {
+        format!(
+            "{A}\ntheorem down ∀ (n: Nat): n = n\n    decreasing {measure}\n:=\n  \
+             match n with\n    | 0 => byComputing\n    | Succ k => {step}\n"
+        )
+    };
+    let b = "namespace B\n\nimport A (down)\n\ntheorem usesDown: 3 = 3 := down 3\n";
+    let before = a("n", "match down k with | _ => byComputing");
+    for (name, edited) in [
+        (
+            "digest-decreasing-proof",
+            a(
+                "n",
+                "match down k with | _ => (match k with | _ => byComputing)",
+            ),
+        ),
+        (
+            "digest-decreasing-measure",
+            a("n + 0", "match down k with | _ => byComputing"),
+        ),
+    ] {
+        let s = after_edit_holding(
+            name,
+            &[("src/A.sw", &before), ("src/B.sw", b)],
+            &[("src/A.sw", &edited)],
+            &["A.down.%step", "A.down.%go"],
+        );
+        assert_eq!(
+            (s.namespace_hits, s.namespace_misses),
+            (1, 1),
+            "{name}: {s:?}"
+        );
+    }
+}
+
 /// A helper added before a data type's declaration: the type's count of
 /// definitions before it counts only those the digest keeps in order.
 #[test]

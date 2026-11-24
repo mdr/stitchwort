@@ -34651,12 +34651,12 @@
     {
       "id": 4759,
       "title": "[Sonnet] Digest: leave a sealed decreasing theorem's %step and %go (and anything lifted under them) out of the interface digest as proof-private, in digest_prep's candidates; first check every by-name lookup of %step/%go (equations.rs, induct.rs, tailrec.rs, decreasing_measure) (stage 3 pilot round 2, SW-4752)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\nLane note (Sonnet, 24 Nov): by-name lookups of %step/%go (equations.rs generated(\"%step\"), tailrec.rs, doc.rs, pretty.rs display, decreasing_measure by body head) are all for definitions; none reaches a theorem's. digest_prep now also makes sealed theorems named %step/%go candidates. Test an_edited_decreasing_theorem_below_replays_what_uses_it (measure edit fails before).\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
       "commits": []

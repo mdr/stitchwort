@@ -2665,17 +2665,27 @@ impl Elaborator {
     /// instance: no name in scope names one and no code builds one's name to
     /// look it up (C.1). Other rows of `lifted` (`decreasing`'s `….%plain`
     /// twins) never are: that argument was made for `%match` names only.
+    /// The other kind is the `f.%step` and `f.%go` a `decreasing` theorem
+    /// declares (parallel-checking.md 11.4): sealed theorems whose names no
+    /// source can write and no code builds for a theorem (the by-name
+    /// lookups of `%step` are in equations, `@[tailrec]` and doc output,
+    /// all for definitions, which have computing bodies).
     fn digest_prep(&self, before: &Before) -> DigestPrep {
         let g = &self.ev();
-        let candidates = (self.tables.lifted.since(before.tables.lifted()).iter())
-            .map(|&(id, _)| id)
+        let lifted = (self.tables.lifted.since(before.tables.lifted()).iter()).map(|&(id, _)| id);
+        let steps = (before.defs..g.env.defs().len()).map(DefId);
+        let candidates = lifted
+            .chain(steps)
             .filter(|&id| {
                 let def = g.def(id);
                 let last = def.path().rsplit('.').next().unwrap_or_default();
                 id.0 >= before.defs
-                    && !def.theorem()
                     && !def.instance()
-                    && last.starts_with("%match")
+                    && if def.theorem() {
+                        matches!(last, "%step" | "%go")
+                    } else {
+                        last.starts_with("%match")
+                    }
             })
             .collect();
         fn ordinals<'a>(paths: impl Iterator<Item = &'a str>) -> Vec<usize> {
