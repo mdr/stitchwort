@@ -1,0 +1,24 @@
+5.52, 5.96, 6.12
+== pilot over /Users/agent/repos/mdr/stitchwort/tools/fmt
+   took 135 s; checked 150 namespaces of fmt
+   match: 150 of 150 namespaces
+   theorems: 5578 proofs left out, 0 elaborated anyway (recursive, mutual or decreasing)
+   left out, lone: 4527 proofs, in 139 namespaces, 139 of them match
+   left out, mutual: 377 proofs, in 38 namespaces, 38 of them match
+   left out, recursive: 674 proofs, in 102 namespaces, 102 of them match
+   differing, by set of causes:
+== pilot over /Users/agent/repos/mdr/stitchwort/aoc
+   took 55 s; checked 291 namespaces of aoc
+   match: 282 of 291 namespaces
+   theorems: 2869 proofs left out, 0 elaborated anyway (recursive, mutual or decreasing)
+   left out, decreasing: 15 proofs, in 9 namespaces, 0 of them match
+   left out, lone: 2364 proofs, in 95 namespaces, 86 of them match
+   left out, mutual: 15 proofs, in 3 namespaces, 2 of them match
+   left out, recursive: 475 proofs, in 62 namespaces, 55 of them match
+   differing, by set of causes:
+       9  stream:rest: Aoc.Year2020.Day03.Proofs Aoc.Year2020.Day08.Proofs Aoc.Year2020.Day09.Proofs Aoc.Year2021.Day16.Proofs Aoc.Year2024.Day09.Proofs Aoc.Year2024.Day12.Proofs Aoc.Year2024.Day23.Pr
+   by single cause (namespaces):
+         9 stream:rest
+   details: /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/pilot3-aoc/pilot.txt
+
+[exited with code 0]
