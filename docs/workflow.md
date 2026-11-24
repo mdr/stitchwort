@@ -593,6 +593,9 @@ the source position and text of the innermost expressions being elaborated
 (`at:` the innermost, then `inside:` up to four enclosing ones: look for the
 `match`, `let` or `rewrite` line) and a backtrace; unset, nothing changes
 beyond one cached read (SW-4630).
+Set `STITCHWORT_WORK_LIMIT=<steps>` to replace the 10-billion per-declaration
+evaluation-step limit; it is for tests and debugging, and a check with it set
+differs from a normal one only in where `E-RESOURCE` fires.
 Set `STITCHWORT_STEP_PHASES=1` and `check --timings` adds a "steps by phase"
 table: each declaration's steps split into walk (a walk being elaborated),
 unify, apply (an application being checked), read-back and other, summing to

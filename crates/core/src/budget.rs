@@ -366,13 +366,32 @@ pub struct Limits {
 /// `bench/compare/const-fold` at depth 23 (SW-2471, D3450).
 pub const NATIVE_FRAMES: usize = 16_000_000;
 
+/// The default [`Limits::work`] before `STITCHWORT_WORK_LIMIT`: 10 billion
+/// evaluation steps.
+const DEFAULT_WORK: u64 = 10_000_000_000;
+
+/// The default [`Limits::work`]: [`DEFAULT_WORK`], or the positive number
+/// `STITCHWORT_WORK_LIMIT` gives, read once. For tests and debugging, so an
+/// `E-RESOURCE` case can be reached in seconds. Unset or invalid (not a
+/// positive integer), the 10 billion is unchanged.
+fn default_work() -> u64 {
+    static WORK: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
+    *WORK.get_or_init(|| {
+        std::env::var("STITCHWORT_WORK_LIMIT")
+            .ok()
+            .and_then(|v| v.trim().parse::<u64>().ok())
+            .filter(|n| *n > 0)
+            .unwrap_or(DEFAULT_WORK)
+    })
+}
+
 impl Limits {
     /// For a thread with `stack_size` bytes of stack, leaving a quarter (and
     /// at least 256 KiB) for whatever runs outside the guarded functions.
     pub fn for_stack(stack_size: usize) -> Limits {
         let reserve = (stack_size / 4).max(256 * 1024);
         Limits {
-            work: 10_000_000_000,
+            work: default_work(),
             stack: stack_size.saturating_sub(reserve),
             size: 2_000_000,
             frames: 2_000_000,
