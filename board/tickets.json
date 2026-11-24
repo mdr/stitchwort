@@ -34473,7 +34473,7 @@
     {
       "id": 4747,
       "title": "[Sonnet] Binder-sweep warnings reuse the main parse instead of parsing the target namespace again (about 3% of a check after an edit) (SW-4745 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
