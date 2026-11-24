@@ -34235,7 +34235,7 @@
     {
       "id": 4733,
       "title": "[Sonnet] examples/accept: pin that an opaque f equals its eta wrapper outside its unfolding set (from SW-4728 review probe; copy at scratchpad/eta-p1.sw) (SW-4728 review F5)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
