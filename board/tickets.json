@@ -34698,12 +34698,12 @@
     {
       "id": 4762,
       "title": "[Opus] D3736: a def or theorem written inside a theorem's (or instance's? decide by the rule: anything whose body is sealed) proof is private to that proof: naming it from outside is an error saying so; local defs in ordinary defs stay nameable (sumTo.go); interface digest treats them as proof-private like %match helpers; guide + syntax.md",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nProgress (Opus lane, 24 Nov): done in fe622f0a1. Repo search: no use outside its theorem's proof except examples/reject/opaque-note-local-definition-theorem.sw (already a reject example; removed). Owners: theorems only (Def::proof_hidden needs the theorem flag; a Prop-typed def or instance computes, so stays nameable); compiler-made equation theorems (f.eq2) are not owners. E-PROOF-PRIVATE in resolve/unknown, dot paths (f.go) and stitchwort axioms; digest leaves them, their names and helper keys out; equation_skips rows owned. Tests: check_cache::digest (39/39, 3 new), examples local/proof-local/opaque-note/function-equations, decreasing_twins local, hash_stability for the new accept example.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
       "commits": []
