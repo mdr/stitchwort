@@ -163,8 +163,13 @@ tasks:
       only, so for a whole test binary use `-E 'binary(name)'`.
       Corpus sweeps take the broad sample; set STITCHWORT_TIER=lane for the
       smallest, all for everything.
+      It builds every test binary of the packages the filter names. With
+      BIN it builds only that one (`task test:one BIN=projects -- -E
+      'package(stitchwort-driver) & binary(projects) & test(...)'`): the
+      filter must name one package, since `--test` fails in a package
+      without that binary (SW-4705).
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- cargo nextest run --release $({{.SCOPE}} -- {{.CLI_ARGS}}) {{.CLI_ARGS}}'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- cargo nextest run --release $({{.SCOPE}} -- {{.CLI_ARGS}}) {{if .BIN}}--test {{.BIN}}{{end}} {{.CLI_ARGS}}'
 
   test:example:
     desc: 'Check one example''s snapshots: NAME is part of a file or project folder name, or a comma-separated list (task test:example NAME=test-hole)'

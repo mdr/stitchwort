@@ -35,9 +35,9 @@ use stitchwort_driver::rewind::Cancelled;
 use stitchwort_elab::cache::{Key, Store, canonical_dump};
 use stitchwort_syntax::{Diagnostic, Severity};
 
-const STACK: usize = 16 * 1024 * 1024;
+pub(crate) const STACK: usize = 16 * 1024 * 1024;
 
-enum Source {
+pub(crate) enum Source {
     File(String, String),
     Project(String, PathBuf),
 }
@@ -150,7 +150,7 @@ fn assert_same(source: &Source, how: &str, fresh: &str, rewound: &str) {
 }
 
 /// The outcome of checking `source` in a fresh session.
-fn fresh(source: &Source) -> String {
+pub(crate) fn fresh(source: &Source) -> String {
     let mut s = session(source);
     let result = check(&mut s, source);
     outcome(&s, &result)
@@ -199,7 +199,7 @@ fn recheck_each_namespace(source: &Source, fresh: &str) {
 /// A check with every cache emptied before every declaration
 /// (`Options::clear_caches_per_declaration`): the caches only save work, so
 /// the outcome is a fresh check's.
-fn check_with_cleared_caches(source: &Source, fresh: &str) {
+pub(crate) fn check_with_cleared_caches(source: &Source, fresh: &str) {
     let mut s = session(source);
     s.elab.options.clear_caches_per_declaration = true;
     let result = check(&mut s, source);
@@ -242,7 +242,7 @@ fn cancel_then_check(source: &Source, fresh: &str) {
     assert_same(source, "cancel, then check", fresh, &outcome(&s, &result));
 }
 
-fn assert_rewinding_changes_nothing(source: &Source) {
+pub(crate) fn assert_rewinding_changes_nothing(source: &Source) {
     let fresh = fresh(source);
     check_rewind_check(source, &fresh);
     if matches!(source, Source::Project(..)) {
@@ -308,7 +308,7 @@ fn example_projects(dir: &str) -> Vec<Source> {
 /// eighth file and every fourth project), and every one with open goals
 /// (`goals/`, few; their tables are new) and every one about counterexample
 /// searches ([`searches`]).
-fn examples() -> Vec<Source> {
+pub(crate) fn examples() -> Vec<Source> {
     let mut files = Vec::new();
     for dir in ["accept", "extract", "reject", "soundness"] {
         files.extend(example_files(dir));
@@ -324,22 +324,6 @@ fn examples() -> Vec<Source> {
     sources.extend(searching);
     sources.extend(goals);
     sources
-}
-
-/// The caches are caches: the examples' sample checked with them emptied
-/// before every declaration gives what a fresh check gives.
-#[test]
-fn emptying_the_caches_changes_nothing_for_the_examples() {
-    let sources = examples();
-    par_map(STACK, &sources, |source| {
-        check_with_cleared_caches(source, &fresh(source));
-    });
-}
-
-#[test]
-fn rewinding_changes_nothing_for_the_examples() {
-    let sources = examples();
-    par_map(STACK, &sources, assert_rewinding_changes_nothing);
 }
 
 fn aoc() -> Source {

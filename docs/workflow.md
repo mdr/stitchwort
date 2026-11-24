@@ -457,7 +457,11 @@ that most of the time the tests being run are fast ones:
 - **lane**, under 10 s: a lane runs `task test:lane AREA=…` for the area it
   changed, and `task test:one -- NAME` for the tests it touched (a bare name
   matches test names only; `-E 'binary(name)'` selects a whole test binary),
-  while it works.
+  while it works. `test:one` builds every test binary of the packages the
+  filter names (the driver's eight, about 50 s after a library edit);
+  `task test:one BIN=projects -- -E 'package(stitchwort-driver) &
+  binary(projects) & test(…)'` builds only the binary `projects` (about 30 s
+  for the same edit, SW-4705; the filter must name one package).
 - **quick**, under 90 s on a 10-core M1 Pro: `task test:quick`, run by
   Overmind's rolling broad check on each pushed commit (D3546), not per
   batch; a batch's verifier runs a selection instead (`task test:selected`).

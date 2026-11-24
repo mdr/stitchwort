@@ -198,6 +198,11 @@ pub(crate) fn branch_note(e: &crate::Elaborator, terms: &[&Term]) -> Option<Stri
         matches!(t, Term::Eq(_, lhs, _)
             if matches!(lhs.spine().0, Term::Def(id) if helpers.contains(id)))
     };
+    // Reads every theorem's proof in the session, not only this
+    // namespace's. That is fine: the result is only the text of an error's
+    // note, and a namespace with an error is never written to the check
+    // cache (D284; `encode_pass` refuses an error), so a proof edited in
+    // another namespace can't change what an entry holds, nor a key.
     let mut found: Vec<String> = Vec::new();
     for i in 0..g.env.defs().len() {
         let d = g.def(DefId(i));
