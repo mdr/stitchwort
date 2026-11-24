@@ -79,3 +79,24 @@ rewrite/repeatedly.rs). The brief also named `audit.rs:467` and
   never stated) is the writer's rule; there is no writer yet, so it is
   documented (docs/core.md) and left to step 2. The kernel doesn't enforce
   it: a stated theorem has no group by construction.
+
+## SW-4732's stage 2 list (docs/reviews/SW-4732-body-read-audit.md §4)
+
+Landed on main while this lane ran; checked against it:
+
+- Verdict sites: `auto_eligible`, `reading.rs:1886`, `has_interface` and
+  `def_hash` are done here. The encoder stays a body test (own declarations).
+- Message-only sites: `interfaces.rs:1029`, `:1300` and `auto.rs:1547` moved
+  to `defined()`. `equation_notes.rs:212` reads proof *content* (which
+  equations a proof uses), so `defined()` doesn't fit. It is the text of an
+  error's note, and every message a user reads comes from a session loaded
+  whole (§10.4's restart rule), so it is left for step 3 to keep that way.
+- "Needs the proofs": `test_run.rs`, `declhash.rs`, `live/trial.rs`,
+  `assume.rs:157` (reads its own owner's body, in this namespace),
+  `timings.rs:364` (its own frame). Only `axioms.rs` and `audit.rs` fail
+  closed in this lane. The rest are `Load::Everything` sessions (or read
+  only the session's own declarations), which step 2 doesn't change; if
+  step 3 lets any of them load without proofs, each needs the same
+  `walked_body` treatment. The reliance walk (`assumption::mentions`,
+  `test_run.rs`'s goal walk) treats a stated theorem as a leaf, by
+  invariant W, as §10.2 says, not as an error.
