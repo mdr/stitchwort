@@ -163,13 +163,34 @@ tasks:
       only, so for a whole test binary use `-E 'binary(name)'`.
       Corpus sweeps take the broad sample; set STITCHWORT_TIER=lane for the
       smallest, all for everything.
-      It builds every test binary of the packages the filter names. With
-      BIN it builds only that one (`task test:one BIN=projects -- -E
-      'package(stitchwort-driver) & binary(projects) & test(...)'`): the
-      filter must name one package, since `--test` fails in a package
-      without that binary (SW-4705).
+      It builds every test binary of the packages the filter names. When the
+      filter names exactly one package and one plain binary (for example
+      `-E 'package(stitchwort-driver) & binary(projects) & test(...)'`), it
+      builds only that binary, as if `BIN=projects` were given (SW-4717).
+      BIN picks one explicitly; it must name a package the filter names,
+      since `--test` fails in a package without that binary (SW-4705).
+      A library unit test filter (`package(x) & test(...)`, no `binary`) still
+      builds all the package's test binaries. DRY=1 prints the command instead
+      of running it.
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- cargo nextest run --release $({{.SCOPE}} -- {{.CLI_ARGS}}) {{if .BIN}}--test {{.BIN}}{{end}} {{.CLI_ARGS}}'
+      - |
+        bin='{{.BIN}}'
+        if [ -z "$bin" ]; then
+          bin=$('{{.ROOT_DIR}}/dev/test-one-bin' -- {{.CLI_ARGS}})
+        fi
+        set -- {{.CLI_ARGS}}
+        if [ -n "$bin" ]; then
+          set -- --test "$bin" "$@"
+        fi
+        scope=$('{{.SCOPE}}' -- "$@")
+        if [ -n '{{.DRY}}' ]; then
+          printf 'BIN=%s\n' "${bin:-<none>}"
+          printf 'cargo nextest run --release %s' "$scope"
+          printf ' %s' "$@"
+          printf '\n'
+          exit 0
+        fi
+        {{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- cargo nextest run --release $scope "$@"
 
   test:example:
     desc: 'Check one example''s snapshots: NAME is part of a file or project folder name, or a comma-separated list (task test:example NAME=test-hole)'
