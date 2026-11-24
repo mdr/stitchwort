@@ -2948,6 +2948,86 @@ fn not_a_prop(cx: &mut Ctx, name: &Name, ty: &Term, span: Span) -> Result<Diagno
     .with_note("remove `theorem` to make it an ordinary definition"))
 }
 
+/// Settles pending theorem `id` as a **stated theorem** whose proof hasn't
+/// been checked ([`Def::stated`], [`Def::unproved`]; docs/core.md "Stated
+/// theorems"): final at once, with the name, path, type and proof mark
+/// [`declare_def`] gave it, and no body, group or assumption label, arity 0,
+/// as [`admit_trusted_stated`] makes one. For the interface pass of
+/// `check --jobs` (docs/proposals/parallel-checking-stage-3.md §3, D3735),
+/// which checks a theorem's statement and leaves its proof to a proof job
+/// in a session that doesn't hold this one; nothing else may call it.
+///
+/// Refused, with nothing changed (the theorem stays pending, so the caller
+/// can still check its proof):
+///
+/// - `E-MALFORMED` unless `id` is a definition declared as a theorem, still
+///   pending (not defined, failed, an assumption or already stated), whose
+///   type [`declare_def`] or [`retype_def`] checked in this session (not
+///   one [`admit_trusted_def`] took from the cache), whose type is a
+///   proposition by the kernel's own mark, which isn't an export, and which
+///   carries none of the marks a stated theorem can't carry (an instance, a
+///   `fold`, `opaque`, `tailrec` or parameter default's mark, an `unfolding`
+///   list).
+/// - `E-FAILED-DEPENDENCY` if its statement refers to a failed declaration,
+///   which [`declare_def`] lets through for [`define_group`] to find.
+///
+/// To everything checked against it, it is a proved theorem: a premise
+/// that relies on nothing. That holds only for the run, until its proof
+/// job has passed; so a session holding one is marked
+/// ([`crate::globals::Kernel::holds_unproved_theorems`]), and nothing it
+/// does may be reported or saved as checked. Its full hash is an internal
+/// error to ask for, since its proof isn't known; its interface hash and
+/// hash without proofs are its statement's, as a proved theorem's are.
+pub fn leave_stated(g: &mut Kernel, id: DefId) -> Result<()> {
+    in_kernel_modes(g, |g| {
+        let _set = g.machine.transparent.set(Rc::default());
+        let Some(def) = g.env.defs().get(id.0) else {
+            return Err(Diagnostic::error(
+                "E-MALFORMED",
+                "malformed core term: reference to an unknown definition",
+            ));
+        };
+        let ev = g.ev();
+        let cx = Ctx::new(&ev, def.span);
+        let problem = if !def.theorem {
+            Some("isn't a theorem")
+        } else if def.state != State::Pending {
+            Some("has already been defined")
+        } else if def.trusted_type {
+            Some("has a statement that wasn't checked in this session")
+        } else if !def.proof {
+            Some("has a type that isn't a proposition")
+        } else if def.export {
+            Some("is an export")
+        } else if def.instance
+            || def.fold
+            || def.opaque
+            || def.tailrec
+            || def.param_default
+            || !def.unfolding.is_empty()
+        {
+            Some("has a mark a stated theorem can't carry")
+        } else {
+            None
+        };
+        if let Some(problem) = problem {
+            return Err(malformed(
+                &cx,
+                format!("`{}` can't be left stated: it {problem}", def.name),
+            ));
+        }
+        if let Some(dep) = admissible(&cx, [&def.ty], None)? {
+            return Err(failed_dependency(&cx, &def.name, &dep));
+        }
+        let def = &mut g.env.defs_mut()[id.0];
+        def.stated = true;
+        def.unproved = true;
+        def.recursive = false;
+        def.state = State::Final;
+        Ok(())
+    })
+}
+
 /// Adds a pending definition with the checked type `ty`, for
 /// [`declare_def`], [`assume`] and [`admit_trusted_def`]. Its type's value
 /// ([`kept_type`]) is evaluated with every opaque definition hidden (the
@@ -3012,6 +3092,8 @@ fn push_marked_def(
         tailrec: false,
         assumption: None,
         stated: false,
+        unproved: false,
+        trusted_type: false,
         span,
     });
     DefId(g.env.defs().len() - 1)
@@ -4127,7 +4209,9 @@ pub fn admit_trusted_def(
         if let Some(dep) = admissible(&cx, [ty], None)? {
             return Err(failed_dependency(&cx, name, &dep));
         }
-        push_def(g, name, path, ty.clone(), theorem, false, span)
+        let id = push_def(g, name, path, ty.clone(), theorem, false, span)?;
+        g.env.defs_mut()[id.0].trusted_type = true;
+        Ok(id)
     })
 }
 

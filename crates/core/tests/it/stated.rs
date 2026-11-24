@@ -2,10 +2,12 @@
 //! theorems"): a final theorem whose proof isn't in this session. To
 //! everything that checks against it, it is the proved theorem: the same
 //! verdicts and the same hashes for its users, whatever shape its proof had.
+//! `check::leave_stated` makes the same from a theorem declared in this
+//! session whose proof hasn't been checked, and marks the session.
 
 use crate::common::*;
 use stitchwort_core::check;
-use stitchwort_core::globals::{Kernel, State};
+use stitchwort_core::globals::{Assumption, Kernel, State};
 use stitchwort_core::hash::{def_hash, has_interface, interface_hash, proofless_hash};
 use stitchwort_core::value::{Head, Value, eval};
 use stitchwort_core::{DefId, Limits, Term};
@@ -23,6 +25,11 @@ fn theorem(g: &mut Kernel, name: &str, ty: Term, proof: Term) -> Result<DefId, &
 }
 
 /// `(n: Nat) -> n = n`.
+/// Declares theorem `name: ty`, pending.
+fn declare_theorem(g: &mut Kernel, name: &str, ty: Term) -> DefId {
+    check::declare_def(g, &name.into(), &name.into(), &ty, true, false, span()).unwrap()
+}
+
 fn statement(p: &Prelude) -> Term {
     pi("n", p.nat_ty(), eq(Some(p.nat_ty()), v(0), v(0)))
 }
@@ -36,6 +43,8 @@ enum Refl {
     Lemma,
     /// Stated, its proof not loaded, as a cache entry would give it.
     Stated,
+    /// Declared here and left stated, its proof not checked.
+    Left,
 }
 
 /// The prelude with `refl` in it, `how`.
@@ -55,6 +64,11 @@ fn with_refl(how: Refl) -> (Prelude, DefId) {
             let checked = proved.g.def(id).ty().clone();
             check::admit_trusted_stated(&mut p.g, &"refl".into(), &"refl".into(), &checked, span())
                 .unwrap()
+        }
+        Refl::Left => {
+            let id = declare_theorem(&mut p.g, "refl", ty);
+            check::leave_stated(&mut p.g, id).unwrap();
+            id
         }
     };
     (p, refl)
@@ -107,7 +121,7 @@ fn a_stated_theorem_is_final_with_no_proof() {
 #[test]
 fn users_check_and_hash_the_same_against_a_stated_theorem() {
     let mut hashes = Vec::new();
-    for how in [Refl::Lambdas, Refl::Lemma, Refl::Stated] {
+    for how in [Refl::Lambdas, Refl::Lemma, Refl::Stated, Refl::Left] {
         let (mut p, refl) = with_refl(how);
         let users = users(&mut p, refl);
         let ev = p.g.ev();
@@ -223,4 +237,182 @@ fn admit_trusted_stated_refuses_what_isnt_a_final_statement() {
         "E-MALFORMED"
     );
     assert_eq!(p.g.env.defs().len(), before + 1, "only `pending` was added");
+}
+
+/// Left stated, a declared theorem is final with no proof, as one from the
+/// cache is, and the session is marked as holding a promise; a stated
+/// theorem from the cache doesn't mark it.
+#[test]
+fn leave_stated_makes_a_stated_theorem_and_marks_the_session() {
+    let (p, refl) = with_refl(Refl::Left);
+    let def = p.g.def(refl);
+    assert!(def.stated() && def.unproved() && def.theorem() && def.proof() && def.defined());
+    assert_eq!(def.state(), State::Final);
+    assert!(def.body().is_none() && def.group().is_none() && def.assumption().is_none());
+    assert_eq!(def.arity(), 0);
+    assert_eq!(
+        (def.name().to_string(), def.path().to_string()),
+        ("refl".into(), "refl".into())
+    );
+    assert!(has_interface(&p.g.ev(), refl));
+    assert!(p.g.holds_unproved_theorems());
+    let (cached, refl) = with_refl(Refl::Stated);
+    assert!(!cached.g.def(refl).unproved());
+    assert!(!cached.g.holds_unproved_theorems());
+}
+
+/// The mark is the theorem: rewinding to before it drops the mark, with
+/// everything checked against it.
+#[test]
+fn rewinding_past_a_theorem_left_stated_clears_the_mark() {
+    let mut p = Prelude::new();
+    let mark = p.g.mark();
+    let st = statement(&p);
+    let refl = declare_theorem(&mut p.g, "refl", st.clone());
+    let declared = format!("{:?}", p.g.def(refl).ty());
+    check::leave_stated(&mut p.g, refl).unwrap();
+    let kept = format!("{:?}", p.g.def(refl).ty());
+    assert_eq!(kept, declared, "the checked statement, kept");
+    theorem(&mut p.g, "user", st, Term::Def(refl)).unwrap();
+    assert!(p.g.holds_unproved_theorems());
+    p.g.rewind(&mark);
+    assert!(!p.g.holds_unproved_theorems());
+}
+
+/// Nothing gives it a body afterwards: it isn't pending any more.
+#[test]
+fn nothing_gives_a_theorem_left_stated_a_body() {
+    let (mut p, refl) = with_refl(Refl::Left);
+    let st = statement(&p);
+    assert_eq!(
+        code(check::define_def(&mut p.g, refl, &lam("n", Term::Refl))),
+        "E-MALFORMED"
+    );
+    assert_eq!(code(check::retype_def(&mut p.g, refl, &st)), "E-MALFORMED");
+    assert_eq!(
+        code(check::set_run_body(&mut p.g, refl, &lam("n", Term::Refl))),
+        "E-MALFORMED"
+    );
+    assert_eq!(code(check::leave_stated(&mut p.g, refl)), "E-MALFORMED");
+    assert!(p.g.def(refl).body().is_none());
+}
+
+/// Its full hash isn't known, so asking for it is an internal error, never
+/// `None` (which reads as "not final").
+#[test]
+#[should_panic(expected = "a theorem whose proof hasn't been checked")]
+fn the_full_hash_of_a_theorem_left_stated_is_an_internal_error() {
+    let (p, refl) = with_refl(Refl::Left);
+    let _ = def_hash(&p.g.ev(), refl);
+}
+
+/// Puts a mark on a pending definition, given an opaque one to unfold.
+type Mark = fn(&mut Kernel, DefId, DefId);
+
+/// `leave_stated` takes only a pending theorem the kernel declared and
+/// checked here, with nothing a stated theorem can't carry; each refusal
+/// leaves it as it was.
+#[test]
+fn leave_stated_refuses_what_isnt_a_checked_pending_theorem() {
+    let mut p = Prelude::new();
+    let st = statement(&p);
+    let nat = p.nat_ty();
+    let unchanged = |g: &Kernel, id: DefId, state: State| {
+        let def = g.def(id);
+        assert!(
+            !def.stated() && !def.unproved(),
+            "`{}` unchanged",
+            def.name()
+        );
+        assert_eq!(def.state(), state, "`{}` unchanged", def.name());
+    };
+
+    let unknown = DefId(p.g.env.defs().len() + 5);
+    assert_eq!(code(check::leave_stated(&mut p.g, unknown)), "E-MALFORMED");
+
+    // A definition whose type is a proposition, but not a theorem.
+    let def = declare(&mut p.g, "def", st.clone());
+    assert_eq!(code(check::leave_stated(&mut p.g, def)), "E-MALFORMED");
+    unchanged(&p.g, def, State::Pending);
+
+    // Already defined, or failed.
+    let proved = theorem(&mut p.g, "proved", st.clone(), lam("n", Term::Refl)).unwrap();
+    assert_eq!(code(check::leave_stated(&mut p.g, proved)), "E-MALFORMED");
+    unchanged(&p.g, proved, State::Final);
+    let failed = declare_theorem(&mut p.g, "failed", st.clone());
+    assert_ne!(code(check::define_def(&mut p.g, failed, &Term::Refl)), "ok");
+    assert_eq!(code(check::leave_stated(&mut p.g, failed)), "E-MALFORMED");
+    unchanged(&p.g, failed, State::Failed);
+
+    // An assumption, final at once.
+    let assumed = check::assume(
+        &mut p.g,
+        &"a".into(),
+        &"a".into(),
+        &st,
+        Assumption::goal("a".into(), 1),
+        true,
+        span(),
+    )
+    .unwrap();
+    assert_eq!(code(check::leave_stated(&mut p.g, assumed)), "E-MALFORMED");
+    unchanged(&p.g, assumed, State::Final);
+
+    // A statement the cache gave, not checked here.
+    let checked = p.g.def(proved).ty().clone();
+    let trusted =
+        check::admit_trusted_def(&mut p.g, &"tr".into(), &"tr".into(), &checked, true, span())
+            .unwrap();
+    assert_eq!(code(check::leave_stated(&mut p.g, trusted)), "E-MALFORMED");
+    unchanged(&p.g, trusted, State::Pending);
+
+    // An export.
+    let export = check::declare_def(
+        &mut p.g,
+        &"ex".into(),
+        &"ex".into(),
+        &st,
+        true,
+        true,
+        span(),
+    )
+    .unwrap();
+    assert_eq!(code(check::leave_stated(&mut p.g, export)), "E-MALFORMED");
+    unchanged(&p.g, export, State::Pending);
+
+    // Each mark a stated theorem can't carry.
+    let opaque = declare_theorem(&mut p.g, "o", st.clone());
+    check::mark_opaque(&mut p.g, opaque);
+    let marks: [(&str, Mark); 6] = [
+        ("instance", |g, id, _| check::mark_instance(g, id)),
+        ("fold", |g, id, _| check::mark_folded(g, id)),
+        ("opaque", |g, id, _| check::mark_opaque(g, id)),
+        ("tailrec", |g, id, _| check::mark_tailrec(g, id)),
+        ("default", |g, id, _| check::mark_param_default(g, id)),
+        ("unfolding", |g, id, o| check::set_unfolding(g, id, &[o])),
+    ];
+    for (name, mark) in marks {
+        let id = declare_theorem(&mut p.g, name, st.clone());
+        mark(&mut p.g, id, opaque);
+        assert_eq!(
+            code(check::leave_stated(&mut p.g, id)),
+            "E-MALFORMED",
+            "{name}"
+        );
+        unchanged(&p.g, id, State::Pending);
+    }
+
+    // A statement about a failed declaration, which `declare_def` let
+    // through for `define_def` to find.
+    let bad = declare(&mut p.g, "bad", nat.clone());
+    assert_ne!(code(check::define_def(&mut p.g, bad, &Term::Refl)), "ok");
+    let on_bad = eq(Some(nat), Term::Def(bad), Term::Def(bad));
+    let uses_bad = declare_theorem(&mut p.g, "usesBad", on_bad);
+    assert_eq!(
+        code(check::leave_stated(&mut p.g, uses_bad)),
+        "E-FAILED-DEPENDENCY"
+    );
+    unchanged(&p.g, uses_bad, State::Pending);
+
+    assert!(!p.g.holds_unproved_theorems());
 }

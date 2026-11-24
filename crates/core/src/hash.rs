@@ -202,6 +202,14 @@ fn def_hash_in(g: &Ev, id: DefId, mode: Mode) -> Result<Option<ContentHash>> {
         mode.cache(g).borrow_mut().insert(HashKey::Def(id), hash);
         return Ok(Some(hash));
     }
+    // A theorem left stated before its proof was checked has no full hash:
+    // nobody knows its proof. A reader that asks has mistaken it for a
+    // proved one, and "no hash" would read as "not final" (SW-4744).
+    assert!(
+        !(def.unproved && mode == Mode::Content),
+        "internal error: the full hash of `{}`, a theorem whose proof hasn't been checked",
+        def.path
+    );
     // A stated theorem's proof isn't here. Its full hash is the one
     // recorded when it was proved, which whoever made it puts in the cache
     // (the check cache's replay); without proofs it's its statement, as a
