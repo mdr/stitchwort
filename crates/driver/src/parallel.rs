@@ -42,7 +42,9 @@ use stitchwort_syntax::SourceMap;
 
 use crate::check_cache::{ClaimStore, Claims};
 use crate::driver::Session;
-use crate::project::{Analysis, CONFIG, Files, Target, analyse, dependencies, project_sources};
+use crate::project::{
+    Analysis, CONFIG, Files, Load, Target, analyse, dependencies, project_sources,
+};
 
 /// How a parallel fill runs.
 pub struct Jobs<'a> {
@@ -83,6 +85,23 @@ pub struct Fill {
     pub stats: Stats,
     /// Waits for another worker's library file that ran out of patience.
     pub claims_gave_up: u64,
+}
+
+impl Fill {
+    /// How the check after the fill should load what a command asked to
+    /// `load`: with nothing left out unloaded if the fill left a
+    /// namespace. A left namespace may fail, and one that fails after a
+    /// namespace left out unloaded makes the check start again with
+    /// everything loaded, which would check it a third time (once in the
+    /// fill, twice after); loading everything from the start checks it once
+    /// after the fill. What is reported is the same either way.
+    pub fn load_after(&self, load: Load) -> Load {
+        if self.left > 0 {
+            Load::Everything
+        } else {
+            load
+        }
+    }
 }
 
 /// How long a worker waits for a library file another is elaborating
@@ -211,6 +230,8 @@ struct Tally {
     filled: usize,
     twice: usize,
     stats: Stats,
+    /// The panic the worker caught, which stopped the fill.
+    panic: Option<Box<dyn std::any::Any + Send>>,
 }
 
 /// Fills the check cache for checking `target` of the project in `files`
@@ -294,7 +315,7 @@ pub fn fill(files: &(dyn Files + Sync), project: &str, target: &Target, jobs: &J
         changed: &changed,
         stop: &stop,
     };
-    let tallies: Vec<Tally> = std::thread::scope(|scope| {
+    let mut tallies: Vec<Tally> = std::thread::scope(|scope| {
         let handles: Vec<_> = (1..workers)
             .map(|w| {
                 let (shared, claims, read) = (&shared, &claims, &read);
@@ -324,6 +345,13 @@ pub fn fill(files: &(dyn Files + Sync), project: &str, target: &Target, jobs: &J
         tallies.extend(handles.into_iter().map(|h| h.join().unwrap_or_default()));
         tallies
     });
+    // Worker 0 is the caller's thread, which the check after the fill runs
+    // on: a panic there may have left its thread-local state half-changed,
+    // so the run fails as one job meeting the panic would, rather than
+    // checking on over that state.
+    if let Some(panic) = tallies.first_mut().and_then(|t| t.panic.take()) {
+        std::panic::resume_unwind(panic);
+    }
     let board = board.into_inner().unwrap_or_else(|e| e.into_inner());
     let mut fill = Fill {
         ran: true,
@@ -465,9 +493,11 @@ impl Worker {
                     }
                     shared.finish(self.id, i, written, &loaded);
                 }
-                Err(_) => {
-                    // The check after the fill meets the same panic, on
-                    // the caller's thread, and reports it.
+                Err(panic) => {
+                    // On a worker thread, the check after the fill meets
+                    // the same panic and reports it; worker 0's is raised
+                    // again once the others stop (`fill`).
+                    tally.panic = Some(panic);
                     self.store.end_job();
                     shared.finish(self.id, i, false, &[]);
                     shared.halt();

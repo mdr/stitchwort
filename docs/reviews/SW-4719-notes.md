@@ -137,3 +137,20 @@ through a store in memory (D3731, `crates/driver/src/check_cache.rs`,
   work to do, plus three more sessions and entries encoded into memory);
   one run each on a loaded machine (load about 12). The project-sized figures
   are the measure's.
+
+## After the Fable review (docs/reviews/SW-4719-fable-review.md)
+
+- **F1.** `Fill::load_after`: when the fill left a namespace, the check after it loads
+  everything (`Load::Everything`), so a namespace that fails is checked twice in all (worker,
+  then the check), not three times. `parallel::a_failure_is_reported_as_with_one_job_and_the_rest_is_filled`
+  counts `Par.Left`'s timings rows; without the fix the syntax-error case elaborated it twice
+  after the fill. The guide now says the "still checking" notes can differ.
+- **F2.** `progress::CURRENT` holds one label per thread; `current()` gives the one begun
+  longest ago, so a worker finishing a quick declaration no longer erases another's.
+- **F3.** `check-cache-trust.md`: the reference run passes `--jobs 1` explicitly, and the
+  check after a `--no-cache` fill leaves most clean namespaces out on the entry's head.
+  Overmind's rolling-check script is not in the repo: the orchestrator adds `--jobs 1` there.
+- **F4.** `NO_ETA` is put back by a drop guard (`unify.rs`, in `first_order`'s argument
+  pairing); a panic caught by worker 0 (the caller's thread) is raised again once the other
+  workers stop, instead of checking on over that thread's state.
+- The `--timings` fill line also gives the claim waits given up (the review's note).

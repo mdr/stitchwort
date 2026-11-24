@@ -2412,6 +2412,7 @@ fn check(
         session.elab.set_carry_over(carry_over);
         session.elab.set_recheck(recheck);
     }
+    let mut filled = None;
     if jobs > 1 {
         // Quietly one job, so a default of more can't break these.
         let one = [
@@ -2433,14 +2434,12 @@ fn check(
         ];
         match one.iter().find(|(why, _)| *why) {
             Some((_, why)) => stitchwort_elab::timings::jobs(1, Some(format!("one job: {why}"))),
-            None => fill_in_parallel(
-                &mut session,
-                &project,
-                &target,
-                jobs,
-                index.is_some(),
-                cache,
-            ),
+            None => {
+                let navigation = index.is_some();
+                let fill =
+                    fill_in_parallel(&mut session, &project, &target, jobs, navigation, cache);
+                filled = Some(fill);
+            }
         }
     }
     let mut reported = Vec::new();
@@ -2451,6 +2450,7 @@ fn check(
     } else {
         Load::Everything
     };
+    let load = filled.map_or(load, |fill| fill.load_after(load));
     let checked = load_project_counting(
         &mut session,
         &project,
@@ -2781,7 +2781,7 @@ fn fill_in_parallel(
     jobs: usize,
     navigation: bool,
     cache: &CacheArgs,
-) {
+) -> stitchwort_driver::parallel::Fill {
     use stitchwort_driver::check_cache::{CheckCache, MemoryStore};
     use stitchwort_elab::cache::Store;
     let memory = cache.no_cache.then(MemoryStore::default);
@@ -2817,19 +2817,22 @@ fn fill_in_parallel(
     let note = if fill.ran {
         format!(
             "{} workers: {} namespaces had entries, {} filled, {} left to the check after; \
-             {} dependencies elaborated again, {} entries refused, {} late misses",
+             {} dependencies elaborated again, {} entries refused, {} late misses, \
+             {} waits for a library file given up",
             fill.workers,
             fill.found,
             fill.filled,
             fill.left,
             fill.twice,
             fill.stats.refused,
-            fill.stats.late_misses
+            fill.stats.late_misses,
+            fill.claims_gave_up
         )
     } else {
         "one job: fewer than two namespaces to check".to_string()
     };
     stitchwort_elab::timings::jobs(fill.workers.max(1), Some(note));
+    fill
 }
 
 /// Whether `STITCHWORT_CARRY_OVER=1` turns carrying over on: only when

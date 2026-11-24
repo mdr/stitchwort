@@ -21,12 +21,17 @@ more than one job (D3731), the workers pass their results to each other and
 to the final check as entries in a store in memory that lives for the run:
 no entry from disk is used, and each entry in memory was written only after
 this build's kernel had accepted every declaration in it; but the final
-check replays those entries trusted, as it would a folder's. So
+check trusts those entries as it would a folder's: it replays the ones
+it needs, and leaves most clean namespaces out unloaded on the strength of
+the entry's head (`plan_namespace`), as a warm check does. So
 `--no-cache --jobs N` is "everything checked by this run's kernel", not
 "every declaration checked in the session that reports". The full check in
 the strict sense below is `--no-cache` with one job, which stays the
-reference (Overmind's rolling check). The switch is `PARALLEL_NO_CACHE` in
-`crates/cli/src/main.rs`.
+reference (Overmind's rolling check). Since `STITCHWORT_JOBS` in the
+environment gives a plain `--no-cache` more jobs, with nothing printed to
+say so, a reference run passes `--jobs 1` explicitly. The switch is
+`PARALLEL_NO_CACHE` in `crates/cli/src/main.rs` (D3731: Matt chose the
+in-memory store, 24 Nov 2026).
 
 ## 1. In short
 

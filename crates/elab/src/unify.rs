@@ -2859,9 +2859,18 @@ fn first_order(
         return Ok(false);
     }
     let mark = g.store.meta_trail.borrow().len();
-    let outer = NO_ETA.with(|c| c.replace(true));
-    let same = unify_in(g, level, x, y);
-    NO_ETA.with(|c| c.set(outer));
+    let same = {
+        // Put back however `unify_in` ends, a panic too: a parallel check
+        // goes on checking on a thread whose worker caught one.
+        struct Restore(bool);
+        impl Drop for Restore {
+            fn drop(&mut self) {
+                NO_ETA.with(|c| c.set(self.0));
+            }
+        }
+        let _restore = Restore(NO_ETA.with(|c| c.replace(true)));
+        unify_in(g, level, x, y)
+    };
     if !same? {
         return Ok(false);
     }

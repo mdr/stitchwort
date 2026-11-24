@@ -16,6 +16,7 @@ use stitchwort_driver::parallel::{Fill, Jobs, fill};
 use stitchwort_driver::project::{DiskFiles, Files, Load, MemoryFiles, Target};
 use stitchwort_driver::render::render;
 use stitchwort_elab::cache::{Stats, Store, canonical_dump};
+use stitchwort_elab::timings;
 
 use crate::check_cache::STACK;
 
@@ -71,6 +72,8 @@ fn check(
                 seed,
             },
         );
+        // As `check` does: everything loaded if the fill left a namespace.
+        let load = fill.load_after(load);
         let result = session.load_project_for(files, "par", &Target::Everything, load);
         let diagnostics = match &result {
             Ok(_) => session.warnings.clone(),
@@ -305,6 +308,8 @@ fn a_failure_is_reported_as_with_one_job_and_the_rest_is_filled() {
         ),
         ("a syntax error", "def left: Nat := (base +", CONFIG),
     ];
+    // The timings' rows count each elaboration of a namespace.
+    timings::request(1);
     for (what, left, config) in cases {
         let files = diamond_and_chain(left, config);
         let one = temp_dir("fail-one");
@@ -315,6 +320,7 @@ fn a_failure_is_reported_as_with_one_job_and_the_rest_is_filled() {
             sequential.report
         );
         let four = salted_like(&one, "fail-four");
+        let before = timings::rows_labelled("Par.Left");
         let parallel = check(&files, &Kept::Dir(four.clone()), 4, None, Load::Diagnostics);
         assert_eq!(sequential.report, parallel.report, "{what}");
         assert!(parallel.fill.ran, "{what}: {:?}", parallel.fill);
@@ -342,6 +348,13 @@ fn a_failure_is_reported_as_with_one_job_and_the_rest_is_filled() {
             entries(&one) == entries(&four),
             "{what}: the entries differ"
         );
+        // `Par.Left` is elaborated once by a worker (unless it has a syntax
+        // error, which no worker is given) and once after the fill: not
+        // twice after it, left out unloaded and then all again after the
+        // error (SW-4719's review, F1).
+        let elaborated = timings::rows_labelled("Par.Left") - before;
+        let expected = if what == "a syntax error" { 1 } else { 2 };
+        assert_eq!(elaborated, expected, "{what}: Par.Left elaborated");
         let _ = std::fs::remove_dir_all(&one);
         let _ = std::fs::remove_dir_all(&four);
     }

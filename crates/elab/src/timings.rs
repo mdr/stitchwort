@@ -432,6 +432,17 @@ fn name_width<'a>(labels: impl Iterator<Item = &'a str>, least: usize) -> usize 
         .max(least)
 }
 
+/// For tests: how many rows so far are labelled `label` (a namespace's row
+/// is its name, once each time it is elaborated).
+#[doc(hidden)]
+pub fn rows_labelled(label: &str) -> usize {
+    ROWS.lock()
+        .unwrap()
+        .iter()
+        .filter(|r| r.label == label)
+        .count()
+}
+
 /// Prints the tables to stderr, in one buffered write.
 pub fn report() {
     if !enabled() {
