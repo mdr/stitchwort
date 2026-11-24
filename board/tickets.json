@@ -1,5 +1,5 @@
 {
-  "next": 4732,
+  "next": 4733,
   "tickets": [
     {
       "id": 47,
@@ -34209,6 +34209,19 @@
         "4f056c4d684c6f72cdb52f5cfc23f4f5073ba227",
         "03b948fa7fc9549cfb1824e4dbb54f5e313dcc67"
       ]
+    },
+    {
+      "id": 4732,
+      "title": "[Fable, paper] Audit crates/elab's ~40 direct Def::body()/arity() reads (walk/mod.rs case_tree, ignores_arguments, matching.rs literal, equations.rs, decreasing.rs, ...): can any reach a sealed theorem other than the one being elaborated (a rule 6 hole, and a digest-cache staleness risk)? (SW-4728 finding)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
     }
   ]
 }
