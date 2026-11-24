@@ -265,7 +265,7 @@ filter = """
 | (package(stitchwort-driver) & binary(projects) & test(/^(examples_wide::the_cache_changes_nothing_for_the_examples|check_cache::(the_cache_changes_nothing_for_the_aoc_project|aocs_namespaces_load_on_their_own_from_the_whole_projects_cache))$/))
 | (package(stitchwort-driver) & binary(library) & test(/^hash_stability::(examples|projects|a_namespace_checked_alone_has_the_same_hashes)$/))
 | (package(stitchwort-driver) & binary(library) & test(/^std_library::(lazy_loading_changes_nothing_for_.*|the_core_alone_runs_every_example_that_uses_no_library_name)$/))
-| (package(stitchwort-driver) & binary(projects) & test(/^rewind::(rewinding_changes_nothing_for_the_examples|rewinding_changes_nothing_for_the_aoc_project|a_check_cancelled_part_way_rewinds)$/))
+| (package(stitchwort-driver) & binary(projects) & test(/^(examples_wide::rewinding_changes_nothing_for_the_examples|rewind::(rewinding_changes_nothing_for_the_aoc_project|a_check_cancelled_part_way_rewinds))$/))
 | (package(stitchwort-driver) & binary(elaboration) & test(=erasure::erasure_doesnt_change_what_examples_print_or_test))
 | (package(stitchwort-driver) & binary(elaboration) & test(=named_arguments::named_calls_keep_every_hash))
 | (package(stitchwort-driver) & binary(library) & test(=fmt_hashes::formatting_changes_no_declaration_hash))
@@ -301,7 +301,7 @@ priority = 100
 [[profile.default.overrides]]
 filter = """
 (package(stitchwort-driver) & binary(search_at_aoc) & test(=search_at_on_aoc_goals))
-| (package(stitchwort-driver) & binary(projects) & test(=rewind::rewinding_changes_nothing_for_the_examples))
+| (package(stitchwort-driver) & binary(projects) & test(=examples_wide::rewinding_changes_nothing_for_the_examples))
 | (package(stitchwort-driver) & binary(elaboration) & test(=erasure::erasure_doesnt_change_what_examples_print_or_test))
 | (package(stitchwort-cli) & binary(running) & test(/^examples::(accepted|rejected)_examples_/))
 | (package(stitchwort-driver) & binary(projects) & test(=examples_wide::the_cache_changes_nothing_for_the_examples))
@@ -367,7 +367,7 @@ slow-timeout = { period = "120s", terminate-after = 30 }
 # (about 2,060 example files against 1,520 on 6 Nov; SW-4568 measured the
 # broad sample at 205 s on 2 threads, about 1,640 s projected for all).
 [[profile.default.overrides]]
-filter = "(package(stitchwort-driver) & binary(projects) & test(/^(examples_wide::the_cache_changes_nothing_for_the_examples|rewind::rewinding_changes_nothing_for_the_examples|rewind::emptying_the_caches_changes_nothing_for_the_examples)$/)) | (package(stitchwort-driver) & binary(library) & test(=fmt_hashes::formatting_changes_no_declaration_hash))"
+filter = "(package(stitchwort-driver) & binary(projects) & test(/^(examples_wide::the_cache_changes_nothing_for_the_examples|examples_wide::rewinding_changes_nothing_for_the_examples|examples_wide::emptying_the_caches_changes_nothing_for_the_examples)$/)) | (package(stitchwort-driver) & binary(library) & test(=fmt_hashes::formatting_changes_no_declaration_hash))"
 slow-timeout = { period = "120s", terminate-after = 30 }
 
 # The fuzzers run as single long tests sized by their task's counts
