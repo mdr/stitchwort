@@ -1,5 +1,5 @@
 {
-  "next": 4767,
+  "next": 4768,
   "tickets": [
     {
       "id": 47,
@@ -34765,6 +34765,19 @@
       "id": 4766,
       "title": "[DeepSeek] SW-4762 follow-ups: remove the now-unreachable sealed branch of opaque_notes (crates/elab/src/opaque.rs) or show a case reaching it; --only t.go for a proof-private name says E-PROOF-PRIVATE, not 'no theorem'; local.rs E-DUPLICATE note says t.go is nameable from outside: true only for def owners",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4767,
+      "title": "[Opus] Stage 3 step 3: the driver: interface jobs and proof jobs on stage 1's workers, the in-memory interface store, pick rules, failure and mismatch rules, the unproved-theorem assertions (review F2), counters, --timings rows; on with --jobs > 1 (parallel-checking-stage-3.md section 9 step 3; D3735, D3737)",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
