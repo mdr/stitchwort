@@ -1,5 +1,5 @@
 {
-  "next": 4763,
+  "next": 4764,
   "tickets": [
     {
       "id": 47,
@@ -34698,6 +34698,19 @@
     {
       "id": 4762,
       "title": "[Opus] D3736: a def or theorem written inside a theorem's (or instance's? decide by the rule: anything whose body is sealed) proof is private to that proof: naming it from outside is an error saying so; local defs in ordinary defs stay nameable (sumTo.go); interface digest treats them as proof-private like %match helpers; guide + syntax.md",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4763,
+      "title": "[Opus] Stage 3 step 1: kernel check::leave_stated (a stated theorem from a statement whose proof is checked elsewhere in the run), its refusals and tests; docs/core.md Stated theorems; no caller outside tests (parallel-checking-stage-3.md section 9; D3735)",
       "status": "doing",
       "agent": "",
       "where": "",
