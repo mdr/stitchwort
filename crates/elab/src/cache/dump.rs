@@ -214,9 +214,22 @@ fn term(out: &mut String, t: &Term) {
 
 /// The canonical dump of `e` (see the module's comment).
 pub fn canonical_dump(e: &Elaborator) -> String {
+    dump(e, true)
+}
+
+/// [`canonical_dump`] without what a session loaded without proofs lacks
+/// of a theorem (parallel-checking.md §10.4): every theorem's body, group,
+/// `unfolding` list, transparency set and admission flags, and whether it
+/// is stated, are printed `-`. A session loaded without proofs must give
+/// the same text as one loaded whole.
+pub fn canonical_dump_without_proofs(e: &Elaborator) -> String {
+    dump(e, false)
+}
+
+fn dump(e: &Elaborator, proofs: bool) -> String {
     let mut out = String::new();
     let g = &e.ev();
-    declarations(g, &mut out);
+    declarations(g, &mut out, proofs);
     // Every binding, with every field of `Builtins`: a replay that skips,
     // repeats or leaves behind a native or Float registration shows here.
     g.env.registry().dump(&mut out);
@@ -234,12 +247,16 @@ pub fn canonical_dump(e: &Elaborator) -> String {
 }
 
 /// The kernel's definitions and data types, as the canonical dump prints
-/// them.
-pub(super) fn declarations(g: &Ev, out: &mut String) {
+/// them; without `proofs`, a theorem's proof and what comes of it as `-`.
+pub(super) fn declarations(g: &Ev, out: &mut String, proofs: bool) {
     for (i, def) in g.env.defs().iter().enumerate() {
+        // What a stated theorem doesn't have: hidden for every theorem, so
+        // the text doesn't say which were loaded how.
+        let hide = !proofs && def.theorem();
+        let shown = |text: String| if hide { "-".to_string() } else { text };
         let _ = write!(
             out,
-            "def {i} {} {} {:?} arity {} group {:?} theorem {} stated {} instance {} fold {} export {} opaque {} tailrec {} unfolding {:?} ",
+            "def {i} {} {} {:?} arity {} group {} theorem {} stated {} instance {} fold {} export {} opaque {} tailrec {} unfolding {} ",
             def.name(),
             def.path(),
             def.state(),
@@ -251,33 +268,44 @@ pub(super) fn declarations(g: &Ev, out: &mut String) {
             } else {
                 def.arity().to_string()
             },
-            def.group()
-                .as_ref()
-                .map(|m| m.iter().map(|d| d.0).collect::<Vec<_>>()),
+            shown(format!(
+                "{:?}",
+                def.group()
+                    .as_ref()
+                    .map(|m| m.iter().map(|d| d.0).collect::<Vec<_>>())
+            )),
             def.theorem(),
-            def.stated(),
+            shown(def.stated().to_string()),
             def.instance(),
             def.fold(),
             def.export(),
             def.opaque(),
             def.tailrec(),
-            def.unfolding().iter().map(|d| d.0).collect::<Vec<_>>(),
+            shown(format!(
+                "{:?}",
+                def.unfolding().iter().map(|d| d.0).collect::<Vec<_>>()
+            )),
         );
         span(out, def.span());
         out.push_str("\n  ty ");
         term(out, def.ty());
         out.push_str("\n  body ");
         match def.body() {
-            Some(b) => term(out, b),
-            None => out.push('-'),
+            Some(b) if !hide => term(out, b),
+            _ => out.push('-'),
         }
         // What admission works out besides the body, so that a trusted
         // replay (stage 3) is compared with a full check on it too.
         let (transparent, lift_leaf, recursive) = def.admitted_metadata();
         let _ = write!(
             out,
-            "\n  transparent {:?} lift_leaf {lift_leaf} recursive {recursive} param_default {}",
-            transparent.iter().map(|d| d.0).collect::<Vec<_>>(),
+            "\n  transparent {} lift_leaf {} recursive {} param_default {}",
+            shown(format!(
+                "{:?}",
+                transparent.iter().map(|d| d.0).collect::<Vec<_>>()
+            )),
+            shown(lift_leaf.to_string()),
+            shown(recursive.to_string()),
             def.param_default(),
         );
         if let Some(run) = def.own_run_body() {

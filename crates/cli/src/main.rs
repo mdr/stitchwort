@@ -2451,6 +2451,14 @@ fn check(
         Load::Everything
     };
     let load = filled.map_or(load, |fill| fill.load_after(load));
+    // For measuring a load without proofs (parallel-checking.md §10.6,
+    // `measure_load.sh`) before a plain check does it itself: what it
+    // reports over a namespace with an error may differ in a note's text.
+    if load == Load::Diagnostics
+        && std::env::var_os("STITCHWORT_LOAD_PROOFS").is_some_and(|v| v == "0")
+    {
+        session.elab.set_load_without_proofs(true);
+    }
     let checked = load_project_counting(
         &mut session,
         &project,

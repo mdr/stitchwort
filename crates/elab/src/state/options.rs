@@ -66,6 +66,9 @@ pub struct Options {
     /// admission (`check --recheck`). Entries carried over from a build
     /// with another kernel side are checked again whatever this says.
     pub(crate) recheck: bool,
+    /// Whether the check cache loads exact entries without their proofs
+    /// (`set_load_without_proofs`; `check --jobs`'s workers).
+    pub(crate) without_proofs: bool,
     /// For tests: every namespace replay fails part way
     /// (`fail_namespace_replays_late`).
     pub(crate) fail_replays_late: bool,
@@ -154,6 +157,7 @@ impl Options {
             // Which entries may be read, not what checking gives.
             carry_over: _,
             recheck: _,
+            without_proofs: _,
             fail_replays_late: _,
             refuse_replays_after: _,
             // Names a test's own definition.

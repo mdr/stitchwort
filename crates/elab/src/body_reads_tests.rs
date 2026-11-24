@@ -51,7 +51,7 @@ fn bare_body_reads_are_pinned() {
         ("assume.rs", 1),
         ("timings.rs", 1),
         ("cache/dump.rs", 1),
-        ("cache/mod.rs", 2),
+        ("cache/mod.rs", 3),
     ]
     .into_iter()
     .map(|(f, n)| (f.to_string(), n))

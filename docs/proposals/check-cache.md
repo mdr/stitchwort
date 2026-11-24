@@ -1040,7 +1040,7 @@ any changes. `check --recheck` computes each replayed namespace's digest
 again (`E-CACHE-DIGEST` on a mismatch). `FORMAT` 44. Library files' keys
 still cover text (stage B).
 
-## An entry's layout (FORMAT 45; SW-4712, SW-4714)
+## An entry's layout (FORMAT 46; SW-4712, SW-4714, SW-4735)
 
 Written by `seal` and `Elaborator::encode_pass` in
 `crates/elab/src/cache/mod.rs`; read back by `open` and replay. Integers
@@ -1061,10 +1061,11 @@ length then bytes; `hash` and `key` are 32 raw bytes.
    with a hash (both left out of the digest), the early names (key, span,
    follower flag) and the warnings (code, message, labels, notes); then the
    node count and the term-node table, which the terms below refer to by
-   how far back a node is; then the rest.
+   how far back a node is; then the rest; then part B, a blob (below).
 3. **The rest**: the kernel's definitions (names, path, flags, `unfolding`
-   references, span, type, body (absent from the digest for a sealed theorem),
-   group, run body, hash) then data types (parameters, indices, sort,
+   references, span, type, a flag saying whether the body and group are in
+   part B, then, if not, the body (absent from the digest for a sealed
+   theorem) and group; run body, hash) then data types (parameters, indices, sort,
    constructors with their fields, sorts and erasure flags, record and
    no-eta flags, group, offsets, span, hash); the built-ins bound; the names
    (changed, late, the early ones' targets, members); the elaborator's tables
@@ -1073,7 +1074,22 @@ length then bytes; `hash` and `key` are 32 raw bytes.
    references, expression types, call defaults, local types, local and
    binder uses, parameters, named arguments and field spans, each a count and
    rows with spans written as a step from the previous one's start).
-4. **Checksum**: the BLAKE3 hash of everything before it (32).
+4. **Part B, the proofs** (parallel-checking.md §10.4; a blob, the last
+   thing in the body): the node count and the term nodes that only the
+   proofs below reach, numbered on from the first table's (a `Loc` node's
+   span steps from 0 again), then for each definition whose flag above said
+   so, in order, its body and its group. Those are the unit's sealed
+   theorems that carry nothing but a statement and a proof (no instance,
+   `fold`, `opaque`, `tailrec`, parameter default, `unfolding` list, run body
+   or validator) and whose group holds only such theorems (`stated_on_load`).
+   A whole load reads part A then part B, and installs what one table did. A
+   load without proofs (`Elaborator::set_load_without_proofs`, `check
+   --jobs`'s workers; only an exact entry, never with `--recheck`) steps over
+   the blob and admits each such theorem as a stated theorem
+   (`check::admit_trusted_stated`) with the hash the entry records. The
+   checksum covers both parts. Strings and files only part B uses are still
+   in the head's tables.
+5. **Checksum**: the BLAKE3 hash of everything before it (32).
 
 The interface digest in the header is the hash of the same body written a
 second time with `digest` set: terms by content; sealed proofs, every

@@ -281,6 +281,13 @@ impl TermWriter {
         self.count as usize
     }
 
+    /// Starts a part of the node table that is read on its own
+    /// ([`Terms::read_nodes`] called again): its `Loc` nodes' spans are
+    /// written as steps from the start, not from the last part's.
+    pub fn start_part(&mut self) {
+        self.last_loc = 0;
+    }
+
     /// Writes `root` and everything under it not written yet; its node
     /// number.
     pub fn term(&mut self, refs: &mut dyn Refs, root: &Term) -> Result<u32, Unwritable> {
@@ -664,7 +671,8 @@ impl Terms {
         }
     }
 
-    /// Reads `count` nodes.
+    /// Reads `count` nodes, after those read already, which they may
+    /// refer to; a part written after [`TermWriter::start_part`].
     pub fn read_nodes(&mut self, r: &mut Reader, refs: &dyn ReadRefs, count: usize) -> Read<()> {
         self.nodes.reserve(count);
         let read_icit = |r: &mut Reader| match r.u8()? {

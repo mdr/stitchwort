@@ -37,12 +37,15 @@ for project in tools/fmt aoc; do
         match($0, /navigation [0-9]+/); split(substr($0, RSTART, RLENGTH), r, " "); nav = r[2]
         match($0, /warnings [0-9]+/); split(substr($0, RSTART, RLENGTH), t, " "); warn = t[2]
         match($0, /interface [0-9]+ bytes/); split(substr($0, RSTART, RLENGTH), u, " "); iface = u[2]
-        E += entry; P += proofs; O += pos; N += nav; W += warn; I += iface
+        b_bytes = 0
+        if (match($0, /part B [0-9]+ bytes/)) { split(substr($0, RSTART, RLENGTH), v, " "); b_bytes = v[3] }
+        E += entry; P += proofs; O += pos; N += nav; W += warn; I += iface; B += b_bytes
         printf "%d %s %d %d %d %d %d\n", entry, ns, proofs, pos, nav, warn, iface > "/dev/stderr"
     }
     END {
         printf "TOTAL entry %d  proofs %d (%.1f%%)  positions %d (%.1f%%)  navigation %d (%.1f%%)  warnings %d  interface %d (%.1f%%)\n",
             E, P, 100*P/(E+(E==0)), O, 100*O/(E+(E==0)), N, 100*N/(E+(E==0)), W, I, 100*I/(E+(E==0))
+        printf "TOTAL part B (what a load without proofs skips, SW-4735) %d (%.1f%%)\n", B, 100*B/(E+(E==0))
     }' "$out/$name.written" 2> "$out/$name.rows"
     echo "   top 10 namespaces by entry size: entry, name, proofs (share), positions, navigation, interface"
     sort -rn "$out/$name.rows" | head -10 | awk '{ printf "   %10d  %-32s proofs %9d (%4.1f%%)  positions %8d  nav %8d  interface %9d\n", $1, $2, $3, 100*$3/$1, $4, $5, $7 }'

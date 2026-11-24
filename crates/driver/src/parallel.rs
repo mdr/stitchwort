@@ -455,6 +455,10 @@ impl Worker {
         let mut session = (jobs.make_session)(jobs.stack);
         let store = Rc::new(ClaimStore::new((jobs.make_store)(), claims.clone(), id));
         session.elab.set_check_cache(store.clone());
+        // Nothing a worker writes depends on a proof below it (§10.3), and
+        // what is reported comes from the check after the fill, which loads
+        // them.
+        session.elab.set_load_without_proofs(true);
         if let Some(include) = read.files.include_files() {
             session.include_from(include);
         }
@@ -571,4 +575,5 @@ fn add_stats(sum: &mut Stats, s: &Stats) {
     sum.late_misses += s.late_misses;
     sum.refused += s.refused;
     sum.digest_mismatches += s.digest_mismatches;
+    sum.stated += s.stated;
 }

@@ -13,9 +13,12 @@ use std::rc::Rc;
 use stitchwort_driver::check_cache::{CheckCache, MemoryStore};
 use stitchwort_driver::driver::{Session, with_stack};
 use stitchwort_driver::parallel::{Fill, Jobs, fill};
-use stitchwort_driver::project::{DiskFiles, Files, Load, MemoryFiles, Target};
+use stitchwort_driver::project::{
+    DiskFiles, Files, Load, MemoryFiles, Target, analyse, assert_holds_no_stated_theorem,
+    project_sources,
+};
 use stitchwort_driver::render::render;
-use stitchwort_elab::cache::{Stats, Store, canonical_dump};
+use stitchwort_elab::cache::{Stats, Store, canonical_dump, canonical_dump_without_proofs};
 use stitchwort_elab::timings;
 
 use crate::check_cache::STACK;
@@ -508,4 +511,175 @@ fn an_entry_is_the_same_whatever_the_session_loaded_before() {
     );
     let _ = std::fs::remove_dir_all(&both);
     let _ = std::fs::remove_dir_all(&alone);
+}
+
+/// Stage 2 (parallel-checking.md §10.4): theorems over four namespaces,
+/// `Par.Uses` and `Par.Side` both over `Par.Facts`, so that a worker that
+/// didn't check `Par.Facts` loads it from its entry without the proofs. `bumpFn`, `bumpTwo` and the `@[reading]` theorem
+/// load as stated theorems; `bumpId`, recursive through its `match`
+/// helper, loads whole (its group holds a definition).
+fn theorems_project() -> MemoryFiles {
+    let file = |ns: &str, body: &str| (format!("src/Par/{ns}.sw"), body.to_string());
+    let files = [
+        ("stitchwort.yaml".to_string(), CONFIG.to_string()),
+        file(
+            "Facts",
+            "namespace Par.Facts\n\
+             import Std (Nat, Eq, Bool, Iff)\n\n\
+             def bump (n: Nat): Nat := match n with\n  \
+               | Zero => Zero\n  \
+               | Succ k => Succ (bump k)\n\n\
+             theorem bumpId ∀ (n: Nat): bump n = n := match n with\n  \
+               | Zero => byComputing\n  \
+               | Succ n => Eq.cong Succ (bumpId n)\n\n\
+             theorem bumpFn ∀ (n: Nat): bump n = n := bumpId n\n\n\
+             theorem bumpTwo: bump 2 = 2 := byComputing\n\n\
+             type InRange (lo x hi: Nat): Prop = { low: lo ≤ x, high: x ≤ hi }\n\n\
+             def inRange (lo x hi: Nat): Bool := lo <= x && x <= hi\n\n\
+             theorem fwd ∀ (lo x hi: Nat) (h: inRange lo x hi): InRange lo x hi :=\n  \
+               { low = h.left, high = h.right }\n\n\
+             @[reading]\n\
+             theorem inRangeReads ∀ (lo x hi: Nat): inRange lo x hi ↔ InRange lo x hi :=\n  \
+               { forward = fwd lo x hi, backward = r => Both r.low r.high }\n",
+        ),
+        file(
+            "Uses",
+            "namespace Par.Uses\n\
+             import Std (Nat, Eq)\n\
+             import Par.Facts (..)\n\n\
+             theorem bumpTwice ∀ (n: Nat): bump (bump n) = n :=\n  \
+               Eq.trans (bumpId (bump n)) (bumpId n)\n\n\
+             theorem below ∀ (lo x hi: Nat) (h: inRange lo x hi): x ≤ hi :=\n  \
+               match h with | { low, high } => high\n\n\
+             def partial: ∀ (n: Nat) => bump n = n := bumpFn\n",
+        ),
+        file(
+            "Top",
+            "namespace Par.Top\n\
+             import Std (Nat, Eq)\n\
+             import Par.Uses (..)\n\
+             import Par.Facts (..)\n\n\
+             theorem bumpThrice ∀ (n: Nat): bump (bump (bump n)) = n :=\n  \
+               Eq.trans (bumpTwice (bump n)) (bumpId n)\n\n\
+             def three: Nat := bump 3\n",
+        ),
+        file(
+            "Side",
+            "namespace Par.Side\n\
+             import Std (Nat, Eq)\n\
+             import Par.Facts (..)\n\n\
+             theorem bumpFour: bump 4 = 4 := bumpFn 4\n",
+        ),
+    ];
+    MemoryFiles {
+        files: files.into_iter().collect(),
+        reversed: false,
+    }
+}
+
+/// Workers load the namespaces below the one they check without their
+/// proofs, as stated theorems, and still write the bytes one job writes
+/// and leave the check after them reporting and holding the same, for any
+/// schedule.
+#[test]
+fn workers_loading_without_proofs_write_what_one_job_does() {
+    let files = theorems_project();
+    let one = temp_dir("stated-one");
+    let sequential = check(&files, &Kept::Dir(one.clone()), 1, None, Load::Everything);
+    assert!(
+        sequential.report.starts_with("accepted true"),
+        "{}",
+        sequential.report
+    );
+    for seed in [None, Some(1), Some(2), Some(3), Some(4), Some(5)] {
+        let dir = salted_like(&one, "stated-two");
+        // `Par.Facts` has an entry before the fill, so whichever worker
+        // checks `Par.Uses` or `Par.Side` loads it from there: a worker
+        // that checked a namespace itself holds it whole, and on a project
+        // this small one worker may take every job before another starts.
+        let facts = Target::Namespaces(vec!["Par.Facts".to_string()]);
+        let kept = Kept::Dir(dir.clone());
+        check_target(&files, &kept, 1, None, Load::Diagnostics, &facts);
+        let parallel = check(&files, &Kept::Dir(dir.clone()), 2, seed, Load::Everything);
+        assert_same(&sequential, &parallel, &format!("seed {seed:?}"));
+        assert!(
+            parallel.fill.stats.stated > 0,
+            "seed {seed:?}: no worker loaded a theorem without its proof: {:?}",
+            parallel.fill
+        );
+        assert_eq!(parallel.stats.stated, 0, "the check after the fill");
+        assert!(
+            entries(&one) == entries(&dir),
+            "seed {seed:?}: the entries differ"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+    let _ = std::fs::remove_dir_all(&one);
+}
+
+/// A session that loads each namespace of `files` from `kept` in turn, as
+/// a worker does, with or without proofs.
+fn load_each(files: &MemoryFiles, kept: &Kept, without_proofs: bool) -> Session {
+    let mut session = Session::for_stack(STACK);
+    session.elab.set_check_cache(kept.store());
+    session.elab.set_load_without_proofs(without_proofs);
+    let sources = project_sources(files, "par", &mut session.sources).unwrap();
+    let analysis = analyse(&mut session, "par", sources);
+    let prepared = session
+        .prepare_analysis("par", &analysis, &Target::Everything)
+        .unwrap();
+    for name in &prepared.order {
+        let ns = analysis.namespace(name).unwrap();
+        let (found, _) = session.check_project_namespace(&analysis, ns);
+        assert!(found.is_empty(), "{name}: {found:?}");
+    }
+    session
+}
+
+/// From a warm cache, a load without proofs holds everything a whole load
+/// does but the theorems' proofs (`canonical_dump_without_proofs`), with
+/// nothing refused or missed. And a session loaded for a command that uses
+/// what it loads holds no stated theorem, even when asked to load without
+/// proofs (C1 of docs/reviews/SW-4734-fable-review.md), where the same
+/// session that only checks does.
+#[test]
+fn a_load_without_proofs_holds_all_but_the_proofs_and_never_reaches_a_command_that_reads_them() {
+    let files = theorems_project();
+    let memory = MemoryStore::default();
+    let kept = Kept::Memory(memory);
+    with_stack(STACK, || {
+        let cold = load_each(&files, &kept, false);
+        std::mem::forget(cold);
+        let whole = load_each(&files, &kept, false);
+        let without = load_each(&files, &kept, true);
+        for session in [&whole, &without] {
+            let stats = session.elab.check_cache_stats();
+            assert_eq!(stats.namespace_hits, 4, "{stats:?}");
+            assert_eq!((stats.refused, stats.late_misses), (0, 0), "{stats:?}");
+        }
+        assert_eq!(whole.elab.check_cache_stats().stated, 0);
+        assert!(without.elab.check_cache_stats().stated >= 3);
+        assert!(without.elab.holds_stated_theorems());
+        assert!(
+            canonical_dump_without_proofs(&whole.elab)
+                == canonical_dump_without_proofs(&without.elab),
+            "a load without proofs holds something else"
+        );
+        assert!(canonical_dump(&whole.elab) != canonical_dump(&without.elab));
+        let reporting = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            assert_holds_no_stated_theorem(&without);
+        }));
+        assert!(reporting.is_err(), "the invariant's check let one through");
+        std::mem::forget(whole);
+        std::mem::forget(without);
+
+        let mut session = Session::for_stack(STACK);
+        session.elab.set_check_cache(kept.store());
+        session.elab.set_load_without_proofs(true);
+        let loaded = session.load_project_for(&files, "par", &Target::Everything, Load::Everything);
+        assert!(loaded.is_ok());
+        assert!(!session.elab.holds_stated_theorems());
+        assert_eq!(session.elab.check_cache_stats().stated, 0);
+        std::mem::forget(session);
+    });
 }
