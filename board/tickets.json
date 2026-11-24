@@ -34267,12 +34267,12 @@
     {
       "id": 4735,
       "title": "[Opus] Parallel stage 2 step 2: cache entry in two parts (FORMAT bump), decode without proofs, fill workers load stated theorems (parallel-checking.md 10.6 step 2) (D3732)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nProgress (Opus lane, 24 Nov 15:03-15:45): built step 2 as 10.6, bodies only (helpers stay in part A; no position map). FORMAT 46. Workers load exact entries without proofs; Load::Everything forces proofs and asserts none stated (C1); canonical_dump_without_proofs (C2); N1, core.md wording. Measured Fmt.PassProofs closure warm: 1.05 s / 518 MB whole vs 0.94 s / 436 MB without proofs; part B 33.5% of entry bytes. Notes for Fable review: docs/reviews/SW-4735-notes.md. Commit 2f0544c0e.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
       "commits": []
