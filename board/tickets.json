@@ -34060,7 +34060,7 @@
     {
       "id": 4722,
       "title": "[Opus] check_cache::a_library_edit_re_checks_what_it_can_change_and_nothing_else fails on main 4af (after SW-4712, SW-4714): 'a name added' no longer re-elaborates Dep: stale replay or correct cut-off? fix before push",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34068,7 +34068,11 @@
       "body": "\n\nProgress (Opus lane, 24 Nov): cause is SW-4707 (stage A), not SW-4714: passes at 9ea43f3d9, fails at 73f3055d9. Not a stale replay: Wild's error leaves it no digest, so Dep is keyed by Wild's source key, a key never stored; Dep is elaborated afresh (no 'replayed' line; output matches --no-cache) but leaves no miss line and writes no entry (relies on an error), so the test couldn't see it. Fix: '{ns}: elaborated' cache debug line, counted by check_step for namespaces that had an entry. Tests: the one test, server check_cache::|caching:: (24 pass), driver check_cache::digest:: (33 pass).\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "cbfcd6eef2a8f580180b8e08cac2e09d0495fc14",
+        "f87a7618d544452831e9858420d6c3e407f37ac6",
+        "e58e193671bcfbcd04662115d3da72f515b69c6a"
+      ]
     }
   ]
 }
