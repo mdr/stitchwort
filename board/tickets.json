@@ -34206,7 +34206,7 @@
     {
       "id": 4730,
       "title": "[Sonnet] Stage 3 pilot: on tools/fmt, count namespaces whose interface digest matches when proofs are left out by hand (SW-4727 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
