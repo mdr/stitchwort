@@ -1,5 +1,5 @@
 {
-  "next": 4751,
+  "next": 4753,
   "tickets": [
     {
       "id": 47,
@@ -34524,6 +34524,32 @@
       "id": 4750,
       "title": "[Opus] Audit: budget Err read as Ok(None) (interface_hash(..).ok().flatten() and the digest's other passes), and 'if not cancelled, write' checks before long computations (keep_rechecked and other cache write paths): can a cancellation write a wrong entry? (SW-4744 findings)",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4751,
+      "title": "[Sonnet] equations: don't record a 'no t.induct' equation_skips row for a theorem (a theorem never has equations or induct); the row put proof-made data in the interface digest (stage 3 pilot cause 1, SW-4730)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4752,
+      "title": "[Opus] Stage 3 pilot, second run: leave out recursive, mutual and decreasing theorems' proofs too (22% of fmt's theorems were elaborated anyway); does the interface still match? (SW-4730 finding)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
