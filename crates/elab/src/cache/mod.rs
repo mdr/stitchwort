@@ -562,8 +562,11 @@ impl Elaborator {
 
     /// For tests: from now on, the cancellation flag is set (and watched)
     /// part way through encoding each entry, after its body and before its
-    /// interface digest, as when another thread sets it at that moment
-    /// (SW-4744). The encoder sees it wherever it next polls the budget.
+    /// interface digest, and before a re-checked namespace's digest is
+    /// computed again, as when another thread sets it at that moment
+    /// (SW-4744, SW-4750). It is seen at once, as by a poll of the budget
+    /// landing there: a short digest may otherwise take too few steps to
+    /// poll at all.
     #[doc(hidden)]
     pub fn cancel_while_encoding_entries(&mut self) {
         self.options.cancel_while_encoding = true;
@@ -583,6 +586,8 @@ impl Elaborator {
             .cancel_flag()
             .expect("a flag was installed")
             .store(true, std::sync::atomic::Ordering::Relaxed);
+        // Starting an operation reads the flag.
+        drop(budget.operation(self.options.limits));
     }
 
     /// Whether library files may be loaded from, and written to, the cache
@@ -1552,9 +1557,18 @@ impl Elaborator {
             };
             let again =
                 self.namespace_parts(ns, files, &view, |unit, before, writes, names, pre| {
+                    self.cancel_while_encoding();
                     self.interface_digest(unit, before, writes, names, pre)
                         .map(|(digest, _)| digest)
                 });
+            // Stopped part way, the digest isn't one: neither a mismatch,
+            // which would blank this build's entry (SW-4750), nor a match,
+            // which would keep the entry as checked by this kernel.
+            if self.kernel.machine.budget.cancelled() {
+                return Err(Miss::Late(
+                    "cancelled while its digest was computed again".into(),
+                ));
+            }
             if again.as_ref().ok() != Some(&stamp.digest) {
                 // Its terms passed the kernel, but the namespaces after it
                 // were keyed to a digest that doesn't describe it: a digest
