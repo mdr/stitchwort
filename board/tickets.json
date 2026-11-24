@@ -34621,7 +34621,7 @@
     {
       "id": 4757,
       "title": "[Sonnet] Stage 3 step 0: measure the interface chain on the pilot branch (per-namespace interface-pass time and kept-theorem time on tools/fmt); gate: over about 25 s, stop and bring figures to Matt (parallel-checking-stage-3.md section 9) (SW-4753)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
