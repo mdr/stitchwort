@@ -1,5 +1,5 @@
 {
-  "next": 4718,
+  "next": 4720,
   "tickets": [
     {
       "id": 47,
@@ -33977,6 +33977,32 @@
     {
       "id": 4717,
       "title": "[Sonnet] task test:one: pick the --test binary itself when the filter names exactly one binary(X), so BIN= isn't needed (SW-4705 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4718,
+      "title": "[Fable, paper] Design: parallel checking stage 1 (check --jobs N: namespaces in parallel on threads, one session per worker, results handed over as check-cache entries; docs/proposals/parallel-checking.md section 8): scheduler, determinism, messages, fallback, memory cap, the byte-compare test, build plan for Opus (D3730)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4719,
+      "title": "[Opus] Build: parallel checking stage 1 per the design (SW-4718); Fable review after; needs D3731 (what a parallel --no-cache means) before merge (D3730)",
       "status": "backlog",
       "agent": "",
       "where": "",
