@@ -1586,6 +1586,9 @@ struct Stage {
     context: Context,
     /// The recording pass's findings; `None` in the final pass.
     recording: Option<Recording>,
+    /// The term nodes the recording pass has visited since the context
+    /// last crossed a candidate's (`Encoding::enter`).
+    seen: HashSet<*const Term>,
     /// The final pass's plan; `None` in the recording pass.
     plan: Option<Rc<DigestPlan>>,
 }
@@ -1801,6 +1804,21 @@ impl Encoding<'_> {
     }
 
     pub(crate) fn term(&mut self, t: &Term) {
+        if let Some(stage) = &mut self.out.stage
+            && stage.recording.is_some()
+        {
+            // The recording pass needs only which own definitions a term
+            // mentions, and only to find what reaches a candidate: with no
+            // candidate, nothing (a row's key is never inside a term).
+            if !stage.prep.candidates.is_empty() {
+                let mut seen = std::mem::take(&mut stage.seen);
+                let (out, mut sink) = (&mut self.out, Writer::default());
+                codec::defs_in(t, &mut seen, &mut |id| out.def(&mut sink, id));
+                (self.out.stage.as_mut().expect("recording")).seen = seen;
+            }
+            self.w.uint(0);
+            return;
+        }
         match self.terms.term(&mut self.out, t) {
             Ok(id) => self.w.uint(u64::from(id)),
             Err(_) => self.out.fail("a term with a metavariable".to_string()),
@@ -1858,9 +1876,9 @@ impl Encoding<'_> {
     }
 
     /// Sets where the references written next are (recording pass only).
-    /// The term writer skips a node it has written, so a reference first
-    /// written in one candidate's context would go unrecorded in the next:
-    /// crossing into or out of a candidate's context starts it afresh.
+    /// The recording walk skips a term node it has visited, so a reference
+    /// first seen in one candidate's context would go unrecorded in the
+    /// next: crossing into or out of a candidate's context forgets them.
     fn enter(&mut self, context: Context) {
         let Some(stage) = &mut self.out.stage else {
             return;
@@ -1870,7 +1888,7 @@ impl Encoding<'_> {
         }
         let own = |c: Context| matches!(c, Context::Own(_));
         if own(stage.context) || own(context) {
-            self.terms = TermWriter::default();
+            stage.seen.clear();
         }
         stage.context = context;
     }
@@ -2398,15 +2416,21 @@ impl Elaborator {
 
     /// The candidates and own declarations' ordinals for a unit's digest
     /// passes. A candidate is a lifted `match`'s helper (a row of `lifted`
-    /// since `before`) that isn't a theorem or an instance: no name in
-    /// scope names one and no code builds one's name to look it up (C.1).
+    /// since `before`, named `….%matchN`) that isn't a theorem or an
+    /// instance: no name in scope names one and no code builds one's name to
+    /// look it up (C.1). Other rows of `lifted` (`decreasing`'s `….%plain`
+    /// twins) never are: that argument was made for `%match` names only.
     fn digest_prep(&self, before: &Before) -> DigestPrep {
         let g = &self.ev();
         let candidates = (self.tables.lifted.since(before.tables.lifted()).iter())
             .map(|&(id, _)| id)
             .filter(|&id| {
                 let def = g.def(id);
-                id.0 >= before.defs && !def.theorem() && !def.instance() && def.name().contains('%')
+                let last = def.path().rsplit('.').next().unwrap_or_default();
+                id.0 >= before.defs
+                    && !def.theorem()
+                    && !def.instance()
+                    && last.starts_with("%match")
             })
             .collect();
         fn ordinals<'a>(paths: impl Iterator<Item = &'a str>) -> Vec<usize> {
@@ -2511,12 +2535,14 @@ impl Elaborator {
                         prep,
                         context: Context::Root,
                         recording: Some(Recording::default()),
+                        seen: HashSet::default(),
                         plan: None,
                     },
                     DigestPass::Final(prep, plan) => Stage {
                         prep,
                         context: Context::Root,
                         recording: None,
+                        seen: HashSet::default(),
                         plan: Some(plan),
                     },
                 }),

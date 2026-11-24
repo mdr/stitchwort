@@ -453,6 +453,31 @@ fn a_match_outside_a_sealed_proof_below_checks_what_uses_it_again() {
     }
 }
 
+/// A theorem with an `unfolding` list stores the helpers of its proof's
+/// `match`es in that list (`Elaborator::in_body_of`), and the list is in
+/// the digest: such a helper is kept, so `B` is checked again (today's
+/// behaviour, interface-digest-cache.md C.1's table).
+#[test]
+fn a_match_added_to_a_proof_with_an_unfolding_list_checks_what_uses_it_again() {
+    let a = |proof: &str| {
+        format!(
+            "namespace A\n\nopaque def f (n: Nat): Nat := n + 1\n\n\
+             theorem fOne: f 0 = 1 unfolding f := {proof}\n"
+        )
+    };
+    let b = (
+        "src/B.sw",
+        "namespace B\n\nimport A (f, fOne)\n\ntheorem still: f 0 = 1 := fOne\n",
+    );
+    let s = after_edit_holding(
+        "digest-match-unfolding",
+        &[("src/A.sw", &a("byComputing")), b],
+        &[("src/A.sw", &a("match f 0 + 0 with | _ => byComputing"))],
+        &["A.fOne.%match1"],
+    );
+    assert_eq!((s.namespace_hits, s.namespace_misses), (0, 2), "{s:?}");
+}
+
 /// A proof that starts using a theorem declared after it changes the order
 /// the namespace is checked in; plain theorems are in the digest by path,
 /// so `B` is replayed (SW-4710).

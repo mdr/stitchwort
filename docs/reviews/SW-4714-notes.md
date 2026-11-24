@@ -81,9 +81,16 @@ result another namespace caches.
 ## What the lane couldn't verify
 
 - The measure (a whole-project check): the script is below, for the verifier or Overmind.
-- The extra pass's cost: one more encoding, without sealed bodies or navigation, per
-  namespace written that has a candidate or a sealed theorem (almost all of
-  `tools/fmt`'s). The measure's `cold` line shows it.
+- The extra pass's cost on `tools/fmt` (a whole-project check). After the review it
+  was cut down (SW-4714 follow-up): the recording pass no longer encodes terms, it
+  walks them for `Def` nodes (`codec::defs_in`), and with no candidate it skips terms
+  altogether (a row's key is never inside a term). On a synthetic namespace of 300
+  definitions and 600 theorems (elaborated in about 90 ms), timed with temporary
+  instrumentation, release build: entry pass about 8 ms, final digest pass about 10 ms,
+  recording pass 6 ms → 3.4 ms with 300 private helpers and 10.7 ms → 2.5 ms with none.
+  **[measured, 3 runs each]** So the recording pass is now about 3% of that namespace's
+  elaboration, where real proofs elaborate far slower per declaration; stage A's two
+  passes are about 20%.
 - How many `tools/fmt` theorems have an `unfolding` list (so keep their helpers).
 - Option (b)'s case (a proof that starts using a later computing definition that moves
   past another): still a re-check above, tested only as equal to `--no-cache`.

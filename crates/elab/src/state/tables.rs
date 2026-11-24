@@ -48,10 +48,15 @@ pub(crate) struct Tables {
     pub(crate) abilities: GrowVec<AbilityInfo>,
     /// Every lifted helper so far, with its `match`, for naming the `match`
     /// in diagnostics instead of the helper (`Elaborator::explain_lifted`).
-    /// A helper only sealed proofs reach is left out of its namespace's
-    /// interface digest (docs/proposals/interface-digest-cache.md C.1), so
-    /// nothing that scans this table or the definitions may let one change
-    /// a result another namespace's cache entry keeps.
+    /// A row whose helper is named `….%matchN` and isn't a theorem or an
+    /// instance makes that helper a candidate for leaving out of its
+    /// namespace's interface digest, and it is left out when only sealed
+    /// proofs reach it (docs/proposals/interface-digest-cache.md C.1;
+    /// `cache::Elaborator::digest_prep`). So nothing that scans this table
+    /// or the definitions may let such a helper change a result another
+    /// namespace's cache entry keeps, and no code may build a `%match` name
+    /// to look one up. A new kind of helper pushed here with a `%match` name
+    /// needs that question asked of it first.
     pub(crate) lifted: GrowVec<(DefId, Span)>,
     /// The equations the source implies that weren't generated, by key,
     /// with the reason: naming one is `E-NO-EQUATION` (D2176).

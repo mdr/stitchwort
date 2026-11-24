@@ -916,8 +916,14 @@ it is replayed. The reviewer's checklist is docs/reviews/SW-4714-notes.md.
   own declaration's ordinal among those of its path), runs a *recording* pass, makes the
   `DigestPlan` (`digest_plan`: mark from the roots, then the plain theorems), and runs the
   *final* pass. The recording pass is skipped when the unit has no candidate and no sealed
-  theorem (nothing to find); otherwise it is one more encoding without sealed bodies or
-  navigation **[not measured; the measure's `cold` line shows it]**.
+  theorem (nothing to find). It writes nothing: it walks each term for its `Def` nodes
+  (`codec::defs_in`), and with no candidate it skips terms, since only rows' keys matter
+  then. On a synthetic namespace (300 definitions, 600 theorems, about 90 ms to
+  elaborate) it takes about 3 ms, against about 8 ms for the entry's encoding and 10 ms
+  for the final digest pass **[measured, temporary instrumentation, release build]**.
+- *Candidates* are the rows of `lifted` whose helper's last name segment starts
+  `%match` (so `decreasing`'s `%plain` twins, also in `lifted`, are not; Fable review
+  finding 1); `Tables::lifted` says so.
 - *Contexts* (`Context` in `cache/mod.rs`): `Root`, `Key` (a row's key in a table keyed by
   declaration) and `Own(c)` (candidate `c`'s record, or its row of `lifted`,
   `match_columns`, `update_shown`: `encode_owned_since` in `state/table.rs`). `Out::def`
