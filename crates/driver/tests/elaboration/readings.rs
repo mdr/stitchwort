@@ -352,6 +352,41 @@ theorem isSmallReads (n: Nat): isSmall n ↔ Small n := { forward = h => h, back
     }
 }
 
+/// The warnings for one reading come in the instances' path order, not the
+/// order they were declared in (which is checking order).
+#[test]
+fn decision_warnings_come_in_path_order() {
+    let source = "import Std (Bool, Nat, Iff)
+
+def Small (n: Nat): Prop := n < 10
+
+def isSmall (n: Nat): Bool := Nat.leq (Succ n) 10
+
+def smallTest (n: Nat): Bool := Nat.leq (Succ n) 10
+
+instance zDec (n: Nat): Decidable (Small n) := { holds = smallTest n, sound = h => h, complete = h => h }
+
+instance aDec (n: Nat): Decidable (Small n) := { holds = smallTest n, sound = h => h, complete = h => h }
+
+@[reading]
+theorem isSmallReads (n: Nat): isSmall n ↔ Small n := { forward = h => h, backward = h => h }
+";
+    let mut session = Session::new();
+    if let Err(errors) = session.load("decisions.sw", source) {
+        panic!("{errors:#?}");
+    }
+    let messages: Vec<&str> = session
+        .warnings
+        .iter()
+        .map(|w| w.message.as_str())
+        .collect();
+    assert_eq!(messages.len(), 2, "{:#?}", session.warnings);
+    assert!(
+        messages[0].contains("`aDec`") && messages[1].contains("`zDec`"),
+        "{messages:#?}"
+    );
+}
+
 /// `auto` passes over a reading that failed to check, with no error of its
 /// own (§9): `inRangeReads`'s statement fails, so its `inRange` part reads
 /// as nothing, and `auto` proves `b = True` from the other part. The only
