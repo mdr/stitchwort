@@ -1,5 +1,5 @@
 {
-  "next": 4713,
+  "next": 4716,
   "tickets": [
     {
       "id": 47,
@@ -33796,14 +33796,14 @@
     {
       "id": 4705,
       "title": "[Sonnet] rewind::rewinding_changes_nothing_for_the_examples and rewind::emptying_the_caches_changes_nothing_for_the_examples are probably examples-wide (long) but sit under rewind::, which lanes filter on: time them and move to examples_wide:: if so; and a way for task test:one to build one --test binary instead of every test target of the package (SW-4704 findings)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-23",
-      "updated": "2026-11-23",
+      "updated": "2026-11-24",
       "commits": []
     },
     {
@@ -33854,14 +33854,14 @@
     {
       "id": 4709,
       "title": "[Sonnet] docs/core.md hashes paragraph: 'the check-cache keys, which cover text' becomes false with interface-digest stage A; and equation_notes.rs:203-218 reads theorem proofs across the session for an error note: say so in a comment or key it (SW-4706 findings)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-23",
-      "updated": "2026-11-23",
+      "updated": "2026-11-24",
       "commits": []
     },
     {
@@ -33893,14 +33893,53 @@
     {
       "id": 4712,
       "title": "[Sonnet] STITCHWORT_CACHE_DEBUG: print a line for a namespace replayed or left out, not only written and missed (SW-4707 review friction); and a stitchwort cache dump-entry or documented entry layout (SW-4707 friction)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-23",
-      "updated": "2026-11-23",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4713,
+      "title": "[Fable, paper] Design: interface-digest cache stage C (proof-private helpers; docs/proposals/interface-digest-cache.md 1.6), with SW-4710 (own declarations by path) folded in: exact definition, trust argument, tests, build plan for Opus (D3729)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4714,
+      "title": "[Opus] Build: interface-digest cache stage C per the design (SW-4713); Fable review after (D3729)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4715,
+      "title": "[Fable, paper] Parallel checking after proof irrelevance: update docs/proposals/parallel-checking.md now theorems are sealed and the cache is keyed by interface digest: options, gains (namespace- and proof-level), soundness, build plan for Matt (D3729)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
       "commits": []
     }
   ]
