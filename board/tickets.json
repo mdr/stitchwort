@@ -34402,15 +34402,18 @@
     {
       "id": 4742,
       "title": "[Sonnet] STITCHWORT_WORK_LIMIT (env, test/debug only) to lower the 10-billion step limit, so E-RESOURCE cases can be reproduced quickly (SW-4721 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nModel result: DeepSeek, worked, about 15 min (est. 15).\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "57174eb21fb08499c05b14a80a837bfcb5b240a1",
+        "1c7293ec7ee820686399a418c48e954276e01675"
+      ]
     },
     {
       "id": 4743,
