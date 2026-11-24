@@ -34293,7 +34293,7 @@
     {
       "id": 4737,
       "title": "[Sonnet] Elaborator: one accessor (e.g. Def::computing_body(), nothing when has_interface holds) for the indirect-argument and presence-test body reads; a test pinning the remaining bare .body() reads; no result/message/hash change (SW-4732 finding 1)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34301,7 +34301,11 @@
       "body": "",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "3bccd9d00de9d7017019f042ea8844b00df708b0",
+        "f1b22372ba400f7dbe0ccec550b7d3d49156b997",
+        "68c838344269819bdfc1943459de82d0d52ccea6"
+      ]
     },
     {
       "id": 4738,
