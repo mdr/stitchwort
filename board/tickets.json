@@ -1,5 +1,5 @@
 {
-  "next": 4737,
+  "next": 4739,
   "tickets": [
     {
       "id": 47,
@@ -34218,7 +34218,7 @@
     {
       "id": 4732,
       "title": "[Fable, paper] Audit crates/elab's ~40 direct Def::body()/arity() reads (walk/mod.rs case_tree, ignores_arguments, matching.rs literal, equations.rs, decreasing.rs, ...): can any reach a sealed theorem other than the one being elaborated (a rule 6 hole, and a digest-cache staleness risk)? (SW-4728 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34226,7 +34226,11 @@
       "body": "",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "30bf142c59cc9d474a26a23f76a0f796add119ec",
+        "2aea1c0af1d8c843ec7006e559ecbe1f767abbf4",
+        "5e2484abd39ec25f50ccfa020ad3c7501ae59981"
+      ]
     },
     {
       "id": 4733,
@@ -34270,6 +34274,32 @@
     {
       "id": 4736,
       "title": "[Sonnet] Parallel stage 2 step 3: plain check loads without proofs; restart on error loads with; docs and performance log (parallel-checking.md 10.6 step 3) (D3732)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4737,
+      "title": "[Sonnet] Elaborator: one accessor (e.g. Def::computing_body(), nothing when has_interface holds) for the indirect-argument and presence-test body reads; a test pinning the remaining bare .body() reads; no result/message/hash change (SW-4732 finding 1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4738,
+      "title": "[Sonnet] Digest differential test: also compare the dependant's entry bytes outside salt and checksum, not only the check's result (SW-4732 finding 3)",
       "status": "backlog",
       "agent": "",
       "where": "",
