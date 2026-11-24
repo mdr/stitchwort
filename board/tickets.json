@@ -34287,7 +34287,7 @@
     {
       "id": 4737,
       "title": "[Sonnet] Elaborator: one accessor (e.g. Def::computing_body(), nothing when has_interface holds) for the indirect-argument and presence-test body reads; a test pinning the remaining bare .body() reads; no result/message/hash change (SW-4732 finding 1)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34300,7 +34300,7 @@
     {
       "id": 4738,
       "title": "[Sonnet] Digest differential test: also compare the dependant's entry bytes outside salt and checksum, not only the check's result (SW-4732 finding 3)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
