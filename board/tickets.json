@@ -33960,7 +33960,7 @@
     {
       "id": 4716,
       "title": "[Sonnet] reading.rs:1882 and :1919 emit a dependant's warnings in id order of instances/readings below: sort by path as auto.rs does (SW-4713 finding; prerequisite for digest option b)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
