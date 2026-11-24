@@ -1651,14 +1651,15 @@ fn conv_spines(g: &Ev, level: usize, s1: &[Elim], s2: &[Elim]) -> Result<bool> {
 }
 
 /// Eta for partially applied definitions: both sides applied to a fresh
-/// variable.
+/// variable. A definition whose body isn't [`seen`] (a theorem, or a hidden
+/// opaque definition) offers no parameters: its body's lambdas are its own.
 fn eta(g: &Ev, level: usize, a: &Value, b: &Value) -> Result<bool> {
     let next = |v: &Value| -> Option<(Icit, ProofMark)> {
         let Value::Neutral(Head::Def(id), spine) = v else {
             return None;
         };
         let def = g.def(*id);
-        let body = def.body.as_ref()?;
+        let body = seen(g, *id)?;
         if spine.len() >= def.arity {
             return None;
         }
