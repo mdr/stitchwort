@@ -34333,7 +34333,7 @@
     {
       "id": 4739,
       "title": "[Sonnet] Stage 2 step 2 follow-ups (SW-4735 Fable review): F1 docs sentence on STITCHWORT_LOAD_PROOFS=0 in docs/core.md and check-cache.md (measuring only; removed in step 3); F2 admit_stated refuses a parameter-default mark (or soften core.md); F3 fixture gains an unfolding theorem, instance theorem, mutual theorem group, and the proof-less dump hides less; F4 comment in check_prepared: --timings is Load::Diagnostics, harmless because timings sizes only its own definitions (SW-4735)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
