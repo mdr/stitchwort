@@ -1,5 +1,5 @@
 {
-  "next": 4728,
+  "next": 4731,
   "tickets": [
     {
       "id": 47,
@@ -34137,7 +34137,49 @@
     {
       "id": 4727,
       "title": "[Fable, paper] Design: parallel checking stage 2: the kernel's 'statement, proof to follow' form and interface-only loading (parallel-checking.md 8.4), with stage 3 in outline; trust argument, decision for Matt (D3730 said it comes back to him), build plan (D3730)",
-      "status": "doing",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": [
+        "0e674153f58121022593d5dad523b3fb79f20f86",
+        "6e4990e5093d4afcac935d68934609bd6c7a46fb"
+      ]
+    },
+    {
+      "id": 4728,
+      "title": "[Opus] Kernel: value::next_parameter (value.rs:5429) reads a theorem's proof for eta (conversion and unify.rs:2796) without the frozen test, a hole in rule 6; probe whether it can change a verdict or a term (and so a digest), then make it return nothing for a frozen definition; Fable review (SW-4727 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4729,
+      "title": "[Sonnet] Parallel stage 2 step 0: measure the proofs' share of a cache entry (debug count in the encoder) and run docs/proposals/parallel-checking/measure_load.sh for the orchestrator; decides whether stage 2 step 2 is worth building (SW-4727 plan)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4730,
+      "title": "[Sonnet] Stage 3 pilot: on tools/fmt, count namespaces whose interface digest matches when proofs are left out by hand (SW-4727 finding)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
