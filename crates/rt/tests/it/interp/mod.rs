@@ -558,7 +558,6 @@ impl<'p> Interp<'p> {
                             V::Nat((n / d).min(a))
                         }
                     }
-                    Native::EqNatRefl | Native::EqNatSound => V::Erased,
                 }
             }
             PrimOp::NegSucc => V::Int(-BigInt::from(nat(&args[0])?) - 1),

@@ -3328,7 +3328,7 @@ fn unforced_number_arg(g: &Ev, op: native::Native, spine: &Spine, from: usize) -
     {
         return None;
     }
-    for (index, elim) in spine.iter().enumerate().take(op.numbers()).skip(from) {
+    for (index, elim) in spine.iter().enumerate().take(op.arity()).skip(from) {
         let Elim::App(arg, _) = elim else {
             unreachable!("checked above")
         };

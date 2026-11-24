@@ -148,9 +148,7 @@ tags!(
         Native::Mul,
         Native::Leq,
         Native::EqNat,
-        Native::DivFuel,
-        Native::EqNatRefl,
-        Native::EqNatSound
+        Native::DivFuel
     ]
 );
 

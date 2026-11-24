@@ -5750,8 +5750,6 @@ fn native_js(op: native::Native) -> &'static str {
         Native::DivFuel => {
             "(fuel) => (n) => (d) => { if (d === 0n) return 0n; const q = n / d; return q < fuel ? q : fuel; }"
         }
-        // Proofs, so they're erased and never emitted.
-        Native::EqNatRefl | Native::EqNatSound => "undefined",
     }
 }
 
