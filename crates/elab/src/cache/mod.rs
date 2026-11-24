@@ -147,6 +147,11 @@ pub trait Store {
     /// Best effort: a cache that can't be written just means elaborating
     /// again next time.
     fn write(&self, unit: &str, key: &Key, entry: &[u8]);
+    /// Library file `unit` at `key` was elaborated after a read found no
+    /// entry, and no entry will be written for it (it failed, can't be
+    /// cached, or was cancelled). A store that tells concurrent readers
+    /// that one is making an entry lets them go. Nothing by default.
+    fn abandon(&self, _unit: &str, _key: &Key) {}
 }
 
 /// What the cache did in a session.
@@ -741,8 +746,8 @@ impl Elaborator {
     ) {
         let log = self.scope.log.take().unwrap_or_default();
         // A cancelled check isn't a result, even where it reported nothing.
+        let store = self.options.check_cache.clone().expect("a cache is set");
         if ok && !self.kernel.machine.budget.cancelled() {
-            let store = self.options.check_cache.clone().expect("a cache is set");
             let entry = self.encode_library_file(f, &capture, &log, key, store.salt());
             match entry {
                 Ok(entry) => {
@@ -752,8 +757,11 @@ impl Elaborator {
                 Err(why) => {
                     debug(&format!("std file {f} can't be cached: {why}"));
                     self.session.cache_stats.uncacheable += 1;
+                    store.abandon(unit, key);
                 }
             }
+        } else {
+            store.abandon(unit, key);
         }
         self.commit(capture.transaction);
     }
