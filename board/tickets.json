@@ -34088,7 +34088,7 @@
     {
       "id": 4723,
       "title": "[Sonnet] check --jobs: release a library claim when a file is elaborated but not written, and print claims_gave_up in the --timings line (SW-4719 review)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34096,7 +34096,10 @@
       "body": "",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "640f8b9a9",
+        "d65759033b38d3ad0fd3e093c2436ba9bb4864fd"
+      ]
     },
     {
       "id": 4724,
@@ -34114,7 +34117,7 @@
     {
       "id": 4725,
       "title": "[Sonnet] check --jobs: install the in-memory store only when the fill ran (a one-namespace --no-cache --jobs N encodes entries for nothing) (SW-4719 review)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34122,7 +34125,10 @@
       "body": "",
       "created": "2026-11-24",
       "updated": "2026-11-24",
-      "commits": []
+      "commits": [
+        "485e2ba39",
+        "d65759033b38d3ad0fd3e093c2436ba9bb4864fd"
+      ]
     },
     {
       "id": 4726,
