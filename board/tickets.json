@@ -34764,7 +34764,7 @@
     {
       "id": 4766,
       "title": "[DeepSeek] SW-4762 follow-ups: remove the now-unreachable sealed branch of opaque_notes (crates/elab/src/opaque.rs) or show a case reaching it; --only t.go for a proof-private name says E-PROOF-PRIVATE, not 'no theorem'; local.rs E-DUPLICATE note says t.go is nameable from outside: true only for def owners",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
