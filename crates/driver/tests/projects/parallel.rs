@@ -931,3 +931,65 @@ fn random_schedules_over_instances_theorems_and_library_files_match_one_job() {
     }
     let _ = std::fs::remove_dir_all(&one);
 }
+
+/// A worker that panics (SW-4726; `parallel::panic_hook`): worker 0's panic
+/// is raised again by the fill, after the other workers have stopped; any
+/// other worker's stops the fill and is left for the check after it, which
+/// reports and writes what one job does. The hook fires on a worker's next
+/// job, which a worker other than 0 may never get on a project this small,
+/// so that case tries seeds until it fires.
+#[test]
+fn a_worker_that_panics_stops_the_fill_and_the_check_still_matches_one_job() {
+    use stitchwort_driver::parallel::panic_hook;
+    // A project name no other test uses, which the hook is keyed on.
+    const NAME: &str = "panicking";
+    let files = rich_project();
+    let run = |dir: &Path, jobs: usize, seed: Option<u64>| {
+        let target = Target::Everything;
+        check_as(
+            NAME,
+            &files,
+            &Kept::Dir(dir.to_path_buf()),
+            jobs,
+            seed,
+            Load::Diagnostics,
+            &target,
+            false,
+        )
+    };
+    let one = temp_dir("panic-one");
+    let sequential = run(&one, 1, None);
+    let expected = entries(&one);
+
+    // Worker 0 takes the first job of a fill, whatever the schedule.
+    panic_hook::arm(NAME, 0);
+    let dir = salted_like(&one, "panic-zero");
+    let raised = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run(&dir, 3, None)));
+    let fired = panic_hook::take_fired();
+    let payload = raised.err().expect("worker 0's panic was swallowed");
+    let message = payload
+        .downcast_ref::<String>()
+        .cloned()
+        .unwrap_or_default();
+    assert!(fired, "the hook never fired");
+    assert!(message.contains("panic hook: worker 0"), "{message}");
+    let _ = std::fs::remove_dir_all(&dir);
+
+    // Another worker's: the fill ends, the check after it goes on.
+    let mut worker_one_panicked = false;
+    for seed in 0..40 {
+        let dir = salted_like(&one, "panic-one-worker");
+        panic_hook::arm(NAME, 1);
+        let parallel = run(&dir, 3, Some(seed));
+        let fired = panic_hook::take_fired();
+        assert_eq!(sequential.report, parallel.report, "seed {seed}");
+        assert!(entries(&dir) == expected, "seed {seed}: the entries differ");
+        let _ = std::fs::remove_dir_all(&dir);
+        if fired {
+            worker_one_panicked = true;
+            break;
+        }
+    }
+    assert!(worker_one_panicked, "worker 1 never took a job in 40 runs");
+    let _ = std::fs::remove_dir_all(&one);
+}

@@ -62,6 +62,44 @@ pub struct Jobs<'a> {
     pub seed: Option<u64>,
 }
 
+/// A hook for the tests of the panic path (SW-4726): the next job of the
+/// given worker, in a fill of the project of the given name, panics. Always
+/// compiled, since integration tests link the library without `cfg(test)`
+/// and the verifier builds in release; it can't be set from outside the
+/// process (no environment variable), and a fill of any other project name
+/// never reads it as set.
+pub mod panic_hook {
+    use std::sync::Mutex;
+
+    /// (project, worker, whether it has fired).
+    static HOOK: Mutex<Option<(String, usize, bool)>> = Mutex::new(None);
+
+    /// Makes `worker`'s next job in a fill of `project` panic.
+    pub fn arm(project: &str, worker: usize) {
+        *HOOK.lock().unwrap_or_else(|e| e.into_inner()) =
+            Some((project.to_string(), worker, false));
+    }
+
+    /// Whether the armed panic happened, and disarms.
+    pub fn take_fired() -> bool {
+        let hook = HOOK.lock().unwrap_or_else(|e| e.into_inner()).take();
+        hook.is_some_and(|(_, _, fired)| fired)
+    }
+
+    pub(super) fn maybe_panic(project: &str, worker: usize) {
+        let mut hook = HOOK.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some((p, w, fired)) = hook.as_mut()
+            && p == project
+            && *w == worker
+            && !*fired
+        {
+            *fired = true;
+            drop(hook);
+            panic!("panic hook: worker {worker} of {project}");
+        }
+    }
+}
+
 /// What a fill did.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Fill {
@@ -441,6 +479,7 @@ impl Shared<'_> {
 
 struct Worker {
     id: usize,
+    project: String,
     session: Session,
     analysis: Analysis,
     store: Rc<ClaimStore>,
@@ -473,6 +512,7 @@ impl Worker {
         }
         Some(Worker {
             id,
+            project: read.project.to_string(),
             session,
             analysis,
             store,
@@ -521,6 +561,7 @@ impl Worker {
     /// `i`; whether `i` now has an entry, and what was loaded for it.
     fn job(&mut self, graph: &Graph, i: usize, tally: &mut Tally) -> (bool, Vec<usize>) {
         self.store.begin_job();
+        panic_hook::maybe_panic(&self.project, self.id);
         let mut loaded = Vec::new();
         stitchwort_elab::timings::loading(Some(self.id));
         for &d in &graph.closure[i] {
