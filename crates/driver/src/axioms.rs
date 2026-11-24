@@ -20,8 +20,11 @@
 
 use std::collections::BTreeSet;
 
+use std::rc::Rc;
 use stitchwort_core::Ev;
 use stitchwort_core::collections::HashMap;
+
+use stitchwort_core::globals::Def;
 use stitchwort_core::{DataId, DefId, QuotForm, Term};
 
 /// A reusable walk, with the axiom set of every declaration it has finished.
@@ -209,6 +212,24 @@ impl Tarjan {
     }
 }
 
+/// The body of `def` that a walk over proofs reads: `None` for a
+/// declaration with none (an assumption, a primitive).
+///
+/// A stated theorem (docs/core.md, "Stated theorems") has a proof that
+/// isn't in this session. Nothing guarantees which axioms it used (a cache
+/// entry is written whatever axioms its proofs use), so reading it as
+/// bodiless would report "no axioms" where there may be some. The commands
+/// that walk proofs load them; reaching one here is an internal error, never
+/// an answer.
+pub(crate) fn walked_body(def: &Def) -> Option<&Rc<Term>> {
+    assert!(
+        !def.stated(),
+        "internal error: `{}` is a stated theorem, whose proof isn't loaded, in a walk over proofs",
+        def.path()
+    );
+    def.body()
+}
+
 /// The names of the axioms `root` depends on, sorted.
 pub fn axioms(globals: &Ev, root: DefId) -> BTreeSet<&'static str> {
     AxiomWalk::new().axioms(globals, root)
@@ -230,7 +251,7 @@ fn from_scratch(globals: &Ev, root: DefId) -> BTreeSet<&'static str> {
                 }
                 let def = globals.def(id);
                 terms.push(def.ty());
-                terms.extend(def.body().map(|b| &**b));
+                terms.extend(walked_body(def).map(|b| &**b));
             }
             Node::Data(id) => {
                 if !seen_datas.insert(id) {
@@ -275,7 +296,7 @@ fn scan(globals: &Ev, node: Node) -> (BTreeSet<&'static str>, Vec<Node>) {
         Node::Def(id) => {
             let def = globals.def(id);
             terms.push(def.ty());
-            terms.extend(def.body().map(|b| &**b));
+            terms.extend(walked_body(def).map(|b| &**b));
         }
         Node::Data(id) => {
             let data = globals.data(id);
@@ -370,6 +391,38 @@ def odd: Nat → Nat
             ["Quot.sound"].into_iter().collect(),
             "`even` reaches `Quot.sound` through `odd`"
         );
+    }
+
+    /// A stated theorem (its proof not loaded) reached by the walk is an
+    /// internal error, never "no axioms": the proof it stands for may use
+    /// `Quot.sound`, as this one's does.
+    #[test]
+    #[should_panic(expected = "is a stated theorem")]
+    fn a_stated_theorem_is_an_internal_error_not_no_axioms() {
+        let mut session = load(
+            r#"def AllTrue (x: Bool) (y: Bool): Prop := Unit
+def Q: Type := Quot Bool AllTrue
+theorem sound: (Quot.mk False: Q) = Quot.mk True := Quot.sound Trivial
+"#,
+        );
+        let proved = def(&session, "sound");
+        assert_eq!(
+            axioms(&session.elab.ev(), proved),
+            ["Quot.sound"].into_iter().collect()
+        );
+        let (name, ty, span) = {
+            let d = session.elab.ev().def(proved).clone();
+            (d.path().clone(), d.ty().clone(), d.span())
+        };
+        let stated = stitchwort_core::check::admit_trusted_stated(
+            &mut session.elab.kernel,
+            &"stated".into(),
+            &name,
+            &ty,
+            span,
+        )
+        .expect("a proposition");
+        axioms(&session.elab.ev(), stated);
     }
 
     /// Every theorem of the standard library: the result built from the

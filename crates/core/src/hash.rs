@@ -202,6 +202,17 @@ fn def_hash_in(g: &Ev, id: DefId, mode: Mode) -> Result<Option<ContentHash>> {
         mode.cache(g).borrow_mut().insert(HashKey::Def(id), hash);
         return Ok(Some(hash));
     }
+    // A stated theorem's proof isn't here. Its full hash is the one
+    // recorded when it was proved, which whoever made it puts in the cache
+    // (the check cache's replay); without proofs it's its statement, as a
+    // proved theorem's is, and it is in no group.
+    if def.stated && mode == Mode::Proofless {
+        let mut h = Hasher::new(g, Itself::Def(id), mode);
+        h.declaration(id)?;
+        let hash = h.finish();
+        mode.cache(g).borrow_mut().insert(HashKey::Def(id), hash);
+        return Ok(Some(hash));
+    }
     let (State::Final, Some(_)) = (def.state, def.body.as_ref()) else {
         return Ok(None);
     };
@@ -229,12 +240,14 @@ fn def_hash_in(g: &Ev, id: DefId, mode: Mode) -> Result<Option<ContentHash>> {
 }
 
 /// Whether definition `id` is referred to by its [`interface_hash`]: a final
-/// theorem with a proof. An assumption (a `?` goal, or the stand-in for a
+/// theorem with a proof, or a stated theorem, whose proof was checked where
+/// it was made (docs/core.md, "Stated theorems"); so a user's hash is the
+/// same whichever of the two a session holds. An assumption (a `?` goal, or the stand-in for a
 /// theorem whose proof failed) is referred to by its own hash, whose tag
 /// says what it is, so a failed proof still changes every user's hash.
 pub fn has_interface(g: &Ev, id: DefId) -> bool {
     let def = g.def(id);
-    def.theorem && def.state == State::Final && def.body.is_some() && def.assumption().is_none()
+    def.theorem && def.state == State::Final && def.defined() && def.assumption().is_none()
 }
 
 /// The interface hash of definition `id`: for a theorem, the tag `theorem`
@@ -464,15 +477,15 @@ impl<'g> Hasher<'g> {
     /// body. Without proofs, one whose result is a proof is its type alone.
     fn declaration(&mut self, id: DefId) -> Result<()> {
         let def = self.g.def(id);
-        let body = def
-            .body
-            .as_ref()
-            .expect("internal error: hashing a definition that isn't final");
         if self.mode == Mode::Proofless && self.proof_result(id) {
             self.tag("proof-def");
             self.bool(def.theorem);
             return self.term(&def.ty);
         }
+        let body = def
+            .body
+            .as_ref()
+            .expect("internal error: hashing a definition that isn't final");
         self.tag("def");
         self.bool(def.theorem);
         if def.instance {

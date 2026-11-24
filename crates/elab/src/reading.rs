@@ -1883,7 +1883,7 @@ impl Elaborator {
                 .map(DefId)
                 .filter(|&id| {
                     g.def(id).instance()
-                        && g.def(id).body().is_some()
+                        && g.def(id).defined()
                         && !generated(g, id)
                         && crate::auto::visible(self, id)
                 })

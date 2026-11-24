@@ -1742,7 +1742,7 @@ fn definition_named(cx: &mut Ctx, proof: &Expr) -> Result<Option<DefId>> {
     let def = g.def(*d);
     // An instance has no arm equations of its own, and its methods are
     // named through it.
-    if def.theorem() || def.instance() || def.opaque() || def.body().is_none() {
+    if def.theorem() || def.instance() || def.opaque() || !def.defined() {
         return Ok(None);
     }
     // A definition whose result is an equation is a proof of one.

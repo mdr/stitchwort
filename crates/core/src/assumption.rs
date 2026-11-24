@@ -141,6 +141,14 @@ pub fn relies_on(g: &Ev, root: Decl, skip: &dyn Fn(Decl) -> bool) -> Option<DefI
 /// Calls `each` on every declaration `node`'s checked terms mention: its
 /// type, body, run body, validators and `unfolding` list for a definition;
 /// parameters, indices, fields and validators for a data type.
+///
+/// A stated theorem ([`crate::globals::Def::stated`]) has only its type
+/// here, so its proof's mentions aren't walked: it is a leaf that relies
+/// on nothing. That is true only because it is made from a cache entry,
+/// and an entry is written only by a session in which nothing it holds
+/// relied on an assumption (invariant W, docs/core.md "Stated theorems").
+/// `axioms` has no such invariant for `Quot.sound`, so its walk refuses a
+/// stated theorem instead.
 pub fn mentions(g: &Ev, node: Decl, each: &mut dyn FnMut(Decl)) {
     let builtins = g.env.builtins();
     let mut terms: Vec<&Term> = Vec::new();

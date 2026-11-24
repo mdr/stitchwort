@@ -3216,7 +3216,7 @@ impl Elaborator {
     /// Whether `auto` may use definition `id` where it's being elaborated:
     /// it's final, and (if it's from this module) declared above.
     pub(crate) fn auto_eligible(&self, id: DefId) -> bool {
-        if self.kernel.def(id).body().is_none() {
+        if !self.kernel.def(id).defined() {
             return false; // not finished checking (e.g. one being defined)
         }
         match (self.unit.module.def_items.get(&id), self.unit.module.item) {
