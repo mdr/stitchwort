@@ -1690,3 +1690,409 @@ removing it is kernel work that would get its own note.
 - That signals stay blocked in threads started after the signal thread is set up
   (`main.rs:1776-1802`); standard for thread signal masks, not read through.
 - `measure_jobs.sh` beyond `bash -n`.
+
+## 10. Stage 2 design: the stated theorem, and loading without proofs (SW-4727)
+
+Fable paper lane, after D3730 (the end state is stage 3, whose kernel form "comes back to
+him") and D3731. The code was read at `5aa4c8604`; nothing was built and no check was run.
+Marks: **[verified]** read today at the file and line given; **[measured]** by an earlier
+run, cited; **[estimated]**; **[not verified]**. Stage 1 (section 9, SW-4719) and the
+digest cache's stages A and C (SW-4707, SW-4714) are merged and taken as given.
+
+### 10.1 Summary
+
+**The problem.** Each worker of `check --jobs N` loads its dependencies whole, proofs
+included: 4.8 s and 1.2 GB for all of `tools/fmt` **[measured 24 Nov]**, though nothing a
+worker then does may look at one of those proofs. And stage 3 needs a namespace checked
+against theorems below it whose proofs are still being checked on another thread. The
+kernel can't hold either: a final theorem always has its proof.
+
+**The change.** One new kernel form, a **stated theorem**: a theorem that is final, has its
+statement and has no proof in this session. To everything that uses it, it is the proved
+theorem: it never unfolded anyway, it compares equal to any proof of its statement anyway,
+and it hashes as a proved theorem's reference does. Only two kernel functions make one.
+Stage 2 uses the first: a cache entry is split into an interface part and a proofs part,
+and a session that only needs to check against a dependency reads the first part alone.
+Every stated theorem in stage 2 is one whose proof this build's kernel has already
+checked, in the session that wrote the entry: nothing is promised, less is read.
+
+**What it should do.** Less loading time and memory per worker and for the check after an
+edit **[estimated; the share of an entry that is proofs is step 0's measure]**; and it is
+the form stage 3 needs, where it does carry a promise. The verdict stays where stage 1 put
+it: the last pass, today's sequential check, which believes only whole entries.
+
+**For Matt:** one decision, the form and its two rules (10.7).
+
+### 10.2 The kernel form
+
+**What it is.** Not a new declaration kind and not an assumption: a flag on a theorem,
+`Def::stated`. A stated theorem has `theorem` set, `state == Final`, its type, its proof
+mark (`Def::proof`, always true: its type is a proposition), no body, no group, arity 0
+and no assumption label; the last three are as `check::assume` leaves a constant
+(`crates/core/src/check.rs:3054-3112` **[verified]**). The name avoids "promise", which
+the code already uses for something else (`Promise::ProofsOnly`, `hash.rs:143`).
+
+Why not the alternatives:
+
+| Alternative | Why not |
+|---|---|
+| A new kind of assumption (`AssumptionKind::Stated`) | An assumption hashes by its own tag and label (`hash.rs:180-203` **[verified]**), on purpose: filling a `?` must change every user's hash. A stated theorem must do the opposite. And `relied_on` reports every assumption as a gap, so every reader of reliance would need the exception |
+| A dummy body | Every reader of bodies (reliance, `axioms`, the encoder, the runtimes) would read it as the proof |
+| A lazy body, decoded when first read (Lean's `.olean`, Rocq's delayed opaque proof) | Good for stage 2 alone, and worth keeping in mind as a later refinement of it. But stage 3's theorem has no proof anywhere yet, so the lazy read would have to block on another thread, inside kernel data. The flag serves both stages, and "the proofs aren't here" stays a fact a caller can test |
+
+**Who can make one.** Two kernel functions, nothing else:
+
+1. `check::admit_trusted_stated(name, path, ty, span)`, beside `admit_trusted_def`
+   (`check.rs:4085`) on the cache's trust boundary: the same structural checks (the type
+   refers only to final declarations, `case` only in a tree), then final at once with the
+   flag. Stage 2 uses only this one. It is called only by the cache's replay, for an entry
+   this build wrote after checking the proof.
+2. `check::leave_stated(id)`, for stage 3: turns a *pending* theorem, whose statement
+   `declare_def` has just checked (a type, a proposition), into a stated one instead of
+   `define_group` giving it a body. Not built in stage 2.
+
+Source can't write one, and nothing turns a stated theorem back: it isn't pending, so
+`define_group`, `retype_def`, `set_run_body`, `add_validator` and the native registrations
+refuse it as they refuse an assumption (`docs/core.md`, "It never gets a body"
+**[verified in the spec]**). A session that needs the proofs loads the namespace again in
+full (10.4); it doesn't patch a body in.
+
+**Typing rule.** None new. `Σ, t° : T` where `T` is a proposition in `Σ`: the rule for an
+assumption, which is the rule for a variable of type `T` bound outside every declaration
+(`docs/core.md`, "Why it's sound"). The kernel's judgement for a declaration that mentions
+stated theorems `t₁° … tₙ°` is "well typed given `t₁: T₁ … tₙ: Tₙ`", a premise for each.
+What stage 2 adds is the reason each premise holds: the same build's kernel checked a
+proof of `Tᵢ` before the entry that carries `tᵢ°` was written (10.3).
+
+**Conversion and evaluation.** A call of one is neutral and never unfolds (`body_seen` is
+empty, as for any theorem under rule F: `value.rs:3435-3457` **[verified]**), two calls
+are equal by rule I whatever their arguments' proofs, and rules K and S read only marks.
+So far it is exactly a proved theorem. Three places in the kernel read a definition's body
+*without* going through `body_seen`, and so can tell the two apart today
+**[verified by grep of `.body` in `crates/core/src`, each site read]**:
+
+- `value::next_parameter` (`value.rs:5429-5441`): for a definition applied to fewer
+  arguments than its arity, the implicitness and proof mark of its next lambda, read off
+  the body. Conversion's eta for definitions uses it (`push_eta`, `value.rs:5407`), and so
+  does the unifier's (`crates/elab/src/unify.rs:2795-2808`). For a theorem this reads the
+  shape of the *proof* (`theorem t: (n: Nat) -> P n := n => …` has arity 1;
+  `:= otherLemma` has arity 0). **This is a hole in rule 6 ("no other declaration ever
+  sees a theorem's proof") that exists today**, apart from this design: a proof rewritten
+  from lambdas to a bare lemma keeps its namespace's interface digest, and a dependant
+  that compared a partial application of it took a different path. I could not build a
+  case where the verdict or a term differs: when both sides are marked proofs rule I
+  answers first, and against an unmarked value the two paths (compare `t a` with `h`, or
+  `t a x` with `h x`) seem to agree **[argued, not verified; not probed]**. The fix is the
+  same either way: `next_parameter` returns nothing for a frozen definition, so eta never
+  reads a proof, stated or not. It is a change to conversion, so it goes through the
+  soundness set and a review (step 1).
+- `value::erases_result` (`value.rs:3731-3735`): while a program runs, "has a body, or is
+  an assumption". A stated theorem must count too (its type erases), though sessions that
+  run load proofs anyway (10.4).
+- `hash::def_hash` returns `None` without a body (`hash.rs:205-207`). The replay already
+  puts each declaration's recorded full hash in the kernel's hash cache
+  (`cache/mod.rs:3913-3925` **[verified]**), so a stated theorem's full hash is the
+  entry's; the interface part of the entry keeps it.
+
+`slot_type` and `case_tree` (`value.rs:2943`, `:3359`) read the body of the definition
+being unfolded, which is never a theorem while checking.
+
+**Hashing.** `has_interface` (`hash.rs:235-238`) becomes: a final theorem that is no
+assumption and either has a proof or is stated. `interface_hash` is then unchanged code:
+the tag `theorem` and the type (`hash.rs:245-258`). So **a stated theorem's interface hash
+already equals the proved theorem's**, by construction, and every user's hash, every
+dependency record (`cache/mod.rs:3563-3577`) and every digest is the same whichever the
+session holds. That is the property an assumption could not give.
+
+**A theorem in a group.** A group's hash covers every member's whole declaration
+(`hash.rs:18-28`, `group_hashes`, `:340-392` **[verified]**), so a computing definition
+checked in one group with a theorem has that theorem's proof in its own hash. Rule: a
+theorem is loaded as stated only if every other member of its group is too, or is a
+proof-private helper that is left out (10.4). Otherwise the whole group loads with its
+bodies. The writer decides, per entry; the reader does what the entry says.
+
+**What may refer to one.** Anything that may refer to a theorem. What must *not* happen is
+a report that depends on the missing proof. The readers of proofs outside checking, and
+the rule for each:
+
+| Reader | Rule |
+|---|---|
+| Reliance on open goals and stand-ins (`assumption::relied_on`, `mentions`, `assumption.rs:144-154`) | A stated theorem is a leaf that relies on nothing. Sound by invariant W (10.3), and only by it |
+| `axioms`, `audit` (the walk over bodies, `crates/driver/src/axioms.rs:270-280`) | No invariant covers `Quot.sound`: an entry is written whatever axioms its proofs use. These load proofs (10.4), and the walk **fails closed**: reaching a stated theorem is an internal error, never "no axioms" |
+| `run`, `test`, `build`, the runtimes' lowering, JS | Load proofs. Proofs are erased before a run, so this is caution, not need **[not verified that no run path reads a proof body]** |
+| The encoder (`cache/mod.rs:2483` refuses a namespace holding "any final definition without a body") | Unchanged: it looks at the namespace's *own* declarations, which stage 2 never states |
+| `--recheck`, carried-over entries (they re-check or re-hash bodies, `cache/mod.rs:3819-3840`) | Load proofs |
+| `--timings` sizes, `--index`, `--counterexamples`, the editor, `doc` | Load proofs (they are `Load::Everything` already, `project.rs:39-48`) |
+| The elaborator's seven "has it a body?" tests (`reading.rs:1886`, `auto.rs:1547`, `opaque.rs:467`, `interfaces.rs:1029`, `:1300`, `module.rs:3219`, `rewrite/repeatedly.rs:1745` **[verified, all seven read]**) | Each means "is it finished?" or "is it an assumption?", not "show me the body". They move to one accessor, `Def::defined()`: has a body or is stated. Two of them decide candidates (`auto_eligible`, the `@[reading]` instance scan), so a miss here would change a result, not only a message |
+
+Beyond those seven, the elaborator's readers of a body's *content* are 40-odd sites in 28
+files **[counted by grep, not each read]**. That none reads a *dependency's sealed proof*
+while checking is the digest cache's property P2 (`interface-digest-cache.md` 2.1), which
+every warm check since stage A has relied on: if it failed, an edited proof below would
+already leave a stale entry above. Stage 2 leans on P2 harder (always, not only after a
+proof edit), and its byte-compare tests are a new test of it.
+
+**Universes, axioms, anything global a proof could add.** Rocq's gap (section 1.2) was
+that a proof adds universe constraints, which are global, so skipping proofs collects
+fewer. Stitchwort has none: universes are "numbered, no polymorphism, no cumulativity"
+(`docs/core.md:22`, `:51-67` **[verified]**), there is no constraint store, and a proof's
+check leaves nothing in the kernel but its own term. What a proof leaves in the
+*elaborator* is the real analogue, and it matters for stage 3, not stage 2 (10.5).
+
+### 10.3 The trust argument
+
+**Invariant W (an entry is written by a session with no gap).** A namespace's entry is
+written only when its check reported no error and no goal *and* the count of unfinished
+declarations did not rise (`cache/mod.rs:1143-1147` **[verified]**), where a declaration
+that relies on any assumption, through any body, is counted as unfinished when its
+component is checked (`assume.rs:478`; `docs/core.md`, "Reliance"). And an entry is found only under a key made from each
+dependency's digest, which a session has only for a dependency it replayed or wrote, so
+never for one with a goal or an error (digest note 2.3, rule 3). So in any session, a
+namespace that came from an entry has a closure of namespaces that all came from entries
+or were checked clean in this session.
+
+**Claim (stage 2).** A check that loads dependencies as stated theorems accepts nothing a
+check that loads them whole refuses, and reports "finished" for nothing that relies on an
+open goal or a failed proof.
+
+1. *Every stated theorem was proved.* Stage 2 makes one only by replaying an entry, and an
+   entry holds only declarations this build's kernel accepted, proofs included, before it
+   was written (`cache/mod.rs:1140-1175`; 9.6). With `--no-cache --jobs N` the entry is in
+   the run's memory and was written in this run (D3731). So each premise `tᵢ: Tᵢ` of 10.2
+   has a checked proof. There is no promise to discharge.
+2. *That proof was checked against true statements.* By induction up the namespace order:
+   the session that checked `tᵢ`'s proof held its dependencies whole or stated, and the
+   stated ones are covered by the induction hypothesis.
+3. *The check of a dependant is the same check.* The kernel half is 10.2's list: after
+   step 1 no kernel path reads a frozen definition's body. The elaborator half is P2 and
+   the seven tests.
+4. *Reliance.* By W, the proofs left out reach no assumption, so "relies on nothing" for a
+   stated theorem is true, by induction again (the writer's own walk went through stated
+   theorems of *its* dependencies, which W covers).
+5. *What it trusts:* the cache, as any replay does, and no more. It reads less of an entry
+   whose whole is already trusted. The one new thing an entry can lie about is which
+   bodies are proofs, and a wrong split can only leave out a body that the kernel then
+   treats as absent: `admit_trusted_stated` refuses a type that
+   isn't a proposition by the kernel's own mark (`def_mark`, `check.rs:2970`, worked out
+   from the type on the trusted path too), so nothing that computes can be stated; and a
+   `def` of proposition type passed off as a theorem changes its users' recorded hashes,
+   which the replay compares (`cache/mod.rs:3563-3577`).
+
+**What can break it**, and what catches each:
+
+| Break | Effect | Caught by |
+|---|---|---|
+| A stated theorem that was never proved | Unsound | Can't arise in stage 2 (item 1). In stage 3 it is the join, 10.5 |
+| A kernel path that reads a frozen body (`next_parameter` is the one known) | A dependant's check takes another path: other steps, conceivably another verdict | Step 1 removes the known one; the soundness set; byte-compare of every entry against a whole load |
+| An elaborator reader of a dependency's proof (P2 false somewhere, or an eighth body test) | A different entry or message from the sequential check's | Byte-compare tests (10.6); already a stale-cache bug today if it exists |
+| W false: an entry written for a namespace that relies on a goal | "Finished" reported over a gap | W is today's rule and already load-bearing (a namespace left out by a plain `check` is never walked at all); a fixture with a goal two namespaces down (10.6) |
+| `axioms` or `audit` run in a session without proofs | "No axioms" wrongly | Those commands load proofs, and the walk fails closed |
+| `E-RESOURCE` near the limit | A run stops, or passes, where the other wouldn't | Not solved, as 9.4 item 4: a session that replays less forces kept types at other moments, so step counts shift. Nothing false is accepted |
+| A wrong split in an entry | A refused replay, then a whole load or a fresh check | `refused` stays 0 in the tests |
+
+### 10.4 Loading without proofs
+
+**The entry.** Today an entry has one node table, in first-use order, shared by every type,
+body and table row (`cache/codec.rs:234`, `:616-680`; `cache/mod.rs:3581-3600`
+**[verified]**), so a reader can't skip proofs. The entry becomes two parts:
+
+- **Part A, the interface:** everything a dependant can read. All records and tables as
+  now, except that a *stated-on-load* theorem's record has no body and no group list, and
+  proof-private helpers (stage C's definition, `digest_plan`, `cache/mod.rs:2156-2200`)
+  have no record and no rows. Its node table holds only what those mention. Each record
+  keeps its full hash.
+- **Part B, the proofs:** more nodes (which may refer back into A's), then the bodies and
+  group lists left out of A, and the private helpers' records and rows.
+
+The encoder gets this by writing the left-out bodies last, so their nodes come last. Which
+bodies are left out is the digest pass's answer already (`sealed`, `cache/mod.rs:2659-2666`,
+and the plan's private set), plus the group rule of 10.2. A whole load reads A then B and
+installs exactly what it installs today; a load without proofs reads A, checks B's length
+and seal, and stops. Own declarations are named by position in the entry
+(`cache/mod.rs:3581-3584`), and leaving helpers out shifts positions, so the reader maps
+"position in the entry" to "id in this session"; a reference in part A to a declaration
+that was left out fails the decode ("can't be loaded without proofs"), which falls back to
+a whole load. `FORMAT` is bumped. Library files' entries get the same two parts.
+
+**Who loads which.** A session option, proofs or no proofs, default proofs:
+
+| Session | Loads | When |
+|---|---|---|
+| A fill worker (`parallel.rs`), for a namespace's dependencies | without proofs | step 2 |
+| A plain `check` (`Load::Diagnostics`) loading the dependencies of what it must check again | without proofs | step 3, once step 2's compare has been clean |
+| The same check, once any loaded namespace has an error or a goal and it starts again with everything loaded (`project.rs:357-361`) | **with** proofs | always: every message a user reads comes from a session as today's |
+| Everything else (`Load::Everything`: `test`, `run`, `build`, `axioms`, `audit`, `doc`, `--index`, the editor), `--recheck`, carried-over entries | with proofs | always, for now |
+
+A session never mixes the two for one namespace, and never upgrades in place: if it needs
+proofs after loading without, it rewinds and loads again.
+
+**The gain.** Per worker, the loading time and memory that part B accounts for. Not known:
+theorems are 77.6% of `tools/fmt`'s checking time **[measured 24 Nov]**, 5,563 theorems
+own about 5,000 `%match` helpers **[SW-4707]**, so I expect part B to be well over half
+the nodes, and a load to fall from 4.8 s and 1.2 GB to somewhere between 1.5 and 3 s and
+0.4 and 0.7 GB **[estimated, weakly: a replay also pays for names, tables and the
+dependency records, which stay]**. Step 0 measures the split before anything is built
+(per the standing lesson that proof tooling's savings came in below their sketches). The
+same gain goes to the check after an edit (5.3 s for one edited proof **[measured 23
+Nov]**; how much of that is loading is not measured) and, later, to the editor's start.
+
+### 10.5 Stage 3 in outline
+
+Not designed here; this is what the form has to support, and what stage 3's own note must
+settle.
+
+**Two kinds of work per namespace**, both through stage 1's scheduler:
+
+- an *interface pass*: elaborate `N` against the interfaces below, and for each theorem
+  that can be deferred call `leave_stated` instead of elaborating its proof; publish
+  `iface(N)`, part A alone, under its own unit kind, with the digest it computes;
+- a *full check*: today's check of `N` against the interfaces below; it writes `N`'s whole
+  entry as now.
+
+Interface passes follow the namespace graph; a full check waits only for the interface
+passes of its closure, so the proofs of all namespaces run side by side.
+
+**The join is the key chain, and the judge is still the last pass.** A namespace's key is
+made from its dependencies' digests. A full check of `M` that ran against `iface(N)`
+writes `M`'s entry under `iface(N)`'s digest. The last pass (today's sequential check,
+9.1) reads only whole entries, and has a digest for `N` only from `N`'s whole entry. So it
+finds `M`'s entry exactly when `N`'s full check passed, clean, *with the digest the
+interface pass claimed*. If `N`'s proof failed, or has a goal, or the interface pass
+differed from the full check, `M`'s entry is simply not found, and the last pass checks
+`N`, `M` and what is above them itself, in order, with today's messages (`N`'s error, and
+"relies on `t`, which has an error" above it). Interface entries are a separate unit kind
+that only fill workers read. So "a promise never discharged" costs a sequential re-check,
+never a wrong "checked": nothing has to remember to join. That is the difference from
+Isabelle, where a theorem value carries its holes and integrity is a dynamic check at
+checkpoints, and from Rocq's interactive mode, where the main kernel does not check what
+workers return unless asked.
+
+**What is reported when a proof fails:** exactly a sequential check's output, from the last
+pass. The cost is that the failed namespace and everything above it are checked on one
+thread, as in stage 1.
+
+**The real risk: what a proof leaves in the interface.** Rocq needs `Proof using` because
+a statement inside a section isn't known until its proof is. Our analogue: the interface
+digest covers things only elaborating a proof produces. Stage C removed the commonest (a
+`match` helper only a proof reaches). Still in the digest, and made by proofs: a local
+`def` or `theorem` in a proof (nameable as `t.go` from another namespace), equations made
+on demand (`equations_done`, `state/tables.rs:66`), a helper that an `unfolding` list
+names, anything a tactic adds to a table **[the first is verified in stage C's table; the
+others not verified]**. For any namespace where a proof does one of these the interface
+pass's digest differs from the full check's, loudly, and that namespace and everything
+above it fall to the last pass. Stage 3's note must start with a pilot: an interface pass
+by hand (proofs replaced by a stated theorem) over `tools/fmt`, counting how many of the
+150 namespaces match. If few match, the fix is in the digest (more made proof-private) or
+in a syntactic rule for which proofs can't be deferred, and that is the design.
+
+**Fallback.** Any mismatch, error, goal, panic or refused entry: the last pass, as stage 1.
+`--jobs 1` never runs an interface pass.
+
+**Predicted gain** from today's measure **[estimated]**: `tools/fmt`'s project part is
+93.9 s on one thread; stage 1's bound is 37.1 s (2.5x), set by the chain. The project's
+work that isn't theorems is about 8.6 s (24.5 s of "the rest" less 15.9 s of library and
+core), and theorem statements perhaps 4 to 13 s more (5% to 15% of 84.7 s; not measured).
+So the interface passes are 13 to 21 s of work, some of it side by side: 6 to 15 s of wall
+time. The proofs are about 85 s over 8 workers, 11 s, against a floor of 8.7 s (the
+largest namespace). With 2 to 5 s for the last pass: **19 to 33 s, 2.8x to 4.9x**, against
+stage 1's 2.5x before its overheads; with the library cold (16 s more, one thread), 2.2x to
+3.1x. The library block is then the largest single piece, as section 8 said.
+
+### 10.6 Build plan for stage 2
+
+| Step | What | Files | Who, estimate |
+|---|---|---|---|
+| 0 | Measure the split. Under `STITCHWORT_CACHE_DEBUG`, the "written" line (`cache/mod.rs:1169`, which already prints the digest's shape) also prints the entry's node count and the digest pass's (the digest pass is the entry less sealed bodies and private helpers, so the ratio is part B's share). The orchestrator runs one cold `tools/fmt` check with it and `measure_load.sh` (below) for the before figures. **Gate:** under about 40% of nodes in part B, stage 2's loading gain is small; build step 1 only, for stage 3 | `crates/elab/src/cache/mod.rs` | Sonnet, 15 min |
+| 1 | The kernel form: `Def::stated`, `Def::defined()`, `admit_trusted_stated`, `has_interface`, `erases_result`, `next_parameter` giving nothing for a frozen definition; the reliance walk's comment and W; the axioms walk failing closed; the seven tests onto `defined()`; `docs/core.md` (a "Stated theorems" part under "Definitions", rule 6's hole closed, the eta change). No caller yet outside tests | `crates/core/src/{globals,check,hash,value,assumption}.rs`, `crates/driver/src/axioms.rs`, the seven elaborator sites, `docs/core.md` | Opus, 40 min; Fable review, 20 min |
+| 2 | The entry in two parts (`FORMAT` bump), the decode without part B with the position map, the session option; fill workers load dependencies without proofs | `crates/elab/src/cache/{mod,codec}.rs`, `crates/elab/src/state/session.rs`, `crates/driver/src/parallel.rs` | Opus, 50 min |
+| 3 | A plain `check` loads without proofs; the restart on an error or goal loads with; `docs/proposals/check-cache-trust.md`, the guide's performance notes, a performance-log entry (D3444) | `crates/driver/src/project.rs`, docs | Sonnet, 25 min; then the Fable review covers 2 and 3, 25 min |
+
+Estimates are agent time, set from SW-4719 (Opus, 50 + 11 min against 75) and SW-4707 (43
+against 90). Steps 2 and 3 edit `cache/mod.rs`, so they run after anything else in flight
+there.
+
+**Tests** (each named, seconds; a lane runs only these, plus, for step 1, the whole of
+`examples::soundness`, which is the standing rule for a kernel change):
+
+- *Kernel, step 1.* A stated theorem and the proved one have the same interface hash; a
+  dependant's term hashes the same against either; `define_group`, `retype_def`,
+  `set_run_body` and an `unfolding` list refuse a stated theorem; `admit_trusted_stated`
+  refuses a type that isn't final. For the eta change: an example that compares a partial
+  application of a theorem with an unmarked value, checked with the proof written as
+  lambdas and as a bare lemma, same verdict and same hash of the dependant; and the
+  byte-compare below. If any existing hash snapshot moves, stop and report: the argument
+  of 10.2 says none should.
+- *Byte-compare, step 2.* `parallel.rs`'s tests again with workers loading without proofs:
+  every entry and message equal to one job's; `refused`, `late_misses` and "elaborated
+  twice" 0. Plus one fixture built for this: a theorem in a group with a computing
+  definition (loads whole), a recursive theorem with a private helper, an `instance`
+  theorem found by `auto` from the namespace above, a `@[reading]` theorem.
+- *Whole against without, step 2.* For each fixture, load the project once each way and
+  compare `cache::canonical_dump` of everything but the proofs left out.
+- *Reliance, step 3.* `D` has a `?` in a proof, `M` uses that theorem, `N` uses `M`'s
+  lemma: goals reported, counts and exit as today, with one job and four. And the reverse:
+  fill the `?`, check again, all finished.
+- *Fail closed.* `axioms` on a session made without proofs is an internal error, not an
+  empty list (a unit test; no command can reach it).
+
+**Measure** (the orchestrator; about 6 minutes of machine time, from the 110 s cold checks):
+
+    docs/proposals/parallel-checking/measure_load.sh target/release/stitchwort tools/fmt OUT
+
+before step 2 and after step 3: time and peak memory of one whole-project load from a warm
+cache, with and without proofs once the option exists (it tries `STITCHWORT_LOAD_PROOFS=0`,
+the name step 2 should give the debugging switch), and `measure_jobs.sh` again for 4 and 8
+jobs. Syntax-checked only. Predictions to hold it to: load 1.5 to 3 s and 0.4 to 0.7 GB;
+8 jobs on `tools/fmt` under 8 GB.
+
+**Orchestrator's calls, with my recommendations:** two parts in one file, not two files;
+private helpers left out in step 2 if step 0 shows they are over a fifth of part B, else
+bodies only (no position map needed); `test` and the editor stay on whole loads until
+someone measures a need; the lazy body as a later refinement, if whole loads still hurt.
+
+### 10.7 Decision for Matt
+
+**The stated theorem.**
+
+*The problem.* When several workers check a project side by side, each loads everything
+below the file it is checking, proofs and all: nearly five seconds and over a gigabyte per
+worker on the formatter. It never looks at those proofs; since proofs were sealed, nothing can. And
+the next stage, where every file's proofs are checked side by side, needs a worker to
+check against a theorem whose proof another worker hasn't finished. The kernel has no way
+to hold a theorem without its proof.
+
+*The change.* The kernel gets one new kind of entry: "this statement is a theorem; its
+proof isn't loaded here". Everything that uses it treats it exactly as a proved theorem.
+Two rules come with it. First, in this stage it is only ever made from the saved result of
+a check in which the kernel did check the proof: nothing unproved is used, only less is
+loaded. Second, anything that reports on proofs themselves (which axioms a result rests
+on, `audit`, running tests and programs) always loads the proofs, and refuses to answer
+rather than guess if it finds one missing. One small change rides along: comparing a
+partly applied theorem no longer peeks at how its proof begins, which is the last place
+the checker could see into a proof at all.
+
+*What it should do.* Workers load faster and use less memory (my guess is half or better;
+a 15-minute measurement comes first and decides whether the loading part is worth
+building now). It is also the piece stage 3 stands on. There, "checked" is still decided
+at the end by today's one-at-a-time check, which believes only fully checked files; a
+proof that fails, or never ran, costs a slower run, never a wrong answer.
+
+**[rec: yes]** The orchestrator's calls are listed in 10.6. Stage 3 gets its own note,
+starting from a pilot, and its use of this form (a theorem whose proof truly hasn't been
+checked yet) comes back to you then.
+
+### 10.8 What I could not verify
+
+- That `next_parameter`'s read of a proof's lambdas can't change a verdict or a term
+  today. Argued in 10.2; no probe was built. If it can, it is a staleness bug in the
+  digest cache now, and step 1 fixes it either way.
+- The share of an entry, and of a load's time and memory, that is proofs (step 0).
+- The 40-odd readers of body content in the elaborator, beyond the seven tests: taken
+  from P2 and SW-4700's review, not re-read.
+- That nothing on a run path reads a proof body (so `test` and `run` stay on whole loads).
+- Which proof by-products other than `%match` helpers reach the digest (10.5): equations
+  made on demand and `unfolding` lists naming helpers are named from the tables' list, not
+  traced.
+- That a library file's entry splits as a namespace's does (same encoder; not read for
+  differences).
+- `measure_load.sh` beyond `bash -n`.
