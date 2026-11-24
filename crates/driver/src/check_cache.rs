@@ -363,7 +363,8 @@ impl Claims {
 ///   holds unwritten claims only on the files it is in the middle of, each
 ///   needing the next; the library's files have no cycle, so the waits
 ///   can't make one. A file whose elaboration fails is never written, and
-///   its claim lasts until the job ends; a wait that runs out of patience
+///   its claim is let go as its elaboration ends ([`Store::abandon`]); a
+///   wait that runs out of patience
 ///   elaborates the file itself, which changes no result.
 /// - **Exactness.** A claim decides only who elaborates first. Whoever
 ///   does writes the same bytes the other would have, by the cache's own
@@ -403,6 +404,20 @@ impl ClaimStore {
         held.retain(|_, worker| *worker != self.worker);
         drop(held);
         self.claims.changed.notify_all();
+    }
+
+    /// Lets go of this worker's claim on a file, waking those waiting for
+    /// it: it has been written, or won't be.
+    fn release(&self, unit: &str, key: &Key) {
+        if self.claimed(unit) {
+            let id = (unit.to_string(), *key);
+            let mut held = self.claims.held();
+            if held.get(&id) == Some(&self.worker) {
+                held.remove(&id);
+            }
+            drop(held);
+            self.claims.changed.notify_all();
+        }
     }
 
     fn claimed(&self, unit: &str) -> bool {
@@ -467,15 +482,12 @@ impl Store for ClaimStore {
 
     fn write(&self, unit: &str, key: &Key, entry: &[u8]) {
         self.inner.write(unit, key, entry);
-        if self.claimed(unit) {
-            let id = (unit.to_string(), *key);
-            let mut held = self.claims.held();
-            if held.get(&id) == Some(&self.worker) {
-                held.remove(&id);
-            }
-            drop(held);
-            self.claims.changed.notify_all();
-        }
+        self.release(unit, key);
+    }
+
+    fn abandon(&self, unit: &str, key: &Key) {
+        self.inner.abandon(unit, key);
+        self.release(unit, key);
     }
 }
 

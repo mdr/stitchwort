@@ -459,6 +459,42 @@ fn library_files_are_elaborated_once_between_workers() {
     let _ = std::fs::remove_dir_all(&three);
 }
 
+/// A worker that claimed a library file and finished elaborating it
+/// without writing an entry (it failed) lets go of the claim at once, so
+/// another waiting for it reads again and elaborates it, rather than
+/// waiting out the claims' patience (SW-4723).
+#[test]
+fn an_abandoned_library_file_does_not_stall_a_waiting_worker() {
+    use std::sync::Arc;
+    use std::time::{Duration, Instant};
+    use stitchwort_driver::check_cache::{ClaimStore, Claims};
+
+    let claims = Arc::new(Claims::new(Duration::from_secs(60)));
+    let memory = MemoryStore::default();
+    let key = [7u8; 32];
+    let unit = "std.Failing";
+    let owner = ClaimStore::new(Rc::new(memory.clone()), claims.clone(), 0);
+    owner.begin_job();
+    assert_eq!(owner.read(unit, &key), None, "the owner claims the file");
+    let started = Instant::now();
+    let waited = std::thread::scope(|scope| {
+        let waiter = scope.spawn(|| {
+            let store = ClaimStore::new(Rc::new(memory.clone()), claims.clone(), 1);
+            store.begin_job();
+            store.read(unit, &key)
+        });
+        std::thread::sleep(Duration::from_millis(200));
+        owner.abandon(unit, &key);
+        waiter.join().unwrap()
+    });
+    assert_eq!(waited, None);
+    assert!(
+        started.elapsed() < Duration::from_secs(10),
+        "the waiter waited for the patience to run out"
+    );
+    assert_eq!(claims.gave_up(), 0);
+}
+
 /// A namespace's entry doesn't depend on what else its session loaded
 /// first: `Par.B`'s constructor `Floor` shares its short name with
 /// `Par.A`'s, and B checked after A in one session (as one job checks
