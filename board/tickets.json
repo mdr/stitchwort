@@ -34523,12 +34523,12 @@
     {
       "id": 4750,
       "title": "[Opus] Audit: budget Err read as Ok(None) (interface_hash(..).ok().flatten() and the digest's other passes), and 'if not cancelled, write' checks before long computations (keep_rechecked and other cache write paths): can a cancellation write a wrong entry? (SW-4744 findings)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nProgress (Opus, 24 Nov): audit table in docs/reviews/SW-4750-cancellation-audit.md. One cancellation bug fixed: a --recheck (or carried-over) namespace replay cancelled while its digest is computed again reported E-CACHE-DIGEST and blanked this build's entry; now a late miss (test check_cache::a_recheck_cancelled_while_its_digest_is_computed_keeps_the_entry, fails before). One running-out bug found, not fixed (spreads): trial/declhash hashes that run out read as None and two Nones are 'kept'. SW-4744's namespace test half was vacuous (fixture had an unknown name); fixed.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
       "commits": []
