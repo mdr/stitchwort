@@ -47,6 +47,9 @@ enum Refl {
     Stated,
     /// Declared here and left stated, its proof not checked.
     Left,
+    /// Left stated in another session, and admitted from its interface
+    /// entry, its proof still not checked.
+    Admitted,
 }
 
 /// The prelude with `refl` in it, `how`.
@@ -71,6 +74,18 @@ fn with_refl(how: Refl) -> (Prelude, DefId) {
             let id = declare_theorem(&mut p.g, "refl", ty);
             check::leave_stated(&mut p.g, id).unwrap();
             id
+        }
+        Refl::Admitted => {
+            let (left, id) = with_refl(Refl::Left);
+            let checked = left.g.def(id).ty().clone();
+            check::admit_trusted_unproved(
+                &mut p.g,
+                &"refl".into(),
+                &"refl".into(),
+                &checked,
+                span(),
+            )
+            .unwrap()
         }
     };
     (p, refl)
@@ -123,7 +138,13 @@ fn a_stated_theorem_is_final_with_no_proof() {
 #[test]
 fn users_check_and_hash_the_same_against_a_stated_theorem() {
     let mut hashes = Vec::new();
-    for how in [Refl::Lambdas, Refl::Lemma, Refl::Stated, Refl::Left] {
+    for how in [
+        Refl::Lambdas,
+        Refl::Lemma,
+        Refl::Stated,
+        Refl::Left,
+        Refl::Admitted,
+    ] {
         let (mut p, refl) = with_refl(how);
         let users = users(&mut p, refl);
         let ev = p.g.ev();
@@ -344,6 +365,31 @@ fn a_stated_theorems_proofless_hash_needs_no_budget() {
             "{how:?}"
         );
     }
+}
+
+/// Admitted from an interface entry in another session, a theorem left
+/// stated keeps its mark there: it is the same stated theorem, and that
+/// session holds a promise too (`admit_trusted_stated` would drop it).
+#[test]
+fn admit_trusted_unproved_keeps_the_mark_in_another_session() {
+    let (p, refl) = with_refl(Refl::Admitted);
+    let def = p.g.def(refl);
+    assert!(def.stated() && def.unproved() && def.theorem() && def.proof() && def.defined());
+    assert!(def.body().is_none() && def.group().is_none() && def.assumption().is_none());
+    assert!(p.g.holds_unproved_theorems());
+    let (left, id) = with_refl(Refl::Left);
+    assert_eq!(
+        interface_hash(&p.g.ev(), refl).unwrap(),
+        interface_hash(&left.g.ev(), id).unwrap()
+    );
+}
+
+/// Nor is it once admitted elsewhere: asking there is the internal error too.
+#[test]
+#[should_panic(expected = "a theorem whose proof hasn't been checked")]
+fn the_full_hash_of_an_admitted_unproved_theorem_is_an_internal_error() {
+    let (p, refl) = with_refl(Refl::Admitted);
+    let _ = def_hash(&p.g.ev(), refl);
 }
 
 /// Its full hash isn't known, so asking for it is an internal error, never

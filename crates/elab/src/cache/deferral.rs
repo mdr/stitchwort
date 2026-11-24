@@ -26,12 +26,13 @@ impl Elaborator {
     ///    no attribute but `@[reading]` and the `@[walk…]` family (which
     ///    read only the statement), and no syntax error. (`fold`, `tailrec`
     ///    and run bodies come only with definitions.)
-    /// 3. No member's proof holds a local `def` or `theorem`, which can be
-    ///    named from outside it today (`t.go`), so it is part of the
-    ///    interface (rule 3 of the design; D3736 makes them private to the
-    ///    proof, SW-4762, after which this rule goes).
-    /// 4. The component holds only theorems: a theorem grouped with a
+    /// 3. The component holds only theorems: a theorem grouped with a
     ///    computing definition shares its hash, which covers its proof.
+    ///
+    /// What a proof defines (a local `def` or `theorem`, `t.go`) is private
+    /// to it (D3736, SW-4762): nothing outside can name it and the digest
+    /// leaves it out, so such a proof is deferred too, and its helpers are
+    /// never made in the interface pass.
     ///
     /// A recursive, mutual or `decreasing` component is deferred like a
     /// lone theorem: its termination check is part of its proof, and with
@@ -49,9 +50,9 @@ impl Elaborator {
         {
             return false;
         }
-        members.iter().all(|(_, signature, equations)| {
-            plain_theorem(signature) && !crate::module::has_local_defs(equations)
-        })
+        members
+            .iter()
+            .all(|(_, signature, _)| plain_theorem(signature))
     }
 }
 

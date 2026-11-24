@@ -553,6 +553,15 @@ impl Elaborator {
         self.kernel.holds_unproved_theorems()
     }
 
+    /// The interface digest this session has for project namespace `ns`:
+    /// from the entry it wrote or loaded (whole or interface), or from its
+    /// interface pass; `None` if it has none (not checked, or checked with
+    /// an error or a goal). A fill compares an interface pass's with the
+    /// proof job's, which must be equal (§5, "When the two digests differ").
+    pub fn namespace_digest(&self, ns: &str) -> Option<Key> {
+        self.session.namespace_keys.get(ns).and_then(|k| k.digest)
+    }
+
     /// Whether `ns` is being checked as an interface pass.
     pub(crate) fn interface_pass_of(&self, ns: &str) -> bool {
         self.options.interface_pass.as_deref() == Some(ns)

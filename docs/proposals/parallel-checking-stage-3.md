@@ -95,6 +95,16 @@ and must be the same in every session. A theorem's proof is deferred when all of
 Every other declaration, and every theorem that fails a rule, is elaborated in full in the
 interface pass, as the pilot did.
 
+**As built (SW-4765, step 2).** Rules 3 and 5 are gone: D3736 (SW-4762) made what a proof
+defines private to it and left it out of the digest, and with every proof left out the
+pilot's digests match (SW-4757, SW-4761), so recursive, mutual and `decreasing` theorems are
+deferred too. Rule 2 is read from the source (`crates/elab/src/cache/deferral.rs`): not an
+instance, synonym or export, not `opaque`, no `unfolding`, no parameter default, no
+attribute but `@[reading]` and `@[walk…]`, no syntax error. The interface entry keeps a
+proof the pass elaborated in part A and has an empty part B, so no load can make that proof's
+theorem a stated theorem "as proved"; its deferred theorems are admitted by
+`check::admit_trusted_unproved`, which keeps the `unproved` mark, with no full hash.
+
 **Recursive, mutual and `decreasing` theorems.** Their statements don't depend on their
 proofs any more than a lone theorem's does; what the proof adds is the termination check,
 which belongs to the proof job. So the end state is to defer them too (drop rule 5), and

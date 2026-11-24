@@ -4069,31 +4069,6 @@ pub(crate) fn free_names_of(e: &Expr) -> Vec<Ref<'_>> {
 /// argument is. A work list rather than recursion, since expressions can
 /// nest more deeply than recursion could follow.
 fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
-    names_and_local_defs(work, &mut false)
-}
-
-/// Whether a declaration's equations (its proof, for a theorem) hold a
-/// local `def` or `theorem` anywhere, which today can be named from
-/// outside it (`t.go`): an interface pass elaborates such a proof rather
-/// than leave it out (docs/proposals/parallel-checking-stage-3.md §3, rule
-/// 3; D3736 makes them private, SW-4762).
-pub(crate) fn has_local_defs(equations: &[Decl]) -> bool {
-    let mut work = Vec::new();
-    for eq in equations {
-        let Decl::Equation { guard, rhs, .. } = eq else {
-            continue;
-        };
-        work.extend(guard.iter().map(|g| Work::Expr(&g.cond)));
-        work.extend(rhs.iter().map(Work::Expr));
-    }
-    let mut found = false;
-    names_and_local_defs(work, &mut found);
-    found
-}
-
-/// [`names_and_proofs`], setting `local_defs` if it meets a block of local
-/// definitions.
-fn names_and_local_defs<'a>(work: Vec<Work<'a>>, local_defs: &mut bool) -> Vec<Ref<'a>> {
     let mut stack: Vec<Work> = work;
     stack.reverse();
     // Each variable's bindings in scope, innermost last, with the name at the
@@ -4457,7 +4432,6 @@ fn names_and_local_defs<'a>(work: Vec<Work<'a>>, local_defs: &mut bool) -> Vec<R
             // The definitions' names are bound in all of them and the rest
             // of the block.
             Expr::LocalDefs { defs, body, .. } => {
-                *local_defs = true;
                 let names: Vec<&str> = defs.iter().filter_map(local_name).collect();
                 let mut steps: Vec<Work> = names.iter().map(|x| Work::Bind(x)).collect();
                 for def in defs {
