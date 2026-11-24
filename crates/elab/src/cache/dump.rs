@@ -239,15 +239,23 @@ pub(super) fn declarations(g: &Ev, out: &mut String) {
     for (i, def) in g.env.defs().iter().enumerate() {
         let _ = write!(
             out,
-            "def {i} {} {} {:?} arity {} group {:?} theorem {} instance {} fold {} export {} opaque {} tailrec {} unfolding {:?} ",
+            "def {i} {} {} {:?} arity {} group {:?} theorem {} stated {} instance {} fold {} export {} opaque {} tailrec {} unfolding {:?} ",
             def.name(),
             def.path(),
             def.state(),
-            def.arity(),
+            // A theorem's arity is the shape of its proof, which nothing
+            // checking against it may read (rule 6), and a stated theorem
+            // has none: its body, below, says it where there is one.
+            if def.theorem() {
+                "-".to_string()
+            } else {
+                def.arity().to_string()
+            },
             def.group()
                 .as_ref()
                 .map(|m| m.iter().map(|d| d.0).collect::<Vec<_>>()),
             def.theorem(),
+            def.stated(),
             def.instance(),
             def.fold(),
             def.export(),

@@ -464,7 +464,7 @@ pub(crate) fn declined_in<'t>(g: &Ev, terms: impl IntoIterator<Item = &'t Term>)
     let note = |id: DefId, found: &mut Vec<DefId>| {
         let def = g.def(id);
         if def.opaque()
-            && def.body().is_some()
+            && def.defined()
             && !def.name().contains('%')
             && stitchwort_core::value::hidden(g, id)
             && !found.contains(&id)

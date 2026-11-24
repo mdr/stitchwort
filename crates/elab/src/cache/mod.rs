@@ -2567,6 +2567,8 @@ impl Elaborator {
         );
         for id in defs.clone().map(DefId) {
             let def = g.def(id);
+            // The body itself is written, so a stated theorem, whose proof
+            // isn't here, is refused too: not `Def::defined`.
             if def.state() != State::Final || def.body().is_none() {
                 return Err(format!("`{}` isn't admitted with a body", def.path()));
             }

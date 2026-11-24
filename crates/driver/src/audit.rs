@@ -464,7 +464,7 @@ impl Session {
         (0..g.env.defs().len()).map(DefId).find_map(|w| {
             let def = g.def(w);
             let applies = || {
-                def.body().is_some_and(|body| {
+                crate::axioms::walked_body(def).is_some_and(|body| {
                     let (head, args) = spine(body);
                     matches!(head, Term::Def(d) if *d == id) && args >= arity
                 })

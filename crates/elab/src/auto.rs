@@ -1544,7 +1544,7 @@ fn unrelated_hints(
             if hints == 3 {
                 return Ok(error);
             }
-            if cx.g().def(id).body().is_none()
+            if !cx.g().def(id).defined()
                 || !cx.g().def(id).instance()
                 || result_head(cx, id)? != Some(decidable)
             {

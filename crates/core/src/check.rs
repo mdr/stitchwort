@@ -2968,6 +2968,24 @@ fn push_def(
 ) -> Result<DefId> {
     let ty_value = kept_type(&g.ev(), &ty)?;
     let proof = def_mark(&g.ev(), &ty_value, span)?;
+    Ok(push_marked_def(
+        g, name, path, ty, ty_value, proof, theorem, export, span,
+    ))
+}
+
+/// [`push_def`], given the type's kept value and its proof mark.
+#[allow(clippy::too_many_arguments)]
+fn push_marked_def(
+    g: &mut Kernel,
+    name: &Name,
+    path: &Name,
+    ty: Term,
+    ty_value: Value,
+    proof: bool,
+    theorem: bool,
+    export: bool,
+    span: Span,
+) -> DefId {
     g.env.defs_mut().push(Def {
         name: name.clone(),
         path: path.clone(),
@@ -2993,9 +3011,10 @@ fn push_def(
         std: path.starts_with("Std."),
         tailrec: false,
         assumption: None,
+        stated: false,
         span,
     });
-    Ok(DefId(g.env.defs().len() - 1))
+    DefId(g.env.defs().len() - 1)
 }
 
 /// Whether a definition with the checked type `ty_value` is a proof: its
@@ -3209,6 +3228,11 @@ fn run_body_shape(g: &Ev, id: DefId, body: &Term) -> Result<()> {
     // filling of its goal.
     if def.assumption.is_some() {
         return Err(malformed(&cx, "a run body for an open goal's assumption"));
+    }
+    // A stated theorem's proof isn't here, so there is nothing it could
+    // stand for.
+    if def.stated {
+        return Err(malformed(&cx, "a run body for a stated theorem"));
     }
     if def.run_body.is_some() || body.count_lams() != def.arity {
         return Err(malformed(
@@ -4104,6 +4128,58 @@ pub fn admit_trusted_def(
             return Err(failed_dependency(&cx, name, &dep));
         }
         push_def(g, name, path, ty.clone(), theorem, false, span)
+    })
+}
+
+/// Adds a **stated theorem** ([`Def::stated`], docs/core.md "Stated
+/// theorems"): theorem `name` with statement `ty`, final at once, whose
+/// proof isn't loaded. `ty` must be the type [`declare_def`] gave back for
+/// a theorem this build's kernel then proved, in the session that wrote
+/// the cache entry it comes from; nothing else may call this. The trust
+/// boundary (above): it trusts no more than replaying the whole entry
+/// would, and reads less of it.
+///
+/// The structural checks of [`admit_trusted_def`] apply, and one more: the
+/// type must be a proposition by the kernel's own mark ([`def_mark`],
+/// worked out from `ty` here), so nothing that computes can be stated, and
+/// a wrong split of an entry can only leave out a proof. `E-MALFORMED`
+/// otherwise. It gets no body, group or label, arity 0, and is never
+/// pending, so nothing gives it a body, a run body, a validator or a
+/// native afterwards. A session that needs the proof loads the entry whole
+/// instead.
+pub fn admit_trusted_stated(
+    g: &mut Kernel,
+    name: &Name,
+    path: &Name,
+    ty: &Term,
+    span: Span,
+) -> Result<DefId> {
+    in_kernel_modes(g, |g| {
+        let _set = g.machine.transparent.set(Rc::default());
+        let ev = g.ev();
+        let cx = Ctx::new(&ev, span);
+        if !case_only_in_tree(ty, false) {
+            return Err(malformed(
+                &cx,
+                "`case` may only appear at the top of a definition",
+            ));
+        }
+        if let Some(dep) = admissible(&cx, [ty], None)? {
+            return Err(failed_dependency(&cx, name, &dep));
+        }
+        let ty_value = kept_type(&ev, ty)?;
+        if !def_mark(&ev, &ty_value, span)? {
+            return Err(malformed(
+                &cx,
+                format!("a stated theorem `{name}` whose type isn't a proposition"),
+            ));
+        }
+        let id = push_marked_def(g, name, path, ty.clone(), ty_value, true, true, false, span);
+        let def = &mut g.env.defs_mut()[id.0];
+        def.stated = true;
+        def.recursive = false;
+        def.state = State::Final;
+        Ok(id)
     })
 }
 
@@ -5097,6 +5173,9 @@ pub fn add_validator(
         // and as it's hashed: nothing is added to it afterwards.
         if def.assumption.is_some() {
             return Err(malformed(&cx, "a validator for an open goal's assumption"));
+        }
+        if def.stated {
+            return Err(malformed(&cx, "a validator for a stated theorem"));
         }
         let Some((_, prop, true)) = tel.params.get(param) else {
             return Err(malformed(

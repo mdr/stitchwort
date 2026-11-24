@@ -1853,6 +1853,7 @@ fn quick(g: &Ev, term: &Rc<Term>, env: &Env) -> Option<Value> {
         Term::Def(id) => {
             let def = g.def(*id);
             match body_seen(g, *id) {
+                _ if erases_proof(g, *id) => Some(erased()),
                 Some(_) if def.arity == 0 && !folds(g, *id) => None,
                 None if def.assumption.is_some() && erases_result(g, *id) => Some(erased()),
                 _ => Some(Value::Neutral(Head::Def(*id), Spine::new())),
@@ -1871,6 +1872,7 @@ fn eval_step(g: &Ev, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> Result
         Term::Def(id) => {
             let def = g.def(*id);
             match body_seen(g, *id) {
+                _ if erases_proof(g, *id) => Control::Return(erased()),
                 Some(_) if def.arity == 0 && erases_result(g, *id) => Control::Return(erased()),
                 // An open goal's assumption that is a proof (or a type) is
                 // erased like a theorem; one that is data stays neutral.
@@ -3258,7 +3260,7 @@ fn unfold_now(g: &Ev, id: DefId, spine: Spine, glue: bool) -> Result<Control> {
     if (g.def(id).opaque && hidden(g, id)) || frozen(g, id) {
         return Ok(Control::Return(Value::Neutral(Head::Def(id), spine)));
     }
-    if spine.len() == g.def(id).arity && erases_result(g, id) {
+    if erases_proof(g, id) || (spine.len() == g.def(id).arity && erases_result(g, id)) {
         return Ok(Control::Return(erased()));
     }
     if g.env
@@ -3726,13 +3728,23 @@ pub fn unfolds_head(g: &Ev, value: &Value) -> bool {
             && body_seen(g, *id).is_some())
 }
 
-/// Whether, while erasing, definition `id` (with a body, or an open goal's
-/// assumption) applied to all its parameters is erased rather than run
-/// (`erase.rs`).
+/// Whether, while erasing, definition `id` (with a body, an open goal's
+/// assumption or a stated theorem) applied to all its parameters is erased
+/// rather than run (`erase.rs`).
 fn erases_result(g: &Ev, id: DefId) -> bool {
     g.machine.erasure.active()
-        && (g.def(id).body.is_some() || g.def(id).assumption.is_some())
+        && (g.def(id).defined() || g.def(id).assumption.is_some())
         && erase::of_def(g, id).is_some_and(|e| e.result)
+}
+
+/// Whether, while erasing, a call of definition `id` is erased whatever it
+/// is applied to: its type is a proposition ([`crate::globals::Def::proof`]), so the call
+/// is a proof at any number of arguments, partial or not, and with or
+/// without a body here (a stated theorem has none). Its arity, which for a
+/// theorem is the shape of its proof, isn't read.
+#[inline(always)]
+fn erases_proof(g: &Ev, id: DefId) -> bool {
+    g.def(id).proof && g.machine.erasure.active()
 }
 
 /// Whether, while erasing, the argument applied to `f` is erased: `f` is a

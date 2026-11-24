@@ -670,6 +670,9 @@ pub fn register_def(g: &mut Kernel, id: DefId, b: Builtin) -> Result<()> {
         if g.def(id).assumption().is_some() {
             return Err(refused(span, b.name(), "it's an open goal's assumption"));
         }
+        if g.def(id).stated() {
+            return Err(refused(span, b.name(), "it's a stated theorem"));
+        }
         if g.env.builtins().float.data.is_none() {
             return Err(refused(span, b.name(), "`Float` isn't bound"));
         }

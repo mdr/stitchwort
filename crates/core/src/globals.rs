@@ -129,6 +129,16 @@ pub struct Def {
     /// a constant final at once, with no body, run body or native, which
     /// never unfolds. Hashed.
     pub(crate) assumption: Option<Rc<Assumption>>,
+    /// A **stated theorem** (docs/core.md, "Stated theorems"): a final
+    /// theorem whose proof isn't in this session. It has its type and proof
+    /// mark, and no body, group or assumption label, arity 0. Only
+    /// [`crate::check::admit_trusted_stated`] sets it, for a theorem this
+    /// build's kernel proved in the session that wrote the cache entry it
+    /// comes from. To everything that checks against it, it is the proved
+    /// theorem: rule F seals a proof anyway, rule I compares any two, and
+    /// it's referred to by its interface hash. Readers of proofs (`axioms`,
+    /// `audit`) refuse one. Not hashed: a hash never depends on it.
+    pub(crate) stated: bool,
     /// Where it was declared; for an assumption, where its `?` or error is.
     pub(crate) span: Span,
 }
@@ -302,7 +312,23 @@ impl Def {
         self.span
     }
 
-    /// The definition's body, once it has been admitted.
+    /// Whether it is a stated theorem ([`Def::stated`]): final, with no
+    /// proof in this session.
+    pub fn stated(&self) -> bool {
+        self.stated
+    }
+
+    /// Whether it is finished: final with a body, or a stated theorem,
+    /// whose proof was checked where it was made. What "has it a body?"
+    /// asks when it means "is it done?" rather than "show me the body":
+    /// an assumption and a definition being checked aren't.
+    pub fn defined(&self) -> bool {
+        self.body.is_some() || self.stated
+    }
+
+    /// The definition's body, once it has been admitted. `None` for a
+    /// stated theorem, whose proof isn't here: a reader that needs it must
+    /// refuse one, not take it for an axiom.
     pub fn body(&self) -> Option<&Rc<Term>> {
         self.body.as_ref()
     }

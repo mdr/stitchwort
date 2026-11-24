@@ -1026,7 +1026,7 @@ pub(crate) fn attempt(
                 span: cx.span,
             }));
         }
-        let reason = if failed || cx.e.kernel.def(info.def).body().is_some() {
+        let reason = if failed || cx.e.kernel.def(info.def).defined() {
             format!("`{name}` has errors")
         } else {
             format!(
@@ -1297,7 +1297,7 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
         if hints == 3 {
             break;
         }
-        if def.body().is_none() || def.instance() {
+        if !def.defined() || def.instance() {
             continue;
         }
         // Forced, as a kept type is glued: a dictionary's type may be
