@@ -1,0 +1,35 @@
+8.43, 5.48, 6.03
+== interface chain of /Users/agent/repos/mdr/stitchwort/tools/fmt
+   library cached in 25 s
+   piloted check took 140 s, exit 0
+   150 namespaces timed (/private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/chain-fmt/times.txt)
+   namespaces: 150; one-job time of the full checks, all namespaces: 107.72 s
+   interface chain, rule 5 kept (A): 12.34 s over 22 namespaces; interface work 30.78 s
+   interface chain, rule 5 dropped (A - K): 8.38 s over 17 namespaces; interface work 16.59 s
+   proof work (F - (A - K)): 91.13 s; of the interface passes, kept proofs K: 14.20 s
+   the chain, rule 5 kept (seconds each, A):
+       5.166 s  Syntax (K 0.000, F 6.246)
+       1.306 s  Fmt (K 0.000, F 1.531)
+       0.722 s  Syntax.SettleProofs (K 0.560, F 1.094)
+       0.942 s  Syntax.DeafProofs (K 0.772, F 1.232)
+       0.059 s  Syntax.FollowsBase (K 0.001, F 0.506)
+       1.262 s  Syntax.FollowsLadder (K 1.194, F 4.688)
+       0.054 s  Syntax.FollowsForms (K 0.004, F 1.760)
+       0.028 s  Syntax.FollowsFormsBinders (K 0.000, F 0.613)
+       0.096 s  Syntax.FollowsFormsArms (K 0.057, F 0.677)
+       0.127 s  Syntax.FollowsFormsPatterns (K 0.033, F 1.122)
+       0.054 s  Syntax.FollowsFormsBlocks (K 0.006, F 3.436)
+       1.967 s  Syntax.FollowsStatements (K 1.754, F 3.567)
+       0.033 s  Syntax.FollowsDecl (K 0.007, F 0.197)
+       0.031 s  Syntax.FollowsDeclHeaders (K 0.000, F 2.691)
+       0.043 s  Syntax.FollowsDeclBinders (K 0.011, F 0.436)
+       0.068 s  Syntax.FollowsDeclArms (K 0.030, F 1.135)
+       0.068 s  Syntax.FollowsDeclData (K 0.014, F 9.045)
+       0.008 s  Syntax.FollowsParse (K 0.000, F 0.051)
+       0.155 s  Fmt.SettleParseProofs (K 0.112, F 0.885)
+       0.010 s  Fmt.Accepts1 (K 0.000, F 0.040)
+       0.045 s  Fmt.TopStatements (K 0.004, F 1.218)
+       0.096 s  Fmt.CommentsKeptProof (K 0.052, F 0.347)
+   largest interface passes: Syntax 5.17 s, Syntax.FollowsStatements 1.97 s, Syntax.ReadBackLine 1.61 s, Fmt 1.31 s, Syntax.FollowsLadder 1.26 s
+
+[exited with code 0]

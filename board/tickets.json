@@ -34630,7 +34630,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nWhole tools/fmt (orchestrator, 24 Nov): interface chain 12.34 s with recursive/mutual/decreasing proofs kept, 8.38 s with them left out (round 2 shows they can be); interface work 30.8 s / 16.6 s; proof work 91.1 s; one-job full checks 107.7 s. Under the 25 s gate: go ahead with the build plan.\n",
       "created": "2026-11-24",
       "updated": "2026-11-24",
       "commits": []
