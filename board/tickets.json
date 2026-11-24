@@ -1,5 +1,5 @@
 {
-  "next": 4749,
+  "next": 4750,
   "tickets": [
     {
       "id": 47,
@@ -34486,6 +34486,19 @@
     {
       "id": 4748,
       "title": "[Sonnet] docs: target/release from task build is a dev build that runs reference::validate_marks on every cached group (about 14% of a check after an edit); say so in docs/testing.md and proof-irrelevance.md, and give timing runs a way to use a non-dev build (SW-4745 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-24",
+      "updated": "2026-11-24",
+      "commits": []
+    },
+    {
+      "id": 4749,
+      "title": "[Sonnet] Dev builds: run reference::validate_marks only when a test or an env var asks (not on every cached group load), so task build's binary times and runs like the shipped one; tests that rely on it turn it on (SW-4745 finding; orchestrator's call, option 1)",
       "status": "backlog",
       "agent": "",
       "where": "",
