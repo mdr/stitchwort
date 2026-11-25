@@ -35872,8 +35872,8 @@
     {
       "id": 4835,
       "title": "[Sonnet] A warm check drops an ambiguous-doc-link warning a cold check prints: with import A (x), import B (x) and a doc link to x, the cold check warns W-DOC-LINK ambiguous and the warm one prints nothing, even with skipping off (replay clears imports); predates SW-4827; repro in SW-4827's scratch probe2 (copy it into the ticket's test). Every bug fix carries a test.",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "performance",
