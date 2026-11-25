@@ -35705,7 +35705,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Orchestrator's call: run on Opus, not Sonnet: a key gap would mean an unchecked replay, a trust question.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
