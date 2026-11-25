@@ -34897,7 +34897,7 @@
         "bug"
       ],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Diagnosis (Sonnet lane, 25 Nov, 15 min): not a regression in the code. Since SW-4701 (86498eb85, 23 Nov, interface hashes) a content hash refers to a final theorem by its statement only, so editing a proof moves only that theorem full hash, and two theorems with one statement whose proofs differ only in which same-statement theorem they cite (again := addZ, addZ := Nat.addZero) have equal full hashes. All four failing assertions assume the old behaviour (a user of a theorem, or a theorem citing another, moves with its proof). Tests need new expectations; stopped for orchestrator, nothing changed.\n",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
