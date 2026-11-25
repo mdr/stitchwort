@@ -1,5 +1,5 @@
 {
-  "next": 4827,
+  "next": 4835,
   "tickets": [
     {
       "id": 47,
@@ -35632,15 +35632,18 @@
     {
       "id": 4819,
       "title": "[Opus] Profile library entry loading from the check cache (decode and admit): 73 ms on AoC 2024 day 2, about 170 ms on 2020 day 18; the largest fixed cost left after SW-4812 and SW-4813 (SW-4816 finding 5)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "\n25 Nov 15:06-15:25, Opus lane (with SW-4826): profiled the warm floor of 2024 d2, 2021 d15, 2020 d18 (samply, 5 runs each, 5-min load 7.5-7.9). Write-up docs/reviews/SW-4819-floor-profile.md. Floor (d2, profiled ms): core 128 (elab+kernel 102), file reads 53 (two thirds `open`), project scan 40 (edges 22), plan 7. SW-4826: d15's extra 200 ms is the doc link in aoc Common/Proofs/PrefixSums.sw: plan_skips loads any namespace with doc links, so Aoc.Common.Proofs and its closure (56 std entries, 6,491 decls) replay; without the link the floor is 210 ms [measured]. Library load (160 ms profiled): admit 79 (prop_mark 21, references 25), decode 42, library_keys 20 (recomputed per file, quadratic), reads 14. Ten ranked fixes in section 4; trust questions: core from cache (SW-4814), Prop marks in entries.\n",
+      "body": "\n25 Nov 15:06-15:25, Opus lane (with SW-4826): profiled the warm floor of 2024 d2, 2021 d15, 2020 d18 (samply, 5 runs each, 5-min load 7.5-7.9). Write-up docs/reviews/SW-4819-floor-profile.md. Floor (d2, profiled ms): core 128 (elab+kernel 102), file reads 53 (two thirds `open`), project scan 40 (edges 22), plan 7. SW-4826: d15's extra 200 ms is the doc link in aoc Common/Proofs/PrefixSums.sw: plan_skips loads any namespace with doc links, so Aoc.Common.Proofs and its closure (56 std entries, 6,491 decls) replay; without the link the floor is 210 ms [measured]. Library load (160 ms profiled): admit 79 (prop_mark 21, references 25), decode 42, library_keys 20 (recomputed per file, quadratic), reads 14. Ten ranked fixes in section 4; trust questions: core from cache (SW-4814), Prop marks in entries.\n\nModel result: opus, worked, about 17 min (est. 40). docs/reviews/SW-4819-floor-profile.md.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "3f53c18d0",
+        "eb264e649"
+      ]
     },
     {
       "id": 4820,
@@ -35729,6 +35732,113 @@
     {
       "id": 4826,
       "title": "[Opus] A fully cached check of AoC 2021 day 15 costs 382-406 ms against 187 ms for 2024 day 2: profile what in the nothing-to-check path scales with Aoc.Common or the project (SW-4818 finding; feeds SW-4819)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "Explained by SW-4819: plan_skips loads any namespace whose files have doc links (W-DOC-LINK isn't cached); Aoc/Common/Proofs/PrefixSums.sw line 2 pulls 56 std entries in.",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": [
+        "3f53c18d0",
+        "eb264e649"
+      ]
+    },
+    {
+      "id": 4827,
+      "title": "[Opus] Work out doc-link warnings (W-DOC-LINK) without loading the namespace and its library: plan_skips loads any cached namespace whose files have doc links, so one link in Aoc/Common/Proofs/PrefixSums.sw costs day 15 and the 23 days that import Aoc.Common.Proofs about 180 ms per cached check (measured, SW-4819 rank 1); warnings must be identical",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4828,
+      "title": "[Sonnet] Read the project's and library's files on several threads at check start: 633 project files take 32-39 ms (24 ms in open) and 133 library files 11-14 ms on one thread; about 25-35 ms per check, estimated (SW-4819 rank 3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4829,
+      "title": "[Sonnet] Project edges without format! strings: namespace_edges_of takes 22 of the 40 ms of a cached project scan; keep content keying (edges feed cache keys) and add a test that edges are unchanged (SW-4819 rank 4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4830,
+      "title": "[Sonnet] Run core's statement-style sweep (binder_sweep, 9 ms) only when library warnings are reported (SW-4819 rank 5)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4831,
+      "title": "[Opus] The entry decoder records each term's references instead of the pointer-set walk in references (25 ms of a 56-file library load); with a test that the kernel still refuses a reference to something not yet admitted (SW-4819 rank 7)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4832,
+      "title": "[Sonnet] Faster check-cache entry decoding (42 ms of a 56-file library load; estimated 10-15 ms saving) and fewer entry files or memory-mapped entries (5-8 ms) (SW-4819 ranks 9, 10)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4833,
+      "title": "[Opus] Trust question for Matt, held: store Prop marks and admissible results in check-cache entries so replay doesn't recompute them (about 25 ms of a 56-file library load, estimated); the kernel would take them from the entry (SW-4819 rank 8)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4834,
+      "title": "[Sonnet] A task load:wait -- N (wait until the 5-minute load is under N, up to a cap) and a shared profile summariser in dev/ (from docs/reviews/SW-4819/prof.py); lanes hand-rolled both and got them wrong (SW-4819 friction)",
       "status": "backlog",
       "agent": "",
       "where": "",
