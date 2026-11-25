@@ -616,6 +616,15 @@ const FILL_POLL: Duration = Duration::from_millis(20);
 /// which is not the checker's big-stack thread; deeper text is cut short.
 const OUTLINE_STACK: usize = 512 * 1024;
 
+/// The folder the client opened: its first workspace folder, or its root.
+fn workspace_folder(params: &serde_json::Value) -> Option<PathBuf> {
+    let uri = params
+        .pointer("/workspaceFolders/0/uri")
+        .or_else(|| params.get("rootUri"))?
+        .as_str()?;
+    Url::parse(uri).ok()?.to_file_path().ok()
+}
+
 /// [`serve`], reading files from `source`.
 pub fn serve_from(
     connection: Connection,
@@ -638,6 +647,15 @@ pub fn serve_from(
         );
         let _ = connection.sender.send(n.into());
         return Err(e);
+    }
+
+    // The library's name index comes from the first workspace folder's
+    // cache, when it has one, before any session asks for it. The index is
+    // keyed by the library's text and made once per process, and the
+    // library is read once at start (above), so nothing it names can go
+    // stale while the server runs.
+    if let Some(cache) = workspace_folder(&params).and_then(|dir| source.file_cache(&dir)) {
+        stitchwort_driver::check_cache::use_std_index_cache(&cache);
     }
 
     let nav = Arc::new(RwLock::new(Nav::default()));
