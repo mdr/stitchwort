@@ -205,6 +205,7 @@ Where a process looks, first match wins:
 1. `stitchwort --std-dir DIR`, then `STITCHWORT_STD_DIR=DIR`: an explicit choice.
 2. An installed binary's `../share/stitchwort/std` (the flake's package lays it out there).
 3. The checkout's `crates/elab/src/std`, found from the executable (cargo's `target/` is inside the checkout, so test binaries find it, in the `nix flake check` sandbox too) and then from the current directory.
+4. The tree the binary was built from (`CARGO_MANIFEST_DIR` at compile time), if it still exists: a copy of the binary kept in a scratch folder finds the library there (SW-4789).
 
 If none exists the process stops with a message naming the places tried. WebAssembly has no files: the playground fetches `pkg/std.bundle` beside the wasm (`web/bundle-std.sh`, run by `web/build.sh`) and passes it to `load_std`; a `.sw` edit there needs `task web:build`, not cargo.
 

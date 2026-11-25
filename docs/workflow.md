@@ -407,10 +407,13 @@ times. A clean rebuild with `RUSTC_WRAPPER=` empty is the test of one run.
 
 ### Timing a check, and before-and-after binaries
 
-- **A copied binary needs `--std-dir`.** A release binary finds the standard
-  library from where it was built; a copy kept to time "before" against
-  "after" (`cp target/release/stitchwort $SCRATCH/before`) can't, so give it
-  `--std-dir <its checkout>/crates/elab/src/std` (SW-4472).
+- **A copied binary finds std too (SW-4789).** If nothing else is found, a
+  binary looks in the tree it was built from, so a copy kept to time
+  "before" against "after" (`cp target/release/stitchwort $SCRATCH/before`)
+  reads that worktree's `crates/elab/src/std` as it is now. Give
+  `--std-dir <checkout>/crates/elab/src/std` when the copy must read a
+  different tree (the "before" side of a std edit), or once the worktree is
+  gone.
 - **Per-declaration times:** `stitchwort check --no-cache --timings=all NS`
   from the project's folder prints each namespace's and each declaration's
   elaboration and kernel time; `--only THEOREM` checks one theorem and what it

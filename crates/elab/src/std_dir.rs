@@ -10,7 +10,11 @@
 //!    executable;
 //! 3. the checkout's `crates/elab/src/std`: the first ancestor of the
 //!    executable (cargo's `target/` is inside it, so test binaries find it),
-//!    then of the current directory, that has one.
+//!    then of the current directory, that has one;
+//! 4. the tree the binary was built from (`CARGO_MANIFEST_DIR` at compile
+//!    time), if it is still on disk, so a copy of the binary kept elsewhere
+//!    (a "before" binary in a scratch folder) still finds the library
+//!    (SW-4789).
 //!
 //! WebAssembly has no files: the host gives the library's files as a bundle
 //! ([`use_std_bundle`]) before anything uses it.
@@ -172,10 +176,15 @@ fn locate() -> Result<PathBuf, String> {
             return Ok(dir);
         }
     }
+    let build_tree = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/std");
+    if build_tree.join(CORE_ORDER).is_file() {
+        return Ok(build_tree);
+    }
+    tried.push(build_tree);
     let tried: Vec<String> = tried.iter().map(|d| d.display().to_string()).collect();
     Err(format!(
-        "can't find the standard library: not at {} (an installed binary's), nor in a checkout's \
-         `{CHECKOUT}` above the executable or the current directory. Give its directory with \
+        "can't find the standard library: not at {} (an installed binary's, then the tree this binary was built from), nor in a \
+         checkout's `{CHECKOUT}` above the executable or the current directory. Give its directory with \
          `--std-dir` or {STD_DIR_VAR}.",
         tried.join(", ")
     ))
