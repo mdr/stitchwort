@@ -35388,15 +35388,18 @@
     {
       "id": 4803,
       "title": "[DeepSeek] E-TERMINATION: generalise the tuple note (for match (k, a) with) to any lifted match on a computed scrutinee, e.g. match k + 0 with: suggest matching k itself (SW-4784 review F4, docs/reviews/SW-4784-termination-review.md)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Model result: deepseek, needed fixes (the note told grow v and [0, 0, ..v] to match v; now conditional: 'if the recursion is on a part of v'), about 15 min (est. 15).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "dba88f64a",
+        "401dff2d6"
+      ]
     },
     {
       "id": 4804,
