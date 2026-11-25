@@ -1131,6 +1131,12 @@ impl Elaborator {
     /// to a file's text that leaves its names alone is not: that reaches
     /// only the units that load the file (their keys cover the text of the
     /// files they need, [`Self::library_keys`]). Computed once.
+    ///
+    /// A name's `accessor` flag and `span` are left out: both are read only
+    /// in building errors (`accessor` decides whether `E-UNKNOWN-NAME`
+    /// suggests the name; a span labels an error such as an ambiguity), and
+    /// a unit with an error is never written, so no entry depends on them
+    /// (SW-4824).
     fn library_interface(&self) -> Key {
         *self.session.library_interface_digest.get_or_init(|| {
             let mut h = blake3::Hasher::new();
