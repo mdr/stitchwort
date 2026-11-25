@@ -239,6 +239,7 @@ test('package.json declares every setting the client sends, and format on save f
     assert.ok(props[`stitchwort.${name}`].description, name);
   }
   assert.strictEqual(props['stitchwort.goals.openAutomatically'].default, false);
+  assert.strictEqual(props['stitchwort.startupWorkers'].default, 'auto');
   assert.deepStrictEqual(pkg.contributes.configurationDefaults['[stitchwort]'], {
     'editor.formatOnSave': true,
     'editor.defaultFormatter': 'local.stitchwort',
