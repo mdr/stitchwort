@@ -35106,12 +35106,12 @@
     {
       "id": 4786,
       "title": "[Opus] The proofless hash omits a cast's ends: J (y e => Nat) 5 (p: 2 = 2) and J (y e => Nat) 5 (q: 2 = g 7) share a proofless hash, but rule K computes one and leaves the other stuck (term.rs:276-282, 553-564; hash.rs:923-926). The ProofsOnly promise relies on that hash. Fix: hash the Ann's equation and blank only the proof under it, with a fixture showing both hashes differ. Also correct the sentence in docs/proposals/trial-promises-after-rule-i.md that a matching proofless hash means the checker can't tell the two apart, and the stale comment at erase.rs:69-71 (SW-4782 finding)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nProgress (25 Nov, Opus lane): hole confirmed by hash::a_proofless_hash_keeps_a_casts_ends (both casts hashed #804fab0df76d before the fix). Fixed in hash.rs: a cast into data (mark not Proof, proof annotated with its equation) hashes ann, the proof marker, then the equation. Full hashes unchanged; hash snapshots record only full hashes, none moved. Other proof-blanking sites argued safe in the lane report. Docs: trial-promises note qualified, erase.rs comment rewritten; docs/core.md doesn't describe the proofless hash.\n",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []

@@ -56,7 +56,7 @@
 use crate::budget::Result;
 use crate::ev::Ev;
 use crate::globals::{Assumption, Data, HashKey, State};
-use crate::term::{DataId, DefId, Icit, QuotForm, Sort, Term};
+use crate::term::{DataId, DefId, Icit, ProofMark, QuotForm, Sort, Term};
 
 /// A 256-bit content hash.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -131,9 +131,10 @@ pub fn def_hash(g: &Ev, id: DefId) -> Result<Option<ContentHash>> {
 /// a subterm the run never computes: an argument at a parameter whose type
 /// is a proposition, a call of a definition whose result is a proof (a
 /// theorem, applied or not), a constructor's field whose type is a
-/// proposition, a data type's proof parameter, `J`'s proof, `Quot.lift`'s
-/// proof that its function respects the relation, and `Quot.ind` and
-/// `Quot.sound`. A definition whose result is a proof is its type alone.
+/// proposition, a data type's proof parameter, `J`'s proof (a cast into
+/// data keeps its ends, the equation annotating it, which rule K computes
+/// by), `Quot.lift`'s proof that its function respects the relation, and
+/// `Quot.ind` and `Quot.sound`. A definition whose result is a proof is its type alone.
 /// It is the same as [`def_hash`] for a definition with no proofs in it or
 /// in what it mentions. Statements (types) are kept, so two definitions
 /// with the same hash here have statements that say the same, up to the
@@ -920,9 +921,25 @@ impl<'g> Hasher<'g> {
                     pending.extend([Item::Term(a), Item::Term(b)]);
                 }
                 Term::Refl => self.tag("refl"),
-                Term::J(m, b, p, _) => {
+                // Without proofs, a cast into data keeps its ends, the
+                // equation annotating its proof: rule K computes by them, so
+                // two casts that differ there can differ to the checker
+                // (SW-4786). Only the proof under the annotation is the
+                // marker. The guard is rule K's own (`value::eval`).
+                Term::J(m, b, p, mark) => {
                     self.tag("j");
-                    pending.extend([Item::Term(m), Item::Term(b), part(p, proofless)]);
+                    pending.extend([Item::Term(m), Item::Term(b)]);
+                    match (proofless, mark, Term::j_ends(p), p.strip_loc()) {
+                        (
+                            true,
+                            ProofMark::NotProof | ProofMark::Unknown,
+                            Some(_),
+                            Term::Ann(_, eq),
+                        ) => {
+                            pending.extend([Item::Tag("ann"), Item::Tag("proof"), Item::Term(eq)]);
+                        }
+                        _ => pending.push(part(p, proofless)),
+                    }
                 }
                 Term::Proj(d, i, t) => {
                     self.tag("proj");

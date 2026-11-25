@@ -5,7 +5,7 @@ use stitchwort_core::ProofMark;
 
 use crate::common::*;
 use stitchwort_core::check;
-use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
+use stitchwort_core::hash::{ContentHash, data_hash, def_hash, proofless_hash};
 use stitchwort_core::{DataId, Icit, Kernel, Sort, Term};
 
 /// Defines `name : ty = body` in a fresh prelude and returns its hash.
@@ -162,4 +162,57 @@ fn a_number_literal_hashes_the_nat_it_stands_for() {
     let a = literal_hash_with_nat_ctors("Zero", "Succ");
     assert_eq!(a, literal_hash_with_nat_ctors("Zero", "Succ"));
     assert_ne!(a, literal_hash_with_nat_ctors("Z", "S"));
+}
+
+/// Defines `x : (h: a = b) -> Nat = h => J (y e => Nat) 5 proof` in a fresh
+/// prelude, and returns its full and proofless hashes.
+fn cast_hashes(a: usize, b: usize, proof: impl Fn(&Prelude) -> Term) -> (ContentHash, ContentHash) {
+    let mut p = Prelude::new();
+    let ty = arrow(eq(None, p.num(a), p.num(b)), p.nat_ty());
+    let motive = lam("y", lam("e", p.nat_ty()));
+    let body = lam(
+        "h",
+        Term::J(
+            Rc::new(motive),
+            Rc::new(p.num(5)),
+            Rc::new(proof(&p)),
+            ProofMark::Unknown,
+        ),
+    );
+    let id = check::declare_def(
+        &mut p.g,
+        &"x".into(),
+        &"x".into(),
+        &ty,
+        false,
+        false,
+        span(),
+    )
+    .expect("type checks");
+    check::define_def(&mut p.g, id, &body).expect("body checks");
+    let g = p.g.ev();
+    (
+        def_hash(&g, id).unwrap().expect("defined"),
+        proofless_hash(&g, id).unwrap().expect("defined"),
+    )
+}
+
+/// SW-4786: rule K computes a cast into data by its ends, so the proofless
+/// hash keeps them. Along `h: 2 = 3` the cast is stuck; along `byComputing`
+/// at `2 = 2` it is `5`: they must not share a proofless hash. Two casts
+/// between the same ends differ only in a proof the checker never looks at,
+/// so they do.
+#[test]
+fn a_proofless_hash_keeps_a_casts_ends() {
+    let refl_at = |n: usize| {
+        move |p: &Prelude| Term::Ann(Rc::new(Term::Refl), Rc::new(eq(None, p.num(n), p.num(n))))
+    };
+    let (_, stuck) = cast_hashes(2, 3, |_| v(0));
+    let (_, computes) = cast_hashes(2, 3, refl_at(2));
+    assert_ne!(stuck, computes, "different ends");
+
+    let (full_hypothesis, hypothesis) = cast_hashes(2, 2, |_| v(0));
+    let (full_refl, refl) = cast_hashes(2, 2, refl_at(2));
+    assert_ne!(full_hypothesis, full_refl, "the full hash keeps the proof");
+    assert_eq!(hypothesis, refl, "the same ends, different proofs");
 }
