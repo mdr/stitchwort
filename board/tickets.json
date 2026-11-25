@@ -1,5 +1,5 @@
 {
-  "next": 4826,
+  "next": 4827,
   "tickets": [
     {
       "id": 47,
@@ -35614,15 +35614,20 @@
     {
       "id": 4818,
       "title": "[Sonnet] Comparison bench follow-ups (SW-4816): sw net as a median of runs, user and system time on both sides, ratios as ranges, a fully cached 'nothing to check' floor row and a default-jobs row; the README lists what each side's net leaves out",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Lane: bench changed (proofs.py, lean-proofs README) and rerun, 5 runs, 5-min load 5.97 at start/4.68 at end; results in docs/reviews/SW-4608-proof-checking-speed.md, 'Rerun after the start-up fixes (SW-4818)'. Whole day, library cached: 469/554/942 ms (was 721/800/1180); ratio to lean file 1.16-1.33x (was 1.4-1.8x). Model result: Sonnet, worked, 15 min (est. 40).",
+      "body": "Lane: bench changed (proofs.py, lean-proofs README) and rerun, 5 runs, 5-min load 5.97 at start/4.68 at end; results in docs/reviews/SW-4608-proof-checking-speed.md, 'Rerun after the start-up fixes (SW-4818)'. Whole day, library cached: 469/554/942 ms (was 721/800/1180); ratio to lean file 1.16-1.33x (was 1.4-1.8x). Model result: Sonnet, worked, 15 min (est. 40).\n\nModel result: sonnet, worked, about 12 min (est. 40). Results in docs/reviews/SW-4608-proof-checking-speed.md, 'Rerun after the start-up fixes (SW-4818)'.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "c5f19c136",
+        "cde8f7d66",
+        "997739d9e",
+        "6a010e5fd"
+      ]
     },
     {
       "id": 4819,
@@ -35708,6 +35713,19 @@
     {
       "id": 4825,
       "title": "[Sonnet] Remember Elaborator::library_keys per session: it rehashes std's text for every namespace, about 200 of the 300 ms of planning in a tools/fmt fill, and the one-job check pays part of it too; the remaining cost of a check where one namespace misses (SW-4820 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4826,
+      "title": "[Opus] A fully cached check of AoC 2021 day 15 costs 382-406 ms against 187 ms for 2024 day 2: profile what in the nothing-to-check path scales with Aoc.Common or the project (SW-4818 finding; feeds SW-4819)",
       "status": "backlog",
       "agent": "",
       "where": "",
