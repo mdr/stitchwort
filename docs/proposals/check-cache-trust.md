@@ -127,6 +127,25 @@ promise.
 
 ### 2.2 M1: key on the loaded core
 
+**Fixed (SW-4817, 25 Nov 2026), by design A.** `Elaborator::finish_core`
+now takes the core's text; it records its hash as
+`Session::core_digest`, and `library_interface` hashes that in place of
+`index.files[0].text`. Every way a session gets its core ends there: the
+driver's `Session::start_in` (the standard prelude, `--std-dir`'s, a
+test's own through `with_prelude`, the CLI, the editor and the web
+build all start sessions through it) passes the text it parsed or
+reused, and the elaborator's own unit tests pass `prelude()`, the text
+they elaborated. No other key names the core: `library_keys` hashes
+only library files, and their edges never point at file 0. A session
+that finished no core hashes an empty part, which matches no real core.
+The test is `check_cache::a_session_with_another_core_has_entries_of_its_own`
+(driver, `projects`): a session whose core has one more definition
+misses on all of a standard session's entries, then hits on its own.
+The interface digest of every entry changed once with this, so caches
+written before it are misses once (a new compiler already makes them
+so). Carried-over hits (`set_carry_over`) still ignore the stamp's
+interface by design, core included; see check-cache-across-updates.md.
+
 **Design A (recommended): hash the text that was elaborated.** When the
 core is elaborated (`Session::start`, `driver.rs:541-551`), the session
 records a digest of `prelude`, the text it parsed or reused. It passes the

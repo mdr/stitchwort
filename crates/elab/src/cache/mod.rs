@@ -41,10 +41,11 @@
 //!   with the keys now. The files it `include`s are listed in its entry
 //!   with a hash of their text, and read again to check them.
 //! - **The stamp** says who wrote the entry: the compiler build, its kernel
-//!   side ([`Store::kernel`]), the library's index of names
-//!   ([`Elaborator::library_interface`], which every unit's elaboration
-//!   reads), and whether it is exact. An entry is an exact hit only for
-//!   the build that wrote it, against this index, in a session that
+//!   side ([`Store::kernel`]), the core the session elaborated and the
+//!   library's index of names ([`Elaborator::library_interface`], which
+//!   every unit's elaboration reads), and whether it is exact. An entry is
+//!   an exact hit only for the build that wrote it, against this core and
+//!   index, in a session that
 //!   carried nothing over. Where carrying over is on
 //!   ([`Elaborator::set_carry_over`]), an entry with the same key whose
 //!   kernel side is this build's is a carried-over hit: some build with
@@ -732,8 +733,9 @@ impl Elaborator {
 
     /// Whether library files may be loaded from, and written to, the cache
     /// now. Not for the library test target, whose tests are part of the
-    /// result. (A session whose core isn't the index's finds its entries'
-    /// dependencies have other hashes: misses.)
+    /// result. (A session whose core isn't the index's has its own
+    /// [`Self::library_interface`], so it misses on other sessions'
+    /// entries.)
     fn cache_usable(&self) -> bool {
         self.options.check_cache.is_some() && !self.options.library_tests
     }
@@ -1136,7 +1138,8 @@ impl Elaborator {
     }
 
     /// What every unit's elaboration reads of the library whether or not it
-    /// loads any file: the core's text (always loaded) and the index of
+    /// loads any file: the core's text as this session elaborated it
+    /// (always loaded; `Session::core_digest`) and the index of
     /// names (path, key, kind and flags of each), which resolution, imports,
     /// ambiguity and dot notation read. A new or removed name can make a
     /// short name ambiguous, or an unqualified one resolve elsewhere, in a
@@ -1157,8 +1160,16 @@ impl Elaborator {
                 h.update(&(bytes.len() as u64).to_le_bytes());
                 h.update(bytes);
             };
+            // The core this session elaborated, which a test's own prelude
+            // makes other than the index's (`files[0]`); an empty part if
+            // no core was finished, so never a real core's key.
+            part(
+                self.session
+                    .core_digest
+                    .as_ref()
+                    .map_or(&[][..], |d| &d[..]),
+            );
             if let Some(index) = self.library_index() {
-                part(index.files[0].text.as_bytes());
                 for file in &index.files {
                     part(file.path.as_bytes());
                     for n in &file.names {

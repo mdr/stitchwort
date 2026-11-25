@@ -84,6 +84,11 @@ pub struct Session {
     /// files it loads (`cache::Elaborator::library_interface`). Computed
     /// once.
     pub(crate) library_interface_digest: OnceCell<cache::Key>,
+    /// The hash of the core's text as this session elaborated it, set when
+    /// the core is finished (`Elaborator::finish_core`): the core every
+    /// unit's key names, which may not be the library index's copy of it
+    /// (a test's own prelude; docs/proposals/check-cache-trust.md §2.2).
+    pub(crate) core_digest: Option<cache::Key>,
     /// What the postponement queue and the unifier counted.
     pub(crate) stats: Arc<Stats>,
     /// Which unit made each declaration, and which is being elaborated
@@ -191,6 +196,7 @@ impl Session {
             instance_waits: _,
             cache_stats: _,
             library_interface_digest: _,
+            core_digest: _,
             stats: _,
             // Checked on use (`assume.rs`).
             assumed: _,
@@ -244,6 +250,7 @@ impl Session {
             instance_waits: _,
             cache_stats: _,
             library_interface_digest: _,
+            core_digest: _,
             stats: _,
             // Checked on use (`assume.rs`).
             assumed: _,
@@ -322,6 +329,7 @@ impl Session {
             // Worked out from the library and the options, the same for
             // every program.
             library_interface_digest: _,
+            core_digest: _,
             // Counters only, which nothing decides from; `STITCHWORT_TIMINGS`
             // adds up every session's when it is dropped.
             stats: _,
@@ -379,6 +387,7 @@ impl Session {
             journal: _,
             derive_waiting: _,
             library_interface_digest: _,
+            core_digest: _,
             stats: _,
             standalone_inputs,
             instance_waits,

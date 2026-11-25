@@ -846,7 +846,7 @@ impl Session {
                 &diagnostics,
             ));
         }
-        if let Err(missing) = session.elab.finish_core() {
+        if let Err(missing) = session.elab.finish_core(prelude) {
             return Err(format!("internal error: {}", missing.message));
         }
         if matches!(library, Library::Standard | Library::Index(_)) {

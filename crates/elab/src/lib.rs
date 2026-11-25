@@ -1611,10 +1611,15 @@ impl Elaborator {
         self.unit.file_mode = context;
     }
 
-    /// Ends loading the core: every core built-in must be bound by now. (A
-    /// library built-in is bound when its file loads.)
-    pub fn finish_core(&mut self) -> Result<()> {
+    /// Ends loading the core, whose text was `core`: every core built-in
+    /// must be bound by now. (A library built-in is bound when its file
+    /// loads.) The check cache keys every unit on `core`, the text really
+    /// elaborated, not on the library index's copy of the core.
+    pub fn finish_core(&mut self, core: &str) -> Result<()> {
         self.unit.loading_prelude = false;
+        self.session.core_digest = Some(*blake3::hash(core.as_bytes()).as_bytes());
+        // One worked out before now would name no core.
+        self.session.library_interface_digest.take();
         // The prelude's imports are its own.
         self.scope.clear_imports();
         self.tables.prelude_defs = self.kernel.env.defs().len();
