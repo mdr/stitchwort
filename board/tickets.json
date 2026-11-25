@@ -1,5 +1,5 @@
 {
-  "next": 4804,
+  "next": 4805,
   "tickets": [
     {
       "id": 47,
@@ -34969,7 +34969,7 @@
     {
       "id": 4777,
       "title": "[Sonnet] A way to see why a namespace's digest changed: document STITCHWORT_CACHE_DEBUG=1 (prints each namespace's digest and part B count) in docs/workflow.md and the digest test module, and consider a debug option listing the digest's inputs (SW-4758 working friction)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34977,7 +34977,10 @@
       "body": "Docs lane (Sonnet): rules and notes added to docs/workflow.md (brief-writing rules 12-17, CACHE_DEBUG note, verifier line for hashing/cache batches) and the digest.rs module doc.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "34dbb4ca8",
+        "e89489b96"
+      ]
     },
     {
       "id": 4778,
@@ -34998,7 +35001,7 @@
     {
       "id": 4779,
       "title": "[Sonnet] Hash-changing lanes and verifiers miss tests outside the rolling check: add driver projects trial:: (and check_cache::digest) to the verifier selection for hashing changes in docs/workflow.md, and ask whether Overmind's quick tier should run them (SW-4773 finding: SW-4701 left four trial tests failing unseen for two days)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -35006,7 +35009,10 @@
       "body": "Docs lane (Sonnet): rules and notes added to docs/workflow.md (brief-writing rules 12-17, CACHE_DEBUG note, verifier line for hashing/cache batches) and the digest.rs module doc.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "34dbb4ca8",
+        "e89489b96"
+      ]
     },
     {
       "id": 4780,
@@ -35321,15 +35327,18 @@
     {
       "id": 4799,
       "title": "[Sonnet] Kernel-lane brief line in docs/workflow.md 'Writing a brief': a change to evaluation also runs the differential test the_evaluators_agree_on_the_prelude_and_every_example with STITCHWORT_DIFFERENTIAL_ONLY=<example>, and the example has value definitions that exercise the rule; and lane waits need the Bash timeout parameter (~175000) as well as timeout 170 (SW-4796 friction)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Docs lane (Sonnet): rules and notes added to docs/workflow.md (brief-writing rules 12-17, CACHE_DEBUG note, verifier line for hashing/cache batches) and the digest.rs module doc.",
+      "body": "Docs lane (Sonnet): rules and notes added to docs/workflow.md (brief-writing rules 12-17, CACHE_DEBUG note, verifier line for hashing/cache batches) and the digest.rs module doc.\n\nModel result: sonnet, worked, about 1 min of work for all three (est. 20).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "34dbb4ca8",
+        "e89489b96"
+      ]
     },
     {
       "id": 4800,
@@ -35379,6 +35388,19 @@
     {
       "id": 4803,
       "title": "[DeepSeek] E-TERMINATION: generalise the tuple note (for match (k, a) with) to any lifted match on a computed scrutinee, e.g. match k + 0 with: suggest matching k itself (SW-4784 review F4, docs/reviews/SW-4784-termination-review.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4804,
+      "title": "[Sonnet] STITCHWORT_CACHE_DEBUG prints only a namespace's digest as hex, so 'why did this namespace miss' needs hand-comparing hashes: print the digest's inputs (or one line per dependency digest) under the debug flag (SW-4777 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
