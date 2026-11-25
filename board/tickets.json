@@ -1,5 +1,5 @@
 {
-  "next": 4784,
+  "next": 4785,
   "tickets": [
     {
       "id": 47,
@@ -35041,6 +35041,19 @@
     {
       "id": 4783,
       "title": "[Sonnet] D3739 (b): the editor's start-up fill defaults to auto (stitchwort.startupWorkers and STITCHWORT_STARTUP_WORKERS): server Settings default, VS Code package.json default, README, getting-started guide, parallel-checking.md 9.9, and any test that assumed off",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4784,
+      "title": "[Sonnet] Termination: a byWalking proof whose recursive arm lifts match more + 0 fails with E-TERMINATION (m isn't seen as smaller than fuel), though match more with works; see the givesDown fixture in examples/accept/walk-nested-match.sw (SW-4775 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
