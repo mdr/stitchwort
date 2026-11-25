@@ -63,3 +63,31 @@ def atPf: Nat := f 0 pf
 def atLiteral: Nat := f 0 (MkQ2 byComputing)
 
 def atOuter: Nat := g (MkOuter pf)
+
+-- The nickname after a parameter, so the type is forced again once the
+-- codomain is applied (the SW-4796 review, finding 1).
+def Rest (x: Nat): Type := Q2 x → Nat
+
+def f2: (x: Nat) → Rest x
+  | x, MkQ2 w => 5
+
+theorem r1: f2 0 pf = 5 := byComputing
+
+theorem r2 ∀ (s: Q2 0): f2 0 s = 5 := byComputing
+
+-- A recursive family: the type computes to a function type only after the
+-- number is known, once per step.
+def Fam: Nat → Type
+  | 0 => Nat
+  | Succ n => (q: Q2 0) → Fam n
+
+def f4: Fam 2
+  | MkQ2 w, MkQ2 v => 5
+
+theorem r3: f4 pf pf = 5 := byComputing
+
+theorem r4 ∀ (s t: Q2 0): f4 s t = 5 := byComputing
+
+def atRest: Nat := f2 0 pf
+
+def atFam: Nat := f4 pf pf
