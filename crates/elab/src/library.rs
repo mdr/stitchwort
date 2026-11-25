@@ -1248,6 +1248,20 @@ impl Elaborator {
             .load_order(needs, &|f| lib.state[f] == LoadState::Loaded)
             .map_err(|cycle| vec![internal(index.cycle_message(&cycle))])?;
         for f in order {
+            // Between files, so that a host that stops (the server closing)
+            // isn't kept waiting for the rest of a cold library; the file
+            // that was loading has finished, so nothing partial is left.
+            if self
+                .kernel
+                .machine
+                .budget
+                .cancel_flag()
+                .is_some_and(|flag| flag.load(std::sync::atomic::Ordering::Relaxed))
+            {
+                return Err(vec![internal(
+                    "loading the library was cancelled".to_string(),
+                )]);
+            }
             self.load_library_file(f)?;
         }
         Ok(())
