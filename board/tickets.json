@@ -35997,15 +35997,18 @@
     {
       "id": 4842,
       "title": "[Sonnet] On a core-cache miss with a statement-style warning in core, library_warning_report may list the warning twice (once from session.warnings, once from warnings_of_text); check with SW-4830's styled test core and fix if so, with a test (SW-4830 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Duplicate was real (also uncached). Model result: sonnet, worked, 15 min (est. 15).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "e45d29d53",
+        "cc6c57ff8"
+      ]
     },
     {
       "id": 4843,
