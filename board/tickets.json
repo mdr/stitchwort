@@ -1,5 +1,5 @@
 {
-  "next": 4794,
+  "next": 4795,
   "tickets": [
     {
       "id": 47,
@@ -35157,41 +35157,51 @@
     {
       "id": 4789,
       "title": "[Sonnet] A copied stitchwort binary falls back to the std of the tree it was built from, and its missing-std error names --std-dir (SW-3779 W3)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Model result: sonnet, worked, about 15 min (est. 25).\nstd is read at run time, not built into the binary; the build tree is now the last place looked.\n",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "f9aec5d3d",
+        "b3dd87589",
+        "42edef75f"
+      ]
     },
     {
       "id": 4790,
       "title": "[DeepSeek] task worktree:new refuses while the main checkout's board/tickets.json has uncommitted changes, so new tickets reach the lane (SW-3779 W7b)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Model result: deepseek, worked, about 25 min with SW-4791 (est. 15).\n",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "0f5677ccd",
+        "47cdcef8c"
+      ]
     },
     {
       "id": 4791,
       "title": "[DeepSeek] board note N TEXT: append a note to a ticket body without replacing it (the open half of SW-4200; SW-3779 W7c)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Model result: deepseek, worked, shared run with SW-4790.\n",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "d0ff348a7",
+        "47cdcef8c"
+      ]
     },
     {
       "id": 4792,
@@ -35209,6 +35219,19 @@
     {
       "id": 4793,
       "title": "[Fable paper] Review SW-4786's argument that every place the proofless hash leaves out a proof is safe (the kernel reads nothing there that the hash drops), apart from J's proof, which is now fixed. Find where the proofless hash carries trust: the stage 3 interface, the cache digest, ProofsOnly in the trial and rename (SW-4786 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4794,
+      "title": "[Sonnet] Small: stitchwort hash --json --uses omits the uses key for declarations with none (consumers must default it); and the --std-dir help text says 'instead of the copy built in', but std is read from files at run time (SW-4787, SW-4789 findings)",
       "status": "backlog",
       "agent": "",
       "where": "",
