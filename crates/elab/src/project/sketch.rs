@@ -41,6 +41,9 @@ pub struct FileSketch {
     /// The names its declarations write that contain a `.`, in the order
     /// the pre-pass reads them.
     pub refs: Vec<Name>,
+    /// The keys its declarations put in scope that a doc link may name,
+    /// without the namespace and its `.` ([`declared_in`]).
+    pub declared: Vec<String>,
 }
 
 impl FileSketch {
@@ -87,6 +90,7 @@ impl FileSketch {
             imports,
             things,
             refs,
+            declared: declared_in(module),
         }
     }
 
@@ -146,6 +150,10 @@ impl FileSketch {
         num(out, self.refs.len());
         for r in &self.refs {
             name(out, r);
+        }
+        num(out, self.declared.len());
+        for d in &self.declared {
+            text(out, d);
         }
     }
 
@@ -222,12 +230,65 @@ impl FileSketch {
         for _ in 0..r.count()? {
             refs.push(r.name()?);
         }
+        let mut declared = Vec::new();
+        for _ in 0..r.count()? {
+            declared.push(r.text()?);
+        }
         Some(FileSketch {
             namespace,
             names,
             imports,
             things,
             refs,
+            declared,
         })
     }
+}
+
+/// The keys the declarations of a file put in scope that a doc link may
+/// name, as far as their syntax tells, each without the namespace and its
+/// `.`: each declaration's own, its constructors, operations, interface
+/// methods and generated `unfold` equation, and a record's fields. A
+/// declaration written with a qualifier (`Rules.rule`, or a function for
+/// another namespace's type) has the name as written, unless the qualifier
+/// is an import's local name for something else (`import N (T as U)`),
+/// whose keys are left out. A key may be missing (a local definition's,
+/// `t.go`), never wrongly present, in a namespace that checks. Doc links
+/// look a project namespace's keys up here, loaded or not, so that what
+/// one resolves to never depends on what else a check loads (SW-4827).
+pub fn declared_in(module: &Module) -> Vec<String> {
+    let renamed: Vec<&str> = (module.imports.iter())
+        .flat_map(|i| &i.items)
+        .filter(|item| item.local().text != item.name.text)
+        .map(|item| item.local().text.as_str())
+        .collect();
+    let mut out = Vec::new();
+    for decl in &module.decls {
+        let (Some(main), members) = crate::module::declared_names(decl) else {
+            continue;
+        };
+        if let Some((first, _)) = main.text.split_once('.') {
+            if !renamed.contains(&first) {
+                out.push(main.text.clone());
+            }
+            continue;
+        }
+        for (member, _) in &members {
+            if !member.text.starts_with('%') {
+                out.push(format!("{}.{}", main.text, member.text));
+            }
+        }
+        if let Decl::Data {
+            ctors,
+            record: true,
+            ..
+        } = decl
+        {
+            for field in ctors.iter().flat_map(|c| &c.fields) {
+                out.push(format!("{}.{}", main.text, field.name.text));
+            }
+        }
+        out.push(main.text.clone());
+    }
+    out
 }

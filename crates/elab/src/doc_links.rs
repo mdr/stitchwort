@@ -16,15 +16,14 @@
 //! that would replay a namespace only for its links leaves it out when
 //! they surely all resolve (`doc_links_resolve_unloaded`, SW-4827).
 
-use stitchwort_core::collections::HashSet;
 use stitchwort_syntax::Diagnostic;
-use stitchwort_syntax::ast::{Decl, Import, Module};
+use stitchwort_syntax::ast::{Import, Module};
 use stitchwort_syntax::docs::{DocLink, link_candidates_with_imports};
 
 use crate::Elaborator;
 use crate::module::declared_names;
 use crate::project::SourceUnit;
-use crate::scope::{Resolved, display, edit_distance, short};
+use crate::scope::{PRELUDE, Resolved, display, edit_distance, short};
 
 pub(crate) const CODE: &str = "W-DOC-LINK";
 
@@ -72,8 +71,13 @@ impl Elaborator {
     }
 
     fn link_meaning(&self, name: &str, imports: &[Import]) -> Meaning {
+        let home = self.link_home();
         match self.resolve(name) {
-            Resolved::Found { rest, .. } if rest.is_empty() => return Meaning::Found,
+            Resolved::Found { key, rest, .. }
+                if rest.is_empty() && self.seen_by_links(key, home.as_ref()) =>
+            {
+                return Meaning::Found;
+            }
             // A type and its constructor of the same name are one thing to
             // a reader: the link is to the type.
             Resolved::Ambiguous(keys, _) if is_type_and_constructor(&keys) => {
@@ -82,10 +86,10 @@ impl Elaborator {
             Resolved::Ambiguous(keys, _) => return Meaning::Ambiguous(keys),
             Resolved::Found { .. } | Resolved::Missing => {}
         }
-        if self
-            .doc_link_target(name, self.unit.module.namespace.as_deref(), imports)
-            .is_some()
-        {
+        let named = link_candidates_with_imports(name, home.as_ref().map(|h| h.ns), imports)
+            .iter()
+            .any(|key| self.is_known_key(key, home.as_ref()));
+        if named {
             Meaning::Found
         } else {
             Meaning::Missing
@@ -104,22 +108,21 @@ impl Elaborator {
 
     /// The name closest to `written` (within two edits), as it would be
     /// written in a link: among the keys' library names without `Std.`, and
-    /// the names in the file's own namespace without it.
+    /// the names in the file's own namespace without it. A project
+    /// namespace the file's doesn't use counts by what its files declare
+    /// (SW-4836), so the answer doesn't depend on whether a check loaded
+    /// it.
     fn nearest_name(&self, written: &str) -> Option<String> {
         let near = |candidate: &str| {
             let distance = edit_distance(candidate, written);
             (distance <= 2 && distance < written.chars().count()).then_some(distance)
         };
-        let own = self
-            .unit
-            .module
-            .namespace
-            .as_deref()
-            .map(|ns| format!("{ns}."));
+        let home = self.link_home();
+        let own = home.as_ref().map(|h| format!("{}.", h.ns));
         let mut best: Option<(usize, String)> = None;
-        for key in self.scope.keys() {
+        let mut consider = |key: &str| {
             if key.contains('%') || short(key).is_empty() {
-                continue;
+                return;
             }
             let shown = if near(display(key)).is_some() {
                 display(key)
@@ -128,7 +131,7 @@ impl Elaborator {
             {
                 rest
             } else {
-                continue;
+                return;
             };
             let distance = edit_distance(shown, written);
             let better = match &best {
@@ -137,6 +140,19 @@ impl Elaborator {
             };
             if better {
                 best = Some((distance, shown.to_string()));
+            }
+        };
+        let unused = |ns: &str| home.as_ref().is_some_and(|h| !h.uses(ns));
+        for key in self.scope.keys() {
+            if !self.project_owner(key).is_some_and(unused) {
+                consider(key);
+            }
+        }
+        if home.is_some() {
+            for (ns, keys) in self.session.project_declared.iter() {
+                if unused(ns) {
+                    keys.iter().for_each(|key| consider(key));
+                }
             }
         }
         best.map(|(_, name)| name)
@@ -155,26 +171,89 @@ impl Elaborator {
     ) -> Option<String> {
         link_candidates_with_imports(name, namespace, imports)
             .into_iter()
-            .find(|key| self.is_known_key(key))
+            .find(|key| self.is_known_key(key, None))
     }
 
-    /// Whether `key` is declared, or is a namespace, or is declared in a
-    /// project namespace that isn't checked yet (the pre-pass has its names):
-    /// so a link doesn't depend on the order namespaces are checked in, and
-    /// adds no dependency.
-    fn is_known_key(&self, key: &str) -> bool {
+    /// Where the doc links being worked out are: the namespace being
+    /// checked, if it is a project's, and what it uses.
+    fn link_home(&self) -> Option<Home<'_>> {
+        Some(Home {
+            ns: self.unit.module.namespace.as_deref()?,
+            closure: self.unit.module.closure.as_deref().unwrap_or(&[]),
+        })
+    }
+
+    /// The project namespace whose declaration `key` is: the longest whose
+    /// name and a `.` start it.
+    fn project_owner<'k>(&self, key: &'k str) -> Option<&'k str> {
+        let mut end = key.len();
+        while let Some(dot) = key[..end].rfind('.') {
+            if self.session.project_namespaces.contains(&key[..dot]) {
+                return Some(&key[..dot]);
+            }
+            end = dot;
+        }
+        None
+    }
+
+    /// Whether `key`, which a lookup found, counts for the links of
+    /// `home`: any key of the library's or of a namespace `home` uses, and
+    /// another project namespace's only if its files declare it
+    /// ([`crate::project::declared_in`]), whether or not it is loaded.
+    fn seen_by_links(&self, key: &str, home: Option<&Home>) -> bool {
+        match self.project_owner(key) {
+            Some(ns) if home.is_some_and(|h| !h.uses(ns)) => self.declares(ns, key),
+            _ => true,
+        }
+    }
+
+    /// Whether project namespace `ns`'s files declare `key`, or a key
+    /// under it (`key` is then a namespace, a type's say).
+    fn declares(&self, ns: &str, key: &str) -> bool {
+        self.session.project_declared.get(ns).is_some_and(|keys| {
+            keys.contains(key)
+                || keys
+                    .iter()
+                    .any(|k| k.strip_prefix(key).is_some_and(|r| r.starts_with('.')))
+        })
+    }
+
+    /// Whether `key` is declared, or is a namespace, for the links of
+    /// `home`. A project namespace `home` doesn't use counts by what its
+    /// files declare, loaded or not: so a link doesn't depend on the order
+    /// namespaces are checked in, nor on which a check loads (SW-4827),
+    /// and adds no dependency. Without a `home` (`doc`, the index), what
+    /// is loaded counts too.
+    fn is_known_key(&self, key: &str, home: Option<&Home>) -> bool {
+        if self.session.project_prefixes.contains(key) {
+            return true;
+        }
+        if let Some(ns) = self.project_owner(key) {
+            return self.declares(ns, key)
+                || (home.is_none_or(|h| h.uses(ns))
+                    && (self.scope.get(key).is_some() || self.scope.is_namespace(key)));
+        }
         self.scope.get(key).is_some()
             || self.scope.is_namespace(key)
-            || self.session.project_prefixes.contains(key)
             || self.session.core_link_names.as_ref().is_some_and(|index| {
                 index.owner(key).is_some()
                     || index
                         .names()
                         .any(|(k, _)| k.strip_prefix(key).is_some_and(|r| r.starts_with('.')))
             })
-            || key
-                .rsplit_once('.')
-                .is_some_and(|(ns, name)| self.project_names(ns).is_some_and(|n| n.contains(name)))
+    }
+}
+
+/// The namespace whose doc links are worked out, and the namespaces it
+/// uses: loaded before its links are, whatever else a check loads.
+struct Home<'a> {
+    ns: &'a str,
+    closure: &'a [String],
+}
+
+impl Home<'_> {
+    fn uses(&self, ns: &str) -> bool {
+        self.ns == ns || self.closure.iter().any(|c| c == ns)
     }
 }
 
@@ -197,95 +276,51 @@ fn is_type_and_constructor(keys: &[String]) -> bool {
     inner.strip_prefix(outer.as_str()) == Some(&format!(".{}", short(outer)))
 }
 
-/// The keys the declarations of namespace `ns`'s files `modules` put in
-/// scope that a doc link may name, as far as their syntax tells: each
-/// declaration's own, its constructors, operations and interface methods,
-/// and a record's fields. A declaration written with a qualifier
-/// (`Rules.rule`, or a function for another namespace's type) has the key
-/// `ns.` and the name as written, unless the qualifier is an import's
-/// local name for something else (`import N (T as U)`), whose keys are
-/// left out. For [`Elaborator::doc_links_resolve_unloaded`]; a key
-/// may be missing from here, never wrongly present, in a namespace that
-/// checks.
-pub fn declared_keys(ns: &str, modules: &[&Module]) -> HashSet<String> {
-    let mut out = HashSet::default();
-    for module in modules {
-        let renamed: HashSet<&str> = (module.imports.iter())
-            .flat_map(|i| &i.items)
-            .filter(|item| item.local().text != item.name.text)
-            .map(|item| item.local().text.as_str())
-            .collect();
-        for decl in &module.decls {
-            let (Some(main), members) = declared_names(decl) else {
-                continue;
-            };
-            let key = format!("{ns}.{}", main.text);
-            if let Some((first, _)) = main.text.split_once('.') {
-                if !renamed.contains(first) {
-                    out.insert(key);
-                }
-                continue;
-            }
-            for (member, _) in &members {
-                if !member.text.starts_with('%') {
-                    out.insert(format!("{key}.{}", member.text));
-                }
-            }
-            if let Decl::Data {
-                ctors,
-                record: true,
-                ..
-            } = decl
-            {
-                for field in ctors.iter().flat_map(|c| &c.fields) {
-                    out.insert(format!("{key}.{}", field.name.text));
-                }
-            }
-            out.insert(key);
-        }
-    }
-    out
-}
-
 impl Elaborator {
     /// Whether no doc link of project namespace `ns` (its files'
-    /// `modules`) warns when `ns` is replayed from its cache entry, as far
-    /// as can be told without loading anything (SW-4827): what lets a
-    /// plain `check` leave a namespace with doc links out. `declared` says
-    /// whether a key is declared by a namespace `ns` uses
-    /// ([`declared_keys`] of theirs, which it may work out only when
-    /// asked); those are loaded before `ns` whatever else is.
+    /// `modules`, using the namespaces `closure`) warns when `ns` is
+    /// replayed from its cache entry, as far as can be told without
+    /// loading anything (SW-4827): what lets a plain `check` leave a
+    /// namespace with doc links out.
     ///
     /// A link [`Self::doc_link_warnings`] finds is one that names
     /// something and isn't ambiguous. Named: one of its candidates is known
-    /// now, from the library's index, the core, the project's namespaces
-    /// and the pre-pass's names, all of which loading only adds to, or is
-    /// declared in `ns` or a namespace it uses. Ambiguous: a replay applies
-    /// no imports, so a name with a qualifier can't be (its qualifier is
-    /// looked up without constructors, at most one key at each level), and
-    /// a short name only if two of the constructors and declarations
-    /// `ns` declares at its root have it, or failing those, two of the
-    /// prelude's and the library root's constructors (as the lookup goes
-    /// level by level, the first with any decides). A type and its own
-    /// constructor of the same name count as one. Anything else, such as a
-    /// local definition (`t.go`), an instance, a function another
-    /// namespace adds to a type, or a link that names nothing, says no, and
-    /// the namespace is loaded as before.
+    /// now ([`Self::is_known_key`]: the library's index, the core, and the
+    /// project's namespaces by what their files declare, none of which
+    /// loading takes away), or it is a short name the defaults find once
+    /// (`Some`). Ambiguous: a replay applies no imports, so a name with a
+    /// qualifier can't be (its qualifier is looked up without
+    /// constructors, at most one key at each level), and a short name only
+    /// if two of the constructors and declarations `ns` declares at its
+    /// root have it, or failing those, two of the prelude's and the library
+    /// root's constructors (as the lookup goes level by level, the first
+    /// with any decides). A type and its own constructor of the same name
+    /// count as one. Anything else, such as a local definition (`t.go`)
+    /// or a link that names nothing, says no, and the namespace is loaded
+    /// as before.
     pub fn doc_links_resolve_unloaded(
         &self,
         ns: &str,
+        closure: &[String],
         modules: &[&Module],
-        declared: &mut dyn FnMut(&str) -> bool,
     ) -> bool {
-        let own = declared_keys(ns, modules);
+        let home = Home { ns, closure };
         for module in modules {
             for link in &module.doc_links {
-                let named = link_candidates_with_imports(&link.name, Some(ns), &module.imports)
-                    .iter()
-                    .any(|key| self.is_known_key(key) || own.contains(key) || declared(key));
-                if !named
-                    || (!link.name.contains('.') && self.may_be_ambiguous(&link.name, ns, modules))
-                {
+                let short = !link.name.contains('.');
+                let found = if short {
+                    self.short_link_lookup(&link.name, ns, modules)
+                } else {
+                    Lookup::Missing
+                };
+                if matches!(found, Lookup::Ambiguous) {
+                    return false;
+                }
+                let named = matches!(found, Lookup::Found)
+                    || link_candidates_with_imports(&link.name, Some(ns), &module.imports)
+                        .iter()
+                        .any(|key| self.is_known_key(key, Some(&home)));
+                if !named {
                     return false;
                 }
             }
@@ -293,10 +328,13 @@ impl Elaborator {
         true
     }
 
-    /// Whether the short name `x`, written in namespace `ns` (its files'
-    /// `modules`), may resolve to two different things in a replay of
-    /// `ns`: see [`Self::doc_links_resolve_unloaded`].
-    fn may_be_ambiguous(&self, x: &str, ns: &str, modules: &[&Module]) -> bool {
+    /// What the short name `x`, written in namespace `ns` (its files'
+    /// `modules`), may find in a replay of `ns`: see
+    /// [`Self::doc_links_resolve_unloaded`]. `Found` only for one of the
+    /// defaults, which a replay surely finds; `Missing` when it may find
+    /// nothing, or one of `ns`'s own (the candidates say whether that
+    /// counts).
+    fn short_link_lookup(&self, x: &str, ns: &str, modules: &[&Module]) -> Lookup {
         let mut own: Vec<String> = Vec::new();
         for decl in modules.iter().flat_map(|m| &m.decls) {
             let (Some(main), members) = declared_names(decl) else {
@@ -314,11 +352,44 @@ impl Elaborator {
                 }
             }
         }
-        let found = if own.is_empty() {
-            self.scope.default_candidates(x)
-        } else {
-            own
-        };
-        found.len() > 1 && !is_type_and_constructor(&found)
+        if !own.is_empty() {
+            return if own.len() > 1 && !is_type_and_constructor(&own) {
+                Lookup::Ambiguous
+            } else {
+                Lookup::Missing
+            };
+        }
+        let found = self.scope.default_candidates(x);
+        match found.as_slice() {
+            [] => Lookup::Missing,
+            [key] if self.default_surely_visible(key, ns) => Lookup::Found,
+            [_] => Lookup::Missing,
+            _ if is_type_and_constructor(&found) => Lookup::Missing,
+            _ => Lookup::Ambiguous,
+        }
     }
+
+    /// Whether `key`, the one default a short link may find, is surely
+    /// found in a replay of `ns`: a prelude name, or a constructor of a
+    /// prelude type whose short name `ns` doesn't declare itself (which
+    /// would hide the type, and so its constructors).
+    fn default_surely_visible(&self, key: &str, ns: &str) -> bool {
+        let Some(owner) = key.strip_prefix("Std.") else {
+            return false;
+        };
+        let ty = match owner.rsplit_once('.') {
+            None => return PRELUDE.contains(&owner),
+            Some((ty, _)) => ty,
+        };
+        PRELUDE.contains(&ty)
+            && self.scope.std_root_key(ty) == Some(&format!("Std.{ty}"))
+            && !self.declares(ns, &format!("{ns}.{ty}"))
+    }
+}
+
+/// What [`Elaborator::short_link_lookup`] tells.
+enum Lookup {
+    Found,
+    Ambiguous,
+    Missing,
 }

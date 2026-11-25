@@ -468,9 +468,6 @@ impl Session {
         // Those that may not be checked the way their entry says.
         let mut uncertain: BTreeSet<&str> = BTreeSet::new();
         let mut loaded: Vec<String> = Vec::new();
-        // What each namespace declares, for the doc links of those that
-        // use it: worked out when a link needs it.
-        let mut declared: HashMap<String, HashSet<String>> = HashMap::default();
         for name in order {
             let ns = analysis.namespace(name).expect("a namespace");
             let closure = dependencies(analysis, name);
@@ -481,9 +478,7 @@ impl Session {
                     .iter()
                     .any(|e| uncertain.contains(e.target.as_str()));
             match planned {
-                Some(warnings)
-                    if certain && self.doc_links_quiet(analysis, ns, &closure, &mut declared) =>
-                {
+                Some(warnings) if certain && self.doc_links_quiet(ns, &closure) => {
                     fits.insert(name.clone(), warnings);
                 }
                 Some(_) if certain => loaded.push(name.clone()),
@@ -502,34 +497,11 @@ impl Session {
     /// Whether no doc link of `ns`, whose closure is `closure`, warns when
     /// it is replayed, as far as can be told without loading it
     /// ([`stitchwort_elab::Elaborator::doc_links_resolve_unloaded`]); true
-    /// for a namespace with none. `declared` holds what the namespaces
-    /// asked about so far declare.
-    fn doc_links_quiet(
-        &self,
-        analysis: &Analysis,
-        ns: &Namespace,
-        closure: &[String],
-        declared: &mut HashMap<String, HashSet<String>>,
-    ) -> bool {
+    /// for a namespace with none.
+    fn doc_links_quiet(&self, ns: &Namespace, closure: &[String]) -> bool {
         let modules = ns.modules();
-        if modules.iter().all(|m| m.doc_links.is_empty()) {
-            return true;
-        }
-        let mut in_closure = |key: &str| {
-            closure.iter().any(|q| {
-                key.strip_prefix(q.as_str())
-                    .is_some_and(|rest| rest.starts_with('.'))
-                    && declared
-                        .entry(q.clone())
-                        .or_insert_with(|| {
-                            let used = analysis.namespace(q).expect("a namespace");
-                            stitchwort_elab::declared_keys(q, &used.modules())
-                        })
-                        .contains(key)
-            })
-        };
-        self.elab
-            .doc_links_resolve_unloaded(&ns.name, &modules, &mut in_closure)
+        modules.iter().all(|m| m.doc_links.is_empty())
+            || (self.elab).doc_links_resolve_unloaded(&ns.name, closure, &modules)
     }
 
     /// Checks one namespace `ns` of a project, after the namespaces it uses
@@ -1175,7 +1147,7 @@ struct ScanFile {
 }
 
 /// What the scan cache's entry for a project starts with.
-const SCAN_MAGIC: &[u8; 8] = b"SWSCAN\x01\0";
+const SCAN_MAGIC: &[u8; 8] = b"SWSCAN\x02\0";
 
 /// Where a project's scan is kept in a check cache store: the unit (a
 /// letter, so the name is parsed as the store's own) and the key.
@@ -1470,6 +1442,18 @@ fn analyse_units(
         })
         .collect();
     elab.set_project_names(names);
+    let declared: BTreeMap<String, HashSet<String>> = (0..namespaces.len())
+        .filter(|i| namespaces[*i].parse_errors.is_empty())
+        .map(|i| {
+            let name = &namespaces[i].name;
+            let keys = (sketches[i].iter())
+                .flat_map(|s| &s.declared)
+                .map(|k| format!("{name}.{k}"))
+                .collect();
+            (name.clone(), keys)
+        })
+        .collect();
+    elab.set_project_declared(declared);
     let edges: Vec<Vec<Edge>> = (0..namespaces.len())
         .map(|i| {
             if namespaces[i].files.is_empty() {

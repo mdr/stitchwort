@@ -32,6 +32,10 @@ pub struct Session {
     /// What `import N (..)` brings from each project namespace whose files
     /// parsed (`project::set_project_names`).
     pub(crate) project_names: Arc<BTreeMap<String, BTreeSet<String>>>,
+    /// The keys each project namespace whose files parsed declares, as its
+    /// files' syntax tells (`project::set_project_declared`): what doc
+    /// links see of a project namespace, loaded or not (SW-4827).
+    pub(crate) project_declared: Arc<BTreeMap<String, HashSet<String>>>,
     /// For each project namespace with syntax errors, where the first one is
     /// (`project::set_project_syntax_errors`): an import from it that names
     /// a declaration it no longer has says so, instead of that the name is
@@ -154,6 +158,7 @@ pub(crate) struct Mark {
     project_namespaces: Arc<BTreeSet<String>>,
     project_prefixes: Arc<BTreeSet<String>>,
     project_names: Arc<BTreeMap<String, BTreeSet<String>>>,
+    project_declared: Arc<BTreeMap<String, HashSet<String>>>,
     project_syntax_errors: Arc<BTreeMap<String, Option<stitchwort_syntax::Span>>>,
     include_files: Option<Rc<dyn project::IncludeFiles>>,
     library: Option<library::LibraryState>,
@@ -171,6 +176,7 @@ impl Session {
             project_namespaces,
             project_prefixes,
             project_names,
+            project_declared,
             project_syntax_errors,
             include_files,
             library,
@@ -210,6 +216,7 @@ impl Session {
             project_namespaces: project_namespaces.clone(),
             project_prefixes: project_prefixes.clone(),
             project_names: project_names.clone(),
+            project_declared: project_declared.clone(),
             project_syntax_errors: project_syntax_errors.clone(),
             include_files: include_files.clone(),
             library: library.clone(),
@@ -227,6 +234,7 @@ impl Session {
             project_namespaces,
             project_prefixes,
             project_names,
+            project_declared,
             project_syntax_errors,
             include_files,
             library,
@@ -262,6 +270,7 @@ impl Session {
         *project_namespaces = mark.project_namespaces.clone();
         *project_prefixes = mark.project_prefixes.clone();
         *project_names = mark.project_names.clone();
+        *project_declared = mark.project_declared.clone();
         *project_syntax_errors = mark.project_syntax_errors.clone();
         *include_files = mark.include_files.clone();
         *library = mark.library.clone();
@@ -303,6 +312,7 @@ impl Session {
             project_namespaces: _,
             project_prefixes: _,
             project_names: _,
+            project_declared: _,
             project_syntax_errors: _,
             include_files: _,
             include_locations: _,
@@ -364,6 +374,7 @@ impl Session {
             project_namespaces: _,
             project_prefixes: _,
             project_names: _,
+            project_declared: _,
             project_syntax_errors: _,
             include_files: _,
             include_locations: _,

@@ -861,6 +861,69 @@ fn plain_check_works_out_doc_links_without_loading() {
     let _ = std::fs::remove_dir_all(&loading);
 }
 
+/// What a doc link names, and the name a broken one suggests, don't depend
+/// on which other namespaces a check loads, nor on the order it checks them
+/// in (SW-4827, SW-4836): a namespace it doesn't use counts by what its
+/// files declare. `Aa` is checked before `Alpha` and `Zed` after it; with
+/// skipping on, `Alpha` isn't loaded at all.
+#[test]
+fn doc_links_dont_depend_on_what_a_check_loads() {
+    let project = temp_dir("links-loaded-project");
+    let write = |path: &str, text: &str| {
+        let full = project.join(path);
+        std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+        std::fs::write(full, text).unwrap();
+    };
+    let deep = "\n\n--| See [`Alpha.T.Mk`], [`Alpha.R.fld`] and [`Alpha.T`].\ndef d: Nat := 1\n";
+    write("stitchwort.yaml", "sources: [src]\n");
+    write(
+        "src/Alpha/Alpha.sw",
+        "namespace Alpha\n\ntype T = | Mk\n\ntype R = { fld: Nat }\n\ndef thingy: Nat := 4\n",
+    );
+    write("src/Aa/Aa.sw", &format!("namespace Aa{deep}"));
+    write("src/Zed/Zed.sw", &format!("namespace Zed{deep}"));
+    // Each suggests `Alpha.thingy`, whether or not `Alpha` is loaded.
+    write(
+        "src/Typo/Typo.sw",
+        "namespace Typo\n\n--| See [`Alpha.thingx`] and [`Alphb.thingy`].\ndef t: Nat := 1\n",
+    );
+    // Library constructors by their short names; `Hidden`'s own `Option`
+    // hides the library's, so its `Some` names nothing.
+    write(
+        "src/Ctors/Ctors.sw",
+        "namespace Ctors\n\n--| [`Some`], [`None`], [`True`], [`Cons`] and [`Less`].\ndef c: Nat := 1\n",
+    );
+    write(
+        "src/Hidden/Hidden.sw",
+        "namespace Hidden\n\ntype Option = | Nope\n\n--| See [`Some`].\ndef h: Nat := 1\n",
+    );
+    let skipping = temp_dir("links-loaded-on");
+    let loading = temp_dir("links-loaded-off");
+    let check = |what: &str| assert_skipping_unchanged(&project, &skipping, &loading, what);
+    let names = |ns: &[&str]| ns.iter().map(|n| n.to_string()).collect::<Vec<_>>();
+
+    assert_eq!(check("cold"), names(&[]));
+    let cold = shown(&plain_check(
+        &project,
+        &temp_dir("links-loaded-cold"),
+        false,
+        false,
+    ));
+    assert!(
+        !cold.contains("Aa.sw") && !cold.contains("Zed.sw"),
+        "{cold}"
+    );
+    assert_eq!(
+        cold.matches("did you mean `Alpha.thingy`?").count(),
+        2,
+        "{cold}"
+    );
+    assert_eq!(check("warm"), names(&["Aa", "Alpha", "Ctors", "Zed"]));
+    let _ = std::fs::remove_dir_all(&project);
+    let _ = std::fs::remove_dir_all(&skipping);
+    let _ = std::fs::remove_dir_all(&loading);
+}
+
 /// A namespace entry that can't be read is a miss when the plain `check`
 /// plans what to load: the namespace is checked again, not left out, and
 /// so is what uses it; what is printed is what loading everything prints.

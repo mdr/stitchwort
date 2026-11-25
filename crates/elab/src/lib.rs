@@ -43,7 +43,6 @@ mod derive_induct;
 mod derive_ord;
 mod derive_show;
 mod doc_links;
-pub use doc_links::declared_keys;
 mod dot;
 mod effects;
 mod equation_notes;
