@@ -35683,15 +35683,18 @@
     {
       "id": 4822,
       "title": "[Sonnet] A way to print a project's namespace edges and check-cache keys (check --explain-keys, or STITCHWORT_CACHE_DEBUG printing each namespace's key and its dependencies): reviews of cache changes had to read keys off entry file names with fresh cache dirs (SW-4813 review friction)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Progress: added 'stitchwort dev keys' (namespace edges, entry key and digest; crates/driver/src/cache_tools.rs) and tests in crates/cli/tests/tools/dev_cache.rs; documented in docs/testing.md and docs/workflow.md. In review.",
+      "body": "Progress: added 'stitchwort dev keys' (namespace edges, entry key and digest; crates/driver/src/cache_tools.rs) and tests in crates/cli/tests/tools/dev_cache.rs; documented in docs/testing.md and docs/workflow.md. In review.\n\nModel result: sonnet, worked, about 9 min (est. 35), with SW-4839.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "a61d739a4",
+        "b26a61ac8"
+      ]
     },
     {
       "id": 4823,
@@ -35933,7 +35936,7 @@
     {
       "id": 4839,
       "title": "[Sonnet] A command that compares two check-cache folders ignoring build keys (scan, ran, std-index names and the build id inside entries): two lanes and two reviews today hand-filtered entry names to show a change kept cache keys (SW-4829, SW-4827 friction; with SW-4822)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
@@ -35941,7 +35944,10 @@
       "body": "Progress: added 'stitchwort dev cache-compare A B' and 'task cache:compare -- A B' (ignores build prefix; scan/ran entries left out and counted). Tests in dev_cache.rs. In review.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "a61d739a4",
+        "b26a61ac8"
+      ]
     },
     {
       "id": 4840,
