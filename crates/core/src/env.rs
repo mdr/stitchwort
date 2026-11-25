@@ -20,6 +20,11 @@ pub struct Env {
     datas: Vec<Data>,
     builtins: Builtins,
     registry: Registry,
+    /// How many of `defs` are [`Def::unproved`]; kept in step with them by
+    /// [`Env::set_unproved`], [`Env::truncate`] and the test-bypass copy, so
+    /// [`Env::unproved_count`] needn't scan. A count too low would let an
+    /// unproved theorem go unseen; debug builds check it against a scan.
+    unproved: usize,
 }
 
 impl Env {
@@ -99,6 +104,7 @@ impl Env {
         def.export = false;
         def.validators = Vec::new();
         def.body = body;
+        self.unproved += usize::from(def.unproved);
         self.defs.push(def);
     }
 
@@ -126,6 +132,29 @@ impl Env {
         &mut self.defs
     }
 
+    /// Marks `id` unproved (or not), keeping the count in step.
+    pub(crate) fn set_unproved(&mut self, id: DefId, unproved: bool) {
+        let def = &mut self.defs[id.0];
+        if def.unproved != unproved {
+            def.unproved = unproved;
+            if unproved {
+                self.unproved += 1;
+            } else {
+                self.unproved -= 1;
+            }
+        }
+    }
+
+    /// How many definitions are [`Def::unproved`].
+    pub fn unproved_count(&self) -> usize {
+        debug_assert_eq!(
+            self.unproved,
+            self.defs.iter().filter(|d| d.unproved).count(),
+            "the unproved count drifted from the definitions"
+        );
+        self.unproved
+    }
+
     pub(crate) fn datas_mut(&mut self) -> &mut Vec<Data> {
         &mut self.datas
     }
@@ -141,6 +170,9 @@ impl Env {
     /// Removes the definitions from `defs` on and the data types from
     /// `datas` on, with the registry entries bound to them.
     pub(crate) fn truncate(&mut self, defs: usize, datas: usize) {
+        if defs < self.defs.len() {
+            self.unproved -= self.defs[defs..].iter().filter(|d| d.unproved).count();
+        }
         self.defs.truncate(defs);
         self.datas.truncate(datas);
         self.registry.forget_from(defs, datas);

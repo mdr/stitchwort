@@ -34810,14 +34810,14 @@
     {
       "id": 4769,
       "title": "[Sonnet] Stage 3 perf: holds_unproved_theorems scans every definition and now runs at each language-server step; keep a count in the kernel (SW-4767 finding)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-24",
-      "updated": "2026-11-24",
+      "updated": "2026-11-25",
       "commits": []
     }
   ]
