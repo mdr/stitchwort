@@ -1336,6 +1336,33 @@ tasks:
         l=$(uptime | awk -F'load averages?: ' '{split($2,a,/[, ]+/); print a[2]}')
         if awk -v l="$l" 'BEGIN{exit !(l > 15)}'; then echo "5-min load $l: hold new lanes"; else echo "5-min load $l: lanes may start"; fi
 
+  load:wait:
+    silent: true
+    desc: 'Wait until the 5-minute load is below N, checking every 15 s (usage: task load:wait -- N [CAP_SECONDS], default cap 600)'
+    cmds:
+      - |
+        set -u
+        set -- {{.CLI_ARGS}}
+        [ $# -ge 1 ] && [ -n "$1" ] || { echo 'usage: task load:wait -- N [CAP_SECONDS]' >&2; exit 2; }
+        n=$1
+        cap=${2:-600}
+        start=$(date +%s)
+        while :; do
+          l=$(uptime | awk -F'load averages?: ' '{split($2,a,/[, ]+/); print a[2]}')
+          if awk -v l="$l" -v n="$n" 'BEGIN{exit !(l < n)}'; then
+            echo "5-min load $l: below $n"
+            exit 0
+          fi
+          elapsed=$(( $(date +%s) - start ))
+          if [ "$elapsed" -ge "$cap" ]; then
+            echo "5-min load $l: not below $n after ${cap}s"
+            exit 1
+          fi
+          remain=$((cap - elapsed))
+          [ "$remain" -gt 15 ] && remain=15
+          sleep "$remain"
+        done
+
   scratch:new:
     silent: true
     desc: 'Make a scratch clone for a DeepSeek task from local main, no remote, release CLI built through kache, check caches cloned; refuses if board/tickets.json has uncommitted changes in the main checkout (task scratch:new -- sw-1083: .claude/worktrees/scratch-sw-1083; delete with rm -rf)'

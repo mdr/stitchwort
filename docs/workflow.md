@@ -435,6 +435,8 @@ times. A clean rebuild with `RUSTC_WRAPPER=` empty is the test of one run.
   out.txt` while the check runs. To give it a run long enough to sample,
   check many copies of the slow theorem (renamed `t1`, `t2`, …) in one
   scratch file.
+- Wait for a quiet machine with task load:wait -- 8 before timing.
+- Summarise a profile with dev/prof-summary.py.
 
 ### Example sweeps, snapshots and std terms (SW-4682)
 
