@@ -326,6 +326,42 @@ fn plain_check(project: &Path, cache: &Path, skip: bool, debug: bool) -> Output 
     )
 }
 
+/// `STITCHWORT_CACHE_DEBUG` is a switch, not a presence test: `0` leaves
+/// the `check cache:` lines off and `1` turns them on (SW-4838).
+#[test]
+fn cache_debug_reads_its_value() {
+    let project = temp_dir("debug-value-project");
+    let cache = temp_dir("debug-value-cache");
+    for (path, text) in [
+        ("stitchwort.yaml", "sources: [src]\n"),
+        ("src/A.sw", "namespace A\n\ndef one: Nat := 1\n"),
+    ] {
+        let full = project.join(path);
+        std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+        std::fs::write(full, text).unwrap();
+    }
+    let run = |value: &str| {
+        let out = stitchwort(
+            &[
+                "check",
+                "--project",
+                project.to_str().unwrap(),
+                "--cache-dir",
+                cache.to_str().unwrap(),
+            ],
+            &[("STITCHWORT_CACHE_DEBUG", value), ("STITCHWORT_JOBS", "1")],
+        );
+        assert!(out.status.success(), "{}", shown(&out));
+        String::from_utf8_lossy(&out.stderr).into_owned()
+    };
+    let off = run("0");
+    assert!(!off.contains("check cache:"), "{off}");
+    let on = run("1");
+    assert!(on.contains("check cache:"), "{on}");
+    let _ = std::fs::remove_dir_all(&project);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
 /// `check --recheck` says what it did: after a cold run, every namespace
 /// is checked again by the kernel from its entry and none is reported as
 /// left out unloaded; with nothing to check again it says so, which must

@@ -1601,10 +1601,10 @@ pub fn assert_holds_no_unproved_theorem(session: &Session) {
 }
 
 /// Whether a plain `check` may leave out the namespaces it doesn't need
-/// ([`Load::Diagnostics`]): unless `STITCHWORT_SKIP_UNNEEDED` is `0`, to
+/// ([`Load::Diagnostics`]): unless `STITCHWORT_SKIP_UNNEEDED` is off (`0`, `false`, empty), to
 /// compare with loading everything.
 fn skip_unneeded_enabled() -> bool {
-    std::env::var_os("STITCHWORT_SKIP_UNNEEDED").is_none_or(|v| v != "0")
+    stitchwort_core::env_flag::env_flag_or("STITCHWORT_SKIP_UNNEEDED", true)
 }
 
 /// `roots` and every namespace they use, directly or not, by name.

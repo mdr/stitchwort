@@ -35914,12 +35914,12 @@
     {
       "id": 4838,
       "title": "[Sonnet] STITCHWORT_CACHE_DEBUG=0 still turns cache debug on (the variable only has to be set); read it as a boolean, and document STITCHWORT_SKIP_UNNEEDED and the cache debug switch in docs/testing.md, including that one namespace with an error stops all skipping (SW-4827 review friction)",
-      "status": "backlog",
-      "agent": "",
+      "status": "review",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Done: env_flag helper in core; CACHE_DEBUG=0 now off; test cache_debug_reads_its_value (failed first); docs/testing.md 'Check-cache switches'. Commit 85c7327f6.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []

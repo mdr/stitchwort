@@ -2733,7 +2733,7 @@ fn hex(key: &Key) -> String {
 }
 
 fn debug(what: &str) {
-    if std::env::var_os("STITCHWORT_CACHE_DEBUG").is_some() {
+    if stitchwort_core::env_flag::env_flag("STITCHWORT_CACHE_DEBUG") {
         eprintln!("check cache: {what}");
     }
 }
