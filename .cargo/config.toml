@@ -10,3 +10,6 @@ rustflags = ["-C", "link-args=-z stack-size=16777216"]
 # instead (`Elaborator::new` reads this; the CLI test binaries inherit it).
 [env]
 STITCHWORT_UNTIMED_COUNTEREXAMPLES = "1"
+# `check` fans out to `auto` workers by default (D3742); tests and lanes run
+# it with 2. `force = false` keeps a value already in the environment.
+STITCHWORT_JOBS = { value = "2", force = false }

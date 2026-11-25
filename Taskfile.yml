@@ -506,7 +506,7 @@ tasks:
           flags="$flags -C link-arg=-fuse-ld=lld -C link-arg=-Wl,-no_deduplicate"
         fi
         RUSTFLAGS="$flags" cargo build --profile trace --bin stitchwort
-      - STITCHWORT_TRACE_RESOURCE=1 '{{.ROOT_DIR}}/target/trace/trace/stitchwort' check {{.CLI_ARGS}}
+      - STITCHWORT_JOBS="${STITCHWORT_JOBS:-2}" STITCHWORT_TRACE_RESOURCE=1 '{{.ROOT_DIR}}/target/trace/trace/stitchwort' check {{.CLI_ARGS}}
 
   # ------------------------------------------------------------- fuzzers
 
@@ -957,7 +957,7 @@ tasks:
     desc: 'Check a .sw file or project namespace (task sw:check -- FILE)'
     deps: [build]
     cmds:
-      - '{{.SW}} check {{.CLI_ARGS}}'
+      - 'STITCHWORT_JOBS="${STITCHWORT_JOBS:-2}" {{.SW}} check {{.CLI_ARGS}}'
 
   sw:test:
     desc: "Run a .sw file's tests (task sw:test -- FILE)"
@@ -979,7 +979,7 @@ tasks:
     deps: [build]
     dir: aoc
     cmds:
-      - '{{.SW}} check {{.CLI_ARGS}}'
+      - 'STITCHWORT_JOBS="${STITCHWORT_JOBS:-2}" {{.SW}} check {{.CLI_ARGS}}'
 
   audit:
     desc: 'Audit every theorem of std, aoc and the roguelike for axioms beyond the allowed ones and unfinished proofs, without the counterexample search (about 11 s warm); run at every merge (D2043)'
