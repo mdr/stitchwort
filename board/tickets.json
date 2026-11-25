@@ -1,5 +1,5 @@
 {
-  "next": 4845,
+  "next": 4846,
   "tickets": [
     {
       "id": 47,
@@ -36023,6 +36023,19 @@
     {
       "id": 4844,
       "title": "[Opus] The reference validator checks a computed binder's mark with the kernel's own sort_of (the same sort_of_stuck route prop_mark took), a weaker cross-check than written binders' check_type: read the domain back and check_type it within the same budget, falling back to sort_of when read-back runs out (SW-4802 Fable review F4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4845,
+      "title": "[Sonnet] Rerun the Lean checking-comparison bench after core-from-cache (SW-4814) and today's other start-up fixes; add then-and-now against SW-4818's run (SW-4814 follow-up)",
       "status": "backlog",
       "agent": "",
       "where": "",
