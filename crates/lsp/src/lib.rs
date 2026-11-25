@@ -5049,7 +5049,7 @@ mod wasm {
 /// long it takes, to standard error (the client's log).
 fn trace(line: impl FnOnce() -> String) {
     static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    if *ON.get_or_init(|| std::env::var_os("STITCHWORT_LSP_TRACE").is_some()) {
+    if *ON.get_or_init(|| stitchwort_core::env_flag::env_flag("STITCHWORT_LSP_TRACE")) {
         eprintln!("stitchwort lsp: {}", line());
     }
 }

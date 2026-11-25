@@ -81,7 +81,7 @@ impl Span {
 /// elaborator doesn't have it). Unset, `add` pays one cached read.
 fn describing() -> bool {
     static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *ON.get_or_init(|| std::env::var_os("STITCHWORT_BIG_READBACK").is_some())
+    *ON.get_or_init(|| crate::env_flag::env_flag("STITCHWORT_BIG_READBACK"))
 }
 
 /// Name and text of each file added since `STITCHWORT_BIG_READBACK` was set,

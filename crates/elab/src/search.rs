@@ -1823,7 +1823,7 @@ impl Elaborator {
         match found {
             Ok(hit) => hit,
             Err(why) => {
-                if std::env::var_os("STITCHWORT_SEARCH_DEBUG").is_some() {
+                if stitchwort_core::env_flag::env_flag("STITCHWORT_SEARCH_DEBUG") {
                     eprintln!("search: {} ran out ({why:?})", candidate.item.path(g));
                 }
                 stats.out_of_budget += 1;

@@ -665,7 +665,7 @@ fn term_within(
         *printer.predicates.borrow_mut() = goal.unwrap_or_default().to_vec();
         printer
     };
-    let full_terms = std::env::var_os("STITCHWORT_FULL_TERMS").is_some();
+    let full_terms = crate::env_flag::env_flag("STITCHWORT_FULL_TERMS");
     // Printing a term builds its text from the inside out, so a huge one
     // (a closed list of 130,000 sequences, AoC 2024 day 22) takes minutes
     // and gigabytes; one this big is longer than `limit` anyway.
