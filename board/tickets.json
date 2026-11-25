@@ -1,5 +1,5 @@
 {
-  "next": 4786,
+  "next": 4788,
   "tickets": [
     {
       "id": 47,
@@ -35037,7 +35037,7 @@
     {
       "id": 4782,
       "title": "[Opus] Design note: should a hash cite a definition without its inline proofs (an invariant, a decreasing proof, Quot.lift's proof), as rule I does for theorems, so that editing an inline proof moves only that definition? This touches pins and the test and check caches: an identity question, end state only (SW-4778 finding)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -35045,7 +35045,10 @@
       "body": "",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "d690148f6",
+        "3a0001242"
+      ]
     },
     {
       "id": 4783,
@@ -35080,6 +35083,32 @@
     {
       "id": 4785,
       "title": "[Sonnet] Editor shutdown waits for a cold library load: with a cold library, client.shutdown() returned 33 s after the fill's last entry (SW-4780 measured: Mid at 2.3 s, shutdown at 35.8 s); find where the checker's library load sees the cancel flag and make closing the editor prompt (SW-4780 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4786,
+      "title": "[Opus] The proofless hash omits a cast's ends: J (y e => Nat) 5 (p: 2 = 2) and J (y e => Nat) 5 (q: 2 = g 7) share a proofless hash, but rule K computes one and leaves the other stuck (term.rs:276-282, 553-564; hash.rs:923-926). The ProofsOnly promise relies on that hash. Fix: hash the Ann's equation and blank only the proof under it, with a fixture showing both hashes differ. Also correct the sentence in docs/proposals/trial-promises-after-rule-i.md that a matching proofless hash means the checker can't tell the two apart, and the stale comment at erase.rs:69-71 (SW-4782 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4787,
+      "title": "[Sonnet] Count the inline proofs in computing definitions across std, aoc, games/rogue and tools/fmt: declarations whose proofless and content hashes differ for a reason other than a theorem reference, grouped by kind (invariant, decreasing, Quot.lift, lifted match, a def whose type is a proposition). A one-off report that decides whether lifting inline proofs into hidden theorems is worth designing (SW-4782)",
       "status": "backlog",
       "agent": "",
       "where": "",
