@@ -13,7 +13,9 @@ met and lists every piece of state loading the core sets.
   replay); `Session::start_with_core` and `start_cached` in
   `crates/driver/src/driver.rs`; the process-wide switch
   `check_cache::use_core_cache(dir, recheck)`, set by the CLI with the
-  name index (`use_index_and_core_cache`: `check`, `run`, `test`) and by
+  name index (`use_index_cache` / `use_index_and_core_cache`: `check`,
+  `check --std`, `test`, and everything that loads a program through
+  `load_main`: `run`, `build`, the opcode census) and by
   the editor at start. Nothing else sets it, so tests, snapshots, the
   benchmark and `--no-cache` elaborate and check the core from source.
 - **Who uses it.** `Session::start` passes the switch on only for
