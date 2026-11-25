@@ -35371,13 +35371,13 @@
     },
     {
       "id": 4802,
-      "title": "[Sonnet] reference::validate_pi_marks (crates/core/src/reference.rs:1763, :1792) collects binder marks by walking Term::Pi over def.ty as written, so a definition with a nickname signature (def f: Reader) skips the lambda-against-binder check; walk the computed type instead, as SW-4796 did for rule S (SW-4800 finding 3)",
-      "status": "done",
+      "title": "[Opus] reference::validate_pi_marks (crates/core/src/reference.rs:1763, :1792) collects binder marks by walking Term::Pi over def.ty as written, so a definition with a nickname signature (def f: Reader) skips the lambda-against-binder check; walk the computed type instead, as SW-4796 did for rule S (SW-4800 finding 3)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Sonnet lane: validate_pi_marks evaluates, forces and quotes a non-Pi type, so marks of nickname signatures are checked. No new failures: proof_masks and soundness pass; 31 computed-type walks hit by example 39b. No test fails if skipped (a mark mismatch needs a corrupted term).\n\nModel result: sonnet, worked (no failing-before test: the validator has no seam for a corrupted mark), shared with SW-4801.",
+      "body": "Sonnet lane: validate_pi_marks evaluates, forces and quotes a non-Pi type, so marks of nickname signatures are checked. No new failures: proof_masks and soundness pass; 31 computed-type walks hit by example 39b. No test fails if skipped (a mark mismatch needs a corrupted term).\n\nModel result: sonnet, worked (no failing-before test: the validator has no seam for a corrupted mark), shared with SW-4801.\n\nReverted 25 Nov (534945f89): the whole-AoC check segfaulted at f9e2c847e with unbounded recursion in reference::eval (unfold -> apply_icit -> eval_tree -> eval, Overmind's core dump). validate_pi_marks evaluated and forced every non-Pi definition type at admission with the reference evaluator, which has no bound. Redo on Opus: bound it (the kernel's budget, or force only to the first Pi with the kernel evaluator), find the AoC definition that loops, and add it as a test.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": [
