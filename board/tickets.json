@@ -34668,12 +34668,12 @@
     {
       "id": 4760,
       "title": "[Opus] Editor: fill a cold cache with --jobs workers at language-server start-up (parallel-checking.md 9.2 follow-up; gets stage 3 for free), with the server's cancel flag given to the workers; measure time to first diagnostics on tools/fmt",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nProgress (25 Nov, Opus lane, est. 75 min, actual about 45 min by the clock): built as parallel-checking.md 9.9 on lane/SW-4760. Setting `startupWorkers` (off by default; auto or N; env STITCHWORT_STARTUP_WORKERS). Measured tools/fmt, project cold, library warm, deepest file: first diagnostics 133/140 s off vs 55/33 s with 8 workers (whole project 141/147 vs 58/35 s); peak 3.0 GB off vs 7.0 GB on (measured-2026-11-25/lsp-startup.txt). Tests: lsp::a_startup_fill_gives_the_same_diagnostics, lsp::shutdown_during_a_startup_fill_writes_nothing_partial (server binary). Open for Matt: whether the default becomes auto (or a fixed 4).\n",
       "created": "2026-11-24",
       "updated": "2026-11-25",
       "commits": []
