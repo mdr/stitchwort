@@ -417,6 +417,59 @@ fn check_jobs_prints_what_one_job_does_and_one_job_for_recheck() {
     }
 }
 
+/// `check --jobs 4` of what the last check read (the project's files, the
+/// library, the build) starts no worker, not even the first, whose session
+/// would only plan what the check after it plans again (SW-4820); a changed
+/// file under several namespaces still starts them.
+#[test]
+fn check_jobs_starts_no_worker_when_nothing_changed_since_the_last_check() {
+    let project = temp_dir("jobs-unchanged-project");
+    copy_dir(
+        &Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../driver/tests/projects/parallel/par_project"),
+        &project,
+    );
+    let cache = temp_dir("jobs-unchanged-cache");
+    let run = || {
+        let output = stitchwort(
+            &[
+                "check",
+                "--project",
+                project.to_str().unwrap(),
+                "--cache-dir",
+                cache.to_str().unwrap(),
+                "--jobs",
+                "4",
+                "--timings",
+            ],
+            &[],
+        );
+        assert!(output.status.success(), "{}", shown(&output));
+        String::from_utf8_lossy(&output.stderr).into_owned()
+    };
+    let unchanged = "one job: nothing changed since the last check";
+    let cold = run();
+    assert!(
+        cold.contains("with 4 jobs") && cold.contains("filled"),
+        "{cold}"
+    );
+    let warm = run();
+    assert!(warm.contains(unchanged), "{warm}");
+    // Everything above `Par.Base` misses.
+    let base = project.join("src/Par/Base.sw");
+    let text = std::fs::read_to_string(&base).unwrap();
+    std::fs::write(&base, text.replace(":= 3", ":= 5")).unwrap();
+    let edited = run();
+    assert!(
+        edited.contains("filled") && !edited.contains(unchanged),
+        "{edited}"
+    );
+    let again = run();
+    assert!(again.contains(unchanged), "{again}");
+    let _ = std::fs::remove_dir_all(&project);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
 /// With no `--jobs` and no `STITCHWORT_JOBS`, `check` runs `auto` workers
 /// (D3742): more than one on a machine with several cores. `STITCHWORT_JOBS=1`
 /// gives one job.

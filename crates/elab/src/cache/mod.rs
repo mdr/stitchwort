@@ -803,6 +803,12 @@ impl Elaborator {
         )
     }
 
+    /// What every entry's key holds of how this elaborator checks: for a
+    /// host's own record of what a check read (`parallel::Inputs`).
+    pub fn check_cache_modes(&self) -> String {
+        self.modes()
+    }
+
     /// What navigation records, as part of a cache key: entries made with
     /// less aren't used.
     fn nav_tag(&self) -> &'static str {
