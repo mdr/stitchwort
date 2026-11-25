@@ -35979,15 +35979,20 @@
     {
       "id": 4841,
       "title": "[Sonnet] Core-from-cache test gaps (SW-4814 Fable review findings 2, 3, 8): a custom-prelude core_entry test with a kept warning (nested trans) so the warnings comparison isn't vacuous; a test that options in the key (limits, glue) miss; after binding List.length on the trusted path, compare its run body with length_run_body's",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Orchestrator review: clear_run_body only lets the replay remake List.length's run body as the elaborator does; a run body is in no hash. Model result: sonnet, worked, 17 min (est. 30), plus the two main fixes.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "79bc42078",
+        "6aff0d09c",
+        "36d929303",
+        "ed377c19b"
+      ]
     },
     {
       "id": 4842,
