@@ -627,3 +627,24 @@ fn cleared_marks_are_derived_again() {
     }
     assert!(compared >= 10, "only {compared} bodies compared");
 }
+
+/// The reference build's validator re-checks the proof marks of `f`'s
+/// parameters off its type computed (SW-4802) as the kernel computed it,
+/// with gluing on: the closed call `slow 100000000` in the domain stays a
+/// call, so the validator fits in the small budget the kernel's own check
+/// fits in, instead of running out and refusing `f`.
+#[test]
+fn computed_binders_are_validated_glued_within_the_kernels_budget() {
+    let mut session = Session::eager();
+    session.elab.options.limits.work = 10_000_000;
+    let source = "import Std (Nat, Eq)\n\n\
+        def slow: Nat → Nat\n  | 0 => 0\n  | Succ n => slow n\n\n\
+        type Box: Nat → Type = | MkBox (n: Nat): Box n\n\n\
+        def R: Type := Box (slow 100000000) → Nat\n\n\
+        def f: R := b => 0\n\n\
+        def Q: Type := (slow 100000000 = 0) → Nat\n\n\
+        def q: Q := p => 0\n";
+    if let Err(e) = session.load("glued.sw", source) {
+        panic!("{e:?}");
+    }
+}

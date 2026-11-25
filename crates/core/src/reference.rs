@@ -1746,7 +1746,16 @@ pub fn is_proof(g: &Ev, value: &Value) -> ProofMark {
 /// `Quot.sound` are proofs, `Quot` and `Quot.mk` aren't; and the
 /// definition's own mark is its type's sort, from checking the type whole
 /// (not peeling its binders, as the kernel's derivation does).
-pub fn validate_marks(g: &Ev, ids: &[DefId]) {
+///
+/// A parameter's binder may come from a type that computes to a function
+/// type (`def f: Reader`): those are found by forcing, with the kernel's
+/// budgeted evaluator, only as far as the body has lambdas, as the kernel did
+/// to check them. Running out of resources there refuses the group with the
+/// error returned, rather than leaving its lambdas unchecked.
+pub fn validate_marks(
+    g: &Ev,
+    ids: &[DefId],
+) -> std::result::Result<(), stitchwort_syntax::Diagnostic> {
     for id in ids {
         let def = g.def(*id);
         let name = def.name();
@@ -1759,9 +1768,39 @@ pub fn validate_marks(g: &Ev, ids: &[DefId]) {
             "internal error: `{name}` is marked {}a proof, but its type's sort is {sort:?}",
             if def.proof() { "" } else { "not " }
         );
+        // The binders are bound, and the rest of the type computed, as the
+        // kernel's checking of the body bound and forced them: under the
+        // definition's own transparency set, with gluing on (`admit_group`),
+        // so a closed call the kernel left glued in a domain is not
+        // computed here either. The computed walk gets a budget of its own.
+        let _set = g.machine.transparent.set(def.transparent.clone());
+        let glued = g.machine.glue.replace(true);
         let mut binders = Vec::new();
-        if validate_pi_marks(&mut cx, &def.ty, &mut binders).is_err() {
-            continue;
+        let walked = match validate_pi_marks(&mut cx, &def.ty, def.arity, &mut binders) {
+            Ok(Some(rest)) => Some(g.machine.budget.aside(g.machine.budget.limits(), || {
+                validate_computed_marks(g, &mut cx, &rest, def.arity, &mut binders)
+            })),
+            Ok(None) => Some(Ok(())),
+            Err(_) => None,
+        };
+        g.machine.glue.set(glued);
+        match walked {
+            None => continue,
+            Some(Ok(())) => {}
+            // Running out leaves the lambdas unchecked, so the group is
+            // refused; any other error means the kernel admitted a body
+            // whose type the same evaluation can't read.
+            Some(Err(e)) if e.code == "E-RESOURCE" => {
+                return Err(e.with_note(format!(
+                    "it ran out while the reference build re-checked the proof marks of \
+                     `{name}`'s parameters, reading them off its type computed"
+                )));
+            }
+            Some(Err(e)) => panic!(
+                "internal error: re-checking the proof marks of `{name}`'s parameters off its \
+                 type computed failed: [{}] {}",
+                e.code, e.message
+            ),
         }
         if let Some(body) = &def.body {
             let mut t = body.strip_loc();
@@ -1780,17 +1819,29 @@ pub fn validate_marks(g: &Ev, ids: &[DefId]) {
         }
         validate_local_marks(&def.ty, name);
     }
+    Ok(())
 }
 
-/// The function types along `ty`'s spine of codomains: each binder's mark
-/// against its domain's sort, checked again. Collects the marks in order.
+/// The function types along `ty`'s spine of codomains, as written: each
+/// binder's mark against its domain's sort, checked again. Collects the
+/// marks in order. If the spine stops at a type that isn't written as a
+/// function type before `arity` binders, that type is returned, with the
+/// binders before it left bound in `cx`, for [`validate_computed_marks`].
 fn validate_pi_marks(
     cx: &mut crate::check::Ctx,
     ty: &Term,
+    arity: usize,
     marks: &mut Vec<ProofMark>,
-) -> std::result::Result<(), stitchwort_syntax::Diagnostic> {
+) -> std::result::Result<Option<Term>, stitchwort_syntax::Diagnostic> {
     let Term::Pi(x, _, dom, cod, mark) = ty.strip_loc() else {
-        return Ok(());
+        // Only as far as the lambdas go: the result type past them is
+        // never forced, so a type that computes slowly, or one that the
+        // kernel left to compute lazily, costs nothing here.
+        return if marks.len() < arity {
+            Ok(Some(ty.clone()))
+        } else {
+            Ok(None)
+        };
     };
     let (_, sort) = crate::check::check_type(cx, dom)?;
     let derived = ProofMark::from_bool(sort == Sort::Prop);
@@ -1801,9 +1852,50 @@ fn validate_pi_marks(
     marks.push(*mark);
     let dom_value = cx.eval(dom)?;
     cx.bind(x.clone(), dom_value, *mark);
-    let result = validate_pi_marks(cx, cod, marks);
-    cx.unbind(1);
+    let result = validate_pi_marks(cx, cod, arity, marks);
+    if !matches!(result, Ok(Some(_))) {
+        cx.unbind(1);
+    }
     result
+}
+
+/// [`validate_pi_marks`] past the written spine: `rest`, the rest of the
+/// type, evaluated and forced to a function type for each lambda left
+/// (weak-head, with the kernel's evaluator: `value::force` takes budgeted
+/// steps and keeps to the operation's stack, where the reference
+/// evaluator's normal form has no bound), and each binder's mark checked
+/// against its domain's sort. The kernel checked each of those lambdas
+/// against the type forced to a function type, under the same transparency
+/// set, so one that doesn't force to one is an internal error.
+fn validate_computed_marks(
+    g: &Ev,
+    cx: &mut crate::check::Ctx,
+    rest: &Term,
+    arity: usize,
+    marks: &mut Vec<ProofMark>,
+) -> std::result::Result<(), stitchwort_syntax::Diagnostic> {
+    let mut ty = cx.eval(rest)?;
+    while marks.len() < arity {
+        let Value::Pi(x, _, dom, cod, mark) = crate::value::force(g, ty)? else {
+            panic!(
+                "internal error: a definition has {arity} parameters, but its type computes to \
+                 only {} function types",
+                marks.len()
+            );
+        };
+        let sort = crate::check::sort_of(cx, &dom)?;
+        let derived = ProofMark::from_bool(sort == Sort::Prop);
+        assert!(
+            mark == derived,
+            "internal error: binder `{x}` of a computed function type is marked {mark:?}, but its \
+             type's sort is {sort:?}"
+        );
+        marks.push(mark);
+        let var = Value::var_marked(cx.level(), mark);
+        cx.bind(x.clone(), (*dom).clone(), mark);
+        ty = cod.apply(g, var)?;
+    }
+    Ok(())
 }
 
 /// Every mark in `term` decided, and the ones fixed by their form right.

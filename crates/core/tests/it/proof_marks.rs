@@ -173,5 +173,5 @@ fn definitions_are_marked_by_their_types_sort() {
     assert_eq!(is_proof(&g, &Value::Refl), ProofMark::Proof);
     assert_eq!(is_proof(&g, &Value::Sort(Sort::Prop)), ProofMark::NotProof);
     // The reference validator agrees with the installed marks.
-    stitchwort_core::reference::validate_marks(&g, &[proof, data]);
+    stitchwort_core::reference::validate_marks(&g, &[proof, data]).expect("within budget");
 }

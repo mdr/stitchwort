@@ -2808,10 +2808,20 @@ fn install_group(
             // the entry was written (docs/proposals/check-cache-trust.md,
             // "Assertions": a replay skips the dev-only checks; SW-4811).
             #[cfg(feature = "reference")]
-            if !trusted {
-                g.machine
+            if !trusted
+                && let Err(e) = g
+                    .machine
                     .budget
-                    .uncounted(|| crate::reference::validate_marks(&g.ev(), &ids));
+                    .uncounted(|| crate::reference::validate_marks(&g.ev(), &ids))
+            {
+                // Refused whole, as if admission had failed: no member
+                // stays installed with marks the validator couldn't check.
+                for id in ids.iter() {
+                    let def = &mut g.env.defs_mut()[id.0];
+                    def.state = State::Failed;
+                    def.body = None;
+                }
+                return Err(e);
             }
             #[cfg(not(feature = "reference"))]
             let _ = trusted;
