@@ -35093,15 +35093,19 @@
     {
       "id": 4785,
       "title": "[Sonnet] Editor shutdown waits for a cold library load: with a cold library, client.shutdown() returned 33 s after the fill's last entry (SW-4780 measured: Mid at 2.3 s, shutdown at 35.8 s); find where the checker's library load sees the cancel flag and make closing the editor prompt (SW-4780 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Lane: cold library load took 34.8 s to stop (test shutdown_during_a_cold_library_load_is_prompt); Elaborator::load_libraries now checks the budget's cancel flag between files; shutdown 1.5 s. Model result: sonnet, worked.",
+      "body": "Lane: cold library load took 34.8 s to stop (test shutdown_during_a_cold_library_load_is_prompt); Elaborator::load_libraries now checks the budget's cancel flag between files; shutdown 1.5 s. Model result: sonnet, worked.\n\nModel result: sonnet, needed fixes (the first version read the edit-cancel flag, so a keystroke during a cold load would have made the project fatal; review caught it, a separate stop flag fixed it), about 25 min (est. 35).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "45cfc611e",
+        "583160548",
+        "38edbcef2"
+      ]
     },
     {
       "id": 4786,
