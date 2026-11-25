@@ -1,5 +1,5 @@
 {
-  "next": 4805,
+  "next": 4806,
   "tickets": [
     {
       "id": 47,
@@ -35404,6 +35404,19 @@
     {
       "id": 4804,
       "title": "[Sonnet] STITCHWORT_CACHE_DEBUG prints only a namespace's digest as hex, so 'why did this namespace miss' needs hand-comparing hashes: print the digest's inputs (or one line per dependency digest) under the debug flag (SW-4777 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4805,
+      "title": "[Sonnet] check uses parallel workers by default (D3742, Matt: 'yes'): --jobs defaults to auto (parallel::auto_jobs: min(cores, 8, mem / 2 GB)), with STITCHWORT_JOBS and --jobs still overriding; lanes and verifiers set STITCHWORT_JOBS=2",
       "status": "backlog",
       "agent": "",
       "where": "",
