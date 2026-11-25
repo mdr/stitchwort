@@ -243,7 +243,7 @@ fn project_entry(dir: &Path) -> Option<String> {
         .namespaces
         .iter()
         .filter(|namespace| {
-            namespace.modules.iter().any(|module| {
+            namespace.modules().iter().any(|module| {
                 module
                     .decls
                     .iter()

@@ -1317,13 +1317,10 @@ fn parse_namespace(
         };
         session.elab.namespace_edges(&syntax)
     };
-    Namespace {
-        name: name.to_string(),
-        files: ids,
-        modules,
-        parse_errors,
-        edges,
-    }
+    let modules = (ids.iter().zip(modules))
+        .map(|(id, module)| crate::project::LazyModule::parsed(*id, module))
+        .collect();
+    Namespace::new(name.to_string(), ids, modules, parse_errors, edges)
 }
 
 // ---- a file on its own --------------------------------------------------

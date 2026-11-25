@@ -35542,12 +35542,12 @@
     {
       "id": 4813,
       "title": "[Sonnet] A project check parses every file in the project to find its namespaces (aoc: 633 files, 175-207 ms per check); cache each file's analysis by content hash or read headers only (SW-4809 item 3)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "D3744 (amended per SW-4816), Matt 25 Nov 2026: 'D3744 proceed'. Requirements: docs/reviews/SW-4816-checking-profile-review.md section 3.",
+      "body": "D3744 (amended per SW-4816), Matt 25 Nov 2026: 'D3744 proceed'. Requirements: docs/reviews/SW-4816-checking-profile-review.md section 3.\n\nLane (Sonnet): done on lane/SW-4813. FileSketch (crates/elab/src/project/sketch.rs) kept per file by BLAKE3 text hash in one check-cache entry per project (unit scan<hash of project>, keyed by compiler build, salt, stack limit); namespaces' syntax parsed lazily (LazyModule); parallel fill scans once. Day 2, warm, jobs 1: 534 -> 392 ms (load 10, older main binary as baseline). Tests: project_analysis::scan_cache (4).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []

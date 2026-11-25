@@ -80,7 +80,7 @@ use stitchwort_syntax::{Severity, SourceMap};
 use crate::check_cache::{ClaimStore, Claims};
 use crate::driver::Session;
 use crate::project::{
-    Analysis, CONFIG, Files, Load, Target, analyse, dependencies, project_sources,
+    Analysis, CONFIG, Files, Load, Scan, Target, analyse_scan, dependencies, project_sources,
 };
 use crate::rewind::Mark;
 
@@ -620,11 +620,16 @@ pub fn fill(files: &(dyn Files + Sync), project: &str, target: &Target, jobs: &J
     let Ok(texts) = project_sources(files, project, &mut SourceMap::new()) else {
         return Fill::default();
     };
+    // Scanned once for every worker (and the check after them, from the
+    // cache): each parses only the namespaces it checks.
+    // The stack limit the workers' sessions have for this stack.
+    let stack = stitchwort_core::Limits::for_stack(jobs.stack).stack;
+    let scan = Scan::new(texts, stack, project, Some(&*(jobs.make_store)()));
     let read = Read {
         files,
         project,
         config: &config,
-        texts: &texts,
+        scan: &scan,
     };
     let claims = Arc::new(Claims::new(CLAIM_PATIENCE));
     let interfaces = Arc::new(Interfaces::default());
@@ -666,8 +671,8 @@ pub fn fill(files: &(dyn Files + Sync), project: &str, target: &Target, jobs: &J
                     .analysis
                     .namespace(&order[i])
                     .expect("a namespace")
-                    .modules
-                    .iter())
+                    .modules()
+                    .into_iter())
                 .flat_map(|m| &m.decls)
                 .any(may_defer);
             if wanted {
@@ -788,7 +793,7 @@ struct Read<'a> {
     /// The text of `stitchwort.yaml`.
     config: &'a str,
     /// (path within the project, text) of its `.sw` files.
-    texts: &'a [(String, String)],
+    scan: &'a Scan,
 }
 
 /// What the workers share.
@@ -1013,7 +1018,7 @@ impl Worker {
         (read.files)
             .config(read.config, &display, &mut session.sources)
             .ok()?;
-        let analysis = analyse(&mut session, read.project, read.texts.to_vec());
+        let analysis = analyse_scan(&mut session, read.project, read.scan);
         if !analysis.diagnostics.is_empty() {
             return None;
         }
