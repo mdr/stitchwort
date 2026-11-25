@@ -34932,15 +34932,20 @@
     {
       "id": 4775,
       "title": "[Sonnet] byWalking inside a nested match in the recursive arm fails with 'no lemma for this call of next' (goal shows look() unfolded to Parse.next); repro: the givesDown fixture of SW-4758's test with | Succ more => (match more with | Zero => byWalking [] | Succ m => byWalking []) (SW-4758 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nProgress (Sonnet lane): cause was that a match written in the proof steps the goal's code (look() reaches the walk as Call Parse.next, down (Succ more) as bind), so the registered-lemma filter by callee missed it and the theorem's own function was read off the (stepped) body. Fixed in walk/registry.rs and walk/mod.rs; example walk-nested-match.sw. Model result: Sonnet, worked, 25 min (est. 45).\n",
+      "body": "Model result: sonnet, needed fixes (the lemma search was made two-tier, so a call keeps its one lemma about the operation itself), 17 + 10 min (est. 45).\nCause: a match in the proof steps the goal, so look() reaches the walk as the operation Parse.next.\n",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "28f905c8e",
+        "e7b5edb79",
+        "e09745e9f",
+        "0319d94d5"
+      ]
     },
     {
       "id": 4776,
