@@ -1,17 +1,49 @@
 //! On/off switches read from environment variables.
+//!
+//! The implementation lives in `stitchwort_syntax::env_flag`, which `core`
+//! depends on, so the lower crate can read its own switches; this is the same
+//! helper under the path the rest of the workspace uses.
 
-/// Whether the environment variable `name` switches something on. Unset,
-/// empty, `0` and `false` are off; anything else is on, so
-/// `STITCHWORT_X=0` turns a switch off rather than on.
-pub fn env_flag(name: &str) -> bool {
-    env_flag_or(name, false)
-}
+pub use stitchwort_syntax::env_flag::{env_flag, env_flag_or};
 
-/// Like [`env_flag`], for a switch that is on unless set off: `default`
-/// applies only when the variable is unset.
-pub fn env_flag_or(name: &str, default: bool) -> bool {
-    match std::env::var_os(name) {
-        None => default,
-        Some(v) => !(v.is_empty() || v == "0" || v == "false"),
+#[cfg(test)]
+mod tests {
+    use super::{env_flag, env_flag_or};
+
+    /// A name no other test reads, since the environment is process-wide.
+    const NAME: &str = "STITCHWORT_ENV_FLAG_TEST_SWITCH";
+
+    #[test]
+    #[allow(unsafe_code)] // set_var and remove_var are unsafe in edition 2024.
+    fn unset_empty_zero_and_false_are_off() {
+        // SAFETY: this is the only test that touches this variable, and no
+        // other thread reads it while the test runs.
+        unsafe {
+            std::env::remove_var(NAME);
+        }
+        assert!(!env_flag(NAME));
+        assert!(env_flag_or(NAME, true));
+
+        for off in ["", "0", "false"] {
+            // SAFETY: see above.
+            unsafe {
+                std::env::set_var(NAME, off);
+            }
+            assert!(!env_flag(NAME), "{off:?} should be off");
+            assert!(!env_flag_or(NAME, true), "{off:?} should be off");
+        }
+        for on in ["1", "true", "yes"] {
+            // SAFETY: see above.
+            unsafe {
+                std::env::set_var(NAME, on);
+            }
+            assert!(env_flag(NAME), "{on:?} should be on");
+            assert!(env_flag_or(NAME, false), "{on:?} should be on");
+        }
+
+        // SAFETY: see above.
+        unsafe {
+            std::env::remove_var(NAME);
+        }
     }
 }

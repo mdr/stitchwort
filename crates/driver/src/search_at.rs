@@ -2103,7 +2103,7 @@ impl Session {
             own: ns.clone(),
         };
         debug_time("project: loaded", t0);
-        if std::env::var_os("STITCHWORT_SEARCH_DEBUG").is_some() {
+        if stitchwort_core::env_flag::env_flag("STITCHWORT_SEARCH_DEBUG") {
             eprintln!("search --at: cache {:?}", self.elab.check_cache_stats());
         }
         let mut report = self.search_at(&found, &display, options, &scope, None)?;
@@ -2239,7 +2239,7 @@ fn first_error(diagnostics: &[Diagnostic], why: &str) -> Diagnostic {
 /// With `STITCHWORT_SEARCH_DEBUG` set, how long `search --at` has taken by
 /// each of its phases.
 fn debug_time(phase: &str, started: Instant) {
-    if std::env::var_os("STITCHWORT_SEARCH_DEBUG").is_some() {
+    if stitchwort_core::env_flag::env_flag("STITCHWORT_SEARCH_DEBUG") {
         eprintln!(
             "search --at: {phase} at {:.2} s",
             started.elapsed().as_secs_f64()

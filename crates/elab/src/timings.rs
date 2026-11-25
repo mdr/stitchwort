@@ -53,7 +53,7 @@ pub fn request(shown: usize) {
 #[inline]
 pub fn enabled() -> bool {
     static ON: OnceLock<bool> = OnceLock::new();
-    *ON.get_or_init(|| std::env::var_os("STITCHWORT_TIMINGS").is_some())
+    *ON.get_or_init(|| stitchwort_core::env_flag::env_flag("STITCHWORT_TIMINGS"))
         || REQUESTED.load(Ordering::Relaxed) != 0
 }
 

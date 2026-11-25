@@ -1192,7 +1192,7 @@ pub fn decide(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
     if !g.machine.glue.get() {
         return decide_unglued(cx, prop, depth);
     }
-    let both = std::env::var_os("STITCHWORT_DECIDE_BOTH").is_some();
+    let both = stitchwort_core::env_flag::env_flag("STITCHWORT_DECIDE_BOTH");
     let unfolded = if both {
         let snapshot = crate::undo::Snapshot::take(cx);
         let written = cx.quote_unfolded(prop);

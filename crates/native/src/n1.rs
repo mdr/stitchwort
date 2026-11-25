@@ -798,7 +798,7 @@ fn compile_audited(
         return Err(vec![why]);
     }
     let plan = plan(program, image, roots)?;
-    let dump = std::env::var_os("STITCHWORT_NATIVE_DUMP").is_some();
+    let dump = stitchwort_core::env_flag::env_flag("STITCHWORT_NATIVE_DUMP");
     let start = Instant::now();
     let fail = |e: String| vec![format!("compiling to native code failed: {e}")];
     let isa = host_isa(false).map_err(fail)?;

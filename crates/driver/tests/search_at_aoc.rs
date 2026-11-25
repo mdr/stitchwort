@@ -212,7 +212,7 @@ fn same_lemma(name: &str, proof: &str, head: &str) -> bool {
 
 fn run(case: &Case, files: &dyn Files, cache: &Path) -> Outcome {
     let started = Instant::now();
-    if std::env::var_os("STITCHWORT_AT_BENCH_VERBOSE").is_some() {
+    if stitchwort_core::env_flag::env_flag("STITCHWORT_AT_BENCH_VERBOSE") {
         eprintln!("start {}:{} {}", case.path, case.line, case.theorem);
     }
     let overlay = Overlay {
@@ -230,7 +230,7 @@ fn run(case: &Case, files: &dyn Files, cache: &Path) -> Outcome {
     let found = session.search_at_project(&goal, &AtOptions::default());
     drop(session);
     let time = started.elapsed();
-    if std::env::var_os("STITCHWORT_AT_BENCH_VERBOSE").is_some() {
+    if stitchwort_core::env_flag::env_flag("STITCHWORT_AT_BENCH_VERBOSE") {
         eprintln!(
             "done  {:>6.2} s {}:{} {} := {}",
             time.as_secs_f64(),

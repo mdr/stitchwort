@@ -292,7 +292,7 @@ fn wasm_bundle_current() -> bool {
          --target wasm32-unknown-unknown --release` and `wasm-bindgen --target web \
          --no-typescript --out-dir web/pkg \
          target/wasm32-unknown-unknown/release/stitchwort_web.wasm`)";
-    if std::env::var_os("STITCHWORT_REQUIRE_WASM").is_some_and(|value| value == "1") {
+    if stitchwort_core::env_flag::env_flag("STITCHWORT_REQUIRE_WASM") {
         panic!(
             "web/pkg {why}, and STITCHWORT_REQUIRE_WASM=1 requires the WebAssembly kernel. {rebuild}"
         );

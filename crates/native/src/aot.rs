@@ -91,7 +91,7 @@ pub fn compile_object(
     let builder = ObjectBuilder::new(isa, "program", default_libcall_names())
         .map_err(|e| fail(e.to_string()))?;
     let mut module = ObjectModule::new(builder);
-    let dump = std::env::var_os("STITCHWORT_NATIVE_DUMP").is_some();
+    let dump = stitchwort_core::env_flag::env_flag("STITCHWORT_NATIVE_DUMP");
     let mut audit = Audit::new(program, image, false);
     let Emitted {
         functions,

@@ -195,7 +195,7 @@ thread_local! {
 pub fn check_rebuilds() -> bool {
     static ENV: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
     CHECK_REBUILDS.with(std::cell::Cell::get)
-        || *ENV.get_or_init(|| std::env::var_os("STITCHWORT_CHECK_REBUILDS").is_some())
+        || *ENV.get_or_init(|| stitchwort_core::env_flag::env_flag("STITCHWORT_CHECK_REBUILDS"))
 }
 
 /// Until the guard is dropped, lowering on this thread stores the fields
@@ -273,7 +273,8 @@ pub fn take_census() -> Vec<String> {
 /// Notes a rebuild that isn't trivial ([`census_rebuilds`]).
 pub(crate) fn note_rebuild(line: impl FnOnce() -> String) {
     static ENV: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    let print = *ENV.get_or_init(|| std::env::var_os("STITCHWORT_REBUILD_CENSUS").is_some());
+    let print =
+        *ENV.get_or_init(|| stitchwort_core::env_flag::env_flag("STITCHWORT_REBUILD_CENSUS"));
     CENSUS.with(|c| {
         let mut census = c.borrow_mut();
         if census.is_none() && !print {

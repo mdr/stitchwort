@@ -3848,7 +3848,7 @@ pub fn quote_unfolded_keeping(g: &Ev, level: usize, value: &Value, keep: Keep<'_
 /// errors are thrown away.
 fn force_unglued_first() -> bool {
     static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *ON.get_or_init(|| std::env::var_os("STITCHWORT_DEBUG_FORCE_UNGLUED").is_some())
+    *ON.get_or_init(|| crate::env_flag::env_flag("STITCHWORT_DEBUG_FORCE_UNGLUED"))
 }
 
 #[cold]

@@ -728,7 +728,7 @@ impl Stats {
 }
 
 fn report(span: Span, rules: usize, stats: &Stats, steps: u64) {
-    if std::env::var_os("STITCHWORT_REWRITE_METRICS").is_none() {
+    if !stitchwort_core::env_flag::env_flag("STITCHWORT_REWRITE_METRICS") {
         return;
     }
     // There is no conversion cache to hit: every comparison computes afresh.
