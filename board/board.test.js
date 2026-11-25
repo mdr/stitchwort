@@ -430,9 +430,15 @@ test('the committed epics.json and epic-tags.json are consistent', () => {
   const ids = epics.map((e) => e.id);
   assert.equal(new Set(ids).size, ids.length);
   assert.ok(epics.length >= 1, "no epics");
+  const root = path.join(__dirname, '..');
   for (const e of epics) {
     assert.ok(e.goal && e.done.length && e.next.length, e.id);
-    for (const l of e.links.filter((x) => x.includes('/'))) assert.ok(fs.existsSync(path.join(__dirname, '..', l)), `${e.id}: ${l}`);
+    for (const l of e.links.filter((x) => x.includes('/'))) {
+      // An absolute link outside this repository points into another
+      // checkout, which a clone here doesn't have: it can't be checked.
+      if (path.isAbsolute(l) && !path.resolve(l).startsWith(root + path.sep)) continue;
+      assert.ok(fs.existsSync(path.isAbsolute(l) ? l : path.join(root, l)), `${e.id}: ${l}`);
+    }
   }
   const tags = JSON.parse(fs.readFileSync(path.join(__dirname, 'epic-tags.json'), 'utf8'));
   for (const [k, v] of Object.entries(tags)) { lib.parseId(k); assert.ok(ids.includes(v), `SW-${k}: ${v}`); }

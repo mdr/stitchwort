@@ -138,7 +138,9 @@ pub fn def_hash(g: &Ev, id: DefId) -> Result<Option<ContentHash>> {
 /// It is the same as [`def_hash`] for a definition with no proofs in it or
 /// in what it mentions. Statements (types) are kept, so two definitions
 /// with the same hash here have statements that say the same, up to the
-/// proofs inside the definitions they mention.
+/// proofs inside the definitions they mention. An open goal (`?`) or a
+/// failed proof's stand-in at a proof position hashes like any proof, so
+/// anything keyed on this hash must carry the goals relied on beside it.
 ///
 /// The refactoring tools compare it to accept a change to a definition's
 /// embedded proofs (`Promise::ProofsOnly`); it decides nothing the kernel
