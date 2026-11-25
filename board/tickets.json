@@ -35748,7 +35748,7 @@
     {
       "id": 4827,
       "title": "[Opus] Work out doc-link warnings (W-DOC-LINK) without loading the namespace and its library: plan_skips loads any cached namespace whose files have doc links, so one link in Aoc/Common/Proofs/PrefixSums.sw costs day 15 and the 23 days that import Aoc.Common.Proofs about 180 ms per cached check (measured, SW-4819 rank 1); warnings must be identical",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
