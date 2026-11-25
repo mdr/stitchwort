@@ -35559,8 +35559,8 @@
     {
       "id": 4814,
       "title": "[Opus] Load the core prelude from the check cache instead of elaborating it each run (about 95 ms, plus 444 Std declarations re-elaborated through core, about 84 ms; SW-4809 item 4); core is the trusted base, Fable review",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "performance",
