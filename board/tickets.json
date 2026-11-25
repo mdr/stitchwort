@@ -1,5 +1,5 @@
 {
-  "next": 4844,
+  "next": 4845,
   "tickets": [
     {
       "id": 47,
@@ -36005,6 +36005,19 @@
     {
       "id": 4843,
       "title": "[Opus] The reference validator still skips a definition silently when checking its type or walking its written Pis runs out of resources ('no answer, as the kernel would give'); decide whether those should refuse like SW-4802's computed walk, and whether a validator that reaches no conclusion should say so (SW-4802 findings 1, 2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "Fable (SW-4802 review F5): not a soundness hole (the kernel derives every mark; the validator is a dev-only assertion), but whether a definition is validated depends on leftover budget, and the written walk evaluates domains unglued (500M steps on a heavy written domain at the default limit). Suggest: run both walks glued in an aside; count skips so a test can assert zero over the examples.",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4844,
+      "title": "[Opus] The reference validator checks a computed binder's mark with the kernel's own sort_of (the same sort_of_stuck route prop_mark took), a weaker cross-check than written binders' check_type: read the domain back and check_type it within the same budget, falling back to sort_of when read-back runs out (SW-4802 Fable review F4)",
       "status": "backlog",
       "agent": "",
       "where": "",
