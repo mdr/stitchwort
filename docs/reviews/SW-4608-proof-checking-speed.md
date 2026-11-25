@@ -673,3 +673,105 @@ ms. On CPU time, which the machine's load and Lean's threads do not distort in t
 we use less than Lean on all three days. Cold, with the library rechecked from source, we are 7-18x
 behind (2.4-8.6 s against 0.35-0.77 s), and nothing here changes that. One machine, 5 runs each,
 the load as above.
+
+## Rerun after core from the cache (SW-4845)
+
+Sonnet lane SW-4845, 25 November 2026, 18:13-18:17, `lane/SW-4845`, on `main` at `ace347ed2`:
+SW-4818's run plus SW-4814 (core loads from the check cache) and SW-4825, 4827, 4828 and 4829
+(other start-up fixes). Same bench, same command, no Rust changes: `nix develop -c task
+bench:compare:proofs -- --runs 5` (method: `bench/compare/lean-proofs/README.md`); medians with
+min-max in brackets; Lean 4.34.1, hyperfine 1.21. **Load:** I waited with `task load:wait -- 6 900`
+(about 15 minutes, the machine was at 21 when the lane began). At the bench's start the load
+averages were 2.35 (1 min), 5.76 (5 min); at its end 3.31 and 4.62. Nothing else of mine ran
+meanwhile. The release binary was already built (`cargo build` took 0.13 s), so the bench's
+build step did not add load. Marks **[measured]**.
+
+| day | theorems | sw check (cold) | **sw net** | of it Aoc.Common | lean file | lean load | lean net | **sw net / lean net** |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 2024 day 2 | 17 | 2.22 s (2.22-2.23) | 98 ms (97-101) | - | 373 ms (344-385) | 236 ms (233-240) | 137 ms (104-152) | **0.71x (0.64-0.97x)** |
+| 2020 day 18 | 23 | 8.29 s (8.15-8.37) | 108 ms (106-109) | - | 446 ms (437-470) | 236 ms (233-240) | 210 ms (197-237) | **0.52x (0.45-0.55x)** |
+| 2021 day 15 | 41 | 5.29 s (5.24-5.33) | 373 ms (372-376) | 213 ms (212-214) | 724 ms (714-731) | 236 ms (233-240) | 488 ms (473-498) | **0.77x (0.75-0.79x)** |
+
+| day | sw cached, one job | that / lean file | **floor, one job** | **floor, default jobs** | lake build, cold |
+|---|---:|---:|---:|---:|---:|
+| 2024 day 2 | 347 ms (345-351) | **0.93x (0.89-1.02x)** | 68 ms (67-68) | 72 ms (72-73) | 795 ms (786-799) |
+| 2020 day 18 | 404 ms (402-408) | **0.91x (0.85-0.93x)** | 70 ms (70-71) | 77 ms (77-79) | 908 ms (900-918) |
+| 2021 day 15 | 712 ms (703-722) | **0.98x (0.96-1.01x)** | 83 ms (81-84) | 89 ms (89-89) | 1.23 s (1.21-1.23) |
+
+User + system CPU time (hyperfine's means over the 5 runs):
+
+| day | sw cached: wall | CPU | lean file: wall | CPU | lean load: wall | CPU | floor (default jobs): wall | CPU |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 2024 day 2 | 347 ms | 315 + 94 ms | 373 ms | 466 + 160 ms | 236 ms | 126 + 109 ms | 72 ms | 48 + 86 ms |
+| 2020 day 18 | 404 ms | 365 + 99 ms | 446 ms | 771 + 166 ms | 236 ms | 126 + 109 ms | 77 ms | 52 + 87 ms |
+| 2021 day 15 | 712 ms | 672 + 101 ms | 724 ms | 1.40 s + 225 ms | 236 ms | 126 + 109 ms | 89 ms | 64 + 88 ms |
+
+**Does the core come from the cache?** Yes, on warm runs. There is no "core: a hit" line under
+`STITCHWORT_CACHE_DEBUG=1` (the debug messages cover namespace entries only: the floor run prints
+"reported from its entry, not loaded" for each namespace, nothing about core), so I read the
+`--timings=all` unit table of day 2's `check --no-project-cache ... --only` run: the first row is
+`core (cached)` with 4.0 ms elaboration and 2.2 ms kernel, against `core` with 64.0 and 18.3 ms
+under `--no-cache`, same 585 declarations. (That ad-hoc run named the theorems unqualified, so it
+stopped at an unknown-theorem error after loading, which is enough for this: the core row is
+printed before.) The cold row (`--no-cache`) still elaborates core, as it should.
+
+**Did the floor change as expected?** It fell by far more than core's own 82 ms. Day 2's floor is
+68 ms against 187 ms (-119 ms), day 18's 70 against 193 (-123 ms), day 15's 83 against 406
+(-323 ms). The first two are about what core's elaboration and the library load it replaces cost
+(the cached rows fell by 122 and 150 ms, the same size). Day 15's floor fell much more than its
+cached row (-230 ms), so something else of the five fixes mostly helps the larger project's
+no-change check (the project scan and index, which SW-4825-4829 touched); the bench cannot say
+which fix, because the five landed together. With default jobs the floor is 72, 77 and 89 ms, 4-6
+ms above one job: a small constant for starting the workers, no longer hidden in noise.
+
+Then (SW-4818, 5 runs, before core from the cache) and now:
+
+| day | sw net: then | **now** | sw net / lean net: then | **now** | whole day, library cached: then | **now** | that / lean file: then | **now** | floor, default jobs: then | **now** |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 2024 day 2 | 104 ms | **98 ms** | 1.11x | **0.71x (0.64-0.97)** | 469 ms | **347 ms** | 1.33x | **0.93x (0.89-1.02)** | 193 ms | **72 ms** |
+| 2020 day 18 | 116 ms | **108 ms** | 0.53x | **0.52x (0.45-0.55)** | 554 ms | **404 ms** | 1.16x | **0.91x (0.85-0.93)** | 202 ms | **77 ms** |
+| 2021 day 15 | 435 ms | **373 ms** | 0.85x | **0.77x (0.75-0.79)** | 942 ms | **712 ms** | 1.22x | **0.98x (0.96-1.01)** | 382 ms | **89 ms** |
+
+- The whole day with the library cached is 26%, 27% and 24% less (122, 150 and 230 ms), while
+  Lean's file times are +6%, -6% and -6% (373, 446 and 724 ms against 352, 476 and 769 ms), so
+  the whole of the improvement in "that / lean file" is ours **[measured]**.
+- "sw net" itself is 5-7% lower on days 2 and 18 (within the 3-10 ms spread of both runs) and
+  14% lower on day 15 (373 ms against 435; `Aoc.Common` units 213 against 258 ms). Nothing in
+  these fixes touches the checker, so I take day 2 and 18 as unchanged and day 15's 62 ms as
+  either a quieter machine or an effect I did not isolate. The day 2 ratio's move from 1.11x to
+  0.71x is mostly Lean's side: its net is 137 ms against 93 ms then (the file 373 against 352,
+  the empty file 236 against 258), a swing of 40 ms that is noise in the subtraction.
+- CPU time (user + system): ours cached is 409, 464 and 773 ms against 468, 550 and 926 ms
+  before; Lean's file is 626, 937 and 1.63 s against 611, 992 and 1.69 s. We are below Lean on
+  all three days (65%, 50% and 47% of its CPU time), as before, and the gap widened on days 2 and
+  15.
+- Cold, the library rechecked from source: 2.22, 8.29 and 5.29 s against 2.43, 8.55 and 5.66 s
+  (4-7% less, within what the machine's state alone gives), and Lean's cold `lake build` is 795,
+  908 ms and 1.23 s. Against Lean's file time that is 6.0x, 18.6x and 7.3x; core from the cache
+  does nothing for a cold check.
+
+**Not comparable, plainly.** The caveats of SW-4818 stand: (1) day 15's "sw net" includes 213 ms
+of `Aoc.Common...` units, which `--only` checks whole while the Lean file ports about 25 of its
+lemmas; without that part the net is about 160 ms (0.33x), with all of it 0.77x, and the real
+figure lies between, so day 15's ratio is the least reliable. (2) Our "net" is the sum of one
+job's unit timers and Lean's is wall time on several threads (on CPU time Lean's is larger).
+(3) Lean's net includes compiling its `def`s. (4) The floor rows check every theorem of the
+namespaces from cache, the others only the ported ones. (5) Lean's day 2 net varies by 50 ms
+between this run and SW-4818's on the same files, because it is a difference of two near-equal
+runs; the 1.11x to 0.71x change should not be read as ours. (6) This run's load, 2-6, was like
+SW-4818's, but the ranges combine runs at different instants on a shared machine and are not
+confidence intervals. (7) One run of the bench, 5 hyperfine runs per cell.
+
+**Where we stand against Lean, in plain words.** For a whole day with the library cached we are
+now level with Lean: 0.85-1.02x its file time on the three days (0.93x, 0.91x and 0.98x
+medians), where SW-4818 had 1.05-1.37x and SW-4810 1.4-1.8x; the 120-230 ms saved is core's
+elaboration and the other start-up work, and nothing is left of the gap on these files. On the
+proofs themselves we are at 0.45-0.97x of its time on the same theorems, with day 15's range
+resting on how much of `Aoc.Common` Lean's port stands for. On CPU time we use half to two thirds
+of Lean's, because it spends several threads. The cost of a check with nothing to do is now 68-89
+ms, where Lean's start-up alone is 236 ms. Two things this does not show: Lean's `.olean` files
+also make a large library free, while we cache the library per project and a first check after
+an edit to std still pays the cold cost (2.2-8.3 s, 6-19x Lean's file time; the cold row is the
+only place we are clearly behind); and these are three days' proofs on one machine, with Lean's
+side ported by hand and covering 23 of 49 theorems for day 18, so "level" means on this selection
+and says nothing about all proofs.
