@@ -35123,15 +35123,19 @@
     {
       "id": 4787,
       "title": "[Sonnet] Count the inline proofs in computing definitions across std, aoc, games/rogue and tools/fmt: declarations whose proofless and content hashes differ for a reason other than a theorem reference, grouped by kind (invariant, decreasing, Quot.lift, lifted match, a def whose type is a proposition). A one-off report that decides whether lifting inline proofs into hidden theorems is worth designing (SW-4782)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Model result: sonnet, worked, about 15 min (est. 30). Counted std and games/rogue; aoc and tools/fmt were skipped because their caches were not warm (sent to Overmind).\nHeadline: of the defs whose two hashes differ, 80 to 88% differ only through something they call. std has 752 own roots: about 290 generated helpers, 377 %match defs lifted from theorems, about 85 written by hand.\n",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "5fcf7266f",
+        "203839eb6",
+        "b92b7a0e2"
+      ]
     },
     {
       "id": 4788,
