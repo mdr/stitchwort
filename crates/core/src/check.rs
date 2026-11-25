@@ -2718,10 +2718,11 @@ pub fn define_def(g: &mut Kernel, id: DefId, body: &Term) -> Result<()> {
 /// - Termination is decided for the whole group at once, from every call
 ///   between any two members.
 pub fn define_group(g: &mut Kernel, members: &[(DefId, Term)]) -> Result<()> {
-    in_kernel_modes(g, |g| install_group(g, members, admit_group))
+    in_kernel_modes(g, |g| install_group(g, members, false, admit_group))
 }
 
-/// [`define_group`] with `bodies` deciding the bodies to install: the
+/// [`define_group`] with `bodies` deciding the bodies to install (`trusted`
+/// when they come from a cache replay): the
 /// checked ones ([`admit_group`]), or for the check cache the trusted ones
 /// ([`admit_trusted_group`]). Everything else a final definition records
 /// (its arity, group, transparency set, `lift_leaf`, `recursive`) is worked
@@ -2729,6 +2730,7 @@ pub fn define_group(g: &mut Kernel, members: &[(DefId, Term)]) -> Result<()> {
 fn install_group(
     g: &mut Kernel,
     members: &[(DefId, Term)],
+    trusted: bool,
     bodies: impl FnOnce(&Ev, &[(DefId, Term)]) -> Result<Vec<Term>>,
 ) -> Result<()> {
     // Refused before anything changes: an empty group, or an id that isn't
@@ -2802,10 +2804,17 @@ fn install_group(
                 def.body = Some(Rc::new(body));
                 def.state = State::Final;
             }
+            // A cache replay is not re-validated: its marks were validated when
+            // the entry was written (docs/proposals/check-cache-trust.md,
+            // "Assertions": a replay skips the dev-only checks; SW-4811).
             #[cfg(feature = "reference")]
-            g.machine
-                .budget
-                .uncounted(|| crate::reference::validate_marks(&g.ev(), &ids));
+            if !trusted {
+                g.machine
+                    .budget
+                    .uncounted(|| crate::reference::validate_marks(&g.ev(), &ids));
+            }
+            #[cfg(not(feature = "reference"))]
+            let _ = trusted;
             Ok(())
         }
         Err(e) => fail(g, e),
@@ -4310,7 +4319,7 @@ fn admit_stated_marked(
 /// `define_group` installed. The trust boundary (above).
 pub fn admit_trusted_group(g: &mut Kernel, members: &[(DefId, Term)]) -> Result<()> {
     in_kernel_modes(g, |g| {
-        install_group(g, members, |g, members| {
+        install_group(g, members, true, |g, members| {
             let ids: Vec<DefId> = members.iter().map(|(id, _)| *id).collect();
             let mut bodies = Vec::with_capacity(members.len());
             for (id, body) in members {

@@ -35510,12 +35510,12 @@
     {
       "id": 4811,
       "title": "[Sonnet] Dev builds: reference::validate_marks re-checks every declaration on cache replays too, 264 ms (23%) of a library-cached AoC day; skip it for replayed entries (they were validated when written) and correct docs/testing.md's 'under 1%' (SW-4809 item 5)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Done on lane/SW-4811: install_group takes a trusted flag; admit_trusted_group skips validate_marks, fresh checks keep it. Timings (dev build, STITCHWORT_JOBS=1, Day18 + Proofs, hyperfine 5 runs): fully cached 513 -> 507 ms (nothing replays as a group); --no-project-cache (library replays) 1.076 -> 0.882 s (-18%). Model result: Sonnet, worked, 12 min (est. 30).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
