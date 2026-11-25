@@ -205,6 +205,11 @@ pub struct Fill {
     pub stats: Stats,
     /// Waits for another worker's library file that ran out of patience.
     pub claims_gave_up: u64,
+    /// Panics in workers other than the first, each of which stopped the
+    /// fill and left the rest to the check after it: right answer, one
+    /// job's speed, so only this count shows it (worker 0's panic is
+    /// raised instead). Never expected.
+    pub panics: usize,
 }
 
 impl Fill {
@@ -494,6 +499,8 @@ struct Tally {
     rewound: usize,
     against_promises: usize,
     stats: Stats,
+    /// Panics the worker caught (at most one: it stops after it).
+    panics: usize,
     /// The panic the worker caught, which stopped the fill.
     panic: Option<Box<dyn std::any::Any + Send>>,
 }
@@ -637,7 +644,12 @@ pub fn fill(files: &(dyn Files + Sync), project: &str, target: &Target, jobs: &J
             })
             .collect();
         let mut tallies = vec![first.run(&shared)];
-        tallies.extend(handles.into_iter().map(|h| h.join().unwrap_or_default()));
+        tallies.extend(handles.into_iter().map(|h| {
+            h.join().unwrap_or_else(|_| Tally {
+                panics: 1,
+                ..Tally::default()
+            })
+        }));
         tallies
     });
     // Worker 0 is the caller's thread, which the check after the fill runs
@@ -663,6 +675,7 @@ pub fn fill(files: &(dyn Files + Sync), project: &str, target: &Target, jobs: &J
         fill.rewinds += tally.rewinds;
         fill.rewound += tally.rewound;
         fill.against_promises += tally.against_promises;
+        fill.panics += tally.panics;
         add_stats(&mut fill.stats, &tally.stats);
     }
     fill
@@ -928,6 +941,7 @@ impl Worker {
                     // On a worker thread, the check after the fill meets
                     // the same panic and reports it; worker 0's is raised
                     // again once the others stop (`fill`).
+                    tally.panics += 1;
                     tally.panic = Some(panic);
                     self.claims.end_job();
                     let failed = match job {

@@ -95,6 +95,14 @@ impl Elaborator {
         if let Some(field) = self.decl.leftover() {
             panic!("a mark in the middle of a declaration: `Decl::{field}` isn't empty");
         }
+        // A declared definition whose body isn't admitted yet (for a
+        // theorem left stated, its proof) must never be kept by a rewind.
+        // Debug only: it scans every definition at each mark.
+        debug_assert!(
+            (self.kernel.env.defs().iter())
+                .all(|d| d.state() != stitchwort_core::globals::State::Pending),
+            "a mark with a definition still pending"
+        );
         let checkpoint = self.with_journal(|journal, logs| journal.checkpoint(logs));
         Mark {
             checkpoint,

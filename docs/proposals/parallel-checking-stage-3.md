@@ -232,7 +232,9 @@ namespace's own theorems), and the admission of an interface entry (a dependency
 
 1. *Workers report nothing.* As in stage 1, a worker's only output is entries. Messages, the
    summary line `checked N namespaces of P` and the exit code come from the last pass, a
-   separate session on the main thread made with the defaults.
+   separate session on the main thread made with the defaults. (The one exception is the
+   "still checking" progress note, which a worker's slow declaration may print; it is
+   de-duplicated by text, and is not a message about the program.)
 2. *The last pass can't see an interface.* Interface entries are not in the store it reads.
    It loads whole entries only, and has a digest for a namespace only from that namespace's
    whole entry or from checking it itself.

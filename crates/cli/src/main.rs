@@ -2840,7 +2840,7 @@ fn fill_in_parallel(
              {} waits for a library file given up; \
              {} interface passes, {} interface entries ({} proofs left out, loaded {} times), \
              {} proof jobs against unproved theorems, {} digest mismatches, \
-             {} rewinds dropping {} namespaces",
+             {} rewinds dropping {} namespaces, {} worker panics",
             fill.workers,
             fill.found,
             fill.filled,
@@ -2856,7 +2856,8 @@ fn fill_in_parallel(
             fill.against_promises,
             fill.mismatches,
             fill.rewinds,
-            fill.rewound
+            fill.rewound,
+            fill.panics
         )
     } else {
         "one job: fewer than two namespaces to check".to_string()
