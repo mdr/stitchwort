@@ -35815,8 +35815,8 @@
     {
       "id": 4830,
       "title": "[Sonnet] Run core's statement-style sweep (binder_sweep, 9 ms) only when library warnings are reported (SW-4819 rank 5)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "performance",
