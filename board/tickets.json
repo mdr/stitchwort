@@ -35564,7 +35564,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "SW-4816 (Fable): the '444 Std declarations, about 84 ms' are core's own, already inside the ~95 ms; net saving after replay about 60-80 ms. It makes a cached run trust core unchecked, and needs the check-cache-trust M1 fix first (library_interface hashes the index's core text, not the prelude actually elaborated, cache/mod.rs:1131). Held: comes back to Matt as its own trust question after re-measuring.",
+      "body": "SW-4816 (Fable): the '444 Std declarations, about 84 ms' are core's own, already inside the ~95 ms; net saving after replay about 60-80 ms. It makes a cached run trust core unchecked, and needs the check-cache-trust M1 fix first (library_interface hashes the index's core text, not the prelude actually elaborated, cache/mod.rs:1131). Held: comes back to Matt as its own trust question after re-measuring.\n\nD3746 (Matt, 25 Nov 2026): yes, load core from the cache (\"we should be using caches\"). Fable reviews the change before it merges (orchestrator's rec, carried).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
