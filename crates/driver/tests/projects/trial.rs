@@ -365,7 +365,9 @@ def twice (n: Nat): Nat := n + n
 
 theorem addZ: ∀ (n: Nat) => n + 0 = n := Nat.addZero
 
-theorem again: ∀ (n: Nat) => n + 0 = n := addZ
+theorem again: ∀ (n: Nat) => n + 0 = n := n => Nat.addZero n
+
+theorem viaAddZ: ∀ (n: Nat) => n + 0 = n := addZ
 ";
 
 fn laws() -> LiveProject {
@@ -470,14 +472,14 @@ fn an_eta_change_of_a_proof_keeps_the_statement_not_the_meaning() {
             .iter()
             .map(|c| c.name.as_str())
             .collect();
-        assert_eq!(changed, ["addZ", "again"], "{:?}", trial.problems);
-        assert_eq!(trial.problems.changed[1].uses.as_deref(), Some("addZ"));
+        assert_eq!(changed, ["addZ"], "{:?}", trial.problems);
         live.restore(trial).unwrap();
 
-        // `again` uses `addZ`, so its hash moves too; both statements held.
+        // A theorem is referred to by its statement (rule I), so `again`'s
+        // hash doesn't move with `addZ`'s proof; the statement held.
         let trial = checked(live.trial(&edits, &same_statement()).unwrap());
         assert_eq!(trial.problems, Problems::default());
-        assert_eq!(trial.proofs_changed, ["Laws.addZ", "Laws.again"]);
+        assert_eq!(trial.proofs_changed, ["Laws.addZ"]);
         live.keep(trial);
         assert!(live.text("src/laws.sw").unwrap().contains("Nat.addZero n"));
     });
@@ -495,6 +497,9 @@ fn the_project_lists_its_declarations_hashes() {
         // The statement alone: the same for two theorems that state the same.
         assert_eq!(find("Laws.addZ").type_hash, find("Laws.again").type_hash);
         assert_ne!(find("Laws.addZ").hash, find("Laws.again").hash);
+        // Rule I: a theorem is cited by its statement, so proofs that differ
+        // only in which same-statement theorem they cite hash equal.
+        assert_eq!(find("Laws.addZ").hash, find("Laws.viaAddZ").hash);
         let text = declhash::show(find("Laws.limit").hash);
         assert_eq!(declhash::parse_hash(&text), find("Laws.limit").hash);
     });
@@ -629,9 +634,10 @@ fn a_moved_definition_names_the_proof_it_mentions() {
     assert_eq!(declhash::owner("Std.t.%match1"), "Std.t");
 }
 
-/// A definition that mentions a proof moves with it: the trial names the
-/// re-proved theorem where the change starts, through the theorems
-/// between.
+/// A definition that mentions a theorem no longer moves when its proof is
+/// re-proved (rule I: it is cited by its statement), so the trial finds
+/// nothing to name. A definition that embeds a proof term directly is
+/// `an_embedded_proof_that_changes_passes_only_the_proofs_promise`.
 #[test]
 fn a_definition_that_mentions_a_reproved_theorem_names_it() {
     run(|| {
@@ -651,7 +657,7 @@ fn a_definition_that_mentions_a_reproved_theorem_names_it() {
             .collect();
         assert_eq!(
             changed,
-            [("proofOf", None, &["Laws.addZ".to_string()][..])],
+            Vec::<(&str, Option<&str>, &[String])>::new(),
             "{:?}",
             trial.problems
         );
@@ -716,16 +722,17 @@ fn changed_names(trial: &Trial) -> Vec<&str> {
         .collect()
 }
 
-/// Re-proving a theorem that a definition embeds moves the definition's
+/// Changing a proof term a definition embeds directly moves the definition's
 /// hash, and its callers': refused by "same statement", accepted by
-/// "proofs only", which names the definitions that moved.
+/// "proofs only", which names the definitions that moved. (Re-proving a
+/// theorem it cites doesn't: rule I.)
 #[test]
 fn an_embedded_proof_that_changes_passes_only_the_proofs_promise() {
     run(|| {
         let mut live = proofs();
         let edits = [proofs_edit(
-            "theorem addZ",
-            "theorem addZ (n: Nat): n + 0 = n := Nat.addZero n",
+            "def five",
+            "def five: Nat := keep 5 (((n: Nat) => Nat.addZero n) 5)",
         )];
         let trial = checked(live.trial(&edits, &same_statement()).unwrap());
         assert_eq!(
@@ -734,12 +741,10 @@ fn an_embedded_proof_that_changes_passes_only_the_proofs_promise() {
             "{:?}",
             trial.problems
         );
-        assert_eq!(trial.problems.changed[0].reproved, ["Proofs.addZ"]);
         live.restore(trial).unwrap();
 
         let trial = checked(live.trial(&edits, &proofs_only()).unwrap());
         assert_eq!(trial.problems, Problems::default());
-        assert_eq!(trial.proofs_changed, ["Proofs.addZ"]);
         assert_eq!(trial.proofs_only, ["Proofs.five", "Proofs.user"]);
         live.restore(trial).unwrap();
     });
