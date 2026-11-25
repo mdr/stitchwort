@@ -35206,12 +35206,12 @@
     {
       "id": 4792,
       "title": "[Sonnet] A 20-line Stitchwort syntax crib for lanes writing probe or fixture files (byComputing not rfl, lambda and match forms, list brackets), linked from the lane agent definitions (SW-3779 W8)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Crib added at top of docs/syntax.md; probe project checked with stitchwort check Probe.Types Probe.Main (ok). Agent definitions point to it.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []

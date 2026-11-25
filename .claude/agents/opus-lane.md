@@ -17,7 +17,8 @@ Before anything else, read `CLAUDE.md` at the repo root and follow it: the
   `./target/release/stitchwort` (not on the `nix develop` PATH); `check`
   takes namespaces, run from the project's folder (`cd tools/fmt`), and a
   std file is `check --std --std-dir crates/elab/src/std FILE`; which
-  package and binary a test is in is `docs/testing.md`, "Features" (D3740).
+  package and binary a test is in is `docs/testing.md`, "Features" (D3740);
+  a crib for writing probe files is at the top of `docs/syntax.md`.
 - Significant language or kernel designs start as a note in
   `docs/proposals/` and stop for Matt's decisions before implementation.
 - Tests: minimal and tactical (Matt, 11 Nov 2026). Run a select few tests
