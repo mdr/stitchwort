@@ -1,5 +1,5 @@
 {
-  "next": 4798,
+  "next": 4800,
   "tickets": [
     {
       "id": 47,
@@ -35294,6 +35294,32 @@
         "ff924c20e",
         "db2bb109b"
       ]
+    },
+    {
+      "id": 4798,
+      "title": "[Sonnet] A statement can't apply a definition whose type is an opaque alias, even with unfolding f, Hidden: E-NOT-A-FUNCTION ('its type is Hidden'), since the unfolding list isn't in force while the statement is elaborated; make statement elaboration honour the unfolding list for the head's type (SW-4796 finding; probe b.sw in its report)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4799,
+      "title": "[Sonnet] Kernel-lane brief line in docs/workflow.md 'Writing a brief': a change to evaluation also runs the differential test the_evaluators_agree_on_the_prelude_and_every_example with STITCHWORT_DIFFERENTIAL_ONLY=<example>, and the example has value definitions that exercise the rule; and lane waits need the Bash timeout parameter (~175000) as well as timeout 170 (SW-4796 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
     }
   ]
 }
