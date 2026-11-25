@@ -301,6 +301,27 @@ enum DevCommand {
         /// Files or folders
         paths: Vec<PathBuf>,
     },
+    /// Check the project as `check` does, with its check cache, and print
+    /// each namespace's cache entry (`ns.NAME-KEY`, the entry's file name
+    /// without the build prefix) and digest, then what it uses directly and
+    /// what it depends on, in canonical order. The keys are the ones the
+    /// check wrote or read, so two builds that print the same lines kept
+    /// the keys; `dev cache-compare` does the same for whole cache folders.
+    /// A namespace the check couldn't key says `no key`
+    Keys {
+        /// The project folder (default: the nearest one above this folder)
+        #[arg(long)]
+        project: Option<PathBuf>,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
+    /// Compare two check cache folders (a `--cache-dir`, or its `check`
+    /// folder), ignoring what depends on the build: each entry is its unit
+    /// and key with the build prefix stripped. Prints the entries only in A,
+    /// only in B, and how many are the same; `scan`, `ran` and other
+    /// build-specific entries are left out and counted. Exit status 0 if the
+    /// two hold the same entries, 1 if not
+    CacheCompare { a: PathBuf, b: PathBuf },
     /// Print the lossless tree of every `.sw` file after each of the
     /// formatter's four tidy passes (`== P1 ==`, the tree, `== P2 ==`, ...),
     /// for the self-hosted formatter's comparison (`task fmt:twin`). A file
@@ -1733,6 +1754,10 @@ fn run(cli: Cli) -> ExitCode {
         Command::Dev(DevCommand::Tokens { paths }) => tokens_command(&paths),
         Command::Dev(DevCommand::Passes { paths }) => passes_command(&paths),
         Command::Dev(DevCommand::Doc { paths }) => doc_command(&paths),
+        Command::Dev(DevCommand::Keys { project, cache }) => {
+            keys_command(project.as_deref(), &cache)
+        }
+        Command::Dev(DevCommand::CacheCompare { a, b }) => cache_compare_command(&a, &b),
         Command::Dev(DevCommand::NativeSpike { rounds, memory }) => {
             native_spike(rounds, memory.as_deref())
         }
@@ -6470,6 +6495,40 @@ fn tokens_command(paths: &[PathBuf]) -> ExitCode {
 }
 
 /// `dev doc`: each declaration's layout document and printed text, per file.
+/// `dev keys`: the project's namespaces' check cache keys.
+fn keys_command(project: Option<&Path>, cache: &CacheArgs) -> ExitCode {
+    let Some(project) = locate_project(project, "explain keys of", "dev keys --project DIR") else {
+        return ExitCode::FAILURE;
+    };
+    let mut session = new_session(false);
+    use_cache(&mut session, cache, &project.dir);
+    match stitchwort_driver::cache_tools::explain_keys(&mut session, &project.files, &project.name)
+    {
+        Ok(lines) => {
+            print!("{}", stitchwort_driver::cache_tools::render_keys(&lines));
+            ExitCode::SUCCESS
+        }
+        Err(diagnostics) => {
+            report(&session.sources, &diagnostics);
+            ExitCode::FAILURE
+        }
+    }
+}
+
+/// `dev cache-compare`: whether two check cache folders hold the same entries.
+fn cache_compare_command(a: &Path, b: &Path) -> ExitCode {
+    match stitchwort_driver::cache_tools::compare(a, b) {
+        Ok(comparison) => {
+            print!("{}", comparison.render());
+            exit(comparison.identical())
+        }
+        Err(e) => {
+            eprintln!("error: {e}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
 fn doc_command(paths: &[PathBuf]) -> ExitCode {
     let mut files = Vec::new();
     for path in paths {

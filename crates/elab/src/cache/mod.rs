@@ -121,6 +121,14 @@ pub(crate) struct NamespaceKey {
     pub(crate) digest: Option<Key>,
 }
 
+/// A project namespace's entry name and digest, for `stitchwort dev keys`.
+#[derive(Clone, Debug)]
+pub struct NamespaceKeyReport {
+    pub unit: String,
+    pub key: Key,
+    pub digest: Option<Key>,
+}
+
 /// Where entries are kept, by unit (a library file) and key.
 pub trait Store {
     /// The compiler build, part of every entry's stamp: its version and a
@@ -681,6 +689,24 @@ impl Elaborator {
     /// What the cache has done so far.
     pub fn check_cache_stats(&self) -> Stats {
         self.session.cache_stats
+    }
+
+    /// Each project namespace's check cache key and digest as of now, by
+    /// name, with its entry's unit (`ns.NAME`, plus the navigation tag): what
+    /// `stitchwort dev keys` prints. No digest means its entry wasn't
+    /// written or replayed (the namespace has an error or an open goal).
+    pub fn namespace_key_report(&self) -> std::collections::BTreeMap<String, NamespaceKeyReport> {
+        let nav = self.nav_tag();
+        (self.session.namespace_keys.iter())
+            .map(|(ns, known)| {
+                let report = NamespaceKeyReport {
+                    unit: format!("ns.{ns}{nav}"),
+                    key: known.key,
+                    digest: known.digest,
+                };
+                (ns.clone(), report)
+            })
+            .collect()
     }
 
     /// For tests: every namespace replay from now on fails where a

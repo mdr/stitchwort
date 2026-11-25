@@ -5,6 +5,7 @@ mod auto_membership_speed;
 mod axioms;
 mod broken_pipe;
 mod check_early;
+mod dev_cache;
 mod dev_doc;
 mod dev_tree;
 mod doc;

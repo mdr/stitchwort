@@ -8,6 +8,7 @@ pub mod at;
 pub mod audit;
 pub mod axioms;
 pub mod binder_sweep;
+pub mod cache_tools;
 pub mod check_cache;
 pub mod completion;
 pub mod counterexample;
