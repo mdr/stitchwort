@@ -480,6 +480,18 @@ tasks:
     cmds:
       - node --test board.test.js
 
+  cache:compare:
+    silent: true
+    dir: '{{.USER_WORKING_DIR}}'
+    desc: 'Compare two check cache folders by unit and key, ignoring the build (task cache:compare -- A B)'
+    summary: |
+      Runs `stitchwort dev cache-compare A B` (SW-4839): the entries only in
+      A, only in B, and how many are the same, with the build prefix and the
+      build-specific scan and ran entries left out. Exit status 1 if they
+      differ. The binary is target/release/stitchwort (build it first).
+    cmds:
+      - '{{.ROOT_DIR}}/target/release/stitchwort dev cache-compare {{.CLI_ARGS}}'
+
   trace:resource:
     desc: 'Where a resource error is raised: a trusted backtrace (task trace:resource -- FILE.sw)'
     summary: |

@@ -461,6 +461,13 @@ times. A clean rebuild with `RUSTC_WRAPPER=` empty is the test of one run.
   covers; to see why two runs' digests differ, compare these lines, then the
   edited namespace's interface. The digest tests are in
   `crates/driver/tests/projects/check_cache/digest.rs` (SW-4777).
+  To show a change kept the check-cache keys, don't read entry file names:
+  `dev keys` prints each namespace's key, digest and edges and `task
+  cache:compare -- A B` compares two cache folders by unit and key, ignoring
+  the build (docs/testing.md, "Check-cache switches"). The recipe: run
+  `stitchwort dev keys --cache-dir /tmp/keys-main` with main's binary and
+  `--cache-dir /tmp/keys-lane` with the lane's, from one project folder, then
+  `task cache:compare -- /tmp/keys-main /tmp/keys-lane` (exit 0: same keys).
 - **Comparing a std declaration's kernel term between main and a lane.**
   `STITCHWORT_DUMP_KERNEL` prints nothing for a declaration the check cache
   answers for, which is every library declaration in an ordinary `check`. Use
