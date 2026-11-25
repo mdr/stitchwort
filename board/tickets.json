@@ -1,5 +1,5 @@
 {
-  "next": 4788,
+  "next": 4793,
   "tickets": [
     {
       "id": 47,
@@ -21332,15 +21332,18 @@
     {
       "id": 3779,
       "title": "[Sonnet paper] Weekly agent-feedback review (D3673): read docs/agent-feedback/ for the week, group recurring patterns, propose specific edits to CLAUDE.md, docs/workflow.md, the proving guide, .claude/agents/ or brief templates, each with the entries it answers; for Matt's approval. First run Mon 24 Nov 2026",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
       "body": "",
       "created": "2026-11-17",
-      "updated": "2026-11-17",
-      "commits": []
+      "updated": "2026-11-25",
+      "commits": [
+        "5f5bd4252",
+        "61ba42dda"
+      ]
     },
     {
       "id": 3780,
@@ -34950,15 +34953,18 @@
     {
       "id": 4776,
       "title": "[DeepSeek] check_cache digest tests: after_edit in crates/driver/tests/projects/check_cache/digest.rs should assert the edited project checks without errors, so a failing proof can't pass as a digest change (SW-4758 finding)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Model result: deepseek, worked, about 25 min (est. 20). It found that an_added_instance_below_checks_what_uses_it_again passed only because its edited project did not check (Show.fromText was not imported).\n",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "880632e0a",
+        "89555b2d8"
+      ]
     },
     {
       "id": 4777,
@@ -35109,6 +35115,71 @@
     {
       "id": 4787,
       "title": "[Sonnet] Count the inline proofs in computing definitions across std, aoc, games/rogue and tools/fmt: declarations whose proofless and content hashes differ for a reason other than a theorem reference, grouped by kind (invariant, decreasing, Quot.lift, lifted match, a def whose type is a proposition). A one-off report that decides whether lifting inline proofs into hidden theorems is worth designing (SW-4782)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4788,
+      "title": "[Sonnet] task worktree:new builds the release binary (about 9 s through kache) and copies tools/fmt/.stitchwort, so a new lane starts ready (SW-3779 W2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4789,
+      "title": "[Sonnet] A copied stitchwort binary falls back to the std of the tree it was built from, and its missing-std error names --std-dir (SW-3779 W3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4790,
+      "title": "[DeepSeek] task worktree:new refuses while the main checkout's board/tickets.json has uncommitted changes, so new tickets reach the lane (SW-3779 W7b)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4791,
+      "title": "[DeepSeek] board note N TEXT: append a note to a ticket body without replacing it (the open half of SW-4200; SW-3779 W7c)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4792,
+      "title": "[Sonnet] A 20-line Stitchwort syntax crib for lanes writing probe or fixture files (byComputing not rfl, lambda and match forms, list brackets), linked from the lane agent definitions (SW-3779 W8)",
       "status": "backlog",
       "agent": "",
       "where": "",
