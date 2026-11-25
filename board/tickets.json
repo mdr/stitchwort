@@ -1,5 +1,5 @@
 {
-  "next": 4842,
+  "next": 4843,
   "tickets": [
     {
       "id": 47,
@@ -35815,15 +35815,18 @@
     {
       "id": 4830,
       "title": "[Sonnet] Run core's statement-style sweep (binder_sweep, 9 ms) only when library warnings are reported (SW-4819 rank 5)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Orchestrator's call: held until SW-4814 merges (both edit Session::start_in's core loading).\n\nUnheld: SW-4814 merged.\n\nLane: SW-4814 already skips the sweep on a core-cache hit (statement_style runs only on the miss path in start_cached); the other readers (library_warning_report, check --std --warnings) already run it on demand. Nothing left to skip on a hit; on a miss it decides whether the entry is written. Added a pinning test (core_entry::the_cores_statement_style_warnings_are_reported_and_are_not_cached).",
+      "body": "Orchestrator's call: held until SW-4814 merges (both edit Session::start_in's core loading).\n\nUnheld: SW-4814 merged.\n\nLane: SW-4814 already skips the sweep on a core-cache hit (statement_style runs only on the miss path in start_cached); the other readers (library_warning_report, check --std --warnings) already run it on demand. Nothing left to skip on a hit; on a miss it decides whether the entry is written. Added a pinning test (core_entry::the_cores_statement_style_warnings_are_reported_and_are_not_cached).\n\nCovered by SW-4814: the sweep runs only on a core-cache miss. Test added. Model result: sonnet, worked, about 5 min (est. 20).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "013f4334b",
+        "b1cc120ee"
+      ]
     },
     {
       "id": 4831,
@@ -35973,6 +35976,19 @@
     {
       "id": 4841,
       "title": "[Sonnet] Core-from-cache test gaps (SW-4814 Fable review findings 2, 3, 8): a custom-prelude core_entry test with a kept warning (nested trans) so the warnings comparison isn't vacuous; a test that options in the key (limits, glue) miss; after binding List.length on the trusted path, compare its run body with length_run_body's",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4842,
+      "title": "[Sonnet] On a core-cache miss with a statement-style warning in core, library_warning_report may list the warning twice (once from session.warnings, once from warnings_of_text); check with SW-4830's styled test core and fix if so, with a test (SW-4830 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
