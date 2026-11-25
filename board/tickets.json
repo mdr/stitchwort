@@ -1,5 +1,5 @@
 {
-  "next": 4770,
+  "next": 4773,
   "tickets": [
     {
       "id": 47,
@@ -34586,41 +34586,53 @@
     {
       "id": 4754,
       "title": "[Sonnet] live/trial.rs hashes() and declhash::session_hashes: a hash that ran out reads as None and None == None counts as kept; give it its own outcome and make the trial refuse (orchestrator's call) (SW-4750 bug 2)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nProgress (lane/SW-4754): fixed; see commit on branch; moved to review.\n",
+      "body": "Model result: sonnet, worked, 20 min (est. 45, shared with SW-4755/4756).\nThe test a_declaration_whose_hashes_ran_out_is_not_kept failed without the fix and passes with it.\nLeft open: a list dumped with trial-edits --json still cannot record \"ran out\" (filed as a follow-up).\n",
       "created": "2026-11-24",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "7e2ccdfc7",
+        "883bb378b",
+        "5e757a510"
+      ]
     },
     {
       "id": 4755,
       "title": "[Sonnet] proofless hash memoises a value built on proof_positions' fallback: give up when the fallback is taken, or make proof_positions return Result (SW-4750 finding 2)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nProgress (lane/SW-4754): fixed; see commit on branch; moved to review.\n",
+      "body": "Model result: sonnet, worked, shared lane with SW-4754.\nChange: try_proof_positions passes running out on to the hashers.\nD3608 exception (orchestrator's call): the lane could not make the old code fail from a core test, because running out is sticky. The new test checks only that results stay consistent. An end-to-end repro through the check-cache replay is filed as a follow-up.\n",
       "created": "2026-11-24",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "56f717307",
+        "883bb378b",
+        "5e757a510"
+      ]
     },
     {
       "id": 4756,
       "title": "[Sonnet] run_selected: is_partial(..).unwrap_or(false) can run a partial test as total when the check ran out; make it an out-of-resources result (SW-4750 finding 3)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nProgress (lane/SW-4754): fixed; see commit on branch; moved to review.\n",
+      "body": "Model result: sonnet, worked, shared lane with SW-4754.\nD3608 exception (orchestrator's call): no test, because is_partial cannot run out through the public API (audit row 15). The change is a three-way match that returns out of resources.\n",
       "created": "2026-11-24",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "acea868d2",
+        "883bb378b",
+        "5e757a510"
+      ]
     },
     {
       "id": 4757,
@@ -34829,6 +34841,45 @@
         "7f7a30072",
         "6ecf34241"
       ]
+    },
+    {
+      "id": 4770,
+      "title": "[Sonnet] trial-edits JSON and declhash::show can't record a hash that ran out: decl_from_json reads ran_out false, so a comparison against a dumped list still keeps None == None; carry ran_out in the dump (SW-4754 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4771,
+      "title": "[Sonnet] check::proof_telescope and def_type return Diagnostic, not ResourceError: callers can't tell running out from other errors; give them a typed error and drop the map_err(|_| Work) in erase::try_proof_positions and test_run's exhausted() fallback (SW-4755/4756 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4772,
+      "title": "[Sonnet] SW-4755 end-to-end test: a proofless hash cached without proof positions arises only through the check-cache replay; reproduce running out there and show the hash isn't remembered on the fallback (SW-4755 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
     }
   ]
 }
