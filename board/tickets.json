@@ -34650,14 +34650,14 @@
     {
       "id": 4758,
       "title": "[Opus] A recursive theorem proved by byWalking seems not to be sealed: editing a proof between match and byWalking changes the namespace's digest and part B (5 vs 6 stated theorems), so dependants don't replay; should it be proof_hidden? Relevant to stage 3's recursive theorems (SW-4751 finding)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nProgress (Opus lane, 25 Nov): already sealed. Repro (crates/driver/tests/projects/check_cache/digest.rs, an_edited_walked_recursive_theorem_below_replays_what_uses_it): a theorem over a recursive Parse function proved by byWalking, four proof edits around match/byWalking; digest unchanged in each (50775523… for all five shapes in a CLI run with STITCHWORT_CACHE_DEBUG), B replays. Closed by SW-4751's 0ecc90b15 (no 'no induct' row for a theorem): with that check disabled the test fails. Every final theorem is already proof_hidden (Def::proof_hidden doesn't care about recursion). Part B's theorem count still varies with the proof (1 vs 2 here): a top-level walk lifts a %match into the theorem's group, and stated_on_load keeps a group with a non-plain member whole in part A. Harmless for dependants; a coverage limit for proofless loads.\n",
       "created": "2026-11-24",
-      "updated": "2026-11-24",
+      "updated": "2026-11-25",
       "commits": []
     },
     {
