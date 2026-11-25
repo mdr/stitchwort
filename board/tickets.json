@@ -35946,15 +35946,18 @@
     {
       "id": 4840,
       "title": "[DeepSeek] Read the other presence-only STITCHWORT_ switches (STITCHWORT_SEARCH_DEBUG, STITCHWORT_TIMINGS, STITCHWORT_NATIVE_DUMP and the rest: grep var_os(\"STITCHWORT_) through stitchwort_core's env_flag, so =0 means off (SW-4838 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Started on DeepSeek 17:01, est. 20 min.",
+      "body": "Started on DeepSeek 17:01, est. 20 min.\n\nOrchestrator review: defaults kept (LOAD_PROOFS and STATEMENTS_FIRST default on; REQUIRE_WASM now also takes true/yes; empty now means off everywhere). Helper moved to stitchwort-syntax, re-exported from core. Model result: deepseek, worked, about 12 min (est. 20).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "8dd9be94a",
+        "5dd5ae823"
+      ]
     }
   ]
 }
