@@ -1,5 +1,5 @@
 {
-  "next": 4809,
+  "next": 4810,
   "tickets": [
     {
       "id": 47,
@@ -35468,6 +35468,19 @@
       "labels": [],
       "epic": "performance",
       "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4809,
+      "title": "[Opus] Profile what small AoC proofs spend checking time on (D3743): 2024 day 2, 2020 day 18, 2021 day 15, own theorems with the library cached; phases, read-back, kernel, allocation; compare with Lean on the same ports; rank the changes that would close the 3-5x gap (measurement only)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "D3743, Matt 25 Nov 2026: 'Yes, profiling sounds very sensible before we attempt optimizations.'",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
