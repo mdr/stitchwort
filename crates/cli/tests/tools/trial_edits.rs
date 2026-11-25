@@ -192,6 +192,31 @@ fn trial_edits_compares_an_edited_library_with_the_original() {
     let _ = std::fs::remove_dir_all(&cwd);
 }
 
+/// `hash --json --uses` writes `uses` for every declaration, as an empty
+/// list when it mentions no declaration (SW-4794).
+#[test]
+fn hash_json_uses_is_present_even_for_a_declaration_that_mentions_none() {
+    let dir = scratch("hash-uses");
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("stitchwort.yaml"), "sources: [src]\n").unwrap();
+    std::fs::write(
+        dir.join("src/id.sw"),
+        "namespace Laws\n\ndef id (a: Type) (x: a): a := x\n",
+    )
+    .unwrap();
+
+    let output = stitchwort(&dir, &["hash", "--json", "--uses", "Laws.id"]);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let hashes = json(&output);
+    assert_eq!(hashes["declarations"][0]["uses"], serde_json::json!([]));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// `hash` on a project that doesn't check reports the errors on standard
 /// error as `check` does, and fails with its status (SW-2727).
 #[test]

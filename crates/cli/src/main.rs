@@ -31,10 +31,12 @@ struct Cli {
     #[command(subcommand)]
     command: Command,
     /// Read the standard library from this directory (laid out as
-    /// `crates/elab/src/std`) instead of the copy built in, so edits to it
-    /// take effect without a rebuild. The environment variable
-    /// `STITCHWORT_STD_DIR` does the same; this wins. A library file is
-    /// checked only when a program needs it: `check --std` checks named ones
+    /// `crates/elab/src/std`), overriding the lookup that otherwise finds it
+    /// (an installed copy, or a checkout's; its files are read at run time),
+    /// so edits to it take effect without a rebuild. The environment
+    /// variable `STITCHWORT_STD_DIR` does the same; this wins. A library
+    /// file is checked only when a program needs it: `check --std` checks
+    /// named ones
     #[arg(long, global = true, value_name = "DIR")]
     std_dir: Option<PathBuf>,
     /// Show each goal in full. Without it, a line of a goal (a hypothesis,

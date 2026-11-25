@@ -368,7 +368,7 @@ fn decl_json(d: &DeclHash, uses: bool) -> Value {
     if d.ran_out {
         v["ranOut"] = json!(true);
     }
-    if uses && !d.uses.is_empty() {
+    if uses {
         v["uses"] = json!(d.uses);
     }
     v
