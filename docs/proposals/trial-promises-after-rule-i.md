@@ -88,3 +88,18 @@ A further option, not recommended here: hash references to *definitions*
 without their proof positions too, so case 1 would move only the edited
 definition, not its callers. That is an identity question (pins, the test
 cache, the check cache) for its own note.
+
+## As built (SW-4781)
+
+A fixture confirmed case 3 only for a *group*: `def f` and `theorem t` that
+call each other (`t`'s type can't mention `f`: E-MUTUAL-SIGNATURE), where
+re-proving `t` moves `f` and its callers
+(`re_proving_a_theorem_in_a_group_moves_its_computing_definition`). A local
+theorem inside `f`'s body (`theorem step` after a `match` arm) is no group
+member: re-proving it moves nothing. So the cone is replaced by the direct
+check, kept as `reproved` (a re-proved theorem a changed definition mentions
+that mentions it back, itself or through its generated declarations), and the
+binder sweep's group branch (the SW-2690 one) stays, fed by it. Removed:
+`reproved_cone`, the `outside` filter, `reproved_all`, `refuse_changed_proofs`
+and the sweep's `--proofs-only` (so its `proofsOnly` JSON key and listing).
+The trial's and the rename's `--json` had no `reproved` key.

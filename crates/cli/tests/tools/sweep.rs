@@ -45,8 +45,9 @@ fn names(file: &Value, key: &str) -> Vec<String> {
 
 /// `leAntisym` keeps its hash: both its arms stay possible once the
 /// premises are in the header; `addZ` gains an argument, a new proof term,
-/// which `limit` depends on, so it is refused; `memOf` has a `∀` after a
-/// premise and is skipped.
+/// which `limit` mentions but cites by `addZ`'s statement (rule I), so
+/// `limit` keeps its hash and `addZ` is converted; `memOf` has a `∀` after
+/// a premise and is skipped.
 const BEFORE: &str = "\
 namespace Laws
 
@@ -74,7 +75,7 @@ theorem leAntisym ∀ (a b: Nat) (h1: a ≤ b) (h2: b ≤ a): a = b := match a, 
   | Zero, Zero => byComputing
   | Succ a, Succ b => Eq.cong Succ (leAntisym a b h1 h2)
 
-theorem addZ: ∀ (n: Nat) => n + 0 = n := Nat.addZero
+theorem addZ ∀ (n: Nat): n + 0 = n := Nat.addZero n
 ";
 
 #[test]
@@ -98,15 +99,8 @@ fn sweep_theorem_binders_writes_only_what_keeps_its_statement() {
     assert_eq!(result["written"], false);
     let file = &result["files"][0];
     assert_eq!(file["file"], "src/laws.sw");
-    assert_eq!(names(file, "converted"), ["leAntisym"]);
-    assert_eq!(names(file, "refused"), ["addZ"]);
-    assert!(
-        file["refused"][0]["reason"]
-            .as_str()
-            .unwrap()
-            .contains("limit"),
-        "{file}"
-    );
+    assert_eq!(names(file, "converted"), ["leAntisym", "addZ"]);
+    assert_eq!(names(file, "refused"), Vec::<String>::new());
     assert_eq!(names(file, "skipped"), ["memOf"]);
     assert_eq!(file["skipped"][0]["reason"], "forall-after-premise");
     assert_eq!(
@@ -278,8 +272,8 @@ theorem memOf: ∀ (n: Nat) => 0 < n → ∀ (k: Nat) => k ≤ k + n := n h k =>
     assert_eq!(result["written"], false);
     let file = &result["files"][0];
     assert_eq!(file["file"], "laws.sw");
-    assert_eq!(names(file, "converted"), ["ident", "both"]);
-    assert_eq!(names(file, "refused"), ["addZ"]);
+    assert_eq!(names(file, "converted"), ["ident", "both", "addZ"]);
+    assert_eq!(names(file, "refused"), Vec::<String>::new());
     assert_eq!(names(file, "skipped"), ["memOf"]);
     assert_eq!(
         std::fs::read_to_string(dir.join("laws.sw")).unwrap(),

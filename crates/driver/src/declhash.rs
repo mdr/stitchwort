@@ -256,10 +256,10 @@ pub struct HashChange {
     /// that one.
     pub uses: Option<String>,
     /// The theorems whose proof changed (and whose statement held) that it
-    /// mentions, directly or through other such theorems, and that mention
-    /// no other: a definition's hash covers the proofs it mentions, so one
-    /// of these may be why it moved. A name generated from a theorem
-    /// (`t.%match1`) is part of its proof.
+    /// mentions and that mention it back, itself or through a declaration
+    /// generated from them (`t.%match1`): they are in its group, whose
+    /// hash covers every member's body, so one of these may be why it
+    /// moved. A theorem outside a group is cited by its statement alone.
     pub reproved: Vec<String>,
     /// A hash of it (either side) ran out, so it can't be told whether it
     /// kept its meaning; it is listed as changed to be safe.
@@ -346,19 +346,6 @@ pub fn compare(before: &[DeclHash], after: &[DeclHash], promise: &Promise) -> Ha
         .chain(&proof_owners)
         .cloned()
         .collect();
-    // Every re-proved declaration, and every declaration generated from
-    // one (a lifted `match` is part of its theorem's proof, whatever its
-    // own kind), for the cones.
-    let reproved_all: BTreeSet<String> = proof_owners
-        .iter()
-        .cloned()
-        .chain(
-            diff.changed
-                .iter()
-                .filter(|c| under(&c.name, &proof_owners))
-                .map(|c| c.name.clone()),
-        )
-        .collect();
     let uses_of: BTreeMap<&str, &[String]> = after
         .iter()
         .map(|d| (d.name.as_str(), d.uses.as_slice()))
@@ -368,28 +355,26 @@ pub fn compare(before: &[DeclHash], after: &[DeclHash], promise: &Promise) -> Ha
     let changed_names: BTreeSet<String> = diff.changed.iter().map(|c| c.name.clone()).collect();
     for c in &mut diff.changed {
         let mentioned = uses_of.get(c.name.as_str()).copied().unwrap_or(&[]);
-        // Through re-proved declarations, and through those generated from
-        // this one (a recursive definition's `decreasing` proofs).
+        // Through the declarations generated from this one (a recursive
+        // definition's `decreasing` proofs).
         let own = std::slice::from_ref(&c.name);
-        let follow = |u: &str| reproved_all.contains(u) || under(u, own);
         let mut seen: BTreeSet<&str> = BTreeSet::new();
         let mut todo: Vec<&str> = mentioned
             .iter()
             .map(String::as_str)
-            .filter(|u| follow(u))
+            .filter(|u| under(u, own))
             .collect();
         while let Some(name) = todo.pop() {
             if !seen.insert(name) {
                 continue;
             }
             for u in uses_of.get(name).copied().unwrap_or(&[]) {
-                if follow(u) && !seen.contains(u.as_str()) {
+                if under(u, own) && !seen.contains(u.as_str()) {
                     todo.push(u);
                 }
             }
         }
-        // Another change it or its cone mentions: a re-proved theorem may
-        // have been re-proved because of it.
+        // Another change it or its generated declarations mention.
         c.uses = mentioned
             .iter()
             .chain(
@@ -398,25 +383,18 @@ pub fn compare(before: &[DeclHash], after: &[DeclHash], promise: &Promise) -> Ha
             )
             .find(|u| changed_names.contains(*u) && !under(u, own) && **u != c.name)
             .cloned();
-        // Only where the change starts: a re-proved theorem whose proof,
-        // its lifted matches included (which may call it back), mentions
-        // another may have been re-proved because of it.
-        let outside: BTreeSet<&str> = seen
+        // A re-proved theorem in its group: one it mentions that mentions
+        // it back.
+        c.reproved = proof_owners
             .iter()
-            .filter(|n| {
-                uses_of
-                    .get(**n)
-                    .copied()
-                    .unwrap_or(&[])
-                    .iter()
-                    .any(|u| reproved_all.contains(u) && owner(u) != owner(n))
+            .filter(|t| mentioned.contains(*t))
+            .filter(|t| {
+                after.iter().any(|d| {
+                    (d.name == **t || under(&d.name, std::slice::from_ref(*t)))
+                        && d.uses.contains(&c.name)
+                })
             })
-            .map(|n| owner(n))
-            .collect();
-        c.reproved = seen
-            .iter()
-            .filter(|n| reproved_all.contains(**n) && !outside.contains(owner(n)))
-            .map(|n| n.to_string())
+            .cloned()
             .collect();
     }
     diff.proofs_changed.retain(|n| !under(n, &proof_owners));

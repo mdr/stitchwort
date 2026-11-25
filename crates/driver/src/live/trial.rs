@@ -67,12 +67,12 @@ pub enum Promise {
     /// theorem may have another content hash if its type hash (what the
     /// statement says, whatever the proof) holds. Everything else keeps its
     /// content hash: a definition whose hash moves is a problem, and so is a
-    /// theorem whose statement changed. A theorem that uses another that
-    /// changed only in its proof has another hash too, which is accepted on
-    /// the same terms. Matched and renamed as for `SameMeaning`.
+    /// theorem whose statement changed. A theorem that uses another only
+    /// by its statement keeps its hash when that one is re-proved (rule I).
+    /// Matched and renamed as for `SameMeaning`.
     SameStatement { renames: BTreeMap<String, String> },
-    /// Only proofs change, inside definitions too: for edits to theorems'
-    /// proofs that definitions embed (a structure's invariant, a
+    /// Only proofs change, inside definitions too: for edits to proofs
+    /// written inside definitions (a structure's invariant, a
     /// `Quot.lift`'s respects-proof, a `decreasing` proof). A declaration
     /// may have another content hash if its hash without proofs
     /// (`proofless_hash`: the hash with every proof position left out,
@@ -190,11 +190,10 @@ pub struct ChangedMeaning {
     /// without one are where to look first.
     pub uses: Option<String>,
     /// The theorems whose proof changed (and whose statement held) that
-    /// this declaration mentions, directly or through other such
-    /// theorems, and that mention no other: a definition's hash covers the
-    /// proofs it mentions, so one of these may be why it moved. By full
-    /// name; a name generated from a theorem (`t.%match1`) is part of its
-    /// proof.
+    /// this declaration mentions and that mention it back, itself or
+    /// through a declaration generated from them (`t.%match1`): they are in
+    /// its group, whose hash covers every member's body, so one of these
+    /// may be why it moved. By full name.
     pub reproved: Vec<String>,
     /// Under [`Promise::ProofsOnly`]: the first place its old and new terms
     /// differ outside proof positions, when it has one.
@@ -889,19 +888,33 @@ impl LiveProject {
                     Some(Id::Def(i)) => mentioned(*i),
                     _ => BTreeSet::new(),
                 };
-                let cone = reproved_cone(&used, &accepted_ids, &mentioned, &|i| {
+                // What it mentions, and what the declarations generated from
+                // it do (a recursive definition's `decreasing` proofs).
+                let own = |i: usize| {
                     let path = g.env.defs()[i].path();
                     path.len() > name.len()
                         && path.starts_with(name.as_str())
                         && path.as_bytes()[name.len()] == b'.'
-                });
-                // What it mentions, and what its cone does: a re-proved
-                // theorem may have been re-proved because of another change.
+                };
                 let mut reach = used.clone();
-                for c in &cone {
-                    if let Id::Def(i) = c {
-                        reach.extend(mentioned(*i));
+                let mut todo: Vec<usize> = used
+                    .iter()
+                    .filter_map(|u| match u {
+                        Id::Def(i) if own(*i) => Some(*i),
+                        _ => None,
+                    })
+                    .collect();
+                let mut seen: BTreeSet<usize> = BTreeSet::new();
+                while let Some(i) = todo.pop() {
+                    if !seen.insert(i) {
+                        continue;
                     }
+                    let more = mentioned(i);
+                    todo.extend(more.iter().filter_map(|u| match u {
+                        Id::Def(j) if own(*j) => Some(*j),
+                        _ => None,
+                    }));
+                    reach.extend(more);
                 }
                 let uses = reach
                     .iter()
@@ -909,34 +922,22 @@ impl LiveProject {
                     .filter_map(|u| ids.get(u))
                     .find(|other| !other.starts_with(&format!("{name}.")))
                     .map(|other| short(namespace, other));
-                // Only where the change starts: a re-proved theorem whose
-                // proof, its lifted matches included (which may call it
-                // back), mentions another may have been re-proved because
-                // of it.
-                let path = |c: &Id| match c {
-                    Id::Def(i) => g.env.defs()[*i].path().to_string(),
-                    Id::Data(i) => g.env.datas()[*i].path().to_string(),
-                };
-                let outside: BTreeSet<String> = cone
+                // The re-proved theorems in its group: those it mentions
+                // that it is mentioned back by (or by what is generated
+                // from them).
+                let reproved: BTreeSet<String> = accepted_ids
                     .iter()
-                    .filter(|c| match c {
-                        Id::Def(i) => {
-                            let me = path(c);
-                            mentioned(*i).iter().any(|u| {
-                                accepted_ids
-                                    .get(u)
-                                    .is_some_and(|name| owner(name) != owner(&me))
-                            })
-                        }
-                        Id::Data(_) => false,
+                    .filter(|(theorem, _)| used.contains(*theorem))
+                    .filter(|(_, theorem_name)| {
+                        let theorem = owner(theorem_name);
+                        accepted_ids.iter().any(|(part, part_name)| {
+                            owner(part_name) == theorem
+                                && matches!(part, Id::Def(i) if (*id).is_some_and(|id| mentioned(*i).contains(&id)))
+                        })
                     })
-                    .map(|c| owner(&path(c)).to_string())
+                    .map(|(_, theorem_name)| owner(theorem_name).to_string())
                     .collect();
-                let reproved = cone
-                    .iter()
-                    .filter(|c| !outside.contains(owner(&path(c))))
-                    .filter_map(|c| accepted_ids.get(c).cloned())
-                    .collect();
+                let reproved: Vec<String> = reproved.into_iter().collect();
                 let (path, range) = match where_declared.find(name) {
                     Some((path, range)) => (Some(path), Some(range)),
                     None => (None, None),
@@ -1010,34 +1011,6 @@ fn definition_difference(
         .then(|| def.body().map(|body| body.as_ref()))
         .flatten();
     term_diff::declaration(g, old, old_body, def.ty(), new_body, ids)
-}
-
-/// The accepted declarations (re-proved theorems) that `start` mentions,
-/// directly or through other accepted ones, and the definitions generated
-/// from the declaration `start` belongs to that lead to them (`own`: a
-/// recursive definition's `decreasing` proofs).
-fn reproved_cone(
-    start: &BTreeSet<Id>,
-    accepted: &BTreeMap<Id, String>,
-    mentioned: &dyn Fn(usize) -> BTreeSet<Id>,
-    own: &dyn Fn(usize) -> bool,
-) -> BTreeSet<Id> {
-    let follow = |u: &Id| accepted.contains_key(u) || matches!(u, Id::Def(i) if own(*i));
-    let mut seen: BTreeSet<Id> = BTreeSet::new();
-    let mut todo: Vec<Id> = start.iter().filter(|u| follow(u)).copied().collect();
-    while let Some(id) = todo.pop() {
-        if !seen.insert(id) {
-            continue;
-        }
-        if let Id::Def(i) = id {
-            todo.extend(
-                mentioned(i)
-                    .into_iter()
-                    .filter(|u| follow(u) && !seen.contains(u)),
-            );
-        }
-    }
-    seen
 }
 
 struct Declarations {

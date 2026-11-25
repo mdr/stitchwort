@@ -35030,12 +35030,12 @@
     {
       "id": 4781,
       "title": "[Sonnet] Simplify the trial after rule I (docs/proposals/trial-promises-after-rule-i.md, SW-4778): first a fixture for the group case (a computing def in a group with a theorem); then remove the reproved cone unless that fixture needs it, the binder sweep's two refusal paths (report an unexplained change as a sweep bug, exit 1), sweep theorem-binders --proofs-only, and the false same-statement doc sentence, and retire a_definition_that_mentions_a_reproved_theorem_names_it (orchestrator's call: a development tool's flags, not a proved tool's scope)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nProgress (Sonnet lane, 25 Nov): fixture shows case 3 is real only for a group (def f and theorem t calling each other); a local theorem inside f's body moves nothing. Cone replaced by a one-step check (re-proved theorem mentioned that mentions the def back); sweep's SW-2690 branch kept (fed by it), refuse_changed_proofs and sweep --proofs-only removed; two stale sweep tests updated (rule I). Model result: Sonnet, worked, ~35 min (est. 45).\n",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
