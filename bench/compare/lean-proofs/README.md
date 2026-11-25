@@ -23,3 +23,36 @@ Differences from the Stitchwort side, which the numbers must be read with:
 - Std's Dijkstra (`Graph.distancesShortest`) is a hypothesis (`Dijkstra`), and
   its result map is a function `Position -> Option Nat`, not a `TreeMap`.
 - `Nat.iterate` is defined in the file (core has none).
+
+## How `task bench:compare:proofs` measures
+
+Medians of `--runs N` hyperfine runs (default 5; hyperfine 2.0, one untimed
+warmup each). Run it on a quiet machine and record `uptime` first.
+
+- **The build.** `cargo build --release -p stitchwort-cli`, without
+  `{{.DEV_FEATURES}}`: the dev features turn on core's `reference` feature,
+  whose `validate_marks` re-checks every installed declaration and costs
+  12-25% of a library-cached run (SW-4809). The binary people run has none.
+- **No probe file.** An earlier version subtracted a cold check of a
+  hand-written file that imported the day's std modules. It never loaded
+  every std file the day does (day 18 also checks `Parse/ReadsChars` and
+  `RunsChars`, 975 ms), so those landed in "sw net" (SW-4809, SW-4810).
+  "sw net" is now read from the day's own run: the elaboration plus kernel
+  time of the `--timings=all` unit table's rows that are neither `core` nor
+  `std/...`, i.e. the day's namespaces. It excludes parsing, the library
+  index and project scan, which are fixed costs and show in the other columns.
+- **Columns.**
+  - `sw check (cold)`: wall time of `check --no-cache <namespaces> --only
+    <the theorems this folder's file also has>` from `aoc/`: library and
+    day all rechecked from source.
+  - `sw net`: the day's own units, as above.
+  - `lean file`, `lean load`, `lean net`: `lean` on the day's file, on a file
+    that only imports `Lib`, and their difference.
+  - `sw net / lean net`: the like-for-like ratio of proof work.
+  - `sw check (library cached)`: wall time of `check --no-project-cache` of
+    the same namespaces with the library cache warm (the warmup run fills it):
+    the whole run including startup, index and scan, our counterpart of Lean's
+    precompiled `.olean`. Its ratio to `lean file` is the end-to-end figure.
+  - `lake build (cold)`: Lib plus the day, `.lake` deleted first.
+- hyperfine's JSON is read in 2.0's format (`measurements[].time_wall_clock.value`) or 1.x's (`times`; the flake has 1.21);
+  a missing key or a wrong number of runs stops the bench.
