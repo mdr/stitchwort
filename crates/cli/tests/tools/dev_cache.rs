@@ -117,15 +117,16 @@ fn the_keys_printed_are_the_entries_check_writes() {
 fn two_caches_of_the_same_project_compare_equal_without_the_build_entries() {
     let scratch = Scratch::new("same");
     let (a, b) = (scratch.0.join("a"), scratch.0.join("b"));
-    // `check` also writes the scan and `ran` entries; `dev keys` doesn't.
+    // `check` also writes the core's entry and the scan and `ran` entries;
+    // `dev keys` writes only the namespaces'.
     run(
         &scratch.0,
         &["check", "--cache-dir", &a.display().to_string()],
     );
-    stdout(&run(
+    run(
         &scratch.0,
-        &["dev", "keys", "--cache-dir", &b.display().to_string()],
-    ));
+        &["check", "--cache-dir", &b.display().to_string()],
+    );
     let out = stdout(&run(
         &scratch.0,
         &[
@@ -136,10 +137,10 @@ fn two_caches_of_the_same_project_compare_equal_without_the_build_entries() {
         ],
     ));
     assert!(
-        out.contains("only in A: 0\nonly in B: 0\nsame: 2\n"),
+        out.contains("only in A: 0\nonly in B: 0\nsame: 3\n"),
         "{out}"
     );
-    assert!(out.contains("A 1 scan; B none"), "{out}");
+    assert!(out.contains("A 1 scan; B 1 scan"), "{out}");
 }
 
 #[test]
