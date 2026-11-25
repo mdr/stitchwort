@@ -35767,8 +35767,8 @@
     {
       "id": 4828,
       "title": "[Sonnet] Read the project's and library's files on several threads at check start: 633 project files take 32-39 ms (24 ms in open) and 133 library files 11-14 ms on one thread; about 25-35 ms per check, estimated (SW-4819 rank 3)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "performance",
