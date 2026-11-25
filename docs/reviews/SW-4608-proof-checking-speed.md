@@ -582,5 +582,5 @@ Then (SW-4806, 25 Nov morning, the old bench) and now:
 **Where we stand against Lean:** on the proofs themselves we are level with Lean (0.6-1.0x its
 time on the same theorems), and a whole day with the library cached takes 1.4-1.8x Lean's time
 for the file, the gap being start-up we pay on every check (library index, project scan, core);
-cold, with the library rechecked from source, we are 5-20x behind **[measured]**; one machine,
+cold, with the library rechecked from source, we are 6-19x behind **[measured]**; one machine,
 3 runs each.
