@@ -34668,14 +34668,14 @@
     {
       "id": 4760,
       "title": "[Opus] Editor: fill a cold cache with --jobs workers at language-server start-up (parallel-checking.md 9.2 follow-up; gets stage 3 for free), with the server's cancel flag given to the workers; measure time to first diagnostics on tools/fmt",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-24",
-      "updated": "2026-11-24",
+      "updated": "2026-11-25",
       "commits": []
     },
     {
