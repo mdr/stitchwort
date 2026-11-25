@@ -35640,7 +35640,7 @@
     {
       "id": 4820,
       "title": "[Opus] A fully cached check with several jobs is twice as slow as one job (AoC 2024 day 2: about 0.8 s with STITCHWORT_JOBS=4 vs 0.39 s with one): fill builds worker 0's whole session (core re-elaborated, ~85 ms, and more) before finding fewer than two namespaces to check; decide 'nothing or one namespace to check' before building any worker, so the default check (auto jobs, D3742) is never slower than one job (SW-4813 finding 1, SW-4816 finding 6)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
