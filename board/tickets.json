@@ -35417,15 +35417,18 @@
     {
       "id": 4805,
       "title": "[Sonnet] check uses parallel workers by default (D3742, Matt: 'yes'): --jobs defaults to auto (parallel::auto_jobs: min(cores, 8, mem / 2 GB)), with STITCHWORT_JOBS and --jobs still overriding; lanes and verifiers set STITCHWORT_JOBS=2",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "D3742, Matt 25 Nov 2026: 'D3742 yes' (check defaults to auto workers; lanes and verifiers capped at STITCHWORT_JOBS=2). Started on Sonnet 11:04, est. 30 min.",
+      "body": "D3742, Matt 25 Nov 2026: 'D3742 yes' (check defaults to auto workers; lanes and verifiers capped at STITCHWORT_JOBS=2). Started on Sonnet 11:04, est. 30 min.\n\nModel result: sonnet, worked, about 25 min (est. 30).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "fa8c0fda8",
+        "08eb06989"
+      ]
     }
   ]
 }

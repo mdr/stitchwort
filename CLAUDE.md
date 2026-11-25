@@ -412,7 +412,8 @@ Matt. Every `-E` filter names a `binary(...)` or `package(...)`.
   roguelike namespace it edited is fine, D3517), the benchmark, or a
   workspace-wide build of test targets, and runs one test command at a
   time, prefixed `STITCHWORT_TEST_THREADS=2 NEXTEST_TEST_THREADS=2 nice -n 19`,
-  and at most three build lanes run at once, held while the 5-minute load
+  runs `stitchwort check` with `STITCHWORT_JOBS=2` (`check` uses up to 8
+  workers by default, D3742, Matt, 25 Nov 2026), and at most three build lanes run at once, held while the 5-minute load
   is above 15 (the rules and their history: `docs/workflow.md`, "Lane count
   and load"; D3542, Matt, 13 Nov 2026: "it's good
   for the lanes to have lighter CPU load ... targeted, intelligent tests,

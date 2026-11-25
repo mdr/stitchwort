@@ -14,7 +14,7 @@ Before anything else, read `CLAUDE.md` at the repo root and follow it: the
   its branch. Don't merge into `main` or push.
 - Where things are: std is `crates/elab/src/std` (read at run time, so std
   edits need no rebuild); the CLI is package `stitchwort-cli`, binary
-  `./target/release/stitchwort` (not on the `nix develop` PATH); `check`
+  `./target/release/stitchwort` (not on the `nix develop` PATH); `check` (run it with `STITCHWORT_JOBS=2`, D3742)
   takes namespaces, run from the project's folder (`cd tools/fmt`), and a
   std file is `check --std --std-dir crates/elab/src/std FILE`; which
   package and binary a test is in is `docs/testing.md`, "Features" (D3740);
