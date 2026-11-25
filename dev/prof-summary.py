@@ -1,7 +1,15 @@
-"""Summarise samply profiles (Firefox format + .syms.json sidecar) of short
-`stitchwort check` runs. Sums every thread of every file given.
+"""Summarise samply profiles of short `stitchwort check` runs.
 
-usage: prof.py [--top N] [--under FRAME] [--children FRAME] [--phases] PROFILE.json.gz...
+Input: one or more samply profiles in Firefox's profiler JSON format, either
+`PROFILE.json.gz` or `PROFILE.json`, optionally each with a
+`PROFILE.json.syms.json` sidecar that maps addresses in system libraries to
+symbol names. Every thread of every file given is summed.
+
+Run it with:
+
+    nix shell nixpkgs#python3 -c python3 -I dev/prof-summary.py --top 10 PROFILE.json.gz...
+
+Options: --top N, --under FRAME, --children FRAME, --phases, --rate SAMPLES_PER_SECOND.
 """
 import bisect, gzip, json, sys, argparse
 from collections import Counter
