@@ -398,3 +398,48 @@ fn a_core_entry_with_a_wrong_list_length_run_body_is_refused() {
     assert_eq!((stats.core_hits, stats.refused), (1, 0));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A core with a badly-styled theorem (`W-THEOREM-FORALL`): its warning is
+/// in the library's warning report, a core that gives one is never
+/// cached (so the sweep that finds it always runs on a miss), and a core
+/// that is clean replays from its entry with no sweep warning to give.
+#[test]
+fn the_cores_statement_style_warnings_are_reported_and_are_not_cached() {
+    let styled = format!(
+        "{}\ntheorem coreStyle: ∀ (n: Nat) => n + 0 = n\n  | Zero => byComputing\n  | Succ k => byComputing\n",
+        stitchwort_elab::prelude()
+    );
+    let dir = temp_dir("core-style");
+    let codes =
+        |prelude: &str, cache: Option<&Path>| -> (Vec<&'static str>, Vec<&'static str>, Stats) {
+            let prelude = prelude.to_string();
+            let cache = cache.map(Path::to_path_buf);
+            with_stack(STACK, move || {
+                let session = match &cache {
+                    Some(dir) => Session::with_core_cache(&prelude, dir, false, false, None)
+                        .unwrap_or_else(|report| panic!("{report}")),
+                    None => Session::with_prelude(&prelude),
+                };
+                let report = session.library_warning_report(&|name| name == "<prelude>");
+                (
+                    session.warnings.iter().map(|d| d.code).collect(),
+                    report.iter().map(|d| d.code).collect(),
+                    session.elab.check_cache_stats(),
+                )
+            })
+        };
+    let (_, report, _) = codes(&styled, None);
+    assert!(report.contains(&"W-THEOREM-FORALL"), "{report:?}");
+    for _ in 0..2 {
+        let (kept, report, stats) = codes(&styled, Some(&dir));
+        assert_eq!(kept, ["W-THEOREM-FORALL"]);
+        assert!(report.contains(&"W-THEOREM-FORALL"), "{report:?}");
+        assert_eq!((stats.core_hits, stats.core_written), (0, 0));
+    }
+    let clean = stitchwort_elab::prelude();
+    codes(clean, Some(&dir));
+    let (kept, _, stats) = codes(clean, Some(&dir));
+    assert_eq!((stats.core_hits, stats.core_misses), (1, 0));
+    assert!(kept.is_empty(), "{kept:?}");
+    let _ = std::fs::remove_dir_all(&dir);
+}

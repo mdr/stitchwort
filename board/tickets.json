@@ -1,5 +1,5 @@
 {
-  "next": 4842,
+  "next": 4844,
   "tickets": [
     {
       "id": 47,
@@ -35377,7 +35377,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Sonnet lane: validate_pi_marks evaluates, forces and quotes a non-Pi type, so marks of nickname signatures are checked. No new failures: proof_masks and soundness pass; 31 computed-type walks hit by example 39b. No test fails if skipped (a mark mismatch needs a corrupted term).\n\nModel result: sonnet, worked (no failing-before test: the validator has no seam for a corrupted mark), shared with SW-4801.\n\nReverted 25 Nov (534945f89): the whole-AoC check segfaulted at f9e2c847e with unbounded recursion in reference::eval (unfold -> apply_icit -> eval_tree -> eval, Overmind's core dump). validate_pi_marks evaluated and forced every non-Pi definition type at admission with the reference evaluator, which has no bound. Redo on Opus: bound it (the kernel's budget, or force only to the first Pi with the kernel evaluator), find the AoC definition that loops, and add it as a test.\n\nOvermind, 25 Nov: the crash recurred at 8a32948e9 (same code), so not a one-off. No single AoC namespace crashes on its own (Aoc.Common and all 75 days checked separately with the f9e2c847e binary, --jobs 1): it needs the whole project in one process ('cd aoc && <binary> check --no-cache', about 121 s to the crash). Binary kept on Overmind. The redo lane reproduces it that way first.",
+      "body": "Sonnet lane: validate_pi_marks evaluates, forces and quotes a non-Pi type, so marks of nickname signatures are checked. No new failures: proof_masks and soundness pass; 31 computed-type walks hit by example 39b. No test fails if skipped (a mark mismatch needs a corrupted term).\n\nModel result: sonnet, worked (no failing-before test: the validator has no seam for a corrupted mark), shared with SW-4801.\n\nReverted 25 Nov (534945f89): the whole-AoC check segfaulted at f9e2c847e with unbounded recursion in reference::eval (unfold -> apply_icit -> eval_tree -> eval, Overmind's core dump). validate_pi_marks evaluated and forced every non-Pi definition type at admission with the reference evaluator, which has no bound. Redo on Opus: bound it (the kernel's budget, or force only to the first Pi with the kernel evaluator), find the AoC definition that loops, and add it as a test.\n\nOvermind, 25 Nov: the crash recurred at 8a32948e9 (same code), so not a one-off. No single AoC namespace crashes on its own (Aoc.Common and all 75 days checked separately with the f9e2c847e binary, --jobs 1): it needs the whole project in one process ('cd aoc && <binary> check --no-cache', about 121 s to the crash). Binary kept on Overmind. The redo lane reproduces it that way first.\n\nLane done (Opus, 22 min, est. 50): bounded computed-Pi walk, refuse with E-RESOURCE at the bound. Fable review started; Overmind asked to rerun the whole-AoC repro on repro/SW-4802 (dev features) 17:43.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": [
@@ -35815,15 +35815,18 @@
     {
       "id": 4830,
       "title": "[Sonnet] Run core's statement-style sweep (binder_sweep, 9 ms) only when library warnings are reported (SW-4819 rank 5)",
-      "status": "backlog",
-      "agent": "",
+      "status": "done",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Orchestrator's call: held until SW-4814 merges (both edit Session::start_in's core loading).\n\nUnheld: SW-4814 merged.",
+      "body": "Orchestrator's call: held until SW-4814 merges (both edit Session::start_in's core loading).\n\nUnheld: SW-4814 merged.\n\nLane: SW-4814 already skips the sweep on a core-cache hit (statement_style runs only on the miss path in start_cached); the other readers (library_warning_report, check --std --warnings) already run it on demand. Nothing left to skip on a hit; on a miss it decides whether the entry is written. Added a pinning test (core_entry::the_cores_statement_style_warnings_are_reported_and_are_not_cached).\n\nCovered by SW-4814: the sweep runs only on a core-cache miss. Test added. Model result: sonnet, worked, about 5 min (est. 20).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "013f4334b",
+        "b1cc120ee"
+      ]
     },
     {
       "id": 4831,
@@ -35867,15 +35870,18 @@
     {
       "id": 4834,
       "title": "[Sonnet] A task load:wait -- N (wait until the 5-minute load is under N, up to a cap) and a shared profile summariser in dev/ (from docs/reviews/SW-4819/prof.py); lanes hand-rolled both and got them wrong (SW-4819 friction)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Started on DeepSeek 17:43, est. 15 min.\n\nOrchestrator review: task tested (exit 0 below N, nonzero at the cap); summariser moved unchanged with a docstring. Model result: deepseek, worked, about 8 min (est. 15).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "94cf83617",
+        "96cde0a30"
+      ]
     },
     {
       "id": 4835,
@@ -35975,6 +35981,32 @@
       "title": "[Sonnet] Core-from-cache test gaps (SW-4814 Fable review findings 2, 3, 8): a custom-prelude core_entry test with a kept warning (nested trans) so the warnings comparison isn't vacuous; a test that options in the key (limits, glue) miss; after binding List.length on the trusted path, compare its run body with length_run_body's",
       "status": "doing",
       "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4842,
+      "title": "[Sonnet] On a core-cache miss with a statement-style warning in core, library_warning_report may list the warning twice (once from session.warnings, once from warnings_of_text); check with SW-4830's styled test core and fix if so, with a test (SW-4830 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4843,
+      "title": "[Opus] The reference validator still skips a definition silently when checking its type or walking its written Pis runs out of resources ('no answer, as the kernel would give'); decide whether those should refuse like SW-4802's computed walk, and whether a validator that reaches no conclusion should say so (SW-4802 findings 1, 2)",
+      "status": "backlog",
+      "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
