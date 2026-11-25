@@ -15,7 +15,7 @@ use crate::module::{Ref, decl_refs};
 
 mod sketch;
 use crate::scope::{Qualifier, QualifierLevels, STD, WildcardSource, import_target, qualifier};
-pub use sketch::{FileSketch, ImportSketch};
+pub use sketch::{FileSketch, ImportSketch, declared_in};
 
 /// One file of a module: its display name (project-relative path, for
 /// messages) and its syntax.
@@ -253,6 +253,16 @@ impl Elaborator {
 
     /// What the project pre-pass says `import N (..)` brings from namespace
     /// `ns`, if its files parsed.
+    /// The keys each project namespace whose files parsed declares
+    /// ([`sketch::declared_in`], with the namespace), for doc links (call
+    /// with [`Self::set_project_names`]).
+    pub fn set_project_declared(
+        &mut self,
+        declared: BTreeMap<String, stitchwort_core::collections::HashSet<String>>,
+    ) {
+        self.session.project_declared = Arc::new(declared);
+    }
+
     pub fn project_names(&self, ns: &str) -> Option<&BTreeSet<String>> {
         self.session.project_names.get(ns)
     }
