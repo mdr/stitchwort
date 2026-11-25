@@ -1,5 +1,5 @@
 {
-  "next": 4803,
+  "next": 4804,
   "tickets": [
     {
       "id": 47,
@@ -35080,12 +35080,12 @@
     {
       "id": 4784,
       "title": "[Sonnet] Termination: a byWalking proof whose recursive arm lifts match more + 0 fails with E-TERMINATION (m isn't seen as smaller than fuel), though match more with works; see the givesDown fixture in examples/accept/walk-nested-match.sw (SW-4775 finding)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Closed as by design (orchestrator's call, reversible): the lane's fix (strip a trailing + 0 in the termination checker, lane/SW-4784 dbb886858) was sound but Fable recommended dropping it: nobody writes match k + 0, it accepts k + 0 but not k + Zero or 0 + k, and it would be the first termination rule resting on a conversion rule, against docs/core.md's 'decided from the terms, never by conversion'. Review: docs/reviews/SW-4784-termination-review.md. Model result: sonnet, worked (sound fix, not kept), about 25 min (est. 30).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
@@ -35360,6 +35360,19 @@
     {
       "id": 4802,
       "title": "[Sonnet] reference::validate_pi_marks (crates/core/src/reference.rs:1763, :1792) collects binder marks by walking Term::Pi over def.ty as written, so a definition with a nickname signature (def f: Reader) skips the lambda-against-binder check; walk the computed type instead, as SW-4796 did for rule S (SW-4800 finding 3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4803,
+      "title": "[DeepSeek] E-TERMINATION: generalise the tuple note (for match (k, a) with) to any lifted match on a computed scrutinee, e.g. match k + 0 with: suggest matching k itself (SW-4784 review F4, docs/reviews/SW-4784-termination-review.md)",
       "status": "backlog",
       "agent": "",
       "where": "",
