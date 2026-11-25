@@ -1,5 +1,5 @@
 {
-  "next": 4807,
+  "next": 4809,
   "tickets": [
     {
       "id": 47,
@@ -35433,12 +35433,41 @@
     {
       "id": 4806,
       "title": "[Sonnet] Rerun the Lean/Rocq checking comparison after the read-back work and parallel checking (Matt, 25 Nov 2026): bench:compare:proofs (three AoC days vs Lean), the slice 1 sample vs Lean and Rocq (SW-4537 ports), and the cold formatter check at one worker and auto; addendum to docs/reviews/SW-4608-proof-checking-speed.md",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Matt, 25 Nov 2026: 'Yes, if we run the Lean Rock comparison bench, it would be quite interesting to see how we compare now.' Started 11:40 on Sonnet on Speedwell (quiet, load 2), est. 40 min; whole-formatter cold checks allowed for this measurement.",
+      "body": "Matt, 25 Nov 2026: 'Yes, if we run the Lean Rock comparison bench, it would be quite interesting to see how we compare now.' Started 11:40 on Sonnet on Speedwell (quiet, load 2), est. 40 min; whole-formatter cold checks allowed for this measurement.\n\nModel result: sonnet, worked, about 20 min (est. 40).",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": [
+        "f29be7763",
+        "57e671757"
+      ]
+    },
+    {
+      "id": 4807,
+      "title": "[Opus] Parallel check efficiency: a cold whole-formatter check with auto workers is 2.8x faster than one worker on a 10-core Mac (38.6 s vs 109.7 s) with 38% more user time (149 s vs 108 s) and 4.6 GB; find whether the limit is the namespace graph's critical path, memory, or duplicated work (each worker loading or re-elaborating), measured first (SW-4806 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4808,
+      "title": "[DeepSeek] SW-4608 review: add a 'how to rerun' snippet (the nix shells for lean, rocq with its stdlib, hyperfine; the exact commands for part 2b and the empty files), and make docs/reviews/SW-4608/parse_timings.py accept a --timings=all run without STITCHWORT_STEP_PHASES (SW-4806 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
