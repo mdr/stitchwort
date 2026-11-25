@@ -454,8 +454,9 @@ impl Session {
     /// them, with the warnings each reports. One is left out if its entry
     /// fits ([`stitchwort_elab::Elaborator::plan_namespace`]) and nothing
     /// that is loaded needs it. Loaded: the misses; the namespaces with
-    /// syntax errors or doc links, whose diagnostics aren't all in the
-    /// entry; the namespaces that use a miss or one with syntax errors
+    /// syntax errors, or with doc links that may warn, whose diagnostics
+    /// aren't all in the entry (a doc link's warning isn't cached); the
+    /// namespaces that use a miss or one with syntax errors
     /// (which may fail, and so make some of theirs wait); and everything
     /// those use.
     fn plan_skips(
@@ -467,11 +468,13 @@ impl Session {
         // Those that may not be checked the way their entry says.
         let mut uncertain: BTreeSet<&str> = BTreeSet::new();
         let mut loaded: Vec<String> = Vec::new();
+        // What each namespace declares, for the doc links of those that
+        // use it: worked out when a link needs it.
+        let mut declared: HashMap<String, HashSet<String>> = HashMap::default();
         for name in order {
             let ns = analysis.namespace(name).expect("a namespace");
-            let planned = self
-                .elab
-                .plan_namespace(name, &dependencies(analysis, name));
+            let closure = dependencies(analysis, name);
+            let planned = self.elab.plan_namespace(name, &closure);
             let certain = ns.parse_errors.is_empty()
                 && !ns
                     .edges
@@ -479,7 +482,7 @@ impl Session {
                     .any(|e| uncertain.contains(e.target.as_str()));
             match planned {
                 Some(warnings)
-                    if certain && ns.modules().iter().all(|m| m.doc_links.is_empty()) =>
+                    if certain && self.doc_links_quiet(analysis, ns, &closure, &mut declared) =>
                 {
                     fits.insert(name.clone(), warnings);
                 }
@@ -494,6 +497,39 @@ impl Session {
             fits.remove(&needed);
         }
         fits
+    }
+
+    /// Whether no doc link of `ns`, whose closure is `closure`, warns when
+    /// it is replayed, as far as can be told without loading it
+    /// ([`stitchwort_elab::Elaborator::doc_links_resolve_unloaded`]); true
+    /// for a namespace with none. `declared` holds what the namespaces
+    /// asked about so far declare.
+    fn doc_links_quiet(
+        &self,
+        analysis: &Analysis,
+        ns: &Namespace,
+        closure: &[String],
+        declared: &mut HashMap<String, HashSet<String>>,
+    ) -> bool {
+        let modules = ns.modules();
+        if modules.iter().all(|m| m.doc_links.is_empty()) {
+            return true;
+        }
+        let mut in_closure = |key: &str| {
+            closure.iter().any(|q| {
+                key.strip_prefix(q.as_str())
+                    .is_some_and(|rest| rest.starts_with('.'))
+                    && declared
+                        .entry(q.clone())
+                        .or_insert_with(|| {
+                            let used = analysis.namespace(q).expect("a namespace");
+                            stitchwort_elab::declared_keys(q, &used.modules())
+                        })
+                        .contains(key)
+            })
+        };
+        self.elab
+            .doc_links_resolve_unloaded(&ns.name, &modules, &mut in_closure)
     }
 
     /// Checks one namespace `ns` of a project, after the namespaces it uses

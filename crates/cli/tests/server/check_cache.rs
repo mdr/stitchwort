@@ -748,7 +748,8 @@ fn plain_check_skipping_unneeded_namespaces_is_the_same_after_edits() {
     let names = |ns: &[&str]| ns.iter().map(|n| n.to_string()).collect::<Vec<_>>();
 
     assert_eq!(check("cold"), names(&[]));
-    // Warm: all but `Mid` (doc links) and `Base` (which it uses).
+    // Warm: all but `Mid`, whose link to `Leaf.thing` names nothing yet,
+    // and `Base` (which it uses).
     assert_eq!(check("warm"), names(&["Leaf", "Other", "Other.Tests"]));
     write("src/Leaf/Leaf.sw", &format!("{leaf}-- touched\n"));
     assert_eq!(check("a leaf edited"), names(&["Other", "Other.Tests"]));
@@ -782,11 +783,79 @@ fn plain_check_skipping_unneeded_namespaces_is_the_same_after_edits() {
     // entry per namespace.
     assert_eq!(check("a syntax error"), names(&[]));
     write("src/Other/Other.sw", &other);
-    assert_eq!(check("fixed"), names(&["Leaf", "Other", "Other.Tests"]));
+    // `Mid`'s links resolve, so it is reported from its entry too.
+    assert_eq!(
+        check("fixed"),
+        names(&["Base", "Leaf", "Mid", "Other", "Other.Tests"])
+    );
     // The project's namespaces are part of every key.
     std::fs::remove_file(project.join("src/Other/Tests/Tests.sw")).unwrap();
     assert_eq!(check("a file deleted"), names(&[]));
-    assert_eq!(check("warm again"), names(&["Leaf", "Other"]));
+    assert_eq!(
+        check("warm again"),
+        names(&["Base", "Leaf", "Mid", "Other"])
+    );
+    let _ = std::fs::remove_dir_all(&project);
+    let _ = std::fs::remove_dir_all(&skipping);
+    let _ = std::fs::remove_dir_all(&loading);
+}
+
+/// Doc links are worked out without loading the namespace when each one
+/// surely names one thing (SW-4827): a namespace whose links all resolve
+/// is reported from its entry; one with a link that may warn is loaded,
+/// and so is what it uses. Either way the output is what loading
+/// everything prints. `Far.thing` comes and goes with edits to `Far`,
+/// which `Flip` doesn't use, so `Flip`'s key never changes.
+#[test]
+fn plain_check_works_out_doc_links_without_loading() {
+    let project = temp_dir("skip-links-project");
+    let write = |path: &str, text: &str| {
+        let full = project.join(path);
+        std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+        std::fs::write(full, text).unwrap();
+    };
+    let lib = "namespace Lib\n\ntype Pt = { x: Nat, y: Nat }\n\n\
+               type Shape = | Dot | Line (n: Nat)\n\ndef size: Nat := 3\n";
+    // Links through an import, by full names, to the library, to a field
+    // and a constructor of another namespace's types, to a function on its
+    // own type and one it adds to another namespace's, and to a type that
+    // has a constructor of its own name.
+    let good = "namespace Good\nimport Lib (size, Pt)\n\n\
+                type Twin = | Twin (n: Nat)\n\n\
+                def Twin.double (t: Twin): Nat := 2\n\n\
+                def Pt.norm (p: Pt): Nat := p.x\n\n\
+                --| [`size`], [`Lib.size`], [`List.map`], [`Std.List.length`], \
+                [`Pt.x`], [`Lib.Shape.Line`], [`Twin.double`], [`Pt.norm`], \
+                [`Twin.Twin`] and [`Twin`].\n\
+                def twice: Nat := size + size\n";
+    let bad = "namespace Bad\nimport Lib (size)\n\n--| See [`sise`].\ndef four: Nat := size + 1\n";
+    // Two of its types have a constructor `Same`.
+    let ambiguous = "namespace Amb\n\ntype A = | Same\n\ntype B = | Same | Other\n\n\
+                     --| See [`Same`].\ndef five: Nat := 5\n";
+    let far = "namespace Far\n\ndef other: Nat := 0\n";
+    let flip = "namespace Flip\n\n--| See [`Far.thing`].\ndef six: Nat := 6\n";
+    write("stitchwort.yaml", "sources: [src]\n");
+    write("src/Lib/Lib.sw", lib);
+    write("src/Good/Good.sw", good);
+    write("src/Bad/Bad.sw", bad);
+    write("src/Amb/Amb.sw", ambiguous);
+    write("src/Far/Far.sw", far);
+    write("src/Flip/Flip.sw", flip);
+    let skipping = temp_dir("skip-links-on");
+    let loading = temp_dir("skip-links-off");
+    let check = |what: &str| assert_skipping_unchanged(&project, &skipping, &loading, what);
+    let names = |ns: &[&str]| ns.iter().map(|n| n.to_string()).collect::<Vec<_>>();
+
+    assert_eq!(check("cold"), names(&[]));
+    // `Bad` and `Amb` warn, so they are loaded, and `Lib` with `Bad`; `Flip`
+    // warns until `Far` has `thing`.
+    assert_eq!(check("warm"), names(&["Far", "Good"]));
+    write("src/Far/Far.sw", &format!("{far}\ndef thing: Nat := 4\n"));
+    assert_eq!(check("a linked name added"), names(&["Flip", "Good"]));
+    assert_eq!(check("warm again"), names(&["Far", "Flip", "Good"]));
+    write("src/Far/Far.sw", far);
+    assert_eq!(check("a linked name removed"), names(&["Good"]));
+    assert_eq!(check("warm once more"), names(&["Far", "Good"]));
     let _ = std::fs::remove_dir_all(&project);
     let _ = std::fs::remove_dir_all(&skipping);
     let _ = std::fs::remove_dir_all(&loading);

@@ -12,13 +12,17 @@
 //! out again each time, after a namespace is checked or replayed, against the
 //! names as they are now. A file's `import` lines count by their syntax
 //! (`link_candidates_with_imports`), as they do in `doc` and the index, since
-//! a replayed namespace has not had its imports applied.
+//! a replayed namespace has not had its imports applied. A plain `check`
+//! that would replay a namespace only for its links leaves it out when
+//! they surely all resolve (`doc_links_resolve_unloaded`, SW-4827).
 
+use stitchwort_core::collections::HashSet;
 use stitchwort_syntax::Diagnostic;
-use stitchwort_syntax::ast::Import;
+use stitchwort_syntax::ast::{Decl, Import, Module};
 use stitchwort_syntax::docs::{DocLink, link_candidates_with_imports};
 
 use crate::Elaborator;
+use crate::module::declared_names;
 use crate::project::SourceUnit;
 use crate::scope::{Resolved, display, edit_distance, short};
 
@@ -191,4 +195,130 @@ fn is_type_and_constructor(keys: &[String]) -> bool {
     };
     let (outer, inner) = if a.len() < b.len() { (a, b) } else { (b, a) };
     inner.strip_prefix(outer.as_str()) == Some(&format!(".{}", short(outer)))
+}
+
+/// The keys the declarations of namespace `ns`'s files `modules` put in
+/// scope that a doc link may name, as far as their syntax tells: each
+/// declaration's own, its constructors, operations and interface methods,
+/// and a record's fields. A declaration written with a qualifier
+/// (`Rules.rule`, or a function for another namespace's type) has the key
+/// `ns.` and the name as written, unless the qualifier is an import's
+/// local name for something else (`import N (T as U)`), whose keys are
+/// left out. For [`Elaborator::doc_links_resolve_unloaded`]; a key
+/// may be missing from here, never wrongly present, in a namespace that
+/// checks.
+pub fn declared_keys(ns: &str, modules: &[&Module]) -> HashSet<String> {
+    let mut out = HashSet::default();
+    for module in modules {
+        let renamed: HashSet<&str> = (module.imports.iter())
+            .flat_map(|i| &i.items)
+            .filter(|item| item.local().text != item.name.text)
+            .map(|item| item.local().text.as_str())
+            .collect();
+        for decl in &module.decls {
+            let (Some(main), members) = declared_names(decl) else {
+                continue;
+            };
+            let key = format!("{ns}.{}", main.text);
+            if let Some((first, _)) = main.text.split_once('.') {
+                if !renamed.contains(first) {
+                    out.insert(key);
+                }
+                continue;
+            }
+            for (member, _) in &members {
+                if !member.text.starts_with('%') {
+                    out.insert(format!("{key}.{}", member.text));
+                }
+            }
+            if let Decl::Data {
+                ctors,
+                record: true,
+                ..
+            } = decl
+            {
+                for field in ctors.iter().flat_map(|c| &c.fields) {
+                    out.insert(format!("{key}.{}", field.name.text));
+                }
+            }
+            out.insert(key);
+        }
+    }
+    out
+}
+
+impl Elaborator {
+    /// Whether no doc link of project namespace `ns` (its files'
+    /// `modules`) warns when `ns` is replayed from its cache entry, as far
+    /// as can be told without loading anything (SW-4827): what lets a
+    /// plain `check` leave a namespace with doc links out. `declared` says
+    /// whether a key is declared by a namespace `ns` uses
+    /// ([`declared_keys`] of theirs, which it may work out only when
+    /// asked); those are loaded before `ns` whatever else is.
+    ///
+    /// A link [`Self::doc_link_warnings`] finds is one that names
+    /// something and isn't ambiguous. Named: one of its candidates is known
+    /// now, from the library's index, the core, the project's namespaces
+    /// and the pre-pass's names, all of which loading only adds to, or is
+    /// declared in `ns` or a namespace it uses. Ambiguous: a replay applies
+    /// no imports, so a name with a qualifier can't be (its qualifier is
+    /// looked up without constructors, at most one key at each level), and
+    /// a short name only if two of the constructors and declarations
+    /// `ns` declares at its root have it, or failing those, two of the
+    /// prelude's and the library root's constructors (as the lookup goes
+    /// level by level, the first with any decides). A type and its own
+    /// constructor of the same name count as one. Anything else, such as a
+    /// local definition (`t.go`), an instance, a function another
+    /// namespace adds to a type, or a link that names nothing, says no, and
+    /// the namespace is loaded as before.
+    pub fn doc_links_resolve_unloaded(
+        &self,
+        ns: &str,
+        modules: &[&Module],
+        declared: &mut dyn FnMut(&str) -> bool,
+    ) -> bool {
+        let own = declared_keys(ns, modules);
+        for module in modules {
+            for link in &module.doc_links {
+                let named = link_candidates_with_imports(&link.name, Some(ns), &module.imports)
+                    .iter()
+                    .any(|key| self.is_known_key(key) || own.contains(key) || declared(key));
+                if !named
+                    || (!link.name.contains('.') && self.may_be_ambiguous(&link.name, ns, modules))
+                {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
+    /// Whether the short name `x`, written in namespace `ns` (its files'
+    /// `modules`), may resolve to two different things in a replay of
+    /// `ns`: see [`Self::doc_links_resolve_unloaded`].
+    fn may_be_ambiguous(&self, x: &str, ns: &str, modules: &[&Module]) -> bool {
+        let mut own: Vec<String> = Vec::new();
+        for decl in modules.iter().flat_map(|m| &m.decls) {
+            let (Some(main), members) = declared_names(decl) else {
+                continue;
+            };
+            if main.text.contains('.') {
+                continue;
+            }
+            if main.text == x {
+                own.push(format!("{ns}.{x}"));
+            }
+            for (member, follower) in &members {
+                if *follower && member.text == x {
+                    own.push(format!("{ns}.{}.{x}", main.text));
+                }
+            }
+        }
+        let found = if own.is_empty() {
+            self.scope.default_candidates(x)
+        } else {
+            own
+        };
+        found.len() > 1 && !is_type_and_constructor(&found)
+    }
 }
