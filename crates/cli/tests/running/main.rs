@@ -6,6 +6,7 @@ mod pty;
 
 mod aoc_answers;
 mod build;
+mod copied_binary;
 mod effect_runtime;
 mod examples;
 mod facts_expand;
