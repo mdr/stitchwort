@@ -1,0 +1,32 @@
+SW-4787: computing definitions whose prooflessHash differs from hash (25 Nov 2026)
+Tool: stitchwort hash --json --uses (std through --std-dir crates/elab/src/std), warm caches only.
+Own = differing def none of whose callees (def kind) also differs; inherited = otherwise.
+Generated = last name segment starts with % (%match, %at, %mem, %cover, %eta, %trans, %flip, ...).
+
+project        defs  differ  own  inherited  own-generated  own-written  own-%match-of-a-theorem
+std            5937   3786   752     3034        667            85            377
+games/rogue     775    538    67      471         42            25             10
+aoc            (not counted: replaying its cache took over 1 min; stopped, per orchestrator)
+tools/fmt      (not counted: same; timed out at 60 s)
+
+Own computing defs (own minus the %match defs that belong to a theorem's proof, which only that theorem cites):
+std 375 (290 generated, 85 written), rogue 57 (32 generated, 25 written).
+
+Cascade (defs reaching an own def through `uses`, counting defs only), own computing defs:
+            0    1-9   10-99   100-999   1000+   median
+std        25    104    224       16        6      12
+rogue      11     30     16        0        0       -   (max 61; within the project only)
+
+Std own generated (667): %match 380 (377 in a theorem), %Ctor%i%at 197, %mem 33, %cover 14,
+%flip 9, %trans 9, %eta 8, other 17.
+Std largest cascades: Void.impossible 1861, Decidable.sound 1725, Decidable.yes 1499,
+Decidable.complete 1466, Decidable.and 1358, Char.decEq 1243, Nat.decEq 928.
+
+Classification of the 110 own written defs (std 85, rogue 25), by heuristic on source plus reading samples:
+Quot.lift respect proof       11 (std)   Map.size
+inline byComputing/byDecision  8 (std)   Mod.zero
+Decidable/Iff/Void record      ~35 (std)  Nat.decEq, Iff.forward, Void.impossible
+absurd branch                  2 (std)   Fin.ofNatLt
+proof passed as argument/field 3 (std)   Float.make
+def whose type is a proposition 22 (rogue) Rogue.Proofs.Corner.top
+no visible proof               ~30 (std 20, rogue 3 + ...) Text.unlinesChars, Kind.glyph, commandKeys

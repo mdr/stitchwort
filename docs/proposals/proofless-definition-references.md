@@ -197,3 +197,18 @@ fix 2.1 in the proofless hasher, since `ProofsOnly` relies on it now.
   the read sites listed in interface-digest-cache.md §2.1, not read line by line.
 - How many inline proofs computing definitions hold today.
 - The JS and runtime pins beyond `rt/natives.rs:223`.
+
+## Count (SW-4787)
+
+Computing definitions (`kind` def) whose `prooflessHash` differs from `hash`, from `stitchwort hash --json --uses` on warm caches, 25 Nov 2026. Own means no callee differs. Raw numbers: `proofless-definition-references/count-2026-11-25.txt`. aoc and tools/fmt are missing: their caches took over a minute to replay, so they were stopped (Overmind to count).
+
+| Project | defs | differ | inherited | own | own, generated | own, written | own `%match` of a theorem |
+|---|---|---|---|---|---|---|---|
+| std | 5937 | 3786 (64%) | 3034 | 752 | 667 | 85 | 377 |
+| games/rogue | 775 | 538 (69%) | 471 | 67 | 42 | 25 | 10 |
+
+Own computing definitions that code can call (not a theorem's lifted `%match`): std 375, rogue 57. Cascade through `uses` of each, in definitions: none 25 and 11; 1-9 104 and 30; 10-99 224 and 16; 100-999 16 and 0; 1000 or more 6 and 0 (std median 12; the largest are `Void.impossible`, `Decidable.sound`, `Decidable.yes`, `Decidable.complete`, `Decidable.and`).
+
+Kinds among the 110 own written definitions (a heuristic over source, samples read): `Quot.lift` respect proof 11 (`Map.size`); `Decidable`, `Iff`, `Void.impossible` records and projections about 35 (`Nat.decEq`); inline `byComputing` or `byDecision` 8 (`Mod.zero`); absurd branch 2 (`Fin.ofNatLt`); a proof argument kept in a record 3 (`Float.make`); a `def` whose type is a proposition 22, all rogue (`Rogue.Proofs.Corner.top`); no visible proof, likely elaborator-made coverage or recursion terms, about 30 (`Text.unlinesChars`, `Kind.glyph`). Generated own definitions (about 290 in std) are datatype helpers: constructor tests `%Ctor%i%at` 197 (`Std.Args.Outcome.%Help%0%at`), `%mem` 33, `%cover` 14, `%flip`, `%trans`, `%eta`.
+
+What it shows: 64-69% of computing definitions differ, but 80-88% of those only through a callee; the roots are few (375 in std, about 5% of its defs), and about 80% of them are elaborator-generated helpers or the `Decidable`/`Quot.lift` core, whose edits are rare. Hand-written inline proofs in ordinary definitions are about 30 in std and a handful in rogue. A rare edit to a root with a cascade of 1000 or more would move most of std today; that is the case lifting would remove. The cascade counts follow `uses` and overstate what a proof edit moves when a caller's body doesn't keep the callee's hash.
