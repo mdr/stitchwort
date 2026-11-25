@@ -3350,9 +3350,11 @@ fn every_quick_fix_of_the_server_is_in_check_index() {
 /// folder, with a check cache that has the shared cache's library entries
 /// and none of the project's: cold for the project, so that the fill has
 /// something to do, without elaborating the library. `Goal` has an open
-/// goal and `Broken` an error, so there is something to report; `slow`
-/// theorems make `Slow` take a while.
-fn fill_project(name: &str, slow: usize) -> PathBuf {
+/// goal and `Broken` an error, so there is something to report; `Slow`
+/// has a few theorems ([`Slowness::Theorems`], a fraction of a
+/// second each time) or one that takes minutes to check
+/// ([`Slowness::Endless`]), which only a stop ends.
+fn fill_project(name: &str, slowness: Slowness) -> PathBuf {
     let dir = temp_dir(name);
     let write = |path: &str, text: &str| {
         let file = dir.join(path);
@@ -3377,11 +3379,19 @@ fn fill_project(name: &str, slow: usize) -> PathBuf {
         "namespace Broken\nimport Base (double)\n\ndef wrong: Nat := double \"a\"\n",
     );
     let mut theorems = String::from("namespace Slow\nimport Mid (quad)\n");
-    for i in 0..slow {
-        theorems.push_str(&format!(
-            "\ntheorem quad{i}: quad {i} = {} := byComputing\n",
-            4 * i
-        ));
+    match slowness {
+        Slowness::Theorems(slow) => {
+            for i in 0..slow {
+                theorems.push_str(&format!(
+                    "\ntheorem quad{i}: quad {i} = {} := byComputing\n",
+                    4 * i
+                ));
+            }
+        }
+        Slowness::Endless => theorems.push_str(
+            "\ndef quad0: Nat := 0\n\ndef fib: Nat → Nat\n  | 0 => 0\n  | 1 => 1\n  | Succ (Succ n) => fib n + fib (Succ n)\n\n\
+             theorem fibBig: fib 42 = 267914296 := byComputing\n",
+        ),
     }
     write("src/Slow/Slow.sw", &theorems);
     write(
@@ -3393,6 +3403,12 @@ fn fill_project(name: &str, slow: usize) -> PathBuf {
     std::fs::write(dir.join(".stitchwort/.gitignore"), "*\n").unwrap();
     copy_library_entries(&fill_library_cache(), &check);
     dir
+}
+
+/// How long the namespace `Slow` of [`fill_project`] takes to check.
+enum Slowness {
+    Theorems(usize),
+    Endless,
 }
 
 /// Where the start-up fill's tests keep the library's entries between
@@ -3412,8 +3428,16 @@ fn copy_library_entries(from: &Path, to: &Path) {
     };
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
-        if (name == "header" || name.contains("-std.")) && !to.join(&name).exists() {
-            let _ = std::fs::copy(entry.path(), to.join(&name));
+        if (name == "header" || name.contains("-std."))
+            && !name.starts_with('.')
+            && !to.join(&name).exists()
+        {
+            // Renamed into place, so that a test copying from `to` at the
+            // same time never reads half an entry.
+            let partial = to.join(format!(".copy{}-{name}", std::process::id()));
+            if std::fs::copy(entry.path(), &partial).is_ok() {
+                let _ = std::fs::rename(&partial, to.join(&name));
+            }
         }
     }
 }
@@ -3503,8 +3527,8 @@ fn diagnostics_with_fill(
 /// editor replayed them.
 #[test]
 fn a_startup_fill_gives_the_same_diagnostics() {
-    let off = fill_project("fill-off", 3);
-    let on = fill_project("fill-on", 3);
+    let off = fill_project("fill-off", Slowness::Theorems(3));
+    let on = fill_project("fill-on", Slowness::Theorems(3));
     let (without, no_fills) = diagnostics_with_fill(&off, 0);
     let (with, fills) = diagnostics_with_fill(&on, 3);
     assert!(no_fills.is_empty(), "{no_fills:?}");
@@ -3528,14 +3552,15 @@ fn a_startup_fill_gives_the_same_diagnostics() {
 /// file.
 #[test]
 fn shutdown_during_a_startup_fill_writes_nothing_partial() {
-    let dir = fill_project("fill-stop", 20000);
+    let dir = fill_project("fill-stop", Slowness::Endless);
     let options = Options::new(STACK);
     options.settings.apply(&json!({ "startupWorkers": 2 }));
     let fills = options.fills.clone();
     let client = Client::start_with(options);
     let base = dir.join("src/Base/Base.sw");
     client.open(&uri(&base), &std::fs::read_to_string(&base).unwrap());
-    // `Slow` is started once `Mid` has its entry, and takes seconds.
+    // `Slow` is started once `Mid` has its entry, and takes minutes: however
+    // late the shutdown comes, the fill is still in it.
     let deadline = Instant::now() + WAIT;
     while !namespace_entries(&dir).contains(&"Mid".to_string()) {
         assert!(Instant::now() < deadline, "the fill never wrote Mid");
@@ -3560,5 +3585,6 @@ fn shutdown_during_a_startup_fill_writes_nothing_partial() {
         "{done:?}"
     );
     drop(done);
+    copy_library_entries(&dir.join(".stitchwort/cache/check"), &fill_library_cache());
     let _ = std::fs::remove_dir_all(&dir);
 }
