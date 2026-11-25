@@ -110,7 +110,7 @@ pub mod timings;
 pub use kernel::{
     record_rejections as record_kernel_rejections, take_rejections as take_kernel_rejections,
 };
-pub use library::LibraryIndex;
+pub use library::{IndexCache, LibraryIndex, use_index_cache};
 pub mod std_dir;
 pub use equations::{is_equation_name, is_function_induct, is_generated_name};
 pub use goals::{ContextAt, EqDecider, GoalSnapshot, StepAt, StepForm};

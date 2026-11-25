@@ -229,6 +229,32 @@ impl Store for CheckCache {
     }
 }
 
+/// The folder of the cache directory `cache_dir` that keeps the library's
+/// name index (`stitchwort_elab::IndexCache`).
+pub fn std_index_dir(cache_dir: &Path) -> PathBuf {
+    cache_dir.join("std-index")
+}
+
+/// The library index cache in the cache directory `cache_dir`, for this
+/// build: its entries are named by the check cache's compiler stamp.
+pub fn std_index_cache(cache_dir: &Path) -> stitchwort_elab::IndexCache {
+    stitchwort_elab::IndexCache::new(
+        &std_index_dir(cache_dir),
+        &stamp_names(FINGERPRINT, KERNEL_FINGERPRINT).0,
+    )
+}
+
+/// Makes this process read the library's name index from, and write it to,
+/// the cache directory `cache_dir`, if it hasn't made the index yet
+/// (`stitchwort_elab::use_index_cache`). Call it before the first session
+/// starts.
+pub fn use_std_index_cache(cache_dir: &Path) {
+    stitchwort_elab::use_index_cache(
+        &std_index_dir(cache_dir),
+        &stamp_names(FINGERPRINT, KERNEL_FINGERPRINT).0,
+    );
+}
+
 /// What [`Store::compiler`] and [`Store::kernel`] say for the build whose
 /// fingerprint is `build` and whose kernel side's is `kernel`.
 fn stamp_names(build: &str, kernel: &str) -> (String, String) {

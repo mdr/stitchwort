@@ -65,7 +65,7 @@
 //! This module only encodes and replays. Where entries are kept is the
 //! [`Store`] a host gives the elaborator (the CLI's is a directory).
 
-mod codec;
+pub(crate) mod codec;
 mod deferral;
 mod dump;
 mod rows;

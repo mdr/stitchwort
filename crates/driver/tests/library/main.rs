@@ -12,6 +12,7 @@ mod search_at;
 mod search_at_bench;
 mod search_bench;
 mod search_match;
+mod std_index_cache;
 mod std_library;
 mod warning_pins;
 

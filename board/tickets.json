@@ -35526,12 +35526,12 @@
     {
       "id": 4812,
       "title": "[Opus] Cache the std name index instead of parsing all 133 std files on every run (216-254 ms of every check; SW-4809 item 2); name resolution must give the same answers",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "D3744 (amended per SW-4816), Matt 25 Nov 2026: 'D3744 proceed'. Requirements: docs/reviews/SW-4816-checking-profile-review.md section 3.",
+      "body": "D3744 (amended per SW-4816), Matt 25 Nov 2026: 'D3744 proceed'. Requirements: docs/reviews/SW-4816-checking-profile-review.md section 3.\n\nLane (Opus, 25 Nov 13:26-14:00): std index cached in <cache dir>/std-index/, keyed on format + compiler stamp + stack + core text + every library file's path and text (no mtimes); entry = key + body hash + names/edges/equation needs; owner and dot targets recomputed; modules parsed on first use. Wired for check (project, files, --std); --no-cache and tests build. Day 2 (library+project cached, 1 job): 479 -> 291 ms, 199 -> 115 MiB. Tests: driver library std_index_cache::* (5), cli tools std_dir::editing_a_std_dir_file_misses_the_cached_name_index. Commit d559ae9f6.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []

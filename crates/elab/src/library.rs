@@ -46,6 +46,9 @@ use crate::scope::{self, Resolved};
 use crate::state::Unit;
 use crate::{Elaborator, Global};
 
+mod index_cache;
+pub use index_cache::{IndexCache, use_index_cache};
+
 /// What a name the index promises is, as far as resolution cares.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PendingKind {
@@ -85,9 +88,13 @@ pub struct IndexedFile {
     pub path: String,
     pub id: FileId,
     pub text: String,
-    pub module: Module,
+    /// Its parse ([`IndexedFile::module`]): made when the index is built,
+    /// or on first use for an index read from its cache.
+    pub(crate) parsed: OnceLock<Module>,
+    /// The parser's stack budget, for a parse on first use.
+    pub(crate) stack: usize,
     /// Its syntax errors, for a library file being edited (`--std-dir`):
-    /// `module` is what parsed, as for a program's file
+    /// the module is what parsed, as for a program's file
     /// ([`stitchwort_syntax::parse_module_recovering`]), and loading the
     /// file reports these with what checking it found. The core always
     /// parses.
@@ -101,6 +108,16 @@ pub struct IndexedFile {
     /// The definitions (by key) whose generated equations it names: the
     /// library's and the core's are made on demand (`equations.rs`).
     pub equation_needs: BTreeSet<String>,
+}
+
+impl IndexedFile {
+    /// The file's module. An index read from its cache parses a file only
+    /// when this is first asked for, from the same text, file id and stack
+    /// budget as building it does, so it is the same parse.
+    pub fn module(&self) -> &Module {
+        self.parsed
+            .get_or_init(|| parse_module_recovering(self.id, &self.text, self.stack).0)
+    }
 }
 
 /// Every name the core and the library files declare, with the file that
@@ -150,12 +167,19 @@ const EQ_NAMESPACE: &str = "Std.Eq";
 static STANDARD: OnceLock<Result<Arc<LibraryIndex>, String>> = OnceLock::new();
 
 impl LibraryIndex {
-    /// The index of the standard library, built the first time it's asked
-    /// for. `stack` bounds the parser's recursion.
+    /// The index of the standard library, made the first time it's asked
+    /// for: read from the index cache if [`use_index_cache`] named one and
+    /// it has this library's, otherwise built (and then written there).
+    /// `stack` bounds the parser's recursion.
     pub fn standard(stack: usize) -> Result<Arc<LibraryIndex>, String> {
         STANDARD
             .get_or_init(|| {
-                LibraryIndex::build(crate::prelude(), crate::library_files(), stack).map(Arc::new)
+                let (core, files) = (crate::prelude(), crate::library_files());
+                match index_cache::configured() {
+                    Some(cache) => cache.index(core, files, stack).map(|(index, _)| index),
+                    None => LibraryIndex::build(core, files, stack),
+                }
+                .map(Arc::new)
             })
             .clone()
     }
@@ -185,7 +209,8 @@ impl LibraryIndex {
                 path: path.to_string(),
                 id,
                 text: text.to_string(),
-                module,
+                parsed: OnceLock::from(module),
+                stack,
                 parse_errors,
                 names: Vec::new(),
                 edges: Vec::new(),
@@ -212,30 +237,7 @@ impl LibraryIndex {
             parsed[f].names = names;
         }
         congruence_lemmas_beside(&parsed, &owner)?;
-        let mut dots_by_short: HashMap<String, Vec<DotTarget>> = HashMap::default();
-        for (f, file) in parsed.iter().enumerate().skip(1) {
-            // Not a definition's generated equations (`f.eq2`), which are named in
-            // full, never reached by a dot call.
-            for name in (file.names.iter())
-                .filter(|n| n.kind == PendingKind::Def)
-                .filter(|n| !(n.candidate && crate::equations::reserved_suffix(&n.key).is_some()))
-            {
-                let ns = name.key.rsplit_once('.').map(|(ns, _)| ns);
-                let namespace = ns.and_then(|ns| owner.get(ns).copied());
-                // A dot call looks in the namespace of a declared type or of
-                // the built-in equality: `Ring.lookup`, in a namespace that
-                // names no type, is no dot call's target.
-                if namespace.is_none() && ns != Some(EQ_NAMESPACE) {
-                    continue;
-                }
-                let target = DotTarget { namespace, file: f };
-                let targets = dots_by_short.entry(scope::short(&name.key).to_string());
-                let targets = targets.or_default();
-                if !targets.contains(&target) {
-                    targets.push(target);
-                }
-            }
-        }
+        let dots_by_short = dots_by_short(&parsed, &owner);
         let mut index = LibraryIndex {
             files: parsed,
             owner,
@@ -264,9 +266,9 @@ impl LibraryIndex {
             // declares it.
             let outer = scratch.scope.take_imports();
             let mut ignored = Vec::new();
-            scratch.add_imports(&file.module.imports, false, &mut ignored);
-            scratch.add_imports(&file.module.imports, true, &mut ignored);
-            for (decl, equations) in grouped(&file.module.decls) {
+            scratch.add_imports(&file.module().imports, false, &mut ignored);
+            scratch.add_imports(&file.module().imports, true, &mut ignored);
+            for (decl, equations) in grouped(&file.module().decls) {
                 for (r, _) in decl_refs(decl, equations) {
                     scratch.note_library_use(&index, &r, &mut n);
                 }
@@ -543,6 +545,39 @@ impl LibraryIndex {
     }
 }
 
+/// What each short name's dot calls might mean ([`LibraryIndex::dot_targets`]),
+/// from the files' names and their owners.
+fn dots_by_short(
+    files: &[IndexedFile],
+    owner: &HashMap<String, usize>,
+) -> HashMap<String, Vec<DotTarget>> {
+    let mut dots_by_short: HashMap<String, Vec<DotTarget>> = HashMap::default();
+    for (f, file) in files.iter().enumerate().skip(1) {
+        // Not a definition's generated equations (`f.eq2`), which are named in
+        // full, never reached by a dot call.
+        for name in (file.names.iter())
+            .filter(|n| n.kind == PendingKind::Def)
+            .filter(|n| !(n.candidate && crate::equations::reserved_suffix(&n.key).is_some()))
+        {
+            let ns = name.key.rsplit_once('.').map(|(ns, _)| ns);
+            let namespace = ns.and_then(|ns| owner.get(ns).copied());
+            // A dot call looks in the namespace of a declared type or of
+            // the built-in equality: `Ring.lookup`, in a namespace that
+            // names no type, is no dot call's target.
+            if namespace.is_none() && ns != Some(EQ_NAMESPACE) {
+                continue;
+            }
+            let target = DotTarget { namespace, file: f };
+            let targets = dots_by_short.entry(scope::short(&name.key).to_string());
+            let targets = targets.or_default();
+            if !targets.contains(&target) {
+                targets.push(target);
+            }
+        }
+    }
+    dots_by_short
+}
+
 /// Checks that every congruence lemma of a definition `F` (`FCong`,
 /// `FCongMem`, `FCongRange`: `congruence.rs`) is declared in `F`'s own file.
 ///
@@ -621,7 +656,7 @@ fn instances_beside(index: &LibraryIndex, scratch: &Elaborator) -> Result<(), St
     };
     let mut misplaced = Vec::new();
     for (f, file) in index.files.iter().enumerate().skip(1) {
-        for decl in &file.module.decls {
+        for decl in &file.module().decls {
             let Decl::Signature {
                 name,
                 ty,
@@ -667,7 +702,7 @@ pub(crate) fn file_names(
     file: &IndexedFile,
 ) -> Result<Vec<IndexedName>, String> {
     let mut out = Vec::new();
-    for (decl, equations) in grouped(&file.module.decls) {
+    for (decl, equations) in grouped(&file.module().decls) {
         let (main, members) = declared_names(decl);
         let Some(main) = main else { continue };
         let key = scratch
@@ -877,7 +912,7 @@ pub(crate) fn file_names(
 /// Whether `file` declares `key` itself, other than as a field: a written
 /// `def T.f` beside a type with a field `f`.
 fn declares(file: &IndexedFile, scratch: &Elaborator, key: &str) -> bool {
-    grouped(&file.module.decls).into_iter().any(|(decl, _)| {
+    grouped(&file.module().decls).into_iter().any(|(decl, _)| {
         matches!(decl, Decl::Signature { .. })
             && declared_names(decl)
                 .0
@@ -890,7 +925,7 @@ fn declares(file: &IndexedFile, scratch: &Elaborator, key: &str) -> bool {
 /// ability's operation: the type beside a name in the library source, for
 /// [`LibraryIndex::explicit_arity`].
 fn written_type(file: &IndexedFile, span: Span) -> Option<&Expr> {
-    for decl in &file.module.decls {
+    for decl in &file.module().decls {
         match decl {
             Decl::Signature { name, ty, .. } if name.span == span => return Some(ty),
             Decl::Ability { ops, .. } => {
@@ -1523,7 +1558,7 @@ impl Elaborator {
         let unit = SourceUnit {
             file: Some(file.id),
             name: &name,
-            module: &file.module,
+            module: file.module(),
         };
         let mut diagnostics = self.elaborate_namespace(None, &[unit], None);
         if !file.parse_errors.is_empty() {
@@ -1619,8 +1654,8 @@ impl Elaborator {
         // navigation has pending, which needs it in place.)
         let nav = self.present.nav.take();
         let mut errors = Vec::new();
-        self.add_imports(&file.module.imports, false, &mut errors);
-        self.add_imports(&file.module.imports, true, &mut errors);
+        self.add_imports(&file.module().imports, false, &mut errors);
+        self.add_imports(&file.module().imports, true, &mut errors);
         self.present.nav = nav;
         let saved_core_only = std::mem::replace(&mut self.scope.core_only, core_only);
         // Glued as while the file loaded (the library always is), not as the
