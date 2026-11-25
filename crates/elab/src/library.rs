@@ -959,6 +959,17 @@ pub(crate) struct LibraryState {
     pub order: Vec<usize>,
     /// What the core declared, for making its equations in its own scope.
     pub core: scope::CoreExtent,
+    /// The cache keys of the files worked out so far (`cache::Elaborator::
+    /// library_keys`). Replaced with the index by `install_library`; shared
+    /// by clones, which is safe because it is checked against the modes.
+    pub keys: Arc<std::sync::Mutex<KeyMemo>>,
+}
+
+/// Library file keys already worked out, for the modes they were made under.
+#[derive(Default)]
+pub(crate) struct KeyMemo {
+    pub modes: String,
+    pub keys: stitchwort_core::collections::HashMap<usize, crate::cache::Key>,
 }
 
 /// What a nested load sets aside and puts back: the outer unit
@@ -1025,6 +1036,7 @@ impl Elaborator {
                 abilities: self.tables.abilities.len(),
                 fresh: usize::MAX,
             },
+            keys: Default::default(),
         });
     }
 
