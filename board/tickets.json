@@ -35491,15 +35491,21 @@
     {
       "id": 4810,
       "title": "[Sonnet] bench:compare:proofs measures wrongly (SW-4809 item 1): the probe file misses std files the day loads (day 18: 975 ms of Parse proofs in 'sw net'; day 15: 16 files, 800 ms), the bench builds with dev features (validate_marks, 12-25% of a cached check), and there is no library-cached whole-file column; take net from the day's own --timings rows or a complete probe, build without dev features, add the cached column, document it in bench/compare/lean-proofs/README.md, read hyperfine 2.0's JSON; rerun and update the SW-4608 review",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Model result: sonnet, worked (net bug caught and fixed in-lane), about 6 min (est. 35).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "58ec8a8d4",
+        "25621a5bd",
+        "d9cbd676d",
+        "17543fcc0",
+        "84042c41b"
+      ]
     },
     {
       "id": 4811,
