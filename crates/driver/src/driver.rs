@@ -1282,7 +1282,13 @@ impl Session {
         all.extend(self.warnings.iter().cloned());
         for (id, file) in self.sources.iter() {
             if styled(&file.name) {
-                all.extend(crate::binder_sweep::warnings_of_text(id, &file.text));
+                // A file loaded through `statement_style` (the core) already
+                // has these in `self.warnings`.
+                for warning in crate::binder_sweep::warnings_of_text(id, &file.text) {
+                    if !all.contains(&warning) {
+                        all.push(warning);
+                    }
+                }
             }
         }
         all

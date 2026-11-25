@@ -429,11 +429,19 @@ fn the_cores_statement_style_warnings_are_reported_and_are_not_cached() {
             })
         };
     let (_, report, _) = codes(&styled, None);
-    assert!(report.contains(&"W-THEOREM-FORALL"), "{report:?}");
+    assert_eq!(
+        report.iter().filter(|c| **c == "W-THEOREM-FORALL").count(),
+        1,
+        "{report:?}"
+    );
     for _ in 0..2 {
         let (kept, report, stats) = codes(&styled, Some(&dir));
         assert_eq!(kept, ["W-THEOREM-FORALL"]);
-        assert!(report.contains(&"W-THEOREM-FORALL"), "{report:?}");
+        assert_eq!(
+            report.iter().filter(|c| **c == "W-THEOREM-FORALL").count(),
+            1,
+            "{report:?}"
+        );
         assert_eq!((stats.core_hits, stats.core_written), (0, 0));
     }
     let clean = stitchwort_elab::prelude();
