@@ -33,6 +33,25 @@ say so, a reference run passes `--jobs 1` explicitly. The switch is
 `PARALLEL_NO_CACHE` in `crates/cli/src/main.rs` (D3731: Matt chose the
 in-memory store, 24 Nov 2026).
 
+**Added for the core's entry (SW-4814, 25 Nov 2026).** The core is now
+a unit of the cache too, trusted on an exact key match as the library
+files are (D3746: Matt, "we should be using caches"); before, every
+session elaborated and kernel-checked its 585 declarations. The argument
+below covers it with three changes. *The key* (§2) is computed from the
+core text the session is about to elaborate, as §2.2's design A asks of
+every key, plus everything a library file's key has and the library's
+index of names (the core's doc links are checked against it); session
+flavours whose core result differs (library tests, stale pins falling
+back, a library other than the standard one) never use it. *The entry*
+is only ever an exact hit: no carried-over core. *A refused replay* (§3)
+isn't undone in place: the session is dropped and started again with a
+fresh elaborator, which elaborates the core, so §3's undo isn't relied
+on for the core at all. What replay recomputes rather than reads (the
+natives, pins, primitives and the registry's checks) and the list of
+every piece of state loading the core sets are in
+[SW-4814-core-from-cache.md](../reviews/SW-4814-core-from-cache.md).
+`--no-cache --jobs 1` and every test still check the core from source.
+
 ## 1. In short
 
 **What you get.** A check that comes back from the cache is something this
@@ -111,7 +130,7 @@ place that breaks it: `library_interface` (`cache/mod.rs:520-548`) hashes
 | Natives and compact text on or off | `modes` | read |
 | Options that change results: limits, glue, `numbers_as_succ`, rewrite and instance budgets, uniform operators | `Options::cache_key`, which destructures `Options`, so a new field has to be placed before it compiles | read |
 | What navigation records | `nav_tag`, in the key and in the unit's name | read |
-| The core's text | **the index's**, not the loaded one (M1) | read |
+| The core's text | **the index's**, not the loaded one (M1); since SW-4817 the loaded one's digest, and the core's own entry (SW-4814) keys on the text itself | read |
 | The library's names: path, key, kind, flags | `library_interface` | read |
 | A library file's path and text, and the keys of the files it needs | `library_keys` | read |
 | A namespace's sources, as the host hashes them, and its dependencies' keys (since SW-4707: each dependency's interface digest where it has one, its key otherwise, and its `project_names`; interface-digest-cache.md §2 is the argument) | `namespace_cache_key` | read |

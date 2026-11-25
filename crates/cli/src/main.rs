@@ -2353,7 +2353,7 @@ fn check(
     if files > 0 {
         let mut ok = true;
         let mut stopped = false;
-        use_index_cache(cache, Path::new("."));
+        use_index_and_core_cache(cache, Path::new("."), recheck);
         for path in targets {
             // Each file gets its own session.
             let mut session = new_session(index.is_some());
@@ -2421,7 +2421,7 @@ fn check(
     let Some(config) = read_project_config(&project) else {
         return ExitCode::FAILURE;
     };
-    use_index_cache(cache, &project.dir);
+    use_index_and_core_cache(cache, &project.dir, recheck);
     let mut session = new_session(index.is_some());
     if expand {
         session.elab.record_expansions();
@@ -2960,12 +2960,19 @@ fn cache_dir(cache: &CacheArgs, base: &Path) -> Option<PathBuf> {
     Some(stitchwort.join("cache"))
 }
 
-/// Reads the library's name index from the cache directory, and writes it
-/// there, unless `--no-cache`. Before the first session starts: that makes
-/// the index.
+/// Reads the library's name index and the core (SW-4814) from the cache
+/// directory, and writes them there, unless `--no-cache`. Before the first
+/// session starts: that makes the index, and loads the core. With
+/// `recheck` (`check --recheck`), the core's entry goes through this
+/// kernel's checking calls, as every entry the check loads does.
 fn use_index_cache(cache: &CacheArgs, base: &Path) {
+    use_index_and_core_cache(cache, base, false);
+}
+
+fn use_index_and_core_cache(cache: &CacheArgs, base: &Path, recheck: bool) {
     if let Some(dir) = cache_dir(cache, base) {
         stitchwort_driver::check_cache::use_std_index_cache(&dir);
+        stitchwort_driver::check_cache::use_core_cache(&dir, recheck);
     }
 }
 

@@ -326,10 +326,10 @@ fn plain_check(project: &Path, cache: &Path, skip: bool, debug: bool) -> Output 
     )
 }
 
-/// `check --recheck` says what it did: after a cold run, every namespace
-/// is checked again by the kernel from its entry and none is reported as
-/// left out unloaded; with nothing to check again it says so, which must
-/// not look like an audit that passed.
+/// `check --recheck` says what it did: after a cold run, the core (SW-4814)
+/// and every namespace are checked again by the kernel from their entries,
+/// and no namespace is reported as left out unloaded; with nothing to check
+/// again it says so, which must not look like an audit that passed.
 #[test]
 fn check_recheck_says_what_it_checked_again() {
     let project = temp_dir("recheck-project");
@@ -370,7 +370,9 @@ fn check_recheck_says_what_it_checked_again() {
     let err = String::from_utf8_lossy(&again.stderr).into_owned();
     assert!(again.status.success(), "{}", shown(&again));
     assert!(
-        err.contains("checked again by this kernel, without elaborating: 2 namespaces"),
+        err.contains(
+            "checked again by this kernel, without elaborating: the core and 2 namespaces"
+        ),
         "{err}"
     );
     assert!(skipped(&again).is_empty(), "{err}");
@@ -924,10 +926,11 @@ fn check_with_std(
             // A key no longer holds the library's names (the entry's stamp
             // does, SW-4409), so an edit shows as a miss on the entry the
             // key finds, named by its unit: `ns.X` for a namespace, `std.X`
-            // for a library file (not a namespace, so not counted).
+            // for a library file, `the core` for the core (SW-4814): not
+            // namespaces, so not counted.
             match name.strip_prefix("ns.") {
                 Some(ns) => Some(ns.to_string()),
-                None => (!name.starts_with("std.")).then(|| name.to_string()),
+                None => (!name.starts_with("std.") && name != "the core").then(|| name.to_string()),
             }
         })
         .collect();

@@ -32,6 +32,32 @@ enum Library<'a> {
     Index(&'a Arc<LibraryIndex>),
 }
 
+/// Why [`Session::start_cached`] gave no session.
+enum StartError {
+    /// What failed to load, as reported.
+    Report(String),
+    /// The core's entry was refused after its replay had begun.
+    CoreRefused(String),
+}
+
+impl From<String> for StartError {
+    fn from(report: String) -> Self {
+        StartError::Report(report)
+    }
+}
+
+impl StartError {
+    /// The report, from a start that replayed nothing.
+    fn report(self) -> String {
+        match self {
+            StartError::Report(report) => report,
+            StartError::CoreRefused(why) => {
+                unreachable!("no replay of the core, so none refused: {why}")
+            }
+        }
+    }
+}
+
 /// What a session does as it starts, besides loading its prelude.
 #[derive(Clone, Copy, Default)]
 struct SessionOptions {
@@ -366,6 +392,7 @@ pub fn daily_tier_sample_at<T>(
 }
 
 /// Where an eager session gets the standard library's files.
+#[derive(Clone, Copy)]
 enum StdCache {
     /// Checked from source.
     Source,
@@ -704,6 +731,39 @@ impl Session {
         .unwrap_or_else(|report| panic!("{report}"))
     }
 
+    /// For the tests of the core's entry (SW-4814): a session whose core,
+    /// `prelude`, comes from and goes to the check cache in `dir` (through
+    /// this kernel's checking calls with `recheck`), as the CLI's do after
+    /// `check_cache::use_core_cache`, with navigation recorded if
+    /// `navigation`. With `refuse_after`, a replay of the core is refused
+    /// right after the declaration with that path is admitted
+    /// (`Elaborator::refuse_replays_after`), and the session starts again
+    /// from source.
+    #[doc(hidden)]
+    pub fn with_core_cache(
+        prelude: &str,
+        dir: &std::path::Path,
+        recheck: bool,
+        navigation: bool,
+        refuse_after: Option<&str>,
+    ) -> Result<Self, String> {
+        Self::start_with_core(
+            prelude,
+            Library::Standard,
+            SessionOptions {
+                navigation,
+                ..Default::default()
+            },
+            Limits::default(),
+            StdCache::Source,
+            Some(crate::check_cache::CoreCache {
+                dir: dir.to_path_buf(),
+                recheck,
+                refuse_after: refuse_after.map(str::to_string),
+            }),
+        )
+    }
+
     /// [`Session::with_prelude`], except that a pinned declaration the
     /// prelude changed (`stitchwort_core::pins`) runs as written, without
     /// its native, instead of refusing the prelude: for the tests that
@@ -740,6 +800,60 @@ impl Session {
         limits: Limits,
         std_cache: StdCache,
     ) -> Result<Self, String> {
+        // The core from the check cache, where the process keeps one
+        // (`check_cache::use_core_cache`) and the entry can stand for what
+        // this session would elaborate: the standard library's names (the
+        // core's doc links are checked against them) and no library tests
+        // (which are part of the result). Its text, the options and the
+        // switches are in its key.
+        let core = crate::check_cache::core_cache()
+            .filter(|_| matches!(library, Library::Standard) && !options.library_tests);
+        Self::start_with_core(prelude, library, options, limits, std_cache, core)
+    }
+
+    /// [`Session::start`] with the core from and to `core`'s cache, if
+    /// given.
+    fn start_with_core(
+        prelude: &str,
+        library: Library,
+        options: SessionOptions,
+        limits: Limits,
+        std_cache: StdCache,
+        core: Option<crate::check_cache::CoreCache>,
+    ) -> Result<Self, String> {
+        if let Some(core) = core {
+            match Self::start_cached(
+                Elaborator::new(),
+                prelude,
+                library,
+                options,
+                limits,
+                std_cache,
+                Some(&core),
+                true,
+            ) {
+                Ok(started) => return Ok(started),
+                Err(StartError::Report(report)) => return Err(report),
+                // What the replay added isn't undone in place: a fresh
+                // elaborator checks the core from source, and writes its
+                // entry again.
+                Err(StartError::CoreRefused(_)) => {
+                    let mut session = Self::start_cached(
+                        Elaborator::new(),
+                        prelude,
+                        library,
+                        options,
+                        limits,
+                        std_cache,
+                        Some(&core),
+                        false,
+                    )
+                    .map_err(StartError::report)?;
+                    session.elab.note_core_refused(core.recheck);
+                    return Ok(session);
+                }
+            }
+        }
         Self::start_in(
             Elaborator::new(),
             prelude,
@@ -759,6 +873,28 @@ impl Session {
         limits: Limits,
         std_cache: StdCache,
     ) -> Result<Self, String> {
+        Self::start_cached(
+            elab, prelude, library, options, limits, std_cache, None, false,
+        )
+        .map_err(StartError::report)
+    }
+
+    /// [`Session::start_in`], with the core from and to the check cache
+    /// `core` if given: replayed from its entry if `replay` and there is
+    /// one that fits, else elaborated and its entry written. The outer
+    /// error is a replay refused after it changed the elaborator, which
+    /// is then dropped: the caller starts again from source.
+    #[allow(clippy::too_many_arguments)]
+    fn start_cached(
+        elab: Elaborator,
+        prelude: &str,
+        library: Library,
+        options: SessionOptions,
+        limits: Limits,
+        std_cache: StdCache,
+        core: Option<&crate::check_cache::CoreCache>,
+        replay: bool,
+    ) -> Result<Self, StartError> {
         let SessionOptions {
             eager,
             library_tests,
@@ -803,6 +939,29 @@ impl Session {
                 "the library's files are numbered as the index's"
             );
         }
+        // From the check cache's entry for exactly this core, options and
+        // library (`stitchwort_elab::cache::core_entry`), if there is one.
+        let core = core.map(|core| {
+            let store = crate::check_cache::CheckCache::at(&core.dir);
+            let key = session.elab.core_cache_key(prelude, &index);
+            (core, store, key)
+        });
+        if let (Some((core, store, key)), true) = (&core, replay) {
+            use stitchwort_elab::cache::CoreReplay;
+            if let Some(path) = &core.refuse_after {
+                session.elab.refuse_replays_after(path);
+            }
+            match session.elab.replay_core(store, key, file, core.recheck) {
+                CoreReplay::Hit(kept) => {
+                    session.elab.library_warnings.extend(kept);
+                    return session
+                        .finish_start(prelude, &library, index, eager, std_cache)
+                        .map_err(StartError::Report);
+                }
+                CoreReplay::Miss(_) => {}
+                CoreReplay::Failed(why) => return Err(StartError::CoreRefused(why)),
+            }
+        }
         // The index has parsed the core, unless a test changed its text.
         let parsed;
         let module = if prelude == index.files[0].text {
@@ -812,6 +971,7 @@ impl Session {
                 .map_err(|ds| report(&session.sources, "the prelude doesn't parse", &ds))?;
             &parsed
         };
+        let capture = core.as_ref().map(|_| session.elab.core_capture());
         session.elab.set_core_link_names(Some(index.clone()));
         let mut diagnostics = session.elab.elaborate_module(module);
         session.statement_style(&mut diagnostics, &[(file, module)]);
@@ -825,6 +985,17 @@ impl Session {
                 "W-PROOF-CHAIN" | "W-REWRITE-THEN-COMPUTING" | "W-REWRITE-THEN-REWRITE"
             )
         });
+        // Its entry, if it checked with no other diagnostic: then the
+        // kept warnings are all a replay has to give back.
+        if let (Some(capture), Some((_, store, key))) = (capture, &core) {
+            if rest.is_empty() {
+                let _ = session
+                    .elab
+                    .write_core_entry(capture, store, key, file, &chains);
+            } else {
+                session.elab.abandon_core_capture(capture);
+            }
+        }
         session.elab.library_warnings.extend(chains);
         let mut diagnostics = rest;
         // A broken doc link in the core fails the load, as in a library
@@ -837,15 +1008,37 @@ impl Session {
                 &session.sources,
                 "the prelude has a broken doc link",
                 &diagnostics,
-            ));
+            )
+            .into());
         }
         if let Err(diagnostics) = session.finish_load(0, diagnostics) {
-            return Err(report(
-                &session.sources,
-                "the prelude doesn't check",
-                &diagnostics,
-            ));
+            return Err(report(&session.sources, "the prelude doesn't check", &diagnostics).into());
         }
+        session
+            .finish_start(prelude, &library, index, eager, std_cache)
+            .map_err(StartError::Report)
+    }
+
+    /// The rest of [`Session::start_cached`] once the core is loaded, from
+    /// source or from its entry: what ends the core (the built-ins all
+    /// bound, its digest), the registry's checks against the library, and
+    /// the library.
+    fn finish_start(
+        mut self,
+        prelude: &str,
+        library: &Library,
+        index: Arc<LibraryIndex>,
+        eager: bool,
+        std_cache: StdCache,
+    ) -> Result<Self, String> {
+        let report = |sources: &SourceMap, what: &str, diagnostics: &[Diagnostic]| {
+            let mut report = format!("internal error: {what}:\n");
+            for d in diagnostics {
+                report.push_str(&crate::render::render(sources, d, false));
+            }
+            report
+        };
+        let session = &mut self;
         if let Err(missing) = session.elab.finish_core(prelude) {
             return Err(format!("internal error: {}", missing.message));
         }
@@ -879,7 +1072,7 @@ impl Session {
         if let Some(turn) = &_turn {
             turn.finish();
         }
-        Ok(session)
+        Ok(self)
     }
 
     /// For a test of what a program does, not of how the library checks:

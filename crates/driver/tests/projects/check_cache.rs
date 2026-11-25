@@ -22,6 +22,7 @@ use stitchwort_elab::JournalStats;
 use stitchwort_elab::cache::{Stats, canonical_dump};
 use stitchwort_syntax::Diagnostic;
 
+mod core_entry;
 mod digest;
 
 /// The stack every session here runs on, and is told it has

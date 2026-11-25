@@ -255,6 +255,38 @@ pub fn use_std_index_cache(cache_dir: &Path) {
     );
 }
 
+/// Makes the sessions this process starts from now on load the core from,
+/// and keep it in, the check cache in `cache_dir` (SW-4814): checked
+/// through this kernel's checking calls with `recheck` (`check
+/// --recheck`). Only a session whose result the core's entry can stand for
+/// uses it: the standard library's index, no library tests, no stale pins
+/// falling back (`Session::start`). Call it before the first session starts;
+/// tests never do, so they check the core from source.
+pub fn use_core_cache(cache_dir: &Path, recheck: bool) {
+    *CORE_CACHE.lock().unwrap_or_else(|e| e.into_inner()) = Some(CoreCache {
+        dir: cache_dir.to_path_buf(),
+        recheck,
+        refuse_after: None,
+    });
+}
+
+/// Where [`use_core_cache`] said to keep the core, if it was called.
+#[derive(Clone)]
+pub(crate) struct CoreCache {
+    pub(crate) dir: std::path::PathBuf,
+    pub(crate) recheck: bool,
+    /// For a test: the replay is refused after this declaration
+    /// (`Session::with_core_cache`).
+    pub(crate) refuse_after: Option<String>,
+}
+
+static CORE_CACHE: std::sync::Mutex<Option<CoreCache>> = std::sync::Mutex::new(None);
+
+/// [`use_core_cache`]'s setting.
+pub(crate) fn core_cache() -> Option<CoreCache> {
+    CORE_CACHE.lock().unwrap_or_else(|e| e.into_inner()).clone()
+}
+
 /// What [`Store::compiler`] and [`Store::kernel`] say for the build whose
 /// fingerprint is `build` and whose kernel side's is `kernel`.
 fn stamp_names(build: &str, kernel: &str) -> (String, String) {

@@ -67,6 +67,7 @@
 //! [`Store`] a host gives the elaborator (the CLI's is a directory).
 
 pub(crate) mod codec;
+mod core_entry;
 mod deferral;
 mod dump;
 mod rows;
@@ -97,7 +98,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 46;
+pub const FORMAT: u32 = 47;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -280,6 +281,15 @@ pub struct Stats {
     /// `namespace_hits`.
     pub interface_hits: usize,
     pub unproved: usize,
+    /// The core (`core_entry`, SW-4814): loaded from its entry (exact
+    /// hits only), elaborated because none fitted, its entry written, and
+    /// loaded from its entry through this kernel's checking calls (`check
+    /// --recheck`; also counted in `core_hits`). Counted only in a session
+    /// started with a core cache (the CLI's and the editor's).
+    pub core_hits: usize,
+    pub core_misses: usize,
+    pub core_written: usize,
+    pub core_rechecked: usize,
 }
 
 impl Stats {
@@ -327,12 +337,17 @@ impl Stats {
     /// [`Self::carried_over_units`]: `2 namespaces and 40 standard library
     /// files`, with how many it refused, or `None` if it checked none.
     pub fn rechecked_units(&self) -> Option<String> {
-        if self.rechecked + self.namespace_rechecked + self.refused_on_recheck == 0 {
+        if self.rechecked + self.namespace_rechecked + self.refused_on_recheck + self.core_rechecked
+            == 0
+        {
             return None;
         }
         let count =
             |n: usize, one: &str, many: &str| format!("{n} {}", if n == 1 { one } else { many });
         let mut parts = Vec::new();
+        if self.core_rechecked > 0 {
+            parts.push("the core".to_string());
+        }
         if self.namespace_rechecked > 0 {
             parts.push(count(self.namespace_rechecked, "namespace", "namespaces"));
         }
@@ -1155,35 +1170,10 @@ impl Elaborator {
     /// (SW-4824).
     fn library_interface(&self) -> Key {
         *self.session.library_interface_digest.get_or_init(|| {
-            let mut h = blake3::Hasher::new();
-            let mut part = |bytes: &[u8]| {
-                h.update(&(bytes.len() as u64).to_le_bytes());
-                h.update(bytes);
-            };
-            // The core this session elaborated, which a test's own prelude
-            // makes other than the index's (`files[0]`); an empty part if
-            // no core was finished, so never a real core's key.
-            part(
-                self.session
-                    .core_digest
-                    .as_ref()
-                    .map_or(&[][..], |d| &d[..]),
-            );
-            if let Some(index) = self.library_index() {
-                for file in &index.files {
-                    part(file.path.as_bytes());
-                    for n in &file.names {
-                        part(n.key.as_bytes());
-                        part(&[
-                            n.kind as u8,
-                            u8::from(n.follower),
-                            u8::from(n.function),
-                            u8::from(n.candidate),
-                        ]);
-                    }
-                }
-            }
-            *h.finalize().as_bytes()
+            library_interface_of(
+                self.session.core_digest.as_ref(),
+                self.library_index().as_deref(),
+            )
         })
     }
 
@@ -1713,6 +1703,7 @@ impl Elaborator {
             own_files: files.iter().filter_map(|f| f.file).collect(),
             library: false,
             interface: self.interface_pass_of(ns),
+            core: false,
         };
         if unit.own_files.len() != files.len() {
             return Err("a file without an id".to_string());
@@ -2530,6 +2521,9 @@ struct UnitOut {
     /// theorems are written without proofs or full hashes. Any other
     /// unit holding one can't be encoded.
     interface: bool,
+    /// The core (`core_entry`): the one unit whose entry may hold
+    /// primitives and bind core built-ins.
+    core: bool,
 }
 
 /// The names a unit declared: those that existed and changed; those new
@@ -2557,6 +2551,37 @@ struct PreOut {
     /// each had: replay checks them before it changes anything.
     library: Vec<(String, Key)>,
     includes: Vec<(String, Key)>,
+}
+
+/// [`Elaborator::library_interface`] of a session whose core's text hashes
+/// to `core` (`None`: no core was finished) and whose library is `index`.
+/// The core's entry is stamped with it before either is in the session
+/// (`core_entry`), so it equals what the session works out afterwards.
+fn library_interface_of(core: Option<&Key>, index: Option<&crate::library::LibraryIndex>) -> Key {
+    let mut h = blake3::Hasher::new();
+    let mut part = |bytes: &[u8]| {
+        h.update(&(bytes.len() as u64).to_le_bytes());
+        h.update(bytes);
+    };
+    // The core this session elaborated, which a test's own prelude makes
+    // other than the index's (`files[0]`); an empty part if no core was
+    // finished, so never a real core's key.
+    part(core.map_or(&[][..], |d| &d[..]));
+    if let Some(index) = index {
+        for file in &index.files {
+            part(file.path.as_bytes());
+            for n in &file.names {
+                part(n.key.as_bytes());
+                part(&[
+                    n.kind as u8,
+                    u8::from(n.follower),
+                    u8::from(n.function),
+                    u8::from(n.candidate),
+                ]);
+            }
+        }
+    }
+    *h.finalize().as_bytes()
 }
 
 /// The name an entry gives the file at index `i` of the library index.
@@ -2788,6 +2813,7 @@ impl Elaborator {
             own_files: HashSet::from_iter([index.files[f].id]),
             library: true,
             interface: false,
+            core: false,
         };
         let before = &capture.before;
         self.encode(
@@ -2819,6 +2845,26 @@ impl Elaborator {
         warnings: &[Diagnostic],
         key: &Key,
         salt: [u8; 16],
+    ) -> Result<(Vec<u8>, Key, DigestShape), String> {
+        self.encode_stamped(unit, before, writes, names, pre, warnings, key, salt, None)
+    }
+
+    /// [`Self::encode`], stamped by `stamp`'s store and with its library
+    /// interface, exact, if given: the core's entry, written before the
+    /// session has a check cache or a library (`core_entry`). Otherwise by
+    /// the session's store and [`Self::library_interface`].
+    #[allow(clippy::too_many_arguments)]
+    fn encode_stamped(
+        &self,
+        unit: &UnitOut,
+        before: &Before,
+        writes: &WriteSet<'_>,
+        names: &NamesOut,
+        pre: &PreOut,
+        warnings: &[Diagnostic],
+        key: &Key,
+        salt: [u8; 16],
+        stamp: Option<(&dyn Store, Key)>,
     ) -> Result<(Vec<u8>, Key, DigestShape), String> {
         let parts = self.encode_pass(unit, before, writes, names, pre, warnings, None)?;
         self.cancel_while_encoding();
@@ -2874,13 +2920,24 @@ impl Elaborator {
         body.blob(&b.bytes);
         shape.stated = proofs.theorems;
         shape.stated_bytes = b.bytes.len();
-        let store = self.options.check_cache.as_ref().expect("a cache is set");
-        let stamp = Stamp {
-            kernel: store.kernel().to_string(),
-            compiler: store.compiler().to_string(),
-            interface: self.library_interface(),
-            exact: !self.carried_anything(),
-            digest,
+        let stamp = match stamp {
+            Some((store, interface)) => Stamp {
+                kernel: store.kernel().to_string(),
+                compiler: store.compiler().to_string(),
+                interface,
+                exact: true,
+                digest,
+            },
+            None => {
+                let store = self.options.check_cache.as_ref().expect("a cache is set");
+                Stamp {
+                    kernel: store.kernel().to_string(),
+                    compiler: store.compiler().to_string(),
+                    interface: self.library_interface(),
+                    exact: !self.carried_anything(),
+                    digest,
+                }
+            }
         };
         Ok((
             seal(key, salt, &stamp, &parts.deps, &body.bytes),
@@ -3044,15 +3101,18 @@ impl Elaborator {
                     def.path()
                 ));
             }
+            let primitive = g.env.builtins().primitive(id).is_some();
             // The body itself is written, so a stated theorem, whose proof
             // isn't here, is refused too: not `Def::defined`.
-            if def.state() != State::Final || (def.body().is_none() && !def.unproved()) {
+            if def.state() != State::Final
+                || (def.body().is_none() && !def.unproved() && !primitive)
+            {
                 return Err(format!("`{}` isn't admitted with a body", def.path()));
             }
             if def.export() || !def.validators().is_empty() {
                 return Err(format!("`{}` is exported", def.path()));
             }
-            if g.env.builtins().primitive(id).is_some() {
+            if primitive && !unit.core {
                 return Err(format!("`{}` is a primitive", def.path()));
             }
             // Replay declares it again under its module.
@@ -3067,10 +3127,14 @@ impl Elaborator {
         }
         // The built-ins the file binds: only library ones, which are just
         // registry entries (a core built-in may also tell the evaluator
-        // about a native, which replay couldn't take back).
+        // about a native, which replay couldn't take back). The core binds
+        // its own: a refused replay of it starts the session again
+        // (`core_entry`).
         let bound = bound_builtins(g, before.defs, before.datas);
         for &(_, _, b) in &bound {
-            if b.home() != Home::Library || Native::ALL.iter().any(|n| n.builtin() == b) {
+            if !unit.core
+                && (b.home() != Home::Library || Native::ALL.iter().any(|n| n.builtin() == b))
+            {
                 return Err(format!("`{}` is a core built-in", b.name()));
             }
         }
@@ -3234,6 +3298,10 @@ impl Elaborator {
             // reference (docs/proposals/opaque-definitions.md §6.4).
             e.w.bool(def.opaque());
             e.w.bool(def.tailrec());
+            // A primitive (only in the core): no body and no group; replay
+            // admits it as elaborating does (`partial::define_primitive`).
+            let primitive = g.env.builtins().primitive(id).is_some();
+            e.w.bool(primitive);
             let refs = &unfolding_refs[id.0 - before.defs];
             e.w.usize(refs.len());
             for reference in refs.iter() {
@@ -3250,13 +3318,14 @@ impl Elaborator {
             } else {
                 e.w.bool(left_out.contains(&id));
             }
-            if !sealed && !left_out.contains(&id) {
+            if !sealed && !left_out.contains(&id) && !primitive {
                 e.term(def.body().expect("checked above"));
             }
-            // An unproved theorem has none, and is both sealed and left out.
+            // An unproved theorem has none, and is both sealed and left out;
+            // nor has a primitive.
             let group: &[DefId] = match def.group() {
                 Some(group) => group,
-                None if def.unproved() => &[],
+                None if def.unproved() || primitive => &[],
                 None => unreachable!("a final definition has a group"),
             };
             if group.iter().any(|m| m.0 < before.defs) {
@@ -3806,6 +3875,9 @@ struct DefEntry {
     fold: bool,
     opaque: bool,
     tailrec: bool,
+    /// A primitive of the core's (`partial::Primitive`), named by `name`:
+    /// no body and no group.
+    primitive: bool,
     /// Its `unfolding` list as written.
     unfolding: Vec<DefId>,
     span: Span,
@@ -4093,7 +4165,10 @@ impl Elaborator {
 
     /// Reads an entry's body up to its terms. Changes nothing.
     fn read_head<'a>(&self, body: &'a [u8], file_ids: &HashMap<String, FileId>) -> Read<Head<'a>> {
-        let index = self.library_index().expect("a library is installed");
+        // None while the core replays: its entry names no library file.
+        let index = self.library_index();
+        let position =
+            |path: &str| (index.as_ref()).and_then(|i| i.files.iter().position(|f| f.path == path));
         let mut r = Reader::new(body);
         let strings = Terms::read_strings(&mut r)?;
         let n = r.count(1)?;
@@ -4134,7 +4209,7 @@ impl Elaborator {
         let n = body.count()?;
         for _ in 0..n {
             let path = body.string()?;
-            match index.files.iter().position(|f| f.path == path) {
+            match position(&path) {
                 Some(f) => {
                     pre.needs.files.insert(f);
                 }
@@ -4152,7 +4227,7 @@ impl Elaborator {
         let n = body.count()?;
         for _ in 0..n {
             let path = body.string()?;
-            match index.files.iter().position(|f| f.path == path) {
+            match position(&path) {
                 Some(f) => pre.library.push((f, body.r.array::<32>()?)),
                 None => return bad(format!("no library file `{path}`")),
             }
@@ -4193,7 +4268,8 @@ impl Elaborator {
         early: &[(String, Span, bool)],
         proofs: bool,
     ) -> Read<Decoded> {
-        let index = self.library_index().expect("a library is installed");
+        // No library while the core replays: then no name may be pending.
+        let library_files = self.library_index().map_or(0, |i| i.files.len());
         let g = &self.ev();
         let _op = g.machine.budget.operation(self.options.limits);
 
@@ -4260,6 +4336,7 @@ impl Elaborator {
                 fold: body.r.bool()?,
                 opaque: body.r.bool()?,
                 tailrec: body.r.bool()?,
+                primitive: body.r.bool()?,
                 unfolding: {
                     let k = body.count()?;
                     let mut unfolding = Vec::with_capacity(k);
@@ -4279,10 +4356,20 @@ impl Elaborator {
                 hash: None,
             });
             let def = defs.last_mut().expect("just pushed");
-            // Left out to part B, or here with its group.
-            if !body.r.bool()? {
-                def.body = Some(body.term()?);
+            // Left out to part B, or here with its group (a primitive has
+            // neither body nor members).
+            let left_out = body.r.bool()?;
+            if left_out && def.primitive {
+                return bad("a primitive left out to part B");
+            }
+            if !left_out {
+                if !def.primitive {
+                    def.body = Some(body.term()?);
+                }
                 def.group = body.offsets(n)?;
+                if def.primitive && !def.group.is_empty() {
+                    return bad("a primitive in a group");
+                }
             }
             if body.r.bool()? {
                 def.run_body = Some(body.term()?);
@@ -4358,7 +4445,7 @@ impl Elaborator {
         bound.sort();
         body.refs.n_defs = n_defs;
         body.refs.n_datas = n_datas;
-        let rest = read_tables(&mut body, index.files.len(), early.len())?;
+        let rest = read_tables(&mut body, library_files, early.len())?;
         // Part B: the proofs of the theorems read without one above, in
         // their order, each with its group; their nodes come after part A's.
         let part_b = body.r.blob()?;
@@ -4370,7 +4457,7 @@ impl Elaborator {
             let count = r.count(1)?;
             body.terms.read_nodes(&mut r, &body.refs, count)?;
             body.r = r;
-            for def in defs.iter_mut().filter(|d| d.body.is_none()) {
+            for def in defs.iter_mut().filter(|d| d.body.is_none() && !d.primitive) {
                 def.body = Some(body.term()?);
                 def.group = body.offsets(n_defs)?;
             }
@@ -4641,6 +4728,13 @@ impl Elaborator {
             let label = d.labels.first().map_or("", |l| l.message.as_str());
             Bad(format!("refused: {} ({label})", d.message))
         };
+        // The core's entry is the one that binds built-ins with no library
+        // installed (a library file's replay always has one): the only
+        // entry that may hold primitives (`core_entry`).
+        let core = library && self.session.library.is_none();
+        if !core && defs.iter().any(|d| d.primitive) {
+            return bad("a primitive outside the core");
+        }
         // The groups, each with the entry's own declarations its terms
         // refer to (besides its members).
         struct Group {
@@ -4653,7 +4747,8 @@ impl Elaborator {
         let mut groups: Vec<Group> = Vec::new();
         let mut seen = HashSet::default();
         for (i, def) in defs.iter().enumerate() {
-            // A stated theorem is in no group: it is final once declared.
+            // A stated theorem is in no group: it is final once declared;
+            // nor is a primitive, defined as soon as it is declared.
             if def.body.is_none() {
                 continue;
             }
@@ -4875,13 +4970,6 @@ impl Elaborator {
                         })
                         .map_err(refused)?;
                         for m in &group.members {
-                            def_final[*m] = true;
-                            if library {
-                                self.bind_builtin_def(DefId(base_defs + m))
-                                    .map_err(refused)?;
-                            }
-                        }
-                        for m in &group.members {
                             if let Some(run) = &defs[*m].run_body {
                                 let id = DefId(base_defs + m);
                                 // Type-checked for a carried entry too: no
@@ -4907,6 +4995,16 @@ impl Elaborator {
                                 {
                                     return bad("a run body came out differently");
                                 }
+                            }
+                        }
+                        // Bound after the run bodies: binding `List.length`
+                        // gives it the run body its entry records, unless it
+                        // has one (`length_run_body`).
+                        for m in &group.members {
+                            def_final[*m] = true;
+                            if library {
+                                self.bind_builtin_def(DefId(base_defs + m))
+                                    .map_err(refused)?;
                             }
                         }
                     }
@@ -4975,6 +5073,14 @@ impl Elaborator {
                     }
                 }
                 next_data_group += 1;
+                continue;
+            }
+            if next_def < defs.len() && defs[next_def].primitive {
+                let def = &defs[next_def];
+                let id = DefId(base_defs + next_def);
+                self.admit_primitive(def, id, check).map_err(refused)?;
+                def_final[next_def] = true;
+                next_def += 1;
                 continue;
             }
             if next_def < defs.len() && defs[next_def].body.is_none() {
@@ -5389,6 +5495,7 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Rest> {
     Ok(t)
 }
 
+pub use core_entry::{CoreCapture, CoreKey, CoreReplay};
 pub use deferral::may_defer;
 #[doc(hidden)]
 pub use dump::{canonical_dump, canonical_dump_without_proofs};
@@ -5503,6 +5610,7 @@ mod tests {
             fold: false,
             opaque: false,
             tailrec: false,
+            primitive: false,
             unfolding: Vec::new(),
             span: {
                 let mut sources = stitchwort_syntax::SourceMap::new();
@@ -5727,6 +5835,7 @@ mod tests {
             fold: false,
             opaque: false,
             tailrec: false,
+            primitive: false,
             unfolding: Vec::new(),
             span: forged_span(),
             ty: Term::Pi(
