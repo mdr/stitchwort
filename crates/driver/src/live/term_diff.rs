@@ -698,11 +698,28 @@ fn walk<'t>(
             step(g, b, d, names, path, "the right side".to_string())
         }
         (Term::Refl, Term::Refl) => None,
-        (Term::J(m, b, _, _), Term::J(n, c, _, _)) => {
+        (Term::J(m, b, p, old_mark), Term::J(n, c, q, new_mark)) => {
             if let Some(found) = step(g, m, n, names, path, "the motive of J".to_string()) {
                 return Some(found);
             }
-            step(g, b, c, names, path, "the base of J".to_string())
+            if let Some(found) = step(g, b, c, names, path, "the base of J".to_string()) {
+                return Some(found);
+            }
+            // The proofless hash keeps a cast's ends, the equation
+            // annotating its proof, under rule K's guard (SW-4786), so
+            // compare them exactly when it does.
+            match (cast_equation(p, *old_mark), cast_equation(q, *new_mark)) {
+                (Some(old_eq), Some(new_eq)) => step(
+                    g,
+                    old_eq,
+                    new_eq,
+                    names,
+                    path,
+                    "the equation of the cast".to_string(),
+                ),
+                (None, None) => None,
+                _ => Some(Found::here(p, q, names, path)),
+            }
         }
         (Term::Proj(d, i, x), Term::Proj(e, j, y)) if d == e && i == j => {
             step(g, x, y, names, path, "the projected value".to_string())
@@ -752,6 +769,16 @@ fn full_spine(term: &Term) -> (&Term, Vec<(&Term, Icit)>) {
     }
     args.reverse();
     (head, args)
+}
+
+/// The equation a cast into data carries, when the proofless hash keeps it:
+/// exactly the term `hash.rs` hashes in place of the proof, under the same
+/// mark guard. `None` when the hash writes the proof marker instead.
+fn cast_equation<'t>(proof: &'t Term, mark: ProofMark) -> Option<&'t Term> {
+    match (mark, Term::j_ends(proof), proof.strip_loc()) {
+        (ProofMark::NotProof | ProofMark::Unknown, Some(_), Term::Ann(_, eq)) => Some(eq.as_ref()),
+        _ => None,
+    }
 }
 
 /// Whether `term` as a whole is a proof the proofless hash leaves out.

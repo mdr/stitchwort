@@ -647,6 +647,27 @@ def five: Nat := keep 5 (addZ 5)
 def user: Nat := five + 1
 ";
 
+/// A definition whose body casts into `Nat`, carrying the equation its proof
+/// has: the ends are `2 = 3` here.
+const CAST: &str = "\
+namespace Cast
+
+import Std (Nat)
+
+def castAt (h23: 2 = 3) (h22: 2 = 2): Nat := J (y e => Nat) 5 h23
+";
+
+/// A project whose definition's body is a cast into data, so its proof's
+/// equation (its ends) is part of the proofless hash.
+fn cast() -> LiveProject {
+    let mut session = Session::navigable_for_stack(STACK);
+    session.use_test_std_cache();
+    let files = BTreeMap::from([("src/cast.sw".to_string(), CAST.to_string())]);
+    let mut live = LiveProject::new(session, "cast", Some("sources: [src]\n".to_string()), files);
+    finish(&mut live);
+    live
+}
+
 /// A project whose definitions embed a proof: `five` passes `addZ 5` to a
 /// parameter whose type is a proposition.
 fn proofs() -> LiveProject {
@@ -800,6 +821,32 @@ fn a_shifted_id_still_names_the_right_difference() {
         // leaves its own term unchanged.
         assert_eq!(find("user").expect("user changed").difference, None);
         assert!(find("added").is_some(), "{:?}", trial.problems);
+        live.restore(trial).unwrap();
+    });
+}
+
+/// A cast into data keeps its ends in the proofless hash (SW-4786), so a
+/// change to them is refused by the proofs-only promise and located
+/// (SW-4797).
+#[test]
+fn a_refused_cast_names_the_ends_where_it_differs() {
+    run(|| {
+        let mut live = cast();
+        // Both hypotheses are proofs, so only the proof of the `J` changes
+        // in the term; its equation changes from `2 = 3` to `2 = 2`.
+        let edits = [edit("src/cast.sw", at(CAST, "h23", 1), "h22")];
+        let trial = checked(live.trial(&edits, &proofs_only()).unwrap());
+        assert_eq!(changed_names(&trial), ["castAt"], "{:?}", trial.problems);
+        let difference = trial.problems.changed[0]
+            .difference
+            .as_ref()
+            .expect("a difference");
+        assert!(
+            difference.at.contains("the equation of the cast"),
+            "{difference:?}"
+        );
+        assert_eq!(difference.old, "3");
+        assert_eq!(difference.new, "2");
         live.restore(trial).unwrap();
     });
 }
