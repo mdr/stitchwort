@@ -539,3 +539,48 @@ used ~149 CPU-s in 39 s), not by other work.
   next step (section 4's last paragraph).
 - Not run: the AoC `--no-cache` days at auto workers (the bench's `--only` forces one job,
   so not applicable), the library-cached run at auto workers (above), a profile.
+
+## Rerun with the fixed bench (SW-4810)
+
+Sonnet lane SW-4810, 25 November 2026, about 12:50, `lane/SW-4810` (bench changes only; the
+checker is `main` at `d7cf7913b`). Why the old bench was wrong:
+[SW-4809](SW-4809-small-proof-profile.md). Changes: "sw net" is the day's own units' elaboration
+plus kernel time from `--timings=all`'s unit table (not a difference of wall times against a
+probe file that missed std files the day loads); the binary is built without the dev features;
+a new column is the whole day, `check --no-project-cache`, library cache warm (our counterpart
+of Lean's `.olean`); hyperfine's JSON is read in either format and the bench stops on a
+missing key. Method: `bench/compare/lean-proofs/README.md`. Marks **[measured]**.
+
+`nix develop -c task bench:compare:proofs -- --runs 3`, medians, Lean 4.34.1, hyperfine 1.21
+(the flake's). The 5-minute load was 4.6 at the end of the run (3.7-4.2 before it; the 1-minute
+figure was 9.8 at the end, so another process was busy for part of it, which may explain Lean's
+empty-file time of 288 ms against 262 ms on SW-4806's run). The "sw net" figures come from one
+`--timings=all` rerun of each day after the timed run (a first version of the bench counted the
+`library files` summary row; fixed, and the timed columns don't depend on it).
+
+| day | theorems | sw check (cold) | **sw net** | lean file | lean load | lean net | **sw net / lean net** | sw check, library cached | that / lean file | lake build, cold |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 2024 day 2 | 17 | 2.64 s | 119 ms | 406 ms | 288 ms | 118 ms | **1.01x** | 721 ms | 1.8x | 896 ms |
+| 2020 day 18 | 23 | 9.63 s | 132 ms | 501 ms | 288 ms | 213 ms | **0.62x** | 800 ms | 1.6x | 1.10 s |
+| 2021 day 15 | 41 | 6.22 s | 433 ms | 861 ms | 288 ms | 573 ms | **0.76x** | 1.18 s | 1.4x | 1.51 s |
+
+Then (SW-4806, 25 Nov morning, the old bench) and now:
+
+| day | sw net: then | **now** | sw net / lean net: then | **now** | whole day, library cached / lean file: then | **now** |
+|---|---:|---:|---:|---:|---:|---:|
+| 2024 day 2 | 293 ms | **119 ms** | 3.15x | **1.01x** | 2.2x | **1.8x** |
+| 2020 day 18 | 1.08 s | **132 ms** | 5.42x | **0.62x** | 3.8x | **1.6x** |
+| 2021 day 15 | 1.55 s | **433 ms** | 3.13x | **0.76x** | 2.8x | **1.4x** |
+
+- The "then" figure for the last pair is the old "sw net + cached load": a sum of two
+  separately timed runs. "Now" is one timed run of the whole day with the library cached, so it
+  includes the library index, project scan and core (about 0.5 s together, SW-4809).
+- Our own time on the days' theorems is 119, 132 and 433 ms, within 1-2 ms of SW-4809's
+  profiled 104-124, 123 and 458 ms, so the two lanes agree.
+- A cold check (library rechecked from source) is unchanged, 2.6-9.6 s: it is the library.
+
+**Where we stand against Lean:** on the proofs themselves we are level with Lean (0.6-1.0x its
+time on the same theorems), and a whole day with the library cached takes 1.4-1.8x Lean's time
+for the file, the gap being start-up we pay on every check (library index, project scan, core);
+cold, with the library rechecked from source, we are 5-20x behind **[measured]**; one machine,
+3 runs each.

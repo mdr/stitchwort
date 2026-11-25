@@ -109,7 +109,7 @@ def hyperfine(name, command, runs, scratch, prepare=None, cwd=None):
 
 def own_net_seconds(sw, day, only):
     """Elaboration plus kernel seconds of the day's own units, from one
-    `--timings=all` run: the unit table's rows that are neither `core` nor a
+    `--timings=all` run: the unit table's rows that are neither `core`, the `library files` summary nor a
     `std/...` file (the day's namespaces, and project namespaces they use)."""
     done = subprocess.run([sw, "check", "--no-cache", *day["namespaces"], "--only", only, "--timings=all"],
                           cwd=ROOT / "aoc", capture_output=True, text=True)
@@ -125,7 +125,7 @@ def own_net_seconds(sw, day, only):
         if line.startswith("total"):
             break
         fields = line.split()
-        if len(fields) < 5 or fields[0] == "core" or fields[0].startswith("std/"):
+        if len(fields) < 5 or fields[0] in ("core", "library") or fields[0].startswith("std/"):
             continue
         total += float(fields[-4]) + float(fields[-3])
         rows += 1
