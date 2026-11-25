@@ -35132,7 +35132,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Model result: sonnet, worked, about 15 min (est. 30). Counted std and games/rogue; aoc and tools/fmt were skipped because their caches were not warm (sent to Overmind).\nHeadline: of the defs whose two hashes differ, 80 to 88% differ only through something they call. std has 752 own roots: about 290 generated helpers, 377 %match defs lifted from theorems, about 85 written by hand.\n",
+      "body": "Model result: sonnet, worked, about 15 min (est. 30). Counted std and games/rogue; aoc and tools/fmt were skipped because their caches were not warm (sent to Overmind).\nHeadline: of the defs whose two hashes differ, 80 to 88% differ only through something they call. std has 752 own roots: about 290 generated helpers, 377 %match defs lifted from theorems, about 85 written by hand.\n\naoc and tools/fmt counted by Overmind (in the proposal): aoc 9,279 of 12,101 defs differ, 1,492 own; tools/fmt 9,050 of 15,966, 1,143 own; biggest roots are generated helpers (Syntax.Tok.%eta moves 5,692).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": [

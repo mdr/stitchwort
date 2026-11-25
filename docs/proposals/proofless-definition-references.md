@@ -212,3 +212,14 @@ Own computing definitions that code can call (not a theorem's lifted `%match`): 
 Kinds among the 110 own written definitions (a heuristic over source, samples read): `Quot.lift` respect proof 11 (`Map.size`); `Decidable`, `Iff`, `Void.impossible` records and projections about 35 (`Nat.decEq`); inline `byComputing` or `byDecision` 8 (`Mod.zero`); absurd branch 2 (`Fin.ofNatLt`); a proof argument kept in a record 3 (`Float.make`); a `def` whose type is a proposition 22, all rogue (`Rogue.Proofs.Corner.top`); no visible proof, likely elaborator-made coverage or recursion terms, about 30 (`Text.unlinesChars`, `Kind.glyph`). Generated own definitions (about 290 in std) are datatype helpers: constructor tests `%Ctor%i%at` 197 (`Std.Args.Outcome.%Help%0%at`), `%mem` 33, `%cover` 14, `%flip`, `%trans`, `%eta`.
 
 What it shows: 64-69% of computing definitions differ, but 80-88% of those only through a callee; the roots are few (375 in std, about 5% of its defs), and about 80% of them are elaborator-generated helpers or the `Decidable`/`Quot.lift` core, whose edits are rare. Hand-written inline proofs in ordinary definitions are about 30 in std and a handful in rogue. A rare edit to a root with a cascade of 1000 or more would move most of std today; that is the case lifting would remove. The cascade counts follow `uses` and overstate what a proof edit moves when a caller's body doesn't keep the callee's hash.
+
+### Count for aoc and tools/fmt (Overmind, 25 Nov 2026, main at 1dfdd0a90)
+
+Same method as above ("own": differs, and nothing in its `uses` differs).
+
+| Project | defs | differ | own | Largest own roots (definitions depending on them) |
+|---|---|---|---|---|
+| aoc | 12,101 | 9,279 (77%) | 1,492 | `Aoc.Common.Position.%same` 807, `Position.%compare` 637, `Offset.%same` 195, `Aoc.Common.firstRagged` 192, `Offset.%compare` 169 |
+| tools/fmt | 15,966 | 9,050 (57%) | 1,143 | `Syntax.Tok.%eta` 5,692, `Syntax.Modes.endsRule.%match2` 2,350, `Syntax.isWordChar` 2,062, `Syntax.Item.spelled.%match1` 1,823, `Syntax.wordKind.%match34` 1,741 |
+
+As in std, the biggest roots are generated helpers (`%same`, `%compare`, `%eta`, lifted `%match`es), not proofs written by hand.
