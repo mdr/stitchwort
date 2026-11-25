@@ -315,9 +315,11 @@ and deletes it once the work is merged or dropped (D2193, D2200, Matt,
   tested without it. The same file switches off two of kache's shortcuts
   (see "kache and stale artifacts" below); `task kache:config` rewrites it
   without making a checkout.
-- Both clone the AoC and roguelike check caches (`.stitchwort/`)
-  copy-on-write, so a first `stitchwort check` of AoC takes about 3 s, not
-  a minute.
+- Both clone the AoC, roguelike and `tools/fmt` check caches
+  (`.stitchwort/`) copy-on-write, so a first `stitchwort check` of AoC
+  takes about 3 s, not a minute, and both build the release CLI
+  (`target/release/stitchwort`, plain features) before they return, so a
+  lane starts with a binary. A failed build only prints a warning (SW-4788).
 - The recipe is in `Taskfile.yml` (`LANE_SETUP`), so it changes in one
   place. Measurements behind it: sccache and a cloned `target/` were tried
   first (66 s and 48 s).

@@ -35132,12 +35132,12 @@
     {
       "id": 4788,
       "title": "[Sonnet] task worktree:new builds the release binary (about 9 s through kache) and copies tools/fmt/.stitchwort, so a new lane starts ready (SW-3779 W2)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nProgress (Sonnet lane): LANE_SETUP now builds the release CLI (warns on failure) and clones tools/fmt/.stitchwort. Trial: 15 s whole task warm, 105 s with kache cold; binary runs, caches present.\n",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
