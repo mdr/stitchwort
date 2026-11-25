@@ -1,5 +1,5 @@
 {
-  "next": 4838,
+  "next": 4839,
   "tickets": [
     {
       "id": 47,
@@ -35876,7 +35876,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Folded into SW-4827's review fixes (F2).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
@@ -35884,6 +35884,19 @@
     {
       "id": 4837,
       "title": "[Opus] Carried-over check-cache hits (opt-in carry-over) accept an entry stamped with another interface digest, now including the core: should carry-over require a matching core digest? (SW-4817 finding; SW-4814 already requires exact hits for loading core from the cache)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4838,
+      "title": "[Sonnet] STITCHWORT_CACHE_DEBUG=0 still turns cache debug on (the variable only has to be set); read it as a boolean, and document STITCHWORT_SKIP_UNNEEDED and the cache debug switch in docs/testing.md, including that one namespace with an error stops all skipping (SW-4827 review friction)",
       "status": "backlog",
       "agent": "",
       "where": "",
