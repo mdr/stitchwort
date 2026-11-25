@@ -34899,14 +34899,14 @@
     {
       "id": 4773,
       "title": "[Sonnet] Four driver projects trial:: tests fail deterministically on Speedwell, also at 8e11a18d8 (Overmind's last green): the_project_lists_its_declarations_hashes (Laws.addZ and Laws.again, different proofs, same full hash), an_eta_change_of_a_proof_keeps_the_statement_not_the_meaning, an_embedded_proof_that_changes_passes_only_the_proofs_promise, a_definition_that_mentions_a_reproved_theorem_names_it. Find the commit that broke them, then fix it or revert it",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Diagnosis (Sonnet lane, 25 Nov, 15 min): not a regression in the code. Since SW-4701 (86498eb85, 23 Nov, interface hashes) a content hash refers to a final theorem by its statement only, so editing a proof moves only that theorem full hash, and two theorems with one statement whose proofs differ only in which same-statement theorem they cite (again := addZ, addZ := Nat.addZero) have equal full hashes. All four failing assertions assume the old behaviour (a user of a theorem, or a theorem citing another, moves with its proof). Tests need new expectations; stopped for orchestrator, nothing changed.\n",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
