@@ -552,6 +552,65 @@ fn a_decreasing_theorem_is_not_marked_folded() {
     let _ = std::fs::remove_dir_all(&cache);
 }
 
+/// A theorem proved by `byWalking` over a recursive function is recursive
+/// though its source shows no call of itself: the walk's proof of the
+/// recursive call is the theorem (SW-4758). Its proof is sealed like any
+/// other, so an edit of it, with or without a `match` before the walk,
+/// replays what uses it. (Which theorems the entry's part B holds does
+/// change: with the walk at the top, its lifted `match` keeps the group in
+/// part A.)
+#[test]
+fn an_edited_walked_recursive_theorem_below_replays_what_uses_it() {
+    let a = |proof: &str| {
+        format!(
+            "namespace A\n\nimport Std (Parse, Nat, Option)\n\n\
+             def look(): {{Parse Nat}} Option Nat := Parse.next (n => True)\n\n\
+             @[walk]\ntheorem givesLook: Parse.Gives Parse.Invariant.any (() => look()) \
+             ((v: Option Nat) => True) :=\n  \
+             Parse.readsWeaken (Parse.readsNext (n => True)) (read value proved => byComputing)\n\n\
+             def down (fuel: Nat): {{Parse Nat}} Nat := match fuel with\n  | Zero => 0\n  \
+             | Succ more =>\n    let x := look()\n    down more\n\n\
+             theorem givesDown ∀ (fuel: Nat): \
+             Parse.Gives Parse.Invariant.any (() => down fuel) (n => True) :=\n  {proof}\n"
+        )
+    };
+    let b = (
+        "src/B.sw",
+        "namespace B\n\nimport Std (Parse, Nat)\nimport A (down, givesDown)\n\n\
+         theorem downThree: Parse.Gives Parse.Invariant.any (() => down 3) (n => True) := \
+         givesDown 3\n",
+    );
+    let walked = "byWalking []";
+    let matched = "match fuel with\n    | Zero => byWalking []\n    | Succ more => byWalking []";
+    for (name, before, edited) in [
+        ("digest-walked-match-added", walked, matched),
+        ("digest-walked-match-removed", matched, walked),
+        (
+            "digest-walked-match-arm",
+            matched,
+            "match fuel with\n    | Zero => byWalking []\n    | Succ more => byWalking [givesLook]",
+        ),
+        (
+            "digest-walked-match-lifted",
+            matched,
+            "match fuel with\n    | Zero => (match 0 + 0 with | _ => byWalking [])\n    \
+             | Succ more => byWalking []",
+        ),
+    ] {
+        let s = after_edit(
+            name,
+            &[("src/A.sw", &a(before)), b],
+            &[("src/A.sw", &a(edited))],
+        );
+        // A proof that fails writes nothing, and `B` would miss for that.
+        assert_eq!(
+            (s.namespace_hits, s.namespace_misses, s.namespace_written),
+            (1, 1, 1),
+            "{name}: {s:?}"
+        );
+    }
+}
+
 /// A helper added before a data type's declaration: the type's count of
 /// definitions before it counts only those the digest keeps in order.
 #[test]
