@@ -3303,6 +3303,14 @@ pub fn set_run_body(g: &mut Kernel, id: DefId, body: &Term) -> Result<()> {
     })
 }
 
+/// Takes `id`'s run body away, so [`set_run_body`] can give it another: for
+/// a replay that admitted an entry's without checking it and finds it isn't
+/// the one the elaborator gives (SW-4841). A run body is in no hash, so
+/// nothing that was proved depends on it.
+pub fn clear_run_body(g: &mut Kernel, id: DefId) {
+    g.env.defs_mut()[id.0].run_body = None;
+}
+
 /// What [`set_run_body`] asks of a run body before checking its type: the
 /// definition is final with no run body yet, and `body` has its arity, a
 /// `case` only in its case tree, and refers only to final declarations.

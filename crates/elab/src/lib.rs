@@ -4275,21 +4275,49 @@ impl Elaborator {
     /// a long list doesn't run out of stack; `List.lengthOntoEq` proves the
     /// two equal. A replayed `List.length` has it already.
     fn length_run_body(&mut self, id: DefId) -> Result<()> {
-        let Some(onto) = self.kernel.env.registry().def(Builtin::ListLengthOnto) else {
-            return Ok(());
-        };
         if self.kernel.def(id).own_run_body().is_some() {
             return Ok(());
         }
+        #[cfg(feature = "test-bypass")]
+        let start = if self.options.wrong_length_run_body {
+            1
+        } else {
+            0
+        };
+        #[cfg(not(feature = "test-bypass"))]
+        let start = 0;
+        let Some(body) = self.length_body_from(start) else {
+            return Ok(());
+        };
+        kernel::set_run_body(&mut self.kernel, id, &body)
+    }
+
+    /// Whether `id`'s (`List.length`'s) run body is the one
+    /// `length_run_body` gives it, for a replay that admitted the entry's
+    /// without checking: the body is made again as the elaborator makes it
+    /// and compared with what is there (the kernel stores a body as
+    /// checked, so the raw one can't be compared). Leaves the made one in.
+    pub(crate) fn length_run_body_is_ours(&mut self, id: DefId) -> Result<bool> {
+        let replayed = self.kernel.def(id).own_run_body().map(|t| format!("{t:?}"));
+        kernel::clear_run_body(&mut self.kernel, id);
+        self.length_run_body(id)?;
+        let ours = self.kernel.def(id).own_run_body().map(|t| format!("{t:?}"));
+        Ok(ours == replayed)
+    }
+
+    /// `List.length`'s run body counting from `start`, which is only not 0
+    /// for a test that writes an entry with a wrong run body.
+    fn length_body_from(&self, start: u32) -> Option<Term> {
+        let onto = self.kernel.env.registry().def(Builtin::ListLengthOnto)?;
         // `[a] xs => List.lengthOnto [a] xs 0`
         let call = Term::app(
             Term::app(
                 Term::app_icit(Term::Def(onto), Term::Var(1), Icit::Implicit),
                 Term::Var(0),
             ),
-            Term::Nat(Rc::new(0u32.into())),
+            Term::Nat(Rc::new(start.into())),
         );
-        let body = Term::Lam(
+        Some(Term::Lam(
             "a".into(),
             Icit::Implicit,
             Rc::new(Term::Lam(
@@ -4299,8 +4327,7 @@ impl Elaborator {
                 ProofMark::Unknown,
             )),
             ProofMark::Unknown,
-        );
-        kernel::set_run_body(&mut self.kernel, id, &body)
+        ))
     }
 
     /// For each proof parameter of an export, a decision procedure that the
