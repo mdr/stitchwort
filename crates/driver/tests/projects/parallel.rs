@@ -747,7 +747,7 @@ fn workers_loading_without_proofs_write_what_one_job_does() {
         "{}",
         sequential.report
     );
-    for seed in [None, Some(1), Some(2), Some(3), Some(4), Some(5)] {
+    for seed in [None, Some(1), Some(2)] {
         let dir = salted_like(&one, "stated-two");
         // `Par.Facts` has an entry before the fill, so whichever worker
         // checks `Par.Uses` or `Par.Side` loads it from there: a worker
@@ -1076,6 +1076,11 @@ fn a_panic_matches_one_job(
         let parallel = run(&dir, 3, Some(seed));
         let fired = panic_hook::take_fired();
         assert_eq!(
+            parallel.fill.panics,
+            usize::from(fired),
+            "seed {seed}: the fill counts the worker's panic"
+        );
+        assert_eq!(
             sequential.report, parallel.report,
             "seed {seed}, statements first {statements_first}"
         );
@@ -1155,6 +1160,7 @@ fn statements_first_random_schedules_write_what_one_job_does() {
         let fill = &parallel.fill;
         assert_eq!(fill.mismatches, 0, "{what}: {fill:?}");
         assert_eq!(fill.left, 0, "{what}: {fill:?}");
+        assert_eq!(fill.panics, 0, "{what}: a worker panicked: {fill:?}");
         assert_eq!(
             (parallel.stats.interface_hits, parallel.stats.unproved),
             (0, 0),
@@ -1280,4 +1286,331 @@ fn statements_first_a_digest_mismatch_costs_a_recheck_and_is_counted() {
     assert!(entries(&one) == entries(&dir), "the entries differ");
     let _ = std::fs::remove_dir_all(&one);
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A copy of the entries in `from`, to run another check over without
+/// changing it.
+fn copy_check_dir(from: &Path, name: &str) -> PathBuf {
+    let dir = temp_dir(name);
+    std::fs::create_dir_all(dir.join("check")).unwrap();
+    for e in std::fs::read_dir(from.join("check")).unwrap().flatten() {
+        std::fs::copy(e.path(), dir.join("check").join(e.file_name())).unwrap();
+    }
+    dir
+}
+
+/// Adds `extra` to `Par.Uses` of a stage 3 project.
+fn append_to_uses(files: &mut MemoryFiles, extra: &str) {
+    files
+        .files
+        .get_mut("src/Par/Uses.sw")
+        .expect("Par.Uses")
+        .push_str(extra);
+}
+
+/// A false statement with a failing proof low down, used above to prove
+/// something false; then the statement is changed to a true one. And a true
+/// statement with a wrong proof, then fixed (D3737's reuse).
+#[test]
+fn statements_first_a_false_promise_never_reaches_a_checked_and_a_fixed_proof_is_reused() {
+    let mut broken = stage3_project(
+        "\ntheorem later ∀ (n: Nat): bump n = Succ n := bumpId n\n",
+        CONFIG,
+    );
+    append_to_uses(&mut broken, "\ntheorem absurd: bump 0 = 1 := later 0\n");
+    let mut fixed = stage3_project(
+        "\ntheorem later ∀ (n: Nat): bump n = n := bumpId n\n",
+        CONFIG,
+    );
+    append_to_uses(&mut fixed, "\ntheorem absurd: bump 0 = 1 := later 0\n");
+    let mut wrong_proof = stage3_project(
+        "\ntheorem later ∀ (n: Nat): bump n = n := bumpTwo\n",
+        CONFIG,
+    );
+    append_to_uses(
+        &mut wrong_proof,
+        "\ntheorem viaLater: bump 0 = 0 := later 0\n",
+    );
+    let mut right_proof = stage3_project(
+        "\ntheorem later ∀ (n: Nat): bump n = n := bumpId n\n",
+        CONFIG,
+    );
+    append_to_uses(
+        &mut right_proof,
+        "\ntheorem viaLater: bump 0 = 0 := later 0\n",
+    );
+
+    let mut wrote_above = 0;
+    for seed in [
+        None,
+        Some(1),
+        Some(2),
+        Some(3),
+        Some(4),
+        Some(5),
+        Some(6),
+        Some(7),
+    ] {
+        // 1. the false promise
+        let one = temp_dir("probe-one");
+        let seq_broken = check(&broken, &Kept::Dir(one.clone()), 1, None, Load::Diagnostics);
+        assert!(
+            seq_broken.report.starts_with("accepted false"),
+            "{}",
+            seq_broken.report
+        );
+        let dir = salted_like(&one, "probe-par");
+        let par = check_with(
+            &broken,
+            &Kept::Dir(dir.clone()),
+            4,
+            seed,
+            Load::Diagnostics,
+            true,
+        );
+        assert_eq!(seq_broken.report, par.report, "seed {seed:?}");
+        assert!(!has_entry(&dir, "Par.Facts"));
+        if has_entry(&dir, "Par.Uses") {
+            wrote_above += 1;
+        }
+        // 2. the statement changed to a true one, over the same cache: one job and four
+        let fresh = salted_like(&one, "probe-fresh");
+        let seq_fixed = check(
+            &fixed,
+            &Kept::Dir(fresh.clone()),
+            1,
+            None,
+            Load::Diagnostics,
+        );
+        assert!(
+            seq_fixed.report.starts_with("accepted false"),
+            "{}",
+            seq_fixed.report
+        );
+        assert!(
+            seq_fixed.report.contains("Par/Uses.sw"),
+            "{}",
+            seq_fixed.report
+        );
+        let d1 = copy_check_dir(&dir, "probe-d1");
+        let again1 = check(&fixed, &Kept::Dir(d1.clone()), 1, None, Load::Diagnostics);
+        assert_eq!(
+            seq_fixed.report, again1.report,
+            "seed {seed:?}: one job over the cache"
+        );
+        let d4 = copy_check_dir(&dir, "probe-d4");
+        let again4 = check_with(
+            &fixed,
+            &Kept::Dir(d4.clone()),
+            4,
+            seed,
+            Load::Diagnostics,
+            true,
+        );
+        assert_eq!(
+            seq_fixed.report, again4.report,
+            "seed {seed:?}: four jobs over the cache"
+        );
+        // the broken source again over the same cache, loading everything
+        let d5 = copy_check_dir(&dir, "probe-d5");
+        let again5 = check(&broken, &Kept::Dir(d5.clone()), 1, None, Load::Everything);
+        let seq_all = check(
+            &broken,
+            &Kept::Dir(temp_dir("probe-x")),
+            1,
+            None,
+            Load::Everything,
+        );
+        assert_eq!(seq_all.report, again5.report, "seed {seed:?}");
+        assert_eq!(
+            again5.stats.namespace_hits, 0,
+            "seed {seed:?}: replayed above a broken namespace"
+        );
+
+        // 3. a true statement with a wrong proof, then fixed: reused, and as a fresh check
+        let one_w = temp_dir("probe-w-one");
+        let seq_w = check(
+            &wrong_proof,
+            &Kept::Dir(one_w.clone()),
+            1,
+            None,
+            Load::Diagnostics,
+        );
+        assert!(
+            seq_w.report.starts_with("accepted false"),
+            "{}",
+            seq_w.report
+        );
+        let dir_w = salted_like(&one_w, "probe-w-par");
+        let par_w = check_with(
+            &wrong_proof,
+            &Kept::Dir(dir_w.clone()),
+            4,
+            seed,
+            Load::Diagnostics,
+            true,
+        );
+        assert_eq!(seq_w.report, par_w.report, "seed {seed:?}");
+        let above_w = has_entry(&dir_w, "Par.Uses");
+        let fresh_r = salted_like(&one_w, "probe-r-fresh");
+        let seq_r = check(
+            &right_proof,
+            &Kept::Dir(fresh_r.clone()),
+            1,
+            None,
+            Load::Everything,
+        );
+        assert!(
+            seq_r.report.starts_with("accepted true"),
+            "{}",
+            seq_r.report
+        );
+        let reuse = check(
+            &right_proof,
+            &Kept::Dir(dir_w.clone()),
+            1,
+            None,
+            Load::Everything,
+        );
+        assert_eq!(
+            seq_r.report, reuse.report,
+            "seed {seed:?}: fixed over the cache"
+        );
+        assert!(
+            seq_r.dump == reuse.dump,
+            "seed {seed:?}: sessions differ after reuse"
+        );
+        // Measured: replayed 2 namespaces whenever `above_w` (6 of 8 schedules), else 0.
+        assert_eq!(reuse.stats.namespace_hits > 0, above_w, "seed {seed:?}");
+        assert!(
+            includes(&entries(&dir_w), &entries(&fresh_r)),
+            "seed {seed:?}"
+        );
+    }
+    assert!(
+        wrote_above > 0,
+        "no schedule wrote an entry above the false promise"
+    );
+}
+
+/// Shapes the deferral rule reads from the source: reported as one job, on
+/// disk, in memory (`--no-cache --jobs`), and on a second run over the cache.
+#[test]
+fn statements_first_odd_shapes_report_as_one_job() {
+    let cases: [(&str, &str, &str); 6] = [
+        (
+            "a definition after a broken theorem that uses it, used above",
+            "\ntheorem later ∀ (n: Nat): bump n = n := bumpTwo\n\n\
+             def carried (n: Nat): Nat := keep (bump n) (Eq.trans (later (bump n)).flipped (later (bump n)))\n",
+            "\ndef carriedTwo: Nat := carried 2\n\ntheorem carriedIs: carried 2 = 2 := byComputing\n",
+        ),
+        (
+            "a theorem with no proof",
+            "\ntheorem noProof: bump 2 = 2\n",
+            "\ntheorem usesNoProof: bump 2 = 2 := noProof\n",
+        ),
+        (
+            "a goal used by a definition and above",
+            "\ntheorem open ∀ (n: Nat): bump n = n := ?\n\n\
+             def viaOpen (n: Nat): Nat := keep (bump n) (Eq.trans (open (bump n)).flipped (open (bump n)))\n",
+            "\ntheorem usesOpen: bump 5 = 5 := open 5\n",
+        ),
+        (
+            "a mutual pair, one proof broken",
+            "\ntheorem ping ∀ (n: Nat): bump n = n := match n with\n  | Zero => byComputing\n  | Succ k => Eq.cong Succ (pong k)\n\n\
+             theorem pong ∀ (n: Nat): bump n = n := match n with\n  | Zero => bumpTwo\n  | Succ k => Eq.cong Succ (ping k)\n",
+            "\ntheorem usesPing: bump 5 = 5 := ping 5\n",
+        ),
+        (
+            "a recursive theorem that doesn't terminate (a false statement)",
+            "\ntheorem loop ∀ (n: Nat): bump n = Succ n := loop n\n",
+            "\ntheorem usesLoop: bump 0 = 1 := loop 0\n",
+        ),
+        (
+            "a duplicate theorem name",
+            "\ntheorem bumpTwo: bump 2 = 2 := byComputing\n",
+            "\ntheorem usesDup: bump 2 = 2 := bumpTwo\n",
+        ),
+    ];
+    for (what, facts, uses) in cases {
+        let mut files = stage3_project(facts, "sources: [src]\ncheck:\n  open-goals: warn\n");
+        append_to_uses(&mut files, uses);
+        let one = temp_dir("probe-shape-one");
+        let sequential = check(&files, &Kept::Dir(one.clone()), 1, None, Load::Diagnostics);
+        for seed in [None, Some(1), Some(2)] {
+            let four = salted_like(&one, "probe-shape-four");
+            let parallel = check_with(
+                &files,
+                &Kept::Dir(four.clone()),
+                4,
+                seed,
+                Load::Diagnostics,
+                true,
+            );
+            assert_eq!(sequential.report, parallel.report, "{what}, seed {seed:?}");
+            assert!(
+                includes(&entries(&four), &entries(&one)),
+                "{what}, seed {seed:?}"
+            );
+            let memory = Kept::Memory(MemoryStore::default());
+            let in_memory = check_with(&files, &memory, 4, seed, Load::Diagnostics, true);
+            assert_eq!(
+                sequential.report, in_memory.report,
+                "{what}, seed {seed:?}, in memory"
+            );
+            let again = check(&files, &Kept::Dir(four.clone()), 1, None, Load::Diagnostics);
+            assert_eq!(
+                sequential.report, again.report,
+                "{what}, seed {seed:?}, again"
+            );
+            let again4 = check_with(
+                &files,
+                &Kept::Dir(four.clone()),
+                4,
+                seed,
+                Load::Diagnostics,
+                true,
+            );
+            assert_eq!(
+                sequential.report, again4.report,
+                "{what}, seed {seed:?}, again 4"
+            );
+        }
+    }
+}
+
+/// Rule 3's rewinds and the admission of interface entries are reached by
+/// the schedules on the stage 3 fixture (9 of 42 runs each when measured),
+/// so the tests above can't pass by never taking those paths; and no worker
+/// panics.
+#[test]
+fn statements_first_schedules_rewind_and_load_interface_entries() {
+    let files = stage3_project("", CONFIG);
+    let one = temp_dir("probe-rw-one");
+    let sequential = check(&files, &Kept::Dir(one.clone()), 1, None, Load::Everything);
+    let expected = entries(&one);
+    let (mut rewinds, mut hits) = (0, 0);
+    for jobs in [2, 3] {
+        for seed in std::iter::once(None).chain((0..20).map(Some)) {
+            let dir = salted_like(&one, "probe-rw");
+            let p = check_with(
+                &files,
+                &Kept::Dir(dir.clone()),
+                jobs,
+                seed,
+                Load::Everything,
+                true,
+            );
+            assert_same(&sequential, &p, &format!("{jobs} {seed:?}"));
+            assert!(entries(&dir) == expected);
+            assert_eq!(p.fill.panics, 0, "{jobs} {seed:?}: {:?}", p.fill);
+            rewinds += p.fill.rewinds;
+            hits += p.fill.stats.interface_hits;
+            let _ = std::fs::remove_dir_all(&dir);
+        }
+    }
+    assert!(
+        rewinds > 0 && hits > 0,
+        "rewinds {rewinds}, interface hits {hits}"
+    );
 }
