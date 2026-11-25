@@ -34845,28 +34845,34 @@
     {
       "id": 4770,
       "title": "[Sonnet] trial-edits JSON and declhash::show can't record a hash that ran out: decl_from_json reads ran_out false, so a comparison against a dumped list still keeps None == None; carry ran_out in the dump (SW-4754 finding)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Model result: sonnet, worked, 10 min (est. 35, shared with SW-4771).\nTest a_dumped_declaration_whose_hashes_ran_out_is_not_kept failed before the fix and passes after it.\n",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "7cee9cc3b",
+        "e19882e55"
+      ]
     },
     {
       "id": 4771,
       "title": "[Sonnet] check::proof_telescope and def_type return Diagnostic, not ResourceError: callers can't tell running out from other errors; give them a typed error and drop the map_err(|_| Work) in erase::try_proof_positions and test_run's exhausted() fallback (SW-4755/4756 finding)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Model result: sonnet, worked, shared lane with SW-4770.\nis_partial and proof_telescope now return budget::Result. The kind of a sort_of failure inside proof_telescope is still taken from what the budget recorded, falling back to steps, because sort_of has no typed error.\n",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "e053701cf",
+        "e19882e55"
+      ]
     },
     {
       "id": 4772,
