@@ -291,6 +291,17 @@ function editTicket(data, id, fields, file) {
   return t;
 }
 
+// Appends `text` as a new paragraph to the ticket's body, keeping the old body,
+// and bumps `updated` as edit does.
+function noteTicket(data, id, text, file) {
+  const t = find(data, id);
+  const add = String(text).replace(/\s+$/, '');
+  if (!add.trim()) throw new BoardError('note text is empty');
+  const old = t.body.replace(/\n+$/, '');
+  applyFields(t, { body: old ? `${old}\n\n${add}` : add }, file);
+  return t;
+}
+
 function removeTicket(data, id) {
   const t = find(data, id);
   data.tickets = data.tickets.filter((x) => x.id !== id);
@@ -372,7 +383,7 @@ function epicDocs(epic, tickets, tracked, root = repoRoot(), file = defaultFile(
 
 module.exports = {
   STATUSES, AGENTS, BoardError, defaultFile, load, save, serialize, update, find, parseId,
-  addTicket, editTicket, removeTicket, normalizeTicket, today,
+  addTicket, editTicket, noteTicket, removeTicket, normalizeTicket, today,
   archiveDir, loadArchived, findArchived, archiveBefore,
   repoRoot, trackedFiles, resolveDoc, docTitle, reviewDocs, epicDocs,
   EPIC_STATUSES, epicsFile, loadEpics, checkEpic, epicSummaries, applyEpics,

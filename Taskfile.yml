@@ -1123,12 +1123,19 @@ tasks:
   # cloned check cache. The recipe lives here so it can change in one place.
   worktree:new:
     silent: true
-    desc: 'Make a lane worktree from local main, with the release CLI built through kache and the AoC, roguelike and tools/fmt check caches cloned (task worktree:new -- SW-1083: .claude/worktrees/SW-1083, branch lane/SW-1083)'
+    desc: 'Make a lane worktree from local main, with the release CLI built through kache and the AoC, roguelike and tools/fmt check caches cloned; refuses if board/tickets.json has uncommitted changes in the main checkout (task worktree:new -- SW-1083: .claude/worktrees/SW-1083, branch lane/SW-1083)'
     cmds:
       - |
         set -eu
         name='{{.CLI_ARGS}}'
         [ -n "$name" ] || { echo 'usage: task worktree:new -- NAME' >&2; exit 2; }
+        # A lane gets a fresh checkout of main, so an uncommitted board change here
+        # would not reach it: refuse before making anything (SW-4790).
+        if ! git -C '{{.ROOT_DIR}}' diff --quiet -- board/tickets.json \
+          || ! git -C '{{.ROOT_DIR}}' diff --cached --quiet -- board/tickets.json; then
+          echo 'board/tickets.json has uncommitted changes in the main checkout: commit them first, so the new lane sees its ticket' >&2
+          exit 1
+        fi
         wt='{{.ROOT_DIR}}/.claude/worktrees/'"$name"
         git -C '{{.ROOT_DIR}}' worktree add -q -b "lane/$name" "$wt" main
         {{.LANE_SETUP}}
@@ -1317,12 +1324,19 @@ tasks:
 
   scratch:new:
     silent: true
-    desc: 'Make a scratch clone for a DeepSeek task: from local main, no remote, release CLI built through kache, check caches cloned (task scratch:new -- sw-1083: .claude/worktrees/scratch-sw-1083; delete with rm -rf)'
+    desc: 'Make a scratch clone for a DeepSeek task from local main, no remote, release CLI built through kache, check caches cloned; refuses if board/tickets.json has uncommitted changes in the main checkout (task scratch:new -- sw-1083: .claude/worktrees/scratch-sw-1083; delete with rm -rf)'
     cmds:
       - |
         set -eu
         name='{{.CLI_ARGS}}'
         [ -n "$name" ] || { echo 'usage: task scratch:new -- NAME' >&2; exit 2; }
+        # A scratch clone gets a fresh checkout of main, so an uncommitted board
+        # change here would not reach it: refuse before making anything (SW-4790).
+        if ! git -C '{{.ROOT_DIR}}' diff --quiet -- board/tickets.json \
+          || ! git -C '{{.ROOT_DIR}}' diff --cached --quiet -- board/tickets.json; then
+          echo 'board/tickets.json has uncommitted changes in the main checkout: commit them first, so the new lane sees its ticket' >&2
+          exit 1
+        fi
         wt='{{.ROOT_DIR}}/.claude/worktrees/scratch-'"$name"
         git clone -q --branch main '{{.ROOT_DIR}}' "$wt"
         git -C "$wt" remote remove origin

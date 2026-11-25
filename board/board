@@ -13,6 +13,7 @@ const USAGE = `usage: board <command> [args]
   unassign N
   edit N [--title T] [--status S] [--agent A] [--where W] [--epic ID|''] [--body TEXT | --body-file F]
          [--label L]... | [--add-label L]... [--rm-label L]...
+  note N TEXT                       (append TEXT as a new paragraph; TEXT '-' reads stdin)
   commit N HASH...
   rm N
   epics [--json]                    (each epic: status, now, next, open/done counts)
@@ -235,6 +236,22 @@ function main(argv) {
         if (Object.keys(f).length === 0) throw new lib.BoardError('nothing to edit (give --title, --status, --agent, --where, --epic, --body, --label, ...)');
         return lib.editTicket(d, id, f);
       });
+      console.log(`${sid(t)} updated`);
+      return 0;
+    }
+    case 'note': {
+      const id = needId(pos);
+      if (pos.length < 2) throw new lib.BoardError('missing note text');
+      noExtra(pos, 2);
+      let text = pos[1];
+      if (text === '-') {
+        try {
+          text = fs.readFileSync(0, 'utf8');
+        } catch (e) {
+          throw new lib.BoardError(`cannot read standard input: ${e.message}`);
+        }
+      }
+      const t = lib.update((d) => lib.noteTicket(d, id, text));
       console.log(`${sid(t)} updated`);
       return 0;
     }

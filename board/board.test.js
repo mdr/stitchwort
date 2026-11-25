@@ -72,6 +72,36 @@ test('move, assign, unassign, edit, commit', () => {
   assert.deepEqual(lib.load(f).tickets[0].commits, ['abc1234', 'def5678']);
 });
 
+test('note appends a paragraph to the body and bumps updated', () => {
+  const f = tmpFile();
+  fs.writeFileSync(f, JSON.stringify({
+    next: 2,
+    tickets: [{ id: 1, title: 't', status: 'next', body: 'First paragraph.\n\nSecond.', created: '2000-01-01', updated: '2000-01-01' }],
+  }));
+  assert.equal(cli(f, 'note', '1', 'A new note.').code, 0);
+  let t = lib.load(f).tickets[0];
+  assert.equal(t.body, 'First paragraph.\n\nSecond.\n\nA new note.');
+  assert.equal(t.updated, lib.today());
+  // TEXT '-' reads the note from standard input.
+  const r = spawnSync(process.execPath, [CLI, 'note', 'SW-1', '-'], {
+    env: { ...process.env, BOARD_FILE: f }, input: 'From stdin.\n', encoding: 'utf8',
+  });
+  assert.equal(r.status, 0);
+  assert.equal(lib.load(f).tickets[0].body, 'First paragraph.\n\nSecond.\n\nA new note.\n\nFrom stdin.');
+  // An empty body takes the note alone.
+  cli(f, 'add', 'empty');
+  assert.equal(cli(f, 'note', '2', 'Only note.').code, 0);
+  assert.equal(lib.load(f).tickets[1].body, 'Only note.');
+  // Missing or empty text is an error and leaves the file alone.
+  const before = fs.readFileSync(f, 'utf8');
+  for (const args of [['note', '1'], ['note', '1', ''], ['note', '9', 'x']]) {
+    const e = cli(f, ...args);
+    assert.notEqual(e.code, 0, args.join(' '));
+    assert.match(e.err, /^board: /, args.join(' '));
+  }
+  assert.equal(fs.readFileSync(f, 'utf8'), before);
+});
+
 test('body-file reads a file', () => {
   const f = tmpFile();
   const bf = path.join(path.dirname(f), 'body.md');
