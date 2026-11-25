@@ -26,6 +26,7 @@ board unassign N                     # clears agent and where
 board edit N [--title T] [--status S] [--agent A] [--where W] [--epic ID|''] [--body TEXT | --body-file F]
              [--label L]...          # replace the labels
              [--add-label L]... [--rm-label L]...
+board note N TEXT                   # append TEXT as a new paragraph; TEXT '-' reads stdin
 board commit N HASH...               # record commits on the ticket
 board rm N
 board epics [--json]                # each epic: status, now, next, open/done counts
@@ -38,14 +39,16 @@ board archive --before DATE         # move old done tickets to board/archive/
 - `add` prints the new id (`SW-12`), so scripts can capture it:
   `id=$(board/board add "Fix the thing" --label bug)`.
 - `--body-file -` reads the body from standard input.
+- `note N TEXT` appends TEXT as a new paragraph to ticket N's body, keeping the
+  old body, and bumps its `updated` date as `edit` does. TEXT `-` reads the note
+  from standard input.
 - `show --body-only` prints just the body, exactly as stored, with no header
   lines (and no "(archived, read-only)" marker). To add a note to a ticket's
-  body, print the old body and pipe it with the new note into `edit`; do not
-  reconstruct the old body by hand:
+  body, use `note`; do not print the old body and pipe it into `edit`:
 
   ```
-  { board/board show N --body-only; printf '\n\n%s\n' "Progress: ..."; } |
-    board/board edit N --body-file -
+  board/board note N "Progress: ..."
+  printf '%s\n' "Progress: ..." | board/board note N -
   ```
 - `archive` is described under "Archive" below; epics under "Epics".
 - Statuses: `backlog`, `next`, `doing`, `review`, `done`.
