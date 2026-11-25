@@ -34927,7 +34927,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Parked (orchestrator's call): the saving needs either a stated form for proposition-typed helper defs (kernel trust boundary, admit_trusted_stated, docs/core.md) or a cache layout with bodiless helper defs; neither is worth it for a saving nobody has measured. Reopen if a load-without-proofs profile shows these groups matter. Lane analysis: commit 97e8eda5b.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
