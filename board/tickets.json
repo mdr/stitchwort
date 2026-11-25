@@ -35308,12 +35308,12 @@
     {
       "id": 4798,
       "title": "[Sonnet] A statement can't apply a definition whose type is an opaque alias, even with unfolding f, Hidden: E-NOT-A-FUNCTION ('its type is Hidden'), since the unfolding list isn't in force while the statement is elaborated; make statement elaboration honour the unfolding list for the head's type (SW-4796 finding; probe b.sw in its report)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Closed as by design: docs/core.md's unfolding rule 2 ('type outside, body inside') and docs/proposals/opaque-definitions.md 6.3 check every statement with all opaque definitions hidden, so a statement can't apply h: Hidden. Changing that would be Matt's call (the interface callers see); nothing needs it today. Workaround: a transparent wrapper or an unfold equation. Model result: sonnet, worked (stopped correctly), about 3 min (est. 30).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
