@@ -760,7 +760,20 @@ impl Elaborator {
     /// change to a file's text changes the key of every file that reaches it.
     fn library_keys(&self, roots: &BTreeSet<usize>) -> HashMap<usize, Key> {
         let index = self.library_index().expect("a library is installed");
-        let mut keys: HashMap<usize, Key> = HashMap::default();
+        let modes = self.modes();
+        let memo = self
+            .session
+            .library
+            .as_ref()
+            .expect("a library is installed")
+            .keys
+            .clone();
+        let mut memo = memo.lock().unwrap();
+        if memo.modes != modes {
+            memo.modes = modes.clone();
+            memo.keys.clear();
+        }
+        let keys = &mut memo.keys;
         // Dependencies first: the edges never form a cycle (the index is
         // checked), so a work list in post-order ends.
         let mut stack: Vec<(usize, bool)> = roots.iter().map(|&f| (f, false)).collect();
@@ -780,7 +793,7 @@ impl Elaborator {
             };
             part(b"stitchwort check cache");
             part(&FORMAT.to_le_bytes());
-            part(self.modes().as_bytes());
+            part(modes.as_bytes());
             part(index.files[file].path.as_bytes());
             part(index.files[file].text.as_bytes());
             for e in &index.files[file].edges {
@@ -788,7 +801,7 @@ impl Elaborator {
             }
             keys.insert(file, *h.finalize().as_bytes());
         }
-        keys
+        roots.iter().map(|f| (*f, keys[f])).collect()
     }
 
     /// Everything else that changes what elaborating a library file gives.
@@ -5371,6 +5384,36 @@ mod tests {
 
     use super::state;
     use crate::Elaborator;
+
+    /// The keys of library files are memoised per installed library
+    /// (SW-4825): they match a fresh elaborator's, also after another
+    /// library is installed in the same session.
+    #[test]
+    fn memoised_library_keys_equal_fresh_ones_after_the_library_changes() {
+        use std::sync::Arc;
+        let index = |b: &str| {
+            let files = [("A", "namespace A\n"), ("B", b)];
+            let index = crate::library::LibraryIndex::build(crate::prelude(), &files, 1 << 20);
+            Arc::new(index.expect("an index"))
+        };
+        let fresh = |i: &Arc<crate::library::LibraryIndex>| {
+            let mut e = Elaborator::new();
+            e.install_library(i.clone());
+            let all = (0..i.files.len()).collect();
+            e.library_keys(&all)
+        };
+        let (one, two) = (index("namespace B\n"), index("namespace B\n-- changed\n"));
+        let mut e = Elaborator::new();
+        e.install_library(one.clone());
+        let all: std::collections::BTreeSet<usize> = (0..one.files.len()).collect();
+        let first = e.library_keys(&all);
+        assert_eq!(first, fresh(&one));
+        assert_eq!(e.library_keys(&all), first);
+        e.install_library(two.clone());
+        let second = e.library_keys(&all);
+        assert_eq!(second, fresh(&two));
+        assert_ne!(second, first);
+    }
 
     /// Rule 4 (docs/proposals/interface-digest-cache.md §1.4): a position an
     /// entry holds in a project file outside its unit's own is recorded with
