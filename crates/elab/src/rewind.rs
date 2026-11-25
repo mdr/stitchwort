@@ -97,7 +97,8 @@ impl Elaborator {
         }
         // A declared definition whose body isn't admitted yet (for a
         // theorem left stated, its proof) must never be kept by a rewind.
-        assert!(
+        // Debug only: it scans every definition at each mark.
+        debug_assert!(
             (self.kernel.env.defs().iter())
                 .all(|d| d.state() != stitchwort_core::globals::State::Pending),
             "a mark with a definition still pending"
