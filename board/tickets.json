@@ -35713,12 +35713,12 @@
     {
       "id": 4825,
       "title": "[Sonnet] Remember Elaborator::library_keys per session: it rehashes std's text for every namespace, about 200 of the 300 ms of planning in a tools/fmt fill, and the one-job check pays part of it too; the remaining cost of a check where one namespace misses (SW-4820 finding)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Progress: library_keys memoised in LibraryState (replaced by install_library, checked against modes); tools/fmt one-namespace warm 2.12->1.88 s (jobs 1), 3.23->2.59 s (auto); test added.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
