@@ -34797,15 +34797,21 @@
     {
       "id": 4768,
       "title": "[Sonnet] Stage 3 review follow-ups (docs/reviews/SW-4767-stage3-review.md): R1 count worker panics in Fill and the --timings note, assert zero in the random-schedule test; T1 add the false-promise and fixed-proof reuse probes (docs/reviews/SW-4767-stage3-probes.rs.txt) as tests, assert rule 3 rewinds and interface-entry loads happen in some schedules, the odd shapes; optional guard: Elaborator::mark asserts no pending definition; R3 a line in the design note on workers' still-checking notes",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\n\nProgress: R1 (Fill.panics, timings note), T1 (4 probe tests + panic asserts), mark guard, R3 done on lane/SW-4768; tests pass.\n",
+      "body": "Model result: sonnet, worked, 40 min (est. 40). One fix in review: the new guard in Elaborator::mark was made debug-only, since it scans every definition at each mark.\nNot done: R2 (fill reads written from two counters) and whether a panic in worker 0 should fall back to one job instead of aborting. Both are left as they are (orchestrator's call); neither is a correctness issue.\nProgress: R1 (Fill.panics, timings note), T1 (4 probe tests + panic asserts), mark guard, R3.\n",
       "created": "2026-11-24",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "c37780074",
+        "abc1bd400",
+        "bff6edd97",
+        "35834ac18",
+        "a2101279d"
+      ]
     },
     {
       "id": 4769,
