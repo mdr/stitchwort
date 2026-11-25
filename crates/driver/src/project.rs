@@ -491,6 +491,31 @@ impl Session {
         for needed in closure(analysis, &loaded) {
             fits.remove(&needed);
         }
+        // A doc link to another namespace's equation lemma counts by what
+        // is loaded, so a namespace that is loaded brings the namespaces
+        // whose lemmas its links may name, as loading everything would.
+        loop {
+            let mut more: Vec<String> = Vec::new();
+            for name in order.iter().filter(|n| !fits.contains_key(*n)) {
+                let ns = analysis.namespace(name).expect("a namespace");
+                let modules = ns.modules();
+                if modules.iter().all(|m| m.doc_links.is_empty()) {
+                    continue;
+                }
+                let closure = dependencies(analysis, name);
+                for owner in (self.elab).doc_link_lemma_owners(name, &closure, &modules) {
+                    if fits.contains_key(&owner) && !more.contains(&owner) {
+                        more.push(owner);
+                    }
+                }
+            }
+            if more.is_empty() {
+                break;
+            }
+            for needed in closure(analysis, &more) {
+                fits.remove(&needed);
+            }
+        }
         fits
     }
 
@@ -1147,7 +1172,7 @@ struct ScanFile {
 }
 
 /// What the scan cache's entry for a project starts with.
-const SCAN_MAGIC: &[u8; 8] = b"SWSCAN\x02\0";
+const SCAN_MAGIC: &[u8; 8] = b"SWSCAN\x03\0";
 
 /// Where a project's scan is kept in a check cache store: the unit (a
 /// letter, so the name is parsed as the store's own) and the key.

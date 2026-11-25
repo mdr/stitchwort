@@ -924,6 +924,65 @@ fn doc_links_dont_depend_on_what_a_check_loads() {
     let _ = std::fs::remove_dir_all(&loading);
 }
 
+/// Links into a namespace that isn't used, to what its declarations make
+/// beyond their own names: the members of a type with a dotted name, an
+/// equation lemma, a `decreasing` definition's `unfold`. All resolve, with
+/// skipping on or off, cold or warm. The namespace whose lemmas a link
+/// names is loaded whenever the linking one is (`Zed`), since a lemma
+/// counts by what is loaded; `Aa`, with no such link, is checked before
+/// `Alpha` and left out with it.
+#[test]
+fn doc_links_reach_what_declarations_make() {
+    let project = temp_dir("links-made-project");
+    let write = |path: &str, text: &str| {
+        let full = project.join(path);
+        std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+        std::fs::write(full, text).unwrap();
+    };
+    write("stitchwort.yaml", "sources: [src]\n");
+    write(
+        "src/Alpha/Alpha.sw",
+        "namespace Alpha\n\ntype Pt = { x: Nat, y: Nat }\n\ntype Pt.Kind = | Big | Small\n\n\
+         type Hidden.Cell = { value: Nat }\n\n\
+         def kind: Nat -> Nat\n  | 3 => 1\n  | n => 0\n\n\
+         def Pt.walk (k n: Nat): Nat\n    decreasing n - k\n:=\n  \
+         if k < n then 1 + Pt.walk (k + 1) n [decreasing := lemma k n] else 0\n\n\
+         theorem lemma ∀ (k n: Nat) [auto h: k < n]: n - (k + 1) < n - k := arithmetic\n",
+    );
+    let members = "[`Alpha.Pt.Kind.Big`], [`Alpha.Hidden.Cell.value`], \
+                   [`Alpha.Pt.walk.unfold`], [`Alpha.Pt.walk`] and [`Alpha.Pt.Kind`]";
+    write(
+        "src/Aa/Aa.sw",
+        &format!("namespace Aa\n\n--| See {members}.\ndef a: Nat := 1\n"),
+    );
+    write(
+        "src/Zed/Zed.sw",
+        &format!(
+            "namespace Zed\n\n--| See [`Alpha.kind.eq1`], [`Alpha.kind.eq2`], {members}.\n\
+             def z: Nat := 1\n"
+        ),
+    );
+    let skipping = temp_dir("links-made-on");
+    let loading = temp_dir("links-made-off");
+    let check = |what: &str| assert_skipping_unchanged(&project, &skipping, &loading, what);
+    let names = |ns: &[&str]| ns.iter().map(|n| n.to_string()).collect::<Vec<_>>();
+
+    assert_eq!(check("cold"), names(&[]));
+    let cold = shown(&plain_check(
+        &project,
+        &temp_dir("links-made-cold"),
+        false,
+        false,
+    ));
+    assert!(!cold.contains("W-DOC-LINK"), "{cold}");
+    assert_eq!(check("warm"), names(&["Aa"]));
+    let warm = shown(&plain_check(&project, &loading, false, false));
+    assert!(!warm.contains("W-DOC-LINK"), "{warm}");
+    let _ = std::fs::remove_dir_all(&project);
+    let _ = std::fs::remove_dir_all(&skipping);
+    let _ = std::fs::remove_dir_all(&loading);
+}
+
 /// A namespace entry that can't be read is a miss when the plain `check`
 /// plans what to load: the namespace is checked again, not left out, and
 /// so is what uses it; what is printed is what loading everything prints.

@@ -202,7 +202,9 @@ impl Elaborator {
     /// ([`crate::project::declared_in`]), whether or not it is loaded.
     fn seen_by_links(&self, key: &str, home: Option<&Home>) -> bool {
         match self.project_owner(key) {
-            Some(ns) if home.is_some_and(|h| !h.uses(ns)) => self.declares(ns, key),
+            Some(ns) if home.is_some_and(|h| !h.uses(ns)) => {
+                self.declares(ns, key) || is_lemma_key(key)
+            }
             _ => true,
         }
     }
@@ -230,7 +232,7 @@ impl Elaborator {
         }
         if let Some(ns) = self.project_owner(key) {
             return self.declares(ns, key)
-                || (home.is_none_or(|h| h.uses(ns))
+                || ((home.is_none_or(|h| h.uses(ns)) || is_lemma_key(key))
                     && (self.scope.get(key).is_some() || self.scope.is_namespace(key)));
         }
         self.scope.get(key).is_some()
@@ -265,6 +267,13 @@ impl Elaborator {
     pub fn set_core_link_names(&mut self, index: Option<std::sync::Arc<crate::LibraryIndex>>) {
         self.session.core_link_names = index;
     }
+}
+
+/// Whether `key` may be an equation lemma or an induction principle that
+/// elaboration makes (`f.eq2`, `f.eq3.or1.ifTrue`, `f.induct`), which a
+/// file's syntax doesn't settle.
+fn is_lemma_key(key: &str) -> bool {
+    crate::equations::reserved_suffix(key).is_some()
 }
 
 /// Whether `keys` are a type's and its own constructor's (`T`, `T.T`).
@@ -316,16 +325,46 @@ impl Elaborator {
                 if matches!(found, Lookup::Ambiguous) {
                     return false;
                 }
+                let candidates =
+                    link_candidates_with_imports(&link.name, Some(ns), &module.imports);
                 let named = matches!(found, Lookup::Found)
-                    || link_candidates_with_imports(&link.name, Some(ns), &module.imports)
-                        .iter()
-                        .any(|key| self.is_known_key(key, Some(&home)));
-                if !named {
+                    || (candidates.iter()).any(|key| self.is_known_key(key, Some(&home)));
+                if !named || candidates.iter().any(|key| is_lemma_key(key)) {
                     return false;
                 }
             }
         }
         true
+    }
+
+    /// The project namespaces other than `ns` and those it uses (`closure`)
+    /// whose equation lemmas a doc link of `ns`'s files `modules` may name
+    /// (`Other.f.eq2`). Such a lemma counts by what is loaded
+    /// ([`crate::project::declared_in`] can't list them), so a plain
+    /// `check` that leaves namespaces out loads these whenever it loads
+    /// `ns`, as a check that loads everything does.
+    pub fn doc_link_lemma_owners(
+        &self,
+        ns: &str,
+        closure: &[String],
+        modules: &[&Module],
+    ) -> Vec<String> {
+        let home = Home { ns, closure };
+        let mut out: Vec<String> = Vec::new();
+        for module in modules {
+            for link in &module.doc_links {
+                for key in link_candidates_with_imports(&link.name, Some(ns), &module.imports) {
+                    if is_lemma_key(&key)
+                        && let Some(owner) = self.project_owner(&key)
+                        && !home.uses(owner)
+                        && !out.iter().any(|o| o == owner)
+                    {
+                        out.push(owner.to_string());
+                    }
+                }
+            }
+        }
+        out
     }
 
     /// What the short name `x`, written in namespace `ns` (its files'

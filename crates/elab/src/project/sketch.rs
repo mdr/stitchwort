@@ -252,10 +252,13 @@ impl FileSketch {
 /// declaration written with a qualifier (`Rules.rule`, or a function for
 /// another namespace's type) has the name as written, unless the qualifier
 /// is an import's local name for something else (`import N (T as U)`),
-/// whose keys are left out. A key may be missing (a local definition's,
-/// `t.go`), never wrongly present, in a namespace that checks. Doc links
-/// look a project namespace's keys up here, loaded or not, so that what
-/// one resolves to never depends on what else a check loads (SW-4827).
+/// whose keys are left out; its members are under that name too
+/// (`Pt.Kind.Big`). A key may be missing, never wrongly present, in a
+/// namespace that checks: a local definition's (`t.go`) is, and so are
+/// equation lemmas (`f.eq2`, `f.eq2.ifTrue`), which only elaboration
+/// settles; doc links to those count by what is loaded. Doc links look a
+/// project namespace's keys up here, loaded or not, so that what one
+/// resolves to never depends on what else a check loads (SW-4827).
 pub fn declared_in(module: &Module) -> Vec<String> {
     let renamed: Vec<&str> = (module.imports.iter())
         .flat_map(|i| &i.items)
@@ -267,10 +270,9 @@ pub fn declared_in(module: &Module) -> Vec<String> {
         let (Some(main), members) = crate::module::declared_names(decl) else {
             continue;
         };
-        if let Some((first, _)) = main.text.split_once('.') {
-            if !renamed.contains(&first) {
-                out.push(main.text.clone());
-            }
+        if let Some((first, _)) = main.text.split_once('.')
+            && renamed.contains(&first)
+        {
             continue;
         }
         for (member, _) in &members {
