@@ -34611,7 +34611,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Model result: sonnet, worked, shared lane with SW-4754.\nChange: try_proof_positions passes running out on to the hashers.\nD3608 exception (orchestrator's call): the lane could not make the old code fail from a core test, because running out is sticky. The new test checks only that results stay consistent. An end-to-end repro through the check-cache replay is filed as a follow-up.\n",
+      "body": "Model result: sonnet, worked, shared lane with SW-4754.\nChange: try_proof_positions passes running out on to the hashers.\nD3608 exception (orchestrator's call): the lane could not make the old code fail from a core test, because running out is sticky. The new test checks only that results stay consistent. An end-to-end repro through the check-cache replay is filed as a follow-up.\n\nSW-4772 found the fix's practical reach narrow: a fallback hash could be remembered only if the failing positions read were the last read in a hash; on replay the next nested call fails first.",
       "created": "2026-11-24",
       "updated": "2026-11-25",
       "commits": [
@@ -34889,12 +34889,12 @@
     {
       "id": 4772,
       "title": "[Sonnet] SW-4755 end-to-end test: a proofless hash cached without proof positions arises only through the check-cache replay; reproduce running out there and show the hash isn't remembered on the fallback (SW-4755 finding)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Closed without merging (orchestrator's call): the end-to-end test passes with SW-4755's fix reverted, because once positions run out the next nested hash call fails with Err(Work), so a fallback hash is never remembered on this route (limits 0-59 scanned). A test that can't fail isn't kept. Model result: sonnet, worked (negative result), about 11 min (est. 30).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
