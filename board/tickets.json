@@ -1,5 +1,5 @@
 {
-  "next": 4822,
+  "next": 4824,
   "tickets": [
     {
       "id": 47,
@@ -35646,6 +35646,32 @@
     {
       "id": 4821,
       "title": "[Sonnet] Wire the std name index cache (SW-4812) into run, test and the language server: each still parses all of std on start (about 190 ms each, estimated); one use_index_cache call before their first session (SW-4812 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4822,
+      "title": "[Sonnet] A way to print a project's namespace edges and check-cache keys (check --explain-keys, or STITCHWORT_CACHE_DEBUG printing each namespace's key and its dependencies): reviews of cache changes had to read keys off entry file names with fresh cache dirs (SW-4813 review friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4823,
+      "title": "[Sonnet] The project scan entry (SW-4813) is one blob per project (2.1 MB for tools/fmt), read whole on every check and rewritten whole on any edit; split it per file if profiling shows it (SW-4813 review F4)",
       "status": "backlog",
       "agent": "",
       "where": "",
