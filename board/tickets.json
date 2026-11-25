@@ -34890,7 +34890,7 @@
     {
       "id": 4773,
       "title": "[Sonnet] Four driver projects trial:: tests fail deterministically on Speedwell, also at 8e11a18d8 (Overmind's last green): the_project_lists_its_declarations_hashes (Laws.addZ and Laws.again, different proofs, same full hash), an_eta_change_of_a_proof_keeps_the_statement_not_the_meaning, an_embedded_proof_that_changes_passes_only_the_proofs_promise, a_definition_that_mentions_a_reproved_theorem_names_it. Find the commit that broke them, then fix it or revert it",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
