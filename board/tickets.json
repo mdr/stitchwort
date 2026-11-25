@@ -35700,15 +35700,18 @@
     {
       "id": 4824,
       "title": "[Sonnet] library_interface hashes each name's kind, follower, function and candidate flags but not accessor: check whether the accessor flag can change a project's elaboration without its key changing; if so add it to the key (SW-4812 review, unverified, predates it)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Orchestrator's call: run on Opus, not Sonnet: a key gap would mean an unchecked replay, a trust question.",
+      "body": "Orchestrator's call: run on Opus, not Sonnet: a key gap would mean an unchecked replay, a trust question.\n\nOrchestrator review: comment only; argument checked (accessor's one reader is suggests_bare for E-UNKNOWN-NAME; error units never written). Model result: opus, worked, about 2 min (est. 35).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "e13b72cb7",
+        "e3308efe6"
+      ]
     },
     {
       "id": 4825,
