@@ -1,5 +1,5 @@
 {
-  "next": 4801,
+  "next": 4803,
   "tickets": [
     {
       "id": 47,
@@ -35276,15 +35276,18 @@
     {
       "id": 4796,
       "title": "[Opus] Kernel, rule S behind a type alias (SW-4793 finding 1, docs/reviews/SW-4793-proofless-hash-review.md): rule S reads a scrutinee's type from the definition's type as written and declines when it isn't a Pi chain (value.rs:3053, 2937-2939), so with def Reader: Type := (x: Nat) -> Q2 x -> Nat and f: Reader matching MkQ2, f 0 (MkQ2 byComputing) computes but f 0 pf is stuck. Probe first (example 39 with the signature behind an alias, and behind an opaque nickname with unfolding); if it fails, read the parameter type from the definition's type evaluated in its own view (field_type), update docs/core.md:310, soundness set; Fable review after",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "lane/SW-4796",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Progress (Opus lane, 25 Nov): probe confirmed the gap (t4 `f 0 s = 5` and n1 `f 0 pf = 5` fail E-REFL with `def f: Reader`; t3 on the literal checks; same for an opaque nickname and for example 42's enclosing field under `def G: Type := Outer → Nat`; a field declared through an alias already worked). Fixed in value::field_type/parameter_type and reference::type_at: the definition's type is evaluated and each Pi forced. Example proof-irrelevance-39b-alias-signature with hash snapshot; soundness set, proof-irrelevance accept examples, hash_stability (proof-irrelevance), differential on 39* pass. Needs a Fable review.",
+      "body": "Progress (Opus lane, 25 Nov): probe confirmed the gap (t4 `f 0 s = 5` and n1 `f 0 pf = 5` fail E-REFL with `def f: Reader`; t3 on the literal checks; same for an opaque nickname and for example 42's enclosing field under `def G: Type := Outer → Nat`; a field declared through an alias already worked). Fixed in value::field_type/parameter_type and reference::type_at: the definition's type is evaluated and each Pi forced. Example proof-irrelevance-39b-alias-signature with hash snapshot; soundness set, proof-irrelevance accept examples, hash_stability (proof-irrelevance), differential on 39* pass. Needs a Fable review.\n\nOpus, worked, about 22 min (est. 45). Fable review SW-4800: merge; docs/reviews/SW-4796-rule-s-alias-review.md.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "cb3396336",
+        "6b2928f51"
+      ]
     },
     {
       "id": 4797,
@@ -35331,6 +35334,32 @@
     {
       "id": 4800,
       "title": "[Fable] Review of SW-4796's kernel change (rule S reads a parameter's type through an alias): view safety of the forced type, glued unfoldings, whether 'declines' is reachable, cost, other as-written Pi walks in core (paper; started 09:54)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "Verdict merge; three low follow-ups filed. docs/reviews/SW-4796-rule-s-alias-review.md",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4801,
+      "title": "[Sonnet] SW-4800 follow-ups 1-2: add the Rest (def Rest (x: Nat): Type := Q2 x -> Nat; f2: (x: Nat) -> Rest x) and Fam (recursive type family, f4: Fam 2) shapes to examples/accept/proof-irrelevance-39b-alias-signature.sw with value definitions for the differential test, run it with STITCHWORT_DIFFERENTIAL_ONLY; soften docs/core.md line 310's 'never meets' per docs/reviews/SW-4796-rule-s-alias-review.md finding 2",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4802,
+      "title": "[Sonnet] reference::validate_pi_marks (crates/core/src/reference.rs:1763, :1792) collects binder marks by walking Term::Pi over def.ty as written, so a definition with a nickname signature (def f: Reader) skips the lambda-against-binder check; walk the computed type instead, as SW-4796 did for rule S (SW-4800 finding 3)",
       "status": "backlog",
       "agent": "",
       "where": "",
