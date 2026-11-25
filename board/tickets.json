@@ -35783,9 +35783,9 @@
     {
       "id": 4829,
       "title": "[Sonnet] Project edges without format! strings: namespace_edges_of takes 22 of the 40 ms of a cached project scan; keep content keying (edges feed cache keys) and add a test that edges are unchanged (SW-4819 rank 4)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "Speedwell",
       "labels": [],
       "epic": "performance",
       "body": "",
