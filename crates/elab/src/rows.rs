@@ -564,7 +564,7 @@ mod tests {
                         .all(|d| d.severity != stitchwort_syntax::Severity::Error),
                     "the core checks"
                 );
-                e.finish_core().expect("a complete core");
+                e.finish_core(crate::prelude()).expect("a complete core");
                 test(&e);
             })
             .expect("a thread")

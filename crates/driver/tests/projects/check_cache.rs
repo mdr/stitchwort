@@ -628,6 +628,39 @@ fn navigation_has_entries_of_its_own() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// A session whose core isn't the library index's copy of it keys on the
+/// core it elaborated (docs/proposals/check-cache-trust.md §2.2, M1): it
+/// replays nothing written under the standard core, and then finds its own.
+#[test]
+fn a_session_with_another_core_has_entries_of_its_own() {
+    let source = small_program();
+    let dir = temp_dir("core");
+    let standard = run(&source, false, Some(&dir));
+    assert!(standard.stats.written > 0);
+    let other_core = || {
+        with_stack(STACK, || {
+            let prelude = format!(
+                "{}\n-- Only in this test's core.\ndef sw4817Marker: Nat := 0\n",
+                stitchwort_elab::prelude()
+            );
+            let mut session = Session::with_prelude(&prelude);
+            session.elab.options.limits = stitchwort_core::Limits::for_stack(STACK);
+            session.use_check_cache(&dir);
+            finish_run(session, &source)
+        })
+    };
+    let first = other_core();
+    assert_eq!(
+        first.stats.hits, 0,
+        "an entry written under the standard core was replayed"
+    );
+    assert_eq!(first.stats.misses, first.loaded);
+    let second = other_core();
+    assert_eq!(second.stats.misses, 0);
+    assert_eq!(second.stats.hits, second.loaded);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 #[test]
 fn writing_an_entry_deletes_the_units_older_ones() {
     let source = small_program();

@@ -35601,12 +35601,12 @@
     {
       "id": 4817,
       "title": "[Opus] Check-cache trust M1 (docs/proposals/check-cache-trust.md 2.2): library_interface keys core on the index's copy of the prelude text (crates/elab/src/cache/mod.rs:1131), not the core actually elaborated, so a session with another prelude could replay the standard one; key on the text read (SW-4816 finding)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "review",
+      "agent": "Opus",
+      "where": "lane/SW-4817",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Lane started 15:36, expected 35 min (Opus).\n\nDone 15:52 (16 min). finish_core(core) records Session::core_digest; library_interface hashes it instead of index.files[0].text. Test check_cache::a_session_with_another_core_has_entries_of_its_own (driver, projects): failed with 35 hits before, passes after. Ran: that test, elab cache::tests (12), cli server check_cache:: (19), driver library hash_stability + std_index_cache + a_prelude_without_a_builtin (18), all passed; no snapshot moved. Carry-over hits still ignore the interface (core included) by design: noted for SW-4814 (exact hits only).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []

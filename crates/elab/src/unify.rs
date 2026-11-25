@@ -6402,7 +6402,7 @@ mod tests {
                     errors(e.elaborate_module(&module)).is_empty(),
                     "the core checks"
                 );
-                e.finish_core().expect("a complete core");
+                e.finish_core(crate::prelude()).expect("a complete core");
                 e.unit.loading_prelude = false;
                 let text = "import Std (Nat)\n\ndef two (x: Nat): Nat\n    decreasing x\n:=\n  match x with\n    \
                     | Zero => 2\n    | Succ m => two m [decreasing := Nat.leRefl (Succ m)]\n";

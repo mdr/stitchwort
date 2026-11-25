@@ -1493,7 +1493,7 @@ mod tests {
         let mut e = Elaborator::new();
         e.unit.loading_prelude = true;
         e.elaborate_module(&core);
-        e.finish_core().expect("a complete core");
+        e.finish_core(crate::prelude()).expect("a complete core");
         let text = "type Rose: Type =\n  | Leaf\n  | Node (kids: List Rose)\n\n\
                     type Packet: Type =\n  | Number (value: Nat)\n  | Packets (items: List Packet)\n";
         let file = sources.add("trees", text);
