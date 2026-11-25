@@ -1760,7 +1760,7 @@ pub fn validate_marks(g: &Ev, ids: &[DefId]) {
             if def.proof() { "" } else { "not " }
         );
         let mut binders = Vec::new();
-        if validate_pi_marks(&mut cx, &def.ty, &mut binders).is_err() {
+        if validate_pi_marks(g, &mut cx, &def.ty, &mut binders).is_err() {
             continue;
         }
         if let Some(body) = &def.body {
@@ -1785,11 +1785,27 @@ pub fn validate_marks(g: &Ev, ids: &[DefId]) {
 /// The function types along `ty`'s spine of codomains: each binder's mark
 /// against its domain's sort, checked again. Collects the marks in order.
 fn validate_pi_marks(
+    g: &Ev,
     cx: &mut crate::check::Ctx,
     ty: &Term,
     marks: &mut Vec<ProofMark>,
 ) -> std::result::Result<(), stitchwort_syntax::Diagnostic> {
-    let Term::Pi(x, _, dom, cod, mark) = ty.strip_loc() else {
+    // A type not written as a function type may compute to one (`def f:
+    // Reader`): evaluate, force and quote it back, so its binders are
+    // checked too (SW-4802).
+    let computed;
+    let ty = match ty.strip_loc() {
+        pi @ Term::Pi(..) => pi,
+        other => {
+            let value = force(g, cx.eval(other)?)?;
+            if !matches!(value, Value::Pi(..)) {
+                return Ok(());
+            }
+            computed = quote(g, cx.level(), &value)?;
+            &computed
+        }
+    };
+    let Term::Pi(x, _, dom, cod, mark) = ty else {
         return Ok(());
     };
     let (_, sort) = crate::check::check_type(cx, dom)?;
@@ -1801,7 +1817,7 @@ fn validate_pi_marks(
     marks.push(*mark);
     let dom_value = cx.eval(dom)?;
     cx.bind(x.clone(), dom_value, *mark);
-    let result = validate_pi_marks(cx, cod, marks);
+    let result = validate_pi_marks(g, cx, cod, marks);
     cx.unbind(1);
     result
 }
