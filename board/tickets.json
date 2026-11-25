@@ -35815,12 +35815,12 @@
     {
       "id": 4830,
       "title": "[Sonnet] Run core's statement-style sweep (binder_sweep, 9 ms) only when library warnings are reported (SW-4819 rank 5)",
-      "status": "backlog",
-      "agent": "",
+      "status": "review",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Orchestrator's call: held until SW-4814 merges (both edit Session::start_in's core loading).\n\nUnheld: SW-4814 merged.",
+      "body": "Orchestrator's call: held until SW-4814 merges (both edit Session::start_in's core loading).\n\nUnheld: SW-4814 merged.\n\nLane: SW-4814 already skips the sweep on a core-cache hit (statement_style runs only on the miss path in start_cached); the other readers (library_warning_report, check --std --warnings) already run it on demand. Nothing left to skip on a hit; on a miss it decides whether the entry is written. Added a pinning test (core_entry::the_cores_statement_style_warnings_are_reported_and_are_not_cached).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
