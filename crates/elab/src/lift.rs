@@ -1782,7 +1782,7 @@ impl Elaborator {
             || d.labels.iter().any(|l| l.message.contains("%"))
             || d.notes.iter().any(|n| n.contains("%"));
         if !names_one && printed.is_empty() {
-            return self.explain_tuple_match(d);
+            return self.explain_computed_match(d);
         }
         // Longest first, so `f.%match1` isn't found inside `f.%match10`.
         let mut lifted: Vec<(String, Span, DefId)> = self
@@ -1873,7 +1873,7 @@ impl Elaborator {
                  a `def` and use it in both places",
             );
         }
-        self.explain_tuple_match(d)
+        self.explain_computed_match(d)
     }
 
     /// The lifted `match` helpers whose calls the printer showed as
@@ -1906,37 +1906,64 @@ impl Elaborator {
         found
     }
 
-    /// A termination error at a call inside `match (xs, n) with` (SW-941):
-    /// the pieces its patterns bind come from the tuple, so they aren't seen
-    /// as parts of `xs` or `n`. Matching the variables themselves,
-    /// `match xs, n with`, keeps that.
-    fn explain_tuple_match(&self, mut d: Diagnostic) -> Diagnostic {
+    /// A termination error at a call inside a lifted `match` whose scrutinee
+    /// is computed, `match (xs, n) with` (SW-941) or `match k + 0 with`
+    /// (SW-4803): what its patterns bind isn't seen as a part of the
+    /// variables it was built from (`xs` and `n`, or `k`), because the
+    /// `match` took apart the computed value. Matching the variables
+    /// themselves keeps that.
+    fn explain_computed_match(&self, mut d: Diagnostic) -> Diagnostic {
         if d.code != "E-TERMINATION" {
             return d;
         }
         let inside = |outer: Span, inner: Span| {
             outer.file == inner.file && outer.start <= inner.start && inner.end <= outer.end
         };
-        let matches = self.decl.tuple_matches.borrow();
-        let Some((_, shown, names)) = matches
+        let matches = self.decl.computed_matches.borrow();
+        let Some(m) = matches
             .iter()
-            .filter(|(span, _, _)| d.labels.iter().any(|l| inside(*span, l.span)))
+            .filter(|m| d.labels.iter().any(|l| inside(m.span, l.span)))
             // The innermost, if they nest.
-            .min_by_key(|(span, _, _)| span.end - span.start)
+            .min_by_key(|m| m.span.end - m.span.start)
         else {
             return d;
         };
-        let quoted: Vec<String> = names.iter().map(|x| format!("`{x}`")).collect();
-        let (last, rest) = quoted.split_last().expect("a tuple has two parts");
-        let and = format!("{} and {last}", rest.join(", "));
-        let or = format!("{} or {last}", rest.join(", "));
-        let note = format!(
-            "`match {shown} with` takes apart a tuple built from {and}, and what its patterns \
-             bind isn't seen as a part of {or}, so it isn't seen as smaller: match them \
-             directly, `match {} with` (without the brackets), or give a measure with \
-             `decreasing`",
-            names.join(", ")
-        );
+        let quoted: Vec<String> = m.names.iter().map(|x| format!("`{x}`")).collect();
+        let (last, rest) = quoted
+            .split_last()
+            .expect("a computed match names a variable");
+        let and = if rest.is_empty() {
+            last.clone()
+        } else {
+            format!("{} and {last}", rest.join(", "))
+        };
+        let or = if rest.is_empty() {
+            last.clone()
+        } else {
+            format!("{} or {last}", rest.join(", "))
+        };
+        let note = if m.tuple {
+            format!(
+                "`match {shown} with` takes apart a tuple built from {and}, and what its \
+                 patterns bind isn't seen as a part of {or}, so it isn't seen as smaller: match \
+                 them directly, `match {names} with` (without the brackets), or give a measure \
+                 with `decreasing`",
+                shown = m.shown,
+                names = m.names.join(", "),
+            )
+        } else {
+            let them = match &quoted[..] {
+                [one] => format!("{one} itself"),
+                _ => "them directly".to_string(),
+            };
+            format!(
+                "`match {shown} with` matches a computed value, so what its patterns bind isn't \
+                 seen as a part of {or}: if the recursion is on a part of {or}, match {them} \
+                 (`match {names} with`), or give a measure with `decreasing`",
+                shown = m.shown,
+                names = m.names.join(", "),
+            )
+        };
         if !d.notes.contains(&note) {
             d.notes.insert(0, note);
         }

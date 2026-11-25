@@ -95,17 +95,13 @@ fn variable(cx: &Ctx, s: &Scrutinee) -> Option<usize> {
     is_var(&cx.env[level], level).then_some(level)
 }
 
-/// Records a `match` on a tuple of variables, `match (xs, n) with`, for a
-/// termination error inside it to explain (SW-941): the recursion can't see
-/// that the pieces its patterns take apart came from `xs` and `n`.
-fn note_tuple_match(cx: &Ctx, scrutinees: &[Scrutinee], span: stitchwort_syntax::Span) {
-    let [Scrutinee { name: None, expr }] = scrutinees else {
-        return;
-    };
+/// The variables a tuple scrutinee is built from, in order, if all of them
+/// are local variables: `(a, b, c)` is `(a, (b, c))`, a variable then the
+/// rest.
+fn tuple_names(cx: &Ctx, expr: &Expr) -> Option<Vec<String>> {
     if !matches!(expr, Expr::Tuple(..)) {
-        return;
+        return None;
     }
-    // `(a, b, c)` is `(a, (b, c))`: a variable, then the rest.
     let local = |e: &Expr| match e {
         Expr::Var(x) if cx.lookup(&x.text).is_some() => Some(x.text.to_string()),
         _ => None,
@@ -113,20 +109,69 @@ fn note_tuple_match(cx: &Ctx, scrutinees: &[Scrutinee], span: stitchwort_syntax:
     let mut names = Vec::new();
     let mut part = expr;
     while let Expr::Tuple(first, rest, _) = part {
-        let Some(name) = local(first) else {
-            return;
-        };
-        names.push(name);
+        names.push(local(first)?);
         part = rest;
     }
-    let Some(last) = local(part) else {
+    names.push(local(part)?);
+    Some(names)
+}
+
+/// The names of the variables `term` has free, in the order they occur.
+fn free_variable_names(cx: &Ctx, term: &Term) -> Vec<String> {
+    let mut levels: Vec<usize> = Vec::new();
+    for (t, binders) in term.subterms() {
+        let Term::Var(i) = t else {
+            continue;
+        };
+        // `i` counts the binders it is under; what's left is a variable of
+        // the context.
+        let Some(root) = i.checked_sub(binders) else {
+            continue;
+        };
+        let Some(level) = cx.level().checked_sub(1 + root) else {
+            continue;
+        };
+        if level < cx.level() && !levels.contains(&level) {
+            levels.push(level);
+        }
+    }
+    levels
+        .into_iter()
+        .filter_map(|level| cx.name_of_level(level).map(str::to_string))
+        .collect()
+}
+
+/// Records a lifted `match` whose scrutinee isn't a plain variable, for a
+/// termination error inside it to explain: the recursion can't see that the
+/// pieces its patterns bind came from the variables it was built from
+/// (SW-941, SW-4803). A tuple of variables is recorded as such, for wording
+/// of its own; anything else computed is recorded with the variables it
+/// mentions.
+fn note_computed_match(cx: &Ctx, s: &Scrutinee, term: &Term, span: stitchwort_syntax::Span) {
+    // A plain variable is what the note suggests; there is nothing to say.
+    if let Expr::Var(x) = &s.expr
+        && cx.lookup(&x.text).is_some()
+    {
         return;
+    }
+    let (shown, names, tuple) = match tuple_names(cx, &s.expr) {
+        Some(names) => (format!("({})", names.join(", ")), names, true),
+        None => {
+            let names = free_variable_names(cx, term);
+            if names.is_empty() {
+                return;
+            }
+            (pretty::term(&cx.g(), &cx.names, term), names, false)
+        }
     };
-    names.push(last);
-    let shown = format!("({})", names.join(", "));
-    let mut log = cx.e.decl.tuple_matches.borrow_mut();
-    if !log.iter().any(|(s, _, _)| *s == span) {
-        log.push((span, shown, names));
+    let mut log = cx.e.decl.computed_matches.borrow_mut();
+    if !log.iter().any(|m| m.span == span) {
+        log.push(crate::state::ComputedMatch {
+            span,
+            shown,
+            names,
+            tuple,
+        });
     }
 }
 
@@ -482,7 +527,6 @@ fn check_match_as_match(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Term>
     }
     let (scrutinees, alts, span, kind) = parts(expr);
     note_match_step(cx, alts, span, goal);
-    note_tuple_match(cx, scrutinees, span);
     let base = cx.level();
     let mark = cx.mark();
     // A `match` that is the whole of an expression checked against the
@@ -699,6 +743,11 @@ fn lifted(
             }
             name => name.clone(),
         };
+        // A decision (`match p < 3 with`) binds nothing, so there's no part
+        // of a variable it could hide.
+        if !decided {
+            note_computed_match(cx, s, &term, span);
+        }
         columns.push(Column::Expr(exprs.len()));
         exprs.push(Scrut {
             term,
