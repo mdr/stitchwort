@@ -1,5 +1,5 @@
 {
-  "next": 4781,
+  "next": 4784,
   "tickets": [
     {
       "id": 47,
@@ -34971,7 +34971,7 @@
     {
       "id": 4778,
       "title": "[Opus] Trial promises after SW-4701 (theorems referred to by statement hash): is ProofsOnly / the reproved list still useful, or now nearly vacuous (only definitions embedding a proof term directly can move)? Short design note: keep, simplify or drop (SW-4773 finding)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34979,7 +34979,10 @@
       "body": "",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "22649dd65",
+        "eedbc76cc"
+      ]
     },
     {
       "id": 4779,
@@ -35003,6 +35006,45 @@
       "labels": [
         "bug"
       ],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4781,
+      "title": "[Sonnet] Simplify the trial after rule I (docs/proposals/trial-promises-after-rule-i.md, SW-4778): first a fixture for the group case (a computing def in a group with a theorem); then remove the reproved cone unless that fixture needs it, the binder sweep's two refusal paths (report an unexplained change as a sweep bug, exit 1), sweep theorem-binders --proofs-only, and the false same-statement doc sentence, and retire a_definition_that_mentions_a_reproved_theorem_names_it (orchestrator's call: a development tool's flags, not a proved tool's scope)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4782,
+      "title": "[Opus] Design note: should a hash cite a definition without its inline proofs (an invariant, a decreasing proof, Quot.lift's proof), as rule I does for theorems, so that editing an inline proof moves only that definition? This touches pins and the test and check caches: an identity question, end state only (SW-4778 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4783,
+      "title": "[Sonnet] D3739 (b): the editor's start-up fill defaults to auto (stitchwort.startupWorkers and STITCHWORT_STARTUP_WORKERS): server Settings default, VS Code package.json default, README, getting-started guide, parallel-checking.md 9.9, and any test that assumed off",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-25",
