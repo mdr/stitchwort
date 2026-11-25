@@ -367,3 +367,175 @@ Caveats:
   Matching it means updating the flake's nixpkgs input, which moves every other tool in the
   dev shell, for a comparison that a minor Lean version barely changes. Not done; section 3's
   run was on 4.34.1 as well (the README's "Lean 4.34.1"), and so is this one.
+
+## Rerun, 25 Nov (SW-4806)
+
+Sonnet lane SW-4806, 25 November 2026, 11:40-12:00, for Matt's "it would be quite interesting
+to see how we compare now". `lane/SW-4806` at `main` as of `9375ccb14` (after the read-back
+fixes, SW-4609 and the parallel check of D3742). Measurement only, same method as sections 3
+and 4 and the 22 Nov rerun. Marks as above. "Then" is 22 Nov (section 2.1, the rerun section),
+"now" is today. Raw data, small, in [`SW-4608/`](SW-4608/) (`*-2511.csv`).
+
+### In plain words
+
+**Where we stand.** On the one thing we can compare like for like, **we are now level with
+Rocq and a long way ahead of the Lean files** *on the 31 sampled slice 1 formatter theorems*:
+their elaboration plus kernel time is 838 ms, against 6.7 s for Lean's net time and 0.9 s for
+Rocq's, so 0.13x Lean and 0.94x Rocq, where on 22 Nov it was 0.5x and 3.7x **[measured]**.
+That table counts only our theorems' own time inside a whole check, while the Lean and Rocq
+files are self-contained ports with the supporting lemmas as `axiom`s (their cost is partly
+the cut-down definitions), so it flatters us: **do not read it as "faster than Lean"**. What
+it does show is that the slow proofs it was sampling (`unaryHung` 2.2 s to 0.26 s, batch A
+2.3 s to 0.30 s) are no longer slow. The whole formatter, cold, is **107 s on one worker
+(252 s on 22 Nov) and 39 s with the default workers** **[measured]**, 2.4x and 6.5x faster.
+
+**The firmer comparison has not moved.** Against Lean on the three AoC days, net of loading,
+we are **3.2x, 5.4x and 3.1x** Lean's time (22 Nov: 2.1x, 5.0x, 3.4x; 21 Nov: 2.9x, 7.9x,
+3.2x), and with a warm library counted a day's whole check is **2.2-3.8x** Lean's file time
+(1.8-3.2x on 22 Nov) **[measured]**. These are within the noise of the earlier runs (3 runs
+per median). So: **on proofs like Lean's own (small, explicit, AoC-sized) we are still about 3-5x
+behind, and nothing since 22 Nov has changed that**; what changed is the very large proofs
+of the formatter and the use of several cores. The AoC runs are one job (the bench uses
+`--only`), so they can't show the parallel gain, and the read-back fixes target the 1-million-node
+terms, which AoC days don't have.
+
+**What this does and doesn't cover.** It covers three small AoC days and 31 formatter
+theorems, one machine, three or five runs each. It does not cover a hand-written, idiomatic
+Lean or Rocq development of the formatter (the ports copy our proof structure; automation
+costs them time that explicit case arms cost us in lines); it counts our time for the
+sampled theorems alone, not the definitions and lemmas they need; and the whole-formatter
+number has no Lean or Rocq counterpart at all, since nobody has ported or checked the whole
+slice there. Lean's and Rocq's libraries are precompiled, ours is rechecked from source on a
+cold check (a cold formatter check is about 15 s library and 94 s the project's own, one worker).
+Honest summary **[estimated]**: about 3-5x behind Lean on ordinary small proofs, roughly
+level with Rocq on the formatter sample, and no longer far behind on the big ones; nothing
+here shows us ahead of either on equal work.
+
+### Method and machine
+
+Same machine (Speedwell, M1 Pro, 10 cores), quiet: the 5-minute load was 3.8-4.2 at the start
+of every run except where noted. Build: `lane/SW-4806` release binary, with the dev feature
+for the AoC bench (`task bench:compare:proofs` rebuilt it, 3 min, before its timed part), the
+plain `target/release/stitchwort` copy for the formatter runs. Lean 4.34.1 in the AoC bench
+(the flake's, unchanged), Lean 4.35.0 and Rocq 9.1.1 (rocq-stdlib 9.0.0, the same store path
+as 22 Nov) from nixpkgs for the slice 1 files, hyperfine 2.0.0, `-N --warmup 1 --runs 5`.
+**The empty files:** Lean's `Empty.lean` (234 ms now, 247 ms on 22 Nov); Rocq's `EmptyStd.v` with
+the batch files' `Require` line (158 ms; the 22 Nov file wasn't kept, so I used the
+Pilot's require line: 154 ms then).
+
+### Part 2a: three AoC days against Lean
+
+`nix develop -c task bench:compare:proofs -- --runs 3`, medians, 5-minute load 3.8 at the
+start of the build and 4.1 at the end **[measured]**. **One job:** each `sw` run is
+`check --no-cache <namespaces> --only <theorems>`, and `check` forces one job for `--only`
+("one job: --only checks part of a namespace", seen with `--timings` on the day 2 command; the
+code in `crates/cli/src/main.rs` says the same, and `--no-cache` alone would also keep one job
+unless `PARALLEL_NO_CACHE`), so the default workers don't change the bench **[measured]**.
+
+| day | theorems | sw check | sw load | sw net | lean file | lean load | lean net | sw net / lean net | sw load (cached) | sw net + cached load | that / lean file | lake build, cold |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 2024 day 2 | 17 | 2.52 s | 2.23 s | 293 ms | 355 ms | 262 ms | 93 ms | **3.15x** | 481 ms | 774 ms | 2.2x | 890 ms |
+| 2020 day 18 | 23 | 9.29 s | 8.21 s | 1.08 s | 462 ms | 262 ms | 200 ms | **5.42x** | 685 ms | 1.77 s | 3.8x | 993 ms |
+| 2021 day 15 | 41 | 5.82 s | 4.27 s | 1.55 s | 757 ms | 262 ms | 495 ms | **3.13x** | 545 ms | 2.10 s | 2.8x | 1.30 s |
+
+Then and now (21 Nov = section 3, 22 Nov = the rerun):
+
+| day | sw net / lean net: 21 Nov | 22 Nov | **25 Nov** | sw net: 21 Nov | 22 Nov | **25 Nov** | that / lean file: 22 Nov | **25 Nov** |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 2024 day 2 | 2.9x | 2.12x | **3.15x** | 289 ms | 304 ms | **293 ms** | 1.8x | **2.2x** |
+| 2020 day 18 | 7.9x | 5.00x | **5.42x** | 1.57 s | 943 ms | **1.08 s** | 3.2x | **3.8x** |
+| 2021 day 15 | 3.2x | 3.35x | **3.13x** | 1.53 s | 2.01 s | **1.55 s** | 2.9x | **2.8x** |
+
+- **No real change since 22 Nov.** "sw net" moves between 0.29 and 0.30 s, 0.94 and 1.08 s,
+  1.55 and 2.01 s: the same spread as between the two earlier runs. The ratio of day 2 moved
+  mostly because Lean's net time is a difference of two small numbers (93 ms now, 143 ms then).
+  Day 18's "sw check" went 10.3 s to 9.3 s and day 15's 6.8 s to 5.8 s, but their "sw load" fell
+  by the same amount (9.4 to 8.2 s, 4.8 to 4.3 s): library checking is a little faster, the
+  days' own theorems are not.
+- Cached library load 0.48-0.69 s (22 Nov 0.43-0.49 s): slightly worse on day 18, within noise.
+- Lean 4.34.1 as before; the file times moved 5-12% across the runs, the noise guide.
+
+### Part 2b: slice 1 sample against Lean and Rocq
+
+Lean and Rocq: `hyperfine -N --warmup 1 --runs 5` on the SW-4537 files (copied to a scratch
+folder), mean wall, load 3.8 **[measured]**. Ours: the sum of each sampled theorem's own
+elaboration plus kernel time from the cold `STITCHWORT_JOBS=1 check --no-cache --timings=all` of
+`tools/fmt` (below), picked by the same declaration names as before
+([`slice1-sw-per-theorem-2511.csv`](SW-4608/slice1-sw-per-theorem-2511.csv); `then_ms` is
+22 Nov's `slice1-sw-per-theorem.csv`; the three theorems inside a mutual group take the
+group's row, as then, which reproduces the old 3,314 ms total exactly). All 31 found
+**[measured]**. `parse_timings.py` wants `STEP_PHASES=1` output, which I didn't set, so the
+rows were picked with a few lines of Python from the same table. Net = file minus the empty
+file (Lean 234 ms, Rocq 158 ms).
+
+| file (theorems) | Lean | Lean net | Rocq | Rocq net | ours, then | **ours, now** | now / Lean net (then) | now / Rocq net (then) |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Pilot (3) | 415 ms | 181 ms | 241 ms | 83 ms | 85 ms | **25 ms** | **0.14** (0.4) | **0.30** (1.0) |
+| Batch A (7) | 956 ms | 722 ms | 384 ms | 226 ms | 2,308 ms | **300 ms** | **0.42** (3.0) | **1.33** (10) |
+| Batch B (7) | 1,559 ms | 1,325 ms | 419 ms | 261 ms | 395 ms | **268 ms** | **0.20** (0.3) | **1.03** (1.5) |
+| Batch C (13) | 4,597 ms | 4,363 ms | 460 ms | 302 ms | 475 ms | **243 ms** | **0.06** (0.1) | **0.80** (1.6) |
+| Reserve (1) | 342 ms | 108 ms | 178 ms | 20 ms | 51 ms | **1 ms** | **0.01** (0.5) | **0.05** (2.0) |
+| all 31 | 7,869 ms | 6,699 ms | 1,682 ms | 892 ms | 3,314 ms | **838 ms** | **0.12** (0.5) | **0.94** (3.7) |
+
+Lean and Rocq's own times reproduce 22 Nov's within 2-9% (Lean: 452, 1,021, 1,695, 4,735,
+350 ms then; Rocq: 236, 377, 415, 454, 179 ms), so the toolchains and machine are comparable.
+
+- **Batch A, then 2.3 s, is now 0.30 s**: `unaryHung` 2,223 to 258 ms, the rest of the batch
+  about 40 ms. Our per-theorem times fell for the formatter proofs the read-back work touched.
+- **Without the large theorems the picture is the same**: the small ones are already ms-level
+  (`homeStands` 354 to 258 ms is now the largest of the 31 after `unaryHung`).
+- **Caveats are those of section 4**, and they all lean our way: ours counts the theorems
+  alone, their files count definitions and (some) support; automation costs them; both
+  startups included for them, none for us. The table says we are no longer slow on this
+  sample, not that we are faster than Lean on equal work.
+
+### Context: the whole formatter, cold and library-cached
+
+`tools/fmt` from its folder, release binary, 150 project + 72 library files; `/usr/bin/time -l`
+**[measured]**. The 5-minute load (the middle `uptime` figure) is read at the start of each run. The last two runs started with load raised by my own earlier runs (the auto run
+used ~149 CPU-s in 39 s), not by other work.
+
+| run | wall | user / sys | peak RSS | 5-min load at start | 22 Nov |
+|---|---:|---:|---:|---:|---|
+| 1 worker, `--no-cache --timings=all` | **106.8 s** (checker's own clock 106.0 s) | 104.7 s / 1.0 s | 1.40 GB | 3.8 | 387 s (252 s plain, 3.25 GB) |
+| 1 worker, `--no-cache` | **109.7 s** | 108.0 s / 1.2 s | 1.40 GB | 3.7 | 252 s |
+| auto workers (default), `--no-cache` | **38.6 s** | 148.7 s / 2.6 s | 4.63 GB | 4.2 | not available |
+| 1 worker, library cached, `--no-project-cache`, warming run (writes the library's cache) | 142.3 s | 121.7 s / 1.6 s | 1.21 GB | 5.1 | |
+| 1 worker, library cached, `--no-project-cache` | **94.1 s** | 93.2 s / 0.8 s | 1.38 GB | 7.5 (own runs) | |
+
+- **2.3x faster on one worker (252 to 110 s), 6.5x with auto workers (39 s)**, and a warm library saves
+  about 15 s of that (94 against 110 s).
+  Memory fell from 3.25 to 1.4 GB on one worker; auto uses 4.6 GB (several workers, each
+  with their own state). The auto run's speedup over one worker is 2.8x on 10 cores (`auto` is the
+  cores, at most 8, one per 2 GB of memory), so the critical path of the
+  namespace graph is not the limit yet, but something is: user time rose from 108 to 149 s
+  **[measured; the reason is not investigated]**.
+- **The timings table no longer costs anything**: 106.8 s with `--timings=all` against
+  109.7 s without, sys 1.0 s against 123 s on 22 Nov (item 2 of section 2.3 is fixed).
+- **Library-cached with auto workers is not measurable**: `--no-project-cache` forces one job
+  ("`--no-project-cache` writes no namespace entries"), and a normal cached check would need
+  the project's own cache entries removed, which the docs don't describe except by that
+  option. Skipped, as the brief allowed.
+- The 22 Nov figure for the whole formatter was taken before the read-back work and the
+  parallel check, from `lane/SW-4608` at `4a07c90fc`: the 252 s and 387 s are from there.
+- **Where the time is now** (declaration rows, 13,118 against 13,103 then): elaboration 84.2 s,
+  kernel 20.0 s (218.6 and 40.7 s then); the slowest declaration, `followsFieldsAt`, is 3.5 s
+  (3.4% of declaration time) against `standsEachFile`'s 32.5 s (12.5%) then, and
+  `standsEachFile` is now 11 ms. The slowest 10 declarations are 15.8% of the time (32.0%
+  then), 63 are 37.5% (50%), 655 are 72.5% (73.8%): the time is much flatter, now spread
+  over the parser's `Follows…` proofs, std's `Parse.runFrom…Tree` lemmas and the
+  read-back proofs.
+
+### Not comparable, or not done
+
+- **Small differences from 22 Nov**: Lean is 4.35.0 for the slice 1 files and 4.34.1 in the AoC
+  bench (as before); the Rocq empty file was recreated; the `--timings=all` run lacks
+  `STITCHWORT_STEP_PHASES=1`, so no step table (the phase split above is from the declaration rows).
+- 3 runs for the AoC medians and 5 for hyperfine: the figures carry 5-10% noise, ratios to
+  two significant figures at most. One run each of the formatter timings; the 1-worker plain
+  and timings runs agree to 3%.
+- Our slice 1 time is still only the sampled theorems inside a whole check, so "0.94x Rocq"
+  compares slices of different content. A like-for-like port of one namespace is still the fair
+  next step (section 4's last paragraph).
+- Not run: the AoC `--no-cache` days at auto workers (the bench's `--only` forces one job,
+  so not applicable), the library-cached run at auto workers (above), a profile.
