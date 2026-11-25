@@ -584,33 +584,31 @@ fn a_declaration_whose_hashes_ran_out_is_not_kept() {
     }
 }
 
-/// A definition that mentions a proof (a structure's invariant, a
-/// `decreasing` proof) moves when the proof does: the comparison names the
-/// re-proved theorem where the change starts, and what moved only because
-/// of another change says so.
+/// A definition in a group with a theorem moves when the theorem is
+/// re-proved (the group's hash covers every member's body): the comparison
+/// names the theorem. A definition that only mentions a re-proved theorem
+/// doesn't name it, and what moved only because of another change says so.
 #[test]
-fn a_moved_definition_names_the_proof_it_mentions() {
+fn a_moved_definition_names_the_theorem_in_its_group() {
     let before = [
-        listed(DeclKind::Theorem, "Std.base", 1, 10),
+        listed(DeclKind::Def, "Std.f", 1, 10),
         listed(DeclKind::Theorem, "Std.t", 2, 20),
         listed(DeclKind::Def, "Std.t.%match1", 3, 30),
-        listed(DeclKind::Theorem, "Std.u", 4, 40),
-        listed(DeclKind::Def, "Std.d", 5, 50),
-        listed(DeclKind::Def, "Std.e", 6, 60),
+        listed(DeclKind::Def, "Std.d", 4, 40),
+        listed(DeclKind::Def, "Std.e", 5, 50),
     ];
-    // `t` has another proof, with its lifted `match` (which calls `t`
-    // back); `u` is re-proved only because it uses `t`; `d` mentions `u`;
-    // `e` mentions `d`.
+    // `f` and `t` are one group: `f` calls `t`, and `t`'s lifted `match`
+    // calls `f` back. `d` mentions `t` and moved for its own reasons; `e`
+    // mentions `f`.
     let after = [
-        listed(DeclKind::Theorem, "Std.base", 1, 10),
+        using(listed(DeclKind::Def, "Std.f", 6, 10), &["Std.t"]),
         using(
             listed(DeclKind::Theorem, "Std.t", 7, 20),
-            &["Std.t.%match1", "Std.base"],
+            &["Std.t.%match1"],
         ),
-        using(listed(DeclKind::Def, "Std.t.%match1", 8, 31), &["Std.t"]),
-        using(listed(DeclKind::Theorem, "Std.u", 9, 40), &["Std.t"]),
-        using(listed(DeclKind::Def, "Std.d", 10, 50), &["Std.u"]),
-        using(listed(DeclKind::Def, "Std.e", 11, 60), &["Std.d"]),
+        using(listed(DeclKind::Def, "Std.t.%match1", 8, 31), &["Std.f"]),
+        using(listed(DeclKind::Def, "Std.d", 9, 41), &["Std.t"]),
+        using(listed(DeclKind::Def, "Std.e", 10, 50), &["Std.f"]),
     ];
     let diff = declhash::compare(&before, &after, &same_statement());
     let moved: Vec<(&str, Option<&str>, Vec<&str>)> = diff
@@ -627,42 +625,12 @@ fn a_moved_definition_names_the_proof_it_mentions() {
     assert_eq!(
         moved,
         [
-            ("Std.d", None, vec!["Std.t", "Std.t.%match1"]),
-            ("Std.e", Some("Std.d"), vec![]),
+            ("Std.f", None, vec!["Std.t"]),
+            ("Std.d", None, vec![]),
+            ("Std.e", Some("Std.f"), vec![]),
         ]
     );
     assert_eq!(declhash::owner("Std.t.%match1"), "Std.t");
-}
-
-/// A definition that mentions a theorem no longer moves when its proof is
-/// re-proved (rule I: it is cited by its statement), so the trial finds
-/// nothing to name. A definition that embeds a proof term directly is
-/// `an_embedded_proof_that_changes_passes_only_the_proofs_promise`.
-#[test]
-fn a_definition_that_mentions_a_reproved_theorem_names_it() {
-    run(|| {
-        let mut live = laws();
-        let add = [line_edit(
-            "def twice",
-            "def proofOf (n: Nat): n + 0 = n := again n",
-        )];
-        let trial = checked(live.trial(&add, &same_meaning()).unwrap());
-        live.keep(trial);
-        let trial = checked(live.trial(&[eta_edit()], &same_statement()).unwrap());
-        let changed: Vec<(&str, Option<&str>, &[String])> = trial
-            .problems
-            .changed
-            .iter()
-            .map(|c| (c.name.as_str(), c.uses.as_deref(), c.reproved.as_slice()))
-            .collect();
-        assert_eq!(
-            changed,
-            Vec::<(&str, Option<&str>, &[String])>::new(),
-            "{:?}",
-            trial.problems
-        );
-        live.restore(trial).unwrap();
-    });
 }
 
 const PROOFS: &str = "\
@@ -904,4 +872,75 @@ fn two_hash_lists_compare_by_the_proofs_promise() {
     assert_eq!(names, ["Std.e", "Std.old"]);
     assert_eq!(diff.proofs_changed, ["Std.t"]);
     assert_eq!(diff.proofs_only, ["Std.d"]);
+}
+
+const GROUPED: &str = "\
+namespace Grouped
+
+import Std (Nat)
+
+def keep (n: Nat) (same: n + 0 = n): Nat := n
+
+def f: Nat → Nat
+  | Zero => 0
+  | Succ k => keep k (t k)
+
+theorem t (k: Nat): k + 0 = k :=
+  let r := f k
+  Nat.addZero k
+
+def user: Nat := f 3
+";
+
+fn grouped() -> LiveProject {
+    let mut session = Session::navigable_for_stack(STACK);
+    session.use_test_std_cache();
+    let files = BTreeMap::from([("src/grouped.sw".to_string(), GROUPED.to_string())]);
+    let mut live = LiveProject::new(
+        session,
+        "grouped",
+        Some("sources: [src]\n".to_string()),
+        files,
+    );
+    finish(&mut live);
+    live
+}
+
+/// SW-4781: a theorem in a group with a computing definition is the one
+/// case where re-proving a theorem moves another declaration (docs/core.md,
+/// "A theorem in a group with a computing definition"): `f` and `t` call
+/// each other, so the group's hash covers `t`'s proof, and `f` and its
+/// callers move. The trial names `t` where the change starts. (A theorem
+/// local to a definition's body is no group member: re-proving it moves
+/// nothing.)
+#[test]
+fn re_proving_a_theorem_in_a_group_moves_its_computing_definition() {
+    run(|| {
+        let mut live = grouped();
+        let from = GROUPED.find("theorem t ").unwrap();
+        let line = GROUPED[..from].matches('\n').count() as u32 + 2;
+        let edits = [edit(
+            "src/grouped.sw",
+            [line, 0, line, 15],
+            "  ((n: Nat) => Nat.addZero n) k",
+        )];
+        let trial = checked(live.trial(&edits, &same_statement()).unwrap());
+        let changed: Vec<(&str, Option<&str>, &[String])> = trial
+            .problems
+            .changed
+            .iter()
+            .map(|c| (c.name.as_str(), c.uses.as_deref(), c.reproved.as_slice()))
+            .collect();
+        assert_eq!(
+            changed,
+            [
+                ("f", None, &["Grouped.t".to_string()][..]),
+                ("user", Some("f"), &[][..]),
+            ],
+            "{:?}",
+            trial.problems
+        );
+        assert_eq!(trial.proofs_changed, ["Grouped.t"]);
+        live.restore(trial).unwrap();
+    });
 }

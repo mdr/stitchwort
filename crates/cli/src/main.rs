@@ -145,12 +145,6 @@ enum SweepCommand {
         /// repeated): listed as refused
         #[arg(long, value_name = "NAME")]
         keep: Vec<String>,
-        /// Check with the "proofs only" promise instead of "same
-        /// statement": a definition whose proofs changed (a theorem it
-        /// embeds was re-proved) is accepted if its hash with proofs left
-        /// out held
-        #[arg(long)]
-        proofs_only: bool,
         /// The project folder, if not the folder you're in or the nearest
         /// one above it
         #[arg(long)]
@@ -1551,7 +1545,6 @@ fn run(cli: Cli) -> ExitCode {
             plan,
             json,
             keep,
-            proofs_only,
             project,
             cache,
         }) => sweep_cmd::theorem_binders(&sweep_cmd::Args {
@@ -1563,7 +1556,6 @@ fn run(cli: Cli) -> ExitCode {
             plan,
             json,
             keep: &keep,
-            proofs_only,
             project: project.as_deref(),
             cache: &cache,
         }),

@@ -347,7 +347,7 @@ moved, so a sweep that keeps hashes can be checked exactly. Three gaps:
   respects-proofs, the Graph searches' `decreasing` proofs), so a
   re-proved theorem moves the hash of every definition that mentions it,
   and the hash of every statement that mentions one of those. For these
-  the promise is "proofs only" (`--proofs-only`, SW-2698): compare each
+  the promise was "proofs only" (`--proofs-only`, SW-2698; the flag is gone since SW-4781, and so is this problem: rule I makes a definition cite a theorem by its statement): compare each
   declaration's hash without proofs (`hash::proofless_hash`), its content
   hash with every proof position hashed as one marker and every reference
   hashed by this hash in turn. The proof positions are what a run never

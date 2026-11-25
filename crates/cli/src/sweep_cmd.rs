@@ -12,9 +12,9 @@
 //! moves, whose changed proof a definition mentions (a definition's hash
 //! covers the proofs in it, say a structure's invariant), or that has a
 //! new diagnostic, is refused: left as it was and listed, and the rest are
-//! checked again, until nothing is found. With `--proofs-only` the promise
-//! is "proofs only" instead: a definition whose hash moved only through the
-//! proofs it embeds (its hash without proofs held) is accepted and listed.
+//! checked again, until nothing is found. A change no converted theorem
+//! accounts for is a bug in the sweep, not something to pin on a theorem:
+//! it is listed and the exit status is 1.
 //!
 //! Exit status: 0 done (or nothing to do); 1 something couldn't be checked
 //! clean; 2 refused or not understood.
@@ -53,8 +53,6 @@ pub(super) struct Args<'a> {
     pub json: bool,
     /// Theorems to leave as they are.
     pub keep: &'a [String],
-    /// Check with `Promise::ProofsOnly` instead of `SameStatement`.
-    pub proofs_only: bool,
     pub project: Option<&'a Path>,
     pub cache: &'a CacheArgs,
 }
@@ -511,12 +509,11 @@ fn file_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
         report(args, "plan", &sweeps, false, true, &Trail::default());
         return ExitCode::from(CLEAN);
     }
-    let promise = promise(args);
+    let promise = promise();
     let mut before: BTreeMap<String, (Vec<DeclHash>, Vec<Diagnostic>)> = BTreeMap::new();
     let mut clean = false;
     let mut leftover = Vec::new();
     let mut proofs_changed: Vec<String> = Vec::new();
-    let mut proofs_only: Vec<String> = Vec::new();
     let mut rounds: Vec<Value> = Vec::new();
     for _ in 0..MAX_ROUNDS {
         sweep_all(&mut sweeps);
@@ -527,7 +524,6 @@ fn file_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
         let mut found = 0;
         leftover.clear();
         proofs_changed.clear();
-        proofs_only.clear();
         let changed: Vec<String> = sweeps
             .iter()
             .filter(|s| s.changed())
@@ -587,7 +583,6 @@ fn file_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
             results.push((path.clone(), refused_here, diff));
         }
         let mut all_moved = Vec::new();
-        let mut any_bad = false;
         for (path, unhashed, diff) in results {
             let s = sweeps
                 .iter_mut()
@@ -597,9 +592,7 @@ fn file_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
                 s.refuse(&name, reason);
                 found += 1;
             }
-            any_bad |= !diff.is_empty();
             proofs_changed.extend(diff.proofs_changed.iter().cloned());
-            proofs_only.extend(diff.proofs_only.iter().cloned());
             let moved: Vec<Moved> = diff
                 .changed
                 .iter()
@@ -615,9 +608,6 @@ fn file_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
             }
         }
         found += refuse_moved(&mut sweeps, &all_moved, &mut leftover);
-        if found == 0 && any_bad {
-            found += refuse_changed_proofs(&mut sweeps, &proofs_changed, &leftover);
-        }
         rounds.push(round_log(found, &leftover));
         if found == 0 {
             clean = leftover.is_empty();
@@ -627,7 +617,6 @@ fn file_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
     let trail = Trail {
         leftover,
         proofs_changed,
-        proofs_only,
         rounds,
         promise: super::trial_cmd::promise_name(&promise),
     };
@@ -684,11 +673,10 @@ fn project_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
     if args.plan {
         return plan_only(args, &mut sweeps);
     }
-    let promise = promise(args);
+    let promise = promise();
     let mut clean = false;
     let mut leftover = Vec::new();
     let mut proofs_changed: Vec<String> = Vec::new();
-    let mut proofs_only: Vec<String> = Vec::new();
     let mut rounds: Vec<Value> = Vec::new();
     for _ in 0..MAX_ROUNDS {
         for s in sweeps.iter_mut() {
@@ -716,7 +704,6 @@ fn project_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
         };
         let problems = trial.problems.clone();
         proofs_changed = trial.proofs_changed.clone();
-        proofs_only = trial.proofs_only.clone();
         let _ = live.restore(trial);
         if problems.is_empty() {
             clean = true;
@@ -770,11 +757,6 @@ fn project_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
             })
             .collect();
         found += refuse_moved(&mut sweeps, &moved, &mut leftover);
-        if found == 0 {
-            // A change no converted theorem accounts for directly: the
-            // theorems whose proofs changed are the suspects.
-            found += refuse_changed_proofs(&mut sweeps, &proofs_changed, &leftover);
-        }
         rounds.push(round_log(found, &leftover));
         if found == 0 {
             break;
@@ -783,7 +765,6 @@ fn project_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
     let trail = Trail {
         leftover,
         proofs_changed,
-        proofs_only,
         rounds,
         promise: super::trial_cmd::promise_name(&promise),
     };
@@ -792,12 +773,9 @@ fn project_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
     })
 }
 
-fn promise(args: &Args) -> Promise {
-    let renames = BTreeMap::new();
-    if args.proofs_only {
-        Promise::ProofsOnly { renames }
-    } else {
-        Promise::SameStatement { renames }
+fn promise() -> Promise {
+    Promise::SameStatement {
+        renames: BTreeMap::new(),
     }
 }
 
@@ -806,22 +784,21 @@ struct Moved {
     name: String,
     /// Another moved declaration it mentions.
     uses: Option<String>,
-    /// The re-proved theorems it mentions, directly or through others
-    /// (full names).
+    /// The re-proved theorems in its group (full names): its hash covers
+    /// their proofs.
     reproved: Vec<String>,
 }
 
 /// Refuses the converted theorems that `moved` leads back to, and returns
-/// how many; what none accounts for goes in `leftover`. Only a moved
-/// declaration that mentions nothing else that moved, itself or through
-/// the re-proved theorems it mentions, is a root; the rest may have moved
-/// only because of a root. For each root, in order of
-/// precision: the converted theorems whose re-proved proofs it mentions,
-/// directly or through other re-proved theorems (a definition's hash
-/// covers the proofs it mentions, say a structure's invariant); or itself,
-/// a converted theorem whose statement moved. A converted theorem whose
-/// statement moved along with something it mentions waits for the next
-/// round, unless nothing else is found.
+/// how many; what none accounts for goes in `leftover`, a bug in the sweep
+/// (a rewritten proof moves no hash outside its own group: a theorem is
+/// cited by its statement). Only a moved declaration that mentions nothing
+/// else that moved is a root; the rest may have moved only because of a
+/// root. For each root: the converted theorems in its group (a computing
+/// definition's group hash covers their proofs); or itself, a converted
+/// theorem whose statement moved. A converted theorem whose statement moved
+/// along with something it mentions waits for the next round, unless
+/// nothing else is found.
 fn refuse_moved(sweeps: &mut [FileSweep], moved: &[Moved], leftover: &mut Vec<String>) -> usize {
     let mut found = 0;
     let refuse = |sweeps: &mut [FileSweep], name: &str, reason: String| -> bool {
@@ -847,7 +824,7 @@ fn refuse_moved(sweeps: &mut [FileSweep], moved: &[Moved], leftover: &mut Vec<St
                         sweeps,
                         owner(r),
                         format!(
-                            "its proof changed, and `{}` mentions it, so its hash would move",
+                            "its proof changed, and `{}` is in its group, so its hash would move",
                             m.name
                         ),
                     );
@@ -869,15 +846,8 @@ fn refuse_moved(sweeps: &mut [FileSweep], moved: &[Moved], leftover: &mut Vec<St
             let mut line = format!("`{}` changed", m.name);
             if let Some(u) = &m.uses {
                 line += &format!(" (it mentions `{u}`, which changed)");
-            } else if !m.reproved.is_empty() {
-                line += &format!(
-                    " (it mentions the re-proved {})",
-                    m.reproved
-                        .iter()
-                        .map(|r| format!("`{r}`"))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                );
+            } else {
+                line += " (no converted theorem accounts for it: a sweep bug)";
             }
             leftover.push(line);
         }
@@ -906,27 +876,6 @@ fn round_log(found: usize, leftover: &[String]) -> Value {
             .filter(|l| !l.contains("which changed)"))
             .collect::<Vec<_>>(),
     })
-}
-
-fn refuse_changed_proofs(
-    sweeps: &mut [FileSweep],
-    proofs_changed: &[String],
-    leftover: &[String],
-) -> usize {
-    let mut found = 0;
-    let because = format!(
-        "its proof changed, and something it may be used by changed: {}",
-        leftover.join("; ")
-    );
-    for name in proofs_changed {
-        for s in sweeps.iter_mut() {
-            if s.converted_named(name).is_some() {
-                s.refuse(name, because.clone());
-                found += 1;
-            }
-        }
-    }
-    found
 }
 
 pub(super) fn whole_file(path: &str, old: &str, new: &str) -> Edit {
@@ -1092,11 +1041,10 @@ fn std_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
     if let Err(e) = copy_dir(&root, &copy) {
         return refused(args.json, format!("can't copy the library: {e}"));
     }
-    let promise = promise(args);
+    let promise = promise();
     let mut clean = false;
     let mut leftover = Vec::new();
     let mut proofs_changed: Vec<String> = Vec::new();
-    let mut proofs_only: Vec<String> = Vec::new();
     let mut rounds: Vec<Value> = Vec::new();
     for _ in 0..MAX_ROUNDS {
         for s in sweeps.iter_mut() {
@@ -1163,7 +1111,6 @@ fn std_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
                 }
                 let diff = declhash::compare(&before, &after, &promise);
                 proofs_changed = diff.proofs_changed.clone();
-                proofs_only = diff.proofs_only.clone();
                 if diff.is_empty() {
                     if found == 0 {
                         clean = true;
@@ -1183,10 +1130,6 @@ fn std_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
                     for n in diff.added.iter().chain(&diff.removed) {
                         leftover.push(format!("`{n}` added or removed"));
                     }
-                    if found == 0 {
-                        found +=
-                            refuse_changed_proofs(&mut sweeps, &diff.proofs_changed, &leftover);
-                    }
                 }
             }
         }
@@ -1199,7 +1142,6 @@ fn std_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
     let trail = Trail {
         leftover,
         proofs_changed,
-        proofs_only,
         rounds,
         promise: super::trial_cmd::promise_name(&promise),
     };
@@ -1240,7 +1182,6 @@ struct Trail {
     proofs_changed: Vec<String>,
     /// Under the "proofs only" promise: the definitions and data types
     /// whose proofs changed, accepted.
-    proofs_only: Vec<String>,
     rounds: Vec<Value>,
     promise: &'static str,
 }
@@ -1329,7 +1270,6 @@ fn report(
             "refused": refused,
             "skippedByReason": by_reason,
             "proofsChanged": proofs_changed,
-            "proofsOnly": trail.proofs_only,
             "rounds": trail.rounds,
             "files": files,
         }));
@@ -1365,9 +1305,6 @@ fn report(
             "{} proof(s) changed with the statement kept",
             proofs_changed.len()
         );
-    }
-    for name in &trail.proofs_only {
-        println!("only proofs changed in {name}");
     }
     for (reason, n) in &by_reason {
         println!("  skipped {reason}: {n}");
