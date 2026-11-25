@@ -54,5 +54,5 @@ warmup each). Run it on a quiet machine and record `uptime` first.
     the whole run including startup, index and scan, our counterpart of Lean's
     precompiled `.olean`. Its ratio to `lean file` is the end-to-end figure.
   - `lake build (cold)`: Lib plus the day, `.lake` deleted first.
-- hyperfine's JSON is read by `measurements[].time_wall_clock.value`; a
-  missing key or a wrong number of runs stops the bench.
+- hyperfine's JSON is read in 2.0's format (`measurements[].time_wall_clock.value`) or 1.x's (`times`; the flake has 1.21);
+  a missing key or a wrong number of runs stops the bench.

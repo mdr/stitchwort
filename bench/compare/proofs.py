@@ -81,9 +81,10 @@ def ported_theorems(day):
 
 
 def hyperfine(name, command, runs, scratch, prepare=None, cwd=None):
-    """Median wall time in seconds. Reads hyperfine 2.0's JSON, which has no
-    `median`/`times` keys, only each run's `measurements[].time_wall_clock.value`;
-    a missing key or a wrong run count stops the bench."""
+    """Median wall time in seconds. Reads either JSON format: hyperfine 2.0's
+    `measurements[].time_wall_clock.value` (no `median`/`times` keys), or 1.x's
+    `times` (the flake's is 1.21). Neither present, or a wrong run count,
+    stops the bench."""
     json_path = scratch / f"{name}.json"
     cmd = ["hyperfine", "--warmup", "1", "--runs", str(runs), "--export-json", str(json_path),
            "--command-name", name, "--input", "null"]
@@ -94,8 +95,11 @@ def hyperfine(name, command, runs, scratch, prepare=None, cwd=None):
     if done.returncode != 0:
         sys.exit(f"hyperfine failed on {name}: {done.stderr[-400:]}")
     try:
-        measurements = json.loads(json_path.read_text())["results"][0]["measurements"]
-        times = [m["time_wall_clock"]["value"] for m in measurements]
+        result = json.loads(json_path.read_text())["results"][0]
+        if "measurements" in result:
+            times = [m["time_wall_clock"]["value"] for m in result["measurements"]]
+        else:
+            times = result["times"]
     except (KeyError, IndexError, TypeError) as err:
         sys.exit(f"hyperfine's JSON for {name} lacks the expected key {err}: has this version's format changed?")
     if len(times) != runs:
