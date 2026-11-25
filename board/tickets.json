@@ -1,5 +1,5 @@
 {
-  "next": 4796,
+  "next": 4798,
   "tickets": [
     {
       "id": 47,
@@ -35219,7 +35219,7 @@
     {
       "id": 4793,
       "title": "[Fable paper] Review SW-4786's argument that every place the proofless hash leaves out a proof is safe (the kernel reads nothing there that the hash drops), apart from J's proof, which is now fixed. Find where the proofless hash carries trust: the stage 3 interface, the cache digest, ProofsOnly in the trial and rename (SW-4786 finding)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -35227,7 +35227,10 @@
       "body": "",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "4ba75ad4b",
+        "5469018a8"
+      ]
     },
     {
       "id": 4794,
@@ -35251,6 +35254,32 @@
       "labels": [
         "bug"
       ],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4796,
+      "title": "[Opus] Kernel, rule S behind a type alias (SW-4793 finding 1, docs/reviews/SW-4793-proofless-hash-review.md): rule S reads a scrutinee's type from the definition's type as written and declines when it isn't a Pi chain (value.rs:3053, 2937-2939), so with def Reader: Type := (x: Nat) -> Q2 x -> Nat and f: Reader matching MkQ2, f 0 (MkQ2 byComputing) computes but f 0 pf is stuck. Probe first (example 39 with the signature behind an alias, and behind an opaque nickname with unfolding); if it fails, read the parameter type from the definition's type evaluated in its own view (field_type), update docs/core.md:310, soundness set; Fable review after",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4797,
+      "title": "[DeepSeek] term_diff's J arm (crates/driver/src/live/term_diff.rs:701-706) compares two casts by motive and base only; compare their equations (ends) under the proofless hash's guard (hash.rs Term::J arm, SW-4786) so a ProofsOnly refusal from changed ends gets a location; and add a sentence to proofless_hash's doc that a ? or failed-proof stand-in at a proof position hashes as any proof, so a key built on this hash must carry the goals beside it (SW-4793 findings 2, 3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-25",
