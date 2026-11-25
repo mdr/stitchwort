@@ -1622,6 +1622,10 @@ impl Elaborator {
         self.session.library_interface_digest.take();
         // The prelude's imports are its own.
         self.scope.clear_imports();
+        // So is its module's scratch (items, waits, the declarations each
+        // made): nothing after the core reads it, and a core loaded from
+        // the check cache has none (`cache::core_entry`).
+        self.unit.module = module::ModuleState::default();
         self.tables.prelude_defs = self.kernel.env.defs().len();
         registry::check_complete_core(&self.ev())
     }

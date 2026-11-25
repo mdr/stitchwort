@@ -653,9 +653,11 @@ pub fn serve_from(
     // cache, when it has one, before any session asks for it. The index is
     // keyed by the library's text and made once per process, and the
     // library is read once at start (above), so nothing it names can go
-    // stale while the server runs.
+    // stale while the server runs. The core comes from the same cache, on
+    // an exact match only (SW-4814).
     if let Some(cache) = workspace_folder(&params).and_then(|dir| source.file_cache(&dir)) {
         stitchwort_driver::check_cache::use_std_index_cache(&cache);
+        stitchwort_driver::check_cache::use_core_cache(&cache, false);
     }
 
     let nav = Arc::new(RwLock::new(Nav::default()));
