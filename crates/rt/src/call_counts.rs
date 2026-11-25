@@ -607,7 +607,7 @@ pub fn report() -> Vec<String> {
 /// Prints [`report`] to standard error if this build counts and
 /// `STITCHWORT_CALL_COUNTS` is set.
 pub fn print_if_asked() {
-    if ENABLED && std::env::var_os("STITCHWORT_CALL_COUNTS").is_some() {
+    if ENABLED && stitchwort_core::env_flag::env_flag("STITCHWORT_CALL_COUNTS") {
         for line in report() {
             eprintln!("{line}");
         }

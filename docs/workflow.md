@@ -448,7 +448,7 @@ times. A clean rebuild with `RUSTC_WRAPPER=` empty is the test of one run.
   (`hash_stability::examples`); rejected, goal and soundness examples have
   none, so adding one there needs no `snap:hashes`.
 - **Why the check cache did or didn't answer.** `STITCHWORT_CACHE_DEBUG=1`
-  (any value) makes `check` print `check cache: …` lines on stderr: per
+  (any value but empty, `0` or `false`; see docs/testing.md) makes `check` print `check cache: …` lines on stderr: per
   namespace `replayed from its entry`, `loaded from its interface entry`,
   `carried over`, `elaborated`, `a miss: WHY`, `not skipped: WHY`, and `written,
   digest HEX, SHAPE` for an entry it wrote; the same for library files

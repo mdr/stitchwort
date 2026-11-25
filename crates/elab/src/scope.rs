@@ -667,6 +667,36 @@ impl Scope {
         self.wildcard_failed.clear();
     }
 
+    /// Every key the default level (`Level::Default`) may find for the
+    /// short name `x` in a program: the library root's `x` if it's a
+    /// prelude name, and the constructors of the library root's types
+    /// named `x`. Whether each type is what its short name means where `x`
+    /// is written isn't asked, so this may hold more than a lookup finds,
+    /// never less.
+    pub(crate) fn default_candidates(&self, x: &str) -> Vec<String> {
+        let mut out: Vec<String> = Vec::new();
+        if PRELUDE.contains(&x)
+            && let Some(key) = self.std_root.get(x)
+        {
+            out.push(key.clone());
+        }
+        for key in self.followers.get(x).into_iter().flatten() {
+            let owner = parent(key).unwrap_or("");
+            let at_root = owner.strip_prefix("Std.").is_some_and(|p| !p.contains('.'));
+            let is_op = matches!(
+                self.get(key),
+                Some((
+                    Global::Op(..) | Global::Pending(_, crate::library::PendingKind::Op),
+                    _
+                ))
+            );
+            if at_root && !is_op && !out.contains(key) {
+                out.push(key.clone());
+            }
+        }
+        out
+    }
+
     /// The key of the library's root name `x`, or of the alias.
     pub(crate) fn std_root_key(&self, x: &str) -> Option<&str> {
         self.std_root.get(x).map(String::as_str)

@@ -1790,7 +1790,7 @@ impl Elaborator {
     /// Adds each file's imports to its own table (`own` as in
     /// [`Elaborator::add_imports`]); errors are positioned at the file's
     /// first declaration.
-    fn add_file_imports(
+    pub(crate) fn add_file_imports(
         &mut self,
         files: &[SourceUnit],
         file_starts: &[usize],

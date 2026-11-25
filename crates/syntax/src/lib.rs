@@ -7,6 +7,7 @@ use stitchwort_test_alloc as _;
 pub mod ast;
 mod diagnostic;
 pub mod docs;
+pub mod env_flag;
 pub mod equivalence;
 mod lexer;
 pub mod lower;

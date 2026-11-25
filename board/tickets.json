@@ -1,5 +1,5 @@
 {
-  "next": 4839,
+  "next": 4841,
   "tickets": [
     {
       "id": 47,
@@ -35757,15 +35757,20 @@
     {
       "id": 4827,
       "title": "[Opus] Work out doc-link warnings (W-DOC-LINK) without loading the namespace and its library: plan_skips loads any cached namespace whose files have doc links, so one link in Aoc/Common/Proofs/PrefixSums.sw costs day 15 and the 23 days that import Aoc.Common.Proofs about 180 ms per cached check (measured, SW-4819 rank 1); warnings must be identical",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Progress (Opus lane, 25 Nov 15:27-15:50): plan_skips now leaves out a cached namespace whose doc links surely all resolve in a replay (candidate known from the library index, core, project namespaces/pre-pass names, or declared by syntax in the namespace or its closure; short names checked for ambiguity at the own-root and default levels, the only ones a replay sees). Links that may warn, or need full elaboration (local definitions, names only elaboration makes), load the namespace as before. Day 15 floor 385 -> 202 ms (hyperfine, 5 runs, 5-min load 7.8-7.9). New test check_cache::plain_check_works_out_doc_links_without_loading (failed before the change: Good loaded); all 20 check_cache:: tests pass. Finding: a replayed namespace drops an import-made W-DOC-LINK ambiguity that a fresh check reports (cold warns, warm doesn't, with skipping off).\n\nReview fixes (16:00-16:16): F1 links into project namespaces the linking one doesn't use count by what their files declare (sketch field, scan cache format bumped), so neither skipping nor check order changes them; F2/SW-4836 did-you-mean uses the same set; F3 short links to library-root constructors count as named. New test check_cache::doc_links_dont_depend_on_what_a_check_loads (failed before: Aa warned on Alpha.T.Mk in a cold check); check_cache:: (22 with the rename test), driver doc_links:: + references::doc_links, cli doc:: link tests pass.\n\nRe-review fix (16:24-16:40): declared_in lists dotted declarations' members/fields/unfold; equation-lemma links into unused namespaces count by what is loaded and the plan loads their namespace with the linking one. New test check_cache::doc_links_reach_what_declarations_make (failed before: Alpha.Pt.Kind.Big etc. named nothing); check_cache:: 22 pass.\n\nTwo Opus reviews (load-dependent warnings in other namespaces; declared_in missing dotted members and eqN). Orchestrator's call: a link to a proof's local definition in an unimported namespace now always warns (D3736 privacy). Model result: opus, needed fixes (two review rounds), about 55 min (est. 50). Left as on main: a lemma link from a namespace checked before the lemma's namespace warns cold.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "55f37c9ef",
+        "16063d120",
+        "dc8dd1a4e",
+        "d27d9fd4a"
+      ]
     },
     {
       "id": 4828,
@@ -35786,15 +35791,18 @@
     {
       "id": 4829,
       "title": "[Sonnet] Project edges without format! strings: namespace_edges_of takes 22 of the 40 ms of a cached project scan; keep content keying (edges feed cache keys) and add a test that edges are unchanged (SW-4819 rank 4)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": "Speedwell",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Lane: longest_namespace (called per qualified ref, format! per namespace) was the whole cost; now prefix lookups. Edges equal the old on a generated project (elab edges_tests). Warm day 2 check 190 -> 166 ms (hyperfine -N, 20 runs, load ~10). Check-cache names identical for tools/fmt (222 files, 150 ns entries) and 3 AoC namespaces (61 files) apart from build-keyed scan/ran/std-index entries.\n\nOrchestrator review: lookup equivalent (exact path when equal, then dot-bounded prefixes longest first). Keys identical on tools/fmt (222) and three AoC namespaces (61). Model result: sonnet, worked, about 20 min (est. 30).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "c0f545db5",
+        "8aa74ef01"
+      ]
     },
     {
       "id": 4830,
@@ -35804,7 +35812,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Orchestrator's call: held until SW-4814 merges (both edit Session::start_in's core loading).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
@@ -35864,20 +35872,23 @@
     {
       "id": 4835,
       "title": "[Sonnet] A warm check drops an ambiguous-doc-link warning a cold check prints: with import A (x), import B (x) and a doc link to x, the cold check warns W-DOC-LINK ambiguous and the warm one prints nothing, even with skipping off (replay clears imports); predates SW-4827; repro in SW-4827's scratch probe2 (copy it into the ticket's test). Every bug fix carries a test.",
-      "status": "backlog",
-      "agent": "",
+      "status": "done",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Fixed: replay applies the file's imports for doc links only (cache/mod.rs); doc_links_resolve_unloaded refuses to skip when imports bring a name along with another candidate. Test doc_links_through_imports_are_the_same_cold_and_warm; check_cache:: 23 pass.\n\nOrchestrator review: imports applied for link resolution only and cleared; skip rule made conservative for import-derived candidates. Model result: sonnet, worked, 12 min (est. 35).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "9b4e77e49",
+        "5f92c2f55"
+      ]
     },
     {
       "id": 4836,
       "title": "[Sonnet] A broken doc link's 'did you mean' note searches every name in scope, so loading only a namespace's closure and loading everything can suggest different names: make the suggestion depend only on the namespace's own scope (SW-4827 finding 2)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -35885,7 +35896,10 @@
       "body": "Folded into SW-4827's review fixes (F2).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "16063d120",
+        "d27d9fd4a"
+      ]
     },
     {
       "id": 4837,
@@ -35903,6 +35917,22 @@
     {
       "id": 4838,
       "title": "[Sonnet] STITCHWORT_CACHE_DEBUG=0 still turns cache debug on (the variable only has to be set); read it as a boolean, and document STITCHWORT_SKIP_UNNEEDED and the cache debug switch in docs/testing.md, including that one namespace with an error stops all skipping (SW-4827 review friction)",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "Done: env_flag helper in core; CACHE_DEBUG=0 now off; test cache_debug_reads_its_value (failed first); docs/testing.md 'Check-cache switches'. Commit 85c7327f6.\n\nModel result: sonnet, worked, about 15 min (est. 15).",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": [
+        "85c7327f6",
+        "01f813191"
+      ]
+    },
+    {
+      "id": 4839,
+      "title": "[Sonnet] A command that compares two check-cache folders ignoring build keys (scan, ran, std-index names and the build id inside entries): two lanes and two reviews today hand-filtered entry names to show a change kept cache keys (SW-4829, SW-4827 friction; with SW-4822)",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -35912,6 +35942,22 @@
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
+    },
+    {
+      "id": 4840,
+      "title": "[DeepSeek] Read the other presence-only STITCHWORT_ switches (STITCHWORT_SEARCH_DEBUG, STITCHWORT_TIMINGS, STITCHWORT_NATIVE_DUMP and the rest: grep var_os(\"STITCHWORT_) through stitchwort_core's env_flag, so =0 means off (SW-4838 finding)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "Started on DeepSeek 17:01, est. 20 min.\n\nOrchestrator review: defaults kept (LOAD_PROOFS and STATEMENTS_FIRST default on; REQUIRE_WASM now also takes true/yes; empty now means off everywhere). Helper moved to stitchwort-syntax, re-exported from core. Model result: deepseek, worked, about 12 min (est. 20).",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": [
+        "8dd9be94a",
+        "5dd5ae823"
+      ]
     }
   ]
 }

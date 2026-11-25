@@ -2501,7 +2501,7 @@ fn check(
     // `measure_load.sh`) before a plain check does it itself: what it
     // reports over a namespace with an error may differ in a note's text.
     if load == Load::Diagnostics
-        && std::env::var_os("STITCHWORT_LOAD_PROOFS").is_some_and(|v| v == "0")
+        && !stitchwort_core::env_flag::env_flag_or("STITCHWORT_LOAD_PROOFS", true)
     {
         session.elab.set_load_without_proofs(true);
     }
@@ -2881,8 +2881,10 @@ fn fill_in_parallel(
             make_store: &make_store,
             seed,
             // Stage 3 (parallel-checking-stage-3.md), off for comparison.
-            statements_first: std::env::var_os("STITCHWORT_STATEMENTS_FIRST")
-                .is_none_or(|v| v != "0"),
+            statements_first: stitchwort_core::env_flag::env_flag_or(
+                "STITCHWORT_STATEMENTS_FIRST",
+                true,
+            ),
             cancel: None,
             free_sessions: false,
             watch: None,

@@ -1089,7 +1089,7 @@ fn note_trace(cx: &Ctx, node: u32, line: Vec<Piece>) {
 /// tried at `node` and dropped: an error it recovers from (a direct fit
 /// before weakening) is otherwise never seen.
 fn debug_trace(cx: &Ctx, node: &NodeInfo, what: &str, expected: &Value, err: &Diagnostic) {
-    if std::env::var_os("STITCHWORT_WALK_TRACE").is_none_or(|v| v == "0") {
+    if !stitchwort_core::env_flag::env_flag("STITCHWORT_WALK_TRACE") {
         return;
     }
     let mut line = format!(

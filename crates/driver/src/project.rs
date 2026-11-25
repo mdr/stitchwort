@@ -454,8 +454,9 @@ impl Session {
     /// them, with the warnings each reports. One is left out if its entry
     /// fits ([`stitchwort_elab::Elaborator::plan_namespace`]) and nothing
     /// that is loaded needs it. Loaded: the misses; the namespaces with
-    /// syntax errors or doc links, whose diagnostics aren't all in the
-    /// entry; the namespaces that use a miss or one with syntax errors
+    /// syntax errors, or with doc links that may warn, whose diagnostics
+    /// aren't all in the entry (a doc link's warning isn't cached); the
+    /// namespaces that use a miss or one with syntax errors
     /// (which may fail, and so make some of theirs wait); and everything
     /// those use.
     fn plan_skips(
@@ -469,18 +470,15 @@ impl Session {
         let mut loaded: Vec<String> = Vec::new();
         for name in order {
             let ns = analysis.namespace(name).expect("a namespace");
-            let planned = self
-                .elab
-                .plan_namespace(name, &dependencies(analysis, name));
+            let closure = dependencies(analysis, name);
+            let planned = self.elab.plan_namespace(name, &closure);
             let certain = ns.parse_errors.is_empty()
                 && !ns
                     .edges
                     .iter()
                     .any(|e| uncertain.contains(e.target.as_str()));
             match planned {
-                Some(warnings)
-                    if certain && ns.modules().iter().all(|m| m.doc_links.is_empty()) =>
-                {
+                Some(warnings) if certain && self.doc_links_quiet(ns, &closure) => {
                     fits.insert(name.clone(), warnings);
                 }
                 Some(_) if certain => loaded.push(name.clone()),
@@ -493,7 +491,42 @@ impl Session {
         for needed in closure(analysis, &loaded) {
             fits.remove(&needed);
         }
+        // A doc link to another namespace's equation lemma counts by what
+        // is loaded, so a namespace that is loaded brings the namespaces
+        // whose lemmas its links may name, as loading everything would.
+        loop {
+            let mut more: Vec<String> = Vec::new();
+            for name in order.iter().filter(|n| !fits.contains_key(*n)) {
+                let ns = analysis.namespace(name).expect("a namespace");
+                let modules = ns.modules();
+                if modules.iter().all(|m| m.doc_links.is_empty()) {
+                    continue;
+                }
+                let closure = dependencies(analysis, name);
+                for owner in (self.elab).doc_link_lemma_owners(name, &closure, &modules) {
+                    if fits.contains_key(&owner) && !more.contains(&owner) {
+                        more.push(owner);
+                    }
+                }
+            }
+            if more.is_empty() {
+                break;
+            }
+            for needed in closure(analysis, &more) {
+                fits.remove(&needed);
+            }
+        }
         fits
+    }
+
+    /// Whether no doc link of `ns`, whose closure is `closure`, warns when
+    /// it is replayed, as far as can be told without loading it
+    /// ([`stitchwort_elab::Elaborator::doc_links_resolve_unloaded`]); true
+    /// for a namespace with none.
+    fn doc_links_quiet(&self, ns: &Namespace, closure: &[String]) -> bool {
+        let modules = ns.modules();
+        modules.iter().all(|m| m.doc_links.is_empty())
+            || (self.elab).doc_links_resolve_unloaded(&ns.name, closure, &modules)
     }
 
     /// Checks one namespace `ns` of a project, after the namespaces it uses
@@ -1139,7 +1172,7 @@ struct ScanFile {
 }
 
 /// What the scan cache's entry for a project starts with.
-const SCAN_MAGIC: &[u8; 8] = b"SWSCAN\x01\0";
+const SCAN_MAGIC: &[u8; 8] = b"SWSCAN\x03\0";
 
 /// Where a project's scan is kept in a check cache store: the unit (a
 /// letter, so the name is parsed as the store's own) and the key.
@@ -1434,6 +1467,18 @@ fn analyse_units(
         })
         .collect();
     elab.set_project_names(names);
+    let declared: BTreeMap<String, HashSet<String>> = (0..namespaces.len())
+        .filter(|i| namespaces[*i].parse_errors.is_empty())
+        .map(|i| {
+            let name = &namespaces[i].name;
+            let keys = (sketches[i].iter())
+                .flat_map(|s| &s.declared)
+                .map(|k| format!("{name}.{k}"))
+                .collect();
+            (name.clone(), keys)
+        })
+        .collect();
+    elab.set_project_declared(declared);
     let edges: Vec<Vec<Edge>> = (0..namespaces.len())
         .map(|i| {
             if namespaces[i].files.is_empty() {
@@ -1556,10 +1601,10 @@ pub fn assert_holds_no_unproved_theorem(session: &Session) {
 }
 
 /// Whether a plain `check` may leave out the namespaces it doesn't need
-/// ([`Load::Diagnostics`]): unless `STITCHWORT_SKIP_UNNEEDED` is `0`, to
+/// ([`Load::Diagnostics`]): unless `STITCHWORT_SKIP_UNNEEDED` is off (`0`, `false`, empty), to
 /// compare with loading everything.
 fn skip_unneeded_enabled() -> bool {
-    std::env::var_os("STITCHWORT_SKIP_UNNEEDED").is_none_or(|v| v != "0")
+    stitchwort_core::env_flag::env_flag_or("STITCHWORT_SKIP_UNNEEDED", true)
 }
 
 /// `roots` and every namespace they use, directly or not, by name.

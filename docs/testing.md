@@ -274,9 +274,16 @@ HASH_DUMP=/tmp/rogue.txt HASH_DUMP_PROJECT=games/rogue cargo test --release -p s
 
 - `HASH_DUMP_PROJECT` is a project directory relative to the repository's root; `aoc` if unset.
 - With `HASH_DEPS` set to a second path, it also writes each definition's direct references, one line per definition, to work out which changed hashes only follow from another.
-- With `STITCHWORT_DEBUG_FORCE_UNGLUED` set, every folded read-back is preceded by an unfolded one with gluing off, which fills the cache of every call it reaches, its result and steps thrown away. A dump with it should equal one without (SW-1782): a difference means some reader used an unfolding computed in another mode. It makes the rogue dump about 2.5 times slower.
+- With `STITCHWORT_DEBUG_FORCE_UNGLUED` set (read as a switch: unset, empty, `0` and `false` are off), every folded read-back is preceded by an unfolded one with gluing off, which fills the cache of every call it reaches, its result and steps thrown away. A dump with it should equal one without (SW-1782): a difference means some reader used an unfolding computed in another mode. It makes the rogue dump about 2.5 times slower.
 - It runs on a thread with the command line's 64 MB stack, so a project loads as `stitchwort check` loads it (on the harness's default stack AoC ran out with `E-RESOURCE`, SW-906).
 - The accepted examples' and extract examples' hashes are the `hashes` area's snapshots: `STITCHWORT_TIER=all` with `cargo insta test` shows every one that changed. The quick tier asserts a fixed quarter of them and leaves the rest untouched; the broad and all tiers assert every one, so a new example's snapshot is missing, and noticed, there.
+
+### Check-cache switches
+
+Two environment variables, read by `check` (and `test`, `run` and the editor, which use the same cache), show what the check cache did. Both are read as switches (`stitchwort_core::env_flag`): unset, empty, `0` and `false` are off; any other value is on (SW-4838).
+
+- `STITCHWORT_CACHE_DEBUG=1` (default off) prints `check cache: …` lines on stderr: for each namespace whether it was replayed, loaded, elaborated or written, and why an entry wasn't used. The line kinds and how to read a digest difference are under "Why the check cache did or didn't answer" in `docs/workflow.md`.
+- `STITCHWORT_SKIP_UNNEEDED` (default on) lets a plain `check` of a project report a namespace from its cache entry without loading it, when its entry fits and no namespace that is loaded needs it (SW-1193). `STITCHWORT_SKIP_UNNEEDED=0` loads everything, to compare. The plan is `plan_skips` in `crates/driver/src/project.rs`: a namespace is loaded, not skipped, if its entry misses, if it has syntax errors, or if a doc link of it may warn (those warnings aren't cached); so is every namespace that uses one of those, and everything a loaded namespace uses. Skipping is also all or nothing against errors (`check_in_order`): if a namespace loaded after a skipped one reports an error or an open goal, what it reports can depend on every namespace loaded before it (`E-UNKNOWN-FIELD` names the namespace that would add a missing function), so the session is rewound and the whole project checked again with nothing skipped. A project that has an error or a goal still loads every namespace on a plain `check`; only a project that checks clean skips any (SW-4827).
 
 ### Tracing a resource error
 

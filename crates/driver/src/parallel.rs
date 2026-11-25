@@ -675,7 +675,7 @@ impl Board {
         if claimed == proved && !mismatch_hook::armed(project, &graph.names[i]) {
             return;
         }
-        if std::env::var_os("STITCHWORT_CACHE_DEBUG").is_some() {
+        if stitchwort_core::env_flag::env_flag("STITCHWORT_CACHE_DEBUG") {
             eprintln!(
                 "check cache: {}: its interface pass's digest isn't its proof job's",
                 graph.names[i]

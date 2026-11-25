@@ -914,7 +914,7 @@ pub(super) fn rewrite_repeatedly(
                 computed: computed.as_ref(),
             }),
         );
-        if std::env::var_os("STITCHWORT_REWRITE_METRICS").is_some() {
+        if stitchwort_core::env_flag::env_flag("STITCHWORT_REWRITE_METRICS") {
             eprintln!(
                 "rewrite-repeatedly-metrics: at={}..{} rule={} pass={} applied={} steps={} us={}",
                 listed.rule.span.start,
@@ -1809,7 +1809,7 @@ fn check_rule(cx: &mut Ctx, rule: &RewriteRule) -> Result<Shape> {
     let errors = cx.e.attempt.branch_errors.borrow().len();
     let t0 = std::time::Instant::now();
     let outcome = check_rule_inner(cx, rule);
-    if std::env::var_os("STITCHWORT_REWRITE_METRICS").is_some() {
+    if stitchwort_core::env_flag::env_flag("STITCHWORT_REWRITE_METRICS") {
         eprintln!(
             "rewrite-repeatedly-check: rule={} us={}",
             rule_name(rule),

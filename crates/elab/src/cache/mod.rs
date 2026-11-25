@@ -1336,7 +1336,15 @@ impl Elaborator {
                     // changing (SW-1045). Entries written before that held
                     // them, so they are dropped here too.
                     warnings.retain(|d| d.code != crate::doc_links::CODE);
+                    // A replay applies no imports, but a link means what
+                    // the file's imports make it mean (two imports of a
+                    // name make it ambiguous), as when the namespace is
+                    // elaborated: so they are applied for the links alone.
+                    // Their errors were reported with the entry's.
+                    self.add_file_imports(files, &vec![0; files.len()], false, &mut Vec::new());
+                    self.add_file_imports(files, &vec![0; files.len()], true, &mut Vec::new());
                     warnings.extend(self.doc_link_warnings(files));
+                    self.scope.clear_imports();
                     self.commit(transaction);
                     return (warnings, true);
                 }
@@ -2750,7 +2758,7 @@ fn hex(key: &Key) -> String {
 }
 
 fn debug(what: &str) {
-    if std::env::var_os("STITCHWORT_CACHE_DEBUG").is_some() {
+    if stitchwort_core::env_flag::env_flag("STITCHWORT_CACHE_DEBUG") {
         eprintln!("check cache: {what}");
     }
 }
