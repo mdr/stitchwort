@@ -3357,6 +3357,59 @@ fn every_quick_fix_of_the_server_is_in_check_index() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// Closing the editor while the checker is loading a cold library (a
+/// project cache with none of its entries) returns at once, and leaves
+/// no temporary file in the cache.
+#[test]
+fn shutdown_during_a_cold_library_load_is_prompt() {
+    let dir = fill_project("cold-library-stop", Slowness::Theorems(1));
+    let check = dir.join(".stitchwort/cache/check");
+    std::fs::remove_dir_all(&check).unwrap();
+    std::fs::create_dir_all(&check).unwrap();
+    let client = Client::start_with(Options::new(STACK));
+    let base = dir.join("src/Base/Base.sw");
+    client.open(&uri(&base), &std::fs::read_to_string(&base).unwrap());
+    // Long enough for the checker to be well into the library, which a cold
+    // cache makes take half a minute.
+    std::thread::sleep(Duration::from_millis(1500));
+    let started = Instant::now();
+    client.shutdown();
+    let took = started.elapsed();
+    let temporary: Vec<String> = std::fs::read_dir(&check)
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|name| name.starts_with(".tmp"))
+        .collect();
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(temporary.is_empty(), "{temporary:?}");
+    assert!(took < Duration::from_secs(5), "shutdown took {took:?}");
+}
+
+/// An edit arriving while the checker is loading a cold library doesn't end
+/// the load: the edited file's diagnostics come once it has finished.
+#[test]
+fn an_edit_during_a_cold_library_load_leaves_the_project_working() {
+    let dir = fill_project("cold-library-edit", Slowness::Theorems(1));
+    let check = dir.join(".stitchwort/cache/check");
+    std::fs::remove_dir_all(&check).unwrap();
+    std::fs::create_dir_all(&check).unwrap();
+    let mut client = Client::start_with(Options::new(STACK));
+    let broken = dir.join("src/Broken/Broken.sw");
+    let text = std::fs::read_to_string(&broken).unwrap();
+    client.open(&uri(&broken), &text);
+    std::thread::sleep(Duration::from_millis(1500));
+    client.change(&uri(&broken), 2, &format!("{text}\n"));
+    let diagnostics = client.diagnostics(&uri(&broken), 2);
+    assert!(
+        diagnostics.iter().any(|d| d["severity"] == 1),
+        "{diagnostics:?}"
+    );
+    client.shutdown();
+    copy_library_entries(&check, &fill_library_cache());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// A project of a few namespaces for the start-up fill's tests, in a new
 /// folder, with a check cache that has the shared cache's library entries
 /// and none of the project's: cold for the project, so that the fill has

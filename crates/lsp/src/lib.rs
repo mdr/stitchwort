@@ -146,6 +146,8 @@ pub struct Options {
     pub faults: Arc<Faults>,
     /// The projects' start-up fills ([`Settings::startup_workers`]).
     pub fills: Arc<Fills>,
+    /// Set when the server stops for good: a library load in progress ends.
+    stop: Arc<AtomicBool>,
 }
 
 /// The start-up fills (SW-4760, docs/proposals/parallel-checking.md 9.9):
@@ -515,6 +517,7 @@ impl Options {
             members: Arc::default(),
             faults: Arc::default(),
             fills: Arc::default(),
+            stop: Arc::default(),
         }
     }
 }
@@ -694,6 +697,7 @@ pub fn serve_from(
     let result = main.run();
     // Stops the check in progress; the checker then sees the channel closed.
     main.cancel.store(true, Ordering::Relaxed);
+    options.stop.store(true, Ordering::Relaxed);
     options.fills.stop();
     drop(main);
     for worker in workers {
@@ -4727,6 +4731,7 @@ impl Checker {
         let project = self.source.project(dir)?;
         let mut session = session_for(&self.options);
         session.share_cancel_flag(self.cancel.clone());
+        session.elab.set_stop_flag(self.options.stop.clone());
         let writable = Rc::new(Cell::new(true));
         let mut skip = BTreeSet::new();
         if let Some(cache) = self.source.project_cache(dir) {

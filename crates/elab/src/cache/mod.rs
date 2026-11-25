@@ -488,6 +488,14 @@ impl Elaborator {
         self.options.carry_over = on;
     }
 
+    /// Makes loading the library end, between files, once `flag` is set:
+    /// for a host that is shutting down, so that it isn't kept waiting for
+    /// a cold library. Unlike the budget's cancel flag, which an edit sets
+    /// to restart a check, this one is only set for good.
+    pub fn set_stop_flag(&mut self, flag: std::sync::Arc<std::sync::atomic::AtomicBool>) {
+        self.options.stop = Some(flag);
+    }
+
     /// Whether every entry the check cache loads goes through the kernel's
     /// checks again instead of its trusted admission (`check --recheck`;
     /// off by default): Lean's `lake check`, for a cache. Plain `check`
