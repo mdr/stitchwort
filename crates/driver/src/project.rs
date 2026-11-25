@@ -5,8 +5,9 @@
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, VecDeque};
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
-use stitchwort_core::collections::HashSet;
+use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_elab::project::{Edge, FileSketch, PlanNamespace, SourceUnit, plan_theorems};
 use stitchwort_syntax::ast::{Decl, Module, NamespaceDecl};
 use stitchwort_syntax::{
@@ -1990,6 +1991,7 @@ pub enum EntryKind {
     Other,
 }
 
+#[derive(Clone)]
 pub struct Entry {
     pub name: String,
     pub kind: EntryKind,
@@ -2073,6 +2075,76 @@ impl Files for DiskFiles {
 
     fn is_file(&self, path: &str) -> bool {
         self.path(path).is_file()
+    }
+}
+
+/// Files that are read at most once: the first read of each folder and
+/// file that succeeds is kept and given again, so that a command reading a
+/// project more than once (a `check`: what it read, the parallel fill, the
+/// check after) opens each file once, and every pass sees the same text.
+/// A failed read isn't kept, so its error is the one the files give.
+pub struct ReadOnce<'a> {
+    files: &'a (dyn Files + Sync),
+    entries: Mutex<HashMap<String, Vec<Entry>>>,
+    texts: Mutex<HashMap<String, String>>,
+}
+
+impl<'a> ReadOnce<'a> {
+    pub fn new(files: &'a (dyn Files + Sync)) -> ReadOnce<'a> {
+        ReadOnce {
+            files,
+            entries: Mutex::default(),
+            texts: Mutex::default(),
+        }
+    }
+}
+
+impl Files for ReadOnce<'_> {
+    fn entries(&self, dir: &str) -> std::io::Result<Vec<Entry>> {
+        if let Some(found) = self
+            .entries
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(dir)
+        {
+            return Ok(found.clone());
+        }
+        let found = self.files.entries(dir)?;
+        (self.entries.lock().unwrap_or_else(|e| e.into_inner()))
+            .insert(dir.to_string(), found.clone());
+        Ok(found)
+    }
+
+    fn read(&self, path: &str) -> std::io::Result<String> {
+        if let Some(text) = self
+            .texts
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(path)
+        {
+            return Ok(text.clone());
+        }
+        let text = self.files.read(path)?;
+        (self.texts.lock().unwrap_or_else(|e| e.into_inner()))
+            .insert(path.to_string(), text.clone());
+        Ok(text)
+    }
+
+    fn is_file(&self, path: &str) -> bool {
+        self.files.is_file(path)
+    }
+
+    fn include_files(&self) -> Option<std::rc::Rc<dyn stitchwort_elab::project::IncludeFiles>> {
+        self.files.include_files()
+    }
+
+    fn config(
+        &self,
+        text: &str,
+        display: &str,
+        sources: &mut SourceMap,
+    ) -> Result<Config, Diagnostic> {
+        self.files.config(text, display, sources)
     }
 }
 

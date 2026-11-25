@@ -7,8 +7,8 @@ use clap::{Parser, Subcommand};
 use rustyline::error::ReadlineError;
 use stitchwort_cli::driver::{Cache, Outcome, Session, TestResult};
 use stitchwort_cli::project::{
-    DiskFiles, Load, Target, TheoremCount, analyse, find_project, namespace_of, project_sources,
-    run_unknown_namespace, unknown_namespace,
+    DiskFiles, Files, Load, Target, TheoremCount, analyse, find_project, namespace_of,
+    project_sources, run_unknown_namespace, unknown_namespace,
 };
 use stitchwort_cli::render::{ColorChoice, render};
 use stitchwort_cli::run::Main;
@@ -2080,6 +2080,7 @@ fn load_project_into(
     load_project_counting(
         session,
         project,
+        &project.files,
         target,
         Load::Everything,
         stitchwort_cli::project::OpenGoals::Fail,
@@ -2092,12 +2093,13 @@ fn load_project_into(
 fn load_project_counting(
     session: &mut Session,
     project: &Project,
+    files: &dyn Files,
     target: &Target,
     load: Load,
     open_goals: stitchwort_cli::project::OpenGoals,
     reported: &mut Vec<Diagnostic>,
 ) -> Option<(usize, Option<TheoremCount>)> {
-    match session.load_project_for(&project.files, &project.name, target, load) {
+    match session.load_project_for(files, &project.name, target, load) {
         Ok(loaded) => {
             reported.extend(std::mem::take(&mut session.warnings));
             if open_goals == stitchwort_cli::project::OpenGoals::Warn {
@@ -2428,32 +2430,60 @@ fn check(
         session.elab.set_carry_over(carry_over);
         session.elab.set_recheck(recheck);
     }
+    // Each folder and file is read once, by whichever of the passes below
+    // comes first, and all of them see the same text.
+    let files = stitchwort_driver::project::ReadOnce::new(&project.files);
     let mut filled = None;
+    // Quietly one job, so a default of more can't break these.
+    let one = [
+        (recheck, "--recheck re-checks every entry it loads"),
+        (
+            carry_over,
+            "entries carried over make those after them inexact",
+        ),
+        (!only.is_empty(), "--only checks part of a namespace"),
+        (
+            cache.no_project_cache,
+            "--no-project-cache writes no namespace entries",
+        ),
+        (
+            expand || expand_walk || expand_facts,
+            "the --expand options check without the cache",
+        ),
+        (cache.no_cache && !PARALLEL_NO_CACHE, "--no-cache"),
+    ];
+    let one_job = one.iter().find(|(why, _)| *why).map(|(_, why)| *why);
+    // What this check reads. Once a check of the same inputs has run to its
+    // end, every entry it could write exists and a fill would find nothing
+    // to do (SW-4820). Only with several jobs: one job has no fill to skip.
+    let store = session.elab.check_cache().filter(|_| !cache.no_cache);
+    let several = jobs > 1 && one_job.is_none();
+    let inputs = store.as_ref().filter(|_| several).and_then(|_| {
+        let modes = session.elab.check_cache_modes();
+        stitchwort_driver::parallel::Inputs::read(&files, &project.name, &target, &modes)
+    });
     if jobs > 1 {
-        // Quietly one job, so a default of more can't break these.
-        let one = [
-            (recheck, "--recheck re-checks every entry it loads"),
-            (
-                carry_over,
-                "entries carried over make those after them inexact",
+        let unchanged = inputs
+            .as_ref()
+            .zip(store.as_ref())
+            .is_some_and(|(inputs, store)| inputs.checked_before(&**store));
+        match one_job {
+            Some(why) => stitchwort_elab::timings::jobs(1, Some(format!("one job: {why}"))),
+            None if unchanged => stitchwort_elab::timings::jobs(
+                1,
+                Some("one job: nothing changed since the last check".to_string()),
             ),
-            (!only.is_empty(), "--only checks part of a namespace"),
-            (
-                cache.no_project_cache,
-                "--no-project-cache writes no namespace entries",
-            ),
-            (
-                expand || expand_walk || expand_facts,
-                "the --expand options check without the cache",
-            ),
-            (cache.no_cache && !PARALLEL_NO_CACHE, "--no-cache"),
-        ];
-        match one.iter().find(|(why, _)| *why) {
-            Some((_, why)) => stitchwort_elab::timings::jobs(1, Some(format!("one job: {why}"))),
             None => {
                 let navigation = index.is_some();
-                let fill =
-                    fill_in_parallel(&mut session, &project, &target, jobs, navigation, cache);
+                let fill = fill_in_parallel(
+                    &mut session,
+                    &project,
+                    &files,
+                    &target,
+                    jobs,
+                    navigation,
+                    cache,
+                );
                 filled = Some(fill);
             }
         }
@@ -2478,6 +2508,7 @@ fn check(
     let checked = load_project_counting(
         &mut session,
         &project,
+        &files,
         &target,
         load,
         config.open_goals,
@@ -2491,6 +2522,10 @@ fn check(
     } else {
         false
     };
+    if let (Some(inputs), Some(store), true, false) = (&inputs, &store, checked.is_some(), stopped)
+    {
+        inputs.record(&**store);
+    }
     let mut ok = checked.is_some() && goals == 0;
     if let (true, Some((count, theorems))) = (ok, checked) {
         let plural = if count == 1 { "" } else { "s" };
@@ -2814,6 +2849,7 @@ fn report_carried_over(session: &Session, recheck: bool) {
 fn fill_in_parallel(
     session: &mut Session,
     project: &Project,
+    files: &(dyn Files + Sync),
     target: &Target,
     jobs: usize,
     navigation: bool,
@@ -2835,7 +2871,7 @@ fn fill_in_parallel(
         .and_then(|v| v.trim().parse::<u64>().ok());
     let make_session = move |_: usize| new_session(navigation);
     let fill = stitchwort_driver::parallel::fill(
-        &project.files,
+        files,
         &project.name,
         target,
         &stitchwort_driver::parallel::Jobs {
@@ -3159,6 +3195,7 @@ fn test(
             let loaded = load_project_counting(
                 &mut session,
                 &project,
+                &project.files,
                 &target,
                 Load::Everything,
                 config.open_goals,

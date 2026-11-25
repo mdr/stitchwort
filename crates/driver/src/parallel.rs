@@ -326,6 +326,119 @@ impl Fill {
     }
 }
 
+/// What a check of a project reads that decides its namespaces' entries:
+/// the project's files and configuration, the library's text, the target
+/// and the elaborator's cache modes; with the store's build and salt, the
+/// key of a small entry a completed check records (SW-4820).
+///
+/// A check of inputs a completed check had, with the same store, finds every
+/// entry that check could write: whatever lacks one would lack it again (an
+/// error, an open goal), so a fill would only plan, in a session of its own,
+/// what the check after it plans again, which costs more than one job's
+/// whole warm check. Skipping the fill never changes a result, since the
+/// check after it reports; so where the record misleads (the entries were
+/// deleted, or a file a namespace includes changed, which these inputs
+/// don't cover), the check is one job's, no slower than without `--jobs`.
+pub struct Inputs {
+    unit: String,
+    digest: Key,
+}
+
+/// What an [`Inputs`] record holds, after its key.
+const INPUTS_MAGIC: &[u8; 8] = b"SWRAN\x01\0\0";
+
+impl Inputs {
+    /// The inputs of checking `target` of the project in `files` (`project`
+    /// is its name), for an elaborator whose cache modes are `modes`
+    /// (`Elaborator::check_cache_modes`). `None` if the project can't be
+    /// read, or for `Target::Theorems`, which writes no whole entries.
+    pub fn read(files: &dyn Files, project: &str, target: &Target, modes: &str) -> Option<Inputs> {
+        let mut h = blake3::Hasher::new();
+        let mut part = |bytes: &[u8]| {
+            h.update(&(bytes.len() as u64).to_le_bytes());
+            h.update(bytes);
+        };
+        let (kind, names) = match target {
+            Target::Everything => ("everything", &[][..]),
+            Target::Namespaces(names) => ("namespaces", &names[..]),
+            Target::Subtrees(names) => ("subtrees", &names[..]),
+            Target::Theorems { .. } => return None,
+        };
+        let mut what = blake3::Hasher::new();
+        for bytes in [project.as_bytes(), kind.as_bytes()]
+            .into_iter()
+            .chain(names.iter().map(|n| n.as_bytes()))
+        {
+            what.update(&(bytes.len() as u64).to_le_bytes());
+            what.update(bytes);
+        }
+        let what = what.finalize();
+        part(b"stitchwort check inputs");
+        part(what.as_bytes());
+        part(modes.as_bytes());
+        part(library_digest());
+        part(files.read(CONFIG).ok()?.as_bytes());
+        let mut texts = project_sources(files, project, &mut SourceMap::new()).ok()?;
+        texts.sort();
+        part(&(texts.len() as u64).to_le_bytes());
+        for (path, text) in &texts {
+            part(path.as_bytes());
+            part(text.as_bytes());
+        }
+        Some(Inputs {
+            // One record per project and target: a newer one replaces it.
+            unit: format!("ran{}", &what.to_hex()[..16]),
+            digest: *h.finalize().as_bytes(),
+        })
+    }
+
+    fn key(&self, store: &dyn Store) -> Key {
+        let mut h = blake3::Hasher::new();
+        h.update(&self.digest);
+        h.update(&store.salt());
+        h.update(store.compiler().as_bytes());
+        *h.finalize().as_bytes()
+    }
+
+    /// Whether a completed check of these inputs recorded them in `store`.
+    pub fn checked_before(&self, store: &dyn Store) -> bool {
+        let key = self.key(store);
+        store
+            .read(&self.unit, &key)
+            .is_some_and(|bytes| bytes.strip_prefix(INPUTS_MAGIC) == Some(&key[..]))
+    }
+
+    /// Records in `store` that a check of these inputs completed: call it
+    /// only after a check that ran to its end, not one stopped early.
+    pub fn record(&self, store: &dyn Store) {
+        if self.checked_before(store) {
+            return;
+        }
+        let key = self.key(store);
+        let mut bytes = INPUTS_MAGIC.to_vec();
+        bytes.extend_from_slice(&key);
+        store.write(&self.unit, &key, &bytes);
+    }
+}
+
+/// A digest of the library this process reads: the core and every file.
+fn library_digest() -> &'static [u8; 32] {
+    static DIGEST: std::sync::OnceLock<[u8; 32]> = std::sync::OnceLock::new();
+    DIGEST.get_or_init(|| {
+        let mut h = blake3::Hasher::new();
+        let mut part = |bytes: &[u8]| {
+            h.update(&(bytes.len() as u64).to_le_bytes());
+            h.update(bytes);
+        };
+        part(stitchwort_elab::prelude().as_bytes());
+        for (path, text) in stitchwort_elab::library_files() {
+            part(path.as_bytes());
+            part(text.as_bytes());
+        }
+        *h.finalize().as_bytes()
+    })
+}
+
 /// How long a worker waits for a library file another is elaborating
 /// before elaborating it itself (a belt: the claims can't deadlock).
 const CLAIM_PATIENCE: Duration = Duration::from_secs(60);
