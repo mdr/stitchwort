@@ -1768,28 +1768,39 @@ pub fn validate_marks(
             "internal error: `{name}` is marked {}a proof, but its type's sort is {sort:?}",
             if def.proof() { "" } else { "not " }
         );
+        // The binders are bound, and the rest of the type computed, as the
+        // kernel's checking of the body bound and forced them: under the
+        // definition's own transparency set, with gluing on (`admit_group`),
+        // so a closed call the kernel left glued in a domain is not
+        // computed here either. The computed walk gets a budget of its own.
+        let _set = g.machine.transparent.set(def.transparent.clone());
+        let glued = g.machine.glue.replace(true);
         let mut binders = Vec::new();
-        let written = match validate_pi_marks(&mut cx, &def.ty, def.arity, &mut binders) {
-            Ok(written) => written,
-            Err(_) => continue,
+        let walked = match validate_pi_marks(&mut cx, &def.ty, def.arity, &mut binders) {
+            Ok(Some(rest)) => Some(g.machine.budget.aside(g.machine.budget.limits(), || {
+                validate_computed_marks(g, &mut cx, &rest, def.arity, &mut binders)
+            })),
+            Ok(None) => Some(Ok(())),
+            Err(_) => None,
         };
-        if let Some(rest) = written {
-            // Under the definition's own transparency set, as its body was
-            // checked, with a budget of its own, which the kernel's checking
-            // of the same lambdas fitted in.
-            let _set = g.machine.transparent.set(def.transparent.clone());
-            let limits = g.machine.budget.limits();
-            g.machine
-                .budget
-                .aside(limits, || {
-                    validate_computed_marks(g, &mut cx, &rest, def.arity, &mut binders)
-                })
-                .map_err(|e| {
-                    e.with_note(format!(
-                        "it ran out while the reference build re-checked the proof marks of \
-                         `{name}`'s parameters, reading them off its type computed"
-                    ))
-                })?;
+        g.machine.glue.set(glued);
+        match walked {
+            None => continue,
+            Some(Ok(())) => {}
+            // Running out leaves the lambdas unchecked, so the group is
+            // refused; any other error means the kernel admitted a body
+            // whose type the same evaluation can't read.
+            Some(Err(e)) if e.code == "E-RESOURCE" => {
+                return Err(e.with_note(format!(
+                    "it ran out while the reference build re-checked the proof marks of \
+                     `{name}`'s parameters, reading them off its type computed"
+                )));
+            }
+            Some(Err(e)) => panic!(
+                "internal error: re-checking the proof marks of `{name}`'s parameters off its \
+                 type computed failed: [{}] {}",
+                e.code, e.message
+            ),
         }
         if let Some(body) = &def.body {
             let mut t = body.strip_loc();
