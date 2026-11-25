@@ -9,14 +9,20 @@ and docs/proposals/comparative-speed.md section 3. For each day:
            and what they need; the Lean file's theorem names pick them), hyperfine
            wall time: everything cold, the library rechecked from source
   sw net   the elaboration plus kernel time of the day's own units (the rows of
-           `--timings=all`'s unit table that are neither `core` nor `std/...`), one
-           run of the same command. Counts only the day's own namespaces, whatever
-           library files the day pulls in (SW-4810: a probe file never loaded the
-           same std files the day did, so a difference of wall times charged the
-           library files the probe missed to the day)
+           `--timings=all`'s unit table that are neither `core` nor `std/...`), a
+           median over the same number of runs of the same command as the others.
+           Counts only the day's own namespaces, whatever library files the day
+           pulls in (SW-4810: a probe file never loaded the same std files the day
+           did, so a difference of wall times charged the library files the probe
+           missed to the day)
   sw cached  `check --no-project-cache` of the same namespaces, the library
            cache warmed first (hyperfine's untimed warmup run): the whole run with
            the library precompiled, our counterpart of Lean's `.olean` files
+  sw floor  `check` of the day's namespaces (no --only), every cache warm, one job
+           (STITCHWORT_JOBS=1) and with the default jobs (STITCHWORT_JOBS unset):
+           nothing to check, the cost of every check after an edit elsewhere
+           (SW-4818). --only and --no-project-cache both force one job, so the
+           default-jobs row can only be this one
   lean     `lean Proofs/<Day>.lean`, Lib already built (the day's file alone)
   lean-load `lean` on a file that only imports Lib
   lake     a cold `lake build <Day>` (.lake deleted first): Lib and the day
@@ -25,6 +31,7 @@ and docs/proposals/comparative-speed.md section 3. For each day:
 import argparse
 import datetime
 import json
+import os
 import platform
 import re
 import shutil
@@ -80,36 +87,65 @@ def ported_theorems(day):
     return found
 
 
-def hyperfine(name, command, runs, scratch, prepare=None, cwd=None):
-    """Median wall time in seconds. Reads either JSON format: hyperfine 2.0's
-    `measurements[].time_wall_clock.value` (no `median`/`times` keys), or 1.x's
-    `times` (the flake's is 1.21). Neither present, or a wrong run count,
-    stops the bench."""
+class Runs:
+    """The timed runs of one command: wall times and hyperfine's CPU times."""
+
+    def __init__(self, wall, user, system):
+        self.wall = wall
+        self.user = user  # mean user CPU seconds, or None
+        self.system = system  # mean system CPU seconds, or None
+
+    @property
+    def median(self):
+        return statistics.median(self.wall)
+
+    @property
+    def lo(self):
+        return min(self.wall)
+
+    @property
+    def hi(self):
+        return max(self.wall)
+
+
+def hyperfine(name, command, runs, scratch, prepare=None, cwd=None, env=None):
+    """The wall times (and mean user and system CPU seconds) of `runs` timed
+    runs, after one untimed warmup. Reads either JSON format: hyperfine 2.0's
+    `measurements[]` (`time_wall_clock.value`, and `time_user`/`time_system` if
+    present) or 1.x's `times`, `user`, `system` (the flake's is 1.21; its user and
+    system are means over the runs). Neither wall form present, or a wrong run
+    count, stops the bench."""
     json_path = scratch / f"{name}.json"
     cmd = ["hyperfine", "--warmup", "1", "--runs", str(runs), "--export-json", str(json_path),
            "--command-name", name, "--input", "null"]
     if prepare:
         cmd += ["--prepare", prepare]
     cmd.append(command)
-    done = subprocess.run(cmd, cwd=cwd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    done = subprocess.run(cmd, cwd=cwd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
     if done.returncode != 0:
         sys.exit(f"hyperfine failed on {name}: {done.stderr[-400:]}")
     try:
         result = json.loads(json_path.read_text())["results"][0]
         if "measurements" in result:
             times = [m["time_wall_clock"]["value"] for m in result["measurements"]]
+            users = [m["time_user"]["value"] for m in result["measurements"] if "time_user" in m]
+            systems = [m["time_system"]["value"] for m in result["measurements"] if "time_system" in m]
+            user = statistics.mean(users) if users else None
+            system = statistics.mean(systems) if systems else None
         else:
             times = result["times"]
+            user, system = result.get("user"), result.get("system")
     except (KeyError, IndexError, TypeError) as err:
         sys.exit(f"hyperfine's JSON for {name} lacks the expected key {err}: has this version's format changed?")
     if len(times) != runs:
         sys.exit(f"hyperfine's JSON for {name} has {len(times)} measurements, expected {runs}")
-    return statistics.median(times)
+    return Runs(times, user, system)
 
 
 def own_net_seconds(sw, day, only):
-    """Elaboration plus kernel seconds of the day's own units, from one
-    `--timings=all` run: the unit table's rows that are neither `core`, the `library files` summary nor a
+    """(all, common): elaboration plus kernel seconds of the day's own units from
+    one `--timings=all` run, and the part of them in `Aoc.Common...` units. The
+    unit table's rows that are neither `core`, the `library files` summary nor a
     `std/...` file (the day's namespaces, and project namespaces they use)."""
     done = subprocess.run([sw, "check", "--no-cache", *day["namespaces"], "--only", only, "--timings=all"],
                           cwd=ROOT / "aoc", capture_output=True, text=True)
@@ -120,6 +156,7 @@ def own_net_seconds(sw, day, only):
     if not starts:
         sys.exit("--timings=all printed no unit table: " + (done.stdout + done.stderr)[-400:])
     total = 0.0
+    common = 0.0
     rows = 0
     for line in lines[starts[0] + 1:]:
         if line.startswith("total"):
@@ -127,11 +164,14 @@ def own_net_seconds(sw, day, only):
         fields = line.split()
         if len(fields) < 5 or fields[0] in ("core", "library") or fields[0].startswith("std/"):
             continue
-        total += float(fields[-4]) + float(fields[-3])
+        ms = float(fields[-4]) + float(fields[-3])
+        total += ms
+        if fields[0].startswith("Aoc.Common"):
+            common += ms
         rows += 1
     if rows == 0:
         sys.exit("no project unit in the --timings table (the format changed?)")
-    return total / 1000
+    return total / 1000, common / 1000
 
 
 def fmt(seconds):
@@ -164,6 +204,8 @@ def main():
     lean_path = str(LEAN / ".lake" / "build" / "lib" / "lean")
 
     rows = {}
+    plain_env = {k: v for k, v in os.environ.items() if k != "STITCHWORT_JOBS"}
+    one_job_env = {**plain_env, "STITCHWORT_JOBS": "1"}
     with tempfile.TemporaryDirectory() as tmp:
         scratch = Path(tmp)
         (scratch / "empty.lean").write_text("import Lib\n")
@@ -179,11 +221,19 @@ def main():
             only = ",".join(ported)
             spaces = " ".join(day["namespaces"])
             row["sw"] = hyperfine(f"sw-{name}", f"{sw} check --no-cache {spaces} --only {only}",
-                                  opts.runs, scratch, cwd=ROOT / "aoc")
-            row["sw-net"] = own_net_seconds(sw, day, only)
+                                  opts.runs, scratch, cwd=ROOT / "aoc", env=plain_env)
+            nets = [own_net_seconds(sw, day, only) for _ in range(opts.runs)]
+            row["sw-net"] = [n[0] for n in nets]
+            row["sw-net-common"] = [n[1] for n in nets]
             # The warmup run fills the library cache, so every timed run loads the library from it.
             row["sw-cached"] = hyperfine(f"sw-cached-{name}", f"{sw} check --no-project-cache {spaces} --only {only}",
-                                         opts.runs, scratch, cwd=ROOT / "aoc")
+                                         opts.runs, scratch, cwd=ROOT / "aoc", env=plain_env)
+            # Every cache warm and nothing changed: the warmup run fills them (and, with several
+            # jobs, records that the check completed, so the timed runs skip the fill).
+            row["floor-1"] = hyperfine(f"floor1-{name}", f"{sw} check {spaces}", opts.runs, scratch,
+                                       cwd=ROOT / "aoc", env=one_job_env)
+            row["floor-auto"] = hyperfine(f"floor-auto-{name}", f"{sw} check {spaces}", opts.runs, scratch,
+                                          cwd=ROOT / "aoc", env=plain_env)
             row["theorems"] = len(ported)
             print(f"{name}: lean", flush=True)
             row["lean"] = hyperfine(f"lean-{name}", f"{env_lean} {LEAN / 'Proofs' / (day['module'] + '.lean')}", opts.runs, scratch)
@@ -191,23 +241,67 @@ def main():
                                     prepare="rm -rf .lake", cwd=LEAN)
             rows[name] = row
 
-    head = ["Day", "theorems", "sw check (cold)", "sw net", "lean file", "lean load", "lean net",
-            "sw net / lean net", "sw check (library cached)", "(that) / lean file", "lake build (cold, with Lib)"]
-    lines = ["| " + " | ".join(head) + " |", "|---|" + "---:|" * (len(head) - 1)]
+    def spread(values):
+        return f"{fmt(statistics.median(values))} ({fmt(min(values))}-{fmt(max(values))})"
+
+    def span(runs):
+        return f"{fmt(runs.median)} ({fmt(runs.lo)}-{fmt(runs.hi)})"
+
+    def ratio_range(top, bottom):
+        """top / bottom as `median (min-max)`, the range from the smallest top over the
+        largest bottom to the largest top over the smallest bottom; top and bottom are
+        lists of seconds."""
+        if min(bottom) <= 0:
+            return "-"
+        return (f"{statistics.median(top) / statistics.median(bottom):.2f}x "
+                f"({min(top) / max(bottom):.2f}-{max(top) / min(bottom):.2f}x)")
+
+    def lean_net_list(r):
+        """The lean file's runs less the empty file's, every pairing's extremes and the
+        medians' difference in the middle: [lowest, median difference, highest]."""
+        lo = r["lean"].lo - r["lean-load"].hi
+        mid = r["lean"].median - r["lean-load"].median
+        hi = r["lean"].hi - r["lean-load"].lo
+        return [max(lo, 1e-6), max(mid, 1e-6), max(hi, 1e-6)]
+
+    def cpu(runs):
+        if runs.user is None:
+            return "-"
+        return f"{fmt(runs.user)} + {fmt(runs.system)}"
+
+    head1 = ["Day", "theorems", "sw check (cold)", "sw net", "of it Aoc.Common", "lean file", "lean load",
+             "lean net", "sw net / lean net"]
+    head2 = ["Day", "sw cached, one job", "(that) / lean file", "sw floor, one job", "sw floor, default jobs",
+             "lake build (cold, with Lib)"]
+    head3 = ["Day", "sw cached: wall", "user + system", "lean file: wall", "user + system", "lean load: wall",
+             "user + system", "sw floor (default jobs): wall", "user + system"]
+
+    def table(head, body):
+        return ["| " + " | ".join(head) + " |", "|---|" + "---:|" * (len(head) - 1)] + \
+               ["| " + " | ".join(line) + " |" for line in body]
+
+    body1, body2, body3 = [], [], []
     for name, r in rows.items():
-        lean_net = max(r["lean"] - r["lean-load"], 0.0)
-        ratio = f"{r['sw-net'] / lean_net:.2f}x" if lean_net > 0 else "-"
-        lines.append("| " + " | ".join([name, str(r["theorems"]), fmt(r["sw"]), fmt(r["sw-net"]), fmt(r["lean"]),
-                                        fmt(r["lean-load"]), fmt(lean_net), ratio, fmt(r["sw-cached"]),
-                                        f"{r['sw-cached'] / r['lean']:.1f}x", fmt(r["lake"])]) + " |")
-    md = "\n".join(lines)
+        net = lean_net_list(r)
+        lean_net = f"{fmt(net[1])} ({fmt(net[0])}-{fmt(net[2])})"
+        common = spread(r["sw-net-common"]) if any(r["sw-net-common"]) else "-"
+        body1.append([name, str(r["theorems"]), span(r["sw"]), spread(r["sw-net"]), common, span(r["lean"]),
+                      span(r["lean-load"]), lean_net, ratio_range(r["sw-net"], net)])
+        body2.append([name, span(r["sw-cached"]),
+                      ratio_range(r["sw-cached"].wall, r["lean"].wall),
+                      span(r["floor-1"]), span(r["floor-auto"]), span(r["lake"])])
+        body3.append([name, fmt(r["sw-cached"].median), cpu(r["sw-cached"]), fmt(r["lean"].median), cpu(r["lean"]),
+                      fmt(r["lean-load"].median), cpu(r["lean-load"]), fmt(r["floor-auto"].median),
+                      cpu(r["floor-auto"])])
+    md = "\n".join(table(head1, body1) + [""] + table(head2, body2) + [""] + table(head3, body3))
+    raw = {name: {k: (v.__dict__ if isinstance(v, Runs) else v) for k, v in r.items()} for name, r in rows.items()}
     OUT.mkdir(parents=True, exist_ok=True)
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H%M%S") + "-" + platform.node().split(".")[0]
     commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     meta = {"commit": commit, "host": platform.node(), "runs": opts.runs,
             "lean": subprocess.run(["lean", "--version"], capture_output=True, text=True).stdout.strip(),
             "load": list(__import__("os").getloadavg())}
-    (OUT / f"{stamp}-proofs.json").write_text(json.dumps({"meta": meta, "rows": rows}, indent=1))
+    (OUT / f"{stamp}-proofs.json").write_text(json.dumps({"meta": meta, "rows": raw}, indent=1))
     (OUT / f"{stamp}-proofs.md").write_text(md + "\n")
     print()
     print(md)
