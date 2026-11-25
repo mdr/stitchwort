@@ -282,13 +282,13 @@ impl Fills {
 /// ```json
 /// {"inlayHints": {"letTypes": true}, "codeLens": {"run": true},
 ///  "proofSearch": {"enabled": true, "timeLimitMs": 5000},
-///  "semanticColours": true, "startupWorkers": "off"}
+///  "semanticColours": true, "startupWorkers": "auto"}
 /// ```
 ///
-/// Every feature is on until switched off, except `startupWorkers`
-/// (SW-4760): how many workers fill a project's check cache when the
-/// project is opened, `"off"` (the default), `"auto"`
-/// ([`stitchwort_driver::parallel::auto_jobs`]) or a number; read when a
+/// Every feature is on until switched off, `startupWorkers` too
+/// (SW-4760, SW-4783): how many workers fill a project's check cache when
+/// the project is opened, `"off"`, `"auto"` (the default,
+/// [`stitchwort_driver::parallel::auto_jobs`]) or a number; read when a
 /// project is loaded. A key left out keeps its value.
 /// A feature the server advertised stays advertised and answers with
 /// nothing when it is off, so no dynamic registration is needed.
@@ -315,7 +315,9 @@ impl Default for Settings {
             semantic_colours: AtomicBool::new(true),
             search_time_ms: AtomicU64::new(0),
             refresh_lenses: AtomicBool::new(false),
-            startup_workers: std::sync::atomic::AtomicUsize::new(0),
+            startup_workers: std::sync::atomic::AtomicUsize::new(
+                startup_workers(&serde_json::Value::from("auto")).unwrap_or(0),
+            ),
         }
     }
 }
@@ -5648,6 +5650,9 @@ mod tests {
                 "namespace B\n\nimport A (one)\n\ndef two: Nat := one + one\n",
             );
             let options = Options::new(STACK);
+            options
+                .settings
+                .apply(&serde_json::json!({ "startupWorkers": "off" }));
             let source: Arc<dyn Source> = Arc::new(Disk);
             let cache = source.project_cache(&dir).unwrap();
             let project = source.project(&dir).unwrap();
@@ -5700,6 +5705,21 @@ mod tests {
             assert!(shown[0].contains("2 namespaces"), "{shown:?}");
             let _ = std::fs::remove_dir_all(&dir);
         });
+    }
+
+    /// The start-up fill is on by default (D3739); the setting still
+    /// switches it off, and a number sets it.
+    #[test]
+    fn the_startup_fill_defaults_to_auto_and_can_be_switched_off() {
+        let settings = Settings::default();
+        assert_eq!(
+            settings.startup_workers(),
+            stitchwort_driver::parallel::auto_jobs()
+        );
+        settings.apply(&serde_json::json!({ "startupWorkers": "off" }));
+        assert_eq!(settings.startup_workers(), 0);
+        settings.apply(&serde_json::json!({ "stitchwort": { "startupWorkers": 3 } }));
+        assert_eq!(settings.startup_workers(), 3);
     }
 
     #[test]

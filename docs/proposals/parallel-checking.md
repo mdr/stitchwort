@@ -1738,7 +1738,7 @@ about to end; the server frees them (`Jobs::free_sessions`). Peak memory is the 
 session plus the workers' (measured below).
 
 **The setting.** `startupWorkers` in the server's settings (`initializationOptions` and
-`workspace/didChangeConfiguration`): `"off"` (the default), `"auto"` or a number; read when
+`workspace/didChangeConfiguration`): `"off"`, `"auto"` (the default) or a number; read when
 a project is loaded. VS Code: `stitchwort.startupWorkers`. Other editors:
 `STITCHWORT_STARTUP_WORKERS`, which the editor's setting overrides. `auto` is
 `parallel::auto_jobs()`: min(cores, 8, memory / 2 GB), at least 1 (the rule of 9.2; the
@@ -1783,8 +1783,8 @@ price: **about 7 GB at the peak against 3 GB**, the editor's session plus eight 
   (another project, a file on its own); they wait for the fill too.
 - One fill per project per server: a project loaded again (a `stitchwort.yaml` change) is
   not filled again. A fill is not restarted by a later setting change.
-- The default (`off` now; `auto` or a smaller fixed number such as 4 to halve the extra
-  memory) is Matt's decision.
+- The default was Matt's decision: D3739, Matt, 25 Nov 2026: on by default, `auto` (a smaller
+  fixed number such as 4 would halve the extra memory; `off` switches the fill off).
 
 ## 10. Stage 2 design: the stated theorem, and loading without proofs (SW-4727)
 

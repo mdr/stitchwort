@@ -13,6 +13,17 @@ use serde_json::{Value, json};
 use stitchwort_cli::lsp::{Options, serve};
 
 const STACK: usize = 64 * 1024 * 1024;
+
+/// The server's options with the start-up fill off: it is on by default
+/// (SW-4783), and a test that opens a project from disk would otherwise
+/// start a pool of workers writing to the project's cache beside the
+/// editor's own checks. The fill tests switch it on themselves.
+fn options() -> Options {
+    let options = Options::new(STACK);
+    options.settings.apply(&json!({ "startupWorkers": "off" }));
+    options
+}
+
 /// The longest a test waits for the server's reply or diagnostics. It returns
 /// the moment the event arrives, so the ceiling only matters when the
 /// machine is so loaded that a check takes many times as long (7 to 37 times
@@ -31,7 +42,7 @@ struct Client {
 
 impl Client {
     fn start() -> Client {
-        Client::start_with(Options::new(STACK))
+        Client::start_with(options())
     }
 
     fn start_with(options: Options) -> Client {
@@ -1333,7 +1344,7 @@ fn a_newer_edit_cancels_the_check_running() {
     let path = project.join("src/Aoc/Year2025/Day04/Proofs/Rounds.sw");
     let text = std::fs::read_to_string(&path).unwrap();
     let uri = uri(&path);
-    let options = Options::new(STACK);
+    let options = options();
     let cancellations = options.cancellations.clone();
     let mut client = Client::start_with(options);
     client.open(&uri, &text);
@@ -1480,7 +1491,7 @@ fn state_edit_loop() {
         })
         .collect();
     let project = copy_of_project(Path::new(&source), &name);
-    let options = Options::new(STACK);
+    let options = options();
     let journal = options.journal.clone();
     let mut client = Client::start_with(options);
     let mut version = 1;
@@ -2964,7 +2975,7 @@ fn swap_search(client: &mut Client, uri: &str) -> RequestId {
 /// the first, rather than trying every candidate within a wall-clock budget
 /// (one candidate takes seconds to check, more under load).
 fn first_proof_only() -> Options {
-    let mut options = Options::new(STACK);
+    let mut options = options();
     options.search_wanted = 1;
     options.search_time = Duration::from_secs(120);
     options
@@ -3004,7 +3015,7 @@ fn a_document_edited_during_a_search_gets_no_stale_edit() {
     let file = dir.join("swap.sw");
     std::fs::write(&file, SWAP).unwrap();
     let uri = uri(&file);
-    let mut options = Options::new(STACK);
+    let mut options = options();
     options.search_delay = Duration::from_secs(30);
     let mut client = Client::start_with(options);
     client.open(&uri, SWAP);
@@ -3026,7 +3037,7 @@ fn a_newer_action_request_supersedes_and_a_cancelled_one_is_answered() {
     let file = dir.join("swap.sw");
     std::fs::write(&file, SWAP).unwrap();
     let uri = uri(&file);
-    let mut options = Options::new(STACK);
+    let mut options = options();
     options.search_delay = Duration::from_secs(30);
     let mut client = Client::start_with(options);
     client.open(&uri, SWAP);
@@ -3046,7 +3057,7 @@ fn a_newer_action_request_supersedes_and_a_cancelled_one_is_answered() {
 fn proof_searches_are_bounded_by_the_pool() {
     let dir = temp_dir("action-pool");
     let options = {
-        let mut o = Options::new(STACK);
+        let mut o = options();
         o.search_workers = 2;
         o.search_delay = Duration::from_secs(30);
         o

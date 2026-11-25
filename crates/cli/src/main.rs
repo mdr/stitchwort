@@ -976,7 +976,7 @@ enum Command {
     Repl { file: Option<PathBuf> },
     /// Run the language server, speaking LSP on standard input and output
     /// (docs/proposals/language-server.md). STITCHWORT_STARTUP_WORKERS
-    /// (`auto` or a number; off by default) fills a project's check cache
+    /// (`off`, `auto` or a number; `auto` by default) fills a project's check cache
     /// with that many workers when it is opened, as the editor's
     /// `startupWorkers` setting does
     Lsp,

@@ -104,7 +104,7 @@ on unless noted (D3468):
 | `stitchwort.proofSearch.enabled` | "Search for a proof" on a `?` (and the "Split" quick fixes there) |
 | `stitchwort.proofSearch.timeLimitMs` | how long one "Search for a proof" may run (default 5000) |
 | `stitchwort.semanticColours` | colours from what the checker resolved each name to |
-| `stitchwort.startupWorkers` | when a project with a cold check cache opens, check it with this many workers side by side: `off` (the default), `auto` or a number; also `STITCHWORT_STARTUP_WORKERS` for other editors |
+| `stitchwort.startupWorkers` | when a project with a cold check cache opens, check it with this many workers side by side: `off`, `auto` (the default) or a number; also `STITCHWORT_STARTUP_WORKERS` for other editors |
 | `stitchwort.goals.openAutomatically` | open the Goals panel when a `.sw` file with a `?` opens (off by default) |
 | `stitchwort.path` | the `stitchwort` program (restarts the server) |
 
