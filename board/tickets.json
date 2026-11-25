@@ -35347,28 +35347,34 @@
     {
       "id": 4801,
       "title": "[Sonnet] SW-4800 follow-ups 1-2: add the Rest (def Rest (x: Nat): Type := Q2 x -> Nat; f2: (x: Nat) -> Rest x) and Fam (recursive type family, f4: Fam 2) shapes to examples/accept/proof-irrelevance-39b-alias-signature.sw with value definitions for the differential test, run it with STITCHWORT_DIFFERENTIAL_ONLY; soften docs/core.md line 310's 'never meets' per docs/reviews/SW-4796-rule-s-alias-review.md finding 2",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Sonnet lane: example 39b gains the Rest and Fam shapes (r1-r4, atRest, atFam), hash snapshot re-recorded, docs/core.md softened. Differential, accepted, hash snapshot pass.",
+      "body": "Sonnet lane: example 39b gains the Rest and Fam shapes (r1-r4, atRest, atFam), hash snapshot re-recorded, docs/core.md softened. Differential, accepted, hash snapshot pass.\n\nModel result: sonnet, worked, about 13 min with SW-4802 (est. 35).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "2a4c785dc",
+        "6c778caf9"
+      ]
     },
     {
       "id": 4802,
       "title": "[Sonnet] reference::validate_pi_marks (crates/core/src/reference.rs:1763, :1792) collects binder marks by walking Term::Pi over def.ty as written, so a definition with a nickname signature (def f: Reader) skips the lambda-against-binder check; walk the computed type instead, as SW-4796 did for rule S (SW-4800 finding 3)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Sonnet lane: validate_pi_marks evaluates, forces and quotes a non-Pi type, so marks of nickname signatures are checked. No new failures: proof_masks and soundness pass; 31 computed-type walks hit by example 39b. No test fails if skipped (a mark mismatch needs a corrupted term).",
+      "body": "Sonnet lane: validate_pi_marks evaluates, forces and quotes a non-Pi type, so marks of nickname signatures are checked. No new failures: proof_masks and soundness pass; 31 computed-type walks hit by example 39b. No test fails if skipped (a mark mismatch needs a corrupted term).\n\nModel result: sonnet, worked (no failing-before test: the validator has no seam for a corrupted mark), shared with SW-4801.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "111157d73",
+        "6c778caf9"
+      ]
     },
     {
       "id": 4803,
