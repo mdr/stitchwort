@@ -144,6 +144,136 @@ pub struct Options {
     /// (nothing set in use).
     #[doc(hidden)]
     pub faults: Arc<Faults>,
+    /// The projects' start-up fills ([`Settings::startup_workers`]).
+    pub fills: Arc<Fills>,
+}
+
+/// The start-up fills (SW-4760, docs/proposals/parallel-checking.md 9.9):
+/// when a project with a check cache on disk is first loaded and the
+/// `startupWorkers` setting asks for two or more, a thread fills its cache
+/// with that many workers (`stitchwort_driver::parallel::fill`), reading
+/// the files from disk, while the checker carries on. A checker step that
+/// would check a namespace the fill may still write waits for it instead
+/// (while every file is as saved), then replays its entry. Nothing is
+/// published from a fill, so only the speed changes. Each project is
+/// filled once in the server's life; shutting down stops the fills.
+#[derive(Default)]
+pub struct Fills {
+    /// Set when the server stops: every fill's cancellation flag.
+    cancel: Arc<AtomicBool>,
+    /// The watch of each project's fill, by folder: begun, running or
+    /// over.
+    watches: Mutex<BTreeMap<PathBuf, Arc<stitchwort_driver::parallel::Watch>>>,
+    threads: Mutex<Vec<std::thread::JoinHandle<()>>>,
+    /// What each fill did, as it ended, for the tests and the log.
+    pub done: Mutex<Vec<(PathBuf, stitchwort_driver::parallel::Fill)>>,
+}
+
+impl std::fmt::Debug for Fills {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Fills")
+            .field("cancel", &self.cancel)
+            .field("projects", &lock(&self.watches).keys().collect::<Vec<_>>())
+            .finish()
+    }
+}
+
+impl Fills {
+    /// The watch of the fill of the project at `root`, while it may still
+    /// write entries.
+    fn running(&self, root: &Path) -> Option<Arc<stitchwort_driver::parallel::Watch>> {
+        lock(&self.watches).get(root).filter(|w| !w.over()).cloned()
+    }
+
+    /// Stops the fills and waits for their threads: a namespace being
+    /// checked is cancelled part-way and never written.
+    pub fn stop(&self) {
+        self.cancel.store(true, Ordering::Relaxed);
+        let threads = std::mem::take(&mut *lock(&self.threads));
+        for thread in threads {
+            let _ = thread.join();
+        }
+    }
+
+    /// Starts filling the check cache at `cache` of the project at `root`
+    /// with `workers` workers, unless it was filled before or the server
+    /// is stopping.
+    fn start(
+        &self,
+        options: &Options,
+        root: &Path,
+        name: &str,
+        files: Box<dyn stitchwort_driver::project::Files + Send + Sync>,
+        cache: PathBuf,
+        workers: usize,
+    ) {
+        if self.cancel.load(Ordering::Relaxed) {
+            return;
+        }
+        let watch = {
+            let mut watches = lock(&self.watches);
+            if watches.contains_key(root) {
+                return;
+            }
+            let watch = Arc::new(stitchwort_driver::parallel::Watch::default());
+            watches.insert(root.to_path_buf(), watch.clone());
+            watch
+        };
+        let (root, name, stack) = (root.to_path_buf(), name.to_string(), options.stack);
+        let (cancel, options) = (self.cancel.clone(), options.clone());
+        let thread = std::thread::Builder::new()
+            .name("stitchwort-fill".into())
+            .stack_size(stack)
+            .spawn(move || {
+                let began = std::time::Instant::now();
+                let make_session = |_: usize| session_for(&options);
+                let make_store = || -> Rc<dyn Store> { Rc::new(CheckCache::at(&cache)) };
+                let jobs = stitchwort_driver::parallel::Jobs {
+                    count: workers,
+                    stack,
+                    make_session: &make_session,
+                    make_store: &make_store,
+                    seed: None,
+                    statements_first: true,
+                    cancel: Some(cancel),
+                    free_sessions: true,
+                    watch: Some(&watch),
+                };
+                // A panic ends the fill (its watch too), not the server:
+                // the checker checks what it didn't write.
+                let fill = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    stitchwort_driver::parallel::fill(
+                        &*files,
+                        &name,
+                        &stitchwort_driver::project::Target::Everything,
+                        &jobs,
+                    )
+                }));
+                match fill {
+                    Ok(fill) => {
+                        eprintln!(
+                            "stitchwort lsp: {}: start-up fill, {} workers: {} namespaces \
+                             had entries, {} filled, {} left, in {:.1} s",
+                            root.display(),
+                            fill.workers,
+                            fill.found,
+                            fill.filled,
+                            fill.left,
+                            began.elapsed().as_secs_f64()
+                        );
+                        lock(&options.fills.done).push((root, fill));
+                    }
+                    Err(_) => eprintln!(
+                        "stitchwort lsp: {}: the start-up fill stopped after an internal \
+                         error; the checker checks the rest",
+                        root.display()
+                    ),
+                }
+            });
+        if let Ok(thread) = thread {
+            lock(&self.threads).push(thread);
+        }
+    }
 }
 
 /// The user's settings (D3468), as the client sends them in
@@ -152,10 +282,14 @@ pub struct Options {
 /// ```json
 /// {"inlayHints": {"letTypes": true}, "codeLens": {"run": true},
 ///  "proofSearch": {"enabled": true, "timeLimitMs": 5000},
-///  "semanticColours": true}
+///  "semanticColours": true, "startupWorkers": "off"}
 /// ```
 ///
-/// Every feature is on until switched off; a key left out keeps its value.
+/// Every feature is on until switched off, except `startupWorkers`
+/// (SW-4760): how many workers fill a project's check cache when the
+/// project is opened, `"off"` (the default), `"auto"`
+/// ([`stitchwort_driver::parallel::auto_jobs`]) or a number; read when a
+/// project is loaded. A key left out keeps its value.
 /// A feature the server advertised stays advertised and answers with
 /// nothing when it is off, so no dynamic registration is needed.
 pub struct Settings {
@@ -168,6 +302,8 @@ pub struct Settings {
     search_time_ms: AtomicU64,
     /// The client can be asked to refresh what it draws from the server.
     refresh_lenses: AtomicBool,
+    /// The workers of a project's start-up fill; fewer than two is none.
+    startup_workers: std::sync::atomic::AtomicUsize,
 }
 
 impl Default for Settings {
@@ -179,6 +315,7 @@ impl Default for Settings {
             semantic_colours: AtomicBool::new(true),
             search_time_ms: AtomicU64::new(0),
             refresh_lenses: AtomicBool::new(false),
+            startup_workers: std::sync::atomic::AtomicUsize::new(0),
         }
     }
 }
@@ -208,7 +345,16 @@ impl Settings {
         {
             changed |= self.search_time_ms.swap(ms, Ordering::Relaxed) != ms;
         }
+        if let Some(workers) = value.get("startupWorkers").and_then(startup_workers) {
+            changed |= self.startup_workers.swap(workers, Ordering::Relaxed) != workers;
+        }
         changed
+    }
+
+    /// How many workers fill a project's check cache when it is loaded:
+    /// none if fewer than two.
+    pub fn startup_workers(&self) -> usize {
+        self.startup_workers.load(Ordering::Relaxed)
     }
 
     /// The time limit set, if any.
@@ -225,7 +371,25 @@ impl std::fmt::Debug for Settings {
             .field("proof_search", &Self::on(&self.proof_search))
             .field("semantic_colours", &Self::on(&self.semantic_colours))
             .field("search_time_ms", &self.search_time())
+            .field("startup_workers", &self.startup_workers())
             .finish()
+    }
+}
+
+/// The `startupWorkers` setting's value as a number of workers: `"off"`,
+/// `false` or 0 for none, `"auto"` for [`auto_jobs`](stitchwort_driver::parallel::auto_jobs),
+/// or a number (as a string too, as `STITCHWORT_STARTUP_WORKERS` gives
+/// it). `None` for anything else, which keeps the setting as it was.
+pub fn startup_workers(value: &serde_json::Value) -> Option<usize> {
+    match value {
+        serde_json::Value::Bool(false) => Some(0),
+        serde_json::Value::Number(n) => n.as_u64().map(|n| n as usize),
+        serde_json::Value::String(s) => match s.trim() {
+            "off" => Some(0),
+            "auto" => Some(stitchwort_driver::parallel::auto_jobs()),
+            n => n.parse().ok(),
+        },
+        _ => None,
     }
 }
 
@@ -348,6 +512,7 @@ impl Options {
             offer_rename_anyway: false,
             members: Arc::default(),
             faults: Arc::default(),
+            fills: Arc::default(),
         }
     }
 }
@@ -438,6 +603,10 @@ pub fn serve(connection: Connection, options: Options) -> Result<(), String> {
     serve_from(connection, options, Arc::new(Disk))
 }
 
+/// How often the checker, waiting for a start-up fill to write the
+/// namespace it would check next, looks again.
+const FILL_POLL: Duration = Duration::from_millis(20);
+
 /// The parser's stack budget for an outline made on the request thread,
 /// which is not the checker's big-stack thread; deeper text is cut short.
 const OUTLINE_STACK: usize = 512 * 1024;
@@ -523,6 +692,7 @@ pub fn serve_from(
     let result = main.run();
     // Stops the check in progress; the checker then sees the channel closed.
     main.cancel.store(true, Ordering::Relaxed);
+    options.fills.stop();
     drop(main);
     for worker in workers {
         let _ = worker.join();
@@ -3935,9 +4105,12 @@ impl Checker {
 
     fn run_caught(&mut self, edits: &Receiver<Edit>) -> Result<(), Panic> {
         self.reopen()?;
+        // An edit received while waiting for a start-up fill, so the
+        // pause for typing still comes before the next step.
+        let mut carried = false;
         loop {
             let idle = !self.work.values().any(Work::pending);
-            let mut edited = false;
+            let mut edited = std::mem::take(&mut carried);
             if idle {
                 match edits.recv() {
                     Ok(edit) => {
@@ -3968,10 +4141,36 @@ impl Checker {
                 }
             }
             if let Some(key) = self.caught(None, |c| c.next_key())? {
+                if self.caught(Some(&key), |c| c.awaits_fill(&key))? {
+                    match edits.recv_timeout(FILL_POLL) {
+                        Ok(edit) => {
+                            self.apply_caught(edit)?;
+                            carried = true;
+                        }
+                        Err(RecvTimeoutError::Timeout) => {}
+                        Err(RecvTimeoutError::Disconnected) => return Ok(()),
+                    }
+                    continue;
+                }
                 self.step_caught(&key)?;
             }
             self.caught(None, Checker::announce)?;
         }
+    }
+
+    /// Whether the next step of the project at `key` would check a
+    /// namespace that its start-up fill may still write: then the checker
+    /// waits, and the step replays the entry. Not while a file differs
+    /// from the disk, which the fill read: the entry wouldn't be the one
+    /// the step wants.
+    fn awaits_fill(&mut self, key: &Path) -> bool {
+        let Some(watch) = self.options.fills.running(key) else {
+            return false;
+        };
+        let Some(Work::Project(p)) = self.work.get_mut(key) else {
+            return false;
+        };
+        p.saved() && p.live.next_namespace().is_some_and(|n| watch.pending(n))
     }
 
     /// Tells the client, with `stitchwort/checked` (not LSP), the version of
@@ -4529,6 +4728,19 @@ impl Checker {
         let writable = Rc::new(Cell::new(true));
         let mut skip = BTreeSet::new();
         if let Some(cache) = self.source.project_cache(dir) {
+            let workers = self.options.settings.startup_workers();
+            if workers >= 2
+                && let Some(files) = self.source.fill_files(dir)
+            {
+                (self.options.fills).start(
+                    &self.options,
+                    dir,
+                    &name,
+                    files,
+                    cache.clone(),
+                    workers,
+                );
+            }
             session.elab.set_check_cache(Rc::new(GatedCache {
                 inner: CheckCache::at(&cache),
                 writable: writable.clone(),

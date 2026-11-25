@@ -579,6 +579,9 @@ pub struct LiveProject {
     /// focus's, by path: what the session knows only while it is still in
     /// that namespace.
     names: BTreeMap<String, Vec<ScopeName>>,
+    /// [`LiveProject::next_namespace`] made the plan the next step uses:
+    /// that step counts as the one that planned.
+    planned_ahead: bool,
 }
 
 impl LiveProject {
@@ -636,6 +639,7 @@ impl LiveProject {
             outlines_stale: true,
             declared: None,
             names: BTreeMap::new(),
+            planned_ahead: false,
         }
     }
 
@@ -698,6 +702,16 @@ impl LiveProject {
         }
         let focus = self.focus_namespaces();
         self.plan.iter().any(|n| focus.contains(n))
+    }
+
+    /// The namespace the next step checks, if any; planning it first if
+    /// the texts changed, as the step would.
+    pub fn next_namespace(&mut self) -> Option<&str> {
+        if self.dirty {
+            self.make_plan();
+            self.planned_ahead = true;
+        }
+        self.plan.front().map(String::as_str)
     }
 
     /// The namespace the last step checked.
@@ -766,8 +780,8 @@ impl LiveProject {
     }
 
     fn step_inner(&mut self) -> Result<Progress, Cancelled> {
-        let planned = self.dirty;
-        if planned {
+        let planned = self.dirty || std::mem::take(&mut self.planned_ahead);
+        if self.dirty {
             self.make_plan();
         }
         let Some(name) = self.plan.pop_front() else {

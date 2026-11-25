@@ -76,7 +76,7 @@ function serverSettings(get) {
     inlayHints: pick({ letTypes: 'inlayHints.letTypes' }),
     codeLens: pick({ run: 'codeLens.run' }),
     proofSearch: pick({ enabled: 'proofSearch.enabled', timeLimitMs: 'proofSearch.timeLimitMs' }),
-    ...pick({ semanticColours: 'semanticColours' }),
+    ...pick({ semanticColours: 'semanticColours', startupWorkers: 'startupWorkers' }),
   };
 }
 

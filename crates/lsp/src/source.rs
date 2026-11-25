@@ -50,6 +50,12 @@ pub trait Source: Send + Sync {
     /// The check cache of the project in `dir`, made if it isn't there.
     fn project_cache(&self, dir: &Path) -> Option<PathBuf>;
 
+    /// The files of the project in `dir` as on disk, for a start-up fill
+    /// to read on threads of its own; `None` where there is no disk.
+    fn fill_files(&self, _dir: &Path) -> Option<Box<dyn Files + Send + Sync>> {
+        None
+    }
+
     /// The check cache in folder `dir`, for a file on its own: only if it
     /// is there already.
     fn file_cache(&self, dir: &Path) -> Option<PathBuf>;
@@ -131,6 +137,12 @@ impl Source for Disk {
         Box::new(DiskFiles {
             root: dir.to_path_buf(),
         })
+    }
+
+    fn fill_files(&self, dir: &Path) -> Option<Box<dyn Files + Send + Sync>> {
+        Some(Box::new(DiskFiles {
+            root: dir.to_path_buf(),
+        }))
     }
 
     /// `.stitchwort/cache` in the project folder, as the command line uses.

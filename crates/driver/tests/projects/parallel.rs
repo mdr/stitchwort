@@ -135,6 +135,9 @@ fn check_as(
                 make_store: &make_store,
                 seed,
                 statements_first,
+                cancel: None,
+                free_sessions: false,
+                watch: None,
             },
         );
         // As `check` does: everything loaded if the fill left a namespace.
@@ -503,6 +506,9 @@ fn a_warm_cache_or_only_runs_no_fill() {
                 make_store: &make_store,
                 seed: None,
                 statements_first: true,
+                cancel: None,
+                free_sessions: false,
+                watch: None,
             },
         )
     });
