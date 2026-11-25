@@ -428,6 +428,12 @@ Import what you use: std's theorems live in namespaces that need an import
   operation can be registered too. A call whose arguments make it compute
   at once (`blockLines (Succ here.left) …`, `downFrom 5 3`) still takes
   its function's lemma.
+  A `byWalking` inside a `match` of its own (a `match more with` in the
+  proof, whatever its depth) starts from a goal whose code the match has
+  already stepped, so a call shows as the operation it performs
+  (`Parse.next …`, not `look()`): the `@[walk]` lemma about the function
+  still fits it, and the theorem's own recursive call is found from its
+  statement (`examples/accept/walk-nested-match.sw`).
   Where two leaves need different proofs, run
   `stitchwort check --expand-walk` and edit the chain it writes (or add
   `--stdout` to print it, leaving the file alone); keep the

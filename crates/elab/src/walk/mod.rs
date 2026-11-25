@@ -370,10 +370,14 @@ fn start(cx: &mut Ctx, walk: &Walk, expected: &Value) -> Result<Term> {
     let bodies = (family.thunks.iter())
         .map(|&i| thunk_body(cx, &args[i]))
         .collect::<Result<Vec<_>>>()?;
+    // The function the theorem is about: the goal's code, or, where a
+    // `match` in the proof has stepped it (`down (Succ more)` is already
+    // `bind …`), the theorem's statement as written.
     let own = match head_of(&bodies[0]) {
-        Some(Callee::Def(f)) => own_theorem(cx).map(|t| (t, f)),
-        _ => None,
-    };
+        Some(Callee::Def(f)) => Some(f),
+        _ => written_function(cx, &family),
+    }
+    .and_then(|f| own_theorem(cx).map(|t| (t, f)));
     let root = {
         let mut walks = cx.e.session.walks.borrow_mut();
         let call = walks.calls.len();
@@ -421,6 +425,25 @@ fn start(cx: &mut Ctx, walk: &Walk, expected: &Value) -> Result<Term> {
         warn_unused(cx, call);
     }
     result
+}
+
+/// The function the theorem's own statement, as written, is about: the
+/// call its family's thunk makes, under the statement's binders.
+fn written_function(cx: &Ctx, family: &Family) -> Option<DefId> {
+    let (_, written) = cx.goal.clone()?;
+    let mut t = registry::bare(&written);
+    while let Term::Pi(_, _, _, cod, _) = t {
+        t = registry::bare(cod);
+    }
+    let (head, args) = t.spine();
+    if !matches!(head, Term::Def(id) if *id == family.relation) {
+        return None;
+    }
+    let g = cx.g();
+    match registry::thunk_head(&g, args.get(*family.thunks.first()?)?)? {
+        Callee::Def(f) => Some(f),
+        _ => None,
+    }
 }
 
 /// Warns about each bracket lemma the walk never used, at the item: it fits

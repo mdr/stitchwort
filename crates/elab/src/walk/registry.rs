@@ -882,8 +882,18 @@ pub(super) fn choose(
             .filter(|(lemma, (tag, _))| tag == WALK && crate::auto::visible(cx.e, **lemma))
             .map(|(lemma, _)| *lemma)
             .filter(|lemma| {
-                statement(g.def(*lemma).ty())
-                    .is_some_and(|s| s.args.iter().any(|a| thunk_head(&g, a) == Some(callee)))
+                statement(g.def(*lemma).ty()).is_some_and(|s| {
+                    s.args.iter().any(|a| match (thunk_head(&g, a), callee) {
+                        (Some(head), _) if head == callee => true,
+                        // An operation the goal shows already unfolded
+                        // (a `match` in the proof reads the goal back
+                        // with `look()` stepped to `Parse.next …`): a
+                        // lemma about a function whose body performs
+                        // it can still fit, which unifying decides.
+                        (Some(Callee::Def(_)), Callee::Op(..)) => true,
+                        _ => false,
+                    })
+                })
             })
             .collect();
         let mut fits = first_rank(ranks, |families| {
