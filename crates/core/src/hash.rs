@@ -234,14 +234,20 @@ fn def_hash_in(g: &Ev, id: DefId, mode: Mode) -> Result<Option<ContentHash>> {
     // is a proof is its statement alone, and the others never mention it
     // (a call of it is a proof, the marker), so it stands apart. A lifted
     // `match` of a recursive theorem is then part of the theorem's proof.
-    let members: Option<Vec<DefId>> = def.group.as_ref().map(|m| match mode {
-        Mode::Content => m.to_vec(),
-        Mode::Proofless => m
-            .iter()
-            .copied()
-            .filter(|&m| !crate::erase::proof_positions(g, m).is_some_and(|p| p.result))
-            .collect(),
-    });
+    let members: Option<Vec<DefId>> = match (&def.group, mode) {
+        (None, _) => None,
+        (Some(m), Mode::Content) => Some(m.to_vec()),
+        (Some(m), Mode::Proofless) => {
+            let mut computing = Vec::new();
+            for &member in m.iter() {
+                let proof = crate::erase::try_proof_positions(g, member)?;
+                if !proof.is_some_and(|p| p.result) {
+                    computing.push(member);
+                }
+            }
+            Some(computing)
+        }
+    };
     if let Some(members) = members.filter(|m| m.len() > 1 && m.contains(&id)) {
         group_hashes(g, &members, mode)?;
         return Ok(mode.cache(g).borrow().get(&HashKey::Def(id)).copied());
@@ -491,7 +497,7 @@ impl<'g> Hasher<'g> {
     /// body. Without proofs, one whose result is a proof is its type alone.
     fn declaration(&mut self, id: DefId) -> Result<()> {
         let def = self.g.def(id);
-        if self.mode == Mode::Proofless && self.proof_result(id) {
+        if self.mode == Mode::Proofless && self.proof_result(id)? {
             self.tag("proof-def");
             self.bool(def.theorem);
             return self.term(&def.ty);
@@ -510,38 +516,38 @@ impl<'g> Hasher<'g> {
         self.term(body)
     }
 
-    /// Whether definition `id`'s result is a proof. Conservatively not, if
-    /// that isn't known.
-    fn proof_result(&self, id: DefId) -> bool {
-        crate::erase::proof_positions(self.g, id).is_some_and(|p| p.result)
+    /// Whether definition `id`'s result is a proof; not, if it isn't final.
+    /// Running out is passed on: a guess would be remembered in the hash.
+    fn proof_result(&self, id: DefId) -> Result<bool> {
+        Ok(crate::erase::try_proof_positions(self.g, id)?.is_some_and(|p| p.result))
     }
 
     /// Without proofs: whether `term` as a whole is a proof the hash leaves
     /// out (a call of a definition whose result is a proof, `Quot.ind`,
     /// `Quot.sound`).
-    fn is_proof(&self, term: &Term) -> bool {
+    fn is_proof(&self, term: &Term) -> Result<bool> {
         if self.mode != Mode::Proofless {
-            return false;
+            return Ok(false);
         }
-        match spine_head(term).0 {
-            Term::Def(id) => self.proof_result(*id),
+        Ok(match spine_head(term).0 {
+            Term::Def(id) => self.proof_result(*id)?,
             Term::Quot(QuotForm::Ind | QuotForm::Sound, _, _, _) => true,
             _ => false,
-        }
+        })
     }
 
     /// Without proofs: whether the argument of application `app` is at a
     /// proof position of the definition at the head of its spine.
-    fn proof_argument(&self, app: &Term) -> bool {
+    fn proof_argument(&self, app: &Term) -> Result<bool> {
         if self.mode != Mode::Proofless {
-            return false;
+            return Ok(false);
         }
         let (head, args) = spine_head(app);
         let Term::Def(id) = head else {
-            return false;
+            return Ok(false);
         };
-        crate::erase::proof_positions(self.g, *id)
-            .is_some_and(|p| args > 0 && p.params.get(args - 1).copied().unwrap_or(false))
+        Ok(crate::erase::try_proof_positions(self.g, *id)?
+            .is_some_and(|p| args > 0 && p.params.get(args - 1).copied().unwrap_or(false)))
     }
 
     fn finish(&self) -> ContentHash {
@@ -776,7 +782,7 @@ impl<'g> Hasher<'g> {
                     continue;
                 }
             };
-            if self.is_proof(term) {
+            if self.is_proof(term)? {
                 self.tag("proof");
                 continue;
             }
@@ -861,7 +867,7 @@ impl<'g> Hasher<'g> {
                 Term::App(f, a, icit) => {
                     self.tag("app");
                     self.icit(*icit);
-                    pending.extend([Item::Term(f), part(a, self.proof_argument(term))]);
+                    pending.extend([Item::Term(f), part(a, self.proof_argument(term)?)]);
                 }
                 Term::Ann(e, t) => {
                     self.tag("ann");
