@@ -1,5 +1,5 @@
 {
-  "next": 4841,
+  "next": 4842,
   "tickets": [
     {
       "id": 47,
@@ -35559,15 +35559,20 @@
     {
       "id": 4814,
       "title": "[Opus] Load the core prelude from the check cache instead of elaborating it each run (about 95 ms, plus 444 Std declarations re-elaborated through core, about 84 ms; SW-4809 item 4); core is the trusted base, Fable review",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "SW-4816 (Fable): the '444 Std declarations, about 84 ms' are core's own, already inside the ~95 ms; net saving after replay about 60-80 ms. It makes a cached run trust core unchecked, and needs the check-cache-trust M1 fix first (library_interface hashes the index's core text, not the prelude actually elaborated, cache/mod.rs:1131). Held: comes back to Matt as its own trust question after re-measuring.\n\nD3746 (Matt, 25 Nov 2026): yes, load core from the cache (\"we should be using caches\"). Fable reviews the change before it merges (orchestrator's rec, carried).\n\nLane (Opus, 25 Nov, 16:25-17:12): built on lane/SW-4814 (8cb7b0ea4). Core entry in crates/elab/src/cache/core_entry.rs; exact hits only; refused replay restarts the session from source; tests and --no-cache check core from source. Replay now admits run bodies before binding built-ins (List.length). Design, state list and what to attack: docs/reviews/SW-4814-core-from-cache.md. Measured (hyperfine -N, 20 runs, 5-min load 7.8): aoc Day02 + Proofs warm check 176.5 -> 86.2 ms (JOBS=1), 178.0 -> 88.2 ms (default). Tests: 6 new driver projects check_cache::core_entry:: (all hit tests failed before the run-body fix), library hash_stability + std_index_cache, cli server check_cache:: (two parsers updated for the core's debug line, recheck message now 'the core and 2 namespaces'), examples::soundness (all tier: passes except a pre-existing snapshot drift from SW-4803, proof-irrelevance-14-expose-loop). Waiting for the Fable review.",
+      "body": "SW-4816 (Fable): the '444 Std declarations, about 84 ms' are core's own, already inside the ~95 ms; net saving after replay about 60-80 ms. It makes a cached run trust core unchecked, and needs the check-cache-trust M1 fix first (library_interface hashes the index's core text, not the prelude actually elaborated, cache/mod.rs:1131). Held: comes back to Matt as its own trust question after re-measuring.\n\nD3746 (Matt, 25 Nov 2026): yes, load core from the cache (\"we should be using caches\"). Fable reviews the change before it merges (orchestrator's rec, carried).\n\nLane (Opus, 25 Nov, 16:25-17:12): built on lane/SW-4814 (8cb7b0ea4). Core entry in crates/elab/src/cache/core_entry.rs; exact hits only; refused replay restarts the session from source; tests and --no-cache check core from source. Replay now admits run bodies before binding built-ins (List.length). Design, state list and what to attack: docs/reviews/SW-4814-core-from-cache.md. Measured (hyperfine -N, 20 runs, 5-min load 7.8): aoc Day02 + Proofs warm check 176.5 -> 86.2 ms (JOBS=1), 178.0 -> 88.2 ms (default). Tests: 6 new driver projects check_cache::core_entry:: (all hit tests failed before the run-body fix), library hash_stability + std_index_cache, cli server check_cache:: (two parsers updated for the core's debug line, recheck message now 'the core and 2 namespaces'), examples::soundness (all tier: passes except a pre-existing snapshot drift from SW-4803, proof-irrelevance-14-expose-loop). Waiting for the Fable review.\n\nFable review: merge (no key gap; state list complete; refused replay leaves nothing; 136 soundness examples identical with core from its entry vs from source). Model result: opus, worked, 46 min (est. 60) plus a 5 min merge fix.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "8cb7b0ea4",
+        "15eb13598",
+        "70c39419e",
+        "27fa83f1b"
+      ]
     },
     {
       "id": 4815,
@@ -35815,7 +35820,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Orchestrator's call: held until SW-4814 merges (both edit Session::start_in's core loading).",
+      "body": "Orchestrator's call: held until SW-4814 merges (both edit Session::start_in's core loading).\n\nUnheld: SW-4814 merged.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
@@ -35964,6 +35969,19 @@
         "8dd9be94a",
         "5dd5ae823"
       ]
+    },
+    {
+      "id": 4841,
+      "title": "[Sonnet] Core-from-cache test gaps (SW-4814 Fable review findings 2, 3, 8): a custom-prelude core_entry test with a kept warning (nested trans) so the warnings comparison isn't vacuous; a test that options in the key (limits, glue) miss; after binding List.length on the trusted path, compare its run body with length_run_body's",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
     }
   ]
 }
