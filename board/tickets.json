@@ -1,5 +1,5 @@
 {
-  "next": 4824,
+  "next": 4825,
   "tickets": [
     {
       "id": 47,
@@ -35526,15 +35526,18 @@
     {
       "id": 4812,
       "title": "[Opus] Cache the std name index instead of parsing all 133 std files on every run (216-254 ms of every check; SW-4809 item 2); name resolution must give the same answers",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "D3744 (amended per SW-4816), Matt 25 Nov 2026: 'D3744 proceed'. Requirements: docs/reviews/SW-4816-checking-profile-review.md section 3.\n\nLane (Opus, 25 Nov 13:26-14:00): std index cached in <cache dir>/std-index/, keyed on format + compiler stamp + stack + core text + every library file's path and text (no mtimes); entry = key + body hash + names/edges/equation needs; owner and dot targets recomputed; modules parsed on first use. Wired for check (project, files, --std); --no-cache and tests build. Day 2 (library+project cached, 1 job): 479 -> 291 ms, 199 -> 115 MiB. Tests: driver library std_index_cache::* (5), cli tools std_dir::editing_a_std_dir_file_misses_the_cached_name_index. Commit d559ae9f6.",
+      "body": "D3744 (amended per SW-4816), Matt 25 Nov 2026: 'D3744 proceed'. Requirements: docs/reviews/SW-4816-checking-profile-review.md section 3.\n\nLane (Opus, 25 Nov 13:26-14:00): std index cached in <cache dir>/std-index/, keyed on format + compiler stamp + stack + core text + every library file's path and text (no mtimes); entry = key + body hash + names/edges/equation needs; owner and dot targets recomputed; modules parsed on first use. Wired for check (project, files, --std); --no-cache and tests build. Day 2 (library+project cached, 1 job): 479 -> 291 ms, 199 -> 115 MiB. Tests: driver library std_index_cache::* (5), cli tools std_dir::editing_a_std_dir_file_misses_the_cached_name_index. Commit d559ae9f6.\n\nOpus review: merge (key covers everything the build reads; cold and warm index give identical digests on AoC days 2, 15, 18 and the whole formatter). Model result: opus, worked, about 23 min (est. 60).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "d559ae9f6",
+        "86e7e3b1a"
+      ]
     },
     {
       "id": 4813,
@@ -35672,6 +35675,19 @@
     {
       "id": 4823,
       "title": "[Sonnet] The project scan entry (SW-4813) is one blob per project (2.1 MB for tools/fmt), read whole on every check and rewritten whole on any edit; split it per file if profiling shows it (SW-4813 review F4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4824,
+      "title": "[Sonnet] library_interface hashes each name's kind, follower, function and candidate flags but not accessor: check whether the accessor flag can change a project's elaboration without its key changing; if so add it to the key (SW-4812 review, unverified, predates it)",
       "status": "backlog",
       "agent": "",
       "where": "",
