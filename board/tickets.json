@@ -35235,30 +35235,36 @@
     {
       "id": 4794,
       "title": "[Sonnet] Small: stitchwort hash --json --uses omits the uses key for declarations with none (consumers must default it); and the --std-dir help text says 'instead of the copy built in', but std is read from files at run time (SW-4787, SW-4789 findings)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Model result: deepseek, worked, about 20 min for all three (shared run).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "c57a4a5f3",
+        "db2bb109b"
+      ]
     },
     {
       "id": 4795,
       "title": "[DeepSeek] board.test.js 'the committed epics.json and epic-tags.json are consistent' fails: board/epics.json links to an absolute path in another repo (/Users/matt/repos/mdr/whereabouts/docs/stitchwort-candidates.md) that isn't there for the agent user or in clones; make the link a URL or relative, or make the test skip links outside the repo",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Model result: deepseek, worked, about 20 min for all three (shared run).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "9e2160791",
+        "db2bb109b"
+      ]
     },
     {
       "id": 4796,
@@ -35276,15 +35282,18 @@
     {
       "id": 4797,
       "title": "[DeepSeek] term_diff's J arm (crates/driver/src/live/term_diff.rs:701-706) compares two casts by motive and base only; compare their equations (ends) under the proofless hash's guard (hash.rs Term::J arm, SW-4786) so a ProofsOnly refusal from changed ends gets a location; and add a sentence to proofless_hash's doc that a ? or failed-proof stand-in at a proof position hashes as any proof, so a key built on this hash must carry the goals beside it (SW-4793 findings 2, 3)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Model result: deepseek, worked, about 20 min for all three (shared run).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "ff924c20e",
+        "db2bb109b"
+      ]
     }
   ]
 }
