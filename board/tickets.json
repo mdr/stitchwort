@@ -1,5 +1,5 @@
 {
-  "next": 4800,
+  "next": 4801,
   "tickets": [
     {
       "id": 47,
@@ -35318,6 +35318,19 @@
     {
       "id": 4799,
       "title": "[Sonnet] Kernel-lane brief line in docs/workflow.md 'Writing a brief': a change to evaluation also runs the differential test the_evaluators_agree_on_the_prelude_and_every_example with STITCHWORT_DIFFERENTIAL_ONLY=<example>, and the example has value definitions that exercise the rule; and lane waits need the Bash timeout parameter (~175000) as well as timeout 170 (SW-4796 friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4800,
+      "title": "[Fable] Review of SW-4796's kernel change (rule S reads a parameter's type through an alias): view safety of the forced type, glued unfoldings, whether 'declines' is reachable, cost, other as-written Pi walks in core (paper; started 09:54)",
       "status": "backlog",
       "agent": "",
       "where": "",
