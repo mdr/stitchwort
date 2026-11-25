@@ -1,5 +1,5 @@
 {
-  "next": 4816,
+  "next": 4817,
   "tickets": [
     {
       "id": 47,
@@ -35571,6 +35571,19 @@
       "labels": [],
       "epic": "performance",
       "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4816,
+      "title": "[Fable paper] Review the checking-speed profile (SW-4809, SW-4810) and the D3744 plan: is the Lean comparison fair, are the three fixed costs the gap, and what SW-4812 (std name index cache) and SW-4814 (core prelude from cache) must keep true (D3745)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "D3745, Matt 25 Nov 2026: 'D3745, yes, proceed with Fable review'. D3744 waits for it.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
