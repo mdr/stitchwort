@@ -35475,12 +35475,12 @@
     {
       "id": 4809,
       "title": "[Opus] Profile what small AoC proofs spend checking time on (D3743): 2024 day 2, 2020 day 18, 2021 day 15, own theorems with the library cached; phases, read-back, kernel, allocation; compare with Lean on the same ports; rank the changes that would close the 3-5x gap (measurement only)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "D3743, Matt 25 Nov 2026: 'Yes, profiling sounds very sensible before we attempt optimizations.'",
+      "body": "D3743, Matt 25 Nov 2026: 'Yes, profiling sounds very sensible before we attempt optimizations.'\n\nLane (Opus, 25 Nov 12:26-13:00): docs/reviews/SW-4809-small-proof-profile.md. The days' own namespaces are 0.6-1.3x Lean net; the bench's 3-5x is its probe missing std files (975 ms on day 18, 800 ms on day 15), a fixed per-run cost (std index ~230 ms, aoc project scan ~190 ms, core ~95 ms) and a dev build (validate_marks, 23% of a cached day 18 run). Ranked candidates in section 4.\n",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
