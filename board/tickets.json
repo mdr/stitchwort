@@ -35153,7 +35153,7 @@
     {
       "id": 4789,
       "title": "[Sonnet] A copied stitchwort binary falls back to the std of the tree it was built from, and its missing-std error names --std-dir (SW-3779 W3)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
