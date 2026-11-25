@@ -73,7 +73,9 @@ SW-4770 done) and in reviews. The promises are used by:
 Simplify. Keep the three promises, `proofs_changed`, `proofs_only`, `uses` and
 the first difference; they all still do work, and `ProofsOnly` is now on
 firmer ground (under rule I the kernel never compares proofs, so a hash
-without proofs that held means the checker can't tell the two apart). Delete
+without proofs that held means the checker can't tell the two apart; this
+needs the hash to keep a cast's ends, which rule K computes by, as it has
+since SW-4786). Delete
 the `reproved` cone (`reproved_cone`, the `outside` filter, `reproved_all`
 in `declhash::compare`, the field in `ChangedMeaning` and `HashChange`, the
 JSON key), the sweep's two refusal-by-proof paths and its `--proofs-only`

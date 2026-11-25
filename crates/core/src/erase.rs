@@ -66,9 +66,11 @@
 //! a polymorphic function, say) is still the placeholder if it was made by
 //! rule 3, and is only ever passed along.
 //!
-//! The checker never runs with erasure: conversion compares values that are
-//! open terms, where proofs do matter for typing. Erasure is set only by the
-//! driver around running a program or a test.
+//! The checker never runs with erasure. Conversion never compares two
+//! proofs (rule I), but it evaluates open terms, where a cast along a
+//! hypothesis whose ends differ (`h: n = m`) must stay stuck: erasure would
+//! take its base, as a run may, since in a run the ends are equal values.
+//! Erasure is set only by the driver around running a program or a test.
 
 use crate::ev::Ev;
 use crate::term::ProofMark;
