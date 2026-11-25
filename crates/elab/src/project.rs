@@ -13,6 +13,8 @@ use stitchwort_syntax::{Diagnostic, FileId, Span};
 use crate::Elaborator;
 use crate::module::{Ref, decl_refs};
 
+#[cfg(test)]
+mod edges_tests;
 mod sketch;
 use crate::scope::{Qualifier, QualifierLevels, STD, WildcardSource, import_target, qualifier};
 pub use sketch::{FileSketch, ImportSketch};
@@ -268,6 +270,17 @@ impl Elaborator {
     /// [`Self::namespace_edges`], from the sketches of the namespace's
     /// files.
     pub fn namespace_edges_of(&self, ns_name: &str, files: &[&FileSketch]) -> Vec<Edge> {
+        self.namespace_edges_with(ns_name, files, Self::longest_namespace)
+    }
+
+    /// [`Self::namespace_edges_of`] with the longest-namespace lookup given,
+    /// so that a test can run it with the straightforward one.
+    fn namespace_edges_with(
+        &self,
+        ns_name: &str,
+        files: &[&FileSketch],
+        longest_namespace: impl Fn(&Self, &str, bool) -> Option<String>,
+    ) -> Vec<Edge> {
         // What each file of the namespace declares and imports.
         let mut declared: HashSet<&str> = HashSet::default();
         // Qualified declarations: the first component of the written name,
@@ -383,7 +396,7 @@ impl Elaborator {
             for (import, target) in unit.imports.iter().zip(&targets[f]) {
                 let first = import.path.text.split('.').next().unwrap_or("");
                 if matches!(qualifier(&path_levels, first), Qualifier::Project)
-                    && let Some(q) = self.longest_namespace(&import.path.text, true)
+                    && let Some(q) = longest_namespace(self, &import.path.text, true)
                     && q != ns_name
                 {
                     found(q, import.path.span);
@@ -413,7 +426,7 @@ impl Elaborator {
                     Qualifier::Imported(key) => format!("{key}.{rest}"),
                     _ => continue,
                 };
-                if let Some(q) = self.longest_namespace(&full, false)
+                if let Some(q) = longest_namespace(self, &full, false)
                     && q != ns_name
                 {
                     found(q, n.span);
@@ -429,12 +442,15 @@ impl Elaborator {
     /// The longest project namespace `Q` with `path == Q` (if `equal`) or
     /// `path` starting with `Q.`.
     pub(crate) fn longest_namespace(&self, path: &str, equal: bool) -> Option<String> {
-        self.session
-            .project_namespaces
-            .iter()
-            .filter(|q| (equal && q.as_str() == path) || path.starts_with(&format!("{q}.")))
-            .max_by_key(|q| q.len())
-            .cloned()
+        let namespaces = &self.session.project_namespaces;
+        if equal && namespaces.contains(path) {
+            return Some(path.to_string());
+        }
+        // Each `Q.` prefix ends just before a `.`; try the longest first.
+        path.rmatch_indices('.')
+            .map(|(i, _)| &path[..i])
+            .find(|q| namespaces.contains(*q))
+            .map(str::to_string)
     }
 }
 
