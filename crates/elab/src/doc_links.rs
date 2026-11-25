@@ -11,14 +11,15 @@
 //! cache's key. So the warnings are not cached (SW-1045): they are worked
 //! out again each time, after a namespace is checked or replayed, against the
 //! names as they are now. A file's `import` lines count by their syntax
-//! (`link_candidates_with_imports`), as they do in `doc` and the index, since
-//! a replayed namespace has not had its imports applied. A plain `check`
+//! (`link_candidates_with_imports`) too, as they do in `doc` and the index;
+//! a replayed namespace has them applied again for its links alone, so
+//! the answer is a cold check's (SW-4835). A plain `check`
 //! that would replay a namespace only for its links leaves it out when
 //! they surely all resolve (`doc_links_resolve_unloaded`, SW-4827).
 
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{Import, Module};
-use stitchwort_syntax::docs::{DocLink, link_candidates_with_imports};
+use stitchwort_syntax::docs::{DocLink, link_candidates, link_candidates_with_imports};
 
 use crate::Elaborator;
 use crate::module::declared_names;
@@ -297,8 +298,10 @@ impl Elaborator {
     /// now ([`Self::is_known_key`]: the library's index, the core, and the
     /// project's namespaces by what their files declare, none of which
     /// loading takes away), or it is a short name the defaults find once
-    /// (`Some`). Ambiguous: a replay applies no imports, so a name with a
-    /// qualifier can't be (its qualifier is looked up without
+    /// (`Some`). Ambiguous: a name two imports bring, or one and a known
+    /// candidate or default, may be (SW-4835: a replay applies a file's
+    /// imports for its links); otherwise a name with a qualifier can't be
+    /// (its qualifier is looked up without
     /// constructors, at most one key at each level), and a short name only
     /// if two of the constructors and declarations `ns` declares at its
     /// root have it, or failing those, two of the prelude's and the library
@@ -327,6 +330,21 @@ impl Elaborator {
                 }
                 let candidates =
                     link_candidates_with_imports(&link.name, Some(ns), &module.imports);
+                // Imports are applied for the links of a replay, so a name
+                // two of them (or one and a declaration, or a default)
+                // bring may be ambiguous.
+                let plain = link_candidates(&link.name, Some(ns));
+                let mut by_import: Vec<&String> = (candidates.iter())
+                    .filter(|key| !plain.contains(key) && self.is_known_key(key, Some(&home)))
+                    .collect();
+                by_import.dedup();
+                if !by_import.is_empty()
+                    && (by_import.len() > 1
+                        || matches!(found, Lookup::Found)
+                        || (plain.iter()).any(|key| self.is_known_key(key, Some(&home))))
+                {
+                    return false;
+                }
                 let named = matches!(found, Lookup::Found)
                     || (candidates.iter()).any(|key| self.is_known_key(key, Some(&home)));
                 if !named || candidates.iter().any(|key| is_lemma_key(key)) {

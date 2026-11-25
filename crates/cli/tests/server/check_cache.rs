@@ -983,6 +983,50 @@ fn doc_links_reach_what_declarations_make() {
     let _ = std::fs::remove_dir_all(&loading);
 }
 
+/// A doc link means what the file's imports make it mean, cold or warm,
+/// skipping or not (SW-4835): two imports of a name make a short link to it
+/// ambiguous, and an alias an import gives resolves a link. A replayed
+/// namespace has its imports applied again for its links.
+#[test]
+fn doc_links_through_imports_are_the_same_cold_and_warm() {
+    let project = temp_dir("links-imports-project");
+    let write = |path: &str, text: &str| {
+        let full = project.join(path);
+        std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+        std::fs::write(full, text).unwrap();
+    };
+    write("stitchwort.yaml", "sources: [src]\n");
+    write("src/A/A.sw", "namespace A\n\ndef x: Nat := 1\n");
+    write("src/B/B.sw", "namespace B\n\ndef x: Nat := 2\n");
+    write(
+        "src/Both/Both.sw",
+        "namespace Both\nimport A (x)\nimport B (x)\n\n--| See [`x`].\ndef y: Nat := 3\n",
+    );
+    write(
+        "src/Alias/Alias.sw",
+        "namespace Alias\nimport A (x as ex)\n\n--| See [`ex`].\ndef z: Nat := 4\n",
+    );
+    let skipping = temp_dir("links-imports-on");
+    let loading = temp_dir("links-imports-off");
+    let check = |what: &str| assert_skipping_unchanged(&project, &skipping, &loading, what);
+    let ambiguous = |cache: &Path, skip: bool| {
+        let out = shown(&plain_check(&project, cache, skip, false));
+        assert!(
+            out.contains("the doc link `x` is ambiguous"),
+            "skip {skip}: {out}"
+        );
+        assert!(!out.contains("`ex`"), "skip {skip}: {out}");
+    };
+    check("cold");
+    ambiguous(&temp_dir("links-imports-cold"), false);
+    check("warm");
+    ambiguous(&skipping, true);
+    ambiguous(&loading, false);
+    let _ = std::fs::remove_dir_all(&project);
+    let _ = std::fs::remove_dir_all(&skipping);
+    let _ = std::fs::remove_dir_all(&loading);
+}
+
 /// A namespace entry that can't be read is a miss when the plain `check`
 /// plans what to load: the namespace is checked again, not left out, and
 /// so is what uses it; what is printed is what loading everything prints.
