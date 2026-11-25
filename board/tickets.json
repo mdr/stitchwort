@@ -1,5 +1,5 @@
 {
-  "next": 4840,
+  "next": 4841,
   "tickets": [
     {
       "id": 47,
@@ -35872,15 +35872,18 @@
     {
       "id": 4835,
       "title": "[Sonnet] A warm check drops an ambiguous-doc-link warning a cold check prints: with import A (x), import B (x) and a doc link to x, the cold check warns W-DOC-LINK ambiguous and the warm one prints nothing, even with skipping off (replay clears imports); predates SW-4827; repro in SW-4827's scratch probe2 (copy it into the ticket's test). Every bug fix carries a test.",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Fixed: replay applies the file's imports for doc links only (cache/mod.rs); doc_links_resolve_unloaded refuses to skip when imports bring a name along with another candidate. Test doc_links_through_imports_are_the_same_cold_and_warm; check_cache:: 23 pass.",
+      "body": "Fixed: replay applies the file's imports for doc links only (cache/mod.rs); doc_links_resolve_unloaded refuses to skip when imports bring a name along with another candidate. Test doc_links_through_imports_are_the_same_cold_and_warm; check_cache:: 23 pass.\n\nOrchestrator review: imports applied for link resolution only and cleared; skip rule made conservative for import-derived candidates. Model result: sonnet, worked, 12 min (est. 35).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "9b4e77e49",
+        "5f92c2f55"
+      ]
     },
     {
       "id": 4836,
@@ -35914,19 +35917,35 @@
     {
       "id": 4838,
       "title": "[Sonnet] STITCHWORT_CACHE_DEBUG=0 still turns cache debug on (the variable only has to be set); read it as a boolean, and document STITCHWORT_SKIP_UNNEEDED and the cache debug switch in docs/testing.md, including that one namespace with an error stops all skipping (SW-4827 review friction)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Done: env_flag helper in core; CACHE_DEBUG=0 now off; test cache_debug_reads_its_value (failed first); docs/testing.md 'Check-cache switches'. Commit 85c7327f6.",
+      "body": "Done: env_flag helper in core; CACHE_DEBUG=0 now off; test cache_debug_reads_its_value (failed first); docs/testing.md 'Check-cache switches'. Commit 85c7327f6.\n\nModel result: sonnet, worked, about 15 min (est. 15).",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": [
+        "85c7327f6",
+        "01f813191"
+      ]
+    },
+    {
+      "id": 4839,
+      "title": "[Sonnet] A command that compares two check-cache folders ignoring build keys (scan, ran, std-index names and the build id inside entries): two lanes and two reviews today hand-filtered entry names to show a change kept cache keys (SW-4829, SW-4827 friction; with SW-4822)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
     },
     {
-      "id": 4839,
-      "title": "[Sonnet] A command that compares two check-cache folders ignoring build keys (scan, ran, std-index names and the build id inside entries): two lanes and two reviews today hand-filtered entry names to show a change kept cache keys (SW-4829, SW-4827 friction; with SW-4822)",
+      "id": 4840,
+      "title": "[DeepSeek] Read the other presence-only STITCHWORT_ switches (STITCHWORT_SEARCH_DEBUG, STITCHWORT_TIMINGS, STITCHWORT_NATIVE_DUMP and the rest: grep var_os(\"STITCHWORT_) through stitchwort_core's env_flag, so =0 means off (SW-4838 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
