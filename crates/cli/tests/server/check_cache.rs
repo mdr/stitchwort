@@ -305,7 +305,12 @@ fn a_warm_test_run_elaborates_and_runs_nothing() {
 /// by default (it reports the namespaces it doesn't need to load from their
 /// entries); without, as `STITCHWORT_SKIP_UNNEEDED=0` (it loads them all).
 fn plain_check(project: &Path, cache: &Path, skip: bool, debug: bool) -> Output {
-    let mut env = vec![("STITCHWORT_SKIP_UNNEEDED", if skip { "1" } else { "0" })];
+    // One job: these tests are about what the one-job check leaves out; a
+    // fill with several jobs would write entries first (SW-4805).
+    let mut env = vec![
+        ("STITCHWORT_SKIP_UNNEEDED", if skip { "1" } else { "0" }),
+        ("STITCHWORT_JOBS", "1"),
+    ];
     if debug {
         env.push(("STITCHWORT_CACHE_DEBUG", "1"));
     }
