@@ -231,6 +231,11 @@ A batch that changes hashing or the check cache also runs
 `package(stitchwort-driver) & binary(projects) & test(/trial::|check_cache::digest/)`
 (the trial check and the interface-digest keys): the quick tier runs only
 one `projects` test, so these are in no tier's quick run (SW-4779).
+A batch that changes `std/core` or `crates/elab/src/cache` also runs
+`package(stitchwort-driver) & binary(projects) & test(/core_entry/)`: the
+differential tests that a core replayed from its entry equals one
+elaborated, which carry the completeness of SW-4814's state list
+(SW-4814 Fable review).
 
 When something slips past, it is fixed or reverted; the merge check does
 not grow to cover it. Matt, 16 Nov 2026: "We want to be really
