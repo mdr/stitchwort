@@ -35041,12 +35041,12 @@
     {
       "id": 4783,
       "title": "[Sonnet] D3739 (b): the editor's start-up fill defaults to auto (stitchwort.startupWorkers and STITCHWORT_STARTUP_WORKERS): server Settings default, VS Code package.json default, README, getting-started guide, parallel-checking.md 9.9, and any test that assumed off",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nProgress (Sonnet lane): default changed to auto in Settings, package.json, README, guide, 9.9 (D3739). Tests that open disk projects in crates/cli/tests/server/lsp.rs use an options() helper with the fill off; the lsp crate's carry-over unit test too. Fill tests and a new settings default test pass.\n",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
