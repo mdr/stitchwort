@@ -35438,7 +35438,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Matt, 25 Nov 2026: 'Yes, if we run the Lean Rock comparison bench, it would be quite interesting to see how we compare now.' Started 11:40 on Sonnet on Speedwell (quiet, load 2), est. 40 min; whole-formatter cold checks allowed for this measurement.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
