@@ -473,8 +473,9 @@ enum Command {
         /// so its messages and result are the same. With --no-cache their
         /// entries are kept in memory for the run. One job, whatever this
         /// says, with --recheck, --carry-over, --only, --no-project-cache,
-        /// the --expand options or a file. Also STITCHWORT_JOBS; 1 if
-        /// neither is given
+        /// the --expand options or a file. `auto` (the default) is the
+        /// cores, at most 8 and one per 2 GB of memory. Also
+        /// STITCHWORT_JOBS; `--jobs 1` runs one job
         #[arg(short = 'j', long, value_name = "N", value_parser = parse_jobs)]
         jobs: Option<usize>,
     },
@@ -1149,11 +1150,17 @@ fn parse_timings(value: &str) -> Result<usize, String> {
     }
 }
 
-/// `--jobs`' value: a positive number of workers.
+/// `--jobs`' value: a positive number of workers, or `auto` for
+/// [`stitchwort_driver::parallel::auto_jobs`], which is also the default.
 fn parse_jobs(value: &str) -> Result<usize, String> {
+    if value == "auto" {
+        return Ok(stitchwort_driver::parallel::auto_jobs());
+    }
     match value.parse::<usize>() {
         Ok(n) if n > 0 => Ok(n),
-        _ => Err(format!("expected a positive number, not `{value}`")),
+        _ => Err(format!(
+            "expected `auto` or a positive number, not `{value}`"
+        )),
     }
 }
 
@@ -1162,14 +1169,15 @@ fn parse_jobs(value: &str) -> Result<usize, String> {
 /// for it.
 const PARALLEL_NO_CACHE: bool = true;
 
-/// How many workers `check` uses: `--jobs`, else `STITCHWORT_JOBS`, else 1.
+/// How many workers `check` uses: `--jobs`, else `STITCHWORT_JOBS`, else
+/// `auto` (D3742).
 fn jobs_asked(jobs: Option<usize>) -> usize {
     jobs.or_else(|| {
         std::env::var("STITCHWORT_JOBS")
             .ok()
             .and_then(|v| parse_jobs(v.trim()).ok())
     })
-    .unwrap_or(1)
+    .unwrap_or_else(stitchwort_driver::parallel::auto_jobs)
 }
 
 fn main() -> ExitCode {

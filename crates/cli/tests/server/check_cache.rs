@@ -417,6 +417,49 @@ fn check_jobs_prints_what_one_job_does_and_one_job_for_recheck() {
     }
 }
 
+/// With no `--jobs` and no `STITCHWORT_JOBS`, `check` runs `auto` workers
+/// (D3742): more than one on a machine with several cores. `STITCHWORT_JOBS=1`
+/// gives one job.
+#[test]
+fn check_runs_auto_jobs_by_default_and_one_with_the_variable() {
+    if std::thread::available_parallelism().map_or(1, |n| n.get()) < 2 {
+        return;
+    }
+    let project =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../driver/tests/projects/parallel/par_project");
+    let run = |jobs: Option<&str>| {
+        let cache = temp_dir("jobs-default");
+        let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
+        command
+            .args(["check", "--project", project.to_str().unwrap()])
+            .args(["--cache-dir", cache.to_str().unwrap(), "--timings"])
+            .env_remove("STITCHWORT_JOBS")
+            .stdin(Stdio::null());
+        if let Some(jobs) = jobs {
+            command.env("STITCHWORT_JOBS", jobs);
+        }
+        let output = command.output().expect("run stitchwort");
+        let _ = std::fs::remove_dir_all(cache);
+        assert!(output.status.success(), "{}", shown(&output));
+        String::from_utf8_lossy(&output.stderr).into_owned()
+    };
+    let jobs_of = |err: &str| {
+        let line = err
+            .lines()
+            .find(|l| l.starts_with("wall ") && l.contains(" jobs;"))?;
+        line.split(" with ")
+            .nth(1)?
+            .split(" jobs")
+            .next()?
+            .parse::<usize>()
+            .ok()
+    };
+    let default = run(None);
+    assert!(jobs_of(&default).is_some_and(|n| n > 1), "{default}");
+    let one = run(Some("1"));
+    assert_eq!(jobs_of(&one), None, "{one}");
+}
+
 /// `check --no-cache --jobs 4` of a project with one namespace, so no fill
 /// runs, does what one job does and encodes no entries for a store nothing
 /// reads (SW-4725).

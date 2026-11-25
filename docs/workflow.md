@@ -637,8 +637,12 @@ profile a project's namespaces without paying for the library, add
 `--no-project-cache`: the project's own namespaces are checked afresh (their
 cache entries neither read nor written) while the library comes from the
 cache; `--no-cache` still turns both off.
-Lanes never pass `check --jobs` (or set `STITCHWORT_JOBS`): the load rules
-above count a check as one core (SW-4719).
+`check` runs `auto` workers by default (D3742, Matt, 25 Nov 2026), the
+cores, at most 8 and one per 2 GB of memory. Lanes and verifiers run it with
+`STITCHWORT_JOBS=2` (the repo's `.cargo/config.toml` sets it for tests, and
+the `sw:check`, `aoc:check` and `trace` tasks default to it); the load rules
+count such a check as two cores. `--jobs 1` or `STITCHWORT_JOBS=1` gives one
+job.
 
 ### Writing a brief
 
