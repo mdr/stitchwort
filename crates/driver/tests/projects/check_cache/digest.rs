@@ -1064,8 +1064,8 @@ fn the_digest_of_a_fixed_project_is_pinned() {
     );
 }
 
-const PINNED_A: &str = "8a6e5b67b40b62c7ee4b26636fb7fbf2d7bad6a9d5db725c816eaef120a316e4";
-const PINNED_B: &str = "7aba8d8e6a0326ee87b009e08606199107121c8fc5928ff9b8e66f1e8c756ead";
+const PINNED_A: &str = "8d2a71817d1d26c6a767f2586dfd2da19fe08dcaa4e15f1c78b837f9aaf1c858";
+const PINNED_B: &str = "65771d12e3d79e7ead236d5530ca2ff4afe4a3cf759ebaf57d112dc50ace201d";
 
 /// Rule 4 end to end: `W-MODULE-NAME` in `B` labels `A.a`'s position, so
 /// `B`'s entry holds a position in `A`'s file and records the project's
