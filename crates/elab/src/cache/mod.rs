@@ -5037,8 +5037,16 @@ impl Elaborator {
                         for m in &group.members {
                             def_final[*m] = true;
                             if library {
-                                self.bind_builtin_def(DefId(base_defs + m))
-                                    .map_err(refused)?;
+                                let id = DefId(base_defs + m);
+                                self.bind_builtin_def(id).map_err(refused)?;
+                                // `List.length`'s run body was admitted
+                                // trusted, and no hash covers it: it must
+                                // be the one the elaborator gives it.
+                                if self.kernel.env.registry().def(Builtin::ListLength) == Some(id)
+                                    && !self.length_run_body_is_ours(id).map_err(refused)?
+                                {
+                                    return bad("List.length's run body isn't the elaborator's");
+                                }
                             }
                         }
                     }

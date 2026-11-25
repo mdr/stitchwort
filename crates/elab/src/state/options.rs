@@ -128,6 +128,12 @@ pub struct Options {
     #[doc(hidden)]
     #[cfg(feature = "test-bypass")]
     pub stale_pins_fall_back: bool,
+    /// For the test of the core's entry (SW-4841): `List.length` gets a run
+    /// body that isn't the elaborator's, so the entry written holds a bad
+    /// one.
+    #[doc(hidden)]
+    #[cfg(feature = "test-bypass")]
+    pub wrong_length_run_body: bool,
 }
 
 impl Options {
@@ -193,6 +199,9 @@ impl Options {
             // Only for a changed prelude, which is checked from source.
             #[cfg(feature = "test-bypass")]
                 stale_pins_fall_back: _,
+            // Only a test's way of writing a bad entry.
+            #[cfg(feature = "test-bypass")]
+                wrong_length_run_body: _,
         } = self;
         format!(
             "succ {} limits {} {} {} {} rewrite {:?} instances {:?} uniform {} glue {} build {}",

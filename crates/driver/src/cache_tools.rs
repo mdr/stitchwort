@@ -110,7 +110,7 @@ pub fn render_keys(lines: &[KeyLine]) -> String {
 /// stripped, and how many files of each unit kind that are left out:
 /// `scan…` and `ran…` entries (their keys are salted by the folder, so
 /// they say nothing about a change) and anything else that isn't a
-/// namespace's or a library file's.
+/// namespace's, library file's or core's.
 pub struct Entries {
     pub entries: BTreeSet<(String, String)>,
     pub left_out: BTreeMap<String, usize>,
@@ -136,7 +136,7 @@ pub fn read_entries(dir: &Path) -> std::io::Result<Entries> {
         let Some((unit, key)) = rest.rsplit_once('-') else {
             continue;
         };
-        if unit.starts_with("ns.") || unit.starts_with("std.") {
+        if unit.starts_with("ns.") || unit.starts_with("std.") || unit.starts_with("core") {
             entries.insert((unit.to_string(), key.to_string()));
         } else {
             let kind = if unit.starts_with("scan") {

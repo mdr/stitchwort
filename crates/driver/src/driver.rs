@@ -747,6 +747,31 @@ impl Session {
         navigation: bool,
         refuse_after: Option<&str>,
     ) -> Result<Self, String> {
+        Self::with_core_cache_tuned(
+            prelude,
+            dir,
+            recheck,
+            navigation,
+            refuse_after,
+            Limits::default(),
+            |_| {},
+        )
+    }
+
+    /// [`Session::with_core_cache`] under `limits` and with `tune` run on
+    /// the new elaborator (SW-4841): for the tests that change an option
+    /// the core's entry is keyed on, or one a test uses to write a bad
+    /// entry.
+    #[doc(hidden)]
+    pub fn with_core_cache_tuned(
+        prelude: &str,
+        dir: &std::path::Path,
+        recheck: bool,
+        navigation: bool,
+        refuse_after: Option<&str>,
+        limits: Limits,
+        tune: fn(&mut Elaborator),
+    ) -> Result<Self, String> {
         Self::start_with_core(
             prelude,
             Library::Standard,
@@ -754,13 +779,14 @@ impl Session {
                 navigation,
                 ..Default::default()
             },
-            Limits::default(),
+            limits,
             StdCache::Source,
             Some(crate::check_cache::CoreCache {
                 dir: dir.to_path_buf(),
                 recheck,
                 refuse_after: refuse_after.map(str::to_string),
             }),
+            tune,
         )
     }
 
@@ -808,7 +834,7 @@ impl Session {
         // switches are in its key.
         let core = crate::check_cache::core_cache()
             .filter(|_| matches!(library, Library::Standard) && !options.library_tests);
-        Self::start_with_core(prelude, library, options, limits, std_cache, core)
+        Self::start_with_core(prelude, library, options, limits, std_cache, core, |_| {})
     }
 
     /// [`Session::start`] with the core from and to `core`'s cache, if
@@ -820,10 +846,16 @@ impl Session {
         limits: Limits,
         std_cache: StdCache,
         core: Option<crate::check_cache::CoreCache>,
+        tune: fn(&mut Elaborator),
     ) -> Result<Self, String> {
+        let elaborator = || {
+            let mut elab = Elaborator::new();
+            tune(&mut elab);
+            elab
+        };
         if let Some(core) = core {
             match Self::start_cached(
-                Elaborator::new(),
+                elaborator(),
                 prelude,
                 library,
                 options,
@@ -839,7 +871,7 @@ impl Session {
                 // entry again.
                 Err(StartError::CoreRefused(_)) => {
                     let mut session = Self::start_cached(
-                        Elaborator::new(),
+                        elaborator(),
                         prelude,
                         library,
                         options,
@@ -854,14 +886,7 @@ impl Session {
                 }
             }
         }
-        Self::start_in(
-            Elaborator::new(),
-            prelude,
-            library,
-            options,
-            limits,
-            std_cache,
-        )
+        Self::start_in(elaborator(), prelude, library, options, limits, std_cache)
     }
 
     /// [`Session::start`] with the elaborator given, before anything loads.

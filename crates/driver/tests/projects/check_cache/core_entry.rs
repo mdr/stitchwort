@@ -75,14 +75,59 @@ fn start(
     navigation: bool,
     refuse: Option<&str>,
 ) -> (Started, Stats) {
+    start_tuned(
+        prelude,
+        cache,
+        recheck,
+        navigation,
+        refuse,
+        Tuning::default(),
+    )
+}
+
+/// What a test changes about the session beyond its core.
+#[derive(Clone, Copy, Default)]
+struct Tuning {
+    /// A work limit other than the default's (an option the entry is keyed on).
+    work: Option<u64>,
+    /// `List.length` gets a run body the elaborator doesn't give it.
+    wrong_length_run_body: bool,
+}
+
+fn start_tuned(
+    prelude: &str,
+    cache: Option<&Path>,
+    recheck: bool,
+    navigation: bool,
+    refuse: Option<&str>,
+    tuning: Tuning,
+) -> (Started, Stats) {
     let prelude = prelude.to_string();
     let cache = cache.map(Path::to_path_buf);
     let refuse = refuse.map(str::to_string);
     with_stack(STACK, move || {
         let mut session = match &cache {
             Some(dir) => {
-                Session::with_core_cache(&prelude, dir, recheck, navigation, refuse.as_deref())
-                    .unwrap_or_else(|report| panic!("{report}"))
+                let mut limits = stitchwort_core::Limits::default();
+                if let Some(work) = tuning.work {
+                    limits.work = work;
+                }
+                // Not captured: a function pointer can't carry the flag.
+                let tune: fn(&mut stitchwort_elab::Elaborator) = if tuning.wrong_length_run_body {
+                    |elab| elab.options.wrong_length_run_body = true
+                } else {
+                    |_| {}
+                };
+                Session::with_core_cache_tuned(
+                    &prelude,
+                    dir,
+                    recheck,
+                    navigation,
+                    refuse.as_deref(),
+                    limits,
+                    tune,
+                )
+                .unwrap_or_else(|report| panic!("{report}"))
             }
             None if navigation => {
                 assert_eq!(prelude, stitchwort_elab::prelude());
@@ -271,6 +316,86 @@ fn a_core_replay_refused_part_way_starts_again_from_source() {
     assert_same(&fresh, &again);
     let (_, stats) = start(prelude, Some(&dir), false, false, None);
     assert_eq!(stats.core_hits, 1);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The core's own proofs are kept as warnings (`library_warnings`): with
+/// one that is kept, the cold session writes it into the entry and the warm
+/// one gives it back, the same.
+#[test]
+fn a_core_with_a_kept_warning_gives_it_from_its_entry() {
+    let dir = temp_dir("core-warning");
+    let other = format!(
+        "{}\n-- Only in this test's core.\n\
+         theorem sw4841Nested ∀ (a b c d: Nat) (ab: a = b) (bc: b = c) (cd: c = d): a = d := \
+         Eq.trans ab (Eq.trans bc cd)\n",
+        stitchwort_elab::prelude()
+    );
+    let (fresh, _) = start(&other, None, false, false, None);
+    assert!(
+        fresh.warnings.contains("W-PROOF-CHAIN"),
+        "the core keeps a chain warning: {}",
+        fresh.warnings
+    );
+    let (cold, stats) = start(&other, Some(&dir), false, false, None);
+    assert_eq!((stats.core_misses, stats.core_written), (1, 1));
+    assert_same(&fresh, &cold);
+    let (warm, stats) = start(&other, Some(&dir), false, false, None);
+    assert_eq!((stats.core_hits, stats.core_misses), (1, 0));
+    assert_same(&fresh, &warm);
+    assert!(warm.warnings.contains("W-PROOF-CHAIN"), "replayed with it");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The options the core's elaboration depends on are in its key: a session
+/// under another work limit misses the standard entry and writes its own
+/// (replacing the unit's one).
+#[test]
+fn a_session_under_other_options_misses_the_standard_entry() {
+    let prelude = stitchwort_elab::prelude();
+    let dir = temp_dir("core-options");
+    start(prelude, Some(&dir), false, false, None);
+    let other = Tuning {
+        work: Some(stitchwort_core::Limits::default().work / 2),
+        ..Tuning::default()
+    };
+    let (_, stats) = start_tuned(prelude, Some(&dir), false, false, None, other);
+    assert_eq!(
+        (stats.core_hits, stats.core_misses, stats.core_written),
+        (0, 1, 1),
+        "the entry under the default limits was replayed"
+    );
+    let (_, stats) = start_tuned(prelude, Some(&dir), false, false, None, other);
+    assert_eq!((stats.core_hits, stats.core_misses), (1, 0));
+    let (_, stats) = start(prelude, Some(&dir), false, false, None);
+    assert_eq!(
+        (stats.core_hits, stats.core_misses),
+        (0, 1),
+        "the entry under other limits was replayed"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `List.length`'s run body is admitted trusted and no hash covers it: an
+/// entry holding one the elaborator doesn't give it is refused after it is
+/// bound, and the session starts again from source.
+#[test]
+fn a_core_entry_with_a_wrong_list_length_run_body_is_refused() {
+    let prelude = stitchwort_elab::prelude();
+    let dir = temp_dir("core-length");
+    let (fresh, _) = start(prelude, None, false, false, None);
+    let wrong = Tuning {
+        wrong_length_run_body: true,
+        ..Tuning::default()
+    };
+    let (_, stats) = start_tuned(prelude, Some(&dir), false, false, None, wrong);
+    assert_eq!(stats.core_written, 1);
+    let (again, stats) = start(prelude, Some(&dir), false, false, None);
+    assert_eq!(stats.refused, 1, "the wrong run body was replayed");
+    assert_eq!((stats.core_hits, stats.core_written), (0, 1));
+    assert_same(&fresh, &again);
+    let (_, stats) = start(prelude, Some(&dir), false, false, None);
+    assert_eq!((stats.core_hits, stats.refused), (1, 0));
     let _ = std::fs::remove_dir_all(&dir);
 }
 

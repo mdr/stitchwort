@@ -35979,8 +35979,8 @@
     {
       "id": 4841,
       "title": "[Sonnet] Core-from-cache test gaps (SW-4814 Fable review findings 2, 3, 8): a custom-prelude core_entry test with a kept warning (nested trans) so the warnings comparison isn't vacuous; a test that options in the key (limits, glue) miss; after binding List.length on the trusted path, compare its run body with length_run_body's",
-      "status": "backlog",
-      "agent": "",
+      "status": "review",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "performance",
