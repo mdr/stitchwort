@@ -36036,8 +36036,8 @@
     {
       "id": 4845,
       "title": "[Sonnet] Rerun the Lean checking-comparison bench after core-from-cache (SW-4814) and today's other start-up fixes; add then-and-now against SW-4818's run (SW-4814 follow-up)",
-      "status": "backlog",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "performance",
