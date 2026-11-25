@@ -190,3 +190,18 @@ now expects "the core and 2 namespaces".
 - **Eviction.** One entry per unit: a test's own core evicts the standard
   one's entry, so alternating cores keep missing. Fine for tests (which
   don't use it); worth knowing.
+
+## Measured
+
+`hyperfine -N`, 20 runs, warm caches, `cd aoc && stitchwort check
+Aoc.Year2024.Day02 Aoc.Year2024.Day02.Proofs`, 5-minute load 7.8 (25 Nov
+2026, 17:10): base binary (`e0a1aabd0`) against this branch.
+
+| | before | after |
+|---|---|---|
+| `STITCHWORT_JOBS=1` | 176.5 ± 5.2 ms | 86.2 ± 1.3 ms |
+| default jobs | 178.0 ± 2.2 ms | 88.2 ± 1.1 ms |
+| peak memory | 70 MiB | 57 MiB |
+
+About 90 ms a check, above the 60-80 ms SW-4816 estimated. Both print the
+same.
