@@ -3345,3 +3345,220 @@ fn every_quick_fix_of_the_server_is_in_check_index() {
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A project of a few namespaces for the start-up fill's tests, in a new
+/// folder, with a check cache that has the shared cache's library entries
+/// and none of the project's: cold for the project, so that the fill has
+/// something to do, without elaborating the library. `Goal` has an open
+/// goal and `Broken` an error, so there is something to report; `slow`
+/// theorems make `Slow` take a while.
+fn fill_project(name: &str, slow: usize) -> PathBuf {
+    let dir = temp_dir(name);
+    let write = |path: &str, text: &str| {
+        let file = dir.join(path);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(file, text).unwrap();
+    };
+    write("stitchwort.yaml", "sources: [src]\n");
+    write(
+        "src/Base/Base.sw",
+        "namespace Base\n\ndef double (n: Nat): Nat := n + n\n\ntheorem doubleZero: double 0 = 0 := byComputing\n",
+    );
+    write(
+        "src/Mid/Mid.sw",
+        "namespace Mid\nimport Base (double)\n\ndef quad (n: Nat): Nat := double (double n)\n\ntheorem quadOne: quad 1 = 4 := byComputing\n",
+    );
+    write(
+        "src/Goal/Goal.sw",
+        "namespace Goal\nimport Base (double)\n\ntheorem doubleOne: double 1 = 2 := ?\n",
+    );
+    write(
+        "src/Broken/Broken.sw",
+        "namespace Broken\nimport Base (double)\n\ndef wrong: Nat := double \"a\"\n",
+    );
+    let mut theorems = String::from("namespace Slow\nimport Mid (quad)\n");
+    for i in 0..slow {
+        theorems.push_str(&format!(
+            "\ntheorem quad{i}: quad {i} = {} := byComputing\n",
+            4 * i
+        ));
+    }
+    write("src/Slow/Slow.sw", &theorems);
+    write(
+        "src/Top/Top.sw",
+        "namespace Top\nimport Mid (quad)\nimport Broken (wrong)\nimport Goal (doubleOne)\nimport Slow (quad0)\n\ndef sixteen: Nat := quad 4\n",
+    );
+    let check = dir.join(".stitchwort/cache/check");
+    std::fs::create_dir_all(&check).unwrap();
+    std::fs::write(dir.join(".stitchwort/.gitignore"), "*\n").unwrap();
+    copy_library_entries(&fill_library_cache(), &check);
+    dir
+}
+
+/// Where the start-up fill's tests keep the library's entries between
+/// runs: the first run on a build elaborates the library, the rest replay
+/// it.
+fn fill_library_cache() -> PathBuf {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("lsp-fill-library");
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+/// Copies the library's entries, and the salt they are keyed with, from
+/// the check cache folder `from` to `to`, keeping what `to` has.
+fn copy_library_entries(from: &Path, to: &Path) {
+    let Ok(entries) = std::fs::read_dir(from) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if (name == "header" || name.contains("-std.")) && !to.join(&name).exists() {
+            let _ = std::fs::copy(entry.path(), to.join(&name));
+        }
+    }
+}
+
+/// The namespaces with entries in the project's check cache.
+fn namespace_entries(dir: &Path) -> Vec<String> {
+    let mut units: Vec<String> = std::fs::read_dir(dir.join(".stitchwort/cache/check"))
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter_map(|name| {
+            let unit = name.split_once("-ns.")?.1.split_once('-')?.0;
+            // Without what the entry records for navigation (`+nav+ty`).
+            Some(unit.split('+').next()?.to_string())
+        })
+        .collect();
+    units.sort();
+    units
+}
+
+/// Opens `Top` in the project at `dir` and waits until every file of it
+/// has been published: each file's first diagnostics, by path in the
+/// project, then the fills' reports.
+fn diagnostics_with_fill(
+    dir: &Path,
+    workers: usize,
+) -> (
+    BTreeMap<String, Vec<Value>>,
+    Vec<stitchwort_driver::parallel::Fill>,
+) {
+    let options = Options::new(STACK);
+    options
+        .settings
+        .apply(&json!({ "startupWorkers": workers }));
+    let fills = options.fills.clone();
+    let mut client = Client::start_with(options);
+    let files = [
+        "Base/Base.sw",
+        "Mid/Mid.sw",
+        "Goal/Goal.sw",
+        "Broken/Broken.sw",
+        "Slow/Slow.sw",
+        "Top/Top.sw",
+    ];
+    let top = dir.join("src/Top/Top.sw");
+    client.open(&uri(&top), &std::fs::read_to_string(&top).unwrap());
+    let mut found = BTreeMap::new();
+    let src = format!("{}/src/", uri(dir));
+    while found.len() < files.len() {
+        let n = match client.queue.pop_front() {
+            Some(n) => n,
+            None => match client.conn.receiver.recv_timeout(WAIT) {
+                Ok(Message::Notification(n)) => n,
+                Ok(other) => panic!("unexpected {other:?}"),
+                Err(_) => panic!("not every file was published: {found:?}"),
+            },
+        };
+        if n.method != "textDocument/publishDiagnostics" {
+            continue;
+        }
+        let Some(file) = n.params["uri"].as_str().and_then(|u| u.strip_prefix(&src)) else {
+            continue;
+        };
+        // Related information names files by their URI, which differs
+        // between the two projects' folders.
+        let text = n.params["diagnostics"]
+            .to_string()
+            .replace(&uri(dir), "PROJECT");
+        let diagnostics: Vec<Value> = serde_json::from_str(&text).unwrap();
+        found.entry(file.to_string()).or_insert(diagnostics);
+    }
+    client.shutdown();
+    copy_library_entries(&dir.join(".stitchwort/cache/check"), &fill_library_cache());
+    let fills = fills
+        .done
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|(_, f)| f.clone())
+        .collect();
+    (found, fills)
+}
+
+/// With the start-up fill on, the editor publishes what it publishes
+/// without (SW-4760): every file's diagnostics, an error and an open goal
+/// among them, while the fill wrote the clean namespaces' entries and the
+/// editor replayed them.
+#[test]
+fn a_startup_fill_gives_the_same_diagnostics() {
+    let off = fill_project("fill-off", 3);
+    let on = fill_project("fill-on", 3);
+    let (without, no_fills) = diagnostics_with_fill(&off, 0);
+    let (with, fills) = diagnostics_with_fill(&on, 3);
+    assert!(no_fills.is_empty(), "{no_fills:?}");
+    assert_eq!(with, without);
+    assert!(
+        without["Broken/Broken.sw"].len() == 1 && without["Goal/Goal.sw"].len() == 1,
+        "{without:?}"
+    );
+    let [fill] = &fills[..] else {
+        panic!("one fill expected: {fills:?}")
+    };
+    // Base, Mid and Slow; the rest have or use a problem.
+    assert!(fill.ran && fill.filled == 3, "{fill:?}");
+    let _ = std::fs::remove_dir_all(&off);
+    let _ = std::fs::remove_dir_all(&on);
+}
+
+/// Shutting the server down while its start-up fill is checking a
+/// namespace stops the fill there (SW-4760): the namespace being checked,
+/// and what uses it, get no entry, and the cache holds no half-written
+/// file.
+#[test]
+fn shutdown_during_a_startup_fill_writes_nothing_partial() {
+    let dir = fill_project("fill-stop", 20000);
+    let options = Options::new(STACK);
+    options.settings.apply(&json!({ "startupWorkers": 2 }));
+    let fills = options.fills.clone();
+    let client = Client::start_with(options);
+    let base = dir.join("src/Base/Base.sw");
+    client.open(&uri(&base), &std::fs::read_to_string(&base).unwrap());
+    // `Slow` is started once `Mid` has its entry, and takes seconds.
+    let deadline = Instant::now() + WAIT;
+    while !namespace_entries(&dir).contains(&"Mid".to_string()) {
+        assert!(Instant::now() < deadline, "the fill never wrote Mid");
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    client.shutdown();
+    let written = namespace_entries(&dir);
+    assert!(
+        !written.contains(&"Slow".to_string()) && !written.contains(&"Top".to_string()),
+        "{written:?}"
+    );
+    let temporary: Vec<String> = std::fs::read_dir(dir.join(".stitchwort/cache/check"))
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|name| name.starts_with(".tmp"))
+        .collect();
+    assert!(temporary.is_empty(), "{temporary:?}");
+    let done = fills.done.lock().unwrap();
+    assert!(
+        matches!(&done[..], [(_, fill)] if fill.left > 0),
+        "{done:?}"
+    );
+    drop(done);
+    let _ = std::fs::remove_dir_all(&dir);
+}

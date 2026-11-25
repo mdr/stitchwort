@@ -975,7 +975,10 @@ enum Command {
     /// Start an interactive session, optionally with a file loaded
     Repl { file: Option<PathBuf> },
     /// Run the language server, speaking LSP on standard input and output
-    /// (docs/proposals/language-server.md)
+    /// (docs/proposals/language-server.md). STITCHWORT_STARTUP_WORKERS
+    /// (`auto` or a number; off by default) fills a project's check cache
+    /// with that many workers when it is opened, as the editor's
+    /// `startupWorkers` setting does
     Lsp,
     /// Build a standalone executable that runs a file's `main`, a project
     /// folder's (its one namespace with a `main`), or a function of the
@@ -1635,7 +1638,15 @@ fn run(cli: Cli) -> ExitCode {
         Command::Eval { file, expr, cache } => eval(&file, &expr, &cache),
         Command::Repl { file } => repl(file.as_deref()),
         Command::Lsp => {
-            match stitchwort_cli::lsp::run_stdio(stitchwort_cli::lsp::Options::new(STACK)) {
+            let options = stitchwort_cli::lsp::Options::new(STACK);
+            // The editor's setting, when it sends one, overrides this.
+            if let Some(workers) = std::env::var("STITCHWORT_STARTUP_WORKERS")
+                .ok()
+                .and_then(|v| stitchwort_cli::lsp::startup_workers(&serde_json::Value::String(v)))
+            {
+                (options.settings).apply(&serde_json::json!({ "startupWorkers": workers }));
+            }
+            match stitchwort_cli::lsp::run_stdio(options) {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(e) => {
                     eprintln!("error: {e}");
@@ -2831,6 +2842,9 @@ fn fill_in_parallel(
             // Stage 3 (parallel-checking-stage-3.md), off for comparison.
             statements_first: std::env::var_os("STITCHWORT_STATEMENTS_FIRST")
                 .is_none_or(|v| v != "0"),
+            cancel: None,
+            free_sessions: false,
+            watch: None,
         },
     );
     let note = if fill.ran {

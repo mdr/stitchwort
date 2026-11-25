@@ -1301,6 +1301,7 @@ dependencies = [
  "ariadne",
  "blake3",
  "insta",
+ "libc",
  "num-bigint",
  "num-traits",
  "serde",

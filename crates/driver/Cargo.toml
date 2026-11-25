@@ -21,6 +21,10 @@ num-bigint.workspace = true
 serde.workspace = true
 serde-saphyr.workspace = true
 
+[target.'cfg(unix)'.dependencies]
+# The machine's memory, for `parallel::auto_jobs`.
+libc.workspace = true
+
 [build-dependencies]
 blake3.workspace = true
 

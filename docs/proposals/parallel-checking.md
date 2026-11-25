@@ -1417,8 +1417,8 @@ measure; stage 3 needs a join at the same place anyway.
 | `--recheck`, `--carry-over`, `--only`, `--expand*`, `--no-project-cache`, a file target | One job, whatever `--jobs` says (with `--timings`, the summary line says why). `--recheck` re-checks every entry it loads, which each worker would repeat; carried-over entries make everything written after them inexact (`cache/mod.rs:445`); `--only` namespaces have no key (`cache/mod.rs:977-980`); the others don't use namespace entries. Not an error, so that the default can become `auto` without breaking these. |
 | `--index`, `--counterexamples` | Work: the last pass loads everything (`Load::Everything`, `main.rs:2383-2387`), from the entries just written. |
 | `test`, `run`, `build`, `axioms`, `audit`, `doc` | Not in stage 1. The fill is one driver function (9.3) that any of them can call before its own load; `test` is the one worth doing next (a follow-up ticket). |
-| The editor (`stitchwort lsp`, `crates/driver/src/live.rs`) | Unchanged. `LiveProject` checks one namespace per step and "nothing here reads files or starts threads" (`live.rs:17-18`); the place for the fill is the server's start-up on a project with a cold cache, with the server's cancellation flag given to the workers. A follow-up ticket, after stage 1 is measured. |
-| Cancellation inside a run | One shared stop flag. Workers look at it between namespaces, and it is installed in each worker's budget (`Budget::set_cancel_flag`, `crates/core/src/budget.rs:10-12`) so a stop also ends a namespace part-way; a cancelled namespace is never written (`cache/mod.rs:1144`). Stage 1 sets it only when a worker panics; the editor would set it on a keystroke. |
+| The editor (`stitchwort lsp`, `crates/driver/src/live.rs`) | Unchanged. `LiveProject` checks one namespace per step and "nothing here reads files or starts threads" (`live.rs:17-18`); the place for the fill is the server's start-up on a project with a cold cache, with the server's cancellation flag given to the workers. A follow-up ticket, after stage 1 is measured. Built as 9.9 (SW-4760). |
+| Cancellation inside a run | One shared stop flag. Workers look at it between namespaces, and it is installed in each worker's budget (`Budget::set_cancel_flag`, `crates/core/src/budget.rs:10-12`) so a stop also ends a namespace part-way; a cancelled namespace is never written (`cache/mod.rs:1144`). Stage 1 sets it only when a worker panics; the editor sets it at shutdown, not on a keystroke (9.9). |
 
 ### 9.3 The scheduler
 
@@ -1690,6 +1690,101 @@ removing it is kernel work that would get its own note.
 - That signals stay blocked in threads started after the signal thread is set up
   (`main.rs:1776-1802`); standard for thread signal masks, not read through.
 - `measure_jobs.sh` beyond `bash -n`.
+
+### 9.9 The editor's start-up fill (SW-4760)
+
+Built after stage 3, by an Opus lane; the editor row of 9.2 said where it goes. **Off by
+default**: whether it becomes the default is Matt's decision, on the numbers below.
+
+**What it does.** When `stitchwort lsp` first loads a project whose check cache is on disk
+(`crates/lsp/src/lib.rs`, `load_project`) and the setting asks for two or more workers, it
+starts one thread that runs `parallel::fill` over the project, everything as the target,
+with that many workers (stage 3: interface job, then proof job, per namespace). The fill
+reads the files from disk (`Source::fill_files`; the playground's in-memory projects have
+none, so the browser never fills) and writes entries through the project's ordinary
+`CheckCache`. The workers' sessions are made as the editor's are (`session_for`: navigation
+and expression types), since entries are keyed by what they record (`+nav+ty`) and an entry
+made without navigation would never be found by the editor. Each project is filled at most
+once in the server's life.
+
+**The editor beside it.** Nothing in `live.rs` changes but one method
+(`LiveProject::next_namespace`, the namespace the next step checks, planning first as the
+step would). Before each step of a project, the checker asks the fill's `Watch` whether
+the fill may still write that namespace's entry (its proof job is waiting or running; until
+the fill has planned, every namespace counts). If so, and every file of the project is as
+on disk, it doesn't step: it waits for an edit for up to 20 ms (`FILL_POLL`) and asks
+again. Once the fill has written the entry (or left the namespace, or ended), the step runs
+and replays it, or checks the namespace itself if there is nothing to replay. So the
+checker never checks a namespace a worker is checking, and its steps pick up entries as
+they appear. Requests are answered on the main thread throughout, from what has been
+published, as during any check.
+
+**Unsaved edits.** The fill keys entries by the text on disk. An edit doesn't cancel it:
+its entries stay right for the disk text, and the edited namespace's step simply doesn't
+find one for the edited text. While any file differs from the disk, the checker doesn't
+wait for the fill at all and steps as without it (a namespace both check is then checked
+twice, which costs time only).
+
+**Cancellation.** One flag for all fills, set when the server shuts down (`serve_from`,
+after `Main::run`), given to the fill as `Jobs::cancel`. It becomes each worker's
+cancellation flag (as the panic flag of 9.2 was), so a namespace being checked stops
+part-way and isn't written (`cache/mod.rs`, the `cancelled()` tests before and after
+encoding); workers waiting for a job look at it every 50 ms (`STOP_POLL`). The server then
+joins the fill thread before it returns. A panic inside the fill ends the fill, not the
+server; the checker checks what the fill didn't write.
+
+**Memory.** The command line leaves the workers' sessions allocated, since the process is
+about to end; the server frees them (`Jobs::free_sessions`). Peak memory is the editor's
+session plus the workers' (measured below).
+
+**The setting.** `startupWorkers` in the server's settings (`initializationOptions` and
+`workspace/didChangeConfiguration`): `"off"` (the default), `"auto"` or a number; read when
+a project is loaded. VS Code: `stitchwort.startupWorkers`. Other editors:
+`STITCHWORT_STARTUP_WORKERS`, which the editor's setting overrides. `auto` is
+`parallel::auto_jobs()`: min(cores, 8, memory / 2 GB), at least 1 (the rule of 9.2; the
+first code for it, which `check --jobs auto` can use too).
+
+**What the user sees.** Only the speed: every diagnostic is published by the editor's own
+steps, as before, from a check or from an entry, and an entry gives what the check gave
+(the cache's existing claim). The test `a_startup_fill_gives_the_same_diagnostics`
+(`crates/cli/tests/server/lsp.rs`) compares every file's diagnostics, an error and an open
+goal among them, with the fill off and on; `shutdown_during_a_startup_fill_writes_nothing_partial`
+shuts down while a namespace is being filled and finds no entry for it or what uses it, and
+no temporary file.
+
+**Measured** (25 Nov, `measured-2026-11-25/lsp-startup.txt`, `measure_lsp_startup.sh` driving
+`lsp_startup.py`, a small LSP client; release build, Speedwell shared with other lanes).
+`tools/fmt` with the project's entries cold and the library's warm; the client opens
+`Fmt/CommentsKeptProof.sw`, which has 139 of the 150 namespaces below it, and times its
+first diagnostics and the moment every one of the 191 source files has been published:
+
+| Fill | Run | First diagnostics | Whole project | Peak memory |
+|---|---|---|---|---|
+| off | 1 | 133.3 s | 141.5 s | 2.99 GB |
+| off | 2 | 140.1 s | 147.3 s | 3.05 GB |
+| `auto` (8 workers) | 1 | 55.4 s | 57.9 s | 6.92 GB |
+| `auto` (8 workers) | 2 | 32.8 s | 34.9 s | 7.00 GB |
+
+So **about 2.5x to 4x sooner** for both numbers; the slower "on" run ran at a load average
+near 50 from other lanes, the faster one near 10. The fill itself took 48.2 s and 28.9 s
+(150 namespaces filled, none left); the rest is the editor replaying 150 entries after it,
+a few seconds, and its own load of the library before the first step. Memory is the
+price: **about 7 GB at the peak against 3 GB**, the editor's session plus eight workers'
+(they record navigation, which the command line's don't; its stage 3 run peaked at 6.1 to
+6.3 GB, `stage3-vs-stage1.txt`). The fill's memory is freed when it ends.
+
+**Not done, and limits.**
+
+- The editor loads every library file itself when it loads a project
+  (`LiveProject::new_except`), on its own thread, before its first step. With the library
+  cold, that runs beside the fill, which loads the library files it needs through its own
+  claims, so some library files are elaborated twice. Measured only with the library warm.
+- While the checker waits for the fill on one project, it doesn't step other workspaces
+  (another project, a file on its own); they wait for the fill too.
+- One fill per project per server: a project loaded again (a `stitchwort.yaml` change) is
+  not filled again. A fill is not restarted by a later setting change.
+- The default (`off` now; `auto` or a smaller fixed number such as 4 to halve the extra
+  memory) is Matt's decision.
 
 ## 10. Stage 2 design: the stated theorem, and loading without proofs (SW-4727)
 

@@ -1,0 +1,14 @@
+# Editor start-up on tools/fmt, project cache cold, library entries warm (+nav+ty), start-up fill off vs auto (8 workers)
+# SW-4760 branch lane/SW-4760 (base 6d3282b7d), release build, 25 Nov 2026, Speedwell (10 cores, 32 GB), shared with other lanes
+# Load average (1 min) during the runs ranged from about 4 to 51; run 1's 'auto' ran at about 50.
+# Command: STITCHWORT_STD_DIR=crates/elab/src/std nix shell nixpkgs#python3 -c docs/proposals/parallel-checking/measure_lsp_startup.sh <stitchwort> <library cache> <work> <out> 2
+# 'first diagnostics' is for the deepest namespace (139 of 150 namespaces below it); 'whole project' is until every source file has been published once.
+
+workers off   first diagnostics of src/Fmt/CommentsKeptProof.sw   133.3 s  whole project (191 files, 0 diagnostics)   141.5 s
+    peak 2.99 GB
+workers auto  first diagnostics of src/Fmt/CommentsKeptProof.sw    55.4 s  whole project (191 files, 0 diagnostics)    57.9 s
+    peak 6.92 GB; fill: 8 workers: 0 namespaces had entries, 150 filled, 0 left, in 48.2 s
+workers off   first diagnostics of src/Fmt/CommentsKeptProof.sw   140.1 s  whole project (191 files, 0 diagnostics)   147.3 s
+    peak 3.05 GB
+workers auto  first diagnostics of src/Fmt/CommentsKeptProof.sw    32.8 s  whole project (191 files, 0 diagnostics)    34.9 s
+    peak 7.00 GB; fill: 8 workers: 0 namespaces had entries, 150 filled, 0 left, in 28.9 s

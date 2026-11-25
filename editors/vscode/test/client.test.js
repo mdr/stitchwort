@@ -232,6 +232,7 @@ test('package.json declares every setting the client sends, and format on save f
     'proofSearch.enabled',
     'proofSearch.timeLimitMs',
     'semanticColours',
+    'startupWorkers',
     'goals.openAutomatically',
   ]) {
     assert.ok(props[`stitchwort.${name}`], name);

@@ -101,6 +101,103 @@ pub struct Jobs<'a> {
     /// Whether namespaces get interface jobs (stage 3); off with
     /// `STITCHWORT_STATEMENTS_FIRST=0`, for comparison.
     pub statements_first: bool,
+    /// A flag that stops the fill when set from outside (the language
+    /// server's shutdown): it becomes every worker's cancellation flag, so
+    /// the namespaces being checked stop part-way and aren't written, and
+    /// no more jobs are given out. A panic in a worker sets it too.
+    pub cancel: Option<Arc<AtomicBool>>,
+    /// Whether the workers' sessions are freed when they finish. The
+    /// command line leaves them, since freeing takes longer than the
+    /// process has left; a server that lives on frees them.
+    pub free_sessions: bool,
+    /// Told which namespaces the fill may still write, for a caller that
+    /// checks beside it (the language server, [`Watch`]).
+    pub watch: Option<&'a Watch>,
+}
+
+/// Which namespaces a running fill may still write an entry for, so that
+/// a check running beside it (the language server's, SW-4760) can wait
+/// for an entry rather than check the namespace itself. Until the fill has
+/// planned, every namespace counts; once it has ended (finished, stopped
+/// or given up), none does.
+#[derive(Debug, Default)]
+pub struct Watch(Mutex<WatchState>);
+
+#[derive(Debug, Default)]
+struct WatchState {
+    planned: bool,
+    over: bool,
+    /// The namespaces whose proof job is waiting or running.
+    pending: std::collections::BTreeSet<String>,
+}
+
+impl Watch {
+    fn state(&self) -> std::sync::MutexGuard<'_, WatchState> {
+        self.0.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// Whether the fill may yet write the entry of `namespace`.
+    pub fn pending(&self, namespace: &str) -> bool {
+        let state = self.state();
+        !state.over && (!state.planned || state.pending.contains(namespace))
+    }
+
+    /// Whether the fill has ended.
+    pub fn over(&self) -> bool {
+        self.state().over
+    }
+
+    fn update(&self, pending: std::collections::BTreeSet<String>) {
+        let mut state = self.state();
+        state.planned = true;
+        state.pending = pending;
+    }
+
+    fn end(&self) {
+        let mut state = self.state();
+        state.over = true;
+        state.pending.clear();
+    }
+}
+
+/// Ends a fill's [`Watch`] however the fill returns.
+struct EndWatch<'a>(Option<&'a Watch>);
+
+impl Drop for EndWatch<'_> {
+    fn drop(&mut self) {
+        if let Some(watch) = self.0 {
+            watch.end();
+        }
+    }
+}
+
+/// The number of workers `auto` means: the cores, but at most 8 and at
+/// most one per 2 GB of memory (a worker on `tools/fmt` holds about
+/// 0.6 GB, and the machine runs other things); at least 1.
+pub fn auto_jobs() -> usize {
+    let cores = std::thread::available_parallelism().map_or(1, |n| n.get());
+    let by_memory = physical_memory().map_or(usize::MAX, |bytes| (bytes >> 31) as usize);
+    cores.min(8).min(by_memory).max(1)
+}
+
+/// The machine's memory in bytes, where it can be asked.
+#[cfg(unix)]
+#[allow(unsafe_code)]
+fn physical_memory() -> Option<u64> {
+    // SAFETY: `sysconf` reads a system constant; it has no preconditions
+    // and returns -1 for a name it doesn't know.
+    let (pages, size) = unsafe {
+        (
+            libc::sysconf(libc::_SC_PHYS_PAGES),
+            libc::sysconf(libc::_SC_PAGESIZE),
+        )
+    };
+    (pages > 0 && size > 0).then(|| pages as u64 * size as u64)
+}
+
+#[cfg(not(unix))]
+fn physical_memory() -> Option<u64> {
+    None
 }
 
 /// A hook for the tests of the panic path (SW-4726): the next job of the
@@ -511,7 +608,9 @@ struct Tally {
 /// reports, which then finds the entries. With one job, or with fewer than
 /// two namespaces lacking an entry, it does nothing.
 pub fn fill(files: &(dyn Files + Sync), project: &str, target: &Target, jobs: &Jobs) -> Fill {
-    if jobs.count < 2 || matches!(target, Target::Theorems { .. }) {
+    let _end = EndWatch(jobs.watch);
+    let stop = jobs.cancel.clone().unwrap_or_default();
+    if jobs.count < 2 || matches!(target, Target::Theorems { .. }) || stop.load(Ordering::Relaxed) {
         return Fill::default();
     }
     // Read once, so every worker sees the same text.
@@ -601,21 +700,22 @@ pub fn fill(files: &(dyn Files + Sync), project: &str, target: &Target, jobs: &J
         .filter(|s| **s == Status::Waiting)
         .count();
     if lacking < 2 {
-        std::mem::forget(first);
+        first.release(jobs);
         return Fill::default();
     }
     let workers = jobs.count.min(lacking);
     board.held.truncate(workers);
     let board = Mutex::new(board);
     let changed = Condvar::new();
-    let stop = Arc::new(AtomicBool::new(false));
     let shared = Shared {
         project,
         graph: &graph,
         board: &board,
         changed: &changed,
         stop: &stop,
+        watch: jobs.watch,
     };
+    shared.tell_watch(&shared.board());
     let mut tallies: Vec<Tally> = std::thread::scope(|scope| {
         let handles: Vec<_> = (1..workers)
             .map(|w| {
@@ -635,15 +735,15 @@ pub fn fill(files: &(dyn Files + Sync), project: &str, target: &Target, jobs: &J
                             .prepare_analysis(project, analysis, target)
                             .is_err()
                         {
-                            std::mem::forget(worker);
+                            worker.release(jobs);
                             return Tally::default();
                         }
-                        worker.run(shared)
+                        worker.run(shared, jobs)
                     })
                     .expect("can't start a thread")
             })
             .collect();
-        let mut tallies = vec![first.run(&shared)];
+        let mut tallies = vec![first.run(&shared, jobs)];
         tallies.extend(handles.into_iter().map(|h| {
             h.join().unwrap_or_else(|_| Tally {
                 panics: 1,
@@ -698,11 +798,27 @@ struct Shared<'a> {
     board: &'a Mutex<Board>,
     changed: &'a Condvar,
     stop: &'a Arc<AtomicBool>,
+    watch: Option<&'a Watch>,
 }
+
+/// How often a worker waiting for a job looks at the stop flag, which can
+/// be set from outside the fill ([`Jobs::cancel`]) without waking it.
+const STOP_POLL: Duration = Duration::from_millis(50);
 
 impl Shared<'_> {
     fn board(&self) -> std::sync::MutexGuard<'_, Board> {
         self.board.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// Tells the watch, if any, which namespaces may still be written.
+    fn tell_watch(&self, board: &Board) {
+        if let Some(watch) = self.watch {
+            let pending = (board.status.iter().zip(&self.graph.names))
+                .filter(|(s, _)| matches!(s, Status::Waiting | Status::Running))
+                .map(|(_, name)| name.clone())
+                .collect();
+            watch.update(pending);
+        }
     }
 
     /// Stops the fill: no more jobs are given out, and the namespaces being
@@ -718,7 +834,7 @@ impl Shared<'_> {
     fn next(&self, worker: usize) -> Option<Job> {
         let mut board = self.board();
         loop {
-            if board.stopped {
+            if board.stopped || self.stop.load(Ordering::Relaxed) {
                 return None;
             }
             if let Some(job) = board.pick(self.graph, worker) {
@@ -734,7 +850,9 @@ impl Shared<'_> {
                 self.changed.notify_all();
                 return None;
             }
-            board = self.changed.wait(board).unwrap_or_else(|e| e.into_inner());
+            board = (self.changed.wait_timeout(board, STOP_POLL))
+                .unwrap_or_else(|e| e.into_inner())
+                .0;
         }
     }
 
@@ -773,6 +891,7 @@ impl Shared<'_> {
             }
             _ => unreachable!("an outcome of the other kind of job"),
         }
+        self.tell_watch(&board);
         drop(board);
         self.changed.notify_all();
     }
@@ -912,7 +1031,16 @@ impl Worker {
         })
     }
 
-    fn run(mut self, shared: &Shared) -> Tally {
+    /// Frees the worker's session if `jobs` says so, else leaves it.
+    fn release(self, jobs: &Jobs) {
+        if jobs.free_sessions {
+            drop(self);
+        } else {
+            std::mem::forget(self);
+        }
+    }
+
+    fn run(mut self, shared: &Shared, jobs: &Jobs) -> Tally {
         let mut tally = Tally::default();
         self.loaded = vec![false; shared.graph.names.len()];
         self.promised = vec![false; shared.graph.names.len()];
@@ -962,9 +1090,7 @@ impl Worker {
         }
         self.session.elab.kernel.machine.budget.watch_cancel(false);
         tally.stats = self.session.elab.check_cache_stats();
-        // As the CLI does with its session: freeing it all takes longer
-        // than the process has left.
-        std::mem::forget(self);
+        self.release(jobs);
         tally
     }
 

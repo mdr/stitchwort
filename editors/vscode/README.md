@@ -104,10 +104,11 @@ on unless noted (D3468):
 | `stitchwort.proofSearch.enabled` | "Search for a proof" on a `?` (and the "Split" quick fixes there) |
 | `stitchwort.proofSearch.timeLimitMs` | how long one "Search for a proof" may run (default 5000) |
 | `stitchwort.semanticColours` | colours from what the checker resolved each name to |
+| `stitchwort.startupWorkers` | when a project with a cold check cache opens, check it with this many workers side by side: `off` (the default), `auto` or a number; also `STITCHWORT_STARTUP_WORKERS` for other editors |
 | `stitchwort.goals.openAutomatically` | open the Goals panel when a `.sw` file with a `?` opens (off by default) |
 | `stitchwort.path` | the `stitchwort` program (restarts the server) |
 
-The first five are sent to the server in `initializationOptions` and, when one
+The first six are sent to the server in `initializationOptions` and, when one
 changes, in `workspace/didChangeConfiguration` (`{"settings": {"stitchwort":
 …}}`; built by `serverSettings` in `client.js`). A feature that is off stays
 advertised and is answered with nothing; the server then asks the editor to
