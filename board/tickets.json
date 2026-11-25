@@ -35700,12 +35700,12 @@
     {
       "id": 4824,
       "title": "[Sonnet] library_interface hashes each name's kind, follower, function and candidate flags but not accessor: check whether the accessor flag can change a project's elaboration without its key changing; if so add it to the key (SW-4812 review, unverified, predates it)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Lane (Opus, 25 Nov): no gap. IndexedName.accessor has one reader, LibraryIndex::is_accessor, called only from Elaborator::suggests_bare inside Elaborator::unknown (E-UNKNOWN-NAME's suggestions, always an error; nothing in elab downgrades an error to a warning or reads its notes/import to choose a path). Namespaces and interface passes with an error are never written (cache/mod.rs, 'Only units without errors are written'), so no entry can carry a stale suggestion. Other unhashed fields: span is read in error labels (ambiguity, extension clash) and LibraryIndex::explicit_arity (E-UNKNOWN-NAME only); owner and dot targets are derived from hashed path+key+kind+candidate; edges/equation_needs are per-file and feed library_keys (SW-4825's area), derived from that file's text plus the hashed names. Added a comment at library_interface saying why accessor and span are left out. No test: comment only.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
