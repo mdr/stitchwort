@@ -1,5 +1,5 @@
 {
-  "next": 4839,
+  "next": 4840,
   "tickets": [
     {
       "id": 47,
@@ -35911,6 +35911,19 @@
     {
       "id": 4838,
       "title": "[Sonnet] STITCHWORT_CACHE_DEBUG=0 still turns cache debug on (the variable only has to be set); read it as a boolean, and document STITCHWORT_SKIP_UNNEEDED and the cache debug switch in docs/testing.md, including that one namespace with an error stops all skipping (SW-4827 review friction)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-25",
+      "updated": "2026-11-25",
+      "commits": []
+    },
+    {
+      "id": 4839,
+      "title": "[Sonnet] A command that compares two check-cache folders ignoring build keys (scan, ran, std-index names and the build id inside entries): two lanes and two reviews today hand-filtered entry names to show a change kept cache keys (SW-4829, SW-4827 friction; with SW-4822)",
       "status": "backlog",
       "agent": "",
       "where": "",
