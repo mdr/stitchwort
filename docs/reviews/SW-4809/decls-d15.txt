@@ -1,0 +1,44 @@
+ported theorem   n=  41 elab   141.0 kern   39.2 steps 2.73e+06 nodes 3.09e+04 readback-steps 38% unify 4% other 44%
+other own decl   n= 211 elab   166.8 kern   55.0 steps 2.26e+06 nodes 6.12e+04 readback-steps 23% unify 9% other 55%
+std/core         n= 444 elab    63.4 kern   19.9 steps 9.22e+05 nodes 2.89e+04 readback-steps 9% unify 10% other 62%
+own total 402.6 ms; per-decl median 0.30 ms; under 1 ms: 182 decls = 48.6 ms
+  T Aoc.Year2021.Day15.Proofs.tiledLevelsAgree                     elab   41.3 kern  12.4 tot   53.7 steps    770265 nodes    8855 rb  4927
+  T Aoc.Year2021.Day15.Proofs.part2Correct                         elab   25.2 kern   1.6 tot   26.8 steps    481624 nodes     836 rb 10001
+    Aoc.Year2021.Day15.Proofs.tiledIsTiles                         elab   16.3 kern   9.9 tot   26.2 steps    392600 nodes    7553 rb  2015
+    Aoc.Year2021.Day15.Proofs.tiledLevelAtOn                       elab    9.0 kern   4.0 tot   13.1 steps    190033 nodes    2274 rb  1973
+    Aoc.Common.Box                                                 elab    6.9 kern   1.4 tot    8.3 steps     99164 nodes    1380 rb  1275
+  T Aoc.Common.Proofs.pathWalk                                     elab    6.3 kern   1.6 tot    7.9 steps    102573 nodes    1256 rb   273
+  T Aoc.Year2021.Day15.Proofs.cheapestPath                         elab    6.0 kern   1.9 tot    7.8 steps    133852 nodes    1715 rb   817
+    Aoc.Common.Slot                                                elab    6.5 kern   1.4 tot    7.8 steps     98096 nodes    1464 rb   993
+    Aoc.Common.Grid                                                elab    5.9 kern   1.6 tot    7.4 steps     80794 nodes    1388 rb   142
+  T Aoc.Year2021.Day15.Proofs.levelsAgree                          elab    5.5 kern   1.5 tot    7.0 steps     79559 nodes    1161 rb   133
+  T Aoc.Year2021.Day15.Proofs.iterateRaise                         elab    4.2 kern   2.6 tot    6.8 steps    134471 nodes    1056 rb   118
+  T Aoc.Common.Proofs.walkPath                                     elab    4.2 kern   2.3 tot    6.5 steps    130643 nodes    1459 rb   174
+    Aoc.Common.Line                                                elab    4.8 kern   1.5 tot    6.4 steps     88610 nodes    1084 rb  1057
+    Aoc.Common.Coords                                              elab    5.1 kern   1.1 tot    6.2 steps     53966 nodes    1152 rb   575
+  T Aoc.Year2021.Day15.Proofs.lowestRiskCorrect                    elab    5.4 kern   0.8 tot    6.2 steps     95613 nodes     860 rb   813
+    Aoc.Common.PrefixSums                                          elab    4.5 kern   1.3 tot    5.8 steps     61326 nodes     922 rb   574
+  T Aoc.Year2021.Day15.Proofs.noCheaperPath                        elab    4.4 kern   1.4 tot    5.7 steps     82140 nodes    1145 rb   825
+    Aoc.Common.Heading                                             elab    4.6 kern   1.0 tot    5.6 steps     46697 nodes    1490 rb    42
+    Aoc.Year2021.Day15.Cave                                        elab    4.2 kern   1.3 tot    5.5 steps     52518 nodes     742 rb   401
+    Aoc.Common.Direction                                           elab    4.4 kern   1.0 tot    5.3 steps     46995 nodes    1490 rb    42
+    Aoc.Year2021.Day15.Spec.tiledLevelAt                           elab    2.7 kern   2.5 tot    5.2 steps     51668 nodes    3309 rb     7
+    Aoc.Common.Position                                            elab    4.0 kern   0.9 tot    4.9 steps     47777 nodes     940 rb   985
+  T Aoc.Common.Proofs.atOfWithin                                   elab    4.3 kern   0.5 tot    4.8 steps     52643 nodes     703 rb   146
+    Aoc.Common.Offset                                              elab    4.0 kern   0.8 tot    4.8 steps     44815 nodes     940 rb   571
+    Aoc.Common.Size                                                elab    3.9 kern   0.8 tot    4.7 steps     48404 nodes     940 rb   985
+    Aoc.Common.BitReader                                           elab    3.9 kern   0.8 tot    4.7 steps     35964 nodes     698 rb    62
+    Aoc.Common.Range                                               elab    3.8 kern   0.8 tot    4.6 steps     47777 nodes     940 rb   985
+    Aoc.Common.Frame                                               elab    3.6 kern   0.9 tot    4.5 steps     34486 nodes     999 rb    81
+    Aoc.Common.Bits                                                elab    3.2 kern   0.7 tot    3.9 steps     35361 nodes     698 rb    62
+    Aoc.Common.boxIndexBelow                                       elab    2.4 kern   1.1 tot    3.5 steps     51317 nodes     664 rb    58
+  T Aoc.Common.Proofs.pathWalkCost                                 elab    2.1 kern   1.3 tot    3.4 steps     73066 nodes     439 rb    76
+    Aoc.Common.Proofs.directionTo                                  elab    2.3 kern   1.2 tot    3.4 steps     18935 nodes    1689 rb     3
+  T Aoc.Common.Proofs.adjacentStep                                 elab    2.1 kern   1.3 tot    3.4 steps     40484 nodes    1902 rb    84
+    Aoc.Common.settle                                              elab    1.5 kern   1.8 tot    3.3 steps     35330 nodes    2395 rb    59
+  T Aoc.Common.Proofs.routePath                                    elab    1.9 kern   1.4 tot    3.3 steps     74763 nodes     653 rb    27
+  T Aoc.Year2021.Day15.Proofs.tiledSize                            elab    2.9 kern   0.4 tot    3.2 steps     56011 nodes     265 rb  2597
+  T Aoc.Common.Proofs.stepEdgeElim                                 elab    2.4 kern   0.7 tot    3.1 steps     42933 nodes     560 rb    59
+    Aoc.Common.Point                                               elab    2.4 kern   0.5 tot    2.9 steps     28340 nodes     612 rb   985
+    Aoc.Common.memPositionsOfWithin                                elab    2.1 kern   0.8 tot    2.9 steps     33025 nodes     475 rb    57
+  T Aoc.Common.Proofs.isPathAppend                                 elab    2.2 kern   0.5 tot    2.7 steps     18393 nodes     934 rb    26

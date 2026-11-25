@@ -1,0 +1,44 @@
+other own decl   n=  42 elab    32.6 kern    9.8 steps 4.82e+05 nodes 1.29e+04 readback-steps 26% unify 13% other 46%
+ported theorem   n=  23 elab    25.1 kern   10.3 steps 4.34e+05 nodes 9.39e+03 readback-steps 24% unify 6% other 63%
+std/core         n= 444 elab    59.9 kern   18.5 steps 9.22e+05 nodes 2.89e+04 readback-steps 9% unify 10% other 62%
+own total 77.7 ms; per-decl median 0.30 ms; under 1 ms: 55 decls = 17.6 ms
+    Aoc.Year2020.Day18.Expression                                  elab   16.1 kern   3.3 tot   19.5 steps    277164 nodes    4753 rb 10001
+  T Aoc.Year2020.Day18.Proofs.chainOf                              elab   10.8 kern   3.9 tot   14.7 steps    177683 nodes    2216 rb   152
+  T Aoc.Year2020.Day18.Proofs.goodStepsSnoc                        elab    4.4 kern   2.0 tot    6.4 steps     70820 nodes    3788 rb    82
+    Aoc.Year2020.Day18.Precedence                                  elab    3.4 kern   1.0 tot    4.4 steps     41098 nodes     756 rb   108
+    Aoc.Year2020.Day18.Operator                                    elab    3.5 kern   0.7 tot    4.2 steps     30165 nodes    1005 rb    42
+    Aoc.Year2020.Day18.Homework                                    elab    2.7 kern   0.7 tot    3.4 steps     35349 nodes     698 rb    83
+  T Aoc.Year2020.Day18.Proofs.goodStepsWeaken                      elab    1.5 kern   1.2 tot    2.7 steps     39317 nodes     408 rb    64
+  T Aoc.Year2020.Day18.Proofs.afterSteps                           elab    1.7 kern   0.9 tot    2.6 steps     36721 nodes     645 rb    68
+    Aoc.Year2020.Day18.Proofs.GoodSteps                            elab    0.5 kern   0.7 tot    1.2 steps     11511 nodes     609 rb   103
+  T Aoc.Year2020.Day18.Proofs.additionFirstExact                   elab    0.7 kern   0.3 tot    1.0 steps     13439 nodes     294 rb    21
+  T Aoc.Year2020.Day18.Proofs.chainFoldSnoc                        elab    0.7 kern   0.2 tot    0.9 steps     11876 nodes     294 rb   104
+  T Aoc.Year2020.Day18.Proofs.joinReadsSnoc                        elab    0.7 kern   0.2 tot    0.9 steps     10644 nodes     252 rb    30
+  T Aoc.Year2020.Day18.Proofs.stopStep                             elab    0.6 kern   0.2 tot    0.8 steps     10588 nodes     203 rb    56
+    Aoc.Year2020.Day18.main                                        elab    0.4 kern   0.4 tot    0.8 steps     12131 nodes    1021 rb    18
+    Aoc.Year2020.Day18.Proofs.Ranked                               elab    0.4 kern   0.3 tot    0.7 steps      4370 nodes     323 rb    39
+  T Aoc.Year2020.Day18.Proofs.sumSpec                              elab    0.6 kern   0.1 tot    0.7 steps      7666 nodes     115 rb    30
+  T Aoc.Year2020.Day18.Proofs.stopUp                               elab    0.4 kern   0.3 tot    0.7 steps     11629 nodes     192 rb    26
+  T Aoc.Year2020.Day18.Proofs.stopClose                            elab    0.5 kern   0.2 tot    0.7 steps      7862 nodes     214 rb    33
+    Aoc.Year2020.Day18.Spec.value                                  elab    0.2 kern   0.4 tot    0.6 steps      6336 nodes     415 rb    24
+  T Aoc.Year2020.Day18.Proofs.bindsWeaken                          elab    0.4 kern   0.2 tot    0.6 steps      8791 nodes      85 rb     5
+    Aoc.Year2020.Day18.Spec.Follows                                elab    0.2 kern   0.4 tot    0.6 steps      6013 nodes     424 rb    43
+    Aoc.Year2020.Day18.Spec.Written                                elab    0.4 kern   0.2 tot    0.6 steps      4309 nodes     255 rb     6
+    Aoc.Year2020.Day18.Proofs.Exact                                elab    0.3 kern   0.3 tot    0.6 steps      4821 nodes     356 rb    42
+    Aoc.Year2020.Day18.operand                                     elab    0.4 kern   0.1 tot    0.5 steps      6401 nodes     215 rb    17
+  T Aoc.Year2020.Day18.Proofs.valueSpec                            elab    0.4 kern   0.1 tot    0.5 steps      4559 nodes     163 rb    13
+    Aoc.Year2020.Day18.Expression.value                            elab    0.3 kern   0.2 tot    0.5 steps      3304 nodes     289 rb    27
+    Aoc.Year2020.Day18.Proofs.size                                 elab    0.2 kern   0.3 tot    0.5 steps      3660 nodes     307 rb    27
+  T Aoc.Year2020.Day18.Proofs.stepValuesSnoc                       elab    0.3 kern   0.1 tot    0.4 steps      5378 nodes     136 rb    30
+    Aoc.Year2020.Day18.Proofs.NotOperator                          elab    0.2 kern   0.2 tot    0.3 steps      2707 nodes     232 rb    30
+  T Aoc.Year2020.Day18.Proofs.samePrecedenceExact                  elab    0.2 kern   0.1 tot    0.3 steps      3480 nodes      72 rb    14
+    Aoc.Year2020.Day18.level                                       elab    0.3 kern   0.1 tot    0.3 steps      4151 nodes      59 rb    15
+    Aoc.Year2020.Day18.chain                                       elab    0.2 kern   0.1 tot    0.3 steps      3925 nodes     113 rb    21
+    Aoc.Year2020.Day18.Spec.Answer                                 elab    0.3 kern   0.0 tot    0.3 steps      3465 nodes      68 rb    17
+  T Aoc.Year2020.Day18.Proofs.notOperatorSnoc                      elab    0.2 kern   0.1 tot    0.3 steps      3138 nodes      65 rb    20
+    Aoc.Year2020.Day18.Proofs.Complete                             elab    0.2 kern   0.1 tot    0.3 steps      2623 nodes     112 rb    69
+  T Aoc.Year2020.Day18.Proofs.sizePositive                         elab    0.2 kern   0.1 tot    0.2 steps      2689 nodes      55 rb     7
+    Aoc.Year2020.Day18.Spec.NumberWritten                          elab    0.2 kern   0.0 tot    0.2 steps       717 nodes      37 rb     2
+  T Aoc.Year2020.Day18.Proofs.symbolInjective                      elab    0.2 kern   0.1 tot    0.2 steps      1867 nodes      68 rb    14
+    Aoc.Year2020.Day18.parseHomework                               elab    0.2 kern   0.0 tot    0.2 steps      2421 nodes      71 rb    15
+    Aoc.Year2020.Day18.Spec.BindsAtLeast                           elab    0.2 kern   0.1 tot    0.2 steps      1667 nodes     105 rb     9

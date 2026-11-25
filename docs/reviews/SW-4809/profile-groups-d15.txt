@@ -1,0 +1,55 @@
+samples 5394
+== phase (first match in priority order)
+ 16.0%  std index build
+ 11.9%  project analyse
+  2.6%  project sources
+ 22.3%  A: library load from cache
+ 39.4%  B: elaboration (own decls)
+  0.5%  C: core / module setup
+  7.4%  other
+== self time by group, all
+ 28.3%  allocation/copy
+ 27.6%  other
+ 15.5%  parse/lex
+  9.8%  eval/force
+  7.1%  hashing
+  5.2%  cache I/O
+  2.9%  conversion
+  1.5%  unify
+  1.4%  diagnostics/names
+  0.8%  read-back/quote
+== self time by group, within B (own declarations)
+ 34.4%  other  (13.6% of all)
+ 34.4%  allocation/copy  (13.5% of all)
+ 18.1%  eval/force  (7.1% of all)
+  4.8%  conversion  (1.9% of all)
+  3.8%  unify  (1.5% of all)
+  2.1%  read-back/quote  (0.8% of all)
+  1.8%  hashing  (0.7% of all)
+  0.5%  parse/lex  (0.2% of all)
+  0.1%  diagnostics/names  (0.1% of all)
+== inclusive markers
+ 37.4%  elaborate_namespace_cached
+ 19.4%  warn_unreachable
+ 17.9%  parse_module_and_tree
+ 17.4%  kernel check (core::check::check)
+ 16.9%  eval (value::run*)
+ 16.3%  admit_replayed
+ 16.0%  LibraryIndex::build
+ 11.9%  validate_marks
+ 11.9%  project::analyse
+  8.8%  elaborate_module
+  6.8%  read-back (quote_as_until)
+  5.3%  generalised_now
+  4.9%  conversion (conv_with)
+  3.4%  names_and_proofs
+  2.9%  unify (unify::run)
+  0.1%  matching::blocker
+== self time by group, within A (library cache load)
+ 32.9%  other  (7.3% of all)
+ 23.0%  allocation/copy  (5.1% of all)
+ 18.1%  hashing  (4.0% of all)
+ 11.9%  eval/force  (2.7% of all)
+ 10.0%  cache I/O  (2.2% of all)
+  4.1%  conversion  (0.9% of all)
+ms per sample 0.25
