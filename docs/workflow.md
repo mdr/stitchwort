@@ -227,6 +227,11 @@ That is about a minute of tests, run like a lane's (`nice -n 19`, two test
 threads). Whole example suites, all hash snapshots, the soundness set,
 std-loading pin tests and guide checks are left to Overmind.
 
+A batch that changes hashing or the check cache also runs
+`package(stitchwort-driver) & binary(projects) & test(/trial::|check_cache::digest/)`
+(the trial check and the interface-digest keys): the quick tier runs only
+one `projects` test, so these are in no tier's quick run (SW-4779).
+
 When something slips past, it is fixed or reverted; the merge check does
 not grow to cover it. Matt, 16 Nov 2026: "We want to be really
 parsimonious, really selective with the tests that we run at merge time
@@ -442,6 +447,15 @@ times. A clean rebuild with `RUSTC_WRAPPER=` empty is the test of one run.
 - **Hash snapshots exist only for `accept/` and `extract/` examples**
   (`hash_stability::examples`); rejected, goal and soundness examples have
   none, so adding one there needs no `snap:hashes`.
+- **Why the check cache did or didn't answer.** `STITCHWORT_CACHE_DEBUG=1`
+  (any value) makes `check` print `check cache: …` lines on stderr: per
+  namespace `replayed from its entry`, `loaded from its interface entry`,
+  `carried over`, `elaborated`, `a miss: WHY`, `not skipped: WHY`, and `written,
+  digest HEX, SHAPE` for an entry it wrote; the same for library files
+  (`std file F: …`). The digest is printed as a hash only, not the inputs it
+  covers; to see why two runs' digests differ, compare these lines, then the
+  edited namespace's interface. The digest tests are in
+  `crates/driver/tests/projects/check_cache/digest.rs` (SW-4777).
 - **Comparing a std declaration's kernel term between main and a lane.**
   `STITCHWORT_DUMP_KERNEL` prints nothing for a declaration the check cache
   answers for, which is every library declaration in an ordinary `check`. Use
@@ -735,6 +749,24 @@ lanes' friction notes (about 180 entries, over 280 stated minutes).
 11. **Kind-specific line**: "ticket: none, don't touch the board" for paper
     lanes; the full `package(...) & binary(...) & test(...)` filter for every
     named test; the commit to compare against for "before" numbers.
+12. **A lane that changes evaluation** (`crates/core` `value.rs`,
+    `reference.rs`) also runs `the_evaluators_agree_on_the_prelude_and_every_example`
+    (`package(stitchwort-driver) & binary(proofs)`, in `differential.rs`) with
+    `STITCHWORT_DIFFERENTIAL_ONLY=<example>`, and that example has value
+    definitions that exercise the changed rule.
+13. **Run tests through `task test:one -- -E '…'`**, which builds only the one
+    named binary; raw `cargo nextest run -E` builds every test target.
+14. **A foreground wait sets the Bash tool's `timeout` parameter** (about
+    175000 ms) as well as `timeout 170` in the command.
+15. **Say that `task snap:hashes` builds a release profile** (`cargo nextest
+    run --release`, the `library` test binary), so a first run takes about 2
+    minutes: start it in the background.
+16. **A bug fix's test is written and run failing before the fix**, and no
+    source is edited while that test builds, or the "before" run includes
+    the fix.
+17. **Check the brief's syntax against the crib** at the top of
+    [syntax.md](syntax.md): `unfolding` goes after the statement's type, and
+    `data` and `record` don't exist (`type T = | A | B`, `type T = { x: Nat }`).
 
 ### Lane count and load
 
