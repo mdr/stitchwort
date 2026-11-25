@@ -35614,12 +35614,12 @@
     {
       "id": 4818,
       "title": "[Sonnet] Comparison bench follow-ups (SW-4816): sw net as a median of runs, user and system time on both sides, ratios as ranges, a fully cached 'nothing to check' floor row and a default-jobs row; the README lists what each side's net leaves out",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Lane: bench changed (proofs.py, lean-proofs README) and rerun, 5 runs, 5-min load 5.97 at start/4.68 at end; results in docs/reviews/SW-4608-proof-checking-speed.md, 'Rerun after the start-up fixes (SW-4818)'. Whole day, library cached: 469/554/942 ms (was 721/800/1180); ratio to lean file 1.16-1.33x (was 1.4-1.8x). Model result: Sonnet, worked, 15 min (est. 40).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
