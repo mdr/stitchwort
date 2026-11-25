@@ -644,7 +644,7 @@ Then (SW-4810, 3 runs, before SW-4812/4813/4820) and now:
   the ratio is Lean's side: its empty-file time is 258 ms against 288 ms then, and its files'
   times 352, 476 and 769 ms against 406, 501 and 861 ms, so this run's machine was quieter (the
   load figures above against SW-4810's 4.6), or Lean's wall time varies more than a 3-run median
-  shows. Both runs' figures are inside each other's ranges for day 2's ratio only.
+  shows.
 - The whole day with the library cached went from 721/800/1180 ms to 469/554/942 ms, 35%, 31% and
   20% less, which is the three fixes' saving (about 250 ms on a small day, 240 on day 15)
   **[measured]**; Lean's file times fell 9-13% over the same two runs, so about three quarters
