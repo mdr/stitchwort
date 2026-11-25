@@ -385,6 +385,7 @@ pub(super) fn decl_from_json(v: &Value) -> Option<DeclHash> {
         hash: hash("hash"),
         type_hash: hash("typeHash"),
         proofless: hash("prooflessHash"),
+        ran_out: false,
         uses: v
             .get("uses")
             .and_then(Value::as_array)

@@ -974,14 +974,11 @@ fn erasure_of_a_definition_doesnt_depend_on_its_first_use() {
     assert_eq!(params(false), (vec![false, true], vec![false, false]));
 }
 
-/// SW-3934: `proof_positions` doesn't remember an answer it reached by
-/// running out of steps. Reading a definition's type computes what the type
-/// says, so a tiny budget can leave "nothing is a proof", which only makes
-/// more differences count; a later call with a normal budget still gets the
-/// real answer. Remembering the fallback would make a proofless hash depend
-/// on which call came first.
-#[test]
-fn proof_positions_doesnt_remember_an_out_of_resources_answer() {
+/// A definition whose telescope takes many steps to read: `P (n: Nat): Prop`
+/// is a proposition whatever `n` is, and `needsSteps: (h: P (500 + 500)) ->
+/// Nat` is written through `P`, so its type is evaluated when its telescope
+/// is read.
+fn needs_steps() -> (Prelude, DefId, DefId) {
     let mut p = Prelude::new();
     // `P (n: Nat): Prop := case n of Zero => 0 = 0; Succ _ => 0 = 0`: a
     // proposition whatever `n` is, whose body can only be read once `n` is a
@@ -1009,6 +1006,27 @@ fn proof_positions_doesnt_remember_an_out_of_resources_answer() {
     };
     let zero = p.num(0);
     let needs_steps = submit(&mut p.g, "needsSteps", how, ty_term, lam("h", zero)).unwrap();
+    // `user: Nat := needsSteps refl`: the argument is a proof, so a
+    // proofless hash leaves it out when `needsSteps`' telescope is read.
+    let (nat, call) = (p.nat_ty(), app(Term::Def(needs_steps), [Term::Refl]));
+    let how = How {
+        opaque: true,
+        theorem: false,
+        unfolding: &[family],
+    };
+    let user = submit(&mut p.g, "user", how, nat, call).unwrap();
+    (p, needs_steps, user)
+}
+
+/// SW-3934: `proof_positions` doesn't remember an answer it reached by
+/// running out of steps. Reading a definition's type computes what the type
+/// says, so a tiny budget can leave "nothing is a proof", which only makes
+/// more differences count; a later call with a normal budget still gets the
+/// real answer. Remembering the fallback would make a proofless hash depend
+/// on which call came first.
+#[test]
+fn proof_positions_doesnt_remember_an_out_of_resources_answer() {
+    let (p, needs_steps, _) = needs_steps();
     // Out of steps, the fallback is returned and not stored.
     {
         let _op = p.g.machine.budget.operation(Limits {
@@ -1026,4 +1044,51 @@ fn proof_positions_doesnt_remember_an_out_of_resources_answer() {
     let _op = p.g.machine.budget.operation(Limits::default());
     let second = stitchwort_core::erase::proof_positions(&p.g.ev(), needs_steps).expect("final");
     assert_eq!(second.params, [true].into());
+}
+
+/// SW-4755: a proofless hash isn't built on `proof_positions`' fallback
+/// ("nothing is a proof") when reading a called definition's telescope ran
+/// out.
+/// Whatever the budget, a proofless hash that finishes is the one a normal
+/// budget gives, and a later hash with a normal budget is too (an answer
+/// reached by the fallback would have been remembered).
+#[test]
+fn a_proofless_hash_that_ran_out_isnt_remembered() {
+    let hash = |p: &Prelude, id, work: Option<u64>| {
+        let _op = p.g.machine.budget.operation(match work {
+            Some(work) => Limits {
+                work,
+                ..Limits::default()
+            },
+            None => Limits::default(),
+        });
+        stitchwort_core::hash::proofless_hash(&p.g.ev(), id)
+    };
+    let expected = {
+        let (p, _, id) = needs_steps();
+        hash(&p, id, None).unwrap().expect("final")
+    };
+    // The positions themselves say it ran out, where `proof_positions`
+    // answers "nothing is a proof".
+    {
+        let (p, needs_steps, _) = needs_steps();
+        {
+            let _op = p.g.machine.budget.operation(Limits {
+                work: 10,
+                ..Limits::default()
+            });
+            assert!(stitchwort_core::erase::try_proof_positions(&p.g.ev(), needs_steps).is_err());
+        }
+        let _op = p.g.machine.budget.operation(Limits::default());
+        let positions = stitchwort_core::erase::try_proof_positions(&p.g.ev(), needs_steps);
+        assert_eq!(positions.unwrap().expect("final").params, [true].into());
+    }
+    for work in 0..120 {
+        let (p, _, id) = needs_steps();
+        if let Ok(Some(h)) = hash(&p, id, Some(work)) {
+            assert_eq!(h, expected, "under {work} steps");
+        }
+        let later = hash(&p, id, None).unwrap().expect("final");
+        assert_eq!(later, expected, "after trying {work} steps");
+    }
 }

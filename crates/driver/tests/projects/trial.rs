@@ -511,6 +511,7 @@ fn listed(kind: DeclKind, name: &str, hash: u8, ty: u8) -> DeclHash {
         hash: hash_of(hash),
         type_hash: hash_of(ty),
         proofless: None,
+        ran_out: false,
         uses: Vec::new(),
     }
 }
@@ -553,6 +554,29 @@ fn two_hash_lists_compare_by_the_promise() {
     moved[0] = listed(DeclKind::Def, "Std.f", 9, 10);
     let diff = declhash::compare(&before, &moved, &same_statement());
     assert!(names(&diff).contains(&"Std.f".to_string()), "{diff:?}");
+}
+
+/// SW-4754: a declaration whose hashes ran out on both sides has no hash on
+/// either (`None == None`), and isn't reported unchanged: nothing can be said
+/// about its meaning, so every promise lists it as changed, undecided.
+#[test]
+fn a_declaration_whose_hashes_ran_out_is_not_kept() {
+    let ran_out = |name: &str| {
+        let mut d = listed(DeclKind::Def, name, 1, 1);
+        d.hash = None;
+        d.type_hash = None;
+        d.ran_out = true;
+        d
+    };
+    let before = [ran_out("Std.f"), listed(DeclKind::Def, "Std.g", 2, 20)];
+    let after = [ran_out("Std.f"), listed(DeclKind::Def, "Std.g", 2, 20)];
+    for promise in [same_meaning(), same_statement(), proofs_only()] {
+        let diff = declhash::compare(&before, &after, &promise);
+        let changed: Vec<(&str, bool)> = (diff.changed.iter())
+            .map(|c| (c.name.as_str(), c.undecided))
+            .collect();
+        assert_eq!(changed, [("Std.f", true)], "{promise:?}");
+    }
 }
 
 /// A definition that mentions a proof (a structure's invariant, a

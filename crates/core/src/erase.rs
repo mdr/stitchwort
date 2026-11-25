@@ -75,6 +75,7 @@ use crate::term::ProofMark;
 use std::cell::Cell;
 use std::rc::Rc;
 
+use crate::budget::{ResourceError, Result};
 use crate::check;
 use crate::globals::{Def, State};
 use crate::term::DefId;
@@ -270,27 +271,36 @@ pub struct ProofPositions {
 }
 
 /// Which parts of definition `id` are proofs, or `None` if it isn't final.
+/// Out of resources, nothing is a proof (which only makes more differences
+/// count) and the answer isn't remembered, as [`of_def`]'s isn't. A reader
+/// whose result is remembered or decides something uses
+/// [`try_proof_positions`], which passes the running out on.
 pub fn proof_positions(g: &Ev, id: DefId) -> Option<Rc<ProofPositions>> {
+    try_proof_positions(g, id).unwrap_or_else(|_| {
+        Some(Rc::new(ProofPositions {
+            params: Box::new([]),
+            result: false,
+        }))
+    })
+}
+
+/// [`proof_positions`], with running out as an error instead of the
+/// fallback "nothing is a proof": a proofless hash built on the fallback
+/// would be remembered, and then depend on which call came first.
+pub fn try_proof_positions(g: &Ev, id: DefId) -> Result<Option<Rc<ProofPositions>>> {
     if let Some(Some(known)) = g.caches.proof_positions.borrow().get(id.0) {
-        return Some(known.clone());
+        return Ok(Some(known.clone()));
     }
     let def = g.def(id);
     if def.state != State::Final {
-        return None;
+        return Ok(None);
     }
-    let tel = in_own_view(g, def, || {
+    // Reading the type of an already-checked definition can fail only by
+    // running out of resources (as [`of_def`] takes it), whichever kind.
+    let (params, result) = in_own_view(g, def, || {
         check::proof_telescope(g, &check::def_type(g, def)?, def.span)
-    });
-    let Ok((params, result)) = tel else {
-        // Out of resources: nothing is a proof, which only makes more
-        // differences count. Not remembered, as [`of_def`] doesn't remember
-        // its fallback: a later call with more budget gets the real answer,
-        // so a proofless hash can't depend on what ran first.
-        return Some(Rc::new(ProofPositions {
-            params: Box::new([]),
-            result: false,
-        }));
-    };
+    })
+    .map_err(|_| ResourceError::Work)?;
     let positions = Rc::new(ProofPositions {
         params: params.into(),
         result,
@@ -300,5 +310,5 @@ pub fn proof_positions(g: &Ev, id: DefId) -> Option<Rc<ProofPositions>> {
         known.resize(id.0 + 1, None);
     }
     known[id.0] = Some(positions.clone());
-    Some(positions)
+    Ok(Some(positions))
 }

@@ -585,6 +585,7 @@ mod tests {
             hash: parse_hash(hash),
             type_hash: parse_hash(type_hash),
             proofless: parse_hash(proofless),
+            ran_out: false,
             uses: Vec::new(),
         }
     }

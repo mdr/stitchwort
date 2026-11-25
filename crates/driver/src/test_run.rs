@@ -556,7 +556,28 @@ impl Session {
                     };
                 }
                 // A test that runs partial code is a `Delay` (D1183).
-                let partial = self.elab.is_partial(test.def).unwrap_or(false);
+                // Out of resources, it can't be told, and a guess would run a
+                // partial test as total.
+                let partial = match self.elab.is_partial(test.def) {
+                    Ok(partial) => partial,
+                    Err(_) => {
+                        return TestResult {
+                            name: test.name.clone(),
+                            namespace: test.namespace.clone(),
+                            outcome: Outcome::OutOfResources(
+                                g.machine
+                                    .budget
+                                    .exhausted()
+                                    .unwrap_or(stitchwort_core::ResourceError::Work),
+                            ),
+                            cached: false,
+                            hash: Some(hash),
+                            detail: None,
+                            unfinished: None,
+                            assuming: Vec::new(),
+                        };
+                    }
+                };
                 if self.elab.relies_on_goal(test.def) {
                     let outcome = match self.run_relying(test, partial) {
                         Ok(outcome) => outcome,
