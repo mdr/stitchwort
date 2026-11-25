@@ -35870,15 +35870,18 @@
     {
       "id": 4834,
       "title": "[Sonnet] A task load:wait -- N (wait until the 5-minute load is under N, up to a cap) and a shared profile summariser in dev/ (from docs/reviews/SW-4819/prof.py); lanes hand-rolled both and got them wrong (SW-4819 friction)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Started on DeepSeek 17:43, est. 15 min.",
+      "body": "Started on DeepSeek 17:43, est. 15 min.\n\nOrchestrator review: task tested (exit 0 below N, nonzero at the cap); summariser moved unchanged with a docstring. Model result: deepseek, worked, about 8 min (est. 15).",
       "created": "2026-11-25",
       "updated": "2026-11-25",
-      "commits": []
+      "commits": [
+        "94cf83617",
+        "96cde0a30"
+      ]
     },
     {
       "id": 4835,
