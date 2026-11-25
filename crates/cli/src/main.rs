@@ -3069,7 +3069,6 @@ fn test(
         );
         return ExitCode::FAILURE;
     }
-    let mut session = new_session(false);
     let test_cache = |cache: &CacheArgs, base: &Path| {
         let cache = test_cache(cache, base);
         if verify_cache {
@@ -3131,6 +3130,8 @@ fn test(
     }
     match target {
         Some(file) if project_file.is_none() && is_file_target(file) => {
+            use_index_cache(cache, Path::new("."));
+            let mut session = new_session(false);
             use_cache(&mut session, cache, Path::new("."));
             let mut reported = Vec::new();
             let loaded =
@@ -3190,6 +3191,8 @@ fn test(
             let Some(config) = read_project_config(&project) else {
                 return ExitCode::FAILURE;
             };
+            use_index_cache(cache, &project.dir);
+            let mut session = new_session(false);
             use_cache(&mut session, cache, &project.dir);
             let mut reported = Vec::new();
             let loaded = load_project_counting(
@@ -3517,9 +3520,10 @@ fn load_main(
     project: Option<&Path>,
     cache: &CacheArgs,
 ) -> Result<(Session, Main, usize), ExitCode> {
-    let mut session = new_session(false);
     let goals;
-    let main = if is_file_target(target) {
+    let (session, main) = if is_file_target(target) {
+        use_index_cache(cache, Path::new("."));
+        let mut session = new_session(false);
         use_cache(&mut session, cache, Path::new("."));
         let mut reported = Vec::new();
         if !load_file_into(&mut session, Path::new(target), Some("run"), &mut reported) {
@@ -3528,11 +3532,14 @@ fn load_main(
         // What's finished can run; `main` can't if it isn't (`Session::main`).
         goals = goals_open(&reported);
         report_goals(&session, &reported);
-        session.main()
+        let main = session.main();
+        (session, main)
     } else {
         let Some(project) = locate_project(project, "run", "run hello.sw") else {
             return Err(ExitCode::FAILURE);
         };
+        use_index_cache(cache, &project.dir);
+        let mut session = new_session(false);
         use_cache(&mut session, cache, &project.dir);
         session.include_from(std::rc::Rc::new(DiskFiles {
             root: project.dir.clone(),
@@ -3570,7 +3577,8 @@ fn load_main(
                 return Err(ExitCode::FAILURE);
             }
         }
-        session.main_named(target, &project.name)
+        let main = session.main_named(target, &project.name);
+        (session, main)
     };
     let main = match main {
         Ok(main) => main,
