@@ -2934,7 +2934,7 @@ struct BoundField {
 /// types a projection). That holds whichever way the enclosing `case` took
 /// its branch: iota, rule S, record eta or a number's split each bind the
 /// constructor's fields of a value of the scrutinee's type. `None` if it
-/// can't be read: a type not written as a function type that far, or a
+/// can't be read: a type that doesn't compute to a function type that far, or a
 /// node found other than exactly once in the tree (so that the path to it,
 /// and with it what each variable is, is the one evaluation took).
 fn slot_type(g: &Ev, id: DefId, tree: &Term, env: &[Value], level: usize) -> Result<Option<Value>> {
@@ -2975,10 +2975,7 @@ fn field_type(
 ) -> Result<Option<Value>> {
     let def = g.def(id);
     if level < def.arity {
-        let Some(domain) = parameter_type(def.ty(), level) else {
-            return Ok(None);
-        };
-        return Ok(Some(force(g, eval(g, &env[..level], domain)?)?));
+        return parameter_type(g, def.ty(), &env[..level]);
     }
     let f = fields[level - def.arity];
     let Some(Value::Data(d, args)) = field_type(g, id, fields, env, f.scrutinee)? else {
@@ -3047,20 +3044,24 @@ fn bound_fields(
     }
 }
 
-/// The type of parameter `level` in the function type `ty`, as written: a
-/// term over the parameters before it. `None` if `ty` isn't written as a
-/// function type that far.
-fn parameter_type(ty: &Term, level: usize) -> Option<&Term> {
-    let mut ty = ty.strip_loc();
-    for _ in 0..level {
-        let Term::Pi(_, _, _, cod, _) = ty else {
-            return None;
+/// The type of the next parameter of the closed function type `ty`, after
+/// `args`, forced: `ty` evaluated, each function type forced (so a type
+/// written through a definition, `def f: Reader` for `def Reader: Type :=
+/// (x: Nat) → Q2 x → Nat`, is read as what it unfolds to, SW-4796) and its
+/// codomain given the next argument. `None` if `ty` doesn't compute to a
+/// function type that far, as for one behind an opaque definition this
+/// evaluation can't unfold.
+fn parameter_type(g: &Ev, ty: &Term, args: &[Value]) -> Result<Option<Value>> {
+    let mut ty = eval(g, &[], ty)?;
+    for arg in args {
+        let Value::Pi(_, _, _, cod, _) = force(g, ty)? else {
+            return Ok(None);
         };
-        ty = cod.strip_loc();
+        ty = cod.apply(g, arg.clone())?;
     }
-    match ty {
-        Term::Pi(_, _, domain, _, _) => Some(domain),
-        _ => None,
+    match force(g, ty)? {
+        Value::Pi(_, _, domain, _, _) => Ok(Some(force(g, (*domain).clone())?)),
+        _ => Ok(None),
     }
 }
 

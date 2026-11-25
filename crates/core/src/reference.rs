@@ -902,7 +902,7 @@ fn rule_s(
 /// forced: a parameter's as `f`'s type gives it, over the parameters before
 /// it; a field's as its constructor declares it, over the parameters of
 /// the enclosing scrutinee's type and the fields before it. `None` if `f`'s
-/// type isn't written as a function type that far.
+/// type doesn't compute to a function type that far.
 fn type_at(
     g: &Ev,
     f: DefId,
@@ -926,18 +926,20 @@ fn type_at(
         let ty = &data.ctors[b.ctor].fields[b.field].1;
         return Ok(Some(force(g, eval(g, &ctor_env, ty)?)?));
     }
-    // The parameter's type in `f`'s telescope, over the ones before it.
-    let mut ty = g.def(f).ty();
-    for _ in 0..level {
-        match ty.strip_loc() {
-            Term::Pi(_, _, _, rest, _) => ty = rest,
-            _ => return Ok(None),
-        }
+    // The parameter's type in `f`'s telescope, over the ones before it, the
+    // telescope computed so a type written through a definition is read as
+    // what it unfolds to (SW-4796).
+    let mut ty = eval(g, &[], g.def(f).ty())?;
+    for arg in &env[..level] {
+        let Value::Pi(_, _, _, rest, _) = force(g, ty)? else {
+            return Ok(None);
+        };
+        ty = apply_closure(g, &rest, arg.clone())?;
     }
-    let Term::Pi(_, _, domain, _, _) = ty.strip_loc() else {
+    let Value::Pi(_, _, domain, _, _) = force(g, ty)? else {
         return Ok(None);
     };
-    Ok(Some(force(g, eval(g, &env[..level], domain)?)?))
+    Ok(Some(force(g, (*domain).clone())?))
 }
 
 /// A `Quot.lift` leaf of a case tree: `f a` on `Quot.mk a`, else stuck.
