@@ -35640,12 +35640,12 @@
     {
       "id": 4820,
       "title": "[Opus] A fully cached check with several jobs is twice as slow as one job (AoC 2024 day 2: about 0.8 s with STITCHWORT_JOBS=4 vs 0.39 s with one): fill builds worker 0's whole session (core re-elaborated, ~85 ms, and more) before finding fewer than two namespaces to check; decide 'nothing or one namespace to check' before building any worker, so the default check (auto jobs, D3742) is never slower than one job (SW-4813 finding 1, SW-4816 finding 6)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Lane (Opus, 14:09-14:40): skip the fill when a completed check recorded the same inputs (project files+config, library text, target, cache modes, store salt/build): parallel::Inputs, recorded only with several jobs. Exact keys need a session (dependency digests from entries, modes from core), so this is the approximation; a false skip only costs one job's speed. Warm, load ~5: AoC 2024 day 2 auto 337->190 ms (one job 185->181); tools/fmt auto 2213->1729 ms (one job 1722->1761, noise). Still slow: a check where 1 namespace misses (worker 0 built, ~430 ms on tools/fmt, mostly library_keys rehashing std per namespace). Pre-existing on main: check_cache::plain_check_skipping_unneeded_namespaces_is_the_same_after_edits fails since auto jobs (SW-4805), same with and without this change.",
       "created": "2026-11-25",
       "updated": "2026-11-25",
       "commits": []
