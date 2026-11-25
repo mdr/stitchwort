@@ -1,0 +1,64 @@
+subset ['check_project_namespace', 'check_component']: 1665 samples = 416 ms, 30.9% of run
+-- groups (self)
+ 35.5%  allocation/copy
+ 32.4%  other
+ 19.3%  eval/force
+  5.3%  conversion
+  2.9%  unify
+  2.2%  read-back/quote
+  1.7%  hashing
+  0.4%  parse/lex
+  0.1%  diagnostics/names
+-- self
+ 10.8%  stitchwort_core::value::run_on
+  5.2%  mi_free
+  4.4%  mi_malloc
+  4.4%  core::ptr::drop_glue::<stitchwort_core::value::Value>
+  4.2%  <stitchwort_core::term::Term>::for_each_child::<<stitchwort_core::term::Term>::subterms::{closure#0}::{closure#0}>
+  4.1%  <alloc::vec::Vec<stitchwort_core::value::Value> as alloc::vec::spec_from_iter::SpecFromIter<stitchwort_core::value::Valu
+  3.9%  <stitchwort_core::value::Value as core::clone::Clone>::clone
+  3.1%  stitchwort_core::value::resume
+  2.9%  _platform_memmove
+  2.5%  <alloc::rc::Rc<[stitchwort_core::value::Value]>>::from_iter_exact::<core::iter::adapters::chain::Chain<core::iter::adapt
+  2.2%  stitchwort_core::value::quote_as_until
+  1.7%  stitchwort_core::value::eval
+-- inclusive (below check_component)
+ 74.3%  <stitchwort_elab::Elaborator>::group_checked
+ 74.3%  <stitchwort_elab::Elaborator>::group
+ 69.0%  <stitchwort_elab::Elaborator>::lifted_body
+ 68.0%  <stitchwort_elab::Elaborator>::with_local_retries::<(stitchwort_core::term::Term, alloc::vec::Vec<(stitchwort_core::term
+ 50.5%  <stitchwort_elab::Elaborator>::body_term
+ 50.4%  stitchwort_elab::check::check
+ 50.3%  <stitchwort_elab::Elaborator>::body_in
+ 50.3%  stitchwort_elab::check::check_inner
+ 50.0%  stitchwort_elab::check_tree
+ 49.7%  stitchwort_elab::families::warn_unreachable::<stitchwort_core::term::Term, <stitchwort_elab::Elaborator>::body_in_parts:
+ 49.3%  stitchwort_elab::check_leaf_in
+ 49.2%  stitchwort_elab::check::check_value
+ 43.7%  <stitchwort_elab::Elaborator>::elaborate_namespace_cached
+ 36.6%  stitchwort_core::value::run_on
+ 25.7%  <stitchwort_elab::Elaborator>::data_group
+ 25.7%  <stitchwort_elab::Elaborator>::after_data
+ 24.3%  stitchwort_elab::effects::pure_let
+ 23.1%  stitchwort_core::check::check
+ 22.9%  <stitchwort_elab::Elaborator>::definition
+ 22.6%  stitchwort_core::check::check_form
+ 22.5%  stitchwort_elab::check::apply_args_with_at
+ 22.5%  stitchwort_elab::check::apply_args_once
+ 22.5%  stitchwort_elab::check::apply_args_postponing
+-- markers (inclusive)
+ 69.0%  lift
+ 36.6%  eval (run_on)
+ 27.5%  diagnostics
+ 25.7%  data decls (data_group)
+ 24.3%  kernel check (core::check::check)
+ 20.4%  read-back (quote_as_until)
+ 18.1%  conversion (conv)
+ 16.9%  matching::generalised_now
+ 16.5%  force_now
+ 14.5%  unify
+ 13.5%  rewrite
+ 12.3%  derive_data_eq
+  7.7%  arithmetic/omega
+  3.5%  validate_marks (dev only)
+  3.4%  cases tactic

@@ -1,0 +1,42 @@
+ported theorem   n=  17 elab    69.0 kern   16.6 steps 1.2e+06 nodes 1.46e+04 readback-steps 39% unify 3% other 57%
+other own decl   n=  21 elab     7.8 kern    2.8 steps 8.69e+04 nodes 4e+03 readback-steps 11% unify 6% other 72%
+std/core         n= 444 elab    64.9 kern   19.2 steps 9.22e+05 nodes 2.89e+04 readback-steps 9% unify 10% other 62%
+own total 96.7 ms; per-decl median 0.50 ms; under 1 ms: 27 decls = 8.2 ms
+  T Aoc.Year2024.Day02.Proofs.passesDampenedAfterCorrect           elab   18.2 kern   4.5 tot   22.7 steps    275234 nodes    4346 rb   161
+  T Aoc.Year2024.Day02.Proofs.dampenerAloneSuffices                elab    9.8 kern   2.0 tot   11.8 steps    165296 nodes    1873 rb   221
+  T Aoc.Year2024.Day02.Proofs.safeKept                             elab    9.9 kern   1.6 tot   11.5 steps    135335 nodes    1726 rb    99
+  T Aoc.Year2024.Day02.Proofs.isSafeWithDampenerCorrect            elab    7.9 kern   1.5 tot    9.4 steps    137018 nodes    1688 rb   212
+  T Aoc.Year2024.Day02.Proofs.passesDampenedCorrect                elab    6.4 kern   2.0 tot    8.5 steps    113784 nodes    1786 rb   153
+  T Aoc.Year2024.Day02.Proofs.risesGentlyUp                        elab    5.7 kern   2.0 tot    7.7 steps    140117 nodes     910 rb    47
+  T Aoc.Year2024.Day02.Proofs.risesGentlyDown                      elab    4.9 kern   2.0 tot    6.8 steps    140179 nodes     910 rb    47
+    Aoc.Year2024.Day02.Report                                      elab    3.5 kern   0.7 tot    4.2 steps     35766 nodes     698 rb   116
+  T Aoc.Year2024.Day02.Proofs.isSafeCorrect                        elab    3.1 kern   0.4 tot    3.5 steps     49367 nodes     423 rb    89
+    Aoc.Year2024.Day02.passesDampenedAfter                         elab    0.5 kern   0.8 tot    1.4 steps     13451 nodes    1142 rb    47
+  T Aoc.Year2024.Day02.Proofs.part2AtLeastPart1                    elab    0.9 kern   0.1 tot    1.0 steps     15230 nodes     130 rb   127
+  T Aoc.Year2024.Day02.Proofs.anyRemovedIsRemovals                 elab    0.6 kern   0.2 tot    0.8 steps     10551 nodes     263 rb    47
+    Aoc.Year2024.Day02.risesGently                                 elab    0.8 kern   0.0 tot    0.8 steps      2630 nodes      38 rb     3
+    Aoc.Year2024.Day02.Spec.allIncreasing                          elab    0.8 kern   0.0 tot    0.8 steps      1183 nodes      19 rb     3
+    Aoc.Year2024.Day02.passesDampened                              elab    0.3 kern   0.4 tot    0.7 steps      7675 nodes     610 rb    10
+    Aoc.Year2024.Day02.main                                        elab    0.2 kern   0.3 tot    0.5 steps      6829 nodes     541 rb    18
+    Aoc.Year2024.Day02.Spec.removals                               elab    0.3 kern   0.2 tot    0.5 steps      3403 nodes     217 rb    29
+  T Aoc.Year2024.Day02.Proofs.allRiseGently                        elab    0.4 kern   0.1 tot    0.5 steps      5913 nodes     134 rb    34
+  T Aoc.Year2024.Day02.Proofs.allFallGently                        elab    0.4 kern   0.1 tot    0.5 steps      6059 nodes     152 rb    34
+    Aoc.Year2024.Day02.Proofs.anyRemoved                           elab    0.2 kern   0.3 tot    0.4 steps      3652 nodes     293 rb    44
+  T Aoc.Year2024.Day02.Proofs.anyRemovedNever                      elab    0.2 kern   0.1 tot    0.3 steps      3152 nodes     112 rb    18
+    Aoc.Year2024.Day02.reportLine                                  elab    0.2 kern   0.1 tot    0.3 steps      2875 nodes     136 rb    17
+  T Aoc.Year2024.Day02.Proofs.part1Correct                         elab    0.2 kern   0.0 tot    0.3 steps      1816 nodes      27 rb    18
+  T Aoc.Year2024.Day02.Proofs.part2Correct                         elab    0.2 kern   0.0 tot    0.2 steps      1717 nodes      27 rb    18
+    Aoc.Year2024.Day02.Spec.differByOneToThree                     elab    0.2 kern   0.0 tot    0.2 steps      2123 nodes      48 rb     7
+  T Aoc.Year2024.Day02.Proofs.safeWithoutFirst                     elab    0.1 kern   0.0 tot    0.2 steps      1489 nodes      40 rb     7
+  T Aoc.Year2024.Day02.Proofs.safeWithoutLast                      elab    0.1 kern   0.0 tot    0.2 steps      1322 nodes      39 rb     7
+    Aoc.Year2024.Day02.Report.isSafe                               elab    0.1 kern   0.0 tot    0.1 steps       732 nodes      37 rb     2
+    Aoc.Year2024.Day02.Spec.safeWithDampener                       elab    0.1 kern   0.0 tot    0.1 steps      1176 nodes      36 rb     8
+    Aoc.Year2024.Day02.Report.isSafeWithDampener                   elab    0.1 kern   0.0 tot    0.1 steps       335 nodes      33 rb     2
+    Aoc.Year2024.Day02.parseReports                                elab    0.1 kern   0.0 tot    0.1 steps      1128 nodes      25 rb    12
+    Aoc.Year2024.Day02.Spec.allDecreasing                          elab    0.1 kern   0.0 tot    0.1 steps      1183 nodes      19 rb     3
+    Aoc.Year2024.Day02.solvePart1                                  elab    0.1 kern   0.0 tot    0.1 steps       624 nodes      16 rb     6
+    Aoc.Year2024.Day02.Spec.safe                                   elab    0.1 kern   0.0 tot    0.1 steps       281 nodes      37 rb     2
+    Aoc.Year2024.Day02.Spec.safeReports                            elab    0.1 kern   0.0 tot    0.1 steps       524 nodes      16 rb     6
+    Aoc.Year2024.Day02.solvePart2                                  elab    0.0 kern   0.0 tot    0.1 steps       534 nodes      16 rb     6
+    Aoc.Year2024.Day02.Spec.safeReportsWithDampener                elab    0.0 kern   0.0 tot    0.1 steps       524 nodes      16 rb     6
+    Aoc.Year2024.Day02.Spec.adjacentDifferByOneToThree             elab    0.0 kern   0.0 tot    0.0 steps       252 nodes      12 rb     1

@@ -1,0 +1,61 @@
+subset ['check_project_namespace', 'check_component']: 484 samples = 121 ms, 14.9% of run
+-- groups (self)
+ 34.5%  other
+ 31.0%  allocation/copy
+ 20.5%  eval/force
+  4.8%  unify
+  4.5%  conversion
+  2.9%  read-back/quote
+  1.9%  hashing
+-- self
+ 10.3%  stitchwort_core::value::run_on
+  4.3%  core::ptr::drop_glue::<stitchwort_core::value::Value>
+  4.1%  mi_free
+  3.9%  stitchwort_core::term::take_children
+  3.9%  mi_malloc
+  3.7%  <stitchwort_core::value::Value as core::clone::Clone>::clone
+  3.7%  stitchwort_core::value::visit
+  3.1%  <alloc::vec::Vec<stitchwort_core::value::Value> as alloc::vec::spec_from_iter::SpecFromIter<stitchwort_core::value::Valu
+  2.9%  stitchwort_core::value::resume
+  2.7%  stitchwort_core::value::quote_as_until
+  2.7%  <alloc::rc::Rc<[stitchwort_core::value::Value]>>::from_iter_exact::<core::iter::adapters::chain::Chain<core::iter::adapt
+  2.3%  stitchwort_core::value::eval
+-- inclusive (below check_component)
+ 96.1%  <stitchwort_elab::Elaborator>::group
+ 96.1%  <stitchwort_elab::Elaborator>::group_checked
+ 88.6%  <stitchwort_elab::Elaborator>::with_local_retries::<(stitchwort_core::term::Term, alloc::vec::Vec<(stitchwort_core::term
+ 88.6%  <stitchwort_elab::Elaborator>::lifted_body
+ 68.0%  stitchwort_elab::check::check_inner
+ 68.0%  stitchwort_elab::check::check
+ 67.6%  stitchwort_elab::check::check_value
+ 66.9%  stitchwort_elab::check_tree
+ 66.7%  <stitchwort_elab::Elaborator>::body_term
+ 66.7%  stitchwort_elab::check_leaf_in
+ 66.7%  stitchwort_elab::families::warn_unreachable::<stitchwort_core::term::Term, <stitchwort_elab::Elaborator>::body_in_parts:
+ 66.7%  <stitchwort_elab::Elaborator>::body_in
+ 59.5%  stitchwort_elab::queue::tactic_or_wait
+ 56.2%  stitchwort_elab::matching::generalised
+ 56.2%  stitchwort_elab::matching::generalised_now
+ 53.3%  stitchwort_elab::families::warn_unreachable_unless::<stitchwort_core::term::Term, stitchwort_elab::matching::in_arms::{c
+ 53.3%  stitchwort_elab::matching::in_arms
+ 53.3%  stitchwort_elab::queue::framed::<stitchwort_core::term::Term, stitchwort_elab::matching::AltsFrame, stitchwort_elab::mat
+ 52.5%  stitchwort_elab::cases::attempt
+ 52.5%  stitchwort_elab::cases::cases_goal
+ 52.3%  <stitchwort_core::budget::Budget>::limited::<stitchwort_core::term::Term, stitchwort_syntax::diagnostic::Diagnostic, sti
+ 52.3%  stitchwort_elab::cases::node
+-- markers (inclusive)
+ 88.6%  lift
+ 72.9%  diagnostics
+ 56.2%  matching::generalised_now
+ 53.9%  cases tactic
+ 34.7%  rewrite
+ 33.3%  eval (run_on)
+ 27.7%  read-back (quote_as_until)
+ 24.6%  conversion (conv)
+ 19.2%  kernel check (core::check::check)
+ 13.2%  force_now
+  9.1%  unify
+  4.5%  arithmetic/omega
+  3.9%  data decls (data_group)
+  2.9%  validate_marks (dev only)
+  1.7%  derive_data_eq

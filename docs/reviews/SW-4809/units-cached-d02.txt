@@ -1,0 +1,45 @@
+unit                                          elab ms   kernel ms       nodes     decls
+core                                             70.0        23.3       28939       585
+std/Bool/Bool.sw (cached)                         1.8         1.0        3817        82
+std/Function/Function.sw (cached)                 0.1         0.0         109         1
+std/Int/Basics.sw (cached)                        0.1         0.0         289        10
+std/List/Unfold.sw (cached)                       0.2         1.1        2595        13
+std/Nat/Arith.sw (cached)                         1.4         2.0       13175       151
+std/Decidable/Decidable.sw (cached)               0.2         0.3        1372        14
+std/Int/Int.sw (cached)                           1.1         1.0       11094        69
+std/Option/Option.sw (cached)                     0.3         0.2         894        24
+std/Omega/Omega.sw (cached)                       8.9         4.5       81633       493
+std/Omega/Sound.sw (cached)                       1.4         1.3       13714        55
+std/Option/Lemmas.sw (cached)                     0.4         1.2        3712        44
+std/Abort/Abort.sw (cached)                       0.5         2.8        4302        24
+std/Ord/Ord.sw (cached)                           0.4         0.5        2937        33
+std/List/Toolkit.sw (cached)                      1.5         3.2       16180       178
+std/List/Append.sw (cached)                       1.2         2.2       12841        93
+std/List/Count.sw (cached)                        0.7         1.1        6392        33
+std/List/Map.sw (cached)                          1.1         1.8       12153        68
+std/List/Membership.sw (cached)                   2.4         7.4       29215       185
+std/List/Sort.sw (cached)                         0.5         0.7        4326        38
+std/List/Take.sw (cached)                         0.6         1.0        6683        34
+std/Ring/Ring.sw (cached)                         2.5         1.6       21685       205
+std/Text/Basics.sw (cached)                       0.4         0.4        1979        48
+std/List/Filter.sw (cached)                       2.1         5.8       25775       161
+std/List/Zip.sw (cached)                          1.6         4.0       18731       135
+std/Result/Result.sw (cached)                     0.3         0.5        2301        21
+std/Fail/Fail.sw (cached)                         0.7         5.0       11268        43
+std/Ring/Sound.sw (cached)                        0.8         0.8        7438        43
+std/List/SortLemmas.sw (cached)                   5.0         9.9       61218       273
+std/Text/Text.sw (cached)                         1.7         3.2       16921       160
+std/List/Index.sw (cached)                        1.1         1.8       11595        55
+std/NonEmptyList/NonEmptyList.sw (cached)         0.3         0.4        2203        49
+std/NonEmptyList/Lemmas.sw (cached)               0.4         0.8        3033        56
+std/Nat/Digits.sw (cached)                        1.3         1.7       12369        87
+std/Fin/Fin.sw (cached)                           0.4         0.5        3520        31
+std/Parse/Parse.sw (cached)                       3.3         8.3       42841       260
+std/Parse/Chars.sw (cached)                       1.7         1.9       20493        77
+Aoc.Year2024.Day02                               25.3         2.3        3292        41
+Aoc.Year2024.Day02.Spec                           3.3         0.3         420        12
+Aoc.Year2024.Day02.Proofs                        76.3        17.0       14879       110
+---------------------------------------------------------------------------------------
+library files                                    48.8        79.9      490803      3346
+total                                           223.7       122.9      538333      4094
+wall 740.5 ms; outside the units (parsing, core load, printing) 393.9 ms
