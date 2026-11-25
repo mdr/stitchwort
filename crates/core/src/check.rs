@@ -3019,9 +3019,9 @@ pub fn leave_stated(g: &mut Kernel, id: DefId) -> Result<()> {
         if let Some(dep) = admissible(&cx, [&def.ty], None)? {
             return Err(failed_dependency(&cx, &def.name, &dep));
         }
+        g.env.set_unproved(id, true);
         let def = &mut g.env.defs_mut()[id.0];
         def.stated = true;
-        def.unproved = true;
         def.recursive = false;
         def.state = State::Final;
         Ok(())
@@ -4295,9 +4295,9 @@ fn admit_stated_marked(
             ));
         }
         let id = push_marked_def(g, name, path, ty.clone(), ty_value, true, true, false, span);
+        g.env.set_unproved(id, unproved);
         let def = &mut g.env.defs_mut()[id.0];
         def.stated = true;
-        def.unproved = unproved;
         def.recursive = false;
         def.state = State::Final;
         Ok(id)

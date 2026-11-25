@@ -878,7 +878,7 @@ impl Kernel {
     /// ([`Kernel::forget_since`]) takes the mark away with everything that
     /// was checked against it.
     pub fn holds_unproved_theorems(&self) -> bool {
-        self.env.defs().iter().any(|d| d.unproved)
+        self.env.unproved_count() > 0
     }
 
     pub fn data(&self, id: DataId) -> &Data {

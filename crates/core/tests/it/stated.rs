@@ -302,6 +302,29 @@ fn rewinding_past_a_theorem_left_stated_clears_the_mark() {
     assert!(!p.g.holds_unproved_theorems());
 }
 
+/// The kernel counts its unproved theorems: a rewind that keeps some of
+/// them keeps their count, and one past the last clears it.
+#[test]
+fn the_unproved_count_follows_rewinds() {
+    let mut p = Prelude::new();
+    let start = p.g.mark();
+    let st = statement(&p);
+    assert_eq!(p.g.env.unproved_count(), 0);
+    let first = declare_theorem(&mut p.g, "first", st.clone());
+    check::leave_stated(&mut p.g, first).unwrap();
+    assert_eq!(p.g.env.unproved_count(), 1);
+    let between = p.g.mark();
+    let second = declare_theorem(&mut p.g, "second", st);
+    check::leave_stated(&mut p.g, second).unwrap();
+    assert_eq!(p.g.env.unproved_count(), 2);
+    p.g.rewind(&between);
+    assert_eq!(p.g.env.unproved_count(), 1);
+    assert!(p.g.holds_unproved_theorems());
+    p.g.rewind(&start);
+    assert_eq!(p.g.env.unproved_count(), 0);
+    assert!(!p.g.holds_unproved_theorems());
+}
+
 /// Nothing gives it a body afterwards: it isn't pending any more.
 #[test]
 fn nothing_gives_a_theorem_left_stated_a_body() {
