@@ -35433,7 +35433,7 @@
     {
       "id": 4806,
       "title": "[Sonnet] Rerun the Lean/Rocq checking comparison after the read-back work and parallel checking (Matt, 25 Nov 2026): bench:compare:proofs (three AoC days vs Lean), the slice 1 sample vs Lean and Rocq (SW-4537 ports), and the cold formatter check at one worker and auto; addendum to docs/reviews/SW-4608-proof-checking-speed.md",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
