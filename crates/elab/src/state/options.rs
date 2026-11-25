@@ -61,6 +61,10 @@ pub struct Options {
     /// (docs/proposals/check-cache-across-updates.md). On in the editor and
     /// with `check --carry-over`; off by default.
     pub(crate) carry_over: bool,
+    /// Set by the host when it is stopping for good (not to restart a check
+    /// for an edit): loading the library ends between files, and the
+    /// session is then useless.
+    pub(crate) stop: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
     /// Whether every entry the check cache loads is checked again by the
     /// kernel, its terms through the checking calls instead of the trusted
     /// admission (`check --recheck`). Entries carried over from a build
@@ -162,6 +166,7 @@ impl Options {
             check_cache: _,
             // Which entries may be read, not what checking gives.
             carry_over: _,
+            stop: _,
             recheck: _,
             without_proofs: _,
             // An interface pass writes no entry and reads none.

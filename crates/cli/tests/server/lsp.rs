@@ -3386,6 +3386,30 @@ fn shutdown_during_a_cold_library_load_is_prompt() {
     assert!(took < Duration::from_secs(5), "shutdown took {took:?}");
 }
 
+/// An edit arriving while the checker is loading a cold library doesn't end
+/// the load: the edited file's diagnostics come once it has finished.
+#[test]
+fn an_edit_during_a_cold_library_load_leaves_the_project_working() {
+    let dir = fill_project("cold-library-edit", Slowness::Theorems(1));
+    let check = dir.join(".stitchwort/cache/check");
+    std::fs::remove_dir_all(&check).unwrap();
+    std::fs::create_dir_all(&check).unwrap();
+    let mut client = Client::start_with(Options::new(STACK));
+    let broken = dir.join("src/Broken/Broken.sw");
+    let text = std::fs::read_to_string(&broken).unwrap();
+    client.open(&uri(&broken), &text);
+    std::thread::sleep(Duration::from_millis(1500));
+    client.change(&uri(&broken), 2, &format!("{text}\n"));
+    let diagnostics = client.diagnostics(&uri(&broken), 2);
+    assert!(
+        diagnostics.iter().any(|d| d["severity"] == 1),
+        "{diagnostics:?}"
+    );
+    client.shutdown();
+    copy_library_entries(&check, &fill_library_cache());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// A project of a few namespaces for the start-up fill's tests, in a new
 /// folder, with a check cache that has the shared cache's library entries
 /// and none of the project's: cold for the project, so that the fill has
